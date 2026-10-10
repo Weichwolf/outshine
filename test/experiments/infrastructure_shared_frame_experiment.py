@@ -3,6 +3,7 @@
 import argparse
 from collections import Counter
 import hashlib
+from itertools import product,islice
 import json
 from pathlib import Path
 import time
@@ -12,7 +13,8 @@ import shapely
 
 from infrastructure_driving_network import DrivingNetwork
 from infrastructure_junction_turn_experiment import selected_junctions,render
-from infrastructure_shared_frames import frame_key,heading_choices,choose_shared_frames,accepted_routes,preserves_routes
+from infrastructure_shared_frames import (frame_key,heading_choices,choose_shared_frames,accepted_routes,preserves_routes,
+                                          section_pose_domain,ranked_pairs,pose_cost)
 from infrastructure_vehicle_sweep import body_outlines
 
 
@@ -22,11 +24,12 @@ def verify_selection(vehicle):
     report = lambda accepted:dict(turns=[dict(entry=0,exit=1,accepted=accepted)])
     before = {10:report(False),20:report(True)}
     angle = np.deg2rad(5.)
-    options = [[(entry['heading'],0.)],[(np.array([np.cos(angle),-np.sin(angle)]),angle),
-                                     (np.array([np.cos(angle),np.sin(angle)]),angle)]]
-    evaluate = lambda overrides:{10:report(True),20:report(overrides[frame_key(exit)][1]>0)}
+    frame = lambda p,h:dict(position=p['position'],heading=h)
+    options = [[(frame(entry,entry['heading']),0.)],[(frame(exit,np.array([np.cos(angle),-np.sin(angle)])),angle),
+                                     (frame(exit,np.array([np.cos(angle),np.sin(angle)])),angle)]]
+    evaluate = lambda overrides:{10:report(True),20:report(overrides[frame_key(exit)]['heading'][1]>0)}
     overrides,after,stats = choose_shared_frames(entry,exit,options,before,lambda a,b:True,evaluate)
-    assert stats['accepted'] and stats['rejected_loss']==1 and overrides[frame_key(exit)][1]>0
+    assert stats['accepted'] and stats['rejected_loss']==1 and overrides[frame_key(exit)]['heading'][1]>0
     assert preserves_routes(before,after) and np.array_equal(exit['heading'],[1.,0.])
     rejected,unchanged,note = choose_shared_frames(entry,exit,options,before,lambda a,b:True,evaluate,1)
     assert not rejected and unchanged is before and note['reason']=='frame_candidate_budget_exhausted'
@@ -57,6 +60,60 @@ def verify_selection(vehicle):
                 static_body_checked=True,rigid_transform_invariant=True)
 
 
+def verify_domains(vehicle):
+    half,error = 2.75,.025
+    floor = shapely.box(-25,-half,25,half)
+    pose = dict(position=np.array([0.,-half*.5]),heading=np.array([1.,0.]))
+    lane = dict(section=shapely.LineString([[0,-half],[0,half]]),heading=pose['heading'],
+                origin=np.zeros(2),half_width=half,separated=True)
+    domain = section_pose_domain(pose,lane,[floor],vehicle,error)
+    assert domain and any(np.linalg.norm(p['position']-pose['position'])>.1 for p in domain)
+    for frame in domain:
+        body = shapely.Polygon(body_outlines(frame['position'][None,:],
+                              [np.arctan2(frame['heading'][1],frame['heading'][0])],vehicle['widthM']*.5,
+                              vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])[0])
+        crossing = shapely.get_coordinates(shapely.intersection(body,lane['section']))
+        assert lane['section'].distance(shapely.Point(frame['position']))<1e-10
+        assert shapely.covers(floor,body) and floor.boundary.distance(body)>=error
+        assert np.all((-crossing[:,1]>=error)&(-crossing[:,1]<=half-error))
+        assert -frame['position'][1]>=vehicle['widthM']*.5+error
+        assert pose_cost(frame,pose,vehicle)>=0
+    rotation = np.array([[.6,-.8],[.8,.6]])
+    transform = lambda xy:np.einsum('ij,kj->ki',rotation,xy)+[10000.,-7000.]
+    moved = dict(position=transform(pose['position'][None,:])[0],heading=rotation@pose['heading'])
+    shifted = dict(lane,section=shapely.transform(lane['section'],transform),heading=moved['heading'],
+                   origin=transform(lane['origin'][None,:])[0])
+    rotated = section_pose_domain(moved,shifted,[shapely.transform(floor,transform)],vehicle,error)
+    assert len(domain)==len(rotated)
+    for a,b in zip(domain,rotated):
+        assert np.allclose(transform(a['position'][None,:])[0],b['position'],atol=1e-9)
+        assert np.allclose(rotation@a['heading'],b['heading'],atol=1e-10)
+        assert abs(pose_cost(a,pose,vehicle)-pose_cost(b,moved,vehicle))<1e-9
+    mirror = np.array([1.,-1.])
+    left = section_pose_domain(dict(position=pose['position']*mirror,heading=pose['heading']),lane,[floor],vehicle,error)
+    assert len(left)==len(domain)
+    for a in domain:
+        assert any(np.linalg.norm(a['position']*mirror-b['position'])<1e-9 and
+                   np.linalg.norm(a['heading']*mirror-b['heading'])<1e-9 for b in left)
+    return dict(domain_candidates=len(domain),cut_and_lane_preserved=True,
+                domain_rigid_transform_invariant=True,body_crossing_checked=True,left_and_right_traffic=True)
+
+
+def verify_pair_ranking():
+    rng = np.random.default_rng(2343)
+    cases = 0
+    for count in range(128):
+        choices = [[(i,float(c)) for i,c in enumerate(rng.integers(0,8,size=int(rng.integers(1,15))))] for _ in range(2)]
+        expected = sorted(product(*choices),key=lambda pair:sum(c[1] for c in pair))
+        assert list(ranked_pairs(choices))==expected
+        cases += 1
+    wide = [[(i,float(i)) for i in range(10000)] for _ in range(2)]
+    prefix = list(islice(ranked_pairs(wide),64))
+    assert len(prefix)==64 and sum(c[1] for c in prefix[-1])<=11
+    assert list(ranked_pairs([[],[(0,0.)]]))==[]
+    return dict(pair_ranking_cases=cases,cartesian_order_preserved=True,lazy_pair_budget=True)
+
+
 def near_corridors(network,limit):
     candidates = np.array([k for k,v in network.corridors.items() if len(v)>1],dtype=int)
     first = network.faces[0][network.faces[1][candidates]]
@@ -82,11 +139,12 @@ def summarize(reports):
 
 
 def verify_actual_frames(network):
-    for key,heading in network.frames.items():
+    for key,frame in network.frames.items():
         sides = [p for module in network.owners[key] for p in network.record(module)[1][2] if frame_key(p)==key]
         assert len(sides)==2 and sides[0]['incoming']!=sides[1]['incoming']
         assert np.array_equal(sides[0]['position'],sides[1]['position'])
-        assert all(np.array_equal(p['heading'],heading) for p in sides)
+        assert all(np.array_equal(p['heading'],frame['heading']) and
+                   np.array_equal(p['position'],frame['position']) for p in sides)
     return dict(shared_frames_checked=len(network.frames),opposed_entry_roles=True,identical_shared_poses=True)
 
 
@@ -104,10 +162,17 @@ def survey(root,name,vehicle,corridor_limit,junction_limit,candidate_limit):
         changes.extend(network.improve(module,candidate_limit))
         if (index+1)%32==0:
             print(json.dumps(dict(place=name,modules_checked=index+1,candidate_trials=sum(c['tried'] for c in changes))),flush=True)
+    after_heading = {module:network.record(module) for module in selected}
+    for index,module in enumerate(selected):
+        changes.extend(network.improve(module,candidate_limit,'position'))
+        if (index+1)%32==0:
+            print(json.dumps(dict(place=name,pose_modules_checked=index+1,
+                                 candidate_trials=sum(c['tried'] for c in changes))),flush=True)
     after = {module:network.record(module) for module in selected}
     assert preserves_routes({k:r[0] for k,r in before.items()},{k:r[0] for k,r in after.items()})
     gains = [(k,*pair) for k in selected for pair in sorted(accepted_routes(after[k][0])-accepted_routes(before[k][0]))]
-    comparisons = {kind:dict(before=summarize(before[k][0] for k in ids),after=summarize(after[k][0] for k in ids))
+    comparisons = {kind:dict(before=summarize(before[k][0] for k in ids),
+                   after_heading=summarize(after_heading[k][0] for k in ids),after=summarize(after[k][0] for k in ids))
                    for kind,ids in [('corridors',corridors),('junctions',junctions)]}
     gained_modules = list(dict.fromkeys(g[0] for g in gains))
     display = gained_modules[:2]
@@ -116,7 +181,8 @@ def survey(root,name,vehicle,corridor_limit,junction_limit,candidate_limit):
                   shared_frame_checks=verify_actual_frames(network),
                   modules=[network.record(k)[0] for k in selected],neighbors_checked=len(network.records),
                   excluded_corridors=excluded,baseline_ms=baseline_ms,total_ms=(time.perf_counter()-began)*1000,
-                  frames=[dict(section=k[0],edge=k[1],direction=k[2],station=k[3],heading=v.tolist()) for k,v in network.frames.items()])
+                  frames=[dict(section=k[0],edge=k[1],direction=k[2],station=k[3],
+                               position=v['position'].tolist(),heading=v['heading'].tolist()) for k,v in network.frames.items()])
     return report,views
 
 
@@ -139,7 +205,7 @@ def main():
                 if not path.is_file():
                     parser.error(f'missing prepared input: {path}')
     vehicle = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())['vehicleProfiles']['compact']
-    checks,reports,views = verify_selection(vehicle),[],[]
+    checks,reports,views = {**verify_selection(vehicle),**verify_domains(vehicle),**verify_pair_ranking()},[],[]
     for name in args.places:
         report,local = survey(args.input,name,vehicle,args.corridors,args.junctions,args.candidates)
         reports.append(report)

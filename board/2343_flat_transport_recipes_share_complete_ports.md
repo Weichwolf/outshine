@@ -46,15 +46,16 @@ Identische Vereinfachungen entfallen; Posenpaare werden bei fester Fläche/Fahrz
 geprüft. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
 Versetzte Portposen setzen feste Anfangs-/Endpositionen und Tangenten des Posengraphen; die
 Quellachse gibt innere Kandidaten vor. Vorwärtsrichtung bleibt verbindlich, exakte Parallelität nicht.
-Ragt eine Portkarosserie aus der Motorfläche, prüft das Rezept 61 Richtungen innerhalb ±30° und
-wählt den größten Randabstand bei unveränderter Position. Alle Verbindungen teilen diese feste
-Portausrichtung; Nachbarkorridore müssen denselben gespeicherten Rahmen übernehmen.
-[Gemeinsame Rahmenwahl](../test/experiments/infrastructure_shared_frame_experiment.py) ergänzt die
-statische Passung: Richtungen in 5°-Schritten innerhalb ±30° zur Quelle, höchstens 64 Paare je Bauteil.
-Sie prüft die volle Karosserie auf beiden Nachbarflächen, dann die Fahrkurve und alle betroffenen
-Nachbarfahrten. Nur der angefragte Fahrgewinn ohne Verlust oder Änderung vorhandener Anfragen zählt.
-Position, Quellenkontakt und Richtung bleiben fest; alle Fahrten teilen denselben gespeicherten Rahmen.
-Erfolglose Kandidaten ändern nichts. Konfliktfreie Fahrspuren und weitere Rahmenrezepte bleiben offen.
+Ungültige statische Portkarosserien prüfen 61 Richtungen innerhalb ±30° und wählen den größten
+Randabstand bei unveränderter Position. Nachbarmodule übernehmen denselben gespeicherten Rahmen.
+[Gemeinsame Rahmenwahl](../test/experiments/infrastructure_shared_frame_experiment.py) ergänzt diese Passung:
+erst Richtungen in 5°-Schritten innerhalb ±30° zur Quelle, dann 17 Positionen auf demselben Querschnitt.
+Der Fahrzeugquerschnitt bleibt in seiner Fahrbahnhälfte; schmale Zweirichtungsstrecken teilen eine Spur.
+Je Rezept/Bauteil höchstens 64 Paare. Positionskosten: Versatz + Mindestradius × Winkeländerung [rad].
+Paare per Heap nach Kosten, kein volles Produkt; unveränderte gültige Posedomänen wiederverwenden.
+Volle Karosserie auf beiden Flächen, Fahrkurve und alle Nachbarfahrten prüfen. Nur angefragter Gewinn
+ohne Verlust/Änderung vorhandener Anfragen zählt. Quellenkontakt/Richtung bleiben fest; alle teilen dieselbe Pose.
+Erfolglose Kandidaten ändern nichts. Konfliktfreie Spurzuordnung und weitere Flächenrezepte bleiben offen.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k sowie Krümmungsänderung k' gilt |q''(s)| ≤ A = k+r*(|k'|+k²).
 Analytische Kurven prüfen die konvexe Hülle zweier Endkarosserien mit Randreserve A*ds²/8.

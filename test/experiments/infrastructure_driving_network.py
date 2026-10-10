@@ -12,7 +12,8 @@ from infrastructure_junction_surfaces import mesh_surface_index,motor_surface,sa
 from infrastructure_junction_turn_experiment import solve_module
 from infrastructure_junction_turns import connect_lanes
 from infrastructure_port_lanes import junction_interfaces,module_face_index,module_shape,lane_poses,align_vehicle_ports
-from infrastructure_shared_frames import frame_key,heading_choices,choose_shared_frames
+from infrastructure_shared_frames import frame_key,heading_choices,choose_shared_frames,section_pose_domain,pose_cost
+from infrastructure_travel import MODES
 
 
 class DrivingNetwork:
@@ -34,6 +35,8 @@ class DrivingNetwork:
                 self.corridors.setdefault(port['corridor'],[]).append((junction,port['section']))
         self.registry,self.anchors,self.owners,self.frames = {},{},{},{}
         self.shapes,self.records = {},{}
+        self.original_poses,self.domains = {},{}
+        self.sections = {p['section']:p['line'] for ports in self.junctions.values() for p in ports}
 
     def shape(self,module):
         if module not in self.shapes:
@@ -54,6 +57,7 @@ class DrivingNetwork:
                                     self.curbs['corner_radius_m'],self.curbs['arc_error_m'])
             poses,_ = align_vehicle_ports(poses,surface,self.vehicle,self.curbs['arc_error_m'])
         self.registry[module] = poses,unused
+        self.original_poses.update((frame_key(p),p) for p in poses)
 
     def poses(self,module,overrides):
         if module in self.junctions:
@@ -65,7 +69,18 @@ class DrivingNetwork:
                 self.prepare_junction(junction)
             poses = corridor_ports(interfaces,{j:self.registry[j][0] for j,_ in interfaces})
             unused = []
-        return [dict(p,heading=overrides.get(frame_key(p),self.frames.get(frame_key(p),p['heading']))) for p in poses],unused
+        return [{**p,**self.frames.get(frame_key(p),{}),**overrides.get(frame_key(p),{})} for p in poses],unused
+
+    def pose_options(self,pose):
+        key = frame_key(pose)
+        if key not in self.domains:
+            origin = np.array(self.graph['lines'][pose['edge']].interpolate(pose['station']).coords[0])
+            both = bool(np.all(self.graph['travel_public'][pose['edge']]&MODES['motor']!=0))
+            lane = dict(section=self.sections[pose['section']],heading=self.anchors[key],origin=origin,
+                        half_width=self.graph['half_widths'][pose['edge']],separated=both and not pose['shared_lane'])
+            self.domains[key] = section_pose_domain(self.original_poses[key],lane,
+                               [self.record(k)[1][1] for k in self.owners[key]],self.vehicle,self.curbs['arc_error_m'])
+        return [(p,pose_cost(p,pose,self.vehicle)) for p in self.domains[key]]
 
     def solve(self,module,overrides=None):
         poses,unused = self.poses(module,{} if overrides is None else overrides)
@@ -77,15 +92,21 @@ class DrivingNetwork:
             self.records[module] = self.solve(module)
         return self.records[module]
 
-    def improve_connection(self,module,entry_index,exit_index,maximum_candidates):
+    def improve_connection(self,module,entry_index,exit_index,maximum_candidates,recipe='heading'):
         report,view = self.record(module)
         shape,surface,poses,_,_ = view
         entry,exit = poses[entry_index],poses[exit_index]
         affected = set.union(*(self.owners[frame_key(p)] for p in (entry,exit)))
         before = {k:self.record(k)[0] for k in sorted(affected)}
-        choices = [heading_choices(p,self.anchors[frame_key(p)],
-                                  [self.record(k)[1][1] for k in self.owners[frame_key(p)]],
-                                  self.vehicle,self.curbs['arc_error_m']) for p in (entry,exit)]
+        if recipe=='heading':
+            choices = [[(dict(position=p['position'],heading=h),cost) for h,cost in
+                        heading_choices(p,self.anchors[frame_key(p)],
+                        [self.record(k)[1][1] for k in self.owners[frame_key(p)]],
+                        self.vehicle,self.curbs['arc_error_m'])] for p in (entry,exit)]
+        elif recipe=='position':
+            choices = [self.pose_options(p) for p in (entry,exit)]
+        else:
+            raise ValueError('unknown frame recipe')
         routes,_ = directed_module_routes(self.graph,poses,shape,self.tree)
         def curve_fits(a,b):
             path,_ = connect_lanes(a,b,surface,self.vehicle,self.curbs['arc_error_m'])
@@ -101,10 +122,10 @@ class DrivingNetwork:
         if overrides:
             self.frames.update(overrides)
             self.records.update(evaluated)
-        stats.update(module=module,entry=entry_index,exit=exit_index,affected_modules=sorted(affected))
+        stats.update(module=module,entry=entry_index,exit=exit_index,affected_modules=sorted(affected),recipe=recipe)
         return stats
 
-    def improve(self,module,maximum_candidates=64):
+    def improve(self,module,maximum_candidates=64,recipe='heading'):
         report,_ = self.record(module)
         failed = [(t['entry'],t['exit']) for t in report['turns'] if not t['accepted']]
         stats,remaining = [],maximum_candidates
@@ -114,7 +135,7 @@ class DrivingNetwork:
                 continue
             if not remaining:
                 break
-            trial = self.improve_connection(module,entry,exit,max(1,remaining//(len(failed)-index)))
+            trial = self.improve_connection(module,entry,exit,max(1,remaining//(len(failed)-index)),recipe)
             remaining -= trial['tried']
             stats.append(trial)
         return stats
