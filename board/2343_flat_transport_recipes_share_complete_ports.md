@@ -22,7 +22,9 @@ ohne bestehende Verkehrsfläche zu entfernen. Ungültige Bogenstücke entfallen 
 ein Konflikt verwirft keine ganze Komponente. Brauchbare Fahrtrajektorien fehlen weiterhin.
 [Anschlusskerne](../test/experiments/infrastructure_flat_junctions.py) verwenden endliche Bänder
 mit geraden Schnitten; kurze überlappende Kerne vereinigen sich. Ganze Fenster behalten ihre Fläche.
-Vollständige gerade Ports bei spitzen Winkeln und komplexen Überlagerungen sind noch nicht belegt.
+[Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) erkennt in realen Fenstern noch
+gebogene und geschlossene innere Schnittlinien. Gerade vollständige Ports bleiben damit offen;
+eine lückenlose Fläche allein erfüllt den Bauteilvertrag nicht.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.

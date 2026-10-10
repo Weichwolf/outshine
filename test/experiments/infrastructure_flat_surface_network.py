@@ -55,6 +55,7 @@ def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,
          Path(__file__).with_name('geos_triangulation.py'),
          Path(__file__).with_name('infrastructure_flat_corners.py'),
          Path(__file__).with_name('infrastructure_flat_junctions.py'),
+         Path(__file__).with_name('infrastructure_flat_ports.py'),
          Path(__file__).with_name('infrastructure_network_plan.py'))}
     (output/f'{place}-flat-surfaces.json').write_text(json.dumps(report,indent=2)+'\n')
     np.savez_compressed(output/f'{place}-flat-surfaces.npz',**product)

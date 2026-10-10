@@ -10,6 +10,7 @@ from scipy.sparse.csgraph import connected_components
 from geos_triangulation import triangles_of
 from infrastructure_flat_corners import rounded_plan
 from infrastructure_flat_junctions import junction_nodes,port_plan
+from infrastructure_flat_ports import port_sections
 from infrastructure_network_plan import boundary_segments
 
 
@@ -137,6 +138,7 @@ def solve(graphs,precision=.001,junction_mode='all',corner_radius=0,arc_error=.0
     plan_ms = (time.perf_counter()-began)*1000
     began = time.perf_counter()
     product,report = shared_mesh(complete,parts,roles,precision)
+    report['ports'],product['unresolved_port_centres'] = port_sections(product,precision*.01)
     if original is not None:
         product['original_boundary'] = original
     if curve:
