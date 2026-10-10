@@ -11,6 +11,10 @@
   },
   "constructionSuffix": "_construction",
   "constructionAliases": {"minor": "residential"},
+  "vehicleProfiles": {
+    "compact": {"widthM": 1.8, "frontFromRearAxleM": 3.3, "rearOverhangM": 1.1,
+                "wheelbaseM": 2.7, "minimumRearAxleRadiusM": 4.0}
+  },
   "travelRecipes": {
     "motorway": ["motor"], "trunk": ["motor"],
     "primary": ["motor", "cycle", "walk"], "secondary": ["motor", "cycle", "walk"],

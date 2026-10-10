@@ -5,9 +5,12 @@ import shapely
 
 from infrastructure_clothoids import fit_clothoids,sample_clothoids
 from infrastructure_clothoid_turns import fit_symmetric_turns,sample_symmetric_turns
+from infrastructure_vehicle_sweep import turn_body_check
 
 
-def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_width=.9,error=.025):
+def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_width=.9,error=.025,vehicle=None):
+    if vehicle is not None:
+        minimum_radius,half_width = vehicle['minimumRearAxleRadiusM'],vehicle['widthM']*.5
     if minimum_radius<=0 or half_width<=0 or error<=0 or profile not in ('G1','G2'):
         raise ValueError('invalid turn recipe')
     incoming,outgoing = node-begin,end-node
@@ -39,10 +42,14 @@ def clearance_turns(node,begin,end,surface,profile='G2',minimum_radius=4.,half_w
         path = shapely.LineString(coordinates)
         tube = shapely.buffer(path,(half_width+error)/np.cos(np.pi/32),quad_segs=8)
         inside = bool(shapely.covers(surface,tube))
+        body = None
+        if vehicle is not None:
+            body,_ = turn_body_check(surface,local,begin,end,profile,vehicle,error)
+            inside &= body['fits_surface']
         paths.append(path)
         reports.append(dict(profile=profile,factor=float(factors[index]),fits_surface=inside,
                             minimum_radius_m=float(1/curvature[index]) if curvature[index]>0 else None,
-                            length_m=path.length,arc_segments=int(steps[index]),
+                            length_m=path.length,arc_segments=int(steps[index]),vehicle_sweep=body,
                             closure_error_m=float(fit['closure_error_m'][index]),
                             endpoint_curvature_per_m=(0. if profile=='G2' else float(max(
                                 abs(fit['begin_curvature_per_m'][index]),abs(fit['end_curvature_per_m'][index]))))))

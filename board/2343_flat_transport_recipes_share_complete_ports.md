@@ -15,7 +15,7 @@ Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussfläch
 Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
-Verkehrsregeln, vollständige Fahrzeughüllen, Kollisionsprodukt und Budgetgrenzen bleiben offen;
+Verkehrsverbindungen auf realen Netzen, Kollisionsprodukt und Budgetgrenzen bleiben offen;
 gegliederte Flächen allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind renderbar.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential,
 ohne bestehende Verkehrsfläche zu entfernen. Ungültige Bogenstücke entfallen lokal samt Grund;
@@ -34,7 +34,11 @@ Quellteilung darf keine künstlichen Bauteile erzeugen; Kosten und weltweite Vie
 symmetrische Zweier-Klothoiden mit stetiger Krümmung und geraden Zu-/Abfahrten.
 Letztere vermeiden Krümmungssprünge; maximaler Kurvenfehler und ein Freiraumstreifen prüfen die
 Flächenlage. Radius und Breite gehören zum Fahrzeugprofil, nicht zur OSM-Topologie.
-Fahrspuren, ausgeschwenkte Fahrzeuglänge und gekrümmte/asymmetrische Zufahrten weiter lösen.
+[Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py) prüft die ganze starre
+Karosserie samt geraden Zu-/Abfahrten. Für Körperradius r und maximale Krümmung k bewegt sich
+jeder Körperpunkt höchstens (1+k*r)*ds; diese Grenze sichert die Zwischenräume der Abtastung.
+Profilmaße und Kurvenradius sind parametriert; begrenzte Stichprobenarbeit verhindert Endlossuche.
+Fahrspuren und gekrümmte/asymmetrische Zufahrten auf realen Bauteilen weiter lösen.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 
 ## Umsetzung und Abnahme

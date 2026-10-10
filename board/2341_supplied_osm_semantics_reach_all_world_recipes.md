@@ -31,11 +31,14 @@ world konsumiert native Produkte. Keine Quellsemantik in Engine/Renderer.
 Gemeinsame Primitive und Parametrierung statt eines Generators je Tagwert.
 
 ## Umsetzung und Priorität
-1. Mit Gebäude/Form/Fassade beginnen, danach Boden/Material und Infrastruktur;
-   Vegetation bleibt später. Fehlende Eigenschaften blockieren keine vorhandene Rezeptfamilie.
+1. Semantik mit der jeweils aktiven Rezeptfamilie integrieren; aktuell Infrastruktur gemäß
+   2342–2345, danach weitere Bild-/Spielinhalte gemäß 2169. Vegetation bleibt später.
+   Fehlende Eigenschaften blockieren keine vorhandene Rezeptfamilie.
 2. Alle gelieferten Quell-Layer/Attribute auf SSD erhalten. Relevante Felder erreichen
    ihr Produkt; ungenutzte Namen/Sprachdaten benötigen keine dauerhafte RAM-Residency.
    Klassen einer Rezeptfamilie, Nutzungsregel oder begründet Metadaten zuordnen.
+   Jeder gelieferte Layer und jedes Attribut erhält eine bewusste Verwendung; Metadaten
+   brauchen weder eigene Geometrie noch dauerhafte RAM-Belegung.
 3. Gelieferte Werte bevorzugen, fehlende Angaben stabil ergänzen. Grundriss, Schlankheit,
    Höhenintervalle, Nachbarschaft und Flächennutzung begrenzen heuristische Formfamilien.
    Sonderbauten/technische Anlagen sind eine offene Menge, keine abgeschlossene Beispielsammlung.

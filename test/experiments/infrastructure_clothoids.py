@@ -47,7 +47,7 @@ def fit_clothoids(start,end,start_heading,end_heading,tolerance=1e-7):
     valid = forward&(distance>tolerance)&(error<=tolerance)&(length<=distance*2)
     begin_curvature = np.divide(delta-a,length,out=np.zeros_like(length),where=length>0)
     end_curvature = np.divide(delta+a,length,out=np.zeros_like(length),where=length>0)
-    return dict(start=start,heading=heading,initial=initial,delta=delta,bend=a,length_m=length,
+    return dict(start=start,end=end,heading=heading,initial=initial,delta=delta,bend=a,length_m=length,
                 begin_curvature_per_m=begin_curvature,end_curvature_per_m=end_curvature,
                 maximum_curvature_per_m=np.maximum(np.abs(begin_curvature),np.abs(end_curvature)),
                 closure_error_m=error,valid=valid,newton_steps=iterations,

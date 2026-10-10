@@ -14,6 +14,8 @@ from infrastructure_clothoid_turns import fit_symmetric_turns,sample_symmetric_t
 from infrastructure_flat_plan import examples,plan
 from infrastructure_flat_surfaces import physical_plan
 from infrastructure_turn_paths import clearance_turns
+from infrastructure_building_clearance import plot_geometry
+from infrastructure_vehicle_sweep import body_outlines,turn_body_check
 
 
 def cases():
@@ -76,15 +78,36 @@ def verify_math():
                 maximum_endpoint_curvature_per_m=0.,quadrature_orders=[16,64])
 
 
-def render(path,products):
+def verify_body(configuration,vehicle):
+    surface = road_surface(examples()['T'],configuration)
+    node,begin,end = np.array([0.,0]),np.array([-8.,0]),np.array([0.,8])
+    fit = fit_symmetric_turns(node,np.array([8.]),np.array([0.]),np.array([np.pi*.5]))
+    positions,angles,_ = sample_symmetric_turns(fit,np.linspace(0,1,33))
+    outlines = body_outlines(positions[0],angles[0],vehicle['widthM']*.5,
+                            vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
+    candidates = outlines[8:25].reshape(-1,2)
+    distance = shapely.distance(shapely.points(candidates),shapely.LineString(positions[0]))
+    obstacle = candidates[np.argmax(distance)]
+    assert distance.max()>vehicle['widthM']*.5+.15
+    obstructed = shapely.difference(surface,shapely.buffer(shapely.Point(obstacle),.05))
+    _,width_only = clearance_turns(node,begin,end,obstructed)
+    _,full_body = clearance_turns(node,begin,end,obstructed,vehicle=vehicle)
+    assert any(r['fits_surface'] for r in width_only)
+    assert not any(r['fits_surface'] for r in full_body)
+    bounded,_ = turn_body_check(surface,fit,begin,end,'G2',vehicle,maximum_poses=2)
+    assert not bounded['fits_surface'] and bounded['reason']=='vehicle_sweep_budget_exhausted'
+    return dict(width_check_misses_body_obstacle=True,body_check_detects_obstacle=True,
+                obstacle_position_m=obstacle.tolist(),bounded_sampling=True)
+
+
+def render(path,products,vehicle):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from matplotlib.collections import PolyCollection
     fig,axes = plt.subplots(2,3,figsize=(15,10),constrained_layout=True)
-    for ax,(name,surface,variants) in zip(axes.ravel(),products):
-        rings = [shapely.get_coordinates(p.exterior) for p in shapely.get_parts(surface)]
-        ax.add_collection(PolyCollection(rings,facecolors='#c7cdc3',edgecolors='#596a5a',linewidths=.5))
+    for ax,(name,surface,variants,begin,node,end) in zip(axes.ravel(),products):
+        plot_geometry(ax,[surface],'#c7cdc3')
         chosen = []
         for profile,color in (('G1','#b28548'),('G2','#167dba')):
             paths,reports = variants[profile]
@@ -94,6 +117,16 @@ def render(path,products):
                 xy = shapely.get_coordinates(paths[best])
                 r = reports[best]['minimum_radius_m']
                 ax.plot(*xy.T,color=color,linewidth=1.5,label=f'{profile}: R >= {r:.1f} m' if r else profile)
+                if profile=='G2':
+                    incoming,outgoing = node-begin,end-node
+                    trim = min(np.linalg.norm(incoming),np.linalg.norm(outgoing))*reports[best]['factor']
+                    fit = fit_symmetric_turns(node,np.array([trim]),
+                        np.array([np.arctan2(incoming[1],incoming[0])]),
+                        np.array([np.arctan2(outgoing[1],outgoing[0])]))
+                    positions,angles,_ = sample_symmetric_turns(fit,np.linspace(0,1,9))
+                    bodies = body_outlines(positions[0],angles[0],vehicle['widthM']*.5,
+                                           vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
+                    ax.add_collection(PolyCollection(bodies,facecolors='#167dba22',edgecolors='#167dba',linewidths=.4))
                 chosen.append((xy,color))
         if chosen:
             xy = np.concatenate([p for p,c in chosen])
@@ -103,7 +136,8 @@ def render(path,products):
         else:
             ax.autoscale()
         ax.set(aspect='equal',title=name,facecolor='#f1f0e8',xlabel='East [m]',ylabel='North [m]')
-    fig.suptitle('Flat road turns: 1.8 m clearance width, minimum radius 4 m; lanes and vehicle length remain open')
+    fig.suptitle(f'Flat road turns: vehicle {vehicle["widthM"]:g} m wide, '
+                f'{vehicle["frontFromRearAxleM"]+vehicle["rearOverhangM"]:g} m long; lanes remain open')
     path.parent.mkdir(parents=True,exist_ok=True)
     fig.savefig(path,dpi=140)
     plt.close(fig)
@@ -116,27 +150,30 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=True)
     configuration = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())
+    vehicle = configuration['vehicleProfiles']['compact']
     results,products = [],[]
     for name,source,begin,node,end in cases():
         surface = road_surface(source,configuration)
         variants = {}
         for profile in ('G1','G2'):
             start = time.perf_counter()
-            paths,reports = clearance_turns(node,begin,end,surface,profile)
+            paths,reports = clearance_turns(node,begin,end,surface,profile,vehicle=vehicle)
             elapsed = (time.perf_counter()-start)*1000
             variants[profile] = paths,reports
             feasible = sum(r['fits_surface'] for r in reports)
             results.append(dict(case=name,profile=profile,feasible=feasible,solve_ms=elapsed,candidates=reports))
             assert feasible,(name,profile,reports)
-        products.append((name,surface,variants))
-    report = dict(math=verify_math(),limits=verify_limits(configuration),recipes=results,
-                  scope='Straight approaches and clearance width; lanes, swept vehicle bodies and curved approaches remain open.')
+        products.append((name,surface,variants,begin,node,end))
+    report = dict(math=verify_math(),limits=verify_limits(configuration),body=verify_body(configuration,vehicle),
+                  recipes=results,vehicle_profile=vehicle,
+                  scope='Straight approaches, continuous curvature and swept rigid bodies; lanes and curved/asymmetric approaches remain open.')
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
         (Path(__file__),*(Path(__file__).with_name(n) for n in ('infrastructure_clothoids.py',
-         'infrastructure_clothoid_turns.py','infrastructure_turn_paths.py')))}
+         'infrastructure_clothoid_turns.py','infrastructure_turn_paths.py','infrastructure_vehicle_sweep.py',
+         'infrastructure_network_recipes.json')))}
     (args.output/'comparison.json').write_text(json.dumps(report,indent=2)+'\n')
     if args.shots is not None:
-        render(args.shots/'flat-turn-recipes.png',products)
+        render(args.shots/'flat-turn-recipes.png',products,vehicle)
     print(json.dumps(dict(math=report['math'],recipes=[{k:r[k] for k in
           ('case','profile','feasible','solve_ms')} for r in results])))
 
