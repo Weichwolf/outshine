@@ -27,7 +27,8 @@ def sections_of(model,precision):
     lines,length,depth = model['lines'],model['length'],model['depth']
     source = np.tile(np.arange(len(lines)),2)
     side = np.repeat([0,1],len(lines))
-    wanted = (depth.T.ravel()>0)&(np.tile(length-depth.sum(axis=1),2)>precision)
+    clearance = np.maximum(precision,2*model['half'])
+    wanted = (depth.T.ravel()>0)&np.tile(length-depth.sum(axis=1)>clearance,2)
     source,side = source[wanted],side[wanted]
     station = np.where(side==0,depth[source,0],length[source]-depth[source,1])
     p = shapely.get_coordinates(shapely.line_interpolate_point(lines[source],station))
@@ -105,6 +106,9 @@ def resolved_sections(complete,graphs,precision,radius,segments):
     report = dict(cuts=len(spans),unresolved_cuts=int((~good).sum()),ray_expansions=ray_passes,
                   cut_adjustment_passes=passes,adjusted_ends=int((model['depth']>original).sum()),
                   remaining_cut_conflicts=conflicts.shape[1],
+                  absorbed_subwidth_remainders=int(np.count_nonzero((model['depth'].sum(axis=1)>0)&
+                      (model['length']-model['depth'].sum(axis=1)>precision)&
+                      (model['length']-model['depth'].sum(axis=1)<=2*model['half']))),
                   absorbed_short_chains=int(((original.sum(axis=1)<model['length'])&
                                              (model['depth'].sum(axis=1)>=model['length'])).sum()))
     return geometry,model['nodes'],report

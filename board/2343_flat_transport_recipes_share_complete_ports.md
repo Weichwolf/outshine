@@ -21,7 +21,9 @@ gegliederte Flächen allein liefern noch kein plausibles fertiges Netz. Kleine B
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
 Verkehrsfläche per Randschnitt/Suchindex. Kollidierende Schnitte rücken begrenzt nach außen;
-kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Quellteilung erzeugt keine Module.
+kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Restketten kürzer als ihre eigene
+Breite bleiben ebenfalls im Knoten: sie tragen keinen brauchbaren eigenständigen Korridor.
+Das ändert nur die Teilung, weder Straßenfläche noch Quellen/Zugänge. Quellteilung erzeugt keine Module.
 [Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) prüft gerade vollständige gemeinsame
 Randsegmente unabhängig von der Flächenabdeckung; die drei Ebenen-0-Fenster bestehen beide Prüfungen.
 [Port-Fahrspuren](../test/experiments/infrastructure_port_lane_experiment.py) übernehmen öffentliche
