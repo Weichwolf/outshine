@@ -94,10 +94,11 @@ def build_native(directory):
 #include <vector>
 int main() {
   using namespace outshine::Generators;
-  unsigned count = 0, links = 0, cuts = 0;
-  while (std::scanf("%u%u%u", &count, &links, &cuts) == 3) {
+  unsigned count = 0, links = 0, gaps = 0, cuts = 0;
+  while (std::scanf("%u%u%u%u", &count, &links, &gaps, &cuts) == 4) {
     std::vector<RoadHeightNode> nodes(count);
     std::vector<RoadHeightLink> edges(links);
+    std::vector<RoadHeightClearance> clearances(gaps);
     for (auto &node : nodes) {
       if (std::scanf("%lf%lf%lf%lf", &node.LowSampleM, &node.HighSampleM,
                      &node.MinimumM, &node.MaximumM) != 4) { return 2; }
@@ -106,9 +107,13 @@ int main() {
       if (std::scanf("%u%u%lf%lf%lf", &edge.First, &edge.Second, &edge.MaximumRiseM,
                      &edge.FirstOffsetM, &edge.SecondOffsetM) != 5) { return 2; }
     }
+    for (auto &gap : clearances) {
+      if (std::scanf("%u%u%lf%lf%lf", &gap.Lower, &gap.Upper, &gap.MinimumGapM,
+                     &gap.LowerOffsetM, &gap.UpperOffsetM) != 5) { return 2; }
+    }
     const auto began = std::chrono::steady_clock::now();
-    const auto plan = PlanRoadHeights(nodes, edges, cuts ? RoadHeightFit::PreferCuts
-                                                      : RoadHeightFit::MinimaxAdjustment);
+    const auto plan = PlanRoadHeights(nodes, edges, clearances,
+        cuts ? RoadHeightFit::PreferCuts : RoadHeightFit::MinimaxAdjustment);
     const double ms = std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now() - began).count();
     if (!plan) {
@@ -131,16 +136,18 @@ int main() {
 
 def run_native(binary, cases, prefer_cuts=False):
     rows = []
-    for samples, edges, bounds in cases:
-        rows.append(f'{len(samples)} {len(edges)} {int(prefer_cuts)}')
+    for samples, edges, bounds, *extra in cases:
+        gaps = extra[0] if extra else []
+        rows.append(f'{len(samples)} {len(edges)} {len(gaps)} {int(prefer_cuts)}')
         rows.extend(' '.join(map(str, (min(values), max(values), *bound)))
                     for values, bound in zip(samples, bounds))
         rows.extend(' '.join(map(str, edge)) for edge in edges)
+        rows.extend(' '.join(map(str, gap)) for gap in gaps)
     process = subprocess.run([str(binary)], input='\n'.join(rows) + '\n', capture_output=True,
                              text=True, check=True, timeout=60)
     lines = iter(process.stdout.splitlines())
     results = []
-    for samples, _, _ in cases:
+    for samples, *_ in cases:
         header = next(lines).split('\t')
         if header[0] == 'ERR':
             results.append(dict(status='ERR', error=header[1]))
@@ -165,7 +172,7 @@ def verify_native_offsets(binary):
         baseline = [randomizer.uniform(-10, 10) for _ in range(count)]
         samples = [[randomizer.uniform(-80, 160) for _ in range(randomizer.randrange(1, 4))]
                    for _ in range(count)]
-        edges, constraints = [], []
+        edges, gaps, constraints = [], [], []
         for first in range(count):
             for second in range(first + 1, count):
                 if second != first + 1 and randomizer.random() > .12:
@@ -178,6 +185,18 @@ def verify_native_offsets(binary):
                     coefficients = np.zeros(count + 1)
                     coefficients[first], coefficients[second] = sign, -sign
                     constraints.append((coefficients, rise - sign * (left - right)))
+        if trial % 2:
+            ordered = sorted(range(count), key=baseline.__getitem__)
+            for lower, upper in zip(ordered, ordered[1:]):
+                left, right = [randomizer.uniform(-2, 2) for _ in range(2)]
+                space = baseline[upper] + right - baseline[lower] - left
+                if space < 0:
+                    continue
+                gap = randomizer.uniform(0, space)
+                gaps.append((lower, upper, gap, left, right))
+                coefficients = np.zeros(count + 1)
+                coefficients[lower], coefficients[upper] = 1, -1
+                constraints.append((coefficients, -gap + right - left))
         for node, values in enumerate(samples):
             for sample in values:
                 for sign in (-1, 1):
@@ -201,7 +220,7 @@ def verify_native_offsets(binary):
                                   None if math.isinf(high) else high) for low, high in bounds]
                          + [(0, None)], method='highs')
         assert answer.success or answer.status == 2, answer.message
-        cases.append((samples, edges, bounds))
+        cases.append((samples, edges, bounds, gaps))
         answers.append(answer)
     feasible = 0
     difference = 0
@@ -213,12 +232,14 @@ def verify_native_offsets(binary):
             assert cut_answers[trial]['status'] == 'ERR', (trial, cut_answers[trial])
             continue
         assert native['status'] == 'OK', (trial, native)
-        samples, edges, bounds = case
+        samples, edges, bounds, gaps = case
         heights = native['heights']
         difference = max(difference, abs(native['correction'] - answer.fun))
         assert abs(native['correction'] - answer.fun) < 1e-7, trial
         assert all(abs(heights[a] + left - heights[b] - right) <= rise + 1e-7
                    for a, b, rise, left, right in edges), trial
+        assert all(heights[upper] + right - heights[lower] - left >= gap - 1e-7
+                   for lower, upper, gap, left, right in gaps), trial
         assert all(low - 1e-7 <= height <= high + 1e-7
                    for height, (low, high) in zip(heights, bounds)), trial
         actual = max(abs(height - sample) for height, values in zip(heights, samples)
@@ -235,6 +256,12 @@ def verify_native_offsets(binary):
                 coefficients = np.zeros(len(samples))
                 coefficients[a], coefficients[b] = sign, -sign
                 cut_constraints.append((coefficients, rise - sign * (left - right)))
+        for lower, upper, gap, left, right in gaps:
+            adjacency[upper].append((lower, -gap + right - left))
+            reverse[lower].append((upper, -gap + right - left))
+            coefficients = np.zeros(len(samples))
+            coefficients[lower], coefficients[upper] = 1, -1
+            cut_constraints.append((coefficients, -gap + right - left))
         floors = [-x for x in envelope([-low for low, high in bounds], reverse)]
         caps = [min(high, max(low, min(values)))
                 for values, low, (_, high) in zip(samples, floors, bounds)]
@@ -250,6 +277,7 @@ def verify_native_offsets(binary):
         assert cut_difference < 1e-7, trial
         feasible += 1
     return dict(cases=len(cases), feasible=feasible, infeasible=len(cases) - feasible,
+                cases_with_clearances=sum(bool(case[3]) for case in cases),
                 maximum_objective_difference_m=difference,
                 maximum_cut_height_difference_m=cut_difference)
 
@@ -402,7 +430,8 @@ def main():
             report['native']['source_sha256'] = digest
             report['native']['toolchain_sha256'] = toolchain
             report['native_offset_linear_programs'] = verify_native_offsets(native)
-    report['scope'] = 'grounded graph secants; hard contact bounds; no junction-plane/C1 proof'
+    report['scope'] = ('grounded graph secants; hard bounds, port offsets and directed clearance LP; '
+                       'no whole-deck or junction-plane/C1 proof')
     if args.verify:
         report['independent_linear_program_cases'] = verify_linear_programs()
     args.output.parent.mkdir(parents=True, exist_ok=True)

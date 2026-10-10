@@ -25,6 +25,14 @@ struct RoadHeightLink {
   double SecondOffsetM = 0.0;
 };
 
+struct RoadHeightClearance {
+  uint32_t Lower = 0;
+  uint32_t Upper = 0;
+  double MinimumGapM = 0.0;
+  double LowerOffsetM = 0.0;
+  double UpperOffsetM = 0.0;
+};
+
 struct RoadHeightPlan {
   std::vector<double> HeightM;
   double MaximumAdjustmentM = 0.0;
@@ -41,6 +49,12 @@ enum class RoadHeightFit : uint8_t { MinimaxAdjustment, PreferCuts };
 [[nodiscard]] std::expected<RoadHeightPlan, RoadHeightFailure>
 PlanRoadHeights(std::span<const RoadHeightNode> nodes,
                 std::span<const RoadHeightLink> links,
+                RoadHeightFit fit = RoadHeightFit::MinimaxAdjustment);
+
+[[nodiscard]] std::expected<RoadHeightPlan, RoadHeightFailure>
+PlanRoadHeights(std::span<const RoadHeightNode> nodes,
+                std::span<const RoadHeightLink> links,
+                std::span<const RoadHeightClearance> clearances,
                 RoadHeightFit fit = RoadHeightFit::MinimaxAdjustment);
 
 }

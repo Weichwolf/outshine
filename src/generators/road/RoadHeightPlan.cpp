@@ -27,6 +27,7 @@ struct Neighbor {
   uint32_t Node = 0;
   double RiseM = 0.0;
   double ReverseRiseM = 0.0;
+  double BaseRiseM = 0.0;
 };
 
 struct Neighbors {
@@ -48,11 +49,17 @@ bool ValidNode(const RoadHeightNode &node) noexcept {
          node.MaximumM > -std::numeric_limits<double>::infinity();
 }
 
-Neighbors Connect(size_t nodes, std::span<const RoadHeightLink> links) {
+Neighbors Connect(size_t nodes,
+                  std::span<const RoadHeightLink> links,
+                  std::span<const RoadHeightClearance> clearances) {
   Neighbors out{.First = std::vector<size_t>(nodes + 1), .Connected = {}};
   for (const auto &link : links) {
     ++out.First[link.First + 1];
     ++out.First[link.Second + 1];
+  }
+  for (const auto &clearance : clearances) {
+    ++out.First[clearance.Lower + 1];
+    ++out.First[clearance.Upper + 1];
   }
   std::partial_sum(out.First.begin(), out.First.end(), out.First.begin());
   out.Connected.resize(out.First.back());
@@ -61,10 +68,25 @@ Neighbors Connect(size_t nodes, std::span<const RoadHeightLink> links) {
     const double difference = link.FirstOffsetM - link.SecondOffsetM;
     out.Connected[next[link.First]++] = {.Node = link.Second,
                                          .RiseM = link.MaximumRiseM + difference,
-                                         .ReverseRiseM = link.MaximumRiseM - difference};
+                                         .ReverseRiseM = link.MaximumRiseM - difference,
+                                         .BaseRiseM = link.MaximumRiseM};
     out.Connected[next[link.Second]++] = {.Node = link.First,
                                           .RiseM = link.MaximumRiseM - difference,
-                                          .ReverseRiseM = link.MaximumRiseM + difference};
+                                          .ReverseRiseM = link.MaximumRiseM + difference,
+                                          .BaseRiseM = link.MaximumRiseM};
+  }
+  for (const auto &clearance : clearances) {
+    const double bound = -clearance.MinimumGapM;
+    const double rise = bound + clearance.UpperOffsetM - clearance.LowerOffsetM;
+    out.Connected[next[clearance.Upper]++] = {.Node = clearance.Lower,
+                                              .RiseM = rise,
+                                              .ReverseRiseM =
+                                                  std::numeric_limits<double>::infinity(),
+                                              .BaseRiseM = bound};
+    out.Connected[next[clearance.Lower]++] = {.Node = clearance.Upper,
+                                              .RiseM = std::numeric_limits<double>::infinity(),
+                                              .ReverseRiseM = rise,
+                                              .BaseRiseM = bound};
   }
   return out;
 }
@@ -89,8 +111,7 @@ std::optional<RoadHeightFailure> AttachmentConflict(uint32_t start,
     fast = parent[fast];
     if (fast == absent) { return {}; }
     if (slow != fast) { continue; }
-    RoadHeightFailure failure{.Reason =
-                                  "road attachment offsets conflict with the permitted gradients",
+    RoadHeightFailure failure{.Reason = "road profiles and clearance constraints conflict",
                               .CycleNodes = {}};
     double budgetM = 0;
     double costM = 0;
@@ -98,12 +119,13 @@ std::optional<RoadHeightFailure> AttachmentConflict(uint32_t start,
     do {
       failure.CycleNodes.push_back(at);
       const auto &arc = neighbors.Connected[parentArc[at]];
-      budgetM += std::midpoint(arc.RiseM, arc.ReverseRiseM);
+      budgetM += arc.BaseRiseM;
       costM += reverse ? arc.ReverseRiseM : arc.RiseM;
       at = parent[at];
     } while (at != slow && failure.CycleNodes.size() <= parent.size());
     if (costM >= -kHeightToleranceM || at != slow) { return {}; }
-    failure.MaximumOffsetScale = std::clamp(budgetM / (budgetM - costM), 0.0, 1.0);
+    failure.MaximumOffsetScale =
+        budgetM > 0 ? std::clamp(budgetM / (budgetM - costM), 0.0, 1.0) : 0.0;
     return failure;
   }
   return {};
@@ -158,7 +180,9 @@ std::expected<std::vector<double>, RoadHeightFailure> Envelope(
     if (height != heights[node]) { continue; }
     for (size_t at = neighbors.First[node]; at < neighbors.First[node + 1]; ++at) {
       const Neighbor &next = neighbors.Connected[at];
-      const double candidate = height + (reverse ? next.ReverseRiseM : next.RiseM);
+      const double riseM = reverse ? next.ReverseRiseM : next.RiseM;
+      if (!std::isfinite(riseM)) { continue; }
+      const double candidate = height + riseM;
       if (candidate >= heights[next.Node] - kHeightToleranceM) { continue; }
       trace.Depth[next.Node] = trace.Depth[node] + 1;
       trace.Parent[next.Node] = node;
@@ -209,6 +233,14 @@ std::expected<RoadHeightPlan, RoadHeightFailure>
 PlanRoadHeights(std::span<const RoadHeightNode> nodes,
                 std::span<const RoadHeightLink> links,
                 RoadHeightFit fit) {
+  return PlanRoadHeights(nodes, links, {}, fit);
+}
+
+std::expected<RoadHeightPlan, RoadHeightFailure>
+PlanRoadHeights(std::span<const RoadHeightNode> nodes,
+                std::span<const RoadHeightLink> links,
+                std::span<const RoadHeightClearance> clearances,
+                RoadHeightFit fit) {
   if (nodes.size() > std::numeric_limits<uint32_t>::max() ||
       !std::ranges::all_of(nodes, ValidNode) ||
       !std::ranges::all_of(links,
@@ -216,14 +248,23 @@ PlanRoadHeights(std::span<const RoadHeightNode> nodes,
                              return link.First < nodes.size() && link.Second < nodes.size() &&
                                     std::isfinite(link.MaximumRiseM) && link.MaximumRiseM >= 0.0;
                            }) ||
-      !std::ranges::all_of(links, [](const auto &link) {
-        const double difference = link.FirstOffsetM - link.SecondOffsetM;
-        return std::isfinite(difference) && std::isfinite(link.MaximumRiseM + difference) &&
-               std::isfinite(link.MaximumRiseM - difference);
+      !std::ranges::all_of(links,
+                           [](const auto &link) {
+                             const double difference = link.FirstOffsetM - link.SecondOffsetM;
+                             return std::isfinite(difference) &&
+                                    std::isfinite(link.MaximumRiseM + difference) &&
+                                    std::isfinite(link.MaximumRiseM - difference);
+                           }) ||
+      !std::ranges::all_of(clearances, [&](const auto &clearance) {
+        const double rise =
+            -clearance.MinimumGapM + clearance.UpperOffsetM - clearance.LowerOffsetM;
+        return clearance.Lower < nodes.size() && clearance.Upper < nodes.size() &&
+               std::isfinite(clearance.MinimumGapM) && clearance.MinimumGapM >= 0 &&
+               std::isfinite(rise);
       })) {
     return Failure("invalid road height constraints");
   }
-  const auto neighbors = Connect(nodes.size(), links);
+  const auto neighbors = Connect(nodes.size(), links, clearances);
   const auto floor =
       Envelope(nodes, neighbors, [&](uint32_t at) { return -nodes[at].MinimumM; }, true);
   if (!floor) { return std::unexpected(floor.error()); }
