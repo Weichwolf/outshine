@@ -30,9 +30,8 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
    Anschlüsse: zuerst den Netz-/Bauteilplan schließen, danach den Terrainkontakt prüfen.
 2. Geografisch stabile 2D-Kacheln mit Randports und expliziten Übergängen nativ planen/speichern.
    Kettenprofile und begrenzte Bauteilrezepte daraus ableiten; kein zweiter Netzaufbau.
-3. Headless-Python: 2D mit 1–2 Ebenen, dann orthografisches 2,5D mit 2–3. Erfolgreiche PNGs/Parameter/
-   Messwerte nach `build/shots/experiments/infrastructure/{2d,2_5d}/`; öffnen. Endliche Rezepte/Solver
-   an realen Inputs vergleichen; höchstens drei Ebenen nach Budgetbeleg integrieren.
+3. Headless-Python: 2D mit 1–2 Ebenen, dann orthografisches 2,5D mit 2–3; endliche Rezepte/Solver an realen Inputs vergleichen.
+   Erfolgreiche PNGs/Parameter/Messwerte nach `build/shots/experiments/infrastructure/{2d,2_5d}/`; öffnen, nach Budgetbeleg integrieren.
 4. Solarpunk 2050: Bauhaus/Art déco, Grünstreifen/Mittelgrün/Pflanzbereiche bei verfügbarem Raum;
    im Querschnitt reservieren, Vegetation berücksichtigt Fahrwege/Sicht/Freiraum. Decks dürfen stützenfrei wirken.
 
@@ -111,8 +110,9 @@ Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
 [Straßenmodelle, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf): Profile, Querschnitte, Bauwerke, Terrainkontakte.
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
 [2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirchs 19.230 Abschnitte → 20.094 Teile/133 ENU-Kacheln bei 256 m; Bedarf: 2.711 statt 19.230 Kandidaten, 1.294 gleiche Treffer. Geografischer/native Vertrag offen.
-[Höhenplanung](../test/experiments/road_profile_envelopes.py): gerichteter Freiraum, Höhenränder/Portoffsets, Schnittvorrang/Minimax und nativer LP-Vergleich; kein C1-/Breitenbeweis.
-[Landekern](../test/experiments/road_landing_topology.py): native Zürcher Achsen/Knoten, Höhenbindung und begrenzte Anschlüsse; Machbarkeit des ungekürzten Graphen, kein C1-/Breitenbeweis.
+[Kern-/Rampenrezepte](../test/experiments/infrastructure_recipes.py): 2D-Flächen vor GEOS-Triangulierung; feste Endhöhen, starre Kerne/quintische Ansätze, Flächenneigung/Freiraum; LP-Vergleich.
+Topologische Unter-/Zielhüllen liefern lokalen Minimaxbedarf direkt in O(V+E); Gesamtgraph, horizontale Krümmung und native Integration offen.
+[Höhenplanung](../test/experiments/road_profile_envelopes.py), [Landekern](../test/experiments/road_landing_topology.py): native Höhenränder/Portoffsets, Schnittvorrang, Höhenbindung/kurze Anschlüsse; kein vollständiger C1-/Breitenbeweis.
 [Übergänge](../test/experiments/earthwork_transition.py), [Freiraum](../test/experiments/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/road_junction_coverage.py), [Rasterkontakt](../test/experiments/road_terrain_contact.py): echte Inputs, gleiche Qualität.
 Durchgehende reale Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände oder unbefahrbare Profile.
 Auch ohne Terrain/Gebäude lückenlos. Quellenabdeckung, Netzfunktion, Bild und Kosten getrennt prüfen.
