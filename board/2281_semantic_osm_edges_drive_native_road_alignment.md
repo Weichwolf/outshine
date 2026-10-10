@@ -12,17 +12,16 @@ Tags: roads, bridges, tunnels, topology
 ## Ergebnis und Ist
 Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funktionales Netz.
 Vorrang: Wiener Anschlüsse/Brücken; danach Feldkirch, Basel Badischer Bahnhof, Zürich HB und Häfen.
-Corridors liefert Place-Geometrie und polygonale Kontakte. Gemeinsame native Höhenplanung
-bindet Anschlüsse, zulässige Sekanten und Freiraum vor Geometrie/Terrain; Sync/Async teilen sie.
+Corridors liefert Geometrie/Kontakte; gemeinsame native Höhenplanung bindet Anschlüsse, Sekanten
+und Freiraum vor Geometrie/Terrain; Sync/Async teilen sie.
 Der 2D-Endpunktplan trennt Position, Ebene und rekonstruierte Verbindungen. Kreuzungen werden
 jeweils einmal gespeichert; Grid-Zellen referenzieren sie. Gestapelte Decks behalten eigene Ports.
-Doppelte MVT-Linien erzeugen keine zusätzlichen Knotenflächen. Alle Bodenwege liefern Kernkontakte,
-auch ohne Erdarbeiten; Flensburgs Wegöffnung durch fremden Aushub ist geschlossen.
-Offen: geografische Kachelports/Cacheplan, explizite Ebenenübergänge, C1, Freiraum über volle Breite,
-Tunnel/Portale, Tragwerk sowie Treppen, Bahnsteige, Piers und Seilbahnen.
+Doppelte MVT-Linien erzeugen keine zusätzlichen Knotenflächen. Bodenwege liefern auch ohne Erdarbeiten Kernkontakte.
+Offen: geografische Kachelports/Cacheplan, Ebenenübergänge, C1, Breitenfreiraum, Tunnel/Portale, Tragwerk, Treppen, Bahnsteige, Piers, Seilbahnen.
 Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf denselben Plan vereinigen.
-Zürich HB lädt derzeit nicht: gekoppelte Kreuzungsneigungen erreichen die Projektionsgrenze.
-Den begrenzten gemeinsamen Solver schließen; Budget-/Steigungsgrenzen nicht aufweichen.
+Zürich HB lädt wieder: gemeinsame Brückenebenen teilen eine physische Höhe, Verkehrsports bleiben
+getrennt; kurze Kreuzungen im gemeinsamen Landekern erzeugen keinen falschen Unterpass.
+Bahnhofsanschlüsse bleiben fehlerhaft; Assettreffer 1,5 s bei 1280×720/60.
 
 ## Nächste Lieferung
 1. Einen realen Anschluss samt Brücke als undekoriertes, funktionales Grundmodell schließen.
@@ -31,8 +30,11 @@ Den begrenzten gemeinsamen Solver schließen; Budget-/Steigungsgrenzen nicht auf
    Anschlüsse: zuerst den Netz-/Bauteilplan schließen, danach den Terrainkontakt prüfen.
 2. Geografisch stabile 2D-Kacheln mit Randports und expliziten Übergängen nativ planen/speichern.
    Kettenprofile und begrenzte Bauteilrezepte daraus ableiten; kein zweiter Netzaufbau.
-3. Eigene Schienen-/Wegprofile, Bahnübergänge und gestapelte Brücken/Tunnel integrieren.
-4. Bauhaus-/Art-déco-Gestaltung/Material auf demselben konstruktiven Plan ergänzen.
+3. Headless-Python: 2D mit 1–2 Ebenen, dann orthografisches 2,5D mit 2–3. Erfolgreiche PNGs/Parameter/
+   Messwerte nach `build/shots/experiments/infrastructure/{2d,2_5d}/`; öffnen. Endliche Rezepte/Solver
+   an realen Inputs vergleichen; höchstens drei Ebenen nach Budgetbeleg integrieren.
+4. Solarpunk 2050: Bauhaus/Art déco, Grünstreifen/Mittelgrün/Pflanzbereiche bei verfügbarem Raum;
+   im Querschnitt reservieren, Vegetation berücksichtigt Fahrwege/Sicht/Freiraum. Decks dürfen stützenfrei wirken.
 
 ## 2D-Plan und Ebenen
 - OSM-Adapter normalisiert gelieferte Klassen, Breite/Spuren, Oberfläche, Brücke/Tunnel/Ebene;
@@ -49,23 +51,34 @@ Den begrenzten gemeinsamen Solver schließen; Budget-/Steigungsgrenzen nicht auf
   verbinden nur kompatible Verkehrsklassen (Straße, Weg, Bahn); das bleibt rekonstruierte Topologie. Andere Ebenen bleiben getrennt.
   Nähe allein darf keine Kreuzungsverbindung oder versteckte Rampen erzeugen. Bahn-/Wegkreuzungen
   bleiben getrennte Ports; echte niveaugleiche Bahnübergänge brauchen ein eigenes belegtes Rezept.
-  Niveaugleiche Straßen-/Weganschlüsse teilen ihre native Höhe; Brückenübergänge bleiben klassifiziert.
-  Kompatible Bodenweg-Endpunkte an Brückenachsen rekonstruieren gemeinsame Ports; ein Brückenende
-  nahe einem durchlaufenden Weg allein erzeugt keinen Anschluss. Vor Profil/Geometrie abschließen.
+  Niveaugleiche Straßen-/Weganschlüsse teilen ihre Höhe; Bodenweg-Endpunkte verbinden Brückenachsen,
+  nahe Brückenenden allein verbinden keinen durchlaufenden Weg.
+- Physische Höhenbindung ist getrennt vom Verkehrsnetz; gleiche Ebene/Brückenklasse teilt Höhe auch zwischen Verkehrsklassen.
+  Bei gemeinsamem eigenen Endport gehören Kreuzungen innerhalb des 4-m-Landekerns beider
+  Quellachsen zum Anschluss; begrenzte Weglänge statt bloßer räumlicher Nähe. Andere Kreuzungen
+  behalten Ebenenfreiraum. Kein Aufweichen von Steigung, Freiraum oder Solvergrenzen.
 - Pro Kreuzung Ebenenordnung und Freiraum zwischen geplanten Profilen samt Deckdicke lösen;
   Layer ist Ordnung, keine feste Höhe. Fuß-/Radweg/Treppe/Path: 2 m Akteur + 0,5 m Reserve;
   Straßen/Bahn behalten eigene Freiräume. Gelieferte Maße respektieren; fehlende Maße sind Rezepte.
 - Wenige parametrische Rezepte: Band, Kreuzung/Abzweig, Einfädelung, Rampe, Brückendeck/Tragwerk,
   Tunnel/Portal und Schienenknoten. Derselbe Plan liefert Mesh, Kollision und Terrainkontakt.
-  Rail-/Transit- und Wegunterklassen bestimmen Breite, Material, Profil; rail erreicht das Schienenrezept.
-  Unbekannte Unterklassen nutzen das allgemeine Rezept; ungültige Werte nicht raten. Tags erhalten.
+  Ein U-Querschnitt: flach/breit Gehweg/Bord, höher gesicherter Steg, kräftig Brückendeck;
+  Seiten zugleich Tragwand/Geländer. Maße, Material, Kollision und Portöffnungen gemeinsam planen.
+  Unterklassen bestimmen Breite/Material/Profil; unbekannte nutzen das allgemeine Rezept. Tags erhalten.
 
 ## Profile und konstruktive Anschlüsse
+- Bauteilplan vor Mesh: 2D-Topologie/Ebenen lösen, endliche Rezepte mit benannten Ports einsetzen.
+  2D-Pläne je Ebene; Übergänge/Freiraum koppeln betroffene Bauteile. Komplexe Knoten/Brücken
+  formstabil positionieren; verbindende Alignments begrenzt anpassen.
+  Verletzte Krümmung/Steigung/Freiraum erfordert mehr Übergangsraum, neue Lage oder anderes Rezept.
+  Wiener/Zürcher Inputs: Ebenen bei gleicher Netzgröße variieren, Port-/Konfliktkopplung separat;
+  Solverzeit/Speicher samt Wachstum messen; drei lokale Ebenen sind Hypothese, keine Budgetfreigabe.
+- Fehlendes Rezept: Bauform auf ein vorhandenes vereinfachen; Verkehrsverbindungen, erforderliche
+  Ebenentrennung und Freiräume erhalten. Keine verlorenen Wege oder versteckten Kreuzungen.
 - Ein Alignment je Kette; Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
   Gemeinsame Endposition/Höhe/Tangente; gesamte Längs-/Querneigung klassenabhängig begrenzen.
-  Beide Endkürzungen gemeinsam beschränken; Rampen behalten beide Höhen unabhängig von Richtung.
-  Neigung über tatsächlich zugeschnittene Profillängen, ohne künstlich ebene Anschlussflächen.
-  Höhen und Anschlussneigungen gemeinsam lösen. Gerichtete Konfliktzyklen liefern zusätzliche
+  Rampen behalten beide Höhen; Endkürzungen gemeinsam begrenzen. Höhen/Neigungen gemeinsam lösen.
+  Reale Zuschnittlänge begrenzt Neigung. Gerichtete Konfliktzyklen liefern zusätzliche
   Bedingungen nur für betroffene Knotenflächen; Neigungen dürfen ihre Richtung ändern.
   Alle zuvor gelösten Bedingungen und klassenabhängigen Gradgrenzen bleiben verbindlich.
 - Höhenplanung bevorzugt Schnitt; Auftrag nur für notwendige Kontakte/Freiräume. Hohe einzelne
@@ -90,8 +103,7 @@ Den begrenzten gemeinsamen Solver schließen; Budget-/Steigungsgrenzen nicht auf
   Steile Einschnitte zulässig; Kontakt unterscheidet Fels/Boden und bauliche Sicherung für Material in 2171.
 - Terrain-Zellen unter schneidender starrer Fahrbahn/Kontaktebene halten; reine Knotenabsenkung reicht nicht.
   Mesher/Kontakt teilen Anschlussumriss/Zellstützweite; zusätzliche Überdeckung schneidet nur.
-  Auch geneigte Bänder brauchen Zellkontakt; vor Speicherung budgetiert erzeugen, Treffer wiederholen ihn nicht.
-  GPU-Lattice prüfen. Gemeinsame Kanten/Ecken/konforme LOD-Ränder; Eltern verändern keine inneren Kanten.
+  Geneigte Bänder brauchen gespeicherten Zellkontakt. GPU-Lattice, Kanten/Ecken/konforme LOD-Ränder prüfen.
   Kontakt-/Höhenfehler vor Verfeinerung beheben; 2336 wählt Arbeit, 2280 versioniert native Rezepte/Cache.
 
 ## Verfahren und Abnahme
@@ -100,6 +112,7 @@ Den begrenzten gemeinsamen Solver schließen; Budget-/Steigungsgrenzen nicht auf
 [SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
 [2D-Kacheln](../test/experiments/infrastructure_tiles.py): Feldkirchs 19.230 Abschnitte → 20.094 Teile/133 ENU-Kacheln bei 256 m; Bedarf: 2.711 statt 19.230 Kandidaten, 1.294 gleiche Treffer. Geografischer/native Vertrag offen.
 [Höhenplanung](../test/experiments/road_profile_envelopes.py): gerichteter Freiraum, Höhenränder/Portoffsets, Schnittvorrang/Minimax und nativer LP-Vergleich; kein C1-/Breitenbeweis.
+[Landekern](../test/experiments/road_landing_topology.py): native Zürcher Achsen/Knoten, Höhenbindung und begrenzte Anschlüsse; Machbarkeit des ungekürzten Graphen, kein C1-/Breitenbeweis.
 [Übergänge](../test/experiments/earthwork_transition.py), [Freiraum](../test/experiments/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/road_junction_coverage.py), [Rasterkontakt](../test/experiments/road_terrain_contact.py): echte Inputs, gleiche Qualität.
 Durchgehende reale Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände oder unbefahrbare Profile.
 Auch ohne Terrain/Gebäude lückenlos. Quellenabdeckung, Netzfunktion, Bild und Kosten getrennt prüfen.
