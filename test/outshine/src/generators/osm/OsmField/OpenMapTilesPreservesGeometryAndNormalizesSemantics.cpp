@@ -3,7 +3,7 @@
 #include "GroundMaterials.h"
 #include "StreetField.h"
 #include "Check.h"
-#include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 #include <array>
 #include <span>
 #include <string>

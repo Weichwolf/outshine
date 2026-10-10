@@ -1,7 +1,7 @@
 #include "PreparedOsmTiles.h"
 #include "Check.h"
 #include "SourceSet.h"
-#include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 #include <algorithm>
 #include <array>
 #include <atomic>

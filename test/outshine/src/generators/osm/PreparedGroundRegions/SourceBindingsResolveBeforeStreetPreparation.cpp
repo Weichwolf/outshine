@@ -6,7 +6,7 @@
 #include "TilePool.h"
 #include "TerrainLoader.h"
 #include "Check.h"
-#include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 #include <array>
 #include <chrono>
 #include <filesystem>

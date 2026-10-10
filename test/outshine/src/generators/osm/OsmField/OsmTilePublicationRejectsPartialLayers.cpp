@@ -3,7 +3,7 @@
 #include <cfenv>
 #include <cmath>
 #include <limits>
-#include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 #include "Check.h"
 #include <array>
 

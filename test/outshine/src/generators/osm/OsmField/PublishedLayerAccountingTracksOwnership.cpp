@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "MvtLayer.h"
 #include "OsmField.h"
-#include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 
 #include <array>
 #include <cstddef>

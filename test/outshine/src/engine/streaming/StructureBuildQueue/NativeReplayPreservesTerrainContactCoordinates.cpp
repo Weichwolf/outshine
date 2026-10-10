@@ -5,7 +5,7 @@
 #include "StructureBuildQueue.h"
 #include "TerrainRevisionIndex.h"
 #include "TangentFrame.h"
-#include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 #include <algorithm>
 #include <array>
 #include <chrono>

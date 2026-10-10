@@ -1,7 +1,7 @@
 #include "StreetField.h"
 #include "GroundMaterials.h"
 #include "Check.h"
-#include "../MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 
 #include <array>
 #include <cstdint>

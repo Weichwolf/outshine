@@ -1,7 +1,7 @@
 #include "Check.h"
 #include "Sink.h"
 #include "SurfacePreparation.h"
-#include "test/outshine/src/generators/osm/MvtLayer/WireFixture.h"
+#include "MvtWireFixture.h"
 
 #include <array>
 #include <chrono>
