@@ -13,13 +13,13 @@ Tags: roads, bridges, tunnels, topology
 Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funktionales Netz.
 Aktueller Schwerpunkt: sichtbare Netzfehler in Wien, anschließend selbst gewählte POIs: Feldkirch, Basel Badischer Bahnhof (Straßen/Tunnel/Ebenen), Zürich HB, Häfen und dichte Städte.
 Alignment, Corridors, RoadMesher/RoadSurfaceBuilder und Terrain-Deformation bestehen.
-Alle Bodenwege veröffentlichen ihren physischen Kernkontakt, auch ohne Erdarbeiten.
+Alle Bodenwege veröffentlichen ihren physischen Kernkontakt, auch ohne Erdarbeiten; Flensburgs Wegöffnung durch fremden Erdaushub ist geschlossen.
 Mesher und Terrainkontakt teilen Anschlussumriss/Zellstützweite; zusätzliche Überdeckung schneidet nur.
 Gemeinsame native Höhenplanung bindet Knotenports, Neigungsgrenzen und Brückenfreiraum vor Mesh/Kontakt.
 Schnittvorrang erhält tiefe Profile; nur notwendiger Freiraum erzeugt Auftrag. Sync/Async teilen den Aufbau.
 Gespeicherte horizontale Koordinaten bestimmen die gemeinsame Höhenebene; unabhängiges
 Millimeterrunden der Höhe darf schmale Dreiecke nicht aus dieser Ebene kippen. Seiten nutzen Kantennormalen.
-Places nutzen polygonale Kontakte; der gemeinsame Profilpfad verlangt benannte Routen.
+Places nutzen Corridors mit polygonalen Kontakten; der analytische RoadAlignment-/Surface-Pfad verlangt bisher benannte Routen. Beide auf den nativen Kachelplan vereinigen.
 Ebenerdige [Straßenbänder](../test/experiments/road_surface_cost.py) erzeugen nur die eigene obere Geometrie.
 Brücken behalten ihre Unter-/Seitenflächen. RoadAlignmentBuilder verweigert Brücken/Tunnel bis zum Struktursolver;
 regionaler Entwurf/Profile/Übergänge bleiben offen. Vorhandene Straßenqualität erhalten.
