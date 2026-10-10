@@ -45,6 +45,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--shots',type=Path,help='write only deliberately selected presentation images here')
     parser.add_argument('--view',type=float,default=600)
     parser.add_argument('places',nargs='+')
     args = parser.parse_args()
@@ -68,9 +69,10 @@ def main():
              Path(__file__).with_name('infrastructure_network.py'),
              Path(__file__).with_name('infrastructure_network_graph.py'),
              Path(__file__).with_name('infrastructure_network_recipes.json'))}
-        image = args.output/'2d'/f'{place}-flat-network.png'
-        render(image,place,transport,roads,graphs,args.view)
-        report['image'] = str(image)
+        if args.shots is not None:
+            image = args.shots/f'{place}-flat-network.png'
+            render(image,place,transport,roads,graphs,args.view)
+            report['image'] = str(image)
         (args.output/f'{place}-flat-network.json').write_text(json.dumps(report,indent=2)+'\n')
         arrays = {}
         for i,graph in enumerate(graphs.values()):

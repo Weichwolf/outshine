@@ -43,11 +43,13 @@ def render(path,place,product,view):
     plt.close(fig)
 
 
-def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,arc_error):
+def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,arc_error,shots=None):
     product,report = solve(graphs,precision,junction_mode,corner_radius,arc_error)
-    image = output/'2d'/f'{place}-flat-surfaces.png'
-    render(image,place,product,view)
-    report.update(place=place,precision_m=precision,image=str(image),**source)
+    if shots is not None:
+        image = shots/f'{place}-flat-surfaces.png'
+        render(image,place,product,view)
+        report['image'] = str(image)
+    report.update(place=place,precision_m=precision,**source)
     report['implementation_sha256'] = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
         (Path(__file__),Path(__file__).with_name('infrastructure_flat_surfaces.py'),
          Path(__file__).with_name('geos_triangulation.py'),
@@ -59,7 +61,7 @@ def store(output,place,graphs,precision,view,source,junction_mode,corner_radius,
     print(json.dumps({k:v for k,v in report.items() if k!='implementation_sha256'}))
 
 
-def small_cases(output,precision,junction_mode,corner_radius,arc_error):
+def small_cases(output,precision,junction_mode,corner_radius,arc_error,shots=None):
     recipes = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())
     for name,roads in examples().items():
         accepted,graphs,usage = plan(roads,recipes,{},precision)
@@ -69,13 +71,14 @@ def small_cases(output,precision,junction_mode,corner_radius,arc_error):
                                                        graph['owner_offsets'][:-1])*.5
         assert not usage['states'].get('not_used',0),(name,usage['reasons'])
         store(output,name,list(graphs.values()),precision,None,dict(source_fixture=name),
-              junction_mode,corner_radius,arc_error)
+              junction_mode,corner_radius,arc_error,shots)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',type=Path)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--shots',type=Path,help='write only deliberately selected presentation images here')
     parser.add_argument('--small',action='store_true')
     parser.add_argument('--junction-mode',choices=('all','branch','ports'),default='all')
     parser.add_argument('--corner-radius',type=float,default=0)
@@ -93,7 +96,7 @@ def main():
         parser.error('precision, arc error and view must be positive; radius must be nonnegative')
     args.output.mkdir(parents=True,exist_ok=True)
     if args.small:
-        small_cases(args.output,args.precision,args.junction_mode,args.corner_radius,args.arc_error)
+        small_cases(args.output,args.precision,args.junction_mode,args.corner_radius,args.arc_error,args.shots)
     for place in args.places:
         source_plan = args.input/f'{place}-flat-network.json'
         graph_path = args.input/f'{place}-flat-network.npz'
@@ -101,7 +104,7 @@ def main():
         graphs = load_graphs(graph_path,previous)
         store(args.output,place,graphs,args.precision,args.view,
               dict(source_plan=str(source_plan),source_graph_sha256=hashlib.sha256(graph_path.read_bytes()).hexdigest()),
-              args.junction_mode,args.corner_radius,args.arc_error)
+              args.junction_mode,args.corner_radius,args.arc_error,args.shots)
 
 
 if __name__=='__main__':

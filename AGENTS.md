@@ -134,6 +134,8 @@
 - Ein schwerer Lauf zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
   detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
+- Experimentdaten und Zwischenstände nach `build/experiments/`; in `build/shots/` bleiben nur
+  ausgewählte Präsentationsbilder und benötigte Referenzen. Überholte Versuchsdateien nach Auswertung löschen.
 - Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
   `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
   Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
