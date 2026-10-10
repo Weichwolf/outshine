@@ -15,24 +15,27 @@ Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussfläch
 Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
-Fahrkurven, Verkehrsregeln, Kollisionsprodukt und Budgetgrenzen bleiben offen; gegliederte Flächen
-allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind mit `--small` renderbar.
+Verkehrsregeln, vollständige Fahrzeughüllen, Kollisionsprodukt und Budgetgrenzen bleiben offen;
+gegliederte Flächen allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind renderbar.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential,
 ohne bestehende Verkehrsfläche zu entfernen. Ungültige Bogenstücke entfallen lokal samt Grund;
-ein Konflikt verwirft keine ganze Komponente. Brauchbare Fahrtrajektorien fehlen weiterhin.
+ein Konflikt verwirft keine ganze Komponente.
 Die Bogenpolygone überlappen konstruktiv nach innen; Rundungsreste dürfen keine eigene Fläche
 bilden. Ein schräger T-Anschluss prüft diese numerische Verbindung ohne Place-Sonderfall.
-[Anschlusskerne](../test/experiments/infrastructure_flat_junctions.py) verwenden endliche Bänder
-mit geraden Schnitten; kurze überlappende Kerne vereinigen sich. Ganze Fenster behalten ihre Fläche.
-[Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) erkennt in realen Fenstern noch
-gebogene und geschlossene innere Schnittlinien. Gerade vollständige Ports bleiben damit offen;
-eine lückenlose Fläche allein erfüllt den Bauteilvertrag nicht.
+[Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) prüft gerade vollständige innere
+Querschnitte unabhängig von der Flächenabdeckung; eine lückenlose Fläche allein genügt nicht.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) grenzen die tatsächliche
 Verkehrsfläche per Randschnitt/Suchindex ab und polygonisieren gemeinsame Grenzen.
 Gleichartige Nachbarstücke werden vereinigt. Kollidierende Schnitte rücken begrenzt nach außen;
 kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Die drei vollständigen
-Ebenen-0-Fenster bestehen damit auch die Querschnittprüfung. Fahrkurven und Verkehrsregeln fehlen.
+Ebenen-0-Fenster bestehen damit auch die Querschnittprüfung.
 Quellteilung darf keine künstlichen Bauteile erzeugen; Kosten und weltweite Vielfalt weiter prüfen.
+[Fahrkurvenvergleich](../test/experiments/infrastructure_turn_experiment.py) prüft G1-Bögen gegen
+symmetrische Zweier-Klothoiden mit stetiger Krümmung und geraden Zu-/Abfahrten.
+Letztere vermeiden Krümmungssprünge; maximaler Kurvenfehler und ein Freiraumstreifen prüfen die
+Flächenlage. Radius und Breite gehören zum Fahrzeugprofil, nicht zur OSM-Topologie.
+Fahrspuren, ausgeschwenkte Fahrzeuglänge und gekrümmte/asymmetrische Zufahrten weiter lösen.
+[Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
