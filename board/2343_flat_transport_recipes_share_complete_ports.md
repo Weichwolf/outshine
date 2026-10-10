@@ -17,19 +17,13 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
 Verkehrsverbindungen auf realen Netzen, Kollisionsprodukt und Budgetgrenzen bleiben offen;
 gegliederte Flächen allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind renderbar.
-[Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential,
-ohne bestehende Verkehrsfläche zu entfernen. Ungültige Bogenstücke entfallen lokal samt Grund;
-ein Konflikt verwirft keine ganze Komponente.
-Die Bogenpolygone überlappen konstruktiv nach innen; Rundungsreste dürfen keine eigene Fläche
-bilden. Ein schräger T-Anschluss prüft diese numerische Verbindung ohne Place-Sonderfall.
-[Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) prüft gerade vollständige innere
-Querschnitte unabhängig von der Flächenabdeckung; eine lückenlose Fläche allein genügt nicht.
-[Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) grenzen die tatsächliche
-Verkehrsfläche per Randschnitt/Suchindex ab und polygonisieren gemeinsame Grenzen.
-Gleichartige Nachbarstücke werden vereinigt. Kollidierende Schnitte rücken begrenzt nach außen;
-kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Die drei vollständigen
-Ebenen-0-Fenster bestehen damit auch die Querschnittprüfung.
-Quellteilung darf keine künstlichen Bauteile erzeugen; Kosten und weltweite Vielfalt weiter prüfen.
+[Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
+mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
+[Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
+Verkehrsfläche per Randschnitt/Suchindex. Kollidierende Schnitte rücken begrenzt nach außen;
+kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Quellteilung erzeugt keine Module.
+[Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) prüft gerade vollständige gemeinsame
+Randsegmente unabhängig von der Flächenabdeckung; die drei Ebenen-0-Fenster bestehen beide Prüfungen.
 [Port-Fahrspuren](../test/experiments/infrastructure_port_lane_experiment.py) übernehmen öffentliche
 Richtung/Zugänge auf die tatsächlichen gemeinsamen Querschnitte. Getrennte Anschlüsse derselben
 Bauteile und mehrfache Achsenkreuzungen bleiben getrennt. Schmale Zweirichtungsstrecken teilen
@@ -41,8 +35,8 @@ Endkrümmung null, Krümmungsextrema analytisch; Radius/Breite kommen aus dem Fa
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
 Höchstens 64 Ecken, drei Posen je Ecke und acht Nachfolger je Pose begrenzen die lokale Suche.
-Identische Vereinfachungen entfallen; identische Posenpaare nutzen innerhalb desselben Bauteils
-dieselbe Prüfung. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
+Identische Vereinfachungen entfallen; identische Posenpaare nutzen nur bei derselben
+Prüffläche dieselbe Prüfung. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
 Es gibt keinen globalen Memo-Speicher: Fläche, Fahrzeug und Toleranz bleiben innerhalb der Suche fest.
 Versetzte Portposen setzen feste Anfangs-/Endpositionen und Tangenten des Posengraphen; die
 Quellachse gibt innere Kandidaten vor. Vorwärtsrichtung bleibt verbindlich, exakte Parallelität nicht.
@@ -56,6 +50,13 @@ die Zwischenräume der Abtastung; gerade Translationen nutzen den exakt extrudie
 Für Kurven genügt enthaltene Karosserie plus Mindestabstand zu allen Flächenrändern einschließlich
 Löchern. Das vermeidet pro Pose aufgeblasene Polygone bei derselben Bewegungsgrenze.
 Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
+Gerichtete Erreichbarkeit allein genügt nicht: bei Einbahnabschnitten muss die Kurve die
+Windungszahlen der gewählten Quellroute um Verkehrsinseln erhalten. Der Vergleich schließt
+Portversätze über den gemeinsamen Querschnitt. Eine durch Karosseriebreite eingeschränkte
+Routenfläche wurde verworfen: legitime Abbiegekurven dürfen benachbarte öffentliche Fläche nutzen.
+Ein Gegenfall prüft verbotene Abkürzung und erlaubte Umfahrung; überlappende Fahrspuren und
+alternative gerichtete Routen brauchen weiterhin eine verbindliche Richtungszuordnung.
+Windungszahlen sind eine notwendige topologische Bedingung, kein vollständiger Verkehrsflussbeweis.
 [Rezeptprüfungen](../test/experiments/infrastructure_route_experiment.py) umfassen Inselumfahrung,
 verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.
 [Quintische Routen](../test/experiments/infrastructure_spline_routes.py) laufen vor der Posekette:

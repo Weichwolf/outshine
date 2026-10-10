@@ -14,10 +14,11 @@ import shapely
 from infrastructure_flat_surfaces import load_graphs
 from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index,align_vehicle_ports
 from infrastructure_junction_routes import directed_junction_routes
-from infrastructure_junction_surfaces import mesh_surface_index,motor_surface
+from infrastructure_junction_surfaces import mesh_surface_index,motor_surface,same_island_winding
 from infrastructure_junction_turns import connect_lanes
 from infrastructure_route_turns import source_route_connector
 from infrastructure_building_clearance import plot_geometry
+from infrastructure_travel import MODES
 
 
 def verify_small(vehicle):
@@ -39,6 +40,40 @@ def verify_small(vehicle):
     private_floor = motor_surface(shape,graph,tree,(physical,shapely.STRtree(physical)),vehicle)
     assert shapely.equals(floor,private_floor),'a private branch is not public turning area'
     return dict(directed_connection=True,walk_floor_excluded=True,private_floor_excluded=True)
+
+
+def verify_one_way_route(vehicle):
+    vertices = np.array([[-24,0],[-10,0],[-10,12],[10,12],[10,0],[24,0]],dtype=float)
+    edges = np.array([[0,1],[1,2],[2,3],[3,4],[4,5],[4,1]])
+    lines = np.array([shapely.LineString(vertices[e]) for e in edges],dtype=object)
+    graph = dict(vertices=vertices,edges=edges,lines=lines,half_widths=np.full(6,4.),
+                 travel_public=np.tile([1,0],(6,1)))
+    entry = dict(position=np.array([-16.,0.]),heading=np.array([1.,0.]),edge=0,direction=1,
+                 station=8.,section=0,incoming=True)
+    exit = dict(position=np.array([16.,0.]),heading=np.array([1.,0.]),edge=4,direction=1,
+                station=6.,section=1,incoming=False)
+    tree = shapely.STRtree(lines)
+    routes,_ = directed_junction_routes(graph,[entry,exit],shapely.box(-16,-4,16,16),tree)
+    floor = shapely.union_all(shapely.buffer(lines,4))
+    assert connect_lanes(entry,exit,floor,vehicle)[0] is not None
+    shortcut,_ = connect_lanes(entry,exit,floor,vehicle)
+    assert not same_island_winding(shortcut,routes[0,1],floor),'reachability alone allows a counterflow shortcut'
+    path,note = source_route_connector(entry,exit,routes[0,1],floor,vehicle)
+    assert path is not None and note['vehicle_sweep']['fits_surface']
+    assert same_island_winding(path,routes[0,1],floor)
+    assert path.bounds[3]>8,'the legal route must use the upper one-way street'
+    mesh = np.array([floor],dtype=object)
+    report,view = solve_module(0,shapely.box(-16,-4,16,16),[entry,exit],[],graph,tree,
+                             (mesh,shapely.STRtree(mesh)),vehicle,dict(corner_radius_m=2.,arc_error_m=.025))
+    assert report['accepted']==1 and same_island_winding(view[3][0],routes[0,1],floor)
+    for angle in (.3,1.8,3.7):
+        rotation = np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+        transform = lambda xy:xy@rotation.T+np.array([100.,-70.])
+        moved = [shapely.transform(g,transform) for g in (shortcut,path,routes[0,1],floor)]
+        assert not same_island_winding(moved[0],moved[2],moved[3])
+        assert same_island_winding(moved[1],moved[2],moved[3])
+    return dict(counterflow_shortcut_rejected=True,legal_directed_route_preserved=True,
+                route_guard_integrated=True,winding_rotation_invariant=True)
 
 
 def selected_junctions(product,graph,tree,ports,faces,vehicle,limit):
@@ -65,13 +100,20 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     surface = motor_surface(shape,graph,tree,mesh,vehicle,curbs['corner_radius_m'],curbs['arc_error_m'])
     poses,adjusted_ports = align_vehicle_ports(poses,surface,vehicle,curbs['arc_error_m'])
     surface_ms = (time.perf_counter()-began)*1000
+    local = tree.query(surface,predicate='intersects')
+    flags = graph['travel_public'][local]&MODES['motor']
+    has_one_way = bool(np.any(flags[:,0]!=flags[:,1]))
     results,paths,connectors = [],[],{}
     for entry,exit in routes:
         started = time.perf_counter()
         path,report = connect_lanes(poses[entry],poses[exit],surface,vehicle,curbs['arc_error_m'])
+        if path is not None and has_one_way and not same_island_winding(path,routes[entry,exit],surface):
+            path,report = None,dict(reason='curve_changes_directed_island_winding')
         if path is None:
             trial,note = source_route_connector(poses[entry],poses[exit],routes[entry,exit],surface,vehicle,
                                                 curbs['arc_error_m'],connectors=connectors)
+            if trial is not None and has_one_way and not same_island_winding(trial,routes[entry,exit],surface):
+                trial,note = None,dict(reason='curve_changes_directed_island_winding')
             if trial is not None:
                 path,report = trial,note
             else:
@@ -82,7 +124,8 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     reasons = Counter(r['reason'] for r in results if not r['accepted'])
     report = dict(module=module,ports=len(set(p['section'] for p in poses)),connections=len(routes),
                   accepted=sum(r['accepted'] for r in results),reasons=dict(reasons),
-                  excluded=excluded,unused_ports=unused,adjusted_ports=adjusted_ports,surface_ms=surface_ms,
+                  excluded=excluded,unused_ports=unused,adjusted_ports=adjusted_ports,
+                  directed_island_winding=has_one_way,surface_ms=surface_ms,
                   total_ms=(time.perf_counter()-began)*1000,turns=results)
     return report,(shape,surface,poses,paths,results)
 
@@ -149,7 +192,7 @@ def main():
         parser.error('modules must be positive')
     configuration = Path(__file__).with_name('infrastructure_network_recipes.json')
     vehicle = json.loads(configuration.read_text())['vehicleProfiles']['compact']
-    checks = verify_small(vehicle)
+    checks = dict(**verify_small(vehicle),**verify_one_way_route(vehicle))
     results,selected = [],[]
     for name in args.places:
         report,views = survey(args.input,name,vehicle,args.modules)

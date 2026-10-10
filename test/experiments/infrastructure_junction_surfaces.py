@@ -27,3 +27,22 @@ def motor_surface(shape,graph,tree,mesh,vehicle,corner_radius=2.,error=.025):
     triangles,index = mesh
     physical = shapely.union_all(shapely.intersection(triangles[index.query(bounds,predicate='intersects')],bounds))
     return shapely.intersection(area,physical)
+
+
+def same_island_winding(path,route,surface):
+    rings = [ring for part in shapely.get_parts(surface) for ring in part.interiors]
+    if not rings:
+        return True
+    markers = shapely.get_coordinates(shapely.point_on_surface(shapely.polygons(rings)))
+    loop = np.vstack((shapely.get_coordinates(route),shapely.get_coordinates(path)[::-1]))
+    lower,upper = loop.min(axis=0),loop.max(axis=0)
+    markers = markers[np.all((markers>=lower)&(markers<=upper),axis=1)]
+    for point in markers:
+        a = loop-point
+        b = np.roll(a,-1,axis=0)
+        cross = a[:,0]*b[:,1]-a[:,1]*b[:,0]
+        positive = (a[:,1]<=0)&(b[:,1]>0)&(cross>0)
+        negative = (a[:,1]>0)&(b[:,1]<=0)&(cross<0)
+        if np.count_nonzero(positive)!=np.count_nonzero(negative):
+            return False
+    return True
