@@ -20,6 +20,8 @@ allein liefern noch kein plausibles fertiges Netz. Kleine Beispiele sind mit `--
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential,
 ohne bestehende Verkehrsfläche zu entfernen. Ungültige Bogenstücke entfallen lokal samt Grund;
 ein Konflikt verwirft keine ganze Komponente. Brauchbare Fahrtrajektorien fehlen weiterhin.
+Die Bogenpolygone überlappen konstruktiv nach innen; Rundungsreste dürfen keine eigene Fläche
+bilden. Ein schräger T-Anschluss prüft diese numerische Verbindung ohne Place-Sonderfall.
 [Anschlusskerne](../test/experiments/infrastructure_flat_junctions.py) verwenden endliche Bänder
 mit geraden Schnitten; kurze überlappende Kerne vereinigen sich. Ganze Fenster behalten ihre Fläche.
 [Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) erkennt in realen Fenstern noch

@@ -162,7 +162,7 @@ def plan(transport, recipes, widths, precision=.001):
 def examples():
     def road(xy,layer=0,width=4.,**properties):
         return dict(line=shapely.LineString(xy),width=width,properties={'class':'minor','layer':layer,**properties})
-    return {
+    cases = {
         'straight':[road([(0,0),(20,0)])],
         'T':[road([(-10,0),(10,0)]),road([(0,0),(0,10)])],
         'X':[road([(-10,0),(10,0)]),road([(0,-10),(0,10)])],
@@ -177,6 +177,11 @@ def examples():
         'courtyard_loop':[road([(0,0),(20,0),(20,20),(0,20),(0,0)]),
                           road([(-20,0),(0,0)]),road([(20,20),(40,20)])],
         'island':[road([(-10,0),(0,0)]),road([(20,0),(30,0)])]}
+    angle = np.deg2rad(20)
+    rotation = np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+    cases['inclined_T'] = [dict(r,line=shapely.transform(np.array([r['line']],dtype=object),
+                            lambda xy:xy@rotation.T)[0]) for r in cases['T']]
+    return cases
 
 
 def verify(recipes):

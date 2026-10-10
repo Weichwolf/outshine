@@ -6,7 +6,7 @@ import numpy as np
 import shapely
 
 
-def corner_patches(points,radius,error,outer):
+def corner_patches(points,radius,error,outer,overlap):
     points = points[:-1]
     ccw = shapely.is_ccw(shapely.LinearRing(points))
     if ccw!=outer:
@@ -39,17 +39,19 @@ def corner_patches(points,radius,error,outer):
         c,s = np.cos(angle),np.sin(angle)
         arc = centre+np.c_[radial[0]*c-radial[1]*s,radial[0]*s+radial[1]*c]
         arc[0],arc[-1] = a,b
-        patches.append(np.vstack((arc,p)))
+        inward_before = a+np.array([-u[i,1],u[i,0]])*overlap
+        inward_after = b+np.array([-v[i,1],v[i,0]])*overlap
+        patches.append(np.vstack((arc,inward_after,p,inward_before)))
     return patches,int(count.max(initial=0))
 
 
-def rounded_plan(complete,radius=2.,error=.025):
+def rounded_plan(complete,radius=2.,error=.025,numeric_overlap=1e-7):
     began = time.perf_counter()
     parts = shapely.get_parts(complete)
     patches,maximum = [],0
     for polygon in parts:
         for ring,outer in [(polygon.exterior,True)]+[(r,False) for r in polygon.interiors]:
-            local,segments = corner_patches(shapely.get_coordinates(ring),radius,error,outer)
+            local,segments = corner_patches(shapely.get_coordinates(ring),radius,error,outer,numeric_overlap)
             patches.extend(local)
             maximum = max(maximum,segments)
     omitted = []
@@ -58,16 +60,20 @@ def rounded_plan(complete,radius=2.,error=.025):
         owners = np.repeat(np.arange(len(patches)),[len(p) for p in patches])
         candidates = shapely.polygons(shapely.linearrings(coordinates,indices=owners))
         good = shapely.is_valid(candidates)&(shapely.area(candidates)>0)
-        omitted = [dict(position_m=patches[i][-1].tolist(),reason='invalid_curb_patch')
+        omitted = [dict(position_m=patches[i][-2].tolist(),reason='invalid_curb_patch')
                    for i in np.flatnonzero(~good)]
         result = shapely.union_all(np.r_[parts,candidates[good]])
     else:
         result = complete
+    components = len(shapely.get_parts(result))
+    if components>len(parts):
+        raise ValueError('curb refinement created a detached surface')
     missing = complete.difference(result).area
     if missing>max(1e-7,complete.area*1e-12):
         raise ValueError('rounded curbs remove an existing transport surface')
     return result,dict(rounded_corners=len(patches)-len(omitted),omitted_curve_corners=len(omitted),omitted=omitted,
-                       maximum_arc_segments=maximum,corner_radius_m=radius,arc_error_m=error,
+                       maximum_arc_segments=maximum,corner_radius_m=radius,arc_error_m=error,numeric_overlap_m=numeric_overlap,
+                       original_components=len(parts),rounded_components=components,
                        added_area_m2=result.area-complete.area,missing_original_area_m2=missing,
                        curve_plan_ms=(time.perf_counter()-began)*1000,
                        scope='Curb boundaries only; smooth vehicle trajectories remain open.')
