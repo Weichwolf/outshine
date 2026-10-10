@@ -1,6 +1,8 @@
 {
   "schema": 1,
   "description": "Experimental horizontal recipes. Widths describe plausible construction, not recovered survey dimensions.",
+  "flatPlan": {"endpointToleranceM": 0.25, "endpointBatch": 128,
+               "maximumAxes": 20000, "maximumEndpointPairs": 200000},
   "axisRecipes": {
     "corridor": {"widthFrom": "footway"},
     "pier": {"widthFrom": "cycleway"},

@@ -1,6 +1,7 @@
 """Noded transport axes remain separate from their shared physical footprints."""
 
 from collections import defaultdict
+import time
 
 import numpy as np
 import shapely
@@ -40,6 +41,7 @@ def axes_of(roads, precision):
             transitions[(key[0], *point)].append((index, key))
     graphs, stats = {}, []
     for tier, entries in groups.items():
+        began = time.perf_counter()
         lines = np.array([line for _, line in entries], dtype=object)
         network = shapely.union_all(lines)
         parts = shapely.get_parts(network)
@@ -50,7 +52,10 @@ def axes_of(roads, precision):
         graph = coo_matrix((np.ones(len(parts), dtype=np.uint8), indices.T),
                            shape=(len(vertices), len(vertices))).tocsr()
         count, component = connected_components(graph, directed=False)
+        noding_ms = (time.perf_counter()-began)*1000
+        began = time.perf_counter()
         uncovered = missing_axes(lines, parts, precision * 1e-4)
+        audit_ms = (time.perf_counter()-began)*1000
         if uncovered > 1e-6:
             raise ValueError(f'{tier}: noding lost source axes')
         degree = np.bincount(indices.ravel(), minlength=len(vertices))
@@ -60,6 +65,7 @@ def axes_of(roads, precision):
                           edges=len(indices), components=int(count),
                           branches=int(np.count_nonzero(degree > 2)),
                           terminal_nodes=int(np.count_nonzero(degree == 1)),
+                          noding_ms=noding_ms,source_coverage_audit_ms=audit_ms,
                           preserved_axis_length_m=float(network.length),
                           uncovered_source_length_m=uncovered))
     transitions = [dict(position_m=list(point[1:]), traffic=point[0], sources=[i for i, _ in entries],
