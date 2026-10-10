@@ -28,7 +28,7 @@ den allgemeinen nativen Straßenbestand, nach Kameraabstand und Kontaktfehler au
 Gelieferte Rail-/Transit- und Wegunterklassen bestimmen Breite, Oberfläche und Neigungsregeln;
 `class=rail` erreicht als `kind=rail` das Schienenrezept. Originaltags bleiben erhalten.
 Unbekannte Wegunterklassen behalten das allgemeine Rezept; ungültige Unterklassen werden nicht geraten.
-Native Rezepte werden versioniert; Quellen erhalten. Tunnel werden bisher vor der Straßenerzeugung verworfen.
+Native Rezepte versioniert; Quellen erhalten. Tunnel bisher verworfen. Freiraumhebung nur Brücke/Nicht-Brücke; gestapelte Brücken und andere Ebenenpaare fehlen.
 Treppenstufen, Bahnsteige, Pier-/Brückenwege und Seilbahnen fehlen noch.
 
 ## Nächste Lieferung
@@ -57,8 +57,8 @@ Zwei Lieferstufen: zuerst konstruktiv saubere Grundmodelle ohne Dekoration; dann
   Nähe allein erzeugt keine Verbindung. Quellendpunkte und Brückenenden bleiben angeschlossen.
   Fehlende Topologie/Angaben als Annahmen kennzeichnen, nicht als belegte OSM-Verbindung.
 - Grid partitioniert die 2D-Vektorplanung und indexiert Bedarf; Straßenachsen werden nicht gerastert.
-  Kachelports teilen Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer. Begrenzte Nachbarbereiche; Ebenen bleiben getrennt;
-  explizite Übergänge verbinden sie. Höhen/Freiraum entlang betroffener Ketten gemeinsam lösen.
+  Kachelports teilen Position, Richtung, Breite, Ebene, Höhe/Tangente und Besitzer. Begrenzte Nachbarbereiche; Ebenen bleiben getrennt.
+  Explizite Übergänge verbinden sie. Pro Kreuzung Ebenenreihenfolge/Freiraum zwischen geplanten Profilen samt Deckdicke lösen; Layer ist Ordnung, keine feste Höhe. Ketten gemeinsam planen.
   Wenige Rezepte: Band, Kreuzung/Abzweig, Einfädelung, Rampe, Brückendeck/Tragwerk,
   Tunnel/Portal und Schienenknoten, parametrisch statt starrem Teilekatalog. Derselbe native Plan liefert Mesh, Kollision und Terrainkontakt.
 - Ein Alignment je Kette. Fahrbahn, Schultern, Bord/Gehweg, Knoten und Kollision daraus ableiten.
