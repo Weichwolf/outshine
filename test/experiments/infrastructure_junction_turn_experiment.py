@@ -12,7 +12,7 @@ import numpy as np
 import shapely
 
 from infrastructure_flat_surfaces import load_graphs
-from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index
+from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index,align_vehicle_ports
 from infrastructure_junction_routes import directed_junction_routes
 from infrastructure_junction_surfaces import mesh_surface_index,motor_surface
 from infrastructure_junction_turns import connect_lanes
@@ -63,6 +63,7 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     began = time.perf_counter()
     routes,excluded = directed_junction_routes(graph,poses,shape,tree)
     surface = motor_surface(shape,graph,tree,mesh,vehicle,curbs['corner_radius_m'],curbs['arc_error_m'])
+    poses,adjusted_ports = align_vehicle_ports(poses,surface,vehicle,curbs['arc_error_m'])
     surface_ms = (time.perf_counter()-began)*1000
     results,paths,connectors = [],[],{}
     for entry,exit in routes:
@@ -81,7 +82,7 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs):
     reasons = Counter(r['reason'] for r in results if not r['accepted'])
     report = dict(module=module,ports=len(set(p['section'] for p in poses)),connections=len(routes),
                   accepted=sum(r['accepted'] for r in results),reasons=dict(reasons),
-                  excluded=excluded,unused_ports=unused,surface_ms=surface_ms,
+                  excluded=excluded,unused_ports=unused,adjusted_ports=adjusted_ports,surface_ms=surface_ms,
                   total_ms=(time.perf_counter()-began)*1000,turns=results)
     return report,(shape,surface,poses,paths,results)
 

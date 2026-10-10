@@ -5,6 +5,7 @@ import shapely
 
 from infrastructure_travel import MODES
 from infrastructure_flat_ports import shared_port_sections
+from infrastructure_vehicle_sweep import body_outlines
 
 
 def junction_interfaces(product):
@@ -100,3 +101,31 @@ def lane_poses(graph,ports,shape,vehicle,mode='motor',traffic_side=1,error=.025,
                 poses.extend(local)
                 unused.extend(dict(edge=int(edge),section=port['section'],reason=r) for r in reasons)
     return poses,unused
+
+
+def align_vehicle_ports(poses,surface,vehicle,error=.025):
+    if not poses:
+        return [],[]
+    positions = np.array([p['position'] for p in poses])
+    angles = np.array([np.arctan2(p['heading'][1],p['heading'][0]) for p in poses])
+    def bodies(points,headings):
+        return shapely.polygons(body_outlines(points,headings,vehicle['widthM']*.5,
+                                vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))
+    shapely.prepare(surface)
+    invalid = np.flatnonzero(~shapely.covers(surface,bodies(positions,angles)))
+    result,adjusted = [dict(p) for p in poses],[]
+    boundary = shapely.boundary(surface)
+    degrees = np.arange(-30,31,dtype=float)
+    for index in invalid:
+        headings = angles[index]+np.deg2rad(degrees)
+        rectangles = bodies(np.repeat(positions[index,None,:],len(headings),axis=0),headings)
+        clearance = shapely.distance(rectangles,boundary)
+        valid = shapely.covers(surface,rectangles)&(clearance>=error)
+        choices = np.flatnonzero(valid)
+        if not len(choices):
+            continue
+        chosen = choices[np.argmax(clearance[choices])]
+        angle = headings[chosen]
+        result[index]['heading'] = np.array([np.cos(angle),np.sin(angle)])
+        adjusted.append(dict(port=int(index),rotation_deg=float(degrees[chosen])))
+    return result,adjusted

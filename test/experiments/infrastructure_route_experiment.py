@@ -49,6 +49,9 @@ def verify_route(vehicle):
     route = shapely.LineString(points)
     floor,_ = rounded_plan(shapely.buffer(route,4.,quad_segs=8),2.)
     entry,exit = dict(position=points[0],heading=np.array([0.,1.])),dict(position=points[-1],heading=np.array([0.,-1.]))
+    reversed_entry = dict(entry,heading=-entry['heading'])
+    rejected,note = source_route_connector(reversed_entry,exit,route,floor,vehicle)
+    assert rejected is None and note['reason']=='source_route_port_heading_mismatch'
     connectors = {}
     path,report = source_route_connector(entry,exit,route,floor,vehicle,connectors=connectors)
     assert path is not None and report['vehicle_sweep']['fits_surface']

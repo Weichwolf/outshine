@@ -12,7 +12,8 @@ import numpy as np
 import shapely
 
 from infrastructure_flat_surfaces import load_graphs
-from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index
+from infrastructure_port_lanes import junction_interfaces,junction_shape,lane_poses,module_face_index,align_vehicle_ports
+from infrastructure_vehicle_sweep import body_outlines
 
 
 def verify_small(vehicle):
@@ -54,6 +55,26 @@ def verify_small(vehicle):
                 reverse_one_way=True,mode_access=True,repeated_axis_crossing=True,nearby_sections=True)
 
 
+def verify_alignment(vehicle):
+    angle = np.deg2rad(20.)
+    rotation = np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+    floor = shapely.transform(shapely.box(-8,-1.2,8,1.2),lambda xy:xy@rotation.T)
+    original = dict(position=np.zeros(2),heading=np.array([1.,0.]))
+    poses,changes = align_vehicle_ports([original],floor,vehicle)
+    assert len(changes)==1 and 0<changes[0]['rotation_deg']<=30
+    assert np.array_equal(poses[0]['position'],original['position'])
+    assert np.array_equal(original['heading'],[1.,0.])
+    heading = np.arctan2(poses[0]['heading'][1],poses[0]['heading'][0])
+    body = shapely.Polygon(body_outlines(np.zeros((1,2)),np.array([heading]),vehicle['widthM']/2,
+                                        vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])[0])
+    assert shapely.covers(floor,body) and shapely.distance(body,shapely.boundary(floor))>=.025
+    repeated,adjustments = align_vehicle_ports(poses,floor,vehicle)
+    assert not adjustments and np.array_equal(repeated[0]['heading'],poses[0]['heading'])
+    impossible,adjustments = align_vehicle_ports([original],shapely.box(-8,-.5,8,.5),vehicle)
+    assert not adjustments and np.array_equal(impossible[0]['heading'],original['heading'])
+    return dict(fixed_position=True,clearance=True,stable_shared_heading=True,narrow_port_unmodified=True)
+
+
 def survey(root,name,vehicle):
     began = time.perf_counter()
     graphs = load_graphs(root/'directed-graphs'/f'{name}-flat-network.npz',
@@ -86,7 +107,7 @@ def main():
     args = parser.parse_args()
     configuration = Path(__file__).with_name('infrastructure_network_recipes.json')
     vehicle = json.loads(configuration.read_text())['vehicleProfiles']['compact']
-    checks = verify_small(vehicle)
+    checks = dict(**verify_small(vehicle),alignment=verify_alignment(vehicle))
     results = [survey(args.input,name,vehicle) for name in args.places]
     report = dict(checks=checks,vehicle_profile=vehicle,places=results,
                   scope='Source-permitted port lane poses; complete junction traffic and driveable turns remain open.')

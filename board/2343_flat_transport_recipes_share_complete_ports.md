@@ -45,7 +45,11 @@ Identische Vereinfachungen entfallen; identische Posenpaare nutzen innerhalb des
 dieselbe Prüfung. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
 Es gibt keinen globalen Memo-Speicher: Fläche, Fahrzeug und Toleranz bleiben innerhalb der Suche fest.
 Versetzte Portposen setzen feste Anfangs-/Endpositionen und Tangenten des Posengraphen; die
-Quellachse gibt innere Kandidaten vor. Das löst einzelne Fahrten, noch keine konfliktfreien Fahrspuren.
+Quellachse gibt innere Kandidaten vor. Vorwärtsrichtung bleibt verbindlich, exakte Parallelität nicht.
+Ragt eine Portkarosserie aus der Motorfläche, prüft das Rezept 61 Richtungen innerhalb ±30° und
+wählt den größten Randabstand bei unveränderter Position. Alle Verbindungen teilen diese feste
+Portausrichtung; Nachbarkorridore müssen denselben gespeicherten Rahmen übernehmen.
+Das löst einzelne Fahrten, noch keine konfliktfreien Fahrspuren.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k bewegt sich jeder Körperpunkt höchstens (1+k*r)*ds. Diese Grenze sichert
 die Zwischenräume der Abtastung; gerade Translationen nutzen den exakt extrudierten Körper.

@@ -107,7 +107,7 @@ def source_route_connector(entry,exit,route,surface,vehicle,error=.025,*,connect
         tried.add(key)
         directions = points[[1,-1]]-points[[0,-2]]
         directions /= np.linalg.norm(directions,axis=1)[:,None]
-        if min(directions[0]@entry['heading'],directions[1]@exit['heading'])<1-1e-8:
+        if min(directions[0]@entry['heading'],directions[1]@exit['heading'])<=0:
             return None,dict(reason='source_route_port_heading_mismatch')
         path,note = rounded_route(points,surface,vehicle,error,connectors=connectors,ports=(entry,exit))
         if path is not None:
