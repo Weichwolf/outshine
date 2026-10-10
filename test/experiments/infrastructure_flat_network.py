@@ -72,9 +72,14 @@ def main():
         render(image,place,transport,roads,graphs,args.view)
         report['image'] = str(image)
         (args.output/f'{place}-flat-network.json').write_text(json.dumps(report,indent=2)+'\n')
-        np.savez_compressed(args.output/f'{place}-flat-network.npz',
-                            **{f'{i}_{k}':g[k] for i,g in enumerate(graphs.values())
-                               for k in ('vertices','edges','owner_offsets','owner_sources')})
+        arrays = {}
+        for i,graph in enumerate(graphs.values()):
+            arrays.update({f'{i}_{k}':graph[k] for k in ('vertices','edges','owner_offsets','owner_sources')})
+            coordinates,owners = shapely.get_coordinates(graph['lines'],return_index=True)
+            arrays[f'{i}_line_coordinates'] = coordinates
+            arrays[f'{i}_line_offsets'] = np.r_[0,np.cumsum(np.bincount(owners,minlength=len(graph['lines'])))]
+        arrays['source_widths'] = np.array([road['width'] for road in roads])
+        np.savez_compressed(args.output/f'{place}-flat-network.npz',**arrays)
         print(json.dumps(dict(place=place,planned=report['planned_axes'],states=report['states'],
                               reasons=report['reasons'],repairs=report['repairs'],
                               planning_ms=report['planning_and_source_binding_ms'],

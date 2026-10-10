@@ -159,10 +159,10 @@ def plan(transport, recipes, widths, precision=.001):
            budget=budget,hard_wall_time_bound=False)
 
 
-def verify(recipes):
+def examples():
     def road(xy,layer=0):
         return dict(line=shapely.LineString(xy),width=4.,properties={'class':'minor','layer':layer})
-    cases = {
+    return {
         'straight':[road([(0,0),(20,0)])],
         'T':[road([(-10,0),(10,0)]),road([(0,0),(0,10)])],
         'X':[road([(-10,0),(10,0)]),road([(0,-10),(0,10)])],
@@ -171,6 +171,10 @@ def verify(recipes):
         'short_link':[road([(-10,0),(0,0)]),road([(0,0),(.1,0)]),road([(.1,0),(10,2)])],
         'small_gap':[road([(-10,0),(10,0)]),road([(0,.2),(0,10)])],
         'island':[road([(-10,0),(0,0)]),road([(20,0),(30,0)])]}
+
+
+def verify(recipes):
+    cases = examples()
     reports = []
     for name,roads in cases.items():
         accepted,graphs,report = plan(roads,recipes,{})
@@ -179,6 +183,7 @@ def verify(recipes):
         assert sum(g['components'] for g in report['graphs'])==expected,(name,report)
         reports.append(dict(case=name,components=expected,elapsed_ms=report['elapsed_ms']))
     constrained = dict(recipes,flatPlan=dict(recipes['flatPlan'],maximumAxes=1))
-    _,_,limited = plan(cases['X']+[road([(0,0),(0,20)],1)],constrained,{})
+    other = dict(line=shapely.LineString([(0,0),(0,20)]),width=4.,properties={'class':'minor','layer':1})
+    _,_,limited = plan(cases['X']+[other],constrained,{})
     assert limited['reasons']=={'axis_budget_exhausted':1,'deferred_level':1}
     return reports
