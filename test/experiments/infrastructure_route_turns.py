@@ -5,6 +5,7 @@ import shapely
 
 from infrastructure_junction_turns import clothoid_connector,curvature_connector
 from infrastructure_vehicle_sweep import body_outlines
+from infrastructure_spline_routes import spline_route_candidates
 
 
 def route_waypoint_poses(points,maximum_corners=64):
@@ -96,6 +97,13 @@ def source_route_connector(entry,exit,route,surface,vehicle,error=.025,*,connect
     raw = shapely.get_coordinates(route)
     if len(raw)<3:
         return None,dict(reason='source_route_has_no_intermediate_corner')
+    directions = raw[[1,-1]]-raw[[0,-2]]
+    directions /= np.linalg.norm(directions,axis=1)[:,None]
+    if min(directions[0]@entry['heading'],directions[1]@exit['heading'])<=0:
+        return None,dict(reason='source_route_port_heading_mismatch')
+    path,note = spline_route_candidates(entry,exit,route,surface,vehicle,error)
+    if path is not None:
+        return path,note
     tried = set()
     connectors = {} if connectors is None else connectors
     for tolerance in (error,error*2,error*4,error*8,error*16):
@@ -105,10 +113,6 @@ def source_route_connector(entry,exit,route,surface,vehicle,error=.025,*,connect
         if key in tried:
             continue
         tried.add(key)
-        directions = points[[1,-1]]-points[[0,-2]]
-        directions /= np.linalg.norm(directions,axis=1)[:,None]
-        if min(directions[0]@entry['heading'],directions[1]@exit['heading'])<=0:
-            return None,dict(reason='source_route_port_heading_mismatch')
         path,note = rounded_route(points,surface,vehicle,error,connectors=connectors,ports=(entry,exit))
         if path is not None:
             return path,dict(simplification_m=tolerance,**note)

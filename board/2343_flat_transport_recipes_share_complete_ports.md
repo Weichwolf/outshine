@@ -58,6 +58,13 @@ Löchern. Das vermeidet pro Pose aufgeblasene Polygone bei derselben Bewegungsgr
 Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
 [Rezeptprüfungen](../test/experiments/infrastructure_route_experiment.py) umfassen Inselumfahrung,
 verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.
+[Quintische Routen](../test/experiments/infrastructure_spline_routes.py) laufen vor der Posekette:
+SciPy interpoliert höchstens 66 Stützpunkte mit festen Endtangenten und Endkrümmung null.
+Abstände von 1/2/3/4 Fahrzeug-Mindestradien und die unveränderte Quelle bilden fünf Kandidaten.
+Bézier-Hüllen begrenzen Geschwindigkeit und Krümmung nach fester Unterteilung; höchstens 4096
+Karosserieposen sichern die gesamte Fahrt. Im Inneren entfällt der Zwang zur Krümmung null.
+[Unabhängige Prüfung](../test/experiments/infrastructure_spline_experiment.py) deckt Hüllen,
+Endbedingungen, Hindernisse und Budgets ab; erfolglose Splines fallen auf die Posekette zurück.
 Offen: durchgehende Spurzuordnung, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
 vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
