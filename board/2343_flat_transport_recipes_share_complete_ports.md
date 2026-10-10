@@ -25,6 +25,10 @@ mit geraden Schnitten; kurze überlappende Kerne vereinigen sich. Ganze Fenster 
 [Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) erkennt in realen Fenstern noch
 gebogene und geschlossene innere Schnittlinien. Gerade vollständige Ports bleiben damit offen;
 eine lückenlose Fläche allein erfüllt den Bauteilvertrag nicht.
+[Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) grenzen die tatsächliche
+Verkehrsfläche per Randschnitt/Suchindex ab und polygonisieren gemeinsame Grenzen.
+Gleichartige Nachbarstücke werden vereinigt; kollidierende Schnitte bei spitzen Einfädelungen
+müssen noch gemeinsam nach außen rücken. Quellteilung darf keine künstlichen Bauteile erzeugen.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.

@@ -160,8 +160,8 @@ def plan(transport, recipes, widths, precision=.001):
 
 
 def examples():
-    def road(xy,layer=0):
-        return dict(line=shapely.LineString(xy),width=4.,properties={'class':'minor','layer':layer})
+    def road(xy,layer=0,width=4.,**properties):
+        return dict(line=shapely.LineString(xy),width=width,properties={'class':'minor','layer':layer,**properties})
     return {
         'straight':[road([(0,0),(20,0)])],
         'T':[road([(-10,0),(10,0)]),road([(0,0),(0,10)])],
@@ -170,6 +170,12 @@ def examples():
         'cul_de_sac':[road([(0,0),(10,0)]),road([(10,0),(20,5)])],
         'short_link':[road([(-10,0),(0,0)]),road([(0,0),(.1,0)]),road([(.1,0),(10,2)])],
         'small_gap':[road([(-10,0),(10,0)]),road([(0,.2),(0,10)])],
+        'short_T':[road([(-10,0),(10,0)]),road([(0,0),(0,5)])],
+        'split_continuation':[road([(-20,0),(-2,0)]),road([(-2,0),(20,0)]),road([(0,0),(0,20)])],
+        'bent_short_approach':[road([(-20,0),(20,0)]),road([(0,0),(2,3)]),road([(2,3),(7,10)])],
+        'acute_merge':[road([(-30,0),(30,0)]),road([(0,0),(30,3)])],
+        'courtyard_loop':[road([(0,0),(20,0),(20,20),(0,20),(0,0)]),
+                          road([(-20,0),(0,0)]),road([(20,20),(40,20)])],
         'island':[road([(-10,0),(0,0)]),road([(20,0),(30,0)])]}
 
 

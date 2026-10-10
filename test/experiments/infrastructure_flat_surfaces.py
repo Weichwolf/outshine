@@ -11,6 +11,7 @@ from geos_triangulation import triangles_of
 from infrastructure_flat_corners import rounded_plan
 from infrastructure_flat_junctions import junction_nodes,port_plan
 from infrastructure_flat_ports import port_sections
+from infrastructure_flat_cuts import cuts_plan
 from infrastructure_network_plan import boundary_segments
 
 
@@ -43,11 +44,14 @@ def physical_plan(graphs,precision,junction_mode,corner_radius=0,arc_error=.025)
     half = np.concatenate([g['half_widths'] for g in graphs])
     bands = shapely.buffer(lines,half,quad_segs=2,cap_style='round',join_style='round')
     complete = shapely.set_precision(shapely.set_precision(shapely.union_all(bands),precision),0)
-    curve = {}
-    original = None
+    details,geometry = {},{}
     if corner_radius>0:
-        original = shapely.get_coordinates(boundary_segments(complete)).reshape(-1,2,2)
-        complete,curve = rounded_plan(complete,corner_radius,arc_error)
+        geometry['original_boundary'] = shapely.get_coordinates(boundary_segments(complete)).reshape(-1,2,2)
+        complete,details['curbs'] = rounded_plan(complete,corner_radius,arc_error)
+    if junction_mode=='cuts':
+        parts,roles,details['cuts'],sections = cuts_plan(complete,graphs,precision,corner_radius)
+        geometry.update(sections)
+        return complete,parts,roles,details,geometry
     if junction_mode=='ports':
         kernel,_ = port_plan(graphs,precision,corner_radius,arc_error)
     else:
@@ -65,7 +69,7 @@ def physical_plan(graphs,precision,junction_mode,corner_radius=0,arc_error=.025)
     coverage = abs(float(shapely.area(parts).sum())-complete.area)
     if coverage>max(1e-7,complete.area*1e-12):
         raise ValueError('module partition lost or duplicated area')
-    return complete,parts,roles,curve,original
+    return complete,parts,roles,details,geometry
 
 
 def shared_mesh(complete,parts,roles,precision):
@@ -134,15 +138,13 @@ def shared_mesh(complete,parts,roles,precision):
 
 def solve(graphs,precision=.001,junction_mode='all',corner_radius=0,arc_error=.025):
     began = time.perf_counter()
-    complete,parts,roles,curve,original = physical_plan(graphs,precision,junction_mode,corner_radius,arc_error)
+    complete,parts,roles,details,geometry = physical_plan(graphs,precision,junction_mode,corner_radius,arc_error)
     plan_ms = (time.perf_counter()-began)*1000
     began = time.perf_counter()
     product,report = shared_mesh(complete,parts,roles,precision)
     report['ports'],product['unresolved_port_centres'] = port_sections(product,precision*.01)
-    if original is not None:
-        product['original_boundary'] = original
-    if curve:
-        report['curbs'] = curve
+    product.update(geometry)
+    report.update(details)
     report.update(plan_ms=plan_ms,mesh_and_audit_ms=(time.perf_counter()-began)*1000,junction_mode=junction_mode,
                   scope='Flat shared surfaces only; smooth driving curves, heights and collision delivery remain open.')
     return product,report
