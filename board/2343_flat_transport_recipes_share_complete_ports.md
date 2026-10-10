@@ -21,12 +21,9 @@ gegliederte Flächen allein liefern noch kein plausibles fertiges Netz. Kleine B
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
 Verkehrsfläche per Randschnitt/Suchindex. Kollidierende Schnitte rücken begrenzt nach außen;
-kurze Zwischenabschnitte gehen in den gemeinsamen Anschluss ein. Restketten kürzer als ihre eigene
-Breite bleiben ebenfalls im Knoten: sie tragen keinen brauchbaren eigenständigen Korridor.
-Ein Fahrzeugprofil ergänzt die Schnittsuche: jeder öffentliche Auto-Achsenkontakt muss die
-Karosserie auf der unveränderten Motorfläche tragen, auch bei Schnitten fremder Modi.
-Unbrauchbare Schnitte rücken innerhalb derselben begrenzten Suche nach außen oder entfallen
-mit Grund. Das ändert nur die Teilung, weder Straßenfläche noch Quellen/Zugänge.
+Restketten kürzer als ihre eigene Breite bleiben im gemeinsamen Anschluss.
+Öffentliche Auto-Achsenkontakte müssen die Karosserie auf der unveränderten Motorfläche tragen,
+auch bei fremden Modi. Ungültige Schnitte rücken nach außen oder entfallen mit Grund; Quellen bleiben fest.
 [Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) prüft gerade vollständige gemeinsame
 Randsegmente unabhängig von der Flächenabdeckung; die drei Ebenen-0-Fenster bestehen beide Prüfungen.
 [Port-Fahrspuren](../test/experiments/infrastructure_port_lane_experiment.py) übernehmen öffentliche
@@ -36,14 +33,13 @@ eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Verkehrsregelun
 [Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) verwenden Klothoiden
 mit optionalem Kreisbogen oder asymmetrische G2-Posekurven mit polynomialem Tangentenwinkel.
 Endkrümmung null, Krümmungsextrema analytisch; Radius/Breite kommen aus dem Fahrzeugprofil.
-Klothoiden werden vor der teuren Karosserieprüfung nach tatsächlicher Kurvenlänge sortiert;
-der erste gültige Kandidat liefert dasselbe Minimum wie die vollständige Kandidatenprüfung.
+Klothoiden werden vor der Karosserieprüfung nach Länge sortiert; der erste gültige Kandidat liefert
+dasselbe Minimum wie die vollständige Prüfung.
 [Quellrouten](../test/experiments/infrastructure_route_turns.py) verbinden Portkontakte über
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
-Höchstens 64 Ecken, drei Posen je Ecke und acht Nachfolger je Pose begrenzen die lokale Suche.
-Identische Vereinfachungen entfallen; Posenpaare werden bei fester Fläche/Fahrzeug/Toleranz einmal
-geprüft. Eine Untergrenze aus Segmentanzahl und Sehnenlänge verwirft aussichtslose Kandidaten.
+Höchstens 64 Ecken, drei Posen je Ecke, acht Nachfolger je Pose; identische Vereinfachungen entfallen.
+Posenpaare einmal je Fläche/Fahrzeug/Toleranz prüfen; Untergrenzen aus Segmentzahl/Sehne begrenzen die Suche.
 Versetzte Portposen setzen feste Anfangs-/Endpositionen und Tangenten des Posengraphen; die
 Quellachse gibt innere Kandidaten vor. Vorwärtsrichtung bleibt verbindlich, exakte Parallelität nicht.
 Ungültige statische Portkarosserien prüfen 61 Richtungen innerhalb ±30° und wählen den größten
@@ -82,21 +78,25 @@ Windungszahlen sind eine notwendige topologische Bedingung, kein vollständiger 
 [Rezeptprüfungen](../test/experiments/infrastructure_route_experiment.py) umfassen Inselumfahrung,
 verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.
 [Quintische Routen](../test/experiments/infrastructure_spline_routes.py) laufen vor der Posekette:
-SciPy interpoliert höchstens 66 Stützpunkte mit festen Endtangenten und Endkrümmung null.
-Abstände von 1/2/3/4 Fahrzeug-Mindestradien und die unveränderte Quelle bilden fünf Kandidaten.
-Bézier-Hüllen begrenzen Geschwindigkeit und Krümmung nach fester Unterteilung; höchstens 4096
-Karosserieposen sichern die gesamte Fahrt. Im Inneren entfällt der Zwang zur Krümmung null.
+Höchstens 66 Punkte, feste Endtangenten/Endkrümmung null; innen darf die Krümmung variieren.
+Abstände von 1/2/3/4 Fahrzeug-Mindestradien und die Quelle liefern fünf Kandidaten.
+Bézier-Hüllen begrenzen Geschwindigkeit/Krümmung; höchstens 4096 Karosserieposen sichern die Fahrt.
 [Unabhängige Prüfung](../test/experiments/infrastructure_spline_experiment.py) deckt Hüllen,
 Endbedingungen, Hindernisse und Budgets ab; erfolglose Splines fallen auf die Posekette zurück.
 [Korridorfahrten](../test/experiments/infrastructure_corridor_experiment.py) übernehmen unverändert
 die Portposen beider Nachbarknoten; gerichtete Modulrouten und dieselbe Karosserieprüfung verbinden sie.
-Nicht durchfahrbare Auto-Anschlüsse erscheinen separat in der Nutzungsbilanz. Ungültige feste
-Endkarosserien werden einmal vor der Kurvensuche geprüft; sie bleiben explizit ungelöst.
+Nicht durchfahrbare Auto-Anschlüsse bleiben in der Nutzungsbilanz; ungültige feste Endkarosserien
+werden einmal vor der Kurvensuche geprüft und bleiben ungelöst.
 Zweipunktige Quellachsen dürfen bei versetzten Ports ebenfalls quintische Verbindungen liefern.
-Bei erfolgloser Interpolation glättet ein begrenztes Zusatzrezept die Führungsachse:
-Abweichung zur Quelle plus quadratische zweite Differenzen, feste Endpunkte, positiv definites
-Fünfdiagonalsystem in O(N). Fläche, Ports, Krümmungs- und Karosserieprüfung bleiben unverändert.
+Nach erfolgloser Interpolation: Quellabweichung + quadratische zweite Differenzen, feste Endpunkte;
+positiv definites Fünfdiagonalsystem in O(N). Fläche, Ports und Karosserie-/Radiusprüfung bleiben fest.
 Jeder Spline-Kandidat muss die Inselwindung seiner Quelle erhalten; sonst läuft die Suche weiter.
+[Lokale Routenpassung](../test/experiments/infrastructure_hermite_route_fitting.py) folgt auf die Rahmenwahl.
+Quintische Hermite-Abschnitte teilen Position/Tangente/Beschleunigung; feste Ports, Endkrümmung null.
+Nachbarabhängigkeiten ergeben eine dünn besetzte Jacobi-Matrix. Höchstens 18 Knoten und 40 Solver-
+Auswertungen je Versuch; insgesamt 1024 tatsächliche Residuenaufrufe je Verbindung, inklusive Ableitungen.
+Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüllen-/Radius-/Windungsprüfung entscheidet.
+Nur fehlgeschlagene Fahrten ergänzen; bestehende Kurven, Straßenfläche und gemeinsame Posen bleiben fest.
 Offen: durchgehende Spurzuordnung, ungültige feste Portposen, enge Kreisverkehre, Verkehrsregelung,
 vollständige Netze und tragbare Kosten. Erfolgreiche Einzelkurven sind keine fertige Verkehrssimulation.
 [Road synthesis, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).

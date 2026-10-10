@@ -73,22 +73,7 @@ def spline_controls(points,entry,exit):
     return controls
 
 
-def spline_route(entry,exit,route,surface,vehicle,error=.025,maximum_poses=4096,spacing=None,fairing_weight=0.):
-    if spacing is None:
-        raw = shapely.get_coordinates(route)
-    else:
-        count = max(2,int(np.ceil(route.length/spacing))+1)
-        if count>66:
-            return None,dict(reason='spline_knot_budget_exhausted')
-        raw = shapely.get_coordinates(shapely.line_interpolate_point(route,np.linspace(0,route.length,count)))
-    if len(raw)>66:
-        return None,dict(reason='spline_knot_budget_exhausted')
-    points = raw.copy()
-    points[[0,-1]] = [entry['position'],exit['position']]
-    points = fair_route(points,fairing_weight)
-    controls = spline_controls(points,entry,exit)
-    if controls is None:
-        return None,dict(reason='collapsed_spline_interval')
+def checked_spline_path(controls,surface,vehicle,error=.025,maximum_poses=4096):
     minimum,speed,curvature = curve_bounds(controls)
     bound = float(curvature.max())
     if not np.isfinite(bound) or bound*vehicle['minimumRearAxleRadiusM']>1+1e-12:
@@ -117,6 +102,25 @@ def spline_route(entry,exit,route,surface,vehicle,error=.025,maximum_poses=4096,
                      minimum_radius_m=1/bound if bound>0 else None,curvature_bound_per_m=bound,
                      endpoint_curvature_per_m=0.,geometry_vertices=len(xy),
                      geometry_deviation_bound_m=float((position_acceleration/counts**2/8).max()))
+
+
+def spline_route(entry,exit,route,surface,vehicle,error=.025,maximum_poses=4096,spacing=None,fairing_weight=0.):
+    if spacing is None:
+        raw = shapely.get_coordinates(route)
+    else:
+        count = max(2,int(np.ceil(route.length/spacing))+1)
+        if count>66:
+            return None,dict(reason='spline_knot_budget_exhausted')
+        raw = shapely.get_coordinates(shapely.line_interpolate_point(route,np.linspace(0,route.length,count)))
+    if len(raw)>66:
+        return None,dict(reason='spline_knot_budget_exhausted')
+    points = raw.copy()
+    points[[0,-1]] = [entry['position'],exit['position']]
+    points = fair_route(points,fairing_weight)
+    controls = spline_controls(points,entry,exit)
+    if controls is None:
+        return None,dict(reason='collapsed_spline_interval')
+    return checked_spline_path(controls,surface,vehicle,error,maximum_poses)
 
 
 def spline_route_candidates(entry,exit,route,surface,vehicle,error):
