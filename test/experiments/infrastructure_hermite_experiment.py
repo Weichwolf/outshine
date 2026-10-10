@@ -80,6 +80,25 @@ def verify_hermite():
                 neighboring_controls_only=True,jacobian_storage_linear=True)
 
 
+def verify_body_samples():
+    corners = np.array([[[-2.,-1.],[2.,-1.],[2.,1.],[-2.,1.]]])
+    cases = [shapely.box(-.3,-.3,.3,.3),shapely.box(.8,-1.2,1.2,-.8)]
+    for hole in cases:
+        surface = shapely.difference(shapely.box(-5,-5,5,5),hole)
+        field = SurfaceClearance(surface)
+        assert not shapely.covers(surface,shapely.Polygon(corners[0]))
+        assert not np.any(field.shortfall(shapely.points(corners.reshape(-1,2)),.075))
+        penalties = field.sampled_body_shortfall(corners,.075)
+        assert penalties.shape==(1,4) and np.max(penalties)>0
+        rotation = np.array([[.6,-.8],[.8,.6]])
+        transform = lambda xy:np.einsum('ij,kj->ki',rotation,xy)+[10000.,-7000.]
+        moved = transform(corners.reshape(-1,2)).reshape(corners.shape)
+        shifted = SurfaceClearance(shapely.transform(surface,transform))
+        assert np.allclose(shifted.sampled_body_shortfall(moved,.075),penalties,atol=1e-10)
+    assert SurfaceClearance(shapely.box(-5,-5,5,5)).sampled_body_shortfall(np.empty((0,4,2)),.075).shape==(0,4)
+    return dict(body_centre_hole_penalized=True,body_edge_hole_penalized=True,body_samples_rigid_transform=True)
+
+
 def verify_fitting(vehicle):
     surface = shapely.box(-20,-4,20,4)
     route = shapely.LineString([[-8,0],[8,0]])
@@ -177,7 +196,7 @@ def main():
     if args.maximum_calls<1:
         parser.error('residual budget must be positive')
     vehicle = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())['vehicleProfiles']['compact']
-    checks = {**verify_clearance(),**verify_hermite(),**verify_fitting(vehicle)}
+    checks = {**verify_clearance(),**verify_body_samples(),**verify_hermite(),**verify_fitting(vehicle)}
     reference = json.loads(args.frames.read_text())
     reports,views = [],[]
     for name in args.places:

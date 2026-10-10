@@ -28,3 +28,11 @@ class SurfaceClearance:
         self.samples += len(points)
         self.measured_samples += len(selected)
         return result
+
+    def sampled_body_shortfall(self,corners,minimum_distance):
+        delta = np.roll(corners,-1,axis=1)-corners
+        samples = corners[:,:,None,:]+delta[:,:,None,:]*np.array([0.,.25,.5,.75])[None,None,:,None]
+        edges = self.shortfall(shapely.points(samples.reshape(-1,2)),minimum_distance)
+        edges = edges.reshape(*corners.shape[:2],4).max(axis=2)
+        centre = self.shortfall(shapely.points(corners.mean(axis=1)),minimum_distance)
+        return np.maximum(edges,centre[:,None])

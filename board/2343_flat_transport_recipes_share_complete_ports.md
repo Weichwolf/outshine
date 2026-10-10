@@ -78,8 +78,6 @@ verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverw
 Höchstens 66 Punkte, feste Endtangenten/Endkrümmung null; innen darf die Krümmung variieren.
 Abstände von 1/2/3/4 Fahrzeug-Mindestradien und die Quelle liefern fünf Kandidaten.
 Bézier-Hüllen begrenzen Geschwindigkeit/Krümmung; höchstens 4096 Karosserieposen sichern die Fahrt.
-[Unabhängige Prüfung](../test/experiments/infrastructure_spline_experiment.py) deckt Hüllen,
-Endbedingungen, Hindernisse und Budgets ab; erfolglose Splines fallen auf die Posekette zurück.
 [Korridorfahrten](../test/experiments/infrastructure_corridor_experiment.py) übernehmen unverändert
 die Portposen beider Nachbarknoten; gerichtete Modulrouten und dieselbe Karosserieprüfung verbinden sie.
 Nicht durchfahrbare Auto-Anschlüsse bleiben in der Nutzungsbilanz; ungültige feste Endkarosserien
@@ -94,6 +92,8 @@ Nachbarabhängigkeiten ergeben eine dünn besetzte Jacobi-Matrix. Höchstens 18 
 Auswertungen je Versuch; insgesamt 1024 tatsächliche Residuenaufrufe je Verbindung, inklusive Ableitungen.
 Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüllen-/Radius-/Windungsprüfung entscheidet.
 [Punktabstände](../test/experiments/infrastructure_surface_clearance.py): Randindex zuerst; nur Randnähe/außen messen.
+Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunkte; erst nach beiden Grundversuchen.
+Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Nur fehlgeschlagene Fahrten ergänzen; bestehende Kurven, Straßenfläche und gemeinsame Posen bleiben fest.
 [Radiusprüfung](../test/experiments/infrastructure_window_driving_experiment.py) klassifiziert jeden berührten
 Bauteil, prüft alle angefragten öffentlichen Autofahrten bei festen Ports und bewahrt bisherige Lösungen.

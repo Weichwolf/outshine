@@ -38,7 +38,8 @@ def residual_dependencies(count):
 
 
 def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None,
-                      maximum_nodes=18,maximum_evaluations=40,maximum_calls=1024,maximum_poses=4096,clearance=None):
+                      maximum_nodes=18,maximum_evaluations=40,maximum_calls=1024,maximum_poses=4096,clearance=None,
+                      sample_body_edges=False):
     if min(maximum_nodes-2,maximum_evaluations,maximum_calls)<1 or error<=0 or not np.isfinite(error):
         raise ValueError('node, evaluation and error budgets must be positive')
     spacing = vehicle['minimumRearAxleRadiusM']*2 if spacing is None else spacing
@@ -80,8 +81,9 @@ def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None
         curvature = np.nan_to_num(curvature,nan=1e6,posinf=1e6)
         corners = body_outlines(xy,np.arctan2(velocity[:,1],velocity[:,0]),vehicle['widthM']*.5,
                                vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
-        points = shapely.points(corners.reshape(-1,2))
-        floor = 4*clearance.shortfall(points,error*3).reshape(count-1,68)
+        shortfall = (clearance.sampled_body_shortfall(corners,error*3) if sample_body_edges else
+                     clearance.shortfall(shapely.points(corners.reshape(-1,2)),error*3))
+        floor = 4*shortfall.reshape(count-1,68)
         bends = 4*np.maximum(curvature.reshape(count-1,8)*vehicle['minimumRearAxleRadiusM']-.96,0)
         moving = np.maximum(.1-np.linalg.norm(velocity,axis=1).reshape(count-1,17)/step,0)
         values_residual = np.r_[np.c_[floor,bends,moving].ravel(),.005*(values-initial)]
@@ -112,6 +114,8 @@ def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None
                 jacobian_pattern_bytes=pattern.data.nbytes+pattern.indices.nbytes+pattern.indptr.nbytes)
     if path is not None:
         note['profile'] = 'C2-quintic-Hermite-fit'
+    if sample_body_edges:
+        note['body_edges_sampled'] = True
     return path,note
 
 
@@ -119,13 +123,16 @@ def fitted_route_candidates(entry,exit,route,surface,vehicle,error=.025,maximum_
     clearance = SurfaceClearance(surface) if clearance is None else clearance
     initial_samples,initial_measured = clearance.samples,clearance.measured_samples
     calls,trials = 0,[]
-    for spacing in (vehicle['minimumRearAxleRadiusM']*2,vehicle['minimumRearAxleRadiusM']):
+    candidates = [(spacing,False) for spacing in (vehicle['minimumRearAxleRadiusM']*2,vehicle['minimumRearAxleRadiusM'])]
+    for spacing,sample_body_edges in candidates:
         if calls>=maximum_calls:
             break
         path,note = fit_hermite_route(entry,exit,route,surface,vehicle,error,spacing=spacing,
-                                     maximum_calls=maximum_calls-calls,clearance=clearance)
+                                     maximum_calls=maximum_calls-calls,clearance=clearance,sample_body_edges=sample_body_edges)
         calls += note['residual_calls']
         trials.append(dict(spacing_m=spacing,**note))
+        if not sample_body_edges and path is None and note.get('reason')=='spline_vehicle_body_outside_surface':
+            candidates.append((spacing,True))
         if path is not None:
             return path,dict(note,spacing_m=spacing,residual_calls=calls,maximum_residual_calls=maximum_calls,
                              clearance_samples=clearance.samples-initial_samples,
