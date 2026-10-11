@@ -29,6 +29,10 @@ TARGETS = {
     '_ZN4util16LargestRectangle20findLargestRectangleEb': 'largest rectangle search',
     '_ZN4util27LargestRectangleDanielsFast22leafOrthogonallyConvexERKNS_18Trapezoidalization4PolyE': 'orthogonally convex rectangle contacts',
     '_ZNK4util27LargestRectangleDanielsFast17continueRecursionERKNS_18Trapezoidalization4PolyEb': 'rectangle recursion bound',
+    '_ZN9Processor4compEN2GC12CompSelector4EnumENS0_14ScopeAlignment4EnumERKSt10shared_ptrINS0_9SplitNodeEE': 'component selection and aligned scope',
+    '_ZN9Processor1iERKSt10shared_ptrINSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEEN2GC14UpAxisSelector4EnumENSA_10InsertMode4EnumENSA_11CleanupMode4EnumE': 'asset insertion dispatch',
+    '_ZN4util4Mesh16transformInPlaceERKNS_6MatrixIdEE': 'component mesh transformation',
+    '_ZN20EncodePreparatorImpl12addInstancesEPN3prt5CacheERKN4util18GeometryAssetProxyESt10shared_ptrIN4prtx3URIEERKNS3_7Vector3IdEERKNS3_6MatrixIdEERKS7_INS8_8MaterialEEjRKNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEPKNS0_12AttributeMapEjSU_RKS7_INS8_7ReportsEE': 'prepared asset instance output',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;
@@ -60,7 +64,7 @@ public class InspectBuildingCore extends GhidraScript {
         report.put("program", currentProgram.getName());
         report.put("language", currentProgram.getLanguageID().toString());
         report.put("image_base", currentProgram.getImageBase().toString());
-        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul|rectangle|trapezoid)");
+        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul|rectangle|trapezoid|insert|instance|transformInPlace|Processor4comp)");
         List<Map<String,Object>> names = new ArrayList<>(), selected = new ArrayList<>();
         FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
         DecompInterface decompiler = new DecompInterface();
