@@ -145,6 +145,26 @@ function renderProvider() {
   }));
   $('provider-note').textContent = provider.rule_parameters+' '+provider.context;
   $('provider-missing').textContent = 'Im Gebäudelayer nicht angeboten: '+provider.missing_building_fields.join(', ')+'.';
+  const layers = provider.layer_recipes || [];
+  $('layer-summary').textContent = `${layers.length} Layer · alle deklarierten Attribute und ihre Verwendung`;
+  $('provider-layers').replaceChildren(...layers.map(row => {
+    const tr = element('tr'), cells = [element('td', row.layer), element('td', row.role), element('td')];
+    const details = element('details'), summary = element('summary', `${Object.keys(row.fields).length} Felder`);
+    details.append(summary);
+    for (const [key, field] of Object.entries(row.fields)) details.append(element('p', `${key} (${field.type}): ${field.role}`));
+    cells[2].append(details); tr.append(...cells); return tr;
+  }));
+  const checks = manifest.context_validation;
+  $('context-checks').hidden = !checks;
+  if (!checks) return;
+  $('context-note').textContent = `${checks.poi_classes} POI-Klassen / ${checks.poi_subclasses} Unterklassen erhalten eine Rolle. `+
+    `Exakte Flächen-/Punktzuordnung; 64 Gebäude je Stadt gegen Vollsuche geprüft. Einzelmessungen in Python, keine Framezeiten. Commit ${short(checks.commit)}.`;
+  $('context-sites').replaceChildren(...checks.sites.map(row => {
+    const tr = element('tr');
+    const values = [row.site, Object.entries(row.families).map(([key, n]) => `${key}: ${integer(n)}`).join(' · '),
+      integer(row.partial_poi_uses), `${Math.round(row.context_preparation_ms)} ms`, `${Math.round(row.indexed_ms)} / ${Math.round(row.exhaustive_ms)} ms`];
+    tr.append(...values.map(value => element('td', value))); return tr;
+  }));
 }
 
 async function refresh() {

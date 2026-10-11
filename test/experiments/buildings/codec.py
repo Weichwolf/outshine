@@ -9,18 +9,20 @@ import shapely
 from facade_plan import Repeat
 from massing import footprint_of
 from shell import FIELDS, validate
+from recipes import FAMILIES
 
-SCHEMA = 3
+SCHEMA = 4
 
 
 def encode(product):
     body = {k: product[k] for k in ('id', 'top_m', 'bottom_m', 'style', 'seed', 'source_properties', 'provenance',
-                                  'massing', 'surfaces', 'features', 'feature_bounds', 'opening_patterns')}
+                                  'massing', 'surfaces', 'features', 'feature_bounds', 'opening_patterns', 'context', 'recipe')}
     body['layers'] = [dict(bottom_m=layer['bottom_m'], top_m=layer['top_m'], floors=layer['floors'],
                            polygons=[[ring.tolist() for ring in rings] for rings in layer['polygons']])
                       for layer in product['layers']]
     body['wall_linear'] = product['wall_linear'].tolist()
-    body['facades'] = [dict(normal=f['normal'].tolist(), repeat=asdict(f['repeat'])) for f in product['facades']]
+    body['facades'] = [dict(normal=f['normal'].tolist(), repeat=asdict(f['repeat']),
+                           frontage_sources=f.get('frontage_sources', [])) for f in product['facades']]
     body['shell'] = {k: product['shell'][k].tolist() for k in FIELDS}
     body['decoration'] = {k: product['decoration'][k].tolist() for k in FIELDS}
     return json.dumps(dict(schema=SCHEMA, product=body), sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
@@ -61,7 +63,7 @@ def decode_layers(product, heights):
 
 def decode_record(data):
     record = json.loads(data)
-    if not isinstance(record, dict) or record.get('schema') != SCHEMA:
+    if not isinstance(record, dict) or record.get('schema') not in (3, SCHEMA):
         raise ValueError('unsupported enriched-plan schema')
     product = record.get('product')
     required = {'id', 'top_m', 'bottom_m', 'style', 'seed', 'source_properties', 'provenance', 'layers',
@@ -69,6 +71,19 @@ def decode_record(data):
                 'feature_bounds', 'opening_patterns'}
     if not isinstance(product, dict) or required-set(product):
         raise ValueError('incomplete enriched plan')
+    if record['schema'] == SCHEMA and not {'context', 'recipe'} <= product.keys():
+        raise ValueError('incomplete semantic recipe')
+    if record['schema'] == 3:
+        product['context'] = dict(version=1, evidence=[])
+        product['recipe'] = dict(version=1, family='unknown', origin='legacy-schema-3', openings='unavailable')
+    if (not isinstance(product['context'], dict) or product['context'].get('version') != 1
+            or not isinstance(product['context'].get('evidence'), list)
+            or not isinstance(product['recipe'], dict) or product['recipe'].get('version') != 1):
+        raise ValueError('invalid encoded semantic recipe')
+    if (product['recipe'].get('family') not in FAMILIES or product['recipe'].get('openings') not in ('unavailable', 'procedural-context')
+            or not all(isinstance(row, dict) and isinstance(row.get('id'), str) and isinstance(row.get('layer'), str)
+                       and isinstance(row.get('properties'), dict) for row in product['context']['evidence'])):
+        raise ValueError('invalid encoded contextual evidence')
     heights = np.asarray([product['bottom_m'], product['top_m']], dtype=float)
     if not np.isfinite(heights).all() or heights[1] <= heights[0]:
         raise ValueError('invalid encoded height interval')
@@ -101,7 +116,10 @@ def decode_record(data):
                             or not np.isclose(repeat.height_m, layer['top_m']-layer['bottom_m'], atol=1e-10, rtol=1e-12)
                             or repeat.rows != layer['floors']):
                         raise ValueError('encoded facade disagrees with shape')
-                    facades.append(dict(a=a, b=b, normal=normal, repeat=repeat, layer=index,
+                    sources = record.get('frontage_sources', [])
+                    if not isinstance(sources, list) or not all(isinstance(s, str) for s in sources):
+                        raise ValueError('invalid encoded frontage references')
+                    facades.append(dict(a=a, b=b, normal=normal, repeat=repeat, layer=index, frontage_sources=sources,
                                         bottom_m=layer['bottom_m'], top_m=layer['top_m']))
     product['facades'] = facades
     product['polygon'] = shapely.Polygon(product['rings'][0], product['rings'][1:])
@@ -122,7 +140,8 @@ def decode_record(data):
     validate(product['shell'], len(facades), surfaces, len(patterns))
     validate_features(product)
     if product['style'] == 'osm' and (product['massing']['mode'] != 'plain' or len(product['layers']) != 1
-                                     or product['features'] or any(f['repeat'].count for f in product['facades'])):
+                                     or product['features'] or (product['recipe'].get('openings') == 'unavailable'
+                                                               and any(f['repeat'].count for f in product['facades']))):
         raise ValueError('encoded OSM body contains unsupported procedural additions')
     return product
 

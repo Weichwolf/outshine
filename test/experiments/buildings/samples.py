@@ -42,7 +42,7 @@ def source_bytes(receipt, root=SOURCES, fetch=False):
     return data
 
 
-def read_site(site, root=SOURCES):
+def read_site(site, root=SOURCES, context=False, indexed=True):
     inventory = json.loads(INVENTORY.read_text())
     receipt = centre_receipt(inventory, site)
     _, latitude, longitude = next(s for s in inventory['sites'] if s[0] == site)
@@ -51,8 +51,8 @@ def read_site(site, root=SOURCES):
                        math.asinh(math.tan(math.radians(latitude)))*GIRTH_M/(2*math.pi)])
     z, tx, ty = receipt['tile']
     span = GIRTH_M/(1 << z)
-    layer = mapbox_vector_tile.decode(source_bytes(receipt, root),
-                                     default_options={'y_coord_down': True}).get('building', {})
+    layers = mapbox_vector_tile.decode(source_bytes(receipt, root), default_options={'y_coord_down': True})
+    layer = layers.get('building', {})
     extent = layer.get('extent', 4096)
     samples, rejected, omitted = [], [], []
     for feature in layer.get('features', []):
@@ -79,9 +79,15 @@ def read_site(site, root=SOURCES):
                                      detail=shapely.is_valid_reason(polygon)))
                 continue
             samples.append(dict(id=key, polygon=polygon, properties=properties, source_sha256=receipt['sha256']))
-    return samples, dict(site=site, receipt=receipt, origin_lat_lon=[latitude, longitude],
+    report = dict(site=site, receipt=receipt, origin_lat_lon=[latitude, longitude],
                          source_polygons=len(samples)+len(rejected)+len(omitted), rejected=rejected, omitted=omitted,
                          projection='Mercator scaled at the site latitude; no terrain in this experiment')
+    if context:
+        from context import attach
+        def project(xy, size):
+            return ((xy/size+[tx, ty])*[span, -span]+[-GIRTH_M/2, GIRTH_M/2]-anchor)*scale
+        report['context'] = attach(samples, layers, project, receipt['sha256'], indexed)
+    return samples, report
 
 
 def main():

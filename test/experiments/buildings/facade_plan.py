@@ -9,6 +9,7 @@ from shell import prepare
 from massing import MIN_EDGE_M, polygons_of, stack
 from features import describe, prepare as prepare_features
 from provider_contract import attributes, hidden, number, origin, seed_for, srgb
+from recipes import choose, frontage
 
 REPEAT_DTYPE = np.dtype([('width_m', '<f8'), ('height_m', '<f8'), ('depth_m', '<f8'),
                          ('columns', '<u4'), ('rows', '<u4'), ('opening_width', '<f8'), ('opening_height', '<f8')])
@@ -57,8 +58,12 @@ def author(sample, style=None, massing=None):
     roof = properties.get('roof:shape', 'flat')
     if roof != 'flat':
         raise ValueError(f'roof recipe not yet implemented: {roof}')
+    context = sample.get('context', dict(version=1, evidence=[]))
+    recipe = choose(properties, context, polygon, top, bottom)
+    rhythm = recipe['parameters']
     supplied_rows = properties.get('building:levels')
-    levels = source_number(supplied_rows) if supplied_rows is not None else max(1, math.floor((top-bottom)/2.9+.5))
+    floor_height = rhythm['floor_m'] if style == 'osm' else 2.9
+    levels = source_number(supplied_rows) if supplied_rows is not None else max(1, math.floor((top-bottom)/floor_height+.5))
     if not math.isfinite(levels) or levels < 1 or levels != int(levels):
         raise ValueError('invalid supplied storeys')
     rows = int(levels)
@@ -67,6 +72,8 @@ def author(sample, style=None, massing=None):
     closed = kind in ('chimney', 'silo', 'storage_tank', 'water_tower', 'industrial', 'warehouse', 'roof')
     if kind == 'unknown' and top-bottom > 3*math.sqrt(polygon.area):
         closed = True
+    if style == 'osm':
+        closed = recipe['family'] in ('utility', 'garage', 'unknown')
     blocked = 'closed utility body' if closed else 'supplied building part' if properties.get('building:part') else None
     layers, decision = stack(polygon, bottom, top, rows, style, massing, blocked)
     facades = []
@@ -77,9 +84,11 @@ def author(sample, style=None, massing=None):
                     length = float(np.linalg.norm(b-a))
                     if length <= MIN_EDGE_M:
                         raise ValueError('zero length building edge')
-                    columns = max(1, int(math.floor(length/3.2+.5)))
-                    width, height = (.88, .64) if style == 'midcentury' else (.8, .58)
-                    if style == 'osm' or closed or length < 1.9:
+                    axis = rhythm['axis_m'] if style == 'osm' else 3.2
+                    columns = max(1, int(math.floor(length/axis+.5)))
+                    width, height = (rhythm['width'], rhythm['height']) if style == 'osm' else (
+                                    (.88, .64) if style == 'midcentury' else (.8, .58))
+                    if closed or length < 1.9:
                         width = height = 0.
                     facades.append(dict(a=a, b=b, layer=index, bottom_m=layer['bottom_m'], top_m=layer['top_m'],
                                         normal=np.r_[(b-a)[1], -(b-a)[0], 0.]/length,
@@ -87,7 +96,8 @@ def author(sample, style=None, massing=None):
                                                       layer['floors'], width, height)))
     product = dict(id=sample['id'], rings=rings, polygon=shapely.Polygon(rings[0], rings[1:]),
                 top_m=top, bottom_m=bottom, style=style, seed=seed, facades=facades, layers=layers, massing=decision,
-                source_properties=properties.copy(), wall_linear=wall_colour(properties, (1., 1., 1.) if style == 'osm' else (.8, .79, .74)),
+                source_properties=properties.copy(), context=context, recipe=recipe,
+                wall_linear=wall_colour(properties, (1., 1., 1.) if style == 'osm' else (.8, .79, .74)),
                 provenance=dict(source_sha256=sample.get('source_sha256'),
                                 height=origin(properties, 'height', 'render_height'),
                                 bottom=origin(properties, 'min_height', 'render_min_height'),
@@ -97,7 +107,11 @@ def author(sample, style=None, massing=None):
                                 roof='supplied' if 'roof:shape' in properties else 'procedural',
                                 style='source-volume' if style == 'osm' else 'procedural',
                                 massing='preserved' if style == 'osm' else 'procedural',
-                                openings='unavailable' if style == 'osm' else 'procedural', kind=kind))
+                                openings=recipe['openings'] if style == 'osm' else 'procedural',
+                                use=recipe['origin'], kind=kind))
+    if style == 'osm':
+        for facade in facades:
+            facade['frontage_sources'] = frontage(facade, context)
     product['features'] = describe(product)
     product['opening_patterns'] = sorted({(f['repeat'].opening_width, f['repeat'].opening_height)
                                          for f in facades if f['repeat'].count})

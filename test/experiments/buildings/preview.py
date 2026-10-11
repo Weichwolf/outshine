@@ -120,6 +120,9 @@ def main():
     parser.add_argument('--lod', choices=('detail', 'shell', 'reference'), default='detail')
     parser.add_argument('--distance', type=float, default=1.)
     parser.add_argument('--site', default='Vienna')
+    parser.add_argument('--recipe', choices=('residential', 'commercial', 'institutional', 'industrial', 'garage',
+                                            'religious', 'utility', 'mixed-use', 'unknown'))
+    parser.add_argument('--source-only', action='store_true')
     parser.add_argument('--cached-plan', type=Path)
     parser.add_argument('--city', action='store_true')
     parser.add_argument('--prepare-only', action='store_true')
@@ -128,14 +131,14 @@ def main():
         parser.error('--distance must be positive and finite')
     args.output.mkdir(parents=True, exist_ok=True)
     if args.cached_plan:
-        if args.city or args.style:
+        if args.city or args.style or args.recipe or args.source_only:
             parser.error('--cached-plan already defines the building and style')
         data = args.cached_plan.read_bytes()
         products = [decode(data)]
         receipt = dict(cache_hit=str(args.cached_plan), asset_sha256=hashlib.sha256(data).hexdigest(),
                        receipt=dict(sha256=products[0]['provenance'].get('source_sha256')))
     else:
-        samples, receipt = read_site(args.site)
+        samples, receipt = read_site(args.site, context=not args.source_only)
     if args.city:
         chosen = [s for s in samples if s['polygon'].distance(shapely.Point(0, 0)) < 300]
         products = []
@@ -151,14 +154,24 @@ def main():
             low, high = (2.5, 8.5) if args.style == 'midcentury' else (8., 20.)
             chosen = [s for s in samples if 100 < s['polygon'].area < 500 and len(s['polygon'].exterior.coords) < 15
                       and not s['polygon'].interiors and low <= float(s['properties'].get('render_height', 9.)) <= high]
+            if args.recipe:
+                from recipes import choose
+                chosen = [s for s in samples if choose(s['properties'], s.get('context', {}), s['polygon'],
+                          float(s['properties']['render_height']), float(s['properties']['render_min_height']))['family'] == args.recipe
+                          and not s['polygon'].interiors and s['polygon'].area < 4000]
+            if not chosen:
+                raise ValueError('no source building matches the requested recipe')
             sample = min(chosen, key=lambda s: s['polygon'].distance(shapely.Point(0, 0)))
             products = [plan(sample, args.style, args.massing)]
         eye, target = house_view(products[0])
         if not args.cached_plan:
-            (args.output/(products[0]['style']+'-enriched-plan.json')).write_bytes(encode(products[0]))
+            label = products[0]['style']+('-'+args.recipe if args.recipe else '')
+            (args.output/(label+'-enriched-plan.json')).write_bytes(encode(products[0]))
     eye = target+(eye-target)*args.distance
     view = View(eye, target, width=1280, height=720, movement_m=1.)
     name = f'{args.site.lower()}-city' if args.city else products[0]['style']
+    if args.recipe:
+        name += '-'+args.recipe
     name += '-'+args.lod
     if args.distance != 1:
         name += '-distance'+str(args.distance)
@@ -166,8 +179,11 @@ def main():
     counts.update(revision(), source_sha256=receipt['receipt']['sha256'], profile=[view.width, view.height],
                   mode=args.lod, cache_hit=bool(args.cached_plan), distance=args.distance,
                   massing=[product['massing'] for product in products],
+                  recipes=[product['recipe'] for product in products],
+                  context=receipt.get('context', {}).get('site_uses', {}),
                   demand='facing/frustum/one-metre movement reserve',
-                  representation='provider-volume' if all(p['style'] == 'osm' for p in products) else 'historical-style-experiment',
+                  representation=('provider-context' if any(p.get('context', {}).get('evidence') for p in products) else 'provider-volume')
+                                 if all(p['style'] == 'osm' for p in products) else 'historical-style-experiment',
                   limitations=['no scene occlusion', 'shadow completeness unproven', 'missing roof/window attributes',
                                'coverage-weighted BSDFs omit recess microshadows and offset reflections'])
     (args.output/(name+'-source.json')).write_text(json.dumps(receipt, indent=2)+'\n')

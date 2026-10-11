@@ -11,6 +11,7 @@ import subprocess
 import mapbox_vector_tile
 
 from evidence import revision
+from context_catalog import LAYER_ROLES, field_role, poi_role
 from provider_contract import FIELDS
 from samples import INVENTORY, SOURCES, centre_receipt
 
@@ -72,14 +73,22 @@ def compare(tilejson, fetch):
         rows.append(dict(mapping, type=kind, observed_features=sum(t['observed_fields'].get(field, 0) for t in tiles),
                          inventory_features=inventory['layers']['building']['keys'].get(field, 0)))
     observed = {field for tile in tiles for field in tile['observed_fields']}
+    layer_recipes = [dict(layer=row['id'], role=LAYER_ROLES.get(row['id'], 'unclassified source metadata'),
+                         fields={k:dict(type=t, role=field_role(row['id'], k)) for k, t in row['fields'].items()})
+                     for row in schema['vector_layers']]
+    poi_classes = inventory['layers']['poi']['values']['class']
+    poi_recipes = [dict(value=value, role=poi_role(dict(**{'class':value})), observed_features=count)
+                   for value, count in sorted(poi_classes.items())]
     return dict(**revision(), observed_utc=datetime.now(timezone.utc).isoformat(), provider='OpenFreeMap / OpenMapTiles',
                 tilejson_path=str(tilejson), tilejson_sha256=hashlib.sha256(raw).hexdigest(), tile_template=schema['tiles'][0],
-                api_layers=schema['vector_layers'], building_fields=rows, fresh_tiles=tiles,
+                api_layers=schema['vector_layers'], layer_recipes=layer_recipes, poi_recipes=poi_recipes,
+                building_fields=rows, fresh_tiles=tiles,
                 undeclared_observed_fields=sorted(observed-set(fields)), missing_building_fields=[k for k in MISSING if k not in fields],
                 previous_inventory=dict(path=str(INVENTORY), sha256=hashlib.sha256(inventory_bytes).hexdigest(),
                                         tiles=inventory['successful_tiles'], features=inventory['layers']['building']['features']),
                 rule_parameters='Eigene CGA-Namen; PRT gleicht Attribute nach Name und Typ mit dem CGB ab.',
-                context='POI/Landuse/Transport sind verfügbar, aber keine belegten Eigenschaften jedes Gebäudes. '
+                context='Alle Layer/Felder erhalten eine Rolle. Flächenüberdeckung liefert Nutzungskontext; '
+                        'POIs und Hausnummern benötigen einen eindeutigen Host. POIs behalten ihren Teil-/Geschossumfang. '
                         'streetWidth ist ein Esri-Kantenattribut; der Provider liefert keine konstruktiven Straßenbreiten.',
                 scope='Explizite API-Kontrolle; keine Aktualisierung der gepinnten Versuchsquellen oder fertiger Assets.',
                 references=REFERENCES)

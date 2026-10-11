@@ -13,30 +13,31 @@ Tags: buildings, roofs, facades, semantics
 Aktueller Auftrag: OSM-Gebäude/Architektur so genau wie die Provider-API ermöglicht; Esri/CGA-Rezepte als Python-Basis.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
 Gelieferte Form/Attribute bestimmen die Geometrie. Frühere Bauhaus-/PV-/Balkonversuche sind keine Gestaltungsvorgabe.
-Providerprüfung: vier Gebäudefelder; 13.955 gültige Quellkörper, 39 `hide_3d`-Auslassungen und ein ungültiges Höhenintervall. Native Budgets unbewiesen.
+16 Providerlayer/137 POI-Klassen/476 Unterklassen berücksichtigt; 3.448 kontextgestützte Familien, 4.492 lokale POI-Nutzungen. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
 [Experimente](../test/experiments/buildings/facade_plan.py): Quellen → Massierung/Fassade/Ausstattung → fertige Hülle → Kamerabedarf.
 Gepinnte z14-Tiles Wien/Tokyo/Central Park mit SHA-Prüfung; Client-Pref `sources/building-experiments/`, Erwerb nur `samples.py --fetch`.
-Schema 3: Form/Höfe/Höhen/Quellattribute/Farbe/Achsen und fertige Mantel-/Terrassen-/Unterseiten-/Ausstattungspuffer ohne Hit-Neubau.
+Schema 4: fertige Hülle, Form/Höfe/Höhen/Farbe, Kontextzeugen/Teilnutzungen und Rezept; Schema-3-Referenzen bleiben lesbar.
 `preview.py --cached-plan <Plan>` spielt echte Rohlinge quellenfrei ab; Hüllen-Coverage aus gespeicherten Parametern.
-Gleiche Öffnungen als Split-/Voll-Liste oder 48-Byte-Repeat; Quellaufbereitung separat, frische Prozesse/Peak-RSS.
+Kompakte metrische Repeats; Grundriss/Höhen/Quellfarbe bleiben trotz Nutzungshinweisen unverändert.
 Hülle/Leibungen teilen metrische Achsen/Box-Coverage; Facing/Frustum, 1 m Bewegungsreserve und projizierte Tiefe vor Expansion.
 0,5 px Detailgrenze ist eine Hypothese, kein Gerätegate; Drehung deckt alle Kanten ab. Über 50.000 Öffnungen: Hülle samt Grund.
 Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine durchstoßende Leibung.
-`verify_provider.py`: alle Quellkörper/Volumen, PRT-Achsen/Höfe/sRGB, 48 Rohlinge × acht Cache-Posen; frühere Fassaden-/Massierungstests bleiben.
-Frühere Diagnosehüllen mischen Wand-/Rahmen-/Glas-BSDFs nach [Coverage](https://docs.blender.org/manual/en/4.3/render/shader_nodes/shader/mix.html).
-Standardrezept: Grundriss/Höfe und geliefertes Höhenintervall erhalten, keine erfundenen Staffelungen oder Ausstattung.
-Frühere Stilrezepte bleiben explizite Vergleiche. Numerische Nulllängen bis 1e-8 m normalisieren.
-[`provider_compare.py`](../test/experiments/buildings/provider_compare.py): Live-TileJSON, 352-Tile-Inventur und drei frische Kontrollkacheln.
-Esri `InitialShapeBuilder`: freie Regelattribute nach Name/Typ; keine universelle Gebäude-Tagtabelle. Grundriss/Höfe als Startgeometrie.
+`verify_provider.py`: 13.955 Quellkörper/Volumen, 39 `hide_3d`-Auslassungen, ein ungültiges Höhenintervall; PRT-Achsen/Höfe/sRGB.
+[`context.py`](../test/experiments/buildings/context.py): exakte [STRtree](https://shapely.readthedocs.io/en/stable/strtree.html)-Punkt-/Flächenzuordnung; Parts getrennt, keine pauschale nächste POI-Zuordnung.
+Landuse ab 80 % Überdeckung; verschachtelte Teilfläche vor Umgebung, widersprüchliche Klassen bleiben gemischt.
+POI/Hausnummer nur mit eindeutigem Host; Höfe, gemeinsame Grenzen und Erdgeschoss unter erhöhtem Part beachten. POI bleibt Teil-/Geschossnutzung.
+[`provider_compare.py`](../test/experiments/buildings/provider_compare.py): Live-TileJSON, Inventur/frische Tiles; freie Esri-Regelattribute aus Quelle/Teilnutzungen. Keine SDK-Ausführung.
 OpenFreeMap `building`: `render_height`/`render_min_height` → Höhe/Unterkante, `colour` → sRGB-Wandfarbe, `hide_3d` → Auslassung mit Grund.
 Höhen sind provideraufbereitet; sie beweisen keine originalen `height`-/Geschosstags. Dachform/Nutzung/Material fehlen in diesem Layer.
-POI/Landuse/Transport sind Kontext: keine pauschale Übertragung auf ein ganzes Gebäude; Straßenbreite braucht konstruierten Straßenplan.
-Früherer `massing_benchmark.py`: direkte Bandflächen gegen [Manifold](https://github.com/elalish/manifold)-Union gleicher Prismen; direkte gewählt (2,2–2,4×, gleicher Payload).
-[Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash und publiziert nach
-`/tmp/outshine-buildings-showcase/`; Port 8766 zeigt letzte Varianten und interaktive Körper-/Fassadenkosten samt Commit.
+[`recipes.py`](../test/experiments/buildings/recipes.py): Wohn-/Gewerbe-/Industrie-/Institution-/Mischfassaden; direkte Angaben vor Kontext/Schlankheit, Unbekanntes bleibt unbekannt.
+Verkehr/Wasser/Aeroway bis 12 m Umgebung; Bridge/Tunnel/Ebenen/Zugang begrenzen Frontage. Keine erfundene Straßenbreite/Dachform/Ausstattung.
+[`context_catalog.py`](../test/experiments/buildings/context_catalog.py): alle Layer/Felder bekommen eine Rolle; regionale Namen/Höhen/Schutzgebiete bleiben Quellmetadaten.
+[`verify_context.py`](../test/experiments/buildings/verify_context.py): alle drei Kacheln; 3 × 64 Hosts exakt gegen Vollsuche, Rezeptfamilien/acht Cache-Posen ohne Quellen/Join/Hüllenaufbau.
+Multipart-Zerlegung erhält gültige Einzelgeometrien; gleiche Flächenklasse vereinen, ungültige Teile mit Grund erhalten. Python-Kontextvorbereitung bisher 1,8–2,4 s/Kachel.
+[Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash; `/tmp/outshine-buildings-showcase/`, Port 8766, Varianten/Kontext/Kosten samt Commit.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. [VisusCity](https://visusarts.itch.io/visuscity-vol2) ist Bildmaßstab.
 
 ## Besitzer und Lieferung
@@ -61,8 +62,7 @@ gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. H
   Wohnblock/Büro/Hotel (Höfe/Parts, regelmäßige Öffnungen), Halle/Lager (Tore, wenige Öffnungen),
   Schornstein (geschlossener, meist runder/verjüngter Schaft), Silo/Tank (Behälter), Wasserturm
   (Schaft plus Behälter), Kirche (Langhaus plus Turm), Garage/Schuppen (Tor), Gewächshaus
-  (Tragwerk plus Glas), erhöhte Parts/Brücken (freie Unterkante). Unbekannte Nutzung: einfacher Ersatz.
-  Gelieferte Form/Material schlagen Ergänzungen; Baujahr beweist kein Material.
+  (Tragwerk plus Glas), erhöhte Parts/Brücken (freie Unterkante). Unbekannt: einfacher Ersatz; gelieferte Form/Material gehen vor, Baujahr beweist kein Material.
 - Weitere Sonderrezepte: Kühlturm (offene gekrümmte Schale), Windrad (Mast/Gondel/Rotor),
   Solarpark (gebündelte geneigte Modulreihen), Strommast/Leitung und technische Anlagen.
   Attribute persistieren und vor Ergänzung auswerten; fehlende Klassen aus Form/Lage/Umfeld ergänzen.

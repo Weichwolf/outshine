@@ -7,6 +7,7 @@ import numpy as np
 from PIL import ImageColor
 
 from massing import polygons_of
+from recipes import choose, cga_attributes
 
 FIELDS = (
     dict(field='render_height', type='Number', target='buildingHeight',
@@ -88,9 +89,13 @@ def initial_shape(sample):
         if len(rings) > 1:
             holes.extend([outer, *range(outer+1, len(counts)), 0xffffffff])
     seed = seed_for(sample['id']) & 0xffffffff
+    parameters = attributes(sample['properties'])
+    context = sample.get('context', dict(version=1, evidence=[]))
+    recipe = choose(sample['properties'], context, polygon, parameters['buildingHeight'], parameters['minHeight'])
     return dict(name=str(sample['id']), random_seed=seed if seed < 0x80000000 else seed-0x100000000,
                 geometry=dict(vertices=vertices, face_indices=indices, face_counts=counts, holes=holes),
-                attributes=attributes(sample['properties']), source_properties=sample['properties'].copy(),
+                attributes=parameters | cga_attributes(recipe, context), source_properties=sample['properties'].copy(),
+                context=context, recipe_parameters='Own CGA names; scoped arrays do not assert whole-building use',
                 coordinates='local metres: (east, north, up) → Esri (east, up, south)',
                 recipe='translate minHeight along world.up; extrude(world.up, bodyHeight); wall color(sRGB)',
                 execution='PRT-compatible input descriptor; no CGB or Esri runtime execution')
