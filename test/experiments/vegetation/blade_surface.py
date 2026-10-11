@@ -1,4 +1,4 @@
-"""Metre-scale folded leaf/grass ribbons with a petiole and analytical normals."""
+"""Metre-scale cupped leaves and folded grass ribbons with analytical normals."""
 
 from dataclasses import dataclass
 from functools import lru_cache
@@ -25,6 +25,7 @@ class Blade:
     base_fill: float = 0.03
     bend: float = 0.32
     fold: float = 0.13
+    fold_power: int = 2
     twist: float = 0.1
     petiole: float = 0.004
 
@@ -50,6 +51,10 @@ class Blade:
             )
         if not isinstance(self.lobes, (int, np.integer)) or not 0 <= self.lobes <= 32:
             raise ValueError("bounded nonnegative integer lobe count required")
+        if not isinstance(
+            self.fold_power, (int, np.integer)
+        ) or self.fold_power not in (1, 2):
+            raise ValueError("linear fold or quadratic cup required")
         if (
             not 0 <= self.lobe_depth < 1
             or not 0 <= self.base_fill <= 1
@@ -118,20 +123,22 @@ class Blade:
             -twist[..., None] * lateral
             - (bend * np.cos(self.twist * positive))[..., None] * tangent
         )
+        profile = np.abs(s) ** self.fold_power
+        slope = self.fold_power * np.abs(s) ** (self.fold_power - 1) * side
         position = (
             centre
             + (s * width)[..., None] * lateral
-            + (np.abs(s) * width * self.fold)[..., None] * normal
+            + (profile * width * self.fold)[..., None] * normal
         )
         dt = (
             self.length * tangent
             + (s * derivative)[..., None] * lateral
             + (s * width)[..., None] * dt_lateral
         )
-        dt += (np.abs(s) * self.fold * derivative)[..., None] * normal + (
-            np.abs(s) * self.fold * width
+        dt += (profile * self.fold * derivative)[..., None] * normal + (
+            profile * self.fold * width
         )[..., None] * dt_normal
-        ds = lateral + (self.fold * np.asarray(side))[..., None] * normal
+        ds = lateral + (self.fold * slope)[..., None] * normal
         normals = np.cross(ds, dt)
         magnitude = np.linalg.norm(normals, axis=-1)
         normals /= magnitude[..., None]
@@ -194,5 +201,9 @@ class Blade:
             )
         if self.petiole > 0 and self.base_fill > 0:
             width = self.width_profile(np.array([0.0]))[0][0]
-            total += 2 * width * self.petiole * np.sqrt(1 + self.fold**2)
+            slope = self.fold_power * ((across + 1) / 2) ** (self.fold_power - 1)
+            cross_length = np.sum(
+                across_weights * np.sqrt(1 + (self.fold * slope) ** 2)
+            )
+            total += width * self.petiole * cross_length
         return total

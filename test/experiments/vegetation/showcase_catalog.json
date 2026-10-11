@@ -1,6 +1,6 @@
 {
-  "current_work": "SpeedTree-Referenz: acht Pflanzenmodelle, Blattgruppen, Anker, LOD und Wind untersucht. Eigene Blatt-/Grasflächen und fünf Blattstellungen bestehen die Geometrie- und Anschlussprüfung. Belaubte Triebe und Gras liegen als Render-Eingaben vor; die Bildabnahme steht noch aus.",
-  "quality_gap": "Glaubwürdiges Nahlaub, vollständige Waldprodukte und gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
+  "current_work": "Erste räumliche Blattgruppen und Grashorste sind gerendert und betrachtet. Breite Blätter erhalten Wölbung und stabile Formvarianten; Halme behalten ihre Falz. SpeedTree-Referenz: acht Pflanzenmodelle, Generatorhierarchie, Anker, LOD und Wind untersucht. Geometrie und gemeinsame Ablage werden unabhängig geprüft und gemessen.",
+  "quality_gap": "Die Organbilder sind Formstudien. Natürliche Verzweigung und Verteilung, vollständige Waldprodukte, Wind sowie gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
   "renders": [
     {
       "image": "render/landscape-temperate.png",
@@ -25,6 +25,22 @@
       "category": "landscape",
       "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
       "quality": "Erster Formstand · Gras und Nahlaub offen"
+    },
+    {
+      "image": "render/organ-shoots.png",
+      "title": "Belaubte Triebe · Blattstellungen und Wölbung",
+      "label": "Nahdetail",
+      "category": "organs",
+      "description": "Drei 48-cm-Triebe zeigen wechselständige, spiralige und kreuzgegenständige Anschlüsse als Architekturprobe. 44 räumliche Blattflächen mit acht Formvarianten, prozeduraler Mittelrippe und qualitativem Reflexions-/Transmissionsmaterial. Die gemeinsame Blattform behauptet keine botanische Rekonstruktion aller drei Pflanzen.",
+      "quality": "Organstudie · Verzweigung und natürliche Varianz offen"
+    },
+    {
+      "image": "render/organ-grass.png",
+      "title": "Grashorste · gebogene und gefalzte Halme",
+      "label": "Nahdetail",
+      "category": "organs",
+      "description": "1.764 bodenverbundene Halme aus acht geteilten Geometrievarianten. Dünne Flächen erhalten eigene Normalen und werfen einzelne Schatten. Die Verteilung ist eine diagnostische Horstprobe; natürliche Grasdecken und ihre LODs fehlen.",
+      "quality": "Organstudie · auffällig regelmäßige Horstverteilung"
     },
     {
       "image": "render/crown-level5.png",

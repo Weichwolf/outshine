@@ -164,6 +164,48 @@ def demand_plot(report):
     return save_plot(figure, "stand-demand")
 
 
+def organ_storage_plot(report):
+    figure, axes = plt.subplots(1, 2, figsize=(10, 4.2), layout="constrained")
+    style_axes(axes)
+    cases = report["storage"]
+    x = np.arange(len(cases))
+    for offset, method, label, colour in zip(
+        (-0.18, 0.18),
+        ("shared", "expanded"),
+        ("Geteiltes Mesh + Instanzen", "Expandierte Geometrie"),
+        COLOURS,
+    ):
+        memory = [case["bytes"][method] / 1024**2 for case in cases]
+        elapsed = [case["median_build_ms"][method] for case in cases]
+        samples = np.array([case["build_samples_ms"][method] for case in cases])
+        spread = np.vstack(
+            (elapsed - samples.min(axis=1), samples.max(axis=1) - elapsed)
+        )
+        for axis, values, error in zip(axes, (memory, elapsed), (None, spread)):
+            bars = axis.bar(
+                x + offset,
+                values,
+                0.34,
+                label=label,
+                color=colour,
+                yerr=error,
+                capsize=4 if error is not None else 0,
+            )
+            axis.bar_label(bars, labels=[f"{value:.3g}" for value in values], padding=5)
+    for axis in axes:
+        axis.set_xticks(x, [f"{case['leaves']:,}".replace(",", ".") for case in cases])
+        axis.set_xlabel("Blätter [Anzahl]")
+        axis.margins(y=0.22)
+    axes[0].set_ylabel("Geometrie + Platzierungen [MiB]")
+    axes[1].set_ylabel("CPU-Zusammenstellung [ms, logarithmisch]")
+    axes[1].set_yscale("log")
+    axes[0].legend(frameon=False, fontsize=8)
+    figure.suptitle(
+        "Identische Blattgeometrie · Instanzen statt Expansion", fontsize=14
+    )
+    return save_plot(figure, "organ-storage")
+
+
 def copy_image(source, output):
     with source.open("rb") as handle:
         digest = hashlib.file_digest(handle, "sha256").hexdigest()
@@ -228,6 +270,12 @@ def plot_entries(output):
             demand_plot,
             "Nahdetail erst bei Bedarf",
             "Vollständige und bedarfsgesteuerte Suche liefern dieselben angeforderten Standorte. Zusätzlich erzeugte Nahstandorte stammen aus vollständigen Zellprodukten. Cachehit in dieser Probe: Wiederholung im selben Prozess; persistenter nativer Cache und fertiges Wald-Bild fehlen.",
+        ),
+        (
+            "organs/organs.json",
+            organ_storage_plot,
+            "Blattgeometrie teilen",
+            "Gleiche Geometrie, Ecknormalen und UVs: ein Mesh mit Platzierungen gegen vollständige Expansion. 32 Längssegmente, eine Querteilung je Blatthälfte. Balken: Median aus drei Zusammenstellungen; Spannen: Minimum bis Maximum. Gemeinsamer Mesh-Aufbau und Platzierungsplan sind ausgeklammert. Keine GPU-, Draw- oder Laufzeitmessung; die Nahbilder verwenden feinere Blätter.",
         ),
     )
     entries = []

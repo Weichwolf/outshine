@@ -58,7 +58,9 @@ ist qualitative Näherung, kein implementiertes gemessenes BSSRDF-Modell.
 
 ## Umsetzung
 `curve_frame.py`: bogenlängenparametrisierte Kreisachse mit orthonormalem Rahmen.
-`blade_surface.py`: gelappte Randfunktion, Biegung, Falz, Twist; analytische Flächennormalen.
+`blade_surface.py`: gelappte Randfunktion, Biegung, Twist; analytische Flächennormalen.
+Breite Blätter erhalten eine quadratische Querwölbung, Grashalme eine lineare Falz;
+Positionen und Differentiale verwenden dieselbe Form. Vorherige reine Falz wirkte im Bild papierartig.
 Gemeinsame Parameterpositionen bleiben bei Unterteilung gleich; Spitze ohne Nulldreiecke.
 Twist benötigt auch Querteilung: nur Längsteilung konvergiert bei der Flächenprüfung nicht korrekt.
 Blattstiel beginnt genau am Triebknoten. Falz/Blattstielknick besitzen seitenspezifische Ecknormalen.
@@ -66,8 +68,14 @@ Fläche durch konvergierte Quadratur; Triebgruppen speichern Anzahl/Fläche/Boun
 `shoot_plan.py`: fünf Blattstellungen, physische Internodien, unveränderliche geteilte Platzierungen.
 `axis_surface.py`: geschlossener gekrümmter Trieb; `organ_experiment.py` prüft Differentiale,
 Flächen, Unterteilung, Anschlüsse/Bounds/Budgets und gleiche Geometrie bei gemeinsamer/expandierter Ablage.
-Feste Render-Eingaben: drei belaubte Triebe und 1 764 Halme; Render-Abnahme steht noch aus.
+`organ_preview.py` konsumiert deklarierte Szenarien mit geteilten Meshes und Platzierungsrahmen.
+Feste Bilder: drei 48-cm-Triebe mit 44 Blättern und 1 764 Halme; EEVEE-Proben optisch betrachtet.
+Acht stabile Blattvarianten und feinere Ränder beheben Gleichförmigkeit/Kantigkeit; keine fertigen Pflanzen.
+Prozedurale Mittelrippe, Reflexion/Transmission und echte Schatten; keine Fototexturen.
+Gras-Horstverteilung ist noch auffällig regelmäßig, natürliche Verzweigung fehlt.
 Geteilte Organ-Meshes plus kompakte Platzierungen gegen vollständige Expansion messen.
+Kostenprobe: dieselbe Geometrie/UVs/Ecknormalen, 32 Längssegmente und eine Querteilung je Hälfte.
+Median/Spanne aus drei Zusammenstellungen; gemeinsamer Mesh-/Platzierungsaufbau und Prüfungen aus Messzeit.
 Grobe Anfragen benötigen keine Organpositionen; begrenzte Expansion erhält unbearbeitete Teilpläne.
 Ruheplan/IDs sind kamera- und zeitunabhängig; Wind wirkt später an denselben Ankern.
 

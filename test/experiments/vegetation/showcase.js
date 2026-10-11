@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const escaped = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const categoryNames = {all:'Alle',landscape:'Landschaften',proxy:'Formproxy',wood:'Aststruktur',comparison:'Vergleich'};
+const categoryNames = {all:'Alle',landscape:'Landschaften',organs:'Blätter und Gras',proxy:'Formproxy',wood:'Aststruktur',comparison:'Vergleich'};
 let manifest = null;
 let filter = 'all';
 let selectedPlot = 0;

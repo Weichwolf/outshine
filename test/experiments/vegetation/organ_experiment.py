@@ -27,6 +27,7 @@ GRASS = Blade(
     base_fill=0.7,
     bend=1.15,
     fold=0.25,
+    fold_power=1,
     twist=0,
     petiole=0,
 )
@@ -42,6 +43,7 @@ def check_blades():
     oak = Blade(lobes=6)
     cases = [
         oak,
+        replace(oak, fold_power=1),
         GRASS,
         replace(oak, bend=0, twist=0, fold=0),
         replace(oak, bend=-1.3, fold=-0.25, twist=1.4),
@@ -89,10 +91,22 @@ def check_blades():
             np.testing.assert_array_equal(p, lookup[tuple(uv)])
         if blade.petiole and blade.base_fill:
             _, n, _ = blade.evaluate(0, 0.5, 1, petiole_side=True)
+            slope = blade.fold_power * 0.5 ** (blade.fold_power - 1)
             np.testing.assert_allclose(
                 n,
-                np.array((-blade.fold, 0, 1)) / np.sqrt(1 + blade.fold**2),
+                np.array((-blade.fold * slope, 0, 1))
+                / np.sqrt(1 + (blade.fold * slope) ** 2),
                 atol=1e-12,
+            )
+        if blade.fold_power == 2:
+            np.testing.assert_array_equal(
+                blade.evaluate(t, 0, -1)[1], blade.evaluate(t, 0, 1)[1]
+            )
+            scalar = replace(blade, bend=0, twist=0, petiole=0.004, lobes=0)
+            width = scalar.width_profile(0.0)[0]
+            _, _, density = scalar.evaluate(-0.002 / scalar.length, 0.5, 1)
+            np.testing.assert_allclose(
+                density, width * scalar.length * np.sqrt(1 + scalar.fold**2), rtol=1e-12
             )
         results.append(
             {
@@ -122,6 +136,7 @@ def check_blades():
         {"lobes": 0.5},
         {"bend": 4},
         {"lobe_depth": 1},
+        {"fold_power": 3},
     ):
         try:
             Blade(**invalid)
@@ -219,6 +234,8 @@ def storage_comparison():
                         ).reshape(-1, 3),
                         "parameters": np.tile(mesh["parameters"], (count, 1)),
                     }
+                measurements.append((time.perf_counter() - began) * 1000)
+                if method == "expanded":
                     for i in (0, count - 1):
                         actual = product["vertices"][
                             i * len(mesh["vertices"]) : (i + 1) * len(mesh["vertices"])
@@ -228,7 +245,7 @@ def storage_comparison():
                             mesh["vertices"] @ frames[i].T + origins[i],
                             atol=1e-15,
                         )
-                measurements.append((time.perf_counter() - began) * 1000)
+                    del actual
                 sizes[method] = sum(a.nbytes for a in product.values())
                 del product
         results.append(
@@ -236,7 +253,12 @@ def storage_comparison():
                 "leaves": count,
                 "bytes": sizes,
                 "median_build_ms": {k: float(np.median(v)) for k, v in timings.items()},
+                "build_samples_ms": timings,
+                "mesh_segments": 32,
+                "mesh_across": 1,
+                "triangles_per_leaf": len(mesh["faces"]),
                 "placement_planning": "common input excluded",
+                "timing_scope": "geometry assembly; common mesh and placements excluded",
                 "same_geometry": True,
             }
         )
@@ -257,13 +279,14 @@ def write_product(output, name, mesh, origins, frames, surface):
 
 def make_scenes(output):
     products = []
-    origins, frames = [], []
+    origins, frames, variants = [], [], []
     for index, style in enumerate(("distichous", "spiral", "decussate")):
         shoot = Shoot(seed=17 + index, bend=0.22 + 0.14 * index, arrangement=style)
         offset = np.array(((index - 1) * 0.3, 0, -0.006))
         poses = shoot.detail(100)
         origins.extend(poses["origins"] @ UPRIGHT.T + offset)
         frames.extend(np.einsum("ij,njk->nik", UPRIGHT, poses["frames"]))
+        variants.extend((index * 5 + poses["ids"] * 3) % 8)
         products.append(
             write_product(
                 output,
@@ -274,25 +297,36 @@ def make_scenes(output):
                 "wood",
             )
         )
-    products.append(
-        write_product(
-            output,
-            "oak-leaves",
-            Blade(lobes=6).mesh(32),
-            np.array(origins),
-            np.array(frames),
-            "leaf",
+    origins, frames, variants = np.array(origins), np.array(frames), np.array(variants)
+    for variant in range(8):
+        blade = Blade(
+            lobes=6,
+            length=0.12 * (0.85 + 0.15 * variant / 7),
+            width=0.06 * (0.88 + 0.12 * ((variant * 3) % 8) / 7),
+            fold=0.045 + 0.085 * variant / 7,
+            bend=0.18 + 0.27 * variant / 7,
+            twist=(variant - 3.5) * 0.08,
         )
-    )
+        mask = variants == variant
+        products.append(
+            write_product(
+                output,
+                f"oak-leaf-{variant}",
+                blade.mesh(64, across=2),
+                origins[mask],
+                frames[mask],
+                "leaf",
+            )
+        )
     recipes = [
         {
             "name": "shoots",
             "title": "Belaubte Triebe: wechselständig, spiralig, kreuzgegenständig",
             "products": products,
-            "camera": [0.78, -1.3, 0.9],
+            "camera": [0.55, -1.15, 0.78],
             "target": [0, 0, 0.26],
-            "fov_y": 36,
-            "ground_size_m": 6,
+            "fov_y": 32,
+            "ground_size_m": 50,
         }
     ]
     rng = np.random.default_rng(31)
@@ -335,7 +369,7 @@ def make_scenes(output):
             "camera": [1.65, -2.2, 1.0],
             "target": [0, 0, 0.22],
             "fov_y": 44,
-            "ground_size_m": 8,
+            "ground_size_m": 50,
         }
     )
     for recipe in recipes:
