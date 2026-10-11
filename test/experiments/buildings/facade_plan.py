@@ -102,6 +102,8 @@ def author(sample, style=None, massing=None):
                                 height=origin(properties, 'height', 'render_height'),
                                 bottom=origin(properties, 'min_height', 'render_min_height'),
                                 footprint='supplied',
+                                footprint_coverage=('tile boundary; completeness unproven' if sample.get('tile_boundary') else 'contained in tile')
+                                                   if 'tile_boundary' in sample else 'source extent unspecified',
                                 wall_colour='supplied' if any(k in properties for k in ('building:colour', 'colour', 'color')) else 'procedural',
                                 floors='supplied' if supplied_rows is not None else 'procedural',
                                 roof='supplied' if 'roof:shape' in properties else 'procedural',

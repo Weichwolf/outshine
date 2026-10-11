@@ -1,5 +1,6 @@
 """Small CGA-like facade recipes selected from supplied tags and scoped provider context."""
 
+import math
 import shapely
 
 from context_catalog import LOCAL_USES
@@ -43,6 +44,11 @@ def choose(properties, context, polygon, top, bottom):
             family, origin, reason = 'mixed-use', 'context-heuristic', 'partial local use; no claim about the whole building'
         elif family == 'unknown' and top-bottom > 3*polygon.area**.5:
             origin, reason = 'shape-heuristic', 'unknown slender body; closed replacement, not a proven utility type'
+        if family != 'unknown':
+            corners = list(polygon.minimum_rotated_rectangle.exterior.coords)
+            width = min(math.dist(a, b) for a, b in zip(corners, corners[1:]))
+            if width <= 1.9:
+                family, origin, reason = 'unknown', 'shape-heuristic', 'body too narrow for an inferred facade; site use retained'
     return dict(version=1, family=family, origin=origin, reason=reason,
                 supplied_kind=supplied, site_use=site, partial_uses=sorted({r['role'] for r in local}),
                 parameters=FAMILIES[family].copy(),

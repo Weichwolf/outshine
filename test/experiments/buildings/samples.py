@@ -78,7 +78,10 @@ def read_site(site, root=SOURCES, context=False, indexed=True):
                 rejected.append(dict(id=key, reason='invalid_or_degenerate_footprint',
                                      detail=shapely.is_valid_reason(polygon)))
                 continue
-            samples.append(dict(id=key, polygon=polygon, properties=properties, source_sha256=receipt['sha256']))
+            coordinates = np.concatenate([np.asarray(r) for r in rings])
+            boundary = bool(np.any(coordinates <= 0) or np.any(coordinates >= extent))
+            samples.append(dict(id=key, polygon=polygon, properties=properties, source_sha256=receipt['sha256'],
+                                tile_boundary=boundary))
     report = dict(site=site, receipt=receipt, origin_lat_lon=[latitude, longitude],
                          source_polygons=len(samples)+len(rejected)+len(omitted), rejected=rejected, omitted=omitted,
                          projection='Mercator scaled at the site latitude; no terrain in this experiment')

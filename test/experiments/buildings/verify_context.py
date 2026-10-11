@@ -82,10 +82,13 @@ def analytic():
     assert not fragmented_report['rejected'] and samples[0]['context']['site_use']['value'] == 'residential'
     slender = choose({}, samples[0]['context'], courtyard, 200., 0.)
     assert slender['family'] == 'residential'
+    thin = shapely.box(0, 0, 10, .5)
+    assert choose({}, samples[0]['context'], thin, 20., 0.)['family'] == 'unknown'
+    assert choose({'building':'residential'}, samples[0]['context'], thin, 20., 0.)['family'] == 'residential'
     return dict(courtyard_exclusion=True, shared_boundary_ambiguous=True, outside_not_nearest=True,
                 elevated_parts_and_level_scope=True, nested_sites=True, conflicting_sites=True,
                 explicit_tags_and_colours_win=True, bridged_road_not_ground_frontage=True,
-                touching_aggregated_parcels=True, use_precedes_slenderness=True)
+                touching_aggregated_parcels=True, use_precedes_slenderness=True, thin_context_body_closed=True)
 
 
 def check_cache(product):

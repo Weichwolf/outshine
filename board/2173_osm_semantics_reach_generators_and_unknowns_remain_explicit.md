@@ -13,7 +13,7 @@ Tags: buildings, roofs, facades, semantics
 Aktueller Auftrag: OSM-Gebäude/Architektur so genau wie die Provider-API ermöglicht; Esri/CGA-Rezepte als Python-Basis.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
 Gelieferte Form/Attribute bestimmen die Geometrie. Frühere Bauhaus-/PV-/Balkonversuche sind keine Gestaltungsvorgabe.
-16 Providerlayer/137 POI-Klassen/476 Unterklassen berücksichtigt; 3.448 kontextgestützte Familien, 4.492 lokale POI-Nutzungen. Native Budgets unbewiesen.
+16 Providerlayer/137 POI-Klassen/476 Unterklassen berücksichtigt; 3.411 kontextgestützte Familien, 4.492 lokale POI-Nutzungen. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
@@ -21,7 +21,7 @@ Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; nati
 Gepinnte z14-Tiles Wien/Tokyo/Central Park mit SHA-Prüfung; Client-Pref `sources/building-experiments/`, Erwerb nur `samples.py --fetch`.
 Schema 4: fertige Hülle, Form/Höfe/Höhen/Farbe, Kontextzeugen/Teilnutzungen und Rezept; Schema-3-Referenzen bleiben lesbar.
 `preview.py --cached-plan <Plan>` spielt echte Rohlinge quellenfrei ab; Hüllen-Coverage aus gespeicherten Parametern.
-Kompakte metrische Repeats; Grundriss/Höhen/Quellfarbe bleiben trotz Nutzungshinweisen unverändert.
+Kompakte Repeats; Form/Höhen/Farbe bleiben erhalten. Körper ≤1,9 m Breite ohne direkte Nutzung bleiben geschlossen; Kachelränder als unvollständig kennzeichnen.
 Hülle/Leibungen teilen metrische Achsen/Box-Coverage; Facing/Frustum, 1 m Bewegungsreserve und projizierte Tiefe vor Expansion.
 0,5 px Detailgrenze ist eine Hypothese, kein Gerätegate; Drehung deckt alle Kanten ab. Über 50.000 Öffnungen: Hülle samt Grund.
 Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine durchstoßende Leibung.
@@ -36,7 +36,7 @@ Höhen sind provideraufbereitet; sie beweisen keine originalen `height`-/Geschos
 Verkehr/Wasser/Aeroway bis 12 m Umgebung; Bridge/Tunnel/Ebenen/Zugang begrenzen Frontage. Keine erfundene Straßenbreite/Dachform/Ausstattung.
 [`context_catalog.py`](../test/experiments/buildings/context_catalog.py): alle Layer/Felder bekommen eine Rolle; regionale Namen/Höhen/Schutzgebiete bleiben Quellmetadaten.
 [`verify_context.py`](../test/experiments/buildings/verify_context.py): alle drei Kacheln; 3 × 64 Hosts exakt gegen Vollsuche, Rezeptfamilien/acht Cache-Posen ohne Quellen/Join/Hüllenaufbau.
-Multipart-Zerlegung erhält gültige Einzelgeometrien; gleiche Flächenklasse vereinen, ungültige Teile mit Grund erhalten. Python-Kontextvorbereitung bisher 1,8–2,4 s/Kachel.
+Multipart-Zerlegung erhält gültige Einzelgeometrien; gleiche Flächenklasse vereinen, ungültige Teile mit Grund erhalten. Python-Kontextvorbereitung bisher 1,6–2,4 s/Kachel.
 [Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash; `/tmp/outshine-buildings-showcase/`, Port 8766, Varianten/Kontext/Kosten samt Commit.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. [VisusCity](https://visusarts.itch.io/visuscity-vol2) ist Bildmaßstab.
 

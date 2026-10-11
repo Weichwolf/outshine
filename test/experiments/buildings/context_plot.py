@@ -54,14 +54,18 @@ def main():
     if dots:
         xy = np.array(dots)
         axes.scatter(xy[:, 0], xy[:, 1], s=10, c='#222d32', marker='o', zorder=5, label='lokaler POI; keine Gesamtgebaudenutzung')
-    axes.set(xlim=(-210, 210), ylim=(-210, 210), aspect='equal', xlabel='Ost [m]', ylabel='Nord [m]')
+    bounds = np.array([s['polygon'].bounds for s in chosen])
+    low, high = bounds[:, :2].min(0), bounds[:, 2:].max(0)
+    centre, radius = (low+high)/2, max(high-low)*.55
+    axes.set(xlim=(centre[0]-radius, centre[0]+radius), ylim=(centre[1]-radius, centre[1]+radius),
+             aspect='equal', xlabel='Ost [m]', ylabel='Nord [m]')
     axes.set_title(f'{args.site} · OSM-Grundrisse + Nutzungskontext', loc='left', fontsize=17, pad=18)
     legend = [Patch(facecolor=COLOURS[key], edgecolor='#50595c', label=f'{key}: {count}') for key, count in families.items()]
     axes.legend(handles=legend, loc='upper left', bbox_to_anchor=(1.02, 1.), frameon=False)
     axes.grid(alpha=.1)
     figure.subplots_adjust(left=.08, right=.77, top=.87, bottom=.16)
     figure.text(.08, .05, 'Farben: abgeleitete Rezeptfamilien, keine gelieferten Wandfarben. Punkte: eindeutig zugeordnete Teilnutzungen.\n'
-                        'Unbekannte Typen bleiben unbekannt; Grundrisse und Höfe werden erhalten.', fontsize=10, color='#50595c')
+                        'Eine gepinnte Kachel: Ausschnitt und Quellabdeckung sind begrenzt. Grundrisse und Höfe bleiben erhalten.', fontsize=10, color='#50595c')
     args.output.mkdir(parents=True, exist_ok=True)
     stem = args.site.lower()+'-context-map'
     image = args.output/(stem+'.png')

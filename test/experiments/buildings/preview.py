@@ -153,12 +153,13 @@ def main():
         if not args.cached_plan:
             low, high = (2.5, 8.5) if args.style == 'midcentury' else (8., 20.)
             chosen = [s for s in samples if 100 < s['polygon'].area < 500 and len(s['polygon'].exterior.coords) < 15
-                      and not s['polygon'].interiors and low <= float(s['properties'].get('render_height', 9.)) <= high]
+                      and not s['polygon'].interiors and not s.get('tile_boundary')
+                      and low <= float(s['properties'].get('render_height', 9.)) <= high]
             if args.recipe:
                 from recipes import choose
                 chosen = [s for s in samples if choose(s['properties'], s.get('context', {}), s['polygon'],
                           float(s['properties']['render_height']), float(s['properties']['render_min_height']))['family'] == args.recipe
-                          and not s['polygon'].interiors and s['polygon'].area < 4000]
+                          and not s['polygon'].interiors and not s.get('tile_boundary') and 50 < s['polygon'].area < 4000]
             if not chosen:
                 raise ValueError('no source building matches the requested recipe')
             sample = min(chosen, key=lambda s: s['polygon'].distance(shapely.Point(0, 0)))
