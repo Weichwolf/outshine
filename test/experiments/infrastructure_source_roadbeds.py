@@ -5,11 +5,13 @@ import shapely
 
 from infrastructure_clothoid_turns import fit_symmetric_turns
 from infrastructure_curvature_paths import fit_curvature_paths
+from infrastructure_fitted_roadbeds import construct_fitted_roadbed
 from infrastructure_junction_surfaces import same_island_winding
 from infrastructure_junction_turns import tangent_intersection
 from infrastructure_route_turns import rounded_route
+from infrastructure_spline_routes import checked_spline_path,spline_sampler
 from infrastructure_turn_roadbeds import construct_turn_roadbed,roadbed_site_check,roadbed_lateral_reach,turn_roadbed
-from infrastructure_vehicle_sweep import turn_body_check
+from infrastructure_vehicle_sweep import turn_body_check,turn_sampler
 
 
 def roadbed_piece(note):
@@ -33,14 +35,33 @@ def roadbed_body_check(surface,pieces,vehicle,error,maximum_poses=4096):
     remaining=maximum_poses
     reports=[]
     for piece in pieces:
-        body,_=turn_body_check(surface,piece['fit'],piece['begin'],piece['end'],piece['profile'],
-                              vehicle,error,remaining)
+        if piece['profile']=='G2-quintic-spline':
+            controls=piece['fit']['controls']
+            if not np.allclose(controls[[0,-1],[0,-1]],np.array([piece['begin'],piece['end']]),atol=1e-7,rtol=0):
+                return dict(fits_surface=False,reason='spline_endpoints_differ_from_ports',pieces=reports,
+                            sampled_poses=maximum_poses-remaining)
+            path,note=checked_spline_path(controls,surface,vehicle,error,remaining)
+            body=note.get('vehicle_sweep',dict(fits_surface=False,reason=note.get('reason')))
+            if path is None:body=dict(body,fits_surface=False,reason=note['reason'])
+        else:
+            body,_=turn_body_check(surface,piece['fit'],piece['begin'],piece['end'],piece['profile'],
+                                  vehicle,error,remaining)
         reports.append(body)
         remaining-=body.get('sampled_poses',0)
         if not body['fits_surface']:
             return dict(fits_surface=False,reason=body.get('reason','constructed_roadbed_does_not_support_body'),
                         pieces=reports,sampled_poses=maximum_poses-remaining)
     return dict(fits_surface=True,pieces=reports,sampled_poses=maximum_poses-remaining)
+
+
+def sample_roadbed_piece(piece,stations):
+    if piece['profile']=='G2-quintic-spline':
+        controls=piece['fit']['controls']
+        scaled=np.asarray(stations)*len(controls)
+        owners=np.minimum(scaled.astype(int),len(controls)-1)
+        return spline_sampler(controls)(owners,scaled-owners)
+    positions,headings=turn_sampler(piece['profile'])(piece['fit'],stations)[:2]
+    return positions[0],headings[0]
 
 
 def source_roadbed_at_reach(entry,exit,surface,reservations,source_route,vehicle,error,reach):
@@ -92,5 +113,8 @@ def construct_route_roadbed(entry,exit,surface,reservations,source_route,vehicle
     candidate,trials=construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
     if candidate is None:
         candidate,note=construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
+        trials.append(note)
+    if candidate is None:
+        candidate,note=construct_fitted_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
         trials.append(note)
     return candidate,trials

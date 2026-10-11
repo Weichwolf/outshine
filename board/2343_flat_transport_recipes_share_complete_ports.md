@@ -15,7 +15,6 @@ Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussfläch
 Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
-Alle berührten Bauteile dreier 1-km-Radiusfenster prüfen/rendern öffentliche Autofahrten.
 Kurvenräume schließen zusätzliche Netzbrüche im Wiener/Basler Motorfenster; drei weitere Zürcher Trennungen, gerichtete Fahrten, andere Modi und Kosten bleiben offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
@@ -61,8 +60,7 @@ Gerichtete Erreichbarkeit allein genügt nicht: bei Einbahnabschnitten muss die 
 Windungszahlen der gewählten Quellroute um Verkehrsinseln erhalten. Der Vergleich schließt
 Portversätze über den gemeinsamen Querschnitt. Eine durch Karosseriebreite eingeschränkte
 Routenfläche wurde verworfen: legitime Abbiegekurven dürfen benachbarte öffentliche Fläche nutzen.
-Ein Gegenfall prüft verbotene Abkürzung und erlaubte Umfahrung; überlappende Fahrspuren und
-alternative gerichtete Routen brauchen weiterhin eine verbindliche Richtungszuordnung.
+Spurzuordnung und alternative gerichtete Routen brauchen weiterhin einen verbindlichen Verkehrsflussvertrag.
 Windungszahlen sind eine notwendige topologische Bedingung, kein vollständiger Verkehrsflussbeweis.
 [Rezeptprüfungen](../test/experiments/infrastructure_route_experiment.py) umfassen Inselumfahrung,
 verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.
@@ -88,10 +86,12 @@ Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunk
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
+[Hermite-Fahrraum](../test/experiments/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
+G2-Nähte/Festports und Körperhüllen prüfen; höchstens 1024 Residuenaufrufe/255 Hüllintervalle.
 Maximale Aufweitung: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L Längsreichweite. Quellkette zuerst mit w/2 Reserve suchen; nur bei Ablehnung bis zur Eckreichweite erweitern. Reservationen räumlich eingrenzen, Suche nur außerhalb vorhandener Fahrfläche schützen; endgültige Aufweitung gegen alle prüfen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 Geschlossene Freiräume sind tatsächlich freie Komplementflächen, auch bei verschachtelten Inseln; eindeutige Zuordnung durch positive Flächenüberlappung und gerichtete Inselumfahrung bleiben erhalten.
-Volle Hüllen gemeinsam bilden, keine Differenzfragmente rekonstruieren. Konstruktionsreserve vorsehen; alle Stücke teilen 4096 Prüfposen. Mesh/Fläche teilen Präzision; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; Schnittlinien tragen keinen Fahrraum.
+Volle Hüllen gemeinsam bilden; Konstruktionsreserve an Reservationen kappen, ganze Körper am nativen Mesh neu prüfen. Alle Stücke teilen 4096 Prüfposen. Gemeinsame Präzision; Außenports/Anfragen/Fahrten erhalten. Polygonale Fahrflächen; Schnittlinien sind kein Fahrraum.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
 Mehrere Achsen je Schnitt behalten eindeutige Kontakte; alle Stationen rücken nach außen. Neue/verlorene Kontakte ablehnen.

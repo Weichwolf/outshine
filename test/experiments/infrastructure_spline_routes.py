@@ -58,6 +58,30 @@ def evaluate_controls(controls,stations):
     return np.einsum('nk,nki->ni',basis,controls)
 
 
+def spline_sampler(controls):
+    velocities=(controls.shape[1]-1)*np.diff(controls,axis=1)
+    def evaluate(owners,stations):
+        xy=evaluate_controls(controls[owners],stations)
+        velocity=evaluate_controls(velocities[owners],stations)
+        return xy,np.arctan2(velocity[:,1],velocity[:,0])
+    return evaluate
+
+
+def continuous_spline_joins(controls):
+    degree=controls.shape[1]-1
+    velocity=degree*np.diff(controls,axis=1)
+    acceleration=(degree-1)*np.diff(velocity,axis=1)
+    ends=velocity[:,[0,-1]]
+    speeds=np.linalg.norm(ends,axis=2)
+    if np.any(speeds<=1e-10):return False
+    directions=ends/speeds[:,:,None]
+    bends=acceleration[:,[0,-1]]
+    curvature=(ends[:,:,0]*bends[:,:,1]-ends[:,:,1]*bends[:,:,0])/speeds**3
+    return (np.allclose(controls[:-1,-1],controls[1:,0],atol=1e-7,rtol=0) and
+            np.allclose(directions[:-1,-1],directions[1:,0],atol=1e-7,rtol=0) and
+            np.allclose(curvature[:-1,-1],curvature[1:,0],atol=1e-7,rtol=0))
+
+
 def spline_controls(points,entry,exit):
     distance = np.linalg.norm(np.diff(points,axis=0),axis=1)
     if np.any(distance<=1e-7):
@@ -74,18 +98,15 @@ def spline_controls(points,entry,exit):
 
 
 def checked_spline_path(controls,surface,vehicle,error=.025,maximum_poses=4096):
+    if not continuous_spline_joins(controls):
+        return None,dict(reason='discontinuous_spline_route')
     minimum,speed,curvature = curve_bounds(controls)
     bound = float(curvature.max())
     if not np.isfinite(bound) or bound*vehicle['minimumRearAxleRadiusM']>1+1e-12:
         return None,dict(reason='spline_curvature_bound_exceeds_vehicle',maximum_curvature_bound=bound if np.isfinite(bound) else None)
     radius = np.hypot(max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']),vehicle['widthM']*.5)
     position_acceleration,body_acceleration = body_acceleration_bounds(controls,minimum,speed,curvature,radius)
-    velocities = 5*np.diff(controls,axis=1)
-    def evaluate(owners,stations):
-        xy = evaluate_controls(controls[owners],stations)
-        velocity = evaluate_controls(velocities[owners],stations)
-        return xy,np.arctan2(velocity[:,1],velocity[:,0])
-    body = swept_hull_check(surface,evaluate,body_acceleration,vehicle,error,maximum_poses)
+    body = swept_hull_check(surface,spline_sampler(controls),body_acceleration,vehicle,error,maximum_poses)
     if not body['fits_surface']:
         reason = ('spline_pose_budget_exhausted' if body.get('reason')=='vehicle_sweep_budget_exhausted' else
                   'spline_vehicle_body_outside_surface')

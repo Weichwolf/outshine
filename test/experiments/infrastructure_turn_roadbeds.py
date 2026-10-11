@@ -40,10 +40,14 @@ def preserves_voids(before,after):
     return len(pairs[0])==len(original) and len(np.unique(pairs[0]))==len(original) and len(np.unique(pairs[1]))==len(planned)
 
 
-def compose_roadbeds(surface,shape,roadbeds):
+def geometry_precision(surface):
     scale=max(1.,float(np.abs(shapely.get_coordinates(surface)).max(initial=0)))
     roundoff=64*np.finfo(float).eps*scale
-    precision=float(2.**np.floor(np.log2(roundoff/4)))
+    return float(2.**np.floor(np.log2(roundoff/4)))
+
+
+def compose_roadbeds(surface,shape,roadbeds):
+    precision=geometry_precision(surface)
     base,core,*supports=shapely.set_precision(np.array([surface,shape,*roadbeds],dtype=object),precision)
     planned=shapely.union_all([base,*supports])
     physical=core.union(planned.difference(base))

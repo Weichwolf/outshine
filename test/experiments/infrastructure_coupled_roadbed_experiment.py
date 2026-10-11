@@ -19,10 +19,10 @@ from infrastructure_junction_surfaces import motor_surface,same_island_winding
 from infrastructure_junction_turns import connect_lanes
 from infrastructure_route_turns import rounded_source_route
 from infrastructure_shared_frames import frame_key
-from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_piece,roadbed_body_check
+from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_piece,roadbed_body_check,sample_roadbed_piece
 from infrastructure_turn_roadbed_experiment import building_reservations,reservations
 from infrastructure_turn_roadbeds import compose_roadbeds,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
-from infrastructure_vehicle_sweep import body_outlines,turn_sampler
+from infrastructure_vehicle_sweep import body_outlines
 
 
 def request_keys(poses,routes):
@@ -131,8 +131,8 @@ def published_frames(products):
 def diagnostic_trial(curve,product,vehicle,original_poses,original_routes):
     outlines=[]
     for piece in curve['candidate']['pieces']:
-        xy,heading=turn_sampler(piece['profile'])(piece['fit'],np.linspace(0,1,65))[:2]
-        outlines.append(body_outlines(xy[0],heading[0],vehicle['widthM']*.5,
+        xy,heading=sample_roadbed_piece(piece,np.linspace(0,1,65))
+        outlines.append(body_outlines(xy,heading,vehicle['widthM']*.5,
                                      vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))
     bodies=np.concatenate(outlines)
     outside=shapely.area(shapely.difference(shapely.polygons(bodies),product['base']))

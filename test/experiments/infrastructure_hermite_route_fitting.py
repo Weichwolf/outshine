@@ -39,7 +39,7 @@ def residual_dependencies(count):
 
 def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None,
                       maximum_nodes=18,maximum_evaluations=40,maximum_calls=1024,maximum_poses=4096,clearance=None,
-                      sample_body_edges=False):
+                      sample_body_edges=False,include_controls=False):
     if min(maximum_nodes-2,maximum_evaluations,maximum_calls)<1 or error<=0 or not np.isfinite(error):
         raise ValueError('node, evaluation and error budgets must be positive')
     spacing = vehicle['minimumRearAxleRadiusM']*2 if spacing is None else spacing
@@ -114,12 +114,15 @@ def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None
                 jacobian_pattern_bytes=pattern.data.nbytes+pattern.indices.nbytes+pattern.indptr.nbytes)
     if path is not None:
         note['profile'] = 'C2-quintic-Hermite-fit'
+        if include_controls:
+            note['curve_controls'] = controls.tolist()
     if sample_body_edges:
         note['body_edges_sampled'] = True
     return path,note
 
 
-def fitted_route_candidates(entry,exit,route,surface,vehicle,error=.025,maximum_calls=1024,*,clearance=None):
+def fitted_route_candidates(entry,exit,route,surface,vehicle,error=.025,maximum_calls=1024,*,clearance=None,
+                            include_controls=False):
     clearance = SurfaceClearance(surface) if clearance is None else clearance
     initial_samples,initial_measured = clearance.samples,clearance.measured_samples
     calls,trials = 0,[]
@@ -128,9 +131,10 @@ def fitted_route_candidates(entry,exit,route,surface,vehicle,error=.025,maximum_
         if calls>=maximum_calls:
             break
         path,note = fit_hermite_route(entry,exit,route,surface,vehicle,error,spacing=spacing,
-                                     maximum_calls=maximum_calls-calls,clearance=clearance,sample_body_edges=sample_body_edges)
+                                     maximum_calls=maximum_calls-calls,clearance=clearance,
+                                     sample_body_edges=sample_body_edges,include_controls=include_controls)
         calls += note['residual_calls']
-        trials.append(dict(spacing_m=spacing,**note))
+        trials.append(dict(spacing_m=spacing,**{k:v for k,v in note.items() if k!='curve_controls'}))
         if not sample_body_edges and path is None and note.get('reason')=='spline_vehicle_body_outside_surface':
             candidates.append((spacing,True))
         if path is not None:

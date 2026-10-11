@@ -18,9 +18,10 @@ from infrastructure_cut_setbacks import restore_cut_plan
 from infrastructure_curvature_paths import fit_curvature_paths
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
+from infrastructure_fitted_roadbed_checks import verify_fitted_roadbeds
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_route_connectivity import network_connectivity
-from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_body_check
+from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_body_check,sample_roadbed_piece
 from infrastructure_turn_roadbeds import bounded_voids,compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
 from infrastructure_travel import MODES
 from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
@@ -69,8 +70,8 @@ def mesh_coverage(surface,vehicle,pieces,error):
     body=roadbed_body_check(actual,pieces,vehicle,error)
     assert body['fits_surface']
     for piece in pieces:
-        xy,heading=turn_sampler(piece['profile'])(piece['fit'],np.linspace(0,1,2049))[:2]
-        outlines=body_outlines(xy[0],heading[0],vehicle['widthM']*.5,
+        xy,heading=sample_roadbed_piece(piece,np.linspace(0,1,2049))
+        outlines=body_outlines(xy,heading,vehicle['widthM']*.5,
                               vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
         assert np.all(shapely.covers(actual,shapely.polygons(outlines)))
     return dict(triangles=len(triangles),continuous_body_on_mesh=body,dense_body_poses=2049*len(pieces)),actual
@@ -205,7 +206,7 @@ def verify_small(vehicle):
     return dict(real_mesh_body_checked=True,rigid_transform_checked=True,reservations_enforced=True,
                 hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
                 composed_roadbeds_checked=True,**verify_inflected(vehicle),**verify_polygonal_mesh(vehicle),
-                **verify_bounded_voids(),**verify_turn_swing(vehicle))
+                **verify_bounded_voids(),**verify_turn_swing(vehicle),**verify_fitted_roadbeds(vehicle,mesh_coverage))
 
 
 def real_case(root,name,module):
@@ -266,8 +267,8 @@ def real_case(root,name,module):
         audit,actual=mesh_coverage(candidate['surface'],network.vehicle,candidate['pieces'],network.curbs['arc_error_m'])
         outlines=[]
         for piece in candidate['pieces']:
-            xy,heading=turn_sampler(piece['profile'])(piece['fit'],np.linspace(0,1,65))[:2]
-            outlines.append(body_outlines(xy[0],heading[0],network.vehicle['widthM']*.5,
+            xy,heading=sample_roadbed_piece(piece,np.linspace(0,1,65))
+            outlines.append(body_outlines(xy,heading,network.vehicle['widthM']*.5,
                                          network.vehicle['frontFromRearAxleM'],network.vehicle['rearOverhangM']))
         bodies=np.concatenate(outlines)
         outside=shapely.area(shapely.difference(shapely.polygons(bodies),surface))
