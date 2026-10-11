@@ -12,8 +12,8 @@ from infrastructure_arc_line_paths import arc_line_arc_seeds
 from infrastructure_turn_roadbeds import roadbed_lateral_reach
 
 
-def construct_return_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025,maximum_calls=1024):
-    if maximum_calls<1:raise ValueError('invalid return-turn fitting budget')
+def construct_return_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025,maximum_calls=1024,maximum_starts=2):
+    if maximum_calls<1 or maximum_starts<1:raise ValueError('invalid return-turn fitting budget')
     if np.dot(entry['heading'],exit['heading'])>=0:
         return None,dict(reason='not_a_return_turn',residual_calls=0)
     domain=surface.buffer(roadbed_lateral_reach(vehicle)).difference(reservations.difference(surface))
@@ -26,7 +26,7 @@ def construct_return_roadbed(entry,exit,surface,reservations,source_route,vehicl
             if not same_island_winding(seed,source_route,surface):continue
             outside=seed.buffer(vehicle['widthM']*.5).difference(domain).area
             options.append((outside,seed.length,radius,kind,seed))
-    options=sorted(options,key=lambda row:row[:2])[:2]
+    options=sorted(options,key=lambda row:row[:2])[:maximum_starts]
     calls,trials=0,[]
     for index,(_,_,radius,kind,seed) in enumerate(options):
         budget=(maximum_calls-calls)//(len(options)-index)
