@@ -20,7 +20,9 @@ required={(t['module'],t['entry'],t['exit']) for t in reference['trials'] if t['
 trial,after,remapped,note=apply_coupled_product(network,records,required,root,args.product,set())
 assert len(required)==len(remapped)
 print(json.dumps(dict(modules={owner:dict(accepted=after[owner]['accepted'],connections=after[owner]['connections'])
-                              for owner in report['affected']},required=len(required),retained=len(remapped))))
+                              for owner in report['affected'] if owner in after},
+                      outside_window=sorted(set(report['affected'])-after.keys()),
+                      proved_routes=note['proved_routes'],required=len(required),retained=len(remapped))))
 sections={row['section'] for row in report['cut_plan']['sections']}
 if set(report.get('changed_frame_sections',sections))-sections:
     report['changed_frame_sections']=sorted(sections)
