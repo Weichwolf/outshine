@@ -125,9 +125,11 @@ def construct_route_roadbed(entry,exit,surface,reservations,source_route,vehicle
         candidate,note=construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
         trials.append(note)
     if candidate is None:
-        returning=np.dot(entry['heading'],exit['heading'])<-np.sqrt(.5)
+        heading_dot=np.dot(entry['heading'],exit['heading'])
+        returning=heading_dot<-np.sin(np.pi/36)
+        local_return=heading_dot<-np.sqrt(.5) and source_route.length<=16*vehicle['minimumRearAxleRadiusM']
         candidate,note=construct_fitted_roadbed(entry,exit,surface,reservations,source_route,vehicle,error,
-                                                maximum_calls=512 if returning else 1024)
+                                                maximum_calls=512 if returning else 1024,narrow_first=not local_return)
         trials.append(note)
         remaining=1024-note['residual_calls']
         if candidate is None and returning and remaining>0:

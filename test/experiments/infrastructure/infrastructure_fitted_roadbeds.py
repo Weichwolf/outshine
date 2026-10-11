@@ -36,11 +36,11 @@ def spline_roadbed(controls,vehicle,error,maximum_segments=255):
                         sweep_deviation_bound_m=float(deviation.max()),construction_clearance_m=2*error)
 
 
-def construct_fitted_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025,maximum_calls=1024):
+def construct_fitted_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025,maximum_calls=1024,*,narrow_first=True):
     if error<=0 or not np.isfinite(error) or maximum_calls<1:
         raise ValueError('invalid fitted roadbed budget')
     calls,trials=0,[]
-    for reach in sorted({vehicle['widthM']*.5,roadbed_lateral_reach(vehicle)}):
+    for reach in sorted({vehicle['widthM']*.5,roadbed_lateral_reach(vehicle)},reverse=not narrow_first):
         if calls>=maximum_calls:break
         expansion=shapely.buffer(surface,reach-2*error,quad_segs=8)
         nearby=reservations.intersection(expansion.envelope.buffer(2*error))
