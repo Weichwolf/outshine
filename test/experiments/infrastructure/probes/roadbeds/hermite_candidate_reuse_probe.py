@@ -102,6 +102,7 @@ def main():
             print(json.dumps({k:row[k] for k in ('method','budget','accepted','elapsed_ms')}|
                 dict(residual_calls=note['residual_calls'],skips=len(note.get('identical_candidates_skipped',[])))),flush=True)
     sources=implementation_files(Path(__file__))
+    sources+=implementation_files(Path(fitting.__file__))
     report=dict(rows=rows,input=str(args.input),input_sha256=digest(args.input),
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         implementation_sha256={str(p.relative_to(Path.cwd())):digest(p) for p in sources},

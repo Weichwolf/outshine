@@ -73,6 +73,7 @@ report=coupled.real_case(root,args.place,args.module,args.pair,args.setback,args
 keys=lambda r:{(p['module'],json.dumps(p['request'])) for p in r['proofs']}
 assert keys(prior)<=keys(report),'previous coupled routes lost'
 sources=coupled.implementation_files(Path(__file__))
+sources+=coupled.implementation_files(Path(coupled.__file__))
 sources += [Path('test/experiments/infrastructure/geos_triangulation.py').resolve(),
             Path('test/experiments/infrastructure/infrastructure_network_recipes.json').resolve()]
 report['input_sha256'][str(args.prior.resolve().relative_to(root.resolve()))]=coupled.digest(args.prior)
