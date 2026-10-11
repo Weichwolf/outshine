@@ -97,9 +97,8 @@ Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außen
 Schnitt-/Rahmenänderungen getrennt deklarieren; alle Portnachbarn prüfen. G2-Winkelumlauf speichern; bei Radiusfehler Drehsinne und gemeinsame Winkel prüfen.
 [Fensterprüfung](../test/experiments/infrastructure/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Quellfahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
-[Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
-und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
-Offen: gerichtete Erreichbarkeit, Verkehrsfluss, Portpassung und Kosten.
+[Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py): Komponenten und gerichtete Umfahrungen prüfen. DAG-Zielmasken in 64er-Batches statt quadratischer Matrix.
+48 von 99 fehlenden Direktfahrten ohne Umfahrung zuerst lösen. Verkehrsfluss/Modi/Kosten bleiben offen.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.

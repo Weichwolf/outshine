@@ -1,6 +1,6 @@
 """Compare requested and proved route graphs in linear sparse-graph passes."""
 
-from collections import Counter,defaultdict
+from collections import Counter,defaultdict,deque
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -18,6 +18,35 @@ def component_splits(before,after):
             for a,parts in groups.items() if len(parts)>1]
 
 
+def reachable_component_pairs(labels,edges,queries):
+    count=int(max(labels,default=-1))+1
+    successors=[set() for _ in range(count)]
+    indegree=[0]*count
+    for a,b in edges:
+        a,b=int(labels[a]),int(labels[b])
+        if a!=b and b not in successors[a]:
+            successors[a].add(b);indegree[b]+=1
+    queue=deque(i for i,n in enumerate(indegree) if not n)
+    order=[]
+    while queue:
+        node=queue.popleft();order.append(node)
+        for other in successors[node]:
+            indegree[other]-=1
+            if not indegree[other]:queue.append(other)
+    assert len(order)==count,'strong-component graph must be acyclic'
+    targets=defaultdict(list)
+    for a,b in queries:targets[int(labels[b])].append((a,b))
+    targets=list(targets.items());reachable=set()
+    for begin in range(0,len(targets),64):
+        batch=targets[begin:begin+64];masks=[0]*count
+        for bit,(target,_) in enumerate(batch):masks[target]=1<<bit
+        for node in reversed(order):
+            for other in successors[node]:masks[node]|=masks[other]
+        for bit,(_,pairs) in enumerate(batch):
+            reachable.update((a,b) for a,b in pairs if masks[int(labels[a])]&(1<<bit))
+    return reachable
+
+
 def compare_connectivity(node_count,requested,proved):
     requested = set(map(tuple,requested))
     proved = set(map(tuple,proved))
@@ -31,8 +60,9 @@ def compare_connectivity(node_count,requested,proved):
                        for mode in ('weak','strong')})
     before,after = labels
     missing = []
+    alternatives=reachable_component_pairs(after['strong'][1],proved,requested-proved)
     for a,b in sorted(requested-proved):
-        reason = ('already_reachable' if after['strong'][1][a]==after['strong'][1][b] else
+        reason = ('already_reachable' if (a,b) in alternatives else
                   'disconnected' if after['weak'][1][a]!=after['weak'][1][b] else 'cross_directed_components')
         missing.append(dict(source=a,target=b,reason=reason))
     return dict(nodes=node_count,requested_edges=len(requested),proved_edges=len(proved),
@@ -73,9 +103,11 @@ def verify_connectivity():
     assert cycle['missing_edge_reasons']=={'cross_directed_components':1}
     alternative = compare_connectivity(3,[(0,1),(1,2),(2,0),(0,2)],[(0,1),(1,2),(2,0)])
     assert not alternative['strong_splits'] and alternative['missing_edge_reasons']=={'already_reachable':1}
+    oneway = compare_connectivity(3,[(0,1),(1,2),(0,2),(2,0)],[(0,1),(1,2)])
+    assert oneway['missing_edge_reasons']=={'already_reachable':1,'cross_directed_components':1}
     duplicate = compare_connectivity(2,[(0,1),(0,1)],[(0,1)])
     assert not duplicate['missing_edges'] and duplicate['requested_edges']==1
     empty = compare_connectivity(0,[],[])
     assert empty['nodes']==0 and not empty['strong_splits'] and not empty['weak_splits']
     return dict(disconnected_branch_detected=True,broken_cycle_detected=True,
-                alternative_route_recognized=True,duplicate_edges_collapsed=True,empty_network_checked=True)
+                alternative_route_recognized=True,oneway_alternative_checked=True,duplicate_edges_collapsed=True,empty_network_checked=True)
