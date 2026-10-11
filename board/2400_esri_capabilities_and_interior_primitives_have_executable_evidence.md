@@ -25,6 +25,7 @@ Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platziere
 `comp` delegiert Komponentenwahl; `i` lädt Assets, korrigiert die Aufwärtsachse und nutzt Bounding-Box-Dimensionen im Einfügungsdispatch.
 `transformInPlace` ruft sichere inverse Transponierung und Flächennormalen auf; `addInstances` teilt Face-Material-Meshes und kombiniert Materialien.
 Instanzausgabe hat vier unaufgelöste indirekte Aufrufe; vollständige Komponenten-/Treppenplanung bleibt ungeprüft.
+Nächster Bildausbau: Walm-/Sattel-/Pultdach-Dispatch und tatsächliche Skeleton-Dachkonstruktion gezielt mit Ghidra prüfen.
 
 ## Umsetzung
 - Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.

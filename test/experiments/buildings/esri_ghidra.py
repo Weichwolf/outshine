@@ -33,6 +33,12 @@ TARGETS = {
     '_ZN9Processor1iERKSt10shared_ptrINSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEEN2GC14UpAxisSelector4EnumENSA_10InsertMode4EnumENSA_11CleanupMode4EnumE': 'asset insertion dispatch',
     '_ZN4util4Mesh16transformInPlaceERKNS_6MatrixIdEE': 'component mesh transformation',
     '_ZN20EncodePreparatorImpl12addInstancesEPN3prt5CacheERKN4util18GeometryAssetProxyESt10shared_ptrIN4prtx3URIEERKNS3_7Vector3IdEERKNS3_6MatrixIdEERKS7_INS8_8MaterialEEjRKNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEPKNS0_12AttributeMapEjSU_RKS7_INS8_7ReportsEE': 'prepared asset instance output',
+    '_ZN9Processor7roofHipEN2GC13RoofValueType4EnumEddb': 'hip roof value and overhang dispatch',
+    '_ZN9Processor9roofGableEN2GC13RoofValueType4EnumEdddb': 'gable roof value and overhang dispatch',
+    '_ZN9Processor8roofShedEN2GC13RoofValueType4EnumEdd': 'shed roof value and edge dispatch',
+    '_ZN12_GLOBAL__N_112roofSkeletonER9ProcessorN4cgal8RoofTypeEdbdd.lto_priv.0': 'skeleton roof preparation and mesh assembly',
+    '_ZN12_GLOBAL__N_14roofER9Processoridbddib.lto_priv.0': 'roof selection and fallback dispatch',
+    '_ZN4cgal23createSkeletonBasedRoofERKN4util4MeshERKNS0_12HoleRelationEjNS_8RoofTypeEdbddRSt6vectorImSaImEE': 'actual skeleton-based roof construction',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;

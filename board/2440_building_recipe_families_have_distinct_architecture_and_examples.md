@@ -1,9 +1,9 @@
 Type: feature
-State: open
-Architecture: planned
+State: active
+Architecture: ready
 Priority: P0
 Parent: 2169
-Depends: 2420
+Depends:
 Area: generators
 Tags: buildings, recipes, roofs, facades, variety
 
@@ -14,6 +14,11 @@ Besitzer: Gebäudeagent/Python; 2173 liefert Quelle/Nutzung, 2420 konstruktive R
 Erkennbare Bauformen mit passenden Fassaden, Dächern, Erdgeschossen und Innen-/Außenanschlüssen.
 Tausende nachvollziehbar verschiedene Varianten; Familien, Varianten und Instanzen getrennt zählen.
 Aktuell wenige Fassadenparameter auf extrudierten Grundrissen, keine belegte Architekturvielfalt.
+2420 liefert einen nutzbaren Python-Raum-/Geschoss-/Portalvertrag; native Integration und Nutzungsprogramme bleiben offen.
+Aktiver Ausbau: Dachflächen/Traufe/First auf denselben Quellgrundrissen, zuerst 2D-Schnitte, danach 2.5D und äußere Ansichten.
+2400 untersucht dafür Esri-Dachkerne mit Ghidra; allgemein gültige Verfahren gegen metrische analytische Dächer vergleichen.
+Gesamtoberkante/Unterkante bleiben geliefert; Dachraum vor Geschossplanung innerhalb dieser Höhe reservieren.
+Gelieferte Geschoss-/Dachangaben erhalten, fehlende ergänzen und kennzeichnen; zu knappe Intervalle explizit ausweisen.
 
 ## Familien und Komponenten
 - Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.
