@@ -1,4 +1,4 @@
-"""Closed prism geometry and exact inspection slices of the constructive first-storey plan."""
+"""Closed prism geometry, window panes and exact sections of constructive plans."""
 
 import numpy as np
 import shapely
@@ -39,14 +39,18 @@ def mesh(plan):
     for polygon, low, high in wall_bands(plan):
         solid(storage, polygon, low, high, 1)
     solid(storage, plan['footprint'], plan['ceiling_z_m'], plan['ceiling_z_m']+CEILING_M, 2)
+    panes(storage,plan)
+    return dict(vertices=np.asarray(storage[0], dtype=np.float64), faces=np.asarray(storage[1], dtype=np.int32),
+                materials=np.asarray(storage[2], dtype=np.uint8), parts=np.asarray(storage[3], dtype=np.int32))
+
+
+def panes(storage, plan):
     for window in plan['windows']:
         tangent = np.array(window['tangent'])
         normal = np.array([tangent[1], -tangent[0]])
         centre = np.array(window['centre'])-normal*WALL_M/2
         pane = rectangle(centre, tangent, 1.20, .006, .006)
         solid(storage, pane, plan['floor_z_m']+window['sill_m'], plan['floor_z_m']+window['head_m'], 3)
-    return dict(vertices=np.asarray(storage[0], dtype=np.float64), faces=np.asarray(storage[1], dtype=np.int32),
-                materials=np.asarray(storage[2], dtype=np.uint8), parts=np.asarray(storage[3], dtype=np.int32))
 
 
 def slice_triangles(product, normal, offset, materials=None):

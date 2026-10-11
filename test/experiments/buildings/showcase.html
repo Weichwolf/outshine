@@ -34,10 +34,14 @@
       </details>
     </section>
     <section id="plans" aria-labelledby="plans-title" hidden>
-      <div class="section-top"><h2 id="plans-title">Konstruktive Erdgeschosspläne</h2></div>
+      <div class="section-top"><h2 id="plans-title">Konstruktive Pläne und Geschossverbindungen</h2></div>
       <p id="plans-note" class="hint"></p>
       <details><summary>Begrenzte Raumteilungen und tatsächliche Geometriekosten</summary>
         <div class="table-scroll"><table><thead><tr><th>Eingabe</th><th>Verfahrensvergleich</th><th>Gewählt / Räume / Türen</th><th>Plan / Mesh [ms]</th><th>Mesh [KiB]</th></tr></thead><tbody id="plans-cases"></tbody></table></div>
+      </details>
+      <details id="stairs-benchmark" hidden><summary>Treppenprofil gegen einzelne Stufenbauteile</summary>
+        <p class="hint">Gleiches Volumen und tatsächliche Auftrittshöhen. Je 21 warme Python-Läufe; lokale Generierung, keine nativen Framezeiten.</p>
+        <div class="table-scroll"><table><thead><tr><th>Geschosshöhe [m]</th><th>Verfahren</th><th>Bauteile / Dreiecke</th><th>p50 / p95 [ms]</th><th>Volumen [m³]</th></tr></thead><tbody id="stairs-cases"></tbody></table></div>
       </details>
     </section>
     <section id="provider" aria-labelledby="provider-title" hidden>

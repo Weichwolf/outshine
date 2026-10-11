@@ -32,7 +32,8 @@ REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'ope
                  'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features', 'representation', 'recipes',
                  'reference', 'source_id', 'view', 'comparison_case', 'rooms', 'doors', 'generation_ms',
                  'plan_json_bytes', 'raw_mesh_bytes', 'alternatives', 'method', 'plan_status',
-                 'stage', 'circulation', 'circulation_status', 'core_alternatives', 'room_kinds')
+                 'stage', 'circulation', 'circulation_status', 'core_alternatives', 'room_kinds',
+                 'storeys', 'stair_connections', 'vertical_status', 'checks', 'source_coverage')
 
 
 def git(*args):
@@ -72,6 +73,15 @@ def image_record(report_path, root):
                                          f"Flur {core['corridor_area_m2']:.1f} m² ({core['corridor_fraction']:.1%} der Innenfläche). "
                                          'Gleiches Quellgebäude wie im ersten Grundrissversuch. '
                                          'Treppen, Raumprogramm und Obergeschosse bleiben offen.')
+            elif report.get('stage') == 'vertical':
+                record['title'] = 'Geschosse/Treppen · '+report['label']
+                if report.get('vertical_status') == 'connected-storeys':
+                    record['caption'] = (f"{report['storeys']} Geschosse, {report['rooms']} logische Flächen und "
+                                         f"{report['stair_connections']} konstruierte Verbindungen. "
+                                         'Stufen, Podeste, Geländer und echte Deckenöffnungen; Grundriss, überlagerte Mesh-Schnitte und 2.5D. '
+                                         'Raumpläne pro Geschoss wiederholt; Nutzung, Außenanschluss und native Spielerphysik bleiben offen.')
+                else:
+                    record['caption'] = 'Quelle erhalten; Geschossplan mit konkretem Grund ausgelassen: '+('; '.join(report['limitations']))
         elif report.get('representation') == 'esri-reference':
             ref = report['reference']
             label = {'near': 'Nahansicht', 'orbit': 'Rundum-Gegenansicht', 'far': 'Distanzansicht'}[report['view']]
@@ -175,6 +185,8 @@ def publish(root):
     validation = json.loads(validation_path.read_text()) if validation_path.is_file() else None
     context_path = EXPERIMENTS/'context-validation.json'
     context_validation = json.loads(context_path.read_text()) if context_path.is_file() else None
+    vertical_path = EXPERIMENTS/'vertical-validation.json'
+    vertical_validation = json.loads(vertical_path.read_text()) if vertical_path.is_file() else None
     esri = {}
     for key, relative in [('catalog', 'esri-catalog.json'), ('validation', 'esri-validation.json'),
                           ('oracle', 'esri-oracle/oracle-summary.json'), ('ghidra', 'esri-ghidra/ghidra-core.json')]:
@@ -195,12 +207,13 @@ def publish(root):
                     pushed=git('rev-parse', 'origin/'+branch) == commit,
                     working_tree_dirty=bool(git('status', '--porcelain')),
                     images=images, benchmark=benchmark(), massing_benchmark=massing_benchmark(),
-                    provider_comparison=provider, source_validation=validation, context_validation=context_validation, esri=esri,
-                    progress='Konstruktive Erdgeschosspläne mit gemeinsamem Flur, direkten Raumzugängen und reservierten Kernen. '
-                             'Ziel bleibt Esri-CityEngine-Qualität und Vielfalt; Treppen, Architektur, Obergeschosse und Spielintegration fehlen.',
-                    gaps=['Konstruierte Treppen, Obergeschosse, Außenanschlüsse und sinnvolle Raumprogramme',
+                    provider_comparison=provider, source_validation=validation, context_validation=context_validation,
+                    vertical_validation=vertical_validation, esri=esri,
+                    progress='Konstruktive Pläne über die ganze Quellhöhe mit direktem Flurzugang, Stufen, Podesten und Geländern. '
+                             'Ghidra belegt ausgewählte Esri-Geometriepfade; eigene Architektur und Spielintegration erreichen das Qualitätsziel noch nicht.',
+                    gaps=['Nutzungsspezifische Raum-/Geschossprogramme, weitere Treppentypen, Aufzüge und Außenanschlüsse',
                           'Erkennbare Architekturrezepte, Dachformen, Erdgeschosse und konstruktive Details',
-                          'Räumliche Innenräume hinter Fenstern, Begehbarkeit und kohärentes Nachtlicht',
+                          'Raumausstattung hinter Fenstern, native Begehbarkeit und kohärentes Nachtlicht',
                           'Materialvielfalt und Tausende belegte Varianten eigener Rezeptfamilien',
                           'Weitere ausführbare Esri-Regeln und Abgleich der SDK-/PRT-Versionen',
                           'Infrastrukturkontakte, Verdeckung und Schatten',

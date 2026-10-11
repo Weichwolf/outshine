@@ -137,12 +137,14 @@ function render() {
 function renderPlans() {
   const rows = manifest.images.filter(item => item.representation === 'functional-plan');
   $('plans').hidden = !rows.length;
-  const recent = rows.filter(item => item.stage === 'circulation');
-  const connected = (recent.length ? recent : rows).filter(item => recent.length ? item.circulation_status === 'common-access' : item.plan_status === 'connected-first-storey');
+  const vertical = rows.filter(item => item.stage === 'vertical');
+  const recent = vertical.length ? vertical : rows.filter(item => item.stage === 'circulation');
+  const connected = (recent.length ? recent : rows).filter(item => vertical.length ? item.vertical_status === 'connected-storeys' : recent.length ? item.circulation_status === 'common-access' : item.plan_status === 'connected-first-storey');
   const count = recent.length || rows.length;
-  $('plans-note').textContent = `${connected.length} Erdgeschosse ${recent.length ? 'mit gemeinsamem Flur und Kernreserve' : 'lokal verbunden'} · ${count-connected.length} Gegenfälle mit Auslassungsgrund. `+
+  $('plans-note').textContent = (vertical.length ? `${connected.length} Gebäude mit ${connected.reduce((sum,row) => sum+row.storeys,0)} Geschossen und ${connected.reduce((sum,row) => sum+row.stair_connections,0)} konstruierten Verbindungen` : `${connected.length} Erdgeschosse ${recent.length ? 'mit gemeinsamem Flur und Kernreserve' : 'lokal verbunden'}`)+` · ${count-connected.length} Gegenfälle mit Auslassungsgrund. `+
     (recent.length ? `${rows.length-recent.length} frühere Grundrissansichten zum Vergleich. ` : '')+
-    'Generische Nutzflächen, reale Wand-/Boden-/Deckenstärken und Tür-/Fensteröffnungen. Raumprogramm, Obergeschosse, Treppen und Geländeanschlüsse fehlen. '+
+    'Generische Nutzflächen, reale Wand-/Boden-/Deckenstärken und Tür-/Fensteröffnungen. '+
+    (vertical.length ? 'Stufen, Podeste und Geländer sind konstruiert; Raumprogramme, native Spielerphysik und Geländeanschlüsse fehlen. ' : 'Raumprogramm, Obergeschosse, Treppen und Geländeanschlüsse fehlen. ')+
     'CPU-Einzelmessungen des Python-Prototyps; Meshdaten sind Array-Payload, keine Prozesspeaks oder Framezeiten.';
   $('plans-cases').replaceChildren(...rows.map(row => {
     const tr = element('tr');
@@ -151,6 +153,14 @@ function renderPlans() {
     tr.append(...[row.title, alternatives || 'Kein brauchbarer Innenraum',
       row.plan_status === 'unplanned' ? 'Ausgelassen' : `${row.method} / ${row.rooms} / ${row.doors}${row.circulation ? ` · Flur ${row.circulation.corridor_area_m2.toFixed(1)} m²` : ''}`, costs,
       ((row.raw_mesh_bytes || 0)/1024).toFixed(1)].map(value => element('td', value)));
+    return tr;
+  }));
+  const stairs = manifest.vertical_validation?.flight_comparison || [];
+  $('stairs-benchmark').hidden = !stairs.length;
+  $('stairs-cases').replaceChildren(...stairs.map(row => {
+    const tr = element('tr');
+    tr.append(...[row.rise_m.toFixed(3),row.method === 'profile' ? 'Geschlossenes Profil' : 'Einzelne Stufenbauteile',
+      `${row.parts} / ${row.triangles}`,`${row.generation_ms.toFixed(3)} / ${row.p95_generation_ms.toFixed(3)}`,row.volume_m3.toFixed(5)].map(value => element('td',value)));
     return tr;
   }));
 }

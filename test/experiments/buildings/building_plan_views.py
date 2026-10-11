@@ -27,10 +27,11 @@ def groundplan(axis, plan, product):
     patch(axis, plan['footprint'], facecolor='#edf0f3', edgecolor='#79818a', linewidth=1.)
     for index, room in enumerate(plan['rooms']):
         kind = plan.get('room_kinds', ['generic-room']*len(plan['rooms']))[index]
-        colour = '#b7d9c2' if kind == 'corridor' else '#ebd4ae' if kind.endswith('reservation') else plt.get_cmap('Pastel2')(index%8)
+        colour = '#b7d9c2' if kind == 'corridor' else '#ebd4ae' if kind.endswith('reservation') or kind == 'stairwell' else plt.get_cmap('Pastel2')(index%8)
         patch(axis, room, facecolor=colour, edgecolor='none')
         point = room.representative_point()
-        name = {'corridor': 'Flur', 'stair-reservation': 'Treppenreserve', 'service-reservation': 'Technikreserve'}.get(kind, f'R{index+1}')
+        name = {'corridor': 'Flur', 'stair-reservation': 'Treppenreserve', 'service-reservation': 'Technikreserve',
+                'stairwell': 'Treppe'}.get(kind, f'R{index+1}')
         axis.text(point.x, point.y, f'{name}\n{room.area:.0f} m²', ha='center', va='center', fontsize=8)
     if product is not None:
         outlines = slice_triangles(product, [0, 0, 1], plan['floor_z_m']+.40, materials=[1])

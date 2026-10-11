@@ -158,7 +158,7 @@ def attempt(plan, interior, seeds, core, root, entry_local, reverse, entry, meth
     return result, report
 
 
-def build(sample):
+def build(sample, require_stairs=False):
     plan = baseline(sample)
     plan.update(circulation_status='unplanned', core_alternatives=[], circulation_alternatives=[])
     if plan['status'] != 'connected-first-storey':
@@ -186,6 +186,11 @@ def build(sample):
         for index, core in enumerate(cores):
             for method in ('doglegs', 'orthogonal-grid'):
                 candidate, report = attempt(plan, local, seeds, core, root, plug, reverse, entry, method)
+                if candidate is not None and require_stairs and candidate['storeys'] > 1:
+                    from building_stair import connect
+                    candidate, reason = connect(candidate)
+                    if candidate is None:
+                        report.update(valid=False, reason=reason)
                 report.update(core_candidate=index, seed_method=seed_method)
                 reports.append(report)
                 if candidate is not None:

@@ -13,15 +13,15 @@ Tags: buildings, interiors, access, geometry
 Besitzer: Gebäudeagent/Python; 2173 besitzt Quelle/Form, 2281 Straßen-/Zugangsbezüge.
 Kameraunabhängiger konstruktiver 3D-Plan: Außenhülle, Raum-/Geschossflächen, Öffnungen und Verkehrswege.
 Jedes Gebäude mindestens ein funktionaler Zugang; von dort erreichbare Innenräume/Geschosse.
-Aktuelle Hüllen/Repeats besitzen keine echten Türen oder nutzbaren Innenraum-/Wegepläne.
-Python-Prototyp: acht Erdgeschosse mit gemeinsamem Flur/Kernreserve, darunter drei echte Esri-Vergleichsgrundrisse.
+Native Hüllen/Repeats besitzen noch keine integrierten Türen oder nutzbaren Innenraum-/Wegepläne.
+Python-Prototyp: acht Gebäude/39 Geschosse/31 konstruierte Geschossverbindungen; drei echte Esri-Vergleichsgrundrisse.
 Wand-/Boden-/Deckenstärken, offene Türportale und Fenster in tatsächliche Räume; drei Gegenfälle mit Auslassungsgrund.
 Begrenzte achsparallele Streifen gegen BSP-Teilung: gleiche Mindestflächen, Türbreiten, Clearance und Raumgraphprüfung.
 Maximal zwölf Räume/256 Quellvertices; sechs Schnittkandidaten pro BSP-Versuch, ungeeignete Teilungen offene Räume.
 Grundriss/Schnitt aus tatsächlichem Mesh; Blender-Workbench für 2.5D mit ausgeblendeter Decke und Tiefenpuffer.
 Matplotlibs Dreieckssortierung erzeugte falsche räumliche Überlagerung; der Pfad ist entfernt.
-Jede Nutzfläche und Kernreserve hat direkten Flurzugang; Flur-Clearance ohne private Böden am tatsächlichen Mesh geprüft.
-Vorherige serielle Raumpläne bleiben als Bildvergleich; Obergeschosse/Treppen, Raumprogramme und native Begehbarkeit offen.
+Jede Nutzfläche hat direkten Flurzugang; sieben Treppenkerne mit Stufen, Podesten, Geländern und echten Deckenöffnungen.
+Vorherige Erdgeschoss-/Reservepläne bleiben als Bildvergleich; nutzungsgerechte Raumprogramme, Aufzüge und native Begehbarkeit offen.
 Logische Welt braucht stabile Raum-/Portal-IDs, Höhen, Wege und Kollision unabhängig vom Render-LOD.
 
 ## Komponenten und Umsetzung
@@ -46,12 +46,13 @@ Logische Welt braucht stabile Raum-/Portal-IDs, Höhen, Wege und Kollision unabh
 Zugang/Raum-/Geschossgraph gegen tatsächliche Geometrie prüfen; Türen/Treppen kollisionsfrei.
 Keine versiegelten Zugänge, durchstoßenden Leibungen oder schwebenden Böden; Quelle/Höfe/Parts erhalten.
 Mehrere reale Eingaben optisch prüfen; native Kollisions-/Spielintegration bleibt ausdrücklich offen.
-[`building_plan_probe.py`](../test/experiments/buildings/building_plan_probe.py): gleiche 3D-Pläne, Alternativen/Kosten/Quellgrenzen; `--circulation` ergänzt den Flur-/Kernvergleich.
+[`building_plan_probe.py`](../test/experiments/buildings/building_plan_probe.py): `--circulation` Flur/Kernreserve, `--vertical` vollständige Quellhöhe mit Treppen.
 [`verify_layout.py`](../test/experiments/buildings/verify_layout.py): geschlossene Prismen, freier Türkörper und Wege aus tatsächlichem Mesh.
 Außenwand 0,24 m/Trennwand 0,12 m am Mesh prüfen; nur gemeinsame Raumgrenzen erhalten Trennwandstreifen.
 GEOS repariert ausschließlich prozedurale Raumringe nach Koordinatentransformation; höchstens 1e−6 m² Flächenänderung, sonst Alternative verwerfen.
 Abgeleitete Raum-/Wand-/Wegepolygone nutzen ein 1e−8-m-Präzisionsraster, maximal 1e−6 m² Flächenänderung je Operation.
-Quellfootprint/Boden-/Deckenmesh bleiben unverändert. Mesh-Projektion folgt vor Clearance demselben erklärten Raster;
+Quellfootprint bleibt unverändert; obere Böden/Decken erhalten deklarierte Treppenöffnungen statt der bisherigen Vollplatten.
+Erdgeschoss-/Dachabschluss behalten die vollständige Quelle. Mesh-Projektion folgt vor Clearance demselben erklärten Raster;
 sonst erzeugen fast kollineare Boolesche Nähte falsche Mitre-Schnitte. Topologie-/Öffnungs-/Breitenprüfungen bleiben streng.
 [`GEOS/Shapely-Präzision`](https://shapely.readthedocs.io/en/stable/reference/shapely.set_precision.html): gültige abgeleitete Geometrie, keine Änderung der Quelle.
 0,30-m-Radius/1,90-m-Körperhöhe sind lokale Prüffigur, kein baurechtlicher Nachweis.
@@ -59,7 +60,7 @@ Alle Wege-/Raum-Insetprüfungen nutzen dieselbe konservative Mitre-Approximation
 Feste IDs, gelieferte Geschosszahlen und Frontage geprüft; erhöhte/unterirdische Landings ohne Geländeanbindung bleiben offen.
 [`building_core.py`](../test/experiments/buildings/building_core.py): feste Kernmaße vollständig innen; Zentrum gegen 9×9-Anker je Orientierung.
 Technikreserve 2,4×2,4 m bei einem Geschoss; Treppenreserve 3 m breit, Länge aus Geschosshöhe und zweiläufigem Konzept.
-0,18 m maximale Steigung/0,28 m Auftritt/1,10 m Podest dienen nur der Reservierung; keine konstruierten Stufen oder vertikale Erreichbarkeit.
+0,18 m maximale Steigung/0,28 m Auftritt/1,10 m Podest steuern Reservierung und konstruierte Stufen.
 Bis drei räumlich verschiedene Kernpositionen; vollständige Rechteckfläche prüfen, vier gültige Ecken reichen bei Höfen nicht.
 [`building_corridor.py`](../test/experiments/buildings/building_corridor.py): zwei rechtwinklige Direktwege gegen orthogonalen Koordinatengraph.
 Graph verbindet weitere Zugänge mit vorhandenen Ästen durch Mehrquellen-Dijkstra; keine globale Fluroptimalität.
@@ -70,11 +71,27 @@ Türportale nur auf geraden gemeinsamen Grenzabschnitten und mit voller Breite a
 [`verify_circulation.py`](../test/experiments/buildings/verify_circulation.py): Mesh-Clearance nur mit Flur/Eingang, Türbesitz und Kernmaße prüfen.
 0,75 m Achsabstand zum tatsächlichen Flurrand ergibt 1,50 m Zielbreite; versiegelte Tür als Gegenfall, feste IDs und Lochkontrolle.
 Synthetischer Hof/Tokyo-Kontrolle: Flur höchstens 30 % der Innenfläche, damit die Erschließung keine ganzen Flügel absorbiert.
-Flure sind noch generisch; Raumprogramm, kompakte Raumproportionen, Stufen/Podeste und Obergeschosse bleiben offen.
+Flure/Räume sind generisch; kompakte Proportionen, Nutzung und passende Raumprogramme bleiben offen.
+[`building_stair.py`](../test/experiments/buildings/building_stair.py): zweiläufiges geschlossenes Stufenprofil mit geneigter Unterseite,
+mindestens 0,20 m vertikale Dicke; Antritt an vorhandener Bodenplatte gekappt. Keine massive Unterseite im darunterliegenden Lauf.
+Ein metrisches Bauteil gedreht/platziert und je Geschoss wiederholt; Ghidra-Komponenten-/Transformbelege und Esri-Inline-Beispiel in 2400.
+Kernzugang nur am freien Antrittspodest; 1 m hohe Balustraden an inneren Laufkanten, Zwischenpodest und oberen Öffnungsrändern.
+[`building_vertical.py`](../test/experiments/buildings/building_vertical.py): gleiche Quellhöhe, stabile Geschoss-/Raum-/Portal-IDs,
+gemeinsamer Flur pro Geschoss; generischer Raumplan wiederholt, keine belegte Rekonstruktion. Budget maximal 64 Geschosse.
+[`verify_vertical.py`](../test/experiments/buildings/verify_vertical.py): geschlossene Bauteile, tatsächliche Auftritte/Deckenöffnungen,
+Zugangsgraph aller 399 Flächen und geometrische An-/Austritte. Verschlossene Decke/fehlende Stufen als echte Mesh-Gegenfälle.
+Spaltenprüfer gilt für vertikal zusammenhängende geschlossene Prismen/Profile, nicht beliebige nichtkonvexe Assets.
+16 Radialproben plus Zentrum, 0,10 m Fußradius; Torso 0,30 m Radius/0,40–1,90 m über den Füßen.
+Übergänge höchstens 0,10 m horizontal abtasten, Füße beim Steigen anheben; Stichprobe, keine kontinuierliche native Kapselphysik.
+Kleinste gemessene Kopffreiheit der acht Fälle rund 2,039 m. Erhöhte/unterirdische Außenanschlüsse weiterhin ungelöst.
+Profil gegen einzelne gleich geformte Stufenbauteile: gleiche analytische Volumen/Auftrittshöhen; je 21 warme Python-Läufe,
+p50/p95, Bauteile und Dreiecke offenlegen. Geschlossenes Profil benötigt lokal weniger Aufbauarbeit/Dreiecke; kein nativer Framebeleg.
+Grundriss und zwei überlagerte parallele tatsächliche Treppenschnitte zuerst; Blender-Ansichten desselben Meshs danach.
+Kern-Nahansicht blendet übrige Bauteile/Böden aus; vollständiges Prüfmesh und Ausblendungsmetadaten erhalten.
 WKB-Plan/NPZ-Prüfmesh in Build sind Experimentausgaben, kein integrierter Asset-Cachevertrag (2460).
 
 ## Verfahren
 [Instant Architecture, SIGGRAPH 2003](../doc/references/buildings/siggraph/2003-instant-architecture.pdf),
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf).
 [Residential Building Layouts, SIGGRAPH Asia 2010](../doc/references/buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf): Raumprogramm/Adjazenzen → Geschossplan → 3D.
-2400 ergänzt Esri-/Ghidra-Belege; begrenzte Layoutverfahren bei festem Quellkörper vergleichen; Seiten 1/6/9 optisch geprüft.
+2400 ergänzt Esri-/Ghidra-Belege; begrenzte Layoutverfahren bei festem Quellkörper vergleichen; Seiten 1/3/6/7/8/9 optisch geprüft.
