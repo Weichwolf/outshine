@@ -14,7 +14,7 @@ Aus dem Quellgraph und der Nutzungsbilanz (2342) entstehen zusammenhängende Bä
 Besitzer: generators/road; nativer Bauteilplan für 2281, ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) teilt gemeinsame
 Mesh-Ränder; alle gewählten Ebenen-0-Fenster bestehen Flächen-/Kantenprüfung.
-Keine zusätzlichen schwachen Netztrennungen; 8611/8679 Autofahrten. Zürich ohne starke Netztrennung; Modi/Verkehrsfluss/Kosten offen.
+Keine zusätzlichen schwachen Netztrennungen; 8613/8679 Autofahrten. Zürich ohne starke Netztrennung; Modi/Verkehrsfluss/Kosten offen.
 [Bordbögen](../test/experiments/infrastructure/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -86,7 +86,7 @@ Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfe
 Geschlossene Komplementflächen, verschachtelte Inseln, ihre Zuordnung durch Flächenüberlappung und gerichtete Umfahrung erhalten.
 Volle Hüllen gemeinsam bilden; Konstruktionsreserve an Reservationen kappen, ganze Körper am nativen Mesh neu prüfen. Alle Stücke teilen 4096 Prüfposen. Kleinste Binärpräzision; Außenports/Anfragen/Fahrten erhalten. Polygonale Fahrflächen; Schnittlinien sind kein Fahrraum.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure/infrastructure_cut_setbacks.py) erweitert den Anschluss
-innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
+innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Folgeschnitte behalten das vorhandene feinste Binärraster; volle Querschnitte bleiben gemeinsam.
 Mehrere Achsen je Schnitt behalten eindeutige Kontakte; alle Stationen rücken nach außen. Neue/verlorene Kontakte ablehnen.
 1/2/3 Mindestradien: Eingang, Ausgang, beide; Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
 [Gekoppelte Passung](../test/experiments/infrastructure/infrastructure_coupled_roadbed_experiment.py): gültige Teilnetze, volle Anfragenbilanz; Bestand sichern, Auslassungen begründen. Körper/Freiräume/Schnitte am gemeinsamen Mesh; Außenrahmen fest.
@@ -94,7 +94,7 @@ Schnitt-/Rahmenänderungen getrennt deklarieren; alle Portnachbarn prüfen. G2-W
 [Fensterprüfung](../test/experiments/infrastructure/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Quellfahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py): Komponenten und gerichtete Umfahrungen prüfen. DAG-Zielmasken in 64er-Batches statt quadratischer Matrix.
-18 von 68 fehlenden Direktfahrten ohne Umfahrung zuerst lösen: Wien 8, Basel 10, Zürich 0. Verkehrsfluss/Modi/Kosten offen.
+16 von 66 fehlenden Direktfahrten ohne Umfahrung zuerst lösen: Wien 8, Basel 8, Zürich 0. Verkehrsfluss/Modi/Kosten offen.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
