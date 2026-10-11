@@ -1,6 +1,7 @@
 """Test functional road space with explicit bounded cuts of building reservations."""
 
 import argparse
+import inspect
 import json
 from pathlib import Path
 import subprocess
@@ -12,6 +13,7 @@ import shapely
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from infrastructure_building_clearance import indexed_cut
+import infrastructure_hermite_route_fitting as fitting
 from infrastructure_cut_setback_experiment import digest,implementation_files
 from infrastructure_driving_network import DrivingNetwork
 from infrastructure_source_roadbeds import construct_route_roadbed
@@ -23,9 +25,16 @@ def main():
     parser.add_argument('--place',required=True)
     parser.add_argument('--input',type=Path,nargs='+',required=True)
     parser.add_argument('--maximum-cut-fraction',type=float,default=.05)
+    parser.add_argument('--curvature-weight',type=float,default=4.)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     if not 0<args.maximum_cut_fraction<1:parser.error('building cut fraction must be between zero and one')
+    if not 0<args.curvature_weight<float('inf'):parser.error('curvature weight must be finite and positive')
+    source=inspect.getsource(fitting.fit_hermite_route)
+    assert source.count('bends = 4*')==1
+    namespace=dict(fitting.__dict__)
+    exec(compile(source.replace('bends = 4*',f'bends = {args.curvature_weight}*'),str(Path(__file__)), 'exec'),namespace)
+    fitting.fit_hermite_route=namespace['fit_hermite_route']
     root=Path('build/experiments/infrastructure');args.output.mkdir(parents=True,exist_ok=True)
     receipt_path=root/'inputs'/f'{args.place}-input.json';receipt=json.loads(receipt_path.read_text())['receipt']
     rows=[];network=None
@@ -66,7 +75,8 @@ def main():
                 row['candidate']=str(output/'candidate.json')
         rows.append(row);print(json.dumps(row),flush=True)
     sources=implementation_files(Path(__file__))
-    result=dict(cases=rows,maximum_cut_fraction=args.maximum_cut_fraction,receipt_sha256=digest(receipt_path),
+    result=dict(cases=rows,maximum_cut_fraction=args.maximum_cut_fraction,curvature_weight=args.curvature_weight,
+        receipt_sha256=digest(receipt_path),
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         implementation_sha256={str(p.relative_to(Path.cwd())):digest(p) for p in sources},
         scope='Native road curves and clipped connected building reserves; per-source building identity and whole coupled publication remain required.')
