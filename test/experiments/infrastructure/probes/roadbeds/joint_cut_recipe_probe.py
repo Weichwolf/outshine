@@ -22,11 +22,13 @@ parser.add_argument('--pair',type=int,nargs=2,required=True)
 parser.add_argument('--sections',type=int,nargs='+',required=True)
 parser.add_argument('--setback',type=float,required=True)
 parser.add_argument('--prior',type=Path,required=True)
+parser.add_argument('--repeat-junction',action='store_true')
 parser.add_argument('--output',type=Path,required=True)
 args=parser.parse_args()
 root=Path('build/experiments/infrastructure')
 prior=json.loads(args.prior.read_text())
-assert prior['place']==args.place and prior['module']!=args.module
+assert prior['place']==args.place
+assert (prior['module']==args.module)==args.repeat_junction
 assert {c['junction'] for c in prior['cut_plan']['changes']}=={prior['module']}
 for name,value in prior['input_sha256'].items():assert coupled.digest(root/name)==value
 for name,value in prior['implementation_sha256'].items():assert coupled.digest(Path(name))==value
@@ -34,7 +36,7 @@ assert coupled.digest(Path(prior['physical_mesh']))==prior['physical_mesh_sha256
 prior_sections={s['section'] for s in prior['cut_plan']['sections']}
 assert set(prior['changed_frame_sections'])==prior_sections
 requested_sections=set(args.sections)
-assert not requested_sections&prior_sections
+if not args.repeat_junction:assert not requested_sections&prior_sections
 original=coupled.setback_network
 
 
@@ -83,7 +85,7 @@ report.update(elapsed_ms=(time.perf_counter()-began)*1000,
     previous_coupled_requests_retained=len(keys(prior)),
     shared_cuts_description=f'Cuts moved {args.setback:g} m at {args.module} and {prior["setback_m"]:g} m at {prior["module"]}; '
                            f'{len(report["proofs"])} proved routes across {len(report["affected"])} modules',
-    scope='All public-motor requests of both junctions and their affected corridors, on one shared mesh; no runtime integration.',
+    scope='All public-motor requests of the affected junctions and corridors, on one shared mesh; no runtime integration.',
     experimental_recipe='Replayed neighboring cut and frame recipes; all affected owners solved and triangulated together.')
 (args.output/'proof.json').write_text(json.dumps(report,indent=2,default=lambda obj:obj.tolist())+'\n')
 print(json.dumps({k:report[k] for k in ('accepted','connections','affected','added_area_m2','elapsed_ms',
