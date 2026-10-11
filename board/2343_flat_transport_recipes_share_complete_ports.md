@@ -87,16 +87,16 @@ Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüll
 Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunkte; erst nach beiden Grundversuchen.
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
-[Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum: direkte Kurven, dann quellfolgende G2-Ketten und volle
+[Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 Aufweitungsbudget: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L größter Längsabstand zur Hinterachse. Reservationen vor Pufferung räumlich eingrenzen; nur Raum außerhalb der bestehenden Fahrfläche schützt die Suchreserve. Die endgültige Aufweitung prüft alle Reservationen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 Geschlossene Freiräume sind tatsächlich freie Komplementflächen, auch bei verschachtelten Inseln; eindeutige Zuordnung durch positive Flächenüberlappung und gerichtete Inselumfahrung bleiben erhalten.
-Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Konstruktionsreserve im Suchraum vorsehen; alle Stücke teilen das 4096-Posenbudget der endgültigen Karosserieprüfung. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; flächenlose Schnittreste tragen keinen Fahrraum.
+Volle Hüllen gemeinsam bilden, keine Differenzfragmente rekonstruieren. Konstruktionsreserve vorsehen; alle Stücke teilen 4096 Prüfposen. Mesh/Fläche teilen Präzision; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; Schnittlinien tragen keinen Fahrraum.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
-Drei Kandidaten: 1/2/3 Fahrzeug-Mindestradien; beide Nachbarstücke neu lösen. Quellen-/Außenkontakte,
-alle Anfragen und vorher gültigen Fahrten erhalten; ohne gezielten Gewinn nichts übernehmen.
-Fläche einmal besitzen, keine Verbreiterung, Löcher/Anschlüsse erhalten; vollständige Karosserieprüfung.
+Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
+[Gekoppelte Schnitt-/Fahrraumpassung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) löst Knoten samt Nachbarstraßen. Anfragen, Freiräume und Schnitte am gemeinsamen Dreiecksmesh prüfen; Außenrahmen bleiben fest.
+Der Zürcher Knoten 102 samt zwei Nachbarstraßen trägt lokal 12/12 Fahrten; vollständige Fenster und übrige Netztrennungen bleiben offen.
 [Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) veröffentlicht Fahrraumerweiterungen aller berührten
 Bauteile am echten Mesh; alle öffentlichen Anfragen/alten Fahrten und schon bewiesenen Erweiterungen erhalten. Unverträgliche neue Gruppen lokal ablehnen, gültigen Bestand behalten.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache

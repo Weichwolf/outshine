@@ -72,8 +72,9 @@ def render(report,path,bounds=None):
         ax.set_ylabel('north [m]')
         count=report['previous_accepted'] if index==0 else report['accepted']
         ax.set_title(f'{"Original" if index==0 else "Constructed physical mesh"}: {count}/{report["connections"]} routes')
+    cuts=report.get('shared_cuts_description','Fixed shared cuts')
     fig.suptitle(f'{report["place"]} · module {report["module"]} · +{report["added_area_m2"]:.2f} m² roadbed\n'
-                 f'Fixed shared cuts · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · buildings/private space unchanged')
+                 f'{cuts} · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · buildings/private space unchanged')
     path.parent.mkdir(parents=True,exist_ok=True)
     fig.savefig(path,dpi=140)
     plt.close(fig)
