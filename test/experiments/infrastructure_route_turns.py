@@ -113,6 +113,11 @@ def source_route_connector(entry,exit,route,surface,vehicle,error=.025,*,connect
     path,note = spline_route_candidates(entry,exit,route,surface,vehicle,error)
     if path is not None:
         return path,note
+    return rounded_source_route(entry,exit,route,surface,vehicle,error,connectors=connectors)
+
+
+def rounded_source_route(entry,exit,route,surface,vehicle,error=.025,*,connectors=None,winding_surface=None):
+    raw = shapely.get_coordinates(route)
     if len(raw)<3:
         return None,dict(reason='source_route_has_no_intermediate_corner')
     tried = set()
@@ -124,7 +129,8 @@ def source_route_connector(entry,exit,route,surface,vehicle,error=.025,*,connect
         if key in tried:
             continue
         tried.add(key)
-        path,note = rounded_route(points,surface,vehicle,error,connectors=connectors,ports=(entry,exit))
+        path,note = rounded_route(points,surface,vehicle,error,connectors=connectors,ports=(entry,exit),
+                                  winding_surface=winding_surface)
         if path is not None:
             return path,dict(simplification_m=tolerance,**note)
     return None,note

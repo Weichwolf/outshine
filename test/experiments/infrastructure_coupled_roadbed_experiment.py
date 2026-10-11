@@ -17,7 +17,7 @@ from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface,same_island_winding
 from infrastructure_junction_turns import connect_lanes
-from infrastructure_route_turns import rounded_route
+from infrastructure_route_turns import rounded_source_route
 from infrastructure_shared_frames import frame_key
 from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_piece,roadbed_body_check
 from infrastructure_turn_roadbed_experiment import building_reservations,reservations
@@ -37,8 +37,7 @@ def existing_surface_curve(entry,exit,route,surface,vehicle,error):
         poses=dict(entry_pose={k:entry[k].tolist() for k in ('position','heading')},
                    exit_pose={k:exit[k].tolist() for k in ('position','heading')})
         return dict(path=path,pieces=[roadbed_piece(note|poses)],roadbed=shapely.Polygon(),report=note)
-    path,note=rounded_route(shapely.get_coordinates(route),surface,vehicle,error,
-                           ports=(entry,exit),winding_surface=surface)
+    path,note=rounded_source_route(entry,exit,route,surface,vehicle,error,winding_surface=surface)
     if path is not None and same_island_winding(path,route,surface):
         return dict(path=path,pieces=[roadbed_piece(n) for n in note['pieces'][::-1]],
                     roadbed=shapely.Polygon(),report=note)
