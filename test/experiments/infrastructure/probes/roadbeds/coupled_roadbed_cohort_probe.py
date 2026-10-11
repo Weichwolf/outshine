@@ -29,6 +29,12 @@ cases=[
     ('ZuerichHauptbahnhof',2135,(5,3),4,()),
     ('ZuerichHauptbahnhof',715,(2,0),4,(4776,)),
     ('ZuerichHauptbahnhof',1678,(4,6),8,(10997,10998,10999)),
+    ('Wien',575,(0,2),4,()),
+    ('Wien',685,(1,0),4,()),
+    ('Wien',810,(1,0),4,()),
+    ('Wien',824,(0,2),4,()),
+    ('Wien',1102,(1,3),4,()),
+    ('BaselBadischerBahnhof',1209,(3,4),8,()),
 ]
 results=[]
 for place,module,pair,setback,sections in cases:
@@ -44,7 +50,8 @@ for place,module,pair,setback,sections in cases:
         report=json.loads((output/'proof.json').read_text())
         row.update({k:report[k] for k in ('accepted','connections','elapsed_ms')})
         baseline=root/'combined-502657479'/f'{place}-{module}'/'proof.json'
-        if not baseline.exists():baseline=root/'zuerich-reuse-final'/str(module)/'proof.json'
+        if not baseline.exists() and place=='ZuerichHauptbahnhof':
+            baseline=root/'zuerich-reuse-final'/str(module)/'proof.json'
         if baseline.exists():
             previous=json.loads(baseline.read_text())
             row['previous_accepted']=previous['accepted']
