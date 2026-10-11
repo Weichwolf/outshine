@@ -2,9 +2,9 @@
 
 import numpy as np
 import shapely
-from scipy.optimize import least_squares
 from scipy.sparse import lil_matrix
 
+from infrastructure_hermite_jacobian import solve_hermite_system
 from infrastructure_spline_routes import evaluate_controls,curve_bounds,split_controls,checked_spline_path
 from infrastructure_vehicle_sweep import body_outlines
 from infrastructure_junction_surfaces import same_island_winding
@@ -96,7 +96,7 @@ def fit_hermite_route(entry,exit,route,surface,vehicle,error=.025,*,spacing=None
     lower[-2:] = step*.1
     status = 'optimizer_finished'
     try:
-        fitted = least_squares(residual,initial,jac_sparsity=pattern,bounds=(lower,np.inf),
+        fitted = solve_hermite_system(residual,initial,jac_sparsity=pattern,bounds=(lower,np.inf),
                                max_nfev=maximum_evaluations,ftol=1e-5,xtol=1e-6,gtol=1e-5)
         values,status = fitted.x,'optimizer_converged' if fitted.success else 'optimizer_evaluation_budget_exhausted'
     except ResidualBudgetExceeded:

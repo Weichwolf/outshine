@@ -11,50 +11,11 @@ import time
 import numpy as np
 import shapely
 from scipy.optimize import least_squares
-from scipy.sparse import csr_matrix
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 import infrastructure_hermite_route_fitting as fitting
+import infrastructure_hermite_jacobian as jacobian
 from infrastructure_cut_setback_experiment import implementation_files,digest
-
-
-def chain_colors(variables):
-    if variables<8 or (variables-2)%6:
-        raise ValueError('expected six fields per internal node and two endpoint scales')
-    count=(variables-2)//6+2
-    nodes=np.arange(1,count-1)
-    groups=np.r_[(6*(nodes%2)[:,None]+np.arange(6)).ravel(),0,6*((count-1)%2)]
-    return groups
-
-
-def colored_least_squares(fun,initial,*,jac_sparsity,bounds,**kwargs):
-    pattern=jac_sparsity.tocsr()
-    groups=chain_colors(len(initial))
-    rows=np.repeat(np.arange(pattern.shape[0]),np.diff(pattern.indptr))
-    columns=pattern.indices
-    groups_present=np.unique(groups)
-    parts=[np.flatnonzero(groups[columns]==group) for group in groups_present]
-    cache={}
-    def measured(values):
-        result=fun(values)
-        cache.update(values=values.copy(),residual=result)
-        return result
-    def jacobian(values):
-        if not np.array_equal(cache.get('values'),values):measured(values)
-        base=cache['residual'].copy()
-        step=np.sqrt(np.finfo(values.dtype).eps)*np.where(values>=0,1.,-1.)*np.maximum(1.,np.abs(values))
-        if np.any(values+step<bounds[0]) or np.any(values+step>bounds[1]):
-            raise ValueError('difference step leaves supported bounds')
-        data=np.empty(pattern.nnz)
-        for group,part in zip(groups_present,parts):
-            selected=groups==group
-            trial=values.copy();trial[selected]+=step[selected]
-            difference=measured(trial)-base
-            actual_step=trial[selected]-values[selected]
-            steps=np.zeros(len(values));steps[selected]=actual_step
-            data[part]=difference[rows[part]]/steps[columns[part]]
-        return csr_matrix((data,columns,pattern.indptr),shape=pattern.shape)
-    return least_squares(measured,initial,jac=jacobian,bounds=bounds,**kwargs)
 
 
 def verify_coloring():
@@ -62,7 +23,7 @@ def verify_coloring():
     rng=np.random.default_rng(2343)
     for count in (3,4,6,12,18):
         pattern=fitting.residual_dependencies(count)
-        colors=chain_colors(pattern.shape[1])
+        colors=jacobian.hermite_column_groups(pattern.shape[1])
         rows=np.repeat(np.arange(pattern.shape[0]),np.diff(pattern.indptr))
         for group in np.unique(colors):
             selected=rows[colors[pattern.indices]==group]
@@ -76,12 +37,12 @@ def verify_coloring():
         lower=np.full(len(state),-np.inf);lower[-2:]=.1
         captured={}
         def objective(values):return matrix@values-target
-        original=colored_least_squares.__globals__['least_squares']
+        original=jacobian.least_squares
         def capture(fun,initial,*,jac,**kwargs):
             fun(initial);captured['jacobian']=jac(initial)
-        colored_least_squares.__globals__['least_squares']=capture
-        try:colored_least_squares(objective,state,jac_sparsity=pattern,bounds=(lower,np.inf))
-        finally:colored_least_squares.__globals__['least_squares']=original
+        jacobian.least_squares=capture
+        try:jacobian.solve_hermite_system(objective,state,jac_sparsity=pattern,bounds=(lower,np.inf))
+        finally:jacobian.least_squares=original
         assert np.allclose(captured['jacobian'].toarray(),matrix.toarray(),atol=2e-7,rtol=2e-7)
         cases.append(dict(nodes=count,groups=len(np.unique(colors)),row_clique_lower_bound=lower_bound))
     return dict(cases=cases,independent_groups=True,minimum_group_count_proved=True,linear_jacobian_checked=True)
@@ -97,12 +58,13 @@ def main():
         data=json.loads(path.read_text())
         poses=[{k:np.array(data[name][k]) for k in ('position','heading')} for name in ('entry','exit')]
         route,surface=(shapely.from_wkb(data[name]) for name in ('source_route','surface'))
-        for name,method in (('baseline',least_squares),('chain',colored_least_squares)):
-            fitting.least_squares=method
+        original=fitting.solve_hermite_system
+        for name,method in (('baseline',least_squares),('chain',jacobian.solve_hermite_system)):
+            fitting.solve_hermite_system=method
             begin=time.perf_counter()
             try:curve,note=fitting.fitted_route_candidates(*poses,route,surface,data['vehicle'],data['error_m'],
                                                           args.budget,include_controls=True)
-            finally:fitting.least_squares=least_squares
+            finally:fitting.solve_hermite_system=original
             assert note['residual_calls']<=args.budget
             note.pop('curve_controls',None)
             row=dict(input=str(path),method=name,accepted=curve is not None,

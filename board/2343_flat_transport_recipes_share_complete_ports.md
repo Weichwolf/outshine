@@ -84,6 +84,8 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
 3. Kosten pro Modul/Verbindung, Speicher und Skalierung vergleichen; nachgewiesen unnötige Sucharbeit beseitigen.
+   [Hermite-Jacobi-Matrix](../test/experiments/infrastructure/infrastructure_hermite_jacobian.py): alternierende
+   Knotengruppen brauchen minimal 7/12 Differenzversuche für das feste Sparsitätsmuster; gleiche Passungs-/Hüllenbudgets.
 4. [Fensterprüfung](../test/experiments/infrastructure/infrastructure_roadbed_window_experiment.py) übernimmt
    Produkte/Posen ohne vorherige Fahrten zu verlieren. [Gesamtbilder](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py)
    und Nahansichten öffnen: keine Risse/Faltungen/Doppelstücke, ruhige Kurven und konstruktive Kontakte.
