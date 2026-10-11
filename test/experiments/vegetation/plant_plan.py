@@ -14,6 +14,7 @@ from shoot_plan import Shoot, normal_frame
 
 UP = np.array((0.0, 0.0, 1.0))
 GOLDEN_ANGLE = np.pi * (3 - np.sqrt(5))
+PLAN_VERSION = "branching-plant-2"
 
 
 @lru_cache(maxsize=16)
@@ -159,13 +160,31 @@ class PlantPlan:
 
     @cached_property
     def identity(self):
-        recipe = {
-            "version": "branching-plant-2",
+        return hashlib.sha256(
+            json.dumps(self.recipe(), sort_keys=True).encode()
+        ).hexdigest()
+
+    def recipe(self):
+        return {
+            "version": PLAN_VERSION,
             "seed": self.seed,
             "levels": [asdict(level) for level in self.levels],
             "blades": [asdict(blade) for blade in self.blades],
         }
-        return hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
+
+    @classmethod
+    def from_recipe(cls, recipe):
+        if (
+            not isinstance(recipe, dict)
+            or set(recipe) != {"version", "seed", "levels", "blades"}
+            or recipe["version"] != PLAN_VERSION
+        ):
+            raise ValueError("complete supported plant recipe required")
+        return cls(
+            recipe["seed"],
+            tuple(AxisLevel(**level) for level in recipe["levels"]),
+            tuple(Blade(**blade) for blade in recipe["blades"]),
+        )
 
     @cached_property
     def axis_counts(self):

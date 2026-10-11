@@ -125,6 +125,16 @@ class LeafSheet:
         return paths
 
 
+def organ_colour(variant, transverse):
+    shade = (np.asarray(variant) % 8 + 0.5) / 8
+    base = (
+        np.asarray((0.022, 0.075, 0.009)) * (1 - shade[..., None])
+        + np.asarray((0.11, 0.23, 0.025)) * shade[..., None]
+    )
+    vein = np.clip((0.014 - np.abs(transverse / 2)) / 0.012, 0, 1)
+    return base + vein[..., None] * (np.asarray((0.17, 0.26, 0.046)) - base)
+
+
 def make_sheet(blade, variant=0, size=256, fit="anchored"):
     if type(size) is not int or size < 32 or size > 1024 or size & (size - 1):
         raise ValueError("power-of-two chart size from 32 to 1024 required")
@@ -169,13 +179,7 @@ def make_sheet(blade, variant=0, size=256, fit="anchored"):
     )
     normals = samples[..., :3]
     normals /= np.maximum(np.linalg.norm(normals, axis=-1, keepdims=True), 1e-12)
-    vein = np.clip((0.014 - np.abs(samples[..., 4] / 2)) / 0.012, 0, 1)
-    shade = (variant % 8 + 0.5) / 8
-    base = (
-        np.array((0.022, 0.075, 0.009)) * (1 - shade)
-        + np.array((0.11, 0.23, 0.025)) * shade
-    )
-    colour = base + vein[..., None] * (np.array((0.17, 0.26, 0.046)) - base)
+    colour = organ_colour(variant, samples[..., 4])
     alpha = covered.astype(float)[..., None]
     colour = average_blocks(np.concatenate((colour * alpha, alpha), axis=-1))
     encoded = (normals + 1) / 2

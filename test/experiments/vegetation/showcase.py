@@ -17,6 +17,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from cloud_plots import group_figure, raster_figure, render_figure
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS = ROOT / "build/experiments/vegetation"
@@ -305,8 +306,42 @@ def leaf_lod_plot(report):
     return save_plot(figure, "leaf-lod")
 
 
+def cloud_group_plot(report):
+    figure = group_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "cloud-coverage")
+
+
+def cloud_raster_plot(report):
+    figure = raster_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "cloud-raster-cost")
+
+
+def cloud_render_plot(_report):
+    return save_plot(render_figure(EXPERIMENTS), "cloud-render-comparison")
+
+
 def plot_entries(output):
     definitions = (
+        (
+            "clouds/clouds.json",
+            cloud_group_plot,
+            "Blattgruppen: Deckung und Kartenbedarf",
+            "Vier Gruppen mit je 60 Blättern × 24 feste Richtungen, einschließlich flacher und unterer Ansichten. Gruppengröße acht Pixel; RGBA8-Attribute, bilineare Abtastung und achtfaches Supersampling. Mittel und Maximum gegen dasselbe räumliche Quellmesh. Achsenebenen sind verworfene Vergleichsverfahren; auch die Organebenen belegen kein allgemeines LOD-Gate.",
+        ),
+        (
+            "clouds/clouds.json",
+            cloud_raster_plot,
+            "Rasteraufwand bei gleichen Eingaben",
+            "Identische 3.960 Dreiecke und Attribute auf einem 64 × 64 Raster. Fünf lokale CPU-Läufe je Verfahren, Aufbau ausgeklammert. Median und Minimum/Maximum; logarithmische Achse. Referenzdeckung und Attribute in 16 Prüfungen verglichen. Keine GPU- oder Gerätemessung.",
+        ),
+        (
+            "clouds/clouds.json",
+            cloud_render_plot,
+            "Krone und Schatten im direkten Bildvergleich",
+            "Unveränderte Originalpixel aus demselben Ausschnitt der beiden 1280 × 720 Renderings. 37.800 identische Quellblätter, gleiche Holzgeometrie, Kamera, Licht und 32 EEVEE-Samples. Farbskala: größter absoluter RGB-Kanalunterschied. Eine statische Ansicht belegt weder Wind noch Bewegungsstabilität oder allgemeine LOD-Qualität.",
+        ),
         (
             "sheets/sheets.json",
             leaf_lod_plot,

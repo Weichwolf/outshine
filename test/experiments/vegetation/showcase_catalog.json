@@ -1,6 +1,6 @@
 {
-  "current_work": "Die größere Laubbaumprobe erhält gerundete Astlängenprofile, begrenzt ungleichmäßige Ansatzpunkte und Aufwärtsneigung. 37.800 räumliche Blätter bilden erkennbare Blattgruppen. Vorher/Nachher verwenden dieselbe Kamera, Beleuchtung und dasselbe Blattmaterial; eine zweite Ansicht dreht die Kamera um denselben Plan. Drei Seeds prüfen Anschlüsse und unabhängig angeforderte Detailgruppen.",
-  "quality_gap": "Die Pflanzenbilder bleiben Formstudien. Organische Astgabeln, vielfältige Wachstumsformen, natürliche Bestandsverteilung, vollständige Waldprodukte, Wind sowie gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
+  "current_work": "Derselbe Laubbaum mit 37.800 stabilen Blättern erhält ein wiederverwendbares Kartenprodukt. Das Laub benötigt 64.118 statt 2,49 Millionen Dreiecken; Farbe, Normalen und Deckung sind selbst erzeugt. Räumliche Referenz und Karten verwenden dieselbe Kamera, Beleuchtung und Holzgeometrie. Ein versioniertes Pflanzenrezept erhält die Herkunft späterer Nahdetails.",
+  "quality_gap": "Die Vegetation bleibt ein Verfahrens- und Formstand. Vollständige Waldprodukte, Artenvielfalt, natürliche Bestandsverteilung, organische Gabeln, Rinde, Wind und bewegungsstabile LOD-Übergänge fehlen. Für das neue Kartenprodukt sind Mip-Verhalten, Overdraw sowie native GPU-/Laufzeitkosten noch offen.",
   "renders": [
     {
       "image": "render/landscape-temperate.png",
@@ -25,6 +25,22 @@
       "category": "landscape",
       "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
       "quality": "Erster Formstand · Gras und Nahlaub offen"
+    },
+    {
+      "image": "render/cloud-tree.png",
+      "title": "Laubbaum · gruppiertes Kartenprodukt",
+      "label": "Gruppen-LOD",
+      "category": "organs",
+      "description": "37.800 Quellblätter aus 630 Zweiggruppen ergeben 32.059 passend orientierte Karten. 64.118 Laubdreiecke statt 2,49 Millionen; Holzgeometrie, Kamera und Licht bleiben für den Vergleich gleich. Der Atlas enthält unbeleuchtete Farbe, Normalen und Alpha. Geometrischer Projektionsversatz unter 15 mm zum gewählten Quellmesh; Deckung und Schatten besitzen eigene Grenzen.",
+      "quality": "Verfahrensprobe · Wald-/Wind-/Runtime-Gate offen"
+    },
+    {
+      "image": "render/cloud-reference.png",
+      "title": "Laubbaum · räumliche Vergleichsgeometrie",
+      "label": "Referenz",
+      "category": "organs",
+      "description": "Derselbe stabile Pflanzenplan unter derselben Kamera. 37.800 räumliche Blattflächen und unveränderte Holzgeometrie ergeben insgesamt 2,65 Millionen Dreiecke. Die Kartenprobe verwendet die gleichen Organ-IDs und erhält das vollständige Rezept für spätere Detailanfragen.",
+      "quality": "Vergleichsprobe · gleiche Eingaben"
     },
     {
       "image": "render/architecture-after.png",
