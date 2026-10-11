@@ -83,6 +83,8 @@ def published_roadbed_surface(mesh,base,core,planned,precision):
     parts=shapely.get_parts(complete)
     polygons=shapely.get_parts(parts[np.isin(shapely.get_type_id(parts),[3,6])])
     surface=shapely.MultiPolygon(polygons.tolist()) if len(polygons)!=1 else polygons[0]
+    surface=shapely.set_precision(surface,precision,mode='pointwise')
+    assert surface.is_valid
     assert surface.area==complete.area
     return surface,actual
 

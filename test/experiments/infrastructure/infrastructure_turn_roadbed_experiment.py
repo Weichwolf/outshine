@@ -134,6 +134,7 @@ def verify_polygonal_mesh(vehicle):
     planned=shapely.box(-1,-1,8,3)
     surface,_=published_roadbed_surface(mesh,planned,planned,planned,.125)
     assert surface.is_valid and surface.area==8 and len(surface.geoms)==2
+    assert shapely.get_precision(surface)==.125
     assert surface.equals(shapely.MultiPolygon([shapely.box(x,0,x+2,2) for x in (0,4)]))
     return dict(polygonal_mesh_publication_checked=True)
 
