@@ -8,6 +8,14 @@ from infrastructure_clothoid_turns import sample_symmetric_turns
 from infrastructure_curvature_paths import sample_curvature_paths
 
 
+def turn_sampler(profile):
+    sampler = {'G1':sample_clothoids,'G2':sample_symmetric_turns,
+               'G2-polynomial':sample_curvature_paths}.get(profile)
+    if sampler is None:
+        raise ValueError('unknown vehicle sweep trajectory')
+    return sampler
+
+
 def body_outlines(positions,headings,half_width,front,rear):
     local = np.array([[-rear,-half_width],[front,-half_width],[front,half_width],[-rear,half_width]])
     cosine,sine = np.cos(headings)[:,None],np.sin(headings)[:,None]
@@ -47,10 +55,7 @@ def straight_body_check(surface,begin,end,heading,vehicle,error=.025):
 def turn_body_check(surface,fit,begin,end,profile,vehicle,error=.025,maximum_poses=4096):
     if maximum_poses<2:
         return dict(fits_surface=False,reason='vehicle_sweep_budget_exhausted'),None
-    sampler = {'G1':sample_clothoids,'G2':sample_symmetric_turns,
-               'G2-polynomial':sample_curvature_paths}.get(profile)
-    if sampler is None:
-        raise ValueError('unknown vehicle sweep trajectory')
+    sampler = turn_sampler(profile)
     xy,angles = sampler(fit,np.array([0.,1.]))[:2]
     xy,angles = xy[0],angles[0]
     curvature,length = float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])

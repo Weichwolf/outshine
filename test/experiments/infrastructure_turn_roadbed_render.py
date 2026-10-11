@@ -23,7 +23,8 @@ def render(report,path):
     planned=shapely.from_wkb(bytes.fromhex(report['planned_surface_wkb']))
     accepted=[r for r in report['trials'] if r['accepted']]
     paths=[np.array(r['path']) for r in accepted]
-    a,b,c,d=shapely.MultiPoint(np.vstack(paths)).bounds
+    view=paths or [np.array(r['source_path']) for r in report['trials'] if r.get('source_path')]
+    a,b,c,d=shapely.MultiPoint(np.vstack(view)).bounds if view else shape.bounds
     with np.load(report['physical_mesh']) as product:
         triangles=product['vertices'][product['indices']]
     visible=shapely.intersects(shapely.polygons(triangles),shapely.box(a-5,b-5,c+5,d+5))
@@ -38,6 +39,16 @@ def render(report,path):
         plot_geometry(ax,[before if index==0 else planned],'#8d9993')
         if index:
             plot_geometry(ax,[planned.difference(before)],'#71bd94')
+        if not accepted:
+            for row in report['trials']:
+                points=np.array(row['source_path'])
+                ax.plot(points[:,0],points[:,1],'--',color='#b54a49',linewidth=1.5,
+                        label='unresolved source route' if row is report['trials'][0] else None)
+                for body in row['endpoint_bodies']:
+                    outline=np.array(body)
+                    ax.fill(outline[:,0],outline[:,1],facecolor='#b54a49',alpha=.3)
+            if report['trials']:
+                ax.legend(loc='best')
         for row,points in zip(accepted,paths):
             colour='#b54a49' if index==0 else '#286b9e'
             ax.plot(points[:,0],points[:,1],color=colour,linewidth=2)

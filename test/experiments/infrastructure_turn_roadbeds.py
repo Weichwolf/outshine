@@ -3,10 +3,11 @@
 import numpy as np
 import shapely
 
-from infrastructure_clothoid_turns import fit_symmetric_turns,sample_symmetric_turns
+from infrastructure_clothoid_turns import fit_symmetric_turns
+from infrastructure_curvature_paths import fit_curvature_paths
 from infrastructure_junction_surfaces import same_island_winding
 from infrastructure_junction_turns import tangent_intersection
-from infrastructure_vehicle_sweep import body_outlines,turn_body_check
+from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
 
 
 def holes(surface):
@@ -46,7 +47,7 @@ def compose_roadbeds(surface,shape,roadbeds):
     return base,core,planned,physical,precision
 
 
-def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255):
+def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255,profile='G2'):
     curvature,length=float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])
     rate=float(fit['maximum_curvature_rate_per_m2'][0])
     radius=np.hypot(max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']),vehicle['widthM']*.5)
@@ -54,7 +55,7 @@ def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255):
     segments=max(1,int(np.ceil(np.sqrt(acceleration/(8*error)))))
     if segments>maximum_segments:
         return None,dict(reason='roadbed_sampling_budget_exhausted')
-    positions,headings=sample_symmetric_turns(fit,np.linspace(0,1,segments+1))[:2]
+    positions,headings=turn_sampler(profile)(fit,np.linspace(0,1,segments+1))[:2]
     positions,headings=positions[0],headings[0]
     outlines=body_outlines(positions,headings,vehicle['widthM']*.5,
                           vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
@@ -72,28 +73,42 @@ def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255):
             construction_clearance_m=2*error)
 
 
+def roadbed_curves(entry,exit,vehicle):
+    node,reason=tangent_intersection(entry,exit)
+    start,finish=(np.array([np.arctan2(p['heading'][1],p['heading'][0])]) for p in (entry,exit))
+    if reason is not None:
+        yield None,dict(profile='G2',accepted=False,reason=reason)
+    else:
+        available=min(np.linalg.norm(node-entry['position']),np.linalg.norm(exit['position']-node))
+        for transition in (.5,.25,.125):
+            row=dict(profile='G2',transition_fraction=transition,accepted=False)
+            unit=fit_symmetric_turns(node,np.array([1.]),start,finish,transition_fraction=transition)
+            trim=float(unit['maximum_curvature_per_m'][0])*vehicle['minimumRearAxleRadiusM']*(1+1e-9)
+            if not unit['valid'][0] or trim>available:
+                yield None,row|dict(reason='turn_exceeds_fixed_approaches')
+                continue
+            fit=fit_symmetric_turns(node,np.array([trim]),start,finish,transition_fraction=transition)
+            yield (fit if fit['valid'][0] else None),row|({} if fit['valid'][0] else dict(reason='invalid_analytic_turn'))
+    fit=fit_curvature_paths(entry['position'][None,:],exit['position'][None,:],start,finish)
+    row=dict(profile='G2-polynomial',accepted=False)
+    if not fit['valid'][0]:
+        yield None,row|dict(reason='polynomial_pose_fit_failed')
+    elif fit['maximum_curvature_per_m'][0]*vehicle['minimumRearAxleRadiusM']>1+1e-12:
+        yield None,row|dict(reason='polynomial_turn_radius_too_small')
+    else:
+        yield fit,row
+
+
 def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025):
     if not np.isfinite(error) or error<=0:
         raise ValueError('invalid roadbed tolerance')
-    node,reason=tangent_intersection(entry,exit)
-    if reason is not None:
-        return None,[dict(accepted=False,reason=reason)]
-    start,finish=(np.array([np.arctan2(p['heading'][1],p['heading'][0])]) for p in (entry,exit))
-    available=min(np.linalg.norm(node-entry['position']),np.linalg.norm(exit['position']-node))
     candidates,trials=[],[]
-    for transition in (.5,.25,.125):
-        row=dict(transition_fraction=transition,accepted=False)
+    for fit,row in roadbed_curves(entry,exit,vehicle):
         trials.append(row)
-        unit=fit_symmetric_turns(node,np.array([1.]),start,finish,transition_fraction=transition)
-        trim=float(unit['maximum_curvature_per_m'][0])*vehicle['minimumRearAxleRadiusM']*(1+1e-9)
-        if not unit['valid'][0] or trim>available:
-            row['reason']='turn_exceeds_fixed_approaches'
+        if fit is None:
             continue
-        fit=fit_symmetric_turns(node,np.array([trim]),start,finish,transition_fraction=transition)
-        if not fit['valid'][0]:
-            row['reason']='invalid_analytic_turn'
-            continue
-        roadbed,note=turn_roadbed(fit,entry['position'],exit['position'],vehicle,error)
+        profile=row['profile']
+        roadbed,note=turn_roadbed(fit,entry['position'],exit['position'],vehicle,error,profile=profile)
         row.update(note)
         if roadbed is None:
             continue
@@ -118,20 +133,20 @@ def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,
         if count>255:
             row['reason']='turn_path_sampling_budget_exhausted'
             continue
-        xy=sample_symmetric_turns(fit,np.linspace(0,1,count+1))[0][0]
+        xy=turn_sampler(profile)(fit,np.linspace(0,1,count+1))[0][0]
         points=np.vstack((entry['position'],xy,exit['position']))
         points=points[np.r_[True,np.linalg.norm(np.diff(points,axis=0),axis=1)>1e-10]]
         path=shapely.LineString(points)
         if not path.is_simple or not same_island_winding(path,source_route,surface):
             row['reason']='roadbed_changes_directed_source_route'
             continue
-        body,_=turn_body_check(planned,fit,entry['position'],exit['position'],'G2',vehicle,error)
+        body,_=turn_body_check(planned,fit,entry['position'],exit['position'],profile,vehicle,error)
         row.update(vehicle_sweep=body,minimum_radius_m=1/curvature if curvature>0 else None,
                    arc_segments=count,endpoint_curvature_per_m=0.,length_m=length)
         if not body['fits_surface']:
             row['reason']=body.get('reason','constructed_roadbed_does_not_support_body')
             continue
-        row.update(accepted=True,reason='constructed_local_roadbed',profile='G2')
+        row.update(accepted=True,reason='constructed_local_roadbed')
         candidates.append(dict(surface=planned,roadbed=roadbed,addition=addition,path=path,fit=fit,report=row))
-    best=min(candidates,key=lambda c:(c['report']['added_area_m2'],c['report']['transition_fraction'])) if candidates else None
+    best=min(candidates,key=lambda c:(c['report']['added_area_m2'],c['report'].get('transition_fraction',1.))) if candidates else None
     return best,trials

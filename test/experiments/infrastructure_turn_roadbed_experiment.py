@@ -13,15 +13,15 @@ import shapely
 
 from geos_triangulation import triangles_of
 from infrastructure_building_clearance import features,polygon_parts,GIRTH_M
-from infrastructure_clothoid_turns import sample_symmetric_turns
 from infrastructure_cut_setback_experiment import prepared_network,digest,implementation_files
+from infrastructure_cut_setbacks import restore_cut_plan
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_route_connectivity import network_connectivity
 from infrastructure_turn_roadbeds import compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage
 from infrastructure_travel import MODES
-from infrastructure_vehicle_sweep import body_outlines,turn_body_check
+from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
 
 
 def building_reservations(receipt,region):
@@ -58,19 +58,48 @@ def reservations(network,region):
     return shapely.union_all(bands)
 
 
-def mesh_coverage(surface,vehicle,fit,begin,end,error):
+def mesh_coverage(surface,vehicle,fit,begin,end,error,profile='G2'):
     triangles=triangles_of(surface)
     actual=shapely.union_all(triangles)
     tolerance=max(1e-7,surface.area*1e-12)
     assert surface.symmetric_difference(actual).area<=tolerance
     assert abs(float(shapely.area(triangles).sum())-actual.area)<=tolerance
-    body,_=turn_body_check(actual,fit,begin,end,'G2',vehicle,error)
+    body,_=turn_body_check(actual,fit,begin,end,profile,vehicle,error)
     assert body['fits_surface']
-    xy,heading=sample_symmetric_turns(fit,np.linspace(0,1,2049))[:2]
+    xy,heading=turn_sampler(profile)(fit,np.linspace(0,1,2049))[:2]
     outlines=body_outlines(xy[0],heading[0],vehicle['widthM']*.5,
                           vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
     assert np.all(shapely.covers(actual,shapely.polygons(outlines)))
     return dict(triangles=len(triangles),continuous_body_on_mesh=body,dense_body_poses=2049),actual
+
+
+def verify_inflected(vehicle):
+    axis=shapely.LineString([[-8.,0.],[6.,0.],[6.,1.],[20.,1.]])
+    floor=shapely.buffer(axis,1.1,quad_segs=8)
+    source=shapely.LineString([[0.,0.],[6.,0.],[6.,1.],[12.,1.]])
+    entry=dict(position=np.array([0.,0.]),heading=np.array([1.,0.]))
+    exit=dict(position=np.array([12.,1.]),heading=np.array([1.,0.]))
+    measured=[]
+    for angle,offset in ((0.,[0.,0.]),(.7,[10000.,-7000.])):
+        matrix=np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+        move=lambda xy:xy@matrix.T+offset
+        surface=shapely.transform(floor,move)
+        a,b=(dict(position=move(p['position']),heading=matrix@p['heading']) for p in (entry,exit))
+        route=shapely.transform(source,move)
+        candidate,_=construct_turn_roadbed(a,b,surface,shapely.Polygon(),route,vehicle)
+        assert candidate is not None and candidate['report']['profile']=='G2-polynomial'
+        fit=candidate['fit'];profile=candidate['report']['profile']
+        old_body,_=turn_body_check(surface,fit,a['position'],b['position'],profile,vehicle)
+        assert not old_body['fits_surface'] and candidate['addition'].area>0
+        mesh_coverage(candidate['surface'],vehicle,fit,a['position'],b['position'],.025,profile)
+        base,core,planned,physical,quantum=compose_roadbeds(surface,surface,[candidate['roadbed']])
+        assert preserves_coverage(surface,planned)
+        mesh_coverage(planned,vehicle,fit,a['position'],b['position'],.025,profile)
+        blocked,_=construct_turn_roadbed(a,b,surface,shapely.buffer(surface,2).difference(surface),route,vehicle)
+        assert blocked is None
+        measured.append(candidate['addition'].area)
+    assert abs(measured[0]-measured[1])<1e-7
+    return dict(inflected_turns_checked=2,inflected_added_area_m2=measured[0])
 
 
 def verify_small(vehicle):
@@ -88,10 +117,11 @@ def verify_small(vehicle):
         route=shapely.transform(source,move)
         candidate,_=construct_turn_roadbed(a,b,surface,shapely.Polygon(),route,vehicle)
         assert candidate is not None
-        audit,_=mesh_coverage(candidate['surface'],vehicle,candidate['fit'],a['position'],b['position'],.025)
+        profile=candidate['report']['profile']
+        audit,_=mesh_coverage(candidate['surface'],vehicle,candidate['fit'],a['position'],b['position'],.025,profile)
         base,core,planned,physical,quantum=compose_roadbeds(surface,surface,[candidate['roadbed']])
         assert preserves_coverage(surface,planned)
-        mesh_coverage(planned,vehicle,candidate['fit'],a['position'],b['position'],.025)
+        mesh_coverage(planned,vehicle,candidate['fit'],a['position'],b['position'],.025,profile)
         blocked,_=construct_turn_roadbed(a,b,surface,shapely.buffer(surface,2).difference(surface),route,vehicle)
         assert blocked is None
         assert preserves_coverage(surface,candidate['surface'])
@@ -104,13 +134,20 @@ def verify_small(vehicle):
     assert rejected is None and any(r.get('reason')=='roadbed_sampling_budget_exhausted' for r in trials)
     return dict(real_mesh_body_checked=True,rigid_transform_checked=True,reservations_enforced=True,
                 hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
-                composed_roadbeds_checked=True)
+                composed_roadbeds_checked=True,**verify_inflected(vehicle))
 
 
 def real_case(root,name,module):
     before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
     frames=json.loads((root/'boundary-optimized/hermite-routes.json').read_text())
     network=prepared_network(root,before,next(p['frames'] for p in frames['places'] if p['place']==name))
+    cut_path=root/'cut-setbacks'/f'{name}-cut-setbacks.json'
+    cuts=json.loads(cut_path.read_text())
+    restore_cut_plan(network,cuts['plan'])
+    records={r['module']:r for r in before['modules']}
+    records.update((r['module'],r) for r in cuts['changed_modules'])
+    before=dict(before,modules=[records[r['module']] for r in before['modules']])
+    changed_owners={r['module'] for r in cuts['plan']['parts']}
     checks=verify_small(network.vehicle)
     shape=network.shape(module)
     poses,_=network.poses(module,{})
@@ -123,12 +160,19 @@ def real_case(root,name,module):
     receipt=json.loads((root/'inputs'/f'{name}-input.json').read_text())['receipt']
     buildings,tiles=building_reservations(receipt,region)
     reserved=buildings.union(reservations(network,region).difference(surface))
+    sections=np.array(list(network.sections.values()),dtype=object)
+    section_index=shapely.STRtree(sections)
     rows,accepted=[],[]
     for entry,exit in failed:
         began=time.perf_counter()
         candidate,trials=construct_turn_roadbed(poses[entry],poses[exit],surface,reserved,
                     routes[entry,exit],network.vehicle,network.curbs['arc_error_m'])
-        row=dict(entry=entry,exit=exit,construction_ms=(time.perf_counter()-began)*1000,trials=trials,accepted=False)
+        positions=np.array([poses[i]['position'] for i in (entry,exit)])
+        headings=np.array([np.arctan2(poses[i]['heading'][1],poses[i]['heading'][0]) for i in (entry,exit)])
+        row=dict(entry=entry,exit=exit,construction_ms=(time.perf_counter()-began)*1000,trials=trials,accepted=False,
+                 source_path=shapely.get_coordinates(routes[entry,exit]).tolist(),
+                 endpoint_bodies=body_outlines(positions,headings,network.vehicle['widthM']*.5,
+                             network.vehicle['frontFromRearAxleM'],network.vehicle['rearOverhangM']).tolist())
         rows.append(row)
         if candidate is None:
             row['reason']='no_valid_constructive_turn'
@@ -136,21 +180,22 @@ def real_case(root,name,module):
             continue
         addition=candidate['addition']
         ids=network.mesh[1].query(addition,predicate='intersects')
-        overlaps=shapely.area(shapely.intersection(network.mesh[0][ids],addition))
-        if np.any(overlaps[network.product['face_owners'][ids]!=module]>1e-8):
+        owners=set(map(int,network.product['face_owners'][ids]))|changed_owners
+        if any(addition.intersection(network.shape(owner)).area>1e-8 for owner in owners if owner!=module):
             row['reason']='roadbed_overlaps_another_mesh_owner'
             continue
         planned_shape=shape.union(addition)
         if not preserves_voids(shape,planned_shape):
             row['reason']='roadbed_changes_physical_void_topology'
             continue
-        sections=[port['line'] for port in network.junctions[module]]
-        if any(addition.distance(line)<1e-7 for line in sections):
+        nearby=section_index.query(shapely.buffer(addition,1e-7))
+        if len(nearby) and np.any(shapely.distance(addition,sections[nearby])<1e-7):
             row['reason']='roadbed_touches_shared_cut'
             continue
         audit,actual=mesh_coverage(candidate['surface'],network.vehicle,candidate['fit'],
-                                 poses[entry]['position'],poses[exit]['position'],network.curbs['arc_error_m'])
-        xy,heading=sample_symmetric_turns(candidate['fit'],np.linspace(0,1,65))[:2]
+                                 poses[entry]['position'],poses[exit]['position'],network.curbs['arc_error_m'],
+                                 candidate['report']['profile'])
+        xy,heading=turn_sampler(candidate['report']['profile'])(candidate['fit'],np.linspace(0,1,65))[:2]
         bodies=body_outlines(xy[0],heading[0],network.vehicle['widthM']*.5,
                             network.vehicle['frontFromRearAxleM'],network.vehicle['rearOverhangM'])
         outside=shapely.area(shapely.difference(shapely.polygons(bodies),surface))
@@ -171,7 +216,7 @@ def real_case(root,name,module):
     for candidate in accepted:
         pair=next((r['entry'],r['exit']) for r in rows if r.get('report') is candidate['report'])
         body,_=turn_body_check(complete,candidate['fit'],poses[pair[0]]['position'],poses[pair[1]]['position'],
-                              'G2',network.vehicle,network.curbs['arc_error_m'])
+                              candidate['report']['profile'],network.vehicle,network.curbs['arc_error_m'])
         if not body['fits_surface']:
             target=root/'roadbeds/publish-rejection'/f'{name}-{module}-{pair[0]}-{pair[1]}.json'
             target.parent.mkdir(parents=True,exist_ok=True)
@@ -198,7 +243,8 @@ def real_case(root,name,module):
                 coordinate_precision_m=coordinate_precision,
                 connectivity=connectivity,scope='One ground module; graph comparison uses its complete frozen one-km public-motor cohort.',
                 original_surface_wkb=surface.wkb.hex(),physical_shape_wkb=shape.wkb.hex(),
-                planned_surface_wkb=planned.wkb.hex(),input_sha256=before['input_sha256'])
+                planned_surface_wkb=planned.wkb.hex(),input_sha256=before['input_sha256']|
+                    {str(cut_path.relative_to(root)):digest(cut_path)})
 
 
 def main():
