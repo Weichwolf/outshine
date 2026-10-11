@@ -17,12 +17,14 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: zwölf Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split-/Extrusions- und Innenrechteckverfahren.
+Ghidra 12.1.2: 16 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck und Komponenten/Instanzen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
 Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platzieren (2420), kein eigener Globaloptimalitätsanspruch.
-Nächste gezielte Analyse: Komponentenwahl, Einfügungsdispatch, Mesh-Transformation und Instanzausgabe für Geschoss-/Treppenbauteile.
+`comp` delegiert Komponentenwahl; `i` lädt Assets, korrigiert die Aufwärtsachse und nutzt Bounding-Box-Dimensionen im Einfügungsdispatch.
+`transformInPlace` ruft sichere inverse Transponierung und Flächennormalen auf; `addInstances` teilt Face-Material-Meshes und kombiniert Materialien.
+Instanzausgabe hat vier unaufgelöste indirekte Aufrufe; vollständige Komponenten-/Treppenplanung bleibt ungeprüft.
 
 ## Umsetzung
 - Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.
@@ -52,6 +54,8 @@ Katalog zeigt Fähigkeit, eigene Entsprechung und fehlende Verfahren; daraus nä
 [CGAL Skeleton/Offset](https://doc.cgal.org/latest/Straight_skeleton_2/index.html),
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm),
 [CGA InnerRectangle](https://doc.arcgis.com/en/cityengine/latest/cga/cga-inner-rectangle.htm),
+[CGA Inline](https://doc.arcgis.com/en/cityengine/latest/cga/cga-inline.htm): Spiralstufen als rekursive Bauteile plus 3D-Vereinigung, lokales SDK-Beispiel optisch geprüft.
+[CGA Insert](https://doc.arcgis.com/en/cityengine/latest/cga/cga-i.htm): fremde Bauteilgeometrie im gemeinsamen Scope, kein automatisch erschlossener Geschossplan.
 [Daniels/Milenkovic/Roth, Autorenpreprint 1993](../doc/references/buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf): Kontakte und Polygonzerlegung, Seiten 1/5/8 optisch geprüft.
 [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214).
 [Esri Tutorial 15](../doc/references/buildings/esri/2013-interior-floors-web-scenes.pdf): Dev-HQ-Innenraum-/Geschossansichten, Seiten 3/7 optisch geprüft.

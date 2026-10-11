@@ -186,7 +186,7 @@ function renderEsri() {
     'Aufrufe sind Geometriebelege; ein vollständiger Raumplaner ist damit nicht nachgewiesen. Decompiler-Typen bleiben ungeprüft.' : 'Gezielte Analyse steht noch aus.';
   $('esri-primitives').replaceChildren(...(inspection?.selected_functions || []).map(row => {
     const tr = element('tr');
-    const geometry = /CoreToolbox::CGALTools::\w+|CGAL::(?:create_|is_)\w+|CGAL::Polygon_offset_builder_2|util::(?:LargestRectangle(?:DanielsFast)?::\w+|Trapezoidalization::\w+|Mesh::(?:cut\w*|mergeDuplicateVertices|removeZeroFaces)|Polygon2d::(?:pointIsConcave|findClosestIntersection|signedDoubleArea))/;
+    const geometry = /CoreToolbox::CGALTools::\w+|CGAL::(?:create_|is_)\w+|CGAL::Polygon_offset_builder_2|AssetLookup::getGeometryAsset|util::(?:LargestRectangle(?:DanielsFast)?::\w+|Trapezoidalization::\w+|Mesh::(?:cut\w*|mergeDuplicateVertices|removeZeroFaces|transformInPlace|calcFaceNormals)|Matrix<double>::getInverseTransposeSafe|MeshUtils::splitToFaceMaterialMeshes|Material::combine|Polygon2d::(?:pointIsConcave|findClosestIntersection|signedDoubleArea))/;
     const calls = [...new Set((row.direct_calls || []).map(call => call.signature.match(geometry)?.[0]).filter(Boolean))].join('; ');
     const dynamic = row.indirect_call_sites ? ` · ${integer(row.indirect_call_sites)} indirekte Aufrufe, Ziele offen` : '';
     tr.append(...[row.signature || row.name, integer(row.instructions), (calls || 'Keine benannten Geometrieaufrufe')+dynamic].map(value => element('td', value)));
