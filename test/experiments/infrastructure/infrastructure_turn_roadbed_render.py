@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+from textwrap import fill
 
 import numpy as np
 import shapely
@@ -86,8 +87,9 @@ def render(report,path,bounds=None,pair=None):
         ax.set_title(f'{"Original" if index==0 else "Constructed physical mesh"}: {count}/{report["connections"]} routes')
     cuts=report.get('shared_cuts_description','Fixed shared cuts')
     if pair is not None:cuts+=f'; displayed route {pair[0]} → {pair[1]}'
+    caption=f'{cuts} · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · buildings/private space unchanged'
     fig.suptitle(f'{report["place"]} · module {report["module"]} · +{report["added_area_m2"]:.2f} m² roadbed\n'
-                 f'{cuts} · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · buildings/private space unchanged')
+                 f'{fill(caption,110)}')
     path.parent.mkdir(parents=True,exist_ok=True)
     fig.savefig(path,dpi=140)
     plt.close(fig)

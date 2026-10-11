@@ -15,7 +15,7 @@ mit funktionalen Verbindungen. Besitzer: generators/road; nativer Bauteilplan f�
 [Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) und
 [Ports](../test/experiments/infrastructure/infrastructure_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
 Alle verwendeten Bauteile der eingefrorenen Ebenen-0-Fenster mit 1 km Radius sind geprüft:
-8619/8679 öffentliche Auto-Verbindungen; zehn fehlen ohne gerichtete Umfahrung (Wien 6, Basel 4, Zürich 0).
+8621/8679 öffentliche Auto-Verbindungen; zehn fehlen ohne gerichtete Umfahrung (Wien 6, Basel 4, Zürich 0).
 Keine zusätzlichen schwachen Netztrennungen; Zürich/Basel ohne starke Netztrennung. Das belegt nur diese
 Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -79,7 +79,8 @@ Fläche einmal und triangulieren gemeinsam. Außenrahmen/Anfragen/Bestand erhalt
 Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren.
 
 ## Nächste Lieferung und Abnahme
-1. Fehlende Verbindungen ohne Umfahrung priorisieren. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
+1. Zehn Verbindungen ohne Umfahrung priorisieren: Wien sechs, Basel vier. Gemeinsame Portposen/Korridore
+   gemeinsam lösen; Basler Restfahrten teilen einen Ausgang, zwei Wiener Restfahrten einen Eingang. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
