@@ -58,7 +58,7 @@ Keine Übernahme proprietären Codes. Eigene Verfahren werden aus Geometrie/Vert
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html):
 Metamer/Blattknoten als Architekturbaustein. Begrenzte Triebgrammatik ist keine Lichtkonkurrenz.
 [Weber/Penn, SIGGRAPH 1995](../doc/references/vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf):
-Astordnungen mit Elternprofilen, Neigung und Blattverteilung; PDF-Seiten 2/5 optisch betrachtet.
+Astordnungen mit Elternprofilen, Neigung und Blattverteilung; PDF-Seiten 2/3/5 optisch betrachtet.
 Eine begrenzte eigene Grammatik ergänzt die vorhandenen Einzeltriebe zu belaubten Pflanzen.
 [Leaf Translucency](../doc/references/vegetation/egsr/2007-real-time-leaf-translucency.pdf):
 dünne reflektierende/transmittierende Flächen; geöffnete PDF-Seite 2. Vorschau-Materialmix
@@ -90,12 +90,12 @@ Teilgruppen entstehen erst bei ausreichendem Detailbudget; Kameras sind kein Bes
 Blattneigung gegen steile Flächen zum Himmel hin abflachen; das ist ein Formrezept, keine Lichtsimulation.
 Rahmen über Kreuzprodukte bilden: direkte Projektion verliert bei fast parallelem Hint Orthogonalität.
 Gabeln bestehen aus überlappenden geschlossenen Rohren; organische Verschweißung bleibt offen.
-Krone und Grasverteilung wirken weiterhin regelmäßig. Arten-/Bestandsvielfalt bleibt 2111s Aufgabe.
-Geteilte Organ-Meshes plus kompakte Platzierungen gegen vollständige Expansion messen.
-Kostenprobe: dieselbe Geometrie/UVs/Ecknormalen, 32 Längssegmente und eine Querteilung je Hälfte.
-Median/Spanne aus drei Zusammenstellungen; gemeinsamer Mesh-/Platzierungsaufbau und Prüfungen aus Messzeit.
-Grobe Anfragen benötigen keine Organpositionen; begrenzte Expansion erhält unbearbeitete Teilpläne.
-Ruheplan/IDs sind kamera- und zeitunabhängig; Wind wirkt später an denselben Ankern.
+Gerundete Längenprofile (Weber/Penn), geordneter Ansatz-Jitter und Aufwärtsneigung ergänzen Kronenrezepte.
+Jitter < 1/2 hält Ansatzreihenfolge; Bias < 1/2 verhindert ausgelöschte Richtungen. Kein Lichtsolver.
+Geteilte/expandierte Ablage: gleiche Geometrie/UVs/Normalen; drei Zusammenstellungen, Meshing ausgeklammert.
+`architecture_experiment.py`: 4.511 Achsen/37.800 Blätter; vor/nach und 90°-Ansicht desselben neuen Plans.
+Drei Seeds prüfen Reihenfolge, Teilanfragen, Anschlüsse und Bounds; dichteres Rezept, kein gleicher Kostenfall.
+Grobe Anfragen ohne Organpositionen; Ruheplan/IDs kamera- und zeitunabhängig, Wind später an denselben Ankern.
 
 [Billboard Clouds, SIGGRAPH 2003](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf):
 Textur/Normalen auf fehlerbegrenzte Ebenen projizieren; PDF-Seite 4 optisch betrachtet.

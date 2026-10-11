@@ -1,5 +1,5 @@
 {
-  "current_work": "Blatt-LOD an einer größeren Baumprobe mit 19.208 stabilen Blattankern: räumliche Vereinfachung erhält die Deckung in 24 Einzelblattansichten deutlich besser als ebene Karten. Feine Referenz, räumlich grobe Blätter und Karten verwenden denselben Plan, dieselbe Kamera und Beleuchtung. Natürliche Kronenarchitektur bleibt offen.",
+  "current_work": "Die größere Laubbaumprobe erhält gerundete Astlängenprofile, begrenzt ungleichmäßige Ansatzpunkte und Aufwärtsneigung. 37.800 räumliche Blätter bilden erkennbare Blattgruppen. Vorher/Nachher verwenden dieselbe Kamera, Beleuchtung und dasselbe Blattmaterial; eine zweite Ansicht dreht die Kamera um denselben Plan. Drei Seeds prüfen Anschlüsse und unabhängig angeforderte Detailgruppen.",
   "quality_gap": "Die Pflanzenbilder bleiben Formstudien. Organische Astgabeln, vielfältige Wachstumsformen, natürliche Bestandsverteilung, vollständige Waldprodukte, Wind sowie gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
   "renders": [
     {
@@ -25,6 +25,30 @@
       "category": "landscape",
       "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
       "quality": "Erster Formstand · Gras und Nahlaub offen"
+    },
+    {
+      "image": "render/architecture-after.png",
+      "title": "Laubbaum · gerundete und gegliederte Krone",
+      "label": "Kronenform",
+      "category": "organs",
+      "description": "4.511 Achsen und 37.800 Blätter aus einem stabilen Rezept. Gerundete Astlängenprofile, geordneter Ansatz-Jitter, Aufwärtsneigung und weniger horizontale Blätter. 2,65 Millionen Dreiecke in dieser Formprobe; 731 Holzachsen gerendert. Mehr Laub als vorher, deshalb kein Vergleich gleicher Geometriekosten.",
+      "quality": "Formstudie · organische Gabeln, Rinde und Wald-LOD offen"
+    },
+    {
+      "image": "render/architecture-side.png",
+      "title": "Laubbaum · 90° um denselben Formplan",
+      "label": "Kronenform",
+      "category": "organs",
+      "description": "Dieselben Blattgruppen, Astpfade und Meshes wie in der Hauptansicht. Nur die Kamera steht 90° versetzt. Die Darstellung enthält räumliche Blätter und Äste; organische Gabelverbindungen, Rindenstruktur und Wind fehlen.",
+      "quality": "Formstudie · organische Gabeln, Rinde und Wald-LOD offen"
+    },
+    {
+      "image": "render/architecture-before.png",
+      "title": "Laubbaum · vorheriges Kronenrezept",
+      "label": "Kronenform",
+      "category": "organs",
+      "description": "Vorheriger Plan mit 19.208 Blättern, nun unter derselben Kamera wie die neue Kronenprobe. Weniger Verzweigungen und gleichmäßige Ansatzintervalle erzeugen eine lichte, schematische Krone. Kein Qualitätsziel.",
+      "quality": "Formstudie · organische Gabeln, Rinde und Wald-LOD offen"
     },
     {
       "image": "render/tree-coarse.png",

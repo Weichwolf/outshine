@@ -28,6 +28,10 @@ class AxisLevel:
     base_radius: float
     tip_radius: float
     tip_scale: float = 0.55
+    length_shape: str = "taper"
+    attachment_jitter: float = 0.0
+    azimuth_variation: float = 0.18
+    upward_bias: float = 0.0
     first: float = 0.2
     last: float = 0.92
     angle: float = 1.1
@@ -52,6 +56,12 @@ class AxisLevel:
             or not 0.05 <= self.tip_scale <= 1
         ):
             raise ValueError("positive taper and bounded length profile required")
+        if self.length_shape not in ("taper", "rounded"):
+            raise ValueError("declared branch length profile required")
+        if not 0 <= self.attachment_jitter < 0.5 or not 0 <= self.upward_bias < 0.5:
+            raise ValueError("bounded attachment jitter and upward bias required")
+        if not 0 <= self.azimuth_variation <= np.pi:
+            raise ValueError("bounded azimuth variation required")
         curvature = abs(self.bend) + self.bend_variation
         if self.bend_variation < 0 or curvature > np.pi:
             raise ValueError("bounded bend variation required")
@@ -70,11 +80,16 @@ class AxisLevel:
 
     def length_at(self, slot):
         fraction = slot / (self.branches - 1) if self.branches > 1 else 0
+        if self.length_shape == "rounded":
+            return self.length * (
+                self.tip_scale + (1 - self.tip_scale) * np.sin(np.pi * fraction)
+            )
         return self.length * (1 + (self.tip_scale - 1) * fraction)
 
-    def attachment(self, slot):
+    def attachment(self, slot, jitter=0.0):
         fraction = slot / (self.branches - 1) if self.branches > 1 else 0.5
-        return self.first + (self.last - self.first) * fraction
+        fraction += jitter * self.attachment_jitter / max(1, self.branches - 1)
+        return self.first + (self.last - self.first) * np.clip(fraction, 0, 1)
 
     def shoot(self, slot, seed, bend=None, blade=None, normal_hint=None):
         return Shoot(
@@ -145,7 +160,7 @@ class PlantPlan:
     @cached_property
     def identity(self):
         recipe = {
-            "version": "branching-plant-1",
+            "version": "branching-plant-2",
             "seed": self.seed,
             "levels": [asdict(level) for level in self.levels],
             "blades": [asdict(blade) for blade in self.blades],
@@ -249,11 +264,16 @@ class PlantPlan:
         bend = level.bend + rng.uniform(-level.bend_variation, level.bend_variation)
         if path:
             parent = self.axis(path[:-1])
-            parameter = level.attachment(path[-1])
+            jitter = rng.uniform(-1, 1) if level.attachment_jitter else 0.0
+            parameter = level.attachment(path[-1], jitter)
             centre, tangent, lateral, normal = arc_frame(
                 parent.length, parent.bend, 0, parameter
             )
-            angle = parent.phase + path[-1] * GOLDEN_ANGLE + rng.uniform(-0.18, 0.18)
+            angle = (
+                parent.phase
+                + path[-1] * GOLDEN_ANGLE
+                + rng.uniform(-level.azimuth_variation, level.azimuth_variation)
+            )
             radial = np.cos(angle) * lateral + np.sin(angle) * normal
             inclination = level.angle + rng.uniform(
                 -level.angle_variation, level.angle_variation
@@ -261,6 +281,9 @@ class PlantPlan:
             direction = parent.frame @ (
                 np.cos(inclination) * tangent + np.sin(inclination) * radial
             )
+            if level.upward_bias:
+                direction = (1 - level.upward_bias) * direction + level.upward_bias * UP
+                direction /= np.linalg.norm(direction)
             origin, frame = (
                 parent.origin + parent.frame @ centre,
                 normal_frame(direction, UP),
