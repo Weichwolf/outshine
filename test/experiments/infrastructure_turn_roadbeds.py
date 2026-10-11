@@ -49,12 +49,29 @@ def geometry_precision(surface):
     return float(2.**np.floor(np.log2(roundoff/4)))
 
 
+def fill_roundoff_voids(before,after):
+    original=shapely.STRtree(bounded_voids(before))
+    patches=[]
+    for hole in bounded_voids(after):
+        neighbors=original.geometries[original.query(hole,predicate='intersects')]
+        if any(hole.intersection(previous).area>0 for previous in neighbors):continue
+        origin=shapely.get_coordinates(hole)[0]
+        local=shapely.transform(hole,lambda points:points-origin)
+        rectangle=shapely.minimum_rotated_rectangle(local)
+        points=shapely.get_coordinates(rectangle)
+        width=np.linalg.norm(np.diff(points,axis=0),axis=1).min() if rectangle.geom_type=='Polygon' else 0.
+        if width<=coordinate_roundoff(before):patches.append(hole)
+    return after if not patches else shapely.union_all([after,*patches])
+
+
 def compose_roadbeds(surface,shape,roadbeds):
     precision=geometry_precision(surface)
     base,core,*supports=shapely.set_precision(np.array([surface,shape,*roadbeds],dtype=object),precision)
-    planned=shapely.union_all([base,*supports])
+    planned=fill_roundoff_voids(base,shapely.union_all([base,*supports]))
     physical=core.union(planned.difference(base))
-    return base,core,planned,physical,precision
+    repaired=fill_roundoff_voids(core,physical)
+    planned=planned.union(repaired.difference(physical))
+    return base,core,planned,repaired,precision
 
 
 def published_roadbed_surface(mesh,base,core,planned,precision):

@@ -22,7 +22,7 @@ from infrastructure_fitted_roadbed_checks import verify_fitted_roadbeds
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_route_connectivity import network_connectivity
 from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_body_check,sample_roadbed_piece
-from infrastructure_turn_roadbeds import bounded_voids,compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
+from infrastructure_turn_roadbeds import coordinate_roundoff,fill_roundoff_voids,bounded_voids,compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
 from infrastructure_travel import MODES
 from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
 
@@ -129,6 +129,27 @@ def verify_polygonal_mesh(vehicle):
     return dict(polygonal_mesh_publication_checked=True)
 
 
+def verify_roundoff_voids():
+    for offset in (0.,1000.,10000.):
+        floor=shapely.box(offset,offset,offset+10,offset+10)
+        roundoff=coordinate_roundoff(floor)
+        thin=shapely.box(offset+2,offset+5,offset+8,offset+5+roundoff*.25)
+        large=shapely.box(offset+2,offset+2,offset+4,offset+4)
+        narrow=shapely.box(offset+2,offset+7,offset+8,offset+7+roundoff*4)
+        side=np.sqrt(roundoff)
+        square=shapely.box(offset+6,offset+2,offset+6+side,offset+2+side)
+        before=floor.difference(large)
+        after=before.difference(shapely.union_all([thin,narrow,square]))
+        repaired=fill_roundoff_voids(before,after)
+        assert len(bounded_voids(after))==4 and len(bounded_voids(repaired))==3
+        assert repaired.intersection(thin).area==thin.area
+        assert repaired.intersection(narrow).area==0 and repaired.intersection(square).area==0
+        assert repaired.intersection(large).area==0
+        protected=floor.difference(thin)
+        assert fill_roundoff_voids(protected,protected).equals(protected)
+    return dict(new_roundoff_slits_filled=True,original_voids_preserved=True,real_voids_not_filled=True)
+
+
 def verify_bounded_voids():
     assert len(bounded_voids(shapely.Polygon()))==0
     assert len(bounded_voids(shapely.box(0,0,2,2)))==0
@@ -155,7 +176,7 @@ def verify_bounded_voids():
         split=nested.union(shapely.box(9.8,8,10.2,12))
         assert not preserves_voids(surface,shapely.transform(split,move))
     return dict(nested_void_identity_checked=True,shrinking_void_identity_checked=True,
-                void_replacement_rejected=True,void_splitting_rejected=True)
+                void_replacement_rejected=True,void_splitting_rejected=True,**verify_roundoff_voids())
 
 
 def verify_turn_swing(vehicle):

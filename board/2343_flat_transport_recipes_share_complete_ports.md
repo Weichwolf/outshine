@@ -87,7 +87,7 @@ Hüllenprüfung und Residuenbudget bleiben verbindlich; Eckpunkte allein genüge
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 [Hermite-Fahrraum](../test/experiments/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
-G2-Nähte/Festports und Hüllen prüfen; max. 1024 Residuen/255 Intervalle. Mesh-Rand: 64·eps·max(1,|Koordinate|) m ausweisen; echte Überstände ablehnen.
+G2-Nähte/Festports und Hüllen prüfen; max. 1024 Residuen/255 Intervalle. Mesh-Rand/neue Schlitze: 64·eps·max(1,|Koordinate|) m. Alte/breitere Freiräume erhalten; Überstände ablehnen.
 Maximale Aufweitung: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L Längsreichweite. Quellkette zuerst mit w/2 Reserve suchen; nur bei Ablehnung bis zur Eckreichweite erweitern. Reservationen räumlich eingrenzen, Suche nur außerhalb vorhandener Fahrfläche schützen; endgültige Aufweitung gegen alle prüfen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 Geschlossene Freiräume sind tatsächlich freie Komplementflächen, auch bei verschachtelten Inseln; eindeutige Zuordnung durch positive Flächenüberlappung und gerichtete Inselumfahrung bleiben erhalten.
@@ -101,7 +101,7 @@ Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außen
 Quellkontakte/Fahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
 und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
-Offen: gemeinsame Port-/Kurvenpassung, Verkehrsfluss, ungültige Ports, alle Modi und Kosten.
+Offen: Port-/Kurvenpassung, Verkehrsfluss, alle Modi/Kosten.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
