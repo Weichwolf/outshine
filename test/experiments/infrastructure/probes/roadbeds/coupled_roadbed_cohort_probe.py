@@ -35,6 +35,7 @@ cases=[
     ('Wien',824,(0,2),4,()),
     ('Wien',1102,(1,3),4,()),
     ('BaselBadischerBahnhof',1209,(3,4),8,()),
+    ('BaselBadischerBahnhof',940,(3,5),8,()),
 ]
 results=[]
 for place,module,pair,setback,sections in cases:
