@@ -12,13 +12,11 @@ Tags: vegetation, forest, grass, wind
 ## Ergebnis und Ist
 SpeedTree ist der Qualitätsmaßstab: glaubwürdige Silhouetten, Verzweigung, Laub,
 Wind und Schatten; vollständige Wälder teilen das Frame-/Speicherbudget mit der Stadt.
-TreeGrower/Mesher/Foliage und vier Prototypstufen bestehen. Der Weltpfad nutzt überwiegend
-Kronenkarten, ignoriert deklarierte Artenmischungen und bindet Waldflächen unvollständig an.
+Native Prototypstufen bestehen; Weltpfad: Kronenkarten, ignorierte Artenmischungen, unvollständige Waldflächen.
 Native Struktur-/Wasser-/Wegflächen schließen Wurzeln bereits aus. Das bleibt erhalten.
-Kronenradius/-unterkante aus Artendaten erreichen jetzt die Platzierung. Horizontale
-Überschneidung und Gebäudehöhen werden gemeinsam geprüft; Feldkirchs Krone im Dach
-ist beseitigt. Niedrige Bauten dürfen unter freier Krone bleiben; Wasser/Weg-Ausschluss
-und freie Standorte bleiben erhalten. Der vollständige Wald-Ausbau bleibt später; kleine bildwirksame Schritte sind jetzt erlaubt.
+Kronenradius/-unterkante erreichen die Platzierung; Krone/Gebäudehöhe werden gemeinsam geprüft.
+Feldkirchs Dachüberschneidung ist beseitigt; niedrige Bauten dürfen unter freier Krone bleiben.
+Wasser/Weg-Ausschluss und freie Standorte bleiben; kleine bildwirksame Schritte sind erlaubt.
 
 ## Besitzer und Datenfluss
 OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte
@@ -59,21 +57,23 @@ Budget oder Stillstand liefert ausgewiesene Reste; fertige Kronen sind damit nic
 EEVEE-Bilder zeigen Astpläne mit analytischen Rohrnormalen; verschweißte Gabeln/Laub fehlen.
 SCA bleibt ein Nah-/Prototypvergleich, kein Erzeugungspfad bei Fernbedarf. Python immer `.venv`;
 benötigt NumPy/SciPy, für Bilder Pillow/Matplotlib und für Paper-Auswertung pypdf.
+`crown_surface.py`: seedstabile radiale Hülle, direkte kubische Unterteilung; neun Varianten geprüft.
+Für n=q/|q|, |q|≥1 gilt ||D²n||≤2/√3. Mit g=Σaf, h=Σaf² und ρmax=1−Σa_ausgelassen:
+M=Rmax[(2/√3)(ρmax+g)+2g+h]; Fehler ≤M/N² (Dreiecksvarianz ≤2/N²).
+Ausgelassene Bänder addieren RmaxΣa; konservativer Perspektiv-Jacobian wählt das Produkt.
+Geöffnete EEVEE-Nahbilder: geschlossene Hülle ungeeignet als Laubersatz; nur Proxy/Formprüfung.
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
 und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)
 sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswahl.
 
 ## Implementierung in vollständigen Schritten
-1. Deklarierte gewichtete Artenmischungen bis zur Runtime durchreichen. Unbekannte Arten
-   und ungültige Gewichte am Konfigurationsrand ablehnen; kein uniformer Katalog-Fallback.
-   Danach echte Waldflächen des registrierten Quellformats bis zur Bestandsplanung anbinden.
+1. Artenmischungen bis Runtime durchreichen; unbekannte Arten/ungültige Gewichte ablehnen.
+   Echte Waldflächen an Bestandsplanung anbinden, kein uniformer Katalog-Fallback.
 2. Ein Formplan je Art/Variante, gemeinsame Baumprototypen und kompakte Instanzen.
    Nahstufe mit Stamm/Ästen/Laub; Mittelstufe mit vereinfachten Ästen/Laubgruppen;
-   Fernstufe mit Kronen; Horizontstufe mit räumlichen Waldverbänden statt Einzelbäumen.
-   Distanz und erlaubter Bildschirmfehler bestimmen Aufwand vor Erzeugung.
-3. Übergänge erhalten Form/Standorte und vollständige Rundumabdeckung. Räumlich gebündelte
-   Sichtbarkeit/Draws, begrenzter Alpha-Overdraw und Schattenaufwand; keine Arbeit pro Blatt
-   im CPU-Frame. Fernwald erzeugt keine Nahgeometrie und keine Einzelbaum-Draws.
+   Fernstufe mit Kronen; Horizontstufe mit räumlichen Waldverbänden. Bildschirmfehler wählt Aufwand.
+3. Übergänge erhalten Form/Standorte und Rundumdeckung. Sichtbarkeit/Draws räumlich bündeln;
+   Alpha-Overdraw/Schatten begrenzen; Fernwald ohne Nahgeometrie/Einzelbaum-Draws/CPU-Blattarbeit.
 4. Wind verformt geteilte Geometrie aus raumverankerten Parametern; Jahreszeit beeinflusst
    Laubmenge/Farbe. Unterwuchs/Gras nur bei sichtbarem Bildgewinn, im selben Qualitätsbudget.
 
