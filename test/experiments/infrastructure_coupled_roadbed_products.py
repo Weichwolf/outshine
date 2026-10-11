@@ -71,10 +71,10 @@ def apply_coupled_product(network,records,required,root,path,occupied):
             expected=shapely.from_wkb(row['physical_shape_wkb'])
             assert physical.symmetric_difference(expected).area<=1e-8,'native owner mismatch'
             trial.shapes[owner]=physical
-            source_floor=motor_surface(physical,trial.graph,trial.tree,trial.mesh,trial.vehicle,
+            planned=shapely.from_wkb(row['public_surface_wkb'])
+            source_floor=motor_surface(planned,trial.graph,trial.tree,trial.mesh,trial.vehicle,
                                        trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
             base,core=shapely.set_precision(np.array([source_floor,physical],dtype=object),quantum)
-            planned=shapely.from_wkb(row['public_surface_wkb'])
             floors[owner],_=published_roadbed_surface(owned,base,core,planned,quantum)
     assert floors.keys()==affected
     assert preserves_coverage(original,shapely.union_all([trial.shape(m) for m in affected]))

@@ -16,7 +16,7 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
 Alle berührten Bauteile dreier 1-km-Radiusfenster prüfen/rendern öffentliche Autofahrten.
-Kurvenräume schließen die zusätzlichen ungerichteten Netzbrüche im Wiener/Basler Motorfenster; Zürich, fehlende gerichtete Fahrten, weitere Modi und Gesamtkosten bleiben offen.
+Kurvenräume schließen zusätzliche Netzbrüche im Wiener/Basler Motorfenster; vier weitere Zürcher Trennungen, gerichtete Fahrten, andere Modi und Kosten bleiben offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -96,7 +96,7 @@ Volle Hüllen gemeinsam bilden, keine Differenzfragmente rekonstruieren. Konstru
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
 Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
 [Gekoppelte Schnitt-/Fahrraumpassung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) löst Knoten samt Nachbarstraßen. Anfragen, Freiräume und Schnitte am gemeinsamen Dreiecksmesh prüfen; Außenrahmen bleiben fest.
-Zürich 102 samt zwei Nachbarstraßen trägt lokal 12/12 Fahrten; vollständige Fenster und übrige Netztrennungen bleiben offen.
+Zürich 102 trägt samt Nachbarstraßen 12/12 Fahrten und schließt eine Fenster-Netztrennung; vollständige Netze bleiben offen.
 [Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Fahrten am tatsächlichen Mesh prüfen; Anfragen anhand Quellkontakten zuordnen und alte Gewinne erhalten. Unverträgliche Gruppen lokal ablehnen, gültigen Bestand behalten.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
@@ -105,8 +105,8 @@ Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Net
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
-2. Kurze überlappende Fahrknoten gemeinsam lösen; kilometerlange Mesh-Bauteile sind keine Fahrkurvenrezepte.
-   Mehrere Querschnitte desselben Nachbarpaars gemeinsam erhalten; lange Fahrten aus lokalen Stücken aufbauen.
+2. Fahrflächenbedarf aus Quellrouten/Portnähe bestimmen, unabhängig vom Mesh-Batch; kurze Fahrknoten gemeinsam lösen.
+   Mehrfachschnitte erhalten; lange Fahrten aus lokalen Stücken bauen. Große Infrastrukturflächen bestimmen keine Solverdomäne.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
    Freiräume/volle Karosserien am zusammengefügten Mesh prüfen; Einzelkandidaten sind kein Netzbeleg.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.

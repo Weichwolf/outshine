@@ -53,7 +53,8 @@ def construct_module(network,trial,owner,sections,affected,region,buildings,sect
     assert request_keys(old_poses,old_routes)==request_keys(poses,routes),'source requests changed'
     assert external_frames_unchanged(old_poses,poses,sections),'external frame changed'
     shape=trial.shape(owner)
-    floor=motor_surface(shape,trial.graph,trial.tree,trial.mesh,trial.vehicle,
+    demand=shapely.union_all(list(routes.values())).envelope if routes else shape
+    floor=motor_surface(demand,trial.graph,trial.tree,trial.mesh,trial.vehicle,
                         trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
     reserved=buildings.union(reservations(trial,region).difference(floor))
     curves=[]
