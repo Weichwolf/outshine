@@ -16,7 +16,7 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
 Öffentliche Autofahrten sind in allen berührten Bauteilen dreier Kilometer-Radiusfenster prüfbar und renderbar.
-Basler Kurvenraum schließt einen Netzbruch; Spur-/Moduszuordnung, weitere Netzbrüche, native Kollision und Gesamtkosten bleiben offen.
+Kurvenräume schließen den Basler Netzbruch; gekoppelte Mesh-Flächen, asymmetrische Fahrten, weitere Modi und Gesamtkosten bleiben offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -91,8 +91,7 @@ Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Pos
 Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 geschlossene Freiräume, ihre Zuordnung und gerichtete Inselumfahrung bleiben erhalten.
-Die Ergänzung gehört zum triangulierten Straßenprodukt, nicht allein zur Prüfmaske.
-Feste Außenports, alle Anfragen und bisher gültige Fahrten erhalten; unabhängige Mesh-/Karosserieprüfung.
+Die Ergänzung gehört zum triangulierten Straßenprodukt; feste Außenports, alle Anfragen und gültige Fahrten erhalten.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche; gerade gemeinsame Querschnitte wandern entlang derselben Quellachse.
 Drei Kandidaten: 1/2/3 Fahrzeug-Mindestradien; beide Nachbarstücke neu lösen. Quellen-/Außenkontakte,
@@ -109,6 +108,7 @@ Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Net
 2. Kurze überlappende Fahrknoten gemeinsam lösen; kilometerlange Mesh-Bauteile sind keine Fahrkurvenrezepte.
    Mehrere Querschnitte desselben Nachbarpaars gemeinsam erhalten; lange Fahrten aus lokalen Stücken aufbauen.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
+   Freiräume/volle Karosserien am zusammengefügten Mesh prüfen; Einzelkandidaten sind kein Netzbeleg.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
 5. Weltweit hunderte bis tausende Fälle: [Survey](../test/experiments/infrastructure_world_survey.py),
    Originalkacheln, Nutzungsbilanz/Kosten und ausgewählte Nahansichten gemäß AGENTS.
