@@ -52,7 +52,7 @@ function renderGallery() {
     const body = element('div', undefined, 'card-body');
     body.append(element('h3', item.title), element('p', item.caption));
     const details = element('div', undefined, 'details');
-    for (const text of [`${integer(item.triangles || 0)} Dreiecke`, Number.isFinite(item.openings) ? `${integer(item.openings)} Öffnungen` : 'Öffnungen nicht gezählt',
+    for (const text of [`${integer(item.triangles || 0)} Dreiecke`, Number.isFinite(item.openings) ? `${integer(item.openings)} ${item.representation === 'functional-plan' ? 'Fenster' : 'Öffnungen'}` : 'Öffnungen nicht gezählt',
       item.representation === 'functional-plan' ? `${integer(item.rooms)} Räume · ${integer(item.doors)} Türportale` : `${integer(item.admitted_products || 0)} Körper`,
       ...(item.floor_bands ? [`${integer(item.floor_bands)} Geschossbänder · ${integer(item.planned_features)} Ausstattungselemente`] : []),
       `Bild ${short(item.commit)}${item.experiment_tree_dirty ? ' · Arbeitsstand' : ''}`]) {

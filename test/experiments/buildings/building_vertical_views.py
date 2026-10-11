@@ -66,7 +66,8 @@ def figure(sample, plan, product, path, spatial_path=None, core_path=None):
         else:
             axis.axis('off')
             axis.text(.05,.7,'Ein Geschoss; keine Treppe erforderlich.\nTechnikreserve bleibt unausgestattet.',fontsize=13)
-        for cell,image,title in [(grid[1,0],spatial_path,'2.5D · Erdgeschoss und erster Treppenlauf'),
+        storey_title = '2.5D · Erdgeschoss'+(' und erster Treppenlauf' if 'stair' in plan else '')
+        for cell,image,title in [(grid[1,0],spatial_path,storey_title),
                                  (grid[1,1],core_path,'2.5D · Treppenbauteile der ersten zwei Verbindungen')]:
             axis = fig.add_subplot(cell)
             axis.axis('off')
@@ -80,10 +81,13 @@ def figure(sample, plan, product, path, spatial_path=None, core_path=None):
         axis.text(.03,.9,'Kein konstruktiver Geschossplan\n\n'+'\n'.join(textwrap.wrap('; '.join(plan['omissions']),55)),
                   va='top',fontsize=12,color='#a44439')
         subtitle = 'Quelle erhalten; ungeeignete Pläne mit Grund ausgewiesen'
-    fig.suptitle(sample['label']+' · Geschosse und echte Treppen',fontsize=17,y=.97)
+    title = 'Geschosse und echte Treppen' if 'stair' in plan else 'Geschossplan' if product is not None else 'Quellhülle und Auslassungsgrund'
+    fig.suptitle(sample['label']+' · '+title,fontsize=17,y=.97)
     fig.text(.055,.925,subtitle,fontsize=12)
-    fig.text(.055,.105,f"Quellhülle {plan['base_z_m']:.2f}–{plan['source_top_m']:.2f} m. Geschosse wiederholen denselben generischen Raumplan; Nutzungsprogramme bleiben offen.",fontsize=10)
-    fig.text(.055,.080,'Kernansicht: übrige Bauteile und Geschossböden ausgeblendet; vollständiges Mesh unverändert. Stichproben zur Kopffreiheit ersetzen keine native Spielerphysik.',fontsize=9)
+    scope = 'Generischer Raumplan'+('; pro Geschoss wiederholt' if plan['storeys']>1 else '')+'; Nutzungsprogramme bleiben offen.' if product is not None else 'Keine Innengeometrie erzeugt.'
+    fig.text(.055,.105,f"Quellhülle {plan['base_z_m']:.2f}–{plan['source_top_m']:.2f} m. "+scope,fontsize=10)
+    if core_path is not None:
+        fig.text(.055,.080,'Kernansicht: übrige Bauteile und Geschossböden ausgeblendet; vollständiges Mesh unverändert. Stichproben zur Kopffreiheit ersetzen keine native Spielerphysik.',fontsize=9)
     fig.text(.055,.047,'\n'.join(textwrap.wrap('; '.join(plan['omissions']),185)),fontsize=7,color='#745744')
     fig.savefig(path,dpi=100)
     plt.close(fig)

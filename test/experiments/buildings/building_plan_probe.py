@@ -99,7 +99,7 @@ def probe(sample, output, provenance, circulation=False, vertical=False):
                   profile=[1600, 1000], image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),
                   rooms=checks['spaces'] if vertical and checks else len(plan['rooms']),
                   doors=sum(len(row) for row in plan['storey_portals']) if vertical and usable else len(plan['doors']),
-                  openings=len(plan['windows']),
+                  openings=len(np.unique(product['parts'][product['materials']==3])) if product is not None else 0,
                   triangles=len(product['faces']) if product is not None else 0,
                   plan_json_bytes=len(plan_data.encode()), raw_mesh_bytes=sum(array.nbytes for array in product.values()) if product else 0,
                   generation_ms=dict(plan=plan_ms, mesh=mesh_ms), alternatives=plan['alternatives'], checks=checks,
@@ -109,10 +109,11 @@ def probe(sample, output, provenance, circulation=False, vertical=False):
                   circulation=plan.get('circulation'), circulation_status=plan.get('circulation_status'),
                   core_alternatives=plan.get('core_alternatives'), room_kinds=plan.get('room_kinds'),
                   limitations=plan['omissions'], source_height_interval_m=[plan['base_z_m'], plan['source_top_m']],
-                  method=plan.get('method'), source_coverage='All source storeys with generic repeated spaces and constructed stairs; no completed architectural programme' if vertical
+                  method=plan.get('method'), source_coverage='Source envelope retained; constructive plan omitted with a recorded reason' if not usable else
+                  'All source storeys with generic repeated spaces and constructed stairs; no completed architectural programme' if vertical
                   else 'Ground-floor prototype; no completed building or recipe-family claim')
     (output/(stem+'-report.json')).write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
-    print(json.dumps(dict(case=sample['label'], status=plan['status'], rooms=len(plan['rooms']), plan_ms=plan_ms)), flush=True)
+    print(json.dumps(dict(case=sample['label'], status=report['plan_status'], rooms=report['rooms'], windows=report['openings'], plan_ms=plan_ms)), flush=True)
     return report
 
 
