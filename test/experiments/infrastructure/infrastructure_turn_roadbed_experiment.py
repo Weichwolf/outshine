@@ -157,7 +157,15 @@ def verify_roundoff_voids():
         assert repaired.intersection(large).area==0
         protected=floor.difference(thin)
         assert fill_roundoff_voids(protected,protected).equals(protected)
-    return dict(new_roundoff_slits_filled=True,original_voids_preserved=True,real_voids_not_filled=True)
+        axis=shapely.LineString([[offset+2,offset+5],[offset+5,offset+6],[offset+8,offset+5]])
+        curved=axis.buffer(roundoff*.125,quad_segs=8)
+        damaged=floor.difference(curved)
+        assert fill_roundoff_voids(floor,damaged).equals(floor)
+        assert fill_roundoff_voids(damaged,damaged).equals(damaged)
+        wide=floor.difference(axis.buffer(roundoff*4,quad_segs=8))
+        assert fill_roundoff_voids(floor,wide).equals(wide)
+    return dict(new_roundoff_slits_filled=True,curved_roundoff_slits_filled=True,
+                original_voids_preserved=True,real_voids_not_filled=True)
 
 
 def verify_bounded_voids():

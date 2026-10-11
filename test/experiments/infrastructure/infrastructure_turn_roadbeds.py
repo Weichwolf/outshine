@@ -60,7 +60,9 @@ def fill_roundoff_voids(before,after):
         rectangle=shapely.minimum_rotated_rectangle(local)
         points=shapely.get_coordinates(rectangle)
         width=np.linalg.norm(np.diff(points,axis=0),axis=1).min() if rectangle.geom_type=='Polygon' else 0.
-        if width<=coordinate_roundoff(before):patches.append(hole)
+        roundoff=coordinate_roundoff(before)
+        curved_slit=local.area<=roundoff*local.length and shapely.buffer(local,-roundoff*.25,quad_segs=8).is_empty
+        if width<=roundoff or curved_slit:patches.append(hole)
     return after if not patches else shapely.union_all([after,*patches])
 
 
