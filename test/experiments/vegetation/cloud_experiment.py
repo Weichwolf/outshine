@@ -18,16 +18,33 @@ from raster_experiment import checks as raster_checks
 from shoot_plan import normal_frame
 
 
-def view(source, charts, direction, pixels=8):
+def view_bounds(points, direction):
+    frame = normal_frame(np.asarray(direction, dtype=float), np.array((0, 0, 1)))
+    camera = np.column_stack((frame[:, 0], frame[:, 2], frame[:, 1]))
+    projected = points @ camera
+    centre = (projected[:, :2].min(axis=0) + projected[:, :2].max(axis=0)) / 2
+    extent = np.max(np.ptp(projected[:, :2], axis=0)) * 1.1
+    return centre - extent / 2, centre + extent / 2
+
+
+def candidates(source):
+    results = []
+    for method in ("axes1", "axes4", "greedy8", "greedy16"):
+        start = time.perf_counter()
+        charts = (
+            make_cloud(source, layers=int(method[-1]), fit=False)
+            if method.startswith("axes")
+            else greedy_cloud(source, size=int(method[6:]))
+        )
+        results.append((method, charts, (time.perf_counter() - start) * 1000))
+    return results
+
+
+def view(source, charts, direction, bounds, pixels=8):
     frame = normal_frame(np.asarray(direction, dtype=float), np.array((0, 0, 1)))
     camera = np.column_stack((frame[:, 0], frame[:, 2], frame[:, 1]))
     original = source["vertices"] @ camera
-    points = np.vstack(
-        [original, *[chart.mesh["vertices"] @ camera for chart in charts]]
-    )
-    centre = (points[:, :2].min(axis=0) + points[:, :2].max(axis=0)) / 2
-    extent = np.max(np.ptp(points[:, :2], axis=0)) * 1.1
-    lower, upper = centre - extent / 2, centre + extent / 2
+    lower, upper = bounds
     mask, normals = rasterize(
         original,
         source["faces"],
@@ -81,7 +98,7 @@ def view(source, charts, direction, pixels=8):
         response.append(
             float(abs(original_light - simplified_light) / max(original_light, 1e-12))
         )
-    return {
+    result = {
         "coverage_l1_over_union": float(
             np.abs(reference - reduced).sum() / max(union, 1e-12)
         ),
@@ -90,6 +107,7 @@ def view(source, charts, direction, pixels=8):
         ),
         "light_response_relative_errors": response,
     }
+    return result, reference
 
 
 def study(output):
@@ -111,14 +129,27 @@ def study(output):
         raise AssertionError("invalid recipe accepted")
     for path in ((4, 3, 3), (8, 6, 1), (0, 0, 0), (9, 8, 6)):
         source = group_geometry(plant, path)
-        for method in ("axes1", "axes4", "greedy8", "greedy16"):
-            start = time.perf_counter()
-            charts = (
-                make_cloud(source, layers=int(method[-1]), fit=False)
-                if method.startswith("axes")
-                else greedy_cloud(source, size=int(method[6:]))
-            )
-            elapsed = (time.perf_counter() - start) * 1000
+        compared = candidates(source)
+        points = np.vstack(
+            [
+                source["vertices"],
+                *[
+                    chart.mesh["vertices"]
+                    for _, charts, _ in compared
+                    for chart in charts
+                ],
+            ]
+        )
+        directions = [
+            (np.cos(azimuth), np.sin(azimuth), elevation)
+            for elevation in (-1.0, -0.4, -0.05, 0.05, 0.4, 1.0)
+            for azimuth in (0, 1.2, 2.4, 3.6)
+        ]
+        viewports = [
+            (direction, view_bounds(points, direction)) for direction in directions
+        ]
+        references = {}
+        for method, charts, elapsed in compared:
             members = np.concatenate([chart.members for chart in charts])
             np.testing.assert_array_equal(
                 np.sort(members), np.arange(len(source["ids"]))
@@ -145,12 +176,16 @@ def study(output):
                     np.isfinite(chart.colour)
                 )
             views = []
-            for elevation in (-1.0, -0.4, -0.05, 0.05, 0.4, 1.0):
-                for azimuth in (0, 1.2, 2.4, 3.6):
-                    direction = (np.cos(azimuth), np.sin(azimuth), elevation)
-                    views.append(
-                        view(source, charts, direction) | {"direction": direction}
-                    )
+            for key, (direction, bounds) in enumerate(viewports):
+                result, alpha = view(source, charts, direction, bounds)
+                if key in references:
+                    np.testing.assert_array_equal(alpha, references[key])
+                else:
+                    references[key] = alpha
+                views.append(
+                    result
+                    | {"direction": direction, "bounds_m": np.asarray(bounds).tolist()}
+                )
             cases.append(
                 {
                     "path": path,

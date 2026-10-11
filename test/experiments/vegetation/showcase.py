@@ -328,7 +328,7 @@ def plot_entries(output):
             "clouds/clouds.json",
             cloud_group_plot,
             "Blattgruppen: Deckung und Kartenbedarf",
-            "Vier Gruppen mit je 60 Blättern × 24 feste Richtungen, einschließlich flacher und unterer Ansichten. Gruppengröße acht Pixel; RGBA8-Attribute, bilineare Abtastung und achtfaches Supersampling. Mittel und Maximum gegen dasselbe räumliche Quellmesh. Achsenebenen sind verworfene Vergleichsverfahren; auch die Organebenen belegen kein allgemeines LOD-Gate.",
+            "Vier Gruppen mit je 60 Blättern × 24 feste Richtungen, einschließlich flacher und unterer Ansichten. Gemeinsamer Bildausschnitt aller Verfahren auf einem 8 × 8 Raster; identische Referenzraster geprüft. RGBA8-Attribute, bilineare Abtastung und achtfaches Supersampling. Mittel und Maximum gegen dasselbe räumliche Quellmesh. Achsenebenen sind verworfene Vergleichsverfahren; auch die Organebenen belegen kein allgemeines LOD-Gate.",
         ),
         (
             "clouds/clouds.json",

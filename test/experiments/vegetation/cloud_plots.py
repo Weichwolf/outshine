@@ -38,7 +38,7 @@ def group_figure(report):
     )
     axes[0].set(
         ylabel="Deckungsabweichung / Vereinigung [%]",
-        title="4 Gruppen × 24 Richtungen · 8 px",
+        title="4 Gruppen × 24 Richtungen · 8 × 8 Raster",
     )
     axes[0].legend(frameon=False)
     counts = np.array([[case["charts"] for case in group] for group in cases])
