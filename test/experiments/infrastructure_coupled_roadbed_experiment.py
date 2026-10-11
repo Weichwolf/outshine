@@ -109,8 +109,10 @@ def publish_coupled_roadbeds(products,trial,precision):
     for owner in products:
         ports=trial.junctions[owner] if owner in trial.junctions else [p for j,s in trial.corridors[owner]
                 for p in trial.junctions[j] if p['section']==s]
+        boundary=shapely.buffer(actuals[owner].boundary,1e-7)
+        shapely.prepare(boundary)
         for port in ports:
-            assert shapely.covered_by(port['line'],shapely.buffer(actuals[owner].boundary,1e-7)),'lost shared section'
+            assert shapely.covers(boundary,port['line']),'lost shared section'
     return dict(vertices=mesh['vertices'],indices=mesh['indices'],face_owners=face_owners),audit,proofs,surfaces
 
 

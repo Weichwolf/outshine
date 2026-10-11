@@ -96,7 +96,8 @@ def check_external_sections(network,affected):
             for owner in (junction,port['corridor']):
                 if owner not in boundaries:
                     boundaries[owner] = shapely.buffer(shapely.boundary(network.shape(owner)),1e-7)
-                if not shapely.covered_by(port['line'],boundaries[owner]):
+                    shapely.prepare(boundaries[owner])
+                if not shapely.covers(boundaries[owner],port['line']):
                     raise CutSetbackRejected('external_neighbor_section_changed')
 
 
