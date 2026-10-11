@@ -115,8 +115,7 @@ def real_case(root,name,module):
     routes,_=directed_module_routes(network.graph,poses,shape,network.tree)
     previous=next(row for row in before['modules'] if row['module']==module)
     failed=[(r['entry'],r['exit']) for r in previous['turns'] if not r['accepted']]
-    points=np.vstack([poses[i]['position'] for pair in failed for i in pair])
-    region=shapely.MultiPoint(points).convex_hull.buffer(network.vehicle['widthM'])
+    region=surface.envelope.buffer(network.vehicle['widthM']*.5)
     receipt=json.loads((root/'inputs'/f'{name}-input.json').read_text())['receipt']
     buildings,tiles=building_reservations(receipt,region)
     reserved=buildings.union(reservations(network,region).difference(surface))

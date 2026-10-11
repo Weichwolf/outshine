@@ -14,6 +14,7 @@ def holes(surface):
 
 
 def preserves_coverage(before,after):
+    shapely.prepare(after)
     if shapely.covers(after,before):
         return True
     scale=max(1.,float(np.abs(shapely.get_coordinates(before)).max(initial=0)))
@@ -69,7 +70,6 @@ def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,
         return None,[dict(accepted=False,reason=reason)]
     start,finish=(np.array([np.arctan2(p['heading'][1],p['heading'][0])]) for p in (entry,exit))
     available=min(np.linalg.norm(node-entry['position']),np.linalg.norm(exit['position']-node))
-    domain=shapely.buffer(surface,vehicle['widthM']*.5,quad_segs=8)
     candidates,trials=[],[]
     for transition in (.5,.25,.125):
         row=dict(transition_fraction=transition,accepted=False)
@@ -89,6 +89,10 @@ def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,
             continue
         addition=shapely.difference(roadbed,surface)
         row['added_area_m2']=float(addition.area)
+        a,b,c,d=roadbed.bounds
+        padding=vehicle['widthM']*.5+error
+        local=shapely.intersection(surface,shapely.box(a-padding,b-padding,c+padding,d+padding))
+        domain=shapely.buffer(local,vehicle['widthM']*.5,quad_segs=8)
         if not shapely.covers(domain,roadbed):
             row['reason']='roadbed_exceeds_local_flare_budget'
             continue
