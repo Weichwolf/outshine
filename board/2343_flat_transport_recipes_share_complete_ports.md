@@ -15,7 +15,7 @@ Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussfläch
 Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) teilt gemeinsame
 Mesh-Ränder; alle gewählten Ebenen-0-Fenster bestehen Flächen-/Kantenprüfung.
-Keine neuen Netztrennungen in Wien/Basel; eine in Zürich. 8579/8679 Autofahrten; Modi/Kosten offen.
+Keine zusätzlichen schwachen Netztrennungen; 8580/8679 Autofahrten. Gerichtete Erreichbarkeit/Modi/Kosten offen.
 [Bordbögen](../test/experiments/infrastructure/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -58,7 +58,7 @@ Wege/private Zufahrten sind kein Ausweichraum. Die geplante öffentliche Fläche
 Einbahnkurven erhalten Quell-Windungszahlen um Verkehrsinseln, inklusive Portversätzen
 über den Querschnitt. Legitime Abbiegekurven dürfen benachbarte öffentliche Fläche nutzen;
 eine durch Karosseriebreite eingeschränkte Routenfläche wurde verworfen.
-Spurzuordnung und alternative gerichtete Routen brauchen weiterhin einen verbindlichen Verkehrsflussvertrag.
+Spurzuordnung und alternative gerichtete Routen brauchen einen Verkehrsflussvertrag.
 Windungszahlen sind eine notwendige topologische Bedingung, kein vollständiger Verkehrsflussbeweis.
 [Rezeptprüfungen](../test/experiments/infrastructure/infrastructure_route_experiment.py): Inselumfahrung,
 verdeckte Hindernisse zwischen Endposen, identische Wiederverwendung.
@@ -96,10 +96,10 @@ Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außen
 [Gekoppelte Passung](../test/experiments/infrastructure/infrastructure_coupled_roadbed_experiment.py): gültige Teilnetze, volle Anfragenbilanz; Bestand sichern, Auslassungen begründen. Körper/Freiräume/Schnitte am gemeinsamen Mesh; Außenrahmen fest.
 Schnitt-/Rahmenänderungen getrennt deklarieren; alle Portnachbarn prüfen. G2-Winkelumlauf speichern; bei Radiusfehler Drehsinne und gemeinsame Winkel prüfen.
 [Fensterprüfung](../test/experiments/infrastructure/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
-Quellkontakte/Fahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
+Quellfahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
 und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
-Offen: Port-/Kurvenpassung und Verkehrsfluss.
+Offen: gerichtete Erreichbarkeit, Verkehrsfluss, Portpassung und Kosten.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
