@@ -82,6 +82,8 @@ def turn_body_check(surface,fit,begin,end,profile,vehicle,error=.025,maximum_pos
 
 def swept_hull_check(surface,evaluate,maximum_second_derivative,vehicle,error=.025,maximum_poses=4096):
     """A corner deviates from its endpoint chord by at most max|q''|*du**2/8."""
+    if shapely.get_type_id(surface) not in (3,6):
+        raise ValueError('vehicle surface must be polygonal')
     acceleration = np.asarray(maximum_second_derivative,dtype=float)
     if (acceleration.ndim!=1 or not len(acceleration) or not np.isfinite(error) or error<=0 or
         np.any(~np.isfinite(acceleration)) or np.any(acceleration<0)):

@@ -91,7 +91,7 @@ Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Pos
 Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 geschlossene Freiräume, ihre Zuordnung und gerichtete Inselumfahrung bleiben erhalten.
-Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten.
+Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten. Veröffentlichte Fahrflächen sind rein polygonal; flächenlose Schnittreste tragen keinen Fahrraum.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche; gerade gemeinsame Querschnitte wandern entlang derselben Quellachse.
 Drei Kandidaten: 1/2/3 Fahrzeug-Mindestradien; beide Nachbarstücke neu lösen. Quellen-/Außenkontakte,

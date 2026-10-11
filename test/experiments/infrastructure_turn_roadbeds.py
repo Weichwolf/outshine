@@ -47,6 +47,18 @@ def compose_roadbeds(surface,shape,roadbeds):
     return base,core,planned,physical,precision
 
 
+def published_roadbed_surface(mesh,base,core,planned,precision):
+    vertices=mesh['vertices']
+    assert np.array_equal(vertices,np.rint(vertices/precision)*precision)
+    faces=shapely.polygons(vertices[mesh['indices']])
+    actual=shapely.union_all(shapely.set_precision(faces,precision))
+    complete=actual.intersection(planned).union(base.difference(core))
+    parts=shapely.get_parts(complete)
+    surface=shapely.union_all(parts[np.isin(shapely.get_type_id(parts),[3,6])])
+    assert complete.symmetric_difference(surface).area==0
+    return surface,actual
+
+
 def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255,profile='G2'):
     curvature,length=float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])
     rate=float(fit['maximum_curvature_rate_per_m2'][0])

@@ -15,11 +15,12 @@ from geos_triangulation import triangles_of
 from infrastructure_building_clearance import features,polygon_parts,GIRTH_M
 from infrastructure_cut_setback_experiment import prepared_network,digest,implementation_files
 from infrastructure_cut_setbacks import restore_cut_plan
+from infrastructure_curvature_paths import fit_curvature_paths
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_route_connectivity import network_connectivity
-from infrastructure_turn_roadbeds import compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage
+from infrastructure_turn_roadbeds import compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface
 from infrastructure_travel import MODES
 from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
 
@@ -102,6 +103,29 @@ def verify_inflected(vehicle):
     return dict(inflected_turns_checked=2,inflected_added_area_m2=measured[0])
 
 
+def verify_polygonal_mesh(vehicle):
+    actual=shapely.MultiPolygon([shapely.box(-5,-3,10,3),shapely.box(12,-3,16,3)])
+    planned=shapely.box(-5,-3,12,3)
+    mixed=actual.intersection(planned)
+    assert mixed.geom_type=='GeometryCollection' and shapely.boundary(mixed) is None
+    polygons=triangles_of(actual)
+    vertices=shapely.get_coordinates(polygons).reshape(-1,4,2)[:,:3].reshape(-1,2)
+    mesh=dict(vertices=vertices,indices=np.arange(len(vertices)).reshape(-1,3))
+    surface,_=published_roadbed_surface(mesh,planned,planned,planned,2.**-10)
+    assert surface.equals(shapely.box(-5,-3,10,3)) and surface.area==mixed.area
+    a,b=np.array([[0.,0.],[5.,1.]])
+    fit=fit_curvature_paths(a[None,:],b[None,:],np.array([0.]),np.array([0.]))
+    body,_=turn_body_check(surface,fit,a,b,'G2-polynomial',vehicle)
+    assert body['fits_surface']
+    try:
+        turn_body_check(mixed,fit,a,b,'G2-polynomial',vehicle)
+    except ValueError as error:
+        assert str(error)=='vehicle surface must be polygonal'
+    else:
+        raise AssertionError('a mixed-dimensional vehicle surface was accepted')
+    return dict(polygonal_mesh_publication_checked=True)
+
+
 def verify_small(vehicle):
     floor=shapely.union_all([shapely.box(-20,-1.75,20,1.75),shapely.box(-1.75,-1.75,1.75,20)])
     begin,finish=np.array([-7.,0.]),np.array([0.,7.])
@@ -134,7 +158,7 @@ def verify_small(vehicle):
     assert rejected is None and any(r.get('reason')=='roadbed_sampling_budget_exhausted' for r in trials)
     return dict(real_mesh_body_checked=True,rigid_transform_checked=True,reservations_enforced=True,
                 hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
-                composed_roadbeds_checked=True,**verify_inflected(vehicle))
+                composed_roadbeds_checked=True,**verify_inflected(vehicle),**verify_polygonal_mesh(vehicle))
 
 
 def real_case(root,name,module):
@@ -209,10 +233,7 @@ def real_case(root,name,module):
     roles=np.ones(len(parts),dtype=int)
     precision=json.loads((root/'directed-surfaces'/f'{name}-flat-surfaces.json').read_text())['precision_m']
     mesh,audit=shared_mesh(physical,parts,roles,precision)
-    assert np.array_equal(mesh['vertices'],np.rint(mesh['vertices']/coordinate_precision)*coordinate_precision)
-    emitted=shapely.polygons(mesh['vertices'][mesh['indices']])
-    actual=shapely.union_all(shapely.set_precision(emitted,coordinate_precision))
-    complete=actual.intersection(planned).union(base.difference(core))
+    complete,actual=published_roadbed_surface(mesh,base,core,planned,coordinate_precision)
     for candidate in accepted:
         pair=next((r['entry'],r['exit']) for r in rows if r.get('report') is candidate['report'])
         body,_=turn_body_check(complete,candidate['fit'],poses[pair[0]]['position'],poses[pair[1]]['position'],
@@ -229,7 +250,7 @@ def real_case(root,name,module):
     product=root/'roadbeds'/f'{name}-{module}-mesh.npz'
     product.parent.mkdir(parents=True,exist_ok=True)
     np.savez_compressed(product,vertices=mesh['vertices'],indices=mesh['indices'],
-                        face_owners=np.full(len(emitted),module))
+                        face_owners=np.full(len(mesh['indices']),module))
     proved={(r['entry'],r['exit']) for r in rows if r['accepted']}
     changed=dict(previous,accepted=previous['accepted']+len(proved),
                  turns=[dict(t,accepted=True) if (t['entry'],t['exit']) in proved else t for t in previous['turns']])
