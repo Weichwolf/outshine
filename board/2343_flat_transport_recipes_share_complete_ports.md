@@ -80,7 +80,7 @@ Nach beiden Grundversuchen ergänzen Hüllenablehnungen Randviertel/Körpermitte
 [Kurven-Straßenräume](../test/experiments/infrastructure/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 [Hermite-Fahrraum](../test/experiments/infrastructure/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
 [Wendekurven](../test/experiments/infrastructure/infrastructure_return_roadbeds.py): Quelle ≤1024, dann CCC/CSC ≤512; gesamt ≤1536.
-G2-Nähte/Ports/Hüllen prüfen; 1024 Residuen/Passung, 255 Intervalle. Starre Budgethalbierung verliert gültige Fahrten; Gesamtkosten optimieren. Mesh-Rand/neue Schlitze: 64·eps·max(1,|Koordinate|) m; alte/breitere Freiräume erhalten.
+G2-Nähte/Ports/Hüllen prüfen; 1024 Residuen/Passung, 255 Intervalle. Starre Budgethalbierung verliert gültige Fahrten; Gesamtkosten optimieren. Mesh-Rand/neue Schlitze: 64·eps·max(1,|Koordinate|) m; alte/breitere Freiräume erhalten. Nur gültige, konservative Hilfspuffer nutzen.
 Maximale Aufweitung: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L Längsreichweite. Quellkette zuerst mit w/2 Reserve suchen; nur bei Ablehnung bis zur Eckreichweite erweitern. Reservationen räumlich eingrenzen, Suche nur außerhalb vorhandener Fahrfläche schützen; endgültige Aufweitung gegen alle prüfen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 Geschlossene Komplementflächen, verschachtelte Inseln, ihre Zuordnung durch Flächenüberlappung und gerichtete Umfahrung erhalten.
