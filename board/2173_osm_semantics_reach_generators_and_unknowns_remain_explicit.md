@@ -1,9 +1,9 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends: 2281
+Depends:
 Area: generators, world, engine
 Tags: buildings, roofs, facades, semantics
 
@@ -11,102 +11,104 @@ Tags: buildings, roofs, facades, semantics
 
 ## Ergebnis und Ist
 Plausible, vollständige Baukörper mit Höfen/Parts, passenden Dächern/Sonderformen und räumlichen Nahfassaden.
-Native Höhenintervalle, Footprints, BuildingMesh und Terrain-Stempel bestehen. Klassen-/
-Dachpläne bleiben lückenhaft; prozedurale Formfamilie ist keine belegte Nutzung.
-Quellfarben erreichen den Renderer. Öffnungspläne existieren; die visuelle Abnahme bleibt offen.
-Baukörper und Öffnungsplan sind getrennt; der native Rohling speichert beide. Breite unbekannte
-Hall-/Turmkörper erhalten regelmäßige Öffnungen, schmale Schächte bleiben geschlossen.
-Gelieferte Nutzung geht vor; Sonderformen und weitere Rezeptfamilien bleiben auszubauen.
+Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
+Getrennte Körper-/Öffnungspläne liegen im Rohling; schmale unbekannte Schächte bleiben geschlossen.
+Gelieferte Nutzung geht vor. Klassen-/Dachfamilien und visuelle Abnahme bleiben offen.
+
+## Python-Entwicklung auf buildings
+Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
+[Experimente](../test/experiments/buildings/facade_plan.py): `samples`, `facade_plan`, `codec`,
+`demand` und `facade_geometry` trennen eingefrorene Quellen, vollständigen Plan und Kameraemission.
+Je ein echtes z14-Tile Wien/Tokyo/Central Park aus der Lieferinventur; SHA-Prüfung vor Nutzung.
+Quellcache unter Client-Pref `sources/building-experiments/`; Erwerb nur `samples.py --fetch`.
+Form/Höfe/Höhen/Quellattribute/Farbe und alle Fassadenachsen persistieren kameraunabhängig.
+Treffer decodieren den ergänzten Plan ohne Provider oder neue Rezeptableitung; Nahdetails daraus.
+Vergleich: explizite Split-Liste, vektorisierte Voll-Liste und 48-Byte-Repeat je Fassadenkante;
+gleiche vollständige Öffnungen, gemeinsame Quellaufbereitung separat, frische Prozesse/Peak-RSS.
+Direkte Hüllen und budgetierte Leibungen teilen metrische Achsen und exakte Box-Coverage.
+Bedarf vor Expansion: Facing/Frustum, 1 m Bewegungsreserve im Preview und projizierte Leibungstiefe.
+0,5 px Detailgrenze ist eine Versuchshypothese, kein Welt-/Gerätegate. Drehung deckt alle Kanten ab.
+50.000 Öffnungen je Körper begrenzen lokale Versuchsemission; Überlauf erhält Hülle samt Grund.
+Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine durchstoßende Leibung.
+`verify.py`: Flächenoracle, Hof/L-Form, Unterkante, Farb-/Höhenvorrang, Cachehit und frischer Offline-Prozess.
+Ausführen mit `.venv/bin/python test/experiments/buildings/{verify,benchmark,preview}.py` (einzeln).
+Renderings/Messprodukte: `build/experiments/buildings/{preview,measurements}/`; Blender-Eevee via CLI.
+Pilot: Flachdächer und zwei Öffnungsproportionen. Teile/Tile-Nähte, Nutzungskontakte, besondere
+Baukörper, Szenenverdeckung, vollständige Schatten und gefilterte BRDF bleiben offen.
 
 ## Besitzer und Lieferung
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.
 world/Renderer konsumieren native Assets ohne Tags/Generator-Eingabeverträge. 2336 besitzt LOD.
-Zuerst vollständige Formen/Höhen/Sonderklassen in Wien/Rosenheim, danach Dächer und Nahöffnungen.
 Asset-Rohlinge (2280) enthalten ergänzten Typ, Höhe, Dach, Material und Fassadenplan/Seed.
 Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen oder neues Raten.
 2281 liefert Infrastruktur vor Gebäudeplatzierung: Zugänge, Straßenkanten und Bezugshöhen.
 Fehlender Vertrag: native Korridorflächen/Höhenintervalle und überdachte Verkehrsfreiräume aus 2281.
 Grundriss gegen geplante Fahrbahn/Gehwege/Seitenraum räumlich vorauswählen; konfliktfreie Bauten unverändert.
-GEOS-2D-Differenz gegen Weglassen vergleichen: betroffener Flächenanteil und brauchbare Restform entscheiden.
-Randkontakt löscht keinen Baukörper; lokale Stadtstichproben belegen Kosten und erhaltene Massierung.
-Nur überlappende Höhenbereiche schneiden; Brücken/Tunnel erhalten darunter/darüber liegende Bauten.
-Bahnhallen/überdachte Passagen brauchen freie Verkehrsports und erhöhte Dach-Parts, keinen pauschalen Grundrissverlust.
-Tunnel-/Durchfahrtvolumen schneidet nur betroffene Geschosshöhen; Boden, Leibungen/Decke und Portale schließen.
-Innenringe/geschlossene Baublöcke plus Wegzyklen liefern Hofkandidaten, kein automatisches Kreisverkehr-Rezept.
-Durchgänge anhand gelieferter Tunnel/Überdeckung und fortgesetzter Wege planen; Zugang/Verkehrsart erhalten.
-Brauchbare Restkörper samt Höfen/Parts, Tags/Herkunft behalten; unbrauchbare Reste dürfen entfallen.
+GEOS-Differenz gegen Weglassen: betroffener Flächenanteil und Restform entscheiden; Randkontakt löscht nichts.
+Nur überlappende Höhen schneiden. Brücken/Tunnel und freie Verkehrsports in Bahnhallen erhalten.
+Durchfahrten schneiden betroffene Geschosse; Boden, Leibungen/Decke und Portale schließen.
+Innenringe/Blöcke plus Wegzyklen liefern Hofkandidaten. Durchgänge aus Tunnel/Überdeckung/Wegefortsetzung;
+Zugang/Verkehrsart erhalten. Brauchbare Reste samt Höfen/Parts/Tags behalten, unbrauchbare dürfen entfallen.
 Native Rohlinge binden den Infrastrukturplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
 [2D-Vergleich](../test/experiments/infrastructure_building_clearance.py): GEOS mit räumlicher Vorauswahl
 gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. Höhen-/Hallplan noch offen.
 
 ## Form und Quellsemantik
-- [Inventur und vollständiger Lieferkatalog](../doc/references/data/osm/inventory.md): 2341
-  besitzt zusätzliche Layer/Zuordnung. Gelieferte Grundrisse/Höhen/Farben sofort nutzen;
-  fehlende Typen aus Form, Lage und Umfeld stabil ergänzen, ohne Quellenblocker.
+- [Lieferkatalog](../doc/references/data/osm/inventory.md), 2341: weitere Layer/Zuordnung.
+  Grundrisse/Höhen/Farben nutzen; fehlende Typen aus Form/Lage/Umfeld stabil ergänzen.
 - Klassen besitzen getrennte Rezepte: Haus/Reihe (Geschosse, Achsen, einfaches Dach),
   Wohnblock/Büro/Hotel (Höfe/Parts, regelmäßige Öffnungen), Halle/Lager (Tore, wenige Öffnungen),
   Schornstein (geschlossener, meist runder/verjüngter Schaft), Silo/Tank (Behälter), Wasserturm
   (Schaft plus Behälter), Kirche (Langhaus plus Turm), Garage/Schuppen (Tor), Gewächshaus
-  (Tragwerk plus Glas), erhöhte Parts/Brücken (freie Unterkante). Unbekannte Nutzung bleibt
-  ein einfacher Ersatz. Gelieferte Form/Material schlagen Ergänzungen; Baujahr beweist kein Material.
+  (Tragwerk plus Glas), erhöhte Parts/Brücken (freie Unterkante). Unbekannte Nutzung: einfacher Ersatz.
+  Gelieferte Form/Material schlagen Ergänzungen; Baujahr beweist kein Material.
 - Weitere Sonderrezepte: Kühlturm (offene gekrümmte Schale), Windrad (Mast/Gondel/Rotor),
   Solarpark (gebündelte geneigte Modulreihen), Strommast/Leitung und technische Anlagen.
-  Alle gelieferten Attribute persistieren; relevante Eigenschaften vor Ergänzungen auswerten.
-  Die Beispiele sind nicht abschließend. Fehlende Klassen heuristisch aus Form/Lage/Umfeld
-  ergänzen; Rendervergleiche verbessern allgemeine Rezepte, keine Place-Sonderfälle.
-- Rosenheim: native Lieferdaten der beiden hohen kleinen Grundrisse enthalten ausschließlich
-  `render_height`/`render_min_height` (65/80 m), keine Nutzung oder Materialangabe. Der 80-m-Körper
-  hat einen rundlichen achteckigen Grundriss; der 65-m-Körper einen viereckigen. Alle gelieferten
-  Tags bleiben im nativen OSM-Produkt. Unklassifizierte schmale Schächte bleiben konservativ
-  geschlossen; explizite Wohnnutzung geht vor. Das ist ein Ersatz, keine belegte Schornsteinklasse.
-- Dächer einfach und robust halten. Flensburg rechts erhielt fälschlich eine Kuppel, weil
-  Füllgrad/Seitenverhältnis konkave Grundrisse als rund einordneten. Die gespeicherte
-  Rundheitsprüfung schließt konkave Grundrisse aus; Dach und Mantel teilen dieselbe Wahl.
-  Bewährte Dachformen erhalten.
-  Komplexe Formen nur mit belegten Parametern und vollständigen, überschneidungsfreien Flächen.
+  Attribute persistieren und vor Ergänzung auswerten; fehlende Klassen aus Form/Lage/Umfeld ergänzen.
+  Rendervergleiche verbessern allgemeine Rezepte; die Liste ist offen, keine Place-Sonderfälle.
+- Rosenheim: zwei kleine hohe Grundrisse mit `render_height`/`render_min_height` (65/80 m),
+  ohne Nutzung/Material; 80 m rundlich achteckig, 65 m viereckig. Tags im nativen Produkt erhalten.
+  Unklassifizierte schmale Schächte konservativ geschlossen; Wohnnutzung geht vor, kein Klassenbeweis.
+- Flensburgs falsche Kuppel: gespeicherte Rundheitsprüfung schließt konkave Grundrisse aus.
+  Dach/Mantel teilen die Wahl, bewährte Dächer erhalten. Komplexe Formen nur mit belegten Parametern,
+  vollständigen überschneidungsfreien Flächen; einfache robuste Dächer bevorzugen.
 - Gelieferte Attribute erhalten; ausdrücklich gelieferte Schlüssel schlagen normalisierte Aliase.
   Höhe/Unterkante/Geschosse, Klasse/Nutzung, Dach, Material/Farbe und Parts nutzen, soweit vorhanden.
   [OpenMapTiles](https://github.com/openmaptiles/openmaptiles/blob/master/layers/building/building.yaml)
   liefert nicht alle OSM-Tags. Unbekanntes und deterministische Ergänzungen bleiben unterscheidbar.
-- Gelieferte oder plausibel abgeleitete Sonderbauten erhalten passende Baukörper ohne
-  Wohnhausfassade; die Herkunft der Klasse bleibt unterscheidbar.
-  Schlankheit allein beweist keine Klasse; 19 m Höhe allein macht keinen Turm. Unbekannte schlanke
-  Bauten bekommen keine erfundenen Spitzdächer. Gelieferte Dachangaben gehen vor.
-- Multipolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln. Unterkanten sind vorzeichenbehaftet
-  relativ zum Gelände; erhöhte/unterirdische Parts erhalten ihr Intervall und falsche Bodenstempel
-  entfallen. Widersprüchliche Höhen bleiben von Ergänzungen unterscheidbar.
-- Kompakte Regeln bestimmen Geschosse/Achsen/Öffnungen, Eingangsseite, Dach und Kontakt.
-  Regionale Grammatik ist Ergänzung, keine Fotorekonstruktion/Place-Geometrie. Kontakte ohne
-  Fassadenmesh erzeugen; alle LODs teilen denselben Plan. Straßenqualität bleibt erhalten.
-- Massierung und Öffnungsplan trennen. Form bestimmt Silhouette/Dach, belegte Nutzung bestimmt
-  Sonderbau-/Öffnungsregeln; unbekannte breite Körper bekommen plausible Wohn-/Büroöffnungen.
-  Bekannte Industrie-/Versorgungstürme bleiben geschlossen. Regel-/Produktversion gezielt ändern;
-  alle LODs und native Treffer verwenden denselben Plan, keine pauschale Shader-Fensterfreigabe.
-- Rundliche geschlossene Schächte erhalten elliptische Mantelnormalen ohne zusätzliche Geometrie.
-  Grundriss, Höhe und geometrische Treffer bleiben erhalten; Fernflächen interpolieren dieselben
-  Ecknormalen wie das Nahmesh. Viereckige Schächte und belegte Wohnfassaden bleiben eben.
+- Sonderbauten: passende Körper ohne Wohnfassade, Klassenherkunft unterscheidbar.
+  Schlankheit/19 m Höhe beweisen keine Klasse. Unbekannte Schächte ohne erfundene Spitzdächer;
+  gelieferte Dachangaben gehen vor.
+- Multipolygone/Höfe/Parts erhalten, Eltern/Parts nicht doppeln; vorzeichenbehaftete Unterkanten relativ
+  zum Gelände und erhöhte/unterirdische Intervalle erhalten. Falsche Bodenstempel entfallen; Höhenkonflikte markieren.
+- Kompakte Regeln: Geschosse/Achsen/Öffnungen, Eingang/Dach/Kontakt. Regionale Grammatik ergänzt;
+  keine Fotorekonstruktion/Place-Geometrie. Kontakte ohne Fassadenmesh, gemeinsame Pläne/Straßenqualität erhalten.
+- Massierung/Öffnungsplan trennen. Form bestimmt Silhouette/Dach, Nutzung Sonderbau/Öffnungen;
+  unbekannte breite Körper mit Wohn-/Büroöffnungen, belegte Versorgungstürme geschlossen.
+  Gezielte Regel-/Produktversion, alle LODs/Treffer teilen Plan; keine pauschale Shader-Fensterfreigabe.
+- Rundliche geschlossene Schächte: elliptische Mantelnormalen ohne Zusatzgeometrie, Grundriss/Höhe/Treffer erhalten.
+  Fernflächen interpolieren dieselben Ecknormalen. Viereckige Schächte/Wohnfassaden bleiben eben.
 - Gemeinsame randtreue Polygontriangulierung für Gebäude/Wasser mit Löchern: GEOS ≥3.10 über
   System-C-API; Library-Typen privat. Ungültige Polygone nicht durch Flächenverlust kaschieren.
 
 ## Nahdetail und Erscheinung
 - Öffnungen nur aus Nutzung/Geschossen/Achsen und verfügbarem Bildbedarf. Kontaktwände/Giebel,
   belegte Hallen/Versorgungstürme geschlossen erhalten; kein gleichförmiges Fensterraster.
-- Laibungen, Rahmen, Traufen, Balkone/Gauben erhalten nahe Tiefe; wiederholte Teile instanzieren.
-  Fernhüllen filtern denselben Öffnungsplan ohne einzelne Detaildreiecke. Nahglas und Hüllen
-  erhalten mittlere Coverage/Helligkeit. Fine bedeutet keine pauschale Expansion aller Details.
+- Laibungen/Rahmen/Traufen/Balkone/Gauben nahe mit Tiefe; Wiederholungen instanzieren. Fernhüllen filtern
+  denselben Öffnungsplan ohne Detaildreiecke mit mittlerer Coverage/Helligkeit; Fine expandiert gezielt.
 - Bounds umfassen Form/Details; Bewegung/Projektion und zusätzlicher Fehler begrenzen Wiederverwendung.
   Bildfelder haben eigene Gültigkeit; CPU-Vergleiche allein verkleinern keine LOD-Schranke.
-- Gemeinsamer CssColour-Parser: alle CSS-Namen/Hexfarben, `building:colour` vor Alias `colour`.
-  OSM-Gebäudefarben zusätzlich als sechs Hexziffern ohne `#` lesen; Originalwert erhalten.
-  Ungültige/teiltransparente Wandfarben melden. Lineare Wandfarbe ersetzt Palette, keine Glas-/
-  Rahmen-/Tür-/Dachfarbe. Fernverbände mischen flächengewichtet in linearem RGB; Herkunft bleibt klar.
+- CssColour: CSS-Namen/Hex, sechs Hexziffern ohne `#`; `building:colour` vor `colour`, Originalwert erhalten.
+  Ungültig/teiltransparent melden. Lineare Wandfarbe ersetzt Palette, keine Glas-/Rahmen-/Tür-/Dachfarbe.
+  Fernverbände flächengewichtet in linearem RGB mischen; Herkunft erhalten.
 - Konstante Baukörperfarbe kompakt in Material-/Batchdaten, nicht vier Floats je Ecke. Optionale
   Streams reservieren keine fremden Lücken (2188). Metrische UVs bis zum Shader erhalten (2171).
 
 ## Bewährte Verfahren
 [Instant Architecture, SIGGRAPH 2003](../doc/references/buildings/siggraph/2003-instant-architecture.pdf),
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf):
-begrenzte Regeln aus wenigen Parametern, keine universelle Grammatikengine. [Weitere Quellen](../doc/references/README.md).
+begrenzte Split-Regeln; [F-shade, EGSR 2010](../doc/references/buildings/egsr/2010-grammar-based-encoding-of-facades.pdf)
+motiviert wahlfreien Zugriff auf kompakte Fassaden. Übertragung ist ein Repeat-Pilot, kein Grammatikinterpreter.
 
 ## Abnahme
 Wien/Feldkirch: vollständige, an Infrastruktur angepasste Baukörper/Höfe/Parts. Rosenheim/Flensburg: passende Sonderklassen,
