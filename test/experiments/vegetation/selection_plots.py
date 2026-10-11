@@ -1,7 +1,10 @@
 """Coverage versus draw/cache work on identical directional foliage inputs."""
 
+import json
+
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 
 METHODS = (
     "random15",
@@ -147,4 +150,42 @@ def storage_figure(report):
     figure.suptitle(
         "Alle Rundum-Ansichten vorgehalten · Atlasränder, Mips und GPU-Formate offen"
     )
+    return figure
+
+
+def views_render_figure(experiments):
+    names = ("views-reference", "views-tree", "views-shadow-pass")
+    metadata = [
+        json.loads((experiments / "render" / f"{name}.json").read_text())
+        for name in names
+    ]
+    for key in (
+        "camera",
+        "resolution",
+        "samples",
+        "engine",
+        "blender",
+        "plan_identity",
+    ):
+        assert metadata[0][key] == metadata[1][key] == metadata[2][key]
+    assert metadata[0]["implementation_sha256"] == metadata[2]["implementation_sha256"]
+    assert not any(item["source_modified"] for item in metadata)
+    images = []
+    for name in names:
+        with Image.open(experiments / "render" / f"{name}.png") as image:
+            images.append(np.asarray(image.convert("RGB")))
+    figure, axes = plt.subplots(2, 3, figsize=(12, 6), layout="constrained")
+    boxes = ((555, 265, 710, 425), (670, 435, 880, 505))
+    titles = (
+        "Räumliche Referenz",
+        "Nur Kamerakarten\n(früherer Rendererstand)",
+        "Kamera + Karten je Licht",
+    )
+    for row, (x0, y0, x1, y1) in enumerate(boxes):
+        for column, pixels in enumerate(images):
+            axes[row, column].imshow(pixels[y0:y1, x0:x1], interpolation="nearest")
+            axes[row, column].axis("off")
+            if row == 0:
+                axes[row, column].set_title(titles[column])
+    figure.suptitle("Krone und Schatten · unveränderte Originalpixel aus 1280 × 720")
     return figure

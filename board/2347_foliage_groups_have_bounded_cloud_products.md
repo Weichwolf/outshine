@@ -50,7 +50,12 @@ EEVEE-Schattenverknüpfung und Light-Path-Materialmasken trennen ihre Verwendung
 [Blender 4.3](https://www.blender.org/download/releases/4-3/) belegt den Backendpfad;
 Alpha-/Schattenbilder gegen identische Lichtparameter der räumlichen Referenz prüfen.
 Karten je Licht unabhängig gegen eine Schleife geprüft; deklarierte/gespeicherte Dreieckzahlen gleich.
-Vorläufige Vorschau erhält wieder einen kräftigen Baumschatten. Eigener nativer Schattenpass bleibt offen.
+Gefrorener Referenzvergleich mit derselben Rendererfassung optisch betrachtet: Schatten wieder kräftig.
+Fester Ausschnitt x=670..879/y=435..504: mittlere RGB-Kanalabweichung 7,04 → 0,53 von 255.
+Krone x=555..709/y=265..424: 5,29 → 2,79. Früherer Kamerakartenpfad bleibt als Diagnosebild erhalten.
+`test/scripts/pixels.py` misst die gleichen Originalpixel; keine allgemeine LOD-Freigabe.
+Referenz/Trennung: 2.646.848/155.828 Dreiecke einschließlich Holz und aller Lichtprodukte.
+Je Auswahl 1.260 Laubdreiecke. Eigener nativer Schattenpass und weiche Lichtflächen bleiben offen.
 
 ## Datenfluss und Kosten
 Teilgruppe aus stabilen Astpfaden anfordern; vollständiges angefordertes Produkt erzeugen.

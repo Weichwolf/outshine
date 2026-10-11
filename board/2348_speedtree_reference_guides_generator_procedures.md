@@ -64,9 +64,19 @@ Material-Layer steuern getrennte Draws. Das ist keine vollständige Rundum-Runti
 `GenerateBillboardLOD` (`0x1f68360`) nutzt `ExportBillboardData` und packt Kartenkoordinaten;
 `CStartNode::MakeBillboards` (`0x1aa7e90`) liest Basis-/knotenspezifische Exportparameter.
 Diese Referenz begründet kamerafreie unbeleuchtete Ansichten-Atlanten als nächste eigene Alternative.
+`UnifyNormals` (`0x1b3b0b0`) summiert zwei Richtungsfelder eines Vertexbereichs, normalisiert
+deren Mittel und mischt gewichtet zu ihnen; Kreuzprodukte stellen den Tangentenrahmen wieder her.
+`ComputeGlobalLighting` (`0x1b42420`) gestaltet Normalen: ursprüngliche Richtung mit radialen
+Richtungen vom Skin-Boundszentrum, mehreren Hierarchieankern, Projektoren und Welt-Z mischen.
+Die normalisierte Zielrichtung bestimmt auch eine Rotation der anderen Tangentenrichtungen;
+belegte Normalengestaltung, kein BRDF-/Verdeckungsersatz und keine gebackene Lichtfarbe.
+`BuildLightingPropertyRecs` (`0x1b50880`) benennt Puffiness, Unify und Eltern-/globale Anpassungen.
+`CTreeModel::ComputeGlobalLighting` (`0x1edd850`) speichert gemeinsame Parameter und delegiert
+an unterstützende Generator-/Knotenprodukte. Vollständige Feld-/Propertybindung bleibt offen.
+Eigene Normalenrezepte benötigen eine getrennte Bildprüfung; Karten müssen deren Antwort erhalten.
 
 ## Abnahme und nächster offener Vertrag
-29 gezielte Funktionen dekompiliert; alle sechs Läufe terminal erfolgreich, zuletzt drei neue Funktionen.
+33 gezielte Funktionen dekompiliert; alle sieben Läufe terminal erfolgreich, zuletzt vier neue Funktionen.
 Adressen/Symbolgrößen, ELF-Vtable und Konstanten korroborieren die beschriebenen Operationen.
 Sichtbarkeitsfeld, LOD-Sortierung und Zielanzahl belegt; vollständige Property-/Windbindung bleibt offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.

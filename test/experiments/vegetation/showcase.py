@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from cloud_plots import group_figure, raster_figure, render_figure
-from selection_plots import coverage_figure, storage_figure
+from selection_plots import coverage_figure, storage_figure, views_render_figure
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS = ROOT / "build/experiments/vegetation"
@@ -335,8 +335,18 @@ def selection_storage_plot(report):
     return save_plot(figure, "foliage-selection-storage")
 
 
+def views_render_plot(_report):
+    return save_plot(views_render_figure(EXPERIMENTS), "foliage-views-shadows")
+
+
 def plot_entries(output):
     definitions = (
+        (
+            "render/views-shadow-pass.json",
+            views_render_plot,
+            "Eigene Ansichten für Kamera und Schatten",
+            "Unveränderte Originalpixel aus festen Kronen- und Schattenausschnitten. Referenz und getrennte Lichtauswahl haben dieselbe Rendererfassung, Holzgeometrie, Kamera, Licht und 32 EEVEE-Samples bei 1280 × 720. Die mittlere Spalte hält den vorherigen gemeinsamen Kamerakarten-Schattenpfad zur Diagnose fest. Ein Bild belegt keine Wind-, Bewegungs-, Material- oder native LOD-Freigabe.",
+        ),
         (
             "selection/selection.json",
             selection_coverage_plot,
