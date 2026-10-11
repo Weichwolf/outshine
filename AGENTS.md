@@ -125,6 +125,11 @@
   Veraltete/abgeschlossene WIs nach Anforderungsübernahme entfernen; wichtige Verträge erhalten.
   IDs aus gesamter Git-Historie. WI vor Implementierung aktivieren; Änderungen erhalten,
   kleine vollständige Commits ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
+- Auf `vegetation` wird jeder geprüfte Fortschritt committed, gepusht und in der lokalen
+  Showcase unter `/tmp/outshine-vegetation-showcase` veröffentlicht. Kein automatisches
+  Neuladen; neue Stände erscheinen beim Öffnen oder über den manuellen Aktualisieren-Knopf.
+  Gestaltung/Bedienung folgen der Building-Showcase; drei typische Landschaften sind feste Bildszenarien.
+  Für Vegetation gilt SpeedTree als Qualitätsmaßstab; die Nutzerbildreferenz besitzt 2111.
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.

@@ -12,6 +12,8 @@ Tags: vegetation, forest, grass, wind
 ## Ergebnis und Ist
 SpeedTree ist der Qualitätsmaßstab: glaubwürdige Silhouetten, Verzweigung, Laub,
 Wind und Schatten; vollständige Wälder teilen das Frame-/Speicherbudget mit der Stadt.
+[Konkretes Bildziel](../test/experiments/vegetation/quality_reference.json): Nutzerreferenz 1920 × 1080,
+räumliches Laub, gestaffelte Vegetationsschichten, organische Formen und differenziertes Licht.
 Native Prototypstufen bestehen; Weltpfad: Kronenkarten, ignorierte Artenmischungen, unvollständige Waldflächen.
 Native Struktur-/Wasser-/Wegflächen schließen Wurzeln aus; Kronenmaße erreichen die Platzierung.
 Feldkirchs Dachüberschneidung ist beseitigt; niedrige Bauten dürfen unter freier Krone bleiben.
@@ -43,8 +45,7 @@ Kamera/Entfernung bestimmen Bedarf vor Erzeugung; Cache-IDs bleiben von Kamerasn
 Outshine darf dafür erweitert werden; bestehende Generator-/Cache-APIs begrenzen die Verfahren nicht.
 Grober Bedarf erzeugt direkt grobe Produkte. Vergleich unter gleichen Eingaben/Anforderungen;
 begrenzte Arbeit, gültige Geometrie, 3D-Bilder und Kosten entscheiden vor C++-Übertragung.
-`stand_plan.py`: stabile Zählhierarchie; Raumprodukte und Nahstandorte nur nach Bedarf.
-Layout-Seeds unabhängig von Kronenmaßen: Standorte bleiben bei Bewegung/Formänderung; Budgets halten Eltern.
+`stand_plan.py`: bedarfsabhängige Zählhierarchie; Layout-Seeds unabhängig von Kronenmaßen; Budgets halten Eltern.
 Bild-/LOD-Qualität, Schatten-/Verdeckungsbedarf und native Cache-Anbindung bleiben offen.
 `growth_experiment.py` vergleicht brute force und cKDTree an gelieferten Eichen-/Buchen-/Birkenmaßen.
 18 Fälle liefern identische Astpläne und erhalten die Rohrquerschnittssumme an Verzweigungen.
@@ -53,8 +54,7 @@ Budget/Stillstand weist Reste aus; EEVEE-Rohrbilder belegen weder fertige Kronen
 SCA bleibt Nah-/Prototypvergleich, kein Fernpfad. Python immer `.venv`: NumPy/SciPy/Pillow/Matplotlib/pypdf.
 `crown_surface.py`: seedstabile radiale Hülle, direkte kubische Unterteilung; neun Varianten geprüft.
 Für n=q/|q|, |q|≥1 gilt ||D²n||≤2/√3. Mit g=Σaf, h=Σaf² und ρmax=1−Σa_ausgelassen:
-M=Rmax[(2/√3)(ρmax+g)+2g+h]; Fehler ≤M/N² (Dreiecksvarianz ≤2/N²).
-Ausgelassene Bänder addieren RmaxΣa; konservativer Perspektiv-Jacobian wählt das Produkt.
+M=Rmax[(2/√3)(ρmax+g)+2g+h]; Fehler ≤M/N² (Varianz ≤2/N²) +RmaxΣa_ausgelassen; Perspektiv-Jacobian wählt.
 Geöffnete EEVEE-Nahbilder: geschlossene Hülle ungeeignet als Laubersatz; nur Proxy/Formprüfung.
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
 und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)

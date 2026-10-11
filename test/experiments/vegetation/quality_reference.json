@@ -1,0 +1,18 @@
+{
+  "quality_standard": "SpeedTree",
+  "source_url": "https://cdn1.epicgames.com/ue/product/Screenshot/HighresScreenshot00009-1920x1080-917504fc28200dc619049609cd7c0e9d.jpg?resize=1&w=1920",
+  "local_path": "build/shots/reference/vegetation/epic-forest-quality-target.jpg",
+  "sha256": "a5696173e510f5c6bf22b3bc06430bf77dfb9867cbdc1dea3af7f92437a9e719",
+  "resolution": [1920, 1080],
+  "provided_by": "user",
+  "date": "2026-10-11",
+  "criteria": [
+    "Räumliche Blattgruppen mit lesbaren Einzelblättern und durchlässigen Kronen",
+    "Organische Stämme, Verzweigungen und nachvollziehbare Blattanschlüsse",
+    "Gestaffelte Gräser, Kräuter, Sträucher und Bäume mit unterschiedlicher Höhe und Dichte",
+    "Kohärente Standortgruppen, Bodenanschlüsse und Vegetation im Gelände",
+    "Blattreflexion und Transmission, Kontakt- und Gruppenschatten, lesbare räumliche Tiefe"
+  ],
+  "purpose": "Visuelle Zielreferenz zum Qualitätsmaßstab SpeedTree; keine Textur oder Geometriequelle.",
+  "current_gap": "Die aktuellen Landschaften zeigen geschlossene Kronenproxies und einfache Stammformen. Laub/Nadeln/Grashalme, Unterwuchs, organische Verzweigung und entsprechende Lichtantwort fehlen."
+}

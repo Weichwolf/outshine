@@ -1,0 +1,64 @@
+{
+  "current_work": "Blatt- und Grasflächen mit echten Blattknoten und Blattstielen. Danach belaubte Triebe und räumliche Blattgruppen; dafür liegt noch kein geprüftes Rendering vor.",
+  "quality_gap": "Glaubwürdiges Nahlaub, vollständige Waldprodukte und gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
+  "renders": [
+    {
+      "image": "render/landscape-temperate.png",
+      "title": "Gemäßigter Laubwald · Bestandsform",
+      "label": "Landschaft",
+      "category": "landscape",
+      "description": "410 stabile Standorte mit Eichen-, Buchen- und Birkenmaßen aus dem Artenkatalog. Geteilte Kronenproxies und Stammformen auf prozeduralem Boden; Laubgruppen und ökologische Konkurrenz fehlen.",
+      "quality": "Erster Formstand · kein fertiges Waldprodukt"
+    },
+    {
+      "image": "render/landscape-boreal.png",
+      "title": "Borealer Nadelwald · Bestandsform",
+      "label": "Landschaft",
+      "category": "landscape",
+      "description": "350 stabile Standorte mit Fichten- und Kiefernmaßen. Drei gestufte Kegel je Krone dienen als Formproxy; reale Zweigquirle, Nadelgruppen und durchlässige Kronen fehlen.",
+      "quality": "Erster Formstand · Nadeln und Zweige offen"
+    },
+    {
+      "image": "render/landscape-savanna.png",
+      "title": "Savanne · Bestandsform",
+      "label": "Landschaft",
+      "category": "landscape",
+      "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
+      "quality": "Erster Formstand · Gras und Nahlaub offen"
+    },
+    {
+      "image": "render/crown-level5.png",
+      "title": "Kronenhülle · feine Oberfläche",
+      "label": "Formproxy",
+      "category": "proxy",
+      "description": "Direkt erzeugte, geschlossene Hülle mit 12.288 Dreiecken. Im Nahbild wirkt sie als grüne Masse; räumliches Laub fehlt. Als Nahlaub verworfen.",
+      "quality": "Als Nahlaub ungeeignet"
+    },
+    {
+      "image": "render/crown-level1.png",
+      "title": "Kronenhülle · grobe Oberfläche",
+      "label": "Formproxy",
+      "category": "proxy",
+      "description": "Dieselbe Form und derselbe Astplan mit 48 Hüllendreiecken. Vergleich der Oberflächenauflösung bei fester Kamera; kein belegter Übergang der Laubdeckung.",
+      "quality": "Nur Formprüfung"
+    },
+    {
+      "image": "render/oak-after.png",
+      "title": "Aststruktur · korrigierte Austriebe",
+      "label": "Korrigiert",
+      "category": "wood",
+      "description": "Positionsgleiche neue Austriebe werden verworfen. Der Versuch mit 256 Attraktoren liefert 689 eindeutige Astknoten. Verschweißte Gabeln und Laub fehlen.",
+      "quality": "Geometrie korrigiert",
+      "source_report": "growth-unique/growth.json"
+    },
+    {
+      "image": "render/oak-before.png",
+      "title": "Aststruktur · vorher",
+      "label": "Fehlervergleich",
+      "category": "comparison",
+      "description": "Früherer Versuch: 2.564 Knoten, darunter 1.875 wiederholte Positionen. Dieses Bild dokumentiert den behobenen Fehler und ist kein aktuelles Qualitätsziel.",
+      "quality": "Überholter Fehlerstand",
+      "source_report": "growth/growth.json"
+    }
+  ]
+}
