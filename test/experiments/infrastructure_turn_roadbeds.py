@@ -36,6 +36,16 @@ def preserves_voids(before,after):
     return len(pairs[0])==len(original) and len(np.unique(pairs[0]))==len(original) and len(np.unique(pairs[1]))==len(planned)
 
 
+def compose_roadbeds(surface,shape,roadbeds):
+    scale=max(1.,float(np.abs(shapely.get_coordinates(surface)).max(initial=0)))
+    roundoff=64*np.finfo(float).eps*scale
+    precision=float(2.**np.floor(np.log2(roundoff/4)))
+    base,core,*supports=shapely.set_precision(np.array([surface,shape,*roadbeds],dtype=object),precision)
+    planned=shapely.union_all([base,*supports])
+    physical=core.union(planned.difference(base))
+    return base,core,planned,physical,precision
+
+
 def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255):
     curvature,length=float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])
     rate=float(fit['maximum_curvature_rate_per_m2'][0])
@@ -122,6 +132,6 @@ def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,
             row['reason']=body.get('reason','constructed_roadbed_does_not_support_body')
             continue
         row.update(accepted=True,reason='constructed_local_roadbed',profile='G2')
-        candidates.append(dict(surface=planned,addition=addition,path=path,fit=fit,report=row))
+        candidates.append(dict(surface=planned,roadbed=roadbed,addition=addition,path=path,fit=fit,report=row))
     best=min(candidates,key=lambda c:(c['report']['added_area_m2'],c['report']['transition_fraction'])) if candidates else None
     return best,trials

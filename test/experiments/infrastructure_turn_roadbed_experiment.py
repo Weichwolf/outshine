@@ -19,7 +19,7 @@ from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_route_connectivity import network_connectivity
-from infrastructure_turn_roadbeds import construct_turn_roadbed,preserves_voids,preserves_coverage
+from infrastructure_turn_roadbeds import compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage
 from infrastructure_travel import MODES
 from infrastructure_vehicle_sweep import body_outlines,turn_body_check
 
@@ -89,6 +89,9 @@ def verify_small(vehicle):
         candidate,_=construct_turn_roadbed(a,b,surface,shapely.Polygon(),route,vehicle)
         assert candidate is not None
         audit,_=mesh_coverage(candidate['surface'],vehicle,candidate['fit'],a['position'],b['position'],.025)
+        base,core,planned,physical,quantum=compose_roadbeds(surface,surface,[candidate['roadbed']])
+        assert preserves_coverage(surface,planned)
+        mesh_coverage(planned,vehicle,candidate['fit'],a['position'],b['position'],.025)
         blocked,_=construct_turn_roadbed(a,b,surface,shapely.buffer(surface,2).difference(surface),route,vehicle)
         assert blocked is None
         assert preserves_coverage(surface,candidate['surface'])
@@ -100,7 +103,8 @@ def verify_small(vehicle):
     rejected,trials=construct_turn_roadbed(entry,exit,floor,shapely.Polygon(),source,vehicle,1e-12)
     assert rejected is None and any(r.get('reason')=='roadbed_sampling_budget_exhausted' for r in trials)
     return dict(real_mesh_body_checked=True,rigid_transform_checked=True,reservations_enforced=True,
-                hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True)
+                hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
+                composed_roadbeds_checked=True)
 
 
 def real_case(root,name,module):
@@ -155,20 +159,28 @@ def real_case(root,name,module):
                    physical_shape_wkb=planned_shape.wkb.hex(),addition_wkb=addition.wkb.hex(),
                    diagnostic_body_outline=bodies[np.argmax(outside)].tolist())
         accepted.append(candidate)
-    planned=shapely.union_all([surface,*[c['addition'] for c in accepted]])
-    physical=shape.union(planned.difference(surface))
+    base,core,planned,physical,coordinate_precision=compose_roadbeds(surface,shape,[c['roadbed'] for c in accepted])
     parts=shapely.get_parts(physical)
     roles=np.ones(len(parts),dtype=int)
     precision=json.loads((root/'directed-surfaces'/f'{name}-flat-surfaces.json').read_text())['precision_m']
     mesh,audit=shared_mesh(physical,parts,roles,precision)
+    assert np.array_equal(mesh['vertices'],np.rint(mesh['vertices']/coordinate_precision)*coordinate_precision)
     emitted=shapely.polygons(mesh['vertices'][mesh['indices']])
-    actual=shapely.union_all(emitted)
-    complete=actual.intersection(planned).union(surface.difference(shape))
+    actual=shapely.union_all(shapely.set_precision(emitted,coordinate_precision))
+    complete=actual.intersection(planned).union(base.difference(core))
     for candidate in accepted:
         pair=next((r['entry'],r['exit']) for r in rows if r.get('report') is candidate['report'])
         body,_=turn_body_check(complete,candidate['fit'],poses[pair[0]]['position'],poses[pair[1]]['position'],
                               'G2',network.vehicle,network.curbs['arc_error_m'])
-        assert body['fits_surface'],'published physical mesh fails the continuous body check'
+        if not body['fits_surface']:
+            target=root/'roadbeds/publish-rejection'/f'{name}-{module}-{pair[0]}-{pair[1]}.json'
+            target.parent.mkdir(parents=True,exist_ok=True)
+            snapshot=dict(expected_wkb=candidate['surface'].wkb.hex(),planned_wkb=planned.wkb.hex(),
+                          complete_wkb=complete.wkb.hex(),physical_wkb=physical.wkb.hex(),actual_wkb=actual.wkb.hex(),
+                          fit=candidate['fit'],begin=poses[pair[0]]['position'],end=poses[pair[1]]['position'],
+                          vehicle=network.vehicle,error=network.curbs['arc_error_m'],body=body)
+            target.write_text(json.dumps(snapshot,default=lambda obj:obj.tolist())+'\n')
+        assert body['fits_surface'],f'published physical mesh fails the continuous body check: {pair}'
     product=root/'roadbeds'/f'{name}-{module}-mesh.npz'
     product.parent.mkdir(parents=True,exist_ok=True)
     np.savez_compressed(product,vertices=mesh['vertices'],indices=mesh['indices'],
@@ -183,6 +195,7 @@ def real_case(root,name,module):
                 source_tiles=tiles,previous_routes_preserved=bool(preserves_coverage(surface,planned)),
                 added_area_m2=float(planned.area-surface.area),trials=rows,physical_mesh_audit=audit,
                 physical_mesh=str(product),physical_mesh_sha256=digest(product),
+                coordinate_precision_m=coordinate_precision,
                 connectivity=connectivity,scope='One ground module; graph comparison uses its complete frozen one-km public-motor cohort.',
                 original_surface_wkb=surface.wkb.hex(),physical_shape_wkb=shape.wkb.hex(),
                 planned_surface_wkb=planned.wkb.hex(),input_sha256=before['input_sha256'])
