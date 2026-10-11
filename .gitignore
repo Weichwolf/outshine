@@ -1,5 +1,6 @@
 # --- build outputs ---
 build/
+.venv/
 *.o
 
 # --- what a declared run writes where it was started: `give` paths and stills. A measurement

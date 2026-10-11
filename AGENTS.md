@@ -111,6 +111,7 @@
   Vertrag, Portabilität und gemessene Kosten müssen passen. Für Techniken und Algorithmen
   schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
   passende Primärquellen und verankere Verfahren und Quellen im zuständigen WI.
+  PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
 - C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte

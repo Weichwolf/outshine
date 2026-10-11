@@ -1,9 +1,9 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
-Priority: P2
+Priority: P0
 Parent: 2169
-Depends: 2336
+Depends:
 Area: generators, render, world
 Tags: vegetation, forest, grass, wind
 
@@ -26,15 +26,34 @@ Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes
 Forest erzeugt einen stabilen Bestandsplan aus Bodenklasse, Höhe, Hang und Welt-Seed.
 ForestDraw publiziert Instanzen. Vegetationsvorbereitung/Renderer besitzen gemeinsame
 fertige Assetcache-Produkte (2280), RAM/GPU-Residency, sichtbare Detailwahl, Wind und Schatten.
-Depends 2336 betrifft gemeinsame Eltern-/Kindabdeckung und repräsentationsgerechte
+2336 betrifft bei nativer Integration gemeinsame Eltern-/Kindabdeckung und repräsentationsgerechte
 Qualität/Kosten. Standortauswahl und Prototypintegration warten nicht auf dessen Gesamtabschluss.
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
 
 ## Reihenfolge
-Gebäude/Terrain/Infrastruktur bleiben Schwerpunkt (2169). Vegetation wird inzwischen graduell
-verbessert, mit gemessener Kostenkorrektur und jederzeit deaktivierbarem Szenarioprofil.
+Auf `vegetation` gilt der eigenständige Python-Auftrag aus GOAL; master bearbeitet Infrastruktur.
+Der bestehende C++23-Generator ist Vergleichsmaterial und darf später vollständig ersetzt werden.
 Menge/Detail gehören ins Szenario (2188), keine Inhalts-CLI-Schalter. Dichte folgt plausibler
 Belegung; freies Budget verbessert Form, Nahdetail und Schatten statt bloß Baumzahlen.
+
+## Python-Verfahrensauftrag
+Besitzer: `test/experiments/vegetation`; Quellen und Architekturentscheidungen stehen hier.
+Weltweite Wuchsformen: Gräser/Kräuter, Farne/Sträucher/Kletterer, Laub-/Nadelbäume,
+Palmen/Bambus, Sukkulenten/Kakteen, Feuchtgebiets-/Wasserpflanzen und bodennahe Deckung.
+Broccoli/Romanesco: Organ, Pflanze, Gruppe, Bestand und Fernwald sind eine stabile Hierarchie.
+Der Generator liefert korrekte LOD-Produkte; identische Seeds/Standorte und Artengewichte,
+Silhouette/Deckung/Material-/Wind-/Schattenparameter gehören zu jeder Vereinfachung.
+Grober Bedarf erzeugt direkt grobe Produkte. Vergleich unter gleichen Eingaben/Anforderungen;
+begrenzte Arbeit, gültige Geometrie, 3D-Bilder und Kosten entscheiden vor C++-Übertragung.
+Erster Versuch: parametrischer Formplan und bedarfsabhängige Emission statt Vollaufbau/Reduktion.
+`growth_experiment.py` vergleicht brute force und cKDTree an gelieferten Eichen-/Buchen-/Birkenmaßen.
+18 Fälle liefern identische Astpläne und erhalten die Rohrquerschnittssumme an Verzweigungen.
+Iteration-/Knotenbudget liefert ausgewiesene Restattraktoren; fertige Kronen sind damit nicht bewiesen.
+Bildprüfung und artspezifische Formrezepte stehen aus. Python-Umgebung immer `.venv`;
+benötigt NumPy/SciPy, für Bilder Pillow/Matplotlib und für Paper-Auswertung pypdf.
+[Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
+und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)
+sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswahl.
 
 ## Implementierung in vollständigen Schritten
 1. Deklarierte gewichtete Artenmischungen bis zur Runtime durchreichen. Unbekannte Arten
