@@ -16,13 +16,13 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
 Öffentliche Autofahrten sind in allen berührten Bauteilen dreier Kilometer-Radiusfenster prüfbar und renderbar.
-Netzbrüche, vollständige Spur-/Moduszuordnung, natives Kollisionsprodukt und tragbare Gesamtkosten bleiben offen.
+Basler Kurvenraum schließt einen Netzbruch; Spur-/Moduszuordnung, weitere Netzbrüche, native Kollision und Gesamtkosten bleiben offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
 Verkehrsfläche per Randschnitt/Suchindex. Kollidierende Schnitte rücken begrenzt nach außen;
 Restketten kürzer als ihre eigene Breite bleiben im gemeinsamen Anschluss.
-Öffentliche Auto-Achsenkontakte müssen die Karosserie auf der unveränderten Motorfläche tragen,
+Öffentliche Auto-Achsenkontakte müssen die Karosserie auf der geplanten Motorfläche tragen,
 auch bei fremden Modi. Ungültige Schnitte rücken nach außen oder entfallen mit Grund; Quellen bleiben fest.
 [Schnittprüfung](../test/experiments/infrastructure_flat_ports.py) prüft gerade vollständige gemeinsame
 Randsegmente unabhängig von der Flächenabdeckung; die drei Ebenen-0-Fenster bestehen beide Prüfungen.
@@ -42,25 +42,21 @@ Versetzte Portposen setzen Endpositionen/Tangenten; die Quellachse gibt innere K
 Vorwärtsrichtung bleibt verbindlich; ungültige statische Posen prüfen 61 Richtungen innerhalb ±30°.
 [Gemeinsame Rahmenwahl](../test/experiments/infrastructure_shared_frame_experiment.py) ergänzt diese Passung:
 5°-Richtungen innerhalb ±30°, dann 17 Positionen; getrennte Fahrbahnhälften bzw. schmale gemeinsame Spur.
-Höchstens 64 Paare je Rezept/Bauteil; Heap-Kosten: Versatz + Mindestradius × Winkeländerung [rad].
-Gültige Posedomänen wiederverwenden; kein volles Produkt.
+Höchstens 64 Paare je Bauteil; Posedomänen wiederverwenden. Kosten: Versatz + Mindestradius × Winkeländerung.
 Volle Karosserie auf beiden Flächen, Fahrkurve und alle Nachbarfahrten prüfen. Nur angefragter Gewinn
 ohne Verlust/Änderung vorhandener Anfragen zählt. Quellenkontakt/Richtung bleiben fest; alle teilen dieselbe Pose.
-Erfolglose Kandidaten ändern nichts. Konfliktfreie Spurzuordnung und weitere Flächenrezepte bleiben offen.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k sowie Krümmungsänderung k' gilt |q''(s)| ≤ A = k+r*(|k'|+k²).
 Analytische Kurven prüfen die konvexe Hülle zweier Endkarosserien mit Randreserve A*ds²/8.
-Sie umfasst alle linearen Eckinterpolationen; die Reserve umfasst deren kontinuierliche Abweichung.
-Enthaltene Endposen allein genügen nicht: die ganze Hülle muss auf der Motorfläche liegen,
-mit Reserve zu Außenrändern und Löchern. Nur unklare Intervalle werden halbiert; höchstens 4096
-tatsächlich geprüfte Karosserieposen, keine Suchschleife ohne Budget. Gerade Ansätze sind eigene
-Teilkurven; G1-Krümmungssprünge an ihren Enden überschreiten keine gemeinsame Ableitungsgrenze.
+Die ganze Hülle mit Randreserve muss auf der Motorfläche liegen.
+Nur unklare Intervalle werden halbiert; höchstens 4096 tatsächlich geprüfte Karosserieposen.
+Gerade Ansätze sind eigene Teilkurven; ihre G1-Krümmungssprünge teilen keine Ableitungsgrenze.
 Gerade Translationen nutzen den exakt extrudierten Körper. Quintische Quellrouten nutzen ebenfalls
 Hüllen: Bézier-Ableitungen begrenzen Geschwindigkeit v, Beschleunigung a und dritte Ableitung j
 über ihrem lokalen Parameter u. Positive Mindestgeschwindigkeit sichert θ'=cross(v,a)/|v|² und
 θ''=(cross(v,j)-2*θ'*dot(v,a))/|v|². Damit gilt |q''(u)| ≤ a_max+r*(|θ''|_max+|θ'|_max²).
 Linienpunkte entstehen separat nach a_max*du²/8; Karosserieprüfung erzeugt kein dichtes Linienmesh.
-Wege/private Zufahrten sind kein Ausweichraum. Der gemeinsame Mesh begrenzt öffentliche Motorfläche.
+Wege/private Zufahrten sind kein Ausweichraum. Die geplante öffentliche Fläche hat ein eigenes Mesh.
 Gerichtete Erreichbarkeit allein genügt nicht: bei Einbahnabschnitten muss die Kurve die
 Windungszahlen der gewählten Quellroute um Verkehrsinseln erhalten. Der Vergleich schließt
 Portversätze über den gemeinsamen Querschnitt. Eine durch Karosseriebreite eingeschränkte
@@ -91,6 +87,12 @@ Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüll
 Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunkte; erst nach beiden Grundversuchen.
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
+[Kurven-Straßenräume](../test/experiments/infrastructure_turn_roadbeds.py) ergänzen fehlenden Fahrraum: Klothoiden und volle
+Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand.
+Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
+geschlossene Freiräume, ihre Zuordnung und gerichtete Inselumfahrung bleiben erhalten.
+Die Ergänzung gehört zum triangulierten Straßenprodukt, nicht allein zur Prüfmaske.
+Feste Außenports, alle Anfragen und bisher gültige Fahrten erhalten; unabhängige Mesh-/Karosserieprüfung.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche; gerade gemeinsame Querschnitte wandern entlang derselben Quellachse.
 Drei Kandidaten: 1/2/3 Fahrzeug-Mindestradien; beide Nachbarstücke neu lösen. Quellen-/Außenkontakte,
@@ -108,10 +110,8 @@ Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Net
    Mehrere Querschnitte desselben Nachbarpaars gemeinsam erhalten; lange Fahrten aus lokalen Stücken aufbauen.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
-5. Weltweit hunderte bis tausende Beispiele nach Topologie, Klassen und gelieferten Tags untersuchen.
-   [Survey](../test/experiments/infrastructure_world_survey.py) nutzt gespeicherte Originalkacheln,
-   schreibt kompakte Messwerte und nachstellbare Defizite; Bilder nur nach Auswahl gemäß AGENTS.
-   Nahansichten müssen Anschlüsse, Fahrkurven und lokale Auslassungen plausibel zeigen.
+5. Weltweit hunderte bis tausende Fälle: [Survey](../test/experiments/infrastructure_world_survey.py),
+   Originalkacheln, Nutzungsbilanz/Kosten und ausgewählte Nahansichten gemäß AGENTS.
    Native Übertragung erst nach annähernd fehlerfreien vollständigen 2D-/2,5D-Netzen gemäß Goal.
 Gemeinsame Portpositionen/Normalen, plausible Breiten/Kurven, keine Risse/Faltungen/inneren Doppelstücke.
 Verwendungsgrad und Kosten gehören zur Qualität; ungültige Teile bleiben außerhalb des Plans.
