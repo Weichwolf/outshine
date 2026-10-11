@@ -19,6 +19,9 @@ Aktiver Ausbau: Dachflächen/Traufe/First auf denselben Quellgrundrissen, zuerst
 2400 untersucht dafür Esri-Dachkerne mit Ghidra; allgemein gültige Verfahren gegen metrische analytische Dächer vergleichen.
 Gesamtoberkante/Unterkante bleiben geliefert; Dachraum vor Geschossplanung innerhalb dieser Höhe reservieren.
 Gelieferte Geschoss-/Dachangaben erhalten, fehlende ergänzen und kennzeichnen; zu knappe Intervalle explizit ausweisen.
+Skelettflächen für konkave/Hof-Dächer gegen analytische metrische Rechteckdächer vergleichen; Quelle/Höfe unverändert.
+Zusätzliche externe Python-Bibliothek `py_straight_skeleton==0.1.0` in `.venv`; kein Fremdcode im Repository.
+Ungewichtetes Skelett ist ein Vergleichspfad, keine vollständige Esri-Dachentsprechung; Gewichte/überhängende/even-Dächer bleiben offen.
 
 ## Familien und Komponenten
 - Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.
@@ -42,5 +45,9 @@ Fremde Modelle/Code bleiben externe Referenzen (2400); eigener Generator unter `
 
 ## Quellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf),
+[Held/Palfrader 2016](../doc/references/buildings/geometry/2016-weighted-skeleton-roofs-and-terrains.pdf): Dachflächen aus Wavefront; Seiten 1/6/8 optisch geprüft, CGA-Shape-Seite 4 ebenso.
+[Python-Skeleton-Bibliothek](https://pypi.org/project/py_straight_skeleton/),
+[Esri Walm](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-hip.htm),
+[Esri Sattel](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-gable.htm).
 [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214).
 Gemeinsame Arbeits-/Bildregeln in AGENTS, Gebäude-/Quellvertrag in 2173.
