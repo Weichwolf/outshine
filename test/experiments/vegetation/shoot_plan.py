@@ -13,14 +13,15 @@ from curve_frame import arc_frame
 def normal_frame(direction, hint):
     direction = direction / np.linalg.norm(direction, axis=-1, keepdims=True)
     hint = np.broadcast_to(hint, direction.shape)
-    normal = hint - np.sum(hint * direction, axis=-1, keepdims=True) * direction
+    lateral = np.cross(direction, hint)
     fallback = np.eye(3)[np.argmin(np.abs(direction), axis=-1)]
-    fallback -= np.sum(fallback * direction, axis=-1, keepdims=True) * direction
-    normal = np.where(
-        np.linalg.norm(normal, axis=-1, keepdims=True) < 1e-8, fallback, normal
+    fallback = np.cross(direction, fallback)
+    lateral = np.where(
+        np.linalg.norm(lateral, axis=-1, keepdims=True) < 1e-8, fallback, lateral
     )
-    normal /= np.linalg.norm(normal, axis=-1, keepdims=True)
-    return np.stack((np.cross(direction, normal), direction, normal), axis=-1)
+    lateral /= np.linalg.norm(lateral, axis=-1, keepdims=True)
+    normal = np.cross(lateral, direction)
+    return np.stack((lateral, direction, normal), axis=-1)
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,8 @@ class Shoot:
     arrangement: str = "spiral"
     whorl: int = 3
     leaf_angle: float = 1.12
+    normal_hint: tuple[float, float, float] | None = None
+    normal_alignment: float = 0.0
     blade: Blade = field(default_factory=lambda: Blade(lobes=6))
 
     def __post_init__(self):
@@ -48,6 +51,7 @@ class Shoot:
                 self.first,
                 self.last,
                 self.leaf_angle,
+                self.normal_alignment,
             )
         ):
             raise ValueError("finite shoot parameters required")
@@ -65,6 +69,21 @@ class Shoot:
             raise ValueError("declared phyllotaxis required")
         if not isinstance(self.whorl, int) or not 1 <= self.whorl <= 16:
             raise ValueError("bounded positive whorl count required")
+        if self.normal_hint is not None:
+            if not isinstance(self.normal_hint, tuple):
+                raise ValueError("immutable normal hint required")
+            hint = np.asarray(self.normal_hint, dtype=float)
+            if (
+                hint.shape != (3,)
+                or not np.all(np.isfinite(hint))
+                or not np.isfinite(np.linalg.norm(hint))
+                or np.linalg.norm(hint) == 0
+            ):
+                raise ValueError("finite nonzero normal hint required")
+        if not 0 <= self.normal_alignment < 1 or (
+            self.normal_alignment and self.normal_hint is None
+        ):
+            raise ValueError("bounded normal alignment requires a direction hint")
         intervals = (self.last - self.first) * self.length / self.internode
         if not np.isfinite(intervals) or intervals >= (2**31 - 1) / self.per_group:
             raise ValueError("group count must fit the organ ID representation")
@@ -125,7 +144,18 @@ class Shoot:
         angle = phase + groups * increment + member * 2 * np.pi / self.per_group
         radial = np.cos(angle)[:, None] * lateral + np.sin(angle)[:, None] * normal
         direction = np.cos(self.leaf_angle) * tangent + np.sin(self.leaf_angle) * radial
-        frames = normal_frame(direction, tangent)
+        if self.normal_alignment:
+            hint = np.asarray(self.normal_hint, dtype=float)
+            hint /= np.linalg.norm(hint)
+            direction -= (
+                self.normal_alignment
+                * np.sum(direction * hint, axis=-1, keepdims=True)
+                * hint
+            )
+            direction /= np.linalg.norm(direction, axis=-1, keepdims=True)
+        frames = normal_frame(
+            direction, tangent if self.normal_hint is None else self.normal_hint
+        )
         origins = centre + self.blade.petiole * direction
         result = {
             "ids": np.arange(self.count, dtype=np.int32),

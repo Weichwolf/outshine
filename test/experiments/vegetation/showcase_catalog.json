@@ -1,6 +1,6 @@
 {
-  "current_work": "Erste räumliche Blattgruppen und Grashorste sind gerendert und betrachtet. Breite Blätter erhalten Wölbung und stabile Formvarianten; Halme behalten ihre Falz. SpeedTree-Referenz: acht Pflanzenmodelle, Generatorhierarchie, Anker, LOD und Wind untersucht. Geometrie und gemeinsame Ablage werden unabhängig geprüft und gemessen.",
-  "quality_gap": "Die Organbilder sind Formstudien. Natürliche Verzweigung und Verteilung, vollständige Waldprodukte, Wind sowie gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
+  "current_work": "Eine erste belaubte Jungbaumprobe verbindet Stamm, Hauptäste und Zweige mit 571 räumlichen Blättern. Astpfade und Organ-IDs bleiben bei Teilanfragen stabil; Positionen entstehen erst nach Bedarf. Gesamt- und Nahansicht zeigen denselben Formplan. SpeedTree-Platzierung und Segmentierung wurden zusätzlich mit Ghidra gezielt untersucht.",
+  "quality_gap": "Die Pflanzenbilder bleiben Formstudien. Organische Astgabeln, vielfältige Wachstumsformen, natürliche Bestandsverteilung, vollständige Waldprodukte, Wind sowie gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
   "renders": [
     {
       "image": "render/landscape-temperate.png",
@@ -25,6 +25,22 @@
       "category": "landscape",
       "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
       "quality": "Erster Formstand · Gras und Nahlaub offen"
+    },
+    {
+      "image": "render/plant-sapling.png",
+      "title": "Belaubter Jungbaum · drei Astordnungen",
+      "label": "Pflanzenprobe",
+      "category": "organs",
+      "description": "Ein stabiler Formplan liefert 64 Achsen und 571 Einzelblätter aus acht geteilten Formvarianten. Kinder schließen am gekrümmten Elternast an; Blattflächen wenden sich als Formrezept zum Himmel. Eigene begrenzte Grammatik, keine botanische Rekonstruktion oder Lichtkonkurrenzsimulation.",
+      "quality": "Erste vollständige Pflanzenprobe · organische Gabeln offen"
+    },
+    {
+      "image": "render/plant-sapling-branch.png",
+      "title": "Jungbaum · Ast- und Blattgruppen aus der Nähe",
+      "label": "Nahdetail",
+      "category": "organs",
+      "description": "Nahansicht derselben Pflanze mit unveränderten Astpfaden, Organ-IDs und Anschlüssen. Blattstiele, räumliche Wölbung, Formvarianten und Einzelschatten entstehen aus dem gemeinsamen Plan. Astgabeln bestehen noch aus überlappenden geschlossenen Rohren.",
+      "quality": "Nahdetailprobe · Schatten-LOD und Wind offen"
     },
     {
       "image": "render/organ-shoots.png",

@@ -176,13 +176,16 @@ def main():
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
-        "source_modified": bool(
+        "source_modified": recipe.get("source_modified", False)
+        or bool(
             subprocess.check_output(
                 ["git", "status", "--porcelain", "--", *map(str, implementation)],
                 text=True,
             ).strip()
         ),
         "plan_commit": recipe["source_commit"],
+        "plan_identity": recipe.get("plan_identity"),
+        "plan_source_modified": recipe.get("source_modified"),
         "foliage_lod_quality_proven": False,
     }
     args.output.with_suffix(".json").write_text(json.dumps(result, indent=2) + "\n")

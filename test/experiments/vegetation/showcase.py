@@ -206,6 +206,33 @@ def organ_storage_plot(report):
     return save_plot(figure, "organ-storage")
 
 
+def plant_request_plot(report):
+    cases = report["requests"]["cases"]
+    figure, axes = plt.subplots(1, 2, figsize=(10, 4.2), layout="constrained")
+    style_axes(axes)
+    labels = ["Angeforderter Zweig", "Ganze Pflanze"]
+    timings = [case["first_median_ms"] for case in cases]
+    spans = np.array(
+        [
+            [median - min(case["first_ms"]), max(case["first_ms"]) - median]
+            for case, median in zip(cases, timings)
+        ]
+    ).T
+    bars = axes[0].bar(labels, timings, color=COLOURS, yerr=spans, capsize=4)
+    axes[0].bar_label(bars, labels=[f"{value:.2f}" for value in timings], padding=5)
+    axes[0].set_ylabel("Erste Detailanfrage [CPU ms]")
+    values = [case["retained_array_bytes"] / 1024 for case in cases]
+    bars = axes[1].bar(labels, values, color=COLOURS)
+    axes[1].bar_label(bars, labels=[f"{value:.2f}" for value in values], padding=5)
+    axes[1].set_ylabel("Gespeicherte Platzierungsarrays [KiB]")
+    for axis in axes:
+        axis.margins(y=0.22)
+    figure.suptitle(
+        "Identische angeforderte Blattgruppe · Details nach Bedarf", fontsize=14
+    )
+    return save_plot(figure, "plant-requests")
+
+
 def copy_image(source, output):
     with source.open("rb") as handle:
         digest = hashlib.file_digest(handle, "sha256").hexdigest()
@@ -276,6 +303,12 @@ def plot_entries(output):
             organ_storage_plot,
             "Blattgeometrie teilen",
             "Gleiche Geometrie, Ecknormalen und UVs: ein Mesh mit Platzierungen gegen vollständige Expansion. 32 Längssegmente, eine Querteilung je Blatthälfte. Balken: Median aus drei Zusammenstellungen; Spannen: Minimum bis Maximum. Gemeinsamer Mesh-Aufbau und Platzierungsplan sind ausgeklammert. Keine GPU-, Draw- oder Laufzeitmessung; die Nahbilder verwenden feinere Blätter.",
+        ),
+        (
+            "plants/plants.json",
+            plant_request_plot,
+            "Zweigdetails gezielt erzeugen",
+            "Dieselbe angeforderte Blattgruppe mit exakt gleichen IDs und Positionen: nur Zweig und zwei Vorfahren erzeugen oder vorher die ganze Pflanze expandieren. Fünf erste Anfragen, Median und Minimum/Maximum. Rezeptaufbau, Meshing und Rendering sind ausgeklammert; Speicher umfasst Platzierungsarrays ohne Python-Objektkosten. Wiederholung nutzt denselben Prozess, keinen persistenten Runtime-Cache.",
         ),
     )
     entries = []

@@ -60,7 +60,7 @@ Geöffnete EEVEE-Nahbilder: geschlossene Hülle ungeeignet als Laubersatz; nur P
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
 und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)
 sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswahl.
-2346 besitzt Blatt-/Grasflächen, Triebgruppen, deren Anschlüsse und die Analyse des Nutzer-SpeedTree-Pakets.
+2346 besitzt Organflächen, bedarfsabhängige Ast-/Blattgruppen, Pflanzenproben und SpeedTree-Analyse.
 Generatorgraphen/Blattgruppen/Profile/LOD/Wind daraus werden an eigenen Python-Verfahren geprüft.
 `showcase.py --start` veröffentlicht geprüfte Bilder/Plots samt Quellcommit in `/tmp` auf Port 8765.
 `showcase_catalog.json` besitzt Bildauswahl/Einordnung; Stand laden bleibt manuell, keine Neuberechnung.
