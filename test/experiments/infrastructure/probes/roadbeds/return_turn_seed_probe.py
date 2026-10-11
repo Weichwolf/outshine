@@ -1,6 +1,8 @@
 """Compare bounded return-turn seeds with actual public road space and reservations."""
 
+import argparse
 import json
+from itertools import chain
 from pathlib import Path
 import sys
 import time
@@ -16,17 +18,25 @@ from infrastructure_fitted_roadbeds import construct_fitted_roadbed,spline_roadb
 from infrastructure_hermite_route_fitting import fit_hermite_route
 from infrastructure_junction_surfaces import motor_surface,same_island_winding
 from infrastructure_three_arc_paths import three_arc_seeds
+from infrastructure_arc_line_paths import arc_line_arc_seeds
 from infrastructure_turn_roadbed_experiment import building_reservations,reservations,mesh_coverage
 from infrastructure_turn_roadbeds import roadbed_lateral_reach,roadbed_site_check,geometry_precision
 
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--search-reach',type=float)
+parser.add_argument('--sections',type=int,nargs='+')
+args=parser.parse_args()
 root=Path('build/experiments/infrastructure');name='ZuerichHauptbahnhof';module=1678
-output=root/'roadbeds/return-turn-1678';output.mkdir(parents=True,exist_ok=True)
+suffix='' if args.search_reach is None else f'-reach-{args.search_reach:g}'
+if args.sections:suffix+='-sections-'+ '-'.join(map(str,args.sections))
+output=root/('roadbeds/return-turn-families-1678'+suffix);output.mkdir(parents=True,exist_ok=True)
 before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
 frames=json.loads((root/'boundary-optimized/hermite-routes.json').read_text())
 network=prepared_network(root,before,next(p['frames'] for p in frames['places'] if p['place']==name))
 restore_cut_plan(network,json.loads((root/'cut-setbacks'/f'{name}-cut-setbacks.json').read_text())['plan'])
 poses,_=network.poses(module,{})
-network,_,affected=setback_network(network,module,{poses[i]['section'] for i in (4,6)},4.)
+sections={poses[i]['section'] for i in (4,6)} if args.sections is None else set(args.sections)
+network,_,affected=setback_network(network,module,sections,4.)
 poses,_=network.poses(module,{})
 routes,_=directed_module_routes(network.graph,poses,network.shape(module),network.tree)
 error=network.curbs['arc_error_m'];vehicle=network.vehicle
@@ -36,12 +46,16 @@ region=shapely.union_all([network.shape(m) for m in affected]).envelope.buffer(r
 receipt=json.loads((root/'inputs'/f'{name}-input.json').read_text())['receipt']
 buildings,_=building_reservations(receipt,region)
 reserved=buildings.union(reservations(network,region).difference(floor))
-domain=floor.buffer(roadbed_lateral_reach(vehicle)).difference(reserved.difference(floor))
+reach=roadbed_lateral_reach(vehicle) if args.search_reach is None else args.search_reach
+if reach<=0:raise ValueError('search reach must be positive')
+domain=floor.buffer(reach).difference(reserved.difference(floor))
 results=[]
 for pair in ((4,6),(5,3),(5,6)):
     options=[]
     for radius in (4.2,4.5,5.):
-        for kind,seed in three_arc_seeds(poses[pair[0]],poses[pair[1]],radius):
+        families=chain(((('CCC',*kind),seed) for kind,seed in three_arc_seeds(poses[pair[0]],poses[pair[1]],radius)),
+                       ((('CSC',*kind),seed) for kind,seed in arc_line_arc_seeds(poses[pair[0]],poses[pair[1]],radius)))
+        for kind,seed in families:
             if not same_island_winding(seed,routes[pair],floor):continue
             outside=seed.buffer(vehicle['widthM']*.5).difference(domain).area
             options.append((outside,seed.length,radius,kind,seed))
@@ -61,7 +75,7 @@ for pair in ((4,6),(5,3),(5,6)):
             began=time.perf_counter()
             path,fit=fit_hermite_route(poses[pair[0]],poses[pair[1]],seed,domain,vehicle,error,
                                      spacing=spacing,maximum_calls=512,include_controls=True)
-            trial=dict(pair=pair,rank=rank,spacing_m=spacing,accepted=False,
+            trial=dict(pair=pair,rank=rank,spacing_m=spacing,accepted=False,curve_found=path is not None,
                        residual_calls=fit['residual_calls'],reason=fit.get('reason'),
                        objective=fit['minimum_objective_seen'])
             if path is not None:

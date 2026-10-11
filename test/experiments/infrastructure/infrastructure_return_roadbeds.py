@@ -1,11 +1,14 @@
 """Fit bounded return-turn roadbeds from tangent circle seeds."""
 
+from itertools import chain
+
 import numpy as np
 import shapely
 
 from infrastructure_fitted_roadbeds import construct_fitted_roadbed
 from infrastructure_junction_surfaces import same_island_winding
 from infrastructure_three_arc_paths import three_arc_seeds
+from infrastructure_arc_line_paths import arc_line_arc_seeds
 from infrastructure_turn_roadbeds import roadbed_lateral_reach
 
 
@@ -17,7 +20,9 @@ def construct_return_roadbed(entry,exit,surface,reservations,source_route,vehicl
     options=[]
     for scale in (1.05,1.125,1.25):
         radius=scale*vehicle['minimumRearAxleRadiusM']
-        for kind,seed in three_arc_seeds(entry,exit,radius):
+        families=chain(((('CCC',*kind),seed) for kind,seed in three_arc_seeds(entry,exit,radius)),
+                       ((('CSC',*kind),seed) for kind,seed in arc_line_arc_seeds(entry,exit,radius)))
+        for kind,seed in families:
             if not same_island_winding(seed,source_route,surface):continue
             outside=seed.buffer(vehicle['widthM']*.5).difference(domain).area
             options.append((outside,seed.length,radius,kind,seed))
