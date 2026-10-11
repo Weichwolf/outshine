@@ -17,9 +17,11 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: acht Funktionen gezielt untersucht: Offset/Skelett/Convexify, Offset-Kern, Split-Vorbereitung/-Verteilung/Achsschnitt, Extrusion.
+Ghidra 12.1.2: zwölf Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split-/Extrusions- und Innenrechteckverfahren.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
-Nächste Analyse: `computeInnerRects` mit Löchern, `LargestRectangle` und Daniels-Kontakt-/Rekursionsverfahren für konstruktive Kerne.
+`computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
+`continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
+Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platzieren (2420), kein eigener Globaloptimalitätsanspruch.
 
 ## Umsetzung
 - Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.
