@@ -94,9 +94,9 @@ Geschlossene Freiräume sind tatsächlich freie Komplementflächen, auch bei ver
 Volle Hüllen gemeinsam bilden, keine Differenzfragmente rekonstruieren. Konstruktionsreserve vorsehen; alle Stücke teilen 4096 Prüfposen. Mesh/Fläche teilen Präzision; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; Schnittlinien tragen keinen Fahrraum.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
+Mehrere Achsen je Schnitt behalten eindeutige Kontakte; alle Stationen rücken nach außen. Neue/verlorene Kontakte ablehnen.
 Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
 [Gekoppelte Schnitt-/Fahrraumpassung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) löst Knoten samt Nachbarstraßen. Anfragen, Freiräume und Schnitte am gemeinsamen Dreiecksmesh prüfen; Außenrahmen bleiben fest. Statische Randbereiche einmal vorbereiten.
-Zürich 102 trägt samt Nachbarstraßen 12/12 Fahrten und schließt eine Fenster-Netztrennung; vollständige Netze bleiben offen.
 [Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Fahrten am tatsächlichen Mesh prüfen; Anfragen anhand Quellkontakten zuordnen und alte Gewinne erhalten. Unverträgliche Gruppen lokal ablehnen, gültigen Bestand behalten.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache

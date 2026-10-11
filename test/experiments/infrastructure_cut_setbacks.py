@@ -101,6 +101,21 @@ def check_external_sections(network,affected):
                     raise CutSetbackRejected('external_neighbor_section_changed')
 
 
+def check_contact_progress(network,before,after,sections):
+    old={frame_key(p)[:3]:p for p in before}
+    new={frame_key(p)[:3]:p for p in after}
+    if len(old)!=len(before) or len(new)!=len(after) or old.keys()!=new.keys():
+        raise CutSetbackRejected('source_contacts_changed_or_ambiguous')
+    for key,pose in old.items():
+        if pose['section'] not in sections:
+            continue
+        station=new[key]['station']
+        advance=(station-pose['station'])*pose['direction']*(-1 if pose['incoming'] else 1)
+        if (new[key]['incoming']!=pose['incoming'] or advance<=0 or
+                not 0<station<network.graph['lines'][pose['edge']].length):
+            raise CutSetbackRejected('source_contact_did_not_advance_outward')
+
+
 def setback_network(network,module,sections,distance):
     if module not in network.junctions or not sections or not np.isfinite(distance) or distance<=0:
         raise ValueError('setback requires a junction, sections and a finite positive distance')
@@ -109,9 +124,9 @@ def setback_network(network,module,sections,distance):
     changes,affected = [],{module}
     for section in sorted(sections):
         contacts = [p for p in old_poses if p['section']==section]
-        if not contacts or len({(p['edge'],p['station']) for p in contacts})!=1:
-            raise CutSetbackRejected('multiple_source_contacts_on_section')
-        pose = contacts[0]
+        if not contacts:
+            raise CutSetbackRejected('source_section_has_no_contact')
+        pose = min(contacts,key=lambda p:(p['edge'],p['station'],p['direction']))
         point,tangent,station = displaced_source_section(network,pose,distance)
         corridor = pose['corridor']
         core,road = result.shape(module),result.shape(corridor)
@@ -128,6 +143,7 @@ def setback_network(network,module,sections,distance):
     check_external_sections(result,affected)
     for owner in affected:
         result.records.pop(owner,None)
+    check_contact_progress(result,old_poses,result.poses(module,{})[0],sections)
     return result,changes,affected
 
 

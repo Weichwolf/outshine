@@ -128,7 +128,7 @@ def published_frames(products):
     return [frames[k] for k in sorted(frames)]
 
 
-def diagnostic_trial(curve,product,vehicle):
+def diagnostic_trial(curve,product,vehicle,original_poses,original_routes):
     outlines=[]
     for piece in curve['candidate']['pieces']:
         xy,heading=turn_sampler(piece['profile'])(piece['fit'],np.linspace(0,1,65))[:2]
@@ -136,8 +136,17 @@ def diagnostic_trial(curve,product,vehicle):
                                      vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))
     bodies=np.concatenate(outlines)
     outside=shapely.area(shapely.difference(shapely.polygons(bodies),product['base']))
+    ids={frame_key(p)[:3]:i for i,p in enumerate(original_poses)}
+    request=next(iter(request_keys(product['poses'],[curve['pair']])))
+    pair=tuple(ids[key] for key in request)
+    positions=np.array([original_poses[i]['position'] for i in pair])
+    headings=np.array([original_poses[i]['heading'] for i in pair])
+    original_bodies=body_outlines(positions,np.arctan2(headings[:,1],headings[:,0]),vehicle['widthM']*.5,
+                                  vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
     return dict(entry=curve['pair'][0],exit=curve['pair'][1],accepted=True,
                 path=shapely.get_coordinates(curve['candidate']['path']).tolist(),report=curve['candidate']['report'],
+                original_source_path=shapely.get_coordinates(original_routes[pair]).tolist(),
+                original_endpoint_bodies=original_bodies.tolist(),
                 diagnostic_body_outline=bodies[np.argmax(outside)].tolist())
 
 
@@ -152,6 +161,14 @@ def real_case(root,name,module,pair,distance,output):
     poses,_=network.poses(module,{})
     if not all(0<=i<len(poses) for i in pair) or pair[0]==pair[1]:
         raise ValueError('selected route must have distinct valid port indices')
+    records={r['module']:r for r in before['modules']}
+    records.update((r['module'],r) for r in cuts['changed_modules'])
+    previous=records[module] if module in records else network.record(module)[0]
+    accepted=[(t['entry'],t['exit']) for t in previous['turns'] if t['accepted']]
+    previous_keys=request_keys(poses,accepted)
+    target=next(iter(request_keys(poses,[pair])))
+    assert target not in previous_keys,'selected request already supported'
+    original_routes,_=directed_module_routes(network.graph,poses,network.shape(module),network.tree)
     sections={poses[i]['section'] for i in pair}
     distance=network.vehicle['minimumRearAxleRadiusM'] if distance is None else distance
     trial,changes,affected=setback_network(network,module,sections,distance)
@@ -169,8 +186,8 @@ def real_case(root,name,module,pair,distance,output):
     output.mkdir(parents=True,exist_ok=True)
     mesh_path=output/'mesh.npz';np.savez_compressed(mesh_path,**mesh)
     product=products[module]
-    existing=sum(c['existing_surface'] for c in product['curves'])
-    assert existing<len(product['curves']),'no new supported route'
+    gained=[c for c in product['curves'] if not request_keys(product['poses'],[c['pair']])<=previous_keys]
+    assert target in request_keys(product['poses'],[c['pair'] for c in gained]),'selected request not gained'
     return dict(place=name,module=module,affected=sorted(affected),setback_m=distance,
         cut_plan=serialize_cut_plan(trial,changes),vehicle=trial.vehicle,source_tiles=tiles,
         all_requests_preserved=True,external_frames_unchanged=True,all_body_curves_on_native_mesh=True,
@@ -178,9 +195,11 @@ def real_case(root,name,module,pair,distance,output):
         physical_mesh=str(mesh_path),physical_mesh_sha256=digest(mesh_path),
         original_surface_wkb=product['base'].wkb.hex(),planned_surface_wkb=product['planned'].wkb.hex(),
         physical_shape_wkb=shapely.union_all([p['core'] for p in products.values()]).wkb.hex(),
-        previous_accepted=existing,accepted=len(product['curves']),connections=len(product['curves']),
+        previous_accepted=len(previous_keys),accepted=len(product['curves']),connections=len(product['curves']),
         added_area_m2=sum(p['planned'].difference(p['base']).area for p in products.values()),
-        trials=[diagnostic_trial(c,product,trial.vehicle) for c in product['curves'] if not c['existing_surface']],
+        trials=[diagnostic_trial(c,product,trial.vehicle,poses,original_routes) for c in gained],
+        original_sections=[shapely.get_coordinates(network.sections[s]).tolist() for s in sorted(sections)],
+        planned_sections=[shapely.get_coordinates(trial.sections[s]).tolist() for s in sorted(sections)],
         shared_cuts_description=f'Shared cuts moved {distance:g} m; {len(proofs)}/{len(proofs)} routes across {len(products)} modules',
         input_sha256=before['input_sha256']|{str(p.relative_to(root)):digest(p)
                           for p in (before_path,frame_path,cut_path,receipt_path,precision_path)},

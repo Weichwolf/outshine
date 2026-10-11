@@ -57,6 +57,13 @@ def render(report,path,bounds=None):
                 ax.legend(loc='best')
         for row,points in zip(accepted,paths):
             colour='#b54a49' if index==0 else '#286b9e'
+            if index==0 and 'original_source_path' in row:
+                points=np.array(row['original_source_path'])
+                ax.plot(points[:,0],points[:,1],'--',color=colour,linewidth=2)
+                for body in row['original_endpoint_bodies']:
+                    body=np.array(body)
+                    ax.fill(body[:,0],body[:,1],facecolor=colour,edgecolor=colour,alpha=.3)
+                continue
             ax.plot(points[:,0],points[:,1],color=colour,linewidth=2)
             outline=np.array(row['diagnostic_body_outline'])
             outline=np.vstack((outline,outline[0]))
@@ -65,6 +72,9 @@ def render(report,path,bounds=None):
             ax.annotate('',xy=points[middle+1],xytext=points[middle-1],
                         arrowprops=dict(arrowstyle='->',color=colour,lw=2))
             ax.plot(points[[0,-1],0],points[[0,-1],1],'o',color=colour,markersize=4)
+        for section in report.get('original_sections' if index==0 else 'planned_sections',[]):
+            line=np.array(section)
+            ax.plot(line[:,0],line[:,1],color='#303c37',linewidth=1)
         ax.set_xlim(a-5,c+5)
         ax.set_ylim(b-5,d+5)
         ax.set_aspect('equal')

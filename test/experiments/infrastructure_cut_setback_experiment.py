@@ -10,12 +10,13 @@ import resource
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 
 import numpy as np
 import shapely
 
 from infrastructure_cut_setbacks import (CutSetbackRejected,setback_shared_section,setback_network,
-    route_signatures,external_frames_unchanged,serialize_cut_plan,restore_cut_plan)
+    route_signatures,external_frames_unchanged,serialize_cut_plan,restore_cut_plan,check_contact_progress)
 from infrastructure_driving_network import DrivingNetwork
 from infrastructure_hermite_experiment import fit_module
 from infrastructure_route_connectivity import network_connectivity
@@ -43,6 +44,24 @@ def implementation_files(entry):
         pending.extend(path.with_name(name+'.py') for name in names
                        if name.startswith('infrastructure_') and path.with_name(name+'.py').is_file())
     return sorted(visited)
+
+
+def verify_contact_progress():
+    network=SimpleNamespace(graph=dict(lines=[shapely.LineString([[0,0],[10,0]]),
+                                             shapely.LineString([[10,2],[0,2]])]))
+    a=dict(section=1,edge=0,direction=1,station=2.,incoming=False)
+    b=dict(section=1,edge=1,direction=1,station=8.,incoming=True)
+    new=[dict(a,station=3.),dict(b,station=7.)]
+    check_contact_progress(network,[a,b],new,{1})
+    for bad in (new[:1],new+[new[0]],[new[0],dict(new[1],station=9.)],
+                [new[0],dict(new[1],station=0.)],[new[0],dict(new[1],incoming=False)]):
+        try:
+            check_contact_progress(network,[a,b],bad,{1})
+        except CutSetbackRejected:
+            continue
+        raise AssertionError('invalid source contact update accepted')
+    return dict(multi_axis_progress_checked=True,contact_loss_rejected=True,
+                reversed_contact_progress_rejected=True)
 
 
 def verify_setbacks():
@@ -80,7 +99,7 @@ def verify_setbacks():
     assert not external_frames_unchanged([pose,other],[pose,dict(other,heading=np.array([0.,1.]))],{1})
     return dict(surface_partition_preserved=True,holes_preserved=True,straight_shared_boundary=True,
                 rigid_transform_checked=True,input_tangent_unchanged=True,source_contact_identity_preserved=True,
-                changed_external_frame_rejected=True,invalid_setbacks_rejected=True)
+                changed_external_frame_rejected=True,invalid_setbacks_rejected=True,**verify_contact_progress())
 
 
 def verify_loop_setbacks():
