@@ -12,7 +12,7 @@ Tags: buildings, roofs, facades, semantics
 ## Ergebnis und Ist
 2050-Solarpunk: klare Bauhaus-/Mid-century-Körper; Art déco gezielt. PV auf Dach/Fassade, Balkone/Höfe/Parts.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
-Körper-/Öffnungspläne im Rohling, schmale Schächte geschlossen; Nutzung geht vor. Dachfamilien/Abnahme offen.
+Eigenständige Python-Rezepte nach Esri/CGA; Körper-/Öffnungspläne im Rohling. Dachfamilien/Abnahme offen.
 Baseline 325bbe1c3: 13.993 Pläne; Repeat-Payload 1,17–2,04 MiB/37–64 ms; RSS 96–133 MiB. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
@@ -33,7 +33,7 @@ Diagnosehüllen mischen dieselben Wand-/Rahmen-/Glas-BSDFs nach Coverage ([Blend
 GEOS-Mitres strikt innen; nur nutzbare Obergeschosse, sonst gültige Basis mit Grund. Parts bleiben ungestaffelt.
 `features.py`: Dach-/Fassaden-PV, Mid-century-Vordach, bis drei Balkone samt Türanschluss; komplette Bounds/Puffer im Rohling.
 `massing_benchmark.py`: direkte Bandflächen/2D-Differenzen gegen [Manifold](https://github.com/elalish/manifold)-3D-Union gleicher Prismen.
-UV/Materialgrenzen erhalten; gleiche Volumen/Außenfläche, Quellen/Planautorierung separat; Ferncluster/Budget offen.
+UV/Materialgrenzen erhalten; topologisch getrennte Eckenfächer bewahren punktberührende Höfe. Quellenarbeit separat; Ferncluster/Budget offen.
 [Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash und publiziert nach
 `/tmp/outshine-buildings-showcase/`; Port 8766 zeigt letzte Varianten und interaktive Körper-/Fassadenkosten samt Commit.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. [VisusCity](https://visusarts.itch.io/visuscity-vol2) ist Bildmaßstab.
@@ -111,8 +111,8 @@ motiviert wahlfreien Zugriff auf kompakte Fassaden. Vorbilder: [Neutra](https://
 [CitySample a0981eb](https://github.com/fate-apple/CitySample/tree/a0981eb52322eab75db2507a23879de9f30110a0): HLOD aus Kollisionskörpern,
 Mesh-/Materialinstanzen; Houdini-Graphen fehlen. [Building Tools 0216534](https://github.com/ranjian0/building_tools/tree/0216534645b15b3f8aac0bd1d7e6674e2972b9b3): Python-Bauteile/Skelettdächer.
 [Labs Patterns](https://www.sidefx.com/docs/houdini/nodes/sop/labs--building_from_patterns-1.0.html): Module/Overrides.
-[CityEngine-SDK](https://github.com/Esri/cityengine-sdk), lokal 3.4.12206, Archiv-SHA `1cad08b973a1`: API/PRT-PDF optisch geprüft.
-PRT-Core: Offset/Skelett/Triangulierung, kompilierte CGA-Regeln, Kantenattribute, Material-/Geometrieinstanzen als Referenz.
+[CityEngine-SDK](https://github.com/Esri/cityengine-sdk) unter `~/Downloads/esri_ce_sdk-3.4.12206`, Archiv-SHA `1cad08b973a1`; PRT-PDF optisch geprüft.
+PRT-Core als Referenz: Offset/Skelett/Triangulierung, Kantenattribute, Material-/Geometrieinstanzen; Runtime braucht kompilierte CGB-Regeln.
 
 ## Abnahme
 Wien/Feldkirch: Infrastruktur/Baukörper/Höfe/Parts; Rosenheim/Flensburg: Sonderklassen/Dächer. Nahöffnungen räumlich,

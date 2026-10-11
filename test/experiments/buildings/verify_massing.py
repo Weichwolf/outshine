@@ -17,6 +17,7 @@ from facade_plan import plan
 from massing_reference import check_measurements, union
 from offline_probe import probe
 from preview import house_view
+from samples import read_site
 from verify import verify_closed_shell
 
 
@@ -99,6 +100,21 @@ def verify_replay(product):
     return encoded
 
 
+def verify_touching_courtyard():
+    samples, _ = read_site('Vienna')
+    sample = next(sample for sample in samples if sample['id'] == 'Vienna:1209980:25')
+    polygon = sample['polygon']
+    assert polygon.is_valid and len(polygon.interiors) == 1
+    assert not polygon.exterior.intersection(polygon.interiors[0]).is_empty
+    product = plan(sample)
+    reference = union(product)
+    metrics = check_measurements(product, product['shell'])
+    check_measurements(product, reference)
+    assert set(reference['materials']) == set(product['shell']['materials'])
+    verify_replay(product)
+    return dict(source_id=sample['id'], preserved_point_touching_courtyard=True, **metrics)
+
+
 def verify():
     courtyard = shapely.Polygon([(0, 0), (40, 0), (40, 40), (0, 40)], [[(12, 12), (12, 28), (28, 28), (28, 12)]])
     dumbbell = shapely.union_all([shapely.box(0, 0, 12, 12), shapely.box(11, 5.4, 25, 6.6), shapely.box(24, 0, 36, 12)])
@@ -144,7 +160,8 @@ def verify():
         else:
             raise AssertionError('inconsistent styled plan accepted')
     return dict(cases=rows, validated_features=features, camera_views=16*len(rows),
-                fresh_styled_offline_hit=True, invalid_records_rejected=len(records))
+                fresh_styled_offline_hit=True, invalid_records_rejected=len(records),
+                touching_courtyard=verify_touching_courtyard())
 
 
 if __name__ == '__main__':

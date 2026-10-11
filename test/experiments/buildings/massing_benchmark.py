@@ -39,10 +39,13 @@ def worker(site, method, limit):
         elapsed, payload, count = 0., 0, 0
         for product in products:
             began = time.perf_counter()
-            geometry = prepare(product)[0] if method == 'bands' else union(product)
-            elapsed += time.perf_counter()-began
-            if iteration == 0:
-                check_measurements(product, geometry)
+            try:
+                geometry = prepare(product)[0] if method == 'bands' else union(product)
+                elapsed += time.perf_counter()-began
+                if iteration == 0:
+                    check_measurements(product, geometry)
+            except (ValueError, AssertionError) as error:
+                raise AssertionError(f'{site}/{method}/{product["id"]}: {error}') from error
             payload += sum(geometry[field].nbytes for field in ('vertices', 'faces', 'uv', 'materials'))
             count += len(geometry['faces'])
             del geometry
