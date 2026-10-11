@@ -65,7 +65,7 @@ def construct_module(network,trial,owner,sections,affected,region,buildings,sect
             candidate,notes=construct_route_roadbed(entry,exit,floor,reserved,route,
                                                    trial.vehicle,trial.curbs['arc_error_m'])
             assert candidate is not None,(owner,pair,[n.get('reason') for n in notes])
-        curves.append(dict(pair=pair,candidate=candidate,existing_surface=existing))
+        curves.append(dict(pair=pair,candidate=candidate,existing_surface=existing,source_route=route))
     base,core,planned,physical,quantum=compose_roadbeds(floor,shape,[c['candidate']['roadbed'] for c in curves])
     assert preserves_voids(base,planned) and preserves_voids(core,physical),'changed void topology'
     addition=planned.difference(base)
@@ -97,18 +97,33 @@ def publish_coupled_roadbeds(products,trial,precision):
         assert preserves_coverage(product['base'],complete),'lost original public floor'
         assert preserves_voids(product['base'],complete) and preserves_voids(product['core'],actual)
         actuals[owner]=actual
-        surfaces.append(dict(module=owner,public_surface_wkb=complete.wkb.hex(),physical_shape_wkb=actual.wkb.hex()))
+        surfaces.append(dict(module=owner,public_surface_wkb=complete.wkb.hex(),physical_shape_wkb=actual.wkb.hex(),
+                             coordinate_precision_m=product['quantum']))
         for curve in product['curves']:
             body=roadbed_body_check(complete,curve['candidate']['pieces'],trial.vehicle,trial.curbs['arc_error_m'])
             assert body['fits_surface'],(owner,curve['pair'],body)
             key=next(iter(request_keys(product['poses'],[curve['pair']])))
-            proofs.append(dict(module=owner,pair=curve['pair'],request=key,body=body))
+            proofs.append(dict(module=owner,pair=curve['pair'],request=key,body=body,
+                pieces=curve['candidate']['pieces'],path=shapely.get_coordinates(curve['candidate']['path']).tolist(),
+                source_route_wkb=curve['source_route'].wkb.hex()))
     for owner in products:
         ports=trial.junctions[owner] if owner in trial.junctions else [p for j,s in trial.corridors[owner]
                 for p in trial.junctions[j] if p['section']==s]
         for port in ports:
             assert shapely.covered_by(port['line'],shapely.buffer(actuals[owner].boundary,1e-7)),'lost shared section'
     return dict(vertices=mesh['vertices'],indices=mesh['indices'],face_owners=face_owners),audit,proofs,surfaces
+
+
+def published_frames(products):
+    frames={}
+    for product in products.values():
+        for pose in product['poses']:
+            key=frame_key(pose)
+            row={k:pose[k] for k in ('section','edge','direction','station','position','heading')}
+            if key in frames:
+                assert all(np.array_equal(frames[key][k],row[k]) for k in ('position','heading'))
+            frames[key]=row
+    return [frames[k] for k in sorted(frames)]
 
 
 def diagnostic_trial(curve,product,vehicle):
@@ -157,7 +172,7 @@ def real_case(root,name,module,pair,distance,output):
     return dict(place=name,module=module,affected=sorted(affected),setback_m=distance,
         cut_plan=serialize_cut_plan(trial,changes),vehicle=trial.vehicle,source_tiles=tiles,
         all_requests_preserved=True,external_frames_unchanged=True,all_body_curves_on_native_mesh=True,
-        proofs=proofs,published_surfaces=surfaces,physical_mesh_audit=audit,
+        proofs=proofs,published_frames=published_frames(products),published_surfaces=surfaces,physical_mesh_audit=audit,
         physical_mesh=str(mesh_path),physical_mesh_sha256=digest(mesh_path),
         original_surface_wkb=product['base'].wkb.hex(),planned_surface_wkb=product['planned'].wkb.hex(),
         physical_shape_wkb=shapely.union_all([p['core'] for p in products.values()]).wkb.hex(),
@@ -186,7 +201,7 @@ def main():
         peak_rss_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*(1 if sys.platform=='darwin' else 1024),
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         implementation_sha256={str(p.relative_to(Path.cwd())):digest(p) for p in sources})
-    (args.output/'proof.json').write_text(json.dumps(report,indent=2)+'\n')
+    (args.output/'proof.json').write_text(json.dumps(report,indent=2,default=lambda obj:obj.tolist())+'\n')
     print(json.dumps({k:report[k] for k in ('place','module','affected','previous_accepted','accepted','connections',
         'all_requests_preserved','all_body_curves_on_native_mesh','added_area_m2','elapsed_ms','peak_rss_bytes')}),flush=True)
 

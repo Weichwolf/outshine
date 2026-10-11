@@ -97,8 +97,8 @@ innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besi
 Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
 [Gekoppelte Schnitt-/Fahrraumpassung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) löst Knoten samt Nachbarstraßen. Anfragen, Freiräume und Schnitte am gemeinsamen Dreiecksmesh prüfen; Außenrahmen bleiben fest.
 Zürich 102 samt zwei Nachbarstraßen trägt lokal 12/12 Fahrten; vollständige Fenster und übrige Netztrennungen bleiben offen.
-[Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) veröffentlicht Fahrraumerweiterungen aller berührten
-Bauteile am echten Mesh; alle öffentlichen Anfragen/alten Fahrten und schon bewiesenen Erweiterungen erhalten. Unverträgliche neue Gruppen lokal ablehnen, gültigen Bestand behalten.
+[Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
+Fahrten am tatsächlichen Mesh prüfen; Anfragen anhand Quellkontakten zuordnen und alte Gewinne erhalten. Unverträgliche Gruppen lokal ablehnen, gültigen Bestand behalten.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
 und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
 Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Netze aller Modi und tragbare Kosten.

@@ -14,6 +14,7 @@ import shapely
 
 from infrastructure_cut_setback_experiment import prepared_network,digest,implementation_files
 from infrastructure_cut_setbacks import restore_cut_plan
+from infrastructure_coupled_roadbed_products import apply_coupled_product
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface
@@ -98,7 +99,7 @@ def publish_roadbeds(choices,network,precision):
     return mesh,audit
 
 
-def solve_window(root,name,frames,required,output):
+def solve_window(root,name,frames,required,output,coupled):
     began=time.perf_counter()
     before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
     cut_path=root/'cut-setbacks'/f'{name}-cut-setbacks.json'
@@ -107,13 +108,22 @@ def solve_window(root,name,frames,required,output):
     records={r['module']:r for r in before['modules']}
     records.update((r['module'],r) for r in cuts['changed_modules'])
     current=dict(before,modules=[records[r['module']] for r in before['modules']])
+    before_graph=network_connectivity(network,current)
+    baseline_accepted=sum(r['accepted'] for r in current['modules'])
+    changed={r['module'] for r in cuts['plan']['parts']}
+    occupied=set();products=[]
+    for path in coupled:
+        if json.loads(path.read_text())['place']!=name:continue
+        network,records,required,note=apply_coupled_product(network,records,required,root,path,occupied)
+        occupied.update(note['modules']);changed.update(note['modules']);products.append(note)
+    current=dict(before,modules=[records[r['module']] for r in before['modules']])
     bounds=shapely.MultiPoint(network.product['vertices']).envelope.buffer(
         roadbed_lateral_reach(network.vehicle)+network.curbs['arc_error_m'])
     receipt=json.loads((root/'inputs'/f'{name}-input.json').read_text())['receipt']
     buildings,tiles=building_reservations(receipt,bounds)
     nonmotor=~np.any(network.graph['travel_public']&MODES['motor']!=0,axis=1)
     other=shapely.union_all(shapely.buffer(network.graph['lines'][nonmotor],network.graph['half_widths'][nonmotor],quad_segs=2))
-    proposed,trials=propose_roadbeds(network,current,buildings.union(other),{r['module'] for r in cuts['plan']['parts']})
+    proposed,trials=propose_roadbeds(network,current,buildings.union(other),changed)
     selected=select_roadbeds(proposed,required)
     precision=json.loads((root/'directed-surfaces'/f'{name}-flat-surfaces.json').read_text())['precision_m']
     for module in sorted({p['module'] for p in selected}):
@@ -138,12 +148,12 @@ def solve_window(root,name,frames,required,output):
                       turns=[dict(t,accepted=True) if (t['entry'],t['exit']) in proved else t for t in original['turns']])
     after=dict(current,modules=[records[r['module']] for r in current['modules']])
     accepted={trial_key(t) for t in trials if t['accepted']}
-    lost=[t for t in trials if trial_key(t) in required-accepted]
-    assert not lost,f'previously proved roadbeds lost: {lost}'
-    before_graph,after_graph=(network_connectivity(network,r) for r in (current,after))
+    existing={(r['module'],t['entry'],t['exit']) for r in current['modules'] for t in r['turns'] if t['accepted']}
+    assert required<=accepted|existing,f'previously proved roadbeds lost: {sorted(required-(accepted|existing))}'
+    after_graph=network_connectivity(network,after)
     (output/f'{name}-connectivity.json').write_text(json.dumps(after_graph,indent=2)+'\n')
     return dict(place=name,trials=trials,proposed=len(proposed),native_accepted=len(accepted),
-         before=sum(r['accepted'] for r in current['modules']),after=sum(r['accepted'] for r in after['modules']),
+         before=baseline_accepted,after=sum(r['accepted'] for r in after['modules']),coupled_products=products,
          connections=sum(r['connections'] for r in after['modules']),previous_roadbeds_preserved=len(required),
          weak_components=[before_graph['proved_weak_components'],after_graph['proved_weak_components']],
          requested_weak_components=after_graph['requested_weak_components'],
@@ -159,9 +169,11 @@ def main():
     parser.add_argument('--root',type=Path,default=Path('build/experiments/infrastructure'))
     parser.add_argument('--reference',type=Path,default=Path('build/experiments/infrastructure/roadbeds/window-probe-results.json'))
     parser.add_argument('--retain',type=Path,nargs='*',default=[])
+    parser.add_argument('--coupled',type=Path,nargs='*',default=[])
     parser.add_argument('--output',type=Path,default=Path('build/experiments/infrastructure/roadbeds/windows'))
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     references=json.loads(args.reference.read_text())
+    if isinstance(references,dict):references=references['places']
     for report in references:
         for name,value in report['input_sha256'].items():assert digest(args.root/name)==value
     required={r['place']:{trial_key(t) for t in r['trials'] if t['accepted']} for r in references}
@@ -181,7 +193,7 @@ def main():
                 scope='All public-motor routes of every physical module touched by the frozen one-km windows; no other modes or runtime integration.')
     for row in frames['places']:
         if row['place'] not in required:continue
-        report=solve_window(args.root,row['place'],row['frames'],required[row['place']],args.output)
+        report=solve_window(args.root,row['place'],row['frames'],required[row['place']],args.output,args.coupled)
         result['places'].append(report)
         result['peak_rss_bytes']=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*(1 if sys.platform=='darwin' else 1024)
         (args.output/'window-roadbeds.json').write_text(json.dumps(result,indent=2)+'\n')
