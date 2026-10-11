@@ -82,7 +82,7 @@ Nach beiden Grundversuchen ergänzen Hüllenablehnungen Randviertel/Körpermitte
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 [Hermite-Fahrraum](../test/experiments/infrastructure/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
-[Wendekurven](../test/experiments/infrastructure/infrastructure_return_roadbeds.py): Quelle→CCC/CSC, zusammen 1024 Residuen; Zürich 1678 lokal 10/10. Netzbeleg offen.
+[Wendekurven](../test/experiments/infrastructure/infrastructure_return_roadbeds.py): Bei >135° Quelle→CCC/CSC, sonst Quelle; 1024 Residuen. Zürich 1678: 10/10; Netz offen.
 G2-Nähte/Festports und Hüllen prüfen; max. 1024 Residuen/255 Intervalle. Mesh-Rand/neue Schlitze: 64·eps·max(1,|Koordinate|) m. Alte/breitere Freiräume erhalten; Überstände ablehnen.
 Maximale Aufweitung: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L Längsreichweite. Quellkette zuerst mit w/2 Reserve suchen; nur bei Ablehnung bis zur Eckreichweite erweitern. Reservationen räumlich eingrenzen, Suche nur außerhalb vorhandener Fahrfläche schützen; endgültige Aufweitung gegen alle prüfen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
