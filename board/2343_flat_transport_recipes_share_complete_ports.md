@@ -60,8 +60,6 @@ Einbahnkurven erhalten Quell-Windungszahlen um Verkehrsinseln, inklusive Portver
 eine durch Karosseriebreite eingeschränkte Routenfläche wurde verworfen.
 Spurzuordnung und alternative gerichtete Routen brauchen einen Verkehrsflussvertrag.
 Windungszahlen sind eine notwendige topologische Bedingung, kein vollständiger Verkehrsflussbeweis.
-[Rezeptprüfungen](../test/experiments/infrastructure/infrastructure_route_experiment.py): Inselumfahrung,
-verdeckte Hindernisse zwischen Endposen, identische Wiederverwendung.
 [Quintische Routen](../test/experiments/infrastructure/infrastructure_spline_routes.py) laufen vor der Posekette:
 Höchstens 66 Punkte, feste Endtangenten/Endkrümmung null; innen darf die Krümmung variieren.
 Abstände von 1/2/3/4 Fahrzeug-Mindestradien und die Quelle liefern fünf Kandidaten.
@@ -84,6 +82,7 @@ Nach beiden Grundversuchen ergänzen Hüllenablehnungen Randviertel/Körpermitte
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 [Hermite-Fahrraum](../test/experiments/infrastructure/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
+[Wendekurven](../test/experiments/infrastructure/infrastructure_three_arc_paths.py): Drei Kreisbögen als G2-Start testen; Netzbeleg offen.
 G2-Nähte/Festports und Hüllen prüfen; max. 1024 Residuen/255 Intervalle. Mesh-Rand/neue Schlitze: 64·eps·max(1,|Koordinate|) m. Alte/breitere Freiräume erhalten; Überstände ablehnen.
 Maximale Aufweitung: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L Längsreichweite. Quellkette zuerst mit w/2 Reserve suchen; nur bei Ablehnung bis zur Eckreichweite erweitern. Reservationen räumlich eingrenzen, Suche nur außerhalb vorhandener Fahrfläche schützen; endgültige Aufweitung gegen alle prüfen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
