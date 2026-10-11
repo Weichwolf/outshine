@@ -45,7 +45,15 @@ def verify_body(vehicle):
     obstacle = shapely.buffer(path.interpolate(.5,normalized=True),.2)
     rejected,note = curvature_connector(entry,exit,shapely.difference(shape,obstacle),vehicle,.025)
     assert rejected is None and note['reason']=='polynomial_vehicle_body_outside_surface'
-    return dict(offset_lane_connection=True,body_obstacle_rejected=True,chosen=report)
+    angle=np.pi-.02
+    returning=dict(position=np.array([6.,12.]),heading=np.array([np.cos(angle),np.sin(angle)]))
+    space=shapely.box(-6,-6,25,22)
+    path,long_turn=curvature_connector(entry,returning,space,vehicle,.025)
+    assert path is not None and long_turn['vehicle_sweep']['fits_surface']
+    assert long_turn['length_m']>2*np.linalg.norm(returning['position']-entry['position'])
+    assert curvature_connector(entry,returning,space,dict(vehicle,minimumRearAxleRadiusM=100),.025)[0] is None
+    return dict(offset_lane_connection=True,body_obstacle_rejected=True,chosen=report,
+                long_return_turn_checked=True,radius_still_enforced=True,long_turn=long_turn)
 
 
 def verify_extrema():

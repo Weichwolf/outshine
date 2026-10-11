@@ -56,7 +56,7 @@ def fit_curvature_paths(start,end,start_heading,end_heading,tolerance=1e-7):
                 length_m=length,closure_error_m=closure,
                 maximum_curvature_per_m=curvature_extrema(delta,amplitude,length),
                 maximum_curvature_rate_per_m2=curvature_rate_bound(delta,amplitude,length),
-                valid=(chord>tolerance)&(forward>1e-9)&(length<=chord*2)&(closure<=tolerance))
+                valid=(chord>tolerance)&(forward>1e-9)&np.isfinite(length)&(closure<=tolerance))
 
 
 def sample_curvature_paths(fit,stations):

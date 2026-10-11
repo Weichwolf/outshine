@@ -32,7 +32,7 @@ Bauteile und mehrfache Achsenkreuzungen bleiben getrennt. Schmale Zweirichtungss
 eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Verkehrsregelung bleibt offen.
 [Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) verwenden Klothoiden
 mit optionalem Kreisbogen oder asymmetrische G2-Posekurven mit polynomialem Tangentenwinkel.
-Endkrümmung null; Radius/Breite aus dem Fahrzeugprofil, analytische Extrema, Klothoiden nach Länge.
+Endkrümmung null; Radius/Breite aus dem Fahrzeugprofil, analytische Extrema. Länge durch Arbeitsbudget/Fläche begrenzen, nicht pauschal durch Sehnenverhältnisse.
 [Quellrouten](../test/experiments/infrastructure_route_turns.py) verbinden Portkontakte über
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
@@ -87,7 +87,7 @@ Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüll
 Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunkte; erst nach beiden Grundversuchen.
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
-[Kurven-Straßenräume](../test/experiments/infrastructure_turn_roadbeds.py) ergänzen fehlenden Fahrraum: Klothoiden und volle
+[Kurven-Straßenräume](../test/experiments/infrastructure_turn_roadbeds.py) ergänzen fehlenden Fahrraum: Klothoiden/asymmetrische G2-Posekurven und volle
 Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 geschlossene Freiräume, ihre Zuordnung und gerichtete Inselumfahrung bleiben erhalten.
