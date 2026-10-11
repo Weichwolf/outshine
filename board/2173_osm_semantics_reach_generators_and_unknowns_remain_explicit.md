@@ -22,7 +22,7 @@ Gepinnte z14-Tiles Wien/Tokyo/Central Park mit SHA-Prüfung; Client-Pref `source
 Schema 4: fertige Hülle, Form/Höfe/Höhen/Farbe, Kontextzeugen/Teilnutzungen und Rezept; Schema-3-Referenzen bleiben lesbar.
 `preview.py --cached-plan <Plan>` spielt echte Rohlinge quellenfrei ab; Hüllen-Coverage aus gespeicherten Parametern.
 Kompakte Repeats; Form/Höhen/Farbe bleiben erhalten. Körper ≤1,9 m Breite ohne direkte Nutzung bleiben geschlossen; Kachelränder als unvollständig kennzeichnen.
-Hülle/Leibungen teilen metrische Achsen/Box-Coverage; Facing/Frustum, 1 m Bewegungsreserve und projizierte Tiefe vor Expansion.
+Hülle/Leibungen teilen metrische Achsen/Box-Coverage; Facing/Frustum vor Detail. Vorschau ergänzt grobe Schattenflächen sichtbarer Körper aus dem Cache, keine versteckten Fensterdetails.
 0,5 px Detailgrenze ist eine Hypothese, kein Gerätegate; Drehung deckt alle Kanten ab. Über 50.000 Öffnungen: Hülle samt Grund.
 Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine durchstoßende Leibung.
 `verify_provider.py`: 13.955 Quellkörper/Volumen, 39 `hide_3d`-Auslassungen, ein ungültiges Höhenintervall; PRT-Achsen/Höfe/sRGB.
@@ -112,7 +112,7 @@ motiviert wahlfreien Zugriff auf kompakte Fassaden.
 Mesh-/Materialinstanzen; Houdini-Graphen fehlen. [Building Tools 0216534](https://github.com/ranjian0/building_tools/tree/0216534645b15b3f8aac0bd1d7e6674e2972b9b3): Python-Bauteile/Skelettdächer.
 [Labs Patterns](https://www.sidefx.com/docs/houdini/nodes/sop/labs--building_from_patterns-1.0.html): Module/Overrides.
 [Esri-Katalog](../test/experiments/buildings/esri_catalog.py): SDK 3.4.12206, 72 Operations-/70 Funktions-/10 Attribut-/49 Bibliotheksseiten; Alias-Seiten zählen keine Rezepte.
-[PRT-Orakel](../test/experiments/buildings/esri_oracle.py): externe [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214), PyPRT 1.12/PRT 3.3.11669; echte Form/Höfe, eigene Kamera/Licht. Candler-Dachhöhe überschreitet seinen Körperparameter.
+[PRT-Orakel](../test/experiments/buildings/esri_oracle.py): [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214), PyPRT 1.12/PRT 3.3.11669; echte Form/Höfe, gleiche Kamera/Licht. Candler enthält CGA-Quelltext; Dachaufbauten überschreiten seinen Körperparameter.
 
 ## Abnahme
 Wien/Feldkirch: Infrastruktur/Baukörper/Höfe/Parts; Rosenheim/Flensburg: Sonderklassen/Dächer. Nahöffnungen räumlich,

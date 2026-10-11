@@ -5,7 +5,7 @@ import math
 import numpy as np
 import shapely
 
-from facade_plan import detail_count, opening_rectangles
+from facade_plan import cell_range, detail_count, opening_rectangles
 from shell import append as append_shell
 from features import append_visible
 
@@ -70,17 +70,35 @@ def detailed_wall(storage, facade, bottom, region):
         opening(storage, facade, bottom, rectangle)
 
 
-def mesh(product, demand, detail=True, max_openings=50000):
+def append_shadow_hull(storage, product, requested, detailed):
+    for index, facade in enumerate(product['facades']):
+        if index not in requested:
+            append_shell(storage, product, index)
+        elif index in detailed:
+            repeat = facade['repeat']
+            x0, y0, x1, y1 = cell_range(repeat, detailed[index])
+            pw, ph = repeat.width_m/repeat.columns, repeat.height_m/repeat.rows
+            left, bottom, right, top = x0*pw, y0*ph, x1*pw, y1*ph
+            rectangles = [(0., 0., left, repeat.height_m), (right, 0., repeat.width_m, repeat.height_m),
+                          (left, 0., right, bottom), (left, top, right, repeat.height_m)]
+            pattern = (repeat.opening_width, repeat.opening_height)
+            material = 6+product['opening_patterns'].index(pattern)
+            for rectangle in rectangles:
+                if rectangle[2] > rectangle[0] and rectangle[3] > rectangle[1]:
+                    wall_quad(storage, facade, facade['bottom_m'], rectangle, material=material)
+
+
+def mesh(product, demand, detail=True, max_openings=50000, include_shadow_hull=False):
     if type(max_openings) is not int or max_openings < 0:
         raise ValueError('invalid detail budget')
     storage = ([], [], [], [])
-    fallbacks, emitted = [], 0
+    fallbacks, emitted, detailed = [], 0, {}
     for request in demand['faces']:
         index = request['edge']
         facade = product['facades'][index]
         repeat = facade['repeat']
         region = request['region']
-        if detail and request['detail']:
+        if detail and request['detail'] and repeat.count:
             count = detail_count(repeat, region)
             reason = None
             if emitted+count > max_openings:
@@ -90,13 +108,21 @@ def mesh(product, demand, detail=True, max_openings=50000):
             if reason is None:
                 detailed_wall(storage, facade, facade['bottom_m'], region)
                 emitted += count
+                if repeat.count:
+                    detailed[index] = region
             else:
                 append_shell(storage, product, index)
                 fallbacks.append(dict(edge=index, reason=reason))
         else:
             append_shell(storage, product, index)
-    for request in demand['caps']:
-        append_shell(storage, product, request['part'], request['bounds'])
+    admitted = bool(demand['faces'] or demand['caps'])
+    if include_shadow_hull and admitted:
+        append_shadow_hull(storage, product, {r['edge'] for r in demand['faces']}, detailed)
+        for surface in product['surfaces']:
+            append_shell(storage, product, surface['part'])
+    else:
+        for request in demand['caps']:
+            append_shell(storage, product, request['part'], request['bounds'])
     append_visible(storage, product, demand['view'])
     vertices, faces, uv, materials = storage
     return dict(vertices=np.asarray(vertices, dtype=np.float64).reshape(-1, 3), faces=np.asarray(faces, dtype=np.int32).reshape(-1, 3),

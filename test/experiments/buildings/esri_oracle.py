@@ -109,10 +109,12 @@ def views(product):
     return dict(near=View(eye, target), orbit=View(target+orbit, target), far=View(target+delta*4, target))
 
 
-def render_case(case, sample, record, obj, output):
+def render_case(case, sample, record, obj, output, methods=('esri', 'own'), chosen_views=('near', 'orbit', 'far')):
     product = plan(sample)
     for name, view in views(product).items():
-        for method in ('esri', 'own') if name == 'near' else ('esri',):
+        if name not in chosen_views:
+            continue
+        for method in (m for m in methods if name == 'near' or m == 'esri'):
             stem = f'{method}-candler-{case}-{name}' if method == 'esri' else f'own-{case}-{name}'
             image_path = output/(stem+'.png')
             config, counts = configuration([product], view, True, image_path)
@@ -143,6 +145,8 @@ def main():
     parser.add_argument('--output', type=Path, default=Path('build/experiments/buildings/esri-oracle'))
     parser.add_argument('--cases', nargs='+', choices=[c[0] for c in CASES])
     parser.add_argument('--render', action='store_true')
+    parser.add_argument('--methods', nargs='+', choices=('esri', 'own'), default=['esri', 'own'])
+    parser.add_argument('--views', nargs='+', choices=('near', 'orbit', 'far'), default=['near', 'orbit', 'far'])
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     rows, sites = [], {}
@@ -157,7 +161,7 @@ def main():
         record.update(case=case, export_ms=export_ms, obj=str(obj))
         rows.append(record)
         if args.render:
-            render_case(case, sample, record, obj, args.output)
+            render_case(case, sample, record, obj, args.output, args.methods, args.views)
     summary = dict(**revision(), external_reference_families=1, reference_variants=len(rows),
                    own_architecture_accepted=False, cases=rows,
                    scope='Candler reference examples on real provider footprints, not a reconstruction claim.')

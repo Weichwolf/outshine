@@ -66,7 +66,7 @@ def configuration(products, view, detail, output, reference=False):
         if reference:
             for request in demand['faces']:
                 request['detail'] = bool(product['facades'][request['edge']]['repeat'].count)
-        geometry = mesh(product, demand, detail)
+        geometry = mesh(product, demand, detail, include_shadow_hull=True)
         if not len(geometry['faces']):
             continue
         counts['admitted_products'] += 1
