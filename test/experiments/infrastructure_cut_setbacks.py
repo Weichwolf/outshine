@@ -1,0 +1,155 @@
+"""Move a shared road cut without widening its surface or losing neighboring routes."""
+
+import copy
+
+import numpy as np
+import shapely
+from shapely.ops import split
+
+from infrastructure_shared_frames import frame_key
+
+
+class CutSetbackRejected(ValueError):
+    pass
+
+
+def split_shared_section(core,road,point,tangent):
+    area = shapely.union_all([core,road])
+    tangent = np.array(tangent,dtype=float,copy=True)
+    length = np.linalg.norm(tangent)
+    if not np.isfinite(length) or length<=1e-10:
+        raise ValueError('section tangent must be finite and nonzero')
+    tangent /= length
+    normal = np.array([-tangent[1],tangent[0]])
+    extent = np.linalg.norm(np.subtract(area.bounds[2:],area.bounds[:2]))+1
+    ray = shapely.LineString([point-normal*extent,point+normal*extent])
+    spans = [g for g in shapely.get_parts(shapely.intersection(area,ray))
+             if g.geom_type=='LineString' and g.distance(shapely.Point(point))<1e-7]
+    if len(spans)!=1:
+        raise CutSetbackRejected('ambiguous_source_section')
+    ends = shapely.get_coordinates(spans[0])[[0,-1]]
+    line = shapely.LineString(ends)
+    direction = (ends[1]-ends[0])/line.length
+    cutter = shapely.LineString(ends+np.array([-1e-6,1e-6])[:,None]*direction)
+    pieces = list(shapely.get_parts(split(area,cutter)))
+    if len(pieces)!=2:
+        raise CutSetbackRejected('section_does_not_split_pair')
+    pieces.sort(key=lambda p:shapely.intersection(p,core).area,reverse=True)
+    new_core,new_road = pieces
+    tolerance = 64*np.finfo(float).eps*max(1.,np.abs(area.bounds).max())*area.length
+    if shapely.difference(core,new_core).area>tolerance:
+        raise CutSetbackRejected('setback_removes_existing_core')
+    shared = shapely.intersection(shapely.boundary(new_core),shapely.boundary(new_road))
+    if shared.is_empty or shapely.hausdorff_distance(shared,line)>1e-7:
+        raise CutSetbackRejected('shared_section_mismatch')
+    assert shapely.intersection(new_core,new_road).area<=tolerance
+    assert shapely.symmetric_difference(area,shapely.union_all(pieces)).area<=tolerance
+    assert new_core.is_valid and new_road.is_valid
+    return new_core,new_road,line
+
+
+def fork_cut_plan(network,module,sections):
+    result = copy.copy(network)
+    result.shapes = dict(network.shapes)
+    result.junctions = dict(network.junctions)
+    result.junctions[module] = [dict(p) for p in network.junctions[module]]
+    result.sections = dict(network.sections)
+    result.registry = {k:v for k,v in network.registry.items() if k!=module}
+    result.anchors,result.owners = dict(network.anchors),dict(network.owners)
+    result.frames = {k:v for k,v in network.frames.items() if k[0] not in sections}
+    result.records = dict(network.records)
+    result.domains = {}
+    result.original_poses = dict(network.original_poses)
+    return result
+
+
+def displaced_source_section(network,pose,distance):
+    axis = network.graph['lines'][pose['edge']]
+    station = pose['station']+distance*pose['direction']*(-1 if pose['incoming'] else 1)
+    if not 0<station<axis.length:
+        raise CutSetbackRejected('source_edge_setback_limit')
+    point = np.array(axis.interpolate(station).coords[0])
+    tangent = np.array(axis.interpolate(min(axis.length,station+.01)).coords[0])-np.array(
+                      axis.interpolate(max(0,station-.01)).coords[0])
+    if np.linalg.norm(tangent)<=1e-10:
+        raise CutSetbackRejected('degenerate_source_tangent')
+    return point,tangent,station
+
+
+def check_external_sections(network,affected):
+    junctions = (affected&network.junctions.keys())|{j for m in affected&network.corridors.keys()
+                                                  for j,_ in network.corridors[m]}
+    boundaries = {}
+    for junction in sorted(junctions):
+        for port in network.junctions[junction]:
+            for owner in (junction,port['corridor']):
+                if owner not in boundaries:
+                    boundaries[owner] = shapely.buffer(shapely.boundary(network.shape(owner)),1e-7)
+                if not shapely.covered_by(port['line'],boundaries[owner]):
+                    raise CutSetbackRejected('external_neighbor_section_changed')
+
+
+def setback_network(network,module,sections,distance):
+    if module not in network.junctions or not sections or not np.isfinite(distance) or distance<=0:
+        raise ValueError('setback requires a junction, sections and a finite positive distance')
+    old_poses,_ = network.poses(module,{})
+    result = fork_cut_plan(network,module,sections)
+    changes,affected = [],{module}
+    for section in sorted(sections):
+        contacts = [p for p in old_poses if p['section']==section]
+        if not contacts or len({(p['edge'],p['station']) for p in contacts})!=1:
+            raise CutSetbackRejected('multiple_source_contacts_on_section')
+        pose = contacts[0]
+        point,tangent,station = displaced_source_section(network,pose,distance)
+        corridor = pose['corridor']
+        core,road = result.shape(module),result.shape(corridor)
+        new_core,new_road,line = split_shared_section(core,road,point,tangent)
+        result.shapes[module],result.shapes[corridor] = new_core,new_road
+        result.sections[section] = line
+        for port in result.junctions[module]:
+            if port['section']==section:
+                port['line'] = line
+        affected.add(corridor)
+        changes.append(dict(junction=module,section=section,edge=pose['edge'],station=station,corridor=corridor,
+                            shared_section=shapely.get_coordinates(line).tolist(),
+                            transferred_area_m2=new_core.area-core.area))
+    check_external_sections(result,affected)
+    for owner in affected:
+        result.records.pop(owner,None)
+    return result,changes,affected
+
+
+def route_signatures(report,poses,accepted=False):
+    keys = [(p['section'],p['edge'],p['direction']) for p in poses]
+    if len(set(keys))!=len(keys):
+        raise CutSetbackRejected('multiple_source_contacts_on_same_section')
+    return {(keys[t['entry']],keys[t['exit']]) for t in report['turns'] if not accepted or t['accepted']}
+
+
+def external_frames_unchanged(before,after,sections):
+    rows = [{frame_key(p):p for p in poses if p['section'] not in sections} for poses in (before,after)]
+    return rows[0].keys()==rows[1].keys() and all(np.array_equal(rows[0][k][field],rows[1][k][field])
+                                               for k in rows[0] for field in ('position','heading'))
+
+
+def serialize_cut_plan(network,changes):
+    affected = sorted({c[k] for c in changes for k in ('junction','corridor')})
+    sections = sorted({c['section'] for c in changes})
+    return dict(changes=changes,parts=[dict(module=m,wkb=shapely.to_wkb(network.shape(m),hex=True)) for m in affected],
+                sections=[dict(section=s,wkb=shapely.to_wkb(network.sections[s],hex=True)) for s in sections])
+
+
+def restore_cut_plan(network,plan):
+    for row in plan['parts']:
+        network.shapes[row['module']] = shapely.from_wkb(row['wkb'])
+    for row in plan['sections']:
+        network.sections[row['section']] = shapely.from_wkb(row['wkb'])
+    for change in plan['changes']:
+        for port in network.junctions[change['junction']]:
+            if port['section']==change['section']:
+                port['line'] = network.sections[change['section']]
+        network.registry.pop(change['junction'],None)
+    moved = {row['section'] for row in plan['sections']}
+    network.frames = {k:v for k,v in network.frames.items() if k[0] not in moved}
+    for row in plan['parts']:
+        network.records.pop(row['module'],None)
