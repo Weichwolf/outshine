@@ -16,6 +16,16 @@ from evidence import revision
 
 CORE = Path('/home/cosmo/Downloads/esri_ce_sdk-3.4.12206/bin/libcom.esri.prt.core.so')
 HEADLESS = Path('/snap/bin/ghidra.analyzeHeadless')
+TARGETS = {
+    '_ZN11CoreToolbox10PolygonOps13computeOffsetEfPKfm': 'polygon offset wrapper',
+    '_ZN11CoreToolbox10PolygonOps15computeSkeletonEPKfm': 'polygon straight skeleton',
+    '_ZN11CoreToolbox10PolygonOps9convexifyEPfm': 'polygon convex decomposition',
+    '_ZN11CoreToolbox9CGALTools13computeOffsetEfPKfmRSt6vectorIfSaIfEE': 'actual offset construction',
+    '_ZN2GC10SSplitNode12prepareSplitER9Processor': 'split size preparation',
+    '_ZN2GC10SSplitNode5splitEi': 'split allocation',
+    '_ZN12_GLOBAL__N_18splitXYZER9ProcessorN4util8MeshBase4AXISEbRN2GC10SSplitNodeE': 'axis mesh subdivision',
+    '_ZN9Processor7extrudeEd': 'face extrusion',
+}
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;
 import ghidra.app.cmd.function.CreateFunctionCmd;
@@ -24,7 +34,12 @@ import ghidra.app.decompiler.DecompileResults;
 import ghidra.framework.Application;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.symbol.*;
+import ghidra.program.model.address.AddressSet;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.pcode.PcodeBlockBasic;
 import com.google.gson.GsonBuilder;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import java.nio.file.*;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -33,7 +48,10 @@ public class InspectBuildingCore extends GhidraScript {
     public void run() throws Exception {
         Path output = Path.of(getScriptArgs()[0]);
         Files.createDirectories(output);
+        Map<String,Map<String,Object>> targets = new Gson().fromJson(Files.readString(Path.of(getScriptArgs()[1])),
+            new TypeToken<Map<String,Map<String,Object>>>(){}.getType());
         Map<String,Object> report = new LinkedHashMap<>();
+        report.put("schema_version",2);
         report.put("ghidra_version", Application.getApplicationVersion());
         report.put("program", currentProgram.getName());
         report.put("language", currentProgram.getLanguageID().toString());
@@ -51,19 +69,43 @@ public class InspectBuildingCore extends GhidraScript {
             String name = function.getName(true);
             String address = function.getEntryPoint().toString();
             if (relevant.matcher(name).find()) names.add(Map.of("name",name,"address",address,"thunk",function.isThunk()));
-            if (!name.contains("PolygonOps") || name.contains(".cold") || !(name.contains("computeOffset") || name.contains("computeSkeleton") || name.contains("convexify"))) continue;
+            if (!targets.containsKey(name)) continue;
+            Map<String,Object> targetMeta = targets.get(name);
+            long symbolBytes = ((Number)targetMeta.get("elf_symbol_bytes")).longValue();
+            Address last = function.getEntryPoint().add(symbolBytes-1);
+            AddressSet scope = new AddressSet(function.getEntryPoint(),last);
             disassemble(function.getEntryPoint());
             CreateFunctionCmd.fixupFunctionBody(currentProgram,function,monitor);
             Map<String,Object> item = new LinkedHashMap<>();
             item.put("name", name);
+            item.put("purpose", targetMeta.get("purpose"));
+            item.put("elf_symbol_bytes", symbolBytes);
             item.put("address", address);
             item.put("body_bytes", function.getBody().getNumAddresses());
+            DecompileResults result = decompiler.decompileFunction(function,25,monitor);
+            AddressSet recovered = new AddressSet(function.getBody()).intersect(scope);
+            int outside = 0;
+            if (result.getHighFunction()!=null) {
+                for (PcodeBlockBasic block: result.getHighFunction().getBasicBlocks()) {
+                    Address start = block.getStart(), end = block.getStop();
+                    if (start.compareTo(function.getEntryPoint())<0 || end.compareTo(last)>0) outside++;
+                    if (start.compareTo(function.getEntryPoint())<0) start = function.getEntryPoint();
+                    if (end.compareTo(last)>0) end = last;
+                    if (start.compareTo(end)<=0) {
+                        recovered.addRange(start,end);
+                        disassemble(start);
+                    }
+                }
+            }
+            item.put("control_flow_blocks_outside_symbol", outside);
+            item.put("recovered_control_flow_bytes",recovered.getNumAddresses());
             Map<String,Integer> calls = new TreeMap<>();
-            InstructionIterator instructions = currentProgram.getListing().getInstructions(function.getBody(),true);
-            int count = 0;
+            InstructionIterator instructions = currentProgram.getListing().getInstructions(recovered,true);
+            int count = 0, indirect = 0;
             while (instructions.hasNext()) {
                 Instruction instruction = instructions.next();
                 count++;
+                if (instruction.getFlowType().isCall() && instruction.getFlows().length==0) indirect++;
                 for (Reference ref: currentProgram.getReferenceManager().getReferencesFrom(instruction.getAddress())) {
                     if (!ref.getReferenceType().isCall()) continue;
                     Function callee = currentProgram.getFunctionManager().getFunctionAt(ref.getToAddress());
@@ -72,8 +114,8 @@ public class InspectBuildingCore extends GhidraScript {
                 }
             }
             item.put("instructions",count);
+            item.put("indirect_call_sites",indirect);
             item.put("direct_call_sites",calls);
-            DecompileResults result = decompiler.decompileFunction(function,25,monitor);
             item.put("decompile_completed",result.decompileCompleted());
             item.put("decompile_message",result.getErrorMessage());
             if (result.decompileCompleted() && result.getDecompiledFunction()!=null) {
@@ -95,6 +137,32 @@ public class InspectBuildingCore extends GhidraScript {
 '''
 
 
+def sized_targets(core):
+    symbols = subprocess.check_output(['nm', '-S', '--defined-only', str(core)], text=True)
+    targets = {}
+    for line in symbols.splitlines():
+        fields = line.split()
+        if len(fields) == 4 and fields[3] in TARGETS:
+            targets[fields[3]] = dict(purpose=TARGETS[fields[3]], elf_symbol_bytes=int(fields[1], 16))
+    if set(targets) != set(TARGETS):
+        raise ValueError('Selected reference functions require their ELF symbol boundaries')
+    return targets
+
+
+def read_analysis(reference, log_path):
+    path = reference/'ghidra-core.json'
+    if not path.is_file():
+        raise RuntimeError(f'Headless returned without a fresh script export; inspect {log_path}')
+    result = json.loads(path.read_text())
+    selected = result.get('selected_functions', [])
+    if (result.get('schema_version') != 2 or {row['name'] for row in selected} != set(TARGETS)
+            or any(row.get('instructions', 0) < 5 or not row.get('decompile_completed')
+                   or not 0 < row.get('recovered_control_flow_bytes', 0) <= row.get('elf_symbol_bytes', 0)
+                   or not (reference/row.get('external_reference_file', '')).is_file() for row in selected)):
+        raise ValueError(f'Expected fresh bounded exports for all {len(TARGETS)} primitives; inspect {log_path}')
+    return result
+
+
 def inspect(core, output):
     if not core.is_file() or not HEADLESS.is_file():
         raise FileNotFoundError('Expected external SDK core and ghidra.analyzeHeadless Snap')
@@ -107,8 +175,10 @@ def inspect(core, output):
         directory = Path(temporary)
         reference = directory/'reference'
         (directory/'InspectBuildingCore.java').write_text(SCRIPT)
+        (directory/'targets.json').write_text(json.dumps(sized_targets(core)))
         command = [str(HEADLESS), str(directory), 'EsriBuildingCore', '-import', str(core),
                    '-scriptPath', str(directory), '-postScript', 'InspectBuildingCore.java', str(reference),
+                   str(directory/'targets.json'),
                    '-noanalysis', '-max-cpu', '2', '-deleteProject']
         began = time.perf_counter()
         with log_path.open('w') as log:
@@ -124,22 +194,20 @@ def inspect(core, output):
                     process.wait()
                 raise
         elapsed = time.perf_counter()-began
-        if process.returncode == 0:
-            for path in reference.glob('*'):
-                if path.suffix in ('.json', '.c'):
-                    shutil.copy2(path, output/path.name)
-    if process.returncode:
-        raise RuntimeError(f'Ghidra exited {process.returncode}; inspect {log_path}')
+        if process.returncode:
+            raise RuntimeError(f'Ghidra exited {process.returncode}; inspect {log_path}')
+        result = read_analysis(reference, log_path)
+        for path in reference.glob('*'):
+            if path.suffix in ('.json', '.c'):
+                shutil.copy2(path, output/path.name)
     result_path = output/'ghidra-core.json'
-    result = json.loads(result_path.read_text())
-    if len(result['selected_functions']) != 3 or any(row['instructions'] < 5 or not row['decompile_completed']
-                                                   for row in result['selected_functions']):
-        raise ValueError(f'Expected three disassembled primitives; inspect {log_path}')
     result.update(**revision(), binary_path=str(core), binary_sha256=digest, sdk_version=[3, 4, 12206],
                   headless_exit_code=process.returncode, elapsed_seconds=elapsed, log_path=str(log_path),
                   analysis_mode='Selected function disassembly/body recovery; global auto-analysis disabled',
                   process_limit_seconds=360, decompile_limit_seconds_per_function=25,
                   decompiler_types_verified=False,
+                  symbol_body_coverage_verified=False,
+                  call_scope='Disassembled control-flow blocks clamped to ELF symbol boundaries; indirect callees remain unresolved',
                   reference_script_sha256=hashlib.sha256(SCRIPT.encode()).hexdigest())
     for row in result['selected_functions']:
         row['signature'] = subprocess.check_output(['c++filt', row['name']], text=True).strip()

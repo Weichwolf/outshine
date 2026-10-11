@@ -17,7 +17,8 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: Offset/Skelett/Convexify gezielt disassembliert/dekompiliert; Skelett ruft CGAL Straight Skeleton auf.
+Ghidra 12.1.2: acht Funktionen gezielt untersucht: Offset/Skelett/Convexify, Offset-Kern, Split-Vorbereitung/-Verteilung/Achsschnitt, Extrusion.
+Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
 
 ## Umsetzung
 - Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.
@@ -35,12 +36,17 @@ Ghidra 12.1.2: Offset/Skelett/Convexify gezielt disassembliert/dekompiliert; Ske
 drei deterministische Architekturvarianten; Geometrie-/Bildprovenienz erhalten.
 Ghidra-Belege mit Binary-/Werkzeugversion, überprüfbaren ausgewählten Funktionen/Aufrufen und Grenzen.
 [`esri_ghidra.py`](../test/experiments/buildings/esri_ghidra.py): begrenzte gezielte Analyse; C++-Typen aus Decompiler nicht verifiziert.
+Aufrufstatistik aus disassemblierten Kontrollflussblöcken innerhalb der ELF-Symbolgrenzen; vollständige Funktionsabdeckung unbewiesen.
+Decompiler kann Blöcke außerhalb der Funktion behaupten; diese zählen nicht als Funktions-/Aufrufbeleg.
+[`verify_ghidra.py`](../test/experiments/buildings/verify_ghidra.py): frischen Script-Export verlangen; Headless-Status 0 allein reicht nicht.
 Snap hat privates `/tmp`: Analyseprojekte vorübergehend in Snap-common, fertige Belege nach `build/experiments/buildings/`; Logs System-Temp.
 Katalog zeigt Fähigkeit, eigene Entsprechung und fehlende Verfahren; daraus nächste Bild-/Funktionslücke wählen.
 
 ## Primärquellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf),
 [Esri SDK](https://esri.github.io/cityengine/cityenginesdk),
+[CGAL Skeleton/Offset](https://doc.cgal.org/latest/Straight_skeleton_2/index.html),
+[CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm),
 [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214).
 [Esri Tutorial 15](../doc/references/buildings/esri/2013-interior-floors-web-scenes.pdf): Dev-HQ-Innenraum-/Geschossansichten, Seiten 3/7 optisch geprüft.
 [CitySample a0981eb](https://github.com/fate-apple/CitySample/tree/a0981eb52322eab75db2507a23879de9f30110a0): HLOD/Instanzen, Houdini-Graphen fehlen.

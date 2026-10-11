@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const integer = value => new Intl.NumberFormat('de-CH').format(value);
 const short = value => (value || 'unbekannt').slice(0, 9);
-const names = { all: 'Alle', esri: 'Esri-Referenz', quelle: 'OSM-Quelle', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
+const names = { all: 'Alle', plan: 'Gebäudepläne', esri: 'Esri-Referenz', quelle: 'OSM-Quelle', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
 const methods = { expanded: ['Split-Liste', '#ad9165'], vectorized: ['Voll-Liste / NumPy', '#7e899b'], compact: ['Kompakter Repeat', '#496b66'],
   bands: ['Direkte Bandflächen', '#496b66'], union: ['Manifold · 3D-Union', '#ad9165'] };
 const metrics = {
@@ -53,7 +53,8 @@ function renderGallery() {
     body.append(element('h3', item.title), element('p', item.caption));
     const details = element('div', undefined, 'details');
     for (const text of [`${integer(item.triangles || 0)} Dreiecke`, Number.isFinite(item.openings) ? `${integer(item.openings)} Öffnungen` : 'Öffnungen nicht gezählt',
-      `${integer(item.admitted_products || 0)} Körper`, ...(item.floor_bands ? [`${integer(item.floor_bands)} Geschossbänder · ${integer(item.planned_features)} Ausstattungselemente`] : []),
+      item.representation === 'functional-plan' ? `${integer(item.rooms)} Räume · ${integer(item.doors)} Türportale` : `${integer(item.admitted_products || 0)} Körper`,
+      ...(item.floor_bands ? [`${integer(item.floor_bands)} Geschossbänder · ${integer(item.planned_features)} Ausstattungselemente`] : []),
       `Bild ${short(item.commit)}${item.experiment_tree_dirty ? ' · Arbeitsstand' : ''}`]) {
       details.append(element('span', text));
     }
@@ -164,9 +165,10 @@ function renderEsri() {
     'Aufrufe sind Geometriebelege; ein vollständiger Raumplaner ist damit nicht nachgewiesen. Decompiler-Typen bleiben ungeprüft.' : 'Gezielte Analyse steht noch aus.';
   $('esri-primitives').replaceChildren(...(inspection?.selected_functions || []).map(row => {
     const tr = element('tr');
-    const geometry = /CoreToolbox::CGALTools::\w+|CGAL::(?:create_|is_)\w+|util::Polygon2d::(?:pointIsConcave|findClosestIntersection|signedDoubleArea)/;
+    const geometry = /CoreToolbox::CGALTools::\w+|CGAL::(?:create_|is_)\w+|CGAL::Polygon_offset_builder_2|util::(?:Mesh::(?:cut\w*|mergeDuplicateVertices|removeZeroFaces)|Polygon2d::(?:pointIsConcave|findClosestIntersection|signedDoubleArea))/;
     const calls = [...new Set((row.direct_calls || []).map(call => call.signature.match(geometry)?.[0]).filter(Boolean))].join('; ');
-    tr.append(...[row.signature || row.name, integer(row.instructions), calls || 'Keine benannten Geometrieaufrufe'].map(value => element('td', value)));
+    const dynamic = row.indirect_call_sites ? ` · ${integer(row.indirect_call_sites)} indirekte Aufrufe, Ziele offen` : '';
+    tr.append(...[row.signature || row.name, integer(row.instructions), (calls || 'Keine benannten Geometrieaufrufe')+dynamic].map(value => element('td', value)));
     return tr;
   }));
 }
