@@ -14,7 +14,7 @@ import time
 import numpy as np
 import shapely
 
-from infrastructure_cut_setbacks import (CutSetbackRejected,split_shared_section,setback_network,
+from infrastructure_cut_setbacks import (CutSetbackRejected,setback_shared_section,setback_network,
     route_signatures,external_frames_unchanged,serialize_cut_plan,restore_cut_plan)
 from infrastructure_driving_network import DrivingNetwork
 from infrastructure_hermite_experiment import fit_module
@@ -47,6 +47,7 @@ def implementation_files(entry):
 
 def verify_setbacks():
     core,road = shapely.box(-5,-3,0,3),shapely.box(0,-3,20,3)
+    section = shapely.LineString([[0.,-3.],[0.,3.]])
     tangent = np.array([2.,0.])
     original = tangent.copy()
     for angle,offset in ((0.,[0.,0.]),(.7,[10000.,-7000.]),(2.1,[-300.,50.])):
@@ -54,21 +55,21 @@ def verify_setbacks():
         transform = lambda xy:np.einsum('ij,kj->ki',matrix,xy)+offset
         a,b = shapely.transform(core,transform),shapely.transform(road,transform)
         point = transform(np.array([[4.,0.]]))[0]
-        new_a,new_b,section = split_shared_section(a,b,point,matrix@tangent)
+        new_a,new_b,moved_section = setback_shared_section(a,b,shapely.transform(section,transform),point,matrix@tangent)
         assert np.allclose([new_a.area,new_b.area],[54.,96.],atol=1e-8,rtol=0)
-        assert section.distance(shapely.Point(point))<1e-7 and abs(section.length-6)<1e-7
+        assert moved_section.distance(shapely.Point(point))<1e-7 and abs(moved_section.length-6)<1e-7
         assert shapely.hausdorff_distance(new_a,shapely.transform(shapely.box(-5,-3,4,3),transform))<1e-7
         assert shapely.intersection(new_a,new_b).area<1e-8
-    split_shared_section(core,road,np.array([4.,0.]),tangent)
+    setback_shared_section(core,road,section,np.array([4.,0.]),tangent)
     assert np.array_equal(tangent,original)
     for point in ([-2.,0.],[24.,0.],[20.,0.]):
         try:
-            split_shared_section(core,road,np.array(point),tangent)
+            setback_shared_section(core,road,section,np.array(point),tangent)
         except CutSetbackRejected:
             continue
         raise AssertionError('an invalid cut was accepted')
     holes = shapely.Polygon([[-5,-3],[20,-3],[20,3],[-5,3]],holes=[[[10,-1],[12,-1],[12,1],[10,1]]])
-    a,b,section = split_shared_section(core,shapely.difference(holes,core),np.array([4.,0.]),tangent)
+    a,b,section = setback_shared_section(core,shapely.difference(holes,core),section,np.array([4.,0.]),tangent)
     assert len(b.interiors)==1 and not shapely.covers(shapely.union_all([a,b]),shapely.Point(11,0))
     pose = dict(section=1,edge=7,direction=1,station=5.,position=np.array([0.,0.]),heading=np.array([1.,0.]))
     shifted = dict(pose,station=9.,position=np.array([4.,0.]))
@@ -80,6 +81,35 @@ def verify_setbacks():
     return dict(surface_partition_preserved=True,holes_preserved=True,straight_shared_boundary=True,
                 rigid_transform_checked=True,input_tangent_unchanged=True,source_contact_identity_preserved=True,
                 changed_external_frame_rejected=True,invalid_setbacks_rejected=True)
+
+
+def verify_loop_setbacks():
+    area = shapely.box(-10,-10,10,10).difference(shapely.box(-6,-6,6,6))
+    core = area.intersection(shapely.box(-20,-20,0,20))
+    road = area.difference(core)
+    selected = shapely.LineString([[0.,-10.],[0.,-6.]])
+    retained = shapely.LineString([[0.,6.],[0.,10.]])
+    for angle,offset in ((0.,[0.,0.]),(.7,[10000.,-7000.]),(2.1,[-300.,50.])):
+        matrix = np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+        transform = lambda xy:xy@matrix.T+offset
+        a,b,line = (shapely.transform(s,transform) for s in (core,road,selected))
+        point = transform(np.array([[4.,-8.]]))[0]
+        moved_a,moved_b,cut = setback_shared_section(a,b,line,point,matrix@np.array([1.,0.]))
+        assert np.allclose([moved_a.area,moved_b.area],[144.,112.],atol=1e-7,rtol=0)
+        assert moved_a.union(moved_b).symmetric_difference(shapely.transform(area,transform)).area<1e-7
+        assert moved_a.intersection(moved_b).area==0
+        assert len(moved_a.union(moved_b).interiors)==1
+        other = shapely.transform(retained,transform)
+        shared = moved_a.boundary.intersection(moved_b.boundary)
+        assert shapely.covered_by(other,shapely.buffer(shared,1e-7))
+        assert shapely.hausdorff_distance(shared,shapely.union_all([other,cut]))<1e-7
+    try:
+        setback_shared_section(core,road,selected,np.array([8.,-8.]),np.array([1.,0.]))
+    except CutSetbackRejected:
+        pass
+    else:
+        raise AssertionError('a cut across an unrelated loop arm was accepted')
+    return dict(loop_other_contact_preserved=True,loop_hole_preserved=True,local_ownership_transfer_checked=True)
 
 
 def prepared_network(root,report,frames):
@@ -203,7 +233,7 @@ def main():
     parser.add_argument('--maximum-calls',type=int,default=1024)
     parser.add_argument('--check-only',action='store_true')
     args = parser.parse_args()
-    checks = verify_setbacks()
+    checks = verify_setbacks()|verify_loop_setbacks()
     if args.check_only:
         print(json.dumps(checks))
         return

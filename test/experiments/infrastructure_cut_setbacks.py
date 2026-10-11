@@ -13,37 +13,48 @@ class CutSetbackRejected(ValueError):
     pass
 
 
-def split_shared_section(core,road,point,tangent):
+def setback_shared_section(core,road,section,point,tangent):
     area = shapely.union_all([core,road])
     tangent = np.array(tangent,dtype=float,copy=True)
     length = np.linalg.norm(tangent)
     if not np.isfinite(length) or length<=1e-10:
         raise ValueError('section tangent must be finite and nonzero')
     tangent /= length
+    scale = max(1.,float(np.abs(area.bounds).max()))
+    roundoff = 64*np.finfo(float).eps*scale
+    precision = float(2.**np.floor(np.log2(roundoff/4)))
+    core,road,section = shapely.set_precision(np.array([core,road,section],dtype=object),precision)
+    old_shared = shapely.intersection(shapely.boundary(core),shapely.boundary(road))
+    if section.is_empty or not shapely.covered_by(section,shapely.buffer(old_shared,1e-7)):
+        raise CutSetbackRejected('original_section_is_not_shared')
     normal = np.array([-tangent[1],tangent[0]])
-    extent = np.linalg.norm(np.subtract(area.bounds[2:],area.bounds[:2]))+1
+    extent = np.linalg.norm(np.subtract(road.bounds[2:],road.bounds[:2]))+1
     ray = shapely.LineString([point-normal*extent,point+normal*extent])
-    spans = [g for g in shapely.get_parts(shapely.intersection(area,ray))
+    spans = [g for g in shapely.get_parts(shapely.intersection(road,ray))
              if g.geom_type=='LineString' and g.distance(shapely.Point(point))<1e-7]
     if len(spans)!=1:
         raise CutSetbackRejected('ambiguous_source_section')
     ends = shapely.get_coordinates(spans[0])[[0,-1]]
-    line = shapely.LineString(ends)
+    line = shapely.set_precision(shapely.LineString(ends),precision)
     direction = (ends[1]-ends[0])/line.length
     cutter = shapely.LineString(ends+np.array([-1e-6,1e-6])[:,None]*direction)
-    pieces = list(shapely.get_parts(split(area,cutter)))
-    if len(pieces)!=2:
-        raise CutSetbackRejected('section_does_not_split_pair')
-    pieces.sort(key=lambda p:shapely.intersection(p,core).area,reverse=True)
-    new_core,new_road = pieces
-    tolerance = 64*np.finfo(float).eps*max(1.,np.abs(area.bounds).max())*area.length
+    pieces = list(shapely.get_parts(shapely.set_precision(split(road,cutter),precision)))
+    touching = [p for p in pieces if shapely.covered_by(section,shapely.buffer(p.boundary,1e-7))]
+    if len(pieces)<2 or len(touching)!=1:
+        raise CutSetbackRejected('no_unique_local_transfer')
+    transferred = touching[0]
+    new_core = shapely.union_all([core,transferred])
+    new_road = shapely.union_all([p for p in pieces if p is not transferred])
+    tolerance = roundoff*area.length
     if shapely.difference(core,new_core).area>tolerance:
         raise CutSetbackRejected('setback_removes_existing_core')
     shared = shapely.intersection(shapely.boundary(new_core),shapely.boundary(new_road))
-    if shared.is_empty or shapely.hausdorff_distance(shared,line)>1e-7:
+    retained = old_shared.difference(shapely.buffer(section,1e-7))
+    desired = shapely.union_all([retained,line])
+    if shared.is_empty or shapely.hausdorff_distance(shared,desired)>1e-7:
         raise CutSetbackRejected('shared_section_mismatch')
     assert shapely.intersection(new_core,new_road).area<=tolerance
-    assert shapely.symmetric_difference(area,shapely.union_all(pieces)).area<=tolerance
+    assert shapely.symmetric_difference(area,shapely.union_all([new_core,new_road])).area<=tolerance
     assert new_core.is_valid and new_road.is_valid
     return new_core,new_road,line
 
@@ -103,7 +114,7 @@ def setback_network(network,module,sections,distance):
         point,tangent,station = displaced_source_section(network,pose,distance)
         corridor = pose['corridor']
         core,road = result.shape(module),result.shape(corridor)
-        new_core,new_road,line = split_shared_section(core,road,point,tangent)
+        new_core,new_road,line = setback_shared_section(core,road,result.sections[section],point,tangent)
         result.shapes[module],result.shapes[corridor] = new_core,new_road
         result.sections[section] = line
         for port in result.junctions[module]:
