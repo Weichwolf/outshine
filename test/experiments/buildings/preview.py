@@ -90,7 +90,7 @@ def configuration(products, view, detail, output, reference=False):
     result = dict(profile=[view.width, view.height], eye=view.eye.tolist(), target=view.target.tolist(),
                   fov_deg=view.fov_deg, products=objects, output=str(output.resolve()),
                   ground_span_m=max(span*6, float(np.linalg.norm(view.eye-view.target))*3),
-                  tiles=tiles, solar_tile=solar_weights())
+                  tiles=tiles, solar_tile=solar_weights() if any(5 in p['mesh']['materials'] for p in objects) else None)
     return result, counts
 
 
@@ -116,7 +116,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=Path('build/experiments/buildings/preview'))
     parser.add_argument('--style', choices=('bauhaus', 'midcentury', 'artdeco'))
-    parser.add_argument('--massing', choices=('plain', 'styled'), default='styled')
+    parser.add_argument('--massing', choices=('plain', 'styled'))
     parser.add_argument('--lod', choices=('detail', 'shell', 'reference'), default='detail')
     parser.add_argument('--distance', type=float, default=1.)
     parser.add_argument('--site', default='Vienna')
@@ -152,7 +152,7 @@ def main():
             chosen = [s for s in samples if 100 < s['polygon'].area < 500 and len(s['polygon'].exterior.coords) < 15
                       and not s['polygon'].interiors and low <= float(s['properties'].get('render_height', 9.)) <= high]
             sample = min(chosen, key=lambda s: s['polygon'].distance(shapely.Point(0, 0)))
-            products = [plan(sample, args.style or 'bauhaus', args.massing)]
+            products = [plan(sample, args.style, args.massing)]
         eye, target = house_view(products[0])
         if not args.cached_plan:
             (args.output/(products[0]['style']+'-enriched-plan.json')).write_bytes(encode(products[0]))
@@ -167,7 +167,8 @@ def main():
                   mode=args.lod, cache_hit=bool(args.cached_plan), distance=args.distance,
                   massing=[product['massing'] for product in products],
                   demand='facing/frustum/one-metre movement reserve',
-                  limitations=['no scene occlusion', 'shadow completeness unproven', 'nested flat-roof massing pilot',
+                  representation='provider-volume' if all(p['style'] == 'osm' for p in products) else 'historical-style-experiment',
+                  limitations=['no scene occlusion', 'shadow completeness unproven', 'missing roof/window attributes',
                                'coverage-weighted BSDFs omit recess microshadows and offset reflections'])
     (args.output/(name+'-source.json')).write_text(json.dumps(receipt, indent=2)+'\n')
     config_path = args.output/(name+'-scene.json')

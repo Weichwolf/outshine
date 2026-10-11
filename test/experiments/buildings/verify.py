@@ -99,7 +99,7 @@ def verify_geometry():
             bounded = mesh(product, demand, max_openings=1)
             assert bounded['detail_openings'] <= 1 and bounded['detail_fallbacks']
             assert np.array_equal(bounded['vertices'], mesh(product, demand, detail=False)['vertices'])
-    thin = plan(dict(id='thin', polygon=shapely.box(0, 0, 30, .1), properties={'building': 'apartments', 'render_height': 9.}))
+    thin = plan(dict(id='thin', polygon=shapely.box(0, 0, 30, .1), properties={'building': 'apartments', 'render_height': 9.}), 'bauhaus')
     thin_demand = select(thin, View(np.array([15., -20., 8.]), np.array([15., 0., 4.])))
     assert any(f['reason'] == 'recess_crosses_footprint_boundary' for f in mesh(thin, thin_demand)['detail_fallbacks'])
     shaft = plan(dict(id='silo', polygon=shapely.box(0, 0, 10, 10), properties={'building': 'silo', 'render_height': 25.}))
@@ -122,7 +122,7 @@ def verify():
 
 def verify_demand_and_cache():
     product = plan(dict(id='motion', polygon=shapely.box(-10, -10, 10, 10),
-                        properties={'render_height': 15., 'building': 'apartments', 'custom': 'preserved'}), massing='plain')
+                        properties={'render_height': 15., 'building': 'apartments', 'custom': 'preserved'}), 'bauhaus', massing='plain')
     encoded = encode(product)
     edges = set()
     with patch('facade_plan.plan', side_effect=AssertionError('hit must not regenerate plans')), \

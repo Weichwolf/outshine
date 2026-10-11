@@ -10,30 +10,31 @@ Tags: buildings, roofs, facades, semantics
 # Buildings fit the infrastructure and gain coherent spatial detail
 
 ## Ergebnis und Ist
-2050-Solarpunk: klare Bauhaus-/Mid-century-Körper; Art déco gezielt. PV auf Dach/Fassade, Balkone/Höfe/Parts.
+Aktueller Auftrag: OSM-Gebäude/Architektur so genau wie die Provider-API ermöglicht; Esri/CGA-Rezepte als Python-Basis.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
-Eigenständige Esri/CGA-Basis: Provider-Lieferumfang zuerst, Stilregeln später; Körper-/Öffnungspläne im Rohling. Dachfamilien/Abnahme offen.
-Vergleich bd0475ff5: 13.993 Pläne/19.625 Bänder; direkte Hüllen 4,5–5,4 s gegen Union 10,4–12,3 s/Kachel. Native Budgets unbewiesen.
+Gelieferte Form/Attribute bestimmen die Geometrie. Frühere Bauhaus-/PV-/Balkonversuche sind keine Gestaltungsvorgabe.
+Providerprüfung: vier Gebäudefelder; 13.955 gültige Quellkörper, 39 `hide_3d`-Auslassungen und ein ungültiges Höhenintervall. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
 [Experimente](../test/experiments/buildings/facade_plan.py): Quellen → Massierung/Fassade/Ausstattung → fertige Hülle → Kamerabedarf.
 Gepinnte z14-Tiles Wien/Tokyo/Central Park mit SHA-Prüfung; Client-Pref `sources/building-experiments/`, Erwerb nur `samples.py --fetch`.
-Form/Höfe/Höhen/Quellattribute/Farbe und alle Fassadenachsen persistieren kameraunabhängig.
-Schema 3: vollständige Höhenbänder, fertige Mantel-/Terrassen-/Unterseiten-/Ausstattungspuffer ohne Hit-Neubau.
+Schema 3: Form/Höfe/Höhen/Quellattribute/Farbe/Achsen und fertige Mantel-/Terrassen-/Unterseiten-/Ausstattungspuffer ohne Hit-Neubau.
 `preview.py --cached-plan <Plan>` spielt echte Rohlinge quellenfrei ab; Hüllen-Coverage aus gespeicherten Parametern.
 Gleiche Öffnungen als Split-/Voll-Liste oder 48-Byte-Repeat; Quellaufbereitung separat, frische Prozesse/Peak-RSS.
 Hülle/Leibungen teilen metrische Achsen/Box-Coverage; Facing/Frustum, 1 m Bewegungsreserve und projizierte Tiefe vor Expansion.
 0,5 px Detailgrenze ist eine Hypothese, kein Gerätegate; Drehung deckt alle Kanten ab. Über 50.000 Öffnungen: Hülle samt Grund.
 Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine durchstoßende Leibung.
-`verify.py`/`verify_massing.py`: Flächen/Volumen, Hof/L-/geteilte Obergeschosse, 85 Ausstattungen, 192 Posen, frischer Offlinehit.
-Blender-Eevee-Bilder in `build/experiments/buildings/` geöffnet; frischer Bauhaus-Cachehit bd0475ff5: 0 abweichende Pixel.
-Diagnosehüllen mischen dieselben Wand-/Rahmen-/Glas-BSDFs nach Coverage ([Blender](https://docs.blender.org/manual/en/4.3/render/shader_nodes/shader/mix.html)).
-`massing.py`: Bauhaus-Pavillon/Art-déco-Staffelung mit bis drei Bändern; Basis/Maximalhöhe/Höfe erhalten.
-GEOS-Mitres strikt innen; nutzbare Obergeschosse, sonst gültige Basis mit Grund. Numerische Nulllängen bis 1e-8 m normalisieren; Parts ungestaffelt.
-`features.py`: Dach-/Fassaden-PV, Mid-century-Vordach, bis drei Balkone samt Türanschluss; komplette Bounds/Puffer im Rohling.
-`massing_benchmark.py`: direkte Bandflächen/2D-Differenzen gegen [Manifold](https://github.com/elalish/manifold)-3D-Union gleicher Prismen.
-Direkte Flächen gewählt: 2,2–2,4× schneller bei fast gleichem 9–10,3 MiB-Payload. Getrennte Eckenfächer/XYZ-UV-Packung; Quellen separat.
+`verify_provider.py`: alle Quellkörper/Volumen, PRT-Achsen/Höfe/sRGB, 48 Rohlinge × acht Cache-Posen; frühere Fassaden-/Massierungstests bleiben.
+Frühere Diagnosehüllen mischen Wand-/Rahmen-/Glas-BSDFs nach [Coverage](https://docs.blender.org/manual/en/4.3/render/shader_nodes/shader/mix.html).
+Standardrezept: Grundriss/Höfe und geliefertes Höhenintervall erhalten, keine erfundenen Staffelungen oder Ausstattung.
+Frühere Stilrezepte bleiben explizite Vergleiche. Numerische Nulllängen bis 1e-8 m normalisieren.
+[`provider_compare.py`](../test/experiments/buildings/provider_compare.py): Live-TileJSON, 352-Tile-Inventur und drei frische Kontrollkacheln.
+Esri `InitialShapeBuilder`: freie Regelattribute nach Name/Typ; keine universelle Gebäude-Tagtabelle. Grundriss/Höfe als Startgeometrie.
+OpenFreeMap `building`: `render_height`/`render_min_height` → Höhe/Unterkante, `colour` → sRGB-Wandfarbe, `hide_3d` → Auslassung mit Grund.
+Höhen sind provideraufbereitet; sie beweisen keine originalen `height`-/Geschosstags. Dachform/Nutzung/Material fehlen in diesem Layer.
+POI/Landuse/Transport sind Kontext: keine pauschale Übertragung auf ein ganzes Gebäude; Straßenbreite braucht konstruierten Straßenplan.
+Früherer `massing_benchmark.py`: direkte Bandflächen gegen [Manifold](https://github.com/elalish/manifold)-Union gleicher Prismen; direkte gewählt (2,2–2,4×, gleicher Payload).
 [Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash und publiziert nach
 `/tmp/outshine-buildings-showcase/`; Port 8766 zeigt letzte Varianten und interaktive Körper-/Fassadenkosten samt Commit.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. [VisusCity](https://visusarts.itch.io/visuscity-vol2) ist Bildmaßstab.
@@ -106,8 +107,7 @@ gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. H
 [Instant Architecture](../doc/references/buildings/siggraph/2003-instant-architecture.pdf), SIGGRAPH 2003;
 [CGA Shape](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), SIGGRAPH 2006:
 begrenzte Split-Regeln; [F-shade, EGSR 2010](../doc/references/buildings/egsr/2010-grammar-based-encoding-of-facades.pdf)
-motiviert wahlfreien Zugriff auf kompakte Fassaden. Vorbilder: [Neutra](https://sah-archipedia.org/buildings/CA-01-065-0001),
-[Bauhaus-Balkone](https://bauhaus-dessau.de/orte/bauhausgebaeude/), [SolAce-PV](https://www.empa.ch/web/nest/solace).
+motiviert wahlfreien Zugriff auf kompakte Fassaden.
 [CitySample a0981eb](https://github.com/fate-apple/CitySample/tree/a0981eb52322eab75db2507a23879de9f30110a0): HLOD aus Kollisionskörpern,
 Mesh-/Materialinstanzen; Houdini-Graphen fehlen. [Building Tools 0216534](https://github.com/ranjian0/building_tools/tree/0216534645b15b3f8aac0bd1d7e6674e2972b9b3): Python-Bauteile/Skelettdächer.
 [Labs Patterns](https://www.sidefx.com/docs/houdini/nodes/sop/labs--building_from_patterns-1.0.html): Module/Overrides.

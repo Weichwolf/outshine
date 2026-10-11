@@ -107,7 +107,7 @@ def verify_touching_courtyard():
     polygon = sample['polygon']
     assert polygon.is_valid and len(polygon.interiors) == 1
     assert not polygon.exterior.intersection(polygon.interiors[0]).is_empty
-    product = plan(sample)
+    product = plan(sample, 'bauhaus')
     reference = union(product)
     metrics = check_measurements(product, product['shell'])
     check_measurements(product, reference)
@@ -134,13 +134,16 @@ def verify_redundant_vertices():
 def verify_numerical_edges():
     sources = {'Vienna': {'Vienna:112890:37', 'Vienna:112890:123', 'Vienna:1141390:20', 'Vienna:2124964612:0'},
                'Tokyo': {'Tokyo:1147552190:4'}}
-    checked = []
+    checked, omitted = [], []
     for site, ids in sources.items():
-        samples, _ = read_site(site)
+        samples, receipt = read_site(site)
         selected = [sample for sample in samples if sample['id'] in ids]
-        assert len(selected) == len(ids)
+        suppressed = [row for row in receipt['omitted'] if row['id'] in ids]
+        assert len(selected)+len(suppressed) == len(ids)
+        assert all(row['reason'] == 'provider_hide_3d' for row in suppressed)
+        omitted.extend(row['id'] for row in suppressed)
         for sample in selected:
-            product = plan(sample)
+            product = plan(sample, 'bauhaus')
             assert product['polygon'].equals(sample['polygon'])
             for layer, offset in zip(product['layers'], product['massing']['offsets_m']):
                 expected = sample['polygon'].buffer(-offset, join_style='mitre') if offset else sample['polygon']
@@ -151,7 +154,7 @@ def verify_numerical_edges():
             encoded = encode(product)
             assert encode(decode(encoded)) == encoded
             checked.append(sample['id'])
-    return dict(source_ids=checked, maximum_boundary_displacement_m=MIN_EDGE_M)
+    return dict(source_ids=checked, provider_omitted_sources=omitted, maximum_boundary_displacement_m=MIN_EDGE_M)
 
 
 def verify():

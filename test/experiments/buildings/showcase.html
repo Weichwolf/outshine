@@ -11,13 +11,19 @@
   <header><a href="/" class="brand">OUTSHINE <span>/ GEBÄUDE</span></a><nav class="jump"><a href="#gallery-title">Bilder</a><a href="#plot-title">Kosten</a></nav><span id="connection" role="status">Lädt …</span></header>
   <main>
     <section class="intro">
-      <p class="eyebrow">PYTHON-WERKSTATT · SOLARPUNK 2050</p>
+      <p class="eyebrow">PYTHON-WERKSTATT · OSM / ESRI</p>
       <h1>Gebäude im Versuch.</h1>
-      <p class="lead">Echte OSM-Grundformen, räumliche Nahfassaden und kompakte Fernprodukte. Hier stehen die letzten abgeschlossenen Renderings und Messungen.</p>
+      <p class="lead">Providerdaten bestimmen die Gebäude. Hier stehen der API-Abgleich, die letzten abgeschlossenen Renderings und die Verfahrensmessungen.</p>
       <p id="progress"></p>
       <div id="state" class="state"></div>
     </section>
     <div id="stats" class="stats"></div>
+    <section id="provider" aria-labelledby="provider-title" hidden>
+      <div class="section-top"><h2 id="provider-title">Provider → Esri/CGA</h2><a href="provider-comparison.json" download>API-Abgleich als JSON</a></div>
+      <p id="provider-context" class="hint"></p>
+      <div class="table-scroll"><table><thead><tr><th>API-Feld</th><th>Typ</th><th>Regelparameter</th><th>Frisch beobachtet</th><th>Bedeutung</th></tr></thead><tbody id="provider-fields"></tbody></table></div>
+      <p id="provider-note" class="hint"></p><p id="provider-missing" class="hint"></p>
+    </section>
     <section aria-labelledby="gallery-title">
       <div class="section-top"><h2 id="gallery-title">Bildstand</h2><span class="hint">Bild anklicken zum Vergrößern</span></div>
       <nav id="filters" class="filters" aria-label="Bilder filtern"></nav>

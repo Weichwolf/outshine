@@ -72,7 +72,7 @@ def decode_record(data):
     heights = np.asarray([product['bottom_m'], product['top_m']], dtype=float)
     if not np.isfinite(heights).all() or heights[1] <= heights[0]:
         raise ValueError('invalid encoded height interval')
-    if (product['style'] not in ('bauhaus', 'midcentury', 'artdeco') or type(product['seed']) is not int
+    if (product['style'] not in ('osm', 'bauhaus', 'midcentury', 'artdeco') or type(product['seed']) is not int
             or not isinstance(product['source_properties'], dict) or not isinstance(product['provenance'], dict)):
         raise ValueError('invalid encoded recipe')
     product['layers'] = decode_layers(product, heights)
@@ -121,6 +121,9 @@ def decode_record(data):
     product['opening_patterns'] = patterns
     validate(product['shell'], len(facades), surfaces, len(patterns))
     validate_features(product)
+    if product['style'] == 'osm' and (product['massing']['mode'] != 'plain' or len(product['layers']) != 1
+                                     or product['features'] or any(f['repeat'].count for f in product['facades'])):
+        raise ValueError('encoded OSM body contains unsupported procedural additions')
     return product
 
 

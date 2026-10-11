@@ -133,7 +133,7 @@ def render(configuration):
     palette = [material('wall', colours[0], .68, object_colour=True),
                material('glass', colours[1], .16), material('frame', colours[2], .28, .65),
                material('roof', colours[3], .72), material('warm canopy', (.32, .16, .055), .55),
-               photovoltaic(configuration['solar_tile'])]
+               photovoltaic(configuration['solar_tile']) if configuration.get('solar_tile') else None]
     shell = {style: shell_material(style, pixels, colours) for style, pixels in configuration['tiles'].items()}
     for product in configuration['products']:
         add_product(product, palette, shell)

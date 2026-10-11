@@ -16,6 +16,7 @@ REPO = Path(__file__).resolve().parents[3]
 EXPERIMENTS = REPO/'build/experiments/buildings'
 WEBROOT = Path('/tmp/outshine-buildings-showcase')
 TITLES = {
+    'osm-detail': ('OSM · gelieferter Baukörper', 'quelle', 'Grundriss, Höhenintervall und Quellfarbe; vollständiger Rohling ohne unbelegte Ausstattung.'),
     'bauhaus-detail': ('Bauhaus · Nahdetail', 'nah', 'Räumliche Öffnungen aus dem gemeinsamen Fassadenplan.'),
     'midcentury-detail': ('Mid-century · kleines Haus', 'nah', 'Horizontale Verglasung, flaches Vordach und Dach-PV.'),
     'artdeco-detail': ('Art déco · Nahdetail', 'nah', 'Vertikaler Öffnungsrhythmus auf demselben OSM-Grundriss.'),
@@ -28,7 +29,7 @@ TITLES = {
 }
 REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'openings',
                  'admitted_products', 'source_products', 'mode', 'cache_hit', 'distance',
-                 'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features')
+                 'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features', 'representation')
 
 
 def git(*args):
@@ -51,12 +52,17 @@ def image_record(report_path, root):
     try:
         report = json.loads(report_path.read_text())
         record.update({key: report[key] for key in REPORT_FIELDS if key in report})
-        if report.get('massing') and any(item['mode'] == 'plain' for item in report['massing']):
+        if report.get('representation') == 'provider-volume':
+            if report.get('cache_hit'):
+                record.update(title='Cachetreffer · OSM-Baukörper', category='cache')
+        elif report.get('massing') and any(item['mode'] == 'plain' for item in report['massing']):
             record.update(title=title+' · Grundkörper', category='vergleich',
                           caption='Gleiche OSM-Eingabe ohne prozedurale Staffelungen, PV und Balkone.')
         elif report.get('floor_bands') and not report.get('cache_hit'):
             record['caption'] = ('Gespeicherte Körper-/Fassadenpläne, Dach-/Fassaden-PV und begrenzte Balkone. '
                                  'Bauhaus-Staffelung; Art déco als gezielter Formakzent.') if stem != 'midcentury-detail' else caption
+        if stem.startswith(('bauhaus', 'midcentury', 'artdeco')):
+            record['caption'] = 'Früherer Stilversuch; gehört nicht zum aktuellen OSM-Rezeptziel. '+record['caption']
         source = report_path.with_name(stem+'.png')
         data = source.read_bytes()
         digest = hashlib.sha256(data).hexdigest()
@@ -121,6 +127,12 @@ def publish(root):
     for name in ('showcase.html', 'showcase.css', 'showcase.js'):
         destination = root/('index.html' if name.endswith('.html') else name)
         atomic_write(destination, (Path(__file__).parent/name).read_bytes())
+    provider_path = EXPERIMENTS/'provider-comparison.json'
+    provider = json.loads(provider_path.read_text()) if provider_path.is_file() else None
+    if provider:
+        atomic_write(root/'provider-comparison.json', provider_path.read_bytes())
+    validation_path = EXPERIMENTS/'provider-validation.json'
+    validation = json.loads(validation_path.read_text()) if validation_path.is_file() else None
     images = [image_record(path, root) for path in EXPERIMENTS.rglob('*-report.json')]
     latest = {}
     for item in sorted(images, key=lambda item: item['updated']):
@@ -134,12 +146,13 @@ def publish(root):
                     pushed=git('rev-parse', 'origin/'+branch) == commit,
                     working_tree_dirty=bool(git('status', '--porcelain')),
                     images=images, benchmark=benchmark(), massing_benchmark=massing_benchmark(),
-                    progress='Bauhaus-Staffelungen, kleine Mid-century-Häuser und gezielte Art-déco-Akzente. '
-                             'Dach-/Fassaden-PV und Balkone teilen den gespeicherten Gebäudeplan.',
-                    gaps=['VisusCity-Bildqualität: Umgebung, Licht und Materialreichtum',
-                          'Weitere Dachfamilien und Sonderbauten',
-                          'Parts, Infrastrukturkontakte und Verdeckung',
-                          'Schatten, Materialübergänge und native Weltbudgets'])
+                    provider_comparison=provider, source_validation=validation,
+                    progress='OSM-Gebäude und Architektur so genau wie die Provider-API ermöglicht. '
+                             'Esri/CGA ist die Referenz für Formoperationen, Attribute und Rezepte.',
+                    gaps=['Fehlende Gebäudeattribute: Dächer, Geschosse, Nutzung und Materialien',
+                          'Eindeutige Zuordnung verfügbarer Kontextdaten',
+                          'Infrastrukturkontakte, Verdeckung und Schatten',
+                          'Native Weltbudgets und visuelle Abnahme'])
     manifest['revision'] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
     atomic_write(root/'manifest.json', (json.dumps(manifest, ensure_ascii=False, indent=2)+'\n').encode())
     return dict(root=str(root), commit=commit, pushed=manifest['pushed'],
@@ -150,7 +163,7 @@ def publish(root):
 class Handler(SimpleHTTPRequestHandler):
     def permitted(self):
         path = Path(unquote(urlsplit(self.path).path).lstrip('/'))
-        allowed = str(path) in ('.', 'index.html', 'manifest.json', 'showcase.css', 'showcase.js')
+        allowed = str(path) in ('.', 'index.html', 'manifest.json', 'showcase.css', 'showcase.js', 'provider-comparison.json')
         allowed |= len(path.parts) == 2 and path.parts[0] == 'assets' and path.suffix == '.png'
         return allowed and (Path(self.directory)/path).resolve().is_relative_to(Path(self.directory).resolve())
 

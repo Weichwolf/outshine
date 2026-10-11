@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const integer = value => new Intl.NumberFormat('de-CH').format(value);
 const short = value => (value || 'unbekannt').slice(0, 9);
-const names = { all: 'Alle', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
+const names = { all: 'Alle', quelle: 'OSM-Rezept', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
 const methods = { expanded: ['Split-Liste', '#ad9165'], vectorized: ['Voll-Liste / NumPy', '#7e899b'], compact: ['Kompakter Repeat', '#496b66'],
   bands: ['Direkte Bandflächen', '#496b66'], union: ['Manifold · 3D-Union', '#ad9165'] };
 const metrics = {
@@ -116,7 +116,11 @@ function render() {
   const ready = manifest.images.filter(item => item.status === 'ready');
   const rows = manifest.benchmark?.measurements.filter(row => row.method === 'compact') || [];
   const bodies = (manifest.massing_benchmark?.measurements || []).filter(row => row.method === 'bands');
-  const stats = [[ready.length, 'abgeschlossene Renderings'], ...(bodies.length
+  const source = manifest.source_validation?.sites || [];
+  const stats = [[ready.length, 'abgeschlossene Renderings'], ...(source.length
+    ? [[source.reduce((sum, row) => sum + row.accepted, 0), 'vollständige OSM-Körper geprüft'],
+       [source.reduce((sum, row) => sum + row.omitted.length, 0), 'hide_3d-Auslassungen protokolliert']]
+    : bodies.length
     ? [[bodies.reduce((sum, row) => sum + row.products, 0), 'Gebäudepläne im Körpervergleich'],
        [bodies.reduce((sum, row) => sum + row.bands, 0), 'Geschossbänder im Körperplan']]
     : [[rows.reduce((sum, row) => sum + row.products, 0), 'Pläne im Fassadenvergleich'],
@@ -126,7 +130,21 @@ function render() {
   }));
   $('gaps').replaceChildren(...manifest.gaps.map(gap => element('li', gap)));
   $('updated').textContent = 'Aktualisiert: ' + new Date(manifest.updated).toLocaleString('de-CH');
-  renderGallery(); renderPlot();
+  renderProvider(); renderGallery(); renderPlot();
+}
+
+function renderProvider() {
+  const provider = manifest.provider_comparison;
+  $('provider').hidden = !provider;
+  if (!provider) return;
+  $('provider-context').textContent = `${provider.provider} · API-Prüfung ${new Date(provider.observed_utc).toLocaleDateString('de-CH')} · ${provider.fresh_tiles.length} frische Kontrollkacheln`;
+  $('provider-fields').replaceChildren(...provider.building_fields.map(row => {
+    const tr = element('tr');
+    tr.append(...[row.field, row.type, row.target, integer(row.observed_features), row.meaning].map(value => element('td', value)));
+    return tr;
+  }));
+  $('provider-note').textContent = provider.rule_parameters+' '+provider.context;
+  $('provider-missing').textContent = 'Im Gebäudelayer nicht angeboten: '+provider.missing_building_fields.join(', ')+'.';
 }
 
 async function refresh() {

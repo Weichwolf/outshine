@@ -1,15 +1,14 @@
 """Metric repeat plans and exact box-filtered opening coverage, without derivation trees."""
 
 from dataclasses import dataclass
-import hashlib
 import math
 
 import numpy as np
 import shapely
-from PIL import ImageColor
 from shell import prepare
 from massing import MIN_EDGE_M, polygons_of, stack
 from features import describe, prepare as prepare_features
+from provider_contract import attributes, hidden, number, origin, seed_for, srgb
 
 REPEAT_DTYPE = np.dtype([('width_m', '<f8'), ('height_m', '<f8'), ('depth_m', '<f8'),
                          ('columns', '<u4'), ('rows', '<u4'), ('opening_width', '<f8'), ('opening_height', '<f8')])
@@ -37,27 +36,24 @@ class Repeat:
 
 
 def source_number(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError) as error:
-        raise ValueError(f'invalid supplied number: {value!r}') from error
+    return number(value)
 
 
-def author(sample, style=None, massing='styled'):
+def author(sample, style=None, massing=None):
     polygon, properties = sample['polygon'], sample['properties']
+    if hidden(properties):
+        raise ValueError('provider_hide_3d')
     if not polygon.is_valid or polygon.area <= 1:
         raise ValueError('invalid building footprint')
     rings = polygons_of(polygon)[0]
-    digest = hashlib.blake2b(str(sample['id']).encode(), digest_size=8).digest()
-    seed = int.from_bytes(digest, 'little')
-    top = source_number(properties.get('height', properties.get('render_height', 9.)))
-    bottom = source_number(properties.get('min_height', properties.get('render_min_height', 0.)))
-    if not math.isfinite(top+bottom) or top <= bottom:
-        raise ValueError('invalid height interval')
-    style = style or ('midcentury' if top-bottom <= 8.5 and polygon.area < 400 else
-                      'artdeco' if top-bottom >= 14 and seed % 11 == 0 else 'bauhaus')
-    if style not in ('bauhaus', 'midcentury', 'artdeco'):
+    seed, parameters = seed_for(sample['id']), attributes(properties)
+    top, bottom = parameters['buildingHeight'], parameters['minHeight']
+    style = style or 'osm'
+    massing = massing or ('plain' if style == 'osm' else 'styled')
+    if style not in ('osm', 'bauhaus', 'midcentury', 'artdeco'):
         raise ValueError('unknown architectural style')
+    if style == 'osm' and massing != 'plain':
+        raise ValueError('OSM source recipe requires the supplied footprint')
     roof = properties.get('roof:shape', 'flat')
     if roof != 'flat':
         raise ValueError(f'roof recipe not yet implemented: {roof}')
@@ -83,7 +79,7 @@ def author(sample, style=None, massing='styled'):
                         raise ValueError('zero length building edge')
                     columns = max(1, int(math.floor(length/3.2+.5)))
                     width, height = (.88, .64) if style == 'midcentury' else (.8, .58)
-                    if closed or length < 1.9:
+                    if style == 'osm' or closed or length < 1.9:
                         width = height = 0.
                     facades.append(dict(a=a, b=b, layer=index, bottom_m=layer['bottom_m'], top_m=layer['top_m'],
                                         normal=np.r_[(b-a)[1], -(b-a)[0], 0.]/length,
@@ -91,41 +87,33 @@ def author(sample, style=None, massing='styled'):
                                                       layer['floors'], width, height)))
     product = dict(id=sample['id'], rings=rings, polygon=shapely.Polygon(rings[0], rings[1:]),
                 top_m=top, bottom_m=bottom, style=style, seed=seed, facades=facades, layers=layers, massing=decision,
-                source_properties=properties.copy(), wall_linear=wall_colour(properties),
+                source_properties=properties.copy(), wall_linear=wall_colour(properties, (1., 1., 1.) if style == 'osm' else (.8, .79, .74)),
                 provenance=dict(source_sha256=sample.get('source_sha256'),
-                                height='supplied' if 'height' in properties or 'render_height' in properties else 'procedural',
-                                bottom='supplied' if 'min_height' in properties or 'render_min_height' in properties else 'procedural',
+                                height=origin(properties, 'height', 'render_height'),
+                                bottom=origin(properties, 'min_height', 'render_min_height'),
                                 footprint='supplied',
                                 wall_colour='supplied' if any(k in properties for k in ('building:colour', 'colour', 'color')) else 'procedural',
                                 floors='supplied' if supplied_rows is not None else 'procedural',
                                 roof='supplied' if 'roof:shape' in properties else 'procedural',
-                                style='procedural', massing='procedural', openings='procedural', kind=kind))
+                                style='source-volume' if style == 'osm' else 'procedural',
+                                massing='preserved' if style == 'osm' else 'procedural',
+                                openings='unavailable' if style == 'osm' else 'procedural', kind=kind))
     product['features'] = describe(product)
     product['opening_patterns'] = sorted({(f['repeat'].opening_width, f['repeat'].opening_height)
                                          for f in facades if f['repeat'].count})
     return product
 
 
-def plan(sample, style=None, massing='styled'):
+def plan(sample, style=None, massing=None):
     product = author(sample, style, massing)
     product['shell'], product['surfaces'] = prepare(product)
     product['decoration'], product['feature_bounds'] = prepare_features(product)
     return product
 
 
-def wall_colour(properties):
-    value = next((properties[k] for k in ('building:colour', 'colour', 'color') if k in properties), None)
-    if value is None:
-        srgb = np.array([.80, .79, .74])
-    else:
-        value = str(value)
-        if len(value) == 6 and all(c in '0123456789abcdefABCDEF' for c in value):
-            value = '#'+value
-        colour = ImageColor.getrgb(value)
-        if len(colour) == 4 and colour[3] != 255:
-            raise ValueError('transparent supplied wall colour')
-        srgb = np.array(colour[:3])/255.
-    return np.where(srgb <= .04045, srgb/12.92, ((srgb+.055)/1.055)**2.4)
+def wall_colour(properties, default=(.8, .79, .74)):
+    colour = srgb(properties, default)
+    return np.where(colour <= .04045, colour/12.92, ((colour+.055)/1.055)**2.4)
 
 
 def cell_range(repeat, region=None):

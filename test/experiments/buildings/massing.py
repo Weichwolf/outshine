@@ -46,7 +46,8 @@ def stack(polygon, bottom, top, rows, style, mode, blocked=None):
         raise ValueError('unknown massing mode')
     floor = (top-bottom)/rows
     requested = min(1 if style == 'bauhaus' else 2, rows-2)
-    reason = ('plain comparison requested' if mode == 'plain' else 'low horizontal house' if style == 'midcentury' else blocked
+    reason = (('provider footprint preserved' if style == 'osm' else 'plain comparison requested') if mode == 'plain'
+              else 'low horizontal house' if style == 'midcentury' else blocked
               or ('too few usable floors' if rows < 4 or floor < 1.8 else None))
     footprints, offsets = [polygon], [0.]
     step = min(2., .11*math.sqrt(polygon.area)) if style == 'bauhaus' else min(1.1, .07*math.sqrt(polygon.area))

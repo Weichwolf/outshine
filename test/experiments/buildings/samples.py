@@ -10,6 +10,7 @@ import subprocess
 import mapbox_vector_tile
 import numpy as np
 import shapely
+from provider_contract import hidden
 
 INVENTORY = Path(__file__).resolve().parents[3]/'doc/references/data/osm/openfreemap-inventory-20261009.json'
 SOURCES = Path.home()/'.local/share/outshine/outshine/sources/building-experiments/openfreemap'
@@ -53,7 +54,7 @@ def read_site(site, root=SOURCES):
     layer = mapbox_vector_tile.decode(source_bytes(receipt, root),
                                      default_options={'y_coord_down': True}).get('building', {})
     extent = layer.get('extent', 4096)
-    samples, rejected = [], []
+    samples, rejected, omitted = [], [], []
     for feature in layer.get('features', []):
         geometry, properties = feature['geometry'], feature['properties']
         if geometry['type'] not in ('Polygon', 'MultiPolygon'):
@@ -61,17 +62,25 @@ def read_site(site, root=SOURCES):
             continue
         polygons = geometry['coordinates'] if geometry['type'] == 'MultiPolygon' else [geometry['coordinates']]
         for ordinal, rings in enumerate(polygons):
+            key = f'{site}:{feature.get("id", "unknown")}:{ordinal}'
+            try:
+                suppress = hidden(properties)
+            except ValueError as error:
+                rejected.append(dict(id=key, reason=str(error)))
+                continue
+            if suppress:
+                omitted.append(dict(id=key, reason='provider_hide_3d', properties=properties.copy()))
+                continue
             metres = [((np.asarray(r, dtype=float)/extent+[tx, ty])*[span, -span]
                        +[-GIRTH_M/2, GIRTH_M/2]-anchor)*scale for r in rings]
             polygon = shapely.Polygon(metres[0], metres[1:])
-            key = f'{site}:{feature.get("id", "unknown")}:{ordinal}'
             if not polygon.is_valid or polygon.area <= 1:
                 rejected.append(dict(id=key, reason='invalid_or_degenerate_footprint',
                                      detail=shapely.is_valid_reason(polygon)))
                 continue
             samples.append(dict(id=key, polygon=polygon, properties=properties, source_sha256=receipt['sha256']))
     return samples, dict(site=site, receipt=receipt, origin_lat_lon=[latitude, longitude],
-                         source_polygons=len(samples)+len(rejected), rejected=rejected,
+                         source_polygons=len(samples)+len(rejected)+len(omitted), rejected=rejected, omitted=omitted,
                          projection='Mercator scaled at the site latitude; no terrain in this experiment')
 
 
