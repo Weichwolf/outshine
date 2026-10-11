@@ -15,6 +15,7 @@ from infrastructure_cut_setbacks import restore_cut_plan
 from infrastructure_coupled_roadbed_products import apply_coupled_product
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_hermite_route_fitting import fitted_route_candidates
+from infrastructure_junction_surfaces import motor_surface
 from infrastructure_source_roadbeds import construct_route_roadbed
 from infrastructure_turn_roadbed_experiment import building_reservations,reservations
 from infrastructure_vehicle_sweep import body_outlines
@@ -37,7 +38,10 @@ poses,_=network.poses(args.module,{})
 entry,exit=(poses[i] for i in args.pair)
 routes,_=directed_module_routes(network.graph,poses,network.shape(args.module),network.tree)
 route=routes[tuple(args.pair)]
-surface=shapely.from_wkb(next(p['public_surface_wkb'] for p in report['published_surfaces'] if p['module']==args.module))
+published=next((p for p in report['published_surfaces'] if p['module']==args.module),None)
+surface=(shapely.from_wkb(published['public_surface_wkb']) if published is not None else
+         motor_surface(network.shape(args.module),network.graph,network.tree,network.mesh,network.vehicle,
+                       network.curbs['corner_radius_m'],network.curbs['arc_error_m']))
 receipt=json.loads((root/'inputs'/f'{name}-input.json').read_text())['receipt']
 buildings,_=building_reservations(receipt,surface.envelope.buffer(10))
 reserved=buildings.union(reservations(network,surface))
