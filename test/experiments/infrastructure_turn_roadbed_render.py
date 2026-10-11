@@ -11,7 +11,7 @@ from infrastructure_building_clearance import plot_geometry
 from infrastructure_cut_setback_experiment import digest
 
 
-def render(report,path,bounds=None):
+def render(report,path,bounds=None,pair=None):
     import matplotlib.pyplot as plt
     from matplotlib.collections import PolyCollection
 
@@ -21,11 +21,13 @@ def render(report,path,bounds=None):
     before=shapely.from_wkb(bytes.fromhex(report['original_surface_wkb']))
     shape=shapely.from_wkb(bytes.fromhex(report['physical_shape_wkb']))
     planned=shapely.from_wkb(bytes.fromhex(report['planned_surface_wkb']))
-    accepted=[r for r in report['trials'] if r['accepted']]
+    trials=[r for r in report['trials'] if pair is None or (r['entry'],r['exit'])==tuple(pair)]
+    if pair is not None and not trials:raise ValueError('requested pair is absent from report')
+    accepted=[r for r in trials if r['accepted']]
+    unresolved=[r for r in trials if not r['accepted'] and r.get('source_path')]
     paths=[np.array(r['path']) for r in accepted]
     view=paths+[np.array(r['original_source_path']) for r in accepted if 'original_source_path' in r]
-    if not view:
-        view=[np.array(r['source_path']) for r in report['trials'] if r.get('source_path')]
+    view.extend(np.array(r['source_path']) for r in unresolved)
     a,b,c,d=shapely.MultiPoint(np.vstack(view)).bounds if view else shape.bounds
     if bounds is not None:
         a,b,c,d=bounds
@@ -47,16 +49,14 @@ def render(report,path,bounds=None):
         if index:
             parts=shapely.get_parts(planned.difference(before))
             plot_geometry(ax,parts[np.isin(shapely.get_type_id(parts),[3,6])],'#71bd94')
-        if not accepted:
-            for row in report['trials']:
-                points=np.array(row['source_path'])
-                ax.plot(points[:,0],points[:,1],'--',color='#b54a49',linewidth=1.5,
-                        label='unresolved source route' if row is report['trials'][0] else None)
-                for body in row['endpoint_bodies']:
-                    outline=np.array(body)
-                    ax.fill(outline[:,0],outline[:,1],facecolor='#b54a49',alpha=.3)
-            if report['trials']:
-                ax.legend(loc='best')
+        for row in unresolved:
+            points=np.array(row['source_path'])
+            ax.plot(points[:,0],points[:,1],'--',color='#b54a49',linewidth=1.2,zorder=4,
+                    label='unresolved source route' if row is unresolved[0] else None)
+            for body in row['endpoint_bodies']:
+                outline=np.array(body)
+                ax.fill(outline[:,0],outline[:,1],facecolor='#b54a49',alpha=.3)
+        if unresolved:ax.legend(loc='best')
         for row,points in zip(accepted,paths):
             colour='#b54a49' if index==0 else '#286b9e'
             if index==0 and 'original_source_path' in row:
@@ -85,6 +85,7 @@ def render(report,path,bounds=None):
         count=report['previous_accepted'] if index==0 else report['accepted']
         ax.set_title(f'{"Original" if index==0 else "Constructed physical mesh"}: {count}/{report["connections"]} routes')
     cuts=report.get('shared_cuts_description','Fixed shared cuts')
+    if pair is not None:cuts+=f'; displayed route {pair[0]} → {pair[1]}'
     fig.suptitle(f'{report["place"]} · module {report["module"]} · +{report["added_area_m2"]:.2f} m² roadbed\n'
                  f'{cuts} · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · buildings/private space unchanged')
     path.parent.mkdir(parents=True,exist_ok=True)
@@ -97,8 +98,9 @@ def main():
     parser.add_argument('--input',type=Path,default=Path('build/experiments/infrastructure/roadbeds/roadbeds.json'))
     parser.add_argument('--output',type=Path,default=Path('build/shots/experiments/infrastructure/constructed-roadbed.png'))
     parser.add_argument('--bounds',type=float,nargs=4,metavar=('WEST','SOUTH','EAST','NORTH'))
+    parser.add_argument('--pair',type=int,nargs=2,metavar=('ENTRY','EXIT'))
     args=parser.parse_args()
-    render(json.loads(args.input.read_text()),args.output,args.bounds)
+    render(json.loads(args.input.read_text()),args.output,args.bounds,args.pair)
     print(args.output)
 
 
