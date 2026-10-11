@@ -119,21 +119,23 @@ def construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicl
     return None,row|dict(rejected_searches=rejected)
 
 
-def construct_route_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025):
+def construct_route_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025,maximum_calls=1536):
+    if maximum_calls<1:raise ValueError('invalid route fitting budget')
     candidate,trials=construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
     if candidate is None:
         candidate,note=construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
         trials.append(note)
     if candidate is None:
-        heading_dot=np.dot(entry['heading'],exit['heading'])
-        returning=heading_dot<-np.sin(np.pi/36)
-        local_return=heading_dot<-np.sqrt(.5) and source_route.length<=16*vehicle['minimumRearAxleRadiusM']
         candidate,note=construct_fitted_roadbed(entry,exit,surface,reservations,source_route,vehicle,error,
-                                                maximum_calls=512 if returning else 1024,narrow_first=not local_return)
+                                                maximum_calls=min(1024,maximum_calls))
         trials.append(note)
-        remaining=1024-note['residual_calls']
-        if candidate is None and returning and remaining>0:
+        remaining=min(512,maximum_calls-note['residual_calls'])
+        if candidate is None and np.dot(entry['heading'],exit['heading'])<0 and remaining>0:
             candidate,note=construct_return_roadbed(entry,exit,surface,reservations,source_route,vehicle,error,
                                                     maximum_calls=remaining,maximum_starts=1)
             trials.append(note)
+    calls=sum(t.get('residual_calls',0) for t in trials)
+    assert calls<=maximum_calls
+    if candidate is not None:
+        candidate['report'].update(total_fitting_residual_calls=calls,maximum_fitting_residual_calls=maximum_calls)
     return candidate,trials

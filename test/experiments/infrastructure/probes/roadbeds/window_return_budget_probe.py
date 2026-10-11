@@ -1,5 +1,7 @@
 """Inspect source and return fitting on previously proved window routes."""
 
+import argparse
+from functools import partial
 import json
 from pathlib import Path
 import sys
@@ -13,11 +15,17 @@ from infrastructure_cut_setbacks import restore_cut_plan
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_source_roadbeds import construct_route_roadbed,construct_fitted_roadbed
+import infrastructure_source_roadbeds as roadbeds
 from infrastructure_turn_roadbed_experiment import building_reservations
 from infrastructure_travel import MODES
 
 root=Path('build/experiments/infrastructure')
-name='Wien'
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--place',default='Wien')
+parser.add_argument('--cases',nargs='+',default=['659:19:18','1066:6:4'])
+parser.add_argument('--wide-first',action='store_true')
+args=parser.parse_args();name=args.place
+if args.wide_first:roadbeds.construct_fitted_roadbed=partial(construct_fitted_roadbed,narrow_first=False)
 before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
 frames=json.loads((root/'boundary-optimized/hermite-routes.json').read_text())
 network=prepared_network(root,before,next(p['frames'] for p in frames['places'] if p['place']==name))
@@ -28,7 +36,10 @@ buildings,_=building_reservations(receipt,bounds)
 nonmotor=~np.any(network.graph['travel_public']&MODES['motor']!=0,axis=1)
 other=shapely.union_all(shapely.buffer(network.graph['lines'][nonmotor],network.graph['half_widths'][nonmotor],quad_segs=2))
 rows=[]
-for module,pair in ((659,(19,18)),(1066,(6,4))):
+for case in args.cases:
+    module,*pair=map(int,case.split(':'))
+    assert len(pair)==2
+    pair=tuple(pair)
     shape=network.shape(module);poses,_=network.poses(module,{})
     floor=motor_surface(shape,network.graph,network.tree,network.mesh,network.vehicle,
                         network.curbs['corner_radius_m'],network.curbs['arc_error_m'])
@@ -45,6 +56,7 @@ for module,pair in ((659,(19,18)),(1066,(6,4))):
     row=dict(module=module,pair=pair,heading_dot=float(entry['heading']@exit['heading']),
              source_length_m=route.length,chord_m=float(np.linalg.norm(exit['position']-entry['position'])),
              selected=selected is not None,legacy=legacy is not None,selected_trials=brief(trials),legacy_fit=brief(note))
+    row['wide_first']=args.wide_first
     rows.append(row);print(json.dumps(row),flush=True)
-output=root/'roadbeds/window-return-budget';output.mkdir(parents=True,exist_ok=True)
+output=root/'roadbeds/window-return-budget'/name;output.mkdir(parents=True,exist_ok=True)
 (output/'results.json').write_text(json.dumps(rows,indent=2)+'\n')
