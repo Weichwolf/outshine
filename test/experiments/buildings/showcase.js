@@ -115,8 +115,12 @@ function render() {
     manifest.working_tree_dirty ? 'Arbeitsverzeichnis mit Änderungen' : 'Arbeitsverzeichnis sauber'].map(text => element('span', text)));
   const ready = manifest.images.filter(item => item.status === 'ready');
   const rows = manifest.benchmark?.measurements.filter(row => row.method === 'compact') || [];
-  const stats = [[ready.length, 'abgeschlossene Renderings'], [rows.reduce((sum, row) => sum + row.products, 0), 'Pläne im Kostenvergleich'],
-    [rows.reduce((sum, row) => sum + row.potential_openings, 0), 'mögliche Öffnungen im Plan']];
+  const bodies = (manifest.massing_benchmark?.measurements || []).filter(row => row.method === 'bands');
+  const stats = [[ready.length, 'abgeschlossene Renderings'], ...(bodies.length
+    ? [[bodies.reduce((sum, row) => sum + row.products, 0), 'Gebäudepläne im Körpervergleich'],
+       [bodies.reduce((sum, row) => sum + row.bands, 0), 'Geschossbänder im Körperplan']]
+    : [[rows.reduce((sum, row) => sum + row.products, 0), 'Pläne im Fassadenvergleich'],
+       [rows.reduce((sum, row) => sum + row.potential_openings, 0), 'mögliche Öffnungen im Fassadenplan']])];
   $('stats').replaceChildren(...stats.map(([value, label]) => {
     const node = element('div', undefined, 'stat'); node.append(element('strong', integer(value)), element('span', label)); return node;
   }));

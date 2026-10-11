@@ -12,8 +12,8 @@ Tags: buildings, roofs, facades, semantics
 ## Ergebnis und Ist
 2050-Solarpunk: klare Bauhaus-/Mid-century-Körper; Art déco gezielt. PV auf Dach/Fassade, Balkone/Höfe/Parts.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
-Eigenständige Python-Rezepte nach Esri/CGA; Körper-/Öffnungspläne im Rohling. Dachfamilien/Abnahme offen.
-Vergleich 9411bf629: 13.988 Pläne; direkte Hüllen 4,5–5,3 s, 3D-Union 10,2–14,5 s/Kachel. Native Budgets unbewiesen.
+Eigenständige Esri/CGA-Basis: Provider-Lieferumfang zuerst, Stilregeln später; Körper-/Öffnungspläne im Rohling. Dachfamilien/Abnahme offen.
+Vergleich bd0475ff5: 13.993 Pläne/19.625 Bänder; direkte Hüllen 4,5–5,4 s gegen Union 10,4–12,3 s/Kachel. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
@@ -27,13 +27,13 @@ Hülle/Leibungen teilen metrische Achsen/Box-Coverage; Facing/Frustum, 1 m Beweg
 0,5 px Detailgrenze ist eine Hypothese, kein Gerätegate; Drehung deckt alle Kanten ab. Über 50.000 Öffnungen: Hülle samt Grund.
 Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine durchstoßende Leibung.
 `verify.py`/`verify_massing.py`: Flächen/Volumen, Hof/L-/geteilte Obergeschosse, 85 Ausstattungen, 192 Posen, frischer Offlinehit.
-Blender-Eevee-Renderings/Messprodukte in `build/experiments/buildings/`, tatsächlich geöffnet.
+Blender-Eevee-Bilder in `build/experiments/buildings/` geöffnet; frischer Bauhaus-Cachehit bd0475ff5: 0 abweichende Pixel.
 Diagnosehüllen mischen dieselben Wand-/Rahmen-/Glas-BSDFs nach Coverage ([Blender](https://docs.blender.org/manual/en/4.3/render/shader_nodes/shader/mix.html)).
 `massing.py`: Bauhaus-Pavillon/Art-déco-Staffelung mit bis drei Bändern; Basis/Maximalhöhe/Höfe erhalten.
 GEOS-Mitres strikt innen; nutzbare Obergeschosse, sonst gültige Basis mit Grund. Numerische Nulllängen bis 1e-8 m normalisieren; Parts ungestaffelt.
 `features.py`: Dach-/Fassaden-PV, Mid-century-Vordach, bis drei Balkone samt Türanschluss; komplette Bounds/Puffer im Rohling.
 `massing_benchmark.py`: direkte Bandflächen/2D-Differenzen gegen [Manifold](https://github.com/elalish/manifold)-3D-Union gleicher Prismen.
-UV/Materialgrenzen, getrennte Eckenfächer für punktberührende Höfe; gleiche XYZ/UV-Endpackung. Quellen separat; Ferncluster/Budget offen.
+Direkte Flächen gewählt: 2,2–2,4× schneller bei fast gleichem 9–10,3 MiB-Payload. Getrennte Eckenfächer/XYZ-UV-Packung; Quellen separat.
 [Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash und publiziert nach
 `/tmp/outshine-buildings-showcase/`; Port 8766 zeigt letzte Varianten und interaktive Körper-/Fassadenkosten samt Commit.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. [VisusCity](https://visusarts.itch.io/visuscity-vol2) ist Bildmaßstab.
