@@ -45,7 +45,7 @@ def clothoid_connector(entry,exit,surface,vehicle,error):
 def curvature_connector(entry,exit,surface,vehicle,error):
     begin,end = entry['position'],exit['position']
     initial,final = (np.array([np.arctan2(p['heading'][1],p['heading'][0])]) for p in (entry,exit))
-    fit = fit_curvature_paths(begin[None,:],end[None,:],initial,final)
+    fit = fit_curvature_paths(begin[None,:],end[None,:],initial,final,minimum_radius=vehicle['minimumRearAxleRadiusM'])
     if not fit['valid'][0]:
         return None,dict(reason='polynomial_pose_fit_failed')
     curvature,length = float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])
@@ -63,7 +63,8 @@ def curvature_connector(entry,exit,surface,vehicle,error):
         return None,dict(reason=body.get('reason','polynomial_vehicle_body_outside_surface'))
     return path,dict(profile='G2-polynomial',length_m=length,
                      minimum_radius_m=1/curvature if curvature>0 else None,arc_segments=count,
-                     amplitude=float(fit['amplitude'][0]),closure_error_m=float(fit['closure_error_m'][0]),
+                     amplitude=float(fit['amplitude'][0]),heading_turns=int(fit['heading_turns'][0]),
+                     closure_error_m=float(fit['closure_error_m'][0]),
                      endpoint_curvature_per_m=0.,vehicle_sweep=body)
 
 

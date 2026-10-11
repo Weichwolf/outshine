@@ -152,8 +152,9 @@ def roadbed_curves(entry,exit,vehicle):
                 continue
             fit=fit_symmetric_turns(node,np.array([trim]),start,finish,transition_fraction=transition)
             yield (fit if fit['valid'][0] else None),row|({} if fit['valid'][0] else dict(reason='invalid_analytic_turn'))
-    fit=fit_curvature_paths(entry['position'][None,:],exit['position'][None,:],start,finish)
-    row=dict(profile='G2-polynomial',accepted=False)
+    fit=fit_curvature_paths(entry['position'][None,:],exit['position'][None,:],start,finish,
+                            minimum_radius=vehicle['minimumRearAxleRadiusM'])
+    row=dict(profile='G2-polynomial',accepted=False,heading_turns=int(fit['heading_turns'][0]))
     if not fit['valid'][0]:
         yield None,row|dict(reason='polynomial_pose_fit_failed')
     elif fit['maximum_curvature_per_m'][0]*vehicle['minimumRearAxleRadiusM']>1+1e-12:

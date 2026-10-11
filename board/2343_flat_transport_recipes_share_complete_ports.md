@@ -41,7 +41,7 @@ Versetzte Portposen setzen Endpositionen/Tangenten; die Quellachse gibt innere K
 Ungültige Posen prüfen 61 Vorwärtsrichtungen innerhalb ±30°.
 [Gemeinsame Rahmenwahl](../test/experiments/infrastructure/infrastructure_shared_frame_experiment.py) ergänzt diese Passung:
 5°-Richtungen innerhalb ±30°, dann 17 Positionen; getrennte Fahrbahnhälften bzw. schmale gemeinsame Spur.
-Höchstens 64 Paare je Bauteil; Posedomänen wiederverwenden. Kosten: Versatz + Mindestradius × Winkeländerung.
+Höchstens 64 teure Bauteilversuche; Posedomänen wiederverwenden. Kosten: Versatz + Mindestradius × Winkeländerung.
 Karosserie auf beiden Flächen, Fahrkurve und Nachbarfahrten prüfen; nur angefragter Gewinn ohne Anfragen-/Fahrtenverlust.
 Quellenkontakt/Richtung bleiben fest; alle Nachbarn teilen die Pose.
 [Fahrzeughülle](../test/experiments/infrastructure/infrastructure_vehicle_sweep.py): bei Körperradius r und
@@ -60,8 +60,8 @@ Einbahnkurven erhalten Quell-Windungszahlen um Verkehrsinseln, inklusive Portver
 eine durch Karosseriebreite eingeschränkte Routenfläche wurde verworfen.
 Spurzuordnung und alternative gerichtete Routen brauchen weiterhin einen verbindlichen Verkehrsflussvertrag.
 Windungszahlen sind eine notwendige topologische Bedingung, kein vollständiger Verkehrsflussbeweis.
-[Rezeptprüfungen](../test/experiments/infrastructure/infrastructure_route_experiment.py) umfassen Inselumfahrung,
-verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverwendeten Verbindungen.
+[Rezeptprüfungen](../test/experiments/infrastructure/infrastructure_route_experiment.py): Inselumfahrung,
+verdeckte Hindernisse zwischen Endposen, identische Wiederverwendung.
 [Quintische Routen](../test/experiments/infrastructure/infrastructure_spline_routes.py) laufen vor der Posekette:
 Höchstens 66 Punkte, feste Endtangenten/Endkrümmung null; innen darf die Krümmung variieren.
 Abstände von 1/2/3/4 Fahrzeug-Mindestradien und die Quelle liefern fünf Kandidaten.
@@ -80,8 +80,7 @@ Nachbarabhängigkeiten ergeben eine dünn besetzte Jacobi-Matrix. Höchstens 18 
 Auswertungen je Versuch; insgesamt 1024 tatsächliche Residuenaufrufe je Verbindung, inklusive Ableitungen.
 Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüllen-/Radius-/Windungsprüfung entscheidet.
 [Punktabstände](../test/experiments/infrastructure/infrastructure_surface_clearance.py): Randindex zuerst; nur Randnähe/außen messen.
-Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunkte; erst nach beiden Grundversuchen.
-Hüllenprüfung und Residuenbudget bleiben verbindlich; Eckpunkte allein genügen nicht.
+Nach beiden Grundversuchen ergänzen Hüllenablehnungen Randviertel/Körpermitte; Hüllen/Residuenbudget bleiben fest.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 [Hermite-Fahrraum](../test/experiments/infrastructure/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
@@ -94,7 +93,8 @@ Volle Hüllen gemeinsam bilden; Konstruktionsreserve an Reservationen kappen, ga
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
 Mehrere Achsen je Schnitt behalten eindeutige Kontakte; alle Stationen rücken nach außen. Neue/verlorene Kontakte ablehnen.
 Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
-[Gekoppelte Passung](../test/experiments/infrastructure/infrastructure_coupled_roadbed_experiment.py) liefert gültige Teilnetze mit vollständiger Anfragenbilanz. Bestand zuerst sichern; Auslassungen begründen. Körper, Freiräume und Schnitte am gemeinsamen Mesh prüfen; Außenrahmen fest.
+[Gekoppelte Passung](../test/experiments/infrastructure/infrastructure_coupled_roadbed_experiment.py): gültige Teilnetze, volle Anfragenbilanz; Bestand sichern, Auslassungen begründen. Körper/Freiräume/Schnitte am gemeinsamen Mesh; Außenrahmen fest.
+Schnitt-/Rahmenänderungen getrennt deklarieren; alle Portnachbarn prüfen. G2-Winkelumlauf speichern; bei Radiusfehler Drehsinne und gemeinsame Winkel prüfen.
 [Fensterprüfung](../test/experiments/infrastructure/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Quellkontakte/Fahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache

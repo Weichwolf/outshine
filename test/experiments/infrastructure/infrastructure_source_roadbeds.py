@@ -19,7 +19,8 @@ def roadbed_piece(note):
                 for key in ('entry_pose','exit_pose'))
     start,end=(np.array([np.arctan2(p['heading'][1],p['heading'][0])]) for p in (entry,exit))
     if note['profile']=='G2-polynomial':
-        fit=fit_curvature_paths(entry['position'][None,:],exit['position'][None,:],start,end)
+        fit=fit_curvature_paths(entry['position'][None,:],exit['position'][None,:],start,end,
+                                heading_turns=note.get('heading_turns',0))
     elif note['profile']=='G2':
         node,reason=tangent_intersection(entry,exit)
         assert reason is None

@@ -11,33 +11,13 @@ import numpy as np
 import shapely
 
 sys.path.insert(0,'test/experiments/infrastructure')
-from angular_branch_probe import branch_fitter
 import infrastructure_coupled_roadbed_experiment as coupled
-from infrastructure_curvature_paths import fit_curvature_paths
 from infrastructure_cut_setback_experiment import prepared_network,digest,implementation_files
 from infrastructure_cut_setbacks import restore_cut_plan,setback_network,serialize_cut_plan
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_shared_frames import frame_key
 from infrastructure_turn_roadbed_experiment import building_reservations
 from infrastructure_turn_roadbeds import roadbed_lateral_reach
-
-
-def install_periodic_fitter(radius):
-    alternatives=[branch_fitter(turns) for turns in (-1,1)]
-    original=fit_curvature_paths
-    def fit(*args,**kwargs):
-        result=original(*args,**kwargs)
-        missing=~result['valid']|(result['maximum_curvature_per_m']*radius>1)
-        for alternative in alternatives:
-            if not np.any(missing):break
-            candidate=alternative(*args,**kwargs)
-            chosen=missing&candidate['valid']&(candidate['maximum_curvature_per_m']*radius<=1)
-            for key in result:result[key][chosen]=candidate[key][chosen]
-            missing&=~chosen
-        return result
-    for name,module in sys.modules.items():
-        if name.startswith('infrastructure_') and getattr(module,'fit_curvature_paths',None) is original:
-            module.fit_curvature_paths=fit
 
 
 def evaluate(root,name,module,pair,sections,distance,headings,output):
@@ -112,7 +92,6 @@ def main():
     parser.add_argument('--output',type=Path,default=Path('build/experiments/infrastructure/roadbeds/joint-heading-probe'))
     parser.add_argument('--maximum-candidates',type=int,default=8)
     args=parser.parse_args();choices=json.loads(args.choices.read_text())
-    install_periodic_fitter(choices['required_radius_m'])
     cases=[(case,row) for case in choices['cases'] for row in case['heading_choices']['candidates']]
     cases.sort(key=lambda values:values[0]['setback_m']+choices['required_radius_m']*values[1]['angular_cost_rad'])
     results=[];args.output.mkdir(parents=True,exist_ok=True)

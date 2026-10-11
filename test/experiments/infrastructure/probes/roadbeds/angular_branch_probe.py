@@ -1,7 +1,7 @@
 """Compare bounded polynomial heading branches at real shared-cut poses."""
 
 import argparse
-import inspect
+from functools import partial
 import json
 from pathlib import Path
 import subprocess
@@ -33,13 +33,7 @@ def diagnose_section(core,road,section,point,tangent):
 
 
 def branch_fitter(turns):
-    source=inspect.getsource(fit_curvature_paths)
-    assignment='delta = wrapped(end_heading-start_heading)'
-    assert source.count(assignment)==1
-    source=source.replace(assignment,assignment+'+2*np.pi*turns')
-    namespace=dict(fit_curvature_paths.__globals__,turns=turns)
-    exec(compile(source,'angular-branch-probe','exec'),namespace)
-    return namespace['fit_curvature_paths']
+    return partial(fit_curvature_paths,heading_turns=turns)
 
 
 def compare_poses(poses,pair,minimum_radius,setback):

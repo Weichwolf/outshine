@@ -27,9 +27,11 @@ def curvature_rate_bound(delta,amplitude,length):
     return np.divide(maximum,length**2,out=np.zeros_like(length),where=length>0)
 
 
-def fit_curvature_paths(start,end,start_heading,end_heading,tolerance=1e-7):
+def fit_curvature_branch(start,end,start_heading,end_heading,tolerance,heading_turns):
     start,end = np.asarray(start,dtype=float),np.asarray(end,dtype=float)
     delta = wrapped(end_heading-start_heading)
+    turns=np.broadcast_to(np.asarray(heading_turns,dtype=int),delta.shape).copy()
+    if np.any(turns):delta=delta+2*np.pi*turns
     displacement = end-start
     chord = np.linalg.norm(displacement,axis=1)
     direction = np.arctan2(displacement[:,1],displacement[:,0])
@@ -52,11 +54,25 @@ def fit_curvature_paths(start,end,start_heading,end_heading,tolerance=1e-7):
     check = weighted_sum(np.exp(1j*(start_heading[:,None]+
         heading_progress(points,delta[:,None],amplitude[:,None]))),weights)*length
     closure = np.abs(check-(displacement[:,0]+1j*displacement[:,1]))
-    return dict(start=start,end=end,start_heading=start_heading,delta=delta,amplitude=amplitude,
+    return dict(start=start,end=end,start_heading=start_heading,delta=delta,heading_turns=turns,amplitude=amplitude,
                 length_m=length,closure_error_m=closure,
                 maximum_curvature_per_m=curvature_extrema(delta,amplitude,length),
                 maximum_curvature_rate_per_m2=curvature_rate_bound(delta,amplitude,length),
                 valid=(chord>tolerance)&(forward>1e-9)&np.isfinite(length)&(closure<=tolerance))
+
+
+def fit_curvature_paths(start,end,start_heading,end_heading,tolerance=1e-7,*,heading_turns=0,minimum_radius=None):
+    result=fit_curvature_branch(start,end,start_heading,end_heading,tolerance,heading_turns)
+    if minimum_radius is None:return result
+    missing=~result['valid']|(result['maximum_curvature_per_m']*minimum_radius>1+1e-12)
+    for turns in (-1,1):
+        if not np.any(missing):break
+        candidate=fit_curvature_branch(start,end,start_heading,end_heading,tolerance,turns)
+        chosen=missing&candidate['valid']&(candidate['maximum_curvature_per_m']*minimum_radius<=1+1e-12)
+        for key in result:
+            if key not in ('start','end','start_heading'):result[key][chosen]=candidate[key][chosen]
+        missing&=~chosen
+    return result
 
 
 def sample_curvature_paths(fit,stations):

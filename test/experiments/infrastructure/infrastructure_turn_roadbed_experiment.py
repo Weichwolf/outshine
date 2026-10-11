@@ -16,6 +16,7 @@ from infrastructure_building_clearance import features,polygon_parts,GIRTH_M
 from infrastructure_cut_setback_experiment import prepared_network,digest,implementation_files
 from infrastructure_cut_setbacks import restore_cut_plan
 from infrastructure_curvature_paths import fit_curvature_paths
+from infrastructure_curvature_path_checks import verify_periodic_paths
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_fitted_roadbed_checks import verify_fitted_roadbeds
@@ -227,7 +228,8 @@ def verify_small(vehicle):
     return dict(real_mesh_body_checked=True,rigid_transform_checked=True,reservations_enforced=True,
                 hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
                 composed_roadbeds_checked=True,**verify_inflected(vehicle),**verify_polygonal_mesh(vehicle),
-                **verify_bounded_voids(),**verify_turn_swing(vehicle),**verify_fitted_roadbeds(vehicle,mesh_coverage))
+                **verify_bounded_voids(),**verify_turn_swing(vehicle),**verify_fitted_roadbeds(vehicle,mesh_coverage),
+                **verify_periodic_paths())
 
 
 def real_case(root,name,module):
