@@ -101,12 +101,12 @@ Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außen
 Fahrten am tatsächlichen Mesh prüfen; Anfragen anhand Quellkontakten zuordnen und alte Gewinne erhalten. Unverträgliche Gruppen lokal ablehnen, gültigen Bestand behalten.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
 und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
-Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Netze aller Modi und tragbare Kosten.
+Offen: gemeinsame Port-/Kurvenpassung, Verkehrsfluss, ungültige Ports, alle Modi und Kosten.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
-2. Fahrflächenbedarf aus Quellrouten/Portnähe bestimmen, unabhängig vom Mesh-Batch; kurze Fahrknoten gemeinsam lösen.
-   Mehrfachschnitte erhalten; lange Fahrten aus lokalen Stücken bauen. Große Infrastrukturflächen bestimmen keine Solverdomäne.
+2. Portversätze und alle betroffenen Fahrkurven gemeinsam passen; unabhängige Kurvengewinne können andere Fahrten verlieren.
+   Gemeinsame dünn besetzte Optimierung gegen Einzelpassung vergleichen. Mehrfachschnitte erhalten; lange Fahrten lokal zerlegen.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
    Freiräume/volle Karosserien am zusammengefügten Mesh prüfen; Einzelkandidaten sind kein Netzbeleg.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
