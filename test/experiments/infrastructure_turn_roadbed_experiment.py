@@ -227,7 +227,7 @@ def real_case(root,name,module):
     routes,_=directed_module_routes(network.graph,poses,shape,network.tree)
     previous=next(row for row in before['modules'] if row['module']==module)
     failed=[(r['entry'],r['exit']) for r in previous['turns'] if not r['accepted']]
-    region=surface.envelope.buffer(network.vehicle['widthM']*.5)
+    region=surface.envelope.buffer(roadbed_lateral_reach(network.vehicle)+network.curbs['arc_error_m'])
     receipt=json.loads((root/'inputs'/f'{name}-input.json').read_text())['receipt']
     buildings,tiles=building_reservations(receipt,region)
     reserved=buildings.union(reservations(network,region).difference(surface))

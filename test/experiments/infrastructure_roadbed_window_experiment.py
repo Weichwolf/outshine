@@ -21,7 +21,7 @@ from infrastructure_route_connectivity import network_connectivity
 from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_body_check
 from infrastructure_travel import MODES
 from infrastructure_turn_roadbed_experiment import building_reservations,verify_small
-from infrastructure_turn_roadbeds import compose_roadbeds,preserves_voids,preserves_coverage,published_roadbed_surface
+from infrastructure_turn_roadbeds import compose_roadbeds,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
 
 
 def trial_key(row):
@@ -107,7 +107,8 @@ def solve_window(root,name,frames,required,output):
     records={r['module']:r for r in before['modules']}
     records.update((r['module'],r) for r in cuts['changed_modules'])
     current=dict(before,modules=[records[r['module']] for r in before['modules']])
-    bounds=shapely.MultiPoint(network.product['vertices']).envelope.buffer(network.vehicle['widthM'])
+    bounds=shapely.MultiPoint(network.product['vertices']).envelope.buffer(
+        roadbed_lateral_reach(network.vehicle)+network.curbs['arc_error_m'])
     receipt=json.loads((root/'inputs'/f'{name}-input.json').read_text())['receipt']
     buildings,tiles=building_reservations(receipt,bounds)
     nonmotor=~np.any(network.graph['travel_public']&MODES['motor']!=0,axis=1)
