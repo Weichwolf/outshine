@@ -36,7 +36,7 @@ Innenringe/geschlossene Baublöcke plus Wegzyklen liefern Hofkandidaten, kein au
 Durchgänge anhand gelieferter Tunnel/Überdeckung und fortgesetzter Wege planen; Zugang/Verkehrsart erhalten.
 Brauchbare Restkörper samt Höfen/Parts, Tags/Herkunft behalten; unbrauchbare Reste dürfen entfallen.
 Native Rohlinge binden den Infrastrukturplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
-[2D-Vergleich](../test/experiments/infrastructure_building_clearance.py): GEOS mit räumlicher Vorauswahl
+[2D-Vergleich](../test/experiments/infrastructure/infrastructure_building_clearance.py): GEOS mit räumlicher Vorauswahl
 gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. Höhen-/Hallplan noch offen.
 
 ## Form und Quellsemantik

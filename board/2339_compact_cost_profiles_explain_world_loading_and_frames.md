@@ -21,7 +21,7 @@ Rosenheim, gleiches 500-Hz-Sampling: fertige Mip-Karten senken beobachtete Maint
 von 4,63 auf 2,96 s und Mip-/Upload-Leaves von 831 auf 4 ms; Laden 3,72 → 2,10 s, gleiche PNGs.
 Ein Vorher/Nachher-Paar, kein GPU-Zeit- oder RAM-Gewinnbeweis; 2340 besitzt wechselnde Startspitzen.
 Rosenheim-Sampling enthält zusätzlich 77 ms in `MvtLayer::HeapBytes`: unveränderte Stringkapazitäten
-werden für Berichte wiederholt durchlaufen. [Modell](../test/experiments/osm_heap_accounting.py):
+werden für Berichte wiederholt durchlaufen. [Modell](../test/experiments/infrastructure/osm_heap_accounting.py):
 16 gecachte MVTs/14.593 Strings, 200 Abfragen: 2.918.600 → 14.593 Stringbesuche.
 ParsedTile besitzt die einmal erfasste Layer-Kapazität; Ersetzen/Verdrängen bewegt die Ladung
 mit dem unveränderten Layer. Native Tests erhalten dieselbe Kapazitätsrechnung; OS-RSS bleibt separat.

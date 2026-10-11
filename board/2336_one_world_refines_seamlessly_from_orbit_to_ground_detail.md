@@ -69,7 +69,7 @@ Verdecker brauchen tatsächlich belegte Coverage; eine Cluster-AABB ist keine ma
 Fachpläne; Engine koordiniert native Bounds/Qualität/Kosten ohne OSM-Semantik (2188).
 Stabile räumliche Zellen/Produktstufen/Versionen statt Kameraposition als Rohling-ID.
 Kamera/Projektion wählen Produkte und Runtime-Details; unveränderte Rohlinge wiederverwenden.
-Kachelzulassung nutzt native Metadaten; [Modell](../test/experiments/native_tile_admission.py) prüft reale Stückzahlen. Quellen erst bei Miss öffnen; gepackte Bereiche/Morton-Ordnung erhalten.
+Kachelzulassung nutzt native Metadaten; [Modell](../test/experiments/infrastructure/native_tile_admission.py) prüft reale Stückzahlen. Quellen erst bei Miss öffnen; gepackte Bereiche/Morton-Ordnung erhalten.
 Nur erforderliche Produkte erzeugen; SSD/RAM/GPU begrenzen.
 Laibungstiefe nur expandieren, wenn `FocalPx × 0,16 m / max(d − 64 m, 1 m)` das
 Pixelbudget überschreitet. 64 m ist der Wiederverwendungsradius; Form-/Shell-Grenzen bleiben gleich.
@@ -85,7 +85,7 @@ Zuerst Massed/Skyline. Ferne Kosten nehmen ab; Kontakte/Straßen/Parts/Höfe nah
 `PreparedStructureTile::Surfaces` enthält angereicherte Formen, keine Fine-Dreiecksmeshes.
 Ganze Formen/Koordinaten vor Bedarf dekodieren ist der Fehler; fertige Formen nicht erneut erzeugen.
 Wien/CP/Tokyo: 1,61/1,24/2,36 Mio. Gebäudedreiecke (ROW, keine GPU-Zählung); verdeckte/ferne Einzelobjekte vor Planung und Emission sparen.
-[Python-Flächenmodell](../test/experiments/building_surface.py): Tokyo 588.862 Pläne → 8.782
+[Python-Flächenmodell](../test/experiments/infrastructure/building_surface.py): Tokyo 588.862 Pläne → 8.782
 Flächendreiecke im flachen Modell; kein nativer/GPU-/Bildnachweis. Generator-/Renderer-/Hybrid-
 Verdeckung mit identischen Inputs, 360° und Bewegung vergleichen; frühere Bilder nicht löschen.
 2336 wählt kompakte Zellbounds/Fernprodukte; 2280 lädt unabhängige Form-/Kontaktblöcke erst danach.

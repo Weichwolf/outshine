@@ -23,5 +23,5 @@ Besitzer: generators/road; Gebäude/Terrain konsumieren den Freiraum.
 Durchgängige verwendete Anschlüsse, funktionale Durchfahrten/Portale und plausible Steigungen.
 Zeit/Varianten/Speicher begrenzen; mehr Ebenen nur nach gemessenem Wachstum und Bildgewinn.
 Keine unbegrenzte Suche nach einer einzigen korrekten Lösung; Ergebnis/Nutzungsgrad vor Solver-Aufwand.
-[Rezepte](../test/experiments/infrastructure_recipes.py),
+[Rezepte](../test/experiments/infrastructure/infrastructure_recipes.py),
 [Primärquellen/Referenzprojekte](../doc/references/infrastructure/README.md).

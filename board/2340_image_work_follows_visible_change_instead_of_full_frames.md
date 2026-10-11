@@ -31,7 +31,7 @@ gepackte SoA-Positionen, begrenzte Batches und Attribute erst nach Sichtbarkeit 
 AVX512-Kosten sind kein ARM-/GPU-Beleg. Visibility-Resolve lohnt dort nicht in jeder Szene;
 Outshine vergleicht ihn mit seinem vorhandenen Forward-/Depth-Pfad, statt pauschal zu migrieren.
 Ersetzt: `depthPyramid.comp` las für vier Ebenen viermal die Originaltiefe.
-[Reduktionsmodell](../test/experiments/depth_pyramid_reduction.py): bei 1280×720 derzeit
+[Reduktionsmodell](../test/experiments/infrastructure/depth_pyramid_reduction.py): bei 1280×720 derzeit
 3.686.400 Abfragen; verkettete Minima 1.224.000 Reads; 16×16-Gruppen 921.600 Texturabfragen
 plus Shared-Memory-Reduktion. Eine 8×8-Gruppe reduziert einen 16×16-Quellblock, schreibt
 alle vier Ebenen in einer Dispatch und synchronisiert nur gruppenintern, 85 Shared-Floats.

@@ -14,15 +14,15 @@ Ein ebener quellbezogener Vektorgraph als erstes gültiges Grundmodell; kein Hö
 OSM-Achsen geben Verteilung/Verbindungshinweise. Kleine lokale Anpassungen sind ausdrücklich erlaubt.
 Der vorhandene Flächenversuch vereinigt Bänder, löst aber weder Ports noch alle Verkehrsverbindungen.
 Besitzer: generators/road; OSM-Semantik verbleibt in generators/osm. Native Lieferung folgt in 2281.
-[Ebener Vektorversuch](../test/experiments/infrastructure_flat_network.py) liefert kleine Grundfälle,
+[Ebener Vektorversuch](../test/experiments/infrastructure/infrastructure_flat_network.py) liefert kleine Grundfälle,
 Quell-IDs pro nodelter Kante, begrenzte lokale Endkorrekturen und eine vollständige Nutzungsbilanz.
 Andere Ebenen/Innenräume bleiben in diesem Schritt ausdrücklich nicht verwendet.
 Lückenlose Bauteilflächen, Kurven/Routenregeln und native Integration sind damit noch nicht bewiesen.
-[Quellrichtung](../test/experiments/infrastructure_source_directions.py) unterscheidet umgekehrte
+[Quellrichtung](../test/experiments/infrastructure/infrastructure_source_directions.py) unterscheidet umgekehrte
 Quellen und überträgt deren Orientierung auf jede gemeinsam genodelte Kante, auch bei Ringen.
 Numerisch identische Knoten werden gemeinsam mit dem Mesh unter derselben Verschiebungsgrenze
 vereinigt; reine Rundungsreste sind keine befahrbaren Kanten. Unklare Richtungen werden gezählt.
-[Verkehrsprüfung](../test/experiments/infrastructure_travel_experiment.py) übersetzt gelieferte
+[Verkehrsprüfung](../test/experiments/infrastructure/infrastructure_travel_experiment.py) übersetzt gelieferte
 Richtung/Zugänge und Klassenrezepte in gerichtete Modusmasken. Spezifische Angaben überschreiben
 allgemeine Zugänge; private/beschränkte Verbindungen bleiben getrennt vom öffentlichen Netz.
 Absteigen/Seitenwegbedarf und unklare Werte werden quellbezogen ausgewiesen, nicht still geraten.
@@ -46,6 +46,6 @@ Quellbezogener ebener Graph mit gemeinsam gespeicherten Knoten und vollständige
 Kein stiller Verlust, keine ungültigen Verbindungen; isolierte ungelöste Teile blockieren das übrige Netz nicht.
 Budget und Wiederholungsgrenze explizit; Laufzeit/Spitzen/Wachstum mit echten Eingaben messen.
 Ein paar zusammenhängende Straßen sind nur der erste Fall, kein Beleg für das ganze Fenster.
-[Flächenversuch](../test/experiments/infrastructure_network.py),
-[Graphversuch](../test/experiments/infrastructure_network_graph.py),
+[Flächenversuch](../test/experiments/infrastructure/infrastructure_network.py),
+[Graphversuch](../test/experiments/infrastructure/infrastructure_network_graph.py),
 [Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf).

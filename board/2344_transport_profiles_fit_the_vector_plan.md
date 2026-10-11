@@ -23,5 +23,5 @@ Besitzer: generators/road; finales Terrain konsumiert die geplanten Kontakte.
 Klassenabhängige praxistaugliche Profile, stetige Anschlüsse, keine Stufen/verdrehten Fahrbahnen.
 Ausgegebene ganze Querschnitte prüfen; richtige Mittellinien allein reichen nicht.
 Keine Fixierung auf Originalhöhen oder globale optimale Rekonstruktion. Nutzungsgrad/Bild/Kosten entscheiden.
-[Profile/Envelopes](../test/experiments/road_profile_envelopes.py),
+[Profile/Envelopes](../test/experiments/infrastructure/road_profile_envelopes.py),
 [Procedural Roads, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
