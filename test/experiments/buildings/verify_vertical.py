@@ -112,7 +112,7 @@ def verify(plan, product):
     connected_spaces(plan)
     closed_parts(product)
     bounds = product['vertices'][:,2].min(),product['vertices'][:,2].max()
-    if not np.allclose(bounds,[plan['base_z_m'],plan['source_top_m']],atol=1e-7,rtol=0):
+    if not np.allclose(bounds,[plan['base_z_m'],plan['body_top_m']],atol=1e-7,rtol=0):
         raise AssertionError('Constructed storeys changed the delivered vertical envelope')
     for index in range(plan['storeys']):
         current = level(plan,index)
@@ -150,7 +150,8 @@ def verify(plan, product):
                 constructed_stairs='stair' in plan,stair_connections=max(0,plan['storeys']-1),
                 sampled_poses=tested,sampled_min_headroom_m=headroom if np.isfinite(headroom) else None,
                 feet_radius_m=.10,torso_radius_m=.30,torso_low_m=.40,body_height_m=1.90,
-                native_collision=False,source_height_interval_m=list(bounds))
+                native_collision=False,body_height_interval_m=list(bounds),
+                source_height_interval_m=[plan['base_z_m'],plan['source_top_m']])
 
 
 def compare_flights():

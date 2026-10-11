@@ -34,6 +34,7 @@ REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'ope
                  'plan_json_bytes', 'raw_mesh_bytes', 'alternatives', 'method', 'plan_status',
                  'stage', 'circulation', 'circulation_status', 'core_alternatives', 'room_kinds',
                  'storeys', 'stair_connections', 'vertical_status', 'checks', 'source_coverage')
+REPORT_FIELDS += ('roof_kind','roof_method','roof_rise_m','roof_facets','body_top_m','camera_origin','lod_status')
 
 
 def git(*args):
@@ -82,6 +83,13 @@ def image_record(report_path, root):
                                          'Raumpläne pro Geschoss wiederholt; Nutzung, Außenanschluss und native Spielerphysik bleiben offen.')
                 else:
                     record['caption'] = 'Quelle erhalten; Geschossplan mit konkretem Grund ausgelassen: '+('; '.join(report['limitations']))
+        elif report.get('representation') == 'roof-plan':
+            names = {'flat':'Flach','hip':'Walm','gable':'Sattel mit einem First','shed':'Pult'}
+            view = {'plan':'Grundriss / Schnitt / 2.5D','near':'Nahansicht','orbit':'Gegenansicht','far':'Ferne · vollständige Detailreferenz'}[report['view']]
+            record.update(title=f"Dach · {report['label']} · {names[report['roof_kind']]} · {view}",category='dach',
+                          caption=f"{report['storeys']} generische Geschosse, {report['roof_facets']} Dachflächen; Quelle/Höfe/Gesamthöhe erhalten. "
+                                  f"Dach {report['roof_rise_m']:.2f} m innerhalb der Quellhöhe reserviert. "
+                                  'Konstruktive Komponenten; noch keine vollständige Architekturfamilie, keine freigegebene Fern-LOD.')
         elif report.get('representation') == 'esri-reference':
             ref = report['reference']
             label = {'near': 'Nahansicht', 'orbit': 'Rundum-Gegenansicht', 'far': 'Distanzansicht'}[report['view']]
@@ -187,6 +195,8 @@ def publish(root):
     context_validation = json.loads(context_path.read_text()) if context_path.is_file() else None
     vertical_path = EXPERIMENTS/'vertical-validation.json'
     vertical_validation = json.loads(vertical_path.read_text()) if vertical_path.is_file() else None
+    roof_path = EXPERIMENTS/'roof-validation.json'
+    roof_validation = json.loads(roof_path.read_text()) if roof_path.is_file() else None
     esri = {}
     for key, relative in [('catalog', 'esri-catalog.json'), ('validation', 'esri-validation.json'),
                           ('oracle', 'esri-oracle/oracle-summary.json'), ('ghidra', 'esri-ghidra/ghidra-core.json')]:
@@ -208,7 +218,7 @@ def publish(root):
                     working_tree_dirty=bool(git('status', '--porcelain')),
                     images=images, benchmark=benchmark(), massing_benchmark=massing_benchmark(),
                     provider_comparison=provider, source_validation=validation, context_validation=context_validation,
-                    vertical_validation=vertical_validation, esri=esri,
+                    vertical_validation=vertical_validation, roof_validation=roof_validation, esri=esri,
                     progress='Konstruktive Pläne über die ganze Quellhöhe mit direktem Flurzugang, Stufen, Podesten und Geländern. '
                              'Ghidra belegt ausgewählte Esri-Geometriepfade; eigene Architektur und Spielintegration erreichen das Qualitätsziel noch nicht.',
                     gaps=['Nutzungsspezifische Raum-/Geschossprogramme, weitere Treppentypen, Aufzüge und Außenanschlüsse',

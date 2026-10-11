@@ -22,6 +22,20 @@ Gelieferte Geschoss-/Dachangaben erhalten, fehlende ergänzen und kennzeichnen; 
 Skelettflächen für konkave/Hof-Dächer gegen analytische metrische Rechteckdächer vergleichen; Quelle/Höfe unverändert.
 Zusätzliche externe Python-Bibliothek `py_straight_skeleton==0.1.0` in `.venv`; kein Fremdcode im Repository.
 Ungewichtetes Skelett ist ein Vergleichspfad, keine vollständige Esri-Dachentsprechung; Gewichte/überhängende/even-Dächer bleiben offen.
+[`roof_planes.py`](../test/experiments/buildings/roof_planes.py): Flach-, Walm-, einfirstige Sattel- und Pultflächen.
+Rechtecke analytisch gegen Skelett vergleichen; konkave/Hofgrundrisse aus Skelett, keine Bounding-Box-Ersetzung.
+Je 21 warme Läufe, gleiche geprüfte Flächen/Aufpunkthöhen/Plattenvolumen; lokale Kosten nahezu gleich, kein Globalgewinner.
+Analytisch bei tatsächlich rechteckiger Quelle, sonst Skelett; Flächen müssen Quelle lücken-/überlappungsfrei abdecken.
+256 Quellvertices/1.024 Skelettknoten/4.096 Events; zwei Sekunden Workerbudget, gemeinsamer Bibliothekstracer geschützt und auch nach Fehler wiederhergestellt.
+[`roof_components.py`](../test/experiments/buildings/roof_components.py): geschlossene 0,18-m-Dachplatten und Giebel-/Attikwandinfill.
+[`roof_recipe.py`](../test/experiments/buildings/roof_recipe.py): ursprüngliche Eigenschaften/Quelle behalten, Körperoberkante als eigene Dachreservierung.
+Typ/Höhe/Winkel/Richtung/Orientierung/Dachfarbe aus direkten Angaben; fehlende Dachform aus Typ/Größe/Höhe oder explizitem Experiment.
+Original-OSM-Dachfelder sind optionale Kontrollen, keine Behauptung über ihren OpenFreeMap-Lieferumfang; Unsupported/Konflikte mit Grund ablehnen.
+32 konstruktive Dach-/Körperkombinationen auf acht Grundrissen, zwölf ausgelassene Gegenkombinationen; reine Dachkomponenten, keine fertigen Architekturfamilien.
+[`verify_roofs.py`](../test/experiments/buildings/verify_roofs.py): tatsächliche Dachdeckung, geschlossene Bauteile, Gesamthöhe/Höfe und vorhandene Körperwege prüfen.
+[`roof_probe.py`](../test/experiments/buildings/roof_probe.py): echte Mesh-Schnitte, 2.5D und äußere Nah-/Gegen-/Distanzansichten.
+Gleiche Kamerakonstruktion/Licht wie Esri-Candler; Candler ergänzt oberhalb seines Höhenparameters, eigener Dachraum liegt innerhalb der Quelle.
+Distanzbilder zunächst vollständige Detailreferenzen; kein freigegebener Fern-LOD, keine vollständige Rezeptfamilie oder Nachtlichtabnahme.
 
 ## Familien und Komponenten
 - Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.
@@ -49,5 +63,6 @@ Fremde Modelle/Code bleiben externe Referenzen (2400); eigener Generator unter `
 [Python-Skeleton-Bibliothek](https://pypi.org/project/py_straight_skeleton/),
 [Esri Walm](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-hip.htm),
 [Esri Sattel](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-gable.htm).
+[OSM Dachrichtung](https://wiki.openstreetmap.org/wiki/Key:roof:direction): Gefälle, keine Firstachse; Grad/16 Kompassrichtungen.
 [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214).
 Gemeinsame Arbeits-/Bildregeln in AGENTS, Gebäude-/Quellvertrag in 2173.

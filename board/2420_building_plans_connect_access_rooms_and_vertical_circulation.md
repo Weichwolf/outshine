@@ -83,11 +83,16 @@ Zugangsgraph aller 399 Flächen und geometrische An-/Austritte. Verschlossene De
 Spaltenprüfer gilt für vertikal zusammenhängende geschlossene Prismen/Profile, nicht beliebige nichtkonvexe Assets.
 16 Radialproben plus Zentrum, 0,10 m Fußradius; Torso 0,30 m Radius/0,40–1,90 m über den Füßen.
 Übergänge höchstens 0,10 m horizontal abtasten, Füße beim Steigen anheben; Stichprobe, keine kontinuierliche native Kapselphysik.
-Kleinste gemessene Kopffreiheit der acht Fälle rund 2,039 m. Erhöhte/unterirdische Außenanschlüsse weiterhin ungelöst.
+Deckenöffnung folgt getrennt An-/Austritt: längerer unterer Lauf braucht frühere Öffnung; obere Austrittstufe behält ihr Podest.
+Oberes Abschlussgeländer folgt diesem Absatz; keine kleinere Prüffigur. Erhöhte/unterirdische Außenanschlüsse weiterhin ungelöst.
 Profil gegen einzelne gleich geformte Stufenbauteile: gleiche analytische Volumen/Auftrittshöhen; je 21 warme Python-Läufe,
 p50/p95, Bauteile und Dreiecke offenlegen. Geschlossenes Profil benötigt lokal weniger Aufbauarbeit/Dreiecke; kein nativer Framebeleg.
 Grundriss und zwei überlagerte parallele tatsächliche Treppenschnitte zuerst; Blender-Ansichten desselben Meshs danach.
 Kern-Nahansicht blendet übrige Bauteile/Böden aus; vollständiges Prüfmesh und Ausblendungsmetadaten erhalten.
+2440 reserviert Dachhöhe vor Geschossplanung; `body_top_m` getrennt von erhaltener `source_top_m`, direkte Geschosszahl unverändert.
+Kernkandidaten dürfen den Start nicht in ihrer Mitre-Clearance blockieren; notwendige Voraussetzung vor den zwölf teuren Raum-/Wegealternativen.
+Bis fünf Antrittstüren je vier Kernorientierungen; nach jeder versetzten Tür vollständige Raum-Clearance erneut verbunden verlangen.
+Bauteil-IDs append-only monoton, letztes Element statt wiederholtem globalem Maximum; lokale Körpermeshes bitgleich zum vorherigen Emitter.
 WKB-Plan/NPZ-Prüfmesh in Build sind Experimentausgaben, kein integrierter Asset-Cachevertrag (2460).
 
 ## Verfahren

@@ -14,15 +14,15 @@ MAX_STOREYS = 64
 
 
 def level(plan, index):
-    shift = index*(plan['source_top_m']-plan['base_z_m'])/plan['storeys']
+    shift = index*(plan['body_top_m']-plan['base_z_m'])/plan['storeys']
     doors = [door for door in plan['doors'] if index == 0 or door['kind'] != 'entrance']
     return plan | dict(base_z_m=plan['base_z_m']+shift, floor_z_m=plan['floor_z_m']+shift,
                        ceiling_z_m=plan['ceiling_z_m']+shift, doors=doors,
                        windows=windows(plan['footprint'], plan['rooms'], doors))
 
 
-def build(sample):
-    plan = circulation(sample, require_stairs=True)
+def build(sample, body_top_m=None):
+    plan = circulation(sample, require_stairs=True,body_top_m=body_top_m)
     plan['vertical_status'] = 'unplanned'
     if plan.get('circulation_status') != 'common-access':
         return plan

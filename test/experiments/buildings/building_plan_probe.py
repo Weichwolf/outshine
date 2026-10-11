@@ -32,15 +32,17 @@ def encode(value):
     raise TypeError(type(value).__name__)
 
 
-def render_spatial(mesh_path, output, commit, footprint, view='storey', camera_tangent=None):
+def render_spatial(mesh_path, output, commit, footprint, view='storey', camera_tangent=None, colours=None):
     script = Path(__file__).with_name('render_plan_blender.py')
     log_path = Path(tempfile.gettempdir())/f'outshine-buildings-plan-{output.stem}-{commit[:9]}.log'
     with tempfile.TemporaryDirectory(prefix='outshine-buildings-plan-render-') as temporary:
         directory = Path(temporary)
         image = directory/'spatial.png'
         batch = directory/'batch.json'
-        batch.write_text(json.dumps([dict(mesh=str(mesh_path.resolve()), output=str(image), view=view,
-                                         camera_tangent=frame(footprint)[0][:2] if camera_tangent is None else camera_tangent)]))
+        row = dict(mesh=str(mesh_path.resolve()), output=str(image), view=view,
+                   camera_tangent=frame(footprint)[0][:2] if camera_tangent is None else camera_tangent)
+        row.update(colours or {})
+        batch.write_text(json.dumps([row]))
         command = ['blender', '--background', '--factory-startup', '--threads', '2', '--python-exit-code', '1',
                    '--python', str(script.resolve()), '--', '--batch', str(batch)]
         with log_path.open('w') as log:

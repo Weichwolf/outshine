@@ -5,6 +5,8 @@ import math
 from pathlib import Path
 import sys
 
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+
 import bpy
 from mathutils import Vector
 
@@ -154,6 +156,10 @@ def render(configuration):
     shell = {style: shell_material(style, pixels, colours) for style, pixels in configuration['tiles'].items()}
     for product in configuration['products']:
         add_product(product, palette, shell)
+    constructive = None
+    if configuration.get('constructive'):
+        from render_constructive import add
+        constructive = add(configuration['constructive'],material)
     reference = add_reference(configuration['reference_obj'], configuration['reference_bounds_m']) if configuration.get('reference_obj') else None
     centre = configuration['target']
     span = configuration['ground_span_m']
@@ -183,7 +189,8 @@ def render(configuration):
     scene.render.filepath = configuration['output']
     bpy.ops.render.render(write_still=True)
     print(json.dumps(dict(renderer=bpy.app.version_string, engine=scene.render.engine,
-                          products=len(configuration['products']), profile=configuration['profile'], reference_import=reference)), flush=True)
+                          products=len(configuration['products'])+int(constructive is not None), profile=configuration['profile'],
+                          reference_import=reference,constructive_import=constructive)), flush=True)
 
 
 if __name__ == '__main__':

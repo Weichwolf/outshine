@@ -6,6 +6,8 @@ import time
 import numpy as np
 import shapely
 
+from building_corridor import CORRIDOR_ZONE_M
+
 
 SERVICE_CORE_M = (2.4, 2.4)
 MAX_CORE_CHOICES = 3
@@ -41,6 +43,8 @@ def placements(interior, root, storeys, rise_m):
                 tested += 1
                 rectangle = shapely.box(x-width/2, y-depth/2, x+width/2, y+depth/2)
                 if not margin.covers(rectangle) or rectangle.distance(root) < .86:
+                    continue
+                if rectangle.buffer(CORRIDOR_ZONE_M/2,join_style='mitre').covers(root):
                     continue
                 score = rectangle.distance(root)+.01*shapely.Point(x, y).distance(interior.centroid)
                 candidates.append(dict(polygon=rectangle, method=method, score=score,

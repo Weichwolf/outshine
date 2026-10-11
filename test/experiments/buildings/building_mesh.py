@@ -11,7 +11,7 @@ def solid(storage, geometry, low, high, material):
     vertices, faces, materials, parts = storage
     for polygon in polygons(geometry):
         polygon = shapely.orient_polygons(polygon)
-        part = max(parts, default=-1)+1
+        part = parts[-1]+1 if parts else 0
         for ring in [polygon.exterior]+list(polygon.interiors):
             for a, b in zip(ring.coords, list(ring.coords)[1:]):
                 first = len(vertices)

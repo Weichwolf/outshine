@@ -113,24 +113,29 @@ def walkable(plan):
     return canonical_geometry(floor.difference(obstacles)).buffer(-AGENT_RADIUS_M, join_style='mitre')
 
 
-def build(sample):
+def build(sample, body_top_m=None):
     footprint = shapely.orient_polygons(sample['polygon'])
     data = attributes(sample['properties'])
+    top = data['buildingHeight'] if body_top_m is None else number(body_top_m)
+    if not data['minHeight'] < top <= data['buildingHeight']:
+        raise ValueError('reserved body interval leaves the delivered building envelope')
+    body_height = top-data['minHeight']
     recipe = choose(sample['properties'], sample.get('context', {}), footprint, data['buildingHeight'], data['minHeight'])
-    count = max(1, round(data['bodyHeight']/recipe['parameters']['floor_m']))
-    count = min(count, max(1, int(data['bodyHeight']/(2.30+FLOOR_M+CEILING_M))))
+    count = max(1, round(body_height/recipe['parameters']['floor_m']))
+    count = min(count, max(1, int(body_height/(2.30+FLOOR_M+CEILING_M))))
     supplied_levels = next((sample['properties'][key] for key in ('building:levels', 'levels') if key in sample['properties']), None)
     if supplied_levels is not None:
         levels = number(supplied_levels)
         if not levels.is_integer() or levels < 1:
             raise ValueError('invalid supplied storey count')
         count = int(levels)
-    storey = data['bodyHeight']/count
+    storey = body_height/count
     plan = dict(id=sample['id'], footprint=footprint, source_properties=sample['properties'].copy(),
                 context=sample.get('context', {}).copy(), source_attributes=data.copy(),
                 version=1, scope='procedural first-storey rooms without an architectural use programme',
                 source_sha256=sample.get('source_sha256'), recipe=recipe, status='unplanned', omissions=[],
-                base_z_m=data['minHeight'], source_top_m=data['buildingHeight'], storeys=count,
+                base_z_m=data['minHeight'], source_top_m=data['buildingHeight'], body_top_m=top, storeys=count,
+                body_top_origin='source envelope' if body_top_m is None else 'procedural roof reservation',
                 storey_origin='supplied levels' if supplied_levels is not None else 'procedural height/use estimate',
                 floor_z_m=data['minHeight']+FLOOR_M, ceiling_z_m=data['minHeight']+storey-CEILING_M,
                 wall_m=WALL_M, partition_m=PARTITION_M, rooms=[], doors=[], windows=[], alternatives=[])

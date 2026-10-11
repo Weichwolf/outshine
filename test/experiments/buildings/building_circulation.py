@@ -158,8 +158,8 @@ def attempt(plan, interior, seeds, core, root, entry_local, reverse, entry, meth
     return result, report
 
 
-def build(sample, require_stairs=False):
-    plan = baseline(sample)
+def build(sample, require_stairs=False, body_top_m=None):
+    plan = baseline(sample,body_top_m)
     plan.update(circulation_status='unplanned', core_alternatives=[], circulation_alternatives=[])
     if plan['status'] != 'connected-first-storey':
         return plan
@@ -177,7 +177,7 @@ def build(sample, require_stairs=False):
     normal = np.array([tangent[1], -tangent[0]])
     root = np.asarray(affine_transform(shapely.Point(centre-normal*(WALL_M+CORRIDOR_ZONE_M/2+.15)), forward).coords[0])
     plug = affine_transform(rectangle(centre, tangent, CORRIDOR_ZONE_M, .10, WALL_M+CORRIDOR_ZONE_M), forward)
-    rise = (plan['source_top_m']-plan['base_z_m'])/plan['storeys']
+    rise = (plan['body_top_m']-plan['base_z_m'])/plan['storeys']
     cores, plan['core_alternatives'] = placements(local, shapely.Point(root), plan['storeys'], rise)
     candidates, reports = [], []
     for seed_method, seeds in seed_sets:

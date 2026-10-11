@@ -100,7 +100,7 @@ def run_render(config, path):
     log = Path(tempfile.gettempdir())/f'outshine-buildings-{path.parent.name}-{path.stem}-{commit}.log'
     began = time.perf_counter()
     with log.open('w') as handle:
-        subprocess.run(['blender', '--background', '--factory-startup', '--python',
+        subprocess.run(['blender', '--background', '--factory-startup', '--threads', '2', '--python-exit-code', '1', '--python',
                         str(Path(__file__).with_name('render_blender.py')), '--', str(path)],
                        stdout=handle, stderr=subprocess.STDOUT, check=True, timeout=600)
     if not Path(config['output']).is_file():

@@ -7,7 +7,7 @@ import numpy as np
 import shapely
 from shapely.affinity import affine_transform
 
-from building_layout import DOOR_M, PARTITION_M, canonical_geometry, rectangle
+from building_layout import AGENT_RADIUS_M, DOOR_M, PARTITION_M, canonical_geometry, polygons, rectangle
 from building_mesh import solid
 from building_plan import FLOOR_M, walkable
 
@@ -78,12 +78,18 @@ def guard(storage, descriptor, layout):
 def landing_guard(layout, last=False):
     origin,along,across = (np.asarray(layout[key]) for key in ('origin','along','across'))
     width = layout['size_m'][0]
-    low,high = FLIGHT_WIDTH_M,width-FLIGHT_WIDTH_M
-    if last:
-        upper = (np.asarray(layout['flights'][1]['origin'])-origin)@across
-        low,high = (0.,width-FLIGHT_WIDTH_M) if upper>width/2 else (FLIGHT_WIDTH_M,width)
-    centre = origin+(low+high)/2*across+layout['upper_front_m']*along
-    return rectangle(centre,across,high-low,.02,.02)
+    centre = origin+width/2*across+layout['upper_front_m']*along
+    middle = rectangle(centre,across,width-2*FLIGHT_WIDTH_M,.02,.02)
+    if not last:
+        return middle
+    lower = (np.asarray(layout['flights'][0]['origin'])-origin)@across
+    end = rectangle(origin+lower*across+LANDING_M*along,across,FLIGHT_WIDTH_M,.02,.02)
+    difference = layout['upper_front_m']-LANDING_M
+    if difference<=1e-8:
+        return canonical_geometry(middle.union(end))
+    side = FLIGHT_WIDTH_M if lower<width/2 else width-FLIGHT_WIDTH_M
+    connector = rectangle(origin+side*across+(LANDING_M+difference/2)*along,along,difference+.04,.02,.02)
+    return canonical_geometry(shapely.union_all([middle,end,connector]))
 
 
 def geometry_frame(core, flip):
@@ -117,7 +123,9 @@ def core_layout(core, rise, floor_z, flip=False, mirror=False):
     second = dict(origin=(origin+right*across+back*along).tolist(), direction=(-along).tolist(),
                   base_z_m=floor_z+lower*riser, risers=upper, riser_m=riser)
     mid = affine_transform(shapely.box(0., back, width, depth), reverse)
-    opening = canonical_geometry(affine_transform(shapely.box(0., upper_front, width, depth), reverse))
+    lower_opening = shapely.box(0.,LANDING_M,FLIGHT_WIDTH_M,depth) if left<width/2 else shapely.box(width-FLIGHT_WIDTH_M,LANDING_M,width,depth)
+    opening = canonical_geometry(affine_transform(shapely.union_all([
+        shapely.box(0.,upper_front,width,depth),lower_opening]),reverse))
     front = affine_transform(shapely.box(0., 0., width, LANDING_M), reverse)
     path = [[left, LANDING_M/2, floor_z]]
     path.extend([left, LANDING_M+(i-.5)*TREAD_M, floor_z+i*riser] for i in range(1, lower))
@@ -134,7 +142,7 @@ def core_layout(core, rise, floor_z, flip=False, mirror=False):
                 upper_front_m=upper_front, back_m=back, flip=flip, mirror=mirror)
 
 
-def portal(plan, layout):
+def portals(plan, layout):
     origin, along, across = (np.asarray(layout[key]) for key in ('origin','along','across'))
     width, _ = layout['size_m']
     candidates = [(origin+x*across-PARTITION_M/2*along, across) for x in (.60, width/2, width-.60)]
@@ -153,19 +161,24 @@ def portal(plan, layout):
         if set(owners) != {0, 1}:
             continue
         polygon = rectangle(centre, tangent, DOOR_M, .20, .20)
-        return previous | dict(centre=centre.tolist(), tangent=tangent.tolist(), polygon=polygon)
-    return None
+        yield previous | dict(centre=centre.tolist(), tangent=tangent.tolist(), polygon=polygon)
 
 
 def connect(plan):
-    rise = (plan['source_top_m']-plan['base_z_m'])/plan['storeys']
+    rise = (plan['body_top_m']-plan['base_z_m'])/plan['storeys']
     for flip in (False, True):
         for mirror in (False, True):
             layout = core_layout(plan['rooms'][1], rise, plan['floor_z_m'], flip, mirror)
-            door = portal(plan, layout) if layout is not None else None
-            if door is not None:
+            if layout is None:
+                continue
+            for door in portals(plan,layout):
                 doors = [door if set(old['rooms']) == {0, 1} else old for old in plan['doors']]
                 result = plan | dict(doors=doors, stair=layout)
                 result['walkable'] = walkable(result)
+                entry = plan['entrance']['landing'].representative_point()
+                reached = next((part for part in polygons(result['walkable']) if part.covers(entry)),None)
+                clear = [room.buffer(-AGENT_RADIUS_M,join_style='mitre') for room in plan['rooms']]
+                if reached is None or any(room.is_empty or room.difference(reached).area>1e-6 for room in clear):
+                    continue
                 return result, None
     return None, 'reserved core has no full-width doorway at a valid stair approach landing'

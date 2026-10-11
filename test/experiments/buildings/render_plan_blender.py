@@ -13,7 +13,7 @@ import numpy as np
 
 
 COLOURS = [(0.72, .64, .50, 1.), (.40, .43, .46, 1.), (.65, .69, .74, 1.), (.21, .61, .75, 1.), (.76, .80, .82, 1.),
-           (.68,.52,.34,1.), (.77,.67,.52,1.), (.31,.46,.42,1.)]
+           (.68,.52,.34,1.), (.77,.67,.52,1.), (.31,.46,.42,1.),(.35,.35,.35,1.),(.16,.18,.18,1.)]
 
 
 def render(row):
@@ -22,10 +22,12 @@ def render(row):
     data = np.load(row['mesh'])
     selected = data['materials'] != 2
     view = row.get('view','storey')
+    if view=='exterior':
+        selected = np.ones(len(data['faces']),dtype=bool)
     if 'levels' in data:
         if view == 'core':
             selected &= np.isin(data['materials'],[5,6,7]) & (data['levels'] <= 1)
-        else:
+        elif view!='exterior':
             selected &= data['levels'] == row.get('level',0)
     faces, colours = data['faces'][selected],data['materials'][selected]
     geometry = bpy.data.meshes.new('selected-source-mesh')
@@ -34,6 +36,8 @@ def render(row):
     building = bpy.data.objects.new('inspection-components', geometry)
     scene.collection.objects.link(building)
     for index, colour in enumerate(COLOURS):
+        colour = (*row['wall_linear'],1.) if index==1 and 'wall_linear' in row else colour
+        colour = (*row['roof_linear'],1.) if index==9 and 'roof_linear' in row else colour
         material = bpy.data.materials.new('component-'+str(index))
         material.diffuse_color = colour
         geometry.materials.append(material)
@@ -80,7 +84,7 @@ def render(row):
     bpy.ops.render.render(write_still=True)
     output = Path(row['output'])
     result = dict(engine=scene.render.engine, blender_version=bpy.app.version_string, profile=[800, 550],
-                  ceiling_visibility='hidden for inspection; original mesh unchanged',
+                  ceiling_visibility='visible' if view=='exterior' else 'hidden for inspection; original mesh unchanged',
                   inspection=dict(view=view, max_core_level=1 if view == 'core' else None,
                                   storey=row.get('level',0) if view == 'storey' else None,
                                   selected_triangles=len(faces), core_view_source_floors_hidden=view == 'core'),
