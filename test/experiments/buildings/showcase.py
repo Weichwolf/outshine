@@ -31,7 +31,8 @@ REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'ope
                  'admitted_products', 'source_products', 'mode', 'cache_hit', 'distance',
                  'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features', 'representation', 'recipes',
                  'reference', 'source_id', 'view', 'comparison_case', 'rooms', 'doors', 'generation_ms',
-                 'plan_json_bytes', 'raw_mesh_bytes', 'alternatives', 'method', 'plan_status')
+                 'plan_json_bytes', 'raw_mesh_bytes', 'alternatives', 'method', 'plan_status',
+                 'stage', 'circulation', 'circulation_status', 'core_alternatives', 'room_kinds')
 
 
 def git(*args):
@@ -61,6 +62,16 @@ def image_record(report_path, root):
                                   'Raumprogramm, Obergeschosse und native Begehbarkeit sind offen.')
             if report.get('plan_status') == 'unplanned':
                 record['caption'] = 'Quelle erhalten; Erdgeschossplan mit konkretem Grund ausgelassen: '+('; '.join(report['limitations']))
+            if report.get('stage') == 'circulation':
+                record['title'] = 'Flur/Kern · '+report['label']
+                if report.get('circulation_status') == 'common-access':
+                    core = report['circulation']
+                    kind = 'Treppenreserve' if core['core_kind'] == 'stair-reservation' else 'Technikreserve'
+                    record['caption'] = (f"{core['private_rooms']} Nutzflächen mit direktem Flurzugang, {kind}, "
+                                         f"{report['doors']} echte Türportale. "
+                                         f"Flur {core['corridor_area_m2']:.1f} m² ({core['corridor_fraction']:.1%} der Innenfläche). "
+                                         'Gleiches Quellgebäude wie im ersten Grundrissversuch. '
+                                         'Treppen, Raumprogramm und Obergeschosse bleiben offen.')
         elif report.get('representation') == 'esri-reference':
             ref = report['reference']
             label = {'near': 'Nahansicht', 'orbit': 'Rundum-Gegenansicht', 'far': 'Distanzansicht'}[report['view']]
@@ -185,9 +196,9 @@ def publish(root):
                     working_tree_dirty=bool(git('status', '--porcelain')),
                     images=images, benchmark=benchmark(), massing_benchmark=massing_benchmark(),
                     provider_comparison=provider, source_validation=validation, context_validation=context_validation, esri=esri,
-                    progress='Erste konstruktive Erdgeschosspläne: tatsächliche Räume, Wandstärken und Tür-/Fensteröffnungen. '
-                             'Ziel bleibt Esri-CityEngine-Qualität und Vielfalt; Architektur, Obergeschosse und Spielintegration fehlen.',
-                    gaps=['Flure, Erschließungskerne, Obergeschosse und Außenanschlüsse der konstruktiven Gebäudepläne',
+                    progress='Konstruktive Erdgeschosspläne mit gemeinsamem Flur, direkten Raumzugängen und reservierten Kernen. '
+                             'Ziel bleibt Esri-CityEngine-Qualität und Vielfalt; Treppen, Architektur, Obergeschosse und Spielintegration fehlen.',
+                    gaps=['Konstruierte Treppen, Obergeschosse, Außenanschlüsse und sinnvolle Raumprogramme',
                           'Erkennbare Architekturrezepte, Dachformen, Erdgeschosse und konstruktive Details',
                           'Räumliche Innenräume hinter Fenstern, Begehbarkeit und kohärentes Nachtlicht',
                           'Materialvielfalt und Tausende belegte Varianten eigener Rezeptfamilien',

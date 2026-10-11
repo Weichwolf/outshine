@@ -26,9 +26,12 @@ def patch(axis, geometry, **style):
 def groundplan(axis, plan, product):
     patch(axis, plan['footprint'], facecolor='#edf0f3', edgecolor='#79818a', linewidth=1.)
     for index, room in enumerate(plan['rooms']):
-        patch(axis, room, facecolor=plt.get_cmap('Pastel2')(index%8), edgecolor='none')
+        kind = plan.get('room_kinds', ['generic-room']*len(plan['rooms']))[index]
+        colour = '#b7d9c2' if kind == 'corridor' else '#ebd4ae' if kind.endswith('reservation') else plt.get_cmap('Pastel2')(index%8)
+        patch(axis, room, facecolor=colour, edgecolor='none')
         point = room.representative_point()
-        axis.text(point.x, point.y, f'R{index+1}\n{room.area:.0f} m²', ha='center', va='center', fontsize=8)
+        name = {'corridor': 'Flur', 'stair-reservation': 'Treppenreserve', 'service-reservation': 'Technikreserve'}.get(kind, f'R{index+1}')
+        axis.text(point.x, point.y, f'{name}\n{room.area:.0f} m²', ha='center', va='center', fontsize=8)
     if product is not None:
         outlines = slice_triangles(product, [0, 0, 1], plan['floor_z_m']+.40, materials=[1])
         axis.add_collection(LineCollection([points[:, :2] for points, _ in outlines], colors='#242b32', linewidths=1.2))
@@ -75,13 +78,16 @@ def figure(sample, plan, product, path, spatial_path=None):
         axis.axis('off')
         axis.set_title('2.5D · tatsächliches Mesh, Geschossdecke ausgeblendet', fontsize=11)
         subtitle = f"{len(plan['rooms'])} Räume · {len(plan['doors'])} offene Türportale · {len(plan['windows'])} Raumfenster · {plan['method']}"
+        if plan.get('circulation_status') == 'common-access':
+            subtitle = f"{len(plan['rooms'])-2} Nutzflächen + Flur + Kernreserve · {len(plan['doors'])} offene Türportale · {plan['method']}"
     else:
         axis = fig.add_subplot(grid[:, 1])
         axis.axis('off')
         axis.text(.05, .65, 'Kein begehbarer Erdgeschossplan\n\n'+'\n'.join(plan['omissions']), transform=axis.transAxes,
                   fontsize=13, va='top', wrap=True, color='#a44439')
         subtitle = 'Quelle erhalten; unbrauchbare Innenräume werden ausgewiesen'
-    fig.suptitle(sample['label']+' · funktionaler Gebäudeplan / erster Ausbauschritt', fontsize=17, y=.97)
+    stage = 'gemeinsamer Flur und Kernreserve' if plan.get('circulation_status') == 'common-access' else 'funktionaler Gebäudeplan / erster Ausbauschritt'
+    fig.suptitle(sample['label']+' · '+stage, fontsize=17, y=.97)
     fig.text(.06, .925, subtitle, fontsize=12)
     fig.text(.06, .09, f"Quellhülle {plan['base_z_m']:.2f}–{plan['source_top_m']:.2f} m; Innenräume bisher nur im ersten Geschoss. "
              'Wand 0,24 m · Trennwand 0,12 m · Tür 1,10 × 2,15 m.', fontsize=10)

@@ -5,7 +5,7 @@ import math
 import numpy as np
 import shapely
 
-from building_layout import AGENT_RADIUS_M, DOOR_M, PARTITION_M, WALL_M, partitions, polygons, rectangle
+from building_layout import AGENT_RADIUS_M, DOOR_M, PARTITION_M, WALL_M, canonical_geometry, partitions, polygons, rectangle
 from provider_contract import attributes, number
 from recipes import choose
 
@@ -29,6 +29,7 @@ def owner(rooms, centre, tangent):
 
 
 def aperture_fits(room, centre, tangent, width):
+    centre, tangent = np.asarray(centre), np.asarray(tangent)
     normal = np.array([tangent[1], -tangent[0]])
     middle = centre-normal*(WALL_M+PARTITION_M/2+.16)
     return room.covers(shapely.LineString([middle-tangent*width/2, middle+tangent*width/2]))
@@ -98,14 +99,18 @@ def wall_bands(plan):
     limits.update(plan['floor_z_m']+door['height_m'] for door in plan['doors'])
     limits.update(plan['floor_z_m']+window[key] for window in plan['windows'] for key in ('sill_m', 'head_m'))
     levels = sorted(value for value in limits if plan['floor_z_m'] <= value <= plan['ceiling_z_m'])
-    return [(wall_at(plan, (low+high)/2), low, high) for low, high in zip(levels, levels[1:])]
+    result = []
+    for low, high in zip(levels, levels[1:]):
+        walls = wall_at(plan, (low+high)/2)
+        result.append((canonical_geometry(walls), low, high))
+    return result
 
 
 def walkable(plan):
     floor = plan['footprint'].union(plan['entrance']['landing'])
     obstacles = shapely.union_all([polygon for polygon, low, high in wall_bands(plan)
                                   if low < plan['floor_z_m']+AGENT_HEIGHT_M and high > plan['floor_z_m']])
-    return floor.difference(obstacles).buffer(-AGENT_RADIUS_M, join_style='mitre')
+    return canonical_geometry(floor.difference(obstacles)).buffer(-AGENT_RADIUS_M, join_style='mitre')
 
 
 def build(sample):

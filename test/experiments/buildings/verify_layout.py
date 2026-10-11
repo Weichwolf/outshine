@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import shapely
 
-from building_layout import AGENT_RADIUS_M, polygons
+from building_layout import AGENT_RADIUS_M, AREA_TOL_M2, DERIVED_GRID_M, polygons
 from building_mesh import mesh
 from building_plan import AGENT_HEIGHT_M, build
 from building_plan_cases import cases
@@ -90,7 +90,11 @@ def verify(plan, product):
     if floor.symmetric_difference(plan['footprint'].union(plan['entrance']['landing'])).area > 1e-6:
         raise AssertionError('Actual floor mesh does not preserve the footprint and landing')
     walls = occupancy(product, 1, floor_z+.01, floor_z+AGENT_HEIGHT_M)
-    free = floor.difference(walls).buffer(-AGENT_RADIUS_M, join_style='mitre')
+    region = floor.difference(walls)
+    snapped = shapely.set_precision(region, DERIVED_GRID_M)
+    if region.symmetric_difference(snapped).area > AREA_TOL_M2:
+        raise AssertionError('Mesh projection exceeds the declared derived precision tolerance')
+    free = snapped.buffer(-AGENT_RADIUS_M, join_style='mitre')
     if free.symmetric_difference(plan['walkable']).area > 1e-6:
         raise AssertionError('Mesh-derived walking clearance differs from the plan')
     landing = plan['entrance']['landing'].representative_point()

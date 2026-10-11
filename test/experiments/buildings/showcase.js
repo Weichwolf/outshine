@@ -137,16 +137,19 @@ function render() {
 function renderPlans() {
   const rows = manifest.images.filter(item => item.representation === 'functional-plan');
   $('plans').hidden = !rows.length;
-  const connected = rows.filter(item => item.plan_status === 'connected-first-storey');
-  $('plans-note').textContent = `${connected.length} lokal verbundene Erdgeschosse · ${rows.length-connected.length} Gegenfälle mit Auslassungsgrund. `+
-    'Generische Räume, reale Wand-/Boden-/Deckenstärken und Tür-/Fensteröffnungen. Obergeschosse, Flure, Treppen und Geländeanschlüsse fehlen. '+
+  const recent = rows.filter(item => item.stage === 'circulation');
+  const connected = (recent.length ? recent : rows).filter(item => recent.length ? item.circulation_status === 'common-access' : item.plan_status === 'connected-first-storey');
+  const count = recent.length || rows.length;
+  $('plans-note').textContent = `${connected.length} Erdgeschosse ${recent.length ? 'mit gemeinsamem Flur und Kernreserve' : 'lokal verbunden'} · ${count-connected.length} Gegenfälle mit Auslassungsgrund. `+
+    (recent.length ? `${rows.length-recent.length} frühere Grundrissansichten zum Vergleich. ` : '')+
+    'Generische Nutzflächen, reale Wand-/Boden-/Deckenstärken und Tür-/Fensteröffnungen. Raumprogramm, Obergeschosse, Treppen und Geländeanschlüsse fehlen. '+
     'CPU-Einzelmessungen des Python-Prototyps; Meshdaten sind Array-Payload, keine Prozesspeaks oder Framezeiten.';
   $('plans-cases').replaceChildren(...rows.map(row => {
     const tr = element('tr');
-    const alternatives = (row.alternatives || []).map(value => `${value.method}: ${value.valid ? `${value.rooms} Räume / ${value.elapsed_ms.toFixed(2)} ms` : 'ungeeignet'}`).join('; ');
+    const alternatives = (row.alternatives || []).map(value => `${value.method}${value.seed_method ? `/${value.seed_method}` : ''}${value.core_candidate === undefined ? '' : ` #${value.core_candidate+1}`}: ${value.valid ? `${value.rooms} Flächen / ${value.elapsed_ms.toFixed(2)} ms` : 'ungeeignet'}`).join('; ');
     const costs = `${row.generation_ms?.plan?.toFixed(2) || '—'} / ${row.generation_ms?.mesh?.toFixed(2) || '—'}`;
     tr.append(...[row.title, alternatives || 'Kein brauchbarer Innenraum',
-      row.plan_status === 'unplanned' ? 'Ausgelassen' : `${row.method} / ${row.rooms} / ${row.doors}`, costs,
+      row.plan_status === 'unplanned' ? 'Ausgelassen' : `${row.method} / ${row.rooms} / ${row.doors}${row.circulation ? ` · Flur ${row.circulation.corridor_area_m2.toFixed(1)} m²` : ''}`, costs,
       ((row.raw_mesh_bytes || 0)/1024).toFixed(1)].map(value => element('td', value)));
     return tr;
   }));

@@ -57,21 +57,25 @@ def render_spatial(mesh_path, output, commit, footprint):
     return metadata
 
 
-def probe(sample, output, provenance):
+def probe(sample, output, provenance, circulation=False):
     began = time.perf_counter()
-    plan = build(sample)
+    generator, verifier = build, verify
+    if circulation:
+        from building_circulation import build as generator
+        from verify_circulation import verify as verifier
+    plan = generator(sample)
     plan_ms = (time.perf_counter()-began)*1000
     product, checks, mesh_ms, spatial_path, spatial_metadata = None, None, None, None, None
     if plan['status'] == 'connected-first-storey':
         began = time.perf_counter()
         product = mesh(plan)
         mesh_ms = (time.perf_counter()-began)*1000
-        checks = verify(plan, product)
+        checks = verifier(plan, product)
         mesh_path = output/(sample['label']+'-mesh.npz')
         np.savez_compressed(mesh_path, **product)
         spatial_path = output/(sample['label']+'-spatial.png')
         spatial_metadata = render_spatial(mesh_path, spatial_path, provenance['commit'], plan['footprint'])
-    stem = 'plan-'+sample['label']
+    stem = ('circulation-' if circulation else 'plan-')+sample['label']
     image = output/(stem+'.png')
     figure(sample, plan, product, image, spatial_path)
     plan_data = json.dumps(plan, default=encode, ensure_ascii=False, indent=2)+'\n'
@@ -84,6 +88,9 @@ def probe(sample, output, provenance):
                   triangles=len(product['faces']) if product is not None else 0,
                   plan_json_bytes=len(plan_data.encode()), raw_mesh_bytes=sum(array.nbytes for array in product.values()) if product else 0,
                   generation_ms=dict(plan=plan_ms, mesh=mesh_ms), alternatives=plan['alternatives'], checks=checks,
+                  stage='circulation' if circulation else 'partition',
+                  circulation=plan.get('circulation'), circulation_status=plan.get('circulation_status'),
+                  core_alternatives=plan.get('core_alternatives'), room_kinds=plan.get('room_kinds'),
                   limitations=plan['omissions'], source_height_interval_m=[plan['base_z_m'], plan['source_top_m']],
                   method=plan.get('method'), source_coverage='Ground-floor prototype; no completed building or recipe-family claim')
     (output/(stem+'-report.json')).write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
@@ -93,14 +100,18 @@ def probe(sample, output, provenance):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output', type=Path, default=Path('build/experiments/buildings/functional-plans'))
+    parser.add_argument('--output', type=Path)
     parser.add_argument('--cases', nargs='+')
+    parser.add_argument('--circulation', action='store_true', help='compare common access with reserved cores')
     args = parser.parse_args()
+    if args.output is None:
+        args.output = Path('build/experiments/buildings')/('circulation-plans' if args.circulation else 'functional-plans')
     args.output.mkdir(parents=True, exist_ok=True)
     provenance = revision()
-    rows = [probe(sample, args.output, provenance) for sample in cases()
+    rows = [probe(sample, args.output, provenance, args.circulation) for sample in cases()
             if args.cases is None or sample['label'] in args.cases]
-    result = dict(**provenance, cases=rows, methods=['strips', 'bsp'], max_rooms=12,
+    result = dict(**provenance, cases=rows, methods=['doglegs', 'orthogonal-grid'] if args.circulation else ['strips', 'bsp'],
+                  max_rooms=24 if args.circulation else 12,
                   scope='Fixed-envelope first storey; actual wall apertures and mesh-derived reachability, no native frame measurement')
     (args.output/'layout-summary.json').write_text(json.dumps(result, ensure_ascii=False, indent=2)+'\n')
 

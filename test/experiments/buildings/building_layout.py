@@ -14,6 +14,15 @@ DOOR_M = 1.10
 AGENT_RADIUS_M = .30
 MAX_ROOMS = 12
 TARGET_AREA_M2 = 70.
+DERIVED_GRID_M = 1e-8
+AREA_TOL_M2 = 1e-6
+
+
+def canonical_geometry(geometry):
+    result = shapely.set_precision(geometry, DERIVED_GRID_M)
+    if geometry.symmetric_difference(result).area > AREA_TOL_M2:
+        raise ValueError('Derived precision exceeds the 1e-6 square metre area tolerance')
+    return result
 
 
 def polygons(geometry):
@@ -22,7 +31,8 @@ def polygons(geometry):
 
 def segments(geometry):
     if geometry.geom_type == 'LineString':
-        return [geometry] if geometry.length > 1e-8 else []
+        points = list(geometry.simplify(1e-8).coords)
+        return [shapely.LineString([a, b]) for a, b in zip(points, points[1:]) if math.dist(a, b) > 1e-8]
     if geometry.geom_type in ('MultiLineString', 'GeometryCollection'):
         return [line for part in shapely.get_parts(geometry) for line in segments(part)]
     return []
@@ -123,7 +133,11 @@ def room_portals(floors, shared_edges):
             direction = np.array(line.interpolate(.6, normalized=True).coords[0])-middle
             tangent = direction/np.linalg.norm(direction)
             opening = rectangle(middle, tangent, DOOR_M, .20, .20)
-            if all(opening.intersection(floors[i]).area > .02 for i in (first, second)):
+            normal = np.array([tangent[1], -tangent[0]])
+            backing = [shapely.LineString([middle+normal*sign*.46-tangent*DOOR_M/2,
+                                          middle+normal*sign*.46+tangent*DOOR_M/2]) for sign in (-1, 1)]
+            owners = [{i for i in (first, second) if floors[i].covers(edge)} for edge in backing]
+            if len(owners[0]) == len(owners[1]) == 1 and owners[0] != owners[1]:
                 doors.append(dict(id=f'door-{first}-{second}', rooms=[first, second], polygon=opening,
                                   centre=middle.tolist(), tangent=tangent.tolist(), height_m=2.15, kind='room-door'))
                 break
@@ -145,13 +159,27 @@ def adjacency(rooms, portals):
 def world_floor(room, transform):
     result = affine_transform(room, transform)
     if result.is_valid and result.geom_type == 'Polygon':
-        return result
-    repaired = result if result.is_valid else shapely.make_valid(result, method='structure', keep_collapsed=False)
-    candidates = polygons(repaired)
-    if not candidates:
+        floor = result
+    else:
+        repaired = result if result.is_valid else shapely.make_valid(result, method='structure', keep_collapsed=False)
+        candidates = polygons(repaired)
+        if not candidates:
+            return shapely.Polygon()
+        floor = max(candidates, key=lambda part: part.area)
+        if abs(floor.area-result.area) > 1e-6:
+            return shapely.Polygon()
+    canonical = canonical_geometry(floor)
+    if canonical.geom_type != 'Polygon' or canonical.is_empty:
         return shapely.Polygon()
-    floor = max(candidates, key=lambda part: part.area)
-    return floor if abs(floor.area-result.area) <= 1e-6 else shapely.Polygon()
+    return canonical
+
+
+def transform_portal(door, transform):
+    door['polygon'] = affine_transform(door['polygon'], transform)
+    door['centre'] = list(affine_transform(shapely.Point(door['centre']), transform).coords[0])
+    vector = np.asarray(door['tangent'])
+    door['tangent'] = [transform[0]*vector[0]+transform[1]*vector[1], transform[2]*vector[0]+transform[3]*vector[1]]
+    return door
 
 
 def partitions(interior):
@@ -176,10 +204,7 @@ def partitions(interior):
         score = sum(max(0., room.area-TARGET_AREA_M2)/TARGET_AREA_M2 for room in rooms)
         score += .1*sum(room.length/math.sqrt(max(room.area, 1e-8)) for room in rooms)
         for door in portals:
-            door['polygon'] = affine_transform(door['polygon'], reverse)
-            door['centre'] = list(affine_transform(shapely.Point(door['centre']), reverse).coords[0])
-            vector = np.asarray(door['tangent'])
-            door['tangent'] = [reverse[0]*vector[0]+reverse[1]*vector[1], reverse[2]*vector[0]+reverse[3]*vector[1]]
+            transform_portal(door, reverse)
         zones = [affine_transform(zone, reverse) for zone in zones]
         rooms = [world_floor(room, reverse) for room in rooms]
         valid = valid and all(not room.is_empty for room in rooms)
