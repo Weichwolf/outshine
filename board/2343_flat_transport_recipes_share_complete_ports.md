@@ -45,13 +45,10 @@ Karosserie auf beiden Flächen, Fahrkurve und Nachbarfahrten prüfen; nur angefr
 Quellenkontakt/Richtung bleiben fest; alle Nachbarn teilen die Pose.
 [Fahrzeughülle](../test/experiments/infrastructure/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k sowie Krümmungsänderung k' gilt |q''(s)| ≤ A = k+r*(|k'|+k²).
-Analytische Kurven prüfen die konvexe Hülle zweier Endkarosserien mit Randreserve A*ds²/8.
-Die ganze Hülle mit Randreserve muss auf der Motorfläche liegen.
-Nur unklare Intervalle werden halbiert; höchstens 4096 tatsächlich geprüfte Karosserieposen.
-Gerade Ansätze sind eigene Teilkurven; ihre G1-Krümmungssprünge teilen keine Ableitungsgrenze.
-Gerade Translationen extrudieren den Körper. Bézier-Hüllen begrenzen v, a und j über u.
-Positive Mindestgeschwindigkeit sichert θ'=cross(v,a)/|v|²,
-θ''=(cross(v,j)-2*θ'*dot(v,a))/|v|² und |q''(u)| ≤ a_max+r*(|θ''|_max+|θ'|_max²).
+Endkarosserie-Hülle + A*ds²/8 muss auf der Motorfläche liegen; unklare Intervalle halbieren, höchstens 4096 Posen.
+G1-Sprünge teilen keine Ableitungsgrenze; Geraden extrudieren den Körper.
+Bézier-Hüllen begrenzen v, a, j und Winkeldifferentiale bei positiver Mindestgeschwindigkeit:
+|q''(u)| ≤ a_max+r*(|θ''|_max+|θ'|_max²).
 Linienpunkte entstehen separat nach a_max*du²/8; Karosserieprüfung erzeugt kein dichtes Linienmesh.
 Wege/private Zufahrten sind kein Ausweichraum. Die geplante öffentliche Fläche hat ein eigenes Mesh.
 Einbahnkurven erhalten Quell-Windungszahlen um Verkehrsinseln, inklusive Portversätzen
@@ -78,6 +75,8 @@ Auswertungen je Versuch; insgesamt 1024 tatsächliche Residuenaufrufe je Verbind
 Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; Hüllen/Radius/Windung prüfen.
 [Punktabstände](../test/experiments/infrastructure/infrastructure_surface_clearance.py): Randindex zuerst; nur Randnähe/außen messen.
 Nach beiden Grundversuchen ergänzen Hüllenablehnungen Randviertel/Körpermitte; Hüllen/Residuenbudget bleiben fest.
+[Identische Starts](../test/experiments/infrastructure/probes/roadbeds/hermite_candidate_reuse_probe.py) wiederverwenden.
+Alte Versuchsbudgets zuerst nachspielen; gesparte Aufrufe nur für ungelöste abgebrochene Passungen. Netzvergleich offen.
 [Kurven-Straßenräume](../test/experiments/infrastructure/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 [Hermite-Fahrraum](../test/experiments/infrastructure/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
 [Wendekurven](../test/experiments/infrastructure/infrastructure_return_roadbeds.py): Quelle bis 1024, dann ein CCC/CSC-Start bis 512; gesamt ≤1536. Netzbeleg offen.

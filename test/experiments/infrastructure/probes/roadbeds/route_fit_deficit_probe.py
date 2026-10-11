@@ -24,6 +24,7 @@ parser.add_argument('--product',type=Path,required=True)
 parser.add_argument('--module',type=int,required=True)
 parser.add_argument('--pair',type=int,nargs=2,required=True)
 parser.add_argument('--output',type=Path,required=True)
+parser.add_argument('--snapshot-only',action='store_true')
 args=parser.parse_args();root=Path('build/experiments/infrastructure')
 report=json.loads(args.product.read_text());name=report['place']
 before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
@@ -45,6 +46,13 @@ bodies=shapely.polygons(body_outlines(xy,heading,network.vehicle['widthM']*.5,
                      network.vehicle['frontFromRearAxleM'],network.vehicle['rearOverhangM']))
 print(json.dumps(dict(length_m=route.length,points=len(shapely.get_coordinates(route)),
                      endpoint_outside_m2=shapely.area(shapely.difference(bodies,surface)).tolist())),flush=True)
+args.output.mkdir(parents=True,exist_ok=True)
+snapshot=dict(entry={k:entry[k].tolist() for k in ('position','heading')},
+              exit={k:exit[k].tolist() for k in ('position','heading')},surface=surface.wkb.hex(),
+              reservations=reserved.wkb.hex(),source_route=route.wkb.hex(),vehicle=network.vehicle,
+              error_m=network.curbs['arc_error_m'])
+(args.output/'input.json').write_text(json.dumps(snapshot)+'\n')
+if args.snapshot_only:raise SystemExit(0)
 began=time.perf_counter()
 candidate,trials=construct_route_roadbed(entry,exit,surface,reserved,route,network.vehicle,network.curbs['arc_error_m'])
 path,fit=fitted_route_candidates(entry,exit,route,surface,network.vehicle,network.curbs['arc_error_m'])
@@ -54,12 +62,6 @@ def brief(value):
          'nodes','optimizer_status','minimum_objective_seen','profile','vehicle_sweep','fits_surface','outside_poses')}
     if isinstance(value,list):return [brief(v) for v in value]
     return value
-args.output.mkdir(parents=True,exist_ok=True)
-snapshot=dict(entry={k:entry[k].tolist() for k in ('position','heading')},
-              exit={k:exit[k].tolist() for k in ('position','heading')},surface=surface.wkb.hex(),
-              reservations=reserved.wkb.hex(),source_route=route.wkb.hex(),vehicle=network.vehicle,
-              error_m=network.curbs['arc_error_m'])
-(args.output/'input.json').write_text(json.dumps(snapshot)+'\n')
 result=dict(candidate=candidate is not None,on_existing=path is not None,trials=brief(trials),
             fitting=brief(fit),elapsed_ms=(time.perf_counter()-began)*1000)
 (args.output/'results.json').write_text(json.dumps(result,indent=2)+'\n')
