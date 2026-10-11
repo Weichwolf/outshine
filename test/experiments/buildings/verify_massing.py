@@ -14,6 +14,7 @@ from codec import decode, encode
 from demand import View, select
 from facade_geometry import mesh
 from facade_plan import plan
+from massing import MIN_EDGE_M
 from massing_reference import check_measurements, union
 from offline_probe import probe
 from preview import house_view
@@ -115,6 +116,44 @@ def verify_touching_courtyard():
     return dict(source_id=sample['id'], preserved_point_touching_courtyard=True, **metrics)
 
 
+def verify_redundant_vertices():
+    polygon = shapely.Polygon([(0, 0), (40, 0), (40, 40), (0, 40)],
+                              [[(12, 12), (12, 28), (28, 28), (28, 12)]])
+    rings = [np.repeat(np.asarray(ring.coords), 2, axis=0) for ring in [polygon.exterior, *polygon.interiors]]
+    redundant = shapely.Polygon(rings[0], rings[1:])
+    assert redundant.is_valid and redundant.equals(polygon)
+    for style in ('bauhaus', 'artdeco', 'midcentury'):
+        sample = dict(id='duplicate-courtyard', polygon=polygon, properties={'height': 18.})
+        expected = plan(sample, style)
+        actual = plan(dict(sample, polygon=redundant), style)
+        assert encode(expected) == encode(actual)
+        verify_exterior(actual)
+    return dict(styles=3, identical_geometry_and_cached_bytes=True)
+
+
+def verify_numerical_edges():
+    sources = {'Vienna': {'Vienna:112890:37', 'Vienna:112890:123', 'Vienna:1141390:20', 'Vienna:2124964612:0'},
+               'Tokyo': {'Tokyo:1147552190:4'}}
+    checked = []
+    for site, ids in sources.items():
+        samples, _ = read_site(site)
+        selected = [sample for sample in samples if sample['id'] in ids]
+        assert len(selected) == len(ids)
+        for sample in selected:
+            product = plan(sample)
+            assert product['polygon'].equals(sample['polygon'])
+            for layer, offset in zip(product['layers'], product['massing']['offsets_m']):
+                expected = sample['polygon'].buffer(-offset, join_style='mitre') if offset else sample['polygon']
+                assert expected.hausdorff_distance(layer['footprint']) <= MIN_EDGE_M
+                assert expected.symmetric_difference(layer['footprint']).area <= MIN_EDGE_M*expected.length
+            check_measurements(product, product['shell'])
+            check_measurements(product, union(product))
+            encoded = encode(product)
+            assert encode(decode(encoded)) == encoded
+            checked.append(sample['id'])
+    return dict(source_ids=checked, maximum_boundary_displacement_m=MIN_EDGE_M)
+
+
 def verify():
     courtyard = shapely.Polygon([(0, 0), (40, 0), (40, 40), (0, 40)], [[(12, 12), (12, 28), (28, 28), (28, 12)]])
     dumbbell = shapely.union_all([shapely.box(0, 0, 12, 12), shapely.box(11, 5.4, 25, 6.6), shapely.box(24, 0, 36, 12)])
@@ -161,7 +200,8 @@ def verify():
             raise AssertionError('inconsistent styled plan accepted')
     return dict(cases=rows, validated_features=features, camera_views=16*len(rows),
                 fresh_styled_offline_hit=True, invalid_records_rejected=len(records),
-                touching_courtyard=verify_touching_courtyard())
+                touching_courtyard=verify_touching_courtyard(), redundant_vertices=verify_redundant_vertices(),
+                numerical_edges=verify_numerical_edges())
 
 
 if __name__ == '__main__':

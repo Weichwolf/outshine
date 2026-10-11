@@ -5,11 +5,21 @@ import math
 import numpy as np
 import shapely
 
+MIN_EDGE_M = 1e-8
+
 
 def canonical_ring(coordinates, positive):
     points = np.asarray(coordinates, dtype=np.float64)
     if np.array_equal(points[0], points[-1]):
         points = points[:-1]
+    if np.any(np.linalg.norm(points-np.roll(points, 1, axis=0), axis=1) <= MIN_EDGE_M):
+        kept = [points[0]]
+        for point in points[1:]:
+            if np.linalg.norm(point-kept[-1]) > MIN_EDGE_M:
+                kept.append(point)
+        while len(kept) > 1 and np.linalg.norm(kept[0]-kept[-1]) <= MIN_EDGE_M:
+            kept.pop()
+        points = np.asarray(kept)
     area = np.sum(points[:, 0]*np.roll(points[:, 1], -1)-points[:, 1]*np.roll(points[:, 0], -1))
     if (area > 0) != positive:
         points = points[::-1]

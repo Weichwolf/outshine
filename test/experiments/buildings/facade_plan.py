@@ -8,7 +8,7 @@ import numpy as np
 import shapely
 from PIL import ImageColor
 from shell import prepare
-from massing import polygons_of, stack
+from massing import MIN_EDGE_M, polygons_of, stack
 from features import describe, prepare as prepare_features
 
 REPEAT_DTYPE = np.dtype([('width_m', '<f8'), ('height_m', '<f8'), ('depth_m', '<f8'),
@@ -79,7 +79,7 @@ def author(sample, style=None, massing='styled'):
             for ring in component:
                 for a, b in zip(ring, np.roll(ring, -1, axis=0)):
                     length = float(np.linalg.norm(b-a))
-                    if length <= 1e-8:
+                    if length <= MIN_EDGE_M:
                         raise ValueError('zero length building edge')
                     columns = max(1, int(math.floor(length/3.2+.5)))
                     width, height = (.88, .64) if style == 'midcentury' else (.8, .58)

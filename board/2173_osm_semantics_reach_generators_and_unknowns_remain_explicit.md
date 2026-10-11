@@ -13,7 +13,7 @@ Tags: buildings, roofs, facades, semantics
 2050-Solarpunk: klare Bauhaus-/Mid-century-Körper; Art déco gezielt. PV auf Dach/Fassade, Balkone/Höfe/Parts.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
 Eigenständige Python-Rezepte nach Esri/CGA; Körper-/Öffnungspläne im Rohling. Dachfamilien/Abnahme offen.
-Baseline 325bbe1c3: 13.993 Pläne; Repeat-Payload 1,17–2,04 MiB/37–64 ms; RSS 96–133 MiB. Native Budgets unbewiesen.
+Vergleich 9411bf629: 13.988 Pläne; direkte Hüllen 4,5–5,3 s, 3D-Union 10,2–14,5 s/Kachel. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
@@ -30,10 +30,10 @@ Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine d
 Blender-Eevee-Renderings/Messprodukte in `build/experiments/buildings/`, tatsächlich geöffnet.
 Diagnosehüllen mischen dieselben Wand-/Rahmen-/Glas-BSDFs nach Coverage ([Blender](https://docs.blender.org/manual/en/4.3/render/shader_nodes/shader/mix.html)).
 `massing.py`: Bauhaus-Pavillon/Art-déco-Staffelung mit bis drei Bändern; Basis/Maximalhöhe/Höfe erhalten.
-GEOS-Mitres strikt innen; nur nutzbare Obergeschosse, sonst gültige Basis mit Grund. Parts bleiben ungestaffelt.
+GEOS-Mitres strikt innen; nutzbare Obergeschosse, sonst gültige Basis mit Grund. Numerische Nulllängen bis 1e-8 m normalisieren; Parts ungestaffelt.
 `features.py`: Dach-/Fassaden-PV, Mid-century-Vordach, bis drei Balkone samt Türanschluss; komplette Bounds/Puffer im Rohling.
 `massing_benchmark.py`: direkte Bandflächen/2D-Differenzen gegen [Manifold](https://github.com/elalish/manifold)-3D-Union gleicher Prismen.
-UV/Materialgrenzen erhalten; topologisch getrennte Eckenfächer bewahren punktberührende Höfe. Quellenarbeit separat; Ferncluster/Budget offen.
+UV/Materialgrenzen, getrennte Eckenfächer für punktberührende Höfe; gleiche XYZ/UV-Endpackung. Quellen separat; Ferncluster/Budget offen.
 [Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash und publiziert nach
 `/tmp/outshine-buildings-showcase/`; Port 8766 zeigt letzte Varianten und interaktive Körper-/Fassadenkosten samt Commit.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. [VisusCity](https://visusarts.itch.io/visuscity-vol2) ist Bildmaßstab.

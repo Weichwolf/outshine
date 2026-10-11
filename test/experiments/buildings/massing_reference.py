@@ -67,7 +67,9 @@ def union(product):
     materials = np.empty(len(faces), dtype=np.uint8)
     for start, end, original in zip(encoded.run_index[:-1], encoded.run_index[1:], encoded.run_original_id):
         materials[start//3:end//3] = (original-material_id) % stride
-    return dict(vertices=attributes[:, :3].copy(), faces=faces.copy(), uv=attributes[:, 3:5].astype(np.float32),
+    uv = attributes[:, 3:5].astype(np.float32)
+    _, first, inverse = np.unique(np.c_[attributes[:, :3], uv], axis=0, return_index=True, return_inverse=True)
+    return dict(vertices=attributes[first, :3].copy(), faces=inverse[faces].astype(np.int32), uv=uv[first],
                 materials=materials)
 
 
