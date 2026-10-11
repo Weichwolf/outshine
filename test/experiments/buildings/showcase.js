@@ -164,8 +164,8 @@ function renderEsri() {
     'Aufrufe sind Geometriebelege; ein vollständiger Raumplaner ist damit nicht nachgewiesen. Decompiler-Typen bleiben ungeprüft.' : 'Gezielte Analyse steht noch aus.';
   $('esri-primitives').replaceChildren(...(inspection?.selected_functions || []).map(row => {
     const tr = element('tr');
-    const calls = [...new Set((row.direct_calls || []).filter(call => /^(CoreToolbox::|CGAL::|util::Polygon2d::)/.test(call.signature))
-      .map(call => call.signature.split(/[<(]/)[0]))].join('; ');
+    const geometry = /CoreToolbox::CGALTools::\w+|CGAL::(?:create_|is_)\w+|util::Polygon2d::(?:pointIsConcave|findClosestIntersection|signedDoubleArea)/;
+    const calls = [...new Set((row.direct_calls || []).map(call => call.signature.match(geometry)?.[0]).filter(Boolean))].join('; ');
     tr.append(...[row.signature || row.name, integer(row.instructions), calls || 'Keine benannten Geometrieaufrufe'].map(value => element('td', value)));
     return tr;
   }));
