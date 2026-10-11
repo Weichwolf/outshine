@@ -65,6 +65,41 @@ def shell_material(name, pixels, colours):
     return result
 
 
+def photovoltaic(pixels):
+    result = material('photovoltaic', (.012, .030, .052), .22, .08)
+    tree = result.node_tree
+    image = bpy.data.images.new('solar-panel-coverage', width=pixels['size'], height=pixels['size'], float_buffer=True)
+    image.colorspace_settings.name = 'Non-Color'
+    image.pixels.foreach_set(pixels['rgba'])
+    image.update()
+    texture = tree.nodes.new('ShaderNodeTexImage')
+    texture.image = image
+    texture.interpolation = 'Linear'
+    channels = tree.nodes.new('ShaderNodeSeparateColor')
+    tree.links.new(texture.outputs['Color'], channels.inputs['Color'])
+    shader = tree.nodes.get('Principled BSDF')
+    shader.inputs['Base Color'].default_value = (.012, .030, .052, 1.)
+    busbar = tree.nodes.new('ShaderNodeBsdfPrincipled')
+    busbar.inputs['Base Color'].default_value = (.065, .095, .11, 1.)
+    busbar.inputs['Roughness'].default_value = .32
+    total = tree.nodes.new('ShaderNodeMath')
+    total.operation = 'ADD'
+    tree.links.new(channels.outputs[1], total.inputs[0])
+    tree.links.new(channels.outputs[2], total.inputs[1])
+    ratio = tree.nodes.new('ShaderNodeMath')
+    ratio.operation = 'DIVIDE'
+    tree.links.new(channels.outputs[1], ratio.inputs[0])
+    tree.links.new(total.outputs[0], ratio.inputs[1])
+    panel = mix_shaders(tree, shader.outputs[0], busbar.outputs[0], ratio.outputs[0])
+    frame = tree.nodes.new('ShaderNodeBsdfPrincipled')
+    frame.inputs['Base Color'].default_value = (.14, .15, .16, 1.)
+    frame.inputs['Metallic'].default_value = .65
+    frame.inputs['Roughness'].default_value = .28
+    combined = mix_shaders(tree, panel, frame.outputs[0], channels.outputs[0])
+    tree.links.new(combined, tree.nodes.get('Material Output').inputs['Surface'])
+    return result
+
+
 def add_product(product, palette, shell):
     geometry = product['mesh']
     data = bpy.data.meshes.new(product['id'])
@@ -73,7 +108,7 @@ def add_product(product, palette, shell):
     obj = bpy.data.objects.new(product['id'], data)
     bpy.context.collection.objects.link(obj)
     obj.color = (*product['wall_linear'], 1.)
-    for item in [*palette, shell[product['pattern_key']]]:
+    for item in [*palette, *(shell[key] for key in product['pattern_keys'])]:
         data.materials.append(item)
     data.polygons.foreach_set('material_index', geometry['materials'])
     uv = data.uv_layers.new(name='Facade')
@@ -97,7 +132,8 @@ def render(configuration):
     colours = [(1., 1., 1.), (.018, .044, .065), (.08, .075, .057), (.16, .18, .18)]
     palette = [material('wall', colours[0], .68, object_colour=True),
                material('glass', colours[1], .16), material('frame', colours[2], .28, .65),
-               material('roof', colours[3], .72)]
+               material('roof', colours[3], .72), material('warm canopy', (.32, .16, .055), .55),
+               photovoltaic(configuration['solar_tile'])]
     shell = {style: shell_material(style, pixels, colours) for style, pixels in configuration['tiles'].items()}
     for product in configuration['products']:
         add_product(product, palette, shell)

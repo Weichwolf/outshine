@@ -74,14 +74,14 @@ def verify_geometry():
     for polygon in polygons:
         sample = dict(id='geometry-case', polygon=polygon, properties={'render_height': 12., 'render_min_height': -2.})
         for style in ('bauhaus', 'artdeco'):
-            product = plan(sample, style)
+            product = plan(sample, style, massing='plain')
             verify_closed_shell(product)
             reversed_sample = dict(sample, polygon=shapely.reverse(polygon))
             assert plan(reversed_sample, style)['seed'] == product['seed']
             translated = dict(sample, polygon=shapely.transform(polygon, lambda xy: xy+[1e4, -5e4]))
             assert plan(translated)['seed'] == product['seed']
             demand = select(product, View(np.array([-50., -60., 38.]), np.array([10., 10., 5.])))
-            assert len(demand['faces']) < len(product['facades']) and demand['bottom'].is_empty
+            assert len(demand['faces']) < len(product['facades']) and all(c['part'] == -1 for c in demand['caps'])
             for fine in (False, True):
                 geometry = mesh(product, demand, detail=fine)
                 vertices, faces = geometry['vertices'], geometry['faces']
@@ -122,7 +122,7 @@ def verify():
 
 def verify_demand_and_cache():
     product = plan(dict(id='motion', polygon=shapely.box(-10, -10, 10, 10),
-                        properties={'render_height': 15., 'building': 'apartments', 'custom': 'preserved'}))
+                        properties={'render_height': 15., 'building': 'apartments', 'custom': 'preserved'}), massing='plain')
     encoded = encode(product)
     edges = set()
     with patch('facade_plan.plan', side_effect=AssertionError('hit must not regenerate plans')), \
@@ -133,7 +133,7 @@ def verify_demand_and_cache():
             view = View(np.array([50*np.cos(angle), 50*np.sin(angle), 25.]), np.array([0., 0., 7.]))
             request = select(loaded, view)
             edges.update(f['edge'] for f in request['faces'])
-            assert len(request['faces']) <= 2 and request['bottom'].is_empty
+            assert len(request['faces']) <= 2 and all(c['part'] == -1 for c in request['caps'])
             first, second = mesh(product, request), mesh(loaded, request)
             for key in ('vertices', 'faces', 'uv', 'materials'):
                 np.testing.assert_array_equal(first[key], second[key])

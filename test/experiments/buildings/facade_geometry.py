@@ -7,6 +7,7 @@ import shapely
 
 from facade_plan import detail_count, opening_rectangles
 from shell import append as append_shell
+from features import append_visible
 
 
 def quad(vertices, faces, uv, materials, points, coordinates, material):
@@ -84,19 +85,19 @@ def mesh(product, demand, detail=True, max_openings=50000):
             reason = None
             if emitted+count > max_openings:
                 reason = 'detail_budget_exhausted'
-            elif not recess_fits(product['polygon'], facade, region):
+            elif not recess_fits(product['layers'][facade['layer']]['footprint'], facade, region):
                 reason = 'recess_crosses_footprint_boundary'
             if reason is None:
-                detailed_wall(storage, facade, product['bottom_m'], region)
+                detailed_wall(storage, facade, facade['bottom_m'], region)
                 emitted += count
             else:
                 append_shell(storage, product, index)
                 fallbacks.append(dict(edge=index, reason=reason))
         else:
             append_shell(storage, product, index)
-    for name, part in (('roof', -1), ('bottom', -2)):
-        if not demand[name].is_empty:
-            append_shell(storage, product, part, demand[name].bounds)
+    for request in demand['caps']:
+        append_shell(storage, product, request['part'], request['bounds'])
+    append_visible(storage, product, demand['view'])
     vertices, faces, uv, materials = storage
     return dict(vertices=np.asarray(vertices, dtype=np.float64).reshape(-1, 3), faces=np.asarray(faces, dtype=np.int32).reshape(-1, 3),
                 uv=np.asarray(uv, dtype=np.float32).reshape(-1, 2), materials=np.asarray(materials, dtype=np.uint8),

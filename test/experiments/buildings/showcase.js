@@ -3,13 +3,14 @@ const $ = id => document.getElementById(id);
 const integer = value => new Intl.NumberFormat('de-CH').format(value);
 const short = value => (value || 'unbekannt').slice(0, 9);
 const names = { all: 'Alle', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
-const methods = { expanded: ['Split-Liste', '#ad9165'], vectorized: ['Voll-Liste / NumPy', '#7e899b'], compact: ['Kompakter Repeat', '#496b66'] };
+const methods = { expanded: ['Split-Liste', '#ad9165'], vectorized: ['Voll-Liste / NumPy', '#7e899b'], compact: ['Kompakter Repeat', '#496b66'],
+  bands: ['Direkte Bandflächen', '#496b66'], union: ['Manifold · 3D-Union', '#ad9165'] };
 const metrics = {
   median_generation_ms: ['Erzeugung · ms', 1, 'ms'],
-  repeat_payload_bytes: ['Plan-Payload · MiB', 1 / 1048576, 'MiB'],
+  repeat_payload_bytes: ['Payload · MiB', 1 / 1048576, 'MiB'],
   process_peak_rss_bytes: ['Prozesspeak · MiB', 1 / 1048576, 'MiB']
 };
-let manifest, filter = 'all', metric = 'median_generation_ms';
+let manifest, filter = 'all', metric = 'median_generation_ms', comparison = 'massing';
 
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -52,7 +53,8 @@ function renderGallery() {
     body.append(element('h3', item.title), element('p', item.caption));
     const details = element('div', undefined, 'details');
     for (const text of [`${integer(item.triangles || 0)} Dreiecke`, `${integer(item.openings || 0)} Öffnungen`,
-      `${integer(item.admitted_products || 0)} Körper`, `Bild ${short(item.commit)}${item.experiment_tree_dirty ? ' · Arbeitsstand' : ''}`]) {
+      `${integer(item.admitted_products || 0)} Körper`, ...(item.floor_bands ? [`${integer(item.floor_bands)} Geschossbänder · ${integer(item.planned_features)} Ausstattungselemente`] : []),
+      `Bild ${short(item.commit)}${item.experiment_tree_dirty ? ' · Arbeitsstand' : ''}`]) {
       details.append(element('span', text));
     }
     body.append(details); card.append(body); return card;
@@ -67,11 +69,19 @@ function svgNode(tag, attrs, text) {
 }
 
 function renderPlot() {
+  const comparisons = [['massing', 'Baukörper'], ['repeat', 'Fassadenpläne']].filter(([key]) => key === 'massing' ? manifest.massing_benchmark : manifest.benchmark);
+  if (!comparisons.some(([key]) => key === comparison)) comparison = comparisons[0]?.[0] || 'repeat';
+  buttons($('comparisons'), comparisons, comparison, value => { comparison = value; renderPlot(); });
   buttons($('metrics'), Object.entries(metrics).map(([key, value]) => [key, value[0]]), metric,
     value => { metric = value; renderPlot(); });
-  const benchmark = manifest.benchmark;
+  const benchmark = comparison === 'massing' ? manifest.massing_benchmark : manifest.benchmark;
   if (!benchmark) { $('plot').textContent = 'Noch kein abgeschlossener Kostenvergleich.'; return; }
   const rows = benchmark.measurements, [, factor, unit] = metrics[metric];
+  const selectedMethods = Object.entries(methods).filter(([key]) => rows.some(row => row.method === key));
+  $('legend').replaceChildren(...selectedMethods.map(([, [label, color]]) => {
+    const node = element('span'), swatch = element('i'); swatch.style.background = color;
+    node.append(swatch, document.createTextNode(label)); return node;
+  }));
   const sites = [...new Set(rows.map(row => row.site))];
   const maximum = Math.max(...rows.map(row => row[metric] * factor));
   const svg = svgNode('svg', { viewBox: '0 0 960 280', role: 'img', 'aria-label': `${metrics[metric][0]} nach Stadt und Verfahren`,
@@ -81,8 +91,9 @@ function renderPlot() {
     const x = 16 + index * 320;
     svg.append(svgNode('text', { x, y: 28, fill: '#252b30', 'font-family': 'sans-serif', 'font-size': 18 }, site === 'CentralPark' ? 'Central Park' : site === 'Vienna' ? 'Wien' : site));
     const siteRows = rows.filter(row => row.site === site);
-    svg.append(svgNode('text', { x, y: 51, fill: '#677077', 'font-family': 'sans-serif', 'font-size': 11 }, `${integer(siteRows[0].products)} Pläne · ${integer(siteRows[0].potential_openings)} mögliche Öffnungen`));
-    for (const [rowIndex, [key, [label, color]]] of Object.entries(methods).entries()) {
+    const detail = comparison === 'massing' ? `${integer(siteRows[0].bands)} Geschossbänder · ${integer(siteRows[0].setbacks)} Staffelkörper` : `${integer(siteRows[0].potential_openings)} mögliche Öffnungen`;
+    svg.append(svgNode('text', { x, y: 51, fill: '#677077', 'font-family': 'sans-serif', 'font-size': 11 }, `${integer(siteRows[0].products)} Pläne · ${detail}`));
+    for (const [rowIndex, [key, [label, color]]] of selectedMethods.entries()) {
       const row = siteRows.find(value => value.method === key);
       if (!row) continue;
       const value = row[metric] * factor, y = 82 + rowIndex * 54;
@@ -92,7 +103,7 @@ function renderPlot() {
       svg.append(svgNode('text', { x: x + 222, y: y + 20, fill: '#252b30', 'font-family': 'sans-serif', 'font-size': 11 }, `${value.toFixed(2)} ${unit}`));
     }
   }
-  svg.append(svgNode('text', { x: 16, y: 267, fill: '#677077', 'font-family': 'sans-serif', 'font-size': 10 }, `Gemeinsame lineare Skala · Mess-Commit ${short(benchmark.commit)} · Repeat-Encoding, keine Framezeit`));
+  svg.append(svgNode('text', { x: 16, y: 267, fill: '#677077', 'font-family': 'sans-serif', 'font-size': 10 }, `Gemeinsame lineare Skala · Mess-Commit ${short(benchmark.commit)} · ${comparison === 'massing' ? 'Körpererzeugung' : 'Repeat-Encoding'}, keine Framezeit`));
   $('plot').replaceChildren(svg);
   $('plot-context').textContent = `Vollständige Stichproben aus Wien, Tokyo und Central Park · Mess-Commit ${short(benchmark.commit)}`;
   $('plot-note').textContent = benchmark.scope + (metric === 'median_generation_ms' ? ' Median aus je drei Läufen; gemeinsame Vorbereitung separat.' : '');
@@ -110,10 +121,6 @@ function render() {
     const node = element('div', undefined, 'stat'); node.append(element('strong', integer(value)), element('span', label)); return node;
   }));
   $('gaps').replaceChildren(...manifest.gaps.map(gap => element('li', gap)));
-  $('legend').replaceChildren(...Object.values(methods).map(([label, color]) => {
-    const node = element('span'), swatch = element('i'); swatch.style.background = color;
-    node.append(swatch, document.createTextNode(label)); return node;
-  }));
   $('updated').textContent = 'Aktualisiert: ' + new Date(manifest.updated).toLocaleString('de-CH');
   renderGallery(); renderPlot();
 }
@@ -133,7 +140,8 @@ $('download').onclick = () => {
   const svg = $('plot').querySelector('svg');
   if (!svg) return;
   const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
-  const link = element('a'); link.href = url; link.download = `outshine-buildings-${metric}-${short(manifest.benchmark.commit)}.svg`; link.click();
+  const benchmark = comparison === 'massing' ? manifest.massing_benchmark : manifest.benchmark;
+  const link = element('a'); link.href = url; link.download = `outshine-buildings-${comparison}-${metric}-${short(benchmark.commit)}.svg`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 refresh();

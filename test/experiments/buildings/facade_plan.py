@@ -8,6 +8,8 @@ import numpy as np
 import shapely
 from PIL import ImageColor
 from shell import prepare
+from massing import polygons_of, stack
+from features import describe, prepare as prepare_features
 
 REPEAT_DTYPE = np.dtype([('width_m', '<f8'), ('height_m', '<f8'), ('depth_m', '<f8'),
                          ('columns', '<u4'), ('rows', '<u4'), ('opening_width', '<f8'), ('opening_height', '<f8')])
@@ -34,17 +36,6 @@ class Repeat:
         return self.columns*self.rows if self.opening_width*self.opening_height else 0
 
 
-def canonical_ring(coordinates, positive):
-    points = np.asarray(coordinates, dtype=np.float64)
-    if np.array_equal(points[0], points[-1]):
-        points = points[:-1]
-    area = np.sum(points[:, 0]*np.roll(points[:, 1], -1)-points[:, 1]*np.roll(points[:, 0], -1))
-    if (area > 0) != positive:
-        points = points[::-1]
-    first = min(range(len(points)), key=lambda i: tuple(points[i]))
-    return np.roll(points, -first, axis=0)
-
-
 def source_number(value):
     try:
         return float(value)
@@ -52,21 +43,21 @@ def source_number(value):
         raise ValueError(f'invalid supplied number: {value!r}') from error
 
 
-def plan(sample, style=None):
+def author(sample, style=None, massing='styled'):
     polygon, properties = sample['polygon'], sample['properties']
     if not polygon.is_valid or polygon.area <= 1:
         raise ValueError('invalid building footprint')
-    rings = [canonical_ring(polygon.exterior.coords, True)]
-    rings += sorted((canonical_ring(r.coords, False) for r in polygon.interiors), key=lambda r: tuple(r.flat))
+    rings = polygons_of(polygon)[0]
     digest = hashlib.blake2b(str(sample['id']).encode(), digest_size=8).digest()
     seed = int.from_bytes(digest, 'little')
-    style = style or ('bauhaus' if seed % 2 == 0 else 'artdeco')
-    if style not in ('bauhaus', 'artdeco'):
-        raise ValueError('unknown architectural style')
     top = source_number(properties.get('height', properties.get('render_height', 9.)))
     bottom = source_number(properties.get('min_height', properties.get('render_min_height', 0.)))
     if not math.isfinite(top+bottom) or top <= bottom:
         raise ValueError('invalid height interval')
+    style = style or ('midcentury' if top-bottom <= 8.5 and polygon.area < 400 else
+                      'artdeco' if top-bottom >= 14 and seed % 11 == 0 else 'bauhaus')
+    if style not in ('bauhaus', 'midcentury', 'artdeco'):
+        raise ValueError('unknown architectural style')
     roof = properties.get('roof:shape', 'flat')
     if roof != 'flat':
         raise ValueError(f'roof recipe not yet implemented: {roof}')
@@ -80,20 +71,26 @@ def plan(sample, style=None):
     closed = kind in ('chimney', 'silo', 'storage_tank', 'water_tower', 'industrial', 'warehouse', 'roof')
     if kind == 'unknown' and top-bottom > 3*math.sqrt(polygon.area):
         closed = True
+    blocked = 'closed utility body' if closed else 'supplied building part' if properties.get('building:part') else None
+    layers, decision = stack(polygon, bottom, top, rows, style, massing, blocked)
     facades = []
-    for ring in rings:
-        for a, b in zip(ring, np.roll(ring, -1, axis=0)):
-            length = float(np.linalg.norm(b-a))
-            if length <= 1e-8:
-                raise ValueError('zero length building edge')
-            columns = max(1, int(math.floor(length/3.2+.5)))
-            width, height = (.8, .58) if style == 'bauhaus' else (.5, .72)
-            if closed or length < 1.9:
-                width = height = 0.
-            facades.append(dict(a=a, b=b, normal=np.r_[(b-a)[1], -(b-a)[0], 0.]/length,
-                                repeat=Repeat(length, top-bottom, columns, rows, width, height)))
+    for index, layer in enumerate(layers):
+        for component in layer['polygons']:
+            for ring in component:
+                for a, b in zip(ring, np.roll(ring, -1, axis=0)):
+                    length = float(np.linalg.norm(b-a))
+                    if length <= 1e-8:
+                        raise ValueError('zero length building edge')
+                    columns = max(1, int(math.floor(length/3.2+.5)))
+                    width, height = (.88, .64) if style == 'midcentury' else (.8, .58)
+                    if closed or length < 1.9:
+                        width = height = 0.
+                    facades.append(dict(a=a, b=b, layer=index, bottom_m=layer['bottom_m'], top_m=layer['top_m'],
+                                        normal=np.r_[(b-a)[1], -(b-a)[0], 0.]/length,
+                                        repeat=Repeat(length, layer['top_m']-layer['bottom_m'], columns,
+                                                      layer['floors'], width, height)))
     product = dict(id=sample['id'], rings=rings, polygon=shapely.Polygon(rings[0], rings[1:]),
-                top_m=top, bottom_m=bottom, style=style, seed=seed, facades=facades,
+                top_m=top, bottom_m=bottom, style=style, seed=seed, facades=facades, layers=layers, massing=decision,
                 source_properties=properties.copy(), wall_linear=wall_colour(properties),
                 provenance=dict(source_sha256=sample.get('source_sha256'),
                                 height='supplied' if 'height' in properties or 'render_height' in properties else 'procedural',
@@ -102,8 +99,17 @@ def plan(sample, style=None):
                                 wall_colour='supplied' if any(k in properties for k in ('building:colour', 'colour', 'color')) else 'procedural',
                                 floors='supplied' if supplied_rows is not None else 'procedural',
                                 roof='supplied' if 'roof:shape' in properties else 'procedural',
-                                style='procedural', openings='procedural', kind=kind))
-    product['shell'] = prepare(product)
+                                style='procedural', massing='procedural', openings='procedural', kind=kind))
+    product['features'] = describe(product)
+    product['opening_patterns'] = sorted({(f['repeat'].opening_width, f['repeat'].opening_height)
+                                         for f in facades if f['repeat'].count})
+    return product
+
+
+def plan(sample, style=None, massing='styled'):
+    product = author(sample, style, massing)
+    product['shell'], product['surfaces'] = prepare(product)
+    product['decoration'], product['feature_bounds'] = prepare_features(product)
     return product
 
 

@@ -17,6 +17,7 @@ EXPERIMENTS = REPO/'build/experiments/buildings'
 WEBROOT = Path('/tmp/outshine-buildings-showcase')
 TITLES = {
     'bauhaus-detail': ('Bauhaus · Nahdetail', 'nah', 'Räumliche Öffnungen aus dem gemeinsamen Fassadenplan.'),
+    'midcentury-detail': ('Mid-century · kleines Haus', 'nah', 'Horizontale Verglasung, flaches Vordach und Dach-PV.'),
     'artdeco-detail': ('Art déco · Nahdetail', 'nah', 'Vertikaler Öffnungsrhythmus auf demselben OSM-Grundriss.'),
     'bauhaus-shell': ('Nahansicht · Hüllenvergleich', 'vergleich', 'Erzwungene grobe Hülle als Vergleich, keine freigegebene Nahstufe.'),
     'bauhaus-reference-distance8.0': ('Ferne · Detailreferenz', 'fern', 'Erzwungenes Nahdetail für den Bildvergleich auf Distanz.'),
@@ -27,7 +28,7 @@ TITLES = {
 }
 REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'openings',
                  'admitted_products', 'source_products', 'mode', 'cache_hit', 'distance',
-                 'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256')
+                 'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features')
 
 
 def git(*args):
@@ -50,6 +51,12 @@ def image_record(report_path, root):
     try:
         report = json.loads(report_path.read_text())
         record.update({key: report[key] for key in REPORT_FIELDS if key in report})
+        if report.get('massing') and any(item['mode'] == 'plain' for item in report['massing']):
+            record.update(title=title+' · Grundkörper', category='vergleich',
+                          caption='Gleiche OSM-Eingabe ohne prozedurale Staffelungen, PV und Balkone.')
+        elif report.get('floor_bands') and not report.get('cache_hit'):
+            record['caption'] = ('Gespeicherte Körper-/Fassadenpläne, Dach-/Fassaden-PV und begrenzte Balkone. '
+                                 'Bauhaus-Staffelung; Art déco als gezielter Formakzent.') if stem != 'midcentury-detail' else caption
         source = report_path.with_name(stem+'.png')
         data = source.read_bytes()
         digest = hashlib.sha256(data).hexdigest()
@@ -89,6 +96,25 @@ def benchmark():
                       'RSS umfasst den ganzen Python-Prozess. Keine Frame- oder GPU-Zeiten.')
 
 
+def massing_benchmark():
+    path = EXPERIMENTS/'massing-measurements/benchmark.json'
+    if not path.exists():
+        return None
+    source = json.loads(path.read_text())
+    full = {}
+    for row in source['measurements']:
+        key = row['site'], row['method']
+        if key not in full or row['requested_source_polygons'] > full[key]['requested_source_polygons']:
+            full[key] = row
+    fields = ('site', 'method', 'products', 'bands', 'setbacks', 'median_generation_ms', 'process_peak_rss_bytes')
+    rows = [dict(**{field: row[field] for field in fields}, repeat_payload_bytes=row['hull_payload_bytes'])
+            for row in full.values()]
+    return dict(commit=source['commit'], measurements=rows,
+                scope='Vollständige Körper gleicher Geschosspläne: direkte Außenflächen gegen Manifold-3D-Union. '
+                      'Volumen/Außenfläche geprüft; Quellen/Planung separat. Payload: XYZ, UV, Indices, Material; '
+                      'PV/Balkone und Auswahlmetadaten separat. RSS: ganzer Prozess. Keine Frame-/GPU-Zeit.')
+
+
 def publish(root):
     root.mkdir(parents=True, exist_ok=True)
     (root/'assets').mkdir(exist_ok=True)
@@ -96,17 +122,22 @@ def publish(root):
         destination = root/('index.html' if name.endswith('.html') else name)
         atomic_write(destination, (Path(__file__).parent/name).read_bytes())
     images = [image_record(path, root) for path in EXPERIMENTS.rglob('*-report.json')]
-    images.sort(key=lambda item: item['updated'], reverse=True)
+    latest = {}
+    for item in sorted(images, key=lambda item: item['updated']):
+        key = Path(item['id']).name, item.get('cache_hit', False), item['title'].endswith('Grundkörper')
+        latest[key] = item
+    images = sorted(latest.values(), key=lambda item: item['updated'], reverse=True)
     commit = git('rev-parse', 'HEAD')
     branch = git('branch', '--show-current')
     manifest = dict(updated=datetime.now(timezone.utc).isoformat(timespec='seconds'), commit=commit,
                     branch=branch, subject=git('log', '-1', '--format=%s'),
                     pushed=git('rev-parse', 'origin/'+branch) == commit,
                     working_tree_dirty=bool(git('status', '--porcelain')),
-                    images=images, benchmark=benchmark(),
-                    progress='Fertige Hüllen im Cache; Nahdetails nach Bedarf. '
-                             'Nächster Ausbau: Bauhaus-Pavillons und Art-déco-Staffelungen.',
-                    gaps=['Vielfalt von Baukörpern, Dächern und Sonderbauten',
+                    images=images, benchmark=benchmark(), massing_benchmark=massing_benchmark(),
+                    progress='Bauhaus-Staffelungen, kleine Mid-century-Häuser und gezielte Art-déco-Akzente. '
+                             'Dach-/Fassaden-PV und Balkone teilen den gespeicherten Gebäudeplan.',
+                    gaps=['VisusCity-Bildqualität: Umgebung, Licht und Materialreichtum',
+                          'Weitere Dachfamilien und Sonderbauten',
                           'Parts, Infrastrukturkontakte und Verdeckung',
                           'Schatten, Materialübergänge und native Weltbudgets'])
     manifest['revision'] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()

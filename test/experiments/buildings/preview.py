@@ -29,8 +29,36 @@ def weights(pattern, side=128):
     return dict(size=side, rgba=rgba.ravel().tolist())
 
 
+def solar_weights(side=128):
+    y, x = np.mgrid[:side, :side]
+    centres = (np.stack((x, y), axis=-1)+.5)/side
+    modules = coverage(Repeat(1., 1., 1, 1, .985, .97), centres, [1/side, 1/side])
+    cells = coverage(Repeat(1., 1., 6, 10, .94, .94), centres, [1/side, 1/side])
+    active = np.minimum(modules, cells)
+    rgba = np.stack((1-modules, modules-active, active, np.ones_like(active)), axis=-1).astype(np.float32)
+    return dict(size=side, rgba=rgba.ravel().tolist())
+
+
+def house_view(product):
+    points = np.concatenate((product['shell']['vertices'], product['decoration']['vertices']))
+    low, high = points.min(0), points.max(0)
+    centre = (low+high)*.5
+    facade = max(product['facades'], key=lambda f: f['repeat'].width_m)
+    tangent = np.r_[(facade['b']-facade['a'])/facade['repeat'].width_m, 0.]
+    direction = 1.5*facade['normal']-1.2*tangent+[0., 0., .9]
+    direction /= np.linalg.norm(direction)
+    basis = View(centre+direction, centre, width=1280, height=720)
+    corners = np.array([[x, y, z] for x in (low[0], high[0]) for y in (low[1], high[1]) for z in (low[2], high[2])])
+    projected = (corners-centre) @ basis.basis.T
+    required = np.maximum(abs(projected[:, 0])*basis.focal_px/(basis.width*.36),
+                          abs(projected[:, 1])*basis.focal_px/(basis.height*.36))-projected[:, 2]
+    return centre+direction*(required.max()+1.), centre
+
+
 def configuration(products, view, detail, output, reference=False):
     objects, tiles, counts = [], {}, dict(source_products=len(products), admitted_products=0, selected_faces=0,
+                               floor_bands=sum(len(p['layers']) for p in products),
+                               planned_features=sum(len(p['features']) for p in products),
                                vertices=0, triangles=0, openings=0, detail_fallbacks=[])
     began = time.perf_counter()
     for product in products:
@@ -47,15 +75,13 @@ def configuration(products, view, detail, output, reference=False):
         counts['triangles'] += len(geometry['faces'])
         counts['openings'] += geometry['detail_openings']
         counts['detail_fallbacks'].extend(dict(f, id=product['id']) for f in geometry['detail_fallbacks'])
-        patterns = {(f['repeat'].opening_width, f['repeat'].opening_height)
-                    for f in product['facades'] if f['repeat'].count}
-        if len(patterns) > 1:
-            raise ValueError('diagnostic renderer needs one opening pattern per building')
-        pattern = next(iter(patterns), (0., 0.))
-        key = str(pattern)
-        if key not in tiles:
-            tiles[key] = weights(pattern)
-        objects.append(dict(id=product['id'], style=product['style'], pattern_key=key,
+        keys = []
+        for pattern in product['opening_patterns']:
+            key = str(pattern)
+            if key not in tiles:
+                tiles[key] = weights(pattern)
+            keys.append(key)
+        objects.append(dict(id=product['id'], style=product['style'], pattern_keys=keys,
                             wall_linear=product['wall_linear'].tolist(),
                             mesh={k: geometry[k].tolist() for k in ('vertices', 'faces', 'uv', 'materials')}))
     counts['demand_and_emission_ms'] = (time.perf_counter()-began)*1000
@@ -64,7 +90,7 @@ def configuration(products, view, detail, output, reference=False):
     result = dict(profile=[view.width, view.height], eye=view.eye.tolist(), target=view.target.tolist(),
                   fov_deg=view.fov_deg, products=objects, output=str(output.resolve()),
                   ground_span_m=max(span*6, float(np.linalg.norm(view.eye-view.target))*3),
-                  tiles=tiles)
+                  tiles=tiles, solar_tile=solar_weights())
     return result, counts
 
 
@@ -89,7 +115,8 @@ def run_render(config, path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=Path('build/experiments/buildings/preview'))
-    parser.add_argument('--style', choices=('bauhaus', 'artdeco'))
+    parser.add_argument('--style', choices=('bauhaus', 'midcentury', 'artdeco'))
+    parser.add_argument('--massing', choices=('plain', 'styled'), default='styled')
     parser.add_argument('--lod', choices=('detail', 'shell', 'reference'), default='detail')
     parser.add_argument('--distance', type=float, default=1.)
     parser.add_argument('--site', default='Vienna')
@@ -115,23 +142,18 @@ def main():
         receipt['planning_rejected'] = []
         for sample in chosen:
             try:
-                products.append(plan(sample))
+                products.append(plan(sample, massing=args.massing))
             except ValueError as error:
                 receipt['planning_rejected'].append(dict(id=sample['id'], reason=str(error)))
         eye, target = np.array([-300., -380., 200.]), np.array([0., 0., 20.])
     else:
         if not args.cached_plan:
-            chosen = [s for s in samples if 150 < s['polygon'].area < 500 and len(s['polygon'].exterior.coords) < 15
-                      and not s['polygon'].interiors and 8 <= float(s['properties'].get('render_height', 9.)) <= 20]
+            low, high = (2.5, 8.5) if args.style == 'midcentury' else (8., 20.)
+            chosen = [s for s in samples if 100 < s['polygon'].area < 500 and len(s['polygon'].exterior.coords) < 15
+                      and not s['polygon'].interiors and low <= float(s['properties'].get('render_height', 9.)) <= high]
             sample = min(chosen, key=lambda s: s['polygon'].distance(shapely.Point(0, 0)))
-            products = [plan(sample, args.style or 'bauhaus')]
-        centre = np.array(products[0]['polygon'].centroid.coords[0])
-        span = max(products[0]['polygon'].bounds[2]-products[0]['polygon'].bounds[0],
-                   products[0]['polygon'].bounds[3]-products[0]['polygon'].bounds[1])
-        target = np.r_[centre, products[0]['top_m']*.45]
-        facade = max(products[0]['facades'], key=lambda f: f['repeat'].width_m)
-        tangent = np.r_[(facade['b']-facade['a'])/facade['repeat'].width_m, 0.]
-        eye = target+(2.1*facade['normal']-1.7*tangent)*span+[0., 0., span]
+            products = [plan(sample, args.style or 'bauhaus', args.massing)]
+        eye, target = house_view(products[0])
         if not args.cached_plan:
             (args.output/(products[0]['style']+'-enriched-plan.json')).write_bytes(encode(products[0]))
     eye = target+(eye-target)*args.distance
@@ -143,8 +165,9 @@ def main():
     config, counts = configuration(products, view, args.lod != 'shell', args.output/(name+'.png'), args.lod == 'reference')
     counts.update(revision(), source_sha256=receipt['receipt']['sha256'], profile=[view.width, view.height],
                   mode=args.lod, cache_hit=bool(args.cached_plan), distance=args.distance,
+                  massing=[product['massing'] for product in products],
                   demand='facing/frustum/one-metre movement reserve',
-                  limitations=['no scene occlusion', 'shadow completeness unproven', 'flat-roof facade pilot',
+                  limitations=['no scene occlusion', 'shadow completeness unproven', 'nested flat-roof massing pilot',
                                'coverage-weighted BSDFs omit recess microshadows and offset reflections'])
     (args.output/(name+'-source.json')).write_text(json.dumps(receipt, indent=2)+'\n')
     config_path = args.output/(name+'-scene.json')

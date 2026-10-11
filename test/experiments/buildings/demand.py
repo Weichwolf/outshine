@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import math
 
 import numpy as np
-import shapely
 
 
 @dataclass(frozen=True)
@@ -67,16 +66,17 @@ def clip(points, view):
     return polygon
 
 
-def horizontal_demand(product, view, height, upward):
+def horizontal_demand(surface, view):
+    height, upward = surface['height_m'], surface['upward']
     facing = (view.eye[2]-height)*(1 if upward else -1)+view.movement_m
     if facing <= 0:
-        return shapely.Polygon()
-    x0, y0, x1, y1 = product['polygon'].bounds
+        return None
+    x0, y0, x1, y1 = surface['bounds']
     bounds = np.array([[x0, y0, height], [x1, y0, height], [x1, y1, height], [x0, y1, height]])
     clipped = clip(bounds, view)
     if len(clipped) < 3:
-        return shapely.Polygon()
-    return shapely.intersection(product['polygon'], shapely.Polygon(clipped[:, :2]))
+        return None
+    return (clipped[:, 0].min(), clipped[:, 1].min(), clipped[:, 0].max(), clipped[:, 1].max())
 
 
 def select(product, view):
@@ -84,16 +84,16 @@ def select(product, view):
     projection = math.sqrt(1+(view.width/(2*view.focal_px))**2+(view.height/(2*view.focal_px))**2)
     for index, facade in enumerate(product['facades']):
         a, b, repeat = facade['a'], facade['b'], facade['repeat']
-        midpoint = np.r_[(a+b)*.5, (product['top_m']+product['bottom_m'])*.5]
+        midpoint = np.r_[(a+b)*.5, (facade['top_m']+facade['bottom_m'])*.5]
         if (view.eye-midpoint) @ facade['normal']+view.movement_m <= 0:
             continue
-        points = np.array([[*a, product['bottom_m']], [*b, product['bottom_m']],
-                           [*b, product['top_m']], [*a, product['top_m']]])
+        points = np.array([[*a, facade['bottom_m']], [*b, facade['bottom_m']],
+                           [*b, facade['top_m']], [*a, facade['top_m']]])
         clipped = clip(points, view)
         if len(clipped) < 3:
             continue
         u = (clipped[:, :2]-a) @ ((b-a)/repeat.width_m)
-        v = clipped[:, 2]-product['bottom_m']
+        v = clipped[:, 2]-facade['bottom_m']
         region = np.array([u.min(), v.min(), u.max(), v.max()])
         region = np.clip(region, 0., [repeat.width_m, repeat.height_m]*2)
         if np.any(region[2:]-region[:2] <= 1e-8):
@@ -102,6 +102,9 @@ def select(product, view):
         error = view.focal_px*repeat.depth_m*projection/max(nearest_z, .1)
         faces.append(dict(edge=index, region=region, projected_recess_error_px=float(error),
                           detail=bool(repeat.count and error > view.detail_error_px)))
-    return dict(faces=faces,
-                roof=horizontal_demand(product, view, product['top_m'], True),
-                bottom=horizontal_demand(product, view, product['bottom_m'], False))
+    caps = []
+    for surface in product['surfaces']:
+        bounds = horizontal_demand(surface, view)
+        if bounds is not None:
+            caps.append(dict(part=surface['part'], bounds=bounds))
+    return dict(faces=faces, caps=caps, view=view)

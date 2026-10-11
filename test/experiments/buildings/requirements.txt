@@ -2,3 +2,4 @@ numpy==2.5.4
 Pillow==12.3.0
 shapely==2.2.0
 mapbox-vector-tile==2.2.0
+manifold3d==3.5.4
