@@ -27,7 +27,13 @@ def preserves_coverage(before,after):
         return True
     roundoff=coordinate_roundoff(before)
     lost=before.difference(after)
-    return lost.area<=roundoff*before.length and shapely.covers(shapely.buffer(after,roundoff,quad_segs=8),before)
+    if lost.area>roundoff*before.length:
+        return False
+    for segments in (8,4,2,1):
+        expanded=shapely.buffer(after,roundoff,quad_segs=segments)
+        if expanded.is_valid:
+            return bool(shapely.covers(expanded,before))
+    return False
 
 
 def preserves_voids(before,after):

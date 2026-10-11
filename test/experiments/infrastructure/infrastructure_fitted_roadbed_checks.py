@@ -6,7 +6,24 @@ import shapely
 from infrastructure_fitted_roadbeds import construct_fitted_roadbed,spline_roadbed
 from infrastructure_source_roadbeds import roadbed_body_check,published_roadbed_body_check,sample_roadbed_piece
 from infrastructure_spline_routes import checked_spline_path,continuous_spline_joins
-from infrastructure_turn_roadbeds import geometry_precision,roadbed_site_check,coordinate_roundoff
+from infrastructure_turn_roadbeds import geometry_precision,roadbed_site_check,coordinate_roundoff,preserves_coverage
+
+
+def verify_floor_coverage():
+    for offset in (0.,1000.,10000.):
+        floor=shapely.box(offset,offset,offset+10,offset+10)
+        tolerance=coordinate_roundoff(floor)
+        assert preserves_coverage(floor,floor.union(shapely.box(offset+9,offset,offset+12,offset+10)))
+        rounded=shapely.box(offset+tolerance*.25,offset,offset+10,offset+10)
+        assert preserves_coverage(floor,rounded)
+        for width in (tolerance*4,.01):
+            narrowed=shapely.box(offset+width,offset,offset+10,offset+10)
+            assert not preserves_coverage(floor,narrowed)
+        side=np.sqrt(tolerance)*.25
+        damaged=floor.difference(shapely.box(offset+5,offset+5,offset+5+side,offset+5+side))
+        assert floor.difference(damaged).area<tolerance*floor.length
+        assert not preserves_coverage(floor,damaged)
+    return dict(floor_coverage_roundoff_checked=True,small_area_wide_floor_loss_rejected=True)
 
 
 def verify_mesh_roundoff(vehicle):
@@ -73,4 +90,5 @@ def verify_fitted_roadbeds(vehicle,mesh_check):
     assert note['residual_calls']<=1
     if candidate is not None:mesh_check(candidate['surface'],vehicle,candidate['pieces'],.025)
     return dict(fitted_roadbed_trim_checked=True,spline_seams_checked=True,
-                fitted_roadbed_budgets_checked=True,interior_obstruction_rejected=True,**verify_mesh_roundoff(vehicle))
+                fitted_roadbed_budgets_checked=True,interior_obstruction_rejected=True,
+                **verify_mesh_roundoff(vehicle),**verify_floor_coverage())
