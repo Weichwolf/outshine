@@ -35,6 +35,8 @@ def main():
     parser.add_argument('--input',type=Path,nargs='+',required=True)
     parser.add_argument('--maximum-states',type=int,default=20000)
     parser.add_argument('--cell',type=float)
+    parser.add_argument('--heading-bins',type=int,default=32)
+    parser.add_argument('--radius-scale',type=float,default=1.05)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True);rows=[]
     checks=verify()
@@ -45,7 +47,8 @@ def main():
         vehicle,error=data['vehicle'],data['error_m']
         domain=surface.buffer(roadbed_lateral_reach(vehicle)-2*error).difference(reserved.difference(surface).buffer(2*error))
         begin=time.perf_counter()
-        guide,note=steering_guide(entry,exit,source,surface,domain,vehicle,maximum_states=args.maximum_states,cell=args.cell)
+        guide,note=steering_guide(entry,exit,source,surface,domain,vehicle,maximum_states=args.maximum_states,cell=args.cell,
+                                 heading_bins=args.heading_bins,radius_scale=args.radius_scale)
         row=dict(input=str(path),input_sha256=digest(path),guide_found=guide is not None,
                  search_elapsed_ms=(time.perf_counter()-begin)*1000,search=note,accepted=False)
         if guide is not None:

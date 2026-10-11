@@ -46,9 +46,10 @@ def connector_paths(pose,exit,radius):
                  (path for _,path in three_arc_seeds(entry,exit,radius)))
 
 
-def steering_guide(entry,exit,source,surface,domain,vehicle,*,maximum_states=20000,heading_bins=32,cell=None):
+def steering_guide(entry,exit,source,surface,domain,vehicle,*,maximum_states=20000,heading_bins=32,cell=None,radius_scale=1.05):
     if maximum_states<1 or heading_bins<8:raise ValueError('steering budgets must be positive')
-    radius=vehicle['minimumRearAxleRadiusM']*1.05
+    if radius_scale<1 or not np.isfinite(radius_scale):raise ValueError('guide radius cannot undercut the vehicle radius')
+    radius=vehicle['minimumRearAxleRadiusM']*radius_scale
     angle_step=2*np.pi/heading_bins;length=radius*angle_step
     cell=vehicle['widthM']*.25 if cell is None else cell
     if cell<=0 or not np.isfinite(cell):raise ValueError('state cell must be finite and positive')
