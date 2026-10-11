@@ -19,6 +19,7 @@ PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Ver
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
 Ghidra 12.1.2: acht Funktionen gezielt untersucht: Offset/Skelett/Convexify, Offset-Kern, Split-Vorbereitung/-Verteilung/Achsschnitt, Extrusion.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
+Nächste Analyse: `computeInnerRects` mit Löchern, `LargestRectangle` und Daniels-Kontakt-/Rekursionsverfahren für konstruktive Kerne.
 
 ## Umsetzung
 - Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.
@@ -47,6 +48,8 @@ Katalog zeigt Fähigkeit, eigene Entsprechung und fehlende Verfahren; daraus nä
 [Esri SDK](https://esri.github.io/cityengine/cityenginesdk),
 [CGAL Skeleton/Offset](https://doc.cgal.org/latest/Straight_skeleton_2/index.html),
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm),
+[CGA InnerRectangle](https://doc.arcgis.com/en/cityengine/latest/cga/cga-inner-rectangle.htm),
+[Daniels/Milenkovic/Roth, Autorenpreprint 1993](../doc/references/buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf): Kontakte und Polygonzerlegung, Seiten 1/5/8 optisch geprüft.
 [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214).
 [Esri Tutorial 15](../doc/references/buildings/esri/2013-interior-floors-web-scenes.pdf): Dev-HQ-Innenraum-/Geschossansichten, Seiten 3/7 optisch geprüft.
 [CitySample a0981eb](https://github.com/fate-apple/CitySample/tree/a0981eb52322eab75db2507a23879de9f30110a0): HLOD/Instanzen, Houdini-Graphen fehlen.

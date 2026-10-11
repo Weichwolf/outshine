@@ -25,6 +25,10 @@ TARGETS = {
     '_ZN2GC10SSplitNode5splitEi': 'split allocation',
     '_ZN12_GLOBAL__N_18splitXYZER9ProcessorN4util8MeshBase4AXISEbRN2GC10SSplitNodeE': 'axis mesh subdivision',
     '_ZN9Processor7extrudeEd': 'face extrusion',
+    '_ZN12_GLOBAL__N_117computeInnerRectsERKSt6vectorISt10shared_ptrIN4util14Polygon2DUtils18Polygon2dWithHolesEESaIS5_EERKS0_ISt4pairIddESaISB_EERS0_INS2_9Polygon2dESaISG_EENS_23InnerRectangleAlgorithmENS_23InnerRectangleAlignModeE.constprop.0': 'inner rectangle dispatch with holes',
+    '_ZN4util16LargestRectangle20findLargestRectangleEb': 'largest rectangle search',
+    '_ZN4util27LargestRectangleDanielsFast22leafOrthogonallyConvexERKNS_18Trapezoidalization4PolyE': 'orthogonally convex rectangle contacts',
+    '_ZNK4util27LargestRectangleDanielsFast17continueRecursionERKNS_18Trapezoidalization4PolyEb': 'rectangle recursion bound',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;
@@ -56,7 +60,7 @@ public class InspectBuildingCore extends GhidraScript {
         report.put("program", currentProgram.getName());
         report.put("language", currentProgram.getLanguageID().toString());
         report.put("image_base", currentProgram.getImageBase().toString());
-        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul)");
+        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul|rectangle|trapezoid)");
         List<Map<String,Object>> names = new ArrayList<>(), selected = new ArrayList<>();
         FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
         DecompInterface decompiler = new DecompInterface();

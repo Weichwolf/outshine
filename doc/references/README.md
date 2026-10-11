@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
 Stand: 2026-10-11. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-33 Publikationen/Referenzdokumente sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+34 Publikationen/Referenzdokumente sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -50,6 +50,12 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   [PDF](buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf).
   Raumprogramm/Adjazenzen → gemeinsam abgestimmte Geschosspläne → vollständige Innen-/Außengeometrie.
   WI 2420 vergleicht begrenzte Verfahren mit festen OSM-Körpern; keine ungemessene Übernahme des Optimierers.
+- **Finding the Maximum Area Axis-Parallel Rectangle in a Polygon**, Daniels / Milenkovic / Roth,
+  Autorenpreprint Oktober 1993, später Computational Geometry 1997.
+  [Quelle](https://cogcomp.seas.upenn.edu/papers/maaprJ.pdf) ·
+  [PDF](buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf).
+  Randkontakte und Polygonzerlegung begründen vollständig innenliegende Rechtecke mit Löchern (2400/2420).
+  Seiten 1/5/8 optisch geprüft; feste Kernmaße brauchen gültige Platzierung, keine behauptete globale Flächenoptimierung.
 - **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
   [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
   [PDF](buildings/esri/2013-interior-floors-web-scenes.pdf).
