@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-07. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-30 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+Stand: 2026-10-11. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+34 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -181,6 +181,28 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 ## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
 
+- **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
+  [Publikation](https://doi.org/10.1145/218380.218427) ·
+  [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·
+  [PDF](vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf).
+  Hierarchische Astordnungen, Elternprofile und kontrollierte Formvarianz als Vergleich
+  für begrenzte Pflanzenrezepte nutzen. Formparameter ersetzen keine Lichtkonkurrenz;
+  publizierte Vereinfachungen belegen keine Deckungs- oder Laufzeitgrenze unserer Produkte.
+- **Self-organizing Tree Models for Image Synthesis**, Pałubicki et al., SIGGRAPH / TOG 2009.
+  [Autoren](https://algorithmicbotany.org/papers/selforg.sig2009.html) ·
+  [PDF-Quelle](https://algorithmicbotany.org/papers/selforg.sig2009.small.pdf) ·
+  [PDF](vegetation/siggraph/2009-self-organizing-trees.pdf).
+  Lokale Astarchitektur, Licht-/Raumkonkurrenz und interne Wachstumssignale verbinden.
+  Konkurrenz kann natürliche Verteilung ergänzen; sie ist weder Pflicht für jedes Fernprodukt
+  noch ein Beleg für begrenzte Erzeugungsarbeit. Kosten gegen direkte Formrezepte messen.
+- **Modeling Trees with a Space Colonization Algorithm**, Runions / Lane / Prusinkiewicz,
+  Eurographics Workshop on Natural Phenomena 2007.
+  [Autoren](https://algorithmicbotany.org/papers/colonization.egwnp2007.html) ·
+  [PDF-Quelle](https://algorithmicbotany.org/papers/colonization.egwnp2007.pdf) ·
+  [PDF](vegetation/eg/2007-space-colonization.pdf).
+  Freien Kronenraum durch Attraktoren vertreten und gerichtete Internodien wachsen lassen.
+  Nahplan-Verfahrensvergleich mit gleichen Eingaben; Nachbarsuche und Stillstand begrenzen.
+  Ein Baum-Wachstumssolver ist kein direkter Fernwaldpfad ohne Organ- und Einzelbaumarbeit.
 - **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
   EGSR 2007.
   [Quelle](https://www.cg.tuwien.ac.at/research/publications/2007/Habel_2007_RTT/Habel_2007_RTT-Preprint.pdf) ·

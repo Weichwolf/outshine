@@ -1,5 +1,5 @@
 {
-  "current_work": "Derselbe Laubbaum mit 37.800 stabilen Blättern erhält ein wiederverwendbares Kartenprodukt. Das Laub benötigt 64.118 statt 2,49 Millionen Dreiecken; Farbe, Normalen und Deckung sind selbst erzeugt. Räumliche Referenz und Karten verwenden dieselbe Kamera, Beleuchtung und Holzgeometrie. Ein versioniertes Pflanzenrezept erhält die Herkunft späterer Nahdetails.",
+  "current_work": "Derselbe Laubbaum mit 37.800 stabilen Blättern erhält ein wiederverwendbares Kartenprodukt. Das Laub benötigt 64.118 statt 2,49 Millionen Dreiecken; Farbe, Normalen und Deckung sind selbst erzeugt. Räumliche Referenz und Karten verwenden dieselbe Kamera, Beleuchtung und Holzgeometrie. Ein versioniertes Pflanzenrezept erhält die Herkunft späterer Nahdetails. Die SpeedTree-Verfahren werden vorrangig mit Ghidra untersucht; bisher 19 gezielte Funktionen aus Verzweigung, Platzierung und LOD, mit noch offenen Feldern und vollständigen Solvern.",
   "quality_gap": "Die Vegetation bleibt ein Verfahrens- und Formstand. Vollständige Waldprodukte, Artenvielfalt, natürliche Bestandsverteilung, organische Gabeln, Rinde, Wind und bewegungsstabile LOD-Übergänge fehlen. Für das neue Kartenprodukt sind Mip-Verhalten, Overdraw sowie native GPU-/Laufzeitkosten noch offen.",
   "renders": [
     {

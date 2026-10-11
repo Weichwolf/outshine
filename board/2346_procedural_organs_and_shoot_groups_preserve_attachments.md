@@ -46,12 +46,8 @@ Richtungsänderung mit Längenbegrenzung. Ruhegeometrie und laufender Wind bleib
 `linux/SpeedTree_Modeler` enthält die Generatorfunktionen direkt, mit Funktionssymbolen.
 Gelesen: relative Segmentzahl, Blatt-LOD-Gewicht und Aufrufe der Mastersegment-Berechnung;
 Elternzugriff/Bezierprofile sind belegbar, vollständige interne Solver daraus nicht abgeleitet.
-Ghidra 12.1.2 (Snap) dekompiliert sieben gezielte Funktionen, Projekt außerhalb des Repositories.
-Phyllotaxis `0x1e296e0`: Schritt durch wirksame Elternlänge normalisieren, vom letzten
-zum ersten Standort laufen; Profile steuern Abstand/Roll, eine Anzahl begrenzt die Schleife.
-Intervallplatzierung `0x1e2b3a0` verwendet zusätzlich den Kehrwert eines Frequenzparameters.
-Mastersegmente `0x1cb7260`: absolute/relative Anteile, Profile und Mindestzahl vier.
-Diese Aussagen beschreiben sichtbare Operationen; unbekannte Felder/Signaturen bleiben unbenannt.
+2348 besitzt die priorisierte Ghidra-Analyse, belegte Funktionsoperationen und offene Feldsemantik.
+Physische Internodien, Eltern-/Verlaufsprofile und Mastersegmente ergänzen die eigene Formgrammatik.
 Blatt-LOD-Vorbereitung reserviert Skins; vollständige Reduktions-/Deckungsverfahren bleiben offen.
 Keine Übernahme proprietären Codes. Eigene Verfahren werden aus Geometrie/Verträgen hergeleitet.
 
