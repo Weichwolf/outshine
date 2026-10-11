@@ -124,7 +124,7 @@ def main():
     counts.update(revision(), source_sha256=receipt['receipt']['sha256'], profile=[view.width, view.height],
                   mode=args.lod, distance=args.distance, demand='facing/frustum/one-metre movement reserve',
                   limitations=['no scene occlusion', 'shadow completeness unproven', 'flat-roof facade pilot',
-                               'shell BRDF/microshadows not yet equivalent to detailed materials'])
+                               'coverage-weighted BSDFs omit recess microshadows and offset reflections'])
     (args.output/(name+'-source.json')).write_text(json.dumps(receipt, indent=2)+'\n')
     config_path = args.output/(name+'-scene.json')
     config_path.write_text(json.dumps(config, separators=(',', ':'))+'\n')

@@ -33,6 +33,7 @@ Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine d
 `verify.py`: Flächenoracle, Hof/L-Form, Unterkante, Farb-/Höhenvorrang, Cachehit und frischer Offline-Prozess.
 Ausführen mit `.venv/bin/python test/experiments/buildings/{verify,benchmark,preview}.py` (einzeln).
 Renderings/Messprodukte: `build/experiments/buildings/{preview,measurements}/`; Blender-Eevee via CLI.
+Diagnosehüllen mischen dieselben Wand-/Rahmen-/Glas-BSDFs nach Coverage ([Blender](https://docs.blender.org/manual/en/4.3/render/shader_nodes/shader/mix.html)).
 Pilot: Flachdächer und zwei Öffnungsproportionen. Teile/Tile-Nähte, Nutzungskontakte, besondere
 Baukörper, Szenenverdeckung, vollständige Schatten und gefilterte BRDF bleiben offen.
 

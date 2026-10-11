@@ -23,19 +23,16 @@ def material(name, colour, roughness, metallic=0., object_colour=False):
     return result
 
 
-def weighted_colour(tree, colour, weight):
-    node = tree.nodes.new('ShaderNodeVectorMath')
-    node.operation = 'SCALE'
-    if isinstance(colour, tuple):
-        node.inputs[0].default_value = colour
-    else:
-        tree.links.new(colour, node.inputs[0])
-    tree.links.new(weight, node.inputs['Scale'])
-    return node.outputs['Vector']
+def mix_shaders(tree, first, second, weight):
+    node = tree.nodes.new('ShaderNodeMixShader')
+    tree.links.new(weight, node.inputs[0])
+    tree.links.new(first, node.inputs[1])
+    tree.links.new(second, node.inputs[2])
+    return node.outputs[0]
 
 
 def shell_material(name, pixels, colours):
-    result = material(name, (1., 1., 1.), .58)
+    result = material(name, (1., 1., 1.), .68, object_colour=True)
     tree = result.node_tree
     image = bpy.data.images.new(name+'-weights', width=pixels['size'], height=pixels['size'], float_buffer=True)
     image.colorspace_settings.name = 'Non-Color'
@@ -46,16 +43,25 @@ def shell_material(name, pixels, colours):
     texture.interpolation = 'Linear'
     channels = tree.nodes.new('ShaderNodeSeparateColor')
     tree.links.new(texture.outputs['Color'], channels.inputs['Color'])
-    info = tree.nodes.new('ShaderNodeObjectInfo')
-    values = [weighted_colour(tree, colour, weight) for colour, weight in
-              zip((info.outputs['Color'], colours[2], colours[1]), channels.outputs)]
-    for extra in values[1:]:
-        add = tree.nodes.new('ShaderNodeVectorMath')
-        add.operation = 'ADD'
-        tree.links.new(values[0], add.inputs[0])
-        tree.links.new(extra, add.inputs[1])
-        values[0] = add.outputs['Vector']
-    tree.links.new(values[0], tree.nodes.get('Principled BSDF').inputs['Base Color'])
+    wall = tree.nodes.get('Principled BSDF').outputs[0]
+    shaders = []
+    for colour, roughness, metallic in ((colours[2], .28, .65), (colours[1], .16, 0.)):
+        shader = tree.nodes.new('ShaderNodeBsdfPrincipled')
+        shader.inputs['Base Color'].default_value = (*colour, 1.)
+        shader.inputs['Roughness'].default_value = roughness
+        shader.inputs['Metallic'].default_value = metallic
+        shaders.append(shader.outputs[0])
+    amount = tree.nodes.new('ShaderNodeMath')
+    amount.operation = 'ADD'
+    tree.links.new(channels.outputs[1], amount.inputs[0])
+    tree.links.new(channels.outputs[2], amount.inputs[1])
+    ratio = tree.nodes.new('ShaderNodeMath')
+    ratio.operation = 'DIVIDE'
+    tree.links.new(channels.outputs[2], ratio.inputs[0])
+    tree.links.new(amount.outputs[0], ratio.inputs[1])
+    opening = mix_shaders(tree, shaders[0], shaders[1], ratio.outputs[0])
+    combined = mix_shaders(tree, wall, opening, amount.outputs[0])
+    tree.links.new(combined, tree.nodes.get('Material Output').inputs['Surface'])
     return result
 
 
