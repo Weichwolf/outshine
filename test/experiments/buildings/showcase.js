@@ -131,7 +131,25 @@ function render() {
   }));
   $('gaps').replaceChildren(...manifest.gaps.map(gap => element('li', gap)));
   $('updated').textContent = 'Aktualisiert: ' + new Date(manifest.updated).toLocaleString('de-CH');
-  renderEsri(); renderProvider(); renderGallery(); renderPlot();
+  renderEsri(); renderPlans(); renderProvider(); renderGallery(); renderPlot();
+}
+
+function renderPlans() {
+  const rows = manifest.images.filter(item => item.representation === 'functional-plan');
+  $('plans').hidden = !rows.length;
+  const connected = rows.filter(item => item.plan_status === 'connected-first-storey');
+  $('plans-note').textContent = `${connected.length} lokal verbundene Erdgeschosse · ${rows.length-connected.length} Gegenfälle mit Auslassungsgrund. `+
+    'Generische Räume, reale Wand-/Boden-/Deckenstärken und Tür-/Fensteröffnungen. Obergeschosse, Flure, Treppen und Geländeanschlüsse fehlen. '+
+    'CPU-Einzelmessungen des Python-Prototyps; Meshdaten sind Array-Payload, keine Prozesspeaks oder Framezeiten.';
+  $('plans-cases').replaceChildren(...rows.map(row => {
+    const tr = element('tr');
+    const alternatives = (row.alternatives || []).map(value => `${value.method}: ${value.valid ? `${value.rooms} Räume / ${value.elapsed_ms.toFixed(2)} ms` : 'ungeeignet'}`).join('; ');
+    const costs = `${row.generation_ms?.plan?.toFixed(2) || '—'} / ${row.generation_ms?.mesh?.toFixed(2) || '—'}`;
+    tr.append(...[row.title, alternatives || 'Kein brauchbarer Innenraum',
+      row.plan_status === 'unplanned' ? 'Ausgelassen' : `${row.method} / ${row.rooms} / ${row.doors}`, costs,
+      ((row.raw_mesh_bytes || 0)/1024).toFixed(1)].map(value => element('td', value)));
+    return tr;
+  }));
 }
 
 function renderEsri() {

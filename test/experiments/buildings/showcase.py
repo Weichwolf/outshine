@@ -30,7 +30,8 @@ TITLES = {
 REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'openings',
                  'admitted_products', 'source_products', 'mode', 'cache_hit', 'distance',
                  'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features', 'representation', 'recipes',
-                 'reference', 'source_id', 'view', 'comparison_case')
+                 'reference', 'source_id', 'view', 'comparison_case', 'rooms', 'doors', 'generation_ms',
+                 'plan_json_bytes', 'raw_mesh_bytes', 'alternatives', 'method', 'plan_status')
 
 
 def git(*args):
@@ -53,7 +54,14 @@ def image_record(report_path, root):
     try:
         report = json.loads(report_path.read_text())
         record.update({key: report[key] for key in REPORT_FIELDS if key in report})
-        if report.get('representation') == 'esri-reference':
+        if report.get('representation') == 'functional-plan':
+            record.update(title='Gebäudeplan · '+report['label'], category='plan',
+                          caption=f"{report['rooms']} generische Räume, {report['doors']} offene Türportale. "
+                                  '2D-Grundriss, echter Mesh-Schnitt und 2.5D desselben Erdgeschosses. '
+                                  'Raumprogramm, Obergeschosse und native Begehbarkeit sind offen.')
+            if report.get('plan_status') == 'unplanned':
+                record['caption'] = 'Quelle erhalten; Erdgeschossplan mit konkretem Grund ausgelassen: '+('; '.join(report['limitations']))
+        elif report.get('representation') == 'esri-reference':
             ref = report['reference']
             label = {'near': 'Nahansicht', 'orbit': 'Rundum-Gegenansicht', 'far': 'Distanzansicht'}[report['view']]
             record.update(title='Esri Candler · '+report['comparison_case']+' · '+label, category='esri',
@@ -177,9 +185,9 @@ def publish(root):
                     working_tree_dirty=bool(git('status', '--porcelain')),
                     images=images, benchmark=benchmark(), massing_benchmark=massing_benchmark(),
                     provider_comparison=provider, source_validation=validation, context_validation=context_validation, esri=esri,
-                    progress='Ziel: Qualität und Vielfalt anspruchsvoller Esri-CityEngine-Architektur. '
-                             'Die eigenen OSM-Gebäude liegen deutlich darunter; ausführbare Esri-Beispiele machen die Lücke sichtbar.',
-                    gaps=['Funktionale Gebäudepläne: Eingänge/Tore, Raum- und Geschossverbindungen; 2D → 2.5D',
+                    progress='Erste konstruktive Erdgeschosspläne: tatsächliche Räume, Wandstärken und Tür-/Fensteröffnungen. '
+                             'Ziel bleibt Esri-CityEngine-Qualität und Vielfalt; Architektur, Obergeschosse und Spielintegration fehlen.',
+                    gaps=['Flure, Erschließungskerne, Obergeschosse und Außenanschlüsse der konstruktiven Gebäudepläne',
                           'Erkennbare Architekturrezepte, Dachformen, Erdgeschosse und konstruktive Details',
                           'Räumliche Innenräume hinter Fenstern, Begehbarkeit und kohärentes Nachtlicht',
                           'Materialvielfalt und Tausende belegte Varianten eigener Rezeptfamilien',
