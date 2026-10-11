@@ -12,10 +12,8 @@ Tags: buildings, roofs, facades, semantics
 ## Ergebnis und Ist
 Plausible, vollständige Baukörper mit Höfen/Parts, passenden Dächern/Sonderformen und räumlichen Nahfassaden.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
-Getrennte Körper-/Öffnungspläne liegen im Rohling; schmale unbekannte Schächte bleiben geschlossen.
-Gelieferte Nutzung geht vor. Klassen-/Dachfamilien und visuelle Abnahme bleiben offen.
-Python 325bbe1c3: 13.993 Pläne/1.691.915 Öffnungen; Repeat-Payload 1,17–2,04 MiB in 37–64 ms (Median 3 Läufe).
-Frischer Prozesspeak 96–133 MiB; Quellen-/Plan-/Hüllenarbeit separat 2,9–5,5 s. Native Budgets unbewiesen.
+Körper-/Öffnungspläne im Rohling, schmale Schächte geschlossen; Nutzung geht vor. Dachfamilien/Abnahme offen.
+Baseline 325bbe1c3: 13.993 Pläne; Repeat-Payload 1,17–2,04 MiB/37–64 ms; RSS 96–133 MiB. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
@@ -34,26 +32,28 @@ Bedarf vor Expansion: Facing/Frustum, 1 m Bewegungsreserve im Preview und projiz
 50.000 Öffnungen je Körper begrenzen lokale Versuchsemission; Überlauf erhält Hülle samt Grund.
 Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine durchstoßende Leibung.
 `verify.py`: Flächenoracle, Hof/L-Form, Unterkante, Farb-/Höhenvorrang, Cachehit und frischer Offline-Prozess.
-Ausführen mit `.venv/bin/python test/experiments/buildings/{verify,benchmark,preview}.py` (einzeln).
 Renderings/Messprodukte: `build/experiments/buildings/{preview,measurements}/`; Blender-Eevee via CLI.
 Diagnosehüllen mischen dieselben Wand-/Rahmen-/Glas-BSDFs nach Coverage ([Blender](https://docs.blender.org/manual/en/4.3/render/shader_nodes/shader/mix.html)).
-Pilot: Flachdächer und zwei Öffnungsproportionen. Teile/Tile-Nähte, Nutzungskontakte, besondere
-Baukörper, Szenenverdeckung, vollständige Schatten und gefilterte BRDF bleiben offen.
+Ausbau: CGA-Pavillon/Staffelung, bis drei Geschossbänder; Basis/Maximalhöhe/Höfe erhalten.
+GEOS-Mitres strikt innen; nur nutzbare Obergeschosse, sonst gültige Basis. Teile/Tile-Nähte offen.
+Direkte Bandflächen/2D-Differenzen gegen [Manifold](https://github.com/elalish/manifold)-3D-Union gleicher Prismen.
+[Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash und publiziert nach
+`/tmp/outshine-buildings-showcase/`; `--serve --port 8766` zeigt Bilder/Kosten und deren Commit, Polling 5 s.
+Jeder geprüfte Fortschritt: Commit/Push, dann Publish. Nutzungskontakte/Verdeckung/Schatten/BRDF bleiben offen.
 
 ## Besitzer und Lieferung
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.
 world/Renderer konsumieren native Assets ohne Tags/Generator-Eingabeverträge. 2336 besitzt LOD.
-Asset-Rohlinge (2280) enthalten ergänzten Typ, Höhe, Dach, Material und Fassadenplan/Seed.
-Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen oder neues Raten.
+Asset-Rohlinge (2280): Typ/Höhe/Dach/Material/Fassade/Seed; budgetierte Nahdetails daraus ohne neue Quellen.
 2281 liefert Infrastruktur vor Gebäudeplatzierung: Zugänge, Straßenkanten und Bezugshöhen.
 Fehlender Vertrag: native Korridorflächen/Höhenintervalle und überdachte Verkehrsfreiräume aus 2281.
 Grundriss gegen geplante Fahrbahn/Gehwege/Seitenraum räumlich vorauswählen; konfliktfreie Bauten unverändert.
 GEOS-Differenz gegen Weglassen: betroffener Flächenanteil und Restform entscheiden; Randkontakt löscht nichts.
 Nur überlappende Höhen schneiden. Brücken/Tunnel und freie Verkehrsports in Bahnhallen erhalten.
 Durchfahrten schneiden betroffene Geschosse; Boden, Leibungen/Decke und Portale schließen.
-Innenringe/Blöcke plus Wegzyklen liefern Hofkandidaten. Durchgänge aus Tunnel/Überdeckung/Wegefortsetzung;
-Zugang/Verkehrsart erhalten. Brauchbare Reste samt Höfen/Parts/Tags behalten, unbrauchbare dürfen entfallen.
-Native Rohlinge binden den Infrastrukturplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
+Innenringe/Blöcke/Wegzyklen liefern Höfe, Tunnel/Überdeckung/Wegefortsetzung Durchgänge. Zugang/Verkehrsart
+erhalten; brauchbare Reste samt Höfen/Parts/Tags behalten, unbrauchbare dürfen entfallen.
+Infrastrukturplan im Rohling binden, danach Terrain darunterlegen; Treffer wiederholt keine Differenz.
 [2D-Vergleich](../test/experiments/infrastructure_building_clearance.py): GEOS mit räumlicher Vorauswahl
 gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. Höhen-/Hallplan noch offen.
 
@@ -109,12 +109,12 @@ gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. H
   Streams reservieren keine fremden Lücken (2188). Metrische UVs bis zum Shader erhalten (2171).
 
 ## Bewährte Verfahren
-[Instant Architecture, SIGGRAPH 2003](../doc/references/buildings/siggraph/2003-instant-architecture.pdf),
-[CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf):
+[Instant Architecture](../doc/references/buildings/siggraph/2003-instant-architecture.pdf), SIGGRAPH 2003;
+[CGA Shape](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), SIGGRAPH 2006:
 begrenzte Split-Regeln; [F-shade, EGSR 2010](../doc/references/buildings/egsr/2010-grammar-based-encoding-of-facades.pdf)
 motiviert wahlfreien Zugriff auf kompakte Fassaden. Übertragung ist ein Repeat-Pilot, kein Grammatikinterpreter.
 
 ## Abnahme
 Wien/Feldkirch: vollständige, an Infrastruktur angepasste Baukörper/Höfe/Parts. Rosenheim/Flensburg: passende Sonderklassen,
 plausible Dächer. Nahöffnungen räumlich, Fernstadt stabil/gebündelt; kein Aufbau unsichtbarer Details.
-Assethit wiederholt keine Anreicherung. Bildgewinn und Kosten gemeinsam im AGENTS-Profil prüfen.
+Bildgewinn/Kosten gemeinsam im AGENTS-Profil; Assethit wiederholt keine Anreicherung.

@@ -1,0 +1,167 @@
+"""Publish checked experiment images to a small, local progress showcase."""
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import json
+from pathlib import Path
+import subprocess
+from urllib.parse import unquote, urlsplit
+
+from PIL import Image
+
+
+REPO = Path(__file__).resolve().parents[3]
+EXPERIMENTS = REPO/'build/experiments/buildings'
+WEBROOT = Path('/tmp/outshine-buildings-showcase')
+TITLES = {
+    'bauhaus-detail': ('Bauhaus · Nahdetail', 'nah', 'Räumliche Öffnungen aus dem gemeinsamen Fassadenplan.'),
+    'artdeco-detail': ('Art déco · Nahdetail', 'nah', 'Vertikaler Öffnungsrhythmus auf demselben OSM-Grundriss.'),
+    'bauhaus-shell': ('Nahansicht · Hüllenvergleich', 'vergleich', 'Erzwungene grobe Hülle als Vergleich, keine freigegebene Nahstufe.'),
+    'bauhaus-reference-distance8.0': ('Ferne · Detailreferenz', 'fern', 'Erzwungenes Nahdetail für den Bildvergleich auf Distanz.'),
+    'bauhaus-detail-distance8.0': ('Ferne · gewählte Hülle', 'fern', 'Automatische Detailwahl; Coverage erhält den Öffnungsrhythmus.'),
+    'vienna-city-shell': ('Wien · Stadtkörper', 'stadt', 'Echte OSM-Verteilung mit Höfen, grobe Flachdachkörper.'),
+    'tokyo-city-shell': ('Tokyo · Stadtkörper', 'stadt', 'Dichte Stichprobe mit gelieferten Höhen und Farben.'),
+    'centralpark-city-shell': ('Central Park · Stadtkörper', 'stadt', 'Blick auf die Parkkante, keine vollständige Dichteabnahme.'),
+}
+REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'openings',
+                 'admitted_products', 'source_products', 'mode', 'cache_hit', 'distance',
+                 'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256')
+
+
+def git(*args):
+    return subprocess.check_output(['git', *args], cwd=REPO, text=True).strip()
+
+
+def atomic_write(path, data):
+    temporary = path.with_suffix(path.suffix+'.tmp')
+    temporary.write_bytes(data)
+    temporary.replace(path)
+
+
+def image_record(report_path, root):
+    stem = report_path.name.removesuffix('-report.json')
+    title, category, caption = TITLES.get(stem, (stem.replace('-', ' '), 'neu', 'Neues Gebäudeexperiment.'))
+    if report_path.parent.name == 'cache-hit':
+        title, category, caption = 'Cachetreffer · Nahdetail', 'cache', 'Frischer Offline-Prozess; Bild entspricht dem Aufbau aus Quellen.'
+    record = dict(id=str(report_path.relative_to(EXPERIMENTS)), title=title, category=category,
+                  caption=caption, status='incomplete', updated=report_path.stat().st_mtime)
+    try:
+        report = json.loads(report_path.read_text())
+        record.update({key: report[key] for key in REPORT_FIELDS if key in report})
+        source = report_path.with_name(stem+'.png')
+        data = source.read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
+        if digest != report['image_sha256']:
+            raise ValueError('Bild und Messbericht passen noch nicht zusammen.')
+        with Image.open(source) as picture:
+            picture.verify()
+        with Image.open(source) as picture:
+            if list(picture.size) != report['profile']:
+                raise ValueError('Bildgröße stimmt nicht mit dem Renderprofil überein.')
+        if not report.get('renderer') or not report.get('commit'):
+            raise ValueError('Rendernachweis oder Commit fehlt.')
+        destination = root/'assets'/f'{stem}-{digest[:16]}.png'
+        if not destination.exists():
+            atomic_write(destination, data)
+        record.update(status='ready', image='assets/'+destination.name)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        record['error'] = str(error)
+    return record
+
+
+def benchmark():
+    path = EXPERIMENTS/'measurements/benchmark.json'
+    if not path.exists():
+        return None
+    source = json.loads(path.read_text())
+    full = {}
+    for row in source['measurements']:
+        key = (row['site'], row['method'])
+        if key not in full or row['requested_source_polygons'] > full[key]['requested_source_polygons']:
+            full[key] = row
+    fields = ('site', 'method', 'products', 'potential_openings', 'median_generation_ms',
+              'repeat_payload_bytes', 'process_peak_rss_bytes', 'common_decode_and_plan_ms')
+    return dict(commit=source['commit'], environment=source.get('environment', {}),
+                measurements=[{field: row[field] for field in fields} for row in full.values()],
+                scope='Repeat-Encoding auf identischen Plänen; Quellen, Pläne und Hüllen separat. '
+                      'RSS umfasst den ganzen Python-Prozess. Keine Frame- oder GPU-Zeiten.')
+
+
+def publish(root):
+    root.mkdir(parents=True, exist_ok=True)
+    (root/'assets').mkdir(exist_ok=True)
+    for name in ('showcase.html', 'showcase.css', 'showcase.js'):
+        destination = root/('index.html' if name.endswith('.html') else name)
+        atomic_write(destination, (Path(__file__).parent/name).read_bytes())
+    images = [image_record(path, root) for path in EXPERIMENTS.rglob('*-report.json')]
+    images.sort(key=lambda item: item['updated'], reverse=True)
+    commit = git('rev-parse', 'HEAD')
+    branch = git('branch', '--show-current')
+    manifest = dict(updated=datetime.now(timezone.utc).isoformat(timespec='seconds'), commit=commit,
+                    branch=branch, subject=git('log', '-1', '--format=%s'),
+                    pushed=git('rev-parse', 'origin/'+branch) == commit,
+                    working_tree_dirty=bool(git('status', '--porcelain')),
+                    images=images, benchmark=benchmark(),
+                    progress='Fertige Hüllen im Cache; Nahdetails nach Bedarf. '
+                             'Nächster Ausbau: Bauhaus-Pavillons und Art-déco-Staffelungen.',
+                    gaps=['Vielfalt von Baukörpern, Dächern und Sonderbauten',
+                          'Parts, Infrastrukturkontakte und Verdeckung',
+                          'Schatten, Materialübergänge und native Weltbudgets'])
+    manifest['revision'] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
+    atomic_write(root/'manifest.json', (json.dumps(manifest, ensure_ascii=False, indent=2)+'\n').encode())
+    return dict(root=str(root), commit=commit, pushed=manifest['pushed'],
+                ready=sum(item['status'] == 'ready' for item in images),
+                incomplete=sum(item['status'] != 'ready' for item in images))
+
+
+class Handler(SimpleHTTPRequestHandler):
+    def permitted(self):
+        path = Path(unquote(urlsplit(self.path).path).lstrip('/'))
+        allowed = str(path) in ('.', 'index.html', 'manifest.json', 'showcase.css', 'showcase.js')
+        allowed |= len(path.parts) == 2 and path.parts[0] == 'assets' and path.suffix == '.png'
+        return allowed and (Path(self.directory)/path).resolve().is_relative_to(Path(self.directory).resolve())
+
+    def do_GET(self):
+        if self.permitted():
+            super().do_GET()
+        else:
+            self.send_error(404)
+
+    def do_HEAD(self):
+        if self.permitted():
+            super().do_HEAD()
+        else:
+            self.send_error(404)
+
+    def end_headers(self):
+        self.send_header('Cache-Control', 'no-store')
+        super().end_headers()
+
+    def log_message(self, format, *args):
+        if len(args) > 1 and str(args[1]) not in ('200', '304'):
+            super().log_message(format, *args)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, default=WEBROOT)
+    parser.add_argument('--publish', action='store_true')
+    parser.add_argument('--serve', action='store_true')
+    parser.add_argument('--host', default='127.0.0.1')
+    parser.add_argument('--port', type=int, default=8766)
+    args = parser.parse_args()
+    if args.publish:
+        print(json.dumps(publish(args.root), ensure_ascii=False), flush=True)
+    if args.serve:
+        factory = lambda *a, **kw: Handler(*a, directory=str(args.root.resolve()), **kw)
+        with ThreadingHTTPServer((args.host, args.port), factory) as server:
+            print(f'Showcase: http://{args.host}:{server.server_port}', flush=True)
+            server.serve_forever()
+    if not args.publish and not args.serve:
+        parser.error('Bitte --publish oder --serve angeben.')
+
+
+if __name__ == '__main__':
+    main()
