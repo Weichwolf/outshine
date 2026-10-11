@@ -4,7 +4,7 @@ import bpy
 from blender_preview import material
 
 
-def sheet_material(name, directory, maps, card):
+def sheet_material(name, directory, maps, card, pass_role="all"):
     result = material(name, (0.055, 0.16, 0.017), 0.48)
     result.surface_render_method = "DITHERED"
     result.use_backface_culling = False
@@ -59,5 +59,20 @@ def sheet_material(name, directory, maps, card):
         links.new(transparent.outputs[0], coverage.inputs[1])
         links.new(output, coverage.inputs[2])
         output = coverage.outputs[0]
+    if pass_role != "all":
+        if pass_role not in ("camera", "shadow"):
+            raise ValueError("declared camera or shadow material role required")
+        path = nodes.new("ShaderNodeLightPath")
+        transparent = nodes.new("ShaderNodeBsdfTransparent")
+        selector = nodes.new("ShaderNodeMixShader")
+        links.new(path.outputs["Is Shadow Ray"], selector.inputs[0])
+        camera_shader, shadow_shader = (
+            (output, transparent.outputs[0])
+            if pass_role == "camera"
+            else (transparent.outputs[0], output)
+        )
+        links.new(camera_shader, selector.inputs[1])
+        links.new(shadow_shader, selector.inputs[2])
+        output = selector.outputs[0]
     links.new(output, nodes.get("Material Output").inputs["Surface"])
     return result

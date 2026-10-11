@@ -1,6 +1,6 @@
 {
-  "current_work": "SpeedTree wird vorrangig mit Ghidra analysiert: 29 gezielte Funktionen aus Platzierung, LOD, räumlicher Sichtbarkeit und Ansichten-Export. Eigene Auswahl-/Atlasverfahren werden am selben 37.800-Blatt-Plan verglichen. Ein vollständiges Rundum-Produkt hält 64 unbeleuchtete Ansichten je Zweiggruppe vor; pro Kamera werden daraus 630 Karten ausgewählt. Flächenausgleich allein erhält die räumliche Blattdeckung nicht. Der bisherige Kartenbaum bleibt als räumlicher Vergleich sichtbar.",
-  "quality_gap": "Die Vegetation bleibt ein Verfahrens- und Formstand. Vollständige Waldprodukte, Artenvielfalt, organische Gabeln, Rinde und Wind fehlen. Beim Ansichten-Atlas sind Normalenverteilung, eigener Schattenpass, Richtungsübergänge sowie Mip-/Overdraw-/GPU-Kosten offen; eine gemittelte Normale erhält die Lichtantwort nicht zuverlässig. Weniger Draw-Dreiecke allein erlauben keine LOD-Freigabe.",
+  "current_work": "SpeedTree wird vorrangig mit Ghidra analysiert: 29 gezielte Funktionen aus Platzierung, LOD, Sichtbarkeit und Ansichten-Export. Ein vollständiger Atlas hält 64 unbeleuchtete Ansichten je Zweiggruppe vor. Kamera, Sonne und Fülllicht wählen daraus unabhängig je 630 Karten für denselben 37.800-Blatt-Plan. Flächenausgleich allein erhält die Blattdeckung nicht; der Verfahrensvergleich und die getrennte Schattenvorschau machen diese Grenzen sichtbar.",
+  "quality_gap": "Die Vegetation bleibt ein Verfahrens- und Formstand. Vollständige Waldprodukte, Artenvielfalt, organische Gabeln, Rinde und Wind fehlen. Normalenverteilung, Richtungsübergänge sowie Mip-/Overdraw-/GPU-Kosten sind offen. Der 177,5-MiB-Ansichtenatlas besitzt noch keine Material-/LOD-Freigabe; der eigene Schattenpfad ist nur in der Python-/Blender-Probe integriert.",
   "renders": [
     {
       "image": "render/landscape-temperate.png",
@@ -25,6 +25,30 @@
       "category": "landscape",
       "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
       "quality": "Erster Formstand · Gras und Nahlaub offen"
+    },
+    {
+      "image": "render/views-shadow-pass.png",
+      "title": "Rundum-Atlas · eigene Ansichten je Licht",
+      "label": "Schatten-LOD",
+      "category": "organs",
+      "description": "630 Kamerakarten und je 630 gesondert gewählte Karten für Sonne und Fülllicht. 1.260 Laubdreiecke je Auswahl; unveränderte Holzgeometrie. Alle Ansichten stammen aus demselben vollständigen 64-Ansichten-Cache und 37.800 stabilen Quellblättern. Die Materialmaske hält Schattenprodukte im Kamerabild unsichtbar. Krone und Schatten bleiben Näherungen.",
+      "quality": "Verfahrensprobe · Beleuchtungsverteilung und native Kosten offen"
+    },
+    {
+      "image": "render/views-tree.png",
+      "title": "Kamerakarten als Schatten · diagnostischer Gegenfall",
+      "label": "Schattenvergleich",
+      "category": "organs",
+      "description": "Derselbe Atlas und derselbe Kamera-Snapshot: nur 630 Kamerakarten für alle Lichtansichten. Die Krone bleibt erkennbar, der Baumschatten bricht sichtbar weg. Die getrennte Lichtauswahl korrigiert dieses konkrete Bilddefizit. Dieses Bild hält den geprüften vorherigen Rendererstand fest.",
+      "quality": "Diagnose · ungeeigneter gemeinsamer Schattenpfad"
+    },
+    {
+      "image": "render/views-reference.png",
+      "title": "Räumliche Referenz · gleiche neue Rendererfassung",
+      "label": "Referenz",
+      "category": "organs",
+      "description": "37.800 räumliche Blätter und dieselbe Holzgeometrie unter identischen Kameras, Lichtparametern, 1280 × 720 und 32 EEVEE-Samples. 2,65 Millionen Dreiecke. Vergleich für die getrennte Kamera-/Schattenauswahl; kein SpeedTree-Qualitätsnachweis.",
+      "quality": "Vergleichsprobe · gleiche Eingaben"
     },
     {
       "image": "render/cloud-tree.png",

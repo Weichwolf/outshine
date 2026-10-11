@@ -14,6 +14,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).parent))
 from blender_preview import material, mesh_object
+from preview_lighting import FILL_POSITION, SUN_POSITION, SUN_ROTATION
 from sheet_material import sheet_material
 
 
@@ -76,7 +77,11 @@ def populate(recipe, directory):
                 directory / filename for filename in product["textures"].values()
             )
             surface = sheet_material(
-                mesh_path.stem, directory, product["textures"], product["card"]
+                mesh_path.stem,
+                directory,
+                product["textures"],
+                product["card"],
+                product.get("pass_role", "all"),
             )
         with np.load(mesh_path) as mesh:
             original = mesh_object(
@@ -111,22 +116,40 @@ def populate(recipe, directory):
                 transform = np.eye(4)
                 transform[:3, :3], transform[:3, 3] = frame, origin
                 obj.matrix_world = Matrix(transform.tolist())
+                obj["vegetation_pass_role"] = product.get("pass_role", "all")
+                if "shadow_light" in product:
+                    obj["shadow_light"] = product["shadow_light"]
                 instances += 1
     return paths, triangles, instances
+
+
+def link_shadow_products(light, name):
+    shadows = [obj for obj in bpy.context.scene.objects if obj.get("shadow_light")]
+    if not shadows:
+        return
+    collection = bpy.data.collections.new(f"{name} cached shadow blockers")
+    for obj in bpy.context.scene.objects:
+        role = obj.get("vegetation_pass_role", "all")
+        if obj.type == "MESH" and (role == "all" or obj.get("shadow_light") == name):
+            collection.objects.link(obj)
+    light.light_linking.blocker_collection = collection
 
 
 def setup_scene(recipe):
     bpy.ops.mesh.primitive_plane_add(size=recipe["ground_size_m"])
     bpy.context.object.data.materials.append(material("soil", (0.14, 0.11, 0.07), 0.95))
-    bpy.ops.object.light_add(type="SUN", location=(0, 0, 4))
-    bpy.context.object.rotation_euler = (0.62, -0.4, -0.55)
+    bpy.ops.object.light_add(type="SUN", location=SUN_POSITION)
+    sun = bpy.context.object
+    sun.rotation_euler = SUN_ROTATION
     bpy.context.object.data.energy = 3
     bpy.context.object.data.angle = 0.06
-    bpy.ops.object.light_add(type="AREA", location=(-2, -1, 3))
+    link_shadow_products(sun, "sun")
+    bpy.ops.object.light_add(type="AREA", location=FILL_POSITION)
     fill = bpy.context.object
     fill.rotation_euler = (-fill.location).to_track_quat("-Z", "Y").to_euler()
     fill.data.energy, fill.data.size = 90, 4
     fill.data.color = (0.75, 0.85, 1)
+    link_shadow_products(fill, "fill")
     world = bpy.context.scene.world
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs["Color"].default_value = (
@@ -171,6 +194,7 @@ def main():
         Path(__file__),
         Path(__file__).with_name("blender_preview.py"),
         Path(__file__).with_name("sheet_material.py"),
+        Path(__file__).with_name("preview_lighting.py"),
     ]
     result = {
         "blender": bpy.app.version_string,

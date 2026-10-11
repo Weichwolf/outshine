@@ -44,8 +44,13 @@ Eigene gleichmäßig verteilte Kugelrichtungen statt eines übernommenen Modeler
 Deckung auf unabhängigen Richtungen prüfen. Tiefenparallaxe und Übergänge bleiben offen.
 `cloud_product.py` hält vollständige Atlas-/Meshprodukte; Kamera-Snapshots sind abgeleitet.
 `view_snapshot` wählt getrennt nach Perspektivauge oder orthographischer Richtung, auch für
-Schattenbedarf. Die Blender-Präsentation nutzt noch Kamerageometrie zum Schattenwurf;
-ein integrierter Schattenpass mit eigener LOD-Auswahl bleibt ausdrücklich offen.
+Schattenbedarf. Kamerageometrie allein verliert im Baumvergleich den Großteil des Schattens.
+`shadow_product.py` leitet Kamera-, Sonnen- und Fülllicht-Snapshots aus demselben Cache ab;
+EEVEE-Schattenverknüpfung und Light-Path-Materialmasken trennen ihre Verwendung.
+[Blender 4.3](https://www.blender.org/download/releases/4-3/) belegt den Backendpfad;
+Alpha-/Schattenbilder gegen identische Lichtparameter der räumlichen Referenz prüfen.
+Karten je Licht unabhängig gegen eine Schleife geprüft; deklarierte/gespeicherte Dreieckzahlen gleich.
+Vorläufige Vorschau erhält wieder einen kräftigen Baumschatten. Eigener nativer Schattenpass bleibt offen.
 
 ## Datenfluss und Kosten
 Teilgruppe aus stabilen Astpfaden anfordern; vollständiges angefordertes Produkt erzeugen.
@@ -86,8 +91,10 @@ Mittlere Normalen verlieren Lichtantwort: Proxyabweichung bis 52 %; vollständig
 Normalsignale in eine gemeinsame Hemisphäre falten hilft der Einzelprobe nicht zuverlässig;
 Normalenverteilung vor einer Material-/LOD-Freigabe erhalten statt nur eine gemittelte Richtung.
 Vollständige Baumprobe: 630 Gruppen × 64 Ansichten, 37.800 Organe; 1.260 Laubdreiecke je Kamera-Snapshot.
-4824×4824-Atlas, RGBA8-Paar 177,5 MiB vor Mips. Aufbau etwa 263 s, Prozesspeak 469 MiB im Arbeitsstand.
+4824×4824-Atlas, RGBA8-Paar 177,5 MiB vor Mips. Gefrorener Aufbau 251 s, Prozesspeak 469 MiB.
 `view_cache_experiment.py`: frischer Prozess, kompletter Cachedecode rund eine Sekunde; keine Generierung.
 30 Auswahlen einer Rundumdrehung erhalten Gruppen/IDs und stimmen mit umgeordneten Anfragen überein.
 Gemessene Einzelgruppen-Schleife durch NumPy-Batches ersetzt; identische Indizes, getrennte Kosten.
+Indizes: Mediane 4,80 ms Schleife/1,79 ms Batch; Snapshot samt Meshkopie p50 1,96/p99 3,21 ms.
+Frischer vollständiger CPU-Cachedecode 1,08 s, Peak 498 MiB; kein natives Frame-/GPU-/A18-Pro-Gate.
 Atlas-/Mip-/GPU-Kosten, bewegte Übergänge und eigenes Schatten-LOD verhindern noch eine Qualitätsfreigabe.
