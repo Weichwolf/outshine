@@ -16,12 +16,16 @@ def bounded_voids(surface):
     return parts[shapely.area(parts)>0]
 
 
+def coordinate_roundoff(surface):
+    scale=max(1.,float(np.abs(shapely.get_coordinates(surface)).max(initial=0)))
+    return float(64*np.finfo(float).eps*scale)
+
+
 def preserves_coverage(before,after):
     shapely.prepare(after)
     if shapely.covers(after,before):
         return True
-    scale=max(1.,float(np.abs(shapely.get_coordinates(before)).max(initial=0)))
-    roundoff=64*np.finfo(float).eps*scale
+    roundoff=coordinate_roundoff(before)
     lost=before.difference(after)
     return lost.area<=roundoff*before.length and shapely.covers(shapely.buffer(after,roundoff,quad_segs=8),before)
 
@@ -41,8 +45,7 @@ def preserves_voids(before,after):
 
 
 def geometry_precision(surface):
-    scale=max(1.,float(np.abs(shapely.get_coordinates(surface)).max(initial=0)))
-    roundoff=64*np.finfo(float).eps*scale
+    roundoff=coordinate_roundoff(surface)
     return float(2.**np.floor(np.log2(roundoff/4)))
 
 

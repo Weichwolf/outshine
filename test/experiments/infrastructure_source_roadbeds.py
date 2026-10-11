@@ -10,7 +10,7 @@ from infrastructure_junction_surfaces import same_island_winding
 from infrastructure_junction_turns import tangent_intersection
 from infrastructure_route_turns import rounded_route
 from infrastructure_spline_routes import checked_spline_path,spline_sampler
-from infrastructure_turn_roadbeds import construct_turn_roadbed,roadbed_site_check,roadbed_lateral_reach,turn_roadbed
+from infrastructure_turn_roadbeds import construct_turn_roadbed,roadbed_site_check,roadbed_lateral_reach,turn_roadbed,coordinate_roundoff
 from infrastructure_vehicle_sweep import turn_body_check,turn_sampler
 
 
@@ -52,6 +52,14 @@ def roadbed_body_check(surface,pieces,vehicle,error,maximum_poses=4096):
             return dict(fits_surface=False,reason=body.get('reason','constructed_roadbed_does_not_support_body'),
                         pieces=reports,sampled_poses=maximum_poses-remaining)
     return dict(fits_surface=True,pieces=reports,sampled_poses=maximum_poses-remaining)
+
+
+def published_roadbed_body_check(surface,pieces,vehicle,error,maximum_poses=4096):
+    roundoff=coordinate_roundoff(surface)
+    if not np.isfinite(error) or error<=roundoff:
+        raise ValueError('mesh coordinate roundoff must be below the geometric error budget')
+    result=roadbed_body_check(shapely.buffer(surface,roundoff,quad_segs=8),pieces,vehicle,error,maximum_poses)
+    return dict(result,coordinate_roundoff_m=roundoff)
 
 
 def sample_roadbed_piece(piece,stations):

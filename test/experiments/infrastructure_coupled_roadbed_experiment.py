@@ -19,7 +19,7 @@ from infrastructure_junction_surfaces import motor_surface,same_island_winding
 from infrastructure_junction_turns import connect_lanes
 from infrastructure_route_turns import rounded_source_route
 from infrastructure_shared_frames import frame_key
-from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_piece,roadbed_body_check,sample_roadbed_piece
+from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_piece,published_roadbed_body_check,sample_roadbed_piece
 from infrastructure_turn_roadbed_experiment import building_reservations,reservations
 from infrastructure_turn_roadbeds import compose_roadbeds,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
 from infrastructure_vehicle_sweep import body_outlines
@@ -100,7 +100,7 @@ def publish_coupled_roadbeds(products,trial,precision):
         surfaces.append(dict(module=owner,public_surface_wkb=complete.wkb.hex(),physical_shape_wkb=actual.wkb.hex(),
                              coordinate_precision_m=product['quantum']))
         for curve in product['curves']:
-            body=roadbed_body_check(complete,curve['candidate']['pieces'],trial.vehicle,trial.curbs['arc_error_m'])
+            body=published_roadbed_body_check(complete,curve['candidate']['pieces'],trial.vehicle,trial.curbs['arc_error_m'])
             assert body['fits_surface'],(owner,curve['pair'],body)
             key=next(iter(request_keys(product['poses'],[curve['pair']])))
             proofs.append(dict(module=owner,pair=curve['pair'],request=key,body=body,

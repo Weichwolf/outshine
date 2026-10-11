@@ -4,9 +4,34 @@ import numpy as np
 import shapely
 
 from infrastructure_fitted_roadbeds import construct_fitted_roadbed,spline_roadbed
-from infrastructure_source_roadbeds import roadbed_body_check,sample_roadbed_piece
+from infrastructure_source_roadbeds import roadbed_body_check,published_roadbed_body_check,sample_roadbed_piece
 from infrastructure_spline_routes import checked_spline_path,continuous_spline_joins
-from infrastructure_turn_roadbeds import geometry_precision,roadbed_site_check
+from infrastructure_turn_roadbeds import geometry_precision,roadbed_site_check,coordinate_roundoff
+
+
+def verify_mesh_roundoff(vehicle):
+    half=vehicle['widthM']*.5
+    for offset in (0.,1000.,10000.):
+        controls=np.linspace([offset,offset],[offset+10,offset],6)[None,:]
+        piece=dict(profile='G2-quintic-spline',fit=dict(controls=controls),begin=controls[0,0],end=controls[0,-1])
+        surface=shapely.box(offset-3,offset-half,offset+15,offset+half)
+        tolerance=coordinate_roundoff(surface)
+        rounded=shapely.box(offset-3,offset-half+tolerance*.25,offset+15,offset+half)
+        assert not roadbed_body_check(rounded,[piece],vehicle,.025)['fits_surface']
+        result=published_roadbed_body_check(rounded,[piece],vehicle,.025)
+        assert result['fits_surface'] and result['coordinate_roundoff_m']==tolerance
+        for penetration in (tolerance*4,1e-4):
+            narrowed=shapely.box(offset-3,offset-half+penetration,offset+15,offset+half)
+            assert not published_roadbed_body_check(narrowed,[piece],vehicle,.025)['fits_surface']
+        obstacle=surface.difference(shapely.box(offset+4.99,offset-.01,offset+5.01,offset+.01))
+        assert not published_roadbed_body_check(obstacle,[piece],vehicle,.025)['fits_surface']
+        try:
+            published_roadbed_body_check(surface,[piece],vehicle,tolerance)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('unrepresentable geometric error accepted')
+    return dict(mesh_roundoff_reported=True,real_penetration_rejected=True)
 
 
 def verify_fitted_roadbeds(vehicle,mesh_check):
@@ -48,4 +73,4 @@ def verify_fitted_roadbeds(vehicle,mesh_check):
     assert note['residual_calls']<=1
     if candidate is not None:mesh_check(candidate['surface'],vehicle,candidate['pieces'],.025)
     return dict(fitted_roadbed_trim_checked=True,spline_seams_checked=True,
-                fitted_roadbed_budgets_checked=True,interior_obstruction_rejected=True)
+                fitted_roadbed_budgets_checked=True,interior_obstruction_rejected=True,**verify_mesh_roundoff(vehicle))

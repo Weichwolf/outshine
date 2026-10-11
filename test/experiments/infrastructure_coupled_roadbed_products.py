@@ -11,7 +11,7 @@ from infrastructure_cut_setbacks import fork_cut_plan,restore_cut_plan,external_
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_junction_surfaces import motor_surface,same_island_winding
 from infrastructure_shared_frames import frame_key
-from infrastructure_source_roadbeds import roadbed_body_check
+from infrastructure_source_roadbeds import published_roadbed_body_check
 from infrastructure_turn_roadbeds import preserves_coverage,published_roadbed_surface
 
 
@@ -36,7 +36,7 @@ def prove_product_routes(network,report,floors):
             assert np.allclose(pieces[0]['begin'],poses[pair[0]]['position'],atol=1e-7,rtol=0)
             assert np.allclose(pieces[-1]['end'],poses[pair[1]]['position'],atol=1e-7,rtol=0)
             assert all(p['fit']['maximum_curvature_per_m'][0]*network.vehicle['minimumRearAxleRadiusM']<=1+1e-12 for p in pieces)
-            body=roadbed_body_check(floors[owner],pieces,network.vehicle,network.curbs['arc_error_m'])
+            body=published_roadbed_body_check(floors[owner],pieces,network.vehicle,network.curbs['arc_error_m'])
             assert body['fits_surface'],(owner,pair,body)
             path=shapely.LineString(proof['path'])
             assert same_island_winding(path,routes[pair],floors[owner]),'source island winding changed'
