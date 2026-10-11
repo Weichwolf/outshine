@@ -18,11 +18,11 @@ Gelieferte Nutzung geht vor. Klassen-/Dachfamilien und visuelle Abnahme bleiben 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
 [Experimente](../test/experiments/buildings/facade_plan.py): `samples`, `facade_plan`, `codec`,
-`demand` und `facade_geometry` trennen eingefrorene Quellen, vollständigen Plan und Kameraemission.
+`shell`, `demand`, `facade_geometry` trennen Quellen, fertige Hülle, vollständigen Plan und Kameraemission.
 Je ein echtes z14-Tile Wien/Tokyo/Central Park aus der Lieferinventur; SHA-Prüfung vor Nutzung.
 Quellcache unter Client-Pref `sources/building-experiments/`; Erwerb nur `samples.py --fetch`.
 Form/Höfe/Höhen/Quellattribute/Farbe und alle Fassadenachsen persistieren kameraunabhängig.
-Treffer decodieren den ergänzten Plan ohne Provider oder neue Rezeptableitung; Nahdetails daraus.
+Schema 2 speichert fertige Mantel-/Dach-/Unterseitenpuffer; Treffer ohne Provider/Rezept/Triangulierung.
 Vergleich: explizite Split-Liste, vektorisierte Voll-Liste und 48-Byte-Repeat je Fassadenkante;
 gleiche vollständige Öffnungen, gemeinsame Quellaufbereitung separat, frische Prozesse/Peak-RSS.
 Direkte Hüllen und budgetierte Leibungen teilen metrische Achsen und exakte Box-Coverage.

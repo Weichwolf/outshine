@@ -7,8 +7,9 @@ import numpy as np
 import shapely
 
 from facade_plan import Repeat
+from shell import FIELDS, validate
 
-SCHEMA = 1
+SCHEMA = 2
 
 
 def encode(product):
@@ -16,6 +17,7 @@ def encode(product):
     body['rings'] = [r.tolist() for r in product['rings']]
     body['wall_linear'] = product['wall_linear'].tolist()
     body['facades'] = [dict(normal=f['normal'].tolist(), repeat=asdict(f['repeat'])) for f in product['facades']]
+    body['shell'] = {k: product['shell'][k].tolist() for k in FIELDS}
     return json.dumps(dict(schema=SCHEMA, product=body), sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
 
 
@@ -24,7 +26,7 @@ def decode(data):
     if not isinstance(record, dict) or record.get('schema') != SCHEMA:
         raise ValueError('unsupported enriched-plan schema')
     product = record.get('product')
-    required = {'id', 'top_m', 'bottom_m', 'style', 'seed', 'source_properties', 'provenance', 'rings', 'wall_linear', 'facades'}
+    required = {'id', 'top_m', 'bottom_m', 'style', 'seed', 'source_properties', 'provenance', 'rings', 'wall_linear', 'facades', 'shell'}
     if not isinstance(product, dict) or required-set(product):
         raise ValueError('incomplete enriched plan')
     heights = np.asarray([product['bottom_m'], product['top_m']], dtype=float)
@@ -60,4 +62,5 @@ def decode(data):
     product['polygon'] = shapely.Polygon(product['rings'][0], product['rings'][1:])
     if not product['polygon'].is_valid:
         raise ValueError('invalid encoded footprint')
+    validate(product['shell'], len(facades))
     return product

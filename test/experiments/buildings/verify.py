@@ -1,6 +1,7 @@
 """Independent area, geometry and bounded-work checks for the facade experiment."""
 
 import json
+from collections import Counter
 from pathlib import Path
 import subprocess
 import sys
@@ -50,6 +51,18 @@ def verify_filter():
                 whole_facade_mean_preserved=True, bounded_selection_from_trillion_openings=len(selected))
 
 
+def verify_closed_shell(product):
+    shell = product['shell']
+    directed, undirected = Counter(), Counter()
+    for triangle in shell['vertices'][shell['faces']]:
+        for a, b in zip(triangle, np.roll(triangle, -1, axis=0)):
+            a, b = tuple(a), tuple(b)
+            directed[(a, b)] += 1
+            undirected[tuple(sorted((a, b)))] += 1
+    assert set(undirected.values()) == {2}
+    assert all(count == directed[(b, a)] for (a, b), count in directed.items())
+
+
 def verify_geometry():
     polygons = [shapely.box(0, 0, 20, 12),
                 shapely.Polygon([(0, 0), (20, 0), (20, 5), (7, 5), (7, 15), (0, 15)]),
@@ -59,6 +72,7 @@ def verify_geometry():
         sample = dict(id='geometry-case', polygon=polygon, properties={'render_height': 12., 'render_min_height': -2.})
         for style in ('bauhaus', 'artdeco'):
             product = plan(sample, style)
+            verify_closed_shell(product)
             reversed_sample = dict(sample, polygon=shapely.reverse(polygon))
             assert plan(reversed_sample, style)['seed'] == product['seed']
             translated = dict(sample, polygon=shapely.transform(polygon, lambda xy: xy+[1e4, -5e4]))
@@ -96,7 +110,7 @@ def verify_geometry():
     return dict(cases=len(polygons)*2, validated_triangles=triangles, courtyards_preserved=True,
                 negative_base_preserved=True, budget_keeps_complete_shell=True, thin_wall_recess_rejected=True,
                 source_colour_precedence=True, source_height_precedence=True,
-                supplied_silo_closed=True, camera_rebase_seed_stable=True)
+                supplied_silo_closed=True, prepared_hulls_closed=True, camera_rebase_seed_stable=True)
 
 
 def verify():
@@ -108,7 +122,8 @@ def verify_demand_and_cache():
                         properties={'render_height': 15., 'building': 'apartments', 'custom': 'preserved'}))
     encoded = encode(product)
     edges = set()
-    with patch('facade_plan.plan', side_effect=AssertionError('hit must not regenerate plans')):
+    with patch('facade_plan.plan', side_effect=AssertionError('hit must not regenerate plans')), \
+         patch('shapely.constrained_delaunay_triangles', side_effect=AssertionError('hit must not rebuild shell')):
         loaded = decode(encoded)
         assert encode(loaded) == encoded and loaded['source_properties']['custom'] == 'preserved'
         for angle in np.linspace(0., 2*np.pi, 16, endpoint=False):
@@ -127,11 +142,12 @@ def verify_demand_and_cache():
         away = select(loaded, View(np.array([50., 50., 25.]), np.array([100., 100., 25.])))
         assert len(mesh(loaded, away)['faces']) == 0
     assert len(edges) == 4
-    records = [json.loads(encoded) for _ in range(4)]
+    records = [json.loads(encoded) for _ in range(5)]
     del records[0]['product']['facades'][0]
     records[1]['product']['top_m'] = float('nan')
     records[2]['product']['facades'][0]['normal'] = [0., 0., 1.]
     records[3]['product']['facades'][0]['repeat']['width_m'] *= 2
+    del records[4]['product']['shell']
     for record in records:
         try:
             decode(json.dumps(record))
@@ -146,7 +162,8 @@ def verify_demand_and_cache():
                                                     str(path)], text=True, timeout=30))
         assert actual == probe(encoded)
     return dict(camera_independent_cache_bytes=len(encoded), hit_repeats_no_plan_generation=True,
-                hit_detail_matches_miss=True, orbit_views=16, orbit_covers_all_edges=True,
+                hit_repeats_no_shell_triangulation=True, hit_detail_matches_miss=True,
+                orbit_views=16, orbit_covers_all_edges=True,
                 far_triangles=len(distant['faces']), far_expands_no_openings=True, away_emits_nothing=True,
                 inconsistent_records_rejected=len(records), fresh_offline_process_matches=True)
 

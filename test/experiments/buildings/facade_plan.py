@@ -7,6 +7,7 @@ import math
 import numpy as np
 import shapely
 from PIL import ImageColor
+from shell import prepare
 
 REPEAT_DTYPE = np.dtype([('width_m', '<f8'), ('height_m', '<f8'), ('depth_m', '<f8'),
                          ('columns', '<u4'), ('rows', '<u4'), ('opening_width', '<f8'), ('opening_height', '<f8')])
@@ -91,7 +92,7 @@ def plan(sample, style=None):
                 width = height = 0.
             facades.append(dict(a=a, b=b, normal=np.r_[(b-a)[1], -(b-a)[0], 0.]/length,
                                 repeat=Repeat(length, top-bottom, columns, rows, width, height)))
-    return dict(id=sample['id'], rings=rings, polygon=shapely.Polygon(rings[0], rings[1:]),
+    product = dict(id=sample['id'], rings=rings, polygon=shapely.Polygon(rings[0], rings[1:]),
                 top_m=top, bottom_m=bottom, style=style, seed=seed, facades=facades,
                 source_properties=properties.copy(), wall_linear=wall_colour(properties),
                 provenance=dict(height='supplied' if 'height' in properties or 'render_height' in properties else 'procedural',
@@ -101,6 +102,8 @@ def plan(sample, style=None):
                                 floors='supplied' if supplied_rows is not None else 'procedural',
                                 roof='supplied' if 'roof:shape' in properties else 'procedural',
                                 style='procedural', openings='procedural', kind=kind))
+    product['shell'] = prepare(product)
+    return product
 
 
 def wall_colour(properties):

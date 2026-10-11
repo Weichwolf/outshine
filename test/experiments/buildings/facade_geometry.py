@@ -6,6 +6,7 @@ import numpy as np
 import shapely
 
 from facade_plan import detail_count, opening_rectangles
+from shell import append as append_shell
 
 
 def quad(vertices, faces, uv, materials, points, coordinates, material):
@@ -68,21 +69,6 @@ def detailed_wall(storage, facade, bottom, region):
         opening(storage, facade, bottom, rectangle)
 
 
-def horizontal(storage, polygon, height, upward, material):
-    vertices, faces, uv, materials = storage
-    triangulation = shapely.constrained_delaunay_triangles(polygon)
-    for triangle in shapely.get_parts(triangulation):
-        ring = np.array(triangle.exterior.coords)[:3]
-        a, b = ring[1]-ring[0], ring[2]-ring[0]
-        if ((a[0]*b[1]-a[1]*b[0] > 0) != upward):
-            ring = ring[::-1]
-        first = len(vertices)
-        vertices.extend(np.c_[ring, np.full(3, height)])
-        uv.extend(np.zeros((3, 2)))
-        faces.append((first, first+1, first+2))
-        materials.append(material)
-
-
 def mesh(product, demand, detail=True, max_openings=50000):
     if type(max_openings) is not int or max_openings < 0:
         raise ValueError('invalid detail budget')
@@ -104,12 +90,13 @@ def mesh(product, demand, detail=True, max_openings=50000):
                 detailed_wall(storage, facade, product['bottom_m'], region)
                 emitted += count
             else:
-                wall_quad(storage, facade, product['bottom_m'], region, material=4 if repeat.count else 0)
+                append_shell(storage, product, index)
                 fallbacks.append(dict(edge=index, reason=reason))
         else:
-            wall_quad(storage, facade, product['bottom_m'], region, material=4 if repeat.count else 0)
-    horizontal(storage, demand['roof'], product['top_m'], True, 3)
-    horizontal(storage, demand['bottom'], product['bottom_m'], False, 3)
+            append_shell(storage, product, index)
+    for name, part in (('roof', -1), ('bottom', -2)):
+        if not demand[name].is_empty:
+            append_shell(storage, product, part, demand[name].bounds)
     vertices, faces, uv, materials = storage
     return dict(vertices=np.asarray(vertices, dtype=np.float64).reshape(-1, 3), faces=np.asarray(faces, dtype=np.int32).reshape(-1, 3),
                 uv=np.asarray(uv, dtype=np.float32).reshape(-1, 2), materials=np.asarray(materials, dtype=np.uint8),

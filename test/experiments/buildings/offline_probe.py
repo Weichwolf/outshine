@@ -29,5 +29,6 @@ def probe(data):
 
 if __name__ == '__main__':
     with patch('samples.read_site', side_effect=AssertionError('offline hit acquired source')), \
-         patch('facade_plan.plan', side_effect=AssertionError('offline hit rebuilt plan')):
+         patch('facade_plan.plan', side_effect=AssertionError('offline hit rebuilt plan')), \
+         patch('shapely.constrained_delaunay_triangles', side_effect=AssertionError('offline hit rebuilt shell')):
         print(json.dumps(probe(Path(sys.argv[1]).read_bytes())))
