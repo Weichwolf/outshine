@@ -12,7 +12,8 @@ from pathlib import Path
 
 import numpy as np
 from colonization import GrowthBudget, crown_points, grow, pipe_radii
-from nearest import brute_nearest, tree_nearest
+from nearest import brute_nearest, free_endpoints, tree_nearest
+from wood_mesh import branch_tubes
 
 
 def counterexamples():
@@ -27,6 +28,10 @@ def counterexamples():
         indices, _ = method(np.empty((0, 3)), nodes[:1], 1)
         assert not len(indices)
         assert method(points[:1], nodes[:1], 1)[0][0] == 0
+        proposals = np.array([[0.0, 0.0, 0.0], [0.75, 0.0, 0.0], [1.5, 0.0, 0.0]])
+        np.testing.assert_array_equal(
+            free_endpoints(proposals, nodes + 10, 1.0, method), [True, False, True]
+        )
     try:
         pipe_radii(np.array([-1, 2, 1]), 0.1)
     except ValueError:
@@ -51,6 +56,17 @@ def counterexamples():
             pass
         else:
             raise AssertionError("invalid plant height accepted")
+    opposed = np.array([[-1.0, 0.0, 1.01], [1.0, 0.0, 1.01]])
+    for method in ("tree", "brute"):
+        plan = grow(opposed, 2.0, 0.5, 0.1, 10.0, 0.1, method)
+        assert plan["terminal_reason"] == "occupied_growth_endpoints"
+        assert plan["rejected_endpoints"] == 1
+        assert len(plan["positions"]) == 12
+        assert len(np.unique(plan["positions"], axis=0)) == 12
+    near_end = np.array([[0.0, 0.0, 1.2]])
+    plan = grow(near_end, 2.0, 0.5, 0.1, 10.0, 0.15, budget=GrowthBudget(64, 1))
+    assert plan["terminal_reason"] == "all_attractors_consumed"
+    assert plan["consumed"] == 1 and not len(plan["remaining"])
     return {
         "exact_ties": True,
         "duplicate_nodes": True,
@@ -60,6 +76,8 @@ def counterexamples():
         "cyclic_plan_rejected": True,
         "bounded_partial_plans": True,
         "invalid_height_rejected": True,
+        "repeated_shoots_rejected": True,
+        "final_nodes_consume_attractors": True,
     }
 
 
@@ -69,6 +87,7 @@ def validate_plan(plan, radius):
     assert parents[0] == -1 and np.all(parents[1:] < np.arange(1, len(parents)))
     lengths = np.linalg.norm(positions[1:] - positions[parents[1:]], axis=1)
     assert np.all(lengths > 0)
+    assert len(np.unique(np.round(positions, 9), axis=0)) == len(positions)
     radii = pipe_radii(parents, radius)
     areas = radii * radii
     total = np.bincount(parents[1:], weights=areas[1:], minlength=len(parents))
@@ -76,6 +95,31 @@ def validate_plan(plan, radius):
     np.testing.assert_allclose(total[forks], areas[forks], rtol=1e-12, atol=1e-15)
     assert np.all(radii[1:] <= radii[parents[1:]])
     return radii
+
+
+def mesh_counterexamples():
+    points = np.array(
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.2, 0.3, 1.4], [0.8, -0.2, 1.8]]
+    )
+    parents = np.array([-1, 0, 1, 1])
+    radii = pipe_radii(parents, 0.1)
+    vertices, faces, normals = branch_tubes(points, parents, radii)
+    triangles = vertices[faces]
+    face_normals = np.cross(
+        triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
+    )
+    assert np.all(np.linalg.norm(face_normals, axis=1) > 0)
+    assert np.all(np.einsum("fc,flc->fl", face_normals, normals.reshape(-1, 3, 3)) > 0)
+    np.testing.assert_allclose(np.linalg.norm(normals, axis=1), 1, rtol=1e-6)
+    edges = np.concatenate((faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]))
+    _, count = np.unique(np.sort(edges, axis=1), axis=0, return_counts=True)
+    assert np.all(count == 2)
+    return {
+        "closed_segments": True,
+        "outward_normals": True,
+        "finite_positive_triangle_areas": True,
+        "welded_forks_proven": False,
+    }
 
 
 def run_case(profile, count, seed, budget, output, name):
@@ -122,6 +166,7 @@ def run_case(profile, count, seed, budget, output, name):
         "remaining": len(result["remaining"]),
         "iterations": result["iterations"],
         "terminal_reason": result["terminal_reason"],
+        "rejected_endpoints": result["rejected_endpoints"],
         "elapsed_ms": timing,
         "arrays_bytes": sum(
             a.nbytes for a in (result["positions"], result["parents"], radii)
@@ -141,7 +186,11 @@ def main():
     parser.add_argument("--iterations", type=int, default=128)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    report = {"counterexamples": counterexamples(), "cases": []}
+    report = {
+        "counterexamples": counterexamples(),
+        "mesh_counterexamples": mesh_counterexamples(),
+        "cases": [],
+    }
     for name in args.species:
         source = Path("src/assets/world/species") / f"{name}.json"
         profile = json.loads(source.read_text())

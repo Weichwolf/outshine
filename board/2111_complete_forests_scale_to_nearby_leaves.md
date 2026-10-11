@@ -43,13 +43,21 @@ Palmen/Bambus, Sukkulenten/Kakteen, Feuchtgebiets-/Wasserpflanzen und bodennahe 
 Broccoli/Romanesco: Organ, Pflanze, Gruppe, Bestand und Fernwald sind eine stabile Hierarchie.
 Der Generator liefert korrekte LOD-Produkte; identische Seeds/Standorte und Artengewichte,
 Silhouette/Deckung/Material-/Wind-/Schattenparameter gehören zu jeder Vereinfachung.
+Detail immer nach Bedarf. Fernprodukte und spätere Nahdetails stammen aus demselben stabilen Plan.
+Nur angeforderte Raum-/LOD-Produkte entstehen vollständig und werden wiederverwendbar gespeichert.
+Kamera/Entfernung bestimmen Bedarf vor Erzeugung; Cache-IDs bleiben von Kamerasnapshots unabhängig.
+Outshine darf dafür erweitert werden; bestehende Generator-/Cache-APIs begrenzen die Verfahren nicht.
 Grober Bedarf erzeugt direkt grobe Produkte. Vergleich unter gleichen Eingaben/Anforderungen;
 begrenzte Arbeit, gültige Geometrie, 3D-Bilder und Kosten entscheiden vor C++-Übertragung.
-Erster Versuch: parametrischer Formplan und bedarfsabhängige Emission statt Vollaufbau/Reduktion.
+`stand_plan.py`: stabile räumliche Zählhierarchie, vollständige Teilprodukte und Nahstandorte erst
+nach Kamerabedarf; gleiche Standorte bei Wiederabruf/Bewegung. Arbeitsbudgets halten grobe Eltern;
+Bild-/LOD-Qualität, Schatten-/Verdeckungsbedarf und native Cache-Anbindung bleiben offen.
 `growth_experiment.py` vergleicht brute force und cKDTree an gelieferten Eichen-/Buchen-/Birkenmaßen.
 18 Fälle liefern identische Astpläne und erhalten die Rohrquerschnittssumme an Verzweigungen.
-Iteration-/Knotenbudget liefert ausgewiesene Restattraktoren; fertige Kronen sind damit nicht bewiesen.
-Bildprüfung und artspezifische Formrezepte stehen aus. Python-Umgebung immer `.venv`;
+Wiederholte positionsgleiche Austriebe werden verworfen; finale Knoten verbrauchen Attraktoren.
+Budget oder Stillstand liefert ausgewiesene Reste; fertige Kronen sind damit nicht bewiesen.
+EEVEE-Bilder zeigen Astpläne mit analytischen Rohrnormalen; verschweißte Gabeln/Laub fehlen.
+SCA bleibt ein Nah-/Prototypvergleich, kein Erzeugungspfad bei Fernbedarf. Python immer `.venv`;
 benötigt NumPy/SciPy, für Bilder Pillow/Matplotlib und für Paper-Auswertung pypdf.
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
 und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)
@@ -105,7 +113,7 @@ Cachehits wiederholen weder Bestandsplanung noch den Aufbau unveränderter Proto
 Keine Place-Sonderbepflanzung. Wasser/Freiraum und DSM-Bewuchs respektieren; plausible
 Ergänzungen bleiben von belegten Arten unterscheidbar. Fertige Produkte im Asset-Cache;
 aktueller Wind/Licht/Wetter wirken zur Laufzeit, keine gespeicherte Momentpose/-beleuchtung.
-Wald, Stadt und Vegetation gemeinsam vollständig resident, keine feste Klassenquote.
+Benötigte Produkte von Wald, Stadt und Vegetation gemeinsam resident, keine feste Klassenquote.
 Malcesine/Feldkirch zeigen geschlossene Fernbestände; ein naher Bestand zeigt räumliches
 Laub statt Kronenkarten. Vorher/Nachher tatsächlich öffnen. Dichte Wald-Rundumdrehung
 bei unverändertem Profil messen: p99, CPU/GPU, Peak-Speicher, Instanzen und Overdraw.

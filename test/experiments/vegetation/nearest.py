@@ -62,3 +62,25 @@ def tree_nearest(points, nodes, radius):
     distances = np.full(len(points), np.inf)
     distances[accepted] = np.sqrt(squared[accepted])
     return closest, distances
+
+
+def free_endpoints(points, nodes, radius, nearest):
+    occupied, _ = nearest(points, nodes, radius)
+    free = occupied < 0
+    candidates = np.flatnonzero(free)
+    if len(candidates) < 2:
+        return free
+    tree = cKDTree(points[candidates])
+    search_radius = radius + np.spacing(radius) * 32
+    for index in candidates:
+        if not free[index]:
+            continue
+        neighbors = np.asarray(
+            tree.query_ball_point(points[index], search_radius), dtype=np.int64
+        )
+        indices = candidates[neighbors]
+        indices = indices[indices > index]
+        delta = points[indices] - points[index]
+        close = np.einsum("pc,pc->p", delta, delta) <= radius * radius
+        free[indices[close]] = False
+    return free

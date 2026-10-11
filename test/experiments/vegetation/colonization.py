@@ -3,7 +3,8 @@
 from dataclasses import dataclass
 
 import numpy as np
-from nearest import brute_nearest, tree_nearest
+from form_plan import validate_parents
+from nearest import brute_nearest, free_endpoints, tree_nearest
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ def grow(points, height, bole, step, influence, kill, method="tree", budget=None
     parents = np.full(budget.nodes, -1, dtype=np.int32)
     parents[1:trunk_count] = np.arange(trunk_count - 1)
     active = np.array(points, dtype=np.float64, copy=True)
-    count, queries, consumed = trunk_count, 0, 0
+    count, queries, consumed, rejected = trunk_count, 0, 0, 0
     reason = "iteration_budget"
     for iteration in range(budget.iterations):
         owner, distance = nearest(active, positions[:count], influence)
@@ -82,17 +83,32 @@ def grow(points, height, bole, step, influence, kill, method="tree", budget=None
             reason = "cancelled_growth_directions"
             break
         available = budget.nodes - count
-        source = source[:available]
-        if not len(source):
+        if not available:
             reason = "node_budget"
             break
         new_positions = (
             positions[source] + summed[source] / lengths[source, None] * step
         )
+        free = free_endpoints(new_positions, positions[:count], step * 1e-9, nearest)
+        queries += len(new_positions)
+        rejected += int(np.count_nonzero(~free))
+        source = source[free][:available]
+        new_positions = new_positions[free][:available]
+        if not len(source):
+            reason = "occupied_growth_endpoints"
+            break
         end = count + len(source)
         positions[count:end] = new_positions
         parents[count:end] = source
         count = end
+    if len(active):
+        _, distance = nearest(active, positions[:count], kill)
+        queries += len(active)
+        killed = distance <= kill
+        consumed += int(np.count_nonzero(killed))
+        active = active[~killed]
+    if not len(active):
+        reason = "all_attractors_consumed"
     return {
         "positions": positions[:count].copy(),
         "parents": parents[:count].copy(),
@@ -100,6 +116,7 @@ def grow(points, height, bole, step, influence, kill, method="tree", budget=None
         "consumed": consumed,
         "iterations": iteration + 1,
         "queries": queries,
+        "rejected_endpoints": rejected,
         "terminal_reason": reason,
     }
 
@@ -107,10 +124,7 @@ def grow(points, height, bole, step, influence, kill, method="tree", budget=None
 def pipe_radii(parents, root_radius):
     if not np.isfinite(root_radius) or root_radius <= 0:
         raise ValueError("positive finite root radius required")
-    if parents.ndim != 1 or not len(parents) or parents[0] != -1:
-        raise ValueError("one rooted topologically ordered tree required")
-    if np.any(parents[1:] < 0) or np.any(parents[1:] >= np.arange(1, len(parents))):
-        raise ValueError("every child must follow its parent")
+    validate_parents(parents)
     children = np.bincount(parents[1:], minlength=len(parents))
     support = (children == 0).astype(np.int64)
     for child in range(len(parents) - 1, 0, -1):
