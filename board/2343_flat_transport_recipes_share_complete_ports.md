@@ -90,7 +90,7 @@ Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Pos
 [Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum: direkte Kurven, dann quellfolgende G2-Ketten und volle
 Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand. Reservationen vor Pufferung räumlich eingrenzen; nur Raum außerhalb der bestehenden Fahrfläche schützt die Suchreserve. Die endgültige Aufweitung prüft alle Reservationen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
-geschlossene Freiräume, ihre Zuordnung und gerichtete Inselumfahrung bleiben erhalten.
+Geschlossene Freiräume sind tatsächlich freie Komplementflächen, auch bei verschachtelten Inseln; eindeutige Zuordnung durch positive Flächenüberlappung und gerichtete Inselumfahrung bleiben erhalten.
 Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Konstruktionsreserve im Suchraum vorsehen; alle Stücke teilen das 4096-Posenbudget der endgültigen Karosserieprüfung. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; flächenlose Schnittreste tragen keinen Fahrraum.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.

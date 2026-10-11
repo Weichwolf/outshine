@@ -21,7 +21,7 @@ from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_route_connectivity import network_connectivity
 from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_body_check
-from infrastructure_turn_roadbeds import compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface
+from infrastructure_turn_roadbeds import bounded_voids,compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface
 from infrastructure_travel import MODES
 from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
 
@@ -128,6 +128,35 @@ def verify_polygonal_mesh(vehicle):
     return dict(polygonal_mesh_publication_checked=True)
 
 
+def verify_bounded_voids():
+    assert len(bounded_voids(shapely.Polygon()))==0
+    assert len(bounded_voids(shapely.box(0,0,2,2)))==0
+    frame=shapely.box(0,0,20,20).difference(shapely.box(2,2,18,18))
+    island=shapely.box(6,6,14,14).difference(shapely.box(8,8,12,12))
+    nested=shapely.union_all([frame,island])
+    for angle,offset in ((0.,[0.,0.]),(.7,[10000.,-7000.])):
+        matrix=np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+        move=lambda xy:xy@matrix.T+offset
+        surface=shapely.transform(nested,move)
+        voids=bounded_voids(surface)
+        assert len(voids)==2 and abs(float(shapely.area(voids).sum())-208)<1e-7
+        assert shapely.intersection(voids[0],voids[1]).area==0
+        assert shapely.union_all(voids).intersection(surface).area==0
+        assert preserves_voids(surface,surface)
+        shrunk=shapely.transform(nested.union(shapely.box(8,8,11,12)),move)
+        assert preserves_coverage(surface,shrunk) and preserves_voids(surface,shrunk)
+        filled=nested.union(shapely.box(8,8,12,12))
+        assert not preserves_voids(surface,shapely.transform(filled,move))
+        replacement=filled.union(shapely.box(20,0,26,6).difference(shapely.box(21,1,25,5)))
+        changed=shapely.transform(replacement,move)
+        assert len(bounded_voids(changed))==len(voids)
+        assert not preserves_voids(surface,changed)
+        split=nested.union(shapely.box(9.8,8,10.2,12))
+        assert not preserves_voids(surface,shapely.transform(split,move))
+    return dict(nested_void_identity_checked=True,shrinking_void_identity_checked=True,
+                void_replacement_rejected=True,void_splitting_rejected=True)
+
+
 def verify_small(vehicle):
     floor=shapely.union_all([shapely.box(-20,-1.75,20,1.75),shapely.box(-1.75,-1.75,1.75,20)])
     begin,finish=np.array([-7.,0.]),np.array([0.,7.])
@@ -160,7 +189,8 @@ def verify_small(vehicle):
     assert rejected is None and any(r.get('reason')=='roadbed_sampling_budget_exhausted' for r in trials)
     return dict(real_mesh_body_checked=True,rigid_transform_checked=True,reservations_enforced=True,
                 hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
-                composed_roadbeds_checked=True,**verify_inflected(vehicle),**verify_polygonal_mesh(vehicle))
+                composed_roadbeds_checked=True,**verify_inflected(vehicle),**verify_polygonal_mesh(vehicle),
+                **verify_bounded_voids())
 
 
 def real_case(root,name,module):

@@ -10,8 +10,10 @@ from infrastructure_junction_turns import tangent_intersection
 from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
 
 
-def holes(surface):
-    return np.array([shapely.Polygon(r) for p in shapely.get_parts(surface) for r in p.interiors],dtype=object)
+def bounded_voids(surface):
+    shells = shapely.polygons(shapely.get_exterior_ring(shapely.get_parts(surface)))
+    parts = shapely.get_parts(shapely.union_all(shells).difference(surface))
+    return parts[shapely.area(parts)>0]
 
 
 def preserves_coverage(before,after):
@@ -27,13 +29,14 @@ def preserves_coverage(before,after):
 def preserves_voids(before,after):
     if len(shapely.get_parts(before))!=len(shapely.get_parts(after)):
         return False
-    original,planned=holes(before),holes(after)
+    original,planned=bounded_voids(before),bounded_voids(after)
     if len(original)!=len(planned):
         return False
     if not len(original):
         return True
-    markers=shapely.point_on_surface(original)
-    pairs=shapely.STRtree(planned).query(markers,predicate='within')
+    pairs=shapely.STRtree(planned).query(original,predicate='intersects')
+    overlaps=shapely.area(shapely.intersection(original[pairs[0]],planned[pairs[1]]))
+    pairs=pairs[:,overlaps>0]
     return len(pairs[0])==len(original) and len(np.unique(pairs[0]))==len(original) and len(np.unique(pairs[1]))==len(planned)
 
 
