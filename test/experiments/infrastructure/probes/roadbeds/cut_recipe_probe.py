@@ -36,7 +36,7 @@ def main():
     commit=subprocess.check_output(['git','rev-parse','--short=9','HEAD'],text=True).strip()
     script=Path(__file__).resolve().parents[2]/'infrastructure_coupled_roadbed_experiment.py'
     args.output.mkdir(parents=True,exist_ok=True);rows=[]
-    distances=(radius,2*radius,3*radius) if args.distances is None else args.distances
+    distances=(radius,2*radius,3*radius,.5*radius,1.5*radius) if args.distances is None else args.distances
     if not all(0<d<float('inf') for d in distances):parser.error('distances must be finite and positive')
     for distance in distances:
         for sections in recipes:
