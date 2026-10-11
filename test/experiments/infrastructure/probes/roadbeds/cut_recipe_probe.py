@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--module',type=int,required=True)
     parser.add_argument('--pair',type=int,nargs=2,required=True)
     parser.add_argument('--joint-only',action='store_true')
+    parser.add_argument('--distances',type=float,nargs='+')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     root=Path('build/experiments/infrastructure')
@@ -35,7 +36,9 @@ def main():
     commit=subprocess.check_output(['git','rev-parse','--short=9','HEAD'],text=True).strip()
     script=Path(__file__).resolve().parents[2]/'infrastructure_coupled_roadbed_experiment.py'
     args.output.mkdir(parents=True,exist_ok=True);rows=[]
-    for distance in (radius,2*radius,3*radius):
+    distances=(radius,2*radius,3*radius) if args.distances is None else args.distances
+    if not all(0<d<float('inf') for d in distances):parser.error('distances must be finite and positive')
+    for distance in distances:
         for sections in recipes:
             name=f'{distance:g}-'+ '-'.join(map(str,sections))
             output=args.output/name

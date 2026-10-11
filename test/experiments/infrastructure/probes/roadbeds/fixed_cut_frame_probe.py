@@ -1,6 +1,7 @@
 """Compare shared port angles with fixed cuts and fully checked neighboring roadbeds."""
 
 import argparse
+from functools import partial
 import json
 from pathlib import Path
 import resource
@@ -49,6 +50,30 @@ def all_heading_trials(network,module,request,maximum_candidates=64):
         yield trial,changed,owners,sum(h[1] for h in selected)
 
 
+def section_heading_trials(network,module,request,maximum_candidates=64,*,source):
+    import infrastructure_joint_roadbed_frames as frames
+    poses,_=network.poses(module,{})
+    contacts={frame_key(p)[:3]:p for p in poses}
+    ports=[contacts[key] for key in request]
+    for trial,changed,owners,cost in source(network,module,request,maximum_candidates):
+        valid=True
+        for pose in poses:
+            if pose['section'] not in changed:continue
+            reference=next(p for p in ports if p['section']==pose['section'])
+            heading=trial.frames[frame_key(reference)]['heading']
+            angle=np.arctan2(heading[1],heading[0])-np.arctan2(*network.anchors[frame_key(reference)][::-1])
+            rotation=np.array([[np.cos(angle),-np.sin(angle)],[np.sin(angle),np.cos(angle)]])
+            heading=rotation@network.anchors[frame_key(pose)]
+            neighbors=network.owners[frame_key(pose)]
+            floors=[frames.motor_surface(network.shape(k),network.graph,network.tree,network.mesh,
+                       network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m']) for k in neighbors]
+            options=frames.heading_choices(pose,network.anchors[frame_key(pose)],floors,network.vehicle,network.curbs['arc_error_m'])
+            if not any(np.linalg.norm(heading-h)<1e-10 for h,_ in options):valid=False;break
+            trial.frames[frame_key(pose)]=dict(position=pose['position'].copy(),heading=heading)
+            owners|=neighbors
+        if valid:yield trial,changed,owners,cost
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path('build/experiments/infrastructure'))
@@ -56,10 +81,12 @@ def main():
     parser.add_argument('--module',type=int,required=True)
     parser.add_argument('--pair',type=int,nargs=2,required=True)
     parser.add_argument('--all-headings',action='store_true')
+    parser.add_argument('--section-headings',action='store_true')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();began=time.perf_counter()
     coupled.setback_network=fixed_cuts
-    coupled.joint_heading_trials=all_heading_trials if args.all_headings else joint_heading_trials
+    source=all_heading_trials if args.all_headings else joint_heading_trials
+    coupled.joint_heading_trials=partial(section_heading_trials,source=source) if args.section_headings else source
     report=coupled.real_case(args.root,args.place,args.module,args.pair,0.,args.output)
     sources=set(coupled.implementation_files(Path(coupled.__file__)))|set(coupled.implementation_files(Path(__file__)))
     sources.add(Path(coupled.__file__).with_name('geos_triangulation.py').resolve())
@@ -68,7 +95,8 @@ def main():
         peak_rss_bytes=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*(1 if sys.platform=='darwin' else 1024),
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         implementation_sha256={str(p.relative_to(Path.cwd())):coupled.digest(p) for p in sources},
-        experimental_recipe='Fixed cuts; shared headings; '+('all curve recipes' if args.all_headings else 'direct-fit angle filter'))
+        experimental_recipe='Fixed cuts; '+('whole-section headings; ' if args.section_headings else 'shared headings; ')+
+                            ('all curve recipes' if args.all_headings else 'direct-fit angle filter'))
     report['shared_cuts_description']=f'Fixed cuts; shared headings; {len(report["proofs"])} proved routes'
     (args.output/'proof.json').write_text(json.dumps(report,indent=2,default=lambda obj:obj.tolist())+'\n')
     print(json.dumps({k:report[k] for k in ('place','module','accepted','connections','affected','added_area_m2','elapsed_ms')}),flush=True)
