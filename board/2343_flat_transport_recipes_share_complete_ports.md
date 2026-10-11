@@ -15,7 +15,7 @@ mit funktionalen Verbindungen. Besitzer: generators/road; nativer Bauteilplan f�
 [Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) und
 [Ports](../test/experiments/infrastructure/infrastructure_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
 Alle verwendeten Bauteile der eingefrorenen Ebenen-0-Fenster mit 1 km Radius sind geprüft:
-8621/8679 öffentliche Auto-Verbindungen; zehn fehlen ohne gerichtete Umfahrung (Wien 6, Basel 4, Zürich 0).
+8622/8679 öffentliche Auto-Verbindungen; neun fehlen ohne gerichtete Umfahrung (Wien 5, Basel 4, Zürich 0).
 Keine zusätzlichen schwachen Netztrennungen; Zürich/Basel ohne starke Netztrennung. Das belegt nur diese
 Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -67,6 +67,8 @@ Polygonale Fahrflächen behalten die feinste Binärpräzision. Mesh-Rundungsrest
 [Gemeinsame Schnitte](../test/experiments/infrastructure/infrastructure_cut_setbacks.py) ändern lokalen
 Besitz innerhalb gleicher Gesamtfläche. Alle Achsenstationen rücken nach außen; Mehrfachkontakte bleiben
 identisch. Nachbarn, Außenkontakte, Anfragen und frühere Fahrten erhalten; feinste Präzision fortführen.
+[Korridorgrenzen](../test/experiments/infrastructure/probes/roadbeds/corridor_product_probe.py) vor engen Biegungen
+in den geraden Abschnitt legen; der Nachbaranschluss übernimmt die Biegung. Beide neu lösen; gesamte Fläche bleibt.
 Eingang/Ausgang/beide mit 1/2/3 Mindestradien, danach 0,5/1,5 probieren; nur gezielten Gewinn übernehmen.
 [Feste Schnitte](../test/experiments/infrastructure/probes/roadbeds/fixed_cut_frame_probe.py) vergleichen gemeinsame
 Portwinkel ohne Besitzwechsel; der Direktkurvenfilter bleibt günstiger als ungefilterte Winkelversuche.
@@ -79,7 +81,7 @@ Fläche einmal und triangulieren gemeinsam. Außenrahmen/Anfragen/Bestand erhalt
 Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren.
 
 ## Nächste Lieferung und Abnahme
-1. Zehn Verbindungen ohne Umfahrung priorisieren: Wien sechs, Basel vier. Gemeinsame Portposen/Korridore
+1. Neun Verbindungen ohne Umfahrung priorisieren: Wien fünf, Basel vier. Gemeinsame Portposen/Korridore
    gemeinsam lösen; Basler Restfahrten teilen einen Ausgang, zwei Wiener Restfahrten einen Eingang. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
