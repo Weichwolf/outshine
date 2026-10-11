@@ -98,7 +98,7 @@ Mehrere Achsen je Schnitt behalten eindeutige Kontakte; alle Stationen rücken n
 Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
 [Gekoppelte Schnitt-/Fahrraumpassung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) löst Knoten samt Nachbarstraßen. Anfragen, Freiräume und Schnitte am gemeinsamen Dreiecksmesh prüfen; Außenrahmen bleiben fest. Statische Randbereiche einmal vorbereiten.
 [Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
-Fahrten am tatsächlichen Mesh prüfen; Anfragen anhand Quellkontakten zuordnen und alte Gewinne erhalten. Unverträgliche Gruppen lokal ablehnen, gültigen Bestand behalten.
+Quellkontakte/Fahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
 und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
 Offen: gemeinsame Port-/Kurvenpassung, Verkehrsfluss, ungültige Ports, alle Modi und Kosten.
