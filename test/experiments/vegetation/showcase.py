@@ -278,8 +278,41 @@ def reference_entry(output):
     return reference | copy_image(source, output)
 
 
+def leaf_lod_plot(report):
+    views = [view for case in report["sheets"] for view in case["views"]]
+    figure, axes = plt.subplots(1, 2, figsize=(11, 4.2), layout="constrained")
+    style_axes(axes)
+    axes[0].plot(
+        [100 * view["coverage_l1_over_union"] for view in views],
+        label="Ebene Blattkarte",
+    )
+    axes[0].plot(
+        [100 * view["spatial16"]["coverage_l1_over_union"] for view in views],
+        label="Räumlich · 16 Segmente",
+    )
+    axes[0].set(
+        xlabel="Ansicht (2 Blätter × 12 Richtungen)",
+        ylabel="Deckungsabweichung / Vereinigung (%)",
+        title="Einzelblatt bei 8 Pixeln",
+    )
+    axes[0].legend()
+    triangles = report["tree"]["leaf_triangles"]
+    axes[1].bar(
+        ["Fein", "Räumlich", "Karten"],
+        [triangles[key] / 1e6 for key in ("fine", "coarse", "cards")],
+    )
+    axes[1].set(ylabel="Millionen Laubdreiecke", title="Gleicher Plan · 19.208 Blätter")
+    return save_plot(figure, "leaf-lod")
+
+
 def plot_entries(output):
     definitions = (
+        (
+            "sheets/sheets.json",
+            leaf_lod_plot,
+            "Blatt-LOD: Deckung gegen Geometriekosten",
+            "24 orthographische Ansichten bei 8 Pixeln Blattgröße, vierfach unterteilt rasterisiert. Gleiche Blattflächen und Richtungen; räumliche Vereinfachung gegen projizierte Karten. Einzelblattdiagnose ohne Baumverdeckung, vollständige BRDF oder native Laufzeit. Kleine Positionsfehler garantieren keine Deckung.",
+        ),
         (
             "growth-unique/growth.json",
             growth_plot,

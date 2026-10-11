@@ -1,5 +1,5 @@
 {
-  "current_work": "Eine erste belaubte Jungbaumprobe verbindet Stamm, Hauptäste und Zweige mit 571 räumlichen Blättern. Astpfade und Organ-IDs bleiben bei Teilanfragen stabil; Positionen entstehen erst nach Bedarf. Gesamt- und Nahansicht zeigen denselben Formplan. SpeedTree-Platzierung und Segmentierung wurden zusätzlich mit Ghidra gezielt untersucht.",
+  "current_work": "Blatt-LOD an einer größeren Baumprobe mit 19.208 stabilen Blattankern: räumliche Vereinfachung erhält die Deckung in 24 Einzelblattansichten deutlich besser als ebene Karten. Feine Referenz, räumlich grobe Blätter und Karten verwenden denselben Plan, dieselbe Kamera und Beleuchtung. Natürliche Kronenarchitektur bleibt offen.",
   "quality_gap": "Die Pflanzenbilder bleiben Formstudien. Organische Astgabeln, vielfältige Wachstumsformen, natürliche Bestandsverteilung, vollständige Waldprodukte, Wind sowie gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
   "renders": [
     {
@@ -25,6 +25,30 @@
       "category": "landscape",
       "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
       "quality": "Erster Formstand · Gras und Nahlaub offen"
+    },
+    {
+      "image": "render/tree-coarse.png",
+      "title": "Räumliche Blattvereinfachung",
+      "label": "LOD-Vergleich",
+      "category": "organs",
+      "description": "1,27 Millionen Laubdreiecke statt 9,91 Millionen. 16 Längssegmente erhalten Wölbung und Twist; Einzelblattdeckung bleibt richtungsabhängig. Im Baumbild sind Krone und Schatten der feinen Probe ähnlich. Kein allgemeiner LOD-Nachweis.",
+      "quality": "Formstudie · natürliche Krone und Wald-LOD offen"
+    },
+    {
+      "image": "render-draft/tree-fine.png",
+      "title": "Feine Vergleichsgeometrie",
+      "label": "LOD-Vergleich",
+      "category": "organs",
+      "description": "9,91 Millionen Laubdreiecke bei unveränderten 19.208 Blattankern. Referenzbild aus dem dokumentierten Arbeitsstand vor dem Commit; die Metadaten kennzeichnen dies. Gleiche Kamera, Holzgeometrie, Blattmaterialien und Beleuchtung.",
+      "quality": "Formstudie · natürliche Krone und Wald-LOD offen"
+    },
+    {
+      "image": "render/tree-cards.png",
+      "title": "Ebene Blattkarten · verworfene allgemeine Lösung",
+      "label": "LOD-Vergleich",
+      "category": "organs",
+      "description": "38.416 Laubdreiecke mit selbst erzeugten Farb-, Alpha- und Normalenkarten. Im kleinen Baumbild ähnlich, aber bis 69 % Deckungsverlust in flachen Einzelblattansichten. Deshalb keine universelle LOD-Lösung.",
+      "quality": "Formstudie · natürliche Krone und Wald-LOD offen"
     },
     {
       "image": "render/plant-sapling.png",

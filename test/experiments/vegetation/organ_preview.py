@@ -14,6 +14,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).parent))
 from blender_preview import material, mesh_object
+from sheet_material import sheet_material
 
 
 def leaf_material(name):
@@ -69,16 +70,29 @@ def populate(recipe, directory):
             directory / product["placements"],
         )
         paths.extend((mesh_path, poses_path))
+        surface = surfaces[product["surface"]]
+        if "textures" in product:
+            paths.extend(
+                directory / filename for filename in product["textures"].values()
+            )
+            surface = sheet_material(
+                mesh_path.stem, directory, product["textures"], product["card"]
+            )
         with np.load(mesh_path) as mesh:
             original = mesh_object(
                 mesh_path.stem,
                 mesh["vertices"],
                 mesh["faces"],
                 mesh["normals"],
-                surfaces[product["surface"]],
+                surface,
                 corner_normals=True,
             )
-            if "parameters" in mesh:
+            if "uv" in mesh:
+                uv = mesh["uv"][mesh["faces"].ravel()]
+                original.data.uv_layers.new(name="organ coordinates").data.foreach_set(
+                    "uv", uv.ravel()
+                )
+            elif "parameters" in mesh:
                 parameters = mesh["parameters"][mesh["faces"].ravel()]
                 uv = np.column_stack(((parameters[:, 1] + 1) / 2, parameters[:, 0]))
                 original.data.uv_layers.new(name="organ coordinates").data.foreach_set(
@@ -129,7 +143,7 @@ def setup_scene(recipe):
     )
     camera.data.sensor_fit, camera.data.sensor_height = "VERTICAL", 24
     camera.data.lens = 12 / np.tan(np.deg2rad(recipe["fov_y"]) / 2)
-    camera.data.clip_start, camera.data.clip_end = 0.01, 50
+    camera.data.clip_start, camera.data.clip_end = 0.01, recipe.get("clip_end_m", 50)
     bpy.context.scene.camera = camera
 
 
@@ -153,7 +167,11 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     began = time.perf_counter()
     bpy.ops.render.render(write_still=True)
-    implementation = [Path(__file__), Path(__file__).with_name("blender_preview.py")]
+    implementation = [
+        Path(__file__),
+        Path(__file__).with_name("blender_preview.py"),
+        Path(__file__).with_name("sheet_material.py"),
+    ]
     result = {
         "blender": bpy.app.version_string,
         "engine": scene.render.engine,

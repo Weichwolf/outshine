@@ -97,6 +97,18 @@ Median/Spanne aus drei Zusammenstellungen; gemeinsamer Mesh-/Platzierungsaufbau 
 Grobe Anfragen benötigen keine Organpositionen; begrenzte Expansion erhält unbearbeitete Teilpläne.
 Ruheplan/IDs sind kamera- und zeitunabhängig; Wind wirkt später an denselben Ankern.
 
+[Billboard Clouds, SIGGRAPH 2003](../doc/references/vegetation/siggraph/2003-billboard-clouds.pdf):
+Textur/Normalen auf fehlerbegrenzte Ebenen projizieren; PDF-Seite 4 optisch betrachtet.
+`leaf_sheet.py`: an der Wurzel verankerte Ausgleichsebene gegen lokale XY-Ebene und feine Fläche.
+Eigene Farbe/Alpha/Normalen rasterisieren; vormultiplizierte Filterung erhält mittlere Attribute.
+24 Ansichten bei 8 px zeigen bis 69 % Deckungsabweichung: einzelne Ebenen als universelles LOD verworfen.
+`leaf_geometry_lod.py`: räumliche 16×2-Teilung statt 64×4; Fehlermaximum an Überlagerungs-Eckpunkten
+beider Parametertriangulierungen, zwischen diesen zwei Meshes, nicht zur kontinuierlichen Oberfläche.
+`sheet_experiment.py`: gleiche 19.208 Blattanker/Varianten, Kamera, Licht und Holzgeometrie.
+Laub: 9,91 Mio. feine / 1,27 Mio. grobe / 38.416 Kartendreiecke. Räumlich im Mittel 4,7 %
+statt 23,4 % Deckungsabweichung in der Einzelblattprobe; kein allgemeines LOD-/Wald-Gate.
+64 Holzachsen gerendert, 2.744 dünne Achsen nur im Plan; natürliche Krone und Fernaggregation offen.
+
 ## Abnahme und offene Lücke
 Unabhängige Differential-/Flächenprüfung, reguläre Geometrie, Einheiten und exakte Anschlüsse.
 Identische IDs/Positionen bei Wiederholung und gemeinsamer Nah-/Fernherkunft; Budgets explizit.
