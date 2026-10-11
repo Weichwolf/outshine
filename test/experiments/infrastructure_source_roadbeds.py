@@ -48,7 +48,8 @@ def construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicl
         raise ValueError('invalid source-roadbed tolerance')
     clearance=2*error
     expansion=shapely.buffer(surface,vehicle['widthM']*.5-clearance,quad_segs=8)
-    protected=shapely.buffer(reservations,clearance,quad_segs=8)
+    nearby=shapely.intersection(reservations,shapely.buffer(expansion.envelope,clearance,quad_segs=8))
+    protected=shapely.buffer(nearby.difference(surface),clearance,quad_segs=8)
     domain=surface.union(expansion.difference(protected))
     path,note=rounded_route(shapely.get_coordinates(source_route),domain,vehicle,error,
                 ports=(entry,exit),successor_offsets=(1,2,3,4,8,12,16),winding_surface=surface)

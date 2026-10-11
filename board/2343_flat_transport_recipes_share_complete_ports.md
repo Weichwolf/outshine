@@ -88,7 +88,7 @@ Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunk
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum: direkte Kurven, dann quellfolgende G2-Ketten und volle
-Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand.
+Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand. Reservationen vor Pufferung räumlich eingrenzen; nur Raum außerhalb der bestehenden Fahrfläche schützt die Suchreserve. Die endgültige Aufweitung prüft alle Reservationen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 geschlossene Freiräume, ihre Zuordnung und gerichtete Inselumfahrung bleiben erhalten.
 Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Konstruktionsreserve im Suchraum vorsehen; alle Stücke teilen das 4096-Posenbudget der endgültigen Karosserieprüfung. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; flächenlose Schnittreste tragen keinen Fahrraum.
@@ -97,8 +97,8 @@ innerhalb der unveränderten Gesamtfläche; gerade gemeinsame Querschnitte wande
 Drei Kandidaten: 1/2/3 Fahrzeug-Mindestradien; beide Nachbarstücke neu lösen. Quellen-/Außenkontakte,
 alle Anfragen und vorher gültigen Fahrten erhalten; ohne gezielten Gewinn nichts übernehmen.
 Fläche einmal besitzen, keine Verbreiterung, Löcher/Anschlüsse erhalten; vollständige Karosserieprüfung.
-[Radiusprüfung](../test/experiments/infrastructure_window_driving_experiment.py) klassifiziert jeden berührten
-Bauteil, prüft alle angefragten öffentlichen Autofahrten bei festen Ports und bewahrt bisherige Lösungen.
+[Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) veröffentlicht Fahrraumerweiterungen aller berührten
+Bauteile am echten Mesh; alle öffentlichen Anfragen/alten Fahrten und schon bewiesenen Erweiterungen erhalten. Unverträgliche neue Gruppen lokal ablehnen, gültigen Bestand behalten.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
 und starke Komponenten vergleichen. Netztrennende Auslassungen zuerst; Einzelkurvenquoten genügen nicht.
 Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Netze aller Modi und tragbare Kosten.
