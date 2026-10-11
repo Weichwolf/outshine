@@ -96,7 +96,7 @@ Volle Hüllen gemeinsam bilden; Konstruktionsreserve an Reservationen kappen, ga
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
 Mehrere Achsen je Schnitt behalten eindeutige Kontakte; alle Stationen rücken nach außen. Neue/verlorene Kontakte ablehnen.
 Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
-[Gekoppelte Schnitt-/Fahrraumpassung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) löst Knoten samt Nachbarstraßen. Anfragen, Freiräume und Schnitte am gemeinsamen Dreiecksmesh prüfen; Außenrahmen bleiben fest. Statische Randbereiche einmal vorbereiten.
+[Gekoppelte Passung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) liefert gültige Teilnetze mit vollständiger Anfragenbilanz. Bestand zuerst sichern; Auslassungen begründen. Körper, Freiräume und Schnitte am gemeinsamen Mesh prüfen; Außenrahmen fest.
 [Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Quellkontakte/Fahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache

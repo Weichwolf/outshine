@@ -19,15 +19,24 @@ def source_request(poses,pair):
     return tuple(frame_key(poses[i])[:3] for i in pair)
 
 
+def validate_request_ledger(pairs,proofs,unresolved):
+    requests={tuple(map(tuple,p['request'])) for p in proofs}
+    omitted={tuple(map(tuple,p['request'])) for p in unresolved}
+    assert len(requests)==len(proofs) and len(omitted)==len(unresolved),'duplicate source request'
+    assert not requests&omitted and pairs.keys()==requests|omitted,'source requests changed'
+    assert all(p.get('reason') for p in unresolved),'missing omission reason'
+
+
 def prove_product_routes(network,report,floors):
+    assert all(p['module'] in floors for p in report['proofs']+report.get('unresolved',[])),'unknown product owner'
     records={}
     for owner in report['affected']:
         poses,_=network.poses(owner,{})
         routes,_=directed_module_routes(network.graph,poses,network.shape(owner),network.tree)
         pairs={source_request(poses,pair):pair for pair in routes}
         proofs=[p for p in report['proofs'] if p['module']==owner]
-        requests={tuple(map(tuple,p['request'])) for p in proofs}
-        assert len(pairs)==len(routes)==len(proofs) and pairs.keys()==requests,'source requests changed'
+        unresolved=[p for p in report.get('unresolved',[]) if p['module']==owner]
+        validate_request_ledger(pairs,proofs,unresolved)
         turns=[]
         for proof in proofs:
             pair=pairs[tuple(map(tuple,proof['request']))]
@@ -41,7 +50,11 @@ def prove_product_routes(network,report,floors):
             path=shapely.LineString(proof['path'])
             assert same_island_winding(path,routes[pair],floors[owner]),'source island winding changed'
             turns.append(dict(entry=pair[0],exit=pair[1],accepted=True,reason='coupled_native_mesh_checked',body=body))
-        records[owner]=dict(accepted=len(turns),connections=len(turns),turns=turns)
+        accepted=len(turns)
+        for row in unresolved:
+            pair=pairs[tuple(map(tuple,row['request']))]
+            turns.append(dict(entry=pair[0],exit=pair[1],accepted=False,reason=row['reason']))
+        records[owner]=dict(accepted=accepted,connections=len(pairs),turns=sorted(turns,key=lambda t:(t['entry'],t['exit'])))
     return records
 
 
@@ -93,6 +106,12 @@ def apply_coupled_product(network,records,required,root,path,occupied):
     proved=prove_product_routes(trial,report,floors)
     after=dict(records);remapped=required-needed.keys()
     for owner in affected&records.keys():
+        accepted={source_request(trial.poses(owner,{})[0],(t['entry'],t['exit']))
+                  for t in proved[owner]['turns'] if t['accepted']}
+        previous={source_request(old_poses[owner],(t['entry'],t['exit']))
+                  for t in records[owner]['turns'] if t['accepted']}
+        assert previous<=accepted,'previous proved routes lost'
+        assert {key for old,key in needed.items() if old[0]==owner}<=accepted,'required roadbeds lost'
         after[owner]=dict(records[owner],**proved[owner])
         poses,_=trial.poses(owner,{})
         pairs={source_request(poses,(t['entry'],t['exit'])):(t['entry'],t['exit']) for t in proved[owner]['turns']}

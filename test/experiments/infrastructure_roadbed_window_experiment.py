@@ -15,6 +15,7 @@ import shapely
 from infrastructure_cut_setback_experiment import prepared_network,digest,implementation_files
 from infrastructure_cut_setbacks import restore_cut_plan
 from infrastructure_coupled_roadbed_products import apply_coupled_product
+from infrastructure_coupled_product_checks import verify_request_ledger
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface
@@ -186,6 +187,7 @@ def main():
     checks=verify_small(json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())['vehicleProfiles']['compact'])
     sources=implementation_files(Path(__file__))+[Path(__file__).with_name('geos_triangulation.py').resolve(),
                     Path(__file__).with_name('infrastructure_network_recipes.json').resolve()]
+    checks.update(verify_request_ledger())
     result=dict(checks=checks,places=[],measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
                 implementation_sha256={str(p.relative_to(Path.cwd())):digest(p) for p in sources},
                 reference_sha256=digest(args.reference),frame_sha256=digest(frame_path),

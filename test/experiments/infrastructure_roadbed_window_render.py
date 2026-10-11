@@ -38,9 +38,10 @@ def load_window(root,report):
         meshes.append((mesh['vertices'][mesh['indices']],mesh['face_owners']))
         replaced.update(product['modules'])
         counts=Counter(p['module'] for p in proof['proofs'])
+        omitted=Counter(p['module'] for p in proof.get('unresolved',[]))
         for owner in product['modules']:
-            if owner not in records:records[owner]=dict(connections=counts[owner])
-            assert records[owner]['connections']==counts[owner]
+            if owner not in records:records[owner]=dict(connections=counts[owner]+omitted[owner])
+            assert records[owner]['connections']==counts[owner]+omitted[owner]
             records[owner]['accepted']=counts[owner]
         paths.extend(p['path'] for p in proof['proofs'])
     accepted=[t for t in report['trials'] if t['accepted']]

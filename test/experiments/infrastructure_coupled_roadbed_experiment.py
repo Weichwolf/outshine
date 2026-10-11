@@ -15,6 +15,7 @@ from infrastructure_cut_setback_experiment import prepared_network,digest,implem
 from infrastructure_cut_setbacks import restore_cut_plan,setback_network,external_frames_unchanged,serialize_cut_plan
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_flat_surfaces import shared_mesh
+from infrastructure_hermite_route_fitting import fitted_route_candidates
 from infrastructure_junction_surfaces import motor_surface,same_island_winding
 from infrastructure_junction_turns import connect_lanes
 from infrastructure_route_turns import rounded_source_route
@@ -31,7 +32,7 @@ def request_keys(poses,routes):
     return {(keys[a],keys[b]) for a,b in routes}
 
 
-def existing_surface_curve(entry,exit,route,surface,vehicle,error):
+def existing_surface_curve(entry,exit,route,surface,vehicle,error,fit_existing=False):
     path,note=connect_lanes(entry,exit,surface,vehicle,error)
     if path is not None and same_island_winding(path,route,surface):
         poses=dict(entry_pose={k:entry[k].tolist() for k in ('position','heading')},
@@ -41,10 +42,39 @@ def existing_surface_curve(entry,exit,route,surface,vehicle,error):
     if path is not None and same_island_winding(path,route,surface):
         return dict(path=path,pieces=[roadbed_piece(n) for n in note['pieces'][::-1]],
                     roadbed=shapely.Polygon(),report=note)
+    if fit_existing:
+        path,note=fitted_route_candidates(entry,exit,route,surface,vehicle,error,include_controls=True)
+        if path is not None:
+            fit=dict(controls=np.array(note.pop('curve_controls')),
+                     maximum_curvature_per_m=np.array([note['curvature_bound_per_m']]))
+            piece=dict(profile='G2-quintic-spline',fit=fit,begin=entry['position'],end=exit['position'])
+            return dict(path=path,pieces=[piece],roadbed=shapely.Polygon(),report=note)
     return None
 
 
-def construct_module(network,trial,owner,sections,affected,region,buildings,section_index):
+def coupled_addition_rejection(floor,shape,supports,reserved,section_index,trial,owner,affected):
+    base,core,planned,physical,_=compose_roadbeds(floor,shape,supports)
+    if not preserves_voids(base,planned) or not preserves_voids(core,physical):return 'combined_void_topology'
+    addition=planned.difference(base)
+    if addition.intersection(reserved).area>1e-8:return 'reservation_overlap'
+    if len(section_index.query(addition,predicate='dwithin',distance=1e-7)):return 'changed_shared_cut'
+    ids=trial.mesh[1].query(addition,predicate='intersects')
+    owners=set(map(int,trial.product['face_owners'][ids]))|affected
+    if any(addition.intersection(trial.shape(m)).area>1e-8 for m in owners if m!=owner):return 'owner_overlap'
+    return None
+
+
+def unresolved_route(owner,pair,poses,route,vehicle,reason,details=None):
+    positions=np.array([poses[i]['position'] for i in pair])
+    headings=np.array([np.arctan2(*poses[i]['heading'][::-1]) for i in pair])
+    bodies=body_outlines(positions,headings,vehicle['widthM']*.5,
+                        vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
+    return dict(module=owner,pair=pair,entry=pair[0],exit=pair[1],accepted=False,
+                request=next(iter(request_keys(poses,[pair]))),reason=reason,details=details,
+                source_path=shapely.get_coordinates(route).tolist(),endpoint_bodies=bodies.tolist())
+
+
+def construct_module(network,trial,owner,sections,affected,region,buildings,section_index,required):
     old_poses,_=network.poses(owner,{})
     poses,_=trial.poses(owner,{})
     old_routes,_=directed_module_routes(network.graph,old_poses,network.shape(owner),network.tree)
@@ -56,16 +86,26 @@ def construct_module(network,trial,owner,sections,affected,region,buildings,sect
     floor=motor_surface(demand,trial.graph,trial.tree,trial.mesh,trial.vehicle,
                         trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
     reserved=buildings.union(reservations(trial,region).difference(floor))
-    curves=[]
-    for pair,route in sorted(routes.items()):
+    curves=[];unresolved=[]
+    for pair,route in sorted(routes.items(),key=lambda item:(not request_keys(poses,[item[0]])<=required,item[0])):
         entry,exit=(poses[i] for i in pair)
-        candidate=existing_surface_curve(entry,exit,route,floor,trial.vehicle,trial.curbs['arc_error_m'])
+        candidate=existing_surface_curve(entry,exit,route,floor,trial.vehicle,trial.curbs['arc_error_m'],
+                                         request_keys(poses,[pair])<=required)
         existing=candidate is not None
         if candidate is None:
             candidate,notes=construct_route_roadbed(entry,exit,floor,reserved,route,
                                                    trial.vehicle,trial.curbs['arc_error_m'])
-            assert candidate is not None,(owner,pair,[n.get('reason') for n in notes])
+            if candidate is None:
+                unresolved.append(unresolved_route(owner,pair,poses,route,trial.vehicle,
+                                                   'no_constructive_candidate',[n.get('reason') for n in notes]))
+                continue
+        supports=[*[c['candidate']['roadbed'] for c in curves],candidate['roadbed']]
+        reason=coupled_addition_rejection(floor,shape,supports,reserved,section_index,trial,owner,affected)
+        if reason:
+            unresolved.append(unresolved_route(owner,pair,poses,route,trial.vehicle,reason))
+            continue
         curves.append(dict(pair=pair,candidate=candidate,existing_surface=existing,source_route=route))
+    assert required<=request_keys(poses,[c['pair'] for c in curves]),'previous routes lost'
     base,core,planned,physical,quantum=compose_roadbeds(floor,shape,[c['candidate']['roadbed'] for c in curves])
     assert preserves_voids(base,planned) and preserves_voids(core,physical),'changed void topology'
     addition=planned.difference(base)
@@ -77,7 +117,7 @@ def construct_module(network,trial,owner,sections,affected,region,buildings,sect
     print(json.dumps(dict(module=owner,requests=len(routes),constructed=len(curves),
                           existing_surface=sum(c['existing_surface'] for c in curves),
                           added_area_m2=addition.area)),flush=True)
-    return dict(base=base,core=core,planned=planned,physical=physical,quantum=quantum,curves=curves,poses=poses)
+    return dict(base=base,core=core,planned=planned,physical=physical,quantum=quantum,curves=curves,poses=poses,unresolved=unresolved,connections=len(routes))
 
 
 def publish_coupled_roadbeds(products,trial,precision):
@@ -150,7 +190,7 @@ def diagnostic_trial(curve,product,vehicle,original_poses,original_routes):
                 diagnostic_body_outline=bodies[np.argmax(outside)].tolist())
 
 
-def real_case(root,name,module,pair,distance,output):
+def real_case(root,name,module,pair,distance,output,sections=None):
     before_path=root/'window-1000-body'/f'{name}-routes.json'
     before=json.loads(before_path.read_text())
     frame_path=root/'boundary-optimized/hermite-routes.json'
@@ -169,7 +209,7 @@ def real_case(root,name,module,pair,distance,output):
     target=next(iter(request_keys(poses,[pair])))
     assert target not in previous_keys,'selected request already supported'
     original_routes,_=directed_module_routes(network.graph,poses,network.shape(module),network.tree)
-    sections={poses[i]['section'] for i in pair}
+    sections={poses[i]['section'] for i in pair} if sections is None else set(sections)
     distance=network.vehicle['minimumRearAxleRadiusM'] if distance is None else distance
     trial,changes,affected=setback_network(network,module,sections,distance)
     receipt_path=root/'inputs'/f'{name}-input.json'
@@ -178,7 +218,12 @@ def real_case(root,name,module,pair,distance,output):
     region=shapely.union_all([trial.shape(m) for m in affected]).envelope.buffer(margin)
     buildings,tiles=building_reservations(receipt,region)
     section_index=shapely.STRtree(np.array(list(trial.sections.values()),dtype=object))
-    products={owner:construct_module(network,trial,owner,sections,affected,region,buildings,section_index)
+    required={}
+    for owner in affected:
+        record=records[owner] if owner in records else network.record(owner)[0]
+        owner_poses,_=network.poses(owner,{})
+        required[owner]=request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
+    products={owner:construct_module(network,trial,owner,sections,affected,region,buildings,section_index,required[owner])
               for owner in sorted(affected)}
     precision_path=root/'directed-surfaces'/f'{name}-flat-surfaces.json'
     precision=json.loads(precision_path.read_text())['precision_m']
@@ -195,12 +240,13 @@ def real_case(root,name,module,pair,distance,output):
         physical_mesh=str(mesh_path),physical_mesh_sha256=digest(mesh_path),
         original_surface_wkb=product['base'].wkb.hex(),planned_surface_wkb=product['planned'].wkb.hex(),
         physical_shape_wkb=shapely.union_all([p['core'] for p in products.values()]).wkb.hex(),
-        previous_accepted=len(previous_keys),accepted=len(product['curves']),connections=len(product['curves']),
+        previous_accepted=len(previous_keys),accepted=len(product['curves']),connections=product['connections'],
+        unresolved=[r for p in products.values() for r in p['unresolved']],
         added_area_m2=sum(p['planned'].difference(p['base']).area for p in products.values()),
-        trials=[diagnostic_trial(c,product,trial.vehicle,poses,original_routes) for c in gained],
+        trials=[diagnostic_trial(c,product,trial.vehicle,poses,original_routes) for c in gained]+product['unresolved'],
         original_sections=[shapely.get_coordinates(network.sections[s]).tolist() for s in sorted(sections)],
         planned_sections=[shapely.get_coordinates(trial.sections[s]).tolist() for s in sorted(sections)],
-        shared_cuts_description=f'Shared cuts moved {distance:g} m; {len(proofs)}/{len(proofs)} routes across {len(products)} modules',
+        shared_cuts_description=f'Shared cuts moved {distance:g} m; {len(proofs)}/{sum(p["connections"] for p in products.values())} routes across {len(products)} modules',
         input_sha256=before['input_sha256']|{str(p.relative_to(root)):digest(p)
                           for p in (before_path,frame_path,cut_path,receipt_path,precision_path)},
         scope='All public-motor requests of the changed junction and its affected corridors, on one jointly triangulated product; no runtime integration.')
@@ -213,9 +259,10 @@ def main():
     parser.add_argument('--module',type=int,default=102)
     parser.add_argument('--pair',type=int,nargs=2,default=[2,4])
     parser.add_argument('--setback',type=float)
+    parser.add_argument('--sections',type=int,nargs='+')
     parser.add_argument('--output',type=Path,default=Path('build/experiments/infrastructure/roadbeds/coupled-zuerich-102'))
     args=parser.parse_args();began=time.perf_counter()
-    report=real_case(args.root,args.place,args.module,args.pair,args.setback,args.output)
+    report=real_case(args.root,args.place,args.module,args.pair,args.setback,args.output,args.sections)
     sources=implementation_files(Path(__file__))+[Path(__file__).with_name('geos_triangulation.py').resolve(),
               Path(__file__).with_name('infrastructure_network_recipes.json').resolve()]
     report.update(elapsed_ms=(time.perf_counter()-began)*1000,
