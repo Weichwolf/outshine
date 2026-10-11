@@ -32,22 +32,18 @@ Bauteile und mehrfache Achsenkreuzungen bleiben getrennt. Schmale Zweirichtungss
 eine Spur; Fahrseite und Fahrzeugbreite steuern die Platzierung. Verkehrsregelung bleibt offen.
 [Fahrkurven](../test/experiments/infrastructure_junction_turn_experiment.py) verwenden Klothoiden
 mit optionalem Kreisbogen oder asymmetrische G2-Posekurven mit polynomialem Tangentenwinkel.
-Endkrümmung null, Krümmungsextrema analytisch; Radius/Breite kommen aus dem Fahrzeugprofil.
-Klothoiden nach Länge prüfen; erster gültiger Kandidat entspricht dem Minimum vollständiger Suche.
+Endkrümmung null; Radius/Breite aus dem Fahrzeugprofil, analytische Extrema, Klothoiden nach Länge.
 [Quellrouten](../test/experiments/infrastructure_route_turns.py) verbinden Portkontakte über
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
 Höchstens 64 Ecken, drei Posen je Ecke, acht Nachfolger je Pose; identische Vereinfachungen entfallen.
 Posenpaare einmal je Fläche/Fahrzeug/Toleranz prüfen; Untergrenzen aus Segmentzahl/Sehne begrenzen die Suche.
-Versetzte Portposen setzen feste Anfangs-/Endpositionen und Tangenten des Posengraphen; die
-Quellachse gibt innere Kandidaten vor. Vorwärtsrichtung bleibt verbindlich, exakte Parallelität nicht.
-Ungültige statische Portkarosserien prüfen 61 Richtungen innerhalb ±30° und wählen den größten
-Randabstand bei unveränderter Position. Nachbarmodule übernehmen denselben gespeicherten Rahmen.
+Versetzte Portposen setzen Endpositionen/Tangenten; die Quellachse gibt innere Kandidaten vor.
+Vorwärtsrichtung bleibt verbindlich; ungültige statische Posen prüfen 61 Richtungen innerhalb ±30°.
 [Gemeinsame Rahmenwahl](../test/experiments/infrastructure_shared_frame_experiment.py) ergänzt diese Passung:
-erst Richtungen in 5°-Schritten innerhalb ±30° zur Quelle, dann 17 Positionen auf demselben Querschnitt.
-Der Fahrzeugquerschnitt bleibt in seiner Fahrbahnhälfte; schmale Zweirichtungsstrecken teilen eine Spur.
-Je Rezept/Bauteil höchstens 64 Paare. Positionskosten: Versatz + Mindestradius × Winkeländerung [rad].
-Paare per Heap nach Kosten, kein volles Produkt; unveränderte gültige Posedomänen wiederverwenden.
+5°-Richtungen innerhalb ±30°, dann 17 Positionen; getrennte Fahrbahnhälften bzw. schmale gemeinsame Spur.
+Höchstens 64 Paare je Rezept/Bauteil; Heap-Kosten: Versatz + Mindestradius × Winkeländerung [rad].
+Gültige Posedomänen wiederverwenden; kein volles Produkt.
 Volle Karosserie auf beiden Flächen, Fahrkurve und alle Nachbarfahrten prüfen. Nur angefragter Gewinn
 ohne Verlust/Änderung vorhandener Anfragen zählt. Quellenkontakt/Richtung bleiben fest; alle teilen dieselbe Pose.
 Erfolglose Kandidaten ändern nichts. Konfliktfreie Spurzuordnung und weitere Flächenrezepte bleiben offen.
@@ -94,7 +90,12 @@ Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüll
 [Punktabstände](../test/experiments/infrastructure_surface_clearance.py): Randindex zuerst; nur Randnähe/außen messen.
 Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunkte; erst nach beiden Grundversuchen.
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
-Nur fehlgeschlagene Fahrten ergänzen; bestehende Kurven, Straßenfläche und gemeinsame Posen bleiben fest.
+Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
+[Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
+innerhalb der unveränderten Gesamtfläche; gerade gemeinsame Querschnitte wandern entlang derselben Quellachse.
+Drei Kandidaten: 1/2/3 Fahrzeug-Mindestradien; beide Nachbarstücke neu lösen. Quellen-/Außenkontakte,
+alle Anfragen und vorher gültigen Fahrten erhalten; ohne gezielten Gewinn nichts übernehmen.
+Fläche einmal besitzen, keine Verbreiterung, Löcher/Anschlüsse erhalten; vollständige Karosserieprüfung.
 [Radiusprüfung](../test/experiments/infrastructure_window_driving_experiment.py) klassifiziert jeden berührten
 Bauteil, prüft alle angefragten öffentlichen Autofahrten bei festen Ports und bewahrt bisherige Lösungen.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
@@ -104,7 +105,7 @@ Offen: Spurzuordnung/Verkehrsregelung, feste ungültige Ports, vollständige Net
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
 2. Kurze überlappende Fahrknoten gemeinsam lösen; kilometerlange Mesh-Bauteile sind keine Fahrkurvenrezepte.
-   Lange Fahrten aus wiederverwendeten lokalen Stücken aufbauen; gemeinsame Posen/Hüllen/Richtung erhalten.
+   Mehrere Querschnitte desselben Nachbarpaars gemeinsam erhalten; lange Fahrten aus lokalen Stücken aufbauen.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
 5. Weltweit hunderte bis tausende Beispiele nach Topologie, Klassen und gelieferten Tags untersuchen.
@@ -116,5 +117,4 @@ Gemeinsame Portpositionen/Normalen, plausible Breiten/Kurven, keine Risse/Faltun
 Verwendungsgrad und Kosten gehören zur Qualität; ungültige Teile bleiben außerhalb des Plans.
 Überflüssige Zweierknoten ohne Richtungs-/Breitenwechsel erhalten kein eigenes Modul.
 Ruhige Kurven und zusammenhängende Knotenformen im Bild entscheiden; Originalknicke dürfen weichen.
-[Gemeinsame Ports](../test/experiments/infrastructure_ported_junction.py),
-[OSM2World/SUMO/CARLA](../doc/references/infrastructure/README.md).
+[Gemeinsame Ports](../test/experiments/infrastructure_ported_junction.py), [OSM2World/SUMO/CARLA](../doc/references/infrastructure/README.md).
