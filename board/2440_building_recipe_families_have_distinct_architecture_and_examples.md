@@ -1,0 +1,41 @@
+Type: feature
+State: open
+Architecture: planned
+Priority: P0
+Parent: 2169
+Depends: 2420
+Area: generators
+Tags: buildings, recipes, roofs, facades, variety
+
+# Distinct architecture recipes produce a visible building catalogue
+
+## Ergebnis und fehlender Vertrag
+Besitzer: Gebäudeagent/Python; 2173 liefert Quelle/Nutzung, 2420 konstruktive Raum-/Öffnungspläne.
+Erkennbare Bauformen mit passenden Fassaden, Dächern, Erdgeschossen und Innen-/Außenanschlüssen.
+Tausende nachvollziehbar verschiedene Varianten; Familien, Varianten und Instanzen getrennt zählen.
+Aktuell wenige Fassadenparameter auf extrudierten Grundrissen, keine belegte Architekturvielfalt.
+
+## Familien und Komponenten
+- Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.
+- Wohnblock/Büro/Hotel/Mischbau: Höfe/Parts, Erschließungskern, gegliederte Fassaden/Teilnutzungen.
+- Laden/öffentlicher Bau: Schaufenster/Portale, Säle/Korridore und passende getrennte Eingänge.
+- Halle/Lager/Hangar/Garage: Tragstruktur, Tore/Ladezugang, große Innenflächen und passende Öffnungen.
+- Sakralbau/Gewächshaus, Silo/Tank, Schornstein/Wasserturm und weitere gelieferte Sonderklassen:
+  passende Körper/Nutzung/Wartung/Details; keine Wohnfassade auf jedem Typ.
+- Flach-/Pult-/Sattel-/Walm-/weitere belegte Dächer: Löcher/Parts, Traufe/First/Parapet/Entwässerung/Zugang.
+- Sockel/Geschossbänder, Rahmen/Leibungen/Stürze/Fensterbänke/Brüstungen, Türen/Tore.
+  Balkone/Vordächer/Außenfluchten/Dachaufbauten funktional an den gemeinsamen Plan anschließen.
+- Materialien/Proportionen kohärent je Familie; Quellfarbe und Herkunft ergänzter Architektur erhalten.
+
+## Umsetzung und Abnahme
+Eine Familie vollständig über 2D → 2.5D → Tag/Nacht/Nah/Gegen/Fern, dann nächste Bildlücke wählen.
+Form-/Teilungs-/Komponentenverfahren bei gleichen Anforderungen vergleichen; gültige einfache Rezepte behalten.
+Mehrere reale Eingaben je Familie, passende Esri-Referenzen bei gleicher Kamera/Licht optisch prüfen.
+Varianten nach tatsächlich verschiedenen Form-/Bauteil-/Raumkonfigurationen zählen, nicht nach Seeds/Instanzen.
+Konstruktive Funktion, Bildgewinn und Erzeugungs-/Detailkosten gemeinsam prüfen; Tausende Varianten bleiben Ziel.
+Fremde Modelle/Code bleiben externe Referenzen (2400); eigener Generator unter `test/experiments/buildings/`.
+
+## Quellen
+[CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf),
+[Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214).
+Gemeinsame Arbeits-/Bildregeln in AGENTS, Gebäude-/Quellvertrag in 2173.

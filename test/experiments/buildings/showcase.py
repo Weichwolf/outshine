@@ -158,7 +158,7 @@ def publish(root):
     context_validation = json.loads(context_path.read_text()) if context_path.is_file() else None
     esri = {}
     for key, relative in [('catalog', 'esri-catalog.json'), ('validation', 'esri-validation.json'),
-                          ('oracle', 'esri-oracle/oracle-summary.json')]:
+                          ('oracle', 'esri-oracle/oracle-summary.json'), ('ghidra', 'esri-ghidra/ghidra-core.json')]:
         path = EXPERIMENTS/relative
         esri[key] = json.loads(path.read_text()) if path.is_file() else None
         if path.is_file():
@@ -179,7 +179,9 @@ def publish(root):
                     provider_comparison=provider, source_validation=validation, context_validation=context_validation, esri=esri,
                     progress='Ziel: Qualität und Vielfalt anspruchsvoller Esri-CityEngine-Architektur. '
                              'Die eigenen OSM-Gebäude liegen deutlich darunter; ausführbare Esri-Beispiele machen die Lücke sichtbar.',
-                    gaps=['Erkennbare Architekturrezepte, Dachformen, Erdgeschosse, Eingänge und konstruktive Details',
+                    gaps=['Funktionale Gebäudepläne: Eingänge/Tore, Raum- und Geschossverbindungen; 2D → 2.5D',
+                          'Erkennbare Architekturrezepte, Dachformen, Erdgeschosse und konstruktive Details',
+                          'Räumliche Innenräume hinter Fenstern, Begehbarkeit und kohärentes Nachtlicht',
                           'Materialvielfalt und Tausende belegte Varianten eigener Rezeptfamilien',
                           'Weitere ausführbare Esri-Regeln und Abgleich der SDK-/PRT-Versionen',
                           'Infrastrukturkontakte, Verdeckung und Schatten',
@@ -195,7 +197,7 @@ class Handler(SimpleHTTPRequestHandler):
     def permitted(self):
         path = Path(unquote(urlsplit(self.path).path).lstrip('/'))
         allowed = str(path) in ('.', 'index.html', 'manifest.json', 'showcase.css', 'showcase.js', 'provider-comparison.json',
-                               'esri-catalog.json', 'esri-validation.json', 'esri-oracle.json')
+                               'esri-catalog.json', 'esri-validation.json', 'esri-oracle.json', 'esri-ghidra.json')
         allowed |= len(path.parts) == 2 and path.parts[0] == 'assets' and path.suffix == '.png'
         return allowed and (Path(self.directory)/path).resolve().is_relative_to(Path(self.directory).resolve())
 

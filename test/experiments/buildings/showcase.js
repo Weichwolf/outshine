@@ -158,6 +158,16 @@ function renderEsri() {
   $('esri-proof').textContent = oracle ? `${oracle.external_reference_families} externe Esri-Rezeptfamilie · ${oracle.reference_variants} Varianten auf echten OSM-Grundrissen. `+
     `${validation?.analytic_controls.length || 0} analytische Kontrollkörper und ${validation?.real_extrusions.length || 0} echte Grundrisse geprüft. `+
     'Die eigenen Architekturrezepte haben den Esri-Maßstab noch nicht erreicht.' : 'Referenzrenderings stehen noch aus.';
+  const inspection = data.ghidra;
+  $('esri-analysis').textContent = inspection ? `Ghidra ${inspection.ghidra_version} · SDK ${inspection.sdk_version.join('.')} · `+
+    `${inspection.selected_functions.length} gezielt disassemblierte/dekompilierte Funktionen. `+
+    'Aufrufe sind Geometriebelege; ein vollständiger Raumplaner ist damit nicht nachgewiesen. Decompiler-Typen bleiben ungeprüft.' : 'Gezielte Analyse steht noch aus.';
+  $('esri-primitives').replaceChildren(...(inspection?.selected_functions || []).map(row => {
+    const tr = element('tr');
+    const calls = (row.direct_calls || []).filter(call => call.symbol !== 'unresolved').map(call => call.signature).join('; ');
+    tr.append(...[row.signature || row.name, integer(row.instructions), calls || 'Keine benannten Aufrufe'].map(value => element('td', value)));
+    return tr;
+  }));
 }
 
 function renderProvider() {
