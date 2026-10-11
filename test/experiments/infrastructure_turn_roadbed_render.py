@@ -43,7 +43,8 @@ def render(report,path,bounds=None):
                               edgecolors='#bbb3a8',linewidths=.2))
         plot_geometry(ax,[before if index==0 else planned],'#8d9993')
         if index:
-            plot_geometry(ax,[planned.difference(before)],'#71bd94')
+            parts=shapely.get_parts(planned.difference(before))
+            plot_geometry(ax,parts[np.isin(shapely.get_type_id(parts),[3,6])],'#71bd94')
         if not accepted:
             for row in report['trials']:
                 points=np.array(row['source_path'])
