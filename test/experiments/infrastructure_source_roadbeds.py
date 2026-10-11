@@ -43,18 +43,16 @@ def roadbed_body_check(surface,pieces,vehicle,error,maximum_poses=4096):
     return dict(fits_surface=True,pieces=reports,sampled_poses=maximum_poses-remaining)
 
 
-def construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025):
-    if not np.isfinite(error) or error<=0 or vehicle['widthM']*.5<=2*error:
-        raise ValueError('invalid source-roadbed tolerance')
+def source_roadbed_at_reach(entry,exit,surface,reservations,source_route,vehicle,error,reach):
     clearance=2*error
-    reach=roadbed_lateral_reach(vehicle)
     expansion=shapely.buffer(surface,reach-clearance,quad_segs=8)
     nearby=shapely.intersection(reservations,shapely.buffer(expansion.envelope,clearance,quad_segs=8))
     protected=shapely.buffer(nearby.difference(surface),clearance,quad_segs=8)
     domain=surface.union(expansion.difference(protected))
     path,note=rounded_route(shapely.get_coordinates(source_route),domain,vehicle,error,
                 ports=(entry,exit),successor_offsets=(1,2,3,4,8,12,16),winding_surface=surface)
-    row=dict(profile='G2-route',accepted=False,search=note,flare_bound_m=reach)
+    row=dict(profile='G2-route',accepted=False,search=note,search_reach_m=reach,
+             flare_bound_m=roadbed_lateral_reach(vehicle))
     if path is None:
         return None,row|dict(reason=note['reason'])
     if not same_island_winding(path,source_route,surface):
@@ -76,6 +74,18 @@ def construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicl
     row.update(accepted=True,reason='constructed_source_roadbed',added_area_m2=float(addition.area),
                minimum_radius_m=note['minimum_radius_m'],length_m=path.length,vehicle_sweep=body)
     return dict(surface=planned,roadbed=roadbed,addition=addition,path=path,pieces=pieces,report=row),row
+
+
+def construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025):
+    if not np.isfinite(error) or error<=0 or vehicle['widthM']*.5<=2*error:
+        raise ValueError('invalid source-roadbed tolerance')
+    rejected=[]
+    for reach in sorted({vehicle['widthM']*.5,roadbed_lateral_reach(vehicle)}):
+        candidate,row=source_roadbed_at_reach(entry,exit,surface,reservations,source_route,vehicle,error,reach)
+        if candidate is not None:
+            return candidate,row
+        rejected.append(dict(search_reach_m=reach,reason=row['reason']))
+    return None,row|dict(rejected_searches=rejected)
 
 
 def construct_route_roadbed(entry,exit,surface,reservations,source_route,vehicle,error=.025):

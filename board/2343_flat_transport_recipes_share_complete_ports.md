@@ -15,7 +15,7 @@ Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussfläch
 Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
-Öffentliche Autofahrten sind in allen berührten Bauteilen dreier Kilometer-Radiusfenster prüfbar und renderbar.
+Alle berührten Bauteile dreier 1-km-Radiusfenster prüfen/rendern öffentliche Autofahrten.
 Kurvenräume schließen die zusätzlichen ungerichteten Netzbrüche im Wiener/Basler Motorfenster; Zürich, fehlende gerichtete Fahrten, weitere Modi und Gesamtkosten bleiben offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
@@ -39,12 +39,12 @@ jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
 Höchstens 64 Ecken, drei Posen je Ecke, acht Nachfolger je Pose; Straßenräume verteilen sie auf Nähe/Ferne/Ziel. Inselumfahrung schon je Verbindung erhalten; identische Vereinfachungen entfallen.
 Posenpaare einmal je Fläche/Fahrzeug/Toleranz prüfen; Untergrenzen aus Segmentzahl/Sehne begrenzen die Suche.
 Versetzte Portposen setzen Endpositionen/Tangenten; die Quellachse gibt innere Kandidaten vor.
-Vorwärtsrichtung bleibt verbindlich; ungültige statische Posen prüfen 61 Richtungen innerhalb ±30°.
+Ungültige Posen prüfen 61 Vorwärtsrichtungen innerhalb ±30°.
 [Gemeinsame Rahmenwahl](../test/experiments/infrastructure_shared_frame_experiment.py) ergänzt diese Passung:
 5°-Richtungen innerhalb ±30°, dann 17 Positionen; getrennte Fahrbahnhälften bzw. schmale gemeinsame Spur.
 Höchstens 64 Paare je Bauteil; Posedomänen wiederverwenden. Kosten: Versatz + Mindestradius × Winkeländerung.
-Volle Karosserie auf beiden Flächen, Fahrkurve und alle Nachbarfahrten prüfen. Nur angefragter Gewinn
-ohne Verlust/Änderung vorhandener Anfragen zählt. Quellenkontakt/Richtung bleiben fest; alle teilen dieselbe Pose.
+Karosserie auf beiden Flächen, Fahrkurve und Nachbarfahrten prüfen; nur angefragter Gewinn ohne Anfragen-/Fahrtenverlust.
+Quellenkontakt/Richtung bleiben fest; alle Nachbarn teilen die Pose.
 [Fahrzeughülle](../test/experiments/infrastructure_vehicle_sweep.py): bei Körperradius r und
 maximaler Krümmung k sowie Krümmungsänderung k' gilt |q''(s)| ≤ A = k+r*(|k'|+k²).
 Analytische Kurven prüfen die konvexe Hülle zweier Endkarosserien mit Randreserve A*ds²/8.
@@ -88,7 +88,7 @@ Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunk
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
-Aufweitungsbudget: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L größter Längsabstand zur Hinterachse. Reservationen vor Pufferung räumlich eingrenzen; nur Raum außerhalb der bestehenden Fahrfläche schützt die Suchreserve. Die endgültige Aufweitung prüft alle Reservationen.
+Maximale Aufweitung: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L Längsreichweite. Quellkette zuerst mit w/2 Reserve suchen; nur bei Ablehnung bis zur Eckreichweite erweitern. Reservationen räumlich eingrenzen, Suche nur außerhalb vorhandener Fahrfläche schützen; endgültige Aufweitung gegen alle prüfen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 Geschlossene Freiräume sind tatsächlich freie Komplementflächen, auch bei verschachtelten Inseln; eindeutige Zuordnung durch positive Flächenüberlappung und gerichtete Inselumfahrung bleiben erhalten.
 Volle Hüllen gemeinsam bilden, keine Differenzfragmente rekonstruieren. Konstruktionsreserve vorsehen; alle Stücke teilen 4096 Prüfposen. Mesh/Fläche teilen Präzision; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; Schnittlinien tragen keinen Fahrraum.
@@ -96,7 +96,7 @@ Volle Hüllen gemeinsam bilden, keine Differenzfragmente rekonstruieren. Konstru
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Binäre Präzision erhält volle gemeinsame Querschnitte entlang derselben Quellachse.
 Drei Kandidaten: 1/2/3 Mindestradien; beide Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
 [Gekoppelte Schnitt-/Fahrraumpassung](../test/experiments/infrastructure_coupled_roadbed_experiment.py) löst Knoten samt Nachbarstraßen. Anfragen, Freiräume und Schnitte am gemeinsamen Dreiecksmesh prüfen; Außenrahmen bleiben fest.
-Der Zürcher Knoten 102 samt zwei Nachbarstraßen trägt lokal 12/12 Fahrten; vollständige Fenster und übrige Netztrennungen bleiben offen.
+Zürich 102 samt zwei Nachbarstraßen trägt lokal 12/12 Fahrten; vollständige Fenster und übrige Netztrennungen bleiben offen.
 [Fensterprüfung](../test/experiments/infrastructure_roadbed_window_experiment.py) veröffentlicht Fahrraumerweiterungen aller berührten
 Bauteile am echten Mesh; alle öffentlichen Anfragen/alten Fahrten und schon bewiesenen Erweiterungen erhalten. Unverträgliche neue Gruppen lokal ablehnen, gültigen Bestand behalten.
 [Portgraph](../test/experiments/infrastructure_route_connectivity.py): angefragte/geprüfte Verbindungen, schwache
