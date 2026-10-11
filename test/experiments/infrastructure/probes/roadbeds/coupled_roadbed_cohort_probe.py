@@ -36,12 +36,17 @@ cases=[
     ('Wien',1102,(1,3),4,()),
     ('BaselBadischerBahnhof',1209,(3,4),8,()),
     ('BaselBadischerBahnhof',940,(3,5),8,()),
+    ('Wien',861,(1,0),6,()),
+    ('Wien',1048,(7,4),2,()),
+    ('BaselBadischerBahnhof',798,(0,5),0,()),
 ]
 results=[]
 for place,module,pair,setback,sections in cases:
     output=args.output/f'{place}-{module}'
-    command=[sys.executable,'-W','error',str(scripts/'infrastructure_coupled_roadbed_experiment.py'),
-             '--place',place,'--module',str(module),'--pair',*map(str,pair),'--setback',str(setback),'--output',str(output)]
+    script=scripts/('probes/roadbeds/fixed_cut_frame_probe.py' if setback==0 else 'infrastructure_coupled_roadbed_experiment.py')
+    command=[sys.executable,'-W','error',str(script),
+             '--place',place,'--module',str(module),'--pair',*map(str,pair),'--output',str(output)]
+    if setback!=0:command.extend(['--setback',str(setback)])
     if sections:command.extend(['--sections',*map(str,sections)])
     log=Path(tempfile.gettempdir())/f'outshine-{args.output.name}-{place}-{module}.log'
     with log.open('w') as stream:
