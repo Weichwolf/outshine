@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--place',required=True)
     parser.add_argument('--module',type=int,required=True)
     parser.add_argument('--pair',type=int,nargs=2,required=True)
+    parser.add_argument('--joint-only',action='store_true')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args()
     root=Path('build/experiments/infrastructure')
@@ -29,6 +30,7 @@ def main():
     poses,_=network.poses(args.module,{})
     a,b=(poses[i]['section'] for i in args.pair)
     recipes=list(dict.fromkeys([(a,),(b,),tuple(sorted({a,b}))]))
+    if args.joint_only:recipes=[tuple(sorted({a,b}))]
     radius=network.vehicle['minimumRearAxleRadiusM']
     commit=subprocess.check_output(['git','rev-parse','--short=9','HEAD'],text=True).strip()
     script=Path(__file__).resolve().parents[2]/'infrastructure_coupled_roadbed_experiment.py'
