@@ -10,12 +10,11 @@ Tags: infrastructure, solver, recipes
 # Flat transport recipes share complete junction ports
 
 ## Ergebnis und fehlender Vertrag
-2342 liefert den quellbezogenen ebenen Graph samt Nutzungsbilanz.
-Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussflächen ohne Terrain.
-Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
+Aus dem Quellgraph und der Nutzungsbilanz (2342) entstehen zusammenhängende Bänder/Kurven/Anschlüsse.
+Besitzer: generators/road; nativer Bauteilplan für 2281, ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) teilt gemeinsame
 Mesh-Ränder; alle gewählten Ebenen-0-Fenster bestehen Flächen-/Kantenprüfung.
-Keine zusätzlichen schwachen Netztrennungen; 8600/8679 Autofahrten. Zürich ohne starke Netztrennung; Modi/Verkehrsfluss/Kosten offen.
+Keine zusätzlichen schwachen Netztrennungen; 8601/8679 Autofahrten. Zürich ohne starke Netztrennung; Modi/Verkehrsfluss/Kosten offen.
 [Bordbögen](../test/experiments/infrastructure/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -97,12 +96,12 @@ Schnitt-/Rahmenänderungen getrennt deklarieren; alle Portnachbarn prüfen. G2-W
 [Fensterprüfung](../test/experiments/infrastructure/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Quellfahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py): Komponenten und gerichtete Umfahrungen prüfen. DAG-Zielmasken in 64er-Batches statt quadratischer Matrix.
-29 von 79 fehlenden Direktfahrten ohne Umfahrung zuerst lösen. Verkehrsfluss/Modi/Kosten bleiben offen.
+28 von 78 fehlenden Direktfahrten ohne Umfahrung zuerst lösen. Verkehrsfluss/Modi/Kosten bleiben offen.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
-2. Portversätze und alle betroffenen Fahrkurven gemeinsam passen; unabhängige Kurvengewinne können andere Fahrten verlieren.
-   Gemeinsame dünn besetzte Optimierung gegen Einzelpassung vergleichen. Mehrfachschnitte erhalten; lange Fahrten lokal zerlegen.
+2. [Gemeinsame Schnittrezepte](../test/experiments/infrastructure/probes/roadbeds/joint_cut_recipe_probe.py): überlappende Nachbarn gemeinsam lösen.
+   Schnittbedarf teilen statt Besitzpläne überlagern; frühere Fahrten erhalten. Mehrfachschnitte/langen Fahrten lokal folgen.
 3. Mesh, Kontakt und Kollision aus demselben Bauteilplan; Fläche einmal besitzen und triangulieren.
    Freiräume/volle Karosserien am zusammengefügten Mesh prüfen; Einzelkandidaten sind kein Netzbeleg.
 4. Kleine Fälle, dann alle verwendeten Bauteile der Wiener/Zürcher/Basler Fenster rendern und öffnen.
