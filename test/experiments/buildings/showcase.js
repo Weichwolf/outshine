@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const integer = value => new Intl.NumberFormat('de-CH').format(value);
 const short = value => (value || 'unbekannt').slice(0, 9);
-const names = { all: 'Alle', quelle: 'OSM-Rezept', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
+const names = { all: 'Alle', esri: 'Esri-Referenz', quelle: 'OSM-Quelle', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
 const methods = { expanded: ['Split-Liste', '#ad9165'], vectorized: ['Voll-Liste / NumPy', '#7e899b'], compact: ['Kompakter Repeat', '#496b66'],
   bands: ['Direkte Bandflächen', '#496b66'], union: ['Manifold · 3D-Union', '#ad9165'] };
 const metrics = {
@@ -52,7 +52,7 @@ function renderGallery() {
     const body = element('div', undefined, 'card-body');
     body.append(element('h3', item.title), element('p', item.caption));
     const details = element('div', undefined, 'details');
-    for (const text of [`${integer(item.triangles || 0)} Dreiecke`, `${integer(item.openings || 0)} Öffnungen`,
+    for (const text of [`${integer(item.triangles || 0)} Dreiecke`, Number.isFinite(item.openings) ? `${integer(item.openings)} Öffnungen` : 'Öffnungen nicht gezählt',
       `${integer(item.admitted_products || 0)} Körper`, ...(item.floor_bands ? [`${integer(item.floor_bands)} Geschossbänder · ${integer(item.planned_features)} Ausstattungselemente`] : []),
       `Bild ${short(item.commit)}${item.experiment_tree_dirty ? ' · Arbeitsstand' : ''}`]) {
       details.append(element('span', text));
@@ -130,7 +130,34 @@ function render() {
   }));
   $('gaps').replaceChildren(...manifest.gaps.map(gap => element('li', gap)));
   $('updated').textContent = 'Aktualisiert: ' + new Date(manifest.updated).toLocaleString('de-CH');
-  renderProvider(); renderGallery(); renderPlot();
+  renderEsri(); renderProvider(); renderGallery(); renderPlot();
+}
+
+function renderEsri() {
+  const data = manifest.esri, catalog = data?.catalog;
+  $('esri').hidden = !catalog;
+  if (!catalog) return;
+  $('esri-note').textContent = `Lokales SDK ${catalog.sdk_version.join('.')} · Referenzausführung mit PRT ${catalog.references.prt_version.join('.')}. `+
+    'Dokumentierte Fähigkeiten und ausgeführte Regeln sind getrennte Nachweise; die Versionen werden nicht vermischt.';
+  const counts = catalog.counts;
+  $('esri-counts').textContent = `${counts.operation} Operationsseiten · ${counts.function} Funktionsseiten · ${counts.attribute} Attributseiten · `+
+    `${counts['library-function']} Bibliotheksseiten · ${catalog.references.packages.length} Regelpakete. Diese Zahlen zählen keine Architekturrezepte.`;
+  $('esri-operations').replaceChildren(...catalog.groups.map(row => {
+    const tr = element('tr');
+    tr.append(...[row.name, row.operations.join(', '), row.building_use].map(value => element('td', value)));
+    return tr;
+  }));
+  $('esri-packages').replaceChildren(...catalog.references.packages.map(row => {
+    const tr = element('tr'), params = Object.entries(row.attributes).map(([key, info]) => `${key}: ${info.type}`);
+    const executed = row.name === 'candler.rpk' && data.validation ? 'Geometrie und Determinismus geprüft; Referenzbilder unten' :
+      row.name === 'extrusion_rule.rpk' && data.validation ? 'Volumen, Höhen und Höfe gegen analytische Erwartung geprüft' : 'Regelmetadaten gelesen';
+    tr.append(...[row.name, params.join(', ') || 'Keine freien Regelattribute', executed].map(value => element('td', value)));
+    return tr;
+  }));
+  const oracle = data.oracle, validation = data.validation;
+  $('esri-proof').textContent = oracle ? `${oracle.external_reference_families} externe Esri-Rezeptfamilie · ${oracle.reference_variants} Varianten auf echten OSM-Grundrissen. `+
+    `${validation?.analytic_controls.length || 0} analytische Kontrollkörper und ${validation?.real_extrusions.length || 0} echte Grundrisse geprüft. `+
+    'Die eigenen Architekturrezepte haben den Esri-Maßstab noch nicht erreicht.' : 'Referenzrenderings stehen noch aus.';
 }
 
 function renderProvider() {

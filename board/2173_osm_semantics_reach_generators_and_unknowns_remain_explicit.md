@@ -10,10 +10,10 @@ Tags: buildings, roofs, facades, semantics
 # Buildings fit the infrastructure and gain coherent spatial detail
 
 ## Ergebnis und Ist
-Aktueller Auftrag: OSM-Gebäude/Architektur so genau wie die Provider-API ermöglicht; Esri/CGA-Rezepte als Python-Basis.
+Ziel: Esri-CityEngine-Qualität/-Vielfalt in Python; Providerform erhalten, fehlende Architektur kohärent ergänzen. Auftrag bleibt offen.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
 Gelieferte Form/Attribute bestimmen die Geometrie. Frühere Bauhaus-/PV-/Balkonversuche sind keine Gestaltungsvorgabe.
-16 Providerlayer/137 POI-Klassen/476 Unterklassen berücksichtigt; 3.411 kontextgestützte Familien, 4.492 lokale POI-Nutzungen. Native Budgets unbewiesen.
+16 Providerlayer/137 POI-Klassen/476 Unterklassen berücksichtigt; 3.411 Gebäudezuordnungen zu wenigen Fassadenmustern, keine Rezeptvielfalt. Architekturqualität fehlt.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
@@ -29,7 +29,7 @@ Ungültige Quellen/Rezepte protokollieren; schmale Wandstreifen erhalten keine d
 [`context.py`](../test/experiments/buildings/context.py): exakte [STRtree](https://shapely.readthedocs.io/en/stable/strtree.html)-Punkt-/Flächenzuordnung; Parts getrennt, keine pauschale nächste POI-Zuordnung.
 Landuse ab 80 % Überdeckung; verschachtelte Teilfläche vor Umgebung, widersprüchliche Klassen bleiben gemischt.
 POI/Hausnummer nur mit eindeutigem Host; Höfe, gemeinsame Grenzen und Erdgeschoss unter erhöhtem Part beachten. POI bleibt Teil-/Geschossnutzung.
-[`provider_compare.py`](../test/experiments/buildings/provider_compare.py): Live-TileJSON, Inventur/frische Tiles; freie Esri-Regelattribute aus Quelle/Teilnutzungen. Keine SDK-Ausführung.
+[`provider_compare.py`](../test/experiments/buildings/provider_compare.py): Live-TileJSON, Inventur/frische Tiles; freie eigene CGA-Attribute aus Quelle/Teilnutzungen, keine Esri-Regelzuweisung.
 OpenFreeMap `building`: `render_height`/`render_min_height` → Höhe/Unterkante, `colour` → sRGB-Wandfarbe, `hide_3d` → Auslassung mit Grund.
 Höhen sind provideraufbereitet; sie beweisen keine originalen `height`-/Geschosstags. Dachform/Nutzung/Material fehlen in diesem Layer.
 [`recipes.py`](../test/experiments/buildings/recipes.py): Wohn-/Gewerbe-/Industrie-/Institution-/Mischfassaden; direkte Angaben vor Kontext/Schlankheit, Unbekanntes bleibt unbekannt.
@@ -38,7 +38,7 @@ Verkehr/Wasser/Aeroway bis 12 m Umgebung; Bridge/Tunnel/Ebenen/Zugang begrenzen 
 [`verify_context.py`](../test/experiments/buildings/verify_context.py): alle drei Kacheln; 3 × 64 Hosts exakt gegen Vollsuche, Rezeptfamilien/acht Cache-Posen ohne Quellen/Join/Hüllenaufbau.
 Multipart-Zerlegung erhält gültige Einzelgeometrien; gleiche Flächenklasse vereinen, ungültige Teile mit Grund erhalten. Python-Kontextvorbereitung bisher 1,6–2,4 s/Kachel.
 [Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash; `/tmp/outshine-buildings-showcase/`, Port 8766, Varianten/Kontext/Kosten samt Commit.
-Jeder geprüfte Fortschritt: Commit/Push, dann Publish. [VisusCity](https://visusarts.itch.io/visuscity-vol2) ist Bildmaßstab.
+Jeder geprüfte Fortschritt: Commit/Push, dann Publish. Esri-Fähigkeitskatalog/ausführbare PRT-Referenzen zuerst; [VisusCity](https://visusarts.itch.io/visuscity-vol2) ergänzt den Esri-Bildmaßstab.
 
 ## Besitzer und Lieferung
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.
@@ -111,8 +111,8 @@ motiviert wahlfreien Zugriff auf kompakte Fassaden.
 [CitySample a0981eb](https://github.com/fate-apple/CitySample/tree/a0981eb52322eab75db2507a23879de9f30110a0): HLOD aus Kollisionskörpern,
 Mesh-/Materialinstanzen; Houdini-Graphen fehlen. [Building Tools 0216534](https://github.com/ranjian0/building_tools/tree/0216534645b15b3f8aac0bd1d7e6674e2972b9b3): Python-Bauteile/Skelettdächer.
 [Labs Patterns](https://www.sidefx.com/docs/houdini/nodes/sop/labs--building_from_patterns-1.0.html): Module/Overrides.
-[CityEngine-SDK](https://github.com/Esri/cityengine-sdk) unter `~/Downloads/esri_ce_sdk-3.4.12206`, Archiv-SHA `1cad08b973a1`; PRT-PDF optisch geprüft.
-PRT-Core als Referenz: Offset/Skelett/Triangulierung, Kantenattribute, Material-/Geometrieinstanzen; Runtime braucht kompilierte CGB-Regeln.
+[Esri-Katalog](../test/experiments/buildings/esri_catalog.py): SDK 3.4.12206, 72 Operations-/70 Funktions-/10 Attribut-/49 Bibliotheksseiten; Alias-Seiten zählen keine Rezepte.
+[PRT-Orakel](../test/experiments/buildings/esri_oracle.py): externe [Esri-Pakete c9ebe92](https://github.com/Esri/pyprt-examples/tree/c9ebe92f27f6355179c9d7792f430a3c133b9214), PyPRT 1.12/PRT 3.3.11669; echte Form/Höfe, eigene Kamera/Licht. Candler-Dachhöhe überschreitet seinen Körperparameter.
 
 ## Abnahme
 Wien/Feldkirch: Infrastruktur/Baukörper/Höfe/Parts; Rosenheim/Flensburg: Sonderklassen/Dächer. Nahöffnungen räumlich,

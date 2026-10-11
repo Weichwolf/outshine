@@ -29,7 +29,8 @@ TITLES = {
 }
 REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'openings',
                  'admitted_products', 'source_products', 'mode', 'cache_hit', 'distance',
-                 'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features', 'representation', 'recipes')
+                 'demand_and_emission_ms', 'source_sha256', 'limitations', 'image_sha256', 'floor_bands', 'planned_features', 'representation', 'recipes',
+                 'reference', 'source_id', 'view', 'comparison_case')
 
 
 def git(*args):
@@ -52,7 +53,16 @@ def image_record(report_path, root):
     try:
         report = json.loads(report_path.read_text())
         record.update({key: report[key] for key in REPORT_FIELDS if key in report})
-        if report.get('representation') == 'context-diagnostic':
+        if report.get('representation') == 'esri-reference':
+            ref = report['reference']
+            label = {'near': 'Nahansicht', 'orbit': 'Rundum-Gegenansicht', 'far': 'Distanzansicht'}[report['view']]
+            record.update(title='Esri Candler · '+report['comparison_case']+' · '+label, category='esri',
+                          caption=f"Ausführbare Esri-Referenz auf {report['source_id']}, PRT {'.'.join(map(str, ref['prt_version']))}. "
+                                  f"Dachabschluss {ref['height_above_provider_m']:.2f} m über dem Höhenparameter. Fremde Referenzregel samt Beispielmaterialien.")
+        elif report.get('comparison_case'):
+            record.update(title='Eigener Stand · '+report['comparison_case'], category='vergleich',
+                          caption=f"Gleicher OSM-Grundriss {report['source_id']}, Kamera und Licht wie die Esri-Nahansicht. Architekturqualität noch unzureichend.")
+        elif report.get('representation') == 'context-diagnostic':
             record.update(title='OSM · Nutzungskontext im Grundriss', category='quelle',
                           caption='Diagnosekarte: Farben zeigen abgeleitete Rezeptfamilien; Punkte zeigen lokale POI-Nutzungen. '
                                   'Grundrisse und Höfe kommen unverändert aus dem Provider.')
@@ -146,6 +156,13 @@ def publish(root):
     validation = json.loads(validation_path.read_text()) if validation_path.is_file() else None
     context_path = EXPERIMENTS/'context-validation.json'
     context_validation = json.loads(context_path.read_text()) if context_path.is_file() else None
+    esri = {}
+    for key, relative in [('catalog', 'esri-catalog.json'), ('validation', 'esri-validation.json'),
+                          ('oracle', 'esri-oracle/oracle-summary.json')]:
+        path = EXPERIMENTS/relative
+        esri[key] = json.loads(path.read_text()) if path.is_file() else None
+        if path.is_file():
+            atomic_write(root/('esri-'+key+'.json'), path.read_bytes())
     images = [image_record(path, root) for path in EXPERIMENTS.rglob('*-report.json')]
     latest = {}
     for item in sorted(images, key=lambda item: item['updated']):
@@ -159,11 +176,12 @@ def publish(root):
                     pushed=git('rev-parse', 'origin/'+branch) == commit,
                     working_tree_dirty=bool(git('status', '--porcelain')),
                     images=images, benchmark=benchmark(), massing_benchmark=massing_benchmark(),
-                    provider_comparison=provider, source_validation=validation, context_validation=context_validation,
-                    progress='OSM-Gebäude und Architektur so genau wie die Provider-API ermöglicht. '
-                             'Esri/CGA ist die Referenz für Formoperationen, Attribute und Rezepte.',
-                    gaps=['Fehlende direkte Gebäudeattribute: Dächer, Geschosse, Typ und Materialien',
-                          'Mehrdeutige Kontexttreffer und tatsächliche Fassaden-/Dachform',
+                    provider_comparison=provider, source_validation=validation, context_validation=context_validation, esri=esri,
+                    progress='Ziel: Qualität und Vielfalt anspruchsvoller Esri-CityEngine-Architektur. '
+                             'Die eigenen OSM-Gebäude liegen deutlich darunter; ausführbare Esri-Beispiele machen die Lücke sichtbar.',
+                    gaps=['Erkennbare Architekturrezepte, Dachformen, Erdgeschosse, Eingänge und konstruktive Details',
+                          'Materialvielfalt und Tausende belegte Varianten eigener Rezeptfamilien',
+                          'Weitere ausführbare Esri-Regeln und Abgleich der SDK-/PRT-Versionen',
                           'Infrastrukturkontakte, Verdeckung und Schatten',
                           'Native Weltbudgets und visuelle Abnahme'])
     manifest['revision'] = hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
@@ -176,7 +194,8 @@ def publish(root):
 class Handler(SimpleHTTPRequestHandler):
     def permitted(self):
         path = Path(unquote(urlsplit(self.path).path).lstrip('/'))
-        allowed = str(path) in ('.', 'index.html', 'manifest.json', 'showcase.css', 'showcase.js', 'provider-comparison.json')
+        allowed = str(path) in ('.', 'index.html', 'manifest.json', 'showcase.css', 'showcase.js', 'provider-comparison.json',
+                               'esri-catalog.json', 'esri-validation.json', 'esri-oracle.json')
         allowed |= len(path.parts) == 2 and path.parts[0] == 'assets' and path.suffix == '.png'
         return allowed and (Path(self.directory)/path).resolve().is_relative_to(Path(self.directory).resolve())
 

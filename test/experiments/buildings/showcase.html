@@ -13,11 +13,22 @@
     <section class="intro">
       <p class="eyebrow">PYTHON-WERKSTATT · OSM / ESRI</p>
       <h1>Gebäude im Versuch.</h1>
-      <p class="lead">Providerdaten bestimmen die Gebäude. Hier stehen der API-Abgleich, die letzten abgeschlossenen Renderings und die Verfahrensmessungen.</p>
+      <p class="lead">Providerdaten bestimmen die Gebäude. Ausführbare Esri-Referenzen zeigen das Qualitätsziel; direkte Bildvergleiche zeigen den eigenen Stand.</p>
       <p id="progress"></p>
       <div id="state" class="state"></div>
     </section>
     <div id="stats" class="stats"></div>
+    <section id="esri" aria-labelledby="esri-title" hidden>
+      <div class="section-top"><h2 id="esri-title">Esri-Fähigkeiten und Referenzregeln</h2><a href="esri-catalog.json" download>Katalog als JSON</a></div>
+      <p id="esri-note" class="hint"></p><p id="esri-counts"></p>
+      <details><summary>Dokumentierte Formoperationen und ihre Verwendung</summary>
+        <div class="table-scroll"><table><thead><tr><th>Bereich</th><th>Operationen</th><th>Gebäudeanwendung</th></tr></thead><tbody id="esri-operations"></tbody></table></div>
+      </details>
+      <details><summary>Verfügbare kompilierte Esri-Regelpakete</summary>
+        <div class="table-scroll"><table><thead><tr><th>Regel</th><th>Parameter</th><th>Nachweis</th></tr></thead><tbody id="esri-packages"></tbody></table></div>
+      </details>
+      <p id="esri-proof" class="hint"></p>
+    </section>
     <section id="provider" aria-labelledby="provider-title" hidden>
       <div class="section-top"><h2 id="provider-title">Provider → Esri/CGA</h2><a href="provider-comparison.json" download>API-Abgleich als JSON</a></div>
       <p id="provider-context" class="hint"></p>
@@ -27,7 +38,7 @@
         <div class="table-scroll"><table><thead><tr><th>Layer</th><th>Verwendung</th><th>Attribute</th></tr></thead><tbody id="provider-layers"></tbody></table></div>
       </details>
       <div id="context-checks" hidden><h3>Kontextzuordnung an echten Kacheln</h3><p id="context-note" class="hint"></p>
-        <div class="table-scroll"><table><thead><tr><th>Stadt</th><th>Rezeptfamilien</th><th>Lokale POI-Nutzungen</th><th>Vorbereitung</th><th>Gleiche Zuordnung: Index / Vollsuche</th></tr></thead><tbody id="context-sites"></tbody></table></div>
+        <div class="table-scroll"><table><thead><tr><th>Stadt</th><th>Gebäudezuordnungen nach Nutzung</th><th>Lokale POI-Nutzungen</th><th>Vorbereitung</th><th>Gleiche Zuordnung: Index / Vollsuche</th></tr></thead><tbody id="context-sites"></tbody></table></div>
       </div>
     </section>
     <section aria-labelledby="gallery-title">

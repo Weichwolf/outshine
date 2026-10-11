@@ -116,6 +116,23 @@ def add_product(product, palette, shell):
     uv.data.foreach_set('uv', values)
 
 
+def add_reference(path, expected):
+    before = set(bpy.data.objects)
+    bpy.ops.wm.obj_import(filepath=path, forward_axis='NEGATIVE_Z', up_axis='Y')
+    objects = [obj for obj in bpy.data.objects if obj not in before and obj.type == 'MESH']
+    if not objects:
+        raise ValueError('Reference OBJ contained no mesh')
+    for obj in objects:
+        for polygon in obj.data.polygons:
+            polygon.use_smooth = False
+    points = [obj.matrix_world @ Vector(corner) for obj in objects for corner in obj.bound_box]
+    bounds = [[min(point[i] for point in points) for i in range(3)],
+              [max(point[i] for point in points) for i in range(3)]]
+    if max(abs(bounds[j][i]-expected[j][i]) for j in range(2) for i in range(3)) > .002:
+        raise ValueError('OBJ import and PRT world-coordinate bounds differ')
+    return dict(meshes=len(objects), bounds_m=bounds)
+
+
 def render(configuration):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
@@ -137,6 +154,7 @@ def render(configuration):
     shell = {style: shell_material(style, pixels, colours) for style, pixels in configuration['tiles'].items()}
     for product in configuration['products']:
         add_product(product, palette, shell)
+    reference = add_reference(configuration['reference_obj'], configuration['reference_bounds_m']) if configuration.get('reference_obj') else None
     centre = configuration['target']
     span = configuration['ground_span_m']
     bpy.ops.mesh.primitive_plane_add(size=span, location=(centre[0], centre[1], -.025))
@@ -165,7 +183,7 @@ def render(configuration):
     scene.render.filepath = configuration['output']
     bpy.ops.render.render(write_still=True)
     print(json.dumps(dict(renderer=bpy.app.version_string, engine=scene.render.engine,
-                          products=len(configuration['products']), profile=configuration['profile'])), flush=True)
+                          products=len(configuration['products']), profile=configuration['profile'], reference_import=reference)), flush=True)
 
 
 if __name__ == '__main__':
