@@ -18,6 +18,7 @@ from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_hermite_route_fitting import fitted_route_candidates
 from infrastructure_junction_surfaces import motor_surface,same_island_winding
 from infrastructure_junction_turns import connect_lanes
+from infrastructure_joint_roadbed_frames import joint_heading_trials
 from infrastructure_route_turns import rounded_source_route
 from infrastructure_shared_frames import frame_key
 from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_piece,published_roadbed_body_check,sample_roadbed_piece
@@ -227,7 +228,31 @@ def real_case(root,name,module,pair,distance,output,sections=None):
               for owner in sorted(affected)}
     precision_path=root/'directed-surfaces'/f'{name}-flat-surfaces.json'
     precision=json.loads(precision_path.read_text())['precision_m']
-    mesh,audit,proofs,surfaces=publish_coupled_roadbeds(products,trial,precision)
+    frame_sections=set(sections);frame_trials=[];publication=None
+    target_present=lambda group:target in request_keys(group[module]['poses'],[c['pair'] for c in group[module]['curves']])
+    if not target_present(products):
+        for candidate,changed,owners,cost in joint_heading_trials(trial,module,target):
+            candidate_affected=affected|owners
+            candidate_region=shapely.union_all([candidate.shape(m) for m in candidate_affected]).envelope.buffer(margin)
+            if candidate_affected!=set(required):
+                buildings,tiles=building_reservations(receipt,candidate_region)
+                for owner in candidate_affected-set(required):
+                    record=records[owner] if owner in records else network.record(owner)[0]
+                    owner_poses,_=network.poses(owner,{})
+                    required[owner]=request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
+            note=dict(angular_cost_rad=cost,accepted=False);frame_trials.append(note)
+            try:
+                group={owner:construct_module(network,candidate,owner,sections|changed,candidate_affected,candidate_region,
+                                               buildings,section_index,required[owner]) for owner in sorted(candidate_affected)}
+                if not target_present(group):
+                    note['reason']='selected_request_not_gained';continue
+                publication=publish_coupled_roadbeds(group,candidate,precision)
+            except AssertionError as error:
+                note['reason']=str(error);continue
+            trial,products,affected=candidate,group,candidate_affected
+            frame_sections|=changed;note['accepted']=True
+            break
+    mesh,audit,proofs,surfaces=publication if publication is not None else publish_coupled_roadbeds(products,trial,precision)
     output.mkdir(parents=True,exist_ok=True)
     mesh_path=output/'mesh.npz';np.savez_compressed(mesh_path,**mesh)
     product=products[module]
@@ -235,6 +260,7 @@ def real_case(root,name,module,pair,distance,output,sections=None):
     assert target in request_keys(product['poses'],[c['pair'] for c in gained]),'selected request not gained'
     return dict(place=name,module=module,affected=sorted(affected),setback_m=distance,
         cut_plan=serialize_cut_plan(trial,changes),vehicle=trial.vehicle,source_tiles=tiles,
+        changed_frame_sections=sorted(frame_sections),joint_heading_trials=frame_trials,
         all_requests_preserved=True,external_frames_unchanged=True,all_body_curves_on_native_mesh=True,
         proofs=proofs,published_frames=published_frames(products),published_surfaces=surfaces,physical_mesh_audit=audit,
         physical_mesh=str(mesh_path),physical_mesh_sha256=digest(mesh_path),

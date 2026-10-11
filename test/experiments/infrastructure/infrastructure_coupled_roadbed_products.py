@@ -67,6 +67,8 @@ def apply_coupled_product(network,records,required,root,path,occupied):
     affected=set(report['affected'])
     assert not affected&occupied,'overlapping coupled products require a joint solve'
     sections={row['section'] for row in report['cut_plan']['sections']}
+    frame_sections=set(report.get('changed_frame_sections',sections))
+    assert sections<=frame_sections,'moved cuts missing from frame scope'
     old_poses={owner:network.poses(owner,{})[0] for owner in affected}
     old_requests={owner:{source_request(poses,pair) for pair in directed_module_routes(
                     network.graph,poses,network.shape(owner),network.tree)[0]} for owner,poses in old_poses.items()}
@@ -99,7 +101,10 @@ def apply_coupled_product(network,records,required,root,path,occupied):
             assert abs(pose['station']-row['station'])<=1e-7,'source station changed'
             trial.frames[frame_key(pose)]={k:np.array(row[k]) for k in ('position','heading')}
         current,_=trial.poses(owner,{})
-        assert external_frames_unchanged(old_poses[owner],current,sections),'external frame changed'
+        assert external_frames_unchanged(old_poses[owner],current,frame_sections),'external frame changed'
+        for pose in current:
+            if pose['section'] in frame_sections:
+                assert trial.owners[frame_key(pose)]<=affected,'changed frame owner missing'
         requests={source_request(current,pair) for pair in directed_module_routes(
                     trial.graph,current,trial.shape(owner),trial.tree)[0]}
         assert requests==old_requests[owner]
