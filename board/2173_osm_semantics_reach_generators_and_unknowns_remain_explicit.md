@@ -14,6 +14,8 @@ Plausible, vollständige Baukörper mit Höfen/Parts, passenden Dächern/Sonderf
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
 Getrennte Körper-/Öffnungspläne liegen im Rohling; schmale unbekannte Schächte bleiben geschlossen.
 Gelieferte Nutzung geht vor. Klassen-/Dachfamilien und visuelle Abnahme bleiben offen.
+Python 325bbe1c3: 13.993 Pläne/1.691.915 Öffnungen; Repeat-Payload 1,17–2,04 MiB in 37–64 ms (Median 3 Läufe).
+Frischer Prozesspeak 96–133 MiB; Quellen-/Plan-/Hüllenarbeit separat 2,9–5,5 s. Native Budgets unbewiesen.
 
 ## Python-Entwicklung auf buildings
 Besitzer dieses Branches: Gebäudeagent, ausschließlich Python in `.venv`; native Übernahme offen.
