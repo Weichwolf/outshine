@@ -23,6 +23,7 @@ Je ein echtes z14-Tile Wien/Tokyo/Central Park aus der Lieferinventur; SHA-Prüf
 Quellcache unter Client-Pref `sources/building-experiments/`; Erwerb nur `samples.py --fetch`.
 Form/Höfe/Höhen/Quellattribute/Farbe und alle Fassadenachsen persistieren kameraunabhängig.
 Schema 2 speichert fertige Mantel-/Dach-/Unterseitenpuffer; Treffer ohne Provider/Rezept/Triangulierung.
+`preview.py --cached-plan <Plan>` spielt echte Rohlinge quellenfrei ab; Hüllen-Coverage aus gespeicherten Parametern.
 Vergleich: explizite Split-Liste, vektorisierte Voll-Liste und 48-Byte-Repeat je Fassadenkante;
 gleiche vollständige Öffnungen, gemeinsame Quellaufbereitung separat, frische Prozesse/Peak-RSS.
 Direkte Hüllen und budgetierte Leibungen teilen metrische Achsen und exakte Box-Coverage.

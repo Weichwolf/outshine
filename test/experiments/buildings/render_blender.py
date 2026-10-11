@@ -73,7 +73,7 @@ def add_product(product, palette, shell):
     obj = bpy.data.objects.new(product['id'], data)
     bpy.context.collection.objects.link(obj)
     obj.color = (*product['wall_linear'], 1.)
-    for item in [*palette, shell[product['style']]]:
+    for item in [*palette, shell[product['pattern_key']]]:
         data.materials.append(item)
     data.polygons.foreach_set('material_index', geometry['materials'])
     uv = data.uv_layers.new(name='Facade')

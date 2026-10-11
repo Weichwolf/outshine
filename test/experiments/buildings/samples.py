@@ -69,7 +69,7 @@ def read_site(site, root=SOURCES):
                 rejected.append(dict(id=key, reason='invalid_or_degenerate_footprint',
                                      detail=shapely.is_valid_reason(polygon)))
                 continue
-            samples.append(dict(id=key, polygon=polygon, properties=properties))
+            samples.append(dict(id=key, polygon=polygon, properties=properties, source_sha256=receipt['sha256']))
     return samples, dict(site=site, receipt=receipt, origin_lat_lon=[latitude, longitude],
                          source_polygons=len(samples)+len(rejected), rejected=rejected,
                          projection='Mercator scaled at the site latitude; no terrain in this experiment')

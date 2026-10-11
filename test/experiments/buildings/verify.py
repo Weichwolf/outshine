@@ -2,6 +2,8 @@
 
 import json
 from collections import Counter
+from contextlib import redirect_stdout
+import io
 from pathlib import Path
 import subprocess
 import sys
@@ -16,6 +18,7 @@ from demand import View, select
 from facade_geometry import mesh
 from facade_plan import Repeat, REPEAT_DTYPE, coverage, expanded_splits, opening_rectangles, pack_repeats, plan
 from offline_probe import probe
+import preview
 
 
 def coverage_reference(rectangles, centres, footprint):
@@ -161,11 +164,21 @@ def verify_demand_and_cache():
         actual = json.loads(subprocess.check_output([sys.executable, str(Path(__file__).with_name('offline_probe.py')),
                                                     str(path)], text=True, timeout=30))
         assert actual == probe(encoded)
+        output = Path(directory)/'preview'
+        with patch.object(sys, 'argv', ['preview.py', '--cached-plan', str(path), '--prepare-only', '--output', str(output)]), \
+             patch('preview.read_site', side_effect=AssertionError('cached preview acquired source')), \
+             patch('preview.plan', side_effect=AssertionError('cached preview rebuilt plan')), \
+             patch('shapely.constrained_delaunay_triangles', side_effect=AssertionError('cached preview rebuilt shell')), \
+             redirect_stdout(io.StringIO()):
+            preview.main()
+        report = json.loads((output/(product['style']+'-detail-report.json')).read_text())
+        assert report['cache_hit'] and report['openings'] > 0 and path.read_bytes() == encoded
     return dict(camera_independent_cache_bytes=len(encoded), hit_repeats_no_plan_generation=True,
                 hit_repeats_no_shell_triangulation=True, hit_detail_matches_miss=True,
                 orbit_views=16, orbit_covers_all_edges=True,
                 far_triangles=len(distant['faces']), far_expands_no_openings=True, away_emits_nothing=True,
-                inconsistent_records_rejected=len(records), fresh_offline_process_matches=True)
+                inconsistent_records_rejected=len(records), fresh_offline_process_matches=True,
+                cached_preview_uses_no_source_or_hull_preparation=True)
 
 
 if __name__ == '__main__':
