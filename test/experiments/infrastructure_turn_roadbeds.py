@@ -85,6 +85,22 @@ def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255,profile='G2'):
             construction_clearance_m=2*error)
 
 
+def roadbed_site_check(roadbed,surface,reservations,vehicle,error):
+    addition=shapely.difference(roadbed,surface)
+    a,b,c,d=roadbed.bounds
+    padding=vehicle['widthM']*.5+error
+    local=shapely.intersection(surface,shapely.box(a-padding,b-padding,c+padding,d+padding))
+    domain=shapely.buffer(local,vehicle['widthM']*.5,quad_segs=8)
+    if not shapely.covers(domain,roadbed):
+        return None,addition,'roadbed_exceeds_local_flare_budget'
+    if addition.intersection(reservations).area>0:
+        return None,addition,'roadbed_intersects_reserved_space'
+    planned=shapely.union_all([surface,roadbed])
+    if not planned.is_valid or not preserves_voids(surface,planned) or not preserves_coverage(surface,planned):
+        return None,addition,'roadbed_changes_void_topology'
+    return planned,addition,None
+
+
 def roadbed_curves(entry,exit,vehicle):
     node,reason=tangent_intersection(entry,exit)
     start,finish=(np.array([np.arctan2(p['heading'][1],p['heading'][0])]) for p in (entry,exit))
@@ -124,21 +140,10 @@ def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,
         row.update(note)
         if roadbed is None:
             continue
-        addition=shapely.difference(roadbed,surface)
+        planned,addition,reason=roadbed_site_check(roadbed,surface,reservations,vehicle,error)
         row['added_area_m2']=float(addition.area)
-        a,b,c,d=roadbed.bounds
-        padding=vehicle['widthM']*.5+error
-        local=shapely.intersection(surface,shapely.box(a-padding,b-padding,c+padding,d+padding))
-        domain=shapely.buffer(local,vehicle['widthM']*.5,quad_segs=8)
-        if not shapely.covers(domain,roadbed):
-            row['reason']='roadbed_exceeds_local_flare_budget'
-            continue
-        if addition.intersection(reservations).area>0:
-            row['reason']='roadbed_intersects_reserved_space'
-            continue
-        planned=shapely.union_all([surface,roadbed])
-        if not planned.is_valid or not preserves_voids(surface,planned) or not preserves_coverage(surface,planned):
-            row['reason']='roadbed_changes_void_topology'
+        if reason is not None:
+            row['reason']=reason
             continue
         curvature,length=float(fit['maximum_curvature_per_m'][0]),float(fit['length_m'][0])
         count=max(1,int(np.ceil(length*np.sqrt(curvature/(8*error)))))
@@ -159,6 +164,7 @@ def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,
             row['reason']=body.get('reason','constructed_roadbed_does_not_support_body')
             continue
         row.update(accepted=True,reason='constructed_local_roadbed')
-        candidates.append(dict(surface=planned,roadbed=roadbed,addition=addition,path=path,fit=fit,report=row))
+        candidates.append(dict(surface=planned,roadbed=roadbed,addition=addition,path=path,fit=fit,report=row,
+                    pieces=[dict(fit=fit,begin=entry['position'],end=exit['position'],profile=profile)]))
     best=min(candidates,key=lambda c:(c['report']['added_area_m2'],c['report'].get('transition_fraction',1.))) if candidates else None
     return best,trials

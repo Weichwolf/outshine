@@ -16,7 +16,7 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
 Öffentliche Autofahrten sind in allen berührten Bauteilen dreier Kilometer-Radiusfenster prüfbar und renderbar.
-Kurvenräume schließen den Basler Netzbruch; gekoppelte Mesh-Flächen, asymmetrische Fahrten, weitere Modi und Gesamtkosten bleiben offen.
+Kurvenräume schließen die zusätzlichen ungerichteten Netzbrüche im Wiener/Basler Motorfenster; Zürich, fehlende gerichtete Fahrten, weitere Modi und Gesamtkosten bleiben offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -36,7 +36,7 @@ Endkrümmung null; Radius/Breite aus dem Fahrzeugprofil, analytische Extrema. L�
 [Quellrouten](../test/experiments/infrastructure_route_turns.py) verbinden Portkontakte über
 gerichtete kürzeste Wege. Ein begrenzter azyklischer Posengraph überspringt unnötige Quellknicke;
 jede Verbindung prüft dieselben Kurvenrezepte und die vollständige Karosserie.
-Höchstens 64 Ecken, drei Posen je Ecke, acht Nachfolger je Pose; identische Vereinfachungen entfallen.
+Höchstens 64 Ecken, drei Posen je Ecke, acht Nachfolger je Pose; Straßenräume verteilen sie auf Nähe/Ferne/Ziel. Inselumfahrung schon je Verbindung erhalten; identische Vereinfachungen entfallen.
 Posenpaare einmal je Fläche/Fahrzeug/Toleranz prüfen; Untergrenzen aus Segmentzahl/Sehne begrenzen die Suche.
 Versetzte Portposen setzen Endpositionen/Tangenten; die Quellachse gibt innere Kandidaten vor.
 Vorwärtsrichtung bleibt verbindlich; ungültige statische Posen prüfen 61 Richtungen innerhalb ±30°.
@@ -87,11 +87,11 @@ Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; dieselbe Hüll
 Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunkte; erst nach beiden Grundversuchen.
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
-[Kurven-Straßenräume](../test/experiments/infrastructure_turn_roadbeds.py) ergänzen fehlenden Fahrraum: Klothoiden/asymmetrische G2-Posekurven und volle
+[Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum: direkte Kurven, dann quellfolgende G2-Ketten und volle
 Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 geschlossene Freiräume, ihre Zuordnung und gerichtete Inselumfahrung bleiben erhalten.
-Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten. Veröffentlichte Fahrflächen sind rein polygonal; flächenlose Schnittreste tragen keinen Fahrraum.
+Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Konstruktionsreserve im Suchraum vorsehen; alle Stücke teilen das 4096-Posenbudget der endgültigen Karosserieprüfung. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; flächenlose Schnittreste tragen keinen Fahrraum.
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche; gerade gemeinsame Querschnitte wandern entlang derselben Quellachse.
 Drei Kandidaten: 1/2/3 Fahrzeug-Mindestradien; beide Nachbarstücke neu lösen. Quellen-/Außenkontakte,

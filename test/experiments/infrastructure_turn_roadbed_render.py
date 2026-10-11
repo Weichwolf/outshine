@@ -11,7 +11,7 @@ from infrastructure_building_clearance import plot_geometry
 from infrastructure_cut_setback_experiment import digest
 
 
-def render(report,path):
+def render(report,path,bounds=None):
     import matplotlib.pyplot as plt
     from matplotlib.collections import PolyCollection
 
@@ -25,10 +25,15 @@ def render(report,path):
     paths=[np.array(r['path']) for r in accepted]
     view=paths or [np.array(r['source_path']) for r in report['trials'] if r.get('source_path')]
     a,b,c,d=shapely.MultiPoint(np.vstack(view)).bounds if view else shape.bounds
+    if bounds is not None:
+        a,b,c,d=bounds
+        if not np.all(np.isfinite(bounds)) or c<=a or d<=b:
+            raise ValueError('invalid roadbed view bounds')
     with np.load(report['physical_mesh']) as product:
         triangles=product['vertices'][product['indices']]
     visible=shapely.intersects(shapely.polygons(triangles),shapely.box(a-5,b-5,c+5,d+5))
-    fig,axes=plt.subplots(1,2,figsize=(12,6),constrained_layout=True)
+    height=float(np.clip(6*(d-b+10)/(c-a+10)+1.5,2.5,8))
+    fig,axes=plt.subplots(1,2,figsize=(12,height),constrained_layout=True)
     for index,ax in enumerate(axes):
         ax.set_facecolor('#f3eee1')
         if index==0:
@@ -77,8 +82,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',type=Path,default=Path('build/experiments/infrastructure/roadbeds/roadbeds.json'))
     parser.add_argument('--output',type=Path,default=Path('build/shots/experiments/infrastructure/constructed-roadbed.png'))
+    parser.add_argument('--bounds',type=float,nargs=4,metavar=('WEST','SOUTH','EAST','NORTH'))
     args=parser.parse_args()
-    render(json.loads(args.input.read_text()),args.output)
+    render(json.loads(args.input.read_text()),args.output,args.bounds)
     print(args.output)
 
 

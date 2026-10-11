@@ -4,6 +4,7 @@ import numpy as np
 import shapely
 
 from infrastructure_junction_turns import clothoid_connector,curvature_connector
+from infrastructure_junction_surfaces import same_island_winding
 from infrastructure_vehicle_sweep import body_outlines
 from infrastructure_spline_routes import spline_route_candidates
 
@@ -32,7 +33,11 @@ def route_waypoint_poses(points,maximum_corners=64):
     return (np.array(positions),np.array(headings)),None
 
 
-def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,connectors=None,ports=None):
+def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,connectors=None,ports=None,
+                  successor_offsets=None,winding_surface=None):
+    if successor_offsets is not None and (len(successor_offsets)+1>lookahead or
+            any(step<1 or int(step)!=step for step in successor_offsets)):
+        raise ValueError('invalid source-route successor budget')
     connectors = {} if connectors is None else connectors
     poses,reason = route_waypoint_poses(points,maximum_corners)
     if reason is not None:
@@ -52,7 +57,10 @@ def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,co
         if i not in scores:
             continue
         entry = dict(position=positions[i],heading=headings[i])
-        for j in range(i+1,min(i+lookahead+1,len(positions))):
+        successors=range(i+1,min(i+lookahead+1,len(positions)))
+        if successor_offsets is not None:
+            successors=sorted({min(i+step,len(positions)-1) for step in successor_offsets}|{len(positions)-1})
+        for j in successors:
             if not possible[j]:
                 continue
             lower = scores[i][0]+1,scores[i][1]+np.linalg.norm(positions[j]-positions[i])
@@ -67,7 +75,8 @@ def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,co
                     path,note = clothoid_connector(entry,exit,surface,vehicle,error)
                 connectors[key] = path,note
             path,note = connectors[key]
-            if path is not None:
+            if path is not None and (winding_surface is None or same_island_winding(
+                    path,shapely.LineString(positions[i:j+1]),winding_surface)):
                 score = scores[i][0]+1,scores[i][1]+path.length
                 if score<scores.get(j,(np.inf,np.inf)):
                     scores[j] = score
@@ -77,9 +86,11 @@ def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,co
         return None,dict(reason='no_clear_source_pose_chain',candidates=candidates,waypoints=len(positions))
     parts,notes = [],[]
     while target:
+        child=target
         target,path,note = parents[target]
         parts.append(shapely.get_coordinates(path))
-        notes.append(note)
+        notes.append(note|dict(entry_pose=dict(position=positions[target].tolist(),heading=headings[target].tolist()),
+                               exit_pose=dict(position=positions[child].tolist(),heading=headings[child].tolist())))
     xy = np.vstack(parts[::-1])
     xy = xy[np.r_[True,np.linalg.norm(np.diff(xy,axis=0),axis=1)>1e-10]]
     path = shapely.LineString(xy)
@@ -88,7 +99,7 @@ def rounded_route(points,surface,vehicle,error,lookahead=8,maximum_corners=64,co
     radii = [n['minimum_radius_m'] for n in notes if n.get('minimum_radius_m') is not None]
     samples = sum(n['vehicle_sweep']['sampled_poses'] for n in notes)
     return path,dict(profile='G2-route',waypoints=len(positions),segments=len(parts),candidates=candidates,
-                     lookahead=lookahead,length_m=path.length,
+                     lookahead=lookahead,successor_offsets=successor_offsets,length_m=path.length,
                      minimum_radius_m=min(radii) if radii else None,endpoint_curvature_per_m=0.,
                      vehicle_sweep=dict(fits_surface=True,sampled_poses=samples),pieces=notes)
 
