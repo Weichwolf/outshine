@@ -64,6 +64,28 @@ def verify_contact_progress():
                 reversed_contact_progress_rejected=True)
 
 
+def verify_sequential_precision():
+    coarse=2.**-38
+    x=900+coarse*.375
+    for sign in (1.,-1.):
+        transform=lambda xy:xy*np.array([sign,1.])
+        core,west,east=(shapely.transform(g,transform) for g in
+            (shapely.box(x-10,0,x,10),shapely.box(x-30,0,x-10,10),shapely.box(x,0,1120,10)))
+        left,right=(shapely.transform(shapely.LineString([[a,0],[a,10]]),transform) for a in (x-10,x))
+        original=shapely.union_all([core,west,east])
+        core,west,left=setback_shared_section(core,west,left,transform(np.array([x-14,5])),np.array([-sign,0.]))
+        inherited=shapely.get_precision(core)
+        core,east,right=setback_shared_section(core,east,right,transform(np.array([x+4,5])),np.array([sign,0.]))
+        assert inherited==shapely.get_precision(core)==shapely.get_precision(east)
+        for road,section in ((west,left),(east,right)):
+            shared=core.boundary.intersection(road.boundary)
+            assert shapely.covers(shared.buffer(1e-7),section) and abs(shared.length-10)<1e-7
+            assert core.intersection(road).area==0
+        complete=shapely.union_all([core,west,east])
+        assert original.symmetric_difference(complete).area<1e-8
+    return dict(sequential_grid_inherited=True,unchanged_neighbor_contacts_preserved=True)
+
+
 def verify_setbacks():
     core,road = shapely.box(-5,-3,0,3),shapely.box(0,-3,20,3)
     section = shapely.LineString([[0.,-3.],[0.,3.]])
@@ -99,7 +121,8 @@ def verify_setbacks():
     assert not external_frames_unchanged([pose,other],[pose,dict(other,heading=np.array([0.,1.]))],{1})
     return dict(surface_partition_preserved=True,holes_preserved=True,straight_shared_boundary=True,
                 rigid_transform_checked=True,input_tangent_unchanged=True,source_contact_identity_preserved=True,
-                changed_external_frame_rejected=True,invalid_setbacks_rejected=True,**verify_contact_progress())
+                changed_external_frame_rejected=True,invalid_setbacks_rejected=True,
+                **verify_contact_progress(),**verify_sequential_precision())
 
 
 def verify_loop_setbacks():

@@ -23,6 +23,10 @@ def setback_shared_section(core,road,section,point,tangent):
     scale = max(1.,float(np.abs(area.bounds).max()))
     roundoff = 64*np.finfo(float).eps*scale
     precision = float(2.**np.floor(np.log2(roundoff/4)))
+    existing = shapely.get_precision(np.array([core,road,section],dtype=object))
+    existing = existing[existing>0]
+    if existing.size:
+        precision = float(existing.min())
     core,road,section = shapely.set_precision(np.array([core,road,section],dtype=object),precision)
     old_shared = shapely.intersection(shapely.boundary(core),shapely.boundary(road))
     if section.is_empty or not shapely.covered_by(section,shapely.buffer(old_shared,1e-7)):
