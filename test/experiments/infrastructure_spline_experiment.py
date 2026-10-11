@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+from math import comb
 from pathlib import Path
 
 import numpy as np
@@ -38,6 +39,30 @@ def verify_fairing():
             cases += 1
     return dict(cases=cases,dense_solution_agrees=True,fixed_endpoints=True,
                 objective_not_increased=True,rigid_transform_invariant=True)
+
+
+def verify_batched_bounds():
+    rng=np.random.default_rng(2343)
+    cases=0
+    for degree in (3,5,7):
+        for count in (1,8,48,128):
+            controls=np.cumsum(rng.normal(size=(count,degree+1,2)),axis=1)
+            controls[0]=0
+            minimum,_,actual=curve_bounds(controls)
+            velocity=degree*np.diff(controls,axis=1)
+            acceleration=(degree-1)*np.diff(velocity,axis=1)
+            a,b=degree-1,degree-2
+            cross=np.zeros((count,a+b+1))
+            for i in range(a+1):
+                for j in range(b+1):
+                    weight=comb(a,i)*comb(b,j)/comb(a+b,i+j)
+                    cross[:,i+j]+=weight*(velocity[:,i,0]*acceleration[:,j,1]-velocity[:,i,1]*acceleration[:,j,0])
+            expected=np.divide(np.abs(cross).max(axis=1),minimum**3,
+                               out=np.full(count,np.inf),where=minimum>1e-10)
+            np.testing.assert_array_equal(actual,expected)
+            assert np.isinf(actual[0])
+            cases+=count
+    return dict(curves=cases,scalar_product_identical=True,stationary_curve_rejected=True)
 
 
 def verify_bounds():
@@ -157,7 +182,7 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     args = parser.parse_args()
     vehicle = json.loads(Path(__file__).with_name('infrastructure_network_recipes.json').read_text())['vehicleProfiles']['compact']
-    report = dict(bounds=verify_bounds(),fairing=verify_fairing(),route=verify_route(vehicle),
+    report = dict(bounds=verify_bounds(),batched_bounds=verify_batched_bounds(),fairing=verify_fairing(),route=verify_route(vehicle),
                   body_acceleration=verify_body_acceleration(vehicle),long_source=verify_long_source(vehicle))
     paths = [Path(__file__),*(Path(__file__).with_name(name) for name in
              ('infrastructure_spline_routes.py','infrastructure_vehicle_sweep.py','infrastructure_route_fairing.py',

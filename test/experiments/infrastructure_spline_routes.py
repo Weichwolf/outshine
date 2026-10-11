@@ -1,5 +1,6 @@
 """Bounded quintic source-route interpolation with conservative Bernstein envelopes."""
 
+from functools import lru_cache
 from math import comb
 
 import numpy as np
@@ -20,6 +21,13 @@ def split_controls(controls):
     return np.stack((np.stack(left,axis=1),np.stack(right[::-1],axis=1)),axis=1).reshape(-1,controls.shape[1],2)
 
 
+@lru_cache(maxsize=8)
+def bernstein_product_weights(a,b):
+    weights=np.array([[comb(a,i)*comb(b,j)/comb(a+b,i+j) for j in range(b+1)] for i in range(a+1)])
+    weights.setflags(write=False)
+    return weights
+
+
 def curve_bounds(controls):
     degree = controls.shape[1]-1
     velocity = degree*np.diff(controls,axis=1)
@@ -31,10 +39,8 @@ def curve_bounds(controls):
     maximum_speed = np.linalg.norm(velocity,axis=2).max(axis=1)
     a,b = degree-1,degree-2
     cross = np.zeros((len(controls),a+b+1))
-    for i in range(a+1):
-        for j in range(b+1):
-            weight = comb(a,i)*comb(b,j)/comb(a+b,i+j)
-            cross[:,i+j] += weight*(velocity[:,i,0]*acceleration[:,j,1]-velocity[:,i,1]*acceleration[:,j,0])
+    for i,weights in enumerate(bernstein_product_weights(a,b)):
+        cross[:,i:i+b+1] += weights*(velocity[:,i,0,None]*acceleration[:,:,1]-velocity[:,i,1,None]*acceleration[:,:,0])
     curvature = np.divide(np.abs(cross).max(axis=1),minimum_speed**3,
                           out=np.full(len(controls),np.inf),where=minimum_speed>1e-10)
     return minimum_speed,maximum_speed,curvature

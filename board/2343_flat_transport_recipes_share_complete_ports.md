@@ -15,7 +15,7 @@ Aus ihm entstehen einfache zusammenhängende Bänder, Kurven und Anschlussfläch
 Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
-Kurvenräume schließen zusätzliche Netzbrüche im Wiener/Basler Motorfenster; zwei Zürcher Trennungen, gerichtete Fahrten, andere Modi und Kosten bleiben offen.
+Keine zusätzlichen Netztrennungen in Wien/Basel; zwei in Zürich. Fahrten, andere Modi und Kosten offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -67,7 +67,7 @@ verdeckte Hindernisse zwischen Endposen und identische Ergebnisse bei wiederverw
 [Quintische Routen](../test/experiments/infrastructure_spline_routes.py) laufen vor der Posekette:
 Höchstens 66 Punkte, feste Endtangenten/Endkrümmung null; innen darf die Krümmung variieren.
 Abstände von 1/2/3/4 Fahrzeug-Mindestradien und die Quelle liefern fünf Kandidaten.
-Bézier-Hüllen begrenzen Geschwindigkeit/Krümmung; höchstens 4096 Karosserieposen sichern die Fahrt.
+Bézier-Hüllen begrenzen Geschwindigkeit/Krümmung; Koeffizientenprodukte gebündelt mit gleicher Summierreihenfolge. Maximal 4096 Karosserieposen.
 [Korridorfahrten](../test/experiments/infrastructure_corridor_experiment.py) übernehmen unverändert
 die Portposen beider Nachbarknoten; gerichtete Modulrouten und dieselbe Karosserieprüfung verbinden sie.
 Nicht durchfahrbare Auto-Anschlüsse bleiben in der Nutzungsbilanz; ungültige feste Endkarosserien
