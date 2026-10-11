@@ -42,22 +42,29 @@ class StandPlan:
         self.heights.setflags(write=False)
         self.spreads.setflags(write=False)
         self.size, self.levels, self.seed = size, levels, seed
-        inputs = [
+        layout_inputs = [
             1,
             np.__version__,
             self.root.counts,
-            self.heights.tolist(),
-            self.spreads.tolist(),
             size,
             levels,
             seed,
+        ]
+        self.layout_identity = hashlib.sha256(
+            json.dumps(layout_inputs, separators=(",", ":")).encode()
+        ).hexdigest()
+        inputs = [
+            2,
+            self.layout_identity,
+            self.heights.tolist(),
+            self.spreads.tolist(),
         ]
         self.identity = hashlib.sha256(
             json.dumps(inputs, separators=(",", ":")).encode()
         ).hexdigest()
 
     def random(self, cell, purpose):
-        key = f"{self.identity}:{cell.key}:{purpose}".encode()
+        key = f"{self.layout_identity}:{cell.key}:{purpose}".encode()
         seed = int.from_bytes(hashlib.blake2b(key, digest_size=8).digest(), "little")
         return np.random.default_rng(seed)
 

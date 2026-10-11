@@ -44,17 +44,7 @@ def check_coverage(cells):
             assert (right.x >> shift, right.y >> shift) != (left.x, left.y)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
-    args.output.mkdir(parents=True, exist_ok=True)
-    names = ("oak", "beech", "birch")
-    sources = [Path("src/assets/world/species") / f"{name}.json" for name in names]
-    profiles = [json.loads(path.read_text()) for path in sources]
-    heights = [profile["height_m"] for profile in profiles]
-    spreads = [profile["spread_m"] for profile in profiles]
-    plan = StandPlan((2460, 1024, 612), heights, spreads)
+def verify_stand(plan):
     children = plan.children(plan.root)
     np.testing.assert_array_equal(
         np.sum([cell.counts for cell in children], axis=0), plan.root.counts
@@ -66,6 +56,35 @@ def main():
         np.testing.assert_allclose(
             sum(child[name] for child in child_fields), root[name], rtol=1e-12
         )
+    changed_form = StandPlan(plan.root.counts, plan.heights * 1.5, plan.spreads * 0.75)
+    assert changed_form.identity != plan.identity
+    assert changed_form.layout_identity == plan.layout_identity
+    pending = [plan.root]
+    while pending:
+        cell = pending.pop()
+        np.testing.assert_array_equal(plan.children(cell), changed_form.children(cell))
+        if cell.level < plan.levels:
+            pending.extend(plan.children(cell))
+            continue
+        original_sites, changed_sites = plan.sites(cell), changed_form.sites(cell)
+        assert original_sites["ids"] == changed_sites["ids"]
+        np.testing.assert_array_equal(
+            original_sites["positions"], changed_sites["positions"]
+        )
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    names = ("oak", "beech", "birch")
+    sources = [Path("src/assets/world/species") / f"{name}.json" for name in names]
+    profiles = [json.loads(path.read_text()) for path in sources]
+    heights = [profile["height_m"] for profile in profiles]
+    spreads = [profile["spread_m"] for profile in profiles]
+    plan = StandPlan((2460, 1024, 612), heights, spreads)
+    verify_stand(plan)
     camera = Camera((0, -80, 2), (0, 100, 8))
     began = time.perf_counter()
     reference, enumerated = enumerate_needed(plan, camera, 40)
@@ -145,6 +164,7 @@ def main():
         "stable_after_move": len(common),
         "cache_hit_generated_products": 0,
         "exact_same_required_sites": True,
+        "shape_parameters_preserve_layout_and_site_identity": True,
         "conserved_species_counts_and_area": True,
         "bounded_coverage": True,
         "bounded_site_generation_with_coarse_fallback": True,

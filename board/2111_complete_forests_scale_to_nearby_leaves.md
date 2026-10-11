@@ -47,8 +47,8 @@ Kamera/Entfernung bestimmen Bedarf vor Erzeugung; Cache-IDs bleiben von Kamerasn
 Outshine darf dafür erweitert werden; bestehende Generator-/Cache-APIs begrenzen die Verfahren nicht.
 Grober Bedarf erzeugt direkt grobe Produkte. Vergleich unter gleichen Eingaben/Anforderungen;
 begrenzte Arbeit, gültige Geometrie, 3D-Bilder und Kosten entscheiden vor C++-Übertragung.
-`stand_plan.py`: stabile räumliche Zählhierarchie, vollständige Teilprodukte und Nahstandorte erst
-nach Kamerabedarf; gleiche Standorte bei Wiederabruf/Bewegung. Arbeitsbudgets halten grobe Eltern;
+`stand_plan.py`: stabile Zählhierarchie; Raumprodukte und Nahstandorte nur nach Bedarf.
+Layout-Seeds unabhängig von Kronenmaßen: Standorte bleiben bei Bewegung/Formänderung; Budgets halten Eltern.
 Bild-/LOD-Qualität, Schatten-/Verdeckungsbedarf und native Cache-Anbindung bleiben offen.
 `growth_experiment.py` vergleicht brute force und cKDTree an gelieferten Eichen-/Buchen-/Birkenmaßen.
 18 Fälle liefern identische Astpläne und erhalten die Rohrquerschnittssumme an Verzweigungen.
