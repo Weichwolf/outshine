@@ -21,7 +21,7 @@ from infrastructure_flat_surfaces import shared_mesh
 from infrastructure_junction_surfaces import motor_surface
 from infrastructure_route_connectivity import network_connectivity
 from infrastructure_source_roadbeds import construct_route_roadbed,roadbed_body_check
-from infrastructure_turn_roadbeds import bounded_voids,compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface
+from infrastructure_turn_roadbeds import bounded_voids,compose_roadbeds,construct_turn_roadbed,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
 from infrastructure_travel import MODES
 from infrastructure_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
 
@@ -157,6 +157,21 @@ def verify_bounded_voids():
                 void_replacement_rejected=True,void_splitting_rejected=True)
 
 
+def verify_turn_swing(vehicle):
+    half=vehicle['widthM']*.5
+    reach=roadbed_lateral_reach(vehicle)
+    angles=np.linspace(0,2*np.pi,97)
+    radius=vehicle['minimumRearAxleRadiusM']
+    positions=radius*np.stack((np.sin(angles),-np.cos(angles)),axis=1)
+    bodies=body_outlines(positions,angles,half,vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
+    observed=np.linalg.norm(bodies,axis=2).max()-radius
+    assert reach>half and abs(reach-observed)<1e-12
+    point_vehicle=dict(vehicle,frontFromRearAxleM=0.,rearOverhangM=0.)
+    assert roadbed_lateral_reach(point_vehicle)==half
+    assert abs(roadbed_lateral_reach(dict(vehicle,minimumRearAxleRadiusM=1e12))-half)<1e-10
+    return dict(turn_corner_envelope_checked=True,flare_bound_m=float(reach))
+
+
 def verify_small(vehicle):
     floor=shapely.union_all([shapely.box(-20,-1.75,20,1.75),shapely.box(-1.75,-1.75,1.75,20)])
     begin,finish=np.array([-7.,0.]),np.array([0.,7.])
@@ -190,7 +205,7 @@ def verify_small(vehicle):
     return dict(real_mesh_body_checked=True,rigid_transform_checked=True,reservations_enforced=True,
                 hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
                 composed_roadbeds_checked=True,**verify_inflected(vehicle),**verify_polygonal_mesh(vehicle),
-                **verify_bounded_voids())
+                **verify_bounded_voids(),**verify_turn_swing(vehicle))
 
 
 def real_case(root,name,module):

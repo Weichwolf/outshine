@@ -8,7 +8,7 @@ from infrastructure_curvature_paths import fit_curvature_paths
 from infrastructure_junction_surfaces import same_island_winding
 from infrastructure_junction_turns import tangent_intersection
 from infrastructure_route_turns import rounded_route
-from infrastructure_turn_roadbeds import construct_turn_roadbed,roadbed_site_check,turn_roadbed
+from infrastructure_turn_roadbeds import construct_turn_roadbed,roadbed_site_check,roadbed_lateral_reach,turn_roadbed
 from infrastructure_vehicle_sweep import turn_body_check
 
 
@@ -47,13 +47,14 @@ def construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicl
     if not np.isfinite(error) or error<=0 or vehicle['widthM']*.5<=2*error:
         raise ValueError('invalid source-roadbed tolerance')
     clearance=2*error
-    expansion=shapely.buffer(surface,vehicle['widthM']*.5-clearance,quad_segs=8)
+    reach=roadbed_lateral_reach(vehicle)
+    expansion=shapely.buffer(surface,reach-clearance,quad_segs=8)
     nearby=shapely.intersection(reservations,shapely.buffer(expansion.envelope,clearance,quad_segs=8))
     protected=shapely.buffer(nearby.difference(surface),clearance,quad_segs=8)
     domain=surface.union(expansion.difference(protected))
     path,note=rounded_route(shapely.get_coordinates(source_route),domain,vehicle,error,
                 ports=(entry,exit),successor_offsets=(1,2,3,4,8,12,16),winding_surface=surface)
-    row=dict(profile='G2-route',accepted=False,search=note)
+    row=dict(profile='G2-route',accepted=False,search=note,flare_bound_m=reach)
     if path is None:
         return None,row|dict(reason=note['reason'])
     if not same_island_winding(path,source_route,surface):

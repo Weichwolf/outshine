@@ -88,7 +88,7 @@ Nach Hüllenablehnung Randviertel/Körpermitte als zusätzliche Optimierungspunk
 Dasselbe 1024-Residuenbudget und dieselbe vollständige Hüllenprüfung; Eckpunkte allein können Hindernisse übersehen.
 Die Passung ergänzt nur fehlgeschlagene Fahrten bei festen Straßenflächen/Posen.
 [Kurven-Straßenräume](../test/experiments/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum: direkte Kurven, dann quellfolgende G2-Ketten und volle
-Fahrzeughüllen bestimmen lokale Aufweitungen, höchstens eine halbe Fahrzeugbreite vom Bestand. Reservationen vor Pufferung räumlich eingrenzen; nur Raum außerhalb der bestehenden Fahrfläche schützt die Suchreserve. Die endgültige Aufweitung prüft alle Reservationen.
+Aufweitungsbudget: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L größter Längsabstand zur Hinterachse. Reservationen vor Pufferung räumlich eingrenzen; nur Raum außerhalb der bestehenden Fahrfläche schützt die Suchreserve. Die endgültige Aufweitung prüft alle Reservationen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 Geschlossene Freiräume sind tatsächlich freie Komplementflächen, auch bei verschachtelten Inseln; eindeutige Zuordnung durch positive Flächenüberlappung und gerichtete Inselumfahrung bleiben erhalten.
 Volle Hüllen bis zur gemeinsamen Flächenbildung behalten; nicht aus ausgeschnittenen Einzelergänzungen rekonstruieren. Konstruktionsreserve im Suchraum vorsehen; alle Stücke teilen das 4096-Posenbudget der endgültigen Karosserieprüfung. Mesh/Flächen teilen ein Rundungsmodell; Außenports/Anfragen/Fahrten erhalten. Fahrflächen sind rein polygonal; flächenlose Schnittreste tragen keinen Fahrraum.

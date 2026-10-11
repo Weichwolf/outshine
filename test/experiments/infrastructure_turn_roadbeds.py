@@ -88,12 +88,20 @@ def turn_roadbed(fit,begin,end,vehicle,error,maximum_segments=255,profile='G2'):
             construction_clearance_m=2*error)
 
 
+def roadbed_lateral_reach(vehicle):
+    half=vehicle['widthM']*.5
+    radius=vehicle['minimumRearAxleRadiusM']
+    length=max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])
+    return half+length**2/(np.hypot(radius+half,length)+radius+half)
+
+
 def roadbed_site_check(roadbed,surface,reservations,vehicle,error):
     addition=shapely.difference(roadbed,surface)
     a,b,c,d=roadbed.bounds
-    padding=vehicle['widthM']*.5+error
+    reach=roadbed_lateral_reach(vehicle)
+    padding=reach+error
     local=shapely.intersection(surface,shapely.box(a-padding,b-padding,c+padding,d+padding))
-    domain=shapely.buffer(local,vehicle['widthM']*.5,quad_segs=8)
+    domain=shapely.buffer(local,reach,quad_segs=8)
     if not shapely.covers(domain,roadbed):
         return None,addition,'roadbed_exceeds_local_flare_budget'
     if addition.intersection(reservations).area>0:
@@ -140,7 +148,7 @@ def construct_turn_roadbed(entry,exit,surface,reservations,source_route,vehicle,
             continue
         profile=row['profile']
         roadbed,note=turn_roadbed(fit,entry['position'],exit['position'],vehicle,error,profile=profile)
-        row.update(note)
+        row.update(note,flare_bound_m=roadbed_lateral_reach(vehicle))
         if roadbed is None:
             continue
         planned,addition,reason=roadbed_site_check(roadbed,surface,reservations,vehicle,error)
