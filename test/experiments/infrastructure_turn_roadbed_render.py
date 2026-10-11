@@ -23,7 +23,9 @@ def render(report,path,bounds=None):
     planned=shapely.from_wkb(bytes.fromhex(report['planned_surface_wkb']))
     accepted=[r for r in report['trials'] if r['accepted']]
     paths=[np.array(r['path']) for r in accepted]
-    view=paths or [np.array(r['source_path']) for r in report['trials'] if r.get('source_path')]
+    view=paths+[np.array(r['original_source_path']) for r in accepted if 'original_source_path' in r]
+    if not view:
+        view=[np.array(r['source_path']) for r in report['trials'] if r.get('source_path')]
     a,b,c,d=shapely.MultiPoint(np.vstack(view)).bounds if view else shape.bounds
     if bounds is not None:
         a,b,c,d=bounds

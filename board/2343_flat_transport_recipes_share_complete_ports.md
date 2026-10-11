@@ -16,7 +16,7 @@ Besitzer: generators/road. Ergebnis ist der native Bauteilplan für 2281, noch o
 [Python-Flächenplan](../test/experiments/infrastructure_flat_surface_network.py) teilt gemeinsame
 Randsegmente im selben Mesh; die gewählten Ebenen-0-Fenster bestehen die Flächen-/Kantenprüfung.
 Alle berührten Bauteile dreier 1-km-Radiusfenster prüfen/rendern öffentliche Autofahrten.
-Kurvenräume schließen zusätzliche Netzbrüche im Wiener/Basler Motorfenster; vier weitere Zürcher Trennungen, gerichtete Fahrten, andere Modi und Kosten bleiben offen.
+Kurvenräume schließen zusätzliche Netzbrüche im Wiener/Basler Motorfenster; drei weitere Zürcher Trennungen, gerichtete Fahrten, andere Modi und Kosten bleiben offen.
 [Bordbögen](../test/experiments/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure_flat_cuts.py) teilen die tatsächliche
