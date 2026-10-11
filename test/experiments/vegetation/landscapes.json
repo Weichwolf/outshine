@@ -1,0 +1,39 @@
+[
+  {
+    "id": "temperate",
+    "title": "Gemäßigter Laubwald",
+    "counts": [200, 150, 60],
+    "profiles": ["oak", "beech", "birch"],
+    "architecture": "broadleaf",
+    "size_m": 180,
+    "seed": 17,
+    "camera": [130, -245, 85],
+    "target": [0, 0, 10],
+    "ground": [0.075, 0.115, 0.035]
+  },
+  {
+    "id": "boreal",
+    "title": "Borealer Nadelwald",
+    "counts": [220, 130],
+    "profiles": ["spruce", "pine"],
+    "architecture": "conifer",
+    "size_m": 160,
+    "seed": 23,
+    "camera": [125, -225, 72],
+    "target": [0, 0, 11],
+    "ground": [0.11, 0.13, 0.07]
+  },
+  {
+    "id": "savanna",
+    "title": "Savanne",
+    "counts": [32],
+    "profiles": [],
+    "dimensions": [[11, 18, 0.55, 0.45]],
+    "architecture": "broadleaf",
+    "size_m": 220,
+    "seed": 31,
+    "camera": [145, -260, 55],
+    "target": [0, 0, 5],
+    "ground": [0.31, 0.27, 0.085]
+  }
+]

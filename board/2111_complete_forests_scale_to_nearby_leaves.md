@@ -13,10 +13,8 @@ Tags: vegetation, forest, grass, wind
 SpeedTree ist der Qualitätsmaßstab: glaubwürdige Silhouetten, Verzweigung, Laub,
 Wind und Schatten; vollständige Wälder teilen das Frame-/Speicherbudget mit der Stadt.
 Native Prototypstufen bestehen; Weltpfad: Kronenkarten, ignorierte Artenmischungen, unvollständige Waldflächen.
-Native Struktur-/Wasser-/Wegflächen schließen Wurzeln bereits aus. Das bleibt erhalten.
-Kronenradius/-unterkante erreichen die Platzierung; Krone/Gebäudehöhe werden gemeinsam geprüft.
+Native Struktur-/Wasser-/Wegflächen schließen Wurzeln aus; Kronenmaße erreichen die Platzierung.
 Feldkirchs Dachüberschneidung ist beseitigt; niedrige Bauten dürfen unter freier Krone bleiben.
-Wasser/Weg-Ausschluss und freie Standorte bleiben; kleine bildwirksame Schritte sind erlaubt.
 
 ## Besitzer und Datenfluss
 OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte
@@ -24,15 +22,13 @@ Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes
 Forest erzeugt einen stabilen Bestandsplan aus Bodenklasse, Höhe, Hang und Welt-Seed.
 ForestDraw publiziert Instanzen. Vegetationsvorbereitung/Renderer besitzen gemeinsame
 fertige Assetcache-Produkte (2280), RAM/GPU-Residency, sichtbare Detailwahl, Wind und Schatten.
-2336 betrifft bei nativer Integration gemeinsame Eltern-/Kindabdeckung und repräsentationsgerechte
-Qualität/Kosten. Standortauswahl und Prototypintegration warten nicht auf dessen Gesamtabschluss.
+2336 besitzt native Eltern-/Kindabdeckung/Qualität/Kosten; kein Gesamtblocker für Standort-/Prototyparbeit.
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
 
 ## Reihenfolge
 Auf `vegetation` gilt der eigenständige Python-Auftrag aus GOAL; master bearbeitet Infrastruktur.
 Der bestehende C++23-Generator ist Vergleichsmaterial und darf später vollständig ersetzt werden.
-Menge/Detail gehören ins Szenario (2188), keine Inhalts-CLI-Schalter. Dichte folgt plausibler
-Belegung; freies Budget verbessert Form, Nahdetail und Schatten statt bloß Baumzahlen.
+Dichte folgt plausibler Belegung; freies Budget verbessert Form, Nahdetail und Schatten statt Baumzahlen.
 
 ## Python-Verfahrensauftrag
 Besitzer: `test/experiments/vegetation`; Quellen und Architekturentscheidungen stehen hier.
@@ -53,10 +49,8 @@ Bild-/LOD-Qualität, Schatten-/Verdeckungsbedarf und native Cache-Anbindung blei
 `growth_experiment.py` vergleicht brute force und cKDTree an gelieferten Eichen-/Buchen-/Birkenmaßen.
 18 Fälle liefern identische Astpläne und erhalten die Rohrquerschnittssumme an Verzweigungen.
 Wiederholte positionsgleiche Austriebe werden verworfen; finale Knoten verbrauchen Attraktoren.
-Budget oder Stillstand liefert ausgewiesene Reste; fertige Kronen sind damit nicht bewiesen.
-EEVEE-Bilder zeigen Astpläne mit analytischen Rohrnormalen; verschweißte Gabeln/Laub fehlen.
-SCA bleibt ein Nah-/Prototypvergleich, kein Erzeugungspfad bei Fernbedarf. Python immer `.venv`;
-benötigt NumPy/SciPy, für Bilder Pillow/Matplotlib und für Paper-Auswertung pypdf.
+Budget/Stillstand weist Reste aus; EEVEE-Rohrbilder belegen weder fertige Kronen noch Gabeln/Laub.
+SCA bleibt Nah-/Prototypvergleich, kein Fernpfad. Python immer `.venv`: NumPy/SciPy/Pillow/Matplotlib/pypdf.
 `crown_surface.py`: seedstabile radiale Hülle, direkte kubische Unterteilung; neun Varianten geprüft.
 Für n=q/|q|, |q|≥1 gilt ||D²n||≤2/√3. Mit g=Σaf, h=Σaf² und ρmax=1−Σa_ausgelassen:
 M=Rmax[(2/√3)(ρmax+g)+2g+h]; Fehler ≤M/N² (Dreiecksvarianz ≤2/N²).
@@ -65,17 +59,23 @@ Geöffnete EEVEE-Nahbilder: geschlossene Hülle ungeeignet als Laubersatz; nur P
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
 und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)
 sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswahl.
+Nächster Bildschritt: parametrisierte Blatt-/Grasflächen an echten Blattknoten und Blattstielen.
+Eine begrenzte Triebgrammatik liefert Teilpläne, Blattfläche/Anzahl und Bounds vor Organ-Meshing.
+Architekturbaustein, noch keine Ressourcen-/Lichtkonkurrenz.
+[Flora of China: Q. robur](https://efloras.org/florataxon.aspx?flora_id=2&taxon_id=210001863)
+liefert Maßplausibilität; 12 × 6 cm sind eine Verfahrensprobe, kein weltweiter Blattstandard.
+`showcase.py --start` veröffentlicht geprüfte Bilder/Plots samt Quellcommit in `/tmp` auf Port 8765.
+`showcase_catalog.json` besitzt Bildauswahl/Einordnung; Stand laden bleibt manuell, keine Neuberechnung.
+`landscapes.json`: Laubwald, borealer Nadelwald und Savanne als feste Bildszenarien mit geteilten Meshes.
+Stabile Standorte/Katalogmaße, breite Hüllen bzw. Kegelproxies; Laub/Nadeln/Gras und Wald-LOD bleiben offen.
 
 ## Implementierung in vollständigen Schritten
-1. Artenmischungen bis Runtime durchreichen; unbekannte Arten/ungültige Gewichte ablehnen.
-   Echte Waldflächen an Bestandsplanung anbinden, kein uniformer Katalog-Fallback.
-2. Ein Formplan je Art/Variante, gemeinsame Baumprototypen und kompakte Instanzen.
-   Nahstufe mit Stamm/Ästen/Laub; Mittelstufe mit vereinfachten Ästen/Laubgruppen;
-   Fernstufe mit Kronen; Horizontstufe mit räumlichen Waldverbänden. Bildschirmfehler wählt Aufwand.
-3. Übergänge erhalten Form/Standorte und Rundumdeckung. Sichtbarkeit/Draws räumlich bündeln;
-   Alpha-Overdraw/Schatten begrenzen; Fernwald ohne Nahgeometrie/Einzelbaum-Draws/CPU-Blattarbeit.
-4. Wind verformt geteilte Geometrie aus raumverankerten Parametern; Jahreszeit beeinflusst
-   Laubmenge/Farbe. Unterwuchs/Gras nur bei sichtbarem Bildgewinn, im selben Qualitätsbudget.
+Artenmischungen/Waldflächen bis Runtime durchreichen; unbekannte Arten/ungültige Gewichte ablehnen.
+Keine uniforme Katalogbelegung. Ein Formplan je Variante; geteilte Prototypen und kompakte Instanzen.
+Nah: Stamm/Äste/Laub; mittel: Äste/Laubgruppen; fern: Kronen; Horizont: räumliche Verbände.
+Bildschirmfehler vor Aufbau; Form/Standorte/Rundumdeckung erhalten. Sichtbarkeit/Draws bündeln,
+Alpha-Overdraw/Schatten begrenzen; Fernwald ohne Nahgeometrie/Einzelbaum-Draws/CPU-Blattarbeit.
+Wind/Jahreszeit teilen raumverankerte Parameter; Unterwuchs/Gras folgt Bildgewinn im Weltbudget.
 
 ## Forschungsgrundlage
 ### Bodenanschluss und stabile Darstellung
