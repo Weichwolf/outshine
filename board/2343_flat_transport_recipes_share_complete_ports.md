@@ -14,7 +14,7 @@ Aus dem Quellgraph und der Nutzungsbilanz (2342) entstehen zusammenhängende Bä
 Besitzer: generators/road; nativer Bauteilplan für 2281, ohne Höhen/Ebenen.
 [Python-Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) teilt gemeinsame
 Mesh-Ränder; alle gewählten Ebenen-0-Fenster bestehen Flächen-/Kantenprüfung.
-Keine zusätzlichen schwachen Netztrennungen; 8613/8679 Autofahrten. Zürich ohne starke Netztrennung; Modi/Verkehrsfluss/Kosten offen.
+Keine zusätzlichen schwachen Netztrennungen; 8616/8679 Autofahrten. Zürich ohne starke Netztrennung; Modi/Verkehrsfluss/Kosten offen.
 [Bordbögen](../test/experiments/infrastructure/infrastructure_flat_corners.py) runden Innenkanten tangential
 mit konstruktiver Überlappung nach innen. Ungültige Bögen entfallen lokal samt Grund.
 [Direkte Querschnitte](../test/experiments/infrastructure/infrastructure_flat_cuts.py) teilen die tatsächliche
@@ -51,7 +51,7 @@ Bézier-Hüllen begrenzen v, a, j und Winkeldifferentiale bei positiver Mindestg
 |q''(u)| ≤ a_max+r*(|θ''|_max+|θ'|_max²).
 Linienpunkte entstehen separat nach a_max*du²/8; Karosserieprüfung erzeugt kein dichtes Linienmesh.
 Wege/private Zufahrten sind kein Ausweichraum. Die geplante öffentliche Fläche hat ein eigenes Mesh.
-Einbahnkurven erhalten Quell-Windungszahlen um Verkehrsinseln, inklusive Portversätzen
+Alle Kurvenrezepte erhalten Quell-Windungszahlen um Verkehrsinseln, inklusive Portversätzen
 über den Querschnitt. Legitime Abbiegekurven dürfen benachbarte öffentliche Fläche nutzen;
 eine durch Karosseriebreite eingeschränkte Routenfläche wurde verworfen.
 Spurzuordnung und alternative gerichtete Routen brauchen einen Verkehrsflussvertrag.
@@ -67,7 +67,6 @@ werden einmal vor der Kurvensuche geprüft und bleiben ungelöst.
 Zweipunktige Quellachsen dürfen bei versetzten Ports ebenfalls quintische Verbindungen liefern.
 Nach erfolgloser Interpolation: Quellabweichung + quadratische zweite Differenzen, feste Endpunkte;
 positiv definites Fünfdiagonalsystem in O(N). Fläche, Ports und Karosserie-/Radiusprüfung bleiben fest.
-Jeder Spline-Kandidat muss die Inselwindung seiner Quelle erhalten; sonst läuft die Suche weiter.
 [Lokale Routenpassung](../test/experiments/infrastructure/infrastructure_hermite_route_fitting.py) folgt auf die Rahmenwahl.
 Quintische Hermite-Abschnitte teilen Position/Tangente/Beschleunigung; feste Ports, Endkrümmung null.
 Nachbarabhängigkeiten ergeben eine dünn besetzte Jacobi-Matrix. Höchstens 18 Knoten und 40 Solver-
@@ -75,12 +74,11 @@ Auswertungen je Versuch; insgesamt 1024 tatsächliche Residuenaufrufe je Verbind
 Quellabweichung/Karosserieabstand/Bernstein-Schranken optimieren; Hüllen/Radius/Windung prüfen.
 [Punktabstände](../test/experiments/infrastructure/infrastructure_surface_clearance.py): Randindex zuerst; nur Randnähe/außen messen.
 Nach beiden Grundversuchen ergänzen Hüllenablehnungen Randviertel/Körpermitte; Hüllen/Residuenbudget bleiben fest.
-[Startwiederverwendung](../test/experiments/infrastructure/probes/roadbeds/construction_reuse_probe.py):
-34 Straßenräume erhalten acht gültige Ergebnisse, ohne Zeit-/Anschlussgewinn. Vorerst nicht integrieren.
+Startwiederverwendung spart im gesamten Aufbau weder Zeit noch Anschlüsse; vorerst nicht integrieren.
 [Kurven-Straßenräume](../test/experiments/infrastructure/infrastructure_source_roadbeds.py) ergänzen fehlenden Fahrraum durch direkte Kurven oder quellfolgende G2-Ketten und vollständige Karosseriehüllen.
 [Hermite-Fahrraum](../test/experiments/infrastructure/infrastructure_fitted_roadbeds.py) ergänzt die Rezepte.
 [Wendekurven](../test/experiments/infrastructure/infrastructure_return_roadbeds.py): Quelle ≤1024, dann CCC/CSC ≤512; gesamt ≤1536.
-G2-Nähte/Ports/Hüllen prüfen; 1024 Residuen/Passung, 255 Intervalle. Starre Budgethalbierung verliert gültige Fahrten; Gesamtkosten optimieren. Mesh-Rand/neue Schlitze: 64·eps·max(1,|Koordinate|) m; alte/breitere Freiräume erhalten. Nur gültige, konservative Hilfspuffer nutzen.
+G2-Nähte/Ports/Hüllen prüfen; 1024 Residuen/Passung, 255 Intervalle. Mesh-Rand/neue Schlitze: 64·eps·max(1,|Koordinate|) m; alte/breitere Freiräume erhalten. Nur gültige, konservative Hilfspuffer nutzen.
 Maximale Aufweitung: sqrt((R+w/2)^2+L^2)−R; R Mindestradius, w Breite, L Längsreichweite. Quellkette zuerst mit w/2 Reserve suchen; nur bei Ablehnung bis zur Eckreichweite erweitern. Reservationen räumlich eingrenzen, Suche nur außerhalb vorhandener Fahrfläche schützen; endgültige Aufweitung gegen alle prüfen.
 Gebäude/andere Verkehrsflächen sind Reservierungen. Offene Blockränder dürfen kohärent weichen;
 Geschlossene Komplementflächen, verschachtelte Inseln, ihre Zuordnung durch Flächenüberlappung und gerichtete Umfahrung erhalten.
@@ -88,13 +86,14 @@ Volle Hüllen gemeinsam bilden; Konstruktionsreserve an Reservationen kappen, ga
 [Gemeinsame Schnittverschiebung](../test/experiments/infrastructure/infrastructure_cut_setbacks.py) erweitert den Anschluss
 innerhalb der unveränderten Gesamtfläche: lokale Straßenstücke wechseln Besitzer, auch bei Schleifen mit mehreren Anschlüssen. Folgeschnitte behalten das vorhandene feinste Binärraster; volle Querschnitte bleiben gemeinsam.
 Mehrere Achsen je Schnitt behalten eindeutige Kontakte; alle Stationen rücken nach außen. Neue/verlorene Kontakte ablehnen.
-1/2/3 Mindestradien: Eingang, Ausgang, beide; Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
+1/2/3 Mindestradien, danach 0,5/1,5 als Reserve: Eingang, Ausgang, beide; Nachbarn neu lösen. Quellen-/Außenkontakte, Anfragen und gültige Fahrten erhalten; nur bei gezieltem Gewinn übernehmen. Schnitte ändern Besitz, nicht Gesamtfläche.
+[Feste Schnitte](../test/experiments/infrastructure/probes/roadbeds/fixed_cut_frame_probe.py): gemeinsame Portwinkel ohne Besitzwechsel prüfen; alle Nachbarn mitlösen. Den günstigeren Direktkurvenfilter beibehalten.
 [Gekoppelte Passung](../test/experiments/infrastructure/infrastructure_coupled_roadbed_experiment.py): gültige Teilnetze, volle Anfragenbilanz; Bestand sichern, Auslassungen begründen. Körper/Freiräume/Schnitte am gemeinsamen Mesh; Außenrahmen fest.
-Schnitt-/Rahmenänderungen getrennt deklarieren; alle Portnachbarn prüfen. G2-Winkelumlauf speichern; bei Radiusfehler Drehsinne und gemeinsame Winkel prüfen.
+Schnitt-/Rahmenänderungen getrennt deklarieren; alle Portnachbarn prüfen. G2-Winkelumlauf speichern.
 [Fensterprüfung](../test/experiments/infrastructure/infrastructure_roadbed_window_experiment.py) übernimmt Fahrraum-/Schnittprodukte samt festen Posen.
 Quellfahrten erhalten; unverträgliche Gruppen ablehnen. [Gesamtbild](../test/experiments/infrastructure/infrastructure_roadbed_window_render.py) zeigt publizierte Meshes.
 [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py): Komponenten und gerichtete Umfahrungen prüfen. DAG-Zielmasken in 64er-Batches statt quadratischer Matrix.
-16 von 66 fehlenden Direktfahrten ohne Umfahrung zuerst lösen: Wien 8, Basel 8, Zürich 0. Verkehrsfluss/Modi/Kosten offen.
+13 von 63 fehlenden Direktfahrten ohne Umfahrung zuerst lösen: Wien 6, Basel 7, Zürich 0. Verkehrsfluss/Modi/Kosten offen.
 
 ## Umsetzung und Abnahme
 1. Gerade/Ende/Kurve, T/X und Einfädelung als kleine Rezepte mit gemeinsamen vollständigen Querschnitten.
