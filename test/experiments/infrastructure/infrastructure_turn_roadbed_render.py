@@ -16,6 +16,7 @@ def render(report,path,bounds=None,pair=None):
     import matplotlib.pyplot as plt
     from matplotlib.collections import PolyCollection
 
+    report=dict(report,**report.get('target_view',{}))
     for name,value in report['implementation_sha256'].items():
         assert digest(Path(name))==value,'numeric producer changed since the measured construction'
     assert digest(Path(report['physical_mesh']))==report['physical_mesh_sha256']
