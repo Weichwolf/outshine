@@ -1,6 +1,7 @@
 """Measure shared-cut corrections against frozen complete motor-route windows."""
 
 import argparse
+import ast
 from collections import Counter
 import hashlib
 import json
@@ -27,6 +28,21 @@ def digest(path):
         for block in iter(lambda:stream.read(1024*1024),b''):
             result.update(block)
     return result.hexdigest()
+
+
+def implementation_files(entry):
+    pending,visited = [entry.resolve()],set()
+    while pending:
+        path = pending.pop()
+        if path in visited:
+            continue
+        visited.add(path)
+        statements = list(ast.walk(ast.parse(path.read_text())))
+        names = {n.module.split('.')[0] for n in statements if isinstance(n,ast.ImportFrom) and n.module}
+        names.update(a.name.split('.')[0] for n in statements if isinstance(n,ast.Import) for a in n.names)
+        pending.extend(path.with_name(name+'.py') for name in names
+                       if name.startswith('infrastructure_') and path.with_name(name+'.py').is_file())
+    return sorted(visited)
 
 
 def verify_setbacks():
@@ -196,7 +212,8 @@ def main():
     code = Path(__file__).parent
     configuration = code/'infrastructure_network_recipes.json'
     assert digest(configuration)==frames['implementation_sha256'][configuration.name]
-    math_files = sorted(code.glob('infrastructure*.py'))+[configuration]
+    math_files = implementation_files(Path(__file__))+[configuration]
+    assert Path(__file__).with_name('infrastructure_cut_setback_render.py').resolve() not in math_files
     result = dict(checks=checks,places=[],implementation_sha256={f.name:digest(f) for f in math_files},
                   frame_reference=str(args.frames.relative_to(args.input)),frame_reference_sha256=digest(args.frames),
                   measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),

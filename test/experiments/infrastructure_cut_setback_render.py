@@ -45,8 +45,8 @@ def comparison_views(root,result,frames):
         new = prepared_network(root,baseline,poses)
         restore_cut_plan(new,row['plan'])
         for module in selected:
-            before.append((row['place']+' before',original[module],stored_view(old,module,original[module],old_paths[module])))
-            after.append((row['place']+' after',current[module],stored_view(new,module,current[module],new_paths[module])))
+            before.append((row['place']+' before',module,original[module],stored_view(old,module,original[module],old_paths[module])))
+            after.append((row['place']+' after',module,current[module],stored_view(new,module,current[module],new_paths[module])))
     return before+after
 
 
