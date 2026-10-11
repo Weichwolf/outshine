@@ -8,6 +8,7 @@ from infrastructure_curvature_paths import fit_curvature_paths
 from infrastructure_fitted_roadbeds import construct_fitted_roadbed
 from infrastructure_junction_surfaces import same_island_winding
 from infrastructure_junction_turns import tangent_intersection
+from infrastructure_return_roadbeds import construct_return_roadbed
 from infrastructure_route_turns import rounded_route
 from infrastructure_spline_routes import checked_spline_path,spline_sampler
 from infrastructure_turn_roadbeds import construct_turn_roadbed,roadbed_site_check,roadbed_lateral_reach,turn_roadbed,coordinate_roundoff
@@ -124,6 +125,13 @@ def construct_route_roadbed(entry,exit,surface,reservations,source_route,vehicle
         candidate,note=construct_source_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
         trials.append(note)
     if candidate is None:
-        candidate,note=construct_fitted_roadbed(entry,exit,surface,reservations,source_route,vehicle,error)
+        returning=np.dot(entry['heading'],exit['heading'])<0
+        candidate,note=construct_fitted_roadbed(entry,exit,surface,reservations,source_route,vehicle,error,
+                                                maximum_calls=512 if returning else 1024)
         trials.append(note)
+        remaining=1024-note['residual_calls']
+        if candidate is None and returning and remaining>0:
+            candidate,note=construct_return_roadbed(entry,exit,surface,reservations,source_route,vehicle,error,
+                                                    maximum_calls=remaining,maximum_starts=1)
+            trials.append(note)
     return candidate,trials

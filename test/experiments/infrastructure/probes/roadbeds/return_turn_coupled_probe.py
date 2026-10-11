@@ -12,8 +12,18 @@ import infrastructure_coupled_roadbed_experiment as coupled
 import infrastructure_source_roadbeds as source
 from infrastructure_return_roadbeds import construct_return_roadbed
 
-original=coupled.construct_route_roadbed
 original_fit=source.construct_fitted_roadbed
+
+
+def original(*values,**options):
+    result,trials=source.construct_turn_roadbed(*values,**options)
+    if result is None:
+        result,note=source.construct_source_roadbed(*values,**options)
+        trials.append(note)
+    if result is None:
+        result,note=source.construct_fitted_roadbed(*values,**options)
+        trials.append(note)
+    return result,trials
 
 
 def candidate(*values,**kwargs):
