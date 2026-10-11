@@ -81,8 +81,9 @@ def published_roadbed_surface(mesh,base,core,planned,precision):
     actual=shapely.union_all(shapely.set_precision(faces,precision))
     complete=actual.intersection(planned).union(base.difference(core))
     parts=shapely.get_parts(complete)
-    surface=shapely.union_all(parts[np.isin(shapely.get_type_id(parts),[3,6])])
-    assert complete.symmetric_difference(surface).area==0
+    polygons=shapely.get_parts(parts[np.isin(shapely.get_type_id(parts),[3,6])])
+    surface=shapely.MultiPolygon(polygons.tolist()) if len(polygons)!=1 else polygons[0]
+    assert surface.area==complete.area
     return surface,actual
 
 

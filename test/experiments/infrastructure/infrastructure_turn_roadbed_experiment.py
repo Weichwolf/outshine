@@ -127,6 +127,14 @@ def verify_polygonal_mesh(vehicle):
         assert str(error)=='vehicle surface must be polygonal'
     else:
         raise AssertionError('a mixed-dimensional vehicle surface was accepted')
+    islands=shapely.MultiPolygon([shapely.box(x,0,x+2,2) for x in (0,4,8)])
+    triangles=triangles_of(islands)
+    vertices=shapely.get_coordinates(triangles).reshape(-1,4,2)[:,:3].reshape(-1,2)
+    mesh=dict(vertices=vertices,indices=np.arange(len(vertices)).reshape(-1,3))
+    planned=shapely.box(-1,-1,8,3)
+    surface,_=published_roadbed_surface(mesh,planned,planned,planned,.125)
+    assert surface.is_valid and surface.area==8 and len(surface.geoms)==2
+    assert surface.equals(shapely.MultiPolygon([shapely.box(x,0,x+2,2) for x in (0,4)]))
     return dict(polygonal_mesh_publication_checked=True)
 
 

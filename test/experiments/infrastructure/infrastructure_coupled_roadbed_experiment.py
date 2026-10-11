@@ -122,6 +122,11 @@ def construct_module(network,trial,owner,sections,affected,region,buildings,sect
 
 
 def publish_coupled_roadbeds(products,trial,precision):
+    quantum=min(product['quantum'] for product in products.values())
+    for product in products.values():
+        product['quantum']=quantum
+        for key in ('base','core','planned','physical'):
+            product[key]=shapely.set_precision(product[key],quantum)
     parts=[];owners=[]
     for owner,product in products.items():
         components=list(shapely.get_parts(product['physical']))
