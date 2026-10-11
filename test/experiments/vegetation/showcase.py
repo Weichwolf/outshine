@@ -18,6 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from cloud_plots import group_figure, raster_figure, render_figure
+from selection_plots import coverage_figure, storage_figure
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS = ROOT / "build/experiments/vegetation"
@@ -322,8 +323,32 @@ def cloud_render_plot(_report):
     return save_plot(render_figure(EXPERIMENTS), "cloud-render-comparison")
 
 
+def selection_coverage_plot(report):
+    figure = coverage_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "foliage-selection-coverage")
+
+
+def selection_storage_plot(report):
+    figure = storage_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "foliage-selection-storage")
+
+
 def plot_entries(output):
     definitions = (
+        (
+            "selection/selection.json",
+            selection_coverage_plot,
+            "Blatt-Auswahl oder Rundum-Ansichten",
+            "Vier identische 60-Blatt-Gruppen × 24 unabhängige Richtungen auf gemeinsamen 8 × 8 Rastern. Flächenausgleich durch größere verbleibende Blätter erhält die räumliche Deckung nicht. Rundum-Ansichten wählen eine Karte pro Gruppe; Schatten benötigen die jeweilige Lichtrichtung. Alpha und Normalen bilinear, RGBA8 und achtfaches Supersampling. Keine vollständige BRDF, Wind-/Übergangs- oder Runtime-Freigabe.",
+        ),
+        (
+            "selection/selection.json",
+            selection_storage_plot,
+            "Ansichten: weniger Draw-Geometrie, mehr Texturen",
+            "Alle 32 beziehungsweise 64 unbeleuchteten Ansichten vollständig vorgehalten. Zwei RGBA8-Basiskarten je Ansicht, vor Atlasrändern und Mips. Lokale CPU-Erzeugung samt benötigter Sichtflächenbewertung; ein Aufbau je Gruppe, Median und Spanne über vier Gruppen. Quelle und angeforderte Geometrie sind identisch; Speicher-/GPU-/Overdraw-Kosten besitzen eigene offene Grenzen.",
+        ),
         (
             "clouds/clouds.json",
             cloud_group_plot,

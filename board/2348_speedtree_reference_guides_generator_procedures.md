@@ -41,17 +41,34 @@ Virtuelle Blattaufrufe an `+0x610/+0x898/+0x8a8/+0x8b0` anhand der ELF-Vtable zu
 `GetArea/GetLodSkins/ComputeLodSkin/GetLodWeight`. Unbekannte Eintragsfelder nicht semantisch erfinden.
 `ComputeVisibilityInfo` (`0x24ba610`, Worker `0x24b2810`) tastet an Skin-Vertexpositionen
 ein vierkomponentiges 3D-Feld trilinear ab; Mittel, Extremwerte und gewichtete Richtungen ableiten.
-Aufbau/Semantik des Feldes sind noch offen; das ist kein Nachweis kameragenauer Verdeckung.
+`RenderVisibilityLookup` (`0x24c1d90`, fünf Worker) baut dieses Feld aus 64 Tiefenansichten
+in einem 8×8-Atlas auf. Tiefenwerte aufbereiten, Lücken mit Nachbar-Minima ergänzen;
+Gitterpunkte gegen diese Ansichten prüfen und sichtbare Richtungen aufsummieren/normalisieren.
+Eine sigmoidale Abbildung der Richtungsanzahl liefert den vierten Kanal;
+gewichtetes 3×3×3-Nachbarschaftsfiltern glättet das Feld. Kein kameragenauer Verdeckungsnachweis.
 `GetArea` (`0x1b39f00`) liefert π(0,5 d)² aus einem Größenfeld, keine summierte Meshfläche.
 LOD-Property-Aufbau (`0x1b4ed10`) benennt Gewicht und Skalierungsfaktor; konkrete Feldbindung offen.
 `GetLodWeight` und `GetCullScalar` lesen Basiswerte plus optionale knotenspezifische Offsets.
 Die alten Leaf-`SetDropLodData/SetGrowLodData`-Funktionen kopieren nur Positionswerte;
 ihre Namen belegen keine allgemeine Verkleinerungs-/Vergrößerungslogik für Leaf-Mesh-Knoten.
+`CLodSortFunctor` (`0x19cf610`) sortiert absteigend nach Eintragsfloat `+0x10`.
+Bei Leaf-Mesh-Einträgen ist das der gemittelte Sichtbarkeitskanal, zur Hälfte mit dem
+Kreisflächenproxy gemischt, gewichtet und durch einen Zufallsfaktor variiert.
+LOD-Anzahl enthält `N f²` mit Profilwert f; Skalierung hängt zusätzlich von einer
+Profilbewertung des normalisierten Rangs ab. Keine automatische Flächenerhaltung belegt.
+Die Float-Signatur von `expf` im Ghidra-Projekt korrigiert; sie legt die vorher verborgene
+Sigmoid-Eingabe frei. ELF-Konstanten und importiertes Symbol korroborieren diese Interpretation.
+`GenerateOctahedralImpostor` (`0x1f5fc80`) erzeugt 12×12 Richtungs-/Atlasdatensätze;
+das dekompilierte Gitter liegt auf einer Hemisphäre. Orthographische Matrizen/LookAt und
+Material-Layer steuern getrennte Draws. Das ist keine vollständige Rundum-Runtime-Implementierung.
+`GenerateBillboardLOD` (`0x1f68360`) nutzt `ExportBillboardData` und packt Kartenkoordinaten;
+`CStartNode::MakeBillboards` (`0x1aa7e90`) liest Basis-/knotenspezifische Exportparameter.
+Diese Referenz begründet kamerafreie unbeleuchtete Ansichten-Atlanten als nächste eigene Alternative.
 
 ## Abnahme und nächster offener Vertrag
-19 gezielte Funktionen dekompiliert; alle drei Läufe terminal erfolgreich, zuletzt zwölf neue Funktionen.
+29 gezielte Funktionen dekompiliert; alle sechs Läufe terminal erfolgreich, zuletzt drei neue Funktionen.
 Adressen/Symbolgrößen, ELF-Vtable und Konstanten korroborieren die beschriebenen Operationen.
-Sichtbarkeitsbewertung, LOD-Sortierung und Skalierungsparameter vor einer eigenen Reduktion klären.
+Sichtbarkeitsfeld, LOD-Sortierung und Zielanzahl belegt; vollständige Property-/Windbindung bleibt offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.
 Einzelne dekompilierte Funktionen belegen keinen vollständig rekonstruierten Wachstums-/LOD-Solver.
 Windbindungen, natürliche Gabeln, vollständige Gruppen-/Waldaggregation und native Budgets bleiben offen.

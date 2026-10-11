@@ -31,6 +31,21 @@ allen Dreiecksecken prüfen. Diese Schranke belegt weder Deckung noch Licht-/Sch
 Kamerafreier Plan/IDs und Gruppenanker bleiben erhalten. Karten sind Darstellung, keine neuen Blattpläne.
 Gegen dieselben räumlichen Gruppen: feste orthographische Richtungen, Deckung und
 qualitative zweiseitige Lichtantwort; danach tatsächlich betrachtete 3D-Baum-/Bestandsbilder.
+2348s Sichtbarkeits-/Größenrang und Blattvergrößerung begründen einen eigenen Vergleich:
+stabile Organ-IDs, gleiches Blattbudget; Zufall, sichtbare Fläche und räumlich verteilte Auswahl.
+Eigene Sichtflächen direkt aus begrenzten Tiefenrastern bestimmen; kein Modeler-Feld kopiert.
+Vergrößerung um Organanker mit Quadratwurzel des Flächenverhältnisses nur als Hypothese;
+Blattdeckung, Normalen-/Schattenantwort und Silhouette unabhängig messen. Keine automatische LOD-Freigabe.
+Gegen gröbere fehlerbegrenzte Kartengruppen auf identischen Ausschnitten vergleichen.
+2348s Ansichten-Atlas begründet eine weitere Alternative: unbeleuchtete Rundum-Ansichten
+je stabiler Gruppe vorhalten, nur die nächstgelegene Karte beim Draw wählen. Kamera erzeugt
+keinen neuen Plan; Licht-/Schattenansichten brauchen dieselbe getrennte Auswahl.
+Eigene gleichmäßig verteilte Kugelrichtungen statt eines übernommenen Modeler-Gitters;
+Deckung auf unabhängigen Richtungen prüfen. Tiefenparallaxe und Übergänge bleiben offen.
+`cloud_product.py` hält vollständige Atlas-/Meshprodukte; Kamera-Snapshots sind abgeleitet.
+`view_snapshot` wählt getrennt nach Perspektivauge oder orthographischer Richtung, auch für
+Schattenbedarf. Die Blender-Präsentation nutzt noch Kamerageometrie zum Schattenwurf;
+ein integrierter Schattenpass mit eigener LOD-Auswahl bleibt ausdrücklich offen.
 
 ## Datenfluss und Kosten
 Teilgruppe aus stabilen Astpfaden anfordern; vollständiges angefordertes Produkt erzeugen.
@@ -64,3 +79,15 @@ mit `--study-only` erhält dessen unveränderte Produkte und die geprüften Rend
 Keine allgemeine LOD-Qualität aus kleinen Positionsfehlern oder wenigen Bildern ableiten.
 Vollständige Fernwaldaggregation, natürliche Arten-/Bestandsvielfalt, Wind, native GPU-Kosten
 und A18-Pro-Budgets bleiben offen. CPU-/Blender-Proben schließen kein Runtime-Gate.
+`selection_experiment.py`: 13 Verfahren × vier Gruppen × 24 Richtungen, gemeinsamer Ausschnitt.
+Halbe Blattzahl mit Flächenausgleich: 31–38 % mittlere Deckungsabweichung; keine allgemeine LOD-Lösung.
+64 Ansichten bei 16×16: rund 15 % mittlere/26 % maximale Deckungsabweichung, eine Karte je Draw.
+Mittlere Normalen verlieren Lichtantwort: Proxyabweichung bis 52 %; vollständige BRDF bleibt offen.
+Normalsignale in eine gemeinsame Hemisphäre falten hilft der Einzelprobe nicht zuverlässig;
+Normalenverteilung vor einer Material-/LOD-Freigabe erhalten statt nur eine gemittelte Richtung.
+Vollständige Baumprobe: 630 Gruppen × 64 Ansichten, 37.800 Organe; 1.260 Laubdreiecke je Kamera-Snapshot.
+4824×4824-Atlas, RGBA8-Paar 177,5 MiB vor Mips. Aufbau etwa 263 s, Prozesspeak 469 MiB im Arbeitsstand.
+`view_cache_experiment.py`: frischer Prozess, kompletter Cachedecode rund eine Sekunde; keine Generierung.
+30 Auswahlen einer Rundumdrehung erhalten Gruppen/IDs und stimmen mit umgeordneten Anfragen überein.
+Gemessene Einzelgruppen-Schleife durch NumPy-Batches ersetzt; identische Indizes, getrennte Kosten.
+Atlas-/Mip-/GPU-Kosten, bewegte Übergänge und eigenes Schatten-LOD verhindern noch eine Qualitätsfreigabe.

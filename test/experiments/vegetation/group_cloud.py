@@ -56,6 +56,7 @@ def group_geometry(plant, path, max_leaves=128):
         "variants": np.asarray(variants),
         "organ_faces": np.asarray(organ_faces),
         "ids": placement["ids"],
+        "organ_anchors": (placement["nodes"] - anchor.origin) @ anchor.frame,
         "anchor_origin": anchor.origin,
         "anchor_frame": anchor.frame,
         "plan_identity": plant.identity,
