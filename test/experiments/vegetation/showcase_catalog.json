@@ -1,5 +1,5 @@
 {
-  "current_work": "Blatt- und Grasflächen mit echten Blattknoten und Blattstielen. Danach belaubte Triebe und räumliche Blattgruppen; dafür liegt noch kein geprüftes Rendering vor.",
+  "current_work": "SpeedTree-Referenz: acht Pflanzenmodelle, Blattgruppen, Anker, LOD und Wind untersucht. Eigene Blatt-/Grasflächen und fünf Blattstellungen bestehen die Geometrie- und Anschlussprüfung. Belaubte Triebe und Gras liegen als Render-Eingaben vor; die Bildabnahme steht noch aus.",
   "quality_gap": "Glaubwürdiges Nahlaub, vollständige Waldprodukte und gemessene native Bild-, Schatten- und Laufzeitqualität stehen noch aus.",
   "renders": [
     {

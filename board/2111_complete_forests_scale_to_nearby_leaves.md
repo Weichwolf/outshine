@@ -34,6 +34,7 @@ Dichte folgt plausibler Belegung; freies Budget verbessert Form, Nahdetail und S
 
 ## Python-Verfahrensauftrag
 Besitzer: `test/experiments/vegetation`; Quellen und Architekturentscheidungen stehen hier.
+Eigenständiger Python-Vegetationsgenerator nach analysierter SpeedTree-Referenz als Basis für Outshine.
 Weltweite Wuchsformen: Gräser/Kräuter, Farne/Sträucher/Kletterer, Laub-/Nadelbäume,
 Palmen/Bambus, Sukkulenten/Kakteen, Feuchtgebiets-/Wasserpflanzen und bodennahe Deckung.
 Broccoli/Romanesco: Organ, Pflanze, Gruppe, Bestand und Fernwald sind eine stabile Hierarchie.
@@ -59,11 +60,8 @@ Geöffnete EEVEE-Nahbilder: geschlossene Hülle ungeeignet als Laubersatz; nur P
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
 und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)
 sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswahl.
-Nächster Bildschritt: parametrisierte Blatt-/Grasflächen an echten Blattknoten und Blattstielen.
-Eine begrenzte Triebgrammatik liefert Teilpläne, Blattfläche/Anzahl und Bounds vor Organ-Meshing.
-Architekturbaustein, noch keine Ressourcen-/Lichtkonkurrenz.
-[Flora of China: Q. robur](https://efloras.org/florataxon.aspx?flora_id=2&taxon_id=210001863)
-liefert Maßplausibilität; 12 × 6 cm sind eine Verfahrensprobe, kein weltweiter Blattstandard.
+2346 besitzt Blatt-/Grasflächen, Triebgruppen, deren Anschlüsse und die Analyse des Nutzer-SpeedTree-Pakets.
+Generatorgraphen/Blattgruppen/Profile/LOD/Wind daraus werden an eigenen Python-Verfahren geprüft.
 `showcase.py --start` veröffentlicht geprüfte Bilder/Plots samt Quellcommit in `/tmp` auf Port 8765.
 `showcase_catalog.json` besitzt Bildauswahl/Einordnung; Stand laden bleibt manuell, keine Neuberechnung.
 `landscapes.json`: Laubwald, borealer Nadelwald und Savanne als feste Bildszenarien mit geteilten Meshes.
