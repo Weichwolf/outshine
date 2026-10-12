@@ -14,6 +14,11 @@ class CutSetbackRejected(ValueError):
 
 
 def setback_shared_section(core,road,section,point,tangent):
+    return setback_shared_sections(core,road,[section],point,tangent)
+
+
+def setback_shared_sections(core,road,sections,point,tangent):
+    section=shapely.union_all(sections)
     area = shapely.union_all([core,road])
     tangent = np.array(tangent,dtype=float,copy=True)
     length = np.linalg.norm(tangent)

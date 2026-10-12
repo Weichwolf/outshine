@@ -44,6 +44,7 @@ def main():
     parser.add_argument('--inset',type=float,nargs='+',default=[0.,4.,8.,12.])
     parser.add_argument('--outset',type=float,nargs='+')
     parser.add_argument('--pedestrian-crossings',action='store_true')
+    parser.add_argument('--recipe',choices=('lane-flare','loop-court'),default='lane-flare')
     args=parser.parse_args()
     if not all(np.isfinite(s) and s>=0 for s in [*args.inset,*(args.outset or [])]):parser.error('approach lengths must be finite and nonnegative')
     data=json.loads(args.input.read_text());args.output.mkdir(parents=True,exist_ok=True)
@@ -65,7 +66,7 @@ def main():
         calls+=note['residual_calls'];row.update(reason=note['reason'],residual_calls=note['residual_calls'])
         if controls is None:continue
         controls=attach_approaches(controls,entry,exit,begin,end,inset,outset)
-        note['curve_controls']=controls.tolist()
+        note.update(curve_controls=controls.tolist(),road_space_recipe=args.recipe)
         try:road,_=candidate(data,note)
         except AssertionError as error:row['reason']=str(error);continue
         row.update(accepted=True,reason='proved',length_m=road['path'].length,added_area_m2=road['addition'].area)

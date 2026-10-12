@@ -84,7 +84,9 @@ Zürich 2260 mit Gesamtfenster 16/16: gemeinsame Schnitte 4 m nach außen, +0,21
 physisch +2,88 m² Fläche. Alle 14 früheren Produkte und 24 Zusatzfahrten erhalten. Fußweggeometrie erhalten.
 1433 im Gesamtfenster 12/12: direkter Einzelbogen, rund 19,6 m statt 656,2 m Umweg, vorhandene Fläche genügt.
 Alle 15 bisherigen Produkte frisch geprüft und 24 Zusatzfahrten erhalten.
-1758: erster Schnitttransfer entfernt den zweiten 3,50-m-Rand desselben Korridors; beide Endports gemeinsam lösen.
+1758 lokal 36/37: [gemeinsamer Schnitt](../test/experiments/transport/transport_joined_cut_setbacks.py)
+mit getrennten Quellports und Wendeplatz, physisch +26,1 m²; Gesamtfenster und 2→1 noch offen.
+Vollständigen Inselkontext behalten; Kurve direkt an neuen Quellposen bauen statt kurze Anschlüsse überzubiegen.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.

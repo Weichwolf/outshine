@@ -21,6 +21,7 @@ from transport_spline_routes import checked_spline_path
 from transport_surface_regions import polygonal_region
 from transport_court_partition import partition_court
 from transport_shared_frames import frame_key
+from transport_joined_cut_setbacks import setback_joined_network
 from steering_roadbed_candidate_probe import source_buildings,building_cuts
 from steering_roadbed_product_probe import seeded_cache
 
@@ -34,9 +35,16 @@ def approach_segment(begin,end):
 
 def approach_controls(note,old,new,pair):
     controls=np.array(note['curve_controls'])
+    endpoints=controls[[0,-1],[0,-1]]
+    current=np.array([new[i]['position'] for i in pair])
+    direct=np.allclose(endpoints,current,rtol=0,atol=1e-7)
     for index,i in enumerate(pair):
         end=controls[0,0] if index==0 else controls[-1,-1]
-        assert np.allclose(old[i]['position'],end,rtol=0,atol=1e-7)
+        pose=new[i] if direct else old[i]
+        assert np.allclose(pose['position'],end,rtol=0,atol=1e-7),'court curve endpoint differs from source frame'
+        tangent=controls[0,1]-controls[0,0] if index==0 else controls[-1,-1]-controls[-1,-2]
+        assert np.linalg.norm(tangent)>0 and np.allclose(tangent/np.linalg.norm(tangent),pose['heading'],rtol=0,atol=1e-8), 'court curve tangent differs from source frame'
+    if direct:return controls
     segments=[controls]
     if np.linalg.norm(new[pair[0]]['position']-controls[0,0])>1e-7:
         segments.insert(0,approach_segment(new[pair[0]],old[pair[0]])[None])
@@ -69,7 +77,7 @@ def seeds_for(cases,old,poses,routes,floor,reserved,vehicle,error):
         support,audit=spline_roadbed(controls,vehicle,error);assert support is not None,audit
         support=support.union(court).difference(reserved)
         support=polygonal_region(support)
-        planned=floor.union(support)
+        planned=polygonal_region(floor.union(support))
         path,proof=checked_spline_path(controls,planned,vehicle,error);assert path is not None,proof
         assert same_island_winding(path,routes[pair],floor)
         piece=dict(profile='G2-quintic-spline',fit=dict(controls=controls,
@@ -139,6 +147,7 @@ def main():
     parser.add_argument('--case',type=Path,action='append',required=True)
     parser.add_argument('--setback',type=float,default=None)
     parser.add_argument('--grow-ports',action='store_true')
+    parser.add_argument('--joined-cuts',action='store_true')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();begin=time.perf_counter()
     if len(args.pair)!=len(args.case) or len({tuple(p) for p in args.pair})!=len(args.pair):parser.error('one case per distinct pair required')
@@ -154,7 +163,9 @@ def main():
         scope=local_court_sections(network,module,old,dict(zip(map(tuple,args.pair),args.case)))
         affected={module}|{p['corridor'] for p in network.junctions[module] if p['section'] in scope}
         trial=fork_cut_plan(network,module,set());changes=[];sections=set()
-    else:trial,changes,affected=setback_network(network,module,sections,distance)
+    else:
+        make_cuts=setback_joined_network if args.joined_cuts else setback_network
+        trial,changes,affected=make_cuts(network,module,sections,distance)
     if args.grow_ports and distance!=0:parser.error('port growth requires fixed source stations')
     poses,_=trial.poses(module,{})
     routes,_=directed_module_routes(trial.graph,poses,trial.shape(module),trial.tree)

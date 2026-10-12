@@ -311,9 +311,15 @@ def main():
     parser.add_argument('--pair',type=int,nargs=2,default=[2,4])
     parser.add_argument('--setback',type=float)
     parser.add_argument('--sections',type=int,nargs='+')
+    parser.add_argument('--joined-cuts',action='store_true')
     parser.add_argument('--output',type=Path,default=Path('build/experiments/transport/roadbeds/coupled-zuerich-102'))
     args=parser.parse_args();began=time.perf_counter()
-    report=real_case(args.root,args.place,args.module,args.pair,args.setback,args.output,args.sections)
+    make_cuts=None
+    if args.joined_cuts:
+        from transport_joined_cut_setbacks import setback_joined_network
+        make_cuts=setback_joined_network
+    report=real_case(args.root,args.place,args.module,args.pair,args.setback,args.output,args.sections,make_cuts=make_cuts)
+    if args.joined_cuts:report['construction_recipe']='joined-cut-layout'
     sources=implementation_files(Path(__file__))+[Path(__file__).with_name('geos_triangulation.py').resolve(),
               Path(__file__).with_name('transport_network_recipes.json').resolve()]
     report.update(elapsed_ms=(time.perf_counter()-began)*1000,
