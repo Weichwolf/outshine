@@ -104,7 +104,7 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 72 Fälle/Normen/Attribute/Eigentum geprüft; 1.000 Platzierungen p50 53 statt 269–340 ms; Arrays 5,2–5,4 kB statt 5,2–5,4 MB; Vorbereitung/GPU/Frames ausgeschlossen.
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
-24 Platzierungen/11 Messpaare: einmal laden p50 1,9/10,6/11,2 statt 37,7/244,8/258,6 ms (OBJ/GLB/glTF), Vorbereitung enthalten; kein Frame-/GPUbeleg. Aktiv: Material/UV mit Bildwirkung; Formate/Fans, Animation/Skin/Morph/Tangenten, Shader, Cleanup/Trim offen.
+24 Platzierungen/11 Messpaare: einmal laden p50 1,9/10,6/11,2 statt 37,7/244,8/258,6 ms (OBJ/GLB/glTF), Vorbereitung enthalten; kein Frame-/GPUbeleg. Aktiv: UV-Skalierung/Rotation/Translation/Kopie/Löschen und Normalisierung mit Texturbildbeleg; Materialshader/Projektion, Formate/Fans, Animation/Skin/Morph/Tangenten, Cleanup/Trim offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.

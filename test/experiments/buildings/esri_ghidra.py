@@ -17,6 +17,13 @@ from evidence import revision
 CORE = Path('/home/cosmo/Downloads/esri_ce_sdk-3.4.12206/bin/libcom.esri.prt.core.so')
 HEADLESS = Path('/snap/bin/ghidra.analyzeHeadless')
 TARGETS = {
+    '_ZN9Processor7scaleUVEddd': 'UV channel scaling dispatch',
+    '_ZN9Processor8rotateUVEdd': 'UV channel origin rotation dispatch',
+    '_ZN9Processor11translateUVEddd': 'UV channel translation dispatch',
+    '_ZN9Processor6copyUVEdd': 'UV channel copy and ownership',
+    '_ZN9Processor8deleteUVEd': 'UV channel deletion',
+    '_ZN9Processor11normalizeUVEdN2GC15UvNormalizeMode4EnumENS0_15UvNormalizeType4EnumE': 'UV normalization modes and face ownership dispatch',
+    '_ZN4util4Mesh11normalizeUVEmNS0_15NORMALIZEUVMODEENS0_15NORMALIZEUVTYPEEPNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEE': 'actual per-face and collective UV normalization',
     '_ZN11AssetLookup16getGeometryAssetER9ProcessorRKNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEPN4util7Vector3IdEEb': 'Asset lookup, decoder acquisition and geometry preparation for insertion',
     '_ZNK4util13GeometryAsset20getTrafoToSizeMatrixERKNS_7Vector3IdEE': 'Asset bounding box normalization and degenerate dimension scaling',
     '_ZN5Shape30adjustScopeSizeZerosToGeometryERKN4util7Vector3IdEEPS3_': 'Insertion dimensions and origins for point, line and plane scopes',
