@@ -20,6 +20,7 @@ import numpy as np
 from cloud_plots import group_figure, raster_figure, render_figure
 from curved_plots import curved_figure
 from fork_plots import fork_figure
+from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 from showcase_plot_sources import PLOT_SOURCES
@@ -353,6 +354,10 @@ def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
 
+def plant_surface_plot(report):
+    return save_plot(plant_surface_figure(report), "plant-surfaces")
+
+
 def curved_plot(report):
     return save_plot(curved_figure(report), "curved-forks")
 
@@ -369,6 +374,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            plant_surface_plot,
             curved_plot,
             tapered_plot,
             fork_plot,

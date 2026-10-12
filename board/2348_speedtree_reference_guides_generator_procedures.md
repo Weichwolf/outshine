@@ -103,7 +103,7 @@ Nächste Analyse: weitere Knotentypen/Aufrufer und Profile; Zustände, Parameter
 | Bereich | Eigener Stand / fehlende Funktionen |
 |---|---|
 | Graph/Profile/Platzierung | Achsgrammatik/Radiusprofile/räumliche Spines; vollständige Graph-/Property-/Platzierungsarten offen |
-| Stämme/Anschlüsse | Rohre/Gabelproben; volle Elternflächenbindung, Wurzelanläufe, Caps/Knots/Fins und Rinde offen |
+| Stämme/Anschlüsse | Gabelproben (2352), komplette Rohrvereinigung (2353); volle Elternbindung, Ausrundung, Caps/Knots/Fins/Rinde offen |
 | Organe/Cluster | Blatt-/Grasflächen und Gruppenproben; Fronds, Nadeln und weitere Organe offen |
 | Kräfte/Wachstum/Zustände | Kräfte, Kollisionen, Wachstum/Jahreszustände und funktionale Windbindung offen |
 | Material/LOD/Export | Unbeleuchtete Ansichtenproben; Normalenverteilung, Übergänge und vollständige Produkte offen |

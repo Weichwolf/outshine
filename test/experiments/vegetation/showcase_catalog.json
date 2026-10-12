@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: 60 Funktionen mit Ghidra untersucht, einschließlich ComputeShaping und FreeHandBendSpine. Räumliche Astkurven und Radiusprofile erzeugen jetzt gemeinsame Hüllen mit seitlichen Elternanschlüssen. Unabhängige Polynomreferenzen prüfen die Form; weltweite Pflanzenrezepte folgen nach vollständigem Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: vollständige Testpflanze mit 64 vereinigten Holzachsen und 571 unveränderten Blättern. Drei Seeds, unabhängige Innen-/Außenproben und gemeinsame/sequentielle Vereinigung verglichen. Organische Ausrundung und vollständiger Funktionsnachbau bleiben offen; danach folgen weltweite Pflanzenrezepte.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -128,6 +128,24 @@
       "lod": "lod-0",
       "description": "Links die gerade verjüngte Gabel, daneben unabhängige gebogene Äste. Die dritte Probe besitzt eine durchgehende Elternkurve mit Seitenästen bei 40 und 70 Prozent ihres Verlaufs. Rechts eine räumliche Verzweigung. Jede Kurve behält ihren eigenen Radiusverlauf; eine gemeinsame Hülle verbindet die Anschlüsse.",
       "quality": "Funktionsprobe · vollständige SpeedTree-Propertybindung, natürliche Rinde, Wind und Pflanzenrezepte offen"
+    },
+    {
+      "image": "render/united-sapling.png",
+      "title": "Vollständige Testpflanze · zusammenhängendes Holz",
+      "label": "Pflanzen-Funktionstest",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Alle 64 Achsen und 571 Blätter des kanonischen Jungbaumplans. Eine gemeinsame Holzoberfläche ersetzt überlappende Einzelrohre; Standorte, Ast-IDs und Blattanker bleiben erhalten. Die Vereinigung arbeitet direkt auf Oberflächen und benötigt kein globales Feingitter.",
+      "quality": "Funktionsprobe · organische Ausrundung, natürliche Kronenform, Rinde, Wind und Artenvalidierung offen"
+    },
+    {
+      "image": "render/united-attachment.png",
+      "title": "Astanschluss derselben Testpflanze",
+      "label": "Anschluss-Nahbild",
+      "category": "wood",
+      "lod": "lod-0",
+      "description": "Nahansicht am durchgehenden Stamm. Die vereinigte Oberfläche besitzt gemeinsame Schnittkanten und entfernt innere Rohrflächen. Übertragene Rohrnormalen erhalten die Schattierung; die geometrische Ausrundung ist noch nicht gelöst.",
+      "quality": "Geschlossene Oberfläche · kein vollständiger organischer SpeedTree-Anschluss"
     }
   ],
   "lods": [
@@ -171,7 +189,8 @@
     "spine_plot": "lod-0",
     "fork_plot": "lod-0",
     "tapered_plot": "lod-0",
-    "curved_plot": "lod-0"
+    "curved_plot": "lod-0",
+    "plant_surface_plot": "lod-1"
   },
   "genera": [
     {

@@ -84,7 +84,7 @@ Teilgruppen entstehen erst bei ausreichendem Detailbudget; Kameras sind kein Bes
 `plant_experiment.py`: Jungbaum mit 64 Achsen/571 Blättern, Gesamt-/Nahansicht desselben Plans.
 Blattneigung gegen steile Flächen zum Himmel hin abflachen; das ist ein Formrezept, keine Lichtsimulation.
 Rahmen über Kreuzprodukte bilden: direkte Projektion verliert bei fast parallelem Hint Orthogonalität.
-Gabeln bestehen aus überlappenden geschlossenen Rohren; organische Verschweißung bleibt offen.
+2353 vereinigt alle Rohre der Testpflanze; organische Ausrundung am ganzen Baum bleibt offen.
 Gerundete Längenprofile (Weber/Penn), geordneter Ansatz-Jitter und Aufwärtsneigung ergänzen Kronenrezepte.
 Jitter < 1/2 hält Ansatzreihenfolge; Bias < 1/2 verhindert ausgelöschte Richtungen. Kein Lichtsolver.
 Geteilte/expandierte Ablage: gleiche Geometrie/UVs/Normalen; drei Zusammenstellungen, Meshing ausgeklammert.

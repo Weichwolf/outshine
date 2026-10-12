@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "plant-surfaces/plant-surfaces.json",
+        "plant_surface_plot",
+        "Vollständige Holzoberfläche · 64 Achsen",
+        "Gemeinsame und sequentielle Vereinigung derselben 64 Rohrmeshes, drei Seeds und drei lokale Zeitmessungen. Python mit nativem Manifold-Kern; Achsaufbau separat erfasst. Unabhängige Raumwinkelproben prüfen Innen/Außen und dünne Zweigenden. Keine organische Ausrundung, Wind- oder native Outshine-Freigabe.",
+    ),
+    (
         "curved/curved.json",
         "curved_plot",
         "Gekrümmte Astanschlüsse · Kurvenreferenz und Erzeugungskosten",

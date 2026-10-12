@@ -210,6 +210,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [PDF](vegetation/math/2013-probability-simplex-projection.pdf).
   Endliche Sortierprojektion als mathematischer Baustein der eigenen symmetrischen Feldmischung;
   unabhängige QP-/Gradientenprüfung. Kein Vegetations- oder SpeedTree-Verfahren daraus behaupten.
+- **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
+  SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
+  [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.
+  Seite 1 optisch geprüft; Oberflächenzerlegung und Innen-/Außenklassifikation begründen
+  den Vergleich vollständiger Pflanzenoberflächen (2353). Manifold nutzt einen eigenen
+  Algorithmus; dessen Bibliotheksgarantien ersetzen weder lokale Prüfungen noch organische Ausrundung.
 - **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
   [Publikation](https://doi.org/10.1145/218380.218427) ·
   [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·
