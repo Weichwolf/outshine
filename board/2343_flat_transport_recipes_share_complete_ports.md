@@ -14,7 +14,7 @@ Aus Quellgraph/Nutzungsbilanz (2342) entstehen zusammenhängende Straßen-, Wege
 mit funktionalen Verbindungen. Besitzer: Transport/generators/road; Bereichsgrenzen: 2342, nativer Plan: 2281.
 [Flächenplan](../test/experiments/transport/transport_flat_surface_network.py) und
 [Ports](../test/experiments/transport/transport_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
-Alle verwendeten Bauteile der eingefrorenen Ebenen-0-Fenster mit 1 km Radius sind geprüft:
+Letzter vollständiger Prüflauf (`03af0cec8`) der Ebenen-0-Fenster mit 1 km Radius:
 8630/8679 direkte öffentliche Auto-Verbindungen; alle übrigen 49 sind gerichtet über Umfahrungen erreichbar.
 Keine zusätzlichen schwachen oder starken Netztrennungen. Das belegt nur diese
 Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
@@ -89,9 +89,9 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
    Basel 1155: 15→1341 m, Zürich 2134: 60→1369 m, Wien 684: 30→703 m im begrenzten Fenster.
-   [Wendeplatz](../test/experiments/transport/probes/roadbeds/turning_space_probe.py): Basel 1155 beide Richtungen je 28,3 m auf 248 Dreiecken; volle Hüllen geprüft.
+   [Gekoppelter Wendeplatz](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): Basel 1155 6/6, insgesamt 8/8 auf drei Bauteilen; Bestand erhalten.
    Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
-   Gemeinsam 75,3 m² neue Fahrfläche; 24,6 m² Gebäude-Freiraumanfrage. Buildings-Auflösung/alle drei Schnitte und Nachbarn bleiben offen.
+   Zwei Schnitte 4 m nach außen; gerade Zu-/Abfahrten, Wendefahrten je 36,3 m, +75,3 m² Fahrfläche, 24,6 m² Gebäude-Freiraumanfrage. Buildings-Runtime/volles Fenster offen.
    [Portgraph](../test/experiments/transport/transport_route_connectivity.py): schwache/starke Komponenten, gerichtete Alternativen, 64er-DAG-Batches.
    [Quellführung](../test/experiments/transport/probes/roadbeds/steering_source_hint_probe.py): Sichtbarkeit/Restlänge, Inselkerne, keine Zusatzdrehung; C2-Passung danach.
    [Gemeinsames Kurvenende](../test/experiments/transport/probes/roadbeds/shared_route_guide_probe.py): Basel 101 Fahrten auf vier Bauteilen, Bestand erhalten.
