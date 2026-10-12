@@ -44,6 +44,9 @@ TARGETS = {
     '_ZN14ComponentUtils21extractCompComponentsEN2GC12CompSelector4EnumERKSt6vectorISt10unique_ptrI13CompMeshCacheSt14default_deleteIS5_EESaIS8_EERS3_IS4_I9ComponentS6_ISD_EESaISF_EEbb': 'component selector geometry extraction',
     '_ZN12_GLOBAL__N_121extractFaceComponentsERK13CompMeshCacheRSt6vectorISt10unique_ptrI9ComponentSt14default_deleteIS5_EESaIS8_EEbb.lto_priv.0': 'face component construction',
     '_ZN12_GLOBAL__N_16insertER9ProcessorRKNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEERKN4util18GeometryAssetProxyEPKNSA_7Vector3IdEEbNSA_8MeshBase4AXISESH_.lto_priv.0': 'asset insertion scope fitting',
+    '_ZN12MaterialImpl7opacityEd': 'material opacity storage',
+    '_ZN12MaterialImpl15opacitymap_modeERKNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEE': 'material opacity-map mode storage',
+    '_ZN4util8Material7combineERKS0_S2_': 'component material combination',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;
@@ -75,7 +78,7 @@ public class InspectBuildingCore extends GhidraScript {
         report.put("program", currentProgram.getName());
         report.put("language", currentProgram.getLanguageID().toString());
         report.put("image_base", currentProgram.getImageBase().toString());
-        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul|rectangle|trapezoid|insert|instance|transformInPlace|Processor4comp)");
+        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul|rectangle|trapezoid|insert|instance|transformInPlace|Processor4comp|Material.*(opacity|combine))");
         List<Map<String,Object>> names = new ArrayList<>(), selected = new ArrayList<>();
         FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
         DecompInterface decompiler = new DecompInterface();

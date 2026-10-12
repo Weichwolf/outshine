@@ -12,10 +12,13 @@ def add(configuration, material):
     if hashlib.sha256(path.read_bytes()).hexdigest()!=configuration['mesh_sha256']:
         raise ValueError('Constructive scene mesh differs from its checked payload')
     data = np.load(path)
+    selected = np.ones(len(data['faces']),dtype=bool)
+    if 'glass_part_ids' in configuration:
+        selected &= (data['materials']!=3)|np.isin(data['parts'],configuration['glass_part_ids'])
     palette = [(.56,.48,.36),configuration['wall_linear'],(.72,.73,.74),(.018,.044,.065),(.34,.38,.34),
                (.41,.30,.18),(.50,.41,.30),(.09,.12,.13),(.35,.35,.35),configuration['roof_linear'],(.16,.19,.21),(.43,.47,.49)]
     mesh = bpy.data.meshes.new('constructive-source-mesh')
-    mesh.from_pydata(data['vertices'].tolist(),[],data['faces'].tolist())
+    mesh.from_pydata(data['vertices'].tolist(),[],data['faces'][selected].tolist())
     mesh.update()
     for index,colour in enumerate(palette):
         shader = material('constructive-'+str(index),colour,.16 if index==3 else .72)
@@ -31,11 +34,13 @@ def add(configuration, material):
             shader.use_backface_culling = True
             shader.use_transparent_shadow = True
         mesh.materials.append(shader)
-    mesh.polygons.foreach_set('material_index',data['materials'])
+    mesh.polygons.foreach_set('material_index',data['materials'][selected])
     obj = bpy.data.objects.new('constructive-building',mesh)
     bpy.context.collection.objects.link(obj)
     referenced = data['vertices'][np.unique(data['faces'])]
     return dict(triangles=len(data['faces']),vertices=len(data['vertices']),
                 mesh_sha256=configuration['mesh_sha256'],bounds_m=[referenced.min(axis=0).tolist(),referenced.max(axis=0).tolist()],
                 glass_surface='thin alpha approximation' if 'glass_alpha' in configuration else 'opaque reference',
-                glass_alpha=configuration.get('glass_alpha',1.),glass_method=configuration.get('glass_method','DITHERED'))
+                glass_alpha=configuration.get('glass_alpha',1.),glass_method=configuration.get('glass_method','DITHERED'),
+                selected_triangles=int(selected.sum()),glass_parts_selected=len(np.unique(data['parts'][selected&(data['materials']==3)])),
+                glass_selection_applied='glass_part_ids' in configuration,glass_shadow_selection_admitted=False)

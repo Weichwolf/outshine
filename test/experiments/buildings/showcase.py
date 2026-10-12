@@ -57,6 +57,8 @@ def image_record(report_path, root):
                   caption=caption, status='incomplete', updated=report_path.stat().st_mtime)
     try:
         report = json.loads(report_path.read_text())
+        if report.get('invalid_reason'):
+            raise ValueError(report['invalid_reason'])
         record.update({key: report[key] for key in REPORT_FIELDS if key in report})
         if report.get('representation') == 'functional-plan':
             record.update(title='Gebäudeplan · '+report['label'], category='plan',

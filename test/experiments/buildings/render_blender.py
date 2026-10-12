@@ -8,7 +8,9 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
+
+from demand import View
 
 
 def material(name, colour, roughness, metallic=0., object_colour=False):
@@ -173,9 +175,12 @@ def render(configuration):
     fill = bpy.context.object
     fill.rotation_euler = (Vector(centre)-fill.location).to_track_quat('-Z', 'Y').to_euler()
     fill.data.energy, fill.data.shape, fill.data.size = span*span*3., 'DISK', span*.6
+    fill.data.use_shadow = configuration.get('ambient_fill_shadow',True)
     bpy.ops.object.camera_add(location=configuration['eye'])
     camera = bpy.context.object
-    camera.rotation_euler = (Vector(centre)-camera.location).to_track_quat('-Z', 'Y').to_euler()
+    view = View(camera.location, Vector(configuration['target']), width=configuration['profile'][0],
+                height=configuration['profile'][1], fov_deg=configuration['fov_deg'])
+    camera.rotation_euler = Matrix([view.basis[0],view.basis[1],-view.basis[2]]).transposed().to_euler()
     camera.data.lens_unit = 'FOV'
     camera.data.sensor_fit = 'VERTICAL'
     camera.data.lens = camera.data.sensor_height/(2*math.tan(math.radians(configuration['fov_deg'])*.5))
@@ -183,6 +188,10 @@ def render(configuration):
     scene.camera = camera
     width, height = configuration['profile']
     projection = camera.calc_matrix_camera(bpy.context.evaluated_depsgraph_get(), x=width, y=height)
+    rotation = camera.rotation_euler.to_matrix()
+    actual_basis = [list(rotation.col[0]),list(rotation.col[1]),list(-rotation.col[2])]
+    if max(abs(actual_basis[i][j]-view.basis[i][j]) for i in range(3) for j in range(3)) > 1e-5:
+        raise RuntimeError('camera demand and render orientation differ')
     focal = height/(2*math.tan(math.radians(configuration['fov_deg'])*.5))
     if max(abs(projection[0][0]*width*.5-focal), abs(projection[1][1]*height*.5-focal)) > .001:
         raise RuntimeError('camera demand and render projection differ')
@@ -190,7 +199,10 @@ def render(configuration):
     bpy.ops.render.render(write_still=True)
     print(json.dumps(dict(renderer=bpy.app.version_string, engine=scene.render.engine,
                           products=len(configuration['products'])+int(constructive is not None), profile=configuration['profile'],
-                          reference_import=reference,constructive_import=constructive)), flush=True)
+                          reference_import=reference,constructive_import=constructive,
+                          camera_eye=list(camera.location),camera_target=configuration['target'],
+                          camera_basis=actual_basis,environment_centre=centre,
+                          ambient_fill_shadow=fill.data.use_shadow)), flush=True)
 
 
 if __name__ == '__main__':

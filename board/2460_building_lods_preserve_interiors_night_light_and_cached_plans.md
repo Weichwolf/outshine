@@ -1,6 +1,6 @@
 Type: feature
-State: open
-Architecture: planned
+State: active
+Architecture: ready
 Priority: P0
 Parent: 2169
 Depends: 2420
@@ -15,6 +15,12 @@ Besitzer: Gebäudeagent/Python; 2420 liefert stabile Räume/Portale/Geschosse sa
 Kameraunabhängiger Rohling enthält Körper-/Raum-/Öffnungsplan und benötigte vorbereitete Produkte.
 Treffer ohne Quellenaufbereitung/Join/Rohling-Aufbau; Nahdetails daraus nach Bedarf.
 Hüllen/Repeats sind quellenfrei ladbar; funktionale Innenraum-/Lichtprodukte und deren Kosten fehlen.
+Aktiver Python-Vergleich: gespeicherte Raum-/Öffnungs-IDs vor teurer Detail-/Schattenarbeit räumlich auswählen.
+Wiener Alpha- und Frustum-Nahkontrollen überschritten 600 s; Kamerafehler auf Beleuchtungszentrum statt Öffnungsziel entdeckt.
+Diese Nahbilder/Kosten belegen keine korrekte Sichtauswahl; Showcase kennzeichnet betroffene Fenster-/Eingangs-/Kompositbilder ungültig.
+Korrigierter Renderer übernimmt dieselbe Basis wie Bedarf, prüft tatsächliche Rotation/Projektion und protokolliert beide Zentren getrennt.
+Opake Hülle/Raumwelt erhalten; Kontrollläufe ohne Glas sowie mit getrenntem Fill-Schatten prüfen den eigentlichen Engpass.
+Auswahl/Schattendarstellung bleiben ohne passenden Bild- und Kostenbeleg unfreigegeben; keine höhere Laufgrenze.
 
 ## Detail, Funktion und Nacht
 - Nah durch Fenster: echte Wandtiefe/Böden/Decken/Trennwände und räumlicher Hintergrund passender Räume.
@@ -41,3 +47,5 @@ Gate nach AGENTS/2169/2280/2336; native Kollisions-/Lichtintegration und Geräte
 ## Verfahren
 [F-shade, EGSR 2010](../doc/references/buildings/egsr/2010-grammar-based-encoding-of-facades.pdf): kompakte Fassaden/wahlfreier Zugriff.
 Innenraum-/Parallaxverfahren gegen echte Nahgeometrie vergleichen; 2400 liefert Esri-Komponenten-/Referenzbelege.
+[Stochastic Transparency, TVCG 2011](../doc/references/vegetation/tvcg/2011-stochastic-transparency.pdf): Alpha-/Schatten-Sampling erzeugt Varianz; Seiten 1/3 optisch geprüft.
+Kein Beleg für die konkrete Blender-Körnung; kontrollierte Geometrie-/Schattenläufe müssen die Ursache unterscheiden.

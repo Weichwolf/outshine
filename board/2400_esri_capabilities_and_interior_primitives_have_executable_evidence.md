@@ -36,6 +36,8 @@ Scope-Ausrichtung und Einfügungshelper haben außerhalb der ELF-Grenzen wiederg
 ## Umsetzung
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
+- Aktiver Materialvergleich: `MaterialImpl::opacity`, `opacitymap_mode` und `util::Material::combine` gezielt analysieren.
+  Lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque; Speicherpfade belegen keinen Renderer.
 - Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.
   Offset/Skelett/Unterteilung/Booleans/Komponenten/Instanzen und innenraumrelevante Bausteine prüfen.
   Symbolname, Dokumentation, analysierte Funktion und ausführbares Ergebnis als Evidenz unterscheiden.
