@@ -61,11 +61,27 @@ def source_hint(source,markers,domain,target,radius,bias):
     return score
 
 
-def variant(bias,core_markers,triangle_markers=False):
+def final_source_heading(entry,exit,source):
+    vectors=np.diff(shapely.get_coordinates(source),axis=0)
+    vectors=vectors[np.linalg.norm(vectors,axis=1)>1e-10]
+    angles=np.r_[np.arctan2(*entry['heading'][::-1]),np.arctan2(vectors[:,1],vectors[:,0]),
+                 np.arctan2(*exit['heading'][::-1])]
+    return float(np.unwrap(angles)[-1])
+
+
+def variant(bias,core_markers,triangle_markers=False,heading_rotation=False):
     code=inspect.getsource(steering.steering_guide)
     statement='wanted=crossing_signature(shapely.get_coordinates(source),markers)'
     assert code.count(statement)==1
     code=code.replace(statement,statement+'\n    hint=source_hint(source,markers,domain,exit["position"],radius,bias)')
+    if heading_rotation:
+        code=code.replace(statement,statement+'\n    final_heading=final_source_heading(entry,exit,source)')
+        assert code.count('%heading_bins')==1
+        code=code.replace('%heading_bins','')
+        connector='angles[0],angles[-1]=pose[2],np.arctan2(*exit["heading"][::-1])'
+        connector=connector.replace('"',"'")
+        assert code.count(connector)==1
+        code=code.replace(connector,connector+'\n                angles=np.unwrap(angles)\n                if abs(angles[-1]-final_heading)>np.pi:continue')
     if core_markers:
         marker_filter='markers=markers[shapely.covers(region,shapely.points(markers))]'
         assert code.count(marker_filter)==1
@@ -74,7 +90,7 @@ def variant(bias,core_markers,triangle_markers=False):
                     ("np.linalg.norm(successor[:2]-exit['position'])",'hint(successor,signature)')):
         assert code.count(old)==1;code=code.replace(old,new)
     namespace=dict(steering.__dict__,source_hint=source_hint,island_markers=island_markers,bias=bias,
-                   triangle_markers=triangle_markers)
+                   triangle_markers=triangle_markers,final_source_heading=final_source_heading)
     exec(compile(code,str(Path(__file__)),'exec'),namespace)
     return namespace['steering_guide']
 
@@ -88,7 +104,14 @@ def verify():
     points=np.array([[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]])
     markers=np.array([[0.,0.],[2.,0.]])
     assert np.array_equal(ray_steps(points[:-1],points[1:],markers).sum(axis=0),steering.crossing_signature(points,markers))
-    return dict(source_distance_and_target=True,ray_prefixes_match=True,optimality_claim=False)
+    entry=dict(heading=np.array([1.,0.]));exit=dict(heading=np.array([0.,1.]))
+    assert abs(final_source_heading(entry,exit,source)-np.pi/2)<1e-12
+    circle=np.c_[np.cos(np.linspace(0,2*np.pi,65)),np.sin(np.linspace(0,2*np.pi,65))]
+    vertical=dict(heading=np.array([0.,1.]))
+    assert abs(final_source_heading(vertical,vertical,shapely.LineString(circle))-5*np.pi/2)<1e-12
+    downward=dict(heading=np.array([0.,-1.]))
+    assert abs(final_source_heading(downward,downward,shapely.LineString(circle[::-1]))+5*np.pi/2)<1e-12
+    return dict(source_distance_and_target=True,ray_prefixes_match=True,source_turning_class_preserved=True,optimality_claim=False)
 
 
 def main():
@@ -99,6 +122,7 @@ def main():
     parser.add_argument('--core-markers',action='store_true')
     parser.add_argument('--triangle-markers',action='store_true')
     parser.add_argument('--island-inset',type=float)
+    parser.add_argument('--heading-rotation',action='store_true')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True);checks=verify();rows=[]
     if any(not 0<=b<=1 for b in args.bias):parser.error('bias must be between zero and one')
@@ -114,10 +138,11 @@ def main():
         domain=floor.buffer(roadbed_lateral_reach(vehicle)-2*error).difference(reserved.difference(floor).buffer(2*error))
         for bias in args.bias:
             begin=time.perf_counter()
-            guide,note=variant(bias,args.core_markers or args.triangle_markers,args.triangle_markers)(*poses,source,floor,domain,vehicle,maximum_states=args.maximum_states,
+            guide,note=variant(bias,args.core_markers or args.triangle_markers,args.triangle_markers,args.heading_rotation)(*poses,source,floor,domain,vehicle,maximum_states=args.maximum_states,
                                    heading_bins=64,cell=.225,radius_scale=1.)
             row=dict(input=str(path),input_sha256=digest(path),bias=bias,core_markers=args.core_markers,
-                     triangle_markers=args.triangle_markers,island_inset_m=args.island_inset,guide_found=guide is not None,
+                     triangle_markers=args.triangle_markers,island_inset_m=args.island_inset,
+                     heading_rotation=args.heading_rotation,guide_found=guide is not None,
                      elapsed_ms=(time.perf_counter()-begin)*1000,search=note)
             if guide is not None:
                 assert same_island_winding(guide,source,floor)
