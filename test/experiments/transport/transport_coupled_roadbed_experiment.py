@@ -26,6 +26,7 @@ from transport_turn_roadbed_experiment import building_reservations,reservations
 from transport_turn_roadbeds import compose_roadbeds,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
 from transport_vehicle_sweep import body_outlines
 from transport_shared_cut_changes import changed_shared_cut
+from transport_surface_regions import canonical_grid_region
 
 
 def request_keys(poses,routes):
@@ -141,7 +142,7 @@ def publish_coupled_roadbeds(products,trial,precision):
     for product in products.values():
         product['quantum']=quantum
         for key in ('base','core','planned','physical'):
-            product[key]=shapely.set_precision(product[key],quantum)
+            product[key]=canonical_grid_region(product[key],quantum)
     parts=[];owners=[]
     for owner,product in products.items():
         components=list(shapely.get_parts(product['physical']))

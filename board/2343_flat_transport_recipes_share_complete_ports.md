@@ -61,7 +61,7 @@ Quelle zuerst mit w/2 Reserve, bei Ablehnung bis Eckreichweite. Gebäude/fremde 
 Suche räumlich und auf neue Fläche eingrenzen, endgültige Körper gegen alle Reservationen prüfen.
 Offene Blockränder dürfen weichen; geschlossene und verschachtelte Freiräume samt Überlappungszuordnung erhalten.
 Hüllenkonstruktion an Reservationen kappen, ganze Körper am nativen Mesh nachprüfen; 4096 Posen gemeinsam.
-Fahrflächen behalten feinste Binärpräzision; Flächenoperationen liefern nur Polygone, Quell-/Kontaktlinien bleiben separat.
+Fahrflächen vor Triangulation kanonisch normalisieren, unabhängig von GEOS-Metadaten; feinste Binärpräzision, Quell-/Kontaktlinien separat.
 Mesh-/Schnitt-Rundungsreste höchstens 64·eps·max(1,|Koordinate|) m; echte Randänderungen/Freiräume erhalten, nur gültige Hilfspuffer.
 [Resttaschen](../test/experiments/transport/transport_roadbed_island_cleanup.py) im Baurezept schließen:
 nur neu abgetrennte Teile einer vorhandenen Insel, unreserviert, ≤1 m² und ohne 1 m breiten Innenraum.
@@ -88,7 +88,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel 490/591/979 vollständig mit gemeinsam versetzten Schnitten; nächste Umwege Zürich 2134: 60→1369 m, Wien 684: 30→703 m.
+   Basel vollständig; Wien 684 lokal 5/5, mit Nachbarn 8/8 und +14,3 m². Nächste Umwege Zürich 2134: 60→1369 m, Wien 808: 30→457 m.
    [Gekoppelter Wendeplatz](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): Basel 1155 6/6, insgesamt 8/8 auf drei Bauteilen; Bestand erhalten.
    Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
    Zwei Schnitte 4 m nach außen; gerade Zu-/Abfahrten, Wendefahrten je 36,3 m, +75,3 m² Fahrfläche, 24,6 m² Gebäude-Freiraumanfrage. Volles Basel bestätigt; Buildings-Runtime offen.
