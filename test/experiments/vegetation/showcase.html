@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Outshine · Vegetationsexperimente</title>
-  <link rel="stylesheet" href="showcase.css">
-  <script src="showcase.js" defer></script>
+  <link rel="stylesheet" href="/showcase.css">
+  <script src="/showcase.js" defer></script>
 </head>
 <body>
   <header><a class="brand" href="/">OUTSHINE <span>/ VEGETATION</span></a><button id="reload" class="quiet" type="button">Stand laden</button></header>
@@ -13,19 +13,19 @@
     <section class="intro">
       <p class="eyebrow">PYTHON-WERKSTATT · VOM GRASHALM BIS ZUM WALD</p>
       <h1>Vegetation im Versuch.</h1>
-      <p class="lead">Stabile Pflanzenformen, räumliche Bestandspläne und Detail nach Bedarf. Hier stehen die letzten geöffneten Renderings und lokalen Kostenmessungen.</p>
+      <p class="lead">Stabile Pflanzenformen, räumliche Bestandspläne und Detail nach Bedarf. Hier steht der aktuelle geprüfte Bildstand je Detailstufe.</p>
       <p id="current-work"></p>
       <div id="state" class="state"></div>
       <p id="error" role="alert" hidden></p>
     </section>
-    <div id="stats" class="stats"></div>
+    <nav id="lod-nav" class="lod-nav" aria-label="LOD-Stufen"></nav>
+    <p id="lod-description" class="lead"></p>
     <details class="reference"><summary>Qualitätsmaßstab: SpeedTree · konkrete Bildreferenz ansehen</summary><div id="reference"></div></details>
-    <section aria-labelledby="gallery-title">
+    <section id="images-section" aria-labelledby="gallery-title">
       <div class="section-top"><h2 id="gallery-title">Bildstand</h2><span class="hint">Bild anklicken zum Vergrößern</span></div>
-      <nav id="filters" class="filters" aria-label="Bilder filtern"></nav>
       <div id="gallery" class="gallery"></div>
     </section>
-    <section class="measurements" aria-labelledby="plot-title">
+    <section id="measurements" class="measurements" aria-labelledby="plot-title">
       <div class="section-top"><h2 id="plot-title">Verfahren und Kosten</h2><a id="download" class="quiet" download>Plot als SVG</a></div>
       <nav id="plot-filters" class="filters" aria-label="Kostenvergleich wählen"></nav>
       <div id="plot"></div>

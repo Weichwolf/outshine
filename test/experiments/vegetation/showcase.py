@@ -243,7 +243,7 @@ def copy_image(source, output):
     destination.parent.mkdir(exist_ok=True)
     if not destination.exists():
         shutil.copyfile(source, destination)
-    return {"url": f"images/{name}", "sha256": digest}
+    return {"url": f"/images/{name}", "sha256": digest}
 
 
 def render_entry(entry, output):
@@ -339,7 +339,7 @@ def views_render_plot(_report):
     return save_plot(views_render_figure(EXPERIMENTS), "foliage-views-shadows")
 
 
-def plot_entries(output):
+def plot_entries(output, plot_lods):
     definitions = (
         (
             "render/views-shadow-pass.json",
@@ -417,10 +417,18 @@ def plot_entries(output):
     entries = []
     reports = {}
     for filename, plot, title, description in definitions:
+        if plot.__name__ not in plot_lods:
+            continue
+        lod = plot_lods[plot.__name__]
         report_path = EXPERIMENTS / filename
         if not report_path.is_file():
             entries.append(
-                {"title": title, "description": description, "missing": True}
+                {
+                    "title": title,
+                    "description": description,
+                    "lod": lod,
+                    "missing": True,
+                }
             )
             continue
         report = read_json(report_path)
@@ -430,6 +438,7 @@ def plot_entries(output):
             copy_image(image_path, output)
             | {
                 "svg_url": copy_image(image_path.with_suffix(".svg"), output)["url"],
+                "lod": lod,
                 "title": title,
                 "description": description,
                 "commit": report.get("commit"),
@@ -442,10 +451,7 @@ def plot_entries(output):
 def publish(output):
     output.mkdir(parents=True, exist_ok=True)
     catalog = read_json(HERE / "showcase_catalog.json")
-    plots, reports = plot_entries(output)
-    growth = reports.get("growth-unique/growth.json", {})
-    crown = reports.get("crown/crown.json", {})
-    demand = reports.get("demand/demand.json", {})
+    plots, _reports = plot_entries(output, catalog["plot_lods"])
     payload = {
         "project": "outshine-vegetation",
         "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -455,28 +461,12 @@ def publish(output):
         "branch": subprocess.check_output(
             ["git", "branch", "--show-current"], cwd=ROOT, text=True
         ).strip(),
+        "lods": catalog["lods"],
         "current_work": catalog["current_work"],
         "quality_gap": catalog["quality_gap"],
         "reference": reference_entry(output),
         "renders": [render_entry(entry, output) for entry in catalog["renders"]],
         "plots": plots,
-        "metrics": [
-            {
-                "value": len(growth.get("cases", [])),
-                "label": "Vergleiche der Astpläne",
-                "note": "Brute force / cKDTree",
-            },
-            {
-                "value": len(crown.get("cases", [])),
-                "label": "geprüfte Hüllenvarianten",
-                "note": "Geometrie, Normale, Fehlerschranke",
-            },
-            {
-                "value": demand.get("lazy_generated", {}).get("members", "–"),
-                "label": "Nahstandorte erzeugt",
-                "note": f"bei {demand.get('full_generated_members', '–')} logischen Pflanzen",
-            },
-        ],
     }
     tracking = subprocess.run(
         ["git", "rev-parse", f"refs/remotes/origin/{payload['branch']}"],
@@ -501,10 +491,29 @@ def publish(output):
             output / ("index.html" if name == "showcase.html" else name),
             (HERE / name).read_text(encoding="utf-8"),
         )
+    for lod in catalog["lods"]:
+        page = output / lod["id"]
+        page.mkdir(exist_ok=True)
+        atomic_text(page / "index.html", (HERE / "showcase.html").read_text())
     atomic_text(
         output / "status.json", json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     )
+    prune_images(output, payload)
     return payload
+
+
+def prune_images(output, payload):
+    current = {
+        entry[key]
+        for entry in [*payload["renders"], *payload["plots"], payload["reference"]]
+        for key in ("url", "svg_url")
+        if key in entry
+    }
+    for image in (output / "images").glob("*"):
+        if image.is_file() and f"/images/{image.name}" not in current:
+            image.unlink()
+    for image in output.glob("*.png"):
+        image.unlink()
 
 
 def start_server(output, port):
@@ -520,8 +529,8 @@ def start_server(output, port):
         process = subprocess.Popen(
             [
                 sys.executable,
-                "-m",
-                "http.server",
+                str(HERE / "showcase_server.py"),
+                "--port",
                 str(port),
                 "--bind",
                 "0.0.0.0",

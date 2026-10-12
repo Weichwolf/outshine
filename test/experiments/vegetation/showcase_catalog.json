@@ -1,14 +1,15 @@
 {
-  "current_work": "SpeedTree wird vorrangig mit Ghidra analysiert: 33 gezielte Funktionen aus Platzierung, LOD, Sichtbarkeit, Ansichten-Export und Blattnormalengestaltung. Ein vollständiger Atlas hält 64 unbeleuchtete Ansichten je Zweiggruppe vor. Kamera, Sonne und Fülllicht wählen daraus unabhängig je 630 Karten für denselben 37.800-Blatt-Plan. Der optisch geprüfte Referenzvergleich zeigt den wiederhergestellten Baumschatten; Flächenausgleich und gemittelte Normalen besitzen weiterhin deutliche Grenzen.",
-  "quality_gap": "Die Vegetation bleibt ein Verfahrens- und Formstand. Vollständige Waldprodukte, Artenvielfalt, organische Gabeln, Rinde und Wind fehlen. Normalenverteilung, Richtungsübergänge sowie Mip-/Overdraw-/GPU-Kosten sind offen. Der 177,5-MiB-Ansichtenatlas besitzt noch keine Material-/LOD-Freigabe; der eigene Schattenpfad ist nur in der Python-/Blender-Probe integriert.",
+  "current_work": "Aktuell geprüft: Baumansichten mit Tiefenrelief für den Laubwald sowie getrennte Kamera- und Lichtansichten für Laubgruppen. SpeedTree wird vorrangig mit Ghidra analysiert. Die LOD-Seiten ordnen die vorhandenen Versuche nach Detailumfang; feste Entfernungsschwellen und stabile Übergänge sind noch nicht freigegeben.",
+  "quality_gap": "SpeedTree-Qualität ist noch nicht erreicht. Artenvielfalt, natürliche Gabeln, Rinde, Grasdecken und Wind fehlen. Baumansichten stammen bislang aus einem vorhandenen Blattgruppen-Cache; die direkte grobe Erzeugung aus dem Rezept bleibt offen. Fernwaldaggregation, Materialantwort, Übergänge und native GPU-Kosten sind unbewiesen.",
   "renders": [
     {
-      "image": "render/landscape-temperate.png",
-      "title": "Gemäßigter Laubwald · Bestandsform",
+      "image": "render-draft/landscape-temperate-depth.png",
+      "title": "Gemäßigter Laubwald · Baumansichten mit Tiefenrelief",
       "label": "Landschaft",
       "category": "landscape",
-      "description": "410 stabile Standorte mit Eichen-, Buchen- und Birkenmaßen aus dem Artenkatalog. Geteilte Kronenproxies und Stammformen auf prozeduralem Boden; Laubgruppen und ökologische Konkurrenz fehlen.",
-      "quality": "Erster Formstand · kein fertiges Waldprodukt"
+      "description": "410 unveränderte Standorte. Ein gemeinsamer Laubbaum-Prototyp aus dem vollständigen Blattgruppen-Cache wird auf die Katalogmaße skaliert. Je Baum wählen Kamera und Sonne unabhängig eine von 64 Ansichten mit 128 Dreiecken. Farben, Normalen und Blattanteil bleiben unbeleuchtet gespeichert.",
+      "quality": "Aktueller Versuchsstand · artspezifische Organe, Schattenartefakte und Übergänge offen",
+      "lod": "lod-3"
     },
     {
       "image": "render/landscape-boreal.png",
@@ -16,7 +17,8 @@
       "label": "Landschaft",
       "category": "landscape",
       "description": "350 stabile Standorte mit Fichten- und Kiefernmaßen. Drei gestufte Kegel je Krone dienen als Formproxy; reale Zweigquirle, Nadelgruppen und durchlässige Kronen fehlen.",
-      "quality": "Erster Formstand · Nadeln und Zweige offen"
+      "quality": "Erster Formstand · Nadeln und Zweige offen",
+      "lod": "lod-3"
     },
     {
       "image": "render/landscape-savanna.png",
@@ -24,7 +26,8 @@
       "label": "Landschaft",
       "category": "landscape",
       "description": "32 lockere Schirmkronen auf einer trockenen Graslandprobe. Die Baummaße sind ein prozedurales Formrezept ohne behauptete Artenrekonstruktion. Gras ist bisher nur Bodenfarbe; Halme fehlen.",
-      "quality": "Erster Formstand · Gras und Nahlaub offen"
+      "quality": "Erster Formstand · Gras und Nahlaub offen",
+      "lod": "lod-3"
     },
     {
       "image": "render/views-shadow-pass.png",
@@ -32,103 +35,26 @@
       "label": "Schatten-LOD",
       "category": "organs",
       "description": "630 Kamerakarten und je 630 gesondert gewählte Karten für Sonne und Fülllicht. 1.260 Laubdreiecke je Auswahl; unveränderte Holzgeometrie. Alle Ansichten stammen aus demselben vollständigen 64-Ansichten-Cache und 37.800 stabilen Quellblättern. Die Materialmaske hält Schattenprodukte im Kamerabild unsichtbar. Krone und Schatten bleiben Näherungen.",
-      "quality": "Verfahrensprobe · Beleuchtungsverteilung und native Kosten offen"
-    },
-    {
-      "image": "render/views-tree.png",
-      "title": "Kamerakarten als Schatten · diagnostischer Gegenfall",
-      "label": "Schattenvergleich",
-      "category": "organs",
-      "description": "Derselbe Atlas und derselbe Kamera-Snapshot: nur 630 Kamerakarten für alle Lichtansichten. Die Krone bleibt erkennbar, der Baumschatten bricht sichtbar weg. Die getrennte Lichtauswahl korrigiert dieses konkrete Bilddefizit. Dieses Bild hält den geprüften vorherigen Rendererstand fest.",
-      "quality": "Diagnose · ungeeigneter gemeinsamer Schattenpfad"
+      "quality": "Verfahrensprobe · Beleuchtungsverteilung und native Kosten offen",
+      "lod": "lod-2"
     },
     {
       "image": "render/views-reference.png",
-      "title": "Räumliche Referenz · gleiche neue Rendererfassung",
-      "label": "Referenz",
+      "title": "Laubbaum · räumliche Äste und Blätter",
+      "label": "Einzelpflanze",
       "category": "organs",
-      "description": "37.800 räumliche Blätter und dieselbe Holzgeometrie unter identischen Kameras, Lichtparametern, 1280 × 720 und 32 EEVEE-Samples. 2,65 Millionen Dreiecke. Vergleich für die getrennte Kamera-/Schattenauswahl; kein SpeedTree-Qualitätsnachweis.",
-      "quality": "Vergleichsprobe · gleiche Eingaben"
-    },
-    {
-      "image": "render/cloud-tree.png",
-      "title": "Laubbaum · gruppiertes Kartenprodukt",
-      "label": "Gruppen-LOD",
-      "category": "organs",
-      "description": "37.800 Quellblätter aus 630 Zweiggruppen ergeben 32.059 passend orientierte Karten. 64.118 Laubdreiecke statt 2,49 Millionen; Holzgeometrie, Kamera und Licht bleiben für den Vergleich gleich. Der Atlas enthält unbeleuchtete Farbe, Normalen und Alpha. Geometrischer Projektionsversatz unter 15 mm zum gewählten Quellmesh; Deckung und Schatten besitzen eigene Grenzen.",
-      "quality": "Verfahrensprobe · Wald-/Wind-/Runtime-Gate offen"
-    },
-    {
-      "image": "render/cloud-reference.png",
-      "title": "Laubbaum · räumliche Vergleichsgeometrie",
-      "label": "Referenz",
-      "category": "organs",
-      "description": "Derselbe stabile Pflanzenplan unter derselben Kamera. 37.800 räumliche Blattflächen und unveränderte Holzgeometrie ergeben insgesamt 2,65 Millionen Dreiecke. Die Kartenprobe verwendet die gleichen Organ-IDs und erhält das vollständige Rezept für spätere Detailanfragen.",
-      "quality": "Vergleichsprobe · gleiche Eingaben"
-    },
-    {
-      "image": "render/architecture-after.png",
-      "title": "Laubbaum · gerundete und gegliederte Krone",
-      "label": "Kronenform",
-      "category": "organs",
-      "description": "4.511 Achsen und 37.800 Blätter aus einem stabilen Rezept. Gerundete Astlängenprofile, geordneter Ansatz-Jitter, Aufwärtsneigung und weniger horizontale Blätter. 2,65 Millionen Dreiecke in dieser Formprobe; 731 Holzachsen gerendert. Mehr Laub als vorher, deshalb kein Vergleich gleicher Geometriekosten.",
-      "quality": "Formstudie · organische Gabeln, Rinde und Wald-LOD offen"
+      "description": "37.800 räumliche Blätter und 731 Holzachsen aus einem stabilen Pflanzenrezept. 2,65 Millionen Dreiecke bei 1280 × 720 und 32 EEVEE-Samples. Aktuelle Hauptansicht der Pflanzenform.",
+      "quality": "Formprobe · natürliche Gabeln, Rinde und Wind offen",
+      "lod": "lod-1"
     },
     {
       "image": "render/architecture-side.png",
-      "title": "Laubbaum · 90° um denselben Formplan",
-      "label": "Kronenform",
+      "title": "Laubbaum · Seitenansicht desselben Plans",
+      "label": "Einzelpflanze",
       "category": "organs",
       "description": "Dieselben Blattgruppen, Astpfade und Meshes wie in der Hauptansicht. Nur die Kamera steht 90° versetzt. Die Darstellung enthält räumliche Blätter und Äste; organische Gabelverbindungen, Rindenstruktur und Wind fehlen.",
-      "quality": "Formstudie · organische Gabeln, Rinde und Wald-LOD offen"
-    },
-    {
-      "image": "render/architecture-before.png",
-      "title": "Laubbaum · vorheriges Kronenrezept",
-      "label": "Kronenform",
-      "category": "organs",
-      "description": "Vorheriger Plan mit 19.208 Blättern, nun unter derselben Kamera wie die neue Kronenprobe. Weniger Verzweigungen und gleichmäßige Ansatzintervalle erzeugen eine lichte, schematische Krone. Kein Qualitätsziel.",
-      "quality": "Formstudie · organische Gabeln, Rinde und Wald-LOD offen"
-    },
-    {
-      "image": "render/tree-coarse.png",
-      "title": "Räumliche Blattvereinfachung",
-      "label": "LOD-Vergleich",
-      "category": "organs",
-      "description": "1,27 Millionen Laubdreiecke statt 9,91 Millionen. 16 Längssegmente erhalten Wölbung und Twist; Einzelblattdeckung bleibt richtungsabhängig. Im Baumbild sind Krone und Schatten der feinen Probe ähnlich. Kein allgemeiner LOD-Nachweis.",
-      "quality": "Formstudie · natürliche Krone und Wald-LOD offen"
-    },
-    {
-      "image": "render-draft/tree-fine.png",
-      "title": "Feine Vergleichsgeometrie",
-      "label": "LOD-Vergleich",
-      "category": "organs",
-      "description": "9,91 Millionen Laubdreiecke bei unveränderten 19.208 Blattankern. Referenzbild aus dem dokumentierten Arbeitsstand vor dem Commit; die Metadaten kennzeichnen dies. Gleiche Kamera, Holzgeometrie, Blattmaterialien und Beleuchtung.",
-      "quality": "Formstudie · natürliche Krone und Wald-LOD offen"
-    },
-    {
-      "image": "render/tree-cards.png",
-      "title": "Ebene Blattkarten · verworfene allgemeine Lösung",
-      "label": "LOD-Vergleich",
-      "category": "organs",
-      "description": "38.416 Laubdreiecke mit selbst erzeugten Farb-, Alpha- und Normalenkarten. Im kleinen Baumbild ähnlich, aber bis 69 % Deckungsverlust in flachen Einzelblattansichten. Deshalb keine universelle LOD-Lösung.",
-      "quality": "Formstudie · natürliche Krone und Wald-LOD offen"
-    },
-    {
-      "image": "render/plant-sapling.png",
-      "title": "Belaubter Jungbaum · drei Astordnungen",
-      "label": "Pflanzenprobe",
-      "category": "organs",
-      "description": "Ein stabiler Formplan liefert 64 Achsen und 571 Einzelblätter aus acht geteilten Formvarianten. Kinder schließen am gekrümmten Elternast an; Blattflächen wenden sich als Formrezept zum Himmel. Eigene begrenzte Grammatik, keine botanische Rekonstruktion oder Lichtkonkurrenzsimulation.",
-      "quality": "Erste vollständige Pflanzenprobe · organische Gabeln offen"
-    },
-    {
-      "image": "render/plant-sapling-branch.png",
-      "title": "Jungbaum · Ast- und Blattgruppen aus der Nähe",
-      "label": "Nahdetail",
-      "category": "organs",
-      "description": "Nahansicht derselben Pflanze mit unveränderten Astpfaden, Organ-IDs und Anschlüssen. Blattstiele, räumliche Wölbung, Formvarianten und Einzelschatten entstehen aus dem gemeinsamen Plan. Astgabeln bestehen noch aus überlappenden geschlossenen Rohren.",
-      "quality": "Nahdetailprobe · Schatten-LOD und Wind offen"
+      "quality": "Formstudie · organische Gabeln, Rinde und Wald-LOD offen",
+      "lod": "lod-1"
     },
     {
       "image": "render/organ-shoots.png",
@@ -136,7 +62,8 @@
       "label": "Nahdetail",
       "category": "organs",
       "description": "Drei 48-cm-Triebe zeigen wechselständige, spiralige und kreuzgegenständige Anschlüsse als Architekturprobe. 44 räumliche Blattflächen mit acht Formvarianten, prozeduraler Mittelrippe und qualitativem Reflexions-/Transmissionsmaterial. Die gemeinsame Blattform behauptet keine botanische Rekonstruktion aller drei Pflanzen.",
-      "quality": "Organstudie · Verzweigung und natürliche Varianz offen"
+      "quality": "Organstudie · Verzweigung und natürliche Varianz offen",
+      "lod": "lod-0"
     },
     {
       "image": "render/organ-grass.png",
@@ -144,41 +71,46 @@
       "label": "Nahdetail",
       "category": "organs",
       "description": "1.764 bodenverbundene Halme aus acht geteilten Geometrievarianten. Dünne Flächen erhalten eigene Normalen und werfen einzelne Schatten. Die Verteilung ist eine diagnostische Horstprobe; natürliche Grasdecken und ihre LODs fehlen.",
-      "quality": "Organstudie · auffällig regelmäßige Horstverteilung"
-    },
-    {
-      "image": "render/crown-level5.png",
-      "title": "Kronenhülle · feine Oberfläche",
-      "label": "Formproxy",
-      "category": "proxy",
-      "description": "Direkt erzeugte, geschlossene Hülle mit 12.288 Dreiecken. Im Nahbild wirkt sie als grüne Masse; räumliches Laub fehlt. Als Nahlaub verworfen.",
-      "quality": "Als Nahlaub ungeeignet"
-    },
-    {
-      "image": "render/crown-level1.png",
-      "title": "Kronenhülle · grobe Oberfläche",
-      "label": "Formproxy",
-      "category": "proxy",
-      "description": "Dieselbe Form und derselbe Astplan mit 48 Hüllendreiecken. Vergleich der Oberflächenauflösung bei fester Kamera; kein belegter Übergang der Laubdeckung.",
-      "quality": "Nur Formprüfung"
-    },
-    {
-      "image": "render/oak-after.png",
-      "title": "Aststruktur · korrigierte Austriebe",
-      "label": "Korrigiert",
-      "category": "wood",
-      "description": "Positionsgleiche neue Austriebe werden verworfen. Der Versuch mit 256 Attraktoren liefert 689 eindeutige Astknoten. Verschweißte Gabeln und Laub fehlen.",
-      "quality": "Geometrie korrigiert",
-      "source_report": "growth-unique/growth.json"
-    },
-    {
-      "image": "render/oak-before.png",
-      "title": "Aststruktur · vorher",
-      "label": "Fehlervergleich",
-      "category": "comparison",
-      "description": "Früherer Versuch: 2.564 Knoten, darunter 1.875 wiederholte Positionen. Dieses Bild dokumentiert den behobenen Fehler und ist kein aktuelles Qualitätsziel.",
-      "quality": "Überholter Fehlerstand",
-      "source_report": "growth/growth.json"
+      "quality": "Organstudie · auffällig regelmäßige Horstverteilung",
+      "lod": "lod-0"
     }
-  ]
+  ],
+  "lods": [
+    {
+      "id": "lod-0",
+      "title": "LOD 0 · Nahdetail",
+      "description": "Räumliche Blätter und Grashalme aus der Nähe.",
+      "empty": "Für diese Detailstufe liegt noch kein geprüftes Bild vor."
+    },
+    {
+      "id": "lod-1",
+      "title": "LOD 1 · Einzelpflanze",
+      "description": "Vollständige Pflanzen mit räumlichen Ästen und Blättern.",
+      "empty": "Für diese Detailstufe liegt noch kein geprüftes Bild vor."
+    },
+    {
+      "id": "lod-2",
+      "title": "LOD 2 · Laubgruppen",
+      "description": "Zusammengefasste Blattgruppen mit getrennten Ansichten für Kamera und Licht.",
+      "empty": "Für diese Detailstufe liegt noch kein geprüftes Bild vor."
+    },
+    {
+      "id": "lod-3",
+      "title": "LOD 3 · Bestand",
+      "description": "Drei feste Landschaften: Laubwald, borealer Nadelwald und Savanne.",
+      "empty": "Für diese Detailstufe liegt noch kein geprüftes Bild vor."
+    },
+    {
+      "id": "lod-4",
+      "title": "LOD 4 · Fernwald",
+      "description": "Zusammengefasste Bestände für große Entfernungen.",
+      "empty": "Noch kein geprüftes Fernwald-Rendering. Ein kohärentes aggregiertes Waldprodukt steht aus."
+    }
+  ],
+  "plot_lods": {
+    "selection_storage_plot": "lod-2",
+    "demand_plot": "lod-3",
+    "organ_storage_plot": "lod-0",
+    "plant_request_plot": "lod-1"
+  }
 }

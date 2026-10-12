@@ -1,8 +1,8 @@
 const $ = id => document.getElementById(id);
 const escaped = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const categoryNames = {all:'Alle',landscape:'Landschaften',organs:'Blätter und Gras',proxy:'Formproxy',wood:'Aststruktur',comparison:'Vergleich'};
+const page = location.pathname.split('/').filter(Boolean)[0] ?? '';
+let activeLod = null;
 let manifest = null;
-let filter = 'all';
 let selectedPlot = 0;
 
 function buttons(target, entries, selected, callback) {
@@ -24,25 +24,34 @@ function card(entry, index, group) {
 }
 
 function renderGallery() {
-  const categories = new Set(manifest.renders.map(entry => entry.category));
-  buttons($('filters'), Object.entries(categoryNames).filter(([key]) => key === 'all' || categories.has(key)), filter, key => { filter = key; renderGallery(); });
-  $('gallery').innerHTML = manifest.renders.map((entry, index) => ({entry, index})).filter(({entry}) => filter === 'all' || entry.category === filter).map(({entry, index}) => card(entry, index, 'renders')).join('');
+  $('images-section').hidden = !activeLod;
+  $('gallery-title').textContent = activeLod?.title ?? 'Aktueller Bildstand';
+  const entries = manifest.renders.map((entry, index) => ({entry, index})).filter(({entry}) => entry.lod === activeLod?.id);
+  $('gallery').innerHTML = entries.length ? entries.map(({entry, index}) => card(entry, index, 'renders')).join('') : `<p class="missing">${escaped(activeLod?.empty)}</p>`;
 }
 
 function renderPlot() {
-  selectedPlot = Math.min(selectedPlot, manifest.plots.length - 1);
-  buttons($('plot-filters'), manifest.plots.map((entry, index) => [index, entry.title]), selectedPlot, index => { selectedPlot = index; renderPlot(); });
+  const entries = manifest.plots.map((entry, index) => ({entry, index})).filter(({entry}) => entry.lod === activeLod?.id);
+  $('measurements').hidden = !entries.length;
+  if (!entries.length) return;
+  if (!entries.some(({index}) => index === selectedPlot)) selectedPlot = entries[0].index;
+  buttons($('plot-filters'), entries.map(({entry, index}) => [index, entry.title]), selectedPlot, index => { selectedPlot = index; renderPlot(); });
   const entry = manifest.plots[selectedPlot];
-  $('plot').innerHTML = entry ? card(entry, selectedPlot, 'plots') : '<div class="missing">Messdaten fehlen</div>';
-  $('download').hidden = !entry?.svg_url;
-  if (entry?.svg_url) $('download').href = entry.svg_url;
+  $('plot').innerHTML = card(entry, selectedPlot, 'plots');
+  $('download').hidden = !entry.svg_url;
+  if (entry.svg_url) $('download').href = entry.svg_url;
 }
 
 function render(data) {
   manifest = data;
+  activeLod = data.lods.find(lod => lod.id === page);
+  document.body.classList.toggle('detail-page', Boolean(activeLod));
+  document.querySelector('h1').textContent = activeLod?.title ?? 'Vegetation im Versuch.';
+  document.title = `${activeLod?.title ?? 'Aktueller Stand'} · Outshine Vegetation`;
+  $('lod-nav').innerHTML = data.lods.map(lod => `<a href="/${escaped(lod.id)}/" ${lod.id === activeLod?.id ? 'aria-current="page"' : ''}><strong>${escaped(lod.title)}</strong><span>${escaped(lod.description)}</span></a>`).join('');
+  $('lod-description').textContent = activeLod?.description ?? 'Eine Detailstufe wählen. Jede Seite zeigt ausschließlich ihre aktuellen Produkte; fehlende Stufen bleiben als offen gekennzeichnet.';
   const state = [`${data.branch} · ${data.commit.slice(0, 10)}`, data.pushed ? 'Commit gepusht' : 'Push ausstehend', data.working_tree_modified ? 'Laufende Experimente mit Änderungen' : 'Arbeitsverzeichnis sauber'];
   $('state').innerHTML = state.map(value => `<span>${escaped(value)}</span>`).join('');
-  $('stats').innerHTML = data.metrics.map(metric => `<div class="stat"><strong>${escaped(metric.value)}</strong><span>${escaped(metric.label)}</span></div>`).join('');
   $('current-work').textContent = data.current_work;
   $('quality-gap').textContent = data.quality_gap;
   const reference = data.reference;
@@ -59,7 +68,7 @@ async function load() {
   button.textContent = 'Lädt …';
   $('error').hidden = true;
   try {
-    const response = await fetch('status.json', {cache:'no-store'});
+    const response = await fetch('/status.json', {cache:'no-store'});
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     if (data.project !== 'outshine-vegetation') throw new Error('Ungültiger Showcase-Stand');
