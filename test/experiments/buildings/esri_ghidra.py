@@ -17,6 +17,7 @@ from evidence import revision
 CORE = Path('/home/cosmo/Downloads/esri_ce_sdk-3.4.12206/bin/libcom.esri.prt.core.so')
 HEADLESS = Path('/snap/bin/ghidra.analyzeHeadless')
 TARGETS = {
+    '_ZN4util24angleBetweenUnitVector3sIdEET_RKNS_7Vector3IS1_EES5_': 'Oriented angle used by area split plane-axis admission',
     '_ZN11CoreToolbox10PolygonOps13computeOffsetEfPKfm': 'polygon offset wrapper',
     '_ZN11CoreToolbox10PolygonOps15computeSkeletonEPKfm': 'polygon straight skeleton',
     '_ZN11CoreToolbox10PolygonOps9convexifyEPfm': 'polygon convex decomposition',
