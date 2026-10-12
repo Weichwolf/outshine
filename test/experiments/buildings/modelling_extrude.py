@@ -5,7 +5,7 @@ import math
 
 import numpy as np
 
-from modelling_faces import Face,face_shape,plane
+from modelling_faces import EXTRUSION_TAGS,Face,face_shape,plane
 from modelling_scope import Scope,scalar
 
 
@@ -117,13 +117,14 @@ def extrude(shape,distance,mode='face.normal'):
     distance=scalar(distance)
     if mode not in MODES:raise ValueError('Unknown extrusion type')
     vertices,faces=active_faces(shape)
+    faces=tuple(replace(face,tags=face.tags-EXTRUSION_TAGS.keys()) for face in faces)
     prepared=[plane(vertices,face,True) for face in faces];normals=np.array([item[0] for item in prepared]);faces=tuple(item[3] for item in prepared)
     if distance==0 and mode!='world.up.flatTop':
-        return face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True)
+        return replace(face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True),comp_info=shape.comp_info)
     owners=edge_owners(faces);output=[];all_points=vertices.tolist();known={}
     target,up=displaced(vertices,faces,normals,distance,mode) if mode!='face.normal' else (None,normals[0])
     if target is not None and np.array_equal(target,vertices):
-        return face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True)
+        return replace(face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True),comp_info=shape.comp_info)
     for index,face in enumerate(faces):
         selected=sorted({i for ring in (face.outer,*face.holes) for i in ring})
         base=vertices[selected];top=base+normals[index]*distance if mode=='face.normal' else target[selected]
@@ -138,4 +139,4 @@ def extrude(shape,distance,mode='face.normal'):
             local.append(replace(wall,outer=wall.outer[::-1],uvs=tuple(ring[::-1] for ring in wall.uvs)) if polarity<0 else wall)
         output.extend(local)
     points=np.asarray(all_points);scope=aligned_scope(points,up,shape.scope,distance<0)
-    return face_shape(points,output,scope=scope,allow_warped=True)
+    return replace(face_shape(points,output,scope=scope,allow_warped=True),comp_info=shape.comp_info)

@@ -31,6 +31,8 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
+    'comp': dict(module='modelling_shape.Shape.comp',status='face direction/inclination/tag/border predicates, exclusion, operators, frames and predecessor attributes implemented; analytic controls and PRT prism roundtrips',
+                 pending=['edge/vertex/group/material/hole components','streetWidth maps','trim planes','fractional indices','isolated PRT comp rule']),
     't': dict(module='modelling_shape.Shape.t',status='documented forms implemented; scope checks and two PRT translations',pending=[]),
     'r': dict(module='modelling_shape.Shape.r',status='documented pivot/centre forms implemented; scope checks and Ghidra',pending=['isolated PRT rotation rule']),
     's': dict(module='modelling_shape.Shape.s',status='absolute/relative and negative sizes implemented; scope checks and Ghidra',pending=['singular authored-normal transform','isolated PRT scale rule']),
@@ -38,6 +40,7 @@ OWN = {
     'extrude': dict(module='modelling_shape.Shape.extrude',status='four face extrusion modes implemented; holes, connected/disconnected faces, UV/tag/material checks and PRT prisms',
                     pending=['edge extrusion from comp(e/fe)','tangential or collapsed face sweep','UV channels beyond the first','isolated PRT flat-top and vertex-normal rule']),
 }
+OWN_ATTRIBUTES={'comp':dict(module='modelling_shape.CompInfo',status='per-selector sel/index/total assigned; scope operations and extrusion inherit predecessor values',pending=['inheritance in remaining geometry operations'])}
 USES = {
     'Dachformen': 'Dachsilhouette, First, Traufe und Überstand; zunächst keine eigene Umsetzung.',
     'Massierung und Grundriss': 'Höhenintervalle, Höfe, Gebäudeteile, Rücksprünge und technische Körper.',
@@ -79,13 +82,13 @@ def page_record(path, root, kind):
     data = path.read_bytes()
     page.feed(data.decode('utf-8'))
     identifier = path.stem.removeprefix({'operation': 'op_', 'function': 'func_', 'attribute': 'attr_'}.get(kind, ''))
+    own=OWN.get(identifier) if kind=='operation' else OWN_ATTRIBUTES.get(identifier) if kind=='attribute' else None
     group = next((group for group, names in GROUPS.items() if identifier in names.split()), None)
     return dict(name=identifier, kind=kind, title=' '.join(''.join(page.title).split()),
                 signatures=' '.join(' '.join(page.signatures).split()),
                 group=group, alias_of=ALIASES.get(identifier),
                 document=str(path.relative_to(root)), sha256=hashlib.sha256(data).hexdigest(),
-                status=OWN[identifier]['status'] if identifier in OWN else 'documented; individual operation not yet execution-tested',
-                own_python=OWN.get(identifier))
+                status=own['status'] if own else 'documented; individual operation not yet execution-tested',own_python=own)
 
 
 def packages(root):

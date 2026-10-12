@@ -25,7 +25,7 @@ Scope/Extrusion/Ghidra/Kamera/Benchmark/Katalog/Render/Docs und korrigierter Lau
 Die falsche erste Kamera-Pythoninvokation ist separat dokumentiert; der eigentliche Blender-Kameracheck besteht.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
-37 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+44 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 Eigene Implementierung, keine Übernahme dekompilierten Fremdcodes; SDK 3.4 / PRT 3.3 ausdrücklich unterscheiden.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 
@@ -60,7 +60,14 @@ Reproduzierbare kleine Kontrollkörper, echte OSM-Grundrisse, ungültige/degener
 Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenommene native LOD-/Geräteabnahme.
 Aktiver Ausbau: `comp(f)` mit richtungs-/neigungs-/tag-/randbezogener Auswahl, Ausschluss bereits gewählter Flächen,
 Einzel-/Gesamt-/Verbindungsoperatoren sowie passenden Pivot-/Scope-Achsen und `comp.sel/index/total`.
-Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; Komponenten-Geometrie teilen statt erneut triangulieren.
+Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
+Lokale Entwicklung: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
+Richtung/Neigungsgrenzen, nichtaffine UVs/authorierte Normalen und drei reale PRT-Prismen nach vollständiger Komponentenzerlegung geprüft.
+`CompInfo` bleibt bei Scope-Operationen/Extrusion erhalten; erneute Extrusion ersetzt eigene frühere Auto-Tags und behält Nutzer-Tags.
+PRT-Prismen belegen Geometrie-Roundtrip, kein isoliertes CGA-Comp-Selektions-/Pivotorakel; Straßenbreiten/Trim-Planes bleiben offen.
+Kostenentwicklung: dieselben sechs bis 14 Komponenten aus vorhandenen Dreiecken gegen GEOS-Neuaufbau, 21 warme Läufe.
+Native Dreiecke/UVs/Tags/Materialien und Scope-Matrizen stimmen überein; bisher p50 3,13–8,49 statt 6,30–17,61 ms.
+Showcase zeigt im nächsten Snapshot die aktuellen Komponenten-Kontrollen; frühere Scope-/Extrusionsbilder bleiben interne Referenzen.
 Logische Polygonflächen bleiben neben der nativen Triangulierung erhalten; GEOS/CDT nutzen, keine Polygontriangulierung neu erfinden.
 `modelling_faces`/`modelling_extrude`: eigene immutable Polygonringe/Corner-UVs neben Triangle-Assets; vier Flächen-Extrusionsarten.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen, negative Distanz behält negatives Scope-Y.

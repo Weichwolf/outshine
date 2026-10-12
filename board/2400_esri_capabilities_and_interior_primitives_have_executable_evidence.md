@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 37 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
+Ghidra 12.1.2: 44 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
@@ -42,6 +42,11 @@ Extrusionsbeleg e42c3763a: Welt-/Flat-Top-/Vertexdispatch ruft Seiten-UVs, glatt
 Seiten-UV-Helper: aktive Kanäle, Eckfolge A/B/B/A; 137 Instruktionen. Normenhelper: angrenzende Flächennormalen summieren und normieren; 204 Instruktionen.
 Neue Scope-Y-Achse: alte X-Achse orthogonal projizieren, bei Kollaps Ersatzachse, Z aus Kreuzprodukt; 244 Instruktionen.
 Diese drei Helper haben keine indirekten Stellen/außerhalb liegenden Blöcke; SDK-Typen und Ersatzkonstante bleiben nicht laufzeitverifiziert.
+Komponentenbeleg eb6938bbf: Front/Links prüfen größte signierte Normalkomponente mit 1e−14 Toleranz; Side prüft |Y| ≤ cos(11,25°).
+18/18/6 Instruktionen, keine indirekten/außerhalb liegenden Stellen. IEEE-Konstanten unabhängig im versionierten ELF gelesen.
+Richtungsdispatch berücksichtigt negative Scope-Größen; Neigungsgrenzen haben geringfügig verschiedene positive/negative 11,25°-Konstanten.
+`createShape` ruft Geometrieausrichtung bzw. Edge-/Vertex-Pivothelper und Bounding-Box-Anpassung auf; Verbindung nutzt Quellmesh-/Indexbeziehungen.
+Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indirekte Stellen, 2/20/22/13 außerhalb liegende Blöcke; keine vollständige Semantikabdeckung.
 
 ## Umsetzung
 - Aktueller Kernvertrag (2480): `comp`-Auswahl/Verbindungsoperatoren und neue Komponenten-Pivots/Scopes anhand tatsächlicher Dispatcher und Helper vertiefen.
@@ -78,6 +83,8 @@ Katalog zeigt Fähigkeit, eigene Entsprechung und fehlende Verfahren; daraus nä
 [CGAL Skeleton/Offset](https://doc.cgal.org/latest/Straight_skeleton_2/index.html),
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm),
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): vier Flächenarten, negative Scope-Y-Größe, Flat-Top-Mindestspanne und unverbundene Vertexnormalen.
+[CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm),
+[Komponententags](https://doc.arcgis.com/en/cityengine/latest/cga/cga-component-tags.htm): Punkt-/Mehrfachsubtag-Wildcards und Ersatz früherer Auto-Tags bei erneuter Operation.
 [CGA InnerRectangle](https://doc.arcgis.com/en/cityengine/latest/cga/cga-inner-rectangle.htm),
 [CGA Inline](https://doc.arcgis.com/en/cityengine/latest/cga/cga-inline.htm): Spiralstufen als rekursive Bauteile plus 3D-Vereinigung, lokales SDK-Beispiel optisch geprüft.
 [CGA Insert](https://doc.arcgis.com/en/cityengine/latest/cga/cga-i.htm): fremde Bauteilgeometrie im gemeinsamen Scope, kein automatisch erschlossener Geschossplan.

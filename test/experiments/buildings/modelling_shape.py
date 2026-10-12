@@ -9,6 +9,14 @@ from modelling_scope import Scope
 
 
 @dataclass(frozen=True)
+class CompInfo:
+    sel: str
+    index: int
+    total: int
+    source_faces: tuple
+
+
+@dataclass(frozen=True)
 class Geometry:
     fields: object
     unit_vertices: object
@@ -49,6 +57,7 @@ class Geometry:
 class Shape:
     geometry: Geometry
     scope: Scope
+    comp_info: object=None
 
     @classmethod
     def from_mesh(cls,mesh,scope=None,polygons=()):
@@ -68,6 +77,10 @@ class Shape:
     def extrude(self,distance,mode='face.normal'):
         from modelling_extrude import extrude
         return extrude(self,distance,mode)
+
+    def comp(self,component,*branches,alignment='zUp'):
+        from modelling_components import split_components
+        return split_components(self,component,branches,alignment)
 
     def t(self,x,y,z):return replace(self,scope=self.scope.t(x,y,z))
 
