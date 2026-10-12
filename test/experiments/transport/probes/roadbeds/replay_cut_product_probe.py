@@ -12,6 +12,7 @@ import numpy as np
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 import transport_coupled_roadbed_experiment as coupled
 from transport_shared_frames import frame_key
+from transport_shared_road_space import construct_shared_space
 
 
 def replay_cuts(recipe,original):
@@ -58,6 +59,19 @@ def main():
     for proof in recipe['proofs']:
         retained.setdefault(proof['module'],set()).add(tuple(map(tuple,proof['request'])))
     sections=set(recipe['changed_frame_sections']);started=time.perf_counter()
+    shared_recipe=recipe.get('construction_recipe')=='shared-road-space' or 'Missing routes retried once on constructed public space' in recipe.get('experimental_recipe','')
+    if shared_recipe:
+        before=json.loads((root/'window-1000-body'/f'{recipe["place"]}-routes.json').read_text())
+        cuts=json.loads((root/'cut-setbacks'/f'{recipe["place"]}-cut-setbacks.json').read_text())
+        records={r['module']:r for r in before['modules']};records.update((r['module'],r) for r in cuts['changed_modules'])
+        original=coupled.construct_module
+        def shared(network,trial,owner,sections,affected,region,buildings,index,required,cache=None):
+            record=records[owner] if owner in records else network.record(owner)[0]
+            poses,_=network.poses(owner,{})
+            baseline=coupled.request_keys(poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
+            return construct_shared_space(original,network,trial,owner,sections,affected,region,buildings,index,
+                                          required,cache,baseline_required=baseline)
+        coupled.construct_module=shared
     report=coupled.real_case(root,recipe['place'],recipe['module'],args.pair,recipe['setback_m'],args.output,
         sections,make_cuts=replay_cuts(recipe,coupled.setback_network),required_extra=retained)
     after={(p['module'],tuple(map(tuple,p['request']))) for p in report['proofs']}
@@ -67,6 +81,7 @@ def main():
         Path('test/experiments/transport/transport_network_recipes.json').resolve()]
     report.update(measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         elapsed_ms=(time.perf_counter()-started)*1000,prior_requests_retained=sum(map(len,retained.values())),
+        construction_recipe='shared-road-space' if shared_recipe else 'cut-layout',
         implementation_sha256={str(p.relative_to(Path.cwd())):coupled.digest(p) for p in sources},
         shared_cuts_description='Reconstructed source cut stations and declared shared frames; all prior routes re-proved')
     report['input_sha256'][str(args.recipe.resolve().relative_to(root.resolve()))]=coupled.digest(args.recipe)

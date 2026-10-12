@@ -64,6 +64,8 @@ Dies sind Python-Prüfkosten, keine Runtime-Ladezeiten. Bilder: build/shots/expe
    nur quellbezogen verschieben. [Wendeplätze](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py)
    lösen betroffene Nachbarn; [Randschnitt-Rezepte](../test/experiments/transport/probes/roadbeds/replay_cut_product_probe.py)
    rekonstruieren Quellstationen und deklarierte Rahmen, beweisen sämtliche alten Fahrten frisch.
+   Gemeinsamen Raum einmal nachlösen: Originalverbindungen sofort erhalten, frühere Zusatzfahrten
+   vor Veröffentlichung vollständig prüfen; Aufweitung bleibt an der ursprünglichen Fläche begrenzt.
 6. Vor Triangulation kanonisch normalisieren. [Konforme Kanten](../test/experiments/transport/transport_conforming_triangles.py)
    teilen an vorhandenen Vertices. Rundungsreste höchstens 64·eps·max(1,|Koordinate|) m; echte Risse erhalten.
    Neu abgetrennte Resttaschen nur unreserviert, ≤1 m² und ohne 1 m Innenbreite schließen/bilanzieren;
