@@ -88,6 +88,12 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    [Geometriediagnose](../test/experiments/infrastructure/probes/roadbeds/fit_geometry_diagnostic.py) trennt echte
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
+   [Lenkpfad → Mesh](../test/experiments/infrastructure/probes/roadbeds/steering_roadbed_product_probe.py):
+   Wien 1480 gewinnt 4→1 bei unveränderten Grenzen und erhält alle acht bisherigen Fahrten.
+   33 statt 17 Kollisionsstationen finden die C2-Kurve im gleichen 1024-Aufrufe-Budget.
+   Grundrisse einzeln samt Quellen/Tags schneiden; kleine/schmale Reststücke nach bestehendem
+   25-m²-/3-m-Rezept verwerfen. Zusätzlichen Schnitt vom bereits überlappenden Quellplan trennen;
+   der gekoppelte Modulbeleg ersetzt noch nicht die Prüfung der drei vollständigen Fenster.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
 3. Kosten pro Modul/Verbindung, Speicher und Skalierung vergleichen; nachgewiesen unnötige Sucharbeit beseitigen.

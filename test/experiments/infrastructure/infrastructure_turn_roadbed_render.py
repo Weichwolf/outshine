@@ -22,6 +22,7 @@ def render(report,path,bounds=None,pair=None):
     assert digest(Path(report['physical_mesh']))==report['physical_mesh_sha256']
     before=shapely.from_wkb(bytes.fromhex(report['original_surface_wkb']))
     shape=shapely.from_wkb(bytes.fromhex(report['physical_shape_wkb']))
+    original_shape=shapely.from_wkb(report['original_physical_shape_wkb']) if 'original_physical_shape_wkb' in report else shape
     planned=shapely.from_wkb(bytes.fromhex(report['planned_surface_wkb']))
     trials=[r for r in report['trials'] if pair is None or (r['entry'],r['exit'])==tuple(pair)]
     if pair is not None and not trials:raise ValueError('requested pair is absent from report')
@@ -42,8 +43,11 @@ def render(report,path,bounds=None,pair=None):
     fig,axes=plt.subplots(1,2,figsize=(12,height),constrained_layout=True)
     for index,ax in enumerate(axes):
         ax.set_facecolor('#f3eee1')
+        if 'buildings' in report:
+            field='original' if index==0 else 'adjusted'
+            plot_geometry(ax,[shapely.from_wkb(row[field]) for row in report['buildings']],'#dfcbb6')
         if index==0:
-            plot_geometry(ax,[shape],'#d3cbbc')
+            plot_geometry(ax,[original_shape],'#d3cbbc')
         else:
             ax.add_collection(PolyCollection(triangles[visible],facecolors='#d3cbbc',
                               edgecolors='#bbb3a8',linewidths=.2))
@@ -88,7 +92,8 @@ def render(report,path,bounds=None,pair=None):
         ax.set_title(f'{"Original" if index==0 else "Constructed physical mesh"}: {count}/{report["connections"]} routes')
     cuts=report.get('shared_cuts_description','Fixed shared cuts')
     if pair is not None:cuts+=f'; displayed route {pair[0]} → {pair[1]}'
-    caption=f'{cuts} · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · buildings/private space unchanged'
+    building_note='source building cuts; unusable remnants omitted; private/nonmotor space kept' if 'buildings' in report else 'buildings/private space unchanged'
+    caption=f'{cuts} · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · {building_note}'
     fig.suptitle(f'{report["place"]} · module {report["module"]} · +{report["added_area_m2"]:.2f} m² roadbed\n'
                  f'{fill(caption,110)}')
     path.parent.mkdir(parents=True,exist_ok=True)
