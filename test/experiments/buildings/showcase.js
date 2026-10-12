@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const integer = value => new Intl.NumberFormat('de-CH').format(value);
+const integer = value => Number.isFinite(value) ? new Intl.NumberFormat('de-CH').format(value) : '—';
 const short = value => (value || 'unbekannt').slice(0, 9);
 const viewNames = {all:'Alle',near:'Gesamtansicht',orbit:'Gegenansicht',window:'Fenster',entrance:'Eingang',overview:'Übersicht',scope:'Scope-Kontrollen',extrusion:'Extrusionskontrollen',plan:'2D-Pläne und Schnitte'};
 const metrics = {triangles:['Mesh · Dreiecke',1,'Dreiecke'],raw_mesh_bytes:['Mesh · MiB',1/1048576,'MiB'],render_seconds:['Bilderzeugung · s',1,'s']};
@@ -131,6 +131,7 @@ async function refresh() {
     const response = await fetch('/manifest.json',{cache:'no-store'});
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const next = await response.json();
+    if (manifest && next.frontend_sha256 !== manifest.frontend_sha256) {location.reload();return;}
     if (!manifest || next.revision !== manifest.revision) {manifest = next;render();}
     $('connection').textContent = '● Live';
   } catch (error) {$('connection').textContent = 'Verbindung unterbrochen';console.error(error);}

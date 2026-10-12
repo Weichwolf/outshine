@@ -95,7 +95,8 @@ def publish(root):
     commit=git('rev-parse','HEAD');branch=git('branch','--show-current')
     ghidra_path=EXPERIMENTS/'esri-ghidra/ghidra-core.json'
     ghidra=json.loads(ghidra_path.read_text()) if ghidra_path.is_file() else None
-    manifest=dict(updated=datetime.now(timezone.utc).isoformat(timespec='seconds'),commit=commit,branch=branch,
+    frontend=hashlib.sha256(b''.join((root/name).read_bytes() for name in ('index.html','showcase.css','showcase.js'))).hexdigest()
+    manifest=dict(updated=datetime.now(timezone.utc).isoformat(timespec='seconds'),commit=commit,branch=branch,frontend_sha256=frontend,
                   pushed=git('rev-parse','origin/'+branch)==commit,working_tree_dirty=bool(git('status','--porcelain')),
                   render_commit=snapshot['commit'] if snapshot else None,pages=PAGES,images=images,
                   completed_recipe_families=snapshot.get('completed_recipe_families',0) if snapshot else 0,

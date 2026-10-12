@@ -19,6 +19,7 @@ Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices: abschließende Aus
 größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
 Stand 2d52b4ea2: vier Flächen-Extrusionsarten mit logischen Polygonen/Höfen, sieben räumliche Kontrollen und sechs metrische Schnitte.
 37 aktuelle Bilder: acht Innenraum-, 22 Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
+Showcase: fehlende Messwerte aus Diagrammen auslassen, fehlende Zahlen kennzeichnen; geänderte HTML/CSS/JS-Dateien automatisch neu laden.
 28 bisherige Renderings sind pixelgleich; beim Scope-Plan ändert sich ausschließlich die Commitbeschriftung.
 Scope/Extrusion/Ghidra/Kamera/Benchmark/Katalog/Render/Docs und korrigierter Launcher terminal 0.
 Die falsche erste Kamera-Pythoninvokation ist separat dokumentiert; der eigentliche Blender-Kameracheck besteht.
