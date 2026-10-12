@@ -102,7 +102,7 @@ Kosten b387226f2: 14 wechselnde Messpaare × 21 Läufe; p50 5,1–9,2 statt 9,5�
 SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/rohe Parts, Repeats und UV-/unitSpace bleiben Lücken.
 `Asset.from_shape`/`Shape.insert`: drei Modi, yUp/zUp und Nullachsen; Scope-Zero 0,1 mm, ausgegebene Mindestabmessung 0,01 mm.
 72 Fälle/Normen/Attribute/Eigentum geprüft; 1.000 Platzierungen p50 53 statt 269–340 ms; Arrays 5,2–5,4 kB statt 5,2–5,4 MB; Vorbereitung/GPU/Frames ausgeschlossen.
-Nächste Verträge: Dateiimport, numericalCleanup, Trim/Materialüberschreibung; gemischte Primitive, Shader-/Textur-/Pointergleichheit,
+Aktiv: OBJ/glTF-Dateiimport mit Standardbibliothek, Szenentransformen, UVs/Normalen/Materialen; numericalCleanup, Trim und Shadergleichheit offen,
 Dachkanten-Selektoren, Straßenbreiten/Trim-Planes, zusätzliche UV-Kanäle, Normalenkollaps/mergeVertices,
 isolierte PRT-g/m/h-/Edge-/Flat-Top-/Vertexnormal-Regeln und genaue nichtplanare SDK-Ausrichtung.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
