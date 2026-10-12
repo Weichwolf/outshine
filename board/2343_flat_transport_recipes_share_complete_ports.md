@@ -88,9 +88,9 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Alle früheren Fahrten im Gesamtfenster erhalten. Nächste Lücken: Wien 1480 zwei Fahrten, 1066 eine Fahrt; Zürich 2134: 60→1369 m.
+   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Alle früheren Fahrten im Gesamtfenster erhalten. Wien 1480: zwei Fahrten offen; 1066 lokal 13/13, Gesamtfenster offen; Zürich 2134: 60→1369 m.
    [Gekoppelte Wendeplätze](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): nur betroffene Nachbarn neu lösen; Quintik-Zufahrten erhalten G2 auch hinter Quellbiegungen. Wien 659: Schnitte 8 m nach außen, +111,7 m², keine Gebäudekonflikte.
-   Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
+   [Versetzter Wendekern](../test/experiments/transport/probes/roadbeds/inset_turning_core_probe.py): 1066 mit 8-m-Zufahrten, +28,8 m² Gesamtbauteil; feste Ports, G2/Radius am Mesh geprüft.
    [Breitere Ports](../test/experiments/transport/transport_court_partition.py) auf festen Schnittebenen verteilen neue Fläche einmal; Bestand/Quellkontakte erhalten.
    Basel 1155: Schnitte 4 m nach außen; Wendefahrten je 36,3 m, +75,3 m² Fahrfläche, 24,6 m² Gebäude-Freiraumanfrage. Volles Basel bestätigt; Buildings-Runtime offen.
    [Portgraph](../test/experiments/transport/transport_route_connectivity.py): schwache/starke Komponenten, gerichtete Alternativen, 64er-DAG-Batches.
