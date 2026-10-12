@@ -30,6 +30,8 @@ TARGETS = {
     '_ZN4util4Mesh17closeHolesInPlaneERKN5boost9container12small_vectorIjLm4EvvEEdRNS1_14dynamic_bitsetImSaImEEEPNS_17EdgeRecomposition16SplitMeshBuilderE': 'close cut boundaries with planar polygons and holes',
     '_ZN4util4Mesh14cutFaceGenericEmRKN5boost9container12small_vectorIjLm4EvvEERKSt6vectorIdSaIdEERNS_16EdgeSplitTrackerERS7_INS0_7PolygonESaISE_EE': 'individual face clipping and source attribute interpolation',
     '_ZN4util6poly2d9AreaSplitERKNS0_12MultiPolygonERKNS_7Vector2IdEERKSt6vectorINS0_16AreaSplitCutSpecESaIS9_EERS8_ISt10unique_ptrIS1_St14default_deleteIS1_EESaISH_EEPNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEE.constprop.0': 'area-target cut positions for polygons with holes',
+    '_ZN12_GLOBAL__N_125transformTo2DMultiPolygonEPK5ShapeN2GC9SplitAxis4EnumERN4util6poly2d12MultiPolygonERNS6_7Vector2IdEERNS6_6MatrixIdEERNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEd.lto_priv.0': '3D source plane and requested axis projected for area subdivision',
+    '_ZN12_GLOBAL__N_112createMeshesERSt6vectorIPN4util4MeshESaIS3_EERKNS1_18GeometryAssetProxyERKNS1_6poly2d12MultiPolygonE': 'area-split polygon boundaries converted back into attributed source meshes',
     '_ZN9Processor7extrudeEd': 'face extrusion',
     '_ZN12_GLOBAL__N_117computeInnerRectsERKSt6vectorISt10shared_ptrIN4util14Polygon2DUtils18Polygon2dWithHolesEESaIS5_EERKS0_ISt4pairIddESaISB_EERS0_INS2_9Polygon2dESaISG_EENS_23InnerRectangleAlgorithmENS_23InnerRectangleAlignModeE.constprop.0': 'inner rectangle dispatch with holes',
     '_ZN4util16LargestRectangle20findLargestRectangleEb': 'largest rectangle search',
