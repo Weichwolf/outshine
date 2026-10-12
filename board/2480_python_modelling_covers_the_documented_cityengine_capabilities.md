@@ -13,14 +13,13 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand a256e35da: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)`, 2D-Teilung sowie offene/geschlossene Schnitte;
+Stand 364b6e2eb: `t/r/s/translate`, Flächen-/Kantenextrusion, `comp(f/e/fe/v/fv/g/m/h)`, 2D-/räumliche Breiten-/Flächenteilung;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK-Inventar, 61 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Bildstand fab8b627a: 30 Bilder (8 innen / 15 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
-Alle Bilder neu und optisch geprüft; Pläne bis 1932×2070. PNG/Profile/Hashes geprüft, Kameras und neun Geometriepakete unverändert.
-Scope/Extrusion/Komponenten/Ghidra/Kamera/2D-/3D-Teilung/Benchmarks/Massierung/60-Teile-Vergleich/Katalog/Render/Docs:
-17 Schritte samt Launcher terminal 0 auf a256e35da. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
+Bildstand 364b6e2eb: 34 Bilder (8 innen / 19 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
+Vier neue Flächenteilungsbilder optisch geprüft; PNG/Profile/Hashes stimmen. 27 Bilder pixelgleich, drei Pläne ändern nur den Commit-Fußtext.
+20 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 364b6e2eb; Native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
 
 ## Gemeinsame Verträge
 - Direkte ausführbare Python-Rezepte und gemeinsame Geometriefunktionen, keine JSON-Regelschicht.
@@ -96,10 +95,11 @@ Offene Kantenkomponenten erzeugen keine Caps; neun ungültige/unsupported Eingab
 Messung a256e35da: vier Körper p50 26,9–76,8 statt 46,4–147,0 ms; 60 Vorgängerteile in allen Daten exakt gleich.
 Offene Teilungen p50 5,1–8,8 ms; sechs Plan-/Achsenfälle und Fassadenachsen geprüft. Finale Ausgabe/Frames/GPU ausgeschlossen.
 
-## Offen und nächster Block
-Aktiver Ausbau: `Shape.split_area` mit logischer Normalenprüfung, wirklicher Dreiecksfläche und gemeinsamen attributerhaltenden Schnitten.
-30 Quell-/Achsen-/Framefälle, nichtaffine UVs, verwundene und ungleich große Flächen prüfen; analytic/bisect bei gleichem Vertrag messen.
-Verschachtelte Repeats, UV-/unitSpace, gemischte Primitive/rohe Part-Provenienz und isolierte PRT-Regeln fehlen; Scope/LOD-Gates bleiben offen.
+## Flächenteilung und nächster Block
+`Shape.split_area`: logische Normalen mitteln, orientierte 30°-Achsenwache; wirkliche Dreiecksflächen ohne Abflachen oder Caps teilen.
+30 Quell-/Achsen-/Framefälle, 102 nichtaffine UV-/Normalenecken, verwundene/ungleich große Flächen und acht ungültige Eingaben geprüft.
+Kosten b387226f2: 14 wechselnde Messpaare × 21 Läufe; p50 5,1–9,2 statt 9,5–14,0 ms, alle Fälle schneller; Flächenfehler ≤1,8e−12 m².
+SDK-Projektion/UV-Gleichheit und Normalengewichte offen; nächste Lücken: gemischte Primitive/rohe Parts, verschachtelte Repeats und UV-/unitSpace.
 Danach verbleibende dokumentierte Operationen/Funktionen/Attribute: Instanzen/Insert, Ausdrücke/Regelfunktionen,
 Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.
 Offen im bestehenden Kern: gemischte Primitivgruppen/-extrusion, Shaderdefaults/Texture-/Objektpointergleichheit,
