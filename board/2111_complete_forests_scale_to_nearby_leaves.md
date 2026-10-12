@@ -63,8 +63,8 @@ sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswa
 `showcase.py --start` und `showcase_server.py` unter `test/experiments/vegetation/`: Port 8765.
 LOD-Unterseiten 0–4: aktuelle Produkte, Altbilder entfernen; Frontend per Inhalt versioniert, Laden manuell.
 `landscapes.json`: Laubwald, borealer Nadelwald und Savanne als feste Bildszenarien mit geteilten Meshes.
-Stabile Standorte/Katalogmaße; derzeit breite Hüllen bzw. Kegelproxies, noch keine vollständigen Wälder.
-Nächster Bildauftrag: Laubwald mit vollständigen unbeleuchteten Baumansichten aus dem vorhandenen
+Stabile Standorte/Katalogmaße; Laubwald mit vollständigen Baumansichten, Nadelwald/Savanne als Formproxies.
+Laubwaldprobe: vollständige unbeleuchtete Baumansichten aus dem vorhandenen
 Holz-/Blattgruppenprodukt. Feste Standorte, gleiche Kamera/Licht, getrennte Sonnen-/Kameraauswahl.
 Alpha, Holz-/Laubmaterial und Normalen gemeinsam filtern; Cachehit ohne Blattplatzierung/-Meshing.
 Direkter kalter Fernaufbau aus dem Rezept, bewegte Übergänge und Wald-/Wind-/GPU-Gates bleiben offen.

@@ -114,6 +114,7 @@ Tiefenrepräsentationen liefern Parallaxe; eigene Einmoment-Probe ist kein volls
 410 unveränderte Standorte: Kamera/Sonne getrennt, 52.480 Dreiecke je Rolle. Ein affiner Laubbaumprototyp;
 Katalogmaße bleiben erhalten, artspezifische Organe/Architektur sind damit nicht rekonstruiert.
 `forest_cache_experiment.py`: 64 Stammfuß-Schnittpunkte und Kamera-/Sonnenauswahl unabhängig geprüft;
-Rezeptidentität erhalten, umgeordnete Anfragen gleich, Blattplatzierung/-Meshing beim Treffer gesperrt.
+Rezeptidentität erhalten, Anfragen gleich, Blattplatzierung/-Meshing beim Treffer gesperrt.
+Gefroren: Aufbau 36,9 s/520,5 MiB Peak; frischer Decode 137 ms/94,1 MiB Peak; 410 CPU-Auswahlen p99 0,170 ms.
 Optisch betrachteter Reliefwald vermindert große flache Schattenflecken; Material-/Normalen-/Übergangsgates offen.
 Kalter grober Aufbau allein aus dem Rezept und vollständige Fernwaldaggregation bleiben offen.

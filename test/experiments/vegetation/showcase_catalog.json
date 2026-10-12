@@ -3,12 +3,12 @@
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Erzeugung, organische Gabeln, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
-      "image": "render-draft/landscape-temperate-depth.png",
+      "image": "render/landscape-temperate-depth.png",
       "title": "Gemäßigter Laubwald · Baumansichten mit Tiefenrelief",
       "label": "Landschaft",
       "category": "landscape",
       "description": "410 unveränderte Standorte. Ein gemeinsamer Laubbaum-Prototyp aus dem vollständigen Blattgruppen-Cache wird auf die Katalogmaße skaliert. Je Baum wählen Kamera und Sonne unabhängig eine von 64 Ansichten mit 128 Dreiecken. Farben, Normalen und Blattanteil bleiben unbeleuchtet gespeichert.",
-      "quality": "Aktueller Versuchsstand · artspezifische Organe, Schattenartefakte und Übergänge offen",
+      "quality": "Geprüfte Verfahrensprobe · artspezifische Organe, Schattenartefakte und Übergänge offen",
       "lod": "lod-3"
     },
     {
@@ -75,7 +75,7 @@
       "lod": "lod-0"
     },
     {
-      "image": "render-draft/genus-betula-near.png",
+      "image": "render/genus-betula-near.png",
       "title": "Birke · Betula",
       "label": "Betula pendula",
       "category": "organs",

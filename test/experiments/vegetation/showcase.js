@@ -27,7 +27,7 @@ function renderGallery() {
   $('images-section').hidden = !activeLod;
   $('gallery-title').textContent = activeLod?.title ?? 'Aktueller Bildstand';
   const entries = manifest.renders.map((entry, index) => ({entry, index})).filter(({entry}) => entry.lod === activeLod?.id);
-  const genera = manifest.genera.map(genus => {
+  const genera = (manifest.genera ?? []).map(genus => {
     const products = entries.filter(({entry}) => entry.genus === genus.id);
     const images = products.length ? products.map(({entry, index}) => card(entry, index, 'renders')).join('') : '<p class="missing">Noch kein geprüftes Gattungsprodukt in dieser Detailstufe.</p>';
     const reference = genus.reference ? `<p class="species"><a href="${escaped(genus.reference.url)}" target="_blank" rel="noreferrer">Botanische Referenz · ${escaped(genus.reference.scope)}</a><br>${escaped(genus.reference.review)}</p>` : '';
