@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -8,6 +8,9 @@ Area: generators
 Tags: buildings, recipes, roofs, facades, variety
 
 # Distinct architecture recipes produce a visible building catalogue
+
+Nutzerreihenfolge: erst vollständiger Python-Modellierkern in [2480](2480_python_modelling_covers_the_documented_cityengine_capabilities.md), dann moderne/zeitgenössische Rezepte für alle lieferbaren OSM-Klassifizierungen und gültigen Kombinationen. Rezepte als gemeinsame ausführbare Python-Funktionen.
+Bildreferenzen: [Modern architecture](https://en.wikipedia.org/wiki/Modern_architecture) und [Contemporary architecture](https://en.wikipedia.org/wiki/Contemporary_architecture); daraus Baukörper-/Fassaden-/Material-/Raumprogramme ableiten, Quellform/-höhe erhalten.
 
 ## Ergebnis und fehlender Vertrag
 Besitzer: Gebäudeagent/Python; 2173 liefert Quelle/Nutzung, 2420 konstruktive Raum-/Öffnungspläne.

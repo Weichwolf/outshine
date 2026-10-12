@@ -74,8 +74,12 @@ def current_images(root):
     for name in snapshot['reports']:
         if Path(name).name!=name or not name.endswith('-report.json'):
             raise ValueError('Snapshot contains a report outside its output directory')
-        images.append(image_record(folder/name,root))
-    return images,snapshot['commit']
+        record=image_record(folder/name,root)
+        if record.get('commit')!=snapshot['commit']:
+            record.pop('image',None)
+            record.update(status='incomplete',error='Bildreport stammt aus einem anderen Snapshot.')
+        images.append(record)
+    return images,snapshot
 
 
 def publish(root):
@@ -87,14 +91,16 @@ def publish(root):
         atomic_write(directory/'index.html',template)
     for name in ('showcase.css','showcase.js'):
         atomic_write(root/name,Path(__file__).with_name(name).read_bytes())
-    images,render_commit=current_images(root)
+    images,snapshot=current_images(root)
     commit=git('rev-parse','HEAD');branch=git('branch','--show-current')
     ghidra_path=EXPERIMENTS/'esri-ghidra/ghidra-core.json'
     ghidra=json.loads(ghidra_path.read_text()) if ghidra_path.is_file() else None
     manifest=dict(updated=datetime.now(timezone.utc).isoformat(timespec='seconds'),commit=commit,branch=branch,
                   pushed=git('rev-parse','origin/'+branch)==commit,working_tree_dirty=bool(git('status','--porcelain')),
-                  render_commit=render_commit,pages=PAGES,images=images,completed_recipe_families=0,
-                  progress='Aktuelle konstruktive Prüfgebäude mit Räumen, Geschossen, Treppen und Öffnungen. '
+                  render_commit=snapshot['commit'] if snapshot else None,pages=PAGES,images=images,
+                  completed_recipe_families=snapshot.get('completed_recipe_families',0) if snapshot else 0,
+                  progress='Zuerst der vollständige Python-Modellierkern nach CityEngine, danach moderne/zeitgenössische Architekturrezepte für alle OSM-Klassen und gültigen Kombinationen. '
+                           'Aktuell bestehen konstruktive Prüfgebäude mit Räumen, Geschossen, Treppen und Öffnungen. '
                            'Die Stadtumgebung besteht überwiegend aus einfachen Quellkörpern.',
                   lod_note='Die vier Bereiche sind Ansichtsebenen. Gemessene LOD-Grenzen und native Echtzeitabnahme stehen noch aus.',
                   ghidra=dict(functions=len(ghidra['selected_functions']),sdk=ghidra['sdk_version'],

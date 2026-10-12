@@ -10,16 +10,15 @@ Tags: buildings, roofs, facades, semantics, interiors
 # Buildings become functional architecture with coherent interiors
 
 ## Ergebnis und Ist
-Ziel: Esri-CityEngine-Qualität/-Vielfalt in Python, konstruktiv ebenso gründlich wie das Straßennetz. Auftrag bleibt offen.
+Ziel: zuerst alle prozeduralen CityEngine-Fähigkeiten in Python, danach moderne/zeitgenössische Rezepte für alle OSM-Klassen und gültigen Kombinationen. Auftrag bleibt offen.
 Jedes Gebäude wird begehbar: funktionaler Zugang, Räume/Geschosse/Wege; räumlicher Hintergrund hinter Fenstern und kohärentes Nachtlicht.
-Zuerst 2D-Grundriss/Fassade/Schnitt, danach 2.5D-Prüfansichten derselben 3D-Geometrie; Licht-/Materialbilder folgen.
 Native Höhenintervalle, Footprints, BuildingMesh, Quellfarben und Terrain-Stempel bestehen.
 Gelieferte Form/Attribute bestimmen die Geometrie. Frühere Bauhaus-/PV-/Balkonversuche sind keine Gestaltungsvorgabe.
 16 Providerlayer/137 POI-Klassen/476 Unterklassen; 3.411 Zuordnungen zu wenigen Fassadenmustern. Architektur/Begehbarkeit/Innenräume fehlen.
 
 ## Getrennte Arbeitsblöcke
 Alle WIs gehören zu 2169; 2173 besitzt Quelle/Form und den Gebäude-Gesamtvertrag.
-[2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md): vorrangig Ghidra/Esri und ausführbare Referenzen.
+[2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md): vorrangig Ghidra/Esri und ausführbare Referenzen; [2480](2480_python_modelling_covers_the_documented_cityengine_capabilities.md): vollständiger eigener Python-Modellierkern zuerst.
 [2420](2420_building_plans_connect_access_rooms_and_vertical_circulation.md): funktionale Raum-/Zugangspläne, 2D → 2.5D.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md): konstruktive Architekturrezepte und belegte Vielfalt.
 [2460](2460_building_lods_preserve_interiors_night_light_and_cached_plans.md): Innenraum-LOD, Nachtlicht, Cache/Kosten.
@@ -48,6 +47,7 @@ Verkehr/Wasser/Aeroway bis 12 m Umgebung; Bridge/Tunnel/Ebenen/Zugang begrenzen 
 [Showcase](../test/experiments/buildings/showcase.py): Server/HTML/CSS/JS eingecheckt; `.venv/bin/python test/experiments/buildings/showcase.py --publish --serve`, Port 8766, Webroot `build/experiments/buildings/showcase/site/`.
 Vier Unterseiten: Innenräume, einzelne Gebäude, Gebäudegruppen, Städte; Ansichtsebenen, keine behaupteten nativen LOD-Grenzen. Nur `current-showcase/snapshot.json` veröffentlichen; überholte öffentliche PNGs entfernen, Referenzen/Orakel erhalten.
 `showcase_snapshot.py` rendert aktuelle gespeicherte Prüfgebäude plus echte Provider-Nachbarn; einfache Quellkörper ausdrücklich zählen. PNG/Report-Hash/Profil/sauberer Commit prüfen; fehlende Bilder sichtbar ausweisen.
+Aktueller Bildstand `278d9169d`: 23 neue 1280×720-Workbench-Ansichten (8 innen / 8 einzeln / 4 Gruppen / 3 Städte), 13.955 OSM-Körper; vollständige Rezeptfamilien weiterhin null. Kamera/Rendering/Docs terminal erfolgreich.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. Esri/PRT/Ghidra zuerst; [VisusCity](https://visusarts.itch.io/visuscity-vol2) ergänzt den Esri-Bildmaßstab.
 
 ## Besitzer und Lieferung
