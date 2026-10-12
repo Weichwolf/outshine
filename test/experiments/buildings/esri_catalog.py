@@ -50,7 +50,7 @@ OWN_ATTRIBUTES={'comp':dict(module='modelling_shape.CompInfo',status='per-select
                 'split':dict(module='modelling_split.SplitInfo',status='global index/total, pattern label, interval, source face ownership and coplanar omissions; inherited by scope, comp and extrude',pending=['nested pattern and UV-space metadata'])}
 OWN.update({operation:dict(module='modelling_shape.Shape.'+method,
     status='immutable surface UV channels 0-9; native streams and logical face/hole corners; analytic values and Workbench texture bindings',
-    pending=['isolated PRT UV rules','mixed wire/surface normalization','full shader and projection integration'])
+    pending=['isolated PRT UV rules','wire and point UV editing','full shader and projection integration'])
     for operation,method in [('scaleUV','scale_uv'),('rotateUV','rotate_uv'),('translateUV','translate_uv'),
                              ('copyUV','copy_uv'),('deleteUV','delete_uv'),('normalizeUV','normalize_uv')]})
 OWN_FUNCTIONS={'geometry':dict(module='modelling_shape.Shape.group_names/material_names',status='group/material name queries implemented in component index order without vertex emission; remaining geometry functions pending',

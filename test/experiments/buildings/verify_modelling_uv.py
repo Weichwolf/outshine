@@ -82,6 +82,10 @@ def invalid_cases(source):
     assert result is degenerate and len(rows)==1
     separate=degenerate.normalize_uv(0,'uv','separatePerFace');unchanged(degenerate,separate)
     near(separate.emit()['uv'][separate.emit()['faces']],degenerate.emit()['uv'][degenerate.emit()['faces']])
+    wire=source.comp('e')[0]
+    try:wire.scale_uv(0,2.,2.)
+    except NotImplementedError:pass
+    else:raise AssertionError('Unsupported wire UV edit was silently accepted')
     return len(calls)
 
 

@@ -18,6 +18,10 @@ def channel(value):
 def name(index):return 'uv' if index==0 else 'uv'+str(index)
 
 
+def surface(shape):
+    if shape.geometry.edges or shape.geometry.points:raise NotImplementedError('Wire and point UV edits remain pending')
+
+
 def corner_values(face,index,stream):
     values=face.uvs if index==0 else dict(face.uv_sets).get(index,())
     if values:return values
@@ -44,7 +48,7 @@ def changed(shape,index,stream,faces):
 
 
 def affine(shape,index,matrix,offset):
-    index=channel(index);stream=shape.geometry.fields.get(name(index))
+    index=channel(index);surface(shape);stream=shape.geometry.fields.get(name(index))
     if stream is None:return shape
     result=stream@matrix.T+offset
     faces=[face_channel(face,index,tuple(tuple(tuple(pair) for pair in np.asarray(row)@matrix.T+offset)
@@ -71,6 +75,7 @@ def rotate_uv(shape,index,angle):
 
 
 def copy_uv(shape,source,destination):
+    surface(shape)
     source,destination=channel(source),channel(destination)
     if source==destination:return shape
     stream=shape.geometry.fields.get(name(source))
@@ -79,10 +84,13 @@ def copy_uv(shape,source,destination):
 
 
 def delete_uv(shape,index):
-    index=channel(index)
+    index=channel(index);surface(shape)
     if name(index) not in shape.geometry.fields:return shape
     return changed(shape,index,None,[face_channel(face,index,()) for face in shape.geometry.polygons])
 
 
 def inherit_primary(result,source):
-    return result if 'uv' in source.geometry.fields else delete_uv(result,0)
+    geometry=source.geometry
+    authored=('uv' in geometry.fields or any(face.uvs for face in geometry.polygons)
+              or any(edge.uvs for edge in geometry.edges) or any(point.uvs for point in geometry.points))
+    return result if authored or result.geometry.edges or result.geometry.points else delete_uv(result,0)
