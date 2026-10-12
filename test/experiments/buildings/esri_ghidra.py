@@ -17,6 +17,14 @@ from evidence import revision
 CORE = Path('/home/cosmo/Downloads/esri_ce_sdk-3.4.12206/bin/libcom.esri.prt.core.so')
 HEADLESS = Path('/snap/bin/ghidra.analyzeHeadless')
 TARGETS = {
+    '_ZN9Processor5colorERKSt10shared_ptrINSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEE': 'CGA hex color parsing and material dispatch',
+    '_ZN9Processor5colorEddd': 'CGA RGB color clamping and material storage',
+    '_ZN9Processor5colorEdddd': 'CGA RGBA color clamping and opacity storage',
+    '_ZN9Processor13resetMaterialEv': 'default shape material reset',
+    '_ZN9Processor13resetMaterialEN2GC22MaterialTargetSelector4EnumE': 'shape versus geometry material reset',
+    '_ZN9Processor11getMaterialB5cxx11EN2GC16MaterialSelector4EnumENS0_12MaterialMode4EnumE': 'shape, geometry and combined material query',
+    '_ZN12MaterialImpl8metallicEd': 'PBR metallic factor storage',
+    '_ZN12MaterialImpl9roughnessEd': 'PBR roughness factor storage',
     '_ZN9Processor7scaleUVEddd': 'UV channel scaling dispatch',
     '_ZN9Processor8rotateUVEdd': 'UV channel origin rotation dispatch',
     '_ZN9Processor11translateUVEddd': 'UV channel translation dispatch',

@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -27,7 +27,7 @@ Beide korrigierten Wiener Kontrollläufe überschreiten 600 s; Fill-Schattenabsc
 [`opening_inspection.py`](../test/experiments/buildings/opening_inspection.py): perspektivische Workbench-Fenster-/Eingangskontrollen aus denselben Cacheplänen.
 Glaspaneele ausschließlich für die Raum-/Öffnungskontrolle ausblenden; gespeichertes Vollmesh samt Quelle/IDs unverändert.
 Workbench ersetzt weder Esri-Taglichtvergleich noch Render-LOD; Material-/Glas-/Nachtabnahme bleibt offen.
-Nächster begrenzter Vergleich: vorhandene Raum-/Öffnungsmeshes mit Mitsuba 3 LLVM/RGB auf CPU, gleiche Kameras/1920×1080.
+Aktiver begrenzter Vergleich: vorhandene Raum-/Öffnungsmeshes mit Mitsuba 3 LLVM/RGB auf CPU, gleiche Kameras/1920×1080.
 [Primärdokumentation](https://github.com/mitsuba-renderer/mitsuba3), [SIGGRAPH Asia 2019](https://rgl.epfl.ch/publications/NimierDavidVicini2019Mitsuba2): Renderer-Vektorisierung; Seiten 1/2 optisch geprüft.
 [Quellenbeleg](../doc/references/buildings/siggraph/2019-mitsuba2-retargetable-forward-inverse-renderer.reference.json): PDF lokal, Zitat/Link/Hash versioniert. Kosten/Bild/Materialabbildung noch ungemessen; kein Runtime-Rendererwechsel.
 

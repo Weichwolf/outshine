@@ -105,7 +105,7 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
 UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
-Fünf Grundrisse/21 Messpaare: komponiert p50 0,075–0,210 statt 0,231–0,662 ms; gleiche UVs/Geometrie, keine Frames. Aktiv: Material/Projektion und physische Innenraumbilder; PRT-Orakel/Extra-Geometriebearbeitung offen.
+Fünf Grundrisse/21 Messpaare: komponiert p50 0,075–0,210 statt 0,231–0,662 ms; gleiche UVs/Geometrie, keine Frames. Aktiv: Shape-/Geometriematerial, sRGB/Farb-/Resetfunktionen und Mitsuba-CPU-Innenraumbilder; Projektion/PRT-Orakel/Extra-Geometriebearbeitung offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
