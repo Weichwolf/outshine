@@ -14,15 +14,15 @@ Nutzerauftrag: zuerst die prozeduralen CityEngine-Modellierfähigkeiten vollstä
 danach moderne/zeitgenössische Architekturrezepte bis zur vollständigen OSM-Klassifikations-/Kombinationsabdeckung ausbauen.
 Einzelne konstruktive Python-Verfahren bestehen; ein allgemeiner vollständiger Modellierkern fehlt.
 Stand c3dc4f1c7: vier Scope-Operationen in dokumentierten Formen, neun Kontrollgruppen und zwei PRT-Translationen;
-fünf räumliche Kontrollen plus metrischer Grundriss im aktuellen Showcase. Keine neue Architektur-Rezeptfamilie.
+fünf räumliche Kontrollen plus metrischer Grundriss als interne Referenzen. Keine neue Architektur-Rezeptfamilie.
 Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
 größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
-Stand 2d52b4ea2: vier Flächen-Extrusionsarten mit logischen Polygonen/Höfen, sieben räumliche Kontrollen und sechs metrische Schnitte.
-37 aktuelle Bilder: acht Innenraum-, 22 Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
+Stand 73346b5f6: vier Flächen-Extrusionsarten und `comp(f)` mit Auswahl, Ausschluss, Verbindung und ausgerichteten Scopes.
+31 aktuelle Bilder: acht Innenraum-, 16 Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
 Showcase: fehlende Messwerte aus Diagrammen auslassen, fehlende Zahlen kennzeichnen; geänderte HTML/CSS/JS-Dateien automatisch neu laden.
-28 bisherige Renderings sind pixelgleich; beim Scope-Plan ändert sich ausschließlich die Commitbeschriftung.
-Scope/Extrusion/Ghidra/Kamera/Benchmark/Katalog/Render/Docs und korrigierter Launcher terminal 0.
-Die falsche erste Kamera-Pythoninvokation ist separat dokumentiert; der eigentliche Blender-Kameracheck besteht.
+23 Gebäude-/Innenraum-/Gruppen-/Stadtbilder sind pixelgleich; sieben neue Komponentenbilder plus metrischer Flächenscope-Plan optisch geprüft.
+Scope/Extrusion/Komponenten/Ghidra/Kamera/Benchmark/Katalog/Render/Docs sowie Launcher terminal 0 auf 73346b5f6.
+Der erste Komponentenexport ohne Bauteil-IDs scheiterte am Blender-Import; der ergänzte Prüfmesh und vollständige Wiederholung bestehen.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
 44 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
@@ -61,14 +61,15 @@ Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenomme
 Aktiver Ausbau: `comp(f)` mit richtungs-/neigungs-/tag-/randbezogener Auswahl, Ausschluss bereits gewählter Flächen,
 Einzel-/Gesamt-/Verbindungsoperatoren sowie passenden Pivot-/Scope-Achsen und `comp.sel/index/total`.
 Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
-Lokale Entwicklung: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
+Eingefrorene Kontrolle 73346b5f6: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
 Richtung/Neigungsgrenzen, nichtaffine UVs/authorierte Normalen und drei reale PRT-Prismen nach vollständiger Komponentenzerlegung geprüft.
 `CompInfo` bleibt bei Scope-Operationen/Extrusion erhalten; erneute Extrusion ersetzt eigene frühere Auto-Tags und behält Nutzer-Tags.
 PRT-Prismen belegen Geometrie-Roundtrip, kein isoliertes CGA-Comp-Selektions-/Pivotorakel; Straßenbreiten/Trim-Planes bleiben offen.
 Verwundene Vertexnormal-Dachkappen erhalten native Geometrie/UVs und messbare Scope-Dicke; deren exakte SDK-Pivotausrichtung bleibt ungeprüft.
-Kostenentwicklung: dieselben sechs bis 14 Komponenten aus vorhandenen Dreiecken gegen GEOS-Neuaufbau, 21 warme Läufe.
-Native Dreiecke/UVs/Tags/Materialien und Scope-Matrizen stimmen überein; bisher p50 3,13–8,49 statt 6,30–17,61 ms.
-Showcase zeigt im nächsten Snapshot die aktuellen Komponenten-Kontrollen; frühere Scope-/Extrusionsbilder bleiben interne Referenzen.
+Kosten 73346b5f6: dieselben sechs bis 14 Komponenten aus vorhandenen Dreiecken gegen GEOS-Neuaufbau, 21 warme Läufe, zwei OpenBLAS-Threads.
+Native Dreiecke/UVs/Tags/Materialien und Scope-Matrizen stimmen überein; p50 3,14–7,28 statt 6,40–15,88 ms, etwa 2,0–2,2× schneller.
+Messung enthält Quellflächen/Auswahl/Adjazenz/Scopes/Payloads, keine abschließende Vertexausgabe, nativen Frames oder GPU-Zeit.
+Showcase zeigt die aktuellen Komponenten-Kontrollen; frühere Scope-/Extrusionsbilder bleiben interne Referenzen.
 Logische Polygonflächen bleiben neben der nativen Triangulierung erhalten; GEOS/CDT nutzen, keine Polygontriangulierung neu erfinden.
 `modelling_faces`/`modelling_extrude`: eigene immutable Polygonringe/Corner-UVs neben Triangle-Assets; vier Flächen-Extrusionsarten.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen, negative Distanz behält negatives Scope-Y.
