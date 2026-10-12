@@ -74,6 +74,7 @@ async function load() {
     if (data.project !== 'outshine-vegetation') throw new Error('Ungültiger Showcase-Stand');
     if (manifest?.revision !== data.revision) render(data);
   } catch (error) {
+    manifest = null;
     $('error').textContent = `Stand konnte nicht geladen werden: ${error.message}`;
     $('error').hidden = false;
   } finally {

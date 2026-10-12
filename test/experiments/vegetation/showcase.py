@@ -467,6 +467,7 @@ def publish(output):
         "reference": reference_entry(output),
         "renders": [render_entry(entry, output) for entry in catalog["renders"]],
         "plots": plots,
+        "metrics": [],
     }
     tracking = subprocess.run(
         ["git", "rev-parse", f"refs/remotes/origin/{payload['branch']}"],
@@ -486,15 +487,17 @@ def publish(output):
     payload["revision"] = hashlib.sha256(
         json.dumps(payload, sort_keys=True).encode()
     ).hexdigest()
-    for name in ("showcase.css", "showcase.js", "showcase.html"):
-        atomic_text(
-            output / ("index.html" if name == "showcase.html" else name),
-            (HERE / name).read_text(encoding="utf-8"),
-        )
+    html = (HERE / "showcase.html").read_text(encoding="utf-8")
+    for name in ("showcase.css", "showcase.js"):
+        content = (HERE / name).read_text(encoding="utf-8")
+        digest = hashlib.sha256(content.encode()).hexdigest()[:16]
+        html = html.replace(f'/{name}"', f'/{name}?v={digest}"')
+        atomic_text(output / name, content)
+    atomic_text(output / "index.html", html)
     for lod in catalog["lods"]:
         page = output / lod["id"]
         page.mkdir(exist_ok=True)
-        atomic_text(page / "index.html", (HERE / "showcase.html").read_text())
+        atomic_text(page / "index.html", html)
     atomic_text(
         output / "status.json", json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
     )

@@ -64,7 +64,7 @@ sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswa
 2347 besitzt Kartengruppen, vollständige Ansichten-Atlanten und Deckungs-/Kostenvergleich desselben Plans.
 2348 besitzt die priorisierte Ghidra-Analyse der SpeedTree-Verfahren; Papers ergänzen den Vergleich.
 `showcase.py --start` und `showcase_server.py` unter `test/experiments/vegetation/`: Port 8765.
-LOD-Unterseiten 0–4: nur aktuelle Bilder/Plots; fehlende Produkte explizit, Laden manuell; Altbilder entfernen.
+LOD-Unterseiten 0–4: aktuelle Produkte, Altbilder entfernen; Frontend per Inhalt versioniert, Laden manuell.
 `landscapes.json`: Laubwald, borealer Nadelwald und Savanne als feste Bildszenarien mit geteilten Meshes.
 Stabile Standorte/Katalogmaße, breite Hüllen bzw. Kegelproxies; Laub/Nadeln/Gras und Wald-LOD bleiben offen.
 

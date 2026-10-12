@@ -10,8 +10,18 @@ class ShowcaseHandler(SimpleHTTPRequestHandler):
     def list_directory(self, path):
         self.send_error(404, "Showcase page not found")
 
+    def send_head(self):
+        if not self.path.startswith("/images/"):
+            for key in ("If-Modified-Since", "If-None-Match"):
+                if key in self.headers:
+                    del self.headers[key]
+        return super().send_head()
+
     def end_headers(self):
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header(
+            "Cache-Control",
+            "no-cache" if self.path.startswith("/images/") else "no-store",
+        )
         super().end_headers()
 
 
