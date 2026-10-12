@@ -14,12 +14,12 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4778/4808 (4916152a9). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 30 Fahrten offen.
+Zürich 4779/4808 (2ccdf237b). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 29 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 73,5 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
-Zürich: 51,9 s Kurvensuche, davon 39,0 s erfolglos; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
+Wien 10,1 s, Basel 16,5 s, Zürich 71,4 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Zürich: 49,8 s Kurvensuche, davon 37,0 s erfolglos; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
 ## Verbindlicher Bauteil- und Verkehrsvertrag
@@ -78,8 +78,9 @@ Bilder: build/shots/experiments/transport/.
 ## Nächste Lieferung und Abnahme
 Zürich 2260 mit Gesamtfenster 16/16: gemeinsame Schnitte 4 m nach außen, +0,21 m² Fläche.
 1316 im Gesamtfenster 29/29: zwei Wendeprofile mit öffentlichen Fußwegübergängen, +8,86 m² Fläche.
-Fußweggeometrie erhalten. 1555: asymmetrische Ansätze integrieren, lokale Prüfung besteht bei 4/32 m;
-61,4 m Fahrt statt 932,9 m Umweg, +4,48 m² Fahrfläche. Gesamtfenster/Nachbarn noch prüfen. Danach verbleibende
+1555 im Gesamtfenster 5/5: asymmetrische Ansätze 4/32 m, 61,4 m Fahrt statt 932,9 m Umweg;
+physisch +2,88 m² Fläche. Alle 14 früheren Produkte und 24 Zusatzfahrten erhalten. Fußweggeometrie erhalten.
+Als Nächstes 1433/1758; verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
 [Fensterprüfung](../test/experiments/transport/transport_roadbed_window_experiment.py) erhält sämtliche bisherigen Fahrten;
