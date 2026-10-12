@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 30 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes und Materialpfade.
+Ghidra 12.1.2: 33 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Translation/-Rotation.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
@@ -39,6 +39,7 @@ Referenzierte UTF-32-Konstanten `blend`/`mask`/`opaque` gegen SDK-Dokumentation 
 11/63/1964 begrenzte Instruktionen, keine indirekten Stellen; Mode/Combine haben 12/4 außerhalb liegende Decompilerblöcke.
 
 ## Umsetzung
+- Aktueller Kernvertrag (2480): Welt-/Flat-Top-/Vertexnormal-Extrusion, neue Scope-Aufwärtsachse, Normengewichtung und Seiten-UV-Vererbung anhand vier weiterer Ghidra-Ziele vertiefen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.

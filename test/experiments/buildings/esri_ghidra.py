@@ -50,6 +50,10 @@ TARGETS = {
     '_ZN9Processor1tEN2GC5Scale4EnumEdS2_dS2_d': 'translation along current scope axes',
     '_ZN9Processor1rEddd': 'Euler-angle scope rotation dispatch',
     '_ZN9Processor1rEN2GC14CenterSelector4EnumEddd': 'scope-origin and scope-centre rotation dispatch',
+    '_ZN9Processor7extrudeEN2GC9AxisWorld4EnumEd': 'world-up, flat-top and vertex-normal extrusion dispatch',
+    '_ZNK5Shape29calculateScopeRotationForNewYERKN4util7Vector3IdEERS2_PNS0_6MatrixIdEE': 'extrusion scope orientation for a new up direction',
+    '_ZN12_GLOBAL__N_120setSideFaceTexCoordsERKN4util4Mesh7PolygonERS2_m.lto_priv.0': 'extrusion side-face texture inheritance',
+    '_ZN4util9MeshUtils28calculateSmoothVertexNormalsERKNS_4MeshERKNS_12HoleRelationERKSt6vectorIN5boost9container12small_vectorIjLm4EvvEESaISB_EERS7_INS_7Vector3IdEESaISH_EE': 'smooth extrusion vertex normals from adjacent face geometry',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;

@@ -54,8 +54,9 @@ Rezeptfunktionen gemeinsam pflegen, Familien/Varianten/Instanzen getrennt zähle
 Vollständige Fähigkeitszuordnung mit offenen Lücken; ausgeführte Geometrie-/Scope-/Materialverträge gegen SDK/PRT prüfen.
 Reproduzierbare kleine Kontrollkörper, echte OSM-Grundrisse, ungültige/degenerierte Gegenfälle und gemessene Kosten.
 Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenommene native LOD-/Geräteabnahme.
-Als Nächstes gemeinsame Shape-/Scope-Semantik samt den bereits untersuchten Transform-/Split-/Comp-/Extrusionspfaden abgleichen;
-den ersten vollständigen öffentlichen Python-Vertrag an einem sichtbaren Modellierbeispiel integrieren.
+Aktiver Ausbau: Polygonflächen mit Löchern/Material/Tags, Extrusion entlang Flächen-/Vertexnormalen sowie Welt-Aufwärtsachse/Flat-Top;
+Flächenorientierung, negative/Null-Distanzen, Hoföffnungen, geteilte Kanten, UVs und neue Scope-Ausrichtung prüfen.
+Logische Polygonflächen bleiben neben der nativen Triangulierung erhalten; GEOS/CDT nutzen, keine Polygontriangulierung neu erfinden.
 Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation erhält den Mittelpunkt;
 `s` setzt absolute/relative Größen einschließlich Spiegelung. Geteilte Geometrie erst zur Ausgabe transformieren.
 `modelling_scope`/`modelling_shape`: eigene Scope-/Frame-/Triangle-Asset-Typen und direkte Python-Operationen;
