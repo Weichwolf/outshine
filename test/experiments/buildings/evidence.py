@@ -4,7 +4,7 @@ import hashlib
 from pathlib import Path
 import subprocess
 
-from samples import INVENTORY
+INVENTORY = Path(__file__).resolve().parents[3]/'doc/references/data/osm/openfreemap-inventory-20261009.json'
 
 
 def revision():

@@ -11,8 +11,8 @@ import mapbox_vector_tile
 import numpy as np
 import shapely
 from provider_contract import hidden
+from evidence import INVENTORY
 
-INVENTORY = Path(__file__).resolve().parents[3]/'doc/references/data/osm/openfreemap-inventory-20261009.json'
 SOURCES = Path.home()/'.local/share/outshine/outshine/sources/building-experiments/openfreemap'
 GIRTH_M = 40075016.68557849
 

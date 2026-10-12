@@ -3,7 +3,7 @@ State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
-Depends: 2420
+Depends:
 Area: generators, render, engine, world
 Tags: buildings, interiors, lod, cache, lighting, performance
 
@@ -21,6 +21,12 @@ Diese Nahbilder/Kosten belegen keine korrekte Sichtauswahl; Showcase kennzeichne
 Korrigierter Renderer übernimmt dieselbe Basis wie Bedarf, prüft tatsächliche Rotation/Projektion und protokolliert beide Zentren getrennt.
 Opake Hülle/Raumwelt erhalten; Kontrollläufe ohne Glas sowie mit getrenntem Fill-Schatten prüfen den eigentlichen Engpass.
 Auswahl/Schattendarstellung bleiben ohne passenden Bild- und Kostenbeleg unfreigegeben; keine höhere Laufgrenze.
+Beide korrigierten Wiener Kontrollläufe überschreiten 600 s; Fill-Schattenabschaltung brachte keinen Kostenbeleg.
+`perf`: 567 User-Space-Stichproben/3 s, 95,77 % JIT und 4,23 % Mesa; konkrete Shaderziele unaufgelöst, keine Python-Erzeugungszeit.
+[`verify_render_camera.py`](../test/experiments/buildings/verify_render_camera.py): zehn reale Blender-Szenenkameras, unabhängige Zielprojektion und Lichtausrichtung; ursprünglicher Fehler als Gegenfall.
+[`opening_inspection.py`](../test/experiments/buildings/opening_inspection.py): perspektivische Workbench-Fenster-/Eingangskontrollen aus denselben Cacheplänen.
+Glaspaneele ausschließlich für die Raum-/Öffnungskontrolle ausblenden; gespeichertes Vollmesh samt Quelle/IDs unverändert.
+Workbench ersetzt weder Esri-Taglichtvergleich noch Render-LOD; Material-/Glas-/Nachtabnahme bleibt offen.
 
 ## Detail, Funktion und Nacht
 - Nah durch Fenster: echte Wandtiefe/Böden/Decken/Trennwände und räumlicher Hintergrund passender Räume.

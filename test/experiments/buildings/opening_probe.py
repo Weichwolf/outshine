@@ -39,7 +39,7 @@ def scene(source, output, mesh_path, view, openings):
     return config
 
 
-def probe(label, source, output, provenance):
+def prepare_case(label, source, output, provenance):
     original=source/f'roof-{label}-flat'
     plan=json.loads(original.with_name(original.name+'-plan.json').read_text(),object_hook=decoded)
     body=dict(np.load(original.with_name(original.name+'-mesh.npz')))
@@ -60,6 +60,13 @@ def probe(label, source, output, provenance):
               limitations=['generic empty rooms; thin alpha glass approximation; native LOD and night light unproved',
                            'forced complete detail references; visibility/shadow demand not admitted'],
               source_coverage='Opening components attached to existing cached room/portal plan')
+    return openings,mesh_path,base
+
+
+def probe(label, source, output, provenance):
+    openings,mesh_path,base=prepare_case(label,source,output,provenance)
+    original=source/f'roof-{label}-flat'
+    stem='opening-'+label
     views={}
     for view in ('near','orbit','far','window','entrance'):
         image=output/(stem+'-'+view+'.png')
@@ -78,7 +85,7 @@ def probe(label, source, output, provenance):
     report=base|dict(profile=[1600,1200],view='plan',renderer='Metric Matplotlib / Blender Workbench / Eevee',
                     image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),spatial_reference=metadata)
     (output/(stem+'-report.json')).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
-    print(json.dumps(dict(label=label,openings=len(openings),triangles=len(product['faces']))),flush=True)
+    print(json.dumps(dict(label=label,openings=len(openings),triangles=base['triangles'])),flush=True)
     return report
 
 

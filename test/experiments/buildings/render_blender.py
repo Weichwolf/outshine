@@ -16,6 +16,7 @@ from demand import View
 def material(name, colour, roughness, metallic=0., object_colour=False):
     result = bpy.data.materials.new(name)
     result.use_nodes = True
+    result.diffuse_color = (*colour,1.)
     tree = result.node_tree
     shader = tree.nodes.get('Principled BSDF')
     shader.inputs['Base Color'].default_value = (*colour, 1.)
@@ -137,7 +138,7 @@ def add_reference(path, expected):
     return dict(meshes=len(objects), bounds_m=bounds)
 
 
-def render(configuration):
+def prepare(configuration):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.engine = 'BLENDER_EEVEE_NEXT'
@@ -171,6 +172,7 @@ def render(configuration):
     sun = bpy.context.object
     sun.rotation_euler = Vector((-.45, -.65, -1.)).to_track_quat('-Z', 'Y').to_euler()
     sun.data.energy, sun.data.angle = 2.5, .06
+    sun.data.use_shadow = configuration.get('sun_shadow',True)
     bpy.ops.object.light_add(type='AREA', location=(centre[0]-span*.15, centre[1]-span*.2, span*.3))
     fill = bpy.context.object
     fill.rotation_euler = (Vector(centre)-fill.location).to_track_quat('-Z', 'Y').to_euler()
@@ -196,13 +198,32 @@ def render(configuration):
     if max(abs(projection[0][0]*width*.5-focal), abs(projection[1][1]*height*.5-focal)) > .001:
         raise RuntimeError('camera demand and render projection differ')
     scene.render.filepath = configuration['output']
+    inspection = configuration.get('inspection_workbench',False)
+    if inspection:
+        if configuration['products'] or not constructive:
+            raise ValueError('Constructive Workbench inspection requires one checked body mesh')
+        scene.render.engine = 'BLENDER_WORKBENCH'
+        shading=scene.display.shading
+        shading.light='STUDIO'
+        shading.color_type='MATERIAL'
+        shading.show_shadows=True
+        shading.show_cavity=True
+        shading.cavity_type='BOTH'
+        shading.show_specular_highlight=False
+        scene.view_settings.view_transform='Standard'
+    return dict(renderer=bpy.app.version_string, engine=scene.render.engine,
+                products=len(configuration['products'])+int(constructive is not None), profile=configuration['profile'],
+                reference_import=reference,constructive_import=constructive,
+                camera_eye=list(camera.location),camera_target=configuration['target'],
+                camera_basis=actual_basis,environment_centre=centre,
+                ambient_fill_shadow=fill.data.use_shadow,sun_shadow=sun.data.use_shadow,
+                inspection_workbench=inspection)
+
+
+def render(configuration):
+    result = prepare(configuration)
     bpy.ops.render.render(write_still=True)
-    print(json.dumps(dict(renderer=bpy.app.version_string, engine=scene.render.engine,
-                          products=len(configuration['products'])+int(constructive is not None), profile=configuration['profile'],
-                          reference_import=reference,constructive_import=constructive,
-                          camera_eye=list(camera.location),camera_target=configuration['target'],
-                          camera_basis=actual_basis,environment_centre=centre,
-                          ambient_fill_shadow=fill.data.use_shadow)), flush=True)
+    print(json.dumps(result),flush=True)
 
 
 if __name__ == '__main__':

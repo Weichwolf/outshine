@@ -57,8 +57,6 @@ def image_record(report_path, root):
                   caption=caption, status='incomplete', updated=report_path.stat().st_mtime)
     try:
         report = json.loads(report_path.read_text())
-        if report.get('invalid_reason'):
-            raise ValueError(report['invalid_reason'])
         record.update({key: report[key] for key in REPORT_FIELDS if key in report})
         if report.get('representation') == 'functional-plan':
             record.update(title='Gebäudeplan · '+report['label'], category='plan',
@@ -100,6 +98,12 @@ def image_record(report_path, root):
                           caption=f"{report['openings']} Bauteilplätze an vorhandenen Raum-/Öffnungs-IDs, {report['component_triangles']} zusätzliche Dreiecke. "
                                   'Rahmen, Einfassung, geneigte Bank und offener Eingangsrahmen. '
                                   'Glas als dünne Alpha-Approximation; Räume generisch, Nachtlicht/native LODs offen.')
+        elif report.get('representation') == 'opening-inspection':
+            view={'window':'Blick durch die Fensteröffnung','entrance':'Eingang und Innenanschluss'}[report['view']]
+            record.update(title=f"2.5D · {report['label']} · {view}",category='bauteil',
+                          caption=f"{report['openings']} Bauteilplätze am gespeicherten Raumplan. "
+                                  'Glas für die Geometriekontrolle ausgeblendet; vollständiges Prüfmesh erhalten. '
+                                  'Workbench-Studiolicht, generische leere Räume; keine Licht-/LOD-/Nachtabnahme.')
         elif report.get('representation') == 'esri-reference':
             ref = report['reference']
             label = {'near': 'Nahansicht', 'orbit': 'Rundum-Gegenansicht', 'far': 'Distanzansicht'}[report['view']]
@@ -131,6 +135,8 @@ def image_record(report_path, root):
                                  'Bauhaus-Staffelung; Art déco als gezielter Formakzent.') if stem != 'midcentury-detail' else caption
         if stem.startswith(('bauhaus', 'midcentury', 'artdeco')):
             record['caption'] = 'Früherer Stilversuch; gehört nicht zum aktuellen OSM-Rezeptziel. '+record['caption']
+        if report.get('invalid_reason'):
+            raise ValueError(report['invalid_reason'])
         source = report_path.with_name(stem+'.png')
         data = source.read_bytes()
         digest = hashlib.sha256(data).hexdigest()

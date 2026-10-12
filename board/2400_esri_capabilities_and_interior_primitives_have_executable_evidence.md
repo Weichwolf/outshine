@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 27 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer und Fassadenscopes.
+Ghidra 12.1.2: 30 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes und Materialpfade.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
@@ -32,12 +32,17 @@ Dachvorbereitung bereinigt Löcher, transformiert/verschweißt Bauteile; 3/11/1 
 `extractFaceComponents` nutzt Lochbeziehungen/Kantenabbildung und hat einen indirekten Aufruf; automatische Fenster-/Raumplanung folgt daraus nicht.
 Skalierungsdispatch schreibt absolute/relative Größen; Einfügungshelper ruft Asset-Bounds und `adjustScopeSizeZerosToGeometry` auf.
 Scope-Ausrichtung und Einfügungshelper haben außerhalb der ELF-Grenzen wiedergewonnene Decompilerblöcke; diese belegen keine weiteren Operationen.
+`MaterialImpl::opacity` ruft numerisches `Material::set` auf; `opacitymap_mode` Stringvergleich und String-Set.
+Ghidras fünf unaufgelöste Mode-PLT-Stellen unabhängig per ELF-Disassemblierung als 3×`wcslen`/2×`wmemcmp` bestätigt.
+Referenzierte UTF-32-Konstanten `blend`/`mask`/`opaque` gegen SDK-Dokumentation bestätigt; andere dynamische Ziele bleiben offen.
+`Material::combine` liest Zahlen-/Textur-/Stringarrays und kopiert Materialcontainer; genaue Überschreibpriorität bleibt ungeprüft.
+11/63/1964 begrenzte Instruktionen, keine indirekten Stellen; Mode/Combine haben 12/4 außerhalb liegende Decompilerblöcke.
 
 ## Umsetzung
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
-- Aktiver Materialvergleich: `MaterialImpl::opacity`, `opacitymap_mode` und `util::Material::combine` gezielt analysieren.
-  Lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque; Speicherpfade belegen keinen Renderer.
+- Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
+  Analysierte Speicher-/Kombinationspfade belegen weder numerische Clamp-Regeln noch einen Glasrenderer.
 - Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.
   Offset/Skelett/Unterteilung/Booleans/Komponenten/Instanzen und innenraumrelevante Bausteine prüfen.
   Symbolname, Dokumentation, analysierte Funktion und ausführbares Ergebnis als Evidenz unterscheiden.
