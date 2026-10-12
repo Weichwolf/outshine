@@ -65,7 +65,8 @@ Polygonale Fahrflächen behalten die feinste Binärpräzision. Mesh-Rundungsrest
 64·eps·max(1,|Koordinate|) m schließen; echte/breitere Freiräume erhalten. Nur gültige konservative Hilfspuffer nutzen.
 [Resttaschen](../test/experiments/infrastructure/infrastructure_roadbed_island_cleanup.py) im Baurezept schließen:
 nur neu abgetrennte Teile einer vorhandenen Insel, unreserviert, ≤1 m² und ohne 1 m breiten Innenraum.
-Größte Insel mit ursprünglichem Bezugspunkt erhalten; Freiraumtopologie, Windung und ganze Körper erneut prüfen.
+Größte Insel erhalten. [Restinsel-Rezept](../test/experiments/infrastructure/infrastructure_roadbed_void_recipe.py):
+berührte erzeugte Hohlräume ≤1 m² ohne 1 m Innenbreite nur unreserviert schließen; explizit bilanzieren.
 [Komposition](../test/experiments/infrastructure/infrastructure_complete_roadbed_module.py) prüft dabei
 öffentliche Fahrfläche und physischen Mesh-Besitz getrennt; auch dort können Resttaschen entstehen.
 
@@ -92,15 +93,14 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
    [Quellführung](../test/experiments/infrastructure/probes/roadbeds/steering_source_hint_probe.py) nutzt Sichtbarkeit
    und verbleibende Quelllänge; Inselkerne schützen, zusätzliche volle Drehungen ausschließen.
-   Rückwärtssuche findet Basels 6→28; C2-Kurve gültig, Straßenkörper überdeckt noch eine 0,67-m²-Insel.
+   Basel 6→28 lokal samt Mesh gültig: 0,67-m²-Restinsel geschlossen, 5,10 m² Fahrfläche ergänzt; gekoppelte Prüfung offen.
    [Geometriediagnose](../test/experiments/infrastructure/probes/roadbeds/fit_geometry_diagnostic.py) trennt echte
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
    [Lenkpfad → Mesh](../test/experiments/infrastructure/probes/roadbeds/steering_roadbed_product_probe.py):
    Wien 1480 gewinnt 4→1 bei unveränderten Grenzen und erhält alle acht bisherigen Fahrten;
    Bauteil 805 ist nach Schließen einer 0,43-m²-Resttasche vollständig befahrbar (7/7).
-   Bauteil 89 45/45; zwei Kurven gemeinsam mit allen bisherigen Fahrten veröffentlicht, Kontakte geprüft.
-   33 statt 17 Kollisionsstationen finden die C2-Kurve im gleichen 1024-Aufrufe-Budget.
+   Bauteil 89 45/45; zwei Kurven gemeinsam samt Bestand geprüft; 33 Kollisionsstationen, 1024-Aufrufe-Budget.
    Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
    Wien 900/909, Zürich 4774/4808, Basel 2952/2962; Messcommit `e151fd07c`, ein Core, zusammen 132 s.
