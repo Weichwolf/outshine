@@ -89,11 +89,11 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
    Basel 1155: 15→1341 m, Zürich 2134: 60→1369 m, Wien 684: 30→703 m im begrenzten Fenster.
-   Servicegabel 1155 mit Wendeplatz-Rezept lösen; Kurvenruhe/Spurführung und gemeinsame Schnitte erhalten. [Portgraph](../test/experiments/transport/transport_route_connectivity.py)
-   prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
-   Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
-   [Quellführung](../test/experiments/transport/probes/roadbeds/steering_source_hint_probe.py) nutzt Sichtbarkeit
-   und verbleibende Quelllänge; Inselkerne schützen, zusätzliche volle Drehungen ausschließen.
+   [Wendeplatz](../test/experiments/transport/probes/roadbeds/turning_space_probe.py): Basel 1155 beide Richtungen je 28,3 m auf 248 Dreiecken; volle Hüllen geprüft.
+   Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
+   Gemeinsam 75,3 m² neue Fahrfläche; 24,6 m² Gebäude-Freiraumanfrage. Buildings-Auflösung/alle drei Schnitte und Nachbarn bleiben offen.
+   [Portgraph](../test/experiments/transport/transport_route_connectivity.py): schwache/starke Komponenten, gerichtete Alternativen, 64er-DAG-Batches.
+   [Quellführung](../test/experiments/transport/probes/roadbeds/steering_source_hint_probe.py): Sichtbarkeit/Restlänge, Inselkerne, keine Zusatzdrehung; C2-Passung danach.
    [Gemeinsames Kurvenende](../test/experiments/transport/probes/roadbeds/shared_route_guide_probe.py): Basel 101 Fahrten auf vier Bauteilen, Bestand erhalten.
    [Geometriediagnose](../test/experiments/transport/probes/roadbeds/fit_geometry_diagnostic.py) trennt echte
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;

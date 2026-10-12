@@ -57,6 +57,7 @@ args.output.mkdir(parents=True,exist_ok=True)
 snapshot=dict(entry={k:entry[k].tolist() for k in ('position','heading')},
               exit={k:exit[k].tolist() for k in ('position','heading')},surface=surface.wkb.hex(),
               reservations=reserved.wkb.hex(),source_route=route.wkb.hex(),vehicle=network.vehicle,
+              buildings=buildings.wkb.hex(),non_motor_reservations=reservations(network,surface).wkb.hex(),
               error_m=network.curbs['arc_error_m'])
 (args.output/'input.json').write_text(json.dumps(snapshot)+'\n')
 if args.snapshot_only:raise SystemExit(0)
