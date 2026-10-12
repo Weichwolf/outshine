@@ -46,6 +46,9 @@ Distanzbilder zunächst vollständige Detailreferenzen; kein freigegebener Fern-
 Synthetische Außenansichten 1280×720, reale Esri-Vergleichskameras 854×480; dieselben gespeicherten Kamera-/Lichtbedingungen.
 Bilddefizit: generische Fensterachsen ohne Rahmen/Erdgeschossgliederung/Dachranddetails; geneigte Dachflächen in Eevee zu schwach lesbar.
 Blender-Import von Koordinaten, Materialien und geneigten Dachnormalen geprüft; diagnostische koplanare Triangulationskanten im Schnitt bleiben sichtbar.
+Aktiver Fassadenausbau: Fenster-/Eingangsrahmen und Fensterbank am vorhandenen Öffnungs-/Raumplan; keine unabhängigen Fassadenöffnungen.
+Metrische Ringextrusion gegen gleich geformte Balkenbauteile vergleichen; Template-Wiederverwendung und Platzierung statt erneuter Polygonarbeit je Öffnung.
+Konstruktive Kontakte, freie Türöffnung, Körperhöhen/Quellfarbe und tatsächliche Module erst in 2D/Schnitt, dann 2.5D/Nah/Gegen/Distanz prüfen.
 
 ## Familien und Komponenten
 - Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.
@@ -69,6 +72,7 @@ Fremde Modelle/Code bleiben externe Referenzen (2400); eigener Generator unter `
 
 ## Quellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf),
+[Instant Architecture, SIGGRAPH 2003](../doc/references/buildings/siggraph/2003-instant-architecture.pdf): Fassaden → Bauteile, affine Grundformen; Seiten 3/4 optisch geprüft.
 [Held/Palfrader 2016](../doc/references/buildings/geometry/2016-weighted-skeleton-roofs-and-terrains.pdf): Dachflächen aus Wavefront; Seiten 1/6/8 optisch geprüft, CGA-Shape-Seite 4 ebenso.
 [Python-Skeleton-Bibliothek](https://pypi.org/project/py_straight_skeleton/),
 [Esri Walm](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-hip.htm),
