@@ -10,7 +10,8 @@ import time
 from pathlib import Path
 
 import numpy as np
-from crown_surface import Crown, face_axes
+from crown_surface import Crown
+from cube_surface import face_axes
 from demand import Camera
 
 

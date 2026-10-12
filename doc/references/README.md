@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
 Stand: 2026-10-12. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-37 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+39 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -193,6 +193,17 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Doppelreflexion mit Tangentendrehung an gleichen Astachsen vergleichen (2351).
   Rahmenfehler, Erzeugungskosten und sichtbare Querschnitte getrennt prüfen;
   lokale Regularität ersetzt keinen globalen Kollisionsnachweis oder Kraftsolver.
+- **Efficient Implementation of Marching Cubes' Cases with Topological Guarantees**,
+  Lewiner / Lopes / Vieira / Tavares, JGT 2003.
+  [Autorenquelle](https://thomas.lewiner.org/pdfs/marching_cubes_jgt.pdf) ·
+  [PDF](vegetation/jgt/2003-marching-cubes-topological-guarantees.pdf), Autorenpreprint.
+  Gemeinsame Gabeloberflächen aus impliziten Feldformen als Vergleich erzeugen (2352).
+  Die Topologiegarantie betrifft trilineare Gitterinterpolation; Kontinuitäts-/Bildfehler eigens prüfen.
+- **Projection onto the Probability Simplex**, Wang / Carreira-Perpiñán, arXiv 2013.
+  [Autorenquelle](https://arxiv.org/abs/1309.1541) ·
+  [PDF](vegetation/math/2013-probability-simplex-projection.pdf).
+  Endliche Sortierprojektion als mathematischer Baustein der eigenen symmetrischen Feldmischung;
+  unabhängige QP-/Gradientenprüfung. Kein Vegetations- oder SpeedTree-Verfahren daraus behaupten.
 - **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
   [Publikation](https://doi.org/10.1145/218380.218427) ·
   [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·

@@ -1,6 +1,6 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: Profile und Orthogonalisierung sind numerisch mit Originalroutinen verglichen. Ghidra untersuchte 51 Funktionen. Räumliche Astachsen erhalten nun stabile Querschnitte auch an Wendepunkten; Radiusprofile und expliziter Roll bestimmen ihre Flächen. Weltweite Pflanzenrezepte und optische Pflanzenprüfung folgen nach vollständigem Funktionsnachbau.",
-  "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Erzeugung, organische Gabeln, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
+  "current_work": "SpeedTree-Funktionen zuerst: Ghidra untersuchte 56 Funktionen einschließlich des Weld-Rings und seiner Elternanschlüsse. Eigene Gabelproben verschmelzen Astsegmente zu einer gemeinsamen geschlossenen Oberfläche. Gleichmäßige/adaptive radiale Abtastung und Marching Cubes sind an derselben Feldform verglichen. Weltweite Pflanzenrezepte und optische Pflanzenprüfung folgen nach vollständigem Funktionsnachbau.",
+  "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige Gabel-/Elternanschlüsse, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
       "image": "render/landscape-temperate-depth.png",
@@ -101,6 +101,15 @@
       "lod": "lod-0",
       "description": "Vier deklarierte 3D-Astachsen mit gleichem Radiusprofil und elliptischem Querschnitt. Doppelreflexion erhält stabile Rahmen entlang gerader und gekrümmter Abschnitte; ein expliziter Roll-Verlauf dreht den vierten Querschnitt. Grobe und feine Flächen werden direkt aus denselben Kurven erzeugt. Geschlossenheit, Außenorientierung und Differentialnormalen sind unabhängig geprüft.",
       "quality": "Funktionsprobe · vollständige Kräfte, organische Gabeln, Rinde und Pflanzenformen offen"
+    },
+    {
+      "image": "render/organic-forks.png",
+      "title": "Organische Astgabeln · eine gemeinsame Oberfläche",
+      "label": "Gabel-Funktionen",
+      "category": "wood",
+      "lod": "lod-0",
+      "description": "Links drei überlappende Einzeläste, daneben dieselben Segmente als gemeinsame symmetrische Gabel. Ungleiche Radien und eine räumliche Verzweigung ergänzen die Funktionsproben. Gleiche Kamera, Beleuchtung und Normalenrezept; die Verschmelzung erhält den Radius außerhalb ihres Einflussbereichs. Jede neue Gabel besitzt eine geschlossene außenorientierte Komponente.",
+      "quality": "Funktionsprobe aus geraden Segmenten · gekrümmte Elternanschlüsse, Rinde, Wind und ganze Pflanzen offen"
     }
   ],
   "lods": [
@@ -141,7 +150,8 @@
     "organ_storage_plot": "lod-0",
     "plant_request_plot": "lod-1",
     "profile_plot": "lod-0",
-    "spine_plot": "lod-0"
+    "spine_plot": "lod-0",
+    "fork_plot": "lod-0"
   },
   "genera": [
     {
