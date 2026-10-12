@@ -13,6 +13,12 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst die prozeduralen CityEngine-Modellierfähigkeiten vollständig in Python nachbauen,
 danach moderne/zeitgenössische Architekturrezepte bis zur vollständigen OSM-Klassifikations-/Kombinationsabdeckung ausbauen.
 Einzelne konstruktive Python-Verfahren bestehen; ein allgemeiner vollständiger Modellierkern fehlt.
+Stand c3dc4f1c7: vier Scope-Operationen in dokumentierten Formen, neun Kontrollgruppen und zwei PRT-Translationen;
+fünf räumliche Kontrollen plus metrischer Grundriss im aktuellen Showcase. Keine neue Architektur-Rezeptfamilie.
+Fünf gleiche Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
+größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
+Die 23 bestehenden Ansichten sind pixelgleich erneut erzeugt. Scope/Ghidra/Kamera/Render/Docs jeweils terminal 0;
+der gemeinsame Launcher endete nach den abgeschlossenen Kindschritten mit 143, kein Gesamtstatus-0-Anspruch.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
 33 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
