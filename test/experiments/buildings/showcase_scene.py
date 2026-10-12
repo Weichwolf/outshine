@@ -105,10 +105,12 @@ def fitted(mesh,profile,opposite=False,city=False):
     return fitted_points(points,profile,opposite,city)
 
 
-def fitted_points(points,profile,opposite=False,city=False):
+def fitted_points(points,profile,opposite=False,city=False,direction=None):
     low,high=points.min(axis=0),points.max(axis=0)
     centre=(low+high)/2
-    direction=np.array([-1.,1.,1.3] if opposite else [1.,-1.,1.3 if city else .8])
+    direction=np.array(([-1.,1.,1.3] if opposite else [1.,-1.,1.3 if city else .8]) if direction is None else direction,dtype=float)
+    if direction.shape!=(3,) or not np.isfinite(direction).all() or np.linalg.norm(direction)==0:
+        raise ValueError('Inspection view direction needs a finite nonzero XYZ vector')
     direction/=np.linalg.norm(direction)
     basis=View(centre+direction,centre,width=profile[0],height=profile[1])
     corners=np.array([[x,y,z] for x in (low[0],high[0]) for y in (low[1],high[1]) for z in (low[2],high[2])])

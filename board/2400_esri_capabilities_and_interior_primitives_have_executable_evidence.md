@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 58 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
+Ghidra 12.1.2: 61 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft Mesh-Cuts auf. Split-Allokation 004d6120: feste Restbreite, gewichtete Floating-Anteile, Repeat-Floor/Ceil nach Streckungsabstand zu 1.
 ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Verschachtelte Wiederholungen und Grenzfälle bleiben offen; 2480 prüft 2D/3D getrennt.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
@@ -38,13 +38,13 @@ Ghidras fünf unaufgelöste Mode-PLT-Stellen unabhängig per ELF-Disassemblierun
 Referenzierte UTF-32-Konstanten `blend`/`mask`/`opaque` gegen SDK-Dokumentation bestätigt; andere dynamische Ziele bleiben offen.
 `Material::combine` liest Zahlen-/Textur-/Stringarrays und kopiert Materialcontainer; genaue Überschreibpriorität bleibt ungeprüft.
 Extrusionsbeleg e42c3763a: Welt-/Flat-Top-/Vertexdispatch ruft Seiten-UVs, glatte Normalen und neue Scope-Ausrichtung auf.
-Seiten-UV-Helper: aktive Kanäle, Eckfolge A/B/B/A; 137 Instruktionen. Normenhelper: angrenzende Flächennormalen summieren und normieren; 204 Instruktionen.
-Neue Scope-Y-Achse: alte X-Achse orthogonal projizieren, bei Kollaps Ersatzachse, Z aus Kreuzprodukt; 244 Instruktionen.
+Seiten-UVs: aktive Kanäle, Eckfolge A/B/B/A; glatte Normen summieren und normieren angrenzende Flächennormalen.
+Neue Scope-Y-Achse: alte X-Achse orthogonal projizieren, bei Kollaps Ersatzachse, Z aus Kreuzprodukt.
 Diese drei Helper haben keine indirekten Stellen/außerhalb liegenden Blöcke; SDK-Typen und Ersatzkonstante bleiben nicht laufzeitverifiziert.
 Komponentenbeleg eb6938bbf: Front/Links prüfen größte signierte Normalkomponente mit 1e−14 Toleranz; Side prüft |Y| ≤ cos(11,25°).
 Richtungsdispatch berücksichtigt negative Scope-Größen; Neigungsgrenzen haben geringfügig verschiedene positive/negative 11,25°-Konstanten.
 `createShape` ruft Geometrieausrichtung bzw. Edge-/Vertex-Pivothelper und Bounding-Box-Anpassung auf; Verbindung nutzt Quellmesh-/Indexbeziehungen.
-Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indirekte Stellen, 2/20/22/13 außerhalb liegende Blöcke; keine vollständige Semantikabdeckung.
+Komponentenpfade enthalten indirekte Aufrufe/außerhalb liegende Blöcke; Details im Export, vollständige Semantikabdeckung unbewiesen.
 
 ## Umsetzung
 - Kantenbeleg b976043b4: `extractEdgeComponents` mittelt adjazente Normalen, projiziert orthogonal zur Kante, nimmt bei Kollaps eine Quellnormale.
@@ -57,25 +57,24 @@ Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indire
 - Gruppenbeleg e6fb5a155: `GroupedComponent::isOriented` prüft Mitglieder bis zum ersten Treffer; sieben virtuelle Aufrufstellen.
   `createShape` baut Quellmeshes und passt BBox an oder delegiert Z-Up-Ausrichtung an Geometrie mit Mesh-/Faceindex 0.
   `Material::operator<` vergleicht Shader und bool/int/float/string/Texture-/Pointercontainer, keine bloße Palette-ID.
-  121/246/295 Instruktionen, 7/0/0 indirekte Stellen, 0/6/0 außerhalb liegende Blöcke; gesamte Defaults-/Texturgleichheit ungeprüft.
+  Gesamte Defaults-/Texturgleichheit bleibt ungeprüft; Export trennt interne/indirekte und außerhalb liegende Aufrufe.
   Komponenten-Dispatch bündelt Materialwerte über Quellen hinweg; Lochzweig invertiert Mesh vor Auswahl der Lochbeziehungen.
 - Schnittbeleg fa54f57cd: Mesh-Cut behält Face-Materialtabellen/UVs und schließt in der Ebene; generischer Clip behandelt koplanare Kanten.
   Closure prüft überlappende/identische Koplanarflächen und hält Vertex-/Edgetags konsistent; Typen/Kappensemantik nicht laufzeitverifiziert.
-  SplitArea projiziert zu 2D-Multipolygonen und AreaSplit; Instruktionen 2338/241/1423/2209/341/2903, indirekt 3/0/0/0/0/0, außerhalb 17/0/0/18/0/29.
-  Eigene 3D-Schnittentscheidung und verworfene Manifold-Koplanarvariante stehen in 2480.
-- Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
-  Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
+  SplitArea projiziert zu 2D-Multipolygonen und AreaSplit; `createMeshes` übernimmt Material-/UV-Container und berechnet Flächennormalen.
+  Plane-Helper summiert logische Normalen unter Lochbeziehungen und prüft cos(30°); Achsenwinkel ist orientiert, Mindestwinkel 30°.
+  Fünf ELF-Doubles und drei UTF-32-Fehlertexte direkt geprüft (`esri_area_reference.py`); C++-Normalengewichte und SDK-Flächen-/UV-Gleichheit offen.
+  Eigene tatsächliche Dreiecksflächen und Schnittentscheidung samt verworfener Manifold-Koplanarvariante stehen in 2480.
+- Nach dem Modellierkern (2480): Rahmenmodule über Komponenten-/Flächenscopes und Insert an vorhandene Raumöffnungen anschließen (2440).
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
   Analysierte Speicher-/Kombinationspfade belegen weder numerische Clamp-Regeln noch einen Glasrenderer.
-- Ghidra headless: versioniertes Binary, exportierte Symbole, gezielte Disassemblierung/Funktions-/Aufrufanalyse.
-  Offset/Skelett/Unterteilung/Booleans/Komponenten/Instanzen und innenraumrelevante Bausteine prüfen.
-  Symbolname, Dokumentation, analysierte Funktion und ausführbares Ergebnis als Evidenz unterscheiden.
+- Dokumentation, Ghidra-Aufrufbeleg und ausführbares Ergebnis unterscheiden; indirekte Ziele bleiben offen.
 - Regelpakete/CGA/externe Assets untersuchen; Raumrezepte von generischen Geometrieoperationen trennen.
   Innenwand, Decke/Boden, Raumteilung, Durchbruch, Tür/Fenster, Treppe und Innenmaterial katalogisieren.
   Aktuell Candler-Ladenfenster/-eingang sowie vorhandenes `envelope2002` mit Grundriss-/Nutzungs-/Nachtglasparametern prüfen.
   Regeln/Assets bleiben extern in Downloads; 7z-RPK mit System-libarchive lesen, keine eigene Dekompression.
 - Ausführbare Beispiele als Orakel: Achsen/Löcher/Höhen/Farben/Bounds, kontrollierte Kamera/Licht.
-  Fremde Referenzregeln/-materialien kennzeichnen; fehlende Baupläne/Regeln als Lücke erhalten.
+  Fremde Regeln/Materialien kennzeichnen; fehlende Baupläne/Regeln offen halten.
 - Eigene Python-Verfahren ableiten und vergleichen; Ghidra-Ausgabe ist Referenz, keine kopierte Implementierung.
 
 ## Belege und Abnahme

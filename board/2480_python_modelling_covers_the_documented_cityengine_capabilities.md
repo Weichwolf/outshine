@@ -15,8 +15,7 @@ danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Kla
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 Stand a256e35da: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)`, 2D-Teilung sowie offene/geschlossene Schnitte;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
-SDK: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen.
-58 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+SDK-Inventar, 61 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
 Bildstand fab8b627a: 30 Bilder (8 innen / 15 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
 Alle Bilder neu und optisch geprüft; Pläne bis 1932×2070. PNG/Profile/Hashes geprüft, Kameras und neun Geometriepakete unverändert.
@@ -98,8 +97,9 @@ Messung a256e35da: vier Körper p50 26,9–76,8 statt 46,4–147,0 ms; 60 Vorgä
 Offene Teilungen p50 5,1–8,8 ms; sechs Plan-/Achsenfälle und Fassadenachsen geprüft. Finale Ausgabe/Frames/GPU ausgeschlossen.
 
 ## Offen und nächster Block
-Aktiver Ausbau: gemischte Primitive, rohe Part-Provenienz und `splitArea` an Shape anbinden; Schnittkosten weiter optimieren.
-Verschachtelte Repeat-Allokation, UV-/unitSpace und isolierte PRT-Regeln fehlen; 2D-Prototyp ersetzt diese Verträge nicht.
+Aktiver Ausbau: `Shape.split_area` mit logischer Normalenprüfung, wirklicher Dreiecksfläche und gemeinsamen attributerhaltenden Schnitten.
+30 Quell-/Achsen-/Framefälle, nichtaffine UVs, verwundene und ungleich große Flächen prüfen; analytic/bisect bei gleichem Vertrag messen.
+Verschachtelte Repeats, UV-/unitSpace, gemischte Primitive/rohe Part-Provenienz und isolierte PRT-Regeln fehlen; Scope/LOD-Gates bleiben offen.
 Danach verbleibende dokumentierte Operationen/Funktionen/Attribute: Instanzen/Insert, Ausdrücke/Regelfunktionen,
 Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.
 Offen im bestehenden Kern: gemischte Primitivgruppen/-extrusion, Shaderdefaults/Texture-/Objektpointergleichheit,
@@ -109,8 +109,8 @@ isolierte PRT-g/m/h-/Edge-/Flat-Top-/Vertexnormal-Regeln und genaue nichtplanare
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
 Familien/Varianten/Instanzen getrennt zählen; Zuordnung, funktionale Räume/Wege/Zugänge/Nachtlicht und Bildbelege sind Pflicht.
-Showcase zeigt nur den aktuellen Stand, frühere Modellierbilder bleiben interne Referenzen;
-Renderings mindestens 1920×1080; größere metrische Pläne mit wahrer PNG-Größe. Fehlende Messwerte auslassen; Frontend automatisch neu laden.
+Showcase nur aktuell, mindestens 1920×1080, größere metrische Pläne mit wahrer PNG-Größe; frühere Bilder intern erhalten.
+Fehlende Messwerte auslassen; Frontend automatisch neu laden.
 
 ## Primärquellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.

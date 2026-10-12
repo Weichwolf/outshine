@@ -5,6 +5,17 @@ import shapely
 
 
 class TriangleArea:
+    @classmethod
+    def from_triangles(cls,coordinates,areas):
+        result=cls.__new__(cls);values=np.asarray(coordinates,dtype=np.float64);weights=np.asarray(areas,dtype=np.float64)
+        if values.ndim!=2 or values.shape[1]!=3 or weights.shape!=(len(values),) or not len(values):
+            raise ValueError('Cumulative area needs one axis coordinate and area per triangle')
+        if not np.isfinite(values).all() or not np.isfinite(weights).all() or np.any(weights<=0):
+            raise ValueError('Cumulative area requires finite coordinates and positive triangle areas')
+        result.values=np.sort(values,axis=1);result.areas=weights.copy();result.total=float(weights.sum())
+        if np.any(result.values[:,2]==result.values[:,0]):raise ValueError('A surface triangle cannot be divided along this axis')
+        return result
+
     def __init__(self,polygon,axis):
         triangles=list(shapely.get_parts(shapely.constrained_delaunay_triangles(polygon)))
         coordinates=np.asarray([np.asarray(triangle.exterior.coords)[:3,axis] for triangle in triangles])

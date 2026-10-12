@@ -128,6 +128,10 @@ class Shape:
         from modelling_split import split
         return split(self,axis,parts,repeat,adjust,cut_material,cut_group,max_parts)
 
+    def split_area(self,axis,*parts,repeat=False,adjust=True,max_parts=10000):
+        from modelling_area_split import split_area
+        return split_area(self,axis,parts,repeat,adjust,max_parts)
+
     def with_metadata(self,group_names=(),material_defs=()):
         from modelling_metadata import named_groups,materials
         return replace(self,geometry=replace(self.geometry,group_names=named_groups(group_names),material_defs=materials(material_defs)))

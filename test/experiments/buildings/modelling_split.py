@@ -24,6 +24,7 @@ class SplitInfo:
     interval: tuple
     source_faces: tuple
     omitted: tuple=()
+    area_interval: tuple|None=None
 
 
 def split(shape,axis,parts,repeat=False,adjust=True,cut_material=None,cut_group=0,max_parts=10000):
@@ -31,10 +32,15 @@ def split(shape,axis,parts,repeat=False,adjust=True,cut_material=None,cut_group=
     if not isinstance(adjust,bool):raise ValueError('Scope adjustment must be boolean')
     cut_group=group_id(cut_group)
     if cut_material is not None:Face((0,1,2),material=cut_material)
-    dimension=('x','y','z').index(axis);size=scalar(shape.scope.size[dimension]);sign=1. if size>=0 else -1.
+    dimension=('x','y','z').index(axis);size=scalar(shape.scope.size[dimension])
     spans=allocations(abs(size),parts,repeat,max_parts)
     if not spans:return ()
-    source=prepare_source(shape);results=[]
+    source=prepare_source(shape)
+    return emit_parts(shape,source,axis,dimension,spans,adjust,cut_material,cut_group)
+
+
+def emit_parts(shape,source,axis,dimension,spans,adjust,cut_material=None,cut_group=0,area_spans=None):
+    sign=1. if shape.scope.size[dimension]>=0 else -1.;results=[]
     for span in spans:
         decoded,discarded=cut_geos(source,dimension,span.start,span.stop,cut_material,cut_group)
         omitted=tuple(((index,),0.,0.,'coplanar source surface outside retained volume') for index in discarded)
@@ -47,6 +53,7 @@ def split(shape,axis,parts,repeat=False,adjust=True,cut_material=None,cut_group=
             mesh,polygons,source_faces=decoded
             if adjust:scope=fit_scope(mesh['vertices'],scope.axes,scope.origin,scope,signed=True)
             result=Shape.from_mesh(mesh,scope,polygons)
-        info=SplitInfo(span.index,span.total,span.pattern_index,span.label,axis,(span.start,span.stop),source_faces,omitted)
+        area_interval=(area_spans[span.index].start,area_spans[span.index].stop) if area_spans is not None else None
+        info=SplitInfo(span.index,span.total,span.pattern_index,span.label,axis,(span.start,span.stop),source_faces,omitted,area_interval)
         results.append(replace(inherit(result,shape),comp_info=shape.comp_info,split_info=info))
     return tuple(results)
