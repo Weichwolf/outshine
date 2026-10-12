@@ -13,13 +13,13 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand 9274e00a6: Scope/Extrusion, `comp(f/e/fe/v/fv/g/m/h)`, Breiten-/Flächenteilung und Asset-Einfügung/Dateiimport;
+Stand 349bbd2a1: Scope/Extrusion, `comp`, Breiten-/Flächenteilung, Asset-Einfügung/Dateiimport und sechs UV-Operationen;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK-Inventar, 71 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Bildstand 9274e00a6: 42 Bilder (8 innen / 27 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
-Vier neue Importbilder optisch geprüft; PNG/Profile/Hashes stimmen. 31 Bilder pixelgleich, sieben Pläne ändern nur den Commit-Fußtext.
-25 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 9274e00a6; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
+Bildstand 349bbd2a1: 46 Bilder (8 innen / 31 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
+Vier neue UV-Bilder optisch geprüft; PNG/Profile/Hashes stimmen. 33 Bilder pixelgleich, neun Pläne ändern nur den Commit-Fußtext.
+28 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 349bbd2a1; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
 
 ## Gemeinsame Verträge
 - Direkte Python-Rezepte/Geometriefunktionen, keine JSON-Regelschicht. Affine UVs dürfen vor der Arraybearbeitung komponiert werden.
@@ -104,17 +104,17 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 72 Fälle/Normen/Attribute/Eigentum geprüft; 1.000 Platzierungen p50 53 statt 269–340 ms; Arrays 5,2–5,4 kB statt 5,2–5,4 MB; Vorbereitung/GPU/Frames ausgeschlossen.
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
-24 Platzierungen/11 Messpaare: einmal laden p50 1,9/10,6/11,2 statt 37,7/244,8/258,6 ms (OBJ/GLB/glTF), Vorbereitung enthalten; kein Frame-/GPUbeleg. UV: Skalierung/Rotation/Translation/Kopie/Löschen, vier Normalmodi kollektiv/pro Fläche; Corner-Kanäle/Höfe und fehlende UVs erhalten. Aktiv: Texturbilder/Gate; Projektions-/Materialshader, Wire/Extra-Geometriebearbeitung und PRT-Orakel offen.
+UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
+Fünf Grundrisse/21 Messpaare: komponiert p50 0,075–0,210 statt 0,231–0,662 ms; gleiche UVs/Geometrie, keine Frames. Aktiv: Material/Projektion und physische Innenraumbilder; PRT-Orakel/Extra-Geometriebearbeitung offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
 Familien/Varianten/Instanzen getrennt zählen; Zuordnung, funktionale Räume/Wege/Zugänge/Nachtlicht und Bildbelege sind Pflicht.
 Showcase nur aktuell, mindestens 1920×1080, größere metrische Pläne mit wahrer PNG-Größe; frühere Bilder intern erhalten.
-Fehlende Messwerte auslassen; Frontend automatisch neu laden.
 
 ## Primärquellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.
-[CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Verbindung, Pivots und nullgroße Achsen.
+[CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl/Pivots; [UV-Normalisierung](https://doc.arcgis.com/en/cityengine/latest/cga/cga-normalize-uv.htm): Modi, Flächentrennung.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächen/Kanten, UVs/Tags, signierte Scopes und Mindestspanne.
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm), [SplitArea](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split-area.htm): Umfang/Breiten versus Geometriefläche, Wiederholung und Scope-Anpassung.
 [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html): Normalisierung/Hierarchie; [Trimesh](https://trimesh.org/trimesh.exchange.load.html)/[Pygltflib](https://pypi.org/project/pygltflib/): Standarddecoder, eigene Kanal-/Metadatenadapter.
