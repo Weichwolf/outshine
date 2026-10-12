@@ -64,6 +64,8 @@ TARGETS = {
     '_ZN12_GLOBAL__N_121extractEdgeComponentsERK13CompMeshCacheRSt6vectorISt10unique_ptrI9ComponentSt14default_deleteIS5_EESaIS8_EEb.lto_priv.0': 'unique edge extraction and adjacent normal inheritance',
     '_ZN5Shape26calcPivotScopeFromEdgeFaceERKSt6vectorIN4util7Vector3IdEESaIS3_EERKNS1_6MatrixIdEERKNS1_4Mesh7PolygonENS_11AlignUpAxis4EnumE': 'edge pivot, tangent and perpendicular scope basis',
     '_ZN5Shape28calcPivotScopeFromVertexFaceERKSt6vectorIN4util7Vector3IdEESaIS3_EERKNS1_6MatrixIdEERKNS1_4Mesh7PolygonEbNS_11AlignUpAxis4EnumEPKS3_': 'vertex and face-vertex pivot/tangent construction',
+    '_ZN4util13TaggingHelperIN5boost9container12small_vectorIjLm4EvvEEE11setSideFaceERNS_4Mesh7PolygonERKS7_mmmPS9_': 'edge extrusion side tags and source attribute propagation',
+    '_ZN4util9MeshUtils21calculateVertex2FacesERKNS_4MeshERSt6vectorIN5boost9container12small_vectorIjLm4EvvEESaIS8_EEPKNS_12HoleRelationEPKNS5_14dynamic_bitsetImSaImEEE': 'current polygon and edge endpoint adjacency for vertex extrusion',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;

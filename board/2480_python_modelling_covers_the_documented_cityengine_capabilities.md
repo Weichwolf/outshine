@@ -68,7 +68,11 @@ Fünf Körper, 21 warme Läufe, zwei OpenBLAS-Threads: Komponenten-p50 4,50–40
 Dict-Indexierung ist bei vier kleinen Fällen günstiger, NumPy-Sort beim 72-Kanten-Hof; Differenzen unter 0,04 ms.
 Dict erhält einfache erste Quellreihenfolge; kein behaupteter Gesamtzeitgewinn. Relevante Kosten entstehen im Komponentenaufbau.
 Aktuelle Lieferung: saubere Commit-Prüfung und vier Kanten-/Punktplots einschließlich maßstäblichem 2D-Hofplan.
-Nächster Feature-Vertrag: Kantenextrusion; Dachselektoren, Gruppen/Material/Löcher, Normalenkollaps bleiben offen.
+Aktiver Feature-Vertrag: Kantenextrusion aus `comp(e/fe)`, vier Modi, gemeinsame Vertexnormalen des aktuellen Kantennetzes.
+Eine Seitenfläche je Kante; keine künstlichen Flächenkappen. Eigene Nachbar-IDs erhalten, Face-Normal-Sweeps dürfen sich trennen.
+Welt-/Flat-Top-Sweeps und Corner-UV-/Tag-/Materialvererbung prüfen; signierte Scopes und `CompInfo` bleiben erhalten.
+Zuerst Ghidra-Adjazenz-/Taghelper und optische SDK-Beispiele, dann 2D-/2.5D-/Workbenchbilder und gleiche Kostenalternativen.
+Dachselektoren, Gruppen/Material/Löcher, Normalenkollaps und isoliertes Kanten-PRT-Orakel bleiben offene Verträge.
 Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
 Eingefrorene Kontrolle 73346b5f6: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
 Richtung/Neigungsgrenzen, nichtaffine UVs/authorierte Normalen und drei reale PRT-Prismen nach vollständiger Komponentenzerlegung geprüft.

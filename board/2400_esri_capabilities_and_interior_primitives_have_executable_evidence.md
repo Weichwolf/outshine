@@ -54,7 +54,7 @@ Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indire
   Vertex-Pivot: Scope=(0,0,0), optional gelieferte Tangente bzw. orthogonale Ersatzachsen; UNIT-BSS-Werte nicht laufzeitverifiziert.
   1093/289/421 Instruktionen, 1/0/0 indirekte Stellen, 5/0/0 außerhalb liegende Blöcke.
   ELF-Konstanten: 1e−25 Richtungswache, 0,999999 Achsenschwelle, 6,4e−7 Kantenlänge²; eigene Kollapsäquivalenz bleibt offen.
-- Aktueller Kernvertrag (2480): Kanten-/Punktkomponenten mit eigenem Python, danach Kantenextrusion; Ghidra-Ziele gegen den fehlenden Vertrag wählen.
+- Aktueller Kernvertrag (2480): Kantenextrusion; `calculateVertex2Faces` und `setSideFace` als zwei neue Ghidra-Ziele für gemeinsame Endpunkte/Tags prüfen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
