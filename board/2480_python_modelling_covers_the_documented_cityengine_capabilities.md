@@ -13,13 +13,13 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand 364b6e2eb: `t/r/s/translate`, Flächen-/Kantenextrusion, `comp(f/e/fe/v/fv/g/m/h)`, 2D-/räumliche Breiten-/Flächenteilung;
+Stand 0f54947bc: Scope/Extrusion, `comp(f/e/fe/v/fv/g/m/h)`, Breiten-/Flächenteilung und gemeinsam genutzte Asset-Einfügung;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK-Inventar, 63 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Bildstand 364b6e2eb: 34 Bilder (8 innen / 19 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
-Vier neue Flächenteilungsbilder optisch geprüft; PNG/Profile/Hashes stimmen. 27 Bilder pixelgleich, drei Pläne ändern nur den Commit-Fußtext.
-20 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 364b6e2eb; Native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
+Bildstand 0f54947bc: 38 Bilder (8 innen / 23 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
+Vier neue Einfügungsbilder optisch geprüft; PNG/Profile/Hashes stimmen. 29 Bilder pixelgleich, fünf Pläne ändern nur den Commit-Fußtext.
+23 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 0f54947bc; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
 
 ## Gemeinsame Verträge
 - Direkte ausführbare Python-Rezepte und gemeinsame Geometriefunktionen, keine JSON-Regelschicht.
@@ -100,9 +100,9 @@ Offene Teilungen p50 5,1–8,8 ms; sechs Plan-/Achsenfälle und Fassadenachsen g
 30 Quell-/Achsen-/Framefälle, 102 nichtaffine UV-/Normalenecken, verwundene/ungleich große Flächen und acht ungültige Eingaben geprüft.
 Kosten b387226f2: 14 wechselnde Messpaare × 21 Läufe; p50 5,1–9,2 statt 9,5–14,0 ms, alle Fälle schneller; Flächenfehler ≤1,8e−12 m².
 SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/rohe Parts, Repeats und UV-/unitSpace bleiben Lücken.
-Aktiv: `Asset.from_shape`/`Shape.insert` teilen Geometrie; drei Modi, yUp/zUp, Nullachsen und SDK-Mindestabmessungen an eigenen Assets prüfen.
-72 Einfügefälle/Normen/Eigentum geprüft; Dateiimport, numericalCleanup, Trim und volle Materialüberschreibung fehlen. Kosten/Geteiltes gegen Kopieren messen.
-Offen im bestehenden Kern: gemischte Primitivgruppen/-extrusion, Shaderdefaults/Texture-/Objektpointergleichheit,
+`Asset.from_shape`/`Shape.insert`: drei Modi, yUp/zUp und Nullachsen; Scope-Zero 0,1 mm, ausgegebene Mindestabmessung 0,01 mm.
+72 Fälle/Normen/Attribute/Eigentum geprüft; 1.000 Platzierungen p50 53 statt 269–340 ms; Arrays 5,2–5,4 kB statt 5,2–5,4 MB; Vorbereitung/GPU/Frames ausgeschlossen.
+Nächste Verträge: Dateiimport, numericalCleanup, Trim/Materialüberschreibung; gemischte Primitive, Shader-/Textur-/Pointergleichheit,
 Dachkanten-Selektoren, Straßenbreiten/Trim-Planes, zusätzliche UV-Kanäle, Normalenkollaps/mergeVertices,
 isolierte PRT-g/m/h-/Edge-/Flat-Top-/Vertexnormal-Regeln und genaue nichtplanare SDK-Ausrichtung.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
