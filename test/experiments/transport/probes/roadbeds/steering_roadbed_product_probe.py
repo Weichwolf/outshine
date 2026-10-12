@@ -17,6 +17,7 @@ from transport_cut_setbacks import restore_cut_plan,serialize_cut_plan
 from transport_directed_routes import directed_module_routes
 from transport_junction_surfaces import motor_surface,public_pedestrian_surface
 from transport_turn_roadbeds import preserves_coverage
+from transport_surface_regions import polygonal_region
 from steering_roadbed_candidate_probe import candidate,source_buildings,building_cuts
 
 
@@ -91,14 +92,14 @@ def main():
     floor=motor_surface(shapely.union_all(list(routes.values())).envelope,network.graph,network.tree,
                         network.mesh,network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m'])
     region=network.shape(owner).envelope.buffer(coupled.roadbed_lateral_reach(network.vehicle)+.025)
-    crossing=shapely.union_all([shapely.from_wkb(json.loads(path.read_text())['crossing']) for path in args.crossing_area])
+    crossing=polygonal_region(shapely.union_all([shapely.from_wkb(json.loads(path.read_text())['crossing']) for path in args.crossing_area]))
     shared_crossing=crossing
     crossing_owners=set()
     if not crossing.is_empty:
         eligible,_=public_pedestrian_surface(region,network.graph,network.tree)
         assert preserves_coverage(crossing,eligible),'crossing uses private or incompatible transport'
         triangles,index=network.mesh;ids=index.query(crossing,predicate='intersects')
-        source=shapely.union_all(triangles[ids]);shared_crossing=crossing.intersection(source)
+        source=shapely.union_all(triangles[ids]);shared_crossing=polygonal_region(crossing.intersection(source))
         areas=shapely.area(shapely.intersection(triangles[ids],shared_crossing))
         crossing_owners=set(map(int,network.product['face_owners'][ids[areas>0]]))
         floor=floor.union(shared_crossing)
