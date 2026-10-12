@@ -19,24 +19,60 @@ from infrastructure_junction_surfaces import motor_surface
 from steering_roadbed_candidate_probe import candidate,source_buildings,building_cuts
 
 
-def seeded_cache(floor,reserved,route,poses,pair,vehicle,error,seed,required):
+def seeded_cache(floor,reserved,routes,poses,seeds,vehicle,error,required):
     context=(floor.wkb,shapely.get_precision(floor),reserved.wkb,shapely.get_precision(reserved),
              json.dumps(vehicle,sort_keys=True),error)
-    key=tuple(poses[i][k].tobytes() for i in pair for k in ('position','heading'))+(
-        route.wkb,shapely.get_precision(route),coupled.request_keys(poses,[pair])<=required)
-    return dict(contexts={context:{key:(seed,False,[])}},hits=0,misses=0)
+    values={}
+    for pair,seed in seeds.items():
+        route=routes[pair]
+        key=tuple(poses[i][k].tobytes() for i in pair for k in ('position','heading'))+(
+            route.wkb,shapely.get_precision(route),coupled.request_keys(poses,[pair])<=required)
+        values[key]=seed,False,[]
+    return dict(contexts={context:values},hits=0,misses=0)
+
+
+def previous_pairs(owner,poses,routes,reference,records,prior_path):
+    previous={(t['entry'],t['exit']) for t in records[owner]['turns'] if t['accepted']}
+    previous.update((t['entry'],t['exit']) for t in reference['trials'] if t['module']==owner and t['accepted'])
+    products=[p for p in reference['coupled_products'] if owner in p['modules']]
+    if products:
+        assert len(products)==1 and prior_path is not None,'existing owner needs its complete prior product'
+        binding=products[0]
+        assert Path(binding['report']).resolve()==prior_path.resolve()
+        assert coupled.digest(prior_path)==binding['report_sha256']
+        prior=json.loads(prior_path.read_text())
+        assert prior['affected']==[owner] and not prior['changed_frame_sections']
+        assert not any(prior['cut_plan'].values()),'changed cuts require their complete joint rebuild'
+        by_request={next(iter(coupled.request_keys(poses,[pair]))):pair for pair in routes}
+        previous.update(by_request[tuple(map(tuple,p['request']))] for p in prior['proofs'])
+    return previous
+
+
+def make_seeds(data,poses,routes,notes):
+    seeds={}
+    for pair,note in notes.items():
+        query=dict(data,source_route=routes[pair].wkb.hex(),
+            entry={k:poses[pair[0]][k] for k in ('position','heading')},
+            exit={k:poses[pair[1]][k] for k in ('position','heading')})
+        seeds[pair],_=candidate(query,note)
+        seeds[pair]['report']={k:v for k,v in note.items() if k!='curve_controls'}
+    return seeds
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--place',required=True)
     parser.add_argument('--module',type=int,required=True)
-    parser.add_argument('--pair',type=int,nargs=2,required=True)
-    parser.add_argument('--curve',type=Path,required=True)
+    parser.add_argument('--pair',type=int,nargs=2,action='append',required=True)
+    parser.add_argument('--curve',type=Path,action='append',required=True)
+    parser.add_argument('--prior',type=Path)
     parser.add_argument('--reference',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True);begin=time.perf_counter()
-    root=Path('build/experiments/infrastructure');name,owner,pair=args.place,args.module,tuple(args.pair)
+    if len(args.pair)!=len(args.curve) or len({tuple(p) for p in args.pair})!=len(args.pair):
+        parser.error('one curve per distinct pair required')
+    notes={tuple(pair):json.loads(path.read_text()) for pair,path in zip(args.pair,args.curve)}
+    root=Path('build/experiments/infrastructure');name,owner=args.place,args.module
     before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
     frame_path=root/'boundary-optimized/hermite-routes.json'
     frames=next(p['frames'] for p in json.loads(frame_path.read_text())['places'] if p['place']==name)
@@ -47,30 +83,25 @@ def main():
     poses,_=network.poses(owner,{})
     routes,_=directed_module_routes(network.graph,poses,network.shape(owner),network.tree)
     reference=next(p for p in json.loads(args.reference.read_text())['places'] if p['place']==name)
-    previous={(t['entry'],t['exit']) for t in records[owner]['turns'] if t['accepted']}
-    previous.update((t['entry'],t['exit']) for t in reference['trials'] if t['module']==owner and t['accepted'])
-    assert all(owner not in p['modules'] for p in reference['coupled_products']),'owner needs a joint product rebuild'
+    previous=previous_pairs(owner,poses,routes,reference,records,args.prior)
     required=coupled.request_keys(poses,previous)
-    assert pair in routes and pair not in previous
+    assert notes.keys()<=routes.keys() and notes.keys()-previous
     floor=motor_surface(shapely.union_all(list(routes.values())).envelope,network.graph,network.tree,
                         network.mesh,network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m'])
     region=network.shape(owner).envelope.buffer(coupled.roadbed_lateral_reach(network.vehicle)+.025)
     receipt_path=root/'inputs'/f'{name}-input.json'
     receipt=json.loads(receipt_path.read_text())['receipt'];building_sources=source_buildings(receipt,region)
     other=coupled.reservations(network,region).difference(floor)
-    data=dict(surface=floor.wkb.hex(),source_route=routes[pair].wkb.hex(),reservations=other.wkb.hex(),
-              entry={k:poses[pair[0]][k] for k in ('position','heading')},
-              exit={k:poses[pair[1]][k] for k in ('position','heading')},
+    data=dict(surface=floor.wkb.hex(),reservations=other.wkb.hex(),
               vehicle=network.vehicle,error_m=network.curbs['arc_error_m'])
-    note=json.loads(args.curve.read_text());seed,_=candidate(data,note)
-    buildings,building_audit=building_cuts(building_sources,floor,seed['surface'])
+    seeds=make_seeds(data,poses,routes,notes)
+    buildings,building_audit=building_cuts(building_sources,floor,shapely.union_all([s['surface'] for s in seeds.values()]))
     protected=shapely.union_all([r['adjusted'] for r in buildings]);reserved=protected.union(other)
-    data['reservations']=reserved.wkb.hex();seed,_=candidate(data,note)
-    seed['report']={k:v for k,v in note.items() if k!='curve_controls'}
+    data['reservations']=reserved.wkb.hex();seeds=make_seeds(data,poses,routes,notes)
     sections=shapely.STRtree(np.array(list(network.sections.values()),dtype=object))
-    cache=seeded_cache(floor,reserved,routes[pair],poses,pair,network.vehicle,data['error_m'],seed,required)
+    cache=seeded_cache(floor,reserved,routes,poses,seeds,network.vehicle,data['error_m'],required)
     product=construct_complete_module(network,network,owner,set(),{owner},region,protected,sections,required,cache,reserved)
-    assert pair in {c['pair'] for c in product['curves']},'seed not admitted to its physical owner'
+    assert seeds.keys()<={c['pair'] for c in product['curves']},'seed not admitted to its physical owner'
     precision=json.loads((root/'directed-surfaces'/f'{name}-flat-surfaces.json').read_text())['precision_m']
     mesh,audit,proofs,surfaces=coupled.publish_coupled_roadbeds({owner:product},network,precision)
     mesh_path=args.output/'mesh.npz';np.savez_compressed(mesh_path,**mesh)
@@ -88,10 +119,12 @@ def main():
         original_sections=[shapely.get_coordinates(p['line']) for p in network.junctions[owner]],
         planned_sections=[shapely.get_coordinates(p['line']) for p in network.junctions[owner]],
         shared_cuts_description=f'Unchanged shared cuts; {len(proofs)}/{len(routes)} routes; road-first building cuts',
-        buildings=buildings,building_audit=building_audit,roadbed_island_cleanup=seed['pockets'],
+        buildings=buildings,building_audit=building_audit,
+        roadbed_island_cleanup=dict(closed_pockets=sum(s['pockets']['closed_pockets'] for s in seeds.values()),
+            closed_area_m2=sum(s['pockets']['closed_area_m2'] for s in seeds.values())),
         physical_island_cleanup=product['physical_island_cleanup'],
         input_sha256=before['input_sha256']|{str(p.resolve().relative_to(root.resolve())):coupled.digest(p)
-            for p in (cut_path,frame_path,receipt_path,args.curve,args.reference)},
+            for p in [cut_path,frame_path,receipt_path,args.reference,*args.curve,*([args.prior] if args.prior else [])]},
         elapsed_ms=(time.perf_counter()-begin)*1000,
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public-motor requests of one unchanged-cut owner; source buildings adapted, native body and neighbors checked; complete windows remain required.')

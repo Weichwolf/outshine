@@ -46,8 +46,15 @@ def source_buildings(receipt,region):
 
 def candidate(data,note):
     controls=np.array(note['curve_controls']);vehicle,error=data['vehicle'],data['error_m']
+    for pose,points,reverse in ((data['entry'],controls[0],False),(data['exit'],controls[-1,::-1],True)):
+        assert np.allclose(points[0],pose['position'],atol=1e-7,rtol=0),'seed endpoint differs from its source contact'
+        tangent=points[1]-points[0]
+        if reverse:tangent=-tangent
+        assert np.linalg.norm(tangent)>0
+        assert np.allclose(tangent/np.linalg.norm(tangent),pose['heading'],atol=1e-8,rtol=0),'seed tangent differs from its source contact'
     floor,reserved,source=(shapely.from_wkb(data[k]) for k in ('surface','reservations','source_route'))
     support,construction=spline_roadbed(controls,vehicle,error)
+    assert support is not None,construction
     support=support.difference(reserved).intersection(floor.buffer(roadbed_lateral_reach(vehicle)))
     support,pockets=close_split_pockets(floor,support,reserved)
     planned,addition,reason=roadbed_site_check(support,floor,reserved,vehicle,error)
