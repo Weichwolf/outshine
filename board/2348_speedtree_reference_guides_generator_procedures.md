@@ -85,6 +85,15 @@ Worker `0x1f4d840` prüft einen 100×100-RGB-Belegungspass mit Schwelle >3; Kana
 Quercus robur steht in Oak-Sapling-/Desktop-Modellen; generische Conifer-/Grass-Vorlagen ohne Feld.
 Ein Name bezeichnet Metadaten, keine belegte botanische Validierung oder automatische Formwahl.
 
+`EyeBezierSpline::EvaluateRawPoint` (`0x212d030`) wertet kubische 2D-Segmente aus;
+`Evaluate` (`0x212ced0`) begrenzt x und interpoliert 1.000 vorbereitete Werte oder verwendet Presets.
+`EvaluateProfileTiled` (`0x1fbac70`): Wiederholung plus Endwertdifferenz je ganzzahligem Zyklus;
+Zusatzkurve addieren, optionale Ausgangsbegrenzung. Konstante/lineare Presets haben eigene Pfade.
+`EvaluateParentValue` (`0x1fba5c0`): Eingangsbegrenzung, Basisskalierung, Uniform/Gaussian-Varianz
+und optionaler Noise-Mix; vollständige Flags/Elternbindung bleiben offen. 2350 besitzt eigene Profile.
+`CBranchNode::ComputeSpine` (`0x1cd2950`) nutzt Radius-/Offsetprofile, QuickNoise und lokale
+Rotationen mit Orthogonalisierung; keine vollständige Spine-/Kraftrekonstruktion daraus abgeleitet.
+
 ## Funktionsumfang vor Pflanzenrezepten
 `inspect_speedtree.py --templates`: alle 27 mitgelieferten Games/VFX-Vorlagen, 189 Generatoren,
 acht gespeicherte Typen (Tree, Branch, Frond, Cap, BatchedLeaf, Leaf Mesh, Fin, Knot).
@@ -101,7 +110,7 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-37 gezielte Funktionen dekompiliert; alle neun Läufe terminal erfolgreich, zuletzt zwei Metadatenfunktionen.
+45 gezielte Funktionen dekompiliert; elf Läufe terminal erfolgreich, zuletzt Profile/Spine samt Float-Signaturen.
 Adressen/Symbolgrößen, ELF-Vtable und Konstanten korroborieren die beschriebenen Operationen.
 Sichtbarkeitsfeld, LOD-Sortierung und Zielanzahl belegt; vollständige Property-/Windbindung bleibt offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.

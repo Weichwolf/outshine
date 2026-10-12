@@ -18,6 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from cloud_plots import group_figure, raster_figure, render_figure
+from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -339,8 +340,18 @@ def views_render_plot(_report):
     return save_plot(views_render_figure(EXPERIMENTS), "foliage-views-shadows")
 
 
+def profile_plot(report):
+    return save_plot(profile_figure(report), "branch-profiles")
+
+
 def plot_entries(output, plot_lods):
     definitions = (
+        (
+            "profiles/profiles.json",
+            profile_plot,
+            "Radiusprofile und Lookup-Kosten",
+            "Vier identische Kurven und 2.048 gemeinsame Abfragen; fünf lokale CPU-Läufe, Tabellenaufbau ausgeklammert. Brent-Einzelinversion, Chandrupatla-Batches und vorgehaltene 1.000er Tabelle. Originale SpeedTree-Routinen prüfen rohe Punkte und skalare Lookup-/Preset-/Zusatz-/Tile-/Skalierungspfade mit kontrollierten Puffern. Keine Modeler-, BRDF-, Wind- oder native Frame-Freigabe.",
+        ),
         (
             "render/views-shadow-pass.json",
             views_render_plot,

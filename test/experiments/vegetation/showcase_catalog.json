@@ -1,5 +1,5 @@
 {
-  "current_work": "Zuerst vollständigen SpeedTree-Funktionsumfang in eigenen Python-Verfahren entwickeln, danach den weltweiten Pflanzenrezeptkatalog. Ghidra und SpeedTree dienen als Funktions- und Bildreferenz. Der Mindestkatalog enthält 902 Namenseinträge aus der Nutzerliste; das ist noch kein Nachweis abgedeckter Pflanzen. Jede Pflanzenform wird optisch gegen passende Referenzen geprüft.",
+  "current_work": "SpeedTree-Funktionen zuerst: Profile und Astverjüngung sind numerisch mit Originalroutinen verglichen. Ghidra untersuchte 45 Funktionen; Radiusprofile erzeugen nun geschlossene Astflächen. Der weltweite Mindestkatalog und die optische Pflanzenprüfung folgen nach vollständigem Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Erzeugung, organische Gabeln, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -83,6 +83,15 @@
       "genus": "betula",
       "description": "Junge Funktionsvergleichsform mit kleineren zugespitzten Blättern und gebogenen Zweigen. Stabile IDs und gleiche Platzierungen bei umgekehrten Detailanfragen geprüft. Zielart Betula pendula, noch kein vollständig validiertes Pflanzenrezept.",
       "quality": "Blattreferenz optisch verglichen: Grundform erkennbar; Doppelzähnung, Seitenadern und natürliche Verzweigung fehlen."
+    },
+    {
+      "image": "render/profile-branches.png",
+      "title": "Astflächen · Radiusprofile und Wurzelanlauf",
+      "label": "Profilfunktionen",
+      "category": "wood",
+      "lod": "lod-0",
+      "description": "Vier geschlossene Astflächen mit gleicher Mittelachse, Maßstab, Kamera und Beleuchtung. Lineare Verjüngung, gleitender Verlauf, kontrollierte Verdickung und Wurzelanlauf aus eigenen Bézierprofilen. Radius und Flächennormalen verwenden dieselben vorbereiteten Werte.",
+      "quality": "Funktionsprobe · organische Gabeln, Rinde und botanische Formen offen"
     }
   ],
   "lods": [
@@ -121,7 +130,8 @@
     "selection_storage_plot": "lod-2",
     "demand_plot": "lod-3",
     "organ_storage_plot": "lod-0",
-    "plant_request_plot": "lod-1"
+    "plant_request_plot": "lod-1",
+    "profile_plot": "lod-0"
   },
   "genera": [
     {
