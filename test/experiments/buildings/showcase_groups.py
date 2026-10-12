@@ -2,12 +2,14 @@
 
 import hashlib
 import json
+import math
 import time
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 
 from esri_oracle import CASES
 from modelling_components import Branch
@@ -19,6 +21,7 @@ from preview import configuration,run_render
 from provider_contract import attributes
 from samples import read_site
 from showcase_scene import fitted_points
+from showcase_profile import PROFILE
 from verify_modelling_groups import cube
 
 
@@ -45,7 +48,7 @@ def render_control(output,provenance,key,title,shapes,camera,sample=None):
                 group_names=shape.group_names(),material_names=shape.material_names(),scope_size_m=shape.scope.size))
     report=provenance|result|dict(representation='showcase-current',page='buildings',view='components',label='modelling-groups',
         title='Modellierkern · '+title,caption='Farben zeigen die tatsächliche ausgewählte Gruppierung. Quellgruppen, Materialwerte, native Palette-IDs, UVs und Weltkoordinaten bleiben erhalten. '
-        'Prüfpalette mit opaken Flächen und Workbench-Studiolicht; keine Architektur-Rezeptfamilie.',profile=[1280,720],triangles=len(mesh['faces']),
+        'Prüfpalette mit opaken Flächen und Workbench-Studiolicht; keine Architektur-Rezeptfamilie.',profile=PROFILE,triangles=len(mesh['faces']),
         components=len(components),component_groups=components,logical_faces=sum(len(shape.geometry.polygons) for shape,_ in shapes),
         source_holes=len(sample['polygon'].interiors) if sample else 0,raw_mesh_bytes=sum(a.nbytes for a in mesh.values()),completed_recipe_families=0,
         geometry_scope='complete selected group/material/hole geometry and declared inspection transforms',lod_status='native LOD unproved',
@@ -56,7 +59,10 @@ def render_control(output,provenance,key,title,shapes,camera,sample=None):
 
 
 def save_plot(fig,output,stem,title,caption,provenance,start,profile,label='modelling-groups'):
-    path=output/(stem+'.png');fig.savefig(path,dpi=100);plt.close(fig)
+    minimum=np.maximum(PROFILE,profile);inches=fig.get_size_inches()
+    dpi=max(100,math.ceil(float(np.max(minimum/inches))))
+    path=output/(stem+'.png');fig.savefig(path,dpi=dpi);plt.close(fig)
+    with Image.open(path) as picture:profile=list(picture.size)
     report=provenance|dict(representation='showcase-current',page='buildings',view='plan',label=label,title=title,caption=caption,
         renderer='Metric Matplotlib 2D',profile=profile,render_seconds=time.perf_counter()-start,image_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         completed_recipe_families=0,lod_status='native LOD unproved',measurement_scope='CPU metric plotting/PNG generation; no frame duration')
@@ -101,14 +107,14 @@ def hole_plan(roof,holes,output,provenance):
 
 def probe(output,provenance):
     source=cube();groups=source.comp('g');materials=source.comp('m');moved=tuple(child.t(0.,0.,1.1) for child in groups)
-    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in (*groups,*moved)]),[1280,720])
+    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in (*groups,*moved)]),PROFILE)
     cases=[('cube-groups','Quellgruppen · frame und shell',groups),('cube-materials','Gemeinsame Materialwerte · stone und glass',materials),
            ('cube-moved','Gruppenscopes · t(0, 0, 1,1) je Gruppe',moved)]
     reports=[render_control(output,provenance,key,title,tuple((child,i) for i,child in enumerate(children)),camera) for key,title,children in cases]
     _,site,identifier=CASES[1];sample=next(row for row in read_site(site)[0] if row['id']==identifier);data=attributes(sample['properties'])
     body=authored(Shape.from_polygon(sample['polygon'],data['minHeight'],tags=(identifier,)).extrude(data['bodyHeight'],'world.up'))
     roof=body.comp('f',Branch(tagged('extrude.top')))[0];holes=roof.comp('h');markers=tuple(hole.extrude(2.,'world.up') for hole in holes)
-    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in (body,*markers)]),[1280,720])
+    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in (body,*markers)]),PROFILE)
     reports.append(render_control(output,provenance,'courtyard-groups','Wien · shell, roof und courtyard',tuple((child,i) for i,child in enumerate(body.comp('g'))),camera,sample))
     reports.append(render_control(output,provenance,'courtyard-holes','Wien · Hofauswahl mit +2 m Prüfextrusion',((body,0),*((marker,2) for marker in markers)),camera,sample))
     reports.append(face_plan(source,output,provenance));reports.append(hole_plan(roof,holes,output,provenance));return reports

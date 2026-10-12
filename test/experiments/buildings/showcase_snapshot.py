@@ -9,13 +9,13 @@ from evidence import revision
 from opening_probe import scene
 from preview import configuration,run_render
 from showcase_scene import LABELS,cached,context_scene,fitted
+from showcase_profile import PROFILE
 from showcase_split_plan import probe as split_plan_probe
 from showcase_split import probe as split_probe,open_probe
 
 
 NAMES={'rectangle':'Rechteck · Kontrollhaus','vienna-compact':'Wien · kompaktes Gebäude',
        'vienna-courtyard':'Wien · Hofgebäude','tokyo-compact':'Tokyo · kompaktes Gebäude'}
-PROFILE=[1280,720]
 
 
 def render(config,output,stem,report):

@@ -10,6 +10,7 @@ import subprocess
 from urllib.parse import unquote,urlsplit
 
 from PIL import Image
+from showcase_profile import PROFILE
 
 
 REPO=Path(__file__).resolve().parents[3]
@@ -57,6 +58,8 @@ def image_record(path,root):
         with Image.open(source) as picture:
             if list(picture.size)!=report['profile']:
                 raise ValueError('PNG-Größe und Renderprofil stimmen nicht überein.')
+            if any(actual<minimum for actual,minimum in zip(picture.size,PROFILE,strict=True)):
+                raise ValueError('Detailprüfung benötigt mindestens 1920×1080 Pixel.')
         if not report.get('renderer') or not report.get('commit') or report.get('experiment_tree_dirty'):
             raise ValueError('Sauberer Rendernachweis mit Commit fehlt.')
         name=source.stem+'-'+digest[:16]+'.png';destination=root/'assets'/name

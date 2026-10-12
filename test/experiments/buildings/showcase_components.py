@@ -19,6 +19,7 @@ from modelling_shape import Shape
 from preview import configuration,run_render
 from provider_contract import attributes
 from samples import read_site
+from showcase_profile import PROFILE
 from showcase_scene import fitted_points
 
 
@@ -63,7 +64,7 @@ def render_control(output,provenance,key,title,shapes,camera,source=None,per_com
     caption='Farben zeigen Auswahlgruppen. Flächenringe, Materialien und Corner-UVs sind in den Komponenten erhalten; Prüfpalette ersetzt nur die Bildfarben. '
     caption+='OSM-Hofgrundriss und gelieferte Höhe.' if source else 'Synthetische Funktionskontrolle; Workbench-Studiolicht, keine Architektur-Rezeptfamilie.'
     record=provenance|result|dict(representation='showcase-current',page='buildings',view='components',label='modelling-components',
-        title='Modellierkern · '+title,caption=caption,profile=[1280,720],triangles=len(mesh['faces']),logical_faces=sum(len(shape.geometry.polygons) for shape in shapes),
+        title='Modellierkern · '+title,caption=caption,profile=PROFILE,triangles=len(mesh['faces']),logical_faces=sum(len(shape.geometry.polygons) for shape in shapes),
         components=len(shapes),component_groups=groups,source_holes=len(source['polygon'].interiors) if source else 0,
         raw_mesh_bytes=sum(array.nbytes for array in mesh.values()),completed_recipe_families=0,
         geometry_scope='selected face components and explicit local operations; no new architecture recipe',lod_status='native LOD unproved',
@@ -92,12 +93,12 @@ def face_plan(shapes,path,provenance):
 
 
 def probe(output,provenance):
-    aligned,cases=controls();camera=fitted_points(np.concatenate([coloured(shapes)[0]['vertices'] for _,_,shapes in cases]),[1280,720])
+    aligned,cases=controls();camera=fitted_points(np.concatenate([coloured(shapes)[0]['vertices'] for _,_,shapes in cases]),PROFILE)
     reports=[render_control(output,provenance,key,title,shapes,camera) for key,title,shapes in cases]
     _,site,identifier=CASES[1];sample=next(row for row in read_site(site)[0] if row['id']==identifier);data=attributes(sample['properties'])
     body=Shape.from_polygon(sample['polygon'],data['minHeight'],tags=(identifier,)).extrude(data['bodyHeight'],'world.up')
     groups=body.comp('f',Branch(tagged('extrude.side.outer'),'='),Branch(tagged('extrude.side.inner'),'='),Branch(tagged('extrude.top'),'='),Branch('all','='))
-    view=fitted_points(engine_mesh(body.emit())['vertices'],[1280,720])
+    view=fitted_points(engine_mesh(body.emit())['vertices'],PROFILE)
     reports.append(render_control(output,provenance,'courtyard','Wien · Außenwand, Hofwand und Dach',groups,view,sample))
     walls=body.comp('f',Branch(tagged('extrude.side'),'=:'))
     reports.append(render_control(output,provenance,'courtyard-connected','Wien · zwei verbundene Wandgruppen',walls,view,sample,True))

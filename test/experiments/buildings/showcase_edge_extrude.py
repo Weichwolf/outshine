@@ -19,6 +19,7 @@ from modelling_shape import Shape
 from preview import configuration,run_render
 from provider_contract import attributes
 from samples import read_site
+from showcase_profile import PROFILE
 from showcase_scene import fitted_points
 
 
@@ -65,7 +66,7 @@ def render_control(case,output,provenance,camera):
     record=provenance|result|dict(representation='showcase-current',page='buildings',view='extrusion',label='modelling-edge-sweep',
         title='Modellierkern · '+title,caption='Blau: Quellfläche/-körper · Gold: tatsächliche Kanten-Sweep-Flächen ohne künstliche Kappen. '
         'Face-Normalen erzeugen getrennte Ecken; Vertexnormalen teilen die Endpunkte. Prüfpalette und Workbench-Studiolicht; keine Architektur-Rezeptfamilie.',
-        profile=[1280,720],triangles=len(mesh['faces']),sweep_faces=len(product.geometry.polygons),scope_size_m=product.scope.size,
+        profile=PROFILE,triangles=len(mesh['faces']),sweep_faces=len(product.geometry.polygons),scope_size_m=product.scope.size,
         sweep=asdict(product.sweep_info),raw_mesh_bytes=sum(a.nbytes for a in mesh.values()),completed_recipe_families=0,
         geometry_scope='source surface plus complete generated edge sweep polygons; no invented thickness or solid volume',lod_status='native LOD unproved',
         measurement_scope='Workbench render of inspection mesh; no native frame timing')
@@ -107,9 +108,9 @@ def plan_figure(cases,roof,output,provenance):
 
 
 def probe(output,provenance):
-    cases,roof=controls();rectangle_camera=fitted_points(np.concatenate([pair_mesh(case[2],case[3])['vertices'] for case in cases[:3]]),[1280,720])
+    cases,roof=controls();rectangle_camera=fitted_points(np.concatenate([pair_mesh(case[2],case[3])['vertices'] for case in cases[:3]]),PROFILE)
     reports=[]
     for number,case in enumerate(cases):
-        camera=rectangle_camera if number<3 else fitted_points(pair_mesh(case[2],case[3])['vertices'],[1280,720])
+        camera=rectangle_camera if number<3 else fitted_points(pair_mesh(case[2],case[3])['vertices'],PROFILE)
         reports.append(render_control(case,output,provenance,camera))
     reports.append(plan_figure(cases,roof,output,provenance));return reports

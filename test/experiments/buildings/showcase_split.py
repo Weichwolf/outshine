@@ -19,6 +19,7 @@ from preview import configuration,run_render
 from provider_contract import attributes
 from samples import read_site
 from showcase_groups import COLOURS,inspection_mesh,save_plot
+from showcase_profile import PROFILE
 from showcase_scene import fitted_points
 from verify_modelling_groups import cube
 
@@ -34,7 +35,7 @@ def render_control(output,provenance,key,title,children,camera,sample=None):
         title='Modellierkern · '+title,caption='Vollständige triangulierte Teilkörper, für die Ansicht auseinandergezogen. '
         'Schnittflächen sind geschlossen; Quellmaterial, Gruppen, Tags und Corner-UVs erhalten. '
         'Opake Prüfpalette und Workbench-Studiolicht; noch keine Architektur-Rezeptfamilie.',
-        profile=[1280,720],triangles=len(mesh['faces']),raw_mesh_bytes=sum(a.nbytes for a in mesh.values()),
+        profile=PROFILE,triangles=len(mesh['faces']),raw_mesh_bytes=sum(a.nbytes for a in mesh.values()),
         components=len(children),split_parts=[asdict(child.split_info) for child in children],
         completed_recipe_families=0,lod_status='native LOD unproved',
         geometry_scope='complete cut solid geometry including generated closure surfaces',
@@ -65,7 +66,7 @@ def section_plot(children,output,provenance):
 def probe(output,provenance):
     source=cube();parts=source.split('y',Part(1.5,'floor'),repeat=True,cut_material=7,cut_group=8)
     exploded=tuple(child.t(0.,child.split_info.index*.8,0.) for child in parts)
-    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in exploded]),[1280,720])
+    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in exploded]),PROFILE)
     reports=[render_control(output,provenance,'cube-floors','Absolute Geschosse · 1,5 / 1,5 / 1 m',exploded,camera)]
     _,site,identifier=CASES[1];sample=next(row for row in read_site(site)[0] if row['id']==identifier);data=attributes(sample['properties'])
     body=Shape.from_polygon(sample['polygon'],data['minHeight'],material=7,tags=(identifier,)).extrude(data['bodyHeight'],'world.up')
@@ -73,7 +74,7 @@ def probe(output,provenance):
     for axis,key,title in [('y','courtyard-floors','Wien · vier Geschossblöcke und Hof'),('x','courtyard-widths','Wien · vier räumliche Breitenteilungen')]:
         children=body.split(axis,*pattern);direction=np.zeros(3);direction[('x','y','z').index(axis)]=3.
         exploded=tuple(child.t(*(direction*child.split_info.index)) for child in children)
-        camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in exploded]),[1280,720])
+        camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in exploded]),PROFILE)
         reports.append(render_control(output,provenance,key,title,exploded,camera,sample))
         if axis=='y':reports.append(section_plot(exploded,output,provenance))
     return reports
@@ -84,7 +85,7 @@ def open_probe(output,provenance):
     for column,bay in enumerate(facade.split('x',Part(1.5,'bay'),repeat=True)):
         for row,cell in enumerate(bay.split('y',Part(1.2,'storey'),repeat=True)):
             children.append(cell.t(column*.18,row*.12,0.))
-    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in children]),[1280,720])
+    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in children]),PROFILE)
     report=render_control(output,provenance,'open-facade','Offene Fassade · Achsen und Geschossbänder',children,camera)
     path=output/report;record=json.loads(path.read_text());record['caption']='Offene Quellfassade in Achsen und Geschossbänder geteilt; die Zellen sind zur Kontrolle leicht getrennt. Keine Abschlussflächen oder Wandstärken ergänzt; UVs/Material/Tags erhalten. Opake Prüfpalette, noch keine Fenster oder Architektur-Rezeptfamilie.'
     record['geometry_scope']='open source surface cuts without closure geometry';path.write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')

@@ -18,6 +18,7 @@ from modelling_shape import Shape
 from preview import configuration,run_render
 from provider_contract import attributes
 from samples import read_site
+from showcase_profile import PROFILE
 from showcase_scene import fitted_points
 from verify_modelling_extrude import volume
 
@@ -53,7 +54,7 @@ def render_control(output,provenance,key,title,body,camera,source=None):
     caption='Blau: Ausgangsfläche · Gelb: Außenwand · Rot: Hofwand · Grün: obere Fläche. Farben zeigen Komponententags; gespeicherte Quellmaterialien bleiben erhalten. '
     caption+='Echter OSM-Hofgrundriss und gelieferte Höhe.' if source else 'Dieselben zwei verbundenen geneigten Flächen, identische Kamera; Workbench-Studiolicht.'
     record=provenance|result|dict(representation='showcase-current',page='buildings',view='extrusion',label='modelling-extrude',
-               title='Modellierkern · '+title,caption=caption,profile=[1280,720],triangles=len(mesh['faces']),
+               title='Modellierkern · '+title,caption=caption,profile=PROFILE,triangles=len(mesh['faces']),
                logical_faces=len(body.geometry.polygons),raw_mesh_bytes=sum(array.nbytes for array in mesh.values()),volume_m3=volume(body.emit()),
                geometry_scope='polygon extrusion function control; no architecture recipe',completed_recipe_families=0,
                lod_status='complete control geometry; native LOD unproved',scope_size_m=body.scope.size)
@@ -77,11 +78,11 @@ def plan_figure(source,cases,output,provenance):
 
 def probe(output,provenance):
     source,cases=controls();points=np.concatenate([engine_mesh(body.emit())['vertices'] for _,_,body in cases])
-    camera=fitted_points(points,[1280,720]);reports=[render_control(output,provenance,key,title,body,camera) for key,title,body in cases]
+    camera=fitted_points(points,PROFILE);reports=[render_control(output,provenance,key,title,body,camera) for key,title,body in cases]
     _,site,identifier=CASES[1];sample=next(row for row in read_site(site)[0] if row['id']==identifier);data=attributes(sample['properties'])
     body=Shape.from_polygon(sample['polygon'],data['minHeight'],tags=(identifier,)).extrude(data['bodyHeight'],'world.up')
     reports.append(render_control(output,provenance,'vienna-courtyard','Wien · Hoföffnung und Extrusion',body,
-                                  fitted_points(engine_mesh(body.emit())['vertices'],[1280,720]),sample))
+                                  fitted_points(engine_mesh(body.emit())['vertices'],PROFILE),sample))
     stem='current-extrude-sections';image=output/(stem+'.png');seconds=plan_figure(source,cases,image,provenance)
     reports.append(save_report(output,stem,provenance|dict(representation='showcase-current',page='buildings',view='plan',
         label='modelling-extrude',title='Modellierkern · Extrusion im Schnitt',caption='Vier Extrusionsarten, negative Distanz und minimale Flat-Top-Höhe am selben Dach. Metrische 2D-Schnitte der tatsächlich erzeugten Dreiecke.',

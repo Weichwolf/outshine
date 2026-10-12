@@ -110,7 +110,7 @@ alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinat
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
 Familien/Varianten/Instanzen getrennt zählen; Zuordnung, funktionale Räume/Wege/Zugänge/Nachtlicht und Bildbelege sind Pflicht.
 Showcase zeigt nur den aktuellen Stand, frühere Modellierbilder bleiben interne Referenzen;
-fehlende Messwerte kennzeichnen/aus Diagrammen auslassen, geänderte Frontend-Dateien automatisch neu laden.
+Renderings mindestens 1920×1080; größere metrische Pläne mit wahrer PNG-Größe. Fehlende Messwerte auslassen; Frontend automatisch neu laden.
 
 ## Primärquellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.
