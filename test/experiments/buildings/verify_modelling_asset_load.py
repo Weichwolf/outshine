@@ -63,8 +63,10 @@ def invalid_controls(output,obj_path,glb_path):
     extension=output/'required-extension.glb';document.save_binary(str(extension))
     zero=GLTF2().load(str(glb_path));zero.nodes[0].scale=[0.,0.,0.];zero.nodes[0].matrix=[]
     singular=output/'singular.glb';zero.save_binary(str(singular))
+    fan=GLTF2().load(str(glb_path));fan.meshes[0].primitives[0].mode=6
+    fan_path=output/'triangle-fan.glb';fan.save_binary(str(fan_path))
     calls=[lambda:Asset.from_file(output/'unsupported.fbx'),lambda:Asset.from_file(missing),
-           lambda:Asset.from_file(extension),lambda:Asset.from_file(singular)]
+           lambda:Asset.from_file(extension),lambda:Asset.from_file(singular),lambda:Asset.from_file(fan_path)]
     for call in calls:
         try:call()
         except (ValueError,NotImplementedError,FileNotFoundError):pass

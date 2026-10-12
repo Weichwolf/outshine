@@ -34,7 +34,10 @@ def decode_gltf(path,resolver):
     for mesh_index,mesh in enumerate(header.get('meshes',[])):
         accepted=[]
         for primitive_index,primitive in enumerate(mesh.get('primitives',[])):
-            if primitive.get('mode',4) not in (4,5):
+            mode=primitive.get('mode',4)
+            if mode==6:raise NotImplementedError('glTF triangle-fan surface decoding remains pending')
+            if mode not in range(6):raise ValueError('Invalid glTF primitive mode')
+            if mode not in (4,5):
                 omitted.append((mesh_index,primitive_index,'non-surface primitive'));continue
             attributes=primitive['attributes']
             for name,index in tuple(attributes.items()):
