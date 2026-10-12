@@ -53,7 +53,9 @@ function renderGallery() {
     body.append(element('h3', item.title), element('p', item.caption));
     const details = element('div', undefined, 'details');
     for (const text of [`${integer(item.triangles || 0)} Dreiecke`, Number.isFinite(item.openings) ? `${integer(item.openings)} ${item.representation === 'functional-plan' ? 'Fenster' : 'Öffnungen'}` : 'Öffnungen nicht gezählt',
-      ['functional-plan','roof-plan','opening-components'].includes(item.representation) ? `${integer(item.rooms)} Räume · ${integer(item.doors)} Türportale` : `${integer(item.admitted_products || 0)} Körper`,
+      ['functional-plan','roof-plan','opening-components','opening-inspection'].includes(item.representation)
+        ? `${integer(item.rooms)} ${item.representation.startsWith('opening-') ? 'Räume an Öffnungen' : 'Räume'} · ${integer(item.doors)} Türportale`
+        : Number.isFinite(item.admitted_products) ? `${integer(item.admitted_products)} Körper` : 'Körper nicht gezählt',
       ...(item.floor_bands ? [`${integer(item.floor_bands)} Geschossbänder · ${integer(item.planned_features)} Ausstattungselemente`] : []),
       `Bild ${short(item.commit)}${item.experiment_tree_dirty ? ' · Arbeitsstand' : ''}`]) {
       details.append(element('span', text));
