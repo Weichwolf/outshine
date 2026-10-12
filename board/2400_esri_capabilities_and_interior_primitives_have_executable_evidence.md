@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 33 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Translation/-Rotation.
+Ghidra 12.1.2: 37 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
@@ -37,9 +37,14 @@ Ghidras fünf unaufgelöste Mode-PLT-Stellen unabhängig per ELF-Disassemblierun
 Referenzierte UTF-32-Konstanten `blend`/`mask`/`opaque` gegen SDK-Dokumentation bestätigt; andere dynamische Ziele bleiben offen.
 `Material::combine` liest Zahlen-/Textur-/Stringarrays und kopiert Materialcontainer; genaue Überschreibpriorität bleibt ungeprüft.
 11/63/1964 begrenzte Instruktionen, keine indirekten Stellen; Mode/Combine haben 12/4 außerhalb liegende Decompilerblöcke.
+Extrusionsbeleg e42c3763a: Welt-/Flat-Top-/Vertexdispatch ruft Seiten-UVs, glatte Normalen und neue Scope-Ausrichtung auf.
+3715 begrenzte Instruktionen, keine indirekten Stellen; 55 außerhalb liegende Blöcke zählen nicht als Beleg.
+Seiten-UV-Helper: aktive Kanäle, Eckfolge A/B/B/A; 137 Instruktionen. Normenhelper: angrenzende Flächennormalen summieren und normieren; 204 Instruktionen.
+Neue Scope-Y-Achse: alte X-Achse orthogonal projizieren, bei Kollaps Ersatzachse, Z aus Kreuzprodukt; 244 Instruktionen.
+Diese drei Helper haben keine indirekten Stellen/außerhalb liegenden Blöcke; SDK-Typen und Ersatzkonstante bleiben nicht laufzeitverifiziert.
 
 ## Umsetzung
-- Aktueller Kernvertrag (2480): Welt-/Flat-Top-/Vertexnormal-Extrusion, neue Scope-Aufwärtsachse, Normengewichtung und Seiten-UV-Vererbung anhand vier weiterer Ghidra-Ziele vertiefen.
+- Aktueller Kernvertrag (2480): Polygon-/Extrusionsfälle mit Löchern, geteilten/unverbundenen Vertices, neuer Scope-Ausrichtung und UV-/Tag-/Materialvererbung gegen diese Belege prüfen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
@@ -72,6 +77,7 @@ Katalog zeigt Fähigkeit, eigene Entsprechung und fehlende Verfahren; daraus nä
 [Esri SDK](https://esri.github.io/cityengine/cityenginesdk),
 [CGAL Skeleton/Offset](https://doc.cgal.org/latest/Straight_skeleton_2/index.html),
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm),
+[CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): vier Flächenarten, negative Scope-Y-Größe, Flat-Top-Mindestspanne und unverbundene Vertexnormalen.
 [CGA InnerRectangle](https://doc.arcgis.com/en/cityengine/latest/cga/cga-inner-rectangle.htm),
 [CGA Inline](https://doc.arcgis.com/en/cityengine/latest/cga/cga-inline.htm): Spiralstufen als rekursive Bauteile plus 3D-Vereinigung, lokales SDK-Beispiel optisch geprüft.
 [CGA Insert](https://doc.arcgis.com/en/cityengine/latest/cga/cga-i.htm): fremde Bauteilgeometrie im gemeinsamen Scope, kein automatisch erschlossener Geschossplan.

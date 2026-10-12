@@ -13,9 +13,10 @@ class Geometry:
     fields: object
     unit_vertices: object
     reference_size: tuple
+    polygons: tuple=()
 
     @classmethod
-    def from_mesh(cls,mesh):
+    def from_mesh(cls,mesh,scope=None,polygons=()):
         vertices=np.asarray(mesh['vertices'],dtype=np.float64)
         raw_faces=np.asarray(mesh['faces'])
         if vertices.ndim!=2 or vertices.shape[1]!=3 or not np.isfinite(vertices).all():
@@ -24,9 +25,14 @@ class Geometry:
             raise ValueError('This mesh constructor requires triangle indices')
         if len(raw_faces) and (raw_faces.min()<0 or raw_faces.max()>=len(vertices)):
             raise ValueError('Shape face index lies outside its vertices')
-        low=vertices.min(axis=0) if len(vertices) else np.zeros(3)
-        size=vertices.max(axis=0)-low if len(vertices) else np.zeros(3)
-        unit=np.divide(vertices-low,size,out=np.zeros_like(vertices),where=size!=0)
+        if scope is None:
+            low=vertices.min(axis=0) if len(vertices) else np.zeros(3)
+            size=vertices.max(axis=0)-low if len(vertices) else np.zeros(3)
+            scope=Scope(position=tuple(low),size=tuple(size))
+        local=(vertices-scope.origin)@scope.axes
+        size=np.asarray(scope.size)
+        if np.any(np.abs(local[:,size==0])>1e-8):raise ValueError('Geometry does not fit its zero-sized scope axes')
+        unit=np.divide(local,size,out=np.zeros_like(vertices),where=size!=0)
         unit.setflags(write=False)
         fields={}
         for key,value in mesh.items():
@@ -34,7 +40,9 @@ class Geometry:
             array=np.array(value,copy=True);array.setflags(write=False);fields[key]=array
         if 'normals' in fields and (fields['normals'].shape!=vertices.shape or not np.isfinite(fields['normals']).all()):
             raise ValueError('Authored vertex normals require finite XYZ coordinates per vertex')
-        return cls(MappingProxyType(fields),unit,tuple(size)),Scope(position=tuple(low),size=tuple(size))
+        if 'normals' in fields:
+            normals=fields['normals']@scope.axes;normals.setflags(write=False);fields['normals']=normals
+        return cls(MappingProxyType(fields),unit,tuple(size),tuple(polygons)),scope
 
 
 @dataclass(frozen=True)
@@ -43,9 +51,23 @@ class Shape:
     scope: Scope
 
     @classmethod
-    def from_mesh(cls,mesh):
-        geometry,scope=Geometry.from_mesh(mesh)
+    def from_mesh(cls,mesh,scope=None,polygons=()):
+        geometry,scope=Geometry.from_mesh(mesh,scope,polygons)
         return cls(geometry,scope)
+
+    @classmethod
+    def from_polygon(cls,polygon,elevation=0.,material=1,tags=()):
+        from modelling_faces import polygon_shape
+        return polygon_shape(polygon,elevation,material,tags)
+
+    @classmethod
+    def from_faces(cls,vertices,faces,scope=None,vertex_normals=None):
+        from modelling_faces import face_shape
+        return face_shape(vertices,faces,scope,vertex_normals)
+
+    def extrude(self,distance,mode='face.normal'):
+        from modelling_extrude import extrude
+        return extrude(self,distance,mode)
 
     def t(self,x,y,z):return replace(self,scope=self.scope.t(x,y,z))
 

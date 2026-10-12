@@ -30,6 +30,14 @@ GROUPS = {
     'Regelsteuerung und Diagnose': 'NIL print report set',
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
+OWN = {
+    't': dict(module='modelling_shape.Shape.t',status='documented forms implemented; scope checks and two PRT translations',pending=[]),
+    'r': dict(module='modelling_shape.Shape.r',status='documented pivot/centre forms implemented; scope checks and Ghidra',pending=['isolated PRT rotation rule']),
+    's': dict(module='modelling_shape.Shape.s',status='absolute/relative and negative sizes implemented; scope checks and Ghidra',pending=['singular authored-normal transform','isolated PRT scale rule']),
+    'translate': dict(module='modelling_shape.Shape.translate',status='documented coordinate systems implemented; scope checks',pending=[]),
+    'extrude': dict(module='modelling_shape.Shape.extrude',status='four face extrusion modes implemented; holes, connected/disconnected faces, UV/tag/material checks and PRT prisms',
+                    pending=['edge extrusion from comp(e/fe)','tangential or collapsed face sweep','UV channels beyond the first','isolated PRT flat-top and vertex-normal rule']),
+}
 USES = {
     'Dachformen': 'Dachsilhouette, First, Traufe und Überstand; zunächst keine eigene Umsetzung.',
     'Massierung und Grundriss': 'Höhenintervalle, Höfe, Gebäudeteile, Rücksprünge und technische Körper.',
@@ -76,7 +84,8 @@ def page_record(path, root, kind):
                 signatures=' '.join(' '.join(page.signatures).split()),
                 group=group, alias_of=ALIASES.get(identifier),
                 document=str(path.relative_to(root)), sha256=hashlib.sha256(data).hexdigest(),
-                status='documented; individual operation not yet execution-tested')
+                status=OWN[identifier]['status'] if identifier in OWN else 'documented; individual operation not yet execution-tested',
+                own_python=OWN.get(identifier))
 
 
 def packages(root):
