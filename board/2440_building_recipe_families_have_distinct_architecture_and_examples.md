@@ -53,6 +53,8 @@ Konstruktive Kontakte, freie Türöffnung, Körperhöhen/Quellfarbe und tatsäch
 Fenster-Ringmodule 88 statt 120 Balkendreiecke, gleiche analytische Volumen/Öffnungen; 48 Öffnungen × 21 warme Läufe vergleichen, kein nativer Framebeleg.
 Sechs gespeicherte Körperpläne/676 Bauteilplätze gegen tatsächliche Paneelen und freie Türbreiten prüfen; versetzte Öffnungsbeschreibung als Gegenfall.
 Glasdiagnose verwendet dünne Alpha-Oberflächen mit vorhandenen Innenräumen; Refraktion, Raumprogramme/Nachtlicht und freigegebene LODs offen.
+EEVEE-Nahkontrolle 1280×720/48 Samples: Dithered erzeugt sichtbare Körnung; Alpha-Blending glättet Glas, Innenboden bleibt körnig.
+Ein lokaler Lauf 121/343 s; separate Glasgeometrie 329 s ohne Bildgewinn, verworfen. Software-Referenzkosten, keine nativen Framezeiten.
 
 ## Familien und Komponenten
 - Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.

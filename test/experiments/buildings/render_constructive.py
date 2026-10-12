@@ -24,7 +24,10 @@ def add(configuration, material):
             if not np.isfinite(alpha) or not 0.<alpha<=1.:
                 raise ValueError('Window surface alpha must be finite and in (0,1]')
             shader.node_tree.nodes.get('Principled BSDF').inputs['Alpha'].default_value = alpha
-            shader.surface_render_method = 'DITHERED'
+            method = configuration.get('glass_method','DITHERED')
+            if method not in ('DITHERED','BLENDED'):
+                raise ValueError('Unknown window surface transparency method')
+            shader.surface_render_method = method
             shader.use_backface_culling = True
             shader.use_transparent_shadow = True
         mesh.materials.append(shader)
@@ -35,4 +38,4 @@ def add(configuration, material):
     return dict(triangles=len(data['faces']),vertices=len(data['vertices']),
                 mesh_sha256=configuration['mesh_sha256'],bounds_m=[referenced.min(axis=0).tolist(),referenced.max(axis=0).tolist()],
                 glass_surface='thin alpha approximation' if 'glass_alpha' in configuration else 'opaque reference',
-                glass_alpha=configuration.get('glass_alpha',1.))
+                glass_alpha=configuration.get('glass_alpha',1.),glass_method=configuration.get('glass_method','DITHERED'))

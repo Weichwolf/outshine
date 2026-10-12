@@ -35,7 +35,7 @@ def scene(source, output, mesh_path, view, openings):
         config['ground_span_m']=reference['ground_span_m']
     config.update(output=str(output.resolve()),products=[],tiles={},solar_tile=None)
     config['constructive']=reference['constructive']|dict(mesh=str(mesh_path.resolve()),
-                     mesh_sha256=hashlib.sha256(mesh_path.read_bytes()).hexdigest(),glass_alpha=.08)
+                     mesh_sha256=hashlib.sha256(mesh_path.read_bytes()).hexdigest(),glass_alpha=.08,glass_method='BLENDED')
     return config
 
 
