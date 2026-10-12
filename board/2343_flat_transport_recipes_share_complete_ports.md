@@ -84,13 +84,14 @@ Portwinkel ohne Besitzwechsel; der Direktkurvenfilter bleibt günstiger als unge
 fehlende Fahrten einmal nach; Aufweitung/Freiräume bleiben an ursprünglicher Fläche begrenzt.
 [Gekoppelte Produkte](../test/experiments/transport/transport_coupled_roadbed_experiment.py) besitzen
 Fläche einmal und triangulieren gemeinsam. Außenrahmen/Anfragen/Bestand erhalten; Körper, Freiräume,
-Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren.
+Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren; gemeinsame öffentliche Erweiterungen speichern und beim Laden gegen das Mesh prüfen.
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel vollständig; Wien 684 lokal 5/5, mit Nachbarn 8/8 und +14,3 m². Nächste Umwege Zürich 2134: 60→1369 m, Wien 808: 30→457 m.
+   Basel vollständig; Wien 684 lokal 5/5, mit Nachbarn 8/8 und +14,3 m²; 808 lokal 3/3, mit Nachbarn 7/7 und +50,1 m², frischer Ladeprozess bestätigt. Wiener Gesamtfenster nachprüfen; Zürich 2134: 60→1369 m.
    [Gekoppelter Wendeplatz](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): Basel 1155 6/6, insgesamt 8/8 auf drei Bauteilen; Bestand erhalten.
    Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
+   [Breitere Ports](../test/experiments/transport/transport_court_partition.py) auf festen Schnittebenen verteilen neue Fläche einmal; Bestand/Quellkontakte erhalten.
    Zwei Schnitte 4 m nach außen; gerade Zu-/Abfahrten, Wendefahrten je 36,3 m, +75,3 m² Fahrfläche, 24,6 m² Gebäude-Freiraumanfrage. Volles Basel bestätigt; Buildings-Runtime offen.
    [Portgraph](../test/experiments/transport/transport_route_connectivity.py): schwache/starke Komponenten, gerichtete Alternativen, 64er-DAG-Batches.
    [Quellführung](../test/experiments/transport/probes/roadbeds/steering_source_hint_probe.py): Sichtbarkeit/Restlänge, Inselkerne, keine Zusatzdrehung; C2-Passung danach.
@@ -100,7 +101,6 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
    [Lenkpfad → Mesh](../test/experiments/transport/probes/roadbeds/steering_roadbed_product_probe.py):
    Wien 1480: 9/13 mit unveränderten Grenzen; 805: 7/7 nach Schließen einer 0,43-m²-Resttasche.
-   Bauteil 89 45/45; zwei Kurven gemeinsam samt Bestand geprüft; 33 Kollisionsstationen, 1024-Aufrufe-Budget.
    Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
    Wien 900/909, Zürich 4774/4808, Basel 2956/2962; Messcommit `03af0cec8`, ein Core, zusammen 127 s.

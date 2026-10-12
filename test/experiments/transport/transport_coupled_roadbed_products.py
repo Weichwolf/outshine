@@ -13,6 +13,7 @@ from transport_junction_surfaces import motor_surface,same_island_winding
 from transport_shared_frames import frame_key
 from transport_source_roadbeds import published_roadbed_body_check
 from transport_turn_roadbeds import preserves_coverage,published_roadbed_surface
+from transport_surface_regions import canonical_grid_region
 
 
 def source_request(poses,pair):
@@ -25,6 +26,16 @@ def validate_request_ledger(pairs,proofs,unresolved):
     assert len(requests)==len(proofs) and len(omitted)==len(unresolved),'duplicate source request'
     assert not requests&omitted and pairs.keys()==requests|omitted,'source requests changed'
     assert all(p.get('reason') for p in unresolved),'missing omission reason'
+
+
+def shared_public_addition(report,physical,quantum):
+    data=report.get('shared_public_addition_wkb')
+    addition=shapely.from_wkb(data) if data is not None else shapely.Polygon()
+    assert addition.geom_type in ('Polygon','MultiPolygon') and addition.is_valid,'invalid shared public addition'
+    addition=canonical_grid_region(addition,quantum)
+    physical=canonical_grid_region(physical,quantum)
+    assert addition.is_empty or preserves_coverage(addition,physical),'shared public addition outside physical mesh'
+    return addition
 
 
 def prove_product_routes(network,report,floors):
@@ -78,6 +89,9 @@ def apply_coupled_product(network,records,required,root,path,occupied):
     restore_cut_plan(trial,report['cut_plan'])
     floors={}
     with np.load(report['physical_mesh'],allow_pickle=False) as mesh:
+        physical=shapely.union_all(shapely.polygons(mesh['vertices'][mesh['indices']]))
+        quantum=min(row['coordinate_precision_m'] for row in report['published_surfaces'])
+        addition=shared_public_addition(report,physical,quantum)
         for row in report['published_surfaces']:
             owner=row['module'];assert owner in affected and owner not in floors
             owned=dict(vertices=mesh['vertices'],indices=mesh['indices'][mesh['face_owners']==owner])
@@ -89,6 +103,7 @@ def apply_coupled_product(network,records,required,root,path,occupied):
             planned=shapely.from_wkb(row['public_surface_wkb'])
             source_floor=motor_surface(planned,trial.graph,trial.tree,trial.mesh,trial.vehicle,
                                        trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
+            source_floor=source_floor.union(addition)
             base,core=shapely.set_precision(np.array([source_floor,physical],dtype=object),quantum)
             floors[owner],_=published_roadbed_surface(owned,base,core,planned,quantum)
     assert floors.keys()==affected
