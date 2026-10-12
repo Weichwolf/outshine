@@ -47,6 +47,10 @@ Synthetische Außenansichten 1280×720, reale Esri-Vergleichskameras 854×480; d
 Bilddefizit: generische Fensterachsen ohne Rahmen/Erdgeschossgliederung/Dachranddetails; geneigte Dachflächen in Eevee zu schwach lesbar.
 Blender-Import von Koordinaten, Materialien und geneigten Dachnormalen geprüft; diagnostische koplanare Triangulationskanten im Schnitt bleiben sichtbar.
 Aktiver Fassadenausbau: Fenster-/Eingangsrahmen und Fensterbank am vorhandenen Öffnungs-/Raumplan; keine unabhängigen Fassadenöffnungen.
+Nächster Ausbau: teilnutzungsbezogene Ladenfronten am vorhandenen Erdgeschoss-/Raumplan; obere Geschosse und übrige Wohnräume erhalten.
+Lokale POI-Nutzung nur dem tatsächlichen Host zuordnen; fehlendes Geschoss als prozedurale Erdgeschossannahme kennzeichnen.
+Breite/niedrige Schaufenster mit vorhandenen Wanddurchbrüchen/Gläsern/Rahmen konsistent erzeugen; keine zweite Öffnungswelt.
+Candler-Grundgeschoss als Formreferenz, `envelope2002` für weitere nachweisbare Nutzungs-/Grundrissrezepte prüfen (2400).
 Metrische Ringextrusion gegen gleich geformte Balkenbauteile vergleichen; Template-Wiederverwendung und Platzierung statt erneuter Polygonarbeit je Öffnung.
 Konstruktive Kontakte, freie Türöffnung, Körperhöhen/Quellfarbe und tatsächliche Module erst in 2D/Schnitt, dann 2.5D/Nah/Gegen/Distanz prüfen.
 `opening_modules` liefert Sash/Einfassung/geneigte Bank und außenliegende Eingangsrahmen; `opening_details` hält stabile Slots/Room-IDs und wiederverwendet Templates.

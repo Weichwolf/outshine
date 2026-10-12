@@ -3,82 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Outshine · Gebäudeexperimente</title>
-  <link rel="stylesheet" href="showcase.css">
-  <script src="showcase.js" defer></script>
+  <title>Outshine · Gebäude</title>
+  <link rel="stylesheet" href="/showcase.css">
+  <script src="/showcase.js" defer></script>
 </head>
 <body>
-  <header><a href="/" class="brand">OUTSHINE <span>/ GEBÄUDE</span></a><nav class="jump"><a href="#gallery-title">Bilder</a><a href="#plot-title">Kosten</a></nav><span id="connection" role="status">Lädt …</span></header>
+  <header><a href="/" class="brand">OUTSHINE <span>/ GEBÄUDE</span></a><span id="connection" role="status">Lädt …</span></header>
+  <nav id="pages" class="pages" aria-label="Ansichtsebene"></nav>
   <main>
     <section class="intro">
-      <p class="eyebrow">PYTHON-WERKSTATT · OSM / ESRI</p>
-      <h1>Gebäude im Versuch.</h1>
-      <p class="lead">Providerdaten bestimmen die Gebäude. Ausführbare Esri-Referenzen zeigen das Qualitätsziel; direkte Bildvergleiche zeigen den eigenen Stand.</p>
-      <p id="progress"></p>
+      <p class="eyebrow">PYTHON-WERKSTATT · AKTUELLER STAND</p>
+      <h1 id="title">Gebäude im Versuch.</h1>
+      <p id="description" class="lead">Innenräume, Gebäude, Gruppen und Städte.</p>
+      <p id="scope" class="hint"></p>
       <div id="state" class="state"></div>
     </section>
-    <div id="stats" class="stats"></div>
-    <section id="esri" aria-labelledby="esri-title" hidden>
-      <div class="section-top"><h2 id="esri-title">Esri-Fähigkeiten und Referenzregeln</h2><a href="esri-catalog.json" download>Katalog als JSON</a></div>
-      <p id="esri-note" class="hint"></p><p id="esri-counts"></p>
-      <details><summary>Dokumentierte Formoperationen und ihre Verwendung</summary>
-        <div class="table-scroll"><table><thead><tr><th>Bereich</th><th>Operationen</th><th>Gebäudeanwendung</th></tr></thead><tbody id="esri-operations"></tbody></table></div>
-      </details>
-      <details><summary>Verfügbare kompilierte Esri-Regelpakete</summary>
-        <div class="table-scroll"><table><thead><tr><th>Regel</th><th>Parameter</th><th>Nachweis</th></tr></thead><tbody id="esri-packages"></tbody></table></div>
-      </details>
-      <p id="esri-proof" class="hint"></p>
-      <details><summary>Gezielte Ghidra-Untersuchung des Esri-Kerns</summary>
-        <p id="esri-analysis" class="hint"></p><a href="esri-ghidra.json" download>Untersuchung als JSON</a>
-        <div class="table-scroll"><table><thead><tr><th>Funktion</th><th>Instruktionen</th><th>Geometrieaufrufe · Details im JSON</th></tr></thead><tbody id="esri-primitives"></tbody></table></div>
-      </details>
-    </section>
-    <section id="roofs" aria-labelledby="roofs-title" hidden>
-      <div class="section-top"><h2 id="roofs-title">Dachformen im Quellhöhenbudget</h2></div>
-      <p id="roofs-note" class="hint"></p>
-      <details><summary>Analytisches Walmprofil gegen Straight Skeleton</summary>
-        <p class="hint">Gleiche Rechtecke, Dachflächen und geprüfte Aufpunkthöhen. Je 21 warme Python-Läufe; keine nativen Framezeiten.</p>
-        <div class="table-scroll"><table><thead><tr><th>Grundriss [m]</th><th>Verfahren</th><th>p50 / p95 [ms]</th><th>Dachflächen</th><th>Plattenvolumen [m³]</th></tr></thead><tbody id="roofs-methods"></tbody></table></div>
-      </details>
-    </section>
-    <section id="plans" aria-labelledby="plans-title" hidden>
-      <div class="section-top"><h2 id="plans-title">Konstruktive Pläne und Geschossverbindungen</h2></div>
-      <p id="plans-note" class="hint"></p>
-      <details><summary>Begrenzte Raumteilungen und tatsächliche Geometriekosten</summary>
-        <div class="table-scroll"><table><thead><tr><th>Eingabe</th><th>Verfahrensvergleich</th><th>Gewählt / Räume / Türen</th><th>Plan / Mesh [ms]</th><th>Mesh [KiB]</th></tr></thead><tbody id="plans-cases"></tbody></table></div>
-      </details>
-      <details id="stairs-benchmark" hidden><summary>Treppenprofil gegen einzelne Stufenbauteile</summary>
-        <p class="hint">Gleiches Volumen und tatsächliche Auftrittshöhen. Je 21 warme Python-Läufe; lokale Generierung, keine nativen Framezeiten.</p>
-        <div class="table-scroll"><table><thead><tr><th>Geschosshöhe [m]</th><th>Verfahren</th><th>Bauteile / Dreiecke</th><th>p50 / p95 [ms]</th><th>Volumen [m³]</th></tr></thead><tbody id="stairs-cases"></tbody></table></div>
-      </details>
-    </section>
-    <section id="provider" aria-labelledby="provider-title" hidden>
-      <div class="section-top"><h2 id="provider-title">Provider → Esri/CGA</h2><a href="provider-comparison.json" download>API-Abgleich als JSON</a></div>
-      <p id="provider-context" class="hint"></p>
-      <div class="table-scroll"><table><thead><tr><th>API-Feld</th><th>Typ</th><th>Regelparameter</th><th>Frisch beobachtet</th><th>Bedeutung</th></tr></thead><tbody id="provider-fields"></tbody></table></div>
-      <p id="provider-note" class="hint"></p><p id="provider-missing" class="hint"></p>
-      <details><summary id="layer-summary">Alle Layer und Attribute</summary>
-        <div class="table-scroll"><table><thead><tr><th>Layer</th><th>Verwendung</th><th>Attribute</th></tr></thead><tbody id="provider-layers"></tbody></table></div>
-      </details>
-      <div id="context-checks" hidden><h3>Kontextzuordnung an echten Kacheln</h3><p id="context-note" class="hint"></p>
-        <div class="table-scroll"><table><thead><tr><th>Stadt</th><th>Gebäudezuordnungen nach Nutzung</th><th>Lokale POI-Nutzungen</th><th>Vorbereitung</th><th>Gleiche Zuordnung: Index / Vollsuche</th></tr></thead><tbody id="context-sites"></tbody></table></div>
-      </div>
-    </section>
-    <section aria-labelledby="gallery-title">
-      <div class="section-top"><h2 id="gallery-title">Bildstand</h2><span class="hint">Bild anklicken zum Vergrößern</span></div>
-      <nav id="filters" class="filters" aria-label="Bilder filtern"></nav>
+    <section id="overview" class="overview" aria-label="Vier Ansichtsebenen" hidden></section>
+    <section id="pictures" aria-labelledby="gallery-title" hidden>
+      <div class="section-top"><h2 id="gallery-title">Aktuelle Bilder</h2><span class="hint">Bild anklicken zum Vergrößern</span></div>
+      <nav id="filters" class="filters" aria-label="Blickrichtung wählen"></nav>
       <div id="gallery" class="gallery"></div>
+      <p id="empty" class="incomplete" hidden>Für diese Ansichtsebene fehlt ein aktueller Bildbeleg.</p>
     </section>
-    <section class="measurements" aria-labelledby="plot-title">
-      <div class="section-top"><h2 id="plot-title">Kosten auf echten Stadt-Tiles</h2><button id="download" class="quiet">Plot als SVG</button></div>
-      <p id="plot-context" class="hint"></p>
-      <div id="comparisons" class="filters" aria-label="Verfahrensvergleich wählen"></div>
+    <section class="remaining"><h2>Was noch fehlt</h2><p id="gap"></p><p id="lod-note"></p></section>
+    <details id="costs" class="measurements" hidden>
+      <summary>Kosten dieses Bildstands</summary>
+      <p class="hint">Vollständige Prüfmeshes, Blender Workbench auf dieser Maschine. Renderdauer ist Offline-Zeit; native Framezeiten fehlen.</p>
       <div id="metrics" class="filters" aria-label="Messgröße wählen"></div>
-      <div id="legend" class="legend"></div>
       <div id="plot"></div>
-      <p id="plot-note" class="hint"></p>
-    </section>
-    <section class="remaining"><h2>Offene Bildqualität</h2><ul id="gaps"></ul><p>Blender-Eevee; das gemessene Bildprofil steht an jedem Bild. Die Python-Versuche belegen noch keine native Echtzeit- oder Geräteabnahme.</p></section>
+      <button id="download" class="quiet">Plot als SVG</button>
+    </details>
+    <details class="evidence"><summary>Entwicklungsstand</summary><p id="progress"></p><p id="esri-proof"></p></details>
   </main>
   <footer><span id="updated"></span><span>Automatische Aktualisierung alle 5 Sekunden</span></footer>
   <dialog id="viewer"><button id="close" aria-label="Bild schließen">×</button><img id="large" alt=""><p id="large-caption"></p></dialog>

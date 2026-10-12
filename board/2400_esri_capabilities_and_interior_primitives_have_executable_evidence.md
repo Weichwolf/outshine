@@ -48,6 +48,8 @@ Referenzierte UTF-32-Konstanten `blend`/`mask`/`opaque` gegen SDK-Dokumentation 
   Symbolname, Dokumentation, analysierte Funktion und ausführbares Ergebnis als Evidenz unterscheiden.
 - Regelpakete/CGA/externe Assets untersuchen; Raumrezepte von generischen Geometrieoperationen trennen.
   Innenwand, Decke/Boden, Raumteilung, Durchbruch, Tür/Fenster, Treppe und Innenmaterial katalogisieren.
+  Aktuell Candler-Ladenfenster/-eingang sowie vorhandenes `envelope2002` mit Grundriss-/Nutzungs-/Nachtglasparametern prüfen.
+  Regeln/Assets bleiben extern in Downloads; 7z-RPK mit System-libarchive lesen, keine eigene Dekompression.
 - Ausführbare Beispiele als Orakel: Achsen/Löcher/Höhen/Farben/Bounds, kontrollierte Kamera/Licht.
   Fremde Referenzregeln/-materialien kennzeichnen; fehlende Baupläne/Regeln als Lücke erhalten.
 - Eigene Python-Verfahren ableiten und vergleichen; Ghidra-Ausgabe ist Referenz, keine kopierte Implementierung.

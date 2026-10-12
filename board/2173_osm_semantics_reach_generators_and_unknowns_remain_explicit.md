@@ -45,8 +45,10 @@ OpenFreeMap: `render_height`/`render_min_height`, `colour`, `hide_3d`; providera
 Verkehr/Wasser/Aeroway bis 12 m Umgebung; Bridge/Tunnel/Ebenen/Zugang begrenzen Frontage. Keine erfundene Straßenbreite/Dachform/Ausstattung.
 [`context_catalog.py`](../test/experiments/buildings/context_catalog.py): alle Felder behalten Rolle/Metadaten; gültige Multipartteile/gleiche Flächenklassen vereinigen, ungültige Teile mit Grund.
 [`verify_context.py`](../test/experiments/buildings/verify_context.py): drei Kacheln, 3 × 64 Hosts gegen Vollsuche; acht quellenfreie Cache-Posen. Kontext bisher 1,6–2,4 s/Kachel.
-[Showcase](../test/experiments/buildings/showcase.py): `--publish` prüft PNG/Report-Hash; `/tmp/outshine-buildings-showcase/`, Port 8766, Varianten/Kontext/Kosten samt Commit.
-Jeder geprüfte Fortschritt: Commit/Push, dann Publish. Esri-Fähigkeitskatalog/ausführbare PRT-Referenzen zuerst; [VisusCity](https://visusarts.itch.io/visuscity-vol2) ergänzt den Esri-Bildmaßstab.
+[Showcase](../test/experiments/buildings/showcase.py): Server/HTML/CSS/JS eingecheckt; `.venv/bin/python test/experiments/buildings/showcase.py --publish --serve`, Port 8766, Webroot `build/experiments/buildings/showcase/site/`.
+Vier Unterseiten: Innenräume, einzelne Gebäude, Gebäudegruppen, Städte; Ansichtsebenen, keine behaupteten nativen LOD-Grenzen. Nur `current-showcase/snapshot.json` veröffentlichen; überholte öffentliche PNGs entfernen, Referenzen/Orakel erhalten.
+`showcase_snapshot.py` rendert aktuelle gespeicherte Prüfgebäude plus echte Provider-Nachbarn; einfache Quellkörper ausdrücklich zählen. PNG/Report-Hash/Profil/sauberer Commit prüfen; fehlende Bilder sichtbar ausweisen.
+Jeder geprüfte Fortschritt: Commit/Push, dann Publish. Esri/PRT/Ghidra zuerst; [VisusCity](https://visusarts.itch.io/visuscity-vol2) ergänzt den Esri-Bildmaßstab.
 
 ## Besitzer und Lieferung
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.

@@ -17,6 +17,9 @@ def add(configuration, material):
         selected &= (data['materials']!=3)|np.isin(data['parts'],configuration['glass_part_ids'])
     palette = [(.56,.48,.36),configuration['wall_linear'],(.72,.73,.74),(.018,.044,.065),(.34,.38,.34),
                (.41,.30,.18),(.50,.41,.30),(.09,.12,.13),(.35,.35,.35),configuration['roof_linear'],(.16,.19,.21),(.43,.47,.49)]
+    palette.extend(configuration.get('extra_wall_colours',[]))
+    if len(data['materials']) and int(data['materials'].max())>=len(palette):
+        raise ValueError('Constructive mesh references a missing material colour')
     mesh = bpy.data.meshes.new('constructive-source-mesh')
     mesh.from_pydata(data['vertices'].tolist(),[],data['faces'][selected].tolist())
     mesh.update()
