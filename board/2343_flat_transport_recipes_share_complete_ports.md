@@ -87,8 +87,9 @@ Fläche einmal und triangulieren gemeinsam. Außenrahmen/Anfragen/Bestand erhalt
 Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren.
 
 ## Nächste Lieferung und Abnahme
-1. Umweglängen der 49 indirekten Fahrten messen; lange Umwege, Kurvenruhe und Spurführung priorisieren.
-   Gerade Einläufe schützen Querschnitte. Rundungsreste am Schnitt geometrisch binden, echte Aufweitung ablehnen. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
+1. [Umwege](../test/experiments/infrastructure/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
+   Basel 1155: 15→1341 m, Zürich 2134: 60→1369 m, Wien 684: 30→703 m im begrenzten Fenster.
+   Servicegabel 1155 mit Wendeplatz-Rezept lösen; Kurvenruhe/Spurführung und gemeinsame Schnitte erhalten. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
    Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
    [Quellführung](../test/experiments/infrastructure/probes/roadbeds/steering_source_hint_probe.py) nutzt Sichtbarkeit
@@ -98,8 +99,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
    [Lenkpfad → Mesh](../test/experiments/infrastructure/probes/roadbeds/steering_roadbed_product_probe.py):
-   Wien 1480 gewinnt 4→1 bei unveränderten Grenzen und erhält alle acht bisherigen Fahrten;
-   Bauteil 805 ist nach Schließen einer 0,43-m²-Resttasche vollständig befahrbar (7/7).
+   Wien 1480: 9/13 mit unveränderten Grenzen; 805: 7/7 nach Schließen einer 0,43-m²-Resttasche.
    Bauteil 89 45/45; zwei Kurven gemeinsam samt Bestand geprüft; 33 Kollisionsstationen, 1024-Aufrufe-Budget.
    Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:

@@ -16,7 +16,36 @@ from infrastructure_route_detours import route_detours,verify
 from infrastructure_shared_frames import frame_key
 
 
-def window(root,row):
+def render_detour(network,item,output):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import LineCollection
+    source=shapely.LineString(item['source_path']);paths=[];routes={}
+    for step in item['steps']:
+        owner=step['module']
+        if owner not in routes:
+            poses,_=network.poses(owner,{})
+            routes[owner]=coupled.directed_module_routes(network.graph,poses,network.shape(owner),network.tree)[0]
+        paths.append(routes[owner][step['entry'],step['exit']])
+    fig,axes=plt.subplots(1,2,figsize=(13,6))
+    for ax,area,title in zip(axes,(shapely.union_all(paths).envelope.buffer(25),source.envelope.buffer(20)),
+                            ('Window alternative','Missing direct connection')):
+        ids=network.tree.query(area,predicate='intersects')
+        ax.add_collection(LineCollection([shapely.get_coordinates(g) for g in network.graph['lines'][ids]],
+            colors='#c7c9c5',linewidths=1))
+        ax.add_collection(LineCollection([shapely.get_coordinates(g) for g in paths],colors='#167184',linewidths=2))
+        ax.plot(*source.xy,color='#bc4242',linewidth=2,label='Missing direct source route')
+        x,y=source.coords[0];ax.plot(x,y,'o',color='#bc4242')
+        x0,y0,x1,y1=area.bounds;ax.set_xlim(x0,x1);ax.set_ylim(y0,y1);ax.set_aspect('equal');ax.set_title(title)
+        ax.set_xlabel('east [m]');ax.set_ylabel('north [m]')
+    fig.suptitle(f"{network.name} · {item['module']}: {item['entry']} → {item['exit']}\n"
+        f"Source {item['source_length_m']:.1f} m; alternative ≈ {item['alternative_length_m']:.1f} m\n"
+        'Source axes shown; alternatives use proved connections inside the frozen window')
+    fig.tight_layout();output.parent.mkdir(parents=True,exist_ok=True);fig.savefig(output,dpi=140);plt.close(fig)
+
+
+def window(root,row,images=None):
     name=row['place'];before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
     frames=json.loads((root/'boundary-optimized/hermite-routes.json').read_text())
     network=coupled.prepared_network(root,before,next(p['frames'] for p in frames['places'] if p['place']==name))
@@ -57,19 +86,22 @@ def window(root,row):
         route=alternative['nodes']
         item.update(alternative_length_m=length,extra_length_m=length-item['source_length_m'],
                     ratio=length/item['source_length_m'],steps=[edges[a,b] for a,b in zip(route,route[1:])])
-    return dict(place=name,nodes=len(nodes),proved_edges=len(edges),missing=sorted(missing,key=lambda r:-r['extra_length_m']))
+    missing.sort(key=lambda r:-r['extra_length_m'])
+    if images is not None and missing:render_detour(network,missing[0],images/f'{name}-worst-detour.png')
+    return dict(place=name,nodes=len(nodes),proved_edges=len(edges),missing=missing)
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--report',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--images',type=Path)
     args=parser.parse_args();root=Path('build/experiments/infrastructure');start=time.perf_counter()
     result=dict(checks=verify(),places=[],reference=str(args.report),reference_sha256=coupled.digest(args.report),
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='Shortest alternatives inside the frozen windows; analytic baseline lengths and sampled proved-curve lengths. No global or exact arc-length claim.')
     for row in json.loads(args.report.read_text())['places']:
-        place=window(root,row);result['places'].append(place)
+        place=window(root,row,args.images);result['places'].append(place)
         print(json.dumps(dict(place=place['place'],missing=len(place['missing']),worst=[
             {k:r[k] for k in ('module','entry','exit','source_length_m','alternative_length_m','ratio')} for r in place['missing'][:3]])),flush=True)
     result['elapsed_ms']=(time.perf_counter()-start)*1000

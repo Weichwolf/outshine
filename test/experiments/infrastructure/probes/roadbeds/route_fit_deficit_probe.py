@@ -21,24 +21,27 @@ from infrastructure_turn_roadbed_experiment import building_reservations,reserva
 from infrastructure_vehicle_sweep import body_outlines
 
 parser=argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--product',type=Path,required=True)
+source=parser.add_mutually_exclusive_group(required=True)
+source.add_argument('--product',type=Path)
+source.add_argument('--place')
 parser.add_argument('--module',type=int,required=True)
 parser.add_argument('--pair',type=int,nargs=2,required=True)
 parser.add_argument('--output',type=Path,required=True)
 parser.add_argument('--snapshot-only',action='store_true')
 args=parser.parse_args();root=Path('build/experiments/infrastructure')
-report=json.loads(args.product.read_text());name=report['place']
+report=json.loads(args.product.read_text()) if args.product else dict(place=args.place)
+name=report['place']
 before=json.loads((root/'window-1000-body'/f'{name}-routes.json').read_text())
 frames=json.loads((root/'boundary-optimized/hermite-routes.json').read_text())
 network=prepared_network(root,before,next(p['frames'] for p in frames['places'] if p['place']==name))
 cuts=json.loads((root/'cut-setbacks'/f'{name}-cut-setbacks.json').read_text());restore_cut_plan(network,cuts['plan'])
 records={r['module']:r for r in before['modules']};records.update((r['module'],r) for r in cuts['changed_modules'])
-network,_,_,_=apply_coupled_product(network,records,set(),root,args.product,set())
+if args.product:network,_,_,_=apply_coupled_product(network,records,set(),root,args.product,set())
 poses,_=network.poses(args.module,{})
 entry,exit=(poses[i] for i in args.pair)
 routes,_=directed_module_routes(network.graph,poses,network.shape(args.module),network.tree)
 route=routes[tuple(args.pair)]
-published=next((p for p in report['published_surfaces'] if p['module']==args.module),None)
+published=next((p for p in report.get('published_surfaces',[]) if p['module']==args.module),None)
 surface=(shapely.from_wkb(published['public_surface_wkb']) if published is not None else
          motor_surface(network.shape(args.module),network.graph,network.tree,network.mesh,network.vehicle,
                        network.curbs['corner_radius_m'],network.curbs['arc_error_m']))
