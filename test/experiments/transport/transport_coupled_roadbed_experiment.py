@@ -212,7 +212,7 @@ def diagnostic_trial(curve,product,vehicle,original_poses,original_routes):
                 diagnostic_body_outline=bodies[np.argmax(outside)].tolist())
 
 
-def real_case(root,name,module,pair,distance,output,sections=None):
+def real_case(root,name,module,pair,distance,output,sections=None,*,make_cuts=None,required_extra=None):
     before_path=root/'window-1000-body'/f'{name}-routes.json'
     before=json.loads(before_path.read_text())
     frame_path=root/'boundary-optimized/hermite-routes.json'
@@ -233,7 +233,7 @@ def real_case(root,name,module,pair,distance,output,sections=None):
     original_routes,_=directed_module_routes(network.graph,poses,network.shape(module),network.tree)
     sections={poses[i]['section'] for i in pair} if sections is None else set(sections)
     distance=network.vehicle['minimumRearAxleRadiusM'] if distance is None else distance
-    trial,changes,affected=setback_network(network,module,sections,distance)
+    trial,changes,affected=(setback_network if make_cuts is None else make_cuts)(network,module,sections,distance)
     receipt_path=root/'inputs'/f'{name}-input.json'
     receipt=json.loads(receipt_path.read_text())['receipt']
     margin=roadbed_lateral_reach(trial.vehicle)+trial.curbs['arc_error_m']
@@ -241,10 +241,12 @@ def real_case(root,name,module,pair,distance,output,sections=None):
     buildings,tiles=building_reservations(receipt,region)
     section_index=shapely.STRtree(np.array(list(trial.sections.values()),dtype=object))
     required={}
+    extra={} if required_extra is None else required_extra
+    assert extra.keys()<=affected,'retained product owner missing from joint solve'
     for owner in affected:
         record=records[owner] if owner in records else network.record(owner)[0]
         owner_poses,_=network.poses(owner,{})
-        required[owner]=request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
+        required[owner]=request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])|extra.get(owner,set())
     cache=dict(contexts={},hits=0,misses=0)
     products={owner:construct_module(network,trial,owner,sections,affected,region,buildings,section_index,required[owner],cache)
               for owner in sorted(affected)}

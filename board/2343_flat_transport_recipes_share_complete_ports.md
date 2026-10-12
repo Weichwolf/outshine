@@ -88,7 +88,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel vollständig; Wien 684 lokal 5/5, mit Nachbarn 8/8 und +14,3 m²; 808 lokal 3/3, mit Nachbarn 7/7 und +50,1 m², frischer Ladeprozess bestätigt. 684 mit bestehenden Produkten 574/685 gemeinsam integrieren, 808 übernehmen; Wiener Gesamtfenster erhalten. Zürich 2134: 60→1369 m.
+   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36, alle 31 früheren Fahrten erhalten; frischer Ladeprozess bestätigt. 808 mit Nachbarn 7/7, +50,1 m². Beide im Wiener Gesamtfenster übernehmen. Zürich 2134: 60→1369 m.
    [Gekoppelter Wendeplatz](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): Basel 1155 6/6, insgesamt 8/8 auf drei Bauteilen; Bestand erhalten.
    Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
    [Breitere Ports](../test/experiments/transport/transport_court_partition.py) auf festen Schnittebenen verteilen neue Fläche einmal; Bestand/Quellkontakte erhalten.
