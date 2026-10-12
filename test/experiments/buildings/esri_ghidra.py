@@ -39,6 +39,11 @@ TARGETS = {
     '_ZN12_GLOBAL__N_112roofSkeletonER9ProcessorN4cgal8RoofTypeEdbdd.lto_priv.0': 'skeleton roof preparation and mesh assembly',
     '_ZN12_GLOBAL__N_14roofER9Processoridbddib.lto_priv.0': 'roof selection and fallback dispatch',
     '_ZN4cgal23createSkeletonBasedRoofERKN4util4MeshERKNS0_12HoleRelationEjNS_8RoofTypeEdbddRSt6vectorImSaImEE': 'actual skeleton-based roof construction',
+    '_ZN9Processor1sEN2GC5Scale4EnumEdS2_dS2_d': 'scope size and relative scale dispatch',
+    '_ZN9Processor20alignScopeToGeometryEN2GC14UpAxisSelector4EnumENS0_12FaceSelector4EnumEd': 'scope alignment to face geometry',
+    '_ZN14ComponentUtils21extractCompComponentsEN2GC12CompSelector4EnumERKSt6vectorISt10unique_ptrI13CompMeshCacheSt14default_deleteIS5_EESaIS8_EERS3_IS4_I9ComponentS6_ISD_EESaISF_EEbb': 'component selector geometry extraction',
+    '_ZN12_GLOBAL__N_121extractFaceComponentsERK13CompMeshCacheRSt6vectorISt10unique_ptrI9ComponentSt14default_deleteIS5_EESaIS8_EEbb.lto_priv.0': 'face component construction',
+    '_ZN12_GLOBAL__N_16insertER9ProcessorRKNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEERKN4util18GeometryAssetProxyEPKNSA_7Vector3IdEEbNSA_8MeshBase4AXISESH_.lto_priv.0': 'asset insertion scope fitting',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;
