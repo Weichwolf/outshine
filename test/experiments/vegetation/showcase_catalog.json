@@ -1,6 +1,6 @@
 {
-  "current_work": "Aktuell geprüft: Baumansichten mit Tiefenrelief für den Laubwald sowie getrennte Kamera- und Lichtansichten für Laubgruppen. SpeedTree wird vorrangig mit Ghidra analysiert. Die LOD-Seiten ordnen die vorhandenen Versuche nach Detailumfang; feste Entfernungsschwellen und stabile Übergänge sind noch nicht freigegeben.",
-  "quality_gap": "SpeedTree-Qualität ist noch nicht erreicht. Artenvielfalt, natürliche Gabeln, Rinde, Grasdecken und Wind fehlen. Baumansichten stammen bislang aus einem vorhandenen Blattgruppen-Cache; die direkte grobe Erzeugung aus dem Rezept bleibt offen. Fernwaldaggregation, Materialantwort, Übergänge und native GPU-Kosten sind unbewiesen.",
+  "current_work": "Zuerst vollständigen SpeedTree-Funktionsumfang in eigenen Python-Verfahren entwickeln, danach den weltweiten Pflanzenrezeptkatalog. Ghidra und SpeedTree dienen als Funktions- und Bildreferenz. Der Mindestkatalog enthält 902 Namenseinträge aus der Nutzerliste; das ist noch kein Nachweis abgedeckter Pflanzen. Jede Pflanzenform wird optisch gegen passende Referenzen geprüft.",
+  "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Erzeugung, organische Gabeln, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
       "image": "render-draft/landscape-temperate-depth.png",
@@ -73,6 +73,16 @@
       "description": "1.764 bodenverbundene Halme aus acht geteilten Geometrievarianten. Dünne Flächen erhalten eigene Normalen und werfen einzelne Schatten. Die Verteilung ist eine diagnostische Horstprobe; natürliche Grasdecken und ihre LODs fehlen.",
       "quality": "Organstudie · auffällig regelmäßige Horstverteilung",
       "lod": "lod-0"
+    },
+    {
+      "image": "render-draft/genus-betula-near.png",
+      "title": "Birke · Betula",
+      "label": "Betula pendula",
+      "category": "organs",
+      "lod": "lod-0",
+      "genus": "betula",
+      "description": "Junge Funktionsvergleichsform mit kleineren zugespitzten Blättern und gebogenen Zweigen. Stabile IDs und gleiche Platzierungen bei umgekehrten Detailanfragen geprüft. Zielart Betula pendula, noch kein vollständig validiertes Pflanzenrezept.",
+      "quality": "Blattreferenz optisch verglichen: Grundform erkennbar; Doppelzähnung, Seitenadern und natürliche Verzweigung fehlen."
     }
   ],
   "lods": [
@@ -112,5 +122,43 @@
     "demand_plot": "lod-3",
     "organ_storage_plot": "lod-0",
     "plant_request_plot": "lod-1"
-  }
+  },
+  "genera": [
+    {
+      "id": "quercus",
+      "common": "Eiche",
+      "genus": "Quercus",
+      "species": "Quercus robur",
+      "description": "Breite gelappte Blätter und ausladende junge Äste.",
+      "reference": {
+        "url": "https://commons.wikimedia.org/wiki/File:Quercus_robur_leaf.jpg",
+        "scope": "Blattform und Blattanschluss",
+        "review": "Blattreferenz geöffnet; eigener Bildvergleich noch offen."
+      }
+    },
+    {
+      "id": "fagus",
+      "common": "Buche",
+      "genus": "Fagus",
+      "species": "Fagus sylvatica",
+      "description": "Ovale ungeteilte Blätter und steiler gestellte junge Äste.",
+      "reference": {
+        "url": "https://gobotany.nativeplanttrust.org/species/fagus/sylvatica/",
+        "scope": "Blattform und Blattanschluss",
+        "review": "Blattreferenz geöffnet; gewellter Rand und Seitenadern im aktuellen Formrezept offen."
+      }
+    },
+    {
+      "id": "betula",
+      "common": "Birke",
+      "genus": "Betula",
+      "species": "Betula pendula",
+      "description": "Kleinere zugespitzte Blätter mit feinem Randprofil und gebogenen Zweigen.",
+      "reference": {
+        "url": "https://www.forestresearch.gov.uk/tools-and-resources/tree-species-database/131561-silver-birch-sbi-2/",
+        "scope": "Blattform und Blattanschluss",
+        "review": "Eigene Nahprobe und Referenz geöffnet: zugespitzte Grundform; Doppelzähnung und Seitenadern bleiben offen."
+      }
+    }
+  ]
 }

@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2111
@@ -55,7 +55,6 @@ Keine Übernahme proprietären Codes. Eigene Verfahren werden aus Geometrie/Vert
 Metamer/Blattknoten als Architekturbaustein. Begrenzte Triebgrammatik ist keine Lichtkonkurrenz.
 [Weber/Penn, SIGGRAPH 1995](../doc/references/vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf):
 Astordnungen mit Elternprofilen, Neigung und Blattverteilung; PDF-Seiten 2/3/5 optisch betrachtet.
-Eine begrenzte eigene Grammatik ergänzt die vorhandenen Einzeltriebe zu belaubten Pflanzen.
 [Leaf Translucency](../doc/references/vegetation/egsr/2007-real-time-leaf-translucency.pdf):
 dünne reflektierende/transmittierende Flächen; geöffnete PDF-Seite 2. Vorschau-Materialmix
 ist qualitative Näherung, kein implementiertes gemessenes BSSRDF-Modell.
@@ -104,6 +103,12 @@ beider Parametertriangulierungen, zwischen diesen zwei Meshes, nicht zur kontinu
 Laub: 9,91 Mio. feine / 1,27 Mio. grobe / 38.416 Kartendreiecke. Räumlich im Mittel 4,7 %
 statt 23,4 % Deckungsabweichung in der Einzelblattprobe; kein allgemeines LOD-/Wald-Gate.
 64 Holzachsen gerendert, 2.744 dünne Achsen nur im Plan; natürliche Krone und Fernaggregation offen.
+
+## Gattungsproben als Funktionsvergleich
+`botanical_profiles.py`: eigene junge Formrezepte für Quercus, Fagus und Betula, Zielarten separat.
+Blattgröße/-rand, Astneigung/-biegung und wechselständige Anschlüsse unterscheiden die Proben.
+`botanical_experiment.py`: Nah-/Pflanzen-/Laubgruppenbilder aus demselben Plan; wissenschaftliche Namen
+bezeichnen Vergleichsformen; vollständige Pflanzenrezepte folgen nach 2348, optische Prüfung nach 2349.
 
 ## Abnahme und offene Lücke
 Unabhängige Differential-/Flächenprüfung, reguläre Geometrie, Einheiten und exakte Anschlüsse.

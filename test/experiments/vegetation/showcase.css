@@ -83,3 +83,10 @@ dialog p { margin:10px 5px 0; font-size:13px; color:var(--muted); }
 @media(max-width:680px) {
   .detail-page .lod-nav { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+.genus { margin:26px 0 34px; }
+.genus > h3 { font-size:21px; font-weight:550; margin:0 0 4px; }
+.species { color:var(--muted); font-size:13px; margin:0 0 14px; }
+.genus-gallery > h3 { font-size:18px; font-weight:550; margin-top:36px; }
+.genus .gallery:has(> :only-child) { grid-template-columns:minmax(0,1fr); }
+.genus .card img { max-height:570px; }

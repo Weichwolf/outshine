@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def rasterize(vertices, faces, attributes, lower, upper, size, pair_budget=262144):
+def fragments(vertices, faces, lower, upper, size, pair_budget=262144):
     if (
         type(size) is not int
         or size <= 0
@@ -11,6 +11,7 @@ def rasterize(vertices, faces, attributes, lower, upper, size, pair_budget=26214
         or pair_budget < size * size
     ):
         raise ValueError("positive image size and room for one full triangle required")
+    lower, upper = np.asarray(lower), np.asarray(upper)
     projected = (vertices[:, :2] - lower) / (upper - lower) * size
     triangles = projected[faces]
     first = np.maximum(np.floor(triangles.min(axis=1)).astype(int), 0)
@@ -21,9 +22,6 @@ def rasterize(vertices, faces, attributes, lower, upper, size, pair_budget=26214
     determinants = ab[:, 0] * ac[:, 1] - ab[:, 1] * ac[:, 0]
     counts[np.abs(determinants) < 1e-12] = 0
     cumulative = np.concatenate(([0], np.cumsum(counts)))
-    depth = np.full(size * size, -np.inf)
-    output = np.zeros((size * size, attributes.shape[-1]), dtype=np.float32)
-    covered = np.zeros(size * size, dtype=bool)
     start = 0
     while start < len(faces):
         stop = min(
@@ -59,6 +57,18 @@ def rasterize(vertices, faces, attributes, lower, upper, size, pair_budget=26214
             )
             z = np.einsum("ni,ni->n", weights, vertices[faces[triangle], 2])
             pixel = y * size + x
+            yield triangle, weights, pixel, z
+        start = stop
+
+
+def rasterize(vertices, faces, attributes, lower, upper, size, pair_budget=262144):
+    depth = np.full(size * size, -np.inf)
+    output = np.zeros((size * size, attributes.shape[-1]), dtype=np.float32)
+    covered = np.zeros(size * size, dtype=bool)
+    for triangle, weights, pixel, z in fragments(
+        vertices, faces, lower, upper, size, pair_budget
+    ):
+        if len(pixel):
             np.maximum.at(depth, pixel, z)
             foremost = z >= depth[pixel]
             winners = np.full(size * size, -1, dtype=np.int64)
@@ -69,5 +79,4 @@ def rasterize(vertices, faces, attributes, lower, upper, size, pair_budget=26214
                 "ni,nij->nj", weights[chosen], attributes[triangle[chosen]]
             )
             covered[targets] = True
-        start = stop
     return covered.reshape(size, size), output.reshape(size, size, -1)

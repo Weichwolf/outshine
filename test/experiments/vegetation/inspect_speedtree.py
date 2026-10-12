@@ -103,6 +103,10 @@ def inspect_model(path):
     stats = root.findtext("Statistics/TotalTriangles")
     return {
         "model_sha256": digest(path),
+        "scientific_names": [
+            item.get("Value", "")
+            for item in root.findall('TreeInfo/Item[@Key="ScientificNames"]')
+        ],
         "modeler_version": root.get("VersionString", "").strip(),
         "scene_unit_scale_enum": root.findtext("SceneUnitScale"),
         "stored_total_triangles": int(stats) if stats is not None else None,
@@ -124,9 +128,22 @@ def main():
         type=Path,
         default=Path("build/experiments/vegetation/speedtree/reference.json"),
     )
+    parser.add_argument(
+        "--templates",
+        action="store_true",
+        help="inspect every bundled Games/VFX generator template",
+    )
     args = parser.parse_args()
+    models = (
+        sorted(
+            path.relative_to(args.reference_directory).as_posix()
+            for path in (args.reference_directory / "tree_templates").rglob("*.spm")
+        )
+        if args.templates
+        else MODELS
+    )
     records = {}
-    for name in MODELS:
+    for name in models:
         records[name] = inspect_model(args.reference_directory / name)
         item = records[name]
         print(

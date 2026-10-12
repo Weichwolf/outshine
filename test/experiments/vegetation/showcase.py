@@ -462,6 +462,7 @@ def publish(output):
             ["git", "branch", "--show-current"], cwd=ROOT, text=True
         ).strip(),
         "lods": catalog["lods"],
+        "genera": catalog["genera"],
         "current_work": catalog["current_work"],
         "quality_gap": catalog["quality_gap"],
         "reference": reference_entry(output),

@@ -226,6 +226,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen, Gruppen und Organe teilen.
   Fernwald braucht Verbände statt Einzelbaum-/Blattarbeit. Das Offline-Verfahren belegt
   keine Echtzeitkosten; Overdraw, Wind, Schatten und Artenmischung separat integrieren.
+- **Layered Depth Images**, Shade / Gortler / He / Szeliski, SIGGRAPH 1998.
+  [Publikation](https://doi.org/10.1145/280814.280882) ·
+  [Autoren-PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Shade-SG98.pdf) ·
+  [PDF](vegetation/siggraph/1998-layered-depth-images.pdf).
+  Tiefensprites und geschichtete Tiefenbilder als Vergleich für Parallaxe und Verdeckungswechsel.
+  Seite 2 mit Repräsentationshierarchie optisch geprüft. Eigene bedingte Einmoment-Reliefs (2347)
+  übernehmen keine Mehrschichtgarantie; Wind, Schatten und Disokklusion separat prüfen.
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
   [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·

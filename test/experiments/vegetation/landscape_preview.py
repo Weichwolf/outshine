@@ -14,7 +14,10 @@ from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).parent))
 from blender_preview import foliage_material, material, mesh_object
+from forest_preview import populate_views
 from landscape_experiment import ground_height
+from organ_preview import link_shadow_products
+from preview_lighting import LANDSCAPE_SUN_ROTATION
 
 
 def terrain(recipe):
@@ -47,7 +50,12 @@ def terrain(recipe):
 
 
 def populate(recipe, directory):
-    sites = np.load(directory / recipe["sites"])
+    sites_path = directory / recipe["sites"]
+    with np.load(sites_path, allow_pickle=False) as stored:
+        sites = {key: stored[key] for key in stored.files}
+    if any(product["part"] == "plant_view" for product in recipe["products"]):
+        sources, triangles, objects = populate_views(recipe, directory, sites)
+        return [sites_path, *sources], triangles, objects
     foliage = foliage_material()
     if recipe["architecture"] == "conifer":
         ramp = next(
@@ -92,9 +100,12 @@ def populate(recipe, directory):
 def setup_scene(recipe):
     terrain(recipe)
     bpy.ops.object.light_add(type="SUN", location=(0, 0, 60))
-    bpy.context.object.rotation_euler = (0.6, -0.35, -0.5)
+    bpy.context.object.rotation_euler = recipe.get(
+        "sun_rotation", LANDSCAPE_SUN_ROTATION
+    )
     bpy.context.object.data.energy = 3
     bpy.context.object.data.angle = 0.06
+    link_shadow_products(bpy.context.object, "sun")
     world = bpy.context.scene.world
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs["Color"].default_value = (
@@ -140,6 +151,11 @@ def main():
         Path(__file__),
         Path(__file__).with_name("landscape_experiment.py"),
         Path(__file__).with_name("blender_preview.py"),
+        Path(__file__).with_name("forest_preview.py"),
+        Path(__file__).with_name("forest_views.py"),
+        Path(__file__).with_name("organ_preview.py"),
+        Path(__file__).with_name("sheet_material.py"),
+        Path(__file__).with_name("preview_lighting.py"),
     ]
     result = {
         "blender": bpy.app.version_string,
@@ -162,7 +178,8 @@ def main():
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
-        "source_modified": bool(
+        "source_modified": recipe.get("source_modified", False)
+        or bool(
             subprocess.check_output(
                 ["git", "status", "--porcelain", "--", *map(str, implementation)],
                 text=True,

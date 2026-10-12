@@ -19,17 +19,18 @@ Native Struktur-/Wasser-/Wegflächen schließen Wurzeln aus; Kronenmaße erreich
 Feldkirchs Dachüberschneidung ist beseitigt; niedrige Bauten dürfen unter freier Krone bleiben.
 
 ## Besitzer und Datenfluss
-OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte
-Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes auf.
+OSM-Adapter besitzt Landcover-/Baumhinweise, VegetationTemplates deklarierte Standortmischungen;
+Shipping löst Artennamen einmal in kompakte Prototypindizes auf.
 Forest erzeugt einen stabilen Bestandsplan aus Bodenklasse, Höhe, Hang und Welt-Seed.
 ForestDraw publiziert Instanzen. Vegetationsvorbereitung/Renderer besitzen gemeinsame
 fertige Assetcache-Produkte (2280), RAM/GPU-Residency, sichtbare Detailwahl, Wind und Schatten.
 2336 besitzt native Eltern-/Kindabdeckung/Qualität/Kosten; kein Gesamtblocker für Standort-/Prototyparbeit.
-2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
+2172 liefert Wetter/Jahreszustand, 2136 physikalische Biegung.
 
 ## Reihenfolge
 Auf `vegetation` gilt der eigenständige Python-Auftrag aus GOAL; master bearbeitet Infrastruktur.
-Der bestehende C++23-Generator ist Vergleichsmaterial und darf später vollständig ersetzt werden.
+Zuerst vollständigen SpeedTree-Funktionsumfang eigenständig entwickeln (2348), danach alle Pflanzenrezepte (2349).
+Der C++23-Generator darf ersetzt werden; jede Pflanze optisch gegen passende Referenzen prüfen.
 Dichte folgt plausibler Belegung; freies Budget verbessert Form, Nahdetail und Schatten statt Baumzahlen.
 
 ## Python-Verfahrensauftrag
@@ -47,26 +48,26 @@ Outshine darf dafür erweitert werden; bestehende Generator-/Cache-APIs begrenze
 Grober Bedarf erzeugt direkt grobe Produkte. Vergleich unter gleichen Eingaben/Anforderungen;
 begrenzte Arbeit, gültige Geometrie, 3D-Bilder und Kosten entscheiden vor C++-Übertragung.
 `stand_plan.py`: bedarfsabhängige Zählhierarchie; Layout-Seeds unabhängig von Kronenmaßen; Budgets halten Eltern.
-Bild-/LOD-Qualität, Schatten-/Verdeckungsbedarf und native Cache-Anbindung bleiben offen.
-`growth_experiment.py` vergleicht brute force und cKDTree an gelieferten Eichen-/Buchen-/Birkenmaßen.
-18 Fälle liefern identische Astpläne und erhalten die Rohrquerschnittssumme an Verzweigungen.
-Wiederholte positionsgleiche Austriebe werden verworfen; finale Knoten verbrauchen Attraktoren.
-Budget/Stillstand weist Reste aus; EEVEE-Rohrbilder belegen weder fertige Kronen noch Gabeln/Laub.
-SCA bleibt Nah-/Prototypvergleich, kein Fernpfad. Python immer `.venv`: NumPy/SciPy/Pillow/Matplotlib/pypdf.
-`crown_surface.py`: seedstabile radiale Hülle, direkte kubische Unterteilung; neun Varianten geprüft.
+`growth_experiment.py`: brute force/cKDTree, 18 Eichen-/Buchen-/Birkenfälle mit gleichen Astplänen;
+Rohrquerschnittssumme erhalten, doppelte Austriebe verworfen, Budget/Stillstand weist Reste aus.
+`crown_surface.py`: seedstabile radiale Hülle, direkte kubische Unterteilung; neun Varianten, nur Formproxy.
 Für n=q/|q|, |q|≥1 gilt ||D²n||≤2/√3. Mit g=Σaf, h=Σaf² und ρmax=1−Σa_ausgelassen:
 M=Rmax[(2/√3)(ρmax+g)+2g+h]; Fehler ≤M/N² (Varianz ≤2/N²) +RmaxΣa_ausgelassen; Perspektiv-Jacobian wählt.
-Geöffnete EEVEE-Nahbilder: geschlossene Hülle ungeeignet als Laubersatz; nur Proxy/Formprüfung.
+Geöffnete EEVEE-Nahbilder: geschlossene Hülle ungeeignet als Laubersatz.
 [Self-organizing Trees, SIGGRAPH 2009](https://algorithmicbotany.org/papers/selforg.sig2009.html)
 und [Space Colonization, EG 2007](https://algorithmicbotany.org/papers/colonization.egwnp2007.html)
 sind Vergleichsgrundlagen; keine Echtzeitgarantie oder automatische Verfahrenswahl.
 2346 besitzt Organflächen, bedarfsabhängige Ast-/Blattgruppen und Pflanzenproben.
 2347 besitzt Kartengruppen, vollständige Ansichten-Atlanten und Deckungs-/Kostenvergleich desselben Plans.
-2348 besitzt die priorisierte Ghidra-Analyse der SpeedTree-Verfahren; Papers ergänzen den Vergleich.
+2348: Ghidra und SpeedTree-Oracle für alle Generatorfunktionen; 2349: weltweiter Mindestkatalog.
 `showcase.py --start` und `showcase_server.py` unter `test/experiments/vegetation/`: Port 8765.
 LOD-Unterseiten 0–4: aktuelle Produkte, Altbilder entfernen; Frontend per Inhalt versioniert, Laden manuell.
 `landscapes.json`: Laubwald, borealer Nadelwald und Savanne als feste Bildszenarien mit geteilten Meshes.
-Stabile Standorte/Katalogmaße, breite Hüllen bzw. Kegelproxies; Laub/Nadeln/Gras und Wald-LOD bleiben offen.
+Stabile Standorte/Katalogmaße; derzeit breite Hüllen bzw. Kegelproxies, noch keine vollständigen Wälder.
+Nächster Bildauftrag: Laubwald mit vollständigen unbeleuchteten Baumansichten aus dem vorhandenen
+Holz-/Blattgruppenprodukt. Feste Standorte, gleiche Kamera/Licht, getrennte Sonnen-/Kameraauswahl.
+Alpha, Holz-/Laubmaterial und Normalen gemeinsam filtern; Cachehit ohne Blattplatzierung/-Meshing.
+Direkter kalter Fernaufbau aus dem Rezept, bewegte Übergänge und Wald-/Wind-/GPU-Gates bleiben offen.
 
 ## Implementierung in vollständigen Schritten
 Artenmischungen/Waldflächen bis Runtime durchreichen; unbekannte Arten/ungültige Gewichte ablehnen.

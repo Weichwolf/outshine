@@ -10,7 +10,10 @@ def sheet_material(name, directory, maps, card, pass_role="all"):
     result.use_backface_culling = False
     nodes, links = result.node_tree.nodes, result.node_tree.links
     textures = {}
-    for key in ("colour", "normal") if card else ("colour",):
+    keys = (("colour", "normal") if card else ("colour",)) + (
+        ("leaf_weight",) if "leaf_weight" in maps else ()
+    )
+    for key in keys:
         filename = maps[key]
         texture = nodes.new("ShaderNodeTexImage")
         texture.image = bpy.data.images.load(
@@ -49,6 +52,23 @@ def sheet_material(name, directory, maps, card, pass_role="all"):
         links.new(normal.outputs[0], translucent.inputs["Normal"])
     mixed = nodes.new("ShaderNodeMixShader")
     mixed.inputs[0].default_value = 0.22
+    if "leaf_weight" in textures:
+        leaf_weight = nodes.new("ShaderNodeMath")
+        leaf_weight.operation = "DIVIDE"
+        leaf_weight.use_clamp = True
+        links.new(textures["leaf_weight"].outputs["Color"], leaf_weight.inputs[0])
+        links.new(safe.outputs[0], leaf_weight.inputs[1])
+        transmission = nodes.new("ShaderNodeMath")
+        transmission.operation = "MULTIPLY"
+        transmission.inputs[1].default_value = 0.22
+        links.new(leaf_weight.outputs[0], transmission.inputs[0])
+        links.new(transmission.outputs[0], mixed.inputs[0])
+        roughness = nodes.new("ShaderNodeMath")
+        roughness.operation = "MULTIPLY_ADD"
+        roughness.inputs[1].default_value = -0.32
+        roughness.inputs[2].default_value = 0.8
+        links.new(leaf_weight.outputs[0], roughness.inputs[0])
+        links.new(roughness.outputs[0], shader.inputs["Roughness"])
     links.new(shader.outputs[0], mixed.inputs[1])
     links.new(translucent.outputs[0], mixed.inputs[2])
     output = mixed.outputs[0]

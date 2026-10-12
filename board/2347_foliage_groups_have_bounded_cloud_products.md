@@ -52,7 +52,7 @@ Alpha-/Schattenbilder gegen identische Lichtparameter der räumlichen Referenz p
 Karten je Licht unabhängig gegen eine Schleife geprüft; deklarierte/gespeicherte Dreieckzahlen gleich.
 Gefrorener Referenzvergleich mit derselben Rendererfassung optisch betrachtet: Schatten wieder kräftig.
 Fester Ausschnitt x=670..879/y=435..504: mittlere RGB-Kanalabweichung 7,04 → 0,53 von 255.
-Krone x=555..709/y=265..424: 5,29 → 2,79. Früherer Kamerakartenpfad bleibt als Diagnosebild erhalten.
+Krone x=555..709/y=265..424: 5,29 → 2,79. Früherer Kamerakartenpfad bleibt lokale Diagnose; Showcase zeigt nur aktuelle Produkte.
 `test/scripts/pixels.py` misst die gleichen Originalpixel; keine allgemeine LOD-Freigabe.
 Referenz/Trennung: 2.646.848/155.828 Dreiecke einschließlich Holz und aller Lichtprodukte.
 Je Auswahl 1.260 Laubdreiecke. Eigener nativer Schattenpass und weiche Lichtflächen bleiben offen.
@@ -83,7 +83,7 @@ Holz unverändert; zwei Bündel statt neun im Blender-Vergleich. 2880×2864-Atla
 RGBA8 Farbe/Normalen 62,9 MiB; theoretisch 83,9 MiB samt Mips, GPU-Format/Overdraw ungemessen.
 Pflanzenrezept versioniert speichern; frischer Plan stellt identische angeforderte Details her.
 Nahe Geometrie und Karten haben dieselbe Identität; Quellaufbereitung bleibt außerhalb des Produkts.
-Showcase zeigt Deckung/Kartenbedarf, gleiche CPU-Rastereingaben und unveränderte Bildausschnitte.
+Showcase zeigt nur aktuelle Produkte/Kosten; verworfene Bildstände bleiben außerhalb des Servers.
 `clouds/clouds-build.json` hält den geprüften vollständigen Produktaufbau; aktuelle Gruppenprüfung
 mit `--study-only` erhält dessen unveränderte Produkte und die geprüften Renderings.
 Keine allgemeine LOD-Qualität aus kleinen Positionsfehlern oder wenigen Bildern ableiten.
@@ -103,3 +103,17 @@ Gemessene Einzelgruppen-Schleife durch NumPy-Batches ersetzt; identische Indizes
 Indizes: Mediane 4,80 ms Schleife/1,79 ms Batch; Snapshot samt Meshkopie p50 1,96/p99 3,21 ms.
 Frischer vollständiger CPU-Cachedecode 1,08 s, Peak 498 MiB; kein natives Frame-/GPU-/A18-Pro-Gate.
 Atlas-/Mip-/GPU-Kosten, bewegte Übergänge und eigenes Schatten-LOD verhindern noch eine Qualitätsfreigabe.
+
+## Vollständige Baumansichten und Bestand
+`plant_atlas.py`: vorhandenen unbeleuchteten Gruppen-/Holzcache zu 64 vollständigen Baumansichten bündeln.
+RGBA8-Paar und R8-Laubanteil: 10,16 MiB Basis, theoretisch 13,55 MiB mit Mips; aktuelle Beleuchtung getrennt.
+`textured_raster.py`: tiefensortierte vormultiplizierte Komposition; Quad-Diagonalen nicht doppelt zählen.
+`plant_depth.py`: bedingtes erstes Tiefenmoment als 8×8-Relief, 128 Dreiecke je Ansicht, Stammfuß verankert.
+[Layered Depth Images, SIGGRAPH 1998](../doc/references/vegetation/siggraph/1998-layered-depth-images.pdf):
+Tiefenrepräsentationen liefern Parallaxe; eigene Einmoment-Probe ist kein vollständiges LDI, Verdeckungswechsel offen.
+410 unveränderte Standorte: Kamera/Sonne getrennt, 52.480 Dreiecke je Rolle. Ein affiner Laubbaumprototyp;
+Katalogmaße bleiben erhalten, artspezifische Organe/Architektur sind damit nicht rekonstruiert.
+`forest_cache_experiment.py`: 64 Stammfuß-Schnittpunkte und Kamera-/Sonnenauswahl unabhängig geprüft;
+Rezeptidentität erhalten, umgeordnete Anfragen gleich, Blattplatzierung/-Meshing beim Treffer gesperrt.
+Optisch betrachteter Reliefwald vermindert große flache Schattenflecken; Material-/Normalen-/Übergangsgates offen.
+Kalter grober Aufbau allein aus dem Rezept und vollständige Fernwaldaggregation bleiben offen.
