@@ -11,6 +11,7 @@ from transport_flat_ports import port_sections
 from transport_flat_cuts import cuts_plan
 from transport_network_plan import boundary_segments
 from transport_vertex_pool import welded_vertices
+from transport_conforming_triangles import conform_triangles
 
 
 def junction_seeds(graphs,mode):
@@ -90,6 +91,11 @@ def shared_mesh(complete,parts,roles,precision):
     if collapsed_area>max(1e-7,complete.area*1e-12):
         raise ValueError('interface welding collapses a significant surface')
     indices,xy,signed = indices[~collapsed],xy[~collapsed],signed[~collapsed]
+    indices,conformance = conform_triangles(vertices,indices)
+    xy=vertices[indices]
+    a,b=xy[:,1]-xy[:,0],xy[:,2]-xy[:,0]
+    signed=(a[:,0]*b[:,1]-a[:,1]*b[:,0])*.5
+    if np.any(signed==0):raise ValueError('interface subdivision creates a collapsed face')
     indices[signed<0] = indices[signed<0][:,[0,2,1]]
     area = np.abs(signed)
     centres = shapely.points(xy.mean(axis=1))
@@ -126,7 +132,7 @@ def shared_mesh(complete,parts,roles,precision):
                 modules=len(parts),junction_modules=int(np.count_nonzero(roles)),
                 shared_port_segments=len(ports),area_m2=complete.area,coverage_error_m2=coverage,
                 numerically_collapsed_faces=int(collapsed.sum()),collapsed_original_area_m2=collapsed_area,
-                maximum_boundary_error_m=float(error))
+                maximum_boundary_error_m=float(error),interface_conformance=conformance)
 
 
 def solve(graphs,precision=.001,junction_mode='all',corner_radius=0,arc_error=.025,*,vehicle=None):

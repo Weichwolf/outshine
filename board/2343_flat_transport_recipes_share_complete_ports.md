@@ -15,9 +15,8 @@ mit funktionalen Verbindungen. Besitzer: Transport/generators/road; Bereichsgren
 [Flächenplan](../test/experiments/transport/transport_flat_surface_network.py) und
 [Ports](../test/experiments/transport/transport_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
 Drei Ebenen-0-Fenster mit 1 km Radius (`03af0cec8`): 8630/8679 direkte öffentliche Auto-Verbindungen.
-Basel neu: 2962/2962 direkt; 26 Einzelverbesserungen erhalten, elf gemeinsame Produkte. Keine zusätzlichen Netztrennungen.
-Keine zusätzlichen schwachen oder starken Netztrennungen. Das belegt nur diese
-Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
+Basel neu: 2962/2962 direkt; 26 Einzelverbesserungen erhalten, elf gemeinsame Produkte; keine zusätzlichen schwachen/starken Netztrennungen.
+Nur Auto-Fenster belegt. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
 ## Bauteil- und Verkehrsvertrag
 - [Randschnitte](../test/experiments/transport/transport_flat_cuts.py) wählen echte Querschnitte
@@ -62,7 +61,8 @@ Suche räumlich und auf neue Fläche eingrenzen, endgültige Körper gegen alle 
 Offene Blockränder dürfen weichen; geschlossene und verschachtelte Freiräume samt Überlappungszuordnung erhalten.
 Hüllenkonstruktion an Reservationen kappen, ganze Körper am nativen Mesh nachprüfen; 4096 Posen gemeinsam.
 Fahrflächen vor Triangulation kanonisch normalisieren, unabhängig von GEOS-Metadaten; feinste Binärpräzision, Quell-/Kontaktlinien separat.
-Mesh-/Schnitt-Rundungsreste höchstens 64·eps·max(1,|Koordinate|) m; echte Randänderungen/Freiräume erhalten, nur gültige Hilfspuffer.
+[Konforme Kanten](../test/experiments/transport/transport_conforming_triangles.py) teilen Dreiecke an vorhandenen Randvertices; Positionen/Fläche bleiben erhalten.
+Mesh-/Schnitt-Rundungsreste höchstens 64·eps·max(1,|Koordinate|) m; echte Risse/Freiräume erhalten, keine T-Verbindungen kaschieren.
 [Resttaschen](../test/experiments/transport/transport_roadbed_island_cleanup.py) im Baurezept schließen:
 nur neu abgetrennte Teile einer vorhandenen Insel, unreserviert, ≤1 m² und ohne 1 m breiten Innenraum.
 Größte Insel erhalten. [Restinsel-Rezept](../test/experiments/transport/transport_roadbed_void_recipe.py):
