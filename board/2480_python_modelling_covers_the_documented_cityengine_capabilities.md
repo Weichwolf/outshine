@@ -104,4 +104,7 @@ Kanten-/Punktkonstruktoren bestehen; singuläre authored-Normalen und undokument
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Ausschluss, Verbindung, Komponenten-Pivots und nullgroße Achsen.
-Nächster aktiver Block: `comp(g/m/h)`, Material-/Gruppen-/Lochkomponenten mit geprüfter Quellsemantik, danach übrige Modellierfähigkeiten.
+Aktiver Block: `comp(g/m/h)`, Material-/Gruppen-/Lochkomponenten mit geprüfter Quellsemantik.
+SDK: Gruppen/Materialien erfüllen Richtungsselektoren, wenn mindestens ein enthaltenes geometrisches Element sie erfüllt.
+Ghidra: Gruppenscopes, Materialwert-Vergleich und Lochinversion zuerst prüfen; Gruppen dürfen mehrere Materialien enthalten.
+Quellgruppen/Materialdefinitionen neben nativen Indices erhalten, Lochringe/UVs und vorhandene Dreiecke nicht verlieren.

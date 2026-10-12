@@ -66,6 +66,9 @@ TARGETS = {
     '_ZN5Shape28calcPivotScopeFromVertexFaceERKSt6vectorIN4util7Vector3IdEESaIS3_EERKNS1_6MatrixIdEERKNS1_4Mesh7PolygonEbNS_11AlignUpAxis4EnumEPKS3_': 'vertex and face-vertex pivot/tangent construction',
     '_ZN4util13TaggingHelperIN5boost9container12small_vectorIjLm4EvvEEE11setSideFaceERNS_4Mesh7PolygonERKS7_mmmPS9_': 'edge extrusion side tags and source attribute propagation',
     '_ZN4util9MeshUtils21calculateVertex2FacesERKNS_4MeshERSt6vectorIN5boost9container12small_vectorIjLm4EvvEESaIS8_EEPKNS_12HoleRelationEPKNS5_14dynamic_bitsetImSaImEEE': 'current polygon and edge endpoint adjacency for vertex extrusion',
+    '_ZNK16GroupedComponent10isOrientedER9ProcessorN2GC4Comp4EnumE': 'group/material selection succeeds for any constituent component',
+    '_ZNK16GroupedComponent11createShapeERK5ShapebdPN4util11MeshTracker11InitializerE': 'group/material shape assembly and scope alignment',
+    '_ZNK4util8MaterialltERKS0_': 'semantic material ordering and equivalence in material component grouping',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;

@@ -58,7 +58,7 @@ Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indire
   `setSideFace` kopiert Quell-/Kanten-/Endpunkttags und aktualisiert Eckbeziehungen; konkrete C++-Feldtypen bleiben ungeprüft.
   316/200 Instruktionen, keine indirekten/außerhalb liegenden Stellen; UV- und Kollapsäquivalenz brauchen weitere Laufzeitregeln.
   Extrusionsdispatchs besitzen eigene Zweipunktzweige: eine Seitenfläche pro Kante, Vertexmodus teilt verschobene Endpoint-IDs.
-- Aktueller Kernvertrag (2480): eigene Kantenextrusion und echte PRT-Wandflächen prüfen; danach nächste fehlende Modellierfähigkeit wählen.
+- Aktueller Kernvertrag (2480): `GroupedComponent::isOriented/createShape` und Materialvergleich als drei neue Ghidra-Ziele für `comp(g/m/h)` prüfen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
