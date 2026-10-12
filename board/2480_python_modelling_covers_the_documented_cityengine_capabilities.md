@@ -15,11 +15,11 @@ danach moderne/zeitgenössische Architekturrezepte bis zur vollständigen OSM-Kl
 Einzelne konstruktive Python-Verfahren bestehen; ein allgemeiner vollständiger Modellierkern fehlt.
 Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
 größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
-Stand f520c0366: vier Flächen-Extrusionsarten und `comp(f/e/fe/v/fv)` mit Auswahl, Verbindung und ausgerichteten Scopes.
-27 aktuelle Bilder: acht Innenraum-, zwölf Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
+Stand 9b730451f: vier Flächen-/Kanten-Extrusionsarten und `comp(f/e/fe/v/fv)` mit Auswahl, Verbindung und Scopes.
+31 aktuelle Bilder: acht Innenraum-, 16 Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
 Showcase: fehlende Messwerte aus Diagrammen auslassen, fehlende Zahlen kennzeichnen; geänderte HTML/CSS/JS-Dateien automatisch neu laden.
-23 Gebäude-/Innenraum-/Gruppen-/Stadtbilder sind pixelgleich; vier neue Kanten-/Punktplots samt maßstäblichem Hofplan optisch geprüft.
-Scope/Extrusion/Flächen/Kanten-Punkte/Ghidra/Kamera/zwei Benchmarks/Katalog/Render/Docs: elf Schritte samt Launcher terminal 0 auf f520c0366.
+23 Gebäude-/Innenraum-/Gruppen-/Stadtbilder sind pixelgleich; sieben neue Sweep-Kontrollen plus metrischer Grundriss optisch geprüft.
+Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/drei Benchmarks/Katalog/Render/Docs: 13 Schritte samt Launcher terminal 0 auf 9b730451f.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
 49 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
@@ -65,17 +65,17 @@ Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 49 Ziele, kein i
 Fünf Körper, 21 warme Läufe, zwei OpenBLAS-Threads: Komponenten-p50 4,50–40,98 ms; finale Ausgabe/Frames/GPU nicht enthalten.
 Dict-Indexierung ist bei vier kleinen Fällen günstiger, NumPy-Sort beim 72-Kanten-Hof; Differenzen unter 0,04 ms.
 Dict erhält einfache erste Quellreihenfolge; kein behaupteter Gesamtzeitgewinn. Relevante Kosten entstehen im Komponentenaufbau.
-Aktuelle Lieferung: saubere Commit-Prüfung und vier Kanten-/Punktplots einschließlich maßstäblichem 2D-Hofplan.
-Aktiver Feature-Vertrag: Kantenextrusion aus `comp(e/fe)`, vier Modi, gemeinsame Vertexnormalen des aktuellen Kantennetzes.
+Kanten-/Punktplots bleiben interne Referenzen; aktuelle Lieferung zeigt deren Sweep-Flächen.
+Extrusionsvertrag: `comp(e/fe)`, vier Modi, gemeinsame Vertexnormalen des aktuellen Kantennetzes.
 Eine Seitenfläche je Kante; keine künstlichen Flächenkappen. Eigene Nachbar-IDs erhalten, Face-Normal-Sweeps dürfen sich trennen.
 Welt-/Flat-Top-Sweeps und Corner-UV-/Tag-/Materialvererbung prüfen; signierte Scopes und `CompInfo` bleiben erhalten.
 `modelling_edge_extrude`: aktuelle Endpoint-IDs und Edge-Normalen, normierte Nachbarsumme; per-Edge-Sweeps trennen Ecken.
 Welt-/Flat-Top-Sweeps teilen Vertices; stehenbleibende Endpunkte ergeben Dreiecke, flächenlose Sweeps lokale Auslassungen mit Index/Grund.
-Acht analytische Streifen, getrennte/verbundene/räumliche Ecken und sechs echte PRT-Wandflächenvergleiche bestehen in Entwicklung.
+Eingefroren 9b730451f: acht analytische Streifen, getrennte/verbundene/räumliche Ecken und sechs echte PRT-Wandflächenvergleiche bestehen.
 Ghidra 5513b3e1f: 49 Ziele, Adjazenz-/Quelltaghelper; optische SDK-Beispiele und eigener 2D-Hofplan geprüft.
 Fünf Grundrisse, vier Sweep-Verträge, batched/individual GEOS: 40 Messungen × 21 warme Läufe, komplette Extrusion samt finaler Ausgabe.
-Batched-p50 2,64–7,31 ms, individual 2,65–7,45 ms; kein belastbarer Zeitgewinn. Eingabebau/Komponentenwahl/Frames/GPU ausgeschlossen.
-Aktive Lieferung: eingefrorene Geometrie-/Render-/Docs-Prüfungen, sieben Workbench-Kontrollen plus 2D-Grundriss.
+Batched-p50 2,64–6,83 ms, individual 2,64–7,47 ms; kein belastbarer Gesamtgewinn. Eingabebau/Komponentenwahl/Frames/GPU ausgeschlossen.
+Aktuelle Lieferung: sieben Workbench-Kontrollen plus 2D-Grundriss; native LOD-/Frame-/GPU-Abnahme bleibt offen.
 Dachselektoren, Gruppen/Material/Löcher, Normalenkollaps und isoliertes Kanten-PRT-Orakel bleiben offene Verträge.
 Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
 `comp(f)`: Richtung/Neigung/Tags/Ränder, Ausschluss/Verbindung, zUp/noAlign, nichtaffine UVs und authorierte Normalen.
@@ -104,4 +104,4 @@ Kanten-/Punktkonstruktoren bestehen; singuläre authored-Normalen und undokument
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Ausschluss, Verbindung, Komponenten-Pivots und nullgroße Achsen.
-Nächster Block nach Kanten/Punkten: Kantenextrusion, Material-/Gruppen-/Lochkomponenten; Umfang nicht auf Fassadenflächen beschränken.
+Nächster aktiver Block: `comp(g/m/h)`, Material-/Gruppen-/Lochkomponenten mit geprüfter Quellsemantik, danach übrige Modellierfähigkeiten.
