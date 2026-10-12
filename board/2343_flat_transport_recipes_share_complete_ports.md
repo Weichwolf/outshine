@@ -14,12 +14,12 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4779/4808 (2ccdf237b). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 29 Fahrten offen.
+Zürich 4780/4808 (de199785c). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 28 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 71,4 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
-Zürich: 49,8 s Kurvensuche, davon 37,0 s erfolglos; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
+Wien 10,1 s, Basel 16,5 s, Zürich 73,3 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Zürich: 50,1 s Kurvensuche, davon 37,1 s erfolglos; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
 ## Verbindlicher Bauteil- und Verkehrsvertrag
@@ -82,7 +82,10 @@ Zürich 2260 mit Gesamtfenster 16/16: gemeinsame Schnitte 4 m nach außen, +0,21
 1316 im Gesamtfenster 29/29: zwei Wendeprofile mit öffentlichen Fußwegübergängen, +8,86 m² Fläche.
 1555 im Gesamtfenster 5/5: asymmetrische Ansätze 4/32 m, 61,4 m Fahrt statt 932,9 m Umweg;
 physisch +2,88 m² Fläche. Alle 14 früheren Produkte und 24 Zusatzfahrten erhalten. Fußweggeometrie erhalten.
-Als Nächstes 1433/1758; verbleibende
+1433 im Gesamtfenster 12/12: direkter Einzelbogen, rund 19,6 m statt 656,2 m Umweg, vorhandene Fläche genügt.
+Alle 15 bisherigen Produkte frisch geprüft und 24 Zusatzfahrten erhalten.
+1758: erster Schnitttransfer entfernt den zweiten 3,50-m-Rand desselben Korridors; beide Endports gemeinsam lösen.
+Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
 [Fensterprüfung](../test/experiments/transport/transport_roadbed_window_experiment.py) erhält sämtliche bisherigen Fahrten;
