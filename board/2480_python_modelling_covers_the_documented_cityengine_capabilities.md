@@ -99,8 +99,8 @@ Offene Teilungen p50 5,1–8,8 ms; sechs Plan-/Achsenfälle und Fassadenachsen g
 `Shape.split_area`: logische Normalen mitteln, orientierte 30°-Achsenwache; wirkliche Dreiecksflächen ohne Abflachen oder Caps teilen.
 30 Quell-/Achsen-/Framefälle, 102 nichtaffine UV-/Normalenecken, verwundene/ungleich große Flächen und acht ungültige Eingaben geprüft.
 Kosten b387226f2: 14 wechselnde Messpaare × 21 Läufe; p50 5,1–9,2 statt 9,5–14,0 ms, alle Fälle schneller; Flächenfehler ≤1,8e−12 m².
-SDK-Projektion/UV-Gleichheit und Normalengewichte offen; nächste Lücken: gemischte Primitive/rohe Parts, verschachtelte Repeats und UV-/unitSpace.
-Danach verbleibende dokumentierte Operationen/Funktionen/Attribute: Instanzen/Insert, Ausdrücke/Regelfunktionen,
+SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/rohe Parts, Repeats und UV-/unitSpace bleiben Lücken.
+Aktiv: Bauteile vorbereiten und Geometrie beim Insert teilen; drei Einfügemodi, yUp/zUp und Nullachsen gegen Esri/Ghidra prüfen.
 Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.
 Offen im bestehenden Kern: gemischte Primitivgruppen/-extrusion, Shaderdefaults/Texture-/Objektpointergleichheit,
 Dachkanten-Selektoren, Straßenbreiten/Trim-Planes, zusätzliche UV-Kanäle, Normalenkollaps/mergeVertices,
