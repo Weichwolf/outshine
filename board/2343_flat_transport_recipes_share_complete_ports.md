@@ -88,7 +88,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Wien 1480 im Gesamtfenster 13/13; 1066 mit Gesamtfenster 13/13; Zürich 2134: 60→1369 m.
+   Wien/Basel im Auto-Fenster vollständig. [Spur-Endbögen](../test/experiments/transport/probes/roadbeds/terminal_lane_alignment_probe.py) projizieren die Quellbögen auf feste Spurstrahlen; unterschiedliche Spurversätze erlauben. Zürich 2134 lokal 29/29, 8→10 ≈54 m statt 1,37 km Umweg; Gesamtfenster offen.
    [Gekoppelte Wendeplätze](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): nur betroffene Nachbarn neu lösen; Quintik-Zufahrten erhalten G2 auch hinter Quellbiegungen. Gebäude-Freiraumanfragen bleiben explizit.
    [Versetzter Wendekern](../test/experiments/transport/probes/roadbeds/inset_turning_core_probe.py): 1066 mit 8-m-Zufahrten, +28,8 m² Gesamtbauteil; feste Ports, G2/Radius am Mesh geprüft.
    [Breitere Ports](../test/experiments/transport/transport_court_partition.py) auf festen Schnittebenen verteilen neue Fläche einmal; Bestand/Quellkontakte erhalten.
