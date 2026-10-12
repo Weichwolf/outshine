@@ -18,6 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from cloud_plots import group_figure, raster_figure, render_figure
+from curved_plots import curved_figure
 from fork_plots import fork_figure
 from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
@@ -352,6 +353,10 @@ def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
 
+def curved_plot(report):
+    return save_plot(curved_figure(report), "curved-forks")
+
+
 def tapered_plot(report):
     return save_plot(tapered_figure(report), "tapered-forks")
 
@@ -364,6 +369,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            curved_plot,
             tapered_plot,
             fork_plot,
             spine_plot,

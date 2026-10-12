@@ -111,7 +111,7 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-58 gezielte Funktionen dekompiliert; vierzehn Läufe terminal erfolgreich, zuletzt WeldHit/RadiusProfile.
+60 gezielte Funktionen dekompiliert; fünfzehn Läufe terminal erfolgreich, zuletzt ComputeShaping/FreeHandBendSpine.
 Adressen/Symbolgrößen, ELF-Vtable und Konstanten korroborieren die beschriebenen Operationen.
 Sichtbarkeitsfeld, LOD-Sortierung und Zielanzahl belegt; vollständige Property-/Windbindung bleibt offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.

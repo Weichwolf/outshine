@@ -1,6 +1,6 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: 58 Funktionen mit Ghidra untersucht. Gemeinsame Astoberflächen besitzen jetzt unabhängige Basis-/Endradien. Adaptive Flächen setzen Detail an Krümmungen und dünnen Enden ein. Analytische Hüllen, Normalen und Dreiecke werden gegen unabhängige Optimierung, Tangentialformeln und Strahltests geprüft. Weltweite Pflanzenrezepte und optische Artenprüfung folgen nach vollständigem Funktionsnachbau.",
-  "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige Gabel-/Elternanschlüsse, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
+  "current_work": "SpeedTree-Funktionen zuerst: 60 Funktionen mit Ghidra untersucht, einschließlich ComputeShaping und FreeHandBendSpine. Räumliche Astkurven und Radiusprofile erzeugen jetzt gemeinsame Hüllen mit seitlichen Elternanschlüssen. Unabhängige Polynomreferenzen prüfen die Form; weltweite Pflanzenrezepte folgen nach vollständigem Funktionsnachbau.",
+  "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
       "image": "render/landscape-temperate-depth.png",
@@ -119,6 +119,15 @@
       "lod": "lod-0",
       "description": "Links die gemeinsame Gabel mit konstanten Radien; daneben dieselben Achsen mit dickerem Stammfuß und dünnen Astenden. Ungleiche und räumliche Verzweigung ergänzen den Vergleich. Analytische Hüllflächen liefern Normalen; angepasste Unterteilung mit gemeinsam aufgelösten Kanten erhält eine geschlossene Oberfläche. Detail entsteht aus denselben kameraunabhängigen Radiusdaten.",
       "quality": "Funktionsprobe · kontinuierliche Profile, gekrümmte Elternflächen, Rinde, Wind und Pflanzenrezepte offen"
+    },
+    {
+      "image": "render/curved-forks.png",
+      "title": "Gekrümmte Äste · gemeinsame Anschlüsse",
+      "label": "Kurven-Funktionen",
+      "category": "wood",
+      "lod": "lod-0",
+      "description": "Links die gerade verjüngte Gabel, daneben unabhängige gebogene Äste. Die dritte Probe besitzt eine durchgehende Elternkurve mit Seitenästen bei 40 und 70 Prozent ihres Verlaufs. Rechts eine räumliche Verzweigung. Jede Kurve behält ihren eigenen Radiusverlauf; eine gemeinsame Hülle verbindet die Anschlüsse.",
+      "quality": "Funktionsprobe · vollständige SpeedTree-Propertybindung, natürliche Rinde, Wind und Pflanzenrezepte offen"
     }
   ],
   "lods": [
@@ -161,7 +170,8 @@
     "profile_plot": "lod-0",
     "spine_plot": "lod-0",
     "fork_plot": "lod-0",
-    "tapered_plot": "lod-0"
+    "tapered_plot": "lod-0",
+    "curved_plot": "lod-0"
   },
   "genera": [
     {

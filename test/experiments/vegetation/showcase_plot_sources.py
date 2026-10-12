@@ -2,10 +2,16 @@
 
 PLOT_SOURCES = (
     (
+        "curved/curved.json",
+        "curved_plot",
+        "Gekrümmte Astanschlüsse · Kurvenreferenz und Erzeugungskosten",
+        "Getrennte räumliche Bézierachsen und Radiusprofile liefern gemeinsame Hüllen. Eine durchgehende Elternkurve trägt zwei seitlich angeschlossene Äste. 126 feste kontinuierliche Referenzpunkte werden für alle Verfahren gegen das Mesh geprüft; weitere 128 Meshproben gegen die Polynomreferenz projiziert. Das sind beidseitige Stichproben, keine globale Hausdorff-Schranke. Die Achs-/Radiusapproximation ist separat begrenzt. Drei CPU-Wiederholungen, kein nativer Gerätebeleg. Schraffur kennzeichnet verfehlte Form- oder Normalenanforderungen.",
+    ),
+    (
         "tapered/tapered.json",
         "tapered_plot",
         "Verjüngte Astgabeln · dünne Enden und Erzeugungskosten",
-        "Lineare Basis-/Endradien steuern eine analytische Kugelhülle. Dichte und blockweise Feldauswertung, Oberflächenprojektion, gemeinsame Dreiecksunterteilung und adaptive radiale Patches sind an identischen Formdaten verglichen. Je Form 355 unabhängige Probestrahlen und höchstens 5 mm beobachteter radialer Fehler. Schraffierte Verfahren verfehlen diese Anforderung. Drei lokale CPU-Wiederholungen, kein globaler Hausdorff- oder Gerätebeweis; gekrümmte Elternflächen und Pflanzenrezepte bleiben offen.",
+        "Lineare Basis-/Endradien steuern eine analytische Kugelhülle. Dichte und blockweise Feldauswertung, Oberflächenprojektion, gemeinsame Dreiecksunterteilung und adaptive radiale Patches sind an identischen Formdaten verglichen. Je Form 355 unabhängige Probestrahlen und höchstens 5 mm beobachteter radialer Fehler. Schraffierte Verfahren verfehlen diese Anforderung. Drei lokale CPU-Wiederholungen, kein globaler Hausdorff- oder Gerätebeweis; vollständige Elternflächenbindung und Pflanzenrezepte bleiben offen.",
     ),
     (
         "forks/forks.json",
