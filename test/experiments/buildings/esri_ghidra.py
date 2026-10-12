@@ -47,6 +47,9 @@ TARGETS = {
     '_ZN12MaterialImpl7opacityEd': 'material opacity storage',
     '_ZN12MaterialImpl15opacitymap_modeERKNSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEE': 'material opacity-map mode storage',
     '_ZN4util8Material7combineERKS0_S2_': 'component material combination',
+    '_ZN9Processor1tEN2GC5Scale4EnumEdS2_dS2_d': 'translation along current scope axes',
+    '_ZN9Processor1rEddd': 'Euler-angle scope rotation dispatch',
+    '_ZN9Processor1rEN2GC14CenterSelector4EnumEddd': 'scope-origin and scope-centre rotation dispatch',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;
@@ -78,7 +81,7 @@ public class InspectBuildingCore extends GhidraScript {
         report.put("program", currentProgram.getName());
         report.put("language", currentProgram.getLanguageID().toString());
         report.put("image_base", currentProgram.getImageBase().toString());
-        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul|rectangle|trapezoid|insert|instance|transformInPlace|Processor4comp|Material.*(opacity|combine))");
+        Pattern relevant = Pattern.compile("(?i)(offset|skeleton|convex|split|subdiv|boolean|extrud|interior|room|floor|stair|roof|clip|triangul|rectangle|trapezoid|insert|instance|transformInPlace|Processor[14][crt]|Material.*(opacity|combine))");
         List<Map<String,Object>> names = new ArrayList<>(), selected = new ArrayList<>();
         FunctionIterator functions = currentProgram.getFunctionManager().getFunctions(true);
         DecompInterface decompiler = new DecompInterface();
@@ -190,7 +193,8 @@ def inspect(core, output):
         raise FileNotFoundError('Expected external SDK core and ghidra.analyzeHeadless Snap')
     output.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(core.read_bytes()).hexdigest()
-    log_path = Path(tempfile.gettempdir())/('outshine-buildings-ghidra-'+digest[:12]+'.log')
+    provenance = revision()
+    log_path = Path(tempfile.gettempdir())/('outshine-buildings-ghidra-'+digest[:12]+'-'+provenance['commit'][:9]+'.log')
     snap_work = Path.home()/'snap/ghidra/common/outshine-building-analysis'
     snap_work.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='outshine-buildings-ghidra-', dir=snap_work) as temporary:
@@ -223,7 +227,7 @@ def inspect(core, output):
             if path.suffix in ('.json', '.c'):
                 shutil.copy2(path, output/path.name)
     result_path = output/'ghidra-core.json'
-    result.update(**revision(), binary_path=str(core), binary_sha256=digest, sdk_version=[3, 4, 12206],
+    result.update(**provenance, binary_path=str(core), binary_sha256=digest, sdk_version=[3, 4, 12206],
                   headless_exit_code=process.returncode, elapsed_seconds=elapsed, log_path=str(log_path),
                   analysis_mode='Selected function disassembly/body recovery; global auto-analysis disabled',
                   process_limit_seconds=360, decompile_limit_seconds_per_function=25,

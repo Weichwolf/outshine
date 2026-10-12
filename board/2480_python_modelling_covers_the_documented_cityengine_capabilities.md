@@ -50,3 +50,7 @@ Reproduzierbare kleine Kontrollkörper, echte OSM-Grundrisse, ungültige/degener
 Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenommene native LOD-/Geräteabnahme.
 Als Nächstes gemeinsame Shape-/Scope-Semantik samt den bereits untersuchten Transform-/Split-/Comp-/Extrusionspfaden abgleichen;
 den ersten vollständigen öffentlichen Python-Vertrag an einem sichtbaren Modellierbeispiel integrieren.
+Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation erhält den Mittelpunkt;
+`s` setzt absolute/relative Größen einschließlich Spiegelung. Geteilte Geometrie erst zur Ausgabe transformieren.
+Ghidra-Vertiefung: Translation und beide Rotationsdispatches; nichtkommutierende Rotationen und schiefe Pivots als Gegenfälle.
+[CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
