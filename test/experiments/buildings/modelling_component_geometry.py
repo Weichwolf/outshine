@@ -81,4 +81,5 @@ def component_scope(mesh,face,normal,old,alignment):
 def component_shape(surface,indices,alignment,info):
     mesh,polygons=subset(surface.mesh,surface.faces,surface.triangle_rows,indices)
     scope=component_scope(mesh,polygons[0],surface.normals[indices[0]],surface.source.scope,alignment)
-    return replace(Shape.from_mesh(mesh,scope,polygons,group_names=surface.source.geometry.group_names,material_defs=surface.source.geometry.material_defs),comp_info=info)
+    return replace(Shape.from_mesh(mesh,scope,polygons,group_names=surface.source.geometry.group_names,material_defs=surface.source.geometry.material_defs),
+                   comp_info=info,split_info=surface.source.split_info)

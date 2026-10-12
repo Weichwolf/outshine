@@ -48,4 +48,4 @@ def probe(output,provenance):
     fig.text(.03,.02,'2D-Verfahrensexperiment; noch keine räumlichen Mesh-/UV-Schnitte oder Architekturrezepte. '+provenance['commit'][:9],fontsize=10)
     return [save_plot(fig,output,'current-split-plan',title,
         'Fünf Grundrisse, jeweils vier tatsächliche Teilpolygone. Links gleiche x-Breiten, rechts je 25 % Quellfläche. '
-        'Polygonlöcher sind ausgespart; keine vollständige CityEngine-split-Umsetzung.',provenance|dict(source_cases=sources),start,[1400,1500])]
+        'Polygonlöcher sind ausgespart; keine vollständige CityEngine-split-Umsetzung.',provenance|dict(source_cases=sources),start,[1400,1500],label='modelling-split')]

@@ -17,9 +17,9 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 52 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
+Ghidra 12.1.2: 58 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft Mesh-Cuts auf. Split-Allokation 004d6120: feste Restbreite, gewichtete Floating-Anteile, Repeat-Floor/Ceil nach Streckungsabstand zu 1.
-ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Verschachtelte Wiederholungen und Grenzfälle bleiben offen; 2480 prüft erst 2D.
+ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Verschachtelte Wiederholungen und Grenzfälle bleiben offen; 2480 prüft 2D/3D getrennt.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
 Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platzieren (2420), kein eigener Globaloptimalitätsanspruch.
@@ -37,14 +37,11 @@ Scope-Ausrichtung und Einfügungshelper haben außerhalb der ELF-Grenzen wiederg
 Ghidras fünf unaufgelöste Mode-PLT-Stellen unabhängig per ELF-Disassemblierung als 3×`wcslen`/2×`wmemcmp` bestätigt.
 Referenzierte UTF-32-Konstanten `blend`/`mask`/`opaque` gegen SDK-Dokumentation bestätigt; andere dynamische Ziele bleiben offen.
 `Material::combine` liest Zahlen-/Textur-/Stringarrays und kopiert Materialcontainer; genaue Überschreibpriorität bleibt ungeprüft.
-11/63/1964 begrenzte Instruktionen, keine indirekten Stellen; Mode/Combine haben 12/4 außerhalb liegende Decompilerblöcke.
 Extrusionsbeleg e42c3763a: Welt-/Flat-Top-/Vertexdispatch ruft Seiten-UVs, glatte Normalen und neue Scope-Ausrichtung auf.
-3715 begrenzte Instruktionen, keine indirekten Stellen; 55 außerhalb liegende Blöcke zählen nicht als Beleg.
 Seiten-UV-Helper: aktive Kanäle, Eckfolge A/B/B/A; 137 Instruktionen. Normenhelper: angrenzende Flächennormalen summieren und normieren; 204 Instruktionen.
 Neue Scope-Y-Achse: alte X-Achse orthogonal projizieren, bei Kollaps Ersatzachse, Z aus Kreuzprodukt; 244 Instruktionen.
 Diese drei Helper haben keine indirekten Stellen/außerhalb liegenden Blöcke; SDK-Typen und Ersatzkonstante bleiben nicht laufzeitverifiziert.
 Komponentenbeleg eb6938bbf: Front/Links prüfen größte signierte Normalkomponente mit 1e−14 Toleranz; Side prüft |Y| ≤ cos(11,25°).
-18/18/6 Instruktionen, keine indirekten/außerhalb liegenden Stellen. IEEE-Konstanten unabhängig im versionierten ELF gelesen.
 Richtungsdispatch berücksichtigt negative Scope-Größen; Neigungsgrenzen haben geringfügig verschiedene positive/negative 11,25°-Konstanten.
 `createShape` ruft Geometrieausrichtung bzw. Edge-/Vertex-Pivothelper und Bounding-Box-Anpassung auf; Verbindung nutzt Quellmesh-/Indexbeziehungen.
 Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indirekte Stellen, 2/20/22/13 außerhalb liegende Blöcke; keine vollständige Semantikabdeckung.
@@ -53,18 +50,19 @@ Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indire
 - Kantenbeleg b976043b4: `extractEdgeComponents` mittelt adjazente Normalen, projiziert orthogonal zur Kante, nimmt bei Kollaps eine Quellnormale.
   Edge-Pivot: x=Kante, z=orthogonale Normale, y=z×x; Pivot am Anfang, Scope=(Länge,0,0).
   Vertex-Pivot: Scope=(0,0,0), optional gelieferte Tangente bzw. orthogonale Ersatzachsen; UNIT-BSS-Werte nicht laufzeitverifiziert.
-  1093/289/421 Instruktionen, 1/0/0 indirekte Stellen, 5/0/0 außerhalb liegende Blöcke.
   ELF-Konstanten: 1e−25 Richtungswache, 0,999999 Achsenschwelle, 6,4e−7 Kantenlänge²; eigene Kollapsäquivalenz bleibt offen.
 - Kantenextrusionsbeleg 5513b3e1f: aktuelle Polygon-/Kantencontainer je Endpoint-ID für `calculateVertex2Faces`; glatte Normalen summieren aktuelle Nachbarn.
   `setSideFace` kopiert Quell-/Kanten-/Endpunkttags und aktualisiert Eckbeziehungen; konkrete C++-Feldtypen bleiben ungeprüft.
-  316/200 Instruktionen, keine indirekten/außerhalb liegenden Stellen; UV- und Kollapsäquivalenz brauchen weitere Laufzeitregeln.
   Extrusionsdispatchs besitzen eigene Zweipunktzweige: eine Seitenfläche pro Kante, Vertexmodus teilt verschobene Endpoint-IDs.
 - Gruppenbeleg e6fb5a155: `GroupedComponent::isOriented` prüft Mitglieder bis zum ersten Treffer; sieben virtuelle Aufrufstellen.
   `createShape` baut Quellmeshes und passt BBox an oder delegiert Z-Up-Ausrichtung an Geometrie mit Mesh-/Faceindex 0.
   `Material::operator<` vergleicht Shader und bool/int/float/string/Texture-/Pointercontainer, keine bloße Palette-ID.
   121/246/295 Instruktionen, 7/0/0 indirekte Stellen, 0/6/0 außerhalb liegende Blöcke; gesamte Defaults-/Texturgleichheit ungeprüft.
   Komponenten-Dispatch bündelt Materialwerte über Quellen hinweg; Lochzweig invertiert Mesh vor Auswahl der Lochbeziehungen.
-- Aktiver Schnittvertrag (2480): `Mesh::cut`, `cutEdgeFaces` und `splitArea` gezielt untersuchen; Abschlussflächen/UVs/Semantik prüfen.
+- Schnittbeleg fa54f57cd: Mesh-Cut behält Face-Materialtabellen/UVs und schließt in der Ebene; generischer Clip behandelt koplanare Kanten.
+  Closure prüft überlappende/identische Koplanarflächen und hält Vertex-/Edgetags konsistent; Typen/Kappensemantik nicht laufzeitverifiziert.
+  SplitArea projiziert zu 2D-Multipolygonen und AreaSplit; Instruktionen 2338/241/1423/2209/341/2903, indirekt 3/0/0/0/0/0, außerhalb 17/0/0/18/0/29.
+  Eigene 3D-Schnittentscheidung und verworfene Manifold-Koplanarvariante stehen in 2480.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.

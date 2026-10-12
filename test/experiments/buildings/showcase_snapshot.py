@@ -9,8 +9,8 @@ from evidence import revision
 from opening_probe import scene
 from preview import configuration,run_render
 from showcase_scene import LABELS,cached,context_scene,fitted
-from showcase_groups import probe as group_probe
 from showcase_split_plan import probe as split_plan_probe
+from showcase_split import probe as split_probe
 
 
 NAMES={'rectangle':'Rechteck · Kontrollhaus','vienna-compact':'Wien · kompaktes Gebäude',
@@ -89,8 +89,8 @@ def main():
         focal=[body for body in bodies if body['plan']['id'].startswith(site+':')]
         if focal:reports+=urban_views(site,focal,args.output,provenance,True)
         reports+=urban_views(site,focal,args.output,provenance,False)
-    reports+=group_probe(args.output,provenance)
     reports+=split_plan_probe(args.output,provenance)
+    reports+=split_probe(args.output,provenance)
     temporary=args.output/'snapshot.json.tmp'
     temporary.write_text(json.dumps(provenance|dict(reports=reports,completed_recipe_families=0),ensure_ascii=False,indent=2)+'\n')
     temporary.replace(args.output/'snapshot.json')

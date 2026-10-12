@@ -89,6 +89,7 @@ class Shape:
     scope: Scope
     comp_info: object=None
     sweep_info: object=None
+    split_info: object=None
 
     @classmethod
     def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=(),group_names=(),material_defs=()):
@@ -122,6 +123,10 @@ class Shape:
     def comp(self,component,*branches,alignment='zUp'):
         from modelling_components import split_components
         return split_components(self,component,branches,alignment)
+
+    def split(self,axis,*parts,repeat=False,adjust=True,cut_material=None,cut_group=0,max_parts=10000):
+        from modelling_split import split
+        return split(self,axis,parts,repeat,adjust,cut_material,cut_group,max_parts)
 
     def with_metadata(self,group_names=(),material_defs=()):
         from modelling_metadata import named_groups,materials

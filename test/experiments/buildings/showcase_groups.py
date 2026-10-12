@@ -55,9 +55,9 @@ def render_control(output,provenance,key,title,shapes,camera,sample=None):
     print(json.dumps(dict(page='buildings',control=key,seconds=result['render_seconds'])),flush=True);return name
 
 
-def save_plot(fig,output,stem,title,caption,provenance,start,profile):
+def save_plot(fig,output,stem,title,caption,provenance,start,profile,label='modelling-groups'):
     path=output/(stem+'.png');fig.savefig(path,dpi=100);plt.close(fig)
-    report=provenance|dict(representation='showcase-current',page='buildings',view='plan',label='modelling-groups',title=title,caption=caption,
+    report=provenance|dict(representation='showcase-current',page='buildings',view='plan',label=label,title=title,caption=caption,
         renderer='Metric Matplotlib 2D',profile=profile,render_seconds=time.perf_counter()-start,image_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         completed_recipe_families=0,lod_status='native LOD unproved',measurement_scope='CPU metric plotting/PNG generation; no frame duration')
     name=stem+'-report.json';(output/name).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n');return name

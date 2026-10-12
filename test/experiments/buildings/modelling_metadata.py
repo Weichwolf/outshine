@@ -64,7 +64,8 @@ def materials(values):
 
 
 def inherit(result,source):
-    return replace(result,geometry=replace(result.geometry,group_names=source.geometry.group_names,material_defs=source.geometry.material_defs))
+    return replace(result,split_info=source.split_info,
+        geometry=replace(result.geometry,group_names=source.geometry.group_names,material_defs=source.geometry.material_defs))
 
 
 def validate_membership(fields,polygons,edges,points,triangle_count):

@@ -16,7 +16,7 @@ Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`;
 Stand 725034641: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)` und planare 2D-Teilung;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen.
-52 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+58 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
 Aktuell 31 Bilder: acht innen, 16 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
 Neuer 2D-Teilungsplan optisch geprüft; 28 bisherige Bilder pixelgleich, zwei Pläne ändern nur den Commit-Fußtext.
@@ -86,8 +86,17 @@ Neun SDK-Größenbeispiele, analytisches Dreieck, 198 GEOS-Flächenintegrale sow
 Messung 725034641: 30 Fälle/21 warme Läufe, gesamte 2D-Teilung inklusive Aufbau/Cuts 0,61–1,21 ms p50;
 GEOS-Bisektion 4,93–7,52 ms. Maximaler Flächenfehler 3,6e−12 m²; kein nativer Mesh-/UV-/Framebeleg.
 
+## Unterteilung: geschlossene 3D-Körper
+`Shape.split`: native Dreiecke mit baryzentrischen UV-/Normalenwerten schneiden, logische Quellflächen rekonstruieren.
+GEOS/CDT schließt einseitige Querschnitte; korrekte koplanare Quellflächen behalten, Gegenflächen mit Grund auslassen.
+Höfe/Material/Gruppen/Tags, signed Scope, Objektframes und SplitInfo erhalten; neue Caps haben explizite Material-/Gruppenwahl.
+SDK-UV-/Materialgleichheit bleibt offen. Manifold-Schnitt verworfen: Hofgrenzfall hat korrektes Volumen, aber Zusatzfläche/ungültige Kanten.
+Eigener Weg: 15 Grundriss-/Achsenfälle, vier Frames/zwölf Achsenfälle und 1.008 nichtaffine UV-/Normalenecken geprüft.
+Entwicklung: vier Teile p50 46,8–156,5 ms inklusive Validierung/Logik/Payload; finale Ausgabe/Frames/GPU ausgeschlossen.
+Erzeugung zu teuer: Profil vor Optimierung; keine Frame-/Cache-Abnahme. Eingefrorene Bild-/Kostenprüfung folgt.
+
 ## Offen und nächster Block
-Aktiver Ausbau: `split/splitArea` an `Shape` anbinden; 3D-Mesh-Cuts schließen und UV/Normalen/Material/Tags vererben.
+Aktiver Ausbau: offene/gemischte Primitive, rohe Part-Provenienz und `splitArea` an Shape anbinden; geschlossene Schnitte optimieren.
 Verschachtelte Repeat-Allokation, UV-/unitSpace und isolierte PRT-Regeln fehlen; 2D-Prototyp ersetzt diese Verträge nicht.
 Danach verbleibende dokumentierte Operationen/Funktionen/Attribute: Instanzen/Insert, Ausdrücke/Regelfunktionen,
 Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.
@@ -106,3 +115,4 @@ fehlende Messwerte kennzeichnen/aus Diagrammen auslassen, geänderte Frontend-Da
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Verbindung, Pivots und nullgroße Achsen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächen/Kanten, UVs/Tags, signierte Scopes und Mindestspanne.
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm), [SplitArea](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split-area.htm): Umfang/Breiten versus Geometriefläche, Wiederholung und Scope-Anpassung.
+[Manifold-Beziehungen](https://github.com/elalish/manifold/wiki/Manifold-Library): interpolierte Eigenschaften und Original-/Face-IDs; kein Beleg für korrekte Koplanar-Caps im eigenen Adapter.

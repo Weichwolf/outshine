@@ -31,8 +31,8 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
-    'split':dict(module='modelling_split_plan.split_plan',status='2D planar prototype with absolute/relative/floating widths, flat repeats, cuts and adjusted/unadjusted bounds',
-                 pending=['native 3D mesh cuts and closed cut surfaces','UV/normal/material/tag inheritance','nested pattern allocation','UV-space/unit-space overloads','isolated PRT split rule']),
+    'split':dict(module='modelling_shape.Shape.split',status='closed Cartesian solids; native triangle property clipping, one-sided GEOS closure, logical holes and source material/group/tag/UV/normal ownership; width/area plan prototypes',
+                 pending=['open and mixed primitive cuts','raw part provenance without logical faces','nested pattern allocation','UV-space/unit-space overloads','SDK cut-face UV/material semantics','isolated PRT split rule']),
     'splitArea':dict(module='modelling_split_plan.split_plan(area=True)',status='2D polygon and courtyard area partitions; cumulative triangulated areas compared with direct GEOS cuts',
                      pending=['Shape scope/geometry integration','almost-planar 3D geometry','nested pattern allocation','isolated PRT splitArea rule']),
     'comp': dict(module='modelling_shape.Shape.comp',status='f/e/fe/v/fv/g/m/h components; authored groups, declared material values, filled holes, any-member keywords and inherited frames/attributes; analytic controls and PRT prism bounds/volumes',
@@ -44,7 +44,8 @@ OWN = {
     'extrude': dict(module='modelling_shape.Shape.extrude',status='four face and edge extrusion modes; shared endpoint sweeps, holes, UV/tag/material checks, PRT prisms and actual PRT wall surfaces',
                     pending=['mixed primitive extrusion','cancelled-normal SDK fallback and degenerate pruning equivalence','tangential or collapsed face sweep','UV channels beyond the first','isolated PRT edge/flat-top/vertex-normal rules']),
 }
-OWN_ATTRIBUTES={'comp':dict(module='modelling_shape.CompInfo',status='per-selector sel/index/total assigned; scope operations and extrusion inherit predecessor values',pending=['inheritance in remaining geometry operations'])}
+OWN_ATTRIBUTES={'comp':dict(module='modelling_shape.CompInfo',status='per-selector sel/index/total assigned; scope operations and extrusion inherit predecessor values',pending=['inheritance in remaining geometry operations']),
+                'split':dict(module='modelling_split.SplitInfo',status='global index/total, pattern label, interval, source face ownership and coplanar omissions; inherited by scope, comp and extrude',pending=['nested pattern and UV-space metadata'])}
 OWN_FUNCTIONS={'geometry':dict(module='modelling_shape.Shape.group_names/material_names',status='group/material name queries implemented in component index order without vertex emission; remaining geometry functions pending',
                                pending=['other geometry member functions','full shader defaults and texture/object-pointer material equivalence','isolated PRT name-order rule'])}
 USES = {
