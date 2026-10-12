@@ -87,7 +87,7 @@ def main():
         original_sections=[shapely.get_coordinates(p['line']) for p in network.junctions[owner]],
         planned_sections=[shapely.get_coordinates(p['line']) for p in network.junctions[owner]],
         shared_cuts_description=f'Unchanged shared cuts; {len(proofs)}/{len(routes)} routes; road-first building cuts',
-        buildings=buildings,building_audit=building_audit,
+        buildings=buildings,building_audit=building_audit,roadbed_island_cleanup=seed['pockets'],
         input_sha256=before['input_sha256']|{str(p.resolve().relative_to(root.resolve())):coupled.digest(p)
             for p in (cut_path,frame_path,receipt_path,args.curve,args.reference)},
         elapsed_ms=(time.perf_counter()-begin)*1000,

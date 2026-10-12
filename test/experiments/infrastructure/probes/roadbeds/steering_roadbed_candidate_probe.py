@@ -16,6 +16,7 @@ from infrastructure_building_clearance import features,polygon_parts,GIRTH_M,ind
 from infrastructure_cut_setback_experiment import digest,implementation_files
 from infrastructure_fitted_roadbeds import spline_roadbed
 from infrastructure_junction_surfaces import same_island_winding
+from infrastructure_roadbed_island_cleanup import close_split_pockets
 from infrastructure_spline_routes import checked_spline_path
 from infrastructure_turn_roadbed_experiment import mesh_coverage
 from infrastructure_turn_roadbeds import roadbed_site_check,roadbed_lateral_reach
@@ -48,6 +49,7 @@ def candidate(data,note):
     floor,reserved,source=(shapely.from_wkb(data[k]) for k in ('surface','reservations','source_route'))
     support,construction=spline_roadbed(controls,vehicle,error)
     support=support.difference(reserved).intersection(floor.buffer(roadbed_lateral_reach(vehicle)))
+    support,pockets=close_split_pockets(floor,support,reserved)
     planned,addition,reason=roadbed_site_check(support,floor,reserved,vehicle,error)
     assert reason is None,reason
     path,proof=checked_spline_path(controls,planned,vehicle,error)
@@ -58,15 +60,19 @@ def candidate(data,note):
                begin=np.array(data['entry']['position']),end=np.array(data['exit']['position']))
     mesh,actual=mesh_coverage(planned,vehicle,[piece],error)
     return dict(surface=actual,roadbed=support,addition=addition,path=path,pieces=[piece],
-                construction=construction,proof=proof,mesh_audit=mesh),floor
+                construction=construction,pockets=pockets,proof=proof,mesh_audit=mesh),floor
 
 
 def building_cuts(records,floor,planned):
     buildings=np.array([r['geometry'] for r in records],dtype=object)
     adjusted,audit=indexed_cut(buildings,np.array([planned],dtype=object))
     baseline,_=indexed_cut(buildings,np.array([floor],dtype=object))
-    selected,selection=choose(buildings,adjusted,.25,25.,3.)
-    old_selected,_=choose(buildings,baseline,.25,25.,3.)
+    if len(buildings):
+        selected,selection=choose(buildings,adjusted,.25,25.,3.)
+        old_selected,_=choose(buildings,baseline,.25,25.,3.)
+    else:
+        selected,old_selected=adjusted,baseline
+        selection=dict(cut=0,discarded=0,affected_fraction_limit=.25,removed_area_fraction=0.)
     assert np.all(shapely.is_valid(selected))
     assert np.all(shapely.area(shapely.intersection(selected,planned))<=1e-8)
     rows=[]

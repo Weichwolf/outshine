@@ -91,6 +91,8 @@ def render(report,path,bounds=None,pair=None):
         count=report['previous_accepted'] if index==0 else report['accepted']
         ax.set_title(f'{"Original" if index==0 else "Constructed physical mesh"}: {count}/{report["connections"]} routes')
     cuts=report.get('shared_cuts_description','Fixed shared cuts')
+    pocket=report.get('roadbed_island_cleanup',{})
+    if pocket.get('closed_pockets'):cuts+=f'; {pocket["closed_pockets"]} split pocket ({pocket["closed_area_m2"]:.2f} m²) closed'
     if pair is not None:cuts+=f'; displayed route {pair[0]} → {pair[1]}'
     building_note='source building cuts; unusable remnants omitted; private/nonmotor space kept' if 'buildings' in report else 'buildings/private space unchanged'
     caption=f'{cuts} · radius ≥ {report["vehicle"]["minimumRearAxleRadiusM"]:g} m · {building_note}'

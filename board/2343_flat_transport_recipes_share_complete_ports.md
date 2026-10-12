@@ -63,6 +63,9 @@ Offene Blockränder dürfen weichen; geschlossene und verschachtelte Freiräume 
 Hüllenkonstruktion an Reservationen kappen, ganze Körper am nativen Mesh nachprüfen; 4096 Posen gemeinsam.
 Polygonale Fahrflächen behalten die feinste Binärpräzision. Mesh-Rundungsreste höchstens
 64·eps·max(1,|Koordinate|) m schließen; echte/breitere Freiräume erhalten. Nur gültige konservative Hilfspuffer nutzen.
+[Resttaschen](../test/experiments/infrastructure/infrastructure_roadbed_island_cleanup.py) im Baurezept schließen:
+nur neu abgetrennte Teile einer vorhandenen Insel, unreserviert, ≤1 m² und ohne 1 m breiten Innenraum.
+Größte Insel mit ursprünglichem Bezugspunkt erhalten; Freiraumtopologie, Windung und ganze Körper erneut prüfen.
 
 [Gemeinsame Schnitte](../test/experiments/infrastructure/infrastructure_cut_setbacks.py) ändern lokalen
 Besitz innerhalb gleicher Gesamtfläche. Alle Achsenstationen rücken nach außen; Mehrfachkontakte bleiben
@@ -92,7 +95,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Wien 1480 gewinnt 4→1 bei unveränderten Grenzen und erhält alle acht bisherigen Fahrten.
    33 statt 17 Kollisionsstationen finden die C2-Kurve im gleichen 1024-Aufrufe-Budget.
    Grundrisse einzeln samt Quellen/Tags schneiden; kleine/schmale Reststücke nach bestehendem
-   25-m²-/3-m-Rezept verwerfen. Zusätzlichen Schnitt vom bereits überlappenden Quellplan trennen;
+   25-m²-/3-m-Rezept verwerfen. Zusätzlichen Schnitt vom bereits überlappenden Quellplan trennen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
    Wien 897/909, Zürich 4774/4808, Basel 2952/2962; Messcommit `3a8daace6`, ein Core, zusammen 137 s.
    Diese Aufbaukosten sind weiterhin zu hoch; aktuelles Bild unter `build/shots/experiments/infrastructure/`.
