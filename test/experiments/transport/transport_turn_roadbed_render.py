@@ -88,8 +88,8 @@ def render(report,path,bounds=None,pair=None):
         ax.set_aspect('equal')
         ax.set_xlabel('east [m]')
         ax.set_ylabel('north [m]')
-        count=report['previous_accepted'] if index==0 else report['accepted']
-        ax.set_title(f'{"Original" if index==0 else "Constructed physical mesh"}: {count}/{report["connections"]} routes')
+        ax.set_title('Source road geometry' if index==0 else
+                     f'Constructed physical mesh: {report["accepted"]}/{report["connections"]} routes')
     cuts=report.get('shared_cuts_description','Fixed shared cuts')
     pocket=report.get('roadbed_island_cleanup',{})
     if pocket.get('closed_pockets'):cuts+=f'; {pocket["closed_pockets"]} split pocket ({pocket["closed_area_m2"]:.2f} m²) closed'
