@@ -17,6 +17,7 @@ from evidence import revision
 CORE = Path('/home/cosmo/Downloads/esri_ce_sdk-3.4.12206/bin/libcom.esri.prt.core.so')
 HEADLESS = Path('/snap/bin/ghidra.analyzeHeadless')
 TARGETS = {
+    '_ZNK4util13GeometryAsset20getTrafoToSizeMatrixERKNS_7Vector3IdEE': 'Asset bounding box normalization and degenerate dimension scaling',
     '_ZN5Shape30adjustScopeSizeZerosToGeometryERKN4util7Vector3IdEEPS3_': 'Insertion dimensions and origins for point, line and plane scopes',
     '_ZN4util24angleBetweenUnitVector3sIdEET_RKNS_7Vector3IS1_EES5_': 'Oriented angle used by area split plane-axis admission',
     '_ZN11CoreToolbox10PolygonOps13computeOffsetEfPKfm': 'polygon offset wrapper',
