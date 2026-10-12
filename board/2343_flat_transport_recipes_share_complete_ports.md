@@ -15,7 +15,7 @@ mit funktionalen Verbindungen. Besitzer: generators/road; nativer Bauteilplan f�
 [Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) und
 [Ports](../test/experiments/infrastructure/infrastructure_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
 Alle verwendeten Bauteile der eingefrorenen Ebenen-0-Fenster mit 1 km Radius sind geprüft:
-8627/8679 öffentliche Auto-Verbindungen; drei fehlen ohne gerichtete Umfahrung (Basel 3, Wien/Zürich 0).
+8629/8679 öffentliche Auto-Verbindungen; eine fehlt ohne gerichtete Umfahrung (Basel 24→28, Wien/Zürich 0).
 Keine zusätzlichen schwachen oder starken Netztrennungen. Das belegt nur diese
 Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -87,13 +87,13 @@ Fläche einmal und triangulieren gemeinsam. Außenrahmen/Anfragen/Bestand erhalt
 Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren.
 
 ## Nächste Lieferung und Abnahme
-1. Drei Basler Verbindungen ohne Umfahrung priorisieren. Gemeinsame Portposen/Korridore
-   gemeinsam lösen; Basler Restfahrten teilen einen Ausgang. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
+1. Letzte Basler Verbindung 24→28 ohne Umfahrung: Kurve verletzt gemeinsamen Bauteilrand;
+   Anschluss/Korridor gemeinsam lösen, Zusatzfläche vor der Passung begrenzen. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
    Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
    [Quellführung](../test/experiments/infrastructure/probes/roadbeds/steering_source_hint_probe.py) nutzt Sichtbarkeit
    und verbleibende Quelllänge; Inselkerne schützen, zusätzliche volle Drehungen ausschließen.
-   [Basel 6→28](../test/experiments/infrastructure/probes/roadbeds/extend_coupled_product_probe.py): 98 Fahrten auf vier Bauteilen, alle 97 bisherigen erhalten.
+   [Gemeinsames Kurvenende](../test/experiments/infrastructure/probes/roadbeds/shared_route_guide_probe.py): Basel 100 Fahrten auf vier Bauteilen, Bestand erhalten.
    [Geometriediagnose](../test/experiments/infrastructure/probes/roadbeds/fit_geometry_diagnostic.py) trennt echte
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
@@ -103,7 +103,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Bauteil 89 45/45; zwei Kurven gemeinsam samt Bestand geprüft; 33 Kollisionsstationen, 1024-Aufrufe-Budget.
    Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
-   Wien 900/909, Zürich 4774/4808, Basel 2953/2962; Messcommit `cce1141b5`, ein Core, zusammen 131 s.
+   Wien 900/909, Zürich 4774/4808, Basel 2955/2962; Messcommit `9130c0c31`, ein Core, zusammen 129 s.
    Python-Such-/Prüfkosten bleiben zu hoch; aktuelles Bild unter `build/shots/experiments/infrastructure/`.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
