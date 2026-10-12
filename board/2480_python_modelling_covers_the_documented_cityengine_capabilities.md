@@ -10,105 +10,88 @@ Tags: buildings, python, esri, cga, modelling
 # Python modelling covers the documented CityEngine capabilities
 
 ## Ergebnis und Ist
-Nutzerauftrag: zuerst die prozeduralen CityEngine-Modellierfähigkeiten vollständig in Python nachbauen,
-danach moderne/zeitgenössische Architekturrezepte bis zur vollständigen OSM-Klassifikations-/Kombinationsabdeckung ausbauen.
-Einzelne konstruktive Python-Verfahren bestehen; ein allgemeiner vollständiger Modellierkern fehlt.
-Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
-größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
-Stand 9b730451f: vier Flächen-/Kanten-Extrusionsarten und `comp(f/e/fe/v/fv)` mit Auswahl, Verbindung und Scopes.
-31 aktuelle Bilder: acht Innenraum-, 16 Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
-Showcase: fehlende Messwerte aus Diagrammen auslassen, fehlende Zahlen kennzeichnen; geänderte HTML/CSS/JS-Dateien automatisch neu laden.
-23 Gebäude-/Innenraum-/Gruppen-/Stadtbilder sind pixelgleich; sieben neue Sweep-Kontrollen plus metrischer Grundriss optisch geprüft.
-Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/drei Benchmarks/Katalog/Render/Docs: 13 Schritte samt Launcher terminal 0 auf 9b730451f.
-SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen. Semantik einzeln prüfen.
-52 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
-Eigene Implementierung, keine Übernahme dekompilierten Fremdcodes; SDK 3.4 / PRT 3.3 ausdrücklich unterscheiden.
+Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
+danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
+Stand 0587b922a: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten und `comp(f/e/fe/v/fv/g/m/h)`;
+Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
+SDK: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen.
+52 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
+Aktuell 30 Bilder: acht innen, 15 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
+Fünf neue Workbench-Kontrollen und zwei metrische Pläne optisch geprüft, 23 bisherige Bilder pixelgleich.
+Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/vier Benchmarks/Katalog/Render/Docs:
+15 Schritte samt Launcher terminal 0 auf 0587b922a. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
 
-## Verträge und Umsetzung
-- Gemeinsame Python-Geometriefunktionen und direkte ausführbare Python-Rezepte; gemeinsame Form-/Material-/Scope-Typen.
-  Keine zusätzliche JSON-Regelschicht erforderlich. Reports/Cache-Speicherung bleiben getrennte Ausgabeverträge.
-- Lokale/Weltachsen, metrische Scope-Größen, Polygonringe/Höfe, Bounds, Material/UV/Normalen und Herkunft explizit halten.
-  Transformationen, Komponentenzerlegung, Split/Repeat, Instanzen und Insert teilen diesen Vertrag.
-- Numerische/String-/Array-/Zufalls-/Geometriefunktionen und Regelattribute anhand tatsächlicher SDK-Semantik abgleichen.
-  Zufall deterministisch pro Quelle/Regel; fehlende/ungeeignete Operationen mit konkretem Grund ausweisen.
-- Jede dokumentierte Fähigkeit erhält einen tatsächlichen Status und passende Referenz/Gegenfälle;
-  API-Name, gelesene Dokumentation, Ghidra-Pfad, PRT-Ergebnis und eigene geprüfte Funktion sind getrennte Belege.
-  Weitere nachgewiesene Modellierfähigkeiten erweitern den Katalog; unbekannter Umfang bleibt offen.
-- Vorhandene GEOS-/Manifold-/Dach-/Extrusions-/Mesh-Verfahren wiederverwenden; kostenbestimmende Alternativen
-  auf denselben echten Eingaben und Qualitätsanforderungen vergleichen. SIGGRAPH/Primärquellen vor neuen Verfahren.
-- Durchgängige Python-API: Quelle/Parameter → Modellieroperationen → vollständig ergänzter Rohling → Details/Bild.
-  Eingabe-/Cachetrefferkosten trennen, Detailbedarf vor Expansion bestimmen; Logik/Kollision unabhängig vom Render-LOD.
-- Für jede tatsächlich gebaute Fähigkeit sichtbare kleine 2D-/2.5D-/3D-Belege und geeignete echte Grundrisse liefern;
-  interne Arbeit braucht den fehlenden Feature-Vertrag oder einen gemessenen Engpass.
+## Gemeinsame Verträge
+- Direkte ausführbare Python-Rezepte und gemeinsame Geometriefunktionen, keine JSON-Regelschicht.
+  Reports und spätere Cache-Speicherung sind getrennte Ausgaben. Vollständige kameraunabhängige Rohlinge,
+  bedarfsgesteuerte Details sowie unabhängige Logik/Kollision folgen dem Gesamtvertrag in 2173/2280/2336.
+- Metrische lokale/Weltachsen, Polygonringe/Höfe, Bounds, Material/UV/Normalen und Herkunft erhalten.
+  Belegte, fehlende und ergänzte Angaben unterscheiden; Zufall deterministisch pro Quelle/Regel.
+- Immutable logische Flächen/Kanten/Punkte neben nativen Triangle-Assets; Konstruktoren prüfen IDs,
+  Material-/Gruppenzugehörigkeit und Normalen. Quellindices behalten, keine implizite Vertexverschweißung.
+  GEOS/CDT und vorhandene Manifold-/Dachverfahren nutzen; Standardgeometrie nicht neu erfinden.
+- `CompInfo` enthält sel/index/total sowie Quellindices/kind und bleibt bei Scope/Extrusion erhalten.
+  Auswahl/Ausschluss und `:`/`=`/`=:` sind gemeinsam; Flächen verbinden über Kanten, Draht/Punkte über IDs.
+- Jede Fähigkeit braucht konkreten Status, Referenz/Gegenfälle und Bild-/Kostenbeleg. Dokumentation,
+  statische Ghidra-Pfade, PRT-Ausgabe und eigene geprüfte Funktion sind unterschiedliche Belege.
+  Fehlende Überladungen/Semantik bleiben offen; weitere Fähigkeiten erweitern den Katalog.
 
-## Rezeptausbau danach
-[2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt moderne/zeitgenössische Architektur und passende Zuordnung.
-Alle lieferbaren Klassen/Unterklassen und gültigen Kombinationen aus Nutzung, Form, Höhe/Geschossen, Dach,
-Material, Parts und räumlichem Kontext müssen mindestens ein passendes Rezept treffen.
-Teil-/Geschossnutzung bleibt lokal; gemischte Angaben komponieren passende Programme, widersprüchliche Angaben erhalten ihre Herkunft.
-Allgemeiner Unknown-Ersatz zählt nicht als spezifischer Treffer für bekannte Sonderklassen.
-Rezeptfunktionen gemeinsam pflegen, Familien/Varianten/Instanzen getrennt zählen; Zuordnung plus optischer Bildbeleg erforderlich.
+## Scope und Extrusion
+`modelling_scope/modelling_shape`: geteilte unveränderliche Geometrie erst zur Ausgabe transformieren.
+`t` folgt Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation hält den Mittelpunkt;
+`s` setzt absolute/relative Größen einschließlich Spiegelung; `translate` unterstützt dokumentierte Koordinatensysteme.
+Neun Kontrollgruppen inklusive nichtkommutierender Rotationen, schiefer Pivots, UV/Besitz/Normalen;
+zwei PRT-Translationen. Isolierte PRT-Rotation/Skalierung, singuläre Normalen und Floating-Selector bleiben offen.
+Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices (c3dc4f1c7): abschließende Ausgabe 3,1–4,9× schneller;
+größter Mesh p50 9,93 statt 48,61 ms, 21 warme Läufe, zwei OpenBLAS-Threads; keine Frames/GPU.
+`modelling_faces/modelling_extrude`: Flächenarten face.normal/world.up/world.up.flatTop/vertex.normal.
+Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen; negative Distanz behält negatives Scope-Y.
+Flat-Top nimmt mindestens die globale Quellspanne; Firstkontakt kann getrennt geschlossene Keile ergeben.
+Vertexnormalen aus aktuellen verbundenen logischen Flächen-IDs, authored Normalen verwerfen.
+Erneute Extrusion ersetzt eigene frühere Auto-Tags, Nutzer-Tags erhalten; Seiten-UVs folgen A/B/B/A.
+24 Polygon-/11 Dachfälle, drei PRT-Prismen und analytische Distanzen; GEOS-Batching brachte keinen belastbaren Gewinn.
+`modelling_edge_extrude`: eine Seitenfläche je Kante, keine künstlichen Flächenkappen;
+per-Edge-Normalen trennen Ecken, Welt-/Vertex-Sweeps teilen verschobene Endpoint-IDs.
+Flat-Top-Endpunktkontakt ergibt Dreiecke; flächenlose Sweeps lokal mit Quellindex/Grund auslassen.
+Acht analytische Streifen, getrennte/verbundene/räumliche Ecken und sechs echte PRT-Wandflächenvergleiche.
 
-## Abnahme und nächster Block
-Vollständige Fähigkeitszuordnung mit offenen Lücken; ausgeführte Geometrie-/Scope-/Materialverträge gegen SDK/PRT prüfen.
-Reproduzierbare kleine Kontrollkörper, echte OSM-Grundrisse, ungültige/degenerierte Gegenfälle und gemessene Kosten.
-Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenommene native LOD-/Geräteabnahme.
-`modelling_wire`/`modelling_wire_components`: `comp(e/fe/v/fv)`, eigene Linien/Punkte statt künstlicher Dreiecke.
-Eindeutige Kanten übernehmen erste Quellrichtung/adjazente Normalen; flächenbezogene Kanten zeigen entlang des Randes nach außen.
-Vertexnormalen mitteln angrenzende Flächen; Face-Vertex-Tangenten mitteln normierte Nachbarkanten, auch am Hofring.
-Auswahl/Operatoren/Attribute bleiben gemeinsam; Kanten-/Punktnormalen folgen invers-transponierten Transformationen.
-Kanten haben Scope-Länge entlang x, Punkte drei nullgroße Achsen; Corner-UVs, Material/Tags und Weltlage erhalten.
-Eingefrorene Kontrollen f520c0366: acht gedrehte zUp/noAlign-Gruppen, Quellindices/Verbindung/Reextraktion, Besitz und zwölf reale PRT-Bounds.
-Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 52 Ziele, kein isoliertes e/fe/v/fv-Laufzeitorakel.
-Fünf Körper, 21 warme Läufe, zwei OpenBLAS-Threads: Komponenten-p50 4,50–40,98 ms; finale Ausgabe/Frames/GPU nicht enthalten.
-Kanten-/Punktplots bleiben interne Referenzen; aktuelle Lieferung zeigt deren Sweep-Flächen.
-Extrusionsvertrag: `comp(e/fe)`, vier Modi, gemeinsame Vertexnormalen des aktuellen Kantennetzes.
-Eine Seitenfläche je Kante; keine künstlichen Flächenkappen. Eigene Nachbar-IDs erhalten, Face-Normal-Sweeps dürfen sich trennen.
-Welt-/Flat-Top-Sweeps und Corner-UV-/Tag-/Materialvererbung prüfen; signierte Scopes und `CompInfo` bleiben erhalten.
-`modelling_edge_extrude`: aktuelle Endpoint-IDs und Edge-Normalen, normierte Nachbarsumme; per-Edge-Sweeps trennen Ecken.
-Welt-/Flat-Top-Sweeps teilen Vertices; stehenbleibende Endpunkte ergeben Dreiecke, flächenlose Sweeps lokale Auslassungen mit Index/Grund.
-Eingefroren 9b730451f: acht analytische Streifen, getrennte/verbundene/räumliche Ecken und sechs echte PRT-Wandflächenvergleiche bestehen.
-Ghidra 5513b3e1f: 49 Ziele, Adjazenz-/Quelltaghelper; optische SDK-Beispiele und eigener 2D-Hofplan geprüft.
-Fünf Grundrisse, vier Sweep-Verträge, batched/individual GEOS: 40 Messungen × 21 warme Läufe, komplette Extrusion samt finaler Ausgabe.
-Batched-p50 2,64–6,83 ms, individual 2,64–7,47 ms; kein belastbarer Gesamtgewinn. Eingabebau/Komponentenwahl/Frames/GPU ausgeschlossen.
-Aktuelle Lieferung: sieben Workbench-Kontrollen plus 2D-Grundriss; native LOD-/Frame-/GPU-Abnahme bleibt offen.
-Dachselektoren, Gruppen/Material/Löcher, Normalenkollaps und isoliertes Kanten-PRT-Orakel bleiben offene Verträge.
-Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
-`comp(f)`: Richtung/Neigung/Tags/Ränder, Ausschluss/Verbindung, zUp/noAlign, nichtaffine UVs und authorierte Normalen.
-Verwundene Dachkappen erhalten Geometrie und Scope-Dicke; exakter SDK-Pivot, Straßenbreiten und Trim-Planes bleiben offen.
-`CompInfo` bleibt bei Scope/Extrusion; eigene frühere Auto-Tags werden ersetzt, Nutzer-Tags erhalten.
-PRT-Prismen belegen Geometrie-Roundtrip, kein isoliertes Selektions-/Pivotorakel.
-Native Dreiecke statt GEOS-Neuaufbau (73346b5f6): p50 3,14–7,28 statt 6,40–15,88 ms bei gleichem Vertrag.
-21 warme Läufe, zwei OpenBLAS-Threads; Quellanalyse/Auswahl/Scopes/Payloads enthalten, finale Ausgabe/Frames/GPU ausgeschlossen.
-Vorige Modellierbilder bleiben interne Referenzen; Showcase zeigt ausschließlich die aktuelle Lieferung.
-Logische Polygonflächen bleiben neben der nativen Triangulierung erhalten; GEOS/CDT nutzen, keine Polygontriangulierung neu erfinden.
-`modelling_faces`/`modelling_extrude`: eigene immutable Polygonringe/Corner-UVs neben Triangle-Assets; vier Flächen-Extrusionsarten.
-Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen, negative Distanz behält negatives Scope-Y.
-Flat-Top nimmt mindestens die globale vertikale Quellspanne; Kontakt am First kann zwei getrennt geschlossene Keile ergeben.
-Vertexnormalen folgen verbundenen logischen Vertex-IDs und der normierten Summe benachbarter Flächennormalen; authored Normalen verwerfen.
-Getrennte deckungsgleiche Vertices werden nicht implizit verschweißt; Extrusionsausgabe erhält tatsächliche Flächenadjazenz.
-Flächenabnahme 2d52b4ea2: 24 Polygon-/11 Dachfälle, drei echte PRT-Prismen, analytische Distanzen und ungültige Eingaben.
-Batched/individual GEOS bei gleichem Vertrag: p50 3,20–7,33 ms, kein belastbarer Gewinn; komplette Extrusion/finale Ausgabe, keine Frames/GPU.
-Offen: gemischte Primitivextrusion, tangentialer Flächensweep, weitere UV-Kanäle, isolierte PRT-Flat-Top-/Vertexnormal-Regeln und `mergeVertices`.
-Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation erhält den Mittelpunkt;
-`s` setzt absolute/relative Größen einschließlich Spiegelung. Geteilte Geometrie erst zur Ausgabe transformieren.
-`modelling_scope`/`modelling_shape`: eigene Scope-/Frame-/Triangle-Asset-Typen und direkte Python-Operationen;
-`t`, `r`, `s`, `translate` mit dokumentierten Formen, geteilte unveränderliche Geometrie, Ausgabe erst nach den Operationen.
-Neun Kontrollgruppen inkl. nichtkommutierender Rotationen, schiefer Pivots, Mittelpunkt/Spiegelung, UV/Besitz/Normalen;
-zwei ausführbare PRT-Translationen erhalten Lochfläche. Kein isoliertes PRT-Rotations-/Skalierungsorakel vorhanden.
-Kanten-/Punktkonstruktoren bestehen; singuläre authored-Normalen und undokumentierter Floating-Selector bleiben offen.
-[CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
-[CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
-[CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Ausschluss, Verbindung, Komponenten-Pivots und nullgroße Achsen.
-`modelling_group_components`/`modelling_metadata`: `comp(g/m/h)`, Quellgruppen/Materialwerte und gefüllte Lochkomponenten.
-Richtungs-/Tagkeywords gelten je Gruppe bei mindestens einem passenden Mitglied; boolesche Verknüpfungen arbeiten auf der Gruppe.
-Python-Prädikate erhalten Gruppenfläche/Mitglieder. `:`/`=`/`=:` und Ausschluss bleiben gemeinsam; Gruppen dürfen mehrere Materialien enthalten.
-Native Dreiecke/Corner-UVs kopieren; nur gefüllte Lochflächen benötigen neue GEOS-Triangulierung, mit Normalenorientierung des Elternpolygons.
-Immutable Gruppennamen/Materialwerte teilen; Face-/Edge-/Point-Gruppen und native Palette-IDs samt Tabellen durch Komponenten/Extrusion erhalten.
-Gleiche deklarierte Werte/Name bündeln verschiedene Palette-IDs; undeutlich aufgelöste IDs getrennt erhalten, keine Shaderdefaults erfinden.
-Konstruktoren prüfen logische/native Zugehörigkeit. `group_names/material_names` folgen Komponentenindices und emittieren keine Geometrie.
-Entwicklung: vier g/m-Frames, zwei analytische Lochflächen/UVs, Draht/Punktgruppen, sechs ungültige Eingaben und drei echte PRT-Prismen.
-Lieferung: eingefrorene Prüfungen, fünf Workbench-Kontrollen, zwei Pläne; null Architektur-Rezeptfamilien.
-Offen: isolierte PRT-g/m/h-Scopes, komplette Shaderdefaults/Texture-/Objektpointergleichheit und gemischte Primitivgruppen.
-PyEncoder liefert keine Gruppen-/Materialmetadaten; PRT-Bounds/Volumen plus analytische gefüllte Höfe sind kein isoliertes Komponentenorakel.
+## Komponenten und Metadaten
+`modelling_components/modelling_wire_components`: Richtung/Neigung/Tags/Ränder, zUp/noAlign und nullgroße Achsen.
+Face-Scopes übernehmen vorhandene Dreiecke, nichtaffine Corner-UVs/Normalen und Dicke verwundener Kappen.
+Kanten behalten erste Richtung; e mittelt adjazente Normalen, fe zeigt außerhalb des Flächenrandes.
+Vertices mitteln Flächennormalen; fv mittelt normierte Nachbarkanten. Normen folgen invers-transponierten Transformationen.
+SDK/Ghidra belegen 0,8 mm Mindestlänge eindeutiger Kanten; kein isoliertes Selektions-/Pivotorakel vorhanden.
+`modelling_group_components/modelling_metadata`: Quellgruppen, Materialwerte und gefüllte Lochkomponenten.
+Gruppen dürfen mehrere Materialien enthalten. Richtungs-/Tagkeywords gelten bei mindestens einem passenden Mitglied;
+boolesche Verknüpfungen arbeiten auf der Gruppe, Python-Prädikate erhalten Gruppenfläche/Mitglieder.
+Native Dreiecke/Corner-UVs kopieren; nur gefüllte Lochflächen benötigen neue GEOS-Triangulierung.
+Lochkomponenten behalten Eltern-Normalenorientierung, Corner-UVs, Material/Gruppe; das Quellenloch bleibt erhalten.
+Immutable Namen/Materialwerte teilen; Face-/Edge-/Point-Gruppen und native Palette-IDs samt Tabellen vererben.
+Gleiche deklarierte Werte/Name bündeln unterschiedliche IDs; unaufgelöste IDs getrennt halten, keine Defaults erfinden.
+`group_names/material_names` folgen Komponentenindices ohne Vertexausgabe. Vier g/m-Frames, zwei Lochflächen/UVs,
+Draht-/Punktgruppen, sechs ungültige Eingaben sowie drei echte PRT-Prismen nach Bounds/Volumen geprüft.
+PyEncoder liefert keine Gruppen-/Materialmetadaten; PRT-Prismen plus gefüllte Höfe sind kein isoliertes g/m/h-Orakel.
+Kosten 0587b922a: fünf Grundrisse, 30 Komponenten-/20 Namensmessungen, je 21 warme Läufe, zwei OpenBLAS-Threads.
+Native Übernahme p50 1,66–4,92 statt 2,18–15,49 ms beim GEOS-Neuaufbau, gleiche Geometrie/UVs/Metadaten/Scopes.
+Namen p50 5,8–51 µs aus Metadaten statt 0,57–1,41 ms mit Geometriekontext. Finale Ausgabe/Frames/GPU ausgeschlossen.
+
+## Offen und nächster Block
+Aktiv als nächster Ausbau: `split/splitArea`, absolute/relative Größen, Repeat und tatsächliche Mesh-Cuts samt Metadatenvererbung.
+Danach verbleibende dokumentierte Operationen/Funktionen/Attribute: Instanzen/Insert, Ausdrücke/Regelfunktionen,
+Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.
+Offen im bestehenden Kern: gemischte Primitivgruppen/-extrusion, Shaderdefaults/Texture-/Objektpointergleichheit,
+Dachkanten-Selektoren, Straßenbreiten/Trim-Planes, zusätzliche UV-Kanäle, Normalenkollaps/mergeVertices,
+isolierte PRT-g/m/h-/Edge-/Flat-Top-/Vertexnormal-Regeln und genaue nichtplanare SDK-Ausrichtung.
+[2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
+alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
+Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
+Familien/Varianten/Instanzen getrennt zählen; Zuordnung, funktionale Räume/Wege/Zugänge/Nachtlicht und Bildbelege sind Pflicht.
+Showcase zeigt nur den aktuellen Stand, frühere Modellierbilder bleiben interne Referenzen;
+fehlende Messwerte kennzeichnen/aus Diagrammen auslassen, geänderte Frontend-Dateien automatisch neu laden.
+
+## Primärquellen
+[CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.
+[CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Verbindung, Pivots und nullgroße Achsen.
+[CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächen/Kanten, UVs/Tags, signierte Scopes und Mindestspanne.
