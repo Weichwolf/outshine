@@ -91,7 +91,8 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
    Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
    [Quellführung](../test/experiments/infrastructure/probes/roadbeds/steering_source_hint_probe.py) nutzt Sichtbarkeit
-   und verbleibende Quelllänge; Inselkerne schützen, volle zusätzliche Drehungen gegenüber der Quelle ausschließen.
+   und verbleibende Quelllänge; Inselkerne schützen, zusätzliche volle Drehungen ausschließen.
+   Rückwärtssuche findet Basels 6→28; C2-Kurve gültig, Straßenkörper überdeckt noch eine 0,67-m²-Insel.
    [Geometriediagnose](../test/experiments/infrastructure/probes/roadbeds/fit_geometry_diagnostic.py) trennt echte
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
@@ -100,8 +101,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Bauteil 805 ist nach Schließen einer 0,43-m²-Resttasche vollständig befahrbar (7/7).
    Bauteil 89 45/45; zwei Kurven gemeinsam mit allen bisherigen Fahrten veröffentlicht, Kontakte geprüft.
    33 statt 17 Kollisionsstationen finden die C2-Kurve im gleichen 1024-Aufrufe-Budget.
-   Grundrisse einzeln samt Quellen/Tags schneiden; kleine/schmale Reststücke nach bestehendem
-   25-m²-/3-m-Rezept verwerfen. Zusätzlichen Schnitt vom bereits überlappenden Quellplan trennen.
+   Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
    Wien 900/909, Zürich 4774/4808, Basel 2952/2962; Messcommit `e151fd07c`, ein Core, zusammen 132 s.
    Python-Such-/Prüfkosten bleiben zu hoch; aktuelles Bild unter `build/shots/experiments/infrastructure/`.

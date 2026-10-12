@@ -69,8 +69,20 @@ def final_source_heading(entry,exit,source):
     return float(np.unwrap(angles)[-1])
 
 
-def variant(bias,core_markers,triangle_markers=False,heading_rotation=False):
+def diagnose_body(points,angles,domain,vehicle,diagnostics):
+    bodies=shapely.polygons(steering.body_outlines(points,angles,vehicle['widthM']*.5,
+        vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))
+    outside=shapely.area(shapely.difference(bodies,domain))
+    maximum=float(outside.max())
+    if maximum<diagnostics.get('closest_body',{}).get('maximum_outside_m2',float('inf')):
+        diagnostics['closest_body']=dict(maximum_outside_m2=maximum,points=points.tolist(),
+            angles=angles.tolist(),domain=domain.wkb.hex())
+
+
+def variant(bias,core_markers,triangle_markers=False,heading_rotation=False,diagnostics=None):
     code=inspect.getsource(steering.steering_guide)
+    code=code.replace("region=source.envelope.buffer(radius*2+vehicle['frontFromRearAxleM'])",
+        "region=source.envelope.buffer(radius*2+max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))")
     statement='wanted=crossing_signature(shapely.get_coordinates(source),markers)'
     assert code.count(statement)==1
     code=code.replace(statement,statement+'\n    hint=source_hint(source,markers,domain,exit["position"],radius,bias)')
@@ -89,7 +101,20 @@ def variant(bias,core_markers,triangle_markers=False,heading_rotation=False):
     for old,new in (("np.linalg.norm(origin-exit['position'])",'hint(initial,zero)'),
                     ("np.linalg.norm(successor[:2]-exit['position'])",'hint(successor,signature)')):
         assert code.count(old)==1;code=code.replace(old,new)
+    if diagnostics is not None:
+        diagnostics.update(heading=0,signature=0,body=0,self_intersection=0)
+        if heading_rotation:
+            code=code.replace('if abs(angles[-1]-final_heading)>np.pi:continue',
+                'if abs(angles[-1]-final_heading)>np.pi:diagnostics["heading"]+=1;continue')
+        rejected='if signature!=wanted or not bodies_fit(points,angles,domain,vehicle):continue'
+        assert code.count(rejected)==1
+        code=code.replace(rejected,'if signature!=wanted:diagnostics["signature"]+=1;continue\n'
+            '                if not bodies_fit(points,angles,domain,vehicle):\n'
+            '                    diagnostics["body"]+=1;diagnose_body(points,angles,domain,vehicle,diagnostics);continue')
+        code=code.replace('if path.is_simple:',
+            'if not path.is_simple:diagnostics["self_intersection"]+=1\n                if path.is_simple:')
     namespace=dict(steering.__dict__,source_hint=source_hint,island_markers=island_markers,bias=bias,
+                   diagnostics=diagnostics,diagnose_body=diagnose_body,
                    triangle_markers=triangle_markers,final_source_heading=final_source_heading)
     exec(compile(code,str(Path(__file__)),'exec'),namespace)
     return namespace['steering_guide']
@@ -111,7 +136,13 @@ def verify():
     assert abs(final_source_heading(vertical,vertical,shapely.LineString(circle))-5*np.pi/2)<1e-12
     downward=dict(heading=np.array([0.,-1.]))
     assert abs(final_source_heading(downward,downward,shapely.LineString(circle[::-1]))+5*np.pi/2)<1e-12
-    return dict(source_distance_and_target=True,ray_prefixes_match=True,source_turning_class_preserved=True,optimality_claim=False)
+    positions=np.array([[2.,3.],[-7.,5.]])
+    angles=np.array([.3,-2.])
+    forward=shapely.polygons(steering.body_outlines(positions,angles,.9,3.5,1.))
+    reverse=shapely.polygons(steering.body_outlines(positions,angles+np.pi,.9,1.,3.5))
+    assert np.all(shapely.area(shapely.symmetric_difference(forward,reverse))<1e-12)
+    return dict(source_distance_and_target=True,ray_prefixes_match=True,source_turning_class_preserved=True,
+                reversed_body_is_identical=True,optimality_claim=False)
 
 
 def main():
@@ -123,6 +154,8 @@ def main():
     parser.add_argument('--triangle-markers',action='store_true')
     parser.add_argument('--island-inset',type=float)
     parser.add_argument('--heading-rotation',action='store_true')
+    parser.add_argument('--diagnostics',action='store_true')
+    parser.add_argument('--reverse-search',action='store_true')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True);checks=verify();rows=[]
     if any(not 0<=b<=1 for b in args.bias):parser.error('bias must be between zero and one')
@@ -136,15 +169,30 @@ def main():
             data['reservations']=reserved.wkb.hex()
             (args.output/(path.stem+'-prepared.json')).write_text(json.dumps(data)+'\n')
         domain=floor.buffer(roadbed_lateral_reach(vehicle)-2*error).difference(reserved.difference(floor).buffer(2*error))
+        search_poses,search_source,search_vehicle=poses,source,vehicle
+        if args.reverse_search:
+            search_poses=[dict(position=p['position'],heading=-p['heading']) for p in poses[::-1]]
+            search_source=shapely.reverse(source)
+            search_vehicle=dict(vehicle,frontFromRearAxleM=vehicle['rearOverhangM'],
+                                rearOverhangM=vehicle['frontFromRearAxleM'])
         for bias in args.bias:
             begin=time.perf_counter()
-            guide,note=variant(bias,args.core_markers or args.triangle_markers,args.triangle_markers,args.heading_rotation)(*poses,source,floor,domain,vehicle,maximum_states=args.maximum_states,
+            diagnostics={} if args.diagnostics else None
+            guide,note=variant(bias,args.core_markers or args.triangle_markers,args.triangle_markers,args.heading_rotation,diagnostics)(*search_poses,search_source,floor,domain,search_vehicle,maximum_states=args.maximum_states,
                                    heading_bins=64,cell=.225,radius_scale=1.)
             row=dict(input=str(path),input_sha256=digest(path),bias=bias,core_markers=args.core_markers,
                      triangle_markers=args.triangle_markers,island_inset_m=args.island_inset,
-                     heading_rotation=args.heading_rotation,guide_found=guide is not None,
+                     heading_rotation=args.heading_rotation,reverse_search=args.reverse_search,guide_found=guide is not None,
                      elapsed_ms=(time.perf_counter()-begin)*1000,search=note)
+            if diagnostics is not None:
+                closest=diagnostics.pop('closest_body',None)
+                if closest is not None:
+                    output=args.output/f'{path.stem}-{bias:g}-closest-body.json'
+                    output.write_text(json.dumps(closest)+'\n')
+                    row['closest_rejected_body']=str(output)
+                row['connector_rejections']=diagnostics
             if guide is not None:
+                if args.reverse_search:guide=shapely.reverse(guide)
                 assert same_island_winding(guide,source,floor)
                 output=args.output/f'{path.stem}-{bias:g}-guide.json'
                 output.write_text(json.dumps(dict(path=shapely.get_coordinates(guide).tolist()))+'\n')
