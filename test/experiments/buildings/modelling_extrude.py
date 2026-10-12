@@ -116,6 +116,9 @@ def top_mapping(points,indices,target,normal,known):
 def extrude(shape,distance,mode='face.normal'):
     distance=scalar(distance)
     if mode not in MODES:raise ValueError('Unknown extrusion type')
+    if shape.geometry.edges:
+        from modelling_edge_extrude import extrude_edges
+        return extrude_edges(shape,distance,mode)
     vertices,faces=active_faces(shape)
     faces=tuple(replace(face,tags=face.tags-EXTRUSION_TAGS.keys()) for face in faces)
     prepared=[plane(vertices,face,True) for face in faces];normals=np.array([item[0] for item in prepared]);faces=tuple(item[3] for item in prepared)

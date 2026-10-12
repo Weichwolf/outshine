@@ -13,8 +13,6 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst die prozeduralen CityEngine-Modellierfähigkeiten vollständig in Python nachbauen,
 danach moderne/zeitgenössische Architekturrezepte bis zur vollständigen OSM-Klassifikations-/Kombinationsabdeckung ausbauen.
 Einzelne konstruktive Python-Verfahren bestehen; ein allgemeiner vollständiger Modellierkern fehlt.
-Stand c3dc4f1c7: vier Scope-Operationen in dokumentierten Formen, neun Kontrollgruppen und zwei PRT-Translationen;
-fünf räumliche Kontrollen plus metrischer Grundriss als interne Referenzen. Keine neue Architektur-Rezeptfamilie.
 Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
 größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
 Stand f520c0366: vier Flächen-Extrusionsarten und `comp(f/e/fe/v/fv)` mit Auswahl, Verbindung und ausgerichteten Scopes.
@@ -24,7 +22,7 @@ Showcase: fehlende Messwerte aus Diagrammen auslassen, fehlende Zahlen kennzeich
 Scope/Extrusion/Flächen/Kanten-Punkte/Ghidra/Kamera/zwei Benchmarks/Katalog/Render/Docs: elf Schritte samt Launcher terminal 0 auf f520c0366.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
-47 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+49 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 Eigene Implementierung, keine Übernahme dekompilierten Fremdcodes; SDK 3.4 / PRT 3.3 ausdrücklich unterscheiden.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 
@@ -63,7 +61,7 @@ Vertexnormalen mitteln angrenzende Flächen; Face-Vertex-Tangenten mitteln normi
 Auswahl/Operatoren/Attribute bleiben gemeinsam; Kanten-/Punktnormalen folgen invers-transponierten Transformationen.
 Kanten haben Scope-Länge entlang x, Punkte drei nullgroße Achsen; Corner-UVs, Material/Tags und Weltlage erhalten.
 Eingefrorene Kontrollen f520c0366: acht gedrehte zUp/noAlign-Gruppen, Quellindices/Verbindung/Reextraktion, Besitz und zwölf reale PRT-Bounds.
-Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 47 Ziele, kein isoliertes e/fe/v/fv-Laufzeitorakel.
+Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 49 Ziele, kein isoliertes e/fe/v/fv-Laufzeitorakel.
 Fünf Körper, 21 warme Läufe, zwei OpenBLAS-Threads: Komponenten-p50 4,50–40,98 ms; finale Ausgabe/Frames/GPU nicht enthalten.
 Dict-Indexierung ist bei vier kleinen Fällen günstiger, NumPy-Sort beim 72-Kanten-Hof; Differenzen unter 0,04 ms.
 Dict erhält einfache erste Quellreihenfolge; kein behaupteter Gesamtzeitgewinn. Relevante Kosten entstehen im Komponentenaufbau.
@@ -71,30 +69,31 @@ Aktuelle Lieferung: saubere Commit-Prüfung und vier Kanten-/Punktplots einschli
 Aktiver Feature-Vertrag: Kantenextrusion aus `comp(e/fe)`, vier Modi, gemeinsame Vertexnormalen des aktuellen Kantennetzes.
 Eine Seitenfläche je Kante; keine künstlichen Flächenkappen. Eigene Nachbar-IDs erhalten, Face-Normal-Sweeps dürfen sich trennen.
 Welt-/Flat-Top-Sweeps und Corner-UV-/Tag-/Materialvererbung prüfen; signierte Scopes und `CompInfo` bleiben erhalten.
-Zuerst Ghidra-Adjazenz-/Taghelper und optische SDK-Beispiele, dann 2D-/2.5D-/Workbenchbilder und gleiche Kostenalternativen.
+`modelling_edge_extrude`: aktuelle Endpoint-IDs und Edge-Normalen, normierte Nachbarsumme; per-Edge-Sweeps trennen Ecken.
+Welt-/Flat-Top-Sweeps teilen Vertices; stehenbleibende Endpunkte ergeben Dreiecke, flächenlose Sweeps lokale Auslassungen mit Index/Grund.
+Acht analytische Streifen, getrennte/verbundene/räumliche Ecken und sechs echte PRT-Wandflächenvergleiche bestehen in Entwicklung.
+Ghidra 5513b3e1f: 49 Ziele, Adjazenz-/Quelltaghelper; optische SDK-Beispiele und eigener 2D-Hofplan geprüft.
+Fünf Grundrisse, vier Sweep-Verträge, batched/individual GEOS: 40 Messungen × 21 warme Läufe, komplette Extrusion samt finaler Ausgabe.
+Batched-p50 2,64–7,31 ms, individual 2,65–7,45 ms; kein belastbarer Zeitgewinn. Eingabebau/Komponentenwahl/Frames/GPU ausgeschlossen.
+Aktive Lieferung: eingefrorene Geometrie-/Render-/Docs-Prüfungen, sieben Workbench-Kontrollen plus 2D-Grundriss.
 Dachselektoren, Gruppen/Material/Löcher, Normalenkollaps und isoliertes Kanten-PRT-Orakel bleiben offene Verträge.
 Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
-Eingefrorene Kontrolle 73346b5f6: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
-Richtung/Neigungsgrenzen, nichtaffine UVs/authorierte Normalen und drei reale PRT-Prismen nach vollständiger Komponentenzerlegung geprüft.
-`CompInfo` bleibt bei Scope-Operationen/Extrusion erhalten; erneute Extrusion ersetzt eigene frühere Auto-Tags und behält Nutzer-Tags.
-PRT-Prismen belegen Geometrie-Roundtrip, kein isoliertes CGA-Comp-Selektions-/Pivotorakel; Straßenbreiten/Trim-Planes bleiben offen.
-Verwundene Vertexnormal-Dachkappen erhalten native Geometrie/UVs und messbare Scope-Dicke; deren exakte SDK-Pivotausrichtung bleibt ungeprüft.
-Kosten 73346b5f6: dieselben sechs bis 14 Komponenten aus vorhandenen Dreiecken gegen GEOS-Neuaufbau, 21 warme Läufe, zwei OpenBLAS-Threads.
-Native Dreiecke/UVs/Tags/Materialien und Scope-Matrizen stimmen überein; p50 3,14–7,28 statt 6,40–15,88 ms, etwa 2,0–2,2× schneller.
-Messung enthält Quellflächen/Auswahl/Adjazenz/Scopes/Payloads, keine abschließende Vertexausgabe, nativen Frames oder GPU-Zeit.
-Showcase zeigt die aktuellen Kanten-/Punktkontrollen; frühere Modellierbilder bleiben interne Referenzen.
+`comp(f)`: Richtung/Neigung/Tags/Ränder, Ausschluss/Verbindung, zUp/noAlign, nichtaffine UVs und authorierte Normalen.
+Verwundene Dachkappen erhalten Geometrie und Scope-Dicke; exakter SDK-Pivot, Straßenbreiten und Trim-Planes bleiben offen.
+`CompInfo` bleibt bei Scope/Extrusion; eigene frühere Auto-Tags werden ersetzt, Nutzer-Tags erhalten.
+PRT-Prismen belegen Geometrie-Roundtrip, kein isoliertes Selektions-/Pivotorakel.
+Native Dreiecke statt GEOS-Neuaufbau (73346b5f6): p50 3,14–7,28 statt 6,40–15,88 ms bei gleichem Vertrag.
+21 warme Läufe, zwei OpenBLAS-Threads; Quellanalyse/Auswahl/Scopes/Payloads enthalten, finale Ausgabe/Frames/GPU ausgeschlossen.
+Vorige Modellierbilder bleiben interne Referenzen; Showcase zeigt ausschließlich die aktuelle Lieferung.
 Logische Polygonflächen bleiben neben der nativen Triangulierung erhalten; GEOS/CDT nutzen, keine Polygontriangulierung neu erfinden.
 `modelling_faces`/`modelling_extrude`: eigene immutable Polygonringe/Corner-UVs neben Triangle-Assets; vier Flächen-Extrusionsarten.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen, negative Distanz behält negatives Scope-Y.
 Flat-Top nimmt mindestens die globale vertikale Quellspanne; Kontakt am First kann zwei getrennt geschlossene Keile ergeben.
 Vertexnormalen folgen verbundenen logischen Vertex-IDs und der normierten Summe benachbarter Flächennormalen; authored Normalen verwerfen.
 Getrennte deckungsgleiche Vertices werden nicht implizit verschweißt; Extrusionsausgabe erhält tatsächliche Flächenadjazenz.
-Eingefrorene Abnahme 2d52b4ea2: 24 Polygon-/11 Dachfälle, drei echte PRT-Prismen, drei analytische PRT-Distanzen und fünf ungültige Eingaben.
-Kostenvergleich: batched/individual GEOS bei identischem vollständigem Vertrag, 21 warme Läufe mit zwei OpenBLAS-Threads.
-Vier bis zwölf Quellvertices, zwölf bis 48 Dreiecke: p50 3,20–7,33 ms; größter Hof 7,33 statt 7,44 ms, kein belastbarer Zeitgewinn.
-Messung enthält Extrusion samt UVs/Tags/Material/Scope und finale Mesh-Ausgabe, keine Konstruktor-/Frame-/GPU-Zeit.
-Neue Ansichten optisch geprüft; SDK-Illustrationen zu Vertexnormalen und Flat-Top-Nullspanne ebenfalls betrachtet.
-Offen: Kantenextrusion, tangentialer/kollabierter Sweep, weitere UV-Kanäle, isolierte PRT-Flat-Top-/Vertexnormal-Regeln und `mergeVertices`.
+Flächenabnahme 2d52b4ea2: 24 Polygon-/11 Dachfälle, drei echte PRT-Prismen, analytische Distanzen und ungültige Eingaben.
+Batched/individual GEOS bei gleichem Vertrag: p50 3,20–7,33 ms, kein belastbarer Gewinn; komplette Extrusion/finale Ausgabe, keine Frames/GPU.
+Offen: gemischte Primitivextrusion, tangentialer Flächensweep, weitere UV-Kanäle, isolierte PRT-Flat-Top-/Vertexnormal-Regeln und `mergeVertices`.
 Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation erhält den Mittelpunkt;
 `s` setzt absolute/relative Größen einschließlich Spiegelung. Geteilte Geometrie erst zur Ausgabe transformieren.
 `modelling_scope`/`modelling_shape`: eigene Scope-/Frame-/Triangle-Asset-Typen und direkte Python-Operationen;
@@ -102,10 +101,6 @@ Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel
 Neun Kontrollgruppen inkl. nichtkommutierender Rotationen, schiefer Pivots, Mittelpunkt/Spiegelung, UV/Besitz/Normalen;
 zwei ausführbare PRT-Translationen erhalten Lochfläche. Kein isoliertes PRT-Rotations-/Skalierungsorakel vorhanden.
 Kanten-/Punktkonstruktoren bestehen; singuläre authored-Normalen und undokumentierter Floating-Selector bleiben offen.
-`modelling_scope_probe`: gleiche fünf Transformationen, sofortige Vertexarbeit gegen abschließende Ausgabe;
-fünf räumliche Kontrollbilder und metrischer Grundriss am gespeicherten Hauskontrollkörper, keine neuen OSM-Rezepte.
-Ghidra 43d5485f6: `r` addiert drei gespeicherte Zahlen; Zentrumdispatch ruft vor/nach Änderung Unit-Cube→Pivot-Matrizen auf.
-43/54/161 Instruktionen, keine indirekten Stellen; ein außerhalb liegender Zentrumblock. Translation delegiert nach Skalenauswertung an `Shape::translate`.
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Ausschluss, Verbindung, Komponenten-Pivots und nullgroße Achsen.

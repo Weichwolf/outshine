@@ -70,6 +70,7 @@ class Shape:
     geometry: Geometry
     scope: Scope
     comp_info: object=None
+    sweep_info: object=None
 
     @classmethod
     def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=()):

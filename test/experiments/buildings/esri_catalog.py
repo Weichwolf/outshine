@@ -37,8 +37,8 @@ OWN = {
     'r': dict(module='modelling_shape.Shape.r',status='documented pivot/centre forms implemented; scope checks and Ghidra',pending=['isolated PRT rotation rule']),
     's': dict(module='modelling_shape.Shape.s',status='absolute/relative and negative sizes implemented; scope checks and Ghidra',pending=['singular authored-normal transform','isolated PRT scale rule']),
     'translate': dict(module='modelling_shape.Shape.translate',status='documented coordinate systems implemented; scope checks',pending=[]),
-    'extrude': dict(module='modelling_shape.Shape.extrude',status='four face extrusion modes implemented; holes, connected/disconnected faces, UV/tag/material checks and PRT prisms',
-                    pending=['edge extrusion from comp(e/fe)','tangential or collapsed face sweep','UV channels beyond the first','isolated PRT flat-top and vertex-normal rule']),
+    'extrude': dict(module='modelling_shape.Shape.extrude',status='four face and edge extrusion modes; shared endpoint sweeps, holes, UV/tag/material checks, PRT prisms and actual PRT wall surfaces',
+                    pending=['mixed primitive extrusion','cancelled-normal SDK fallback and degenerate pruning equivalence','tangential or collapsed face sweep','UV channels beyond the first','isolated PRT edge/flat-top/vertex-normal rules']),
 }
 OWN_ATTRIBUTES={'comp':dict(module='modelling_shape.CompInfo',status='per-selector sel/index/total assigned; scope operations and extrusion inherit predecessor values',pending=['inheritance in remaining geometry operations'])}
 USES = {
