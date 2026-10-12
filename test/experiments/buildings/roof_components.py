@@ -48,7 +48,7 @@ def component(storage, polygon, facet, roof, eave, rise, infill=False, ceiling=F
 
 def mesh(roof, footprint, eave, rise):
     storage = [],[],[],[]
-    wall = footprint.difference(footprint.buffer(-WALL_M,join_style='mitre'))
+    wall = canonical_geometry(footprint.difference(footprint.buffer(-WALL_M,join_style='mitre')))
     for facet in roof['facets']:
         component(storage,facet['polygon'],facet,roof,eave,rise)
         derived = facet|dict(polygon=canonical_geometry(facet['polygon']))
@@ -57,13 +57,20 @@ def mesh(roof, footprint, eave, rise):
             component(storage,part,facet,roof,eave-THICKNESS_M,rise,ceiling=True)
         solid(storage,higher,eave-THICKNESS_M,eave,2)
         if rise>THICKNESS_M:
-            infill = higher.intersection(wall)
+            infill = canonical_geometry(higher.intersection(wall))
             for part in polygons(infill):
                 component(storage,part,facet,roof,eave,rise,infill=True)
     vertices = np.asarray(storage[0],dtype=np.float64)
     faces = np.asarray(storage[1],dtype=np.int32)
     triangles = vertices[faces]
     usable = np.linalg.norm(np.cross(triangles[:,1]-triangles[:,0],triangles[:,2]-triangles[:,0]),axis=1)>1e-10
+    _,indices = np.unique(vertices,axis=0,return_inverse=True)
+    keys = np.c_[storage[3],np.sort(indices[faces],axis=1)]
+    _,inverse,counts = np.unique(keys,axis=0,return_inverse=True,return_counts=True)
+    duplicates = counts[inverse]>1
+    if np.any(duplicates&((counts[inverse]!=2)|(np.ptp(triangles[:,:,2],axis=1)!=0)|(np.asarray(storage[2])==ROOF_MATERIAL))):
+        raise ValueError('unexpected coincident roof-component faces')
+    usable &= ~duplicates
     return dict(vertices=vertices,faces=faces[usable],materials=np.asarray(storage[2],dtype=np.uint8)[usable],
                 parts=np.asarray(storage[3],dtype=np.int32)[usable])
 

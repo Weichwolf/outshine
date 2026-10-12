@@ -30,6 +30,7 @@ Analytisch bei tatsächlich rechteckiger Quelle, sonst Skelett; Flächen müssen
 [`roof_components.py`](../test/experiments/buildings/roof_components.py): geschlossene 0,18-m-Dachplatten und Giebel-/Attikwandinfill.
 Obere Geschossdecke am Dachkontakt verjüngen, darunterliegende Kopffreiheit erhalten; überlappende Außenflächen erzeugten sichtbare Streifen.
 Abgeleitete Kontaktpolygone verwenden beidseitig das vorhandene 1e−8-m-Raster; Kontaktdicken unter 1e−7 m auf null, größere negative Dicke verwerfen.
+Auch Wandinfill im selben Raster; exakt doppelte horizontale Gegenflächen bei null Kontaktdicke paarweise entfernen, sonst ablehnen. Bauteilschluss bleibt streng.
 Unabhängige Projektion tatsächlicher Außendreiecke auf jede Quellfassade erkennt Flächenüberlappung; alte Vollplatte als Gegenfall wieder einfügen.
 [`roof_recipe.py`](../test/experiments/buildings/roof_recipe.py): ursprüngliche Eigenschaften/Quelle behalten, Körperoberkante als eigene Dachreservierung.
 Typ/Höhe/Winkel/Richtung/Orientierung/Dachfarbe aus direkten Angaben; fehlende Dachform aus Typ/Größe/Höhe oder explizitem Experiment.
