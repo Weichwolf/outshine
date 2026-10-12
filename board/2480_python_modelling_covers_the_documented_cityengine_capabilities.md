@@ -65,6 +65,7 @@ Lokale Entwicklung: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hof
 Richtung/Neigungsgrenzen, nichtaffine UVs/authorierte Normalen und drei reale PRT-Prismen nach vollständiger Komponentenzerlegung geprüft.
 `CompInfo` bleibt bei Scope-Operationen/Extrusion erhalten; erneute Extrusion ersetzt eigene frühere Auto-Tags und behält Nutzer-Tags.
 PRT-Prismen belegen Geometrie-Roundtrip, kein isoliertes CGA-Comp-Selektions-/Pivotorakel; Straßenbreiten/Trim-Planes bleiben offen.
+Verwundene Vertexnormal-Dachkappen erhalten native Geometrie/UVs und messbare Scope-Dicke; deren exakte SDK-Pivotausrichtung bleibt ungeprüft.
 Kostenentwicklung: dieselben sechs bis 14 Komponenten aus vorhandenen Dreiecken gegen GEOS-Neuaufbau, 21 warme Läufe.
 Native Dreiecke/UVs/Tags/Materialien und Scope-Matrizen stimmen überein; bisher p50 3,13–8,49 statt 6,30–17,61 ms.
 Showcase zeigt im nächsten Snapshot die aktuellen Komponenten-Kontrollen; frühere Scope-/Extrusionsbilder bleiben interne Referenzen.

@@ -180,6 +180,19 @@ def inheritance_controls():
     return dict(nonaffine_uvs_preserved=True,authored_normals_preserved=True,predecessor_comp_attributes_preserved=True,repeated_auto_tags_replaced=True)
 
 
+def warped_controls():
+    vertices=np.array([[x,.5*max(0,x-4)+.25*max(0,n-4),-n] for n in (0.,4.,8.) for x in (0.,4.,8.)])
+    faces=[Face((i,i+1,i+4,i+3)) for i in (0,1,3,4)]
+    source=Shape.from_faces(vertices,faces).extrude(1.,'vertex.normal');children=source.comp('f');mesh=source.emit();roundtrip=combined(children)
+    if geometry_digest(mesh['vertices'],mesh['faces'])!=geometry_digest(roundtrip['vertices'],roundtrip['faces']):
+        raise AssertionError('Nonplanar component fitting flattened or retriangulated the source surface')
+    if uv_signature(mesh)!=uv_signature(reconstructed_uv(children)):raise AssertionError('Warped caps lost source UV interpolation')
+    top=source.comp('f',Branch(tagged('extrude.top')))
+    if len(top)!=4 or not all(child.scope.size[2]>1e-5 for child in top):raise AssertionError('Warped cap components lost their actual thickness')
+    return dict(components=len(children),top_scope_thickness_m=[child.scope.size[2] for child in top],
+                scope='own geometry/UV preservation and tight bounds; exact SDK nonplanar component alignment remains unverified')
+
+
 def reference_controls():
     rows=[];sites={}
     for label,site,identifier in CASES:
@@ -200,11 +213,12 @@ def main():
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/modelling-component-validation.json'))
     args=parser.parse_args();record=revision()|dict(status='pass',frames=frame_controls(),topology=topology_controls(),
         selectors=selector_controls(),inheritance=inheritance_controls(),real_prt_roundtrips=reference_controls(),
+        warped=warped_controls(),
         prt_scope='Geometry roundtrip against a standard extrusion RPK; no isolated CGA comp selector/pivot oracle',
         pending=['edge/face-edge/vertex/face-vertex/material/group/hole components','streetWidth-map selectors','trim-plane propagation',
-                 'fractional numeric selector semantics','isolated PRT comp rules'])
+                 'fractional numeric selector semantics','isolated PRT comp rules','exact SDK nonplanar component alignment'])
     args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(record,indent=2)+'\n')
-    print(json.dumps(dict(status='pass',control_groups=4,real_prt_roundtrips=len(record['real_prt_roundtrips']))))
+    print(json.dumps(dict(status='pass',control_groups=5,real_prt_roundtrips=len(record['real_prt_roundtrips']))))
 
 
 if __name__=='__main__':main()

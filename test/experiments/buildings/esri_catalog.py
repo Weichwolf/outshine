@@ -32,7 +32,7 @@ GROUPS = {
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
     'comp': dict(module='modelling_shape.Shape.comp',status='face direction/inclination/tag/border predicates, exclusion, operators, frames and predecessor attributes implemented; analytic controls and PRT prism roundtrips',
-                 pending=['edge/vertex/group/material/hole components','streetWidth maps','trim planes','fractional indices','isolated PRT comp rule']),
+                 pending=['edge/vertex/group/material/hole components','streetWidth maps','trim planes','fractional indices','isolated PRT comp rule','exact nonplanar SDK alignment']),
     't': dict(module='modelling_shape.Shape.t',status='documented forms implemented; scope checks and two PRT translations',pending=[]),
     'r': dict(module='modelling_shape.Shape.r',status='documented pivot/centre forms implemented; scope checks and Ghidra',pending=['isolated PRT rotation rule']),
     's': dict(module='modelling_shape.Shape.s',status='absolute/relative and negative sizes implemented; scope checks and Ghidra',pending=['singular authored-normal transform','isolated PRT scale rule']),

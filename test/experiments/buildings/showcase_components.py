@@ -27,13 +27,14 @@ DIRECTIONS=('front','back','left','right','top','bottom')
 
 
 def coloured(shapes,per_component=False):
-    vertices=[];faces=[];materials=[];offset=0
+    vertices=[];faces=[];materials=[];parts=[];offset=0
     key=lambda shape:(shape.comp_info.sel,shape.comp_info.index if per_component else 0)
     colour={name:index for index,name in enumerate(dict.fromkeys(key(shape) for shape in shapes))}
-    for shape in shapes:
+    for number,shape in enumerate(shapes):
         mesh=engine_mesh(shape.emit());vertices.append(mesh['vertices']);faces.append(mesh['faces']+offset);offset+=len(mesh['vertices'])
         materials.append(np.full(len(mesh['faces']),12+colour[key(shape)],dtype=np.uint16))
-    return dict(vertices=np.concatenate(vertices),faces=np.concatenate(faces),materials=np.concatenate(materials)),len(colour)
+        parts.append(np.full(len(mesh['faces']),number,dtype=np.int32))
+    return dict(vertices=np.concatenate(vertices),faces=np.concatenate(faces),materials=np.concatenate(materials),parts=np.concatenate(parts)),len(colour)
 
 
 def controls():
@@ -66,7 +67,7 @@ def render_control(output,provenance,key,title,shapes,camera,source=None,per_com
         components=len(shapes),component_groups=groups,source_holes=len(source['polygon'].interiors) if source else 0,
         raw_mesh_bytes=sum(array.nbytes for array in mesh.values()),completed_recipe_families=0,
         geometry_scope='selected face components and explicit local operations; no new architecture recipe',lod_status='native LOD unproved',
-        measurement_scope='coloured inspection payload: vertices, triangle indices and material ids; complete component data measured separately')
+        measurement_scope='coloured inspection payload: vertices, triangle indices, material and component ids; complete component data measured separately')
     if source:record.update(source_id=source['id'],source_sha256=source['source_sha256'])
     name=stem+'-report.json';(output/name).write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(dict(page='buildings',components=key,seconds=result['render_seconds'])),flush=True)
@@ -85,7 +86,8 @@ def face_plan(shapes,path,provenance):
         ax.set_aspect('equal');ax.grid(alpha=.2);ax.set_xlabel('Lokales x [m]');ax.set_ylabel('Lokales y [m]')
     fig.suptitle('Ein Volumen → sechs lokale Flächenscopes\nVorhandene Dreiecke übernommen · Quadrat: Pivot am ersten Vertex · Normalen entlang lokalem z',fontsize=13)
     fig.text(.02,.015,'CGA (Ost, Auf, Süd) → metrische Komponentenebenen. Weltlage, UVs und ursprüngliche Ringe erhalten. '+provenance['commit'][:9],fontsize=9)
-    fig.tight_layout(rect=(0,.035,1,.93));fig.savefig(path,dpi=100);plt.close(fig)
+    fig.tight_layout(rect=(0,.035,1,.93));fig.subplots_adjust(hspace=.55,top=.84,bottom=.095)
+    fig.savefig(path,dpi=100);plt.close(fig)
     return time.perf_counter()-began
 
 
