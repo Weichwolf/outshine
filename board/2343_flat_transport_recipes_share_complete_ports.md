@@ -14,10 +14,10 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich historisch 4774/4808 (03af0cec8). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 lokal 29/29: 8→10 rund 54 m statt 1,37 km Umweg; frisches Gesamtfenster fehlt.
+Zürich 4775/4808 (f32431587). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 33 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
-Wien prüft vorbereitete Produkte auf einem Core in 10,1 s, Basel in 16,5 s; Aufbau kostet zusätzlich.
+Vorbereitete Produkte, ein Core: Wien 10,1 s, Basel 16,5 s, Zürich 80,0 s; Aufbau kostet zusätzlich.
 Dies sind Python-Prüfkosten, keine Runtime-Ladezeiten. Bilder: build/shots/experiments/transport/.
 
 ## Verbindlicher Bauteil- und Verkehrsvertrag
@@ -72,7 +72,8 @@ Dies sind Python-Prüfkosten, keine Runtime-Ladezeiten. Bilder: build/shots/expe
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 
 ## Nächste Lieferung und Abnahme
-Zürichs bisherige Produkte frisch rekonstruieren, Anschluss 2134 integrieren, dann verbleibende
+Zürich 2260 lokal 16/16: gemeinsame Schnitte 4 m nach außen, +0,21 m² Fläche; Gesamtfenster offen.
+Danach 1555/1316 und verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
 [Fensterprüfung](../test/experiments/transport/transport_roadbed_window_experiment.py) erhält sämtliche bisherigen Fahrten;
