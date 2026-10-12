@@ -18,7 +18,8 @@ Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten z
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
 Ghidra 12.1.2: 52 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
-Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
+Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft Mesh-Cuts auf. Split-Allokation 004d6120: feste Restbreite, gewichtete Floating-Anteile, Repeat-Floor/Ceil nach Streckungsabstand zu 1.
+ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Verschachtelte Wiederholungen und Grenzfälle bleiben offen; 2480 prüft erst 2D.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
 Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platzieren (2420), kein eigener Globaloptimalitätsanspruch.

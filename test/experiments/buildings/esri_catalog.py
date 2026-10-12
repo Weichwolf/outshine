@@ -31,6 +31,10 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
+    'split':dict(module='modelling_split_plan.split_plan',status='2D planar prototype with absolute/relative/floating widths, flat repeats, cuts and adjusted/unadjusted bounds',
+                 pending=['native 3D mesh cuts and closed cut surfaces','UV/normal/material/tag inheritance','nested pattern allocation','UV-space/unit-space overloads','isolated PRT split rule']),
+    'splitArea':dict(module='modelling_split_plan.split_plan(area=True)',status='2D polygon and courtyard area partitions; cumulative triangulated areas compared with direct GEOS cuts',
+                     pending=['Shape scope/geometry integration','almost-planar 3D geometry','nested pattern allocation','isolated PRT splitArea rule']),
     'comp': dict(module='modelling_shape.Shape.comp',status='f/e/fe/v/fv/g/m/h components; authored groups, declared material values, filled holes, any-member keywords and inherited frames/attributes; analytic controls and PRT prism bounds/volumes',
                  pending=['mixed primitive group assembly','full shader defaults and texture/object-pointer material equivalence','roof-specific edge selectors','streetWidth maps','trim planes','fractional indices','isolated PRT comp rules','exact nonplanar SDK alignment','degenerate-normal SDK fallback equivalence']),
     't': dict(module='modelling_shape.Shape.t',status='documented forms implemented; scope checks and two PRT translations',pending=[]),

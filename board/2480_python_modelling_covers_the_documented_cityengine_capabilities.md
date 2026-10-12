@@ -77,8 +77,18 @@ Kosten 0587b922a: fünf Grundrisse, 30 Komponenten-/20 Namensmessungen, je 21 wa
 Native Übernahme p50 1,66–4,92 statt 2,18–15,49 ms beim GEOS-Neuaufbau, gleiche Geometrie/UVs/Metadaten/Scopes.
 Namen p50 5,8–51 µs aus Metadaten statt 0,57–1,41 ms mit Geometriekontext. Finale Ausgabe/Frames/GPU ausgeschlossen.
 
+## Unterteilung: 2D-Verfahrensstufe
+`modelling_split_sizes/split_plan/split_area`: absolute/relative/floating Größen, flache Repeats und globale Indices.
+GEOS-Schnittpolygone mit Löchern/Multipart; adjust/noAdjust-Bounds, verschachtelte Funktionsaufrufe ohne Flächenverlust.
+Flächenteilung nutzt monotone Summen der CDT-Dreiecksflächen; zwischen Eckpunktpositionen ist die Summe quadratisch.
+Direkte Inversion gegen 64-Schritt-Bisektion und wiederholte GEOS-Cuts vergleichen, Quellfläche/Schnittgrenzen erhalten.
+Neun SDK-Größenbeispiele, analytisches Dreieck, 198 GEOS-Flächenintegrale sowie fünf Grundrisse × zwei Achsen geprüft.
+Entwicklungsmessung: 30 Fälle/21 warme Läufe, gesamte 2D-Teilung inklusive Aufbau/Cuts 0,63–1,23 ms p50;
+GEOS-Bisektion 5,10–7,91 ms. Kein nativer Mesh-/UV-/Framebeleg; eingefrorene Bild-/Kostenprüfung folgt.
+
 ## Offen und nächster Block
-Aktiv als nächster Ausbau: `split/splitArea`, absolute/relative Größen, Repeat und tatsächliche Mesh-Cuts samt Metadatenvererbung.
+Aktiver Ausbau: `split/splitArea` an `Shape` anbinden; 3D-Mesh-Cuts schließen und UV/Normalen/Material/Tags vererben.
+Verschachtelte Repeat-Allokation, UV-/unitSpace und isolierte PRT-Regeln fehlen; 2D-Prototyp ersetzt diese Verträge nicht.
 Danach verbleibende dokumentierte Operationen/Funktionen/Attribute: Instanzen/Insert, Ausdrücke/Regelfunktionen,
 Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.
 Offen im bestehenden Kern: gemischte Primitivgruppen/-extrusion, Shaderdefaults/Texture-/Objektpointergleichheit,
@@ -95,3 +105,4 @@ fehlende Messwerte kennzeichnen/aus Diagrammen auslassen, geänderte Frontend-Da
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Verbindung, Pivots und nullgroße Achsen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächen/Kanten, UVs/Tags, signierte Scopes und Mindestspanne.
+[CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm), [SplitArea](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split-area.htm): Umfang/Breiten versus Geometriefläche, Wiederholung und Scope-Anpassung.
