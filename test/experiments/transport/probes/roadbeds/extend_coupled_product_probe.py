@@ -15,6 +15,7 @@ import transport_coupled_roadbed_experiment as coupled
 from transport_coupled_roadbed_products import apply_coupled_product
 from transport_fitted_roadbeds import spline_roadbed
 from transport_roadbed_void_recipe import close_unusable_voids
+from transport_shared_cut_changes import changed_shared_cut,verify_cut_roundoff
 from transport_turn_roadbeds import coordinate_roundoff
 from steering_roadbed_candidate_probe import candidate
 
@@ -52,24 +53,6 @@ def existing_products(prior,network):
             quantum=row['coordinate_precision_m'],curves=curves,poses=poses,routes=routes,
             connections=len(routes),unresolved=[p for p in prior['unresolved'] if p['module']==owner])
     return products
-
-
-def changed_shared_cut(floor,addition,sections):
-    beyond_roundoff=addition.difference(floor.buffer(coordinate_roundoff(floor)))
-    return bool(len(sections.query(beyond_roundoff,predicate='dwithin',distance=1e-7)))
-
-
-def verify_cut_roundoff():
-    for offset in (0.,1000.,1e6):
-        floor=shapely.box(offset,offset,offset+10,offset+4)
-        cut=shapely.LineString([[offset,offset],[offset,offset+4]])
-        index=shapely.STRtree([cut]);epsilon=coordinate_roundoff(floor)
-        sliver=shapely.box(offset,offset-epsilon*.25,offset+2,offset)
-        assert not changed_shared_cut(floor,sliver,index)
-        real=shapely.box(offset,offset-1e-4,offset+2,offset)
-        assert changed_shared_cut(floor,real,index)
-        assert not changed_shared_cut(floor,shapely.box(offset+5,offset-1,offset+6,offset),index)
-    return dict(roundoff_sliver_ignored=True,real_cut_change_rejected=True,unrelated_addition_allowed=True)
 
 
 def add_curve(root,network,products,owner,pair,note):

@@ -61,8 +61,8 @@ Quelle zuerst mit w/2 Reserve, bei Ablehnung bis Eckreichweite. Gebäude/fremde 
 Suche räumlich und auf neue Fläche eingrenzen, endgültige Körper gegen alle Reservationen prüfen.
 Offene Blockränder dürfen weichen; geschlossene und verschachtelte Freiräume samt Überlappungszuordnung erhalten.
 Hüllenkonstruktion an Reservationen kappen, ganze Körper am nativen Mesh nachprüfen; 4096 Posen gemeinsam.
-Polygonale Fahrflächen behalten die feinste Binärpräzision. Mesh-Rundungsreste höchstens
-64·eps·max(1,|Koordinate|) m schließen; echte/breitere Freiräume erhalten. Nur gültige konservative Hilfspuffer nutzen.
+Fahrflächen behalten feinste Binärpräzision; Flächenoperationen liefern nur Polygone, Quell-/Kontaktlinien bleiben separat.
+Mesh-/Schnitt-Rundungsreste höchstens 64·eps·max(1,|Koordinate|) m; echte Randänderungen/Freiräume erhalten, nur gültige Hilfspuffer.
 [Resttaschen](../test/experiments/transport/transport_roadbed_island_cleanup.py) im Baurezept schließen:
 nur neu abgetrennte Teile einer vorhandenen Insel, unreserviert, ≤1 m² und ohne 1 m breiten Innenraum.
 Größte Insel erhalten. [Restinsel-Rezept](../test/experiments/transport/transport_roadbed_void_recipe.py):

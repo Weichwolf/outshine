@@ -25,6 +25,7 @@ from transport_source_roadbeds import construct_route_roadbed,roadbed_piece,publ
 from transport_turn_roadbed_experiment import building_reservations,reservations
 from transport_turn_roadbeds import compose_roadbeds,preserves_voids,preserves_coverage,published_roadbed_surface,roadbed_lateral_reach
 from transport_vehicle_sweep import body_outlines
+from transport_shared_cut_changes import changed_shared_cut
 
 
 def request_keys(poses,routes):
@@ -75,7 +76,7 @@ def coupled_addition_rejection(floor,shape,supports,reserved,section_index,trial
     if not preserves_voids(base,planned) or not preserves_voids(core,physical):return 'combined_void_topology'
     addition=planned.difference(base)
     if addition.intersection(reserved).area>1e-8:return 'reservation_overlap'
-    if len(section_index.query(addition,predicate='dwithin',distance=1e-7)):return 'changed_shared_cut'
+    if changed_shared_cut(base,addition,section_index):return 'changed_shared_cut'
     ids=trial.mesh[1].query(addition,predicate='intersects')
     owners=set(map(int,trial.product['face_owners'][ids]))|affected
     if any(addition.intersection(trial.shape(m)).area>1e-8 for m in owners if m!=owner):return 'owner_overlap'
@@ -125,7 +126,7 @@ def construct_module(network,trial,owner,sections,affected,region,buildings,sect
     assert preserves_voids(base,planned) and preserves_voids(core,physical),'changed void topology'
     addition=planned.difference(base)
     assert addition.intersection(reserved).area<=1e-8,'reservation overlap'
-    assert not len(section_index.query(addition,predicate='dwithin',distance=1e-7)),'changed shared cut'
+    assert not changed_shared_cut(base,addition,section_index),'changed shared cut'
     ids=trial.mesh[1].query(addition,predicate='intersects')
     owners=set(map(int,trial.product['face_owners'][ids]))|affected
     assert not any(addition.intersection(trial.shape(m)).area>1e-8 for m in owners if m!=owner),'owner overlap'

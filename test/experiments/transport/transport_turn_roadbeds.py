@@ -8,6 +8,7 @@ from transport_curvature_paths import fit_curvature_paths
 from transport_junction_surfaces import same_island_winding
 from transport_junction_turns import tangent_intersection
 from transport_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
+from transport_surface_regions import polygonal_region
 
 
 def bounded_voids(surface):
@@ -75,10 +76,10 @@ def fill_roundoff_voids(before,after):
 def compose_roadbeds(surface,shape,roadbeds):
     precision=geometry_precision(surface)
     base,core,*supports=shapely.set_precision(np.array([surface,shape,*roadbeds],dtype=object),precision)
-    planned=fill_roundoff_voids(base,shapely.union_all([base,*supports]))
-    physical=core.union(planned.difference(base))
+    planned=polygonal_region(fill_roundoff_voids(base,shapely.union_all([base,*supports])))
+    physical=polygonal_region(core.union(polygonal_region(planned.difference(base))))
     repaired=fill_roundoff_voids(core,physical)
-    planned=planned.union(repaired.difference(physical))
+    planned=polygonal_region(planned.union(polygonal_region(repaired.difference(physical))))
     return base,core,planned,repaired,precision
 
 
