@@ -52,10 +52,13 @@ def main():
         recipe["resolution"] = [2560, 1440]
         recipe["source_modified"] = True
         scenario.write_text(json.dumps(recipe, indent=2) + "\n")
-        renderer = (
-            "landscape_preview.py"
-            if "landscape_preview.py" in report.get("implementation_sha256", {})
-            else "organ_preview.py"
+        renderer = next(
+            (
+                name
+                for name in ("bark_preview.py", "landscape_preview.py")
+                if name in report.get("implementation_sha256", {})
+            ),
+            "organ_preview.py",
         )
         log = Path("/tmp") / f"outshine-refresh-{image.stem}.log"
         print(

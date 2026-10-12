@@ -181,6 +181,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 ## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
 
+- **An Image Synthesizer**, Perlin, SIGGRAPH 1985.
+  [Primärquelle](https://doi.org/10.1145/325334.325247) ·
+  [PDF](vegetation/siggraph/1985-image-synthesizer.pdf), CMU-Kursarchiv.
+  Prozedurale räumliche Textur und nichtlineare Rauschkomposition begründen eigene
+  anisotrope Rindenmaterialien in physischen Astkoordinaten (2481).
+  Seiten 1, 3, 8 und 10 samt Rauschprinzip/Bildbeispiel optisch geprüft; keine Fototexturen.
+  Eigene Koordinatenmischung und Blender-Rauschen sind keine Rekonstruktion des Papiercodes.
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
   [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).

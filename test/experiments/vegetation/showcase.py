@@ -17,6 +17,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from bark_plots import bark_figure
 from cloud_plots import group_figure, raster_figure, render_figure
 from collar_plots import collar_figure, ray_figure
 from curved_plots import curved_figure
@@ -365,6 +366,12 @@ def ray_plot(report):
     return save_plot(figure, "collar-ray-cost")
 
 
+def bark_plot(report):
+    figure = bark_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "bark-coordinates")
+
+
 def plant_surface_plot(report):
     return save_plot(plant_surface_figure(report), "plant-surfaces")
 
@@ -385,6 +392,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            bark_plot,
             ray_plot,
             collar_plot,
             plant_surface_plot,

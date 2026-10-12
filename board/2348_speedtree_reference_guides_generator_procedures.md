@@ -29,8 +29,8 @@ Diagnosen/Dekompilate bleiben bei der Referenz in Downloads, Logs im System-Temp
 Belegte Operationen von vermuteten Feldnamen und nicht rekonstruierten Verfahren unterscheiden.
 
 ## Belegte Entscheidungen und offene Semantik
-Phyllotaxis `0x1e296e0`: Schritt durch wirksame Elternlänge normalisieren, vom letzten
-zum ersten Standort laufen; Profile steuern Abstand/Roll, eine Anzahl begrenzt die Schleife.
+Phyllotaxis `0x1e296e0`: Schritt durch wirksame Elternlänge normalisieren, vom letzten zum ersten Standort;
+Profile steuern Abstand/Roll, eine Anzahl begrenzt die Schleife.
 Intervallplatzierung `0x1e2b3a0` verwendet zusätzlich den Kehrwert eines Frequenzparameters.
 Mastersegmente `0x1cb7260`: absolute/relative Anteile, Profile und Mindestzahl vier.
 Diese Beobachtungen begründen physische Internodien und Elternprofile; unbekannte Felder bleiben unbenannt.
@@ -99,11 +99,12 @@ Rotationen mit Orthogonalisierung; keine vollständige Spine-/Kraftrekonstruktio
 `inspect_speedtree.py --templates`: alle 27 mitgelieferten Games/VFX-Vorlagen, 189 Generatoren,
 acht gespeicherte Typen (Tree, Branch, Frond, Cap, BatchedLeaf, Leaf Mesh, Fin, Knot).
 Vorlageninventar ist kein vollständiges Funktionsinventar oder Gleichwertigkeitsnachweis.
-Nächste Analyse: weitere Knotentypen/Aufrufer und Profile; Zustände, Parameter und Ausgaben erfassen.
+2481: Rinden-/UV-Analyse an vier CBranchNode-Funktionen; Periodenentfaltung und zyklische Glättung belegt.
+Eigene räumliche Astkoordinaten/Rauschmaterialien; vollständige UV-Property-/Original-Oracle-Bindung offen.
 | Bereich | Eigener Stand / fehlende Funktionen |
 |---|---|
 | Graph/Profile/Platzierung | Achsgrammatik/Radiusprofile/räumliche Spines; vollständige Graph-/Property-/Platzierungsarten offen |
-| Stämme/Anschlüsse | Gabelproben (2352), komplette Rohrvereinigung/lokale Astkragen (2353); volle Elternbindung, Caps/Knots/Fins/Rinde offen |
+| Stämme/Anschlüsse | Gabeln (2352), vollständige Vereinigung/Astkragen (2353), Rindenmaterial/Koordinaten (2481); volle Elternbindung, Caps/Knots/Fins/Rindengeometrie offen |
 | Organe/Cluster | Blatt-/Grasflächen und Gruppenproben; Fronds, Nadeln und weitere Organe offen |
 | Kräfte/Wachstum/Zustände | Kräfte, Kollisionen, Wachstum/Jahreszustände und funktionale Windbindung offen |
 | Material/LOD/Export | Unbeleuchtete Ansichtenproben; Normalenverteilung, Übergänge und vollständige Produkte offen |
@@ -111,7 +112,7 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-60 gezielte Funktionen dekompiliert; fünfzehn Läufe terminal erfolgreich, zuletzt ComputeShaping/FreeHandBendSpine.
+64 gezielte Funktionen dekompiliert; sechzehn Läufe terminal erfolgreich, zuletzt vier Rinden-/UV-Funktionen.
 Adressen/Symbolgrößen, ELF-Vtable und Konstanten korroborieren die beschriebenen Operationen.
 Sichtbarkeitsfeld, LOD-Sortierung und Zielanzahl belegt; vollständige Property-/Windbindung bleibt offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.

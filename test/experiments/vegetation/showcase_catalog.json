@@ -131,21 +131,21 @@
     },
     {
       "image": "render/united-sapling.png",
-      "title": "Vollständige Testpflanze · lokale Astkragen",
+      "title": "Vollständige Testpflanze · Astkragen und Rinde",
       "label": "Pflanzen-Funktionstest",
       "category": "plant",
       "lod": "lod-1",
-      "description": "64 ursprüngliche Holzachsen mit 63 lokal ergänzten Anschlussformen und 571 unveränderten Blättern. Die Hüllen erzeugen Aufweitungen am Elternast; die vollständige Vereinigung bleibt geschlossen. Radius- und Astpläne bestimmen die Form kameraunabhängig.",
-      "quality": "Funktionsprobe · natürliche Krone, Rinde, Wind, vollständige LODs und Artenvalidierung offen"
+      "description": "64 Holzachsen mit 63 lokalen Astkragen und 571 unveränderten Blättern. Prozedurale Rindenstruktur folgt denselben gebogenen Astplänen in physischer Skala; dünne Zweigenden bleiben glatter. Kameraunabhängige Koordinaten ergänzen dieselbe geschlossene Geometrie.",
+      "quality": "Funktionsprobe · natürliche Krone, Rindengeometrie, Wind, vollständige LODs und Artenvalidierung offen"
     },
     {
       "image": "render/united-attachment.png",
-      "title": "Lokal aufgeweiteter Astanschluss",
+      "title": "Rindenstruktur am Astanschluss",
       "label": "Anschluss-Nahbild",
       "category": "wood",
       "lod": "lod-0",
-      "description": "Nahansicht derselben Testpflanze in 2560×1440. Lokale Eltern-/Kinderhüllen ergänzen die Rohrvereinigung; angepasste Normalen erhalten das Stamm-Shading. Aktualisierte Schattenberechnung beseitigt die feinen Selbstschattenlinien an den dünnen Ästen. Astansatz und Schatten bleiben sichtbar.",
-      "quality": "Lokale Anschlussprobe · globale G1-Stetigkeit und vollständige SpeedTree-Weldbindung offen"
+      "description": "Nahansicht derselben Testpflanze in 2560×1440. Räumliche Rindenkoordinaten entlang der Äste ergänzen lokale Eltern-/Kinderübergänge ohne umlaufende UV-Naht. Anisotropes Rauschen gestaltet Farbe und Oberflächennormalen, vollständig ohne Fototexturen. Astansatz, Geometrie und Schattenberechnung bleiben erhalten.",
+      "quality": "Material-/Anschlussprobe · vollständige SpeedTree-UV-Bindung, Rindengeometrie und Artenvalidierung offen"
     }
   ],
   "lods": [
@@ -181,6 +181,7 @@
     }
   ],
   "plot_lods": {
+    "bark_plot": "lod-0",
     "selection_storage_plot": "lod-2",
     "demand_plot": "lod-3",
     "organ_storage_plot": "lod-0",

@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "bark/bark.json",
+        "bark_plot",
+        "Rindenkoordinaten · vollständige Pflanze",
+        "Drei abwechselnde Messungen je Verfahren in frischen Python-Prozessen. Identische Koordinaten und Radien für dieselben 80.311 Vertices aus 64 stabilen Astachsen; keine Blatterzeugung. Einlesen separat, Prozess-RSS einschließlich Bibliotheken und Eingabe. Geometrie und Normalen unverändert, 765 analytische Punkte sowie unabhängige Nächstpunkt-, Naht- und Transformationsprüfungen. Keine SpeedTree-, native oder Geräte-Kostenfreigabe.",
+    ),
+    (
         "collars/ray-cost.json",
         "ray_plot",
         "Astnormalen · gebündelte Strahlabfragen",
