@@ -14,7 +14,7 @@ Aus Quellgraph/Nutzungsbilanz (2342) entstehen zusammenhängende Straßen-, Wege
 mit funktionalen Verbindungen. Besitzer: Transport/generators/road; Bereichsgrenzen: 2342, nativer Plan: 2281.
 [Flächenplan](../test/experiments/transport/transport_flat_surface_network.py) und
 [Ports](../test/experiments/transport/transport_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
-Ebenen-0-Fenster mit 1 km Radius: Wien 908/909 (`3882ab4fe`), Zürich 4774/4808 (`03af0cec8`).
+Ebenen-0-Fenster mit 1 km Radius: Wien 909/909 (`117dea678`), Zürich 4774/4808 (`03af0cec8`).
 Basel 2962/2962 (`5ab84801f`); frühere Verbesserungen erhalten, keine zusätzlichen schwachen/starken Netztrennungen.
 Nur Auto-Fenster belegt. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -88,7 +88,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Wien 1480 im Gesamtfenster 12/13; 1066 mit Gesamtfenster 13/13; Zürich 2134: 60→1369 m.
+   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Wien 1480 im Gesamtfenster 13/13; 1066 mit Gesamtfenster 13/13; Zürich 2134: 60→1369 m.
    [Gekoppelte Wendeplätze](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): nur betroffene Nachbarn neu lösen; Quintik-Zufahrten erhalten G2 auch hinter Quellbiegungen. Gebäude-Freiraumanfragen bleiben explizit.
    [Versetzter Wendekern](../test/experiments/transport/probes/roadbeds/inset_turning_core_probe.py): 1066 mit 8-m-Zufahrten, +28,8 m² Gesamtbauteil; feste Ports, G2/Radius am Mesh geprüft.
    [Breitere Ports](../test/experiments/transport/transport_court_partition.py) auf festen Schnittebenen verteilen neue Fläche einmal; Bestand/Quellkontakte erhalten.
@@ -100,9 +100,9 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
    [Lenkpfad → Mesh](../test/experiments/transport/probes/roadbeds/steering_roadbed_product_probe.py) nutzt deklarierte Reservationen samt zulässigen Fußwegübergängen; keine erneute Quellmaske.
    [Direkte G2-Spurbögen](../test/experiments/transport/probes/roadbeds/rounded_lane_loop_probe.py): Wien 1480: Fußwegübergänge auf vorhandener Geometrie; keine privaten Wege/Bahn nutzen. Fußweggeometrie erhalten.
-   [Gegenfahrt](../test/experiments/transport/probes/roadbeds/reuse_lane_loop_probe.py): feste Spurports, exakte Bézier-Unterteilung. Gemeinsame Schleifen bekommen einen eigenen, absolut quellbezogenen Wendeplatzraum (2R + Körperreichweite + halbe Breite); die Randaufweitungsgrenze bleibt für Randrezepte. Inseln, Reservationen und Mesh-Hüllen unverändert prüfen; 7→2 gemeinsam veröffentlichen.
-   Wien: 14 Produkte; sämtliche früheren Produkt- und Einzelfahrten erhalten, 908 direkte Fahrten.
-   Fensterprüfung mit vorbereiteten Produkten auf einem Core: Wien 11,5 s, Basel 16,5 s; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.
+   [Gegenfahrt](../test/experiments/transport/probes/roadbeds/reuse_lane_loop_probe.py): feste Spurports, exakte Bézier-Unterteilung. Gemeinsame Schleifen bekommen einen eigenen, absolut quellbezogenen Wendeplatzraum (2R + Körperreichweite + halbe Breite); die Randaufweitungsgrenze bleibt für Randrezepte. Inseln, Reservationen und Mesh-Hüllen unverändert geprüft; 1480 vollständig, +88,5 m² gemeinsamer Raum.
+   Wien: 14 Produkte; sämtliche früheren Produkt- und Einzelfahrten erhalten, 909 direkte Fahrten.
+   Fensterprüfung mit vorbereiteten Produkten auf einem Core: Wien 10,1 s, Basel 16,5 s; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
 3. Kosten pro Modul/Verbindung, Speicher und Skalierung vergleichen; nachgewiesen unnötige Sucharbeit beseitigen.
