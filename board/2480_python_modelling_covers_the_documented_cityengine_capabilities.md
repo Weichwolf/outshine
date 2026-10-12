@@ -25,7 +25,7 @@ Scope/Extrusion/Komponenten/Ghidra/Kamera/Benchmark/Katalog/Render/Docs sowie La
 Der erste Komponentenexport ohne Bauteil-IDs scheiterte am Blender-Import; der ergänzte Prüfmesh und vollständige Wiederholung bestehen.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
-44 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+47 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 Eigene Implementierung, keine Übernahme dekompilierten Fremdcodes; SDK 3.4 / PRT 3.3 ausdrücklich unterscheiden.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 
@@ -58,8 +58,18 @@ Rezeptfunktionen gemeinsam pflegen, Familien/Varianten/Instanzen getrennt zähle
 Vollständige Fähigkeitszuordnung mit offenen Lücken; ausgeführte Geometrie-/Scope-/Materialverträge gegen SDK/PRT prüfen.
 Reproduzierbare kleine Kontrollkörper, echte OSM-Grundrisse, ungültige/degenerierte Gegenfälle und gemessene Kosten.
 Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenommene native LOD-/Geräteabnahme.
-Aktiver Ausbau: `comp(e/fe/v/fv)` mit eindeutigen bzw. flächenbezogenen Indexfolgen, Kanten-/Punktgeometrie,
-passenden Normalen/Tangenten/Pivots und nullgroßen Scope-Achsen; bestehende Auswahl/Operatoren/Attribute weiterverwenden.
+`modelling_wire`/`modelling_wire_components`: `comp(e/fe/v/fv)`, eigene Linien/Punkte statt künstlicher Dreiecke.
+Eindeutige Kanten übernehmen erste Quellrichtung/adjazente Normalen; flächenbezogene Kanten zeigen entlang des Randes nach außen.
+Vertexnormalen mitteln angrenzende Flächen; Face-Vertex-Tangenten mitteln normierte Nachbarkanten, auch am Hofring.
+Auswahl/Operatoren/Attribute bleiben gemeinsam; Kanten-/Punktnormalen folgen invers-transponierten Transformationen.
+Kanten haben Scope-Länge entlang x, Punkte drei nullgroße Achsen; Corner-UVs, Material/Tags und Weltlage erhalten.
+Entwicklungskontrollen: acht gedrehte zUp/noAlign-Gruppen, Quellindices/Verbindung/Reextraktion, Besitz und zwölf reale PRT-Bounds.
+Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 47 Ziele, kein isoliertes e/fe/v/fv-Laufzeitorakel.
+Fünf Körper, 21 warme Läufe: Komponenten-p50 4,66–42,02 ms; finale Ausgabe/Frames/GPU nicht enthalten.
+Dict-Indexierung ist bei vier kleinen Fällen günstiger, NumPy-Sort beim 72-Kanten-Hof; Differenzen unter 0,04 ms.
+Dict erhält einfache erste Quellreihenfolge; kein behaupteter Gesamtzeitgewinn. Relevante Kosten entstehen im Komponentenaufbau.
+Aktive Lieferung: saubere Commit-Prüfung und vier aktuelle Kanten-/Punktplots einschließlich maßstäblichem 2D-Hofplan.
+Nächster Feature-Vertrag: Kantenextrusion; Dachselektoren, Gruppen/Material/Löcher, Normalenkollaps bleiben offen.
 Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
 Eingefrorene Kontrolle 73346b5f6: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
 Richtung/Neigungsgrenzen, nichtaffine UVs/authorierte Normalen und drei reale PRT-Prismen nach vollständiger Komponentenzerlegung geprüft.
@@ -81,14 +91,14 @@ Kostenvergleich: batched/individual GEOS bei identischem vollständigem Vertrag,
 Vier bis zwölf Quellvertices, zwölf bis 48 Dreiecke: p50 3,20–7,33 ms; größter Hof 7,33 statt 7,44 ms, kein belastbarer Zeitgewinn.
 Messung enthält Extrusion samt UVs/Tags/Material/Scope und finale Mesh-Ausgabe, keine Konstruktor-/Frame-/GPU-Zeit.
 Neue Ansichten optisch geprüft; SDK-Illustrationen zu Vertexnormalen und Flat-Top-Nullspanne ebenfalls betrachtet.
-Offen: Kantenextrusion/`comp(e/fe)`, tangentialer/kollabierter Sweep, weitere UV-Kanäle, isolierte PRT-Flat-Top-/Vertexnormal-Regeln und `mergeVertices`.
+Offen: Kantenextrusion, tangentialer/kollabierter Sweep, weitere UV-Kanäle, isolierte PRT-Flat-Top-/Vertexnormal-Regeln und `mergeVertices`.
 Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation erhält den Mittelpunkt;
 `s` setzt absolute/relative Größen einschließlich Spiegelung. Geteilte Geometrie erst zur Ausgabe transformieren.
 `modelling_scope`/`modelling_shape`: eigene Scope-/Frame-/Triangle-Asset-Typen und direkte Python-Operationen;
 `t`, `r`, `s`, `translate` mit dokumentierten Formen, geteilte unveränderliche Geometrie, Ausgabe erst nach den Operationen.
 Neun Kontrollgruppen inkl. nichtkommutierender Rotationen, schiefer Pivots, Mittelpunkt/Spiegelung, UV/Besitz/Normalen;
 zwei ausführbare PRT-Translationen erhalten Lochfläche. Kein isoliertes PRT-Rotations-/Skalierungsorakel vorhanden.
-Kanten-/Punktkonstruktoren, singuläre authored-Normalen und undokumentierter Floating-Selector bleiben offen.
+Kanten-/Punktkonstruktoren bestehen; singuläre authored-Normalen und undokumentierter Floating-Selector bleiben offen.
 `modelling_scope_probe`: gleiche fünf Transformationen, sofortige Vertexarbeit gegen abschließende Ausgabe;
 fünf räumliche Kontrollbilder und metrischer Grundriss am gespeicherten Hauskontrollkörper, keine neuen OSM-Rezepte.
 Ghidra 43d5485f6: `r` addiert drei gespeicherte Zahlen; Zentrumdispatch ruft vor/nach Änderung Unit-Cube→Pivot-Matrizen auf.

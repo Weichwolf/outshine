@@ -87,7 +87,7 @@ def tagged(query,subcomponent=None):
     pattern='\\.'.join('[^.]+(?:\\.[^.]+)*' if part=='*' else '[^.]+' if part=='?' else re.escape(part) for part in parts)
     expression=re.compile('^'+pattern+'(?:\\.[^.]+)*$')
     def matches(face):
-        tags=face.face.tags if subcomponent is None else face.edge_tags if subcomponent=='e' else face.vertex_tags
+        tags=face.element.tags if subcomponent is None else face.edge_tags if subcomponent=='e' else face.vertex_tags
         return any(expression.fullmatch(tag) is not None for tag in tags)
     name='isTagged('+repr(query)+((', '+subcomponent) if subcomponent else '')+')'
     return Selector(name,matches)

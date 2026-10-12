@@ -59,7 +59,7 @@ def render_control(output,provenance,key,title,shapes,camera,source=None,per_com
         wall_linear=[1.,1.,1.],roof_linear=[.155,.179,.196],extra_wall_colours=PALETTE[:colours]))
     result=run_render(configuration_data,output/(stem+'-scene.json'))
     groups=[dict(selector=shape.comp_info.sel,index=shape.comp_info.index,total=shape.comp_info.total,
-                 source_faces=shape.comp_info.source_faces,scope_size_m=shape.scope.size) for shape in shapes]
+                 source_indices=shape.comp_info.source_indices,scope_size_m=shape.scope.size) for shape in shapes]
     caption='Farben zeigen Auswahlgruppen. Flächenringe, Materialien und Corner-UVs sind in den Komponenten erhalten; Prüfpalette ersetzt nur die Bildfarben. '
     caption+='OSM-Hofgrundriss und gelieferte Höhe.' if source else 'Synthetische Funktionskontrolle; Workbench-Studiolicht, keine Architektur-Rezeptfamilie.'
     record=provenance|result|dict(representation='showcase-current',page='buildings',view='components',label='modelling-components',

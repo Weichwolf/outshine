@@ -13,7 +13,8 @@ class CompInfo:
     sel: str
     index: int
     total: int
-    source_faces: tuple
+    source_indices: tuple
+    kind: str='f'
 
 
 @dataclass(frozen=True)
@@ -22,9 +23,11 @@ class Geometry:
     unit_vertices: object
     reference_size: tuple
     polygons: tuple=()
+    edges: tuple=()
+    points: tuple=()
 
     @classmethod
-    def from_mesh(cls,mesh,scope=None,polygons=()):
+    def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=()):
         vertices=np.asarray(mesh['vertices'],dtype=np.float64)
         raw_faces=np.asarray(mesh['faces'])
         if vertices.ndim!=2 or vertices.shape[1]!=3 or not np.isfinite(vertices).all():
@@ -48,9 +51,18 @@ class Geometry:
             array=np.array(value,copy=True);array.setflags(write=False);fields[key]=array
         if 'normals' in fields and (fields['normals'].shape!=vertices.shape or not np.isfinite(fields['normals']).all()):
             raise ValueError('Authored vertex normals require finite XYZ coordinates per vertex')
-        if 'normals' in fields:
-            normals=fields['normals']@scope.axes;normals.setflags(write=False);fields['normals']=normals
-        return cls(MappingProxyType(fields),unit,tuple(size),tuple(polygons)),scope
+        for name in ('edges','points'):
+            if name not in fields:continue
+            indices=fields[name];width=2 if name=='edges' else 1
+            if indices.ndim!=2 or indices.shape[1]!=width or indices.dtype.kind not in 'iu' or (len(indices) and (indices.min()<0 or indices.max()>=len(vertices))):
+                raise ValueError('Invalid native '+name+' primitive indices')
+            normal=fields.get(name+'_normals')
+            if normal is not None and (normal.shape!=(len(indices),3) or not np.isfinite(normal).all()):
+                raise ValueError('Invalid native '+name+' primitive normals')
+        for name in ('normals','edges_normals','points_normals'):
+            if name in fields:
+                normals=fields[name]@scope.axes;normals.setflags(write=False);fields[name]=normals
+        return cls(MappingProxyType(fields),unit,tuple(size),tuple(polygons),tuple(edges),tuple(points)),scope
 
 
 @dataclass(frozen=True)
@@ -60,8 +72,8 @@ class Shape:
     comp_info: object=None
 
     @classmethod
-    def from_mesh(cls,mesh,scope=None,polygons=()):
-        geometry,scope=Geometry.from_mesh(mesh,scope,polygons)
+    def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=()):
+        geometry,scope=Geometry.from_mesh(mesh,scope,polygons,edges,points)
         return cls(geometry,scope)
 
     @classmethod
@@ -73,6 +85,16 @@ class Shape:
     def from_faces(cls,vertices,faces,scope=None,vertex_normals=None):
         from modelling_faces import face_shape
         return face_shape(vertices,faces,scope,vertex_normals)
+
+    @classmethod
+    def from_edges(cls,vertices,edges,normals,scope=None):
+        from modelling_wire import wire_shape
+        return wire_shape(vertices,edges,normals,scope)
+
+    @classmethod
+    def from_points(cls,vertices,points,normals,scope=None):
+        from modelling_wire import wire_shape
+        return wire_shape(vertices,points,normals,scope)
 
     def extrude(self,distance,mode='face.normal'):
         from modelling_extrude import extrude
@@ -96,11 +118,12 @@ class Shape:
         vertices=self.geometry.unit_vertices@matrix[:3,:3].T+matrix[:3,3]
         if not np.isfinite(vertices).all():raise ValueError('Shape transform produced non-finite coordinates')
         result=dict(self.geometry.fields)|dict(vertices=vertices)
-        if 'normals' in result:
+        for name in ('normals','edges_normals','points_normals'):
+            if name not in result:continue
             scale=np.divide(self.scope.size,self.geometry.reference_size,out=np.ones(3),
                             where=np.asarray(self.geometry.reference_size)!=0)
             if np.any(scale==0):raise ValueError('Singular authored-normal transforms need a verified cleanup contract')
-            normals=result['normals']@(np.diag(1/scale)@self.scope.axes.T)
+            normals=result[name]@(np.diag(1/scale)@self.scope.axes.T)
             length=np.linalg.norm(normals,axis=1)
-            result['normals']=np.divide(normals,length[:,None],out=np.zeros_like(normals),where=length[:,None]!=0)
+            result[name]=np.divide(normals,length[:,None],out=np.zeros_like(normals),where=length[:,None]!=0)
         return result

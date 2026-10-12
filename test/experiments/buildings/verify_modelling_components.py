@@ -57,7 +57,7 @@ def frame_controls():
     expected=[('front',0,1),('side',0,3),('side',1,3),('side',2,3),('all',0,1)]
     if [(p.comp_info.sel,p.comp_info.index,p.comp_info.total) for p in selected]!=expected:
         raise AssertionError('Selector exclusion or per-selector comp.index/total differs from the documented cube example')
-    if set(i for p in selected for i in p.comp_info.source_faces)!=set(range(6)):
+    if set(i for p in selected for i in p.comp_info.source_indices)!=set(range(6)):
         raise AssertionError('Component selection omitted or duplicated a source face')
     base=source.emit();roundtrip=combined(selected)
     if geometry_digest(base['vertices'],base['faces'])!=geometry_digest(roundtrip['vertices'],roundtrip['faces']):
@@ -69,7 +69,7 @@ def frame_controls():
     for alignment in ('zUp','noAlign'):
         children=rotated.comp('f',Branch('all'),alignment=alignment)
         for child in children:
-            index=child.comp_info.source_faces[0];parent_face=rotated.geometry.polygons[index]
+            index=child.comp_info.source_indices[0];parent_face=rotated.geometry.polygons[index]
             parent_points=rotated.emit()['vertices'];ring=parent_points[list(parent_face.outer)]
             if alignment=='zUp':
                 near(child.scope.pivot_origin,ring[0]);near(child.scope.axes[:,0],(ring[1]-ring[0])/np.linalg.norm(ring[1]-ring[0]))
@@ -108,7 +108,7 @@ def grid():
 
 def topology_controls():
     source=grid();border=source.comp('f',Branch('border'));inside=source.comp('f',Branch('inside'))
-    if len(border)!=8 or len(inside)!=1 or inside[0].comp_info.source_faces!=(4,):
+    if len(border)!=8 or len(inside)!=1 or inside[0].comp_info.source_indices!=(4,):
         raise AssertionError('Open grid border/inside classification is incorrect')
     counts=[len(source.comp('f',Branch(tagged('core',sub)))) for sub in (None,'e','v')]
     if counts!=[1,5,9]:raise AssertionError('Face tags did not propagate through the requested edge/vertex adjacency')
@@ -148,7 +148,7 @@ def selector_controls():
     if len(alternatives)!=1 or len(alternatives[0].geometry.polygons)!=2:raise AssertionError('Logical selection or exclusion is incorrect')
     if len(cube.comp('f',Branch(lambda face:face.area>30)))!=4:raise AssertionError('Python area predicate selected the wrong faces')
     if len(cube.comp('f',Branch(True)))!=6 or cube.comp('f',Branch(False)):raise AssertionError('Boolean component selection is incorrect')
-    if cube.comp('f',Branch(3.))[0].comp_info.source_faces!=(3,):raise AssertionError('Numeric component indexing is incorrect')
+    if cube.comp('f',Branch(3.))[0].comp_info.source_indices!=(3,):raise AssertionError('Numeric component indexing is incorrect')
     for value in ('front','back','left','right','top','bottom'):
         if len(cube.comp('f',Branch(value)))!=1:raise AssertionError('Axis-aligned direction count is incorrect')
     for value in ('world.south','world.north','world.west','world.east','world.up','world.down'):
@@ -156,7 +156,7 @@ def selector_controls():
     for value in ('object.front','object.back','object.left','object.right','object.top','object.bottom','street.front','street.back','street.left','street.right'):
         if len(cube.comp('f',Branch(value)))!=1:raise AssertionError('Object/street-fallback direction count is incorrect')
     reject(lambda:cube.comp('f',Branch('unknown')));reject(lambda:cube.comp('f',alignment='unknown'))
-    reject(lambda:cube.comp('e'),NotImplementedError);reject(lambda:Branch('all','unknown'));reject(lambda:select(.5))
+    reject(lambda:cube.comp('m'),NotImplementedError);reject(lambda:Branch('all','unknown'));reject(lambda:select(.5))
     reject(lambda:cube.comp('f',Branch(lambda _:1)));reject(lambda:tagged('Facade.F*'));reject(lambda:bool(select('front')),TypeError)
     return dict(inclination_boundary_controls=len(expected),documented_direction_forms=22,logical_python_predicates=True,invalid_inputs_rejected=8)
 

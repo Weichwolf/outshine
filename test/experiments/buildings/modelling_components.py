@@ -21,9 +21,9 @@ class Branch:
 
 
 @dataclass(frozen=True)
-class FaceQuery:
+class ComponentQuery:
     index: int
-    face: object
+    element: object
     area: float
     normal: tuple
     scope_normal: tuple
@@ -32,6 +32,7 @@ class FaceQuery:
     border: bool
     edge_tags: frozenset
     vertex_tags: frozenset
+    length: float=0.
 
 
 class Surface:
@@ -65,7 +66,7 @@ class Surface:
         edge_tags=frozenset(tag for other in adjacent for tag in self.faces[other].tags)
         vertex_tags=frozenset(tag for other in touching for tag in self.faces[other].tags)
         scope=self.source.scope
-        return FaceQuery(index,face,self.areas[index],tuple(normal),tuple(normal@scope.axes),tuple(normal@scope.object_frame.axes),
+        return ComponentQuery(index,face,self.areas[index],tuple(normal),tuple(normal@scope.axes),tuple(normal@scope.object_frame.axes),
                          scope.size,any(len(self.edge_owners[edge])==1 for edge in edges),edge_tags,vertex_tags)
 
 
@@ -83,15 +84,19 @@ def connected(surface,indices):
 
 
 def split_components(shape,component,branches,alignment):
-    if component!='f':raise NotImplementedError('Only face components are implemented; edge/vertex/group/material/hole components remain pending')
+    if component not in ('f','e','fe','v','fv'):raise NotImplementedError('Material/group/hole components remain pending')
     if alignment not in ('zUp','noAlign'):raise ValueError('Unknown component scope alignment')
     branches=branches or (Branch(),)
     if any(not isinstance(branch,Branch) for branch in branches):raise ValueError('Component rules require Branch objects')
-    surface=Surface(shape);queries=tuple(surface.query(i) for i in range(len(surface.faces)));remaining=set(range(len(queries)));products=[]
+    if component=='f':surface=Surface(shape);count=len(surface.faces);constructor=component_shape
+    else:
+        from modelling_wire_components import WireSet,wire_component_shape
+        surface=WireSet(shape,component);count=len(surface.records);constructor=wire_component_shape
+    queries=tuple(surface.query(i) for i in range(count));remaining=set(range(len(queries)));products=[]
     for branch in branches:
         selector=select(branch.selector)
         indices=tuple(i for i in range(len(queries)) if i in remaining and selector(queries[i]));remaining.difference_update(indices)
         if not indices:continue
         groups=tuple((i,) for i in indices) if branch.operator==':' else (indices,) if branch.operator=='=' else connected(surface,indices)
-        products.extend(component_shape(surface,group,alignment,CompInfo(selector.name,index,len(groups),group)) for index,group in enumerate(groups))
+        products.extend(constructor(surface,group,alignment,CompInfo(selector.name,index,len(groups),group,component)) for index,group in enumerate(groups))
     return tuple(products)
