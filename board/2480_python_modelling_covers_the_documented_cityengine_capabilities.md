@@ -15,7 +15,7 @@ danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Kla
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 Stand 0f54947bc: Scope/Extrusion, `comp(f/e/fe/v/fv/g/m/h)`, Breiten-/Flächenteilung und gemeinsam genutzte Asset-Einfügung;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
-SDK-Inventar, 63 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
+SDK-Inventar, 64 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
 Bildstand 0f54947bc: 38 Bilder (8 innen / 23 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
 Vier neue Einfügungsbilder optisch geprüft; PNG/Profile/Hashes stimmen. 29 Bilder pixelgleich, fünf Pläne ändern nur den Commit-Fußtext.
@@ -102,9 +102,9 @@ Kosten b387226f2: 14 wechselnde Messpaare × 21 Läufe; p50 5,1–9,2 statt 9,5�
 SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/rohe Parts, Repeats und UV-/unitSpace bleiben Lücken.
 `Asset.from_shape`/`Shape.insert`: drei Modi, yUp/zUp und Nullachsen; Scope-Zero 0,1 mm, ausgegebene Mindestabmessung 0,01 mm.
 72 Fälle/Normen/Attribute/Eigentum geprüft; 1.000 Platzierungen p50 53 statt 269–340 ms; Arrays 5,2–5,4 kB statt 5,2–5,4 MB; Vorbereitung/GPU/Frames ausgeschlossen.
-Aktiv: OBJ/glTF-Dateiimport mit Standardbibliothek, Szenentransformen, UVs/Normalen/Materialen; numericalCleanup, Trim und Shadergleichheit offen,
-Dachkanten-Selektoren, Straßenbreiten/Trim-Planes, zusätzliche UV-Kanäle, Normalenkollaps/mergeVertices,
-isolierte PRT-g/m/h-/Edge-/Flat-Top-/Vertexnormal-Regeln und genaue nichtplanare SDK-Ausrichtung.
+`Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
+Quell-/Abhängigkeits-Hashes und kodierte Bilder separat erhalten; g/m/f übernehmen Zusatzkanäle, weitere Bearbeitung meldet unsupported.
+Aktiv prüfen/rendern: vier eigene Dateikontrollen; weitere Formate, Animation/Skin/Morph/Tangenten, Shader, Cleanup und Trim bleiben offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
@@ -117,4 +117,4 @@ Fehlende Messwerte auslassen; Frontend automatisch neu laden.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Verbindung, Pivots und nullgroße Achsen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächen/Kanten, UVs/Tags, signierte Scopes und Mindestspanne.
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm), [SplitArea](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split-area.htm): Umfang/Breiten versus Geometriefläche, Wiederholung und Scope-Anpassung.
-[Manifold-Beziehungen](https://github.com/elalish/manifold/wiki/Manifold-Library): interpolierte Eigenschaften und Original-/Face-IDs; kein Beleg für korrekte Koplanar-Caps im eigenen Adapter.
+[glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html): Normalisierung/Hierarchie; [Trimesh](https://trimesh.org/trimesh.exchange.load.html)/[Pygltflib](https://pypi.org/project/pygltflib/): Standarddecoder, eigene Kanal-/Metadatenadapter.

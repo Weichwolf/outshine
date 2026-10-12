@@ -21,6 +21,8 @@ class Asset:
     minimum: tuple
     name: str=''
     up_axis: str='yUp'
+    import_info: object=None
+    resources: object=None
 
     def __post_init__(self):
         if not isinstance(self.geometry,Geometry) or any(size<0 for size in self.geometry.reference_size):
@@ -48,6 +50,11 @@ class Asset:
         values=np.asarray(size,dtype=float);bounds=np.asarray(self.geometry.reference_size)
         signs=np.where(values<0,-1.,1.)
         return np.where(bounds>GEOMETRY_EPSILON,signs*np.maximum(abs(values),MIN_RENDER_SIZE),1.)
+
+    @classmethod
+    def from_file(cls,path,name='',up_axis='yUp'):
+        from modelling_asset_load import load_asset
+        return load_asset(path,name,up_axis)
 
 
 def adjusted(scope,asset):

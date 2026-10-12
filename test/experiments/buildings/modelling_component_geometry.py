@@ -8,6 +8,7 @@ from modelling_extrude import euler
 from modelling_faces import Face
 from modelling_scope import Frame,Scope
 from modelling_shape import Shape
+from modelling_channels import vertex_channel
 
 
 def face_normals(vertices,faces):
@@ -46,7 +47,7 @@ def subset(mesh,faces,triangle_rows,indices):
     native=dict(vertices=mesh['vertices'][used],faces=np.searchsorted(used,triangles).astype(np.int32))
     for name,array in mesh.items():
         if name in ('vertices','faces','parts'):continue
-        if name in ('uv','normals'):native[name]=array[used]
+        if vertex_channel(name):native[name]=array[used]
         elif name in ('materials','face_tag_mask','groups'):native[name]=array[rows]
         else:raise ValueError('Component selection has no field contract for '+name)
     native['parts']=np.concatenate([np.full(len(triangle_rows[index]),number,dtype=np.int32) for number,index in enumerate(indices)])

@@ -52,6 +52,12 @@ class Geometry:
         for key,value in mesh.items():
             if key=='vertices':continue
             array=np.array(value,copy=True);array.setflags(write=False);fields[key]=array
+        for key,array in fields.items():
+            if key=='uv' or (key.startswith('uv') and key[2:].isdigit()):
+                if array.shape!=(len(vertices),2) or not np.isfinite(array).all():raise ValueError('UV channels require finite pairs per vertex')
+            if key=='vertex_colors':
+                if array.ndim!=2 or array.shape[0]!=len(vertices) or array.shape[1] not in (3,4) or not np.isfinite(array).all():
+                    raise ValueError('Vertex colours require finite RGB/RGBA per vertex')
         if 'normals' in fields and (fields['normals'].shape!=vertices.shape or not np.isfinite(fields['normals']).all()):
             raise ValueError('Authored vertex normals require finite XYZ coordinates per vertex')
         if 'materials' in fields:
@@ -118,6 +124,8 @@ class Shape:
         return wire_shape(vertices,points,normals,scope)
 
     def extrude(self,distance,mode='face.normal'):
+        from modelling_channels import additional_channels
+        if additional_channels(self.geometry):raise NotImplementedError('Extrusion of additional vertex channels remains pending')
         from modelling_extrude import extrude
         return extrude(self,distance,mode)
 
@@ -131,14 +139,21 @@ class Shape:
                 and self.geometry.reference_size==self.asset.geometry.reference_size)
 
     def comp(self,component,*branches,alignment='zUp'):
+        from modelling_channels import additional_channels
+        if component not in ('f','g','m') and additional_channels(self.geometry):
+            raise NotImplementedError('Additional vertex channels in wire/hole components remain pending')
         from modelling_components import split_components
         return split_components(self,component,branches,alignment)
 
     def split(self,axis,*parts,repeat=False,adjust=True,cut_material=None,cut_group=0,max_parts=10000):
+        from modelling_channels import additional_channels
+        if additional_channels(self.geometry):raise NotImplementedError('Splitting additional vertex channels remains pending')
         from modelling_split import split
         return split(self,axis,parts,repeat,adjust,cut_material,cut_group,max_parts)
 
     def split_area(self,axis,*parts,repeat=False,adjust=True,max_parts=10000):
+        from modelling_channels import additional_channels
+        if additional_channels(self.geometry):raise NotImplementedError('Area splitting additional vertex channels remains pending')
         from modelling_area_split import split_area
         return split_area(self,axis,parts,repeat,adjust,max_parts)
 
