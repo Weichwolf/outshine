@@ -13,15 +13,15 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand 0587b922a: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten und `comp(f/e/fe/v/fv/g/m/h)`;
+Stand 725034641: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)` und planare 2D-Teilung;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen.
 52 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Aktuell 30 Bilder: acht innen, 15 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
-Fünf neue Workbench-Kontrollen und zwei metrische Pläne optisch geprüft, 23 bisherige Bilder pixelgleich.
-Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/vier Benchmarks/Katalog/Render/Docs:
-15 Schritte samt Launcher terminal 0 auf 0587b922a. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
+Aktuell 31 Bilder: acht innen, 16 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
+Neuer 2D-Teilungsplan optisch geprüft; 28 bisherige Bilder pixelgleich, zwei Pläne ändern nur den Commit-Fußtext.
+Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/2D-Teilung/Benchmark/Katalog/Render/Docs:
+13 Schritte samt Launcher terminal 0 auf 725034641. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
 
 ## Gemeinsame Verträge
 - Direkte ausführbare Python-Rezepte und gemeinsame Geometriefunktionen, keine JSON-Regelschicht.
@@ -83,8 +83,8 @@ GEOS-Schnittpolygone mit Löchern/Multipart; adjust/noAdjust-Bounds, verschachte
 Flächenteilung nutzt monotone Summen der CDT-Dreiecksflächen; zwischen Eckpunktpositionen ist die Summe quadratisch.
 Direkte Inversion gegen 64-Schritt-Bisektion und wiederholte GEOS-Cuts vergleichen, Quellfläche/Schnittgrenzen erhalten.
 Neun SDK-Größenbeispiele, analytisches Dreieck, 198 GEOS-Flächenintegrale sowie fünf Grundrisse × zwei Achsen geprüft.
-Entwicklungsmessung: 30 Fälle/21 warme Läufe, gesamte 2D-Teilung inklusive Aufbau/Cuts 0,63–1,23 ms p50;
-GEOS-Bisektion 5,10–7,91 ms. Kein nativer Mesh-/UV-/Framebeleg; eingefrorene Bild-/Kostenprüfung folgt.
+Messung 725034641: 30 Fälle/21 warme Läufe, gesamte 2D-Teilung inklusive Aufbau/Cuts 0,61–1,21 ms p50;
+GEOS-Bisektion 4,93–7,52 ms. Maximaler Flächenfehler 3,6e−12 m²; kein nativer Mesh-/UV-/Framebeleg.
 
 ## Offen und nächster Block
 Aktiver Ausbau: `split/splitArea` an `Shape` anbinden; 3D-Mesh-Cuts schließen und UV/Normalen/Material/Tags vererben.
