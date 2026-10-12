@@ -64,7 +64,7 @@ Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indire
   `Material::operator<` vergleicht Shader und bool/int/float/string/Texture-/Pointercontainer, keine bloße Palette-ID.
   121/246/295 Instruktionen, 7/0/0 indirekte Stellen, 0/6/0 außerhalb liegende Blöcke; gesamte Defaults-/Texturgleichheit ungeprüft.
   Komponenten-Dispatch bündelt Materialwerte über Quellen hinweg; Lochzweig invertiert Mesh vor Auswahl der Lochbeziehungen.
-- Aktueller Kernvertrag (2480): eigene `comp(g/m/h)` samt Metadatenvererbung, 2D-/Workbenchbildern und Kostenvergleich prüfen.
+- Aktiver Schnittvertrag (2480): `Mesh::cut`, `cutEdgeFaces` und `splitArea` gezielt untersuchen; Abschlussflächen/UVs/Semantik prüfen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
