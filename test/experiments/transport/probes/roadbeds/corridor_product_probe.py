@@ -114,6 +114,7 @@ def main():
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public-motor requests of the changed corridor and junction, on one shared native mesh; full windows remain required.')
     sources=coupled.implementation_files(Path(__file__))
+    sources+=coupled.implementation_files(Path(coupled.__file__))
     sources+=[Path(coupled.__file__).with_name('geos_triangulation.py').resolve(),
               Path(coupled.__file__).with_name('transport_network_recipes.json').resolve()]
     report['implementation_sha256']={str(p.relative_to(Path.cwd())):coupled.digest(p) for p in sources}

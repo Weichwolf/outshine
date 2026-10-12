@@ -129,6 +129,8 @@ def main():
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public-motor requests of one unchanged-cut owner; source buildings adapted, native body and neighbors checked; complete windows remain required.')
     sources=coupled.implementation_files(Path(__file__))+coupled.implementation_files(Path(__file__).with_name('steering_roadbed_candidate_probe.py'))
+    sources+=coupled.implementation_files(Path(coupled.__file__))
+    sources+=coupled.implementation_files(Path(construct_complete_module.__code__.co_filename))
     sources+=[Path(coupled.__file__).with_name('geos_triangulation.py').resolve(),Path(coupled.__file__).with_name('transport_network_recipes.json').resolve()]
     report['implementation_sha256']={str(p.relative_to(Path.cwd())):coupled.digest(p) for p in set(sources)}
     def encode(value):

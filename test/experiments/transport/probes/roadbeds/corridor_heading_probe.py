@@ -71,6 +71,7 @@ def main():
             break
     args.output.mkdir(parents=True,exist_ok=True)
     sources=coupled.implementation_files(Path(__file__))
+    sources+=coupled.implementation_files(Path(coupled.__file__))
     report=dict(place=name,module=args.module,pair=args.pair,owners=sorted(owners),trials=trials,winner=winner,
                 candidate_budget=args.maximum_candidates,elapsed_ms=(time.perf_counter()-begin)*1000,
                 input_sha256={str(args.prior):coupled.digest(args.prior)},
