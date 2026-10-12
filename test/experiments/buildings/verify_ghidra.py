@@ -28,7 +28,9 @@ def missing_export():
         output.mkdir()
         previous = output/'ghidra-core.json'
         previous.write_text('{"old_reference":true}\n')
-        with patch('esri_ghidra.subprocess.Popen', SuccessfulLauncher), patch('esri_ghidra.sized_targets', return_value={}):
+        with (patch('esri_ghidra.subprocess.Popen',SuccessfulLauncher),
+              patch('esri_ghidra.sized_targets',return_value={}),
+              patch('esri_ghidra.revision',return_value=dict(commit='0'*40,experiment_tree_dirty=False))):
             try:
                 inspect(core, output)
             except RuntimeError as error:

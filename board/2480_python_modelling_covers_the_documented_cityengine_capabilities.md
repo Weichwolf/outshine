@@ -15,7 +15,7 @@ danach moderne/zeitgenössische Architekturrezepte bis zur vollständigen OSM-Kl
 Einzelne konstruktive Python-Verfahren bestehen; ein allgemeiner vollständiger Modellierkern fehlt.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
-30 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+33 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 Eigene Implementierung, keine Übernahme dekompilierten Fremdcodes; SDK 3.4 / PRT 3.3 ausdrücklich unterscheiden.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 
@@ -52,5 +52,13 @@ Als Nächstes gemeinsame Shape-/Scope-Semantik samt den bereits untersuchten Tra
 den ersten vollständigen öffentlichen Python-Vertrag an einem sichtbaren Modellierbeispiel integrieren.
 Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation erhält den Mittelpunkt;
 `s` setzt absolute/relative Größen einschließlich Spiegelung. Geteilte Geometrie erst zur Ausgabe transformieren.
-Ghidra-Vertiefung: Translation und beide Rotationsdispatches; nichtkommutierende Rotationen und schiefe Pivots als Gegenfälle.
+`modelling_scope`/`modelling_shape`: eigene Scope-/Frame-/Triangle-Asset-Typen und direkte Python-Operationen;
+`t`, `r`, `s`, `translate` mit dokumentierten Formen, geteilte unveränderliche Geometrie, Ausgabe erst nach den Operationen.
+Neun Kontrollgruppen inkl. nichtkommutierender Rotationen, schiefer Pivots, Mittelpunkt/Spiegelung, UV/Besitz/Normalen;
+zwei ausführbare PRT-Translationen erhalten Lochfläche. Kein isoliertes PRT-Rotations-/Skalierungsorakel vorhanden.
+Polygon-/Kanten-/Punktkonstruktoren, singuläre authored-Normalen und undokumentierter Floating-Selector bleiben offen.
+`modelling_scope_probe`: gleiche fünf Transformationen, sofortige Vertexarbeit gegen abschließende Ausgabe;
+fünf räumliche Kontrollbilder und metrischer Grundriss am gespeicherten Hauskontrollkörper, keine neuen OSM-Rezepte.
+Ghidra 43d5485f6: `r` addiert drei gespeicherte Zahlen; Zentrumdispatch ruft vor/nach Änderung Unit-Cube→Pivot-Matrizen auf.
+43/54/161 Instruktionen, keine indirekten Stellen; ein außerhalb liegender Zentrumblock. Translation delegiert nach Skalenauswertung an `Shape::translate`.
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.

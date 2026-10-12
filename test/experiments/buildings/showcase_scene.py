@@ -102,6 +102,10 @@ def context_scene(site,focal,output,group):
 
 def fitted(mesh,profile,opposite=False,city=False):
     points=mesh['vertices'][np.unique(mesh['faces'])]
+    return fitted_points(points,profile,opposite,city)
+
+
+def fitted_points(points,profile,opposite=False,city=False):
     low,high=points.min(axis=0),points.max(axis=0)
     centre=(low+high)/2
     direction=np.array([-1.,1.,1.3] if opposite else [1.,-1.,1.3 if city else .8])

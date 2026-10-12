@@ -2,8 +2,8 @@
 const $ = id => document.getElementById(id);
 const integer = value => new Intl.NumberFormat('de-CH').format(value);
 const short = value => (value || 'unbekannt').slice(0, 9);
-const viewNames = {all:'Alle',near:'Gesamtansicht',orbit:'Gegenansicht',window:'Fenster',entrance:'Eingang',overview:'Übersicht'};
-const metrics = {triangles:['Mesh · Dreiecke',1,'Dreiecke'],raw_mesh_bytes:['Mesh · MiB',1/1048576,'MiB'],render_seconds:['Offline-Render · s',1,'s']};
+const viewNames = {all:'Alle',near:'Gesamtansicht',orbit:'Gegenansicht',window:'Fenster',entrance:'Eingang',overview:'Übersicht',scope:'Scope-Kontrollen',plan:'Grundriss'};
+const metrics = {triangles:['Mesh · Dreiecke',1,'Dreiecke'],raw_mesh_bytes:['Mesh · MiB',1/1048576,'MiB'],render_seconds:['Bilderzeugung · s',1,'s']};
 let manifest, page, filter = 'all', metric = 'triangles';
 
 function element(tag, text, className) {
