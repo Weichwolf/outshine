@@ -14,7 +14,7 @@ Aus Quellgraph/Nutzungsbilanz (2342) entstehen zusammenhängende Straßen-, Wege
 mit funktionalen Verbindungen. Besitzer: Transport/generators/road; Bereichsgrenzen: 2342, nativer Plan: 2281.
 [Flächenplan](../test/experiments/transport/transport_flat_surface_network.py) und
 [Ports](../test/experiments/transport/transport_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
-Ebenen-0-Fenster mit 1 km Radius: Wien 904/909 (`3bc76969d`), Zürich 4774/4808 (`03af0cec8`).
+Ebenen-0-Fenster mit 1 km Radius: Wien 906/909 (`4bd706af6`), Zürich 4774/4808 (`03af0cec8`).
 Basel 2962/2962 (`5ab84801f`); frühere Verbesserungen erhalten, keine zusätzlichen schwachen/starken Netztrennungen.
 Nur Auto-Fenster belegt. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -88,7 +88,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Alle früheren Fahrten im Gesamtfenster erhalten. Nächste Lücken: Wien 1480 vier Fahrten, 1066 eine Fahrt; Zürich 2134: 60→1369 m.
+   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Alle früheren Fahrten im Gesamtfenster erhalten. Nächste Lücken: Wien 1480 zwei Fahrten, 1066 eine Fahrt; Zürich 2134: 60→1369 m.
    [Gekoppelte Wendeplätze](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): nur betroffene Nachbarn neu lösen; Quintik-Zufahrten erhalten G2 auch hinter Quellbiegungen. Wien 659: Schnitte 8 m nach außen, +111,7 m², keine Gebäudekonflikte.
    Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
    [Breitere Ports](../test/experiments/transport/transport_court_partition.py) auf festen Schnittebenen verteilen neue Fläche einmal; Bestand/Quellkontakte erhalten.
@@ -100,10 +100,10 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
    [Lenkpfad → Mesh](../test/experiments/transport/probes/roadbeds/steering_roadbed_product_probe.py):
-   [Direkte G2-Spurbögen](../test/experiments/transport/probes/roadbeds/rounded_lane_loop_probe.py): Wien 1480 lokal 11/13 statt 9/13; zwei Fußwegübergänge auf vorhandener Geometrie, keine privaten Wege/Bahn nutzen. Erstauflösung und frischer Ladeprozess geprüft; Gesamtfenster offen.
+   [Direkte G2-Spurbögen](../test/experiments/transport/probes/roadbeds/rounded_lane_loop_probe.py): Wien 1480 lokal 11/13 statt 9/13; zwei Fußwegübergänge auf vorhandener Geometrie, keine privaten Wege/Bahn nutzen. Erstauflösung, frischer Ladeprozess und Gesamtfenster geprüft; Fußweggeometrie erhalten.
    Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
-   Wien: 13 neu aufgebaute Produkte; alle früheren Produktfahrten und neun Einzelverbesserungen erhalten, 904 statt 900 direkte Fahrten.
-   Fensterprüfung mit vorbereiteten Produkten auf einem Core: Wien 17,2 s, Basel 16,5 s; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.
+   Wien: 13 neu aufgebaute Produkte; alle früheren Produktfahrten und acht verbliebene Einzelverbesserungen erhalten, 906 direkte Fahrten.
+   Fensterprüfung mit vorbereiteten Produkten auf einem Core: Wien 14,4 s, Basel 16,5 s; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
 3. Kosten pro Modul/Verbindung, Speicher und Skalierung vergleichen; nachgewiesen unnötige Sucharbeit beseitigen.
