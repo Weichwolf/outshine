@@ -47,6 +47,7 @@ Bilder: build/shots/experiments/transport/.
    auf feste Spurstrahlen projizieren; unterschiedliche Spurversätze vor Kurvenbau berücksichtigen.
    [Direkte G2-Spurbögen](../test/experiments/transport/probes/roadbeds/rounded_lane_loop_probe.py)
    und [Wendekerne](../test/experiments/transport/probes/roadbeds/inset_turning_core_probe.py) zuerst prüfen.
+   Einzelne Quellbögen über den positiven Schnitt beider fester Spurstrahlen konstruieren; parallele/rückwärtige Fälle ablehnen.
 2. [Quintische Routen](../test/experiments/transport/transport_spline_routes.py) nutzen bis 66 Punkte;
    [Quellketten](../test/experiments/transport/transport_route_turns.py) höchstens 64 Ecken,
    drei Posen/Ecke, acht Nachfolger/Pose. [Korridore](../test/experiments/transport/transport_corridor_experiment.py)
@@ -72,6 +73,7 @@ Bilder: build/shots/experiments/transport/.
    vor Veröffentlichung vollständig prüfen; Aufweitung bleibt an der ursprünglichen Fläche begrenzt.
 6. Vor Triangulation kanonisch normalisieren. [Konforme Kanten](../test/experiments/transport/transport_conforming_triangles.py)
    teilen an vorhandenen Vertices. Rundungsreste höchstens 64·eps·max(1,|Koordinate|) m; echte Risse erhalten.
+   Rundungsreste komponentenweise erodieren; numerische MultiPolygon-Puffer dürfen keinen realen Flächenverlust vortäuschen.
    Neu abgetrennte Resttaschen nur unreserviert, ≤1 m² und ohne 1 m Innenbreite schließen/bilanzieren;
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 

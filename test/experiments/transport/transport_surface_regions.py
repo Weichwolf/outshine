@@ -17,6 +17,11 @@ def polygonal_region(geometry):
     return result
 
 
+def has_resolvable_interior(geometry,roundoff):
+    parts=shapely.get_parts(polygonal_region(geometry))
+    return bool(np.any(~shapely.is_empty(shapely.buffer(parts,-roundoff,quad_segs=16))))
+
+
 def canonical_grid_region(geometry,quantum):
     if not np.isfinite(quantum) or quantum<=0:raise ValueError('surface quantum must be finite and positive')
     source=shapely.set_precision(geometry,0,mode='pointwise')
@@ -25,7 +30,7 @@ def canonical_grid_region(geometry,quantum):
     scale=max(1.,float(np.abs(shapely.get_coordinates(source)).max(initial=0)))
     roundoff=64*np.finfo(float).eps*scale
     assert difference.area<=roundoff*source.length,'grid normalization changes significant area'
-    assert difference.buffer(-roundoff).is_empty,'grid normalization changes a real-width feature'
+    assert not has_resolvable_interior(difference,roundoff),'grid normalization changes a real-width feature'
     return result
 
 

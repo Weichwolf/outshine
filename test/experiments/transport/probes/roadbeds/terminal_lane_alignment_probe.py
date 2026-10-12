@@ -23,7 +23,13 @@ def terminal_lane_guide(source,entry,exit):
     unit=delta/lengths[:,None]
     angles=np.arctan2(unit[:-1,0]*unit[1:,1]-unit[:-1,1]*unit[1:,0],np.sum(unit[:-1]*unit[1:],axis=1))
     points=points[np.r_[True,np.abs(angles)>1e-7,True]]
-    assert len(points)>=4,'terminal lane recipe requires separate source bends'
+    assert len(points)>=3,'terminal lane recipe requires a source bend'
+    if len(points)==3:
+        rays=np.c_[entry['heading'],exit['heading']]
+        assert abs(np.linalg.det(rays))>1e-8,'single source bend has parallel terminal rays'
+        a,b=np.linalg.solve(rays,exit['position']-entry['position'])
+        assert min(a,b)>0,'source bend lies outside the terminal approach rays'
+        return np.array([entry['position'],entry['position']+a*entry['heading'],exit['position']])
     a=(points[1]-entry['position'])@entry['heading'];b=(exit['position']-points[-2])@exit['heading']
     assert min(a,b)>0,'source bends lie outside the terminal approach rays'
     points[1]=entry['position']+a*entry['heading'];points[-2]=exit['position']-b*exit['heading']

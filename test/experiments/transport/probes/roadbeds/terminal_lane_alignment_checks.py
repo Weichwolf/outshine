@@ -26,10 +26,29 @@ def verify():
     moved=terminal_lane_guide(shapely.transform(source,transform),*poses)
     assert np.allclose(moved,transform(points),atol=1e-10,rtol=0)
     try:terminal_lane_guide(shapely.LineString([[0,0],[0,10],[10,10]]),entry,exit)
-    except AssertionError as error:assert str(error)=='terminal lane recipe requires separate source bends'
-    else:raise AssertionError('a single bend was treated as two independent terminal bends')
+    except AssertionError as error:assert str(error)=='single source bend has parallel terminal rays'
+    else:raise AssertionError('parallel terminal rays were treated as independent terminal bends')
     return dict(unequal_lane_offsets=True,fixed_rays=True,interior_bends_retained=True,
-                rigid_transform=True,g2_radius_checked=True,single_bend_rejected=True)
+                rigid_transform=True,g2_radius_checked=True,parallel_single_bend_rejected=True)
 
 
-if __name__=='__main__':print(json.dumps(verify()))
+def verify_single_bend():
+    source=shapely.LineString([[-1,0],[-1,10],[10,10]])
+    entry=dict(position=np.zeros(2),heading=np.array([0.,1.]))
+    exit=dict(position=np.array([10.,10.]),heading=np.array([1.,0.]))
+    points=terminal_lane_guide(source,entry,exit)
+    assert np.allclose(points,[[0,0],[0,10],[10,10]])
+    controls=rounded_polyline(points,4.2,.5,entry,exit)
+    assert continuous_spline_joins(controls) and curve_bounds(controls)[2].max()<.25
+    rotation=np.array([[0.,-1.],[1.,0.]]);offset=np.array([1000.,-700.])
+    transform=lambda xy:xy@rotation+offset
+    moved=[dict(position=transform(p['position']),heading=p['heading']@rotation) for p in (entry,exit)]
+    assert np.allclose(terminal_lane_guide(shapely.transform(source,transform),*moved),transform(points),atol=1e-10,rtol=0)
+    wrong=dict(position=np.array([-10.,10.]),heading=np.array([1.,0.]))
+    try:terminal_lane_guide(source,entry,wrong)
+    except AssertionError as error:assert str(error)=='source bend lies outside the terminal approach rays'
+    else:raise AssertionError('backward terminal approach accepted')
+    return dict(single_bend_offsets=True,single_bend_rigid_transform=True,single_bend_g2_radius=True,backward_ray_rejected=True)
+
+
+if __name__=='__main__':print(json.dumps(verify()|verify_single_bend()))
