@@ -18,8 +18,8 @@ Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null voll
 SDK: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen.
 58 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Aktuell 30 Bilder: acht innen, 15 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
-Zwei neue offene Fassadenansichten optisch geprüft; 26 Bilder pixelgleich, zwei Pläne ändern nur den Commit-Fußtext.
+Bildstand fab8b627a: 30 Bilder (8 innen / 15 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
+Alle Bilder neu und optisch geprüft; Pläne bis 1932×2070. PNG/Profile/Hashes geprüft, Kameras und neun Geometriepakete unverändert.
 Scope/Extrusion/Komponenten/Ghidra/Kamera/2D-/3D-Teilung/Benchmarks/Massierung/60-Teile-Vergleich/Katalog/Render/Docs:
 17 Schritte samt Launcher terminal 0 auf a256e35da. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
 
