@@ -32,10 +32,12 @@ und Fahrzeughüllen bleiben offen; Zugangsregeln allein beweisen keine Befahrbar
 ## Bereichsgrenzen und parallele Arbeit
 Transport besitzt Straßen/Wege/Schienen samt verkehrsbezogenen Brücken, Tunneln und Ports.
 Buildings (2173) und Vegetation (2111) werden unabhängig parallel entwickelt.
+Dieser Agent bearbeitet Transport auf master; Buildings/Vegetation arbeiten auf eigenen Git-Branches.
 Gemeinsame OSM-Aufbereitung erhält Quellidentitäten/Tags; keine getrennten Quellsilos.
 Transport publiziert belegte Flächen, Höhenintervalle, Freiräume und Zugangskontakte.
 Buildings besitzt Baukörper/Durchgänge; Vegetation besitzt Standorte/Wuchsformen.
 Beide konsumieren diese räumlichen Verträge statt Verkehrsgeometrie erneut zu lösen.
+Transport fordert Gebäudedurchgänge und vegetationsfreie Räume an; deren Umsetzung bleibt beim jeweiligen Besitzer.
 Gebäudekonflikte im Transportexperiment prüfen nur den Vertrag, nicht Gebäuderezepte.
 Eine Quelle darf mehrere Produkte beeinflussen; world bleibt frei von OSM-Semantik.
 

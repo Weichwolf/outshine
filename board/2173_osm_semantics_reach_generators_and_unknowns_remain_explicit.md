@@ -20,13 +20,14 @@ Gelieferte Nutzung geht vor; Sonderformen und weitere Rezeptfamilien bleiben aus
 
 ## Besitzer und Lieferung
 Buildings wird parallel zu Transport entwickelt; gemeinsame Bereichs-/Freiraumverträge stehen in 2342.
+Ein eigener Agent entwickelt Buildings auf einem separaten Git-Branch; Transport bleibt bei 2342–2345/2281.
 Buildings besitzt Baukörper/Durchgänge, nicht den Verkehrsnetzsolver; gelieferte Ports bleiben erhalten.
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.
 world/Renderer konsumieren native Assets ohne Tags/Generator-Eingabeverträge. 2336 besitzt LOD.
 Zuerst vollständige Formen/Höhen/Sonderklassen in Wien/Rosenheim, danach Dächer und Nahöffnungen.
 Asset-Rohlinge (2280) enthalten ergänzten Typ, Höhe, Dach, Material und Fassadenplan/Seed.
 Cachehits laden diese Basis; Nahdetails entstehen budgetiert daraus ohne Quellen oder neues Raten.
-2281 liefert Infrastruktur vor Gebäudeplatzierung: Zugänge, Straßenkanten und Bezugshöhen.
+2281 liefert Transport vor Gebäudeplatzierung: Zugänge, Straßenkanten und Bezugshöhen.
 Fehlender Vertrag: native Korridorflächen/Höhenintervalle und überdachte Verkehrsfreiräume aus 2281.
 Grundriss gegen geplante Fahrbahn/Gehwege/Seitenraum räumlich vorauswählen; konfliktfreie Bauten unverändert.
 GEOS-2D-Differenz gegen Weglassen vergleichen: betroffener Flächenanteil und brauchbare Restform entscheiden.
@@ -37,7 +38,7 @@ Tunnel-/Durchfahrtvolumen schneidet nur betroffene Geschosshöhen; Boden, Leibun
 Innenringe/geschlossene Baublöcke plus Wegzyklen liefern Hofkandidaten, kein automatisches Kreisverkehr-Rezept.
 Durchgänge anhand gelieferter Tunnel/Überdeckung und fortgesetzter Wege planen; Zugang/Verkehrsart erhalten.
 Brauchbare Restkörper samt Höfen/Parts, Tags/Herkunft behalten; unbrauchbare Reste dürfen entfallen.
-Native Rohlinge binden den Infrastrukturplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
+Native Rohlinge binden den Transportplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
 [2D-Vergleich](../test/experiments/transport/transport_building_clearance.py): GEOS mit räumlicher Vorauswahl
 gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. Höhen-/Hallplan noch offen.
 
@@ -111,6 +112,6 @@ gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. H
 begrenzte Regeln aus wenigen Parametern, keine universelle Grammatikengine. [Weitere Quellen](../doc/references/README.md).
 
 ## Abnahme
-Wien/Feldkirch: vollständige, an Infrastruktur angepasste Baukörper/Höfe/Parts. Rosenheim/Flensburg: passende Sonderklassen,
+Wien/Feldkirch: vollständige, an Transport angepasste Baukörper/Höfe/Parts. Rosenheim/Flensburg: passende Sonderklassen,
 plausible Dächer. Nahöffnungen räumlich, Fernstadt stabil/gebündelt; kein Aufbau unsichtbarer Details.
 Assethit wiederholt keine Anreicherung. Bildgewinn und Kosten gemeinsam im AGENTS-Profil prüfen.

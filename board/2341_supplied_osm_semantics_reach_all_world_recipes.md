@@ -31,7 +31,7 @@ world konsumiert native Produkte. Keine Quellsemantik in Engine/Renderer.
 Gemeinsame Primitive und Parametrierung statt eines Generators je Tagwert.
 
 ## Umsetzung und Priorität
-1. Semantik mit der jeweils aktiven Rezeptfamilie integrieren; aktuell Infrastruktur gemäß
+1. Semantik mit der jeweils aktiven Rezeptfamilie integrieren; aktuell Transport gemäß
    2342–2345, danach weitere Bild-/Spielinhalte gemäß 2169. Vegetation bleibt später.
    Fehlende Eigenschaften blockieren keine vorhandene Rezeptfamilie.
 2. Alle gelieferten Quell-Layer/Attribute auf SSD erhalten. Relevante Felder erreichen

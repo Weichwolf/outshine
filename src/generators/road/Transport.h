@@ -1,5 +1,5 @@
-#ifndef OUTSHINE_GENERATORS_ROAD_INFRASTRUCTURE_H
-#define OUTSHINE_GENERATORS_ROAD_INFRASTRUCTURE_H
+#ifndef OUTSHINE_GENERATORS_ROAD_TRANSPORT_H
+#define OUTSHINE_GENERATORS_ROAD_TRANSPORT_H
 
 #include <span>
 #include <optional>
@@ -10,7 +10,7 @@
 
 namespace outshine::Generators {
 
-class Infrastructure : public Making {
+class Transport : public Making {
 public:
   struct Made {
     int32_t CoverRow = -1;

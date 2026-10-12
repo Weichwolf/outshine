@@ -54,7 +54,7 @@ Messdetails/Einheiten bei 2280; Verfahrensentscheidung bei 2336. Weitere Befunde
 | P1 | Breiter OSM-Lieferumfang erreicht die Welt nur teilweise | Vorhandene Klassen in Formen, Materialien und Belegung integrieren; fehlende Angaben plausibel ergänzen, 2341 |
 | P1 | Fels/Fassaden/Licht bleiben flach und repetitiv | Gemeinsame Form/Material-/Lichtkomposition, 2337/2171/2155 |
 | P1 | Öffentliche Erweiterungen umgehen dieselbe Bedarf-/Produktkette | Generische Welt, Generatorplanung, native Verträge, 2188 |
-| später | Wälder POC; Umwelt und bewegte Sandbox fehlen | Nach Gebäude/Terrain/Infrastruktur: 2111, 2172, 2136 |
+| später | Wälder POC; Umwelt und bewegte Sandbox fehlen | Nach Gebäude/Terrain/Transport: 2111, 2172, 2136 |
 
 Typische Last ist eine bewegte Spielwelt: Kamera, Figuren/Fahrzeuge, Wind, lokale Lichter und
 Wolkenschatten. Statische Form/Material dürfen wiederverwendet werden; ihre fertige Beleuchtung
@@ -63,7 +63,7 @@ ist dadurch nicht statisch. Die Place-Drehung ist ein Integrationsfall, kein Ers
 ## Priorität und Lieferung
 | Reihenfolge | WI | Nächster sichtbarer Nutzen |
 |---|---|---|
-| 1 Infrastruktur | 2281, 2145, 2338 | Zusammenhängende Straßen, Schienen und Wege; Brückenebenen, Profile und sichere Kontakte |
+| 1 Transport | 2281, 2145, 2338 | Zusammenhängende Straßen, Schienen und Wege; Brückenebenen, Profile und sichere Kontakte |
 | 2 Gebäude | 2173, 2336, 2171 | Vollständige Formen/Höhen, Dächer, lesbare Fassaden; Großstadt-LOD |
 | 3 Terrain | 2337, 2171 | Plausibles Relief, Fels-/Bodenmaterial statt grüner Kunststoffflächen |
 | 4 Vegetation | 2111 | Vollständige performante Wälder bis zu räumlichem Nahlaub |
@@ -75,6 +75,7 @@ Lieferungen integriert. Gemessene Einsparungen schaffen das Wolkenbudget; keine 
 von Profil, Sichtweite, Inhaltsvollständigkeit oder Framebudget.
 
 ## Reihenfolge und Zuständigkeit
+Transport, Buildings und Vegetation haben getrennte Agenten; ihre gemeinsamen Verträge stehen in 2342.
 2342/2343 liefern den ebenen Vektorplan samt Nutzungsbilanz und gemeinsamen Bauteilen/Ports.
 2344 liefert Profile, 2345 Ebenenrezepte; jeweiliger Vertrag vor Ausbau, Python-Bilder vor nativer Übertragung.
 Plausibilität, Ästhetik und Funktion im Budget entscheiden; ungelöste lokale Teile werden ausgewiesen.

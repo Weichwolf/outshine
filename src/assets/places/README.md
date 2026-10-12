@@ -1,4 +1,4 @@
-# Webcam-Places und Infrastruktur-/Dichtebenchmarks
+# Webcam-Places und Transport-/Dichtebenchmarks
 
 Der Standardkatalog enthält Rosenheim, Flensburg, DarmstadtWest, Wien, Husum, Feldkirch,
 Malcesine und Koerbersee. `references.json` verknüpft Kamera, Archivaufnahme und Herkunft.

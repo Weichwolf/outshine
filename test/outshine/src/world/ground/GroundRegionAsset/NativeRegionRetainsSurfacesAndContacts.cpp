@@ -31,7 +31,7 @@ int main() {
   auto part = region.Surfaces.addPart("bridge", *surface);
   CHECK(part && region.Surfaces.setPositions(*part, positions) &&
             region.Surfaces.setTriangles(*part, indices),
-        "native infrastructure geometry is created");
+        "native transport geometry is created");
   auto grid = std::make_shared<ClassStructure::Grid>();
   grid->W = 1;
   grid->H = 1;

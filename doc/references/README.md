@@ -7,7 +7,7 @@ vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
 Die folgenden Empfehlungen sind Architekturentscheidungen für die Feature-WIs;
 eine Literaturquelle ersetzt weder Integration noch Bild- und Laufzeitbelege.
-Reihenfolge aus WI 2169: Gebäude → Terrain → Infrastruktur → Vegetation → Wolken;
+Priorität aus WI 2169: Transport → Gebäude → Terrain → Vegetation → Wolken;
 Simulation und Gameplay folgen dem visuellen Meilenstein.
 
 ## PDFs und Nutzung

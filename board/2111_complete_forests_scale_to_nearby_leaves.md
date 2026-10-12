@@ -22,6 +22,7 @@ und freie Standorte bleiben erhalten. Der vollständige Wald-Ausbau bleibt spät
 
 ## Besitzer und Datenfluss
 Vegetation wird parallel zu Transport/Buildings entwickelt; gemeinsame Bereichsgrenzen stehen in 2342.
+Ein eigener Agent entwickelt Vegetation auf einem separaten Git-Branch; Netz-/Baukörperrezepte bleiben bei ihren Besitzern.
 Standorte/Wuchsformen respektieren deren belegte Flächen und Freiräume, ohne Verkehrs-/Baukörper neu zu lösen.
 OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte
 Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes auf.
@@ -33,7 +34,7 @@ Qualität/Kosten. Standortauswahl und Prototypintegration warten nicht auf desse
 2172 liefert später Wetter/Jahreszustand, 2136 physikalische Biegung.
 
 ## Reihenfolge
-Gebäude/Terrain/Infrastruktur bleiben Schwerpunkt (2169). Vegetation wird inzwischen graduell
+Gebäude/Terrain/Transport bleiben Schwerpunkt (2169). Vegetation wird inzwischen graduell
 verbessert, mit gemessener Kostenkorrektur und jederzeit deaktivierbarem Szenarioprofil.
 Menge/Detail gehören ins Szenario (2188), keine Inhalts-CLI-Schalter. Dichte folgt plausibler
 Belegung; freies Budget verbessert Form, Nahdetail und Schatten statt bloß Baumzahlen.

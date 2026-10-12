@@ -39,7 +39,7 @@ Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-
    [Liefermodell](../test/experiments/transport/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
    Gebäude-Anfragen finden Basis/Inhalts-ID vor Straßen-Digests. Native OSM-Kacheln werden vor
    Provider/MVT auf dem Compute-Worker geladen; Geometrie/Klassifizierung teilen den Pfad.
-   P0: GroundRegionParameters bindet exakte Augen-/Ankerposition. Kanonische Kachel-/LOD-Produkte statt Verbundneubau bei Bewegung; Infrastrukturpläne aus 2281 integrieren.
+   P0: GroundRegionParameters bindet exakte Augen-/Ankerposition. Kanonische Kachel-/LOD-Produkte statt Verbundneubau bei Bewegung; Transportpläne aus 2281 integrieren.
    Teilstände treffen keinen vollständigen Bedarf; vorhandene Pakete werden atomar gebunden.
    Native Klassen vor Feldern laden und Abdeckung über Übergaben halten; Hits sparen globale Straßenfelder.
    P0: Gebäude-Höhenbedarf vor Felddecode nach räumlichem Detailbedarf wählen; Fernbauten fordern bisher pauschal feinste DEM-Kacheln. Kachelpläne aus 2281/2336 liefern Bedarf, keine globale Feinabdeckung.
@@ -63,10 +63,10 @@ Generatoren teilen Geometrie-/Netzcodecs; GPU-Handles bleiben flüchtig. Kein Un
 - Gebäude: Typ, vollständige Höhen/Dachparameter, Grundrisse/Parts/Höfe, Terrainkontakt,
   Material-/Fassadenpläne/Seeds, einfache Hüllen und geeignete LOD-/Verbandsprodukte.
   Laibungen, Rahmen, Dachdetails und andere Nahgeometrie dürfen daraus zur Laufzeit entstehen.
-- Terrain/Infrastruktur: vorbereitete Höhen/Kontakte, Mesh-/Materialprodukte samt Nachbar-/LOD-
+- Terrain/Transport: vorbereitete Höhen/Kontakte, Mesh-/Materialprodukte samt Nachbar-/LOD-
   Anschlüssen. Kein erneuter DEM-/MVT-Decode oder Straßen-/Terrainaufbau bei Assettreffern.
 - Vegetation: Bestands-/Instanzdaten, gemeinsame Prototypen mit LODs, Material/Alpha-Mips,
-  Windparameter und Fernverbände. 2111 bleibt nach Gebäuden/Terrain/Infrastruktur.
+  Windparameter und Fernverbände. 2111 bleibt nach Gebäuden/Terrain/Transport.
 - Kompakte, deviceunabhängige Renderprodukte; kein Fine-Mesh je Fernhaus/Prototypkopie je Instanz. Licht, Wetterantwort und dynamische Pose bleiben aktuell.
 ## Index und Laden
 1. Gemeinsamer Index unterstützt Frustum und Radius R um Weltposition x,y,z. Konservative Bounds

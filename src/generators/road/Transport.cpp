@@ -1,5 +1,5 @@
 #include <span>
-#include "Infrastructure.h"
+#include "Transport.h"
 #include <array>
 #include <optional>
 #include <cstddef>
@@ -7,14 +7,13 @@
 
 namespace outshine::Generators {
 
-std::span<const char *const> Infrastructure::NoteNames() const noexcept {
+std::span<const char *const> Transport::NoteNames() const noexcept {
   static constexpr std::array<const char *const, kNotes> kNames = {"ways", "widestWayM"};
   static_assert(EveryNoteNamed(kNames), "every Note carries a name and none of them is empty");
   return {kNames.data(), kNames.size()};
 }
 
-std::optional<Infrastructure::Made> Infrastructure::MadeAt(const Ground &ground,
-                                                           EastNorth at) noexcept {
+std::optional<Transport::Made> Transport::MadeAt(const Ground &ground, EastNorth at) noexcept {
   const double eastM = at.EastM;
   const double northM = at.NorthM;
   const FeatureField &features = ground.Features();
@@ -35,7 +34,7 @@ std::optional<Infrastructure::Made> Infrastructure::MadeAt(const Ground &ground,
   return made;
 }
 
-void Infrastructure::Occupy(const Ground &ground, Yield &yield) const noexcept {
+void Transport::Occupy(const Ground &ground, Yield &yield) const noexcept {
   const FeatureField &features = ground.Features();
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
