@@ -19,7 +19,8 @@ from transport_junction_surfaces import same_island_winding
 from transport_roadbed_island_cleanup import close_split_pockets
 from transport_spline_routes import checked_spline_path
 from transport_turn_roadbed_experiment import mesh_coverage
-from transport_turn_roadbeds import roadbed_site_check,roadbed_lateral_reach
+from transport_turn_roadbeds import roadbed_site_check,roadbed_lateral_reach,geometry_precision
+from transport_surface_regions import canonical_grid_region,polygonal_region
 
 
 def source_buildings(receipt,region):
@@ -53,9 +54,12 @@ def candidate(data,note):
         assert np.linalg.norm(tangent)>0
         assert np.allclose(tangent/np.linalg.norm(tangent),pose['heading'],atol=1e-8,rtol=0),'seed tangent differs from its source contact'
     floor,reserved,source=(shapely.from_wkb(data[k]) for k in ('surface','reservations','source_route'))
+    quantum=geometry_precision(floor)
+    floor,reserved=(canonical_grid_region(g,quantum) for g in (floor,reserved))
     support,construction=spline_roadbed(controls,vehicle,error)
     assert support is not None,construction
-    support=support.difference(reserved).intersection(floor.buffer(roadbed_lateral_reach(vehicle)))
+    support=canonical_grid_region(support,quantum)
+    support=polygonal_region(support.difference(reserved).intersection(floor.buffer(roadbed_lateral_reach(vehicle))))
     support,pockets=close_split_pockets(floor,support,reserved)
     planned,addition,reason=roadbed_site_check(support,floor,reserved,vehicle,error)
     assert reason is None,reason
