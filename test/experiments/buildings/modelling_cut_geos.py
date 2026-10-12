@@ -5,6 +5,7 @@ import shapely
 
 from modelling_cut_topology import logical_faces
 from modelling_faces import Face,EXTRUSION_TAGS
+from modelling_vector import cross3
 
 
 class Slab:
@@ -13,10 +14,11 @@ class Slab:
         self.direction=source.shape.scope.axes[:,axis]*(1. if source.shape.scope.size[axis]>=0 else -1.)
         self.origin=source.shape.scope.origin;self.material=material;self.group=group
         self.points={int(root):source.properties[root,:3].copy() for root in np.unique(source.roots)}
+        self.positions={root:float((point-self.origin)@self.direction) for root,point in self.points.items()}
         self.next=max(self.points)+1;self.intersections={};self.tolerance=max(1e-10,abs(source.shape.scope.size[axis])*1e-12)
         self.properties=[];self.roots=[];self.keys=[];self.templates={};self.omitted=set()
 
-    def position(self,root):return float((self.points[root]-self.origin)@self.direction)
+    def position(self,root):return self.positions[root]
 
     def intersection(self,a,b,wa,wb,triangle,bound):
         support=np.flatnonzero((wa+wb)>1e-12)
@@ -30,6 +32,7 @@ class Slab:
             point=self.points[first]+(self.points[last]-self.points[first])*t
             point-=((point-self.origin)@self.direction-bound)*self.direction
             root=self.next;self.next+=1;self.points[root]=point;self.intersections[key]=root
+            self.positions[root]=float((point-self.origin)@self.direction)
         return self.intersections[key],weights
 
     def clip(self,vertices,triangle,bound,side):
@@ -43,17 +46,17 @@ class Slab:
 
     def append(self,roots,properties,key,template,index):
         points=np.asarray([self.points[root] for root in roots])
-        if np.linalg.norm(np.cross(points[1]-points[0],points[2]-points[0]))<=1e-12:return
+        if np.linalg.norm(cross3(points[1]-points[0],points[2]-points[0]))<=1e-12:return
         self.roots.extend(roots);self.properties.extend(np.c_[points,np.asarray(properties)])
         self.keys.append(key);self.templates[key]=(template,index)
 
     def surfaces(self):
         for row,triangle in enumerate(self.source.triangles):
             roots=[int(self.source.roots[i]) for i in triangle];points=np.asarray([self.points[root] for root in roots])
-            normal=np.cross(points[1]-points[0],points[2]-points[0]);normal/=np.linalg.norm(normal)
+            normal=self.source.geometric_normals[row]
             coordinates=np.asarray([self.position(root) for root in roots]);index=int(self.source.triangle_parts[row])
-            if (np.all(abs(coordinates-self.low)<=self.tolerance) and normal@self.direction>0) or (
-                np.all(abs(coordinates-self.high)<=self.tolerance) and normal@self.direction<0):
+            if self.source.closed and ((np.all(abs(coordinates-self.low)<=self.tolerance) and normal@self.direction>0) or (
+                np.all(abs(coordinates-self.high)<=self.tolerance) and normal@self.direction<0)):
                 self.omitted.add(index);continue
             polygon=list(zip(roots,np.eye(3)));polygon=self.clip(polygon,triangle,self.low,1)
             if polygon:polygon=self.clip(polygon,triangle,self.high,-1)
@@ -63,12 +66,13 @@ class Slab:
                 self.append([root for root,_ in selected],attributes,('source',index),self.source.polygons[index],index)
 
     def section(self,bound,side):
+        if not self.source.closed:return
         normal=-self.direction*side;other=next(i for i in range(3) if i!=self.axis)
-        x=self.source.shape.scope.axes[:,other];basis=np.asarray([x,np.cross(normal,x)]);origin=self.origin+self.direction*bound
+        x=self.source.shape.scope.axes[:,other];basis=np.asarray([x,cross3(normal,x)]);origin=self.origin+self.direction*bound
         segments=[];retained=[];point_map={}
-        for triangle in self.source.triangles:
+        for row,triangle in enumerate(self.source.triangles):
             roots=[int(self.source.roots[i]) for i in triangle];points=np.asarray([self.points[root] for root in roots]);distances=(points-origin)@self.direction
-            on=abs(distances)<=self.tolerance;face_normal=np.cross(points[1]-points[0],points[2]-points[0])
+            on=abs(distances)<=self.tolerance;face_normal=self.source.geometric_normals[row]
             if on.all():
                 if face_normal@normal>0:retained.append(shapely.Polygon((points-origin)@basis.T))
                 continue
@@ -80,7 +84,7 @@ class Slab:
                     intersections.append(self.intersection(roots[i],roots[j],np.eye(3)[i],np.eye(3)[j],triangle,bound))
             if len(intersections)!=2:continue
             a,b=[self.points[root] for root,_ in intersections]
-            if (b-a)@np.cross(normal,face_normal)<0:a,b=b,a
+            if (b-a)@cross3(normal,face_normal)<0:a,b=b,a
             xy=(np.asarray([a,b])-origin)@basis.T;segments.append(xy)
             for root,_ in intersections:point_map[tuple((self.points[root]-origin)@basis.T)]=root
         if not segments:return

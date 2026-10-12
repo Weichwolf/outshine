@@ -45,10 +45,22 @@ def benchmark():
     return rows
 
 
+def open_benchmark():
+    rows=[];pattern=[Part(Floating(1.),str(i)) for i in range(4)]
+    for label,polygon,elevation,_,source_sha in fixtures():
+        source=Shape.from_polygon(polygon,elevation,material=7,tags=(label,))
+        for axis in ('x','z'):
+            call=lambda:source.split(axis,*pattern);children=call()
+            for child in children:source_attributes(source,child)
+            rows.append(dict(label=label,axis=axis,method='open property clipping without caps',source_sha256=source_sha,
+                parts=len(children),triangles=sum(len(child.emit()['faces']) for child in children),**timed(call)))
+    return rows
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/split-benchmark.json'))
-    args=parser.parse_args();record=revision()|dict(status='pass',measurements=benchmark(),rejected_alternative=rejected_reference(),
+    args=parser.parse_args();record=revision()|dict(status='pass',measurements=benchmark(),open_measurements=open_benchmark(),rejected_alternative=rejected_reference(),
         warm_runs=21,openblas_threads=os.environ.get('OPENBLAS_NUM_THREADS'),
         limits='Python closed-solid generation including source validation, properties, caps, logical faces and immutable child payloads; final emitted positions excluded; no native frames/GPU or full metadata memory')
     args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(record,indent=2)+'\n')

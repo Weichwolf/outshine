@@ -5,7 +5,7 @@ from dataclasses import dataclass,replace
 import numpy as np
 
 from modelling_component_geometry import fit_scope
-from modelling_cut_manifold import encoded_source
+from modelling_cut_source import prepare_source
 from modelling_cut_geos import cut_geos
 from modelling_faces import Face
 from modelling_metadata import inherit,group_id
@@ -34,7 +34,7 @@ def split(shape,axis,parts,repeat=False,adjust=True,cut_material=None,cut_group=
     dimension=('x','y','z').index(axis);size=scalar(shape.scope.size[dimension]);sign=1. if size>=0 else -1.
     spans=allocations(abs(size),parts,repeat,max_parts)
     if not spans:return ()
-    source=encoded_source(shape);results=[]
+    source=prepare_source(shape);results=[]
     for span in spans:
         decoded,discarded=cut_geos(source,dimension,span.start,span.stop,cut_material,cut_group)
         omitted=tuple(((index,),0.,0.,'coplanar source surface outside retained volume') for index in discarded)

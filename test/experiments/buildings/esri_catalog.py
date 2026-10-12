@@ -31,8 +31,8 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
-    'split':dict(module='modelling_shape.Shape.split',status='closed Cartesian solids; native triangle property clipping, one-sided GEOS closure, logical holes and source material/group/tag/UV/normal ownership; width/area plan prototypes',
-                 pending=['open and mixed primitive cuts','raw part provenance without logical faces','nested pattern allocation','UV-space/unit-space overloads','SDK cut-face UV/material semantics','isolated PRT split rule']),
+    'split':dict(module='modelling_shape.Shape.split',status='open surfaces and closed Cartesian solids; native triangle property clipping, closed-only one-sided GEOS caps, logical holes and source appearance ownership; width/area plan prototypes',
+                 pending=['mixed open/closed or wire/surface primitive cuts','raw part provenance without logical faces','nested pattern allocation','UV-space/unit-space overloads','SDK cut-face UV/material semantics','isolated PRT split rule']),
     'splitArea':dict(module='modelling_split_plan.split_plan(area=True)',status='2D polygon and courtyard area partitions; cumulative triangulated areas compared with direct GEOS cuts',
                      pending=['Shape scope/geometry integration','almost-planar 3D geometry','nested pattern allocation','isolated PRT splitArea rule']),
     'comp': dict(module='modelling_shape.Shape.comp',status='f/e/fe/v/fv/g/m/h components; authored groups, declared material values, filled holes, any-member keywords and inherited frames/attributes; analytic controls and PRT prism bounds/volumes',

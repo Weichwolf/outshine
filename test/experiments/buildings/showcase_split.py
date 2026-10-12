@@ -77,3 +77,24 @@ def probe(output,provenance):
         reports.append(render_control(output,provenance,key,title,exploded,camera,sample))
         if axis=='y':reports.append(section_plot(exploded,output,provenance))
     return reports
+
+
+def open_probe(output,provenance):
+    facade=cube().comp('f')[2];children=[]
+    for column,bay in enumerate(facade.split('x',Part(1.5,'bay'),repeat=True)):
+        for row,cell in enumerate(bay.split('y',Part(1.2,'storey'),repeat=True)):
+            children.append(cell.t(column*.18,row*.12,0.))
+    camera=fitted_points(np.concatenate([engine_mesh(child.emit())['vertices'] for child in children]),[1280,720])
+    report=render_control(output,provenance,'open-facade','Offene Fassade · Achsen und Geschossbänder',children,camera)
+    path=output/report;record=json.loads(path.read_text());record['caption']='Offene Quellfassade in Achsen und Geschossbänder geteilt; die Zellen sind zur Kontrolle leicht getrennt. Keine Abschlussflächen oder Wandstärken ergänzt; UVs/Material/Tags erhalten. Opake Prüfpalette, noch keine Fenster oder Architektur-Rezeptfamilie.'
+    record['geometry_scope']='open source surface cuts without closure geometry';path.write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')
+    start=time.perf_counter();fig,ax=plt.subplots(figsize=(11,7))
+    for i,child in enumerate(children):
+        mesh=child.emit();xy=((mesh['vertices']-facade.scope.origin)@facade.scope.axes)[:,:2]
+        for triangle in mesh['faces']:ax.fill(*xy[triangle].T,color=COLOURS[i%4],alpha=.7,edgecolor='#34404a',linewidth=.5)
+    ax.set_aspect('equal');ax.set_xlabel('Fassaden-x [m]');ax.set_ylabel('Fassaden-y [m]');ax.grid(alpha=.2)
+    title='Offene Fassadenteilung · metrischer Plan'
+    fig.suptitle(title+'\nDirekte verschachtelte Python-Aufrufe; tatsächliche Schnittdreiecke ohne künstliche Caps',fontsize=13)
+    fig.subplots_adjust(left=.1,right=.96,bottom=.12,top=.83);fig.text(.03,.025,'Prüfraster: noch keine funktionalen Fenster. '+provenance['commit'][:9],fontsize=10)
+    plan=save_plot(fig,output,'current-cuts-open-facade-plan',title,'Die gleichen offenen Flächenzellen in ihrem gemeinsamen Fassadenscope; metrische UV-/Geometriekoordinaten bleiben erhalten.',provenance,start,[1100,700],label='modelling-split')
+    return [report,plan]

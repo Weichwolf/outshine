@@ -12,6 +12,7 @@ from evidence import revision
 from modelling_extrude_probe import fixtures
 from modelling_scope import Frame,Relative
 from modelling_shape import Shape
+from modelling_faces import Face
 from modelling_split_sizes import Part,Floating
 from verify_modelling_extrude import closed,volume
 from verify_modelling_groups import cube
@@ -119,11 +120,15 @@ def invalid_controls():
     source=cube()
     whole=source.split('x',Part(Floating(1)))[0]
     near(volume(whole.emit()),volume(source.emit()));source_attributes(source,whole)
+    vertices=source.emit()['vertices'];count=len(vertices)
+    mixed=Shape.from_faces(np.r_[vertices,[[20.,2.,0.],[22.,2.,0.],[22.,2.,2.],[20.,2.,2.]]],
+        (*source.geometry.polygons,Face(tuple(range(count,count+4)))))
+    flat=Shape.from_faces([[0.,0.,0.],[2.,0.,0.],[0.,0.,2.]],[Face((0,1,2)),Face((2,1,0))])
     calls=[lambda:source.split('u',Part(1.)),lambda:source.split('x',Part(Floating(1)),Part(Floating(1))),
         lambda:source.split('x',Part(1.),cut_material=-1),lambda:source.split('x',Part(1.),cut_group=True),
         lambda:source.split('x',Part(.0001),repeat=True,max_parts=10),
-        lambda:source.comp('f')[0].split('x',Part(Floating(1))),
-        lambda:source.split('x',Part(1.),adjust='noAdjust')]
+        lambda:source.from_mesh(source.emit()).split('x',Part(Floating(1))),
+        lambda:source.split('x',Part(1.),adjust='noAdjust'),lambda:mixed.split('x',Part(1.)),lambda:flat.split('x',Part(1.))]
     for call in calls:
         try:call()
         except (ValueError,NotImplementedError):pass
@@ -131,11 +136,37 @@ def invalid_controls():
     return len(calls)
 
 
+def open_controls():
+    polygon=shapely.Polygon([(0,0),(12,0),(12,10),(0,10)],[[(3,2),(9,2),(9,8),(3,8)]])
+    base=Shape.from_polygon(polygon,2.,material=7,tags=('open.source',))
+    frames=[base,base.r(23.,17.,-31.).t(3.,4.,5.),base.s(Relative(-1.),Relative(1.),Relative(1.))]
+    rows=[]
+    for parent in frames:
+        original=parent.emit();points=original['vertices'][original['faces']]
+        expected=np.linalg.norm(np.cross(points[:,1]-points[:,0],points[:,2]-points[:,0]),axis=1).sum()*.5
+        for axis in ('x','z'):
+            children=parent.split(axis,*[Part(Floating(1.),str(i)) for i in range(4)])
+            areas=[];corners=0
+            for child in children:
+                mesh=child.emit();triangles=mesh['vertices'][mesh['faces']]
+                areas.append(float(np.linalg.norm(np.cross(triangles[:,1]-triangles[:,0],triangles[:,2]-triangles[:,0]),axis=1).sum()*.5))
+                corners+=source_attributes(parent,child)
+                assert all(index==0 for index in child.split_info.source_faces)
+                assert all('split.cut' not in face.tags for face in child.geometry.polygons)
+            near(sum(areas),expected)
+            rows.append(dict(axis=axis,parts=len(children),areas_m2=areas,source_corners_checked=corners))
+    facade=cube().comp('f')[2]
+    children=facade.split('x',Part(2.,'bay'),repeat=True)
+    for child in children:source_attributes(facade,child)
+    assert len(children)>1 and not any('split.cut' in face.tags for child in children for face in child.geometry.polygons)
+    return dict(plan_axis_cases=rows,facade_bays=len(children),no_closure_surfaces=True)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/split-verification.json'))
-    args=parser.parse_args();record=revision()|dict(status='pass',prisms=prism_controls(),authored=authored_controls(),contacts=contact_controls(),invalid=invalid_controls(),
-        limits='Closed triangle solids with logical faces; open/mixed primitives, UV-space, nested pattern syntax and isolated PRT cut rules remain pending')
+    args=parser.parse_args();record=revision()|dict(status='pass',prisms=prism_controls(),authored=authored_controls(),contacts=contact_controls(),open_surfaces=open_controls(),invalid=invalid_controls(),
+        limits='Open surfaces and closed triangle solids with logical faces; mixed primitives, UV-space, nested pattern syntax and isolated PRT cut rules remain pending')
     args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(dict(status='pass',prism_axis_method_cases=len(record['prisms']),authored=record['authored'])))
 

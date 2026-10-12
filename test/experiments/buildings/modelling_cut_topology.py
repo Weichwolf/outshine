@@ -6,6 +6,7 @@ import numpy as np
 import shapely
 
 from modelling_faces import Face
+from modelling_vector import cross3
 
 
 def vertex_roots(encoded,count):
@@ -22,7 +23,7 @@ def vertex_roots(encoded,count):
 def boundary_loops(triangles,roots):
     boundary={}
     for triangle in triangles:
-        for a,b in zip(triangle,np.roll(triangle,-1)):
+        for a,b in ((triangle[0],triangle[1]),(triangle[1],triangle[2]),(triangle[2],triangle[0])):
             key=(int(roots[a]),int(roots[b]));reverse=key[::-1]
             if reverse in boundary:del boundary[reverse]
             elif key in boundary:raise ValueError('Logical cut face has duplicate directed boundaries')
@@ -49,8 +50,8 @@ def polygon_faces(vertices,uv,triangles,roots,template):
     points=vertices[triangles];normal=np.cross(points[:,1]-points[:,0],points[:,2]-points[:,0]).sum(axis=0)
     length=np.linalg.norm(normal)
     if length<=1e-12:raise ValueError('Logical cut face has no stable area normal')
-    normal/=length;axis=np.eye(3)[np.argmin(abs(normal))];x=np.cross(axis,normal);x/=np.linalg.norm(x)
-    basis=np.array([x,np.cross(normal,x)]);origin=vertices[loops[0][0]]
+    normal/=length;axis=np.eye(3)[np.argmin(abs(normal))];x=cross3(axis,normal);x/=np.linalg.norm(x)
+    basis=np.array([x,cross3(normal,x)]);origin=vertices[loops[0][0]]
     projected=[(vertices[list(loop)]-origin)@basis.T for loop in loops]
     rings=[shapely.Polygon(points) for points in projected]
     if any(not polygon.is_valid or polygon.area<=1e-12 for polygon in rings):raise ValueError('Invalid projected cut-face boundary')
@@ -75,11 +76,13 @@ def logical_faces(mesh,roots,keys,templates):
     for key,rows in groups.items():
         template,source_index=templates[key];triangles=mesh['faces'][rows]
         recovered=polygon_faces(mesh['vertices'],mesh['uv'],triangles,roots,template)
+        if len(recovered)==1:
+            parts[rows]=len(faces);faces.append(recovered[0]);source.append(source_index);continue
         # Every triangle belongs to one recovered outer boundary, including disconnected fragments.
         for face in recovered:
             points=mesh['vertices'][list(face.outer)];shift=points-points[0]
             normal=np.cross(shift,np.roll(shift,-1,axis=0)).sum(axis=0);normal/=np.linalg.norm(normal)
-            axis=np.eye(3)[np.argmin(abs(normal))];x=np.cross(axis,normal);x/=np.linalg.norm(x);basis=np.array([x,np.cross(normal,x)])
+            axis=np.eye(3)[np.argmin(abs(normal))];x=cross3(axis,normal);x/=np.linalg.norm(x);basis=np.array([x,cross3(normal,x)])
             polygon=shapely.Polygon((points-points[0])@basis.T,[(mesh['vertices'][list(ring)]-points[0])@basis.T for ring in face.holes])
             centres=mesh['vertices'][triangles].mean(axis=1);inside=shapely.covers(polygon,shapely.points((centres-points[0])@basis.T))
             selected=np.asarray(rows)[inside]

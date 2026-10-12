@@ -86,17 +86,19 @@ Neun SDK-Größenbeispiele, analytisches Dreieck, 198 GEOS-Flächenintegrale sow
 Messung 725034641: 30 Fälle/21 warme Läufe, gesamte 2D-Teilung inklusive Aufbau/Cuts 0,61–1,21 ms p50;
 GEOS-Bisektion 4,93–7,52 ms. Maximaler Flächenfehler 3,6e−12 m²; kein nativer Mesh-/UV-/Framebeleg.
 
-## Unterteilung: geschlossene 3D-Körper
+## Unterteilung: geschlossene Körper und offene Flächen
 `Shape.split`: native Dreiecke mit baryzentrischen UV-/Normalenwerten schneiden, logische Quellflächen rekonstruieren.
 GEOS/CDT schließt einseitige Querschnitte; korrekte koplanare Quellflächen behalten, Gegenflächen mit Grund auslassen.
 Höfe/Material/Gruppen/Tags, signed Scope, Objektframes und SplitInfo erhalten; neue Caps haben explizite Material-/Gruppenwahl.
 SDK-UV-/Materialgleichheit bleibt offen. Manifold-Schnitt verworfen: Hofgrenzfall hat korrektes Volumen, aber Zusatzfläche/ungültige Kanten.
 Eigener Weg: 15 Grundriss-/Achsenfälle, vier Frames/zwölf Achsenfälle und 1.008 nichtaffine UV-/Normalenecken geprüft.
-Messung ac9370408: vier Teile p50 46,4–147,0 ms inklusive Validierung/Logik/Payload; finale Ausgabe/Frames/GPU ausgeschlossen.
-Erzeugung zu teuer: Profil vor Optimierung; keine Frame-/Cache-Abnahme. Sieben ungültige/unsupported Eingaben geprüft.
+Profil: skalare NumPy-Kreuzprodukte/Projektionen vermeiden, Normen pro Quelle teilen und eindeutige Flächen ohne zweite Zuordnung übernehmen.
+Offene Kantenkomponenten erzeugen keine Caps; neun ungültige/unsupported Eingaben einschließlich Misch-/Nullvolumen prüfen.
+Entwicklung: vier Körper p50 24,9–74,4 statt 46,4–147,0 ms; 60 Vorgängerteile in allen Daten exakt gleich.
+Offene Teilungen p50 5,0–8,7 ms; sechs Plan-/Achsenfälle und Fassadenachsen geprüft. Finale Ausgabe/Frames/GPU ausgeschlossen.
 
 ## Offen und nächster Block
-Aktiver Ausbau: offene/gemischte Primitive, rohe Part-Provenienz und `splitArea` an Shape anbinden; geschlossene Schnitte optimieren.
+Aktiver Ausbau: gemischte Primitive, rohe Part-Provenienz und `splitArea` an Shape anbinden; Schnittkosten weiter optimieren.
 Verschachtelte Repeat-Allokation, UV-/unitSpace und isolierte PRT-Regeln fehlen; 2D-Prototyp ersetzt diese Verträge nicht.
 Danach verbleibende dokumentierte Operationen/Funktionen/Attribute: Instanzen/Insert, Ausdrücke/Regelfunktionen,
 Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.

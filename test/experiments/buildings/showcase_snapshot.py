@@ -10,7 +10,7 @@ from opening_probe import scene
 from preview import configuration,run_render
 from showcase_scene import LABELS,cached,context_scene,fitted
 from showcase_split_plan import probe as split_plan_probe
-from showcase_split import probe as split_probe
+from showcase_split import probe as split_probe,open_probe
 
 
 NAMES={'rectangle':'Rechteck · Kontrollhaus','vienna-compact':'Wien · kompaktes Gebäude',
@@ -91,6 +91,7 @@ def main():
         reports+=urban_views(site,focal,args.output,provenance,False)
     reports+=split_plan_probe(args.output,provenance)
     reports+=split_probe(args.output,provenance)
+    reports+=open_probe(args.output,provenance)
     temporary=args.output/'snapshot.json.tmp'
     temporary.write_text(json.dumps(provenance|dict(reports=reports,completed_recipe_families=0),ensure_ascii=False,indent=2)+'\n')
     temporary.replace(args.output/'snapshot.json')
