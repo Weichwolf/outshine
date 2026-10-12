@@ -13,15 +13,15 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand ac9370408: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)`, 2D-Teilung und geschlossene 3D-Schnitte;
+Stand a256e35da: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)`, 2D-Teilung sowie offene/geschlossene Schnitte;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen.
 58 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Aktuell 28 Bilder: acht innen, 13 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
-Vier neue 3D-/2.5D-Schnittansichten optisch geprüft; 23 Bilder pixelgleich, 2D-Plan ändert nur den Commit-Fußtext.
-Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/2D-/3D-Teilung/Benchmarks/Massierung/Katalog/Render/Docs:
-16 Schritte samt Launcher terminal 0 auf ac9370408. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
+Aktuell 30 Bilder: acht innen, 15 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
+Zwei neue offene Fassadenansichten optisch geprüft; 26 Bilder pixelgleich, zwei Pläne ändern nur den Commit-Fußtext.
+Scope/Extrusion/Komponenten/Ghidra/Kamera/2D-/3D-Teilung/Benchmarks/Massierung/60-Teile-Vergleich/Katalog/Render/Docs:
+17 Schritte samt Launcher terminal 0 auf a256e35da. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
 
 ## Gemeinsame Verträge
 - Direkte ausführbare Python-Rezepte und gemeinsame Geometriefunktionen, keine JSON-Regelschicht.
@@ -94,8 +94,8 @@ SDK-UV-/Materialgleichheit bleibt offen. Manifold-Schnitt verworfen: Hofgrenzfal
 Eigener Weg: 15 Grundriss-/Achsenfälle, vier Frames/zwölf Achsenfälle und 1.008 nichtaffine UV-/Normalenecken geprüft.
 Profil: skalare NumPy-Kreuzprodukte/Projektionen vermeiden, Normen pro Quelle teilen und eindeutige Flächen ohne zweite Zuordnung übernehmen.
 Offene Kantenkomponenten erzeugen keine Caps; neun ungültige/unsupported Eingaben einschließlich Misch-/Nullvolumen prüfen.
-Entwicklung: vier Körper p50 24,9–74,4 statt 46,4–147,0 ms; 60 Vorgängerteile in allen Daten exakt gleich.
-Offene Teilungen p50 5,0–8,7 ms; sechs Plan-/Achsenfälle und Fassadenachsen geprüft. Finale Ausgabe/Frames/GPU ausgeschlossen.
+Messung a256e35da: vier Körper p50 26,9–76,8 statt 46,4–147,0 ms; 60 Vorgängerteile in allen Daten exakt gleich.
+Offene Teilungen p50 5,1–8,8 ms; sechs Plan-/Achsenfälle und Fassadenachsen geprüft. Finale Ausgabe/Frames/GPU ausgeschlossen.
 
 ## Offen und nächster Block
 Aktiver Ausbau: gemischte Primitive, rohe Part-Provenienz und `splitArea` an Shape anbinden; Schnittkosten weiter optimieren.

@@ -47,7 +47,7 @@ Verkehr/Wasser/Aeroway bis 12 m Umgebung; Bridge/Tunnel/Ebenen/Zugang begrenzen 
 [Showcase](../test/experiments/buildings/showcase.py): Server/HTML/CSS/JS eingecheckt; `.venv/bin/python test/experiments/buildings/showcase.py --publish --serve`, Port 8766, Webroot `build/experiments/buildings/showcase/site/`.
 Vier Unterseiten: Innenräume, einzelne Gebäude, Gebäudegruppen, Städte; Ansichtsebenen, keine behaupteten nativen LOD-Grenzen. Nur `current-showcase/snapshot.json` veröffentlichen; überholte öffentliche PNGs entfernen, Referenzen/Orakel erhalten.
 `showcase_snapshot.py` rendert aktuelle gespeicherte Prüfgebäude plus echte Provider-Nachbarn; einfache Quellkörper ausdrücklich zählen. PNG/Report-Hash/Profil/sauberer Commit prüfen; fehlende Bilder sichtbar ausweisen.
-Aktueller Bildstand `ac9370408`: 28 Bilder (8 innen / 13 Gebäude-/Funktionsansichten / 4 Gruppen / 3 Städte), 13.955 OSM-Körper; vier neue 3D-/2.5D-Schnittansichten, 23 Bilder pixelgleich und ein reiner Commit-Fußtextwechsel. Rezeptfamilien null; 16 Python-/Render-/Docs-Schritte terminal 0.
+Aktueller Bildstand `a256e35da`: 30 Bilder (8 innen / 15 Gebäude-/Funktionsansichten / 4 Gruppen / 3 Städte), 13.955 OSM-Körper; zwei neue offene Fassadenansichten, 26 Bilder pixelgleich und zwei Commit-Fußtextwechsel. Rezeptfamilien null; 17 Python-/Render-/Docs-Schritte terminal 0.
 Jeder geprüfte Fortschritt: Commit/Push, dann Publish. Esri/PRT/Ghidra zuerst; [VisusCity](https://visusarts.itch.io/visuscity-vol2) ergänzt den Esri-Bildmaßstab.
 
 ## Besitzer und Lieferung
