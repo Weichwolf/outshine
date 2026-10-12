@@ -49,7 +49,7 @@ Richtungsdispatch berücksichtigt negative Scope-Größen; Neigungsgrenzen haben
 Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indirekte Stellen, 2/20/22/13 außerhalb liegende Blöcke; keine vollständige Semantikabdeckung.
 
 ## Umsetzung
-- Aktueller Kernvertrag (2480): `comp`-Auswahl/Verbindungsoperatoren und neue Komponenten-Pivots/Scopes anhand tatsächlicher Dispatcher und Helper vertiefen.
+- Aktueller Kernvertrag (2480): Kantenextraktion, durchschnittliche Normalen und Kanten-/Vertex-Pivots mit drei weiteren Ghidra-Zielen vertiefen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.

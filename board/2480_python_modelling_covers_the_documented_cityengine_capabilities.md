@@ -58,8 +58,8 @@ Rezeptfunktionen gemeinsam pflegen, Familien/Varianten/Instanzen getrennt zähle
 Vollständige Fähigkeitszuordnung mit offenen Lücken; ausgeführte Geometrie-/Scope-/Materialverträge gegen SDK/PRT prüfen.
 Reproduzierbare kleine Kontrollkörper, echte OSM-Grundrisse, ungültige/degenerierte Gegenfälle und gemessene Kosten.
 Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenommene native LOD-/Geräteabnahme.
-Aktiver Ausbau: `comp(f)` mit richtungs-/neigungs-/tag-/randbezogener Auswahl, Ausschluss bereits gewählter Flächen,
-Einzel-/Gesamt-/Verbindungsoperatoren sowie passenden Pivot-/Scope-Achsen und `comp.sel/index/total`.
+Aktiver Ausbau: `comp(e/fe/v/fv)` mit eindeutigen bzw. flächenbezogenen Indexfolgen, Kanten-/Punktgeometrie,
+passenden Normalen/Tangenten/Pivots und nullgroßen Scope-Achsen; bestehende Auswahl/Operatoren/Attribute weiterverwenden.
 Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
 Eingefrorene Kontrolle 73346b5f6: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
 Richtung/Neigungsgrenzen, nichtaffine UVs/authorierte Normalen und drei reale PRT-Prismen nach vollständiger Komponentenzerlegung geprüft.
@@ -96,4 +96,4 @@ Ghidra 43d5485f6: `r` addiert drei gespeicherte Zahlen; Zentrumdispatch ruft vor
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Ausschluss, Verbindung, Komponenten-Pivots und nullgroße Achsen.
-Nächster Block nach Flächen: Kanten-/Vertex-/Material-/Gruppen-/Lochkomponenten und Kantenextrusion; Umfang nicht auf Fassadenflächen beschränken.
+Nächster Block nach Kanten/Punkten: Kantenextrusion, Material-/Gruppen-/Lochkomponenten; Umfang nicht auf Fassadenflächen beschränken.

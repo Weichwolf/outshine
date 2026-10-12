@@ -61,6 +61,9 @@ TARGETS = {
     '_ZN9Component6isSideERKN4util7Vector3IdEE': 'side selector angular boundary',
     '_ZNK15SingleComponent10isOrientedER9ProcessorN2GC4Comp4EnumE': 'scope, object, world, border and inclination selector dispatch',
     '_ZNK15SingleComponent11createShapeERK5ShapebdPN4util11MeshTracker11InitializerE': 'component pivot, local axes and geometry fitting',
+    '_ZN12_GLOBAL__N_121extractEdgeComponentsERK13CompMeshCacheRSt6vectorISt10unique_ptrI9ComponentSt14default_deleteIS5_EESaIS8_EEb.lto_priv.0': 'unique edge extraction and adjacent normal inheritance',
+    '_ZN5Shape26calcPivotScopeFromEdgeFaceERKSt6vectorIN4util7Vector3IdEESaIS3_EERKNS1_6MatrixIdEERKNS1_4Mesh7PolygonENS_11AlignUpAxis4EnumE': 'edge pivot, tangent and perpendicular scope basis',
+    '_ZN5Shape28calcPivotScopeFromVertexFaceERKSt6vectorIN4util7Vector3IdEESaIS3_EERKNS1_6MatrixIdEERKNS1_4Mesh7PolygonEbNS_11AlignUpAxis4EnumEPKS3_': 'vertex and face-vertex pivot/tangent construction',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;
