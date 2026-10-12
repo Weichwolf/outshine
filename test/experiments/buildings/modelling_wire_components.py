@@ -8,6 +8,7 @@ from modelling_component_geometry import fit_scope
 from modelling_extrude import euler
 from modelling_scope import Frame
 from modelling_wire import Edge,Point,wire_shape
+from modelling_metadata import inherit
 
 
 MINIMUM_UNIQUE_EDGE_M=.0008
@@ -48,7 +49,7 @@ def edge_records(surface,kind):
                 if kind=='e':normal=unit(normal-tangent*np.dot(normal,tangent))
                 tags=frozenset(tag for owner in owners for tag in surface.faces[owner].tags)
                 uv=face.uvs[ring_index] if face.uvs else ()
-                element=Edge((a,b),face.material,tags,(uv[corner],uv[(corner+1)%len(ring)]) if uv else ())
+                element=Edge((a,b),face.material,tags,(uv[corner],uv[(corner+1)%len(ring)]) if uv else (),face.group)
                 records.append(WireRecord(element,tuple(normal),tuple(tangent),len(owners)==1,vertex_tags[a]|vertex_tags[b]))
     return tuple(records)
 
@@ -60,7 +61,7 @@ def point_records(surface,kind):
     if kind=='v':
         for vertex,owners in sorted(surface.vertex_owners.items()):
             normal=unit(sum((surface.normals[owner] for owner in owners),np.zeros(3)));tangent=vertex_tangent(normal)
-            face=surface.faces[owners[0]];element=Point((vertex,),face.material,tags[vertex])
+            face=surface.faces[owners[0]];element=Point((vertex,),face.material,tags[vertex],group=face.group)
             records.append(WireRecord(element,tuple(normal),tuple(tangent),vertex in border_vertices,tags[vertex]))
         return tuple(records)
     for index,face in enumerate(surface.faces):
@@ -69,7 +70,7 @@ def point_records(surface,kind):
                 before,after=ring[(corner-1)%len(ring)],ring[(corner+1)%len(ring)]
                 tangent=unit(unit(vertices[current]-vertices[before])+unit(vertices[after]-vertices[current]))
                 normal=unit(np.cross(tangent,surface.normals[index]));uv=face.uvs[ring_index] if face.uvs else ()
-                element=Point((current,),face.material,tags[current],(uv[corner],) if uv else ())
+                element=Point((current,),face.material,tags[current],(uv[corner],) if uv else (),face.group)
                 records.append(WireRecord(element,tuple(normal),tuple(tangent),current in border_vertices,tags[current]))
     return tuple(records)
 
@@ -84,13 +85,14 @@ def existing_records(shape,mesh,kind):
         if kind=='v':
             for vertex,row in sorted(owners.items()):
                 normal=unit(mesh['edges_normals'][row].sum(axis=0));tangent=vertex_tangent(normal)
-                records.append(WireRecord(Point((vertex,),edges[row[0]].material,tags[vertex]),tuple(normal),tuple(tangent),False,tags[vertex]))
+                records.append(WireRecord(Point((vertex,),edges[row[0]].material,tags[vertex],group=edges[row[0]].group),tuple(normal),tuple(tangent),False,tags[vertex]))
         else:
             seen=set()
             for index,edge in enumerate(edges):
                 a,b=edge.vertices;tangent=unit(positions[b]-positions[a]);normal=mesh['edges_normals'][index]
                 key=tuple(sorted((a,b)))
-                if kind=='e':
+                if kind=='native':records.append(WireRecord(edge,tuple(normal),tuple(tangent),False,tags[a]|tags[b]))
+                elif kind=='e':
                     if key in seen:continue
                     seen.add(key);records.append(WireRecord(edge,tuple(normal),tuple(tangent),False,tags[a]|tags[b]))
                 elif kind=='fe':
@@ -100,9 +102,9 @@ def existing_records(shape,mesh,kind):
                 elif kind=='fv':
                     z=unit(np.cross(tangent,normal))
                     for corner,vertex in enumerate(edge.vertices):
-                        element=Point((vertex,),edge.material,tags[vertex],(edge.uvs[corner],) if edge.uvs else ())
+                        element=Point((vertex,),edge.material,tags[vertex],(edge.uvs[corner],) if edge.uvs else (),edge.group)
                         records.append(WireRecord(element,tuple(z),tuple(tangent),False,tags[vertex]))
-    elif points and kind=='v':
+    elif points and kind in ('v','native'):
         for index,point in enumerate(points):
             normal=mesh['points_normals'][index];records.append(WireRecord(point,tuple(normal),tuple(vertex_tangent(normal)),False,point.tags))
     return tuple(records)
@@ -141,4 +143,4 @@ def wire_component_shape(surface,indices,alignment,info):
         axes=np.column_stack((x,np.cross(z,x),z));pivot=Frame(tuple(old.object_frame.axes.T@(origin-old.object_frame.position)),euler(old.object_frame.axes.T@axes))
         scope=fit_scope(points,axes,origin,old,pivot)
     result=wire_shape(points,elements,[record.normal for record in records],scope)
-    return replace(result,comp_info=info)
+    return replace(inherit(result,surface.source),comp_info=info)

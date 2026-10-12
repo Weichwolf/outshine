@@ -156,7 +156,7 @@ def selector_controls():
     for value in ('object.front','object.back','object.left','object.right','object.top','object.bottom','street.front','street.back','street.left','street.right'):
         if len(cube.comp('f',Branch(value)))!=1:raise AssertionError('Object/street-fallback direction count is incorrect')
     reject(lambda:cube.comp('f',Branch('unknown')));reject(lambda:cube.comp('f',alignment='unknown'))
-    reject(lambda:cube.comp('m'),NotImplementedError);reject(lambda:Branch('all','unknown'));reject(lambda:select(.5))
+    reject(lambda:cube.comp('invalid'));reject(lambda:Branch('all','unknown'));reject(lambda:select(.5))
     reject(lambda:cube.comp('f',Branch(lambda _:1)));reject(lambda:tagged('Facade.F*'));reject(lambda:bool(select('front')),TypeError)
     return dict(inclination_boundary_controls=len(expected),documented_direction_forms=22,logical_python_predicates=True,invalid_inputs_rejected=8)
 

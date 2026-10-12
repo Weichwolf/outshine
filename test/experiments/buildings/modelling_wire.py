@@ -6,6 +6,7 @@ from numbers import Integral
 import numpy as np
 
 from modelling_scope import scalar
+from modelling_metadata import group_id
 
 
 def identifiers(values,count):
@@ -16,6 +17,7 @@ def identifiers(values,count):
 
 
 def attributes(element,uv_count):
+    object.__setattr__(element,'group',group_id(element.group))
     if isinstance(element.material,bool) or not isinstance(element.material,Integral) or not 0<=element.material<=65535:
         raise ValueError('Wire material needs an unsigned 16-bit identifier')
     tags=frozenset(element.tags)
@@ -33,6 +35,7 @@ class Edge:
     material: int=1
     tags: frozenset=frozenset()
     uvs: tuple=()
+    group: int=0
 
     def __post_init__(self):
         object.__setattr__(self,'vertices',identifiers(self.vertices,2));attributes(self,2)
@@ -45,6 +48,7 @@ class Point:
     material: int=1
     tags: frozenset=frozenset()
     uvs: tuple=()
+    group: int=0
 
     def __post_init__(self):
         object.__setattr__(self,'vertices',identifiers(self.vertices,1));attributes(self,1)
@@ -70,5 +74,6 @@ def wire_shape(vertices,elements,normals,scope=None):
     positions=positions[used];indices=np.searchsorted(used,indices).astype(np.int32)
     elements=tuple(replace(element,vertices=tuple(mapping[i] for i in element.vertices)) for element in elements)
     mesh=dict(vertices=positions,faces=np.empty((0,3),dtype=np.int32),materials=np.empty(0,dtype=np.uint16),parts=np.empty(0,dtype=np.int32),
-              **{name:indices,name+'_normals':normals,name+'_materials':np.asarray([element.material for element in elements],dtype=np.uint16)})
+              **{name:indices,name+'_normals':normals,name+'_materials':np.asarray([element.material for element in elements],dtype=np.uint16),
+                 name+'_groups':np.asarray([element.group for element in elements],dtype=np.uint32)})
     return Shape.from_mesh(mesh,scope,edges=elements if edges else (),points=elements if points else ())

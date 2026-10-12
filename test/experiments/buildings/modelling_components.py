@@ -33,6 +33,7 @@ class ComponentQuery:
     edge_tags: frozenset
     vertex_tags: frozenset
     length: float=0.
+    members: tuple=()
 
 
 class Surface:
@@ -84,11 +85,14 @@ def connected(surface,indices):
 
 
 def split_components(shape,component,branches,alignment):
-    if component not in ('f','e','fe','v','fv'):raise NotImplementedError('Material/group/hole components remain pending')
+    if component not in ('f','e','fe','v','fv','g','m','h'):raise ValueError('Unknown component kind')
     if alignment not in ('zUp','noAlign'):raise ValueError('Unknown component scope alignment')
     branches=branches or (Branch(),)
     if any(not isinstance(branch,Branch) for branch in branches):raise ValueError('Component rules require Branch objects')
     if component=='f':surface=Surface(shape);count=len(surface.faces);constructor=component_shape
+    elif component in ('g','m','h'):
+        from modelling_group_components import GroupSet,group_shape
+        surface=GroupSet(shape,component);count=len(surface.records);constructor=group_shape
     else:
         from modelling_wire_components import WireSet,wire_component_shape
         surface=WireSet(shape,component);count=len(surface.records);constructor=wire_component_shape

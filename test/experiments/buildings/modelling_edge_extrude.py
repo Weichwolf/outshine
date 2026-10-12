@@ -7,6 +7,7 @@ import numpy as np
 from modelling_extrude import aligned_scope,top_mapping
 from modelling_faces import EXTRUSION_TAGS,Face,face_shape
 from modelling_shape import Shape
+from modelling_metadata import inherit
 
 
 @dataclass(frozen=True)
@@ -51,7 +52,7 @@ def sweep_face(edge,mapping,points):
     if np.linalg.norm(np.cross(shifted,np.roll(shifted,-1,axis=0)).sum(axis=0))<=1e-12:
         return None
     tags=(edge.tags-EXTRUSION_TAGS.keys())|{'extrude.side.outer'}
-    return Face(ring,material=edge.material,tags=tags,uvs=(uv,) if uv else ())
+    return Face(ring,material=edge.material,tags=tags,uvs=(uv,) if uv else (),group=edge.group)
 
 
 def extrude_edges(shape,distance,mode):
@@ -74,4 +75,4 @@ def extrude_edges(shape,distance,mode):
     points=np.asarray(points);scope=aligned_scope(points,up,shape.scope,distance<0)
     result=face_shape(points,faces,scope=scope,allow_warped=True) if faces else Shape.from_mesh(
         dict(vertices=points,faces=np.empty((0,3),dtype=np.int32),parts=np.empty(0,dtype=np.int32),materials=np.empty(0,dtype=np.uint16)),scope)
-    return replace(result,comp_info=shape.comp_info,sweep_info=EdgeSweepInfo(mode,distance,len(edges),len(faces),tuple(omitted)))
+    return replace(inherit(result,shape),comp_info=shape.comp_info,sweep_info=EdgeSweepInfo(mode,distance,len(edges),len(faces),tuple(omitted)))

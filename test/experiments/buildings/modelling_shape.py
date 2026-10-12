@@ -25,9 +25,12 @@ class Geometry:
     polygons: tuple=()
     edges: tuple=()
     points: tuple=()
+    group_names: tuple=()
+    material_defs: tuple=()
 
     @classmethod
-    def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=()):
+    def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=(),group_names=(),material_defs=()):
+        from modelling_metadata import named_groups,materials,validate_membership
         vertices=np.asarray(mesh['vertices'],dtype=np.float64)
         raw_faces=np.asarray(mesh['faces'])
         if vertices.ndim!=2 or vertices.shape[1]!=3 or not np.isfinite(vertices).all():
@@ -51,6 +54,14 @@ class Geometry:
             array=np.array(value,copy=True);array.setflags(write=False);fields[key]=array
         if 'normals' in fields and (fields['normals'].shape!=vertices.shape or not np.isfinite(fields['normals']).all()):
             raise ValueError('Authored vertex normals require finite XYZ coordinates per vertex')
+        if 'materials' in fields:
+            values=fields['materials']
+            if values.shape!=(len(raw_faces),) or values.dtype.kind not in 'iu' or (len(values) and (values.min()<0 or values.max()>65535)):
+                raise ValueError('Native materials require one unsigned 16-bit identifier per triangle')
+        if 'groups' in fields:
+            groups=fields['groups']
+            if groups.shape!=(len(raw_faces),) or groups.dtype.kind not in 'iu' or (len(groups) and (groups.min()<0 or groups.max()>4294967295)):
+                raise ValueError('Native groups require one unsigned 32-bit identifier per triangle')
         for name in ('edges','points'):
             if name not in fields:continue
             indices=fields[name];width=2 if name=='edges' else 1
@@ -59,10 +70,17 @@ class Geometry:
             normal=fields.get(name+'_normals')
             if normal is not None and (normal.shape!=(len(indices),3) or not np.isfinite(normal).all()):
                 raise ValueError('Invalid native '+name+' primitive normals')
+            groups=fields.get(name+'_groups')
+            if groups is not None and (groups.shape!=(len(indices),) or groups.dtype.kind not in 'iu' or (len(groups) and (groups.min()<0 or groups.max()>4294967295))):
+                raise ValueError('Invalid native '+name+' group identifiers')
+            material=fields.get(name+'_materials')
+            if material is not None and (material.shape!=(len(indices),) or material.dtype.kind not in 'iu' or (len(material) and (material.min()<0 or material.max()>65535))):
+                raise ValueError('Invalid native '+name+' material identifiers')
         for name in ('normals','edges_normals','points_normals'):
             if name in fields:
                 normals=fields[name]@scope.axes;normals.setflags(write=False);fields[name]=normals
-        return cls(MappingProxyType(fields),unit,tuple(size),tuple(polygons),tuple(edges),tuple(points)),scope
+        validate_membership(fields,polygons,edges,points,len(raw_faces))
+        return cls(MappingProxyType(fields),unit,tuple(size),tuple(polygons),tuple(edges),tuple(points),named_groups(group_names),materials(material_defs)),scope
 
 
 @dataclass(frozen=True)
@@ -73,8 +91,8 @@ class Shape:
     sweep_info: object=None
 
     @classmethod
-    def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=()):
-        geometry,scope=Geometry.from_mesh(mesh,scope,polygons,edges,points)
+    def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=(),group_names=(),material_defs=()):
+        geometry,scope=Geometry.from_mesh(mesh,scope,polygons,edges,points,group_names,material_defs)
         return cls(geometry,scope)
 
     @classmethod
@@ -104,6 +122,18 @@ class Shape:
     def comp(self,component,*branches,alignment='zUp'):
         from modelling_components import split_components
         return split_components(self,component,branches,alignment)
+
+    def with_metadata(self,group_names=(),material_defs=()):
+        from modelling_metadata import named_groups,materials
+        return replace(self,geometry=replace(self.geometry,group_names=named_groups(group_names),material_defs=materials(material_defs)))
+
+    def group_names(self):
+        from modelling_group_components import names
+        return names(self,'g')
+
+    def material_names(self):
+        from modelling_group_components import names
+        return names(self,'m')
 
     def t(self,x,y,z):return replace(self,scope=self.scope.t(x,y,z))
 

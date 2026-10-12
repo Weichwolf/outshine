@@ -28,8 +28,9 @@ def topology(shape,mesh):
             raise ValueError('Logical component faces require valid native triangle-to-face indices')
     else:
         material=mesh.get('materials',np.ones(len(mesh['faces']),dtype=np.uint16))
-        faces=tuple(Face(tuple(triangle),material=int(value),uvs=(tuple(tuple(pair) for pair in mesh['uv'][triangle]),) if 'uv' in mesh else ())
-                    for triangle,value in zip(mesh['faces'],material,strict=True))
+        groups=mesh.get('groups',np.zeros(len(mesh['faces']),dtype=np.uint32))
+        faces=tuple(Face(tuple(triangle),material=int(value),uvs=(tuple(tuple(pair) for pair in mesh['uv'][triangle]),) if 'uv' in mesh else (),group=int(group))
+                    for triangle,value,group in zip(mesh['faces'],material,groups,strict=True))
         parts=np.arange(len(faces))
     rows=[[] for _ in faces]
     for index,part in enumerate(parts):rows[int(part)].append(index)
@@ -46,7 +47,7 @@ def subset(mesh,faces,triangle_rows,indices):
     for name,array in mesh.items():
         if name in ('vertices','faces','parts'):continue
         if name in ('uv','normals'):native[name]=array[used]
-        elif name in ('materials','face_tag_mask'):native[name]=array[rows]
+        elif name in ('materials','face_tag_mask','groups'):native[name]=array[rows]
         else:raise ValueError('Component selection has no field contract for '+name)
     native['parts']=np.concatenate([np.full(len(triangle_rows[index]),number,dtype=np.int32) for number,index in enumerate(indices)])
     polygons=tuple(replace(faces[index],outer=tuple(mapping[i] for i in faces[index].outer),
@@ -80,4 +81,4 @@ def component_scope(mesh,face,normal,old,alignment):
 def component_shape(surface,indices,alignment,info):
     mesh,polygons=subset(surface.mesh,surface.faces,surface.triangle_rows,indices)
     scope=component_scope(mesh,polygons[0],surface.normals[indices[0]],surface.source.scope,alignment)
-    return replace(Shape.from_mesh(mesh,scope,polygons),comp_info=info)
+    return replace(Shape.from_mesh(mesh,scope,polygons,group_names=surface.source.geometry.group_names,material_defs=surface.source.geometry.material_defs),comp_info=info)

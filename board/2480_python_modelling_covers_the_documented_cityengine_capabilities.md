@@ -20,9 +20,8 @@ Stand 9b730451f: vier Flächen-/Kanten-Extrusionsarten und `comp(f/e/fe/v/fv)` m
 Showcase: fehlende Messwerte aus Diagrammen auslassen, fehlende Zahlen kennzeichnen; geänderte HTML/CSS/JS-Dateien automatisch neu laden.
 23 Gebäude-/Innenraum-/Gruppen-/Stadtbilder sind pixelgleich; sieben neue Sweep-Kontrollen plus metrischer Grundriss optisch geprüft.
 Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/drei Benchmarks/Katalog/Render/Docs: 13 Schritte samt Launcher terminal 0 auf 9b730451f.
-SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
-Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
-49 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
+SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen. Semantik einzeln prüfen.
+52 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 Eigene Implementierung, keine Übernahme dekompilierten Fremdcodes; SDK 3.4 / PRT 3.3 ausdrücklich unterscheiden.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 
@@ -61,10 +60,8 @@ Vertexnormalen mitteln angrenzende Flächen; Face-Vertex-Tangenten mitteln normi
 Auswahl/Operatoren/Attribute bleiben gemeinsam; Kanten-/Punktnormalen folgen invers-transponierten Transformationen.
 Kanten haben Scope-Länge entlang x, Punkte drei nullgroße Achsen; Corner-UVs, Material/Tags und Weltlage erhalten.
 Eingefrorene Kontrollen f520c0366: acht gedrehte zUp/noAlign-Gruppen, Quellindices/Verbindung/Reextraktion, Besitz und zwölf reale PRT-Bounds.
-Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 49 Ziele, kein isoliertes e/fe/v/fv-Laufzeitorakel.
+Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 52 Ziele, kein isoliertes e/fe/v/fv-Laufzeitorakel.
 Fünf Körper, 21 warme Läufe, zwei OpenBLAS-Threads: Komponenten-p50 4,50–40,98 ms; finale Ausgabe/Frames/GPU nicht enthalten.
-Dict-Indexierung ist bei vier kleinen Fällen günstiger, NumPy-Sort beim 72-Kanten-Hof; Differenzen unter 0,04 ms.
-Dict erhält einfache erste Quellreihenfolge; kein behaupteter Gesamtzeitgewinn. Relevante Kosten entstehen im Komponentenaufbau.
 Kanten-/Punktplots bleiben interne Referenzen; aktuelle Lieferung zeigt deren Sweep-Flächen.
 Extrusionsvertrag: `comp(e/fe)`, vier Modi, gemeinsame Vertexnormalen des aktuellen Kantennetzes.
 Eine Seitenfläche je Kante; keine künstlichen Flächenkappen. Eigene Nachbar-IDs erhalten, Face-Normal-Sweeps dürfen sich trennen.
@@ -104,7 +101,14 @@ Kanten-/Punktkonstruktoren bestehen; singuläre authored-Normalen und undokument
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Ausschluss, Verbindung, Komponenten-Pivots und nullgroße Achsen.
-Aktiver Block: `comp(g/m/h)`, Material-/Gruppen-/Lochkomponenten mit geprüfter Quellsemantik.
-SDK: Gruppen/Materialien erfüllen Richtungsselektoren, wenn mindestens ein enthaltenes geometrisches Element sie erfüllt.
-Ghidra: Gruppenscopes, Materialwert-Vergleich und Lochinversion zuerst prüfen; Gruppen dürfen mehrere Materialien enthalten.
-Quellgruppen/Materialdefinitionen neben nativen Indices erhalten, Lochringe/UVs und vorhandene Dreiecke nicht verlieren.
+`modelling_group_components`/`modelling_metadata`: `comp(g/m/h)`, Quellgruppen/Materialwerte und gefüllte Lochkomponenten.
+Richtungs-/Tagkeywords gelten je Gruppe bei mindestens einem passenden Mitglied; boolesche Verknüpfungen arbeiten auf der Gruppe.
+Python-Prädikate erhalten Gruppenfläche/Mitglieder. `:`/`=`/`=:` und Ausschluss bleiben gemeinsam; Gruppen dürfen mehrere Materialien enthalten.
+Native Dreiecke/Corner-UVs kopieren; nur gefüllte Lochflächen benötigen neue GEOS-Triangulierung, mit Normalenorientierung des Elternpolygons.
+Immutable Gruppennamen/Materialwerte teilen; Face-/Edge-/Point-Gruppen und native Palette-IDs samt Tabellen durch Komponenten/Extrusion erhalten.
+Gleiche deklarierte Werte/Name bündeln verschiedene Palette-IDs; undeutlich aufgelöste IDs getrennt erhalten, keine Shaderdefaults erfinden.
+Konstruktoren prüfen logische/native Zugehörigkeit. `group_names/material_names` folgen Komponentenindices und emittieren keine Geometrie.
+Entwicklung: vier g/m-Frames, zwei analytische Lochflächen/UVs, Draht/Punktgruppen, sechs ungültige Eingaben und drei echte PRT-Prismen.
+Lieferung: eingefrorene Prüfungen, fünf Workbench-Kontrollen, zwei Pläne; null Architektur-Rezeptfamilien.
+Offen: isolierte PRT-g/m/h-Scopes, komplette Shaderdefaults/Texture-/Objektpointergleichheit und gemischte Primitivgruppen.
+PyEncoder liefert keine Gruppen-/Materialmetadaten; PRT-Bounds/Volumen plus analytische gefüllte Höfe sind kein isoliertes Komponentenorakel.

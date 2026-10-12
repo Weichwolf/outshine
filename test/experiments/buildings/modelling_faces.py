@@ -7,6 +7,7 @@ import numpy as np
 import shapely
 
 from modelling_scope import scalar
+from modelling_metadata import group_id
 
 
 EXTRUSION_TAGS={'extrude.bottom':1,'extrude.side.outer':2,'extrude.side.inner':4,'extrude.top':8}
@@ -29,9 +30,11 @@ class Face:
     material: int=1
     tags: frozenset=frozenset()
     uvs: tuple=()
+    group: int=0
 
     def __post_init__(self):
         object.__setattr__(self,'outer',ring_indices(self.outer))
+        object.__setattr__(self,'group',group_id(self.group))
         object.__setattr__(self,'holes',tuple(ring_indices(ring) for ring in self.holes))
         if isinstance(self.material,bool) or not isinstance(self.material,Integral) or not 0<=self.material<=65535:
             raise ValueError('Polygon material requires an unsigned 16-bit identifier')
@@ -84,7 +87,7 @@ def compile_faces(vertices,faces,vertex_normals=None,allow_warped=False):
     if vertex_normals is not None:
         vertex_normals=np.asarray(vertex_normals,dtype=np.float64)
         if vertex_normals.shape!=points.shape or not np.isfinite(vertex_normals).all():raise ValueError('Invalid authored polygon vertex normals')
-    output=points.tolist();uvs=[[0.,0.]]*len(points);triangles=[];materials=[];parts=[];masks=[]
+    output=points.tolist();uvs=[[0.,0.]]*len(points);triangles=[];materials=[];parts=[];masks=[];groups=[]
     normals=vertex_normals.tolist() if vertex_normals is not None else None
     if any(not isinstance(face,Face) for face in faces):raise ValueError('Logical polygon boundaries require Face objects')
     prepared=[plane(points,face,allow_warped) for face in faces]
@@ -102,10 +105,10 @@ def compile_faces(vertices,faces,vertex_normals=None,allow_warped=False):
             for pair in xy:
                 index,uv=corners[tuple(pair)];output.append(points[index].tolist());uvs.append(uv)
                 if normals is not None:normals.append(vertex_normals[index].tolist())
-            triangles.append([first,first+1,first+2]);materials.append(face.material);parts.append(number);masks.append(tag_mask)
+            triangles.append([first,first+1,first+2]);materials.append(face.material);parts.append(number);masks.append(tag_mask);groups.append(face.group)
     mesh=dict(vertices=np.asarray(output,dtype=np.float64).reshape(-1,3),faces=np.asarray(triangles,dtype=np.int32).reshape(-1,3),
               uv=np.asarray(uvs,dtype=np.float64).reshape(-1,2),materials=np.asarray(materials,dtype=np.uint16),
-              parts=np.asarray(parts,dtype=np.int32),face_tag_mask=np.asarray(masks,dtype=np.uint8))
+              parts=np.asarray(parts,dtype=np.int32),face_tag_mask=np.asarray(masks,dtype=np.uint8),groups=np.asarray(groups,dtype=np.uint32))
     if normals is not None:mesh['normals']=np.asarray(normals)
     return mesh,tuple(topology)
 

@@ -21,21 +21,24 @@ WORLD={'south':'front','north':'back','west':'left','east':'right','up':'top','d
 class Selector:
     name: str
     function: object
+    memberwise: bool=True
 
     def __call__(self,query):
+        if self.memberwise and query.members:
+            return any(self(member) for member in query.members)
         result=self.function(query)
         if not isinstance(result,(bool,np.bool_)):raise ValueError('A component selector must return a boolean')
         return bool(result)
 
     def __and__(self,other):
         other=select(other)
-        return Selector('('+self.name+' && '+other.name+')',lambda query:self(query) and other(query))
+        return Selector('('+self.name+' && '+other.name+')',lambda query:self(query) and other(query),False)
 
     def __or__(self,other):
         other=select(other)
-        return Selector('('+self.name+' || '+other.name+')',lambda query:self(query) or other(query))
+        return Selector('('+self.name+' || '+other.name+')',lambda query:self(query) or other(query),False)
 
-    def __invert__(self):return Selector('!('+self.name+')',lambda query:not self(query))
+    def __invert__(self):return Selector('!('+self.name+')',lambda query:not self(query),False)
 
     def __bool__(self):raise TypeError('Combine component selectors with &, | and ~')
 
@@ -70,7 +73,7 @@ def select(value):
         number=scalar(value)
         if number!=int(number):raise ValueError('A component index must be an integer-valued number')
         return Selector(str(int(number)),lambda query:query.index==int(number))
-    if callable(value):return Selector(getattr(value,'__name__','python-predicate'),value)
+    if callable(value):return Selector(getattr(value,'__name__','python-predicate'),value,False)
     if value=='all':return Selector('all',lambda _:True)
     valid=set(AXES)|{'side','vertical','horizontal','aslant','nutant','border','inside'}
     valid|={'object.'+name for name in (*AXES,'side')}|{'world.'+name for name in WORLD}|{'street.'+name for name in ('front','back','left','right','side')}

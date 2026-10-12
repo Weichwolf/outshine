@@ -31,8 +31,8 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
-    'comp': dict(module='modelling_shape.Shape.comp',status='f/e/fe/v/fv primitives, selectors, exclusion, operators, frames and predecessor attributes implemented; analytic controls and PRT prism bounds/roundtrips',
-                 pending=['group/material/hole components','roof-specific edge selectors','streetWidth maps','trim planes','fractional indices','isolated PRT comp rule','exact nonplanar SDK alignment','degenerate-normal SDK fallback equivalence']),
+    'comp': dict(module='modelling_shape.Shape.comp',status='f/e/fe/v/fv/g/m/h components; authored groups, declared material values, filled holes, any-member keywords and inherited frames/attributes; analytic controls and PRT prism bounds/volumes',
+                 pending=['mixed primitive group assembly','full shader defaults and texture/object-pointer material equivalence','roof-specific edge selectors','streetWidth maps','trim planes','fractional indices','isolated PRT comp rules','exact nonplanar SDK alignment','degenerate-normal SDK fallback equivalence']),
     't': dict(module='modelling_shape.Shape.t',status='documented forms implemented; scope checks and two PRT translations',pending=[]),
     'r': dict(module='modelling_shape.Shape.r',status='documented pivot/centre forms implemented; scope checks and Ghidra',pending=['isolated PRT rotation rule']),
     's': dict(module='modelling_shape.Shape.s',status='absolute/relative and negative sizes implemented; scope checks and Ghidra',pending=['singular authored-normal transform','isolated PRT scale rule']),
@@ -41,6 +41,8 @@ OWN = {
                     pending=['mixed primitive extrusion','cancelled-normal SDK fallback and degenerate pruning equivalence','tangential or collapsed face sweep','UV channels beyond the first','isolated PRT edge/flat-top/vertex-normal rules']),
 }
 OWN_ATTRIBUTES={'comp':dict(module='modelling_shape.CompInfo',status='per-selector sel/index/total assigned; scope operations and extrusion inherit predecessor values',pending=['inheritance in remaining geometry operations'])}
+OWN_FUNCTIONS={'geometry':dict(module='modelling_shape.Shape.group_names/material_names',status='group/material name queries implemented in component index order without vertex emission; remaining geometry functions pending',
+                               pending=['other geometry member functions','full shader defaults and texture/object-pointer material equivalence','isolated PRT name-order rule'])}
 USES = {
     'Dachformen': 'Dachsilhouette, First, Traufe und Überstand; zunächst keine eigene Umsetzung.',
     'Massierung und Grundriss': 'Höhenintervalle, Höfe, Gebäudeteile, Rücksprünge und technische Körper.',
@@ -82,7 +84,7 @@ def page_record(path, root, kind):
     data = path.read_bytes()
     page.feed(data.decode('utf-8'))
     identifier = path.stem.removeprefix({'operation': 'op_', 'function': 'func_', 'attribute': 'attr_'}.get(kind, ''))
-    own=OWN.get(identifier) if kind=='operation' else OWN_ATTRIBUTES.get(identifier) if kind=='attribute' else None
+    own={'operation':OWN,'attribute':OWN_ATTRIBUTES,'function':OWN_FUNCTIONS}.get(kind,{}).get(identifier)
     group = next((group for group, names in GROUPS.items() if identifier in names.split()), None)
     return dict(name=identifier, kind=kind, title=' '.join(''.join(page.title).split()),
                 signatures=' '.join(' '.join(page.signatures).split()),

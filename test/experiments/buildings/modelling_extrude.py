@@ -7,6 +7,7 @@ import numpy as np
 
 from modelling_faces import EXTRUSION_TAGS,Face,face_shape,plane
 from modelling_scope import Scope,scalar
+from modelling_metadata import inherit
 
 
 MODES=('face.normal','world.up','world.up.flatTop','vertex.normal')
@@ -17,8 +18,9 @@ def active_faces(shape):
     faces=shape.geometry.polygons
     if not faces:
         material=mesh.get('materials',np.ones(len(mesh['faces']),dtype=np.uint16))
-        faces=tuple(Face(tuple(triangle),material=int(value),uvs=(tuple(tuple(pair) for pair in mesh['uv'][triangle]),) if 'uv' in mesh else ())
-                    for triangle,value in zip(mesh['faces'],material,strict=True))
+        groups=mesh.get('groups',np.zeros(len(mesh['faces']),dtype=np.uint32))
+        faces=tuple(Face(tuple(triangle),material=int(value),uvs=(tuple(tuple(pair) for pair in mesh['uv'][triangle]),) if 'uv' in mesh else (),group=int(group))
+                    for triangle,value,group in zip(mesh['faces'],material,groups,strict=True))
     if not faces:raise ValueError('Face extrusion requires a nonempty polygon surface')
     used=sorted({index for face in faces for ring in (face.outer,*face.holes) for index in ring})
     mapping={old:new for new,old in enumerate(used)}
@@ -87,7 +89,7 @@ def cap(face,mapping,reverse,tag):
     rings=tuple(tuple(mapping[index] for index in ring) for ring in (face.outer,*face.holes))
     uv=face.uvs
     if reverse:rings=tuple(ring[::-1] for ring in rings);uv=tuple(ring[::-1] for ring in uv)
-    return Face(rings[0],rings[1:],face.material,face.tags|{tag},uv)
+    return Face(rings[0],rings[1:],face.material,face.tags|{tag},uv,face.group)
 
 
 def sides(face,mapping,normals,owners,mode):
@@ -98,7 +100,7 @@ def sides(face,mapping,normals,owners,mode):
             if len(shared)==2 and (mode!='face.normal' or np.allclose(normals[shared[0]],normals[shared[1]],rtol=0.,atol=1e-10)):continue
             uv_a,uv_b=face.uvs[number][corner],face.uvs[number][(corner+1)%len(ring)]
             tag='extrude.side.outer' if number==0 else 'extrude.side.inner'
-            result.append(Face((a,b,mapping[b],mapping[a]),material=face.material,tags=face.tags|{tag},uvs=((uv_a,uv_b,uv_b,uv_a),)))
+            result.append(Face((a,b,mapping[b],mapping[a]),material=face.material,tags=face.tags|{tag},uvs=((uv_a,uv_b,uv_b,uv_a),),group=face.group))
     return result
 
 
@@ -123,11 +125,11 @@ def extrude(shape,distance,mode='face.normal'):
     faces=tuple(replace(face,tags=face.tags-EXTRUSION_TAGS.keys()) for face in faces)
     prepared=[plane(vertices,face,True) for face in faces];normals=np.array([item[0] for item in prepared]);faces=tuple(item[3] for item in prepared)
     if distance==0 and mode!='world.up.flatTop':
-        return replace(face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True),comp_info=shape.comp_info)
+        return replace(inherit(face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True),shape),comp_info=shape.comp_info)
     owners=edge_owners(faces);output=[];all_points=vertices.tolist();known={}
     target,up=displaced(vertices,faces,normals,distance,mode) if mode!='face.normal' else (None,normals[0])
     if target is not None and np.array_equal(target,vertices):
-        return replace(face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True),comp_info=shape.comp_info)
+        return replace(inherit(face_shape(vertices,[replace(face,tags=face.tags|{'extrude.bottom','extrude.top'}) for face in faces],scope=shape.scope,allow_warped=True),shape),comp_info=shape.comp_info)
     for index,face in enumerate(faces):
         selected=sorted({i for ring in (face.outer,*face.holes) for i in ring})
         base=vertices[selected];top=base+normals[index]*distance if mode=='face.normal' else target[selected]
@@ -142,4 +144,4 @@ def extrude(shape,distance,mode='face.normal'):
             local.append(replace(wall,outer=wall.outer[::-1],uvs=tuple(ring[::-1] for ring in wall.uvs)) if polarity<0 else wall)
         output.extend(local)
     points=np.asarray(all_points);scope=aligned_scope(points,up,shape.scope,distance<0)
-    return replace(face_shape(points,output,scope=scope,allow_warped=True),comp_info=shape.comp_info)
+    return replace(inherit(face_shape(points,output,scope=scope,allow_warped=True),shape),comp_info=shape.comp_info)

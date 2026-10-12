@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 49 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
+Ghidra 12.1.2: 52 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft echte Mesh-Cuts auf. Dynamische Aufrufziele bleiben offen.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
@@ -58,7 +58,12 @@ Oriented/Create/Connected/Split: 793/1927/969/1150 Instruktionen, 0/1/0/5 indire
   `setSideFace` kopiert Quell-/Kanten-/Endpunkttags und aktualisiert Eckbeziehungen; konkrete C++-Feldtypen bleiben ungeprüft.
   316/200 Instruktionen, keine indirekten/außerhalb liegenden Stellen; UV- und Kollapsäquivalenz brauchen weitere Laufzeitregeln.
   Extrusionsdispatchs besitzen eigene Zweipunktzweige: eine Seitenfläche pro Kante, Vertexmodus teilt verschobene Endpoint-IDs.
-- Aktueller Kernvertrag (2480): `GroupedComponent::isOriented/createShape` und Materialvergleich als drei neue Ghidra-Ziele für `comp(g/m/h)` prüfen.
+- Gruppenbeleg e6fb5a155: `GroupedComponent::isOriented` prüft Mitglieder bis zum ersten Treffer; sieben virtuelle Aufrufstellen.
+  `createShape` baut Quellmeshes und passt BBox an oder delegiert Z-Up-Ausrichtung an Geometrie mit Mesh-/Faceindex 0.
+  `Material::operator<` vergleicht Shader und bool/int/float/string/Texture-/Pointercontainer, keine bloße Palette-ID.
+  121/246/295 Instruktionen, 7/0/0 indirekte Stellen, 0/6/0 außerhalb liegende Blöcke; gesamte Defaults-/Texturgleichheit ungeprüft.
+  Komponenten-Dispatch bündelt Materialwerte über Quellen hinweg; Lochzweig invertiert Mesh vor Auswahl der Lochbeziehungen.
+- Aktueller Kernvertrag (2480): eigene `comp(g/m/h)` samt Metadatenvererbung, 2D-/Workbenchbildern und Kostenvergleich prüfen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
