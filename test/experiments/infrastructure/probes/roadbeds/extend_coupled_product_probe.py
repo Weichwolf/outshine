@@ -15,6 +15,7 @@ import infrastructure_coupled_roadbed_experiment as coupled
 from infrastructure_coupled_roadbed_products import apply_coupled_product
 from infrastructure_fitted_roadbeds import spline_roadbed
 from infrastructure_roadbed_void_recipe import close_unusable_voids
+from infrastructure_turn_roadbeds import coordinate_roundoff
 from steering_roadbed_candidate_probe import candidate
 
 
@@ -53,6 +54,24 @@ def existing_products(prior,network):
     return products
 
 
+def changed_shared_cut(floor,addition,sections):
+    beyond_roundoff=addition.difference(floor.buffer(coordinate_roundoff(floor)))
+    return bool(len(sections.query(beyond_roundoff,predicate='dwithin',distance=1e-7)))
+
+
+def verify_cut_roundoff():
+    for offset in (0.,1000.,1e6):
+        floor=shapely.box(offset,offset,offset+10,offset+4)
+        cut=shapely.LineString([[offset,offset],[offset,offset+4]])
+        index=shapely.STRtree([cut]);epsilon=coordinate_roundoff(floor)
+        sliver=shapely.box(offset,offset-epsilon*.25,offset+2,offset)
+        assert not changed_shared_cut(floor,sliver,index)
+        real=shapely.box(offset,offset-1e-4,offset+2,offset)
+        assert changed_shared_cut(floor,real,index)
+        assert not changed_shared_cut(floor,shapely.box(offset+5,offset-1,offset+6,offset),index)
+    return dict(roundoff_sliver_ignored=True,real_cut_change_rejected=True,unrelated_addition_allowed=True)
+
+
 def add_curve(root,network,products,owner,pair,note):
     product=products[owner];poses=product['poses'];route=product['routes'][pair]
     assert pair not in [tuple(c['pair']) for c in product['curves']],'request already proved'
@@ -64,16 +83,27 @@ def add_curve(root,network,products,owner,pair,note):
     assert support is not None,construction
     base,recipe=close_unusable_voids(floor,support,reserved)
     filled=base.difference(floor)
+    core,physical_recipe=close_unusable_voids(shape,support,reserved)
+    physical_filled=core.difference(shape)
+    recipe['physical_voids']=physical_recipe
+    base=base.union(physical_filled)
+    filled=filled.union(physical_filled)
     data=dict(surface=base.wkb.hex(),reservations=reserved.wkb.hex(),source_route=route.wkb.hex(),
         vehicle=network.vehicle,error_m=error,
         entry={k:poses[pair[0]][k] for k in ('position','heading')},
         exit={k:poses[pair[1]][k] for k in ('position','heading')})
     seed,_=candidate(data,note)
     seed['report']={k:v for k,v in note.items() if k!='curve_controls'}
-    planned=seed['surface'];addition=planned.difference(floor)
+    planned=seed['surface'];addition=planned.difference(floor).union(physical_filled)
     sections=shapely.STRtree(list(network.sections.values()))
     assert addition.intersection(reserved).area<=1e-8,'reservation overlap'
-    assert not len(sections.query(addition,predicate='dwithin',distance=1e-7)),'changed shared cut'
+    assert not changed_shared_cut(floor,addition,sections),'changed shared cut'
+    touching=sections.query(addition,predicate='dwithin',distance=1e-7)
+    if len(touching):
+        locked=shapely.union_all(sections.geometries[touching]).buffer(2e-7)
+        addition=addition.difference(locked)
+        planned=floor.union(addition)
+        assert not len(sections.query(addition,predicate='dwithin',distance=1e-7)),'cut normalization failed'
     ids=network.mesh[1].query(addition,predicate='intersects')
     owners=set(map(int,network.product['face_owners'][ids]))|set(products)
     assert not any(addition.intersection(network.shape(m)).area>1e-8 for m in owners if m!=owner),'owner overlap'
@@ -102,6 +132,7 @@ def main():
     args.output.mkdir(parents=True,exist_ok=True);mesh_path=args.output/'mesh.npz';np.savez_compressed(mesh_path,**mesh)
     product=products[args.module];report=dict(prior)
     report.update(proofs=proofs,published_surfaces=surfaces,published_frames=coupled.published_frames(products),
+        cut_checks=verify_cut_roundoff(),
         physical_mesh=str(mesh_path),physical_mesh_sha256=coupled.digest(mesh_path),physical_mesh_audit=audit,
         original_surface_wkb=next(p['public_surface_wkb'] for p in prior['published_surfaces'] if p['module']==args.module),
         normalized_surface_wkb=product['base'].wkb.hex(),planned_surface_wkb=product['planned'].wkb.hex(),
