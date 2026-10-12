@@ -58,8 +58,9 @@ Rezeptfunktionen gemeinsam pflegen, Familien/Varianten/Instanzen getrennt zähle
 Vollständige Fähigkeitszuordnung mit offenen Lücken; ausgeführte Geometrie-/Scope-/Materialverträge gegen SDK/PRT prüfen.
 Reproduzierbare kleine Kontrollkörper, echte OSM-Grundrisse, ungültige/degenerierte Gegenfälle und gemessene Kosten.
 Nur aktuelle Bildbelege in den vier Showcase-Ansichtsebenen; keine vorweggenommene native LOD-/Geräteabnahme.
-Aktiver Ausbau: Polygonflächen mit Löchern/Material/Tags, Extrusion entlang Flächen-/Vertexnormalen sowie Welt-Aufwärtsachse/Flat-Top;
-Flächenorientierung, negative/Null-Distanzen, Hoföffnungen, geteilte Kanten, UVs und neue Scope-Ausrichtung prüfen.
+Aktiver Ausbau: `comp(f)` mit richtungs-/neigungs-/tag-/randbezogener Auswahl, Ausschluss bereits gewählter Flächen,
+Einzel-/Gesamt-/Verbindungsoperatoren sowie passenden Pivot-/Scope-Achsen und `comp.sel/index/total`.
+Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; Komponenten-Geometrie teilen statt erneut triangulieren.
 Logische Polygonflächen bleiben neben der nativen Triangulierung erhalten; GEOS/CDT nutzen, keine Polygontriangulierung neu erfinden.
 `modelling_faces`/`modelling_extrude`: eigene immutable Polygonringe/Corner-UVs neben Triangle-Assets; vier Flächen-Extrusionsarten.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen, negative Distanz behält negatives Scope-Y.
@@ -85,4 +86,5 @@ Ghidra 43d5485f6: `r` addiert drei gespeicherte Zahlen; Zentrumdispatch ruft vor
 43/54/161 Instruktionen, keine indirekten Stellen; ein außerhalb liegender Zentrumblock. Translation delegiert nach Skalenauswertung an `Shape::translate`.
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
-Nächster Block: logische Flächen mit `comp(f)` auswählen und in passende Fassaden-/Dachscopes zerlegen; Kanten-/Vertexkomponenten folgen.
+[CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl, Ausschluss, Verbindung, Komponenten-Pivots und nullgroße Achsen.
+Nächster Block nach Flächen: Kanten-/Vertex-/Material-/Gruppen-/Lochkomponenten und Kantenextrusion; Umfang nicht auf Fassadenflächen beschränken.

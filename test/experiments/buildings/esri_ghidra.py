@@ -54,6 +54,13 @@ TARGETS = {
     '_ZNK5Shape29calculateScopeRotationForNewYERKN4util7Vector3IdEERS2_PNS0_6MatrixIdEE': 'extrusion scope orientation for a new up direction',
     '_ZN12_GLOBAL__N_120setSideFaceTexCoordsERKN4util4Mesh7PolygonERS2_m.lto_priv.0': 'extrusion side-face texture inheritance',
     '_ZN4util9MeshUtils28calculateSmoothVertexNormalsERKNS_4MeshERKNS_12HoleRelationERKSt6vectorIN5boost9container12small_vectorIjLm4EvvEESaISB_EERS7_INS_7Vector3IdEESaISH_EE': 'smooth extrusion vertex normals from adjacent face geometry',
+    '_ZN12_GLOBAL__N_14compIPvEEvR9ProcessorN2GC12CompSelector4EnumEbRKSt10shared_ptrINS4_10CSplitNodeEEPSt6vectorIT_SaISD_EE.constprop.0': 'component split evaluation and exclusion dispatch',
+    '_ZN14ComponentUtils26combineConnectedComponentsEN2GC12CompSelector4EnumERKSt6vectorISt10unique_ptrI9ComponentSt14default_deleteIS5_EESaIS8_EERKN5boost9container12small_vectorIjLm4EvvEERS3_ISG_SaISG_EE': 'connected component grouping',
+    '_ZN9Component7isFrontERKN4util7Vector3IdEE': 'front direction selector thresholds',
+    '_ZN9Component6isLeftERKN4util7Vector3IdEE': 'left direction selector thresholds',
+    '_ZN9Component6isSideERKN4util7Vector3IdEE': 'side selector angular boundary',
+    '_ZNK15SingleComponent10isOrientedER9ProcessorN2GC4Comp4EnumE': 'scope, object, world, border and inclination selector dispatch',
+    '_ZNK15SingleComponent11createShapeERK5ShapebdPN4util11MeshTracker11InitializerE': 'component pivot, local axes and geometry fitting',
 }
 SCRIPT = r'''
 import ghidra.app.script.GhidraScript;

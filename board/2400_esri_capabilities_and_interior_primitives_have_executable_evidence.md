@@ -44,7 +44,7 @@ Neue Scope-Y-Achse: alte X-Achse orthogonal projizieren, bei Kollaps Ersatzachse
 Diese drei Helper haben keine indirekten Stellen/außerhalb liegenden Blöcke; SDK-Typen und Ersatzkonstante bleiben nicht laufzeitverifiziert.
 
 ## Umsetzung
-- Aktueller Kernvertrag (2480): Polygon-/Extrusionsfälle mit Löchern, geteilten/unverbundenen Vertices, neuer Scope-Ausrichtung und UV-/Tag-/Materialvererbung gegen diese Belege prüfen.
+- Aktueller Kernvertrag (2480): `comp`-Auswahl/Verbindungsoperatoren und neue Komponenten-Pivots/Scopes anhand tatsächlicher Dispatcher und Helper vertiefen.
 - Für die nächste sichtbare Fassadenlücke (2440): Komponenten-/Flächenextraktion, Scope-Ausrichtung, Größen-/Skalierungsdispatch und Einfügungsanpassung vertiefen.
   Bibliothekssymbole zuerst mit Ghidra gegen tatsächliche Aufrufe prüfen; Rahmenmodule an vorhandene Raumöffnungen anschließen.
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
