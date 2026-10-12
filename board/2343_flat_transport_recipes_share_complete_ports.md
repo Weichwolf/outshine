@@ -15,7 +15,7 @@ mit funktionalen Verbindungen. Besitzer: Transport/generators/road; Bereichsgren
 [Flächenplan](../test/experiments/transport/transport_flat_surface_network.py) und
 [Ports](../test/experiments/transport/transport_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
 Drei Ebenen-0-Fenster mit 1 km Radius (`03af0cec8`): 8630/8679 direkte öffentliche Auto-Verbindungen.
-Basel neu: 2958/2962 statt 2956; 26 Einzelverbesserungen und acht gemeinsame Produkte erhalten, vier Umfahrungen bleiben.
+Basel neu: 2962/2962 direkt; 26 Einzelverbesserungen erhalten, elf gemeinsame Produkte. Keine zusätzlichen Netztrennungen.
 Keine zusätzlichen schwachen oder starken Netztrennungen. Das belegt nur diese
 Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -88,7 +88,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Nächste Umwege: Basel 490: 25→480 m, 979: zweimal 15→347/349 m, 591: 19→136 m; Zürich 2134: 60→1369 m, Wien 684: 30→703 m.
+   Basel 490/591/979 vollständig mit gemeinsam versetzten Schnitten; nächste Umwege Zürich 2134: 60→1369 m, Wien 684: 30→703 m.
    [Gekoppelter Wendeplatz](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): Basel 1155 6/6, insgesamt 8/8 auf drei Bauteilen; Bestand erhalten.
    Drei Kreisbögen mit Klothoiden: nur drei Längen passen, ≤128 Aufrufe/Seed; G2/Radiusschranke am Bézier-Mesh prüfen.
    Zwei Schnitte 4 m nach außen; gerade Zu-/Abfahrten, Wendefahrten je 36,3 m, +75,3 m² Fahrfläche, 24,6 m² Gebäude-Freiraumanfrage. Volles Basel bestätigt; Buildings-Runtime offen.
@@ -104,7 +104,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
    Wien 900/909, Zürich 4774/4808, Basel 2956/2962; Messcommit `03af0cec8`, ein Core, zusammen 127 s.
-   Neues Basel-Fenster 19,3 s mit vorbereiteten Produkten; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.
+   Neues Basel-Fenster 16,5 s mit vorbereiteten Produkten; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
 3. Kosten pro Modul/Verbindung, Speicher und Skalierung vergleichen; nachgewiesen unnötige Sucharbeit beseitigen.
