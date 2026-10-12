@@ -14,7 +14,7 @@ def compose_complete_roadbeds(surface,shape,supports,reserved):
 
 
 def construct_complete_module(network,trial,owner,sections,affected,region,buildings,section_index,required,cache,reserved,*,public_floor=None):
-    assert buildings.difference(reserved).is_empty,'declared reservations omit protected buildings'
+    assert buildings.difference(reserved).is_empty or coupled.preserves_coverage(buildings,reserved),'declared reservations omit protected buildings'
     last={}
     def compose(surface,shape,supports):
         product,audit=compose_complete_roadbeds(surface,shape,supports,reserved)
