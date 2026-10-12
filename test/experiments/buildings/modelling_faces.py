@@ -8,6 +8,7 @@ import shapely
 
 from modelling_scope import scalar
 from modelling_metadata import group_id
+from modelling_uv_corners import rings_uv,channels_uv
 
 
 EXTRUSION_TAGS={'extrude.bottom':1,'extrude.side.outer':2,'extrude.side.inner':4,'extrude.top':8}
@@ -31,6 +32,7 @@ class Face:
     tags: frozenset=frozenset()
     uvs: tuple=()
     group: int=0
+    uv_sets: tuple=()
 
     def __post_init__(self):
         object.__setattr__(self,'outer',ring_indices(self.outer))
@@ -41,11 +43,8 @@ class Face:
         object.__setattr__(self,'tags',frozenset(self.tags))
         if any(not isinstance(tag,str) for tag in self.tags):raise ValueError('Face tags must be strings')
         if self.uvs:
-            uv=tuple(tuple(tuple(scalar(x) for x in pair) for pair in ring) for ring in self.uvs)
-            rings=(self.outer,*self.holes)
-            if len(uv)!=len(rings) or any(len(a)!=len(b) for a,b in zip(uv,rings)) or any(len(pair)!=2 for ring in uv for pair in ring):
-                raise ValueError('Face UV coordinates must match each polygon corner')
-            object.__setattr__(self,'uvs',uv)
+            object.__setattr__(self,'uvs',rings_uv(self.uvs,(self.outer,*self.holes)))
+        object.__setattr__(self,'uv_sets',channels_uv(self.uv_sets,(self.outer,*self.holes)))
 
 
 def plane(vertices,face,allow_warped=False):
@@ -68,13 +67,14 @@ def plane(vertices,face,allow_warped=False):
     polygon=shapely.Polygon(coordinates[0],coordinates[1:])
     if not polygon.is_valid or polygon.area<=1e-12:raise ValueError('Invalid polygon face: '+shapely.is_valid_reason(polygon))
     uv=face.uvs or tuple(tuple(tuple(pair) for pair in xy) for xy in coordinates)
-    holes=list(face.holes);uv=list(uv)
+    holes=list(face.holes);uv=list(uv);extra={channel:list(rows) for channel,rows in face.uv_sets}
     for index,xy in enumerate(coordinates[1:],1):
         next_xy=np.roll(xy,-1,axis=0)
         area=np.sum(xy[:,0]*next_xy[:,1]-xy[:,1]*next_xy[:,0])
         if area>0:
             holes[index-1]=holes[index-1][::-1];coordinates[index]=xy[::-1];uv[index]=uv[index][::-1]
-    return normal,polygon,coordinates,replace(face,holes=tuple(holes),uvs=tuple(uv))
+            for rows in extra.values():rows[index]=rows[index][::-1]
+    return normal,polygon,coordinates,replace(face,holes=tuple(holes),uvs=tuple(uv),uv_sets=tuple((channel,tuple(rows)) for channel,rows in extra.items()))
 
 
 def triangulations(polygons):
@@ -91,11 +91,14 @@ def compile_faces(vertices,faces,vertex_normals=None,allow_warped=False):
     normals=vertex_normals.tolist() if vertex_normals is not None else None
     if any(not isinstance(face,Face) for face in faces):raise ValueError('Logical polygon boundaries require Face objects')
     prepared=[plane(points,face,allow_warped) for face in faces]
+    extra={channel:[[0.,0.]]*len(points) for _,_,_,face in prepared for channel,_ in face.uv_sets}
     triangulated=triangulations([item[1] for item in prepared]);topology=[]
     for number,(_,polygon,coordinates,face) in enumerate(prepared):
         topology.append(face)
         corners={tuple(xy):(index,face.uvs[r][i]) for r,ring in enumerate((face.outer,*face.holes))
                  for i,(index,xy) in enumerate(zip(ring,coordinates[r]))}
+        extra_corners={channel:{tuple(xy):values[r][i] for r,xy_ring in enumerate(coordinates) for i,xy in enumerate(xy_ring)}
+                       for channel,values in face.uv_sets}
         tag_mask=sum(bit for name,bit in EXTRUSION_TAGS.items() if name in face.tags)
         for triangle in shapely.get_parts(triangulated[number]):
             xy=np.array(triangle.exterior.coords)[:3]
@@ -104,12 +107,14 @@ def compile_faces(vertices,faces,vertex_normals=None,allow_warped=False):
             first=len(output)
             for pair in xy:
                 index,uv=corners[tuple(pair)];output.append(points[index].tolist());uvs.append(uv)
+                for channel,values in extra.items():values.append(extra_corners.get(channel,{}).get(tuple(pair),(0.,0.)))
                 if normals is not None:normals.append(vertex_normals[index].tolist())
             triangles.append([first,first+1,first+2]);materials.append(face.material);parts.append(number);masks.append(tag_mask);groups.append(face.group)
     mesh=dict(vertices=np.asarray(output,dtype=np.float64).reshape(-1,3),faces=np.asarray(triangles,dtype=np.int32).reshape(-1,3),
               uv=np.asarray(uvs,dtype=np.float64).reshape(-1,2),materials=np.asarray(materials,dtype=np.uint16),
               parts=np.asarray(parts,dtype=np.int32),face_tag_mask=np.asarray(masks,dtype=np.uint8),groups=np.asarray(groups,dtype=np.uint32))
     if normals is not None:mesh['normals']=np.asarray(normals)
+    for channel,values in extra.items():mesh['uv'+str(channel)]=np.asarray(values,dtype=np.float64).reshape(-1,2)
     return mesh,tuple(topology)
 
 

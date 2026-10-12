@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 64 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
+Ghidra 12.1.2: 71 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft Mesh-Cuts auf. Split-Allokation 004d6120: feste Restbreite, gewichtete Floating-Anteile, Repeat-Floor/Ceil nach Streckungsabstand zu 1.
 ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Verschachtelte Wiederholungen und Grenzfälle bleiben offen; 2480 prüft 2D/3D getrennt.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
@@ -67,7 +67,7 @@ Komponentenpfade enthalten indirekte Aufrufe/außerhalb liegende Blöcke; Detail
   Eigene tatsächliche Dreiecksflächen und Schnittentscheidung samt verworfener Manifold-Koplanarvariante stehen in 2480.
 - Nach dem Modellierkern (2480): Rahmenmodule über Komponenten-/Flächenscopes und Insert an vorhandene Raumöffnungen anschließen (2440).
 - Materialvergleich: lokale SDK-Dokumentation trennt Deckkraft, Reflexion/Zweiseitigkeit sowie blend/mask/opaque.
-  Analysierte Speicher-/Kombinationspfade belegen weder numerische Clamp-Regeln noch einen Glasrenderer.
+  UV-Pfade: affine Array-Edits/Assetcopy; normalizeUV entfernt ungenutzte Koordinaten und nutzt HoleRelation. 1e−25 UV-Schwellwert im ELF geprüft; Warn-/Typgleichheit unbewiesen.
 - Dokumentation, Ghidra-Aufrufbeleg und ausführbares Ergebnis unterscheiden; indirekte Ziele bleiben offen.
 - Regelpakete/CGA/externe Assets untersuchen; Raumrezepte von generischen Geometrieoperationen trennen.
   Innenwand, Decke/Boden, Raumteilung, Durchbruch, Tür/Fenster, Treppe und Innenmaterial katalogisieren.

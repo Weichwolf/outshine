@@ -127,11 +127,40 @@ class Shape:
         from modelling_channels import additional_channels
         if additional_channels(self.geometry):raise NotImplementedError('Extrusion of additional vertex channels remains pending')
         from modelling_extrude import extrude
-        return extrude(self,distance,mode)
+        from modelling_uv import inherit_primary
+        return inherit_primary(extrude(self,distance,mode),self)
 
     def insert(self,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         from modelling_insert import insert
         return insert(self,asset,mode,cleanup)
+
+    def scale_uv(self,index,u,v):
+        from modelling_uv import scale_uv
+        return scale_uv(self,index,u,v)
+
+    def rotate_uv(self,index,angle):
+        from modelling_uv import rotate_uv
+        return rotate_uv(self,index,angle)
+
+    def translate_uv(self,index,u,v):
+        from modelling_uv import translate_uv
+        return translate_uv(self,index,u,v)
+
+    def transform_uv(self,index,matrix,offset=(0.,0.)):
+        from modelling_uv import transform_uv
+        return transform_uv(self,index,matrix,offset)
+
+    def copy_uv(self,source,destination):
+        from modelling_uv import copy_uv
+        return copy_uv(self,source,destination)
+
+    def delete_uv(self,index):
+        from modelling_uv import delete_uv
+        return delete_uv(self,index)
+
+    def normalize_uv(self,index,mode='uv',kind='collectiveAllFaces'):
+        from modelling_uv_normalize import normalize_uv
+        return normalize_uv(self,index,mode,kind)
 
     def is_instanced(self):
         return (self.asset is not None and self.geometry.unit_vertices is self.asset.geometry.unit_vertices
@@ -143,19 +172,22 @@ class Shape:
         if component not in ('f','g','m') and additional_channels(self.geometry):
             raise NotImplementedError('Additional vertex channels in wire/hole components remain pending')
         from modelling_components import split_components
-        return split_components(self,component,branches,alignment)
+        from modelling_uv import inherit_primary
+        return tuple(inherit_primary(child,self) for child in split_components(self,component,branches,alignment))
 
     def split(self,axis,*parts,repeat=False,adjust=True,cut_material=None,cut_group=0,max_parts=10000):
         from modelling_channels import additional_channels
         if additional_channels(self.geometry):raise NotImplementedError('Splitting additional vertex channels remains pending')
         from modelling_split import split
-        return split(self,axis,parts,repeat,adjust,cut_material,cut_group,max_parts)
+        from modelling_uv import inherit_primary
+        return tuple(inherit_primary(child,self) for child in split(self,axis,parts,repeat,adjust,cut_material,cut_group,max_parts))
 
     def split_area(self,axis,*parts,repeat=False,adjust=True,max_parts=10000):
         from modelling_channels import additional_channels
         if additional_channels(self.geometry):raise NotImplementedError('Area splitting additional vertex channels remains pending')
         from modelling_area_split import split_area
-        return split_area(self,axis,parts,repeat,adjust,max_parts)
+        from modelling_uv import inherit_primary
+        return tuple(inherit_primary(child,self) for child in split_area(self,axis,parts,repeat,adjust,max_parts))
 
     def with_metadata(self,group_names=(),material_defs=()):
         from modelling_metadata import named_groups,materials

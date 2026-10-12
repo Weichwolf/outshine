@@ -30,7 +30,8 @@ def topology(shape,mesh):
     else:
         material=mesh.get('materials',np.ones(len(mesh['faces']),dtype=np.uint16))
         groups=mesh.get('groups',np.zeros(len(mesh['faces']),dtype=np.uint32))
-        faces=tuple(Face(tuple(triangle),material=int(value),uvs=(tuple(tuple(pair) for pair in mesh['uv'][triangle]),) if 'uv' in mesh else (),group=int(group))
+        faces=tuple(Face(tuple(triangle),material=int(value),uvs=(tuple(tuple(pair) for pair in mesh['uv'][triangle]),) if 'uv' in mesh else (),group=int(group),
+                        uv_sets=tuple((int(key[2:]),(tuple(tuple(pair) for pair in array[triangle]),)) for key,array in mesh.items() if key.startswith('uv') and key[2:].isdigit()))
                     for triangle,value,group in zip(mesh['faces'],material,groups,strict=True))
         parts=np.arange(len(faces))
     rows=[[] for _ in faces]

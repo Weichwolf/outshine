@@ -65,7 +65,9 @@ def load_asset(path,name='',up_axis='yUp'):
         groups[group]=str(node);uv=extra.get('uv')
         for row in indices:
             corner=() if uv is None else (tuple(tuple(pair) for pair in uv[row]),)
-            faces.append(Face(tuple(int(i)+offset for i in row),material=material,group=group,tags=('asset.imported',),uvs=corner))
+            channels_uv=tuple((int(key[2:]),(tuple(tuple(pair) for pair in value[row]),)) for key,value in extra.items()
+                              if key.startswith('uv') and key!='uv')
+            faces.append(Face(tuple(int(i)+offset for i in row),material=material,group=group,tags=('asset.imported',),uvs=corner,uv_sets=channels_uv))
         triangles.append(indices+offset);vertices.append(points);normals.append(directions);channel_rows.append(extra);offset+=len(points)
         authored='vertex_normals' in data['geometry'][geometry_name]
         nodes.append((str(node),str(geometry_name),tuple(tuple(float(x) for x in row) for row in matrix),
