@@ -47,4 +47,35 @@ Alle 64 Holzachsen/571 Blätter des bestehenden Jungbaums, gleiche stabile IDs, 
 Geschlossene orientierte Oberfläche, sichtbare dünne Enden und keine inneren Rohrkappen;
 analytische Boolesche Prüffälle, gemeinsame Eingaben und getrennte Erzeugungs-/Produktkosten.
 Belaubte Gesamtansicht plus Anschluss-Nahbild optisch prüfen; keine reine Verwaltungsverbesserung.
-Organische Ausrundung, Rinde/UVs, Wind und vollständige LODs bleiben offen.
+Vollständige organische Weldbindung, Rinde/UVs, Wind und vollständige LODs bleiben offen.
+
+## Lokaler Anschlusskragen
+Hermite-Ringe auf Raycast-Treffern verworfen: Seed 17 verlor 1,09×10⁻⁵ m³ Holz und zeigte 945 Normalenwidersprüche.
+Stattdessen lokale Eltern-/Kinderhüllen nach 2352 hinzufügen und gemeinsam mit allen Originalrohren vereinigen.
+Elternsegmente innerhalb eines Astes per Maximum, erst Eltern-/Kinderfelder symmetrisch mischen.
+Kleine vollständige Volumenprodukte je Anschluss; keine globale Feingitter-Erzeugung für dünne Zweige.
+Stabile Astachsen/Organanker bleiben erhalten; Parameter und räumliche Unterstützung explizit speichern.
+Dichte/Blockabtastung desselben Feldes vergleichen; tatsächliche Nah-/Gesamtbilder und Kosten prüfen.
+
+Normalen: unveränderte Dreiecke exakt übernehmen; neue Ecken per kurzem Strahl auf die unvereinfachte
+Referenz projizieren. Referenz vor Raycast als ein Original markieren und Normalen der neuen Face-Reihenfolge
+zuordnen; RayHit-Indizes gehören zur internen Triangulierung, nicht zu alten Export-Run-Gruppen.
+Normalen der Kragen in Oberflächennähe über die tatsächlichen Eltern-/Kinderrohre angleichen.
+Dies ist Normalengestaltung für den lokalen Übergang, kein Beleg für eine global G1-stetige Geometrie.
+Gebündelte Eingaben ersetzen dieselben skalaren Strahlabfragen; alle 63 Ergebnisse bis 3,3×10⁻¹⁶ gleich.
+Intervallbasierte Normalauswahl verworfen: zusätzliche Klassifikation langsamer, sichtbare Normalen verändert.
+Kleine Probe: 242.482 Vertexabfragen von 9,53 auf 5,36 s; kein Geräte-/Runtime-Nachweis.
+
+Boolesche Splitter: Seed 23 enthält trotz Kernelvereinfachung ein Dreieck mit 5,6–8,1 nm Kanten.
+Lokale Kantenkollaps-Bereinigung nur für vollständig unter 0,1 µm liegende Splitter;
+Linkbedingung, erhaltene Orientierung und unveränderte Flächenprüfung bleiben verbindlich.
+Höchstens 32 getrennte Kollapskanten; keine akkumulierte Vertexverschiebung, sonst expliziter Fehler.
+Geometrie vor Normalenübertragung bereinigen; Verschiebung und Anzahl im Produktbericht ausweisen.
+Drei Seeds geprüft: 160.618–164.720 Dreiecke, geschlossen, Eulerzahl zwei, keine Normalenumkehr.
+Je 192 unabhängige Raumwinkelproben, davon 128 innerhalb aller 64 dünnen Achsen.
+Beobachteter Verlust gegenüber Originalholz 7,7–9,9×10⁻¹² m³, unter dem 10⁻¹⁰-m³-Probenbudget.
+Blockabtastung 3,98–4,24 s gegen dicht 6,10–6,42 s, drei Wiederholungen; alle Mesharrays identisch.
+Normalen 5,74–6,13 s und Vereinigung 4,42–4,70 s jeweils einmal gemessen; erhebliche Kostenlücke.
+Gesamter Prüfprozess einschließlich beider Sampler/Referenzprüfungen: Peak-RSS 978,6 MiB.
+Neue 1280×720-Nah-/Gesamtbilder optisch geprüft: sichtbare Anschlussaufweitung, dünne Zweige erhalten.
+Stammschattierung ohne langen Normalenstreifen; natürliche Krone und Rindenmaterial bleiben offen.

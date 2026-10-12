@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "collars/collars.json",
+        "collar_plot",
+        "Lokale Astkragen · Form und Erzeugungskosten",
+        "63 kleine Eltern-/Kinderhüllen ergänzen dieselben 64 Holzachsen und 571 Blätter. Dichte und blockweise Abtastung liefern identische Mesharrays; Erzeugung als Median aus drei Läufen. Normalenanpassung und Vereinigung separat einmal je Seed gemessen. Vollständige Oberfläche und unabhängige Innen-/Außenproben; natürliche Kronenform, Rinde, Wind und native Outshine-Kosten bleiben offen.",
+    ),
+    (
         "plant-surfaces/plant-surfaces.json",
         "plant_surface_plot",
         "Vollständige Holzoberfläche · 64 Achsen",

@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: vollständige Testpflanze mit 64 vereinigten Holzachsen und 571 unveränderten Blättern. Drei Seeds, unabhängige Innen-/Außenproben und gemeinsame/sequentielle Vereinigung verglichen. Organische Ausrundung und vollständiger Funktionsnachbau bleiben offen; danach folgen weltweite Pflanzenrezepte.",
+  "current_work": "SpeedTree-Funktionen zuerst: lokale Eltern-/Kinderhüllen runden jetzt die Anschlüsse der vollständigen 64-Achsen-Testpflanze ab. An den Übergängen angepasste Normalen erhalten das Stamm-Shading. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -131,21 +131,21 @@
     },
     {
       "image": "render/united-sapling.png",
-      "title": "Vollständige Testpflanze · zusammenhängendes Holz",
+      "title": "Vollständige Testpflanze · lokale Astkragen",
       "label": "Pflanzen-Funktionstest",
       "category": "plant",
       "lod": "lod-1",
-      "description": "Alle 64 Achsen und 571 Blätter des kanonischen Jungbaumplans. Eine gemeinsame Holzoberfläche ersetzt überlappende Einzelrohre; Standorte, Ast-IDs und Blattanker bleiben erhalten. Die Vereinigung arbeitet direkt auf Oberflächen und benötigt kein globales Feingitter.",
-      "quality": "Funktionsprobe · organische Ausrundung, natürliche Kronenform, Rinde, Wind und Artenvalidierung offen"
+      "description": "64 ursprüngliche Holzachsen mit 63 lokal ergänzten Anschlussformen und 571 unveränderten Blättern. Die Hüllen erzeugen Aufweitungen am Elternast; die vollständige Vereinigung bleibt geschlossen. Radius- und Astpläne bestimmen die Form kameraunabhängig.",
+      "quality": "Funktionsprobe · natürliche Krone, Rinde, Wind, vollständige LODs und Artenvalidierung offen"
     },
     {
       "image": "render/united-attachment.png",
-      "title": "Astanschluss derselben Testpflanze",
+      "title": "Lokal aufgeweiteter Astanschluss",
       "label": "Anschluss-Nahbild",
       "category": "wood",
       "lod": "lod-0",
-      "description": "Nahansicht am durchgehenden Stamm. Die vereinigte Oberfläche besitzt gemeinsame Schnittkanten und entfernt innere Rohrflächen. Übertragene Rohrnormalen erhalten die Schattierung; die geometrische Ausrundung ist noch nicht gelöst.",
-      "quality": "Geschlossene Oberfläche · kein vollständiger organischer SpeedTree-Anschluss"
+      "description": "Nahansicht derselben Testpflanze. Eine lokale Eltern-/Kinderhülle ergänzt die Rohrvereinigung. An den Schnittstellen werden Normalen zu den ursprünglichen Astoberflächen hin angepasst; die geometrische Ausrundung und das Stamm-Shading sind gemeinsam geprüft.",
+      "quality": "Lokale Anschlussprobe · globale G1-Stetigkeit und vollständige SpeedTree-Weldbindung offen"
     }
   ],
   "lods": [
@@ -190,7 +190,8 @@
     "fork_plot": "lod-0",
     "tapered_plot": "lod-0",
     "curved_plot": "lod-0",
-    "plant_surface_plot": "lod-1"
+    "plant_surface_plot": "lod-1",
+    "collar_plot": "lod-1"
   },
   "genera": [
     {
