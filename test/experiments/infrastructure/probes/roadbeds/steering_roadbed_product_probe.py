@@ -12,6 +12,7 @@ import shapely
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 import infrastructure_coupled_roadbed_experiment as coupled
+from infrastructure_complete_roadbed_module import construct_complete_module
 from infrastructure_cut_setbacks import restore_cut_plan,serialize_cut_plan
 from infrastructure_directed_routes import directed_module_routes
 from infrastructure_junction_surfaces import motor_surface
@@ -68,7 +69,7 @@ def main():
     seed['report']={k:v for k,v in note.items() if k!='curve_controls'}
     sections=shapely.STRtree(np.array(list(network.sections.values()),dtype=object))
     cache=seeded_cache(floor,reserved,routes[pair],poses,pair,network.vehicle,data['error_m'],seed,required)
-    product=coupled.construct_module(network,network,owner,set(),{owner},region,protected,sections,required,cache)
+    product=construct_complete_module(network,network,owner,set(),{owner},region,protected,sections,required,cache,reserved)
     assert pair in {c['pair'] for c in product['curves']},'seed not admitted to its physical owner'
     precision=json.loads((root/'directed-surfaces'/f'{name}-flat-surfaces.json').read_text())['precision_m']
     mesh,audit,proofs,surfaces=coupled.publish_coupled_roadbeds({owner:product},network,precision)
@@ -88,6 +89,7 @@ def main():
         planned_sections=[shapely.get_coordinates(p['line']) for p in network.junctions[owner]],
         shared_cuts_description=f'Unchanged shared cuts; {len(proofs)}/{len(routes)} routes; road-first building cuts',
         buildings=buildings,building_audit=building_audit,roadbed_island_cleanup=seed['pockets'],
+        physical_island_cleanup=product['physical_island_cleanup'],
         input_sha256=before['input_sha256']|{str(p.resolve().relative_to(root.resolve())):coupled.digest(p)
             for p in (cut_path,frame_path,receipt_path,args.curve,args.reference)},
         elapsed_ms=(time.perf_counter()-begin)*1000,

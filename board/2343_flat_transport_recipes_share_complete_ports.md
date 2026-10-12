@@ -66,6 +66,8 @@ Polygonale Fahrflächen behalten die feinste Binärpräzision. Mesh-Rundungsrest
 [Resttaschen](../test/experiments/infrastructure/infrastructure_roadbed_island_cleanup.py) im Baurezept schließen:
 nur neu abgetrennte Teile einer vorhandenen Insel, unreserviert, ≤1 m² und ohne 1 m breiten Innenraum.
 Größte Insel mit ursprünglichem Bezugspunkt erhalten; Freiraumtopologie, Windung und ganze Körper erneut prüfen.
+[Komposition](../test/experiments/infrastructure/infrastructure_complete_roadbed_module.py) prüft dabei
+öffentliche Fahrfläche und physischen Mesh-Besitz getrennt; auch dort können Resttaschen entstehen.
 
 [Gemeinsame Schnitte](../test/experiments/infrastructure/infrastructure_cut_setbacks.py) ändern lokalen
 Besitz innerhalb gleicher Gesamtfläche. Alle Achsenstationen rücken nach außen; Mehrfachkontakte bleiben
@@ -88,6 +90,8 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    gemeinsam lösen; Basler Restfahrten teilen einen Ausgang, zwei Wiener Restfahrten einen Eingang. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
    Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
+   [Quellführung](../test/experiments/infrastructure/probes/roadbeds/steering_source_hint_probe.py) nutzt Sichtbarkeit
+   und verbleibende Quelllänge; Inselkerne im Körperraum schützen. Einzelne Punktmarker reichen nicht.
    [Geometriediagnose](../test/experiments/infrastructure/probes/roadbeds/fit_geometry_diagnostic.py) trennt echte
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
