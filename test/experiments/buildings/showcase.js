@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const integer = value => new Intl.NumberFormat('de-CH').format(value);
 const short = value => (value || 'unbekannt').slice(0, 9);
-const names = { all: 'Alle', dach:'Dachkomponenten', plan: 'Gebäudepläne', esri: 'Esri-Referenz', quelle: 'OSM-Quelle', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
+const names = { all: 'Alle', bauteil:'Öffnungsbauteile', dach:'Dachkomponenten', plan: 'Gebäudepläne', esri: 'Esri-Referenz', quelle: 'OSM-Quelle', nah: 'Nahdetail', fern: 'Ferne', stadt: 'Stadt', cache: 'Cache', vergleich: 'Vergleich', neu: 'Neu' };
 const methods = { expanded: ['Split-Liste', '#ad9165'], vectorized: ['Voll-Liste / NumPy', '#7e899b'], compact: ['Kompakter Repeat', '#496b66'],
   bands: ['Direkte Bandflächen', '#496b66'], union: ['Manifold · 3D-Union', '#ad9165'] };
 const metrics = {
@@ -53,7 +53,7 @@ function renderGallery() {
     body.append(element('h3', item.title), element('p', item.caption));
     const details = element('div', undefined, 'details');
     for (const text of [`${integer(item.triangles || 0)} Dreiecke`, Number.isFinite(item.openings) ? `${integer(item.openings)} ${item.representation === 'functional-plan' ? 'Fenster' : 'Öffnungen'}` : 'Öffnungen nicht gezählt',
-      ['functional-plan','roof-plan'].includes(item.representation) ? `${integer(item.rooms)} Räume · ${integer(item.doors)} Türportale` : `${integer(item.admitted_products || 0)} Körper`,
+      ['functional-plan','roof-plan','opening-components'].includes(item.representation) ? `${integer(item.rooms)} Räume · ${integer(item.doors)} Türportale` : `${integer(item.admitted_products || 0)} Körper`,
       ...(item.floor_bands ? [`${integer(item.floor_bands)} Geschossbänder · ${integer(item.planned_features)} Ausstattungselemente`] : []),
       `Bild ${short(item.commit)}${item.experiment_tree_dirty ? ' · Arbeitsstand' : ''}`]) {
       details.append(element('span', text));

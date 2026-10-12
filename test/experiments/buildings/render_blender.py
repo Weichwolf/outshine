@@ -161,7 +161,7 @@ def render(configuration):
         from render_constructive import add
         constructive = add(configuration['constructive'],material)
     reference = add_reference(configuration['reference_obj'], configuration['reference_bounds_m']) if configuration.get('reference_obj') else None
-    centre = configuration['target']
+    centre = configuration.get('environment_centre',configuration['target'])
     span = configuration['ground_span_m']
     bpy.ops.mesh.primitive_plane_add(size=span, location=(centre[0], centre[1], -.025))
     bpy.context.object.data.materials.append(material('ground', (.24, .265, .24), .88))

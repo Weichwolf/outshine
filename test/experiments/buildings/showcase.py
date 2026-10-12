@@ -35,6 +35,7 @@ REPORT_FIELDS = ('commit', 'experiment_tree_dirty', 'profile', 'triangles', 'ope
                  'stage', 'circulation', 'circulation_status', 'core_alternatives', 'room_kinds',
                  'storeys', 'stair_connections', 'vertical_status', 'checks', 'source_coverage')
 REPORT_FIELDS += ('roof_kind','roof_method','roof_rise_m','roof_facets','body_top_m','camera_origin','lod_status')
+REPORT_FIELDS += ('component_triangles','completed_recipe_families','glass_alpha')
 
 
 def git(*args):
@@ -90,6 +91,13 @@ def image_record(report_path, root):
                           caption=f"{report['storeys']} generische Geschosse, {report['roof_facets']} Dachflächen; Quelle/Höfe/Gesamthöhe erhalten. "
                                   f"Dach {report['roof_rise_m']:.2f} m innerhalb der Quellhöhe reserviert. "
                                   'Konstruktive Komponenten; noch keine vollständige Architekturfamilie, keine freigegebene Fern-LOD.')
+        elif report.get('representation') == 'opening-components':
+            view = {'plan':'2D / Schnitt / 2.5D','near':'Nahansicht','orbit':'Gegenansicht',
+                    'far':'Distanz · vollständige Referenz','window':'Nahfenster','entrance':'Eingang'}[report['view']]
+            record.update(title=f"Öffnungsbauteile · {report['label']} · {view}",category='bauteil',
+                          caption=f"{report['openings']} Bauteilplätze an vorhandenen Raum-/Öffnungs-IDs, {report['component_triangles']} zusätzliche Dreiecke. "
+                                  'Rahmen, Einfassung, geneigte Bank und offener Eingangsrahmen. '
+                                  'Glas als dünne Alpha-Approximation; Räume generisch, Nachtlicht/native LODs offen.')
         elif report.get('representation') == 'esri-reference':
             ref = report['reference']
             label = {'near': 'Nahansicht', 'orbit': 'Rundum-Gegenansicht', 'far': 'Distanzansicht'}[report['view']]

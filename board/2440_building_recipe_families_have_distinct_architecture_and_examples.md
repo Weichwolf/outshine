@@ -49,6 +49,10 @@ Blender-Import von Koordinaten, Materialien und geneigten Dachnormalen geprüft;
 Aktiver Fassadenausbau: Fenster-/Eingangsrahmen und Fensterbank am vorhandenen Öffnungs-/Raumplan; keine unabhängigen Fassadenöffnungen.
 Metrische Ringextrusion gegen gleich geformte Balkenbauteile vergleichen; Template-Wiederverwendung und Platzierung statt erneuter Polygonarbeit je Öffnung.
 Konstruktive Kontakte, freie Türöffnung, Körperhöhen/Quellfarbe und tatsächliche Module erst in 2D/Schnitt, dann 2.5D/Nah/Gegen/Distanz prüfen.
+`opening_modules` liefert Sash/Einfassung/geneigte Bank und außenliegende Eingangsrahmen; `opening_details` hält stabile Slots/Room-IDs und wiederverwendet Templates.
+Fenster-Ringmodule 88 statt 120 Balkendreiecke, gleiche analytische Volumen/Öffnungen; 48 Öffnungen × 21 warme Läufe vergleichen, kein nativer Framebeleg.
+Sechs gespeicherte Körperpläne/676 Bauteilplätze gegen tatsächliche Paneelen und freie Türbreiten prüfen; versetzte Öffnungsbeschreibung als Gegenfall.
+Glasdiagnose verwendet dünne Alpha-Oberflächen mit vorhandenen Innenräumen; Refraktion, Raumprogramme/Nachtlicht und freigegebene LODs offen.
 
 ## Familien und Komponenten
 - Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.
