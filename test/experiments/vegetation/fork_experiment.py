@@ -47,10 +47,12 @@ def fixtures():
     }
 
 
-def probe_directions(field):
+def probe_directions(field, tip_radii=None):
     random = unit(np.random.default_rng(913).normal(size=(256, 3)))
     probes = [random, unit(field.endpoints)]
-    for endpoint, radius in zip(field.endpoints, field.radii, strict=True):
+    for endpoint, radius in zip(
+        field.endpoints, field.radii if tip_radii is None else tip_radii, strict=True
+    ):
         endpoint = np.asarray(endpoint)
         tangent = unit(endpoint)
         basis = unit(np.cross(tangent, np.eye(3)[np.argmin(np.abs(tangent))]))

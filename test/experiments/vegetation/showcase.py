@@ -23,6 +23,7 @@ from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 from showcase_plot_sources import PLOT_SOURCES
 from spine_plots import spine_figure
+from tapered_plots import tapered_figure
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS = ROOT / "build/experiments/vegetation"
@@ -351,6 +352,10 @@ def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
 
+def tapered_plot(report):
+    return save_plot(tapered_figure(report), "tapered-forks")
+
+
 def fork_plot(report):
     return save_plot(fork_figure(report), "organic-forks")
 
@@ -359,6 +364,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            tapered_plot,
             fork_plot,
             spine_plot,
             profile_plot,

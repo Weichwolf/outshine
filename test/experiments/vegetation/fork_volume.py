@@ -1,7 +1,6 @@
 """Dense and conservatively culled scalar grids with identical crossing-cell values."""
 
 import numpy as np
-from fork_intervals import block_intervals
 
 
 def grid_parameters(field, cells):
@@ -49,7 +48,7 @@ def blocked_volume(field, cells, block_size=4):
         axis=-1,
     ).reshape(-1, 3)
     ends = np.minimum(starts + block_size, np.asarray(shape) - 1)
-    lows, highs = block_intervals(field, lower + starts * step, lower + ends * step)
+    lows, highs = field.block_intervals(lower + starts * step, lower + ends * step)
     outside = highs.astype(np.float32) < 0
     inside = lows.astype(np.float32) > 0
     volume = np.full(shape, -1, dtype=np.float32)

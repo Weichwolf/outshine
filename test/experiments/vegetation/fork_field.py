@@ -134,6 +134,11 @@ class ForkField:
             )
         return value, gradient
 
+    def block_intervals(self, minima, maxima):
+        from fork_intervals import block_intervals
+
+        return block_intervals(self, minima, maxima)
+
     def normals(self, points):
         _value, gradient = self.evaluate(points, with_gradient=True)
         return unit(-gradient)

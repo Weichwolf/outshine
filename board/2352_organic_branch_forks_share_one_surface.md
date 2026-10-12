@@ -52,6 +52,27 @@ Ein numerischer Sicherheitsaufschlag ergänzt die Rundung; kein universeller IEE
 24 kleine dichte/Blockgitter liefern identische Vorzeichen, Schnittzellwerte und sämtliche Mesharrays.
 Volumenspeicher bleibt dicht; zusätzliche Auswahlmasken zählen separat, nur Feldarbeit wird ausgelassen.
 
+## Verjüngte Anschlussform
+Gleiche Astachsen mit unabhängigen positiven Basis-/Endradien.
+`tapered_fork.py` besitzt Hüllen, `fork_refinement.py` begrenzte Projektion/Unterteilung,
+`tapered_experiment.py` unabhängige Verfahrensprüfung und vollständige Bildprodukte.
+Je Segment h(x)=max_{0≤t≤1}[(r0+tΔr)²−|x−tv|²]; das ist die Vereinigung linear variierter Kugeln.
+Für |v|²>Δr² liegt das Maximum bei clamp((x·v+r0Δr)/(|v|²−Δr²),0,1).
+Sonst genügt das größere Endpunktmaximum; eingeschlossene Kugeln und Nullsegmente explizit prüfen.
+Gradient per Hüllsatz; gleiche symmetrische Mischung wie konstante Gabeln. Keine nächsten-Punkt-Verjüngung.
+Auf der Nullfläche gilt x·(x−tv)≥r(t)r0>0: radiale Nullstellen bleiben eindeutig und regulär.
+Dünne Enden verfehlen bei 192 Zellen den 5-mm-Probestrahlvertrag; zusätzliche Vertexprojektion allein reicht nicht.
+Gemeinsame Kanten einmal halbieren, alle vier Kinddreiecke orientiert erhalten und neue Punkte projizieren.
+Projektion: maximal sechs Newton-Schritte, Bewegungsgrenze, Residuum und Million-Dreiecke-Budget explizit.
+Feldabweichung der Vertices, tatsächlicher Strahl-/Dreiecksfehler und Kosten getrennt prüfen.
+Min-/Max-Radien kapseln das Segmentfeld für die bestehende konservative Blockauswahl ein.
+Unabhängige skalare Optimierung, Kugel-/Konstantfälle, Differentialnormalen und identische Gittermeshes prüfen.
+581 skalare Optimierungen: maximale Feldabweichung 8,89e−16 m²; 111 analytische Kegeltangentialproben.
+Je Form 113 Differential-/Transformationspunkte und 1.356 Boxproben; zehn ungültige Eingaben/Budgets abgewiesen.
+Drei Formen/fünf Varianten: unveränderter 5-mm-Probevertrag und geschlossene außenorientierte Flächen.
+Ausgewählte Proben rund 523–546 ms; dünne Enden kosten zusätzliche Dreiecke, keine Frame-/Gerätefreigabe.
+Verjüngte Funktionsgabeln mit gleicher Kamera öffnen; kontinuierliche Profile/gekrümmte Elternanschlüsse bleiben offen.
+
 ## Umsetzung und Abnahme
 Stabile Quelldaten bestimmen Gabel und Anschlüsse; angeforderte Auflösung vor Erzeugung.
 Eine geschlossene außenorientierte Oberfläche, gültige Dreiecke, gemeinsame Normalen;
