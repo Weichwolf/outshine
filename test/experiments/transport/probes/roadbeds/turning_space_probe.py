@@ -51,9 +51,11 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--spacing',type=float,default=4.)
     parser.add_argument('--method',choices=('hermite','continuous'),default='hermite')
+    parser.add_argument('--transition-length',type=float,default=1.)
     parser.add_argument('--request-building-clearance',action='store_true')
     parser.add_argument('--surface',choices=('strip','court'),default='strip')
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
+    if not np.isfinite(args.transition_length) or args.transition_length<=0:parser.error('transition length must be finite and positive')
     data=json.loads(args.input.read_text());vehicle,error=data['vehicle'],data['error_m']
     entry,exit=({k:np.array(v) for k,v in data[p].items()} for p in ('entry','exit'))
     floor,reserved,source=(shapely.from_wkb(data[k]) for k in ('surface','reservations','source_route'))
@@ -69,7 +71,7 @@ def main():
     for index,(_,_,family,kind,radius,path) in enumerate(options):
         begin=time.perf_counter();budget=(1536-calls)//(len(options)-index)
         if args.method=='continuous':
-            controls,note=fit_turn(entry,exit,path,radius,kind[0],1.,maximum_calls=min(128,budget))
+            controls,note=fit_turn(entry,exit,path,radius,kind[0],args.transition_length,maximum_calls=min(128,budget))
             curve=None
             if controls is not None:
                 curve,proof=checked_spline_path(controls,domain,vehicle,error)
@@ -78,7 +80,7 @@ def main():
             curve,note=fit(entry,exit,path,domain,vehicle,error,spacing=args.spacing,maximum_calls=budget,
                 sample_body_edges=True,include_controls=True)
         calls+=note['residual_calls'];row=dict(family=family,kind=kind,radius_m=radius,
-            method=args.method,residual_calls=note['residual_calls'],accepted=False,reason=note.get('reason'));rows.append(row)
+            method=args.method,transition_length_m=args.transition_length,residual_calls=note['residual_calls'],accepted=False,reason=note.get('reason'));rows.append(row)
         if curve is not None:
             controls=np.array(note['curve_controls']);support,construction=spline_roadbed(controls,vehicle,error)
             if support is None:row['reason']=construction['reason']

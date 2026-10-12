@@ -11,6 +11,24 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from continuous_turn_recipe import advance,fit_turn
 from transport_three_arc_paths import three_arc_seeds
 from transport_spline_routes import continuous_spline_joins,curve_bounds,spline_sampler
+from coupled_turning_court_probe import approach_segment
+
+
+def verify_approaches():
+    a=dict(position=np.zeros(2),heading=np.array([1.,0.]))
+    b=dict(position=np.array([6.,1.]),heading=np.array([np.cos(.2),np.sin(.2)]))
+    controls=approach_segment(a,b);d=5*np.diff(controls,axis=0);dd=20*np.diff(controls,n=2,axis=0)
+    assert np.allclose(controls[[0,-1]],[a['position'],b['position']])
+    assert np.allclose(d[0]/np.linalg.norm(d[0]),a['heading'])
+    assert np.allclose(d[-1]/np.linalg.norm(d[-1]),b['heading'])
+    assert np.allclose(dd[[0,-1]],0,atol=1e-12) and np.max(curve_bounds(controls[None])[2])<.25
+    straight=dict(position=np.array([6.,0.]),heading=np.array([1.,0.]))
+    assert np.allclose(approach_segment(a,straight),np.linspace(a['position'],straight['position'],6))
+    rotation=np.array([[0.,-1.],[1.,0.]]);offset=np.array([1000.,-700.])
+    shifted=[dict(position=p['position']@rotation+offset,heading=p['heading']@rotation) for p in (a,b)]
+    assert np.allclose(approach_segment(*shifted),controls@rotation+offset,atol=1e-12,rtol=0)
+    return dict(bent_approach_endpoints=True,bent_approach_tangents=True,zero_approach_curvature=True,
+                bounded_approach_radius=True,straight_approach_unchanged=True,approach_rigid_transform=True)
 
 
 def verify():
@@ -50,4 +68,4 @@ def verify():
                 actual_residual_budget=True)
 
 
-if __name__=='__main__':print(verify())
+if __name__=='__main__':print(verify()|verify_approaches())

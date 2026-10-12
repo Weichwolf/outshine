@@ -1,4 +1,4 @@
-"""Publish a turning court with straight approaches and proved neighboring owners."""
+"""Publish turning courts with G2 approaches and proved local neighboring owners."""
 
 import argparse
 import json
@@ -25,8 +25,11 @@ from steering_roadbed_candidate_probe import source_buildings,building_cuts
 from steering_roadbed_product_probe import seeded_cache
 
 
-def straight_controls(begin,end):
-    return begin+np.linspace(0,1,6)[:,None]*(end-begin)
+def approach_segment(begin,end):
+    distance=np.linalg.norm(end['position']-begin['position'])
+    a,b=begin['position'],end['position'];u,v=begin['heading'],end['heading']
+    return np.array([a,a+u*distance/5,a+2*u*distance/5,
+                     b-2*v*distance/5,b-v*distance/5,b])
 
 
 def approach_controls(note,old,new,pair):
@@ -34,26 +37,35 @@ def approach_controls(note,old,new,pair):
     for index,i in enumerate(pair):
         end=controls[0,0] if index==0 else controls[-1,-1]
         assert np.allclose(old[i]['position'],end,rtol=0,atol=1e-7)
-        assert np.allclose(old[i]['heading'],new[i]['heading'],rtol=0,atol=1e-8)
     segments=[controls]
     if np.linalg.norm(new[pair[0]]['position']-controls[0,0])>1e-7:
-        segments.insert(0,straight_controls(new[pair[0]]['position'],controls[0,0])[None])
+        segments.insert(0,approach_segment(new[pair[0]],old[pair[0]])[None])
     if np.linalg.norm(controls[-1,-1]-new[pair[1]]['position'])>1e-7:
-        segments.append(straight_controls(controls[-1,-1],new[pair[1]]['position'])[None])
+        segments.append(approach_segment(old[pair[1]],new[pair[1]])[None])
     return np.concatenate(segments)
+
+
+def selected_court_files(case):
+    report=json.loads((case/'results.json').read_text())
+    accepted=[(i,r) for i,r in enumerate(report['cases']) if r['accepted']]
+    assert accepted,'no proved court candidate'
+    index,_=min(accepted,key=lambda p:(p[1]['added_area_m2'],p[1]['length_m'],p[0]))
+    for name,value in report['implementation_sha256'].items():assert coupled.digest(Path(name))==value
+    return case/f'{index}-candidate.json',case/f'{index}-geometry.json'
 
 
 def seeds_for(cases,old,poses,routes,floor,reserved,vehicle,error):
     seeds={}
-    for pair,case in cases.items():
-        report=json.loads((case/'results.json').read_text())
-        assert report['cases'][0]['accepted']
-        for name,value in report['implementation_sha256'].items():assert coupled.digest(Path(name))==value
-        note=json.loads((case/'0-candidate.json').read_text())
-        geometry=json.loads((case/'0-geometry.json').read_text())
+    current={frame_key(p)[:3]:i for i,p in enumerate(poses)}
+    assert len(current)==len(poses),'ambiguous source contact'
+    for original_pair,case in cases.items():
+        pair=tuple(current[frame_key(old[i])[:3]] for i in original_pair)
+        candidate_path,geometry_path=selected_court_files(case)
+        note=json.loads(candidate_path.read_text())
+        geometry=json.loads(geometry_path.read_text())
         original=shapely.from_wkb(geometry['original'])
         court=shapely.from_wkb(geometry['planned']).difference(original)
-        controls=approach_controls(note,old,poses,pair)
+        controls=approach_controls(note,[old[i] for i in original_pair],[poses[i] for i in pair],(0,1))
         support,audit=spline_roadbed(controls,vehicle,error);assert support is not None,audit
         support=support.union(court).difference(reserved)
         support=polygonal_region(support)
@@ -68,17 +80,32 @@ def seeds_for(cases,old,poses,routes,floor,reserved,vehicle,error):
     return seeds
 
 
-def grow_court_ports(trial,module,affected,poses,seeds,floor):
+def local_court_sections(network,module,poses,cases):
+    scope={poses[i]['section'] for pair in cases for i in pair}
+    motor={p['section'] for p in poses};additions=[]
+    for case in cases.values():
+        _,path=selected_court_files(case);geometry=json.loads(path.read_text())
+        additions.append(shapely.from_wkb(geometry['planned']).difference(shapely.from_wkb(geometry['original'])))
+    addition=shapely.union_all(additions)
+    scope.update(p['section'] for p in network.junctions[module] if p['section'] in motor
+                 and p['line'].distance(addition)<=2*network.curbs['arc_error_m'])
+    return scope
+
+
+def grow_court_ports(trial,module,affected,poses,seeds,floor,scope):
     public_spaces={}
     ports=[]
     for port in trial.junctions[module]:
-        p=next(p for p in poses if p['section']==port['section'])
+        if port['section'] not in scope:continue
+        p=next((p for p in poses if p['section']==port['section']),None)
+        if p is None:continue
         ports.append(dict(section=port['section'],owner=port['corridor'],line=port['line'],
                           away=p['heading']*(-1 if p['incoming'] else 1)))
-    addition=shapely.union_all([s['surface'] for s in seeds.values()]).difference(floor)
+    addition=polygonal_region(shapely.union_all([s['surface'] for s in seeds.values()]).difference(floor))
     parts,lines,partition_audit=partition_court({o:trial.shape(o) for o in affected},module,addition,ports)
     trial.shapes.update(parts);sections=set(lines);changes=[]
     for port in trial.junctions[module]:
+        if port['section'] not in lines:continue
         p=next(p for p in poses if p['section']==port['section']);s=port['section']
         trial.sections[s]=lines[s];port['line']=lines[s]
         changes.append(dict(junction=module,section=s,corridor=port['corridor'],edge=p['edge'],station=p['station'],
@@ -100,7 +127,7 @@ def grow_court_ports(trial,module,affected,poses,seeds,floor):
         demand=shapely.union_all(list(owner_routes.values())).envelope if owner_routes else trial.shape(owner)
         source=motor_surface(demand,trial.graph,trial.tree,trial.mesh,trial.vehicle,
                              trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
-        public_spaces[owner]=source.union(addition)
+        public_spaces[owner]=polygonal_region(source.union(addition))
     return poses,routes,sections,changes,public_spaces,addition,partition_audit
 
 
@@ -124,7 +151,8 @@ def main():
     original_routes,_=directed_module_routes(network.graph,old,network.shape(module),network.tree)
     distance=network.vehicle['minimumRearAxleRadiusM'] if args.setback is None else args.setback
     if distance==0:
-        affected={module}|{p['corridor'] for p in network.junctions[module]}
+        scope=local_court_sections(network,module,old,dict(zip(map(tuple,args.pair),args.case)))
+        affected={module}|{p['corridor'] for p in network.junctions[module] if p['section'] in scope}
         trial=fork_cut_plan(network,module,set());changes=[];sections=set()
     else:trial,changes,affected=setback_network(network,module,sections,distance)
     if args.grow_ports and distance!=0:parser.error('port growth requires fixed source stations')
@@ -151,7 +179,7 @@ def main():
     public_spaces={};addition=shapely.Polygon();partition_audit={}
     if args.grow_ports:
         poses,routes,sections,changes,public_spaces,addition,partition_audit=grow_court_ports(
-            trial,module,affected,poses,seeds,floor)
+            trial,module,affected,poses,seeds,floor,scope)
         floor=public_spaces[module]
         reserved=protected.union(coupled.reservations(trial,region).difference(floor))
         seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
@@ -186,7 +214,8 @@ def main():
         elapsed_ms=(time.perf_counter()-begin)*1000,building_runtime_integration_pending=True,
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public motor requests across the court and affected neighbors on one mesh; Buildings runtime and full-window integration remain open.')
-    files=[before_path,frame_path,cut_path,receipt_path,precision_path,*[c/f for c in args.case for f in ('results.json','0-candidate.json','0-geometry.json')]]
+    files=[before_path,frame_path,cut_path,receipt_path,precision_path,
+           *[p for c in args.case for p in (c/'results.json',*selected_court_files(c))]]
     saved['input_sha256']=before['input_sha256']|{str(p.resolve().relative_to(root.resolve())):coupled.digest(p) for p in files}
     code=Path(__file__).resolve().parents[2]
     implementations=coupled.implementation_files(code/'transport_coupled_roadbed_experiment.py')
