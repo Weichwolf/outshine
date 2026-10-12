@@ -55,7 +55,11 @@ def main():
         renderer = next(
             (
                 name
-                for name in ("bark_preview.py", "landscape_preview.py")
+                for name in (
+                    "graph_preview.py",
+                    "bark_preview.py",
+                    "landscape_preview.py",
+                )
                 if name in report.get("implementation_sha256", {})
             ),
             "organ_preview.py",

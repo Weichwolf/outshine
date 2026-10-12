@@ -1,7 +1,34 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: vollständige 64-Achsen-Testpflanze mit lokalen Astkragen. Die hochauflösende Nahaufnahme erhält aktive Schatten und zeigt die dünnen Äste ohne die bisherigen Selbstschattenlinien. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: eigene Generatorgraphen verbinden Äste, Einzelblätter und Fronds mit stabilen Instanzen und gemeinsamen Formprototypen. Grob- und Nahprodukte stammen aus demselben Plan; alle Renderings sind 2560×1440. Der Original-Modeler wurde mit der mitgelieferten Palme tatsächlich betrachtet; vollständige Geometrievergleiche fehlen noch. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/generator-plant.png",
+      "title": "Generatorgraph · gemischte Funktionspflanze",
+      "label": "Graph-/Hierarchieprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Ein Stamm, sechs Äste, 48 Einzelblätter und sieben Fronds aus vier gemeinsamen Formprototypen. Generatoren steuern Verbindungen, Platzierung, Profile und stabile Varianz; Hierarchiepfade bestimmen die Instanzen. Vollständige gespeicherte Produkte tragen dieselben Form- und Materialrezepte. Diese gemischte Pflanze prüft Funktionen vor botanischen Artenrezepten.",
+      "quality": "Graph-Funktionsprobe · vollständige SpeedTree-Generierung, organische Anschlüsse und Artenvalidierung offen"
+    },
+    {
+      "image": "render/generator-coarse.png",
+      "title": "Generatorgraph · direkt erzeugtes Grobprodukt",
+      "label": "Grobe Geometrie",
+      "category": "plant",
+      "lod": "lod-2",
+      "description": "Derselbe Generatorgraph, dieselben Instanzen, Profile, Kamera und Materialrezepte. Grobe Prototypflächen entstehen direkt aus ihren Formplänen; keine vorherige feine Pflanze wird gebaut. Anker und Hierarchiepfade bleiben erhalten. Die Bildprobe zeigt den geometrischen Vergleich, keine geprüfte allgemeine Fernwald-LOD.",
+      "quality": "Unterteilungsprobe · Deckung, Schatten, Übergänge und native LOD-Grenzen offen"
+    },
+    {
+      "image": "render/generator-detail.png",
+      "title": "Generatorgraph · gemeinsam erzeugtes Nahdetail",
+      "label": "Graph-Nahbild",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Nahansicht derselben gespeicherten Funktionspflanze. Fronds und Einzelblätter hängen an den gemeinsamen Astinstanzen; eigene Rindenkoordinaten und Normalen bleiben an den Prototypflächen. Die Materialauswertung berücksichtigt die physische Instanzskala. Kamera und Detailunterteilung gehören nicht zur Identität des Formplans.",
+      "quality": "Funktions-Nahbild · organische Welds, vollständige Material-/Windbindung und botanische Feinformen offen"
+    },
     {
       "image": "render/frond-detail.png",
       "title": "Fronds · Fiedern im Nahdetail",
@@ -208,6 +235,7 @@
     }
   ],
   "plot_lods": {
+    "generator_plot": "lod-1",
     "frond_plot": "lod-0",
     "bark_plot": "lod-0",
     "selection_storage_plot": "lod-2",

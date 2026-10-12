@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "generator-graph/generator-graph.json",
+        "generator_plot",
+        "Generatorgraph · gemeinsame Formpläne",
+        "Äste, Blätter und Fronds aus einem Graphen mit stabilen Hierarchiepfaden. Sieben identische Frondinstanzen: 63 logische Posen vor Teilwahl, 15 notwendige Posen bei direkter Anforderung, keine neuen Posen beim wiederholten Treffer. Sieben lokale CPU-Messungen; Graphdefinition, Meshaufbau und Einlesen ausgeklammert. Topologie, Anker, Reihenfolge und Budgetgrenzen separat geprüft. Mehrfachanschlüsse sind eine eigene Erweiterung; keine vollständige SpeedTree-/Wind-/native Freigabe.",
+    ),
+    (
         "fronds/fronds.json",
         "frond_plot",
         "Frondflächen · Verformung und Normalen",
