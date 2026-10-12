@@ -101,7 +101,7 @@ def solve_module(module,shape,poses,unused,graph,tree,mesh,vehicle,curbs,*,adjus
     surface = motor_surface(shape,graph,tree,mesh,vehicle,curbs['corner_radius_m'],curbs['arc_error_m'])
     poses,adjusted_ports = (align_vehicle_ports(poses,surface,vehicle,curbs['arc_error_m'])
                             if adjust_ports else (poses,[]))
-    positions = np.array([p['position'] for p in poses])
+    positions = np.array([p['position'] for p in poses]).reshape(-1,2)
     headings = np.array([np.arctan2(p['heading'][1],p['heading'][0]) for p in poses])
     bodies = shapely.polygons(body_outlines(positions,headings,vehicle['widthM']*.5,
                                           vehicle['frontFromRearAxleM'],vehicle['rearOverhangM']))

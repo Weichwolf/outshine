@@ -76,6 +76,7 @@ def fill_roundoff_voids(before,after):
 def compose_roadbeds(surface,shape,roadbeds):
     precision=geometry_precision(surface)
     base,core,*supports=shapely.set_precision(np.array([surface,shape,*roadbeds],dtype=object),precision)
+    supports=[s for s in supports if not s.is_empty and not preserves_coverage(s,base)]
     planned=polygonal_region(fill_roundoff_voids(base,shapely.union_all([base,*supports])))
     physical=polygonal_region(core.union(polygonal_region(planned.difference(base))))
     repaired=fill_roundoff_voids(core,physical)

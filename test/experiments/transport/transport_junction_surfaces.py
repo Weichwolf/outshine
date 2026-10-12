@@ -5,6 +5,7 @@ import shapely
 
 from transport_flat_corners import rounded_plan
 from transport_travel import MODES
+from transport_surface_regions import polygonal_region
 
 
 def mesh_surface_index(product):
@@ -26,7 +27,7 @@ def motor_surface(shape,graph,tree,mesh,vehicle,corner_radius=2.,error=.025):
     area,_ = rounded_plan(shapely.union_all(bands),corner_radius,error)
     triangles,index = mesh
     physical = shapely.union_all(shapely.intersection(triangles[index.query(bounds,predicate='intersects')],bounds))
-    return shapely.intersection(area,physical)
+    return polygonal_region(shapely.intersection(area,physical))
 
 
 def same_island_winding(path,route,surface):

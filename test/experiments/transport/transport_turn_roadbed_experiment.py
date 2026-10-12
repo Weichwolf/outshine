@@ -212,6 +212,15 @@ def verify_turn_swing(vehicle):
     return dict(turn_corner_envelope_checked=True,flare_bound_m=float(reach))
 
 
+def verify_existing_public_space():
+    surface=shapely.box(0,0,10,10);core=shapely.box(0,0,5,10)
+    base,_,planned,physical,_=compose_roadbeds(surface,core,[shapely.box(6,1,9,9)])
+    assert planned.equals(base) and physical.equals(core)
+    _,_,_,expanded,_=compose_roadbeds(surface,core,[shapely.box(9,1,10.0001,3)])
+    assert expanded.difference(core).area>0.00019
+    return dict(existing_neighbor_space_reused=True,real_new_area_retained=True)
+
+
 def verify_small(vehicle):
     floor=shapely.union_all([shapely.box(-20,-1.75,20,1.75),shapely.box(-1.75,-1.75,1.75,20)])
     begin,finish=np.array([-7.,0.]),np.array([0.,7.])
@@ -246,7 +255,7 @@ def verify_small(vehicle):
                 hole_removal_rejected=True,local_block_edge_change_allowed=True,sampling_budget_enforced=True,
                 composed_roadbeds_checked=True,**verify_inflected(vehicle),**verify_polygonal_mesh(vehicle),
                 **verify_bounded_voids(),**verify_turn_swing(vehicle),**verify_fitted_roadbeds(vehicle,mesh_coverage),
-                **verify_periodic_paths())
+                **verify_periodic_paths(),**verify_existing_public_space())
 
 
 def real_case(root,name,module):

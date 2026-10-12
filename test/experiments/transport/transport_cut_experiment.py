@@ -31,6 +31,20 @@ def verify_remainders():
     return dict(cases=len(counts),width_derived_threshold=True,scale_invariant=True)
 
 
+def verify_no_motor_contacts(vehicle):
+    vertices=np.array([[0.,0.],[10.,0.]])
+    graph=dict(vertices=vertices,edges=np.array([[0,1]]),half_widths=np.array([2.]),
+               travel_public=np.zeros((1,2),dtype=np.uint8))
+    graph['lines']=shapely.linestrings(vertices[graph['edges']]);tree=shapely.STRtree(graph['lines'])
+    product=dict(vertices=np.array([[-2.,-2.],[12.,-2.],[-2.,2.],[12.,2.]]),indices=np.array([[0,1,2],[1,3,2]]))
+    unused=[dict(section=7,reason='no_public_motor_access')];shape=shapely.box(-2,-2,12,2)
+    report,state=solve_module(0,shape,[],unused,graph,tree,mesh_surface_index(product),vehicle,
+                             dict(corner_radius_m=2.,arc_error_m=.025))
+    assert report['connections']==report['accepted']==0 and not report['invalid_body_ports']
+    assert report['unused_ports']==unused and state[0].equals(shape)
+    return dict(no_phantom_motor_routes=True,source_geometry_retained=True,unused_contacts_retained=True)
+
+
 def verify_dead_end(vehicle):
     vertices = np.array([[-20.,0.],[0.,0.],[20.,0.],[0.,8.5]])
     edges = np.array([[0,1],[1,2],[1,3]])
@@ -114,7 +128,7 @@ def main():
     configuration = Path(__file__).with_name('transport_network_recipes.json')
     vehicle = json.loads(configuration.read_text())['vehicleProfiles']['compact']
     checks,product = verify_dead_end(vehicle)
-    result = dict(remainders=verify_remainders(),dead_end=checks,
+    result = dict(remainders=verify_remainders(),dead_end=checks,no_motor_contacts=verify_no_motor_contacts(vehicle),
                   foreign_cut=verify_foreign_cut(vehicle),directional=verify_directional_clearance(vehicle),
                   implementation_sha256={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
                     (Path(__file__),Path(__file__).with_name('transport_flat_cuts.py'),
