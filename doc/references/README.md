@@ -181,6 +181,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 ## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
 
+- **L-systems and Beyond**, Prusinkiewicz (Organizer), SIGGRAPH Course 2003.
+  [Autorenquelle](https://algorithmicbotany.org/papers/sigcourse.2003.pdf) ·
+  [PDF](vegetation/siggraph/2003-l-systems-and-beyond.pdf).
+  PDF-Seiten 63/64 samt Algorithmus 4, Profilkurven und Pellaea-/Blechnum-Bildern optisch geprüft.
+  Teilblätter aus lageabhängigen Längen-/Breiten-/Winkelprofilen an gemeinsamen Achsen aufbauen (2482).
+  Eigene Guide-Deformation und Differentialnormalen; kein vollständiger L-System- oder Artennachbau.
 - **An Image Synthesizer**, Perlin, SIGGRAPH 1985.
   [Primärquelle](https://doi.org/10.1145/325334.325247) ·
   [PDF](vegetation/siggraph/1985-image-synthesizer.pdf), CMU-Kursarchiv.

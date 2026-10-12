@@ -22,6 +22,7 @@ from cloud_plots import group_figure, raster_figure, render_figure
 from collar_plots import collar_figure, ray_figure
 from curved_plots import curved_figure
 from fork_plots import fork_figure
+from frond_plots import frond_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
@@ -372,6 +373,12 @@ def bark_plot(report):
     return save_plot(figure, "bark-coordinates")
 
 
+def frond_plot(report):
+    figure = frond_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "frond-surfaces")
+
+
 def plant_surface_plot(report):
     return save_plot(plant_surface_figure(report), "plant-surfaces")
 
@@ -392,6 +399,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            frond_plot,
             bark_plot,
             ray_plot,
             collar_plot,

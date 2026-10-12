@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "fronds/fronds.json",
+        "frond_plot",
+        "Frondflächen · Verformung und Normalen",
+        "Vier Führungsrezepte auf denselben 33 Teilblättern. Drei abwechselnde Messungen je Verfahren in frischen Python-Prozessen; gebündelte und punktweise Auswertung liefern exakt identische Positionen, Ecknormalen, Topologie, UVs und Organ-IDs. Einlesen und Ausgangsfläche separat; Prozess-RSS einschließlich Imports und Eingabe. Unabhängige Positionen, numerische Ableitungen und inverse Normalentransformationen geprüft. Keine vollständige SpeedTree-/Wind-/LOD-/Arten- oder Gerätefreigabe.",
+    ),
+    (
         "bark/bark.json",
         "bark_plot",
         "Rindenkoordinaten · vollständige Pflanze",

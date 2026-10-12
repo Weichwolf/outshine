@@ -3,6 +3,33 @@
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
+      "image": "render/frond-detail.png",
+      "title": "Fronds · Fiedern im Nahdetail",
+      "label": "Frond-Nahbild",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Nahansicht der dritten Funktionsprobe aus demselben vollständigen Plan. Gefiederte Fläche, Mittelachse, Roll und Querwölbung bleiben dieselben gespeicherten Produkte; nur die Kamera und angeforderte Teilgruppe ändern sich. Echte Geometrie, Differentialnormalen und prozedurale Mittelrippen in 2560×1440.",
+      "quality": "Funktions-Nahbild · lokale Fiederbiegung, botanische Formvalidierung und vollständige Materialbindung offen"
+    },
+    {
+      "image": "render/frond-functions.png",
+      "title": "Fronds · Führung und Flächenform",
+      "label": "Frond-Funktionen",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Von links: flaches Blattband, quer gewölbtes Blattband, gebogene gefiederte Fläche mit Roll und gefiederte Fläche mit Breiten-/Höhenprofil. Eigene Ausgangsflächen und Mittelachsen folgen derselben räumlichen Abbildung. Differentialnormalen erhalten die Lichtantwort der verformten Geometrie; UVs und Organanker bleiben mit ihrem Plan verbunden.",
+      "quality": "Funktionsprobe · vollständige SpeedTree-Property-/Mesh-/Windbindung und Artenvalidierung offen"
+    },
+    {
+      "image": "render/frond-rosette.png",
+      "title": "Fronds · räumliche Rosette",
+      "label": "Organ-/Gruppenprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Zwölf gefiederte Fronds aus einem unveränderten Guide-/Organplan, jeweils mit 33 Teilblättern und einer verformten Mittelachse. Geteilte vollständige Meshprodukte, räumlich gedrehte Platzierungen, echte Schatten und prozedurale Blattmaterialien. Der Plan enthält alle Form-/Profilparameter; Unterteilung und Kamera ändern seine Identität nicht.",
+      "quality": "Hierarchie-Funktionsprobe · botanisches Artenrezept, lokale Fiederbiegung und vollständige LODs offen"
+    },
+    {
       "image": "render/landscape-temperate-depth.png",
       "title": "Gemäßigter Laubwald · Baumansichten mit Tiefenrelief",
       "label": "Landschaft",
@@ -181,6 +208,7 @@
     }
   ],
   "plot_lods": {
+    "frond_plot": "lod-0",
     "bark_plot": "lod-0",
     "selection_storage_plot": "lod-2",
     "demand_plot": "lod-3",

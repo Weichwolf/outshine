@@ -101,20 +101,20 @@ acht gespeicherte Typen (Tree, Branch, Frond, Cap, BatchedLeaf, Leaf Mesh, Fin, 
 Vorlageninventar ist kein vollständiges Funktionsinventar oder Gleichwertigkeitsnachweis.
 2481: Rinden-/UV-Analyse an vier CBranchNode-Funktionen; Periodenentfaltung und zyklische Glättung belegt.
 Eigene räumliche Astkoordinaten/Rauschmaterialien; vollständige UV-Property-/Original-Oracle-Bindung offen.
+2482: direkte Frond-/Meshpfade und Elternführung; eigene Guide-Deformation, vollständige Bindung offen.
 | Bereich | Eigener Stand / fehlende Funktionen |
 |---|---|
 | Graph/Profile/Platzierung | Achsgrammatik/Radiusprofile/räumliche Spines; vollständige Graph-/Property-/Platzierungsarten offen |
 | Stämme/Anschlüsse | Gabeln (2352), vollständige Vereinigung/Astkragen (2353), Rindenmaterial/Koordinaten (2481); volle Elternbindung, Caps/Knots/Fins/Rindengeometrie offen |
-| Organe/Cluster | Blatt-/Grasflächen und Gruppenproben; Fronds, Nadeln und weitere Organe offen |
+| Organe/Cluster | Blatt-/Grasflächen, Frond-/Guide-Proben (2482); volle Frondbindung, Nadeln und weitere Organe offen |
 | Kräfte/Wachstum/Zustände | Kräfte, Kollisionen, Wachstum/Jahreszustände und funktionale Windbindung offen |
 | Material/LOD/Export | Unbeleuchtete Ansichtenproben; Normalenverteilung, Übergänge und vollständige Produkte offen |
 Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semantik getrennt nennen.
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-64 gezielte Funktionen dekompiliert; sechzehn Läufe terminal erfolgreich, zuletzt vier Rinden-/UV-Funktionen.
-Adressen/Symbolgrößen, ELF-Vtable und Konstanten korroborieren die beschriebenen Operationen.
-Sichtbarkeitsfeld, LOD-Sortierung und Zielanzahl belegt; vollständige Property-/Windbindung bleibt offen.
+70 gezielte Funktionen dekompiliert; achtzehn Läufe terminal erfolgreich, zuletzt sechs Frond-Funktionen.
+ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.
 Einzelne dekompilierte Funktionen belegen keinen vollständig rekonstruierten Wachstums-/LOD-Solver.
 Windbindungen, natürliche Gabeln, vollständige Gruppen-/Waldaggregation und native Budgets bleiben offen.
