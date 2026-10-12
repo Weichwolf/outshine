@@ -15,7 +15,7 @@ mit funktionalen Verbindungen. Besitzer: generators/road; nativer Bauteilplan f�
 [Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) und
 [Ports](../test/experiments/infrastructure/infrastructure_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
 Alle verwendeten Bauteile der eingefrorenen Ebenen-0-Fenster mit 1 km Radius sind geprüft:
-8625/8679 öffentliche Auto-Verbindungen; fünf fehlen ohne gerichtete Umfahrung (Wien 1, Basel 4, Zürich 0).
+8626/8679 öffentliche Auto-Verbindungen; vier fehlen ohne gerichtete Umfahrung (Basel 4, Wien/Zürich 0).
 Keine zusätzlichen schwachen oder starken Netztrennungen. Das belegt nur diese
 Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -86,7 +86,7 @@ Fläche einmal und triangulieren gemeinsam. Außenrahmen/Anfragen/Bestand erhalt
 Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren.
 
 ## Nächste Lieferung und Abnahme
-1. Fünf Verbindungen ohne Umfahrung priorisieren: Wien eine, Basel vier. Gemeinsame Portposen/Korridore
+1. Vier Basler Verbindungen ohne Umfahrung priorisieren. Gemeinsame Portposen/Korridore
    gemeinsam lösen; Basler Restfahrten teilen einen Ausgang. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
    Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
@@ -98,12 +98,12 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    [Lenkpfad → Mesh](../test/experiments/infrastructure/probes/roadbeds/steering_roadbed_product_probe.py):
    Wien 1480 gewinnt 4→1 bei unveränderten Grenzen und erhält alle acht bisherigen Fahrten;
    Bauteil 805 ist nach Schließen einer 0,43-m²-Resttasche vollständig befahrbar (7/7).
-   Bauteil 89 lokal 45/45; zwei Kurven gemeinsam mit allen bisherigen Fahrten veröffentlichen, Kontakte nachprüfen.
+   Bauteil 89 45/45; zwei Kurven gemeinsam mit allen bisherigen Fahrten veröffentlicht, Kontakte geprüft.
    33 statt 17 Kollisionsstationen finden die C2-Kurve im gleichen 1024-Aufrufe-Budget.
    Grundrisse einzeln samt Quellen/Tags schneiden; kleine/schmale Reststücke nach bestehendem
    25-m²-/3-m-Rezept verwerfen. Zusätzlichen Schnitt vom bereits überlappenden Quellplan trennen.
    Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
-   Wien 899/909, Zürich 4774/4808, Basel 2952/2962; Messcommit `7b387e8bc`, ein Core, zusammen 136 s.
+   Wien 900/909, Zürich 4774/4808, Basel 2952/2962; Messcommit `e151fd07c`, ein Core, zusammen 132 s.
    Python-Such-/Prüfkosten bleiben zu hoch; aktuelles Bild unter `build/shots/experiments/infrastructure/`.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
