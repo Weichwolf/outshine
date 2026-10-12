@@ -19,7 +19,8 @@ from transport_junction_surfaces import same_island_winding
 from transport_roadbed_island_cleanup import close_split_pockets
 from transport_spline_routes import checked_spline_path
 from transport_turn_roadbed_experiment import mesh_coverage
-from transport_turn_roadbeds import roadbed_site_check,roadbed_lateral_reach,geometry_precision
+from transport_turn_roadbeds import roadbed_site_check,roadbed_lateral_reach,geometry_precision,preserves_voids,preserves_coverage
+from transport_loop_court import loop_court_support
 from transport_surface_regions import canonical_grid_region,polygonal_region
 
 
@@ -56,13 +57,26 @@ def candidate(data,note):
     floor,reserved,source=(shapely.from_wkb(data[k]) for k in ('surface','reservations','source_route'))
     quantum=geometry_precision(floor)
     floor,reserved=(canonical_grid_region(g,quantum) for g in (floor,reserved))
-    support,construction=spline_roadbed(controls,vehicle,error)
-    assert support is not None,construction
+    recipe=note.get('road_space_recipe','lane-flare')
+    assert recipe in ('lane-flare','loop-court'),'unknown road space recipe'
+    if recipe=='loop-court':
+        layout=data.get('loop_layout',[dict(source=source.wkb.hex(),controls=controls.tolist())])
+        support,domain,construction=loop_court_support(layout,floor,vehicle,error)
+    else:
+        support,construction=spline_roadbed(controls,vehicle,error)
+        assert support is not None,construction
+        domain=floor.buffer(roadbed_lateral_reach(vehicle))
     support=canonical_grid_region(support,quantum)
-    support=polygonal_region(support.difference(reserved).intersection(floor.buffer(roadbed_lateral_reach(vehicle))))
+    support=polygonal_region(support.difference(reserved).intersection(domain))
     support,pockets=close_split_pockets(floor,support,reserved)
-    planned,addition,reason=roadbed_site_check(support,floor,reserved,vehicle,error)
-    assert reason is None,reason
+    if recipe=='lane-flare':
+        planned,addition,reason=roadbed_site_check(support,floor,reserved,vehicle,error)
+        assert reason is None,reason
+    else:
+        assert domain.covers(support),'loop court escaped its original source domain'
+        planned=polygonal_region(floor.union(support));addition=planned.difference(floor)
+        assert addition.intersection(reserved).area==0,'loop court intersects reserved space'
+        assert planned.is_valid and preserves_voids(floor,planned) and preserves_coverage(floor,planned),'loop court changes island topology'
     path,proof=checked_spline_path(controls,planned,vehicle,error)
     assert path is not None,proof
     assert same_island_winding(path,source,floor),'source island winding changed'
