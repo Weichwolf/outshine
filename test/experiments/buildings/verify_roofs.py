@@ -20,12 +20,42 @@ from verify_layout import closed_parts
 from verify_vertical import verify as verify_body
 
 
+def exterior_overlap(plan, product):
+    triangles = product['vertices'][product['faces']]
+    selected = triangles.max(axis=1)[:,2]>=plan['body_top_m']-THICKNESS_M-1e-7
+    triangles,parts = triangles[selected],product['parts'][selected]
+    total = 0.
+    for ring in [plan['footprint'].exterior,*plan['footprint'].interiors]:
+        points = np.array(ring.coords)
+        for a,b in zip(points,points[1:]):
+            tangent = (b-a)/np.linalg.norm(b-a)
+            normal = np.array([-tangent[1],tangent[0]])
+            offsets = triangles[:,:,:2]-a
+            on_plane = np.max(abs(offsets@normal),axis=1)<1e-7
+            plane_faces = triangles[on_plane]
+            ids = parts[on_plane]
+            clip = shapely.box(0.,plan['body_top_m']-THICKNESS_M-.001,np.linalg.norm(b-a),plan['source_top_m']+.001)
+            shapes = {}
+            for face,identifier in zip(plane_faces,ids):
+                polygon = shapely.Polygon(np.c_[(face[:,:2]-a)@tangent,face[:,2]]).intersection(clip)
+                if polygon.area>1e-10:
+                    shapes.setdefault(int(identifier),[]).append(polygon)
+            surfaces = [shapely.union_all(polygons) for polygons in shapes.values()]
+            union = shapely.union_all(surfaces)
+            overlap = sum(surface.area for surface in surfaces)-union.area
+            if overlap>1e-6:
+                raise AssertionError('Distinct roof/body parts have coplanar exterior overlap')
+            total += max(0.,overlap)
+    return total
+
+
 def verify(plan, product):
     if plan['roof_status']!='connected-roof':
         raise AssertionError('No constructive roof/body plan')
     bare = body_mesh(plan)
     access = verify_body(plan,bare)
     closed_parts(product)
+    overlap = exterior_overlap(plan,product)
     referenced = product['vertices'][np.unique(product['faces'])]
     bounds = referenced[:,2].min(),referenced[:,2].max()
     if not np.allclose(bounds,[plan['base_z_m'],plan['source_top_m']],atol=1e-7,rtol=0):
@@ -38,12 +68,12 @@ def verify(plan, product):
     if cover.symmetric_difference(plan['footprint']).area>1e-6 or sum(p.area for p in surfaces)-cover.area>1e-6:
         raise AssertionError('Actual roof coverage leaves a gap, overlaps or fills a source courtyard')
     if plan['roof']['kind']!='flat':
-        extra = product['faces'][len(bare['faces']):]
+        extra = product['faces'][product['parts']>int(bare['parts'].max())]
         if product['vertices'][np.unique(extra),2].min()<plan['ceiling_z_m']+(plan['body_top_m']-plan['base_z_m'])*(plan['storeys']-1)/plan['storeys']-1e-7:
             raise AssertionError('Roof or attic infill penetrates occupied top-storey headroom')
     return access|dict(source_height_preserved=True,source_courtyards_preserved=True,
                         roof_facets=len(plan['roof']['facets']),roof_method=plan['roof']['method'],
-                        roof_rise_m=plan['roof']['rise_m'],body_top_m=plan['body_top_m'])
+                        roof_rise_m=plan['roof']['rise_m'],body_top_m=plan['body_top_m'],exterior_coplanar_overlap_m2=overlap)
 
 
 def compare():
@@ -97,6 +127,16 @@ def controls():
     if plan['storeys']!=2 or plan['source_properties']!=sample['properties'] or plan['body_top_m']!=7.5:
         raise AssertionError('Roof reservation changed supplied storeys or source attributes')
     verify(plan,mesh(plan))
+    bare,complete = body_mesh(plan),mesh(plan)
+    ceiling = (bare['materials']==2)&(bare['levels']==plan['storeys']-1)
+    duplicated = complete|dict(faces=np.r_[complete['faces'],bare['faces'][ceiling]],
+                                parts=np.r_[complete['parts'],bare['parts'][ceiling]])
+    try:
+        exterior_overlap(plan,duplicated)
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError('Duplicating the original roof-edge ceiling passed overlap verification')
     try:
         parameters(sample,'hip')
     except ValueError:
@@ -120,7 +160,7 @@ def controls():
         raise AssertionError('A provider-suppressed building reached roof generation')
     return dict(event_cap=True,tracer_restored_after_failure=True,supplied_tags_and_levels=True,
                 source_conflict_rejected=True,supplied_angle=True,provider_suppression=True,
-                compact_supplied_storeys_under_roof=True)
+                compact_supplied_storeys_under_roof=True,old_ceiling_overlap_rejected=True)
 
 
 def main():

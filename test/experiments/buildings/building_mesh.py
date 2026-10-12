@@ -60,9 +60,14 @@ def slice_triangles(product, normal, offset, materials=None):
         if materials is not None and material not in materials:
             continue
         distance = triangle@normal-offset
-        if np.all(distance >= 0) or np.all(distance <= 0):
+        distance[abs(distance)<1e-8] = 0.
+        if np.all(distance > 0) or np.all(distance < 0):
+            continue
+        if np.all(distance==0):
+            result.extend((triangle[[index,(index+1)%3]],int(material)) for index in range(3))
             continue
         points = []
+        points.extend(triangle[distance==0])
         for index in range(3):
             next_index = (index+1)%3
             a, b = distance[index], distance[next_index]

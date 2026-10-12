@@ -28,12 +28,16 @@ Je 21 warme Läufe, gleiche geprüfte Flächen/Aufpunkthöhen/Plattenvolumen; lo
 Analytisch bei tatsächlich rechteckiger Quelle, sonst Skelett; Flächen müssen Quelle lücken-/überlappungsfrei abdecken.
 256 Quellvertices/1.024 Skelettknoten/4.096 Events; zwei Sekunden Workerbudget, gemeinsamer Bibliothekstracer geschützt und auch nach Fehler wiederhergestellt.
 [`roof_components.py`](../test/experiments/buildings/roof_components.py): geschlossene 0,18-m-Dachplatten und Giebel-/Attikwandinfill.
+Obere Geschossdecke am Dachkontakt verjüngen, darunterliegende Kopffreiheit erhalten; überlappende Außenflächen erzeugten sichtbare Streifen.
+Abgeleitete Kontaktpolygone verwenden beidseitig das vorhandene 1e−8-m-Raster; Kontaktdicken unter 1e−7 m auf null, größere negative Dicke verwerfen.
+Unabhängige Projektion tatsächlicher Außendreiecke auf jede Quellfassade erkennt Flächenüberlappung; alte Vollplatte als Gegenfall wieder einfügen.
 [`roof_recipe.py`](../test/experiments/buildings/roof_recipe.py): ursprüngliche Eigenschaften/Quelle behalten, Körperoberkante als eigene Dachreservierung.
 Typ/Höhe/Winkel/Richtung/Orientierung/Dachfarbe aus direkten Angaben; fehlende Dachform aus Typ/Größe/Höhe oder explizitem Experiment.
 Original-OSM-Dachfelder sind optionale Kontrollen, keine Behauptung über ihren OpenFreeMap-Lieferumfang; Unsupported/Konflikte mit Grund ablehnen.
 32 konstruktive Dach-/Körperkombinationen auf acht Grundrissen, zwölf ausgelassene Gegenkombinationen; reine Dachkomponenten, keine fertigen Architekturfamilien.
 [`verify_roofs.py`](../test/experiments/buildings/verify_roofs.py): tatsächliche Dachdeckung, geschlossene Bauteile, Gesamthöhe/Höfe und vorhandene Körperwege prüfen.
 [`roof_probe.py`](../test/experiments/buildings/roof_probe.py): echte Mesh-Schnitte, 2.5D und äußere Nah-/Gegen-/Distanzansichten.
+Mesh-Schnitt enthält auch Kanten/Faces genau auf der Ebene; sonst verschwanden First und Deckenabschnitte in den Diagnosebildern.
 Gleiche Kamerakonstruktion/Licht wie Esri-Candler; Candler ergänzt oberhalb seines Höhenparameters, eigener Dachraum liegt innerhalb der Quelle.
 Distanzbilder zunächst vollständige Detailreferenzen; kein freigegebener Fern-LOD, keine vollständige Rezeptfamilie oder Nachtlichtabnahme.
 

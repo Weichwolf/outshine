@@ -3,7 +3,7 @@
 import numpy as np
 import shapely
 
-from building_layout import WALL_M, polygons
+from building_layout import WALL_M, canonical_geometry, polygons
 from building_mesh import solid
 from roof_planes import height
 
@@ -27,12 +27,22 @@ def above(facet, origin, threshold):
     return facet['polygon'].intersection(shape)
 
 
-def component(storage, polygon, facet, roof, eave, rise, infill=False):
+def component(storage, polygon, facet, roof, eave, rise, infill=False, ceiling=False):
     first = len(storage[0])
-    solid(storage,polygon,0. if infill else -THICKNESS_M,1. if infill else 0.,1 if infill else ROOF_MATERIAL)
+    variable = infill or ceiling
+    solid(storage,polygon,0. if variable else -THICKNESS_M,1. if variable else 0.,2 if ceiling else 1 if infill else ROOF_MATERIAL)
     points = np.asarray(storage[0][first:])
     top = height(facet,points[:,:2],roof['origin'])*rise
-    points[:,2] = eave+points[:,2]*(top-THICKNESS_M) if infill else points[:,2]+eave+top
+    if variable:
+        thickness = top-(0. if ceiling else THICKNESS_M)
+        if thickness.min() < -1e-7:
+            raise ValueError('derived roof contact has negative solid thickness')
+        thickness[abs(thickness)<1e-7] = 0.
+        if ceiling:
+            thickness[abs(thickness-THICKNESS_M)<1e-7] = THICKNESS_M
+        points[:,2] = eave+points[:,2]*thickness
+    else:
+        points[:,2] += eave+top
     storage[0][first:] = points.tolist()
 
 
@@ -41,8 +51,13 @@ def mesh(roof, footprint, eave, rise):
     wall = footprint.difference(footprint.buffer(-WALL_M,join_style='mitre'))
     for facet in roof['facets']:
         component(storage,facet['polygon'],facet,roof,eave,rise)
+        derived = facet|dict(polygon=canonical_geometry(facet['polygon']))
+        higher = canonical_geometry(above(derived,roof['origin'],THICKNESS_M/rise))
+        for part in polygons(canonical_geometry(derived['polygon'].difference(higher))):
+            component(storage,part,facet,roof,eave-THICKNESS_M,rise,ceiling=True)
+        solid(storage,higher,eave-THICKNESS_M,eave,2)
         if rise>THICKNESS_M:
-            infill = above(facet,roof['origin'],THICKNESS_M/rise).intersection(wall)
+            infill = higher.intersection(wall)
             for part in polygons(infill):
                 component(storage,part,facet,roof,eave,rise,infill=True)
     vertices = np.asarray(storage[0],dtype=np.float64)
@@ -59,8 +74,9 @@ def attach(body, roof, footprint, eave, rise, storeys):
         materials[(materials==2)&(body['levels']==storeys-1)] = ROOF_MATERIAL
         return body|dict(materials=materials)
     top = mesh(roof,footprint,eave,rise)
+    selected = ~((body['materials']==2)&(body['levels']==storeys-1))
     return dict(vertices=np.r_[body['vertices'],top['vertices']],
-                faces=np.r_[body['faces'],top['faces']+len(body['vertices'])],
-                materials=np.r_[body['materials'],top['materials']],
-                parts=np.r_[body['parts'],top['parts']+int(body['parts'].max())+1],
-                levels=np.r_[body['levels'],np.full(len(top['faces']),storeys,dtype=np.uint8)])
+                faces=np.r_[body['faces'][selected],top['faces']+len(body['vertices'])],
+                materials=np.r_[body['materials'][selected],top['materials']],
+                parts=np.r_[body['parts'][selected],top['parts']+int(body['parts'].max())+1],
+                levels=np.r_[body['levels'][selected],np.full(len(top['faces']),storeys,dtype=np.uint8)])
