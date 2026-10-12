@@ -101,10 +101,10 @@ acht gespeicherte Typen (Tree, Branch, Frond, Cap, BatchedLeaf, Leaf Mesh, Fin, 
 Vorlageninventar ist kein vollständiges Funktionsinventar oder Gleichwertigkeitsnachweis.
 2481: Rinden-/UV-Analyse an vier CBranchNode-Funktionen; Periodenentfaltung und zyklische Glättung belegt.
 Eigene räumliche Astkoordinaten/Rauschmaterialien; vollständige UV-Property-/Original-Oracle-Bindung offen.
-2482: Frond-/Meshpfade und Guide-Deformation; 2483: eigene Graphprodukte, vollständige Bindung offen.
+2482: Frond-Guides; 2483: Graphprodukte; 2484: physische Blattfolgen/Astquirle, volle Bindung offen.
 | Bereich | Eigener Stand / fehlende Funktionen |
 |---|---|
-| Graph/Profile/Platzierung | Eigener Graph mit vier Grundtypen/bedarfsgesteuerten Instanzen (2483), Profile/Spines; volle Generierungsarten offen |
+| Graph/Profile/Platzierung | Vier Grundtypen/Bedarf (2483), physische Blattfolgen/Quirle (2484), Profile/Spines; volle Generierungsarten offen |
 | Stämme/Anschlüsse | Gabeln (2352), vollständige Vereinigung/Astkragen (2353), Rindenmaterial/Koordinaten (2481); volle Elternbindung, Caps/Knots/Fins/Rindengeometrie offen |
 | Organe/Cluster | Blatt-/Grasflächen, Frond-/Guide-Proben (2482); volle Frondbindung, Nadeln und weitere Organe offen |
 | Kräfte/Wachstum/Zustände | Kräfte, Kollisionen, Wachstum/Jahreszustände und funktionale Windbindung offen |
@@ -113,7 +113,7 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-74 gezielte Funktionen dekompiliert; neunzehn Läufe terminal erfolgreich, zuletzt vier Graph-Funktionen.
+76 gezielte Funktionen dekompiliert; zwanzig Läufe terminal erfolgreich, zuletzt zwei Placement-Property-Aufbauten.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.

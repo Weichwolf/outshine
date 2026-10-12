@@ -6,6 +6,7 @@ import numpy as np
 from blade_surface import Blade
 from frond_pattern import PinnatePattern
 from frond_surface import FrondGuide
+from placement_patterns import DistancePattern
 from profile_curve import Profile
 
 
@@ -88,6 +89,7 @@ class Placement:
     azimuth_variance: float = 0.08
     scale: Profile = field(default_factory=lambda: Profile(np.ones(4), "maximum"))
     scale_variance: float = 0.04
+    pattern: DistancePattern | None = None
 
     def __post_init__(self):
         values = (
@@ -118,14 +120,48 @@ class Placement:
             raise ValueError("bounded angular and scale variation required")
         if not isinstance(self.scale, Profile) or self.scale.table.min() <= 0:
             raise ValueError("positive prepared placement scale profile required")
+        if self.pattern is not None and not isinstance(self.pattern, DistancePattern):
+            raise ValueError("implemented physical generation pattern required")
+        if self.pattern is not None and self.count != 1:
+            raise ValueError(
+                "physical patterns specify whorl size and group limit instead of fixed count"
+            )
 
     def parameter(self, slot):
         fraction = slot / (self.count - 1) if self.count > 1 else 0.5
         return self.first + fraction * (self.last - self.first)
 
     def recipe(self):
-        result = {key: value for key, value in self.__dict__.items() if key != "scale"}
+        result = {
+            key: value
+            for key, value in self.__dict__.items()
+            if key not in ("scale", "pattern")
+        }
+        if self.pattern is not None:
+            result["pattern"] = self.pattern.recipe()
         return result | {"scale": profile_recipe(self.scale)}
+
+    def capacity(self, parent_length):
+        return (
+            self.count
+            if self.pattern is None
+            else self.pattern.capacity(parent_length, self.first, self.last)
+        )
+
+    def sites(self, parent_length, seed):
+        if self.pattern is not None:
+            return self.pattern.tables(
+                [parent_length], self.first, self.last, seeds=[seed]
+            )[0]
+        result = np.array(
+            [
+                (self.parameter(slot), slot * self.azimuth_step)
+                for slot in range(self.count)
+            ],
+            dtype=float,
+        ).reshape(-1, 2)
+        result.setflags(write=False)
+        return result
 
 
 @dataclass(frozen=True)
@@ -167,7 +203,11 @@ class Generator:
             )
         if (
             self.kind == "root"
-            and (self.parents or self.placement.count != 1)
+            and (
+                self.parents
+                or self.placement.count != 1
+                or self.placement.pattern is not None
+            )
             or self.kind != "root"
             and not self.parents
         ):
@@ -214,6 +254,8 @@ class Generator:
             raise ValueError("implemented generator kind required")
         placement = dict(recipe["placement"])
         placement["scale"] = profile_from_recipe(placement["scale"])
+        if "pattern" in placement:
+            placement["pattern"] = DistancePattern.from_recipe(placement["pattern"])
         return cls(
             recipe["id"],
             recipe["label"],

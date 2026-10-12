@@ -56,6 +56,11 @@ class GeneratorGraph:
     _pose_counts: dict = field(
         default_factory=dict, init=False, repr=False, compare=False
     )
+    _sites: dict = field(default_factory=dict, init=False, repr=False, compare=False)
+    _complete_nodes: set = field(
+        default_factory=set, init=False, repr=False, compare=False
+    )
+    _site_rows: int = field(default=0, init=False, repr=False, compare=False)
 
     def __post_init__(self):
         if (
@@ -76,7 +81,7 @@ class GeneratorGraph:
             raise ValueError("one root and bounded generator connections required")
         if any(p not in self.by_id for n in self.nodes for p in n.parents):
             raise ValueError("every generator parent must be present")
-        if sum(self.counts.values()) >= 2**64:
+        if sum(self.capacities.values()) >= 2**64:
             raise ValueError("bounded logical instance count required")
         if not all(np.isfinite(radius) for radius in self.bounds.values()):
             raise ValueError("finite complete graph bounds required")
@@ -107,23 +112,51 @@ class GeneratorGraph:
         return tuple(result)
 
     @cached_property
-    def counts(self):
+    def capacities(self):
         result = {}
         for key in self.order:
             node = self.by_id[key]
             result[key] = (
-                node.placement.count * sum(result[p] for p in node.parents)
+                sum(
+                    node.placement.capacity(self.length_bounds[p]) * result[p]
+                    for p in node.parents
+                )
                 if node.parents
                 else 1
             )
         return MappingProxyType(result)
 
     @cached_property
+    def slot_capacities(self):
+        return MappingProxyType(
+            {
+                n.id: max(
+                    (n.placement.capacity(self.length_bounds[p]) for p in n.parents),
+                    default=1,
+                )
+                for n in self.nodes
+            }
+        )
+
+    @cached_property
+    def length_bounds(self):
+        return MappingProxyType(
+            {
+                n.id: n.shape.length
+                * n.placement.scale.table.max()
+                * (1 + n.placement.scale_variance)
+                if n.shape is not None
+                else 0.0
+                for n in self.nodes
+            }
+        )
+
+    @cached_property
     def bounds(self):
         result = {}
         for key in self.order:
             node = self.by_id[key]
-            if self.counts[key] == 0:
+            if self.capacities[key] == 0:
                 result[key] = 0.0
                 continue
             scale = node.placement.scale.table.max() * (
@@ -161,10 +194,17 @@ class GeneratorGraph:
         return hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
 
     def summary(self):
+        complete = all(
+            key in self._complete_nodes or count == 0
+            for key, count in self.capacities.items()
+        )
         return {
             "identity": self.identity,
-            "instances": sum(self.counts.values()),
-            "counts": dict(self.counts),
+            "instances": len(self._poses) if complete else None,
+            "counts": {key: self._pose_counts.get(key, 0) for key in self.order}
+            if complete
+            else None,
+            "capacity_counts": dict(self.capacities),
             "bound_radius_m": max(self.bounds.values()),
         }
 
@@ -172,13 +212,35 @@ class GeneratorGraph:
         if type(node_id) is not int or node_id not in self.by_id:
             raise ValueError("known generator ID required")
         node = self.by_id[node_id]
+        if self.capacities[node_id] == 0:
+            return
         if node.kind == "root":
             yield ((node_id, 0),)
         else:
             for parent in sorted(node.parents):
                 for path in self.paths(parent):
-                    for slot in range(node.placement.count):
+                    count = node.placement.count
+                    if node.placement.pattern is not None:
+                        pose = self.instance(path)
+                        key = (path, node_id)
+                        table = self._sites.get(key)
+                        if table is None:
+                            table = self.site_table(node_id, pose)
+                            self.remember_sites(key, table)
+                        count = len(table)
+                    for slot in range(count):
                         yield (*path, (node_id, slot))
+
+    def site_table(self, node_id, parent):
+        seed = np.random.SeedSequence(
+            [self.seed, node_id, *(v for pair in parent.path for v in pair), 0x53495445]
+        )
+        return self.by_id[node_id].placement.sites(parent.length, seed)
+
+    def remember_sites(self, key, table):
+        if key not in self._sites and self._site_rows + len(table) <= MAX_POSES:
+            self._sites[key] = table
+            object.__setattr__(self, "_site_rows", self._site_rows + len(table))
 
     def instance(self, path):
         if not isinstance(path, tuple) or not 1 <= len(path) <= len(self.nodes):
@@ -191,7 +253,7 @@ class GeneratorGraph:
                 type(key) is not int
                 or key not in self.by_id
                 or type(slot) is not int
-                or not 0 <= slot < self.by_id[key].placement.count
+                or not 0 <= slot < self.slot_capacities[key]
             ):
                 raise ValueError("known generator and valid slot required")
             node = self.by_id[key]
@@ -209,21 +271,37 @@ class GeneratorGraph:
         missing = sum(path[:end] not in self._poses for end in range(1, len(path) + 1))
         if len(self._poses) + missing > MAX_POSES:
             raise ValueError("materialized hierarchy pose budget exceeded")
-        result = (
-            Instance(path, np.zeros(3), UPRIGHT, 1.0, 0.0, 0.0, np.zeros(3))
-            if len(path) == 1
-            else self._place(path)
-        )
-        self._poses[path] = result
-        key = path[-1][0]
-        self._pose_counts[key] = self._pose_counts.get(key, 0) + 1
-        return result
+        staged, sites = {}, {}
+        for end in range(1, len(path) + 1):
+            prefix = path[:end]
+            if prefix in self._poses:
+                continue
+            if end == 1:
+                result = Instance(
+                    prefix, np.zeros(3), UPRIGHT, 1.0, 0.0, 0.0, np.zeros(3)
+                )
+            else:
+                parent = staged.get(prefix[:-1], self._poses.get(prefix[:-1]))
+                key = (prefix[:-1], prefix[-1][0])
+                table = self._sites.get(key)
+                if table is None:
+                    table = sites[key] = self.site_table(prefix[-1][0], parent)
+                if prefix[-1][1] >= len(table):
+                    raise ValueError("site does not exist on this particular parent")
+                result = self._place(prefix, parent, table[prefix[-1][1]])
+            staged[prefix] = result
+        for key, table in sites.items():
+            self.remember_sites(key, table)
+        for prefix, result in staged.items():
+            self._poses[prefix] = result
+            key = prefix[-1][0]
+            self._pose_counts[key] = self._pose_counts.get(key, 0) + 1
+        return self._poses[path]
 
-    def _place(self, path):
-        parent = self.instance(path[:-1])
-        node, slot = self.by_id[path[-1][0]], path[-1][1]
+    def _place(self, path, parent, site):
+        node = self.by_id[path[-1][0]]
         placement, parent_node = node.placement, self.by_id[path[-2][0]]
-        parameter = placement.parameter(slot)
+        parameter, site_angle = site
         if parent.length:
             twist = parent_node.shape.twist if parent_node.kind == "blade" else 0
             centre, tangent, lateral, normal = arc_frame(
@@ -247,7 +325,7 @@ class GeneratorGraph:
         phase_rng = np.random.default_rng(np.random.SeedSequence(entropy[:-1]))
         azimuth = (
             phase_rng.uniform(-np.pi, np.pi)
-            + slot * placement.azimuth_step
+            + site_angle
             + rng.uniform(-placement.azimuth_variance, placement.azimuth_variance)
         )
         pitch = placement.pitch + rng.uniform(
@@ -285,20 +363,24 @@ class GeneratorGraph:
             raise ValueError(
                 "known generator and nonnegative integer pose budget required"
             )
-        if self.counts[node_id] == 0:
+        if self.capacities[node_id] == 0:
             return ()
-        if self.counts[node_id] > MAX_POSES:
+        if self.capacities[node_id] > MAX_POSES:
             return None
         ancestors, pending = set(), [node_id]
         while pending:
             key = pending.pop()
-            if key in ancestors or self.counts[key] == 0:
+            if key in ancestors or self.capacities[key] == 0:
                 continue
             ancestors.add(key)
             pending.extend(self.by_id[key].parents)
         missing = sum(
-            self.counts[key] - self._pose_counts.get(key, 0) for key in ancestors
+            self.capacities[key] - self._pose_counts.get(key, 0)
+            for key in ancestors
+            if key not in self._complete_nodes
         )
         if missing > max_new_poses or len(self._poses) + missing > MAX_POSES:
             return None
-        return tuple(self.instance(path) for path in self.paths(node_id))
+        result = tuple(self.instance(path) for path in self.paths(node_id))
+        self._complete_nodes.update(ancestors)
+        return result

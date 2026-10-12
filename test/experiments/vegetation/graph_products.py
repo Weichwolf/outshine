@@ -47,7 +47,7 @@ def graph_products(
         raise ValueError("nonnegative integer source and pose budgets required")
     sources, missing = {}, set()
     for key in selected:
-        if graph.counts[key] == 0:
+        if graph.capacities[key] == 0:
             continue
         node = graph.by_id[key]
         identity = hashlib.sha256(
@@ -62,18 +62,22 @@ def graph_products(
         pending = [key]
         while pending:
             current = pending.pop()
-            if current in missing or graph.counts[current] == 0:
+            if current in missing or graph.capacities[current] == 0:
                 continue
             missing.add(current)
             pending.extend(graph.by_id[current].parents)
-    total = sum(graph.counts[key] - graph._pose_counts.get(key, 0) for key in missing)
+    total = sum(
+        graph.capacities[key] - graph._pose_counts.get(key, 0)
+        for key in missing
+        if key not in graph._complete_nodes
+    )
     triangles = sum(
         source_triangles(source["shape"], detail) for source in sources.values()
     )
     if (
         total > max_new_poses
         or len(graph._poses) + total > MAX_POSES
-        or any(graph.counts[key] > MAX_POSES for key in selected)
+        or any(graph.capacities[key] > MAX_POSES for key in selected)
         or triangles > min(max_prototype_triangles, 1_000_000)
     ):
         return None

@@ -1,7 +1,43 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: eigene Generatorgraphen verbinden Äste, Einzelblätter und Fronds mit stabilen Instanzen und gemeinsamen Formprototypen. Grob- und Nahprodukte stammen aus demselben Plan; alle Renderings sind 2560×1440. Der Original-Modeler wurde mit der mitgelieferten Palme tatsächlich betrachtet; vollständige Geometrievergleiche fehlen noch. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: längenabhängige Blattfolgen und profilierte Astquirle sind in den eigenen Generatorgraphen integriert. Grob- und Nahprodukte erhalten dieselben Standorte; vollständige angeforderte Produkte bleiben wiederverwendbar. Alle Renderings sind 2560×1440. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/placement-phyllotaxy.png",
+      "title": "Gegenständige Blattfolge · variable Elternlängen",
+      "label": "Platzierungs-Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Drei Elternachsen von 0,55 / 0,95 / 1,35 m erhalten vollständige, längenabhängige Organfolgen. Physische Internodien, Elternprofile, Quirle und stabile Varianz steuern die Platzierung. Grobe und feine Flächen teilen denselben Formplan und dieselben Standorte; nur die Unterteilung wechselt. Die drei Stämme sind zur Ansicht nebeneinander versetzt.",
+      "quality": "Eigene Phyllotaxy-/Interval-Funktionsprobe · vollständige Original-Propertybindung, Bifurcation, organische Gabeln und botanische Freigabe offen"
+    },
+    {
+      "image": "render/placement-phyllotaxy-coarse.png",
+      "title": "Gegenständige Blattfolge · Grobprodukt",
+      "label": "Platzierungs-Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-2",
+      "description": "Drei Elternachsen von 0,55 / 0,95 / 1,35 m erhalten vollständige, längenabhängige Organfolgen. Physische Internodien, Elternprofile, Quirle und stabile Varianz steuern die Platzierung. Grobe und feine Flächen teilen denselben Formplan und dieselben Standorte; nur die Unterteilung wechselt. Die drei Stämme sind zur Ansicht nebeneinander versetzt.",
+      "quality": "Eigene Phyllotaxy-/Interval-Funktionsprobe · vollständige Original-Propertybindung, Bifurcation, organische Gabeln und botanische Freigabe offen"
+    },
+    {
+      "image": "render/placement-interval.png",
+      "title": "Profilierte Astquirle · variable Elternlängen",
+      "label": "Platzierungs-Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Drei Elternachsen von 0,55 / 0,95 / 1,35 m erhalten vollständige, längenabhängige Organfolgen. Physische Internodien, Elternprofile, Quirle und stabile Varianz steuern die Platzierung. Grobe und feine Flächen teilen denselben Formplan und dieselben Standorte; nur die Unterteilung wechselt. Die drei Stämme sind zur Ansicht nebeneinander versetzt.",
+      "quality": "Eigene Phyllotaxy-/Interval-Funktionsprobe · vollständige Original-Propertybindung, Bifurcation, organische Gabeln und botanische Freigabe offen"
+    },
+    {
+      "image": "render/placement-interval-coarse.png",
+      "title": "Profilierte Astquirle · Grobprodukt",
+      "label": "Platzierungs-Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-2",
+      "description": "Drei Elternachsen von 0,55 / 0,95 / 1,35 m erhalten vollständige, längenabhängige Organfolgen. Physische Internodien, Elternprofile, Quirle und stabile Varianz steuern die Platzierung. Grobe und feine Flächen teilen denselben Formplan und dieselben Standorte; nur die Unterteilung wechselt. Die drei Stämme sind zur Ansicht nebeneinander versetzt.",
+      "quality": "Eigene Phyllotaxy-/Interval-Funktionsprobe · vollständige Original-Propertybindung, Bifurcation, organische Gabeln und botanische Freigabe offen"
+    },
     {
       "image": "render/generator-plant.png",
       "title": "Generatorgraph · gemischte Funktionspflanze",
@@ -249,7 +285,8 @@
     "curved_plot": "lod-0",
     "plant_surface_plot": "lod-1",
     "collar_plot": "lod-1",
-    "ray_plot": "lod-1"
+    "ray_plot": "lod-1",
+    "placement_plot": "lod-1"
   },
   "genera": [
     {

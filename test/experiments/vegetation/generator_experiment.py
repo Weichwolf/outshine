@@ -176,6 +176,7 @@ def main():
             "generator_experiment.py",
             "generator_graph.py",
             "generator_specs.py",
+            "placement_patterns.py",
             "generator_examples.py",
             "generator_checks.py",
             "generator_scenes.py",

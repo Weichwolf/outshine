@@ -29,7 +29,7 @@ Gemeinsame Prototypflächen mit vollständigen Platzierungen und Form-/Materialr
 [Weber/Penn, SIGGRAPH 1995](../doc/references/vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf)
 begründet parametrische Hierarchien; 2482 besitzt die Frond-/Elternprofilverfahren.
 `generator_{specs,graph,examples,scenes,checks,experiment}.py`: vier eigene Grundtypen,
-feste Anzahlen, Kreisachsen, Profile und deterministische Pfade; volle Generierungsarten offen.
+feste Anzahlen plus physische Standortfolgen (2484), Kreisachsen/Profile/Pfade; volle Generierungsarten offen.
 `graph_{sources,products,material,preview}.py`: vollständige Prototypen und Instanzfelder,
 verlustfreie Hierarchiepfade, physische Rindenkoordinaten auch bei Instanzskalierung.
 
@@ -40,10 +40,10 @@ Grobe/feine Produkte teilen Identitäten und Platzierungen, Dreiecke werden dire
 Budgets verwerfen Anfragen vor Platzierung/Meshing; 262.144 Instanzen als eine Teilanfrage
 verweigert, einzelner Pfad daraus benötigt vier Posen. Nullanzahlen erzeugen keine Arbeit.
 Frames bleiben bei 90° stetig, rechtshändig/orthonormal; Rezeptreihenfolge/Namen ändern keine Form.
-Sieben lokale CPU-Proben derselben sieben Fronds: Median 20,664 ms Vollaufbau,
-4,625 ms Bedarf (15 statt 63 Posen), 0,051 ms Wiederverwendung; Graphdefinition/Meshing/IO ausgeschlossen.
-Nah-/Grobprodukte inklusive Kompression/Schreiben zusammen 0,175 s (eine lokale Probe).
-Peak des frischen Prüf-/Produktprozesses 93,95 MiB; 723.479 komprimierte Mesh-/Posenbytes
+Sieben lokale CPU-Proben derselben sieben Fronds: Median 21,470 ms Vollaufbau,
+4,990 ms Bedarf (15 statt 63 Posen), 0,048 ms Wiederverwendung; Graphdefinition/Meshing/IO ausgeschlossen.
+Nah-/Grobprodukte inklusive Kompression/Schreiben zusammen 0,149 s (eine lokale Probe).
+Peak des frischen Prüf-/Produktprozesses 95,23 MiB; 723.479 komprimierte Mesh-/Posenbytes
 für beide Detailstufen ohne doppelt gezählte gemeinsame Platzierungen; kein Geräte-/GPU-Nachweis.
 Gesamt-, Grob- und Nahbilder 2560×1440 betrachtet; sparse Mischpflanze ohne Artenfreigabe.
 

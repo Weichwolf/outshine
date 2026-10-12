@@ -11,7 +11,7 @@ from generator_specs import Generator, Placement, TubeShape
 
 def check_requests():
     graph = mixed_graph()
-    assert graph.counts == {0: 1, 1: 1, 2: 6, 3: 48, 4: 7}
+    assert graph.capacities == {0: 1, 1: 1, 2: 6, 3: 48, 4: 7}
     assert not graph._poses
     assert graph.instances(4, 14) is None and not graph._poses
     fronds = graph.instances(4, 15)
@@ -35,7 +35,7 @@ def check_requests():
     assert graph.identity == reordered.identity == relabelled.identity
     for key in graph.order:
         first, second = graph.instances(key, 1000), reordered.instances(key, 1000)
-        assert len(first) == len(second) == graph.counts[key]
+        assert len(first) == len(second) == graph.capacities[key]
         assert len({p.path for p in first}) == len(first)
         for a, b in zip(first, second):
             assert a.path == b.path and a.scale == b.scale
@@ -45,7 +45,7 @@ def check_requests():
             assert np.linalg.det(a.frame) > 1 - 2e-14
             assert not a.origin.flags.writeable and not a.frame.flags.writeable
     return {
-        "instances": sum(graph.counts.values()),
+        "instances": sum(graph.capacities.values()),
         "partial_poses": 4,
         "frond_poses": 15,
     }
@@ -109,7 +109,7 @@ def check_invalid():
             for key in range(1, 4)
         ),
     )
-    assert large.counts[3] == 64**3
+    assert large.capacities[3] == 64**3
     assert large.instances(3, 1_000_000) is None and not large._poses
     assert large.instance(((0, 0), (1, 63), (2, 63), (3, 63))).path[-1] == (3, 63)
     assert len(large._poses) == 4

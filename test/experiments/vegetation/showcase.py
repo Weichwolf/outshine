@@ -24,6 +24,7 @@ from curved_plots import curved_figure
 from fork_plots import fork_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
+from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
@@ -386,6 +387,12 @@ def generator_plot(report):
     return save_plot(figure, "generator-graph")
 
 
+def placement_plot(report):
+    figure = placement_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "placement-patterns")
+
+
 def plant_surface_plot(report):
     return save_plot(plant_surface_figure(report), "plant-surfaces")
 
@@ -407,6 +414,7 @@ def plot_entries(output, plot_lods):
         method.__name__: method
         for method in (
             generator_plot,
+            placement_plot,
             frond_plot,
             bark_plot,
             ray_plot,

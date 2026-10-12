@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "placements/placements.json",
+        "placement_plot",
+        "Blattfolgen und Astquirle · variable Elternlängen",
+        "Konstante und profilierte physische Abstände vom letzten zum ersten Elternstandort, getrennte Quirlmitglieder und Gruppenrotation. Gleiche vollständige Standortfolgen: fünf lokale CPU-Läufe gegen eine unabhängige skalare Rekurrenz. 180 unabhängige Grenz-/Profiltests; kompakte Speicherablage für stark unterschiedliche Elternlängen. Konservative Kapazität und tatsächliche Instanzen getrennt; wiederholte Graphanfragen erzeugen keine neuen Posen. Keine vollständige SpeedTree-Property-/Zufalls-/Bifurcation- oder native Freigabe.",
+    ),
+    (
         "generator-graph/generator-graph.json",
         "generator_plot",
         "Generatorgraph · gemeinsame Formpläne",
