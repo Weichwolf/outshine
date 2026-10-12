@@ -44,7 +44,7 @@ def probe(output,provenance):
             ax.set_title(label+' · '+('gleiche Fläche' if area else 'gleiche Breite')+'\n'+values+' m²',fontsize=10)
     title='Grundrissteilung · gleiche Breite und gleiche Fläche'
     fig.suptitle(title+'\nEchte GEOS-Schnittpolygone; Höfe bleiben ausgespart, getrennte Teilflächen bleiben erhalten',fontsize=14)
-    fig.subplots_adjust(left=.08,right=.97,bottom=.07,top=.93,hspace=.75,wspace=.25)
+    fig.subplots_adjust(left=.08,right=.97,bottom=.07,top=.90,hspace=.75,wspace=.25)
     fig.text(.03,.02,'2D-Verfahrensexperiment; noch keine räumlichen Mesh-/UV-Schnitte oder Architekturrezepte. '+provenance['commit'][:9],fontsize=10)
     return [save_plot(fig,output,'current-split-plan',title,
         'Fünf Grundrisse, jeweils vier tatsächliche Teilpolygone. Links gleiche x-Breiten, rechts je 25 % Quellfläche. '
