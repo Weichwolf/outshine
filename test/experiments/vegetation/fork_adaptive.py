@@ -1,5 +1,7 @@
 """Conforming adaptive cube patches for origin-star-shaped organic fork surfaces."""
 
+from bisect import bisect_left, bisect_right
+
 import numpy as np
 from cube_surface import face_axes
 from fork_surface import mesh_product
@@ -25,15 +27,25 @@ class SurfaceSamples:
 
 
 def patch_points(cells, extent):
+    cells = np.asarray(cells, dtype=int)
+    frames = np.array(
+        [face_axes(axis, sign) for axis in range(3) for sign in (-1, 1)], dtype=int
+    )
+    frames = frames[2 * cells[:, 0] + (cells[:, 1] > 0)]
+    normal, first, second = frames[:, 0], frames[:, 1], frames[:, 2]
     offsets = np.array(((0, 0), (1, 0), (1, 1), (0, 1)))
-    points = []
-    for axis, sign, u, v, size, _depth in cells:
-        normal, first, second = face_axes(axis, sign)
-        corners = (u, v) + offsets * size
-        spatial = extent * normal + corners[:, :1] * first + corners[:, 1:] * second
-        centre = extent * normal + (u + size // 2) * first + (v + size // 2) * second
-        points.append(np.vstack((spatial, centre)))
-    return np.asarray(points, dtype=int)
+    corners = cells[:, None, 2:4] + offsets * cells[:, None, 4:5]
+    spatial = (
+        extent * normal[:, None]
+        + corners[:, :, :1] * first[:, None]
+        + corners[:, :, 1:] * second[:, None]
+    )
+    centre = (
+        extent * normal
+        + (cells[:, 2] + cells[:, 4] // 2)[:, None] * first
+        + (cells[:, 3] + cells[:, 4] // 2)[:, None] * second
+    )
+    return np.concatenate((spatial, centre[:, None]), axis=1)
 
 
 def patch_errors(points, samples):
@@ -65,41 +77,51 @@ def split_cells(cells):
 
 
 def conforming_triangles(points):
+    starts = points[:, :4]
+    ends = np.roll(starts, -1, axis=1)
+    axes = np.argmax(starts != ends, axis=2)
+    fixed_columns = np.array(((1, 2), (0, 2), (0, 1)))[axes]
+    fixed = np.take_along_axis(starts, fixed_columns, axis=2)
+    start_coordinates = np.take_along_axis(starts, axes[:, :, None], axis=2)[:, :, 0]
+    end_coordinates = np.take_along_axis(ends, axes[:, :, None], axis=2)[:, :, 0]
     lines = {}
-    for patch in points:
-        for index in range(4):
-            a, b = patch[index], patch[(index + 1) % 4]
-            axis = int(np.flatnonzero(a != b)[0])
-            fixed = tuple(int(a[j]) for j in range(3) if j != axis)
-            line = lines.setdefault((axis, fixed), set())
-            line.update((int(a[axis]), int(b[axis])))
+    edge_data = list(
+        zip(
+            axes.tolist(),
+            fixed.tolist(),
+            start_coordinates.tolist(),
+            end_coordinates.tolist(),
+            strict=True,
+        )
+    )
+    for axis_row, fixed_row, start_row, end_row in edge_data:
+        for axis, pair, a, b in zip(
+            axis_row, fixed_row, start_row, end_row, strict=True
+        ):
+            lines.setdefault((axis, tuple(pair)), set()).update((a, b))
     lines = {key: sorted(values) for key, values in lines.items()}
     vertices, indices, faces = [], {}, []
 
     def vertex(key):
-        key = tuple(int(v) for v in key)
+        key = tuple(key)
         if key not in indices:
             indices[key] = len(vertices)
             vertices.append(key)
         return indices[key]
 
-    for patch in points:
+    for patch, data in zip(points.tolist(), edge_data, strict=True):
         centre = vertex(patch[4])
         boundary = []
-        for index in range(4):
-            a, b = patch[index], patch[(index + 1) % 4]
-            axis = int(np.flatnonzero(a != b)[0])
-            fixed = tuple(int(a[j]) for j in range(3) if j != axis)
-            line = np.asarray(lines[axis, fixed])
-            values = line[
-                (line >= min(a[axis], b[axis])) & (line <= max(a[axis], b[axis]))
-            ]
-            if b[axis] < a[axis]:
+        for index, (axis, pair, a, b) in enumerate(zip(*data, strict=True)):
+            line = lines[axis, tuple(pair)]
+            values = line[bisect_left(line, min(a, b)) : bisect_right(line, max(a, b))]
+            if b < a:
                 values = values[::-1]
+            point = tuple(patch[index])
             for coordinate in values[:-1]:
-                key = a.copy()
-                key[axis] = coordinate
-                boundary.append(vertex(key))
+                boundary.append(
+                    vertex(point[:axis] + (coordinate,) + point[axis + 1 :])
+                )
         faces.extend(
             (centre, a, b)
             for a, b in zip(boundary, boundary[1:] + boundary[:1], strict=True)
@@ -110,7 +132,7 @@ def conforming_triangles(points):
 def adaptive_mesh(field, tolerance, max_depth=7, max_patches=4096):
     if not np.isfinite(tolerance) or tolerance <= 0:
         raise ValueError("positive world-space radial sample tolerance required")
-    if not isinstance(max_depth, int) or not 1 <= max_depth <= 7:
+    if not isinstance(max_depth, int) or not 1 <= max_depth <= 9:
         raise ValueError("bounded adaptive subdivision depth required")
     if not isinstance(max_patches, int) or not 6 <= max_patches <= 16384:
         raise ValueError("bounded patch budget required")

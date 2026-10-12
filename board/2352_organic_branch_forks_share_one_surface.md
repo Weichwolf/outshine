@@ -65,12 +65,19 @@ Dünne Enden verfehlen bei 192 Zellen den 5-mm-Probestrahlvertrag; zusätzliche 
 Gemeinsame Kanten einmal halbieren, alle vier Kinddreiecke orientiert erhalten und neue Punkte projizieren.
 Projektion: maximal sechs Newton-Schritte, Bewegungsgrenze, Residuum und Million-Dreiecke-Budget explizit.
 Feldabweichung der Vertices, tatsächlicher Strahl-/Dreiecksfehler und Kosten getrennt prüfen.
+Gemessener Geometrieengpass: ausgewählte verjüngte Gabeln benötigen 68.380–118.112 Dreiecke.
+Adaptive radiale Patches erreichen bei Tiefe sieben an dünnen Enden ihr Limit; Tiefe neun
+bei unverändert maximal 16.384 Patches prüfen. CPU/Produktgröße als getrennte Kosten vergleichen.
 Min-/Max-Radien kapseln das Segmentfeld für die bestehende konservative Blockauswahl ein.
 Unabhängige skalare Optimierung, Kugel-/Konstantfälle, Differentialnormalen und identische Gittermeshes prüfen.
 581 skalare Optimierungen: maximale Feldabweichung 8,89e−16 m²; 111 analytische Kegeltangentialproben.
 Je Form 113 Differential-/Transformationspunkte und 1.356 Boxproben; zehn ungültige Eingaben/Budgets abgewiesen.
-Drei Formen/fünf Varianten: unveränderter 5-mm-Probevertrag und geschlossene außenorientierte Flächen.
-Ausgewählte Proben rund 523–546 ms; dünne Enden kosten zusätzliche Dreiecke, keine Frame-/Gerätefreigabe.
+Drei Formen/sieben Varianten: unveränderter 5-mm-Probevertrag und geschlossene außenorientierte Flächen.
+Adaptive Tiefe neun bei 4 mm lokaler Probentoleranz: 8.080–8.336 Dreiecke, 2,75–3,42 mm Strahlprobenfehler.
+Optimierte Punktbatches/Kantenauflösung: drei Meshes samt Arbeitszählern exakt gegen vorherige Kerne geprüft.
+Lokale Proben rund 422–447 ms; lokale CPU-Zeit und Dreieckszahl geringer als bisherige ausgewählte Gitterverfahren.
+2-mm-Varianten verfehlen teils ihr lokales Tiefen-/Flächenziel und bleiben trotz kleiner Strahlproben rot.
+Keine globale Fehler-, Frame- oder Gerätefreigabe; Kerne aus festem Git-Commit nur als eigener Vergleichscode.
 Verjüngte Funktionsgabeln mit gleicher Kamera öffnen; kontinuierliche Profile/gekrümmte Elternanschlüsse bleiben offen.
 
 ## Umsetzung und Abnahme

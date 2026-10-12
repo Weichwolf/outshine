@@ -14,12 +14,22 @@ def tapered_figure(report):
         "Block 192",
         "Projektion 192",
         "Unterteilung 128",
+        "Adaptiv 4 mm",
+        "Adaptiv 2 mm",
     )
-    colours = ("#687b89", "#72a1b0", "#b0a472", "#9c82ad", "#337758")
+    colours = (
+        "#687b89",
+        "#72a1b0",
+        "#b0a472",
+        "#9c82ad",
+        "#337758",
+        "#2879bb",
+        "#cf7941",
+    )
     centres = np.arange(len(names))
     for index, (label, colour) in enumerate(zip(labels, colours, strict=True)):
         rows = [report["cases"][name]["cases"][index] for name in names]
-        positions = centres + (index - 2) * 0.16
+        positions = centres + (index - 3) * 0.12
         for axis, key, scale in zip(
             axes,
             ("median_ms", "maximum_radial_probe_error_m"),
@@ -29,7 +39,7 @@ def tapered_figure(report):
             bars = axis.bar(
                 positions,
                 [row[key] * scale for row in rows],
-                0.15,
+                0.11,
                 color=colour,
                 label=label,
             )

@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: 58 Funktionen mit Ghidra untersucht. Gemeinsame Astoberflächen besitzen jetzt unabhängige Basis-/Endradien. Analytische Hüllen, Normalen und dünne Enden werden gegen unabhängige Optimierung, Tangentialformeln und Strahl-/Dreieckstests geprüft. Weltweite Pflanzenrezepte und optische Artenprüfung folgen nach vollständigem Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: 58 Funktionen mit Ghidra untersucht. Gemeinsame Astoberflächen besitzen jetzt unabhängige Basis-/Endradien. Adaptive Flächen setzen Detail an Krümmungen und dünnen Enden ein. Analytische Hüllen, Normalen und Dreiecke werden gegen unabhängige Optimierung, Tangentialformeln und Strahltests geprüft. Weltweite Pflanzenrezepte und optische Artenprüfung folgen nach vollständigem Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige Gabel-/Elternanschlüsse, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -117,7 +117,7 @@
       "label": "Gabel-Funktionen",
       "category": "wood",
       "lod": "lod-0",
-      "description": "Links die gemeinsame Gabel mit konstanten Radien; daneben dieselben Achsen mit dickerem Stammfuß und dünnen Astenden. Ungleiche und räumliche Verzweigung ergänzen den Vergleich. Analytische Hüllflächen liefern Normalen; gemeinsame Kantenunterteilung und Projektion erhalten eine geschlossene Oberfläche. Detail entsteht aus denselben kameraunabhängigen Radiusdaten.",
+      "description": "Links die gemeinsame Gabel mit konstanten Radien; daneben dieselben Achsen mit dickerem Stammfuß und dünnen Astenden. Ungleiche und räumliche Verzweigung ergänzen den Vergleich. Analytische Hüllflächen liefern Normalen; angepasste Unterteilung mit gemeinsam aufgelösten Kanten erhält eine geschlossene Oberfläche. Detail entsteht aus denselben kameraunabhängigen Radiusdaten.",
       "quality": "Funktionsprobe · kontinuierliche Profile, gekrümmte Elternflächen, Rinde, Wind und Pflanzenrezepte offen"
     }
   ],

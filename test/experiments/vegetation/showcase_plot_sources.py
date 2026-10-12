@@ -5,7 +5,7 @@ PLOT_SOURCES = (
         "tapered/tapered.json",
         "tapered_plot",
         "Verjüngte Astgabeln · dünne Enden und Erzeugungskosten",
-        "Lineare Basis-/Endradien steuern eine analytische Kugelhülle. Dichte und blockweise Feldauswertung, Oberflächenprojektion und gemeinsame Dreiecksunterteilung sind an identischen Formdaten verglichen. Je Form 355 unabhängige Probestrahlen und höchstens 5 mm beobachteter radialer Fehler. Schraffierte Verfahren verfehlen diese Anforderung. Drei lokale CPU-Wiederholungen, kein globaler Hausdorff- oder Gerätebeweis; gekrümmte Elternflächen und Pflanzenrezepte bleiben offen.",
+        "Lineare Basis-/Endradien steuern eine analytische Kugelhülle. Dichte und blockweise Feldauswertung, Oberflächenprojektion, gemeinsame Dreiecksunterteilung und adaptive radiale Patches sind an identischen Formdaten verglichen. Je Form 355 unabhängige Probestrahlen und höchstens 5 mm beobachteter radialer Fehler. Schraffierte Verfahren verfehlen diese Anforderung. Drei lokale CPU-Wiederholungen, kein globaler Hausdorff- oder Gerätebeweis; gekrümmte Elternflächen und Pflanzenrezepte bleiben offen.",
     ),
     (
         "forks/forks.json",

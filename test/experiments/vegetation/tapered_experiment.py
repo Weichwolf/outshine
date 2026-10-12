@@ -10,6 +10,8 @@ from functools import partial
 from pathlib import Path
 
 import numpy as np
+from adaptive_checks import kernel_checks
+from fork_adaptive import adaptive_mesh
 from fork_checks import mesh_checks, ray_mesh_radii
 from fork_experiment import fixtures as constant_fixtures
 from fork_experiment import probe_directions
@@ -43,6 +45,8 @@ def compare(field):
         partial(blocked_voxel_mesh, cells=192, block_size=8),
         partial(refined_voxel_mesh, cells=192, rounds=0),
         partial(refined_voxel_mesh, cells=128, rounds=1),
+        partial(adaptive_mesh, tolerance=0.004, max_depth=9),
+        partial(adaptive_mesh, tolerance=0.002, max_depth=9),
     )
     for build in methods:
         began = time.perf_counter()
@@ -69,7 +73,9 @@ def compare(field):
             np.max(abs(ray_mesh_radii(mesh, directions, field.origin) - exact))
         )
         passed = (
-            error <= 0.005 and checks["faces_disagreeing_with_analytic_normals"] == 0
+            error <= 0.005
+            and work.get("patch_probe_tolerance_met", True)
+            and checks["faces_disagreeing_with_analytic_normals"] == 0
         )
         row = (
             work
@@ -144,7 +150,12 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     fields, meshes, results = fixtures(), {}, {}
-    checks = envelope_checks() | analytic_taper_checks() | rejection_checks()
+    checks = (
+        envelope_checks()
+        | analytic_taper_checks()
+        | rejection_checks()
+        | kernel_checks(fields)
+    )
     for name, field in fields.items():
         meshes[name], result = compare(field)
         results[name] = result | {
@@ -173,6 +184,8 @@ def main():
             ).hexdigest()
             for name in (
                 "tapered_fork.py",
+                "adaptive_checks.py",
+                "fork_adaptive.py",
                 "tapered_checks.py",
                 "tapered_experiment.py",
                 "fork_field.py",
