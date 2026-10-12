@@ -90,6 +90,7 @@ class Shape:
     comp_info: object=None
     sweep_info: object=None
     split_info: object=None
+    asset: object=None
 
     @classmethod
     def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=(),group_names=(),material_defs=()):
@@ -119,6 +120,15 @@ class Shape:
     def extrude(self,distance,mode='face.normal'):
         from modelling_extrude import extrude
         return extrude(self,distance,mode)
+
+    def insert(self,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
+        from modelling_insert import insert
+        return insert(self,asset,mode,cleanup)
+
+    def is_instanced(self):
+        return (self.asset is not None and self.geometry.unit_vertices is self.asset.geometry.unit_vertices
+                and self.geometry.fields is self.asset.geometry.fields
+                and self.geometry.reference_size==self.asset.geometry.reference_size)
 
     def comp(self,component,*branches,alignment='zUp'):
         from modelling_components import split_components
@@ -154,13 +164,17 @@ class Shape:
         return replace(self,scope=self.scope.translate(mode,coordinates,x,y,z))
 
     def emit(self):
-        matrix=self.scope.matrix
+        instanced=self.is_instanced()
+        size=self.asset.render_size(self.scope.size) if instanced else self.scope.size
+        matrix=np.eye(4) if instanced else self.scope.matrix
+        if instanced:
+            matrix[:3,:3]=self.scope.axes*np.asarray(size);matrix[:3,3]=self.scope.origin
         vertices=self.geometry.unit_vertices@matrix[:3,:3].T+matrix[:3,3]
         if not np.isfinite(vertices).all():raise ValueError('Shape transform produced non-finite coordinates')
         result=dict(self.geometry.fields)|dict(vertices=vertices)
         for name in ('normals','edges_normals','points_normals'):
             if name not in result:continue
-            scale=np.divide(self.scope.size,self.geometry.reference_size,out=np.ones(3),
+            scale=np.divide(size,self.geometry.reference_size,out=np.ones(3),
                             where=np.asarray(self.geometry.reference_size)!=0)
             if np.any(scale==0):raise ValueError('Singular authored-normal transforms need a verified cleanup contract')
             normals=result[name]@(np.diag(1/scale)@self.scope.axes.T)

@@ -17,7 +17,7 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 61 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
+Ghidra 12.1.2: 63 Funktionen gezielt untersucht: Offset/Skelett/Convexify, Split/Extrusion/Innenrechteck, Komponenten/Instanzen, Dächer/Fassadenscopes, Materialien und Scope-Transformationen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft Mesh-Cuts auf. Split-Allokation 004d6120: feste Restbreite, gewichtete Floating-Anteile, Repeat-Floor/Ceil nach Streckungsabstand zu 1.
 ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Verschachtelte Wiederholungen und Grenzfälle bleiben offen; 2480 prüft 2D/3D getrennt.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
@@ -25,14 +25,14 @@ ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Versch
 Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platzieren (2420), kein eigener Globaloptimalitätsanspruch.
 `comp` delegiert Komponentenwahl; `i` lädt Assets, korrigiert die Aufwärtsachse und nutzt Bounding-Box-Dimensionen im Einfügungsdispatch.
 `transformInPlace` ruft sichere inverse Transponierung und Flächennormalen auf; `addInstances` teilt Face-Material-Meshes und kombiniert Materialien.
-Instanzausgabe hat vier unaufgelöste indirekte Aufrufe; vollständige Komponenten-/Treppenplanung bleibt ungeprüft.
+Instanzausgabe hat vier indirekte Ziele; C++-Typen/außerhalb liegende Blöcke und isolierte Insert-/Material-/Trim-Semantik bleiben unbewiesen.
 Walm-/Satteldach rufen denselben `roofSkeleton`-Pfad auf; Pultdach delegiert an den noch ungeprüften `roofRidge`-Kern.
 `createSkeletonBasedRoof` nutzt CGAL-Innenskelett, Lochpolygone, Giebelklassifikation, Schnittkorrektur und Flächennormalen.
 Dachvorbereitung bereinigt Löcher, transformiert/verschweißt Bauteile; 3/11/1 indirekte Aufrufe in den drei großen Dachfunktionen bleiben offen.
 `extractCompComponents` delegiert Flächen/Kanten, übernimmt Loch-/Tagbeziehungen und ruft glatte Vertexnormalen auf; vier indirekte Ziele bleiben offen.
 `extractFaceComponents` nutzt Lochbeziehungen/Kantenabbildung und hat einen indirekten Aufruf; automatische Fenster-/Raumplanung folgt daraus nicht.
-Skalierungsdispatch schreibt absolute/relative Größen; Einfügungshelper ruft Asset-Bounds und `adjustScopeSizeZerosToGeometry` auf.
-Scope-Ausrichtung und Einfügungshelper haben außerhalb der ELF-Grenzen wiedergewonnene Decompilerblöcke; diese belegen keine weiteren Operationen.
+Insert: `adjustScopeSizeZerosToGeometry` ergänzt Punkt-/Linien-/Flächenscopes; zwei vorhandene Skalierungsverhältnisse werden gemittelt.
+Nullachsen <0,1 mm, Nenner ≤1e−8 m mit Faktor 1; `getTrafoToSizeMatrix` begrenzt ausgegebene Abmessungen auf ±0,01 mm. Acht ELF-Konstanten geprüft.
 `MaterialImpl::opacity` ruft numerisches `Material::set` auf; `opacitymap_mode` Stringvergleich und String-Set.
 Ghidras fünf unaufgelöste Mode-PLT-Stellen unabhängig per ELF-Disassemblierung als 3×`wcslen`/2×`wmemcmp` bestätigt.
 Referenzierte UTF-32-Konstanten `blend`/`mask`/`opaque` gegen SDK-Dokumentation bestätigt; andere dynamische Ziele bleiben offen.

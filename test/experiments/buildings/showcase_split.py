@@ -36,7 +36,7 @@ def render_control(output,provenance,key,title,children,camera,sample=None):
         'Schnittflächen sind geschlossen; Quellmaterial, Gruppen, Tags und Corner-UVs erhalten. '
         'Opake Prüfpalette und Workbench-Studiolicht; noch keine Architektur-Rezeptfamilie.',
         profile=PROFILE,triangles=len(mesh['faces']),raw_mesh_bytes=sum(a.nbytes for a in mesh.values()),
-        components=len(children),split_parts=[asdict(child.split_info) for child in children],
+        components=len(children),split_parts=[asdict(child.split_info) if child.split_info else None for child in children],
         completed_recipe_families=0,lod_status='native LOD unproved',
         geometry_scope='complete cut solid geometry including generated closure surfaces',
         measurement_scope='Workbench inspection render; no native frame timing')

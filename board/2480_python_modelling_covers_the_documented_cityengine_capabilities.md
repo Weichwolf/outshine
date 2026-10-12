@@ -15,7 +15,7 @@ danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Kla
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 Stand 364b6e2eb: `t/r/s/translate`, Flächen-/Kantenextrusion, `comp(f/e/fe/v/fv/g/m/h)`, 2D-/räumliche Breiten-/Flächenteilung;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
-SDK-Inventar, 61 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
+SDK-Inventar, 63 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
 Bildstand 364b6e2eb: 34 Bilder (8 innen / 19 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
 Vier neue Flächenteilungsbilder optisch geprüft; PNG/Profile/Hashes stimmen. 27 Bilder pixelgleich, drei Pläne ändern nur den Commit-Fußtext.
@@ -100,8 +100,8 @@ Offene Teilungen p50 5,1–8,8 ms; sechs Plan-/Achsenfälle und Fassadenachsen g
 30 Quell-/Achsen-/Framefälle, 102 nichtaffine UV-/Normalenecken, verwundene/ungleich große Flächen und acht ungültige Eingaben geprüft.
 Kosten b387226f2: 14 wechselnde Messpaare × 21 Läufe; p50 5,1–9,2 statt 9,5–14,0 ms, alle Fälle schneller; Flächenfehler ≤1,8e−12 m².
 SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/rohe Parts, Repeats und UV-/unitSpace bleiben Lücken.
-Aktiv: Bauteile vorbereiten und Geometrie beim Insert teilen; drei Einfügemodi, yUp/zUp und Nullachsen gegen Esri/Ghidra prüfen.
-Material-/UV-/Normalen-/Semantikoperationen und Geometrie-/Dachfunktionen nach konkretem fehlenden Vertrag.
+Aktiv: `Asset.from_shape`/`Shape.insert` teilen Geometrie; drei Modi, yUp/zUp, Nullachsen und SDK-Mindestabmessungen an eigenen Assets prüfen.
+72 Einfügefälle/Normen/Eigentum geprüft; Dateiimport, numericalCleanup, Trim und volle Materialüberschreibung fehlen. Kosten/Geteiltes gegen Kopieren messen.
 Offen im bestehenden Kern: gemischte Primitivgruppen/-extrusion, Shaderdefaults/Texture-/Objektpointergleichheit,
 Dachkanten-Selektoren, Straßenbreiten/Trim-Planes, zusätzliche UV-Kanäle, Normalenkollaps/mergeVertices,
 isolierte PRT-g/m/h-/Edge-/Flat-Top-/Vertexnormal-Regeln und genaue nichtplanare SDK-Ausrichtung.

@@ -31,6 +31,8 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
+    'i':dict(module='modelling_shape.Shape.insert',status='prepared own assets shared across placements; three insert modes, yUp/zUp, point/line/plane scopes and authored source appearance',
+             pending=['asset file readers','numericalCleanup','trim planes','full current-rule material overrides','isolated PRT insert rule','native GPU instance encoding']),
     'split':dict(module='modelling_shape.Shape.split',status='open surfaces and closed Cartesian solids; native triangle property clipping, closed-only one-sided GEOS caps, logical holes and source appearance ownership; width/area plan prototypes',
                  pending=['mixed open/closed or wire/surface primitive cuts','raw part provenance without logical faces','nested pattern allocation','UV-space/unit-space overloads','SDK cut-face UV/material semantics','isolated PRT split rule']),
     'splitArea':dict(module='modelling_shape.Shape.split_area',status='planar and almost-planar source surface cuts; exact actual triangle areas, logical face plane admission, source appearance and adjusted/signed scopes',
