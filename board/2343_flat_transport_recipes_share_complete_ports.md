@@ -15,7 +15,7 @@ mit funktionalen Verbindungen. Besitzer: generators/road; nativer Bauteilplan f�
 [Flächenplan](../test/experiments/infrastructure/infrastructure_flat_surface_network.py) und
 [Ports](../test/experiments/infrastructure/infrastructure_flat_ports.py) teilen vollständige gerade Mesh-Ränder.
 Alle verwendeten Bauteile der eingefrorenen Ebenen-0-Fenster mit 1 km Radius sind geprüft:
-8622/8679 öffentliche Auto-Verbindungen; neun fehlen ohne gerichtete Umfahrung (Wien 5, Basel 4, Zürich 0).
+8623/8679 öffentliche Auto-Verbindungen; sieben fehlen ohne gerichtete Umfahrung (Wien 3, Basel 4, Zürich 0).
 Keine zusätzlichen schwachen Netztrennungen; Zürich/Basel ohne starke Netztrennung. Das belegt nur diese
 Auto-Fenster. Wege/Rad/Schienen, Verkehrsfluss, Höhen und tragbare Gesamtkosten bleiben offen.
 
@@ -81,7 +81,7 @@ Fläche einmal und triangulieren gemeinsam. Außenrahmen/Anfragen/Bestand erhalt
 Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderungen getrennt deklarieren.
 
 ## Nächste Lieferung und Abnahme
-1. Neun Verbindungen ohne Umfahrung priorisieren: Wien fünf, Basel vier. Gemeinsame Portposen/Korridore
+1. Sieben Verbindungen ohne Umfahrung priorisieren: Wien drei, Basel vier. Gemeinsame Portposen/Korridore
    gemeinsam lösen; Basler Restfahrten teilen einen Ausgang, zwei Wiener Restfahrten einen Eingang. [Portgraph](../test/experiments/infrastructure/infrastructure_route_connectivity.py)
    prüft schwache/starke Komponenten und gerichtete Alternativen; DAG-Zielmasken in 64er-Batches.
    Enge Schleifen brauchen zuerst einen kinematisch brauchbaren Hindernispfad; lokale C2-Passung verfeinert ihn.
@@ -93,7 +93,9 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    33 statt 17 Kollisionsstationen finden die C2-Kurve im gleichen 1024-Aufrufe-Budget.
    Grundrisse einzeln samt Quellen/Tags schneiden; kleine/schmale Reststücke nach bestehendem
    25-m²-/3-m-Rezept verwerfen. Zusätzlichen Schnitt vom bereits überlappenden Quellplan trennen;
-   der gekoppelte Modulbeleg ersetzt noch nicht die Prüfung der drei vollständigen Fenster.
+   Alle drei vollständigen Fenster bestätigen den Gewinn ohne Verlust vorhandener Fahrten:
+   Wien 897/909, Zürich 4774/4808, Basel 2952/2962; Messcommit `3a8daace6`, ein Core, zusammen 137 s.
+   Diese Aufbaukosten sind weiterhin zu hoch; aktuelles Bild unter `build/shots/experiments/infrastructure/`.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
    Auto-Masken/Karosserien sind dafür keine Spezifikation. Danach Spurführung und Abbiegekonflikte lösen.
 3. Kosten pro Modul/Verbindung, Speicher und Skalierung vergleichen; nachgewiesen unnötige Sucharbeit beseitigen.
