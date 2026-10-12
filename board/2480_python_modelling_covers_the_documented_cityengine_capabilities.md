@@ -13,15 +13,15 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand 725034641: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)` und planare 2D-Teilung;
+Stand ac9370408: `t/r/s/translate`, vier Flächen-/Kanten-Extrusionsarten, `comp(f/e/fe/v/fv/g/m/h)`, 2D-Teilung und geschlossene 3D-Schnitte;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK: 72 Operations-, 70 Funktions-, 10 Attribut-, 49 Bibliotheksseiten; keine Algorithmus-/Rezeptzahlen.
 58 Ghidra-Ziele und fünf RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Aktuell 31 Bilder: acht innen, 16 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
-Neuer 2D-Teilungsplan optisch geprüft; 28 bisherige Bilder pixelgleich, zwei Pläne ändern nur den Commit-Fußtext.
-Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/2D-Teilung/Benchmark/Katalog/Render/Docs:
-13 Schritte samt Launcher terminal 0 auf 725034641. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
+Aktuell 28 Bilder: acht innen, 13 Gebäude/Funktionen, vier Gruppen, drei Städte; 13.955 OSM-Körper als Kontext.
+Vier neue 3D-/2.5D-Schnittansichten optisch geprüft; 23 Bilder pixelgleich, 2D-Plan ändert nur den Commit-Fußtext.
+Scope/Flächen-/Kantenextrusion/Komponenten/Ghidra/Kamera/2D-/3D-Teilung/Benchmarks/Massierung/Katalog/Render/Docs:
+16 Schritte samt Launcher terminal 0 auf ac9370408. Native LOD-/Frame-/GPU-/Qualitätsabnahme bleibt offen.
 
 ## Gemeinsame Verträge
 - Direkte ausführbare Python-Rezepte und gemeinsame Geometriefunktionen, keine JSON-Regelschicht.
@@ -92,8 +92,8 @@ GEOS/CDT schließt einseitige Querschnitte; korrekte koplanare Quellflächen beh
 Höfe/Material/Gruppen/Tags, signed Scope, Objektframes und SplitInfo erhalten; neue Caps haben explizite Material-/Gruppenwahl.
 SDK-UV-/Materialgleichheit bleibt offen. Manifold-Schnitt verworfen: Hofgrenzfall hat korrektes Volumen, aber Zusatzfläche/ungültige Kanten.
 Eigener Weg: 15 Grundriss-/Achsenfälle, vier Frames/zwölf Achsenfälle und 1.008 nichtaffine UV-/Normalenecken geprüft.
-Entwicklung: vier Teile p50 46,8–156,5 ms inklusive Validierung/Logik/Payload; finale Ausgabe/Frames/GPU ausgeschlossen.
-Erzeugung zu teuer: Profil vor Optimierung; keine Frame-/Cache-Abnahme. Eingefrorene Bild-/Kostenprüfung folgt.
+Messung ac9370408: vier Teile p50 46,4–147,0 ms inklusive Validierung/Logik/Payload; finale Ausgabe/Frames/GPU ausgeschlossen.
+Erzeugung zu teuer: Profil vor Optimierung; keine Frame-/Cache-Abnahme. Sieben ungültige/unsupported Eingaben geprüft.
 
 ## Offen und nächster Block
 Aktiver Ausbau: offene/gemischte Primitive, rohe Part-Provenienz und `splitArea` an Shape anbinden; geschlossene Schnitte optimieren.
