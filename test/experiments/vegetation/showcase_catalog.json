@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: vollständige 64-Achsen-Testpflanze mit lokalen Astkragen. Gebündelte Strahlabfragen beschleunigen die Normalenanpassung; randnahe, streifende und möglicherweise verfehlte Treffer werden präzise nachgeprüft. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: vollständige 64-Achsen-Testpflanze mit lokalen Astkragen. Die hochauflösende Nahaufnahme erhält aktive Schatten und zeigt die dünnen Äste ohne die bisherigen Selbstschattenlinien. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -43,7 +43,7 @@
       "title": "Laubbaum · räumliche Äste und Blätter",
       "label": "Einzelpflanze",
       "category": "organs",
-      "description": "37.800 räumliche Blätter und 731 Holzachsen aus einem stabilen Pflanzenrezept. 2,65 Millionen Dreiecke bei 1280 × 720 und 32 EEVEE-Samples. Aktuelle Hauptansicht der Pflanzenform.",
+      "description": "37.800 räumliche Blätter und 731 Holzachsen aus einem stabilen Pflanzenrezept. 2,65 Millionen Dreiecke bei 2560 × 1440 und 32 EEVEE-Samples. Aktuelle Hauptansicht der Pflanzenform.",
       "quality": "Formprobe · natürliche Gabeln, Rinde und Wind offen",
       "lod": "lod-1"
     },
@@ -144,7 +144,7 @@
       "label": "Anschluss-Nahbild",
       "category": "wood",
       "lod": "lod-0",
-      "description": "Nahansicht derselben Testpflanze. Eine lokale Eltern-/Kinderhülle ergänzt die Rohrvereinigung. An den Schnittstellen werden Normalen zu den ursprünglichen Astoberflächen hin angepasst; die geometrische Ausrundung und das Stamm-Shading sind gemeinsam geprüft.",
+      "description": "Nahansicht derselben Testpflanze in 2560×1440. Lokale Eltern-/Kinderhüllen ergänzen die Rohrvereinigung; angepasste Normalen erhalten das Stamm-Shading. Aktualisierte Schattenberechnung beseitigt die feinen Selbstschattenlinien an den dünnen Ästen. Astansatz und Schatten bleiben sichtbar.",
       "quality": "Lokale Anschlussprobe · globale G1-Stetigkeit und vollständige SpeedTree-Weldbindung offen"
     }
   ],

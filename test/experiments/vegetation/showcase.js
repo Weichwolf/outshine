@@ -18,7 +18,7 @@ function buttons(target, entries, selected, callback) {
 
 function card(entry, index, group) {
   const image = entry.missing ? '<div class="missing">Bild oder Messdaten fehlen</div>' : `<button type="button" class="image-button" data-group="${group}" data-index="${index}" aria-label="${escaped(entry.title)} vergrößern"><img src="${escaped(entry.url)}" alt="${escaped(entry.title)}" loading="lazy"></button>`;
-  const engine = entry.engine === 'BLENDER_EEVEE_NEXT' ? 'Eevee' : entry.engine;
+  const engine = ['BLENDER_EEVEE_NEXT', 'BLENDER_EEVEE'].includes(entry.engine) ? 'Eevee' : entry.engine;
   const provenance = [entry.commit ? `Quelle ${escaped(entry.commit.slice(0, 10))}` : 'Quellcommit fehlt', entry.resolution ? `${entry.resolution.join(' × ')} · ${escaped(engine)}` : 'Lokale Python-Messung', entry.source_modified === true ? 'Uncommitteter Versuchsstand' : ''].filter(Boolean);
   return `<figure class="card">${image}<figcaption><div class="caption-top"><h3>${escaped(entry.title)}</h3>${entry.label ? `<span class="badge">${escaped(entry.label)}</span>` : ''}</div><p>${escaped(entry.description)}</p>${entry.quality ? `<div class="quality">${escaped(entry.quality)}</div>` : ''}<div class="details">${provenance.map(text => `<span>${text}</span>`).join('')}</div></figcaption></figure>`;
 }

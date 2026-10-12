@@ -216,6 +216,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Seite 1 optisch geprüft; Oberflächenzerlegung und Innen-/Außenklassifikation begründen
   den Vergleich vollständiger Pflanzenoberflächen (2353). Manifold nutzt einen eigenen
   Algorithmus; dessen Bibliotheksgarantien ersetzen weder lokale Prüfungen noch organische Ausrundung.
+- **Taming the Shadow Terminator**, Chiang / Li / Burley, SIGGRAPH Talks 2019.
+  [Autorenquelle](https://www.yiningkarlli.com/projects/shadowterminator.html) ·
+  [PDF](vegetation/siggraph/2019-taming-shadow-terminator.pdf), korrigierte Autorenfassung.
+  Beide Seiten einschließlich Normalendiagrammen, Gleichungen und Bildvergleichen optisch geprüft.
+  Begründet die getrennte Prüfung von Schattierungsnormalen und geometrischer Selbstverschattung (2353).
+  EEVEE-Positionsoffsets sind eine andere Korrektur als der dort beschriebene BRDF-Schattenfaktor.
 - **Embree: A Kernel Framework for Efficient CPU Ray Tracing**, Wald / Woop / Benthin /
   Johnson / Ernst, SIGGRAPH / TOG 2014.
   [Autorenquelle](https://www.sci.utah.edu/~wald/Publications/2014/embree/embree.pdf) ·

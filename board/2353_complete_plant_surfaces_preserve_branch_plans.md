@@ -101,4 +101,14 @@ Alle 189 Anschlussprodukte behalten Geometrie/Trefferabdeckung; Normalenkomponen
 Neue Nah-/Gesamtansicht optisch geöffnet: beide 1280×720-Bilder pixelgleich zum vorherigen skalaren Verfahren.
 Nutzerauftrag: aktuelle Nah-/Gesamtbilder neu in 2560×1440; Szenario-Vorgaben für weitere Renderings angehoben.
 Die 1280×720-Pixelgleichheit bleibt ein getrennter Vergleich, keine Behauptung über neue Bildabmessungen.
-Im 2560×1440-Nahbild feine Schattierungslinien an einem dünnen Ast sichtbar; Ursache noch prüfen.
+Im 2560×1440-Nahbild feine Schattierungslinien an einem dünnen Ast sichtbar.
+Kontrollbild ohne Schatten: Linien verschwinden; Selbstverschattung ist die Ursache.
+EEVEE mit `bpy==5.2.2` übernommen; Geometrie/Normalen und Schatten erhalten.
+[Chiang/Li/Burley, SIGGRAPH 2019](../doc/references/vegetation/siggraph/2019-taming-shadow-terminator.pdf):
+beide Seiten mit Gleichungen/Diagrammen optisch geprüft; EEVEE nutzt Positionsoffsets statt ihres BRDF-Faktors.
+Gemeinsame Preview-Konfiguration erhält Standardwerte: Normaloffset 0, Geometrieoffset 0,1.
+EEVEE 5.2 mit Null-Normaloffset beseitigt bereits die Linien; zusätzliche 0,1 nur ≤1/255 Pixelabweichung.
+Alle Python-Renderer auf das gepinnte `.venv`-bpy migriert; tatsächliche Einstellungen im Bildbericht gespeichert.
+Alle 16 Showcase-Ansichten und drei Plot-Vergleichsaufnahmen neu in 2560×1440 optisch geprüft.
+Vergleichsplots prüfen gemeinsame aktuelle Renderer-Hashes; der alte Dirty-Plangenerierungsmarker ersetzt dies nicht.
+Relative Bildausschnitte an die tatsächliche Auflösung binden und die Originalpixel unverändert vergleichen.

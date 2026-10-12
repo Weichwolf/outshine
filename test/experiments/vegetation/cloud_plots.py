@@ -96,7 +96,15 @@ def render_figure(experiments):
     images = []
     for name in ("cloud-reference", "cloud-tree"):
         with Image.open(experiments / "render" / f"{name}.png") as image:
-            images.append(np.asarray(image.convert("RGB"))[260:520, 550:890])
+            width, height = image.size
+            box = (
+                round(550 * width / 1280),
+                round(260 * height / 720),
+                round(890 * width / 1280),
+                round(520 * height / 720),
+            )
+            images.append(np.asarray(image.convert("RGB").crop(box)))
+    assert images[0].shape == images[1].shape
     difference = np.abs(images[0].astype(int) - images[1]).max(axis=-1)
     figure, axes = plt.subplots(1, 3, figsize=(11, 4.2), layout="constrained")
     for axis, pixels, title in zip(
@@ -113,5 +121,7 @@ def render_figure(experiments):
     )
     for axis in axes:
         axis.axis("off")
-    figure.suptitle("Originalpixel · gleicher Ausschnitt aus 1280 × 720", fontsize=14)
+    figure.suptitle(
+        f"Originalpixel · gleicher Ausschnitt aus {width} × {height}", fontsize=14
+    )
     return figure

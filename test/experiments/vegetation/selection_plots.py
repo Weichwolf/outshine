@@ -1,6 +1,8 @@
 """Coverage versus draw/cache work on identical directional foliage inputs."""
 
+import hashlib
 import json
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -168,24 +170,37 @@ def views_render_figure(experiments):
         "plan_identity",
     ):
         assert metadata[0][key] == metadata[1][key] == metadata[2][key]
-    assert metadata[0]["implementation_sha256"] == metadata[2]["implementation_sha256"]
-    assert not any(item["source_modified"] for item in metadata)
+    assert (
+        metadata[0]["implementation_sha256"]
+        == metadata[1]["implementation_sha256"]
+        == metadata[2]["implementation_sha256"]
+    )
+    for name, digest in metadata[0]["implementation_sha256"].items():
+        assert (
+            hashlib.sha256((Path(__file__).parent / name).read_bytes()).hexdigest()
+            == digest
+        )
     images = []
     for name in names:
         with Image.open(experiments / "render" / f"{name}.png") as image:
             images.append(np.asarray(image.convert("RGB")))
     figure, axes = plt.subplots(2, 3, figsize=(12, 6), layout="constrained")
     boxes = ((555, 265, 710, 425), (670, 435, 880, 505))
+    width, height = metadata[0]["resolution"]
     titles = (
         "Räumliche Referenz",
-        "Nur Kamerakarten\n(früherer Rendererstand)",
+        "Nur Kamerakarten\n(Vergleichspfad)",
         "Kamera + Karten je Licht",
     )
     for row, (x0, y0, x1, y1) in enumerate(boxes):
+        x0, x1 = round(x0 * width / 1280), round(x1 * width / 1280)
+        y0, y1 = round(y0 * height / 720), round(y1 * height / 720)
         for column, pixels in enumerate(images):
             axes[row, column].imshow(pixels[y0:y1, x0:x1], interpolation="nearest")
             axes[row, column].axis("off")
             if row == 0:
                 axes[row, column].set_title(titles[column])
-    figure.suptitle("Krone und Schatten · unveränderte Originalpixel aus 1280 × 720")
+    figure.suptitle(
+        f"Krone und Schatten · unveränderte Originalpixel aus {width} × {height}"
+    )
     return figure

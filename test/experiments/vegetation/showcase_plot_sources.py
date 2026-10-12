@@ -53,7 +53,7 @@ PLOT_SOURCES = (
         "render/views-shadow-pass.json",
         "views_render_plot",
         "Eigene Ansichten für Kamera und Schatten",
-        "Unveränderte Originalpixel aus festen Kronen- und Schattenausschnitten. Referenz und getrennte Lichtauswahl haben dieselbe Rendererfassung, Holzgeometrie, Kamera, Licht und 32 EEVEE-Samples bei 1280 × 720. Die mittlere Spalte hält den vorherigen gemeinsamen Kamerakarten-Schattenpfad zur Diagnose fest. Ein Bild belegt keine Wind-, Bewegungs-, Material- oder native LOD-Freigabe.",
+        "Unveränderte Originalpixel aus festen relativen Kronen- und Schattenausschnitten. Alle drei Vergleichspfade haben dieselbe aktuelle Rendererfassung, Holzgeometrie, Kamera, Licht und 32 EEVEE-Samples bei 2560 × 1440. Die mittlere Spalte prüft den gemeinsamen Kamerakarten-Schattenpfad. Ein Bild belegt keine Wind-, Bewegungs-, Material- oder native LOD-Freigabe.",
     ),
     (
         "selection/selection.json",
@@ -83,7 +83,7 @@ PLOT_SOURCES = (
         "clouds/clouds.json",
         "cloud_render_plot",
         "Krone und Schatten im direkten Bildvergleich",
-        "Unveränderte Originalpixel aus demselben Ausschnitt der beiden 1280 × 720 Renderings. 37.800 identische Quellblätter, gleiche Holzgeometrie, Kamera, Licht und 32 EEVEE-Samples. Farbskala: größter absoluter RGB-Kanalunterschied. Eine statische Ansicht belegt weder Wind noch Bewegungsstabilität oder allgemeine LOD-Qualität.",
+        "Unveränderte Originalpixel aus demselben relativen Ausschnitt der beiden 2560 × 1440 Renderings. 37.800 identische Quellblätter, gleiche Holzgeometrie, Kamera, Licht und 32 EEVEE-Samples. Farbskala: größter absoluter RGB-Kanalunterschied. Eine statische Ansicht belegt weder Wind noch Bewegungsstabilität oder allgemeine LOD-Qualität.",
     ),
     (
         "sheets/sheets.json",

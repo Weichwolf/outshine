@@ -13,6 +13,7 @@ import numpy as np
 from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).parent))
+from preview_shadows import configure_preview
 from wood_mesh import branch_tubes
 
 
@@ -109,8 +110,8 @@ def main():
     parser.add_argument("--plans", type=Path, nargs="+", required=True)
     parser.add_argument("--crowns", type=Path, nargs="+", default=[])
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--width", type=int, default=720)
-    parser.add_argument("--height", type=int, default=720)
+    parser.add_argument("--width", type=int, default=2560)
+    parser.add_argument("--height", type=int, default=2560)
     parser.add_argument("--samples", type=int, default=16)
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     if args.crowns and len(args.crowns) != len(args.plans):
@@ -119,7 +120,7 @@ def main():
     bpy.ops.object.delete(use_global=False)
     scene_objects(args.plans, args.crowns)
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    shadow_settings = configure_preview(scene)
     scene.eevee.taa_render_samples = args.samples
     scene.render.resolution_x, scene.render.resolution_y = args.width, args.height
     scene.render.resolution_percentage = 100
@@ -133,6 +134,7 @@ def main():
         "blender": bpy.app.version_string,
         "engine": scene.render.engine,
         "resolution": [args.width, args.height],
+        "shadow_terminator": shadow_settings,
         "samples": args.samples,
         "plans": [str(p) for p in args.plans],
         "crowns": [str(p) for p in args.crowns],

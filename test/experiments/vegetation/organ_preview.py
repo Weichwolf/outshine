@@ -15,6 +15,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, str(Path(__file__).parent))
 from blender_preview import material, mesh_object
 from preview_lighting import FILL_POSITION, SUN_POSITION, SUN_ROTATION
+from preview_shadows import configure_preview
 from sheet_material import sheet_material
 
 
@@ -181,7 +182,7 @@ def main():
     paths, triangles, instances = populate(recipe, args.scenario.parent)
     setup_scene(recipe)
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    shadow_settings = configure_preview(scene, recipe)
     scene.eevee.taa_render_samples = recipe["samples"]
     scene.render.resolution_x, scene.render.resolution_y = recipe["resolution"]
     scene.render.resolution_percentage = 100
@@ -195,12 +196,14 @@ def main():
         Path(__file__).with_name("blender_preview.py"),
         Path(__file__).with_name("sheet_material.py"),
         Path(__file__).with_name("preview_lighting.py"),
+        Path(__file__).with_name("preview_shadows.py"),
     ]
     result = {
         "blender": bpy.app.version_string,
         "engine": scene.render.engine,
         "resolution": recipe["resolution"],
         "samples": recipe["samples"],
+        "shadow_terminator": shadow_settings,
         "objects": instances,
         "shared_meshes": len(recipe["products"]),
         "triangles_instanced": triangles,
