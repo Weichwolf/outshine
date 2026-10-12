@@ -13,6 +13,14 @@ def mesh_surface_index(product):
     return triangles,shapely.STRtree(triangles)
 
 
+def public_pedestrian_surface(shape,graph,tree):
+    ids=tree.query(shape,predicate='intersects')
+    public,restricted=graph['travel_public'][ids],graph['travel_restricted'][ids]
+    walk=np.any(public&MODES['walk']!=0,axis=1)&~np.any(public&(MODES['motor']|MODES['rail'])!=0,axis=1)&~np.any(restricted!=0,axis=1)
+    ids=ids[walk]
+    return polygonal_region(shapely.union_all(shapely.buffer(graph['lines'][ids],graph['half_widths'][ids],quad_segs=2))),ids
+
+
 def motor_surface(shape,graph,tree,mesh,vehicle,corner_radius=2.,error=.025):
     padding = max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])+float(graph['half_widths'].max())+corner_radius
     a,b,c,d = shape.bounds

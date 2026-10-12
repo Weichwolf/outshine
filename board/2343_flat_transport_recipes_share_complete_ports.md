@@ -100,7 +100,7 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
    [Lenkpfad → Mesh](../test/experiments/transport/probes/roadbeds/steering_roadbed_product_probe.py):
-   Wien 1480: 9/13 mit unveränderten Grenzen; 805: 7/7 nach Schließen einer 0,43-m²-Resttasche.
+   [Direkte G2-Spurbögen](../test/experiments/transport/probes/roadbeds/rounded_lane_loop_probe.py): Wien 1480 lokal 11/13 statt 9/13; zwei Fußwegübergänge auf vorhandener Geometrie, keine privaten Wege/Bahn nutzen. Erstauflösung und frischer Ladeprozess geprüft; Gesamtfenster offen.
    Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
    Wien: 13 neu aufgebaute Produkte; alle früheren Produktfahrten und neun Einzelverbesserungen erhalten, 904 statt 900 direkte Fahrten.
    Fensterprüfung mit vorbereiteten Produkten auf einem Core: Wien 17,2 s, Basel 16,5 s; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.

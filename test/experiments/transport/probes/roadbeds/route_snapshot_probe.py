@@ -12,7 +12,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 import transport_coupled_roadbed_experiment as coupled
 from transport_cut_setbacks import restore_cut_plan
 from transport_directed_routes import directed_module_routes
-from transport_junction_surfaces import motor_surface
+from transport_junction_surfaces import motor_surface,public_pedestrian_surface
 
 
 def main():
@@ -39,10 +39,12 @@ def main():
     receipt=json.loads(receipt_path.read_text())['receipt']
     buildings,_=coupled.building_reservations(receipt,region)
     other=coupled.reservations(network,region)
+    pedestrians,ids=public_pedestrian_surface(region,network.graph,network.tree)
     data=dict(entry={k:poses[pair[0]][k].tolist() for k in ('position','heading')},
         exit={k:poses[pair[1]][k].tolist() for k in ('position','heading')},
         surface=floor.wkb.hex(),reservations=buildings.union(other).difference(floor).wkb.hex(),
         buildings=buildings.wkb.hex(),non_motor_reservations=other.wkb.hex(),source_route=route.wkb.hex(),
+        public_pedestrian_surface=pedestrians.wkb.hex(),public_pedestrian_edges=ids.tolist(),
         vehicle=network.vehicle,error_m=network.curbs['arc_error_m'],place=name,module=args.module,pair=pair,
         input_sha256=before['input_sha256']|{str(p.relative_to(root)):coupled.digest(p)
             for p in (before_path,frame_path,cut_path,receipt_path)},

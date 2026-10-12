@@ -15,7 +15,8 @@ import transport_coupled_roadbed_experiment as coupled
 from transport_complete_roadbed_module import construct_complete_module
 from transport_cut_setbacks import restore_cut_plan,serialize_cut_plan
 from transport_directed_routes import directed_module_routes
-from transport_junction_surfaces import motor_surface
+from transport_junction_surfaces import motor_surface,public_pedestrian_surface
+from transport_turn_roadbeds import preserves_coverage
 from steering_roadbed_candidate_probe import candidate,source_buildings,building_cuts
 
 
@@ -66,6 +67,7 @@ def main():
     parser.add_argument('--pair',type=int,nargs=2,action='append',required=True)
     parser.add_argument('--curve',type=Path,action='append',required=True)
     parser.add_argument('--prior',type=Path)
+    parser.add_argument('--crossing-area',type=Path,nargs='*',default=[])
     parser.add_argument('--reference',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True);begin=time.perf_counter()
@@ -89,9 +91,20 @@ def main():
     floor=motor_surface(shapely.union_all(list(routes.values())).envelope,network.graph,network.tree,
                         network.mesh,network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m'])
     region=network.shape(owner).envelope.buffer(coupled.roadbed_lateral_reach(network.vehicle)+.025)
+    crossing=shapely.union_all([shapely.from_wkb(json.loads(path.read_text())['crossing']) for path in args.crossing_area])
+    shared_crossing=crossing
+    crossing_owners=set()
+    if not crossing.is_empty:
+        eligible,_=public_pedestrian_surface(region,network.graph,network.tree)
+        assert preserves_coverage(crossing,eligible),'crossing uses private or incompatible transport'
+        triangles,index=network.mesh;ids=index.query(crossing,predicate='intersects')
+        source=shapely.union_all(triangles[ids]);shared_crossing=crossing.intersection(source)
+        areas=shapely.area(shapely.intersection(triangles[ids],shared_crossing))
+        crossing_owners=set(map(int,network.product['face_owners'][ids[areas>0]]))
+        floor=floor.union(shared_crossing)
     receipt_path=root/'inputs'/f'{name}-input.json'
     receipt=json.loads(receipt_path.read_text())['receipt'];building_sources=source_buildings(receipt,region)
-    other=coupled.reservations(network,region).difference(floor)
+    other=coupled.reservations(network,region).difference(floor.union(crossing))
     data=dict(surface=floor.wkb.hex(),reservations=other.wkb.hex(),
               vehicle=network.vehicle,error_m=network.curbs['arc_error_m'])
     seeds=make_seeds(data,poses,routes,notes)
@@ -100,20 +113,34 @@ def main():
     data['reservations']=reserved.wkb.hex();seeds=make_seeds(data,poses,routes,notes)
     sections=shapely.STRtree(np.array(list(network.sections.values()),dtype=object))
     cache=seeded_cache(floor,reserved,routes,poses,seeds,network.vehicle,data['error_m'],required)
-    product=construct_complete_module(network,network,owner,set(),{owner},region,protected,sections,required,cache,reserved)
+    affected={owner}|crossing_owners;products={}
+    for member in sorted(affected):
+        member_required=required
+        member_floor=floor
+        if member!=owner:
+            member_poses,_=network.poses(member,{})
+            record=records[member] if member in records else network.record(member)[0]
+            member_required=coupled.request_keys(member_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
+            member_floor=motor_surface(network.shape(member),network.graph,network.tree,network.mesh,
+                network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m']).union(shared_crossing)
+        products[member]=construct_complete_module(network,network,member,set(),affected,region,protected,sections,
+            member_required,cache,reserved,public_floor=member_floor if not crossing.is_empty else None)
+        assert preserves_coverage(network.shape(member),products[member]['physical']),'existing transport geometry lost'
+    product=products[owner]
     assert seeds.keys()<={c['pair'] for c in product['curves']},'seed not admitted to its physical owner'
     precision=json.loads((root/'directed-surfaces'/f'{name}-flat-surfaces.json').read_text())['precision_m']
-    mesh,audit,proofs,surfaces=coupled.publish_coupled_roadbeds({owner:product},network,precision)
+    mesh,audit,proofs,surfaces=coupled.publish_coupled_roadbeds(products,network,precision)
     mesh_path=args.output/'mesh.npz';np.savez_compressed(mesh_path,**mesh)
     gained=[c for c in product['curves'] if not coupled.request_keys(poses,[c['pair']])<=required]
-    report=dict(place=name,module=owner,affected=[owner],setback_m=0.,cut_plan=serialize_cut_plan(network,[]),
+    report=dict(place=name,module=owner,affected=sorted(affected),setback_m=0.,cut_plan=serialize_cut_plan(network,[]),
         changed_frame_sections=[],vehicle=network.vehicle,all_requests_preserved=True,external_frames_unchanged=True,
-        all_body_curves_on_native_mesh=True,proofs=proofs,published_frames=coupled.published_frames({owner:product}),
+        all_body_curves_on_native_mesh=True,proofs=proofs,published_frames=coupled.published_frames(products),
+        shared_public_addition_wkb=shared_crossing.wkb.hex(),pedestrian_geometry_retained=True,
         published_surfaces=surfaces,physical_mesh_audit=audit,physical_mesh=str(mesh_path),
         physical_mesh_sha256=coupled.digest(mesh_path),original_surface_wkb=product['base'].wkb.hex(),
         original_physical_shape_wkb=network.shape(owner).wkb.hex(),
         planned_surface_wkb=product['planned'].wkb.hex(),physical_shape_wkb=product['physical'].wkb.hex(),
-        previous_accepted=len(previous),accepted=len(product['curves']),connections=len(routes),unresolved=product['unresolved'],
+        previous_accepted=len(previous),accepted=len(product['curves']),connections=len(routes),unresolved=[r for p in products.values() for r in p['unresolved']],
         trials=[coupled.diagnostic_trial(c,product,network.vehicle,poses,routes) for c in gained]+product['unresolved'],
         added_area_m2=product['physical'].difference(network.shape(owner)).area,
         original_sections=[shapely.get_coordinates(p['line']) for p in network.junctions[owner]],
@@ -124,7 +151,7 @@ def main():
             closed_area_m2=sum(s['pockets']['closed_area_m2'] for s in seeds.values())),
         physical_island_cleanup=product['physical_island_cleanup'],
         input_sha256=before['input_sha256']|{str(p.resolve().relative_to(root.resolve())):coupled.digest(p)
-            for p in [cut_path,frame_path,receipt_path,args.reference,*args.curve,*([args.prior] if args.prior else [])]},
+            for p in [cut_path,frame_path,receipt_path,args.reference,*args.curve,*args.crossing_area,*([args.prior] if args.prior else [])]},
         elapsed_ms=(time.perf_counter()-begin)*1000,
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public-motor requests of one unchanged-cut owner; source buildings adapted, native body and neighbors checked; complete windows remain required.')
