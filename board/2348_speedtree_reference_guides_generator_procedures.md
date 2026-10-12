@@ -93,6 +93,7 @@ Zusatzkurve addieren, optionale Ausgangsbegrenzung. Konstante/lineare Presets ha
 und optionaler Noise-Mix; vollständige Flags/Elternbindung bleiben offen. 2350 besitzt eigene Profile.
 `CBranchNode::ComputeSpine` (`0x1cd2950`) nutzt Radius-/Offsetprofile, QuickNoise und lokale
 Rotationen mit Orthogonalisierung; keine vollständige Spine-/Kraftrekonstruktion daraus abgeleitet.
+2351: Rahmen-/Ring-/Normalenaufrufer, Gram-Schmidt und lineares Frame-Lerp mit erneuter Orthogonalisierung.
 
 ## Funktionsumfang vor Pflanzenrezepten
 `inspect_speedtree.py --templates`: alle 27 mitgelieferten Games/VFX-Vorlagen, 189 Generatoren,
@@ -101,7 +102,7 @@ Vorlageninventar ist kein vollständiges Funktionsinventar oder Gleichwertigkeit
 Nächste Analyse: weitere Knotentypen/Aufrufer und Profile; Zustände, Parameter und Ausgaben erfassen.
 | Bereich | Eigener Stand / fehlende Funktionen |
 |---|---|
-| Graph/Profile/Platzierung | Begrenzte Achsgrammatik/Kreisbögen; vollständige Graph-/Kurven-/Platzierungsarten offen |
+| Graph/Profile/Platzierung | Achsgrammatik/Radiusprofile/räumliche Spines; vollständige Graph-/Property-/Platzierungsarten offen |
 | Stämme/Anschlüsse | Geschlossene Rohre; organische Gabeln, Wurzelanläufe, Caps/Knots/Fins und Rinde offen |
 | Organe/Cluster | Blatt-/Grasflächen und Gruppenproben; Fronds, Nadeln und weitere Organe offen |
 | Kräfte/Wachstum/Zustände | Kräfte, Kollisionen, Wachstum/Jahreszustände und funktionale Windbindung offen |
@@ -110,7 +111,7 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-45 gezielte Funktionen dekompiliert; elf Läufe terminal erfolgreich, zuletzt Profile/Spine samt Float-Signaturen.
+51 gezielte Funktionen dekompiliert; zwölf Läufe terminal erfolgreich, zuletzt Spine/Rahmen/Ringe/Normalen.
 Adressen/Symbolgrößen, ELF-Vtable und Konstanten korroborieren die beschriebenen Operationen.
 Sichtbarkeitsfeld, LOD-Sortierung und Zielanzahl belegt; vollständige Property-/Windbindung bleibt offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.

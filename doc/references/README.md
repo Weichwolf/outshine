@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-11. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-34 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+Stand: 2026-10-12. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+37 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -181,6 +181,18 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 ## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
 
+- **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
+  [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
+  [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
+  Räumliche Astachsen und variable Querschnitte ergänzen die hierarchischen Formpläne.
+  Frenet-Singularitäten bei geraden Teilen/Wendepunkten durch stabile Rahmen vermeiden;
+  die fotografischen Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
+- **Computation of Rotation Minimizing Frames**, Wang / Jüttler / Zheng / Liu, TOG 2008.
+  [Autorenpreprint](https://www.ag.jku.at/pubs/2007wjzl.pdf) ·
+  [PDF](vegetation/tog/2008-rotation-minimizing-frames-preprint.pdf), ungesetzte Vorabfassung.
+  Doppelreflexion mit Tangentendrehung an gleichen Astachsen vergleichen (2351).
+  Rahmenfehler, Erzeugungskosten und sichtbare Querschnitte getrennt prüfen;
+  lokale Regularität ersetzt keinen globalen Kollisionsnachweis oder Kraftsolver.
 - **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
   [Publikation](https://doi.org/10.1145/218380.218427) ·
   [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·

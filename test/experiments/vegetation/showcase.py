@@ -20,6 +20,7 @@ import numpy as np
 from cloud_plots import group_figure, raster_figure, render_figure
 from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
+from spine_plots import spine_figure
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS = ROOT / "build/experiments/vegetation"
@@ -344,8 +345,18 @@ def profile_plot(report):
     return save_plot(profile_figure(report), "branch-profiles")
 
 
+def spine_plot(report):
+    return save_plot(spine_figure(report), "spatial-frames")
+
+
 def plot_entries(output, plot_lods):
     definitions = (
+        (
+            "spines/spines.json",
+            spine_plot,
+            "Räumliche Astachsen · stabile Querschnitte",
+            "Tangentendrehung, direkte Doppelreflexion und Quaternionen-Auswertung an derselben analytischen Helix. Gleicher Startquerschnitt und dieselbe Fehleranforderung; sieben lokale CPU-Läufe. Vier räumliche Astflächen sind zusätzlich gegen unabhängige ODE-Rahmen und Differentialnormalen geprüft. Das Original-Oracle prüft ausschließlich die Orthogonalisierung, keinen vollständigen SpeedTree-Spine-Solver oder dessen Kosten.",
+        ),
         (
             "profiles/profiles.json",
             profile_plot,

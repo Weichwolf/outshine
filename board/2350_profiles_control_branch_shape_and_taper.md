@@ -54,5 +54,5 @@ Vier geschlossene Radiusflächen samt endlichen Dreiecken, Außenorientierung un
 Drei bisherige Rohrfälle bleiben bytegleich; beliebige Kurven-/Pflanzenqualität noch nicht freigegeben.
 
 ## Offene Lücke
-Vollständige Property-/Varianz-/Mehr-Elternbindung, räumliche Spine-Kurven, Kräfte, organische
+Vollständige Property-/Varianz-/Mehr-Elternbindung, Spine-/Kraftbindung (2351), organische
 Gabeln, Rinde, Wind und native Runtime-/Gerätekosten bleiben offen.

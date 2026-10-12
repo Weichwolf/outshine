@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: Profile und Astverjüngung sind numerisch mit Originalroutinen verglichen. Ghidra untersuchte 45 Funktionen; Radiusprofile erzeugen nun geschlossene Astflächen. Der weltweite Mindestkatalog und die optische Pflanzenprüfung folgen nach vollständigem Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: Profile und Orthogonalisierung sind numerisch mit Originalroutinen verglichen. Ghidra untersuchte 51 Funktionen. Räumliche Astachsen erhalten nun stabile Querschnitte auch an Wendepunkten; Radiusprofile und expliziter Roll bestimmen ihre Flächen. Weltweite Pflanzenrezepte und optische Pflanzenprüfung folgen nach vollständigem Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Erzeugung, organische Gabeln, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -92,6 +92,15 @@
       "lod": "lod-0",
       "description": "Vier geschlossene Astflächen mit gleicher Mittelachse, Maßstab, Kamera und Beleuchtung. Lineare Verjüngung, gleitender Verlauf, kontrollierte Verdickung und Wurzelanlauf aus eigenen Bézierprofilen. Radius und Flächennormalen verwenden dieselben vorbereiteten Werte.",
       "quality": "Funktionsprobe · organische Gabeln, Rinde und botanische Formen offen"
+    },
+    {
+      "image": "render/spatial-branches.png",
+      "title": "Räumliche Astachsen · Wendepunkt, S-Verlauf, Curl und Roll",
+      "label": "Spine-Funktionen",
+      "category": "wood",
+      "lod": "lod-0",
+      "description": "Vier deklarierte 3D-Astachsen mit gleichem Radiusprofil und elliptischem Querschnitt. Doppelreflexion erhält stabile Rahmen entlang gerader und gekrümmter Abschnitte; ein expliziter Roll-Verlauf dreht den vierten Querschnitt. Grobe und feine Flächen werden direkt aus denselben Kurven erzeugt. Geschlossenheit, Außenorientierung und Differentialnormalen sind unabhängig geprüft.",
+      "quality": "Funktionsprobe · vollständige Kräfte, organische Gabeln, Rinde und Pflanzenformen offen"
     }
   ],
   "lods": [
@@ -131,7 +140,8 @@
     "demand_plot": "lod-3",
     "organ_storage_plot": "lod-0",
     "plant_request_plot": "lod-1",
-    "profile_plot": "lod-0"
+    "profile_plot": "lod-0",
+    "spine_plot": "lod-0"
   },
   "genera": [
     {
