@@ -13,13 +13,13 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand 0f54947bc: Scope/Extrusion, `comp(f/e/fe/v/fv/g/m/h)`, Breiten-/Flächenteilung und gemeinsam genutzte Asset-Einfügung;
+Stand 9274e00a6: Scope/Extrusion, `comp(f/e/fe/v/fv/g/m/h)`, Breiten-/Flächenteilung und Asset-Einfügung/Dateiimport;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
 SDK-Inventar, 64 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
-Bildstand 0f54947bc: 38 Bilder (8 innen / 23 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
-Vier neue Einfügungsbilder optisch geprüft; PNG/Profile/Hashes stimmen. 29 Bilder pixelgleich, fünf Pläne ändern nur den Commit-Fußtext.
-23 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 0f54947bc; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
+Bildstand 9274e00a6: 42 Bilder (8 innen / 27 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
+Vier neue Importbilder optisch geprüft; PNG/Profile/Hashes stimmen. 31 Bilder pixelgleich, sieben Pläne ändern nur den Commit-Fußtext.
+25 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 9274e00a6; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
 
 ## Gemeinsame Verträge
 - Direkte ausführbare Python-Rezepte und gemeinsame Geometriefunktionen, keine JSON-Regelschicht.
@@ -103,8 +103,8 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 `Asset.from_shape`/`Shape.insert`: drei Modi, yUp/zUp und Nullachsen; Scope-Zero 0,1 mm, ausgegebene Mindestabmessung 0,01 mm.
 72 Fälle/Normen/Attribute/Eigentum geprüft; 1.000 Platzierungen p50 53 statt 269–340 ms; Arrays 5,2–5,4 kB statt 5,2–5,4 MB; Vorbereitung/GPU/Frames ausgeschlossen.
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
-Quell-/Abhängigkeits-Hashes und kodierte Bilder separat erhalten; g/m/f übernehmen Zusatzkanäle, weitere Bearbeitung meldet unsupported.
-Aktiv prüfen/rendern: vier eigene Dateikontrollen; weitere Formate, Animation/Skin/Morph/Tangenten, Shader, Cleanup und Trim bleiben offen.
+Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
+24 Platzierungen/11 Messpaare: einmal laden p50 1,9/10,6/11,2 statt 37,7/244,8/258,6 ms (OBJ/GLB/glTF), Vorbereitung enthalten; kein Frame-/GPUbeleg. Aktiv: Material/UV mit Bildwirkung; Formate/Fans, Animation/Skin/Morph/Tangenten, Shader, Cleanup/Trim offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
