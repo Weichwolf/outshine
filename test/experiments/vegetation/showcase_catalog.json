@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: lokale Eltern-/Kinderhüllen runden jetzt die Anschlüsse der vollständigen 64-Achsen-Testpflanze ab. An den Übergängen angepasste Normalen erhalten das Stamm-Shading. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: vollständige 64-Achsen-Testpflanze mit lokalen Astkragen. Gebündelte Strahlabfragen beschleunigen die Normalenanpassung; randnahe, streifende und möglicherweise verfehlte Treffer werden präzise nachgeprüft. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -191,7 +191,8 @@
     "tapered_plot": "lod-0",
     "curved_plot": "lod-0",
     "plant_surface_plot": "lod-1",
-    "collar_plot": "lod-1"
+    "collar_plot": "lod-1",
+    "ray_plot": "lod-1"
   },
   "genera": [
     {

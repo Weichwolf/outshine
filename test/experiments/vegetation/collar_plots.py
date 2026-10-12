@@ -4,6 +4,38 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def ray_figure(report):
+    figure, axis = plt.subplots(figsize=(8, 4.5), layout="constrained")
+    rows = report["cases"]
+    x = np.arange(len(rows))
+    for index, (method, label, colour) in enumerate(
+        (
+            ("manifold", "Skalare Double-Abfragen", "#687b89"),
+            ("embree", "Embree + präzise Rückfallabfragen", "#337758"),
+        )
+    ):
+        values = np.array([r["samples_ms"][method] for r in rows])
+        median = np.median(values, axis=1)
+        axis.bar(
+            x + (index - 0.5) * 0.34,
+            median,
+            width=0.32,
+            label=label,
+            color=colour,
+            yerr=np.vstack((median - values.min(axis=1), values.max(axis=1) - median)),
+            capsize=4,
+        )
+    axis.set(
+        xticks=x,
+        xticklabels=[f"Seed {r['seed']}" for r in rows],
+        ylabel="Normalenanpassung [ms, Median und Spannweite]",
+        title="63 vollständige Astkragen · drei abwechselnde Läufe",
+    )
+    axis.legend()
+    figure.suptitle("Gleiche Geometrie und Trefferabdeckung · lokale CPU-Messung")
+    return figure
+
+
 def collar_figure(report):
     figure, axes = plt.subplots(1, 2, figsize=(12, 5), layout="constrained")
     rows = report["cases"]

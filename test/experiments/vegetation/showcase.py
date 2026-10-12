@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from cloud_plots import group_figure, raster_figure, render_figure
-from collar_plots import collar_figure
+from collar_plots import collar_figure, ray_figure
 from curved_plots import curved_figure
 from fork_plots import fork_figure
 from plant_surface_plots import plant_surface_figure
@@ -359,6 +359,12 @@ def collar_plot(report):
     return save_plot(collar_figure(report), "branch-collars")
 
 
+def ray_plot(report):
+    figure = ray_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "collar-ray-cost")
+
+
 def plant_surface_plot(report):
     return save_plot(plant_surface_figure(report), "plant-surfaces")
 
@@ -379,6 +385,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            ray_plot,
             collar_plot,
             plant_surface_plot,
             curved_plot,

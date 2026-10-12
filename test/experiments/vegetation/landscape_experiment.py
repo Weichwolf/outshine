@@ -198,7 +198,7 @@ def build(recipe, output):
     scene = recipe | {
         "sites": f"{recipe['id']}-sites.npz",
         "products": products,
-        "resolution": [1280, 720],
+        "resolution": [2560, 1440],
         "fov_y": 48.0,
         "samples": 16,
     }

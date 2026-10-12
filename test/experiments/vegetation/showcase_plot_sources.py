@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "collars/ray-cost.json",
+        "ray_plot",
+        "Astnormalen · gebündelte Strahlabfragen",
+        "Drei abwechselnde Läufe auf denselben vollständigen Anschlussflächen. Embree mit Double-Präzisierung und Rückfallabfragen gegen den bisherigen skalaren Raycaster; Geometrie und Trefferabdeckung erhalten, Normalenabweichung separat geprüft. Referenzaufbau im Bericht separat, keine native Outshine-/Gerätefreigabe.",
+    ),
+    (
         "collars/collars.json",
         "collar_plot",
         "Lokale Astkragen · Form und Erzeugungskosten",

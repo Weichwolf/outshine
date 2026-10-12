@@ -74,8 +74,31 @@ Geometrie vor Normalenübertragung bereinigen; Verschiebung und Anzahl im Produk
 Drei Seeds geprüft: 160.618–164.720 Dreiecke, geschlossen, Eulerzahl zwei, keine Normalenumkehr.
 Je 192 unabhängige Raumwinkelproben, davon 128 innerhalb aller 64 dünnen Achsen.
 Beobachteter Verlust gegenüber Originalholz 7,7–9,9×10⁻¹² m³, unter dem 10⁻¹⁰-m³-Probenbudget.
-Blockabtastung 3,98–4,24 s gegen dicht 6,10–6,42 s, drei Wiederholungen; alle Mesharrays identisch.
-Normalen 5,74–6,13 s und Vereinigung 4,42–4,70 s jeweils einmal gemessen; erhebliche Kostenlücke.
-Gesamter Prüfprozess einschließlich beider Sampler/Referenzprüfungen: Peak-RSS 978,6 MiB.
+Blockabtastung 4,10–4,75 s gegen dicht 6,02–7,34 s, drei Wiederholungen; alle Mesharrays identisch.
+Normalen mit gebündelten Strahlen 2,45–2,95 s, Vereinigung 4,53–5,63 s, je einmal; erhebliche Kostenlücke.
+Gesamter Prüfprozess einschließlich beider Sampler/Referenzprüfungen: Peak-RSS 917,6 MiB.
 Neue 1280×720-Nah-/Gesamtbilder optisch geprüft: sichtbare Anschlussaufweitung, dünne Zweige erhalten.
 Stammschattierung ohne langen Normalenstreifen; natürliche Krone und Rindenmaterial bleiben offen.
+
+## Strahlkosten
+Profiler: skalare Elternflächenabfragen dominieren die Normalenanpassung.
+Einfache AABB-Vorauswahl verworfen: 484.964 → 399.922 Abfragen, exakt gleiche Normalen, kein Zeitgewinn.
+[Embree, SIGGRAPH 2014](../doc/references/vegetation/siggraph/2014-embree-ray-tracing.pdf), Seite 1 optisch geprüft,
+begründet gebündelte CPU-Abfragen. Externes `embreex==4.4.0` in `.venv`, kein gebündelter Fremdcode.
+Referenz lokal zentrieren/skalieren; float32-BVH liefert Dreieckskandidaten, Double-Ebene präzisiert Treffer.
+Beide Strahlhälften suchen jeweils den nächsten passend orientierten Treffer, maximal 16 Schnittschritte.
+Fortschritt 2×10⁻⁶ der Referenzausdehnung; Näherung ausdrücklich nur gegen geprüfte Kalibrierfälle abnehmen.
+Fehlende Treffer mit möglichem Boxschnitt, randnahe baryzentrische Treffer und streifende Abfragen
+auf den bestehenden Double-Raycaster zurückführen; reine float32-Abfragen verfehlten einzelne Treffer.
+Getrennte Referenzaufbaukosten, drei abwechselnde Wiederholungen; Geometrie, Trefferabdeckung und Normalen prüfen.
+Vollständige Oberfläche und aktuelles Nahbild bleiben das Übernahmekriterium.
+Vollständige drei Pflanzen weiterhin geschlossen und ohne Normalenumkehr; gleiches Verlustvolumen.
+Gespeicherte Gesamtpflanze: Vertices/Dreiecke exakt gleich, maximale Normalenkomponente 5,2×10⁻¹³ verändert.
+777 Mehrkörper-/Maßstabs-/Verschiebungsproben: Trefferabdeckung gleich, relativer Positionsfehler ≤1,14×10⁻¹⁰.
+Drei Pflanzen/je drei abwechselnde Läufe: Normalenmediane 2,32–2,46 statt 5,58–5,74 s (2,33–2,40×).
+98.965–104.825 Rückfallabfragen je Pflanze; Referenzaufbau zusätzlich 195–208 statt 112–121 ms.
+Alle 189 Anschlussprodukte behalten Geometrie/Trefferabdeckung; Normalenkomponenten maximal 5,91×10⁻¹³ abweichend.
+Neue Nah-/Gesamtansicht optisch geöffnet: beide 1280×720-Bilder pixelgleich zum vorherigen skalaren Verfahren.
+Nutzerauftrag: aktuelle Nah-/Gesamtbilder neu in 2560×1440; Szenario-Vorgaben für weitere Renderings angehoben.
+Die 1280×720-Pixelgleichheit bleibt ein getrennter Vergleich, keine Behauptung über neue Bildabmessungen.
+Im 2560×1440-Nahbild feine Schattierungslinien an einem dünnen Ast sichtbar; Ursache noch prüfen.

@@ -129,6 +129,7 @@
   Showcase unter `/tmp/outshine-vegetation-showcase` veröffentlicht. Kein automatisches
   Neuladen; neue Stände erscheinen beim Öffnen oder über den manuellen Aktualisieren-Knopf.
   Gestaltung/Bedienung folgen der Building-Showcase; drei typische Landschaften sind feste Bildszenarien.
+  Vegetations-Showcase-Renderings mindestens 1920×1080, Standard 2560×1440 für erkennbare Details.
   Für Vegetation gilt SpeedTree als Qualitätsmaßstab; die Nutzerbildreferenz besitzt 2111.
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;

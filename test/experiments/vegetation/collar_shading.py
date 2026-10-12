@@ -4,9 +4,12 @@ import numpy as np
 from plant_surface import solid_from_mesh
 from spine_frames import unit
 from surface_normal_transfer import interpolate_normals
+from surface_rays import SurfaceRays
 
 
-def tube_reference(mesh):
+def tube_reference(mesh, method="manifold"):
+    if method not in ("manifold", "embree"):
+        raise ValueError("declared ray method required")
     solid = solid_from_mesh(mesh)
     raw = solid.to_mesh64()
     vertices = np.asarray(raw.vert_properties)
@@ -16,7 +19,7 @@ def tube_reference(mesh):
         "faces": faces,
         "normals": vertices[faces, 3:6].reshape(-1, 3),
     }
-    return solid, reference
+    return (SurfaceRays(reference, solid) if method == "embree" else solid), reference
 
 
 def blend_collar_normals(mesh, references, parent_radius, child_radius):
@@ -31,6 +34,18 @@ def blend_collar_normals(mesh, references, parent_radius, child_radius):
     endings = (points - ray_length * field_normals).tolist()
     directions = field_normals.tolist()
     for column, (solid, reference) in enumerate(references):
+        if isinstance(solid, SurfaceRays):
+            selected, positions, faces = solid.nearest(
+                points, field_normals, ray_length
+            )
+            if len(selected):
+                distances[selected, column] = np.sum(
+                    (points[selected] - positions) * field_normals[selected], axis=1
+                )
+                target_normals[selected, column] = interpolate_normals(
+                    reference, positions, faces
+                )
+            continue
         selected, positions, faces = [], [], []
         for index, (beginning, ending, direction) in enumerate(
             zip(beginnings, endings, directions, strict=True)

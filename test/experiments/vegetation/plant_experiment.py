@@ -383,7 +383,7 @@ def make_scenes(output, plant, commit, modified):
         scene.update(
             products=products,
             ground_size_m=50,
-            resolution=[1280, 720],
+            resolution=[2560, 1440],
             samples=32,
             source_commit=commit,
             source_modified=modified,

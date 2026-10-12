@@ -216,6 +216,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Seite 1 optisch geprüft; Oberflächenzerlegung und Innen-/Außenklassifikation begründen
   den Vergleich vollständiger Pflanzenoberflächen (2353). Manifold nutzt einen eigenen
   Algorithmus; dessen Bibliotheksgarantien ersetzen weder lokale Prüfungen noch organische Ausrundung.
+- **Embree: A Kernel Framework for Efficient CPU Ray Tracing**, Wald / Woop / Benthin /
+  Johnson / Ernst, SIGGRAPH / TOG 2014.
+  [Autorenquelle](https://www.sci.utah.edu/~wald/Publications/2014/embree/embree.pdf) ·
+  [PDF](vegetation/siggraph/2014-embree-ray-tracing.pdf).
+  Seite 1 mit Abbildungen optisch geprüft. Beschleunigte CPU-Strahlabfragen begründen den
+  Vergleich gegen skalare Elternflächenabfragen bei Astnormalen (2353); eigene lokale
+  Messungen und Genauigkeitsprüfung, keine Übernahme publizierter Geschwindigkeitsfaktoren.
 - **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
   [Publikation](https://doi.org/10.1145/218380.218427) ·
   [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·

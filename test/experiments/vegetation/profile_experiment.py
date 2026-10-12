@@ -79,7 +79,7 @@ def scene(profiles, output, commit, modified):
         "target": [0, 0, 0.82],
         "fov_y": 28,
         "ground_size_m": 40,
-        "resolution": [1280, 720],
+        "resolution": [2560, 1440],
         "samples": 32,
         "source_commit": commit,
         "source_modified": modified,

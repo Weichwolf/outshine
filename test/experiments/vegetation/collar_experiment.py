@@ -58,7 +58,7 @@ def compare(seed):
     paths = tuple(plant.paths())
     indices = {path: index for index, path in enumerate(paths)}
     began = time.perf_counter()
-    references = [tube_reference(mesh) for mesh in axes]
+    references = [tube_reference(mesh, method="embree") for mesh in axes]
     shading = []
     for index, plan in enumerate(plans):
         path = plan["path"]
@@ -95,6 +95,7 @@ def compare(seed):
             "local_checks": checked,
             "checks": final_checks,
             "shading_ms": shading_ms,
+            "ray_method": "embreex-4.4.0-local-float32-double-refinement",
             "union_ms": union_ms,
             "normal_work": normal_work,
             "shading": shading,
@@ -141,7 +142,7 @@ def main():
         "checks": checks,
         "packages": {
             p: importlib.metadata.version(p)
-            for p in ("numpy", "scipy", "scikit-image", "manifold3d")
+            for p in ("numpy", "scipy", "scikit-image", "manifold3d", "embreex")
         },
         "implementation_sha256": {
             p.name: hashlib.sha256(p.read_bytes()).hexdigest()

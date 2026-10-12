@@ -375,7 +375,7 @@ def make_scenes(output):
     for recipe in recipes:
         recipe.update(
             {
-                "resolution": [1280, 720],
+                "resolution": [2560, 1440],
                 "samples": 32,
                 "source_commit": subprocess.check_output(
                     ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
