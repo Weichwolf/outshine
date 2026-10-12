@@ -92,8 +92,8 @@ def main():
     for axis,report in zip(axes[0],data['places']):draw_window(axis,args.root,report)
     figure.legend(handles=[Patch(color=color,label=label) for color,label in
         (('#76a389','All requested motor routes proved'),('#be6458','Unresolved motor routes'),
-         ('#c8ccc7','Other/unassessed transport'),('#216f96','Published constructed routes'))],loc='lower center',ncol=4)
-    figure.suptitle(f"Published Python roadbeds · measured commit {data['measured_commit'][:9]} · no runtime integration")
+         ('#c8ccc7','Other/unassessed transport'),('#216f96','Published constructed routes'))],loc='lower center',ncol=2,fontsize=8)
+    figure.suptitle(f"Published Python roadbeds · measured commit {data['measured_commit'][:9]}\nNo runtime integration")
     figure.tight_layout(rect=(0,.09,1,.95));args.output.parent.mkdir(parents=True,exist_ok=True)
     figure.savefig(args.output,dpi=180);plt.close(figure)
     print(json.dumps(dict(image=str(args.output),report_sha256=hashlib.sha256(args.report.read_bytes()).hexdigest())))

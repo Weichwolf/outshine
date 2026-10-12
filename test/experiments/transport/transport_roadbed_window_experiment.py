@@ -199,7 +199,8 @@ def main():
         result['places'].append(report)
         result['peak_rss_bytes']=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss*(1 if sys.platform=='darwin' else 1024)
         (args.output/'window-roadbeds.json').write_text(json.dumps(result,indent=2)+'\n')
-        print(json.dumps({k:v for k,v in report.items() if k not in ('trials','source_tiles','input_sha256')}),flush=True)
+        summary={k:v for k,v in report.items() if k not in ('trials','source_tiles','input_sha256','coupled_products')}
+        print(json.dumps(dict(summary,coupled_products=len(report['coupled_products']))),flush=True)
 
 
 if __name__=='__main__':

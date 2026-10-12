@@ -133,7 +133,11 @@ def main():
     report['trials']=[coupled.diagnostic_trial(c,product,network.vehicle,owner_poses,owner_routes) for c in product['curves']]
     report['input_sha256']=dict(prior['input_sha256'])
     for path in (args.prior,args.curve):report['input_sha256'][str(path.resolve().relative_to(root.resolve()))]=coupled.digest(path)
-    report['implementation_sha256']={str(p.relative_to(Path.cwd())):coupled.digest(p) for p in coupled.implementation_files(Path(__file__))}
+    code=Path(coupled.__file__).parent
+    sources=coupled.implementation_files(Path(__file__))+coupled.implementation_files(Path(coupled.__file__))
+    sources.extend([Path(candidate.__code__.co_filename),Path(close_unusable_voids.__code__.co_filename),
+                    code/'geos_triangulation.py',code/'transport_network_recipes.json'])
+    report['implementation_sha256']={str(p.relative_to(Path.cwd())):coupled.digest(p) for p in set(sources)}
     report_path=args.output/'proof.json'
     report_path.write_text(json.dumps(report,indent=2,default=lambda v:v.tolist())+'\n')
     apply_coupled_product(original,records,set(),root,report_path,set())
