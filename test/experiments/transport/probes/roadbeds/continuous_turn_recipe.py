@@ -1,4 +1,4 @@
-"""Fit three circular plateaus joined by linear-curvature transitions."""
+"""Fit circle/straight plateaus joined by linear-curvature transitions."""
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -17,7 +17,7 @@ def advance(position,heading,start,end,length):
 
 
 def segments(lengths,radius,sign,transition):
-    bends=np.array([0,sign,-sign,sign,0])/radius
+    bends=np.array([0,sign[0],0,sign[1],0] if isinstance(sign,tuple) else [0,sign,-sign,sign,0])/radius
     result=[]
     for i in range(4):
         result.append((bends[i],bends[i+1],transition))
@@ -46,6 +46,19 @@ def controls_for(lengths,radius,sign,transition,entry,spacing=1.):
     return np.array(pieces)
 
 
+def arc_line_lengths(entry,exit,radius,sign,transition):
+    left=lambda h:np.array([-h[1],h[0]])
+    a=entry['position']+sign[0]*radius*left(entry['heading'])
+    b=exit['position']+sign[1]*radius*left(exit['heading'])
+    delta=b-a;distance=np.linalg.norm(delta);offset=(sign[1]-sign[0])*radius
+    if distance<=1e-8 or abs(offset)>distance:return None
+    angle=np.arctan2(delta[1],delta[0])-np.arcsin(offset/distance)
+    first=sign[0]*((sign[0]*(angle-np.arctan2(*entry['heading'][::-1])))%(2*np.pi))
+    last=sign[1]*((sign[1]*(np.arctan2(*exit['heading'][::-1])-angle))%(2*np.pi))
+    return np.maximum([abs(first)*radius-transition,np.sqrt(distance**2-offset**2),
+                       abs(last)*radius-transition],1e-5)
+
+
 def fit_turn(entry,exit,seed,radius,sign,transition,maximum_calls=128):
     if radius<=0 or transition<=0 or maximum_calls<4:raise ValueError('invalid turn recipe budget')
     delta=exit['position']-entry['position'];h=entry['heading'];left=np.array([-h[1],h[0]])
@@ -53,10 +66,18 @@ def fit_turn(entry,exit,seed,radius,sign,transition,maximum_calls=128):
     target=np.r_[delta@h,delta@left,angles[-1]-angles[0]]
     final=np.arctan2(h[0]*exit['heading'][1]-h[1]*exit['heading'][0],h@exit['heading'])
     target[2]=final+2*np.pi*round((target[2]-final)/(2*np.pi))
-    changes=np.diff(angles);groups=np.split(changes,np.flatnonzero(np.sign(changes[1:])!=np.sign(changes[:-1]))+1)
-    sweeps=[abs(g.sum()) for g in groups if abs(g.sum())>1e-5]
-    if len(sweeps)!=3:return None,dict(reason='seed_has_no_three_arc_partition',residual_calls=0)
-    initial=np.maximum(np.array(sweeps)*radius-transition,1e-5);calls=0;best=None;cost=np.inf
+    if isinstance(sign,tuple):
+        if len(sign)!=2 or any(s not in (-1,1) for s in sign):raise ValueError('invalid arc directions')
+        initial=arc_line_lengths(entry,exit,radius,sign,transition)
+        if initial is None:return None,dict(reason='seed_has_no_arc_line_tangent',residual_calls=0)
+    else:
+        changes=np.diff(angles);groups=np.split(changes,np.flatnonzero(np.sign(changes[1:])!=np.sign(changes[:-1]))+1)
+        sweeps=[abs(g.sum()) for g in groups if abs(g.sum())>1e-5]
+        if len(sweeps)!=3:return None,dict(reason='seed_has_no_three_arc_partition',residual_calls=0)
+        initial=np.maximum(np.array(sweeps)*radius-transition,1e-5)
+    upper=np.full(3,2*np.pi*radius)
+    if isinstance(sign,tuple):upper[1]=max(upper[1],seed.length+4*transition)
+    calls=0;best=None;cost=np.inf
     class BudgetExhausted(Exception):pass
     def residual(lengths):
         nonlocal calls,best,cost
@@ -66,7 +87,7 @@ def fit_turn(entry,exit,seed,radius,sign,transition,maximum_calls=128):
         if value<cost:cost,best=value,lengths.copy()
         return error
     try:
-        least_squares(residual,initial,bounds=(1e-6,2*np.pi*radius),max_nfev=32,
+        least_squares(residual,initial,bounds=(1e-6,upper),max_nfev=32,
                       ftol=1e-10,xtol=1e-10,gtol=1e-10)
     except BudgetExhausted:pass
     note=dict(residual_calls=calls,closure_error_m=float(np.sqrt(cost)),radius_m=radius,

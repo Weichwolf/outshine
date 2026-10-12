@@ -54,4 +54,24 @@ def verify():
     return dict(source_endpoints=True,g2_joins=True,radius_bound=True,rigid_transforms=True,reserved_transport_rejected=True)
 
 
-if __name__=='__main__':print(json.dumps(verify()))
+def verify_asymmetric_approaches():
+    entry=dict(position=np.array([201.69625087143697,-454.5444089424274]),
+               heading=np.array([.5462760216632944,.8376052221397166]))
+    exit=dict(position=np.array([180.88941584926118,-432.43572357382175]),
+              heading=np.array([-.9887987012663846,.14925524571656174]))
+    choices=list(core_candidates(entry,exit,4.5,4.,32.));assert choices
+    begin,end,kind,seed,_=min(choices,key=lambda p:p[-1].length)
+    assert np.allclose(begin['position'],entry['position']+4*entry['heading'])
+    assert np.allclose(end['position'],exit['position']-32*exit['heading'])
+    core,note=fit_turn(begin,end,seed,4.5,kind[0],1.);assert core is not None,note
+    controls=attach_approaches(core,entry,exit,begin,end,4.,32.)
+    vehicle=dict(widthM=1.8,frontFromRearAxleM=3.3,rearOverhangM=1.1,wheelbaseM=2.7,minimumRearAxleRadiusM=4.)
+    path,note=checked_spline_path(controls,shapely.box(150,-500,260,-400),vehicle,.025)
+    assert path is not None,note
+    assert np.allclose(controls[0,0],entry['position']) and np.allclose(controls[-1,-1],exit['position'])
+    assert len(attach_approaches(core,entry,exit,begin,end,0.,32.))==len(core)+1
+    assert len(attach_approaches(core,entry,exit,begin,end,4.,0.))==len(core)+1
+    return dict(independent_approach_lengths=True,asymmetric_g2_body_checked=True,zero_approach_omitted=True)
+
+
+if __name__=='__main__':print(json.dumps(verify()|verify_asymmetric_approaches()))

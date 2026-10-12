@@ -56,7 +56,8 @@ Bilder: build/shots/experiments/transport/.
    Budget ausdrücklich messen. [Randindex](../test/experiments/transport/transport_surface_clearance.py)
    begrenzt Messungen. [Rückfahrten](../test/experiments/transport/transport_return_roadbeds.py)
    teilen 1536 Aufrufe: Quelle bis 1024, CCC/CSC bis 512; analytische CCC-Kerne bis 128 Aufrufe/Seed.
-   Methodenkompatible Familien vor Rangfolge/Versuchslimit wählen; inkompatible Seeds verbrauchen kein Budget.
+   Methodenkompatible Familien vor Rangfolge/Versuchslimit wählen; CSC/CCC mit linearen Krümmungsübergängen
+   und drei Längenparametern schließen. Gerade Ein-/Ausläufe unabhängig wählen; gemeinsame Endports bleiben fest.
 4. R ist der Mindestradius, w die Breite, L die größere Körperreichweite vor/hinter der Hinterachse.
    Randaufweitungen bleiben an der ursprünglichen Fläche begrenzt: sqrt((R+w/2)²+L²)−R.
    [Schleifen-Wendeplätze](../test/experiments/transport/transport_loop_court.py) lösen bis acht Kurven
@@ -77,7 +78,8 @@ Bilder: build/shots/experiments/transport/.
 ## Nächste Lieferung und Abnahme
 Zürich 2260 mit Gesamtfenster 16/16: gemeinsame Schnitte 4 m nach außen, +0,21 m² Fläche.
 1316 im Gesamtfenster 29/29: zwei Wendeprofile mit öffentlichen Fußwegübergängen, +8,86 m² Fläche.
-Fußweggeometrie erhalten. 1555: CSC-/Spitzenprofil statt unpassender enger CCC-Kerne; danach verbleibende
+Fußweggeometrie erhalten. 1555: asymmetrische Ansätze integrieren, lokale Prüfung besteht bei 4/32 m;
+61,4 m Fahrt statt 932,9 m Umweg, +4,48 m² Fahrfläche. Gesamtfenster/Nachbarn noch prüfen. Danach verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
 [Fensterprüfung](../test/experiments/transport/transport_roadbed_window_experiment.py) erhält sämtliche bisherigen Fahrten;

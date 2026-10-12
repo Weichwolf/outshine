@@ -19,17 +19,22 @@ from turning_space_probe import provenance
 from transport_cut_setback_experiment import digest,implementation_files
 
 
-def core_candidates(entry,exit,radius,inset):
+def core_candidates(entry,exit,radius,inset,outset=None):
+    if outset is None:outset=inset
     begin=dict(position=entry['position']+inset*entry['heading'],heading=entry['heading'])
-    end=dict(position=exit['position']-inset*exit['heading'],heading=exit['heading'])
+    end=dict(position=exit['position']-outset*exit['heading'],heading=exit['heading'])
     for kind,seed in three_arc_seeds(begin,end,radius):
         path=shapely.LineString(np.vstack([entry['position'],np.array(seed.coords),exit['position']]))
         if path.is_simple:yield begin,end,kind,seed,path
 
 
-def attach_approaches(controls,entry,exit,begin,end,inset):
-    if inset==0:return controls
-    return np.concatenate([approach_segment(entry,begin)[None],controls,approach_segment(end,exit)[None]])
+def attach_approaches(controls,entry,exit,begin,end,inset,outset=None):
+    if outset is None:outset=inset
+    pieces=[]
+    if inset:pieces.append(approach_segment(entry,begin)[None])
+    pieces.append(controls)
+    if outset:pieces.append(approach_segment(end,exit)[None])
+    return np.concatenate(pieces)
 
 
 def main():
@@ -37,9 +42,10 @@ def main():
     parser.add_argument('--input',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--inset',type=float,nargs='+',default=[0.,4.,8.,12.])
+    parser.add_argument('--outset',type=float,nargs='+')
     parser.add_argument('--pedestrian-crossings',action='store_true')
     args=parser.parse_args()
-    if not all(np.isfinite(s) and s>=0 for s in args.inset):parser.error('insets must be finite and nonnegative')
+    if not all(np.isfinite(s) and s>=0 for s in [*args.inset,*(args.outset or [])]):parser.error('approach lengths must be finite and nonnegative')
     data=json.loads(args.input.read_text());args.output.mkdir(parents=True,exist_ok=True)
     floor,source,other=(shapely.from_wkb(data[k]) for k in ('surface','source_route','non_motor_reservations'))
     walk=shapely.from_wkb(data['public_pedestrian_surface']) if args.pedestrian_crossings else shapely.Polygon()
@@ -48,16 +54,17 @@ def main():
     rows=[];calls=0;started=time.perf_counter();radius=data['vehicle']['minimumRearAxleRadiusM']
     options=[]
     for inset in args.inset:
-        for r in (radius*1.05,radius*1.125,radius*1.25):
-            for begin,end,kind,seed,path in core_candidates(entry,exit,r,inset):
-                if same_island_winding(path,source,floor):options.append((inset,r,begin,end,kind,seed))
-    for inset,r,begin,end,kind,seed in options:
+        for outset in args.outset if args.outset is not None else [inset]:
+            for r in (radius*1.05,radius*1.125,radius*1.25):
+                for begin,end,kind,seed,path in core_candidates(entry,exit,r,inset,outset):
+                    if same_island_winding(path,source,floor):options.append((inset,outset,r,begin,end,kind,seed))
+    for inset,outset,r,begin,end,kind,seed in options:
         if calls>=1536:break
-        row=dict(inset_m=inset,radius_m=r,kind=kind,accepted=False);rows.append(row)
+        row=dict(inset_m=inset,outset_m=outset,radius_m=r,kind=kind,accepted=False);rows.append(row)
         controls,note=fit_turn(begin,end,seed,r,kind[0],1.,maximum_calls=min(128,1536-calls))
         calls+=note['residual_calls'];row.update(reason=note['reason'],residual_calls=note['residual_calls'])
         if controls is None:continue
-        controls=attach_approaches(controls,entry,exit,begin,end,inset)
+        controls=attach_approaches(controls,entry,exit,begin,end,inset,outset)
         note['curve_controls']=controls.tolist()
         try:road,_=candidate(data,note)
         except AssertionError as error:row['reason']=str(error);continue

@@ -10,6 +10,7 @@ from scipy.integrate import quad
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from continuous_turn_recipe import advance,fit_turn
 from transport_three_arc_paths import three_arc_seeds
+from transport_arc_line_paths import arc_line_arc_seeds
 from transport_spline_routes import continuous_spline_joins,curve_bounds,spline_sampler
 from coupled_turning_court_probe import approach_segment
 
@@ -68,4 +69,28 @@ def verify():
                 actual_residual_budget=True)
 
 
-if __name__=='__main__':print(verify()|verify_approaches())
+def verify_arc_line_arcs():
+    entry=dict(position=np.zeros(2),heading=np.array([1.,0.]))
+    exit=dict(position=np.array([25.,15.]),heading=np.array([0.,1.]))
+    rotation=np.array([[0.,-1.],[1.,0.]]);offset=np.array([1000.,-700.])
+    moved=[dict(position=p['position']@rotation+offset,heading=p['heading']@rotation) for p in (entry,exit)]
+    tested=0
+    for kind,seed in arc_line_arc_seeds(entry,exit,4.5):
+        controls,note=fit_turn(entry,exit,seed,4.5,kind,1.)
+        assert controls is not None and note['residual_calls']<=128,note
+        assert continuous_spline_joins(controls) and np.max(curve_bounds(controls)[2])<=.25
+        xy,angles=spline_sampler(controls)(np.array([0,len(controls)-1]),np.array([0.,1.]))
+        assert np.allclose(xy,[entry['position'],exit['position']],atol=1e-7,rtol=0)
+        assert np.allclose(np.c_[np.cos(angles),np.sin(angles)],[entry['heading'],exit['heading']],atol=1e-8,rtol=0)
+        shifted=shapely.LineString(np.array(seed.coords)@rotation+offset)
+        transformed,_=fit_turn(*moved,shifted,4.5,kind,1.)
+        assert transformed is not None and transformed.shape==controls.shape
+        assert np.allclose(transformed,controls@rotation+offset,atol=1e-7,rtol=0)
+        _,limited=fit_turn(entry,exit,seed,4.5,kind,1.,maximum_calls=4)
+        assert limited['residual_calls']<=4
+        tested+=1
+    return dict(csc_turn_directions=tested,csc_fixed_endpoint_poses=True,csc_g2_radius=True,
+                csc_rigid_transform=True,csc_residual_budget=True)
+
+
+if __name__=='__main__':print(verify()|verify_approaches()|verify_arc_line_arcs())

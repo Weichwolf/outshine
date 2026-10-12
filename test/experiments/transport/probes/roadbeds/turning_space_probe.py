@@ -67,12 +67,12 @@ def main():
     reach=2*vehicle['minimumRearAxleRadiusM']+max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])+vehicle['widthM']*.5
     region=source.envelope.buffer(reach)
     domain=region.difference(reserved.difference(floor).buffer(2*error))
-    families=('CCC',) if args.method=='continuous' else ('CSC','CCC')
-    options=seeds(entry,exit,source,floor,region,vehicle,families);fit=collision_fitter(33);calls=0;rows=[]
+    options=seeds(entry,exit,source,floor,region,vehicle);fit=collision_fitter(33);calls=0;rows=[]
     for index,(_,_,family,kind,radius,path) in enumerate(options):
         begin=time.perf_counter();budget=(1536-calls)//(len(options)-index)
         if args.method=='continuous':
-            controls,note=fit_turn(entry,exit,path,radius,kind[0],args.transition_length,maximum_calls=min(128,budget))
+            sign=kind if family=='CSC' else kind[0]
+            controls,note=fit_turn(entry,exit,path,radius,sign,args.transition_length,maximum_calls=min(128,budget))
             curve=None
             if controls is not None:
                 curve,proof=checked_spline_path(controls,domain,vehicle,error)
