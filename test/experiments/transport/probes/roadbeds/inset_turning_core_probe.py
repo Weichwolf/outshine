@@ -37,11 +37,13 @@ def main():
     parser.add_argument('--input',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--inset',type=float,nargs='+',default=[0.,4.,8.,12.])
+    parser.add_argument('--pedestrian-crossings',action='store_true')
     args=parser.parse_args()
     if not all(np.isfinite(s) and s>=0 for s in args.inset):parser.error('insets must be finite and nonnegative')
     data=json.loads(args.input.read_text());args.output.mkdir(parents=True,exist_ok=True)
     floor,source,other=(shapely.from_wkb(data[k]) for k in ('surface','source_route','non_motor_reservations'))
-    data['reservations']=other.difference(floor).wkb.hex()
+    walk=shapely.from_wkb(data['public_pedestrian_surface']) if args.pedestrian_crossings else shapely.Polygon()
+    data['reservations']=other.difference(walk).difference(floor).wkb.hex()
     entry,exit=({k:np.array(v) for k,v in data[name].items()} for name in ('entry','exit'))
     rows=[];calls=0;started=time.perf_counter();radius=data['vehicle']['minimumRearAxleRadiusM']
     options=[]
@@ -62,7 +64,8 @@ def main():
         row.update(accepted=True,reason='proved',length_m=road['path'].length,added_area_m2=road['addition'].area)
         (args.output/f'{len(rows)-1}-candidate.json').write_text(json.dumps(note,indent=2)+'\n')
         (args.output/f'{len(rows)-1}-geometry.json').write_text(json.dumps(dict(original=floor.wkb.hex(),
-            planned=road['surface'].wkb.hex(),path=shapely.get_coordinates(road['path']).tolist()),indent=2)+'\n')
+            planned=road['surface'].wkb.hex(),crossing=road['surface'].intersection(walk).difference(floor).wkb.hex(),
+            path=shapely.get_coordinates(road['path']).tolist()),indent=2)+'\n')
         print(json.dumps(row),flush=True)
     receipt=provenance()
     sources=[Path(__file__),Path(approach_segment.__code__.co_filename),*implementation_files(Path(candidate.__code__.co_filename))]

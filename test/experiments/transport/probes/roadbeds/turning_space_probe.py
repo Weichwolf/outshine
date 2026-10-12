@@ -23,11 +23,12 @@ from continuous_turn_recipe import fit_turn
 from transport_cut_setback_experiment import digest,implementation_files
 
 
-def seeds(entry,exit,source,floor,region,vehicle):
+def seeds(entry,exit,source,floor,region,vehicle,families=('CSC','CCC')):
     choices=[]
     for scale in (1.05,1.125,1.25):
         radius=vehicle['minimumRearAxleRadiusM']*scale
         for family,method in (('CSC',arc_line_arc_seeds),('CCC',three_arc_seeds)):
+            if family not in families:continue
             for kind,path in method(entry,exit,radius):
                 if not path.is_simple or not region.covers(path) or not same_island_winding(path,source,floor):continue
                 outside=path.buffer(vehicle['widthM']*.5).difference(floor).area
@@ -66,8 +67,8 @@ def main():
     reach=2*vehicle['minimumRearAxleRadiusM']+max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])+vehicle['widthM']*.5
     region=source.envelope.buffer(reach)
     domain=region.difference(reserved.difference(floor).buffer(2*error))
-    options=seeds(entry,exit,source,floor,region,vehicle);fit=collision_fitter(33);calls=0;rows=[]
-    if args.method=='continuous':options=[p for p in options if p[2]=='CCC']
+    families=('CCC',) if args.method=='continuous' else ('CSC','CCC')
+    options=seeds(entry,exit,source,floor,region,vehicle,families);fit=collision_fitter(33);calls=0;rows=[]
     for index,(_,_,family,kind,radius,path) in enumerate(options):
         begin=time.perf_counter();budget=(1536-calls)//(len(options)-index)
         if args.method=='continuous':

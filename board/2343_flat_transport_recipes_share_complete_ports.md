@@ -56,6 +56,7 @@ Bilder: build/shots/experiments/transport/.
    Budget ausdrücklich messen. [Randindex](../test/experiments/transport/transport_surface_clearance.py)
    begrenzt Messungen. [Rückfahrten](../test/experiments/transport/transport_return_roadbeds.py)
    teilen 1536 Aufrufe: Quelle bis 1024, CCC/CSC bis 512; analytische CCC-Kerne bis 128 Aufrufe/Seed.
+   Methodenkompatible Familien vor Rangfolge/Versuchslimit wählen; inkompatible Seeds verbrauchen kein Budget.
 4. R ist der Mindestradius, w die Breite, L die größere Körperreichweite vor/hinter der Hinterachse.
    Randaufweitungen bleiben an der ursprünglichen Fläche begrenzt: sqrt((R+w/2)²+L²)−R.
    [Schleifen-Wendeplätze](../test/experiments/transport/transport_loop_court.py) lösen bis acht Kurven
@@ -75,7 +76,8 @@ Bilder: build/shots/experiments/transport/.
 
 ## Nächste Lieferung und Abnahme
 Zürich 2260 mit Gesamtfenster 16/16: gemeinsame Schnitte 4 m nach außen, +0,21 m² Fläche.
-Als Nächstes 1555/1316 und verbleibende
+1316 lokal 29/29: zwei Wendeprofile mit öffentlichen Fußwegübergängen; gemeinsame Fläche +8,86 m².
+Fußweggeometrie erhalten. Gesamtfenster offen; dann 1555 und verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
 [Fensterprüfung](../test/experiments/transport/transport_roadbed_window_experiment.py) erhält sämtliche bisherigen Fahrten;
