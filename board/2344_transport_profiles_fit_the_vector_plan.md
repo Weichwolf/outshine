@@ -5,14 +5,14 @@ Priority: P0
 Parent: 2169
 Depends: 2343
 Area: generators, world
-Tags: infrastructure, solver, recipes
+Tags: transport, solver, recipes
 
 # Transport profiles fit coarse DEM on actual vector geometry
 
 ## Ergebnis und fehlender Vertrag
 2343 liefert den ebenen Bauteilplan mit gemeinsamen Ports/Querschnitten.
 Grobes DEM liefert einen weichen Höhenbezug; konstruktive Profile dürfen davon abweichen.
-Besitzer: generators/road; finales Terrain konsumiert die geplanten Kontakte.
+Besitzer: Transport/generators/road (Grenzen: 2342); Terrain/Buildings/Vegetation konsumieren Kontakte/Freiräume.
 
 ## Umsetzung und Abnahme
 1. Eine Ebene: gemeinsame Anschlusshöhen, plausible Längs-/Querneigung und Kurven zunächst lokal lösen.
@@ -23,5 +23,5 @@ Besitzer: generators/road; finales Terrain konsumiert die geplanten Kontakte.
 Klassenabhängige praxistaugliche Profile, stetige Anschlüsse, keine Stufen/verdrehten Fahrbahnen.
 Ausgegebene ganze Querschnitte prüfen; richtige Mittellinien allein reichen nicht.
 Keine Fixierung auf Originalhöhen oder globale optimale Rekonstruktion. Nutzungsgrad/Bild/Kosten entscheiden.
-[Profile/Envelopes](../test/experiments/infrastructure/road_profile_envelopes.py),
-[Procedural Roads, Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
+[Profile/Envelopes](../test/experiments/transport/road_profile_envelopes.py),
+[Procedural Roads, Eurographics 2010](../doc/references/transport/eurographics/2010-procedural-generation-of-roads.pdf).

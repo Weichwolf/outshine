@@ -7,7 +7,7 @@ Depends: 2281
 Area: generators, world, engine
 Tags: buildings, roofs, facades, semantics
 
-# Buildings fit the infrastructure and gain coherent spatial detail
+# Buildings fit the transport and gain coherent spatial detail
 
 ## Ergebnis und Ist
 Plausible, vollständige Baukörper mit Höfen/Parts, passenden Dächern/Sonderformen und räumlichen Nahfassaden.
@@ -19,6 +19,8 @@ Hall-/Turmkörper erhalten regelmäßige Öffnungen, schmale Schächte bleiben g
 Gelieferte Nutzung geht vor; Sonderformen und weitere Rezeptfamilien bleiben auszubauen.
 
 ## Besitzer und Lieferung
+Buildings wird parallel zu Transport entwickelt; gemeinsame Bereichs-/Freiraumverträge stehen in 2342.
+Buildings besitzt Baukörper/Durchgänge, nicht den Verkehrsnetzsolver; gelieferte Ports bleiben erhalten.
 OSM-Erweiterung normalisiert tatsächliche Eigenschaften; building besitzt Form-/Kontaktpläne.
 world/Renderer konsumieren native Assets ohne Tags/Generator-Eingabeverträge. 2336 besitzt LOD.
 Zuerst vollständige Formen/Höhen/Sonderklassen in Wien/Rosenheim, danach Dächer und Nahöffnungen.
@@ -36,7 +38,7 @@ Innenringe/geschlossene Baublöcke plus Wegzyklen liefern Hofkandidaten, kein au
 Durchgänge anhand gelieferter Tunnel/Überdeckung und fortgesetzter Wege planen; Zugang/Verkehrsart erhalten.
 Brauchbare Restkörper samt Höfen/Parts, Tags/Herkunft behalten; unbrauchbare Reste dürfen entfallen.
 Native Rohlinge binden den Infrastrukturplan; danach Terrain darunterlegen. Keine erneute Differenz bei Treffer.
-[2D-Vergleich](../test/experiments/infrastructure/infrastructure_building_clearance.py): GEOS mit räumlicher Vorauswahl
+[2D-Vergleich](../test/experiments/transport/transport_building_clearance.py): GEOS mit räumlicher Vorauswahl
 gegen globale Schnittfläche, Schnitt gegen Weglassen; echte Stadtstichproben. Höhen-/Hallplan noch offen.
 
 ## Form und Quellsemantik

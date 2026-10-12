@@ -21,6 +21,8 @@ ist beseitigt. Niedrige Bauten dürfen unter freier Krone bleiben; Wasser/Weg-Au
 und freie Standorte bleiben erhalten. Der vollständige Wald-Ausbau bleibt später; kleine bildwirksame Schritte sind jetzt erlaubt.
 
 ## Besitzer und Datenfluss
+Vegetation wird parallel zu Transport/Buildings entwickelt; gemeinsame Bereichsgrenzen stehen in 2342.
+Standorte/Wuchsformen respektieren deren belegte Flächen und Freiräume, ohne Verkehrs-/Baukörper neu zu lösen.
 OSM-Adapter besitzt Landcover-/Baumhinweise. VegetationTemplates besitzt deklarierte
 Standortmischungen; Shipping löst Artennamen einmal in kompakte Prototypindizes auf.
 Forest erzeugt einen stabilen Bestandsplan aus Bodenklasse, Höhe, Hang und Welt-Seed.

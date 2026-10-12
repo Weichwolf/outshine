@@ -5,7 +5,7 @@ Priority: P0
 Parent: 2169
 Depends: 
 Area: generators, world
-Tags: infrastructure, solver, recipes
+Tags: transport, solver, recipes
 
 # Flat transport axes provide a bounded plausible vector network
 
@@ -13,21 +13,31 @@ Tags: infrastructure, solver, recipes
 Ein ebener quellbezogener Vektorgraph als erstes gültiges Grundmodell; kein Höhenraster.
 OSM-Achsen geben Verteilung/Verbindungshinweise. Kleine lokale Anpassungen sind ausdrücklich erlaubt.
 Der vorhandene Flächenversuch vereinigt Bänder, löst aber weder Ports noch alle Verkehrsverbindungen.
-Besitzer: generators/road; OSM-Semantik verbleibt in generators/osm. Native Lieferung folgt in 2281.
-[Ebener Vektorversuch](../test/experiments/infrastructure/infrastructure_flat_network.py) liefert kleine Grundfälle,
+Besitzer: Transport/generators/road; OSM-Semantik verbleibt in generators/osm. Native Lieferung: 2281.
+[Ebener Vektorversuch](../test/experiments/transport/transport_flat_network.py) liefert kleine Grundfälle,
 Quell-IDs pro nodelter Kante, begrenzte lokale Endkorrekturen und eine vollständige Nutzungsbilanz.
 Andere Ebenen/Innenräume bleiben in diesem Schritt ausdrücklich nicht verwendet.
 Lückenlose Bauteilflächen, Kurven/Routenregeln und native Integration sind damit noch nicht bewiesen.
-[Quellrichtung](../test/experiments/infrastructure/infrastructure_source_directions.py) unterscheidet umgekehrte
+[Quellrichtung](../test/experiments/transport/transport_source_directions.py) unterscheidet umgekehrte
 Quellen und überträgt deren Orientierung auf jede gemeinsam genodelte Kante, auch bei Ringen.
 Numerisch identische Knoten werden gemeinsam mit dem Mesh unter derselben Verschiebungsgrenze
 vereinigt; reine Rundungsreste sind keine befahrbaren Kanten. Unklare Richtungen werden gezählt.
-[Verkehrsprüfung](../test/experiments/infrastructure/infrastructure_travel_experiment.py) übersetzt gelieferte
+[Verkehrsprüfung](../test/experiments/transport/transport_travel_experiment.py) übersetzt gelieferte
 Richtung/Zugänge und Klassenrezepte in gerichtete Modusmasken. Spezifische Angaben überschreiben
 allgemeine Zugänge; private/beschränkte Verbindungen bleiben getrennt vom öffentlichen Netz.
 Absteigen/Seitenwegbedarf und unklare Werte werden quellbezogen ausgewiesen, nicht still geraten.
 Auto→Treppe und Rückfahrt in Einbahnrichtung sind ausgeschlossen. Fahrspuren, Abbiegeverbindungen
 und Fahrzeughüllen bleiben offen; Zugangsregeln allein beweisen keine Befahrbarkeit.
+
+## Bereichsgrenzen und parallele Arbeit
+Transport besitzt Straßen/Wege/Schienen samt verkehrsbezogenen Brücken, Tunneln und Ports.
+Buildings (2173) und Vegetation (2111) werden unabhängig parallel entwickelt.
+Gemeinsame OSM-Aufbereitung erhält Quellidentitäten/Tags; keine getrennten Quellsilos.
+Transport publiziert belegte Flächen, Höhenintervalle, Freiräume und Zugangskontakte.
+Buildings besitzt Baukörper/Durchgänge; Vegetation besitzt Standorte/Wuchsformen.
+Beide konsumieren diese räumlichen Verträge statt Verkehrsgeometrie erneut zu lösen.
+Gebäudekonflikte im Transportexperiment prüfen nur den Vertrag, nicht Gebäuderezepte.
+Eine Quelle darf mehrere Produkte beeinflussen; world bleibt frei von OSM-Semantik.
 
 ## Umsetzung in kleinen Schritten
 1. Gerade, T, X, Kurve, Sackgasse, kurzer Verbinder, knapp verfehlter Anschluss und Insel einzeln lösen.
@@ -46,6 +56,6 @@ Quellbezogener ebener Graph mit gemeinsam gespeicherten Knoten und vollständige
 Kein stiller Verlust, keine ungültigen Verbindungen; isolierte ungelöste Teile blockieren das übrige Netz nicht.
 Budget und Wiederholungsgrenze explizit; Laufzeit/Spitzen/Wachstum mit echten Eingaben messen.
 Ein paar zusammenhängende Straßen sind nur der erste Fall, kein Beleg für das ganze Fenster.
-[Flächenversuch](../test/experiments/infrastructure/infrastructure_network.py),
-[Graphversuch](../test/experiments/infrastructure/infrastructure_network_graph.py),
-[Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf).
+[Flächenversuch](../test/experiments/transport/transport_network.py),
+[Graphversuch](../test/experiments/transport/transport_network_graph.py),
+[Street Modeling, SIGGRAPH 2008](../doc/references/transport/siggraph/2008-interactive-procedural-street-modeling.pdf).

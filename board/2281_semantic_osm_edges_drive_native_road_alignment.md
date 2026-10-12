@@ -10,7 +10,7 @@ Tags: roads, bridges, tunnels, topology
 # Roads, rails and paths form a continuous usable transport network
 
 ## Ergebnis und Ist
-Plausible Straßen, Geh-/Radwege, Bahn/Tram, Brücken und Tunnel bilden ein funktionales Netz.
+Transport besitzt Straßen/Wege/Schienen/Brücken/Tunnel; Abgrenzung zu Buildings/Vegetation: 2342.
 Vorrang: Wiener Anschlüsse/Brücken; danach Feldkirch, Basel Badischer Bahnhof, Zürich HB und Häfen.
 Corridors liefert Geometrie/Kontakte; gemeinsame native Höhenplanung bindet Anschlüsse, Sekanten
 und Freiraum vor Geometrie/Terrain; Sync/Async teilen sie. Anschlussflächen übertragen nativ
@@ -23,7 +23,7 @@ Offen: geografische Kachelports/Cacheplan, Ebenenübergänge, C1, Breitenfreirau
 Der analytische RoadAlignment-/Surface-Pfad verlangt benannte Routen; auf denselben Plan vereinigen.
 Zürich HB lädt wieder: gemeinsame Brückenebenen teilen eine physische Höhe, Verkehrsports bleiben
 getrennt; kurze Kreuzungen im gemeinsamen Landekern erzeugen keinen falschen Unterpass.
-Bahnhofsanschlüsse bleiben fehlerhaft. [2D-Flächenversuch](../test/experiments/infrastructure/infrastructure_network.py)
+Bahnhofsanschlüsse bleiben fehlerhaft. [2D-Flächenversuch](../test/experiments/transport/transport_network.py)
 vereinigt ganze Wiener/Zürcher/Basler Quellfenster; funktionale Ports/Kurven sind noch nicht gelöst.
 ## Nächste Lieferung
 2342 → 2343 → 2344 → 2345 liefern Graph, ebene Bauteile, Profile und Ebenenrezepte.
@@ -109,11 +109,11 @@ Keine native Gate-Arbeit während der Verfahrenssuche; erfolgreiche Python-Schri
   Kontakt-/Höhenfehler vor Verfeinerung beheben; 2336 wählt Arbeit, 2280 versioniert native Rezepte/Cache.
 
 ## Verfahren und Abnahme
-[Street Modeling, SIGGRAPH 2008](../doc/references/infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf): Graph vor Geometrie; [Eurographics 2010](../doc/references/infrastructure/eurographics/2010-procedural-generation-of-roads.pdf): Profile, Bauwerke, Terrainkontakte.
-[SUMO/CARLA/OSM2World](../doc/references/infrastructure/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
-[Kern-/Rampenrezepte](../test/experiments/infrastructure/infrastructure_recipes.py), [gemeinsame Ports](../test/experiments/infrastructure/infrastructure_ported_junction.py): Flächen vor Mesh; feste Außenhöhen, starre Kerne/quintische Ansätze, Flächenneigung/Freiraum, LP-Vergleich.
-[Höhenplanung](../test/experiments/infrastructure/road_profile_envelopes.py), [Landekern](../test/experiments/infrastructure/road_landing_topology.py): native Höhenränder/Portoffsets, Schnittvorrang, Höhenbindung/kurze Anschlüsse; kein vollständiger C1-/Breitenbeweis.
-[Übergänge](../test/experiments/infrastructure/earthwork_transition.py), [Freiraum](../test/experiments/infrastructure/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/infrastructure/road_junction_coverage.py), [Rasterkontakt](../test/experiments/infrastructure/road_terrain_contact.py): echte Inputs, gleiche Qualität.
+[Street Modeling, SIGGRAPH 2008](../doc/references/transport/siggraph/2008-interactive-procedural-street-modeling.pdf): Graph vor Geometrie; [Eurographics 2010](../doc/references/transport/eurographics/2010-procedural-generation-of-roads.pdf): Profile, Bauwerke, Terrainkontakte.
+[SUMO/CARLA/OSM2World](../doc/references/transport/README.md): Netzfunktion und isolierte Meshes; keine Vermessungstreue.
+[Kern-/Rampenrezepte](../test/experiments/transport/transport_recipes.py), [gemeinsame Ports](../test/experiments/transport/transport_ported_junction.py): Flächen vor Mesh; feste Außenhöhen, starre Kerne/quintische Ansätze, Flächenneigung/Freiraum, LP-Vergleich.
+[Höhenplanung](../test/experiments/transport/road_profile_envelopes.py), [Landekern](../test/experiments/transport/road_landing_topology.py): native Höhenränder/Portoffsets, Schnittvorrang, Höhenbindung/kurze Anschlüsse; kein vollständiger C1-/Breitenbeweis.
+[Übergänge](../test/experiments/transport/earthwork_transition.py), [Freiraum](../test/experiments/transport/clearance_aprons.py), [Kreuzungsflächen](../test/experiments/transport/road_junction_coverage.py), [Rasterkontakt](../test/experiments/transport/road_terrain_contact.py): echte Inputs, gleiche Qualität.
 Durchgehende reale Anschlüsse ohne Risse, verlorene Ebenen, Wasser-/Geländewände oder unbefahrbare Profile.
 Verwendetes Netz auch ohne Terrain/Gebäude lückenlos; 2D-Review zeigt Tunnel gestrichelt,
 Brücken blau, Ebenen separat. Nicht verwendete Quellen/Gründe, Netzfunktion, Bild/Kosten prüfen.

@@ -5,14 +5,14 @@ Priority: P0
 Parent: 2169
 Depends: 2342, 2344
 Area: generators, world
-Tags: infrastructure, solver, recipes
+Tags: transport, solver, recipes
 
 # Grade-separated recipes preserve usable local transport networks
 
 ## Ergebnis und fehlende Verträge
 2342 liefert Quellbezug/Nutzungsbilanz; 2344 liefert konstruktive Profile samt gemeinsamen Ports.
 Einfache Überführung, Unterführung/Tunnel und Rampe bilden zunächst zwei, danach drei lokale Ebenen.
-Besitzer: generators/road; Gebäude/Terrain konsumieren den Freiraum.
+Besitzer: Transport/generators/road (Grenzen: 2342); Buildings/Terrain/Vegetation konsumieren den Freiraum.
 
 ## Umsetzung und Abnahme
 1. Einen Zweiebenenfall mit festen Rezepten liefern: Anschluss oder Überführung ausdrücklich unterscheiden.
@@ -23,5 +23,5 @@ Besitzer: generators/road; Gebäude/Terrain konsumieren den Freiraum.
 Durchgängige verwendete Anschlüsse, funktionale Durchfahrten/Portale und plausible Steigungen.
 Zeit/Varianten/Speicher begrenzen; mehr Ebenen nur nach gemessenem Wachstum und Bildgewinn.
 Keine unbegrenzte Suche nach einer einzigen korrekten Lösung; Ergebnis/Nutzungsgrad vor Solver-Aufwand.
-[Rezepte](../test/experiments/infrastructure/infrastructure_recipes.py),
-[Primärquellen/Referenzprojekte](../doc/references/infrastructure/README.md).
+[Rezepte](../test/experiments/transport/transport_recipes.py),
+[Primärquellen/Referenzprojekte](../doc/references/transport/README.md).

@@ -34,19 +34,19 @@ Gebäude speichern jetzt Schema-4-Metadaten und separat komprimierte Formen je b
 Auswahl öffnet keine Formen; Detail lädt seine Zelle. Misses nutzen Pläne/Kontakte.
 Inhaltsschlüssel bleiben stabil; Schema 3 wird atomar nach 4 übernommen, ohne Quellbeschaffung.
 Native Gebäude-Basis: Koordinaten, Quell-IDs/Zellen, Origin/Höhenbindung. LOD-Hits ohne Pläne; Geometriemisses öffnen Eltern. Fehlende Pläne invalidieren die Basis. Hierarchie/Arbeitsmenge offen.
-[Zellenmodell](../test/experiments/infrastructure/prepared_building_residency.py) begründet Formladung bei Bedarf.
+[Zellenmodell](../test/experiments/transport/prepared_building_residency.py) begründet Formladung bei Bedarf.
 1. P0: Bedarf aus 2336 vor Quellen/Cachedecode; räumliche Eltern/Kinder statt Kamerasnapshots.
-   [Liefermodell](../test/experiments/infrastructure/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
+   [Liefermodell](../test/experiments/transport/building_asset_delivery.py): Basis hält Koordinaten/Origin/Höhenbindung/Quell-IDs/Zellen; volle Pläne/Auswahl nur bei Miss/Nahdetail.
    Gebäude-Anfragen finden Basis/Inhalts-ID vor Straßen-Digests. Native OSM-Kacheln werden vor
    Provider/MVT auf dem Compute-Worker geladen; Geometrie/Klassifizierung teilen den Pfad.
    P0: GroundRegionParameters bindet exakte Augen-/Ankerposition. Kanonische Kachel-/LOD-Produkte statt Verbundneubau bei Bewegung; Infrastrukturpläne aus 2281 integrieren.
    Teilstände treffen keinen vollständigen Bedarf; vorhandene Pakete werden atomar gebunden.
    Native Klassen vor Feldern laden und Abdeckung über Übergaben halten; Hits sparen globale Straßenfelder.
    P0: Gebäude-Höhenbedarf vor Felddecode nach räumlichem Detailbedarf wählen; Fernbauten fordern bisher pauschal feinste DEM-Kacheln. Kachelpläne aus 2281/2336 liefern Bedarf, keine globale Feinabdeckung.
-2. P0: fertige 257²-Höhensamples (528.416 B) asynchron laden; nur Miss sampelt/speichert. [Modell](../test/experiments/infrastructure/prepared_ground_patch.py): Rastergröße/Präzision. Zehn gleiche Offline-Bildpaare: 25–32 MiB Zusatzlesungen entfallen; CP/Tokyo je 2 MiB Kamerahöhe. Deformierte Kontakte bleiben separat. WaterAsset integriert, Konturen/Löcher erhalten. [Packmodell](../test/experiments/infrastructure/water_asset_coordinates.py): 9–286 kB statt 0,19–60 MB. Weitere Produkte nach 2188 trennen.
+2. P0: fertige 257²-Höhensamples (528.416 B) asynchron laden; nur Miss sampelt/speichert. [Modell](../test/experiments/transport/prepared_ground_patch.py): Rastergröße/Präzision. Zehn gleiche Offline-Bildpaare: 25–32 MiB Zusatzlesungen entfallen; CP/Tokyo je 2 MiB Kamerahöhe. Deformierte Kontakte bleiben separat. WaterAsset integriert, Konturen/Löcher erhalten. [Packmodell](../test/experiments/transport/water_asset_coordinates.py): 9–286 kB statt 0,19–60 MB. Weitere Produkte nach 2188 trennen.
 3. P0: bestätigten Tokyo-Anstieg und verbliebene W/CP-Footprint-Regressionsursache zuordnen/beseitigen: Decoder-Scratch, Allocator-/Treiberreserven und Upload-Lebensdauer. Gemeldete Puffer erklären den OS-Footprint nicht vollständig.
-   Renderer teilt Maps/Material ([Modell](../test/experiments/infrastructure/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
-4. P1: [Paketmodell](../test/experiments/infrastructure/impostor_ready_payload.py): Capture 20 MiB, Flat-Karten 6 MiB; [Mip-Modell](../test/experiments/infrastructure/prepared_image_mips.py): +2 MiB untere Stufen, keine Basisduplikation.
+   Renderer teilt Maps/Material ([Modell](../test/experiments/transport/material_image_residency.py)). Native Bilder halten Basis und optionale Linear-/sRGB-/Normalmips; Producer bereitet vor Publikation vor, Hits uploaden direkt. Eigene Produkt-/Codecversion; bildlose Assets und Captures bleiben gültig.
+4. P1: [Paketmodell](../test/experiments/transport/impostor_ready_payload.py): Capture 20 MiB, Flat-Karten 6 MiB; [Mip-Modell](../test/experiments/transport/prepared_image_mips.py): +2 MiB untere Stufen, keine Basisduplikation.
    Native GeometryAsset-Karten umgehen Coverage-/Farbvorbereitung; Atlas-Rohlinge bleiben. Miss/Defekt repariert nur Karten; ca. −60 % entpackte Bytes, kein RAM-/Framegewinnbeweis.
    Atlas-Rezept bindet Artdefinition, Größe/Blicke und getrennte Generator-/Capture-Versionen; Änderungen an Wachstum oder Capture-Semantik erhöhen die jeweilige Version. Codecs prüfen eigene Formate. Fachfremde Engine-/Buildänderungen invalidieren nicht.
 5. P1: SSD automatisch budgetiert verdrängen; aktive Assets, Paketmitglieder, Eltern und Quellen erhalten. Nutzdaten bleiben opaque. Warm <10 s; Gebäudebedarf vor Decode.
@@ -75,11 +75,11 @@ Generatoren teilen Geometrie-/Netzcodecs; GPU-Handles bleiben flüchtig. Kein Un
    je Frame: grobe Rundumprodukte und nahe Arbeitsmenge bleiben für schnelle Drehungen resident.
 2. Metadaten enthalten stabile Asset-ID, Weltbounds/Anker, Produkt-/Generatorversion, LOD-/Eltern-
    Kindbezug, Qualitäts-/Kostenangaben, Abhängigkeiten und Speicherort/Bytebereich. Eine optionale Anfrage-ID bindet Generator-/Quellkonfiguration, Region/LOD und Parameter vor Quellenarbeit; ein eindeutiger SQLite-Index adressiert ihr fertiges Produkt. Inhalts-ID/Herkunft binden weiter die tatsächlichen Eingaben. Publikation aktualisiert die Bindung atomar; kein automatisches Refresh und keine Kamerasnapshot-ID.
-   Schema 3 ergänzt optionale Anfragebindungen ohne Payload-Neubau; Schema 1/2 erhalten. [Indexmodell](../test/experiments/infrastructure/native_request_index.py): Metadatenspalte statt separater Bindungstabelle; Builtins/Erweiterungen teilen ResolveAssetRequest.
+   Schema 3 ergänzt optionale Anfragebindungen ohne Payload-Neubau; Schema 1/2 erhalten. [Indexmodell](../test/experiments/transport/native_request_index.py): Metadatenspalte statt separater Bindungstabelle; Builtins/Erweiterungen teilen ResolveAssetRequest.
 3. Regelmäßige OSM-/DEM-Quellkacheln direkt über Kachel-IDs adressieren. SQLite-R*Tree hält
    Paketbounds in ECEF; Radius-/Frustumtests folgen konservativer Boxabfrage.
    Geladene Pakete verwenden gepackte Bereiche, keine SQL-Abfrage je Frame.
-   [Python-Modell](../test/experiments/infrastructure/asset_residency.py): 100.545 Polygone → 1.837 Pakete,
+   [Python-Modell](../test/experiments/transport/asset_residency.py): 100.545 Polygone → 1.837 Pakete,
    25,17 MB, warmer Dateicache ca. 2,9 ms statt 5,3 s Decode; kein nativer/GPU-Nachweis.
    Weite residente Abfragen bevorzugen Arrays, lokale persistente Abfragen den Paket-R*Tree.
    Räumlich gebündelte Assetpakete/Bereichslesungen, keine Datei/IO-Anfrage je Haus/Baum.

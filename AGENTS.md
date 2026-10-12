@@ -134,7 +134,7 @@
 - Ein schwerer Lauf zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
   detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
-- Experimentquellen nach `test/experiments/infrastructure/`, Eingaben und Ergebnisse
+- Experimentquellen nach `test/experiments/transport/`, Eingaben und Ergebnisse
   nach `build/experiments/`. In `build/shots/` bleiben ausgewählte Präsentationsbilder und benötigte
   Referenzen. Überholte Versuchsdateien nach Auswertung löschen.
 - Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
