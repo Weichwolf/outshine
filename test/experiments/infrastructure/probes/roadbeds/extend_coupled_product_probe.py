@@ -44,7 +44,8 @@ def existing_products(prior,network):
             pieces=[dict(p,begin=np.array(p['begin']),end=np.array(p['end']),
                 fit={k:np.asarray(v) for k,v in p['fit'].items()}) for p in proof['pieces']]
             curves.append(dict(pair=pair,source_route=routes[pair],existing_surface=True,
-                candidate=dict(path=shapely.LineString(proof['path']),pieces=pieces,roadbed=shapely.Polygon())))
+                candidate=dict(path=shapely.LineString(proof['path']),pieces=pieces,roadbed=shapely.Polygon(),
+                               report=dict(reason='retained_prior_curve'))))
         base=shapely.from_wkb(row['public_surface_wkb']);core=shapely.from_wkb(row['physical_shape_wkb'])
         products[owner]=dict(base=base,core=core,planned=base,physical=core,
             quantum=row['coordinate_precision_m'],curves=curves,poses=poses,routes=routes,
@@ -68,6 +69,7 @@ def add_curve(root,network,products,owner,pair,note):
         entry={k:poses[pair[0]][k] for k in ('position','heading')},
         exit={k:poses[pair[1]][k] for k in ('position','heading')})
     seed,_=candidate(data,note)
+    seed['report']={k:v for k,v in note.items() if k!='curve_controls'}
     planned=seed['surface'];addition=planned.difference(floor)
     sections=shapely.STRtree(list(network.sections.values()))
     assert addition.intersection(reserved).area<=1e-8,'reservation overlap'
