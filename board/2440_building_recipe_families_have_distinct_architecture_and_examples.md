@@ -26,7 +26,8 @@ Ungewichtetes Skelett ist ein Vergleichspfad, keine vollständige Esri-Dachentsp
 Rechtecke analytisch gegen Skelett vergleichen; konkave/Hofgrundrisse aus Skelett, keine Bounding-Box-Ersetzung.
 Je 21 warme Läufe, gleiche geprüfte Flächen/Aufpunkthöhen/Plattenvolumen; lokale Kosten nahezu gleich, kein Globalgewinner.
 Analytisch bei tatsächlich rechteckiger Quelle, sonst Skelett; Flächen müssen Quelle lücken-/überlappungsfrei abdecken.
-256 Quellvertices/1.024 Skelettknoten/4.096 Events; zwei Sekunden Workerbudget, gemeinsamer Bibliothekstracer geschützt und auch nach Fehler wiederhergestellt.
+256 Quellvertices/1.024 Skelettknoten/4.096 Events; Zwei-Sekunden-Abbruchcheck während Events, Vorbereitung/Initialisierung außerhalb dieses Timers.
+Gemeinsamer Bibliothekstracer geschützt und auch nach Fehler wiederhergestellt; keine harte Framezeitgrenze.
 [`roof_components.py`](../test/experiments/buildings/roof_components.py): geschlossene 0,18-m-Dachplatten und Giebel-/Attikwandinfill.
 Obere Geschossdecke am Dachkontakt verjüngen, darunterliegende Kopffreiheit erhalten; überlappende Außenflächen erzeugten sichtbare Streifen.
 Abgeleitete Kontaktpolygone verwenden beidseitig das vorhandene 1e−8-m-Raster; Kontaktdicken unter 1e−7 m auf null, größere negative Dicke verwerfen.
@@ -41,6 +42,10 @@ Original-OSM-Dachfelder sind optionale Kontrollen, keine Behauptung über ihren 
 Mesh-Schnitt enthält auch Kanten/Faces genau auf der Ebene; sonst verschwanden First und Deckenabschnitte in den Diagnosebildern.
 Gleiche Kamerakonstruktion/Licht wie Esri-Candler; Candler ergänzt oberhalb seines Höhenparameters, eigener Dachraum liegt innerhalb der Quelle.
 Distanzbilder zunächst vollständige Detailreferenzen; kein freigegebener Fern-LOD, keine vollständige Rezeptfamilie oder Nachtlichtabnahme.
+24 Kombinationen auf sechs Grundrissen: 72 Nah-/Gegen-/Distanzbilder und 24 Plan-/Schnitt-/2.5D-Vergleiche optisch geprüft.
+Synthetische Außenansichten 1280×720, reale Esri-Vergleichskameras 854×480; dieselben gespeicherten Kamera-/Lichtbedingungen.
+Bilddefizit: generische Fensterachsen ohne Rahmen/Erdgeschossgliederung/Dachranddetails; geneigte Dachflächen in Eevee zu schwach lesbar.
+Blender-Import von Koordinaten, Materialien und geneigten Dachnormalen geprüft; diagnostische koplanare Triangulationskanten im Schnitt bleiben sichtbar.
 
 ## Familien und Komponenten
 - Haus/Bungalow/Reihenhaus: Geschosse/Räume/Eingang, Fensterachsen und Dach-/Traufkonstruktion.
