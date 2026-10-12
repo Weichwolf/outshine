@@ -16,6 +16,9 @@ Gemeinsame organische Gabeloberflächen ersetzen sichtbare Nähte überlappender
 
 ## Referenz und Verfahren
 Ghidra: ComputeWeldRing, WeldStart, CacheWeldRing, GetWeldParent und FixBifurcation.
+WeldHit delegiert abhängig vom Raycaster an Elternaufrufe oder Cast/CastForWeld; statischer Befund.
+RadiusProfile kombiniert Profil-/Override-Auswertung und eine bedingte gewichtete Profilmodulation;
+unbekannte Konstanten/Feldbindungen bleiben offen, kein numerisch ausgeführter Originalbeleg.
 [SpeedTree Welding](https://docs.unity3d.com/speedtree-modeler/manual/branch-generator-properties.html#welding):
 Elternanschluss, Raycast-Alternative, Offset und Verbreiterung des Anschlussbereichs.
 [Bloomenthal, SIGGRAPH 1985](../doc/references/vegetation/siggraph/1985-modeling-the-mighty-maple.pdf)
@@ -38,6 +41,16 @@ Eigener Beleg für eindeutige radiale Nullstelle und nichtverschwindende Oberfl�
 Feldwerte haben m², keine vorzeichenbehaftete Distanz; Normalen aus dem Gradienten ableiten.
 `fork_field.py` besitzt Plan/Feld; `fork_surface.py` Gitter-/radiale Flächen, `fork_adaptive.py` Vergleichspfad.
 `cube_surface.py` ist gemeinsame Cube-Parametrisierung; Kronenaufrufer migrieren, Ausgaben erhalten.
+Gemessener Engpass: dichte Volumenfelder brauchen beim 128er Gitter rund 0,33–0,47 s je Gabel.
+Konservative Blockgrenzen vor Punktabfragen testen; alle acht Werte jeder oberflächenschneidenden
+Zelle erhalten. Feldarbeit und Intervallarbeit getrennt zählen; Mesh/Bild bei gleichen Eingaben erhalten.
+[Duff, SIGGRAPH 1992](../doc/references/vegetation/siggraph/1992-interval-arithmetic-csg.pdf):
+Gebietsgrenzen und Unterteilung ergänzen die eigenen Segment-/Feldgrenzen; nach außen runden.
+Blockdistanz folgt 1-Lipschitz-Segmentdistanz und umschließender Boxkugel; Feldgrenzen aus σ-Schranke.
+Ein numerischer Sicherheitsaufschlag ergänzt die Rundung; kein universeller IEEE-Feldbeweis behauptet.
+34.560 Eck-/Innenproben in 864 Boxen, 1/3/16 Segmente, Maßstäbe 0,001–1000 und Ursprung 10⁶.
+24 kleine dichte/Blockgitter liefern identische Vorzeichen, Schnittzellwerte und sämtliche Mesharrays.
+Volumenspeicher bleibt dicht; zusätzliche Auswahlmasken zählen separat, nur Feldarbeit wird ausgelassen.
 
 ## Umsetzung und Abnahme
 Stabile Quelldaten bestimmen Gabel und Anschlüsse; angeforderte Auflösung vor Erzeugung.
@@ -51,10 +64,13 @@ Beobachtete Stichprobenfehler nicht als allgemeine Hausdorff-Schranke ausgeben.
 ## Aktueller Beleg und Verfahrenswahl
 40 unabhängige SLSQP-Vergleiche, zwei analytische Kugelfälle mit 202 Richtungen,
 je Gabel 37 skalare Feldpositionen/41 Brent-Richtungen, Differential-/Transformations-/Permutationsprüfungen.
-Symmetrisch, ungleich und räumlich: 27 Geometriefälle, jeweils drei CPU-Wiederholungen.
+Symmetrisch, ungleich und räumlich: 36 Geometriefälle, jeweils drei CPU-Wiederholungen.
 355 unabhängige Richtungen je Fall, gleicher radialer Stichprobenfehler ≤5 mm, keine Normalenumkehr.
 Alle Flächen geschlossen, eine Komponente, Eulerzahl zwei; Produktbytes/Volumengitter/RSS getrennt.
-Marching Cubes mit 128 Zellen erfüllt den Bildprobenvertrag in allen drei Fällen und ist hier CPU-günstiger.
+Marching Cubes mit 128 Zellen erfüllt den Bildprobenvertrag in allen drei Fällen.
+Blockauswahl mit acht Zellen ist hier CPU-günstiger: 210–218 statt 413–606 ms im lokalen Vergleich.
+Neun 128er Blockfälle sind einschließlich Normalen bitgleich zum jeweiligen dichten Mesh;
+238.175–248.048 statt 627.627–916.769 Feldpunkte. Zeitwerte sind geteilte Rechner-CPU, kein Geräteziel.
 Gleichmäßige radiale Abtastung verfehlt ihn; adaptive Abtastung reduziert Dreiecke, kostet mehr Python-CPU.
 Ein adaptiver Lauf kann seine lokale Probeanforderung trotz gültiger Geometrie wegen Tiefenlimit verfehlen.
 Zusätzliche Vertex-Projektion beim 64er Gitter reicht im Vergleich ebenfalls nicht für die Fehleranforderung.

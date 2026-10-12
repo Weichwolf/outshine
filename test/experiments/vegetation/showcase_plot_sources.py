@@ -5,7 +5,7 @@ PLOT_SOURCES = (
         "forks/forks.json",
         "fork_plot",
         "Gemeinsame Astgabeln · Formfehler, Erzeugung und Speicher",
-        "Drei Verfahren auf derselben kompakten Verschmelzungsform: gleichmäßige und adaptive radiale Abtastung sowie Lewiner-Marching-Cubes. Je Gabel 355 unabhängige Zufalls-/Ast-/Endstrahlen und dieselbe beobachtete Fehleranforderung von 5 mm. Eine geschlossene, außenorientierte Komponente mit gemeinsamen analytischen Normalen. Drei lokale CPU-Wiederholungen; erste Erzeugung und Feld-/Produktbytes getrennt. Die Stichproben sind keine globale Hausdorff-Schranke oder Modeler-/Runtime-Kostenfreigabe.",
+        "Gleichmäßige/adaptive radiale Abtastung und Lewiner-Marching-Cubes auf derselben kompakten Verschmelzungsform. Blockauswahl spart Feldabfragen; Vertices, Dreiecke und Normalen sind exakt gegen das vollständige Gitter geprüft. Je Gabel 355 unabhängige Zufalls-/Ast-/Endstrahlen und dieselbe beobachtete Fehleranforderung von 5 mm. Eine geschlossene, außenorientierte Komponente mit gemeinsamen analytischen Normalen. Drei lokale CPU-Wiederholungen; erste Erzeugung und Feld-/Produktbytes getrennt. Die Stichproben sind keine globale Hausdorff-Schranke oder Modeler-/Runtime-Kostenfreigabe.",
     ),
     (
         "spines/spines.json",

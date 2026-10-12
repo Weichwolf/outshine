@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
 Stand: 2026-10-12. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-39 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+40 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -199,6 +199,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [PDF](vegetation/jgt/2003-marching-cubes-topological-guarantees.pdf), Autorenpreprint.
   Gemeinsame Gabeloberflächen aus impliziten Feldformen als Vergleich erzeugen (2352).
   Die Topologiegarantie betrifft trilineare Gitterinterpolation; Kontinuitäts-/Bildfehler eigens prüfen.
+- **Interval Arithmetic and Recursive Subdivision for Implicit Functions and
+  Constructive Solid Geometry**, Duff, SIGGRAPH 1992.
+  [Primärquelle im MIT-Kursarchiv](https://fab.cba.mit.edu/classes/S62.12/docs/Duff_interval_CSG.pdf) ·
+  [PDF](vegetation/siggraph/1992-interval-arithmetic-csg.pdf).
+  Optisch geprüfte Intervall-/Gebietsformeln begründen Blockauswahl vor Feldabtastung (2352).
+  Eigene Kapselgrenzen nach außen runden; Gleitkomma-Feldwerte zusätzlich absichern und prüfen.
 - **Projection onto the Probability Simplex**, Wang / Carreira-Perpiñán, arXiv 2013.
   [Autorenquelle](https://arxiv.org/abs/1309.1541) ·
   [PDF](vegetation/math/2013-probability-simplex-projection.pdf).

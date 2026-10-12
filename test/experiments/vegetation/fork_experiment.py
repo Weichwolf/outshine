@@ -21,7 +21,8 @@ from fork_checks import (
     sphere_checks,
 )
 from fork_field import ForkField
-from fork_surface import radial_mesh, voxel_mesh
+from fork_surface import blocked_voxel_mesh, radial_mesh, voxel_mesh
+from fork_volume_checks import enclosure_checks, equivalence_checks
 from organ_experiment import UPRIGHT, write_product
 from spine_frames import unit
 
@@ -96,14 +97,22 @@ def compare(field):
     directions = probe_directions(field)
     exact, _stats = field.radial_radius(directions)
     rows, winner_mesh, winner = [], None, None
+    dense_reference = None
     methods = (
         *(partial(radial_mesh, field, level) for level in (4, 5, 6)),
         *(partial(voxel_mesh, field, cells) for cells in (32, 64, 96, 128)),
+        *(partial(blocked_voxel_mesh, field, 128, size) for size in (4, 8, 16)),
         *(partial(adaptive_mesh, field, tolerance) for tolerance in (0.007, 0.003)),
     )
     for method in methods:
         mesh, row = measure(field, method, directions, exact)
         rows.append(row)
+        if row["method"] == "voxel" and row["longest_axis_cells"] == 128:
+            dense_reference = mesh
+        if row["method"] == "blocked":
+            for key in mesh:
+                np.testing.assert_array_equal(mesh[key], dense_reference[key])
+            row["exact_dense_mesh"] = True
         if row["same_quality_pass"] and (
             winner is None or row["median_ms"] < winner["median_ms"]
         ):
@@ -172,7 +181,8 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     fields = fixtures()
-    checks = blend_checks() | sphere_checks()
+    checks = blend_checks() | sphere_checks() | enclosure_checks()
+    checks.update(equivalence_checks(fields))
     checks["rejected_invalid_inputs"] = rejection_checks()
     selected, results = {}, {}
     for name, field in fields.items():
@@ -206,6 +216,9 @@ def main():
             for name in (
                 "fork_field.py",
                 "fork_surface.py",
+                "fork_intervals.py",
+                "fork_volume.py",
+                "fork_volume_checks.py",
                 "fork_adaptive.py",
                 "fork_checks.py",
                 "fork_experiment.py",

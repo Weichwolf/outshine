@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: Ghidra untersuchte 56 Funktionen einschließlich des Weld-Rings und seiner Elternanschlüsse. Eigene Gabelproben verschmelzen Astsegmente zu einer gemeinsamen geschlossenen Oberfläche. Gleichmäßige/adaptive radiale Abtastung und Marching Cubes sind an derselben Feldform verglichen. Weltweite Pflanzenrezepte und optische Pflanzenprüfung folgen nach vollständigem Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: Ghidra untersuchte 58 Funktionen einschließlich Weld-Ring, Elternanschlüssen, WeldHit und RadiusProfile. Eigene Gabelproben verschmelzen Astsegmente zu einer gemeinsamen geschlossenen Oberfläche. Gleichmäßige/adaptive radiale Abtastung und Marching Cubes sind an derselben Feldform verglichen; eine Blockauswahl spart Feldabfragen bei exakt gleichen Mesharrays. Weltweite Pflanzenrezepte und optische Pflanzenprüfung folgen nach vollständigem Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige Gabel-/Elternanschlüsse, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {

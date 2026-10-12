@@ -7,6 +7,7 @@ from matplotlib.lines import Line2D
 LABELS = {
     "radial": "Gleichmäßig radial",
     "voxel": "Marching Cubes",
+    "blocked": "Marching Cubes · Blockauswahl",
     "adaptive": "Adaptiv radial",
 }
 

@@ -2,6 +2,7 @@
 
 import numpy as np
 from cube_surface import cube_mesh
+from fork_volume import blocked_volume, dense_volume
 from skimage.measure import marching_cubes
 from spine_frames import unit
 
@@ -31,32 +32,8 @@ def radial_mesh(field, level):
     }
 
 
-def sampled_volume(field, cells):
-    if not isinstance(cells, int) or not 16 <= cells <= 192:
-        raise ValueError("16 through 192 grid cells on the longest axis required")
-    lower, upper = field.bounds()
-    step = float(np.max(upper - lower) / cells)
-    lower = lower - 2 * step
-    shape = np.ceil((upper + 2 * step - lower) / step).astype(int) + 1
-    count = int(np.prod(shape))
-    if count > 8_000_000:
-        raise ValueError("bounded grid volume required")
-    values = np.empty(count, dtype=np.float32)
-    point_evaluations = 0
-    for start in range(0, count, 16384):
-        indices = np.arange(start, min(start + 16384, count))
-        coordinates = np.column_stack(np.unravel_index(indices, tuple(shape)))
-        points = lower + coordinates * step
-        values[start : start + len(indices)] = field.evaluate(points)
-        point_evaluations += len(indices)
-    volume = values.reshape(tuple(shape))
-    for axis in range(3):
-        assert np.max(np.take(volume, (0, shape[axis] - 1), axis=axis)) < 0
-    return volume, lower, step, point_evaluations
-
-
-def voxel_mesh(field, cells):
-    volume, lower, step, evaluations = sampled_volume(field, cells)
+def voxel_mesh(field, cells, sampler=dense_volume):
+    volume, lower, step, work = sampler(field, cells)
     vertices, faces, _normals, _values = marching_cubes(
         volume,
         0,
@@ -75,10 +52,18 @@ def voxel_mesh(field, cells):
     if signed < 0:
         faces = faces[:, [0, 2, 1]]
     mesh = mesh_product(vertices, faces, field)
-    return mesh, {
+    return mesh, work | {
         "method": "voxel",
         "longest_axis_cells": cells,
         "grid_shape": list(volume.shape),
-        "field_point_evaluations": evaluations,
         "volume_bytes": volume.nbytes,
     }
+
+
+def blocked_voxel_mesh(field, cells, block_size=4):
+    from functools import partial
+
+    mesh, work = voxel_mesh(
+        field, cells, partial(blocked_volume, block_size=block_size)
+    )
+    return mesh, work | {"method": "blocked"}
