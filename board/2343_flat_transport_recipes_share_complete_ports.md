@@ -88,20 +88,19 @@ Reservationen und Schnitte am gemeinsamen Mesh prüfen. Schnitt-/Rahmenänderung
 
 ## Nächste Lieferung und Abnahme
 1. [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) statt bloßer Erreichbarkeit:
-   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Alle früheren Fahrten im Gesamtfenster erhalten. Wien 1480: zwei Fahrten offen; 1066 mit Gesamtfenster 13/13; Zürich 2134: 60→1369 m.
+   Basel vollständig; [Wien 574/684/685 gemeinsam](../test/experiments/transport/probes/roadbeds/connected_cut_region_probe.py): 36/36; 659 mit Nachbarn 56/56. Alle früheren Fahrten im Gesamtfenster erhalten. Wien 1480 lokal 12/13, Gesamtfenster offen; 1066 mit Gesamtfenster 13/13; Zürich 2134: 60→1369 m.
    [Gekoppelte Wendeplätze](../test/experiments/transport/probes/roadbeds/coupled_turning_court_probe.py): nur betroffene Nachbarn neu lösen; Quintik-Zufahrten erhalten G2 auch hinter Quellbiegungen. Wien 659: Schnitte 8 m nach außen, +111,7 m², keine Gebäudekonflikte.
    [Versetzter Wendekern](../test/experiments/transport/probes/roadbeds/inset_turning_core_probe.py): 1066 mit 8-m-Zufahrten, +28,8 m² Gesamtbauteil; feste Ports, G2/Radius am Mesh geprüft.
    [Breitere Ports](../test/experiments/transport/transport_court_partition.py) auf festen Schnittebenen verteilen neue Fläche einmal; Bestand/Quellkontakte erhalten.
-   Basel 1155: Schnitte 4 m nach außen; Wendefahrten je 36,3 m, +75,3 m² Fahrfläche, 24,6 m² Gebäude-Freiraumanfrage. Volles Basel bestätigt; Buildings-Runtime offen.
    [Portgraph](../test/experiments/transport/transport_route_connectivity.py): schwache/starke Komponenten, gerichtete Alternativen, 64er-DAG-Batches.
    [Quellführung](../test/experiments/transport/probes/roadbeds/steering_source_hint_probe.py): Sichtbarkeit/Restlänge, Inselkerne, keine Zusatzdrehung; C2-Passung danach.
    [Gemeinsames Kurvenende](../test/experiments/transport/probes/roadbeds/shared_route_guide_probe.py): Basel 101 Fahrten auf vier Bauteilen, Bestand erhalten.
    [Geometriediagnose](../test/experiments/transport/probes/roadbeds/fit_geometry_diagnostic.py) trennt echte
    Radius-/Hüllenfehler von konservativen Schranken. Gebäude folgen dem Straßenraum mit explizitem Zuschnitt;
    Quellidentität, brauchbare Restgrundrisse und nichtmotorisierte Verbindungen erhalten.
-   [Lenkpfad → Mesh](../test/experiments/transport/probes/roadbeds/steering_roadbed_product_probe.py):
+   [Lenkpfad → Mesh](../test/experiments/transport/probes/roadbeds/steering_roadbed_product_probe.py) nutzt deklarierte Reservationen samt zulässigen Fußwegübergängen; keine erneute Quellmaske.
    [Direkte G2-Spurbögen](../test/experiments/transport/probes/roadbeds/rounded_lane_loop_probe.py): Wien 1480 lokal 11/13 statt 9/13; zwei Fußwegübergänge auf vorhandener Geometrie, keine privaten Wege/Bahn nutzen. Erstauflösung, frischer Ladeprozess und Gesamtfenster geprüft; Fußweggeometrie erhalten.
-   Grundrisse samt Quellen/Tags schneiden; unbrauchbare Reste nach 25-m²-/3-m-Rezept verwerfen.
+   [Gegenfahrt](../test/experiments/transport/probes/roadbeds/reuse_lane_loop_probe.py) passt bewährte Schleifen an feste Spurports; exakte Bézier-Unterteilung schärft die Radiusschranke ohne Geometrieänderung. 1480: 4→2 lokal belegt; 7→2 offen.
    Wien: 14 aufgebaute Produkte; alle früheren Produktfahrten und acht frühere Einzelverbesserungen erhalten, 907 direkte Fahrten.
    Fensterprüfung mit vorbereiteten Produkten auf einem Core: Wien 11,5 s, Basel 16,5 s; Aufbau kostet zusätzlich. Kosten bleiben zu hoch; Bilder: `build/shots/experiments/transport/`.
 2. Wege, Rad und Schienen mit ihren eigenen Zugangs-/Querschnitts-/Kurvenprofilen integrieren;
