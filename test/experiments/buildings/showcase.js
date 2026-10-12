@@ -69,7 +69,8 @@ function renderGallery() {
     const body = element('div',undefined,'card-body');
     body.append(element('h3',item.title || 'Aktueller Bildbeleg'),element('p',item.caption));
     const details = element('div',undefined,'details');
-    const counts = item.constructive_products === undefined ? `${integer(item.storeys)} Geschosse · ${integer(item.rooms)} Räume · ${integer(item.doors)} Türportale`
+    const counts = item.logical_faces !== undefined ? `${integer(item.logical_faces)} Polygonflächen · ${integer(item.source_holes)} Quellhöfe`
+      : item.constructive_products === undefined ? `${integer(item.storeys)} Geschosse · ${integer(item.rooms)} Räume · ${integer(item.doors)} Türportale`
       : `${integer(item.constructive_products)} Prüfgebäude · ${integer(item.source_volume_products)} Quellkörper`;
     details.append(...[`${integer(item.triangles)} Dreiecke`,counts,
       item.profile ? item.profile.join(' × ') : 'Profil fehlt',`Bild ${short(item.commit)}`].map(value => element('span',value)));
@@ -85,7 +86,7 @@ function svgNode(tag, attrs, text) {
 }
 
 function renderPlot() {
-  const rows = pageImages().filter(item => item.status === 'ready');
+  const rows = pageImages().filter(item => item.status === 'ready' && Number.isFinite(item[metric]));
   $('costs').hidden = !rows.length;
   buttons($('metrics'),Object.entries(metrics).map(([key,value]) => [key,value[0]]),metric,
     value => {metric = value;renderPlot();});

@@ -15,10 +15,13 @@ danach moderne/zeitgenössische Architekturrezepte bis zur vollständigen OSM-Kl
 Einzelne konstruktive Python-Verfahren bestehen; ein allgemeiner vollständiger Modellierkern fehlt.
 Stand c3dc4f1c7: vier Scope-Operationen in dokumentierten Formen, neun Kontrollgruppen und zwei PRT-Translationen;
 fünf räumliche Kontrollen plus metrischer Grundriss im aktuellen Showcase. Keine neue Architektur-Rezeptfamilie.
-Fünf gleiche Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
+Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
 größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
-Die 23 bestehenden Ansichten sind pixelgleich erneut erzeugt. Scope/Ghidra/Kamera/Render/Docs jeweils terminal 0;
-der gemeinsame Launcher endete nach den abgeschlossenen Kindschritten mit 143, kein Gesamtstatus-0-Anspruch.
+Stand 2d52b4ea2: vier Flächen-Extrusionsarten mit logischen Polygonen/Höfen, sieben räumliche Kontrollen und sechs metrische Schnitte.
+37 aktuelle Bilder: acht Innenraum-, 22 Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
+28 bisherige Renderings sind pixelgleich; beim Scope-Plan ändert sich ausschließlich die Commitbeschriftung.
+Scope/Extrusion/Ghidra/Kamera/Benchmark/Katalog/Render/Docs und korrigierter Launcher terminal 0.
+Die falsche erste Kamera-Pythoninvokation ist separat dokumentiert; der eigentliche Blender-Kameracheck besteht.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
 37 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
@@ -62,9 +65,11 @@ Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen, neg
 Flat-Top nimmt mindestens die globale vertikale Quellspanne; Kontakt am First kann zwei getrennt geschlossene Keile ergeben.
 Vertexnormalen folgen verbundenen logischen Vertex-IDs und der normierten Summe benachbarter Flächennormalen; authored Normalen verwerfen.
 Getrennte deckungsgleiche Vertices werden nicht implizit verschweißt; Extrusionsausgabe erhält tatsächliche Flächenadjazenz.
-Lokale Entwicklung: 24 Polygon-/11 Dachfälle, drei echte PRT-Prismen, drei analytische PRT-Distanzen und fünf ungültige Eingaben.
-Kostenvergleich: batched/individual GEOS bei identischem vollständigem Vertrag, 21 warme Läufe; bisher kein belastbarer Zeitgewinn.
-Nächste Abnahme: eingefrorene lokale Prüfungen, gemeinsame Dachkamera, metrische Schnitte und echter OSM-Hofkörper im Showcase.
+Eingefrorene Abnahme 2d52b4ea2: 24 Polygon-/11 Dachfälle, drei echte PRT-Prismen, drei analytische PRT-Distanzen und fünf ungültige Eingaben.
+Kostenvergleich: batched/individual GEOS bei identischem vollständigem Vertrag, 21 warme Läufe mit zwei OpenBLAS-Threads.
+Vier bis zwölf Quellvertices, zwölf bis 48 Dreiecke: p50 3,20–7,33 ms; größter Hof 7,33 statt 7,44 ms, kein belastbarer Zeitgewinn.
+Messung enthält Extrusion samt UVs/Tags/Material/Scope und finale Mesh-Ausgabe, keine Konstruktor-/Frame-/GPU-Zeit.
+Neue Ansichten optisch geprüft; SDK-Illustrationen zu Vertexnormalen und Flat-Top-Nullspanne ebenfalls betrachtet.
 Offen: Kantenextrusion/`comp(e/fe)`, tangentialer/kollabierter Sweep, weitere UV-Kanäle, isolierte PRT-Flat-Top-/Vertexnormal-Regeln und `mergeVertices`.
 Aktiver Vertrag: `t` folgt aktuellen Scope-Achsen; `r` addiert Pivot-Eulerwinkel, Zentrumrotation erhält den Mittelpunkt;
 `s` setzt absolute/relative Größen einschließlich Spiegelung. Geteilte Geometrie erst zur Ausgabe transformieren.
@@ -78,3 +83,5 @@ fünf räumliche Kontrollbilder und metrischer Grundriss am gespeicherten Hausko
 Ghidra 43d5485f6: `r` addiert drei gespeicherte Zahlen; Zentrumdispatch ruft vor/nach Änderung Unit-Cube→Pivot-Matrizen auf.
 43/54/161 Instruktionen, keine indirekten Stellen; ein außerhalb liegender Zentrumblock. Translation delegiert nach Skalenauswertung an `Shape::translate`.
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Shape/Scope, Split/Repeat, Komponenten und Bauteilinstanzen.
+[CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächenarten, Mindestspanne, UV-Vererbung, Komponententags und Scope-Ausrichtung.
+Nächster Block: logische Flächen mit `comp(f)` auswählen und in passende Fassaden-/Dachscopes zerlegen; Kanten-/Vertexkomponenten folgen.

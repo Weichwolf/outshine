@@ -132,7 +132,7 @@ def main():
     result=revision()|dict(status='pass',scope_controls=scope_controls(),geometry_controls=geometry_controls(),prt_controls=prt_controls(),
                          implemented=['t absolute/relative dimensions','r origin/centre','s absolute/relative dimensions',
                                       'translate abs/rel in scope/pivot/object/world'],
-                         pending=['polygon/edge/vertex shape constructors','singular authored-normal transforms',
+                         pending=['edge/vertex shape constructors','singular authored-normal transforms',
                                   'isolated PRT rotation/scale rule controls','undocumented floating-scale selector semantics'])
     docs=SDK/'doc/html/cgaref/cgareference'
     result['sdk_docs_sha256']={name:hashlib.sha256((docs/(name+'.html')).read_bytes()).hexdigest()
