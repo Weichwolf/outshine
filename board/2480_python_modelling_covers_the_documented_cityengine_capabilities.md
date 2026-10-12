@@ -17,12 +17,11 @@ Stand c3dc4f1c7: vier Scope-Operationen in dokumentierten Formen, neun Kontrollg
 fünf räumliche Kontrollen plus metrischer Grundriss als interne Referenzen. Keine neue Architektur-Rezeptfamilie.
 Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices: abschließende Ausgabe 3,1–4,9× schneller als fünf Vertexdurchläufe;
 größter Prüfmesh p50 9,93 statt 48,61 ms, 21 warme Python-Läufe mit zwei OpenBLAS-Threads; keine Frame-/GPU-Zeit.
-Stand 73346b5f6: vier Flächen-Extrusionsarten und `comp(f)` mit Auswahl, Ausschluss, Verbindung und ausgerichteten Scopes.
-31 aktuelle Bilder: acht Innenraum-, 16 Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
+Stand f520c0366: vier Flächen-Extrusionsarten und `comp(f/e/fe/v/fv)` mit Auswahl, Verbindung und ausgerichteten Scopes.
+27 aktuelle Bilder: acht Innenraum-, zwölf Einzelgebäude-/Funktions-, vier Gruppen- und drei Stadtansichten; weiterhin null vollständige Rezeptfamilien.
 Showcase: fehlende Messwerte aus Diagrammen auslassen, fehlende Zahlen kennzeichnen; geänderte HTML/CSS/JS-Dateien automatisch neu laden.
-23 Gebäude-/Innenraum-/Gruppen-/Stadtbilder sind pixelgleich; sieben neue Komponentenbilder plus metrischer Flächenscope-Plan optisch geprüft.
-Scope/Extrusion/Komponenten/Ghidra/Kamera/Benchmark/Katalog/Render/Docs sowie Launcher terminal 0 auf 73346b5f6.
-Der erste Komponentenexport ohne Bauteil-IDs scheiterte am Blender-Import; der ergänzte Prüfmesh und vollständige Wiederholung bestehen.
+23 Gebäude-/Innenraum-/Gruppen-/Stadtbilder sind pixelgleich; vier neue Kanten-/Punktplots samt maßstäblichem Hofplan optisch geprüft.
+Scope/Extrusion/Flächen/Kanten-Punkte/Ghidra/Kamera/zwei Benchmarks/Katalog/Render/Docs: elf Schritte samt Launcher terminal 0 auf f520c0366.
 SDK-Katalog: 72 Operations-, 70 Funktions-, 10 Attribut- und 49 Bibliotheksfunktionsseiten;
 Seitenzahlen zählen weder geprüfte Python-Funktionen noch Rezepte. Überladungen/Semantik einzeln inventarisieren.
 47 Ghidra-Ziele und fünf verfügbare RPKs sind Referenzen aus [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md).
@@ -63,12 +62,12 @@ Eindeutige Kanten übernehmen erste Quellrichtung/adjazente Normalen; flächenbe
 Vertexnormalen mitteln angrenzende Flächen; Face-Vertex-Tangenten mitteln normierte Nachbarkanten, auch am Hofring.
 Auswahl/Operatoren/Attribute bleiben gemeinsam; Kanten-/Punktnormalen folgen invers-transponierten Transformationen.
 Kanten haben Scope-Länge entlang x, Punkte drei nullgroße Achsen; Corner-UVs, Material/Tags und Weltlage erhalten.
-Entwicklungskontrollen: acht gedrehte zUp/noAlign-Gruppen, Quellindices/Verbindung/Reextraktion, Besitz und zwölf reale PRT-Bounds.
+Eingefrorene Kontrollen f520c0366: acht gedrehte zUp/noAlign-Gruppen, Quellindices/Verbindung/Reextraktion, Besitz und zwölf reale PRT-Bounds.
 Ghidra belegt eine 0,8-mm-Mindestlänge für eindeutige Kanten; 47 Ziele, kein isoliertes e/fe/v/fv-Laufzeitorakel.
-Fünf Körper, 21 warme Läufe: Komponenten-p50 4,66–42,02 ms; finale Ausgabe/Frames/GPU nicht enthalten.
+Fünf Körper, 21 warme Läufe, zwei OpenBLAS-Threads: Komponenten-p50 4,50–40,98 ms; finale Ausgabe/Frames/GPU nicht enthalten.
 Dict-Indexierung ist bei vier kleinen Fällen günstiger, NumPy-Sort beim 72-Kanten-Hof; Differenzen unter 0,04 ms.
 Dict erhält einfache erste Quellreihenfolge; kein behaupteter Gesamtzeitgewinn. Relevante Kosten entstehen im Komponentenaufbau.
-Aktive Lieferung: saubere Commit-Prüfung und vier aktuelle Kanten-/Punktplots einschließlich maßstäblichem 2D-Hofplan.
+Aktuelle Lieferung: saubere Commit-Prüfung und vier Kanten-/Punktplots einschließlich maßstäblichem 2D-Hofplan.
 Nächster Feature-Vertrag: Kantenextrusion; Dachselektoren, Gruppen/Material/Löcher, Normalenkollaps bleiben offen.
 Originale Flächenringe/Höfe, Corner-UVs, Material/Tags und Weltlage bleiben erhalten; vorhandene Dreiecke übernehmen statt erneut triangulieren.
 Eingefrorene Kontrolle 73346b5f6: SDK-Würfelbeispiel, zwölf gedrehte zUp/noAlign-Scopes, Hofgruppen, offene Ränder, Wildcards/Tag-Nachbarschaft,
@@ -79,7 +78,7 @@ Verwundene Vertexnormal-Dachkappen erhalten native Geometrie/UVs und messbare Sc
 Kosten 73346b5f6: dieselben sechs bis 14 Komponenten aus vorhandenen Dreiecken gegen GEOS-Neuaufbau, 21 warme Läufe, zwei OpenBLAS-Threads.
 Native Dreiecke/UVs/Tags/Materialien und Scope-Matrizen stimmen überein; p50 3,14–7,28 statt 6,40–15,88 ms, etwa 2,0–2,2× schneller.
 Messung enthält Quellflächen/Auswahl/Adjazenz/Scopes/Payloads, keine abschließende Vertexausgabe, nativen Frames oder GPU-Zeit.
-Showcase zeigt die aktuellen Komponenten-Kontrollen; frühere Scope-/Extrusionsbilder bleiben interne Referenzen.
+Showcase zeigt die aktuellen Kanten-/Punktkontrollen; frühere Modellierbilder bleiben interne Referenzen.
 Logische Polygonflächen bleiben neben der nativen Triangulierung erhalten; GEOS/CDT nutzen, keine Polygontriangulierung neu erfinden.
 `modelling_faces`/`modelling_extrude`: eigene immutable Polygonringe/Corner-UVs neben Triangle-Assets; vier Flächen-Extrusionsarten.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen, negative Distanz behält negatives Scope-Y.
