@@ -90,3 +90,5 @@ dialog p { margin:10px 5px 0; font-size:13px; color:var(--muted); }
 .genus-gallery > h3 { font-size:18px; font-weight:550; margin-top:36px; }
 .genus .gallery:has(> :only-child) { grid-template-columns:minmax(0,1fr); }
 .genus .card img { max-height:570px; }
+
+.genus-gallery .missing { padding:16px 24px; margin:0; }
