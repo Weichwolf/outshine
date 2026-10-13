@@ -31,7 +31,9 @@ und Fahrzeughüllen bleiben offen; Zugangsregeln allein beweisen keine Befahrbar
 Motorzugang trennt PKW/LKW/Bus samt Klasseneinbahnregeln; Busfahrbahnen erlauben standardmäßig nur Busse.
 Versuchsnetze binden gespeicherte Kanten über Quell-IDs neu an den gewählten Klassenzugang;
 Geometrie/Orientierung bleiben erhalten. Veraltete gespeicherte Modusmasken bestimmen keine neuen Fahrten.
-Größen-/Lastgrenzen vor Routenbau prüfen; bislang offen. Fehlende Angaben sind Rezeptannahmen.
+Zulassung und körperliche Befahrbarkeit getrennt prüfen: passende Geometrie erlaubt keinen Verkehr.
+Größen-/Lastgrenzen und zeitabhängige Zugänge vor Routenfreigabe prüfen; bislang offen.
+Fehlende Angaben sind markierte Rezeptannahmen, keine belegte PKW-/LKW-Zulassung.
 Grundstückszufahrten ohne Zugangstags sind keine belegten öffentlichen Durchgangsstraßen.
 
 ## Bereichsgrenzen und parallele Arbeit
