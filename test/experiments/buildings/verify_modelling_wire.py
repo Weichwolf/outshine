@@ -10,12 +10,12 @@ import shapely
 
 from esri_oracle import CASES,generate
 from evidence import revision
-from modelling_components import Branch,Surface
+from outshine_ref.buildings.modelling.components import Branch,Surface
 from outshine_ref.buildings.modelling.scope import Frame
-from modelling_selectors import tagged
-from modelling_shape import Shape
-from modelling_wire import Edge,Point
-from modelling_wire_components import MINIMUM_UNIQUE_EDGE_M,WireSet
+from outshine_ref.buildings.modelling.selectors import tagged
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.wire import Edge,Point
+from outshine_ref.buildings.modelling.wire_components import MINIMUM_UNIQUE_EDGE_M,WireSet
 from provider_contract import attributes
 from samples import read_site
 from verify_modelling_extrude import near

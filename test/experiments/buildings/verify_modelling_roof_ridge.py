@@ -11,22 +11,15 @@ import numpy as np
 import shapely
 
 from evidence import revision
-from modelling_components import Branch
-from modelling_extrude import aligned_scope
-from modelling_faces import ROOF_TAGS,face_shape,plane
-from modelling_metadata import inherit
+from outshine_ref.buildings.modelling.components import Branch
+from outshine_ref.buildings.modelling.faces import ROOF_TAGS,face_shape,plane
+from outshine_ref.buildings.modelling.metadata import inherit
 from outshine_ref.buildings.modelling.scope import Frame
-from modelling_selectors import tagged
-from modelling_shape import Shape
-from modelling_split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.selectors import tagged
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
 from verify_modelling_roof_shed import source,measure
 from verify_modelling_split import barycentric
-
-
-def reframe(shape,angle):
-    mesh=shape.emit();normal=plane(mesh['vertices'],shape.geometry.polygons[0])[0]
-    scope=aligned_scope(mesh['vertices'],normal,replace(shape.scope,orientation=(0.,angle,0.)),False)
-    return inherit(Shape.from_mesh(mesh,scope,shape.geometry.polygons),shape)
 
 
 def analytical(shape,value,mode):
@@ -107,7 +100,7 @@ def controls():
     for polygon in polygons:
         original=source(polygon)
         for angle in (0.,31.,90.):
-            for value,mode in [(25.,'byAngle'),(3.,'byHeight')]:rows.append(verify(reframe(original,angle),value,mode))
+            for value,mode in [(25.,'byAngle'),(3.,'byHeight')]:rows.append(verify(original.rotate_scope(0.,angle,0.),value,mode))
         framed=replace(original,scope=replace(original.scope,pivot=Frame((10.,-3.,8.),(7.,11.,19.)),object_frame=Frame((100.,200.,-300.),(13.,17.,23.))))
         for shape in [original.r(31,17,23).t(10,-4,3),original.s(-12,0,9).r(17,31,0),framed]:rows.append(verify(shape,3.,'byHeight'))
     composition(polygons[0]);extra_inputs(polygons[0]);return rows

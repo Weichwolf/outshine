@@ -14,8 +14,8 @@ import numpy as np
 from mitsuba_mesh import mesh
 from mitsuba_camera import camera
 from mitsuba_material import reference
-from modelling_metadata import Material
-from modelling_material_schema import linear_to_srgb
+from outshine_ref.buildings.modelling.metadata import Material
+from outshine_ref.buildings.modelling.material_schema import linear_to_srgb
 from denoise_reference import denoise
 from procedural_surface import panels
 from facade_surface import project

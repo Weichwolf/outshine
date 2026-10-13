@@ -9,10 +9,10 @@ import shapely
 
 from esri_oracle import CASES,generate
 from evidence import revision
-from modelling_extrude import MODES,edge_owners,euler
-from modelling_faces import EXTRUSION_TAGS,Face
+from outshine_ref.buildings.modelling.extrude import MODES,edge_owners,euler
+from outshine_ref.buildings.modelling.faces import EXTRUSION_TAGS,Face
 from outshine_ref.buildings.modelling.scope import rotation
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from provider_contract import attributes
 from samples import read_site
 

@@ -10,8 +10,8 @@ import numpy as np
 from evidence import revision
 from modelling_extrude_probe import fixtures
 from modelling_group_probe import timed
-from modelling_split_plan import split_plan
-from modelling_split_sizes import Floating,Part
+from outshine_ref.buildings.modelling.plan_split import split_plan
+from outshine_ref.buildings.modelling.split_sizes import Floating,Part
 
 
 def benchmark():

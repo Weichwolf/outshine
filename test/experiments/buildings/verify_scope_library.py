@@ -17,7 +17,7 @@ import numpy as np
 
 from evidence import revision
 from modelling_scope_probe import cga_mesh
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from outshine_ref.buildings.modelling import scope as library
 
 

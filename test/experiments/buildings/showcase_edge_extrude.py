@@ -12,10 +12,10 @@ import numpy as np
 import shapely
 
 from esri_oracle import CASES
-from modelling_components import Branch
+from outshine_ref.buildings.modelling.components import Branch
 from modelling_scope_probe import engine_mesh
-from modelling_selectors import tagged
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.selectors import tagged
+from outshine_ref.buildings.modelling.shape import Shape
 from preview import configuration,run_render
 from provider_contract import attributes
 from samples import read_site

@@ -14,8 +14,8 @@ import numpy as np
 
 from building_plan_views import patch
 from evidence import revision
-from modelling_offset_plan import offset
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.offset_plan import offset
+from outshine_ref.buildings.modelling.shape import Shape
 from preview import configuration,run_render
 from showcase_groups import save_plot,inspection_mesh,COLOURS
 from showcase_scene import fitted_points

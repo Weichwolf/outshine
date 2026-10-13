@@ -13,10 +13,10 @@ import numpy as np
 
 from evidence import revision
 from modelling_extrude_probe import fixtures
-from modelling_faces import Face
-from modelling_shape import Shape
-from modelling_split_area import TriangleArea,inverse_area
-from modelling_split_sizes import Floating,Part
+from outshine_ref.buildings.modelling.faces import Face
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_area import TriangleArea,inverse_area
+from outshine_ref.buildings.modelling.split_sizes import Floating,Part
 from verify_modelling_area_split import area
 from verify_modelling_split import source_attributes
 

@@ -9,12 +9,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
-from modelling_insert import Asset,MODES
+from outshine_ref.buildings.modelling.insert import Asset,MODES
 from modelling_insert_cases import block,frame
 from outshine_ref.buildings.modelling.scope import Scope
 from modelling_scope_probe import engine_mesh
-from modelling_shape import Shape
-from modelling_split_sizes import Part
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Part
 from showcase_groups import COLOURS,save_plot
 from showcase_profile import PROFILE
 from showcase_scene import fitted_points

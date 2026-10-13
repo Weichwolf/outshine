@@ -5,9 +5,9 @@ from dataclasses import dataclass
 import manifold3d as manifold
 import numpy as np
 
-from modelling_cut_source import CutInput,prepare_source
-from modelling_cut_topology import logical_faces,vertex_roots
-from modelling_faces import Face,FACE_TAG_MASKS
+from outshine_ref.buildings.modelling.cut_source import CutInput,prepare_source
+from outshine_ref.buildings.modelling.cut_topology import logical_faces,vertex_roots
+from outshine_ref.buildings.modelling.faces import Face,FACE_TAG_MASKS
 
 
 @dataclass

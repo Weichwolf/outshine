@@ -78,9 +78,26 @@ Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/
 `Relative`, `t`, `r`, `s` und `translate`. Er hält die dokumentierten CGA-Achsen
 Ost/Auf/Süd intern; `cga_to_enu`/`enu_to_cga` konvertieren Positionen und Normalen
 an der gemeinsamen ENU-Grenze, ohne Dreieckswinding oder Höhenbezug zu ändern.
-Alle Gebäudeexperimente verwenden diese Implementierung. Shape-/Geometrieoperationen,
-Dächer und konstruktive Gebäudepläne liegen weiterhin in den Experimenten (#51).
-Die Scope-Übernahme allein ist keine vollständige CityEngine-Bibliothek.
+Alle Gebäudeexperimente verwenden diese Implementierung. Der verbundene Modellierkern
+enthält außerdem `Shape`, `Geometry`, `Face`, `Material`, `Asset`, `Texture`,
+`Branch`, `Part` und `Floating`: Komponenten, Extrusion, Unterteilung, Offset,
+Pult-/Firstdächer, UV-/Materialbearbeitung, Projektionen und statische Asset-Platzierung.
+`Shape.rotate_scope` richtet nur den Scope neu aus und erhält die sichtbare Geometrie.
+Die vorhandenen Gegenfälle/Referenzen bleiben unter `test/experiments/buildings/`.
+Konstruktive Gebäudepläne und Rezepte liegen weiterhin dort (#51); viele dokumentierte
+CityEngine-Fähigkeiten und Teilverträge sind noch offen (#34).
+
+```sh
+.venv/bin/python -m pip install -e './lib[assets]'
+```
+
+`assets` installiert Trimesh/Pygltflib für den optionalen OBJ/glTF/GLB-Import.
+Der Grundkern benötigt NumPy, Shapely und Pillow. Importiert er nur eigene Shapes,
+lädt er die Asset-Decoder nicht. Intern bleiben CGA-Achsen ausdrücklich benannt;
+`Shape.from_polygon` übernimmt einen ENU-XY-Grundriss und erzeugt ihn in CGA-XZ
+mit der angegebenen lokalen Höhe. Gemeinsame Ausgabe an Transport/Vegetation/world
+wird mit `cga_to_enu` für Positionen/Normalen konvertiert. Quellen/IDs sind der
+Auftrag des übergeordneten Gebäudeplans; ein Shape allein ist kein Gebäude-Assetvertrag.
 
 `vegetation.Profile` übernimmt vorbereitete skalare Profile: unveränderliche
 Float64-Tabellen, Lookup, einseitige Tabellenslopes, Clamping und gekachelte Drift.

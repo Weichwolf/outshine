@@ -13,8 +13,8 @@ import shapely
 
 from esri_oracle import CASES
 from evidence import revision
-import modelling_faces
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling import faces as modelling_faces
+from outshine_ref.buildings.modelling.shape import Shape
 from provider_contract import attributes
 from samples import read_site
 from verify_modelling_extrude import closed,near,volume
