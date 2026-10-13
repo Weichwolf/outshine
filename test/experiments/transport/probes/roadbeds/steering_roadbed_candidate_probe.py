@@ -68,7 +68,7 @@ def candidate(data,note):
         domain=floor.buffer(roadbed_lateral_reach(vehicle))
     support=canonical_grid_region(support,quantum)
     support=polygonal_region(support.difference(reserved).intersection(domain))
-    support,pockets=close_split_pockets(floor,support,reserved)
+    support,pockets=close_split_pockets(floor,support,reserved,close_new=note.get("close_new_pockets",False))
     if recipe=='lane-flare':
         planned,addition,reason=roadbed_site_check(support,floor,reserved,vehicle,error)
         assert reason is None,reason

@@ -8,7 +8,7 @@ from transport_curvature_paths import fit_curvature_paths
 from transport_junction_surfaces import same_island_winding
 from transport_junction_turns import tangent_intersection
 from transport_vehicle_sweep import body_outlines,turn_body_check,turn_sampler
-from transport_surface_regions import polygonal_region
+from transport_surface_regions import polygonal_region,has_resolvable_interior
 
 
 def bounded_voids(surface):
@@ -141,7 +141,7 @@ def roadbed_site_check(roadbed,surface,reservations,vehicle,error):
     domain=shapely.buffer(local,reach,quad_segs=8)
     if not shapely.covers(domain,roadbed):
         return None,addition,'roadbed_exceeds_local_flare_budget'
-    if addition.intersection(reservations).area>0:
+    if has_resolvable_interior(addition.intersection(reservations),coordinate_roundoff(roadbed)):
         return None,addition,'roadbed_intersects_reserved_space'
     planned=shapely.union_all([surface,roadbed])
     if not planned.is_valid or not preserves_voids(surface,planned) or not preserves_coverage(surface,planned):

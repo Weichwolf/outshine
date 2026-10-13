@@ -6,7 +6,7 @@ import shapely
 from transport_turn_roadbeds import bounded_voids,preserves_voids,preserves_coverage
 
 
-def close_split_pockets(surface,support,reserved,minimum_width=1.):
+def close_split_pockets(surface,support,reserved,minimum_width=1.,*,close_new=False):
     if not np.isfinite(minimum_width) or minimum_width<=0:raise ValueError('island width must be finite and positive')
     source=bounded_voids(surface);planned=shapely.union_all([surface,support])
     pockets=bounded_voids(planned)
@@ -28,6 +28,11 @@ def close_split_pockets(surface,support,reserved,minimum_width=1.):
         if any(p.area>minimum_width**2 or not p.buffer(-minimum_width*.5).is_empty or
                p.intersects(reserved) or not preserves_coverage(p,source[owner]) for p in discarded):continue
         fills.extend(discarded)
+    if close_new:
+        original=shapely.union_all(source)
+        fills.extend(p for p in pockets if not p.intersects(original) and
+                     p.area<=minimum_width**2 and p.buffer(-minimum_width*.5).is_empty and
+                     not p.intersects(reserved))
     if not fills:return support,dict(closed_pockets=0,closed_area_m2=0.)
     filled=shapely.union_all(fills);result=shapely.union_all([support,filled])
     if not preserves_voids(surface,shapely.union_all([surface,result])):
@@ -57,6 +62,16 @@ def verify_split_pockets():
     assert len(bounded_voids(open_island))==0 and len(bounded_voids(open_island.union(bridge)))==1
     kept,note=close_split_pockets(open_island,bridge,shapely.Polygon())
     assert kept.equals(bridge) and note['closed_pockets']==0
+    small_open=shapely.box(0,0,1,1).difference(shapely.box(.2,.2,.8,2))
+    cap=shapely.box(.2,.8,.8,1)
+    fixed,note=close_split_pockets(small_open,cap,shapely.Polygon(),close_new=True)
+    assert note["closed_pockets"]==1 and preserves_voids(small_open,small_open.union(fixed))
+    kept,note=close_split_pockets(small_open,cap,shapely.box(.3,.3,.4,.4),close_new=True)
+    assert kept.equals(cap) and note["closed_pockets"]==0
+    large_open=shapely.box(0,0,6,6).difference(shapely.box(1,1,5,7))
+    large_cap=shapely.box(1,5,5,6)
+    kept,note=close_split_pockets(large_open,large_cap,shapely.Polygon(),close_new=True)
+    assert kept.equals(large_cap) and note["closed_pockets"]==0
     return dict(unusable_split_pocket_closed=True,source_anchor_retained=True,
                 reserved_and_large_fragments_retained=True,unrelated_new_voids_not_repaired=True)
 
