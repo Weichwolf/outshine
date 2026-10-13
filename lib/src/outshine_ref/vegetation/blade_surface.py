@@ -1,25 +1,11 @@
 """Metre-scale cupped leaves and folded grass ribbons with analytical normals."""
 
 from dataclasses import dataclass
-from functools import lru_cache
 
 import numpy as np
 
 from .curve_frame import arc_frame
-
-
-@lru_cache(maxsize=16, typed=True)
-def quadrature(order):
-    if (
-        isinstance(order, (bool, np.bool_))
-        or not isinstance(order, (int, np.integer))
-        or not 1 <= order <= 1024
-    ):
-        raise ValueError("bounded integer quadrature order required")
-    nodes, weights = np.polynomial.legendre.leggauss(order)
-    nodes = np.frombuffer(nodes.tobytes(), dtype=np.float64)
-    weights = np.frombuffer(weights.tobytes(), dtype=np.float64)
-    return nodes, weights
+from .quadrature import quadrature
 
 
 @dataclass(frozen=True)
