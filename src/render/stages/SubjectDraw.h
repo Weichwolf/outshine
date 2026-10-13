@@ -285,8 +285,6 @@ public:
 
   [[nodiscard]] const SubjectEnvironment &Environment() const { return IndirectLight; }
 
-  void SkyFrom(SDL_GPUBuffer *irradiance) { SkyIrradiance_ = irradiance; }
-
   struct Reflections {
     SDL_GPUTexture *Atlas = nullptr;
     SDL_GPUSampler *Sampler = nullptr;
@@ -396,7 +394,6 @@ private:
 
   SubjectResidency Own_;
   SubjectResidency *At_ = nullptr;
-  SDL_GPUBuffer *SkyIrradiance_ = nullptr;
   SDL_GPUBuffer *GroundClasses_ = nullptr;
   SDL_GPUBuffer *GroundPalette_ = nullptr;
 

@@ -37,16 +37,17 @@ void main() {
   int level = at.y / span;
   vec2 uv = (vec2(at.x, at.y % span) + 0.5 - float(kEnvironmentBorder)) / float(kEnvironmentSide);
   vec3 n = octDirection(uv);
-  float roughness = float(level) / float(kEnvironmentLevels - 1);
+  bool diffuse = level == kEnvironmentDiffuseLevel;
+  float roughness = float(level) / float(kEnvironmentSpecularLevels - 1);
   vec3 total = vec3(0.0);
   float weights = 0.0;
   int count = level == 0 ? 1 : kEnvironmentSamples;
   for (int sampleIndex = 0; sampleIndex < count; ++sampleIndex) {
     vec2 xi = vec2((float(sampleIndex) + 0.5) / float(count),
                    float(bitfieldReverse(uint(sampleIndex))) * 2.3283064365386963e-10);
-    vec3 halfVector = environmentHalfVector(xi, roughness, n);
-    vec3 direction = reflect(-n, halfVector);
-    float nl = max(dot(n, direction), 0.0);
+    vec3 direction = diffuse ? environmentCosineDirection(xi, n)
+                             : reflect(-n, environmentHalfVector(xi, roughness, n));
+    float nl = diffuse ? 1.0 : max(dot(n, direction), 0.0);
     if (nl > 0.0) { total += sourceRadiance(direction) * nl; weights += nl; }
   }
   imageStore(into, at, vec4(total / max(weights, 1.0e-6), 1.0));
