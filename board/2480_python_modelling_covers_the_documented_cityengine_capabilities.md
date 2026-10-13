@@ -17,12 +17,12 @@ Scope/Extrusion, Komponenten, Unterteilung, Assets, UVs, Material-Overrides und 
 Kein vollständiger Modellierkern; null vollständige Architektur-Rezeptfamilien. Aktueller Bild-/Prüfstand in 2460 und Showcase-Manifest.
 SDK-Inventar/86 Ghidra-Ziele/fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); SDK 3.4 versus PyPRT 1.12/PRT 3.3 unterscheiden.
 
-## Offset: planare Verfahrensstufe
-`modelling_offset_plan`: signierte Innen-/Randflächen, Löcher, Zerfall/Kollaps und expliziter Selektor-Okkluderdeskriptor.
+## Offset: metrische Flächen und Shape-Anbindung
+`Shape.offset`: signierte planare 3D-Flächen, Löcher, Zerfall/Kollaps; affine UV0–9, Tags/Material/Gruppen und signed Scope erhalten.
 Positive Randflächen überlappen die Offsetfläche mit umgekehrter Normale; orientierte Flächensumme bleibt Quelle.
 `esri_offset_oracle`: gepinnter SDK-Helfer im begrenzten Kindprozess; fünf analytische/konkave Fälle direkt verglichen.
 Ghidra 0055b090/00671880: XZ-Ring, positive Einrückung, CGAL-Skelett und nur größtes Fragment; kein vollständiges CGA-Orakel.
-Eigener GEOS-Mitreschnitt erhält alle Teile. Shape/Scope/UV/Tags, Randunterteilung und echte Okklusionsabfragen offen.
+GEOS erhält alle Teile. Zwölf Frame-/Distanzfälle plus Hof/Körper/Extrusion; Normale, nichtaffine UVs und Okklusionslaufzeit offen.
 
 ## Gemeinsame Verträge
 - Direkte Python-Rezepte/Geometriefunktionen, keine JSON-Regelschicht. Affine UVs dürfen vor der Arraybearbeitung komponiert werden.
@@ -44,7 +44,7 @@ Eigener GEOS-Mitreschnitt erhält alle Teile. Shape/Scope/UV/Tags, Randunterteil
 `s` setzt absolute/relative Größen einschließlich Spiegelung; `translate` unterstützt dokumentierte Koordinatensysteme.
 Neun Kontrollgruppen inklusive nichtkommutierender Rotationen, schiefer Pivots, UV/Besitz/Normalen;
 zwei PRT-Translationen. Isolierte PRT-Rotation/Skalierung, singuläre Normalen und Floating-Selector bleiben offen.
-Scope-Messung c3dc4f1c7: 6.208–545.112 Vertices, fünf Operationen, 21 warme Läufe; größter Mesh p50 9,93 statt 48,61 ms, keine Frames/GPU.
+Scope c3dc4f1c7: 21 warme Läufe, größter Mesh p50 9,93 statt 48,61 ms; kein Frame-/GPU-Beleg.
 `modelling_faces/modelling_extrude`: Flächenarten face.normal/world.up/world.up.flatTop/vertex.normal.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen; negative Distanz behält negatives Scope-Y.
 Flat-Top nimmt mindestens die globale Quellspanne; Firstkontakt kann getrennt geschlossene Keile ergeben.

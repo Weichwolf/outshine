@@ -101,6 +101,7 @@ class Shape:
     material: Material=Material()
     textures: tuple=()
     projections: tuple=()
+    offset_info: object=None
 
     def __post_init__(self):
         if not isinstance(self.material,Material):raise ValueError('Shape material must be an immutable Material')
@@ -152,6 +153,10 @@ class Shape:
         from modelling_extrude import extrude
         from modelling_uv import inherit_primary
         return inherit_primary(extrude(self,distance,mode),self)
+
+    def offset(self,distance,keep=None):
+        from modelling_offset import offset
+        return offset(self,distance,keep)
 
     def insert(self,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         from modelling_insert import insert

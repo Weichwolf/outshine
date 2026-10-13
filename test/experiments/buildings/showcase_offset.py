@@ -1,6 +1,8 @@
 """Metric offset cases showing preserved components and signed border orientation."""
 
 import argparse
+import hashlib
+import json
 from pathlib import Path
 import time
 
@@ -8,12 +10,38 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import shapely
+import numpy as np
 
 from building_plan_views import patch
 from evidence import revision
 from modelling_offset_plan import offset
-from showcase_groups import save_plot
+from modelling_shape import Shape
+from preview import configuration,run_render
+from showcase_groups import save_plot,inspection_mesh,COLOURS
+from showcase_scene import fitted
 from verify_offset_plan import cases
+
+
+def spatial(output,provenance):
+    outlines=[shapely.box(0,0,6,4),shapely.Polygon([(0,0),(6,0),(6,2),(3,2),(3,5),(0,5)]),
+        shapely.Polygon([(0,0),(8,0),(8,6),(0,6)],holes=[[(2,2),(2,4),(6,4),(6,2)]])]
+    shapes=[]
+    for index,polygon in enumerate(outlines):
+        source=Shape.from_polygon(polygon)
+        for kind,depth,colour in [('border',.25,3),('inside',.04,0)]:
+            shapes.append((source.offset(-.3,kind).extrude(depth).r(90,0,0).t(index*10.,0,0),colour))
+    product=inspection_mesh(shapes);stem='current-offset-spatial';path=output/(stem+'-mesh.npz')
+    np.savez_compressed(path,**product);image=output/(stem+'.png')
+    config,_=configuration([],fitted(product,[1920,1080]),False,image)
+    config.update(inspection_workbench=True,constructive=dict(mesh=str(path.resolve()),
+        mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),wall_linear=[1.,1.,1.],roof_linear=[.2,.2,.2],extra_wall_colours=COLOURS))
+    rendered=run_render(config,output/(stem+'-scene.json'))
+    name=stem+'-report.json';record=provenance|rendered|dict(representation='showcase-current',page='buildings',view='components',label='offset-plan',
+        title='Offset → Extrusion · räumliche Rahmen',caption='Links Rechteck, Mitte L-Form, rechts Fläche mit Innenhof. 0,30 m Randbreite, 0,25 m Rahmentiefe und 0,04 m tiefe Füllung. '
+            'Gleicher Shape-Offset, danach Extrusion/Drehung/Platzierung; opake Prüfpalette. Keine fertige Architekturfamilie oder volle CGA-Abnahme.',
+        profile=[1920,1080],triangles=len(product['faces']),image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),
+        completed_recipe_families=0,lod_status='native LOD unproved')
+    (output/name).write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n');return name
 
 
 def probe(output,provenance):
@@ -40,7 +68,7 @@ def probe(output,provenance):
     fig.subplots_adjust(top=.88,bottom=.12,hspace=.28,wspace=.18)
     return [save_plot(fig,output,'current-offset-plan','Offset · Innenflächen und orientierte Ränder',
         'Negative und positive Distanzen, Innenhof, spitzer Winkel, Zerfall und Kollabieren. Fünf inward-Vergleiche mit dem gepinnten Esri-SDK-Helfer; dieser liefert nur die größte Teilfläche. Shape-/UV-/Tag-Anbindung und CGA-Okklusionsabfragen offen.',
-        provenance,start,[3840,2160],label='offset-plan')]
+        provenance,start,[3840,2160],label='offset-plan'),spatial(output,provenance)]
 
 
 if __name__=='__main__':

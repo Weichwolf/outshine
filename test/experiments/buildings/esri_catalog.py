@@ -31,9 +31,9 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
-    'offset':dict(module='modelling_offset_plan.offset',status='2D polygon plans: signed inside/border faces, holes, split components, collapse and selector occluder descriptor; five direct pinned SDK helper comparisons',
-        pending=['Shape and scope integration','UV/normal/tag propagation','border subdivision and edge provenance','runtime occlusion queries','isolated full CGA offset rules'],
-        evidence=['verify_offset_plan.py','esri_offset_oracle.py','showcase_offset.py']),
+    'offset':dict(module='modelling_shape.Shape.offset',status='logical planar 3D faces: metric signed offsets, holes, components, affine UV0-9, source tags/materials/groups and fitted signed scope; five pinned SDK helper comparisons',
+        pending=['authored normals and nonaffine UV extrapolation','border subdivision and edge provenance','occluder propagation/runtime queries','isolated full CGA offset rules'],
+        evidence=['verify_offset_plan.py','verify_modelling_offset.py','esri_offset_oracle.py','showcase_offset.py']),
     'i':dict(module='modelling_shape.Shape.insert',status='prepared assets shared across placements; three modes, yUp/zUp, null scopes; OBJ/glTF/GLB static surface import with hierarchy, UV0/UV1, normals, exact material values and encoded images',
              pending=['other file formats and required glTF extensions','animations/skins/morphs/tangents/custom channels','extra-channel geometry editing','texture/PBR rendering','numericalCleanup','trim planes','full current-rule material overrides','isolated PRT insert rule','native GPU instance encoding']),
     'split':dict(module='modelling_shape.Shape.split',status='open surfaces and closed Cartesian solids; native triangle property clipping, closed-only one-sided GEOS caps, logical holes and source appearance ownership; width/area plan prototypes',
