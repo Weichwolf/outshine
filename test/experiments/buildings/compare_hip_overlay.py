@@ -78,19 +78,21 @@ if __name__=='__main__':
     parser.add_argument('--scalar-baseline',action='store_true')
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/hip-overlay-comparison.json'))
     args=parser.parse_args()
+    if args.scalar_baseline and not args.shapes:parser.error('--scalar-baseline requires --shapes')
     module=importlib.import_module('outshine_ref.buildings.modelling.roof_hip')
-    correctness={}
-    for name,function in (('global-noding',overlay),('pair-intersections',pair_overlay)):
-        module.overlay=function
+    correctness={};original_code=scope.scalar.__code__
+    variants=([(name,overlay,code) for name,code in (('fast-numeric-types',original_code),('generic-real',generic_scalar.__code__))]
+              if args.scalar_baseline else [(name,function,original_code) for name,function in (('global-noding',overlay),('pair-intersections',pair_overlay))])
+    for name,function,code in variants:
+        module.overlay=function;scope.scalar.__code__=code
         try:
             correctness[name]=dict(controls=len(controls(args.even)),real_cases=len(real_inputs(args.even)),status='pass')
-        finally:module.overlay=overlay
+        finally:module.overlay=overlay;scope.scalar.__code__=original_code
     prepared=cases(args.even,args.shapes)
     calls={name:((lambda function=function:shape_batch(module,function,prepared,args.even)) if args.shapes else
                  (lambda function=function:[function(corners,plan) for corners,plan in prepared]))
            for name,function in (('global-noding',overlay),('pair-intersections',pair_overlay))}
     if args.scalar_baseline:
-        if not args.shapes:parser.error('--scalar-baseline requires --shapes')
         calls={name:(lambda code=code:scalar_batch(code,module,prepared,args.even))
                for name,code in (('fast-numeric-types',scope.scalar.__code__),('generic-real',generic_scalar.__code__))}
     record=revision()|dict(status='pass',even=args.even,correctness=correctness,costs=costs(calls),batch_cases=len(prepared),
