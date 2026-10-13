@@ -13,13 +13,16 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand 8e51bf34f: Scope/Extrusion, `comp`, Breiten-/Flächenteilung, Asset-Einfügung/Dateiimport, sechs UV-Operationen und Material-Overrides;
-Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
-SDK-Inventar, 86 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Rezeptzahlen.
-SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein dekompilierter Fremdcode.
-Bildstand 8e51bf34f: 55 Bilder (13 innen / 35 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
-Projektion optisch geprüft; 42 Bilder pixelgleich, zehn nur Fußtext. Zwei Nachtbilder mit bestehender Streuung (2460).
-Zwölf Python-Prüfungen und 55 Renderings terminal 0 auf 8e51bf34f; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
+Scope/Extrusion, Komponenten, Unterteilung, Assets, UVs, Material-Overrides und Projektion teilweise umgesetzt/geprüft.
+Kein vollständiger Modellierkern; null vollständige Architektur-Rezeptfamilien. Aktueller Bild-/Prüfstand in 2460 und Showcase-Manifest.
+SDK-Inventar/86 Ghidra-Ziele/fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); SDK 3.4 versus PyPRT 1.12/PRT 3.3 unterscheiden.
+
+## Offset: planare Verfahrensstufe
+`modelling_offset_plan`: signierte Innen-/Randflächen, Löcher, Zerfall/Kollaps und expliziter Selektor-Okkluderdeskriptor.
+Positive Randflächen überlappen die Offsetfläche mit umgekehrter Normale; orientierte Flächensumme bleibt Quelle.
+`esri_offset_oracle`: gepinnter SDK-Helfer im begrenzten Kindprozess; fünf analytische/konkave Fälle direkt verglichen.
+Ghidra 0055b090/00671880: XZ-Ring, positive Einrückung, CGAL-Skelett und nur größtes Fragment; kein vollständiges CGA-Orakel.
+Eigener GEOS-Mitreschnitt erhält alle Teile. Shape/Scope/UV/Tags, Randunterteilung und echte Okklusionsabfragen offen.
 
 ## Gemeinsame Verträge
 - Direkte Python-Rezepte/Geometriefunktionen, keine JSON-Regelschicht. Affine UVs dürfen vor der Arraybearbeitung komponiert werden.
@@ -33,8 +36,7 @@ Zwölf Python-Prüfungen und 55 Renderings terminal 0 auf 8e51bf34f; native LOD-
 - `CompInfo` enthält sel/index/total sowie Quellindices/kind und bleibt bei Scope/Extrusion erhalten.
   Auswahl/Ausschluss und `:`/`=`/`=:` sind gemeinsam; Flächen verbinden über Kanten, Draht/Punkte über IDs.
 - Jede Fähigkeit braucht konkreten Status, Referenz/Gegenfälle und Bild-/Kostenbeleg. Dokumentation,
-  statische Ghidra-Pfade, PRT-Ausgabe und eigene geprüfte Funktion sind unterschiedliche Belege.
-  Fehlende Überladungen/Semantik bleiben offen; weitere Fähigkeiten erweitern den Katalog.
+  statische Ghidra-Pfade, PRT-Ausgabe und eigene Umsetzung getrennt belegen; fehlende Semantik offenhalten.
 
 ## Scope und Extrusion
 `modelling_scope/modelling_shape`: geteilte unveränderliche Geometrie erst zur Ausgabe transformieren.
@@ -42,8 +44,7 @@ Zwölf Python-Prüfungen und 55 Renderings terminal 0 auf 8e51bf34f; native LOD-
 `s` setzt absolute/relative Größen einschließlich Spiegelung; `translate` unterstützt dokumentierte Koordinatensysteme.
 Neun Kontrollgruppen inklusive nichtkommutierender Rotationen, schiefer Pivots, UV/Besitz/Normalen;
 zwei PRT-Translationen. Isolierte PRT-Rotation/Skalierung, singuläre Normalen und Floating-Selector bleiben offen.
-Fünf gleiche Scope-Operationen auf 6.208–545.112 Vertices (c3dc4f1c7): abschließende Ausgabe 3,1–4,9× schneller;
-größter Mesh p50 9,93 statt 48,61 ms, 21 warme Läufe, zwei OpenBLAS-Threads; keine Frames/GPU.
+Scope-Messung c3dc4f1c7: 6.208–545.112 Vertices, fünf Operationen, 21 warme Läufe; größter Mesh p50 9,93 statt 48,61 ms, keine Frames/GPU.
 `modelling_faces/modelling_extrude`: Flächenarten face.normal/world.up/world.up.flatTop/vertex.normal.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen; negative Distanz behält negatives Scope-Y.
 Flat-Top nimmt mindestens die globale Quellspanne; Firstkontakt kann getrennt geschlossene Keile ergeben.
@@ -110,7 +111,6 @@ Material/Texturbytes erhalten. Sechs Scope-Projektionen: Ghidra belegt Tiefenvor
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
 Familien/Varianten/Instanzen getrennt zählen; Zuordnung, funktionale Räume/Wege/Zugänge/Nachtlicht und Bildbelege sind Pflicht.
-Showcase nur aktuell, mindestens 1920×1080, größere metrische Pläne mit wahrer PNG-Größe; frühere Bilder intern erhalten.
 
 ## Primärquellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.
