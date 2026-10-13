@@ -126,7 +126,7 @@ an der gemeinsamen ENU-Grenze, ohne Dreieckswinding oder Höhenbezug zu ändern.
 Alle Gebäudeexperimente verwenden diese Implementierung. Der verbundene Modellierkern
 enthält außerdem `Shape`, `Geometry`, `Face`, `Material`, `Asset`, `Texture`,
 `Branch`, `Part` und `Floating`: Komponenten, Extrusion, Unterteilung, Offset,
-Pult-/Firstdächer, UV-/Materialbearbeitung, Projektionen und statische Asset-Platzierung.
+Pult-/First-/Walmdächer, UV-/Materialbearbeitung, Projektionen und statische Asset-Platzierung.
 `Shape.rotate_scope` richtet nur den Scope neu aus und erhält die sichtbare Geometrie.
 `Shape.align_scope_to_geometry_bbox("xz")` findet die flächenminimale projizierte
 Box mit GEOS; das erste benannte Ausmaß ist länger, die dritte Achse bleibt fest.
@@ -153,9 +153,17 @@ erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rück
 `SkeletonLimits` begrenzt Eingaben, Knoten und kooperativ verstrichene Zeit;
 `python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
 und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
-keine Deadline-Garantie innerhalb jedes Backend-Aufrufs. Der Plane-/Cap-Baustein
-ist noch keine vollständige `Shape.roof_hip`-Operation: native Quell-UV0–9,
-Überhang, even und Trim-Planes bleiben Gegenstand von [#67](https://github.com/Weichwolf/outshine/issues/67).
+keine Deadline-Garantie innerhalb jedes Backend-Aufrufs.
+`Shape.roof_hip(value, mode="byAngle")` verbindet diese Pläne mit nativen
+Quell-Dreiecken: Schnitte erhalten deren UV0–9-Interpolationsbereiche,
+Material-/Gruppen-/Tagbesitz und den lokalen Objektframe. Authored Normalen
+werden bei der geänderten Geometrie neu aufgebaut; fehlendes UV0 bleibt fehlend.
+Die gemeinsame planare Überlagerung verwendet ein explizites Präzisionsraster
+und berichtet dessen Meterweite im `roof_info`. `max_cells` begrenzt vorab
+Quell-Dreieck-/Facettenkandidaten, danach Zellen und Ausgabedreiecke.
+`byHeight` ist ebenfalls verfügbar. Überhang, even und Trim-Planes bleiben
+Gegenstand von [#67](https://github.com/Weichwolf/outshine/issues/67);
+angeforderter Überhang/even wird ausdrücklich abgelehnt.
 
 ```sh
 .venv/bin/python -m pip install -e './lib[assets]'
