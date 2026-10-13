@@ -7,7 +7,7 @@ vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
 Die folgenden Empfehlungen sind Architekturentscheidungen für die Feature-WIs;
 eine Literaturquelle ersetzt weder Integration noch Bild- und Laufzeitbelege.
-Reihenfolge aus WI 2169: Gebäude → Terrain → Infrastruktur → Vegetation → Wolken;
+Reihenfolge aus WI [#5](https://github.com/Weichwolf/outshine/issues/5): Gebäude → Terrain → Infrastruktur → Vegetation → Wolken;
 Simulation und Gameplay folgen dem visuellen Meilenstein.
 
 ## PDFs und Nutzung
@@ -16,7 +16,7 @@ Alle PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind 
 Die kanonischen Downloadlinks stehen bei jeder Quelle.
 Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
 
-## Asset-Laden und Residency — WI 2280
+## Asset-Laden und Residency — WI [#10](https://github.com/Weichwolf/outshine/issues/10)
 
 [Vorbereitete Assets, räumliche Pakete und Residency](engine/unreal/prepared-assets.md)
 fasst Unreal DDC, World Partition/HLOD, Texture Streaming und Geometry Clipmaps zusammen.
@@ -24,9 +24,9 @@ Die Notiz verlinkt die Primärquellen, grenzt deren Übertragung ab und trennt S
 von RAM-/GPU-Residency und budgetierten Laufzeitdetails. Epic-Referenzen sind Online-Dokumentation;
 das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
-## Gebäude und kompakte Fassaden — WI 2173 / 2171
+## Gebäude und kompakte Fassaden — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#6](https://github.com/Weichwolf/outshine/issues/6)
 
-[OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI 2341:
+[OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI [#17](https://github.com/Weichwolf/outshine/issues/17):
 32 gezielte Standorte, alle gelieferten Layer, vollständiger beobachteter Klassenkatalog.
 Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Vollständigkeitsbehauptung.
 
@@ -46,7 +46,7 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   Wiederholungen kompakt parametrisieren und im Shader auswerten. Nahsilhouette,
   Laibungen und betretbare Räume brauchen Geometrie; Fernmuster benötigen Filterung.
 
-## Geometrie, Sichtbarkeit und Terrain — WI 2336 / 2337 / 2338
+## Geometrie, Sichtbarkeit und Terrain — WI [#12](https://github.com/Weichwolf/outshine/issues/12) / [#13](https://github.com/Weichwolf/outshine/issues/13) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
 [Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
 prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
@@ -81,7 +81,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Gerichtete Felsstruktur prototypisieren; Kernelkosten gegen einfachere gefilterte Noise
   messen. Noise liefert keine belegte Geologie und keinen Ersatz für DEM-Silhouette.
 
-## Materialien, Licht und Bildstabilität — WI 2171 / 2155
+## Materialien, Licht und Bildstabilität — WI [#6](https://github.com/Weichwolf/outshine/issues/6) / [#4](https://github.com/Weichwolf/outshine/issues/4)
 
 - **Physically Based Shading at Disney**, Burley, SIGGRAPH-Kurs 2012.
   [Quelle](https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf) ·
@@ -157,7 +157,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   des Bildes liegende Flächen bleiben eine grundlegende Grenze. Gefiltertes IBL liefert
   die Grundreflexion, SSR ergänzt gültige Treffer. Gemeinsamer Pfad für Wasser und Fassaden.
 
-## Straßen, Wasser und technische Objekte — WI 2281 / 2145 / 2338
+## Straßen, Wasser und technische Objekte — WI [#11](https://github.com/Weichwolf/outshine/issues/11) / [#3](https://github.com/Weichwolf/outshine/issues/3) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
 - **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
   [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
@@ -179,22 +179,22 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Das Verfahren löst weder Quellpegel noch Küstenabschluss. Erst Wasser/Bett/Ufer korrigieren,
   danach Animation auf demselben Körper; kein globales Grundwassermesh.
 
-## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
+## Vegetation, Atmosphäre und Wetter — WI [#1](https://github.com/Weichwolf/outshine/issues/1) / [#7](https://github.com/Weichwolf/outshine/issues/7)
 
 - **L-systems and Beyond**, Prusinkiewicz (Organizer), SIGGRAPH Course 2003.
   [Autorenquelle](https://algorithmicbotany.org/papers/sigcourse.2003.pdf) ·
   [PDF](vegetation/siggraph/2003-l-systems-and-beyond.pdf).
   PDF-Seiten 63/64 samt Algorithmus 4, Profilkurven und Pellaea-/Blechnum-Bildern optisch geprüft.
-  Teilblätter aus lageabhängigen Längen-/Breiten-/Winkelprofilen an gemeinsamen Achsen aufbauen (2482).
+  Teilblätter aus lageabhängigen Längen-/Breiten-/Winkelprofilen an gemeinsamen Achsen aufbauen ([#36](https://github.com/Weichwolf/outshine/issues/36)).
   Eigene Guide-Deformation und Differentialnormalen; kein vollständiger L-System- oder Artennachbau.
 - **An Image Synthesizer**, Perlin, SIGGRAPH 1985.
   [Primärquelle](https://doi.org/10.1145/325334.325247) ·
   [PDF](vegetation/siggraph/1985-image-synthesizer.pdf), CMU-Kursarchiv.
   Prozedurale räumliche Textur und nichtlineare Rauschkomposition begründen eigene
-  anisotrope Rindenmaterialien in physischen Astkoordinaten (2481).
+  anisotrope Rindenmaterialien in physischen Astkoordinaten ([#35](https://github.com/Weichwolf/outshine/issues/35)).
   Seiten 1, 3, 8 und 10 samt Rauschprinzip/Bildbeispiel optisch geprüft; keine Fototexturen.
   Eigene Koordinatenmischung und Blender-Rauschen sind keine Rekonstruktion des Papiercodes.
-  2481 wertet getrennte physische Achsfelder aus und überblendet erst die Rauschwerte;
+  [#35](https://github.com/Weichwolf/outshine/issues/35) wertet getrennte physische Achsfelder aus und überblendet erst die Rauschwerte;
   Seite 8 samt Musterbild erneut optisch geprüft. Unverändert getrennte Geometrie-/Normalenprodukte.
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
@@ -204,7 +204,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   die fotografischen Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
 - **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.
   [Primärabstract](https://doi.org/10.1080/10867651.1998.10487487).
-  Eckwinkel berücksichtigen die geometrische Beteiligung statt der Zahl entstandener Dreiecke (2486).
+  Eckwinkel berücksichtigen die geometrische Beteiligung statt der Zahl entstandener Dreiecke ([#40](https://github.com/Weichwolf/outshine/issues/40)).
   Eigene lokale Mittelung vorhandener Differentialnormalen; kein vollständiger Papiernachbau.
   Max 1999 ([Autorenpreprint](https://escholarship.org/uc/item/7657d8h3)) unterscheidet
   Oberflächenapproximation von der Erhaltung unter Polygonunterteilung; PDF-Abruf hier durch
@@ -212,20 +212,20 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 - **Computation of Rotation Minimizing Frames**, Wang / Jüttler / Zheng / Liu, TOG 2008.
   [Autorenpreprint](https://www.ag.jku.at/pubs/2007wjzl.pdf) ·
   [PDF](vegetation/tog/2008-rotation-minimizing-frames-preprint.pdf), ungesetzte Vorabfassung.
-  Doppelreflexion mit Tangentendrehung an gleichen Astachsen vergleichen (2351).
+  Doppelreflexion mit Tangentendrehung an gleichen Astachsen vergleichen ([#27](https://github.com/Weichwolf/outshine/issues/27)).
   Rahmenfehler, Erzeugungskosten und sichtbare Querschnitte getrennt prüfen;
   lokale Regularität ersetzt keinen globalen Kollisionsnachweis oder Kraftsolver.
 - **Efficient Implementation of Marching Cubes' Cases with Topological Guarantees**,
   Lewiner / Lopes / Vieira / Tavares, JGT 2003.
   [Autorenquelle](https://thomas.lewiner.org/pdfs/marching_cubes_jgt.pdf) ·
   [PDF](vegetation/jgt/2003-marching-cubes-topological-guarantees.pdf), Autorenpreprint.
-  Gemeinsame Gabeloberflächen aus impliziten Feldformen als Vergleich erzeugen (2352).
+  Gemeinsame Gabeloberflächen aus impliziten Feldformen als Vergleich erzeugen ([#28](https://github.com/Weichwolf/outshine/issues/28)).
   Die Topologiegarantie betrifft trilineare Gitterinterpolation; Kontinuitäts-/Bildfehler eigens prüfen.
 - **Interval Arithmetic and Recursive Subdivision for Implicit Functions and
   Constructive Solid Geometry**, Duff, SIGGRAPH 1992.
   [Primärquelle im MIT-Kursarchiv](https://fab.cba.mit.edu/classes/S62.12/docs/Duff_interval_CSG.pdf) ·
   [PDF](vegetation/siggraph/1992-interval-arithmetic-csg.pdf).
-  Optisch geprüfte Intervall-/Gebietsformeln begründen Blockauswahl vor Feldabtastung (2352).
+  Optisch geprüfte Intervall-/Gebietsformeln begründen Blockauswahl vor Feldabtastung ([#28](https://github.com/Weichwolf/outshine/issues/28)).
   Eigene Kapselgrenzen nach außen runden; Gleitkomma-Feldwerte zusätzlich absichern und prüfen.
 - **Projection onto the Probability Simplex**, Wang / Carreira-Perpiñán, arXiv 2013.
   [Autorenquelle](https://arxiv.org/abs/1309.1541) ·
@@ -236,30 +236,30 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   SIGGRAPH / TOG 2007. [Autorenquelle](https://www.cs.columbia.edu/cg/normalmap/) ·
   [PDF](vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf).
   Seite 1 mit V-Rillen- und Bildvergleich optisch geprüft: Normalenmittelung verliert die
-  Verteilung. Begründet getrennte Neigungsstatistik und Grenzen einzelner Glanzverteilungen (2490).
+  Verteilung. Begründet getrennte Neigungsstatistik und Grenzen einzelner Glanzverteilungen ([#44](https://github.com/Weichwolf/outshine/issues/44)).
 - **LEAN Mapping**, Olano / Baker, I3D 2010, korrigierte Autorenfassung.
   [Autorenquelle](https://userpages.cs.umbc.edu/olano/papers/lean/) ·
   [PDF](vegetation/i3d/2010-lean-mapping.pdf).
   Seiten 3–4 einschließlich Gleichungen 2–6 optisch geprüft: erste/zweite Neigungsmomente
-  linear filtern. Unsere isotrope Übertragung auf GGX bleibt eine gesonderte Näherung (2490).
+  linear filtern. Unsere isotrope Übertragung auf GGX bleibt eine gesonderte Näherung ([#44](https://github.com/Weichwolf/outshine/issues/44)).
 - **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
   SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
   [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.
   Seite 1 optisch geprüft; Oberflächenzerlegung und Innen-/Außenklassifikation begründen
-  den Vergleich vollständiger Pflanzenoberflächen (2353). Manifold nutzt einen eigenen
+  den Vergleich vollständiger Pflanzenoberflächen ([#29](https://github.com/Weichwolf/outshine/issues/29)). Manifold nutzt einen eigenen
   Algorithmus; dessen Bibliotheksgarantien ersetzen weder lokale Prüfungen noch organische Ausrundung.
 - **Taming the Shadow Terminator**, Chiang / Li / Burley, SIGGRAPH Talks 2019.
   [Autorenquelle](https://www.yiningkarlli.com/projects/shadowterminator.html) ·
   [PDF](vegetation/siggraph/2019-taming-shadow-terminator.pdf), korrigierte Autorenfassung.
   Beide Seiten einschließlich Normalendiagrammen, Gleichungen und Bildvergleichen optisch geprüft.
-  Begründet die getrennte Prüfung von Schattierungsnormalen und geometrischer Selbstverschattung (2353).
+  Begründet die getrennte Prüfung von Schattierungsnormalen und geometrischer Selbstverschattung ([#29](https://github.com/Weichwolf/outshine/issues/29)).
   EEVEE-Positionsoffsets sind eine andere Korrektur als der dort beschriebene BRDF-Schattenfaktor.
 - **Embree: A Kernel Framework for Efficient CPU Ray Tracing**, Wald / Woop / Benthin /
   Johnson / Ernst, SIGGRAPH / TOG 2014.
   [Autorenquelle](https://www.sci.utah.edu/~wald/Publications/2014/embree/embree.pdf) ·
   [PDF](vegetation/siggraph/2014-embree-ray-tracing.pdf).
   Seite 1 mit Abbildungen optisch geprüft. Beschleunigte CPU-Strahlabfragen begründen den
-  Vergleich gegen skalare Elternflächenabfragen bei Astnormalen (2353); eigene lokale
+  Vergleich gegen skalare Elternflächenabfragen bei Astnormalen ([#29](https://github.com/Weichwolf/outshine/issues/29)); eigene lokale
   Messungen und Genauigkeitsprüfung, keine Übernahme publizierter Geschwindigkeitsfaktoren.
 - **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
   [Publikation](https://doi.org/10.1145/218380.218427) ·
@@ -287,7 +287,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [Autoren-PDF](https://www.algorithmicbotany.org/papers/venation.sig2005.pdf) ·
   [PDF](vegetation/siggraph/2005-leaf-venation.pdf).
   Nächste Aderknoten aus Quellen wachsen lassen, nahe Quellen entfernen und verbundene Radien ableiten.
-  PDF-Seiten 2/5 optisch geprüft; 2488 besitzt das eigene offene Netz mit fester Blattkontur,
+  PDF-Seiten 2/5 optisch geprüft; [#42](https://github.com/Weichwolf/outshine/issues/42) besitzt das eigene offene Netz mit fester Blattkontur,
   begrenztem Wachstum und eigenem Materialfeld. Blattwachstum/geschlossene Maschen bleiben offen.
 - **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
   EGSR 2007.
@@ -301,7 +301,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [PDF](vegetation/eg/habel-2009-physically-guided-animation.pdf).
   Hierarchische Verformung und verjüngte Balken verbinden; Bewegungsantwort spektral vorberechnen.
   Seite 3 optisch geprüft: Gewichte, Einspannung und radiusabhängiges Flächenträgheitsmoment.
-  2487 besitzt den eigenen Windpfad und den Vergleich; dessen erstes gemeinsames Verschiebungsfeld
+  [#41](https://github.com/Weichwolf/outshine/issues/41) besitzt den eigenen Windpfad und den Vergleich; dessen erstes gemeinsames Verschiebungsfeld
   ersetzt noch keine kalibrierte Balkendynamik oder den vollständigen SpeedTree-Wind.
 - **Stochastic Transparency**, Enderton / Sintorn / Shirley / Luebke, TVCG 2011,
   erweiterte Fassung der I3D-Arbeit 2010.
@@ -324,7 +324,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [Autoren-PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Shade-SG98.pdf) ·
   [PDF](vegetation/siggraph/1998-layered-depth-images.pdf).
   Tiefensprites und geschichtete Tiefenbilder als Vergleich für Parallaxe und Verdeckungswechsel.
-  Seite 2 mit Repräsentationshierarchie optisch geprüft. Eigene bedingte Einmoment-Reliefs (2347)
+  Seite 2 mit Repräsentationshierarchie optisch geprüft. Eigene bedingte Einmoment-Reliefs ([#23](https://github.com/Weichwolf/outshine/issues/23))
   übernehmen keine Mehrschichtgarantie; Wind, Schatten und Disokklusion separat prüfen.
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
@@ -333,7 +333,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Mehrere räumliche Ebenen statt einer flachen Kronenkarte als Fernprototyp vergleichen.
   Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
   den Geometriegewinn aufheben. Aus eigenen prozeduralen Modellen erzeugen, kein Fotoatlas. Gemeinsame Basisprodukte
-  als Asset-Rohlinge speichern (2280); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
+  als Asset-Rohlinge speichern ([#10](https://github.com/Weichwolf/outshine/issues/10)); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
 - **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
   [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
   [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
@@ -356,7 +356,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Wind, Licht und Wolkenschatten nutzen denselben Zustand. Publizierte PS4-Zeiten sind
   kein A18-Pro-Beleg. Keine Wolkenarbeit vor dem vereinbarten Welt-/Vegetationsausbau.
 
-## Physik, Animation, NPCs und Klang — WI 2136
+## Physik, Animation, NPCs und Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
 
 - **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
   Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
@@ -385,15 +385,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 | Bereich / WI | Grundlage | Entscheidung für Outshine |
 |---|---|---|
-| Quellen/HTTP/Cache — 2280 | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; Quellbytes separat, Assetbedarf → Treffer laden / Miss generieren; räumlicher Assetcache mit LOD/Residency |
-| Weltweite Auswahl — 2336 | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
-| Import/Material/Animation — 2188 / 2171 / 2136 | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Szenario und glTF in dieselben nativen Produkte, keine parallele Assetwelt |
-| Backend/Submission — 2188 / 2155 | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Nur verfügbare Backendverträge; Ownership, Synchronisation, tatsächliche GPU-Bytes messen |
-| JS/UI/LLM — 2136 | [ECMAScript](https://tc39.es/ecma262/) und vorhandene HTML/CSS-Teilmenge | Begrenzte Commands/Events, lokale ausführbare Steuerung, keine Netzwerkabhängigkeit im Tick |
-| Navigation — 2136 | [Recast/Detour](https://recastnav.com/md_Docs_2__1__Introduction.html) | Begehbare Flächen und lokale Pfadkorridore; Straßengraph für Verkehr, eigene Flug-/Wassermodelle statt einer universellen 2D-Navigation |
-| Astronomie — 2172 | [IAU SOFA](https://www.iausofa.org/cookbooks) | Zeit-/Koordinatenkonventionen und Beobachterkorrekturen prüfen; Astronomie aus UTC/Ort, nicht als Live-Datenabhängigkeit |
+| Quellen/HTTP/Cache — [#10](https://github.com/Weichwolf/outshine/issues/10) | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; Quellbytes separat, Assetbedarf → Treffer laden / Miss generieren; räumlicher Assetcache mit LOD/Residency |
+| Weltweite Auswahl — [#12](https://github.com/Weichwolf/outshine/issues/12) | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
+| Import/Material/Animation — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#6](https://github.com/Weichwolf/outshine/issues/6) / [#2](https://github.com/Weichwolf/outshine/issues/2) | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Szenario und glTF in dieselben nativen Produkte, keine parallele Assetwelt |
+| Backend/Submission — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#4](https://github.com/Weichwolf/outshine/issues/4) | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Nur verfügbare Backendverträge; Ownership, Synchronisation, tatsächliche GPU-Bytes messen |
+| JS/UI/LLM — [#2](https://github.com/Weichwolf/outshine/issues/2) | [ECMAScript](https://tc39.es/ecma262/) und vorhandene HTML/CSS-Teilmenge | Begrenzte Commands/Events, lokale ausführbare Steuerung, keine Netzwerkabhängigkeit im Tick |
+| Navigation — [#2](https://github.com/Weichwolf/outshine/issues/2) | [Recast/Detour](https://recastnav.com/md_Docs_2__1__Introduction.html) | Begehbare Flächen und lokale Pfadkorridore; Straßengraph für Verkehr, eigene Flug-/Wassermodelle statt einer universellen 2D-Navigation |
+| Astronomie — [#7](https://github.com/Weichwolf/outshine/issues/7) | [IAU SOFA](https://www.iausofa.org/cookbooks) | Zeit-/Koordinatenkonventionen und Beobachterkorrekturen prüfen; Astronomie aus UTC/Ort, nicht als Live-Datenabhängigkeit |
 | Parser/Mathematik/Geometrie/Physik | [Systembibliotheken](../dependencies.md) | Bewährte Implementierungen kapseln; keine Library-Typen in Welt, ABI oder Saveformat |
-| Save/Replay, Telemetrie, Budgets — 2136 / 2188 / 2169 | Eigene Zustands-/Lebensdauerverträge im WI | Versionierte atomare Zustandsübergänge, aufgezeichnete externe Events; Literatur begründet keine Vollständigkeit |
+| Save/Replay, Telemetrie, Budgets — [#2](https://github.com/Weichwolf/outshine/issues/2) / [#9](https://github.com/Weichwolf/outshine/issues/9) / [#5](https://github.com/Weichwolf/outshine/issues/5) | Eigene Zustands-/Lebensdauerverträge im WI | Versionierte atomare Zustandsübergänge, aufgezeichnete externe Events; Literatur begründet keine Vollständigkeit |
 
 Offene Implementierungsfragen bleiben im zuständigen WI: Quellsemantik/Sonderbauten,
 globale Abdeckung, konservative Formfehler, Schattenqualität, Reflexionssichtbarkeit,

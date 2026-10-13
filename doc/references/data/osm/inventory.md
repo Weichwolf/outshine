@@ -38,14 +38,14 @@ das tatsächliche Anbieter-TileJSON und Payload entscheiden.
 
 | Reihenfolge | Inhalt / gemeinsames Rezept | Besitzer |
 |---|---|---|
-| 1 | Alle gelieferten Layer/Attribute auf SSD erhalten; genutzte native Semantik ohne Quellenverlust normalisieren | 2341, Cachevertrag 2280 |
-| 2 | Sichere Gebäude: Haus/Reihe, Block/Büro, Halle, Garage, Glasbau; einfache vollständige Dächer | 2173 |
-| 3 | Sondervolumen: Schornstein, Silo/Tank, Wasserturm, Kirche, Kühlturm; nur belegte Klasse oder klarer Ersatz | 2173 |
-| 4 | Straßen/Schienen/Wege, Brücken/Tunnel/Stege, Flughafengeometrie, Seilbahnen | 2281, 2338 |
-| 5 | Gewässer, Kanäle, Becken, Hafen-/Uferkontakte, Dämme | 2145, 2338 |
-| 6 | Technische Anlagen: Windräder, Solarreihen, Kräne, Masten/Leitungen | 2338; Sonderklassendaten fehlen |
-| 7 | POI-Familien: Zugänge/Barrieren, Straßenmöbel, Parken/ÖPNV, Sport/Spiel, Versorgung/Gewerbe | 2338; Beschriftung/Nahfassade 2173 |
-| 8 | Landuse/Landcover: Landwirtschaft, Fels/Sand/Schnee/Nässe, Industrie-/Wohnflächen | 2337, 2171; Pflanzen zuletzt 2111 |
+| 1 | Alle gelieferten Layer/Attribute auf SSD erhalten; genutzte native Semantik ohne Quellenverlust normalisieren | [#17](https://github.com/Weichwolf/outshine/issues/17), Cachevertrag [#10](https://github.com/Weichwolf/outshine/issues/10) |
+| 2 | Sichere Gebäude: Haus/Reihe, Block/Büro, Halle, Garage, Glasbau; einfache vollständige Dächer | [#8](https://github.com/Weichwolf/outshine/issues/8) |
+| 3 | Sondervolumen: Schornstein, Silo/Tank, Wasserturm, Kirche, Kühlturm; nur belegte Klasse oder klarer Ersatz | [#8](https://github.com/Weichwolf/outshine/issues/8) |
+| 4 | Straßen/Schienen/Wege, Brücken/Tunnel/Stege, Flughafengeometrie, Seilbahnen | [#11](https://github.com/Weichwolf/outshine/issues/11), [#14](https://github.com/Weichwolf/outshine/issues/14) |
+| 5 | Gewässer, Kanäle, Becken, Hafen-/Uferkontakte, Dämme | [#3](https://github.com/Weichwolf/outshine/issues/3), [#14](https://github.com/Weichwolf/outshine/issues/14) |
+| 6 | Technische Anlagen: Windräder, Solarreihen, Kräne, Masten/Leitungen | [#14](https://github.com/Weichwolf/outshine/issues/14); Sonderklassendaten fehlen |
+| 7 | POI-Familien: Zugänge/Barrieren, Straßenmöbel, Parken/ÖPNV, Sport/Spiel, Versorgung/Gewerbe | [#14](https://github.com/Weichwolf/outshine/issues/14); Beschriftung/Nahfassade [#8](https://github.com/Weichwolf/outshine/issues/8) |
+| 8 | Landuse/Landcover: Landwirtschaft, Fels/Sand/Schnee/Nässe, Industrie-/Wohnflächen | [#13](https://github.com/Weichwolf/outshine/issues/13), [#6](https://github.com/Weichwolf/outshine/issues/6); Pflanzen zuletzt [#1](https://github.com/Weichwolf/outshine/issues/1) |
 
 Gemeinsame Primitive und Parameterrezepte statt eines Generators je Tagwert. Grenzen,
 Ortsnamen und mehrsprachige Namen bleiben Metadaten; nicht jedes Attribut erzeugt Geometrie.
@@ -54,7 +54,7 @@ POI-Zuordnung braucht räumliche und fachliche Eindeutigkeit; kein pauschales Ne
 Fehlende Sonderklassendaten lassen sich durch einen besseren Shader nicht wiederherstellen.
 Der vorhandene Lieferumfang ist unmittelbar nutzbar. Fehlende Klassen dürfen aus Form, Höhe,
 Lage und Umfeld heuristisch ergänzt werden; Rendervergleiche verbessern allgemeine Regeln.
-Herkunft/Unsicherheit bleiben klar. Keine vorgeschaltete Sonderklassenbeschaffung (2341).
+Herkunft/Unsicherheit bleiben klar. Keine vorgeschaltete Sonderklassenbeschaffung ([#17](https://github.com/Weichwolf/outshine/issues/17)).
 
 ## Optische Abnahme
 

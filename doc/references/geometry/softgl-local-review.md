@@ -31,7 +31,7 @@ Die Verfahren liefern Hypothesen, keine Outshine-Kostenbelege.
 
 1. Frame-Spitzen mit tatsächlich eingereichten GPU-Kommandos und Vorbereitung korrelieren;
    Host-Encoding, Queue/Fence-Warten und GPU-Passzeit nicht gleichsetzen.
-2. In 2336 räumliche Hierarchie/LOD vor Mesh-Erzeugung; in 2340 Cluster-Auswahl statt
+2. In [#12](https://github.com/Weichwolf/outshine/issues/12) räumliche Hierarchie/LOD vor Mesh-Erzeugung; in [#16](https://github.com/Weichwolf/outshine/issues/16) Cluster-Auswahl statt
    flacher Vollprüfung vergleichen. Sortierung bewegt Schlüssel, keine Meshdaten.
 3. Aktuelle Tiefenvorlage gegen ihre zusätzliche Geometrie-/Bandbreitenarbeit messen.
    Materialspezifische Arbeit erst nach wirksamer Coverage; bestehende sichere Fallbacks erhalten.
