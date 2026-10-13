@@ -96,10 +96,14 @@ def needle_checks():
                 "volume_relative_errors": [v / reference - 1 for v in volumes],
             }
         )
+    from needle_sector_checks import sector_checks
+
+    sectors = sector_checks()
     return {
-        "differential_points": 356,
-        "normal_max_error": maximum,
-        "closed_oriented_meshes": 8,
+        "differential_points": 356 + sectors["differential_points"],
+        "normal_max_error": max(maximum, sectors["normal_max_error"]),
+        "closed_oriented_meshes": 16,
         "constant_cylinder_same_volume": True,
-        "cases": cases,
+        "cases": cases + sectors["cases"],
+        "sector_edges_and_fascicles": sectors,
     }

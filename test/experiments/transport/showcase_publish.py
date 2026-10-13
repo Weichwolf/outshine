@@ -20,6 +20,10 @@ METRICS = {
     "maximum_boundary_error_m": ("Randabweichung", "m"),
     "plan_ms": ("Flächenplanung", "ms"),
     "mesh_and_audit_ms": ("Mesh und Prüfung", "ms"),
+    "volume_m3": ("Geschlossenes Volumen", "m³"),
+    "closing_ms": ("3D-Körperaufbau", "ms"),
+    "clearance_m": ("Freie Durchfahrt", "m"),
+    "raw_mesh_bytes": ("Geometriebuffer", "Byte"),
 }
 
 

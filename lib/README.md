@@ -42,6 +42,38 @@ Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
 
+`transport.close_surface(mesh, depth_m)` schließt eine bereits geprüfte, konforme
+XY-Fahrfläche mit ihren expliziten XYZ-Höhen durch einen Boden und gerichtete
+Außen-/Lochwände. Gemeinsame obere Vertices bleiben einmal vorhanden; die Tiefe
+gilt vertikal. Das Verfahren prüft Kanteninzidenz, Randzyklen und darstellbare Tiefe,
+plant aber weder DEM-Höhen noch Verkehrsverbindungen. Der Aufrufer muss zuvor
+überlappungsfreie Geometrie und fehlende T-Verbindungen beweisen.
+Gegenfälle prüfen Innenlöcher, Neigung, umgekehrte Eingabeflächen, große
+Verschiebungen, nicht darstellbare Tiefe und den Höhenvertrag einer Brücke in der
+Transport → Buildings → Vegetation-Kette. Die Bibliotheksübernahme besitzt
+[#50](https://github.com/Weichwolf/outshine/issues/50).
+
+Die Vegetationsbibliothek exportiert `vegetation.Needle`: geschlossene, spitze
+Organflächen mit elliptischen, rhombischen oder Halbkreis-/Kreissektorquerschnitten,
+kontrollierter Biegung/Twist und analytischen Normalen. Gemeinsame Nah-/Grobpunkte
+bleiben erhalten. Pflanzenlokaler Rahmen: X quer, Y längs, Z normal, Meter; dieser
+Rahmen wird erst bei Weltplatzierung in ENU umgerechnet. `mesh()` liefert eigene
+Float64-Positionen, UVs, Parameter und Ecknormalen sowie Int32-Dreiecke als Dictionary.
+Harte Kanten und Deckel behalten getrennte Ecknormalen. Unteraufgelöste, falsch
+orientierte Facetten werden abgelehnt; feste Unterteilungen beweisen keine LOD-Deckung.
+Material, Wind, vollständige Pflanzen und Weltplatzierung bleiben Experimentarbeit.
+
+```python
+from outshine_ref.vegetation import Needle
+
+organ = Needle(section="sector", sector_count=5, aspect=1.0)
+near = organ.mesh(32, 16)
+coarse = organ.mesh(16, 8)
+```
+
+Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/outshine/issues/45),
+[#46](https://github.com/Weichwolf/outshine/issues/46), Übernahme [#52](https://github.com/Weichwolf/outshine/issues/52).
+
 `buildings.modelling` enthält den übernommenen Scope-Kern: `Frame`, `Scope`,
 `Relative`, `t`, `r`, `s` und `translate`. Er hält die dokumentierten CGA-Achsen
 Ost/Auf/Süd intern; `cga_to_enu`/`enu_to_cga` konvertieren Positionen und Normalen

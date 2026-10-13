@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from ..contracts import Hint, LocalFrame, Mesh, Reservation, SourceInputs, collection
+from .needle_surface import Needle
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,3 +23,5 @@ class Plan:
             raise ValueError("one explicit local frame is required")
         collection(self.meshes, Mesh, "vegetation meshes")
 
+
+__all__ = ["Inputs", "Needle", "Plan"]
