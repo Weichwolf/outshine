@@ -78,12 +78,35 @@ class HipModelling(unittest.TestCase):
         source=Shape.from_polygon(shapely.box(0,0,12,5))
         for options in ({'max_cells':1},{'limits':SkeletonLimits(seconds=1e-12)},{'limits':SkeletonLimits(vertices=3)}):
             with self.assertRaises(SkeletonBudgetExceeded):source.roof_hip(3.,'byHeight',**options)
-        for options in ({'overhang':.5},{'even':True}):
+        for options in ({'overhang':.5},):
             with self.assertRaises(NotImplementedError):source.roof_hip(3.,'byHeight',**options)
         for value,mode in ((0.,'byHeight'),(-1.,'byHeight'),(90.,'byAngle'),(float('nan'),'byAngle'),(True,'byAngle')):
             with self.assertRaises(ValueError):source.roof_hip(value,mode)
         for options in ({'even':1},{'max_cells':False},{'max_cells':0}):
             with self.assertRaises(ValueError):source.roof_hip(3.,'byHeight',**options)
+
+    def test_even_rectangle_preserves_the_planar_native_product(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5))
+        before=source.roof_hip(3.,'byHeight').emit();after=source.roof_hip(3.,'byHeight',even=True).emit()
+        for key in before:np.testing.assert_allclose(after[key],before[key],atol=1e-12)
+
+    def test_even_trapezoid_keeps_a_horizontal_ridge_and_warped_faces(self):
+        source=Shape.from_polygon(shapely.Polygon([(0,0),(12,0),(10,7),(2,6)]))
+        original=source.roof_hip(3.,'byHeight');roof=source.roof_hip(3.,'byHeight',even=True)
+        plan,surface=roof.roof_info.plans[0],roof.roof_info.surfaces[0]
+        group=next(g for g in surface.ridge_groups if len(g)>1)
+        expected=plan.distances_m[list(group)].mean()*plan.factor(3.,'byHeight')
+        self.assertLess(expected,original.scope.size[1])
+        self.assertAlmostEqual(roof.scope.size[1],expected)
+        mesh=roof.emit();warped=[]
+        for face in roof.geometry.polygons:
+            if 'roof.top' not in face.tags:continue
+            points=mesh['vertices'][list(face.outer)]
+            warped.append(np.linalg.matrix_rank(points-points[0],tol=1e-7)==3)
+        self.assertTrue(any(warped))
+        selected=roof.comp('f',Branch(tagged('roof.top'),'='),alignment='noAlign')[0].emit()
+        self.assertEqual(len(selected['faces']),sum('roof.top' in roof.geometry.polygons[p].tags for p in mesh['parts']))
+        with self.assertRaises(ValueError):surface.distances_m.flags.writeable=True
 
 
 if __name__=='__main__':unittest.main()
