@@ -36,6 +36,7 @@ from leaf_relative_plots import relative_figure
 from leaf_relief_plots import relief_figure
 from leaf_terminal_plots import terminal_figure
 from needle_plots import needle_figure
+from placement_library_plots import placement_library_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import cache_profile_figure, profile_figure
@@ -380,6 +381,12 @@ def blade_library_plot(report):
     return save_plot(figure, "blade-library")
 
 
+def placement_library_plot(report):
+    figure = placement_library_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "placement-library")
+
+
 def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
@@ -524,6 +531,7 @@ def plot_entries(output, plot_lods):
             normal_plot,
             needle_plot,
             blade_library_plot,
+            placement_library_plot,
             profile_cache_plot,
             filter_plot,
             development_plot,
