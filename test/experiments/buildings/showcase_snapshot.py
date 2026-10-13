@@ -18,6 +18,7 @@ from showcase_asset_load import probe as import_probe
 from showcase_uv import probe as uv_probe
 from showcase_physical import probe as physical_probe
 from projection_render import probe as projection_probe
+from projection_axes_render import probe as projection_axes_probe
 
 
 NAMES={'rectangle':'Rechteck · Kontrollhaus','vienna-compact':'Wien · kompaktes Gebäude',
@@ -104,6 +105,7 @@ def main():
     reports+=uv_probe(args.output,provenance)
     reports+=physical_probe(args.output,provenance)
     reports+=projection_probe(args.output,provenance)
+    reports+=projection_axes_probe(args.output,provenance)
     temporary=args.output/'snapshot.json.tmp'
     temporary.write_text(json.dumps(provenance|dict(reports=reports,completed_recipe_families=0),ensure_ascii=False,indent=2)+'\n')
     temporary.replace(args.output/'snapshot.json')
