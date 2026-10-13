@@ -12,7 +12,7 @@ import numpy as np
 
 from evidence import revision
 from outshine_ref.buildings.modelling import Relative,cga_to_enu,enu_to_cga
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from preview import configuration,run_render
 from showcase_scene import fitted_points
 

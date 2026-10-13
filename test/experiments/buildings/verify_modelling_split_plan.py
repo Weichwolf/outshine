@@ -11,9 +11,9 @@ from shapely.affinity import rotate,translate
 from evidence import revision
 from modelling_extrude_probe import fixtures
 from outshine_ref.buildings.modelling.scope import Relative
-from modelling_split_area import TriangleArea
-from modelling_split_plan import clipped,split_plan
-from modelling_split_sizes import Floating,Part,allocations
+from outshine_ref.buildings.modelling.split_area import TriangleArea
+from outshine_ref.buildings.modelling.plan_split import clipped,split_plan
+from outshine_ref.buildings.modelling.split_sizes import Floating,Part,allocations
 
 
 def near(actual,expected,tolerance=1e-8):

@@ -247,6 +247,7 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
+  class PipelineShaders;
   static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
   static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
 
@@ -257,6 +258,7 @@ private:
                                           const SourceOptions &options,
                                           std::span<const Resource> colours,
                                           SurfaceKind kind,
+                                          PipelineShaders &shaders,
                                           std::array<OwnedPipeline, kPipelines> &pipelines,
                                           uint32_t &built,
                                           std::string &error);
@@ -266,6 +268,7 @@ private:
                                              const SourceOptions &options,
                                              std::span<const SDL_GPUColorTargetDescription> targets,
                                              SDL_GPUDevice *device,
+                                             PipelineShaders &shaders,
                                              std::array<OwnedPipeline, kPipelines> &pipelines,
                                              uint32_t &built,
                                              std::string &error);
@@ -284,8 +287,6 @@ public:
   void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
 
   [[nodiscard]] const SubjectEnvironment &Environment() const { return IndirectLight; }
-
-  void SkyFrom(SDL_GPUBuffer *irradiance) { SkyIrradiance_ = irradiance; }
 
   struct Reflections {
     SDL_GPUTexture *Atlas = nullptr;
@@ -396,7 +397,6 @@ private:
 
   SubjectResidency Own_;
   SubjectResidency *At_ = nullptr;
-  SDL_GPUBuffer *SkyIrradiance_ = nullptr;
   SDL_GPUBuffer *GroundClasses_ = nullptr;
   SDL_GPUBuffer *GroundPalette_ = nullptr;
 

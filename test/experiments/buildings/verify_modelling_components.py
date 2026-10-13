@@ -12,11 +12,11 @@ import shapely
 
 from esri_oracle import CASES,generate,geometry_digest
 from evidence import revision
-from modelling_components import Branch,Surface
-from modelling_faces import Face
+from outshine_ref.buildings.modelling.components import Branch,Surface
+from outshine_ref.buildings.modelling.faces import Face
 from outshine_ref.buildings.modelling.scope import Frame,Scope
-from modelling_selectors import HORIZONTAL,NUTANT_HIGH,VERTICAL,Selector,select,tagged
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.selectors import HORIZONTAL,NUTANT_HIGH,VERTICAL,Selector,select,tagged
+from outshine_ref.buildings.modelling.shape import Shape
 from provider_contract import attributes
 from samples import read_site
 from verify_modelling_extrude import closed,near,volume

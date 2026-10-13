@@ -13,12 +13,12 @@ import numpy as np
 import shapely
 
 from evidence import revision
-from modelling_component_geometry import component_scope,subset
-import modelling_components
+from outshine_ref.buildings.modelling.component_geometry import component_scope,subset
+from outshine_ref.buildings.modelling import components as modelling_components
 from modelling_extrude_probe import fixtures
-from modelling_faces import face_shape
-from modelling_shape import Shape
-from modelling_metadata import inherit
+from outshine_ref.buildings.modelling.faces import face_shape
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.metadata import inherit
 from verify_modelling_components import combined,uv_signature,reconstructed_uv
 from verify_modelling_extrude import near,volume
 

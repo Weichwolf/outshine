@@ -346,10 +346,6 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
                                              .Palette = ActiveState().Content.Ground.Palette()});
   ActiveState().Content.Glass.GroundFrom({.Classes = ActiveState().Content.Ground.Classes(),
                                           .Palette = ActiveState().Content.Ground.Palette()});
-  ActiveState().Content.Subjects.SkyFrom(State_.Frame.IrradianceBuffer.Get());
-  if (ActiveState().Content.DrawsGlass) {
-    ActiveState().Content.Glass.SkyFrom(State_.Frame.IrradianceBuffer.Get());
-  }
   ActiveState().Submitted = false;
   ActiveState().Ready = true;
   return true;
@@ -1062,10 +1058,6 @@ void SceneRenderer::BindFrameResources() {
   ActiveState().Content.Glass.Shares(ActiveState().Content.Subjects.Owned());
   ActiveFrame().Shadow.Binds(ActiveState().Content.Subjects);
   ActiveFrame().Cull.Binds(ActiveState().Content.Subjects);
-  ActiveState().Content.Subjects.SkyFrom(ActiveFrame().IrradianceBuffer.Get());
-  if (ActiveState().Content.DrawsGlass) {
-    ActiveState().Content.Glass.SkyFrom(ActiveFrame().IrradianceBuffer.Get());
-  }
 }
 
 void SceneRenderer::Picture(bool picture, const PassRecording &into) {

@@ -9,9 +9,9 @@ import numpy as np
 
 from evidence import revision
 from modelling_asset_cases import fixtures
-from modelling_insert import Asset
+from outshine_ref.buildings.modelling.insert import Asset
 from outshine_ref.buildings.modelling.scope import Scope
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 
 
 def placements(path,targets,reuse):

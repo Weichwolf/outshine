@@ -103,6 +103,50 @@ Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/
 `Relative`, `t`, `r`, `s` und `translate`. Er hält die dokumentierten CGA-Achsen
 Ost/Auf/Süd intern; `cga_to_enu`/`enu_to_cga` konvertieren Positionen und Normalen
 an der gemeinsamen ENU-Grenze, ohne Dreieckswinding oder Höhenbezug zu ändern.
-Alle Gebäudeexperimente verwenden diese Implementierung. Shape-/Geometrieoperationen,
-Dächer und konstruktive Gebäudepläne liegen weiterhin in den Experimenten (#51).
-Die Scope-Übernahme allein ist keine vollständige CityEngine-Bibliothek.
+Alle Gebäudeexperimente verwenden diese Implementierung. Der verbundene Modellierkern
+enthält außerdem `Shape`, `Geometry`, `Face`, `Material`, `Asset`, `Texture`,
+`Branch`, `Part` und `Floating`: Komponenten, Extrusion, Unterteilung, Offset,
+Pult-/Firstdächer, UV-/Materialbearbeitung, Projektionen und statische Asset-Platzierung.
+`Shape.rotate_scope` richtet nur den Scope neu aus und erhält die sichtbare Geometrie.
+Die vorhandenen Gegenfälle/Referenzen bleiben unter `test/experiments/buildings/`.
+Konstruktive Gebäudepläne und Rezepte liegen weiterhin dort (#51); viele dokumentierte
+CityEngine-Fähigkeiten und Teilverträge sind noch offen (#34).
+
+```sh
+.venv/bin/python -m pip install -e './lib[assets]'
+```
+
+`assets` installiert Trimesh/Pygltflib für den optionalen OBJ/glTF/GLB-Import.
+Der Grundkern benötigt NumPy, Shapely und Pillow. Importiert er nur eigene Shapes,
+lädt er die Asset-Decoder nicht. Intern bleiben CGA-Achsen ausdrücklich benannt;
+`Shape.from_polygon` übernimmt einen ENU-XY-Grundriss und erzeugt ihn in CGA-XZ
+mit der angegebenen lokalen Höhe. Gemeinsame Ausgabe an Transport/Vegetation/world
+wird mit `cga_to_enu` für Positionen/Normalen konvertiert. Quellen/IDs sind der
+Auftrag des übergeordneten Gebäudeplans; ein Shape allein ist kein Gebäude-Assetvertrag.
+
+`vegetation.Profile` übernimmt vorbereitete skalare Profile: unveränderliche
+Float64-Tabellen, Lookup, einseitige Tabellenslopes, Clamping und gekachelte Drift.
+Laden/Auswertung importiert keinen Kurvensolver. Kurvenvorbereitung liegt getrennt
+in `vegetation.bezier_curve.BezierCurve` und benötigt SciPy ≥1.15; es ist eine
+deklarierte Paketabhängigkeit. Inversion nutzt maximal 100 Solveriterationen.
+Die ausgegebene SciPy-Polynomdarstellung ist eine unabhängige Kopie.
+Bool-, Text-, komplexe und nicht endliche Koordinaten sind ungültig.
+
+Abbruch anhand kleiner Funktionsreste reicht bei flachen x-Kurven nicht;
+`x(t)=t³` wird gegen die analytische Kubikwurzel geprüft. Tabellenauflösung
+begrenzt Lookup-Genauigkeit; eine allgemeine y-Fehlergarantie ist nicht belegt.
+[SciPy 1.15 find_root](https://docs.scipy.org/doc/scipy-1.15.0/reference/generated/scipy.optimize.elementwise.find_root.html)
+dokumentiert Intervall-/Resttoleranzen; Profile und Referenzproben gehören zu [#26](https://github.com/Weichwolf/outshine/issues/26).
+
+`vegetation.Blade` enthält offene Blatt-/Grasflächen in Metern, mit gelapptem
+Rand, Kreisführung, Twist, Querwölbung/Falz und Blattstiel. Pflanzenlokal gilt
+X quer, Y längs, Z normal. Float64-Positionen/Parameter/Ecknormalen und Int32-
+Dreiecke gehören dem Aufrufer; Knicke behalten einseitige Normalen.
+`surface_jet` liefert dieselben Normalen und Flächenmetrik plus Ableitungen
+nach u=(s+1)/2 und t. Gemeinsame Parameterpunkte bleiben bei Unterteilung gleich.
+Falsch orientierte oder nicht endliche Facetten werden abgelehnt; der Aufrufer
+muss innerhalb seines Budgets verfeinern oder die Detailanfrage zurückweisen.
+Unterteilung allein beweist keine Silhouetten-/Deckungsfehlergrenze.
+`area` integriert die Fläche; geteilte Quadraturpuffer sind unveränderlich.
+Quellen/Flächen-/Materialbelege und offene botanische Qualität stehen in [#22](https://github.com/Weichwolf/outshine/issues/22);
+Bibliotheksübernahme in [#52](https://github.com/Weichwolf/outshine/issues/52).

@@ -11,9 +11,9 @@ import shapely
 from evidence import revision
 from modelling_extrude_probe import fixtures
 from outshine_ref.buildings.modelling.scope import Frame,Relative
-from modelling_shape import Shape
-from modelling_faces import Face
-from modelling_split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.faces import Face
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
 from verify_modelling_extrude import closed,volume
 from verify_modelling_groups import cube
 

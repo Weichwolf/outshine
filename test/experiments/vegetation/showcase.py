@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from bark_layer_plots import layer_figure
 from bark_plots import bark_figure
+from blade_library_plots import blade_library_figure
 from closed_vein_plots import closed_figure
 from cloud_plots import group_figure, raster_figure, render_figure
 from collar_plots import collar_figure, ray_figure
@@ -37,7 +38,7 @@ from leaf_terminal_plots import terminal_figure
 from needle_plots import needle_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
-from profile_plots import profile_figure
+from profile_plots import cache_profile_figure, profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 from showcase_plot_sources import PLOT_SOURCES
 from spatial_plots import spatial_figure
@@ -367,6 +368,18 @@ def profile_plot(report):
     return save_plot(profile_figure(report), "branch-profiles")
 
 
+def profile_cache_plot(report):
+    figure = cache_profile_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "profile-cache")
+
+
+def blade_library_plot(report):
+    figure = blade_library_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "blade-library")
+
+
 def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
@@ -510,6 +523,8 @@ def plot_entries(output, plot_lods):
             pigment_plot,
             normal_plot,
             needle_plot,
+            blade_library_plot,
+            profile_cache_plot,
             filter_plot,
             development_plot,
             relative_plot,

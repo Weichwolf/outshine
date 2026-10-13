@@ -10,10 +10,10 @@ from unittest.mock import patch
 import numpy as np
 
 from evidence import revision
-import modelling_faces
-from modelling_components import Branch
+from outshine_ref.buildings.modelling import faces as modelling_faces
+from outshine_ref.buildings.modelling.components import Branch
 from modelling_extrude_probe import fixtures,individual
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from verify_modelling_extrude import near
 
 

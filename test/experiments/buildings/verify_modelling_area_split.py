@@ -10,10 +10,10 @@ import shapely
 
 from evidence import revision
 from modelling_extrude_probe import fixtures
-from modelling_faces import Face
+from outshine_ref.buildings.modelling.faces import Face
 from outshine_ref.buildings.modelling.scope import Relative
-from modelling_shape import Shape
-from modelling_split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
 from verify_modelling_split import near,source_attributes
 
 

@@ -8,7 +8,7 @@ import struct
 
 from esri_area_reference import mapped_offset
 from esri_ghidra import CORE,read_analysis
-from modelling_uv_normalize import UV_ZERO
+from outshine_ref.buildings.modelling.uv_normalize import UV_ZERO
 
 
 def main():

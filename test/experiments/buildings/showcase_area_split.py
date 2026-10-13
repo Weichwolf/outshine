@@ -12,8 +12,8 @@ import numpy as np
 from esri_oracle import CASES
 from modelling_area_split_probe import surfaces
 from modelling_scope_probe import engine_mesh
-from modelling_shape import Shape
-from modelling_split_sizes import Floating,Part
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Floating,Part
 from provider_contract import attributes
 from samples import read_site
 from showcase_groups import COLOURS,save_plot

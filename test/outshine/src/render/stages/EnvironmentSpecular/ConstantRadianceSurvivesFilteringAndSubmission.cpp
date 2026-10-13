@@ -5,7 +5,9 @@
 #include "IrradianceLayout.h"
 #include "Readback.h"
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <numbers>
@@ -135,6 +137,45 @@ void CheckAtlas(SDL_GPUDevice *device, const Sources &source) {
   CHECK(constant, "all roughness slices, edges and corners preserve constant incident radiance");
 }
 
+void CheckDiffuseHalfspace(SDL_GPUDevice *device, const Sources &source) {
+  Readback read;
+  CHECK(read.FromTexture(device,
+                         source.Atlas.Get(),
+                         {.WidthPx = kEnvironmentWidth, .HeightPx = kEnvironmentHeight},
+                         8) == ReadState::Ready,
+        "the diffuse convolution reaches actual GPU readback");
+  if (!read.Rows()) { return; }
+  constexpr std::array<float, 3> sky{0.25f, 0.5f, 1.0f};
+  double maximumError = 0;
+  for (uint32_t y = 0; y < kEnvironmentSide; ++y) {
+    for (uint32_t x = 0; x < kEnvironmentSide; ++x) {
+      const double px = 2.0 * (x + 0.5) / kEnvironmentSide - 1.0;
+      const double py = 2.0 * (y + 0.5) / kEnvironmentSide - 1.0;
+      const double z = 1.0 - std::abs(px) - std::abs(py);
+      const double nx = z < 0 ? std::copysign(1.0 - std::abs(py), px) : px;
+      const double ny = z < 0 ? std::copysign(1.0 - std::abs(px), py) : py;
+      const double expected = 0.5 * (1.0 + z / std::sqrt(nx * nx + ny * ny + z * z));
+      const uint32_t row = kEnvironmentDiffuseLevel * kEnvironmentWidth + kEnvironmentBorder + y;
+      const uint32_t column = kEnvironmentBorder + x;
+      std::array<uint16_t, 4> pixel{};
+      std::memcpy(pixel.data(), read.Rows() + row * read.RowBytes() + column * 8u, sizeof(pixel));
+      for (size_t channel = 0; channel < sky.size(); ++channel) {
+        const uint16_t bits = pixel[channel];
+        const int exponent = (bits >> 10u) & 31;
+        const float fraction = static_cast<float>(bits & 1023u);
+        const float value = exponent == 0 ? std::ldexp(fraction, -24)
+                                          : std::ldexp(1.0f + fraction / 1024.0f, exponent - 15);
+        CHECK((bits & 0x8000u) == 0 && exponent != 31,
+              "diffuse radiance is finite and nonnegative");
+        maximumError = std::max(maximumError, std::abs(value / sky[channel] - expected));
+      }
+    }
+  }
+  CHECK(maximumError < 0.035,
+        "128 cosine samples match the analytic bright-sky/dark-ground view factor within 3.5 "
+        "percent");
+}
+
 void CheckFiltering(SDL_GPUDevice *device) {
   Sources source(device);
   CHECK(source.Sky && source.Atlas && source.Irradiance && source.Sample,
@@ -161,6 +202,7 @@ void CheckFiltering(SDL_GPUDevice *device) {
   stage.Declare(kEarthAir, 0.5f, 0, {{0, 0, 0}});
   CHECK(!stage.Settled(), "changed ground radiance invalidates the product");
   CHECK(Filter(device, source, stage, true), "changed illumination is submitted");
+  CheckDiffuseHalfspace(device, source);
   Readback read;
   CHECK(read.FromTexture(device,
                          source.Atlas.Get(),

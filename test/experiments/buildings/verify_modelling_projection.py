@@ -9,11 +9,11 @@ import numpy as np
 import shapely
 
 from evidence import revision
-from modelling_insert import Asset
+from outshine_ref.buildings.modelling.insert import Asset
 from outshine_ref.buildings.modelling.scope import Relative,Frame
-from modelling_shape import Shape
-from modelling_split_sizes import Part,Floating
-from modelling_projection import dimension,resolved_offset
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.projection import dimension,resolved_offset
 from modelling_uv_cases import adjacent
 
 

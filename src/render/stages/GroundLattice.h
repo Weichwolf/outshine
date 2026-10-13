@@ -69,7 +69,7 @@ public:
                                       .VertexUniformBuffers = 1,
                                       .FragmentSamplers = 2,
                                       .FragmentUniformBuffers = kSubjectFragmentUniforms,
-                                      .FragmentStorageBuffers = 3};
+                                      .FragmentStorageBuffers = 2};
   static constexpr DrawShape DepthShape{.VertexSamplers = 1, .VertexUniformBuffers = 1};
 
   [[nodiscard]] bool Configure(GroundPipelineBinding &pipelines,

@@ -8,14 +8,14 @@ from pathlib import Path
 import numpy as np
 
 from evidence import revision
-from modelling_insert import Asset
-from modelling_metadata import Material
-from modelling_material_schema import srgb_to_linear,linear_to_srgb,DEFAULTS
+from outshine_ref.buildings.modelling.insert import Asset
+from outshine_ref.buildings.modelling.metadata import Material
+from outshine_ref.buildings.modelling.material_schema import srgb_to_linear,linear_to_srgb,DEFAULTS
 from modelling_uv_cases import adjacent,courtyard
-from modelling_split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
 from modelling_asset_cases import fixtures
 from outshine_ref.buildings.modelling.scope import Scope
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 
 
 def values(shape,source='used',mode='changed'):return dict(shape.get_material(source,mode))

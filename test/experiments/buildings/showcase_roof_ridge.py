@@ -13,15 +13,15 @@ import shapely
 from building_plan_views import patch
 from evidence import revision
 from esri_oracle import CASES
-from modelling_components import Branch
+from outshine_ref.buildings.modelling.components import Branch
 from modelling_scope_probe import engine_mesh
-from modelling_selectors import tagged
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.selectors import tagged
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling import cga_to_enu
 from provider_contract import attributes
 from samples import read_site
 from showcase_groups import save_plot
 from showcase_roof_shed import spatial
-from verify_modelling_roof_ridge import reframe
 from verify_modelling_roof_shed import source
 
 
@@ -32,12 +32,25 @@ def top_mesh(roof):
 
 def controls():
     polygon=shapely.Polygon([(0,0),(10,0),(10,3),(5,3),(5,8),(0,8)])
-    return [(angle,polygon,reframe(Shape.from_polygon(polygon,3.),angle).roof_ridge(2.5,'byHeight')) for angle in (0.,31.,90.)]
+    return [(angle,polygon,Shape.from_polygon(polygon,3.).rotate_scope(0.,angle,0.).roof_ridge(2.5,'byHeight')) for angle in (0.,31.,90.)]
 
 
 def height_plan(output,provenance,rows):
-    start=time.perf_counter();fig,axes=plt.subplots(1,3,figsize=(38.4,21.6));fig.suptitle('roofRidge · gleicher Grundriss, drei Scope-X-Ausrichtungen',fontsize=34)
-    for axis,(angle,polygon,roof) in zip(axes,rows,strict=True):
+    start=time.perf_counter();fig,axes=plt.subplots(2,3,figsize=(38.4,21.6));fig.suptitle('rotateScope → roofRidge · fester Grundriss, drei Firstausrichtungen',fontsize=34)
+    corner=np.array([[0.,0.,0.],[1.,0.,0.],[1.,0.,1.],[0.,0.,1.],[0.,0.,0.]])
+    scopes=[Shape.from_polygon(polygon,3.).rotate_scope(0.,angle,0.).scope for angle,polygon,_ in rows]
+    bounds=[cga_to_enu(corner@scope.matrix[:3,:3].T+scope.origin) for scope in scopes]
+    points=np.concatenate(bounds);low,high=points.min(axis=0)-.5,points.max(axis=0)+.5
+    for column,(angle,polygon,roof) in enumerate(rows):
+        scope,bound=scopes[column],bounds[column]
+        axis=axes[0,column];patch(axis,polygon,facecolor='#cae7ee',edgecolor='#2d3943',linewidth=3.)
+        axis.plot(bound[:,0],bound[:,1],color='#ed8855',linewidth=4.,label='neu angepasster Scope')
+        origin=cga_to_enu(scope.origin);x=cga_to_enu(scope.axes[:,0])*3.
+        axis.arrow(origin[0],origin[1],x[0],x[1],color='#d53a3a',head_width=.25,length_includes_head=True,linewidth=3.)
+        axis.set(aspect='equal',xlabel='Ost [m]',ylabel='Nord [m]');axis.set_title(f'rotateScope(0, {angle:g}, 0) · Geometrie bleibt fest',fontsize=24)
+        axis.set_xlim(low[0],high[0]);axis.set_ylim(low[1],high[1])
+        axis.legend(fontsize=18);axis.grid(alpha=.15)
+        axis=axes[1,column]
         mesh=top_mesh(roof);points=mesh['vertices'];colour=axis.tricontourf(points[:,0],points[:,1],mesh['faces'],points[:,2]-3.,levels=np.linspace(0.,2.5,257),cmap='viridis')
         fig.colorbar(colour,ax=axis,shrink=.45,label='Höhe über Traufe [m]');patch(axis,polygon,facecolor='none',edgecolor='#2d3943',linewidth=2.)
         vertices=roof.emit()['vertices'];counts={}
@@ -49,10 +62,10 @@ def height_plan(output,provenance,rows):
             if count==2:axis.plot(vertices[[a,b],0],-vertices[[a,b],2],color='#df423b',linewidth=3.)
         axis.set(aspect='equal',xlabel='Ost [m]',ylabel='Nord [m]');axis.grid(alpha=.2);axis.tick_params(labelsize=16)
         axis.set_title(f'Scope-X {angle:g}° · First 2,50 m\n{sum("roof.top" in f.tags for f in roof.geometry.polygons)} Dachkomponenten',fontsize=24)
-    fig.text(.055,.095,'Dachhöhe aus den emittierten Dreiecken; rot: gemeinsame logische Firstkanten. Der Quellgrundriss wird nicht mit dem Scope gedreht.',fontsize=23)
-    fig.subplots_adjust(top=.82,bottom=.18,wspace=.25)
+    fig.text(.055,.02,'Oben: fester Quellgrundriss, gedrehter Scope (orange) und dessen X-Achse (rot). Unten: tatsächliche Dachhöhe und gemeinsame logische Firstkanten (rot).',fontsize=22)
+    fig.tight_layout(rect=(0,.055,1,.95),h_pad=5.,w_pad=4.)
     return save_plot(fig,output,'current-roof-ridge-plan','Firstdächer · Scope-X und tatsächliche Höhen',
-        'Drei Ausrichtungen desselben unveränderten L-Grundrisses. Zwei geneigte Ebenen; konkave Schnitte können mehrere getrennte Dachkomponenten erzeugen. Metrische Höhenausgabe und wirkliche gemeinsame Firstkanten.',
+        'Installierte Shape-Bibliothek: rotate_scope hält die Geometrie fest und passt ihren Scope an. roof_ridge nutzt anschließend dessen X-Achse. Zwei geneigte Ebenen; metrische Dachhöhe und gemeinsame Firstkanten.',
         provenance,start,[3840,2160],label='roof-ridge')
 
 

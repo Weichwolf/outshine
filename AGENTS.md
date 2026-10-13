@@ -27,6 +27,16 @@
   Die Forschungsagenten warten dafür nicht auf eine native Umsetzung ihrer Python-Verfahren.
   Alle vier Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
   Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
+- [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang.
+  Kurze Kommentare beginnen mit `[Absenderbranch → Zielbranches]` (`master`, `transport`,
+  `buildings`, `vegetation`) und nennen Fach-Issue und Frage, Entscheidung oder Lieferung.
+  Antworten verlinken die Anfrage; Lieferungen nennen Commit, API, Belege und offene Grenzen.
+  Fachverträge bleiben in ihrer Issue-Beschreibung; kompatible Arbeit braucht keine Freigaberunde.
+  Ich lese neue Nachrichten und hole den Remote-Stand vor Arbeitsblöcken und Commits, bei längerer
+  laufender Arbeit mindestens alle 15 Minuten. Eigene Änderungen vor der Integration sichern;
+  Gates bleiben auf ihrem eingefrorenen Stand. Fragen ausdrücklich beantworten; Schweigen ist keine
+  Zustimmung. Fehlende Teilverträge benennen, unabhängige Arbeit fortsetzen. Wir prüfen den Ablauf
+  anhand tatsächlicher Antworten und korrigieren ihn, wenn Nachrichten verloren gehen.
 - Der aktive Nutzerauftrag bleibt maßgeblich; `GOAL.txt` auf `master` beschreibt den Outshine-/Integrationsauftrag.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen

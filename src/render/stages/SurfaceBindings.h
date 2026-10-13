@@ -24,7 +24,7 @@ struct SurfaceBindings {
     const bool transmits = kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
     if (domain == SurfaceDomain::Ground) {
       AddLightingImages(false, capture);
-      Shape.FragmentStorageBuffers = capture ? 2u : 3u;
+      Shape.FragmentStorageBuffers = 2u;
       Shape.FragmentUniformBuffers = 2;
     } else if (!CarriesNormal(layout)) {
       FlatResources(layout, kind, identityIndex, transmits);
@@ -54,7 +54,7 @@ private:
   }
 
   constexpr void LitResources(VertexLayout layout, bool transmits, bool capture) {
-    Shape.FragmentStorageBuffers = capture ? 0u : 1u;
+    Shape.FragmentStorageBuffers = 0u;
     Shape.FragmentUniformBuffers = capture ? 1u : 2u;
     if (CarriesUv(layout)) {
       const uint32_t images = capture ? 3u : 6u;

@@ -13,7 +13,7 @@ from PIL import Image,ImageDraw
 import shapely
 
 from evidence import revision
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from mitsuba_material import reference
 from mitsuba_mesh import mesh
 from procedural_surface import panels

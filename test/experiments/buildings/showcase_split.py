@@ -12,8 +12,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
 
 from esri_oracle import CASES
-from modelling_shape import Shape
-from modelling_split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
 from modelling_scope_probe import engine_mesh
 from preview import configuration,run_render
 from provider_contract import attributes

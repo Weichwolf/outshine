@@ -39,6 +39,15 @@ vec3 environmentHalfVector(vec2 samplePoint, float roughness, vec3 n) {
   return tangent * (cos(phi) * sinTheta) + cross(n, tangent) * (sin(phi) * sinTheta) + n * cosTheta;
 }
 
+vec3 environmentCosineDirection(vec2 samplePoint, vec3 n) {
+  float phi = 2.0 * acos(-1.0) * samplePoint.y;
+  float radius = sqrt(samplePoint.x);
+  vec3 up = abs(n.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+  vec3 tangent = normalize(cross(up, n));
+  return tangent * (cos(phi) * radius) + cross(n, tangent) * (sin(phi) * radius) +
+         n * sqrt(1.0 - samplePoint.x);
+}
+
 vec2 environmentUv(vec3 direction, float level) {
   vec2 uv = octCoordinates(direction);
   float span = float(kEnvironmentSide + 2 * kEnvironmentBorder);
