@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "blade-library/blades.json",
+        "blade_library_plot",
+        "Blatt-/Grasbibliothek · Orientierung und gleiche Geometrie",
+        "Zehn bisherige Nah-/Grobmeshes und Flächenwerte bitgleich, fünf wechselnde CPU-Läufe je Form. Neue Orientierungsprüfung lehnt einen unteraufgelösten Twist-Gegenfall ab. Materialmetrik und Cache-Reload separat geprüft; keine botanische Artenfreigabe oder pauschale LOD-Deckungsgrenze.",
+    ),
+    (
         "needle-sectors/needles.json",
         "needle_plot",
         "Nadeln · räumliche Organe, Bündel und gleiche LOD-Herkunft",
