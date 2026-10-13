@@ -151,14 +151,20 @@ def publish_coupled_roadbeds(products,trial,precision):
     physical=shapely.union_all(parts)
     mesh,audit=shared_mesh(physical,parts,np.ones(len(parts),dtype=int),precision)
     face_owners=owners[mesh['face_owners']]
-    actuals={};proofs=[];surfaces=[]
+    actuals={};publics={};proofs=[];surfaces=[]
     for owner,product in products.items():
         owned=dict(vertices=mesh['vertices'],indices=mesh['indices'][face_owners==owner])
         complete,actual=published_roadbed_surface(owned,product['base'],product['core'],
                                                  product['planned'],product['quantum'])
         assert preserves_coverage(product['base'],complete),'lost original public floor'
         assert preserves_voids(product['base'],complete) and preserves_voids(product['core'],actual)
-        actuals[owner]=actual
+        actuals[owner]=actual;publics[owner]=complete
+    native_public=shapely.union_all([actuals[o].intersection(p['planned']) for o,p in products.items()])
+    for owner,product in products.items():
+        complete=publics[owner];actual=actuals[owner]
+        context=product.get('shared_public_context',shapely.Polygon())
+        assert context.is_empty or preserves_coverage(context,native_public),'shared public context is absent from native public mesh'
+        complete=canonical_grid_region(complete.union(context.intersection(native_public)),quantum)
         surfaces.append(dict(module=owner,public_surface_wkb=complete.wkb.hex(),physical_shape_wkb=actual.wkb.hex(),
                              coordinate_precision_m=product['quantum']))
         for curve in product['curves']:
