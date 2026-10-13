@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4788/4808 (e4cd68d33). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 20 Fahrten offen.
+Zürich 4790/4808 (fa37e0515). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 18 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 60,4 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 57,2 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -78,7 +78,7 @@ Bilder: build/shots/experiments/transport/.
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 
 ## Nächste Lieferung und Abnahme
-21 gekoppelte Produkte; frühere Fahrten erhalten, davon vier in gemeinsame Produkte übernommen.
+22 gekoppelte Produkte; frühere Fahrten erhalten, davon vier in gemeinsame Produkte übernommen.
 1758: 37/37, +34,56 m²; [gemeinsame Schnitte](../test/experiments/transport/transport_joined_cut_setbacks.py)
 mit getrennten Quellports und erhaltenem Inselkern. Vollständigen Inselkontext und aktuelle Endposen verwenden.
 [Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) prüft höchstens
@@ -98,9 +98,9 @@ Expliziter öffentlicher Übergangsbereich statt tangential eng ausgeschnittener
 Optionale Kleinstspalt-Bereinigung: vollständig überdeckt, unreserviert, ≤0,05 m²,
 kein 5-cm-Innenkreis; Fläche/Geometrie bilanzieren. Konstruktive Vereinfachung, keine Rundungstoleranz.
 Zürich schließt damit 0,00947 m²; geschützte/breite/große/teilweise überdeckte Löcher bleiben erhalten.
-903 lokal: 12/12 plus sechs Nachbarfahrten; +22,75 m², Nahbild/erneutes Laden geprüft.
+903 im Gesamtfenster: 12/12 plus sechs Nachbarfahrten; +22,75 m², Nahbild/erneutes Laden geprüft.
 Mehrere Ports desselben Korridors teilen Erweiterungen nach Nähe zum Portmittelpunkt;
-Schnittebenen bleiben fest. Verhindert fremde Zusatzsegmente am anderen Arm; Gesamtfenster offen.
+Schnittebenen bleiben fest. Verhindert fremde Zusatzsegmente am anderen Arm; 1758 bleibt geometrisch identisch.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
