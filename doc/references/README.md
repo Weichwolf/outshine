@@ -196,10 +196,18 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Eigene Koordinatenmischung und Blender-Rauschen sind keine Rekonstruktion des Papiercodes.
   [#35](https://github.com/Weichwolf/outshine/issues/35) wertet getrennte physische Achsfelder aus und überblendet erst die Rauschwerte;
   Seite 8 samt Musterbild erneut optisch geprüft. Unverändert getrennte Geometrie-/Normalenprodukte.
+- **Leaf anatomy of Pinus thunbergii**, Ghimire et al., KJPT 2014.
+  [Primärquelle](https://doi.org/10.11110/kjpt.2014.44.2.91) ·
+  [PDF](vegetation/botany/2014-pinus-thunbergii-leaf-anatomy.pdf).
+  PDF-Seite 3 optisch geprüft: verschiedene halbkreisähnliche Nadelquerschnitte,
+  flache adaxiale und gekrümmte abaxiale Seite. Eigene ideale Sektoren ([#46](https://github.com/Weichwolf/outshine/issues/46))
+  ergänzen den generalisierten Zylinder; keine mikroskopische Zellrekonstruktion oder
+  vollständige P.-thunbergii-Rezeptfreigabe. Fünfersektor ist eine Gattungsfunktionsprobe.
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
   [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
   Räumliche Astachsen und variable Querschnitte ergänzen die hierarchischen Formpläne.
+  PDF-Seite 2 erneut optisch geprüft: generalisierte Zylinder begründen eigene Nadel-Sektorflächen ([#46](https://github.com/Weichwolf/outshine/issues/46)).
   Frenet-Singularitäten bei geraden Teilen/Wendepunkten durch stabile Rahmen vermeiden;
   die fotografischen Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
 - **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.

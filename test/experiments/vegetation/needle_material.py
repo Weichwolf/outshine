@@ -13,6 +13,12 @@ def write_needle_material(output, section):
     )
     frequency = 2 if section == "rhombus" else 1
     band = np.exp(-((np.sin(frequency * phi) / 0.18) ** 2))
+    if section == "sector":
+        bands = [
+            np.exp(-((np.angle(np.exp(1j * (phi - centre))) / 0.18) ** 2))
+            for centre in (np.pi / 4, np.pi, 7 * np.pi / 4)
+        ]
+        band = np.maximum.reduce(bands)
     base = np.array([0.024, 0.075, 0.028])
     colour = base * (0.93 + 0.07 * np.sin(t[..., None] * 23)) + 0.035 * band[
         ..., None
@@ -30,7 +36,7 @@ def write_needle_material(output, section):
         )
     name = f"needle-{section}-material.json"
     recipe = {
-        "version": "procedural-needle-material-1",
+        "version": "procedural-needle-material-2",
         "colour_space": "linear",
         "maps": maps,
         "band_model": "angular-aggregate-1",
@@ -53,7 +59,8 @@ def apply_needle_materials(recipe, directory):
         path = directory / product["needle_material"]
         data = json.loads(path.read_text())
         if (
-            data["version"] != "procedural-needle-material-1"
+            data["version"]
+            not in ("procedural-needle-material-1", "procedural-needle-material-2")
             or data["colour_space"] != "linear"
         ):
             raise ValueError("versioned linear procedural needle material required")
