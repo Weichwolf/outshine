@@ -1,13 +1,11 @@
 """Metric roof facets from a bounded straight skeleton or analytic planar profiles."""
 
 import math
-import threading
-import time as clock
 
 import numpy as np
 import shapely
 from shapely.affinity import affine_transform
-import py_straight_skeleton.algorithm as skeleton_algorithm
+from outshine_ref.buildings.modelling import SkeletonLimits, prepare_hip
 
 from building_layout import AREA_TOL_M2, frame, polygons
 
@@ -15,32 +13,6 @@ from building_layout import AREA_TOL_M2, frame, polygons
 MAX_VERTICES = 256
 MAX_EVENTS = 4096
 SKELETON_SECONDS = 2.
-TRACER_LOCK = threading.Lock()
-
-
-class Budget(skeleton_algorithm.NoopAlgorithmTracer):
-    def __init__(self, events):
-        self.events = events
-        self.began = clock.perf_counter()
-        self.steps = 0
-
-    def on_step_begin(self, step, time, algorithm):
-        self.steps = step
-        if step > self.events:
-            raise RuntimeError('roof skeleton exceeds its event budget')
-        if clock.perf_counter()-self.began > SKELETON_SECONDS:
-            raise RuntimeError('roof skeleton exceeds its two-second worker budget')
-
-
-def plane(polygon, points, heights, origin):
-    points = np.asarray(points)
-    matrix = np.c_[points-origin,np.ones(len(points))]
-    coefficients,_,rank,_ = np.linalg.lstsq(matrix,np.asarray(heights),rcond=None)
-    if rank != 3 or np.max(abs(matrix@coefficients-heights)) > 1e-6:
-        raise ValueError('roof facet is degenerate or non-planar')
-    if not polygon.is_valid or polygon.area <= 1e-8:
-        raise ValueError('roof facet is not a usable polygon')
-    return dict(polygon=polygon,plane=coefficients)
 
 
 def height(facet, points, origin):
@@ -48,55 +20,23 @@ def height(facet, points, origin):
     return (points-origin)@np.asarray(facet['plane'][:2])+facet['plane'][2]
 
 
+def prepared(footprint, method, events=MAX_EVENTS):
+    limits = SkeletonLimits(vertices=MAX_VERTICES, python_events=events, seconds=SKELETON_SECONDS)
+    plan = prepare_hip(footprint, method, limits)
+    rise = float(plan.distances_m.max())
+    facets = [dict(polygon=shapely.affinity.translate(facet.polygon, *plan.origin),
+                   plane=np.r_[facet.gradient, facet.intercept_m]/rise) for facet in plan.facets]
+    return dict(facets=facets, origin=np.asarray(plan.origin),
+                method='analytic-rectangle' if plan.method=='rectangle' else 'straight-skeleton',
+                events=plan.events, skeleton_time_m=rise, backend=plan.method, fallback_reason=plan.fallback_reason)
+
+
 def skeleton(footprint, events=MAX_EVENTS):
-    if sum(len(ring.coords)-1 for ring in [footprint.exterior,*footprint.interiors]) > MAX_VERTICES:
-        raise ValueError('roof footprint exceeds the 256-vertex budget')
-    origin = np.array(footprint.centroid.coords[0])
-    shape = shapely.orient_polygons(footprint)
-    exterior = (np.array(shape.exterior.coords)[:-1]-origin).tolist()
-    holes = [(np.array(ring.coords)[:-1]-origin).tolist() for ring in shape.interiors]
-    with TRACER_LOCK:
-        previous = skeleton_algorithm.GLOBAL_ALGORITHM_TRACER
-        budget = Budget(events)
-        skeleton_algorithm.set_global_algorithm_tracer(budget)
-        try:
-            result = skeleton_algorithm.StraightSkeletonAlgorithm().compute_skeleton(exterior,holes)
-        finally:
-            skeleton_algorithm.set_global_algorithm_tracer(previous)
-    if len(result.nodes)>4*MAX_VERTICES:
-        raise ValueError('roof skeleton exceeds its node budget')
-    points = np.array([[node.position.x,node.position.y] for node in result.nodes])+origin
-    times = np.array([node.time for node in result.nodes])
-    if not np.isfinite(times).all() or times.min() < 0 or times.max() <= 1e-8:
-        raise ValueError('roof skeleton has no finite positive rise')
-    facets = [plane(shapely.Polygon(points[indices]),points[indices],times[indices]/times.max(),origin)
-              for indices in result.get_faces()]
-    return dict(facets=facets,origin=origin,method='straight-skeleton',events=budget.steps,
-                skeleton_time_m=float(times.max()))
+    return prepared(footprint, 'skeleton', events)
 
 
 def rectangle(footprint):
-    outer = footprint.minimum_rotated_rectangle
-    if footprint.symmetric_difference(outer).area>AREA_TOL_M2:
-        raise ValueError('analytic hip roof requires a rectangular source footprint')
-    forward,reverse = frame(outer)
-    local = affine_transform(outer,forward)
-    a,b,c,d = local.bounds
-    radius = (d-b)/2
-    if radius<=1e-8 or c-a<d-b-1e-7:
-        raise ValueError('analytic rectangle has invalid metric axes')
-    corners = np.array([[a,b],[c,b],[c,d],[a,d]])
-    ridge = np.array([[a+radius,(b+d)/2],[c-radius,(b+d)/2]])
-    records = [([0,1],[1,0]),([1,2],[1]),([2,3],[0,1]),([3,0],[0])]
-    origin = np.array(footprint.centroid.coords[0])
-    facets = []
-    for edge,peaks in records:
-        points = np.r_[corners[edge],ridge[peaks]]
-        polygon = affine_transform(shapely.Polygon(points),reverse)
-        world = np.array(polygon.exterior.coords)[:-1]
-        z = np.r_[np.zeros(len(edge)),np.ones(len(peaks))]
-        facets.append(plane(polygon,world,z,origin))
-    return dict(facets=facets,origin=origin,method='analytic-rectangle',events=0,skeleton_time_m=radius)
+    return prepared(footprint, 'rectangle')
 
 
 def profile(footprint, kind, direction=None, across=False):
@@ -159,7 +99,7 @@ def build(footprint, kind='hip', method='auto', direction=None, across=False):
         elif method=='analytic-rectangle':
             result = rectangle(footprint)
         elif method=='auto':
-            result = rectangle(footprint) if footprint.symmetric_difference(footprint.minimum_rotated_rectangle).area<=AREA_TOL_M2 else skeleton(footprint)
+            result = prepared(footprint, 'auto')
         else:
             raise ValueError('unsupported hip-roof construction method')
     else:
