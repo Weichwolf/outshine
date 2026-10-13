@@ -8,32 +8,33 @@
   Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Der ausgecheckte Branch bestimmt meine Rolle:
-  `transport`, `buildings` und `vegetation` entwickeln ihre Python-Fachverfahren; `master` entwickelt Outshine
-  und integriert geprüfte Verfahren maschinennah in C++ unter `src/`, einschließlich Generatoren und öffentlicher APIs.
+- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Vier Agenten arbeiten zusammen:
+  Der Transport-Agent auf `transport`, der Buildings-Agent auf `buildings` und der Vegetation-Agent auf
+  `vegetation` erforschen ihre Fachverfahren in Python und entwickeln gemeinsam die Referenzbibliotheken unter `lib/`.
+  Der Outshine-Hauptagent auf `master` entwickelt Outshine selbstständig weiter und integriert eigenständig
+  verifizierte Neuerungen aus `lib/` maschinennah in C++ unter `src/`, einschließlich Generatoren und öffentlicher APIs.
   Die weltweite Sandbox steht in [#5](https://github.com/Weichwolf/outshine/issues/5), räumliche Verträge in [#18](https://github.com/Weichwolf/outshine/issues/18).
 - `test/experiments/` enthält Versuche, Gegenbeispiele, faire Vergleiche, Benchmarks und Showcase-Code.
   Bewährte wiederverwendbare Python-Verfahren werden als installierbare Referenzbibliotheken unter `lib/` gepflegt.
   Experimente importieren diese Bibliotheken; Fachmodule teilen Verträge und erforderliche Geometrieverfahren.
   Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut danach,
   Vegetation zuletzt mit den räumlichen Produkten und Hinweisen beider Vorgänger. Quell-IDs und Quellen erhalten.
-- Die drei Fachagenten dürfen für ihre Experimente und Änderungen an `lib/` Pull Requests erstellen
-  und nach bestandenen betroffenen Prüfungen selbst nach `master` mergen. Zugehörige Tests/Referenzdokumentation mitführen.
+- Die drei Forschungsagenten committen und pushen ihre verifizierten Fortschritte selbstständig,
+  erstellen für ihre Experimente und Änderungen an `lib/` Pull Requests und mergen diese nach bestandenen
+  betroffenen Prüfungen eigenständig nach `master`. Zugehörige Tests/Referenzdokumentation mitführen.
   Gemeinsame Verträge mit betroffenen Verbrauchern abstimmen; keine fremden Fortschritte überschreiben.
-  Native Änderungen und deren Engine-/Bild-/Kostenintegration besitzt der Integrationsagent auf `master`.
+  Der Outshine-Hauptagent übernimmt die native Integration samt Engine-, Bild- und Kostenprüfung eigenständig.
+  Die Forschungsagenten warten dafür nicht auf eine native Umsetzung ihrer Python-Verfahren.
   Alle vier Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
   Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
 - Der aktive Nutzerauftrag bleibt maßgeblich; `GOAL.txt` auf `master` beschreibt den Outshine-/Integrationsauftrag.
-  CONTEXT.md ist ausschließlich die einmalige Übergabe an den Transport-Agenten nach dem Rechnerwechsel,
-  keine dauerhafte Regel- oder Aufgabenablage. Ich lese sie bei der Übergabe und pflege laufende Arbeit in Issues.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
   Baupläne. Gelieferte Angaben steuern Vielfalt/Erdähnlichkeit. Prozedurale Rezepte ergänzen
   und vereinfachen sie kohärent innerhalb des Budgets.
   Ich suche eine schnelle, plausible, ästhetische und funktionale Lösung, keine eindeutige
   Rekonstruktion. Ich darf Lage, Form und Profile kohärent anpassen und einfachere Rezepte wählen.
-- Solarpunk ist das Default-Setting; minimalistisches Bauhaus und Art déco prägen die
-  prozedurale Gestaltung. Den gemeinsamen Look besitzt [#4](https://github.com/Weichwolf/outshine/issues/4), Materialkomposition [#6](https://github.com/Weichwolf/outshine/issues/6).
+- Solarpunk ist das Default-Setting. Den gemeinsamen Look besitzt [#4](https://github.com/Weichwolf/outshine/issues/4), Materialkomposition [#6](https://github.com/Weichwolf/outshine/issues/6).
 - Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
   einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
   behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
@@ -43,7 +44,6 @@
 - Echtzeit und glaubwürdige Bild-/Spielwirkung bestimmen die Genauigkeit. Ich nutze gemessene
   räumliche/zeitliche Approximationen. Transport braucht konstruktive CAD-Qualität: saubere
   Geometrie, Anschlüsse und funktionale Profile; keine exakte Vermessung der Erde.
-  Transport liefere ich zuerst als undekoriertes Grundmodell, danach mit Bauhaus-/Art-déco-Gestaltung.
   Speichersicherheit, korrekte erzeugte Inhalte und verlässliche Interaktionen bleiben verbindlich. Prüfungen folgen diesen
   Anforderungen; geänderte Anforderungen korrigiere ich ausdrücklich samt betroffenen Tests.
   Ferndetails dürfen plausibel geschätzt werden; Bildwirkung, Herkunft und Übergang zum Nahdetail zählen.
