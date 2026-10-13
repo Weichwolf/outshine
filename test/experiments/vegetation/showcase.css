@@ -1,0 +1,94 @@
+:root { color-scheme:light; --paper:#f4f2ed; --ink:#252b30; --muted:#677077; --line:#dcded8; --accent:#496b66; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font:15px/1.5 system-ui,sans-serif; }
+header { padding:18px 5%; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); gap:20px; }
+a { color:inherit; }
+.brand { font-size:14px; letter-spacing:.1em; font-weight:750; text-decoration:none; }
+.brand span { color:var(--muted); font-weight:450; margin-left:8px; }
+main { max-width:1380px; margin:auto; padding:42px 5% 24px; }
+.eyebrow { font-size:11px; letter-spacing:.13em; color:var(--accent); font-weight:650; }
+h1 { font-size:clamp(32px,4.2vw,58px); line-height:1.08; font-weight:550; letter-spacing:-.04em; margin:14px 0 18px; }
+.lead { max-width:750px; font-size:18px; color:#505c63; }
+#current-work { color:var(--muted); max-width:900px; }
+.state { display:flex; flex-wrap:wrap; gap:10px; font-size:12px; margin:24px 0; }
+.state > span { border:1px solid var(--line); background:#faf9f6; padding:6px 11px; border-radius:4px; }
+.stats { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin:28px 0 38px; }
+.stat { padding:18px 22px 18px 0; }
+.stat strong { display:block; font-weight:500; font-size:29px; line-height:1.2; }
+.stat span { display:block; color:var(--muted); font-size:12px; }
+section { margin-bottom:40px; }
+h2 { font-size:22px; font-weight:550; margin:0; letter-spacing:-.02em; }
+.section-top { display:flex; gap:20px; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.hint { font-size:12px; color:var(--muted); }
+.filters { display:flex; gap:6px; flex-wrap:wrap; margin:15px 0 20px; }
+button { cursor:pointer; font:inherit; }
+.filters button,.quiet { padding:7px 13px; border:1px solid var(--line); border-radius:4px; background:transparent; color:var(--muted); font-size:12px; text-decoration:none; }
+.filters button[aria-pressed=true] { color:#fff; border-color:var(--ink); background:var(--ink); }
+button:focus-visible,a:focus-visible { outline:3px solid #98b3ab; outline-offset:3px; }
+.gallery { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; }
+.card { margin:0; border:1px solid var(--line); background:#faf9f6; border-radius:6px; overflow:hidden; }
+.image-button { display:block; width:100%; background:#c9c9c7; border:0; padding:0; line-height:0; }
+.card img { display:block; width:100%; aspect-ratio:16/9; object-fit:contain; }
+figcaption { padding:17px 20px; }
+.caption-top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+.card h3 { margin:0 0 6px; font-size:17px; font-weight:550; }
+.card p { margin:5px 0 12px; font-size:13px; color:var(--muted); }
+.badge { border:1px solid var(--line); border-radius:3px; padding:2px 6px; font-size:10px; color:var(--accent); white-space:nowrap; }
+.quality { color:#927642; font-size:12px; margin-bottom:10px; }
+.details { display:flex; flex-wrap:wrap; gap:5px 15px; font-size:11px; color:var(--muted); }
+.missing,#error { color:#a4433d; }
+.missing { padding:60px 24px; background:#fff0ec; text-align:center; }
+.measurements { padding:26px; border:1px solid var(--line); border-radius:6px; background:#faf9f6; }
+#plot .card { border:0; background:transparent; }
+#plot .image-button { background:#f4f2ed; }
+#plot .image-button img { aspect-ratio:auto; max-height:500px; object-fit:contain; }
+#plot figcaption { padding:18px 0 0; }
+.remaining { border-left:3px solid #b6a275; padding:3px 0 3px 20px; }
+.remaining h2 { font-size:18px; }
+.remaining p { font-size:13px; color:var(--muted); }
+.reference { margin:0 0 35px; }
+.reference summary { cursor:pointer; color:var(--accent); font-size:13px; }
+.reference .card { margin-top:15px; }
+footer { max-width:1380px; margin:auto; padding:20px 5%; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; justify-content:space-between; gap:15px; color:var(--muted); font-size:11px; }
+dialog { width:min(96vw,1350px); max-height:95vh; border:0; padding:16px; border-radius:6px; background:var(--paper); }
+dialog::backdrop { background:#171d20d9; }
+dialog img { display:block; width:100%; max-height:80vh; object-fit:contain; }
+dialog p { margin:10px 5px 0; font-size:13px; color:var(--muted); }
+#close { float:right; border:0; background:transparent; padding:0 0 8px 16px; font-size:25px; }
+@media(max-width:680px) {
+  main { padding-top:25px; }
+  .gallery { grid-template-columns:1fr; }
+  .section-top { align-items:flex-start; }
+  .section-top > .hint { display:none; }
+  .measurements { padding:18px; }
+  .stat { padding-right:10px; }
+  .stat strong { font-size:22px; }
+  .brand span { margin-left:0; }
+  .caption-top { flex-wrap:wrap; gap:4px; }
+}
+
+[hidden] { display:none !important; }
+.lod-nav { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin:25px 0; }
+.lod-nav a { display:block; padding:16px; border:1px solid var(--line); border-radius:6px; text-decoration:none; background:#faf9f6; }
+.lod-nav strong { display:block; font-size:14px; margin-bottom:6px; }
+.lod-nav span { font-size:12px; color:var(--muted); }
+.lod-nav a[aria-current=page] { border-color:var(--accent); box-shadow:inset 0 3px var(--accent); }
+
+.detail-page .intro { margin-bottom:20px; }
+.detail-page .intro .lead,.detail-page #current-work { display:none; }
+.detail-page h1 { font-size:clamp(28px,3vw,42px); }
+.detail-page .lod-nav span { display:none; }
+.detail-page .lod-nav a { padding:12px; }
+.detail-page .lod-nav strong { margin:0; }
+@media(max-width:680px) {
+  .detail-page .lod-nav { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+.genus { margin:26px 0 34px; }
+.genus > h3 { font-size:21px; font-weight:550; margin:0 0 4px; }
+.species { color:var(--muted); font-size:13px; margin:0 0 14px; }
+.genus-gallery > h3 { font-size:18px; font-weight:550; margin-top:36px; }
+.genus .gallery:has(> :only-child) { grid-template-columns:minmax(0,1fr); }
+.genus .card img { max-height:570px; }
+
+.genus-gallery .missing { padding:16px 24px; margin:0; }

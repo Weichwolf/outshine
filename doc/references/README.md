@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-11. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-34 Publikationen/Referenzdokumente sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+Stand: 2026-10-12. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+Publikationen und Referenzdokumente sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -197,6 +197,114 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 ## Vegetation, Atmosphäre und Wetter — WI [#1](https://github.com/Weichwolf/outshine/issues/1) / [#7](https://github.com/Weichwolf/outshine/issues/7)
 
+- **L-systems and Beyond**, Prusinkiewicz (Organizer), SIGGRAPH Course 2003.
+  [Autorenquelle](https://algorithmicbotany.org/papers/sigcourse.2003.pdf) ·
+  [PDF](vegetation/siggraph/2003-l-systems-and-beyond.pdf).
+  PDF-Seiten 63/64 samt Algorithmus 4, Profilkurven und Pellaea-/Blechnum-Bildern optisch geprüft.
+  Teilblätter aus lageabhängigen Längen-/Breiten-/Winkelprofilen an gemeinsamen Achsen aufbauen ([#36](https://github.com/Weichwolf/outshine/issues/36)).
+  Eigene Guide-Deformation und Differentialnormalen; kein vollständiger L-System- oder Artennachbau.
+- **An Image Synthesizer**, Perlin, SIGGRAPH 1985.
+  [Primärquelle](https://doi.org/10.1145/325334.325247) ·
+  [PDF](vegetation/siggraph/1985-image-synthesizer.pdf), CMU-Kursarchiv.
+  Prozedurale räumliche Textur und nichtlineare Rauschkomposition begründen eigene
+  anisotrope Rindenmaterialien in physischen Astkoordinaten ([#35](https://github.com/Weichwolf/outshine/issues/35)).
+  Seiten 1, 3, 8 und 10 samt Rauschprinzip/Bildbeispiel optisch geprüft; keine Fototexturen.
+  Eigene Koordinatenmischung und Blender-Rauschen sind keine Rekonstruktion des Papiercodes.
+  [#35](https://github.com/Weichwolf/outshine/issues/35) wertet getrennte physische Achsfelder aus und überblendet erst die Rauschwerte;
+  Seite 8 samt Musterbild erneut optisch geprüft. Unverändert getrennte Geometrie-/Normalenprodukte.
+- **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
+  [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
+  [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
+  Räumliche Astachsen und variable Querschnitte ergänzen die hierarchischen Formpläne.
+  Frenet-Singularitäten bei geraden Teilen/Wendepunkten durch stabile Rahmen vermeiden;
+  die fotografischen Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
+- **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.
+  [Primärabstract](https://doi.org/10.1080/10867651.1998.10487487).
+  Eckwinkel berücksichtigen die geometrische Beteiligung statt der Zahl entstandener Dreiecke ([#40](https://github.com/Weichwolf/outshine/issues/40)).
+  Eigene lokale Mittelung vorhandener Differentialnormalen; kein vollständiger Papiernachbau.
+  Max 1999 ([Autorenpreprint](https://escholarship.org/uc/item/7657d8h3)) unterscheidet
+  Oberflächenapproximation von der Erhaltung unter Polygonunterteilung; PDF-Abruf hier durch
+  CloudFront-Challenge ohne Dokumentdaten, deshalb kein optischer PDF-Prüfbeleg hierfür.
+- **Computation of Rotation Minimizing Frames**, Wang / Jüttler / Zheng / Liu, TOG 2008.
+  [Autorenpreprint](https://www.ag.jku.at/pubs/2007wjzl.pdf) ·
+  [PDF](vegetation/tog/2008-rotation-minimizing-frames-preprint.pdf), ungesetzte Vorabfassung.
+  Doppelreflexion mit Tangentendrehung an gleichen Astachsen vergleichen ([#27](https://github.com/Weichwolf/outshine/issues/27)).
+  Rahmenfehler, Erzeugungskosten und sichtbare Querschnitte getrennt prüfen;
+  lokale Regularität ersetzt keinen globalen Kollisionsnachweis oder Kraftsolver.
+- **Efficient Implementation of Marching Cubes' Cases with Topological Guarantees**,
+  Lewiner / Lopes / Vieira / Tavares, JGT 2003.
+  [Autorenquelle](https://thomas.lewiner.org/pdfs/marching_cubes_jgt.pdf) ·
+  [PDF](vegetation/jgt/2003-marching-cubes-topological-guarantees.pdf), Autorenpreprint.
+  Gemeinsame Gabeloberflächen aus impliziten Feldformen als Vergleich erzeugen ([#28](https://github.com/Weichwolf/outshine/issues/28)).
+  Die Topologiegarantie betrifft trilineare Gitterinterpolation; Kontinuitäts-/Bildfehler eigens prüfen.
+- **Interval Arithmetic and Recursive Subdivision for Implicit Functions and
+  Constructive Solid Geometry**, Duff, SIGGRAPH 1992.
+  [Primärquelle im MIT-Kursarchiv](https://fab.cba.mit.edu/classes/S62.12/docs/Duff_interval_CSG.pdf) ·
+  [PDF](vegetation/siggraph/1992-interval-arithmetic-csg.pdf).
+  Optisch geprüfte Intervall-/Gebietsformeln begründen Blockauswahl vor Feldabtastung ([#28](https://github.com/Weichwolf/outshine/issues/28)).
+  Eigene Kapselgrenzen nach außen runden; Gleitkomma-Feldwerte zusätzlich absichern und prüfen.
+- **Projection onto the Probability Simplex**, Wang / Carreira-Perpiñán, arXiv 2013.
+  [Autorenquelle](https://arxiv.org/abs/1309.1541) ·
+  [PDF](vegetation/math/2013-probability-simplex-projection.pdf).
+  Endliche Sortierprojektion als mathematischer Baustein der eigenen symmetrischen Feldmischung;
+  unabhängige QP-/Gradientenprüfung. Kein Vegetations- oder SpeedTree-Verfahren daraus behaupten.
+- **Frequency Domain Normal Map Filtering**, Han / Sun / Ramamoorthi / Grinspun,
+  SIGGRAPH / TOG 2007. [Autorenquelle](https://www.cs.columbia.edu/cg/normalmap/) ·
+  [PDF](vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf).
+  Seite 1 mit V-Rillen- und Bildvergleich optisch geprüft: Normalenmittelung verliert die
+  Verteilung. Begründet getrennte Neigungsstatistik und Grenzen einzelner Glanzverteilungen ([#44](https://github.com/Weichwolf/outshine/issues/44)).
+- **LEAN Mapping**, Olano / Baker, I3D 2010, korrigierte Autorenfassung.
+  [Autorenquelle](https://userpages.cs.umbc.edu/olano/papers/lean/) ·
+  [PDF](vegetation/i3d/2010-lean-mapping.pdf).
+  Seiten 3–4 einschließlich Gleichungen 2–6 optisch geprüft: erste/zweite Neigungsmomente
+  linear filtern. Unsere isotrope Übertragung auf GGX bleibt eine gesonderte Näherung ([#44](https://github.com/Weichwolf/outshine/issues/44)).
+- **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
+  SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
+  [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.
+  Seite 1 optisch geprüft; Oberflächenzerlegung und Innen-/Außenklassifikation begründen
+  den Vergleich vollständiger Pflanzenoberflächen ([#29](https://github.com/Weichwolf/outshine/issues/29)). Manifold nutzt einen eigenen
+  Algorithmus; dessen Bibliotheksgarantien ersetzen weder lokale Prüfungen noch organische Ausrundung.
+- **Taming the Shadow Terminator**, Chiang / Li / Burley, SIGGRAPH Talks 2019.
+  [Autorenquelle](https://www.yiningkarlli.com/projects/shadowterminator.html) ·
+  [PDF](vegetation/siggraph/2019-taming-shadow-terminator.pdf), korrigierte Autorenfassung.
+  Beide Seiten einschließlich Normalendiagrammen, Gleichungen und Bildvergleichen optisch geprüft.
+  Begründet die getrennte Prüfung von Schattierungsnormalen und geometrischer Selbstverschattung ([#29](https://github.com/Weichwolf/outshine/issues/29)).
+  EEVEE-Positionsoffsets sind eine andere Korrektur als der dort beschriebene BRDF-Schattenfaktor.
+- **Embree: A Kernel Framework for Efficient CPU Ray Tracing**, Wald / Woop / Benthin /
+  Johnson / Ernst, SIGGRAPH / TOG 2014.
+  [Autorenquelle](https://www.sci.utah.edu/~wald/Publications/2014/embree/embree.pdf) ·
+  [PDF](vegetation/siggraph/2014-embree-ray-tracing.pdf).
+  Seite 1 mit Abbildungen optisch geprüft. Beschleunigte CPU-Strahlabfragen begründen den
+  Vergleich gegen skalare Elternflächenabfragen bei Astnormalen ([#29](https://github.com/Weichwolf/outshine/issues/29)); eigene lokale
+  Messungen und Genauigkeitsprüfung, keine Übernahme publizierter Geschwindigkeitsfaktoren.
+- **Creation and Rendering of Realistic Trees**, Weber / Penn, SIGGRAPH 1995.
+  [Publikation](https://doi.org/10.1145/218380.218427) ·
+  [PDF-Quelle](https://courses.cs.duke.edu/cps124/fall02/resources/p119-weber.pdf) ·
+  [PDF](vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf).
+  Hierarchische Astordnungen, Elternprofile und kontrollierte Formvarianz als Vergleich
+  für begrenzte Pflanzenrezepte nutzen. Formparameter ersetzen keine Lichtkonkurrenz;
+  publizierte Vereinfachungen belegen keine Deckungs- oder Laufzeitgrenze unserer Produkte.
+- **Self-organizing Tree Models for Image Synthesis**, Pałubicki et al., SIGGRAPH / TOG 2009.
+  [Autoren](https://algorithmicbotany.org/papers/selforg.sig2009.html) ·
+  [PDF-Quelle](https://algorithmicbotany.org/papers/selforg.sig2009.small.pdf) ·
+  [PDF](vegetation/siggraph/2009-self-organizing-trees.pdf).
+  Lokale Astarchitektur, Licht-/Raumkonkurrenz und interne Wachstumssignale verbinden.
+  Konkurrenz kann natürliche Verteilung ergänzen; sie ist weder Pflicht für jedes Fernprodukt
+  noch ein Beleg für begrenzte Erzeugungsarbeit. Kosten gegen direkte Formrezepte messen.
+- **Modeling Trees with a Space Colonization Algorithm**, Runions / Lane / Prusinkiewicz,
+  Eurographics Workshop on Natural Phenomena 2007.
+  [Autoren](https://algorithmicbotany.org/papers/colonization.egwnp2007.html) ·
+  [PDF-Quelle](https://algorithmicbotany.org/papers/colonization.egwnp2007.pdf) ·
+  [PDF](vegetation/eg/2007-space-colonization.pdf).
+  Freien Kronenraum durch Attraktoren vertreten und gerichtete Internodien wachsen lassen.
+  Nahplan-Verfahrensvergleich mit gleichen Eingaben; Nachbarsuche und Stillstand begrenzen.
+  Ein Baum-Wachstumssolver ist kein direkter Fernwaldpfad ohne Organ- und Einzelbaumarbeit.
+- **Modeling and visualization of leaf venation patterns**, Runions et al., SIGGRAPH 2005.
+  [Autoren-PDF](https://www.algorithmicbotany.org/papers/venation.sig2005.pdf) ·
+  [PDF](vegetation/siggraph/2005-leaf-venation.pdf).
+  Nächste Aderknoten aus Quellen wachsen lassen, nahe Quellen entfernen und verbundene Radien ableiten.
+  PDF-Seiten 2/5 optisch geprüft; [#42](https://github.com/Weichwolf/outshine/issues/42) besitzt das eigene offene Netz mit fester Blattkontur,
+  begrenztem Wachstum und eigenem Materialfeld. Blattwachstum/geschlossene Maschen bleiben offen.
 - **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
   EGSR 2007.
   [Quelle](https://www.cg.tuwien.ac.at/research/publications/2007/Habel_2007_RTT/Habel_2007_RTT-Preprint.pdf) ·
@@ -204,6 +312,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Reflexion und Blatttransmission mit kompakter gerichteter Basis auswerten. Eigene
   prozedurale Blattparameter statt fotografischer Mess-/Texturdaten; Instanzen, Schatten
   und Wind teilen die Lichtwelt. Ein Blattmodell allein behebt keinen fehlenden Stammkontakt.
+- **Physically Guided Animation of Trees**, Habel / Kusternig / Wimmer, Eurographics 2009.
+  [Autoren](https://www.cg.tuwien.ac.at/research/publications/2009/Habel_09_PGT/) ·
+  [PDF](vegetation/eg/habel-2009-physically-guided-animation.pdf).
+  Hierarchische Verformung und verjüngte Balken verbinden; Bewegungsantwort spektral vorberechnen.
+  Seite 3 optisch geprüft: Gewichte, Einspannung und radiusabhängiges Flächenträgheitsmoment.
+  [#41](https://github.com/Weichwolf/outshine/issues/41) besitzt den eigenen Windpfad und den Vergleich; dessen erstes gemeinsames Verschiebungsfeld
+  ersetzt noch keine kalibrierte Balkendynamik oder den vollständigen SpeedTree-Wind.
 - **Stochastic Transparency**, Enderton / Sintorn / Shirley / Luebke, TVCG 2011,
   erweiterte Fassung der I3D-Arbeit 2010.
   [Quelle](https://research.nvidia.com/sites/default/files/pubs/2011-08_Stochastic-Transparency/stochtransp-tvcg.pdf) ·
@@ -220,6 +335,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Bestandsplan, Pflanzenform und Darstellung trennen; Prototypen, Gruppen und Organe teilen.
   Fernwald braucht Verbände statt Einzelbaum-/Blattarbeit. Das Offline-Verfahren belegt
   keine Echtzeitkosten; Overdraw, Wind, Schatten und Artenmischung separat integrieren.
+- **Layered Depth Images**, Shade / Gortler / He / Szeliski, SIGGRAPH 1998.
+  [Publikation](https://doi.org/10.1145/280814.280882) ·
+  [Autoren-PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Shade-SG98.pdf) ·
+  [PDF](vegetation/siggraph/1998-layered-depth-images.pdf).
+  Tiefensprites und geschichtete Tiefenbilder als Vergleich für Parallaxe und Verdeckungswechsel.
+  Seite 2 mit Repräsentationshierarchie optisch geprüft. Eigene bedingte Einmoment-Reliefs ([#23](https://github.com/Weichwolf/outshine/issues/23))
+  übernehmen keine Mehrschichtgarantie; Wind, Schatten und Disokklusion separat prüfen.
 - **Billboard Clouds for Extreme Model Simplification**, Décoret et al., SIGGRAPH 2003.
   [Autoren](https://graphics.cs.yale.edu/publications/billboard-clouds-extreme-model-simplification) ·
   [PDF-Quelle](https://graphics.cs.yale.edu/sites/default/files/bc03_0.pdf) ·

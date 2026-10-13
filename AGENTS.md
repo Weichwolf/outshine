@@ -87,6 +87,8 @@
 - Rundum-Abdeckung bleibt renderbereit. Drehung ändert Sichtbarkeit, Bewegung ergänzt Bedarf.
   Unveränderte Inhalte werden nicht neu erzeugt. Detailbedarf vor teurer Arbeit bestimmen;
   Änderungen gezielt fortpflanzen. Logische Welt und Kollision bleiben unabhängig vom Render-LOD.
+- Metallic-Roughness ist der Hauptshader; zusätzliche Shader ergänzen Effekte, die er nicht abdeckt.
+  Texturen werden prozedural erzeugt und dürfen als fertige Assets gecacht werden.
 - Besitz, Lebensdauer, Abbruch, Rückstau und Fehler bleiben explizit. Kein blockierendes IO oder
   unbegrenztes Warten im Frame. GPU-Ressourcen erst nach letzter Nutzung freigeben.
 
@@ -131,6 +133,7 @@
   Vertrag, Portabilität und gemessene Kosten müssen passen. Für Techniken und Algorithmen
   schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
   passende Primärquellen und verankere Verfahren und Quellen im zuständigen Issue.
+  PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
 - C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
@@ -151,6 +154,12 @@
   Ich referenziere aktuelle Issues als `#N` oder per URL und aktiviere sie vor Implementierung.
   Abgeschlossene Anforderungen in ihren Besitzer übernehmen, dann das Issue schließen; nichts lokal löschen.
   Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
+- Auf `vegetation` wird jeder geprüfte Fortschritt committed, gepusht und in der lokalen
+  Showcase unter `/tmp/outshine-vegetation-showcase` veröffentlicht. Kein automatisches
+  Neuladen; neue Stände erscheinen beim Öffnen oder über den manuellen Aktualisieren-Knopf.
+  Gestaltung/Bedienung folgen der Building-Showcase; drei typische Landschaften sind feste Bildszenarien.
+  Vegetations-Showcase-Renderings mindestens 1920×1080, Standard 2560×1440 für erkennbare Details.
+  Für Vegetation gilt SpeedTree als Qualitätsmaßstab; die Nutzerbildreferenz besitzt [#1](https://github.com/Weichwolf/outshine/issues/1).
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.
