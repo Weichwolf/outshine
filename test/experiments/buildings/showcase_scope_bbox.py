@@ -88,7 +88,8 @@ def pair(output, provenance, row, stem):
         shapes.extend((part.translate('rel', 'world', index*(span+5.), 0., 0.), colour)
                       for part, colour in mass(polygon, base, eave, roof))
     return spatial(output, provenance, stem, name+' · vor und nach Scope-Ausrichtung', shapes, metadata,
-                   'Links First entlang Ost, rechts entlang der flächenminimalen Scope-X-Achse. Identischer Grundriss und Höhenrahmen, native Dreiecke. Prüfpalette; Fassaden, Räume und vollständiges Rezept fehlen.', label='scope-bbox')
+                   'Links First entlang Ost, rechts entlang der flächenminimalen Scope-X-Achse. Identischer Grundriss und Höhenrahmen, native Dreiecke. Prüfpalette; Fassaden, Räume und vollständiges Rezept fehlen.',
+                   label='scope-bbox', direction=(1., -1.3, 2.5))
 
 
 def measurements(output, provenance, verification):
