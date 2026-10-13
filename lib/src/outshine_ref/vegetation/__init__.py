@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from ..contracts import Hint, LocalFrame, Mesh, Reservation, SourceInputs, collection
+from .blade_surface import Blade
 from .needle_surface import Needle
 from .profiles import Profile
 
@@ -25,4 +26,4 @@ class Plan:
         collection(self.meshes, Mesh, "vegetation meshes")
 
 
-__all__ = ["Inputs", "Needle", "Plan", "Profile"]
+__all__ = ["Blade", "Inputs", "Needle", "Plan", "Profile"]

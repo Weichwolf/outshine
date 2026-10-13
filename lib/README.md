@@ -120,3 +120,16 @@ Abbruch anhand kleiner Funktionsreste reicht bei flachen x-Kurven nicht;
 begrenzt Lookup-Genauigkeit; eine allgemeine y-Fehlergarantie ist nicht belegt.
 [SciPy 1.15 find_root](https://docs.scipy.org/doc/scipy-1.15.0/reference/generated/scipy.optimize.elementwise.find_root.html)
 dokumentiert Intervall-/Resttoleranzen; Profile und Referenzproben gehören zu [#26](https://github.com/Weichwolf/outshine/issues/26).
+
+`vegetation.Blade` enthält offene Blatt-/Grasflächen in Metern, mit gelapptem
+Rand, Kreisführung, Twist, Querwölbung/Falz und Blattstiel. Pflanzenlokal gilt
+X quer, Y längs, Z normal. Float64-Positionen/Parameter/Ecknormalen und Int32-
+Dreiecke gehören dem Aufrufer; Knicke behalten einseitige Normalen.
+`surface_jet` liefert dieselben Normalen und Flächenmetrik plus Ableitungen
+nach u=(s+1)/2 und t. Gemeinsame Parameterpunkte bleiben bei Unterteilung gleich.
+Falsch orientierte oder nicht endliche Facetten werden abgelehnt; der Aufrufer
+muss innerhalb seines Budgets verfeinern oder die Detailanfrage zurückweisen.
+Unterteilung allein beweist keine Silhouetten-/Deckungsfehlergrenze.
+`area` integriert die Fläche; geteilte Quadraturpuffer sind unveränderlich.
+Quellen/Flächen-/Materialbelege und offene botanische Qualität stehen in [#22](https://github.com/Weichwolf/outshine/issues/22);
+Bibliotheksübernahme in [#52](https://github.com/Weichwolf/outshine/issues/52).
