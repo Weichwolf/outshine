@@ -54,6 +54,7 @@ a missing Khronos image remains a compatibility failure, separate from the world
 |---|---|
 | `include/` | the door — a header is public only if a client cannot use the engine without it |
 | `src/` | the library; the directory **is** the dependency tier, declared and enforced by `--audit-layers` |
+| [`lib/`](lib/README.md) | installable Python reference libraries shared by generator experiments |
 | `src/generators/` | a library of its own, with its own door; links without the engine behind it |
 | `test/` | vendor corpora and ours, kept apart by directory |
 | `apps/` | the clients — each a product, and its line count measures the door |

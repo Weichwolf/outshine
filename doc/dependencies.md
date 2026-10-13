@@ -20,7 +20,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 brew install geos simdjson pugixml eigen bullet sqlite zstd
 ```
 
-meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../Formula/meshoptimizer.rb)
+meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../lib/Formula/meshoptimizer.rb)
 baut den offiziellen Release mit SHA-256-Prüfung, ohne Bibliotheksquellen im Repository.
 
 ```sh

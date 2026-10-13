@@ -22,6 +22,7 @@
   Gemeinsame Verträge mit betroffenen Verbrauchern abstimmen; keine fremden Fortschritte überschreiben.
   Native Änderungen und deren Engine-/Bild-/Kostenintegration besitzt der Integrationsagent auf `master`.
   Alle vier Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
+  Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
 - Der aktive Nutzerauftrag bleibt maßgeblich; `GOAL.txt` auf `master` beschreibt den Outshine-/Integrationsauftrag.
   CONTEXT.md ist ausschließlich die einmalige Übergabe an den Transport-Agenten nach dem Rechnerwechsel,
   keine dauerhafte Regel- oder Aufgabenablage. Ich lese sie bei der Übergabe und pflege laufende Arbeit in Issues.
