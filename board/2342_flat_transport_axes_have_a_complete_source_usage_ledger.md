@@ -28,6 +28,9 @@ allgemeine Zugänge; private/beschränkte Verbindungen bleiben getrennt vom öff
 Absteigen/Seitenwegbedarf und unklare Werte werden quellbezogen ausgewiesen, nicht still geraten.
 Auto→Treppe und Rückfahrt in Einbahnrichtung sind ausgeschlossen. Fahrspuren, Abbiegeverbindungen
 und Fahrzeughüllen bleiben offen; Zugangsregeln allein beweisen keine Befahrbarkeit.
+Motorzugang trennt PKW/LKW/Bus samt Klasseneinbahnregeln; Busfahrbahnen erlauben standardmäßig nur Busse.
+Größen-/Lastgrenzen vor Routenbau prüfen; bislang offen. Fehlende Angaben sind Rezeptannahmen.
+Grundstückszufahrten ohne Zugangstags sind keine belegten öffentlichen Durchgangsstraßen.
 
 ## Bereichsgrenzen und parallele Arbeit
 Transport besitzt Straßen/Wege/Schienen samt verkehrsbezogenen Brücken, Tunneln und Ports.

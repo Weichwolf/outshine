@@ -12,6 +12,7 @@ MODE_TAGS = {'motor':'motor_vehicle','cycle':'bicycle','walk':'foot','horse':'ho
 PUBLIC = {'yes','designated','permissive','official','optional_sidepath'}
 RESTRICTED = {'private','destination','permit','customers','delivery','agricultural','forestry'}
 DIRECTIONS = {'yes':1,'1':1,'true':1,'-1':-1,'reverse':-1,'no':0,'0':0,'false':0}
+MOTOR_CLASSES = {'motorcar','hgv','bus'}
 
 
 def apply_access(public,restricted,bits,key,value,notes):
@@ -27,7 +28,9 @@ def apply_access(public,restricted,bits,key,value,notes):
     return public,restricted
 
 
-def source_travel(roads,recipes):
+def source_travel(roads,recipes,*,motor_class='motorcar'):
+    if motor_class not in MOTOR_CLASSES:
+        raise ValueError('unsupported motor vehicle class')
     public,restricted = np.zeros((len(roads),2),dtype=np.uint8),np.zeros((len(roads),2),dtype=np.uint8)
     notes = []
     for index,road in enumerate(roads):
@@ -36,10 +39,12 @@ def source_travel(roads,recipes):
         base = recipes.get(kind)
         local = []
         allowed,conditional = sum(MODES[m] for m in base) if base else 0,0
+        if kind=='busway' and motor_class!='bus':
+            allowed &= ~MODES['motor']
         if base is None:
             local.append(dict(reason='missing_travel_recipe',value=kind,modes=0))
         else:
-            for key,bits in (('access',allowed),('vehicle',3),('motor_vehicle',1),('motorcar',1)):
+            for key,bits in (('access',allowed),('vehicle',3),('motor_vehicle',1),(motor_class,1)):
                 if key in props:
                     allowed,conditional = apply_access(allowed,conditional,bits,key,props[key],local)
             for mode,key in MODE_TAGS.items():
@@ -49,7 +54,7 @@ def source_travel(roads,recipes):
         restricted_forward,restricted_reverse = conditional,conditional
         for mode,bit in MODES.items():
             default = props.get('oneway',0) if mode in ('motor','cycle','rail') else 0
-            keys = (('oneway:vehicle','oneway:motor_vehicle','oneway:motorcar') if mode=='motor' else
+            keys = (('oneway:vehicle','oneway:motor_vehicle',f'oneway:{motor_class}') if mode=='motor' else
                     ('oneway:vehicle','oneway:bicycle') if mode=='cycle' else (f'oneway:{MODE_TAGS.get(mode,mode)}',))
             value = default
             for key in keys:
@@ -82,8 +87,8 @@ def graph_travel(graph,public,restricted):
     return public_result,restricted_result
 
 
-def compile_travel(roads,graphs,recipes):
-    public,restricted,notes = source_travel(roads,recipes)
+def compile_travel(roads,graphs,recipes,*,motor_class='motorcar'):
+    public,restricted,notes = source_travel(roads,recipes,motor_class=motor_class)
     arcs = Counter()
     unresolved = 0
     for graph in graphs.values():
@@ -91,7 +96,7 @@ def compile_travel(roads,graphs,recipes):
         unresolved += int(np.count_nonzero(graph['owner_directions']==0))
         for mode,bit in MODES.items():
             arcs[mode] += int(np.count_nonzero(graph['travel_public']&bit))
-    return dict(public_directed_arcs=dict(arcs),source_notes=notes,
+    return dict(motor_vehicle_class=motor_class,public_directed_arcs=dict(arcs),source_notes=notes,
                 source_note_reasons=dict(Counter(n['reason'] for n in notes)),
                 unresolved_owner_directions=unresolved,
                 scope='Supplied access/direction and plausible class defaults; lanes, turn restrictions and swept-body routes remain open.')
