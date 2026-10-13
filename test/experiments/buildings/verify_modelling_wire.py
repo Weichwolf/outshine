@@ -11,7 +11,7 @@ import shapely
 from esri_oracle import CASES,generate
 from evidence import revision
 from modelling_components import Branch,Surface
-from modelling_scope import Frame
+from outshine_ref.buildings.modelling.scope import Frame
 from modelling_selectors import tagged
 from modelling_shape import Shape
 from modelling_wire import Edge,Point

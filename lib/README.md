@@ -41,3 +41,11 @@ ohne Koordinaten oder belegte Fläche zu ändern. Die zugehörigen Gegenfälle p
 Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
+
+`buildings.modelling` enthält den übernommenen Scope-Kern: `Frame`, `Scope`,
+`Relative`, `t`, `r`, `s` und `translate`. Er hält die dokumentierten CGA-Achsen
+Ost/Auf/Süd intern; `cga_to_enu`/`enu_to_cga` konvertieren Positionen und Normalen
+an der gemeinsamen ENU-Grenze, ohne Dreieckswinding oder Höhenbezug zu ändern.
+Alle Gebäudeexperimente verwenden diese Implementierung. Shape-/Geometrieoperationen,
+Dächer und konstruktive Gebäudepläne liegen weiterhin in den Experimenten (#51).
+Die Scope-Übernahme allein ist keine vollständige CityEngine-Bibliothek.

@@ -5,7 +5,7 @@ import math
 
 import numpy as np
 
-from modelling_scope import Relative,scalar
+from outshine_ref.buildings.modelling.scope import Relative,scalar
 from modelling_split_sizes import Floating
 from modelling_uv import channel,surface,changed,face_channel
 

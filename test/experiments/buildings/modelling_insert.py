@@ -4,7 +4,7 @@ from dataclasses import dataclass,replace
 
 import numpy as np
 
-from modelling_scope import triple
+from outshine_ref.buildings.modelling.scope import triple
 from modelling_shape import Geometry,Shape
 
 

@@ -144,4 +144,4 @@ $('download').onclick = () => {
   const link = element('a');link.href = url;link.download = `outshine-${page || 'overview'}-${metric}-${short(manifest.render_commit)}.svg`;link.click();
   setTimeout(() => URL.revokeObjectURL(url),1000);
 };
-refresh();setInterval(refresh,5000);
+refresh();

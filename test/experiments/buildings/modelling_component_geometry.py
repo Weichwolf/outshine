@@ -6,7 +6,7 @@ import numpy as np
 
 from modelling_extrude import euler
 from modelling_faces import Face
-from modelling_scope import Frame,Scope
+from outshine_ref.buildings.modelling.scope import Frame,Scope
 from modelling_shape import Shape
 from modelling_channels import vertex_channel
 

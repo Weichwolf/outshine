@@ -6,7 +6,7 @@ import numpy as np
 from pygltflib import Accessor,BufferView,GLTF2
 
 from modelling_insert import Asset
-from modelling_scope import Scope
+from outshine_ref.buildings.modelling.scope import Scope
 from modelling_shape import Shape
 from verify_modelling_extrude import near
 
