@@ -23,7 +23,7 @@ from facade_surface import project
 
 def materials(config,prepared=None):
     colours=[(.56,.48,.36),config['wall_linear'],(.72,.73,.74),(.9,.96,1.),(.34,.38,.34),(.41,.30,.18),(.50,.41,.30),(.09,.12,.13),(.35,.35,.35),
-             config['roof_linear'],(.16,.19,.21),(.43,.47,.49)]
+             config['roof_linear'],(.16,.19,.21),(.43,.47,.49),(.78,.76,.71)]
     result={}
     for index,colour in enumerate(colours):
         if index==3:value=dict(type='dielectric',int_ior=1.52,ext_ior=1.)

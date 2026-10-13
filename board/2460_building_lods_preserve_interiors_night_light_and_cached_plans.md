@@ -33,6 +33,9 @@ Aktiver begrenzter Vergleich: vorhandene Raum-/Öffnungsmeshes mit Mitsuba 3 LLV
 
 Aktiver Bildausbau: vollständiges Staffelhaus mit prozeduralen Platten, PBR-Rahmen und physikalischem Glas.
 Tag/Gesamtansicht sowie identische Terrassenkamera bei Tag/Nacht; Raumlicht folgt den tatsächlichen Geschossräumen.
+Aktiv: `building_surface_roles` trennt Fassaden anhand tatsächlicher Geschossgrenzen von Innenwänden/Leibungen.
+Material 1 nur außen, 12 für matte Innenflächen; Geometrie, Bauteil-/Öffnungs-/Geschoss-IDs unverändert.
+Analytische Wandflächen, gedrehter Innenhof und Staffelhaus prüfen die Zuordnung; keine Materialentscheidung aus der Kamera.
 Vorhandene feste Grundrisse behalten Lichtpositionen/Zustände; alle Mesh-Dreiecke müssen im Renderreport enthalten sein.
 
 ## Übernahme aus den Transportexperimenten
