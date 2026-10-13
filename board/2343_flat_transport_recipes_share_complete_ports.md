@@ -103,6 +103,9 @@ zwei nahe Varianten erzeugen nur neue Resttaschen von 0,004/0,454 m². Keine urs
 erhalten Originalroute/Endposen; 56 Varianten, vier lokale Kandidaten. 24 frühere Zusatzfahrten erhalten.
 Neue freie Resttaschen nur explizit schließen (≤1 m², keine 1-m-Innenbreite, keine Reservation).
 Übergang aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsreste nach bestehender Koordinatengrenze prüfen.
+1383 lokal 19/19 plus zwei Nachbarfahrten: Schnitte 2 m versetzt, physisch +14,29 m²; Bild geprüft.
+Versatz 3–6 m ist dort nicht eindeutig übertragbar; kleinste passende Quellstation statt Radius als Fixwert wählen.
+Gesamtfensterprüfung läuft; lokale Erfolge zählen erst danach zur Fensterbilanz.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
