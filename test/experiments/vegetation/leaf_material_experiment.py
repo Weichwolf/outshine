@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 from blade_surface import Blade
+from leaf_envelope_checks import check_envelopes
 from leaf_material_checks import check_cases, check_field, check_graph
 from leaf_material_export import export_leaf
 from leaf_material_maps import material_maps
@@ -102,6 +103,7 @@ def main():
     scenes(output, products, commit)
     names = (
         "leaf_venation.py",
+        "leaf_envelope_checks.py",
         "leaf_vein_field.py",
         "leaf_material_maps.py",
         "leaf_material_checks.py",
@@ -111,6 +113,7 @@ def main():
     )
     report = {
         "cases": cases,
+        "envelope": check_envelopes(),
         "commit": commit,
         "source_modified": True,
         "process_peak_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024,

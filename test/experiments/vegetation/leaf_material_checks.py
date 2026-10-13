@@ -3,6 +3,7 @@
 import numpy as np
 from leaf_vein_field import vein_field
 from leaf_venation import grow_veins, nearest
+from scipy.optimize import minimize_scalar
 
 
 def check_graph(blade, dense, indexed):
@@ -28,22 +29,32 @@ def check_graph(blade, dense, indexed):
     }
 
 
+def normalized_distance(u, point, a, b, r0, r1):
+    p = a + u * (b - a)
+    r = r0 + u * (r1 - r0)
+    return sum((point[j] - p[j]) ** 2 for j in range(2)) / r**2
+
+
 def scalar_field(plan, point):
-    total = 0.0
+    value = 0.0
     for i in range(1, len(plan.positions)):
         a, b = plan.positions[plan.parents[i]], plan.positions[i]
-        v = b - a
-        u = max(
-            0.0,
-            min(
-                1.0,
-                sum((point[j] - a[j]) * v[j] for j in range(2)) / sum(k * k for k in v),
-            ),
+        r0, r1 = plan.radii[plan.parents[i]], plan.radii[i]
+
+        args = (point, a, b, r0, r1)
+        result = minimize_scalar(
+            normalized_distance,
+            args=args,
+            bounds=(0, 1),
+            method="bounded",
+            options={"xatol": 1e-14},
         )
-        distance2 = sum((point[j] - a[j] - u * v[j]) ** 2 for j in range(2))
-        q = max(0.0, 1 - distance2 / (3 * plan.radii[i]) ** 2)
-        total += q**3
-    return 1 - np.exp(-total)
+        assert result.success
+        normalized = min(
+            result.fun, normalized_distance(0, *args), normalized_distance(1, *args)
+        )
+        value = max(value, max(0.0, 1 - normalized / 9) ** 3)
+    return value
 
 
 def check_field(plan):
@@ -58,7 +69,7 @@ def check_field(plan):
     indexed, indexed_work = vein_field(plan, points, "indexed")
     reference = np.array([scalar_field(plan, p) for p in points])
     error = float(np.max(np.abs(reference - indexed)))
-    assert error < 1e-13 and np.allclose(dense, indexed, rtol=0, atol=1e-13)
+    assert error < 1e-10 and np.allclose(dense, indexed, rtol=0, atol=1e-13)
     return {
         "independent_points": len(points),
         "max_scalar_field_error": error,

@@ -14,12 +14,15 @@ def apply_leaf_materials(recipe, directory):
         path = directory / product["leaf_material"]
         data = json.loads(path.read_text())
         if (
-            data["version"] != "procedural-leaf-material-1"
+            data["version"] != "procedural-leaf-material-2"
             or data["colour_space"] != "linear"
+            or data["vein_field"] != "tapered-envelope-1"
         ):
             raise ValueError("versioned linear procedural leaf product required")
         material = leaf_material(path.stem)
         nodes, links = material.node_tree.nodes, material.node_tree.links
+        mixed = next(n for n in nodes if n.type == "MIX_SHADER")
+        mixed.inputs[0].default_value = data["transmission"]
         textures = {}
         for key, name in data["maps"].items():
             image_path = directory / name

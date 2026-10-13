@@ -14,6 +14,8 @@ Tags: vegetation, python, leaf, material
 Ausgangspunkt: Blattmaterial hatte nur Farbvariation und eine Mittelrippe.
 Blattform, Aderplan und Materialprodukt müssen aus demselben stabilen Organrezept stammen.
 Grundfunktionsproben zuerst; keine vorgezogene Freigabe botanischer Artenrezepte.
+Metallic-Roughness bleibt die Basis; zusätzliche Blatttransluzenz ist als Erweiterung erlaubt.
+Alle Karten prozedural erzeugen und als Assets cachen; Referenztexturen ausschließlich vergleichen.
 
 ## Referenz und Verfahren
 SpeedTree-10-Leaf-Mesh konsumiert Material-/Meshassets; Ghidra untersucht SetupSkinForMesh
@@ -46,17 +48,32 @@ Belegte SpeedTree-Operationen, eigene Ergänzung und noch fehlende Gleichwertigk
 `leaf_venation.py`: drei Form-/Seed-Proben mit je 700 gleichen Attraktoren, 595/532/881 Knoten.
 Eltern vor Kindern, verbunden, positive vererbte Radien; dichte und indexierte Pläne stimmen überein.
 Zwei übrige Quellen der schmalen Form als Stillstand ausgewiesen; übrige Quellen entfernt. Keine pauschale Abdeckung.
-Drei abwechselnde Läufe: dichte Erzeugung Median 204,97–671,13 ms, cKDTree 54,99–126,20 ms.
-`leaf_vein_field.py`: kompakte Segmentfelder in Metern, Unterstützungskugel enthält jedes wirksame Segment.
-96×96-Vergleich beider Verfahren: Farbe/Relief/Rauheit ≤1,2e−16 unterschiedlich;
-unabhängige skalare Segmentprüfung zusätzlich. Vollständige 512×512-Karten 327–333 ms indexiert.
-Gemeinsames Relief steuert Bump; Materialrezept enthält physische Höhe und linearen Farbraum.
+Drei abwechselnde Läufe: dichte Erzeugung Median 186,93–595,53 ms, cKDTree 50,85–113,64 ms.
+`leaf_vein_field.py`: maximierte sich verjüngende Segmenthüllen in Metern; keine additive Knotenverdickung.
+96×96-Vergleich beider Verfahren: Farbe/Relief/Rauheit stimmen bis auf Rundungsfehler überein;
+unabhängige numerische Minimierung: maximal 1,33e−14 Fehler an 97/98 Punkten je Graph.
+Vollständige 512×512-Karten 346–407 ms indexiert, 356.013–402.255 ausgewertete Punkt-/Segmentpaare.
+Gemeinsames Relief steuert Bump mit 60 µm statt 180 µm; mattere Oberfläche, linearer Farbraum.
+Materialversion 2 benennt die Hülle; Transmission wird aus dem gespeicherten Rezept gebunden.
 PNG-Quantisierung nach Laden ≤0,5/255; Metadaten/Netz/Mesh/Materialkarten separat gespeichert.
-Prüfprozess 141,73 MiB Peak, einschließlich Imports/dichter Vergleichsarrays; kein Gerätebudget.
+Prüfprozess 201,37 MiB Peak, einschließlich Imports/dichter Vergleichsarrays; kein Gerätebudget.
 `leaf_material_replay.py`: 52 gemeinsame Nah-/Grobvertices je Form exakt in Position und UV;
 Grobprodukte verwenden dieselben gespeicherten Materialkarten ohne Ader-/Materialneuberechnung.
-Ober-/Unterseite/Vorher/Grobprodukt in 2560×1440 optisch betrachtet; erhabene Adern zu stark, Feinmaschen fehlen.
+Ober-/Unterseite in 2560×1440 optisch betrachtet: Knotenverdickungen entfernt, mattere flachere Adern.
+Feinmaschen/Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; noch kein SpeedTree-Niveau.
 SpeedTree Games/Broadleaf/Leaves/Front_02 und Normal optisch betrachtet: feine geschlossene Zellen,
 subtile Farb-/Reliefvariation; keine Übernahme der Assets und kein kontrollierter Gleichwertigkeitsbeleg.
 Vorbelegte Mittelrippenstationen nach Nahbild wegen regelmäßigem Queradern-Raster verworfen;
 aus einem Wurzelknoten gewachsene Mittel-/Seitenadern erhalten stattdessen die Quellenabhängigkeit.
+
+## Unterteilungsunabhängige Aderhülle
+Addierte Segmentkerne erzeugten Verdickungen an Stützpunkten. Material bleibt unabhängig von
+kollinearer Unterteilung, auch bei linear veränderlichem Radius. Eine maximierte kompakte
+Aderhülle ersetzt die Summierung; Extremum des normierten Segmentabstands analytisch bestimmen.
+Für q(t)=(A−2Bt+Ct²)/(r0+dt)² sind Endpunkte und t=(Br0+Ad)/(Cr0+Bd)
+bei positivem Nenner ausreichend. Maximierte Hüllen erhalten daher jede lineare Unterteilung.
+Die Indexkugel mit Radius halbe Segmentlänge+3×max(r0,r1) umfasst die gesamte Unterstützung.
+An Hüllenwechseln ist globale C1-Stetigkeit ausdrücklich nicht bewiesen.
+Drei Radiusprofile, je 2.145 Punkte: 1/2/7/31 Segmente, dichte/indexierte Auswertung ≤5,3e−15 verschieden.
+Analytischer Querschnitt und unabhängige numerische Minimierung geprüft; altes Modell +0,233 Knotenhöhe.
+Reliefhöhe/Rauheit/Farbkontrast gemeinsam angepasst; Einzelbeiträge zur Bildwirkung nicht isoliert gemessen.

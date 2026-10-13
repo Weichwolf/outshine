@@ -19,8 +19,8 @@ def material_maps(blade, plan, size=512, method="indexed"):
     base = np.array([0.055, 0.17, 0.018])
     colour = base * (0.86 + 0.23 * variation[..., None] - 0.12 * edge[..., None])
     colour = (
-        colour * (1 - 0.35 * ridge[..., None])
-        + np.array([0.13, 0.24, 0.035]) * 0.35 * ridge[..., None]
+        colour * (1 - 0.20 * ridge[..., None])
+        + np.array([0.13, 0.24, 0.035]) * 0.20 * ridge[..., None]
     )
-    roughness = 0.48 + 0.08 * edge - 0.10 * ridge
+    roughness = 0.56 + 0.08 * edge - 0.02 * ridge
     return {"colour": colour, "height": ridge, "roughness": roughness}, work

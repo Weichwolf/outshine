@@ -1,5 +1,5 @@
 {
-  "current_work": "Geometrie- und Materialgrundfunktionen: drei Blattformen erhalten gemeinsam erzeugte Adern, Farbe, Relief und Rauheit. Gespeicherte Rezepte liefern grobe Geometrie mit identischen Materialkoordinaten. Eigene Verfahren nach SpeedTree-Referenz; vollständige Funktionsabdeckung, natürliche Oberflächen und botanische Artenrezepte bleiben offen.",
+  "current_work": "Blattmaterial-Grundfunktion: durchgehende, sich verjüngende Aderhüllen ersetzen die künstlichen Verdickungen an Stützpunkten. Farbe, Relief und Rauheit stammen aus demselben gespeicherten Plan. Nah- und Grobprodukte behalten identische Materialkoordinaten. Geschlossene Feinadern, natürliche Oberflächenvariation und vollständige SpeedTree-Funktionsabdeckung bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -8,8 +8,8 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Offenes Adernetz aus einem Wurzelknoten. Farbe, Relief und Rauheit entstehen aus demselben gespeicherten Plan. Drei Funktionsformen, noch keine botanisch validierten Arten. Nah- und Grobprodukte verwenden dieselben Materialkarten.",
-      "quality": "Adern noch zu stark erhaben; geschlossene Feinadern und natürliche Farbvariation fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "description": "Drei Funktionsformen mit einem offenen Adernetz aus einem Wurzelknoten. Die Aderoberfläche bleibt bei zusätzlicher linearer Unterteilung gleich. Gemeinsame Farb-, Relief- und Rauheitskarten werden gespeichert und für Nah- und Grobgeometrie wiederverwendet. Reliefhöhe 60 µm; noch keine botanisch validierten Arten.",
+      "quality": "Künstliche Knotenverdickungen beseitigt. Geschlossene Feinadern, natürliche Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; SpeedTree-Qualität noch nicht erreicht.",
       "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-upper.json"
     },
     {
@@ -18,8 +18,8 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Offenes Adernetz aus einem Wurzelknoten. Farbe, Relief und Rauheit entstehen aus demselben gespeicherten Plan. Drei Funktionsformen, noch keine botanisch validierten Arten. Nah- und Grobprodukte verwenden dieselben Materialkarten.",
-      "quality": "Adern noch zu stark erhaben; geschlossene Feinadern und natürliche Farbvariation fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "description": "Drei Funktionsformen mit einem offenen Adernetz aus einem Wurzelknoten. Die Aderoberfläche bleibt bei zusätzlicher linearer Unterteilung gleich. Gemeinsame Farb-, Relief- und Rauheitskarten werden gespeichert und für Nah- und Grobgeometrie wiederverwendet. Reliefhöhe 60 µm; noch keine botanisch validierten Arten.",
+      "quality": "Künstliche Knotenverdickungen beseitigt. Geschlossene Feinadern, natürliche Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; SpeedTree-Qualität noch nicht erreicht.",
       "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-lower.json"
     },
     {
@@ -28,8 +28,8 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-1",
-      "description": "Offenes Adernetz aus einem Wurzelknoten. Farbe, Relief und Rauheit entstehen aus demselben gespeicherten Plan. Drei Funktionsformen, noch keine botanisch validierten Arten. Nah- und Grobprodukte verwenden dieselben Materialkarten.",
-      "quality": "Adern noch zu stark erhaben; geschlossene Feinadern und natürliche Farbvariation fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "description": "Drei Funktionsformen mit einem offenen Adernetz aus einem Wurzelknoten. Die Aderoberfläche bleibt bei zusätzlicher linearer Unterteilung gleich. Gemeinsame Farb-, Relief- und Rauheitskarten werden gespeichert und für Nah- und Grobgeometrie wiederverwendet. Reliefhöhe 60 µm; noch keine botanisch validierten Arten.",
+      "quality": "Künstliche Knotenverdickungen beseitigt. Geschlossene Feinadern, natürliche Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; SpeedTree-Qualität noch nicht erreicht.",
       "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-coarse.json"
     },
     {

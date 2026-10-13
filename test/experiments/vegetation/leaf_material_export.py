@@ -24,9 +24,10 @@ def export_leaf(output, name, blade, plan, maps, x):
         radii=plan.radii,
     )
     material = {
-        "version": "procedural-leaf-material-1",
+        "version": "procedural-leaf-material-2",
         "maps": paths,
-        "height_m": 0.00018,
+        "height_m": 0.00006,
+        "vein_field": "tapered-envelope-1",
         "transmission": 0.22,
         "colour_space": "linear",
         "uv": "u=(s+1)/2,v=t",
