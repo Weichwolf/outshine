@@ -1,6 +1,6 @@
 # Hierarchischer Bedarf vor Download und Geometrie
 
-Codeprüfung: 2026-10-07. Besitzer: WI 2336 (Bedarf), 2280 (Assets), 2188 (API).
+Codeprüfung: 2026-10-07. Besitzer: WI [#12](https://github.com/Weichwolf/outshine/issues/12) (Bedarf), [#10](https://github.com/Weichwolf/outshine/issues/10) (Assets), [#9](https://github.com/Weichwolf/outshine/issues/9) (API).
 MapLibre und Cesium wurden im Quellcode geprüft, nicht als Tokyo-Laufzeitbenchmark ausgeführt.
 Keine Aussage über deren konkreten Durchsatz auf dieser Maschine oder A18 Pro.
 

@@ -5,14 +5,14 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 
 | Bibliothek | Geprüfter lokaler Stand | Zuständiger WI | Verwendung |
 |---|---|---|---|
-| GEOS | 3.15.0 | [2173](../board/2173_osm_semantics_reach_generators_and_unknowns_remain_explicit.md) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
-| meshoptimizer | 1.3 | [2336](../board/2336_one_world_refines_seamlessly_from_orbit_to_ground_detail.md) | Geplant: native Index-/Vertexbuffer, begrenzte Simplifizierung |
-| simdjson | 4.6.11 | [2188](../board/2188_engine_contracts_will_match_the_sandbox_architecture.md) | Geplant: gemeinsamer JSON-Decoder |
-| pugixml | 1.16 | [2188](../board/2188_engine_contracts_will_match_the_sandbox_architecture.md) | Geplant: gemeinsamer XML-Decoder |
-| Eigen | 5.0.1 | [2136](../board/2136_a_thousand_minds_walk_the_world_inside_the_frame.md) | Geplant: lineare Berechnungen, keine Änderung der GPU-ABI |
-| Bullet | 3.25 | [2136](../board/2136_a_thousand_minds_walk_the_world_inside_the_frame.md) | Geplant: Kontakte, Starrkörper und Gelenke |
-| SQLite | 3.54.0 | [2280](../board/2280_ready_assets_load_from_a_spatial_cache.md) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
-| Zstandard | 1.5.7 | [2280](../board/2280_ready_assets_load_from_a_spatial_cache.md) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
+| GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
+| meshoptimizer | 1.3 | [#12](https://github.com/Weichwolf/outshine/issues/12) | Geplant: native Index-/Vertexbuffer, begrenzte Simplifizierung |
+| simdjson | 4.6.11 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer JSON-Decoder |
+| pugixml | 1.16 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer XML-Decoder |
+| Eigen | 5.0.1 | [#2](https://github.com/Weichwolf/outshine/issues/2) | Geplant: lineare Berechnungen, keine Änderung der GPU-ABI |
+| Bullet | 3.25 | [#2](https://github.com/Weichwolf/outshine/issues/2) | Geplant: Kontakte, Starrkörper und Gelenke |
+| SQLite | 3.54.0 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Nativer Asset-Paketindex mit transaktionalen Metadaten und R*Tree |
+| Zstandard | 1.5.7 | [#10](https://github.com/Weichwolf/outshine/issues/10) | Verlustfreie native Paketkompression; unveränderte Assetidentität und Ladeschranke |
 
 ## Installation
 
@@ -20,7 +20,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 brew install geos simdjson pugixml eigen bullet sqlite zstd
 ```
 
-meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../Formula/meshoptimizer.rb)
+meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../lib/Formula/meshoptimizer.rb)
 baut den offiziellen Release mit SHA-256-Prüfung, ohne Bibliotheksquellen im Repository.
 
 ```sh

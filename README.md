@@ -54,16 +54,17 @@ a missing Khronos image remains a compatibility failure, separate from the world
 |---|---|
 | `include/` | the door — a header is public only if a client cannot use the engine without it |
 | `src/` | the library; the directory **is** the dependency tier, declared and enforced by `--audit-layers` |
+| [`lib/`](lib/README.md) | installable Python reference libraries shared by generator experiments |
 | `src/generators/` | a library of its own, with its own door; links without the engine behind it |
 | `test/` | vendor corpora and ours, kept apart by directory |
 | `apps/` | the clients — each a product, and its line count measures the door |
-| `board/` | one flat directory of work items; `git log` is the logbook |
+| [GitHub Issues](https://github.com/Weichwolf/outshine/issues) | shared work items, architecture decisions and acceptance |
 
 ## The three documents
 
 - **`AGENTS.md`** contains the vision, architecture principles and working rules.
 - **`STATE.md`** is what the tree **is**, written by `make` and by no hand.
-- **`board/`** is the distance between them, one file per item.
+- **[GitHub Issues](https://github.com/Weichwolf/outshine/issues)** track the work between them across all three branches.
 
 Where TARGET and STATE disagree, STATE is right and the distance is the work.
 
