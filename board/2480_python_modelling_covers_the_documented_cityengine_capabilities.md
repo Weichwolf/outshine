@@ -105,7 +105,7 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
 UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
-UV-Komposition p50 0,075–0,210 statt 0,231–0,662 ms; fünf Grundrisse/21 Paare, gleiche Daten, keine Frames. Material-Overrides getrennt; texture hält Bytes durch comp/split/extrude/insert. Aktiv: SDK-Projektion sowie prozedurale Platten mit Farb-/Rauheits-/Normalkarten und Mitsuba-UV-Bindung (2171); 1080p-Kontrollhaus; metrische UV-Kanten an vier Gebäuden geprüft. CGA-/LOD-/Shadergleichheit offen.
+Material-Overrides getrennt; texture hält Bytes durch comp/split/extrude/insert. Aktiv: scope.xy-Projektion mit absoluten/relativen/Floating-Größen, gespeicherten Frames und Vererbung; UV-Edits erhalten Instanz-Mindestgeometrie. 1080p-Vergleich zeigt durchlaufende versus neu angesetzte Projektion. Prozedurale PBR-Platten am Kontrollhaus (2171); weitere Achsen, negative Floating-Werte und PRT-/LOD-/Shadergleichheit offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.

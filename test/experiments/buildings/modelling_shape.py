@@ -100,11 +100,22 @@ class Shape:
     asset: object=None
     material: Material=Material()
     textures: tuple=()
+    projections: tuple=()
 
     def __post_init__(self):
         if not isinstance(self.material,Material):raise ValueError('Shape material must be an immutable Material')
         from modelling_texture import resources
         object.__setattr__(self,'textures',resources(self.asset.textures if self.asset else (),self.textures))
+        from modelling_projection import projections
+        object.__setattr__(self,'projections',projections(self.projections))
+
+    def setup_projection(self,index,axes,width,height,width_offset=0.,height_offset=0.,uw_factor=0.):
+        from modelling_projection import setup
+        return setup(self,index,axes,width,height,width_offset,height_offset,uw_factor)
+
+    def project_uv(self,index):
+        from modelling_projection import project
+        return project(self,index)
 
     def texture(self,value):
         from modelling_texture import texture
@@ -205,7 +216,7 @@ class Shape:
             raise NotImplementedError('Additional vertex channels in wire/hole components remain pending')
         from modelling_components import split_components
         from modelling_uv import inherit_primary
-        return tuple(replace(inherit_primary(child,self),material=self.material,textures=self.textures) for child in split_components(self,component,branches,alignment))
+        return tuple(replace(inherit_primary(child,self),material=self.material,textures=self.textures,projections=self.projections) for child in split_components(self,component,branches,alignment))
 
     def split(self,axis,*parts,repeat=False,adjust=True,cut_material=None,cut_group=0,max_parts=10000):
         from modelling_channels import additional_channels
@@ -243,10 +254,11 @@ class Shape:
         return replace(self,scope=self.scope.translate(mode,coordinates,x,y,z))
 
     def emit(self):
-        instanced=self.is_instanced()
-        size=self.asset.render_size(self.scope.size) if instanced else self.scope.size
-        matrix=np.eye(4) if instanced else self.scope.matrix
-        if instanced:
+        prepared=(self.asset is not None and self.geometry.unit_vertices is self.asset.geometry.unit_vertices
+                  and self.geometry.reference_size==self.asset.geometry.reference_size)
+        size=self.asset.render_size(self.scope.size) if prepared else self.scope.size
+        matrix=np.eye(4) if prepared else self.scope.matrix
+        if prepared:
             matrix[:3,:3]=self.scope.axes*np.asarray(size);matrix[:3,3]=self.scope.origin
         vertices=self.geometry.unit_vertices@matrix[:3,:3].T+matrix[:3,3]
         if not np.isfinite(vertices).all():raise ValueError('Shape transform produced non-finite coordinates')

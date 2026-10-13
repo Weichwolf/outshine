@@ -87,4 +87,4 @@ def insert(shape,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         scope=replace(scope.t(*delta),size=tuple(dims))
     scope=adjusted(scope,asset)
     from modelling_texture import resources
-    return Shape(asset.geometry,scope,shape.comp_info,shape.sweep_info,shape.split_info,asset,shape.material,resources(asset.textures,shape.textures))
+    return Shape(asset.geometry,scope,shape.comp_info,shape.sweep_info,shape.split_info,asset,shape.material,resources(asset.textures,shape.textures),shape.projections)
