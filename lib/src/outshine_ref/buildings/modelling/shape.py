@@ -266,6 +266,10 @@ class Shape:
         from .scope_geometry import rotate_scope
         return rotate_scope(self,x,y,z)
 
+    def align_scope_to_geometry_bbox(self,selector='xy'):
+        from .scope_bbox import align_scope_to_geometry_bbox
+        return align_scope_to_geometry_bbox(self,selector)
+
     def s(self,x,y,z):return replace(self,scope=self.scope.s(x,y,z))
 
     def translate(self,mode,coordinates,x,y,z):
