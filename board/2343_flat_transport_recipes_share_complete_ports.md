@@ -85,6 +85,8 @@ prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine 
 23 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
 1146 lokal: 18/18, zwei Gegenrichtungen gemeinsam, +17,89 m²; Nahbild/erneutes Laden geprüft.
 Neue Veröffentlichungsregel im Gesamtfenster neu prüfen; bestätigter Stand bleibt 4792/4808.
+Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identitäten/Hüllen erneut prüfen.
+Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
 [Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
 auf den nächsten Portmittelpunkt aller Nachbarn. Schnittebenen bleiben fest; Zusatzsegmente am
 anderen Arm sind ungültig. Vorhandene Geometrie behalten, Erweiterung genau einmal besitzen.
