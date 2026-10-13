@@ -42,3 +42,29 @@ T/ring fixtures and a saved Vienna tile, requiring byte-identical closed meshes
 and an independent oriented-edge/volume audit. Runtime and worker peak RSS are
 offline CPU measurements; the showcase opens the exact meshes in Blender
 Workbench. Heights in these inspections are explicit recipe assumptions.
+
+## Whole-face anisotropic heights (Python, #20)
+
+Following the SIGGRAPH graph/geometry separation and Galin cross-section model
+above, an affine triangle has a constant height gradient. Bounding its normalized
+two-dimensional norm therefore bounds the entire face; bounding edges alone does
+not. `transport.fit_surface_heights` uses shared vertex heights and minimizes the
+maximum change from a coarse DEM prior with fixed vertex contacts when supplied.
+This is a smaller fixed-mesh reference operator, not either paper's full road solver.
+
+[Clarabel's Python cone formulation](https://clarabel.org/stable/python/getting_started_py/)
+provides the selected second-order cone solve. Its
+[settings](https://clarabel.org/stable/api_settings/) supply iteration/time/thread
+limits. The experiment compares it with SciPy/HiGHS and an inscribed regular
+16-sided approximation of the same norm bound: conservative, with a smaller
+feasible set. Both use identical saved inputs, quality bounds and solver time.
+An independent cross-product normal audit decides whether a result is valid;
+timeout alone neither authorizes nor forbids output. Time limits can overrun
+within a solver step; preparation and full-worker peak RSS are measured separately.
+
+[Mapterhorn data access](https://mapterhorn.com/data-access/) specifies the 512-pixel
+Terrarium WebP source. A saved zoom-11 Vienna tile is sampled at pixel centres;
+source bytes/URL/hash and original OpenFreeMap IDs are retained. Recipe grade bounds
+are procedural choices, not measured lane tags. Shared heights remove steps but
+do not prove C1, superelevation, drivable turns or terrain/building/plant contacts.
+The latter require the coordinated spatial products in #18/#20/#47 before an API change.
