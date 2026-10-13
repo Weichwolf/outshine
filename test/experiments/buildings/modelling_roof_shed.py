@@ -8,7 +8,7 @@ import numpy as np
 from modelling_extrude import aligned_scope
 from modelling_faces import Face,ROOF_TAGS,face_shape,plane
 from modelling_metadata import inherit
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 from modelling_uv import corner_values
 
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass,replace
 from numbers import Integral,Real
 from collections.abc import Mapping
 
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 
 
 def group_id(value):

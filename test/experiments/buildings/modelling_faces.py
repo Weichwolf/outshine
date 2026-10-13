@@ -6,7 +6,7 @@ from numbers import Integral
 import numpy as np
 import shapely
 
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 from modelling_metadata import group_id
 from modelling_uv_corners import rings_uv,channels_uv
 

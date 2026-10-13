@@ -7,10 +7,11 @@ from axis_surface import axis_mesh, profiled_axis_mesh
 from bark_coordinates import axis_chart
 from blade_surface import Blade
 from generator_specs import FrondShape, TubeShape
+from needle_section import section_vertex_count
 from needle_surface import Needle
 from spatial_axis import SpatialAxis
 
-SOURCE_GEOMETRY_VERSION = 2
+SOURCE_GEOMETRY_VERSION = 3
 
 
 def tube_resolution(shape, detail):
@@ -31,7 +32,7 @@ def source_triangles(shape, detail="near"):
     if isinstance(shape, Needle):
         return (
             2
-            * (4 if shape.section == "rhombus" else 16 if fine else 8)
+            * section_vertex_count(shape.section, 16 if fine else 8)
             * (32 if fine else 16)
         )
     if isinstance(shape, (TubeShape, SpatialAxis)):

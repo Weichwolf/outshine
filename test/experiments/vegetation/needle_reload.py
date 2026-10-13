@@ -10,7 +10,7 @@ from PIL import Image
 
 
 def main():
-    root = Path("build/experiments/vegetation/needles")
+    root = Path("build/experiments/vegetation/needle-sectors")
     cases = []
     with (
         patch(

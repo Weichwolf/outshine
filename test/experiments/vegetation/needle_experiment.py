@@ -74,7 +74,7 @@ def write_scene(output, name, products, identity, camera=None, target=None):
 
 
 def main():
-    output = Path("build/experiments/vegetation/needles")
+    output = Path("build/experiments/vegetation/needle-sectors")
     output.mkdir(parents=True, exist_ok=True)
     cases = []
     scenes = {"near": [], "coarse": []}
@@ -133,9 +133,10 @@ def main():
         "checks": checks,
         "peak_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024,
         "implementation_sha256": {
-            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            str(p): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in [
                 *Path(__file__).parent.glob("needle*.py"),
+                *Path("lib/src/outshine_ref/vegetation").glob("*.py"),
                 *[
                     Path(__file__).with_name(n)
                     for n in (

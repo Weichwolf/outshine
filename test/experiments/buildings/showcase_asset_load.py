@@ -11,7 +11,7 @@ import numpy as np
 
 from modelling_asset_cases import fixtures
 from modelling_insert import Asset
-from modelling_scope import Scope
+from outshine_ref.buildings.modelling.scope import Scope
 from modelling_shape import Shape
 from modelling_scope_probe import engine_mesh
 from showcase_groups import COLOURS,save_plot

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import math
 
-from modelling_scope import Relative,scalar
+from outshine_ref.buildings.modelling.scope import Relative,scalar
 
 
 @dataclass(frozen=True)

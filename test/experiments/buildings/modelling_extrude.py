@@ -6,7 +6,7 @@ import math
 import numpy as np
 
 from modelling_faces import EXTRUSION_TAGS,Face,face_shape,plane
-from modelling_scope import Scope,scalar
+from outshine_ref.buildings.modelling.scope import Scope,scalar
 from modelling_metadata import inherit
 
 
