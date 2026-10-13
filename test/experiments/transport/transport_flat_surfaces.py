@@ -12,6 +12,7 @@ from transport_flat_cuts import cuts_plan
 from transport_network_plan import boundary_segments
 from transport_vertex_pool import welded_vertices
 from transport_conforming_triangles import conform_triangles
+from transport_travel import graph_travel
 
 
 def junction_seeds(graphs,mode):
@@ -23,7 +24,7 @@ def junction_seeds(graphs,mode):
     return np.asarray(points).reshape(-1,2),np.asarray(radii)
 
 
-def load_graphs(path,report):
+def load_graphs(path,report,*,travel_permissions=None):
     data = np.load(path)
     graphs = []
     for i,stats in enumerate(report['graphs']):
@@ -38,6 +39,10 @@ def load_graphs(path,report):
         for key in ('travel_public','travel_restricted'):
             if f'{i}_{key}' in data:
                 graph[key] = data[f'{i}_{key}']
+        if travel_permissions is not None:
+            binding=dict(lines=lines,owner_sources=owners,owner_offsets=cuts,
+                         owner_directions=data[f'{i}_owner_directions'])
+            graph['travel_public'],graph['travel_restricted']=graph_travel(binding,*travel_permissions)
         graphs.append(graph)
     data.close()
     return graphs

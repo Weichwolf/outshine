@@ -87,6 +87,12 @@ def graph_travel(graph,public,restricted):
     return public_result,restricted_result
 
 
+def bound_source_travel(roads,source_ids,usage,recipes,*,motor_class='motorcar'):
+    indices={row['id']:row['source'] for row in usage}
+    assert all(key in indices for key in source_ids),'graph source lacks an input binding'
+    return source_travel([roads[indices[key]] for key in source_ids],recipes,motor_class=motor_class)
+
+
 def compile_travel(roads,graphs,recipes,*,motor_class='motorcar'):
     public,restricted,notes = source_travel(roads,recipes,motor_class=motor_class)
     arcs = Counter()

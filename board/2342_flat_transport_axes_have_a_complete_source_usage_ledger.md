@@ -29,6 +29,8 @@ Absteigen/Seitenwegbedarf und unklare Werte werden quellbezogen ausgewiesen, nic
 Auto→Treppe und Rückfahrt in Einbahnrichtung sind ausgeschlossen. Fahrspuren, Abbiegeverbindungen
 und Fahrzeughüllen bleiben offen; Zugangsregeln allein beweisen keine Befahrbarkeit.
 Motorzugang trennt PKW/LKW/Bus samt Klasseneinbahnregeln; Busfahrbahnen erlauben standardmäßig nur Busse.
+Versuchsnetze binden gespeicherte Kanten über Quell-IDs neu an den gewählten Klassenzugang;
+Geometrie/Orientierung bleiben erhalten. Veraltete gespeicherte Modusmasken bestimmen keine neuen Fahrten.
 Größen-/Lastgrenzen vor Routenbau prüfen; bislang offen. Fehlende Angaben sind Rezeptannahmen.
 Grundstückszufahrten ohne Zugangstags sind keine belegten öffentlichen Durchgangsstraßen.
 

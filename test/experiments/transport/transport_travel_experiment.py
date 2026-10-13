@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import time
+from tempfile import TemporaryDirectory
 
 import numpy as np
 import shapely
@@ -14,7 +15,8 @@ from scipy.sparse.csgraph import shortest_path
 
 from transport_flat_plan import plan
 from transport_network import transport_widths
-from transport_travel import MODES,MOTOR_CLASSES,compile_travel,source_travel
+from transport_flat_surfaces import load_graphs
+from transport_travel import MODES,MOTOR_CLASSES,bound_source_travel,compile_travel,source_travel
 
 
 def verify(recipes):
@@ -81,6 +83,38 @@ def verify_motor_classes(recipes):
                 class_directions_separate=True,busway_requires_bus=True)
 
 
+def verify_cached_vehicle_classes(recipes):
+    roads=[dict(properties={'class':'busway','oneway':1}),
+           dict(properties={'class':'service','oneway':1,'hgv':'no'})]
+    usage=[dict(id='busway',source=0),dict(id='service',source=1)]
+    vertices=np.array([[0.,0.],[10.,0.],[10.,10.]])
+    arrays=dict(source_widths=np.array([4.,4.]),**{'0_vertices':vertices,
+        '0_edges':np.array([[0,1],[1,2]]),'0_line_coordinates':vertices[[0,1,1,2]],
+        '0_line_offsets':np.array([0,2,4]),'0_owner_sources':np.array([0,1]),
+        '0_owner_offsets':np.array([0,1,2]),'0_owner_directions':np.array([-1,1]),
+        '0_travel_public':np.full((2,2),255,dtype=np.uint8),
+        '0_travel_restricted':np.zeros((2,2),dtype=np.uint8)})
+    with TemporaryDirectory(prefix='outshine-vehicle-access-') as directory:
+        path=Path(directory)/'graph.npz';np.savez_compressed(path,**arrays)
+        for name,expected in (('motorcar',[[False,True],[False,False]]),
+                              ('bus',[[False,True],[True,False]]),
+                              ('hgv',[[False,False],[False,False]])):
+            public,restricted,_=bound_source_travel(roads,['service','busway'],usage,
+                                                    recipes['travelRecipes'],motor_class=name)
+            graph=load_graphs(path,dict(graphs=[dict(tier=['land',0,'ground'])]),
+                              travel_permissions=(public,restricted))[0]
+            assert np.array_equal(graph['vertices'],vertices)
+            assert np.array_equal(graph['travel_public']&MODES['motor']!=0,expected)
+    try:
+        bound_source_travel(roads,['missing'],usage,recipes['travelRecipes'])
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError('unbound graph source accepted')
+    return dict(cached_geometry_unchanged=True,cached_access_recompiled=True,
+                source_order_and_reversed_owner_preserved=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',type=Path)
@@ -95,7 +129,8 @@ def main():
     recipes = json.loads(configuration.read_text())
     implementation = {p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in
                       (Path(__file__),Path(__file__).with_name('transport_travel.py'),configuration)}
-    (args.output/'small.json').write_text(json.dumps(verify(recipes)|verify_motor_classes(recipes),indent=2)+'\n')
+    checks=verify(recipes)|verify_motor_classes(recipes)|verify_cached_vehicle_classes(recipes)
+    (args.output/'small.json').write_text(json.dumps(checks,indent=2)+'\n')
     widths = transport_widths()
     for place in args.places:
         path = args.input/f'{place}-input.json'
