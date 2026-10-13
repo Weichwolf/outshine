@@ -114,7 +114,7 @@ def fit_surface_heights(surface: Mesh, grade_frames: np.ndarray, *,
     One shared vertex owns each height. Fixed contacts use the same local Z datum.
     The caller supplies a conforming nonoverlapping XY surface. Failed or expired
     solves return no mesh unless an independent whole-face/contact check passes.
-    Clarabel/SciPy are optional transport dependencies, loaded only for solving.
+    Solver imports are deferred; Clarabel is the optional transport dependency.
     Solver limits exclude measured preparation and may overrun inside one step.
     """
     began = time.perf_counter()
