@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from ..contracts import Hint, LocalFrame, Mesh, Reservation, SourceInputs, collection
 from .blade_surface import Blade
 from .needle_surface import Needle
+from .placement_patterns import DistancePattern
 from .profiles import Profile
 
 
@@ -26,4 +27,4 @@ class Plan:
         collection(self.meshes, Mesh, "vegetation meshes")
 
 
-__all__ = ["Blade", "Inputs", "Needle", "Plan", "Profile"]
+__all__ = ["Blade", "DistancePattern", "Inputs", "Needle", "Plan", "Profile"]
