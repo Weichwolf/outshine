@@ -31,6 +31,10 @@ Aktiver begrenzter Vergleich: vorhandene Raum-/Öffnungsmeshes mit Mitsuba 3 LLV
 [Primärdokumentation](https://github.com/mitsuba-renderer/mitsuba3), [SIGGRAPH Asia 2019](https://rgl.epfl.ch/publications/NimierDavidVicini2019Mitsuba2): Renderer-Vektorisierung; Seiten 1/2 optisch geprüft.
 [Quellenbeleg](../doc/references/buildings/siggraph/2019-mitsuba2-retargetable-forward-inverse-renderer.reference.json): PDF lokal, Zitat/Link/Hash versioniert. CPU-Referenzmessungen unten; kein Runtime-Rendererwechsel.
 
+Aktiver Bildausbau: vollständiges Staffelhaus mit prozeduralen Platten, PBR-Rahmen und physikalischem Glas.
+Tag/Gesamtansicht sowie identische Terrassenkamera bei Tag/Nacht; Raumlicht folgt den tatsächlichen Geschossräumen.
+Vorhandene feste Grundrisse behalten Lichtpositionen/Zustände; alle Mesh-Dreiecke müssen im Renderreport enthalten sein.
+
 ## Übernahme aus den Transportexperimenten
 Review von `~/Git/outshine/test/experiments/transport/` am 2026-10-13, Stand dd95f208b:
 `transport_coupled_roadbed_products` prüft gespeicherte Produkte gegen ausgegebene Dreiecke,
