@@ -403,8 +403,7 @@ const VegetationTemplates::Rule *VegetationTemplates::Find(std::string_view laye
   if (it != Rules_.end()) { return &it->second; }
   key.assign(layer).append("/*");
   it = Rules_.find(key);
-  if (it != Rules_.end()) { return &it->second; }
-  return layer == "sites" ? Find("land", kind) : nullptr;
+  return it != Rules_.end() ? &it->second : nullptr;
 }
 
 }

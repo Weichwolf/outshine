@@ -2,6 +2,7 @@
 #include "BuildingProperties.h"
 #include "GroundMaterials.h"
 #include "VegetationTemplates.h"
+#include "GroundRule.h"
 #include "StreetField.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
@@ -164,7 +165,7 @@ void CheckLandClasses() {
     if (field.Features().empty()) { continue; }
     const auto &feature = field.Features().front();
     const auto kind = field.Str(feature, "kind");
-    const auto *rule = templates.Find(field.LayerName(feature.Layer), kind);
+    const auto *rule = GroundRuleOf(field, feature, templates);
     CHECK(field.Str(feature, "class") == test.Kind && kind == test.Kind && rule &&
               templates.Name(static_cast<size_t>(rule->Tpl)) == test.Template,
           "raw class and source polygon survive while existing land material recipe is selected");
