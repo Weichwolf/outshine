@@ -13,7 +13,7 @@ from modelling_faces import ROOF_TAGS,plane
 from modelling_metadata import inherit
 from modelling_roof_mesh import RoofMesh
 from modelling_roof_shed import channel_faces
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 from modelling_shape import Shape
 from modelling_uv import name
 

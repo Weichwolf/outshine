@@ -1,6 +1,6 @@
 "use strict";
 let manifest;
-let selected = "anschluesse";
+let selected = "koerper";
 const byId = id => document.getElementById(id);
 const element = (tag, text, className) => {
   const node = document.createElement(tag);

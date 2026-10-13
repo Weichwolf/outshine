@@ -14,7 +14,7 @@ from esri_oracle import CASES,generate,geometry_digest
 from evidence import revision
 from modelling_components import Branch,Surface
 from modelling_faces import Face
-from modelling_scope import Frame,Scope
+from outshine_ref.buildings.modelling.scope import Frame,Scope
 from modelling_selectors import HORIZONTAL,NUTANT_HIGH,VERTICAL,Selector,select,tagged
 from modelling_shape import Shape
 from provider_contract import attributes

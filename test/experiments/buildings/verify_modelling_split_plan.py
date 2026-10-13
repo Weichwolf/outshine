@@ -10,7 +10,7 @@ from shapely.affinity import rotate,translate
 
 from evidence import revision
 from modelling_extrude_probe import fixtures
-from modelling_scope import Relative
+from outshine_ref.buildings.modelling.scope import Relative
 from modelling_split_area import TriangleArea
 from modelling_split_plan import clipped,split_plan
 from modelling_split_sizes import Floating,Part,allocations

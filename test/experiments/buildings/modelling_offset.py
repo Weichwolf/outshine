@@ -8,7 +8,7 @@ from modelling_component_geometry import fit_scope
 from modelling_faces import face_shape,plane
 from modelling_metadata import inherit
 from modelling_offset_plan import offset as plan_offset
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 from modelling_uv import corner_values
 
 

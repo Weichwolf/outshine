@@ -6,7 +6,7 @@ import numpy as np
 
 from modelling_component_geometry import fit_scope
 from modelling_extrude import euler
-from modelling_scope import Frame
+from outshine_ref.buildings.modelling.scope import Frame
 from modelling_wire import Edge,Point,wire_shape
 from modelling_metadata import inherit
 

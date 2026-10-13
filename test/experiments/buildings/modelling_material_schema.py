@@ -5,7 +5,7 @@ import re
 
 import numpy as np
 
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 
 
 MAPS=('colormap','bumpmap','dirtmap','specularmap','opacitymap','normalmap','emissivemap','occlusionmap','roughnessmap','metallicmap')

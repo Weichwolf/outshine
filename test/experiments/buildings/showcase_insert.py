@@ -11,7 +11,7 @@ import numpy as np
 
 from modelling_insert import Asset,MODES
 from modelling_insert_cases import block,frame
-from modelling_scope import Scope
+from outshine_ref.buildings.modelling.scope import Scope
 from modelling_scope_probe import engine_mesh
 from modelling_shape import Shape
 from modelling_split_sizes import Part

@@ -1,5 +1,5 @@
 {
-  "current_work": "Räumliche Nadelorgane sind in den Generatorgraphen integriert: Zweier-/Fünferbündel und einzelne rhombische Nadeln. Nah- und Grobprodukte erhalten Organ-IDs, Anker und Platzierungen; Materialien prozedural gecacht. Botanische Querschnitte, LOD-Deckung, Kollision und Wind bleiben offen.",
+  "current_work": "Nadelorgane liegen als installierbarer Bibliothekskern unter lib/: Pinus-Zweier-/Fünferbündel mit abgeflachten Halbkreis-/Kreissektorquerschnitten, Picea mit rhombischen Nadeln. Gemeinsame Bündelbasis unabhängig geprüft; Nah/Grob erhalten IDs und Anker. Materialkalibrierung, LOD-Deckung, Kollision und Wind bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -8,9 +8,9 @@
       "label": "Pinus spp. · Zweierbündel als morphologische Funktionsprobe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Nahdetail des gleichen gespeicherten Pinus-Zweierbündelprodukts. Geschlossene räumliche Nadeln, spitze Enden, feste Kurztriebanker und prozedurale lineare Farb-/Rauheitskarten. Die beiden Gesamtansichten vergleichen drei Funktionsproben in Nah- und Grobgeometrie.",
-      "quality": "Grundfunktion, keine Artenfreigabe. Elliptischer Pinus-Querschnitt ist eine Näherung; halbkreis-/sektorförmige Formen, Materialkalibrierung, Kollision, Wind und LOD-Deckung offen.",
-      "scenario": "build/experiments/vegetation/needles/needle-bundle-detail.json"
+      "description": "Nahdetail des gleichen gespeicherten Pinus-Zweierbündelprodukts. Geschlossene räumliche Nadeln mit Halbkreisquerschnitten und gemeinsamer Bündelbasis, spitze Enden, feste Kurztriebanker und prozedurale lineare Farb-/Rauheitskarten. Die beiden Gesamtansichten vergleichen drei Funktionsproben in Nah- und Grobgeometrie.",
+      "quality": "Grundfunktion, keine Artenfreigabe. Ideale Sektorformen mit analytischen Normalen; reale Querschnittsasymmetrie, Materialkalibrierung, Kollision, Wind und LOD-Deckung offen.",
+      "scenario": "build/experiments/vegetation/needle-sectors/needle-bundle-detail.json"
     },
     {
       "image": "render/needle-shoots-near.png",
@@ -18,9 +18,9 @@
       "label": "Pinus spp. / Picea spp. · morphologische Funktionsproben",
       "category": "plant",
       "lod": "lod-1",
-      "description": "Links zwei, Mitte fünf Nadeln je Kurztrieb (Pinus-Proben), rechts einzelne rhombische Nadeln (Picea-Probe). Eigene kontrollierte Biegung, Twist und Spitzenprofile. Identische IDs/Platzierungen in Nah/Grob; lineare prozedurale Farb-/Rauheitskarten. Das Nahdetail zeigt nur die Zweierbündel.",
-      "quality": "Grundfunktion, keine Artenfreigabe. Elliptischer Pinus-Querschnitt ist eine Näherung; halbkreis-/sektorförmige Formen, Materialkalibrierung, Kollision, Wind und LOD-Deckung offen.",
-      "scenario": "build/experiments/vegetation/needles/needle-shoots-near.json"
+      "description": "Links zwei, Mitte fünf Nadeln je Kurztrieb (Pinus-Proben), rechts einzelne rhombische Nadeln (Picea-Probe). Halbkreis-/Kreissektorformen ersetzen elliptische Pinus-Proxies; gemeinsame Basisradien und Orientierung, Biegung fächert die Nadeln auf. Eigene kontrollierte Biegung, Twist und Spitzenprofile. Identische IDs/Platzierungen in Nah/Grob; lineare prozedurale Farb-/Rauheitskarten. Das Nahdetail zeigt nur die Zweierbündel.",
+      "quality": "Grundfunktion, keine Artenfreigabe. Ideale Sektorformen mit analytischen Normalen; reale Querschnittsasymmetrie, Materialkalibrierung, Kollision, Wind und LOD-Deckung offen.",
+      "scenario": "build/experiments/vegetation/needle-sectors/needle-shoots-near.json"
     },
     {
       "image": "render/needle-shoots-coarse.png",
@@ -28,9 +28,9 @@
       "label": "Pinus spp. / Picea spp. · morphologische Funktionsproben",
       "category": "plant",
       "lod": "lod-2",
-      "description": "Links zwei, Mitte fünf Nadeln je Kurztrieb (Pinus-Proben), rechts einzelne rhombische Nadeln (Picea-Probe). Eigene kontrollierte Biegung, Twist und Spitzenprofile. Identische IDs/Platzierungen in Nah/Grob; lineare prozedurale Farb-/Rauheitskarten. Das Nahdetail zeigt nur die Zweierbündel.",
-      "quality": "Grundfunktion, keine Artenfreigabe. Elliptischer Pinus-Querschnitt ist eine Näherung; halbkreis-/sektorförmige Formen, Materialkalibrierung, Kollision, Wind und LOD-Deckung offen.",
-      "scenario": "build/experiments/vegetation/needles/needle-shoots-coarse.json"
+      "description": "Links zwei, Mitte fünf Nadeln je Kurztrieb (Pinus-Proben), rechts einzelne rhombische Nadeln (Picea-Probe). Halbkreis-/Kreissektorformen ersetzen elliptische Pinus-Proxies; gemeinsame Basisradien und Orientierung, Biegung fächert die Nadeln auf. Eigene kontrollierte Biegung, Twist und Spitzenprofile. Identische IDs/Platzierungen in Nah/Grob; lineare prozedurale Farb-/Rauheitskarten. Das Nahdetail zeigt nur die Zweierbündel.",
+      "quality": "Grundfunktion, keine Artenfreigabe. Ideale Sektorformen mit analytischen Normalen; reale Querschnittsasymmetrie, Materialkalibrierung, Kollision, Wind und LOD-Deckung offen.",
+      "scenario": "build/experiments/vegetation/needle-sectors/needle-shoots-coarse.json"
     },
     {
       "image": "render/leaf-development-detail.png",

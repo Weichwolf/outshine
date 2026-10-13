@@ -9,7 +9,7 @@ from modelling_cut_source import prepare_source
 from modelling_cut_geos import cut_geos
 from modelling_faces import Face
 from modelling_metadata import inherit,group_id
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 from modelling_shape import Shape
 from modelling_split_sizes import allocations
 

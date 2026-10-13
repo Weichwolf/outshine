@@ -19,8 +19,16 @@ def needle_graph(index, seed=418):
     count = (2, 5, 1)[index]
     groups = 14 if index < 2 else 40
     needle = (
-        Needle(),
-        Needle(length=0.08, radius=0.00055, aspect=0.7, bend=0.4, twist=0.65),
+        Needle(section="sector", sector_count=2),
+        Needle(
+            length=0.08,
+            radius=0.00055,
+            aspect=1,
+            bend=0.4,
+            twist=0.65,
+            section="sector",
+            sector_count=5,
+        ),
         Needle(
             length=0.018,
             radius=0.0005,
@@ -65,11 +73,11 @@ def needle_graph(index, seed=418):
                 count=count,
                 first=1,
                 last=1,
-                pitch=0.16 if count > 1 else 0.03,
-                pitch_variance=0.025,
+                pitch=0 if count > 1 else 0.03,
+                pitch_variance=0 if count > 1 else 0.025,
                 azimuth_step=2 * np.pi / count,
-                azimuth_variance=0.04,
-                scale_variance=0.08,
+                azimuth_variance=0 if count > 1 else 0.04,
+                scale_variance=0 if count > 1 else 0.08,
             ),
         ),
     )

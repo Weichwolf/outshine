@@ -12,7 +12,7 @@ import shapely
 from esri_catalog import EXAMPLES,SDK
 from esri_oracle import shape as prt_shape
 from evidence import revision
-from modelling_scope import Frame,Relative,Scope
+from outshine_ref.buildings.modelling.scope import Frame,Relative,Scope
 from modelling_shape import Shape
 
 

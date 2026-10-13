@@ -11,7 +11,7 @@ from esri_oracle import CASES,generate
 from evidence import revision
 from modelling_extrude import MODES,edge_owners,euler
 from modelling_faces import EXTRUSION_TAGS,Face
-from modelling_scope import rotation
+from outshine_ref.buildings.modelling.scope import rotation
 from modelling_shape import Shape
 from provider_contract import attributes
 from samples import read_site
