@@ -89,10 +89,8 @@ if [ "$analysis_status" -ne 0 ]; then
 fi
 
 printf '\n== the repository rules ==\n'
-# THE CLAIMS ARE A LINTER AND NOT A PROOF. Twelve of them check the BOARD -- an id issued once, an
-# item naming its benchmark, every edge pointing at an item -- and about ten check the HARNESS. No
-# off-the-shelf tool knows what `board/NNNN_*.md` is, so they stay; what stops is their standing in
-# a TEST runner, where a red about a citation reads like a red about the engine.
+# Repository claims check local architecture and harness contracts.
+# Work items are maintained on GitHub outside the build and test gates.
 if ! sh test/run.sh harness/claims > "$REPORT/claims.log" 2>&1; then
   red=$((red + 1))
 fi

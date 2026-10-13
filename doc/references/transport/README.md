@@ -1,6 +1,6 @@
 # Procedural transport from map inputs
 
-Owner: [2281](../../../board/2281_semantic_osm_edges_drive_native_road_alignment.md).
+Owner: [#11](https://github.com/Weichwolf/outshine/issues/11).
 OSM supplies placement, distribution, classes and available parameters. Recipes construct
 plausible functional transport; reconstruction of an exact digital twin is not the goal.
 
