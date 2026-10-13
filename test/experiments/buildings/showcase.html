@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Outshine · Gebäude</title>
+  <link rel="stylesheet" href="/showcase.css">
+  <script src="/showcase.js" defer></script>
+</head>
+<body>
+  <header><a href="/" class="brand">OUTSHINE <span>/ GEBÄUDE</span></a><span id="connection" role="status">Lädt …</span></header>
+  <nav id="pages" class="pages" aria-label="Ansichtsebene"></nav>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">PYTHON-WERKSTATT · AKTUELLER STAND</p>
+      <h1 id="title">Gebäude im Versuch.</h1>
+      <p id="description" class="lead">Innenräume, Gebäude, Gruppen und Städte.</p>
+      <p id="scope" class="hint"></p>
+      <div id="state" class="state"></div>
+    </section>
+    <section id="overview" class="overview" aria-label="Vier Ansichtsebenen" hidden></section>
+    <section id="pictures" aria-labelledby="gallery-title" hidden>
+      <div class="section-top"><h2 id="gallery-title">Aktuelle Bilder</h2><span class="hint">Bild anklicken zum Vergrößern</span></div>
+      <nav id="filters" class="filters" aria-label="Blickrichtung wählen"></nav>
+      <div id="gallery" class="gallery"></div>
+      <p id="empty" class="incomplete" hidden>Für diese Ansichtsebene fehlt ein aktueller Bildbeleg.</p>
+    </section>
+    <section class="remaining"><h2>Was noch fehlt</h2><p id="gap"></p><p id="lod-note"></p></section>
+    <details id="costs" class="measurements" hidden>
+      <summary>Kosten dieses Bildstands</summary>
+      <p class="hint">Vollständige Prüfmeshes, Blender Workbench bzw. Matplotlib für Diagramme. Bilderzeugung ist Offline-Zeit; native Framezeiten fehlen.</p>
+      <div id="metrics" class="filters" aria-label="Messgröße wählen"></div>
+      <div id="plot"></div>
+      <button id="download" class="quiet">Plot als SVG</button>
+    </details>
+    <details class="evidence"><summary>Entwicklungsstand</summary><p id="progress"></p><p id="esri-proof"></p></details>
+  </main>
+  <footer><span id="updated"></span><span>Automatische Aktualisierung alle 5 Sekunden</span></footer>
+  <dialog id="viewer"><button id="close" aria-label="Bild schließen">×</button><img id="large" alt=""><p id="large-caption"></p></dialog>
+</body>
+</html>

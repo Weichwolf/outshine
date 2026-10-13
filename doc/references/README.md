@@ -1,7 +1,7 @@
 # Forschungsgrundlage für Outshine
 
-Stand: 2026-10-07. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-30 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+Stand: 2026-10-11. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
+34 Publikationen/Referenzdokumente sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
@@ -45,6 +45,22 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   [PDF](buildings/egsr/2010-grammar-based-encoding-of-facades.pdf).
   Wiederholungen kompakt parametrisieren und im Shader auswerten. Nahsilhouette,
   Laibungen und betretbare Räume brauchen Geometrie; Fernmuster benötigen Filterung.
+- **Computer-Generated Residential Building Layouts**, Merrell / Schkufza / Koltun, SIGGRAPH Asia 2010.
+  [Quelle](https://vladlen.info/papers/architecture.pdf) ·
+  [PDF](buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf).
+  Raumprogramm/Adjazenzen → gemeinsam abgestimmte Geschosspläne → vollständige Innen-/Außengeometrie.
+  WI [#31](https://github.com/Weichwolf/outshine/issues/31) vergleicht begrenzte Verfahren mit festen OSM-Körpern; keine ungemessene Übernahme des Optimierers.
+- **Finding the Maximum Area Axis-Parallel Rectangle in a Polygon**, Daniels / Milenkovic / Roth,
+  Autorenpreprint Oktober 1993, später Computational Geometry 1997.
+  [Quelle](https://cogcomp.seas.upenn.edu/papers/maaprJ.pdf) ·
+  [PDF](buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf).
+  Randkontakte und Polygonzerlegung begründen vollständig innenliegende Rechtecke mit Löchern ([#30](https://github.com/Weichwolf/outshine/issues/30)/[#31](https://github.com/Weichwolf/outshine/issues/31)).
+  Seiten 1/5/8 optisch geprüft; feste Kernmaße brauchen gültige Platzierung, keine behauptete globale Flächenoptimierung.
+- **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
+  [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
+  [PDF](buildings/esri/2013-interior-floors-web-scenes.pdf).
+  CityEngine Dev HQ mit drei Innenraumgeschossen, Außenwänden und Schnittansichten ([#30](https://github.com/Weichwolf/outshine/issues/30)).
+  Belegt Innenraumdarstellung; liefert keinen Nachweis eines automatischen Raumplaners im lokalen SDK.
 
 ## Geometrie, Sichtbarkeit und Terrain — WI [#12](https://github.com/Weichwolf/outshine/issues/12) / [#13](https://github.com/Weichwolf/outshine/issues/13) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
