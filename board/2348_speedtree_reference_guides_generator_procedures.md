@@ -111,10 +111,10 @@ Eigene Achsfelder/Wertüberblendung (2481); vollständige UV-Property-/Original-
 | Material/LOD/Export | Unbeleuchtete Ansichtenproben; Normalenverteilung, Übergänge und vollständige Produkte offen |
 Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semantik getrennt nennen.
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
-
 ## Abnahme und nächster offener Vertrag
-83 gezielte Funktionen dekompiliert; fünfundzwanzig Läufe terminal erfolgreich, zuletzt BlendSkin/Worker.
+85 gezielte Funktionen dekompiliert; 26 Läufe terminal erfolgreich, zuletzt SDK-Winddaten/VFX-Astwind.
 2486: 3.078 Original-Vektorpaare geprüft; lokale Winkelmittelung, vollständiges Branch-Lighting offen.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.
-Windbindungen, natürliche Gabeln, vollständige Gruppen-/Waldaggregation und native Budgets bleiben offen.
+Wind: SDK-Astdaten (`0x1cc3990`) übernehmen Elterndaten; VFX-Astwind (`0x1f90500`) komponiert Rotationen.
+Der Paketheader bestätigt getrennte SDK-/VFX-Verfahren; vollständige Propertybindung und Windprodukte offen.
