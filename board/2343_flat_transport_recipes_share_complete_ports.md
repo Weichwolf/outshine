@@ -58,7 +58,8 @@ Bilder: build/shots/experiments/transport/.
    begrenzt Messungen. [Rückfahrten](../test/experiments/transport/transport_return_roadbeds.py)
    teilen 1536 Aufrufe: Quelle bis 1024, CCC/CSC bis 512; analytische CCC-Kerne bis 128 Aufrufe/Seed.
    Methodenkompatible Familien vor Rangfolge/Versuchslimit wählen; CSC/CCC mit linearen Krümmungsübergängen
-   und drei Längenparametern schließen. Gerade Abschnitte als ein Segment; Ein-/Ausläufe unabhängig wählen, Endports fest.
+   und drei Längenparametern schließen. [Lange Spurwechsel](../test/experiments/transport/probes/roadbeds/split_straight_route_probe.py):
+   zwei lokale Übergänge, eine Gerade; gemeinsame 1024 Aufrufe, G2-/Hüllen-/Gesamtflächenprüfung. Endports fest.
 4. R ist der Mindestradius, w die Breite, L die größere Körperreichweite vor/hinter der Hinterachse.
    Randaufweitungen bleiben an der ursprünglichen Fläche begrenzt: sqrt((R+w/2)²+L²)−R.
    [Schleifen-Wendeplätze](../test/experiments/transport/transport_loop_court.py) lösen bis acht Kurven
@@ -85,8 +86,7 @@ Nach Flächenvereinigung polygonale Anteile bereitstellen; Nullflächenlinien si
 ## Nächste Lieferung und Abnahme
 34 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
 1565: 22/22 plus sieben Nachbarfahrten, +4,53 m²; gemeinsamer Schnitt vier Meter versetzt, Insel erhalten.
-Gemeinsame Flächen bei leerem Geometriebeitrag nicht erneut komponieren; abschließende Prüfungen erhalten.
-Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identitäten/Hüllen erneut prüfen.
+Leere Beiträge nicht erneut komponieren; Cachetreffer laden öffentliche Fläche. Native Fläche/Identitäten/Hüllen erneut prüfen.
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
 [Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
 auf den nächsten Portmittelpunkt aller Nachbarn. Nach einem deklarierten Stationsversatz bleiben Schnittebenen beim Breitenlösen fest; Zusatzsegmente am
