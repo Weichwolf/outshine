@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4784/4808 (5603931cc). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 24 Fahrten offen.
+Zürich 4786/4808 (4b47a693e). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 22 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 78,2 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 69,5 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -78,34 +78,18 @@ Bilder: build/shots/experiments/transport/.
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 
 ## Nächste Lieferung und Abnahme
-Zürich 2260 mit Gesamtfenster 16/16: gemeinsame Schnitte 4 m nach außen, +0,21 m² Fläche.
-1316 im Gesamtfenster 29/29: zwei Wendeprofile mit öffentlichen Fußwegübergängen, +8,86 m² Fläche.
-1555 im Gesamtfenster 5/5: asymmetrische Ansätze 4/32 m, 61,4 m Fahrt statt 932,9 m Umweg;
-physisch +2,88 m² Fläche. Alle 14 früheren Produkte und 24 Zusatzfahrten erhalten. Fußweggeometrie erhalten.
-1433 im Gesamtfenster 12/12: direkter Einzelbogen, rund 19,6 m statt 656,2 m Umweg, vorhandene Fläche genügt.
-Alle 15 bisherigen Produkte frisch geprüft und 24 Zusatzfahrten erhalten.
-1758 im Gesamtfenster 37/37: [gemeinsamer Schnitt](../test/experiments/transport/transport_joined_cut_setbacks.py)
-mit getrennten Quellports und Wendeplatz, physisch +34,56 m²; beide Fahrten integriert. 16 frühere Produkte und 24 Zusatzfahrten erhalten.
-2→1 lokal: 0,25 m G2-Übergang erlaubt CSC mit +1,94 m², aber Insel schrumpft von 2,92 über 1,61 auf 0,22 m².
-Nicht integriert: Lochanzahl allein genügt nicht; gemeinsame Inselgeometrie und Quellumfahrung konstruktiv lösen.
-Alle zehn zulässigen CSC/CCC-Seeds bei 0,25 m geprüft: 220 Residuenaufrufe, kein gültiger Kandidat am Originalraum.
-Asymmetrische Ein-/Ausläufe liefern zwei gültige Einzelkurven (4/0 und 8/4 m).
-Billigste Einzelwahl löscht gemeinsam die Insel; zweite Kombination erhält 0,77 m².
-Gemeinsames Produkt lokal 37/37 geprüft: 8/4-m-Ansätze, +34,56 m² insgesamt, Insel 0,77 m².
-Bild Zuerich-1758-complete-turning-court.png und Gesamtfenster geprüft.
-[Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) findet Kandidaten 3/21
-in zwei Versuchen, maximal 64. Automatische Einbindung in Produktaufbau offen.
-Vollständigen Inselkontext behalten; Kurve direkt an neuen Quellposen bauen statt kurze Anschlüsse überzubiegen.
-1733: Quell-Rücksprung verhindert direkte Abrundung. 56 gekürzte Leitlinien geprüft;
-zwei nahe Varianten erzeugen nur neue Resttaschen von 0,004/0,454 m². Keine ursprüngliche Insel.
-1733 im Gesamtfenster 4/4: direkter Fahrweg 65,94 m, physisch +7,61 m²; Bild geprüft.
-[Begrenzte Quellabkürzungen](../test/experiments/transport/probes/roadbeds/source_shortcut_probe.py)
-erhalten Originalroute/Endposen; 56 Varianten, vier lokale Kandidaten. 24 frühere Zusatzfahrten erhalten.
-Neue freie Resttaschen nur explizit schließen (≤1 m², keine 1-m-Innenbreite, keine Reservation).
-Übergang aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsreste nach bestehender Koordinatengrenze prüfen.
-1383 im Gesamtfenster 19/19 plus zwei Nachbarfahrten: Schnitte 2 m versetzt, physisch +14,29 m²; Bild geprüft.
-Versatz 3–6 m ist dort nicht eindeutig übertragbar; kleinste passende Quellstation statt Radius als Fixwert wählen.
-19 gekoppelte Produkte und alle 24 früheren Zusatzfahrten im Gesamtfenster erhalten.
+20 gekoppelte Produkte; frühere Fahrten erhalten, davon vier in gemeinsame Produkte übernommen.
+1758: 37/37, +34,56 m²; [gemeinsame Schnitte](../test/experiments/transport/transport_joined_cut_setbacks.py)
+mit getrennten Quellports und erhaltenem Inselkern. Vollständigen Inselkontext und aktuelle Endposen verwenden.
+[Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) prüft höchstens
+64 Kombinationen; billigste Einzelkurven können gemeinsam eine Insel löschen. Einbindung in Produktaufbau offen.
+1733: 4/4, 65,94 m Fahrweg, +7,61 m²; [Quellabkürzungen](../test/experiments/transport/probes/roadbeds/source_shortcut_probe.py)
+erhalten Originalroute/Endposen. Neue freie Resttaschen nur explizit nach obigem Flächen-/Breitenvertrag schließen.
+Fußwegübergänge aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsreste nach Koordinatengrenze prüfen.
+1383: 19/19 plus zwei Nachbarfahrten, +14,29 m². Kleinste passende Quellstation statt Radius als Fixversatz wählen.
+1599 im Gesamtfenster: 6/6 plus zwei Nachbarfahrten, +3,49 m²; beide Richtungen integriert.
+[Richtungsframes kombinieren](../test/experiments/transport/probes/roadbeds/combine_directional_frames_probe.py)
+erhält Quellstationen/Schnittlinien und prüft sämtliche Fahrten beider Vorgänger frisch. Nahbild geprüft.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
