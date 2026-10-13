@@ -29,7 +29,7 @@ def seeded_cache(floor,reserved,routes,poses,seeds,vehicle,error,required):
         route=routes[pair]
         key=tuple(poses[i][k].tobytes() for i in pair for k in ('position','heading'))+(
             route.wkb,shapely.get_precision(route),coupled.request_keys(poses,[pair])<=required)
-        values[key]=seed,False,[]
+        values[key]=seed,bool(seed.get('existing_surface',False)),[]
     return dict(contexts={context:values},hits=0,misses=0)
 
 

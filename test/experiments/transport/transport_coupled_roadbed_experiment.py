@@ -116,11 +116,12 @@ def construct_module(network,trial,owner,sections,affected,region,buildings,sect
             unresolved.append(unresolved_route(owner,pair,poses,route,trial.vehicle,
                                                'no_constructive_candidate',[n.get('reason') for n in notes]))
             continue
-        supports=[*[c['candidate']['roadbed'] for c in curves],candidate['roadbed']]
-        reason=coupled_addition_rejection(floor,shape,supports,reserved,section_index,trial,owner,affected)
-        if reason:
-            unresolved.append(unresolved_route(owner,pair,poses,route,trial.vehicle,reason))
-            continue
+        if not candidate['roadbed'].is_empty:
+            supports=[*[c['candidate']['roadbed'] for c in curves],candidate['roadbed']]
+            reason=coupled_addition_rejection(floor,shape,supports,reserved,section_index,trial,owner,affected)
+            if reason:
+                unresolved.append(unresolved_route(owner,pair,poses,route,trial.vehicle,reason))
+                continue
         curves.append(dict(pair=pair,candidate=candidate,existing_surface=existing,source_route=route))
     assert required<=request_keys(poses,[c['pair'] for c in curves]),'previous routes lost'
     base,core,planned,physical,quantum=compose_roadbeds(floor,shape,[c['candidate']['roadbed'] for c in curves])

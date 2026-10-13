@@ -89,7 +89,7 @@ Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identit
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
 [Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
 auf den nächsten Portmittelpunkt aller Nachbarn. Nach einem deklarierten Stationsversatz bleiben Schnittebenen beim Breitenlösen fest; Zusatzsegmente am
-anderen Arm sind ungültig. Vorhandene Geometrie behalten, Erweiterung genau einmal besitzen.
+anderen Arm sind ungültig. Vor Partition auch Körperbedarf bestehender Fahrten zuordnen; Erweiterung genau einmal besitzen.
 [Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) prüft
 höchstens 64 Kombinationen. Billigste Einzelkurven können gemeinsam eine Insel löschen;
 Gegenrichtungen und betroffene Nachbarn zusammen wählen. Automatische Einbindung offen.

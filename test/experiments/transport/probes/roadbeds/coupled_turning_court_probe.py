@@ -105,6 +105,20 @@ def local_court_sections(network,module,poses,cases):
     return scope
 
 
+def required_court_seeds(trial,poses,routes,seeds,floor,reserved,required):
+    planned=polygonal_region(shapely.union_all([floor,*[s['surface'] for s in seeds.values()]]))
+    cache=seeded_cache(planned,reserved,routes,poses,seeds,trial.vehicle,trial.curbs['arc_error_m'],required)
+    complete=dict(seeds)
+    for pair,route in sorted(routes.items()):
+        if pair in seeds or not coupled.request_keys(poses,[pair])<=required:continue
+        candidate,existing,_=coupled.roadbed_candidate(poses[pair[0]],poses[pair[1]],route,planned,reserved,
+                            trial.vehicle,trial.curbs['arc_error_m'],True,cache)
+        if candidate is not None:
+            complete[pair]=dict(candidate,existing_surface=existing,
+                                surface=polygonal_region(planned.union(candidate['roadbed'])))
+    return complete
+
+
 def grow_court_ports(trial,module,affected,poses,seeds,floor,scope):
     public_spaces={}
     ports=[]
@@ -211,14 +225,16 @@ def main():
             public_spaces[owner]=source.union(shared_crossing)
         public_spaces[module]=floor
     if args.grow_ports:
+        growth_seeds=required_court_seeds(trial,poses,routes,seeds,floor,reserved,required[module])
         poses,routes,grown_sections,growth_changes,public_spaces,addition,partition_audit=grow_court_ports(
-            trial,module,affected,poses,seeds,floor,scope)
+            trial,module,affected,poses,growth_seeds,floor,scope)
         sections|=grown_sections;changes+=growth_changes
         public_spaces={o:g.union(shared_crossing) for o,g in public_spaces.items()}
         addition=polygonal_region(addition.union(shared_crossing))
         floor=public_spaces[module]
         reserved=protected.union(coupled.reservations(trial,region).difference(floor.union(crossing)))
         seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
+        seeds.update((pair,candidate) for pair,candidate in growth_seeds.items() if pair not in seeds)
     cache=seeded_cache(floor,reserved,routes,poses,seeds,trial.vehicle,trial.curbs['arc_error_m'],required[module])
     section_index=shapely.STRtree(np.array(list(trial.sections.values()),dtype=object))
     products={}
