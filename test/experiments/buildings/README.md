@@ -11,7 +11,9 @@ as the experiment dependencies:
 .venv/bin/python test/experiments/buildings/verify_scope_library.py
 ```
 
-Scope operations and CGA ↔ ENU conversion come from `outshine_ref.buildings.modelling`.
+The connected Shape/modelling core and CGA ↔ ENU conversion come from
+`outshine_ref.buildings.modelling`. Static OBJ/glTF/GLB decoding additionally needs
+`.venv/bin/python -m pip install -e './lib[assets]'`.
 `verify_scope_library.py` compares all emitted streams on four saved control meshes
 against the committed pre-migration implementation, then measures the same five
 operations and emission. Saved inputs live under `build/experiments/buildings/`;
@@ -19,9 +21,9 @@ the comparison is offline and reports each input hash. It does not install or
 import another checkout. CGA scope frames use east/up/south metres internally;
 shared spatial products use east/north/up. The conversions preserve winding.
 
-Other modelling operations and building recipes still live here and are being
-transferred separately. Scope-only installation does not provide the complete
-building generator. Issue [#51](https://github.com/Weichwolf/outshine/issues/51)
+Building plans/recipes and comparisons still live here and are being
+transferred separately. The installed modelling core does not provide the complete
+CityEngine capability set or building generator. Issue [#51](https://github.com/Weichwolf/outshine/issues/51)
 tracks that transfer; [#34](https://github.com/Weichwolf/outshine/issues/34) owns
 modelling capabilities.
 

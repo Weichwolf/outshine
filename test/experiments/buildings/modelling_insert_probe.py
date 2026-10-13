@@ -13,10 +13,10 @@ import tracemalloc
 import numpy as np
 
 from evidence import revision
-from modelling_insert import Asset
+from outshine_ref.buildings.modelling.insert import Asset
 from modelling_insert_cases import block,frame
 from outshine_ref.buildings.modelling.scope import Scope
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from verify_modelling_extrude import near
 
 

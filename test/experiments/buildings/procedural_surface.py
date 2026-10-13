@@ -6,9 +6,9 @@ import hashlib
 import numpy as np
 from PIL import Image
 
-from modelling_material_schema import linear_to_srgb,srgb_to_linear
-from modelling_texture import Texture
-from modelling_metadata import Material
+from outshine_ref.buildings.modelling.material_schema import linear_to_srgb,srgb_to_linear
+from outshine_ref.buildings.modelling.texture import Texture
+from outshine_ref.buildings.modelling.metadata import Material
 
 
 def encode(name,pixels):

@@ -11,10 +11,10 @@ import numpy as np
 
 from building_mesh import slice_triangles
 from esri_oracle import CASES
-from modelling_extrude import MODES
-from modelling_faces import Face
+from outshine_ref.buildings.modelling.extrude import MODES
+from outshine_ref.buildings.modelling.faces import Face
 from modelling_scope_probe import engine_mesh
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from preview import configuration,run_render
 from provider_contract import attributes
 from samples import read_site

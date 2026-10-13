@@ -8,11 +8,11 @@ from pathlib import Path
 import numpy as np
 
 from evidence import revision
-from modelling_insert import Asset,MODES
+from outshine_ref.buildings.modelling.insert import Asset,MODES
 from modelling_insert_cases import block,frame
-from modelling_faces import Face
+from outshine_ref.buildings.modelling.faces import Face
 from outshine_ref.buildings.modelling.scope import Frame,Scope
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from verify_modelling_extrude import near
 
 

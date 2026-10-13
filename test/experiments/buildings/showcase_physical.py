@@ -12,8 +12,8 @@ import shapely
 
 from physical_case import configuration
 from showcase_profile import PROFILE
-from modelling_metadata import Material
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.metadata import Material
+from outshine_ref.buildings.modelling.shape import Shape
 from modelling_scope_probe import engine_mesh
 
 

@@ -11,7 +11,7 @@ import mitsuba as mi
 import numpy as np
 
 from evidence import revision
-from modelling_split_sizes import Part
+from outshine_ref.buildings.modelling.split_sizes import Part
 from modelling_uv_cases import adjacent
 from mitsuba_material import reference
 from mitsuba_mesh import mesh

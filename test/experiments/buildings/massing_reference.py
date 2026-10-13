@@ -4,7 +4,7 @@ import manifold3d as manifold
 import numpy as np
 
 from shell import prepare
-from mesh_fans import connected_fans
+from outshine_ref.buildings.modelling.mesh_fans import connected_fans
 
 
 def closed_prism(product, index, material_id):

@@ -9,10 +9,10 @@ import shapely
 
 from esri_oracle import CASES,EXAMPLES,generate
 from evidence import revision
-from modelling_components import Branch
-from modelling_extrude import MODES
-from modelling_shape import Shape
-from modelling_wire import Edge
+from outshine_ref.buildings.modelling.components import Branch
+from outshine_ref.buildings.modelling.extrude import MODES
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.wire import Edge
 from provider_contract import attributes
 from samples import read_site
 from verify_modelling_extrude import near

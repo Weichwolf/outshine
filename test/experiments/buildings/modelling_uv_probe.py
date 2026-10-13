@@ -9,7 +9,7 @@ import numpy as np
 
 from evidence import revision
 from modelling_extrude_probe import fixtures
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 
 
 ANGLE=13.

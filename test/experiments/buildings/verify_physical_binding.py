@@ -12,7 +12,7 @@ from evidence import revision
 from mitsuba_camera import camera
 from mitsuba_material import reference
 from mitsuba_mesh import mesh
-from modelling_metadata import Material
+from outshine_ref.buildings.modelling.metadata import Material
 
 
 def controls():

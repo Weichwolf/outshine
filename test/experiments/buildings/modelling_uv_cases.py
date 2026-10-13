@@ -3,9 +3,9 @@
 import numpy as np
 import shapely
 
-from modelling_faces import Face
-from modelling_metadata import Material
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.faces import Face
+from outshine_ref.buildings.modelling.metadata import Material
+from outshine_ref.buildings.modelling.shape import Shape
 
 
 def adjacent():

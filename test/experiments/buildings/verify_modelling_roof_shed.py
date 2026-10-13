@@ -11,13 +11,13 @@ import numpy as np
 import shapely
 
 from evidence import revision
-from modelling_components import Branch
-from modelling_faces import ROOF_TAGS,face_shape,plane
-from modelling_metadata import Material
+from outshine_ref.buildings.modelling.components import Branch
+from outshine_ref.buildings.modelling.faces import ROOF_TAGS,face_shape,plane
+from outshine_ref.buildings.modelling.metadata import Material
 from outshine_ref.buildings.modelling.scope import Frame
-from modelling_selectors import tagged
-from modelling_shape import Shape
-from modelling_split_sizes import Floating,Part
+from outshine_ref.buildings.modelling.selectors import tagged
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Floating,Part
 
 
 def source(polygon):
