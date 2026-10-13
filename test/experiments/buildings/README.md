@@ -30,5 +30,6 @@ modelling capabilities.
 ```
 
 The showcase reads the checked current snapshot and serves it on localhost:8766.
+New published states appear after manually reloading the page; no polling timer runs.
 Outputs remain under `build/experiments/buildings/`. Its four pages are viewing
 scales; native LOD boundaries and runtime budgets remain unproven.
