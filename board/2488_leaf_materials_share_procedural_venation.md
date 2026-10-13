@@ -53,17 +53,13 @@ Exakte Vorauswahl in acht 45°-Sektoren: nähere Punkte blockieren fernere im gl
 Für 0<ru<rv und Winkel<45° gilt |u−v|²=rv²+ru²−2ru·rv·cos(Winkel)<rv².
 Alle minimalen Distanzgleichstände und Quellkontakte behalten; alle Knoten bleiben Blocker.
 174 Quellen gegen unabhängige Definition; 32 gleich weit entfernte Nachbarn bleiben erhalten.
-Eine feste Acht-Nachbarn-Liste ist nach Gegenbeispiel unzureichend; 600 Mio. Blockerpaare je Anfrage begrenzen.
-Quellentags wandern zu Nachfolgern und entfallen nach Verlassen der Einflusszone;
-erreichte Quellen werden gemeinsame Netzknoten. Asymmetrische Probe: Ankunft 10, Abschluss 33.
+Acht nächste Nachbarn sind nach Gegenbeispiel unzureichend; Limit 600 Mio. Blockerpaare je Anfrage.
+Quellentags wandern zu Nachfolgern, entfallen außerhalb der Einflusszone; erreichte Quellen werden gemeinsame Knoten. Asymmetrische Probe: Ankunft 10, Abschluss 33.
 Segment-Innenlage konservativ über Profil-Ableitungsgrenzen prüfen; ungelöste Quellen ausweisen.
 Shapely 2.2.0/GEOS 3.14.1 verknüpft Kreuzungen. Drei Netze: 49/50/44 Schleifen, 191/192 Quellen erledigt.
 Eine gelappte Quelle bleibt stationär, zehn Segmente verworfen. Dicht/Sektoren liefern identisches Wachstum.
-Aktuelle Mediane dicht 1123–2725 ms, Sektoren 304–449 ms; Prozess-Peak 138,13 MiB inklusive Referenzen.
-Kreuzungsverknüpfung 180–303 ms, gefiltertes Feinmaterial einschließlich PNG-Export 818–1305 ms.
 `leaf_closed_reload.py`: tatsächliche Hub-IDs nach Neuindizierung, Netze/Karten und 52 gemeinsame LOD-Vertices.
-Feinradius je Form einheitlich, Reliefgewicht 0,25; hydraulische Breiten und natürliche Dichte offen.
-Reproduktion: `leaf_closed_experiment.py` auf Cache aus `leaf_material_experiment.py`/`leaf_material_replay.py`.
+Feinradius je Form einheitlich, Reliefgewicht 0,25; hydraulische Breiten/Dichte offen. Reproduktion: `leaf_closed_experiment.py` auf Cache aus `leaf_material_experiment.py`/`leaf_material_replay.py`.
 
 ## Texelfilterung
 [Heckbert 1986](../doc/references/vegetation/ieee/1986-survey-texture-mapping.pdf), Seite 6 optisch geprüft,
@@ -84,36 +80,41 @@ Vorher/Nachher-Nahbild: etwas ruhigere Feinadern, kleiner Bildgewinn; Shaderfilt
 maximal 2048 Knoten. Ein apikal gesetzter Anfangsattraktor bei 90 % der Länge ist eine eigene Kalibrierung.
 Quellen/Graph in reifen Materialkoordinaten speichern; Nähe und Wachstumsrichtung im aktuellen Blatt messen.
 Gleichförmiges Wachstum allein ergibt zu rechtwinklige Seitenadern; Richtungsbindung rundet nur Anschlüsse.
-Eigene geometrische Dehnung F(x,y)=σ·(x, y−kL(x/W)²), k=K(1−σ), σ von 0,03 bis 1.
-Versuchsrezept: K=2 und Geburtsabstand 0,08·min(W,L).
-Die explizite Inverse und det(J)=σ²>0 verhindern Faltungen; kein biologisch rekonstruierter Wachstumstensor.
-Inverse eines geraden Wachstumsschritts ist quadratisch: Sehnenfehler genau |k|L(Δx/W)²/4.
+Eigene Dehnung F(x,y)=σ·(x,y−kL(x/W)²), k=2(1−σ), σ∈[0,03;1]; Geburtsabstand 0,08·min(W,L).
+Explizite Inverse, det(J)=σ²>0; keine Faltungen. Quadratischer Rückweg: Sehnenfehler |k|L(Δx/W)²/4. Kein biologisch rekonstruierter Tensor.
 Schrittlänge so begrenzen, dass der Fehler in reifen Koordinaten ≤min(W,L)/2000 ist;
 Endsegmente zusätzlich innerhalb der reifen Kontur zertifizieren. Herkunft und lokale Fehlergrenze getrennt.
 Richtungsbindung 0,6 an die eingehende Ader ist eine eigene Ergänzung; Quellen müssen weiterhin ziehen.
 `leaf_development_experiment.py`: feste Kandidaten, drei wechselnde Läufe; dichte/indexierte Suche
 liefern gleiche Graphen, Quellenbilanz und Historie. Schnellere gemessene Variante je Probe exportieren.
-Wachstumsmediane je schnellerer Variante: 516/256/551 ms; Material/Export 754/443/886 ms separat.
-Prozess-Peak 135,97 MiB einschließlich Vergleichs-/Rasterdaten; kein nativer Gerätebeleg.
 852/854/1710 Knoten; unabhängige GEOS-Verknüpfung bestätigt je einen Baum ohne zusätzliche Kreuzungen.
 0/2/0 ungelöste Quellen; Beruhigungs-/Knotenbudget und Quellenabstände separat geprüft.
 `leaf_development_checks.py`: 128 Deformationspunkte, exakte Sehnenmitte, numerische Jacobi-Determinante.
 `leaf_development_reload.py`: fünf echte Netz-/Materialprodukte frisch geladen; gemeinsame Grobkoordinaten geprüft.
 3D-Vergleich isoliert feste Quellen, gleichförmiges und ortsabhängiges Wachstum bei gleichem Blattmaterial.
-Gebogene Seitenadern sind lesbarer; Feinaderkopplung, natürliche Farbe, Artenkalibrierung und
-vollständige Rand-/anisotrope Wachstumsrezepte bleiben offen. Kein SpeedTree-Niveau.
+Gebogene Seitenadern lesbarer; natürliche Farbe, Artenkalibrierung und Rand-/anisotrope Wachstumsrezepte offen.
 
 ## Kopplung von Haupt- und Feinadern
 `leaf_coupled_experiment.py` lädt entwickelte Hauptpläne unverändert und ergänzt je 64 Feinaderquellen.
 Die schmale Form stoppt bei 2048 Arbeitsknoten mit 43 offenen Quellen; Eingang allein hat 1710 Knoten.
-Für zusammengesetzte Produkte API-Grenze auf 4096 Knoten erweitern, Standard bleibt 2048.
-600 Mio. Blockerpaare je Anfrage und 4096 Rohkanten bleiben unveränderte Arbeitsgrenzen.
+Kapazität 4096 Knoten, Standard 2048; unverändert höchstens 600 Mio. Blockerpaare je Anfrage und 4096 Rohkanten.
 Keine Lockerung eines Laufzeitgates: zusätzliche Kapazität/Kosten separat messen, native Budgets offen.
-Primärpräfix, Originalplan-Hash und gemeinsame Materialkoordinaten nach Speicherung erneut prüfen.
 Drei wechselnde Läufe liefern gleiche Graphen: Sektor-Mediane 412/420/712 ms statt 2799/2807/9069 ms.
 Verknüpfte Netze: 1441/1393/2326 Knoten, 41/36/44 Zyklen; 0/2/0 offene Feinaderquellen.
 Zwei offene Hauptplanquellen der gelappten Form bleiben davon getrennt; keine vollständige Artenfreigabe.
 Prozess-Peak 221,05 MiB einschließlich dichter Vergleichsmatrizen; Material/Verknüpfung separat im Report.
 Frischer Reload bestätigt Primärpräfix/Hashes und je 52 gemeinsame Nah-/Grobkoordinaten ohne Neubau.
-Nahbild bei gleicher Kamera/Geometrie optisch geprüft: feine Verbindungen sichtbar, Bildgewinn klein.
-Stumpfe Hauptaderenden und gleichförmige Kunststoffwirkung bleiben das nächste sichtbare Defizit.
+Optisch: Feinverbindungen sichtbar, kleiner Bildgewinn; Hauptaderenden/Kunststoffwirkung bleiben offen.
+
+## Radiusabhängiges Relief
+Bisheriges normiertes Feld gibt jeder Mittellinie Höhe eins, auch dünnen Endadern.
+Kugelhülle nach Nahbild verworfen: Mittelrippe zu breit/flach. Stattdessen H(t)=r(t)·max(1−D(t)/(9r(t)²),0)³.
+Für a=|v|²,b=(p−A)·v,c=|p−A|²,d=r1−r0 sind stationäre Stellen Nullstellen von
+(9d³−ad)t²+(18r0d²−6ar0−4bd)t+9r0²d+6br0+5cd; Endpunkte zusätzlich prüfen.
+Stabile quadratische Wurzeln, linearer Sonderfall; räumliche Kugelschranke wie beim normierten Feld.
+SIGGRAPH 2005 §3.5 Seite 5 optisch geprüft: Radien, kein Reliefmodell. Ghidra ComputeSpine: RadiusProfile-Aufruf.
+Eigene Reliefableitung; weder SpeedTree-Blattrelief noch botanisch gemessene Oberfläche behauptet.
+Kostenvergleich ausdrücklich 128²-Punkte je Verfahren; alle Endkarten weiterhin 512², Renderings 2560×1440.
+80 unabhängige Optimierungen (Fehler ≤1,3e−14 m), 1000 Unterteilungsproben; Normfeld erzeugt alte Karten bytegleich.
+Dicht/indexiert identisch; Mediane 5668/5676/11364 gegen 185/197/341 ms. Peak 481,14 MiB inkl. dichter Referenz.
+Nahbild optisch: feinere Adern flacher, weiche Querschnitte erhalten; stumpfe Enden/Farbgleichförmigkeit bleiben.

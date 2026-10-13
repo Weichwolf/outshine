@@ -30,6 +30,7 @@ from graph_wood_plots import wood_figure
 from leaf_development_plots import development_figure
 from leaf_filter_plots import filter_figure
 from leaf_relative_plots import relative_figure
+from leaf_relief_plots import relief_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
@@ -412,6 +413,12 @@ def closed_plot(report):
     return save_plot(figure, "closed-leaf-growth")
 
 
+def relief_plot(report):
+    figure = relief_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "leaf-radius-relief")
+
+
 def coupled_plot(report):
     figure = closed_figure(report)
     style_axes(figure.axes[0])
@@ -470,6 +477,7 @@ def plot_entries(output, plot_lods):
         for method in (
             closed_plot,
             coupled_plot,
+            relief_plot,
             filter_plot,
             development_plot,
             relative_plot,

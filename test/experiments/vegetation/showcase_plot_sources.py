@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "relief-leaves/relief.json",
+        "relief_plot",
+        "Blattrelief · Höhe folgt dem Aderradius",
+        "Die bisherige Mittellinienhöhe ist unabhängig vom Radius. Der bisherige weiche Querschnitt erhält eine radiusabhängige Höhe. Stationäre Stellen aus einer quadratischen Gleichung und beide Endpunkte, unabhängig numerisch geprüft; Segmentunterteilung erhält dieselbe Hülle. Drei abwechselnde dichte/indexierte Läufe auf identischen 128×128 Punkten, Endkarten separat in 512×512. Hauptplan, Feinadern, Farbe, Rauheit, Kamera und Reliefmaßstab bleiben gleich. Kein rekonstruierter SpeedTree-Algorithmus, keine botanische Freigabe.",
+    ),
+    (
         "coupled-leaves/coupled.json",
         "coupled_plot",
         "Entwickelte Hauptadern + geschlossene Feinadern",
