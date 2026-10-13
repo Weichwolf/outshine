@@ -115,7 +115,7 @@ function render() {
   $('overview').hidden = Boolean(page); $('pictures').hidden = !page;
   $('state').replaceChildren(...[`${manifest.branch} · ${short(manifest.commit)}`,
     manifest.pushed ? 'Commit gepusht' : 'Push ausstehend',
-    `Bildstand ${short(manifest.render_commit)}`,`${manifest.completed_recipe_families} vollständige Rezeptfamilien`].map(value => element('span',value)));
+    `${manifest.render_commits?.length > 1 ? 'Bildauswahl' : 'Bildstand'} ${short(manifest.render_commit)}`,`${manifest.completed_recipe_families} vollständige Rezeptfamilien`].map(value => element('span',value)));
   $('gap').textContent = info?.gap || 'Esri-CityEngine-Qualität und architektonische Vielfalt sind noch nicht erreicht. Die einzelnen Bereiche zeigen ihre konkreten Lücken.';
   $('lod-note').textContent = manifest.lod_note;
   $('progress').textContent = manifest.progress;

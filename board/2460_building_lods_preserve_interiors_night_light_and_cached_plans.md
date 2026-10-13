@@ -60,6 +60,10 @@ Pakete: Mitsuba 3.9.1/Dr.Jit 1.5.0 in .venv; OIDN 2.5.1 extern unter ~/Downloads
 [OIDN-Dokumentation](https://www.openimagedenoise.org/documentation.html); [SIGGRAPH 2017](../doc/references/buildings/siggraph/2017-recurrent-monte-carlo-denoising-autoencoder.reference.json), Seiten 1/2 optisch geprüft.
 Räumlicher Filter; kein Beleg für den rekurrenten Paper-Algorithmus oder zeitliche Stabilität.
 
+Showcase-Kameraupdate: Stadtansichten auf 45 % des bisherigen Abstands, vollständige Kontextmeshes bleiben.
+Unveränderte Bilder dürfen mit altem Render-Commit und geprüftem Bericht-/Bildhash explizit übernommen werden;
+neue Ansichten erhalten ihren eigenen Commit. Gemeinsamer Auswahlstand ist keine Behauptung eines gemeinsamen Renderlaufs.
+
 ## Detail, Funktion und Nacht
 - Nah durch Fenster: echte Wandtiefe/Böden/Decken/Trennwände und räumlicher Hintergrund passender Räume.
   Begehbarkeit/Portale verwenden denselben Plan; keine widersprüchliche zweite Raumwelt.

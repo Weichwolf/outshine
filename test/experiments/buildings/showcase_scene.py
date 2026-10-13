@@ -117,4 +117,5 @@ def fitted_points(points,profile,opposite=False,city=False,direction=None):
     projected=(corners-centre)@basis.basis.T
     required=np.maximum(abs(projected[:,0])*basis.focal_px/(profile[0]*.42),
                         abs(projected[:,1])*basis.focal_px/(profile[1]*.40))-projected[:,2]
-    return View(centre+direction*(required.max()+1.),centre,width=profile[0],height=profile[1])
+    distance=(required.max()+1.)*(.45 if city else 1.)
+    return View(centre+direction*distance,centre,width=profile[0],height=profile[1])

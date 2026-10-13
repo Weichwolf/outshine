@@ -27,7 +27,7 @@ PAGES={
                   scope='Mittlere Ansicht: Abstände, Nachbarschaft, Höfe und Verdeckung.',
                   gap='Die meisten Nachbarn sind einfache Quellkörper. Gemeinsame Fassadenkontakte, Straßen und Gelände fehlen.'),
     'cities':dict(path='staedte',title='Städte',description='OSM-Verteilung und Silhouetten im Stadtmaßstab.',
-                  scope='Große Ansicht: komplette gepinnte Stadtkacheln, keine erfundene Vervielfältigung.',
+                  scope='Nähere Stadtansicht aus vollständigen gepinnten Kacheln, keine erfundene Vervielfältigung.',
                   gap='Stadtübersichten zeigen überwiegend Quellkörper; vollständige Stadtarchitektur und native Fern-LODs fehlen.'),
 }
 
@@ -78,7 +78,12 @@ def current_images(root):
         if Path(name).name!=name or not name.endswith('-report.json'):
             raise ValueError('Snapshot contains a report outside its output directory')
         record=image_record(folder/name,root)
-        if record.get('commit')!=snapshot['commit']:
+        retained=snapshot.get('retained_reports',{}).get(name)
+        expected=snapshot['commit']
+        if retained:
+            valid=bool(retained.get('reason')) and retained.get('report_sha256')==hashlib.sha256((folder/name).read_bytes()).hexdigest()
+            expected=retained.get('commit') if valid else None
+        if record.get('commit')!=expected:
             record.pop('image',None)
             record.update(status='incomplete',error='Bildreport stammt aus einem anderen Snapshot.')
         images.append(record)
@@ -101,7 +106,8 @@ def publish(root):
     frontend=hashlib.sha256(b''.join((root/name).read_bytes() for name in ('index.html','showcase.css','showcase.js'))).hexdigest()
     manifest=dict(updated=datetime.now(timezone.utc).isoformat(timespec='seconds'),commit=commit,branch=branch,frontend_sha256=frontend,
                   pushed=git('rev-parse','origin/'+branch)==commit,working_tree_dirty=bool(git('status','--porcelain')),
-                  render_commit=snapshot['commit'] if snapshot else None,pages=PAGES,images=images,
+                  render_commit=snapshot['commit'] if snapshot else None,
+                  render_commits=sorted({row['commit'] for row in images if row['status']=='ready'}),pages=PAGES,images=images,
                   completed_recipe_families=snapshot.get('completed_recipe_families',0) if snapshot else 0,
                   progress='Zuerst der vollständige Python-Modellierkern nach CityEngine, danach moderne/zeitgenössische Architekturrezepte für alle OSM-Klassen und gültigen Kombinationen. '
                            'Aktuell bestehen konstruktive Prüfgebäude mit Räumen, Geschossen, Treppen und Öffnungen. '
