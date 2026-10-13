@@ -96,6 +96,11 @@ Bild Zuerich-1758-complete-turning-court.png und Gesamtfenster geprüft.
 [Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) findet Kandidaten 3/21
 in zwei Versuchen, maximal 64. Automatische Einbindung in Produktaufbau offen.
 Vollständigen Inselkontext behalten; Kurve direkt an neuen Quellposen bauen statt kurze Anschlüsse überzubiegen.
+1733: Quell-Rücksprung verhindert direkte Abrundung. 56 gekürzte Leitlinien geprüft;
+zwei nahe Varianten erzeugen nur neue Resttaschen von 0,004/0,454 m². Keine ursprüngliche Insel.
+1733 lokal 4/4: direkter Fahrweg 65,94 m, physisch +7,61 m²; Bild geprüft, Gesamtfenster offen.
+Neue freie Resttaschen nur explizit schließen (≤1 m², keine 1-m-Innenbreite, keine Reservation).
+Übergang aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsreste nach bestehender Koordinatengrenze prüfen.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
