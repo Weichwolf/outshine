@@ -49,7 +49,7 @@ def rounded_polyline(points,radius,transition,entry=None,exit=None):
     angles=np.arctan2(unit[:-1,0]*unit[1:,1]-unit[:-1,1]*unit[1:,0],np.sum(unit[:-1]*unit[1:],axis=1))
     trims=[];segments=[]
     for angle in angles:
-        recipe=turn_segments(angle,radius,transition);p=np.zeros(2);heading=0.
+        recipe=turn_segments(angle,radius,min(transition,radius*abs(angle)*.5));p=np.zeros(2);heading=0.
         for a,b,length in recipe:p,heading=advance(p,heading,a,b,length)
         direction=np.array([1+np.cos(angle),np.sin(angle)])
         trims.append(float(p@direction/(direction@direction)));segments.append(recipe)

@@ -20,6 +20,11 @@ def verify():
         rotation=np.array([[0.,-1.],[1.,0.]]);offset=np.array([1000.,-700.])
         moved=rounded_polyline(source@rotation+offset,4.5,.5)
         assert np.allclose(moved,controls@rotation+offset,rtol=0,atol=1e-10)
+    for angle in (.01,-.01):
+        source=np.array([[0.,0.],[10.,0.],[10+10*np.cos(angle),10*np.sin(angle)]])
+        controls=rounded_polyline(source,4.5,.5)
+        assert continuous_spline_joins(controls) and curve_bounds(controls)[2].max()<.25
+        assert np.allclose(controls[-1,-1],source[-1])
     lines=shapely.linestrings(np.array([[[0.,i*4],[10.,i*4]] for i in range(6)]))
     graph=dict(lines=lines,half_widths=np.ones(6),travel_public=np.array([[4,4],[12,12],[1,1],[0,0],[4,4],[4,4]],dtype=np.uint8),
                travel_restricted=np.array([[0,0],[0,0],[0,0],[4,4],[1,1],[4,4]],dtype=np.uint8))
