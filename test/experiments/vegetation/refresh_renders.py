@@ -42,12 +42,14 @@ def main():
     for index, entry in enumerate(entries, 1):
         image = OUTPUT / entry["image"]
         report = json.loads(image.with_suffix(".json").read_text())
-        if current(image, report):
+        requested = Path(entry.get("scenario", report["scenario"]))
+        requested = requested if requested.is_absolute() else ROOT / requested
+        observed = Path(report["scenario"])
+        observed = observed if observed.is_absolute() else ROOT / observed
+        if current(image, report) and requested.resolve() == observed.resolve():
             print(f"{index}/{len(entries)} current {image.name}", flush=True)
             continue
-        scenario = Path(entry.get("scenario", report["scenario"]))
-        if not scenario.is_absolute():
-            scenario = ROOT / scenario
+        scenario = requested
         recipe = json.loads(scenario.read_text())
         recipe["resolution"] = [2560, 1440]
         recipe["source_modified"] = True

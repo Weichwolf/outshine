@@ -438,6 +438,7 @@ def plot_entries(output, plot_lods):
             placement_plot,
             spatial_plot,
             wood_plot,
+            bark_layer_plot,
             frond_plot,
             bark_plot,
             ray_plot,
