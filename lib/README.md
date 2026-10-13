@@ -98,3 +98,17 @@ lädt er die Asset-Decoder nicht. Intern bleiben CGA-Achsen ausdrücklich benann
 mit der angegebenen lokalen Höhe. Gemeinsame Ausgabe an Transport/Vegetation/world
 wird mit `cga_to_enu` für Positionen/Normalen konvertiert. Quellen/IDs sind der
 Auftrag des übergeordneten Gebäudeplans; ein Shape allein ist kein Gebäude-Assetvertrag.
+
+`vegetation.Profile` übernimmt vorbereitete skalare Profile: unveränderliche
+Float64-Tabellen, Lookup, einseitige Tabellenslopes, Clamping und gekachelte Drift.
+Laden/Auswertung importiert keinen Kurvensolver. Kurvenvorbereitung liegt getrennt
+in `vegetation.bezier_curve.BezierCurve` und benötigt SciPy ≥1.15; es ist eine
+deklarierte Paketabhängigkeit. Inversion nutzt maximal 100 Solveriterationen.
+Die ausgegebene SciPy-Polynomdarstellung ist eine unabhängige Kopie.
+Bool-, Text-, komplexe und nicht endliche Koordinaten sind ungültig.
+
+Abbruch anhand kleiner Funktionsreste reicht bei flachen x-Kurven nicht;
+`x(t)=t³` wird gegen die analytische Kubikwurzel geprüft. Tabellenauflösung
+begrenzt Lookup-Genauigkeit; eine allgemeine y-Fehlergarantie ist nicht belegt.
+[SciPy 1.15 find_root](https://docs.scipy.org/doc/scipy-1.15.0/reference/generated/scipy.optimize.elementwise.find_root.html)
+dokumentiert Intervall-/Resttoleranzen; Profile und Referenzproben gehören zu [#26](https://github.com/Weichwolf/outshine/issues/26).

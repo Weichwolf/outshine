@@ -1,5 +1,5 @@
 {
-  "current_work": "Nadelorgane liegen als installierbarer Bibliothekskern unter lib/: Pinus-Zweier-/Fünferbündel mit abgeflachten Halbkreis-/Kreissektorquerschnitten, Picea mit rhombischen Nadeln. Gemeinsame Bündelbasis unabhängig geprüft; Nah/Grob erhalten IDs und Anker. Materialkalibrierung, LOD-Deckung, Kollision und Wind bleiben offen.",
+  "current_work": "Profilkurven und unveränderliche vorbereitete Tabellen liegen jetzt ebenfalls in der installierbaren Bibliothek. Eine zu frühe Inversion flacher Kurven und veränderbare öffentliche Profildaten sind korrigiert. Gemeinsame Nadel-Bündelbasis ist geprüft; Material, Wind, LOD-Deckung und vollständige Pflanzen bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -379,8 +379,9 @@
       "label": "Profilfunktionen",
       "category": "wood",
       "lod": "lod-0",
-      "description": "Vier geschlossene Astflächen mit gleicher Mittelachse, Maßstab, Kamera und Beleuchtung. Lineare Verjüngung, gleitender Verlauf, kontrollierte Verdickung und Wurzelanlauf aus eigenen Bézierprofilen. Radius und Flächennormalen verwenden dieselben vorbereiteten Werte.",
-      "quality": "Funktionsprobe · organische Gabeln, Rinde und botanische Formen offen"
+      "description": "Vier geschlossene Astflächen mit gleicher Mittelachse, Maßstab, Kamera und Beleuchtung. Lineare Verjüngung, gleitender Verlauf, kontrollierte Verdickung und Wurzelanlauf aus eigenen Bézierprofilen. Radius und Flächennormalen verwenden dieselben vorbereiteten Werte. Die installierte Profilbibliothek erhält diese Formen; die neue Inversion korrigiert flache x-Anfänge. Vorbereitete Tabellen laden ohne Kurven-Solver.",
+      "quality": "Funktionsprobe · organische Gabeln, Rinde und botanische Formen offen",
+      "scenario": "build/experiments/vegetation/profile-library/current/profile-branches.json"
     },
     {
       "image": "render/spatial-branches.png",
@@ -498,7 +499,8 @@
     "terminal_plot": "lod-0",
     "pigment_plot": "lod-0",
     "normal_plot": "lod-0",
-    "needle_plot": "lod-0"
+    "needle_plot": "lod-0",
+    "profile_cache_plot": "lod-0"
   },
   "genera": [
     {
