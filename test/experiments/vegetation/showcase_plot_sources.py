@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "graph-wood/wood-functions.json",
+        "wood_plot",
+        "Räumliche Holzfläche · Astkragen und Rinde",
+        "Gemeinsamer Körper aus vier Achsen und drei lokalen Astkragen, unveränderte 41 Blattanker. Drei Seeds: geschlossene orientierte Fläche, unabhängige Innenproben, erhaltenes Originalholz und endliche Rindenkoordinaten. Kubische Projektion: dieselben 5.335 Punkte mit skalaren, gebündelten und durch Kontrollpunkt-Boxen begrenzten Nullstellenabfragen; drei lokale CPU-Läufe. Dichte/Blockfelder und Rinden-Vorauswahl ebenfalls auf gleichen vollständigen Eingaben verglichen. Stufenzeiten separat; keine Native-/GPU-/Gerätefreigabe und keine volle Original-Weldbindung.",
+    ),
+    (
         "spatial-graph/spatial-functions.json",
         "spatial_plot",
         "Räumliche Achsen · kontinuierliche Organanker",

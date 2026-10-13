@@ -101,11 +101,11 @@ acht gespeicherte Typen (Tree, Branch, Frond, Cap, BatchedLeaf, Leaf Mesh, Fin, 
 Vorlageninventar ist kein vollständiges Funktionsinventar oder Gleichwertigkeitsnachweis.
 2481: Rinden-/UV-Analyse an vier CBranchNode-Funktionen; Periodenentfaltung und zyklische Glättung belegt.
 Eigene räumliche Astkoordinaten/Rauschmaterialien; vollständige UV-Property-/Original-Oracle-Bindung offen.
-2482: Frond-Guides; 2483/2484: Graph/Standorte; 2485: räumliche Achsen/Biegestellen, volle Bindung offen.
+2482: Frond-Guides; 2483/2484: Graph/Standorte; 2485/2486: räumliche Achsen/Anschlüsse, volle Bindung offen.
 | Bereich | Eigener Stand / fehlende Funktionen |
 |---|---|
 | Graph/Profile/Platzierung | Grundtypen/Bedarf (2483), Blattfolgen/Quirle (2484), kontinuierliche räumliche Anker/Biegestellen (2485); volle Generierungsarten offen |
-| Stämme/Anschlüsse | Gabeln (2352), vollständige Vereinigung/Astkragen (2353), Rindenmaterial/Koordinaten (2481); volle Elternbindung, Caps/Knots/Fins/Rindengeometrie offen |
+| Stämme/Anschlüsse | Gabeln (2352), komplette Vereinigung/Astkragen (2353/2486), Rinde/Koordinaten (2481/2486); volle Bindung, Caps/Knots/Fins/Rindengeometrie offen |
 | Organe/Cluster | Blatt-/Grasflächen, Frond-/Guide-Proben (2482); volle Frondbindung, Nadeln und weitere Organe offen |
 | Kräfte/Wachstum/Zustände | Kräfte, Kollisionen, Wachstum/Jahreszustände und funktionale Windbindung offen |
 | Material/LOD/Export | Unbeleuchtete Ansichtenproben; Normalenverteilung, Übergänge und vollständige Produkte offen |
@@ -113,7 +113,7 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-79 gezielte Funktionen dekompiliert; zweiundzwanzig Läufe terminal erfolgreich, zuletzt drei Bifurcation-Funktionen.
+80 gezielte Funktionen dekompiliert; dreiundzwanzig Läufe terminal erfolgreich, zuletzt Welding-Property-Aufbau.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.

@@ -50,7 +50,7 @@ Probe: Stamm, drei Biegezweige, 41 Blätter; komplette grobe/feine Prototypen 36
 Produktaufbau/Kompression/Schreiben 0,065 s (eine Probe), frischer Prüfprozess 105,58 MiB Peak.
 Bestehende Graph-/Standortprodukte aus neuer Implementierung elementweise unverändert;
 vorhandene Renderprodukte wiederverwenden. Keine native/GPU-/Gerätefreigabe durch Python-Belege.
-Gesamt-/Grob-/Nahansicht in 2560×1440 tatsächlich betrachtet; organische Astkragen bleiben offen.
+Gesamt-/Grob-/Nahansicht 2560×1440 betrachtet; lokale Kragen/Rinde in 2486, volle Originalbindung offen.
 
 ## Abnahme
 Unabhängige Integrations-/ODE-/Differentialreferenzen, Wendepunkte und räumliche Kurven prüfen.

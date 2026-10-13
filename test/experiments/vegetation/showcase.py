@@ -24,6 +24,7 @@ from curved_plots import curved_figure
 from fork_plots import fork_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
+from graph_wood_plots import wood_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
@@ -400,6 +401,12 @@ def spatial_plot(report):
     return save_plot(figure, "spatial-graph")
 
 
+def wood_plot(report):
+    figure = wood_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "graph-wood")
+
+
 def plant_surface_plot(report):
     return save_plot(plant_surface_figure(report), "plant-surfaces")
 
@@ -423,6 +430,7 @@ def plot_entries(output, plot_lods):
             generator_plot,
             placement_plot,
             spatial_plot,
+            wood_plot,
             frond_plot,
             bark_plot,
             ray_plot,

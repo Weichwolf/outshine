@@ -1,33 +1,42 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: räumliche Achsen, Biegeverzweigungen und längenabhängige Organe sind im Generatorgraphen verbunden. Kontinuierliche Anker, Differentialnormalen und Rindenkoordinaten stammen aus einem gemeinsamen, von der Meshunterteilung unabhängigen Kurvenprodukt. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: Die räumliche Graphpflanze hat jetzt eine gemeinsame Holzoberfläche mit lokalen Astkragen und geerbten Rindenkoordinaten. Die vorhandenen Organanker bleiben erhalten; grobe Körper entstehen direkt ohne feine Anschlussfelder. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
-      "image": "render/spatial-graph.png",
-      "title": "Räumliche Achse · Biegeverzweigungen und Blätter",
-      "label": "Räumliche Graph-Funktionsprobe",
+      "image": "render/joined-spatial-graph.png",
+      "title": "Räumliche Pflanze · gemeinsame Holzoberfläche",
+      "label": "Vollständige Holz-/Anschlussprobe",
       "category": "plant",
       "lod": "lod-1",
-      "description": "Ein räumlicher Kurvenplan führt Stammflächen, Biegeverzweigungen und längenabhängige Blätter. Bogenlänge, transportierte Rahmen und ihre Ableitungen werden gemeinsam ausgewertet. Grobe und feine Geometrie behalten dieselben Anker und gemeinsamen Flächenpunkte; der Rindenverlauf verwendet physische Astkoordinaten. Diese generische Probe prüft Funktionen vor botanischen Artenrezepten.",
-      "quality": "Eigene räumliche Funktionsprobe · Original-Spine-/Bifurcation-Propertybindung, organische Gabeln, Wind und botanische Freigabe offen"
+      "description": "Derselbe räumliche Formplan mit Stamm, drei Biegezweigen und 41 unveränderten Blättern. Das Holz bildet einen gemeinsamen Körper; lokale Eltern-/Kinderhüllen runden die Nahanschlüsse aus. Rindenkoordinaten folgen den tatsächlichen Achsen und übernehmen den Verlauf vom Elternast. Das direkt erzeugte Grobprodukt vereint die groben Achsen ohne vorherige Nahkragen. Die Anschlussaufnahme zeigt nur das Holz zur Formprüfung.",
+      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen"
     },
     {
-      "image": "render/spatial-coarse.png",
-      "title": "Räumliche Achse · direktes Grobprodukt",
-      "label": "Räumliche Graph-Funktionsprobe",
+      "image": "render/joined-spatial-coarse.png",
+      "title": "Räumliche Pflanze · direktes Grobprodukt",
+      "label": "Vollständige Holz-/Anschlussprobe",
       "category": "plant",
       "lod": "lod-2",
-      "description": "Ein räumlicher Kurvenplan führt Stammflächen, Biegeverzweigungen und längenabhängige Blätter. Bogenlänge, transportierte Rahmen und ihre Ableitungen werden gemeinsam ausgewertet. Grobe und feine Geometrie behalten dieselben Anker und gemeinsamen Flächenpunkte; der Rindenverlauf verwendet physische Astkoordinaten. Diese generische Probe prüft Funktionen vor botanischen Artenrezepten.",
-      "quality": "Eigene räumliche Funktionsprobe · Original-Spine-/Bifurcation-Propertybindung, organische Gabeln, Wind und botanische Freigabe offen"
+      "description": "Derselbe räumliche Formplan mit Stamm, drei Biegezweigen und 41 unveränderten Blättern. Das Holz bildet einen gemeinsamen Körper; lokale Eltern-/Kinderhüllen runden die Nahanschlüsse aus. Rindenkoordinaten folgen den tatsächlichen Achsen und übernehmen den Verlauf vom Elternast. Das direkt erzeugte Grobprodukt vereint die groben Achsen ohne vorherige Nahkragen. Die Anschlussaufnahme zeigt nur das Holz zur Formprüfung.",
+      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen"
     },
     {
-      "image": "render/spatial-detail.png",
-      "title": "Räumliche Achse · kontinuierliches Nahdetail",
-      "label": "Räumliche Graph-Funktionsprobe",
+      "image": "render/joined-spatial-detail.png",
+      "title": "Räumliche Pflanze · Astkragen und Rindenverlauf",
+      "label": "Vollständige Holz-/Anschlussprobe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Ein räumlicher Kurvenplan führt Stammflächen, Biegeverzweigungen und längenabhängige Blätter. Bogenlänge, transportierte Rahmen und ihre Ableitungen werden gemeinsam ausgewertet. Grobe und feine Geometrie behalten dieselben Anker und gemeinsamen Flächenpunkte; der Rindenverlauf verwendet physische Astkoordinaten. Diese generische Probe prüft Funktionen vor botanischen Artenrezepten.",
-      "quality": "Eigene räumliche Funktionsprobe · Original-Spine-/Bifurcation-Propertybindung, organische Gabeln, Wind und botanische Freigabe offen"
+      "description": "Derselbe räumliche Formplan mit Stamm, drei Biegezweigen und 41 unveränderten Blättern. Das Holz bildet einen gemeinsamen Körper; lokale Eltern-/Kinderhüllen runden die Nahanschlüsse aus. Rindenkoordinaten folgen den tatsächlichen Achsen und übernehmen den Verlauf vom Elternast. Das direkt erzeugte Grobprodukt vereint die groben Achsen ohne vorherige Nahkragen. Die Anschlussaufnahme zeigt nur das Holz zur Formprüfung.",
+      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen"
+    },
+    {
+      "image": "render/joined-spatial-junction.png",
+      "title": "Räumlicher Astansatz · Anschluss im Detail",
+      "label": "Vollständige Holz-/Anschlussprobe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Derselbe räumliche Formplan mit Stamm, drei Biegezweigen und 41 unveränderten Blättern. Das Holz bildet einen gemeinsamen Körper; lokale Eltern-/Kinderhüllen runden die Nahanschlüsse aus. Rindenkoordinaten folgen den tatsächlichen Achsen und übernehmen den Verlauf vom Elternast. Das direkt erzeugte Grobprodukt vereint die groben Achsen ohne vorherige Nahkragen. Die Anschlussaufnahme zeigt nur das Holz zur Formprüfung.",
+      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen"
     },
     {
       "image": "render/placement-phyllotaxy.png",
@@ -314,7 +323,8 @@
     "collar_plot": "lod-1",
     "ray_plot": "lod-1",
     "placement_plot": "lod-1",
-    "spatial_plot": "lod-1"
+    "spatial_plot": "lod-1",
+    "wood_plot": "lod-0"
   },
   "genera": [
     {
