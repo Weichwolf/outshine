@@ -168,14 +168,15 @@ def main():
         sections=set(args.cut_sections)
     original_routes,_=directed_module_routes(network.graph,old,network.shape(module),network.tree)
     distance=network.vehicle['minimumRearAxleRadiusM'] if args.setback is None else args.setback
+    scope=local_court_sections(network,module,old,dict(zip(map(tuple,args.pair),args.case))) if args.grow_ports or distance==0 else set()
     if distance==0:
-        scope=local_court_sections(network,module,old,dict(zip(map(tuple,args.pair),args.case)))
         affected={module}|{p['corridor'] for p in network.junctions[module] if p['section'] in scope}
         trial=fork_cut_plan(network,module,set());changes=[];sections=set()
     else:
         make_cuts=setback_joined_network if args.joined_cuts else setback_network
         trial,changes,affected=make_cuts(network,module,sections,distance)
-    if args.grow_ports and distance!=0:parser.error('port growth requires fixed source stations')
+    if args.grow_ports:
+        affected.update(p['corridor'] for p in trial.junctions[module] if p['section'] in scope)
     poses,_=trial.poses(module,{})
     routes,_=directed_module_routes(trial.graph,poses,trial.shape(module),trial.tree)
     records={r['module']:r for r in before['modules']};records.update((r['module'],r) for r in cuts['changed_modules'])
@@ -198,8 +199,9 @@ def main():
     seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
     public_spaces={};addition=shapely.Polygon();partition_audit={}
     if args.grow_ports:
-        poses,routes,sections,changes,public_spaces,addition,partition_audit=grow_court_ports(
+        poses,routes,grown_sections,growth_changes,public_spaces,addition,partition_audit=grow_court_ports(
             trial,module,affected,poses,seeds,floor,scope)
+        sections|=grown_sections;changes+=growth_changes
         floor=public_spaces[module]
         reserved=protected.union(coupled.reservations(trial,region).difference(floor))
         seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
@@ -230,7 +232,7 @@ def main():
             shapely.union_all([network.shape(o) for o in affected])).area,
         original_sections=[shapely.get_coordinates(network.sections[s]).tolist() for s in sorted(sections)],
         planned_sections=[shapely.get_coordinates(trial.sections[s]).tolist() for s in sorted(sections)],
-        shared_cuts_description=f'{"Wider ports on unchanged cut planes" if args.grow_ports else f"Cuts moved {distance:g} m"}; {len(proofs)} proved routes across {len(affected)} owners; Buildings runtime pending',
+        shared_cuts_description=f'{f"Widths solved after {distance:g} m cut setback" if args.grow_ports else f"Cuts moved {distance:g} m"}; {len(proofs)} proved routes across {len(affected)} owners; Buildings runtime pending',
         elapsed_ms=(time.perf_counter()-begin)*1000,building_runtime_integration_pending=True,
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public motor requests across the court and affected neighbors on one mesh; Buildings runtime and full-window integration remain open.')

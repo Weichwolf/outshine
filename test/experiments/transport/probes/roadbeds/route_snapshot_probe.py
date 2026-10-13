@@ -25,7 +25,9 @@ def main():
     parser.add_argument('--pair',type=int,nargs=2,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--context-reach',type=float,default=0.)
-    parser.add_argument('--joined-setback',type=float)
+    cut_options=parser.add_mutually_exclusive_group()
+    cut_options.add_argument('--joined-setback',type=float)
+    cut_options.add_argument('--setback',type=float)
     parser.add_argument('--sections',type=int,nargs='+')
     parser.add_argument('--prior',type=Path)
     args=parser.parse_args();root=Path('build/experiments/transport');name=args.place
@@ -39,7 +41,7 @@ def main():
     cuts=json.loads(cut_path.read_text());restore_cut_plan(network,cuts['plan'])
     prior=None
     if args.prior:
-        if args.joined_setback is not None:parser.error('capture the published product without another cut operation')
+        if args.joined_setback is not None or args.setback is not None:parser.error('capture the published product without another cut operation')
         prior=json.loads(args.prior.read_text())
         assert prior['place']==name and args.module in prior['affected'],'prior product has another scope'
         records={r['module']:r for r in before['modules']}
@@ -48,6 +50,9 @@ def main():
     if args.joined_setback is not None:
         if not args.sections:parser.error('joined setback needs explicit source sections')
         network,_,_=setback_joined_network(network,args.module,set(args.sections),args.joined_setback)
+    if args.setback is not None:
+        if not args.sections:parser.error('setback needs explicit source sections')
+        network,_,_=coupled.setback_network(network,args.module,set(args.sections),args.setback)
     poses,_=network.poses(args.module,{})
     routes,_=directed_module_routes(network.graph,poses,network.shape(args.module),network.tree)
     pair=tuple(args.pair);route=routes[pair]
@@ -71,7 +76,7 @@ def main():
         vehicle=network.vehicle,error_m=network.curbs['arc_error_m'],place=name,module=args.module,pair=pair,
         input_sha256=before['input_sha256']|{str(p.relative_to(root)):coupled.digest(p)
             for p in (before_path,frame_path,cut_path,receipt_path)},
-        context_reach_m=args.context_reach,joined_setback_m=args.joined_setback,joined_sections=args.sections,
+        context_reach_m=args.context_reach,joined_setback_m=args.joined_setback,setback_m=args.setback,cut_sections=args.sections,
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip())
     if args.prior:data['input_sha256'][str(args.prior.resolve().relative_to(root.resolve()))]=coupled.digest(args.prior)
     args.output.parent.mkdir(parents=True,exist_ok=True)

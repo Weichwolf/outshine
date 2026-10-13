@@ -83,12 +83,12 @@ prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine 
 
 ## Nächste Lieferung und Abnahme
 24 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
-1146 im Gesamtfenster: 18/18, zwei Gegenrichtungen gemeinsam, +17,89 m²; Nahbild/erneutes Laden geprüft.
+1051 lokal: 46/46 plus zwei Nachbarfahrten; Einlauf 1 m versetzt, +0,227 m²; Gesamtfenster ausstehend.
 Veröffentlichung/erneutes Laden im Gesamtfenster geprüft; nächste Lieferung sind die 14 verbleibenden Fahrten.
 Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identitäten/Hüllen erneut prüfen.
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
 [Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
-auf den nächsten Portmittelpunkt aller Nachbarn. Schnittebenen bleiben fest; Zusatzsegmente am
+auf den nächsten Portmittelpunkt aller Nachbarn. Nach einem deklarierten Stationsversatz bleiben Schnittebenen beim Breitenlösen fest; Zusatzsegmente am
 anderen Arm sind ungültig. Vorhandene Geometrie behalten, Erweiterung genau einmal besitzen.
 [Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) prüft
 höchstens 64 Kombinationen. Billigste Einzelkurven können gemeinsam eine Insel löschen;
