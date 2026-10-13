@@ -90,6 +90,9 @@ Fußwegübergänge aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsr
 1599 im Gesamtfenster: 6/6 plus zwei Nachbarfahrten, +3,49 m²; beide Richtungen integriert.
 [Richtungsframes kombinieren](../test/experiments/transport/probes/roadbeds/combine_directional_frames_probe.py)
 erhält Quellstationen/Schnittlinien und prüft sämtliche Fahrten beider Vorgänger frisch. Nahbild geprüft.
+1765 lokal: 53/53; 71 bisherige plus drei neue Fahrten über sechs Besitzer, +14,53 m².
+[Port-Erweiterung](../test/experiments/transport/probes/roadbeds/shared_port_extension_probe.py)
+speichert gemeinsame öffentliche Unterstützung; erneutes Laden und Nahbild geprüft. Gesamtfenster offen.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
