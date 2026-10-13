@@ -44,10 +44,12 @@ def boundary_loops(triangles,roots):
     return tuple(loops)
 
 
-def polygon_faces(vertices,uv,triangles,roots,template):
+def polygon_faces(vertices,uv,triangles,roots,template,projection_normal=None):
     loops=boundary_loops(triangles,roots)
     if not loops:return ()
-    points=vertices[triangles];normal=np.cross(points[:,1]-points[:,0],points[:,2]-points[:,0]).sum(axis=0)
+    points=vertices[triangles]
+    normal=(np.cross(points[:,1]-points[:,0],points[:,2]-points[:,0]).sum(axis=0)
+            if projection_normal is None else np.array(projection_normal,dtype=float,copy=True))
     length=np.linalg.norm(normal)
     if length<=1e-12:raise ValueError('Logical cut face has no stable area normal')
     normal/=length;axis=np.eye(3)[np.argmin(abs(normal))];x=cross3(axis,normal);x/=np.linalg.norm(x)
@@ -69,13 +71,14 @@ def polygon_faces(vertices,uv,triangles,roots,template):
     return tuple(faces)
 
 
-def logical_faces(mesh,roots,keys,templates):
+def logical_faces(mesh,roots,keys,templates,projection_normals=None):
     groups={}
     for triangle,key in enumerate(keys):groups.setdefault(key,[]).append(triangle)
     faces=[];parts=np.full(len(keys),-1,dtype=np.int32);source=[]
     for key,rows in groups.items():
         template,source_index=templates[key];triangles=mesh['faces'][rows]
-        recovered=polygon_faces(mesh['vertices'],mesh['uv'],triangles,roots,template)
+        projection=None if projection_normals is None else projection_normals.get(key)
+        recovered=polygon_faces(mesh['vertices'],mesh['uv'],triangles,roots,template,projection)
         if len(recovered)==1:
             parts[rows]=len(faces);faces.append(recovered[0]);source.append(source_index);continue
         # Every triangle belongs to one recovered outer boundary, including disconnected fragments.

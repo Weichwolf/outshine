@@ -42,7 +42,7 @@ def inspect(reference,base,analyze=False):
                           functions=[dict(address=f['address'],instructions=f['instructions'],reference_sha256=f['external_reference_sha256'])
                                      for f in exported['selected_functions']],
                           dispatch_sha256=hashlib.sha256(dispatch.encode()).hexdigest(),
-                          interpretation=dict(even='RoofType 0/1; connected ridge sets averaged after the nominal height scale; warped faces require fixed triangulation',
+                          interpretation=dict(even='RoofType 0/1; node-fan groups average in byAngle and use group maximum in byHeight; executable geometry kernel corrects earlier static-only interpretation',
                                               overhang='Nominal slope sine used for negative extension along boundary-to-skeleton rays; separate self-intersection resolution and extra extension helpers',
                                               boundary='SDK roof.bottom denotes the original face; an extended roof is not automatically a closed extruded solid'),
                           limits='Bounded static exports, dispatcher disassembly and SDK documentation. Exact even grouping, full executable CGA output, UV extrapolation, trim and negative overhang remain unproved.')

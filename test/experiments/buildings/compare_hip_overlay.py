@@ -46,7 +46,7 @@ def cases(even=False,shapes=False):
             tangent-=normal*(tangent@normal);tangent/=np.linalg.norm(tangent)
             plan=prepare_hip(polygon)
             projected=(mesh['vertices'][mesh['faces']]-origin)@np.array([tangent,np.cross(normal,tangent)]).T-plan.origin
-            result.append((projected,prepare_even(plan) if even else plan))
+            result.append((projected,prepare_even(plan,'byHeight') if even else plan))
     return result
 
 
