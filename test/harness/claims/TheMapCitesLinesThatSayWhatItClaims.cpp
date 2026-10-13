@@ -247,7 +247,7 @@ int main(void) {
   Covers("IV.12 AGENTS.md defines principles: every path it names is present and "
          "every line it cites carries the text quoted beside it (board:1762, 1768, 1775, 1777, "
          "1779, 1855). It no longer judges STATE.md: the generated map is gone, and what it "
-         "carried is read where it lives -- board/ for the items, `make test` for the reds, "
+         "carried is read where it lives -- GitHub Issues for the items, `make test` for the reds, "
          "`make doc` for the door");
   return Report();
 }

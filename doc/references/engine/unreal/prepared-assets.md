@@ -2,7 +2,7 @@
 
 Stand: 2026-10-06. Primärquellen unten sind Online-Dokumentation von Epic und ein
 SIGGRAPH-Paper. Diese Notiz fasst Verfahren zusammen; sie ist keine Kopie der Dokumentation.
-Den Outshine-Vertrag besitzt [WI 2280](../../../../board/2280_ready_assets_load_from_a_spatial_cache.md).
+Den Outshine-Vertrag besitzt [#10](https://github.com/Weichwolf/outshine/issues/10).
 
 ## Referenzen und Grenzen
 

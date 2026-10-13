@@ -1,6 +1,6 @@
 # Räumliches Audio mit begrenzter Arbeit
 
-Codeprüfung: 2026-10-07. Besitzer: 2336 (native Abfragen), 2136 (Audio).
+Codeprüfung: 2026-10-07. Besitzer: [#12](https://github.com/Weichwolf/outshine/issues/12) (native Abfragen), [#2](https://github.com/Weichwolf/outshine/issues/2) (Audio).
 Native Terrain-Abfrage integriert; Cubemap, Stimmenauswahl und GPU-Pfad bleiben Entwurf.
 
 ## Geprüfte GitHub-Verfahren
@@ -47,4 +47,4 @@ Zellen einschließlich ungleichmäßiger Posting-Abstände. Audio nutzt maximal 
 schmale Hindernisse auf langen Wegen können fehlen. Keine konservative Fehlerschranke,
 kein Physikkontakt-Ersatz. Zusätzliche importierte Dreiecke nutzen weiter `TriangleBvh`;
 dessen Abfrage und die gesamte Stimmenauswahl sind noch nicht fest budgetiert.
-Weitergehende Raumakustik bleibt nach dem visuellen Meilenstein in 2136.
+Weitergehende Raumakustik bleibt nach dem visuellen Meilenstein in [#2](https://github.com/Weichwolf/outshine/issues/2).

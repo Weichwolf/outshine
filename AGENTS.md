@@ -1,11 +1,31 @@
 # Outshine
 
 ## Auftrag
-- Ich lese AGENTS, den aktiven Goal-Text, Parent-WI 2169 und betroffene Kinder zuerst.
-  Goal enthält das Ergebnis, AGENTS dauerhafte Regeln, WIs Features und technische Entscheidungen.
-  Implementierungsdetails stehen ausschließlich im Board. Aktuelle Nutzeranweisungen gehen vor.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich arbeite auf `master`
-  im Haupt-Checkout. Die weltweite Sandbox und der Webcam-Meilenstein stehen in 2169.
+- Ich lese AGENTS, den aktiven Goal-Text, Parent-Issue [#5](https://github.com/Weichwolf/outshine/issues/5) und betroffene Kinder zuerst.
+  Goal enthält das Ergebnis, AGENTS dauerhafte Regeln, GitHub Issues Features und technische Entscheidungen.
+  Aktuelle Nutzeranweisungen gehen vor.
+- GitHub Issues unter https://github.com/Weichwolf/outshine/issues sind die einzige gemeinsame Aufgabenablage.
+  Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
+  Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
+  Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
+- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Der ausgecheckte Branch bestimmt meine Rolle:
+  `transport`, `buildings` und `vegetation` entwickeln ihre Python-Fachverfahren; `master` entwickelt Outshine
+  und integriert geprüfte Verfahren maschinennah in C++ unter `src/`, einschließlich Generatoren und öffentlicher APIs.
+  Die weltweite Sandbox steht in [#5](https://github.com/Weichwolf/outshine/issues/5), räumliche Verträge in [#18](https://github.com/Weichwolf/outshine/issues/18).
+- `test/experiments/` enthält Versuche, Gegenbeispiele, faire Vergleiche, Benchmarks und Showcase-Code.
+  Bewährte wiederverwendbare Python-Verfahren werden als installierbare Referenzbibliotheken unter `lib/` gepflegt.
+  Experimente importieren diese Bibliotheken; Fachmodule teilen Verträge und erforderliche Geometrieverfahren.
+  Transport plant zuerst und liefert angepasste Gebäudegrundrisse/Freiräume, Buildings baut danach,
+  Vegetation zuletzt mit den räumlichen Produkten und Hinweisen beider Vorgänger. Quell-IDs und Quellen erhalten.
+- Die drei Fachagenten dürfen für ihre Experimente und Änderungen an `lib/` Pull Requests erstellen
+  und nach bestandenen betroffenen Prüfungen selbst nach `master` mergen. Zugehörige Tests/Referenzdokumentation mitführen.
+  Gemeinsame Verträge mit betroffenen Verbrauchern abstimmen; keine fremden Fortschritte überschreiben.
+  Native Änderungen und deren Engine-/Bild-/Kostenintegration besitzt der Integrationsagent auf `master`.
+  Alle vier Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
+  Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
+- Der aktive Nutzerauftrag bleibt maßgeblich; `GOAL.txt` auf `master` beschreibt den Outshine-/Integrationsauftrag.
+  CONTEXT.md ist ausschließlich die einmalige Übergabe an den Transport-Agenten nach dem Rechnerwechsel,
+  keine dauerhafte Regel- oder Aufgabenablage. Ich lese sie bei der Übergabe und pflege laufende Arbeit in Issues.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
   Baupläne. Gelieferte Angaben steuern Vielfalt/Erdähnlichkeit. Prozedurale Rezepte ergänzen
@@ -13,7 +33,7 @@
   Ich suche eine schnelle, plausible, ästhetische und funktionale Lösung, keine eindeutige
   Rekonstruktion. Ich darf Lage, Form und Profile kohärent anpassen und einfachere Rezepte wählen.
 - Solarpunk ist das Default-Setting; minimalistisches Bauhaus und Art déco prägen die
-  prozedurale Gestaltung. Den gemeinsamen Look besitzt 2155, Materialkomposition 2171.
+  prozedurale Gestaltung. Den gemeinsamen Look besitzt [#4](https://github.com/Weichwolf/outshine/issues/4), Materialkomposition [#6](https://github.com/Weichwolf/outshine/issues/6).
 - Ich liefere vom konkreten Bilddefizit bis zum integrierten Rendering. Interne Arbeit braucht
   einen Feature-Blocker oder gemessenen Engpass. Abstürze, Datenverlust und falsche Geometrie
   behebe ich sofort; vorhandene Straßenqualität und Terrain-Deformation bleiben erhalten.
@@ -47,7 +67,7 @@
 ## Quellen und Architekturgrenzen
 - Bevorzugt: OpenFreeMap für OSM-basierte Vektoren, Mapterhorn für Höhen, Open-Meteo für Wetter.
   Ein Hauptanbieter je Datenart; Geschwindigkeit, Verfügbarkeit und nutzbarer Inhalt entscheiden.
-  Original-OSM und vollständige Tags sind keine Pflicht. Formate/Nutzungsfragen besitzt 2280.
+  Original-OSM und vollständige Tags sind keine Pflicht. Formate/Nutzungsfragen besitzt [#10](https://github.com/Weichwolf/outshine/issues/10).
 - Zeit/Kamera und ein fester lizenzierter/versionierter Sternenkatalog ergänzen die Welteingaben.
   Belegte, fehlende und prozedural ergänzte Angaben bleiben unterscheidbar. Webcam-Fotos dienen
   nur dem Vergleich; keine Fototexturen, Satellitenbilder, Photogrammetrie oder Place-Sondergeometrie.
@@ -56,14 +76,14 @@
   Weltklassen. Der Cache enthält vollständig angereicherte Asset-Rohlinge. Treffer wiederholen
   weder Quellaufbereitung noch Rohling-Aufbau; Nahdetails dürfen und müssen daraus zur Laufzeit
   ergänzt werden. Räumliche/LOD-Auswahl und aktuelles Shading folgen danach. Quelle, Asset, Spielstand und
-  Testreferenzen bleiben getrennt; keine automatische Quellaktualisierung. 2280 besitzt den Vertrag.
+  Testreferenzen bleiben getrennt; keine automatische Quellaktualisierung. [#10](https://github.com/Weichwolf/outshine/issues/10) besitzt den Vertrag.
 - Adapter/Provider beschaffen und normalisieren Eingaben; Generatoren erzeugen native Inhalte.
   Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
   Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
 - Builtins und externe Erweiterungen nutzen dieselbe öffentliche API. API-Änderungen migrieren
   alle Aufrufer. Szenarien deklarieren Inhalte/Kamera; keine einzelnen CLI-Inhaltsschalter.
   Der Client nimmt ein Szenario oder generische Szenario-Overrides entgegen.
-  Konkrete Verträge besitzt 2188; sie werden mit einem echten Feature integriert.
+  Konkrete Verträge besitzt [#9](https://github.com/Weichwolf/outshine/issues/9); sie werden mit einem echten Feature integriert.
 - Rundum-Abdeckung bleibt renderbereit. Drehung ändert Sichtbarkeit, Bewegung ergänzt Bedarf.
   Unveränderte Inhalte werden nicht neu erzeugt. Detailbedarf vor teurer Arbeit bestimmen;
   Änderungen gezielt fortpflanzen. Logische Welt und Kollision bleiben unabhängig vom Render-LOD.
@@ -76,7 +96,7 @@
   480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
   Hohe Bildqualität bei 480p30 auf A18 Pro ist mein Ziel; 720p60 bleibt Vergleichsmessprofil.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
-- Alle acht Places aus 2169 sind visuelle Regressionen, mindestens einer gehört ins Gate.
+- Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
@@ -110,20 +130,27 @@
   Wo immer möglich nutze ich bewährte Bibliotheken statt eigener Standardalgorithmen;
   Vertrag, Portabilität und gemessene Kosten müssen passen. Für Techniken und Algorithmen
   schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
-  passende Primärquellen und verankere Verfahren und Quellen im zuständigen WI.
+  passende Primärquellen und verankere Verfahren und Quellen im zuständigen Issue.
 - C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
   Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
   `src/` ohne Kommentare, `include/` nur hilfreiches API-Doxygen; Tests dürfen Kommentare haben.
-- Genau ein Parent-WI `active`, darunter 0:N tatsächlich bearbeitete aktive Kinder. `open` beliebig;
-  nächste ausführbare Reserve klein. WIs enthalten Ergebnis/Ist, Besitzer, Umsetzung, fehlende
-  Verträge und kurze Abnahme, keine Prüfchronik. Bevorzugt 80 Zeilen/6 KiB, maximal 120 Zeilen/12 KiB.
-- `Depends` nennt einen fehlenden Vertrag, keine Reihenfolge oder pauschal ein ganzes Subsystem.
-  Prioritäten, Abhängigkeiten und Vision-Abdeckung getrennt prüfen. Gemeinsame Regeln verlinken.
-  Veraltete/abgeschlossene WIs nach Anforderungsübernahme entfernen; wichtige Verträge erhalten.
-  IDs aus gesamter Git-Historie. WI vor Implementierung aktivieren; Änderungen erhalten,
-  kleine vollständige Commits ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
+- Genau ein oberstes Parent-Issue mit `state:active`, darunter 0:N tatsächlich bearbeitete aktive Kinder.
+  Offene Issues bleiben auf GitHub offen; `state:open` und `state:active` unterscheiden Reserve und Arbeit.
+  Status-, Prioritäts- und Architekturfelder in Beschreibung und Labels gemeinsam aktualisieren.
+  Beim Aktivieren das andere Statuslabel entfernen; abschließen erst nach erfüllter Abnahme mit `gh issue close`.
+  `priority:P0` bis `priority:P3`, `architecture:ready`/`architecture:planned` und `owner:*` erhalten.
+  Beschreibungen enthalten Ergebnis/Ist, Besitzer, Umsetzung, fehlende Verträge und kurze Abnahme, keine Prüfchronik.
+  Bevorzugt 80 Zeilen/6 KiB; ausführliche Diskussion und Belege bleiben in Kommentaren.
+- `Parent` und `Depends` nennen GitHub-Issuenummern. `Depends` bezeichnet einen fehlenden Vertrag,
+  keine Reihenfolge oder pauschal ein ganzes Subsystem. Priorität, Abhängigkeiten und Vision getrennt prüfen.
+  Vor gemeinsamen Änderungen den aktuellen Issue-Stand lesen, fremde Fortschritte erhalten und betroffene
+  Verbraucher/Abnahmen mitführen. Beschreibung und Status gelten branchübergreifend.
+- Neue Nummern vergibt GitHub.
+  Ich referenziere aktuelle Issues als `#N` oder per URL und aktiviere sie vor Implementierung.
+  Abgeschlossene Anforderungen in ihren Besitzer übernehmen, dann das Issue schließen; nichts lokal löschen.
+  Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.

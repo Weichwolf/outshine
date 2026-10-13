@@ -2,20 +2,26 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-log=$(mktemp "${TMPDIR:-/tmp}/outshine-lint-docs.XXXXXX")
-status=0
-sh test/run.sh \
-  harness/claims/ABoardIdIsIssuedOnce.cpp \
-  harness/claims/ACommitSayingClosedRemovedTheItem.cpp \
-  harness/claims/EveryBoardEdgePointsAtAnItem.cpp \
-  harness/claims/EveryWorkItemHasABoundedSize.cpp \
-  harness/claims/TheMapCitesLinesThatSayWhatItClaims.cpp \
-  > "$log" 2>&1 || status=$?
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/outshine-lint-docs.XXXXXX")
+log=$(mktemp "${TMPDIR:-/tmp}/outshine-lint-docs.XXXXXX.log")
+trap 'rm -rf "$scratch"' EXIT HUP INT TERM
 
+# Reuse the runner's toolchain policy without preparing engine libraries or corpora.
+standard=$(sed -n 's/^CXXSTD=//p' test/run.sh)
+warnings=$(sed -n 's/^WARN="\(.*\)"$/\1/p' test/run.sh)
+optimization=$(sed -n 's/^OPT="\(.*\)"$/\1/p' test/run.sh)
+[ -n "$standard" ] && [ -n "$warnings" ] && [ -n "$optimization" ]
+status=0
+${CXX:-c++} $standard $warnings $optimization -Itest/harness/shared \
+  test/harness/claims/TheMapCitesLinesThatSayWhatItClaims.cpp \
+  -o "$scratch/agents-contract" > "$log" 2>&1 || status=$?
 if [ "$status" -eq 0 ]; then
-  printf 'lint-docs: PASS (board and AGENTS only); details: %s\n' "$log"
+  "$scratch/agents-contract" >> "$log" 2>&1 || status=$?
+fi
+if [ "$status" -eq 0 ]; then
+  printf 'lint-docs: PASS (AGENTS only; offline); details: %s\n' "$log"
 else
   printf 'lint-docs: FAIL (exit %s); details: %s\n' "$status" "$log" >&2
-  grep -E '^(FAIL|BUILD|UNPREP|TIMEOUT|SIGNAL|run.sh:.*(RED|no declared))' "$log" | head -12 >&2 || true
+  tail -12 "$log" >&2
 fi
 exit "$status"

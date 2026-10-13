@@ -7,7 +7,7 @@ vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
 Die folgenden Empfehlungen sind Architekturentscheidungen für die Feature-WIs;
 eine Literaturquelle ersetzt weder Integration noch Bild- und Laufzeitbelege.
-Reihenfolge aus WI 2169: Infrastruktur → Gebäude → Terrain → Vegetation → Wolken;
+Reihenfolge aus WI [#5](https://github.com/Weichwolf/outshine/issues/5): Infrastruktur → Gebäude → Terrain → Vegetation → Wolken;
 Simulation und Gameplay folgen dem visuellen Meilenstein.
 
 ## PDFs und Nutzung
@@ -16,7 +16,7 @@ Alle PDFs liegen nach Bereich/Konferenz direkt unter `doc/references/` und sind 
 Die kanonischen Downloadlinks stehen bei jeder Quelle.
 Kein Fremdcode, Texturpaket oder Trainingsdatensatz wird übernommen.
 
-## Asset-Laden und Residency — WI 2280
+## Asset-Laden und Residency — WI [#10](https://github.com/Weichwolf/outshine/issues/10)
 
 [Vorbereitete Assets, räumliche Pakete und Residency](engine/unreal/prepared-assets.md)
 fasst Unreal DDC, World Partition/HLOD, Texture Streaming und Geometry Clipmaps zusammen.
@@ -24,9 +24,9 @@ Die Notiz verlinkt die Primärquellen, grenzt deren Übertragung ab und trennt S
 von RAM-/GPU-Residency und budgetierten Laufzeitdetails. Epic-Referenzen sind Online-Dokumentation;
 das Clipmaps-Paper liegt bereits als PDF unter Terrain/SIGGRAPH.
 
-## Gebäude und kompakte Fassaden — WI 2173 / 2171
+## Gebäude und kompakte Fassaden — WI [#8](https://github.com/Weichwolf/outshine/issues/8) / [#6](https://github.com/Weichwolf/outshine/issues/6)
 
-[OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI 2341:
+[OSM-Lieferinventur und Rezeptplan](data/osm/inventory.md), WI [#17](https://github.com/Weichwolf/outshine/issues/17):
 32 gezielte Standorte, alle gelieferten Layer, vollständiger beobachteter Klassenkatalog.
 Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Vollständigkeitsbehauptung.
 
@@ -49,20 +49,20 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   [Quelle](https://vladlen.info/papers/architecture.pdf) ·
   [PDF](buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf).
   Raumprogramm/Adjazenzen → gemeinsam abgestimmte Geschosspläne → vollständige Innen-/Außengeometrie.
-  WI 2420 vergleicht begrenzte Verfahren mit festen OSM-Körpern; keine ungemessene Übernahme des Optimierers.
+  WI [#31](https://github.com/Weichwolf/outshine/issues/31) vergleicht begrenzte Verfahren mit festen OSM-Körpern; keine ungemessene Übernahme des Optimierers.
 - **Finding the Maximum Area Axis-Parallel Rectangle in a Polygon**, Daniels / Milenkovic / Roth,
   Autorenpreprint Oktober 1993, später Computational Geometry 1997.
   [Quelle](https://cogcomp.seas.upenn.edu/papers/maaprJ.pdf) ·
   [PDF](buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf).
-  Randkontakte und Polygonzerlegung begründen vollständig innenliegende Rechtecke mit Löchern (2400/2420).
+  Randkontakte und Polygonzerlegung begründen vollständig innenliegende Rechtecke mit Löchern ([#30](https://github.com/Weichwolf/outshine/issues/30)/[#31](https://github.com/Weichwolf/outshine/issues/31)).
   Seiten 1/5/8 optisch geprüft; feste Kernmaße brauchen gültige Platzierung, keine behauptete globale Flächenoptimierung.
 - **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
   [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
   [PDF](buildings/esri/2013-interior-floors-web-scenes.pdf).
-  CityEngine Dev HQ mit drei Innenraumgeschossen, Außenwänden und Schnittansichten (2400).
+  CityEngine Dev HQ mit drei Innenraumgeschossen, Außenwänden und Schnittansichten ([#30](https://github.com/Weichwolf/outshine/issues/30)).
   Belegt Innenraumdarstellung; liefert keinen Nachweis eines automatischen Raumplaners im lokalen SDK.
 
-## Geometrie, Sichtbarkeit und Terrain — WI 2336 / 2337 / 2338
+## Geometrie, Sichtbarkeit und Terrain — WI [#12](https://github.com/Weichwolf/outshine/issues/12) / [#13](https://github.com/Weichwolf/outshine/issues/13) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
 [Hierarchischer Bedarf vor Download und Geometrie](engine/visibility-driven-demand.md)
 prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outshine ab.
@@ -97,7 +97,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Gerichtete Felsstruktur prototypisieren; Kernelkosten gegen einfachere gefilterte Noise
   messen. Noise liefert keine belegte Geologie und keinen Ersatz für DEM-Silhouette.
 
-## Materialien, Licht und Bildstabilität — WI 2171 / 2155
+## Materialien, Licht und Bildstabilität — WI [#6](https://github.com/Weichwolf/outshine/issues/6) / [#4](https://github.com/Weichwolf/outshine/issues/4)
 
 - **Physically Based Shading at Disney**, Burley, SIGGRAPH-Kurs 2012.
   [Quelle](https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf) ·
@@ -173,7 +173,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   des Bildes liegende Flächen bleiben eine grundlegende Grenze. Gefiltertes IBL liefert
   die Grundreflexion, SSR ergänzt gültige Treffer. Gemeinsamer Pfad für Wasser und Fassaden.
 
-## Straßen, Wasser und technische Objekte — WI 2281 / 2145 / 2338
+## Straßen, Wasser und technische Objekte — WI [#11](https://github.com/Weichwolf/outshine/issues/11) / [#3](https://github.com/Weichwolf/outshine/issues/3) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
 - **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
   [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
@@ -195,7 +195,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Das Verfahren löst weder Quellpegel noch Küstenabschluss. Erst Wasser/Bett/Ufer korrigieren,
   danach Animation auf demselben Körper; kein globales Grundwassermesh.
 
-## Vegetation, Atmosphäre und Wetter — WI 2111 / 2172
+## Vegetation, Atmosphäre und Wetter — WI [#1](https://github.com/Weichwolf/outshine/issues/1) / [#7](https://github.com/Weichwolf/outshine/issues/7)
 
 - **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
   EGSR 2007.
@@ -227,7 +227,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Mehrere räumliche Ebenen statt einer flachen Kronenkarte als Fernprototyp vergleichen.
   Alpha-Belegung, Mips, Normalen und Silhouette erhalten; leere Texel und Overdraw können
   den Geometriegewinn aufheben. Aus eigenen prozeduralen Modellen erzeugen, kein Fotoatlas. Gemeinsame Basisprodukte
-  als Asset-Rohlinge speichern (2280); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
+  als Asset-Rohlinge speichern ([#10](https://github.com/Weichwolf/outshine/issues/10)); Nahdetails und aktuelles Licht/Wind folgen zur Laufzeit.
 - **Real-time Realistic Rendering and Lighting of Forests**, Bruneton / Neyret, Eurographics 2012.
   [Publikation](https://doi.org/10.1111/j.1467-8659.2012.03016.x) ·
   [Autoren-PDF](https://maverick.inria.fr/Publications/2011/BN11a/article.pdf) ·
@@ -250,7 +250,7 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Wind, Licht und Wolkenschatten nutzen denselben Zustand. Publizierte PS4-Zeiten sind
   kein A18-Pro-Beleg. Keine Wolkenarbeit vor dem vereinbarten Welt-/Vegetationsausbau.
 
-## Physik, Animation, NPCs und Klang — WI 2136
+## Physik, Animation, NPCs und Klang — WI [#2](https://github.com/Weichwolf/outshine/issues/2)
 
 - **XPBD: Position-Based Simulation of Compliant Constrained Dynamics**, Macklin et al.,
   Motion in Games 2016. [Quelle](https://mmacklin.com/xpbd.pdf) ·
@@ -279,15 +279,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 | Bereich / WI | Grundlage | Entscheidung für Outshine |
 |---|---|---|
-| Quellen/HTTP/Cache — 2280 | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; Quellbytes separat, Assetbedarf → Treffer laden / Miss generieren; räumlicher Assetcache mit LOD/Residency |
-| Weltweite Auswahl — 2336 | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
-| Import/Material/Animation — 2188 / 2171 / 2136 | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Szenario und glTF in dieselben nativen Produkte, keine parallele Assetwelt |
-| Backend/Submission — 2188 / 2155 | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Nur verfügbare Backendverträge; Ownership, Synchronisation, tatsächliche GPU-Bytes messen |
-| JS/UI/LLM — 2136 | [ECMAScript](https://tc39.es/ecma262/) und vorhandene HTML/CSS-Teilmenge | Begrenzte Commands/Events, lokale ausführbare Steuerung, keine Netzwerkabhängigkeit im Tick |
-| Navigation — 2136 | [Recast/Detour](https://recastnav.com/md_Docs_2__1__Introduction.html) | Begehbare Flächen und lokale Pfadkorridore; Straßengraph für Verkehr, eigene Flug-/Wassermodelle statt einer universellen 2D-Navigation |
-| Astronomie — 2172 | [IAU SOFA](https://www.iausofa.org/cookbooks) | Zeit-/Koordinatenkonventionen und Beobachterkorrekturen prüfen; Astronomie aus UTC/Ort, nicht als Live-Datenabhängigkeit |
+| Quellen/HTTP/Cache — [#10](https://github.com/Weichwolf/outshine/issues/10) | [HTTP-Semantik, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) | libcurl; paralleles begrenztes IO, Status-/Retry-/Abbruchverträge; Quellbytes separat, Assetbedarf → Treffer laden / Miss generieren; räumlicher Assetcache mit LOD/Residency |
+| Weltweite Auswahl — [#12](https://github.com/Weichwolf/outshine/issues/12) | [Cesium Native: Auswahl](https://cesium.com/learn/cesium-native/ref-doc/selection-algorithm-details.html) | Elternabdeckung bis Kindpublikation, projizierter Fehler; Blick-Culling getrennt von Rundum-Residency |
+| Import/Material/Animation — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#6](https://github.com/Weichwolf/outshine/issues/6) / [#2](https://github.com/Weichwolf/outshine/issues/2) | [Khronos glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html) | Szenario und glTF in dieselben nativen Produkte, keine parallele Assetwelt |
+| Backend/Submission — [#9](https://github.com/Weichwolf/outshine/issues/9) / [#4](https://github.com/Weichwolf/outshine/issues/4) | [SDL3 GPU](https://wiki.libsdl.org/SDL3/CategoryGPU) | Nur verfügbare Backendverträge; Ownership, Synchronisation, tatsächliche GPU-Bytes messen |
+| JS/UI/LLM — [#2](https://github.com/Weichwolf/outshine/issues/2) | [ECMAScript](https://tc39.es/ecma262/) und vorhandene HTML/CSS-Teilmenge | Begrenzte Commands/Events, lokale ausführbare Steuerung, keine Netzwerkabhängigkeit im Tick |
+| Navigation — [#2](https://github.com/Weichwolf/outshine/issues/2) | [Recast/Detour](https://recastnav.com/md_Docs_2__1__Introduction.html) | Begehbare Flächen und lokale Pfadkorridore; Straßengraph für Verkehr, eigene Flug-/Wassermodelle statt einer universellen 2D-Navigation |
+| Astronomie — [#7](https://github.com/Weichwolf/outshine/issues/7) | [IAU SOFA](https://www.iausofa.org/cookbooks) | Zeit-/Koordinatenkonventionen und Beobachterkorrekturen prüfen; Astronomie aus UTC/Ort, nicht als Live-Datenabhängigkeit |
 | Parser/Mathematik/Geometrie/Physik | [Systembibliotheken](../dependencies.md) | Bewährte Implementierungen kapseln; keine Library-Typen in Welt, ABI oder Saveformat |
-| Save/Replay, Telemetrie, Budgets — 2136 / 2188 / 2169 | Eigene Zustands-/Lebensdauerverträge im WI | Versionierte atomare Zustandsübergänge, aufgezeichnete externe Events; Literatur begründet keine Vollständigkeit |
+| Save/Replay, Telemetrie, Budgets — [#2](https://github.com/Weichwolf/outshine/issues/2) / [#9](https://github.com/Weichwolf/outshine/issues/9) / [#5](https://github.com/Weichwolf/outshine/issues/5) | Eigene Zustands-/Lebensdauerverträge im WI | Versionierte atomare Zustandsübergänge, aufgezeichnete externe Events; Literatur begründet keine Vollständigkeit |
 
 Offene Implementierungsfragen bleiben im zuständigen WI: Quellsemantik/Sonderbauten,
 globale Abdeckung, konservative Formfehler, Schattenqualität, Reflexionssichtbarkeit,
