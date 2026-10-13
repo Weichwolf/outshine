@@ -163,14 +163,7 @@ vec3 shadeRow(M surface,
   const vec2 environmentBrdf = ggxEnvironmentBrdf(nvClamped, roughness);
   const vec3 specularEnvironment =
       (f0 * (environmentBrdf.x - environmentBrdf.y) + vec3(f90 * environmentBrdf.y)) * energyScale;
-  const float skyShare = clamp(dot(n, lights.up.xyz) * 0.5 + 0.5, 0.0, 1.0);
-  vec3 skyRadiance = lights.environment.rgb;
-  vec3 groundRadiance = lights.bounced.rgb;
-  if (lights.environment.w > 0.0) {
-    skyRadiance += skyDiffuseRadiance();
-    groundRadiance += groundDiffuseRadiance();
-  }
-  const vec3 ambient = mix(groundRadiance, skyRadiance, skyShare);
+  const vec3 ambient = diffuseEnvironment(n);
   const vec3 reflectedRadiance = filteredEnvironment(reflect(-v, n), roughness);
   sum += ambient * diffuseColour * (vec3(1.0) - clamp(specularEnvironment, 0.0, 1.0)) +
          reflectedRadiance * specularEnvironment;

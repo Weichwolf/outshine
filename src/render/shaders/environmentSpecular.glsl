@@ -18,10 +18,20 @@ vec3 filteredEnvironment(vec3 reflection, float roughness) {
   vec3 authored = mix(lights.bounced.rgb, lights.environment.rgb, skyShare);
   if (lights.environment.w <= 0.0) { return authored; }
   vec3 direction = environmentDirection(reflection);
-  float level = clamp(roughness, 0.0, 1.0) * float(kEnvironmentLevels - 1);
+  float level = clamp(roughness, 0.0, 1.0) * float(kEnvironmentSpecularLevels - 1);
   float lower = floor(level);
-  float upper = min(lower + 1.0, float(kEnvironmentLevels - 1));
+  float upper = min(lower + 1.0, float(kEnvironmentSpecularLevels - 1));
   vec3 low = textureLod(environmentMap, environmentUv(direction, lower), 0.0).rgb;
   vec3 high = textureLod(environmentMap, environmentUv(direction, upper), 0.0).rgb;
   return authored + mix(low, high, level - lower) * lights.environment.w;
+}
+
+vec3 diffuseEnvironment(vec3 normal) {
+  float skyShare = clamp(dot(normal, lights.up.xyz) * 0.5 + 0.5, 0.0, 1.0);
+  vec3 authored = mix(lights.bounced.rgb, lights.environment.rgb, skyShare);
+  if (lights.environment.w <= 0.0) { return authored; }
+  vec3 direction = environmentDirection(normal);
+  return authored + textureLod(environmentMap,
+                               environmentUv(direction, float(kEnvironmentDiffuseLevel)), 0.0).rgb *
+                    lights.environment.w;
 }

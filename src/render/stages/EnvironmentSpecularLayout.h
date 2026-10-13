@@ -9,6 +9,8 @@ namespace outshine::Render {
 #undef ENV_INT
 inline constexpr uint32_t kEnvironmentWidth = kEnvironmentSide + 2u * kEnvironmentBorder;
 inline constexpr uint32_t kEnvironmentHeight = kEnvironmentWidth * kEnvironmentLevels;
+static_assert(kEnvironmentDiffuseLevel == kEnvironmentSpecularLevels);
+static_assert(kEnvironmentLevels == kEnvironmentDiffuseLevel + 1u);
 }
 
 #endif

@@ -1599,12 +1599,9 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
     SDL_BindGPUFragmentSamplers(into.Pass, 0, selected.data(), bindings.Count);
   }
   if (surface.Domain == SurfaceDomain::Ground) {
-    std::array<SDL_GPUBuffer *const, 3> storage = {GroundClasses_, GroundPalette_, SkyIrradiance_};
+    std::array<SDL_GPUBuffer *const, 2> storage = {GroundClasses_, GroundPalette_};
     SDL_BindGPUFragmentStorageBuffers(
         into.Pass, 0, storage.data(), bindings.Shape.FragmentStorageBuffers);
-  } else if (bindings.Shape.FragmentStorageBuffers > 0) {
-    const std::array<SDL_GPUBuffer *, 1> storage = {SkyIrradiance_};
-    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), 1);
   }
   SDL_PushGPUFragmentUniformData(into.Commands,
                                  0,
@@ -1627,9 +1624,8 @@ void SubjectDraw::EncodeGround(const PassRecording &into) const {
       SDL_BindGPUFragmentSamplers(
           into.Pass, 0, images.data(), static_cast<uint32_t>(images.size()));
     }
-    std::array<SDL_GPUBuffer *const, 3> storage = {GroundClasses_, GroundPalette_, SkyIrradiance_};
-    SDL_BindGPUFragmentStorageBuffers(
-        into.Pass, 0, storage.data(), Binding().CapturesMaterial ? 2u : 3u);
+    std::array<SDL_GPUBuffer *const, 2> storage = {GroundClasses_, GroundPalette_};
+    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), 2);
     SDL_PushGPUFragmentUniformData(into.Commands,
                                    0,
                                    surface.Row.data(),
