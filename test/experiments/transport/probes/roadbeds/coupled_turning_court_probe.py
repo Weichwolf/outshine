@@ -148,6 +148,7 @@ def main():
     parser.add_argument('--setback',type=float,default=None)
     parser.add_argument('--grow-ports',action='store_true')
     parser.add_argument('--joined-cuts',action='store_true')
+    parser.add_argument('--cut-sections',type=int,nargs='+')
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args();begin=time.perf_counter()
     if len(args.pair)!=len(args.case) or len({tuple(p) for p in args.pair})!=len(args.pair):parser.error('one case per distinct pair required')
@@ -157,6 +158,9 @@ def main():
     network=coupled.prepared_network(root,before,next(p['frames'] for p in frames['places'] if p['place']==name))
     cut_path=root/'cut-setbacks'/f'{name}-cut-setbacks.json';cuts=json.loads(cut_path.read_text());restore_cut_plan(network,cuts['plan'])
     old,_=network.poses(module,{});sections={old[i]['section'] for pair in args.pair for i in pair}
+    if args.cut_sections is not None:
+        if not set(args.cut_sections)<=sections:parser.error('moved sections must belong to the selected source requests')
+        sections=set(args.cut_sections)
     original_routes,_=directed_module_routes(network.graph,old,network.shape(module),network.tree)
     distance=network.vehicle['minimumRearAxleRadiusM'] if args.setback is None else args.setback
     if distance==0:
