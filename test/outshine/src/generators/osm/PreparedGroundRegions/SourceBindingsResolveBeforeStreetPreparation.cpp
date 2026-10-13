@@ -105,7 +105,7 @@ int main() {
   const std::array<uint32_t, 3> indices{0, 1, 2};
   CHECK(part && region.Surfaces.setPositions(*part, positions) &&
             region.Surfaces.setTriangles(*part, indices),
-        "native infrastructure is complete");
+        "native transport is complete");
   region.Terrain.Sheets = {{.Tile = {.Zoom = 2, .X = 1, .Y = 1},
                             .Nodes = {100, 101, 102, 103},
                             .Side = 2,

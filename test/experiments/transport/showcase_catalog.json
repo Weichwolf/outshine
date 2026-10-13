@@ -1,0 +1,210 @@
+{
+  "sections": [
+    {
+      "id": "anschluesse",
+      "title": "Anschlüsse",
+      "description": "Gemeinsame Bauteile und vollständige Randsegmente. Grün: Anschlussflächen. Grau: Korridore. Orange: geteilte Mesh-Ränder."
+    },
+    {
+      "id": "grundfaelle",
+      "title": "Grundformen",
+      "description": "Kleine synthetische Fälle aus dem bestehenden Solver. Ansichten in Metern; links die Flächenaufteilung, rechts das indizierte Mesh."
+    },
+    {
+      "id": "netze",
+      "title": "OSM-Netze",
+      "description": "Wien, Zürich und Basel im vollständigen Fenster. Fehlende lokale Belege bleiben sichtbar."
+    }
+  ],
+  "images": [
+    {
+      "id": "straight",
+      "title": "Gerade",
+      "section": "grundfaelle",
+      "kind": "Synthetischer Grundfall",
+      "description": "Ein gerader Straßenkörper als einfachster Ausgangsfall.",
+      "image_source": "build/experiments/transport/showcase/fixtures/straight-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/straight-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "bend",
+      "title": "Kurve",
+      "section": "grundfaelle",
+      "kind": "Synthetischer Grundfall",
+      "description": "Geknickte Quellachse; die Fläche allein belegt noch keine glatte Fahrkurve.",
+      "image_source": "build/experiments/transport/showcase/fixtures/bend-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/bend-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "cul_de_sac",
+      "title": "Sackgasse",
+      "section": "grundfaelle",
+      "kind": "Synthetischer Grundfall",
+      "description": "Zwei Quellabschnitte mit gemeinsamem Ende.",
+      "image_source": "build/experiments/transport/showcase/fixtures/cul_de_sac-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/cul_de_sac-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "short_link",
+      "title": "Kurzer Verbinder",
+      "section": "grundfaelle",
+      "kind": "Synthetischer Grundfall",
+      "description": "Ein nur zehn Zentimeter langer Abschnitt zwischen längeren Achsen.",
+      "image_source": "build/experiments/transport/showcase/fixtures/short_link-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/short_link-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "island",
+      "title": "Getrennte Komponenten",
+      "section": "grundfaelle",
+      "kind": "Synthetischer Grundfall",
+      "description": "Zwei getrennte Straßen bleiben getrennt; es wird keine Verbindung erfunden.",
+      "image_source": "build/experiments/transport/showcase/fixtures/island-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/island-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "T",
+      "title": "T-Anschluss",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Drei Zufahrten teilen die Randsegmente mit dem Anschlussbauteil.",
+      "image_source": "build/experiments/transport/showcase/fixtures/T-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/T-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "X",
+      "title": "Kreuzung",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Vier Arme und ein gemeinsamer Kreuzungskörper.",
+      "image_source": "build/experiments/transport/showcase/fixtures/X-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/X-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "small_gap",
+      "title": "Knapp verfehlter Anschluss",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Ein kleiner Quellspalt wird vom bestehenden Vektorplan begrenzt geschlossen.",
+      "image_source": "build/experiments/transport/showcase/fixtures/small_gap-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/small_gap-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "short_T",
+      "title": "Kurzer T-Arm",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Ein kurzer Seitenarm prüft die räumliche Aufteilung.",
+      "image_source": "build/experiments/transport/showcase/fixtures/short_T-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/short_T-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "inclined_T",
+      "title": "Gedrehter T-Anschluss",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Derselbe Anschluss um zwanzig Grad gedreht.",
+      "image_source": "build/experiments/transport/showcase/fixtures/inclined_T-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/inclined_T-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "split_continuation",
+      "title": "Geteilte Fortsetzung",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Mehrere Quellabschnitte bilden eine durchgehende Straße mit Seitenarm.",
+      "image_source": "build/experiments/transport/showcase/fixtures/split_continuation-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/split_continuation-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "bent_short_approach",
+      "title": "Kurze geknickte Zufahrt",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Anschluss und kurze Kurve liegen eng beieinander.",
+      "image_source": "build/experiments/transport/showcase/fixtures/bent_short_approach-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/bent_short_approach-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "acute_merge",
+      "title": "Spitze Einmündung",
+      "section": "anschluesse",
+      "kind": "Synthetischer Grundfall",
+      "description": "Ein sehr kleiner Anschlusswinkel zeigt die Grenze einfacher Flächenrezepte.",
+      "image_source": "build/experiments/transport/showcase/fixtures/acute_merge-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/acute_merge-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "courtyard_loop",
+      "title": "Geschlossener Ring",
+      "section": "grundfaelle",
+      "kind": "Synthetischer Grundfall",
+      "description": "Eine Schleife mit zwei äußeren Anschlüssen und erhaltener Innenfläche.",
+      "image_source": "build/experiments/transport/showcase/fixtures/courtyard_loop-flat-surfaces.png",
+      "report_source": "build/experiments/transport/showcase/fixtures/courtyard_loop-flat-surfaces.json",
+      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
+      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
+    },
+    {
+      "id": "Wien",
+      "title": "Wien",
+      "section": "netze",
+      "kind": "Echtes OSM-Fenster",
+      "description": "Vollständiges Transportnetz aus echten Quelldaten; lokale Nachweise werden nach dem Datentransfer ergänzt.",
+      "image_source": "build/shots/experiments/transport/Wien-complete-window.png",
+      "report_source": "build/experiments/transport/showcase/networks/Wien-report.json",
+      "origin_source": "build/experiments/transport/showcase/networks/origin.json",
+      "missing_note": "Die benötigten Eingaben, Produkte und geprüften Bilder sind auf diesem Rechner noch nicht übertragen. Frühere Messungen sind kein aktueller lokaler Bildnachweis."
+    },
+    {
+      "id": "ZuerichHauptbahnhof",
+      "title": "Zürich Hauptbahnhof",
+      "section": "netze",
+      "kind": "Echtes OSM-Fenster",
+      "description": "Vollständiges Transportnetz aus echten Quelldaten; lokale Nachweise werden nach dem Datentransfer ergänzt.",
+      "image_source": "build/shots/experiments/transport/ZuerichHauptbahnhof-complete-window.png",
+      "report_source": "build/experiments/transport/showcase/networks/ZuerichHauptbahnhof-report.json",
+      "origin_source": "build/experiments/transport/showcase/networks/origin.json",
+      "missing_note": "Die benötigten Eingaben, Produkte und geprüften Bilder sind auf diesem Rechner noch nicht übertragen. Frühere Messungen sind kein aktueller lokaler Bildnachweis."
+    },
+    {
+      "id": "BaselBadischerBahnhof",
+      "title": "Basel Badischer Bahnhof",
+      "section": "netze",
+      "kind": "Echtes OSM-Fenster",
+      "description": "Vollständiges Transportnetz aus echten Quelldaten; lokale Nachweise werden nach dem Datentransfer ergänzt.",
+      "image_source": "build/shots/experiments/transport/BaselBadischerBahnhof-complete-window.png",
+      "report_source": "build/experiments/transport/showcase/networks/BaselBadischerBahnhof-report.json",
+      "origin_source": "build/experiments/transport/showcase/networks/origin.json",
+      "missing_note": "Die benötigten Eingaben, Produkte und geprüften Bilder sind auf diesem Rechner noch nicht übertragen. Frühere Messungen sind kein aktueller lokaler Bildnachweis."
+    }
+  ],
+  "note": "Fester veröffentlichter Bildstand. Grundfälle sind synthetisch und keine Rekonstruktion eines Ortes. Zeitwerte messen Flächenplanung bzw. Meshaufbau und Prüfung ohne Bilderzeugung.",
+  "gap": "Glatte Fahrzeugrouten und vollständige OSM-Fenster müssen lokal erneut belegt werden. Wege, Radverkehr, Schienen, Höhenprofile und Ebenenrezepte sowie native Echtzeit- und Geräteabnahme bleiben offen."
+}

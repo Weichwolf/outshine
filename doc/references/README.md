@@ -1,13 +1,13 @@
 # Forschungsgrundlage für Outshine
 
 Stand: 2026-10-12. Primärquellen: Autoren, Forschungsgruppen, Kursveranstalter und Normgeber.
-40 Publikationen sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
+Publikationen und Referenzdokumente sind lokal als PDF vorhanden. SIGGRAPH-Papers, Kurse und verwandte
 Veröffentlichungen sind getrennt bezeichnet. Das ist eine kuratierte Grundlage, keine
 vollständige Literaturübersicht oder Bestätigung der Machbarkeit auf A18 Pro.
 
 Die folgenden Empfehlungen sind Architekturentscheidungen für die Feature-WIs;
 eine Literaturquelle ersetzt weder Integration noch Bild- und Laufzeitbelege.
-Reihenfolge aus WI [#5](https://github.com/Weichwolf/outshine/issues/5): Gebäude → Terrain → Infrastruktur → Vegetation → Wolken;
+Priorität aus WI [#5](https://github.com/Weichwolf/outshine/issues/5): Transport → Gebäude → Terrain → Vegetation → Wolken;
 Simulation und Gameplay folgen dem visuellen Meilenstein.
 
 ## PDFs und Nutzung
@@ -45,6 +45,22 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   [PDF](buildings/egsr/2010-grammar-based-encoding-of-facades.pdf).
   Wiederholungen kompakt parametrisieren und im Shader auswerten. Nahsilhouette,
   Laibungen und betretbare Räume brauchen Geometrie; Fernmuster benötigen Filterung.
+- **Computer-Generated Residential Building Layouts**, Merrell / Schkufza / Koltun, SIGGRAPH Asia 2010.
+  [Quelle](https://vladlen.info/papers/architecture.pdf) ·
+  [PDF](buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf).
+  Raumprogramm/Adjazenzen → gemeinsam abgestimmte Geschosspläne → vollständige Innen-/Außengeometrie.
+  WI [#31](https://github.com/Weichwolf/outshine/issues/31) vergleicht begrenzte Verfahren mit festen OSM-Körpern; keine ungemessene Übernahme des Optimierers.
+- **Finding the Maximum Area Axis-Parallel Rectangle in a Polygon**, Daniels / Milenkovic / Roth,
+  Autorenpreprint Oktober 1993, später Computational Geometry 1997.
+  [Quelle](https://cogcomp.seas.upenn.edu/papers/maaprJ.pdf) ·
+  [PDF](buildings/geometry/1993-maximum-area-axis-parallel-rectangle.pdf).
+  Randkontakte und Polygonzerlegung begründen vollständig innenliegende Rechtecke mit Löchern ([#30](https://github.com/Weichwolf/outshine/issues/30)/[#31](https://github.com/Weichwolf/outshine/issues/31)).
+  Seiten 1/5/8 optisch geprüft; feste Kernmaße brauchen gültige Platzierung, keine behauptete globale Flächenoptimierung.
+- **Tutorial 15: Publish web scenes**, Esri 2013, Produktdokumentation.
+  [Quelle](https://resources.arcgis.com/en/help/pdf/cityengine/10.2/tutorial_15_publish_web_scenes.pdf) ·
+  [PDF](buildings/esri/2013-interior-floors-web-scenes.pdf).
+  CityEngine Dev HQ mit drei Innenraumgeschossen, Außenwänden und Schnittansichten ([#30](https://github.com/Weichwolf/outshine/issues/30)).
+  Belegt Innenraumdarstellung; liefert keinen Nachweis eines automatischen Raumplaners im lokalen SDK.
 
 ## Geometrie, Sichtbarkeit und Terrain — WI [#12](https://github.com/Weichwolf/outshine/issues/12) / [#13](https://github.com/Weichwolf/outshine/issues/13) / [#14](https://github.com/Weichwolf/outshine/issues/14)
 
@@ -161,17 +177,17 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
 
 - **Interactive Procedural Street Modeling**, Chen et al., SIGGRAPH 2008.
   [Quelle](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf) ·
-  [PDF](infrastructure/siggraph/2008-interactive-procedural-street-modeling.pdf).
+  [PDF](transport/siggraph/2008-interactive-procedural-street-modeling.pdf).
   Graphbearbeitung von Geometrie trennen. OSM-Verbindungen und Ebenen bleiben maßgeblich;
   die Tensorfeld-Netzerzeugung ersetzt unser reales Straßennetz nicht. Brückentragwerke
   benötigen zusätzlich klare Anschluss-/Kontaktregeln und kompakte wiederholte Bauteile.
 - **Procedural Generation of Roads**, Galin / Peytavie / Maréchal / Guérin, Eurographics 2010.
   [Quelle](https://perso.liris.cnrs.fr/egalin/Articles/2010-roads.pdf) ·
-  [PDF](infrastructure/eurographics/2010-procedural-generation-of-roads.pdf).
+  [PDF](transport/eurographics/2010-procedural-generation-of-roads.pdf).
   Eigenständige Straßen-/Brücken-/Tunnelmodelle aus geglätteter Trajektorie und Querschnitt;
   Geländeschnitt und Aufschüttung folgen demselben Profil. Für OSM übernehmen wir die
   Modell-/Kontakttrennung, nicht die Neuerzeugung des vorhandenen Netzes.
-  [Codevorbilder und Grenzen](infrastructure/README.md): OSM2World, SUMO und CARLA.
+  [Codevorbilder und Grenzen](transport/README.md): OSM2World, SUMO und CARLA.
 - **Wave Particles**, Yuksel / House / Keyser, SIGGRAPH 2007.
   [Quelle](https://www.cemyuksel.com/research/waveparticles/waveparticles.pdf) ·
   [PDF](water/siggraph/2007-wave-particles.pdf).

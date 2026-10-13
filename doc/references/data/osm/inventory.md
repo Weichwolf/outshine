@@ -16,7 +16,7 @@ Europa, Asien, Afrika, Nord-/Südamerika und Ozeanien. Kein Beweis globaler Voll
 [Messdaten samt Koordinaten, URLs und Hashes](openfreemap-inventory-20261009.json),
 [alle beobachteten Klassen und Schlüssel](openfreemap-classes-20261009.md),
 [geliefertes TileJSON](openfreemap-tilejson-20261009.json).
-Reproduktion: `test/experiments/osm_provider_inventory.py`; Ausgabe/Downloads ins System-Temp.
+Reproduktion: `test/experiments/transport/osm_provider_inventory.py`; Ausgabe/Downloads ins System-Temp.
 Featurezahlen enthalten Zoom- und Kachelpuffer-Duplikate, sind keine Objektzahlen.
 Die Standortnamen benennen Untersuchungsgebiete, keine bewiesenen Einzelobjekte.
 

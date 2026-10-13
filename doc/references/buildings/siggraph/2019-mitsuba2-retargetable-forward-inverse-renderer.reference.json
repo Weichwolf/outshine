@@ -1,0 +1,24 @@
+{
+  "title": "Mitsuba 2: A Retargetable Forward and Inverse Renderer",
+  "authors": [
+    "Merlin Nimier-David",
+    "Delio Vicini",
+    "Tizian Zeltner",
+    "Wenzel Jakob"
+  ],
+  "year": 2019,
+  "venue": "ACM TOG 38(6), SIGGRAPH Asia 2019",
+  "doi": "10.1145/3355089.3356498",
+  "source": "https://rgl.epfl.ch/publications/NimierDavidVicini2019Mitsuba2",
+  "download": "https://d38rqfq1h7iukm.cloudfront.net/media/papers/NimierDavidVicini2019Mitsuba2_7.pdf",
+  "local_file": "2019-mitsuba2-retargetable-forward-inverse-renderer.pdf",
+  "bytes": 49688601,
+  "sha256": "b8e10e898003314c8fc23c9c0b39c842e6a16fa8be13a976ab9015fbd316edbe",
+  "pages": 17,
+  "optically_inspected_pages": [
+    1,
+    2
+  ],
+  "distribution": "PDF kept locally; publication notice limits copying to personal/classroom use. Repository contains this citation and source link.",
+  "relevance": "Renderer retargeting/vectorization reference. Mitsuba 3 LLVM RGB is a candidate for bounded physical material/interior image comparisons; current-machine cost/quality not yet measured."
+}

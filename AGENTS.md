@@ -42,12 +42,12 @@
   gelten. Schlechte Verfahren, unklare Namen und falsche Modulgrenzen korrigiere ich samt Aufrufern.
   Etablierte Verfahren und lokale Messungen entscheiden, nicht investierte Arbeit oder Zeilenzahl.
 - Echtzeit und glaubwürdige Bild-/Spielwirkung bestimmen die Genauigkeit. Ich nutze gemessene
-  räumliche/zeitliche Approximationen. Infrastruktur braucht konstruktive CAD-Qualität: saubere
+  räumliche/zeitliche Approximationen. Transport braucht konstruktive CAD-Qualität: saubere
   Geometrie, Anschlüsse und funktionale Profile; keine exakte Vermessung der Erde.
   Speichersicherheit, korrekte erzeugte Inhalte und verlässliche Interaktionen bleiben verbindlich. Prüfungen folgen diesen
   Anforderungen; geänderte Anforderungen korrigiere ich ausdrücklich samt betroffenen Tests.
   Ferndetails dürfen plausibel geschätzt werden; Bildwirkung, Herkunft und Übergang zum Nahdetail zählen.
-  Infrastruktursolver liefern innerhalb ihres Budgets ein gültiges Teilnetz. Ungelöste Teile
+  Transportsolver liefern innerhalb ihres Budgets ein gültiges Teilnetz. Ungelöste Teile
   blockieren weder Weltaufbau noch Frame; ich begrenze Auslassungen lokal und protokolliere
   jede nicht verwendete Quelle mit Grund. Quelldaten bleiben erhalten; der Verwendungsgrad wächst.
 - Ich suche selbst Alternativen, sobald ein Ansatz erkennbar ungeeignet ist. Ich prüfe sie gegen
@@ -170,8 +170,9 @@
 - Ein schwerer Lauf zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
   detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
-- Experimentdaten und Zwischenstände nach `build/experiments/`; in `build/shots/` bleiben nur
-  ausgewählte Präsentationsbilder und benötigte Referenzen. Überholte Versuchsdateien nach Auswertung löschen.
+- Experimentquellen nach Fachbereich unter `test/experiments/`, Eingaben und Ergebnisse
+  nach `build/experiments/`. In `build/shots/` bleiben ausgewählte Präsentationsbilder und benötigte
+  Referenzen. Überholte Versuchsdateien nach Auswertung löschen.
 - Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
   `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
   Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.

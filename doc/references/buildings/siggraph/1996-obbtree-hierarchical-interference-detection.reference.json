@@ -1,0 +1,11 @@
+{
+  "title": "OBBTree: A Hierarchical Structure for Rapid Interference Detection",
+  "authors": [
+    "Stefan Gottschalk",
+    "Ming C. Lin",
+    "Dinesh Manocha"
+  ],
+  "venue": "SIGGRAPH 1996",
+  "url": "https://gamma.cs.unc.edu/SSV/obb.pdf",
+  "sha256": "9f40b943dc906325f4fe552954363838f0cc6b71c58c1c1287d184b2df111281"
+}

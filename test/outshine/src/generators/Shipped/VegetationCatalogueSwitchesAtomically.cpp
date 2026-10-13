@@ -41,7 +41,7 @@ int main() {
               catalogue.TreeFor(ClusterId{0}) != nullptr,
           "activation restores flora generation and drawing");
     CHECK(&catalogue.Covering() == groundMesher && &catalogue.Paving() == roadMesher,
-          "catalogue changes preserve independent terrain and infrastructure services");
+          "catalogue changes preserve independent terrain and transport services");
   }
   CHECK(catalogue.EnsureCatalogue(absent, directory, error, false) &&
             catalogue.TreeFor(ClusterId{0}) == nullptr,

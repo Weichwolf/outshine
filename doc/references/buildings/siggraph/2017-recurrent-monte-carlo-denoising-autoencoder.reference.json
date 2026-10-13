@@ -1,0 +1,15 @@
+{
+  "title": "Interactive Reconstruction of Monte Carlo Image Sequences using a Recurrent Denoising Autoencoder",
+  "year": 2017,
+  "venue": "SIGGRAPH 2017 / ACM TOG 36(4)",
+  "doi": "10.1145/3072959.3073601",
+  "source": "https://research.nvidia.com/sites/default/files/publications/dnn_denoise_author.pdf",
+  "local_file": "2017-recurrent-monte-carlo-denoising-autoencoder.pdf",
+  "sha256": "0026f10e211c3e430387a4e1a6dfceeae27e5e085c966a4da186e1d715d5ae2b",
+  "distribution": "Author PDF explicitly limits redistribution; kept locally, citation/hash versioned",
+  "relevance": "Auxiliary-guided Monte Carlo reconstruction reference; no claim that OIDN implements the recurrent temporal algorithm",
+  "optically_inspected_pages": [
+    1,
+    2
+  ]
+}

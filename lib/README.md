@@ -62,3 +62,11 @@ coarse = organ.mesh(16, 8)
 
 Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/outshine/issues/45),
 [#46](https://github.com/Weichwolf/outshine/issues/46), Übernahme [#52](https://github.com/Weichwolf/outshine/issues/52).
+
+`buildings.modelling` enthält den übernommenen Scope-Kern: `Frame`, `Scope`,
+`Relative`, `t`, `r`, `s` und `translate`. Er hält die dokumentierten CGA-Achsen
+Ost/Auf/Süd intern; `cga_to_enu`/`enu_to_cga` konvertieren Positionen und Normalen
+an der gemeinsamen ENU-Grenze, ohne Dreieckswinding oder Höhenbezug zu ändern.
+Alle Gebäudeexperimente verwenden diese Implementierung. Shape-/Geometrieoperationen,
+Dächer und konstruktive Gebäudepläne liegen weiterhin in den Experimenten (#51).
+Die Scope-Übernahme allein ist keine vollständige CityEngine-Bibliothek.
