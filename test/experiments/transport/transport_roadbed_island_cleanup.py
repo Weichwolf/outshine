@@ -41,6 +41,18 @@ def close_split_pockets(surface,support,reserved,minimum_width=1.,*,close_new=Fa
                        minimum_island_width_m=minimum_width,maximum_pocket_area_m2=minimum_width**2)
 
 
+def close_covered_seams(surface,support,reserved,maximum_width=.05,maximum_area=.05):
+    if not np.isfinite(maximum_width) or not np.isfinite(maximum_area) or min(maximum_width,maximum_area)<=0:
+        raise ValueError('seam dimensions must be finite and positive')
+    seams=[p for p in bounded_voids(surface) if p.area<=maximum_area and
+           p.buffer(-maximum_width*.5).is_empty and not p.intersects(reserved) and
+           preserves_coverage(p,support)]
+    filled=shapely.union_all(seams)
+    return surface.union(filled),dict(closed_seams=len(seams),closed_seam_area_m2=filled.area,
+        maximum_seam_width_m=maximum_width,maximum_seam_area_m2=maximum_area,
+        closed_seams_wkb=filled.wkb.hex())
+
+
 def verify_split_pockets():
     outer=shapely.box(-2,-2,12,8);hole=shapely.box(0,0,10,6)
     floor=outer.difference(hole);support=shapely.box(-1,.4,11,.5)
@@ -76,4 +88,20 @@ def verify_split_pockets():
                 reserved_and_large_fragments_retained=True,unrelated_new_voids_not_repaired=True)
 
 
-if __name__=='__main__':print(verify_split_pockets())
+def verify_covered_seams():
+    outer=shapely.box(-1,-1,3,3);seam=shapely.box(0,0,1,.02)
+    floor=outer.difference(seam)
+    filled,audit=close_covered_seams(floor,seam,shapely.Polygon())
+    assert filled.equals(outer) and audit['closed_seams']==1
+    for support,reserved in ((shapely.box(0,0,.5,.02),shapely.Polygon()),
+                             (seam,shapely.box(.2,0,.3,.01))):
+        kept,audit=close_covered_seams(floor,support,reserved)
+        assert kept.equals(floor) and audit['closed_seams']==0
+    for hole in (shapely.box(0,0,.2,.2),shapely.box(0,0,2,.03)):
+        floor=outer.difference(hole)
+        kept,audit=close_covered_seams(floor,hole,shapely.Polygon())
+        assert kept.equals(floor) and audit['closed_seams']==0
+    return dict(covered_seam_closed=True,reserved_partial_wide_and_large_voids_retained=True)
+
+
+if __name__=='__main__':print(dict(verify_split_pockets(),**verify_covered_seams()))

@@ -72,6 +72,7 @@ def main():
     parser.add_argument('--pair',type=int,nargs=2,action='append',required=True)
     parser.add_argument('--curve',type=Path,action='append',required=True)
     parser.add_argument('--prior',type=Path)
+    parser.add_argument('--close-covered-seams',action='store_true')
     parser.add_argument('--crossing-area',type=Path,nargs='*',default=[])
     parser.add_argument('--reference',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
@@ -129,7 +130,7 @@ def main():
             member_floor=motor_surface(network.shape(member),network.graph,network.tree,network.mesh,
                 network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m']).union(shared_crossing)
         products[member]=construct_complete_module(network,network,member,set(),affected,region,protected,sections,
-            member_required,cache,reserved,public_floor=member_floor if not crossing.is_empty else None)
+            member_required,cache,reserved,public_floor=member_floor if not crossing.is_empty else None,close_seams=args.close_covered_seams)
         assert preserves_coverage(network.shape(member),products[member]['physical']),'existing transport geometry lost'
     product=products[owner]
     assert seeds.keys()<={c['pair'] for c in product['curves']},'seed not admitted to its physical owner'

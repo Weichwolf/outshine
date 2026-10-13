@@ -2,22 +2,27 @@
 
 import inspect
 
+import shapely
+
 import transport_coupled_roadbed_experiment as coupled
-from transport_roadbed_island_cleanup import close_split_pockets
+from transport_roadbed_island_cleanup import close_split_pockets,close_covered_seams
 
 
-def compose_complete_roadbeds(surface,shape,supports,reserved):
+def compose_complete_roadbeds(surface,shape,supports,reserved,close_seams=False):
+    seam_audit={}
+    if close_seams:
+        shape,seam_audit=close_covered_seams(shape,shapely.union_all(supports),reserved)
     base,core,planned,physical,quantum=coupled.compose_roadbeds(surface,shape,supports)
     complete,audit=close_split_pockets(core,physical,reserved)
     planned=planned.union(complete.difference(physical))
-    return (base,core,planned,complete,quantum),audit
+    return (base,core,planned,complete,quantum),dict(audit,**seam_audit)
 
 
-def construct_complete_module(network,trial,owner,sections,affected,region,buildings,section_index,required,cache,reserved,*,public_floor=None):
+def construct_complete_module(network,trial,owner,sections,affected,region,buildings,section_index,required,cache,reserved,*,public_floor=None,close_seams=False):
     assert buildings.difference(reserved).is_empty or coupled.preserves_coverage(buildings,reserved),'declared reservations omit protected buildings'
     last={}
     def compose(surface,shape,supports):
-        product,audit=compose_complete_roadbeds(surface,shape,supports,reserved)
+        product,audit=compose_complete_roadbeds(surface,shape,supports,reserved,close_seams)
         last.clear();last.update(audit)
         return product
     namespace=dict(coupled.__dict__,compose_roadbeds=compose,declared_reserved=reserved)
