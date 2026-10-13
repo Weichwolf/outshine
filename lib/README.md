@@ -42,6 +42,31 @@ Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
 
+`transport.fit_surface_heights(mesh, grade_frames, budget=HeightBudget(), fixed=...)`
+passt ausschließlich Z-Höhen an einen weichen Höhenprior an. XY, Dreiecke und der
+regionale Z-Bezug bleiben erhalten; gemeinsame Vertices besitzen genau eine Höhe.
+Ein 2×2-Rahmen je Dreieck begrenzt die Norm seines normierten Gradienten über die
+ganze affine Fläche, beispielsweise Längsneigung und Quergefälle. Ein Kantenlimit
+allein genügt nicht. Feste Vertexkontakte verwenden denselben Höhenbezug.
+Das Ergebnis `HeightFit` enthält einen unveränderlichen Mesh oder ausdrücklich
+keinen Mesh samt Grund. Auch bei Budgetende wird nur ein separat auf ganze Flächen
+und Kontakte geprüftes Ergebnis akzeptiert. Solverzeit, Iterationen und Eingabegröße
+sind begrenzt; Vorbereitung wird separat gemessen und ein Solver-Schritt kann das
+Zeitlimit überschreiten. Dies ist ein Offline-Verfahren, kein Framebudget-Vertrag.
+
+```sh
+.venv/bin/python -m pip install -e './lib[transport]'
+.venv/bin/python -W error -m unittest discover -s lib/tests -v
+```
+
+SciPy/Clarabel werden erst für die Höhenlösung importiert; bereits gültige Priors
+brauchen keinen Solver. Die minimax Zielgröße gilt für das feste Eingabemesh und
+die vorgegebenen Gradientenrahmen, nicht für eine optimale Erdrekonstruktion.
+C1-Anschlüsse, Überhöhung, Terrainformung, Zugänge und Ebenenplanung bleiben offen.
+Der Operator ändert keine gemeinsamen Plan-/Reservierungsverträge; ein erhöhtes
+Road-Mesh allein ist kein Boden-/Gebäudekontaktprodukt. Fachvertrag:
+[#20](https://github.com/Weichwolf/outshine/issues/20), Übernahme #50.
+
 `transport.close_surface(mesh, depth_m)` schließt eine bereits geprüfte, konforme
 XY-Fahrfläche mit ihren expliziten XYZ-Höhen durch einen Boden und gerichtete
 Außen-/Lochwände. Gemeinsame obere Vertices bleiben einmal vorhanden; die Tiefe
