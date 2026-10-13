@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "spatial-graph/spatial-functions.json",
+        "spatial_plot",
+        "Räumliche Achsen · kontinuierliche Organanker",
+        "Bogenlänge, transportierte Rahmen und Differentialnormalen aus einem gemeinsamen Kurvenprodukt. Vier räumliche Kurven gegen unabhängige Integrations-/ODE-/Ableitungsreferenzen. Gleiche vollständige Blattposen mit einzelner und gebündelter Auswertung: fünf lokale CPU-Läufe einschließlich frischer Graph-/Kurvenvorbereitung. 16 Intervalle je Kubiksegment erfüllen die geprüfte Richtungsfehleranforderung; kein allgemeiner Fehlerbeweis für beliebige Kurven. Mesh-/Bild-/native Kosten bleiben getrennt. Original-Spine-/Bifurcation-Propertybindung, Kräfte, Wind und natürliche Gabeln offen.",
+    ),
+    (
         "placements/placements.json",
         "placement_plot",
         "Blattfolgen und Astquirle · variable Elternlängen",

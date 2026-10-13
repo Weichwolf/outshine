@@ -1,7 +1,34 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: längenabhängige Blattfolgen und profilierte Astquirle sind in den eigenen Generatorgraphen integriert. Grob- und Nahprodukte erhalten dieselben Standorte; vollständige angeforderte Produkte bleiben wiederverwendbar. Alle Renderings sind 2560×1440. Weltweite Pflanzenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: räumliche Achsen, Biegeverzweigungen und längenabhängige Organe sind im Generatorgraphen verbunden. Kontinuierliche Anker, Differentialnormalen und Rindenkoordinaten stammen aus einem gemeinsamen, von der Meshunterteilung unabhängigen Kurvenprodukt. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/spatial-graph.png",
+      "title": "Räumliche Achse · Biegeverzweigungen und Blätter",
+      "label": "Räumliche Graph-Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Ein räumlicher Kurvenplan führt Stammflächen, Biegeverzweigungen und längenabhängige Blätter. Bogenlänge, transportierte Rahmen und ihre Ableitungen werden gemeinsam ausgewertet. Grobe und feine Geometrie behalten dieselben Anker und gemeinsamen Flächenpunkte; der Rindenverlauf verwendet physische Astkoordinaten. Diese generische Probe prüft Funktionen vor botanischen Artenrezepten.",
+      "quality": "Eigene räumliche Funktionsprobe · Original-Spine-/Bifurcation-Propertybindung, organische Gabeln, Wind und botanische Freigabe offen"
+    },
+    {
+      "image": "render/spatial-coarse.png",
+      "title": "Räumliche Achse · direktes Grobprodukt",
+      "label": "Räumliche Graph-Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-2",
+      "description": "Ein räumlicher Kurvenplan führt Stammflächen, Biegeverzweigungen und längenabhängige Blätter. Bogenlänge, transportierte Rahmen und ihre Ableitungen werden gemeinsam ausgewertet. Grobe und feine Geometrie behalten dieselben Anker und gemeinsamen Flächenpunkte; der Rindenverlauf verwendet physische Astkoordinaten. Diese generische Probe prüft Funktionen vor botanischen Artenrezepten.",
+      "quality": "Eigene räumliche Funktionsprobe · Original-Spine-/Bifurcation-Propertybindung, organische Gabeln, Wind und botanische Freigabe offen"
+    },
+    {
+      "image": "render/spatial-detail.png",
+      "title": "Räumliche Achse · kontinuierliches Nahdetail",
+      "label": "Räumliche Graph-Funktionsprobe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Ein räumlicher Kurvenplan führt Stammflächen, Biegeverzweigungen und längenabhängige Blätter. Bogenlänge, transportierte Rahmen und ihre Ableitungen werden gemeinsam ausgewertet. Grobe und feine Geometrie behalten dieselben Anker und gemeinsamen Flächenpunkte; der Rindenverlauf verwendet physische Astkoordinaten. Diese generische Probe prüft Funktionen vor botanischen Artenrezepten.",
+      "quality": "Eigene räumliche Funktionsprobe · Original-Spine-/Bifurcation-Propertybindung, organische Gabeln, Wind und botanische Freigabe offen"
+    },
     {
       "image": "render/placement-phyllotaxy.png",
       "title": "Gegenständige Blattfolge · variable Elternlängen",
@@ -286,7 +313,8 @@
     "plant_surface_plot": "lod-1",
     "collar_plot": "lod-1",
     "ray_plot": "lod-1",
-    "placement_plot": "lod-1"
+    "placement_plot": "lod-1",
+    "spatial_plot": "lod-1"
   },
   "genera": [
     {

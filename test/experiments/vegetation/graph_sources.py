@@ -7,13 +7,14 @@ from axis_surface import axis_mesh, profiled_axis_mesh
 from bark_coordinates import axis_chart
 from blade_surface import Blade
 from generator_specs import FrondShape, TubeShape
+from spatial_axis import SpatialAxis
 
 
 def source_triangles(shape, detail="near"):
     if detail not in ("near", "coarse"):
         raise ValueError("declared source detail required")
     fine = detail == "near"
-    if isinstance(shape, TubeShape):
+    if isinstance(shape, (TubeShape, SpatialAxis)):
         return 2 * (12 if fine else 6) * ((48 if fine else 12) + 1)
     if isinstance(shape, Blade):
         segments, across = (48, 4) if fine else (12, 1)
@@ -45,6 +46,8 @@ def source_parts(shape, detail="near"):
     if detail not in ("near", "coarse"):
         raise ValueError("declared source detail required")
     fine = detail == "near"
+    if isinstance(shape, SpatialAxis):
+        return {"wood": shape.mesh(48 if fine else 12, 12 if fine else 6)}
     if isinstance(shape, TubeShape):
         mesh = profiled_axis_mesh(
             shape.length,

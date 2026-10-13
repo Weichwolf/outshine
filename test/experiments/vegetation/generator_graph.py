@@ -8,8 +8,10 @@ from functools import cached_property
 from types import MappingProxyType
 
 import numpy as np
-from curve_frame import arc_frame
+from bend_pattern import BendPattern
 from generator_specs import FrondShape, Generator, TubeShape
+from graph_frames import parent_frame, parent_frames
+from spatial_axis import SpatialAxis
 
 UPRIGHT = np.array(((1, 0, 0), (0, 0, -1), (0, 1, 0)), dtype=float)
 MAX_POSES = 100_000
@@ -18,6 +20,10 @@ MAX_POSES = 100_000
 def shape_bound(shape):
     if shape is None:
         return 0.0
+    if isinstance(shape, SpatialAxis):
+        return np.linalg.norm(
+            np.asarray(shape.spine.controls), axis=-1
+        ).max() + shape.radius.table.max() * max(shape.ellipse)
     if isinstance(shape, TubeShape):
         return shape.length + shape.radius.table.max()
     if isinstance(shape, FrondShape):
@@ -52,6 +58,7 @@ class Instance:
 class GeneratorGraph:
     seed: int
     nodes: tuple[Generator, ...]
+    spatial_batches: bool = field(default=True, compare=False)
     _poses: dict = field(default_factory=dict, init=False, repr=False, compare=False)
     _pose_counts: dict = field(
         default_factory=dict, init=False, repr=False, compare=False
@@ -61,6 +68,9 @@ class GeneratorGraph:
         default_factory=set, init=False, repr=False, compare=False
     )
     _site_rows: int = field(default=0, init=False, repr=False, compare=False)
+    _parent_frames: dict = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self):
         if (
@@ -68,6 +78,7 @@ class GeneratorGraph:
             or not 0 <= self.seed < 2**64
             or not isinstance(self.nodes, tuple)
             or not 1 <= len(self.nodes) <= 64
+            or type(self.spatial_batches) is not bool
         ):
             raise ValueError("stable seed and one to 64 immutable generators required")
         if not all(isinstance(n, Generator) for n in self.nodes) or len(
@@ -220,7 +231,11 @@ class GeneratorGraph:
             for parent in sorted(node.parents):
                 for path in self.paths(parent):
                     count = node.placement.count
-                    if node.placement.pattern is not None:
+                    spatial = (
+                        isinstance(self.by_id[parent].shape, SpatialAxis)
+                        and self.spatial_batches
+                    )
+                    if node.placement.pattern is not None or spatial:
                         pose = self.instance(path)
                         key = (path, node_id)
                         table = self._sites.get(key)
@@ -228,6 +243,14 @@ class GeneratorGraph:
                             table = self.site_table(node_id, pose)
                             self.remember_sites(key, table)
                         count = len(table)
+                        if (
+                            spatial
+                            and key in self._sites
+                            and key not in self._parent_frames
+                        ):
+                            self._parent_frames[key] = parent_frames(
+                                self.by_id[parent], pose, table[:, 0]
+                            )
                     for slot in range(count):
                         yield (*path, (node_id, slot))
 
@@ -235,7 +258,9 @@ class GeneratorGraph:
         seed = np.random.SeedSequence(
             [self.seed, node_id, *(v for pair in parent.path for v in pair), 0x53495445]
         )
-        return self.by_id[node_id].placement.sites(parent.length, seed)
+        return self.by_id[node_id].placement.sites(
+            parent.length, seed, self.by_id[parent.path[-1][0]].shape
+        )
 
     def remember_sites(self, key, table):
         if key not in self._sites and self._site_rows + len(table) <= MAX_POSES:
@@ -302,29 +327,21 @@ class GeneratorGraph:
         node = self.by_id[path[-1][0]]
         placement, parent_node = node.placement, self.by_id[path[-2][0]]
         parameter, site_angle = site
-        if parent.length:
-            twist = parent_node.shape.twist if parent_node.kind == "blade" else 0
-            centre, tangent, lateral, normal = arc_frame(
-                parent.length, parent.bend, twist, parameter
-            )
-            if parent_node.kind == "frond":
-                angle = parent_node.shape.guide.roll.evaluate(parameter)
-                lateral, normal = (
-                    np.cos(angle) * lateral + np.sin(angle) * normal,
-                    -np.sin(angle) * lateral + np.cos(angle) * normal,
-                )
-        else:
-            centre, tangent, lateral, normal = (
-                np.zeros(3),
-                np.array((0, 1, 0)),
-                np.array((1, 0, 0)),
-                np.array((0, 0, 1)),
-            )
+        prepared = self._parent_frames.get((parent.path, node.id))
+        centre, tangent, lateral, normal = (
+            parent_frame(parent_node, parent, parameter)
+            if prepared is None
+            else prepared[path[-1][1]]
+        )
         entropy = [self.seed, *(value for pair in path for value in pair)]
         rng = np.random.default_rng(np.random.SeedSequence(entropy))
         phase_rng = np.random.default_rng(np.random.SeedSequence(entropy[:-1]))
         azimuth = (
-            phase_rng.uniform(-np.pi, np.pi)
+            (
+                0.0
+                if isinstance(placement.pattern, BendPattern)
+                else phase_rng.uniform(-np.pi, np.pi)
+            )
             + site_angle
             + rng.uniform(-placement.azimuth_variance, placement.azimuth_variance)
         )

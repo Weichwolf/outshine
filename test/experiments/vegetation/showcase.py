@@ -29,6 +29,7 @@ from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 from showcase_plot_sources import PLOT_SOURCES
+from spatial_plots import spatial_figure
 from spine_plots import spine_figure
 from tapered_plots import tapered_figure
 
@@ -393,6 +394,12 @@ def placement_plot(report):
     return save_plot(figure, "placement-patterns")
 
 
+def spatial_plot(report):
+    figure = spatial_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "spatial-graph")
+
+
 def plant_surface_plot(report):
     return save_plot(plant_surface_figure(report), "plant-surfaces")
 
@@ -415,6 +422,7 @@ def plot_entries(output, plot_lods):
         for method in (
             generator_plot,
             placement_plot,
+            spatial_plot,
             frond_plot,
             bark_plot,
             ray_plot,

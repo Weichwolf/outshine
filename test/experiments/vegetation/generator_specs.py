@@ -3,11 +3,13 @@
 from dataclasses import asdict, dataclass, field
 
 import numpy as np
+from bend_pattern import BendPattern
 from blade_surface import Blade
 from frond_pattern import PinnatePattern
 from frond_surface import FrondGuide
 from placement_patterns import DistancePattern
 from profile_curve import Profile
+from spatial_axis import SpatialAxis
 
 
 def profile_recipe(profile):
@@ -89,7 +91,7 @@ class Placement:
     azimuth_variance: float = 0.08
     scale: Profile = field(default_factory=lambda: Profile(np.ones(4), "maximum"))
     scale_variance: float = 0.04
-    pattern: DistancePattern | None = None
+    pattern: DistancePattern | BendPattern | None = None
 
     def __post_init__(self):
         values = (
@@ -120,7 +122,9 @@ class Placement:
             raise ValueError("bounded angular and scale variation required")
         if not isinstance(self.scale, Profile) or self.scale.table.min() <= 0:
             raise ValueError("positive prepared placement scale profile required")
-        if self.pattern is not None and not isinstance(self.pattern, DistancePattern):
+        if self.pattern is not None and not isinstance(
+            self.pattern, (DistancePattern, BendPattern)
+        ):
             raise ValueError("implemented physical generation pattern required")
         if self.pattern is not None and self.count != 1:
             raise ValueError(
@@ -148,7 +152,11 @@ class Placement:
             else self.pattern.capacity(parent_length, self.first, self.last)
         )
 
-    def sites(self, parent_length, seed):
+    def sites(self, parent_length, seed, parent_shape=None):
+        if isinstance(self.pattern, BendPattern):
+            return self.pattern.sites(
+                parent_shape, parent_length, self.first, self.last
+            )
         if self.pattern is not None:
             return self.pattern.tables(
                 [parent_length], self.first, self.last, seeds=[seed]
@@ -170,7 +178,7 @@ class Generator:
     label: str
     kind: str
     parents: tuple[int, ...]
-    shape: TubeShape | Blade | FrondShape | None = None
+    shape: TubeShape | SpatialAxis | Blade | FrondShape | None = None
     placement: Placement = field(default_factory=Placement)
 
     def __post_init__(self):
@@ -189,7 +197,7 @@ class Generator:
             raise ValueError("distinct immutable parent generator IDs required")
         expected = {
             "root": type(None),
-            "axis": TubeShape,
+            "axis": (TubeShape, SpatialAxis),
             "blade": Blade,
             "frond": FrondShape,
         }
@@ -238,8 +246,14 @@ class Generator:
         if kind == "root":
             shape = None
         elif kind == "axis":
-            shape = TubeShape(
-                record["length"], record["bend"], profile_from_recipe(record["radius"])
+            shape = (
+                SpatialAxis.from_recipe(record)
+                if "spine" in record
+                else TubeShape(
+                    record["length"],
+                    record["bend"],
+                    profile_from_recipe(record["radius"]),
+                )
             )
         elif kind == "blade":
             shape = Blade(**record)
@@ -255,7 +269,12 @@ class Generator:
         placement = dict(recipe["placement"])
         placement["scale"] = profile_from_recipe(placement["scale"])
         if "pattern" in placement:
-            placement["pattern"] = DistancePattern.from_recipe(placement["pattern"])
+            factory = (
+                BendPattern
+                if placement["pattern"]["mode"] == "bifurcation"
+                else DistancePattern
+            )
+            placement["pattern"] = factory.from_recipe(placement["pattern"])
         return cls(
             recipe["id"],
             recipe["label"],

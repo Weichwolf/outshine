@@ -94,6 +94,11 @@ def main():
         "placement_experiment.py",
         "generator_specs.py",
         "generator_graph.py",
+        "graph_frames.py",
+        "spatial_axis.py",
+        "spine_measure.py",
+        "spine_field.py",
+        "bend_pattern.py",
         "graph_products.py",
         "graph_sources.py",
     )

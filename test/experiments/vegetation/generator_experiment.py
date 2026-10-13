@@ -175,6 +175,11 @@ def main():
         for name in (
             "generator_experiment.py",
             "generator_graph.py",
+            "graph_frames.py",
+            "spatial_axis.py",
+            "spine_measure.py",
+            "spine_field.py",
+            "bend_pattern.py",
             "generator_specs.py",
             "placement_patterns.py",
             "generator_examples.py",
