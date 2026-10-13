@@ -35,6 +35,11 @@ def inspect(core,reference):
             selector_composition=['I','diag(1,-1,1) @ Rx(90)',
                 'diag(-1,-1,1) @ Rx(180) @ Rz(90)',
                 'diag(-1,-1,1) @ Rx(90) @ Rz(90)','Rx(90) @ Ry(90)','Ry(90)']),
+        floating_semantics=dict(width_height='absolute requested value determines repeat count; fitted extent is nonnegative except the tiny-request fallback',
+            relative_offset='offset factor times selected signed scope size',
+            floating_offset='raw fitted dimension divided by signed requested dimension times offset; only when both use floating and abs(request)>1e-25',
+            clamp_order='fit dimensions, resolve offsets, clamp dimensions to signed 1e-8, wrap offsets by 1000 clamped dimensions',
+            evidence='reference-0047f790.c: LAB_0047f87f, LAB_0047f8ce, LAB_0047f8ea, LAB_0047fbfd, LAB_0047fc22'),
         interpretation='Tables select dimensions used for relative/floating projection sizes; six scope selectors followed by six world selectors.',
         limits='Static Ghidra matrix paths and pinned constants; no executable SDK projection oracle. World frames, enum registration and runtime projectUV remain unproved.')
 

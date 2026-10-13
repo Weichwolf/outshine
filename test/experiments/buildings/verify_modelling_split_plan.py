@@ -35,7 +35,7 @@ def allocation_controls():
         near([span.stop-span.start for span in spans],expected)
         assert [span.index for span in spans]==list(range(len(spans)))
         assert all(span.total==len(spans) and span.label==str(span.pattern_index) for span in spans)
-    for call in [lambda:allocations(1.,[Part(0.)],True),lambda:Part(-1.),lambda:Floating(-1.),
+    for call in [lambda:allocations(1.,[Part(0.)],True),lambda:Part(-1.),lambda:Part(Floating(-1.)),
                  lambda:allocations(1.,[Part(.0001)],True,max_parts=10),lambda:allocations(float('inf'),[Part(1.)])]:
         try:call()
         except ValueError:pass

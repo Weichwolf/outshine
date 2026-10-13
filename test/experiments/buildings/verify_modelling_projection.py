@@ -1,6 +1,7 @@
 """Check metric scope-XY projection capture, split continuity and channel ownership."""
 
 import argparse
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -9,10 +10,10 @@ import shapely
 
 from evidence import revision
 from modelling_insert import Asset
-from modelling_scope import Relative
+from modelling_scope import Relative,Frame
 from modelling_shape import Shape
 from modelling_split_sizes import Part,Floating
-from modelling_projection import dimension
+from modelling_projection import dimension,resolved_offset
 from modelling_uv_cases import adjacent
 
 
@@ -60,14 +61,47 @@ def controls():
         for ids,pairs in zip((face.outer,*face.holes),face.uvs,strict=True):
             np.testing.assert_allclose(pairs,projected.emit()['uv'][list(ids)],atol=1e-12)
     for call in (lambda:body.project_uv(0),lambda:body.setup_projection(10,'scope.xy',1.,1.),
-                 lambda:body.setup_projection(0,'world.xz',1.,1.)):
+                 lambda:body.setup_projection(0,'world.xx',1.,1.),lambda:body.setup_projection(0,None,1.,1.)):
         try:call()
         except (ValueError,NotImplementedError):pass
         else:raise AssertionError('Missing or unsupported projection accepted')
+    world_controls(body)
+    offset_controls(body)
     selector_controls(body)
-    return dict(six_scope_selectors=True,metric_uv=True,split_component_continuity=True,captured_frame=True,baked_uv_moves_with_geometry=True,
+    return dict(world_frames_and_shared_phase=True,relative_floating_offsets=True,signed_floating_dimensions=True,six_scope_selectors=True,metric_uv=True,split_component_continuity=True,captured_frame=True,baked_uv_moves_with_geometry=True,
         signed_relative_sizes=True,floating_rounding_and_limits=True,rotated_frame_and_depth=True,periodic_offsets=True,
         channel_independence=True,insert_inheritance=True,extrude_and_area_split=True,instance_minimum_size=True,logical_corners=True)
+
+
+def world_controls(body):
+    transformed=replace(body,scope=replace(body.scope,position=(3.,5.,-2.),orientation=(17.,29.,-41.),
+        object_frame=Frame((123.,-11.,57.),(9.,-25.,37.))))
+    for name,indices,sign in (('xy',(0,1,2),1),('xz',(0,2,1),1),('yx',(1,0,2),-1),
+                              ('yz',(1,2,0),1),('zx',(2,0,1),1),('zy',(2,1,0),-1)):
+        for source in (body,transformed):
+            setup=source.setup_projection(0,'world.'+name,2.,3.,.4,.9,.25)
+            for child in (setup,setup.t(7.,-3.,2.),*setup.comp('f')):
+                result=child.project_uv(0).emit();coords=result['vertices'][:,indices]
+                expected=np.column_stack(((coords[:,0]+sign*.25*coords[:,2]-.4)/2.,(coords[:,1]-.9)/3.))
+                np.testing.assert_allclose(result['uv'],expected,atol=2e-12)
+            assert setup.projections==body.setup_projection(0,'world.'+name,2.,3.,.4,.9,.25).projections
+            relative=source.setup_projection(0,'world.'+name,Relative(.5),Relative(.25)).project_uv(0).emit()
+            sizes=np.asarray(source.scope.size)[list(indices[:2])]*[.5,.25]
+            np.testing.assert_allclose(relative['uv'],relative['vertices'][:,indices[:2]]/sizes,atol=2e-12)
+
+
+def offset_controls(body):
+    assert dimension(Floating(-2.4),6.)==3.
+    assert dimension(Floating(-2.4),-6.)==3.
+    assert resolved_offset(Relative(-.25),2.,6.)==-1.5
+    assert resolved_offset(Floating(.6),Floating(2.4),6.)==.75
+    assert resolved_offset(Floating(.6),Floating(-2.4),6.)==-.75
+    assert resolved_offset(Floating(-.6),Floating(-2.4),6.)==.75
+    assert resolved_offset(Floating(.6),2.4,6.)==.6
+    assert resolved_offset(Floating(.6),Floating(0.),6.)==.6
+    assert resolved_offset(Floating(.6),Floating(2.4),0.)==0.
+    assert_uv(body.setup_projection(0,'scope.xy',Floating(-2.4),1.5,Floating(.6),Relative(.25)),3.,1.5,(-.25,.5))
+    assert_uv(body.setup_projection(0,'scope.xy',2.,1.5,Floating(.6),Floating(.3)),2.,1.5,(.3,.2))
 
 
 def selector_controls(body):
@@ -97,6 +131,6 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/projection-verification.json'))
     args=parser.parse_args();record=revision()|dict(status='pass',controls=controls(),
-        limits='Six scope selectors with analytical controls and static SDK matrix evidence; world selectors, negative floating requests, default setup and isolated PRT equivalence remain open')
+        limits='Twelve scope/world selectors with analytical controls and static SDK matrix evidence; large-coordinate SDK origin rebasing, default setup and isolated PRT equivalence remain open')
     args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(record['controls']))

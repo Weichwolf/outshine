@@ -105,7 +105,7 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
 UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
-Material/Texturbytes erhalten. Sechs Scope-Projektionen: Ghidra belegt Tiefenvorzeichen; gedrehte Frames/comp/relative Maße geprüft. Achsenbild: sechs 1920×1080-Kacheln, gleiche Körper/Kameras, Tiefenscherung 0,35; optisch geprüft, Kamera-Ränder geprüft. UV-Edits erhalten Instanz-Mindestgröße. 1080p-Vererbung/PBR-Platten vorhanden (2171); Weltachsen, negative Floating-Werte und PRT-/LOD-/Shadergleichheit offen.
+Material/Texturbytes erhalten. Sechs Scope-Projektionen: Ghidra belegt Tiefenvorzeichen; Frames/comp/relative Maße geprüft. Achsenbild: 6×1920×1080, gleiche Körper/Kameras; optisch geprüft. Floating ist nun signiert; Part lehnt negative Splitbreiten weiterhin ab (Prüfung angepasst). Relative/Floating-Versätze folgen SDK-Rohmaß vor Clamp. Aktiv: Weltachsen; große Koordinaten und PRT-/LOD-/Shadergleichheit offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.

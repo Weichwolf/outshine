@@ -62,6 +62,18 @@ OWN.update({operation:dict(module='modelling_shape.Shape.'+method,
 OWN_FUNCTIONS['getMaterial']=dict(module='modelling_shape.Shape.get_material',
     status='used/shape/geometry and changed/all; explicit defaults and immutable imported values retained',
     pending=['exact SDK value formatting','isolated PRT selector rules','complete texture-resource binding'])
+OWN['texture']=dict(module='modelling_shape.Shape.texture',
+    status='encoded image resources retained across shape operations; alpha-aware map assignment; procedural colour/roughness/normal panels rendered on a control house',
+    pending=['all SDK image formats','all map transforms and shader bindings','isolated PRT texture rule','filtered runtime LOD'],
+    evidence=['verify_modelling_texture.py','verify_procedural_surface.py','verify_physical_binding.py'])
+OWN['setupProjection']=dict(module='modelling_shape.Shape.setup_projection',
+    status='six scope and six world axes; captured affine frames, signed absolute/relative/floating sizes and offsets; static SDK matrix evidence and analytic controls',
+    pending=['large-coordinate SDK origin rebasing','implicit default projection','isolated PRT setup rule'],
+    evidence=['verify_modelling_projection.py','esri_projection_reference.py','projection_render.py','projection_axes_render.py'])
+OWN['projectUV']=dict(module='modelling_shape.Shape.project_uv',
+    status='explicit stored projection baked into channels 0..9 and logical face corners; component/split inheritance and instance minimum dimensions retained',
+    pending=['implicit default projection','wire and point primitives','isolated PRT projectUV rule','native runtime LOD'],
+    evidence=['verify_modelling_projection.py','projection_render.py','projection_axes_render.py'])
 USES = {
     'Dachformen': 'Dachsilhouette, First, Traufe und Überstand; zunächst keine eigene Umsetzung.',
     'Massierung und Grundriss': 'Höhenintervalle, Höfe, Gebäudeteile, Rücksprünge und technische Körper.',

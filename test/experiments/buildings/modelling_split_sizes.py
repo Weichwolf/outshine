@@ -12,7 +12,6 @@ class Floating:
 
     def __post_init__(self):
         value=scalar(self.value)
-        if value<0:raise ValueError('Floating split weights cannot be negative')
         object.__setattr__(self,'value',value)
 
 

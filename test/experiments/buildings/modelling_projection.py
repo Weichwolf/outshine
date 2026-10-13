@@ -1,4 +1,4 @@
-"""Captured metric scope projection, inherited independently of later component scopes."""
+"""Captured metric scope/world projection, inherited independently of later component scopes."""
 
 from dataclasses import dataclass,replace
 import math
@@ -33,29 +33,48 @@ def projections(values):
     return tuple(result[key] for key in sorted(result))
 
 
-def dimension(value,size):
+def raw_dimension(value,size):
     if isinstance(value,Floating):
-        requested=value.value;value=scalar(size)
+        requested=abs(value.value);value=scalar(size)
         if requested>1e-25:
             extent=abs(value);count=extent/requested
             count=round(count) if count<2**52 else count
             value=extent/count if count>=1 else extent
     else:value=scalar(value.value*size) if isinstance(value,Relative) else scalar(value)
+    return value
+
+
+def dimension(value,size):
+    value=raw_dimension(value,size)
     return math.copysign(max(abs(value),1e-8),value) if value else 1e-8
+
+
+def resolved_offset(value,requested,size):
+    if isinstance(value,Relative):return scalar(value.value*size)
+    if isinstance(value,Floating):
+        if isinstance(requested,Floating) and abs(requested.value)>1e-25:
+            return scalar(raw_dimension(requested,size)/requested.value*value.value)
+        return value.value
+    return scalar(value)
 
 
 def setup(shape,index,axes,width,height,width_offset=0.,height_offset=0.,uw_factor=0.):
     index=channel(index)
-    selectors={'scope.xy':(0,1,2,1), 'scope.xz':(0,2,1,1), 'scope.yx':(1,0,2,-1),
-               'scope.yz':(1,2,0,1), 'scope.zx':(2,0,1,1), 'scope.zy':(2,1,0,-1)}
-    if axes not in selectors:raise NotImplementedError('World projection frames remain under SDK verification')
-    u,v,w,depth_sign=selectors[axes]
+    selectors={'xy':(0,1,2,1), 'xz':(0,2,1,1), 'yx':(1,0,2,-1),
+               'yz':(1,2,0,1), 'zx':(2,0,1,1), 'zy':(2,1,0,-1)}
+    if not isinstance(axes,str):raise ValueError('Projection axes require a named frame and axis pair')
+    frame,separator,pair=axes.partition('.')
+    if separator!='.' or frame not in ('scope','world') or pair not in selectors:
+        raise ValueError('Unknown projection frame or axis pair')
+    u,v,w,depth_sign=selectors[pair]
+    offsets=[resolved_offset(width_offset,width,shape.scope.size[u]),resolved_offset(height_offset,height,shape.scope.size[v])]
     width=dimension(width,shape.scope.size[u]);height=dimension(height,shape.scope.size[v])
-    offsets=np.array([math.fmod(scalar(width_offset),width*1000),math.fmod(scalar(height_offset),height*1000)])
+    offsets=np.array([math.fmod(offsets[0],width*1000),math.fmod(offsets[1],height*1000)])
     local=np.zeros((2,3));local[0,u]=1/width;local[1,v]=1/height
     local[0,w]=depth_sign*scalar(uw_factor)/width
-    matrix=local@shape.scope.axes.T
-    offset=-matrix@shape.scope.origin-offsets/[width,height]
+    matrix=local@shape.scope.axes.T if frame=='scope' else local
+    offset=-offsets/[width,height]
+    if frame=='scope':offset=offset-matrix@shape.scope.origin
     value=Projection(index,tuple(map(tuple,matrix)),tuple(offset))
     return replace(shape,projections=tuple(row for row in shape.projections if row.channel!=index)+(value,))
 
