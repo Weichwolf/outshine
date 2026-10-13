@@ -161,9 +161,16 @@ werden bei der geänderten Geometrie neu aufgebaut; fehlendes UV0 bleibt fehlend
 Die gemeinsame planare Überlagerung verwendet ein explizites Präzisionsraster
 und berichtet dessen Meterweite im `roof_info`. `max_cells` begrenzt vorab
 Quell-Dreieck-/Facettenkandidaten, danach Zellen und Ausgabedreiecke.
-`byHeight` ist ebenfalls verfügbar. Überhang, even und Trim-Planes bleiben
+`byHeight` ist ebenfalls verfügbar. `even=True` mittelt die Höhen verbundener
+konvexer Gratknoten und hält Traufknoten fest. Nichtplanare Facetten besitzen
+eine feste Triangulation vor dem UV-Schnitt; unverändert planare Flächen
+behalten ihre ursprüngliche Darstellung. Die nominelle Höhen-/Winkelskalierung
+geschieht vor der Mittelung; die endgültige Maximalhöhe kann daher kleiner sein.
+`roof_info.surfaces` hält die vorbereiteten Flächen; tatsächliche gemeinsame
+Höhenanpassungen am Präzisionsraster werden in Metern berichtet.
+Überhang, genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben
 Gegenstand von [#67](https://github.com/Weichwolf/outshine/issues/67);
-angeforderter Überhang/even wird ausdrücklich abgelehnt.
+angeforderter Überhang wird ausdrücklich abgelehnt.
 
 ```sh
 .venv/bin/python -m pip install -e './lib[assets]'
