@@ -93,6 +93,8 @@ erhält Quellstationen/Schnittlinien und prüft sämtliche Fahrten beider Vorgä
 1765 im Gesamtfenster: 53/53; 71 bisherige plus drei neue Fahrten über sechs Besitzer, +14,53 m².
 [Port-Erweiterung](../test/experiments/transport/probes/roadbeds/shared_port_extension_probe.py)
 speichert gemeinsame öffentliche Unterstützung; erneutes Laden, Nahbild und Gesamtfenster geprüft.
+1600: Gehwegübergang lokal konstruierbar; Produkt scheitert an Reservationsgrenze.
+Identische Kurve/Posen mit ursprünglicher Reservation bestehen; gemeinsame Grenzrundung/Resttaschen klären.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
