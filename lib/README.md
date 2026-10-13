@@ -140,6 +140,23 @@ Die vorhandenen Gegenfälle/Referenzen bleiben unter `test/experiments/buildings
 Konstruktive Gebäudepläne und Rezepte liegen weiterhin dort (#51); viele dokumentierte
 CityEngine-Fähigkeiten und Teilverträge sind noch offen (#34).
 
+`prepare_hip(polygon)` bereitet unveränderliche metrische Walmdach-Pläne vor:
+Facetten, ursprüngliche Quellkanten, geteilte Ridgeknoten und Wavefront-Distanzen.
+`HipPlan.lifted_vertices(value, mode)` verwendet dieselbe Topologie für `byAngle`
+oder `byHeight`; sein XY gehört zur Eingabeebene, Z zeigt entlang deren Normale.
+Der Aufrufer setzt diesen lokalen Ebenenrahmen ausdrücklich in die Welt ein.
+Konkavität und Höfe bleiben erhalten. Rechtecke benötigen keinen Skelettsolver;
+allgemeine Formen verwenden das optionale Extra `pip install -e './lib[roofs]'`.
+SFCGAL wird zuerst geprüft; vereinfacht es ursprüngliche Quellkanten, übernimmt
+der Python-Solver. Beide Ergebnisse müssen dieselben Geometrie-/Quellkantenprüfungen
+erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rückfälle.
+`SkeletonLimits` begrenzt Eingaben, Knoten und kooperativ verstrichene Zeit;
+`python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
+und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
+keine Deadline-Garantie innerhalb jedes Backend-Aufrufs. Der Plane-/Cap-Baustein
+ist noch keine vollständige `Shape.roof_hip`-Operation: native Quell-UV0–9,
+Überhang, even und Trim-Planes bleiben Gegenstand von [#67](https://github.com/Weichwolf/outshine/issues/67).
+
 ```sh
 .venv/bin/python -m pip install -e './lib[assets]'
 ```
