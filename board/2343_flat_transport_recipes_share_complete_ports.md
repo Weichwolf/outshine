@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4787/4808 (dd95f208b). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 21 Fahrten offen.
+Zürich 4788/4808 (e4cd68d33). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 20 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 62,1 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 60,4 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -78,7 +78,7 @@ Bilder: build/shots/experiments/transport/.
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 
 ## Nächste Lieferung und Abnahme
-20 gekoppelte Produkte; frühere Fahrten erhalten, davon vier in gemeinsame Produkte übernommen.
+21 gekoppelte Produkte; frühere Fahrten erhalten, davon vier in gemeinsame Produkte übernommen.
 1758: 37/37, +34,56 m²; [gemeinsame Schnitte](../test/experiments/transport/transport_joined_cut_setbacks.py)
 mit getrennten Quellports und erhaltenem Inselkern. Vollständigen Inselkontext und aktuelle Endposen verwenden.
 [Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) prüft höchstens
@@ -93,7 +93,7 @@ erhält Quellstationen/Schnittlinien und prüft sämtliche Fahrten beider Vorgä
 1765 im Gesamtfenster: 53/53; 71 bisherige plus drei neue Fahrten über sechs Besitzer, +14,53 m².
 [Port-Erweiterung](../test/experiments/transport/probes/roadbeds/shared_port_extension_probe.py)
 speichert gemeinsame öffentliche Unterstützung; erneutes Laden, Nahbild und Gesamtfenster geprüft.
-1600 lokal: 12/12, Nahbild und erneutes Laden geprüft; Gesamtfenster ausstehend.
+1600: 12/12 im Gesamtfenster; Nahbild/erneutes Laden geprüft. Sechs Bestandsprodukte geometrisch unverändert.
 Expliziter öffentlicher Übergangsbereich statt tangential eng ausgeschnittener Hüllenfläche.
 Optionale Kleinstspalt-Bereinigung: vollständig überdeckt, unreserviert, ≤0,05 m²,
 kein 5-cm-Innenkreis; Fläche/Geometrie bilanzieren. Konstruktive Vereinfachung, keine Rundungstoleranz.
