@@ -21,14 +21,22 @@ def inspect(core,reference):
         if values!=expected:raise ValueError('SDK projection axis table changed')
         tables.append(dict(elf_address=hex(address),ghidra_address=hex(address+0x100000),values=list(values)))
     constants=[]
-    for address,expected in ((0x905258,1e-8),(0x905538,-1e-8),(0x905230,1000.),(0x905270,1e-25),(0x9053c8,4503599627370496.)):
+    for address,expected in ((0x905258,1e-8),(0x905538,-1e-8),(0x905230,1000.),(0x905270,1e-25),(0x9053c8,4503599627370496.),(0x9052f8,180.),(0x905300,90.),(0x905d18,-1.),(0x905d20,-1.)):
         offset=mapped_offset(core,address-0x100000);value=struct.unpack_from('<d',data,offset)[0]
         if value!=expected:raise ValueError('SDK projection numerical constant changed')
         constants.append(dict(ghidra_address=hex(address),value=value))
     return dict(status='pass',binary_sha256=digest,ghidra_commit=analysis['commit'],tables=tables,constants=constants,
         axes=['xy','xz','yx','yz','zx','zy']*2,
+        scope_frames=dict(xy=['x','y','z'],xz=['x','z','y'],yx=['y','x','-z'],
+                          yz=['y','z','x'],zx=['z','x','y'],zy=['z','y','-x']),
+        matrix_evidence=dict(storage='column-major, column vectors',multiply='left @ right',
+            rotate='postmultiply Euler rotation',
+            helpers=['002ef450','00482ad0','0076cb50','002d9910'],
+            selector_composition=['I','diag(1,-1,1) @ Rx(90)',
+                'diag(-1,-1,1) @ Rx(180) @ Rz(90)',
+                'diag(-1,-1,1) @ Rx(90) @ Rz(90)','Rx(90) @ Ry(90)','Ry(90)']),
         interpretation='Tables select dimensions used for relative/floating projection sizes; six scope selectors followed by six world selectors.',
-        limits='Raw table and numerical evidence only; matrix signs, offsets, inherited frames, enum registration and runtime projectUV remain unproved.')
+        limits='Static Ghidra matrix paths and pinned constants; no executable SDK projection oracle. World frames, enum registration and runtime projectUV remain unproved.')
 
 
 if __name__=='__main__':

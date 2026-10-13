@@ -64,15 +64,39 @@ def controls():
         try:call()
         except (ValueError,NotImplementedError):pass
         else:raise AssertionError('Missing or unsupported projection accepted')
-    return dict(metric_uv=True,split_component_continuity=True,captured_frame=True,baked_uv_moves_with_geometry=True,
+    selector_controls(body)
+    return dict(six_scope_selectors=True,metric_uv=True,split_component_continuity=True,captured_frame=True,baked_uv_moves_with_geometry=True,
         signed_relative_sizes=True,floating_rounding_and_limits=True,rotated_frame_and_depth=True,periodic_offsets=True,
         channel_independence=True,insert_inheritance=True,extrude_and_area_split=True,instance_minimum_size=True,logical_corners=True)
+
+
+def selector_controls(body):
+    expected={'xy':((1,0,0),(0,1,0),(0,0,1)),
+              'xz':((1,0,0),(0,0,1),(0,1,0)),
+              'yx':((0,1,0),(1,0,0),(0,0,-1)),
+              'yz':((0,1,0),(0,0,1),(1,0,0)),
+              'zx':((0,0,1),(1,0,0),(0,1,0)),
+              'zy':((0,0,1),(0,1,0),(-1,0,0))}
+    for name,rows in expected.items():
+        frame=np.array(rows,dtype=float)
+        for source in (body,body.r(17.,-29.,41.).t(3.,-2.,7.)):
+            configured=source.setup_projection(0,'scope.'+name,2.,3.,.4,.9,.25)
+            for child in (configured,*configured.comp('f')):
+                result=child.project_uv(0).emit()
+                local=(result['vertices']-source.scope.origin)@source.scope.axes
+                oriented=local@frame.T
+                uv=np.column_stack(((oriented[:,0]+.25*oriented[:,2]-.4)/2.,(oriented[:,1]-.9)/3.))
+                np.testing.assert_allclose(result['uv'],uv,atol=2e-12)
+            relative=source.setup_projection(0,'scope.'+name,Relative(.5),Relative(.25)).project_uv(0).emit()
+            local=(relative['vertices']-source.scope.origin)@source.scope.axes
+            sizes=np.abs(frame[:2])@source.scope.size
+            np.testing.assert_allclose(relative['uv'],(local@frame[:2].T)/(sizes*[.5,.25]),atol=2e-12)
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/projection-verification.json'))
     args=parser.parse_args();record=revision()|dict(status='pass',controls=controls(),
-        limits='Scope.xy analytical controls only; other selectors, negative floating requests, default setup and isolated PRT equivalence remain open')
+        limits='Six scope selectors with analytical controls and static SDK matrix evidence; world selectors, negative floating requests, default setup and isolated PRT equivalence remain open')
     args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(record['controls']))

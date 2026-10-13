@@ -1,4 +1,4 @@
-"""Captured scope-XY projection, inherited independently of later component scopes."""
+"""Captured metric scope projection, inherited independently of later component scopes."""
 
 from dataclasses import dataclass,replace
 import math
@@ -46,10 +46,14 @@ def dimension(value,size):
 
 def setup(shape,index,axes,width,height,width_offset=0.,height_offset=0.,uw_factor=0.):
     index=channel(index)
-    if axes!='scope.xy':raise NotImplementedError('Projection selector signs and world frames remain under SDK verification')
-    width=dimension(width,shape.scope.size[0]);height=dimension(height,shape.scope.size[1])
+    selectors={'scope.xy':(0,1,2,1), 'scope.xz':(0,2,1,1), 'scope.yx':(1,0,2,-1),
+               'scope.yz':(1,2,0,1), 'scope.zx':(2,0,1,1), 'scope.zy':(2,1,0,-1)}
+    if axes not in selectors:raise NotImplementedError('World projection frames remain under SDK verification')
+    u,v,w,depth_sign=selectors[axes]
+    width=dimension(width,shape.scope.size[u]);height=dimension(height,shape.scope.size[v])
     offsets=np.array([math.fmod(scalar(width_offset),width*1000),math.fmod(scalar(height_offset),height*1000)])
-    local=np.array([[1/width,0.,scalar(uw_factor)/width],[0.,1/height,0.]])
+    local=np.zeros((2,3));local[0,u]=1/width;local[1,v]=1/height
+    local[0,w]=depth_sign*scalar(uw_factor)/width
     matrix=local@shape.scope.axes.T
     offset=-matrix@shape.scope.origin-offsets/[width,height]
     value=Projection(index,tuple(map(tuple,matrix)),tuple(offset))
