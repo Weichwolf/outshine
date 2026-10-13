@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4786/4808 (4b47a693e). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 22 Fahrten offen.
+Zürich 4787/4808 (dd95f208b). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 21 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 69,5 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 62,1 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -90,9 +90,9 @@ Fußwegübergänge aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsr
 1599 im Gesamtfenster: 6/6 plus zwei Nachbarfahrten, +3,49 m²; beide Richtungen integriert.
 [Richtungsframes kombinieren](../test/experiments/transport/probes/roadbeds/combine_directional_frames_probe.py)
 erhält Quellstationen/Schnittlinien und prüft sämtliche Fahrten beider Vorgänger frisch. Nahbild geprüft.
-1765 lokal: 53/53; 71 bisherige plus drei neue Fahrten über sechs Besitzer, +14,53 m².
+1765 im Gesamtfenster: 53/53; 71 bisherige plus drei neue Fahrten über sechs Besitzer, +14,53 m².
 [Port-Erweiterung](../test/experiments/transport/probes/roadbeds/shared_port_extension_probe.py)
-speichert gemeinsame öffentliche Unterstützung; erneutes Laden und Nahbild geprüft. Gesamtfenster offen.
+speichert gemeinsame öffentliche Unterstützung; erneutes Laden, Nahbild und Gesamtfenster geprüft.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
