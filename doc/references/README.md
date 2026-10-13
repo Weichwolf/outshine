@@ -194,6 +194,8 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   anisotrope Rindenmaterialien in physischen Astkoordinaten (2481).
   Seiten 1, 3, 8 und 10 samt Rauschprinzip/Bildbeispiel optisch geprüft; keine Fototexturen.
   Eigene Koordinatenmischung und Blender-Rauschen sind keine Rekonstruktion des Papiercodes.
+  2481 wertet getrennte physische Achsfelder aus und überblendet erst die Rauschwerte;
+  Seite 8 samt Musterbild erneut optisch geprüft. Unverändert getrennte Geometrie-/Normalenprodukte.
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
   [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).

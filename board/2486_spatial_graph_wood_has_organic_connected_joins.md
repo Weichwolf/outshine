@@ -68,10 +68,10 @@ Vektorabstand. Flächen-/Winkel-/Gleichgewichtung bleiben separate Vergleichserg
 Winkelangleichung für drei Seeds: 15,86–16,24 ms Median, je drei Läufe auf demselben Nahmesh.
 3.168–3.247 lokale Vertices, 8.057–8.303 geänderte Ecken; alle Orientierungs-/Erhaltungsprüfungen grün.
 Neue Anschlussaufnahme optisch mit Vorherbild verglichen: nur kleine lokale Schattierungsglättung;
-aufgewölbte Form und verwirbelte Rindenrichtung bleiben die nächsten sichtbaren Defizite.
+aufgewölbte Form bleibt offen; 2481 ersetzt die künstliche Rindenverwirbelung durch getrennte Feldwerte.
 Gespeichertes Nahprodukt: alle 3.247 lokalen Vertices mit exakt gemeinsamen Ecknormalen geprüft.
 `pixels.py`: Anschlussbild 37.549 geänderte Pixel, maximal 6/255; Grobbild pixelgleich.
-Gesamt-/Blattnah-/Anschluss-/Grobbild und aktueller Kostenplot in 2560×1440 tatsächlich geöffnet.
+Alle vier 2560×1440-Ansichten und aktueller Kostenplot tatsächlich geöffnet.
 
 ## Abnahme
 Geschlossene orientierte Flächen, erhaltenes Originalholz und unveränderte Organanker unabhängig prüfen.

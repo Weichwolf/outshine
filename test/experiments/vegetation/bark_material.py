@@ -8,6 +8,10 @@ from blender_preview import material
 
 
 def bark_material(recipe):
+    if recipe["version"] == "layered-bark-preview-1":
+        from layered_bark_material import build_layered
+
+        return build_layered(recipe)
     if recipe["version"] != "solid-bark-preview-1":
         raise ValueError("supported complete bark material recipe required")
     result = material(
@@ -70,11 +74,25 @@ def apply_bark(recipe, directory):
             )
         path = directory / product["mesh"]
         mesh = bpy.data.objects[path.stem].data
-        with np.load(path) as data:
-            for name, kind, field in (
+        material_recipe = json.loads(material_path.read_text())
+        fields = (
+            [
+                (f"bark_{prefix}_{i}", kind, field)
+                for i in range(material_recipe["layers"])
+                for prefix, kind, field in (
+                    ("chart", "FLOAT_VECTOR", "vector"),
+                    ("weight", "FLOAT", "value"),
+                    ("radius", "FLOAT", "value"),
+                )
+            ]
+            if material_recipe["version"] == "layered-bark-preview-1"
+            else [
                 ("bark_coordinates", "FLOAT_VECTOR", "vector"),
                 ("bark_radius", "FLOAT", "value"),
-            ):
+            ]
+        )
+        with np.load(path) as data:
+            for name, kind, field in fields:
                 values = data[name]
                 if len(values) != len(mesh.vertices) or not np.isfinite(values).all():
                     raise ValueError(

@@ -45,7 +45,7 @@ def main():
         if current(image, report):
             print(f"{index}/{len(entries)} current {image.name}", flush=True)
             continue
-        scenario = Path(report["scenario"])
+        scenario = Path(entry.get("scenario", report["scenario"]))
         if not scenario.is_absolute():
             scenario = ROOT / scenario
         recipe = json.loads(scenario.read_text())

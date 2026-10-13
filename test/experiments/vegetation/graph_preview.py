@@ -50,6 +50,10 @@ def main():
             "preview_shadows.py",
         )
     ]
+    if any(
+        "layered-bark-preview-1" in p.read_text() for p in paths if p.suffix == ".json"
+    ):
+        implementation.append(Path(__file__).with_name("layered_bark_material.py"))
     result = {
         "blender": bpy.app.version_string,
         "engine": scene.render.engine,

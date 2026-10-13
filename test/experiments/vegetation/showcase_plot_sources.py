@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "bark-layers/bark-layers.json",
+        "bark_layer_plot",
+        "Rinde · getrennte Achsfelder",
+        "Vier physische Rindenfelder mit nicht negativen Gewichten und Summe eins. Dichte Auswertung gegen räumliche Vorauswahl einschließlich aller Ecken berührter Dreiecke: gleicher Feldwert auch im Dreiecksinneren. Drei Seeds, je drei lokale CPU-Läufe; vollständige Attribute und Bytes getrennt. Acht Layer sind die ausdrückliche Grenze dieser Probe. Shader-/Gerätebudgets, große Körper und volle SpeedTree-Blendbindung bleiben offen.",
+    ),
+    (
         "graph-wood/wood-functions.json",
         "wood_plot",
         "Räumliche Holzfläche · Astkragen und Rinde",

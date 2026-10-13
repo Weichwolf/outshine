@@ -15,6 +15,15 @@ Die vollständige Testpflanze erhält prozedurale Rindenstruktur entlang ihrer b
 Material-/Koordinaten-Funktionstest vor weltweiten Artenrezepten; keine botanische oder native Freigabe.
 
 ## Sichtbarer Bedarf und Verfahren
+Aktueller Anschlussverlust (2486): gemischte Koordinaten verbiegen die Rindenfasern am Kragen.
+Getrennte physische Achsfelder erst nach Auswertung mischen; Gewichte und vollständige Layer exportieren.
+Ghidra ComputeBlendSkin/Worker und bestehende UV-Befunde zuerst prüfen; eigene Auswertung separat belegen.
+Die erste vollständige Layerprobe begrenzt Achsen/Shaderfelder explizit auf acht; große Bäume brauchen
+räumliche/materialbezogene Aufteilung, bevor dieses Verfahren dort eingesetzt werden kann.
+Ghidra-Lauf 25: ComputeBlendSkin (`0x1cb4e90`) und Worker (`0x1c2c920`) terminal erfolgreich.
+Elternabfrage, zusätzliche Skinvertices, Profillängen und Noise belegt; genaue gepackte Blendkanäle offen.
+[SpeedTree-Primärdokumentation](https://docs8.speedtree.com/modeler/doku.php?id=branch_generator)
+unterscheidet Texturblendregion, Kontrast/Noise und Lichtangleichung; v8-Dokument, kein v10-Oracle-Beleg.
 Die aktuellen Stämme sind glatte einfarbige Funktionskörper ohne sichtbare Rindenstruktur.
 Ghidra: ComputeBranchTexCoords (0x1cbadd0), ComputeBranchVCoords (0x1c51190),
 ComputeBlendedUVs (0x1c739f0), FillBaseTexCoordValues (0x1cad8e0); vier Dekompilierungen terminal erfolgreich.
@@ -32,6 +41,15 @@ Eigenes anisotropes Blender-Rauschen steuert Farbe/Normalen in Metern; dünne Zw
 Vollständiges versioniertes Materialrezept mit physischer Skala/Farben/Relief liegt beim Meshprodukt;
 der Bildadapter lädt es direkt, Mesh-/Organprodukte bleiben unverändert wiederverwendbar.
 Blender-Nodes sind der Bildadapter; native Materialauswertung, grobe LOD-Filterung und Rindengeometrie offen.
+`bark_layers.py` exportiert getrennte Achscharts, Radien und nicht negative Gewichte mit Summe eins.
+Die Reihenfolge der bisherigen lokalen Überblendung bleibt erhalten; Linearwerte treffen die alten Felder.
+Indexierte Abfragen vervollständigen sämtliche Ecken eines beitragenden Dreiecks, auch bei Eckgewicht null;
+sonst würden interpolierte Nullkoordinaten das aktive Feld im Dreiecksinneren verbiegen.
+`layered_bark_material.py` wertet Noise je Chart aus und mischt erst Höhe/Radius; Farbe und Bump folgen.
+Uniforme Instanzskalierung bleibt physisch korrekt; Attribute sind am Mesh und unabhängig von der Kamera.
+Versioniertes vollständiges Layerprodukt, acht Felder/1 Mio. Punkt-Achsen-Paare als ausdrückliche Grenze.
+Budgetfehler vor Charts melden; kein Ersatz für Materialpartitionierung großer Körper oder native Shaderkosten.
+Perlin SIGGRAPH 1985 Seite 8 samt Musterbild erneut optisch geprüft; keine Fototexturen übernommen.
 
 ## Funktions- und Kostenbeleg
 765 analytische Punkte: Gerade, positive/negative Kreisachsen bis π, Rundumnaht, Transformation/Skalierung.
@@ -45,6 +63,18 @@ Peak-RSS bis 114,9 gegen 135,3 MiB einschließlich Imports/Eingabe; Einlesen sep
 Kleine Shell startet Messworker nach exec: geerbte Experiment-RSS-Spitze gehört nicht zur Messung.
 Keine Runtime-/Gerätefreigabe; 382.646 statt 5.139.904 Punkt-/Achsen-Auswertungen.
 `bark_experiment.py` erzeugt eigenständige vollständige Produkte, `bark_preview.py` prüft ihre Bildwirkung.
+`bark_layer_experiment.py`: drei Seeds/vier Achsen, drei abwechselnde Läufe desselben verbundenen Nahmesh.
+Indexiert 108,61–112,87 gegen dicht 114,14–115,60 ms Median; geringer lokaler CPU-Gewinn.
+13.558–13.793 statt 20.976–21.340 Punkt-Achsen-Abfragen, einschließlich vervollständigter Dreiecksecken.
+839.040–853.600 Attributbytes; Prüfprozess 152,02 MiB Peak einschließlich zweier Holzaufbauten/Imports.
+Alle relevanten Chart-/Gewichte-/Radiuswerte bytegleich; je 200 unabhängige Dreiecksinnenpunkte feldgleich.
+Die alten linearen Koordinaten/Radien sind aus den Layern reproduzierbar, nur die nichtlineare Auswertung ändert sich.
+Meshvertices, Faces, Ecknormalen und Blattprodukte bleiben exakt; keine größere Blatt-/Artenfreigabe.
+2560×1440-Anschlussaufnahme optisch gegen Vorherbild geprüft: Achsfasern statt künstlicher Verwirbelung.
+84,10 s gegen vorher 72,05 s EEVEE-Bildaufbau, je ein Lauf; mehr Shaderarbeit, keine GPU-Profilerzeit.
+Gesamtpflanze, Blattnähe und Anschluss tatsächlich optisch geöffnet; derselbe 2560×1440-Bildauftrag.
+`pixels.py`: am Anschluss 185.344 geänderte Pixel, maximal 34/255; weiterhin null schwarze Pixel.
+27 übrige Showcase-Ansichten pixelgleich, einschließlich frisch gerenderter Graph-/Legacy-Rindenansichten.
 
 ## Abnahme und offene Lücke
 Gleiche Holzgeometrie und Organanker; Koordinaten und Materialdetails ändern nur die Oberfläche.

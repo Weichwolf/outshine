@@ -100,7 +100,7 @@ Rotationen mit Orthogonalisierung; keine vollständige Spine-/Kraftrekonstruktio
 acht gespeicherte Typen (Tree, Branch, Frond, Cap, BatchedLeaf, Leaf Mesh, Fin, Knot).
 Vorlageninventar ist kein vollständiges Funktionsinventar oder Gleichwertigkeitsnachweis.
 2481: Rinden-/UV-Analyse an vier CBranchNode-Funktionen; Periodenentfaltung und zyklische Glättung belegt.
-Eigene räumliche Astkoordinaten/Rauschmaterialien; vollständige UV-Property-/Original-Oracle-Bindung offen.
+Eigene Achsfelder/Wertüberblendung (2481); vollständige UV-Property-/Original-Oracle-Bindung offen.
 2482: Frond-Guides; 2483/2484: Graph/Standorte; 2485/2486: räumliche Achsen/Anschlüsse, volle Bindung offen.
 | Bereich | Eigener Stand / fehlende Funktionen |
 |---|---|
@@ -113,7 +113,7 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-81 gezielte Funktionen dekompiliert; vierundzwanzig Läufe terminal erfolgreich, zuletzt AverageNormals.
+83 gezielte Funktionen dekompiliert; fünfundzwanzig Läufe terminal erfolgreich, zuletzt BlendSkin/Worker.
 2486: 3.078 Original-Vektorpaare geprüft; lokale Winkelmittelung, vollständiges Branch-Lighting offen.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.

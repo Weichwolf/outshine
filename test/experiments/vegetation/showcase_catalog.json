@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: Die räumliche Graphpflanze hat eine gemeinsame Holzoberfläche mit lokalen Astkragen, geerbten Rindenkoordinaten und angeglichenen Anschlussnormalen. Originale Vektorpaar-Mittelung und eigene Winkelgewichtung sind getrennt geprüft; Geometrie und Organanker bleiben erhalten. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: Die räumliche Graphpflanze besitzt gemeinsame Holzflächen, lokale Astkragen und angeglichene Anschlussnormalen. Die Nahansichten werten jetzt vier Rindenfelder in getrennten physischen Achskoordinaten aus und blenden ihre Ergebnisse; damit entfällt die künstliche Koordinatenverwirbelung am Anschluss. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -8,8 +8,9 @@
       "label": "Vollständige Holz-/Anschlussprobe",
       "category": "plant",
       "lod": "lod-1",
-      "description": "Derselbe räumliche Formplan mit Stamm, drei Biegezweigen und 41 unveränderten Blättern. Das Holz bildet einen gemeinsamen Körper; lokale Eltern-/Kinderhüllen runden die Nahanschlüsse aus. Rindenkoordinaten folgen den tatsächlichen Achsen und übernehmen den Verlauf vom Elternast. Das direkt erzeugte Grobprodukt vereint die groben Achsen ohne vorherige Nahkragen. Die Anschlussaufnahme zeigt nur das Holz zur Formprüfung. Anschlussnormalen werden lokal nach Eckwinkeln angeglichen; das ist eine kleine Schattierungsverbesserung. Die Form und der verwirbelte Rindenverlauf brauchen weitere Arbeit.",
-      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen"
+      "description": "Stamm, drei Biegezweige und 41 unveränderte Blätter aus demselben Formplan. Vier prozedurale Rindenfelder behalten ihre jeweiligen Achskoordinaten; erst die Feldwerte werden weich überblendet. Die gemeinsame Geometrie und Anschlussnormalen bleiben erhalten. Dies beseitigt die künstlich verwirbelte Faserrichtung; Anschlussform und Materialfeinheit brauchen weitere Arbeit.",
+      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen",
+      "scenario": "build/experiments/vegetation/bark-layers/joined-spatial-graph.json"
     },
     {
       "image": "render/joined-spatial-coarse.png",
@@ -26,8 +27,9 @@
       "label": "Vollständige Holz-/Anschlussprobe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Derselbe räumliche Formplan mit Stamm, drei Biegezweigen und 41 unveränderten Blättern. Das Holz bildet einen gemeinsamen Körper; lokale Eltern-/Kinderhüllen runden die Nahanschlüsse aus. Rindenkoordinaten folgen den tatsächlichen Achsen und übernehmen den Verlauf vom Elternast. Das direkt erzeugte Grobprodukt vereint die groben Achsen ohne vorherige Nahkragen. Die Anschlussaufnahme zeigt nur das Holz zur Formprüfung. Anschlussnormalen werden lokal nach Eckwinkeln angeglichen; das ist eine kleine Schattierungsverbesserung. Die Form und der verwirbelte Rindenverlauf brauchen weitere Arbeit.",
-      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen"
+      "description": "Stamm, drei Biegezweige und 41 unveränderte Blätter aus demselben Formplan. Vier prozedurale Rindenfelder behalten ihre jeweiligen Achskoordinaten; erst die Feldwerte werden weich überblendet. Die gemeinsame Geometrie und Anschlussnormalen bleiben erhalten. Dies beseitigt die künstlich verwirbelte Faserrichtung; Anschlussform und Materialfeinheit brauchen weitere Arbeit.",
+      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen",
+      "scenario": "build/experiments/vegetation/bark-layers/joined-spatial-detail.json"
     },
     {
       "image": "render/joined-spatial-junction.png",
@@ -35,8 +37,9 @@
       "label": "Vollständige Holz-/Anschlussprobe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Derselbe räumliche Formplan mit Stamm, drei Biegezweigen und 41 unveränderten Blättern. Das Holz bildet einen gemeinsamen Körper; lokale Eltern-/Kinderhüllen runden die Nahanschlüsse aus. Rindenkoordinaten folgen den tatsächlichen Achsen und übernehmen den Verlauf vom Elternast. Das direkt erzeugte Grobprodukt vereint die groben Achsen ohne vorherige Nahkragen. Die Anschlussaufnahme zeigt nur das Holz zur Formprüfung. Anschlussnormalen werden lokal nach Eckwinkeln angeglichen; das ist eine kleine Schattierungsverbesserung. Die Form und der verwirbelte Rindenverlauf brauchen weitere Arbeit.",
-      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen"
+      "description": "Stamm, drei Biegezweige und 41 unveränderte Blätter aus demselben Formplan. Vier prozedurale Rindenfelder behalten ihre jeweiligen Achskoordinaten; erst die Feldwerte werden weich überblendet. Die gemeinsame Geometrie und Anschlussnormalen bleiben erhalten. Dies beseitigt die künstlich verwirbelte Faserrichtung; Anschlussform und Materialfeinheit brauchen weitere Arbeit.",
+      "quality": "Drei Seeds geometrisch geprüft · vollständige Original-Weld-/UV-/Windbindung, globale G1-Stetigkeit und botanische Freigabe offen",
+      "scenario": "build/experiments/vegetation/bark-layers/joined-spatial-junction.json"
     },
     {
       "image": "render/placement-phyllotaxy.png",
@@ -324,7 +327,8 @@
     "ray_plot": "lod-1",
     "placement_plot": "lod-1",
     "spatial_plot": "lod-1",
-    "wood_plot": "lod-0"
+    "wood_plot": "lod-0",
+    "bark_layer_plot": "lod-0"
   },
   "genera": [
     {

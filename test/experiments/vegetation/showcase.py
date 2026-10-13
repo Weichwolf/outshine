@@ -17,6 +17,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from bark_layer_plots import layer_figure
 from bark_plots import bark_figure
 from cloud_plots import group_figure, raster_figure, render_figure
 from collar_plots import collar_figure, ray_figure
@@ -405,6 +406,12 @@ def wood_plot(report):
     figure = wood_figure(report)
     style_axes(figure.axes)
     return save_plot(figure, "graph-wood")
+
+
+def bark_layer_plot(report):
+    figure = layer_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "bark-layers")
 
 
 def plant_surface_plot(report):
