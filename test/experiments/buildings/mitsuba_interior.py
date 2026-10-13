@@ -17,9 +17,11 @@ from mitsuba_material import reference
 from modelling_metadata import Material
 from modelling_material_schema import linear_to_srgb
 from denoise_reference import denoise
+from procedural_surface import panels
+from facade_surface import project
 
 
-def materials(config):
+def materials(config,prepared=None):
     colours=[(.56,.48,.36),config['wall_linear'],(.72,.73,.74),(.9,.96,1.),(.34,.38,.34),(.41,.30,.18),(.50,.41,.30),(.09,.12,.13),(.35,.35,.35),
              config['roof_linear'],(.16,.19,.21),(.43,.47,.49)]
     result={}
@@ -32,6 +34,7 @@ def materials(config):
             value,_,_=reference(Material('',attributes))
         result[index]=(value,None)
     for index,values in config.get('material_definitions',{}).items():result[int(index)]=reference(Material('',values))[:2]
+    if prepared is not None:result[1]=reference(prepared[0],prepared[1])[:2]
     return result
 
 
@@ -49,7 +52,12 @@ def render(config):
     mi.set_variant('llvm_ad_rgb');dr.set_thread_count(2);started=time.perf_counter()
     source=Path(config['mesh']);encoded=source.read_bytes()
     if hashlib.sha256(encoded).hexdigest()!=config['mesh_sha256']:raise ValueError('Cached interior source mesh changed')
-    data=dict(np.load(source));palette=materials(config);spp=config.get('spp',64);sensor,projection=camera(config,spp)
+    data=dict(np.load(source));prepared=None;surface=None
+    if config.get('procedural_panels'):
+        options=dict(color=linear_to_srgb(config['wall_linear']).tolist())|config['procedural_panels']
+        prepared=panels(**options);data,surface=project(data,prepared[2]['tile_size_m'])
+        surface.update(recipe=prepared[2],textures={texture.path:texture.sha256 for texture in prepared[1]})
+    palette=materials(config,prepared);spp=config.get('spp',64);sensor,projection=camera(config,spp)
     path_integrator=dict(type='path',max_depth=12,rr_depth=5)
     integrator=dict(type='aov',aovs='albedo:albedo,normal:sh_normal',image=path_integrator) if config.get('denoise') else path_integrator
     scene_data=dict(type='scene',integrator=integrator,sensor=sensor,
@@ -78,7 +86,7 @@ def render(config):
         pixels,filter_info=denoise(raw,layers['albedo'],layers['normal'],output.with_suffix(''),filter_log)
     mi.util.write_bitmap(str(output),pixels)
     record=dict(renderer='Mitsuba '+mi.__version__,backend='LLVM CPU',threads=dr.thread_count(),profile=config['profile'],spp=spp,seed=config.get('seed',17),
-        setup_seconds=setup_seconds,render_seconds=render_seconds,mesh_sha256=config['mesh_sha256'],projection=projection,bindings=bindings,
+        setup_seconds=setup_seconds,render_seconds=render_seconds,mesh_sha256=config['mesh_sha256'],projection=projection,bindings=bindings,surface=surface,
         included_source_triangles=sum(row['triangles'] for row in bindings),source_triangles=len(data['faces']),room_light_state=light_state,
         glass='closed dielectric with procedural IOR 1.52' if config.get('glass')!='hidden' else 'explicit no-glass control',
         linear_rgb_mean=pixels[:,:,:3].mean((0,1)).tolist(),image_sha256=hashlib.sha256(output.read_bytes()).hexdigest(),denoise=filter_info,

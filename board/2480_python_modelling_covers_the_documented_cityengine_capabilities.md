@@ -15,8 +15,8 @@ danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Kla
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 Stand 03c0f5354: Scope/Extrusion, `comp`, Breiten-/Flächenteilung, Asset-Einfügung/Dateiimport, sechs UV-Operationen und Material-Overrides;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
-SDK-Inventar, 79 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
-SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
+SDK-Inventar, 79 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Rezeptzahlen.
+SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein dekompilierter Fremdcode.
 Bildstand 03c0f5354: 53 Bilder (13 innen / 33 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
 Sieben physikalische Bilder optisch geprüft; PNG/Profile/Hashes stimmen. 36 Bilder pixelgleich, zehn Pläne ändern nur den Commit-Fußtext.
 32 Python-/Referenz-/Render-/Docs-Schritte terminal 0 auf 03c0f5354; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
@@ -105,7 +105,7 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
 UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
-UV-Komposition p50 0,075–0,210 statt 0,231–0,662 ms; fünf Grundrisse/21 Paare, gleiche Daten, keine Frames. Material-Overrides getrennt; texture hält Bytes durch comp/split/extrude/insert. Aktiv: SDK-Projektion sowie prozedurale Platten mit Farb-/Rauheits-/Normalkarten und Mitsuba-UV-Bindung (2171); 1080p-Kontrollfläche, noch keine Fassadenintegration/LOD-/Shadergleichheit.
+UV-Komposition p50 0,075–0,210 statt 0,231–0,662 ms; fünf Grundrisse/21 Paare, gleiche Daten, keine Frames. Material-Overrides getrennt; texture hält Bytes durch comp/split/extrude/insert. Aktiv: SDK-Projektion sowie prozedurale Platten mit Farb-/Rauheits-/Normalkarten und Mitsuba-UV-Bindung (2171); 1080p-Kontrollhaus; metrische UV-Kanten an vier Gebäuden geprüft. CGA-/LOD-/Shadergleichheit offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
