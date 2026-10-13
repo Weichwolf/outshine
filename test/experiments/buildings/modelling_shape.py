@@ -5,7 +5,7 @@ from types import MappingProxyType
 
 import numpy as np
 
-from modelling_scope import Scope
+from outshine_ref.buildings.modelling.scope import Scope
 from modelling_metadata import Material
 
 

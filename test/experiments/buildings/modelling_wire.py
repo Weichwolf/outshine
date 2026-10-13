@@ -5,7 +5,7 @@ from numbers import Integral
 
 import numpy as np
 
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 from modelling_metadata import group_id
 
 

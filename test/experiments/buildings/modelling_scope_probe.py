@@ -11,20 +11,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from evidence import revision
-from modelling_scope import Relative
+from outshine_ref.buildings.modelling import Relative,cga_to_enu,enu_to_cga
 from modelling_shape import Shape
 from preview import configuration,run_render
 from showcase_scene import fitted_points
 
 
-def axis_map(mesh,sign):
-    return mesh|{name:mesh[name][:,[0,2,1]]*np.asarray(sign) for name in ('vertices','normals') if name in mesh}
+def axis_map(mesh,convert):
+    return mesh|{name:convert(mesh[name]) for name in ('vertices','normals') if name in mesh}
 
 
-def cga_mesh(mesh):return axis_map(mesh,[1.,1.,-1.])
+def cga_mesh(mesh):return axis_map(mesh,enu_to_cga)
 
 
-def engine_mesh(mesh):return axis_map(mesh,[1.,-1.,1.])
+def engine_mesh(mesh):return axis_map(mesh,cga_to_enu)
 
 
 def programme(scope):

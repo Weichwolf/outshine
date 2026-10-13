@@ -2,7 +2,7 @@
 
 from numbers import Integral
 
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 
 
 def rings_uv(values,rings):

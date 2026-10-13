@@ -15,7 +15,7 @@ from modelling_components import Branch
 from modelling_extrude import aligned_scope
 from modelling_faces import ROOF_TAGS,face_shape,plane
 from modelling_metadata import inherit
-from modelling_scope import Frame
+from outshine_ref.buildings.modelling.scope import Frame
 from modelling_selectors import tagged
 from modelling_shape import Shape
 from modelling_split_sizes import Part,Floating

@@ -14,7 +14,7 @@ from modelling_material_schema import srgb_to_linear,linear_to_srgb,DEFAULTS
 from modelling_uv_cases import adjacent,courtyard
 from modelling_split_sizes import Part,Floating
 from modelling_asset_cases import fixtures
-from modelling_scope import Scope
+from outshine_ref.buildings.modelling.scope import Scope
 from modelling_shape import Shape
 
 

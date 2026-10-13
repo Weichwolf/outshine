@@ -6,7 +6,7 @@ import re
 
 import numpy as np
 
-from modelling_scope import scalar
+from outshine_ref.buildings.modelling.scope import scalar
 
 
 HORIZONTAL=0.9807852804032304
