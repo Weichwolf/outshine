@@ -106,13 +106,13 @@ Eigene Achsfelder/Wertüberblendung (2481); vollständige UV-Property-/Original-
 |---|---|
 | Graph/Profile/Platzierung | Grundtypen/Bedarf (2483), Blattfolgen/Quirle (2484), kontinuierliche räumliche Anker/Biegestellen (2485); volle Generierungsarten offen |
 | Stämme/Anschlüsse | Gabeln (2352), komplette Vereinigung/Astkragen (2353/2486), Rinde/Koordinaten (2481/2486); volle Bindung, Caps/Knots/Fins/Rindengeometrie offen |
-| Organe/Cluster | Blatt-/Grasflächen, Frond-/Guide-Proben (2482); volle Frondbindung, Nadeln und weitere Organe offen |
+| Organe/Cluster | Blatt-/Grasflächen, Frond-/Guide-Proben (2482); Nadel-/Bündelgrundformen (2491); volle Frond-/Nadelbindung und weitere Organe offen |
 | Kräfte/Wachstum/Zustände | Gemeinsames Windfeld für Nah-/Grobprodukte (2487); kalibrierte Dynamik, Kräfte, Kollisionen, Wachstum/Jahreszustände offen |
-| Material/LOD/Export | Unbeleuchtete Ansichtenproben; Normalenverteilung, Übergänge und vollständige Produkte offen |
+| Material/LOD/Export | Unbeleuchtete Ansichtenproben, Pigment-R/T (2489), Normalen-Mips (2490); volle Filterung/Übergänge/Produkte offen |
 Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semantik getrennt nennen.
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 ## Abnahme und nächster offener Vertrag
-87 gezielte Funktionen dekompiliert; 27 Läufe terminal erfolgreich, zuletzt Leaf-Mesh-Skin/Materialkopie (2488).
+90 gezielte Funktionen dekompiliert; 28 Läufe terminal erfolgreich, zuletzt BatchedLeaf-Batch/Worker/Indices (2491).
 2486: 3.078 Original-Vektorpaare geprüft; lokale Winkelmittelung, vollständiges Branch-Lighting offen.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.

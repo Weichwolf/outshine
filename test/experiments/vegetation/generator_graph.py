@@ -11,6 +11,7 @@ import numpy as np
 from bend_pattern import BendPattern
 from generator_specs import FrondShape, Generator, TubeShape
 from graph_frames import parent_frame, parent_frames
+from needle_surface import Needle
 from spatial_axis import SpatialAxis
 
 UPRIGHT = np.array(((1, 0, 0), (0, 0, -1), (0, 1, 0)), dtype=float)
@@ -20,6 +21,8 @@ MAX_POSES = 100_000
 def shape_bound(shape):
     if shape is None:
         return 0.0
+    if isinstance(shape, Needle):
+        return shape.length + shape.radius
     if isinstance(shape, SpatialAxis):
         return np.linalg.norm(
             np.asarray(shape.spine.controls), axis=-1

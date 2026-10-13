@@ -34,6 +34,7 @@ from leaf_pigment_plots import pigment_figure
 from leaf_relative_plots import relative_figure
 from leaf_relief_plots import relief_figure
 from leaf_terminal_plots import terminal_figure
+from needle_plots import needle_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
@@ -416,6 +417,12 @@ def closed_plot(report):
     return save_plot(figure, "closed-leaf-growth")
 
 
+def needle_plot(report):
+    figure = needle_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "needle-products")
+
+
 def normal_plot(report):
     figure = normal_figure(report)
     style_axes(figure.axes)
@@ -502,6 +509,7 @@ def plot_entries(output, plot_lods):
             terminal_plot,
             pigment_plot,
             normal_plot,
+            needle_plot,
             filter_plot,
             development_plot,
             relative_plot,

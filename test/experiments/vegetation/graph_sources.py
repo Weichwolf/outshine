@@ -7,15 +7,36 @@ from axis_surface import axis_mesh, profiled_axis_mesh
 from bark_coordinates import axis_chart
 from blade_surface import Blade
 from generator_specs import FrondShape, TubeShape
+from needle_surface import Needle
 from spatial_axis import SpatialAxis
+
+SOURCE_GEOMETRY_VERSION = 2
+
+
+def tube_resolution(shape, detail):
+    segments, sides = (48, 12) if detail == "near" else (12, 6)
+    if (
+        isinstance(shape, TubeShape)
+        and shape.bend == 0
+        and np.all(shape.radius.table == shape.radius.table[0])
+    ):
+        segments = 2
+    return segments, sides
 
 
 def source_triangles(shape, detail="near"):
     if detail not in ("near", "coarse"):
         raise ValueError("declared source detail required")
     fine = detail == "near"
+    if isinstance(shape, Needle):
+        return (
+            2
+            * (4 if shape.section == "rhombus" else 16 if fine else 8)
+            * (32 if fine else 16)
+        )
     if isinstance(shape, (TubeShape, SpatialAxis)):
-        return 2 * (12 if fine else 6) * ((48 if fine else 12) + 1)
+        segments, sides = tube_resolution(shape, detail)
+        return 2 * sides * (segments + 1)
     if isinstance(shape, Blade):
         segments, across = (48, 4) if fine else (12, 1)
         extra = int(shape.petiole > 0 and shape.base_fill > 0)
@@ -46,6 +67,8 @@ def source_parts(shape, detail="near"):
     if detail not in ("near", "coarse"):
         raise ValueError("declared source detail required")
     fine = detail == "near"
+    if isinstance(shape, Needle):
+        return {"leaf": shape.mesh(32 if fine else 16, 16 if fine else 8)}
     if isinstance(shape, SpatialAxis):
         return {"wood": shape.mesh(48 if fine else 12, 12 if fine else 6)}
     if isinstance(shape, TubeShape):
@@ -54,8 +77,7 @@ def source_parts(shape, detail="near"):
             shape.bend,
             1.0,
             shape.radius,
-            48 if fine else 12,
-            12 if fine else 6,
+            *tube_resolution(shape, detail),
         )
         return {"wood": tube_fields(shape, mesh)}
     if isinstance(shape, Blade):

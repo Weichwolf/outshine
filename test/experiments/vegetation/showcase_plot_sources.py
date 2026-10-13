@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "needles/needles.json",
+        "needle_plot",
+        "Nadeln · räumliche Organe, Bündel und gleiche LOD-Herkunft",
+        "Elliptische und rhombische geschlossene Formen mit Spitze, analytischen Normalen und harten Basiskanten. Geteilte Grundformen und stabile Generatorpfade für Zweier-/Fünferbündel sowie Einzelorgane. Gleiches Nahmesh: gebündelte gegen punktweise Ecknormalen, jeweils drei wechselnde Läufe. Volumendefizite gegen analytische Form separat; keine LOD-Deckungsfreigabe. Cache-Reload ohne Organ-/Materialaufbau. Botanische Querschnitte, Material, Kollision und Wind noch unvollständig; kein nativer Gerätebudgetbeleg.",
+    ),
+    (
         "normal-leaves/normals.json",
         "normal_plot",
         "Blattnormalen · verlorenes Detail wird Neigungsstreuung",

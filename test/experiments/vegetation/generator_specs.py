@@ -7,6 +7,7 @@ from bend_pattern import BendPattern
 from blade_surface import Blade
 from frond_pattern import PinnatePattern
 from frond_surface import FrondGuide
+from needle_surface import Needle
 from placement_patterns import DistancePattern
 from profile_curve import Profile
 from spatial_axis import SpatialAxis
@@ -178,7 +179,7 @@ class Generator:
     label: str
     kind: str
     parents: tuple[int, ...]
-    shape: TubeShape | SpatialAxis | Blade | FrondShape | None = None
+    shape: TubeShape | SpatialAxis | Blade | FrondShape | Needle | None = None
     placement: Placement = field(default_factory=Placement)
 
     def __post_init__(self):
@@ -199,6 +200,7 @@ class Generator:
             "root": type(None),
             "axis": (TubeShape, SpatialAxis),
             "blade": Blade,
+            "needle": Needle,
             "frond": FrondShape,
         }
         if (
@@ -255,6 +257,8 @@ class Generator:
                     profile_from_recipe(record["radius"]),
                 )
             )
+        elif kind == "needle":
+            shape = Needle(**record)
         elif kind == "blade":
             shape = Blade(**record)
         elif kind == "frond":

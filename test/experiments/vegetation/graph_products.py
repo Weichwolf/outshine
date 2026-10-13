@@ -6,7 +6,9 @@ import json
 import numpy as np
 from bark_recipe import bark_recipe
 from generator_graph import MAX_POSES
-from graph_sources import source_parts, source_triangles
+from graph_sources import SOURCE_GEOMETRY_VERSION, source_parts, source_triangles
+from needle_material import write_needle_material
+from needle_surface import Needle
 
 
 def pose_arrays(poses):
@@ -52,7 +54,12 @@ def graph_products(
         node = graph.by_id[key]
         identity = hashlib.sha256(
             json.dumps(
-                {"kind": node.kind, "shape": node.recipe()["shape"], "detail": detail},
+                {
+                    "version": SOURCE_GEOMETRY_VERSION,
+                    "kind": node.kind,
+                    "shape": node.recipe()["shape"],
+                    "detail": detail,
+                },
                 sort_keys=True,
             ).encode()
         ).hexdigest()
@@ -111,7 +118,12 @@ def graph_products(
                 "instances": len(poses),
                 "generator_ids": source["nodes"],
                 "source_identity": identity,
+                "source_geometry_version": SOURCE_GEOMETRY_VERSION,
             }
+            if isinstance(source["shape"], Needle):
+                product["needle_material"] = write_needle_material(
+                    output, source["shape"].section
+                )
             if part == "wood":
                 product["bark_material"] = "bark-material.json"
             products.append(product)

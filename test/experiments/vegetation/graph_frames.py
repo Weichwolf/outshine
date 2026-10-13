@@ -15,7 +15,7 @@ def parent_frame(node, pose, parameter):
             sample["normal"],
         )
     if pose.length:
-        twist = node.shape.twist if node.kind == "blade" else 0
+        twist = node.shape.twist if node.kind in ("blade", "needle") else 0
         centre, tangent, lateral, normal = arc_frame(
             pose.length, pose.bend, twist, parameter
         )
