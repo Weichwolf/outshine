@@ -62,36 +62,24 @@ Eine gelappte Quelle bleibt stationär, zehn Segmente verworfen. Dicht/Sektoren 
 Feinradius je Form einheitlich, Reliefgewicht 0,25; hydraulische Breiten/Dichte offen. Reproduktion: `leaf_closed_experiment.py` auf Cache aus `leaf_material_experiment.py`/`leaf_material_replay.py`.
 
 ## Texelfilterung
-[Heckbert 1986](../doc/references/vegetation/ieee/1986-survey-texture-mapping.pdf), Seite 6 optisch geprüft,
-Textfassung ohne Figuren. SIGGRAPH 1986 „Filtering by Repeated Integration“ als Alternative gesichtet.
-[P B R T](https://pbr-book.org/4ed/Textures_and_Materials/Texture_Sampling_and_Antialiasing) begründet Supersampling.
-`leaf_texture_filter.py`: 6×6-Gaussquadratur mittelt Feinaderhöhen im UV-Texel vor Materialrasterung.
-Mit B≥|dw/dt| liegt jeder Texelpunkt höchstens D=hypot(W+B,L)/(2N) vom Mittelpunkt entfernt.
-Auswertung mit r+D/3 umfasst daher jede Unterstützung des ursprünglichen 3r-Kerns; nur diese Texel integrieren.
-Identische Quadratur/Summationsreihenfolge wie vollständige Auswertung, ungültige Radien vor Aufweitung ablehnen.
-`leaf_filter_experiment.py`: vollständige Karten, drei Kostenläufe und je 1024 aktive Texel gegen 16×16;
-zwölf schwierige Texel je Form zusätzlich gegen unabhängige 64×64-Mittelpunkte. Keine globale Fehlerschranke.
-Median 599–980 ms statt 4351–4764 ms; RMS 0,00013–0,00065 statt 0,082–0,178 in diesen Proben.
-Vorher/Nachher-Nahbild: etwas ruhigere Feinadern, kleiner Bildgewinn; Shaderfilterung bleibt nötig.
+[Heckbert 1986](../doc/references/vegetation/ieee/1986-survey-texture-mapping.pdf), Seite 6 optisch geprüft.
+`leaf_texture_filter.py`: 6×6-Gaussquadratur im UV-Texel; B≥|dw/dt|, D=hypot(W+B,L)/(2N).
+Radius r+D/3 umfasst die vollständige ursprüngliche 3r-Unterstützung; identische Summationsfolge.
+`leaf_filter_experiment.py`: volle Karten bitgleich, 1024 Proben gegen 16² und zwölf gegen 64² Quadratur.
+Mediane 599–980 statt 4351–4764 ms; Stichproben-RMS 0,00013–0,00065 statt 0,082–0,178.
+Keine globale Fehlerschranke; Bildgewinn klein, Shaderfilterung bleibt nötig.
 
 ## Wachstum steuert Aderarchitektur
-`leaf_development.py` ergänzt laufende Quellengeburt mit Abstand zu Adern und bestehenden Quellen.
-160 Wachstumsschritte mit je 24 vorgegebenen Darts, danach höchstens 100 Beruhigungsschritte;
-maximal 2048 Knoten. Ein apikal gesetzter Anfangsattraktor bei 90 % der Länge ist eine eigene Kalibrierung.
-Quellen/Graph in reifen Materialkoordinaten speichern; Nähe und Wachstumsrichtung im aktuellen Blatt messen.
-Gleichförmiges Wachstum allein ergibt zu rechtwinklige Seitenadern; Richtungsbindung rundet nur Anschlüsse.
-Eigene Dehnung F(x,y)=σ·(x,y−kL(x/W)²), k=2(1−σ), σ∈[0,03;1]; Geburtsabstand 0,08·min(W,L).
-Explizite Inverse, det(J)=σ²>0; keine Faltungen. Quadratischer Rückweg: Sehnenfehler |k|L(Δx/W)²/4. Kein biologisch rekonstruierter Tensor.
-Schrittlänge so begrenzen, dass der Fehler in reifen Koordinaten ≤min(W,L)/2000 ist;
-Endsegmente zusätzlich innerhalb der reifen Kontur zertifizieren. Herkunft und lokale Fehlergrenze getrennt.
-Richtungsbindung 0,6 an die eingehende Ader ist eine eigene Ergänzung; Quellen müssen weiterhin ziehen.
-`leaf_development_experiment.py`: feste Kandidaten, drei wechselnde Läufe; dichte/indexierte Suche
-liefern gleiche Graphen, Quellenbilanz und Historie. Schnellere gemessene Variante je Probe exportieren.
-852/854/1710 Knoten; unabhängige GEOS-Verknüpfung bestätigt je einen Baum ohne zusätzliche Kreuzungen.
-0/2/0 ungelöste Quellen; Beruhigungs-/Knotenbudget und Quellenabstände separat geprüft.
-`leaf_development_checks.py`: 128 Deformationspunkte, exakte Sehnenmitte, numerische Jacobi-Determinante.
-`leaf_development_reload.py`: fünf echte Netz-/Materialprodukte frisch geladen; gemeinsame Grobkoordinaten geprüft.
-3D-Vergleich isoliert feste Quellen, gleichförmiges und ortsabhängiges Wachstum bei gleichem Blattmaterial.
+`leaf_development.py`: 160 Wachstumsschritte mit je 24 Darts, höchstens 100 Beruhigungsschritte, 2048 Knoten.
+Quellengeburt mit Abstand zu Adern/Quellen; eigener apikal gesetzter Anfangsattraktor bei 90 % der Länge.
+Plan in reifen Materialkoordinaten; Nähe/Richtung im wachsenden Blatt, Geburtsabstand 0,08·min(W,L).
+Eigene Dehnung F(x,y)=σ·(x,y−kL(x/W)²), k=2(1−σ), σ∈[0,03;1]; explizite Inverse, det(J)=σ²>0.
+Quadratischer Rückweg: Sehnenfehler |k|L(Δx/W)²/4 auf min(W,L)/2000 begrenzen; Segmente in Kontur zertifizieren.
+Richtungsbindung 0,6 bei aktiven Quellen; eigene Geometrie, kein biologisch rekonstruierter Tensor.
+`leaf_development_experiment.py`: drei wechselnde dichte/indexierte Läufe, gleiche Graphen/Bilanzen/Historie.
+852/854/1710 Knoten, GEOS bestätigt Bäume; 0/2/0 offene Quellen, Beruhigungs-/Knotenbudget separat geprüft.
+`leaf_development_checks.py`: 128 Deformationspunkte, Sehnenmitte und numerische Jacobi-Determinante.
+`leaf_development_reload.py`: fünf echte Produkte und gemeinsame LOD-Koordinaten; Bildvergleich dreier Wachstumsmodelle.
 Gebogene Seitenadern lesbarer; natürliche Farbe, Artenkalibrierung und Rand-/anisotrope Wachstumsrezepte offen.
 
 ## Kopplung von Haupt- und Feinadern
@@ -118,3 +106,15 @@ Kostenvergleich ausdrücklich 128²-Punkte je Verfahren; alle Endkarten weiterhi
 80 unabhängige Optimierungen (Fehler ≤1,3e−14 m), 1000 Unterteilungsproben; Normfeld erzeugt alte Karten bytegleich.
 Dicht/indexiert identisch; Mediane 5668/5676/11364 gegen 185/197/341 ms. Peak 481,14 MiB inkl. dichter Referenz.
 Nahbild optisch: feinere Adern flacher, weiche Querschnitte erhalten; stumpfe Enden/Farbgleichförmigkeit bleiben.
+
+## Netzabhängige Endprofile
+Aktiv: freie Enden von Übergängen zu Feinadern über Grade im vollständigen verknüpften Netz unterscheiden.
+Nur unverzweigte Endketten ändern; Grad >2, Wurzel und innere Kreuzungen behalten ihren Radius.
+STRtree erkennt innere Kreuzungen mit 1e−12 m Abstand; Profil stoppt davor, unteilbares Endsegment bleibt geschützt.
+Materialprofil: maximal acht Endradien Bogenlänge, durch nächste Verzweigung begrenzt; Smoothstep-Gewichtung.
+Freies Ziel 5 % des Ausgangsradius, verbundenes Ziel min(Ausgangs-, Feinradius); eigene Gestaltung, kein botanisches Gesetz.
+Originalgraph/Quellen unverändert, abgeleitete Materialradien separat cachen und prüfen.
+17/19/41 freie und 20/21/19 verbundene Enden verjüngt; eine terminale Verzweigung geschützt.
+Unabhängig 110/111/148 Verzweigungsradien geprüft; vier synthetische Gegenbeispiele, Cache-/LOD-Replay bestanden.
+Profilmediane 8,6/9,3/14,8 ms; vollständige Materialkarten 1,74/2,12/1,93 s, Prozess-Peak 148,27 MiB.
+Nahbild optisch: Enden laufen feiner aus, Anschlüsse bleiben sichtbar; Farbe und Anatomiekalibrierung offen.

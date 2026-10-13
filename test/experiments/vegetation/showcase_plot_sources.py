@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "terminal-leaves/terminal.json",
+        "terminal_plot",
+        "Aderenden · freie Spitzen und Übergänge",
+        "Der vollständige Graph unterscheidet freie Enden, Übergänge zu Feinadern und Verzweigungen. Nur unverzweigte Endketten erhalten eigene Materialradien; Wurzel und Kreuzungen bleiben geschützt. Glatter Verlauf über höchstens acht Endradien, freie Zielbreite 5 %, verbundene Zielbreite Feinradius: eigene Gestaltung, keine botanische Kalibrierung. Materialkosten inklusive 512×512-Karten separat vom etwa 10–15 ms langen Profilaufbau. Synthetische Gegenbeispiele und gespeicherte Produkte geprüft.",
+    ),
+    (
         "relief-leaves/relief.json",
         "relief_plot",
         "Blattrelief · Höhe folgt dem Aderradius",

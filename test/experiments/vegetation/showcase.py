@@ -31,6 +31,7 @@ from leaf_development_plots import development_figure
 from leaf_filter_plots import filter_figure
 from leaf_relative_plots import relative_figure
 from leaf_relief_plots import relief_figure
+from leaf_terminal_plots import terminal_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
@@ -413,6 +414,12 @@ def closed_plot(report):
     return save_plot(figure, "closed-leaf-growth")
 
 
+def terminal_plot(report):
+    figure = terminal_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "leaf-terminal-profile")
+
+
 def relief_plot(report):
     figure = relief_figure(report)
     style_axes(figure.axes)
@@ -478,6 +485,7 @@ def plot_entries(output, plot_lods):
             closed_plot,
             coupled_plot,
             relief_plot,
+            terminal_plot,
             filter_plot,
             development_plot,
             relative_plot,

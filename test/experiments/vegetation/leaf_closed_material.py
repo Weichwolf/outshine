@@ -22,12 +22,7 @@ def add_minor_material(output, source_folder, name, blade, recipe, network):
         inputs[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
         with Image.open(path) as image:
             decoded[key] = np.asarray(image)[::-1] / 255
-    decoded["height"] = np.maximum(decoded["height"], strength * field)
-    decoded["colour"] = (
-        decoded["colour"] * (1 - 0.08 * field[..., None])
-        + np.array([0.13, 0.24, 0.035]) * 0.08 * field[..., None]
-    )
-    decoded["roughness"] = np.clip(decoded["roughness"] - 0.01 * field, 0, 1)
+    decoded = compose_minor_maps(decoded, field, strength)
     for key, value in decoded.items():
         path = output / f"{name}-{key}.png"
         Image.fromarray(np.rint(value[::-1] * 255).astype(np.uint8)).save(path)
@@ -51,3 +46,13 @@ def add_minor_material(output, source_folder, name, blade, recipe, network):
     path = output / f"{name}-material.json"
     path.write_text(json.dumps(material, indent=2) + "\n")
     return path.name, inputs, {"field_pairs": work, "quadrature_order": 6}
+
+
+def compose_minor_maps(decoded, field, strength):
+    decoded["height"] = np.maximum(decoded["height"], strength * field)
+    decoded["colour"] = (
+        decoded["colour"] * (1 - 0.08 * field[..., None])
+        + np.array([0.13, 0.24, 0.035]) * 0.08 * field[..., None]
+    )
+    decoded["roughness"] = np.clip(decoded["roughness"] - 0.01 * field, 0, 1)
+    return decoded
