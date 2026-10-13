@@ -1,4 +1,4 @@
-"""Regularize area products without changing any positive-area component."""
+"""Regularize polygonal products within their coordinate precision."""
 
 import numpy as np
 import shapely
@@ -22,13 +22,29 @@ def has_resolvable_interior(geometry,roundoff):
     return bool(np.any(~shapely.is_empty(shapely.buffer(parts,-roundoff,quad_segs=16))))
 
 
+def fill_grid_slits(region,quantum,roundoff):
+    threshold=min(quantum,roundoff);patches=[]
+    for part in shapely.get_parts(region):
+        for ring in part.interiors:
+            hole=shapely.Polygon(ring)
+            if hole.area>threshold*hole.length:continue
+            origin=shapely.get_coordinates(hole)[0]
+            local=shapely.transform(hole,lambda xy:xy-origin)
+            rectangle=shapely.minimum_rotated_rectangle(local)
+            points=shapely.get_coordinates(rectangle)
+            width=np.linalg.norm(np.diff(points,axis=0),axis=1).min() if rectangle.geom_type=='Polygon' else 0.
+            if width<threshold:patches.append(hole)
+    return region if not patches else shapely.set_precision(shapely.union_all([region,*patches]),quantum)
+
+
 def canonical_grid_region(geometry,quantum):
     if not np.isfinite(quantum) or quantum<=0:raise ValueError('surface quantum must be finite and positive')
     source=shapely.set_precision(geometry,0,mode='pointwise')
     result=shapely.normalize(polygonal_region(shapely.set_precision(source,quantum)))
-    difference=source.symmetric_difference(shapely.set_precision(result,0,mode='pointwise'))
     scale=max(1.,float(np.abs(shapely.get_coordinates(source)).max(initial=0)))
     roundoff=64*np.finfo(float).eps*scale
+    result=shapely.normalize(fill_grid_slits(result,quantum,roundoff))
+    difference=source.symmetric_difference(shapely.set_precision(result,0,mode='pointwise'))
     assert difference.area<=roundoff*source.length,'grid normalization changes significant area'
     assert not has_resolvable_interior(difference,roundoff),'grid normalization changes a real-width feature'
     return result
@@ -46,11 +62,20 @@ def verify_canonical_grid():
         result=canonical_grid_region(source,quantum)
         assert not result.is_empty and len(result.interiors)==len(source.interiors)
         assert np.max(np.abs(np.array(result.bounds)-source.bounds))<=quantum
+    q=2.**-40;offset=256.
+    outer=shapely.box(offset,offset,offset+4,offset+4)
+    slit=shapely.Polygon([[offset+1,offset+1],[offset+1+q,offset+1],
+                          [offset+2+q,offset+2],[offset+2,offset+2]])
+    healed=canonical_grid_region(outer.difference(slit),q)
+    assert healed.equals(outer) and not healed.interiors
+    real_hole=shapely.box(offset+1,offset+1,offset+1.00001,offset+2)
+    kept=canonical_grid_region(outer.difference(real_hole),q)
+    assert len(kept.interiors)==1
     try:canonical_grid_region(shapely.box(0,0,.04,1),.1)
     except AssertionError:pass
     else:raise AssertionError('real-width collapse accepted')
     return dict(live_and_restored_geometry_equal=True,normalization_idempotent=True,
-        narrow_faces_and_holes_preserved=True,real_width_collapse_rejected=True)
+        narrow_faces_and_holes_preserved=True,real_width_collapse_rejected=True,subgrid_slit_removed=True)
 
 
 def verify():

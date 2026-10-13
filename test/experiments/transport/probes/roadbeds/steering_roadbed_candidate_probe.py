@@ -58,10 +58,10 @@ def candidate(data,note):
     quantum=geometry_precision(floor)
     floor,reserved=(canonical_grid_region(g,quantum) for g in (floor,reserved))
     recipe=note.get('road_space_recipe','lane-flare')
-    assert recipe in ('lane-flare','loop-court'),'unknown road space recipe'
-    if recipe=='loop-court':
+    assert recipe in ('lane-flare','loop-court','return-court'),'unknown road space recipe'
+    if recipe!='lane-flare':
         layout=data.get('loop_layout',[dict(source=source.wkb.hex(),controls=controls.tolist())])
-        support,domain,construction=loop_court_support(layout,floor,vehicle,error)
+        support,domain,construction=loop_court_support(layout,floor,vehicle,error,recipe)
     else:
         support,construction=spline_roadbed(controls,vehicle,error)
         assert support is not None,construction
@@ -73,7 +73,7 @@ def candidate(data,note):
         planned,addition,reason=roadbed_site_check(support,floor,reserved,vehicle,error)
         assert reason is None,reason
     else:
-        assert domain.covers(support),'loop court escaped its original source domain'
+        assert preserves_coverage(support,domain),'court escaped its original source domain'
         planned=polygonal_region(floor.union(support));addition=planned.difference(floor)
         assert addition.intersection(reserved).area==0,'loop court intersects reserved space'
         assert planned.is_valid and preserves_voids(floor,planned) and preserves_coverage(floor,planned),'loop court changes island topology'

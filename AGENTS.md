@@ -23,7 +23,7 @@
   Native Änderungen und deren Engine-/Bild-/Kostenintegration besitzt der Integrationsagent auf `master`.
   Alle vier Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
 - Der aktive Nutzerauftrag bleibt maßgeblich; `GOAL.txt` auf `master` beschreibt den Outshine-/Integrationsauftrag.
-  `CONTEXT.md` ist ausschließlich die einmalige Übergabe an den Transport-Agenten nach dem Rechnerwechsel,
+  CONTEXT.md ist ausschließlich die einmalige Übergabe an den Transport-Agenten nach dem Rechnerwechsel,
   keine dauerhafte Regel- oder Aufgabenablage. Ich lese sie bei der Übergabe und pflege laufende Arbeit in Issues.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen

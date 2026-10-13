@@ -23,7 +23,14 @@ def verify_floor_coverage():
         damaged=floor.difference(shapely.box(offset+5,offset+5,offset+5+side,offset+5+side))
         assert floor.difference(damaged).area<tolerance*floor.length
         assert not preserves_coverage(floor,damaged)
-    return dict(floor_coverage_roundoff_checked=True,small_area_wide_floor_loss_rejected=True)
+        neighbor=shapely.box(offset+20,offset,offset+30,offset+10)
+        several=floor.union(neighbor)
+        rounded_parts=rounded.union(neighbor)
+        assert preserves_coverage(several,rounded_parts)
+        multiple_losses=rounded_parts.difference(shapely.box(offset+25,offset+5,offset+25+side,offset+5+side))
+        assert not preserves_coverage(several,multiple_losses)
+    assert preserves_coverage(shapely.Polygon(),shapely.Polygon())
+    return dict(floor_coverage_roundoff_checked=True,small_area_wide_floor_loss_rejected=True,multiple_components_checked=True)
 
 
 def verify_mesh_roundoff(vehicle):

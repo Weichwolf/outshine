@@ -153,7 +153,7 @@ def solve_window(root,name,frames,required,output,coupled):
     assert required<=accepted|existing,f'previously proved roadbeds lost: {sorted(required-(accepted|existing))}'
     after_graph=network_connectivity(network,after)
     (output/f'{name}-connectivity.json').write_text(json.dumps(after_graph,indent=2)+'\n')
-    return dict(place=name,trials=trials,proposed=len(proposed),native_accepted=len(accepted),
+    return dict(place=name,motor_vehicle_class=network.motor_class,trials=trials,proposed=len(proposed),native_accepted=len(accepted),
          before=baseline_accepted,after=sum(r['accepted'] for r in after['modules']),coupled_products=products,
          connections=sum(r['connections'] for r in after['modules']),previous_roadbeds_preserved=len(required),
          weak_components=[before_graph['proved_weak_components'],after_graph['proved_weak_components']],

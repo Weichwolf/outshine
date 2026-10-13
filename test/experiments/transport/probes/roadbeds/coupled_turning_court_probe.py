@@ -23,7 +23,7 @@ from transport_court_partition import partition_court
 from transport_shared_frames import frame_key
 from transport_joined_cut_setbacks import setback_joined_network
 from steering_roadbed_candidate_probe import source_buildings,building_cuts
-from steering_roadbed_product_probe import seeded_cache
+from steering_roadbed_product_probe import seeded_cache,declared_public_crossing
 
 
 def approach_segment(begin,end):
@@ -105,6 +105,20 @@ def local_court_sections(network,module,poses,cases):
     return scope
 
 
+def required_court_seeds(trial,poses,routes,seeds,floor,reserved,required):
+    planned=polygonal_region(shapely.union_all([floor,*[s['surface'] for s in seeds.values()]]))
+    cache=seeded_cache(planned,reserved,routes,poses,seeds,trial.vehicle,trial.curbs['arc_error_m'],required)
+    complete=dict(seeds)
+    for pair,route in sorted(routes.items()):
+        if pair in seeds or not coupled.request_keys(poses,[pair])<=required:continue
+        candidate,existing,_=coupled.roadbed_candidate(poses[pair[0]],poses[pair[1]],route,planned,reserved,
+                            trial.vehicle,trial.curbs['arc_error_m'],True,cache)
+        if candidate is not None:
+            complete[pair]=dict(candidate,existing_surface=existing,
+                                surface=polygonal_region(planned.union(candidate['roadbed'])))
+    return complete
+
+
 def grow_court_ports(trial,module,affected,poses,seeds,floor,scope):
     public_spaces={}
     ports=[]
@@ -168,41 +182,59 @@ def main():
         sections=set(args.cut_sections)
     original_routes,_=directed_module_routes(network.graph,old,network.shape(module),network.tree)
     distance=network.vehicle['minimumRearAxleRadiusM'] if args.setback is None else args.setback
+    scope=local_court_sections(network,module,old,dict(zip(map(tuple,args.pair),args.case))) if args.grow_ports or distance==0 else set()
     if distance==0:
-        scope=local_court_sections(network,module,old,dict(zip(map(tuple,args.pair),args.case)))
         affected={module}|{p['corridor'] for p in network.junctions[module] if p['section'] in scope}
         trial=fork_cut_plan(network,module,set());changes=[];sections=set()
     else:
         make_cuts=setback_joined_network if args.joined_cuts else setback_network
         trial,changes,affected=make_cuts(network,module,sections,distance)
-    if args.grow_ports and distance!=0:parser.error('port growth requires fixed source stations')
+    if args.grow_ports:
+        affected.update(p['corridor'] for p in trial.junctions[module] if p['section'] in scope)
     poses,_=trial.poses(module,{})
     routes,_=directed_module_routes(trial.graph,poses,trial.shape(module),trial.tree)
     records={r['module']:r for r in before['modules']};records.update((r['module'],r) for r in cuts['changed_modules'])
-    required={}
-    for owner in affected:
-        record=records[owner] if owner in records else network.record(owner)[0]
-        owner_poses,_=network.poses(owner,{})
-        required[owner]=coupled.request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
     margin=max(trial.vehicle['frontFromRearAxleM'],trial.vehicle['rearOverhangM'])+trial.vehicle['widthM']*.5+2*trial.curbs['arc_error_m']
     region=shapely.union_all([trial.shape(o) for o in affected]).envelope.buffer(margin)
     floor=motor_surface(shapely.union_all(list(routes.values())).envelope,trial.graph,trial.tree,trial.mesh,
                         trial.vehicle,trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
     original_floor=floor
-    receipt_path=root/'inputs'/f'{name}-input.json';receipt=json.loads(receipt_path.read_text())['receipt']
-    sources=source_buildings(receipt,region);other=coupled.reservations(trial,region).difference(floor)
     cases={tuple(p):c for p,c in zip(args.pair,args.case)}
+    crossings=[shapely.from_wkb(json.loads(selected_court_files(case)[1].read_text())['crossing']) for case in cases.values()]
+    crossing=polygonal_region(shapely.union_all(crossings))
+    shared_crossing,crossing_owners=declared_public_crossing(trial,region,crossing)
+    affected.update(crossing_owners)
+    region=shapely.union_all([trial.shape(o) for o in affected]).envelope.buffer(margin)
+    floor=floor.union(shared_crossing)
+    required={}
+    for owner in affected:
+        record=records[owner] if owner in records else network.record(owner)[0]
+        owner_poses,_=network.poses(owner,{})
+        required[owner]=coupled.request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
+    receipt_path=root/'inputs'/f'{name}-input.json';receipt=json.loads(receipt_path.read_text())['receipt']
+    sources=source_buildings(receipt,region);other=coupled.reservations(trial,region).difference(floor.union(crossing))
     seeds=seeds_for(cases,old,poses,routes,floor,other,trial.vehicle,trial.curbs['arc_error_m'])
     buildings,building_audit=building_cuts(sources,floor,shapely.union_all([s['surface'] for s in seeds.values()]))
     protected=shapely.union_all([b['adjusted'] for b in buildings]);reserved=protected.union(other)
     seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
-    public_spaces={};addition=shapely.Polygon();partition_audit={}
+    public_spaces={};addition=shared_crossing;partition_audit={}
+    if not shared_crossing.is_empty:
+        for owner in affected:
+            source=motor_surface(trial.shape(owner),trial.graph,trial.tree,trial.mesh,trial.vehicle,
+                                 trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
+            public_spaces[owner]=source.union(shared_crossing)
+        public_spaces[module]=floor
     if args.grow_ports:
-        poses,routes,sections,changes,public_spaces,addition,partition_audit=grow_court_ports(
-            trial,module,affected,poses,seeds,floor,scope)
+        growth_seeds=required_court_seeds(trial,poses,routes,seeds,floor,reserved,required[module])
+        poses,routes,grown_sections,growth_changes,public_spaces,addition,partition_audit=grow_court_ports(
+            trial,module,affected,poses,growth_seeds,floor,scope)
+        sections|=grown_sections;changes+=growth_changes
+        public_spaces={o:polygonal_region(g.union(shared_crossing)) for o,g in public_spaces.items()}
+        addition=polygonal_region(addition.union(shared_crossing))
         floor=public_spaces[module]
-        reserved=protected.union(coupled.reservations(trial,region).difference(floor))
+        reserved=protected.union(coupled.reservations(trial,region).difference(floor.union(crossing)))
         seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
+        seeds.update((pair,candidate) for pair,candidate in growth_seeds.items() if pair not in seeds)
     cache=seeded_cache(floor,reserved,routes,poses,seeds,trial.vehicle,trial.curbs['arc_error_m'],required[module])
     section_index=shapely.STRtree(np.array(list(trial.sections.values()),dtype=object))
     products={}
@@ -230,7 +262,7 @@ def main():
             shapely.union_all([network.shape(o) for o in affected])).area,
         original_sections=[shapely.get_coordinates(network.sections[s]).tolist() for s in sorted(sections)],
         planned_sections=[shapely.get_coordinates(trial.sections[s]).tolist() for s in sorted(sections)],
-        shared_cuts_description=f'{"Wider ports on unchanged cut planes" if args.grow_ports else f"Cuts moved {distance:g} m"}; {len(proofs)} proved routes across {len(affected)} owners; Buildings runtime pending',
+        shared_cuts_description=f'{f"Widths solved after {distance:g} m cut setback" if args.grow_ports else f"Cuts moved {distance:g} m"}; {len(proofs)} proved routes across {len(affected)} owners; Buildings runtime pending',
         elapsed_ms=(time.perf_counter()-begin)*1000,building_runtime_integration_pending=True,
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public motor requests across the court and affected neighbors on one mesh; Buildings runtime and full-window integration remain open.')

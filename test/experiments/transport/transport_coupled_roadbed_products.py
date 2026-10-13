@@ -9,10 +9,10 @@ import shapely
 from transport_cut_setback_experiment import digest
 from transport_cut_setbacks import fork_cut_plan,restore_cut_plan,external_frames_unchanged
 from transport_directed_routes import directed_module_routes
-from transport_junction_surfaces import motor_surface,same_island_winding
+from transport_junction_surfaces import same_island_winding
 from transport_shared_frames import frame_key
 from transport_source_roadbeds import published_roadbed_body_check
-from transport_turn_roadbeds import preserves_coverage,published_roadbed_surface
+from transport_turn_roadbeds import preserves_coverage
 from transport_surface_regions import canonical_grid_region
 
 
@@ -91,7 +91,7 @@ def apply_coupled_product(network,records,required,root,path,occupied):
     with np.load(report['physical_mesh'],allow_pickle=False) as mesh:
         physical=shapely.union_all(shapely.polygons(mesh['vertices'][mesh['indices']]))
         quantum=min(row['coordinate_precision_m'] for row in report['published_surfaces'])
-        addition=shared_public_addition(report,physical,quantum)
+        shared_public_addition(report,physical,quantum)
         for row in report['published_surfaces']:
             owner=row['module'];assert owner in affected and owner not in floors
             owned=dict(vertices=mesh['vertices'],indices=mesh['indices'][mesh['face_owners']==owner])
@@ -101,11 +101,10 @@ def apply_coupled_product(network,records,required,root,path,occupied):
             assert physical.symmetric_difference(expected).area<=1e-8,'native owner mismatch'
             trial.shapes[owner]=physical
             planned=shapely.from_wkb(row['public_surface_wkb'])
-            source_floor=motor_surface(planned,trial.graph,trial.tree,trial.mesh,trial.vehicle,
-                                       trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
-            source_floor=source_floor.union(addition)
-            base,core=shapely.set_precision(np.array([source_floor,physical],dtype=object),quantum)
-            floors[owner],_=published_roadbed_surface(owned,base,core,planned,quantum)
+            assert planned.is_valid and planned.geom_type in ('Polygon','MultiPolygon')
+            assert preserves_coverage(expected,physical),'native mesh omits cached physical surface'
+            assert preserves_coverage(planned.intersection(expected),physical),'public surface exceeds its native owner'
+            floors[owner]=canonical_grid_region(planned,quantum)
     assert floors.keys()==affected
     assert preserves_coverage(original,shapely.union_all([trial.shape(m) for m in affected]))
     frames={frame_key(p)[:3]:p for p in report['published_frames']}

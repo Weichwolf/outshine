@@ -23,6 +23,7 @@ def coordinate_roundoff(surface):
 
 
 def preserves_coverage(before,after):
+    if before.is_empty:return True
     shapely.prepare(after)
     if shapely.covers(after,before):
         return True
@@ -32,9 +33,9 @@ def preserves_coverage(before,after):
         return False
     for segments in (8,4,2,1):
         expanded=shapely.buffer(after,roundoff,quad_segs=segments)
-        if expanded.is_valid:
-            return bool(shapely.covers(expanded,before))
-    return False
+        if expanded.is_valid and shapely.covers(expanded,before):return True
+    interior=shapely.buffer(before,-roundoff,quad_segs=8)
+    return bool(interior.is_valid and shapely.covers(after,interior))
 
 
 def preserves_voids(before,after):
@@ -89,7 +90,11 @@ def published_roadbed_surface(mesh,base,core,planned,precision):
     assert np.array_equal(vertices,np.rint(vertices/precision)*precision)
     faces=shapely.polygons(vertices[mesh['indices']])
     actual=shapely.union_all(shapely.set_precision(faces,precision))
-    complete=actual.intersection(planned).union(base.difference(core))
+    public=actual.intersection(planned)
+    if preserves_coverage(base.intersection(core),actual):
+        complete=base.union(public.difference(base))
+    else:
+        complete=public.union(base.difference(core))
     parts=shapely.get_parts(complete)
     polygons=shapely.get_parts(parts[np.isin(shapely.get_type_id(parts),[3,6])])
     surface=shapely.MultiPolygon(polygons.tolist()) if len(polygons)!=1 else polygons[0]

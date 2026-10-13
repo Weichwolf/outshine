@@ -8,7 +8,8 @@ import shapely
 from scipy.integrate import quad
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
-from continuous_turn_recipe import advance,fit_turn
+from continuous_turn_recipe import advance,fit_turn,controls_for,endpoint
+from transport_fitted_roadbeds import spline_roadbed
 from transport_three_arc_paths import three_arc_seeds
 from transport_arc_line_paths import arc_line_arc_seeds
 from transport_spline_routes import continuous_spline_joins,curve_bounds,spline_sampler
@@ -93,4 +94,21 @@ def verify_arc_line_arcs():
                 csc_rigid_transform=True,csc_residual_budget=True)
 
 
-if __name__=='__main__':print(verify()|verify_approaches()|verify_arc_line_arcs())
+def verify_long_straight():
+    entry=dict(position=np.zeros(2),heading=np.array([1.,0.]))
+    lengths=np.array([2.,1000.,3.]);radius=4.5;sign=(1,-1)
+    controls=controls_for(lengths,radius,sign,1.,entry)
+    assert len(controls)<32 and continuous_spline_joins(controls)
+    xy,angle=spline_sampler(controls)(np.array([len(controls)-1]),np.array([1.]))
+    exact=endpoint(lengths,radius,sign,1.)
+    assert np.allclose(xy[0],exact[:2],atol=1e-8,rtol=0)
+    assert abs(np.arctan2(np.sin(angle[0]-exact[2]),np.cos(angle[0]-exact[2])))<1e-10
+    vehicle=dict(widthM=1.8,frontFromRearAxleM=3.3,rearOverhangM=1.1,minimumRearAxleRadiusM=4.)
+    road,audit=spline_roadbed(controls,vehicle,.025)
+    assert road is not None,audit
+    assert audit['hull_intervals']<255 and np.max(curve_bounds(controls)[2])<=.25
+    return dict(kilometre_straight_has_bounded_controls=True,long_roadbed_within_sampling_budget=True,
+                independent_long_endpoint=True)
+
+
+if __name__=='__main__':print(verify()|verify_approaches()|verify_arc_line_arcs()|verify_long_straight())

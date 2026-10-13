@@ -136,7 +136,22 @@ def verify_polygonal_mesh(vehicle):
     assert surface.is_valid and surface.area==8 and len(surface.geoms)==2
     assert shapely.get_precision(surface)==.125
     assert surface.equals(shapely.MultiPolygon([shapely.box(x,0,x+2,2) for x in (0,4)]))
-    return dict(polygonal_mesh_publication_checked=True)
+    precision=2.**-46
+    left,right=shapely.box(0,0,1,1),shapely.box(2,0,3,1)
+    actual=left.union(right)
+    triangles=triangles_of(actual)
+    vertices=shapely.get_coordinates(triangles).reshape(-1,4,2)[:,:3].reshape(-1,2)
+    mesh=dict(vertices=vertices,indices=np.arange(len(vertices)).reshape(-1,3))
+    for width in (precision*2,.125):
+        connector=shapely.box(1,.5-width*.5,2,.5+width*.5)
+        base=actual.union(connector)
+        surface,published=published_roadbed_surface(mesh,base,base,base,precision)
+        assert published.equals(actual)
+        if width==precision*2:
+            assert surface.equals(base) and len(shapely.get_parts(surface))==1
+        else:
+            assert not surface.equals(base) and surface.equals(actual)
+    return dict(polygonal_mesh_publication_checked=True,roundoff_connection_retained=True,real_missing_connector_not_invented=True)
 
 
 def verify_roundoff_voids():

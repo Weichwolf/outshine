@@ -79,7 +79,7 @@ def draw_window(ax,root,report):
     ax.add_patch(Circle((0,0),radius,fill=False,color='#8a9692',linewidth=.5,linestyle=':'))
     ax.set(xlim=(-radius,radius),ylim=(-radius,radius),aspect='equal',facecolor='#f2f0e8',
            xlabel='East [m]',ylabel='North [m]',
-           title=f"{report['place']} · layer 0 · radius {radius:g} m\n{report['after']}/{report['connections']} motor routes")
+           title=f"{report['place']} · layer 0 · radius {radius:g} m\n{report['after']}/{report['connections']} {report.get('motor_vehicle_class','motor')} routes")
 
 
 def main():

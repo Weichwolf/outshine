@@ -1,6 +1,8 @@
 """Keep one lane frame for each physical cut and solve only its affected modules."""
 
+import hashlib
 import json
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -13,13 +15,20 @@ from transport_junction_turn_experiment import solve_module
 from transport_junction_turns import connect_lanes
 from transport_port_lanes import junction_interfaces,module_face_index,module_shape,lane_poses,align_vehicle_ports
 from transport_shared_frames import frame_key,heading_choices,choose_shared_frames,section_pose_domain,pose_cost
-from transport_travel import MODES
+from transport_travel import MODES,bound_source_travel
 
 
 class DrivingNetwork:
-    def __init__(self,root,name,vehicle):
+    def __init__(self,root,name,vehicle,*,motor_class='motorcar'):
+        metadata=json.loads((root/'directed-graphs'/f'{name}-flat-network.json').read_text())
+        source_data=(root/'inputs'/f'{name}-input.json').read_bytes()
+        assert hashlib.sha256(source_data).hexdigest()==metadata['input_sha256'],'graph source input changed'
+        recipes=json.loads(Path(__file__).with_name('transport_network_recipes.json').read_text())
+        public,restricted,self.access_notes=bound_source_travel(json.loads(source_data)['roads'],
+            metadata['source_ids'],metadata['usage'],recipes['travelRecipes'],motor_class=motor_class)
         graphs = load_graphs(root/'directed-graphs'/f'{name}-flat-network.npz',
-                            json.loads((root/'directed-graphs'/f'{name}-flat-network.json').read_text()))
+                            metadata,travel_permissions=(public,restricted))
+        self.motor_class=motor_class
         self.graph = next(g for g in graphs if g['tier']==['land',0,'ground'])
         self.tree = shapely.STRtree(self.graph['lines'])
         source = root/'directed-surfaces'/f'{name}-flat-surfaces.npz'

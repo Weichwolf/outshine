@@ -29,7 +29,7 @@ def seeded_cache(floor,reserved,routes,poses,seeds,vehicle,error,required):
         route=routes[pair]
         key=tuple(poses[i][k].tobytes() for i in pair for k in ('position','heading'))+(
             route.wkb,shapely.get_precision(route),coupled.request_keys(poses,[pair])<=required)
-        values[key]=seed,False,[]
+        values[key]=seed,bool(seed.get('existing_surface',False)),[]
     return dict(contexts={context:values},hits=0,misses=0)
 
 
@@ -50,13 +50,25 @@ def previous_pairs(owner,poses,routes,reference,records,prior_path):
     return previous
 
 
+def declared_public_crossing(network,region,crossing):
+    if crossing.is_empty:return crossing,set()
+    eligible,_=public_pedestrian_surface(region,network.graph,network.tree)
+    assert preserves_coverage(crossing,eligible),'crossing uses private or incompatible transport'
+    triangles,index=network.mesh;ids=index.query(crossing,predicate='intersects')
+    source=shapely.union_all(triangles[ids]);shared=polygonal_region(crossing.intersection(source))
+    areas=shapely.area(shapely.intersection(triangles[ids],shared))
+    return shared,set(map(int,network.product['face_owners'][ids[areas>0]]))
+
+
 def make_seeds(data,poses,routes,notes):
     seeds={}
-    court=any(n.get('road_space_recipe')=='loop-court' for n in notes.values())
+    recipes={n.get('road_space_recipe','lane-flare') for n in notes.values()}
+    court=bool(recipes&{'loop-court','return-court'})
+    if court:assert len(recipes)==1,'coupled court curves need one space recipe'
     if court:
         data=dict(data,loop_layout=[dict(source=routes[p].wkb.hex(),controls=n['curve_controls']) for p,n in notes.items()])
     for pair,note in notes.items():
-        if court:note=dict(note,road_space_recipe='loop-court')
+        if court:note=dict(note,road_space_recipe=next(iter(recipes)))
         query=dict(data,source_route=routes[pair].wkb.hex(),
             entry={k:poses[pair[0]][k] for k in ('position','heading')},
             exit={k:poses[pair[1]][k] for k in ('position','heading')})
@@ -72,6 +84,7 @@ def main():
     parser.add_argument('--pair',type=int,nargs=2,action='append',required=True)
     parser.add_argument('--curve',type=Path,action='append',required=True)
     parser.add_argument('--prior',type=Path)
+    parser.add_argument('--close-covered-seams',action='store_true')
     parser.add_argument('--crossing-area',type=Path,nargs='*',default=[])
     parser.add_argument('--reference',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
@@ -97,16 +110,8 @@ def main():
                         network.mesh,network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m'])
     region=network.shape(owner).envelope.buffer(coupled.roadbed_lateral_reach(network.vehicle)+.025)
     crossing=polygonal_region(shapely.union_all([shapely.from_wkb(json.loads(path.read_text())['crossing']) for path in args.crossing_area]))
-    shared_crossing=crossing
-    crossing_owners=set()
-    if not crossing.is_empty:
-        eligible,_=public_pedestrian_surface(region,network.graph,network.tree)
-        assert preserves_coverage(crossing,eligible),'crossing uses private or incompatible transport'
-        triangles,index=network.mesh;ids=index.query(crossing,predicate='intersects')
-        source=shapely.union_all(triangles[ids]);shared_crossing=polygonal_region(crossing.intersection(source))
-        areas=shapely.area(shapely.intersection(triangles[ids],shared_crossing))
-        crossing_owners=set(map(int,network.product['face_owners'][ids[areas>0]]))
-        floor=floor.union(shared_crossing)
+    shared_crossing,crossing_owners=declared_public_crossing(network,region,crossing)
+    floor=floor.union(shared_crossing)
     receipt_path=root/'inputs'/f'{name}-input.json'
     receipt=json.loads(receipt_path.read_text())['receipt'];building_sources=source_buildings(receipt,region)
     other=coupled.reservations(network,region).difference(floor.union(crossing))
@@ -129,7 +134,7 @@ def main():
             member_floor=motor_surface(network.shape(member),network.graph,network.tree,network.mesh,
                 network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m']).union(shared_crossing)
         products[member]=construct_complete_module(network,network,member,set(),affected,region,protected,sections,
-            member_required,cache,reserved,public_floor=member_floor if not crossing.is_empty else None)
+            member_required,cache,reserved,public_floor=member_floor if not crossing.is_empty else None,close_seams=args.close_covered_seams)
         assert preserves_coverage(network.shape(member),products[member]['physical']),'existing transport geometry lost'
     product=products[owner]
     assert seeds.keys()<={c['pair'] for c in product['curves']},'seed not admitted to its physical owner'

@@ -19,13 +19,27 @@ def loop_court_domain(surface,source,vehicle):
     return source.envelope.buffer(reach),reach
 
 
-def loop_court_support(layout,surface,vehicle,error):
+def return_court_domain(source,vehicle):
+    points=shapely.get_coordinates(source)
+    assert len(points)>=3,'return court needs a turning source'
+    directions=np.diff(points,axis=0)
+    lengths=np.linalg.norm(directions,axis=1)
+    assert np.all(lengths>0),'return court source has repeated points'
+    assert directions[0]@directions[-1]<=0,'return court needs opposing approaches'
+    reach=2*vehicle['minimumRearAxleRadiusM']+max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])+vehicle['widthM']*.5
+    assert np.linalg.norm(points[-1]-points[0])<=reach,'return court approaches are not local'
+    return source.envelope.buffer(reach),reach
+
+
+def loop_court_support(layout,surface,vehicle,error,recipe='loop-court'):
+    assert recipe in ('loop-court','return-court'),'unknown court recipe'
     assert 0<len(layout)<=8,'loop layout exceeds its bounded curve budget'
     domains=[];supports=[];intervals=0
     for item in layout:
-        domain,reach=loop_court_domain(surface,shapely.from_wkb(item['source']),vehicle)
+        source=shapely.from_wkb(item['source'])
+        domain,reach=loop_court_domain(surface,source,vehicle) if recipe=='loop-court' else return_court_domain(source,vehicle)
         support,audit=spline_roadbed(np.array(item['controls']),vehicle,error)
         assert support is not None,audit
         domains.append(domain);supports.append(support);intervals+=audit['hull_intervals']
     return shapely.union_all(supports),shapely.union_all(domains),dict(
-        recipe='loop-court',source_reach_m=reach,layout_curves=len(layout),hull_intervals=intervals)
+        recipe=recipe,source_reach_m=reach,layout_curves=len(layout),hull_intervals=intervals)
