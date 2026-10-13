@@ -12,7 +12,7 @@ def port_cell(port,ports,extent,quantum):
     centre=np.mean(np.array(port['line'].coords)[[0,-1]],axis=0)
     cell=None
     for other in ports:
-        if other['owner']!=port['owner'] or other['section']==port['section']:continue
+        if other['section']==port['section']:continue
         rival=np.mean(np.array(other['line'].coords)[[0,-1]],axis=0)
         normal=centre-rival;distance=np.linalg.norm(normal)
         assert distance>quantum,'coincident ports need one shared section'
@@ -88,6 +88,12 @@ def verify():
     assert all(result[k].equals(reverse[k]) for k in result)
     assert all(lines[s].equals(reversed_lines[s]) and abs(lines[s].length-3)<1e-10 for s in lines)
     assert audit['transferred_area_m2']==0
+    for port in ports:
+        cell=port_cell(port,ports,100.,1e-10)
+        assert cell is not None
+        rival=next(p for p in ports if p['section']!=port['section'])
+        assert cell.covers(shapely.Point(np.mean(np.array(port['line'].coords)[[0,-1]],axis=0)))
+        assert not cell.covers(shapely.Point(np.mean(np.array(rival['line'].coords)[[0,-1]],axis=0)))
     shared_parts={0:parts[0],1:parts[1].union(parts[2])}
     shared_ports=[dict(p,owner=1) for p in ports]
     joint,joint_lines,_=partition_court(shared_parts,0,addition,shared_ports)
@@ -108,7 +114,7 @@ def verify():
     assert all(new_lines[s].equals(moved(g)) for s,g in lines.items())
     return dict(original_area_preserved=True,added_area_owned_once=True,port_plane_unchanged=True,
                 shared_port_extended=True,external_port_unchanged=True,multiple_owners=True,
-                port_order_independent=True,rigid_transform=True,same_owner_ports_separated=True)
+                port_order_independent=True,rigid_transform=True,same_owner_ports_separated=True,different_owner_ports_separated=True)
 
 
 if __name__=='__main__':print(verify())

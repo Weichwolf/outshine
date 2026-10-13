@@ -99,10 +99,11 @@ Optionale Kleinstspalt-Bereinigung: vollständig überdeckt, unreserviert, ≤0,
 kein 5-cm-Innenkreis; Fläche/Geometrie bilanzieren. Konstruktive Vereinfachung, keine Rundungstoleranz.
 Zürich schließt damit 0,00947 m²; geschützte/breite/große/teilweise überdeckte Löcher bleiben erhalten.
 903 im Gesamtfenster: 12/12 plus sechs Nachbarfahrten; +22,75 m², Nahbild/erneutes Laden geprüft.
-Mehrere Ports desselben Korridors teilen Erweiterungen nach Nähe zum Portmittelpunkt;
+Alle Ports teilen Erweiterungen nach Nähe zum Portmittelpunkt;
 Schnittebenen bleiben fest. Verhindert fremde Zusatzsegmente am anderen Arm; 1758 bleibt geometrisch identisch.
-1583: offener Zwischenraum statt Insel; begrenzter Rückkehr-Wendeplatz im Python-Experiment.
-Noch keine gültige gemeinsame Lösung: Reservationen/neu eingeschlossene Restflächen; 18 Fahrten bleiben offen.
+1583 lokal: 6/6 plus zwei Nachbarfahrten; +41,36 m², Nahbild/erneutes Laden geprüft.
+Offene Rückkehr-Wendeplätze brauchen keinen Inselanker. Radiusreserve passend wählen; Mindest-/Hüllenprüfung gilt.
+Ports verschiedener Nachbarn ebenfalls räumlich begrenzen; Gegenrichtungen gemeinsam lösen. Gesamtfenster offen.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
