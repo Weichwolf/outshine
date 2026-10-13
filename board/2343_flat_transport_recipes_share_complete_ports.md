@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4801/4808 (024836d16), öffentliche PKW-Klassenrezepte frisch geprüft; keine Größen-/Lastfreigabe.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch sieben Fahrten offen.
+Zürich 4803/4808 (34fce5009), öffentliche PKW-Klassenrezepte frisch geprüft; keine Größen-/Lastfreigabe.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch fünf Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 39,7 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 41,7 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -83,8 +83,8 @@ prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine 
 Nach Flächenvereinigung polygonale Anteile bereitstellen; Nullflächenlinien sind keine Fahrzeugfläche. Positive Fläche unverändert erhalten.
 
 ## Nächste Lieferung und Abnahme
-30 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
-1262: 24/24 plus vier Nachbarfahrten, +21,33 m²; U-Verbindung rund 26 m statt 303 m Umweg.
+32 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
+725: 30/30 plus vier Nachbarfahrten, +6,56 m²; 1039: 12/12 plus sechs Nachbarfahrten, +0,16 m².
 Gemeinsame Flächen bei leerem Geometriebeitrag nicht erneut komponieren; abschließende Prüfungen erhalten.
 Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identitäten/Hüllen erneut prüfen.
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
