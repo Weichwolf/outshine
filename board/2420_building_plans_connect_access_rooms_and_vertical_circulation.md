@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -23,6 +23,13 @@ Matplotlibs Dreieckssortierung erzeugte falsche räumliche Überlagerung; der Pf
 Jede Nutzfläche hat direkten Flurzugang; sieben Treppenkerne mit Stufen, Podesten, Geländern und echten Deckenöffnungen.
 Vorherige Erdgeschoss-/Reservepläne bleiben als Bildvergleich; nutzungsgerechte Raumprogramme, Aufzüge und native Begehbarkeit offen.
 Logische Welt braucht stabile Raum-/Portal-IDs, Höhen, Wege und Kollision unabhängig vom Render-LOD.
+
+Aktiver Ausbau: gestaffelte Geschossgrundrisse bei festem Treppenkern/Flur; negative Raum-/Zugangsfolgen verwerfen.
+Quellgrundriss/Höhen und Raum-IDs erhalten; Terrassenzugang/Geländer bleiben bis zur Geometrieprüfung offen.
+`building_setbacks`: mit GEOS eingerückte Hülle um geschützten Kern/Flur, Räume schneiden und Clearance erneut prüfen.
+Rechteck/Flügel/Hof geprüft; ungültige Einrückung behält das vorige Geschoss mit Grund. Nulländerung übernimmt den Originalplan.
+Mesh-Plattenprüfung verwendet nun den jeweiligen Geschossgrundriss; unveränderte Oberplatten sind ein negativer Kontrollfall.
+18×14-m-Haus: 252/212,3/177,8 m²; 18 Raumflächen, zwei Treppen, 342 Posen und 2,15 m minimale geprüfte Kopffreiheit.
 
 ## Komponenten und Umsetzung
 - Gelieferte Footprints/Höfe/Parts/Höhen erhalten; fehlende Typ-/Geschoss-/Raumangaben kohärent ergänzen.

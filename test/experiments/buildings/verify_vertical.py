@@ -116,7 +116,7 @@ def verify(plan, product):
         raise AssertionError('Constructed storeys changed the delivered vertical envelope')
     for index in range(plan['storeys']):
         current = level(plan,index)
-        expected = plan['footprint']
+        expected = current['footprint']
         if index and 'stair' in plan:
             expected = expected.difference(plan['stair']['opening'])
         floor = occupancy(product,0,current['floor_z_m']-.01,current['floor_z_m']+.01)

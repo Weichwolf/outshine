@@ -14,6 +14,7 @@ MAX_STOREYS = 64
 
 
 def level(plan, index):
+    if 'storey_plans' in plan:return plan['storey_plans'][index]
     shift = index*(plan['body_top_m']-plan['base_z_m'])/plan['storeys']
     doors = [door for door in plan['doors'] if index == 0 or door['kind'] != 'entrance']
     return plan | dict(base_z_m=plan['base_z_m']+shift, floor_z_m=plan['floor_z_m']+shift,
@@ -57,12 +58,12 @@ def mesh(plan, method='profile', seal_openings=False):
     storage = [], [], [], []
     face_levels = []
     hole = plan['stair']['opening'] if 'stair' in plan and not seal_openings else shapely.Polygon()
-    cut = canonical_geometry(plan['footprint'].difference(hole))
     for index in range(plan['storeys']):
         first = len(storage[1])
         current = level(plan, index)
-        floor = cut if index else plan['footprint']
-        ceiling = cut if index < plan['storeys']-1 else plan['footprint']
+        cut = canonical_geometry(current['footprint'].difference(hole))
+        floor = cut if index else current['footprint']
+        ceiling = cut if index < plan['storeys']-1 else current['footprint']
         solid(storage, floor, current['base_z_m'], current['floor_z_m'], 0)
         if index and 'stair' in plan:
             support = canonical_geometry(plan['rooms'][1].difference(hole))
