@@ -126,6 +126,7 @@ def main():
         "leaf_domain.py",
         "leaf_relative_neighbors.py",
         "leaf_vein_field.py",
+        "leaf_texture_filter.py",
         "leaf_venation.py",
         "blade_surface.py",
     ]

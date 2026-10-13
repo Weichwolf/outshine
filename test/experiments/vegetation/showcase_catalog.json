@@ -1,5 +1,5 @@
 {
-  "current_work": "Geschlossene Feinadern aus gespeicherten Hauptadern: drei zusammenhängende Netze mit ausdrücklich verbundenen Kreuzungen. Dichte und beschleunigte Suche erzeugen identische Wachstumsprodukte. Eine Quelle der gelappten Form bleibt an der Kontur ungelöst; die beiden anderen Proben schließen alle Quellen. Natürliche Aderdichte, Farbvariation und kalibrierte Lichtdurchlässigkeit bleiben offen.",
+  "current_work": "Feinadern werden vor dem Speichern über die Texelfläche gemittelt. Konservative Vorauswahl liefert dieselben gefilterten Werte mit geringerem Aufbauaufwand. Drei zusammenhängende Adernetze bleiben erhalten; eine Quelle der gelappten Form bleibt ungelöst. Natürliche Aderdichte, Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen weiterhin.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -8,8 +8,8 @@
       "label": "Ausschnitt der glatten Funktionsform",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Echte Nahaufnahme derselben gespeicherten Blattoberfläche. Feinadern verbinden Hauptadern zu einem zusammenhängenden Netz. Prozedurale 512×512-Karten werden aus dem Cache geladen; keine erneute Adererzeugung für diese Kamera.",
-      "quality": "Verbindungen sichtbar, aber noch schwach und teils unterabgetastet. Natürliche Aderdichte, Verlauf und Materialfeinheit erreichen SpeedTree noch nicht.",
+      "description": "Nahaufnahme derselben gespeicherten Blattoberfläche. Feinadern werden mit 6×6-Quadratur über den UV-Texel gemittelt und als prozedurale 512×512-Karten gecacht. Keine erneute Ader- oder Materialerzeugung für diese Kamera.",
+      "quality": "Feinadern etwas ruhiger, Bildgewinn klein. Kantige Hauptadern, geringe Maschendichte und einheitliche Farbe bleiben deutlich sichtbar. SpeedTree-Qualität nicht erreicht.",
       "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-detail.json"
     },
     {
@@ -18,7 +18,7 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten.",
+      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten. Die Feinaderkarten sind über die Texelfläche vorgefiltert.",
       "quality": "49 / 50 / 44 unabhängige Schleifen. Eine von 192 Quellen ungelöst; natürliche Dichte, Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen. SpeedTree-Qualität noch nicht erreicht.",
       "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-upper.json"
     },
@@ -28,7 +28,7 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten.",
+      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten. Die Feinaderkarten sind über die Texelfläche vorgefiltert.",
       "quality": "49 / 50 / 44 unabhängige Schleifen. Eine von 192 Quellen ungelöst; natürliche Dichte, Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen. SpeedTree-Qualität noch nicht erreicht.",
       "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-lower.json"
     },
@@ -38,7 +38,7 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-1",
-      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten.",
+      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten. Die Feinaderkarten sind über die Texelfläche vorgefiltert.",
       "quality": "49 / 50 / 44 unabhängige Schleifen. Eine von 192 Quellen ungelöst; natürliche Dichte, Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen. SpeedTree-Qualität noch nicht erreicht.",
       "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-coarse.json"
     },
@@ -410,7 +410,8 @@
     "wood_plot": "lod-0",
     "bark_layer_plot": "lod-0",
     "relative_plot": "lod-0",
-    "closed_plot": "lod-0"
+    "closed_plot": "lod-0",
+    "filter_plot": "lod-0"
   },
   "genera": [
     {

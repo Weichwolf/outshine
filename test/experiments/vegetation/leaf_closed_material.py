@@ -4,24 +4,16 @@ import hashlib
 import json
 
 import numpy as np
-from leaf_vein_field import segment_field
+from leaf_texture_filter import filtered_veins
 from PIL import Image
 
 
 def add_minor_material(output, source_folder, name, blade, recipe, network):
     size, radius, strength = 512, min(blade.width, blade.length) / 800, 0.25
-    s, t = np.meshgrid(
-        2 * (np.arange(size) + 0.5) / size - 1, (np.arange(size) + 0.5) / size
-    )
-    width, _ = blade.width_profile(t)
-    points = np.column_stack(((s * width).ravel(), (t * blade.length).ravel()))
     edges = network.edges[network.base_edges :]
     a, b = network.positions[edges[:, 0]], network.positions[edges[:, 1]]
     radii = np.full(len(edges), radius)
-    field, work = segment_field(a, b, radii, radii, points)
-    probe = points[::4096]
-    dense, _ = segment_field(a, b, radii, radii, probe, "dense")
-    assert np.array_equal(dense, field[::4096])
+    field, work = filtered_veins(blade, a, b, radii, size=size, order=6)
     field = field.reshape(size, size)
     maps, inputs, decoded = {}, {}, {}
     for key, filename in recipe["maps"].items():
@@ -51,9 +43,10 @@ def add_minor_material(output, source_folder, name, blade, recipe, network):
         ).hexdigest(),
         "minor_radius_m": radius,
         "minor_relief_weight": strength,
+        "minor_filter": "uv-box-gauss6-1",
         "minor_remaining_sources": network.remaining_sources,
         "minor_stop_reason": network.stop_reason,
     }
     path = output / f"{name}-material.json"
     path.write_text(json.dumps(material, indent=2) + "\n")
-    return path.name, inputs, {"field_pairs": work, "dense_probe_points": len(probe)}
+    return path.name, inputs, {"field_pairs": work, "quadrature_order": 6}

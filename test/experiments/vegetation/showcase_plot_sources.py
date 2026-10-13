@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "closed-leaves/filtering.json",
+        "filter_plot",
+        "Feinadern · Texelfilterung und Erzeugungskosten",
+        "6×6-Gaussquadratur mittelt das prozedurale Feld über den UV-Texel. Konservative Vorauswahl liefert dieselben Werte wie vollständige Auswertung; drei abwechselnde Läufe auf denselben gespeicherten Netzen. Fehler gegen 16×16-Quadratur an je 1024 aktiven Texeln; zwölf schwierige Texel je Form zusätzlich gegen unabhängige 64×64-Mittelpunktsintegration. Numerische Stichproben, keine globale Fehlerschranke. Aufbau wird gecacht, keine zusätzliche Arbeit je Frame.",
+    ),
+    (
         "closed-leaves/closed-leaves.json",
         "closed_plot",
         "Geschlossene Feinadern · Wachstum und offene Quellen",
