@@ -44,7 +44,7 @@ def needle_figure(report):
     )
     axes[1].legend()
     axes[1].margins(y=0.2)
-    x = np.arange(4)
+    x = np.arange(len(report["checks"]["cases"]))
     for offset, index, label in ((-width / 2, 0, "Nah"), (width / 2, 1, "Grob")):
         axes[2].bar(
             x + offset,
@@ -57,11 +57,11 @@ def needle_figure(report):
         )
     axes[2].set(
         xticks=x,
-        xticklabels=("Ellipse", "Twist", "Rhombus", "Gerade"),
+        xticklabels=("Ellipse", "Twist", "Rhombus", "Gerade", "S2", "S3", "S5", "S8"),
         ylabel="Beobachtetes Volumendefizit · %",
     )
     axes[2].legend()
     figure.suptitle(
-        "Räumliche Nadeln und Bündel · Grundfunktion, keine botanische Artenfreigabe\nMaterial/Querschnitt und LOD-Deckung noch zu kalibrieren; CPU-Messung ist kein GPU-Budgetbeleg"
+        "Räumliche Nadeln · Halbkreis-/Kreissektoren mit gemeinsamer Bündelbasis\nMaterial und LOD-Deckung offen; lokale CPU-Messung ohne GPU-Budgetbeleg"
     )
     return figure
