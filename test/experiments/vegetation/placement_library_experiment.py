@@ -16,6 +16,7 @@ import numpy as np
 from outshine_ref.vegetation import DistancePattern, Profile
 from placement_checks import check_graph, check_patterns
 from placement_experiment import check_sparse
+from placement_scenes import make_scenes
 
 
 def load_before(path):
@@ -60,13 +61,7 @@ def compare(name, lengths, pattern, before_type, max_sites=1_000_000):
     }
 
 
-def graph_regression(root, before_type):
-    before = root / "graph-before"
-    after = root / "graph-after"
-    with patch.object(DistancePattern, "tables", before_type.tables):
-        old = check_graph(before)
-    new = check_graph(after)
-    assert old == new
+def compare_products(before, after):
     count = 0
     for path in before.glob("**/*.npz"):
         with np.load(path) as a, np.load(after / path.relative_to(before)) as b:
@@ -75,7 +70,66 @@ def graph_regression(root, before_type):
                 np.testing.assert_array_equal(a[name], b[name])
         count += 1
     assert count > 0
-    return new | {"products_npz_exact": count}
+    return count
+
+
+def graph_regression(root, before_type):
+    before = root / "graph-before"
+    after = root / "graph-after"
+    with patch.object(DistancePattern, "tables", before_type.tables):
+        old = check_graph(before)
+    new = check_graph(after)
+    assert old == new
+    return new | {"products_npz_exact": compare_products(before, after)}
+
+
+def scene_regression(root, before_type):
+    before = root / "scenes-before"
+    after = root / "scenes-after"
+    with patch.object(DistancePattern, "tables", before_type.tables):
+        old = make_scenes(before)
+    new = make_scenes(after)
+    assert old == new
+    count = compare_products(before, after)
+    current = Path("build/experiments/vegetation/placements")
+    buffers = compare_current_scenes(after, current)
+    return {
+        "scene_modes": len(new),
+        "products_npz_exact": count,
+        "current_showcase_buffers_exact": buffers,
+    }
+
+
+def compare_current_scenes(after, current):
+    count = 0
+    for path in after.glob("*/placement-*.json"):
+        a = json.loads(path.read_text())
+        original = current / path.relative_to(after)
+        b = json.loads(original.read_text())
+        assert a["plan_identity"] == b["plan_identity"]
+        assert json.loads(
+            (path.parent / "bark-material.json").read_text()
+        ) == json.loads((original.parent / "bark-material.json").read_text())
+        old_products = {
+            (p["surface"], tuple(p["generator_ids"])): p for p in b["products"]
+        }
+        assert len(old_products) == len(a["products"])
+        for product in a["products"]:
+            previous = old_products[
+                (product["surface"], tuple(product["generator_ids"]))
+            ]
+            assert product["instances"] == previous["instances"]
+            for key in ("mesh", "placements"):
+                with (
+                    np.load(path.parent / product[key]) as x,
+                    np.load(original.parent / previous[key]) as y,
+                ):
+                    assert x.files == y.files
+                    for name in x.files:
+                        np.testing.assert_array_equal(x[name], y[name])
+                count += 1
+    assert count > 0
+    return count
 
 
 def main():
@@ -99,6 +153,7 @@ def main():
     sparse[-1] = 1
     checks = check_patterns() | check_sparse()
     checks["graph"] = graph_regression(args.output, before)
+    checks["showcase"] = scene_regression(args.output, before)
     cases = [
         compare("constant", np.linspace(0.2, 6, 256), constant, before),
         compare("profiled-spread", np.linspace(0.2, 6, 256), profiled, before),
