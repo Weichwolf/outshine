@@ -67,6 +67,26 @@ Der Operator ändert keine gemeinsamen Plan-/Reservierungsverträge; ein erhöht
 Road-Mesh allein ist kein Boden-/Gebäudekontaktprodukt. Fachvertrag:
 [#20](https://github.com/Weichwolf/outshine/issues/20), Übernahme #50.
 
+`geometry.SurfaceSampler(mesh)` bereitet eine ausdrücklich gewählte XY-Höhenfläche
+für wiederholte `sample(xy)`-Abfragen vor. `SurfaceSamples` besitzt unveränderliche
+Float64-XYZ-Punkte/Facettennormalen, Int64-Face-Indices und einen Grund je Abfrage.
+Außerhalb, bei mehrdeutiger Projektion oder erschöpftem Kandidatenbudget bleiben
+Z/Normale NaN und Face -1; unbekannte Höhe wird nicht null. Gemeinsame Kanten oder
+Vertices mit konsistenter Höhe wählen deterministisch die niedrigste Face-ID.
+Die aufwärts gerichtete Normale gehört zu dieser Facette und ist nicht geglättet.
+Vertikale/degenerierte Projektionen und doppelte Faces werden bei Vorbereitung
+abgelehnt. Überlagerte Innenflächen werden lokal als mehrdeutig ausgewiesen.
+
+Default: XY-Abstandstoleranz 1e-8 m, Höhenkonsistenz 1e-7 m, 65536 Vorbereitungsfaces,
+65536 Abfragen und 1000000 Kandidaten pro Aufruf. Batches begrenzen GEOS-Ausgabe
+vor der Allokation konservativ anhand aller Faces; ein kleiner Rest kann für eine
+weitere Abfrage unzureichend sein. Frühere gültige Kontakte bleiben erhalten.
+Innerhalb der XY-Toleranz wird die affine Höhe am angefragten XY extrapoliert.
+Der Aufrufer hält `LocalFrame`, Produktart Boden/Deck/Dach, Herkunft/Gültigkeit und
+Quell-IDs an Mesh/Face-Zuordnung; der Sampler wählt weder die höchste Fläche noch
+einen funktionalen Zugang. Gemeinsame Plan-/Reservierungsverträge bleiben erhalten.
+Der Terrainversuch unter #20 bindet damit Straßen und Boden an dieselbe C0-Fläche.
+
 `transport.close_surface(mesh, depth_m)` schließt eine bereits geprüfte, konforme
 XY-Fahrfläche mit ihren expliziten XYZ-Höhen durch einen Boden und gerichtete
 Außen-/Lochwände. Gemeinsame obere Vertices bleiben einmal vorhanden; die Tiefe
@@ -175,3 +195,16 @@ Unterteilung allein beweist keine Silhouetten-/Deckungsfehlergrenze.
 `area` integriert die Fläche; geteilte Quadraturpuffer sind unveränderlich.
 Quellen/Flächen-/Materialbelege und offene botanische Qualität stehen in [#22](https://github.com/Weichwolf/outshine/issues/22);
 Bibliotheksübernahme in [#52](https://github.com/Weichwolf/outshine/issues/52).
+
+### Organ sites along parent axes
+
+`outshine_ref.vegetation.DistancePattern` prepares complete phyllotactic or whorled
+site tables from parent lengths in metres, positive internode profiles in metres,
+normalized bounds and divergence in radians. Tables contain `(parameter, azimuth)`
+rows in stable group/member order. Seeded spread is independent per parent; pass
+stable seeds when parent order changes. Recipe reload preserves these sequences.
+Preflight uses conservative capacities: an insufficient aggregate budget returns
+`None` before site allocation; a parent exceeding 4096 sites is rejected. Empty
+and populated tables own immutable bytes. The implementation skips empty parents
+after vectorized preflight, with bounded parent/site work. This does not establish
+a complete SpeedTree property mapping, botanical recipe or native placement ABI.

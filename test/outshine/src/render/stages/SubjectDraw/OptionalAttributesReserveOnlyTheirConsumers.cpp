@@ -117,6 +117,9 @@ void CheckLayout(SDL_GPUDevice *device,
   if (!ticket) { return; }
   CHECK(draw.FinishMesh(*ticket, mesh, error), "main mesh uploads complete");
   CheckMainStreams(device, resident, mapped, second);
+  constexpr std::array<uint32_t, 3> packedNormals{0x80008000u, 0x80008000u, 0x80008000u};
+  CHECK(Verify(device, resident, Stream::Normal, packedNormals, resident.SubjectVertices().First),
+        "the main normal range stores one Oct16x2 word per vertex after the native prefix");
   const auto previousBytes = resident.HeldOf(Stream::Previous);
   CHECK(previousBytes != 0 &&
             Verify(device, resident, Stream::Previous, previous, resident.SubjectVertices().First),

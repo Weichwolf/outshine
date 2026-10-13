@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "placement-library/placement-library.json",
+        "placement_library_plot",
+        "Blattfolgen-/Quirlbibliothek · Bedarf vor Arbeit",
+        "Gleiche vollständige Standortfolgen und Graphprodukte vor/nach exakt. Fünf wechselnde CPU-Läufe: dichte Eltern, 65.536 Eltern mit nur einer belegten Achse und eine ausdrücklich verweigerte Budgetanfrage. Vorabkapazitäten im Batch; geteilte leere und belegte Tabellen unveränderlich. Kein nativer LOD-/Gerätenachweis.",
+    ),
+    (
         "blade-library/blades.json",
         "blade_library_plot",
         "Blatt-/Grasbibliothek · Orientierung und gleiche Geometrie",

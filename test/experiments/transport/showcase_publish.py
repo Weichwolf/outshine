@@ -29,6 +29,10 @@ METRICS = {
     "maximum_height_change_m": ("Größte Höhenkorrektur", "m"),
     "p50_fit_ms": ("Netzfit p50 · offline", "ms"),
     "peak_rss_bytes": ("Netzfit Worker-RSS · Peak", "Byte"),
+    "buried_road_vertices": ("Vom Boden überdeckte Straßenvertices", ""),
+    "maximum_contact_error_m": ("Gemeinsamer Höhenkontakt · Fehler", "m"),
+    "maximum_soil_grade": ("Größte Bodenneigung", "m/m"),
+    "maximum_centroid_DEM_error_m": ("DEM-Abweichung an Face-Zentren · max", "m"),
 }
 
 
