@@ -13,13 +13,13 @@ Tags: buildings, python, esri, cga, modelling
 Nutzerauftrag: zuerst alle dokumentierten CityEngine-Modellierfähigkeiten als eigene Python-Funktionen,
 danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Klassen und gültigen Kombinationen.
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
-Stand f097edd46: Scope/Extrusion, `comp`, Breiten-/Flächenteilung, Asset-Einfügung/Dateiimport, sechs UV-Operationen und Material-Overrides;
+Stand 8e51bf34f: Scope/Extrusion, `comp`, Breiten-/Flächenteilung, Asset-Einfügung/Dateiimport, sechs UV-Operationen und Material-Overrides;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
-SDK-Inventar, 82 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Rezeptzahlen.
+SDK-Inventar, 86 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein dekompilierter Fremdcode.
-Bildstand f097edd46: 54 Bilder (13 innen / 34 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
-Neue Fassade optisch geprüft; 41 Bilder pixelgleich, zehn nur Fußtext. Zwei Nachtbilder mit bestehender Streuung (2460).
-Sechs Python-Prüfungen und 54 Renderings terminal 0 auf f097edd46; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
+Bildstand 8e51bf34f: 55 Bilder (13 innen / 35 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
+Projektion optisch geprüft; 42 Bilder pixelgleich, zehn nur Fußtext. Zwei Nachtbilder mit bestehender Streuung (2460).
+Zwölf Python-Prüfungen und 55 Renderings terminal 0 auf 8e51bf34f; native LOD-/Frame-/GPU-/Qualitätsabnahme offen.
 
 ## Gemeinsame Verträge
 - Direkte Python-Rezepte/Geometriefunktionen, keine JSON-Regelschicht. Affine UVs dürfen vor der Arraybearbeitung komponiert werden.

@@ -54,6 +54,8 @@ f097edd46 ergänzt metrische Fassadenplatten mit prozeduralen Farb-/Rauheits-/No
 Vier Cachegebäude: UV-Kantenlängen/Geometrie/Semantik geprüft; Diagnose expandiert Ecken, keine native LOD-Abnahme.
 Zwei Wiener Nachtbilder streuen trotz gleichem Seed auch mit altem Code: PNG-RMSE 0,68/0,95 auf 0–255.
 Alt/neu 0,67/0,88; optisch keine neue Strukturabweichung. Sampling-Ursache/zeitliche Stabilität bleiben offen.
+PNG-Ausgabe ab e5ccf0f16 synchron vor Hashbildung. Ein leerer Hash aus 8e51bf34f wurde im Veröffentlichungsbericht
+nach vollständigem Schreiben korrigiert; Originalbericht erhalten, synchroner Neurender pixelgleich.
 Pakete: Mitsuba 3.9.1/Dr.Jit 1.5.0 in .venv; OIDN 2.5.1 extern unter ~/Downloads/oidn-2.5.1.x86_64.linux.
 [OIDN-Dokumentation](https://www.openimagedenoise.org/documentation.html); [SIGGRAPH 2017](../doc/references/buildings/siggraph/2017-recurrent-monte-carlo-denoising-autoencoder.reference.json), Seiten 1/2 optisch geprüft.
 Räumlicher Filter; kein Beleg für den rekurrenten Paper-Algorithmus oder zeitliche Stabilität.
