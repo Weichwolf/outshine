@@ -80,6 +80,7 @@ Bilder: build/shots/experiments/transport/.
 Öffentliche Ausgangsflächen bei Veröffentlichung erhalten, wenn ihre Überdeckung durch das native Mesh
 nachgewiesen ist; unnötiges Ausschneiden/Wiedervereinen trennt numerische Berührungen. Rundungskontrolle
 prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine erfundenen Mesh-Verbinder.
+Nach Flächenvereinigung polygonale Anteile bereitstellen; Nullflächenlinien sind keine Fahrzeugfläche. Positive Fläche unverändert erhalten.
 
 ## Nächste Lieferung und Abnahme
 30 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.

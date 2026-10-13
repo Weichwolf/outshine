@@ -229,7 +229,7 @@ def main():
         poses,routes,grown_sections,growth_changes,public_spaces,addition,partition_audit=grow_court_ports(
             trial,module,affected,poses,growth_seeds,floor,scope)
         sections|=grown_sections;changes+=growth_changes
-        public_spaces={o:g.union(shared_crossing) for o,g in public_spaces.items()}
+        public_spaces={o:polygonal_region(g.union(shared_crossing)) for o,g in public_spaces.items()}
         addition=polygonal_region(addition.union(shared_crossing))
         floor=public_spaces[module]
         reserved=protected.union(coupled.reservations(trial,region).difference(floor.union(crossing)))
