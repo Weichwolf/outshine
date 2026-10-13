@@ -1,5 +1,5 @@
 {
-  "current_work": "Blattmaterial-Grundfunktion: durchgehende, sich verjüngende Aderhüllen ersetzen die künstlichen Verdickungen an Stützpunkten. Farbe, Relief und Rauheit stammen aus demselben gespeicherten Plan. Nah- und Grobprodukte behalten identische Materialkoordinaten. Geschlossene Feinadern, natürliche Oberflächenvariation und vollständige SpeedTree-Funktionsabdeckung bleiben offen.",
+  "current_work": "Geschlossene Feinadern: exakte relative Nachbarn für mehrere gleichzeitig beeinflusste Adern sind implementiert und gegen die vollständige Definition geprüft. Eine feste Zahl nächster Nachbarn reicht nicht aus. Quellentags, Zusammenführung und geschlossene Adergeometrie bleiben offen. Die aktuellen Blattbilder zeigen weiterhin die geprüften offenen Adernetze.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -398,7 +398,8 @@
     "placement_plot": "lod-1",
     "spatial_plot": "lod-1",
     "wood_plot": "lod-0",
-    "bark_layer_plot": "lod-0"
+    "bark_layer_plot": "lod-0",
+    "relative_plot": "lod-0"
   },
   "genera": [
     {

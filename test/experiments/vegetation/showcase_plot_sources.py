@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "leaf-materials/relative-neighbors.json",
+        "relative_plot",
+        "Geschlossene Blattadern · relative Nachbarn",
+        "Vollständige Paarprüfung gegen exakte Sektor-Vorauswahl auf denselben drei gespeicherten Aderplänen und je 128 Quellen. Fünf abwechselnde lokale CPU-Läufe, identische Nachbarlisten. Unabhängige Definition, Gleichstände und ein Gegenbeispiel zur festen Nachbarzahl geprüft. Dies ist der Nachbarschaftsbaustein; Quellentags, Zusammenführung und geschlossene Adergeometrie bleiben offen.",
+    ),
+    (
         "bark-layers/bark-layers.json",
         "bark_layer_plot",
         "Rinde · getrennte Achsfelder",

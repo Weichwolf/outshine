@@ -77,3 +77,19 @@ An Hüllenwechseln ist globale C1-Stetigkeit ausdrücklich nicht bewiesen.
 Drei Radiusprofile, je 2.145 Punkte: 1/2/7/31 Segmente, dichte/indexierte Auswertung ≤5,3e−15 verschieden.
 Analytischer Querschnitt und unabhängige numerische Minimierung geprüft; altes Modell +0,233 Knotenhöhe.
 Reliefhöhe/Rauheit/Farbkontrast gemeinsam angepasst; Einzelbeiträge zur Bildwirkung nicht isoliert gemessen.
+
+## Geschlossene Feinadern: nächster Funktionsbaustein
+Runions Abschnitt 4 benötigt relative Nachbarn statt nur eines nächsten Aderknotens.
+Zuerst vollständige Paarprüfung gegen exakte Vorauswahl in acht 45°-Sektoren vergleichen.
+Ein näherer Punkt im selben Sektor blockiert jeden ferneren Kandidaten; alle minimalen
+Distanzgleichstände und mit der Quelle zusammenfallende Knoten erhalten. Alle Knoten bleiben Blocker.
+Streng offene Linsen als explizite Gleichstandskonvention; keine feste k-Nächste-Nachbarn-Näherung.
+Quellentags, Zusammenführung und echte geschlossene Adergraphen bleiben danach umzusetzen.
+Optisch geprüft: PDF-Seite 5, Gleichung 2/Figur 7; Sektorverfahren ist eine eigene Alternative.
+Für 0<ru<rv und Winkel<45° gilt |u−v|²=rv²+ru²−2ru·rv·cos(Winkel)<rv².
+595/532/881 gespeicherte Knoten, je 128 Quellen, fünf abwechselnde Läufe: identische Nachbarlisten.
+Dicht 127,03–338,06 ms, Sektoren 49,02–65,21 ms; Prozess-Peak 86,13 MiB inklusive Referenzarrays.
+174 Quellen gegen unabhängige Definition; Gleichstände/Duplikate/Kollinearität/Quellkontakt geprüft.
+Gegenbeispiel: entfernter relativer Nachbar fehlt unter den nächsten acht Punkten.
+32 exakt gleich weit entfernte Nachbarn bleiben vollständig erhalten; keine Acht-Nachbarn-Grenze.
+Beide Verfahren begrenzen eine Anfrage auf 600 Mio. Blockerpaare; Gleichstände können quadratisch kosten.

@@ -26,6 +26,7 @@ from fork_plots import fork_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
 from graph_wood_plots import wood_figure
+from leaf_relative_plots import relative_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import profile_figure
@@ -396,6 +397,12 @@ def placement_plot(report):
     return save_plot(figure, "placement-patterns")
 
 
+def relative_plot(report):
+    figure = relative_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "leaf-relative-neighbors")
+
+
 def spatial_plot(report):
     figure = spatial_figure(report)
     style_axes(figure.axes)
@@ -434,6 +441,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            relative_plot,
             generator_plot,
             placement_plot,
             spatial_plot,
