@@ -16,6 +16,7 @@ const float kPi = acos(-1.0);
 #include "subjectLighting.glsl"
 #endif
 #include "groundClass.glsl"
+#include "groundMaterial.glsl"
 #include "groundRock.glsl"
 #include "surfaceGradient.glsl"
 void main() {
