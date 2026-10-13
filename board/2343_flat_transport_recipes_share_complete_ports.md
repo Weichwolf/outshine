@@ -89,7 +89,10 @@ mit getrennten Quellports und Wendeplatz, physisch +26,1 m²; 2→1 noch offen. 
 2→1 lokal: 0,25 m G2-Übergang erlaubt CSC mit +1,94 m², aber Insel schrumpft von 2,92 über 1,61 auf 0,22 m².
 Nicht integriert: Lochanzahl allein genügt nicht; gemeinsame Inselgeometrie und Quellumfahrung konstruktiv lösen.
 Alle zehn zulässigen CSC/CCC-Seeds bei 0,25 m geprüft: 220 Residuenaufrufe, kein gültiger Kandidat am Originalraum.
-Nächster Ansatz: Anschlusslage/Wendeplatz gemeinsam ändern; keine Unmöglichkeitsaussage für andere Rezepte.
+Asymmetrische Ein-/Ausläufe liefern zwei gültige Einzelkurven (4/0 und 8/4 m).
+Billigste Einzelwahl löscht gemeinsam die Insel; zweite Kombination erhält 0,77 m².
+Gemeinsames Produkt lokal 37/37 geprüft: 8/4-m-Ansätze, +34,56 m² insgesamt, Insel 0,77 m².
+Bild Zuerich-1758-complete-turning-court.png geprüft. Gesamtfenster und automatische gemeinsame Auswahl offen.
 Vollständigen Inselkontext behalten; Kurve direkt an neuen Quellposen bauen statt kurze Anschlüsse überzubiegen.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
