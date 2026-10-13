@@ -88,6 +88,8 @@ Alle 15 bisherigen Produkte frisch geprüft und 24 Zusatzfahrten erhalten.
 mit getrennten Quellports und Wendeplatz, physisch +26,1 m²; 2→1 noch offen. 16 frühere Produkte und 24 Zusatzfahrten erhalten.
 2→1 lokal: 0,25 m G2-Übergang erlaubt CSC mit +1,94 m², aber Insel schrumpft von 2,92 über 1,61 auf 0,22 m².
 Nicht integriert: Lochanzahl allein genügt nicht; gemeinsame Inselgeometrie und Quellumfahrung konstruktiv lösen.
+Alle zehn zulässigen CSC/CCC-Seeds bei 0,25 m geprüft: 220 Residuenaufrufe, kein gültiger Kandidat am Originalraum.
+Nächster Ansatz: Anschlusslage/Wendeplatz gemeinsam ändern; keine Unmöglichkeitsaussage für andere Rezepte.
 Vollständigen Inselkontext behalten; Kurve direkt an neuen Quellposen bauen statt kurze Anschlüsse überzubiegen.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
