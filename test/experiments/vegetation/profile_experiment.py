@@ -1,6 +1,7 @@
 """Measure profile preparation/lookup and render controlled branch-taper fixtures."""
 
 import argparse
+import hashlib
 import json
 import resource
 import subprocess
@@ -123,6 +124,17 @@ def main():
         "source_modified": modified,
         "process_peak_rss_mib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         / 1024,
+        "implementation_sha256": {
+            str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in (
+                Path(__file__),
+                Path(__file__).with_name("profile_curve.py"),
+                Path(__file__).with_name("axis_surface.py"),
+                Path("lib/src/outshine_ref/vegetation/profiles.py"),
+                Path("lib/src/outshine_ref/vegetation/bezier_curve.py"),
+                Path("lib/src/outshine_ref/vegetation/curve_frame.py"),
+            )
+        },
         "scope": "local CPU, five equal query batches; preparation excluded from repeated lookup, native micro-oracle only validates behavior, not Modeler performance",
     }
     (args.output / "profiles.json").write_text(json.dumps(result, indent=2) + "\n")

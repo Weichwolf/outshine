@@ -146,10 +146,16 @@ PLOT_SOURCES = (
         "Tangentendrehung, direkte Doppelreflexion und Quaternionen-Auswertung an derselben analytischen Helix. Gleicher Startquerschnitt und dieselbe Fehleranforderung; sieben lokale CPU-Läufe. Vier räumliche Astflächen sind zusätzlich gegen unabhängige ODE-Rahmen und Differentialnormalen geprüft. Das Original-Oracle prüft ausschließlich die Orthogonalisierung, keinen vollständigen SpeedTree-Spine-Solver oder dessen Kosten.",
     ),
     (
-        "profiles/profiles.json",
+        "profile-library/current/profiles.json",
         "profile_plot",
         "Radiusprofile und Lookup-Kosten",
         "Vier identische Kurven und 2.048 gemeinsame Abfragen; fünf lokale CPU-Läufe, Tabellenaufbau ausgeklammert. Brent-Einzelinversion, Chandrupatla-Batches und vorgehaltene 1.000er Tabelle. Originale SpeedTree-Routinen prüfen rohe Punkte und skalare Lookup-/Preset-/Zusatz-/Tile-/Skalierungspfade mit kontrollierten Puffern. Keine Modeler-, BRDF-, Wind- oder native Frame-Freigabe.",
+    ),
+    (
+        "profile-library/cache.json",
+        "profile_cache_plot",
+        "Fertige Profile · Laden ohne Kurven-Solver",
+        "Fünf frische Prozesse je Pfad, alternierende Reihenfolge. Gleiche 1.000 Cachewerte und 2.048 Abfragen; Ergebnisse bitgleich. Import, Cachedecode und Prozesspeak separat. Der installierte Lookup lädt bei blockiertem SciPy-Import; keine erneute Kurvenvorbereitung. Lokale Python-Messung, kein Nachweis nativer Welt-Ladezeiten.",
     ),
     (
         "render/views-shadow-pass.json",

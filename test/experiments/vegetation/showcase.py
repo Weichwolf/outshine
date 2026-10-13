@@ -37,7 +37,7 @@ from leaf_terminal_plots import terminal_figure
 from needle_plots import needle_figure
 from placement_plots import placement_figure
 from plant_surface_plots import plant_surface_figure
-from profile_plots import profile_figure
+from profile_plots import cache_profile_figure, profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 from showcase_plot_sources import PLOT_SOURCES
 from spatial_plots import spatial_figure
@@ -367,6 +367,12 @@ def profile_plot(report):
     return save_plot(profile_figure(report), "branch-profiles")
 
 
+def profile_cache_plot(report):
+    figure = cache_profile_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "profile-cache")
+
+
 def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
@@ -510,6 +516,7 @@ def plot_entries(output, plot_lods):
             pigment_plot,
             normal_plot,
             needle_plot,
+            profile_cache_plot,
             filter_plot,
             development_plot,
             relative_plot,
