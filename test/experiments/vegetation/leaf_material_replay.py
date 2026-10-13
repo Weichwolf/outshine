@@ -1,5 +1,6 @@
 """Request coarse geometry from cached leaf recipes; reuse the stored vein/material assets."""
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -11,7 +12,13 @@ from PIL import Image
 
 
 def main():
-    folder = Path("build/experiments/vegetation/leaf-materials")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--folder",
+        type=Path,
+        default=Path("build/experiments/vegetation/leaf-materials"),
+    )
+    folder = parser.parse_args().folder
     source = folder / "leaf-material-upper.json"
     recipe = json.loads(source.read_text())
     products, checks = [], []

@@ -27,6 +27,7 @@ from fork_plots import fork_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
 from graph_wood_plots import wood_figure
+from leaf_development_plots import development_figure
 from leaf_filter_plots import filter_figure
 from leaf_relative_plots import relative_figure
 from placement_plots import placement_figure
@@ -417,6 +418,12 @@ def filter_plot(report):
     return save_plot(figure, "leaf-prefilter")
 
 
+def development_plot(report):
+    figure = development_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "leaf-development")
+
+
 def spatial_plot(report):
     figure = spatial_figure(report)
     style_axes(figure.axes)
@@ -457,6 +464,7 @@ def plot_entries(output, plot_lods):
         for method in (
             closed_plot,
             filter_plot,
+            development_plot,
             relative_plot,
             generator_plot,
             placement_plot,

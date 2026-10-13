@@ -10,110 +10,95 @@ Tags: vegetation, python, leaf, material
 # Leaf materials share procedural venation with their shape
 
 ## Ergebnis und Besitzer
-2488 erzeugt eigene Blattoberflächen; 2346 besitzt Blattgeometrie, 2481 Rinde.
-Ausgangspunkt: Blattmaterial hatte nur Farbvariation und eine Mittelrippe.
-Blattform, Aderplan und Materialprodukt müssen aus demselben stabilen Organrezept stammen.
-Metallic-Roughness bleibt die Basis; zusätzliche Blatttransluzenz ist als Erweiterung erlaubt.
+2488 erzeugt Blattoberflächen aus stabilen Form-/Aderplänen; 2346 besitzt Organformen, 2481 Rinde.
+Grundfunktionen prüfen, bevor botanische Artenrezepte freigegeben werden.
+Metallic-Roughness bleibt die Basis; zusätzliche Blatttransluzenz ist erlaubt.
 Alle Karten prozedural erzeugen und als Assets cachen; Referenztexturen ausschließlich vergleichen.
 
-## Referenz und Verfahren
-SpeedTree-10-Leaf-Mesh konsumiert Material-/Meshassets; Ghidra untersucht SetupSkinForMesh
-und CopyGeneratorMaterials, ohne fremde Texturen oder Codes zu übernehmen.
-[Offizielle Leaf-Mesh-Dokumentation](https://docs.unity3d.com/speedtree-modeler/manual/leaf-mesh-generator.html).
-Eigenes Aderverfahren nach Runions et al., SIGGRAPH 2005,
-[Modeling and visualization of leaf venation patterns](https://www.algorithmicbotany.org/papers/venation.sig2005.pdf).
-Paper unter `doc/references/vegetation/siggraph/2005-leaf-venation.pdf`, auch optisch prüfen.
-PDF-Seiten 2/5 tatsächlich betrachtet: Blattkonturen, nächster Aderknoten, Quellenauslöschung,
-Richtungssumme und verzweigte Radiusableitung. Feste Kontur/Quellen sind ein eigener begrenzter Teilpfad.
-Erster Pfad: offenes Adernetz aus einem Wurzelknoten; Attraktoren beeinflussen ihren nächsten Aderknoten,
-normierte Richtungen summieren, Quellen nahe Adern entfernen, begrenzte Schritte ergänzen.
-Gleichstände wählen die kleinste ID; neue Punkte nahe vorhandenen Knoten werden verworfen.
-Das verhindert wiederholte identische Zweige, ist eine eigene Ergänzung und kein Paper-Gleichwertigkeitsbeleg.
-Wachstum der Blattkontur bleibt offen; geschlossene Feinadern ergänzen unten den festen Formplan.
-Radius aus dem verbundenen Graphen ableiten; physische Feldbreiten statt auflösungsabhängiger Linien.
-Farbe und Relief aus derselben Aderstruktur; versioniertes Produkt mit Mesh/UV/Materialkarten exportieren.
+## Referenzen und Abnahme
+Ghidra: SpeedTree-10-Leaf-Mesh übernimmt Material-/Meshassets über SetupSkinForMesh und
+CopyGeneratorMaterials. Kein eigener SpeedTree-Adergenerator daraus belegt, kein fremder Code übernommen.
+[Leaf-Mesh-Dokumentation](https://docs.unity3d.com/speedtree-modeler/manual/leaf-mesh-generator.html).
+Runions et al., SIGGRAPH 2005: [Modeling and visualization of leaf venation patterns](https://www.algorithmicbotany.org/papers/venation.sig2005.pdf).
+[Lokales Paper](../doc/references/vegetation/siggraph/2005-leaf-venation.pdf): Seiten 2–5 optisch geprüft;
+Figur 3 Aderordnungen, Figur 4 Rückkopplung, Abschnitt 3.3 Wachstum/Quellengeburt, Figur 7 relative Nachbarn.
+SpeedTree Games/Broadleaf/Leaves/Front_02 und Normal optisch verglichen: feine geschlossene Zellen,
+subtile Farb-/Reliefvariation. Keine Assetübernahme und kein kontrollierter Gleichwertigkeitsbeleg.
+Alternativen verwenden identische Eingaben/Qualität; Geometrie, Bild, Kosten und Speicher separat prüfen.
+Gespeicherte Netze/Karten in frischem Prozess laden; gemeinsame Nah-/Grobkoordinaten erhalten.
+Ober-/Unterseite und Nahbilder mindestens 2560×1440 betrachten; funktionale Formen sind keine Artenfreigabe.
 
-## Verfahrensvergleich und Abnahme
-Dichte nächste-Nachbar-Zuordnung gegen cKDTree bei identischen Punkten und Anforderungen vergleichen.
-Gleiche vollständige Aderpläne; Gleichstände deterministisch, leere/ungültige und begrenzte Fälle prüfen.
-Verbundenheit, Elternreihenfolge, endliche Geometrie und Grenzen gegen unabhängige Prüfungen belegen.
-Materialfelder mit skalarer Segmentreferenz vergleichen; gespeicherte Produkte erneut laden.
-Nah-/Grobmesh verwenden dieselben Materialkoordinaten; keine Neuplanung bei Kameradrehung.
-Erzeugung/Materialraster/Einlesen, Speicher und Bildwirkung getrennt ausweisen.
-2560×1440-Nahansichten von Ober-/Unterseite und mehreren Blattformen tatsächlich betrachten.
-Belegte SpeedTree-Operationen, eigene Ergänzung und noch fehlende Gleichwertigkeit ausdrücklich trennen.
-## Gemessener Teilstand
-`leaf_venation.py`: drei Form-/Seed-Proben mit je 700 gleichen Attraktoren, 595/532/881 Knoten.
-Eltern vor Kindern, verbunden, positive vererbte Radien; dichte und indexierte Pläne stimmen überein.
-Zwei übrige Quellen der schmalen Form als Stillstand ausgewiesen; keine pauschale Abdeckung.
-`leaf_vein_field.py`: maximierte sich verjüngende Segmenthüllen in Metern; keine additive Knotenverdickung.
-96×96-Materialvergleich und unabhängige numerische Minimierung: maximal 1,33e−14 Fehler.
+## Offene Hauptadern und Material
+`leaf_venation.py`: Attraktoren beeinflussen den nächsten Aderknoten; normierte Richtungen summieren,
+begrenzte Schritte ergänzen, nahe Quellen entfernen. Kleinste ID bei Gleichstand ist eine eigene Konvention.
+Nahe neue Knoten verwerfen verhindert Wiederholung, ersetzt aber keinen globalen Kreuzungsnachweis.
+Dichte Suche/cKDTree liefern dieselben drei Pläne: 595/532/881 Knoten, verbundene Eltern-vor-Kind-Struktur.
+Zwei übrige Quellen der schmalen Form als Stillstand ausgewiesen; keine pauschale Flächenabdeckung.
+Vererbte Radien aus Terminalbelastungen nach Murray; biologische hydraulische Kalibrierung bleibt offen.
 Materialversion 2: linearer Farbraum, Bump 60 µm, gespeicherte Transmission; PNG-Quantisierung ≤0,5/255.
 52 gemeinsame Nah-/Grobvertices je Form exakt in Position und UV, dieselben gespeicherten Karten.
-Ober-/Unterseite in 2560×1440 betrachtet: matte Adern ohne Knotenverdickungen; kein SpeedTree-Niveau.
-SpeedTree Games/Broadleaf/Leaves/Front_02 und Normal optisch betrachtet: feine geschlossene Zellen,
-subtile Farb-/Reliefvariation; keine Übernahme und kein kontrollierter Gleichwertigkeitsbeleg.
-Vorbelegte Mittelrippenstationen wegen regelmäßigem Queradern-Raster verworfen;
-aus einem Wurzelknoten gewachsene Mittel-/Seitenadern erhalten die Quellenabhängigkeit.
+`leaf_material_replay.py --folder` prüft auch neue Experimentprodukte ohne Ader-/Materialneuberechnung.
+
 ## Unterteilungsunabhängige Aderhülle
-Addierte Segmentkerne erzeugten Verdickungen an Stützpunkten. Material bleibt unabhängig von
-kollinearer Unterteilung, auch bei linear veränderlichem Radius. Eine maximierte kompakte
-Aderhülle ersetzt die Summierung; Extremum des normierten Segmentabstands analytisch bestimmen.
-Für q(t)=(A−2Bt+Ct²)/(r0+dt)² sind Endpunkte und t=(Br0+Ad)/(Cr0+Bd)
-bei positivem Nenner ausreichend. Maximierte Hüllen erhalten daher jede lineare Unterteilung.
-Die Indexkugel mit Radius halbe Segmentlänge+3×max(r0,r1) umfasst die gesamte Unterstützung.
-An Hüllenwechseln ist globale C1-Stetigkeit ausdrücklich nicht bewiesen.
-Drei Radiusprofile, je 2.145 Punkte: 1/2/7/31 Segmente, dichte/indexierte Auswertung ≤5,3e−15 verschieden.
-Analytischer Querschnitt und unabhängige numerische Minimierung geprüft; altes Modell +0,233 Knotenhöhe.
-Reliefhöhe/Rauheit/Farbkontrast gemeinsam angepasst; Einzelbeiträge zur Bildwirkung nicht isoliert gemessen.
+`leaf_vein_field.py`: maximierte verjüngende Segmenthüllen in Metern statt addierter Knotenkerne.
+Für q(t)=(A−2Bt+Ct²)/(r0+dt)² reichen Endpunkte und t=(Br0+Ad)/(Cr0+Bd) bei positivem Nenner.
+Lineare Segmentunterteilung erhält die Hülle; drei Radiusprofile, 1/2/7/31 Segmente, 2145 Punkte geprüft.
+Indexkugel: halbe Segmentlänge+3×max(r0,r1) umfasst jede Unterstützung. Globale C1-Stetigkeit offen.
+Unabhängige numerische Minimierung: maximal 1,33e−14 Fehler; keine auflösungsabhängige Linienbreite.
+Reliefhöhe/Rauheit/Kontrast gemeinsam angepasst; Beiträge zum Bildgewinn nicht isoliert gemessen.
 
 ## Geschlossene Feinadern
-Runions Abschnitt 4 benötigt relative Nachbarn statt nur eines nächsten Aderknotens.
-Zuerst vollständige Paarprüfung gegen exakte Vorauswahl in acht 45°-Sektoren vergleichen.
-Ein näherer Punkt im selben Sektor blockiert jeden ferneren Kandidaten; alle minimalen
-Distanzgleichstände und mit der Quelle zusammenfallende Knoten erhalten. Alle Knoten bleiben Blocker.
-Streng offene Linsen als explizite Gleichstandskonvention; keine feste k-Nächste-Nachbarn-Näherung.
-Quellentags und Zusammenführung nutzen diesen Baustein; Netzprodukte unten separat geprüft.
-Optisch geprüft: PDF-Seite 5, Gleichung 2/Figur 7; Sektorverfahren ist eine eigene Alternative.
+Relative Nachbarn nach Runions Abschnitt 4; offene Linsen als explizite Gleichstandskonvention.
+Exakte Vorauswahl in acht 45°-Sektoren: nähere Punkte blockieren fernere im gleichen Sektor.
 Für 0<ru<rv und Winkel<45° gilt |u−v|²=rv²+ru²−2ru·rv·cos(Winkel)<rv².
-595/532/881 gespeicherte Knoten, je 128 Quellen, fünf abwechselnde Läufe: identische Nachbarlisten.
-Dicht 127,03–338,06 ms, Sektoren 49,02–65,21 ms; Prozess-Peak 86,13 MiB inklusive Referenzarrays.
-174 Quellen gegen unabhängige Definition; Gleichstände/Duplikate/Kollinearität/Quellkontakt geprüft.
-Gegenbeispiel: entfernter relativer Nachbar fehlt unter den nächsten acht Punkten.
-32 exakt gleich weit entfernte Nachbarn bleiben vollständig erhalten; keine Acht-Nachbarn-Grenze.
-Beide Verfahren begrenzen eine Anfrage auf 600 Mio. Blockerpaare; Gleichstände können quadratisch kosten.
-Quellentags an beeinflusste Nachfolger weitergeben und nach Verlassen des
-Einflussbereichs entfernen. Erreichte Quellen erhalten gemeinsame Netzknoten; Verbindungen
-und verbleibende Quellen explizit speichern. Anfangsnetz bleibt erhalten, neue Feinadern haben
-zunächst einen eigenen einheitlichen Radius; keine rekonstruierte hydraulische Breitenlösung.
+Alle minimalen Distanzgleichstände und Quellkontakte behalten; alle Knoten bleiben Blocker.
+174 Quellen gegen unabhängige Definition; 32 gleich weit entfernte Nachbarn bleiben erhalten.
+Eine feste Acht-Nachbarn-Liste ist nach Gegenbeispiel unzureichend; 600 Mio. Blockerpaare je Anfrage begrenzen.
+Quellentags wandern zu Nachfolgern und entfallen nach Verlassen der Einflusszone;
+erreichte Quellen werden gemeinsame Netzknoten. Asymmetrische Probe: Ankunft 10, Abschluss 33.
 Segment-Innenlage konservativ über Profil-Ableitungsgrenzen prüfen; ungelöste Quellen ausweisen.
-Gleiche Wachstumsprodukte mit beiden Nachbarschaftssuchen und unabhängige Zyklusprüfung verlangen.
-Drei feste Proben: 49/50/44 unabhängige Schleifen; 191 von 192 Quellen abgeschlossen.
-Eine gelappte Quelle bleibt bei konservativer Konturprüfung stationär; zehn Segmente verworfen.
-Quellenmarken wandern zur Spitze: asymmetrische Probe erste Ankunft Schritt 10, Abschluss 33.
-Dicht/Sektoren erzeugen identische Knoten, Kanten, Quellhubs und Ankunftszeiten (drei Läufe).
-Wachstumsmediane dicht 1123–2725 ms, Sektoren 304–449 ms; Prozess-Peak 138,13 MiB inklusive Referenzen.
-Shapely 2.2.0/GEOS 3.14.1 verknüpft Kreuzungen: 180–303 ms inklusive geometrischer Gegenprüfung.
-Gefiltertes Feinmaterial aus Hauptkarten 818–1305 ms; einschließlich Rasterung/PNG-Export.
-Frischer Cacheprozess prüft korrekte Hub-IDs nach Neuindizierung und je 52 gemeinsame LOD-Vertices.
-Feinradius einheitlich je Form, Reliefgewicht 0,25; hydraulische Breiten und natürliche Dichte offen.
-Nahaufnahme in 2560×1440 vorher/nachher geprüft: Feinadern etwas ruhiger, kleiner Bildgewinn;
-Primäradern noch kantig, Farbvariation und natürliche Maschendichte unzureichend.
-Reproduktion: `leaf_closed_experiment.py` auf Cache aus `leaf_material_experiment.py` und
-`leaf_material_replay.py`; `leaf_closed_reload.py` prüft den frischen Ladeprozess.
+Shapely 2.2.0/GEOS 3.14.1 verknüpft Kreuzungen. Drei Netze: 49/50/44 Schleifen, 191/192 Quellen erledigt.
+Eine gelappte Quelle bleibt stationär, zehn Segmente verworfen. Dicht/Sektoren liefern identisches Wachstum.
+Aktuelle Mediane dicht 1123–2725 ms, Sektoren 304–449 ms; Prozess-Peak 138,13 MiB inklusive Referenzen.
+Kreuzungsverknüpfung 180–303 ms, gefiltertes Feinmaterial einschließlich PNG-Export 818–1305 ms.
+`leaf_closed_reload.py`: tatsächliche Hub-IDs nach Neuindizierung, Netze/Karten und 52 gemeinsame LOD-Vertices.
+Feinradius je Form einheitlich, Reliefgewicht 0,25; hydraulische Breiten und natürliche Dichte offen.
+Reproduktion: `leaf_closed_experiment.py` auf Cache aus `leaf_material_experiment.py`/`leaf_material_replay.py`.
 
 ## Texelfilterung
-[Heckbert 1986](../doc/references/vegetation/ieee/1986-survey-texture-mapping.pdf), Seite 6 optisch geprüft;
-Textfassung ohne Figuren. SIGGRAPH 1986 „Filtering by Repeated Integration“ als Alternative gesichtet:
-benötigt bereits integrierte Felder, hier ist das kontinuierliche Aderfeld verfügbar.
+[Heckbert 1986](../doc/references/vegetation/ieee/1986-survey-texture-mapping.pdf), Seite 6 optisch geprüft,
+Textfassung ohne Figuren. SIGGRAPH 1986 „Filtering by Repeated Integration“ als Alternative gesichtet.
 [P B R T](https://pbr-book.org/4ed/Textures_and_Materials/Texture_Sampling_and_Antialiasing) begründet Supersampling.
 `leaf_texture_filter.py`: 6×6-Gaussquadratur mittelt Feinaderhöhen im UV-Texel vor Materialrasterung.
 Mit B≥|dw/dt| liegt jeder Texelpunkt höchstens D=hypot(W+B,L)/(2N) vom Mittelpunkt entfernt.
-Auswertung mit r+D/3 umfasst daher jede mögliche Unterstützung des ursprünglichen 3r-Kerns.
-Nur diese Texel integrieren; dieselbe Quadratur und Summationsreihenfolge wie vollständige Auswertung.
-Mittelpunkt, 2×2, 3×3, 4×4 zunächst verglichen; 6×6 senkt den RMS-Feldfehler unter 0,001.
-`leaf_filter_experiment.py` vergleicht vollständige Karten, drei wechselnde Kostenläufe und je 1024
-aktive Texel gegen 16×16; zwölf schwierige Texel je Form zusätzlich gegen unabhängige 64×64-Mittelpunkte.
-Keine globale Integrationsfehlerschranke und keine vollständige Aliasfreiheit; Shaderfilterung bleibt nötig.
-Median Vorfilterung 599–980 ms statt 4351–4764 ms; identische vollständige Karten.
-RMS-Feldfehler 0,00013–0,00065 statt 0,082–0,178 an den gemessenen aktiven Texeln.
+Auswertung mit r+D/3 umfasst daher jede Unterstützung des ursprünglichen 3r-Kerns; nur diese Texel integrieren.
+Identische Quadratur/Summationsreihenfolge wie vollständige Auswertung, ungültige Radien vor Aufweitung ablehnen.
+`leaf_filter_experiment.py`: vollständige Karten, drei Kostenläufe und je 1024 aktive Texel gegen 16×16;
+zwölf schwierige Texel je Form zusätzlich gegen unabhängige 64×64-Mittelpunkte. Keine globale Fehlerschranke.
+Median 599–980 ms statt 4351–4764 ms; RMS 0,00013–0,00065 statt 0,082–0,178 in diesen Proben.
+Vorher/Nachher-Nahbild: etwas ruhigere Feinadern, kleiner Bildgewinn; Shaderfilterung bleibt nötig.
+
+## Wachstum steuert Aderarchitektur
+`leaf_development.py` ergänzt laufende Quellengeburt mit Abstand zu Adern und bestehenden Quellen.
+160 Wachstumsschritte mit je 24 vorgegebenen Darts, danach höchstens 100 Beruhigungsschritte;
+maximal 2048 Knoten. Ein apikal gesetzter Anfangsattraktor bei 90 % der Länge ist eine eigene Kalibrierung.
+Quellen/Graph in reifen Materialkoordinaten speichern; Nähe und Wachstumsrichtung im aktuellen Blatt messen.
+Gleichförmiges Wachstum allein ergibt zu rechtwinklige Seitenadern; Richtungsbindung rundet nur Anschlüsse.
+Eigene geometrische Dehnung F(x,y)=σ·(x, y−kL(x/W)²), k=K(1−σ), σ von 0,03 bis 1.
+Versuchsrezept: K=2 und Geburtsabstand 0,08·min(W,L).
+Die explizite Inverse und det(J)=σ²>0 verhindern Faltungen; kein biologisch rekonstruierter Wachstumstensor.
+Inverse eines geraden Wachstumsschritts ist quadratisch: Sehnenfehler genau |k|L(Δx/W)²/4.
+Schrittlänge so begrenzen, dass der Fehler in reifen Koordinaten ≤min(W,L)/2000 ist;
+Endsegmente zusätzlich innerhalb der reifen Kontur zertifizieren. Herkunft und lokale Fehlergrenze getrennt.
+Richtungsbindung 0,6 an die eingehende Ader ist eine eigene Ergänzung; Quellen müssen weiterhin ziehen.
+`leaf_development_experiment.py`: feste Kandidaten, drei wechselnde Läufe; dichte/indexierte Suche
+liefern gleiche Graphen, Quellenbilanz und Historie. Schnellere gemessene Variante je Probe exportieren.
+Wachstumsmediane je schnellerer Variante: 516/256/551 ms; Material/Export 754/443/886 ms separat.
+Prozess-Peak 135,97 MiB einschließlich Vergleichs-/Rasterdaten; kein nativer Gerätebeleg.
+852/854/1710 Knoten; unabhängige GEOS-Verknüpfung bestätigt je einen Baum ohne zusätzliche Kreuzungen.
+0/2/0 ungelöste Quellen; Beruhigungs-/Knotenbudget und Quellenabstände separat geprüft.
+`leaf_development_checks.py`: 128 Deformationspunkte, exakte Sehnenmitte, numerische Jacobi-Determinante.
+`leaf_development_reload.py`: fünf echte Netz-/Materialprodukte frisch geladen; gemeinsame Grobkoordinaten geprüft.
+3D-Vergleich isoliert feste Quellen, gleichförmiges und ortsabhängiges Wachstum bei gleichem Blattmaterial.
+Gebogene Seitenadern sind lesbarer; Feinaderkopplung, natürliche Farbe, Artenkalibrierung und
+vollständige Rand-/anisotrope Wachstumsrezepte bleiben offen. Kein SpeedTree-Niveau.

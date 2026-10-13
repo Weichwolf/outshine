@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "developing-leaves/development.json",
+        "development_plot",
+        "Blattwachstum · Hauptadern und Seitenadern",
+        "Quellen entstehen abhängig vom Abstand zu vorhandenen Adern und Quellen. Gleichförmiges Wachstum allein erzeugt zu rechtwinklige Seitenadern; eine eigene, invertierbare ortsabhängige Dehnung richtet sie auf. Drei Formen, je drei abwechselnde Läufe der dichten und indexierten Suche mit gleichen Ergebnissen. Die gelappte Form lässt zwei Quellen ungelöst. Keine botanische Artenfreigabe; Feinaderkopplung, Materialvariation und anisotrope Wachstumsrezepte bleiben offen.",
+    ),
+    (
         "closed-leaves/filtering.json",
         "filter_plot",
         "Feinadern · Texelfilterung und Erzeugungskosten",
