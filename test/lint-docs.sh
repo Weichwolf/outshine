@@ -3,8 +3,8 @@ set -eu
 cd "$(dirname "$0")/.."
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/outshine-lint-docs.XXXXXX")
-log=$(mktemp "${TMPDIR:-/tmp}/outshine-lint-docs.XXXXXX.log")
 trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+log=$(mktemp "${TMPDIR:-/tmp}/outshine-lint-docs.log.XXXXXX")
 
 # Reuse the runner's toolchain policy without preparing engine libraries or corpora.
 standard=$(sed -n 's/^CXXSTD=//p' test/run.sh)
