@@ -38,7 +38,7 @@ def spatial(output,provenance):
         mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),wall_linear=[1.,1.,1.],roof_linear=[.2,.2,.2],extra_wall_colours=COLOURS))
     rendered=run_render(config,output/(stem+'-scene.json'))
     name=stem+'-report.json';record=provenance|rendered|dict(representation='showcase-current',page='buildings',view='components',label='offset-plan',
-        title='Offset → Extrusion · räumliche Rahmen',caption='Links Rechteck, Mitte L-Form, rechts Fläche mit Innenhof. 0,30 m Randbreite, 0,25 m Rahmentiefe und 0,04 m tiefe Füllung. '
+        title='Offset → Extrusion · räumliche Rahmen',caption='Links Fläche mit Innenhof, Mitte L-Form, rechts Rechteck. 0,30 m Randbreite, 0,25 m Rahmentiefe und 0,04 m tiefe Füllung. '
             'Gemeinsam gedrehte und platzierte Quellflächen, danach Shape-Offset und Extrusion; opake Prüfpalette. Keine fertige Architekturfamilie oder volle CGA-Abnahme.',
         profile=[1920,1080],triangles=len(product['faces']),image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),
         completed_recipe_families=0,lod_status='native LOD unproved')
