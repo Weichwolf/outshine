@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4805/4808 (37dbc9435), öffentliche PKW-Klassenrezepte frisch geprüft; keine Größen-/Lastfreigabe.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch drei Fahrten offen.
+Zürich 4806/4808 (a669779ad), öffentliche PKW-Klassenrezepte frisch geprüft; keine Größen-/Lastfreigabe.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch zwei Fahrten in 1396 offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 33,7 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 34,1 s/744 MiB Peak-RSS. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -84,8 +84,8 @@ prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine 
 Nach Flächenvereinigung polygonale Anteile bereitstellen; Nullflächenlinien sind keine Fahrzeugfläche. Positive Fläche unverändert erhalten.
 
 ## Nächste Lieferung und Abnahme
-34 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
-1565: 22/22 plus sieben Nachbarfahrten, +4,53 m²; gemeinsamer Schnitt vier Meter versetzt, Insel erhalten.
+35 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
+1137: 72/72 plus zwölf Nachbarfahrten, +0,83 m²; 49 statt 136 Kontrollsegmente, 79 statt 167 Hüllintervalle/Richtung.
 Leere Beiträge nicht erneut komponieren; Cachetreffer laden öffentliche Fläche. Native Fläche/Identitäten/Hüllen erneut prüfen.
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
 [Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
