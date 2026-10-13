@@ -9,6 +9,7 @@ from scipy.optimize import elementwise
 
 from .prepared_polynomial import copy_polynomial, freeze_polynomial
 from .quadrature import quadrature
+from .spine_curve import CubicSpine
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,8 @@ class ArcMeasure:
     intervals_per_segment: int = 16
 
     def __post_init__(self):
+        if not isinstance(self.spine, CubicSpine):
+            raise TypeError("prepared cubic spine required for arc coordinates")
         if (
             type(self.intervals_per_segment) is not int
             or not 2 <= self.intervals_per_segment <= 128

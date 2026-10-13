@@ -6,7 +6,13 @@ import sys
 import unittest
 
 import numpy as np
-from outshine_ref.vegetation import ArcMeasure, CubicSpine, Profile, SpatialAxis
+from outshine_ref.vegetation import (
+    ArcMeasure,
+    CubicSpine,
+    Profile,
+    SpatialAxis,
+    SpineField,
+)
 from outshine_ref.vegetation.spine_frames import transport_frames
 
 
@@ -150,6 +156,10 @@ class SpatialAxisTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 f()
+        with self.assertRaises(TypeError):
+            ArcMeasure(None)
+        with self.assertRaisesRegex(ValueError, "same curve"):
+            SpineField(axis.spine, ArcMeasure(straight_spine()), axis.roll)
 
     def test_lightweight_profile_import_does_not_activate_spatial_scipy_dependencies(
         self,

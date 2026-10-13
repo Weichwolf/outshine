@@ -6,7 +6,10 @@ import numpy as np
 from scipy.interpolate import CubicHermiteSpline
 
 from .prepared_polynomial import copy_polynomial, freeze_polynomial
+from .profiles import Profile
+from .spine_curve import CubicSpine
 from .spine_frames import transport_frames
+from .spine_measure import ArcMeasure
 
 
 @dataclass(frozen=True)
@@ -16,6 +19,14 @@ class SpineField:
     roll: object
 
     def __post_init__(self):
+        if (
+            not isinstance(self.spine, CubicSpine)
+            or not isinstance(self.measure, ArcMeasure)
+            or not isinstance(self.roll, Profile)
+        ):
+            raise TypeError("prepared curve, arc measure and roll profile required")
+        if self.measure.spine.controls != self.spine.controls:
+            raise ValueError("frame field and arc measure must describe the same curve")
         t = self.measure.parameter_nodes
         centre, tangent, speed, curvature = self.spine.sample(t)
         reference = transport_frames(centre, tangent)[:, 0]
