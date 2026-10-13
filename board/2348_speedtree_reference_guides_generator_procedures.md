@@ -11,12 +11,12 @@ Tags: vegetation, python, reference, ghidra
 
 ## Ergebnis und Besitzer
 Ghidra ist auf Nutzerauftrag das primäre Analysewerkzeug für die vorhandene SpeedTree-10-Referenz.
-Verfahren, Parameter und Aufrufer nachvollziehen und daraus eigene prüfbare Python-Verfahren ableiten.
+SpeedTree-Verfahren, Parameter und Aufrufer als Hauptreferenz verstehen; eigene Python-Verfahren daraus ableiten.
 2346 besitzt Organ-/Pflanzenarchitektur, 2347 begrenzte Gruppenprodukte, 2111 vollständige Wälder.
 Papers bleiben ergänzende Primärquellen unter `doc/references/vegetation/{siggraph,eg,egsr,tvcg}`;
 das zentrale Quellenregister verlinkt die verwendeten Vegetationspapers.
 Nutzerreihenfolge: vollständigen SpeedTree-Funktionsumfang eigenständig nachbauen, danach alle Rezepte (2349).
-SpeedTree als Oracle verwenden; funktionale/visuelle Gleichwertigkeit und Kosten getrennt belegen.
+SpeedTree als Oracle: Funktions-/Bildverhalten zuerst; eigene Abweichungen begründen und messen, keine 1:1-Kopie.
 
 ## Referenz und Analyse
 Nutzerpaket `/tmp/SpeedTree_Modeler_v10.2.0_Linux.tar.gz`, Arbeitsreferenz
@@ -98,7 +98,7 @@ Rotationen mit Orthogonalisierung; keine vollständige Spine-/Kraftrekonstruktio
 ## Funktionsumfang vor Pflanzenrezepten
 `inspect_speedtree.py --templates`: alle 27 mitgelieferten Games/VFX-Vorlagen, 189 Generatoren,
 acht gespeicherte Typen (Tree, Branch, Frond, Cap, BatchedLeaf, Leaf Mesh, Fin, Knot).
-Vorlageninventar ist kein vollständiges Funktionsinventar oder Gleichwertigkeitsnachweis.
+Geometrie-/Materialgrundfunktionen vor Präsentationsclips; Vorlageninventar beweist keine Gleichwertigkeit.
 2481: Rinden-/UV-Analyse an vier CBranchNode-Funktionen; Periodenentfaltung und zyklische Glättung belegt.
 Eigene Achsfelder/Wertüberblendung (2481); vollständige UV-Property-/Original-Oracle-Bindung offen.
 2482: Frond-Guides; 2483/2484: Graph/Standorte; 2485/2486: räumliche Achsen/Anschlüsse, volle Bindung offen.
@@ -116,5 +116,5 @@ Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren
 2486: 3.078 Original-Vektorpaare geprüft; lokale Winkelmittelung, vollständiges Branch-Lighting offen.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.
-Wind: SDK-Astdaten (`0x1cc3990`) übernehmen Elterndaten; VFX-Astwind (`0x1f90500`) komponiert Rotationen.
-Der Paketheader bestätigt getrennte SDK-/VFX-Verfahren; vollständige Propertybindung und Windprodukte offen.
+[Transport-Vorbild](../test/experiments/transport/README.md): Gegenbeispiele, gleiche Eingaben/Qualität für Alternativen; Stichproben von hergeleiteten Schranken unterscheiden.
+Exportierte Mesh-/Materialprodukte nach erneutem Laden prüfen, Nah-/Gesamtbild abnehmen; offene Grundfunktionen, Fehler und Kosten ausdrücklich bilanzieren.

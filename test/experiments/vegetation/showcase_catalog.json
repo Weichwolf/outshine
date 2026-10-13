@@ -1,5 +1,5 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: Die räumliche Graphpflanze bewegt jetzt Holz und 41 Blätter aus demselben gespeicherten Ruheplan. Zwei Windzeitpunkte und das direkte Grobprodukt zeigen das gemeinsame Bewegungsfeld; Rindenfelder bleiben an der Oberfläche gebunden. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "Priorität: vollständige Geometrie- und Materialgrundfunktionen nach SpeedTree-Referenz. Aus verstandenen Verfahren entstehen eigene Python-Implementierungen und später Pflanzenrezepte mit wiederverwendbaren Varianten und LOD-Produkten für den Asset-Cache. Der zusätzliche Windclip ist zurückgestellt. Die vorhandenen Bilder sind Funktionsproben; SpeedTree-Qualität und weltweite Artenabdeckung sind noch nicht erreicht.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {

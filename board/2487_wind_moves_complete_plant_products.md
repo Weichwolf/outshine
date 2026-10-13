@@ -1,5 +1,5 @@
 Type: feature
-State: active
+State: open
 Architecture: ready
 Priority: P0
 Parent: 2348
@@ -34,6 +34,10 @@ SIGGRAPH-Recherche ergänzt durch Habel/Kusternig/Wimmer, Eurographics 2009,
 [Physically Guided Animation of Trees](https://www.cg.tuwien.ac.at/research/publications/2009/Habel_09_PGT/).
 Paper unter `doc/references/vegetation/eg/habel-2009-physically-guided-animation.pdf`, Seite 3 optisch geprüft:
 Hierarchiegewichte und eingespannte verjüngte Balken; spätere dynamische Kalibrierung benötigt deren Materialparameter.
+Seite 4 optisch geprüft: quartischer Fit u=c₂x²+c₄x⁴ und tangentiale Längenkorrektur,
+keine exakte Bogenlängenparametrisierung. Gegen numerische Integration vergleichen, bevor Genauigkeit behauptet wird.
+Der originale VFX-Astshader kürzt den Ankerabstand winkelabhängig bis auf 90 %;
+SDK-Normalisierung erhält den jeweiligen Ankerabstand, nicht automatisch die gekrümmte Astlänge.
 Vergleich: direkte räumliche Auswertung gegenüber vorberechneten Gewichten bei identischen Eingaben.
 Vorbereitung, Positions-/Normalenupdate, Datenvolumen und Bildkosten getrennt messen.
 
@@ -60,3 +64,7 @@ Zusammengefasste Blätter speichern eigene Farbvariation; 41 Werte bleiben bei a
 Ruhender Vergleich plus zwei Nahzeitpunkte und eine Grobansicht verwenden denselben Farbsatz.
 Frischer Offline-Prozess (`wind_replay.py`) reproduziert acht gespeicherte Meshprodukte bitgleich aus Ruhemesh/Bindung.
 Alle vier 2560×1440-Ansichten optisch geprüft; grobe Stammfacetten bleiben sichtbar.
+Clip-Frame 12 bei 0,5 s ist zum separat aufgebauten Standbild pixelidentisch:
+3.686.400 Pixel verglichen, null Abweichungen. Der fortlaufende Mesh-/Normalenupdate erhält dessen Bild.
+Windclip nach Nutzerkorrektur zurückgestellt; Geometrie-/Materialgrundfunktionen haben Vorrang.
+Unfertige Videoarbeiten unter `build/experiments/vegetation/deferred-wind-video` gesichert.
