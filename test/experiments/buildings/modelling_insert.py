@@ -42,9 +42,11 @@ class Asset:
             mesh['vertices']=mesh['vertices']@matrix.T
             for key in ('normals','edges_normals','points_normals'):
                 if key in mesh:mesh[key]=mesh[key]@matrix.T
+        definitions=shape.resolved_materials() if shape.material.attributes else shape.geometry.material_defs
         geometry,scope=Geometry.from_mesh(mesh,polygons=shape.geometry.polygons,edges=shape.geometry.edges,
-            points=shape.geometry.points,group_names=shape.geometry.group_names,material_defs=shape.geometry.material_defs)
-        return cls(geometry,scope.position,name,up_axis)
+            points=shape.geometry.points,group_names=shape.geometry.group_names,material_defs=definitions)
+        return cls(geometry,scope.position,name,up_axis,
+                   shape.asset.import_info if shape.asset else None,shape.asset.resources if shape.asset else None)
 
     def render_size(self,size):
         values=np.asarray(size,dtype=float);bounds=np.asarray(self.geometry.reference_size)
@@ -81,4 +83,4 @@ def insert(shape,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         dims=np.asarray(asset.geometry.reference_size);delta=(np.asarray(scope.size)-dims)/2.;delta[1]=0.
         scope=replace(scope.t(*delta),size=tuple(dims))
     scope=adjusted(scope,asset)
-    return Shape(asset.geometry,scope,shape.comp_info,shape.sweep_info,shape.split_info,asset)
+    return Shape(asset.geometry,scope,shape.comp_info,shape.sweep_info,shape.split_info,asset,shape.material)

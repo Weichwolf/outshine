@@ -64,7 +64,7 @@ def materials(values):
 
 
 def inherit(result,source):
-    return replace(result,split_info=source.split_info,
+    return replace(result,split_info=source.split_info,material=source.material,
         geometry=replace(result.geometry,group_names=source.geometry.group_names,material_defs=source.geometry.material_defs))
 
 

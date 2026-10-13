@@ -15,7 +15,7 @@ danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Kla
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 Stand 349bbd2a1: Scope/Extrusion, `comp`, Breiten-/Flächenteilung, Asset-Einfügung/Dateiimport und sechs UV-Operationen;
 Semantik ist teilweise geprüft, kein vollständiger Modellierkern und null vollständige Architektur-Rezeptfamilien.
-SDK-Inventar, 71 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
+SDK-Inventar, 79 Ghidra-Ziele und fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); keine Algorithmus-/Rezeptzahlen.
 SDK 3.4 / PyPRT 1.12 mit PRT 3.3 unterscheiden; eigene Umsetzung, kein übernommener dekompilierter Code.
 Bildstand 349bbd2a1: 46 Bilder (8 innen / 31 Gebäude/Funktionen / 4 Gruppen / 3 Städte), mindestens 1920×1080; 13.955 OSM-Kontextkörper.
 Vier neue UV-Bilder optisch geprüft; PNG/Profile/Hashes stimmen. 33 Bilder pixelgleich, neun Pläne ändern nur den Commit-Fußtext.
@@ -105,7 +105,7 @@ SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/roh
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
 UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
-Fünf Grundrisse/21 Messpaare: komponiert p50 0,075–0,210 statt 0,231–0,662 ms; gleiche UVs/Geometrie, keine Frames. Aktiv: Shape-/Geometriematerial, sRGB/Farb-/Resetfunktionen und Mitsuba-CPU-Innenraumbilder; Projektion/PRT-Orakel/Extra-Geometriebearbeitung offen.
+Fünf Grundrisse/21 Messpaare: komponiert p50 0,075–0,210 statt 0,231–0,662 ms; gleiche UVs/Geometrie, keine Frames. Material: Shape-Overrides/Geometrie getrennt; color/set/reset/get, sRGB, Importressourcen und Vererbung geprüft. Aktiv: physikalische Innenbilder; isolierte PRT-Materialregeln, exakte Formatierung/Shader-/Texturbindung offen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.

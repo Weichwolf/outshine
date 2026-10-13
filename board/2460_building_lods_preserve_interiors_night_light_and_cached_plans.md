@@ -31,6 +31,23 @@ Aktiver begrenzter Vergleich: vorhandene Raum-/Öffnungsmeshes mit Mitsuba 3 LLV
 [Primärdokumentation](https://github.com/mitsuba-renderer/mitsuba3), [SIGGRAPH Asia 2019](https://rgl.epfl.ch/publications/NimierDavidVicini2019Mitsuba2): Renderer-Vektorisierung; Seiten 1/2 optisch geprüft.
 [Quellenbeleg](../doc/references/buildings/siggraph/2019-mitsuba2-retargetable-forward-inverse-renderer.reference.json): PDF lokal, Zitat/Link/Hash versioniert. Kosten/Bild/Materialabbildung noch ungemessen; kein Runtime-Rendererwechsel.
 
+## Übernahme aus den Transportexperimenten
+Review von `~/Git/outshine/test/experiments/transport/` am 2026-10-13, Stand dd95f208b:
+`transport_coupled_roadbed_products` prüft gespeicherte Produkte gegen ausgegebene Dreiecke,
+erhält sämtliche Quellanfragen samt begründeten Auslassungen und bereits bewiesene Verbindungen.
+`transport_vehicle_sweep` begrenzt Bewegungsfehler geometrisch; Diagnose-Samples ersetzen keinen Sweep-Beleg.
+Gebäude besitzen bereits Mesh-Tür-/Raum-/Treppenprüfungen in 2420. Die zusätzliche Pflicht hier:
+- Dieselben Zugang-/Raum-/Geschoss-IDs nach Laden des vollständigen Produkts erneut gegen sein Mesh prüfen.
+- Detailwechsel erhalten jeden vorher gültigen Zugang und Geschossweg; fehlende Fälle mit Grund ausweisen.
+- Renderkamera, Materialbindung und Lichtzustand aus dem geladenen Produkt prüfen; Bilder allein beweisen keine Begehbarkeit.
+- Bewegung mit endlicher Prüffigur samt Kopf-/Bodenfreiheit prüfen; kontinuierliche Fehlerschranke ausdrücklich nennen.
+Aktuell kein Nachweis für die gesamte Kette Cache → Detailwechsel → kontinuierliche Begehung.
+Mitsuba-Kanalprüfung: RGB-Renderarray hat neun Kanäle, Integratorliste zehn; benannte Film-Layer verwenden.
+Entwicklungsbild 1920×1080/16 spp: 59,10 s CPU-Pfadverfolgung + 5,24 s OIDN, zwei Threads;
+64-spp-Kontrolle: 232,60 s CPU; gleicher Raum/Kamera/Licht/Seed, Rohbild weiterhin körnig.
+16-spp-OIDN gegen 64-spp-Rohbild: lineare RMSE 0,039 statt 0,086, mittlere Energieabweichung 0,37 %.
+Beide optisch geprüft; keine rauschfreie Referenz/zeitliche Abnahme. Sieben physikalische Showcasekontrollen in Vorbereitung.
+
 ## Detail, Funktion und Nacht
 - Nah durch Fenster: echte Wandtiefe/Böden/Decken/Trennwände und räumlicher Hintergrund passender Räume.
   Begehbarkeit/Portale verwenden denselben Plan; keine widersprüchliche zweite Raumwelt.

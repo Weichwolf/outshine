@@ -55,6 +55,13 @@ OWN.update({operation:dict(module='modelling_shape.Shape.'+method,
                              ('copyUV','copy_uv'),('deleteUV','delete_uv'),('normalizeUV','normalize_uv')]})
 OWN_FUNCTIONS={'geometry':dict(module='modelling_shape.Shape.group_names/material_names',status='group/material name queries implemented in component index order without vertex emission; remaining geometry functions pending',
                                pending=['other geometry member functions','full shader defaults and texture/object-pointer material equivalence','isolated PRT name-order rule'])}
+OWN.update({operation:dict(module='modelling_shape.Shape.'+method,
+    status='immutable shape overrides and geometry definitions; documented precedence, sRGB colours, three reset selectors, SDK and targeted Ghidra evidence',
+    pending=['isolated PRT material rules','complete texture-resource binding','exact SDK formatting and shader equivalence'])
+    for operation,method in [('color','color'),('setMaterial','set_material'),('resetMaterial','reset_material')]})
+OWN_FUNCTIONS['getMaterial']=dict(module='modelling_shape.Shape.get_material',
+    status='used/shape/geometry and changed/all; explicit defaults and immutable imported values retained',
+    pending=['exact SDK value formatting','isolated PRT selector rules','complete texture-resource binding'])
 USES = {
     'Dachformen': 'Dachsilhouette, First, Traufe und Überstand; zunächst keine eigene Umsetzung.',
     'Massierung und Grundriss': 'Höhenintervalle, Höfe, Gebäudeteile, Rücksprünge und technische Körper.',

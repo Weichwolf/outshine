@@ -6,6 +6,7 @@ from types import MappingProxyType
 import numpy as np
 
 from modelling_scope import Scope
+from modelling_metadata import Material
 
 
 @dataclass(frozen=True)
@@ -97,6 +98,10 @@ class Shape:
     sweep_info: object=None
     split_info: object=None
     asset: object=None
+    material: Material=Material()
+
+    def __post_init__(self):
+        if not isinstance(self.material,Material):raise ValueError('Shape material must be an immutable Material')
 
     @classmethod
     def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=(),group_names=(),material_defs=()):
@@ -133,6 +138,26 @@ class Shape:
     def insert(self,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         from modelling_insert import insert
         return insert(self,asset,mode,cleanup)
+
+    def color(self,*values):
+        from modelling_material import color
+        return color(self,*values)
+
+    def set_material(self,values):
+        from modelling_material import set_material
+        return set_material(self,values)
+
+    def get_material(self,source='used',mode='changed'):
+        from modelling_material import get_material
+        return get_material(self,source,mode)
+
+    def reset_material(self,target='shape'):
+        from modelling_material import reset_material
+        return reset_material(self,target)
+
+    def resolved_materials(self):
+        from modelling_material import resolved_materials
+        return resolved_materials(self)
 
     def scale_uv(self,index,u,v):
         from modelling_uv import scale_uv
@@ -173,7 +198,7 @@ class Shape:
             raise NotImplementedError('Additional vertex channels in wire/hole components remain pending')
         from modelling_components import split_components
         from modelling_uv import inherit_primary
-        return tuple(inherit_primary(child,self) for child in split_components(self,component,branches,alignment))
+        return tuple(replace(inherit_primary(child,self),material=self.material) for child in split_components(self,component,branches,alignment))
 
     def split(self,axis,*parts,repeat=False,adjust=True,cut_material=None,cut_group=0,max_parts=10000):
         from modelling_channels import additional_channels

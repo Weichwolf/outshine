@@ -16,6 +16,7 @@ from showcase_area_split import probe as area_probe
 from showcase_insert import probe as insert_probe
 from showcase_asset_load import probe as import_probe
 from showcase_uv import probe as uv_probe
+from showcase_physical import probe as physical_probe
 
 
 NAMES={'rectangle':'Rechteck · Kontrollhaus','vienna-compact':'Wien · kompaktes Gebäude',
@@ -100,6 +101,7 @@ def main():
     reports+=insert_probe(args.output,provenance)
     reports+=import_probe(args.output,provenance)
     reports+=uv_probe(args.output,provenance)
+    reports+=physical_probe(args.output,provenance)
     temporary=args.output/'snapshot.json.tmp'
     temporary.write_text(json.dumps(provenance|dict(reports=reports,completed_recipe_families=0),ensure_ascii=False,indent=2)+'\n')
     temporary.replace(args.output/'snapshot.json')
