@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from bark_layer_plots import layer_figure
 from bark_plots import bark_figure
+from closed_vein_plots import closed_figure
 from cloud_plots import group_figure, raster_figure, render_figure
 from collar_plots import collar_figure, ray_figure
 from curved_plots import curved_figure
@@ -403,6 +404,12 @@ def relative_plot(report):
     return save_plot(figure, "leaf-relative-neighbors")
 
 
+def closed_plot(report):
+    figure = closed_figure(report)
+    style_axes(figure.axes[0])
+    return save_plot(figure, "closed-leaf-growth")
+
+
 def spatial_plot(report):
     figure = spatial_figure(report)
     style_axes(figure.axes)
@@ -441,6 +448,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            closed_plot,
             relative_plot,
             generator_plot,
             placement_plot,

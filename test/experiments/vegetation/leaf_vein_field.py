@@ -33,18 +33,42 @@ def segment_values(points, a, b, first_radius, last_radius):
 
 
 def vein_field(plan, points, method="indexed"):
+    if len(plan.positions) > 2048:
+        raise ValueError("bounded vein graph required")
+    return segment_field(
+        plan.positions[plan.parents[1:]],
+        plan.positions[1:],
+        plan.radii[plan.parents[1:]],
+        plan.radii[1:],
+        points,
+        method,
+    )
+
+
+def segment_field(a, b, first_radius, last_radius, points, method="indexed"):
     points = np.asarray(points, dtype=float)
     if points.ndim != 2 or points.shape[1] != 2 or not np.isfinite(points).all():
         raise ValueError("finite Nx2 physical material points required")
     if len(points) > 262_144 or method not in ("dense", "indexed"):
         raise ValueError("bounded dense or indexed material request required")
-    a = plan.positions[plan.parents[1:]]
-    b = plan.positions[1:]
-    first_radius = plan.radii[plan.parents[1:]]
-    last_radius = plan.radii[1:]
-    if np.any(np.linalg.norm(b - a, axis=1) <= 0) or len(a) > 2047:
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    first_radius, last_radius = np.asarray(first_radius), np.asarray(last_radius)
+    if (
+        a.ndim != 2
+        or a.shape[1] != 2
+        or a.shape != b.shape
+        or first_radius.shape != (len(a),)
+        or last_radius.shape != (len(a),)
+        or not np.isfinite([a, b]).all()
+    ):
+        raise ValueError("finite segment endpoints and matching radii required")
+    if np.any(np.linalg.norm(b - a, axis=1) <= 0) or len(a) > 4096:
         raise ValueError("bounded nondegenerate vein segments required")
-    if not np.isfinite(plan.radii).all() or np.any(plan.radii <= 0):
+    if (
+        not np.isfinite([first_radius, last_radius]).all()
+        or np.any(first_radius <= 0)
+        or np.any(last_radius <= 0)
+    ):
         raise ValueError("finite positive vein radii required")
     value = np.zeros(len(points))
     work = 0

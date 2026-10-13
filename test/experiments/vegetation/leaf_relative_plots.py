@@ -52,7 +52,7 @@ def relative_figure(report):
     axes[1].set_title("Warum eine feste Nachbarzahl nicht genügt")
     figure.suptitle(
         "Geschlossene Blattadern · geprüfter Nachbarschaftsbaustein\n"
-        "Quellentags, Zusammenführung und geschlossene Adergeometrie noch offen",
+        "Getrennte Nachbarschaftsmessung · vollständiges Wachstum separat geprüft",
         fontsize=15,
     )
     return figure

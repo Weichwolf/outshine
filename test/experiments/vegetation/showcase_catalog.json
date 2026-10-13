@@ -1,16 +1,26 @@
 {
-  "current_work": "Geschlossene Feinadern: exakte relative Nachbarn für mehrere gleichzeitig beeinflusste Adern sind implementiert und gegen die vollständige Definition geprüft. Eine feste Zahl nächster Nachbarn reicht nicht aus. Quellentags, Zusammenführung und geschlossene Adergeometrie bleiben offen. Die aktuellen Blattbilder zeigen weiterhin die geprüften offenen Adernetze.",
+  "current_work": "Geschlossene Feinadern aus gespeicherten Hauptadern: drei zusammenhängende Netze mit ausdrücklich verbundenen Kreuzungen. Dichte und beschleunigte Suche erzeugen identische Wachstumsprodukte. Eine Quelle der gelappten Form bleibt an der Kontur ungelöst; die beiden anderen Proben schließen alle Quellen. Natürliche Aderdichte, Farbvariation und kalibrierte Lichtdurchlässigkeit bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/closed-leaf-detail.png",
+      "title": "Blattoberfläche · geschlossene Feinadern im Detail",
+      "label": "Ausschnitt der glatten Funktionsform",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Echte Nahaufnahme derselben gespeicherten Blattoberfläche. Feinadern verbinden Hauptadern zu einem zusammenhängenden Netz. Prozedurale 512×512-Karten werden aus dem Cache geladen; keine erneute Adererzeugung für diese Kamera.",
+      "quality": "Verbindungen sichtbar, aber noch schwach und teils unterabgetastet. Natürliche Aderdichte, Verlauf und Materialfeinheit erreichen SpeedTree noch nicht.",
+      "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-detail.json"
+    },
     {
       "image": "render/leaf-material-upper.png",
       "title": "Blattoberseite · prozedurale Adern",
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Drei Funktionsformen mit einem offenen Adernetz aus einem Wurzelknoten. Die Aderoberfläche bleibt bei zusätzlicher linearer Unterteilung gleich. Gemeinsame Farb-, Relief- und Rauheitskarten werden gespeichert und für Nah- und Grobgeometrie wiederverwendet. Reliefhöhe 60 µm; noch keine botanisch validierten Arten.",
-      "quality": "Künstliche Knotenverdickungen beseitigt. Geschlossene Feinadern, natürliche Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; SpeedTree-Qualität noch nicht erreicht.",
-      "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-upper.json"
+      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten.",
+      "quality": "49 / 50 / 44 unabhängige Schleifen. Eine von 192 Quellen ungelöst; natürliche Dichte, Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-upper.json"
     },
     {
       "image": "render/leaf-material-lower.png",
@@ -18,9 +28,9 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Drei Funktionsformen mit einem offenen Adernetz aus einem Wurzelknoten. Die Aderoberfläche bleibt bei zusätzlicher linearer Unterteilung gleich. Gemeinsame Farb-, Relief- und Rauheitskarten werden gespeichert und für Nah- und Grobgeometrie wiederverwendet. Reliefhöhe 60 µm; noch keine botanisch validierten Arten.",
-      "quality": "Künstliche Knotenverdickungen beseitigt. Geschlossene Feinadern, natürliche Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; SpeedTree-Qualität noch nicht erreicht.",
-      "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-lower.json"
+      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten.",
+      "quality": "49 / 50 / 44 unabhängige Schleifen. Eine von 192 Quellen ungelöst; natürliche Dichte, Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-lower.json"
     },
     {
       "image": "render/leaf-material-coarse.png",
@@ -28,9 +38,9 @@
       "label": "Materialgrundfunktion · drei Formproben",
       "category": "leaf",
       "lod": "lod-1",
-      "description": "Drei Funktionsformen mit einem offenen Adernetz aus einem Wurzelknoten. Die Aderoberfläche bleibt bei zusätzlicher linearer Unterteilung gleich. Gemeinsame Farb-, Relief- und Rauheitskarten werden gespeichert und für Nah- und Grobgeometrie wiederverwendet. Reliefhöhe 60 µm; noch keine botanisch validierten Arten.",
-      "quality": "Künstliche Knotenverdickungen beseitigt. Geschlossene Feinadern, natürliche Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; SpeedTree-Qualität noch nicht erreicht.",
-      "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-coarse.json"
+      "description": "Geschlossene Feinadern ergänzen die gespeicherten Hauptadern. Ankunftsmarkierungen wandern mit den wachsenden Spitzen; geometrische Kreuzungen werden gemeinsame Netzknoten. Nah- und Grobgeometrie verwenden dieselben prozeduralen Materialkarten. Drei Funktionsformen, noch keine botanisch validierten Arten.",
+      "quality": "49 / 50 / 44 unabhängige Schleifen. Eine von 192 Quellen ungelöst; natürliche Dichte, Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "scenario": "build/experiments/vegetation/closed-leaves/closed-leaf-coarse.json"
     },
     {
       "image": "render/wind-near-rest.png",
@@ -399,7 +409,8 @@
     "spatial_plot": "lod-1",
     "wood_plot": "lod-0",
     "bark_layer_plot": "lod-0",
-    "relative_plot": "lod-0"
+    "relative_plot": "lod-0",
+    "closed_plot": "lod-0"
   },
   "genera": [
     {

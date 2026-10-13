@@ -30,7 +30,7 @@ Erster Pfad: offenes Adernetz aus einem Wurzelknoten; Attraktoren beeinflussen i
 normierte Richtungen summieren, Quellen nahe Adern entfernen, begrenzte Schritte ergänzen.
 Gleichstände wählen die kleinste ID; neue Punkte nahe vorhandenen Knoten werden verworfen.
 Das verhindert wiederholte identische Zweige, ist eine eigene Ergänzung und kein Paper-Gleichwertigkeitsbeleg.
-Wachstum der Blattkontur und geschlossene Adermaschen bleiben eigene offene Funktionen.
+Wachstum der Blattkontur bleibt offen; geschlossene Feinadern ergänzen unten den festen Formplan.
 Radius aus dem verbundenen Graphen ableiten; physische Feldbreiten statt auflösungsabhängiger Linien.
 Farbe und Relief aus derselben Aderstruktur; versioniertes Produkt mit Mesh/UV/Materialkarten exportieren.
 
@@ -60,7 +60,7 @@ Prüfprozess 201,37 MiB Peak, einschließlich Imports/dichter Vergleichsarrays; 
 `leaf_material_replay.py`: 52 gemeinsame Nah-/Grobvertices je Form exakt in Position und UV;
 Grobprodukte verwenden dieselben gespeicherten Materialkarten ohne Ader-/Materialneuberechnung.
 Ober-/Unterseite in 2560×1440 optisch betrachtet: Knotenverdickungen entfernt, mattere flachere Adern.
-Feinmaschen/Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; noch kein SpeedTree-Niveau.
+Natürliche Maschendichte/Farbvariation und kalibrierte Lichtdurchlässigkeit fehlen; kein SpeedTree-Niveau.
 SpeedTree Games/Broadleaf/Leaves/Front_02 und Normal optisch betrachtet: feine geschlossene Zellen,
 subtile Farb-/Reliefvariation; keine Übernahme der Assets und kein kontrollierter Gleichwertigkeitsbeleg.
 Vorbelegte Mittelrippenstationen nach Nahbild wegen regelmäßigem Queradern-Raster verworfen;
@@ -78,13 +78,13 @@ Drei Radiusprofile, je 2.145 Punkte: 1/2/7/31 Segmente, dichte/indexierte Auswer
 Analytischer Querschnitt und unabhängige numerische Minimierung geprüft; altes Modell +0,233 Knotenhöhe.
 Reliefhöhe/Rauheit/Farbkontrast gemeinsam angepasst; Einzelbeiträge zur Bildwirkung nicht isoliert gemessen.
 
-## Geschlossene Feinadern: nächster Funktionsbaustein
+## Geschlossene Feinadern
 Runions Abschnitt 4 benötigt relative Nachbarn statt nur eines nächsten Aderknotens.
 Zuerst vollständige Paarprüfung gegen exakte Vorauswahl in acht 45°-Sektoren vergleichen.
 Ein näherer Punkt im selben Sektor blockiert jeden ferneren Kandidaten; alle minimalen
 Distanzgleichstände und mit der Quelle zusammenfallende Knoten erhalten. Alle Knoten bleiben Blocker.
 Streng offene Linsen als explizite Gleichstandskonvention; keine feste k-Nächste-Nachbarn-Näherung.
-Quellentags, Zusammenführung und echte geschlossene Adergraphen bleiben danach umzusetzen.
+Quellentags und Zusammenführung nutzen diesen Baustein; Netzprodukte unten separat geprüft.
 Optisch geprüft: PDF-Seite 5, Gleichung 2/Figur 7; Sektorverfahren ist eine eigene Alternative.
 Für 0<ru<rv und Winkel<45° gilt |u−v|²=rv²+ru²−2ru·rv·cos(Winkel)<rv².
 595/532/881 gespeicherte Knoten, je 128 Quellen, fünf abwechselnde Läufe: identische Nachbarlisten.
@@ -93,3 +93,22 @@ Dicht 127,03–338,06 ms, Sektoren 49,02–65,21 ms; Prozess-Peak 86,13 MiB inkl
 Gegenbeispiel: entfernter relativer Nachbar fehlt unter den nächsten acht Punkten.
 32 exakt gleich weit entfernte Nachbarn bleiben vollständig erhalten; keine Acht-Nachbarn-Grenze.
 Beide Verfahren begrenzen eine Anfrage auf 600 Mio. Blockerpaare; Gleichstände können quadratisch kosten.
+Quellentags an beeinflusste Nachfolger weitergeben und nach Verlassen des
+Einflussbereichs entfernen. Erreichte Quellen erhalten gemeinsame Netzknoten; Verbindungen
+und verbleibende Quellen explizit speichern. Anfangsnetz bleibt erhalten, neue Feinadern haben
+zunächst einen eigenen einheitlichen Radius; keine rekonstruierte hydraulische Breitenlösung.
+Segment-Innenlage konservativ über Profil-Ableitungsgrenzen prüfen; ungelöste Quellen ausweisen.
+Gleiche Wachstumsprodukte mit beiden Nachbarschaftssuchen und unabhängige Zyklusprüfung verlangen.
+Drei feste Proben: 49/50/44 unabhängige Schleifen; 191 von 192 Quellen abgeschlossen.
+Eine gelappte Quelle bleibt bei konservativer Konturprüfung stationär; zehn Segmente verworfen.
+Quellenmarken wandern zur Spitze: asymmetrische Probe erste Ankunft Schritt 10, Abschluss 33.
+Dicht/Sektoren erzeugen identische Knoten, Kanten, Quellhubs und Ankunftszeiten (drei Läufe).
+Wachstumsmediane dicht 1062–2492 ms, Sektoren 261–408 ms; Prozess-Peak 137,07 MiB inklusive Referenzen.
+Shapely 2.2.0/GEOS 3.14.1 verknüpft Kreuzungen: 157–295 ms inklusive geometrischer Gegenprüfung.
+Feinmaterial aus gespeicherten Hauptkarten 275–320 ms; gleicher segmentierter Hüllenkern.
+Frischer Cacheprozess prüft korrekte Hub-IDs nach Neuindizierung und je 52 gemeinsame LOD-Vertices.
+Feinradius einheitlich je Form, Reliefgewicht 0,25; hydraulische Breiten und natürliche Dichte offen.
+Nahaufnahme in 2560×1440 optisch geprüft: Verbindungen sichtbar, Feinadern teils unterabgetastet;
+Primäradern noch kantig, Farbvariation und natürliche Maschendichte unzureichend.
+Reproduktion: `leaf_closed_experiment.py` auf Cache aus `leaf_material_experiment.py` und
+`leaf_material_replay.py`; `leaf_closed_reload.py` prüft den frischen Ladeprozess.

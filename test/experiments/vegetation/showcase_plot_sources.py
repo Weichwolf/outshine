@@ -2,10 +2,16 @@
 
 PLOT_SOURCES = (
     (
+        "closed-leaves/closed-leaves.json",
+        "closed_plot",
+        "Geschlossene Feinadern · Wachstum und offene Quellen",
+        "Je 64 Quellen ergänzen drei gespeicherte Hauptadernetze. Drei abwechselnde lokale CPU-Läufe: vollständige und beschleunigte Nachbarschaftssuche erzeugen identische Knoten, Kanten und Ankunftszeiten. Kreuzungen werden mit Shapely/GEOS gemeinsame Knoten. Ein frischer Prozess prüft gespeicherte Netze, Materialkarten und Nah-/Grobkoordinaten. Eine Quelle an der gelappten Kontur bleibt ungelöst. Natürliche Dichte, hydraulische Breiten und botanische Validierung bleiben offen.",
+    ),
+    (
         "leaf-materials/relative-neighbors.json",
         "relative_plot",
         "Geschlossene Blattadern · relative Nachbarn",
-        "Vollständige Paarprüfung gegen exakte Sektor-Vorauswahl auf denselben drei gespeicherten Aderplänen und je 128 Quellen. Fünf abwechselnde lokale CPU-Läufe, identische Nachbarlisten. Unabhängige Definition, Gleichstände und ein Gegenbeispiel zur festen Nachbarzahl geprüft. Dies ist der Nachbarschaftsbaustein; Quellentags, Zusammenführung und geschlossene Adergeometrie bleiben offen.",
+        "Vollständige Paarprüfung gegen exakte Sektor-Vorauswahl auf denselben drei gespeicherten Aderplänen und je 128 Quellen. Fünf abwechselnde lokale CPU-Läufe, identische Nachbarlisten. Unabhängige Definition, Gleichstände und ein Gegenbeispiel zur festen Nachbarzahl geprüft. Diese Messung betrifft nur die Nachbarschaftssuche; vollständiges Wachstum wird separat geprüft.",
     ),
     (
         "bark-layers/bark-layers.json",
