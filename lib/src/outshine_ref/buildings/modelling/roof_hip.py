@@ -9,6 +9,7 @@ import shapely
 from .extrude import aligned_scope
 from .facet_overlay import overlay
 from .faces import ROOF_TAGS, plane
+from .hip_surface import prepare_even
 from .metadata import inherit
 from .roof_mesh import RoofMesh
 from .roof_ridge import source_cut
@@ -25,6 +26,8 @@ class HipInfo:
     overlay_cells: tuple
     overlay_precision_m: tuple
     authored_normals_rebuilt: bool
+    surfaces: tuple
+    maximum_shared_height_adjustment_m: tuple
 
 
 def attributes(source, projected, cut):
@@ -41,32 +44,35 @@ def attributes(source, projected, cut):
 
 
 def canonical(builder, points, properties, owners, plan, factor, precision):
-    roots, upper, known = [], [], {}
+    roots, upper, known = [], [], {}; adjustment=0.
     boundary = shapely.set_precision(plan.footprint, precision).boundary
     for xy, row, owner in zip(points, properties, owners, strict=True):
         key = tuple(xy)
         facet = plan.facets[owner]
         distance = float(xy@facet.gradient+facet.intercept_m)
+        uncertainty = (np.sqrt(2)*precision*np.linalg.norm(facet.gradient)
+                       +64*np.finfo(float).eps*(abs(xy*np.asarray(facet.gradient)).sum()+abs(facet.intercept_m)))
         if boundary.distance(shapely.Point(xy)) <= precision/2:
             distance = 0.
-        if distance < -1e-7:
+        if distance < -max(1e-7,uncertainty):
             raise ValueError('Hip height left its source half-plane')
         distance = max(distance, 0.)
         if key in known:
-            root, position, height = known[key]
-            if abs(height-distance) > 1e-7 or np.linalg.norm(position-row[:3]) > 1e-8:
+            root, position, height, prior_uncertainty = known[key]
+            if abs(height-distance) > max(1e-7,uncertainty+prior_uncertainty) or np.linalg.norm(position-row[:3]) > 1e-8:
                 raise ValueError('Adjacent hip cells disagree at a shared geometric vertex')
+            adjustment=max(adjustment,abs(height-distance)*factor)
             row[:3] = position; distance = height
         else:
             root = builder.root(('base', *key)); position = row[:3].copy()
-            known[key] = root, position, distance
+            known[key] = root, position, distance, uncertainty
         roots.append(root)
         upper.append(root if distance == 0 else builder.root(('top', root)))
     heights = np.array([known[tuple(xy)][2] for xy in points])*factor
-    return np.asarray(roots), np.asarray(upper), heights
+    return np.asarray(roots), np.asarray(upper), heights, adjustment
 
 
-def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells):
+def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even=False):
     face = shape.geometry.polygons[number]
     edges_count = sum(len(ring) for ring in (face.outer, *face.holes))
     if np.count_nonzero(mesh['parts'] == number)*edges_count > max_cells:
@@ -79,23 +85,26 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells):
     tangent -= normal*np.dot(tangent, normal); tangent /= np.linalg.norm(tangent)
     basis = np.array([tangent, np.cross(normal, tangent)])
     plan = prepare_hip(polygon, limits=limits); factor = plan.factor(value, mode)
+    surface = prepare_even(plan) if even else None
+    field = plan if surface is None else surface
     uv = channel_faces(face, mesh)
     face = replace(face, tags=face.tags-ROOF_TAGS.keys(), uvs=uv[0], uv_sets=tuple((c, v) for c, v in uv.items() if c))
     source = source_cut(shape, mesh, number, face, normal, channels)
     projected = (source.properties[:, :3]-origin)@basis.T-np.asarray(plan.origin)
-    cut = overlay(projected[source.triangles], plan, max_cells)
+    cut = overlay(projected[source.triangles], field, max_cells)
     properties = attributes(source, projected, cut)
     points = cut.corners.reshape(-1, 2); owners = np.repeat(cut.facets, 3)
     builder = RoofMesh(channels)
-    roots, upper, heights = canonical(builder, points, properties, owners, plan, factor, cut.precision_m)
+    roots, upper, heights, adjustment = canonical(builder, points, properties, owners, field, factor, cut.precision_m)
     order = np.arange(len(properties)).reshape(-1, 3)[:, ::-1].ravel()
     builder.append(properties[order], roots[order], 'bottom', replace(face, tags=face.tags|{'roof.bottom'}))
     top = properties.copy(); top[:, :3] += heights[:, None]*normal
+    if surface is not None:owners=np.asarray([patch.facet for patch in surface.facets])[owners]
     for index in range(len(plan.facets)):
         selected = owners == index
         builder.append(top[selected], upper[selected], ('top', index), replace(face, tags=face.tags|{'roof.top'}))
     native, faces = builder.finish()
-    return native, faces, normal, plan, cut.cells, cut.precision_m
+    return native, faces, normal, plan, cut.cells, cut.precision_m, surface, adjustment
 
 
 def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None, max_cells=65536):
@@ -104,8 +113,8 @@ def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None,
         raise ValueError('Hip even option must be boolean')
     if type(max_cells) is not int or max_cells <= 0:
         raise ValueError('Hip overlay capacity must be a positive integer')
-    if overhang != 0 or even:
-        raise NotImplementedError('Hip overhang/even and trim planes require separate verified contracts')
+    if overhang != 0:
+        raise NotImplementedError('Hip overhang and trim planes require separate verified contracts')
     if mode not in ('byAngle', 'byHeight') or value <= 0 or mode == 'byAngle' and not 1e-10 <= value < 90:
         raise ValueError('Hip roofs require a positive height or angle in [1e-10,90) degrees')
     limits = SkeletonLimits() if limits is None else limits
@@ -121,14 +130,15 @@ def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None,
     working = replace(shape, scope=replace(shape.scope, object_frame=Frame()))
     mesh = working.emit(); mesh.setdefault('uv', np.zeros((len(mesh['vertices']), 2)))
     channels = (0,)+tuple(sorted(int(k[2:]) for k in mesh if k.startswith('uv') and k[2:].isdigit()))
-    products, faces, owners, plans, cells, precisions, normals = [], [], [], [], [], [], []
+    products, faces, owners, plans, cells, precisions, normals, surfaces, adjustments = [], [], [], [], [], [], [], [], []
     vertex_offset = face_offset = 0
     for number in range(len(geometry.polygons)):
-        native, polygons, normal, plan, count, precision = hip_face(working, mesh, number, value, mode, channels, limits, max_cells)
+        native, polygons, normal, plan, count, precision, surface, adjustment = hip_face(working, mesh, number, value, mode, channels, limits, max_cells, even)
         native['faces'] += vertex_offset; native['parts'] += face_offset; products.append(native)
         faces.extend(replace(f, outer=tuple(i+vertex_offset for i in f.outer),
                              holes=tuple(tuple(i+vertex_offset for i in ring) for ring in f.holes)) for f in polygons)
-        owners.extend([number]*len(polygons)); plans.append(plan); cells.append(count); precisions.append(precision); normals.append(normal)
+        owners.extend([number]*len(polygons)); plans.append(plan); cells.append(count); precisions.append(precision); normals.append(normal);surfaces.append(surface)
+        adjustments.append(adjustment)
         vertex_offset += len(native['vertices']); face_offset += len(polygons)
         if time.perf_counter()-began > limits.seconds:
             raise SkeletonBudgetExceeded('Hip shape exceeded its cooperative time budget')
@@ -139,4 +149,4 @@ def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None,
         result = result.delete_uv(0)
     scope = replace(result.scope, object_frame=shape.scope.object_frame)
     return replace(result, scope=scope, comp_info=shape.comp_info,
-                   roof_info=HipInfo(tuple(plans), tuple(owners), tuple(cells), tuple(precisions), 'normals' in geometry.fields))
+                   roof_info=HipInfo(tuple(plans), tuple(owners), tuple(cells), tuple(precisions), 'normals' in geometry.fields,tuple(surfaces),tuple(adjustments)))

@@ -15,10 +15,12 @@ import numpy as np
 from numpy.typing import NDArray
 
 Triple = tuple[float, float, float]
+_NUMERIC_TYPES = (float, int, np.floating, np.integer)
 
 
 def scalar(value: float) -> float:
-    if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
+    if (isinstance(value, bool) or not (isinstance(value, _NUMERIC_TYPES) or isinstance(value, Real))
+            or not math.isfinite(value)):
         raise ValueError("Scope parameters require finite real numbers")
     return float(value)
 
