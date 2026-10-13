@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4782/4808 (b8cd1b71d). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 26 Fahrten offen.
+Zürich 4783/4808 (b09fcc137). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 25 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 69,1 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 68,9 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -98,7 +98,9 @@ in zwei Versuchen, maximal 64. Automatische Einbindung in Produktaufbau offen.
 Vollständigen Inselkontext behalten; Kurve direkt an neuen Quellposen bauen statt kurze Anschlüsse überzubiegen.
 1733: Quell-Rücksprung verhindert direkte Abrundung. 56 gekürzte Leitlinien geprüft;
 zwei nahe Varianten erzeugen nur neue Resttaschen von 0,004/0,454 m². Keine ursprüngliche Insel.
-1733 lokal 4/4: direkter Fahrweg 65,94 m, physisch +7,61 m²; Bild geprüft, Gesamtfenster offen.
+1733 im Gesamtfenster 4/4: direkter Fahrweg 65,94 m, physisch +7,61 m²; Bild geprüft.
+[Begrenzte Quellabkürzungen](../test/experiments/transport/probes/roadbeds/source_shortcut_probe.py)
+erhalten Originalroute/Endposen; 56 Varianten, vier lokale Kandidaten. 24 frühere Zusatzfahrten erhalten.
 Neue freie Resttaschen nur explizit schließen (≤1 m², keine 1-m-Innenbreite, keine Reservation).
 Übergang aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsreste nach bestehender Koordinatengrenze prüfen.
 Verbleibende
