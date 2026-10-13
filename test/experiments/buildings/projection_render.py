@@ -38,7 +38,7 @@ def probe(output,provenance):
     loaded=mi.load_dict(scene);dr.sync_thread();start=time.perf_counter()
     image=mi.render(loaded,spp=32,seed=17);dr.eval(image);pixels=np.asarray(image);dr.sync_thread();elapsed=time.perf_counter()-start
     if not np.all(np.isfinite(pixels)):raise ValueError('Nonfinite projection rendering')
-    image_path=output/'current-projection-continuity.png';mi.util.write_bitmap(str(image_path),image)
+    image_path=output/'current-projection-continuity.png';mi.util.write_bitmap(str(image_path),image,write_async=False)
     record=provenance|dict(status='pass',profile=[1920,1080],spp=32,products=products,recipe=recipe,
         representation='showcase-current',page='buildings',view='components',label='projection',completed_recipe_families=0,
         renderer=dict(name='Mitsuba '+mi.__version__,backend='LLVM CPU',threads=2),render_seconds=elapsed,

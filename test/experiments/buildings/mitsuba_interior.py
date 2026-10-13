@@ -81,10 +81,10 @@ def render(config):
         if not {'image','albedo','normal'}<=layers.keys():raise ValueError('Mitsuba is missing named denoising channels')
         raw=layers['image'][:,:,:3]
         if not np.allclose(raw,pixels[:,:,:3],rtol=1e-6,atol=1e-7):raise ValueError('Named radiance disagrees with rendered RGB')
-        mi.util.write_bitmap(str(output.with_name(output.stem+'-raw.png')),raw)
+        mi.util.write_bitmap(str(output.with_name(output.stem+'-raw.png')),raw,write_async=False)
         filter_log=Path(tempfile.gettempdir())/('outshine-buildings-'+output.stem+'-'+config['mesh_sha256'][:12]+'.oidn.log')
         pixels,filter_info=denoise(raw,layers['albedo'],layers['normal'],output.with_suffix(''),filter_log)
-    mi.util.write_bitmap(str(output),pixels)
+    mi.util.write_bitmap(str(output),pixels,write_async=False)
     record=dict(renderer='Mitsuba '+mi.__version__,backend='LLVM CPU',threads=dr.thread_count(),profile=config['profile'],spp=spp,seed=config.get('seed',17),
         setup_seconds=setup_seconds,render_seconds=render_seconds,mesh_sha256=config['mesh_sha256'],projection=projection,bindings=bindings,surface=surface,
         included_source_triangles=sum(row['triangles'] for row in bindings),source_triangles=len(data['faces']),room_light_state=light_state,

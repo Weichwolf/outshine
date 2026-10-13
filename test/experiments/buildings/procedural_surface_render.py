@@ -33,7 +33,7 @@ def main():
     start=time.perf_counter();image=mi.render(scene,spp=32);dr.eval(image);pixels=np.asarray(image);dr.sync_thread()
     elapsed=time.perf_counter()-start
     if not np.all(np.isfinite(pixels)):raise ValueError('Nonfinite rendered pixels')
-    output=args.output/'metric-panels.png';mi.util.write_bitmap(str(output),image)
+    output=args.output/'metric-panels.png';mi.util.write_bitmap(str(output),image,write_async=False)
     for texture in textures:(args.output/Path(texture.path).name).write_bytes(texture.encoded)
     record=revision()|dict(status='pass',profile=[1920,1080],spp=32,backend='Mitsuba LLVM RGB CPU, two threads',
         material=info,binding=binding,generation_s=generation,render_s=elapsed,image_sha256=hashlib.sha256(output.read_bytes()).hexdigest(),
