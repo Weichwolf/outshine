@@ -24,6 +24,11 @@ METRICS = {
     "closing_ms": ("3D-Körperaufbau", "ms"),
     "clearance_m": ("Freie Durchfahrt", "m"),
     "raw_mesh_bytes": ("Geometriebuffer", "Byte"),
+    "invalid_grade_faces": ("Flächen über Neigungsgrenze", ""),
+    "maximum_normalized_grade": ("Größtes Neigungsverhältnis · Grenze 1", ""),
+    "maximum_height_change_m": ("Größte Höhenkorrektur", "m"),
+    "p50_fit_ms": ("Netzfit p50 · offline", "ms"),
+    "peak_rss_bytes": ("Netzfit Worker-RSS · Peak", "Byte"),
 }
 
 

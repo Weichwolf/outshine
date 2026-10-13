@@ -48,8 +48,8 @@ def bridge():
                                             scope="Synthetic crossing with explicit heights; no ramps, supports, terrain or network-level elevation solver.")
 
 
-def write_case(name, body, materials, report, configurations, view=None):
-    output = OUTPUT / f"{name}-solid.npz"
+def write_case(name, body, materials, report, configurations, view=None, *, output_dir=OUTPUT):
+    output = output_dir / f"{name}-solid.npz"
     np.savez_compressed(output, vertices=body.vertices, triangles=body.triangles, materials=materials)
     volume = audit_closed(body)
     if volume <= 0:
@@ -67,7 +67,7 @@ def write_case(name, body, materials, report, configurations, view=None):
     frame_span = max(float(np.abs(relative @ right).max()) * 2,
                      float(np.abs(relative @ up).max()) * 2 * 1920 / 1080)
     configuration = dict(id=name, mesh=str(output), mesh_sha256=hashlib.sha256(output.read_bytes()).hexdigest(),
-                         output=str(OUTPUT / f"{name}-solid.png"), eye=eye.tolist(), target=centre.tolist(),
+                         output=str(output_dir / f"{name}-solid.png"), eye=eye.tolist(), target=centre.tolist(),
                          span_m=frame_span * 1.1, profile=[1920, 1080])
     if view:
         configuration.update(view)
@@ -76,7 +76,7 @@ def write_case(name, body, materials, report, configurations, view=None):
                   raw_mesh_bytes=body.vertices.nbytes + body.triangles.nbytes,
                   closed_oriented_edges=True, renderer="Blender Workbench", profile=configuration["profile"],
                   mesh_sha256=configuration["mesh_sha256"])
-    (OUTPUT / f"{name}-solid.json").write_text(json.dumps(report, indent=2) + "\n")
+    (output_dir / f"{name}-solid.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 def main():

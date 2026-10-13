@@ -98,6 +98,46 @@ vollständig gerenderten, zu Bild und Report passenden Stand.
 Flatheight und Brückenniveaus sind explizite Rezeptannahmen. DEM, Rampen, Stützen,
 fahrbare Kurven und native Abnahme bleiben offen. Bibliotheksübernahme: #50.
 
+## Grobes DEM und ganze Fahrflächen (#20)
+
+`capture_height_targets.py` liest behaltene Mapterhorn-Terrarium-Kacheln (512×512)
+und interpoliert an Pixelzentren mit Nachbarkacheln. Neue Quellen werden nur mit
+`--fetch` erworben; vorhandene Cachedateien werden nicht automatisch erneuert.
+URL, Bytes und SHA-256 bleiben im Report. Das DEM ist ein weicher Höhenprior,
+keine beobachtete Fahrbahnhöhe. `surface_height_frames.py` ordnet den verwendeten
+Originalachsen prozedurale Längs-/Quergefälle zu; Originalattribute bleiben erhalten.
+Anschlüsse sowie mehrdeutige/degenerierte Richtungen bekommen konservative isotrope
+Grenzen; jede unsichere Richtung wird mit Face und Quell-ID festgehalten.
+
+```sh
+.venv/bin/python -m pip install -e './lib[transport]'
+.venv/bin/python test/experiments/transport/capture_height_targets.py
+.venv/bin/python test/experiments/transport/surface_height_frames.py
+.venv/bin/python -W error test/experiments/transport/height_source_checks.py
+.venv/bin/python -W error test/experiments/transport/surface_height_checks.py
+.venv/bin/python test/experiments/transport/surface_height_benchmark.py
+.venv/bin/python test/experiments/transport/surface_height_showcase.py
+.venv/bin/python test/experiments/transport/showcase.py --publish
+```
+
+Bei fehlendem DEM-Cache zuerst denselben Capture-Aufruf einmal mit `--fetch`:
+`curl` ist neben den Python-Paketen erforderlich. Der Vergleich nutzt identische
+Vertexpriors, Gradientenrahmen und acht Sekunden Solverzeit. Clarabel löst die
+elliptischen Ganzflächenbedingungen; SciPy/HiGHS verwendet ein konservativ
+einbeschriebenes 16-Eck. Beide erfüllen denselben geforderten Neigungsstandard,
+die lineare Approximation hat aber eine kleinere zulässige Menge. Präparation,
+Solverzeit und Peak-RSS frischer Worker werden getrennt ausgewiesen; akzeptierte
+Flächen erhalten zusätzlich eine unabhängige Normalenprüfung.
+
+Vier 1920×1080-Ansichten zeigen die gesamte gespeicherte Wiener Kachel sowie das
+vollständige Bauteil mit dem schlechtesten DEM-Gradienten, jeweils vorher/nachher
+mit derselben Kamera und ohne vertikale Überhöhung. Orange zeigt unzulässige
+Ganzflächengradienten im ungeprüften Prior, Grün Anschlüsse und Grau Korridore.
+Die Detailauswahl schneidet keine Dreiecke und löst die Höhen nicht erneut.
+Dateien liegen unter `build/experiments/transport/heights/`. Ganze Flächen,
+gemeinsame Höhen und geschlossene Körper sind geprüft; C1/Fahrkurven, finaler
+Terrainanschluss, funktionale Zugänge und erhöhte Verkehrsrezepte bleiben offen.
+
 ```sh
 .venv/bin/python -W error -m unittest discover -s lib/tests
 .venv/bin/python -W error test/experiments/transport/surface_solid_checks.py

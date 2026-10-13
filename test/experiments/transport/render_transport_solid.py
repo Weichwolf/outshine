@@ -10,7 +10,8 @@ from mathutils import Vector
 import numpy as np
 
 
-COLOURS = ((.32, .38, .38, 1.), (.23, .51, .41, 1.), (.61, .65, .62, 1.), (.12, .43, .65, 1.))
+COLOURS = ((.32, .38, .38, 1.), (.23, .51, .41, 1.), (.61, .65, .62, 1.), (.12, .43, .65, 1.),
+           (.9, .29, .1, 1.))
 
 
 def render(configuration):
@@ -56,7 +57,8 @@ def render(configuration):
     scene.render.filepath = configuration["output"]
     scene.render.film_transparent = False
     bpy.context.view_layer.update()
-    projection = np.asarray(camera.calc_matrix_camera(bpy.context.evaluated_depsgraph_get(), x=1920, y=1080))
+    projection = np.asarray(camera.calc_matrix_camera(bpy.context.evaluated_depsgraph_get(),
+                                                     x=scene.render.resolution_x, y=scene.render.resolution_y))
     view = np.asarray(camera.matrix_world.inverted())
     clip = np.c_[vertices, np.ones(len(vertices))] @ view.T @ projection.T
     if np.any(np.abs(clip[:, :2] / clip[:, 3:4]) > 1.00001):
