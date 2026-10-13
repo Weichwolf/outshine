@@ -108,6 +108,14 @@ enthält außerdem `Shape`, `Geometry`, `Face`, `Material`, `Asset`, `Texture`,
 `Branch`, `Part` und `Floating`: Komponenten, Extrusion, Unterteilung, Offset,
 Pult-/Firstdächer, UV-/Materialbearbeitung, Projektionen und statische Asset-Platzierung.
 `Shape.rotate_scope` richtet nur den Scope neu aus und erhält die sichtbare Geometrie.
+`Shape.align_scope_to_geometry_bbox("xz")` findet die flächenminimale projizierte
+Box mit GEOS; das erste benannte Ausmaß ist länger, die dritte Achse bleibt fest.
+Alle sechs geordneten Achsenpaare sind möglich. Pivot und Scope-Ursprung fallen
+zusammen; native Indices, UV0–9, Normalen und Materialressourcen bleiben erhalten.
+Punkt-/Linienprojektionen sind zulässig. Unreferenzierte Vertices beeinflussen
+die Box nicht; ein unbenutzter Vertex außerhalb einer nullgroßen Achse wird
+ausdrücklich abgelehnt. Gleichstände sind deterministisch, aber noch nicht gegen
+ein isoliertes SDK-Orakel abgeglichen; Trim-Planes bleiben offen.
 Die vorhandenen Gegenfälle/Referenzen bleiben unter `test/experiments/buildings/`.
 Konstruktive Gebäudepläne und Rezepte liegen weiterhin dort (#51); viele dokumentierte
 CityEngine-Fähigkeiten und Teilverträge sind noch offen (#34).
