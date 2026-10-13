@@ -23,3 +23,22 @@ Shallow sparse clones retain relevant geometry, network,
 elevation and test modules. Record the actual commit when deriving an implementation.
 Inspect topology, vertical constraints, shared boundary vertices and mesh recipes separately.
 Evaluate selected methods against the same real Place inputs and visual/functional requirements.
+
+## Closed surface bodies (Python, #50)
+
+The SIGGRAPH 2008 pipeline separates the retained street graph from 3D geometry
+(page 2, Figure 2). Galin et al. describe parameterized road cross-sections and
+explicit terrain-relative road/bridge/tunnel segmentation (page 8, Figures 17–18).
+Both local PDF pages were inspected visually on 2026-10-13.
+
+`transport.close_surface` implements one smaller geometry step: cap an already
+validated conforming XY mesh at its supplied vertex heights with a vertically
+offset bottom and walls on directed outer/hole boundaries. Interior interfaces
+receive no duplicate walls. This does not implement either paper's complete
+network, profile or terrain solver.
+
+`surface_solid_benchmark.py` compares sorting and dictionary grouping on identical
+T/ring fixtures and a saved Vienna tile, requiring byte-identical closed meshes
+and an independent oriented-edge/volume audit. Runtime and worker peak RSS are
+offline CPU measurements; the showcase opens the exact meshes in Blender
+Workbench. Heights in these inspections are explicit recipe assumptions.

@@ -13,6 +13,11 @@ from transport_network_graph import axes_of,traffic_of
 
 
 def identifier(road):
+    source = road.get('source_id')
+    if source is not None:
+        if not isinstance(source,str) or not source.strip():
+            raise ValueError('source_id must be a nonempty stable string')
+        return source
     geometry,tags = identity(road)
     return hashlib.sha256(geometry+json.dumps(tags).encode()).hexdigest()[:24]
 

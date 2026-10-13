@@ -59,7 +59,7 @@ def main():
     for place in args.places:
         path = args.input/f'{place}-input.json'
         raw = json.loads(path.read_text())
-        transport = [dict(line=shapely.LineString(r['coordinates']),width=r['width_m'],
+        transport = [dict(line=shapely.LineString(r['coordinates']),width=r['width_m'],source_id=r.get('source_id'),
                           properties=r['properties']) for r in raw['roads']]
         roads,graphs,report = plan(transport,recipes,widths)
         report['travel'] = compile_travel(roads,graphs,recipes['travelRecipes'])
