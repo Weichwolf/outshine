@@ -247,6 +247,7 @@ public:
   [[nodiscard]] bool SetPose(const SubjectPose &pose, std::string &error);
 
 private:
+  class PipelineShaders;
   static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
   static constexpr size_t kPipelines = kSurfaceDomains * kVertexLayoutCount * 2 * kSurfaceKinds;
 
@@ -257,6 +258,7 @@ private:
                                           const SourceOptions &options,
                                           std::span<const Resource> colours,
                                           SurfaceKind kind,
+                                          PipelineShaders &shaders,
                                           std::array<OwnedPipeline, kPipelines> &pipelines,
                                           uint32_t &built,
                                           std::string &error);
@@ -266,6 +268,7 @@ private:
                                              const SourceOptions &options,
                                              std::span<const SDL_GPUColorTargetDescription> targets,
                                              SDL_GPUDevice *device,
+                                             PipelineShaders &shaders,
                                              std::array<OwnedPipeline, kPipelines> &pipelines,
                                              uint32_t &built,
                                              std::string &error);
