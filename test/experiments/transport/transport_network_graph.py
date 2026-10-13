@@ -24,7 +24,7 @@ def missing_axes(lines, parts, tolerance):
     for first, last in zip(cuts[:-1], cuts[1:]):
         source = int(pairs[0, first])
         local = shapely.union_all(parts[pairs[1, first:last]])
-        covered = local.buffer(tolerance, resolution=2)
+        covered = local.buffer(tolerance, quad_segs=2)
         uncovered += lines[source].difference(covered).length
     return float(uncovered)
 

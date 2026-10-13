@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Outshine · Transport</title>
+  <link rel="stylesheet" href="/showcase.css">
+  <script src="/showcase.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/">OUTSHINE <span>/ TRANSPORT</span></a><button id="reload" type="button">Stand laden ↗</button></header>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">PYTHON-WERKSTATT · STRASSEN, WEGE & SCHIENEN</p>
+      <h1>Verbindungen,<br>die zusammenpassen.</h1>
+      <p class="lead">Vom ganzen Netz bis zum gemeinsamen Fahrbahnrand. Flächen, Anschlüsse und ihre gemessenen Kosten im aktuellen lokalen Bildstand.</p>
+      <p id="note" class="hint"></p>
+      <div id="state" class="state" role="status">Bildstand wird geladen …</div>
+      <p id="error" class="incomplete" role="alert" hidden></p>
+    </section>
+    <nav id="sections" aria-label="Ansicht wählen"></nav>
+    <section aria-labelledby="gallery-title">
+      <div class="section-top"><h2 id="gallery-title">Bildstand</h2><span class="hint">Bild anklicken zum Vergrößern</span></div>
+      <p id="description" class="lead"></p>
+      <div id="gallery" class="gallery"></div>
+    </section>
+    <section class="remaining"><p class="eyebrow">NÄCHSTER SCHRITT</p><h2>Offene Qualität</h2><p id="gap"></p><a href="https://github.com/Weichwolf/outshine/issues/49">Auftrag und Abnahme auf GitHub ↗</a></section>
+  </main>
+  <footer><span id="updated"></span><span>Fester Bildstand · Aktualisierung auf Wunsch</span></footer>
+  <dialog id="viewer"><button id="close" type="button" aria-label="Bild schließen">Schließen ×</button><img id="large" alt=""><p id="caption"></p><a id="download" download>PNG herunterladen ↓</a></dialog>
+</body>
+</html>
