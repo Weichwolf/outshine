@@ -1,15 +1,29 @@
 """Bind court curves to current source frames and retain complete island context."""
 
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import numpy as np
 import shapely
 
-from coupled_turning_court_probe import approach_controls,approach_segment
+from coupled_turning_court_probe import approach_controls,approach_segment,selected_court_files
 from transport_loop_court import loop_court_domain
 from transport_spline_routes import continuous_spline_joins
 
 
 def verify():
+    with TemporaryDirectory(prefix="outshine-court-selection-") as temporary:
+        case=Path(temporary)
+        (case/"results.json").write_text(json.dumps(dict(cases=[
+            dict(accepted=True,added_area_m2=1,length_m=10),
+            dict(accepted=True,added_area_m2=2,length_m=12),
+            dict(accepted=False)],implementation_sha256={})))
+        for index in range(3):(case/f"{index}-candidate.json").write_text("{}")
+        assert selected_court_files(case)[0].name=="0-candidate.json"
+        assert selected_court_files(case/"1-candidate.json")[0].name=="1-candidate.json"
+        try:selected_court_files(case/"2-candidate.json")
+        except AssertionError:pass
+        else:raise AssertionError("unproved explicit candidate accepted")
     old=[dict(position=np.array([0.,0.]),heading=np.array([1.,0.])),
          dict(position=np.array([20.,20.]),heading=np.array([0.,1.]))]
     new=[dict(position=np.array([-4.,0.]),heading=old[0]['heading']),

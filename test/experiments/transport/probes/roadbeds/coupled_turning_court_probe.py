@@ -54,12 +54,17 @@ def approach_controls(note,old,new,pair):
 
 
 def selected_court_files(case):
-    report=json.loads((case/'results.json').read_text())
+    explicit=case.is_file()
+    directory=case.parent if explicit else case
+    report=json.loads((directory/'results.json').read_text())
     accepted=[(i,r) for i,r in enumerate(report['cases']) if r['accepted']]
     assert accepted,'no proved court candidate'
-    index,_=min(accepted,key=lambda p:(p[1]['added_area_m2'],p[1]['length_m'],p[0]))
+    if explicit:
+        index=int(case.name.removesuffix('-candidate.json'))
+        assert case.name==f'{index}-candidate.json' and index in dict(accepted),'selected candidate was not accepted'
+    else:index,_=min(accepted,key=lambda p:(p[1]['added_area_m2'],p[1]['length_m'],p[0]))
     for name,value in report['implementation_sha256'].items():assert coupled.digest(Path(name))==value
-    return case/f'{index}-candidate.json',case/f'{index}-geometry.json'
+    return directory/f'{index}-candidate.json',directory/f'{index}-geometry.json'
 
 
 def seeds_for(cases,old,poses,routes,floor,reserved,vehicle,error):
@@ -230,7 +235,7 @@ def main():
         measured_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
         scope='All public motor requests across the court and affected neighbors on one mesh; Buildings runtime and full-window integration remain open.')
     files=[before_path,frame_path,cut_path,receipt_path,precision_path,
-           *[p for c in args.case for p in (c/'results.json',*selected_court_files(c))]]
+           *[p for c in args.case for p in ((c.parent if c.is_file() else c)/'results.json',*selected_court_files(c))]]
     saved['input_sha256']=before['input_sha256']|{str(p.resolve().relative_to(root.resolve())):coupled.digest(p) for p in files}
     code=Path(__file__).resolve().parents[2]
     implementations=coupled.implementation_files(code/'transport_coupled_roadbed_experiment.py')
