@@ -1,4 +1,5 @@
 #include "PreparedOsmTiles.h"
+#include "MvtSchema.h"
 #include "AssetSourceRecipe.h"
 #include "BinaryValueArchive.h"
 #include "Sha256.h"
@@ -63,6 +64,10 @@ std::string PreparedOsmTiles::RequestKey(TileAt at, const Layout &layout) const 
   if (!out.Text(Recipe_) || !out(layout.Zoom, at.X, at.Y, layout.Schema)) { return {}; }
   for (const auto &layer : layout.Layers) {
     if (!out.Text(layer)) { return {}; }
+    if (layout.Schema == MvtSchema::OpenMapTiles && (layer == "land" || layer == "sites") &&
+        !out.Text(MvtLayerName(layout.Schema, layer))) {
+      return {};
+    }
   }
   return Sha256Hex(out.Out.Bytes().data(), out.Out.Bytes().size());
 }

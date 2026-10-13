@@ -1,6 +1,7 @@
 #include "OsmField.h"
 #include "BuildingProperties.h"
 #include "GroundMaterials.h"
+#include "VegetationTemplates.h"
 #include "StreetField.h"
 #include "Check.h"
 #include "MvtWireFixture.h"
@@ -127,6 +128,46 @@ void CheckUnprefixedBuildingColours() {
                    "equivalent provider encodings preserve channel order and source paint");
       }
     }
+  }
+}
+
+void CheckLandClasses() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+  GroundMaterials materials;
+  VegetationTemplates templates;
+  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground material catalog loads");
+  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "landcover recipes load");
+  if (!templates.Ready()) { return; }
+
+  struct Case {
+    std::string_view Canonical, Source, Kind, Template;
+  };
+
+  constexpr std::array cases{Case{"land", "landcover", "wood", "mixed_broadleaf"},
+                             Case{"land", "landcover", "grass", "meadow"},
+                             Case{"sites", "landuse", "park", "meadow"},
+                             Case{"sites", "landuse", "farmland", "arable"},
+                             Case{"sites", "landuse", "construction", "heath"}};
+  for (const auto &test : cases) {
+    const std::array<std::string, 1> layers{std::string(test.Canonical)};
+    OsmField field(2, layers, MvtSchema::OpenMapTiles);
+    CHECK(field.Accept(1,
+                       1,
+                       Layer(test.Source,
+                             3,
+                             std::array<std::string_view, 1>{"class"},
+                             std::array{String(test.Kind)})) &&
+              field.Features().size() == 1,
+          "actual provider land layer enters the canonical polygon field");
+    if (field.Features().empty()) { continue; }
+    const auto &feature = field.Features().front();
+    const auto kind = field.Str(feature, "kind");
+    const auto *rule = templates.Find(field.LayerName(feature.Layer), kind);
+    CHECK(field.Str(feature, "class") == test.Kind && kind == test.Kind && rule &&
+              templates.Name(static_cast<size_t>(rule->Tpl)) == test.Template,
+          "raw class and source polygon survive while existing land material recipe is selected");
   }
 }
 
@@ -430,6 +471,7 @@ int main() {
   CHECK(absent.Height && !absent.Height->ConflictingLevels && absent.Height->TopM == 5,
         "absent coarse height is a generated estimate, not a contradictory source");
   CheckExplicitValuePrecedence();
+  CheckLandClasses();
   CheckBuildingColours();
   CheckUnprefixedBuildingColours();
   CheckRailClassRules();
