@@ -112,7 +112,7 @@ Eigene Achsfelder/Wertüberblendung (2481); vollständige UV-Property-/Original-
 Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semantik getrennt nennen.
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 ## Abnahme und nächster offener Vertrag
-85 gezielte Funktionen dekompiliert; 26 Läufe terminal erfolgreich, zuletzt SDK-Winddaten/VFX-Astwind.
+87 gezielte Funktionen dekompiliert; 27 Läufe terminal erfolgreich, zuletzt Leaf-Mesh-Skin/Materialkopie (2488).
 2486: 3.078 Original-Vektorpaare geprüft; lokale Winkelmittelung, vollständiges Branch-Lighting offen.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.

@@ -273,6 +273,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Freien Kronenraum durch Attraktoren vertreten und gerichtete Internodien wachsen lassen.
   Nahplan-Verfahrensvergleich mit gleichen Eingaben; Nachbarsuche und Stillstand begrenzen.
   Ein Baum-Wachstumssolver ist kein direkter Fernwaldpfad ohne Organ- und Einzelbaumarbeit.
+- **Modeling and visualization of leaf venation patterns**, Runions et al., SIGGRAPH 2005.
+  [Autoren-PDF](https://www.algorithmicbotany.org/papers/venation.sig2005.pdf) ·
+  [PDF](vegetation/siggraph/2005-leaf-venation.pdf).
+  Nächste Aderknoten aus Quellen wachsen lassen, nahe Quellen entfernen und verbundene Radien ableiten.
+  PDF-Seiten 2/5 optisch geprüft; 2488 besitzt das eigene offene Netz mit fester Blattkontur,
+  begrenztem Wachstum und eigenem Materialfeld. Blattwachstum/geschlossene Maschen bleiben offen.
 - **Physically Based Real-Time Translucency for Leaves**, Habel / Kusternig / Wimmer,
   EGSR 2007.
   [Quelle](https://www.cg.tuwien.ac.at/research/publications/2007/Habel_2007_RTT/Habel_2007_RTT-Preprint.pdf) ·

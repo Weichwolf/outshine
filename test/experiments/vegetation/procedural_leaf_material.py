@@ -1,0 +1,58 @@
+"""Load physical procedural leaf products without generating their shape or textures."""
+
+import json
+
+import bpy
+from organ_preview import leaf_material
+
+
+def apply_leaf_materials(recipe, directory):
+    paths = []
+    for product in recipe["products"]:
+        if "leaf_material" not in product:
+            continue
+        path = directory / product["leaf_material"]
+        data = json.loads(path.read_text())
+        if (
+            data["version"] != "procedural-leaf-material-1"
+            or data["colour_space"] != "linear"
+        ):
+            raise ValueError("versioned linear procedural leaf product required")
+        material = leaf_material(path.stem)
+        nodes, links = material.node_tree.nodes, material.node_tree.links
+        textures = {}
+        for key, name in data["maps"].items():
+            image_path = directory / name
+            texture = nodes.new("ShaderNodeTexImage")
+            texture.image = bpy.data.images.load(
+                str(image_path.resolve()), check_existing=True
+            )
+            texture.image.colorspace_settings.name = "Non-Color"
+            texture.interpolation, texture.extension = "Linear", "EXTEND"
+            textures[key] = texture
+            paths.append(image_path)
+        underside = nodes.new("ShaderNodeMixRGB")
+        underside.blend_type = "MULTIPLY"
+        underside.inputs[0].default_value = 0.45
+        underside.inputs[2].default_value = (1.4, 1.12, 1.5, 1)
+        links.new(textures["colour"].outputs["Color"], underside.inputs[1])
+        face = nodes.new("ShaderNodeNewGeometry")
+        colour = nodes.new("ShaderNodeMixRGB")
+        links.new(face.outputs["Backfacing"], colour.inputs[0])
+        links.new(textures["colour"].outputs["Color"], colour.inputs[1])
+        links.new(underside.outputs[0], colour.inputs[2])
+        bump = nodes.new("ShaderNodeBump")
+        bump.inputs["Distance"].default_value = data["height_m"]
+        links.new(textures["height"].outputs["Color"], bump.inputs["Height"])
+        shader = nodes.get("Principled BSDF")
+        links.new(colour.outputs[0], shader.inputs["Base Color"])
+        links.new(textures["roughness"].outputs["Color"], shader.inputs["Roughness"])
+        links.new(bump.outputs["Normal"], shader.inputs["Normal"])
+        translucent = next(n for n in nodes if n.type == "BSDF_TRANSLUCENT")
+        links.new(colour.outputs[0], translucent.inputs["Color"])
+        links.new(bump.outputs["Normal"], translucent.inputs["Normal"])
+        mesh = bpy.data.objects[(directory / product["mesh"]).stem].data
+        mesh.materials.clear()
+        mesh.materials.append(material)
+        paths.append(path)
+    return paths

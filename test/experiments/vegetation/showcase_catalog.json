@@ -1,7 +1,37 @@
 {
-  "current_work": "Priorität: vollständige Geometrie- und Materialgrundfunktionen nach SpeedTree-Referenz. Aus verstandenen Verfahren entstehen eigene Python-Implementierungen und später Pflanzenrezepte mit wiederverwendbaren Varianten und LOD-Produkten für den Asset-Cache. Der zusätzliche Windclip ist zurückgestellt. Die vorhandenen Bilder sind Funktionsproben; SpeedTree-Qualität und weltweite Artenabdeckung sind noch nicht erreicht.",
+  "current_work": "Geometrie- und Materialgrundfunktionen: drei Blattformen erhalten gemeinsam erzeugte Adern, Farbe, Relief und Rauheit. Gespeicherte Rezepte liefern grobe Geometrie mit identischen Materialkoordinaten. Eigene Verfahren nach SpeedTree-Referenz; vollständige Funktionsabdeckung, natürliche Oberflächen und botanische Artenrezepte bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/leaf-material-upper.png",
+      "title": "Blattoberseite · prozedurale Adern",
+      "label": "Materialgrundfunktion · drei Formproben",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Offenes Adernetz aus einem Wurzelknoten. Farbe, Relief und Rauheit entstehen aus demselben gespeicherten Plan. Drei Funktionsformen, noch keine botanisch validierten Arten. Nah- und Grobprodukte verwenden dieselben Materialkarten.",
+      "quality": "Adern noch zu stark erhaben; geschlossene Feinadern und natürliche Farbvariation fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-upper.json"
+    },
+    {
+      "image": "render/leaf-material-lower.png",
+      "title": "Blattunterseite · gemeinsames Material",
+      "label": "Materialgrundfunktion · drei Formproben",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Offenes Adernetz aus einem Wurzelknoten. Farbe, Relief und Rauheit entstehen aus demselben gespeicherten Plan. Drei Funktionsformen, noch keine botanisch validierten Arten. Nah- und Grobprodukte verwenden dieselben Materialkarten.",
+      "quality": "Adern noch zu stark erhaben; geschlossene Feinadern und natürliche Farbvariation fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-lower.json"
+    },
+    {
+      "image": "render/leaf-material-coarse.png",
+      "title": "Grobes Blatt · Material aus dem Katalog",
+      "label": "Materialgrundfunktion · drei Formproben",
+      "category": "leaf",
+      "lod": "lod-1",
+      "description": "Offenes Adernetz aus einem Wurzelknoten. Farbe, Relief und Rauheit entstehen aus demselben gespeicherten Plan. Drei Funktionsformen, noch keine botanisch validierten Arten. Nah- und Grobprodukte verwenden dieselben Materialkarten.",
+      "quality": "Adern noch zu stark erhaben; geschlossene Feinadern und natürliche Farbvariation fehlen. SpeedTree-Qualität noch nicht erreicht.",
+      "scenario": "build/experiments/vegetation/leaf-materials/leaf-material-coarse.json"
+    },
     {
       "image": "render/wind-near-rest.png",
       "title": "Wind · ruhender Vergleich",
