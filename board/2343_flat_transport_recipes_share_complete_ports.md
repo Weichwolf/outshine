@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4798/4808 (620c98270), öffentliche PKW-Klassenrezepte frisch geprüft; keine Größen-/Lastfreigabe.
+Zürich 4798/4808 (354d9fcbb), öffentliche PKW-Klassenrezepte frisch geprüft; keine Größen-/Lastfreigabe.
 Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch zehn Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 49,7 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 47,3 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -83,7 +83,7 @@ prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine 
 
 ## Nächste Lieferung und Abnahme
 28 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
-984: sechs Fahrten plus sechs Nachbarfahrten; feste Stationen, +0,34 m² statt 342-m-Umweg.
+711: Einzelbögen gültig; gemeinsamer Aufbau erzeugt ein abgetrenntes 0,0018-m²-Fragment und verliert vier alte Fahrten.
 28 Produkte neu aufgebaut/geladen, sämtliche früheren Fahrten erhalten; verbleibende Fahrten lösen.
 Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identitäten/Hüllen erneut prüfen.
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
