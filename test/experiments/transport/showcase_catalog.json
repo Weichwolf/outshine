@@ -1,6 +1,11 @@
 {
   "sections": [
     {
+      "id": "koerper",
+      "title": "3D-Körper",
+      "description": "Geschlossene Verkehrskörper mit gemeinsamen Anschlussvertices. Blender Workbench, 1920×1080. Farben zeigen Bauteile; Straßenbetrieb und vollständige Höhenplanung bleiben offen."
+    },
+    {
       "id": "anschluesse",
       "title": "Anschlüsse",
       "description": "Gemeinsame Bauteile und vollständige Randsegmente. Grün: Anschlussflächen. Grau: Korridore. Orange: geteilte Mesh-Ränder."
@@ -203,8 +208,52 @@
       "report_source": "build/experiments/transport/showcase/networks/BaselBadischerBahnhof-report.json",
       "origin_source": "build/experiments/transport/showcase/networks/origin.json",
       "missing_note": "Die benötigten Eingaben, Produkte und geprüften Bilder sind auf diesem Rechner noch nicht übertragen. Frühere Messungen sind kein aktueller lokaler Bildnachweis."
+    },
+    {
+      "id": "T-solid",
+      "title": "T-Anschluss mit Neigung",
+      "section": "koerper",
+      "kind": "Synthetischer Grundfall",
+      "description": "Ein gemeinsamer Körper mit explizit vorgegebenen Höhen und durchgehend geteilten Anschlusskanten.",
+      "scope": "Vorgegebene Vertexhöhen und 0,35 m vertikale Dicke; noch kein klassenabhängiger Profilsolver.",
+      "image_source": "build/experiments/transport/solid/T-solid.png",
+      "report_source": "build/experiments/transport/solid/T-solid.json",
+      "origin_source": "build/experiments/transport/solid/origin.json"
+    },
+    {
+      "id": "courtyard-solid",
+      "title": "Ring mit offenem Innenraum",
+      "section": "koerper",
+      "kind": "Synthetischer Grundfall",
+      "description": "Der Innenraum bleibt frei; auch seine Wände sind korrekt nach innen orientiert.",
+      "scope": "Geschlossene Modellfläche mit unverändertem Innenloch. Keine belegte Fahrzeugroute.",
+      "image_source": "build/experiments/transport/solid/courtyard-solid.png",
+      "report_source": "build/experiments/transport/solid/courtyard-solid.json",
+      "origin_source": "build/experiments/transport/solid/origin.json"
+    },
+    {
+      "id": "bridge-solid",
+      "title": "Räumlich getrennte Querung",
+      "section": "koerper",
+      "kind": "Synthetischer Ebenenfall",
+      "description": "Die obere Platte liegt tatsächlich über dem unteren Verkehrsraum. 5,85 m bleiben unter dem Deck frei.",
+      "scope": "Explizite Höhen, keine Rampen, Stützen oder vollständige Brückenplanung. Die Ebenen verbinden sich nicht.",
+      "image_source": "build/experiments/transport/solid/bridge-solid.png",
+      "report_source": "build/experiments/transport/solid/bridge-solid.json",
+      "origin_source": "build/experiments/transport/solid/origin.json"
+    },
+    {
+      "id": "Vienna-solid",
+      "title": "Wien · eine vollständige Quellkachel",
+      "section": "koerper",
+      "kind": "Echte OSM-Verteilung",
+      "description": "Aus der gespeicherten Quellkachel 14/8937/5681. Gemeinsame gerade Schnitte ohne ungültige Anschlusssegmente.",
+      "scope": "2.124 unterstützte ebenerdige Achsteile. 1.354 Achsteile und 117 Quellflächen zurückgestellt und mit Grund erhalten. Höhe null ist eine Rezeptannahme, kein DEM.",
+      "image_source": "build/experiments/transport/solid/Vienna-solid.png",
+      "report_source": "build/experiments/transport/solid/Vienna-solid.json",
+      "origin_source": "build/experiments/transport/solid/origin.json"
     }
   ],
-  "note": "Fester veröffentlichter Bildstand. Grundfälle sind synthetisch und keine Rekonstruktion eines Ortes. Zeitwerte messen Flächenplanung bzw. Meshaufbau und Prüfung ohne Bilderzeugung.",
-  "gap": "Glatte Fahrzeugrouten und vollständige OSM-Fenster müssen lokal erneut belegt werden. Wege, Radverkehr, Schienen, Höhenprofile und Ebenenrezepte sowie native Echtzeit- und Geräteabnahme bleiben offen."
+  "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel ist offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. 3D-Körper nutzen explizite Höhen. Zeitwerte enthalten keine Bilderzeugung.",
+  "gap": "Die Körper schließen geprüfte Flächen in 3D. Funktionale Fahrkurven, DEM-/Klassenprofile, Rampen, Tunnel, Brückenstützen und vollständige OSM-Fenster sind weiter offen. Native Echtzeit- und Geräteabnahme fehlen."
 }

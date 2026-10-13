@@ -41,3 +41,14 @@ ohne Koordinaten oder belegte Fläche zu ändern. Die zugehörigen Gegenfälle p
 Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
+
+`transport.close_surface(mesh, depth_m)` schließt eine bereits geprüfte, konforme
+XY-Fahrfläche mit ihren expliziten XYZ-Höhen durch einen Boden und gerichtete
+Außen-/Lochwände. Gemeinsame obere Vertices bleiben einmal vorhanden; die Tiefe
+gilt vertikal. Das Verfahren prüft Kanteninzidenz, Randzyklen und darstellbare Tiefe,
+plant aber weder DEM-Höhen noch Verkehrsverbindungen. Der Aufrufer muss zuvor
+überlappungsfreie Geometrie und fehlende T-Verbindungen beweisen.
+Gegenfälle prüfen Innenlöcher, Neigung, umgekehrte Eingabeflächen, große
+Verschiebungen, nicht darstellbare Tiefe und den Höhenvertrag einer Brücke in der
+Transport → Buildings → Vegetation-Kette. Die Bibliotheksübernahme besitzt
+[#50](https://github.com/Weichwolf/outshine/issues/50).

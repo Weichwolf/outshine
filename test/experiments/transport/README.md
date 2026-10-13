@@ -62,3 +62,43 @@ indiziert durch den Report-Dateinamen ohne Erweiterung. Nur übereinstimmende le
 PNGs werden veröffentlicht. Synthetische Flächenprüfungen belegen keine glatten
 Fahrkurven, vollständige Befahrbarkeit, Höhen oder native Echtzeitqualität.
 Der Auftrag und die Abnahme stehen in [#49](https://github.com/Weichwolf/outshine/issues/49).
+
+## Geschlossene 3D-Körper und gespeicherte Wiener Quellkachel
+
+`transport.close_surface` aus `lib/` schließt bereits konforme Fahrflächen mit
+expliziten Vertexhöhen. Obere Anschlussvertices bleiben gemeinsam, Innenlöcher
+offen; Boden und Randwände bilden einen gerichteten Körper. Das ist ein
+Geometrieverfahren, kein Höhen-/Verkehrsnetzsolver. Der Vergleich prüft dieselben
+Körperbuffer, Kanten und Volumina für NumPy-Sortierung und eine Dictionary-Referenz.
+Frische Worker messen sieben Aufbauzeiten und ihren vollständigen Peak-RSS.
+
+```sh
+.venv/bin/python -m pip install -r test/experiments/transport/requirements.txt
+.venv/bin/python -m pip install -e ./lib
+.venv/bin/python test/experiments/transport/capture_transport_tile.py
+.venv/bin/python test/experiments/transport/transport_flat_network.py --input build/experiments/transport/inputs --output build/experiments/transport/flat-vienna Vienna
+.venv/bin/python test/experiments/transport/transport_flat_surface_network.py --input build/experiments/transport/flat-vienna --output build/experiments/transport/surface-vienna-cuts --junction-mode cuts Vienna
+.venv/bin/python test/experiments/transport/surface_solid_benchmark.py
+.venv/bin/python test/experiments/transport/surface_solid_showcase.py
+.venv/bin/python test/experiments/transport/showcase.py --publish
+```
+
+Die Aufnahme liest ausschließlich die bereits gepinnte OpenFreeMap-Kachel aus dem
+Client-Quellcache und prüft ihren Hash. Originalfeatures, Attribute, IDs und
+zurückgestellte Flächen bleiben im gespeicherten Input erhalten. Die ebene
+Nutzungsbilanz nennt jeden Achsteil samt konkretem Grund bei Nichtverwendung.
+Eine Quellkachel ersetzt nicht das frühere vollständige Wiener Testfenster.
+
+Blender ist als Systempaket erforderlich (`blender` unter Debian). Vier
+Workbench-Inspektionen in 1920×1080 liegen unter `build/experiments/transport/solid/`:
+geneigter T-Anschluss, Ring, getrennte Querung und Wiener Quellkachel. Die Kamera
+prüft sämtliche Vertices auf vollständige Bildabdeckung; Skriptfehler ergeben
+einen fehlgeschlagenen Renderprozess. Der Showcase veröffentlicht nur den letzten
+vollständig gerenderten, zu Bild und Report passenden Stand.
+Flatheight und Brückenniveaus sind explizite Rezeptannahmen. DEM, Rampen, Stützen,
+fahrbare Kurven und native Abnahme bleiben offen. Bibliotheksübernahme: #50.
+
+```sh
+.venv/bin/python -W error -m unittest discover -s lib/tests
+.venv/bin/python -W error test/experiments/transport/surface_solid_checks.py
+```
