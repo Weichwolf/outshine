@@ -1,6 +1,11 @@
 {
   "sections": [
     {
+      "id": "profile",
+      "title": "Höhen und Neigungen",
+      "description": "Wien mit grobem DEM: vorher und nach Ganzflächenfit. Orange überschreitet die Neigungsgrenze, Grün zeigt Anschlüsse, Grau Korridore. Gleiche Kamera, ohne Höhenüberhöhung."
+    },
+    {
       "id": "koerper",
       "title": "3D-Körper",
       "description": "Geschlossene Verkehrskörper mit gemeinsamen Anschlussvertices. Blender Workbench, 1920×1080. Farben zeigen Bauteile; Straßenbetrieb und vollständige Höhenplanung bleiben offen."
@@ -22,6 +27,50 @@
     }
   ],
   "images": [
+    {
+      "id": "Vienna-dem-prior-solid",
+      "title": "Wien · ungeprüfter DEM-Prior",
+      "section": "profile",
+      "kind": "Diagnose · gespeicherte Quellen",
+      "description": "Ein grobes Höhenraster übernimmt weder die Längsrichtung noch das Quergefälle der Fahrflächen. Orange markiert überschrittene Ganzflächengrenzen.",
+      "scope": "Bewusst unzulässiger Prior als Vergleich, kein fertiges Transportprodukt. Ganze gespeicherte Quellkachel; Terrain und Ebenen noch offen.",
+      "image_source": "build/experiments/transport/heights/Vienna-dem-prior-solid.png",
+      "report_source": "build/experiments/transport/heights/Vienna-dem-prior-solid.json",
+      "origin_source": "build/experiments/transport/heights/origin.json"
+    },
+    {
+      "id": "Vienna-dem-fit-solid",
+      "title": "Wien · begrenzte Fahrflächen",
+      "section": "profile",
+      "kind": "Geprüfter Ganzflächenfit",
+      "description": "Gemeinsame Vertices tragen dieselbe Höhe. Klassenrichtung und Quergefälle begrenzen sämtliche Dreiecksflächen; bis zu 2,69 m Abweichung vom groben Prior.",
+      "scope": "Eine gespeicherte Wiener Quellkachel. Höhen und Neigungsgrenzen geprüft; C1, Fahrkurven, finaler Terrainanschluss, Zugänge und Ebenen bleiben offen.",
+      "image_source": "build/experiments/transport/heights/Vienna-dem-fit-solid.png",
+      "report_source": "build/experiments/transport/heights/Vienna-dem-fit-solid.json",
+      "origin_source": "build/experiments/transport/heights/origin.json"
+    },
+    {
+      "id": "Vienna-detail-prior-solid",
+      "title": "Kritisches Bauteil · vorher",
+      "section": "profile",
+      "kind": "Detail aus derselben Quellkachel",
+      "description": "Das vollständige Bauteil mit dem stärksten normierten DEM-Gradienten. Auch schmale Fahrflächen brauchen eine Grenze über ihre ganze Breite.",
+      "scope": "Ungeprüfter Prior als Diagnose. Vorhandene Bauteilgeometrie, kein Ausschnitt durch Dreiecke und keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/heights/Vienna-detail-prior-solid.png",
+      "report_source": "build/experiments/transport/heights/Vienna-detail-prior-solid.json",
+      "origin_source": "build/experiments/transport/heights/origin.json"
+    },
+    {
+      "id": "Vienna-detail-fit-solid",
+      "title": "Kritisches Bauteil · nachher",
+      "section": "profile",
+      "kind": "Geprüftes Detail aus dem Netzfit",
+      "description": "Dieselben XY-Vertices und Dreiecke mit korrigierten Höhen. Die sichtbare Verwindung sinkt; sämtliche Flächen erfüllen den vorgegebenen Neigungsrahmen.",
+      "scope": "Höhen direkt aus dem gesamten Netzfit, keine eigene Detailoptimierung. C1, fahrbare Kurven und Terrainkontakte bleiben offen.",
+      "image_source": "build/experiments/transport/heights/Vienna-detail-fit-solid.png",
+      "report_source": "build/experiments/transport/heights/Vienna-detail-fit-solid.json",
+      "origin_source": "build/experiments/transport/heights/origin.json"
+    },
     {
       "id": "straight",
       "title": "Gerade",
@@ -254,6 +303,6 @@
       "origin_source": "build/experiments/transport/solid/origin.json"
     }
   ],
-  "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel ist offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. 3D-Körper nutzen explizite Höhen. Zeitwerte enthalten keine Bilderzeugung.",
-  "gap": "Die Körper schließen geprüfte Flächen in 3D. Funktionale Fahrkurven, DEM-/Klassenprofile, Rampen, Tunnel, Brückenstützen und vollständige OSM-Fenster sind weiter offen. Native Echtzeit- und Geräteabnahme fehlen."
+  "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
+  "gap": "Gemeinsame Höhen und ganze Flächengrenzen sind geprüft. C1-Anschlüsse, funktionale Fahrkurven, Überhöhung, finaler Terrainanschluss, Rampen, Tunnel, Brückenstützen und vollständige OSM-Fenster sind weiter offen. Native Echtzeit- und Geräteabnahme fehlen."
 }

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from ..contracts import FootprintAdjustment, Hint, LocalFrame, Mesh, Reservation, collection
 from .surface import close_surface
+from .heights import HeightBudget, HeightFit, fit_surface_heights
 
 
 @dataclass(frozen=True, slots=True)
