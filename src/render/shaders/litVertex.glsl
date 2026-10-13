@@ -9,7 +9,8 @@ layout(location = 9) out vec4 tangent;
 #endif
 #include "subjectPlacement.glsl"
 layout(location = 0) in vec3 p;
-layout(location = 3) in vec3 vertexNormal;
+layout(location = 3) in uint vertexNormalWord;
+#include "packedNormal.glsl"
 #if LIT_UVS > 0
 layout(location = 1) in vec2 vertexUv;
 #endif
@@ -39,6 +40,7 @@ void main() {
   groundWorldM = vec3(stable.x, stable.y, -stable.z);
   localPosition = p;
   lightSpace = s.lightFromWorld * world;
+  vec3 vertexNormal = unpackedNormal(vertexNormalWord);
   normal = normalize(m[0].xyz * vertexNormal.x + m[1].xyz * vertexNormal.y + m[2].xyz * vertexNormal.z);
   uv = vec2(0.0);
   uv1 = vec2(0.0);
