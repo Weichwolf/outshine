@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from bark_layer_plots import layer_figure
 from bark_plots import bark_figure
+from blade_library_plots import blade_library_figure
 from closed_vein_plots import closed_figure
 from cloud_plots import group_figure, raster_figure, render_figure
 from collar_plots import collar_figure, ray_figure
@@ -373,6 +374,12 @@ def profile_cache_plot(report):
     return save_plot(figure, "profile-cache")
 
 
+def blade_library_plot(report):
+    figure = blade_library_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "blade-library")
+
+
 def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
@@ -516,6 +523,7 @@ def plot_entries(output, plot_lods):
             pigment_plot,
             normal_plot,
             needle_plot,
+            blade_library_plot,
             profile_cache_plot,
             filter_plot,
             development_plot,

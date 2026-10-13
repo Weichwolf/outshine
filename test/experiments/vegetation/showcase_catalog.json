@@ -1,7 +1,17 @@
 {
-  "current_work": "Profilkurven und unveränderliche vorbereitete Tabellen liegen jetzt ebenfalls in der installierbaren Bibliothek. Eine zu frühe Inversion flacher Kurven und veränderbare öffentliche Profildaten sind korrigiert. Gemeinsame Nadel-Bündelbasis ist geprüft; Material, Wind, LOD-Deckung und vollständige Pflanzen bleiben offen.",
+  "current_work": "Blatt-/Grasflächen liegen jetzt mit analytischen Normalen und Flächenmetrik im installierbaren Kern. Geteilte Quadraturdaten sind unveränderlich; unteraufgelöste falsch orientierte Facetten werden abgelehnt. Bisherige Prototypen und Materialmetrik bleiben erhalten. Weitere Generatorfunktionen, Wind, LOD-Deckung und Pflanzenrezepte sind offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/blade-twist.png",
+      "title": "Blattfläche · Twist-Gegenfall",
+      "label": "Geometrische Funktionsprobe · keine botanische Form",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Gleiche kontinuierliche Fläche mit starkem Twist. Links 16×4: negativer Referenzfall mit falsch orientierten Ecknormalen, den die Bibliothek ablehnt. Rechts 512×8: fein aufgelöstes Produkt mit gültiger Orientierung. Die linke Geometrie dient ausschließlich der Diagnose und wird nicht als Pflanzenasset akzeptiert.",
+      "quality": "Prüft Unterteilung/Orientierung; kein botanisches Blattrezept und keine allgemeine LOD-Deckungsfreigabe.",
+      "scenario": "build/experiments/vegetation/blade-library/blade-twist.json"
+    },
     {
       "image": "render/needle-bundle-detail.png",
       "title": "Nadelbündel · Nahdetail",
@@ -500,7 +510,8 @@
     "pigment_plot": "lod-0",
     "normal_plot": "lod-0",
     "needle_plot": "lod-0",
-    "profile_cache_plot": "lod-0"
+    "profile_cache_plot": "lod-0",
+    "blade_library_plot": "lod-0"
   },
   "genera": [
     {
