@@ -99,9 +99,16 @@ class Shape:
     split_info: object=None
     asset: object=None
     material: Material=Material()
+    textures: tuple=()
 
     def __post_init__(self):
         if not isinstance(self.material,Material):raise ValueError('Shape material must be an immutable Material')
+        from modelling_texture import resources
+        object.__setattr__(self,'textures',resources(self.asset.textures if self.asset else (),self.textures))
+
+    def texture(self,value):
+        from modelling_texture import texture
+        return texture(self,value)
 
     @classmethod
     def from_mesh(cls,mesh,scope=None,polygons=(),edges=(),points=(),group_names=(),material_defs=()):
@@ -198,7 +205,7 @@ class Shape:
             raise NotImplementedError('Additional vertex channels in wire/hole components remain pending')
         from modelling_components import split_components
         from modelling_uv import inherit_primary
-        return tuple(replace(inherit_primary(child,self),material=self.material) for child in split_components(self,component,branches,alignment))
+        return tuple(replace(inherit_primary(child,self),material=self.material,textures=self.textures) for child in split_components(self,component,branches,alignment))
 
     def split(self,axis,*parts,repeat=False,adjust=True,cut_material=None,cut_group=0,max_parts=10000):
         from modelling_channels import additional_channels

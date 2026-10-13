@@ -23,8 +23,11 @@ class Asset:
     up_axis: str='yUp'
     import_info: object=None
     resources: object=None
+    textures: tuple=()
 
     def __post_init__(self):
+        from modelling_texture import resources
+        object.__setattr__(self,'textures',resources(self.textures))
         if not isinstance(self.geometry,Geometry) or any(size<0 for size in self.geometry.reference_size):
             raise ValueError('Prepared asset requires normalized geometry with nonnegative dimensions')
         if not len(self.geometry.fields['faces']):raise ValueError('Inserted assets require surface geometry')
@@ -46,7 +49,7 @@ class Asset:
         geometry,scope=Geometry.from_mesh(mesh,polygons=shape.geometry.polygons,edges=shape.geometry.edges,
             points=shape.geometry.points,group_names=shape.geometry.group_names,material_defs=definitions)
         return cls(geometry,scope.position,name,up_axis,
-                   shape.asset.import_info if shape.asset else None,shape.asset.resources if shape.asset else None)
+                   shape.asset.import_info if shape.asset else None,shape.asset.resources if shape.asset else None,shape.textures)
 
     def render_size(self,size):
         values=np.asarray(size,dtype=float);bounds=np.asarray(self.geometry.reference_size)
@@ -83,4 +86,5 @@ def insert(shape,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         dims=np.asarray(asset.geometry.reference_size);delta=(np.asarray(scope.size)-dims)/2.;delta[1]=0.
         scope=replace(scope.t(*delta),size=tuple(dims))
     scope=adjusted(scope,asset)
-    return Shape(asset.geometry,scope,shape.comp_info,shape.sweep_info,shape.split_info,asset,shape.material)
+    from modelling_texture import resources
+    return Shape(asset.geometry,scope,shape.comp_info,shape.sweep_info,shape.split_info,asset,shape.material,resources(asset.textures,shape.textures))

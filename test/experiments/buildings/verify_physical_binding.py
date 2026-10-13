@@ -33,12 +33,19 @@ def controls():
     np.testing.assert_allclose(layers['albedo'][540,960],[.2,.4,.6],atol=1e-6)
     np.testing.assert_allclose(layers['normal'][540,960],[0.,0.,-1.],atol=1e-6)
     np.testing.assert_array_equal(source['vertices'],original)
+    source['uv']=np.array([[0.,0.],[2.,0.],[2.,3.],[0.,3.]])
+    textured,_=mesh('uv-control',source,np.arange(2),dict(type='diffuse'))
+    np.testing.assert_array_equal(np.asarray(mi.traverse(textured)['vertex_texcoords']).reshape(-1,2),source['uv'])
+    for invalid in (np.zeros((3,2)),np.full((4,2),np.nan)):
+        try:mesh('invalid-uv',source|dict(uv=invalid),np.arange(2),dict(type='diffuse'))
+        except ValueError:pass
+        else:raise AssertionError('Invalid UV binding was accepted')
     for key in ('colormap','normalmap','roughnessmap','metallicmap','opacitymap'):
         try:reference(Material('',{key:'unbound.png'}))
         except NotImplementedError:pass
         else:raise AssertionError('Unbound texture was silently ignored')
     return dict(actual_camera_rays=projection['ray_checks'],mesh_readback=binding,named_aov_channels=True,
-        srgb_conversion=True,source_unchanged=True,unbound_textures_rejected=True)
+        srgb_conversion=True,source_unchanged=True,unbound_textures_rejected=True,uv_readback_and_invalid_controls=True)
 
 
 if __name__=='__main__':

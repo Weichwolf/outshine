@@ -21,6 +21,8 @@ Erst Wände/Dächer im bebauten Place verbessern, dann mit Terrain/Asphalt abgle
 2173 besitzt räumliche Öffnungen, 2337 Felsform, 2172 Nässe/Schnee und 2111 Pflanzen.
 
 ## Verfahren und Assetgrenze
+- Metallic-Roughness ist der Hauptshader; zusätzliche Shader decken fehlende Material-/Effektfähigkeiten ab.
+  Produktionstexturen werden prozedural erzeugt und dürfen als versionierte Assets gecacht werden.
 - Asset-Rohlinge (2280) enthalten Materialwahl, metrische Frames/UVs, Objektseed, Exposition,
   Fassadenachsen und nötige Basisfelder/Atlasprodukte. Nahrelief/-geometrie entsteht daraus
   zur Laufzeit; Cachehits wiederholen weder Quellergänzung noch Basisaufbau.
