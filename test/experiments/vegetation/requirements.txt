@@ -8,3 +8,6 @@ manifold3d==3.5.4
 embreex==4.4.0
 bpy==5.2.2
 shapely==2.2.0
+
+prosail==2.0.5
+colour-science==0.4.7

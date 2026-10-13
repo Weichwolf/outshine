@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "pigment-leaves/table.json",
+        "pigment_plot",
+        "Blattpigmente · getrennte Reflexion und Transmission",
+        "PROSPECT-D als externe optische Referenz, eigene logarithmische Pigmenttabelle und räumliche Felder. Gemeinsame Entsättigung erhält beide Leuchtdichten und begrenzt die konvexe Shadermischung. 33×33 Tabelle besteht die endlichen Prüfproben; keine globale Fehlerschranke. Gamut nach Interpolation genauer als davor. Drei Pigmentzustände bei festen übrigen Parametern, keine vollständigen Jahreszeiten oder Artenrezepte. Alle Texturen prozedural und gecacht; symmetrische Blattseiten und Winkelwirkung bleiben Näherungen.",
+    ),
+    (
         "terminal-leaves/terminal.json",
         "terminal_plot",
         "Aderenden · freie Spitzen und Übergänge",

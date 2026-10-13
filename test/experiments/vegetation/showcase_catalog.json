@@ -1,26 +1,36 @@
 {
-  "current_work": "Die Aderenden erhalten jetzt netzabhängige Materialprofile: freie Spitzen werden schmaler, Übergänge laufen auf den Feinaderradius aus. Verzweigungen bleiben geschützt, die gespeicherten Graphen unverändert. Natürliche Farbe, anatomische Kalibrierung und Pflanzenqualität bleiben offen.",
+  "current_work": "Prozedurale Pigmentfelder steuern getrennte Reflexions- und Transmissionskarten. PROSPECT-D liefert die externe optische Referenz; eine geprüfte 33×33-Pigmenttabelle beschleunigt die Erzeugung. Metallic-Roughness mit ergänzendem Blattdurchlicht. Botanische Kalibrierung und Winkelwirkung bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
       "image": "render/leaf-development-detail.png",
-      "title": "Blattadern · netzabhängige Aderenden",
+      "title": "Blattpigmente · Oberfläche im Detail",
       "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Freie Hauptaderenden werden schmaler, angeschlossene Enden gehen zum Feinaderradius über. Alle Radien folgen einem separaten Materialprofil; ursprüngliche Graphen und Kamera bleiben gleich.",
-      "quality": "Eigene Endprofile, keine botanische Freigabe. Natürliche Farbe, Materialvariation und anatomische Kalibrierung bleiben offen.",
-      "scenario": "build/experiments/vegetation/terminal-leaves/leaf-coupled-detail.json"
+      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Nahbild der grünen Probe mit Chlorophyll 45 und Anthocyanin 0,2 µg/cm² vor räumlicher Variation; übrige Modellparameter fest. Gespeicherter Form- und Aderplan sowie Kamera bleiben erhalten.",
+      "quality": "Optische Funktionsproben, keine Arten- oder Jahreszeitenfreigabe. Feinaderkontrast teilweise schwächer; Aderrelief und Glanz gemeinsam zu kalibrieren. Symmetrische Blattseiten und reale Winkelwirkung offen.",
+      "scenario": "build/experiments/vegetation/pigment-leaves/leaf-coupled-detail.json"
     },
     {
       "image": "render/leaf-coupled-forms.png",
-      "title": "Blattadern · drei Formen mit netzabhängigen Aderenden",
+      "title": "Blattpigmente · drei optische Zustände",
       "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Freie Hauptaderenden werden schmaler, angeschlossene Enden gehen zum Feinaderradius über. Alle Radien folgen einem separaten Materialprofil; ursprüngliche Graphen und Kamera bleiben gleich.",
-      "quality": "Eigene Endprofile, keine botanische Freigabe. Natürliche Farbe, Materialvariation und anatomische Kalibrierung bleiben offen.",
-      "scenario": "build/experiments/vegetation/terminal-leaves/leaf-material-upper.json"
+      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Chlorophyll/Anthocyanin links 45/0,2, Mitte 8/0,2, rechts 10/8 µg/cm²; übrige Modellparameter fest. Gespeicherte Form- und Aderpläne bleiben erhalten.",
+      "quality": "Optische Funktionsproben, keine Arten- oder Jahreszeitenfreigabe. Feinaderkontrast teilweise schwächer; Aderrelief und Glanz gemeinsam zu kalibrieren. Symmetrische Blattseiten und reale Winkelwirkung offen.",
+      "scenario": "build/experiments/vegetation/pigment-leaves/leaf-material-upper.json"
+    },
+    {
+      "image": "render/leaf-pigment-transmission.png",
+      "title": "Blattpigmente · Durchlicht von der Unterseite",
+      "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Chlorophyll/Anthocyanin links 45/0,2, Mitte 8/0,2, rechts 10/8 µg/cm²; übrige Modellparameter fest. Gespeicherte Form- und Aderpläne bleiben erhalten.",
+      "quality": "Optische Funktionsproben, keine Arten- oder Jahreszeitenfreigabe. Feinaderkontrast teilweise schwächer; Aderrelief und Glanz gemeinsam zu kalibrieren. Symmetrische Blattseiten und reale Winkelwirkung offen.",
+      "scenario": "build/experiments/vegetation/pigment-leaves/leaf-material-lower.json"
     },
     {
       "image": "render/leaf-development-comparison.png",
@@ -445,7 +455,8 @@
     "development_plot": "lod-0",
     "coupled_plot": "lod-0",
     "relief_plot": "lod-0",
-    "terminal_plot": "lod-0"
+    "terminal_plot": "lod-0",
+    "pigment_plot": "lod-0"
   },
   "genera": [
     {

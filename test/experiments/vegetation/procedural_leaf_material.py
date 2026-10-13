@@ -14,11 +14,17 @@ def apply_leaf_materials(recipe, directory):
         path = directory / product["leaf_material"]
         data = json.loads(path.read_text())
         if (
-            data["version"] != "procedural-leaf-material-2"
+            data["version"]
+            not in ("procedural-leaf-material-2", "procedural-leaf-material-3")
             or data["colour_space"] != "linear"
             or data["vein_field"] != "tapered-envelope-1"
         ):
             raise ValueError("versioned linear procedural leaf product required")
+        if data["version"] == "procedural-leaf-material-3" and not {
+            "transmittance",
+            "transmission_weight",
+        }.issubset(data["maps"]):
+            raise ValueError("optical leaf requires transmission and mixture maps")
         material = leaf_material(path.stem)
         nodes, links = material.node_tree.nodes, material.node_tree.links
         mixed = next(n for n in nodes if n.type == "MIX_SHADER")
@@ -36,7 +42,7 @@ def apply_leaf_materials(recipe, directory):
             paths.append(image_path)
         underside = nodes.new("ShaderNodeMixRGB")
         underside.blend_type = "MULTIPLY"
-        underside.inputs[0].default_value = 0.45
+        underside.inputs[0].default_value = 0 if data.get("symmetric_optics") else 0.45
         underside.inputs[2].default_value = (1.4, 1.12, 1.5, 1)
         links.new(textures["colour"].outputs["Color"], underside.inputs[1])
         face = nodes.new("ShaderNodeNewGeometry")
@@ -52,7 +58,14 @@ def apply_leaf_materials(recipe, directory):
         links.new(textures["roughness"].outputs["Color"], shader.inputs["Roughness"])
         links.new(bump.outputs["Normal"], shader.inputs["Normal"])
         translucent = next(n for n in nodes if n.type == "BSDF_TRANSLUCENT")
-        links.new(colour.outputs[0], translucent.inputs["Color"])
+        transmitted = (
+            textures["transmittance"].outputs["Color"]
+            if "transmittance" in textures
+            else colour.outputs[0]
+        )
+        links.new(transmitted, translucent.inputs["Color"])
+        if "transmission_weight" in textures:
+            links.new(textures["transmission_weight"].outputs["Color"], mixed.inputs[0])
         links.new(bump.outputs["Normal"], translucent.inputs["Normal"])
         mesh = bpy.data.objects[(directory / product["mesh"]).stem].data
         mesh.materials.clear()
