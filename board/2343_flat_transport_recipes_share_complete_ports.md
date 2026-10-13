@@ -73,7 +73,7 @@ Bilder: build/shots/experiments/transport/.
    vor Veröffentlichung vollständig prüfen; Aufweitung bleibt an der ursprünglichen Fläche begrenzt.
 6. Vor Triangulation kanonisch normalisieren. [Konforme Kanten](../test/experiments/transport/transport_conforming_triangles.py)
    teilen an vorhandenen Vertices. Rundungsreste höchstens 64·eps·max(1,|Koordinate|) m; echte Risse erhalten.
-   Rundungsreste komponentenweise erodieren; numerische MultiPolygon-Puffer dürfen keinen realen Flächenverlust vortäuschen.
+   Schlitze nur unter einem Koordinatenquantum und der Rundungsgrenze normalisieren; auflösbare Löcher erhalten.
    Neu abgetrennte Resttaschen nur unreserviert, ≤1 m² und ohne 1 m Innenbreite schließen/bilanzieren;
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 
@@ -83,7 +83,7 @@ prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine 
 
 ## Nächste Lieferung und Abnahme
 25 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
-1051 im Gesamtfenster: 46/46 plus zwei Nachbarfahrten; Einlauf 1 m versetzt, +0,227 m².
+1124 lokal: 24/24 plus drei Nachbarfahrten, +12,03 m²; geprüfte Gehwegquerung, Gesamtfenster ausstehend.
 Veröffentlichung/erneutes Laden im Gesamtfenster geprüft; nächste Lieferung sind die 13 verbleibenden Fahrten.
 Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identitäten/Hüllen erneut prüfen.
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
@@ -94,7 +94,7 @@ anderen Arm sind ungültig. Vorhandene Geometrie behalten, Erweiterung genau ein
 höchstens 64 Kombinationen. Billigste Einzelkurven können gemeinsam eine Insel löschen;
 Gegenrichtungen und betroffene Nachbarn zusammen wählen. Automatische Einbindung offen.
 [Quellabkürzungen](../test/experiments/transport/probes/roadbeds/source_shortcut_probe.py) erhalten
-Originalroute/Endposen. Öffentliche Übergänge explizit als befahrbare Fläche deklarieren;
+Originalroute/Endposen. Öffentliche Übergänge auch im gemeinsamen Wendeplatz-Aufbau explizit prüfen und als Fahrfläche deklarieren;
 private/Bahnflächen bleiben geschützt. Reservierte Gebäudezuschnitte fordert Transport bei Buildings an.
 Offene Rückkehr-Wendeplätze brauchen keinen Inselanker. Radiusreserve passend zur verfügbaren
 Fläche wählen, Mindestradius/Hüllenprüfung beibehalten. Keine Vergrößerung gültiger Restflächenlimits.

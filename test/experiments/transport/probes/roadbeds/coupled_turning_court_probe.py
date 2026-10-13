@@ -23,7 +23,7 @@ from transport_court_partition import partition_court
 from transport_shared_frames import frame_key
 from transport_joined_cut_setbacks import setback_joined_network
 from steering_roadbed_candidate_probe import source_buildings,building_cuts
-from steering_roadbed_product_probe import seeded_cache
+from steering_roadbed_product_probe import seeded_cache,declared_public_crossing
 
 
 def approach_segment(begin,end):
@@ -180,30 +180,44 @@ def main():
     poses,_=trial.poses(module,{})
     routes,_=directed_module_routes(trial.graph,poses,trial.shape(module),trial.tree)
     records={r['module']:r for r in before['modules']};records.update((r['module'],r) for r in cuts['changed_modules'])
-    required={}
-    for owner in affected:
-        record=records[owner] if owner in records else network.record(owner)[0]
-        owner_poses,_=network.poses(owner,{})
-        required[owner]=coupled.request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
     margin=max(trial.vehicle['frontFromRearAxleM'],trial.vehicle['rearOverhangM'])+trial.vehicle['widthM']*.5+2*trial.curbs['arc_error_m']
     region=shapely.union_all([trial.shape(o) for o in affected]).envelope.buffer(margin)
     floor=motor_surface(shapely.union_all(list(routes.values())).envelope,trial.graph,trial.tree,trial.mesh,
                         trial.vehicle,trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
     original_floor=floor
-    receipt_path=root/'inputs'/f'{name}-input.json';receipt=json.loads(receipt_path.read_text())['receipt']
-    sources=source_buildings(receipt,region);other=coupled.reservations(trial,region).difference(floor)
     cases={tuple(p):c for p,c in zip(args.pair,args.case)}
+    crossings=[shapely.from_wkb(json.loads(selected_court_files(case)[1].read_text())['crossing']) for case in cases.values()]
+    crossing=polygonal_region(shapely.union_all(crossings))
+    shared_crossing,crossing_owners=declared_public_crossing(trial,region,crossing)
+    affected.update(crossing_owners)
+    region=shapely.union_all([trial.shape(o) for o in affected]).envelope.buffer(margin)
+    floor=floor.union(shared_crossing)
+    required={}
+    for owner in affected:
+        record=records[owner] if owner in records else network.record(owner)[0]
+        owner_poses,_=network.poses(owner,{})
+        required[owner]=coupled.request_keys(owner_poses,[(t['entry'],t['exit']) for t in record['turns'] if t['accepted']])
+    receipt_path=root/'inputs'/f'{name}-input.json';receipt=json.loads(receipt_path.read_text())['receipt']
+    sources=source_buildings(receipt,region);other=coupled.reservations(trial,region).difference(floor.union(crossing))
     seeds=seeds_for(cases,old,poses,routes,floor,other,trial.vehicle,trial.curbs['arc_error_m'])
     buildings,building_audit=building_cuts(sources,floor,shapely.union_all([s['surface'] for s in seeds.values()]))
     protected=shapely.union_all([b['adjusted'] for b in buildings]);reserved=protected.union(other)
     seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
-    public_spaces={};addition=shapely.Polygon();partition_audit={}
+    public_spaces={};addition=shared_crossing;partition_audit={}
+    if not shared_crossing.is_empty:
+        for owner in affected:
+            source=motor_surface(trial.shape(owner),trial.graph,trial.tree,trial.mesh,trial.vehicle,
+                                 trial.curbs['corner_radius_m'],trial.curbs['arc_error_m'])
+            public_spaces[owner]=source.union(shared_crossing)
+        public_spaces[module]=floor
     if args.grow_ports:
         poses,routes,grown_sections,growth_changes,public_spaces,addition,partition_audit=grow_court_ports(
             trial,module,affected,poses,seeds,floor,scope)
         sections|=grown_sections;changes+=growth_changes
+        public_spaces={o:g.union(shared_crossing) for o,g in public_spaces.items()}
+        addition=polygonal_region(addition.union(shared_crossing))
         floor=public_spaces[module]
-        reserved=protected.union(coupled.reservations(trial,region).difference(floor))
+        reserved=protected.union(coupled.reservations(trial,region).difference(floor.union(crossing)))
         seeds=seeds_for(cases,old,poses,routes,floor,reserved,trial.vehicle,trial.curbs['arc_error_m'])
     cache=seeded_cache(floor,reserved,routes,poses,seeds,trial.vehicle,trial.curbs['arc_error_m'],required[module])
     section_index=shapely.STRtree(np.array(list(trial.sections.values()),dtype=object))

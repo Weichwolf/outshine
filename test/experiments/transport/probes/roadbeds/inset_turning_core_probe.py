@@ -81,7 +81,7 @@ def main():
         row.update(accepted=True,reason='proved',length_m=road['path'].length,added_area_m2=road['addition'].area)
         (args.output/f'{len(rows)-1}-candidate.json').write_text(json.dumps(note,indent=2)+'\n')
         (args.output/f'{len(rows)-1}-geometry.json').write_text(json.dumps(dict(original=floor.wkb.hex(),
-            planned=road['surface'].wkb.hex(),crossing=road['surface'].intersection(walk).difference(floor).wkb.hex(),
+            planned=road['surface'].wkb.hex(),crossing=road['roadbed'].intersection(walk).difference(floor).wkb.hex(),
             path=shapely.get_coordinates(road['path']).tolist()),indent=2)+'\n')
         print(json.dumps(row),flush=True)
     receipt=provenance()

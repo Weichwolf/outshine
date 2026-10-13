@@ -50,6 +50,16 @@ def previous_pairs(owner,poses,routes,reference,records,prior_path):
     return previous
 
 
+def declared_public_crossing(network,region,crossing):
+    if crossing.is_empty:return crossing,set()
+    eligible,_=public_pedestrian_surface(region,network.graph,network.tree)
+    assert preserves_coverage(crossing,eligible),'crossing uses private or incompatible transport'
+    triangles,index=network.mesh;ids=index.query(crossing,predicate='intersects')
+    source=shapely.union_all(triangles[ids]);shared=polygonal_region(crossing.intersection(source))
+    areas=shapely.area(shapely.intersection(triangles[ids],shared))
+    return shared,set(map(int,network.product['face_owners'][ids[areas>0]]))
+
+
 def make_seeds(data,poses,routes,notes):
     seeds={}
     recipes={n.get('road_space_recipe','lane-flare') for n in notes.values()}
@@ -100,16 +110,8 @@ def main():
                         network.mesh,network.vehicle,network.curbs['corner_radius_m'],network.curbs['arc_error_m'])
     region=network.shape(owner).envelope.buffer(coupled.roadbed_lateral_reach(network.vehicle)+.025)
     crossing=polygonal_region(shapely.union_all([shapely.from_wkb(json.loads(path.read_text())['crossing']) for path in args.crossing_area]))
-    shared_crossing=crossing
-    crossing_owners=set()
-    if not crossing.is_empty:
-        eligible,_=public_pedestrian_surface(region,network.graph,network.tree)
-        assert preserves_coverage(crossing,eligible),'crossing uses private or incompatible transport'
-        triangles,index=network.mesh;ids=index.query(crossing,predicate='intersects')
-        source=shapely.union_all(triangles[ids]);shared_crossing=polygonal_region(crossing.intersection(source))
-        areas=shapely.area(shapely.intersection(triangles[ids],shared_crossing))
-        crossing_owners=set(map(int,network.product['face_owners'][ids[areas>0]]))
-        floor=floor.union(shared_crossing)
+    shared_crossing,crossing_owners=declared_public_crossing(network,region,crossing)
+    floor=floor.union(shared_crossing)
     receipt_path=root/'inputs'/f'{name}-input.json'
     receipt=json.loads(receipt_path.read_text())['receipt'];building_sources=source_buildings(receipt,region)
     other=coupled.reservations(network,region).difference(floor.union(crossing))
