@@ -50,6 +50,10 @@ Beide optisch geprüft; keine rauschfreie Referenz/zeitliche Abnahme. Sieben phy
 CPU-Pfadverfolgung 16,40–170,16 s, Filter 5,14–9,54 s, zwei Threads; vollständige 2.520/47.956 Gebäude-Dreiecke.
 Material-Overrides vier Cachemeshes/21 Messpaare: p50 0,071–0,152 ms, Baken 1,50–43,99 ms; gleiche aufgelöste Werte.
 Konstruktion/finale Ausgabe/Frames ausgeschlossen; Importressourcen bleiben erhalten. Vollständige Shader-/Texturbindung offen.
+f097edd46 ergänzt metrische Fassadenplatten mit prozeduralen Farb-/Rauheits-/Normalkarten; Quellfarbe erhalten.
+Vier Cachegebäude: UV-Kantenlängen/Geometrie/Semantik geprüft; Diagnose expandiert Ecken, keine native LOD-Abnahme.
+Zwei Wiener Nachtbilder streuen trotz gleichem Seed auch mit altem Code: PNG-RMSE 0,68/0,95 auf 0–255.
+Alt/neu 0,67/0,88; optisch keine neue Strukturabweichung. Sampling-Ursache/zeitliche Stabilität bleiben offen.
 Pakete: Mitsuba 3.9.1/Dr.Jit 1.5.0 in .venv; OIDN 2.5.1 extern unter ~/Downloads/oidn-2.5.1.x86_64.linux.
 [OIDN-Dokumentation](https://www.openimagedenoise.org/documentation.html); [SIGGRAPH 2017](../doc/references/buildings/siggraph/2017-recurrent-monte-carlo-denoising-autoencoder.reference.json), Seiten 1/2 optisch geprüft.
 Räumlicher Filter; kein Beleg für den rekurrenten Paper-Algorithmus oder zeitliche Stabilität.
