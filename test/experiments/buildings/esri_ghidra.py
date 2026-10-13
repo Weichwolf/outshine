@@ -19,6 +19,10 @@ HEADLESS = Path('/snap/bin/ghidra.analyzeHeadless')
 TARGETS = {
     '_ZN12_GLOBAL__N_122setupProjectionGeneralER9ProcessordN2GC15PrjAxesSelector4EnumENS2_5Scale4EnumEdS6_dS6_dS6_dd.lto_priv.0': 'scope/world metric texture projection setup and floating dimensions',
     '_ZN9Processor9projectUVEd': 'baking a stored texture projection into geometry UV channels',
+    '_ZN4util6MatrixIdE16setToEulerAnglesERKdS3_S3_.isra.0': 'projection selector Euler matrices and storage convention',
+    '_ZN4util6MatrixIdE6rotateEddd': 'projection rotation composition order',
+    '_ZN4utilmlERKNS_6MatrixIdEES3_': 'matrix multiplication operand and storage conventions',
+    '_ZNK5Shape31getTrafoScopeSizeToObjectMatrixEv': 'scope to object reference frame used by stored UV projections',
     '_ZN9Processor7textureERKSt10shared_ptrINSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEE': 'texture resource alpha detection and material map assignment',
     '_ZN9Processor5colorERKSt10shared_ptrINSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEE': 'CGA hex color parsing and material dispatch',
     '_ZN9Processor5colorEddd': 'CGA RGB color clamping and material storage',
