@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import time
+import tempfile
 
 import drjit as dr
 import mitsuba as mi
@@ -73,7 +74,8 @@ def render(config):
         raw=layers['image'][:,:,:3]
         if not np.allclose(raw,pixels[:,:,:3],rtol=1e-6,atol=1e-7):raise ValueError('Named radiance disagrees with rendered RGB')
         mi.util.write_bitmap(str(output.with_name(output.stem+'-raw.png')),raw)
-        pixels,filter_info=denoise(raw,layers['albedo'],layers['normal'],output.with_suffix(''),output.with_suffix('.oidn.log'))
+        filter_log=Path(tempfile.gettempdir())/('outshine-buildings-'+output.stem+'-'+config['mesh_sha256'][:12]+'.oidn.log')
+        pixels,filter_info=denoise(raw,layers['albedo'],layers['normal'],output.with_suffix(''),filter_log)
     mi.util.write_bitmap(str(output),pixels)
     record=dict(renderer='Mitsuba '+mi.__version__,backend='LLVM CPU',threads=dr.thread_count(),profile=config['profile'],spp=spp,seed=config.get('seed',17),
         setup_seconds=setup_seconds,render_seconds=render_seconds,mesh_sha256=config['mesh_sha256'],projection=projection,bindings=bindings,

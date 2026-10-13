@@ -19,7 +19,7 @@ WEBROOT=EXPERIMENTS/'showcase/site'
 PAGES={
     'interiors':dict(path='innenraeume',title='Innenräume',description='Fenster, Eingänge und die Räume dahinter.',
                      scope='Höchster Detailbedarf: räumliche Öffnungen, Raumanschlüsse und Wege.',
-                     gap='Räume sind noch generisch und leer. Ausstattung, Beleuchtung und native Begehbarkeit fehlen.'),
+                     gap='Räume sind noch generisch und leer. Erste physikalische Lichtkontrollen sind vorhanden; Ausstattung, Lichtvariation und native Begehbarkeit fehlen.'),
     'buildings':dict(path='gebaeude',title='Einzelne Gebäude',description='Ganze Gebäude aus mehreren Blickrichtungen.',
                      scope='Nahbereich: vollständige Körper, Geschosse, Treppen und Öffnungsbauteile.',
                      gap='Nutzungsspezifische Fassaden, Erdgeschosse und vollständige Architekturrezepte fehlen.'),

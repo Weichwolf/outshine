@@ -29,7 +29,7 @@ Glaspaneele ausschließlich für die Raum-/Öffnungskontrolle ausblenden; gespei
 Workbench ersetzt weder Esri-Taglichtvergleich noch Render-LOD; Material-/Glas-/Nachtabnahme bleibt offen.
 Aktiver begrenzter Vergleich: vorhandene Raum-/Öffnungsmeshes mit Mitsuba 3 LLVM/RGB auf CPU, gleiche Kameras/1920×1080.
 [Primärdokumentation](https://github.com/mitsuba-renderer/mitsuba3), [SIGGRAPH Asia 2019](https://rgl.epfl.ch/publications/NimierDavidVicini2019Mitsuba2): Renderer-Vektorisierung; Seiten 1/2 optisch geprüft.
-[Quellenbeleg](../doc/references/buildings/siggraph/2019-mitsuba2-retargetable-forward-inverse-renderer.reference.json): PDF lokal, Zitat/Link/Hash versioniert. Kosten/Bild/Materialabbildung noch ungemessen; kein Runtime-Rendererwechsel.
+[Quellenbeleg](../doc/references/buildings/siggraph/2019-mitsuba2-retargetable-forward-inverse-renderer.reference.json): PDF lokal, Zitat/Link/Hash versioniert. CPU-Referenzmessungen unten; kein Runtime-Rendererwechsel.
 
 ## Übernahme aus den Transportexperimenten
 Review von `~/Git/outshine/test/experiments/transport/` am 2026-10-13, Stand dd95f208b:
@@ -46,7 +46,13 @@ Mitsuba-Kanalprüfung: RGB-Renderarray hat neun Kanäle, Integratorliste zehn; b
 Entwicklungsbild 1920×1080/16 spp: 59,10 s CPU-Pfadverfolgung + 5,24 s OIDN, zwei Threads;
 64-spp-Kontrolle: 232,60 s CPU; gleicher Raum/Kamera/Licht/Seed, Rohbild weiterhin körnig.
 16-spp-OIDN gegen 64-spp-Rohbild: lineare RMSE 0,039 statt 0,086, mittlere Energieabweichung 0,37 %.
-Beide optisch geprüft; keine rauschfreie Referenz/zeitliche Abnahme. Sieben physikalische Showcasekontrollen in Vorbereitung.
+Beide optisch geprüft; keine rauschfreie Referenz/zeitliche Abnahme. Sieben physikalische Showcasekontrollen auf 03c0f5354 optisch geprüft, alle 1920×1080/32 spp.
+CPU-Pfadverfolgung 16,40–170,16 s, Filter 5,14–9,54 s, zwei Threads; vollständige 2.520/47.956 Gebäude-Dreiecke.
+Material-Overrides vier Cachemeshes/21 Messpaare: p50 0,071–0,152 ms, Baken 1,50–43,99 ms; gleiche aufgelöste Werte.
+Konstruktion/finale Ausgabe/Frames ausgeschlossen; Importressourcen bleiben erhalten. Vollständige Shader-/Texturbindung offen.
+Pakete: Mitsuba 3.9.1/Dr.Jit 1.5.0 in .venv; OIDN 2.5.1 extern unter ~/Downloads/oidn-2.5.1.x86_64.linux.
+[OIDN-Dokumentation](https://www.openimagedenoise.org/documentation.html); [SIGGRAPH 2017](../doc/references/buildings/siggraph/2017-recurrent-monte-carlo-denoising-autoencoder.reference.json), Seiten 1/2 optisch geprüft.
+Räumlicher Filter; kein Beleg für den rekurrenten Paper-Algorithmus oder zeitliche Stabilität.
 
 ## Detail, Funktion und Nacht
 - Nah durch Fenster: echte Wandtiefe/Böden/Decken/Trennwände und räumlicher Hintergrund passender Räume.
