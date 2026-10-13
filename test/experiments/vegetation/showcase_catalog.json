@@ -1,7 +1,47 @@
 {
-  "current_work": "SpeedTree-Funktionen zuerst: Die räumliche Graphpflanze besitzt gemeinsame Holzflächen, lokale Astkragen und angeglichene Anschlussnormalen. Die Nahansichten werten jetzt vier Rindenfelder in getrennten physischen Achskoordinaten aus und blenden ihre Ergebnisse; damit entfällt die künstliche Koordinatenverwirbelung am Anschluss. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
+  "current_work": "SpeedTree-Funktionen zuerst: Die räumliche Graphpflanze bewegt jetzt Holz und 41 Blätter aus demselben gespeicherten Ruheplan. Zwei Windzeitpunkte und das direkte Grobprodukt zeigen das gemeinsame Bewegungsfeld; Rindenfelder bleiben an der Oberfläche gebunden. Alle Renderings sind 2560×1440. Weltweite Artenrezepte folgen nach dem vollständigen Funktionsnachbau.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/wind-near-rest.png",
+      "title": "Wind · ruhender Vergleich",
+      "label": "Gemeinsame Windbindung · Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Dieselbe vollständige Pflanze bei Windstärke null. Blattfarben bleiben pro Blatt und über alle Zeitpunkte stabil; Kamera, Licht, Rinde und Topologie stimmen mit den bewegten Nahansichten überein. Die ursprüngliche objektabhängige Zufallsfarbe ist hier durch gespeicherte Blattwerte ersetzt.",
+      "quality": "Geometrische Windnäherung; bis zu 10,1 % gemessene Kantenstreckung. Kalibrierte Steifigkeit, Blattflattern, Böen und SpeedTree-Gleichwertigkeit offen.",
+      "scenario": "build/experiments/vegetation/wind/wind-near-rest.json"
+    },
+    {
+      "image": "render/wind-near-0.5.png",
+      "title": "Wind · Nahprodukt bei 0,5 s",
+      "label": "Gemeinsame Windbindung · Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Stamm, drei Zweige und 41 Blätter bewegen sich aus gespeicherten Ruhepositionen und Gewichten. Dieselbe kontinuierliche Abbildung erhält gemeinsame Anschlusspunkte in Nah- und Grobprodukten; Normalen folgen der analytischen Verformung. Rindenkoordinaten und Meshverbindungen werden nicht neu erzeugt. Die beiden Nahansichten zeigen unterschiedliche Zeitpunkte bei identischer Kamera.",
+      "quality": "Geometrische Windnäherung; bis zu 10,1 % gemessene Kantenstreckung. Kalibrierte Steifigkeit, Blattflattern, Böen und SpeedTree-Gleichwertigkeit offen.",
+      "scenario": "build/experiments/vegetation/wind/wind-near-0.5.json"
+    },
+    {
+      "image": "render/wind-near-2.png",
+      "title": "Wind · Nahprodukt bei 2,0 s",
+      "label": "Gemeinsame Windbindung · Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Stamm, drei Zweige und 41 Blätter bewegen sich aus gespeicherten Ruhepositionen und Gewichten. Dieselbe kontinuierliche Abbildung erhält gemeinsame Anschlusspunkte in Nah- und Grobprodukten; Normalen folgen der analytischen Verformung. Rindenkoordinaten und Meshverbindungen werden nicht neu erzeugt. Die beiden Nahansichten zeigen unterschiedliche Zeitpunkte bei identischer Kamera.",
+      "quality": "Geometrische Windnäherung; bis zu 10,1 % gemessene Kantenstreckung. Kalibrierte Steifigkeit, Blattflattern, Böen und SpeedTree-Gleichwertigkeit offen.",
+      "scenario": "build/experiments/vegetation/wind/wind-near-2.json"
+    },
+    {
+      "image": "render/wind-coarse-0.5.png",
+      "title": "Wind · direktes Grobprodukt bei 0,5 s",
+      "label": "Gemeinsame Windbindung · Funktionsprobe",
+      "category": "plant",
+      "lod": "lod-2",
+      "description": "Stamm, drei Zweige und 41 Blätter bewegen sich aus gespeicherten Ruhepositionen und Gewichten. Dieselbe kontinuierliche Abbildung erhält gemeinsame Anschlusspunkte in Nah- und Grobprodukten; Normalen folgen der analytischen Verformung. Rindenkoordinaten und Meshverbindungen werden nicht neu erzeugt. Die beiden Nahansichten zeigen unterschiedliche Zeitpunkte bei identischer Kamera.",
+      "quality": "Geometrische Windnäherung; bis zu 10,1 % gemessene Kantenstreckung. Kalibrierte Steifigkeit, Blattflattern, Böen und SpeedTree-Gleichwertigkeit offen.",
+      "scenario": "build/experiments/vegetation/wind/wind-coarse-0.5.json"
+    },
     {
       "image": "render/joined-spatial-graph.png",
       "title": "Räumliche Pflanze · gemeinsame Holzoberfläche",

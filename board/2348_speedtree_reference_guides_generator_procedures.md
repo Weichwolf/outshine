@@ -107,7 +107,7 @@ Eigene Achsfelder/Wertüberblendung (2481); vollständige UV-Property-/Original-
 | Graph/Profile/Platzierung | Grundtypen/Bedarf (2483), Blattfolgen/Quirle (2484), kontinuierliche räumliche Anker/Biegestellen (2485); volle Generierungsarten offen |
 | Stämme/Anschlüsse | Gabeln (2352), komplette Vereinigung/Astkragen (2353/2486), Rinde/Koordinaten (2481/2486); volle Bindung, Caps/Knots/Fins/Rindengeometrie offen |
 | Organe/Cluster | Blatt-/Grasflächen, Frond-/Guide-Proben (2482); volle Frondbindung, Nadeln und weitere Organe offen |
-| Kräfte/Wachstum/Zustände | Kräfte, Kollisionen, Wachstum/Jahreszustände und funktionale Windbindung offen |
+| Kräfte/Wachstum/Zustände | Gemeinsames Windfeld für Nah-/Grobprodukte (2487); kalibrierte Dynamik, Kräfte, Kollisionen, Wachstum/Jahreszustände offen |
 | Material/LOD/Export | Unbeleuchtete Ansichtenproben; Normalenverteilung, Übergänge und vollständige Produkte offen |
 Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semantik getrennt nennen.
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.

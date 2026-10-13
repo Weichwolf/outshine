@@ -58,6 +58,7 @@ def main():
             (
                 name
                 for name in (
+                    "wind_preview.py",
                     "graph_preview.py",
                     "bark_preview.py",
                     "landscape_preview.py",

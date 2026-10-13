@@ -280,6 +280,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Reflexion und Blatttransmission mit kompakter gerichteter Basis auswerten. Eigene
   prozedurale Blattparameter statt fotografischer Mess-/Texturdaten; Instanzen, Schatten
   und Wind teilen die Lichtwelt. Ein Blattmodell allein behebt keinen fehlenden Stammkontakt.
+- **Physically Guided Animation of Trees**, Habel / Kusternig / Wimmer, Eurographics 2009.
+  [Autoren](https://www.cg.tuwien.ac.at/research/publications/2009/Habel_09_PGT/) ·
+  [PDF](vegetation/eg/habel-2009-physically-guided-animation.pdf).
+  Hierarchische Verformung und verjüngte Balken verbinden; Bewegungsantwort spektral vorberechnen.
+  Seite 3 optisch geprüft: Gewichte, Einspannung und radiusabhängiges Flächenträgheitsmoment.
+  2487 besitzt den eigenen Windpfad und den Vergleich; dessen erstes gemeinsames Verschiebungsfeld
+  ersetzt noch keine kalibrierte Balkendynamik oder den vollständigen SpeedTree-Wind.
 - **Stochastic Transparency**, Enderton / Sintorn / Shirley / Luebke, TVCG 2011,
   erweiterte Fassung der I3D-Arbeit 2010.
   [Quelle](https://research.nvidia.com/sites/default/files/pubs/2011-08_Stochastic-Transparency/stochtransp-tvcg.pdf) ·
