@@ -41,3 +41,35 @@ def profile_figure(report):
         axis.set_axisbelow(True)
     figure.suptitle("Profile · Originalfunktionen numerisch geprüft", fontsize=14)
     return figure
+
+
+def cache_profile_figure(report):
+    figure, axes = plt.subplots(1, 3, figsize=(13, 4.5), layout="constrained")
+    for axis, key, factor, title, unit in (
+        (axes[0], "import_s", 1000, "Bibliotheksimport", "ms"),
+        (axes[1], "load_s", 1000, "1.000 Cachewerte laden", "ms"),
+        (axes[2], "peak_bytes", 1 / 2**20, "Gesamter Prozesspeak", "MiB RSS"),
+    ):
+        rows = [
+            [r[key] * factor for r in report["fresh_processes"] if r["mode"] == mode]
+            for mode in ("before", "after")
+        ]
+        values = np.median(rows, axis=1)
+        ranges = np.vstack(
+            (values - np.min(rows, axis=1), np.max(rows, axis=1) - values)
+        )
+        bars = axis.bar(
+            [0, 1], values, yerr=ranges, capsize=4, color=["#b98625", "#236c52"]
+        )
+        axis.bar_label(bars, fmt="%.2f", padding=5)
+        axis.set(
+            xticks=[0, 1],
+            xticklabels=["Versuch + SciPy", "Fertiges Profil"],
+            ylabel=unit,
+            title=title,
+        )
+        axis.margins(y=0.25)
+    figure.suptitle(
+        "Fertige Profile · fünf frische Prozesse je Pfad · gleiche Cachewerte/Abfragen\nNumPy-Lookup lädt ohne Solver; lokaler Vergleich, keine native Welt-Ladezeit"
+    )
+    return figure

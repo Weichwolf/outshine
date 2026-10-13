@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from ..contracts import Hint, LocalFrame, Mesh, Reservation, SourceInputs, collection
 from .needle_surface import Needle
+from .profiles import Profile
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,4 +25,4 @@ class Plan:
         collection(self.meshes, Mesh, "vegetation meshes")
 
 
-__all__ = ["Inputs", "Needle", "Plan"]
+__all__ = ["Inputs", "Needle", "Plan", "Profile"]
