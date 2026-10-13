@@ -9,9 +9,9 @@ import time
 import numpy as np
 
 from evidence import revision
-from modelling_components import Surface
+from outshine_ref.buildings.modelling.components import Surface
 from modelling_extrude_probe import fixtures
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 
 
 def dictionary_edges(edges):

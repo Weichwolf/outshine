@@ -10,7 +10,7 @@ import shapely
 
 from esri_offset_oracle import reference
 from evidence import revision
-from modelling_offset_plan import offset
+from outshine_ref.buildings.modelling.offset_plan import offset
 
 
 def cases():

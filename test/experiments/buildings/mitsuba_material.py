@@ -4,8 +4,8 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 
-from modelling_material import canonical
-from modelling_material_schema import DEFAULTS,srgb_to_linear
+from outshine_ref.buildings.modelling.material import canonical
+from outshine_ref.buildings.modelling.material_schema import DEFAULTS,srgb_to_linear
 
 
 def bitmap(path,textures,kind,factor=1.):

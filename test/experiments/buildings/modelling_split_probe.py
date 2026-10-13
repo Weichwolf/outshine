@@ -12,8 +12,8 @@ from evidence import revision
 from modelling_cut_manifold import encoded_source,decode_cut,volumetric_components
 from modelling_extrude_probe import fixtures
 from modelling_group_probe import timed
-from modelling_shape import Shape
-from modelling_split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
 from verify_modelling_extrude import closed,volume
 from verify_modelling_split import source_attributes
 

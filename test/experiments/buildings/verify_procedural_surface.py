@@ -10,7 +10,7 @@ import numpy as np
 
 from evidence import revision
 from mitsuba_material import bitmap,reference
-from modelling_material_schema import srgb_to_linear
+from outshine_ref.buildings.modelling.material_schema import srgb_to_linear
 from procedural_surface import encode,panels
 
 

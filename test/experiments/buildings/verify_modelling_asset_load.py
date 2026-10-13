@@ -12,9 +12,9 @@ from pygltflib import GLTF2
 
 from evidence import revision
 from modelling_asset_cases import COLOUR,UV,VERTICES,fixtures
-from modelling_insert import Asset
+from outshine_ref.buildings.modelling.insert import Asset
 from outshine_ref.buildings.modelling.scope import Scope
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling.shape import Shape
 from verify_modelling_extrude import near
 from verify_modelling_asset_channels import controls
 

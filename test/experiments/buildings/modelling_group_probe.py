@@ -13,9 +13,9 @@ import numpy as np
 from evidence import revision
 from modelling_component_probe import rebuilt
 from modelling_extrude_probe import fixtures
-import modelling_group_components
-from modelling_metadata import Material
-from modelling_shape import Shape
+from outshine_ref.buildings.modelling import group_components as modelling_group_components
+from outshine_ref.buildings.modelling.metadata import Material
+from outshine_ref.buildings.modelling.shape import Shape
 from verify_modelling_groups import signatures
 from verify_modelling_extrude import near
 

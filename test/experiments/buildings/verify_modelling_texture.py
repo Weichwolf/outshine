@@ -9,10 +9,10 @@ from tempfile import TemporaryDirectory
 from PIL import Image
 
 from evidence import revision
-from modelling_insert import Asset
-from modelling_shape import Shape
-from modelling_split_sizes import Part,Floating
-from modelling_texture import Texture,resources
+from outshine_ref.buildings.modelling.insert import Asset
+from outshine_ref.buildings.modelling.shape import Shape
+from outshine_ref.buildings.modelling.split_sizes import Part,Floating
+from outshine_ref.buildings.modelling.texture import Texture,resources
 from modelling_uv_cases import adjacent,courtyard
 
 

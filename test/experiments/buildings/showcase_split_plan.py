@@ -11,8 +11,8 @@ import numpy as np
 import shapely
 
 from modelling_extrude_probe import fixtures
-from modelling_split_plan import split_plan
-from modelling_split_sizes import Floating,Part
+from outshine_ref.buildings.modelling.plan_split import split_plan
+from outshine_ref.buildings.modelling.split_sizes import Floating,Part
 from showcase_groups import save_plot
 
 
