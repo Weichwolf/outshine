@@ -3,6 +3,7 @@
 #include "ClassificationPreparation.h"
 
 #include "OsmLayer.h"
+#include "GroundRule.h"
 
 #include <array>
 #include <algorithm>
@@ -188,7 +189,7 @@ void ClassificationPreparation::AppendFeature(
     Tier &t, const ::outshine::Generators::Osm::OsmField::Feature &f) {
   const std::string_view layer = t.Field->LayerName(static_cast<int>(f.Layer));
   const std::string_view kind = t.Field->Str(f, "kind");
-  const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
+  const VegetationTemplates::Rule *rule = Generators::Osm::GroundRuleOf(*t.Field, f, *Veg_);
   if (rule == nullptr) {
     std::string key(layer);
     key.append("/").append(kind);
