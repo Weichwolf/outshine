@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4792/4808 (ba8ed5aa4). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 16 Fahrten offen.
+Zürich 4794/4808 (ba9aabc6f). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 14 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 56,6 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 52,1 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -82,9 +82,9 @@ nachgewiesen ist; unnötiges Ausschneiden/Wiedervereinen trennt numerische Berü
 prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine erfundenen Mesh-Verbinder.
 
 ## Nächste Lieferung und Abnahme
-23 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
-1146 lokal: 18/18, zwei Gegenrichtungen gemeinsam, +17,89 m²; Nahbild/erneutes Laden geprüft.
-Neue Veröffentlichungsregel im Gesamtfenster neu prüfen; bestätigter Stand bleibt 4792/4808.
+24 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
+1146 im Gesamtfenster: 18/18, zwei Gegenrichtungen gemeinsam, +17,89 m²; Nahbild/erneutes Laden geprüft.
+Veröffentlichung/erneutes Laden im Gesamtfenster geprüft; nächste Lieferung sind die 14 verbleibenden Fahrten.
 Cachetreffer laden die gespeicherte öffentliche Fläche; native Fläche/Identitäten/Hüllen erneut prüfen.
 Öffentliche Klassifizierung beim Laden nicht aus Quellen nachbauen: verändert Flächen und trennt Anschlüsse.
 [Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
