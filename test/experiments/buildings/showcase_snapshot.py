@@ -22,6 +22,7 @@ from projection_axes_render import probe as projection_axes_probe
 from showcase_setbacks import probe as setbacks_probe
 from showcase_setback_physical import probe as setback_physical_probe
 from showcase_offset import probe as offset_probe
+from showcase_roof_shed import probe as roof_shed_probe
 
 
 NAMES={'rectangle':'Rechteck · Kontrollhaus','vienna-compact':'Wien · kompaktes Gebäude',
@@ -112,6 +113,7 @@ def main():
     reports+=setbacks_probe(args.output,provenance,render)
     reports+=setback_physical_probe(args.output,provenance)
     reports+=offset_probe(args.output,provenance)
+    reports+=roof_shed_probe(args.output,provenance)
     temporary=args.output/'snapshot.json.tmp'
     temporary.write_text(json.dumps(provenance|dict(reports=reports,completed_recipe_families=0),ensure_ascii=False,indent=2)+'\n')
     temporary.replace(args.output/'snapshot.json')

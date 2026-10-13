@@ -102,6 +102,7 @@ class Shape:
     textures: tuple=()
     projections: tuple=()
     offset_info: object=None
+    roof_info: object=None
 
     def __post_init__(self):
         if not isinstance(self.material,Material):raise ValueError('Shape material must be an immutable Material')
@@ -157,6 +158,10 @@ class Shape:
     def offset(self,distance,keep=None):
         from modelling_offset import offset
         return offset(self,distance,keep)
+
+    def roof_shed(self,value,index=0,mode='byAngle'):
+        from modelling_roof_shed import roof_shed
+        return roof_shed(self,value,index,mode)
 
     def insert(self,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         from modelling_insert import insert

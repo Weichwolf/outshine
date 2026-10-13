@@ -12,6 +12,8 @@ from modelling_uv_corners import rings_uv,channels_uv
 
 
 EXTRUSION_TAGS={'extrude.bottom':1,'extrude.side.outer':2,'extrude.side.inner':4,'extrude.top':8}
+ROOF_TAGS={'roof.bottom':16,'roof.side.outer':32,'roof.side.inner':64,'roof.top':128}
+FACE_TAG_MASKS=EXTRUSION_TAGS|ROOF_TAGS
 
 
 def ring_indices(values):
@@ -99,7 +101,7 @@ def compile_faces(vertices,faces,vertex_normals=None,allow_warped=False):
                  for i,(index,xy) in enumerate(zip(ring,coordinates[r]))}
         extra_corners={channel:{tuple(xy):values[r][i] for r,xy_ring in enumerate(coordinates) for i,xy in enumerate(xy_ring)}
                        for channel,values in face.uv_sets}
-        tag_mask=sum(bit for name,bit in EXTRUSION_TAGS.items() if name in face.tags)
+        tag_mask=sum(bit for name,bit in FACE_TAG_MASKS.items() if name in face.tags)
         for triangle in shapely.get_parts(triangulated[number]):
             xy=np.array(triangle.exterior.coords)[:3]
             a,b=xy[1]-xy[0],xy[2]-xy[0]

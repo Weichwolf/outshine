@@ -15,7 +15,7 @@ danach moderne/zeitgenössische Architekturrezepte für alle lieferbaren OSM-Kla
 Besitzer: Gebäudeagent auf `buildings`, `.venv`, `test/experiments/buildings/`; native Integration bleibt offen.
 Scope/Extrusion, Komponenten, Unterteilung, Assets, UVs, Material-Overrides und Projektion teilweise umgesetzt/geprüft.
 Kein vollständiger Modellierkern; null vollständige Architektur-Rezeptfamilien. Aktueller Bild-/Prüfstand in 2460 und Showcase-Manifest.
-SDK-Inventar/86 Ghidra-Ziele/fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); SDK 3.4 versus PyPRT 1.12/PRT 3.3 unterscheiden.
+SDK-Inventar/Ghidra-Ziele/fünf RPKs: [2400](2400_esri_capabilities_and_interior_primitives_have_executable_evidence.md); SDK 3.4 versus PyPRT 1.12/PRT 3.3 unterscheiden.
 
 ## Offset: metrische Flächen und Shape-Anbindung
 `Shape.offset`: signierte planare 3D-Flächen, Löcher, Zerfall/Kollaps; affine UV0–9, Tags/Material/Gruppen und signed Scope erhalten.
@@ -44,7 +44,6 @@ GEOS erhält alle Teile. Zwölf Frame-/Distanzfälle plus Hof/Körper/Extrusion;
 `s` setzt absolute/relative Größen einschließlich Spiegelung; `translate` unterstützt dokumentierte Koordinatensysteme.
 Neun Kontrollgruppen inklusive nichtkommutierender Rotationen, schiefer Pivots, UV/Besitz/Normalen;
 zwei PRT-Translationen. Isolierte PRT-Rotation/Skalierung, singuläre Normalen und Floating-Selector bleiben offen.
-Scope c3dc4f1c7: 21 warme Läufe, größter Mesh p50 9,93 statt 48,61 ms; kein Frame-/GPU-Beleg.
 `modelling_faces/modelling_extrude`: Flächenarten face.normal/world.up/world.up.flatTop/vertex.normal.
 Scope-X orthogonal zur neuen Y-Achse projizieren, eng an Geometrie anpassen; negative Distanz behält negatives Scope-Y.
 Flat-Top nimmt mindestens die globale Quellspanne; Firstkontakt kann getrennt geschlossene Keile ergeben.
@@ -72,9 +71,7 @@ Gleiche deklarierte Werte/Name bündeln unterschiedliche IDs; unaufgelöste IDs 
 `group_names/material_names` folgen Komponentenindices ohne Vertexausgabe. Vier g/m-Frames, zwei Lochflächen/UVs,
 Draht-/Punktgruppen, sechs ungültige Eingaben sowie drei echte PRT-Prismen nach Bounds/Volumen geprüft.
 PyEncoder liefert keine Gruppen-/Materialmetadaten; PRT-Prismen plus gefüllte Höfe sind kein isoliertes g/m/h-Orakel.
-Kosten 0587b922a: fünf Grundrisse, 30 Komponenten-/20 Namensmessungen, je 21 warme Läufe, zwei OpenBLAS-Threads.
-Native Übernahme p50 1,66–4,92 statt 2,18–15,49 ms beim GEOS-Neuaufbau, gleiche Geometrie/UVs/Metadaten/Scopes.
-Namen p50 5,8–51 µs aus Metadaten statt 0,57–1,41 ms mit Geometriekontext. Finale Ausgabe/Frames/GPU ausgeschlossen.
+Native Übernahme und Namensabfragen aus Metadaten gemessen günstiger als GEOS-Neuaufbau/Geometriekontext; Frames/GPU ausgeschlossen.
 
 ## Unterteilung: 2D-Verfahrensstufe
 `modelling_split_sizes/split_plan/split_area`: absolute/relative/floating Größen, flache Repeats und globale Indices.
@@ -82,8 +79,7 @@ GEOS-Schnittpolygone mit Löchern/Multipart; adjust/noAdjust-Bounds, verschachte
 Flächenteilung nutzt monotone Summen der CDT-Dreiecksflächen; zwischen Eckpunktpositionen ist die Summe quadratisch.
 Direkte Inversion gegen 64-Schritt-Bisektion und wiederholte GEOS-Cuts vergleichen, Quellfläche/Schnittgrenzen erhalten.
 Neun SDK-Größenbeispiele, analytisches Dreieck, 198 GEOS-Flächenintegrale sowie fünf Grundrisse × zwei Achsen geprüft.
-Messung 725034641: 30 Fälle/21 warme Läufe, gesamte 2D-Teilung inklusive Aufbau/Cuts 0,61–1,21 ms p50;
-GEOS-Bisektion 4,93–7,52 ms. Maximaler Flächenfehler 3,6e−12 m²; kein nativer Mesh-/UV-/Framebeleg.
+Direkte Flächeninversion gemessen günstiger als GEOS-Bisektion; maximaler Flächenfehler 3,6e−12 m², kein Framebeleg.
 
 ## Unterteilung: geschlossene Körper und offene Flächen
 `Shape.split`: native Dreiecke mit baryzentrischen UV-/Normalenwerten schneiden, logische Quellflächen rekonstruieren.
@@ -93,27 +89,31 @@ SDK-UV-/Materialgleichheit bleibt offen. Manifold-Schnitt verworfen: Hofgrenzfal
 Eigener Weg: 15 Grundriss-/Achsenfälle, vier Frames/zwölf Achsenfälle und 1.008 nichtaffine UV-/Normalenecken geprüft.
 Profil: skalare NumPy-Kreuzprodukte/Projektionen vermeiden, Normen pro Quelle teilen und eindeutige Flächen ohne zweite Zuordnung übernehmen.
 Offene Kantenkomponenten erzeugen keine Caps; neun ungültige/unsupported Eingaben einschließlich Misch-/Nullvolumen prüfen.
-Messung a256e35da: vier Körper p50 26,9–76,8 statt 46,4–147,0 ms; 60 Vorgängerteile in allen Daten exakt gleich.
-Offene Teilungen p50 5,1–8,8 ms; sechs Plan-/Achsenfälle und Fassadenachsen geprüft. Finale Ausgabe/Frames/GPU ausgeschlossen.
 
-## Flächenteilung und nächster Block
+## Flächenteilung, Assets und UVs
 `Shape.split_area`: logische Normalen mitteln, orientierte 30°-Achsenwache; wirkliche Dreiecksflächen ohne Abflachen oder Caps teilen.
 30 Quell-/Achsen-/Framefälle, 102 nichtaffine UV-/Normalenecken, verwundene/ungleich große Flächen und acht ungültige Eingaben geprüft.
-Kosten b387226f2: 14 wechselnde Messpaare × 21 Läufe; p50 5,1–9,2 statt 9,5–14,0 ms, alle Fälle schneller; Flächenfehler ≤1,8e−12 m².
 SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/rohe Parts, Repeats und UV-/unitSpace bleiben Lücken.
 `Asset.from_shape`/`Shape.insert`: drei Modi, yUp/zUp und Nullachsen; Scope-Zero 0,1 mm, ausgegebene Mindestabmessung 0,01 mm.
-72 Fälle/Normen/Attribute/Eigentum geprüft; 1.000 Platzierungen p50 53 statt 269–340 ms; Arrays 5,2–5,4 kB statt 5,2–5,4 MB; Vorbereitung/GPU/Frames ausgeschlossen.
+72 Insert-Fälle geprüft; geteilte Assets gemessen günstiger in Zeit/Speicher; Vorbereitung/GPU/Frames ausgeschlossen.
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
 UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
 Material/Texturbytes erhalten. Sechs Scope-Projektionen: Ghidra belegt Tiefenvorzeichen; Frames/comp/relative Maße geprüft. Achsenbild: 6×1920×1080, gleiche Körper/Kameras; optisch geprüft. Floating ist nun signiert; Part lehnt negative Splitbreiten weiterhin ab (Prüfung angepasst). Relative/Floating-Versätze folgen SDK-Rohmaß vor Clamp. Aktiv: Weltachsen; große Koordinaten und PRT-/LOD-/Shadergleichheit offen.
+## Aktiver Dachblock
+`Shape.roof_shed`: planare Flächen, gerundete/zyklische Kantenwahl, signierter Winkel oder positive Höhe, Höfe und ausgerichteter Scope.
+Nichtaffine UV0–9, Material/Gruppen/Tags erhalten; Dachmasken auch nach `split`. Neue geometrische Normalen; Null-Traufseiten mit Quellindex auslassen.
+Ghidra 00526480 delegiert an 005225f0: 2.976 Instruktionen, zwei indirekte Aufrufe offen; Kantenindex zyklisch, Winkelzeichen dreht Dachrichtung.
+30 analytische Volumen-/Topologie-/UV-/Framefälle plus getrennte Flächen/Streams; Höhenplan und zwei 1080p-Ansichten optisch geprüft.
+Trim-Planes, isolierte PRT-Regeln, genaue SDK-UV-/Normalensemantik und gekoppelte Mehrflächen-Topologie fehlen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
-Familien/Varianten/Instanzen getrennt zählen; Zuordnung, funktionale Räume/Wege/Zugänge/Nachtlicht und Bildbelege sind Pflicht.
+Familien/Varianten/Instanzen getrennt zählen; funktionale Räume/Wege/Zugänge/Nachtlicht und Bildbelege sind Pflicht.
 
 ## Primärquellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.
+[CGA roofShed](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-shed.htm): Kantenwahl, Winkel/Höhe, Auto-Tags und Scope.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl/Pivots; [UV-Normalisierung](https://doc.arcgis.com/en/cityengine/latest/cga/cga-normalize-uv.htm): Modi, Flächentrennung.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächen/Kanten, UVs/Tags, signierte Scopes und Mindestspanne.
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm), [SplitArea](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split-area.htm): Umfang/Breiten versus Geometriefläche, Wiederholung und Scope-Anpassung.

@@ -17,9 +17,9 @@ Fünf externe Regelpakete inventarisiert; Candler auf drei echten Grundrissen Na
 Ein externes Architekturregelwerk ist keine eigene Rezeptfamilie; Alias-Seiten zählen keine Algorithmen.
 PyPRT 1.12/PRT 3.3.11669 führt Referenzen aus; SDK 3.4 separat untersuchen, Versionen nicht mischen.
 Innenraumdarstellung ist bei CityEngine belegt; automatische Raum-/Wegeplanung in lokalen Libs/RPKs unbewiesen.
-Ghidra 12.1.2: 86 ausgewählte Funktionen; neu vier Matrix-/Scope-Helfer. Zwei Achsentabellen/fünf Konstanten binär geprüft (`esri_projection_reference.py`); Matrixzeichen/Runtime-UVs offen.
+Ghidra 12.1.2: 87 ausgewählte Funktionen. Projektion: zwei Achsentabellen/fünf Konstanten binär geprüft (`esri_projection_reference.py`); Runtime-UVs offen.
 Offset-Kern nutzt CGAL Polygon-Offset; Achsenteilung ruft Mesh-Cuts auf. Split-Allokation 004d6120: feste Restbreite, gewichtete Floating-Anteile, Repeat-Floor/Ceil nach Streckungsabstand zu 1.
-ELF 00805258/00805278: 1e−8/1; 761 Instruktionen, 13 indirekte Stellen. Verschachtelte Wiederholungen und Grenzfälle bleiben offen; 2480 prüft 2D/3D getrennt.
+ELF 00805258/00805278: 1e−8/1; 13 indirekte Stellen. Verschachtelte Repeats/Grenzfälle offen; 2480 prüft 2D/3D.
 `computeInnerRects` nutzt Sweep/rekursive vertikale Zerlegung; Daniels-Blattverfahren ruft Zwei-/Drei-/Vierkontaktfälle auf.
 `continueRecursion` bildet Koordinatenextrema, Rechteckfläche und `isBetterThan`; Typen und Vollständigkeit bleiben ungeprüft.
 Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platzieren (2420), kein eigener Globaloptimalitätsanspruch.
@@ -27,7 +27,9 @@ Feste Treppen-/Schachtmaße zuerst gültig innerhalb des Quellkörpers platziere
 `transformInPlace` ruft sichere inverse Transponierung und Flächennormalen auf; `addInstances` teilt Face-Material-Meshes und kombiniert Materialien.
 Material: RGB/RGBA warnen und begrenzen [0,1]; Hex-RGB erhält Opazität, Hex-RGBA setzt sie. Reset ersetzt Shape-/Geometriematerial getrennt.
 `getMaterial` kombiniert used aus Shape/Geometrie; Roughness/Metallic-Setter ohne beobachtete Begrenzung. Isolierte PRT-Regeln/Formatierung/Shadergleichheit offen.
-Walm-/Satteldach rufen denselben `roofSkeleton`-Pfad auf; Pultdach delegiert an den noch ungeprüften `roofRidge`-Kern.
+Walm-/Satteldach rufen denselben `roofSkeleton`-Pfad auf; Pultdach delegiert an `roofRidge` (005225f0, 2.976 Instruktionen).
+Kantenindex runden/zyklisch abbilden, negative Winkel um 180° drehen, Höhenmodus, HoleSplitHelper und Scope-Anpassung belegt.
+`esri_roof_reference.py`: sieben ELF-Konstanten geprüft; zwei indirekte Dachaufrufe/CGA-Ausgabe offen.
 `createSkeletonBasedRoof` nutzt CGAL-Innenskelett, Lochpolygone, Giebelklassifikation, Schnittkorrektur und Flächennormalen.
 Dachvorbereitung bereinigt Löcher, transformiert/verschweißt Bauteile; 3/11/1 indirekte Aufrufe in den drei großen Dachfunktionen bleiben offen.
 `extractCompComponents` delegiert Flächen/Kanten, übernimmt Loch-/Tagbeziehungen und ruft glatte Vertexnormalen auf; vier indirekte Ziele bleiben offen.

@@ -4,7 +4,7 @@ import numpy as np
 import shapely
 
 from modelling_cut_topology import logical_faces
-from modelling_faces import Face,EXTRUSION_TAGS
+from modelling_faces import Face,FACE_TAG_MASKS
 from modelling_vector import cross3
 
 
@@ -124,7 +124,7 @@ class Slab:
         faces,indices=logical_faces(mesh,np.asarray(self.roots),self.keys,self.templates)
         mesh['materials']=np.asarray([faces[i].material for i in mesh['parts']],dtype=np.uint16)
         mesh['groups']=np.asarray([faces[i].group for i in mesh['parts']],dtype=np.uint32)
-        mesh['face_tag_mask']=np.asarray([sum(bit for name,bit in EXTRUSION_TAGS.items() if name in faces[i].tags) for i in mesh['parts']],dtype=np.uint8)
+        mesh['face_tag_mask']=np.asarray([sum(bit for name,bit in FACE_TAG_MASKS.items() if name in faces[i].tags) for i in mesh['parts']],dtype=np.uint8)
         if self.source.authored_normals:
             normals=data[:,5:8];length=np.linalg.norm(normals,axis=1);mesh['normals']=np.divide(normals,length[:,None],out=np.zeros_like(normals),where=length[:,None]>0)
         return (mesh,faces,indices),tuple(sorted(self.omitted))

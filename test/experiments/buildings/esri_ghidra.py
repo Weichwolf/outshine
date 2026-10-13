@@ -70,6 +70,7 @@ TARGETS = {
     '_ZN9Processor7roofHipEN2GC13RoofValueType4EnumEddb': 'hip roof value and overhang dispatch',
     '_ZN9Processor9roofGableEN2GC13RoofValueType4EnumEdddb': 'gable roof value and overhang dispatch',
     '_ZN9Processor8roofShedEN2GC13RoofValueType4EnumEdd': 'shed roof value and edge dispatch',
+    '_ZN12_GLOBAL__N_19roofRidgeER9ProcessordddPKiPKd': 'shed/ridge roof planes, edge wrapping, holes, tagging and fitted scope',
     '_ZN12_GLOBAL__N_112roofSkeletonER9ProcessorN4cgal8RoofTypeEdbdd.lto_priv.0': 'skeleton roof preparation and mesh assembly',
     '_ZN12_GLOBAL__N_14roofER9Processoridbddib.lto_priv.0': 'roof selection and fallback dispatch',
     '_ZN4cgal23createSkeletonBasedRoofERKN4util4MeshERKNS0_12HoleRelationEjNS_8RoofTypeEdbddRSt6vectorImSaImEE': 'actual skeleton-based roof construction',

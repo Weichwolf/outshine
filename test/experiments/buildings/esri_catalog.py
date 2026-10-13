@@ -31,6 +31,9 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
+    'roofShed':dict(module='modelling_shape.Shape.roof_shed',status='planar logical faces: rounded/wrapped exterior edge index, signed angle or positive height, holes, closed nondegenerate sides, arbitrary corner UV0-9, material/group/tag inheritance and aligned scope; analytic geometric controls',
+        pending=['trim planes and exact optimized SDK connectivity','isolated PRT roofShed rules and exact UV/normal semantics','mixed wire/point geometry and vertex colours','full multi-face adjacency semantics','native LOD'],
+        evidence=['verify_modelling_roof_shed.py','esri_roof_reference.py','esri_ghidra.py','showcase_roof_shed.py']),
     'offset':dict(module='modelling_shape.Shape.offset',status='logical planar 3D faces: metric signed offsets, holes, components, affine UV0-9, source tags/materials/groups and fitted signed scope; five pinned SDK helper comparisons',
         pending=['authored normals and nonaffine UV extrapolation','border subdivision and edge provenance','occluder propagation/runtime queries','isolated full CGA offset rules'],
         evidence=['verify_offset_plan.py','verify_modelling_offset.py','esri_offset_oracle.py','showcase_offset.py']),

@@ -7,7 +7,7 @@ import numpy as np
 
 from modelling_cut_source import CutInput,prepare_source
 from modelling_cut_topology import logical_faces,vertex_roots
-from modelling_faces import Face,EXTRUSION_TAGS
+from modelling_faces import Face,FACE_TAG_MASKS
 
 
 @dataclass
@@ -72,7 +72,7 @@ def decode_cut(source,solid,axis,cut_material=None,cut_group=0):
     polygons,source_indices=logical_faces(mesh,roots,keys,templates)
     mesh['materials']=np.asarray([polygons[index].material for index in mesh['parts']],dtype=np.uint16)
     mesh['groups']=np.asarray([polygons[index].group for index in mesh['parts']],dtype=np.uint32)
-    mesh['face_tag_mask']=np.asarray([sum(bit for name,bit in EXTRUSION_TAGS.items() if name in polygons[index].tags) for index in mesh['parts']],dtype=np.uint8)
+    mesh['face_tag_mask']=np.asarray([sum(bit for name,bit in FACE_TAG_MASKS.items() if name in polygons[index].tags) for index in mesh['parts']],dtype=np.uint8)
     if source.authored_normals:
         normals=properties[:,5:8].copy()
         for row,key in enumerate(keys):
