@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4790/4808 (fa37e0515). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 18 Fahrten offen.
+Zürich 4792/4808 (ba8ed5aa4). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 16 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 57,2 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 56,6 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -78,39 +78,34 @@ Bilder: build/shots/experiments/transport/.
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 
 ## Nächste Lieferung und Abnahme
-22 gekoppelte Produkte; frühere Fahrten erhalten, davon vier in gemeinsame Produkte übernommen.
-1758: 37/37, +34,56 m²; [gemeinsame Schnitte](../test/experiments/transport/transport_joined_cut_setbacks.py)
-mit getrennten Quellports und erhaltenem Inselkern. Vollständigen Inselkontext und aktuelle Endposen verwenden.
-[Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) prüft höchstens
-64 Kombinationen; billigste Einzelkurven können gemeinsam eine Insel löschen. Einbindung in Produktaufbau offen.
-1733: 4/4, 65,94 m Fahrweg, +7,61 m²; [Quellabkürzungen](../test/experiments/transport/probes/roadbeds/source_shortcut_probe.py)
-erhalten Originalroute/Endposen. Neue freie Resttaschen nur explizit nach obigem Flächen-/Breitenvertrag schließen.
-Fußwegübergänge aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsreste nach Koordinatengrenze prüfen.
-1383: 19/19 plus zwei Nachbarfahrten, +14,29 m². Kleinste passende Quellstation statt Radius als Fixversatz wählen.
-1599 im Gesamtfenster: 6/6 plus zwei Nachbarfahrten, +3,49 m²; beide Richtungen integriert.
-[Richtungsframes kombinieren](../test/experiments/transport/probes/roadbeds/combine_directional_frames_probe.py)
-erhält Quellstationen/Schnittlinien und prüft sämtliche Fahrten beider Vorgänger frisch. Nahbild geprüft.
-1765 im Gesamtfenster: 53/53; 71 bisherige plus drei neue Fahrten über sechs Besitzer, +14,53 m².
-[Port-Erweiterung](../test/experiments/transport/probes/roadbeds/shared_port_extension_probe.py)
-speichert gemeinsame öffentliche Unterstützung; erneutes Laden, Nahbild und Gesamtfenster geprüft.
-1600: 12/12 im Gesamtfenster; Nahbild/erneutes Laden geprüft. Sechs Bestandsprodukte geometrisch unverändert.
-Expliziter öffentlicher Übergangsbereich statt tangential eng ausgeschnittener Hüllenfläche.
+23 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
+[Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
+auf den nächsten Portmittelpunkt aller Nachbarn. Schnittebenen bleiben fest; Zusatzsegmente am
+anderen Arm sind ungültig. Vorhandene Geometrie behalten, Erweiterung genau einmal besitzen.
+[Gemeinsame Auswahl](../test/experiments/transport/probes/roadbeds/joint_court_selection.py) prüft
+höchstens 64 Kombinationen. Billigste Einzelkurven können gemeinsam eine Insel löschen;
+Gegenrichtungen und betroffene Nachbarn zusammen wählen. Automatische Einbindung offen.
+[Quellabkürzungen](../test/experiments/transport/probes/roadbeds/source_shortcut_probe.py) erhalten
+Originalroute/Endposen. Öffentliche Übergänge explizit als befahrbare Fläche deklarieren;
+private/Bahnflächen bleiben geschützt. Reservierte Gebäudezuschnitte fordert Transport bei Buildings an.
+Offene Rückkehr-Wendeplätze brauchen keinen Inselanker. Radiusreserve passend zur verfügbaren
+Fläche wählen, Mindestradius/Hüllenprüfung beibehalten. Keine Vergrößerung gültiger Restflächenlimits.
 Optionale Kleinstspalt-Bereinigung: vollständig überdeckt, unreserviert, ≤0,05 m²,
-kein 5-cm-Innenkreis; Fläche/Geometrie bilanzieren. Konstruktive Vereinfachung, keine Rundungstoleranz.
-Zürich schließt damit 0,00947 m²; geschützte/breite/große/teilweise überdeckte Löcher bleiben erhalten.
-903 im Gesamtfenster: 12/12 plus sechs Nachbarfahrten; +22,75 m², Nahbild/erneutes Laden geprüft.
-Alle Ports teilen Erweiterungen nach Nähe zum Portmittelpunkt;
-Schnittebenen bleiben fest. Verhindert fremde Zusatzsegmente am anderen Arm; 1758 bleibt geometrisch identisch.
-1583 lokal: 6/6 plus zwei Nachbarfahrten; +41,36 m², Nahbild/erneutes Laden geprüft.
-Offene Rückkehr-Wendeplätze brauchen keinen Inselanker. Radiusreserve passend wählen; Mindest-/Hüllenprüfung gilt.
-Ports verschiedener Nachbarn ebenfalls räumlich begrenzen; Gegenrichtungen gemeinsam lösen. Gesamtfenster offen.
-Verbleibende
-[Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
-Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
-[Fensterprüfung](../test/experiments/transport/transport_roadbed_window_experiment.py) erhält sämtliche bisherigen Fahrten;
-[Gesamtbilder](../test/experiments/transport/transport_roadbed_window_render.py) und Nahbilder öffnen: keine Risse/Faltungen/Doppelstücke.
-Kosten pro Modul/Verbindung, Speicher und Skalierung messen; unnötige Suche ersetzen. [Weltsurvey](../test/experiments/transport/transport_world_survey.py)
-prüft hunderte bis tausende reale Netze mit Quellen-/Nutzungsbilanz. Flächen/Zugänge allein beweisen keine Befahrbarkeit.
-Erst annähernd fehlerfreie vollständige 2D-/2,5D-Netze mit tragbaren Kosten nativ übertragen.
-Ungelöste Teile mit Grund bilanzieren; sie blockieren nie den gültigen restlichen Aufbau.
+kein 5-cm-Innenkreis. Fläche/Geometrie bilanzieren; konstruktive Vereinfachung, keine Rundungstoleranz.
+[Richtungsframes kombinieren](../test/experiments/transport/probes/roadbeds/combine_directional_frames_probe.py)
+erhält Quellstationen/Schnittlinien; [Port-Erweiterungen](../test/experiments/transport/probes/roadbeds/shared_port_extension_probe.py)
+speichern gemeinsame öffentliche Unterstützung und prüfen erneutes Laden.
+
+1. Verbleibende [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py)
+   durch direkte gültige Verbindungen ersetzen. Bewährte Endbogen-/Wendeplatz-/Portrezepte
+   automatisch auswählen statt Place- oder Modul-Sonderfälle zu integrieren.
+2. Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie
+   Spurführung/Abbiegekonflikte. Nutzungsbilanz und gültige Teilnetze gemäß 2342 erhalten.
+3. [Fensterprüfung](../test/experiments/transport/transport_roadbed_window_experiment.py) erhält alle Fahrten;
+   [Gesamtbilder](../test/experiments/transport/transport_roadbed_window_render.py) und Nahbilder öffnen:
+   keine Risse/Faltungen/Doppelstücke. Kosten pro Modul/Verbindung, Speicher und Skalierung messen;
+   erfolglose Suche durch passende begrenzte Rezepte ersetzen.
+4. [Weltsurvey](../test/experiments/transport/transport_world_survey.py) auf hunderten bis tausenden
+   realen Netzen mit Quellen-/Nutzungsbilanz. Erst annähernd fehlerfreie vollständige 2D-/2,5D-Netze
+   mit tragbaren Kosten nativ übertragen. Höhe/Ebenen besitzen 2344/2345.
 [Referenzen](../doc/references/transport/README.md); gemeinsame Arbeits-/Abnahmeregeln in AGENTS.
