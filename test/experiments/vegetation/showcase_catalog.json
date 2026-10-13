@@ -1,5 +1,5 @@
 {
-  "current_work": "Blatt-/Grasflächen liegen jetzt mit analytischen Normalen und Flächenmetrik im installierbaren Kern. Geteilte Quadraturdaten sind unveränderlich; unteraufgelöste falsch orientierte Facetten werden abgelehnt. Bisherige Prototypen und Materialmetrik bleiben erhalten. Weitere Generatorfunktionen, Wind, LOD-Deckung und Pflanzenrezepte sind offen.",
+  "current_work": "Blatt-/Grasformen, Nadeln, Profile und längenabhängige Blattfolgen/Astquirle liegen im installierbaren Kern. Standorttabellen sind unveränderlich; Batch-Vorabprüfung und geteilte Winkelarbeit vermeiden Arbeit an leeren Eltern. Vollständige Standortfolgen und Graphprodukte bleiben erhalten. Weitere Generatorfunktionen, Wind, LOD-Deckung und Pflanzenrezepte sind offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -511,7 +511,8 @@
     "normal_plot": "lod-0",
     "needle_plot": "lod-0",
     "profile_cache_plot": "lod-0",
-    "blade_library_plot": "lod-0"
+    "blade_library_plot": "lod-0",
+    "placement_library_plot": "lod-0"
   },
   "genera": [
     {

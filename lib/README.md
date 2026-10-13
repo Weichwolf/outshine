@@ -125,3 +125,16 @@ Unterteilung allein beweist keine Silhouetten-/Deckungsfehlergrenze.
 `area` integriert die Fläche; geteilte Quadraturpuffer sind unveränderlich.
 Quellen/Flächen-/Materialbelege und offene botanische Qualität stehen in [#22](https://github.com/Weichwolf/outshine/issues/22);
 Bibliotheksübernahme in [#52](https://github.com/Weichwolf/outshine/issues/52).
+
+### Organ sites along parent axes
+
+`outshine_ref.vegetation.DistancePattern` prepares complete phyllotactic or whorled
+site tables from parent lengths in metres, positive internode profiles in metres,
+normalized bounds and divergence in radians. Tables contain `(parameter, azimuth)`
+rows in stable group/member order. Seeded spread is independent per parent; pass
+stable seeds when parent order changes. Recipe reload preserves these sequences.
+Preflight uses conservative capacities: an insufficient aggregate budget returns
+`None` before site allocation; a parent exceeding 4096 sites is rejected. Empty
+and populated tables own immutable bytes. The implementation skips empty parents
+after vectorized preflight, with bounded parent/site work. This does not establish
+a complete SpeedTree property mapping, botanical recipe or native placement ABI.
