@@ -20,6 +20,9 @@ def verify():
     assert sum(p[2]=='CCC' for p in mixed)<3
     assert all(p[2]=='CCC' and p[5].is_simple for p in selected)
     assert [(p[0],p[1]) for p in selected]==sorted((p[0],p[1]) for p in selected)
+    expanded=seeds(entry,exit,source,floor,region,vehicle,limit=24)
+    assert len(expanded)>len(mixed)
+    assert [(p[0],p[1]) for p in expanded[:3]]==[(p[0],p[1]) for p in mixed]
     assert seeds(entry,exit,source,floor,region,vehicle,())==[]
     return dict(method_compatibility_before_budget=True,three_seed_budget_unchanged=True,
                 unsupported_families_excluded=True,eligible_seeds_ranked=True)

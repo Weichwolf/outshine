@@ -23,7 +23,7 @@ from continuous_turn_recipe import fit_turn
 from transport_cut_setback_experiment import digest,implementation_files
 
 
-def seeds(entry,exit,source,floor,region,vehicle,families=('CSC','CCC')):
+def seeds(entry,exit,source,floor,region,vehicle,families=('CSC','CCC'),limit=3):
     choices=[]
     for scale in (1.05,1.125,1.25):
         radius=vehicle['minimumRearAxleRadiusM']*scale
@@ -33,7 +33,7 @@ def seeds(entry,exit,source,floor,region,vehicle,families=('CSC','CCC')):
                 if not path.is_simple or not region.covers(path) or not same_island_winding(path,source,floor):continue
                 outside=path.buffer(vehicle['widthM']*.5).difference(floor).area
                 choices.append((outside,path.length,family,kind,radius,path))
-    return sorted(choices,key=lambda c:c[:2])[:3]
+    return sorted(choices,key=lambda c:c[:2])[:limit]
 
 
 def provenance():
@@ -51,6 +51,7 @@ def main():
     parser.add_argument('--input',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--spacing',type=float,default=4.)
+    parser.add_argument('--seed-limit',type=int,choices=range(1,25),default=3)
     parser.add_argument('--method',choices=('hermite','continuous'),default='hermite')
     parser.add_argument('--transition-length',type=float,default=1.)
     parser.add_argument('--request-building-clearance',action='store_true')
@@ -67,7 +68,7 @@ def main():
     reach=2*vehicle['minimumRearAxleRadiusM']+max(vehicle['frontFromRearAxleM'],vehicle['rearOverhangM'])+vehicle['widthM']*.5
     region=source.envelope.buffer(reach)
     domain=region.difference(reserved.difference(floor).buffer(2*error))
-    options=seeds(entry,exit,source,floor,region,vehicle);fit=collision_fitter(33);calls=0;rows=[]
+    options=seeds(entry,exit,source,floor,region,vehicle,limit=args.seed_limit);fit=collision_fitter(33);calls=0;rows=[]
     for index,(_,_,family,kind,radius,path) in enumerate(options):
         begin=time.perf_counter();budget=(1536-calls)//(len(options)-index)
         if args.method=='continuous':
@@ -114,7 +115,7 @@ def main():
                                 conflict_wkb=actual.intersection(buildings).wkb.hex(),building_resolution_pending=True))+'\n')
         row['elapsed_ms']=(time.perf_counter()-begin)*1000;print(json.dumps(row),flush=True)
     (args.output/'results.json').write_text(json.dumps(dict(cases=rows,residual_calls=calls,maximum_calls=1536,
-        reach_m=reach,spacing_m=args.spacing,input=str(args.input),input_sha256=digest(args.input),
+        reach_m=reach,spacing_m=args.spacing,seed_limit=args.seed_limit,input=str(args.input),input_sha256=digest(args.input),
         **provenance(),
         scope='Local turning-space recipe with unchanged vehicle and body tests; shared cuts and neighbors remain unverified.'),indent=2)+'\n')
 
