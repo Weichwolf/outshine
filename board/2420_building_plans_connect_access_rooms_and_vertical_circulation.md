@@ -25,7 +25,11 @@ Vorherige Erdgeschoss-/Reservepläne bleiben als Bildvergleich; nutzungsgerechte
 Logische Welt braucht stabile Raum-/Portal-IDs, Höhen, Wege und Kollision unabhängig vom Render-LOD.
 
 Aktiver Ausbau: gestaffelte Geschossgrundrisse bei festem Treppenkern/Flur; negative Raum-/Zugangsfolgen verwerfen.
-Quellgrundriss/Höhen und Raum-IDs erhalten; Terrassenzugang/Geländer bleiben bis zur Geometrieprüfung offen.
+Quellgrundriss/Höhen und Raum-IDs erhalten. Aktiv: Terrassenportale, bündige Bodenplatten und geschlossene Randbrüstungen.
+Pro Terrassenkomponente nutzbaren Raumanschluss samt 0,30-m-Clearance suchen; ungeeignete Flächen als unzugänglich ausweisen.
+`building_terraces`: bündige Decks, 0,10 m dicke/1,10 m hohe Brüstungen und raumbezogene Portale.
+`verify_terraces`: beide Rechteckzugänge am Mesh geprüft; versiegelte Tür/fehlendes Deck/fehlende Brüstung abgewiesen.
+Flügel/Hof behalten ohne gültige Staffelung ihre Meshes; 0,20-m-Dachstreifen erhalten keinen fingierten Zugang.
 `building_setbacks`: mit GEOS eingerückte Hülle um geschützten Kern/Flur, Räume schneiden und Clearance erneut prüfen.
 Rechteck/Flügel/Hof geprüft; ungültige Einrückung behält das vorige Geschoss mit Grund. Nulländerung übernimmt den Originalplan.
 Mesh-Plattenprüfung verwendet nun den jeweiligen Geschossgrundriss; unveränderte Oberplatten sind ein negativer Kontrollfall.

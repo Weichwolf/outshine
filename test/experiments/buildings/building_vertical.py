@@ -7,6 +7,7 @@ from building_circulation import build as circulation
 from building_layout import canonical_geometry, rectangle
 from building_mesh import panes, solid
 from building_plan import CEILING_M, wall_bands, windows
+from building_terraces import PARAPET_HEIGHT_M
 from building_stair import FLIGHT_WIDTH_M, PLATE_M, flight, guard, landing_guard
 
 
@@ -65,6 +66,9 @@ def mesh(plan, method='profile', seal_openings=False):
         floor = cut if index else current['footprint']
         ceiling = cut if index < plan['storeys']-1 else current['footprint']
         solid(storage, floor, current['base_z_m'], current['floor_z_m'], 0)
+        if 'terrace_guard' in current:
+            solid(storage,current['terrace'],current['base_z_m'],current['floor_z_m'],4)
+            solid(storage,current['terrace_guard'],current['floor_z_m'],current['floor_z_m']+PARAPET_HEIGHT_M,7)
         if index and 'stair' in plan:
             support = canonical_geometry(plan['rooms'][1].difference(hole))
             solid(storage, support, current['floor_z_m']-PLATE_M, current['base_z_m'], 6)

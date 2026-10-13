@@ -14,6 +14,7 @@ import shapely
 from building_plan_views import patch
 from building_plan import wall_at
 from building_setbacks import apply
+from building_terraces import apply as terraces
 from building_vertical import build,mesh
 from evidence import revision
 from preview import configuration
@@ -23,8 +24,8 @@ from showcase_scene import fitted
 
 
 def house():
-    return apply(build(dict(id='setback-house',polygon=shapely.box(0,0,18,14),
-        properties={'render_height':9.,'building:levels':3})),[0.,.8,1.6])
+    return terraces(apply(build(dict(id='setback-house',polygon=shapely.box(0,0,18,14),
+        properties={'render_height':9.,'building:levels':3})),[0.,.8,1.6]))
 
 
 def probe(output,provenance,render):
@@ -34,6 +35,7 @@ def probe(output,provenance,render):
     for index,(axis,current) in enumerate(zip(axes,plan['storey_plans'],strict=True)):
         patch(axis,plan['footprint'],facecolor='#edf0f3',edgecolor='#bbc3ca')
         patch(axis,current['terrace'],facecolor='#e9c788',edgecolor='#a57529')
+        patch(axis,current['terrace_guard'],facecolor='#78674e',edgecolor='none')
         patch(axis,wall_at(current,current['floor_z_m']+.4),facecolor='#39454f',edgecolor='none')
         for room,kind in zip(current['rooms'],current['room_kinds'],strict=True):
             patch(axis,room,facecolor='#b0d3c6' if kind=='corridor' else '#ceaa7c' if kind=='stairwell' else '#d6e2e8',edgecolor='none')
@@ -41,7 +43,7 @@ def probe(output,provenance,render):
             title=f'Geschoss {index+1} · {current["footprint"].area:.1f} m²')
         axis.grid(alpha=.15)
     fig.text(.06,.12,'Grün: gemeinsamer Flur. Braun: unveränderter Treppenkern. Ocker: neu freigelegte Terrassenfläche.',fontsize=14)
-    fig.text(.06,.075,'Räume und Zugänge bleiben verbunden. Terrassentüren, Geländer und Fassadendetails folgen; keine fertige Rezeptfamilie.',fontsize=13)
+    fig.text(.06,.075,'Zwei geprüfte Terrassenportale, bündige Decks und 1,10-m-Brüstungen. Fassadendetails folgen; keine fertige Rezeptfamilie.',fontsize=13)
     rows=[save_plot(fig,output,'current-setback-house-plan','Staffelhaus · Geschossgrundrisse',
         'Drei unterschiedliche Geschossflächen bei festem Treppenkern und gemeinsamen Fluren. Eigene Ergänzung auf einem synthetischen 18×14-m-Grundriss.',provenance,start,PROFILE,label='setback-house')]
     for opposite in (False,True):
@@ -50,7 +52,7 @@ def probe(output,provenance,render):
         config['constructive']=dict(mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),wall_linear=[.72,.70,.65],roof_linear=[.24,.27,.29],extra_wall_colours=[])
         rows.append(render(config,output,stem,provenance|dict(page='buildings',view=view,label='setback-house',
             title='Staffelhaus · '+('Gegenansicht' if opposite else 'Gesamtansicht'),
-            caption='Vollständiger Körper mit 3 Geschossen, 18 Raumflächen und 2 Treppenverbindungen. Rücksprünge 0/0,8/1,6 m; Flur und Kern erhalten. Terrassenzugänge/Geländer und Fassadendetails fehlen; Workbench-Geometriekontrolle.',
+            caption='Vollständiger Körper mit 3 Geschossen, 18 Raumflächen und 2 Treppenverbindungen. Rücksprünge 0/0,8/1,6 m; Flur und Kern erhalten. Zwei Terrassenportale, bündige Decks und 1,10-m-Brüstungen. Fassadendetails fehlen; Workbench-Geometriekontrolle.',
             triangles=len(product['faces']),storeys=3,rooms=18,setbacks=plan['setback_decisions'])))
     return rows
 
