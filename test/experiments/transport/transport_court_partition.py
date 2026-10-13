@@ -8,6 +8,21 @@ from transport_surface_regions import canonical_grid_region,polygonal_region
 from transport_turn_roadbeds import geometry_precision,preserves_coverage,coordinate_roundoff
 
 
+def port_cell(port,ports,extent,quantum):
+    centre=np.mean(np.array(port['line'].coords)[[0,-1]],axis=0)
+    cell=None
+    for other in ports:
+        if other['owner']!=port['owner'] or other['section']==port['section']:continue
+        rival=np.mean(np.array(other['line'].coords)[[0,-1]],axis=0)
+        normal=centre-rival;distance=np.linalg.norm(normal)
+        assert distance>quantum,'coincident ports need one shared section'
+        normal/=distance;tangent=np.array([-normal[1],normal[0]])
+        midpoint=(centre+rival)*.5;a=midpoint-tangent*extent;b=midpoint+tangent*extent
+        half=shapely.set_precision(shapely.Polygon([a,b,b+normal*extent,a+normal*extent]),quantum)
+        cell=half if cell is None else cell.intersection(half)
+    return cell
+
+
 def partition_court(parts,core,addition,ports):
     quantum=geometry_precision(shapely.union_all([*parts.values(),addition]))
     original={k:canonical_grid_region(g,quantum) for k,g in parts.items()}
@@ -24,6 +39,8 @@ def partition_court(parts,core,addition,ports):
         a=xy[0]-direction*factor;b=xy[-1]+direction*factor
         outside=shapely.Polygon([a,b,b+normal*factor,a+normal*factor])
         outside=shapely.set_precision(outside,quantum)
+        cell=port_cell(port,ports,extent,quantum)
+        if cell is not None:outside=outside.intersection(cell)
         piece=remaining.intersection(outside)
         result[port['owner']]=canonical_grid_region(result[port['owner']].union(piece),quantum)
         remaining=polygonal_region(remaining.difference(outside))
@@ -71,6 +88,18 @@ def verify():
     assert all(result[k].equals(reverse[k]) for k in result)
     assert all(lines[s].equals(reversed_lines[s]) and abs(lines[s].length-3)<1e-10 for s in lines)
     assert audit['transferred_area_m2']==0
+    shared_parts={0:parts[0],1:parts[1].union(parts[2])}
+    shared_ports=[dict(p,owner=1) for p in ports]
+    joint,joint_lines,_=partition_court(shared_parts,0,addition,shared_ports)
+    swapped,swapped_lines,_=partition_court(shared_parts,0,addition,shared_ports[::-1])
+    assert all(joint[k].equals(swapped[k]) for k in joint)
+    assert all(joint_lines[k].equals(swapped_lines[k]) for k in joint_lines)
+    for port in shared_ports:
+        cell=port_cell(port,shared_ports,100.,1e-10)
+        centre=np.mean(np.array(port['line'].coords)[[0,-1]],axis=0)
+        rival=next(p for p in shared_ports if p['section']!=port['section'])
+        assert cell.covers(shapely.Point(centre))
+        assert not cell.covers(shapely.Point(np.mean(np.array(rival['line'].coords)[[0,-1]],axis=0)))
     rotation=np.array([[0.,-1.],[1.,0.]]);offset=np.array([1e6,-7e5])
     moved=lambda g:shapely.transform(g,lambda xy:xy@rotation+offset)
     shifted=[dict(p,line=moved(p['line']),away=p['away']@rotation) for p in ports]
@@ -79,7 +108,7 @@ def verify():
     assert all(new_lines[s].equals(moved(g)) for s,g in lines.items())
     return dict(original_area_preserved=True,added_area_owned_once=True,port_plane_unchanged=True,
                 shared_port_extended=True,external_port_unchanged=True,multiple_owners=True,
-                port_order_independent=True,rigid_transform=True)
+                port_order_independent=True,rigid_transform=True,same_owner_ports_separated=True)
 
 
 if __name__=='__main__':print(verify())
