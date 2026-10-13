@@ -138,6 +138,44 @@ Dateien liegen unter `build/experiments/transport/heights/`. Ganze Flächen,
 gemeinsame Höhen und geschlossene Körper sind geprüft; C1/Fahrkurven, finaler
 Terrainanschluss, funktionale Zugänge und erhöhte Verkehrsrezepte bleiben offen.
 
+## Gemeinsame Bodenfläche und vorbereitete Kontakte (#20)
+
+`ground_surface.py` ergänzt außerhalb der tatsächlichen ebenerdigen Fahrflächen
+eine begrenzte konforme CDT-Partition. Die Verkehrsfläche erhält keine neuen XY-
+Koordinaten und bleibt über Vertex-/Face-Zuordnungen nachvollziehbar. Ein gemeinsamer
+Höhenplan begrenzt Straßen nach ihren Rezepten und Bodenfacetten nach dem ausdrücklich
+prozeduralen Böschungsrezept 2:3. Unabhängige flache Straßenpläne können einen steilen
+Zwischenraum erzeugen; die gemeinsame Lösung plant deren Höhen ausdrücklich neu.
+Input-/Output-Coverage, vollständige Domain, Ränder und ganze Gradienten werden geprüft.
+
+```sh
+.venv/bin/python -W error test/experiments/transport/ground_surface_checks.py
+.venv/bin/python -W error test/experiments/transport/ground_surface_experiment.py --compare-geometry
+.venv/bin/python -W error test/experiments/transport/ground_surface_experiment.py
+.venv/bin/python -W error test/experiments/transport/surface_contact_benchmark.py
+.venv/bin/python -W error test/experiments/transport/ground_surface_showcase.py
+.venv/bin/python test/experiments/transport/showcase.py --publish
+```
+
+Der Geometrievergleich nutzt optimierte Coverage-Union und allgemeine Union samt
+denselben Vor-/Nachprüfungen; identische vorbereitete Meshs werden verlangt. Der
+Kontaktvergleich nutzt die installierte `geometry.SurfaceSampler`-Bibliothek:
+STRtree-Prädikat gegen Bounding-Boxes plus exakten Distanzfilter, identische Treffer,
+Face-IDs/Höhen/Normalen/Fehlgründe und unabhängige Ebenenprüfung. Je Methode frischer
+Worker und fünf Wiederholungen; Indexvorbereitung, Query inkl. Ergebniskopie und
+Prozess-Peak-RSS getrennt. Keine Solver-/Providerarbeit in der fertigen Kontaktabfrage.
+
+Vier 1920×1080-3D-Inspektionen unter `build/experiments/transport/ground/` zeigen die
+gesamte Kachel und einen 120×120-m-Kontaktbereich vor/nachher mit gleicher Kamera.
+Vorher ist absichtlich ungültig: unverändertes grobes DEM durchdringt gefittete Straßen.
+Nachher ist die gemeinsame obere Fläche genau einmal belegt. Ein 5-m-Schaublock
+visualisiert ihren Ausschnitt; er ist kein Aushubvolumen-/Material-/Kollisionsnachweis.
+Brücken/Dächer gehören nicht in diese ebenerdige Bodenpartition. Gespeicherte Daten
+und Z-Bezug bleiben erhalten; keine vollständige Place-, C1- oder Eingangsabnahme.
+Das C0-Mesh approximiert den DEM-Prior; der gemessene Fehler an Face-Zentren wird
+ausgewiesen und beweist keine globale DEM-Fehlerschranke. Adaptive Verfeinerung und
+glatte Profile bleiben weitere Arbeit; funktionale Zugangskontakte bleiben separat.
+
 ```sh
 .venv/bin/python -W error -m unittest discover -s lib/tests
 .venv/bin/python -W error test/experiments/transport/surface_solid_checks.py

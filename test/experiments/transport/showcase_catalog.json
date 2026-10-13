@@ -1,6 +1,11 @@
 {
   "sections": [
     {
+      "id": "boden",
+      "title": "Boden und Kontakte",
+      "description": "Ein gemeinsamer Höhenplan für Fahrflächen und groben Boden. Vorher durchdringt unverändertes DEM die Straßen; nachher teilen sie eine C0-Oberfläche. Oliv: Boden, Grau: Korridore, Grün: Anschlüsse."
+    },
+    {
       "id": "profile",
       "title": "Höhen und Neigungen",
       "description": "Wien mit grobem DEM: vorher und nach Ganzflächenfit. Orange überschreitet die Neigungsgrenze, Grün zeigt Anschlüsse, Grau Korridore. Gleiche Kamera, ohne Höhenüberhöhung."
@@ -27,6 +32,50 @@
     }
   ],
   "images": [
+    {
+      "id": "Vienna-ground-before-solid",
+      "title": "Wien · unabhängiger Boden",
+      "section": "boden",
+      "kind": "Unzulässige Kontrolle",
+      "description": "Gefittete Straßen und unverändertes grobes DEM sind getrennt aufgebaut. Teile der Fahrflächen verschwinden im Boden.",
+      "scope": "Bewusst ungültige Geometrie als Diagnose, keine fertige Welt. Ganze Quellkachel plus 100 m Rand; 5 m Darstellungsblock ohne Aushub-/Materialnachweis.",
+      "image_source": "build/experiments/transport/ground/Vienna-ground-before-solid.png",
+      "report_source": "build/experiments/transport/ground/Vienna-ground-before-solid.json",
+      "origin_source": "build/experiments/transport/ground/origin.json"
+    },
+    {
+      "id": "Vienna-ground-after-solid",
+      "title": "Wien · gemeinsame Oberfläche",
+      "section": "boden",
+      "kind": "Geprüftes grobes Grundmodell",
+      "description": "Boden und Verkehr teilen dieselben Anschlussvertices. Jede obere Fläche ist einmal belegt; der gemeinsame Fit hält Straßen- und Böschungsgrenzen ein.",
+      "scope": "C0-Oberfläche, unverändertes Straßen-XY, gemeinsam neu geplante Höhen. Gemessene DEM-Abweichung ist keine globale Fehlerschranke; Verfeinerung, C1, Zugänge und Ebenen bleiben offen.",
+      "image_source": "build/experiments/transport/ground/Vienna-ground-after-solid.png",
+      "report_source": "build/experiments/transport/ground/Vienna-ground-after-solid.json",
+      "origin_source": "build/experiments/transport/ground/origin.json"
+    },
+    {
+      "id": "Vienna-ground-detail-before-solid",
+      "title": "Überdeckter Anschluss · vorher",
+      "section": "boden",
+      "kind": "120×120-m-Kontaktbereich",
+      "description": "Detail um den stärksten Bodenkonflikt. Unabhängige Höhen lassen Teile des Anschlusses im Terrain verschwinden.",
+      "scope": "Unzulässige Kontrolle. Die Inspektion schneidet die vorhandenen affine Flächen am Fenster, ohne neue Höhenpassung oder Überhöhung.",
+      "image_source": "build/experiments/transport/ground/Vienna-ground-detail-before-solid.png",
+      "report_source": "build/experiments/transport/ground/Vienna-ground-detail-before-solid.json",
+      "origin_source": "build/experiments/transport/ground/origin.json"
+    },
+    {
+      "id": "Vienna-ground-detail-after-solid",
+      "title": "Gemeinsamer Anschluss · nachher",
+      "section": "boden",
+      "kind": "Geprüfter Kontaktbereich",
+      "description": "Dieselben Fahrflächen werden vollständig sichtbar. Der Boden schließt ohne Höhenriss an; Abfragen liefern Höhe und Facettennormale aus dieser Fläche.",
+      "scope": "Gleiche Kamera und Geometrieauswahl wie vorher, keine Höhenüberhöhung. Facettennormale ist keine geglättete Normale; keine funktionale Eingangs-, C1- oder native Abnahme.",
+      "image_source": "build/experiments/transport/ground/Vienna-ground-detail-after-solid.png",
+      "report_source": "build/experiments/transport/ground/Vienna-ground-detail-after-solid.json",
+      "origin_source": "build/experiments/transport/ground/origin.json"
+    },
     {
       "id": "Vienna-dem-prior-solid",
       "title": "Wien · ungeprüfter DEM-Prior",
@@ -304,5 +353,5 @@
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
-  "gap": "Gemeinsame Höhen und ganze Flächengrenzen sind geprüft. C1-Anschlüsse, funktionale Fahrkurven, Überhöhung, finaler Terrainanschluss, Rampen, Tunnel, Brückenstützen und vollständige OSM-Fenster sind weiter offen. Native Echtzeit- und Geräteabnahme fehlen."
+  "gap": "Gemeinsame C0-Höhen, Bodenkontakte und ganze Flächengrenzen sind geprüft. Adaptive Terrainverfeinerung, C1-Anschlüsse, funktionale Fahrkurven/Zugänge, Überhöhung, Rampen, Tunnel, Brückenstützen und vollständige OSM-Fenster bleiben offen. Native Echtzeit- und Geräteabnahme fehlen."
 }
