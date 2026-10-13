@@ -86,6 +86,8 @@ physisch +2,88 m² Fläche. Alle 14 früheren Produkte und 24 Zusatzfahrten erha
 Alle 15 bisherigen Produkte frisch geprüft und 24 Zusatzfahrten erhalten.
 1758 im Gesamtfenster 36/37: [gemeinsamer Schnitt](../test/experiments/transport/transport_joined_cut_setbacks.py)
 mit getrennten Quellports und Wendeplatz, physisch +26,1 m²; 2→1 noch offen. 16 frühere Produkte und 24 Zusatzfahrten erhalten.
+2→1 lokal: 0,25 m G2-Übergang erlaubt CSC mit +1,94 m², aber Insel schrumpft von 2,92 über 1,61 auf 0,22 m².
+Nicht integriert: Lochanzahl allein genügt nicht; gemeinsame Inselgeometrie und Quellumfahrung konstruktiv lösen.
 Vollständigen Inselkontext behalten; Kurve direkt an neuen Quellposen bauen statt kurze Anschlüsse überzubiegen.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
