@@ -77,8 +77,14 @@ Bilder: build/shots/experiments/transport/.
    Neu abgetrennte Resttaschen nur unreserviert, ≤1 m² und ohne 1 m Innenbreite schließen/bilanzieren;
    größte Insel erhalten. Deklarierte Reservationen weiterreichen statt Quellenmasken erneut aufzubauen.
 
+Öffentliche Ausgangsflächen bei Veröffentlichung erhalten, wenn ihre Überdeckung durch das native Mesh
+nachgewiesen ist; unnötiges Ausschneiden/Wiedervereinen trennt numerische Berührungen. Rundungskontrolle
+prüft Abdeckung der Ausgangsfläche innen sowie echte fehlende Flächen; keine erfundenen Mesh-Verbinder.
+
 ## Nächste Lieferung und Abnahme
 23 gekoppelte Produkte im Zürcher Gesamtfenster; alle bisherigen Fahrten erhalten.
+1146 lokal: 18/18, zwei Gegenrichtungen gemeinsam, +17,89 m²; Nahbild/erneutes Laden geprüft.
+Neue Veröffentlichungsregel im Gesamtfenster neu prüfen; bestätigter Stand bleibt 4792/4808.
 [Port-Aufteilung](../test/experiments/transport/transport_court_partition.py) begrenzt Erweiterungen
 auf den nächsten Portmittelpunkt aller Nachbarn. Schnittebenen bleiben fest; Zusatzsegmente am
 anderen Arm sind ungültig. Vorhandene Geometrie behalten, Erweiterung genau einmal besitzen.
