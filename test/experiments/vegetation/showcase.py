@@ -29,6 +29,7 @@ from generator_plots import generator_figure
 from graph_wood_plots import wood_figure
 from leaf_development_plots import development_figure
 from leaf_filter_plots import filter_figure
+from leaf_normal_plots import normal_figure
 from leaf_pigment_plots import pigment_figure
 from leaf_relative_plots import relative_figure
 from leaf_relief_plots import relief_figure
@@ -415,6 +416,12 @@ def closed_plot(report):
     return save_plot(figure, "closed-leaf-growth")
 
 
+def normal_plot(report):
+    figure = normal_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "leaf-normal-moments")
+
+
 def pigment_plot(report):
     figure = pigment_figure(report)
     style_axes(figure.axes)
@@ -494,6 +501,7 @@ def plot_entries(output, plot_lods):
             relief_plot,
             terminal_plot,
             pigment_plot,
+            normal_plot,
             filter_plot,
             development_plot,
             relative_plot,

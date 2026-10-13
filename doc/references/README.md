@@ -232,6 +232,16 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [PDF](vegetation/math/2013-probability-simplex-projection.pdf).
   Endliche Sortierprojektion als mathematischer Baustein der eigenen symmetrischen Feldmischung;
   unabhängige QP-/Gradientenprüfung. Kein Vegetations- oder SpeedTree-Verfahren daraus behaupten.
+- **Frequency Domain Normal Map Filtering**, Han / Sun / Ramamoorthi / Grinspun,
+  SIGGRAPH / TOG 2007. [Autorenquelle](https://www.cs.columbia.edu/cg/normalmap/) ·
+  [PDF](vegetation/siggraph/2007-frequency-domain-normal-filtering.pdf).
+  Seite 1 mit V-Rillen- und Bildvergleich optisch geprüft: Normalenmittelung verliert die
+  Verteilung. Begründet getrennte Neigungsstatistik und Grenzen einzelner Glanzverteilungen (2490).
+- **LEAN Mapping**, Olano / Baker, I3D 2010, korrigierte Autorenfassung.
+  [Autorenquelle](https://userpages.cs.umbc.edu/olano/papers/lean/) ·
+  [PDF](vegetation/i3d/2010-lean-mapping.pdf).
+  Seiten 3–4 einschließlich Gleichungen 2–6 optisch geprüft: erste/zweite Neigungsmomente
+  linear filtern. Unsere isotrope Übertragung auf GGX bleibt eine gesonderte Näherung (2490).
 - **Interactive and Robust Mesh Booleans**, Cherchi / Pellacini / Attene / Livesu,
   SIGGRAPH Asia / TOG 2022. [Autorenquelle](https://arxiv.org/abs/2205.14151) ·
   [PDF](vegetation/siggraph/2022-interactive-robust-mesh-booleans.pdf), Autorenpreprint.

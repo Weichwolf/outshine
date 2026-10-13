@@ -1,5 +1,5 @@
 {
-  "current_work": "Prozedurale Pigmentfelder steuern getrennte Reflexions- und Transmissionskarten. PROSPECT-D liefert die externe optische Referenz; eine geprüfte 33×33-Pigmenttabelle beschleunigt die Erzeugung. Metallic-Roughness mit ergänzendem Blattdurchlicht. Botanische Kalibrierung und Winkelwirkung bleiben offen.",
+  "current_work": "Blattmaterial enthält jetzt prozedurale 16-Bit-Normalenkarten und alle zehn Material-Mipstufen. Physische Neigungen und ihre Streuung stammen aus demselben gespeicherten Relief; Pigment-R/T bleibt erhalten. Isotrope Glanzfilterung, Feinaderdichte und botanische Kalibrierung bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -8,9 +8,9 @@
       "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Nahbild der grünen Probe mit Chlorophyll 45 und Anthocyanin 0,2 µg/cm² vor räumlicher Variation; übrige Modellparameter fest. Gespeicherter Form- und Aderplan sowie Kamera bleiben erhalten.",
+      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Nahbild der grünen Probe mit Chlorophyll 45 und Anthocyanin 0,2 µg/cm² vor räumlicher Variation; übrige Modellparameter fest. Gespeicherter Form- und Aderplan sowie Kamera bleiben erhalten. Die physische Reliefableitung ist jetzt als 16-Bit-Normalenkarte gecacht.",
       "quality": "Optische Funktionsproben, keine Arten- oder Jahreszeitenfreigabe. Feinaderkontrast teilweise schwächer; Aderrelief und Glanz gemeinsam zu kalibrieren. Symmetrische Blattseiten und reale Winkelwirkung offen.",
-      "scenario": "build/experiments/vegetation/pigment-leaves/leaf-coupled-detail.json"
+      "scenario": "build/experiments/vegetation/normal-leaves/leaf-coupled-detail.json"
     },
     {
       "image": "render/leaf-coupled-forms.png",
@@ -18,9 +18,9 @@
       "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Chlorophyll/Anthocyanin links 45/0,2, Mitte 8/0,2, rechts 10/8 µg/cm²; übrige Modellparameter fest. Gespeicherte Form- und Aderpläne bleiben erhalten.",
+      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Chlorophyll/Anthocyanin links 45/0,2, Mitte 8/0,2, rechts 10/8 µg/cm²; übrige Modellparameter fest. Gespeicherte Form- und Aderpläne bleiben erhalten. Die physische Reliefableitung ist jetzt als 16-Bit-Normalenkarte gecacht.",
       "quality": "Optische Funktionsproben, keine Arten- oder Jahreszeitenfreigabe. Feinaderkontrast teilweise schwächer; Aderrelief und Glanz gemeinsam zu kalibrieren. Symmetrische Blattseiten und reale Winkelwirkung offen.",
-      "scenario": "build/experiments/vegetation/pigment-leaves/leaf-material-upper.json"
+      "scenario": "build/experiments/vegetation/normal-leaves/leaf-material-upper.json"
     },
     {
       "image": "render/leaf-pigment-transmission.png",
@@ -28,9 +28,19 @@
       "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Chlorophyll/Anthocyanin links 45/0,2, Mitte 8/0,2, rechts 10/8 µg/cm²; übrige Modellparameter fest. Gespeicherte Form- und Aderpläne bleiben erhalten.",
+      "description": "Räumliche Pigmentfelder liefern getrennte Reflexions- und Transmissionsfarben. Chlorophyll/Anthocyanin links 45/0,2, Mitte 8/0,2, rechts 10/8 µg/cm²; übrige Modellparameter fest. Gespeicherte Form- und Aderpläne bleiben erhalten. Die physische Reliefableitung ist jetzt als 16-Bit-Normalenkarte gecacht.",
       "quality": "Optische Funktionsproben, keine Arten- oder Jahreszeitenfreigabe. Feinaderkontrast teilweise schwächer; Aderrelief und Glanz gemeinsam zu kalibrieren. Symmetrische Blattseiten und reale Winkelwirkung offen.",
-      "scenario": "build/experiments/vegetation/pigment-leaves/leaf-material-lower.json"
+      "scenario": "build/experiments/vegetation/normal-leaves/leaf-material-lower.json"
+    },
+    {
+      "image": "render/leaf-normal-levels.png",
+      "title": "Blattnormalen · drei Materialstufen",
+      "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Dieselbe grüne Blattprobe dreimal: links 512×512-Normalenkarte, Mitte 32×32 ohne Neigungsvarianz, rechts 32×32 mit isotroper Varianzübertragung auf Rauheit. Form, Pigmentkarten und Beleuchtung gleich; die Anordnung verschiebt nur den Standort.",
+      "quality": "Gezielt übergrobe Materialstufen als Funktionsvergleich. Kleine Bildänderung bei diesem Relief; anisotrope Glanzfilterung, Winkelwirkung und botanische Kalibrierung offen.",
+      "scenario": "build/experiments/vegetation/normal-leaves/leaf-normal-levels.json"
     },
     {
       "image": "render/leaf-development-comparison.png",
@@ -456,7 +466,8 @@
     "coupled_plot": "lod-0",
     "relief_plot": "lod-0",
     "terminal_plot": "lod-0",
-    "pigment_plot": "lod-0"
+    "pigment_plot": "lod-0",
+    "normal_plot": "lod-0"
   },
   "genera": [
     {

@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "normal-leaves/normals.json",
+        "normal_plot",
+        "Blattnormalen · verlorenes Detail wird Neigungsstreuung",
+        "Physische Reliefhöhe und analytische Blattmetrik liefern Tangentenneigungen. Alle zehn Mipstufen aus linearen ersten/zweiten Momenten; direkte Blockauswertung und Kovarianz unabhängig geprüft. Gespeicherte 16-Bit-Normalenkarten und Rauheit nach Cache-Reload geprüft. Isotrope Rauheitsübertragung auf GGX bleibt eine Näherung; volle Kovarianz erhalten, native anisotrope Filterung fehlt. Künstliches Gegenbeispiel rechts: eine Einzelverteilung kann zwei Glanzrichtungen nicht erhalten. Keine botanische Freigabe.",
+    ),
+    (
         "pigment-leaves/table.json",
         "pigment_plot",
         "Blattpigmente · getrennte Reflexion und Transmission",

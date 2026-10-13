@@ -87,6 +87,9 @@ class Blade:
         )
 
     def evaluate(self, t, s, side, petiole_side=False):
+        return self.surface_jet(t, s, side, petiole_side)[:3]
+
+    def surface_jet(self, t, s, side, petiole_side=False):
         t, s, side, petiole_side = np.broadcast_arrays(
             np.asarray(t, dtype=np.float64),
             np.asarray(s, dtype=np.float64),
@@ -142,7 +145,7 @@ class Blade:
         normals = np.cross(ds, dt)
         magnitude = np.linalg.norm(normals, axis=-1)
         normals /= magnitude[..., None]
-        return position, normals, width * magnitude
+        return position, normals, width * magnitude, 2 * width[..., None] * ds, dt
 
     def mesh(self, segments=32, across=1):
         if not isinstance(segments, (int, np.integer)) or not 2 <= segments <= 1024:
