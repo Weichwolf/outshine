@@ -1,5 +1,5 @@
 Type: feature
-State: open
+State: active
 Architecture: ready
 Priority: P0
 Parent: 2169
@@ -49,7 +49,11 @@ Distanzbilder zunächst vollständige Detailreferenzen; kein freigegebener Fern-
 Synthetische Außenansichten 1280×720, reale Esri-Vergleichskameras 854×480; dieselben gespeicherten Kamera-/Lichtbedingungen.
 Bilddefizit: generische Fensterachsen ohne Rahmen/Erdgeschossgliederung/Dachranddetails; geneigte Dachflächen in Eevee zu schwach lesbar.
 Blender-Import von Koordinaten, Materialien und geneigten Dachnormalen geprüft; diagnostische koplanare Triangulationskanten im Schnitt bleiben sichtbar.
-Aktiver Fassadenausbau: Fenster-/Eingangsrahmen und Fensterbank am vorhandenen Öffnungs-/Raumplan; keine unabhängigen Fassadenöffnungen.
+Aktiver Fassadenausbau: vorhandene Rahmen am Staffelhaus übernehmen, einschließlich Terrassenportalen.
+An Terrassen keine auskragenden Fensterbänke; freie Wege nach Detailanbau am Mesh geprüft.
+38 Module/2.804 Detaildreiecke am Staffelhaus; erzwungene Bänke als Gegenfall unterbrechen die schmale Terrasse.
+Sechs bestehende Gebäude/676 Öffnungen bestehen unverändert die Modul-/Raum-/Paneelenprüfung.
+Eigene Nahansicht zeigt die wirklichen Öffnungen/Bauteile; keine vollständige Rezeptfamilie behaupten.
 Nächster Ausbau: teilnutzungsbezogene Ladenfronten am vorhandenen Erdgeschoss-/Raumplan; obere Geschosse und übrige Wohnräume erhalten.
 Lokale POI-Nutzung nur dem tatsächlichen Host zuordnen; fehlendes Geschoss als prozedurale Erdgeschossannahme kennzeichnen.
 Breite/niedrige Schaufenster mit vorhandenen Wanddurchbrüchen/Gläsern/Rahmen konsistent erzeugen; keine zweite Öffnungswelt.

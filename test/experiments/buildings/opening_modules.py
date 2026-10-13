@@ -47,14 +47,14 @@ def sill(storage, width):
     solid(storage,shapely.box(-width/2,back,width/2,0.),bottom,top,SILL_MATERIAL)
 
 
-def template(kind='window', width=1.20, height=1.20, method='ring'):
-    if kind not in ('window','entrance') or not np.isfinite([width,height]).all() or min(width,height)<=2*FRAME_M:
+def template(kind='window', width=1.20, height=1.20, method='ring', sill_enabled=True):
+    if kind not in ('window','entrance','terrace') or not np.isfinite([width,height]).all() or min(width,height)<=2*FRAME_M:
         raise ValueError('Opening module has invalid kind or dimensions')
     storage = [],[],[],[]
     if kind=='window':
         profile(storage,ring(width,height,FRAME_M),.043,.118,method)
         profile(storage,ring(width,height,CASING_M,outside=True),-.045,0.,method)
-        sill(storage,width+2*CASING_M+.05)
+        if sill_enabled:sill(storage,width+2*CASING_M+.05)
     else:
         b = CASING_M
         for part in (shapely.box(-width/2-b,0.,-width/2,height),

@@ -68,9 +68,10 @@ def verify_slots(plan,openings,product):
         angle = np.asarray(row['tangent'])
         world = triangles.reshape(-1,3)-np.array([*row['centre'],row['bottom_z_m']])
         local = np.c_[world[:,:2]@angle,world[:,:2]@np.array([-angle[1],angle[0]]),world[:,2]]
-        if not np.allclose(local.min(axis=0),[-row['width_m']/2-CASING_M-(.025 if row['kind']=='window' else 0.),
-                                             -.16 if row['kind']=='window' else -.045,
-                                             -CASING_M-.032-.115/12 if row['kind']=='window' else 0.],atol=1e-8):
+        sill=row['kind']=='window' and row.get('sill',True)
+        if not np.allclose(local.min(axis=0),[-row['width_m']/2-CASING_M-(.025 if sill else 0.),
+                                             -.16 if sill else -.045,
+                                             -CASING_M-.032-.115/12 if sill else -CASING_M if row['kind']=='window' else 0.],atol=1e-8):
             raise AssertionError('Placed module has an unexpected frame/sill envelope')
         if triangles[:,:,2].min()<plan['base_z_m']-1e-8 or triangles[:,:,2].max()>plan['body_top_m']+1e-8:
             raise AssertionError('Opening details escaped the occupied body-height interval')

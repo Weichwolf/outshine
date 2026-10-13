@@ -11,7 +11,9 @@ from building_setbacks import apply as setbacks
 from building_terraces import apply,PARAPET_HEIGHT_M
 from building_vertical import build,mesh
 from evidence import revision
+from opening_details import attach,expand,slots
 from verify_layout import occupancy
+from verify_openings import verify_body_openings,verify_slots
 from verify_vertical import Columns,inspect_poses,landing_poses,verify
 
 
@@ -31,6 +33,33 @@ def check(plan,product):
         headroom=inspect_poses(Columns(product,path),poses)
         rows.append(dict(storey=row['storey'],component=row['component'],poses=len(poses),headroom_m=headroom))
     return rows
+
+
+def circulation(plan,product):
+    for row in plan['terrace_access']:
+        if row['reason']:continue
+        current=plan['storey_plans'][row['storey']];floor=current['floor_z_m']
+        obstacles=shapely.union_all([occupancy(product,material,floor+.4,floor+1.9) for material in (1,3,7,10,11)])
+        outer=current['footprint'].union(current['terrace'])
+        free=outer.difference(obstacles).buffer(-.3,join_style='mitre')
+        path=shapely.LineString(row['path'])
+        connected=next((part for part in shapely.get_parts(free) if part.buffer(1e-8).covers(path)),None)
+        assert connected is not None,'Detail blocks terrace portal'
+        usable=current['terrace'].difference(obstacles).buffer(-.3,join_style='mitre')
+        assert usable.difference(connected).area<1e-6,'Detail disconnects terrace circulation'
+
+
+def detailed(plan):
+    body=mesh(plan);openings=slots(plan);detail=expand(openings);product=attach(body,detail)
+    verify_slots(plan,openings,detail);verify_body_openings(openings,body);check(plan,product)
+    circulation(plan,product)
+    unsafe=attach(body,expand([row|dict(sill=True) for row in openings]))
+    try:circulation(plan,unsafe)
+    except AssertionError:pass
+    else:raise AssertionError('Projecting window sills did not fail the narrow terrace control')
+    assert sum(row['kind']=='terrace' for row in openings)==2
+    assert any(row['kind']=='window' and not row['sill'] for row in openings)
+    return dict(openings=len(openings),triangles=len(detail['faces']),terrace_paths=check(plan,product))
 
 
 def controls():
@@ -56,7 +85,7 @@ def controls():
             try:check(plan,bad)
             except AssertionError:pass
             else:raise AssertionError('Broken terrace accepted: '+broken)
-        rows.append(dict(case=name,paths=paths,access=plan['terrace_access']))
+        rows.append(dict(case=name,paths=paths,access=plan['terrace_access'],details=detailed(plan) if paths else None))
     narrow=apply(setbacks(build(dict(id='narrow',polygon=shapely.box(0,0,18,14),
         properties={'render_height':9.,'building:levels':3})),[0.,.2,.4]))
     assert narrow['terrace_access'] and all(row['reason'] for row in narrow['terrace_access'])

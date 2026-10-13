@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from building_layout import DOOR_M
+from building_layout import DOOR_M,rectangle
 from building_vertical import level
 from opening_modules import template,place
 
@@ -15,13 +15,16 @@ def slots(building):
         current = level(building,index)
         room_ids = building['storey_room_ids'][index]
         for window in current['windows']:
+            bank=rectangle(window['centre'],window['tangent'],1.36,.16,0.)
+            sill='terrace' not in current or bank.intersection(current['terrace']).area<1e-8
             result.append(dict(id=f"{building['id']}:floor-{index}:{window['id']}",kind='window',
+                               sill=sill,
                                centre=window['centre'],tangent=window['tangent'],bottom_z_m=current['floor_z_m']+window['sill_m'],
                                width_m=1.20,height_m=window['head_m']-window['sill_m'],storey=index,
                                room_ids=[room_ids[room] for room in window['rooms']],origin='existing procedural room opening'))
         for door in current['doors']:
-            if door['kind']=='entrance':
-                result.append(dict(id=f"{building['id']}:floor-{index}:{door['id']}",kind='entrance',
+            if door['kind'] in ('entrance','terrace'):
+                result.append(dict(id=f"{building['id']}:floor-{index}:{door['id']}",kind=door['kind'],
                                    centre=door['centre'],tangent=door['tangent'],bottom_z_m=current['floor_z_m'],
                                    width_m=DOOR_M,height_m=door['height_m'],storey=index,
                                    room_ids=[room_ids[room] for room in door['rooms']],origin=door['origin']))
@@ -33,7 +36,7 @@ def expand(openings, method='ring', reuse=True):
     cache = {}
     vertex_offset,part_offset = 0,0
     for index,opening in enumerate(openings):
-        key = opening['kind'],opening['width_m'],opening['height_m'],method
+        key = opening['kind'],opening['width_m'],opening['height_m'],method,opening.get('sill',True)
         if not reuse or key not in cache:
             cache[key] = template(*key)
         product = place(cache[key],opening['centre'],opening['tangent'],opening['bottom_z_m'])
