@@ -17,6 +17,7 @@ from graph_wood_checks import check_wood, verify_seed
 from graph_wood_material import wood_material
 from graph_wood_scenes import make_scenes
 from graph_wood_surface import joined_wood
+from join_normal_checks import check_weighting
 from spatial_examples import spatial_graph
 from spine_closest import closest_spine
 
@@ -95,6 +96,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     projection_checks = check_closest()
+    weighting_checks = check_weighting()
     reports = []
     selected = None
     for seed in (17, 23, 47):
@@ -127,9 +129,12 @@ def main():
         "spatial_axis.py",
         "generator_graph.py",
         "generator_specs.py",
+        "join_normals.py",
+        "join_normal_checks.py",
     )
     report = {
         "projection_checks": projection_checks,
+        "weighting_checks": weighting_checks,
         "seeds": reports,
         "coarse": coarse[1] | {"checks": coarse_checks},
         "projection": projection,

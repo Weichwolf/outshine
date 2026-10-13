@@ -22,14 +22,21 @@ def wood_figure(report):
     axes[0].set_ylabel("Identische nächste Kurvenpunkte · CPU ms")
     axes[0].margins(y=0.22)
     row = report["seeds"][0]["work"]["stages"]
-    keys = ("source_s", "collars_s", "normal_blend_s", "union_s", "bark_s")
+    keys = (
+        "source_s",
+        "collars_s",
+        "normal_blend_s",
+        "union_s",
+        "join_shading_s",
+        "bark_s",
+    )
     bars = axes[1].bar(
         np.arange(len(keys)), [row[k] * 1000 for k in keys], color="#236c52"
     )
     axes[1].bar_label(bars, fmt="%.1f", padding=5)
     axes[1].set_xticks(
         np.arange(len(keys)),
-        ["Achsen", "Kragen", "Normalen", "Vereinigung", "Rinde"],
+        ["Achsen", "Kragen", "Normalen", "Vereinigung", "Angleichung", "Rinde"],
         rotation=18,
     )
     axes[1].set_ylabel("Seed 17 · getrennte Produktstufen · CPU ms")

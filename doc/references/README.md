@@ -200,6 +200,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Räumliche Astachsen und variable Querschnitte ergänzen die hierarchischen Formpläne.
   Frenet-Singularitäten bei geraden Teilen/Wendepunkten durch stabile Rahmen vermeiden;
   die fotografischen Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
+- **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.
+  [Primärabstract](https://doi.org/10.1080/10867651.1998.10487487).
+  Eckwinkel berücksichtigen die geometrische Beteiligung statt der Zahl entstandener Dreiecke (2486).
+  Eigene lokale Mittelung vorhandener Differentialnormalen; kein vollständiger Papiernachbau.
+  Max 1999 ([Autorenpreprint](https://escholarship.org/uc/item/7657d8h3)) unterscheidet
+  Oberflächenapproximation von der Erhaltung unter Polygonunterteilung; PDF-Abruf hier durch
+  CloudFront-Challenge ohne Dokumentdaten, deshalb kein optischer PDF-Prüfbeleg hierfür.
 - **Computation of Rotation Minimizing Frames**, Wang / Jüttler / Zheng / Liu, TOG 2008.
   [Autorenpreprint](https://www.ag.jku.at/pubs/2007wjzl.pdf) ·
   [PDF](vegetation/tog/2008-rotation-minimizing-frames-preprint.pdf), ungesetzte Vorabfassung.

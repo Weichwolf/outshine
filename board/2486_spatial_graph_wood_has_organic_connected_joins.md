@@ -24,6 +24,16 @@ Das ist Property-Inventar, kein numerischer Original-Weld-Beleg oder Beleg für 
 Gemeinsame Körper aus kanonischen Achsflächen, lokale Eltern-/Kindfelder nur bei Nahbedarf ergänzen.
 Räumliche Elternachsen und profilierte/elliptische Querschnitte im Anschluss berücksichtigen.
 Rindenkoordinaten aus tatsächlichen Achsen und durchgehendem geerbtem Verlauf; Kosten/Alternativen messen.
+Bildverlust: geteilte Normalen an Anschlussvertices (bis 9,3° im mittleren Kragen).
+Ghidra-Lauf 24: AverageNormals (`0x1ca3720`) mittelt/normalisiert drei Vektorpaare und schreibt beide Seiten.
+Pure Originalroutine: 3.078 Paare einschließlich Null/Gegensätzen; eigener Double-Nachbau ≤1,36e−7
+Komponentenfehler gegenüber Original-Float, beide Originalausgaben identisch. Kein vollständiges Branch-Lighting.
+[Thürmer/Wüthrich 1998, Primärabstract](https://doi.org/10.1080/10867651.1998.10487487)
+begründet Winkelgewichtung gegen Tesselierungsabhängigkeit; Bloomenthal Seite 3 optisch erneut geprüft.
+`join_normals.py`: vorhandene Differentialnormalen nach Eckwinkel lokal mitteln, nicht Facetnormale ersetzen.
+Eine eigene Erweiterung: keine Gleichsetzung mit Original-Paarmittelung oder vollständigem Papierverfahren.
+Ganze Vertices bei >45° zur Mittelrichtung oder nicht auswärts gerichteter Mittelung erhalten;
+Caps und Geometrie außerhalb von zweimal Kragenspanne unverändert lassen.
 
 ## Umsetzung und geprüfter Stand
 `graph_wood_axes.py`: vollständige Graphachsen, transformierte Flächen und allgemeine physische Charts.
@@ -43,15 +53,25 @@ Grobprodukt 694 Dreiecke und null Kragen; source-station-Innenproben und Origina
 Kontinuierliche Kurvenpunkte liegen teilweise schon außerhalb grober Ausgangsflächen: die erste
 Innenprobe verlangte fälschlich eine exakte Kurvenhülle. Erhaltung der tatsächlichen Ausgangsfläche
 und Kurvenapproximation getrennt prüfen; gültige geometrische/Pixel-LOD-Grenzen bleiben offen.
-Drei lokale CPU-Läufe auf 5.335 echten Materialpunkten: skalar 1.753 ms, Batch 308 ms,
-begrenzter Batch 82,5 ms; 42.680 → 9.456 stationäre Abfragen, gleiche Parameter/Abstände.
-Indexierte Rinde 109 statt dicht 115 ms; 10.161 statt 21.340 Achspunktabfragen, identische Felder.
-Blockkragen 325 statt dicht 442 ms, alle Mesharrays identisch; 172,56 MiB Peak des Prüfprozesses.
-Seed 17: Achsen 4,0 / Kragen 341,6 / Normalen 126,2 / Vereinigung 206,0 / Rinde 118,7 ms,
+Drei lokale CPU-Läufe auf 5.335 echten Materialpunkten: skalar 1.717 ms, Batch 306 ms,
+begrenzter Batch 82,4 ms; 42.680 → 9.456 stationäre Abfragen, gleiche Parameter/Abstände.
+Indexierte Rinde 110 statt dicht 116 ms; 10.161 statt 21.340 Achspunktabfragen, identische Felder.
+Blockkragen 324 statt dicht 440 ms, alle Mesharrays identisch; 165,66 MiB Peak des Prüfprozesses.
+Seed 17: Achsen 4,5 / Kragen 402,6 / Normalen 128,0 / Vereinigung 211,0 / Rinde 108,7 ms,
 jeweils lokale serielle Stufen; keine Native-/GPU-/Gerätezeit. Die erhebliche Nahkostenlücke bleibt offen.
 Vier Ansichten in 2560×1440 optisch geöffnet: Gesamtpflanze, Grobprodukt, Blattnähe und Astanschluss.
 Der Anschluss ist geschlossen und trägt durchgehende Rinde; lokale Facetten und die verwirbelte
 Rindenrichtung am Kragen bleiben sichtbar. Das Funktionsbeispiel erreicht noch keine SpeedTree-Bildqualität.
+Winkelgewichtung gegen skalare Eckwinkel, lokalen harten Split und echte drei Seed-Produkte prüfen.
+Ein kontrollierter Dreieckssplit erhält die Winkelmittelung; gleiche Gewichte ändern sie um 0,0599
+Vektorabstand. Flächen-/Winkel-/Gleichgewichtung bleiben separate Vergleichsergebnisse.
+Winkelangleichung für drei Seeds: 15,86–16,24 ms Median, je drei Läufe auf demselben Nahmesh.
+3.168–3.247 lokale Vertices, 8.057–8.303 geänderte Ecken; alle Orientierungs-/Erhaltungsprüfungen grün.
+Neue Anschlussaufnahme optisch mit Vorherbild verglichen: nur kleine lokale Schattierungsglättung;
+aufgewölbte Form und verwirbelte Rindenrichtung bleiben die nächsten sichtbaren Defizite.
+Gespeichertes Nahprodukt: alle 3.247 lokalen Vertices mit exakt gemeinsamen Ecknormalen geprüft.
+`pixels.py`: Anschlussbild 37.549 geänderte Pixel, maximal 6/255; Grobbild pixelgleich.
+Gesamt-/Blattnah-/Anschluss-/Grobbild und aktueller Kostenplot in 2560×1440 tatsächlich geöffnet.
 
 ## Abnahme
 Geschlossene orientierte Flächen, erhaltenes Originalholz und unveränderte Organanker unabhängig prüfen.

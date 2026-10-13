@@ -7,6 +7,7 @@ from collar_union import local_union
 from graph_collars import graph_collars
 from graph_wood_axes import wood_axes
 from graph_wood_material import wood_material
+from join_normals import smooth_join_normals
 
 
 def joined_wood(
@@ -16,6 +17,7 @@ def joined_wood(
     material_method="indexed",
     max_axes=128,
     max_triangles=1_000_000,
+    join_shading="angle",
 ):
     began = time.perf_counter()
     sources = wood_axes(graph, detail, max_axes, max_triangles)
@@ -53,6 +55,11 @@ def joined_wood(
     mesh, cleanup = local_union(originals + collars, with_work=True)
     stages["union_s"] = time.perf_counter() - began
     began = time.perf_counter()
+    shading = {"method": "source"}
+    if detail == "near" and join_shading != "source":
+        mesh, shading = smooth_join_normals(mesh, axes, plans, join_shading)
+    stages["join_shading_s"] = time.perf_counter() - began
+    began = time.perf_counter()
     attributes, work = wood_material(axes, mesh["vertices"], material_method)
     stages["bark_s"] = time.perf_counter() - began
     mesh |= attributes
@@ -64,6 +71,7 @@ def joined_wood(
             "collars": len(collars),
             "plans": plans,
             "cleanup": cleanup,
+            "join_shading": shading,
             "material": work,
             "source_triangles": sum(len(m["faces"]) for m in originals),
             "collar_triangles": sum(len(m["faces"]) for m in collars),

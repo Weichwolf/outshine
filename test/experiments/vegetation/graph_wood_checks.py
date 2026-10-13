@@ -1,7 +1,11 @@
 """Independent topology/occupancy checks and complete-source preservation."""
 
+import time
+
 import numpy as np
 from graph_wood_surface import joined_wood
+from join_normal_checks import check_local_normals
+from join_normals import smooth_join_normals
 from plant_surface import solid_from_mesh
 from plant_surface_checks import topology, winding_inside
 from spatial_examples import spatial_graph
@@ -38,7 +42,27 @@ def verify_seed(seed):
     cap = sum(graph.capacities.values())
     leaves = graph.instances(3, cap)
     before = [(p.path, p.origin.copy(), p.frame.copy()) for p in leaves]
-    result = joined_wood(graph)
+    result = joined_wood(graph, join_shading="source")
+    source, work, axes, originals = result
+    comparisons = {}
+    selected = None
+    for method in ("uniform", "area", "angle"):
+        times = []
+        for _ in range(3):
+            began = time.perf_counter()
+            mesh, shading = smooth_join_normals(source, axes, work["plans"], method)
+            times.append(time.perf_counter() - began)
+        checked = check_wood(mesh, axes, originals)
+        checked |= check_local_normals(source, mesh, axes, work["plans"])
+        comparisons[method] = {"samples_s": times, "work": shading, "checks": checked}
+        if method == "angle":
+            selected = mesh
+    work["join_shading"] = comparisons["angle"]["work"]
+    work["stages"]["join_shading_s"] = float(
+        np.median(comparisons["angle"]["samples_s"])
+    )
+    work["shading_alternatives"] = comparisons
+    result = (selected, work, axes, originals)
     for pose, (path, origin, frame) in zip(graph.instances(3, 0), before):
         assert pose.path == path
         np.testing.assert_array_equal(pose.origin, origin)

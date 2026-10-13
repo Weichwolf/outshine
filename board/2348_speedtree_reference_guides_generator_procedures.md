@@ -113,8 +113,8 @@ Funktions- und Bildvergleiche aus demselben Input; Kosten/Fehler/fehlende Semant
 Erst danach 2349s vollständigen weltweiten Pflanzenrezeptkatalog implementieren und optisch prüfen.
 
 ## Abnahme und nächster offener Vertrag
-80 gezielte Funktionen dekompiliert; dreiundzwanzig Läufe terminal erfolgreich, zuletzt Welding-Property-Aufbau.
+81 gezielte Funktionen dekompiliert; vierundzwanzig Läufe terminal erfolgreich, zuletzt AverageNormals.
+2486: 3.078 Original-Vektorpaare geprüft; lokale Winkelmittelung, vollständiges Branch-Lighting offen.
 ELF-Symbole/Vtable/Konstanten korroborieren Sichtbarkeitsfeld/LOD-Sortierung/-Anzahl; volle Property-/Windbindung offen.
-Eigene Alternativen an demselben Plan gegen Deckung, Schatten, Normale, Aufwand und sichtbare Bilder prüfen.
 Modeler-Palme tatsächlich betrachtet (2483); Trial löscht Exportpolygone, vollständiger Meshvergleich offen.
 Windbindungen, natürliche Gabeln, vollständige Gruppen-/Waldaggregation und native Budgets bleiben offen.
