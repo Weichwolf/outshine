@@ -14,11 +14,11 @@ Zusammenhängende Straßen-, Wege- und Schienenflächen mit funktionalen Verbind
 Quellgraph/Nutzungsbilanz (2342). Besitzer: Transport/generators/road; Bereichsgrenzen: 2342,
 native Lieferung: 2281. Höhenprofile folgen in 2344, Ebenenrezepte in 2345.
 Ebenen-0-Fenster, 1 km Radius: Wien 909/909 (117dea678), Basel 2962/2962 (5ab84801f),
-Zürich 4783/4808 (b09fcc137). Nur öffentliche Auto-Verbindungen belegt.
-Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 25 Fahrten offen.
+Zürich 4784/4808 (5603931cc). Nur öffentliche Auto-Verbindungen belegt.
+Zürich 2134 mit Gesamtfenster 29/29: 8→10 rund 54 m statt 1,37 km Umweg. Noch 24 Fahrten offen.
 Wege/Rad/Schienen, Verkehrsfluss, Höhen, weltweite Robustheit und tragbare Gesamtkosten bleiben offen.
 Python-Fensterlauf: Laden, übrige Kurvensuche, Mesh-/Verbindungsprüfung; ein Core:
-Wien 10,1 s, Basel 16,5 s, Zürich 68,9 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
+Wien 10,1 s, Basel 16,5 s, Zürich 78,2 s. Vorbereiteter Produktaufbau zusätzlich; keine Runtime-Ladezeiten.
 Zürich: übrige erfolglose Kurvensuche dominiert; direkte Rezepte/Methodenfilter vor teurer Passung ausbauen.
 Bilder: build/shots/experiments/transport/.
 
@@ -103,9 +103,9 @@ zwei nahe Varianten erzeugen nur neue Resttaschen von 0,004/0,454 m². Keine urs
 erhalten Originalroute/Endposen; 56 Varianten, vier lokale Kandidaten. 24 frühere Zusatzfahrten erhalten.
 Neue freie Resttaschen nur explizit schließen (≤1 m², keine 1-m-Innenbreite, keine Reservation).
 Übergang aus tatsächlicher Fahrbahnerweiterung deklarieren; Rundungsreste nach bestehender Koordinatengrenze prüfen.
-1383 lokal 19/19 plus zwei Nachbarfahrten: Schnitte 2 m versetzt, physisch +14,29 m²; Bild geprüft.
+1383 im Gesamtfenster 19/19 plus zwei Nachbarfahrten: Schnitte 2 m versetzt, physisch +14,29 m²; Bild geprüft.
 Versatz 3–6 m ist dort nicht eindeutig übertragbar; kleinste passende Quellstation statt Radius als Fixwert wählen.
-Gesamtfensterprüfung läuft; lokale Erfolge zählen erst danach zur Fensterbilanz.
+19 gekoppelte Produkte und alle 24 früheren Zusatzfahrten im Gesamtfenster erhalten.
 Verbleibende
 [Umwege](../test/experiments/transport/probes/roadbeds/window_detour_probe.py) durch direkte gültige Verbindungen ersetzen.
 Danach Wege/Rad/Schienen mit eigenen Zugangs-, Querschnitts- und Kurvenprofilen sowie Spurführung/Abbiegekonflikte.
