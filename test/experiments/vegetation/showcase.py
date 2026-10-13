@@ -412,6 +412,12 @@ def closed_plot(report):
     return save_plot(figure, "closed-leaf-growth")
 
 
+def coupled_plot(report):
+    figure = closed_figure(report)
+    style_axes(figure.axes[0])
+    return save_plot(figure, "coupled-leaf-growth")
+
+
 def filter_plot(report):
     figure = filter_figure(report)
     style_axes(figure.axes)
@@ -463,6 +469,7 @@ def plot_entries(output, plot_lods):
         method.__name__: method
         for method in (
             closed_plot,
+            coupled_plot,
             filter_plot,
             development_plot,
             relative_plot,

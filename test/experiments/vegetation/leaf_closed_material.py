@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 
 import numpy as np
 from leaf_texture_filter import filtered_veins
@@ -36,7 +37,7 @@ def add_minor_material(output, source_folder, name, blade, recipe, network):
         maps[key] = path.name
     material = recipe | {
         "maps": maps,
-        "vein_plan": "../leaf-materials/" + recipe["vein_plan"],
+        "vein_plan": os.path.relpath(source_folder / recipe["vein_plan"], output),
         "minor_network": f"{name}-network.npz",
         "minor_network_sha256": hashlib.sha256(
             (output / f"{name}-network.npz").read_bytes()

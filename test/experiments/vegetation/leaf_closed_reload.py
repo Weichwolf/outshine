@@ -1,5 +1,6 @@
 """Fresh-process checks of actual cached graph junctions, maps and LOD coordinates."""
 
+import argparse
 import hashlib
 import json
 import time
@@ -11,9 +12,19 @@ from PIL import Image
 
 
 def main():
-    folder = Path("build/experiments/vegetation/closed-leaves")
-    near = json.loads((folder / "closed-leaf-upper.json").read_text())
-    coarse = json.loads((folder / "closed-leaf-coarse.json").read_text())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--folder",
+        type=Path,
+        default=Path("build/experiments/vegetation/closed-leaves"),
+    )
+    parser.add_argument("--near", default="closed-leaf-upper.json")
+    parser.add_argument("--coarse", default="closed-leaf-coarse.json")
+    args = parser.parse_args()
+    folder = args.folder
+    near = json.loads((folder / args.near).read_text())
+    coarse = json.loads((folder / args.coarse).read_text())
+    assert len(near["products"]) == len(coarse["products"])
     reports = []
     for first, last in zip(near["products"], coarse["products"]):
         start = time.perf_counter()
@@ -25,7 +36,21 @@ def main():
             hashlib.sha256(graph_path.read_bytes()).hexdigest()
             == material["minor_network_sha256"]
         )
-        with np.load(graph_path) as graph:
+        primary_path = folder / material["vein_plan"]
+        assert (
+            hashlib.sha256(primary_path.read_bytes()).hexdigest()
+            == material["vein_plan_sha256"]
+        )
+        with np.load(primary_path) as primary, np.load(graph_path) as graph:
+            count = len(primary["positions"])
+            primary_edges = np.column_stack(
+                (primary["parents"][1:], np.arange(1, count))
+            )
+            assert np.array_equal(graph["raw_positions"][:count], primary["positions"])
+            assert np.array_equal(
+                graph["raw_edges"][: len(primary_edges)], primary_edges
+            )
+            assert int(graph["base_edges"]) == len(primary_edges)
             positions, edges, hubs = graph["positions"], graph["edges"], graph["hubs"]
             completed = graph["completed"] >= 0
             assert np.all(hubs[completed] >= 0)

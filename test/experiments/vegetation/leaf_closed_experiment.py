@@ -17,8 +17,8 @@ from leaf_network import node_network, topology
 from leaf_venation import leaf_sources
 
 
-def build_leaf(source_folder, output, index):
-    name = f"leaf-{index}"
+def build_leaf(source_folder, output, index, name=None, max_nodes=2048):
+    name = f"leaf-{index}" if name is None else name
     path = source_folder / f"{name}-material.json"
     material = json.loads(path.read_text())
     blade = Blade(**material["blade"])
@@ -36,7 +36,9 @@ def build_leaf(source_folder, output, index):
         order = ("dense", "sectors") if repeat % 2 == 0 else ("sectors", "dense")
         for method in order:
             start = time.perf_counter()
-            results[method] = grow_closed(blade, positions, edges, sources, method)
+            results[method] = grow_closed(
+                blade, positions, edges, sources, method, max_nodes=max_nodes
+            )
             times[method].append(time.perf_counter() - start)
         same_network(results["dense"], results["sectors"])
     network = results["sectors"]

@@ -8,8 +8,8 @@ def relative_neighbors(nodes, sources, method="sectors"):
     for points in (nodes, sources):
         if points.ndim != 2 or points.shape[1] != 2 or not np.isfinite(points).all():
             raise ValueError("finite Nx2 physical coordinates required")
-    if not 1 <= len(nodes) <= 2048 or len(sources) > 4096:
-        raise ValueError("1..2048 vein nodes and at most 4096 sources required")
+    if not 1 <= len(nodes) <= 4096 or len(sources) > 4096:
+        raise ValueError("1..4096 vein nodes and at most 4096 sources required")
     if method not in ("dense", "sectors"):
         raise ValueError("dense or sectors relative-neighbor method required")
     if not len(sources):

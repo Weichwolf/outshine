@@ -102,3 +102,18 @@ Prozess-Peak 135,97 MiB einschließlich Vergleichs-/Rasterdaten; kein nativer Ge
 3D-Vergleich isoliert feste Quellen, gleichförmiges und ortsabhängiges Wachstum bei gleichem Blattmaterial.
 Gebogene Seitenadern sind lesbarer; Feinaderkopplung, natürliche Farbe, Artenkalibrierung und
 vollständige Rand-/anisotrope Wachstumsrezepte bleiben offen. Kein SpeedTree-Niveau.
+
+## Kopplung von Haupt- und Feinadern
+`leaf_coupled_experiment.py` lädt entwickelte Hauptpläne unverändert und ergänzt je 64 Feinaderquellen.
+Die schmale Form stoppt bei 2048 Arbeitsknoten mit 43 offenen Quellen; Eingang allein hat 1710 Knoten.
+Für zusammengesetzte Produkte API-Grenze auf 4096 Knoten erweitern, Standard bleibt 2048.
+600 Mio. Blockerpaare je Anfrage und 4096 Rohkanten bleiben unveränderte Arbeitsgrenzen.
+Keine Lockerung eines Laufzeitgates: zusätzliche Kapazität/Kosten separat messen, native Budgets offen.
+Primärpräfix, Originalplan-Hash und gemeinsame Materialkoordinaten nach Speicherung erneut prüfen.
+Drei wechselnde Läufe liefern gleiche Graphen: Sektor-Mediane 412/420/712 ms statt 2799/2807/9069 ms.
+Verknüpfte Netze: 1441/1393/2326 Knoten, 41/36/44 Zyklen; 0/2/0 offene Feinaderquellen.
+Zwei offene Hauptplanquellen der gelappten Form bleiben davon getrennt; keine vollständige Artenfreigabe.
+Prozess-Peak 221,05 MiB einschließlich dichter Vergleichsmatrizen; Material/Verknüpfung separat im Report.
+Frischer Reload bestätigt Primärpräfix/Hashes und je 52 gemeinsame Nah-/Grobkoordinaten ohne Neubau.
+Nahbild bei gleicher Kamera/Geometrie optisch geprüft: feine Verbindungen sichtbar, Bildgewinn klein.
+Stumpfe Hauptaderenden und gleichförmige Kunststoffwirkung bleiben das nächste sichtbare Defizit.

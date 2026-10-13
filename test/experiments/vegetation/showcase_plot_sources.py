@@ -2,10 +2,16 @@
 
 PLOT_SOURCES = (
     (
+        "coupled-leaves/coupled.json",
+        "coupled_plot",
+        "Entwickelte Hauptadern + geschlossene Feinadern",
+        "Drei Hauptpläne bleiben exakt erhalten. Je 64 Feinaderquellen; vollständige und beschleunigte Suche ergeben in drei wechselnden Läufen gleiche Graphen. 4096 Knoten Kapazität für zusammengesetzte Produkte, Standard weiterhin 2048; Paar- und Kantengrenzen unverändert. Zwei Feinaderquellen der gelappten Form bleiben offen, unabhängig von zwei offenen Quellen im Hauptplan. Cache-Replay prüft Originalplan-Hash und 52 gemeinsame Nah-/Grobkoordinaten je Form. Lokale CPU-Kosten, kein Gerätebudgetbeleg.",
+    ),
+    (
         "developing-leaves/development.json",
         "development_plot",
         "Blattwachstum · Hauptadern und Seitenadern",
-        "Quellen entstehen abhängig vom Abstand zu vorhandenen Adern und Quellen. Gleichförmiges Wachstum allein erzeugt zu rechtwinklige Seitenadern; eine eigene, invertierbare ortsabhängige Dehnung richtet sie auf. Drei Formen, je drei abwechselnde Läufe der dichten und indexierten Suche mit gleichen Ergebnissen. Die gelappte Form lässt zwei Quellen ungelöst. Keine botanische Artenfreigabe; Feinaderkopplung, Materialvariation und anisotrope Wachstumsrezepte bleiben offen.",
+        "Quellen entstehen abhängig vom Abstand zu vorhandenen Adern und Quellen. Gleichförmiges Wachstum allein erzeugt zu rechtwinklige Seitenadern; eine eigene, invertierbare ortsabhängige Dehnung richtet sie auf. Drei Formen, je drei abwechselnde Läufe der dichten und indexierten Suche mit gleichen Ergebnissen. Die gelappte Form lässt zwei Quellen ungelöst. Keine botanische Artenfreigabe; die Feinaderkopplung ist separat geprüft, Materialvariation und anisotrope Wachstumsrezepte bleiben offen.",
     ),
     (
         "closed-leaves/filtering.json",

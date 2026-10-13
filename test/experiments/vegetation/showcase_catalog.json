@@ -1,16 +1,26 @@
 {
-  "current_work": "Blattwachstum und laufende Quellengeburt steuern jetzt die Hauptaderarchitektur. Eine eigene ortsabhängige Dehnung erzeugt gebogene Seitenadern; Graphen, Quellenbilanz, Fehlergrenze und gespeicherte Produkte sind geprüft. Zwei Quellen der gelappten Probe bleiben ungelöst. Kopplung an geschlossene Feinadern, natürliche Farbe und botanische Kalibrierung bleiben offen.",
+  "current_work": "Entwickelte Hauptadern und geschlossene Feinadern sind jetzt gekoppelt. Drei gespeicherte Hauptpläne bleiben unverändert; Nah- und Grobgeometrie verwenden dieselben Materialkarten. Zwei Feinaderquellen der gelappten Form bleiben ungelöst, zusätzlich zu zwei offenen Quellen ihres Hauptplans. Natürliche Materialvariation und botanische Kalibrierung bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
       "image": "render/leaf-development-detail.png",
-      "title": "Blattadern · entwickelte Seitenadern im Detail",
+      "title": "Blattadern · Haupt- und Feinadern gekoppelt",
       "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
       "category": "leaf",
       "lod": "lod-0",
-      "description": "Nahaufnahme des rechten Produkts aus dem Vergleich. Mittelrippe und Seitenadern entstehen während der Blattentwicklung; der fertige Plan und seine prozeduralen Materialkarten werden aus dem Cache geladen.",
-      "quality": "Gebogene Seitenadern und Mittelrippe lesbarer. Kopplung an geschlossene Feinadern, feinere Aderordnungen und natürliche Materialvariation fehlen noch; SpeedTree-Qualität nicht erreicht.",
-      "scenario": "build/experiments/vegetation/developing-leaves/leaf-development-detail.json"
+      "description": "Identische Blattgeometrie, Kamera und Hauptadern wie zuvor; 64 zusätzliche Quellen erzeugen ein geschlossenes Feinadernetz. Fertige prozedurale Karten und Graphen werden aus dem Cache geladen.",
+      "quality": "Feinadern ergänzen die entwickelte Mittelrippe und Seitenadern. Material wirkt weiterhin zu gleichförmig; natürliche Aderbreiten und botanische Kalibrierung fehlen.",
+      "scenario": "build/experiments/vegetation/coupled-leaves/leaf-coupled-detail.json"
+    },
+    {
+      "image": "render/leaf-coupled-forms.png",
+      "title": "Blattadern · drei gekoppelte Funktionsformen",
+      "label": "Wachstumsgrundfunktion · keine botanische Artenfreigabe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Glatte, gelappte und schmale Form: entwickelte Hauptadern mit geschlossenen Feinadern. Alle drei Hauptpläne bleiben geometrisch unverändert; Nah- und Grobprodukte teilen ihre Materialkarten.",
+      "quality": "Feinadern ergänzen die entwickelte Mittelrippe und Seitenadern. Material wirkt weiterhin zu gleichförmig; natürliche Aderbreiten und botanische Kalibrierung fehlen.",
+      "scenario": "build/experiments/vegetation/coupled-leaves/leaf-material-upper.json"
     },
     {
       "image": "render/leaf-development-comparison.png",
@@ -19,7 +29,7 @@
       "category": "leaf",
       "lod": "lod-0",
       "description": "Links: alle Quellen in der fertigen Form. Mitte: gleichförmiges Blattwachstum. Rechts: ortsabhängige Längsdehnung. Gleiche Blattgeometrie und Materialabbildung; die beiden Wachstumsvarianten nutzen dieselben Kandidaten und dieselbe Richtungsbindung.",
-      "quality": "Gebogene Seitenadern und Mittelrippe lesbarer. Kopplung an geschlossene Feinadern, feinere Aderordnungen und natürliche Materialvariation fehlen noch; SpeedTree-Qualität nicht erreicht.",
+      "quality": "Vergleich der Hauptaderverfahren ohne Feinaderlayer. Die Kopplung ist separat im aktuellen Nahbild gezeigt; natürliche Materialvariation und botanische Kalibrierung bleiben offen.",
       "scenario": "build/experiments/vegetation/developing-leaves/leaf-material-upper.json"
     },
     {
@@ -432,7 +442,8 @@
     "relative_plot": "lod-0",
     "closed_plot": "lod-0",
     "filter_plot": "lod-0",
-    "development_plot": "lod-0"
+    "development_plot": "lod-0",
+    "coupled_plot": "lod-0"
   },
   "genera": [
     {

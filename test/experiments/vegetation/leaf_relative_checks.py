@@ -66,7 +66,7 @@ def check_neighbors():
         assert empty == []
     for nodes, sources in (
         (np.empty((0, 2)), np.zeros((1, 2))),
-        (np.zeros((2049, 2)), np.zeros((1, 2))),
+        (np.zeros((4097, 2)), np.zeros((1, 2))),
         (np.zeros((1, 2)), np.zeros((4097, 2))),
         (np.array([[np.nan, 0]]), np.zeros((1, 2))),
     ):
@@ -75,7 +75,17 @@ def check_neighbors():
         except ValueError:
             continue
         raise AssertionError("invalid neighborhood request accepted")
+    line = np.column_stack((np.arange(1.0, 4097), np.zeros(4096)))
+    boundary, work = relative_neighbors(line, np.zeros((1, 2)))
+    assert np.array_equal(boundary[0], [0]) and work["blocker_pairs"] == 4096
+    try:
+        relative_neighbors(line, np.zeros((36, 2)), "dense")
+    except ValueError as error:
+        assert "pair budget" in str(error)
+    else:
+        raise AssertionError("dense pair budget was relaxed")
     return {
+        "capacity_4096_and_dense_budget": True,
         "scalar_sources": checked,
         "equal_radius_neighbors": len(ring),
         "ties_duplicates_collinear_and_coincident": True,

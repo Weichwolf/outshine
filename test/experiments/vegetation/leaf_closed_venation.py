@@ -37,7 +37,7 @@ def grow_closed(
     edges = np.asarray(edges)
     if not np.issubdtype(edges.dtype, np.integer):
         raise ValueError("integer edge indices required")
-    if not 1 <= len(positions) <= max_nodes <= 2048 or not 0 <= steps <= 160:
+    if not 1 <= len(positions) <= max_nodes <= 4096 or not 0 <= steps <= 160:
         raise ValueError("bounded initial graph and growth request required")
     for points in (positions, sources):
         if points.ndim != 2 or points.shape[1] != 2 or not np.isfinite(points).all():
