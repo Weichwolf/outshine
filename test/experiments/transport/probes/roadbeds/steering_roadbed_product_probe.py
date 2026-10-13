@@ -52,11 +52,13 @@ def previous_pairs(owner,poses,routes,reference,records,prior_path):
 
 def make_seeds(data,poses,routes,notes):
     seeds={}
-    court=any(n.get('road_space_recipe')=='loop-court' for n in notes.values())
+    recipes={n.get('road_space_recipe','lane-flare') for n in notes.values()}
+    court=bool(recipes&{'loop-court','return-court'})
+    if court:assert len(recipes)==1,'coupled court curves need one space recipe'
     if court:
         data=dict(data,loop_layout=[dict(source=routes[p].wkb.hex(),controls=n['curve_controls']) for p,n in notes.items()])
     for pair,note in notes.items():
-        if court:note=dict(note,road_space_recipe='loop-court')
+        if court:note=dict(note,road_space_recipe=next(iter(recipes)))
         query=dict(data,source_route=routes[pair].wkb.hex(),
             entry={k:poses[pair[0]][k] for k in ('position','heading')},
             exit={k:poses[pair[1]][k] for k in ('position','heading')})

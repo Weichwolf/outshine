@@ -6,7 +6,7 @@ import shapely
 
 from rounded_lane_loop_probe import rounded_polyline
 from steering_roadbed_candidate_probe import candidate
-from transport_loop_court import loop_court_domain
+from transport_loop_court import loop_court_domain,return_court_domain
 
 
 def verify():
@@ -32,8 +32,17 @@ def verify():
     try:candidate(data,dict(note,road_space_recipe='unknown'))
     except AssertionError as error:assert str(error)=='unknown road space recipe'
     else:raise AssertionError('unknown recipe was accepted')
+    returning=shapely.LineString([[0,0],[0,10],[5,10],[5,0]])
+    domain,reach=return_court_domain(returning,vehicle)
+    assert np.isclose(reach,12.2) and domain.covers(returning)
+    for invalid in (shapely.LineString([[0,0],[5,0],[10,0]]),
+                    shapely.LineString([[0,0],[0,20],[20,20],[20,0]]),
+                    shapely.LineString([[0,0],[0,0],[5,0]])):
+        try:return_court_domain(invalid,vehicle)
+        except AssertionError:pass
+        else:raise AssertionError('invalid return court source accepted')
     return dict(source_bounded_layout=True,native_mesh_body_checked=True,radius_unchanged=True,
-                reservations_preserved=True,nonloop_source_rejected=True,unknown_recipe_rejected=True)
+                reservations_preserved=True,nonloop_source_rejected=True,unknown_recipe_rejected=True,local_return_domain_bounded=True)
 
 
 if __name__=='__main__':print(json.dumps(verify()))
