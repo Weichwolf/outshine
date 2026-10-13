@@ -35,7 +35,7 @@ def endpoint(lengths,radius,sign,transition):
 def controls_for(lengths,radius,sign,transition,entry,spacing=1.):
     position=entry['position'].copy();heading=np.arctan2(*entry['heading'][::-1]);pieces=[]
     for start,end,length in segments(lengths,radius,sign,transition):
-        count=max(1,int(np.ceil(length/spacing)));step=length/count
+        count=1 if start==0 and end==0 else max(1,int(np.ceil(length/spacing)));step=length/count
         for i in range(count):
             a=start+(end-start)*i/count;b=start+(end-start)*(i+1)/count
             target,angle=advance(position,heading,a,b,step)

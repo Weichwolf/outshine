@@ -17,13 +17,15 @@ from transport_junction_surfaces import same_island_winding
 from steering_roadbed_candidate_probe import candidate
 from turning_space_probe import provenance
 from transport_cut_setback_experiment import digest,implementation_files
+from transport_arc_line_paths import arc_line_arc_seeds
 
 
-def core_candidates(entry,exit,radius,inset,outset=None):
+def core_candidates(entry,exit,radius,inset,outset=None,*,family='CCC'):
     if outset is None:outset=inset
     begin=dict(position=entry['position']+inset*entry['heading'],heading=entry['heading'])
     end=dict(position=exit['position']-outset*exit['heading'],heading=exit['heading'])
-    for kind,seed in three_arc_seeds(begin,end,radius):
+    generate=three_arc_seeds if family=='CCC' else arc_line_arc_seeds
+    for kind,seed in generate(begin,end,radius):
         path=shapely.LineString(np.vstack([entry['position'],np.array(seed.coords),exit['position']]))
         if path.is_simple:yield begin,end,kind,seed,path
 
@@ -48,6 +50,7 @@ def main():
     parser.add_argument('--close-new-pockets',action='store_true')
     parser.add_argument('--diagnostics',action='store_true')
     parser.add_argument('--recipe',choices=('lane-flare','loop-court','return-court'),default='lane-flare')
+    parser.add_argument('--family',choices=('CCC','CSC'),default='CCC')
     args=parser.parse_args()
     if not all(np.isfinite(s) and s>=0 for s in [*args.inset,*(args.outset or [])]):parser.error('approach lengths must be finite and nonnegative')
     if len(args.radius_scale)>8 or not all(np.isfinite(r) and r>=1 for r in args.radius_scale):
@@ -62,12 +65,13 @@ def main():
     for inset in args.inset:
         for outset in args.outset if args.outset is not None else [inset]:
             for r in (radius*scale for scale in args.radius_scale):
-                for begin,end,kind,seed,path in core_candidates(entry,exit,r,inset,outset):
+                for begin,end,kind,seed,path in core_candidates(entry,exit,r,inset,outset,family=args.family):
                     if same_island_winding(path,source,floor):options.append((inset,outset,r,begin,end,kind,seed))
     for inset,outset,r,begin,end,kind,seed in options:
         if calls>=1536:break
-        row=dict(inset_m=inset,outset_m=outset,radius_m=r,kind=kind,accepted=False);rows.append(row)
-        controls,note=fit_turn(begin,end,seed,r,kind[0],1.,maximum_calls=min(128,1536-calls))
+        row=dict(inset_m=inset,outset_m=outset,radius_m=r,kind=kind,family=args.family,accepted=False);rows.append(row)
+        sign=kind[0] if args.family=='CCC' else kind
+        controls,note=fit_turn(begin,end,seed,r,sign,1.,maximum_calls=min(128,1536-calls))
         calls+=note['residual_calls'];row.update(reason=note['reason'],residual_calls=note['residual_calls'])
         if controls is None:continue
         controls=attach_approaches(controls,entry,exit,begin,end,inset,outset)
