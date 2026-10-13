@@ -17,6 +17,9 @@ from evidence import revision
 CORE = Path('/home/cosmo/Downloads/esri_ce_sdk-3.4.12206/bin/libcom.esri.prt.core.so')
 HEADLESS = Path('/snap/bin/ghidra.analyzeHeadless')
 TARGETS = {
+    '_ZN12_GLOBAL__N_122setupProjectionGeneralER9ProcessordN2GC15PrjAxesSelector4EnumENS2_5Scale4EnumEdS6_dS6_dS6_dd.lto_priv.0': 'scope/world metric texture projection setup and floating dimensions',
+    '_ZN9Processor9projectUVEd': 'baking a stored texture projection into geometry UV channels',
+    '_ZN9Processor7textureERKSt10shared_ptrINSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEE': 'texture resource alpha detection and material map assignment',
     '_ZN9Processor5colorERKSt10shared_ptrINSt7__cxx1112basic_stringIwSt11char_traitsIwESaIwEEEE': 'CGA hex color parsing and material dispatch',
     '_ZN9Processor5colorEddd': 'CGA RGB color clamping and material storage',
     '_ZN9Processor5colorEdddd': 'CGA RGBA color clamping and opacity storage',
