@@ -163,6 +163,10 @@ class Shape:
         from modelling_roof_shed import roof_shed
         return roof_shed(self,value,index,mode)
 
+    def roof_ridge(self,value,mode='byAngle'):
+        from modelling_roof_ridge import roof_ridge
+        return roof_ridge(self,value,mode)
+
     def insert(self,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         from modelling_insert import insert
         return insert(self,asset,mode,cleanup)

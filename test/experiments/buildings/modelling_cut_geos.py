@@ -9,13 +9,17 @@ from modelling_vector import cross3
 
 
 class Slab:
-    def __init__(self,source,axis,low,high,material,group):
+    def __init__(self,source,axis,low,high,material,group,direction=None,origin=None):
         self.source=source;self.axis=axis;self.low=low;self.high=high
-        self.direction=source.shape.scope.axes[:,axis]*(1. if source.shape.scope.size[axis]>=0 else -1.)
-        self.origin=source.shape.scope.origin;self.material=material;self.group=group
+        if direction is not None and source.closed:raise NotImplementedError('Arbitrary cut directions currently require open surfaces')
+        self.direction=source.shape.scope.axes[:,axis]*(1. if source.shape.scope.size[axis]>=0 else -1.) if direction is None else np.asarray(direction,dtype=float)
+        self.origin=source.shape.scope.origin if origin is None else np.asarray(origin,dtype=float)
+        if self.direction.shape!=(3,) or self.origin.shape!=(3,) or not np.isfinite(self.direction).all() or not np.isfinite(self.origin).all() or not np.isclose(np.linalg.norm(self.direction),1.,atol=1e-12,rtol=0.):
+            raise ValueError('Surface cuts require a finite unit direction and finite origin')
+        self.material=material;self.group=group
         self.points={int(root):source.properties[root,:3].copy() for root in np.unique(source.roots)}
         self.positions={root:float((point-self.origin)@self.direction) for root,point in self.points.items()}
-        self.next=max(self.points)+1;self.intersections={};self.tolerance=max(1e-10,abs(source.shape.scope.size[axis])*1e-12)
+        self.next=max(self.points)+1;self.intersections={};self.tolerance=max(1e-10,(abs(source.shape.scope.size[axis]) if direction is None else abs(high-low))*1e-12)
         self.properties=[];self.roots=[];self.keys=[];self.templates={};self.omitted=set()
 
     def position(self,root):return self.positions[root]

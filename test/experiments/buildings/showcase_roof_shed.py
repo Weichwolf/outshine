@@ -37,7 +37,7 @@ def plan(output,provenance,rows):
     start=time.perf_counter();fig,axes=plt.subplots(1,3,figsize=(38.4,21.6));fig.suptitle('roofShed · tatsächliche Dachhöhen über dem Quellgrundriss',fontsize=34)
     for axis,(name,polygon,roof,value,index,mode) in zip(axes,rows,strict=True):
         top=roof.comp('f',Branch(tagged('roof.top')),alignment='noAlign')[0];mesh=engine_mesh(top.emit());points=mesh['vertices']
-        colour=axis.tripcolor(points[:,0],points[:,1],mesh['faces'],points[:,2]-3.,shading='gouraud',cmap='viridis',vmin=0.,vmax=roof.roof_info.rises_m[0])
+        colour=axis.tricontourf(points[:,0],points[:,1],mesh['faces'],points[:,2]-3.,levels=np.linspace(0.,roof.roof_info.rises_m[0],257),cmap='viridis')
         fig.colorbar(colour,ax=axis,shrink=.45,label='Höhe über Traufe [m]')
         patch(axis,polygon,facecolor='none',edgecolor='#263544',linewidth=2.)
         corners=np.array(polygon.exterior.coords);edge=int(round(index))%(len(corners)-1);a,b=corners[edge:edge+2]
@@ -58,13 +58,13 @@ def mass(polygon,base,eave,roof):
     return [(Shape.from_faces(body.emit()['vertices'],body_faces),0),(Shape.from_faces(roof.emit()['vertices'],roof_faces),3)]
 
 
-def spatial(output,provenance,stem,title,shapes,metadata,caption):
+def spatial(output,provenance,stem,title,shapes,metadata,caption,label='roof-shed',direction=(1.,-1.3,.9)):
     mesh=inspection_mesh(shapes);path=output/(stem+'-mesh.npz');np.savez_compressed(path,**mesh);image=output/(stem+'.png')
-    camera=fitted_points(mesh['vertices'],[1920,1080],direction=(1.,-1.3,.9));config,_=configuration([],camera,False,image)
+    camera=fitted_points(mesh['vertices'],[1920,1080],direction=direction);config,_=configuration([],camera,False,image)
     config.update(inspection_workbench=True,constructive=dict(mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         wall_linear=[1.,1.,1.],roof_linear=[.2,.2,.2],extra_wall_colours=COLOURS))
     rendered=run_render(config,output/(stem+'-scene.json'));name=stem+'-report.json'
-    record=provenance|rendered|metadata|dict(representation='showcase-current',page='buildings',view='components',label='roof-shed',title=title,caption=caption,
+    record=provenance|rendered|metadata|dict(representation='showcase-current',page='buildings',view='components',label=label,title=title,caption=caption,
         profile=[1920,1080],triangles=len(mesh['faces']),image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),completed_recipe_families=0,lod_status='native LOD unproved')
     (output/name).write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n');return name
 

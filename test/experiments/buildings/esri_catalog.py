@@ -31,6 +31,9 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
+    'roofRidge':dict(module='modelling_shape.Shape.roof_ridge',status='planar logical faces: two symmetric slopes or positive explicit height, ridge parallel to projected scope X, source triangle cuts with barycentric UV0-9, holes and disconnected roof facets, shared logical ridge vertices and roof tags',
+        pending=['trim planes and exact optimized SDK connectivity','isolated PRT roofRidge rules and exact normal semantics','mixed wire/point geometry and vertex colours','full multi-face adjacency semantics','native LOD'],
+        evidence=['verify_modelling_roof_ridge.py','esri_roof_reference.py','esri_ghidra.py','showcase_roof_ridge.py']),
     'roofShed':dict(module='modelling_shape.Shape.roof_shed',status='planar logical faces: rounded/wrapped exterior edge index, signed angle or positive height, holes, closed nondegenerate sides, arbitrary corner UV0-9, material/group/tag inheritance and aligned scope; analytic geometric controls',
         pending=['trim planes and exact optimized SDK connectivity','isolated PRT roofShed rules and exact UV/normal semantics','mixed wire/point geometry and vertex colours','full multi-face adjacency semantics','native LOD'],
         evidence=['verify_modelling_roof_shed.py','esri_roof_reference.py','esri_ghidra.py','showcase_roof_shed.py']),

@@ -71,7 +71,6 @@ Gleiche deklarierte Werte/Name bündeln unterschiedliche IDs; unaufgelöste IDs 
 `group_names/material_names` folgen Komponentenindices ohne Vertexausgabe. Vier g/m-Frames, zwei Lochflächen/UVs,
 Draht-/Punktgruppen, sechs ungültige Eingaben sowie drei echte PRT-Prismen nach Bounds/Volumen geprüft.
 PyEncoder liefert keine Gruppen-/Materialmetadaten; PRT-Prismen plus gefüllte Höfe sind kein isoliertes g/m/h-Orakel.
-Native Übernahme und Namensabfragen aus Metadaten gemessen günstiger als GEOS-Neuaufbau/Geometriekontext; Frames/GPU ausgeschlossen.
 
 ## Unterteilung: 2D-Verfahrensstufe
 `modelling_split_sizes/split_plan/split_area`: absolute/relative/floating Größen, flache Repeats und globale Indices.
@@ -79,7 +78,6 @@ GEOS-Schnittpolygone mit Löchern/Multipart; adjust/noAdjust-Bounds, verschachte
 Flächenteilung nutzt monotone Summen der CDT-Dreiecksflächen; zwischen Eckpunktpositionen ist die Summe quadratisch.
 Direkte Inversion gegen 64-Schritt-Bisektion und wiederholte GEOS-Cuts vergleichen, Quellfläche/Schnittgrenzen erhalten.
 Neun SDK-Größenbeispiele, analytisches Dreieck, 198 GEOS-Flächenintegrale sowie fünf Grundrisse × zwei Achsen geprüft.
-Direkte Flächeninversion gemessen günstiger als GEOS-Bisektion; maximaler Flächenfehler 3,6e−12 m², kein Framebeleg.
 
 ## Unterteilung: geschlossene Körper und offene Flächen
 `Shape.split`: native Dreiecke mit baryzentrischen UV-/Normalenwerten schneiden, logische Quellflächen rekonstruieren.
@@ -95,17 +93,19 @@ Offene Kantenkomponenten erzeugen keine Caps; neun ungültige/unsupported Eingab
 30 Quell-/Achsen-/Framefälle, 102 nichtaffine UV-/Normalenecken, verwundene/ungleich große Flächen und acht ungültige Eingaben geprüft.
 SDK-Projektion/UV-Gleichheit und Normalengewichte offen; gemischte Primitive/rohe Parts, Repeats und UV-/unitSpace bleiben Lücken.
 `Asset.from_shape`/`Shape.insert`: drei Modi, yUp/zUp und Nullachsen; Scope-Zero 0,1 mm, ausgegebene Mindestabmessung 0,01 mm.
-72 Insert-Fälle geprüft; geteilte Assets gemessen günstiger in Zeit/Speicher; Vorbereitung/GPU/Frames ausgeschlossen.
 `Asset.from_file`: Trimesh 5.1.1/Pygltflib 1.16.5 für OBJ/glTF/GLB; statische Knoten/Spiegelung, UV0/UV1, Normalen und genaue Materialwerte.
 Hashes/Bilder erhalten; f/g/m übernehmen Zusatzkanäle, übrige Bearbeitung meldet unsupported. Vier Dateien, fünf ungültige Fälle, Integer-UV/Farben und schiefe Normalen geprüft.
 UV: Skalierung/Rotation/Translation/Kopie/Löschen; vier Normalmodi kollektiv/pro Fläche. Corner/Höfe/UV-Abwesenheit erhalten; Wire-/Punkt-Edits unsupported.
-Material/Texturbytes erhalten. Sechs Scope-Projektionen: Ghidra belegt Tiefenvorzeichen; Frames/comp/relative Maße geprüft. Achsenbild: 6×1920×1080, gleiche Körper/Kameras; optisch geprüft. Floating ist nun signiert; Part lehnt negative Splitbreiten weiterhin ab (Prüfung angepasst). Relative/Floating-Versätze folgen SDK-Rohmaß vor Clamp. Aktiv: Weltachsen; große Koordinaten und PRT-/LOD-/Shadergleichheit offen.
-## Aktiver Dachblock
+Material/Texturbytes und Projektionsframes erhalten. Sechs Scope-/Weltachsen, relative/signierte Floating-Maße und Versätze vor Clamp geprüft.
+Achsenbilder in 1920×1080 optisch geprüft; große Koordinaten, PRT-/LOD-/Shadergleichheit offen.
+## Aktiver Dachblock: Pult und First
 `Shape.roof_shed`: planare Flächen, gerundete/zyklische Kantenwahl, signierter Winkel oder positive Höhe, Höfe und ausgerichteter Scope.
 Nichtaffine UV0–9, Material/Gruppen/Tags erhalten; Dachmasken auch nach `split`. Neue geometrische Normalen; Null-Traufseiten mit Quellindex auslassen.
 Ghidra 00526480 delegiert an 005225f0: 2.976 Instruktionen, zwei indirekte Aufrufe offen; Kantenindex zyklisch, Winkelzeichen dreht Dachrichtung.
 30 analytische Volumen-/Topologie-/UV-/Framefälle plus getrennte Flächen/Streams; Höhenplan und zwei 1080p-Ansichten optisch geprüft.
-Trim-Planes, isolierte PRT-Regeln, genaue SDK-UV-/Normalensemantik und gekoppelte Mehrflächen-Topologie fehlen.
+`Shape.roof_ridge`: zwei Ebenen, First parallel zu projiziertem Scope-X; native Dreiecksschnitte erhalten nichtaffine UV0–9.
+36 Volumen-/Frame-/Hof-/UV-Flächenfälle, gemeinsame logische Firstkanten; vier 2D/3D-Ansichten optisch geprüft.
+Trim-Planes, isolierte PRT-Regeln, SDK-UV-/Normalensemantik und gekoppelte Mehrflächen-Topologie fehlen.
 [2440](2440_building_recipe_families_have_distinct_architecture_and_examples.md) besitzt anschließend moderne/zeitgenössische Rezepte:
 alle lieferbaren Nutzungs-/Form-/Geschoss-/Dach-/Material-/Part-/Kontextkombinationen passend treffen;
 Teil-/Geschossnutzung lokal komponieren, Widersprüche erhalten. Unknown-Ersatz zählt nicht als spezifischer Treffer.
@@ -113,7 +113,7 @@ Familien/Varianten/Instanzen getrennt zählen; funktionale Räume/Wege/Zugänge/
 
 ## Primärquellen
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf), Abschnitt 3: Scope/Split/Repeat/Komponenten.
-[CGA roofShed](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-shed.htm): Kantenwahl, Winkel/Höhe, Auto-Tags und Scope.
+[CGA roofShed](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-shed.htm)/[roofRidge](https://doc.arcgis.com/en/cityengine/latest/cga/cga-roof-ridge.htm): Dachorientierung, Winkel/Höhe, Tags und Scope.
 [CGA Comp](https://doc.arcgis.com/en/cityengine/latest/cga/cga-comp.htm): Auswahl/Pivots; [UV-Normalisierung](https://doc.arcgis.com/en/cityengine/latest/cga/cga-normalize-uv.htm): Modi, Flächentrennung.
 [CGA Extrude](https://doc.arcgis.com/en/cityengine/latest/cga/cga-extrude.htm): Flächen/Kanten, UVs/Tags, signierte Scopes und Mindestspanne.
 [CGA Split](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split.htm), [SplitArea](https://doc.arcgis.com/en/cityengine/latest/cga/cga-split-area.htm): Umfang/Breiten versus Geometriefläche, Wiederholung und Scope-Anpassung.
