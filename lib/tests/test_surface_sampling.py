@@ -103,6 +103,17 @@ class Contacts(unittest.TestCase):
         with self.assertRaises(ValueError):
             SurfaceSampler(Mesh(p, np.array([[0, 1, 2]])))
 
+    def test_query_cap_precedes_numeric_conversion(self):
+        class Oversized:
+            def __len__(self):
+                return 2
+
+            def __array__(self, *args, **kwargs):
+                raise AssertionError("oversized input must not be converted")
+
+        with self.assertRaises(ValueError):
+            SurfaceSampler(self.mesh).sample(Oversized(), max_queries=1)
+
 
 if __name__ == "__main__":
     unittest.main()

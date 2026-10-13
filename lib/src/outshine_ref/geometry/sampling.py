@@ -128,9 +128,22 @@ class SurfaceSampler:
         explicit query cap are rejected for the caller to split, not allocated.
         """
         began = time.perf_counter()
-        xy = np.asarray(xy, dtype=float)
         if type(max_queries) is not int or max_queries <= 0 or type(max_candidates) is not int or max_candidates < 0:
             raise ValueError("positive query cap and nonnegative integer candidate budget required")
+        try:
+            count = len(xy)
+        except TypeError:
+            raise ValueError("finite Nx2 points within the explicit query cap required") from None
+        if count > max_queries:
+            raise ValueError("query input exceeds cap before conversion")
+        if isinstance(xy, np.ndarray):
+            if xy.ndim != 2 or xy.shape[1] != 2:
+                raise ValueError("Nx2 query array required")
+        elif not isinstance(xy, (list, tuple)) or any(
+            not isinstance(row, (list, tuple, np.ndarray)) or len(row) != 2 or not all(np.isscalar(v) for v in row) for row in xy
+        ):
+            raise ValueError("bounded rows with two scalar coordinates required")
+        xy = np.asarray(xy, dtype=float).reshape(-1, 2)
         if xy.ndim != 2 or xy.shape[1] != 2 or len(xy) > max_queries or not np.isfinite(xy).all():
             raise ValueError("finite Nx2 points within the explicit query cap required")
         points = np.c_[xy, np.full(len(xy), np.nan)]
