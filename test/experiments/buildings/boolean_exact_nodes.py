@@ -72,8 +72,8 @@ def triangulate(number,regions,nodes,max_triangles):
             triangles.append((middle,root,boundary[(i+1)%len(boundary)]));supports.append(support)
             if len(triangles)>max_triangles:raise ValueError('Exact fan triangle capacity exceeded')
     values=np.asarray(triangles,dtype=np.int64).reshape(-1,3)
-    xyz=np.asarray([nodes.coordinates[int(r)] for r in values.ravel()]).reshape(-1,3,3)
-    normal=nodes.projection(number)[1]
-    reverse=np.cross(xyz[:,1]-xyz[:,0],xyz[:,2]-xyz[:,0])@normal<0
+    corners=nodes.original(number)[1]
+    reference=orientation(*(nodes.projected(number,root) for root in corners))
+    reverse=np.asarray([orientation(*(nodes.projected(number,root) for root in triangle))*reference<0 for triangle in values],dtype=bool)
     values[reverse]=values[reverse][:,[0,2,1]]
     return values,tuple(supports)

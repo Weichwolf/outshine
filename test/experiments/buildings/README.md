@@ -32,9 +32,11 @@ regions with exact rational convex clipping and original-edge stations. The
 `exact-rounded` alternative contracts only existing edges whose endpoints
 convert to identical Float64 positions; disconnected contact fans stay separate.
 The `exact-output` alternative additionally cancels opposite facets only when
-their Float64 coordinates are exactly collinear, their logical root cycles
-are opposite, and their native triangle and source supports match. Unpaired,
-equally oriented, nonzero-area or differently supported facets remain. Directed
+their exact rational Float64 area is below the unchanged normal-resolution
+bound, their logical root cycles are opposite, and their native triangle and
+source supports match. Fan orientation comes from exact construction, avoiding
+rounding-induced reversals. Cancelled facet altitude is conservatively bounded
+and reported. Unpaired, resolvable or differently supported facets remain. Directed
 closure and all other output requirements still have to pass independently.
 None is a general Shape Boolean API. Full checks keep directed closure,
 resolvable normals, volume, surface, whole-region source support, UV0–9,
@@ -63,6 +65,27 @@ region and triangle counts are bounded. There is no hard process deadline or
 general memory bound, and source coplanarity selection remains floating point.
 The experiment adopts exact construction from Zhou et al., SIGGRAPH 2016,
 not their complete winding-number mesh arrangement or output repair algorithm.
+
+`boolean_shape_probe.assemble` reconstructs logical source-aware regions from
+shared native root edges with the existing polygon boundary recovery. Material,
+group, tag and original source-face boundaries stay separate; native triangles
+and all UV0–9 interpolation domains remain present. Logical rings share vertex
+identities but carry their own corner UVs. The result keeps A's scope, writes
+resolved operand materials into geometry and uses neutral root overrides.
+Conflicting prepared CGA map names receive deterministic names; encoded texture
+bytes stay shared, unaffected paths keep their prepared objects, and material
+links are rewritten in their own resource context. Unprepared maps fail explicitly.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_shape.py --real
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_shape_controls.py
+```
+
+This is experimental Shape assembly, not the general Shape Boolean API. Recursive
+history, imported indexed texture bindings, authored normals, surface cut-edge
+components, independently tilted/open geometry and hard resource bounds remain
+pending. Public component appearance already propagates correctly through
+`Shape.comp`; the inner constructor alone is not its full inheritance contract.
 
 ```sh
 .venv/bin/python test/experiments/buildings/showcase.py --publish --serve

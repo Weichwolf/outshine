@@ -8,7 +8,7 @@ import numpy as np
 
 from boolean_exact_regions import clip,partition,area,clean
 from boolean_exact_rounding import contract
-from boolean_output_repair import cancel,zero_area
+from boolean_output_repair import cancel,zero_area,unresolved_area
 from boolean_source_coordinates import projected_weights,rational_weights
 
 
@@ -88,6 +88,16 @@ class ExactControls(unittest.TestCase):
         actual=projected_weights(corners,points)
         np.testing.assert_allclose(actual,exact,atol=1e-12,rtol=0.)
         np.testing.assert_allclose(exact@corners,points,atol=2e-15,rtol=0.)
+
+    def test_subresolution_pair_has_a_measured_altitude_bound(self):
+        triangle=np.array([[4.888888888888888,4.,-2.3333333333333335],
+                           [5.333333333333333,4.,-2.],[4.,4.,-3.]])
+        self.assertFalse(zero_area(triangle))
+        bound=unresolved_area(triangle);self.assertIsNotNone(bound);self.assertLess(bound,1e-14)
+        nodes=SimpleNamespace(coordinates=dict(enumerate(triangle)))
+        evidence={};roots=np.array([[0,1,2],[0,2,1]])
+        result,_,_=cancel(roots,('a','a'),[7,7],nodes,evidence=evidence)
+        self.assertEqual(len(result),0);self.assertEqual(evidence['maximum_cancelled_altitude_m'],bound)
 
 
 if __name__=='__main__':unittest.main()
