@@ -27,6 +27,29 @@ CityEngine capability set or building generator. Issue [#51](https://github.com/
 tracks that transfer; [#34](https://github.com/Weichwolf/outshine/issues/34) owns
 modelling capabilities.
 
+Experimental coplanar CSG support partitioning compares GEOS triangle/plane
+regions with exact rational convex clipping and original-edge stations. The
+`exact-rounded` alternative contracts only existing edges whose endpoints
+convert to identical Float64 positions; disconnected contact fans stay separate.
+None is a general Shape Boolean API. Full checks keep directed closure,
+resolvable normals, volume, surface, whole-region source support, UV0–9,
+material priority and source tags. Rational construction alone does not prove
+valid Float64 output. [#88](https://github.com/Weichwolf/outshine/issues/88) owns
+the remaining rounding and general modelling contracts.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_exact.py
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_semantic_overlay.py --real --method exact
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_semantic_overlay.py --real --method exact-rounded
+```
+
+The latter two commands currently expect exit 1 and preserve rejected reports.
+Rational coordinate numerators/denominators are capped at 4096 bits; candidate,
+region and triangle counts are bounded. There is no hard process deadline or
+general memory bound, and source coplanarity selection remains floating point.
+The experiment adopts exact construction from Zhou et al., SIGGRAPH 2016,
+not their complete winding-number mesh arrangement or output repair algorithm.
+
 ```sh
 .venv/bin/python test/experiments/buildings/showcase.py --publish --serve
 ```

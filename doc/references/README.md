@@ -40,6 +40,13 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   [PDF](buildings/siggraph/2006-procedural-modeling-of-buildings.pdf).
   Ein gemeinsamer Gebäudeplan steuert Körper, Dach und Nahmodule. Kein allgemeiner
   CGA-Interpreter; bekannte Sonderklassen dürfen keine Wohnhausregeln erhalten.
+- **Mesh Arrangements for Solid Geometry**, Zhou et al., SIGGRAPH 2016.
+  [Quelle](https://www.cs.columbia.edu/cg/mesh-arrangements/) ·
+  [PDF](buildings/geometry/2016-mesh-arrangements-for-solid-geometry.pdf).
+  Exakte Schnittkonstruktionen und Zellklassifikation für Boolesche Operationen.
+  Rationale Koordinaten vermeiden gerundete Schnittknoten; ihre Umwandlung in
+  Gleitkommazahlen braucht eine eigene Prüfung. Buildings untersucht zunächst
+  koplanare Supportregionen in [#88](https://github.com/Weichwolf/outshine/issues/88).
 - **Grammar-based Encoding of Facades**, Haegler et al., EGSR 2010.
   [Quelle](https://peterwonka.net/Publications/pdfs/2010.EGSR.Haegler.GrammarBasedEncoding.pdf) ·
   [PDF](buildings/egsr/2010-grammar-based-encoding-of-facades.pdf).
