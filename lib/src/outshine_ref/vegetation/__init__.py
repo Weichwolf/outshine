@@ -31,6 +31,7 @@ class Plan:
 _SPATIAL_EXPORTS = {
     "ArcMeasure": "spine_measure",
     "CubicSpine": "spine_curve",
+    "FinAttachment": "fin_attachment",
     "SpatialAxis": "spatial_axis",
     "SpineField": "spine_field",
 }
@@ -49,6 +50,7 @@ __all__ = [
     "Blade",
     "CubicSpine",
     "DistancePattern",
+    "FinAttachment",
     "Inputs",
     "Needle",
     "Plan",
