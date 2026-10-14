@@ -1,7 +1,37 @@
 {
-  "current_work": "Wuchsachsen entstehen jetzt aus gerichteten Profilen und lokaler Punktanziehung. Vollständige vorbereitete Kurven führen Fiedern und Mittelrippe; direkte Nah-/Grobprodukte brauchen keine Kraftneuintegration. Allgemeine Formsteuerung geprüft, natürliche Artenrezepte, übrige Force-/Windfunktionen und Wald-LOD offen.",
+  "current_work": "Curl, Gnarl, Ebenen- und Rückkehrsteuerung ergänzen die Wuchsachsen. Mitwandernder Curlrahmen und feste Gnarlachse erzeugen unterschiedliche Formen; vollständige Kurven führen Fiedern/Rippen und direkte Nah-/Grobprodukte. Allgemeine Funktionen geprüft; natürliche Artenrezepte, übrige Kraft-/Windfunktionen und Wald-LOD offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/turning-forces.png",
+      "title": "Wuchsformen · Curl, Gnarl, Ebene, Rückkehr",
+      "label": "Eigene Wuchssteuerung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Vier eigene geformte Achsen: Curl im mitwandernden Rahmen, Gnarl um feste Achse, Ausrichtung zur Ebene und Rückkehr zur Anfangsrichtung. Fiedern und Mittelrippe folgen derselben vorbereiteten Kurve.",
+      "quality": "2560×1440; eigene glatte Felder. Original-Property-/Twist-Modi, botanische Rezepte, globale Kollision, Wind und Wald-LOD weiter offen.",
+      "scenario": "build/experiments/vegetation/turning-force/turning-forces.json"
+    },
+    {
+      "image": "render/turning-force-detail.png",
+      "title": "Gnarl · räumlicher Wuchs und Mittelrippe",
+      "label": "Eigene Wuchssteuerung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Detail derselben festen Drehachse. Räumlicher Verlauf mit prozeduraler Fiederform und Blatt-/Rindenmaterialien; direkte Differentialnormalen entlang der vorbereiteten Führung.",
+      "quality": "2560×1440; eigene glatte Felder. Original-Property-/Twist-Modi, botanische Rezepte, globale Kollision, Wind und Wald-LOD weiter offen.",
+      "scenario": "build/experiments/vegetation/turning-force/turning-force-detail.json"
+    },
+    {
+      "image": "render/turning-force-coarse.png",
+      "title": "Gnarl · direktes Grobprodukt",
+      "label": "Eigene Wuchssteuerung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-1",
+      "description": "Gleicher vollständiger Plan und Kamera wie Nahansicht. Grobe Quellflächen direkt erzeugt; feste Anker und gemeinsame Punkte erhalten, keine Kraftneuintegration.",
+      "quality": "2560×1440; eigene glatte Felder. Original-Property-/Twist-Modi, botanische Rezepte, globale Kollision, Wind und Wald-LOD weiter offen.",
+      "scenario": "build/experiments/vegetation/turning-force/turning-force-coarse.json"
+    },
     {
       "image": "render/growth-forces.png",
       "title": "Wachstumsfelder · neutral, Richtung, Profile, Anziehung",
@@ -712,7 +742,8 @@
     "frond_library_plot": "lod-0",
     "leaflet_shape_plot": "lod-0",
     "spatial_frond_plot": "lod-0",
-    "growth_force_plot": "lod-0"
+    "growth_force_plot": "lod-0",
+    "turning_force_plot": "lod-0"
   },
   "genera": [
     {

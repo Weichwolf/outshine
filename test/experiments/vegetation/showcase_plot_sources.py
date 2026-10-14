@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "turning-force/turning-force-report.json",
+        "turning_force_plot",
+        "Drehende Wuchsachsen · Curl, Gnarl, Ebene und Rückkehr",
+        "Vier vollständige vorbereitete Achsen, fünf wechselnde Läufe mit gleicher geometrischer Toleranz. Mitwandernder Curlrahmen und feste Gnarlachse getrennt; Return hängt an der Anfangsrichtung. Unabhängige Kreis-/Helix-/Ebenenprüfung, zwölf alte Kurven exakt, v2-/NPZ-Replay ohne Solver. Eigene glatte Kraftfelder, vollständige Original-Property-/Wind-/Arten-/native Freigabe offen.",
+    ),
+    (
         "growth-force/growth-force-report.json",
         "growth_force_plot",
         "Wachstumskräfte · Formbildung und Vorbereitungskosten",

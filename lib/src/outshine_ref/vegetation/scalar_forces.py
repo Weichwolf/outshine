@@ -6,9 +6,10 @@ from bisect import bisect_right
 import numpy as np
 
 from .force_fields import DirectionField
+from .turning_fields import CurlField, GnarlField, PlanarField, ReturnField
 
 
-def compile_fields(fields):
+def compile_fields(fields, initial_direction=(0, 1, 0)):
     result = []
     for field in fields:
         table = tuple(float(v) for v in field.rate.table)
@@ -20,7 +21,17 @@ def compile_fields(fields):
             )
         )
         direction = isinstance(field, DirectionField)
-        coordinates = field.unit_direction if direction else field.target
+        if isinstance(field, ReturnField):
+            direction, coordinates = True, initial_direction
+        elif isinstance(field, (CurlField, GnarlField)):
+            direction, coordinates = (
+                (2 if isinstance(field, CurlField) else 3),
+                field.unit_axis,
+            )
+        elif isinstance(field, PlanarField):
+            direction, coordinates = 4, field.unit_normal
+        else:
+            coordinates = field.unit_direction if direction else field.target
         softening2 = 0 if direction else field.softening * field.softening
         fall = field.falloff
         radial = (
@@ -41,7 +52,25 @@ def compile_fields(fields):
     return tuple(result)
 
 
-def scalar_force(fields, x, y, z, fraction):
+def turn_vector(kind, coords, tx, ty, tz, lateral):
+    ax, ay, az = coords
+    if kind == 4:
+        dot = ax * tx + ay * ty + az * tz
+        return tx - dot * ax, ty - dot * ay, tz - dot * az
+    if kind == 2:
+        if lateral is None:
+            raise ValueError("moving curl requires the transported lateral vector")
+        lx, ly, lz = lateral
+        nx, ny, nz = ly * tz - lz * ty, lz * tx - lx * tz, lx * ty - ly * tx
+        ax, ay, az = (
+            ax * lx + ay * tx + az * nx,
+            ax * ly + ay * ty + az * ny,
+            ax * lz + ay * tz + az * nz,
+        )
+    return ay * tz - az * ty, az * tx - ax * tz, ax * ty - ay * tx
+
+
+def scalar_force(fields, x, y, z, fraction, tx=0.0, ty=1.0, tz=0.0, lateral=None):
     fraction = min(1.0, max(0.0, fraction))
     force_x = force_y = force_z = 0.0
     for direction, coords, softening2, kind, knots, table, slopes, radial in fields:
@@ -67,7 +96,9 @@ def scalar_force(fields, x, y, z, fraction):
             elif mode != "step" and distance > inner:
                 fall = 1 - (distance - inner) / (outer - inner)
                 weight *= fall * fall if mode == "squared" else fall
-        if direction:
+        if direction in (2, 3, 4):
+            dx, dy, dz = turn_vector(direction, coords, tx, ty, tz, lateral)
+        elif direction:
             dx, dy, dz = coords
         else:
             dx, dy, dz = coords[0] - x, coords[1] - y, coords[2] - z

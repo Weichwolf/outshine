@@ -34,7 +34,11 @@ convert to identical Float64 positions; disconnected contact fans stay separate.
 The `exact-output` alternative additionally cancels opposite facets only when
 their exact rational Float64 area is below the unchanged normal-resolution
 bound, their logical root cycles are opposite, and their native triangle and
-source supports match. Fan orientation comes from exact construction, avoiding
+source supports match. The area bound includes the actual rational-to-Float64
+coordinate errors of the constructed vertices: with rounded edges u/v and their
+L1 error bounds du/dv, cross-product uncertainty adds
+`du*|v|1 + dv*|u|1 + du*dv`. There is no global welding distance or small-area
+cutoff. Fan orientation comes from exact construction, avoiding
 rounding-induced reversals. Cancelled facet altitude is conservatively bounded
 and reported. Unpaired, resolvable or differently supported facets remain. Directed
 closure and all other output requirements still have to pass independently.
@@ -81,8 +85,8 @@ links are rewritten in their own resource context. Unprepared maps fail explicit
 .venv/bin/python -W error test/experiments/buildings/verify_boolean_shape_controls.py
 ```
 
-This is experimental Shape assembly, not the general Shape Boolean API. Recursive
-history, imported indexed texture bindings, authored normals, surface cut-edge
+This is experimental Shape assembly, not the general Shape Boolean API. General
+recursive geometry, imported indexed texture bindings, authored normals, surface cut-edge
 components, independently tilted/open geometry and hard resource bounds remain
 pending. Public component appearance already propagates correctly through
 `Shape.comp`; the inner constructor alone is not its full inheritance contract.
@@ -102,11 +106,20 @@ intermediates obey union/difference/intersection identities.
 .venv/bin/python -W error test/experiments/buildings/boolean_sequence_comparison.py
 ```
 
-The room/door union-first chain passes independent original-prism volume/surface,
-original leaf UV0–9/material origins, current tags and actual mesh slices with a
-0.6 m-wide route. Sequential subtraction is a retained rejected comparison,
-currently returning exit 1 with a duplicate directed edge. No generic recursive
-geometry/runtime guarantee follows from the passing route; #109 owns this work.
+Both room/door expressions, `outer - (room union door)` and
+`(outer - room) - door`, pass independent original-prism volume/surface, original
+leaf UV0–9/material origins, current tags and actual mesh slices with a 0.6 m-wide
+route. Conflicting prepared map paths also preserve original byte identities
+through either chain. The comparison runs six alternating complete two-step
+pipelines under those same quality requirements. Timing excludes independent
+verification; peak RSS belongs to the combined process, not an individual
+strategy. No generic recursive geometry/runtime guarantee follows from this
+one workload; #109 owns this work.
+`compare_boolean_output_repair.py --baseline-revision <commit>` additionally
+compares eager versus candidate-first repair on the identical pre-repair arrays
+from both expressions. It checks exact output roots/supports/native IDs before
+reporting isolated kernel time. Source geometry capture and verification are
+excluded from that timer; the historical own-source kernel stays in build output.
 
 ```sh
 .venv/bin/python test/experiments/buildings/showcase.py --publish --serve
