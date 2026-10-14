@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 import numpy as np
 
 from .curve_frame import arc_frame
+from .needle_sampling import axial_parameters
 from .needle_section import section_centroid, section_field, section_sampling
 
 
@@ -105,12 +106,14 @@ class Needle:
             radius * magnitude,
         )
 
-    def mesh(self, segments=32, sides=16, method="batch"):
+    def mesh(self, segments=32, sides=16, method="batch", *, axial_sampling="uniform"):
         """Return owned mesh buffers; reject underresolved faces before publication.
 
         Positions/UVs/parameters and per-corner normals are float64, faces int32.
         Hard section edges and caps have independent corner normals/UVs.
         Subdivision controls approximation only; it is not a screen-error bound.
+        Profile sampling retains the widest ring and divides segments between
+        the body and pointed tip; uniform sampling preserves previous buffers.
         """
         if (
             type(segments) is not int
@@ -123,7 +126,8 @@ class Needle:
             raise ValueError("declared differential evaluation method required")
         angles, middle, tags = section_sampling(self.section, sides)
         sides = len(angles)
-        t, angle = np.meshgrid(np.arange(segments) / segments, angles, indexing="ij")
+        axial = axial_parameters(segments, self.taper_start, axial_sampling)
+        t, angle = np.meshgrid(axial, angles, indexing="ij")
         parameters = np.column_stack((t.ravel(), angle.ravel()))
         vertices = self.evaluate(parameters[:, 0], parameters[:, 1])[0]
         centre, tangent, _, _ = arc_frame(
