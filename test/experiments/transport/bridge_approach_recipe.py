@@ -5,9 +5,12 @@ import shapely
 from adaptive_profile_surface import adaptive_mesh
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
-from outshine_ref.transport import plan_vertical_transition, sample_vertical_transition
+from outshine_ref.transport import (
+    mesh_projected_profile,
+    plan_vertical_transition,
+    sample_vertical_transition,
+)
 from overpass_clearance import vertical_clearance
-from projected_profile_surface import projected_mesh
 from shared_bridge_geometry import corridor
 from surface_height_checks import normal_gradients
 
@@ -114,12 +117,17 @@ def build(approaches, root, lower, *, method="parabolic", geometry_method="slice
         report["profile"] = profile
         if field is None:
             return None, dict(report, reason=profile["reason"])
-        domain, origin, axis, table, curve = field
+        domain, origin, axis, _table, curve = field
         if geometry_method == "slices":
-            mesh, geometry = projected_mesh(domain, origin, axis, table)
-            geometry["whole_face_height_error_bound_m"] = (
-                profile["sampling"]["maximum_height_chord_bound_m"] + 1e-7
+            mesh, geometry = mesh_projected_profile(
+                domain,
+                curve,
+                origin,
+                axis,
+                start_station_m=profile["transition_station_m"][0],
             )
+            if mesh is None:
+                return None, dict(report, reason=geometry["reason"], geometry=geometry)
         elif geometry_method == "midpoints":
             mesh, geometry = adaptive_mesh(
                 domain, origin, axis, curve, profile["transition_station_m"][0]
