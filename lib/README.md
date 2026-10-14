@@ -184,6 +184,17 @@ genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben bei
 [#67](https://github.com/Weichwolf/outshine/issues/67); positive Überhänge werden
 weiterhin ausdrücklich abgelehnt.
 
+`partition_exterior_charts(corners, a, b, exterior)` zerlegt eine bereits gültige
+Außendomäne nach den nativen Dreieck-Charts an einer ursprünglichen Traufkante.
+Stationen entlang der Kante bestimmen den Besitzer; erster/letzter Chart reichen
+in die Eckbereiche. `extrapolate_chart` setzt die zugehörigen affinen
+Eckattribute fort, ohne die UVs am Grundrissrand zu klemmen. Die Domäne bleibt im
+ursprünglichen Koordinatenrahmen; eine Rotation schmaler GEOS-Konturen kann ihre
+Topologie durch Rundung verändern. Ein gemeinsamer Roof-/Source-Schnitt muss
+die Chartgrenzen anschließend in der tatsächlichen Mesh-Ausgabe erhalten.
+Das ist eine eigene Rand-Chart-Politik, kein SDK-UV-Orakel und noch keine gültige
+Gesamtgeometrie für positive Überhänge.
+
 ```sh
 .venv/bin/python -m pip install -e './lib[assets]'
 ```
