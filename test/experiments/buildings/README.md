@@ -152,9 +152,11 @@ generic room programme, native player controller and architecture families remai
 separate.
 
 The showcase reads the checked current snapshot and serves it on localhost:8766.
-New published states appear after manually reloading the page; no polling timer runs.
-Outputs remain under `build/experiments/buildings/`. Its four pages are viewing
-scales; native LOD boundaries and runtime budgets remain unproven.
+The latest user instruction replaces the earlier multi-page gallery: exactly four
+current complete tile images, no diagnostic panels or subpages. New stands appear
+on opening or via the manual refresh button; no polling timer runs. Detailed
+controls/plots remain private experiment artifacts. Outputs remain under
+`build/experiments/buildings/`; native runtime/device budgets remain unproven.
 
 ## Sonderbauwerke aus dem bevorzugten Provider
 
@@ -174,3 +176,22 @@ pinned external SDK via Ghidra. Foreign decompilations remain ignored Build outp
 the local reference note records their scope. The installed SDK contains no CGA
 rules or RPK recipe library. [#130](https://github.com/Weichwolf/outshine/issues/130)
 owns this research; meshes, functional architecture and native LOD remain separate.
+
+## Whole-tile radial prototypes
+
+`tile_buildings.py` decodes every delivered building polygon in four pinned tiles
+around Spittelau, Berlin Fernsehturm, Grohnde and Hameln, including provider buffer.
+Invalid geometry/height and hide_3d are source-specific omissions; unresolved
+colours use recorded procedural neutral values while original properties remain.
+`special_forms.py` codes initial shaft/hollow-flue/hyperboloid/dome profiles from
+classified source dimensions. Proportions are procedural, fine type/blueprint and
+functional access remain unproven. Normal buildings remain supplied footprint prisms.
+
+`showcase_tiles.py` chooses a near view from source envelopes before emission,
+retaining the complete tile scene. Front-facing radial products use a conservative
+minimum-depth 0.5-pixel error bound; behind-camera profiles stay complete at 0.25 m.
+Four 2560×1440 physical CPU renders use generated geometry and PBR materials.
+`radial_probe.py` compares own and Trimesh construction with the same binding work,
+records the small-cap rejection and current-address-space Linux VmHWM. General
+primitive contracts and independent volume/area/topology tests belong to #136;
+full architecture families and native integration remain open.
