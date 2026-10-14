@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from .vector3 import cross3
+
 
 def arc_frame(length, bend, twist, t):
     t = np.asarray(t, dtype=np.float64)
@@ -20,5 +22,5 @@ def arc_frame(length, bend, twist, t):
         (np.cos(roll), -np.sin(roll) * np.sin(angle), np.sin(roll) * np.cos(angle)),
         axis=-1,
     )
-    normal = np.cross(lateral, tangent)
+    normal = cross3(lateral, tangent)
     return centre, tangent, lateral, normal
