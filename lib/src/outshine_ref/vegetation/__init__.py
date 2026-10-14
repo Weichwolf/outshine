@@ -29,6 +29,10 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "CurlField": "turning_fields",
+    "GnarlField": "turning_fields",
+    "PlanarField": "turning_fields",
+    "ReturnField": "turning_fields",
     "AttractionField": "force_fields",
     "DirectionField": "force_fields",
     "RadialFalloff": "force_fields",
@@ -60,6 +64,10 @@ def __getattr__(name):
 
 
 __all__ = [
+    "CurlField",
+    "GnarlField",
+    "PlanarField",
+    "ReturnField",
     "ArcMeasure",
     "AttractionField",
     "AxisLevel",

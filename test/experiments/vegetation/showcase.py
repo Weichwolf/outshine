@@ -53,6 +53,7 @@ from spatial_plots import spatial_figure
 from spine_library_plots import spine_library_figure
 from spine_plots import spine_figure
 from tapered_plots import tapered_figure
+from turning_force_plots import turning_force_figure
 
 ROOT = Path(__file__).resolve().parents[3]
 EXPERIMENTS = ROOT / "build/experiments/vegetation"
@@ -561,10 +562,15 @@ def growth_force_plot(report):
     return save_plot(growth_force_figure(report), "growth-force")
 
 
+def turning_force_plot(report):
+    return save_plot(turning_force_figure(report), "turning-force")
+
+
 def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            turning_force_plot,
             growth_force_plot,
             spatial_frond_plot,
             leaflet_shape_plot,

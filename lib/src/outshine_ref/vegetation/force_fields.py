@@ -164,4 +164,6 @@ def field_from_recipe(recipe):
     if kind == "attraction":
         record["target"] = tuple(record["target"])
         return AttractionField(**record)
-    raise ValueError("supported complete growth field recipe required")
+    from .turning_fields import turning_from_recipe
+
+    return turning_from_recipe(kind, record)
