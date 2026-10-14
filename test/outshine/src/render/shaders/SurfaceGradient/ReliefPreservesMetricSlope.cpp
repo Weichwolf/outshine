@@ -1,11 +1,21 @@
 #include "Check.h"
 #include <math/Vec3.h>
+#include <algorithm>
 #include <cmath>
 
 namespace {
 
 using vec3 = outshine::Vec3f;
 using std::abs;
+using std::max;
+
+vec3 abs(vec3 value) {
+  return {{abs(value[0]), abs(value[1]), abs(value[2])}};
+}
+
+vec3 max(vec3 a, vec3 b) {
+  return {{max(a[0], b[0]), max(a[1], b[1]), max(a[2], b[2])}};
+}
 
 float sign(float value) {
   return value < 0.0f ? -1.0f : value > 0.0f ? 1.0f : 0.0f;
@@ -21,6 +31,10 @@ float dot(vec3 a, vec3 b) {
 
 vec3 operator/(vec3 value, float divisor) {
   return value * (1.0f / divisor);
+}
+
+vec3 operator-(vec3 value) {
+  return value * -1.0f;
 }
 
 vec3 normalize(vec3 value) {
@@ -45,10 +59,12 @@ void SameNormal(vec3 actual, vec3 expected) {
 int main() {
   using namespace outshine::Test;
   const vec3 n{{0.0f, 1.0f, 0.0f}};
+  SameNormal(facing(n, true), n);
+  SameNormal(facing(n, false), n * -1.0f);
   const vec3 dx{{2.0f, 0.0f, 0.5f}};
   const vec3 dy{{-1.0f, 0.0f, 3.0f}};
   const vec3 expected = normalize({{-0.12f, 1.0f, 0.07f}});
-  for (const float scale : {0.01f, 1.0f, 1000.0f}) {
+  for (const float scale : {0.000001f, 0.00001f, 0.0001f, 0.01f, 1.0f, 1000.0f}) {
     SameNormal(bumpNormal(n, n, dx * scale, dy * scale, 0.205f * scale, -0.33f * scale), expected);
     SameNormal(bumpNormal(n, n, dy * scale, dx * scale, -0.33f * scale, 0.205f * scale), expected);
   }
@@ -60,6 +76,7 @@ int main() {
                         -0.33f),
              normalize({{-0.12f, 0.07f, 1.0f}}));
   SameNormal(bumpNormal(n, n, dx, dx, 0.205f, 0.205f), n);
+  SameNormal(bumpNormal(n, n, {}, {}, 0.205f, 0.205f), n);
   SameNormal(bumpNormal(n, n, dx, dy, 0.0f, 0.0f), n);
   const vec3 mapped = normalize({{-0.1f, 1.0f, -0.02f}});
   SameNormal(bumpNormal(n, mapped, dx, dy, 0.205f, -0.33f), normalize({{-0.22f, 1.0f, 0.05f}}));

@@ -11,6 +11,14 @@ using std::clamp;
 using std::max;
 using std::min;
 
+vec3 abs(vec3 value) {
+  return {{abs(value[0]), abs(value[1]), abs(value[2])}};
+}
+
+vec3 max(vec3 a, vec3 b) {
+  return {{max(a[0], b[0]), max(a[1], b[1]), max(a[2], b[2])}};
+}
+
 float fract(float value) {
   return value - std::floor(value);
 }
@@ -33,6 +41,10 @@ float dot(vec3 a, vec3 b) {
 
 vec3 operator/(vec3 value, float divisor) {
   return value * (1.0f / divisor);
+}
+
+vec3 operator-(vec3 value) {
+  return value * -1.0f;
 }
 
 vec3 normalize(vec3 value) {
@@ -119,7 +131,7 @@ int main() {
                "minified cross-joint relief",
                "unresolved complete periods contribute no false normal slope");
   }
-  for (float scale : {0.01f, 1.0f, 1000.0f}) {
+  for (float scale : {0.000001f, 0.00001f, 0.0001f, 0.01f, 1.0f, 1000.0f}) {
     const auto axis =
         roofTileAxis(vec3{{2, 0, 0}} * scale, vec3{{0, 0.6f, 0.8f}} * scale, 0, 0.6f * scale);
     CHECK_NEAR(dot(axis, vec3{{1, 0, 0}}),
