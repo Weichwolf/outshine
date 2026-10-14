@@ -244,7 +244,14 @@ bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
   row.Litter[3] = lm.Roughness;
   fillSurf(row.GroundSurf, gm);
   fillSurf(row.LitterSurf, lm);
-  row.Mix[0] = li >= 0 ? static_cast<float>(ground["litterCoverage"].Num(gm.LitterCoverage)) : 0.0f;
+  const auto declaredCoverage = ground["litterCoverage"];
+  const double coverage = declaredCoverage.Valid() ? declaredCoverage.Num() : gm.LitterCoverage;
+  if ((declaredCoverage.Valid() && declaredCoverage.GetKind() != Json::Kind::Number) ||
+      !std::isfinite(coverage) || coverage < 0.0 || coverage > 1.0) {
+    Error_ = "ground.litterCoverage requires a finite fraction within [0,1]";
+    return false;
+  }
+  row.Mix[0] = li >= 0 ? static_cast<float>(coverage) : 0.0f;
   row.Mix[1] = static_cast<float>(ground["contrast"].Num(0.5));
   row.Mix[2] = gm.SpecularScale;
   row.Mix[3] = lm.SpecularScale;
@@ -404,6 +411,14 @@ const VegetationTemplates::Rule *VegetationTemplates::Find(std::string_view laye
   key.assign(layer).append("/*");
   it = Rules_.find(key);
   return it != Rules_.end() ? &it->second : nullptr;
+}
+
+Vec4f VegetationTemplates::Row::MeanGround() const noexcept {
+  Vec4f mean;
+  for (size_t channel = 0; channel < 4; ++channel) {
+    mean[channel] = std::lerp(Ground[channel], Litter[channel], Mix[0]);
+  }
+  return mean;
 }
 
 }
