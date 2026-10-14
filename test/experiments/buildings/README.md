@@ -155,3 +155,22 @@ The showcase reads the checked current snapshot and serves it on localhost:8766.
 New published states appear after manually reloading the page; no polling timer runs.
 Outputs remain under `build/experiments/buildings/`. Its four pages are viewing
 scales; native LOD boundaries and runtime budgets remain unproven.
+
+## Sonderbauwerke aus dem bevorzugten Provider
+
+`special_sources.py --fetch` samples named study windows against the endpoint
+declared in `PreferredVectorSource.h`; pinned receipts are in
+`doc/references/data/osm/special-structures-20261014.json`. Original bytes remain
+in the client source cache. No additional OSM service supplies missing tags.
+Names choose study locations only. `verify_special_structures.py` imports the
+library classifier, records every decision/omission, preserves POI markers without
+inventing dimensions, and checks known structural families plus building controls.
+Development inspected all study sites; checks are regressions, not an untouched
+statistical accuracy sample. `showcase_special_structures.py` plots actual
+footprints, height regimes and the unresolved type distinctions at 2400×1400+.
+
+`esri_special_reference.py` exports four bounded primitive functions from the
+pinned external SDK via Ghidra. Foreign decompilations remain ignored Build output;
+the local reference note records their scope. The installed SDK contains no CGA
+rules or RPK recipe library. [#130](https://github.com/Weichwolf/outshine/issues/130)
+owns this research; meshes, functional architecture and native LOD remain separate.
