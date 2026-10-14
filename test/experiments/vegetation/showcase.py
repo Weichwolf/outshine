@@ -31,6 +31,7 @@ from frond_library_plots import frond_library_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
 from graph_wood_plots import wood_figure
+from growth_force_plots import growth_force_figure
 from leaf_development_plots import development_figure
 from leaf_filter_plots import filter_figure
 from leaf_normal_plots import normal_figure
@@ -556,10 +557,15 @@ def spatial_frond_plot(report):
     return save_plot(spatial_frond_figure(report), "spatial-frond")
 
 
+def growth_force_plot(report):
+    return save_plot(growth_force_figure(report), "growth-force")
+
+
 def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            growth_force_plot,
             spatial_frond_plot,
             leaflet_shape_plot,
             frond_library_plot,

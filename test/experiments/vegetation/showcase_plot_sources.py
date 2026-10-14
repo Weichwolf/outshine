@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "growth-force/growth-force-report.json",
+        "growth_force_plot",
+        "Wachstumskräfte · Formbildung und Vorbereitungskosten",
+        "Neun Qualitätsfälle, je fünf wechselnde Läufe; Plot zeigt die mittlere Stärke. Konstante Richtung direkt, allgemeine Felder RK45/DOP853; Positions-/Richtungsfehler der Kurvenkette separat. Callbackvergleich bei demselben RK45 gegen eingefrorene NumPy-Auswertung. Vollständiger vorbereiteter Plan und Near/Coarse-Replay ohne Solver. Eigene geometrische Wuchssteuerung, keine Original-Property-, mechanische oder native Gerätefreigabe.",
+    ),
+    (
         "spatial-frond/spatial-frond-report.json",
         "spatial_frond_plot",
         "Freie Frondachsen · räumliche Führung und gleiche Ausgaben",

@@ -29,6 +29,11 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "AttractionField": "force_fields",
+    "DirectionField": "force_fields",
+    "RadialFalloff": "force_fields",
+    "GrowthSpine": "growth_spine",
+    "GrowthResult": "growth_spine",
     "AxisLevel": "plant_levels",
     "AxisState": "plant_plan",
     "ArcMeasure": "spine_measure",
@@ -56,23 +61,28 @@ def __getattr__(name):
 
 __all__ = [
     "ArcMeasure",
+    "AttractionField",
     "AxisLevel",
     "AxisState",
     "Blade",
     "CubicSpine",
+    "DirectionField",
     "DistancePattern",
     "FinAttachment",
     "FrondCurl",
     "FrondGuide",
+    "GrowthResult",
+    "GrowthSpine",
     "Inputs",
     "LeafletShape",
     "Needle",
-    "Plan",
     "PinnatePattern",
+    "Plan",
     "PlantPlan",
     "Profile",
+    "RadialFalloff",
+    "Shoot",
     "SpatialAxis",
     "SpatialFrondGuide",
-    "Shoot",
     "SpineField",
 ]

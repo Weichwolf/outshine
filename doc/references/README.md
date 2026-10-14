@@ -210,6 +210,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   PDF-Seiten 63/64 samt Algorithmus 4, Profilkurven und Pellaea-/Blechnum-Bildern optisch geprüft.
   Teilblätter aus lageabhängigen Längen-/Breiten-/Winkelprofilen an gemeinsamen Achsen aufbauen ([#36](https://github.com/Weichwolf/outshine/issues/36)).
   Eigene Guide-Deformation und Differentialnormalen; kein vollständiger L-System- oder Artennachbau.
+- **Developmental Models of Plant Architecture**, Prusinkiewicz / Lindenmayer / Hanan,
+  SIGGRAPH 1988. [Autorenquelle](https://algorithmicbotany.org/papers/developmental.sig1988.pdf) ·
+  [PDF](vegetation/siggraph/1988-developmental-models-of-plant-architecture.pdf).
+  PDF-Seite 4 samt Tropismuswinkel/-achse optisch geprüft; SIGGRAPH2003 Seite 66
+  ergänzt Orthotropismus und lageabhängige Wuchsformen. [#105](https://github.com/Weichwolf/outshine/issues/105)
+  nutzt eine eigene kontinuierliche Tangentenprojektion, konstante Richtungsreferenz
+  und begrenzte ODE-Vorbereitung. Mechanische Gewicht-/Steifheitssolver bleiben getrennt.
 - **An Image Synthesizer**, Perlin, SIGGRAPH 1985.
   [Primärquelle](https://doi.org/10.1145/325334.325247) ·
   [PDF](vegetation/siggraph/1985-image-synthesizer.pdf), CMU-Kursarchiv.
