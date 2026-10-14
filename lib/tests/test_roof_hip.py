@@ -16,6 +16,55 @@ def volume(shape):
 
 
 class HipModelling(unittest.TestCase):
+    def test_rotated_inset_rim_normals_remain_perpendicular_on_short_edges(self):
+        from outshine_ref.buildings.modelling.faces import plane
+        source=Shape.from_polygon(shapely.Polygon([(0,0),(12,0),(10,7),(2,6)])).r(17,31,23)
+        roof=source.roof_hip(3.,'byHeight',overhang=-.5)
+        mesh=roof.emit();normal=plane(source.emit()['vertices'],source.geometry.polygons[0])[0]
+        sides=np.asarray([any(t.startswith('roof.side') for t in f.tags) for f in roof.geometry.polygons])[mesh['parts']]
+        corners=mesh['vertices'][mesh['faces'][sides]]
+        normals=np.cross(corners[:,1]-corners[:,0],corners[:,2]-corners[:,0])
+        self.assertTrue(np.all(abs(normals@normal)<=1e-12*np.linalg.norm(normals,axis=1)))
+
+    def test_negative_overhang_closes_inset_rims_and_keeps_analytic_volume(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5))
+        for even in (False,True):
+            roof=source.roof_hip(3.,'byHeight',overhang=-.5,even=even)
+            k=3./2.5;d=.5/np.hypot(1.,k)
+            expected=k*(60*2.5-17*2.5**2+4*2.5**3/3-17*d**2+8*d**3/3)
+            self.assertAlmostEqual(volume(roof),expected,places=7)
+            self.assertTrue(any('roof.side.outer' in f.tags for f in roof.geometry.polygons))
+            self.assertAlmostEqual(roof.roof_info.insets[0].eave_level_m,k*d)
+            mesh=roof.emit();_,ids=np.unique(mesh['vertices'],axis=0,return_inverse=True)
+            triangles=ids[mesh['faces']]
+            edges=np.concatenate([triangles[:,[0,1]],triangles[:,[1,2]],triangles[:,[2,0]]])
+            _,inverse,counts=np.unique(np.sort(edges,axis=1),axis=0,return_inverse=True,return_counts=True)
+            self.assertTrue(np.all(counts==2))
+            self.assertTrue(np.all(np.bincount(inverse,weights=np.where(edges[:,0]<edges[:,1],1,-1))==0))
+
+    def test_inset_collapse_is_local_to_its_source_face(self):
+        vertices=np.array([[0,0,0],[0,0,-10],[12,0,-10],[12,0,0],
+                           [20,0,0],[20,0,-1],[22,0,-1],[22,0,0]],dtype=float)
+        source=Shape.from_faces(vertices,[Face((0,1,2,3)),Face((4,5,6,7))])
+        roof=source.roof_hip(3.,'byHeight',overhang=-4.)
+        self.assertEqual(roof.roof_info.collapsed_source_faces,(1,))
+        self.assertEqual(set(roof.roof_info.source_faces),{0})
+        self.assertEqual(len(roof.roof_info.plans),2)
+        self.assertTrue(roof.roof_info.insets[1].domain.is_empty)
+        empty=source.roof_hip(3.,'byHeight',overhang=-100.)
+        self.assertEqual(empty.roof_info.collapsed_source_faces,(0,1))
+        self.assertEqual(len(empty.emit()['faces']),0)
+        self.assertEqual(empty.scope.size,(0.,0.,0.))
+
+    def test_negative_overhang_retains_open_courtyard_and_inner_rim(self):
+        polygon=shapely.Polygon([(0,0),(10,0),(10,8),(0,8)], [[(2,2),(2,6),(7,6),(7,2)]])
+        roof=Shape.from_polygon(polygon).roof_hip(3.,'byHeight',overhang=-.5)
+        self.assertTrue(any('roof.side.inner' in f.tags for f in roof.geometry.polygons))
+        bottom=[f for f in roof.geometry.polygons if 'roof.bottom' in f.tags]
+        self.assertEqual(len(bottom),1)
+        self.assertEqual(len(bottom[0].holes),1)
+        self.assertAlmostEqual(roof.scope.size[1],3.)
+
     def test_rectangle_volume_angles_and_closed_oriented_edges(self):
         original=Shape.from_polygon(shapely.box(0,0,12,5))
         for value,mode in ((3.,'byHeight'),(25.,'byAngle')):

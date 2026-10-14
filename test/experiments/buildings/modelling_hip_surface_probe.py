@@ -29,7 +29,7 @@ def reference(plan,surface):
 
 def surface_heights(original,roof,value,mode,mesh=None):
     before=local(original);after=local(roof) if mesh is None else mesh
-    top=np.asarray(['roof.top' in f.tags for f in roof.geometry.polygons])[after['parts']]
+    top=np.asarray(['roof.top' in f.tags for f in roof.geometry.polygons],dtype=bool)[after['parts']]
     samples=np.array([[1.,0.,0.],[0.,1.,0.],[0.,0.,1.],[.2,.3,.5]])
     checked=0;maximum=0.
     for owner,(plan,surface) in enumerate(zip(roof.roof_info.plans,roof.roof_info.surfaces,strict=True)):
@@ -40,6 +40,9 @@ def surface_heights(original,roof,value,mode,mesh=None):
         basis=np.array([tangent,np.cross(normal,tangent)])
         selection=top&(np.asarray(roof.roof_info.source_faces)[after['parts']]==owner)
         points=np.einsum('si,tij->tsj',samples,after['vertices'][after['faces'][selection]]).reshape(-1,3)
+        if not len(points):
+            assert owner in roof.roof_info.collapsed_source_faces, 'Missing hip top without an explicit collapse'
+            continue
         projected=(points-origin)@basis.T-plan.origin;actual=(points-origin)@normal
         polys,triangles,values=reference(plan,surface)
         pairs=shapely.STRtree(polys).query(shapely.points(projected),predicate='dwithin',distance=1e-8)

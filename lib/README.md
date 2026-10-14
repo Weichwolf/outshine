@@ -171,9 +171,18 @@ untersuchten 2°-Knotenfächer und wird gegen einen isolierten SDK-Geometrieaufr
 geprüft. Ein degenerierter realer SDK-Gegenfall bleibt ausdrücklich offen.
 `roof_info.surfaces` hält die vorbereiteten Flächen; tatsächliche gemeinsame
 Höhenanpassungen am Präzisionsraster werden in Metern berichtet.
-Überhang, genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben
-Gegenstand von [#67](https://github.com/Weichwolf/outshine/issues/67);
-angeforderter Überhang wird ausdrücklich abgelehnt.
+Negative `overhang`-Werte schneiden das feste Dachfeld an einer höheren Traufe.
+Die eigene Variante bildet eine geschlossene Hülle: Unterseite im ursprünglichen
+Quellniveau, verbleibende Dachfläche und senkrechte äußere/innere Randflächen.
+UV0–9 folgen weiterhin den nativen Quell-Dreiecken; Randflächen erben den
+jeweiligen Rand-UV-Chart ohne zusätzliche Variation entlang der Höhe.
+`roof_info.insets` enthält Domäne, Traufhöhe und Raster; vollständig kollabierte
+Quellflächen stehen in `collapsed_source_faces` und erzeugen leere Produkte.
+Der Schnitt ändert die erhaltenen Firste nicht. Das ist eine eigene gültige
+Interpretation und keine SDK-Kontur-/Bottom-/UV-Gleichheit. Positive Überhänge,
+genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben bei
+[#67](https://github.com/Weichwolf/outshine/issues/67); positive Überhänge werden
+weiterhin ausdrücklich abgelehnt.
 
 ```sh
 .venv/bin/python -m pip install -e './lib[assets]'
