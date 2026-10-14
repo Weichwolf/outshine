@@ -65,8 +65,12 @@ class FrondShape:
             self.pattern.leaflet_length * (1 + self.pattern.variance),
             self.pattern.length * (1 - self.pattern.last),
         ) * (1 + self.pattern.aspect / 2)
+        depth = 0.004
+        if self.pattern.leaflet_shape is not None:
+            transverse = self.pattern.source_extent
+            depth = transverse
         self.guide.validate(
-            np.array(((transverse, 0, 0.004), (-transverse, self.guide.length, -0.004)))
+            np.array(((transverse, 0, depth), (-transverse, self.guide.length, -depth)))
         )
 
     @property
@@ -262,11 +266,9 @@ class Generator:
         elif kind == "blade":
             shape = Blade(**record)
         elif kind == "frond":
-            pattern = dict(record["pattern"])
-            if pattern.pop("version") != "pinnate-source-1":
-                raise ValueError("supported frond pattern required")
             shape = FrondShape(
-                PinnatePattern(**pattern), FrondGuide.from_recipe(record["guide"])
+                PinnatePattern.from_recipe(record["pattern"]),
+                FrondGuide.from_recipe(record["guide"]),
             )
         else:
             raise ValueError("implemented generator kind required")

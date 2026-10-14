@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "leaflet-shape/leaflet-shape-report.json",
+        "leaflet_shape_plot",
+        "Lokale Fiederformen · Prototypen und individuelle Variation",
+        "Drei gleiche vollständige 25080-Face-Ausgaben, fünf wechselnde CPU-Läufe. Geteilte Prototypen sparen bei gleicher Form; 33 individuelle Formen zeigen keinen Kostenvorteil. Source-/Replay-Arrays exakt, sechs alte Defaultmeshes unverändert; Prozesspeak einschließlich Imports und Prüfung separat. Keine botanische, Original-Property- oder native Framefreigabe.",
+    ),
+    (
         "frond-library/frond-library.json",
         "frond_library_plot",
         "Frond-Curl · Querkrümmung und Differentialnormalen",
