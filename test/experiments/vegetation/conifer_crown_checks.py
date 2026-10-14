@@ -67,8 +67,39 @@ def check_species(species):
 
 def main():
     records = [check_species(s) for s in crown_conifers()]
-    (OUTPUT / "checks.json").write_text(json.dumps(records, indent=2) + "\n")
-    print(json.dumps(records, indent=2))
+    result = {"species": records, "tile": check_tile()}
+    (OUTPUT / "checks.json").write_text(json.dumps(result, indent=2) + "\n")
+    print(json.dumps(result, indent=2))
+
+
+def check_tile():
+    directory = OUTPUT / "tile"
+    scene = json.loads((directory / "tile.json").read_text())
+    plants = json.loads((directory / scene["plant_recipe"]).read_text())["plants"]
+    maximum, packets, rows = 0.0, 0, 0
+    for record in scene["products"]:
+        if "plant_id" not in record:
+            continue
+        plant = plants[record["plant_id"]]
+        source = (directory / plant["recipe"]).parent
+        name = record["placements"].removeprefix("tile-")
+        frame, origin = np.array(plant["frame"]), np.array(plant["origin_m"])
+        with (
+            np.load(directory / record["placements"]) as world,
+            np.load(source / name) as local,
+        ):
+            recovered = (world["origins"] - origin) @ frame
+            maximum = max(maximum, float(np.max(abs(recovered - local["origins"]))))
+            np.testing.assert_allclose(recovered, local["origins"], atol=5e-14, rtol=0)
+            recovered_frames = np.einsum("ij,njk->nik", frame.T, world["frames"])
+            np.testing.assert_allclose(
+                recovered_frames, local["frames"], atol=5e-14, rtol=0
+            )
+            for key in ("ids", "scales"):
+                np.testing.assert_array_equal(world[key], local[key])
+            rows += len(world["ids"])
+            packets += 1
+    return {"packets": packets, "poses": rows, "inverse_position_error_max_m": maximum}
 
 
 if __name__ == "__main__":
