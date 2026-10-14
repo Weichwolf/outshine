@@ -48,19 +48,25 @@ def render(output,reports):
             if case['status']!='pass':lines.append(f"  {case['id']} / {case['operation']}: {case['reason']}")
         times=[case['overlay_ms'] for case in row['results'] if 'overlay_ms' in case]
         lines.append('  Host-Einzelaufrufe p50/p95/max: '+ '/'.join(f'{v:.1f}' for v in np.percentile(times,[50,95,100]))+' ms')
+        if row['method']=='exact-output':
+            count=sum(case.get('cancelled_facets',0) for case in row['results'])
+            error=max(case.get('max_coordinate_rounding_m',0.) for case in row['results'])
+            lines.append(f'  Entfernte entgegengesetzte Nullflächen: {count}; maximale Koordinatenrundung: {error:.3g} m')
         lines.append('')
-    lines.extend(['Alle allgemeinen Verfahren bleiben abgelehnt.',
-                  'Exakte Konstruktion löst die Schnittknoten; Float64-Ausgabe bleibt offen.',
+    admitted=any(row['method']=='exact-output' and row['passed']==183 for row in rows)
+    lines.extend(['Prismatischer Supportvergleich bestanden.' if admitted else 'Alle allgemeinen Verfahren bleiben abgelehnt.',
+                  'Allgemeine Shape-/Normal-/Ressourcenverträge bleiben offen.',
                   'Keine Shape-/LOD-/Native-Freigabe, keine vollständigen Architekturrezepte.'])
-    table.text(0.,.94,'\n'.join(lines),va='top',fontsize=18,linespacing=1.7)
+    table.text(0.,.94,'\n'.join(lines),va='top',fontsize=17,linespacing=1.5)
     fig.suptitle('Boolesche Supportregionen · exakte Konstruktionen und ihre Ausgabegrenzen',fontsize=27)
     fig.tight_layout(rect=(0.,.12,1.,.95))
     report=save_plot(fig,output,'current-exact-semantic-comparison','CSG · rationale Schnittpunkte, Float64-Grenzen',
-        'Geprüfter 2-mm-Schnitt links, vollständige Gegenfälle rechts. Keine allgemeine Freigabe; '
+        'Geprüfter 2-mm-Schnitt links, vollständige Gegenfälle rechts. Keine allgemeine Shape-Freigabe; '
         'identische Ausgabe-Kanten werden nur im exact-rounded-Versuch kontrahiert, keine Epsilon-Verschmelzung.',
         provenance,start,[3200,1800],label='semantic-overlay')
     path=output/report;record=json.loads(path.read_text())
-    record.update(full_suite_admitted=False,comparison_reports=[str(path) for path in reports])
+    record.update(full_suite_admitted=admitted,comparison_reports=[str(path) for path in reports],
+        admitted_scope='closed prism support comparison only' if admitted else None)
     path.write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')
     return report
 
