@@ -66,24 +66,38 @@ def overlay(product,max_candidates=1048576,max_triangles=262144,method='triangle
     for size in [max_candidates,max_triangles]:
         if type(size)is not int or size<=0:raise ValueError('Semantic overlay capacities must be positive integers')
     if not len(product.mesh['faces']):return SemanticOverlay(product,(),np.empty(0,dtype=np.int32),0,0.)
-    if method not in ('plane','triangle'):raise ValueError('Unknown semantic overlay method')
+    if method not in ('plane','triangle','exact','exact-rounded'):raise ValueError('Unknown semantic overlay method')
+    exact=method in ('exact','exact-rounded')
     sources=[source.mesh['vertices'][source.mesh['faces']] for source in product.sources]
     candidate_count=sum(np.count_nonzero(product.operands==owner)*len(sources[1-owner]) for owner in (0,1))
     if candidate_count>max_candidates:raise ValueError('Semantic coplanar candidate capacity exceeded')
-    nodes=OverlayNodes(product);initial=nodes.next
+    if exact:
+        from boolean_exact_nodes import ExactNodes,triangulate as tessellate
+        from boolean_exact_regions import regions as partition_regions
+        nodes=ExactNodes(product)
+    else:
+        nodes=OverlayNodes(product);tessellate=triangulate;partition_regions=regions
+    initial=nodes.next
     plans=partitions(product,nodes,max_triangles) if method=='plane' else tuple(
-        regions(product,nodes,number,sources,max_triangles) for number in range(len(product.mesh['faces'])))
+        partition_regions(product,nodes,number,sources,max_triangles) for number in range(len(product.mesh['faces'])))
     for number in range(len(product.mesh['faces'])):
         plan=plans[number]
         for region in plan:
+            if exact:
+                for xy in region[0]:nodes.point(number,xy)
+                continue
             for ring in (region.polygon.exterior,*region.polygon.interiors):
                 for xy in np.asarray(ring.coords)[:-1]:nodes.point(number,xy)
     roots=[];supports=[];native=[];count=0
     for number,plan in enumerate(plans):
-        values,owners=triangulate(number,plan,nodes,max_triangles-count)
+        values,owners=tessellate(number,plan,nodes,max_triangles-count)
         roots.append(values);supports.extend(owners);native.extend([number]*len(values));count+=len(values)
         if count>max_triangles:raise ValueError('Semantic output triangle capacity exceeded')
-    roots=np.concatenate(roots);points=np.asarray([nodes.coordinates[int(r)] for r in roots.ravel()])
+    roots=np.concatenate(roots)
+    if method=='exact-rounded':
+        from boolean_exact_rounding import contract
+        roots,supports,native=contract(roots,supports,native,nodes)
+    points=np.asarray([nodes.coordinates[int(r)] for r in roots.ravel()])
     owner=np.asarray([s[0][0] for s in supports],dtype=np.int32);triangles=np.asarray([s[0][1] for s in supports],dtype=np.int32)
     properties=np.empty((len(points),20))
     for key in set(zip(owner,triangles)):

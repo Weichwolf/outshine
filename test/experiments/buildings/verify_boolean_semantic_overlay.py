@@ -76,6 +76,8 @@ def run(real,method):
                 native=boolean(authored(a.shape(),0),authored(b.shape(),1),operation)
                 original={k:v.copy() for k,v in native.mesh.items()}
                 started=time.perf_counter();result=overlay(native,method=method);elapsed=(time.perf_counter()-started)*1000
+                record.update(overlay_ms=elapsed,triangles=len(result.product.mesh['faces']),
+                    input_triangles=len(native.mesh['faces']),added_roots=result.added_roots)
                 np.testing.assert_allclose(measure(result.product),reference(a,b,operation),atol=1e-7,rtol=1e-9)
                 check_uv(result.product);dual=support_coverage(result);bound=attributes(result);check(result,bound)
                 edges=cut_edges(result)
@@ -96,7 +98,7 @@ def run(real,method):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--real',action='store_true')
-    parser.add_argument('--method',choices=['triangle','plane'],default='triangle')
+    parser.add_argument('--method',choices=['triangle','plane','exact','exact-rounded'],default='triangle')
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/boolean-semantic-verification.json'))
     args=parser.parse_args();results=run(args.real,args.method)
     report=revision()|dict(results=results,cases=len(results),passed=sum(r['status']=='pass' for r in results),method=args.method,
