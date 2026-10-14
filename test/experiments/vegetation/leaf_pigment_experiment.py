@@ -12,6 +12,7 @@ from blade_surface import Blade
 from leaf_pigment_fields import pigment_coordinates
 from leaf_pigment_optics import FIXED, gamut_map, lookup
 from leaf_relief_experiment import points_for
+from outshine_ref.vegetation.leaf_optics import optical_mixture
 from PIL import Image
 
 STATES = ((45.0, 0.2), (8.0, 0.2), (10.0, 8.0))
@@ -28,12 +29,10 @@ def build(source, output, table, index):
     pigments = pigment_coordinates(points, height.ravel(), 121 + index, *STATES[index])
     raw = lookup(table, pigments)
     optical, scale = gamut_map(raw)
-    reflection, transmission = optical[:, :3], optical[:, 3:]
-    rmax, tmax = reflection.max(axis=1), transmission.max(axis=1)
-    weight = tmax / (rmax + tmax)
+    colour, transmitted, weight = optical_mixture(optical)
     maps = {
-        "colour": (reflection / (1 - weight[:, None])).reshape(512, 512, 3),
-        "transmittance": (transmission / weight[:, None]).reshape(512, 512, 3),
+        "colour": colour.reshape(512, 512, 3),
+        "transmittance": transmitted.reshape(512, 512, 3),
         "transmission_weight": weight.reshape(512, 512),
     }
     files, decoded = {}, {}

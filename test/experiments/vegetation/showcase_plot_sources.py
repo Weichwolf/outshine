@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "leaf-library/leaf-library-report.json",
+        "leaf_library_plot",
+        "Blattoptik · Gegenlicht und vorbereitete Materialien",
+        "Eigene diffuse Dünnblattreferenz aus getrennten hemisphärischen R/T-Werten, beidseitig und energiebegrenzt. Fünf wechselnde Läufe mit 128 gleichen Pigmentabfragen: gespeicherte 33×33-Tabelle statt direkter PROSPECT-D-Spektralauswertung. Shaderwert rechts umfasst auch den Tabellenlookup. NumPy-only Cache, alte Pigment-/Normal-/Rauheitsdaten exakt; native GLSL/GPU, winkelabhängige Kalibrierung, asymmetrische Blattseiten und Artenfreigabe offen.",
+    ),
+    (
         "turning-force/turning-force-report.json",
         "turning_force_plot",
         "Drehende Wuchsachsen · Curl, Gnarl, Ebene und Rückkehr",

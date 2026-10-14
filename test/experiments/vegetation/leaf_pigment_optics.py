@@ -5,6 +5,7 @@ from functools import lru_cache
 import colour
 import numpy as np
 import prosail
+from outshine_ref.vegetation.leaf_optics import gamut_map, lookup
 
 FIXED = {"n": 1.3, "car": 10.0, "cbrown": 0.0, "cw": 0.012, "cm": 0.010, "alpha": 40.0}
 LIMITS = np.array([80.0, 10.0])
@@ -46,27 +47,6 @@ def direct_colour(chlorophyll, anthocyanin):
     return rgb
 
 
-def gamut_map(rgb):
-    rgb = np.asarray(rgb, float).reshape(-1, 2, 3)
-    luminance = rgb @ np.array([0.2126, 0.7152, 0.0722])
-    if (
-        not np.isfinite(rgb).all()
-        or np.any(luminance < 0)
-        or np.any(luminance.sum(axis=1) > 1)
-    ):
-        raise ValueError("finite energy-bounded optical luminance required")
-    minimum, maximum = rgb.min(axis=2), rgb.max(axis=2)
-    scales = np.ones_like(luminance)
-    np.divide(luminance, luminance - minimum, out=scales, where=minimum < 0)
-    total_y, total_max = luminance.sum(axis=1), maximum.sum(axis=1)
-    energy_scale = np.ones(len(rgb))
-    np.divide(1 - total_y, total_max - total_y, out=energy_scale, where=total_max > 1)
-    scale = np.minimum(scales.min(axis=1), energy_scale)
-    result = luminance[..., None] + scale[:, None, None] * (rgb - luminance[..., None])
-    result = np.clip(result, 0, 1)
-    return result.reshape(-1, 6), scale
-
-
 def build_table(size):
     if type(size) is not int or not 3 <= size <= 65:
         raise ValueError("3..65 samples per pigment dimension required")
@@ -78,27 +58,12 @@ def build_table(size):
     return values
 
 
-def lookup(values, pigments):
-    pigments = np.asarray(pigments, float)
-    size = len(values)
-    if values.shape != (size, size, 6) or not 3 <= size <= 65:
-        raise ValueError("bounded square six-channel pigment table required")
-    if pigments.ndim != 2 or pigments.shape[1] != 2 or len(pigments) > 262144:
-        raise ValueError("bounded Nx2 pigment coordinates required")
-    if (
-        not np.isfinite(pigments).all()
-        or np.any(pigments < 0)
-        or np.any(pigments > LIMITS)
-    ):
-        raise ValueError("pigment coordinates outside table domain")
-    scaled = np.log1p(pigments) / np.log1p(LIMITS) * (size - 1)
-    low = np.minimum(np.floor(scaled).astype(int), size - 2)
-    fraction = scaled - low
-    x, y = low.T
-    u, v = fraction.T
-    return (
-        ((1 - u) * (1 - v))[:, None] * values[x, y]
-        + (u * (1 - v))[:, None] * values[x + 1, y]
-        + ((1 - u) * v)[:, None] * values[x, y + 1]
-        + (u * v)[:, None] * values[x + 1, y + 1]
-    )
+__all__ = [
+    "FIXED",
+    "LIMITS",
+    "build_table",
+    "direct_colour",
+    "gamut_map",
+    "lookup",
+    "rgb_weights",
+]
