@@ -140,6 +140,13 @@ struct GroundStream::Held {
   TilePool &Pool;
   Oracle Source;
   std::unique_ptr<TerrainTiles> Stitched;
+
+  struct SamplingField {
+    Data::TileId Tile;
+    std::shared_ptr<const TerrainField> Field;
+  };
+
+  std::optional<SamplingField> Sampling;
   std::array<Tile, kGroundSlots> Ground{};
   std::array<Tile, kCoarseSlots> Coarse{};
   uint64_t Clock = 0;
@@ -156,6 +163,7 @@ void GroundStream::SynchronizeTerrainScope() const {
   const uint64_t revision = TerrainScopeRevision();
   if (Held_->TerrainScopeRevision == revision) { return; }
   Held_->Stitched->ClearStitched();
+  Held_->Sampling.reset();
   Held_->Ground = {};
   Held_->Coarse = {};
   Held_->Pending = false;
@@ -175,7 +183,12 @@ size_t GroundStream::HeapBytes() const {
     }
     return bytes;
   };
-  return sizeof(Held) + sizeof(TerrainTiles) + Held_->Stitched->HeapBytes() +
+  const size_t sampledBytes =
+      Held_->Sampling && !Held_->Stitched->StoresStitchedField(Held_->Sampling->Tile,
+                                                               Held_->Sampling->Field.get())
+          ? Held_->Sampling->Field->HeapBytes()
+          : 0u;
+  return sizeof(Held) + sizeof(TerrainTiles) + Held_->Stitched->HeapBytes() + sampledBytes +
          tileBytes(Held_->Ground) + tileBytes(Held_->Coarse);
 }
 
@@ -409,6 +422,7 @@ GroundSample GroundStream::At(LongitudeLatitude at) const {
 }
 
 GroundSample GroundStream::At(LongitudeLatitude at, int zoom) const {
+  SynchronizeTerrainScope();
   if (zoom < 0 || zoom > Data::TileId::MaximumZoom || !std::isfinite(at.LongitudeDeg) ||
       !std::isfinite(at.LatitudeDeg)) {
     return GroundSample::Missing();
@@ -417,12 +431,21 @@ GroundSample GroundStream::At(LongitudeLatitude at, int zoom) const {
   const auto tile = TileIndex::Of(place, zoom).Tile();
   if (!tile) { return GroundSample::Missing(); }
   std::shared_ptr<const TerrainField> field;
-  const auto status = PollStitchedField(*tile, field);
-  if (status == TilePool::Reply::Pending || status == TilePool::Reply::Deferred) {
-    return GroundSample::Waiting();
+  if (Held_->Sampling && Held_->Sampling->Tile == *tile &&
+      (Held_->Sampling->Field->Certificate().Dependencies().empty() ||
+       Tiles_.ValidTerrainStamps(Held_->Sampling->Field->Certificate().Dependencies()))) {
+    field = Held_->Sampling->Field;
   }
-  if (status != TilePool::Reply::Ready || !field || !field->Meshable()) {
-    return GroundSample::Missing();
+  if (!field) {
+    Held_->Sampling.reset();
+    const auto status = PollStitchedField(*tile, field);
+    if (status == TilePool::Reply::Pending || status == TilePool::Reply::Deferred) {
+      return GroundSample::Waiting();
+    }
+    if (status != TilePool::Reply::Ready || !field || !field->Meshable()) {
+      return GroundSample::Missing();
+    }
+    Held_->Sampling = Held::SamplingField{.Tile = *tile, .Field = field};
   }
   const TileFrac fraction = ToTileFracClamped(place, zoom);
   return GroundSample::At(

@@ -196,6 +196,7 @@ public:
   [[nodiscard]] std::shared_ptr<const TerrainField> StitchedField(int z, uint32_t x, uint32_t y);
 
   [[nodiscard]] std::shared_ptr<const TerrainField> HeldStitched(Data::TileId of) const;
+  [[nodiscard]] bool StoresStitchedField(Data::TileId of, const TerrainField *field) const;
   void HoldsStitched(Data::TileId of, const std::shared_ptr<const TerrainField> &shared);
 
   TerrainGrid::State SampleNodeHeights(Data::TileId of,

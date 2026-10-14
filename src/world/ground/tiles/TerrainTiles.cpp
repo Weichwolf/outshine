@@ -367,6 +367,11 @@ std::shared_ptr<const TerrainField> TerrainTiles::HeldStitched(Data::TileId of) 
   return found->second.Field;
 }
 
+bool TerrainTiles::StoresStitchedField(Data::TileId of, const TerrainField *field) const {
+  const auto found = Stitched_.find(of);
+  return found != Stitched_.end() && found->second.Field.get() == field;
+}
+
 std::shared_ptr<const TerrainField> TerrainTiles::StitchedField(int z, uint32_t x, uint32_t y) {
   const Data::TileId of{.Zoom = z, .X = x, .Y = y};
   if (const auto found = Stitched_.find(of); found != Stitched_.end()) {
