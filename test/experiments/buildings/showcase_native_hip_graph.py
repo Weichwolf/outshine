@@ -16,7 +16,9 @@ from evidence import revision
 from outshine_ref.buildings.modelling import Shape,prepare_hip
 from outshine_ref.buildings.modelling.skeleton_native import partition
 from showcase_groups import save_plot
+from showcase_hip_exterior import camera_for
 from showcase_roof_shed import spatial
+from showcase_scene import fitted_points
 from verify_modelling_roof_shed import source
 
 
@@ -60,7 +62,18 @@ def render(output):
                  source_eaves=len(roof.roof_info.plans[0].facets),inspection_body_height_m=5.,inspection_roof_rise_m=3.),
             'Tatsächliche Ausgabe von Shape.roof_hip mit vollständigem nativem Quellkantenbesitz. Gold: geschlossene Dachhülle; '
             'Blau: einfacher Prüfkörper mit unveränderten Höfen. 5 m Körper / 3 m Dach sind Prüfparameter, kein gelieferter Bauplan '
-            'oder fertiges Architektur-Rezept.',label='native-hip-graph',direction=(1.,-1.2,1.4)))
+            'oder fertiges Architektur-Rezept.',label='native-hip-graph',camera=camera_for(shapes)))
+        if row['id']=='Vienna:1137690:3':
+            plan=prepare_hip(polygon);a,b=np.asarray(plan.footprint.interiors[1].coords)[3:5]
+            centre=(a+b)/2+plan.origin;edge=b-a;gradient=np.array([-edge[1],edge[0]])/np.linalg.norm(edge)
+            window=np.array([[centre[0]+x,centre[1]+y,z] for x in (-3.,3.) for y in (-3.,3.) for z in (3.5,8.)])
+            camera=fitted_points(window,[1920,1080],direction=(-gradient[0],-gradient[1],1.))
+            reports.append(spatial(output,provenance,'current-native-hip-graph-detail',
+                'Wien · Nahansicht der zuvor fehlenden Hoffacette',shapes,
+                dict(source_id=row['id'],inspection_window_m=[6.,6.,4.5],original_eave=[2,3]),
+                '6×6-m-Nahansicht an der zuvor im nativen Export fehlenden Quellkante (2,3). '
+                'Gold zeigt die tatsächliche, vollständig native Dachhülle über der ursprünglichen Hoffassade. '
+                'Prüfpalette; native Outshine-Übernahme und Architekturgestaltung bleiben offen.',label='native-hip-graph',camera=camera))
     (output/'native-hip-graph-missing-area.json').write_text(json.dumps(measurements,indent=2)+'\n')
     return reports
 
