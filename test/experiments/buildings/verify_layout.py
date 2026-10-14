@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import shapely
 
-from building_layout import AGENT_RADIUS_M, AREA_TOL_M2, DERIVED_GRID_M, polygons
+from building_layout import AGENT_RADIUS_M, AREA_TOL_M2, DERIVED_GRID_M, polygons,room_portals
 from building_mesh import mesh
 from building_plan import AGENT_HEIGHT_M, build
 from building_plan_cases import cases
@@ -15,6 +15,12 @@ from evidence import revision
 
 
 def scope_checks():
+    shared=shapely.LineString([(0,0),(0,3)])
+    deep=shapely.box(.06,0,3.06,3)
+    if room_portals([shapely.box(-.66,0,-.06,3),deep],[(0,1,[shared])]):
+        raise AssertionError('Full-width doorway lacks the declared torso approach clearance')
+    if len(room_portals([shapely.box(-.86,0,-.06,3),deep],[(0,1,[shared])]))!=1:
+        raise AssertionError('A complete same-width doorway approach was rejected')
     rectangle = dict(id='scope', polygon=shapely.box(0, 0, 14, 10),
                      properties={'render_height': 9., 'building:levels': 2})
     supplied = build(rectangle)
@@ -47,7 +53,8 @@ def scope_checks():
     if limited['status'] != 'unplanned' or not any('256-vertex' in reason for reason in limited['omissions']):
         raise AssertionError('The bounded layout silently exceeded its source complexity limit')
     return dict(supplied_storeys=True, context_frontage=True, deterministic_room_ids=True, complexity_limit=True,
-                actual_exterior_wall_m=exterior_width, actual_partition_wall_m=interior_width, derived_headroom=True)
+                actual_exterior_wall_m=exterior_width, actual_partition_wall_m=interior_width, derived_headroom=True,
+                full_doorway_approach_clearance=True)
 
 
 def closed_parts(product):
