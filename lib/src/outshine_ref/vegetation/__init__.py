@@ -41,6 +41,7 @@ _SPATIAL_EXPORTS = {
     "PlantPlan": "plant_plan",
     "Shoot": "shoot_plan",
     "SpatialAxis": "spatial_axis",
+    "SpatialFrondGuide": "spatial_frond",
     "SpineField": "spine_field",
 }
 
@@ -71,6 +72,7 @@ __all__ = [
     "PlantPlan",
     "Profile",
     "SpatialAxis",
+    "SpatialFrondGuide",
     "Shoot",
     "SpineField",
 ]

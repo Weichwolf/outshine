@@ -107,6 +107,7 @@ public:
   GroundStream &operator=(const GroundStream &) = delete;
 
   [[nodiscard]] GroundSample At(LongitudeLatitude at) const override;
+  [[nodiscard]] GroundSample At(LongitudeLatitude at, int zoom) const;
   [[nodiscard]] GroundSample Resident(LongitudeLatitude at) const override;
   [[nodiscard]] GroundBlock BlockAt(TileSpot at) const override;
 

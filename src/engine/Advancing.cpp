@@ -107,11 +107,7 @@ bool Engine::State::UpdateActiveCamera() {
   if (seen.Placement == Scenario::CameraPlacement::Route) { return UpdateRouteCamera(seen); }
   Vec3 station = seen.Sees.PositionM + seen.OffsetM;
   if (seen.Placement == Scenario::CameraPlacement::Geodetic) {
-    const auto position =
-        ResolveGeodeticCamera(seen,
-                              {.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                               .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg},
-                              World.Stack.Opened() ? &World.Stack.Ground() : nullptr);
+    const auto position = GeodeticCameraPosition(seen);
     if (!position) {
       Error = position.error();
       return false;
@@ -121,6 +117,11 @@ bool Engine::State::UpdateActiveCamera() {
       return false;
     }
     station = **position;
+    if (seen.Geographic.SamplesHeight) {
+      const LongitudeLatitude at{.LongitudeDeg = seen.Geographic.Geodetic.LongitudeDeg,
+                                 .LatitudeDeg = seen.Geographic.Geodetic.LatitudeDeg};
+      PublishCameraHeightMeasurements(at);
+    }
   }
   Published.RecordMetric("the standing eye, east", station[0], "m");
   Published.RecordMetric("the standing eye, up", station[1], "m");

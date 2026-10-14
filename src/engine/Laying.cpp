@@ -1,4 +1,3 @@
-#include "GeodeticCamera.h"
 #include "building/BuildingMaterials.h"
 #include "Digest.h"
 #include "math/Units.h"
@@ -1105,8 +1104,7 @@ Engine::State::RingWanted(bool alsoWhenTilesLanded, GroundQuality quality) {
     const Scenario::View &camera = Session.Views->Active();
     if (camera.Placement == Scenario::CameraPlacement::Geodetic &&
         camera.Geographic.SamplesHeight) {
-      const auto position = ResolveGeodeticCamera(
-          camera, {.LongitudeDeg = anchorLon, .LatitudeDeg = anchorLat}, &World.Stack.Ground());
+      const auto position = GeodeticCameraPosition(camera);
       if (!position) {
         Error = position.error();
         return std::unexpected(Laid::Refused);
