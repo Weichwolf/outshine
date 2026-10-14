@@ -319,6 +319,8 @@ public:
 
   [[nodiscard]] const std::vector<DrawBatch> &Drawn() const { return Batches; }
 
+  void BindShadowMask(const PassRecording &into, const DrawBatch &batch) const;
+
   [[nodiscard]] uint32_t ColourImages() const;
   [[nodiscard]] uint32_t DistinctPlacements() const;
   [[nodiscard]] uint32_t Layouts() const;

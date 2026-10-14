@@ -1422,7 +1422,7 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
     batch.IndexCount = one.IndexCount;
     batch.MaterialSlot = MaterialSlotFor(one);
     batch.Layout = layout;
-    batch.Kind = SurfaceKind::Opaque;
+    batch.Kind = Slots[batch.MaterialSlot].Kind;
     batch.Draws = 1;
     batch.ModelSlot = one.FirstRow + static_cast<uint32_t>(instance);
     batch.Instances = one.Clusters.empty() ? static_cast<uint32_t>(one.Rows.size()) : 1u;
@@ -1655,6 +1655,32 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
     SDL_BindGPUFragmentStorageBuffers(
         into.Pass, 0, storage.data(), bindings.Shape.FragmentStorageBuffers);
   }
+  SDL_PushGPUFragmentUniformData(into.Commands,
+                                 0,
+                                 surface.Row.data(),
+                                 static_cast<uint32_t>(surface.Row.size() * sizeof(float)));
+}
+
+void SubjectDraw::BindShadowMask(const PassRecording &into, const DrawBatch &batch) const {
+  const SurfaceSlot &surface = Slots[batch.MaterialSlot];
+  std::array<SDL_GPUBufferBinding, 3> streams{};
+  uint32_t count = 0;
+  streams[count++] = {.buffer = Bound().Buffer(SubjectResidency::Stream::Vertex).Get(),
+                      .offset = 0};
+  if (CarriesUv(batch.Layout)) {
+    streams[count++] = {.buffer = Bound().Buffer(SubjectResidency::Stream::Uv).Get(), .offset = 0};
+    const SDL_GPUTextureSamplerBinding image{.texture = surface.Colour.Image.Get(),
+                                             .sampler = surface.Colour.Sample.Get()};
+    SDL_BindGPUFragmentSamplers(into.Pass, 0, &image, 1);
+  }
+  if (CarriesUv1(batch.Layout)) {
+    streams[count++] = {.buffer = Bound().Buffer(SubjectResidency::Stream::Uv1).Get(), .offset = 0};
+  }
+  SDL_BindGPUVertexBuffers(into.Pass, 0, streams.data(), count);
+  std::array<SDL_GPUBuffer *, 2> storage{Bound().Buffer(SubjectResidency::Stream::Placements).Get(),
+                                         Bound().Buffer(SubjectResidency::Stream::Colour).Get()};
+  SDL_BindGPUVertexStorageBuffers(
+      into.Pass, 0, storage.data(), CarriesColour(batch.Layout) ? 2u : 1u);
   SDL_PushGPUFragmentUniformData(into.Commands,
                                  0,
                                  surface.Row.data(),
