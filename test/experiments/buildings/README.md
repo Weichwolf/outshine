@@ -204,3 +204,33 @@ Four 2560×1440 physical CPU renders use generated geometry and PBR materials.
 records the small-cap rejection and current-address-space Linux VmHWM. General
 primitive contracts and independent volume/area/topology tests belong to #136;
 full architecture families and native integration remain open.
+
+## Complete room controls in provider tiles
+
+`tile_room_details.py` selects at most sixteen visible ordinary near controls from
+each otherwise complete tile scene. It reuses the actual generic room, portal,
+storey, stair and framed-opening plan. Sampled 0.30-m-radius/1.90-m-height actors
+test the assembled collision geometry before a detail replaces its source prism.
+Unplanned or obstructed details retain that prism and record their reason. This
+experiment limit is not a native world-class quota or runtime LOD admission.
+
+`building_circulation.py` folds exactly equivalent strip/BSP partitions before
+routing and uses remaining attempts for a simpler open floor. Landing ports on
+long core sides connect the actual front landing; previous successful room/door/
+stair geometry remains unchanged. The twelve-attempt limit is retained.
+`verify_room_fallback.py` uses twelve pinned provider inputs, the explicit previous
+source commit, independent volumes/every height slab and actor rays. Declared
+CSG polygons remove implicit GEOS precision metadata while keeping the original
+Float64 coordinate streams; native shape inputs cannot carry that hidden grid.
+No section repair or relaxed area/actor bound is used. `room_fallback_plan.py`
+draws the recovered source house's actual three mesh sections outside the page.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_room_fallback.py
+.venv/bin/python test/experiments/buildings/room_fallback_plan.py
+```
+
+[#142](https://github.com/Weichwolf/outshine/issues/142) owns this bounded recovery
+and tile demonstration. Generic programmes do not count as complete architecture
+families; external terrain/transport contact, native controller/cache/device
+integration and city-wide complete room coverage remain open.

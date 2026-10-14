@@ -1,11 +1,12 @@
 """Closed unions of metrical ENU prisms with stable construction/material origins."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass,replace
 from numbers import Integral
 from types import MappingProxyType
 
 import numpy as np
 import shapely
+from shapely.affinity import translate
 
 from .cut_topology import vertex_roots
 from .mesh_fans import connected_fans
@@ -76,6 +77,7 @@ def union_prisms(sources,max_triangles=262144):
     """Emit a complete ENU boundary; procedural UVs and logical collision stay with the caller.
 
     Coordinates and heights are metres. Input order defines stable source table indices.
+    Triangle identities refer to source triangulation in the common local XY frame.
     This primitive constructor does not inherit arbitrary CGA Shape UVs/tags/material overrides.
     The triangle limits bound input/output cardinality, not wall time or all backend memory.
     """
@@ -85,10 +87,14 @@ def union_prisms(sources,max_triangles=262144):
     if any(not isinstance(source,PrismVolume) for source in sources):raise ValueError('Union needs declared PrismVolume sources')
     if len({source.identifier for source in sources})!=len(sources):raise ValueError('Duplicate prism source identity')
     if sum(triangle_bound(source) for source in sources)>max_triangles:raise ValueError('Prism input triangle capacity exceeded')
+    active=[source for source in sources if not source.polygon.is_empty]
+    bounds=np.asarray([source.polygon.bounds for source in active])
+    origin=np.r_[(bounds[:,:2].min(axis=0)+bounds[:,2:].max(axis=0))/2,0.] if active else np.zeros(3)
     solids=[];identities={};omissions=[]
     for index,source in enumerate(sources):
         if source.polygon.is_empty:omissions.append((source.identifier,'empty_polygon'));continue
-        vertices,faces=primitive_mesh(source)
+        local=replace(source,polygon=translate(source.polygon,xoff=-origin[0],yoff=-origin[1]))
+        vertices,faces=primitive_mesh(local)
         properties,triangles,duplicates,targets=connected_fans(dict(vertices=vertices,faces=faces,uv=np.zeros((len(vertices),2))),np.arange(len(faces)))
         identifier=manifold.Manifold.reserve_ids(1);identities[identifier]=index
         encoded=manifold.Mesh64(np.ascontiguousarray(properties[:,:3]),triangles,merge_from_vert=duplicates,merge_to_vert=targets,
@@ -107,6 +113,6 @@ def union_prisms(sources,max_triangles=262144):
         owners[int(first)//3:int(last)//3]=identities[int(identifier)]
     if np.any(owners<0):raise ValueError('Prism output has an undeclared source')
     materials=np.asarray([source.material for source in sources],dtype=np.uint16)[owners]
-    mesh=MappingProxyType(dict(vertices=frozen(properties[:,:3]),faces=frozen(faces),materials=frozen(materials)))
+    mesh=MappingProxyType(dict(vertices=frozen(properties[:,:3]+origin),faces=frozen(faces),materials=frozen(materials)))
     return PrismUnion(mesh,frozen(roots),tuple(source.identifier for source in sources),frozen(owners),
         frozen(np.asarray(encoded.face_id,dtype=np.int64)),tuple(omissions),result.volume(),result.surface_area())

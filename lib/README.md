@@ -202,6 +202,11 @@ und ursprünglichen Eingabedreiecken. Interne Bibliotheks-IDs werden nicht expor
 Leere Polygone bleiben in der Tabelle und erhalten `empty_polygon`; ungültige
 Geometrie, doppelte IDs und Kapazitätsüberschreitungen werden ausdrücklich abgewiesen.
 Input-/Output-Trianglecaps sind keine harte Laufzeit- oder Gesamt-RAM-Schranke.
+Die Vereinigung und Triangulierung rechnen im gemeinsamen lokalen XY-Batchrahmen;
+zur Ausgabe kehren Vertices in den deklarierten ENU-Rahmen zurück. Quellhöhen,
+stabile Konstruktion-IDs und Materialherkunft bleiben erhalten. Dadurch entstehen
+bei verschobenen Gebäuden keine zusätzlichen Mikrokonturen aus ungünstigen
+Weltkoordinaten. Kontrollen, reale Gegenfälle und Kosten: [#142](https://github.com/Weichwolf/outshine/issues/142).
 Das optionale Extra `pip install -e './lib[solids]'` verwendet Manifold3D 3.5.4.
 Diese Konstruktion erhält eigene geplante Material-/Bandherkunft und ersetzt
 keine allgemeinen CGA-Shape-UVs, Auto-Tags oder Material-Overrides.

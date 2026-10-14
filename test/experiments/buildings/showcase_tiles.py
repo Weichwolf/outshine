@@ -17,6 +17,7 @@ import shapely
 from demand import View
 from evidence import revision
 from tile_buildings import SITES,construct,read_tile
+from tile_room_details import RoomDetails
 from provider_contract import number,hidden
 
 
@@ -48,7 +49,7 @@ def render(site,output,provenance,spp):
             centre=row['polygon'].centroid;cells[int(centre.x//300),int(centre.y//300)].append(centre)
         centres=max(cells.values(),key=len)
         focus=shapely.Point(np.mean([[p.x,p.y] for p in centres],axis=0))
-    selected=[points for row,high,points in boxes if row['polygon'].distance(focus)<350.]
+    selected=[points for row,high,points in boxes if row['polygon'].distance(focus)<150.]
     view=camera(np.concatenate([np.asarray(p) for p in selected]))
     projection=math.sqrt(1+(view.width/(2*view.focal_px))**2+(view.height/(2*view.focal_px))**2)
     def error_for(row,parameters):
@@ -56,7 +57,9 @@ def render(site,output,provenance,spp):
         points=np.array([(x,y,z) for x in (x0,x1) for y in (y0,y1) for z in (parameters['minHeight'],parameters['buildingHeight'])])
         depth=float(np.min((points-view.eye)@view.basis[2]))
         return .5*depth/(view.focal_px*projection+.5) if depth>0 else .25
-    mesh,source=construct(site,error_m=error_for,prepared=(rows,receipt));stem='current-tile-'+site.lower()
+    rooms=RoomDetails(rows,view)
+    mesh,source=construct(site,error_m=error_for,prepared=(rows,receipt),ordinary_builder=rooms);stem='current-tile-'+site.lower()
+    source['room_detail']=rooms.report()
     path=output/(stem+'-mesh.npz');np.savez_compressed(path,**mesh)
     config=dict(profile=[2560,1440],mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         eye=view.eye.tolist(),target=view.target.tolist(),fov_deg=view.fov_deg,wall_linear=[.68,.67,.64],roof_linear=[.22,.24,.25],
@@ -69,12 +72,12 @@ def render(site,output,provenance,spp):
     image=output/(stem+'.png');renderer=json.loads(image.with_suffix('.renderer.json').read_text())
     if renderer['included_source_triangles']!=len(mesh['faces']):raise ValueError('Whole-tile renderer omitted triangles')
     report=provenance|dict(representation='showcase-current',view='tile',page='tile',title=TITLES[site],profile=[2560,1440],
-        caption='Vollständige Kachelszene, näherer Blick auf die Bebauung. Sonderformen aus Quellhöhen und Grundrissen; übrige Gebäude zeigen ihre Grundvolumen.',
+        caption='Vollständige Kachelszene mit Sonderformen und begrenzten echten Raum-/Fassadenkontrollen. Übrige Gebäude zeigen ihre Grundvolumen.',
         renderer=renderer,source=source,triangles=len(mesh['faces']),build_seconds=time.perf_counter()-start,
         detail_policy='Source envelopes before emission; front-facing radial deviation <=0.5 projected pixel by minimum-depth bound; behind-camera complete profiles use 0.25 m',
         camera_scope='Near view of complete generated tile; source content is not cropped or culled before emission',
         image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),completed_recipe_families=0,
-        limits='Structural prototypes; normal buildings remain prisms. Functional special recipes, terrain/transport/vegetation, native LOD/frame/device admission incomplete.')
+        limits='Complete near-control structures and radial prototypes, other normal buildings remain prisms. General functional architecture families, terrain/transport/vegetation and native LOD/frame/device admission incomplete.')
     name=stem+'-report.json';(output/name).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(dict(site=site,generated=source['generated'],triangles=len(mesh['faces']),status='pass')),flush=True)
     return name

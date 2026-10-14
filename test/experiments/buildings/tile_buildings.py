@@ -61,7 +61,7 @@ def prism(row,parameters,material):
     return dict(vertices=vertices,faces=faces,normals=corner_normals,uv=np.zeros((len(vertices),2)),materials=materials),dict(form='supplied closed footprint prism; facade/interior programme not applied')
 
 
-def construct(site,error_m=1.,prepared=None):
+def construct(site,error_m=1.,prepared=None,ordinary_builder=None):
     rows,receipt=read_tile(site) if prepared is None else prepared
     industry=shapely.union_all([r['polygon'] for r in rows if r['layer']=='landuse' and r['properties'].get('class')=='industrial'])
     invalid_buildings=[r for r in receipt['invalid'] if r['layer']=='building']
@@ -92,7 +92,8 @@ def construct(site,error_m=1.,prepared=None):
                 mesh=dict(result.mesh);info.update(profile_knots=plan.knots,profile_indices=result.profile_indices,sides=result.sides,
                     radial_error_m=result.error_m,logical_profile='complete camera-independent profile',triangles=len(mesh['faces']))
             else:
-                mesh,info=prism(row,params,material)
+                detail=ordinary_builder(row,params,material) if ordinary_builder is not None else None
+                mesh,info=detail if detail is not None else prism(row,params,material)
             vertices=mesh['vertices'];expected=(params['minHeight'],params['buildingHeight'])
             if not np.array_equal([vertices[:,2].min(),vertices[:,2].max()],expected):raise ValueError('Generated body changed provider height interval')
             meshes.append(dict(vertices=vertices,faces=mesh['faces']+offset,normals=mesh['normals'],uv=mesh['uv'],materials=mesh['materials']))
