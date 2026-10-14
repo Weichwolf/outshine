@@ -402,3 +402,56 @@ Bibliotheks-/natives Ebenenrezept. C1 und1cm Chordbudget gelten für Stationspro
 nicht für horizontale Knicke oder eine globale Fehlergrenze des Miter-Surfaces.
 Freie Ports, abgestimmte Nachbarn, DEM-Innenfit/Terrain, Pfeiler/Statik, Gleishardware,
 Fahrdynamik, drei Ebenen und Tunnelportale bleiben offen.
+
+### Gemeinsamer Brückenquellplan (#21)
+
+`shared_bridge_*` ersetzt alternative Paarprofile durch je eine gemeinsame Fläche
+für Deck und bekannte Außenwege. Die neue portable Fixture erfasst die am häufigsten
+gekreuzte Brückenquelle aus dem Paarpin, erweitert deren zusammenhängende Brücken-
+Korridore und nimmt **alle positiven Flächenüberschneidungen** im vollständigen
+Wien-Donau-Input hinzu. Quellachsen bleiben original; Flat-Cap-/Miter-Buffer mit
+Mitergrenze2 und klassengeleiteter/Fallback4m-Breite sind markierte Rezepte.
+Geometrieunion/CDT mit gemeinsamen Vertexidentitäten erhält die ganze Vereinigung;
+Original-Quellen/Tags und zusätzliche Contributors je Face bleiben separat erhalten.
+
+Sechs gleich geordnete Brückenteile und17 Außenwege werden gemeinsam geplant;
+zehn Innenwege bleiben mit `indoor_surface_requires_buildings_contact` ungelöst.
+Deren ursprüngliche Achsen/Tags/Korridore sind übergeben; `level` wird nicht in
+Meter übersetzt. Die Durchfahrtsprüfung gilt ausschließlich gegen die expliziten
+Außenflächen, nicht gegen unbekannte Innenetagen oder die gesamte Nachbarwelt.
+Eine vollständige Bilanz enthält alle793 Achsquellen und44 Quellen ohne Achsenrezept.
+
+Ground benutzt den gemeinsamen #65-Höhenfit mit isotropem Gradientenlimit0,025,
+höchstens2m Abweichung vom gemittelten linearen Quell-Endprior und2s Solverbudget.
+Querneigung ist hier frei innerhalb dieser Schranke, keine feste0,015-Vorgabe.
+Konus und konservatives16-Eck-LP werden mit denselben Eingaben/Qualitätsbedingungen
+verglichen; die LP besitzt eine kleinere zulässige Menge. Das gemeinsame flache
+Deck wahrt0,35m Dicke und4,5m Durchfahrt plus0,02m Numerikreserve über der vollständigen
+Flächenüberlagerung. Jeder Deckport darf gegenüber dem DEM-Prior höchstens8m steigen.
+Mit festem DEM-Port bleibt das Deck lokal aus; Ground bleibt gültig. DEM ist Gelände,
+kein gemessener Brückenanschluss. Die angehobenen Außenanschlüsse benötigen künftig
+passende Nachbarrezepte; die flache Deckfläche allein beweist keine Gleisfahrkurven.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/shared_bridge_checks.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/shared_bridge_experiment.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/shared_bridge_showcase.py
+```
+
+Normale Prüfungen lesen nur Pins. `capture_shared_bridge.py` ersetzt die Fixture
+**ausdrücklich** aus vorbereitetem Input und vorhandenen DEM-Bytes, ohne Netzabruf.
+Ausgaben unter `build/experiments/transport/shared-bridge/`; drei frische Worker je
+Methode mit fünf vollständigen Builds nach einem Warmup, CPU10s/AS2GiB/Parent30s,
+ein BLAS-Thread. Geometrie/Fit/Ganzflächenabstand/Ports mitmessen; Imports/JSON/Warmup/
+Produkte/Render außerhalb der Zeit, im Linux-VmHWM enthalten. GEOS-/Solver-Schritte
+können kooperative Limits überlaufen; die Prozessgrenzen begrenzen den ganzen Worker.
+Max64 Quellen,256 Achspunkte/Quelle,8192 Vertices/Faces je Fläche; keine Frame-Abnahme.
+
+Sechs1920×1080-Vergleiche zeigen die **tatsächlich ausgelassene** feste-Port-Brücke
+gegen das gemeinsame angehobene Deck: Kontrolle, Ganzmodell, Durchfahrtdetail.
+Gleiche Kamera aus beiden Zuständen, keine Höhenüberhöhung. Bestehende Plan-/Reservation-
+Verträge mit Source/Kind/Frame im Begleitprodukt; Prismen bleiben konservativ.
+Keine neuen lib-/nativen APIs, SDK-Abhängigkeit, Terrain/Pfeiler/Statik/Schienenhardware,
+außen verbundenen Verkehrswege, vollständigen Innenkontakte oder Dreiebenen-/Tunnelrezepte.
+SIGGRAPH2008 graph→geometry und Galin2010 Figuren17/18 (erneut optisch geprüft)
+begründen getrennte Netz-/Profil-/Querschnittsarbeit; keine vollständige Nachbildung.
