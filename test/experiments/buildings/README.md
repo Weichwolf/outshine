@@ -115,6 +115,11 @@ pipelines under those same quality requirements. Timing excludes independent
 verification; peak RSS belongs to the combined process, not an individual
 strategy. No generic recursive geometry/runtime guarantee follows from this
 one workload; #109 owns this work.
+`compare_boolean_output_repair.py --baseline-revision <commit>` additionally
+compares eager versus candidate-first repair on the identical pre-repair arrays
+from both expressions. It checks exact output roots/supports/native IDs before
+reporting isolated kernel time. Source geometry capture and verification are
+excluded from that timer; the historical own-source kernel stays in build output.
 
 ```sh
 .venv/bin/python test/experiments/buildings/showcase.py --publish --serve

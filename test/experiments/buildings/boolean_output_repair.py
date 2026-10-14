@@ -42,16 +42,27 @@ def unresolved_area(triangle,exact=None):
 
 def cancel(roots,supports,native,nodes,*,evidence=None):
     keep=np.ones(len(roots),dtype=bool);pending={}
-    for index,triangle in enumerate(roots):
+
+    def altitude(index):
+        triangle=roots[index]
         xyz=np.asarray([nodes.coordinates[int(root)] for root in triangle])
         exact=None if not hasattr(nodes,'exact') else tuple(nodes.exact[int(root)] for root in triangle)
-        bound=unresolved_area(xyz,exact)
-        if bound is None:continue
+        return unresolved_area(xyz,exact)
+
+    for index,triangle in enumerate(roots):
         key=(int(native[index]),supports[index],cycle(triangle))
         opposite=(key[0],key[1],cycle(triangle[[0,2,1]]))
         candidates=pending.get(opposite)
-        if candidates:
-            previous=candidates.pop();keep[previous]=keep[index]=False
-            if evidence is not None:evidence['maximum_cancelled_altitude_m']=max(evidence.get('maximum_cancelled_altitude_m',0.),bound)
+        if not candidates:
+            pending.setdefault(key,[]).append(index);continue
+        bound=altitude(index)
+        if bound is None:continue
+        while candidates:
+            previous=candidates.pop();before=altitude(previous)
+            if before is None:continue
+            keep[previous]=keep[index]=False
+            if evidence is not None:
+                evidence['maximum_cancelled_altitude_m']=max(evidence.get('maximum_cancelled_altitude_m',0.),bound,before)
+            break
         else:pending.setdefault(key,[]).append(index)
     return roots[keep],tuple(s for s,k in zip(supports,keep,strict=True) if k),np.asarray(native,dtype=np.int32)[keep]
