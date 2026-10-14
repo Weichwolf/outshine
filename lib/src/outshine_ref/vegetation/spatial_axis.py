@@ -95,6 +95,38 @@ class SpatialAxis:
                 "bounded spatial axial and angular surface detail required"
             )
         fraction = np.linspace(0, 1, segments + 1)
+        angle = np.arange(sides) * 2 * np.pi / sides
+        return self.mesh_at(fraction, angle)
+
+    def mesh_at(self, fraction, angle):
+        try:
+            bounded = 3 <= len(fraction) <= 1025 and 3 <= len(angle) <= 128
+        except TypeError as error:
+            raise ValueError("bounded sweep station sequences required") from error
+        if not bounded:
+            raise ValueError("bounded sweep station sequences required")
+        fraction, angle = np.asarray(fraction), np.asarray(angle)
+        if fraction.dtype.kind not in "fiu" or angle.dtype.kind not in "fiu":
+            raise ValueError("real complete sweep stations required")
+        fraction, angle = fraction.astype(float), angle.astype(float)
+        if (
+            fraction.ndim != 1
+            or not 3 <= len(fraction) <= 1025
+            or angle.ndim != 1
+            or not 3 <= len(angle) <= 128
+            or not np.isfinite(fraction).all()
+            or not np.isfinite(angle).all()
+            or fraction[0] != 0
+            or fraction[-1] != 1
+            or np.any(np.diff(fraction) <= 0)
+            or angle[0] < 0
+            or angle[-1] >= 2 * np.pi
+            or np.any(np.diff(angle) <= 0)
+        ):
+            raise ValueError(
+                "bounded ordered complete axial and angular stations required"
+            )
+        sides = len(angle)
         with np.errstate(over="ignore"):
             variation = np.r_[0, np.cumsum(np.abs(np.diff(self.roll.table)))]
         if not np.isfinite(variation).all():
@@ -110,7 +142,6 @@ class SpatialAxis:
         )
         radius = self.radius.evaluate(fraction)
         slope = self.radius.derivative(fraction) * sample["arc_speed"] / self.length
-        angle = np.arange(sides) * 2 * np.pi / sides
         surface, normals = sweep_stations(
             sample["centre"],
             sample["tangent"],
