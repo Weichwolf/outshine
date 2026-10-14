@@ -49,6 +49,11 @@
       "id": "ebenen",
       "title": "Ebenen und Durchfahrten",
       "description": "Zwei lokale Verkehrsflächen: Orange zeigt die unzulässige Höhenkontrolle, Blau das erhöhte Deck, Grau die untere Straße. Ganze Flächen und Deckunterseite geprüft; gleiche Kamera ohne Höhenüberhöhung."
+    },
+    {
+      "id": "schienenanschluesse",
+      "title": "Schienenanschlüsse",
+      "description": "Das gemeinsame Wiener Deck erhält zwei echte westliche Anschlussquellen. Blau: bisheriges Deck, Grün: ergänzte Rampen. Gleiche Kameras und echte Höhen; Portale und Innenflächen bleiben offen."
     }
   ],
   "images": [
@@ -700,6 +705,72 @@
       "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-shared-solid.png",
       "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-shared-solid.json",
       "origin_source": "build/experiments/transport/shared-bridge/origin.json"
+    },
+    {
+      "id": "Vienna-approach-before-solid",
+      "section": "schienenanschluesse",
+      "title": "Wien · ganzes Deck mit Schienenanschlüssen · vor Nachbaranschlüssen",
+      "kind": "Bisheriger gültiger Deckstand",
+      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
+      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-before-solid.png",
+      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-before-solid.json",
+      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
+    },
+    {
+      "id": "Vienna-approach-parabolic-solid",
+      "section": "schienenanschluesse",
+      "title": "Wien · ganzes Deck mit Schienenanschlüssen · gemeinsamer parabolischer Übergang",
+      "kind": "Gemeinsamer Höhen- und Flächenplan",
+      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
+      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-parabolic-solid.png",
+      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-parabolic-solid.json",
+      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
+    },
+    {
+      "id": "Vienna-approach-cubic-solid",
+      "section": "schienenanschluesse",
+      "title": "Wien · ganzes Deck mit Schienenanschlüssen · gemeinsamer kubischer Übergang",
+      "kind": "Gemeinsamer Höhen- und Flächenplan",
+      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
+      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-cubic-solid.png",
+      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-cubic-solid.json",
+      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
+    },
+    {
+      "id": "Vienna-approach-detail-before-solid",
+      "section": "schienenanschluesse",
+      "title": "Wien · Anschlussdetail · vor Nachbaranschlüssen",
+      "kind": "Bisheriger gültiger Deckstand",
+      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
+      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-before-solid.png",
+      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-before-solid.json",
+      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
+    },
+    {
+      "id": "Vienna-approach-detail-parabolic-solid",
+      "section": "schienenanschluesse",
+      "title": "Wien · Anschlussdetail · gemeinsamer parabolischer Übergang",
+      "kind": "Gemeinsamer Höhen- und Flächenplan",
+      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
+      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-parabolic-solid.png",
+      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-parabolic-solid.json",
+      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
+    },
+    {
+      "id": "Vienna-approach-detail-cubic-solid",
+      "section": "schienenanschluesse",
+      "title": "Wien · Anschlussdetail · gemeinsamer kubischer Übergang",
+      "kind": "Gemeinsamer Höhen- und Flächenplan",
+      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
+      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-cubic-solid.png",
+      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-cubic-solid.json",
+      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
