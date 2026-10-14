@@ -145,6 +145,21 @@ coarse = organ.mesh(16, 8)
 Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/outshine/issues/45),
 [#46](https://github.com/Weichwolf/outshine/issues/46), Übernahme [#52](https://github.com/Weichwolf/outshine/issues/52).
 
+`buildings.modelling.PrismVolume(identifier, polygon, low_m, high_m, material=1)`
+beschreibt ein vollständiges ENU-Prisma in Metern. Polygon/MultiPolygon und
+Höhen bleiben geliefert; der Konstruktor repariert oder rastert sie nicht.
+`union_prisms(sources, max_triangles=262144)` entfernt innere Gegenflächen und
+liefert `PrismUnion`: unveränderliche native Vertices/Dreiecke/Material-IDs,
+Vertexidentitäten und eine stabile Tabelle aus Konstruktion-IDs samt Quellindices
+und ursprünglichen Eingabedreiecken. Interne Bibliotheks-IDs werden nicht exportiert.
+Leere Polygone bleiben in der Tabelle und erhalten `empty_polygon`; ungültige
+Geometrie, doppelte IDs und Kapazitätsüberschreitungen werden ausdrücklich abgewiesen.
+Input-/Output-Trianglecaps sind keine harte Laufzeit- oder Gesamt-RAM-Schranke.
+Das optionale Extra `pip install -e './lib[solids]'` verwendet Manifold3D 3.5.4.
+Diese Konstruktion erhält eigene geplante Material-/Bandherkunft und ersetzt
+keine allgemeinen CGA-Shape-UVs, Auto-Tags oder Material-Overrides.
+Vertrag und Gebäudebelege: [#124](https://github.com/Weichwolf/outshine/issues/124).
+
 `buildings.modelling` enthält den übernommenen Scope-Kern: `Frame`, `Scope`,
 `Relative`, `t`, `r`, `s` und `translate`. Er hält die dokumentierten CGA-Achsen
 Ost/Auf/Süd intern; `cga_to_enu`/`enu_to_cga` konvertieren Positionen und Normalen

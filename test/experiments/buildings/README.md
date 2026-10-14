@@ -125,6 +125,32 @@ excluded from that timer; the historical own-source kernel stays in build output
 .venv/bin/python test/experiments/buildings/showcase.py --publish --serve
 ```
 
+`boolean_building_plan` converts complete existing multi-storey plans into room,
+door, window and stair-opening CSG sources. Balanced/sequential expressions are
+retained comparisons, including rejected topology/candidate-capacity cases.
+`boolean_building_bands` builds the same planned structure with the installed
+`PrismVolume`/`union_prisms` library core. Original footprint coordinates remain
+unchanged; structural wall bands are recomputed against that footprint.
+Only the primitive constructor's planned source/material semantics are claimed,
+not arbitrary inherited CGA Shape UVs/tags/material equality.
+
+```sh
+.venv/bin/python -W error -m unittest discover -s lib/tests -p test_prism_union.py
+.venv/bin/python -W error test/experiments/buildings/verify_structural_shell_controls.py
+.venv/bin/python -W error test/experiments/buildings/verify_structural_shell.py --compare-csg
+.venv/bin/python -W error test/experiments/buildings/showcase_structural_shell.py
+```
+
+Validation uses independent original-prism volume/surface integrals and every
+height slab. Slices come directly from Float64 native edges and explicit root
+identities; the Manifold cross-section conversion loses precision for these
+prism dimensions, so it is not the section verifier. Actual compiled assembly
+rays check all door passages, sampled stair torsos and foot disks. Sealed
+entrance/stair openings and missing flights are negative controls.
+[#124](https://github.com/Weichwolf/outshine/issues/124) owns this structure; the
+generic room programme, native player controller and architecture families remain
+separate.
+
 The showcase reads the checked current snapshot and serves it on localhost:8766.
 New published states appear after manually reloading the page; no polling timer runs.
 Outputs remain under `build/experiments/buildings/`. Its four pages are viewing
