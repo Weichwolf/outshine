@@ -11,9 +11,11 @@ from shapely.affinity import translate
 
 from building_layout import frame
 from provider_contract import number
+from provider_contract import attributes
 from outshine_ref.buildings.modelling import Shape,cga_to_enu,heightfield_envelope
 from tile_buildings import prism
 from tile_room_details import RoomDetails
+from outshine_ref.buildings.structures import classify_structure
 
 
 @dataclass(frozen=True)
@@ -76,9 +78,34 @@ def projected_error(row,parameters,choice,view):
     return choice.rise_m*(view.focal_px*factor+.5)/depth if depth>0 else float('inf')
 
 
+def pitched_candidates(rows,view,limit=16):
+    ranked=[]
+    industry=shapely.union_all([r['polygon'] for r in rows if r['layer']=='landuse' and r['properties'].get('class')=='industrial'])
+    for row in rows:
+        if row['layer']!='building' or row['clipped']:continue
+        try:
+            p=attributes({k:v for k,v in row['properties'].items() if k not in ('colour','color','building:colour')})
+            choice=choose(row,p)
+            if p['hide3d'] or choice.kind=='flat':continue
+            coverage=min(1.,row['polygon'].intersection(industry).area/row['polygon'].area)
+            if classify_structure(row['polygon'],row['properties'],coordinate_step_m=row['coordinate_step_m'],
+                                  industrial_coverage=coverage,clipped=row['clipped']).kind!='ordinary':continue
+            x0,y0,x1,y1=row['polygon'].bounds
+            points=np.array([(x,y,z) for x in (x0,x1) for y in (y0,y1) for z in (p['minHeight'],p['buildingHeight'])])
+            projected=(points-view.eye)@view.basis.T
+            if projected[:,2].min()<=0 or 1.2*view.focal_px/projected[:,2].max()<3.:continue
+            uv=projected[:,:2]*view.focal_px/projected[:,2:3]+[view.width/2,view.height/2]
+            low=np.maximum(uv.min(axis=0),0);high=np.minimum(uv.max(axis=0),[view.width,view.height])
+            if np.any(high<=low):continue
+            ranked.append((float(np.prod(high-low)),row['id']))
+        except ValueError:continue
+    return {identifier for score,identifier in sorted(ranked,key=lambda item:(-item[0],item[1]))[:limit]}
+
+
 class OrdinaryDetails:
     def __init__(self,rows,view):
         self.rooms=RoomDetails(rows,view);self.view=view;self.choices=Counter();self.completed=[];self.rejected=[];self.coarse=[]
+        self.pitched=pitched_candidates(rows,view);self.room_completed=[];self.room_rejected=[]
 
     def __call__(self,row,parameters,material):
         choice=choose(row,parameters);self.choices[choice.kind]+=1
@@ -97,6 +124,14 @@ class OrdinaryDetails:
             mesh,info=prism(row,parameters,material);self.coarse.append(dict(id=row['id'],**metadata))
             return mesh,info|metadata|dict(roof_product='direct subpixel heightfield approximation; logical roof choice retained')
         start=time.perf_counter();top,_,_=roof_surface(row,choice)
+        if row['id'] in self.pitched:
+            from pitched_room_details import complete
+            try:
+                mesh,info,_,_=complete(row,parameters,material,choice,top)
+                self.room_completed.append(dict(id=row['id'],**info))
+                self.completed.append(dict(id=row['id'],triangles=len(mesh['faces']),build_ms=(time.perf_counter()-start)*1000,**metadata))
+                return mesh,metadata|info
+            except ValueError as error:self.room_rejected.append(dict(id=row['id'],reason=str(error)))
         envelope=heightfield_envelope(top,parameters['minHeight'],wall_material=material,base_material=material)
         mesh=dict(envelope.mesh)
         for key in ('parts','groups','face_tag_mask'):mesh.pop(key)
@@ -107,4 +142,5 @@ class OrdinaryDetails:
 
     def report(self):
         return dict(choices=dict(self.choices),completed=self.completed,coarse=self.coarse,rejected=self.rejected,
-            scope='Bounded small ordinary envelope prototypes; existing larger complete room controls remain flat. No architecture-family/native LOD admission')
+            room_selected=len(self.pitched),room_completed=self.room_completed,room_rejected=self.room_rejected,
+            scope='Small ordinary envelopes plus at most sixteen visible constructive roof/room controls; existing larger controls remain flat. No architecture-family/native LOD admission')

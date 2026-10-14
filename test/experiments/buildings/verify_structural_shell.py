@@ -56,7 +56,7 @@ def geometry(plan,prisms,shell):
 
 
 def access(plan,collision):
-    connected_spaces(plan);columns=NativeColumns(collision,plan['base_z_m']-1,plan['body_top_m']+1)
+    connected_spaces(plan);columns=NativeColumns(collision,plan['base_z_m']-1,max(plan['body_top_m'],plan['source_top_m'])+1)
     tested=0;minimum=float('inf');landing=approach(plan) if 'stair' in plan else None
     for index in range(plan['storeys']):
         current=level(plan,index)

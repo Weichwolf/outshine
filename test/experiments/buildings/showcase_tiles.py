@@ -5,14 +5,12 @@ import hashlib
 import json
 import math
 from pathlib import Path
-from collections import defaultdict
 import subprocess
 import sys
 import tempfile
 import time
 
 import numpy as np
-import shapely
 
 from demand import View
 from evidence import revision
@@ -27,14 +25,14 @@ TITLES={'Spittelau':'Wien · Spittelau','BerlinFernsehturm':'Berlin · Fernsehtu
 def camera(points):
     target=(points.min(axis=0)+points.max(axis=0))/2
     direction=np.array([1.,-1.25,.95]);direction/=np.linalg.norm(direction)
-    view=View(target+direction,target,width=2560,height=1440,fov_deg=48.)
+    view=View(target+direction,target,width=3840,height=2160,fov_deg=48.)
     projected=(points-target)@view.basis.T
-    required=np.maximum(abs(projected[:,0])*view.focal_px/(2560*.46),abs(projected[:,1])*view.focal_px/(1440*.43))-projected[:,2]
-    return View(target+direction*(required.max()+10.),target,width=2560,height=1440,fov_deg=48.)
+    required=np.maximum(abs(projected[:,0])*view.focal_px/(view.width*.46),abs(projected[:,1])*view.focal_px/(view.height*.43))-projected[:,2]
+    return View(target+direction*(required.max()+10.),target,width=view.width,height=view.height,fov_deg=48.)
 
 
-def render(site,output,provenance,spp):
-    start=time.perf_counter();rows,receipt=read_tile(site);boxes=[]
+def view_for(rows):
+    boxes=[]
     for row in rows:
         if row['layer']!='building' or hidden(row['properties']):continue
         low=number(row['properties'].get('render_min_height',0.));high=number(row['properties'].get('render_height',9.))
@@ -42,15 +40,20 @@ def render(site,output,provenance,spp):
         x0,y0,x1,y1=row['polygon'].bounds
         points=[(x,y,z) for x in (x0,x1) for y in (y0,y1) for z in (low,high)]
         boxes.append((row,high,points))
-    focus=max(boxes,key=lambda b:b[1])[0]['polygon'].centroid
-    if sum(row['polygon'].distance(focus)<350. for row,high,points in boxes)<25:
-        cells=defaultdict(list)
-        for row,high,points in boxes:
-            centre=row['polygon'].centroid;cells[int(centre.x//300),int(centre.y//300)].append(centre)
-        centres=max(cells.values(),key=len)
-        focus=shapely.Point(np.mean([[p.x,p.y] for p in centres],axis=0))
-    selected=[points for row,high,points in boxes if row['polygon'].distance(focus)<150.]
-    view=camera(np.concatenate([np.asarray(p) for p in selected]))
+    return camera(np.concatenate([np.asarray(points) for row,high,points in boxes]))
+
+
+def frame_proof(mesh,view):
+    points=(mesh['vertices']-view.eye)@view.basis.T
+    if points[:,2].min()<=0:raise ValueError('Complete tile contains geometry behind its overview camera')
+    uv=points[:,:2]*view.focal_px/points[:,2:3]+[view.width/2,view.height/2]
+    low=uv.min(axis=0);high=uv.max(axis=0)
+    if np.any(low<0) or np.any(high>[view.width,view.height]):raise ValueError('Complete tile overview clips generated geometry')
+    return dict(projected_min_px=low.tolist(),projected_max_px=high.tolist(),all_vertices_inside=True)
+
+
+def render(site,output,provenance,spp):
+    start=time.perf_counter();rows,receipt=read_tile(site);view=view_for(rows)
     projection=math.sqrt(1+(view.width/(2*view.focal_px))**2+(view.height/(2*view.focal_px))**2)
     def error_for(row,parameters):
         x0,y0,x1,y1=row['polygon'].bounds
@@ -59,10 +62,11 @@ def render(site,output,provenance,spp):
         return .5*depth/(view.focal_px*projection+.5) if depth>0 else .25
     rooms=OrdinaryDetails(rows,view)
     mesh,source=construct(site,error_m=error_for,prepared=(rows,receipt),ordinary_builder=rooms);stem='current-tile-'+site.lower()
+    framing=frame_proof(mesh,view)
     source['room_detail']=rooms.rooms.report()
     source['roof_envelopes']=rooms.report()
     path=output/(stem+'-mesh.npz');np.savez_compressed(path,**mesh)
-    config=dict(profile=[2560,1440],mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+    config=dict(profile=[view.width,view.height],mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         eye=view.eye.tolist(),target=view.target.tolist(),fov_deg=view.fov_deg,wall_linear=[.68,.67,.64],roof_linear=[.22,.24,.25],
         material_definitions=source['material_definitions'],ground_span_m=source['span_m']*1.5,
         spp=spp,seed=17,denoise=True,output=str((output/(stem+'.png')).resolve()))
@@ -72,13 +76,13 @@ def render(site,output,provenance,spp):
         subprocess.run([sys.executable,str(Path(__file__).with_name('mitsuba_interior.py')),str(scene)],stdout=stream,stderr=subprocess.STDOUT,check=True,timeout=900)
     image=output/(stem+'.png');renderer=json.loads(image.with_suffix('.renderer.json').read_text())
     if renderer['included_source_triangles']!=len(mesh['faces']):raise ValueError('Whole-tile renderer omitted triangles')
-    report=provenance|dict(representation='showcase-current',view='tile',page='tile',title=TITLES[site],profile=[2560,1440],
+    report=provenance|dict(representation='showcase-current',view='tile',page='tile',title=TITLES[site],profile=[view.width,view.height],
         caption='Vollständige Kachelszene mit Dachhüllen kleiner Körper, Sonderformen und begrenzten echten Raum-/Fassadenkontrollen. Weitere Architekturprogramme bleiben offen.',
         renderer=renderer,source=source,triangles=len(mesh['faces']),build_seconds=time.perf_counter()-start,
         detail_policy='Source envelopes before emission; front-facing radial deviation <=0.5 projected pixel by minimum-depth bound; behind-camera complete profiles use 0.25 m',
-        camera_scope='Near view of complete generated tile; source content is not cropped or culled before emission',
+        camera_scope='Complete tile overview with all generated geometry inside the image',camera_framing=framing,
         image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),completed_recipe_families=0,
-        limits='Complete near-control structures and radial prototypes, other normal buildings remain prisms. General functional architecture families, terrain/transport/vegetation and native LOD/frame/device admission incomplete.')
+        limits='Complete generic near-control roof/room structures, small roof envelopes and radial prototypes; remaining ordinary bodies are source prisms. General functional architecture families, terrain/transport/vegetation and native LOD/frame/device admission incomplete.')
     name=stem+'-report.json';(output/name).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(dict(site=site,generated=source['generated'],triangles=len(mesh['faces']),status='pass')),flush=True)
     return name
