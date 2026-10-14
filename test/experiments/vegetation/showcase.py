@@ -24,6 +24,7 @@ from closed_vein_plots import closed_figure
 from cloud_plots import group_figure, raster_figure, render_figure
 from collar_plots import collar_figure, ray_figure
 from curved_plots import curved_figure
+from fin_plots import fin_figure
 from fork_plots import fork_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
@@ -43,6 +44,7 @@ from profile_plots import cache_profile_figure, profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 from showcase_plot_sources import PLOT_SOURCES
 from spatial_plots import spatial_figure
+from spine_library_plots import spine_library_figure
 from spine_plots import spine_figure
 from tapered_plots import tapered_figure
 
@@ -387,6 +389,12 @@ def placement_library_plot(report):
     return save_plot(figure, "placement-library")
 
 
+def spine_library_plot(report):
+    figure = spine_library_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "spine-library")
+
+
 def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
@@ -519,10 +527,15 @@ def fork_plot(report):
     return save_plot(fork_figure(report), "organic-forks")
 
 
+def fin_plot(report):
+    return save_plot(fin_figure(report), "procedural-fins")
+
+
 def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            fin_plot,
             closed_plot,
             coupled_plot,
             relief_plot,
@@ -532,6 +545,7 @@ def plot_entries(output, plot_lods):
             needle_plot,
             blade_library_plot,
             placement_library_plot,
+            spine_library_plot,
             profile_cache_plot,
             filter_plot,
             development_plot,

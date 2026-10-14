@@ -90,3 +90,58 @@ predicate with boxes plus the same exact distance filter and requires equal comp
 contact results. Shared topological features select deterministically; stacked,
 unshared or conflicting hits are unresolved. Surface kind/frame/source association
 remain explicit at the caller; a projected spatial index has no implicit ground meaning.
+
+## Fixed-plan terrain refinement: rejected visual candidate (#20)
+
+Research starts with Lindstrom et al., SIGGRAPH 1996,
+[primary paper](https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/lindstrom96.pdf),
+[local PDF](siggraph/1996-continuous-height-field-lod.pdf): edge delta segments and
+compatible neighbouring levels (page 4, Figure 3). Duchaineau et al., Visualization
+1997, [primary paper](https://www.classes.cs.uchicago.edu/archive/2003/fall/23700-1/docs/roam.pdf),
+[local PDF](visualization/1997-roaming-terrain.pdf), page 4 Figures 3–5, describes
+paired splits preserving conformity. Both diagram pages were inspected visually.
+
+`ground_refinement.py` compares paired edge midpoints and face centroids on the
+same saved Vienna mesh, 2500 added vertices, 65536 faces and 2:3 soil-grade limit.
+Old vertices/roads/outer edges remain fixed. Each new height is projected onto
+the exact scalar interval induced by whole-child gradient bounds; face-disjoint
+batches keep those intervals independent. A local 45-point-per-face DEM check
+further restricts changes. This is not ROAM's hierarchy or optimality algorithm;
+the DEM check is sampled and is not a global source-error certificate.
+
+The first version reduced RMS but increased held-out extreme errors. The local
+quality interval corrected the measured regression. Centroids then improved
+mean/RMS/p95 at lower cost than edge midpoints, while midpoints had the smaller
+measured maximum. The actual 3D inspections still show triangular tent forms
+and sharp creases. This candidate remains a rejected visual experiment, not an
+approved terrain generator or library migration. Numeric grade/coverage and a
+smaller aggregate source error do not prove an aesthetic improvement.
+
+Fine triangles stay within their original affine parent. Maximum vertical
+coarse/fine difference is therefore attained at a fine vertex. Linear vertex
+morphs preserve gradient limits by convexity of the norm, but do not remove the
+tent shapes or establish C1. The next method must reconsider interior terrain
+connectivity instead of accumulating more fixed-edge fans.
+
+## Soil connectivity after fixed-point refinement (#20)
+
+Hoppe et al., SIGGRAPH 1993, [primary paper](https://hhoppe.com/meshopt.pdf),
+[local PDF](siggraph/1993-mesh-optimization.pdf), separates mesh connectivity from
+positions and uses local edge swaps (page 5, Figures 4–6, visually inspected).
+The experiment implements a smaller fixed-XYZ soil exchange, not the paper's
+joint vertex/topology optimization. Roads, interfaces and outer edges remain fixed.
+
+[GEOS Delaunay through Shapely](https://shapely.readthedocs.io/en/stable/reference/shapely.delaunay_triangles.html)
+selects a candidate diagonal on strictly convex four-point patches; an angle gain
+avoids cocircular tie cycles. The equal-budget alternative uses data-dependent
+swaps. Both check every proposed whole-face gradient and the same 60 local DEM
+probes, requiring lower squared residual and no larger sampled local maximum.
+Face-disjoint batches retain a valid partial result on work-budget exhaustion.
+Near-degenerate floating-point patches are skipped conservatively; neither path
+claims complete constrained Delaunay or globally optimal fitting.
+
+Reconnection removes many star-shaped ridges in opened same-camera 3D views and
+improves independent saved-source probes without changing any XYZ. It remains C0.
+Once new edges cross old parents, the earlier root-face vertical LOD certificate
+no longer applies. Do not interpolate meshes using that invalid certificate.
+Height/time/mesh/DEM limits and measured host costs are separate from runtime gates.

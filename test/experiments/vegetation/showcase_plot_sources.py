@@ -2,6 +2,18 @@
 
 PLOT_SOURCES = (
     (
+        "fins/fins.json",
+        "fin_plot",
+        "Rindenfortsätze · Differentialnormalen und gemeinsame Ansatzpunkte",
+        "Drei eigene Vorlagen, je 4080 Dreiecke, fünf abwechselnde vollständige CPU-Abbildungen. Kofaktoren gegen NumPy solve: Positionen, UVs, Faces und Rindenfelder exakt; Normalen numerisch gleich. Ansatzkoordinaten mit Parent-Mesh geteilt; keine Boolean-Verschweißung, vollständige SpeedTree-Property- oder native GPU-Freigabe.",
+    ),
+    (
+        "spine-library/spine-library.json",
+        "spine_library_plot",
+        "Räumliche Astbibliothek · sichere Pläne und Roll-Auflösung",
+        "Gleiche räumliche Kurven, Felder und vollständige Meshs vor/nach exakt. Frischer Plan, 513 warme Rahmen und kompletter 48×12-Aufbau getrennt in fünf wechselnden CPU-Läufen. Öffentliche Kurvenobjekte sind unabhängige Kopien; Knoten unveränderlich. Unaufgelöster Roll und falsche Facetten werden abgelehnt, keine allgemeine LOD-Deckungsgrenze.",
+    ),
+    (
         "placement-library/placement-library.json",
         "placement_library_plot",
         "Blattfolgen-/Quirlbibliothek · Bedarf vor Arbeit",
