@@ -33,6 +33,8 @@ int main() {
         material.Scattering = ScatteringModel::DiffuseThinSheet;
         material.BaseColour = {{0.1f, 0.2f, 0.03f, 1}};
         material.DiffuseTransmission = {{0.4f, 0.6f, 0.1f}};
+        material.DiffuseTransmissionMap.Image =
+            *mesh.addImage(1, 1, std::array<uint8_t, 4>{64, 128, 64, 255});
         break;
     }
     const auto surface = *mesh.addSurface("unsupported", material);

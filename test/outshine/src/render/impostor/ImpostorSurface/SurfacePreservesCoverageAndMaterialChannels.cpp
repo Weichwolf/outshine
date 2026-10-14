@@ -1,10 +1,72 @@
 #include "ImpostorSurface.h"
 
 #include "Check.h"
+#include "math/Srgb.h"
 
 #include <string>
 #include <array>
 #include <vector>
+
+namespace {
+void CheckOpticalFiltering() {
+  using namespace outshine;
+  using namespace outshine::Test;
+  Material wood;
+  wood.BaseColour = {{.3f, .14f, .05f, 1}};
+  wood.Roughness = .7f;
+  Material leaf;
+  leaf.Scattering = ScatteringModel::DiffuseThinSheet;
+  leaf.BaseColour = {{.1f, .2f, .03f, 1}};
+  leaf.DiffuseTransmission = {{.4f, .6f, .1f}};
+  Content::ImpostorAtlas::View view{.TowardEye = {{0, 0, 1}}};
+  view.Texels.resize(16);
+  view.Texels[0] = {.Normal = {{0, 0, 1}}, .Depth = .5f, .Surface = 1};
+  view.Texels[1] = {.Normal = {{0, 0, 1}}, .Depth = .5f, .Surface = 2};
+  std::string error;
+  const auto atlas = Content::ImpostorAtlas::Create(4, {}, 1, {wood, leaf}, {view}, error);
+  CHECK(atlas.has_value(), "opaque and transmissive source coefficients share a native atlas");
+  if (!atlas) { return; }
+  const auto encoded = atlas->Encode("optical-fixture", error);
+  CHECK(encoded && (*encoded)[8] == 3, "uncomposed optical surfaces use their own binary layout");
+  const auto decoded =
+      encoded ? Content::ImpostorAtlas::Decode(*encoded, "optical-fixture", error) : std::nullopt;
+  CHECK(decoded && decoded->Surfaces()[1] == leaf,
+        "optical source material survives cache replay exactly");
+  const auto card = Render::BuildImpostorSurface(*atlas, 0, Render::ImpostorSurfaceDetail::Flat);
+  CHECK(card && card->images() == 5 && card->wellFormed(),
+        "one mixed card owns all five jointly filtered maps");
+  if (!card) { return; }
+  const auto &row = card->surfaceAt(MaterialInstance(0));
+  CHECK(row.Scattering == ScatteringModel::AreaMixture && row.DiffuseReflectionMap.Image == 3 &&
+            row.DiffuseTransmissionMap.Image == 4,
+        "the native card retains both source response models");
+  const auto colour = *card->imageAt(0).LowerMips[static_cast<size_t>(ImageMipKind::Colour)];
+  const auto normal = *card->imageAt(1).LowerMips[static_cast<size_t>(ImageMipKind::Normal)];
+  const auto reflection = *card->imageAt(3).LowerMips[static_cast<size_t>(ImageMipKind::Linear)];
+  const auto transmission = *card->imageAt(4).LowerMips[static_cast<size_t>(ImageMipKind::Linear)];
+  CHECK(colour[3] == 128 && reflection[3] == 64,
+        "the first mip retains total and sheet coverage independently");
+  CHECK(normal[0] == 128 && normal[1] == 128 && normal[2] == 255 && normal[3] == 255,
+        "empty texels do not broaden a constant covered normal");
+  for (size_t channel = 0; channel < 3; ++channel) {
+    CHECK_NEAR(ColourSpace::LinearFromSrgb(colour[channel] / 255.0f),
+               wood.BaseColour[channel] * .25f,
+               .003,
+               "linear coefficient",
+               "wood colour remains coverage-premultiplied before sampling");
+    CHECK_NEAR(reflection[channel] / 255.0f,
+               leaf.BaseColour[channel] * .25f,
+               .0021,
+               "linear coefficient",
+               "sheet reflection is coverage weighted without empty-texel padding");
+    CHECK_NEAR(transmission[channel] / 255.0f,
+               leaf.DiffuseTransmission[channel] * .25f,
+               .0021,
+               "linear coefficient",
+               "sheet transmission shares the same area-filtered footprint");
+  }
+}
+}
 
 int main() {
   using namespace outshine;
@@ -75,5 +137,6 @@ int main() {
             "four planar regions need eight triangles instead of one quad per texel");
     }
   }
+  CheckOpticalFiltering();
   return Report();
 }

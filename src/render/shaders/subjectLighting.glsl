@@ -163,7 +163,8 @@ vec3 shadeRow(M surface,
       float weight = clearcoat * coatF;
       layered = layered * (1.0 - weight) + vec3(weight * coatLobe);
     }
-    sum = sum + layered * (materialWeight * nl * attenuation) * light.tint.rgb;
+    vec3 contribution = layered * nl * attenuation * light.tint.rgb;
+    sum += materialWeight < 1.0 ? contribution * materialWeight : contribution;
   }
 
   if (surface.thinWeight > 0.0) {
@@ -178,8 +179,9 @@ vec3 shadeRow(M surface,
       (f0 * (environmentBrdf.x - environmentBrdf.y) + vec3(f90 * environmentBrdf.y)) * energyScale;
   const vec3 ambient = diffuseEnvironment(n);
   const vec3 reflectedRadiance = filteredEnvironment(reflect(-v, n), roughness);
-  sum += materialWeight * (ambient * diffuseColour * (vec3(1.0) - clamp(specularEnvironment, 0.0, 1.0)) +
-         reflectedRadiance * specularEnvironment);
+  vec3 environment = ambient * diffuseColour * (vec3(1.0) - clamp(specularEnvironment, 0.0, 1.0)) +
+                     reflectedRadiance * specularEnvironment;
+  sum += materialWeight < 1.0 ? environment * materialWeight : environment;
   return sum + emitted;
 }
 

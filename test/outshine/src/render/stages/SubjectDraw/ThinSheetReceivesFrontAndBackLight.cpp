@@ -113,7 +113,8 @@ outshine::Geometry MixtureGeometry(float coverage) {
         material.DiffuseReflectionMap);
   image({encode(.2 * coverage), encode(.3 * coverage), encode(.05 * coverage), 255},
         material.DiffuseTransmissionMap);
-  image({0, encode(.35 * coverage), 0, encode(.5 * coverage)}, material.MetalRoughMap);
+  image({0, encode(.5 * std::pow(.7, 4) * coverage), 0, encode(.5 * coverage)},
+        material.MetalRoughMap);
   CHECK(geometry.setSurface(MaterialInstance(0), material),
         "a mixed surface publishes all covered-area factors");
   return geometry;

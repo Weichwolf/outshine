@@ -46,7 +46,8 @@ void main() {
 #endif
 #if SUBJECT_BASE_LOCATION == 0 && LIT_TEXTURED
   if (surface.scattering > 1.5) {
-    orm.gb /= max(orm.a, 1e-8);
+    orm.g = pow(clamp(orm.g / max(orm.a, 1e-8), 0.0, 1.0), 0.25);
+    orm.b /= max(orm.a, 1e-8);
   }
 #endif
   roughness *= orm.g;

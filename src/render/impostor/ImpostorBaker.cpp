@@ -120,6 +120,8 @@ std::optional<NativePiece> BuildPiece(const ShapePart &part,
 
 std::optional<Material> CapturedMaterial(const Material &source) {
   Material supported;
+  supported.Scattering = source.Scattering;
+  supported.DiffuseTransmission = source.DiffuseTransmission;
   supported.Pattern = source.Pattern;
   supported.BaseColour = source.BaseColour;
   supported.Metalness = source.Metalness;
