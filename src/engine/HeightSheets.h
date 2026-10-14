@@ -140,6 +140,10 @@ public:
 
   [[nodiscard]] size_t Flat() const { return Residency_.Flat(); }
 
+  [[nodiscard]] std::optional<double> HeightMAt(LongitudeLatitude at) const noexcept {
+    return Framed_ ? Residency_.HeightMAt(at) : std::nullopt;
+  }
+
   [[nodiscard]] uint64_t Digest() const;
 
   [[nodiscard]] size_t RimsMissing() const { return RimsMissing_; }

@@ -408,6 +408,27 @@ GroundSample GroundStream::At(LongitudeLatitude at) const {
       t->H.data(), t->Nodes, t->Postings, f.X - std::floor(f.X), f.Y - std::floor(f.Y)));
 }
 
+GroundSample GroundStream::At(LongitudeLatitude at, int zoom) const {
+  if (zoom < 0 || zoom > Data::TileId::MaximumZoom || !std::isfinite(at.LongitudeDeg) ||
+      !std::isfinite(at.LatitudeDeg)) {
+    return GroundSample::Missing();
+  }
+  const Geo place{.LongitudeDeg = Wrap180(at.LongitudeDeg), .LatitudeDeg = at.LatitudeDeg};
+  const auto tile = TileIndex::Of(place, zoom).Tile();
+  if (!tile) { return GroundSample::Missing(); }
+  std::shared_ptr<const TerrainField> field;
+  const auto status = PollStitchedField(*tile, field);
+  if (status == TilePool::Reply::Pending || status == TilePool::Reply::Deferred) {
+    return GroundSample::Waiting();
+  }
+  if (status != TilePool::Reply::Ready || !field || !field->Meshable()) {
+    return GroundSample::Missing();
+  }
+  const TileFrac fraction = ToTileFracClamped(place, zoom);
+  return GroundSample::At(
+      field->PostingM({.Col = fraction.X - tile->X, .Row = fraction.Y - tile->Y}));
+}
+
 double GroundStream::PostM(double latDeg) const {
   return kMercatorGirthM * std::cos(latDeg * kDeg2Rad) /
          static_cast<double>(1ULL << static_cast<uint32_t>(Surface_.Z)) /

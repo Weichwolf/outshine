@@ -15,6 +15,7 @@ public:
   std::thread::id Caller = std::this_thread::get_id();
   mutable std::atomic<bool> CalledOnCaller{false};
   std::atomic<bool> Released{false};
+  mutable std::atomic<bool> FineRequested{false};
 
   const outshine::Data::SourceDecl &Declaration() const noexcept override { return Decl; }
 
@@ -31,10 +32,11 @@ public:
     return outshine::Data::Ticket::None;
   }
 
-  outshine::Data::Fetched Collect(const outshine::Data::Address &,
+  outshine::Data::Fetched Collect(const outshine::Data::Address &address,
                                   outshine::Data::Ticket,
                                   outshine::Data::Transport &) const override {
     if (std::this_thread::get_id() == Caller) { CalledOnCaller = true; }
+    if (const auto tile = address.Tile(); tile && tile->Zoom == 6) { FineRequested = true; }
     if (!Released) { return outshine::Data::Fetched::Working(); }
     return outshine::Data::Fetched::Delivered(
         {137, 80,  78,  71,  13,  10, 26,  10,  0,  0,   0,  13,  73,  72, 68, 82, 0,   0,  0,
@@ -72,6 +74,11 @@ int main() {
   Ground::GroundStream ground(pool, {.Z = 4, .Grid = 4});
   CHECK(ground.At({}).Where() == GroundSample::State::Pending, "unavailable tile remains pending");
   CHECK(!probe->CalledOnCaller, "ground query never collects sources on its caller");
+  CHECK(ground.At({}, 6).Where() == GroundSample::State::Pending,
+        "fine source query waits instead of refusing or substituting the coarse grid");
+  CHECK(ground.At({}, -1).Where() == GroundSample::State::Hole &&
+            ground.At({}, 31).Where() == GroundSample::State::Hole,
+        "invalid explicit source levels are refused");
   probe->Released = true;
   auto sample = GroundSample::Waiting();
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -87,6 +94,17 @@ int main() {
   CHECK(!probe->CalledOnCaller, "retry also leaves source work on carriers");
   CHECK(pool.Counters().FieldTiles >= 1,
         "stitched height field is built by tile workers before caller samples it");
+  sample = GroundSample::Waiting();
+  const auto fineDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (std::chrono::steady_clock::now() < fineDeadline) {
+    sample = ground.At({}, 6);
+    if (sample.AslM()) { break; }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  CHECK(sample.AslM() && probe->FineRequested,
+        "explicit camera precision requests and resolves the fine source address");
+  CHECK(ground.BlockZoom() == 4 && !probe->CalledOnCaller,
+        "fine query preserves the coarse world sampler and asynchronous acquisition");
   const Ground::GroundBlock block = ground.BlockAt(Ground::HeightField::SpotOf({}, 4));
   CHECK(block.Where() == Ground::GroundBlock::State::Resolved && !block.Sources().empty(),
         "resident ground block carries its source set");

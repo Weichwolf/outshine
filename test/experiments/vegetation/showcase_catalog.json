@@ -1,7 +1,67 @@
 {
-  "current_work": "FrondGuide, Fiederplan und neue Querkrümmung liegen neben Pflanzen-/Ast-/Blattgrundfunktionen im Kern. Curl zieht Außenkanten zur Mittelachse; Differentialnormalen, feste Anker, Source-IDs und direkte Nah-/Grobprodukte geprüft. Allgemeine Funktionsproben; vollständige natürliche Pflanzenrezepte, Gravity-/Section-/Windfunktionen und Wald-LOD bleiben offen.",
+  "current_work": "Frondflächen und Mittelrippen folgen jetzt freien räumlichen Achsen mit transportierten Rahmen. Lokale Fiederform, Profile und Roll bleiben kohärent; direkte Nah-/Grobprodukte teilen Plan und Anker. Grundfunktionen geprüft, natürliche Artenrezepte, vollständige Kräfte-/Windfunktionen und Wald-LOD weiter offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/spatial-fronds.png",
+      "title": "Freie Frondachsen · planar, räumlich, wendend",
+      "label": "Eigene räumliche Frondführung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Drei eigene Kurven mit lokaler Biegung/Wölbung/Drehung. Fiedern und prozedurale Mittelrippe folgen derselben räumlichen Spine und denselben transportierten Rahmen; Form und Schattierung reagieren kohärent.",
+      "quality": "2560×1440; natürliche Artenrezepte und vollständige SpeedTree-Gravity-/Force-/Windbindung bleiben offen. Lokale Regularität beweist keine globale Kollision oder Wald-LOD-Deckung.",
+      "scenario": "build/experiments/vegetation/spatial-frond/spatial-fronds.json"
+    },
+    {
+      "image": "render/spatial-frond-detail.png",
+      "title": "Räumlicher Wedel · Mittelrippe und lokale Form",
+      "label": "Eigene räumliche Frondführung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Detail der wendenden Achse: freie Führung mit Rollprofil und lokalen Fiederprofilen/Organvariation. Normalen aus der tatsächlich vorbereiteten Bogen-/Rahmenabbildung.",
+      "quality": "2560×1440; natürliche Artenrezepte und vollständige SpeedTree-Gravity-/Force-/Windbindung bleiben offen. Lokale Regularität beweist keine globale Kollision oder Wald-LOD-Deckung.",
+      "scenario": "build/experiments/vegetation/spatial-frond/spatial-frond-detail.json"
+    },
+    {
+      "image": "render/spatial-frond-coarse.png",
+      "title": "Räumlicher Wedel · direktes Grobprodukt",
+      "label": "Eigene räumliche Frondführung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-1",
+      "description": "Gleiche Kamera und gleicher Plan wie Nahansicht. Quelle direkt mit 12×1 statt 48×4 Fiederunterteilungen; gemeinsame Punkte, Mittelansätze und Spitzen bleiben erhalten.",
+      "quality": "2560×1440; natürliche Artenrezepte und vollständige SpeedTree-Gravity-/Force-/Windbindung bleiben offen. Lokale Regularität beweist keine globale Kollision oder Wald-LOD-Deckung.",
+      "scenario": "build/experiments/vegetation/spatial-frond/spatial-frond-coarse.json"
+    },
+    {
+      "image": "render/leaflet-shapes.png",
+      "title": "Lokale Fiederformen · flach, konstant, variierend",
+      "label": "Eigene lokale Fiederform · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Drei eigene Funktionsproben: flache Quelle, konstante lokale Form, Profile und stabile individuelle Variation. Gemeinsame Guide-/Material-/Lichtparameter, feste Mittelansätze und prozedurale Mittelrippe.",
+      "quality": "2560×1440; weiterhin regelmäßige Grundarchitektur. Kein botanisches Artenrezept oder vollständiger SpeedTree-Section-/Gravitysolver.",
+      "scenario": "build/experiments/vegetation/leaflet-shape/leaflet-shapes.json"
+    },
+    {
+      "image": "render/leaflet-detail.png",
+      "title": "Fiederform · Biegung, Wölbung und Drehung",
+      "label": "Eigene lokale Fiederform · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Nahansicht derselben variierenden Quelle. Formparameter folgen Elternposition und Organ-ID; direkte Differentialnormalen, feste Anker, prozedurale Blatt- und Rindenmaterialien.",
+      "quality": "2560×1440; weiterhin regelmäßige Grundarchitektur. Kein botanisches Artenrezept oder vollständiger SpeedTree-Section-/Gravitysolver.",
+      "scenario": "build/experiments/vegetation/leaflet-shape/leaflet-detail.json"
+    },
+    {
+      "image": "render/leaflet-coarse.png",
+      "title": "Fiederform · direkte grobe Quelle",
+      "label": "Eigene lokale Fiederform · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-1",
+      "description": "Gleicher Plan und Kamera wie Nahansicht; Quelle direkt mit 12×1 statt 48×4 Blattunterteilungen. Gemeinsame Punkte und Spitzen unverändert, keine Deckungs- oder Fernwaldfreigabe.",
+      "quality": "2560×1440; weiterhin regelmäßige Grundarchitektur. Kein botanisches Artenrezept oder vollständiger SpeedTree-Section-/Gravitysolver.",
+      "scenario": "build/experiments/vegetation/leaflet-shape/leaflet-coarse.json"
+    },
     {
       "image": "render/frond-curl-functions.png",
       "title": "Frond-Curl · neutral und beide Krümmungsrichtungen",
@@ -619,7 +679,9 @@
     "fin_plot": "lod-0",
     "plant_library_plot": "lod-1",
     "frame_cost_plot": "lod-1",
-    "frond_library_plot": "lod-0"
+    "frond_library_plot": "lod-0",
+    "leaflet_shape_plot": "lod-0",
+    "spatial_frond_plot": "lod-0"
   },
   "genera": [
     {
