@@ -45,7 +45,7 @@ def plan_view(data, output, provenance):
             axis.grid(alpha=.15)
             axis.legend(fontsize=16)
     fig.text(.035, .03, '417/444 gesamte Dachvergleiche bestätigt; 444/444 lokale Helfervergleiche. '
-             '16 ungültige Projektionen und elf weitere Abweichungen bleiben. Keine Überhang-Freigabe.', fontsize=22)
+             '16 ungültige Projektionen und elf weitere Abweichungen bleiben. Positive Überhänge weiter offen.', fontsize=22)
     fig.tight_layout(rect=(0., .07, 1., .94), h_pad=4., w_pad=3.)
     return save_plot(fig, output, 'current-hip-repair-plan', 'Dachüberhang · Konturreparatur',
                      'Echte Knoten/Kanten vor und nach der eigenen lokalen Reparatur. Hof und Wiener Traufdetail; '
