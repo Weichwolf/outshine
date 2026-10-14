@@ -65,6 +65,22 @@ double VisibleArea(std::array<float, 4> depths, vec2 centre, float receiver) {
 
 int main() {
   using namespace outshine::Test;
+  for (float spacing : {1.0e-6f, 1.0e-8f, 1.0e-10f}) {
+    const vec3 origin = shadowReceiverVector({0, 0, 0});
+    const vec3 east = shadowReceiverVector({spacing, 0, 0.15f * spacing});
+    const vec3 north = shadowReceiverVector({0, spacing, -0.25f * spacing});
+    const vec2 gradient =
+        shadowReceiverSlope({east.x - origin.x, east.y - origin.y, east.z - origin.z},
+                            {north.x - origin.x, north.y - origin.y, north.z - origin.z});
+    CHECK_NEAR(
+        gradient.x, 0.3f, 1e-6, "depth per UV", "centred coordinates retain metric east slope");
+    CHECK_NEAR(
+        gradient.y, 0.5f, 1e-6, "depth per UV", "centred coordinates retain metric north slope");
+    if (spacing <= 1.0e-8f) {
+      CHECK(east.x + 0.5f == origin.x + 0.5f,
+            "texture-space affine offset destroys these real Float32 receiver differences");
+    }
+  }
   for (unsigned int mask = 0; mask < 16; ++mask) {
     std::array<float, 4> depths{};
     for (unsigned int at = 0; at < 4; ++at) { depths[at] = (mask & (1u << at)) != 0 ? 0.8f : 0.2f; }
