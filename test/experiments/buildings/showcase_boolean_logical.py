@@ -25,14 +25,14 @@ from verify_boolean_shape import verify
 from verify_boolean_surfaces import controls,reference
 
 
-def render_scene(output,stem,title,caption,shapes,source,provenance):
+def render_scene(output,stem,title,caption,shapes,source,provenance,*,camera=None,page='buildings'):
     meshes=[];faces=[];materials=[];offset=0
     for shape in shapes:
         mesh=engine_mesh(shape.emit());meshes.append(mesh['vertices']);faces.append(mesh['faces']+offset)
         materials.append(mesh['materials']+np.uint16(13));offset+=len(mesh['vertices'])
     mesh=dict(vertices=np.concatenate(meshes),faces=np.concatenate(faces),materials=np.concatenate(materials))
     path=output/(stem+'-mesh.npz');np.savez_compressed(path,**mesh)
-    image=output/(stem+'.png');view=camera_for([(shape,0) for shape in shapes])
+    image=output/(stem+'.png');view=camera or camera_for([(shape,0) for shape in shapes])
     definitions={str(index+13):dict(material.attributes) for index,material in source.geometry.material_defs}
     config=dict(profile=[1920,1080],mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         eye=view.eye.tolist(),target=view.target.tolist(),fov_deg=view.fov_deg,material_definitions=definitions,
@@ -43,7 +43,7 @@ def render_scene(output,stem,title,caption,shapes,source,provenance):
         subprocess.run([sys.executable,str(Path(__file__).with_name('mitsuba_interior.py')),str(scene)],stdout=stream,stderr=subprocess.STDOUT,timeout=600,check=True)
     renderer=json.loads(image.with_suffix('.renderer.json').read_text())
     if renderer['included_source_triangles']!=len(mesh['faces']):raise ValueError('Logical-face preview omitted native triangles')
-    record=provenance|dict(representation='showcase-current',page='buildings',view='components',label='semantic-shape',title=title,caption=caption,
+    record=provenance|dict(representation='showcase-current',page=page,view='components',label='semantic-shape',title=title,caption=caption,
         profile=[1920,1080],renderer=renderer,triangles=len(mesh['faces']),image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),
         material_definitions=definitions,components=len(shapes),completed_recipe_families=0,lod_status='native LOD unproved')
     name=stem+'-report.json';(output/name).write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n');return name

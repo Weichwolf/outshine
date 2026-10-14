@@ -17,6 +17,7 @@ from boolean_surface_probe import boolean
 from compare_roof_oracle import cases
 from evidence import revision
 from verify_boolean_attributes import authored,expected_material
+from boolean_attributes_probe import BOOL_AUTO_TAGS
 from verify_boolean_surfaces import Prism,controls,reference,measure,check_uv
 
 
@@ -56,7 +57,7 @@ def check(result,bound):
         assert dict(bound.material_bindings[int(bound.materials[i])].material.attributes)==expected_material(owner)
         for origin,index in supports:
             source=product.sources[origin];part=int(source.mesh['parts'][index])
-            assert source.shape.geometry.polygons[part].tags<=bound.tags[i]
+            assert source.shape.geometry.polygons[part].tags-BOOL_AUTO_TAGS<=bound.tags[i]
             assert ('bool.A' if origin==0 else 'bool.B') in bound.tags[i]
         assert (('bool.A' in bound.tags[i]),('bool.B' in bound.tags[i]))==(any(o==0 for o,_ in supports),any(o==1 for o,_ in supports))
 
