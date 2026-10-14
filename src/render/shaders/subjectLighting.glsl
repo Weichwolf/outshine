@@ -89,7 +89,7 @@ vec3 shadeRow(M surface,
   }
   vec3 originM = localM + n * lights.count.y;
   vec3 shadowCoordinate = lightSpace.xyz / max(1.0e-6, lightSpace.w);
-  vec3 shadowUvDepth = vec3(shadowCoordinate.xy * vec2(0.5, -0.5) + 0.5, shadowCoordinate.z);
+  vec3 shadowUvDepth = shadowReceiverVector(shadowCoordinate);
   vec2 receiverSlope = shadowReceiverSlope(dFdx(shadowUvDepth), dFdy(shadowUvDepth));
   vec3 sum = vec3(0.0);
   int count = int(lights.count.x);
