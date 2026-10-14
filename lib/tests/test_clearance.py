@@ -106,11 +106,18 @@ class ClearanceTests(unittest.TestCase):
             self.assertFalse(result["valid"])
             self.assertEqual(result["reason"], reason)
 
-    def test_degenerate_xy_projection_is_rejected(self):
+    def test_degenerate_projection_and_overflow_have_no_numeric_certificate(self):
         mesh = Mesh([[0, 0, 0], [1, 0, 1], [2, 0, 0]], [[0, 1, 2]])
         result = vertical_clearance(mesh, mesh)
         self.assertFalse(result["valid"])
         self.assertEqual(result["reason"], "clearance_degenerate_projection")
+        low = triangle([[0, 0], [1, 0], [0, 1]], [0, 0, 1e308])
+        high = triangle([[0, 0], [1, 0], [0, 1]], [0, 0, -1e308])
+        for a, b in ((low, high), (high, low)):
+            result = vertical_clearance(a, b)
+            self.assertFalse(result["valid"])
+            self.assertEqual(result["reason"], "clearance_nonfinite_gap")
+            self.assertNotIn("minimum_clearance_m", result)
 
     def test_invalid_limits_and_unselected_input_are_programmer_errors(self):
         mesh = triangle([[0, 0], [1, 0], [0, 1]], [0, 0, 0])

@@ -80,14 +80,18 @@ def vertical_clearance(
                     continue
                 overlaps += 1
                 xy = shapely.get_coordinates(overlap)
-                high_height = (
-                    high[second, 0, 2]
-                    + (xy - high[second, 0, :2]) @ high_gradient[second]
-                )
-                low_height = (
-                    low[first, 0, 2] + (xy - low[first, 0, :2]) @ low_gradient[first]
-                )
-                gaps = high_height - low_height
+                with np.errstate(over="ignore", invalid="ignore"):
+                    high_height = (
+                        high[second, 0, 2]
+                        + (xy - high[second, 0, :2]) @ high_gradient[second]
+                    )
+                    low_height = (
+                        low[first, 0, 2]
+                        + (xy - low[first, 0, :2]) @ low_gradient[first]
+                    )
+                    gaps = high_height - low_height
+                if not np.isfinite(gaps).all():
+                    raise _Limit("clearance_nonfinite_gap")
                 index = int(np.argmin(gaps))
                 if gaps[index] < minimum:
                     minimum = float(gaps[index])
