@@ -2,7 +2,9 @@
 #define OUTSHINE_RENDER_STAGES_LIGHTVISIBILITYSTAGE_H
 
 #include <array>
+#include <cstddef>
 #include <string>
+#include "DrawList.h"
 
 #include "math/Mat4.h"
 #include "math/Vec3.h"
@@ -74,6 +76,8 @@ private:
   [[nodiscard]] Vec3 CasterCentre() const;
   uint32_t CastsBelow_ = kNoBatch;
   [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
+  [[nodiscard]] bool ConfigureMasked(const Gpu &gpu, std::string &error);
+  [[nodiscard]] SDL_GPUGraphicsPipeline *MaskedPipeline(VertexLayout layout) const;
 
   struct LightBasis {
     Vec3 Right;
@@ -85,11 +89,14 @@ private:
   BuildRegions(const LightBasis &basis, const Vec3 &centre, double radiusM, const Vec3 &preView);
   void
   Cast(const Mat4 &lightFromWorld, const Vec3 &preView, size_t region, const PassRecording &into);
+  void CastSubjects(const PassRecording &into);
 
   size_t CastBatches_ = 0;
   Vec3 StoodAtM_;
   SubjectDraw *Subjects_ = nullptr;
   OwnedPipeline DepthOnly_;
+  static constexpr size_t kMaskedUvLayouts = 3;
+  std::array<OwnedPipeline, kMaskedUvLayouts * 2> Masked_;
   Vec3 ToSun_ = {{0, 0, 1}};
   Vec3 Up_ = {{0, 1, 0}};
   double RadiusM_ = 0.0;

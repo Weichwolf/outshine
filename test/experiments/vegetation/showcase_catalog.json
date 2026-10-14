@@ -1,5 +1,5 @@
 {
-  "current_work": "Vollständige räumliche Pflanzenpläne mit stabilen Achsen-/Blatt-IDs, Teilanfragen und unveränderlichen kanonischen Tabellen liegen im installierbaren Kern. Ein vollständiger 64-Achsen-/571-Blätter-Kontrollbaum ist mit prozeduraler Rinde, Blattoptik und passenden Nah-/Grobprodukten gecacht. Die Probe ist botanisch noch unvollständig; SpeedTree-Funktionsumfang, Wind und Wald-LOD bleiben offen.",
+  "current_work": "Vollständige räumliche Pflanzenpläne und unveränderliche kanonische Tabellen liegen im Kern. Feste 3D-Komponentenauswertung reduziert gemessenen Rahmenaufwand großer Kronen, alle IDs/Positionen/Frames und aktuelle Kontrollmeshes bleiben exakt. Pflanzenbilder prüfen Grundfunktionen; natürliche Rezepte, voller SpeedTree-Funktionsumfang, Wind und Wald-LOD bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
     {
@@ -588,7 +588,8 @@
     "placement_library_plot": "lod-0",
     "spine_library_plot": "lod-0",
     "fin_plot": "lod-0",
-    "plant_library_plot": "lod-1"
+    "plant_library_plot": "lod-1",
+    "frame_cost_plot": "lod-1"
   },
   "genera": [
     {
