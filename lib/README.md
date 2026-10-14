@@ -385,3 +385,30 @@ the recipe, rows, full mesh/placement levels and procedural material files.
 World instance identity/placement, source reservations and terrain remain the
 caller's responsibility. See [#86](https://github.com/Weichwolf/outshine/issues/86)
 for cache/material semantics, controls, costs and open botanical/LOD/wind limits.
+
+### Frond guides, source patterns and cross-section curl
+
+`PinnatePattern` creates own planar pinnate sources with stable organ IDs and
+anchor locations, directly at the requested subdivisions. `FrondGuide` applies
+physical circular guidance, width/height/roll profiles and a quadratic transverse
+fold. Its recipe remains `frond-guide-1`; old source/guide arrays are preserved.
+Generated products own their arrays and reject unresolved face/corner orientation.
+
+`FrondCurl(curvature_per_m)` bends the cross-section around the local Y axis,
+preserving Y and the complete X=Z=0 midline. Positive/negative curvature bend
+opposite ways. Stable sinc expressions preserve the neutral k=0 case and avoid
+subtracting nearly equal cosines. Points require |kX|<π and 1−kZ>0; the continuous
+map is injective on this open single-turn domain. Curled mesh triangles must span
+at most π/2 in kX and agree with every transformed corner normal. Oversized meshes
+refuse before deformation; bounds are 1,000,000 vertices and 2,000,000 triangles.
+These row bounds are not a time or application-memory guarantee.
+
+`deform(mesh, method="cofactor")` preserves source faces, parameters/UVs and organ
+IDs in owned outputs. `method="solve"` independently evaluates inverse-transpose
+normals with NumPy. Call `guide.deform(curl.deform(source))` to combine the two
+maps; direct near/coarse sources retain their anchors. Source patterns and guides
+have complete recipes, curl uses `frond-cross-curl-1`. The central rib is a
+separate own tube subjected to the same deformation. This is not an original
+SpeedTree rib/property implementation, local section-variation system or
+botanically verified species recipe; these limits belong to
+[#95](https://github.com/Weichwolf/outshine/issues/95).
