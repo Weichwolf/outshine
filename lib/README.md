@@ -150,6 +150,22 @@ Verschiebungen, nicht darstellbare Tiefe und den Höhenvertrag einer Brücke in 
 Transport → Buildings → Vegetation-Kette. Die Bibliotheksübernahme besitzt
 [#50](https://github.com/Weichwolf/outshine/issues/50).
 
+Die Vegetationsbibliothek exportiert `vegetation.NeedledPlant`: bladeless
+`PlantPlan`-Holzpläne mit optionalen `NeedlePattern`-Anordnungen je Achsenordnung
+und physischen `Needle`-Prototypen. Nadeln erben keine Längenskalierung ihrer Eltern.
+`summary(path)` bestimmt Bedarf ohne Achsen-/Nadelarrays, `foliage(path, max_needles)`
+liefert stabile Teilgruppen, `tables(max_axes, max_needles)` vollständige kanonische
+Cachezeilen. Beide Budgets werden vor Detailarbeit geprüft; verweigerte Anfragen
+liefern `None`. Holz- und Organ-IDs bleiben innerhalb ihres vollständigen Plans
+stabil. Das `needled-plant-1`-Rezept enthält alle Quellen der prozeduralen Form.
+
+`AxisLevel.whorl_size` und `angle_tip` ergänzen Astquirle und den oberen Astwinkel.
+Neue Semantik sowie Holzpläne ohne `Blade` verwenden `branching-plant-3`;
+vorhandene Spiralrezepte behalten ihre v2-Rezepte und kanonischen Arrays exakt.
+Die botanischen Sommerproben für vier Schweizer/europäische Nadelgehölze stehen
+bei [#131](https://github.com/Weichwolf/outshine/issues/131). Kronendichte,
+entfernungsabhängige Darstellung, reife/Jahresformen und botanische Freigabe sind offen.
+
 Die Vegetationsbibliothek exportiert `vegetation.Needle`: geschlossene, spitze
 Organflächen mit elliptischen, rhombischen oder Halbkreis-/Kreissektorquerschnitten,
 kontrollierter Biegung/Twist und analytischen Normalen. Gemeinsame Nah-/Grobpunkte

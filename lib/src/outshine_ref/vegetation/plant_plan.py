@@ -11,7 +11,7 @@ import numpy as np
 
 from .blade_surface import Blade
 from .curve_frame import arc_frame
-from .plan_arrays import detail_budget, immutable_array
+from .plan_arrays import detail_budget, immutable_array, repeated_prefix
 from .plant_levels import AxisLevel
 from .shoot_plan import normal_frame
 
@@ -88,11 +88,15 @@ class PlantPlan:
             raise ValueError("axis recipes required")
         if self.levels[0].branches != 1:
             raise ValueError("exactly one root axis required")
-        if not isinstance(self.blades, tuple) or not 1 <= len(self.blades) <= 64:
-            raise ValueError("one to 64 immutable blade variants required")
+        if not isinstance(self.blades, tuple) or not 0 <= len(self.blades) <= 64:
+            raise ValueError("zero to 64 immutable blade variants required")
+        if not self.blades and any(
+            level.leaf_internode is not None for level in self.levels
+        ):
+            raise ValueError("blade-bearing levels require blade variants")
         if not all(isinstance(blade, Blade) for blade in self.blades):
             raise ValueError("blade recipes required")
-        if len({blade.petiole for blade in self.blades}) != 1:
+        if self.blades and len({blade.petiole for blade in self.blades}) != 1:
             raise ValueError("shared placement requires equal petiole lengths")
         for parent, child in zip(self.levels, self.levels[1:]):
             radius = (
@@ -113,10 +117,19 @@ class PlantPlan:
         ).hexdigest()
 
     def recipe(self):
+        extended = not self.blades or any(
+            level.whorl_size != 1 or level.angle_tip is not None
+            for level in self.levels
+        )
+        levels = [asdict(level) for level in self.levels]
+        if not extended:
+            for level in levels:
+                level.pop("whorl_size")
+                level.pop("angle_tip")
         return {
-            "version": PLAN_VERSION,
+            "version": "branching-plant-3" if extended else PLAN_VERSION,
             "seed": self.seed,
-            "levels": [asdict(level) for level in self.levels],
+            "levels": levels,
             "blades": [asdict(blade) for blade in self.blades],
         }
 
@@ -125,9 +138,18 @@ class PlantPlan:
         if (
             not isinstance(recipe, dict)
             or set(recipe) != {"version", "seed", "levels", "blades"}
-            or recipe["version"] != PLAN_VERSION
+            or recipe["version"] not in (PLAN_VERSION, "branching-plant-3")
         ):
             raise ValueError("complete supported plant recipe required")
+        extended = recipe["version"] == "branching-plant-3"
+        for level in recipe["levels"]:
+            keys = {"whorl_size", "angle_tip"}
+            if (extended and not keys.issubset(level)) or (
+                not extended and keys.intersection(level)
+            ):
+                raise ValueError("declared plant version must match axis semantics")
+        if not extended and not recipe["blades"]:
+            raise ValueError("bladeless wood plans require plant v3")
         return cls(
             recipe["seed"],
             tuple(AxisLevel(**level) for level in recipe["levels"]),
@@ -169,9 +191,7 @@ class PlantPlan:
         return ordinal
 
     def leaf_prefix(self, depth, ordinal):
-        slots = self.slot_leaf_counts[depth]
-        cycles, remainder = divmod(ordinal, len(slots))
-        return cycles * sum(slots) + sum(slots[:remainder])
+        return repeated_prefix(self.slot_leaf_counts[depth], ordinal)
 
     def summary(self, path=()):
         ordinal, depth = self.ordinal(path), len(path)
@@ -181,15 +201,21 @@ class PlantPlan:
             offset = sum(self.leaf_counts[:order])
             first = offset + self.leaf_prefix(order, ordinal * count)
             last = offset + self.leaf_prefix(order, (ordinal + 1) * count)
-            cycles, remainder = divmod(last - first, len(variants))
-            variants = [value + cycles for value in variants]
-            for index in range(remainder):
-                variants[(first + self.seed + index) % len(variants)] += 1
+            if variants:
+                cycles, remainder = divmod(last - first, len(variants))
+                variants = [value + cycles for value in variants]
+                for index in range(remainder):
+                    variants[(first + self.seed + index) % len(variants)] += 1
             axes += count
             leaves += last - first
         extent = max(
-            blade.length + blade.petiole + blade.width / 2 * np.sqrt(1 + blade.fold**2)
-            for blade in self.blades
+            (
+                blade.length
+                + blade.petiole
+                + blade.width / 2 * np.sqrt(1 + blade.fold**2)
+                for blade in self.blades
+            ),
+            default=0,
         )
         bound = self.levels[depth].length_at(path[-1] if path else 0)
         bound += sum(level.length for level in self.levels[depth + 1 :])
@@ -238,11 +264,11 @@ class PlantPlan:
             )
             angle = (
                 parent.phase
-                + path[-1] * GOLDEN_ANGLE
+                + level.azimuth_at(path[-1])
                 + rng.uniform(-level.azimuth_variation, level.azimuth_variation)
             )
             radial = np.cos(angle) * lateral + np.sin(angle) * normal
-            inclination = level.angle + rng.uniform(
+            inclination = level.inclination_at(path[-1]) + rng.uniform(
                 -level.angle_variation, level.angle_variation
             )
             direction = parent.frame @ (
