@@ -12,8 +12,10 @@ from .shape import Geometry, Shape
 from .skeleton_plan import HipFacet, HipPlan, SkeletonBudgetExceeded, SkeletonLimits, prepare_hip
 from .split_sizes import Floating, Part
 from .texture import Texture
+from .uv_exterior import ExteriorChart, extrapolate_chart, partition_exterior_charts
 
 __all__ = ["Asset", "Branch", "Face", "Floating", "Frame", "Geometry", "Material", "Part",
            "Relative", "Scope", "Shape", "Texture", "cga_to_enu", "enu_to_cga", "split_plan"]
 __all__ += ["HipFacet", "HipPlan", "SkeletonBudgetExceeded", "SkeletonLimits", "prepare_hip"]
 __all__ += ["HipInset", "prepare_hip_inset"]
+__all__ += ["ExteriorChart", "extrapolate_chart", "partition_exterior_charts"]
