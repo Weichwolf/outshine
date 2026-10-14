@@ -42,6 +42,8 @@ def local_mesh(shape,common):
 
 def encoded_source(shape,identifier,anchor,max_triangles,common):
     mesh=local_mesh(shape,common)
+    if not len(mesh['faces']) and not (shape.geometry.polygons or shape.geometry.edges or shape.geometry.points):
+        return BooleanSource(shape,mesh,manifold.Manifold(),identifier)
     if shape.geometry.edges or shape.geometry.points or not shape.geometry.polygons:
         raise ValueError('Boolean experiment requires logical closed surfaces')
     if not 0<len(mesh['faces'])<=max_triangles:raise ValueError('Boolean input triangle capacity exceeded')
@@ -91,7 +93,8 @@ def boolean(a,b,operation='union',max_triangles=262144,frame_mode='object'):
     if type(max_triangles)is not int or max_triangles<=0:raise ValueError('Invalid Boolean capacity')
     if frame_mode not in ('object','world'):raise ValueError('Unknown Boolean reference frame')
     common=a.scope.object_frame if frame_mode=='object' else Frame()
-    anchor=np.asarray(local_mesh(a,common)['vertices'][0],dtype=float)
+    first=local_mesh(a,common)['vertices'];second=local_mesh(b,common)['vertices']
+    anchor=np.asarray(first[0] if len(first) else second[0] if len(second) else np.zeros(3),dtype=float)
     identifier=manifold.Manifold.reserve_ids(2)
     sources=tuple(encoded_source(shape,identifier+n,anchor,max_triangles,common) for n,shape in enumerate((a,b)))
     mode=dict(union=manifold.OpType.Add,subtract=manifold.OpType.Subtract,intersect=manifold.OpType.Intersect)[operation]

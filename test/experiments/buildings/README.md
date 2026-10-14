@@ -87,6 +87,27 @@ components, independently tilted/open geometry and hard resource bounds remain
 pending. Public component appearance already propagates correctly through
 `Shape.comp`; the inner constructor alone is not its full inheritance contract.
 
+`boolean_sequence` declares immutable leaf/operand/operation records with explicit
+source names and original face/triangle references. Reusing a declared leaf is
+valid; redeclaring its name inside one graph is rejected. Each output stores
+complete leaf ancestry and the original preferred material/UV source, with its
+immediate parents retained. Repeated Boolean operations replace reserved
+`bool.A`, `bool.B` and `bool.cut` tags, as specified by SDK Auto-Tags; other tags
+survive and prior tags remain available through the parent graph. Empty generated
+intermediates obey union/difference/intersection identities.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_sequence.py
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_sequence_controls.py
+.venv/bin/python -W error test/experiments/buildings/boolean_sequence_comparison.py
+```
+
+The room/door union-first chain passes independent original-prism volume/surface,
+original leaf UV0–9/material origins, current tags and actual mesh slices with a
+0.6 m-wide route. Sequential subtraction is a retained rejected comparison,
+currently returning exit 1 with a duplicate directed edge. No generic recursive
+geometry/runtime guarantee follows from the passing route; #109 owns this work.
+
 ```sh
 .venv/bin/python test/experiments/buildings/showcase.py --publish --serve
 ```
