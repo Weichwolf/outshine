@@ -362,20 +362,40 @@ int main() {
     const auto material = card->surfaceAt(MaterialInstance(0));
     const auto colourMap = card->imageAt(material.BaseColourMap.Image);
     const auto mrMap = card->imageAt(material.MetalRoughMap.Image);
+    const auto reflectionMap = card->imageAt(material.DiffuseReflectionMap.Image);
+    const auto transmissionMap = card->imageAt(material.DiffuseTransmissionMap.Image);
+    CHECK(material.Scattering == ScatteringModel::AreaMixture && reflectionMap.valid() &&
+              transmissionMap.valid(),
+          "native crown card retains separate opaque and sheet optical maps");
     bool coverageMatches = colourMap.valid(), materialsMatch = mrMap.valid();
     if (coverageMatches && materialsMatch) {
       for (size_t pixel = 0; pixel < texels.size(); ++pixel) {
         coverageMatches &= (colourMap.Rgba[pixel * 4 + 3] == (texels[pixel].Surface ? 255 : 0));
         if (!texels[pixel].Surface) { continue; }
         const auto &original = atlas->Surfaces()[texels[pixel].Surface - 1];
-        materialsMatch &=
-            std::abs(mrMap.Rgba[pixel * 4 + 1] / 255.0f - original.Roughness) <= 1.0f / 255;
-        materialsMatch &=
-            std::abs(mrMap.Rgba[pixel * 4 + 2] / 255.0f - original.Metalness) <= 1.0f / 255;
+        const size_t offset = pixel * 4;
+        if (original.Scattering == ScatteringModel::DiffuseThinSheet) {
+          materialsMatch &= mrMap.Rgba[offset + 3] == 0 && reflectionMap.Rgba[offset + 3] == 255;
+          const auto &sample = atlas->Views()[view].Materials[pixel];
+          for (size_t channel = 0; channel < 3; ++channel) {
+            materialsMatch &= std::abs(reflectionMap.Rgba[offset + channel] / 255.0f -
+                                       sample.BaseColour[channel]) <= 1.0f / 255;
+            materialsMatch &= std::abs(transmissionMap.Rgba[offset + channel] / 255.0f -
+                                       original.DiffuseTransmission[channel]) <= 1.0f / 255;
+          }
+        } else {
+          const float alpha = original.Roughness * original.Roughness;
+          materialsMatch &= std::abs(mrMap.Rgba[offset + 1] / 255.0f - alpha * alpha) <= 1.0f / 255;
+          materialsMatch &=
+              std::abs(mrMap.Rgba[offset + 2] / 255.0f - original.Metalness) <= 1.0f / 255;
+          materialsMatch &= mrMap.Rgba[offset + 3] == 255 && reflectionMap.Rgba[offset + 3] == 0;
+        }
       }
     }
     CHECK(coverageMatches, "native colour alpha preserves every captured hole");
-    CHECK(materialsMatch, "native MR channels retain source material values within one code");
+    CHECK(materialsMatch,
+          "native covered-area channels retain opaque roughness moments and sheet R/T within one "
+          "code");
     CHECK(material.NormalMap.bound() && material.BaseColourMap.Sampler.Mip == MipFilter::Linear,
           "the card carries normal detail and retains mip filtering");
     std::array<std::vector<float>, 2> frames;

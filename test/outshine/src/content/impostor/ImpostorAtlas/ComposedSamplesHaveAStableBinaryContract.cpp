@@ -42,6 +42,25 @@ int main() {
   CHECK(sample.BaseColour == view.Materials[4].BaseColour && sample.Roughness == 0.5f &&
             sample.Metalness == 0.25f && decoded->Encode("composed-fixture", error) == encoded,
         "colour and both material channels survive exactly with canonical bytes");
+  Material leaf;
+  leaf.Scattering = ScatteringModel::DiffuseThinSheet;
+  leaf.BaseColour = {{.1f, .2f, .03f, 1}};
+  leaf.DiffuseTransmission = {{.4f, .6f, .1f}};
+  auto opticalView = view;
+  opticalView.Materials[4].BaseColour = {{.1f, .2f, .03f}};
+  auto optical = Content::ImpostorAtlas::Create(3, {}, 1, {leaf}, {opticalView}, error);
+  CHECK(optical.has_value(), "composed samples retain optical source provenance");
+  auto opticalBytes = optical ? optical->Encode("optical-composed-fixture", error) : std::nullopt;
+  CHECK(opticalBytes && (*opticalBytes)[8] == 4 && opticalBytes->size() == encoded->size() + 16,
+        "optical composed layout adds exactly model and direct RGB transmission per source row");
+  auto opticalReplay =
+      opticalBytes
+          ? Content::ImpostorAtlas::Decode(*opticalBytes, "optical-composed-fixture", error)
+          : std::nullopt;
+  CHECK(opticalReplay && opticalReplay->Surfaces()[0] == leaf &&
+            opticalReplay->Views()[0].Materials[4].BaseColour ==
+                opticalView.Materials[4].BaseColour,
+        "native optical replay keeps unlit coefficients and composed reflection exactly");
   auto corrupt = *encoded;
   // Fourth foreground sample: 64-byte header, 52-byte material, 24-byte view,
   // nine 20-byte geometry texels; RGB occupies the first twelve bytes of each sample.

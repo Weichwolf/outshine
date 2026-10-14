@@ -8,7 +8,8 @@
 namespace outshine::Render {
 
 static_assert(static_cast<int>(ScatteringModel::MetallicRoughness) == 0 &&
-              static_cast<int>(ScatteringModel::DiffuseThinSheet) == 1);
+              static_cast<int>(ScatteringModel::DiffuseThinSheet) == 1 &&
+              static_cast<int>(ScatteringModel::AreaMixture) == 2);
 static_assert(sizeof(PackedSubjectMaterial) == kSubjectSurfaceFloats * sizeof(float));
 
 PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
@@ -65,7 +66,9 @@ PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
       &material.MetalRough,
       &material.Emissive,
       &material.SpecularStrength,
-      &material.SpecularTint};
+      &material.SpecularTint,
+      &material.DiffuseReflection,
+      &material.DiffuseTransmission};
   size_t at = kSubjectSurfaceScalars;
   for (const SubjectTexture *image : images) {
     for (const double element : image->Uv.M) { packed[at++] = static_cast<float>(element); }

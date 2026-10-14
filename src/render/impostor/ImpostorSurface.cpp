@@ -1,5 +1,6 @@
 #include "ImpostorSurface.h"
 #include "DepthSurfacePatches.h"
+#include "ImpostorOptics.h"
 #include "shade/ImageMips.h"
 
 #include "math/Srgb.h"
@@ -150,14 +151,14 @@ bool AddDepthSurface(Geometry &geometry,
 }
 }
 
-std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas,
-                                             size_t view,
-                                             ImpostorSurfaceDetail detail) {
-  if (view >= atlas.Views().size()) { return std::nullopt; }
-  const Content::ImpostorAtlas::View &source = atlas.Views()[view];
+namespace {
+bool AddOpaqueCardImages(Geometry &geometry,
+                         Material &into,
+                         const Content::ImpostorAtlas &atlas,
+                         const Content::ImpostorAtlas::View &source) {
   const size_t count = source.Texels.size();
   const auto owner = NearestCoveredTexels(source, atlas.Pixels());
-  if (owner.empty()) { return std::nullopt; }
+  if (owner.empty()) { return false; }
   const Vec3 toward = source.TowardEye;
   const Vec3 right{{toward[2], 0, -toward[0]}};
   std::array<std::vector<uint8_t>, 3> images;
@@ -174,7 +175,7 @@ std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas
                                                     .Metalness = material.Metalness}
             : source.Materials[owner[at]];
     Vec3 n{{pixel.Normal[0], pixel.Normal[1], pixel.Normal[2]}};
-    if (!Normalise(n)) { return std::nullopt; }
+    if (!Normalise(n)) { return false; }
     for (size_t c = 0; c < 3; ++c) {
       images[0][at * 4 + c] = Byte(ColourSpace::SrgbFromLinear(sample.BaseColour[c]));
     }
@@ -188,17 +189,35 @@ std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas
     images[2][at * 4 + 2] = Byte(sample.Metalness);
     images[2][at * 4 + 3] = kOpaqueByte;
   }
+  return AddPreparedCardImages(geometry, into, atlas.Pixels(), images);
+}
+
+}
+
+std::optional<Geometry> BuildImpostorSurface(const Content::ImpostorAtlas &atlas,
+                                             size_t view,
+                                             ImpostorSurfaceDetail detail) {
+  if (view >= atlas.Views().size()) { return std::nullopt; }
+  const Content::ImpostorAtlas::View &source = atlas.Views()[view];
   Geometry geometry;
   Material material;
   material.BaseColour = {{1, 1, 1, 1}};
   material.Metalness = material.Roughness = 1;
   material.Alpha = AlphaMode::Masked;
-  if (!AddPreparedCardImages(geometry, material, atlas.Pixels(), images)) { return std::nullopt; }
+  const bool optical = std::ranges::any_of(atlas.Surfaces(), [](const auto &row) {
+    return row.Scattering == ScatteringModel::DiffuseThinSheet;
+  });
+  if (optical ? !AddOpticalCardImages(geometry, material, atlas, source)
+              : !AddOpaqueCardImages(geometry, material, atlas, source)) {
+    return std::nullopt;
+  }
   const auto surface = geometry.addSurface("impostor", material);
   if (!surface) { return std::nullopt; }
   const auto createdPart = geometry.addPart("impostor", *surface);
   if (!createdPart) { return std::nullopt; }
   const int part = *createdPart;
+  const Vec3 toward = source.TowardEye;
+  const Vec3 right{{toward[2], 0, -toward[0]}};
   if (!AddDepthSurface(geometry, part, atlas, source, toward, right, detail)) {
     return std::nullopt;
   }

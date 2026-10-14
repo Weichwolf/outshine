@@ -489,6 +489,7 @@ GroupIncludes() {
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
   case "$includeTier" in render) includeSet="$includeSet $(pkg-config --cflags sdl3-shadercross)" ;; esac
   case "$1" in
+    src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/generators/building) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
     src/content/assets) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
     src/generators/terrain/providers) includeSet="$includeSet $(pkg-config --cflags libwebp)" ;;
@@ -556,6 +557,11 @@ JOBS=${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev
 
 BuildGroup() {
   group=$1
+  case "$group" in
+    src/generators/flora|src/generators/flora/*)
+      python3 test/scripts/prepare_leaf_optics.py || Die "the owned leaf-optics table did not prepare"
+      ;;
+  esac
   groupIncludes=$(GroupIncludes "$group") || Die "no include set declared for the source group $group"
   groupStd=$(GroupToolchain "$group")
   case "$group" in

@@ -44,6 +44,12 @@ void main() {
   f90 *= strength;
 #endif
 #endif
+#if SUBJECT_BASE_LOCATION == 0 && LIT_TEXTURED
+  if (surface.scattering > 1.5) {
+    orm.g = pow(clamp(orm.g / max(orm.a, 1e-8), 0.0, 1.0), 0.25);
+    orm.b /= max(orm.a, 1e-8);
+  }
+#endif
   roughness *= orm.g;
 #if LIT_KIND == 1
   if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }
@@ -62,6 +68,31 @@ void main() {
     shadingNormal = bumpNormal(facing(normal, gl_FrontFacing), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
   }
   else { albedo *= colour.rgb; }
+#if SUBJECT_BASE_LOCATION == 0
+  if (surface.scattering > 0.5) {
+    surface.thinReflection = albedo;
+#if LIT_TEXTURED
+    surface.diffuseTransmission *= texture(diffuseTransmissionMap,
+        coordinate(surface.diffuseTransmissionUvU, surface.diffuseTransmissionUvV,
+                   surface.diffuseTransmissionUvSecond)).rgb;
+    if (surface.scattering > 1.5) {
+      float coverage = max(tap.a, 1e-8);
+      vec4 sheet = texture(diffuseReflectionMap,
+          coordinate(surface.diffuseReflectionUvU, surface.diffuseReflectionUvV,
+                     surface.diffuseReflectionUvSecond));
+      surface.thinWeight = clamp(sheet.a / coverage, 0.0, 1.0);
+      surface.thinReflection = sheet.rgb / coverage;
+      surface.diffuseTransmission /= coverage;
+      albedo /= max(coverage * (1.0 - surface.thinWeight), 1e-8);
+    }
+#endif
+    float energy = max(max(surface.thinReflection.r, surface.thinReflection.g), surface.thinReflection.b) +
+                   max(max(surface.diffuseTransmission.r, surface.diffuseTransmission.g), surface.diffuseTransmission.b);
+    float keep = energy > 0.0 ? min(1.0, surface.thinWeight / energy) : 1.0;
+    surface.thinReflection *= keep;
+    surface.diffuseTransmission *= keep;
+  }
+#endif
 #if SUBJECT_BASE_LOCATION > 0
   outputMaterial(albedo, roughness, metalness);
   outputSurface(vec4(0.0), shadingNormal, surface.identity);

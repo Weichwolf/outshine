@@ -43,7 +43,7 @@ bool Valid(const ImpostorCards &cards) {
 }
 
 std::string ImpostorCards::AssetKey(std::string_view provenance) {
-  return Sha256Hex("impostor-cards-3/" + std::string(provenance));
+  return Sha256Hex("impostor-cards-4/" + std::string(provenance));
 }
 
 std::optional<std::vector<uint8_t>> ImpostorCards::Encode(std::string_view provenance,

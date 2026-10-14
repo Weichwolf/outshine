@@ -66,7 +66,8 @@ vec3 shadeRow(M surface,
 
   if (!(iridescenceThickness > 0.0)) { iridescence = 0.0; }
   vec3 v = normalize(lights.viewPosition.xyz - p * lights.viewPosition.w);
-  bool thinSheet = surface.scattering > 0.5;
+  float materialWeight = 1.0 - surface.thinWeight;
+  bool thinSheet = materialWeight <= 0.0;
   float a = roughness * roughness;
   float a2 = a * a;
   vec3 diffuseColour = albedo * (1.0 - metalness) * (1.0 - surface.transmission);
@@ -119,10 +120,10 @@ vec3 shadeRow(M surface,
     }
     float nl = dot(n, toward);
     if (attenuation <= 0.0) { continue; }
-    if (thinSheet) {
-      sum += thinSheetDiffuse(albedo, surface.diffuseTransmission, nl) * attenuation * light.tint.rgb;
-      continue;
+    if (surface.thinWeight > 0.0) {
+      sum += thinSheetDiffuse(surface.thinReflection, surface.diffuseTransmission, nl) * attenuation * light.tint.rgb;
     }
+    if (thinSheet) { continue; }
     if (nl <= 0.0) { continue; }
 
     vec3 h = normalize(toward + v);
@@ -162,13 +163,15 @@ vec3 shadeRow(M surface,
       float weight = clearcoat * coatF;
       layered = layered * (1.0 - weight) + vec3(weight * coatLobe);
     }
-    sum = sum + layered * nl * attenuation * light.tint.rgb;
+    vec3 contribution = layered * nl * attenuation * light.tint.rgb;
+    sum += materialWeight < 1.0 ? contribution * materialWeight : contribution;
   }
 
-  if (thinSheet) {
-    return sum + diffuseEnvironment(n) * albedo +
-                 diffuseEnvironment(-n) * surface.diffuseTransmission + emitted;
+  if (surface.thinWeight > 0.0) {
+    sum += diffuseEnvironment(n) * surface.thinReflection +
+           diffuseEnvironment(-n) * surface.diffuseTransmission;
   }
+  if (thinSheet) { return sum + emitted; }
   const float nvClamped = clamp(nv, 0.0, 1.0);
 
   const vec2 environmentBrdf = ggxEnvironmentBrdf(nvClamped, roughness);
@@ -176,14 +179,16 @@ vec3 shadeRow(M surface,
       (f0 * (environmentBrdf.x - environmentBrdf.y) + vec3(f90 * environmentBrdf.y)) * energyScale;
   const vec3 ambient = diffuseEnvironment(n);
   const vec3 reflectedRadiance = filteredEnvironment(reflect(-v, n), roughness);
-  sum += ambient * diffuseColour * (vec3(1.0) - clamp(specularEnvironment, 0.0, 1.0)) +
-         reflectedRadiance * specularEnvironment;
+  vec3 environment = ambient * diffuseColour * (vec3(1.0) - clamp(specularEnvironment, 0.0, 1.0)) +
+                     reflectedRadiance * specularEnvironment;
+  sum += materialWeight < 1.0 ? environment * materialWeight : environment;
   return sum + emitted;
 }
 
 vec3 shade(M surface,
                             vec3 localM, vec3 n, vec3 p, vec3 albedo, vec4 lightSpace,
                            sampler2D shadowMap) {
+  if (surface.scattering > 0.5 && surface.scattering < 1.5) { surface.thinReflection = albedo; }
   return shadeRow(surface,  localM, n, p, albedo, surface.metalness,
                   surface.roughness, vec3(surface.f0), surface.specularWeight,
                   surface.emissive, vec3(0.0), lightSpace, shadowMap);

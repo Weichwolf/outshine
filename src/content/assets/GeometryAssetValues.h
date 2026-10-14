@@ -2,6 +2,7 @@
 #define OUTSHINE_CONTENT_ASSETS_GEOMETRYASSETVALUES_H
 
 #include "scene/Material.h"
+#include "MaterialMaps.h"
 #include "scene/PunctualLight.h"
 
 namespace outshine::Content {
@@ -52,13 +53,7 @@ template <class Archive> bool GeometryAssetMaterial(Archive &archive, Material &
                surface.AttenuationColour.Axis)) {
     return false;
   }
-  for (auto *map : {&surface.BaseColourMap,
-                    &surface.NormalMap,
-                    &surface.MetalRoughMap,
-                    &surface.EmissiveMap,
-                    &surface.OcclusionMap,
-                    &surface.SpecularStrengthMap,
-                    &surface.SpecularTintMap}) {
+  for (auto *map : MaterialMaps(surface)) {
     if (!GeometryAssetMap(archive, *map)) { return false; }
   }
   return true;
