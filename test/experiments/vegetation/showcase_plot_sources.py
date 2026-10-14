@@ -2,6 +2,18 @@
 
 PLOT_SOURCES = (
     (
+        "spatial-frond/spatial-frond-report.json",
+        "spatial_frond_plot",
+        "Freie Frondachsen · räumliche Führung und gleiche Ausgaben",
+        "Drei gleiche komplette 6204-Face-Produkte, fünf wechselnde CPU-Läufe gebündelt/Einzelpunkte. Profile, lokale Fiederform und Mittelrippe folgen derselben vorbereiteten Spine. Analytische Jacobi-Normalen gegen inverse Lösung und unabhängige Differenzen; Source-/Replay-Arrays exakt. Zwölf alte Kreisprodukte unverändert; lokale Regularität ist kein globaler Kollisions-/LOD-/Gerätenachweis.",
+    ),
+    (
+        "leaflet-shape/leaflet-shape-report.json",
+        "leaflet_shape_plot",
+        "Lokale Fiederformen · Prototypen und individuelle Variation",
+        "Drei gleiche vollständige 25080-Face-Ausgaben, fünf wechselnde CPU-Läufe. Geteilte Prototypen sparen bei gleicher Form; 33 individuelle Formen zeigen keinen Kostenvorteil. Source-/Replay-Arrays exakt, sechs alte Defaultmeshes unverändert; Prozesspeak einschließlich Imports und Prüfung separat. Keine botanische, Original-Property- oder native Framefreigabe.",
+    ),
+    (
         "frond-library/frond-library.json",
         "frond_library_plot",
         "Frond-Curl · Querkrümmung und Differentialnormalen",

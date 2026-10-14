@@ -409,6 +409,43 @@ normals with NumPy. Call `guide.deform(curl.deform(source))` to combine the two
 maps; direct near/coarse sources retain their anchors. Source patterns and guides
 have complete recipes, curl uses `frond-cross-curl-1`. The central rib is a
 separate own tube subjected to the same deformation. This is not an original
-SpeedTree rib/property implementation, local section-variation system or
+SpeedTree rib/property implementation, complete original section-variation system or
 botanically verified species recipe; these limits belong to
 [#95](https://github.com/Weichwolf/outshine/issues/95).
+
+`LeafletShape(bend, fold, twist, variance)` adds prepared parent-position profiles
+and stable seed/organ-ID variation to `PinnatePattern(leaflet_shape=...)`. Each
+local blade uses analytic differential normals; identical shapes share a prototype
+within one mesh request. Unique forms still require individual evaluations.
+The profile/variation bounds certify regular blades and conservatively shorten
+organs before meshing to keep their entire source surface inside Y∈[0,length].
+`source_extent` bounds transverse/height coordinates for downstream guides.
+Positive uniform scaling and rotation preserve local normals and anchor positions.
+
+Unchanged default patterns retain `pinnate-source-1`, old identities and exact
+arrays. Shaped patterns use `pinnate-source-2` with a complete `leaflet-shape-1`
+recipe; seed/organ-ID samples are independent of camera, request order and mesh
+subdivision. Near/coarse common points coincide. This supplies own local shape
+variation, not SpeedTree's complete Section/Gravity/force system or a botanically
+verified plant recipe. Contract and equal-output costs belong to
+[#100](https://github.com/Weichwolf/outshine/issues/100).
+
+`SpatialFrondGuide(spine, width, height, roll, fold_per_m, intervals_per_segment)`
+binds the same source surfaces to an immutable `CubicSpine`. The local guide
+starts at the origin with positive Y tangent. `ArcMeasure` and `SpineField`
+prepare the metric coordinate and transported frame once, independently of detail.
+`spatial-frond-guide-1` records the complete curve, profiles and preparation size.
+Shared `deform` preserves source topology, UVs and organ IDs in owned outputs;
+its scalar evaluator is a same-output cost reference.
+
+The Jacobian differentiates the actual prepared map, including the ratio of
+curve speed to interpolated arc speed, frame curvature/roll and transverse
+profile derivatives. It does not assume an exact arc-length parameterization.
+Conservative curvature × transverse extent < 1 certifies positive local
+orientation before evaluation. This permits spatial bends and inflections,
+but does not prove global injectivity, collisions or general LOD coverage.
+The rib follows the same map as its leaflets; generator parent frames and
+bounds consume the spatial guide. Circular guide arrays remain unchanged.
+`ArcMeasure.fraction` now returns exact 0/1 at both endpoints to prevent
+roundoff from producing an out-of-domain coordinate. Proof and limits:
+[#103](https://github.com/Weichwolf/outshine/issues/103).

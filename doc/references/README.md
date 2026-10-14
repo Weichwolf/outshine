@@ -255,6 +255,10 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Doppelreflexion mit Tangentendrehung an gleichen Astachsen vergleichen ([#27](https://github.com/Weichwolf/outshine/issues/27)).
   Rahmenfehler, Erzeugungskosten und sichtbare Querschnitte getrennt prüfen;
   lokale Regularität ersetzt keinen globalen Kollisionsnachweis oder Kraftsolver.
+  [#103](https://github.com/Weichwolf/outshine/issues/103) bindet eigene Frondflächen an denselben
+  vorbereiteten räumlichen Rahmen. PDF-Seite 4/Figur 3 erneut optisch geprüft:
+  kohärente RMF vermeiden den Frenet-Twist an Wendepunkten. Differentialnormalen
+  folgen der tatsächlich vorbereiteten Kurven-/Bogenabbildung; keine Original-Oraclegleichheit.
 - **Efficient Implementation of Marching Cubes' Cases with Topological Guarantees**,
   Lewiner / Lopes / Vieira / Tavares, JGT 2003.
   [Autorenquelle](https://thomas.lewiner.org/pdfs/marching_cubes_jgt.pdf) ·

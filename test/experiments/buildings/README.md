@@ -31,6 +31,11 @@ Experimental coplanar CSG support partitioning compares GEOS triangle/plane
 regions with exact rational convex clipping and original-edge stations. The
 `exact-rounded` alternative contracts only existing edges whose endpoints
 convert to identical Float64 positions; disconnected contact fans stay separate.
+The `exact-output` alternative additionally cancels opposite facets only when
+their Float64 coordinates are exactly collinear, their logical root cycles
+are opposite, and their native triangle and source supports match. Unpaired,
+equally oriented, nonzero-area or differently supported facets remain. Directed
+closure and all other output requirements still have to pass independently.
 None is a general Shape Boolean API. Full checks keep directed closure,
 resolvable normals, volume, surface, whole-region source support, UV0–9,
 material priority and source tags. Rational construction alone does not prove
@@ -41,9 +46,18 @@ the remaining rounding and general modelling contracts.
 .venv/bin/python -W error test/experiments/buildings/verify_boolean_exact.py
 .venv/bin/python -W error test/experiments/buildings/verify_boolean_semantic_overlay.py --real --method exact
 .venv/bin/python -W error test/experiments/buildings/verify_boolean_semantic_overlay.py --real --method exact-rounded
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_semantic_overlay.py --real --method exact-output
+.venv/bin/python -W error test/experiments/buildings/verify_boolean_semantic_frames.py
 ```
 
-The latter two commands currently expect exit 1 and preserve rejected reports.
+`exact` and `exact-rounded` currently expect exit 1 and preserve rejected reports.
+`exact-output` passes the 183-product prism comparison. The additional frame
+comparison covers five controls in local, arbitrary remote common and independently
+yawed operand frames, not general independently tilted solids. Per-coordinate
+rounding error and cancelled facet counts are reported; no source is rewritten.
+UV construction uses the dominant planar projection in extended precision;
+its independent reference uses exact rational barycentric coordinates. This
+replaces unstable Gram inversion in the verifier, preserving every tolerance.
 Rational coordinate numerators/denominators are capped at 4096 bits; candidate,
 region and triangle counts are bounded. There is no hard process deadline or
 general memory bound, and source coplanarity selection remains floating point.

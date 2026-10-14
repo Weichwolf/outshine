@@ -36,10 +36,12 @@ _SPATIAL_EXPORTS = {
     "FinAttachment": "fin_attachment",
     "FrondCurl": "frond_curl",
     "FrondGuide": "frond_surface",
+    "LeafletShape": "leaflet_shape",
     "PinnatePattern": "frond_pattern",
     "PlantPlan": "plant_plan",
     "Shoot": "shoot_plan",
     "SpatialAxis": "spatial_axis",
+    "SpatialFrondGuide": "spatial_frond",
     "SpineField": "spine_field",
 }
 
@@ -63,12 +65,14 @@ __all__ = [
     "FrondCurl",
     "FrondGuide",
     "Inputs",
+    "LeafletShape",
     "Needle",
     "Plan",
     "PinnatePattern",
     "PlantPlan",
     "Profile",
     "SpatialAxis",
+    "SpatialFrondGuide",
     "Shoot",
     "SpineField",
 ]
