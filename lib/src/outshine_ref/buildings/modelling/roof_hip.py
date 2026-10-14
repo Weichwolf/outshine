@@ -11,6 +11,7 @@ from .facet_overlay import overlay
 from .faces import Face, ROOF_TAGS, plane
 from .hip_surface import prepare_even
 from .hip_inset import prepare_hip_inset
+from .hip_exterior_mesh import exterior_mesh
 from .hip_sides import close_rim
 from .metadata import inherit
 from .roof_mesh import RoofMesh
@@ -32,6 +33,7 @@ class HipInfo:
     maximum_shared_height_adjustment_m: tuple
     insets: tuple=()
     collapsed_source_faces: tuple=()
+    exteriors: tuple=()
 
 
 def attributes(source, projected, cut):
@@ -94,7 +96,7 @@ def bind_plan(polygon,limits,prepared):
     return prepared
 
 
-def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even=False, overhang=0., prepared=None):
+def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even=False, overhang=0., prepared=None,shell_depth_m=.1):
     face = shape.geometry.polygons[number]
     edges_count = sum(len(ring) for ring in (face.outer, *face.holes))
     if np.count_nonzero(mesh['parts'] == number)*edges_count > max_cells:
@@ -115,9 +117,13 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even
     face = replace(face, tags=face.tags-ROOF_TAGS.keys(), uvs=uv[0], uv_sets=tuple((c, v) for c, v in uv.items() if c))
     source = source_cut(shape, mesh, number, face, normal, channels)
     projected = (source.properties[:, :3]-origin)@basis.T-np.asarray(plan.origin)
+    if overhang>0:
+        native,faces,count,exterior,adjustment=exterior_mesh(source,projected,plan,field,value,mode,overhang,
+            channels,normal,origin,basis,face,max_cells,shell_depth_m)
+        return native,faces,normal,plan,count,exterior.precision_m,surface,adjustment,None,exterior
     cut = overlay(projected[source.triangles], field, max_cells, None if inset is None else inset.domain)
     if not len(cut.corners):
-        return None,(),normal,plan,0,cut.precision_m,surface,0.,inset
+        return None,(),normal,plan,0,cut.precision_m,surface,0.,inset,None
     properties = attributes(source, projected, cut)
     face = Face((0,1,2),material=face.material,tags=face.tags,group=face.group)
     points = cut.corners.reshape(-1, 2); owners = np.repeat(cut.facets, 3)
@@ -133,17 +139,18 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even
         selected = owners == index
         builder.append(top[selected], upper[selected], ('top', index), replace(face, tags=face.tags|{'roof.top'}))
     native, faces = builder.finish()
-    return native, faces, normal, plan, cut.cells, cut.precision_m, surface, adjustment,inset
+    return native, faces, normal, plan, cut.cells, cut.precision_m, surface, adjustment,inset,None
 
 
-def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None, max_cells=65536, prepared_plans=None):
+def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None, max_cells=65536, prepared_plans=None,*,shell_depth_m=.1):
     value, overhang = scalar(value), scalar(overhang)
     if type(even) is not bool:
         raise ValueError('Hip even option must be boolean')
     if type(max_cells) is not int or max_cells <= 0:
         raise ValueError('Hip overlay capacity must be a positive integer')
     if overhang > 0:
-        raise NotImplementedError('Positive hip overhang and trim planes require separate verified contracts')
+        shell_depth_m=scalar(shell_depth_m)
+        if shell_depth_m<=0:raise ValueError('Positive hip shell depth must be positive')
     if mode not in ('byAngle', 'byHeight') or value <= 0 or mode == 'byAngle' and not 1e-10 <= value < 90:
         raise ValueError('Hip roofs require a positive height or angle in [1e-10,90) degrees')
     limits = SkeletonLimits() if limits is None else limits
@@ -163,13 +170,13 @@ def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None,
     working = replace(shape, scope=replace(shape.scope, object_frame=Frame()))
     mesh = working.emit(); mesh.setdefault('uv', np.zeros((len(mesh['vertices']), 2)))
     channels = (0,)+tuple(sorted(int(k[2:]) for k in mesh if k.startswith('uv') and k[2:].isdigit()))
-    products, faces, owners, plans, cells, precisions, normals, surfaces, adjustments, insets, collapsed = [], [], [], [], [], [], [], [], [], [], []
+    products, faces, owners, plans, cells, precisions, normals, surfaces, adjustments, insets, collapsed, exteriors = [], [], [], [], [], [], [], [], [], [], [], []
     vertex_offset = face_offset = 0
     for number in range(len(geometry.polygons)):
         prepared=None if prepared_plans is None else prepared_plans[number]
-        native, polygons, normal, plan, count, precision, surface, adjustment, inset = hip_face(working, mesh, number, value, mode, channels, limits, max_cells, even,overhang,prepared)
+        native, polygons, normal, plan, count, precision, surface, adjustment, inset, exterior = hip_face(working, mesh, number, value, mode, channels, limits, max_cells, even,overhang,prepared,shell_depth_m)
         plans.append(plan);cells.append(count);precisions.append(precision);normals.append(normal);surfaces.append(surface)
-        adjustments.append(adjustment);insets.append(inset)
+        adjustments.append(adjustment);insets.append(inset);exteriors.append(exterior)
         if time.perf_counter()-began > limits.seconds:
             raise SkeletonBudgetExceeded('Hip shape exceeded its cooperative time budget')
         if native is None:
@@ -191,4 +198,4 @@ def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None,
         result = result.delete_uv(0)
     scope = replace(result.scope, object_frame=shape.scope.object_frame)
     return replace(result, scope=scope, comp_info=shape.comp_info,
-                   roof_info=HipInfo(tuple(plans), tuple(owners), tuple(cells), tuple(precisions), 'normals' in geometry.fields,tuple(surfaces),tuple(adjustments),tuple(insets),tuple(collapsed)))
+                   roof_info=HipInfo(tuple(plans), tuple(owners), tuple(cells), tuple(precisions), 'normals' in geometry.fields,tuple(surfaces),tuple(adjustments),tuple(insets),tuple(collapsed),tuple(exteriors)))

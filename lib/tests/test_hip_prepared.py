@@ -13,7 +13,7 @@ class PreparedHip(unittest.TestCase):
         source=Shape.from_polygon(polygon).r(13.,24.,-7.)
         plans=tuple(prepare_hip(p) for p in hip_footprints(source))
         for even in [False,True]:
-            for overhang in [0.,-.5]:
+            for overhang in [0.,-.5,.5]:
                 expected=source.roof_hip(3.,'byHeight',even=even,overhang=overhang).emit()
                 with patch('outshine_ref.buildings.modelling.roof_hip.prepare_hip',side_effect=AssertionError('Unexpected solver call')):
                     actual=source.roof_hip(3.,'byHeight',even=even,overhang=overhang,prepared_plans=plans).emit()
