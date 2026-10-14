@@ -86,10 +86,11 @@ def decode(solid,sources,identifier,anchor,max_triangles):
     return mesh,owners,references,vertex_roots(encoded,len(properties))
 
 
-def boolean(a,b,operation='union',max_triangles=262144):
+def boolean(a,b,operation='union',max_triangles=262144,frame_mode='object'):
     if operation not in ('union','subtract','intersect'):raise ValueError('Unknown Boolean operation')
     if type(max_triangles)is not int or max_triangles<=0:raise ValueError('Invalid Boolean capacity')
-    common=a.scope.object_frame
+    if frame_mode not in ('object','world'):raise ValueError('Unknown Boolean reference frame')
+    common=a.scope.object_frame if frame_mode=='object' else Frame()
     anchor=np.asarray(local_mesh(a,common)['vertices'][0],dtype=float)
     identifier=manifold.Manifold.reserve_ids(2)
     sources=tuple(encoded_source(shape,identifier+n,anchor,max_triangles,common) for n,shape in enumerate((a,b)))

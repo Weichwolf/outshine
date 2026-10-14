@@ -105,7 +105,7 @@ def controls():
     yield 'circular-tower',base,Prism(shapely.Point(10,4).buffer(3.,quad_segs=12),3.,12.)
 
 
-def run(real):
+def run(real,frame_mode='object'):
     rows=list(controls())
     if real:
         for row in cases():
@@ -125,11 +125,11 @@ def run(real):
                     first=replace(first,scope=replace(first.scope,object_frame=placement))
                     second=replace(second,scope=replace(second.scope,object_frame=placement))
                 before=[first.emit(),second.emit()]
-                started=time.perf_counter();product=boolean(first,second,operation);elapsed=(time.perf_counter()-started)*1000
+                started=time.perf_counter();product=boolean(first,second,operation,frame_mode=frame_mode);elapsed=(time.perf_counter()-started)*1000
                 actual=measure(product);expected=reference(a,b,operation)
                 np.testing.assert_allclose(actual,expected,atol=1e-7,rtol=1e-9)
                 uv=check_uv(product)
-                assert product.object_frame==first.scope.object_frame
+                assert product.object_frame==(first.scope.object_frame if frame_mode=='object' else Frame())
                 for input_source in product.sources:
                     points=input_source.mesh['vertices']@product.object_frame.axes.T+product.object_frame.position
                     np.testing.assert_allclose(points,input_source.shape.emit()['vertices'],atol=1e-8,rtol=0.)
@@ -151,10 +151,11 @@ def run(real):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--real',action='store_true')
+    parser.add_argument('--frame-mode',choices=['object','world'],default='object')
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/boolean-surface-verification.json'))
-    args=parser.parse_args();results=run(args.real)
+    args=parser.parse_args();results=run(args.real,args.frame_mode)
     report=revision()|dict(results=results,cases=len(results),passed=sum(r['status']=='pass' for r in results),
-        manifold_version=importlib.metadata.version('manifold3d'),process_peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,
+        frame_mode=args.frame_mode,manifold_version=importlib.metadata.version('manifold3d'),process_peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,
         scope='Closed prism CSG experiment: independent GEOS slab volume/surface, logical directed closure, all native UV0–9 and triangle relations. No SDK equivalence, Shape material reconciliation, coplanar bool.A/B tags, open/2D semantics, full runtime budgets or recipe claim.')
     args.output.write_text(json.dumps(report,indent=2)+'\n');print(report['passed'],'of',report['cases'],flush=True)
     raise SystemExit(0 if report['passed']==report['cases'] else 1)
