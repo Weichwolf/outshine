@@ -2,6 +2,18 @@
 
 PLOT_SOURCES = (
     (
+        "leaflet-shape/leaflet-shape-report.json",
+        "leaflet_shape_plot",
+        "Lokale Fiederformen · Prototypen und individuelle Variation",
+        "Drei gleiche vollständige 25080-Face-Ausgaben, fünf wechselnde CPU-Läufe. Geteilte Prototypen sparen bei gleicher Form; 33 individuelle Formen zeigen keinen Kostenvorteil. Source-/Replay-Arrays exakt, sechs alte Defaultmeshes unverändert; Prozesspeak einschließlich Imports und Prüfung separat. Keine botanische, Original-Property- oder native Framefreigabe.",
+    ),
+    (
+        "frond-library/frond-library.json",
+        "frond_library_plot",
+        "Frond-Curl · Querkrümmung und Differentialnormalen",
+        "Mittelachse/Y-Anker, Sourcefaces/UVs/Organ-IDs erhalten. Drei Querkrümmungen, je 25080 Dreiecke, fünf wechselnde vollständige CPU-Abbildungen. Kofaktoren gegen NumPy solve: übrige Arrays exakt, Normalen numerisch gleich; vollständiger Cache-Replay. Zwölf alte Guide-Meshes/drei Source-Meshes unverändert. Keine Original-Property-, botanische oder native GPU-Freigabe.",
+    ),
+    (
         "frame-cost/frame-cost.json",
         "frame_cost_plot",
         "Rahmenarbeit · feste 3D-Komponenten",

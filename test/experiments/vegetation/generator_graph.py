@@ -34,8 +34,12 @@ def shape_bound(shape):
         x = max(p.leaflet_length * (1 + p.variance), p.length * (1 - p.last)) * (
             1 + p.aspect / 2
         )
+        depth = 0.004
+        if p.leaflet_shape is not None:
+            x = p.source_extent
+            depth = x
         q = max(x, 0.004) * g.width.table.max()
-        d = 0.004 * g.height.table.max() + abs(g.fold_per_m) * q**2
+        d = depth * g.height.table.max() + abs(g.fold_per_m) * q**2
         return g.length + np.hypot(q, d)
     return shape.length + shape.petiole + shape.width * (1 + abs(shape.fold))
 

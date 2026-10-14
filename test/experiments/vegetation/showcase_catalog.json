@@ -1,7 +1,67 @@
 {
-  "current_work": "Vollständige räumliche Pflanzenpläne und unveränderliche kanonische Tabellen liegen im Kern. Feste 3D-Komponentenauswertung reduziert gemessenen Rahmenaufwand großer Kronen, alle IDs/Positionen/Frames und aktuelle Kontrollmeshes bleiben exakt. Pflanzenbilder prüfen Grundfunktionen; natürliche Rezepte, voller SpeedTree-Funktionsumfang, Wind und Wald-LOD bleiben offen.",
+  "current_work": "Lokale Fiederformen ergänzen den Kern: Biegung, Wölbung und Drehung mit positionsabhängigen Profilen und stabiler Organvariation. Nah-/Grobdetails teilen Plan, Anker und gemeinsame Punkte. Sichtbarer Formvergleich; natürliche Artenrezepte, vollständige Gravity-/Force-/Windfunktionen und Wald-LOD bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/leaflet-shapes.png",
+      "title": "Lokale Fiederformen · flach, konstant, variierend",
+      "label": "Eigene lokale Fiederform · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Drei eigene Funktionsproben: flache Quelle, konstante lokale Form, Profile und stabile individuelle Variation. Gemeinsame Guide-/Material-/Lichtparameter, feste Mittelansätze und prozedurale Mittelrippe.",
+      "quality": "2560×1440; weiterhin regelmäßige Grundarchitektur. Kein botanisches Artenrezept oder vollständiger SpeedTree-Section-/Gravitysolver.",
+      "scenario": "build/experiments/vegetation/leaflet-shape/leaflet-shapes.json"
+    },
+    {
+      "image": "render/leaflet-detail.png",
+      "title": "Fiederform · Biegung, Wölbung und Drehung",
+      "label": "Eigene lokale Fiederform · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Nahansicht derselben variierenden Quelle. Formparameter folgen Elternposition und Organ-ID; direkte Differentialnormalen, feste Anker, prozedurale Blatt- und Rindenmaterialien.",
+      "quality": "2560×1440; weiterhin regelmäßige Grundarchitektur. Kein botanisches Artenrezept oder vollständiger SpeedTree-Section-/Gravitysolver.",
+      "scenario": "build/experiments/vegetation/leaflet-shape/leaflet-detail.json"
+    },
+    {
+      "image": "render/leaflet-coarse.png",
+      "title": "Fiederform · direkte grobe Quelle",
+      "label": "Eigene lokale Fiederform · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-1",
+      "description": "Gleicher Plan und Kamera wie Nahansicht; Quelle direkt mit 12×1 statt 48×4 Blattunterteilungen. Gemeinsame Punkte und Spitzen unverändert, keine Deckungs- oder Fernwaldfreigabe.",
+      "quality": "2560×1440; weiterhin regelmäßige Grundarchitektur. Kein botanisches Artenrezept oder vollständiger SpeedTree-Section-/Gravitysolver.",
+      "scenario": "build/experiments/vegetation/leaflet-shape/leaflet-coarse.json"
+    },
+    {
+      "image": "render/frond-curl-functions.png",
+      "title": "Frond-Curl · neutral und beide Krümmungsrichtungen",
+      "label": "Fiederflächen · geometrische Funktionsprobe ohne Artenrezept",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Eigene 33-Fieder-Quelle, feste Mittelachse und zentraler Rippenkörper. Identischer globaler Guide, Querkrümmung 0/+3,5/−3,5 m⁻¹, korrekte Jacobi-Normalen. Sourcefaces/UVs/Organ-IDs bleiben erhalten; vollständig erzeugte Nah-/Grobprodukte.",
+      "quality": "Keine botanische Artenfreigabe, vollständige SpeedTree-Property-/Abschnitts-/Gravity-/Windbindung oder allgemeine LOD-Deckungs-/Gerätefreigabe.",
+      "scenario": "build/experiments/vegetation/frond-library/frond-curl-functions.json"
+    },
+    {
+      "image": "render/frond-curl-detail.png",
+      "title": "Frond-Curl · Querform und Mittelrippe",
+      "label": "Fiederflächen · geometrische Funktionsprobe ohne Artenrezept",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Eigene 33-Fieder-Quelle, feste Mittelachse und zentraler Rippenkörper. Identischer globaler Guide, Querkrümmung 0/+3,5/−3,5 m⁻¹, korrekte Jacobi-Normalen. Sourcefaces/UVs/Organ-IDs bleiben erhalten; vollständig erzeugte Nah-/Grobprodukte.",
+      "quality": "Keine botanische Artenfreigabe, vollständige SpeedTree-Property-/Abschnitts-/Gravity-/Windbindung oder allgemeine LOD-Deckungs-/Gerätefreigabe.",
+      "scenario": "build/experiments/vegetation/frond-library/frond-curl-detail.json"
+    },
+    {
+      "image": "render/frond-curl-coarse.png",
+      "title": "Frond-Curl · direkte grobe Fläche",
+      "label": "Fiederflächen · geometrische Funktionsprobe ohne Artenrezept",
+      "category": "leaf",
+      "lod": "lod-1",
+      "description": "Eigene 33-Fieder-Quelle, feste Mittelachse und zentraler Rippenkörper. Identischer globaler Guide, Querkrümmung 0/+3,5/−3,5 m⁻¹, korrekte Jacobi-Normalen. Sourcefaces/UVs/Organ-IDs bleiben erhalten; vollständig erzeugte Nah-/Grobprodukte.",
+      "quality": "Keine botanische Artenfreigabe, vollständige SpeedTree-Property-/Abschnitts-/Gravity-/Windbindung oder allgemeine LOD-Deckungs-/Gerätefreigabe.",
+      "scenario": "build/experiments/vegetation/frond-library/frond-curl-coarse.json"
+    },
     {
       "image": "render/plant-library-near.png",
       "title": "Räumlicher Pflanzenplan · vollständiger Jungbaum",
@@ -555,7 +615,6 @@
   ],
   "plot_lods": {
     "generator_plot": "lod-1",
-    "frond_plot": "lod-0",
     "bark_plot": "lod-0",
     "selection_storage_plot": "lod-2",
     "demand_plot": "lod-3",
@@ -589,7 +648,9 @@
     "spine_library_plot": "lod-0",
     "fin_plot": "lod-0",
     "plant_library_plot": "lod-1",
-    "frame_cost_plot": "lod-1"
+    "frame_cost_plot": "lod-1",
+    "frond_library_plot": "lod-0",
+    "leaflet_shape_plot": "lod-0"
   },
   "genera": [
     {

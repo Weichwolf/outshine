@@ -27,6 +27,7 @@ from curved_plots import curved_figure
 from fin_plots import fin_figure
 from fork_plots import fork_figure
 from frame_cost_plots import frame_cost_figure
+from frond_library_plots import frond_library_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
 from graph_wood_plots import wood_figure
@@ -37,6 +38,7 @@ from leaf_pigment_plots import pigment_figure
 from leaf_relative_plots import relative_figure
 from leaf_relief_plots import relief_figure
 from leaf_terminal_plots import terminal_figure
+from leaflet_shape_plots import leaflet_shape_figure
 from needle_plots import needle_figure
 from placement_library_plots import placement_library_figure
 from placement_plots import placement_figure
@@ -541,10 +543,20 @@ def frame_cost_plot(report):
     return save_plot(frame_cost_figure(report), "frame-cost")
 
 
+def frond_library_plot(report):
+    return save_plot(frond_library_figure(report), "frond-library")
+
+
+def leaflet_shape_plot(report):
+    return save_plot(leaflet_shape_figure(report), "leaflet-shape")
+
+
 def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            leaflet_shape_plot,
+            frond_library_plot,
             frame_cost_plot,
             plant_library_plot,
             fin_plot,
