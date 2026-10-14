@@ -8,6 +8,7 @@ from blade_surface import Blade
 from frond_pattern import PinnatePattern
 from frond_surface import FrondGuide
 from needle_surface import Needle
+from outshine_ref.vegetation import SpatialFrondGuide
 from placement_patterns import DistancePattern
 from profile_curve import Profile
 from spatial_axis import SpatialAxis
@@ -52,12 +53,12 @@ class TubeShape:
 @dataclass(frozen=True)
 class FrondShape:
     pattern: PinnatePattern = field(default_factory=PinnatePattern)
-    guide: FrondGuide = field(default_factory=FrondGuide)
+    guide: FrondGuide | SpatialFrondGuide = field(default_factory=FrondGuide)
 
     def __post_init__(self):
         if (
             not isinstance(self.pattern, PinnatePattern)
-            or not isinstance(self.guide, FrondGuide)
+            or not isinstance(self.guide, (FrondGuide, SpatialFrondGuide))
             or self.pattern.length != self.guide.length
         ):
             raise ValueError("one complete pattern and matching frond guide required")
@@ -266,9 +267,14 @@ class Generator:
         elif kind == "blade":
             shape = Blade(**record)
         elif kind == "frond":
+            guide_type = (
+                SpatialFrondGuide
+                if record["guide"]["version"] == "spatial-frond-guide-1"
+                else FrondGuide
+            )
             shape = FrondShape(
                 PinnatePattern.from_recipe(record["pattern"]),
-                FrondGuide.from_recipe(record["guide"]),
+                guide_type.from_recipe(record["guide"]),
             )
         else:
             raise ValueError("implemented generator kind required")

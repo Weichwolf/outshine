@@ -119,4 +119,5 @@ class ArcMeasure:
             (parameter < 0) | (parameter > 1)
         ):
             raise ValueError("finite raw curve parameters in [0,1] required")
-        return self._polynomial(parameter) / self.length
+        fraction = self._polynomial(parameter) / self.length
+        return np.where(parameter == 0, 0, np.where(parameter == 1, 1, fraction))
