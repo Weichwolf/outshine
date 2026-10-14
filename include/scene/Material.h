@@ -29,7 +29,7 @@ enum class AlphaMode {
 enum class SurfacePattern { None, Facade };
 
 /// Incident-light response independent of coverage and procedural surface detail.
-enum class ScatteringModel { MetallicRoughness, DiffuseThinSheet };
+enum class ScatteringModel { MetallicRoughness, DiffuseThinSheet, AreaMixture };
 
 /// Native surface parameters; default is a grey metallic-roughness dielectric.
 /// Factors are dimensionless unless a field specifies units. Supply finite values in the
@@ -46,10 +46,16 @@ struct Material {
   /// Metalness, glass Transmission, sheen, clearcoat, anisotropy, iridescence and Pattern must
   /// be disabled. MetalRoughMap and both specular maps must be unbound; other BRDF factors
   /// do not affect this diffuse model. Normal, emission, occlusion and coverage remain active.
+  /// AreaMixture combines the existing metallic-roughness response and a diffuse thin sheet
+  /// by covered area. Requires BaseColourMap, DiffuseReflectionMap, DiffuseTransmissionMap,
+  /// Masked or Blended coverage, and zero glass Transmission.
   ScatteringModel Scattering = ScatteringModel::MetallicRoughness;
   /// Linear RGB hemispherical transmission for DiffuseThinSheet, each in [0,1].
-  /// max(BaseColour RGB) + max(DiffuseTransmission RGB) must not exceed one.
+  /// Without a transmission map, max(BaseColour RGB) + max(DiffuseTransmission RGB)
+  /// must not exceed one for DiffuseThinSheet.
   /// Must be zero for MetallicRoughness.
+  /// Multiplies DiffuseTransmissionMap when bound. Mapped R/T are coupled at shading time
+  /// so their joint maximum cannot exceed the covered sheet fraction.
   Vec3f DiffuseTransmission;
   /// Procedural detail; Facade requires generated facade coordinates in UV0.
   SurfacePattern Pattern = SurfacePattern::None;
@@ -136,6 +142,14 @@ struct Material {
   SurfaceMap SpecularStrengthMap;
   /// sRGB RGB multiplier of SpecularColour, converted to linear before use.
   SurfaceMap SpecularTintMap;
+  /// AreaMixture only: linear RGB thin-sheet reflection premultiplied by its coverage;
+  /// alpha is thin-sheet coverage. BaseColourMap carries premultiplied MR colour and total
+  /// coverage; MetalRoughMap carries MR-coverage-weighted factors and MR coverage in alpha.
+  /// Filter the optical channels and their coverage together; normalize only after sampling.
+  SurfaceMap DiffuseReflectionMap;
+  /// Linear RGB diffuse transmission. DiffuseThinSheet multiplies its constant transmission;
+  /// AreaMixture uses coverage-premultiplied transmission with the same UVs/filter as reflection.
+  SurfaceMap DiffuseTransmissionMap;
 
   /// Compare stored factors and bindings exactly; no image-content comparison or allocation.
   /// @return Whether every stored value matches; NaN values compare unequal.

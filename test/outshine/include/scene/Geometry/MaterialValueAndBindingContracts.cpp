@@ -220,6 +220,34 @@ int main() {
   valid = replacement;
   CheckMaps(valid, geometry, surface, reject);
   CheckScattering(valid, geometry, surface, reject);
+  Material mixture;
+  mixture.Scattering = ScatteringModel::AreaMixture;
+  mixture.Alpha = AlphaMode::Masked;
+  mixture.DiffuseTransmission = {{1, 1, 1}};
+  mixture.BaseColourMap.Image = mixture.DiffuseReflectionMap.Image =
+      mixture.DiffuseTransmissionMap.Image = 0;
+  CHECK(geometry.setSurface(surface, mixture),
+        "a bounded optical area mixture binds native images");
+  valid = mixture;
+  for (SurfaceMap Material::*member : {&Material::BaseColourMap,
+                                       &Material::DiffuseReflectionMap,
+                                       &Material::DiffuseTransmissionMap}) {
+    auto invalid = mixture;
+    (invalid.*member).Image = -1;
+    reject(invalid);
+    invalid = mixture;
+    (invalid.*member).Image = 1;
+    reject(invalid);
+  }
+  auto invalid = mixture;
+  invalid.Alpha = AlphaMode::Opaque;
+  reject(invalid);
+  invalid = mixture;
+  invalid.Transmission = 0.1f;
+  reject(invalid);
+  CHECK(geometry.setSurface(surface, Material{}),
+        "mixture maps do not leak into an ordinary material");
+  valid = Material{};
   CHECK(geometry.wellFormed(), "every supported material binding remains owner-local and valid");
   return Report();
 }

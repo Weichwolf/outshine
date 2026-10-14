@@ -2,6 +2,7 @@
 #include "math/Mat4.h"
 #include "Heap.h"
 #include "MaterialValidation.h"
+#include "MaterialMaps.h"
 #include "math/Vec3.h"
 #include "Subject.h"
 
@@ -1222,13 +1223,7 @@ bool Subject::Append(const Subject &other) {
   Surfaces_.resize(static_cast<size_t>(beyond));
   SurfaceNames_.resize(static_cast<size_t>(beyond));
   for (outshine::Material surface : other.Surfaces_) {
-    for (SurfaceMap *map : {&surface.BaseColourMap,
-                            &surface.NormalMap,
-                            &surface.MetalRoughMap,
-                            &surface.EmissiveMap,
-                            &surface.OcclusionMap,
-                            &surface.SpecularStrengthMap,
-                            &surface.SpecularTintMap}) {
+    for (SurfaceMap *map : MaterialMaps(surface)) {
       if (map->bound()) { map->Image += imageBase; }
     }
     Surfaces_.push_back(surface);

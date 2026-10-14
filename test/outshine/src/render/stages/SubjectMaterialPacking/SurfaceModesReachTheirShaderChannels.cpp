@@ -35,7 +35,17 @@ int main() {
   mapped.Colour.Uv.M[5] = 0.25;
   const auto mappedRow = PackSubjectMaterial(mapped, 0);
   CHECK(mappedRow[40] == 1 && mappedRow[42] == 0.125f && mappedRow[45] == 0.25f &&
-            mappedRow[76] == 1 && mappedRow[77] == 0,
+            mappedRow[88] == 1 && mappedRow[89] == 0,
         "UV matrices and selectors follow the optical scalars without shifting their channels");
+  mapped.Row.Scattering = ScatteringModel::AreaMixture;
+  mapped.DiffuseReflection.Set = mapped.DiffuseTransmission.Set = UvSet::Uv1;
+  mapped.DiffuseReflection.Uv.M[2] = 0.375;
+  mapped.DiffuseTransmission.Uv.M[5] = 0.625;
+  const auto mixedRow = PackSubjectMaterial(mapped, 0);
+  CHECK(mixedRow[36] == 2 && mixedRow[78] == 0.375f && mixedRow[87] == 0.625f &&
+            mixedRow[94] == 1 && mixedRow[95] == 1,
+        "area-mixture optics have explicit UV transforms and selectors at the GPU boundary");
+  CHECK(mapped.ReadsSecondUv() && mapped.ReadsAnyImage() == false,
+        "optical UV selectors are accounted independently of image ownership");
   return Report();
 }
