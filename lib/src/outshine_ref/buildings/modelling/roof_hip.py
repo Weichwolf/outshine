@@ -18,7 +18,7 @@ from .roof_ridge import source_cut
 from .roof_shed import channel_faces
 from .scope import Frame, scalar
 from .shape import Shape
-from .skeleton_plan import SkeletonBudgetExceeded, SkeletonLimits, prepare_hip
+from .skeleton_plan import HipPlan, SkeletonBudgetExceeded, SkeletonLimits, input_data, prepare_hip
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,25 @@ def canonical(builder, points, properties, owners, plan, factor, precision):
     return np.asarray(roots), np.asarray(upper), heights, adjustment
 
 
-def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even=False, overhang=0.):
+def hip_footprints(shape):
+    """Intrinsic source-face polygons accepted by prepare_hip or HipPlanner."""
+    if shape.geometry.edges or shape.geometry.points or not shape.geometry.polygons:
+        raise NotImplementedError('Hip footprints require logical polygon faces')
+    working=replace(shape,scope=replace(shape.scope,object_frame=Frame()));mesh=working.emit()
+    return tuple(plane(mesh['vertices'],face)[1] for face in shape.geometry.polygons)
+
+
+def bind_plan(polygon,limits,prepared):
+    if prepared is None:return prepare_hip(polygon,limits=limits)
+    if not isinstance(prepared,HipPlan):raise ValueError('Prepared hip entry must be HipPlan')
+    origin,local,_,_=input_data(polygon,limits)
+    if prepared.origin!=tuple(origin) or not shapely.equals_exact(local,prepared.footprint,0.):
+        raise ValueError('Prepared hip plan differs from its intrinsic source domain')
+    if len(prepared.positions_m)>limits.nodes:raise SkeletonBudgetExceeded('Prepared hip plan exceeds node capacity')
+    return prepared
+
+
+def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even=False, overhang=0., prepared=None):
     face = shape.geometry.polygons[number]
     edges_count = sum(len(ring) for ring in (face.outer, *face.holes))
     if np.count_nonzero(mesh['parts'] == number)*edges_count > max_cells:
@@ -88,7 +106,7 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even
     tangent = edges[np.argmax(np.linalg.norm(edges, axis=1))]
     tangent -= normal*np.dot(tangent, normal); tangent /= np.linalg.norm(tangent)
     basis = np.array([tangent, np.cross(normal, tangent)])
-    plan = prepare_hip(polygon, limits=limits)
+    plan = bind_plan(polygon,limits,prepared)
     surface = prepare_even(plan,mode) if even else None
     field = plan if surface is None else surface
     factor = field.factor(value, mode)
@@ -118,7 +136,7 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even
     return native, faces, normal, plan, cut.cells, cut.precision_m, surface, adjustment,inset
 
 
-def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None, max_cells=65536):
+def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None, max_cells=65536, prepared_plans=None):
     value, overhang = scalar(value), scalar(overhang)
     if type(even) is not bool:
         raise ValueError('Hip even option must be boolean')
@@ -132,6 +150,10 @@ def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None,
     if not isinstance(limits, SkeletonLimits):
         raise ValueError('Hip limits require SkeletonLimits')
     geometry = shape.geometry
+    if prepared_plans is not None:
+        prepared_plans=tuple(prepared_plans)
+        if len(prepared_plans)!=len(geometry.polygons):raise ValueError('Prepared hip plans must cover every source face')
+        if any(not isinstance(p,HipPlan) for p in prepared_plans):raise ValueError('Prepared hip entries must be HipPlan')
     if geometry.edges or geometry.points or not geometry.polygons:
         raise NotImplementedError('Hip roofs require logical polygon faces without wire/point primitives')
     allowed = {'faces','parts','materials','groups','face_tag_mask','normals','uv'}|{'uv'+str(i) for i in range(1,10)}
@@ -144,7 +166,8 @@ def roof_hip(shape, value, mode='byAngle', overhang=0., even=False, limits=None,
     products, faces, owners, plans, cells, precisions, normals, surfaces, adjustments, insets, collapsed = [], [], [], [], [], [], [], [], [], [], []
     vertex_offset = face_offset = 0
     for number in range(len(geometry.polygons)):
-        native, polygons, normal, plan, count, precision, surface, adjustment, inset = hip_face(working, mesh, number, value, mode, channels, limits, max_cells, even,overhang)
+        prepared=None if prepared_plans is None else prepared_plans[number]
+        native, polygons, normal, plan, count, precision, surface, adjustment, inset = hip_face(working, mesh, number, value, mode, channels, limits, max_cells, even,overhang,prepared)
         plans.append(plan);cells.append(count);precisions.append(precision);normals.append(normal);surfaces.append(surface)
         adjustments.append(adjustment);insets.append(inset)
         if time.perf_counter()-began > limits.seconds:
