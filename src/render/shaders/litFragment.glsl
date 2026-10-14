@@ -46,7 +46,7 @@ void main() {
 #endif
   roughness *= orm.g;
 #if LIT_KIND == 1
-  if (surface.factor * tap.a * colour.a < surface.cut) { discard; }
+  if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }
 #endif
 #if LIT_MAPPED
   vec4 mapped = texture(normalMap, coordinate(surface.normalUvU, surface.normalUvV, surface.normalUvSecond));

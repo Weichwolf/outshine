@@ -145,3 +145,30 @@ improves independent saved-source probes without changing any XYZ. It remains C0
 Once new edges cross old parents, the earlier root-face vertical LOD certificate
 no longer applies. Do not interpolate meshes using that invalid certificate.
 Height/time/mesh/DEM limits and measured host costs are separate from runtime gates.
+
+## External SDK operation handbook (#19)
+
+The user-supplied CityEngine SDK 3.4.12206 core is an external comparison source.
+`esri_transport_catalog.py` keeps exact ELF ranges, demangled signatures and PLT
+imports; `esri_transport_ghidra.py` reuses the repository's Buildings protocol with
+restricted disassembly and fresh complete exports. Boundary jumps use explicitly
+recorded [Ghidra CALL_RETURN models](https://ghidra.re/ghidra_docs/api/ghidra/program/model/listing/FlowOverride.html).
+These constrain analysis; they do not establish external control flow or C++ types.
+Binary hashes, instruction ranges, call sites, generated reference hashes and
+unverified paths remain in build outputs, never in the native library/runtime.
+
+Isolated scalar oracles verify the public SDK version, offset helper, edge query
+and line/ray modes. Analytic controls and saved traffic footprints distinguish
+full inset domains from the helper's largest fragment, closed source endpoints
+from SDK half-open queries, and real 3D contacts from closest-approach results.
+Keep Python's required full domain/contact semantics; do not infer a generator
+from matching individual functions or copy decompiled implementations.
+
+SDK triangulation calls resolve to its pinned `libglutess.so` dependency. The
+[Khronos GLU callback ABI](https://github.com/KhronosGroup/OpenGL-Refpages/blob/main/gl2.1/xhtml/gluTessCallback.xml)
+permits an opaque-handle reference without guessed SDK object layouts. Raw
+triangle strips can contain exact-zero primitives; the disclosed CAD adapter
+removes those and conforms declared boundary points. This verifies the backend
+with that adapter, not SDK Triangulator attributes, modes or Processor extrusion.
+Those object ABIs remain open. Research continues from SIGGRAPH's graph/geometry
+separation and the bounded Python comparisons above; the SDK is a handbook.

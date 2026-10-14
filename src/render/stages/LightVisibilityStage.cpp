@@ -32,7 +32,7 @@ std::array<size_t, 2> ShadowTile(size_t region) {
 bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
   Cache_.Invalidate();
   Binds(subjects);
-  return ConfigureDepthOnly(gpu, error);
+  return ConfigureDepthOnly(gpu, error) && ConfigureMasked(gpu, error);
 }
 
 void LightVisibilityStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
@@ -290,9 +290,7 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
                                 size_t region,
                                 const PassRecording &into) {
   if (Subjects_ == nullptr || !DepthOnly_ || into.Pass == nullptr) { return; }
-  const SubjectResidency &Resident_ = Subjects_->Resident();
   const Vec3 &Anchor = Subjects_->AnchorM();
-  const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
   const auto tile = ShadowTile(region);
   SDL_GPUViewport square{};
   square.x = static_cast<float>(tile[0]) * kShadowTilePx;
@@ -310,6 +308,12 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   SDL_PushGPUVertexUniformData(
       into.Commands, 0, uniform.data(), static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
   Subjects_->Ground().Cast(into);
+  CastSubjects(into);
+}
+
+void LightVisibilityStage::CastSubjects(const PassRecording &into) {
+  const SubjectResidency &Resident_ = Subjects_->Resident();
+  const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
   if (Batches.empty() || !Resident_.Buffer(SubjectResidency::Stream::Vertex) ||
       !Resident_.Buffer(SubjectResidency::Stream::Index)) {
     return;
@@ -326,12 +330,20 @@ void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
 
   const uint32_t subjectRows = Subjects_->SubjectRows();
+  const SDL_GPUGraphicsPipeline *bound = DepthOnly_.Get();
   for (const DrawBatch &batch : Batches) {
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
     const uint32_t instances = batch.ModelSlot < subjectRows
                                    ? std::min(batch.Instances, CastsBelow_ - batch.ModelSlot)
                                    : batch.Instances;
     if (instances == 0) { continue; }
+    SDL_GPUGraphicsPipeline *pipeline =
+        batch.Kind == SurfaceKind::Masked ? MaskedPipeline(batch.Layout) : DepthOnly_.Get();
+    if (pipeline != bound) {
+      SDL_BindGPUGraphicsPipeline(into.Pass, pipeline);
+      bound = pipeline;
+    }
+    if (batch.Kind == SurfaceKind::Masked) { Subjects_->BindShadowMask(into, batch); }
     ++CastBatches_;
     SDL_DrawGPUIndexedPrimitives(
         into.Pass, batch.IndexCount, instances, batch.FirstIndex, 0, batch.ModelSlot);
