@@ -8,7 +8,7 @@ import shapely
 
 from .extrude import aligned_scope
 from .facet_overlay import overlay
-from .faces import ROOF_TAGS, plane
+from .faces import Face, ROOF_TAGS, plane
 from .hip_surface import prepare_even
 from .hip_inset import prepare_hip_inset
 from .hip_sides import close_rim
@@ -101,6 +101,7 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even
     if not len(cut.corners):
         return None,(),normal,plan,0,cut.precision_m,surface,0.,inset
     properties = attributes(source, projected, cut)
+    face = Face((0,1,2),material=face.material,tags=face.tags,group=face.group)
     points = cut.corners.reshape(-1, 2); owners = np.repeat(cut.facets, 3)
     builder = RoofMesh(channels,normal if even else None)
     roots, upper, heights, adjustment = canonical(builder, points, properties, owners, field, factor, cut.precision_m)

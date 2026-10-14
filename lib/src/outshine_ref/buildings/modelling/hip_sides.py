@@ -28,5 +28,7 @@ def close_rim(builder, normal, heights, face):
         raw = identities+top[::-1]
         keep = [i for i in range(4) if raw[i]!=raw[i-1]]
         tag = 'roof.side.inner' if key in holes else 'roof.side.outer'
-        builder.polygon(np.r_[values,upper[::-1]][keep],[raw[i] for i in keep],('side',*key),
-                        replace(face,tags=face.tags|{tag}))
+        properties=np.r_[values,upper[::-1]][keep];identifiers=np.asarray(raw)[keep]
+        # Nonnegative heights make each rim a planar convex quad or triangle.
+        order=np.array([0,1,2,0,2,3]) if len(keep)==4 else np.array([0,1,2])
+        builder.append(properties[order],identifiers[order],('side',*key),replace(face,tags=face.tags|{tag}))
