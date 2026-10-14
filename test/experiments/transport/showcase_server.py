@@ -8,7 +8,7 @@ from urllib.parse import unquote, urlsplit
 class ShowcaseHandler(SimpleHTTPRequestHandler):
     def permitted(self):
         path = unquote(urlsplit(self.path).path)
-        if path in ("/", "/index.html", "/manifest.json", "/showcase.css", "/showcase.js"):
+        if path in ("/", "/index.html", "/manifest.json", "/showcase.css"):
             return True
         parts = Path(path).parts
         root = Path(self.directory).resolve()

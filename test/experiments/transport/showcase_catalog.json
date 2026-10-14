@@ -1,882 +1,123 @@
 {
-  "sections": [
-    {
-      "id": "boden",
-      "title": "Boden und Kontakte",
-      "description": "Ein gemeinsamer Höhenplan für Fahrflächen und groben Boden. Vorher durchdringt unverändertes DEM die Straßen; nachher teilen sie eine C0-Oberfläche. Oliv: Boden, Grau: Korridore, Grün: Anschlüsse."
-    },
-    {
-      "id": "profile",
-      "title": "Höhen und Neigungen",
-      "description": "Wien mit grobem DEM: vorher und nach Ganzflächenfit. Orange überschreitet die Neigungsgrenze, Grün zeigt Anschlüsse, Grau Korridore. Gleiche Kamera, ohne Höhenüberhöhung."
-    },
-    {
-      "id": "koerper",
-      "title": "3D-Körper",
-      "description": "Geschlossene Verkehrskörper mit gemeinsamen Anschlussvertices. Blender Workbench, 1920×1080. Farben zeigen Bauteile; Straßenbetrieb und vollständige Höhenplanung bleiben offen."
-    },
-    {
-      "id": "anschluesse",
-      "title": "Anschlüsse",
-      "description": "Gemeinsame Bauteile und vollständige Randsegmente. Grün: Anschlussflächen. Grau: Korridore. Orange: geteilte Mesh-Ränder."
-    },
-    {
-      "id": "grundfaelle",
-      "title": "Grundformen",
-      "description": "Kleine synthetische Fälle aus dem bestehenden Solver. Ansichten in Metern; links die Flächenaufteilung, rechts das indizierte Mesh."
-    },
-    {
-      "id": "netze",
-      "title": "OSM-Netze",
-      "description": "Wien, Zürich und Basel im vollständigen Fenster. Fehlende lokale Belege bleiben sichtbar."
-    },
-    {
-      "id": "bodenverfeinerung",
-      "title": "Bodenverfeinerung",
-      "description": "Dieselben Stützpunkte und Straßen, unterschiedliche Bodenverbindungen. Vorher zeigen feste Fächer Sternfalten; neue Verbindungen beruhigen das Relief. Gleiches Bildfenster ohne Höhenüberhöhung."
-    },
-    {
-      "id": "operationsreferenzen",
-      "title": "Operationsreferenzen",
-      "description": "Einzelne Flächenoperationen im Vergleich mit CityEngine: Fragmente, Innenloch und echte Wiener Anschlussfläche. Die Schaublöcke werden in beiden Varianten gleich geschlossen."
-    },
-    {
-      "id": "hoehenuebergaenge",
-      "title": "Höhenübergänge",
-      "description": "Flacher Anschluss an einen Höhenübergang: linearer Knick, parabolisch und kubisch. Gleiche erste 30 Meter, echte Breite und Querneigung, ohne Höhenüberhöhung. Grün: flacher Kontakt."
-    },
-    {
-      "id": "ebenen",
-      "title": "Ebenen und Durchfahrten",
-      "description": "Zwei lokale Verkehrsflächen: Orange zeigt die unzulässige Höhenkontrolle, Blau das erhöhte Deck, Grau die untere Straße. Ganze Flächen und Deckunterseite geprüft; gleiche Kamera ohne Höhenüberhöhung."
-    },
-    {
-      "id": "schienenanschluesse",
-      "title": "Schienenanschlüsse",
-      "description": "Das gemeinsame Wiener Deck erhält zwei echte westliche Anschlussquellen. Blau: bisheriges Deck, Grün: ergänzte Rampen. Gleiche Kameras und echte Höhen; Portale und Innenflächen bleiben offen."
-    },
-    {
-      "id": "kacheluebergaenge",
-      "title": "Kachelübergänge",
-      "description": "Das Wiener Schienenfeld setzt sich in der südlichen Nachbarkachel fort. Blau: vorhandene Flächen, Grün: Ergänzungen, Grau: bekannte untere Verkehrsflächen. Gemeinsame Höhen und Kameras; Innenräume und weitere Außenanschlüsse offen."
-    }
-  ],
   "images": [
     {
-      "id": "Vienna-ground-before-solid",
-      "title": "Wien · unabhängiger Boden",
-      "section": "boden",
-      "kind": "Unzulässige Kontrolle",
-      "description": "Gefittete Straßen und unverändertes grobes DEM sind getrennt aufgebaut. Teile der Fahrflächen verschwinden im Boden.",
-      "scope": "Bewusst ungültige Geometrie als Diagnose, keine fertige Welt. Ganze Quellkachel plus 100 m Rand; 5 m Darstellungsblock ohne Aushub-/Materialnachweis.",
-      "image_source": "build/experiments/transport/ground/Vienna-ground-before-solid.png",
-      "report_source": "build/experiments/transport/ground/Vienna-ground-before-solid.json",
-      "origin_source": "build/experiments/transport/ground/origin.json"
-    },
-    {
-      "id": "Vienna-ground-after-solid",
-      "title": "Wien · gemeinsame Oberfläche",
-      "section": "boden",
-      "kind": "Geprüftes grobes Grundmodell",
-      "description": "Boden und Verkehr teilen dieselben Anschlussvertices. Jede obere Fläche ist einmal belegt; der gemeinsame Fit hält Straßen- und Böschungsgrenzen ein.",
-      "scope": "C0-Oberfläche, unverändertes Straßen-XY, gemeinsam neu geplante Höhen. Gemessene DEM-Abweichung ist keine globale Fehlerschranke; Verfeinerung, C1, Zugänge und Ebenen bleiben offen.",
-      "image_source": "build/experiments/transport/ground/Vienna-ground-after-solid.png",
-      "report_source": "build/experiments/transport/ground/Vienna-ground-after-solid.json",
-      "origin_source": "build/experiments/transport/ground/origin.json"
-    },
-    {
-      "id": "Vienna-ground-detail-before-solid",
-      "title": "Überdeckter Anschluss · vorher",
-      "section": "boden",
-      "kind": "120×120-m-Kontaktbereich",
-      "description": "Detail um den stärksten Bodenkonflikt. Unabhängige Höhen lassen Teile des Anschlusses im Terrain verschwinden.",
-      "scope": "Unzulässige Kontrolle. Die Inspektion schneidet die vorhandenen affine Flächen am Fenster, ohne neue Höhenpassung oder Überhöhung.",
-      "image_source": "build/experiments/transport/ground/Vienna-ground-detail-before-solid.png",
-      "report_source": "build/experiments/transport/ground/Vienna-ground-detail-before-solid.json",
-      "origin_source": "build/experiments/transport/ground/origin.json"
-    },
-    {
-      "id": "Vienna-ground-detail-after-solid",
-      "title": "Gemeinsamer Anschluss · nachher",
-      "section": "boden",
-      "kind": "Geprüfter Kontaktbereich",
-      "description": "Dieselben Fahrflächen werden vollständig sichtbar. Der Boden schließt ohne Höhenriss an; Abfragen liefern Höhe und Facettennormale aus dieser Fläche.",
-      "scope": "Gleiche Kamera und Geometrieauswahl wie vorher, keine Höhenüberhöhung. Facettennormale ist keine geglättete Normale; keine funktionale Eingangs-, C1- oder native Abnahme.",
-      "image_source": "build/experiments/transport/ground/Vienna-ground-detail-after-solid.png",
-      "report_source": "build/experiments/transport/ground/Vienna-ground-detail-after-solid.json",
-      "origin_source": "build/experiments/transport/ground/origin.json"
-    },
-    {
-      "id": "Vienna-dem-prior-solid",
-      "title": "Wien · ungeprüfter DEM-Prior",
-      "section": "profile",
-      "kind": "Diagnose · gespeicherte Quellen",
-      "description": "Ein grobes Höhenraster übernimmt weder die Längsrichtung noch das Quergefälle der Fahrflächen. Orange markiert überschrittene Ganzflächengrenzen.",
-      "scope": "Bewusst unzulässiger Prior als Vergleich, kein fertiges Transportprodukt. Ganze gespeicherte Quellkachel; Terrain und Ebenen noch offen.",
-      "image_source": "build/experiments/transport/heights/Vienna-dem-prior-solid.png",
-      "report_source": "build/experiments/transport/heights/Vienna-dem-prior-solid.json",
-      "origin_source": "build/experiments/transport/heights/origin.json"
-    },
-    {
-      "id": "Vienna-dem-fit-solid",
-      "title": "Wien · begrenzte Fahrflächen",
-      "section": "profile",
-      "kind": "Geprüfter Ganzflächenfit",
-      "description": "Gemeinsame Vertices tragen dieselbe Höhe. Klassenrichtung und Quergefälle begrenzen sämtliche Dreiecksflächen; bis zu 2,69 m Abweichung vom groben Prior.",
-      "scope": "Eine gespeicherte Wiener Quellkachel. Höhen und Neigungsgrenzen geprüft; C1, Fahrkurven, finaler Terrainanschluss, Zugänge und Ebenen bleiben offen.",
-      "image_source": "build/experiments/transport/heights/Vienna-dem-fit-solid.png",
-      "report_source": "build/experiments/transport/heights/Vienna-dem-fit-solid.json",
-      "origin_source": "build/experiments/transport/heights/origin.json"
-    },
-    {
-      "id": "Vienna-detail-prior-solid",
-      "title": "Kritisches Bauteil · vorher",
-      "section": "profile",
-      "kind": "Detail aus derselben Quellkachel",
-      "description": "Das vollständige Bauteil mit dem stärksten normierten DEM-Gradienten. Auch schmale Fahrflächen brauchen eine Grenze über ihre ganze Breite.",
-      "scope": "Ungeprüfter Prior als Diagnose. Vorhandene Bauteilgeometrie, kein Ausschnitt durch Dreiecke und keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/heights/Vienna-detail-prior-solid.png",
-      "report_source": "build/experiments/transport/heights/Vienna-detail-prior-solid.json",
-      "origin_source": "build/experiments/transport/heights/origin.json"
-    },
-    {
-      "id": "Vienna-detail-fit-solid",
-      "title": "Kritisches Bauteil · nachher",
-      "section": "profile",
-      "kind": "Geprüftes Detail aus dem Netzfit",
-      "description": "Dieselben XY-Vertices und Dreiecke mit korrigierten Höhen. Die sichtbare Verwindung sinkt; sämtliche Flächen erfüllen den vorgegebenen Neigungsrahmen.",
-      "scope": "Höhen direkt aus dem gesamten Netzfit, keine eigene Detailoptimierung. C1, fahrbare Kurven und Terrainkontakte bleiben offen.",
-      "image_source": "build/experiments/transport/heights/Vienna-detail-fit-solid.png",
-      "report_source": "build/experiments/transport/heights/Vienna-detail-fit-solid.json",
-      "origin_source": "build/experiments/transport/heights/origin.json"
-    },
-    {
-      "id": "straight",
-      "title": "Gerade",
-      "section": "grundfaelle",
-      "kind": "Synthetischer Grundfall",
-      "description": "Ein gerader Straßenkörper als einfachster Ausgangsfall.",
-      "image_source": "build/experiments/transport/showcase/fixtures/straight-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/straight-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "bend",
-      "title": "Kurve",
-      "section": "grundfaelle",
-      "kind": "Synthetischer Grundfall",
-      "description": "Geknickte Quellachse; die Fläche allein belegt noch keine glatte Fahrkurve.",
-      "image_source": "build/experiments/transport/showcase/fixtures/bend-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/bend-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "cul_de_sac",
-      "title": "Sackgasse",
-      "section": "grundfaelle",
-      "kind": "Synthetischer Grundfall",
-      "description": "Zwei Quellabschnitte mit gemeinsamem Ende.",
-      "image_source": "build/experiments/transport/showcase/fixtures/cul_de_sac-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/cul_de_sac-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "short_link",
-      "title": "Kurzer Verbinder",
-      "section": "grundfaelle",
-      "kind": "Synthetischer Grundfall",
-      "description": "Ein nur zehn Zentimeter langer Abschnitt zwischen längeren Achsen.",
-      "image_source": "build/experiments/transport/showcase/fixtures/short_link-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/short_link-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "island",
-      "title": "Getrennte Komponenten",
-      "section": "grundfaelle",
-      "kind": "Synthetischer Grundfall",
-      "description": "Zwei getrennte Straßen bleiben getrennt; es wird keine Verbindung erfunden.",
-      "image_source": "build/experiments/transport/showcase/fixtures/island-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/island-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "T",
-      "title": "T-Anschluss",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Drei Zufahrten teilen die Randsegmente mit dem Anschlussbauteil.",
-      "image_source": "build/experiments/transport/showcase/fixtures/T-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/T-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "X",
-      "title": "Kreuzung",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Vier Arme und ein gemeinsamer Kreuzungskörper.",
-      "image_source": "build/experiments/transport/showcase/fixtures/X-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/X-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "small_gap",
-      "title": "Knapp verfehlter Anschluss",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Ein kleiner Quellspalt wird vom bestehenden Vektorplan begrenzt geschlossen.",
-      "image_source": "build/experiments/transport/showcase/fixtures/small_gap-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/small_gap-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "short_T",
-      "title": "Kurzer T-Arm",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Ein kurzer Seitenarm prüft die räumliche Aufteilung.",
-      "image_source": "build/experiments/transport/showcase/fixtures/short_T-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/short_T-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "inclined_T",
-      "title": "Gedrehter T-Anschluss",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Derselbe Anschluss um zwanzig Grad gedreht.",
-      "image_source": "build/experiments/transport/showcase/fixtures/inclined_T-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/inclined_T-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "split_continuation",
-      "title": "Geteilte Fortsetzung",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Mehrere Quellabschnitte bilden eine durchgehende Straße mit Seitenarm.",
-      "image_source": "build/experiments/transport/showcase/fixtures/split_continuation-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/split_continuation-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "bent_short_approach",
-      "title": "Kurze geknickte Zufahrt",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Anschluss und kurze Kurve liegen eng beieinander.",
-      "image_source": "build/experiments/transport/showcase/fixtures/bent_short_approach-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/bent_short_approach-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "acute_merge",
-      "title": "Spitze Einmündung",
-      "section": "anschluesse",
-      "kind": "Synthetischer Grundfall",
-      "description": "Ein sehr kleiner Anschlusswinkel zeigt die Grenze einfacher Flächenrezepte.",
-      "image_source": "build/experiments/transport/showcase/fixtures/acute_merge-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/acute_merge-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "courtyard_loop",
-      "title": "Geschlossener Ring",
-      "section": "grundfaelle",
-      "kind": "Synthetischer Grundfall",
-      "description": "Eine Schleife mit zwei äußeren Anschlüssen und erhaltener Innenfläche.",
-      "image_source": "build/experiments/transport/showcase/fixtures/courtyard_loop-flat-surfaces.png",
-      "report_source": "build/experiments/transport/showcase/fixtures/courtyard_loop-flat-surfaces.json",
-      "origin_source": "build/experiments/transport/showcase/fixtures/origin.json",
-      "scope": "Ebene 2D-Fläche mit konstruktiver Mesh-Prüfung. Glatte Fahrkurven, Befahrbarkeit, Höhen und native Kollision sind damit nicht nachgewiesen."
-    },
-    {
-      "id": "Wien",
-      "title": "Wien",
-      "section": "netze",
-      "kind": "Echtes OSM-Fenster",
-      "description": "Vollständiges Transportnetz aus echten Quelldaten; lokale Nachweise werden nach dem Datentransfer ergänzt.",
-      "image_source": "build/shots/experiments/transport/Wien-complete-window.png",
-      "report_source": "build/experiments/transport/showcase/networks/Wien-report.json",
-      "origin_source": "build/experiments/transport/showcase/networks/origin.json",
-      "missing_note": "Die benötigten Eingaben, Produkte und geprüften Bilder sind auf diesem Rechner noch nicht übertragen. Frühere Messungen sind kein aktueller lokaler Bildnachweis."
-    },
-    {
-      "id": "ZuerichHauptbahnhof",
-      "title": "Zürich Hauptbahnhof",
-      "section": "netze",
-      "kind": "Echtes OSM-Fenster",
-      "description": "Vollständiges Transportnetz aus echten Quelldaten; lokale Nachweise werden nach dem Datentransfer ergänzt.",
-      "image_source": "build/shots/experiments/transport/ZuerichHauptbahnhof-complete-window.png",
-      "report_source": "build/experiments/transport/showcase/networks/ZuerichHauptbahnhof-report.json",
-      "origin_source": "build/experiments/transport/showcase/networks/origin.json",
-      "missing_note": "Die benötigten Eingaben, Produkte und geprüften Bilder sind auf diesem Rechner noch nicht übertragen. Frühere Messungen sind kein aktueller lokaler Bildnachweis."
-    },
-    {
-      "id": "BaselBadischerBahnhof",
-      "title": "Basel Badischer Bahnhof",
-      "section": "netze",
-      "kind": "Echtes OSM-Fenster",
-      "description": "Vollständiges Transportnetz aus echten Quelldaten; lokale Nachweise werden nach dem Datentransfer ergänzt.",
-      "image_source": "build/shots/experiments/transport/BaselBadischerBahnhof-complete-window.png",
-      "report_source": "build/experiments/transport/showcase/networks/BaselBadischerBahnhof-report.json",
-      "origin_source": "build/experiments/transport/showcase/networks/origin.json",
-      "missing_note": "Die benötigten Eingaben, Produkte und geprüften Bilder sind auf diesem Rechner noch nicht übertragen. Frühere Messungen sind kein aktueller lokaler Bildnachweis."
-    },
-    {
-      "id": "T-solid",
-      "title": "T-Anschluss mit Neigung",
-      "section": "koerper",
-      "kind": "Synthetischer Grundfall",
-      "description": "Ein gemeinsamer Körper mit explizit vorgegebenen Höhen und durchgehend geteilten Anschlusskanten.",
-      "scope": "Vorgegebene Vertexhöhen und 0,35 m vertikale Dicke; noch kein klassenabhängiger Profilsolver.",
-      "image_source": "build/experiments/transport/solid/T-solid.png",
-      "report_source": "build/experiments/transport/solid/T-solid.json",
-      "origin_source": "build/experiments/transport/solid/origin.json"
-    },
-    {
-      "id": "courtyard-solid",
-      "title": "Ring mit offenem Innenraum",
-      "section": "koerper",
-      "kind": "Synthetischer Grundfall",
-      "description": "Der Innenraum bleibt frei; auch seine Wände sind korrekt nach innen orientiert.",
-      "scope": "Geschlossene Modellfläche mit unverändertem Innenloch. Keine belegte Fahrzeugroute.",
-      "image_source": "build/experiments/transport/solid/courtyard-solid.png",
-      "report_source": "build/experiments/transport/solid/courtyard-solid.json",
-      "origin_source": "build/experiments/transport/solid/origin.json"
-    },
-    {
-      "id": "bridge-solid",
-      "title": "Räumlich getrennte Querung",
-      "section": "koerper",
-      "kind": "Synthetischer Ebenenfall",
-      "description": "Die obere Platte liegt tatsächlich über dem unteren Verkehrsraum. 5,85 m bleiben unter dem Deck frei.",
-      "scope": "Explizite Höhen, keine Rampen, Stützen oder vollständige Brückenplanung. Die Ebenen verbinden sich nicht.",
-      "image_source": "build/experiments/transport/solid/bridge-solid.png",
-      "report_source": "build/experiments/transport/solid/bridge-solid.json",
-      "origin_source": "build/experiments/transport/solid/origin.json"
-    },
-    {
-      "id": "Vienna-solid",
-      "title": "Wien · eine vollständige Quellkachel",
-      "section": "koerper",
-      "kind": "Echte OSM-Verteilung",
-      "description": "Aus der gespeicherten Quellkachel 14/8937/5681. Gemeinsame gerade Schnitte ohne ungültige Anschlusssegmente.",
-      "scope": "2.124 unterstützte ebenerdige Achsteile. 1.354 Achsteile und 117 Quellflächen zurückgestellt und mit Grund erhalten. Höhe null ist eine Rezeptannahme, kein DEM.",
-      "image_source": "build/experiments/transport/solid/Vienna-solid.png",
-      "report_source": "build/experiments/transport/solid/Vienna-solid.json",
-      "origin_source": "build/experiments/transport/solid/origin.json"
-    },
-    {
-      "id": "Vienna-reconnect-centroid-solid",
-      "title": "Wien · Feste Fächer",
-      "section": "bodenverfeinerung",
-      "kind": "Verworfene Bildvariante",
-      "description": "Feste alte Innenkanten erzeugen sternförmige Buckel trotz besserer DEM-Messwerte.",
-      "scope": "Gespeicherte Quellkachel, ganzer Bodenplan. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-centroid-solid.png",
-      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-centroid-solid.json",
-      "origin_source": "build/experiments/transport/reconnect/origin.json"
-    },
-    {
-      "id": "Vienna-reconnect-delaunay-solid",
-      "title": "Wien · Neue Bodenverbindungen",
-      "section": "bodenverfeinerung",
-      "kind": "Geprüfter Verfahrensversuch",
-      "description": "Viele Sternfalten verschwinden. Die Straßen und alle Stützpunkthöhen bleiben unverändert.",
-      "scope": "Gespeicherte Quellkachel, ganzer Bodenplan. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-delaunay-solid.png",
-      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-delaunay-solid.json",
-      "origin_source": "build/experiments/transport/reconnect/origin.json"
-    },
-    {
-      "id": "Vienna-reconnect-fit-solid",
-      "title": "Wien · Alternative Verbindungen",
-      "section": "bodenverfeinerung",
-      "kind": "Gleiche Punkte und Budgets",
-      "description": "Probengesteuerter Kantentausch als Vergleich; er beruhigt den Boden weniger gleichmäßig.",
-      "scope": "Gespeicherte Quellkachel, ganzer Bodenplan. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-fit-solid.png",
-      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-fit-solid.json",
-      "origin_source": "build/experiments/transport/reconnect/origin.json"
-    },
-    {
-      "id": "Vienna-reconnect-detail-centroid-solid",
-      "title": "Detail · Feste Fächer",
-      "section": "bodenverfeinerung",
-      "kind": "Verworfene Bildvariante",
-      "description": "Feste alte Innenkanten erzeugen sternförmige Buckel trotz besserer DEM-Messwerte.",
-      "scope": "Gespeicherte Quellkachel, 120×120-m-Ausschnitt. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-centroid-solid.png",
-      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-centroid-solid.json",
-      "origin_source": "build/experiments/transport/reconnect/origin.json"
-    },
-    {
-      "id": "Vienna-reconnect-detail-delaunay-solid",
-      "title": "Detail · Neue Bodenverbindungen",
-      "section": "bodenverfeinerung",
-      "kind": "Geprüfter Verfahrensversuch",
-      "description": "Viele Sternfalten verschwinden. Die Straßen und alle Stützpunkthöhen bleiben unverändert.",
-      "scope": "Gespeicherte Quellkachel, 120×120-m-Ausschnitt. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-delaunay-solid.png",
-      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-delaunay-solid.json",
-      "origin_source": "build/experiments/transport/reconnect/origin.json"
-    },
-    {
-      "id": "Vienna-reconnect-detail-fit-solid",
-      "title": "Detail · Alternative Verbindungen",
-      "section": "bodenverfeinerung",
-      "kind": "Gleiche Punkte und Budgets",
-      "description": "Probengesteuerter Kantentausch als Vergleich; er beruhigt den Boden weniger gleichmäßig.",
-      "scope": "Gespeicherte Quellkachel, 120×120-m-Ausschnitt. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-fit-solid.png",
-      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-fit-solid.json",
-      "origin_source": "build/experiments/transport/reconnect/origin.json"
-    },
-    {
-      "id": "SDK-reference-offset-fragments-python-solid",
-      "title": "Geteilte Fläche · Python",
-      "section": "operationsreferenzen",
-      "kind": "Python-Modell",
-      "description": "Der kleine SDK-Offset liefert nur das größte Fragment. Unser Flächenmodell erhält beide Teile.",
-      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-python-solid.png",
-      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-python-solid.json",
-      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
-    },
-    {
-      "id": "SDK-reference-offset-fragments-sdk-helper-solid",
-      "title": "Geteilte Fläche · SDK",
-      "section": "operationsreferenzen",
-      "kind": "Externe Operationsreferenz",
-      "description": "Der kleine SDK-Offset liefert nur das größte Fragment. Unser Flächenmodell erhält beide Teile.",
-      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-sdk-helper-solid.png",
-      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-sdk-helper-solid.json",
-      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
-    },
-    {
-      "id": "SDK-reference-courtyard-python-solid",
-      "title": "Innenloch · Python",
-      "section": "operationsreferenzen",
-      "kind": "Python-Modell",
-      "description": "Beide Triangulationsvarianten erhalten das Innenloch und die vollständige Flächendomäne.",
-      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-python-solid.png",
-      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-python-solid.json",
-      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
-    },
-    {
-      "id": "SDK-reference-courtyard-sdk-backend-solid",
-      "title": "Innenloch · SDK",
-      "section": "operationsreferenzen",
-      "kind": "Externe Operationsreferenz",
-      "description": "Beide Triangulationsvarianten erhalten das Innenloch und die vollständige Flächendomäne.",
-      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-sdk-backend-solid.png",
-      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-sdk-backend-solid.json",
-      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
-    },
-    {
-      "id": "SDK-reference-Vienna-junction-0-python-solid",
-      "title": "Wiener Anschluss · Python",
-      "section": "operationsreferenzen",
-      "kind": "Python-Modell",
-      "description": "Gespeicherte reale Verkehrsfläche mit denselben Randpunkten. Unterschiedliche Dreiecke, dieselbe Fläche.",
-      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-python-solid.png",
-      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-python-solid.json",
-      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
-    },
-    {
-      "id": "SDK-reference-Vienna-junction-0-sdk-backend-solid",
-      "title": "Wiener Anschluss · SDK",
-      "section": "operationsreferenzen",
-      "kind": "Externe Operationsreferenz",
-      "description": "Gespeicherte reale Verkehrsfläche mit denselben Randpunkten. Unterschiedliche Dreiecke, dieselbe Fläche.",
-      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-sdk-backend-solid.png",
-      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-sdk-backend-solid.json",
-      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
-    },
-    {
-      "id": "ramp-control-linear-solid",
-      "title": "Rampe · Kontrolle · linearer Knick",
-      "section": "hoehenuebergaenge",
-      "kind": "Vorher",
-      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
-      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
-      "image_source": "build/experiments/transport/vertical-profiles/ramp-control-linear-solid.png",
-      "report_source": "build/experiments/transport/vertical-profiles/ramp-control-linear-solid.json",
-      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
-    },
-    {
-      "id": "ramp-control-parabolic-solid",
-      "title": "Rampe · Kontrolle · parabolischer Übergang",
-      "section": "hoehenuebergaenge",
-      "kind": "C1-Plan",
-      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
-      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
-      "image_source": "build/experiments/transport/vertical-profiles/ramp-control-parabolic-solid.png",
-      "report_source": "build/experiments/transport/vertical-profiles/ramp-control-parabolic-solid.json",
-      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
-    },
-    {
-      "id": "ramp-control-cubic-solid",
-      "title": "Rampe · Kontrolle · kubischer Übergang",
-      "section": "hoehenuebergaenge",
-      "kind": "Vergleich",
-      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
-      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
-      "image_source": "build/experiments/transport/vertical-profiles/ramp-control-cubic-solid.png",
-      "report_source": "build/experiments/transport/vertical-profiles/ramp-control-cubic-solid.json",
-      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
-    },
-    {
-      "id": "Vienna-profile-linear-solid",
-      "title": "Wien · Quellabschnitt · linearer Knick",
-      "section": "hoehenuebergaenge",
-      "kind": "Vorher",
-      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
-      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
-      "image_source": "build/experiments/transport/vertical-profiles/Vienna-profile-linear-solid.png",
-      "report_source": "build/experiments/transport/vertical-profiles/Vienna-profile-linear-solid.json",
-      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
-    },
-    {
-      "id": "Vienna-profile-parabolic-solid",
-      "title": "Wien · Quellabschnitt · parabolischer Übergang",
-      "section": "hoehenuebergaenge",
-      "kind": "C1-Plan",
-      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
-      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
-      "image_source": "build/experiments/transport/vertical-profiles/Vienna-profile-parabolic-solid.png",
-      "report_source": "build/experiments/transport/vertical-profiles/Vienna-profile-parabolic-solid.json",
-      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
-    },
-    {
-      "id": "Vienna-profile-cubic-solid",
-      "title": "Wien · Quellabschnitt · kubischer Übergang",
-      "section": "hoehenuebergaenge",
-      "kind": "Vergleich",
-      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
-      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
-      "image_source": "build/experiments/transport/vertical-profiles/Vienna-profile-cubic-solid.png",
-      "report_source": "build/experiments/transport/vertical-profiles/Vienna-profile-cubic-solid.json",
-      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
-    },
-    {
-      "id": "two-level-control-before-solid",
-      "title": "Zwei Ebenen · Kontrolle · vor Höhenplanung",
-      "section": "ebenen",
-      "kind": "Unzulässige Kontrolle",
-      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
-      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/overpasses/two-level-control-before-solid.png",
-      "report_source": "build/experiments/transport/overpasses/two-level-control-before-solid.json",
-      "origin_source": "build/experiments/transport/overpasses/origin.json"
-    },
-    {
-      "id": "two-level-control-after-solid",
-      "title": "Zwei Ebenen · Kontrolle · mit Rampen und Freiraum",
-      "section": "ebenen",
-      "kind": "Geometrieversuch",
-      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
-      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/overpasses/two-level-control-after-solid.png",
-      "report_source": "build/experiments/transport/overpasses/two-level-control-after-solid.json",
-      "origin_source": "build/experiments/transport/overpasses/origin.json"
-    },
-    {
-      "id": "Vienna-overpass-before-solid",
-      "title": "Wien · lokaler Schienenüberbau · vor Höhenplanung",
-      "section": "ebenen",
-      "kind": "Unzulässige Kontrolle",
-      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
-      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-before-solid.png",
-      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-before-solid.json",
-      "origin_source": "build/experiments/transport/overpasses/origin.json"
-    },
-    {
-      "id": "Vienna-overpass-after-solid",
-      "title": "Wien · lokaler Schienenüberbau · mit Rampen und Freiraum",
-      "section": "ebenen",
-      "kind": "Geometrieversuch",
-      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
-      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-after-solid.png",
-      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-after-solid.json",
-      "origin_source": "build/experiments/transport/overpasses/origin.json"
-    },
-    {
-      "id": "Vienna-overpass-detail-before-solid",
-      "title": "Wien · Durchfahrtdetail · vor Höhenplanung",
-      "section": "ebenen",
-      "kind": "Unzulässige Kontrolle",
-      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
-      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-before-solid.png",
-      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-before-solid.json",
-      "origin_source": "build/experiments/transport/overpasses/origin.json"
-    },
-    {
-      "id": "Vienna-overpass-detail-after-solid",
-      "title": "Wien · Durchfahrtdetail · mit Rampen und Freiraum",
-      "section": "ebenen",
-      "kind": "Geometrieversuch",
-      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
-      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
-      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-after-solid.png",
-      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-after-solid.json",
-      "origin_source": "build/experiments/transport/overpasses/origin.json"
-    },
-    {
-      "id": "shared-control-fixed-solid",
-      "title": "Kontrolle · gemeinsames Deck · feste DEM-Ports",
-      "section": "ebenen",
-      "kind": "Tatsächliche lokale Auslassung",
-      "description": "Zwei Brückenquellen teilen eine Höhe und eine Anschlussfläche über zwei verbundenen unteren Wegen. Bei festen DEM-Endhöhen muss das Deck ausbleiben; gültige untere Flächen bleiben.",
-      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
-      "image_source": "build/experiments/transport/shared-bridge/shared-control-fixed-solid.png",
-      "report_source": "build/experiments/transport/shared-bridge/shared-control-fixed-solid.json",
-      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
-    },
-    {
-      "id": "shared-control-shared-solid",
-      "title": "Kontrolle · gemeinsames Deck · angehobene gemeinsame Ports",
-      "section": "ebenen",
-      "kind": "Gemeinsamer Quellflächenplan",
-      "description": "Zwei Brückenquellen teilen eine Höhe und eine Anschlussfläche über zwei verbundenen unteren Wegen. Deckports dürfen höchstens 8 m gegenüber Gelände steigen; Außenanschlüsse sind noch zu planen.",
-      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
-      "image_source": "build/experiments/transport/shared-bridge/shared-control-shared-solid.png",
-      "report_source": "build/experiments/transport/shared-bridge/shared-control-shared-solid.json",
-      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
-    },
-    {
-      "id": "Vienna-shared-bridge-fixed-solid",
-      "title": "Wien · sechs verbundene Brückenteile · feste DEM-Ports",
-      "section": "ebenen",
-      "kind": "Tatsächliche lokale Auslassung",
-      "description": "Sechs Brückenquellen erhalten ein gemeinsames Deck über 17 Außenwegen; zehn Innenwege bleiben ohne Höhenfreigabe. Bei festen DEM-Endhöhen muss das Deck ausbleiben; gültige untere Flächen bleiben.",
-      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
-      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-fixed-solid.png",
-      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-fixed-solid.json",
-      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
-    },
-    {
-      "id": "Vienna-shared-bridge-shared-solid",
-      "title": "Wien · sechs verbundene Brückenteile · angehobene gemeinsame Ports",
-      "section": "ebenen",
-      "kind": "Gemeinsamer Quellflächenplan",
-      "description": "Sechs Brückenquellen erhalten ein gemeinsames Deck über 17 Außenwegen; zehn Innenwege bleiben ohne Höhenfreigabe. Deckports dürfen höchstens 8 m gegenüber Gelände steigen; Außenanschlüsse sind noch zu planen.",
-      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
-      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-shared-solid.png",
-      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-shared-solid.json",
-      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
-    },
-    {
-      "id": "Vienna-shared-bridge-detail-fixed-solid",
-      "title": "Wien · gemeinsame Durchfahrt im Detail · feste DEM-Ports",
-      "section": "ebenen",
-      "kind": "Tatsächliche lokale Auslassung",
-      "description": "Vollständige Deckunterseite und Außenfahrflächen mit mindestens 4,5 m Abstand; tatsächliche Geometrie ohne Höhenüberhöhung. Bei festen DEM-Endhöhen muss das Deck ausbleiben; gültige untere Flächen bleiben.",
-      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
-      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-fixed-solid.png",
-      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-fixed-solid.json",
-      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
-    },
-    {
-      "id": "Vienna-shared-bridge-detail-shared-solid",
-      "title": "Wien · gemeinsame Durchfahrt im Detail · angehobene gemeinsame Ports",
-      "section": "ebenen",
-      "kind": "Gemeinsamer Quellflächenplan",
-      "description": "Vollständige Deckunterseite und Außenfahrflächen mit mindestens 4,5 m Abstand; tatsächliche Geometrie ohne Höhenüberhöhung. Deckports dürfen höchstens 8 m gegenüber Gelände steigen; Außenanschlüsse sind noch zu planen.",
-      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
-      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-shared-solid.png",
-      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-shared-solid.json",
-      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
-    },
-    {
-      "id": "Vienna-approach-before-solid",
-      "section": "schienenanschluesse",
-      "title": "Wien · ganzes Deck mit Schienenanschlüssen · vor Nachbaranschlüssen",
-      "kind": "Bisheriger gültiger Deckstand",
-      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
-      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-before-solid.png",
-      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-before-solid.json",
-      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
-    },
-    {
-      "id": "Vienna-approach-parabolic-solid",
-      "section": "schienenanschluesse",
-      "title": "Wien · ganzes Deck mit Schienenanschlüssen · gemeinsamer parabolischer Übergang",
-      "kind": "Gemeinsamer Höhen- und Flächenplan",
-      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
-      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-parabolic-solid.png",
-      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-parabolic-solid.json",
-      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
-    },
-    {
-      "id": "Vienna-approach-cubic-solid",
-      "section": "schienenanschluesse",
-      "title": "Wien · ganzes Deck mit Schienenanschlüssen · gemeinsamer kubischer Übergang",
-      "kind": "Gemeinsamer Höhen- und Flächenplan",
-      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
-      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-cubic-solid.png",
-      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-cubic-solid.json",
-      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
-    },
-    {
-      "id": "Vienna-approach-detail-before-solid",
-      "section": "schienenanschluesse",
-      "title": "Wien · Anschlussdetail · vor Nachbaranschlüssen",
-      "kind": "Bisheriger gültiger Deckstand",
-      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
-      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-before-solid.png",
-      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-before-solid.json",
-      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
-    },
-    {
-      "id": "Vienna-approach-detail-parabolic-solid",
-      "section": "schienenanschluesse",
-      "title": "Wien · Anschlussdetail · gemeinsamer parabolischer Übergang",
-      "kind": "Gemeinsamer Höhen- und Flächenplan",
-      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
-      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-parabolic-solid.png",
-      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-parabolic-solid.json",
-      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
-    },
-    {
-      "id": "Vienna-approach-detail-cubic-solid",
-      "section": "schienenanschluesse",
-      "title": "Wien · Anschlussdetail · gemeinsamer kubischer Übergang",
-      "kind": "Gemeinsamer Höhen- und Flächenplan",
-      "description": "Zwei echte Schienenanschlüsse aus der westlichen Nachbarkachel. Deckhöhen und bekannte Durchfahrten bleiben erhalten; ein gemeinsamer Höhenplan vermeidet Stufen zwischen überlappenden Spuren.",
-      "scope": "Python-Experiment. Ganze obere Flächen unter 2,5 % Gradienten und 1 cm Höhenfeldfehler; ferne DEM-Anker um höchstens 10 cm angepasst. Tunnel-/Innenkontakte, weitere Kacheln, Terrain und Fahrbarkeit offen. Keine Höhenüberhöhung.",
-      "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-cubic-solid.png",
-      "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-cubic-solid.json",
-      "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-whole-before-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · ganzer Schienenverbund · vor Fortsetzung",
-      "kind": "Vorhandener gültiger Plan",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-before-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-before-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-whole-rebuild-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · ganzer Schienenverbund · gemeinsames Feld",
-      "kind": "Kachelübergreifendes Schienenfeld",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-rebuild-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-rebuild-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-whole-retain-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · ganzer Schienenverbund · erhaltende Erweiterung",
-      "kind": "Kachelübergreifendes Schienenfeld",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-retain-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-retain-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-cut-before-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · Kachelrand · vor Fortsetzung",
-      "kind": "Vorhandener gültiger Plan",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-before-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-before-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-cut-rebuild-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · Kachelrand · gemeinsames Feld",
-      "kind": "Kachelübergreifendes Schienenfeld",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-rebuild-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-rebuild-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-cut-retain-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · Kachelrand · erhaltende Erweiterung",
-      "kind": "Kachelübergreifendes Schienenfeld",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-retain-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-retain-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-rise-before-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · zusätzlicher Höhenübergang · vor Fortsetzung",
-      "kind": "Vorhandener gültiger Plan",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-before-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-before-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-rise-rebuild-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · zusätzlicher Höhenübergang · gemeinsames Feld",
-      "kind": "Kachelübergreifendes Schienenfeld",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-rebuild-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-rebuild-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
-    },
-    {
-      "id": "Vienna-continuation-rise-retain-solid",
-      "section": "kacheluebergaenge",
-      "title": "Wien · zusätzlicher Höhenübergang · erhaltende Erweiterung",
-      "kind": "Kachelübergreifendes Schienenfeld",
-      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
-      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
-      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-retain-solid.png",
-      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-retain-solid.json",
-      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+      "id": "Vienna-before",
+      "title": "01 · Straßen und Boden · vorher",
+      "caption": "Wien · unabhängiger Boden verdeckt Teile der Straßen.",
+      "model": "ground/Vienna-ground-before-solid",
+      "tiles": [
+        "Vienna"
+      ],
+      "comparison": "ground",
+      "surface_groups": [
+        {
+          "slots": [
+            0,
+            1
+          ],
+          "depth_m": 0.25
+        },
+        {
+          "slots": [
+            5
+          ],
+          "depth_m": 5.0
+        }
+      ],
+      "diagnostic": true,
+      "scope": "Complete source tile; historical diagnostic of independently fitted roads and unmodified DEM terrain with intentional interpenetration. Not a valid final combined surface.",
+      "image_source": "build/experiments/transport/whole-tiles/Vienna-before-solid.png",
+      "report_source": "build/experiments/transport/whole-tiles/Vienna-before-solid.json",
+      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+    },
+    {
+      "id": "Vienna-after",
+      "title": "02 · Straßen und Boden · jetzt",
+      "caption": "Wien · gemeinsame Oberfläche und durchgehende Fahrflächen.",
+      "model": "ground/Vienna-ground-after-solid",
+      "tiles": [
+        "Vienna"
+      ],
+      "comparison": "ground",
+      "surface_groups": [
+        {
+          "slots": [
+            0,
+            1,
+            5
+          ],
+          "depth_m": 5.0
+        }
+      ],
+      "diagnostic": false,
+      "scope": "Complete source tile; valid coarse C0 shared road/soil surface. Display slab, not earth volume or proven physical collision material. Not a full Place or native runtime.",
+      "image_source": "build/experiments/transport/whole-tiles/Vienna-after-solid.png",
+      "report_source": "build/experiments/transport/whole-tiles/Vienna-after-solid.json",
+      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+    },
+    {
+      "id": "Vienna-bridge-before",
+      "title": "03 · Brückenteilnetz · vorher",
+      "caption": "Wien · bisheriger Brückenplan im vollständigen Kachelverbund.",
+      "model": "bridge-continuations/Vienna-continuation-whole-before-solid",
+      "tiles": [
+        "Vienna-Donau-West",
+        "Vienna-Donau",
+        "Vienna-Donau-South"
+      ],
+      "comparison": "bridge",
+      "surface_groups": [
+        {
+          "slots": [
+            1,
+            3
+          ],
+          "depth_m": 0.35
+        },
+        {
+          "slots": [
+            0
+          ],
+          "depth_m": 0.25
+        }
+      ],
+      "diagnostic": false,
+      "scope": "Three complete source tiles frame the previously valid partial bridge/ground plan, before the south-tile continuation. Unknown and unselected sources remain omitted.",
+      "image_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.png",
+      "report_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.json",
+      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+    },
+    {
+      "id": "Vienna-bridge-after",
+      "title": "04 · Brückenteilnetz · jetzt",
+      "caption": "Wien · Fortsetzung und Höhenübergänge über drei Kacheln.",
+      "model": "bridge-continuations/Vienna-continuation-whole-rebuild-solid",
+      "tiles": [
+        "Vienna-Donau-West",
+        "Vienna-Donau",
+        "Vienna-Donau-South"
+      ],
+      "comparison": "bridge",
+      "surface_groups": [
+        {
+          "slots": [
+            1,
+            3
+          ],
+          "depth_m": 0.35
+        },
+        {
+          "slots": [
+            0
+          ],
+          "depth_m": 0.25
+        }
+      ],
+      "diagnostic": false,
+      "scope": "Three complete source tiles frame the extended valid partial bridge/ground field. Previously planned affine surfaces are retained; two C1 height transitions with finite C0 faces. Remaining source IDs retain omission reasons in the original plan. Indoor/tunnel/other routes, terrain/water, rails, piers and structure remain uncertified.",
+      "image_source": "build/experiments/transport/whole-tiles/Vienna-bridge-after-solid.png",
+      "report_source": "build/experiments/transport/whole-tiles/Vienna-bridge-after-solid.json",
+      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
     }
-  ],
-  "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
-  "gap": "Gemeinsame C0-Höhen, Bodenkontakte und ganze Flächengrenzen sind geprüft. Adaptive Terrainverfeinerung, C1-Anschlüsse, funktionale Fahrkurven/Zugänge, Überhöhung, Rampen, Tunnel, Brückenstützen und vollständige OSM-Fenster bleiben offen. Native Echtzeit- und Geräteabnahme fehlen."
+  ]
 }
