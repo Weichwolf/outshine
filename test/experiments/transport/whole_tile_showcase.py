@@ -117,7 +117,9 @@ def crop_surfaces(mesh, slots, region, groups):
         depth = group["depth_m"]
         used, indices = np.unique(mesh.triangles[selected], return_inverse=True)
         original = Mesh(mesh.vertices[used], indices.reshape(-1, 3))
-        result, colours, weld = clipped(original, slots[selected], region)
+        result, colours, weld = clipped(
+            original, slots[selected], region, max_faces=262144
+        )
         expected = shapely.intersection(surface_domain(original), region)
         coverage = shapely.symmetric_difference(surface_domain(result), expected).area
         if coverage > 1e-5:

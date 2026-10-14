@@ -683,6 +683,11 @@ per component. After a kernel/geometry or output-limit failure, the physical ban
 union after curb refinement identifies independent parts. Bounded local attempts
 keep valid complete parts and give each omitted source a specific reason.
 Axis connectivity alone is insufficient: wide parallel bands can physically meet.
+Recovery cuts/meshes consume the already planned physical domain; rebuilding
+curbs per component was rejected after a Hong Kong domain mismatch.
+Whole-tile inspection declares its 262144-face preparation budget, matching the
+assembler output cap; SurfaceSampler and the older ground inspection retain
+their 65536-face default. Existing numeric tolerances and hard process limits remain.
 `original_edges` and `source_indices` bind unchanged direction/access masks to the
 original prepared graph. This does not certify drivable turns or physical profiles.
 

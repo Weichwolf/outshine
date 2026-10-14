@@ -8,7 +8,9 @@ from dataclasses import dataclass
 import numpy as np
 import shapely
 from transport_flat_corners import rounded_plan
-from transport_flat_surfaces import solve
+from transport_flat_cuts import cuts_plan
+from transport_flat_ports import port_sections
+from transport_flat_surfaces import shared_mesh, solve
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,9 +93,17 @@ def selected_sources(graphs, selections):
 
 
 def solve_component(selected, domain, budget, precision, radius, error):
-    product, audit = solve(
-        selected, precision, junction_mode="cuts", corner_radius=radius, arc_error=error
+    # The shared physical domain is already planned. Rebuilding its curb union
+    # independently can alter tiny seams and is not a valid source-plan replay.
+    parts, roles, cuts, geometry = cuts_plan(
+        domain, selected, precision, radius, error=error
     )
+    product, audit = shared_mesh(domain, parts, roles, precision)
+    audit["ports"], product["unresolved_port_centres"] = port_sections(
+        product, precision * 0.01
+    )
+    audit["cuts"] = cuts
+    product.update(geometry)
     if len(product["indices"]) > budget.maximum_faces:
         raise ValueError("component_face_budget")
     if any(
