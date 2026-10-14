@@ -681,3 +681,27 @@ radial products, not visibility-clipped shells or a native cache/LOD ABI.
 proofs. Trimesh.revolve is an equal-output comparison; its absolute small-area
 cutoff leaves a valid tiny tube open. The own indexed path preserves that geometry
 without position welding. Runtime/device budgets remain unproven.
+
+## Closed heightfield envelopes
+
+`heightfield_envelope(top, base_m, wall_material=1, base_material=0,
+wall_uv_scale_m=(1., 1.))` closes an existing upward ENU triangular surface.
+It reuses the actual top triangles, preserves upper UV0–9, normals and face
+metadata, adds the mirrored lower surface and vertical walls only along actual
+domain boundaries. Existing edge-connected fans retain explicit identities;
+point-contact domains remain separate. There is no interior body/roof cap and
+no generic CGA derivation-tree evaluation.
+
+`HeightfieldEnvelope` holds immutable corner buffers, topology roots, original
+upper-triangle indices, top/lower/wall roles, boundary edges, domain WKB and the
+exact integral of the piecewise-linear top above the lower plane. Newly created
+surfaces use metre UVs and explicit material overrides; their CGA tag mask is
+zero. Material tables, arbitrary channels and native cache/LOD ABI are not
+inherited implicitly.
+
+Input projections must be upward, resolved and non-overlapping. Unmatched
+interior edges/T junctions, a base touching the upper surface, missing vertices,
+invalid channel bindings and unsupported fields reject. Domain overlap tolerance
+is 1e-8 m²; boundary residual tolerance is 1e-8 m, checked in a local XY frame.
+[#152](https://github.com/Weichwolf/outshine/issues/152) owns actual provider roof
+controls, independent closed composition/height slices and build-cost comparison.
