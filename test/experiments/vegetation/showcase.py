@@ -577,6 +577,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            leaf_library_plot,
             turning_force_plot,
             growth_force_plot,
             spatial_frond_plot,
