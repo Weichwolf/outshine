@@ -7,6 +7,7 @@ import unittest
 import numpy as np
 
 from boolean_exact_regions import clip,partition,area,clean
+from boolean_exact_regions import point
 from boolean_exact_rounding import contract
 from boolean_output_repair import cancel,zero_area,unresolved_area
 from boolean_source_coordinates import projected_weights,rational_weights
@@ -98,6 +99,33 @@ class ExactControls(unittest.TestCase):
         evidence={};roots=np.array([[0,1,2],[0,2,1]])
         result,_,_=cancel(roots,('a','a'),[7,7],nodes,evidence=evidence)
         self.assertEqual(len(result),0);self.assertEqual(evidence['maximum_cancelled_altitude_m'],bound)
+
+    def test_known_coordinate_rounding_bounds_resolvable_microbubble(self):
+        triangle=np.array([[6.714285714285714,.2,-2.0000000000000004],
+                           [6.714285714285714,.2,-2.],[6.714285714285715,.2,-2.0000000000000013]])
+        self.assertIsNone(unresolved_area(triangle))
+        self.assertIsNone(unresolved_area(triangle,tuple(map(point,triangle))))
+        exact=[]
+        for values in triangle:
+            row=list(point(values))
+            for axis in (0,2):row[axis]+=F(float(np.spacing(abs(values[axis]))))/4
+            exact.append(tuple(row))
+        np.testing.assert_array_equal(np.asarray(exact,dtype=float),triangle)
+        bound=unresolved_area(triangle,exact);self.assertIsNotNone(bound);self.assertLess(bound,5e-15)
+        nodes=SimpleNamespace(coordinates=dict(enumerate(triangle)),exact=dict(enumerate(exact)))
+        evidence={};result,_,_=cancel(np.array([[0,1,2],[0,2,1]]),('a','a'),[7,7],nodes,evidence=evidence)
+        self.assertEqual(len(result),0);self.assertEqual(evidence['maximum_cancelled_altitude_m'],bound)
+
+    def test_known_rounding_does_not_cancel_resolvable_small_area(self):
+        triangle=np.array([[2.,2.,0.],[2.00000001,2.,0.],[2.,2.00000001,0.]])
+        exact=[tuple(value+F(float(np.spacing(abs(float(value)))))/4 if value else value for value in row)
+               for row in map(point,triangle)]
+        np.testing.assert_array_equal(np.asarray(exact,dtype=float),triangle)
+        self.assertIsNone(unresolved_area(triangle,exact))
+        nodes=SimpleNamespace(coordinates=dict(enumerate(triangle)),exact=dict(enumerate(exact)))
+        roots=np.array([[0,1,2],[0,2,1]])
+        result,_,_=cancel(roots,('a','a'),[7,7],nodes)
+        np.testing.assert_array_equal(result,roots)
 
 
 if __name__=='__main__':unittest.main()
