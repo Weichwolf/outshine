@@ -48,27 +48,30 @@ def bridge():
                                             scope="Synthetic crossing with explicit heights; no ramps, supports, terrain or network-level elevation solver.")
 
 
+def inspection_view(vertices, *, eye_direction=(.62, -.85, .85)):
+    minimum, maximum = vertices.min(axis=0), vertices.max(axis=0)
+    centre = (minimum + maximum) * .5
+    span = max(float((maximum - minimum)[:2].max()), 1.)
+    eye = centre + np.asarray(eye_direction) * span
+    direction = centre - eye
+    direction /= np.linalg.norm(direction)
+    right = np.cross(direction, [0., 0., 1.])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, direction)
+    relative = vertices - centre
+    frame_span = max(float(np.abs(relative @ right).max()) * 2,
+                     float(np.abs(relative @ up).max()) * 2 * 1920 / 1080)
+    return dict(eye=eye.tolist(), target=centre.tolist(), span_m=frame_span * 1.1, profile=[1920, 1080])
+
+
 def write_case(name, body, materials, report, configurations, view=None, *, output_dir=OUTPUT):
     output = output_dir / f"{name}-solid.npz"
     np.savez_compressed(output, vertices=body.vertices, triangles=body.triangles, materials=materials)
     volume = audit_closed(body)
     if volume <= 0:
         raise ValueError("closed body must have positive volume")
-    minimum, maximum = body.vertices.min(axis=0), body.vertices.max(axis=0)
-    centre = (minimum + maximum) * .5
-    span = max(float((maximum - minimum)[:2].max()), 1.)
-    eye = centre + np.array([.62, -.85, .85]) * span
-    direction = centre - eye
-    direction /= np.linalg.norm(direction)
-    right = np.cross(direction, [0., 0., 1.])
-    right /= np.linalg.norm(right)
-    up = np.cross(right, direction)
-    relative = body.vertices - centre
-    frame_span = max(float(np.abs(relative @ right).max()) * 2,
-                     float(np.abs(relative @ up).max()) * 2 * 1920 / 1080)
     configuration = dict(id=name, mesh=str(output), mesh_sha256=hashlib.sha256(output.read_bytes()).hexdigest(),
-                         output=str(output_dir / f"{name}-solid.png"), eye=eye.tolist(), target=centre.tolist(),
-                         span_m=frame_span * 1.1, profile=[1920, 1080])
+                         output=str(output_dir / f"{name}-solid.png"), **inspection_view(body.vertices))
     if view:
         configuration.update(view)
     configurations.append(configuration)

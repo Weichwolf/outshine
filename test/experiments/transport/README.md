@@ -346,3 +346,59 @@ vollständigen Chordmeshes, ohne Höhenüberhöhung. Ganze Fahrmeshes bleiben se
 C1 betrifft den analytischen Plan; das endliche Mesh bleibt C0 und seine Endneigung
 weicht höchstens `sqrt(2*a*height_error)` vom flachen Kontakt ab. Kein C2-, DEM-Innenfit-,
 Fahrdynamik-, vollständiger Netz-/Brücken-/Tunnel- oder LOD-Nachweis.
+
+### Lokale Zweiebenenrezepte (#21)
+
+`overpass_recipe.py` verbindet #96-Rampen mit einem starren Überlappungskern.
+Quell-XY und DEM-Endhöhen bleiben fest; originale Stationsknicke werden erhalten.
+Miter-Streifen unterstützen höchstens256 Quellpunkte und30° Richtungswechsel;
+größere/gefaltete oder übersteile Fälle werden lokal begründet abgelehnt.
+Klassenbreiten, fehlende4m-Breite und4,5m Durchfahrt sind explizite Rezeptannahmen.
+Layer liefert ausschließlich eine Ordnung, keine Meterhöhe oder automatische Verbindung.
+Treppenflächen und unklare/same-level Ordnung haben hier kein Rezept.
+
+`overpass_clearance.py` überlagert vollständige projizierte Dreiecke. Die Differenz
+ihrer affinen Z-Felder erreicht ihr Minimum an einem Vertex des Schnittpolygons;
+so zählen Querneigung, schräge Ecken und die tatsächliche Deckunterseite.
+Positive Kleinstüberlappungen bleiben erhalten, bloße Randkontakte gelten nicht als
+Durchfahrt. Max8192 Faces/Fläche,65536 Kandidaten und1s kooperative Prüfphase;
+Budgetende liefert keine vollständige Freigabe. Beweiszeugen/Checks bleiben im Report.
+Eigene Hypothese aus elementarer affiner Geometrie, unabhängig vom SDK-Schnitthilfer.
+Galin2010 Figuren17/18 optisch erneut geprüft: Profil/Querschnitt und Segmentierung
+sind getrennte Aufgaben, nicht bereits ein vollständiger Verkehrs-/Bauwerksnachweis.
+
+Portable `fixtures/overpass-vienna-cases.json`:53 unabhängige hypothetische Quellpaare
+aus bisheriger Wiener Kachel und zusätzlicher14/8939/5680 aus demselben OpenFreeMap-
+Snapshot20260927_080001_pt. Letztere:215 Features/793 Achsteile/44 Flächenquellen.
+Original-IDs/Tags/XY, DEM-Endziele, Quellenhashes/Receipts und jede nicht ausgewählte
+Quell-ID mit gemeinsamem Scopegrund bleiben erhalten. Keine Originalquelle ersetzt.
+Normale Tests/Vergleiche lesen nur Pins; `capture_overpass_cases.py` ersetzt sie
+ausdrücklich aus vorbereiteten Eingaben, `--fetch` erwirbt nur fehlende DEM-Kacheln.
+Parabolisch11/53, kubisch4/53 gültig;37 Paarversuche behalten mindestens die separat
+geprüfte untere Fläche. Das ist keine gemeinsam komponierte Netzabdeckung; eine
+mehrfach vorkommende obere Quelle hat alternative lokale Pläne.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/overpass_checks.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/overpass_experiment.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/overpass_showcase.py
+```
+
+Ergebnisse/ganze Meshes/Produktbindungen unter `build/experiments/transport/overpasses/`.
+Drei frische Worker je Methode, sieben Batches derselben vier gemeinsamen gültigen
+Paare; komplette Vorbereitung/Geometrie/Neigungs-/Abstandsprüfung enthalten.
+Source-JSON/Warmup/Produktserialisierung/Renderer getrennt; CPU10s/AS2GiB/Parent30s,
+ein BLAS-Thread. Whole-exec LinuxVmHWM, kein Algorithmus-only-/Runtime-/Gerätenachweis.
+Sechs geöffnete1920×1080-Vorher/Nachherbilder mit gemeinsamer Kamera aus beiden
+Geometrien; Ganzmodell und Nahdetail, ohne Höhenüberhöhung. Vorher ist absichtlich
+unzulässige Interpolation der DEM-Enden, kein schlechter gemachter Bestandsplan.
+
+`overpass_products.py` bindet vorhandene `Plan`/`LocalFrame`/`Reservation`-Verträge:
+Deck/Bodenverkehr/Quelle ausdrücklich in Experimentmetadaten, getrennte Sampler;
+per-Face Höhenprismen statt einer bis zum Boden reichenden Bridge-Reservation.
+Diese Prismen sind konservativ und können zusätzliche Kontakte blockieren; keine
+exakten Swept-Volumes oder neue öffentliche Kontakt-API. Nur Experiment, kein neues
+Bibliotheks-/natives Ebenenrezept. C1 und1cm Chordbudget gelten für Stationsprofile,
+nicht für horizontale Knicke oder eine globale Fehlergrenze des Miter-Surfaces.
+Freie Ports, abgestimmte Nachbarn, DEM-Innenfit/Terrain, Pfeiler/Statik, Gleishardware,
+Fahrdynamik, drei Ebenen und Tunnelportale bleiben offen.
