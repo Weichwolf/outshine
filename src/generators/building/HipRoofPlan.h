@@ -56,6 +56,7 @@ public:
 
 private:
   friend class HipRoofCodec;
+  [[nodiscard]] bool OwnsEveryEave(size_t count) const;
   EastNorth Origin_;
   double MaximumDistanceM_ = 0;
   double PrecisionM_ = 0;

@@ -165,6 +165,8 @@ def main():
             checks = dict(passed=False, error=str(error))
         results.append(dict(id=row['id'], elapsed_ms=(time.monotonic()-start)*1000, **checks))
     report = dict(commit=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+                  implementation_tree_dirty=bool(subprocess.check_output(
+                      ['git', 'status', '--porcelain'], cwd=ROOT, text=True).strip()),
                   source_sha256=hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
                   runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   native_sha256={str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
