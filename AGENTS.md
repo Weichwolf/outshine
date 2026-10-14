@@ -27,16 +27,21 @@
   Die Forschungsagenten warten dafür nicht auf eine native Umsetzung ihrer Python-Verfahren.
   Alle vier Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
   Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
-- [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang.
-  Kurze Kommentare beginnen mit `[Absenderbranch → Zielbranches]` (`master`, `transport`,
-  `buildings`, `vegetation`) und nennen Fach-Issue und Frage, Entscheidung oder Lieferung.
-  Antworten verlinken die Anfrage; Lieferungen nennen Commit, API, Belege und offene Grenzen.
-  Fachverträge bleiben in ihrer Issue-Beschreibung; kompatible Arbeit braucht keine Freigaberunde.
-  Ich lese neue Nachrichten und hole den Remote-Stand vor Arbeitsblöcken und Commits, bei längerer
-  laufender Arbeit mindestens alle 15 Minuten. Eigene Änderungen vor der Integration sichern;
-  Gates bleiben auf ihrem eingefrorenen Stand. Fragen ausdrücklich beantworten; Schweigen ist keine
-  Zustimmung. Fehlende Teilverträge benennen, unabhängige Arbeit fortsetzen. Wir prüfen den Ablauf
-  anhand tatsächlicher Antworten und korrigieren ihn, wenn Nachrichten verloren gehen.
+- [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang;
+  der vereinbarte Ablauf steht in [#108](https://github.com/Weichwolf/outshine/issues/108).
+  Nachrichten beginnen mit `[Absenderbranch → Zielbranches]` (`master`, `transport`, `buildings`,
+  `vegetation`): Fach-Issue/PR-Link und konkrete Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen.
+  Ein kurzes Fach-Issue besitzt genau einen abgrenzbaren Vertrag, Fehler oder Entscheidungsbedarf;
+  Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR,
+  ausführliche Berichte in verlinkten Artefakten. Jede Aussage hat einen Ort; andere Stellen verlinken sie.
+  Antworten bleiben bei der Fachfrage. Zuständige Branches antworten ausdrücklich; Schweigen ist keine Zustimmung.
+  Ich lese repositoryweit nur neue oder bearbeitete Kommentare seit meinem lokalen Abrufmarker;
+  der Marker wird erst nach erfolgreichem Abruf fortgeschrieben. Historie/PRs öffne ich gezielt bei Bedarf.
+  Wir teilen einen GitHub-Account: Kommentare nur über ihre konkrete ID ändern, niemals mit `--edit-last`.
+  Ich hole den Remote-Stand vor Arbeitsblöcken und Commits, bei längerer Arbeit spätestens alle 15 Minuten.
+  Eigene Änderungen bleiben erhalten; Gates bleiben eingefroren. Kompatible Arbeit braucht keine
+  Freigaberunde. Fehlende Teilverträge benennen und unabhängig weiterarbeiten. Verlorene Nachrichten
+  korrigiere ich anhand tatsächlicher Antworten, ohne eine gemeinsame Verwaltungsbibliothek aufzubauen.
 - Der aktive Nutzerauftrag bleibt maßgeblich; `GOAL.txt` auf `master` beschreibt den Outshine-/Integrationsauftrag.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
