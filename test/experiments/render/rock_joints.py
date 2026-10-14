@@ -44,7 +44,7 @@ def cavity(value, gradient, footprint, wavelength):
     variance = (footprint * 1.5 * np.sqrt(3) / wavelength) ** 2 / 6
     square = width * width + variance
     pulse = width / np.sqrt(square) * np.exp(-value * value / (2 * square))
-    visible = fade(footprint * 1.04, wavelength)
+    visible = fade(footprint, wavelength)
     return -pulse * visible, (pulse * value / square * visible)[..., None] * gradient
 
 
@@ -115,7 +115,10 @@ def field(world, footprint, recipe, mode):
             raw_gradient = (slope @ transform) / scale
             if mode == "cavities" and index < 2:
                 height, height_gradient = cavity(
-                    value - 0.5, raw_gradient, footprint, scale
+                    value - 0.5,
+                    raw_gradient,
+                    footprint * (1 if index == 0 else 1.04),
+                    scale,
                 )
                 bump += amplitude * height
                 gradient += amplitude * height_gradient
