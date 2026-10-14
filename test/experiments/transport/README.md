@@ -32,36 +32,50 @@ Vor erneutem Anwenden hashgeprüfter Produkte die Nachweise unter den neuen Modu
 ## Lokaler Showcase
 
 Wie bei Buildings (8766) und Vegetation (8765) veröffentlicht der Transport-Showcase
-einen festen Bildstand. Port 8767 zeigt Grundformen, Anschlüsse und echte OSM-Netze;
-fehlende lokale Nachweise bleiben unvollständig. Bilder lassen sich vergrößern und
-als PNG herunterladen. „Stand laden“ aktualisiert die Anzeige ohne automatisches Neuladen.
+einen festen Bildstand. Port 8767 zeigt genau vier Gesamtansichten in zwei
+Vorher/Nachher-Paaren: unabhängigen/gemeinsamen Boden und das Brückenteilnetz vor/nach
+der Fortsetzung über drei Kacheln. Kurze Bildunterschriften, Bildlinks und manuelles Aktualisieren bilden die
+gesamte Oberfläche. Fehlende Nachweise bleiben sichtbar unvollständig.
 
 ```sh
 .venv/bin/python -m pip install numpy scipy 'shapely>=2.1' matplotlib pillow
-.venv/bin/python test/experiments/transport/showcase.py --render-fixtures --serve
+PYTHONPATH=lib/src .venv/bin/python test/experiments/transport/showcase.py --render-tiles --serve
 ```
 
-Die Grundfälle benutzen den bestehenden Flächensolver mit gemeinsamen Randschnitten.
+`whole_tile_showcase.py` verwendet hashgeprüfte Generatorprodukte aus den unten
+beschriebenen Boden- und Brückenexperimenten. Das erste Bild zeigt ausdrücklich die
+bekannte frühere Überdeckung durch unabhängiges Gelände als Vorher-Diagnose;
+die anderen drei Bilder verwenden gültige Teilpläne. Die
+gespeicherten Eingaben/Produkte müssen zuvor vorhanden sein. Originale
+Erzeugungscommits bleiben im Bildreport erhalten; der Rendercommit steht in
+`origin.json`. Es wird keine erneute Generatorausführung vorgetäuscht.
 GEOS ist als Systembibliothek erforderlich (`libgeos-dev` unter Debian).
 Der Solver importiert die installierte Referenzbibliothek: bei vorhandenem `lib/`
 einmal `.venv/bin/python -m pip install -e ./lib` ausführen.
 Erzeugte Bilder, Produkte und Messreports liegen unter
-`build/experiments/transport/showcase/fixtures/`, die veröffentlichte Website unter
+`build/experiments/transport/whole-tiles/`, die veröffentlichte Website unter
 `build/experiments/transport/showcase/site/`. Der Server erzeugt keine Geometrie bei Anfragen.
+Blender Workbench rendert frisch mit Fehler-Exitcode und prüft alle vier vollständigen
+1920×1080-PNGs. Kachelgrenzen kommen aus den gepinnten Quelldaten; Zuschnitte
+erhalten Flächendeckung, Höhen und getrennte Verkehrsebenen. Dünne Kachelrahmen sind
+Anzeigehilfen, kein Gelände. Es gibt keine Höhenübertreibung. Das Brückenbild zeigt
+ausdrücklich ein Teilnetz; ungelöste Quellen behalten ihre Gründe im ursprünglichen Plan.
 
 ```sh
 .venv/bin/python test/experiments/transport/showcase.py --publish
 .venv/bin/python test/experiments/transport/showcase.py --serve --host 0.0.0.0 --port 8767
 .venv/bin/python -W error test/experiments/transport/showcase_checks.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/whole_tile_checks.py
 ```
 
-`--catalog` wählt einen anderen Bildkatalog. Jeder Eintrag nennt Bild, Messreport und
+`--catalog` wählt einen anderen Katalog mit genau vier Bildplätzen. Jeder Eintrag nennt Bild, Messreport und
 Erzeugungsnachweis unter `build/`. `origin.json` enthält den Erzeugungscommit,
 `working_tree_dirty` und unter `records` die SHA-256-Werte von Bild und Report,
 indiziert durch den Report-Dateinamen ohne Erweiterung. Nur übereinstimmende lesbare
 PNGs werden veröffentlicht. Synthetische Flächenprüfungen belegen keine glatten
 Fahrkurven, vollständige Befahrbarkeit, Höhen oder native Echtzeitqualität.
-Der Auftrag und die Abnahme stehen in [#49](https://github.com/Weichwolf/outshine/issues/49).
+Der ursprüngliche Serverauftrag steht in [#49](https://github.com/Weichwolf/outshine/issues/49),
+die minimale Gesamtansicht in [#135](https://github.com/Weichwolf/outshine/issues/135).
 
 ## Geschlossene 3D-Körper und gespeicherte Wiener Quellkachel
 
