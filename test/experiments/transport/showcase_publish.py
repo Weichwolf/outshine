@@ -91,7 +91,10 @@ def page(images):
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>Transport · Outshine</title><link rel="stylesheet" href="/showcase.css">'
         '</head><body><header><h1>Transport</h1><a href="/">Aktualisieren</a></header>'
-        "<main>" + "".join(cards) + "</main></body></html>"
+        "<main>" + "".join(cards) + "</main>"
+        "<footer><small>© OpenMapTiles · "
+        '<a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        "</small></footer></body></html>"
     )
 
 
