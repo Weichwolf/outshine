@@ -1,0 +1,168 @@
+from dataclasses import replace
+import unittest
+
+import numpy as np
+import shapely
+
+from outshine_ref.buildings.modelling import Branch, Face, Frame, Shape, SkeletonBudgetExceeded, SkeletonLimits
+from outshine_ref.buildings.modelling.metadata import Material
+from outshine_ref.buildings.modelling.selectors import tagged
+
+
+def volume(shape):
+    mesh=shape.emit(); corners=mesh['vertices'][mesh['faces']]
+    corners=corners-corners.mean(axis=(0,1))
+    return np.einsum('ij,ij->i',corners[:,0],np.cross(corners[:,1],corners[:,2])).sum()/6
+
+
+class HipModelling(unittest.TestCase):
+    def test_rotated_inset_rim_normals_remain_perpendicular_on_short_edges(self):
+        from outshine_ref.buildings.modelling.faces import plane
+        source=Shape.from_polygon(shapely.Polygon([(0,0),(12,0),(10,7),(2,6)])).r(17,31,23)
+        roof=source.roof_hip(3.,'byHeight',overhang=-.5)
+        mesh=roof.emit();normal=plane(source.emit()['vertices'],source.geometry.polygons[0])[0]
+        sides=np.asarray([any(t.startswith('roof.side') for t in f.tags) for f in roof.geometry.polygons])[mesh['parts']]
+        corners=mesh['vertices'][mesh['faces'][sides]]
+        normals=np.cross(corners[:,1]-corners[:,0],corners[:,2]-corners[:,0])
+        self.assertTrue(np.all(abs(normals@normal)<=1e-12*np.linalg.norm(normals,axis=1)))
+
+    def test_negative_overhang_closes_inset_rims_and_keeps_analytic_volume(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5))
+        for even in (False,True):
+            roof=source.roof_hip(3.,'byHeight',overhang=-.5,even=even)
+            k=3./2.5;d=.5/np.hypot(1.,k)
+            expected=k*(60*2.5-17*2.5**2+4*2.5**3/3-17*d**2+8*d**3/3)
+            self.assertAlmostEqual(volume(roof),expected,places=7)
+            self.assertTrue(any('roof.side.outer' in f.tags for f in roof.geometry.polygons))
+            self.assertAlmostEqual(roof.roof_info.insets[0].eave_level_m,k*d)
+            mesh=roof.emit();_,ids=np.unique(mesh['vertices'],axis=0,return_inverse=True)
+            triangles=ids[mesh['faces']]
+            edges=np.concatenate([triangles[:,[0,1]],triangles[:,[1,2]],triangles[:,[2,0]]])
+            _,inverse,counts=np.unique(np.sort(edges,axis=1),axis=0,return_inverse=True,return_counts=True)
+            self.assertTrue(np.all(counts==2))
+            self.assertTrue(np.all(np.bincount(inverse,weights=np.where(edges[:,0]<edges[:,1],1,-1))==0))
+
+    def test_inset_collapse_is_local_to_its_source_face(self):
+        vertices=np.array([[0,0,0],[0,0,-10],[12,0,-10],[12,0,0],
+                           [20,0,0],[20,0,-1],[22,0,-1],[22,0,0]],dtype=float)
+        source=Shape.from_faces(vertices,[Face((0,1,2,3)),Face((4,5,6,7))])
+        roof=source.roof_hip(3.,'byHeight',overhang=-4.)
+        self.assertEqual(roof.roof_info.collapsed_source_faces,(1,))
+        self.assertEqual(set(roof.roof_info.source_faces),{0})
+        self.assertEqual(len(roof.roof_info.plans),2)
+        self.assertTrue(roof.roof_info.insets[1].domain.is_empty)
+        empty=source.roof_hip(3.,'byHeight',overhang=-100.)
+        self.assertEqual(empty.roof_info.collapsed_source_faces,(0,1))
+        self.assertEqual(len(empty.emit()['faces']),0)
+        self.assertEqual(empty.scope.size,(0.,0.,0.))
+
+    def test_negative_overhang_retains_open_courtyard_and_inner_rim(self):
+        polygon=shapely.Polygon([(0,0),(10,0),(10,8),(0,8)], [[(2,2),(2,6),(7,6),(7,2)]])
+        roof=Shape.from_polygon(polygon).roof_hip(3.,'byHeight',overhang=-.5)
+        self.assertTrue(any('roof.side.inner' in f.tags for f in roof.geometry.polygons))
+        bottom=[f for f in roof.geometry.polygons if 'roof.bottom' in f.tags]
+        self.assertEqual(len(bottom),1)
+        self.assertEqual(len(bottom[0].holes),1)
+        self.assertAlmostEqual(roof.scope.size[1],3.)
+
+    def test_rectangle_volume_angles_and_closed_oriented_edges(self):
+        original=Shape.from_polygon(shapely.box(0,0,12,5))
+        for value,mode in ((3.,'byHeight'),(25.,'byAngle')):
+            roof=original.roof_hip(value,mode)
+            rise=value if mode=='byHeight' else np.tan(np.deg2rad(value))*2.5
+            self.assertAlmostEqual(volume(roof),rise*(30-25/6))
+            mesh=roof.emit(); _,ids=np.unique(mesh['vertices'],axis=0,return_inverse=True)
+            faces=ids[mesh['faces']];edges=np.concatenate([faces[:,[0,1]],faces[:,[1,2]],faces[:,[2,0]]])
+            _,inverse,counts=np.unique(np.sort(edges,axis=1),axis=0,return_inverse=True,return_counts=True)
+            self.assertTrue(np.all(counts==2))
+            self.assertTrue(np.all(np.bincount(inverse,weights=np.where(edges[:,0]<edges[:,1],1,-1))==0))
+            self.assertEqual(len(roof.comp('f',Branch(tagged('roof.top')))),4)
+            self.assertEqual(len(roof.comp('f',Branch(tagged('roof.bottom')))),1)
+
+    def test_multiple_planes_keep_appearance_and_source_face_ownership(self):
+        vertices=np.array([[0,0,0],[0,0,-5],[12,0,-5],[12,0,0],
+                           [20,0,0],[20,5,0],[32,5,0],[32,0,0]],dtype=float)
+        original=Shape.from_faces(vertices,[Face((0,1,2,3),material=7,tags=frozenset({'first'}),group=2),
+                                            Face((4,5,6,7),material=9,tags=frozenset({'second'}),group=3)])
+        original=original.with_metadata(group_names={2:'one',3:'two'},material_defs={7:Material('slate'),9:Material('copper')}).color(.2,.3,.4)
+        roof=original.roof_hip(3.,'byHeight')
+        self.assertAlmostEqual(volume(roof),155.)
+        self.assertEqual(set(roof.roof_info.source_faces),{0,1})
+        self.assertEqual(roof.geometry.material_defs,original.geometry.material_defs)
+        self.assertEqual(roof.geometry.group_names,original.geometry.group_names)
+        self.assertEqual(roof.material,original.material)
+        for index,face in enumerate(roof.geometry.polygons):
+            parent=original.geometry.polygons[roof.roof_info.source_faces[index]]
+            self.assertEqual((face.material,face.group),(parent.material,parent.group))
+            self.assertTrue(parent.tags<=face.tags)
+
+    def test_nested_object_frame_does_not_enter_the_roof_solver(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5)).r(17,31,23)
+        distant=replace(source,scope=replace(source.scope,object_frame=Frame((1e8,200,-300),(13,17,23))))
+        near=source.roof_hip(3.,'byHeight');far=distant.roof_hip(3.,'byHeight')
+        local=replace(far,scope=replace(far.scope,object_frame=Frame()))
+        np.testing.assert_allclose(near.emit()['vertices'],local.emit()['vertices'],atol=1e-12)
+        self.assertEqual(far.scope.object_frame,distant.scope.object_frame)
+
+    def test_source_normal_stream_is_rebuilt_and_absent_uv_stays_absent(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5));mesh=source.emit()
+        mesh['normals']=np.tile([0.,1.,0.],(len(mesh['vertices']),1))
+        authored=Shape.from_mesh(mesh,source.scope,source.geometry.polygons).delete_uv(0)
+        roof=authored.roof_hip(3.,'byHeight')
+        self.assertTrue(roof.roof_info.authored_normals_rebuilt)
+        self.assertNotIn('normals',roof.emit());self.assertNotIn('uv',roof.emit())
+
+    def test_discontinuous_native_uv_seams_survive_component_selection(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5));mesh=source.emit()
+        mesh['uv']=mesh['uv'].copy();mesh['uv'][mesh['faces'][0]]=[7.,3.]
+        source=Shape.from_mesh(mesh,source.scope,source.geometry.polygons)
+        roof=source.roof_hip(3.,'byHeight')
+        selected=roof.comp('f',Branch(tagged('roof.top'),'='),alignment='noAlign')[0].emit()
+        active=selected['uv'][np.unique(selected['faces'])]
+        self.assertTrue(np.any(np.all(np.isclose(active,[7.,3.]),axis=1)))
+        self.assertTrue(np.any(np.all(np.isclose(active,[0.,0.]),axis=1)))
+        np.testing.assert_array_equal(source.emit()['uv'],mesh['uv'])
+
+    def test_budget_and_pending_options_are_explicit(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5))
+        for options in ({'max_cells':1},{'limits':SkeletonLimits(seconds=1e-12)},{'limits':SkeletonLimits(vertices=3)}):
+            with self.assertRaises(SkeletonBudgetExceeded):source.roof_hip(3.,'byHeight',**options)
+        for options in ({'overhang':.5},):
+            with self.assertRaises(NotImplementedError):source.roof_hip(3.,'byHeight',**options)
+        for value,mode in ((0.,'byHeight'),(-1.,'byHeight'),(90.,'byAngle'),(float('nan'),'byAngle'),(True,'byAngle')):
+            with self.assertRaises(ValueError):source.roof_hip(value,mode)
+        for options in ({'even':1},{'max_cells':False},{'max_cells':0}):
+            with self.assertRaises(ValueError):source.roof_hip(3.,'byHeight',**options)
+
+    def test_even_rectangle_preserves_the_planar_native_product(self):
+        source=Shape.from_polygon(shapely.box(0,0,12,5))
+        before=source.roof_hip(3.,'byHeight').emit();after=source.roof_hip(3.,'byHeight',even=True).emit()
+        for key in before:np.testing.assert_allclose(after[key],before[key],atol=1e-12)
+
+    def test_even_trapezoid_keeps_a_horizontal_ridge_and_warped_faces(self):
+        source=Shape.from_polygon(shapely.Polygon([(0,0),(12,0),(10,7),(2,6)]))
+        original=source.roof_hip(3.,'byHeight');roof=source.roof_hip(3.,'byHeight',even=True)
+        plan,surface=roof.roof_info.plans[0],roof.roof_info.surfaces[0]
+        group=next(g for g in surface.ridge_groups if len(g)>1)
+        expected=plan.distances_m[list(group)].max()*surface.factor(3.,'byHeight')
+        self.assertAlmostEqual(expected,original.scope.size[1])
+        self.assertAlmostEqual(roof.scope.size[1],expected)
+        mesh=roof.emit();warped=[]
+        for face in roof.geometry.polygons:
+            if 'roof.top' not in face.tags:continue
+            points=mesh['vertices'][list(face.outer)]
+            warped.append(np.linalg.matrix_rank(points-points[0],tol=1e-7)==3)
+        self.assertTrue(any(warped))
+        selected=roof.comp('f',Branch(tagged('roof.top'),'='),alignment='noAlign')[0].emit()
+        self.assertEqual(len(selected['faces']),sum('roof.top' in roof.geometry.polygons[p].tags for p in mesh['parts']))
+        with self.assertRaises(ValueError):surface.distances_m.flags.writeable=True
+
+    def test_even_l_keeps_separate_naturally_horizontal_firsts(self):
+        source=Shape.from_polygon(shapely.Polygon([(0,0),(10,0),(10,3),(5,3),(5,8),(0,8)]))
+        for value,mode in ((3.,'byHeight'),(25.,'byAngle')):
+            before=source.roof_hip(value,mode);after=source.roof_hip(value,mode,even=True)
+            np.testing.assert_allclose(before.emit()['vertices'],after.emit()['vertices'],atol=1e-10)
+            self.assertEqual(sorted(len(g) for g in after.roof_info.surfaces[0].ridge_groups),[2,2])
+
+
+if __name__=='__main__':unittest.main()

@@ -68,3 +68,25 @@ source bytes/URL/hash and original OpenFreeMap IDs are retained. Recipe grade bo
 are procedural choices, not measured lane tags. Shared heights remove steps but
 do not prove C1, superelevation, drivable turns or terrain/building/plant contacts.
 The latter require the coordinated spatial products in #18/#20/#47 before an API change.
+
+## Conforming ground and explicit contacts (Python, #20)
+
+Galin's section 6.2 and Figure 20 describe terrain modification around the generated
+road, using refined terrain and excavation/embankment. Page 9 was inspected visually
+on 2026-10-13. The current experiment partitions one domain into existing traffic
+faces and their exterior with
+[constrained Delaunay triangulation](https://shapely.readthedocs.io/en/2.1.2/reference/shapely.constrained_delaunay_triangles.html).
+A shared bounded height solve avoids incompatible independently fixed road/soil
+contacts. This is a coarse C0 composite top surface; it does not implement the paper's
+clothoid trajectories, adaptive terrain fidelity, earth volumes or smooth transitions.
+
+The footprint comparison checks
+[coverage union](https://shapely.readthedocs.io/en/stable/reference/shapely.coverage_union.html)
+against general union only after verifying edge-matched nonoverlapping inputs; output
+coverage and boundary audit are identical. `geometry.SurfaceSampler` uses the
+[query-only STRtree](https://shapely.readthedocs.io/en/2.1.2/strtree.html) over projected
+facets, then evaluates their affine planes. The benchmark compares the distance
+predicate with boxes plus the same exact distance filter and requires equal complete
+contact results. Shared topological features select deterministically; stacked,
+unshared or conflicting hits are unresolved. Surface kind/frame/source association
+remain explicit at the caller; a projected spatial index has no implicit ground meaning.

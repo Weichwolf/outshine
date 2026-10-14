@@ -31,6 +31,9 @@ GROUPS = {
 }
 ALIASES = {'rotate': 'r', 'translate': 't', 'innerRect': 'innerRectangle'}
 OWN = {
+    'roofHip':dict(module='outshine_ref.buildings.modelling.Shape.roof_hip',status='planar logical faces: metric skeleton facets with original source edges, concavity and courtyards; byAngle/byHeight, conformal native-triangle overlays preserving UV0-9/seams, material/group/tag ownership, local object frames and aligned scope; even ridge groups with fixed warped-facet triangulations',
+        pending=['overhang measured on roof surface','exact SDK even ridge grouping','trim planes','isolated full PRT rule and exact SDK UV/normal semantics','mixed wire/point geometry and vertex colours','native LOD'],
+        evidence=['verify_modelling_roof_hip.py','compare_hip_overlay.py','verify_skeleton_plan.py','esri_skeleton_oracle.py','esri_hip_reference.py','esri_ghidra.py','showcase_skeleton_plan.py','showcase_hip_even.py']),
     'rotateScope':dict(module='outshine_ref.buildings.modelling.Shape.rotate_scope',status='scope-only Euler addition with tight geometry bounds; world vertices and authored normals preserved, UV0-9/topology/metadata shared; empty and prepared assets supported',
         pending=['isolated executable PRT rotateScope rule','exact SDK tiny-coordinate normalization','trim-plane propagation and exact SDK instance semantics'],
         evidence=['verify_scope_geometry.py','lib/tests/test_building_shape.py','esri_ghidra.py','showcase_roof_ridge.py']),

@@ -2,6 +2,7 @@
 #include "math/Vec4.h"
 #include "SurfaceBindings.h"
 #include "VertexUpload.h"
+#include "NormalUpload.h"
 #include <format>
 #include "GroundLattice.h"
 #include "SubjectDraw.h"
@@ -142,9 +143,11 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   const uint32_t count = RunsOf(layout, writesVelocity, runs);
   VertexShape shape;
   for (uint32_t at = 0; at < count; ++at) {
-    shape.Buffers[at] = Run({.Slot = at, .Floats = runs[at].Floats});
+    const bool packedNormal = CarriesNormal(layout) && runs[at].Location == 3;
+    shape.Buffers[at] = Run({.Slot = at, .Floats = packedNormal ? 1u : runs[at].Floats});
     shape.Attributes[at] =
-        At({.Location = runs[at].Location, .Slot = at}, FormatOf(runs[at].Floats));
+        At({.Location = runs[at].Location, .Slot = at},
+           packedNormal ? SDL_GPU_VERTEXELEMENTFORMAT_UINT : FormatOf(runs[at].Floats));
     ++shape.Count;
   }
   return shape;
@@ -642,11 +645,8 @@ void WritePieceNormals(const void *carrying, float *into, uint32_t floats) {
   const auto *const held = static_cast<const PieceRun *>(carrying);
   uint32_t at = 0;
   for (const StoredVertex &one : held->Piece->Verts) {
-    if (at + kPositionFloats > floats) { break; }
-    const Vec3f facing = one.norm();
-    into[at++] = facing[0];
-    into[at++] = facing[1];
-    into[at++] = facing[2];
+    if (at == floats) { break; }
+    std::memcpy(into + at++, &one.normWord, sizeof(one.normWord));
   }
 }
 
@@ -678,7 +678,7 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
   const auto vertex = SDL_GPU_BUFFERUSAGE_VERTEX;
   using S = SubjectResidency::Stream;
   return res.Grow(S::Vertex, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
-         res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
+         res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, 1u)}, error) &&
          (!res.Shape().HasPrevious || subject == 0 ||
           res.Grow(
               S::Previous, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
@@ -972,38 +972,42 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
                                          .Count = Bound().Shape().Vertices};
   Bound().Shape().HasPrevious = Binding().WritesVelocity && UsesPrevious(pose, SubjectBatches_);
   using Stream = SubjectResidency::Stream;
-  const std::array<VertexStreamUpload, 8> uploads{{{.Which = Stream::Vertex,
-                                                    .Source = pose.Verts,
-                                                    .Carried = true,
-                                                    .Components = kPositionFloats},
-                                                   {.Which = Stream::Emitted,
-                                                    .Source = pose.Emitted,
-                                                    .Carried = Bound().Shape().HasEmitted,
-                                                    .Components = kPositionFloats},
-                                                   {.Which = Stream::Normal,
-                                                    .Source = pose.Normals,
-                                                    .Carried = Bound().Shape().HasNormal,
-                                                    .Components = kPositionFloats},
-                                                   {.Which = Stream::Tangent,
-                                                    .Source = pose.Tangents,
-                                                    .Carried = Bound().Shape().HasTangent,
-                                                    .Components = kQuadFloats},
-                                                   {.Which = Stream::Uv,
-                                                    .Source = pose.Uv,
-                                                    .Carried = Bound().Shape().HasUv,
-                                                    .Components = kPairFloats},
-                                                   {.Which = Stream::Uv1,
-                                                    .Source = pose.Uv1,
-                                                    .Carried = Bound().Shape().HasUv1,
-                                                    .Components = kPairFloats},
-                                                   {.Which = Stream::Colour,
-                                                    .Source = pose.Colours,
-                                                    .Carried = Bound().Shape().HasColour,
-                                                    .Components = kQuadFloats},
-                                                   {.Which = Stream::Previous,
-                                                    .Source = pose.PrevVerts,
-                                                    .Carried = Bound().Shape().HasPrevious,
-                                                    .Components = kPositionFloats}}};
+  const NormalUpload normals{.Source = pose.Normals};
+  const std::array<VertexStreamUpload, 8> uploads{
+      {{.Which = Stream::Vertex,
+        .Source = pose.Verts,
+        .Carried = true,
+        .Components = kPositionFloats},
+       {.Which = Stream::Emitted,
+        .Source = pose.Emitted,
+        .Carried = Bound().Shape().HasEmitted,
+        .Components = kPositionFloats},
+       {.Which = Stream::Normal,
+        .Source = pose.Normals.Stands()
+                      ? SubjectStream{.Writes = NormalUpload::Write, .Carrying = &normals}
+                      : SubjectStream{},
+        .Carried = Bound().Shape().HasNormal,
+        .Components = 1},
+       {.Which = Stream::Tangent,
+        .Source = pose.Tangents,
+        .Carried = Bound().Shape().HasTangent,
+        .Components = kQuadFloats},
+       {.Which = Stream::Uv,
+        .Source = pose.Uv,
+        .Carried = Bound().Shape().HasUv,
+        .Components = kPairFloats},
+       {.Which = Stream::Uv1,
+        .Source = pose.Uv1,
+        .Carried = Bound().Shape().HasUv1,
+        .Components = kPairFloats},
+       {.Which = Stream::Colour,
+        .Source = pose.Colours,
+        .Carried = Bound().Shape().HasColour,
+        .Components = kQuadFloats},
+       {.Which = Stream::Previous,
+        .Source = pose.PrevVerts,
+        .Carried = Bound().Shape().HasPrevious,
+        .Components = kPositionFloats}}};
   std::array<SubjectResidency::Crossing, uploads.size()> streams;
   size_t count = 0;
   for (const auto &upload : uploads) {
@@ -1117,8 +1121,8 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
        .Carrying = &carrying},
       {.Which = SubjectResidency::Stream::Normal,
        .Usage = vertexUse,
-       .Bytes = positionBytes,
-       .Offset = floatsAt(kPositionFloats),
+       .Bytes = verts * static_cast<uint32_t>(sizeof(uint32_t)),
+       .Offset = floatsAt(1u),
        .Writes = WritePieceNormals,
        .Carrying = &carrying},
       {.Which = SubjectResidency::Stream::Index,

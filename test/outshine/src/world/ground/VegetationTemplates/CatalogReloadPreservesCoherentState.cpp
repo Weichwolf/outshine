@@ -73,6 +73,16 @@ int main() {
   for (const auto *field : {"oneway", "sealed"}) {
     for (const auto *value : {"2", "0.5", "\"bad\"", "null"}) { rejectsRule(field, value); }
   }
+  for (const auto *value : {"-0.1", "1.1", "1e100", "true", "null", "\"0.5\""}) {
+    auto invalid = catalog;
+    const std::string prefix = "\"class\":\"road\"";
+    invalid.insert(invalid.find(prefix) + prefix.size(),
+                   ",\"litterCoverage\":" + std::string(value));
+    std::ofstream(catalogPath) << invalid;
+    CHECK(!templates.Load(catalogPath.c_str(), materials), "invalid surface coverage refused");
+    CHECK(templates.Rows() == rows && templates.Find("streets", "road") == rule,
+          "failed coverage replacement preserves the complete published recipe");
+  }
   CHECK(!templates.Load((std::filesystem::path(created) / "missing").c_str(), materials),
         "missing file refused");
   CHECK(templates.Rows() == rows && templates.TemplateCount() == 2,

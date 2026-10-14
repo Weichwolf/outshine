@@ -28,6 +28,8 @@ public:
     Vec4f Param;
     Vec4f Edge;
     int GroundClass = -1;
+
+    [[nodiscard]] Vec4f MeanGround() const noexcept;
   };
 
   struct Rule {

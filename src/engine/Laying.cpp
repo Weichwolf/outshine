@@ -826,8 +826,9 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
   palette[2] = wearing.Limit().SlopeBandDeg();
   const auto rowAt = [](size_t row) { return kPaletteStride * (row + 1u); };
   for (size_t row = 0; row < rows; ++row) {
+    const auto appearance = wearing.Rows()[row].MeanGround();
     for (size_t channel = 0; channel < kPaletteStride; ++channel) {
-      palette[rowAt(row) + channel] = wearing.Rows()[row].Ground[channel];
+      palette[rowAt(row) + channel] = appearance[channel];
     }
     palette[kPaletteStride * (rows + 2u) + row] = wearing.Rows()[row].Edge[3];
     for (size_t channel = 0; channel < kPaletteStride; ++channel) {

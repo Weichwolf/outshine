@@ -181,7 +181,11 @@ BuildingSurface::Prepare(const StructurePlan &plan, BuildingScratch &scratch) {
   source.WallColour_ = plan.WallColour;
   source.Shapes_.assign(shapes->begin(), shapes->end());
   source.FaceOffsets_.push_back(0);
-  for (const auto &shape : source.Shapes_) {
+  for (auto &shape : source.Shapes_) {
+    if (shape.Roof == RoofKind::Hip) {
+      const auto hip = RoofSurface::PrepareHip(shape);
+      if (!hip) { shape.Roof = RoofKind::Flat; }
+    }
     size_t count = shape.Ring.size() + 2;
     for (const auto &hole : shape.Holes) { count += hole.size(); }
     source.FaceOffsets_.push_back(source.FaceOffsets_.back() + count);

@@ -112,6 +112,10 @@ strip: test-strip-comments ## remove src comments, keep only include Doxygen; le
 db: strip shaders ## compile_commands.json for clangd, clang-tidy and clang-format
 	@$(RUN) --compile-db
 
+.PHONY: experiment-tree-cost
+experiment-tree-cost: all db ## compare native tree expansion/instancing (CPU, no GPU proof)
+	@cd $(SELF_DIR) && python3 test/experiments/render/tree_representation_cost.py
+
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 

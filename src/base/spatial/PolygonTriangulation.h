@@ -15,5 +15,8 @@ enum class PolygonTriangulationError { InvalidPolygon, CapacityExceeded, Library
 [[nodiscard]] std::expected<std::vector<uint32_t>, PolygonTriangulationError>
 TriangulatePolygon(std::span<const PolygonRing> rings);
 
+[[nodiscard]] std::expected<double, PolygonTriangulationError>
+PolygonMinimumClearance(std::span<const PolygonRing> rings);
+
 }
 #endif

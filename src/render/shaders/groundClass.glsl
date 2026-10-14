@@ -119,26 +119,3 @@ int groundClassAt(
   runnerUp = second;
   return best;
 }
-
-vec4 groundWears(int which, uint rows) {
-  const uint row = which >= 0 && uint(which) < rows ? uint(which) : rows;
-  return vec4(groundPalette[4u + row * 4u + 0u],
-                groundPalette[4u + row * 4u + 1u],
-                groundPalette[4u + row * 4u + 2u],
-                groundPalette[4u + row * 4u + 3u]);
-}
-
-
-float groundRockWeight(int which, uint rows, float slopeDeg) {
-  const uint row = which >= 0 && uint(which) < rows ? uint(which) : rows;
-  const float limitDeg = groundPalette[4u * (rows + 2u) + row];
-  const float bandDeg = groundPalette[2];
-  const int rock = int(floatBitsToUint(groundPalette[1]));
-  return which == rock ? 1.0 : smoothstep(limitDeg, limitDeg + bandDeg, slopeDeg);
-}
-
-vec4 groundWearsSlope(int which, uint rows, float slopeDeg) {
-  const int rock = int(floatBitsToUint(groundPalette[1]));
-  return mix(groundWears(which, rows), groundWears(rock, rows),
-             groundRockWeight(which, rows, slopeDeg));
-}
