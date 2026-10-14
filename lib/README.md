@@ -93,6 +93,32 @@ Der Caller bindet Quell-ID, Frame, Deck/Boden, Anschluss und Reservierungen.
 Gekrümmte Achsen, freie Anschlussneigungen, DEM-Innenfit und Ebenenplanung folgen
 getrennt; `Plan`/`Reservation` und vorhandene Sampler bleiben erhalten (#20).
 
+`transport.mesh_projected_profile(domain, profile, origin_xy_m, direction_xy,
+start_station_m=0, height_error_m=0.01, budget=ProjectedSurfaceBudget())` creates
+a complete conforming height mesh for a polygon/multipolygon, including holes.
+The analytic field is `z=h(dot(XY-origin,unit_direction)-start)` from an immutable
+`VerticalTransition`, flat outside its endpoint interval. The report bounds the
+whole face height error by each chord's `max|h''|*step²/8` plus an explicit numeric
+guard; the finite mesh is C0. Complete domain coverage, one chord per face and
+whole-face gradients are checked. Types/invalid values raise TypeError/ValueError;
+resource/numeric geometry failure returns no mesh with a concrete reason.
+
+`geometry.projected_height_surface(domain, origin_xy_m, direction_xy, height_table,
+budget=ProjectedSurfaceBudget())` is the lower-level sampled-table operator.
+An arbitrary table is only piecewise linear; it does not certify a C1 curve.
+Source IDs, frame, surface kind and contact choices remain caller-owned.
+`conform_triangles` optionally accepts `max_candidates`/`max_faces`; existing
+default calls keep their outputs. Candidate query batches are capped before
+allocation; numeric weld pairs are counted before the pair array is requested.
+
+Default budget:2s cooperative offline phase,16384 boundary coordinates,4096
+stations,8192 vertices/faces,65536 weld pairs and1048576 interface candidates.
+GEOS steps can overrun a phase; this does not replace isolated worker time/memory
+limits or establish a frame/device budget. A fully flat requested domain avoids
+sampling unused profile intervals. No whole-world ground/deck selection, horizontal
+route, driving, terrain deformation, collision or LOD claim. The same-source
+Wiener #119 experiment imports this library; proof and migration belong to #122.
+
 `geometry.SurfaceSampler(mesh)` bereitet eine ausdrücklich gewählte XY-Höhenfläche
 für wiederholte `sample(xy)`-Abfragen vor. `SurfaceSamples` besitzt unveränderliche
 Float64-XYZ-Punkte/Facettennormalen, Int64-Face-Indices und einen Grund je Abfrage.

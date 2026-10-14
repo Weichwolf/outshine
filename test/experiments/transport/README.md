@@ -511,3 +511,21 @@ Kachelränder/Portale/Innenflächen, Terrain, Pfeiler/Statik/Gleishardware, Fahr
 volle Verkehrswege und native Integration bleiben offen. Keine lib- oder SDK-Runtime-Änderung.
 Galin2010 Profil-/Querschnittstrennung und SIGGRAPH2008 graph→geometry sind die Basis;
 das projizierte Feld und seine Flächenfehlergrenze sind eigene überprüfte Konstruktionen.
+
+### Bibliotheksübernahme der Höhenflächen (#122)
+
+Der Stationsschnittkern aus #119 liegt jetzt unter `outshine_ref.geometry` als
+`ProjectedSurfaceBudget`/`projected_height_surface`; der vollständige C1-Profiladapter
+heißt `transport.mesh_projected_profile`. `bridge_approach_recipe.py` importiert
+diesen Kern. Die frühere direkte Tabellenfunktion ist nur ein kompatibler Import-
+wrapper; die Mittelpunktalternative nutzt ebenfalls die begrenzten Kontaktregionen.
+Gemeinsame Plan-/Source-/Kind-Verträge bleiben beim Aufrufer unverändert.
+
+Default:2s kooperativ,16384 Randkoordinaten,4096 Stationen,8192 Vertices/Faces,
+65536 Vereinigungspaare und1048576 Interfacekandidaten. Kandidaten werden vor
+Allokation gezählt bzw. mit beschränktem maximalem Queryoutput gebatcht.
+Budgetende/numerisch ungültige Fläche liefert kein unvollständiges Zertifikat.
+Falsche Typen/Werte sind API-Fehler. Die ganze Höhe ist zum analytischen Feld
+zertifiziert; die erzeugten Facetten bleiben C0. Gleiche echte Eingaben und
+Globalflächen-/Budgetgegenfälle, Wheelimport und unveränderte Bilder/Kosten
+werden geprüft. Bibliotheksübernahme allein ist keine native Weltabnahme.
