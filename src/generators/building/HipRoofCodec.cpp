@@ -65,7 +65,7 @@ bool HipRoofCodec::Fields(Reader &archive, Product &value) {
   if (state == 2) {
     HipRoofError error{};
     if (!archive.Number(error) || error < HipRoofError::InvalidInput ||
-        error > HipRoofError::InvalidFacet) {
+        error > HipRoofError::InsufficientClearance) {
       return false;
     }
     value =
@@ -94,7 +94,7 @@ bool HipRoofCodec::Valid(const Product &value) {
   if (!value) { return true; }
   if (!*value) {
     return value->error() >= HipRoofError::InvalidInput &&
-           value->error() <= HipRoofError::InvalidFacet;
+           value->error() <= HipRoofError::InsufficientClearance;
   }
   const auto &plan = **value;
   if (!std::isfinite(plan.Origin_.EastM) || !std::isfinite(plan.Origin_.NorthM) ||

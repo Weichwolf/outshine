@@ -149,4 +149,21 @@ TriangulatePolygon(std::span<const PolygonRing> rings) {
   return ReadTriangles(context.Handle, triangles.get(), *vertices);
 }
 
+std::expected<double, PolygonTriangulationError>
+PolygonMinimumClearance(std::span<const PolygonRing> rings) {
+  const auto vertices = IndexVertices(rings);
+  if (!vertices) { return std::unexpected(vertices.error()); }
+  const Context context;
+  if (context.Handle == nullptr) {
+    return std::unexpected(PolygonTriangulationError::LibraryFailure);
+  }
+  const auto polygon = MakePolygon(context.Handle, rings);
+  if (!polygon) { return std::unexpected(PolygonTriangulationError::LibraryFailure); }
+  double clearance = 0;
+  if (GEOSMinimumClearance_r(context.Handle, polygon.get(), &clearance) != 0) {
+    return std::unexpected(PolygonTriangulationError::LibraryFailure);
+  }
+  return clearance;
+}
+
 }
