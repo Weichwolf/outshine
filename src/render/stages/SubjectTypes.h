@@ -34,7 +34,7 @@ struct SubjectEnvironment {
 
 constexpr size_t kMaxSubjectLights = 16;
 
-constexpr uint32_t kSubjectMaterialImages = 6;
+constexpr uint32_t kSubjectMaterialImages = 8;
 constexpr uint32_t kSubjectImages = kSubjectMaterialImages + 3;
 constexpr uint32_t kSubjectFragmentUniforms = 2;
 
@@ -71,6 +71,8 @@ struct SubjectMaterial {
 
   SubjectTexture SpecularStrength;
   SubjectTexture SpecularTint;
+  SubjectTexture DiffuseReflection;
+  SubjectTexture DiffuseTransmission;
 
   SubjectTexture Normal;
   SubjectTexture MetalRough;
@@ -85,13 +87,17 @@ struct SubjectMaterial {
   [[nodiscard]] bool ReadsSecondUv() const {
     return Colour.Set == outshine::UvSet::Uv1 || Normal.Set == outshine::UvSet::Uv1 ||
            MetalRough.Set == outshine::UvSet::Uv1 || Emissive.Set == outshine::UvSet::Uv1 ||
-           SpecularStrength.Set == outshine::UvSet::Uv1 || SpecularTint.Set == outshine::UvSet::Uv1;
+           SpecularStrength.Set == outshine::UvSet::Uv1 ||
+           SpecularTint.Set == outshine::UvSet::Uv1 ||
+           DiffuseReflection.Set == outshine::UvSet::Uv1 ||
+           DiffuseTransmission.Set == outshine::UvSet::Uv1;
   }
 
   [[nodiscard]] bool ReadsAnyImage() const {
     return (Colour.Rgba != nullptr) || (Normal.Rgba != nullptr) || (MetalRough.Rgba != nullptr) ||
            (Emissive.Rgba != nullptr) || (SpecularStrength.Rgba != nullptr) ||
-           (SpecularTint.Rgba != nullptr);
+           (SpecularTint.Rgba != nullptr) || (DiffuseReflection.Rgba != nullptr) ||
+           (DiffuseTransmission.Rgba != nullptr);
   }
 };
 

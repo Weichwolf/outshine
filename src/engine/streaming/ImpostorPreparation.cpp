@@ -11,7 +11,7 @@
 namespace outshine {
 
 std::string ImpostorAtlasProvenance(std::string_view species, Content::ImpostorAtlasShape shape) {
-  return "tree-prototype-1/impostor-capture-1/" + std::to_string(shape.Pixels) + "/" +
+  return "tree-prototype-2/impostor-capture-2/" + std::to_string(shape.Pixels) + "/" +
          std::to_string(shape.Views) + "/" + std::string(species);
 }
 

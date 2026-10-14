@@ -3,7 +3,7 @@
 #include "Check.h"
 
 namespace {
-outshine::Geometry Make(uint8_t red) {
+outshine::Geometry Make(uint8_t red, bool optical = false) {
   outshine::Geometry geometry;
   const std::array<uint8_t, 4> pixel{red, 0, 0, 255};
   const std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
@@ -11,6 +11,12 @@ outshine::Geometry Make(uint8_t red) {
   (void)*geometry.addImage(1, 1, pixel);
   outshine::Material material;
   material.BaseColourMap.Image = 0;
+  if (optical) {
+    material.Scattering = outshine::ScatteringModel::AreaMixture;
+    material.Alpha = outshine::AlphaMode::Masked;
+    material.DiffuseReflectionMap.Image = material.DiffuseTransmissionMap.Image = 0;
+    material.DiffuseTransmission = {{1, 1, 1}};
+  }
   const auto surface = geometry.addSurface("surface", material);
   if (!surface) { return geometry; }
   const int part = geometry.addPart("triangle", *surface).value();
@@ -24,17 +30,21 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Geometry first = Make(17);
-  Geometry second = Make(63);
+  Geometry second = Make(63, true);
   CHECK(first.wellFormed() && second.wellFormed(), "independent native products are complete");
   const auto combined = first.append(second);
   CHECK(combined.has_value() && first.parts() == 2 && first.surfaces() == 2 && first.images() == 2,
         "append publishes both complete products together");
   CHECK(first.materialOf(1).index() == 1 &&
             first.surfaceAt(MaterialInstance(1)).BaseColourMap.Image == 1 &&
+            first.surfaceAt(MaterialInstance(1)).DiffuseReflectionMap.Image == 1 &&
+            first.surfaceAt(MaterialInstance(1)).DiffuseTransmissionMap.Image == 1 &&
             first.imageAt(1).Rgba[0] == 63,
         "part material and material image references are remapped into the new owner");
   CHECK(second.parts() == 1 && second.surfaces() == 1 && second.images() == 1 &&
             second.surfaceAt(MaterialInstance(0)).BaseColourMap.Image == 0 &&
+            second.surfaceAt(MaterialInstance(0)).DiffuseReflectionMap.Image == 0 &&
+            second.surfaceAt(MaterialInstance(0)).DiffuseTransmissionMap.Image == 0 &&
             second.imageAt(0).Rgba[0] == 63,
         "append does not borrow or mutate the source product");
   Geometry incomplete;

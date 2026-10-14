@@ -11,8 +11,10 @@ layout(set = 2, binding = 1 + LIT_MAPPED) uniform sampler2D metalRoughMap;
 layout(set = 2, binding = 2 + LIT_MAPPED) uniform sampler2D emissiveMap;
 layout(set = 2, binding = 3 + LIT_MAPPED) uniform sampler2D specularStrengthMap;
 layout(set = 2, binding = 4 + LIT_MAPPED) uniform sampler2D specularTintMap;
+layout(set = 2, binding = 5 + LIT_MAPPED) uniform sampler2D diffuseReflectionMap;
+layout(set = 2, binding = 6 + LIT_MAPPED) uniform sampler2D diffuseTransmissionMap;
 #endif
-#define LIT_NEXT_BINDING (5 + LIT_MAPPED)
+#define LIT_NEXT_BINDING (7 + LIT_MAPPED)
 #else
 #define LIT_NEXT_BINDING 0
 #endif

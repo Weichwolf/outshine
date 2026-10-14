@@ -11,7 +11,9 @@ int main() {
   const TreeSpecies species;
   const auto explicitLook = TreePrototype::LookOf(species);
   constexpr std::array<double, 3> barkSrgb{0.40, 0.31, 0.23};
-  constexpr std::array<double, 3> leafLinear{0.0684, 0.1072, 0.0273};
+  constexpr std::array<double, 3> leafLinear{
+      0.05562605451408845, 0.09347127068377052, 0.039961625228706145};
+  constexpr std::array<double, 3> leafTransmission{0.0634357550506689, 0.11687351146137416, 0.0};
   for (size_t channel = 0; channel < 3; ++channel) {
     const double linear = std::pow((barkSrgb[channel] + 0.055) / 1.055, 2.4);
     CHECK(std::abs(defaults.BarkRgb[channel] - linear) < 1e-7,
@@ -20,7 +22,14 @@ int main() {
           "default and species-derived bark share the linear convention");
     CHECK(std::abs(defaults.LeafRgb[channel] - leafLinear[channel]) < 1e-7 &&
               defaults.LeafRgb[channel] == explicitLook.LeafRgb[channel],
-          "leaf reflectance remains linear without double conversion");
+          "owned Python optics remain linear without double conversion");
+    CHECK_NEAR(defaults.LeafTransmission[channel],
+               leafTransmission[channel],
+               1e-7,
+               "linear transmission",
+               "owned default pigment optics match the independent Python sample");
+    CHECK(defaults.LeafTransmission == explicitLook.LeafTransmission,
+          "default and species-derived leaves retain their separate transmission");
   }
   CHECK(defaults.BarkRoughness == explicitLook.BarkRoughness &&
             defaults.LeafRoughness == explicitLook.LeafRoughness,

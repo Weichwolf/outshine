@@ -79,6 +79,15 @@ Geometry Product() {
   thin.DoubleSided = true;
   CHECK(geometry.addSurface("unlit optical coefficients", thin),
         "native products store direct energy-bounded thin-sheet R/T alongside opaque materials");
+  Material mixture;
+  mixture.Scattering = ScatteringModel::AreaMixture;
+  mixture.Alpha = AlphaMode::Masked;
+  mixture.DiffuseTransmission = {{1, 1, 1}};
+  mixture.BaseColourMap = surface.BaseColourMap;
+  mixture.DiffuseReflectionMap = surface.NormalMap;
+  mixture.DiffuseTransmissionMap = surface.OcclusionMap;
+  CHECK(geometry.addSurface("coverage-weighted optics", mixture),
+        "native products carry mapped optical contributions and their independent transforms");
   const auto part = geometry.addPart("road / water / facade", *material);
   CHECK(part, "native mesh part is accepted");
   const std::array<float, 9> xyz = {0, 0, 0, 1, 0, 0, 0, 0, 1};
@@ -173,7 +182,7 @@ int main() {
   corrupt[0] ^= 1;
   CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()), "unsupported format versions are misses");
   corrupt = *encoded;
-  corrupt[5] = 1;
+  corrupt[5] = 3;
   CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),
         "pre-optical material assets are rejected instead of misreading their old layout");
   corrupt = *encoded;

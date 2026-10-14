@@ -37,15 +37,15 @@ struct SurfaceBindings {
 private:
   constexpr void AddLightingImages(bool transmits, bool capture) {
     if (capture) { return; }
-    if (transmits) { Images[Count++] = 6; }
-    Images[Count++] = 7;
-    Images[Count++] = 8;
+    if (transmits) { Images[Count++] = kSubjectMaterialImages; }
+    Images[Count++] = kSubjectMaterialImages + 1;
+    Images[Count++] = kSubjectMaterialImages + 2;
   }
 
   constexpr void
   FlatResources(VertexLayout layout, SurfaceKind kind, long identityIndex, bool transmits) {
     if (transmits) {
-      Images[Count++] = 6;
+      Images[Count++] = kSubjectMaterialImages;
     } else if (CarriesUv(layout)) {
       Images[Count++] = 0;
     }
@@ -57,7 +57,7 @@ private:
     Shape.FragmentStorageBuffers = 0u;
     Shape.FragmentUniformBuffers = capture ? 1u : 2u;
     if (CarriesUv(layout)) {
-      const uint32_t images = capture ? 3u : 6u;
+      const uint32_t images = capture ? 3u : kSubjectMaterialImages;
       for (uint32_t image = 0; image < images; ++image) {
         if (image != 1 || CarriesTangent(layout)) { Images[Count++] = image; }
       }
