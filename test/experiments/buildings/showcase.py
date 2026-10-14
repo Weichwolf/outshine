@@ -59,18 +59,14 @@ def image_record(path,root):
 
 
 def current_images(root):
-    folder=EXPERIMENTS/'current-showcase';path=folder/'snapshot.json'
+    folder=EXPERIMENTS/'tile-showcase';path=folder/'reports.json'
     if not path.is_file():return [],None
     snapshot=json.loads(path.read_text());images=[]
     for name in snapshot['reports']:
         if Path(name).name!=name or not name.endswith('-report.json'):
             raise ValueError('Snapshot contains a report outside its output directory')
         record=image_record(folder/name,root)
-        retained=snapshot.get('retained_reports',{}).get(name)
         expected=snapshot['commit']
-        if retained:
-            valid=bool(retained.get('reason')) and retained.get('report_sha256')==hashlib.sha256((folder/name).read_bytes()).hexdigest()
-            expected=retained.get('commit') if valid else None
         if record.get('commit')!=expected:
             record.pop('image',None)
             record.update(status='incomplete',error='Bildreport stammt aus einem anderen Snapshot.')
@@ -79,11 +75,13 @@ def current_images(root):
 
 
 def publish(root):
-    snapshot=json.loads((EXPERIMENTS/'current-showcase/snapshot.json').read_text())
+    snapshot=json.loads((EXPERIMENTS/'tile-showcase/reports.json').read_text())
     if len(snapshot['reports'])!=4 or len(set(snapshot['reports']))!=4:
         raise ValueError('Current showcase requires exactly four tile reports')
     for name in snapshot['reports']:
-        report=json.loads((EXPERIMENTS/'current-showcase'/name).read_text())
+        if Path(name).name!=name or not name.endswith('-report.json'):
+            raise ValueError('Snapshot contains a report outside its output directory')
+        report=json.loads((EXPERIMENTS/'tile-showcase'/name).read_text())
         if report.get('view')!='tile':raise ValueError('Showcase requires whole-tile images')
         source=report['source']
         if source['generated']+len(source['omissions'])!=source['delivered_building_polygons']:

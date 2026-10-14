@@ -158,6 +158,15 @@ on opening or via the manual refresh button; no polling timer runs. Detailed
 controls/plots remain private experiment artifacts. Outputs remain under
 `build/experiments/buildings/`; native runtime/device budgets remain unproven.
 
+```sh
+.venv/bin/python test/experiments/buildings/showcase_tiles.py
+.venv/bin/python test/experiments/buildings/showcase.py --publish
+.venv/bin/python test/experiments/buildings/showcase.py --serve
+```
+
+The publisher reads `tile-showcase/reports.json` directly and prunes obsolete public
+images. It requires four clean render reports from the same source commit.
+
 ## Sonderbauwerke aus dem bevorzugten Provider
 
 `special_sources.py --fetch` samples named study windows against the endpoint
