@@ -69,7 +69,7 @@ def packet_products(species, plan, directory, needles, shorts):
                 dict(record)
                 | {
                     "mesh": meshes[index],
-                    "surface": "needles",
+                    "surface": "leaf",
                     "needle_material": f"needle-{species.needles[0].section}-material.json",
                 }
             )
@@ -86,7 +86,8 @@ def packet_products(species, plan, directory, needles, shorts):
                 dict(record)
                 | {
                     "mesh": name,
-                    "surface": "short-shoots",
+                    "surface": "wood",
+                    "detail_kind": "short-shoot",
                     "bark_material": "bark.json",
                 }
             )
@@ -138,6 +139,7 @@ def near_products(species, plan, directory, path):
                 "mesh": name,
                 "placements": pose_name,
                 "instances": int(choose.sum()),
+                "surface": "leaf",
                 "needle_material": f"needle-{species.needles[0].section}-material.json",
             }
         )

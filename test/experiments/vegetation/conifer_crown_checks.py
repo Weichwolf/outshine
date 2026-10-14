@@ -43,6 +43,9 @@ def check_species(species):
         for k in whole:
             np.testing.assert_array_equal(whole[k][g["ids"]], g[k])
     scene = json.loads((directory / "shoot.json").read_text())
+    for mode in ("whole", "shoot"):
+        products = json.loads((directory / f"{mode}.json").read_text())["products"]
+        assert all(p["surface"] in ("wood", "leaf") for p in products)
     count = 0
     for product in scene["products"]:
         if "needle_material" not in product:
