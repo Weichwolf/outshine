@@ -113,6 +113,8 @@
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
+  Die README-Galerie erhält dieselben aktuellen PNGs unter `doc/images/places/`, untereinander
+  nur mit Ortsangabe und ohne Vergrößerungslink.
   Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
 - Vollständiger Asset-Cache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
   Vorbereitete Places sollen warm unter zehn Sekunden laden; eine Sekunde ist ein Optimierungs-
