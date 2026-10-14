@@ -1,4 +1,5 @@
 #include "scene/SurfaceSampler.h"
+#include "GeosTriangle.h"
 #include <geos_c.h>
 #include <algorithm>
 #include <array>
@@ -27,28 +28,8 @@ SurfaceContact Missing(Vec2 xy, SurfaceContactStatus status = SurfaceContactStat
           .Status = status};
 }
 
-struct DestroyGeometry {
-  GEOSContextHandle_t Context;
+using Geometry = Spatial::GeosGeometry;
 
-  void operator()(GEOSGeometry *geometry) const { GEOSGeom_destroy_r(Context, geometry); }
-};
-
-using Geometry = std::unique_ptr<GEOSGeometry, DestroyGeometry>;
-
-Geometry Triangle(GEOSContextHandle_t context, const std::array<Vec3, 3> &corners) {
-  GEOSCoordSequence *coordinates = GEOSCoordSeq_create_r(context, 4, 2);
-  if (coordinates == nullptr) { return {nullptr, {context}}; }
-  for (unsigned at = 0; at < 4; ++at) {
-    if (GEOSCoordSeq_setXY_r(context, coordinates, at, corners[at % 3][0], corners[at % 3][1]) ==
-        0) {
-      GEOSCoordSeq_destroy_r(context, coordinates);
-      return {nullptr, {context}};
-    }
-  }
-  GEOSGeometry *ring = GEOSGeom_createLinearRing_r(context, coordinates);
-  if (ring == nullptr) { return {nullptr, {context}}; }
-  return {GEOSGeom_createPolygon_r(context, ring, nullptr, 0), {context}};
-}
 }
 
 class SurfaceSampler::State {
@@ -87,7 +68,7 @@ public:
     if (!Finite(gradient) || !std::isfinite(magnitude) || !Finite(up)) {
       return std::unexpected(SurfaceSamplerError::Unrepresentable);
     }
-    Geometry polygon = Triangle(Context, corners);
+    Geometry polygon = Spatial::ProjectedTriangle(Context, corners);
     if (!polygon || Error) { return std::unexpected(SurfaceSamplerError::Backend); }
     Faces.push_back({.Vertices = indices,
                      .Gradient = gradient,
