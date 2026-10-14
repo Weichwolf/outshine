@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "frond-library/frond-library.json",
+        "frond_library_plot",
+        "Frond-Curl · Querkrümmung und Differentialnormalen",
+        "Mittelachse/Y-Anker, Sourcefaces/UVs/Organ-IDs erhalten. Drei Querkrümmungen, je 25080 Dreiecke, fünf wechselnde vollständige CPU-Abbildungen. Kofaktoren gegen NumPy solve: übrige Arrays exakt, Normalen numerisch gleich; vollständiger Cache-Replay. Zwölf alte Guide-Meshes/drei Source-Meshes unverändert. Keine Original-Property-, botanische oder native GPU-Freigabe.",
+    ),
+    (
         "frame-cost/frame-cost.json",
         "frame_cost_plot",
         "Rahmenarbeit · feste 3D-Komponenten",
