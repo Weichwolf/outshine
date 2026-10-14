@@ -21,7 +21,7 @@ def example():
                       [[12.,0.],[12.,5.],[6.,2.5]],[[12.,5.],[0.,5.],[6.,2.5]],
                       [[0.,5.],[0.,0.],[6.,2.5]]])
     uv=corners/1.5
-    uv[1:3]+=[1.,0.]
+    uv[1:3]+=[.4,.25]
     outside=shapely.box(-1.5,-1.5,13.5,0.)
     charts=partition(corners,np.array([0.,0.]),np.array([12.,0.]),outside)
     return corners,uv,charts
