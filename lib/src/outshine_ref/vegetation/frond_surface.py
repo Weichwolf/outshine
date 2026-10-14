@@ -7,11 +7,12 @@ from functools import cached_property
 
 import numpy as np
 
+from . import frond_deform
 from .curve_frame import arc_frame
 from .profiles import Profile
 
-MAX_VERTICES = 1_000_000
-MAX_TRIANGLES = 2_000_000
+MAX_VERTICES = frond_deform.MAX_VERTICES
+MAX_TRIANGLES = frond_deform.MAX_TRIANGLES
 
 
 def constant_profile():
@@ -116,55 +117,4 @@ class FrondGuide:
         return position, np.stack((dx, dy, dz), axis=-1)
 
     def deform(self, mesh, method="batch"):
-        vertices, faces, normals = mesh["vertices"], mesh["faces"], mesh["normals"]
-        if (
-            method not in ("batch", "scalar")
-            or np.iscomplexobj(vertices)
-            or np.iscomplexobj(normals)
-            or vertices.ndim != 2
-            or vertices.shape[1:] != (3,)
-            or faces.ndim != 2
-            or faces.shape[1:] != (3,)
-            or normals.shape != (faces.size, 3)
-            or len(vertices) > MAX_VERTICES
-            or len(faces) > MAX_TRIANGLES
-        ):
-            raise ValueError(
-                "bounded complete frond mesh and declared evaluator required"
-            )
-        if not np.issubdtype(faces.dtype, np.integer) or np.any(
-            (faces < 0) | (faces >= len(vertices))
-        ):
-            raise ValueError("valid source triangle indices required")
-        if not np.isfinite(normals).all() or np.any(
-            np.linalg.norm(normals, axis=1) == 0
-        ):
-            raise ValueError("finite nonzero source corner normals required")
-        self.validate(vertices)
-        if method == "batch" or not len(vertices):
-            positions, jacobian = self.evaluate(vertices)
-        else:
-            samples = [self.evaluate(point[None]) for point in vertices]
-            positions = np.concatenate([sample[0] for sample in samples])
-            jacobian = np.concatenate([sample[1] for sample in samples])
-        columns = jacobian.transpose(0, 2, 1)
-        cofactor = np.stack(
-            (
-                np.cross(columns[:, 1], columns[:, 2]),
-                np.cross(columns[:, 2], columns[:, 0]),
-                np.cross(columns[:, 0], columns[:, 1]),
-            ),
-            axis=-1,
-        )
-        mapped = np.einsum("nij,nj->ni", cofactor[faces.ravel()], normals)
-        mapped /= np.linalg.norm(mapped, axis=1, keepdims=True)
-        if not np.isfinite(positions).all() or not np.isfinite(mapped).all():
-            raise ValueError("finite deformed frond product required")
-        p = positions[faces]
-        cross = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])
-        if not np.all(np.sum(cross[:, None] * mapped.reshape(-1, 3, 3), axis=2) > 0):
-            raise ValueError("frond detail does not resolve the oriented surface")
-        return {key: np.array(value, copy=True) for key, value in mesh.items()} | {
-            "vertices": positions,
-            "normals": mapped,
-        }
+        return frond_deform.deform_frond(self, mesh, method)

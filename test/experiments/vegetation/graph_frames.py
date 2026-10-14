@@ -2,10 +2,19 @@
 
 import numpy as np
 from curve_frame import arc_frame
+from outshine_ref.vegetation import SpatialFrondGuide
 from spatial_axis import SpatialAxis
 
 
 def parent_frame(node, pose, parameter):
+    if node.kind == "frond" and isinstance(node.shape.guide, SpatialFrondGuide):
+        sample = node.shape.guide.field.sample(parameter)
+        return (
+            sample["centre"] * pose.scale,
+            sample["tangent"],
+            sample["lateral"],
+            sample["normal"],
+        )
     if isinstance(node.shape, SpatialAxis):
         sample = node.shape.field.sample(parameter)
         return (

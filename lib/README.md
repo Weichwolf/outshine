@@ -429,3 +429,23 @@ subdivision. Near/coarse common points coincide. This supplies own local shape
 variation, not SpeedTree's complete Section/Gravity/force system or a botanically
 verified plant recipe. Contract and equal-output costs belong to
 [#100](https://github.com/Weichwolf/outshine/issues/100).
+
+`SpatialFrondGuide(spine, width, height, roll, fold_per_m, intervals_per_segment)`
+binds the same source surfaces to an immutable `CubicSpine`. The local guide
+starts at the origin with positive Y tangent. `ArcMeasure` and `SpineField`
+prepare the metric coordinate and transported frame once, independently of detail.
+`spatial-frond-guide-1` records the complete curve, profiles and preparation size.
+Shared `deform` preserves source topology, UVs and organ IDs in owned outputs;
+its scalar evaluator is a same-output cost reference.
+
+The Jacobian differentiates the actual prepared map, including the ratio of
+curve speed to interpolated arc speed, frame curvature/roll and transverse
+profile derivatives. It does not assume an exact arc-length parameterization.
+Conservative curvature × transverse extent < 1 certifies positive local
+orientation before evaluation. This permits spatial bends and inflections,
+but does not prove global injectivity, collisions or general LOD coverage.
+The rib follows the same map as its leaflets; generator parent frames and
+bounds consume the spatial guide. Circular guide arrays remain unchanged.
+`ArcMeasure.fraction` now returns exact 0/1 at both endpoints to prevent
+roundoff from producing an out-of-domain coordinate. Proof and limits:
+[#103](https://github.com/Weichwolf/outshine/issues/103).
