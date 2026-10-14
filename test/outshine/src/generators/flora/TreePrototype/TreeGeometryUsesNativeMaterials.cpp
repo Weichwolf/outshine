@@ -157,9 +157,10 @@ int main() {
               "tolerance");
         const auto &before = geometry->surfaceAt(MaterialInstance(1));
         const auto &after = shared->Leaf.surfaceAt(MaterialInstance(0));
-        CHECK(before.BaseColour == after.BaseColour && before.Roughness == after.Roughness &&
-                  before.Metalness == after.Metalness && before.DoubleSided == after.DoubleSided,
-              "instanced fine leaves retain their native metallic-roughness material");
+        CHECK(
+            before == after && after.Scattering == ScatteringModel::DiffuseThinSheet &&
+                after.DiffuseTransmission[1] > 0,
+            "instanced fine leaves retain direct native R/T instead of opaque metallic roughness");
       }
     }
     for (int part = 0; part < geometry->parts(); ++part) {

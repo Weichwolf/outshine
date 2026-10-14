@@ -16,7 +16,10 @@
 #include "TreeMesh.h"
 #include "TreeMesher.h"
 #include "TreeSkeleton.h"
+#include "LeafOpticsDefaults.h"
 #include "ModelLadder.h"
+#include <cassert>
+#include <limits>
 
 namespace outshine::Generators {
 
@@ -25,15 +28,27 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   const TreeSpecies::Leaf &lf = sp.LeafParams();
   Vec3f bark;
   Vec3f leaf;
+  Vec3f transmission;
+  const auto optical = DefaultLeafOptics().Sample({sh.ChlorophyllUgCm2, sh.AnthocyaninUgCm2});
+  assert(optical.has_value());
   for (int c = 0; c < 3; c++) {
     bark[c] = ColourSpace::LinearFromSrgb(sh.BarkColor[c]);
-    leaf[c] = TreeLook::kLeafBaseLinear[c] * sh.LeafTint[c];
+    leaf[c] = static_cast<float>((*optical)[static_cast<size_t>(c)]) * sh.LeafTint[c];
+    transmission[c] = static_cast<float>((*optical)[static_cast<size_t>(c) + 3]) * sh.LeafTint[c];
+  }
+  const float energy =
+      *std::ranges::max_element(leaf.Axis) + *std::ranges::max_element(transmission.Axis);
+  if (energy > 1.0f) {
+    const float scale = 1.0f / std::nextafter(energy, std::numeric_limits<float>::infinity());
+    leaf = leaf * scale;
+    transmission = transmission * scale;
   }
   return {.BarkRgb = bark,
           .BarkDark = sh.BarkDark,
           .BarkFreq = sh.BarkFreq,
           .BarkRidge = sh.BarkRidge,
           .LeafRgb = leaf,
+          .LeafTransmission = transmission,
           .LeafWidth = lf.Width,
           .LeafWidest = lf.Widest,
           .LeafTip = lf.Tip,

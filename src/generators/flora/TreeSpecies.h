@@ -130,6 +130,8 @@ public:
     float WindAmp, WindFreq;
     float BarkRoughness;
     float LeafRoughness;
+    float ChlorophyllUgCm2;
+    float AnthocyaninUgCm2;
   };
 
   static constexpr Shading kShadingUnsaid = {
@@ -143,6 +145,8 @@ public:
       .WindFreq = 1.6f,
       .BarkRoughness = 0.9f,
       .LeafRoughness = 0.6f,
+      .ChlorophyllUgCm2 = 45.0f,
+      .AnthocyaninUgCm2 = 0.2f,
   };
 
   [[nodiscard]] bool Parse(const char *text, size_t len);

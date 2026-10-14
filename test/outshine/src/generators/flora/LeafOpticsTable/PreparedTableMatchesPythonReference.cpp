@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "Json.h"
 #include "LeafOpticsTable.h"
+#include "LeafOpticsDefaults.h"
 #include "ReadTextFile.h"
 
 #include <algorithm>
@@ -9,6 +10,36 @@
 #include <cstddef>
 #include <print>
 #include <vector>
+
+namespace {
+void CheckOwnedTable() {
+  using namespace outshine;
+  using namespace outshine::Generators;
+  using namespace outshine::Test;
+  const auto source =
+      ReadTextFile("lib/src/outshine_ref/vegetation/data/leaf-optics-table-1.json", 1024u * 1024u);
+  CHECK(source.has_value(), "the runtime table has one owned canonical reference input");
+  if (!source) { return; }
+  Json document;
+  CHECK(document.Parse(source->data(), source->size()), "owned raw table parses independently");
+  if (!document.Ok()) { return; }
+  const auto values = document.Root()["values"];
+  const auto &native = DefaultLeafOptics();
+  CHECK(native.Side() == values.Size() && native.Side() == 33,
+        "native runtime keeps both owned pigment axes");
+  CHECK(native.Limits() == LeafOpticsTable::kPigmentLimitsUnsaid,
+        "native runtime keeps the owned physical domain");
+  for (size_t x = 0; x < native.Side(); ++x) {
+    for (size_t y = 0; y < native.Side(); ++y) {
+      for (size_t channel = 0; channel < 6; ++channel) {
+        CHECK(native.Values()[x * native.Side() + y][channel] == values[x][y][channel].Num(),
+              "native preparation preserves every raw gamut channel without preclamping or "
+              "transposition");
+      }
+    }
+  }
+}
+}
 
 int main() {
   using namespace outshine;
@@ -66,5 +97,6 @@ int main() {
     }
   }
   std::println("LEAF_OPTICS cases={} maximum_channel_error={:.17g}", queries.Size(), worst);
+  CheckOwnedTable();
   return Report();
 }
