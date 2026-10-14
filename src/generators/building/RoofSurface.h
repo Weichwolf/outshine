@@ -40,9 +40,9 @@ public:
 
   void BreaksAlong(const EastNorth &from, const EastNorth &to, std::vector<double> &at) const;
 
-  static bool Fill(std::span<const EastNorth> plan,
+  static bool Fill(std::span<const EastNorth> requested,
                    BuildingScratch &scratch,
-                   std::vector<EastNorth> &tris,
+                   std::vector<EastNorth> &triangles,
                    std::span<const std::vector<EastNorth>> holes = {});
 
   static void Widened(std::span<const EastNorth> ring,
