@@ -37,3 +37,12 @@ end grades and fallback width are explicit procedural assumptions. Normal runs o
 `vertical_transition_experiment.py` only read it; `--capture-inputs` deliberately
 replaces it from the retained original source and DEM cache. These cases do not
 prove a complete junction/terrain/grade-separated network or native integration.
+
+`overpass-vienna-cases.json` pins 53 independent bridge/ground crossing pairs from
+the original Vienna tile and one additional tile from the same OpenFreeMap snapshot.
+Original source geometry/IDs/tags, DEM endpoint targets, class/fallback width origins,
+source hashes/receipts and considered/unselected/deferred source identities survive.
+These are alternative local experiments, not a combined certified transport network.
+`overpass_checks.py` and `overpass_experiment.py` only read the fixture. Explicit
+`capture_overpass_cases.py` replaces it from prepared raw inputs; `--fetch` acquires
+only missing DEM tiles. Captured raw full features stay in build/source cache.

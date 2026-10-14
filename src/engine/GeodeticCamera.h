@@ -36,8 +36,11 @@ inline constexpr std::string_view kCameraPositionInvalid =
     "geodetic camera coordinates or offset are invalid";
 }
 
-[[nodiscard]] inline std::expected<std::optional<Vec3>, std::string_view> ResolveGeodeticCamera(
-    const Scenario::View &camera, LongitudeLatitude origin, const GroundQuery *ground) {
+[[nodiscard]] inline std::expected<std::optional<Vec3>, std::string_view>
+ResolveGeodeticCamera(const Scenario::View &camera,
+                      LongitudeLatitude origin,
+                      const GroundQuery *ground,
+                      std::optional<GroundSample> heightSample = std::nullopt) {
   constexpr double kPoleDeg = kDegPerHalfTurn / 2.0;
   auto point = camera.Geographic.Geodetic;
   if (!std::isfinite(point.LongitudeDeg) || std::abs(point.LongitudeDeg) > kDegPerHalfTurn ||
@@ -53,9 +56,11 @@ inline constexpr std::string_view kCameraPositionInvalid =
     }
   }
   if (camera.Geographic.SamplesHeight) {
-    if (ground == nullptr) { return std::unexpected(Says::kCameraGroundRequired); }
+    if (ground == nullptr && !heightSample) { return std::unexpected(Says::kCameraGroundRequired); }
     const auto sample =
-        ground->At({.LongitudeDeg = point.LongitudeDeg, .LatitudeDeg = point.LatitudeDeg});
+        heightSample
+            ? *heightSample
+            : ground->At({.LongitudeDeg = point.LongitudeDeg, .LatitudeDeg = point.LatitudeDeg});
     if (sample.Where() == GroundSample::State::Pending) { return std::optional<Vec3>{}; }
     const auto height = sample.AslM();
     if (!height) { return std::unexpected(Says::kCameraGroundHole); }

@@ -44,6 +44,11 @@
       "id": "hoehenuebergaenge",
       "title": "Höhenübergänge",
       "description": "Flacher Anschluss an einen Höhenübergang: linearer Knick, parabolisch und kubisch. Gleiche erste 30 Meter, echte Breite und Querneigung, ohne Höhenüberhöhung. Grün: flacher Kontakt."
+    },
+    {
+      "id": "ebenen",
+      "title": "Ebenen und Durchfahrten",
+      "description": "Zwei lokale Verkehrsflächen: Orange zeigt die unzulässige Höhenkontrolle, Blau das erhöhte Deck, Grau die untere Straße. Ganze Flächen und Deckunterseite geprüft; gleiche Kamera ohne Höhenüberhöhung."
     }
   ],
   "images": [
@@ -563,6 +568,72 @@
       "image_source": "build/experiments/transport/vertical-profiles/Vienna-profile-cubic-solid.png",
       "report_source": "build/experiments/transport/vertical-profiles/Vienna-profile-cubic-solid.json",
       "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
+    },
+    {
+      "id": "two-level-control-before-solid",
+      "title": "Zwei Ebenen · Kontrolle · vor Höhenplanung",
+      "section": "ebenen",
+      "kind": "Unzulässige Kontrolle",
+      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
+      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/overpasses/two-level-control-before-solid.png",
+      "report_source": "build/experiments/transport/overpasses/two-level-control-before-solid.json",
+      "origin_source": "build/experiments/transport/overpasses/origin.json"
+    },
+    {
+      "id": "two-level-control-after-solid",
+      "title": "Zwei Ebenen · Kontrolle · mit Rampen und Freiraum",
+      "section": "ebenen",
+      "kind": "Geometrieversuch",
+      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
+      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/overpasses/two-level-control-after-solid.png",
+      "report_source": "build/experiments/transport/overpasses/two-level-control-after-solid.json",
+      "origin_source": "build/experiments/transport/overpasses/origin.json"
+    },
+    {
+      "id": "Vienna-overpass-before-solid",
+      "title": "Wien · lokaler Schienenüberbau · vor Höhenplanung",
+      "section": "ebenen",
+      "kind": "Unzulässige Kontrolle",
+      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
+      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-before-solid.png",
+      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-before-solid.json",
+      "origin_source": "build/experiments/transport/overpasses/origin.json"
+    },
+    {
+      "id": "Vienna-overpass-after-solid",
+      "title": "Wien · lokaler Schienenüberbau · mit Rampen und Freiraum",
+      "section": "ebenen",
+      "kind": "Geometrieversuch",
+      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
+      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-after-solid.png",
+      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-after-solid.json",
+      "origin_source": "build/experiments/transport/overpasses/origin.json"
+    },
+    {
+      "id": "Vienna-overpass-detail-before-solid",
+      "title": "Wien · Durchfahrtdetail · vor Höhenplanung",
+      "section": "ebenen",
+      "kind": "Unzulässige Kontrolle",
+      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
+      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-before-solid.png",
+      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-before-solid.json",
+      "origin_source": "build/experiments/transport/overpasses/origin.json"
+    },
+    {
+      "id": "Vienna-overpass-detail-after-solid",
+      "title": "Wien · Durchfahrtdetail · mit Rampen und Freiraum",
+      "section": "ebenen",
+      "kind": "Geometrieversuch",
+      "description": "Eigenständiger Paarplan mit festen Quellenden und vollständiger Abstandskontrolle. Nahansichten stammen aus denselben ganzen Flächen.",
+      "scope": "Zweiebenen-Grundmodell; Breiten/Durchfahrt als Rezeptannahmen. Keine vollständige Nachbarplanung, Terrain-/Pfeiler-/Gleis-/Fahrdynamik- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-after-solid.png",
+      "report_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-after-solid.json",
+      "origin_source": "build/experiments/transport/overpasses/origin.json"
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
