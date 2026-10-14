@@ -7,6 +7,8 @@ import numpy as np
 from .blade_surface import Blade
 from .shoot_plan import Shoot
 
+GOLDEN_ANGLE = np.pi * (3 - np.sqrt(5))
+
 
 @dataclass(frozen=True)
 class AxisLevel:
@@ -31,10 +33,14 @@ class AxisLevel:
     leaf_angle: float = 1.12
     leaf_sky_alignment: float = 0.65
     arrangement: str = "spiral"
+    whorl_size: int = 1
+    angle_tip: float | None = None
 
     def __post_init__(self):
         if type(self.branches) is not int or not 1 <= self.branches <= 64:
             raise ValueError("one to 64 branches per order required")
+        if type(self.whorl_size) is not int or not 1 <= self.whorl_size <= 16:
+            raise ValueError("one to 16 branches per whorl required")
         values = [v for v in asdict(self).values() if isinstance(v, (int, float))]
         if not all(np.isfinite(v) for v in values):
             raise ValueError("finite axis parameters required")
@@ -59,6 +65,11 @@ class AxisLevel:
         if not (
             0 < self.angle - self.angle_variation
             and self.angle + self.angle_variation < np.pi
+            and (
+                self.angle_tip is None
+                or 0 < self.angle_tip - self.angle_variation
+                and self.angle_tip + self.angle_variation < np.pi
+            )
         ):
             raise ValueError("branch inclinations must stay between zero and pi")
         if not 0 <= self.leaf_sky_alignment < 1:
@@ -66,7 +77,11 @@ class AxisLevel:
         self.shoot(0, 0)
 
     def length_at(self, slot):
-        fraction = slot / (self.branches - 1) if self.branches > 1 else 0
+        group, groups = (
+            slot // self.whorl_size,
+            (self.branches - 1) // self.whorl_size + 1,
+        )
+        fraction = group / (groups - 1) if groups > 1 else 0
         if self.length_shape == "rounded":
             return self.length * (
                 self.tip_scale + (1 - self.tip_scale) * np.sin(np.pi * fraction)
@@ -74,9 +89,29 @@ class AxisLevel:
         return self.length * (1 + (self.tip_scale - 1) * fraction)
 
     def attachment(self, slot, jitter=0.0):
-        fraction = slot / (self.branches - 1) if self.branches > 1 else 0.5
-        fraction += jitter * self.attachment_jitter / max(1, self.branches - 1)
+        group, groups = (
+            slot // self.whorl_size,
+            (self.branches - 1) // self.whorl_size + 1,
+        )
+        fraction = group / (groups - 1) if groups > 1 else 0.5
+        fraction += jitter * self.attachment_jitter / max(1, groups - 1)
         return self.first + (self.last - self.first) * np.clip(fraction, 0, 1)
+
+    def azimuth_at(self, slot):
+        if self.whorl_size == 1:
+            return slot * GOLDEN_ANGLE
+        group, member = divmod(slot, self.whorl_size)
+        return group * GOLDEN_ANGLE + member * (2 * np.pi / self.whorl_size)
+
+    def inclination_at(self, slot):
+        if self.angle_tip is None:
+            return self.angle
+        group, groups = (
+            slot // self.whorl_size,
+            (self.branches - 1) // self.whorl_size + 1,
+        )
+        fraction = group / (groups - 1) if groups > 1 else 0.5
+        return self.angle + (self.angle_tip - self.angle) * fraction
 
     def shoot(self, slot, seed, bend=None, blade=None, normal_hint=None):
         return Shoot(

@@ -14,3 +14,8 @@ def detail_budget(value):
     if type(value) is not int or not 0 <= value <= MAX_DETAIL:
         raise ValueError("integer detail budget between zero and 100000 required")
     return value
+
+
+def repeated_prefix(slots, ordinal):
+    cycles, remainder = divmod(ordinal, len(slots))
+    return cycles * sum(slots) + sum(slots[:remainder])
