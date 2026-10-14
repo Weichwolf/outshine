@@ -1,13 +1,15 @@
 """Shared geometry procedures with explicit ownership and numerical contracts."""
 
-from .triangulation import conform_triangles
-from .sampling import SurfaceSampler, SurfaceSamples
+from .clearance import vertical_clearance
 from .projected_surface import ProjectedSurfaceBudget, projected_height_surface
+from .sampling import SurfaceSampler, SurfaceSamples
+from .triangulation import conform_triangles
 
 __all__ = [
-    "conform_triangles",
+    "ProjectedSurfaceBudget",
     "SurfaceSampler",
     "SurfaceSamples",
-    "ProjectedSurfaceBudget",
+    "conform_triangles",
     "projected_height_surface",
+    "vertical_clearance",
 ]

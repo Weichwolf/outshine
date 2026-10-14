@@ -6,8 +6,11 @@ import numpy as np
 import shapely
 from bridge_continuation_field import TOP_ROLES, extension_field, field_certificate
 from outshine_ref.contracts import Mesh
-from outshine_ref.geometry import ProjectedSurfaceBudget, projected_height_surface
-from overpass_clearance import vertical_clearance
+from outshine_ref.geometry import (
+    ProjectedSurfaceBudget,
+    projected_height_surface,
+    vertical_clearance,
+)
 from retained_surface import (
     flat_domain,
     old_contacts,
