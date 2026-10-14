@@ -9,11 +9,16 @@ The sparse crowns still lack botanical approval; this is a cost experiment.
 ```sh
 .venv/bin/python test/experiments/vegetation/needle_lod_experiment.py
 .venv/bin/python test/experiments/vegetation/needle_lod_experiment.py --position-only
+.venv/bin/python test/experiments/vegetation/conifer_preview.py -- \
+  --scenario build/experiments/vegetation/needle-lod/position-area/selected.json \
+  --output build/experiments/vegetation/needle-lod/position-area/selected-render.png
 ```
 
 Products/reports go to `build/experiments/vegetation/needle-lod/position-area`
 or `position-only`, independently of the control cache and current showcase.
 The first position-only trial is retained separately as a failed counterexample.
+Render image/metadata names differ from the scenario; the renderer rejects output
+paths that would overwrite its input scenario, product or material files.
 It dropped projected needle area by up to 42% and produced pixels up to 27/255
 brighter despite the positional envelope. Its lower cost is not an approval.
 
