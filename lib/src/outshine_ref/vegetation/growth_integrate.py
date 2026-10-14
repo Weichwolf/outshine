@@ -60,23 +60,35 @@ def integrate(program, distances, method, max_evaluations):
     steps = max(8, 2 * cells)
     if max_evaluations < steps * (12 if method == "DOP853" else 6):
         return None
-    fields = compile_fields(program.fields)
+    fields = compile_fields(program.fields, program.initial_tangent)
+    moving = program.needs_frame
 
     def rhs(distance, state):
         nonlocal evaluations
         if evaluations >= max_evaluations:
             raise EvaluationBudget("growth solver evaluation budget reached")
         evaluations += 1
-        x, y, z, tx, ty, tz = (float(v) for v in state)
-        fx, fy, fz = scalar_force(fields, x, y, z, distance / program.length)
+        x, y, z, tx, ty, tz = (float(v) for v in state[:6])
+        lateral = tuple(float(v) for v in state[6:]) if moving else None
+        fx, fy, fz = scalar_force(
+            fields, x, y, z, distance / program.length, tx, ty, tz, lateral
+        )
         dot = fx * tx + fy * ty + fz * tz
-        return np.array((tx, ty, tz, fx - dot * tx, fy - dot * ty, fz - dot * tz))
+        dx, dy, dz = fx - dot * tx, fy - dot * ty, fz - dot * tz
+        if moving:
+            rate = lateral[0] * dx + lateral[1] * dy + lateral[2] * dz
+            return np.array(
+                (tx, ty, tz, dx, dy, dz, -rate * tx, -rate * ty, -rate * tz)
+            )
+        return np.array((tx, ty, tz, dx, dy, dz))
 
     try:
         solution = solve_ivp(
             rhs,
             (0, program.length),
-            np.r_[np.zeros(3), program.initial_tangent],
+            np.r_[np.zeros(3), program.initial_tangent, program.initial_lateral]
+            if moving
+            else np.r_[np.zeros(3), program.initial_tangent],
             method=method,
             t_eval=distances,
             rtol=1e-10,
@@ -87,7 +99,20 @@ def integrate(program, distances, method, max_evaluations):
         return None
     if not solution.success or not np.isfinite(solution.y).all():
         raise ValueError("growth integration failed to produce a finite whole axis")
-    return solution.y[:3].T, solution.y[3:].T, evaluations
+    if moving:
+        lateral = solution.y[6:].T
+        tangent = solution.y[3:6].T
+        if (
+            max(
+                float(abs(np.linalg.norm(lateral, axis=1) - 1).max()),
+                float(abs(np.sum(lateral * tangent, axis=1)).max()),
+            )
+            > 5e-8
+        ):
+            raise ValueError(
+                "growth integration does not resolve the transported frame"
+            )
+    return solution.y[:3].T, solution.y[3:6].T, evaluations
 
 
 def prepared_curve(length, positions, tangents):

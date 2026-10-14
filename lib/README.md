@@ -472,3 +472,24 @@ Four samples per interval check position error ≤5×10⁻⁶ length and tangent
 global bounds between probes. `growth-spine-1` records the full authoring recipe;
 cache the prepared spine and complete mesh/material products for solver-free
 detail/replay. Contract, reference and costs: [#105](https://github.com/Weichwolf/outshine/issues/105).
+
+`CurlField` bends around an axis expressed in the moving lateral/tangent/normal
+frame. `GnarlField` rotates the heading around a fixed axis in the declared local
+space. `PlanarField` projects the heading onto its plane; `ReturnField` biases
+growth toward the program's initial direction. All use immutable rate profiles
+and optional radial attenuation. Zero cross products remain zero and introduce
+no arbitrary direction. These smooth field magnitudes differ from SpeedTree's
+normalized cross products; full property/frame-mode equality is unproven.
+
+Curl additionally integrates a transported lateral vector A with A′=−(A·T′)T.
+Its initial reference defaults to X and must be independent of the initial
+heading; `initial_reference` records another explicit choice. Constant smooth
+turning fields use measured DOP853 preparation; varying profiles use RK45.
+Independent public batch queries take `headings` and, for curl, `lateral` arrays.
+
+New fields/references serialize as `growth-spine-2`; unchanged direction and
+attraction programs retain exact v1 recipes and prepared curves. Curve and
+frame norms, independent circle/helix/plane solutions, covariance and replay
+belong to [#114](https://github.com/Weichwolf/outshine/issues/114).
+Cross-section twist remains controlled by the existing roll profiles; original
+Twist-force modes, geometry containers/collisions, mechanics and wind remain open.

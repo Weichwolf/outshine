@@ -17,6 +17,16 @@ from .force_fields import (
 from .growth_integrate import constant_samples, integrate, prepared_curve
 from .spine_curve import CubicSpine
 from .spine_frames import unit
+from .turning_fields import CurlField, GnarlField, PlanarField, ReturnField
+
+GrowthField = (
+    DirectionField
+    | AttractionField
+    | CurlField
+    | GnarlField
+    | PlanarField
+    | ReturnField
+)
 
 
 @dataclass(frozen=True)
@@ -32,8 +42,9 @@ class GrowthResult:
 @dataclass(frozen=True)
 class GrowthSpine:
     length: float
-    fields: tuple[DirectionField | AttractionField, ...] = ()
+    fields: tuple[GrowthField, ...] = ()
     initial_direction: tuple[float, float, float] = (0, 1, 0)
+    initial_reference: tuple[float, float, float] | None = None
 
     def __post_init__(self):
         if (
@@ -42,7 +53,17 @@ class GrowthSpine:
             or not isinstance(self.fields, tuple)
             or len(self.fields) > 16
             or any(
-                not isinstance(f, (DirectionField, AttractionField))
+                not isinstance(
+                    f,
+                    (
+                        DirectionField,
+                        AttractionField,
+                        CurlField,
+                        GnarlField,
+                        PlanarField,
+                        ReturnField,
+                    ),
+                )
                 for f in self.fields
             )
         ):
@@ -58,24 +79,56 @@ class GrowthSpine:
         initial = unit(raw)
         object.__setattr__(self, "initial_direction", raw)
         object.__setattr__(self, "initial_tangent", tuple(float(v) for v in initial))
+        if self.initial_reference is not None:
+            object.__setattr__(
+                self, "initial_reference", point3(self.initial_reference)
+            )
+        if self.needs_frame:
+            reference = np.asarray(
+                (1, 0, 0) if self.initial_reference is None else self.initial_reference
+            )
+            lateral = reference - np.dot(reference, initial) * initial
+            if np.linalg.norm(lateral) < 1e-10:
+                raise ValueError(
+                    "independent initial reference for moving curl required"
+                )
+            object.__setattr__(
+                self, "initial_lateral", tuple(float(v) for v in unit(lateral))
+            )
 
-    def evaluate(self, points, fraction):
+    @property
+    def needs_frame(self):
+        return any(isinstance(f, CurlField) for f in self.fields)
+
+    def evaluate(self, points, fraction, headings=None, lateral=None):
         points = points3(points)
         result = np.zeros_like(points)
         for field in self.fields:
-            result += field.evaluate(points, fraction)
+            if isinstance(field, CurlField):
+                result += field.evaluate(points, fraction, headings, lateral)
+            elif isinstance(field, (GnarlField, PlanarField)):
+                result += field.evaluate(points, fraction, headings)
+            elif isinstance(field, ReturnField):
+                result += field.evaluate(points, fraction, self.initial_tangent)
+            else:
+                result += field.evaluate(points, fraction)
         return result
 
     def constant_vector(self):
         vector = np.zeros(3)
         for field in self.fields:
             if (
-                not isinstance(field, DirectionField)
+                not isinstance(field, (DirectionField, ReturnField))
                 or field.falloff is not None
                 or not np.all(field.rate.table == field.rate.table[0])
             ):
                 return None
-            vector += np.asarray(field.unit_direction) * field.rate.table[0]
+            direction = (
+                self.initial_tangent
+                if isinstance(field, ReturnField)
+                else field.unit_direction
+            )
+            vector += np.asarray(direction) * field.rate.table[0]
         return vector
 
     def prepare(self, stations=33, *, method="auto", max_evaluations=4096):
@@ -92,8 +145,14 @@ class GrowthSpine:
         if not max_evaluations:
             return None
         vector = self.constant_vector()
+        smooth_turn = any(
+            isinstance(f, (CurlField, GnarlField, PlanarField)) for f in self.fields
+        ) and all(
+            f.falloff is None and np.all(f.rate.table == f.rate.table[0])
+            for f in self.fields
+        )
         selected = (
-            ("analytic" if vector is not None else "RK45")
+            ("analytic" if vector is not None else "DOP853" if smooth_turn else "RK45")
             if method == "auto"
             else method
         )
@@ -119,24 +178,40 @@ class GrowthSpine:
         )
 
     def recipe(self):
-        return {
+        result = {
             "version": "growth-spine-1",
             "length": self.length,
             "fields": [f.recipe() for f in self.fields],
             "initial_direction": self.initial_direction,
         }
+        if self.initial_reference is not None or any(
+            not isinstance(f, (DirectionField, AttractionField)) for f in self.fields
+        ):
+            result |= {
+                "version": "growth-spine-2",
+                "initial_reference": self.initial_reference,
+            }
+        return result
 
     @classmethod
     def from_recipe(cls, recipe):
-        if (
-            set(recipe) != {"version", "length", "fields", "initial_direction"}
-            or recipe["version"] != "growth-spine-1"
-        ):
+        version = recipe.get("version")
+        keys = {"version", "length", "fields", "initial_direction"}
+        if version == "growth-spine-2":
+            keys.add("initial_reference")
+        if set(recipe) != keys or version not in ("growth-spine-1", "growth-spine-2"):
             raise ValueError("complete supported growth spine recipe required")
+        fields = tuple(field_from_recipe(f) for f in recipe["fields"])
+        if version == "growth-spine-1" and any(
+            not isinstance(f, (DirectionField, AttractionField)) for f in fields
+        ):
+            raise ValueError("turning fields require their complete v2 recipe")
+        reference = recipe.get("initial_reference")
         return cls(
             recipe["length"],
-            tuple(field_from_recipe(f) for f in recipe["fields"]),
+            fields,
             tuple(recipe["initial_direction"]),
+            None if reference is None else tuple(reference),
         )
 
     @cached_property
