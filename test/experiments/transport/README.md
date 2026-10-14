@@ -674,3 +674,45 @@ Kachel-/Portalprodukte folgen der Bibliotheksübernahme.
 PYTHONPATH=lib/src .venv/bin/python -W error -m unittest discover -s lib/tests -p test_clearance.py
 PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -W error test/experiments/transport/height_gap_experiment.py
 ```
+
+## Whole-tile component recovery (#153)
+
+`transport_component_surfaces.assemble` first uses the existing common surface
+builder. A valid result is retained unchanged; it is not unnecessarily rebuilt
+per component. After a kernel/geometry or output-limit failure, the physical band
+union after curb refinement identifies independent parts. Bounded local attempts
+keep valid complete parts and give each omitted source a specific reason.
+Axis connectivity alone is insufficient: wide parallel bands can physically meet.
+`original_edges` and `source_indices` bind unchanged direction/access masks to the
+original prepared graph. This does not certify drivable turns or physical profiles.
+
+Input edges/coordinates, local calls/edges, total output faces and cooperative time
+are bounded. A geometry call can overrun cooperative time; hard CPU/address-space
+and wall limits belong to the isolated experiment. No unknown minimum/partial
+component is published as valid. Shared Plan/Reservation/HeightInterval contracts
+remain unchanged. This is an experiment; further library migration remains #50.
+
+`component_surface_experiment.py` compares the monolithic, serial-component and
+fast-with-recovery methods on the same complete captured inputs and recipe masks.
+Eight whole source tiles cover Vienna, Flensburg, Central Park, Tokyo, Hong Kong,
+Feldkirch, Cape Town and Sydney. New acquired bytes are separately recorded in
+`build/experiments/transport/components/inventory.json`; historical pins and cache
+files are retained. The offline inputs contain every original transportation
+feature, part ID, attribute and deferred polygon reason. Source transport bodies
+use a declared flat Z=0/depth0.25 m recipe, not DEM or a complete city world.
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
+  .venv/bin/python -W error test/experiments/transport/component_surface_checks.py
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
+  .venv/bin/python test/experiments/transport/component_surface_experiment.py
+PYTHONPATH=lib/src:test/experiments/transport .venv/bin/python \
+  test/experiments/transport/component_surface_showcase.py
+PYTHONPATH=lib/src:test/experiments/transport .venv/bin/python \
+  test/experiments/transport/whole_tile_showcase.py
+```
+
+SIGGRAPH2008 Fig.2/page2 was inspected visually: retained graph and 3D geometry
+are separate stages, not a reproduced full paper algorithm. Source acquisition
+uses the [documented offline request policy](https://openfreemap.org/quick_start/)
+and a unique User-Agent. Provider credits remain visible in the four-image page.

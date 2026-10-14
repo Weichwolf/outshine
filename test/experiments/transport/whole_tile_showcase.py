@@ -186,9 +186,10 @@ def main():
     comparisons = {}
     for entry in entries:
         model = prepare(entry, configurations)
-        comparisons.setdefault(entry["comparison"], []).append(
-            (model, configurations[-1])
-        )
+        if entry.get("comparison"):
+            comparisons.setdefault(entry["comparison"], []).append(
+                (model, configurations[-1])
+            )
     for pair in comparisons.values():
         if len(pair) != 2:
             raise ValueError(
