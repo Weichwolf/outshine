@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import numpy as np
 
-from boolean_attributes_probe import bind_attributes,immutable
+from boolean_attributes_probe import bind_attributes,immutable,BOOL_AUTO_TAGS
 
 
 def attributes(overlay):
@@ -13,7 +13,7 @@ def attributes(overlay):
         captured=base
         for owner,triangle in supports:
             source=overlay.product.sources[owner];part=int(source.mesh['parts'][triangle])
-            captured=captured|source.shape.geometry.polygons[part].tags|{'bool.A' if owner==0 else 'bool.B'}
+            captured=captured|(source.shape.geometry.polygons[part].tags-BOOL_AUTO_TAGS)|{'bool.A' if owner==0 else 'bool.B'}
         tags.append(captured)
     return replace(bound,tags=tuple(tags))
 

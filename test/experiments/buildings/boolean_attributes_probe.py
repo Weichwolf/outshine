@@ -6,6 +6,7 @@ import numpy as np
 
 from outshine_ref.buildings.modelling.material import resolved_materials
 
+BOOL_AUTO_TAGS=frozenset({'bool.A','bool.B','bool.cut'})
 
 @dataclass(frozen=True)
 class MaterialBinding:
@@ -72,7 +73,7 @@ def bind_attributes(product,max_materials=65536):
                 if face.group in names:group_names.append((identifier,names[face.group]))
             rows=selected[source_parts==part]
             materials[rows]=material_ids[face.material];groups[rows]=group_ids[face.group];parents[rows]=part
-            captured=face.tags|{'bool.A' if owner==0 else 'bool.B'}
+            captured=(face.tags-BOOL_AUTO_TAGS)|{'bool.A' if owner==0 else 'bool.B'}
             for row in rows:tags[int(row)]=captured
     return BooleanAttributes(immutable(materials,np.uint16),immutable(groups,np.uint32),immutable(parents,np.int32),
         tuple(tags),tuple(MaterialBinding(material,resources,tuple(source_ids)) for material,resources,source_ids in bindings),
