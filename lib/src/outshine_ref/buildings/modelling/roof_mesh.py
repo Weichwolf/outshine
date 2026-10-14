@@ -50,7 +50,8 @@ class RoofMesh:
 
     def finish(self):
         mesh,roots=self.mesh()
-        projections=None if self.projection_normal is None else {key:(-self.projection_normal if key=='bottom' else self.projection_normal) for key in self.templates}
+        projections=None if self.projection_normal is None else {key:(-self.projection_normal if key=='bottom' else self.projection_normal)
+            for key in self.templates if key=='bottom' or isinstance(key,tuple) and key[0]=='top'}
         faces,_=logical_faces(mesh,roots,self.keys,self.templates,projections)
         faces=tuple(replace(face,uv_sets=tuple((channel,tuple(tuple(map(tuple,mesh[name(channel)][list(ring)]))
             for ring in (face.outer,*face.holes))) for channel in self.channels if channel)) for face in faces)

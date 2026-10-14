@@ -64,9 +64,14 @@ def domains(source_corners, plan, limit):
     return source, facets, precision
 
 
-def overlay(source_corners, plan, limit=65536):
+def overlay(source_corners, plan, limit=65536, domain=None):
+    if domain is not None and domain.is_empty:
+        return FacetOverlay(np.empty((0,3,2)),np.empty(0,dtype=np.int64),np.empty(0,dtype=np.int64),0,0.)
     source, facets, precision = domains(source_corners, plan, limit)
-    network = shapely.union_all(np.r_[shapely.boundary(source), shapely.boundary(facets)], grid_size=precision)
+    boundaries = np.r_[shapely.boundary(source), shapely.boundary(facets)]
+    if domain is not None:boundaries=np.r_[boundaries,shapely.set_precision(domain,precision).boundary]
+    network = shapely.union_all(boundaries, grid_size=precision)
     cells = shapely.get_parts(shapely.polygonize(shapely.get_parts(network)))
-    cells = cells[shapely.covers(plan.footprint, shapely.point_on_surface(cells))]
+    retained = plan.footprint if domain is None else shapely.set_precision(domain, precision)
+    cells = cells[shapely.covers(retained, shapely.point_on_surface(cells))]
     return triangulate_cells(cells, source, facets, limit, precision)
