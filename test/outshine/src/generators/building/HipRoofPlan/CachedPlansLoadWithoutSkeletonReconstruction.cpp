@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <memory>
+#include <vector>
 
 int main() {
   using namespace outshine;
@@ -22,6 +23,11 @@ int main() {
   CHECK(HipRoofCodec::Fields(reader, restored), "decoder restores native plan directly from bytes");
   CHECK(reader.Remaining == 0 && restored && *restored, "entire ready roof payload is consumed");
   if (restored && *restored) {
+    CHECK(HipRoofCodec::BoundTo(restored, ring, {}), "a cached plan owns every original eave");
+    auto subdivided = std::vector<EastNorth>(ring.begin(), ring.end());
+    subdivided.insert(subdivided.begin() + 1, EastNorth{5, 0});
+    CHECK(!HipRoofCodec::BoundTo(restored, subdivided, {}),
+          "unchanged footprint coverage cannot hide a missing source-eave owner");
     CHECK((**restored).Facets().size() == made->Facets().size(),
           "cache preserves source facet count");
     for (size_t at = 0; at < made->Facets().size(); ++at) {

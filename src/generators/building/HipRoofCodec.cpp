@@ -133,7 +133,16 @@ bool HipRoofCodec::BoundTo(const Product &value,
   if (!Valid(value)) { return false; }
   if (!value || !*value) { return true; }
   const auto &plan = **value;
-  if (exterior.empty() || plan.Origin_ != exterior.front()) { return false; }
+  if (exterior.empty() || exterior.size() > HipRoofPlan::Limits{}.Vertices ||
+      plan.Origin_ != exterior.front()) {
+    return false;
+  }
+  size_t eaves = exterior.size();
+  for (const auto &hole : holes) {
+    if (hole.size() > HipRoofPlan::Limits{}.Vertices - eaves) { return false; }
+    eaves += hole.size();
+  }
+  if (!plan.OwnsEveryEave(eaves)) { return false; }
   for (const auto &face : plan.Facets_) {
     if (face.SourceRing > holes.size()) { return false; }
     const std::span<const EastNorth> ring =

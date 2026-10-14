@@ -265,6 +265,7 @@ PrepareFacets(const Input &input, HipRoofPlan::Limits limits) {
   if (count == 0 || count > limits.Facets) {
     return std::unexpected(HipRoofError::CapacityExceeded);
   }
+  if (count != input.Edges.size()) { return std::unexpected(HipRoofError::InvalidFacet); }
   std::vector<HipRoofPlan::Facet> facets;
   facets.reserve(count);
   size_t corners = 0;
@@ -355,8 +356,19 @@ HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
     corners += facet.Ring.size();
     plan.Facets_.push_back(std::move(facet));
   }
-  if (!(plan.MaximumDistanceM_ > 0)) { return std::unexpected(HipRoofError::InvalidFacet); }
+  if (!(plan.MaximumDistanceM_ > 0) || !plan.OwnsEveryEave(input->Edges.size())) {
+    return std::unexpected(HipRoofError::InvalidFacet);
+  }
   return plan;
+}
+
+bool HipRoofPlan::OwnsEveryEave(size_t count) const {
+  if (Facets_.size() != count) { return false; }
+  std::vector<std::pair<size_t, size_t>> owners;
+  owners.reserve(count);
+  for (const auto &facet : Facets_) { owners.emplace_back(facet.SourceRing, facet.SourceEdge); }
+  std::ranges::sort(owners);
+  return std::ranges::adjacent_find(owners) == owners.end();
 }
 
 std::optional<double> HipRoofPlan::DistanceAt(EastNorth point) const noexcept {

@@ -13,7 +13,7 @@ namespace outshine::Generators {
 class BuildingMesh : public StructureMesher {
 public:
   [[nodiscard]] std::string_view ArtifactVersion() const noexcept override {
-    return "outshine-building-mesh-17";
+    return "outshine-building-mesh-18";
   }
 
   [[nodiscard]] std::optional<double>
