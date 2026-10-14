@@ -95,8 +95,8 @@ class HipModelling(unittest.TestCase):
         original=source.roof_hip(3.,'byHeight');roof=source.roof_hip(3.,'byHeight',even=True)
         plan,surface=roof.roof_info.plans[0],roof.roof_info.surfaces[0]
         group=next(g for g in surface.ridge_groups if len(g)>1)
-        expected=plan.distances_m[list(group)].mean()*plan.factor(3.,'byHeight')
-        self.assertLess(expected,original.scope.size[1])
+        expected=plan.distances_m[list(group)].max()*surface.factor(3.,'byHeight')
+        self.assertAlmostEqual(expected,original.scope.size[1])
         self.assertAlmostEqual(roof.scope.size[1],expected)
         mesh=roof.emit();warped=[]
         for face in roof.geometry.polygons:
@@ -107,6 +107,13 @@ class HipModelling(unittest.TestCase):
         selected=roof.comp('f',Branch(tagged('roof.top'),'='),alignment='noAlign')[0].emit()
         self.assertEqual(len(selected['faces']),sum('roof.top' in roof.geometry.polygons[p].tags for p in mesh['parts']))
         with self.assertRaises(ValueError):surface.distances_m.flags.writeable=True
+
+    def test_even_l_keeps_separate_naturally_horizontal_firsts(self):
+        source=Shape.from_polygon(shapely.Polygon([(0,0),(10,0),(10,3),(5,3),(5,8),(0,8)]))
+        for value,mode in ((3.,'byHeight'),(25.,'byAngle')):
+            before=source.roof_hip(value,mode);after=source.roof_hip(value,mode,even=True)
+            np.testing.assert_allclose(before.emit()['vertices'],after.emit()['vertices'],atol=1e-10)
+            self.assertEqual(sorted(len(g) for g in after.roof_info.surfaces[0].ridge_groups),[2,2])
 
 
 if __name__=='__main__':unittest.main()

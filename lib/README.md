@@ -161,11 +161,14 @@ werden bei der geänderten Geometrie neu aufgebaut; fehlendes UV0 bleibt fehlend
 Die gemeinsame planare Überlagerung verwendet ein explizites Präzisionsraster
 und berichtet dessen Meterweite im `roof_info`. `max_cells` begrenzt vorab
 Quell-Dreieck-/Facettenkandidaten, danach Zellen und Ausgabedreiecke.
-`byHeight` ist ebenfalls verfügbar. `even=True` mittelt die Höhen verbundener
-konvexer Gratknoten und hält Traufknoten fest. Nichtplanare Facetten besitzen
+`byHeight` ist ebenfalls verfügbar. `even=True` unterscheidet Firstgruppen
+von verbindenden Walmlinien und hält Traufknoten fest. Bei `byAngle` werden
+Gruppenhöhen gemittelt, bei `byHeight` auf das jeweilige Gruppenmaximum gesetzt.
+Die vorgegebene maximale Dachhöhe bleibt dabei erhalten. Nichtplanare Facetten besitzen
 eine feste Triangulation vor dem UV-Schnitt; unverändert planare Flächen
-behalten ihre ursprüngliche Darstellung. Die nominelle Höhen-/Winkelskalierung
-geschieht vor der Mittelung; die endgültige Maximalhöhe kann daher kleiner sein.
+behalten ihre ursprüngliche Darstellung. Die Gruppierung folgt dem statisch
+untersuchten 2°-Knotenfächer und wird gegen einen isolierten SDK-Geometrieaufruf
+geprüft. Ein degenerierter realer SDK-Gegenfall bleibt ausdrücklich offen.
 `roof_info.surfaces` hält die vorbereiteten Flächen; tatsächliche gemeinsame
 Höhenanpassungen am Präzisionsraster werden in Metern berichtet.
 Überhang, genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben

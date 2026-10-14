@@ -45,7 +45,7 @@ def fold_lines(original,roof):
 
 def plan_view(output,provenance,rows):
     begin=time.perf_counter();fig,axes=plt.subplots(2,3,figsize=(38.4,21.6))
-    fig.suptitle('Walmdach · even gleicht verbundene konvexe Grate an',fontsize=34)
+    fig.suptitle('Walmdach · getrennte Firstgruppen nach SDK-Geometrie',fontsize=34)
     for column,row in enumerate((rows[1],rows[2],rows[4])):
         original,standard,even=roofs(row);rise=row[4]
         for level,(label,roof) in enumerate((('Standard',standard),('even',even))):
@@ -57,7 +57,7 @@ def plan_view(output,provenance,rows):
             fig.colorbar(colour,ax=axis,shrink=.62,label='Höhe über Traufe [m]')
             axis.set(aspect='equal',xlabel='Ost [m]',ylabel='Nord [m]');axis.grid(alpha=.15);axis.tick_params(labelsize=15)
             axis.set_title(row[0]+f'\n{label} · maximale Dachhöhe {points[:,2].max():.3f} m',fontsize=22)
-    fig.text(.045,.02,'Echte native Ausgabe. Rot: erhaltene Faltkanten innerhalb nichtplanarer Facetten. byHeight wird vor der Gratmittelung angewandt; even kann die Maximalhöhe senken.',fontsize=22)
+    fig.text(.045,.02,'Echte native Ausgabe. Rot: feste Faltkanten innerhalb nichtplanarer Facetten. byHeight setzt Gruppen auf ihr Maximum und erhält die vorgegebene Dachhöhe.',fontsize=22)
     fig.tight_layout(rect=(0,.06,1,.94),h_pad=4.,w_pad=3.)
     return save_plot(fig,output,'current-hip-even-plan','Walmdächer · Standard und horizontale Grate',
                      'Dieselben L-/Trapez-/Wiener Quellgrundrisse und Höhenwerte. Feste Faltflächen vor dem UV-Schnitt; Innenhöfe/Umrisse, UV0–9 und Quellenbesitz erhalten. SDK-Gruppierung noch nicht als vollständiges CGA-Orakel belegt.',

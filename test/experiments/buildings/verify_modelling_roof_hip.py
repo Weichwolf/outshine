@@ -74,11 +74,12 @@ def verify(shape, value=3., mode='byHeight', even=False):
     for plan,surface in zip(roof.roof_info.plans,roof.roof_info.surfaces,strict=True):
         facets=plan.facets if surface is None else surface.facets
         expected += sum(f.polygon.area*(np.asarray(f.gradient)@np.asarray(f.polygon.centroid.coords[0])+f.intercept_m)
-                        for f in facets)*plan.factor(value,mode)
+                        for f in facets)*(plan if surface is None else surface).factor(value,mode)
         if surface is not None:
             for group in surface.ridge_groups:
                 _,unique=np.unique(plan.positions_m[list(group)],axis=0,return_index=True)
-                np.testing.assert_allclose(surface.distances_m[list(group)],plan.distances_m[np.asarray(group)[unique]].mean(),atol=1e-12)
+                values=plan.distances_m[np.asarray(group)[unique]]
+                np.testing.assert_allclose(surface.distances_m[list(group)],values.max() if mode=='byHeight' else values.mean(),atol=1e-12)
             np.testing.assert_array_equal(surface.distances_m[plan.distances_m==0],0.)
     volume, quality = measure(mesh)
     np.testing.assert_allclose(volume,expected,atol=1e-7,rtol=1e-9)

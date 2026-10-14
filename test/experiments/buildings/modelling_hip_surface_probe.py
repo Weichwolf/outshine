@@ -46,7 +46,7 @@ def surface_heights(original,roof,value,mode,mesh=None):
         candidate=triangles[pairs[1]];first,last=candidate[:,1]-candidate[:,0],candidate[:,2]-candidate[:,0]
         delta=projected[pairs[0]]-candidate[:,0];area=cross(first,last)
         u,v=cross(delta,last)/area,cross(first,delta)/area;bary=np.c_[1-u-v,u,v]
-        expected=(values[pairs[1]]*bary).sum(axis=1)*plan.factor(value,mode)
+        expected=(values[pairs[1]]*bary).sum(axis=1)*(plan if surface is None else surface).factor(value,mode)
         error=abs(expected-actual[pairs[0]])
         valid=(bary.min(axis=1)>=-1e-7)&(error<=1e-7+roof.roof_info.maximum_shared_height_adjustment_m[owner])
         errors=np.full(len(points),np.inf);np.minimum.at(errors,pairs[0][valid],error[valid])

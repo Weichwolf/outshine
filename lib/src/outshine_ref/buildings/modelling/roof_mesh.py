@@ -10,8 +10,9 @@ from .uv import name
 
 
 class RoofMesh:
-    def __init__(self,channels):
+    def __init__(self,channels,projection_normal=None):
         self.channels=channels;self.properties=[];self.roots=[];self.keys=[];self.templates={};self.identifiers={}
+        self.projection_normal=projection_normal
 
     def root(self,key):
         if key not in self.identifiers:self.identifiers[key]=len(self.identifiers)
@@ -48,7 +49,9 @@ class RoofMesh:
         self.append(properties[order],np.asarray(roots)[order],key,template)
 
     def finish(self):
-        mesh,roots=self.mesh();faces,_=logical_faces(mesh,roots,self.keys,self.templates)
+        mesh,roots=self.mesh()
+        projections=None if self.projection_normal is None else {key:(-self.projection_normal if key=='bottom' else self.projection_normal) for key in self.templates}
+        faces,_=logical_faces(mesh,roots,self.keys,self.templates,projections)
         faces=tuple(replace(face,uv_sets=tuple((channel,tuple(tuple(map(tuple,mesh[name(channel)][list(ring)]))
             for ring in (face.outer,*face.holes))) for channel in self.channels if channel)) for face in faces)
         unique,indices=np.unique(roots,return_index=True);prefix=mesh['vertices'][indices]
