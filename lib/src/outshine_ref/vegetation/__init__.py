@@ -29,6 +29,10 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "LeafOpticsTable": "leaf_optics",
+    "leaf_diffuse_response": "leaf_lighting",
+    "LeafMaterialLevel": "leaf_material",
+    "leaf_material_mips": "leaf_material",
     "CurlField": "turning_fields",
     "GnarlField": "turning_fields",
     "PlanarField": "turning_fields",
@@ -82,6 +86,10 @@ __all__ = [
     "GrowthResult",
     "GrowthSpine",
     "Inputs",
+    "LeafOpticsTable",
+    "leaf_diffuse_response",
+    "LeafMaterialLevel",
+    "leaf_material_mips",
     "LeafletShape",
     "Needle",
     "PinnatePattern",

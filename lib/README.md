@@ -519,3 +519,51 @@ frame norms, independent circle/helix/plane solutions, covariance and replay
 belong to [#114](https://github.com/Weichwolf/outshine/issues/114).
 Cross-section twist remains controlled by the existing roll profiles; original
 Twist-force modes, geometry containers/collisions, mechanics and wind remain open.
+
+### Procedural leaf materials and diffuse transmission
+
+`LeafOpticsTable(values, limits=(80, 10))` owns immutable raw linear-sRGB R/T
+samples on a 3–65 square log1p pigment grid. Coordinates are chlorophyll and
+anthocyanin in µg/cm². `sample(Nx2)` interpolates before jointly reducing gamut;
+reflection and transmission retain their luminance and max(R)+max(T) ≤1.
+`leaf-optics-table-1` recipes include values, limits, channel order and colour
+semantics. Leaf kernels use NumPy; the package's common contracts also import
+Shapely. Lookup has no spectral, solver or renderer dependency. External PROSPECT-D spectral evaluation
+and CIE/D65 integration remain experiment preparation, with provider parameters
+and provenance retained separately; PROSPECT N is a structural parameter.
+
+`leaf_pigments.pigment_coordinates` uses stable seed pairs and physical XY metre
+positions, independent of batch/order/mesh subdivision. Twelve bounded waves
+produce 8–40 mm pigment patches; vein relief modulates chlorophyll. These are
+own styling choices, not calibrated seasonal or botanical laws. Pigment queries
+outside the configured table domain explicitly reject.
+
+`leaf_normals` maps height derivatives through the actual surface metric,
+filters slope/second moments and fourth-power perceptual roughness, and resolves
+mean normals with isotropic variance broadening. Covariance validation permits
+roundoff from existing Float32 moment caches; original valid outputs stay exact.
+This approximation does not preserve multimodal or anisotropic highlight lobes.
+
+`leaf_material_mips(optical, coverage, moments)` returns owned immutable
+`LeafMaterialLevel` products from square power-of-two images up to 512². Both
+six-channel R/T and six-channel normal moments are premultiplied by coverage.
+Filter them jointly with coverage, then `resolve()` divides at positive coverage
+and returns reflection, transmission, normal, roughness and slope covariance.
+Empty texels resolve to zero optical response; they cannot darken or tint the
+visible leaf at filtered borders. R/T energy and mean coverage survive box mips.
+`leaf-material-fields-1` example assets store all levels, UV/frame, source organ,
+optical parameters and coverage role; they contain no baked runtime light.
+This is a Python product schema, not a native binary ABI.
+
+`leaf_diffuse_response(optical, normals, views, lights)` evaluates the own
+reciprocal thin-sheet baseline per unit incident radiance:
+R·max(n·L,0)/π + T·max(−n·L,0)/π, with the geometric normal facing the camera.
+Directions point from surface toward viewer/light. Illumination, shadow
+visibility and coverage are runtime inputs. The baseline uses symmetric sides,
+hemispherical R/T and no directional thickness/BSSRDF model or specular lobe.
+`optical_mixture` produces bounded reflection/transmission colours and a convex
+Blender preview weight; pure reflection, pure transmission and zero cases work.
+Principled-plus-translucent is a preview approximation: R/T are not calibrated
+MR base colour/Fresnel parameters, and blindly adding specular can change energy.
+Native GLSL bindings, lobe energy allocation, atlas/geometry response and GPU/world
+proof belong to master. Contract and evidence: [#121](https://github.com/Weichwolf/outshine/issues/121).

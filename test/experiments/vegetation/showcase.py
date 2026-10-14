@@ -34,6 +34,7 @@ from graph_wood_plots import wood_figure
 from growth_force_plots import growth_force_figure
 from leaf_development_plots import development_figure
 from leaf_filter_plots import filter_figure
+from leaf_library_plots import leaf_library_figure
 from leaf_normal_plots import normal_figure
 from leaf_pigment_plots import pigment_figure
 from leaf_relative_plots import relative_figure
@@ -406,6 +407,12 @@ def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
 
+def leaf_library_plot(report):
+    figure = leaf_library_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "leaf-library")
+
+
 def collar_plot(report):
     return save_plot(collar_figure(report), "branch-collars")
 
@@ -570,6 +577,7 @@ def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            leaf_library_plot,
             turning_force_plot,
             growth_force_plot,
             spatial_frond_plot,

@@ -1,7 +1,37 @@
 {
-  "current_work": "Curl, Gnarl, Ebenen- und Rückkehrsteuerung ergänzen die Wuchsachsen. Mitwandernder Curlrahmen und feste Gnarlachse erzeugen unterschiedliche Formen; vollständige Kurven führen Fiedern/Rippen und direkte Nah-/Grobprodukte. Allgemeine Funktionen geprüft; natürliche Artenrezepte, übrige Kraft-/Windfunktionen und Wald-LOD offen.",
+  "current_work": "Blattoptik und prozedurale Materialien sind jetzt als installierbare Python-Referenz für master verfügbar: getrennte lineare R/T-Felder, Coverage und gefilterte Normal-/Rauheitsmomente, ohne eingebranntes Licht. Front-/Gegenlicht vergleichen Reflexion allein, Metallic-Roughness mit Transmission und eine einfache diffuse Dünnblattreferenz. Beim Artenausbau haben Schweiz und Europa Vorrang.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/leaf-shader-front.png",
+      "title": "Frontlicht · drei Shaderantworten",
+      "label": "Optische Grundfunktion · keine botanische Artenfreigabe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Spalten von links: nur Reflexion, bisherige Metallic-Roughness-plus-Transmission-Näherung, reine diffuse R/T-Referenz. Je Zeile bleiben Form, Pigmente, UV und Standortabstand gleich. Grün, gelb und rot sind drei Pigmentzustände; die Nahansicht zeigt nur Grün. Alle Bindungen lesen vollständige gecachte R/T-, Coverage- und Momentfelder.",
+      "quality": "2560×1440. Symmetrische Blattseiten, feste Wasser-/Trockenmasse und Einfallsparameter. Winkelabhängige Dicke/BSSRDF, natürliche Ader-/Farbkalibrierung, Artenrezepte, native GLSL/GPU und SpeedTree-Niveau bleiben offen.",
+      "scenario": "build/experiments/vegetation/leaf-library/leaf-shader-front.json"
+    },
+    {
+      "image": "render/leaf-shader-back.png",
+      "title": "Gegenlicht · drei Shaderantworten",
+      "label": "Optische Grundfunktion · keine botanische Artenfreigabe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Spalten von links: nur Reflexion, bisherige Metallic-Roughness-plus-Transmission-Näherung, reine diffuse R/T-Referenz. Je Zeile bleiben Form, Pigmente, UV und Standortabstand gleich. Grün, gelb und rot sind drei Pigmentzustände; die Nahansicht zeigt nur Grün. Alle Bindungen lesen vollständige gecachte R/T-, Coverage- und Momentfelder.",
+      "quality": "2560×1440. Symmetrische Blattseiten, feste Wasser-/Trockenmasse und Einfallsparameter. Winkelabhängige Dicke/BSSRDF, natürliche Ader-/Farbkalibrierung, Artenrezepte, native GLSL/GPU und SpeedTree-Niveau bleiben offen.",
+      "scenario": "build/experiments/vegetation/leaf-library/leaf-shader-back.json"
+    },
+    {
+      "image": "render/leaf-shader-detail.png",
+      "title": "Grünes Blatt · Materialvergleich im Detail",
+      "label": "Optische Grundfunktion · keine botanische Artenfreigabe",
+      "category": "leaf",
+      "lod": "lod-0",
+      "description": "Spalten von links: nur Reflexion, bisherige Metallic-Roughness-plus-Transmission-Näherung, reine diffuse R/T-Referenz. Je Zeile bleiben Form, Pigmente, UV und Standortabstand gleich. Grün, gelb und rot sind drei Pigmentzustände; die Nahansicht zeigt nur Grün. Alle Bindungen lesen vollständige gecachte R/T-, Coverage- und Momentfelder.",
+      "quality": "2560×1440. Symmetrische Blattseiten, feste Wasser-/Trockenmasse und Einfallsparameter. Winkelabhängige Dicke/BSSRDF, natürliche Ader-/Farbkalibrierung, Artenrezepte, native GLSL/GPU und SpeedTree-Niveau bleiben offen.",
+      "scenario": "build/experiments/vegetation/leaf-library/leaf-shader-detail.json"
+    },
     {
       "image": "render/turning-forces.png",
       "title": "Wuchsformen · Curl, Gnarl, Ebene, Rückkehr",
@@ -704,6 +734,7 @@
     }
   ],
   "plot_lods": {
+    "leaf_library_plot": "lod-0",
     "generator_plot": "lod-1",
     "bark_plot": "lod-0",
     "selection_storage_plot": "lod-2",
