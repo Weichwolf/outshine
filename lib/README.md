@@ -501,7 +501,8 @@ samples on a 3–65 square log1p pigment grid. Coordinates are chlorophyll and
 anthocyanin in µg/cm². `sample(Nx2)` interpolates before jointly reducing gamut;
 reflection and transmission retain their luminance and max(R)+max(T) ≤1.
 `leaf-optics-table-1` recipes include values, limits, channel order and colour
-semantics. Cached lookup needs NumPy only. External PROSPECT-D spectral evaluation
+semantics. Leaf kernels use NumPy; the package's common contracts also import
+Shapely. Lookup has no spectral, solver or renderer dependency. External PROSPECT-D spectral evaluation
 and CIE/D65 integration remain experiment preparation, with provider parameters
 and provenance retained separately; PROSPECT N is a structural parameter.
 
