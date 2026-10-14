@@ -38,6 +38,7 @@ from leaf_pigment_plots import pigment_figure
 from leaf_relative_plots import relative_figure
 from leaf_relief_plots import relief_figure
 from leaf_terminal_plots import terminal_figure
+from leaflet_shape_plots import leaflet_shape_figure
 from needle_plots import needle_figure
 from placement_library_plots import placement_library_figure
 from placement_plots import placement_figure
@@ -546,10 +547,15 @@ def frond_library_plot(report):
     return save_plot(frond_library_figure(report), "frond-library")
 
 
+def leaflet_shape_plot(report):
+    return save_plot(leaflet_shape_figure(report), "leaflet-shape")
+
+
 def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            leaflet_shape_plot,
             frond_library_plot,
             frame_cost_plot,
             plant_library_plot,

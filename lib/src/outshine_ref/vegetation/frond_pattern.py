@@ -1,14 +1,15 @@
-"""Own flat frond source surfaces; organ plans precede requested mesh detail."""
+"""Own frond source surfaces; stable local organ plans precede mesh detail."""
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from functools import cached_property
 
 import numpy as np
 
 from .blade_surface import Blade
 from .frond_surface import MAX_TRIANGLES, MAX_VERTICES
+from .leaflet_shape import LeafletShape
 
 
 @dataclass(frozen=True)
@@ -22,8 +23,13 @@ class PinnatePattern:
     first: float = 0.12
     last: float = 0.92
     variance: float = 0.08
+    leaflet_shape: LeafletShape | None = None
 
     def __post_init__(self):
+        if self.leaflet_shape is not None and not isinstance(
+            self.leaflet_shape, LeafletShape
+        ):
+            raise TypeError("prepared local leaflet shape required")
         if (
             type(self.seed) is not int
             or not 0 <= self.seed < 2**64
@@ -53,9 +59,59 @@ class PinnatePattern:
             raise ValueError(
                 "ordered parent interval and outward leaflet directions required"
             )
+        if self.leaflet_shape is not None:
+            bend, fold, _ = self.leaflet_shape.maximum
+            if bend * self.aspect / 2 * (1 + fold) >= 1:
+                raise ValueError("local shape/aspect must preserve a regular blade")
 
     def recipe(self):
-        return {"version": "pinnate-source-1", **asdict(self)}
+        values = {
+            name: getattr(self, name)
+            for name in (
+                "seed",
+                "length",
+                "pairs",
+                "leaflet_length",
+                "aspect",
+                "angle",
+                "first",
+                "last",
+                "variance",
+            )
+        }
+        if self.leaflet_shape is None:
+            return {"version": "pinnate-source-1", **values}
+        return {
+            "version": "pinnate-source-2",
+            **values,
+            "leaflet_shape": self.leaflet_shape.recipe(),
+        }
+
+    @classmethod
+    def from_recipe(cls, recipe):
+        values = dict(recipe)
+        version = values.pop("version", None)
+        if version == "pinnate-source-2":
+            values["leaflet_shape"] = LeafletShape.from_recipe(values["leaflet_shape"])
+        elif version != "pinnate-source-1" or "leaflet_shape" in values:
+            raise ValueError("supported complete pinnate recipe required")
+        return cls(**values)
+
+    def shaped_organ(self, organ, parameter):
+        if self.leaflet_shape is None:
+            return organ
+        params = self.leaflet_shape.sample(parameter, self.seed, organ["id"])
+        cosine, sine = organ["frame"][1, 1], abs(organ["frame"][1, 0])
+        margin = self.aspect / 2 * (1 + abs(params[1])) * (cosine + sine)
+        limit = (1 - parameter) * self.length / (cosine + margin)
+        if margin > 0:
+            limit = min(limit, parameter * self.length / margin)
+        length = min(organ["length"], limit)
+        return organ | {
+            "length": length,
+            "width": length * self.aspect,
+            "shape": params,
+        }
 
     @cached_property
     def identity(self):
@@ -81,29 +137,59 @@ class PinnatePattern:
                 length = min(length, (1 - parameter) * self.length / np.cos(self.angle))
                 cosine, sine = np.cos(self.angle), sign * np.sin(self.angle)
                 result.append(
-                    {
-                        "id": identity,
-                        "origin": (0, self.length * parameter, 0),
-                        "frame": np.array(
-                            ((cosine, sine, 0), (-sine, cosine, 0), (0, 0, 1))
-                        ),
-                        "length": length,
-                        "width": length * self.aspect,
-                    }
+                    self.shaped_organ(
+                        {
+                            "id": identity,
+                            "origin": (0, self.length * parameter, 0),
+                            "frame": np.array(
+                                ((cosine, sine, 0), (-sine, cosine, 0), (0, 0, 1))
+                            ),
+                            "length": length,
+                            "width": length * self.aspect,
+                        },
+                        parameter,
+                    )
                 )
         length = (1 - self.last) * self.length
         result.append(
-            {
-                "id": 2 * self.pairs,
-                "origin": (0, self.last * self.length, 0),
-                "frame": np.eye(3),
-                "length": length,
-                "width": length * self.aspect,
-            }
+            self.shaped_organ(
+                {
+                    "id": 2 * self.pairs,
+                    "origin": (0, self.last * self.length, 0),
+                    "frame": np.eye(3),
+                    "length": length,
+                    "width": length * self.aspect,
+                },
+                self.last,
+            )
         )
         return result
 
-    def mesh(self, segments=24, across=2, max_triangles=100_000):
+    def leaflet_prototype(self, shape, segments, across):
+        bend, fold, twist = (0, 0, 0) if shape is None else shape
+        return Blade(
+            length=1,
+            width=1 if shape is None else self.aspect,
+            widest=0.35,
+            lobes=0,
+            base_fill=0.08,
+            bend=bend,
+            fold=fold,
+            twist=twist,
+            petiole=0,
+        ).mesh(segments, across)
+
+    @property
+    def source_extent(self):
+        length = max(
+            self.leaflet_length * (1 + self.variance), self.length * (1 - self.last)
+        )
+        fold = 0 if self.leaflet_shape is None else self.leaflet_shape.maximum[1]
+        return length * (1 + self.aspect / 2 * (1 + fold))
+
+    def mesh(self, segments=24, across=2, max_triangles=100_000, *, method="shared"):
+        if method not in ("shared", "individual"):
+            raise ValueError("declared local prototype method required")
         if (
             type(segments) is not int
             or type(across) is not int
@@ -117,26 +203,26 @@ class PinnatePattern:
         vertices = (2 * self.pairs + 1) * (segments * (2 * across + 1) + 1)
         if count > min(max_triangles, MAX_TRIANGLES) or vertices > MAX_VERTICES:
             return None
-        prototype = Blade(
-            length=1,
-            width=1,
-            widest=0.35,
-            lobes=0,
-            base_fill=0.08,
-            bend=0,
-            fold=0,
-            twist=0,
-            petiole=0,
-        ).mesh(segments, across)
         vertices, faces, normals, parameters, identities = [], [], [], [], []
+        prototypes = {}
         offset = 0
         for organ in self.organs():
-            scaled = prototype["vertices"] * (organ["width"], organ["length"], 1)
+            shape = organ.get("shape")
+            if method == "individual":
+                current = self.leaflet_prototype(shape, segments, across)
+            else:
+                if shape not in prototypes:
+                    prototypes[shape] = self.leaflet_prototype(shape, segments, across)
+                current = prototypes[shape]
+            if self.leaflet_shape is not None:
+                scaled = current["vertices"] * organ["length"]
+            else:
+                scaled = current["vertices"] * (organ["width"], organ["length"], 1)
             vertices.append(scaled @ organ["frame"].T + organ["origin"])
-            faces.append(prototype["faces"] + offset)
+            faces.append(current["faces"] + offset)
             offset += len(scaled)
-            normals.append(prototype["normals"] @ organ["frame"].T)
-            parameters.append(prototype["parameters"])
+            normals.append(current["normals"] @ organ["frame"].T)
+            parameters.append(current["parameters"])
             identities.append(np.full(len(scaled), organ["id"], dtype=np.uint32))
         result = {
             "vertices": np.concatenate(vertices),
