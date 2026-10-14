@@ -295,3 +295,54 @@ Ergebnisse, Assembly, externe Hypothesen und sechs1920×1080-Bilder liegen unter
 .venv/bin/python -W error -m unittest discover -s lib/tests
 .venv/bin/python -W error test/experiments/transport/surface_solid_checks.py
 ```
+
+### Stetige Höhenübergänge (#20)
+
+Die Bibliothek liefert flache Endkontakte, ganzintervallige Neigungsgrenzen und
+begrenzte vertikale Chordabweichung. Parabolisch/linear/parabolisch und kubischer
+Smoothstep verwenden dieselben Endhöhen, Stationslängen und Budgets. Aus
+`abs(z') <= min(a*s, g, a*(L-s))` folgt durch Integration die mögliche Höhendifferenz.
+Die kleinste Länge ist `2*sqrt(abs(dz)/a)` bis `abs(dz)<=g²/a`, danach
+`abs(dz)/g+g/a`. Bei längerer vorgegebener Strecke minimiert die parabolische Variante
+die notwendige Spitzen-Zweitableitung: `4*abs(dz)/L²` ohne Neigungssättigung,
+sonst `g²/(g*L-abs(dz))`. Eigene Herleitung, nur eindimensionale flache Endkontakte.
+Kubisch benötigt `max(1.5*abs(dz)/g, sqrt(6*abs(dz)/a))`.
+
+SIGGRAPH 2008 [Interactive Procedural Street Modeling](https://www.sci.utah.edu/~chengu/street_sig08/street_sig08.pdf)
+(Figur 2 optisch geprüft) und Galin et al., Eurographics 2010
+[Procedural Generation of Roads](https://doi.org/10.1111/j.1467-8659.2009.01612.x)
+(Figuren 17/18 optisch geprüft) ordnen Plan, Querschnitt und Terrain ein.
+Die feste [ASAM OpenDRIVE 1.8.1 Elevation-Spezifikation](https://publications.pages.asam.net/standards/ASAM_OpenDRIVE/ASAM_OpenDRIVE_Specification/v1.8.1/specification/10_roads/10_05_elevation.html)
+belegt lokale kubische Stationspolynome als Darstellung; kein Format-/SDK-Port.
+
+`fixtures/vertical-transition-cases.json` hält 256 längste gerade, ebenerdige Achsen
+der gespeicherten Wiener OpenFreeMap-Kachel, Original-Tags/Quell-IDs/XY,
+Mapterhorn-Endhöhen und beide Quellenreceipts. Kein neuer Quellabruf.
+Flache Endneigungen sind eine deklarierte Rezeptannahme, kein Nachweis vorhandener
+Kreuzungsneigungen. Tatsächliches Quergefälle0.015 verbraucht 0.6 des Querneigungs-
+budgets0.025; für Längsneigung bleiben 0.8 des Klassenlimits in derselben Ellipse.
+Die ganze rotierte Fahrfläche, Quellenendkontakte und unabhängige 257 Höhenproben
+je Profil werden geprüft. Zweitableitung0.002/m, Chordfehler0.01m, höchstens4096
+Profilvertices. Fehlende Breite wird ausdrücklich mit4m ergänzt.
+Parabolisch246/256 gültig, kubisch229/256;17 zusätzliche Lösungen, zehn in beiden
+Verfahren zu kurz. Jede unlösbare Quelle behält ID/Tags und benötigte Länge.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error -m unittest discover -s lib/tests -p 'test_transport*.py'
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_checks.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_experiment.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_benchmark.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_showcase.py
+```
+
+Nur `vertical_transition_experiment.py --capture-inputs` ersetzt die Eingabefixture
+aus Originalquellen/DEM-Cache; normale Läufe und Tests verändern keine Referenz.
+Kosten: drei frische Worker je Methode, sieben Batches derselben229 gemeinsamen
+gültigen Quellen, First-Import/Profilvorbereitung getrennt. Linux VmHWM umfasst
+Imports/Eingaben/Profile, `ru_maxrss` separat; keine isolierte Algorithmusspeicher-
+oder Geräte-/Framebehauptung. Ergebnisse unter `build/experiments/transport/vertical-profiles/`.
+Sechs geöffnete1920×1080-Anschlussdetails zeigen denselben ersten Abschnitt der
+vollständigen Chordmeshes, ohne Höhenüberhöhung. Ganze Fahrmeshes bleiben separat.
+C1 betrifft den analytischen Plan; das endliche Mesh bleibt C0 und seine Endneigung
+weicht höchstens `sqrt(2*a*height_error)` vom flachen Kontakt ab. Kein C2-, DEM-Innenfit-,
+Fahrdynamik-, vollständiger Netz-/Brücken-/Tunnel- oder LOD-Nachweis.
