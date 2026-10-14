@@ -11,12 +11,28 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from compare_roof_oracle import cases
+from demand import View
 from evidence import revision
 from hip_exterior_mesh_probe import emit
+from modelling_scope_probe import engine_mesh
 from outshine_ref.buildings.modelling import Shape
 from showcase_groups import save_plot
 from showcase_roof_shed import spatial
+from showcase_scene import fitted_points
 from verify_modelling_roof_shed import source
+
+
+def camera_for(shapes):
+    points=[]
+    for shape,_ in shapes:
+        mesh=engine_mesh(shape.emit());points.append(mesh['vertices'][mesh['faces']].reshape(-1,3))
+    points=np.concatenate(points);centre=(points.min(axis=0)+points.max(axis=0))/2
+    direction=np.array([1.,-1.2,1.5]);direction/=np.linalg.norm(direction)
+    basis=View(centre+direction,centre,width=1920,height=1080)
+    projected=(points-centre)@basis.basis.T
+    required=np.maximum(abs(projected[:,0])*basis.focal_px/(1920*.42),
+                        abs(projected[:,1])*basis.focal_px/(1080*.40))-projected[:,2]
+    return View(centre+direction*(required.max()+1.),centre,width=1920,height=1080)
 
 
 def render(output):
@@ -57,7 +73,16 @@ def render(output):
             'Tatsächliches geschlossenes Mesh: Blau zeigt den Quellkörper, Gold Dach und Traufrand. '
             'Die Dachschürze reicht über die ursprüngliche Traufe hinaus; das innere Dachfeld bleibt unverändert. '
             'Prüfpalette, keine fertige Architektur-Rezeptfamilie oder SDK-Tessellierungsgleichheit.',
-            label='hip-exterior',direction=(1.,-1.2,1.5)))
+            label='hip-exterior',camera=camera_for(shapes)))
+        if not row['control']:
+            centre=proof.plan.origin+np.array([30.6646967685,-9.5869494139])
+            window=np.array([[centre[0]+x,centre[1]+y,z] for x in (-2.5,2.5) for y in (-2.5,2.5) for z in (3.5,6.5)])
+            camera=fitted_points(window,[1920,1080],direction=(1.,-1.2,.8))
+            reports.append(spatial(output,provenance,'current-hip-exterior-tokyo-detail',
+                'Tokyo · Traufdetail am bisherigen Gegenfall',shapes,metadata|dict(inspection_window_m=[5.,5.,3.]),
+                '5×5-m-Nahansicht am früheren 5,6-cm-Höhensprung der Streifenvariante. '
+                'Die triangulierte Dachschürze besitzt gemeinsame Eckhöhen und einen geschlossenen Traufrand. '
+                'Eigene experimentelle Geometrie; Prüfpalette und unveränderter Quellkörper.',label='hip-exterior',camera=camera))
     return reports
 
 
