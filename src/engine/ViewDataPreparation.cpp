@@ -1,7 +1,6 @@
 #include "EngineHeld.h"
 #include "TerrainPathPreparation.h"
 #include "RoadHeightCoverage.h"
-#include "GeodeticCamera.h"
 #include <chrono>
 #include <algorithm>
 #include <cstddef>
@@ -24,10 +23,8 @@ Holds<LongitudeLatitude> Engine::State::PreparationFocus(const Scenario::View &v
     return GeographicFocusFor(view.Sees.PositionM + view.OffsetM);
   }
   if (view.Placement != Scenario::CameraPlacement::Geodetic) { return CurrentGeographicFocus(); }
-  const LongitudeLatitude origin{.LongitudeDeg = Session.Declared.Ground.Origin.LongitudeDeg,
-                                 .LatitudeDeg = Session.Declared.Ground.Origin.LatitudeDeg};
   for (;;) {
-    const auto position = ResolveGeodeticCamera(view, origin, &World.Stack.Ground());
+    const auto position = GeodeticCameraPosition(view);
     if (!position) { return std::unexpected(std::string(position.error())); }
     if (*position) { return GeographicFocusFor(**position); }
     const double remaining = std::chrono::duration<double>(deadline - Clock::now()).count();

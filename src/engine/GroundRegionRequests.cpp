@@ -2,7 +2,6 @@
 #include "BinaryValueArchive.h"
 #include "GroundLattice.h"
 #include "TerrainRefinement.h"
-#include "GeodeticCamera.h"
 #include <expected>
 #include <cstdint>
 #include <memory>
@@ -56,11 +55,7 @@ bool Engine::State::CanPrimeGroundRegion(GroundQuality quality) const {
 
 Holds<bool> Engine::State::PositionGroundRegionCamera(const Scenario::View &view) {
   if (view.Placement == Scenario::CameraPlacement::Geodetic) {
-    const auto anchor = Session.Declared.Ground.Origin;
-    const auto position = ResolveGeodeticCamera(
-        view,
-        {.LongitudeDeg = anchor.LongitudeDeg, .LatitudeDeg = anchor.LatitudeDeg},
-        &World.Stack.Ground());
+    const auto position = GeodeticCameraPosition(view);
     if (!position) { return std::unexpected(std::string(position.error())); }
     if (!*position) { return false; }
   }
