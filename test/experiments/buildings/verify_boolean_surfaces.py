@@ -63,18 +63,14 @@ def measure(product):
 
 
 def check_uv(product):
+    from boolean_source_coordinates import rational_weights
     mesh=product.mesh;checked=0
     for owner in range(2):
         selected=product.operands==owner;before=product.sources[owner].mesh
         corners=before['vertices'][before['faces'][product.source_triangles[selected]]]
         actual_points=mesh['vertices'][mesh['faces'][selected]]
         if not len(corners):continue
-        first,last=corners[:,1]-corners[:,0],corners[:,2]-corners[:,0]
-        delta=actual_points-corners[:,:1]
-        aa=np.einsum('ij,ij->i',first,first);ab=np.einsum('ij,ij->i',first,last);bb=np.einsum('ij,ij->i',last,last)
-        da=np.einsum('ikj,ij->ik',delta,first);db=np.einsum('ikj,ij->ik',delta,last);det=aa*bb-ab*ab
-        u=(da*bb[:,None]-db*ab[:,None])/det[:,None];v=(db*aa[:,None]-da*ab[:,None])/det[:,None]
-        weights=np.stack([1.-u-v,u,v],axis=2)
+        weights=np.asarray([rational_weights(triangle,points) for triangle,points in zip(corners,actual_points,strict=True)])
         if weights.min()<-1e-7:raise ValueError('Boolean relation extrapolates beyond a source triangle')
         np.testing.assert_allclose(np.einsum('nki,nij->nkj',weights,corners),actual_points,atol=1e-8,rtol=1e-10)
         for channel in range(10):
