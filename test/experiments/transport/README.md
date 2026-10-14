@@ -455,3 +455,59 @@ Keine neuen lib-/nativen APIs, SDK-Abhängigkeit, Terrain/Pfeiler/Statik/Schiene
 außen verbundenen Verkehrswege, vollständigen Innenkontakte oder Dreiebenen-/Tunnelrezepte.
 SIGGRAPH2008 graph→geometry und Galin2010 Figuren17/18 (erneut optisch geprüft)
 begründen getrennte Netz-/Profil-/Querschnittsarbeit; keine vollständige Nachbildung.
+
+### Echte westliche Schienenanschlüsse (#115)
+
+`bridge_approach_*` ergänzt das #112-Deck um zwei echte Brücken-/Ground-Schienenpaare
+in der westlichen Nachbarkachel. Die südliche Kachel dient der Quell-/Randprüfung;
+ihre fortlaufenden Brückenteile sind in diesem Versuch noch nicht angebunden.
+Gleicher OpenFreeMap-Snapshot und gleicher48,21/16,37-Ursprung. Positive vollständige
+Decküberlappung plus eindeutiger exakter Subway-Endkontakt wählen die westlichen
+Paare; tilelokale Feature-Nummern allein begründen keine Quellidentität/Verbindung.
+Originale Pufferachsen/Tags/IDs bleiben erhalten; vereinigte Flächen erscheinen einmal.
+
+Ein gemeinsames skalares C1-Höhenfeld `z=h(dot(XY-origin,unit_axis))` verbindet beide
+Spuren. Die Rampen beginnen früher im Brückenstück; die235/238m Ground-Stücke allein
+reichen nicht. Bestehendes Deck und vollständige bekannte Unterfahrflächen bleiben
+im konstanten Feldteil geschützt. Die beiden fernen DEM-Prioren werden ausdrücklich
+um je0,08984375m auf ihren gemeinsamen Mittelwert angepasst, Grenze0,1m.
+Dieser Kontakt ist ein Rezeptanker, keine Freigabe des anschließenden Tunnelportals.
+Analytisches Längsfeld:0,024 Neigung und0,002/m zweite Ableitung; keine geglättete
+horizontale Schienenachse. Ganze Mesh-Gradienten müssen unter0,025 bleiben.
+
+`projected_profile_surface.py` schneidet die gesamte vereinigte Domäne an Höhen-
+Chordstationen und trianguliert die Streifen konform. Jede Face liegt in einem
+linearen Chord; `max|h''|*step²/8` begrenzt jetzt die **ganze Fläche**, nicht nur
+Achsenproben.1cm Fehlerbudget plus1e-7m numerischer Guard, unveränderte Rootkontakte.
+`adaptive_profile_surface.py` ist die faire Alternative: gemeinsame flache Kontakt-
+regionen zuerst schneiden, dann projizierte Maximalspannen per geteiltem Edge-Mittel
+verfeinern. Der baryzentrische Fehler ist höchstens `max|h''|*Var(t)/2`, daher
+`max|h''|*(max(t)-min(t))²/8`. Kleine Höhenfehler sichern noch keine Facettenneigung;
+deren zusätzliche Ganzflächenprüfung und die exakten Kontaktregionen sind verbindlich.
+Beide Profile/parabolisch-kubisch und beide Geometrieverfahren erfüllen denselben Vertrag.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_approach_checks.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_approach_experiment.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_approach_showcase.py
+```
+
+Ausgaben: `build/experiments/transport/bridge-approaches/`. Normal nur Pins lesen;
+`capture_bridge_approaches.py` ist ausdrücklich neu erzeugende Offline-Erfassung aus
+vorbereiteten Nachbarinputs und vorhandenen DEM-Bytes.3142 Achsquellen/117 Flächen-
+quellen erhalten eine vollständige Bilanz;27 bekannte Quellen verwendet,17 überlappende
+Innen-/Tunnel-/Etagenquellen bleiben begründet ungelöst. Buildings hat die zehn alten
+Innenkontakte ausdrücklich als `buildings_floor_surface_not_planned` abgelehnt (#111).
+Kein unbekannter Innenweg wird auf DEM/Nullhöhe oder auf das höchste Deck gesetzt.
+
+Drei frische Worker je Profil/Geometrie, fünf vollständige Anschlussbuilds nach
+Warmup; vorbereitete Root-/Unterflächen und Imports/JSON außerhalb der Zeit, im
+Linux-VmHWM enthalten. CPU10s/AS2GiB/Parent30s, ein BLAS-Thread;8192 Faces/Vertices,
+4096 Höhenstationen,16 adaptive Iterationen und2s kooperative Geometriephase.
+GEOS-Schritte können Phasenlimits überlaufen; Prozessgrenzen begrenzen den ganzen Worker.
+Sechs1920×1080-Bilder vergleichen den tatsächlichen bisherigen Rootstand mit beiden
+Höhenprofilen im Ganzmodell und am realen Anschluss, ohne Höhenüberhöhung. Weitere
+Kachelränder/Portale/Innenflächen, Terrain, Pfeiler/Statik/Gleishardware, Fahrzeughüllen,
+volle Verkehrswege und native Integration bleiben offen. Keine lib- oder SDK-Runtime-Änderung.
+Galin2010 Profil-/Querschnittstrennung und SIGGRAPH2008 graph→geometry sind die Basis;
+das projizierte Feld und seine Flächenfehlergrenze sind eigene überprüfte Konstruktionen.

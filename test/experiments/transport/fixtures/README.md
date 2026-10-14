@@ -57,3 +57,12 @@ heights are soft procedural priors, not measured bridge-port elevations. Normal
 checks never update this pin; `capture_shared_bridge.py` explicitly recreates it from
 prepared input and existing DEM cache, without network access. Shared exterior
 surfaces do not certify indoor floors, outside ramps, traffic routes or full Places.
+
+`bridge-approaches-vienna.json` preserves two real bridge/ground subway endpoint
+pairs and seven additional unresolved overlap sources from the west neighbor, plus
+full axis/polygon ID inventories and source hashes for three same-snapshot tiles.
+The prior shared-deck fixture remains immutable and is hash-pinned here. Neighbor
+buffers are preserved as originals, not treated as globally identical feature IDs.
+Normal checks read pins; explicit `capture_bridge_approaches.py` derives them offline
+from retained normalized sources and DEM cache. The mean far-anchor height is a
+bounded recipe adjustment, not an observed tunnel/indoor floor or a complete network.
