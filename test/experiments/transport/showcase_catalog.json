@@ -634,6 +634,72 @@
       "image_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-after-solid.png",
       "report_source": "build/experiments/transport/overpasses/Vienna-overpass-detail-after-solid.json",
       "origin_source": "build/experiments/transport/overpasses/origin.json"
+    },
+    {
+      "id": "shared-control-fixed-solid",
+      "title": "Kontrolle · gemeinsames Deck · feste DEM-Ports",
+      "section": "ebenen",
+      "kind": "Tatsächliche lokale Auslassung",
+      "description": "Zwei Brückenquellen teilen eine Höhe und eine Anschlussfläche über zwei verbundenen unteren Wegen. Bei festen DEM-Endhöhen muss das Deck ausbleiben; gültige untere Flächen bleiben.",
+      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
+      "image_source": "build/experiments/transport/shared-bridge/shared-control-fixed-solid.png",
+      "report_source": "build/experiments/transport/shared-bridge/shared-control-fixed-solid.json",
+      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
+    },
+    {
+      "id": "shared-control-shared-solid",
+      "title": "Kontrolle · gemeinsames Deck · angehobene gemeinsame Ports",
+      "section": "ebenen",
+      "kind": "Gemeinsamer Quellflächenplan",
+      "description": "Zwei Brückenquellen teilen eine Höhe und eine Anschlussfläche über zwei verbundenen unteren Wegen. Deckports dürfen höchstens 8 m gegenüber Gelände steigen; Außenanschlüsse sind noch zu planen.",
+      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
+      "image_source": "build/experiments/transport/shared-bridge/shared-control-shared-solid.png",
+      "report_source": "build/experiments/transport/shared-bridge/shared-control-shared-solid.json",
+      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
+    },
+    {
+      "id": "Vienna-shared-bridge-fixed-solid",
+      "title": "Wien · sechs verbundene Brückenteile · feste DEM-Ports",
+      "section": "ebenen",
+      "kind": "Tatsächliche lokale Auslassung",
+      "description": "Sechs Brückenquellen erhalten ein gemeinsames Deck über 17 Außenwegen; zehn Innenwege bleiben ohne Höhenfreigabe. Bei festen DEM-Endhöhen muss das Deck ausbleiben; gültige untere Flächen bleiben.",
+      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
+      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-fixed-solid.png",
+      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-fixed-solid.json",
+      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
+    },
+    {
+      "id": "Vienna-shared-bridge-shared-solid",
+      "title": "Wien · sechs verbundene Brückenteile · angehobene gemeinsame Ports",
+      "section": "ebenen",
+      "kind": "Gemeinsamer Quellflächenplan",
+      "description": "Sechs Brückenquellen erhalten ein gemeinsames Deck über 17 Außenwegen; zehn Innenwege bleiben ohne Höhenfreigabe. Deckports dürfen höchstens 8 m gegenüber Gelände steigen; Außenanschlüsse sind noch zu planen.",
+      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
+      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-shared-solid.png",
+      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-shared-solid.json",
+      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
+    },
+    {
+      "id": "Vienna-shared-bridge-detail-fixed-solid",
+      "title": "Wien · gemeinsame Durchfahrt im Detail · feste DEM-Ports",
+      "section": "ebenen",
+      "kind": "Tatsächliche lokale Auslassung",
+      "description": "Vollständige Deckunterseite und Außenfahrflächen mit mindestens 4,5 m Abstand; tatsächliche Geometrie ohne Höhenüberhöhung. Bei festen DEM-Endhöhen muss das Deck ausbleiben; gültige untere Flächen bleiben.",
+      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
+      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-fixed-solid.png",
+      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-fixed-solid.json",
+      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
+    },
+    {
+      "id": "Vienna-shared-bridge-detail-shared-solid",
+      "title": "Wien · gemeinsame Durchfahrt im Detail · angehobene gemeinsame Ports",
+      "section": "ebenen",
+      "kind": "Gemeinsamer Quellflächenplan",
+      "description": "Vollständige Deckunterseite und Außenfahrflächen mit mindestens 4,5 m Abstand; tatsächliche Geometrie ohne Höhenüberhöhung. Deckports dürfen höchstens 8 m gegenüber Gelände steigen; Außenanschlüsse sind noch zu planen.",
+      "scope": "Python-Experiment, ein ausgewählter Wiener Quellverbund. Gemeinsame Außenflächen; keine Innenetagenfreigabe, Gleisfahrkurven, Nachbarrampen, Terrain/Pfeiler/Statik oder native Weltabnahme.",
+      "image_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-shared-solid.png",
+      "report_source": "build/experiments/transport/shared-bridge/Vienna-shared-bridge-detail-shared-solid.json",
+      "origin_source": "build/experiments/transport/shared-bridge/origin.json"
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",

@@ -46,3 +46,14 @@ These are alternative local experiments, not a combined certified transport netw
 `overpass_checks.py` and `overpass_experiment.py` only read the fixture. Explicit
 `capture_overpass_cases.py` replaces it from prepared raw inputs; `--fetch` acquires
 only missing DEM tiles. Captured raw full features stay in build/source cache.
+
+`shared-bridge-vienna.json` captures the complete positively overlapping bridge
+corridor component and every area conflict in the retained Vienna-Donau source tile,
+seeded by the most-crossed bridge of the pair fixture. Six deck sources and17 outdoor
+ground sources are planned together;10 indoor paths retain original geometry/tags
+with an explicit missing Buildings height/contact reason. All793 axis IDs and44
+polygon-source IDs remain available for the usage ledger. Original endpoint DEM
+heights are soft procedural priors, not measured bridge-port elevations. Normal
+checks never update this pin; `capture_shared_bridge.py` explicitly recreates it from
+prepared input and existing DEM cache, without network access. Shared exterior
+surfaces do not certify indoor floors, outside ramps, traffic routes or full Places.
