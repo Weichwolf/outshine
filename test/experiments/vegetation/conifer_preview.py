@@ -99,11 +99,18 @@ def setup_scene_lights(recipe):
     fill.data.energy, fill.data.size = recipe["fill_energy_w"], recipe["fill_size_m"]
 
 
+def protect_inputs(output, inputs):
+    destinations = {output.resolve(), output.with_suffix(".json").resolve()}
+    if any(path.resolve() in destinations for path in inputs):
+        raise ValueError("render image and metadata must not overwrite inputs")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
+    protect_inputs(args.output, (args.scenario,))
     recipe = json.loads(args.scenario.read_text())
     if recipe["version"] != "conifer-preview-1":
         raise ValueError("supported complete conifer preview recipe required")
@@ -111,6 +118,10 @@ def main():
     bpy.ops.object.delete(use_global=False)
     began = time.perf_counter()
     paths, triangles, instances = populate(recipe, args.scenario.parent)
+    paths.extend(
+        args.scenario.parent / recipe[key] for key in ("plant_recipe", "tables")
+    )
+    protect_inputs(args.output, [args.scenario, *paths])
     setup_scene_lights(recipe)
     scene = bpy.context.scene
     shadows = configure_preview(scene, recipe)
@@ -137,9 +148,6 @@ def main():
             "preview_shadows.py",
         )
     ]
-    paths.extend(
-        args.scenario.parent / recipe[key] for key in ("plant_recipe", "tables")
-    )
     result = {
         "blender": bpy.app.version_string,
         "engine": scene.render.engine,
