@@ -1,0 +1,639 @@
+{
+  "provider": "OpenFreeMap/OpenMapTiles preferred by Outshine",
+  "provider_definition": "src/generators/osm/providers/PreferredVectorSource.h",
+  "provider_definition_sha256": "f5191ade53aad3d388e49d640519a9096b4941adb1b825ca06683b5a87b84996",
+  "endpoint": "https://tiles.openfreemap.org/planet/20260927_080001_pt/{z}/{x}/{y}.pbf",
+  "zoom": 14,
+  "sites": [
+    {
+      "name": "Spittelau",
+      "latitude": 48.2343,
+      "longitude": 16.3588,
+      "radius_m": 400.0,
+      "split": "calibration"
+    },
+    {
+      "name": "Donauturm",
+      "latitude": 48.24,
+      "longitude": 16.4099,
+      "radius_m": 220.0,
+      "split": "calibration"
+    },
+    {
+      "name": "BerlinFernsehturm",
+      "latitude": 52.5208,
+      "longitude": 13.4094,
+      "radius_m": 180.0,
+      "split": "calibration"
+    },
+    {
+      "name": "Drax",
+      "latitude": 53.735,
+      "longitude": -0.992,
+      "radius_m": 850.0,
+      "split": "calibration"
+    },
+    {
+      "name": "Neurath",
+      "latitude": 51.034,
+      "longitude": 6.615,
+      "radius_m": 850.0,
+      "split": "calibration"
+    },
+    {
+      "name": "Effelsberg",
+      "latitude": 50.5248,
+      "longitude": 6.8836,
+      "radius_m": 220.0,
+      "split": "calibration"
+    },
+    {
+      "name": "Brocken",
+      "latitude": 51.7992,
+      "longitude": 10.6153,
+      "radius_m": 300.0,
+      "split": "validation"
+    },
+    {
+      "name": "TokyoSkytree",
+      "latitude": 35.7101,
+      "longitude": 139.8107,
+      "radius_m": 220.0,
+      "split": "validation"
+    },
+    {
+      "name": "Hameln",
+      "latitude": 52.103,
+      "longitude": 9.356,
+      "radius_m": 1100.0,
+      "split": "validation"
+    },
+    {
+      "name": "Emmerthal",
+      "latitude": 52.046,
+      "longitude": 9.39,
+      "radius_m": 1100.0,
+      "split": "validation"
+    },
+    {
+      "name": "Grohnde",
+      "latitude": 52.035,
+      "longitude": 9.411,
+      "radius_m": 1100.0,
+      "split": "validation"
+    }
+  ],
+  "receipts": [
+    {
+      "tile": [
+        14,
+        8146,
+        5280
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8146/5280.pbf",
+      "sha256": "28bd0c6ac3dfb9cc66a30644b97bd5296657827bd1ff5124912c45147d32de76",
+      "bytes": 9630,
+      "origin": "network",
+      "sites": [
+        "Drax"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8146,
+        5281
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8146/5281.pbf",
+      "sha256": "190673ee977cf0c1d5733a8eb84c76959777792a4ed84582ab3b27857acc9457",
+      "bytes": 11678,
+      "origin": "network",
+      "sites": [
+        "Drax"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8147,
+        5280
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8147/5280.pbf",
+      "sha256": "da09778c6dd72beca9b6a22f71087db95bd4245ed21c0e1107ae825e24a9070d",
+      "bytes": 6713,
+      "origin": "network",
+      "sites": [
+        "Drax"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8147,
+        5281
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8147/5281.pbf",
+      "sha256": "02f0effd5b7d54d17fc317d5dcc0122420f46dd7d942a58fe2ba5efad825925b",
+      "bytes": 10329,
+      "origin": "network",
+      "sites": [
+        "Drax"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8492,
+        5481
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8492/5481.pbf",
+      "sha256": "9f8d96a697455395069ec8b31b2583871fbff8140310f93443f0687a8e1c5ad3",
+      "bytes": 17220,
+      "origin": "network",
+      "sites": [
+        "Neurath"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8492,
+        5482
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8492/5482.pbf",
+      "sha256": "fc6525281b56db00f1789c1e477ba7f0becdc02192cd971fbc76f1c8404fe155",
+      "bytes": 43601,
+      "origin": "network",
+      "sites": [
+        "Neurath"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8492,
+        5483
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8492/5483.pbf",
+      "sha256": "c3dc91342097e066ea77753fa4b4be5649013f8737f9244e3547b109fe79e6eb",
+      "bytes": 8649,
+      "origin": "network",
+      "sites": [
+        "Neurath"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8493,
+        5481
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8493/5481.pbf",
+      "sha256": "185332dffb155c9b97b887106eede2a11b302916e5d4d908dcf10494aab14c90",
+      "bytes": 5246,
+      "origin": "network",
+      "sites": [
+        "Neurath"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8493,
+        5482
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8493/5482.pbf",
+      "sha256": "38991c0f98e090ed52d4e798d1898b89c75dae14988d70a886081dc71e23df6e",
+      "bytes": 11848,
+      "origin": "network",
+      "sites": [
+        "Neurath"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8493,
+        5483
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8493/5483.pbf",
+      "sha256": "9e3092182709ee84df2c362e4df2339d6de934df819113ee1428eb7370893562",
+      "bytes": 6241,
+      "origin": "network",
+      "sites": [
+        "Neurath"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8505,
+        5519
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8505/5519.pbf",
+      "sha256": "316a69e654432bc35145c107d59d3456cb08d626eee973939aa6d96df354bb31",
+      "bytes": 26266,
+      "origin": "network",
+      "sites": [
+        "Effelsberg"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8617,
+        5403
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8617/5403.pbf",
+      "sha256": "3beac07d80b3ace70c202d04c9890afdb314dc733a7405ebd044d5ac134fcc8f",
+      "bytes": 115285,
+      "origin": "network",
+      "sites": [
+        "Hameln"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8617,
+        5404
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8617/5404.pbf",
+      "sha256": "9dfdaa0c1cdb8e83bfe3943adc57e24e9e4355eb4fe008a1862739bc1f6aa04e",
+      "bytes": 130476,
+      "origin": "network",
+      "sites": [
+        "Hameln"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8618,
+        5403
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8618/5403.pbf",
+      "sha256": "aa685e6cd8b5d4f106bb9e852203995d6870cf7789926714296b65a22ae627e8",
+      "bytes": 104321,
+      "origin": "network",
+      "sites": [
+        "Hameln"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8618,
+        5404
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8618/5404.pbf",
+      "sha256": "815cb9ad7d846868acbb619f219ca8f61e6a17bbbf1d41fff8e8d85701a4ca82",
+      "bytes": 152647,
+      "origin": "network",
+      "sites": [
+        "Hameln"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8618,
+        5407
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8618/5407.pbf",
+      "sha256": "e7065d1538b09ba5228a6a6dce33058f8b8dcee096cfbe4f543a2af6f74e3de8",
+      "bytes": 36314,
+      "origin": "network",
+      "sites": [
+        "Emmerthal"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8618,
+        5408
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8618/5408.pbf",
+      "sha256": "35a343398b4ee19cadcdb7596ae886bdb588f80a56cb4807b392ec459dd820a3",
+      "bytes": 32477,
+      "origin": "network",
+      "sites": [
+        "Emmerthal"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8618,
+        5409
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8618/5409.pbf",
+      "sha256": "66f41c31fac2a77046c44c866c294fb4ef082e79403c503ea19832fa8fe78e83",
+      "bytes": 4242,
+      "origin": "network",
+      "sites": [
+        "Emmerthal"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8619,
+        5407
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8619/5407.pbf",
+      "sha256": "b246de1326f3e01b2a1e830e1b3e855c6eaecd60e477027720431d6ec8f86054",
+      "bytes": 21068,
+      "origin": "network",
+      "sites": [
+        "Emmerthal"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8619,
+        5408
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8619/5408.pbf",
+      "sha256": "6b86d25821fe96890d14ffd4688172cfbf8bcae6c837f880c9cd257aedb370a5",
+      "bytes": 52210,
+      "origin": "network",
+      "sites": [
+        "Emmerthal",
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8619,
+        5409
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8619/5409.pbf",
+      "sha256": "b65e28f3282b7eb298e659136c1e6ce59269044267ce56a2fd6fa5b26dfbe6ec",
+      "bytes": 6110,
+      "origin": "network",
+      "sites": [
+        "Emmerthal",
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8619,
+        5410
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8619/5410.pbf",
+      "sha256": "66fe8bba849ad406b70eb2bffb164a7d544107ec6966b2fc39ae7b9789183833",
+      "bytes": 3042,
+      "origin": "network",
+      "sites": [
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8620,
+        5407
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8620/5407.pbf",
+      "sha256": "c46720c2524c1f9f090dc9da6343a9e48e4f4dcaf0c2b4173c17d62512c3b0a3",
+      "bytes": 5135,
+      "origin": "network",
+      "sites": [
+        "Emmerthal"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8620,
+        5408
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8620/5408.pbf",
+      "sha256": "c78dc355c4feeb25abf115c2b59ee5b7446e65727e801d7fa57514798585dd52",
+      "bytes": 7842,
+      "origin": "network",
+      "sites": [
+        "Emmerthal",
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8620,
+        5409
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8620/5409.pbf",
+      "sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+      "bytes": 9441,
+      "origin": "network",
+      "sites": [
+        "Emmerthal",
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8620,
+        5410
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8620/5410.pbf",
+      "sha256": "6e6702931d58b5594ff4a8100453bf7c66b8d5cc8a2574a54caa8470df610791",
+      "bytes": 32035,
+      "origin": "network",
+      "sites": [
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8621,
+        5408
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8621/5408.pbf",
+      "sha256": "5e58a36b7a4daf1428f74b2ac7e8b6c3fa2d03b62a9d773ea930b7cddf664516",
+      "bytes": 2756,
+      "origin": "network",
+      "sites": [
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8621,
+        5409
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8621/5409.pbf",
+      "sha256": "b1aea677d1955b4c26d953070f75ccece0b69a75f7e460663af10b5dbd76354e",
+      "bytes": 11995,
+      "origin": "network",
+      "sites": [
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8621,
+        5410
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8621/5410.pbf",
+      "sha256": "1dcdbbdb83015a28ff9440e3a419c034bf1c68a570c884d79cc7cb0d2c584656",
+      "bytes": 10681,
+      "origin": "network",
+      "sites": [
+        "Grohnde"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8674,
+        5426
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8674/5426.pbf",
+      "sha256": "d9ed77624d8979ac4f9e7cb3a8051823efb14a538c6357163f3f03d1955c9b1d",
+      "bytes": 11644,
+      "origin": "network",
+      "sites": [
+        "Brocken"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8675,
+        5426
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8675/5426.pbf",
+      "sha256": "520a092ef441393149c932a4dbdfd01daaedb09af107978118e0975e5050f3e1",
+      "bytes": 13239,
+      "origin": "network",
+      "sites": [
+        "Brocken"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8802,
+        5373
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8802/5373.pbf",
+      "sha256": "c943e01027d41427895113cc924dfc099fdd10777fac6c786af83e8eec246299",
+      "bytes": 411150,
+      "origin": "network",
+      "sites": [
+        "BerlinFernsehturm"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8936,
+        5679
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8936/5679.pbf",
+      "sha256": "5c6a1d6393f2b2f140671c59354fe23c8387c886061b9a0b6100817b227ca17d",
+      "bytes": 404464,
+      "origin": "network",
+      "sites": [
+        "Spittelau"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8938,
+        5678
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8938/5678.pbf",
+      "sha256": "c5a7e10ec455572faf8ccd8b10b4a0bd2b69f8e4b81a7e70c0836b17b3bc158b",
+      "bytes": 208627,
+      "origin": "network",
+      "sites": [
+        "Donauturm"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        8938,
+        5679
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8938/5679.pbf",
+      "sha256": "5b7420d405f3ae6c0361121478891d6973991d15d8e205c171781d176f79bf98",
+      "bytes": 232213,
+      "origin": "network",
+      "sites": [
+        "Donauturm"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        14554,
+        6449
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/14554/6449.pbf",
+      "sha256": "e17af9b5a02b189756a7f710d7106b9c98cee315ee2031d589c27dcac429978e",
+      "bytes": 682519,
+      "origin": "network",
+      "sites": [
+        "TokyoSkytree"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        14554,
+        6450
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/14554/6450.pbf",
+      "sha256": "ccdd6d8a8e0c9a0f5e7dadfdece0610873ca49ab0605f814481f884b8813e606",
+      "bytes": 757713,
+      "origin": "network",
+      "sites": [
+        "TokyoSkytree"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        14555,
+        6449
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/14555/6449.pbf",
+      "sha256": "ba0746e16611ab8e4553cabd55545d0af0c3c30b4d0f48b17d13a91ba8b59556",
+      "bytes": 498414,
+      "origin": "network",
+      "sites": [
+        "TokyoSkytree"
+      ]
+    },
+    {
+      "tile": [
+        14,
+        14555,
+        6450
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/14555/6450.pbf",
+      "sha256": "e01666322959ef6573ca5fea3f455afb4156d20439448343cfd34001ebc4ffa8",
+      "bytes": 500626,
+      "origin": "network",
+      "sites": [
+        "TokyoSkytree"
+      ]
+    }
+  ],
+  "scope": "Named locations select study windows only; no name/location classification input."
+}

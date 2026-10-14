@@ -582,3 +582,26 @@ Principled-plus-translucent is a preview approximation: R/T are not calibrated
 MR base colour/Fresnel parameters, and blindly adding specular can change energy.
 Native GLSL bindings, lobe energy allocation, atlas/geometry response and GPU/world
 proof belong to master. Contract and evidence: [#121](https://github.com/Weichwolf/outshine/issues/121).
+
+## Building structural interpretation
+
+`buildings.structures.classify_structure` consumes one valid XY polygon in ENU
+metres, delivered `render_height`/`render_min_height`/`hide_3d`, optional `class`/
+`subclass`, coordinate quantization and union coverage of supplied industrial
+areas. Immutable `StructureDecision` records kind, origin, alternatives, reason,
+height/footprint metrics and caller-owned context evidence IDs. Source inputs are
+unchanged. Names, locations and IDs cannot select a kind. Tile fragments,
+courtyards, elongated houses and ordinary rectangular high-rises retain their
+building interpretation. Compact shafts, round elevated sections and round
+industrial bodies receive plausible technical families. Inferred types are
+unproven; water/communication/occupied towers and industrial process functions
+remain ambiguous without a delivered class. Defaults of 9 m/0 m are procedural.
+
+`classify_structure_marker` recognizes a delivered POI structural class, or
+returns `None`; conflicting class/subclass values remain ambiguous. It supplies
+no dimensions, host assignment or whole-building type. The caller must retain
+the marker and resolve its spatial/floor scope before choosing a recipe. The
+supported vocabulary does not assert that OpenFreeMap actually delivers every
+listed class. [#130](https://github.com/Weichwolf/outshine/issues/130) owns source
+sampling, counterexamples and the measured interpretation limits. These functions
+do not generate meshes, establish native asset ABI or prove global accuracy.
