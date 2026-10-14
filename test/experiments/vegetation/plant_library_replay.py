@@ -85,6 +85,7 @@ def main():
         assert hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest, name
     hash_s = time.perf_counter() - began
     with (
+        patch.object(PlantPlan, "__init__", side_effect=AssertionError("plan rebuild")),
         patch.object(
             PlantPlan, "from_recipe", side_effect=AssertionError("plan rebuild")
         ),
@@ -92,6 +93,10 @@ def main():
         patch.object(PlantPlan, "leaves", side_effect=AssertionError("leaf rebuild")),
         patch.object(Shoot, "detail", side_effect=AssertionError("shoot rebuild")),
         patch.object(Blade, "mesh", side_effect=AssertionError("prototype rebuild")),
+        patch(
+            "outshine_ref.vegetation.axis_surface.axis_mesh",
+            side_effect=AssertionError("wood rebuild"),
+        ),
     ):
         began = time.perf_counter()
         tables, meshes, poses = decode_products(manifest)
