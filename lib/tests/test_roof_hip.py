@@ -16,6 +16,16 @@ def volume(shape):
 
 
 class HipModelling(unittest.TestCase):
+    def test_rotated_inset_rim_normals_remain_perpendicular_on_short_edges(self):
+        from outshine_ref.buildings.modelling.faces import plane
+        source=Shape.from_polygon(shapely.Polygon([(0,0),(12,0),(10,7),(2,6)])).r(17,31,23)
+        roof=source.roof_hip(3.,'byHeight',overhang=-.5)
+        mesh=roof.emit();normal=plane(source.emit()['vertices'],source.geometry.polygons[0])[0]
+        sides=np.asarray([any(t.startswith('roof.side') for t in f.tags) for f in roof.geometry.polygons])[mesh['parts']]
+        corners=mesh['vertices'][mesh['faces'][sides]]
+        normals=np.cross(corners[:,1]-corners[:,0],corners[:,2]-corners[:,0])
+        self.assertTrue(np.all(abs(normals@normal)<=1e-12*np.linalg.norm(normals,axis=1)))
+
     def test_negative_overhang_closes_inset_rims_and_keeps_analytic_volume(self):
         source=Shape.from_polygon(shapely.box(0,0,12,5))
         for even in (False,True):

@@ -30,5 +30,6 @@ def close_rim(builder, normal, heights, face):
         tag = 'roof.side.inner' if key in holes else 'roof.side.outer'
         properties=np.r_[values,upper[::-1]][keep];identifiers=np.asarray(raw)[keep]
         # Nonnegative heights make each rim a planar convex quad or triangle.
-        order=np.array([0,1,2,0,2,3]) if len(keep)==4 else np.array([0,1,2])
+        # Start both triangles on a rim edge to avoid subtracting long parallel lifts.
+        order=np.array([0,1,2,2,3,0]) if len(keep)==4 else np.array([0,1,2])
         builder.append(properties[order],identifiers[order],('side',*key),replace(face,tags=face.tags|{tag}))
