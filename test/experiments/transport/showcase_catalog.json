@@ -54,6 +54,11 @@
       "id": "schienenanschluesse",
       "title": "Schienenanschlüsse",
       "description": "Das gemeinsame Wiener Deck erhält zwei echte westliche Anschlussquellen. Blau: bisheriges Deck, Grün: ergänzte Rampen. Gleiche Kameras und echte Höhen; Portale und Innenflächen bleiben offen."
+    },
+    {
+      "id": "kacheluebergaenge",
+      "title": "Kachelübergänge",
+      "description": "Das Wiener Schienenfeld setzt sich in der südlichen Nachbarkachel fort. Blau: vorhandene Flächen, Grün: Ergänzungen, Grau: bekannte untere Verkehrsflächen. Gemeinsame Höhen und Kameras; Innenräume und weitere Außenanschlüsse offen."
     }
   ],
   "images": [
@@ -771,6 +776,105 @@
       "image_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-cubic-solid.png",
       "report_source": "build/experiments/transport/bridge-approaches/Vienna-approach-detail-cubic-solid.json",
       "origin_source": "build/experiments/transport/bridge-approaches/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-whole-before-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · ganzer Schienenverbund · vor Fortsetzung",
+      "kind": "Vorhandener gültiger Plan",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-before-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-before-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-whole-rebuild-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · ganzer Schienenverbund · gemeinsames Feld",
+      "kind": "Kachelübergreifendes Schienenfeld",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-rebuild-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-rebuild-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-whole-retain-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · ganzer Schienenverbund · erhaltende Erweiterung",
+      "kind": "Kachelübergreifendes Schienenfeld",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-retain-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-whole-retain-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-cut-before-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · Kachelrand · vor Fortsetzung",
+      "kind": "Vorhandener gültiger Plan",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-before-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-before-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-cut-rebuild-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · Kachelrand · gemeinsames Feld",
+      "kind": "Kachelübergreifendes Schienenfeld",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-rebuild-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-rebuild-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-cut-retain-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · Kachelrand · erhaltende Erweiterung",
+      "kind": "Kachelübergreifendes Schienenfeld",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-retain-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-cut-retain-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-rise-before-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · zusätzlicher Höhenübergang · vor Fortsetzung",
+      "kind": "Vorhandener gültiger Plan",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-before-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-before-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-rise-rebuild-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · zusätzlicher Höhenübergang · gemeinsames Feld",
+      "kind": "Kachelübergreifendes Schienenfeld",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-rebuild-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-rebuild-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
+    },
+    {
+      "id": "Vienna-continuation-rise-retain-solid",
+      "section": "kacheluebergaenge",
+      "title": "Wien · zusätzlicher Höhenübergang · erhaltende Erweiterung",
+      "kind": "Kachelübergreifendes Schienenfeld",
+      "description": "19 zusammenhängende Brückenstücke mit erhaltenen westlichen Zufahrten. Ein weiterer Höhenübergang sichert die neuen bekannten Durchfahrten.",
+      "scope": "Undekoriertes Python-Verfahrensbild ohne Höhenüberhöhung. Ganze Flächen und vorhandene Höhenkontakte geprüft; Tunnel, Innenflächen, weitere Außenverbindungen, Terrain, Wasser, Gleishardware und Fahrkurven offen.",
+      "image_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-retain-solid.png",
+      "report_source": "build/experiments/transport/bridge-continuations/Vienna-continuation-rise-retain-solid.json",
+      "origin_source": "build/experiments/transport/bridge-continuations/origin.json"
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
