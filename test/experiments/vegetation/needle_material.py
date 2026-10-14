@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 
 
-def write_needle_material(output, section):
+def write_needle_material(output, section, *, base_colour=None):
     phi, t = np.meshgrid(
         2 * np.pi * (np.arange(64) + 0.5) / 64, (np.arange(256) + 0.5) / 256
     )
@@ -19,7 +19,13 @@ def write_needle_material(output, section):
             for centre in (np.pi / 4, np.pi, 7 * np.pi / 4)
         ]
         band = np.maximum.reduce(bands)
-    base = np.array([0.024, 0.075, 0.028])
+    base = np.array([0.024, 0.075, 0.028] if base_colour is None else base_colour)
+    if (
+        base.shape != (3,)
+        or not np.isfinite(base).all()
+        or np.any((base < 0) | (base > 0.8))
+    ):
+        raise ValueError("bounded linear RGB needle colour required")
     colour = base * (0.93 + 0.07 * np.sin(t[..., None] * 23)) + 0.035 * band[
         ..., None
     ] * np.array([0.55, 0.65, 0.6])

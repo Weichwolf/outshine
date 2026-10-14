@@ -3,36 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Outshine · Vegetationsexperimente</title>
+  <title>Outshine · Vegetation</title>
   <link rel="stylesheet" href="/showcase.css">
   <script src="/showcase.js" defer></script>
 </head>
 <body>
-  <header><a class="brand" href="/">OUTSHINE <span>/ VEGETATION</span></a><button id="reload" class="quiet" type="button">Stand laden</button></header>
+  <header><h1>OUTSHINE <span>/ VEGETATION</span></h1><button id="reload" type="button">Aktualisieren</button></header>
   <main>
-    <section class="intro">
-      <p class="eyebrow">PYTHON-WERKSTATT · VOM GRASHALM BIS ZUM WALD</p>
-      <h1>Vegetation im Versuch.</h1>
-      <p class="lead">Stabile Pflanzenformen, räumliche Bestandspläne und Detail nach Bedarf. Hier steht der aktuelle geprüfte Bildstand je Detailstufe.</p>
-      <p id="current-work"></p>
-      <div id="state" class="state"></div>
-      <p id="error" role="alert" hidden></p>
-    </section>
-    <nav id="lod-nav" class="lod-nav" aria-label="LOD-Stufen"></nav>
-    <p id="lod-description" class="lead"></p>
-    <details class="reference"><summary>Qualitätsmaßstab: SpeedTree · konkrete Bildreferenz ansehen</summary><div id="reference"></div></details>
-    <section id="images-section" aria-labelledby="gallery-title">
-      <div class="section-top"><h2 id="gallery-title">Bildstand</h2><span class="hint">Bild anklicken zum Vergrößern</span></div>
-      <div id="gallery" class="genus-gallery"></div>
-    </section>
-    <section id="measurements" class="measurements" aria-labelledby="plot-title">
-      <div class="section-top"><h2 id="plot-title">Verfahren und Kosten</h2><a id="download" class="quiet" download>Plot als SVG</a></div>
-      <nav id="plot-filters" class="filters" aria-label="Kostenvergleich wählen"></nav>
-      <div id="plot"></div>
-    </section>
-    <section class="remaining"><h2>Offene Bildqualität</h2><p id="quality-gap"></p><p>Blender-Eevee und lokale Python-Versuche. Native Echtzeit-, Schatten- und Geräteabnahme stehen noch aus.</p></section>
+    <p id="state" class="state"></p>
+    <p id="error" role="alert" hidden></p>
+    <div id="gallery" class="gallery" aria-label="Vier aktuelle Vegetationskacheln"></div>
   </main>
-  <footer><span id="updated"></span><span>Kein automatisches Neuladen. Neue Stände über „Stand laden“.</span></footer>
+  <footer>Verfahrensstand · SpeedTree-Qualität und native Echtzeitabnahme bleiben offen. Kein automatisches Neuladen.</footer>
   <dialog id="viewer"><button id="close" type="button" aria-label="Bild schließen">×</button><img id="large" alt=""><p id="large-caption"></p></dialog>
 </body>
 </html>

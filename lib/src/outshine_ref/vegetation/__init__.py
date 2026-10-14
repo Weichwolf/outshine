@@ -29,6 +29,8 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "NeedledPlant": "needled_plant",
+    "NeedlePattern": "needle_pattern",
     "LeafOpticsTable": "leaf_optics",
     "leaf_diffuse_response": "leaf_lighting",
     "LeafMaterialLevel": "leaf_material",
@@ -92,6 +94,8 @@ __all__ = [
     "leaf_material_mips",
     "LeafletShape",
     "Needle",
+    "NeedledPlant",
+    "NeedlePattern",
     "PinnatePattern",
     "Plan",
     "PlantPlan",

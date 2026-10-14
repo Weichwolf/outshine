@@ -233,6 +233,23 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   flache adaxiale und gekrümmte abaxiale Seite. Eigene ideale Sektoren ([#46](https://github.com/Weichwolf/outshine/issues/46))
   ergänzen den generalisierten Zylinder; keine mikroskopische Zellrekonstruktion oder
   vollständige P.-thunbergii-Rezeptfreigabe. Fünfersektor ist eine Gattungsfunktionsprobe.
+- **European Atlas of Forest Tree Species**, San-Miguel-Ayanz et al. (Hg.), JRC 2016,
+  DOI [10.2788/038466](https://doi.org/10.2788/038466).
+  Artspezifische Kapitel für [Picea abies](vegetation/botany/2016-european-atlas-picea-abies.pdf),
+  [Pinus sylvestris](vegetation/botany/2016-european-atlas-pinus-sylvestris.pdf),
+  [Pinus cembra](vegetation/botany/2016-european-atlas-pinus-cembra.pdf) und
+  [Larix decidua](vegetation/botany/2016-european-atlas-larix-decidua.pdf).
+  [JRC-Primärquelle](https://forest.jrc.ec.europa.eu/en/european-atlas/atlas-data-and-metadata/).
+  PDF-Seiten optisch geprüft: Fichten-Kronen/Rinde (1), Föhrennadeln/Rinde (1),
+  Arvennadeln (2) und Lärchen-Kurztriebcluster/Herbstbestand (2).
+  Vierkantige Einzelnadeln, Zweier-/Fünferbündel und 20–40-Nadel-Kurztriebe
+  steuern eigene Sommerrezepte; junge Kronen sind plausible Interpretationen,
+  keine gemessene Allometrie oder vollständige botanische Freigabe ([#131](https://github.com/Weichwolf/outshine/issues/131)).
+  Schweizer Namen/IDs und Beschreibungen am 14.10.2026 gegen InfoFlora geprüft:
+  [Fichte](https://www.infoflora.ch/de/flora/picea-abies.html),
+  [Wald-Föhre](https://www.infoflora.ch/de/flora/pinus-sylvestris.html),
+  [Arve](https://www.infoflora.ch/de/flora/pinus-cembra.html),
+  [Europäische Lärche](https://www.infoflora.ch/de/flora/larix-decidua.html).
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
   [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).
