@@ -249,3 +249,27 @@ Preflight uses conservative capacities: an insufficient aggregate budget returns
 and populated tables own immutable bytes. The implementation skips empty parents
 after vectorized preflight, with bounded parent/site work. This does not establish
 a complete SpeedTree property mapping, botanical recipe or native placement ABI.
+
+### Spatial branch curves and surfaces
+
+`outshine_ref.vegetation.CubicSpine`, `ArcMeasure`, `SpineField` and `SpatialAxis`
+provide camera-independent cubic plans, monotone arc coordinates, transported
+frames and closed elliptical sweeps. Plant-local X is transverse, Y forward,
+Z normal, in metres. World conversion remains the caller's explicit ENU boundary.
+Cubic controls certify positive forward speed and a conservative curvature bound;
+radius must satisfy the local tube certificate. This proves neither global
+collision freedom nor a general silhouette/coverage bound.
+
+Prepared knots have immutable bytes. Public SciPy polynomial/curve properties
+return independent inspection copies; hot sampling uses private prepared objects.
+`ArcMeasure.evaluate(t, derivative)` evaluates arc length or its derivatives at
+a normalized raw curve parameter. `parameter(fraction)` maps normalized arc
+length to the raw curve parameter. `SpatialAxis.mesh` owns Float64 positions,
+per-corner normals and physical bark fields plus Int32 faces; caps retain hard
+normals. Roll-profile total variation per band must stay at most π/2, and every
+facet must agree with each corner normal. Refine within the caller's budget or
+explicitly refuse unresolved detail; do not accept aliased full rotations.
+Spatial classes load lazily, keeping prepared Profile import NumPy-only.
+Sources, independent references, original frame probes and open SpeedTree
+property/force/LOD/wind bindings belong to [#27](https://github.com/Weichwolf/outshine/issues/27),
+[#39](https://github.com/Weichwolf/outshine/issues/39) and [#52](https://github.com/Weichwolf/outshine/issues/52).

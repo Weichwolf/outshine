@@ -43,6 +43,7 @@ from profile_plots import cache_profile_figure, profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
 from showcase_plot_sources import PLOT_SOURCES
 from spatial_plots import spatial_figure
+from spine_library_plots import spine_library_figure
 from spine_plots import spine_figure
 from tapered_plots import tapered_figure
 
@@ -387,6 +388,12 @@ def placement_library_plot(report):
     return save_plot(figure, "placement-library")
 
 
+def spine_library_plot(report):
+    figure = spine_library_figure(report)
+    style_axes(figure.axes)
+    return save_plot(figure, "spine-library")
+
+
 def spine_plot(report):
     return save_plot(spine_figure(report), "spatial-frames")
 
@@ -532,6 +539,7 @@ def plot_entries(output, plot_lods):
             needle_plot,
             blade_library_plot,
             placement_library_plot,
+            spine_library_plot,
             profile_cache_plot,
             filter_plot,
             development_plot,

@@ -1,6 +1,7 @@
 """Vegetation consumes binding spaces and optional hints from both predecessors."""
 
 from dataclasses import dataclass
+from importlib import import_module
 
 from ..contracts import Hint, LocalFrame, Mesh, Reservation, SourceInputs, collection
 from .blade_surface import Blade
@@ -27,4 +28,31 @@ class Plan:
         collection(self.meshes, Mesh, "vegetation meshes")
 
 
-__all__ = ["Blade", "DistancePattern", "Inputs", "Needle", "Plan", "Profile"]
+_SPATIAL_EXPORTS = {
+    "ArcMeasure": "spine_measure",
+    "CubicSpine": "spine_curve",
+    "SpatialAxis": "spatial_axis",
+    "SpineField": "spine_field",
+}
+
+
+def __getattr__(name):
+    if name not in _SPATIAL_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(f"{__name__}.{_SPATIAL_EXPORTS[name]}"), name)
+    globals()[name] = value
+    return value
+
+
+__all__ = [
+    "ArcMeasure",
+    "Blade",
+    "CubicSpine",
+    "DistancePattern",
+    "Inputs",
+    "Needle",
+    "Plan",
+    "Profile",
+    "SpatialAxis",
+    "SpineField",
+]
