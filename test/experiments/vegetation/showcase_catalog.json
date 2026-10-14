@@ -1,10 +1,10 @@
 {
   "renders": [
     {
-      "image": "render/landscape-europe-conifers.png",
+      "image": "needle-lod/position-area/selected-render.png",
       "title": "Schweizer Nadelgehölze · Jungbestandskachel",
       "label": "Picea abies · Pinus sylvestris · Pinus cembra · Larix decidua",
-      "note": "10×10 m · erster Detailbestand; Kronendichte und Fernfilterung noch offen"
+      "note": "10×10 m · geprüfte Nadelvereinfachung; Kronendichte und Fernfilterung noch offen"
     },
     {
       "image": "render/landscape-temperate-depth.png",

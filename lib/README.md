@@ -153,6 +153,11 @@ Transport → Buildings → Vegetation-Kette. Die Bibliotheksübernahme besitzt
 Die Vegetationsbibliothek exportiert `vegetation.NeedledPlant`: bladeless
 `PlantPlan`-Holzpläne mit optionalen `NeedlePattern`-Anordnungen je Achsenordnung
 und physischen `Needle`-Prototypen. Nadeln erben keine Längenskalierung ihrer Eltern.
+`Needle.mesh(..., axial_sampling="profile")` erhält beim Reduzieren axialer Ringe
+das Radialmaximum und verteilt Segmente getrennt über Körper/Spitze. Der Default
+`"uniform"` und alle physischen Rezepte bleiben unverändert. Die Ringzahl allein
+belegt weder Bildschirm-, Coverage- noch Shadingfehler; Vergleich und Grenzen:
+[#143](https://github.com/Weichwolf/outshine/issues/143).
 `summary(path)` bestimmt Bedarf ohne Achsen-/Nadelarrays, `foliage(path, max_needles)`
 liefert stabile Teilgruppen, `tables(max_axes, max_needles)` vollständige kanonische
 Cachezeilen. Beide Budgets werden vor Detailarbeit geprüft; verweigerte Anfragen

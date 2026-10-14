@@ -38,7 +38,8 @@ class NeedleTests(unittest.TestCase):
             Needle(section="sector", sector_count=5),
         ):
             near, coarse = shape.mesh(), shape.mesh(16, 8)
-            for mesh in (near, coarse):
+            profile = shape.mesh(4, 8, axial_sampling="profile")
+            for mesh in (near, coarse, profile):
                 self.assertEqual(mesh["vertices"].dtype, np.dtype(np.float64))
                 self.assertEqual(mesh["faces"].dtype, np.dtype(np.int32))
                 self.assertEqual(mesh["normals"].shape, (3 * len(mesh["faces"]), 3))
@@ -72,6 +73,32 @@ class NeedleTests(unittest.TestCase):
                     for p in coarse["vertices"]
                 )
             )
+
+    def test_profile_rings_preserve_peak_and_straight_projected_area(self):
+        shape = Needle(section="rhombus", bend=0, twist=0)
+        expected = (
+            2
+            * shape.length
+            * shape.radius
+            * (0.775 * shape.taper_start + (1 - shape.taper_start) * 2 / 3)
+        )
+        errors = []
+        for sampling in ("uniform", "profile"):
+            mesh = shape.mesh(4, 4, axial_sampling=sampling)
+            # Along +X/-X the straight rhombus silhouette is a polygonal strip.
+            boundary = mesh["vertices"][:-2].reshape(4, 4, 3)[:, 0]
+            height = np.r_[boundary[:, 1], shape.length]
+            width = np.r_[boundary[:, 0], 0]
+            area = np.sum(np.diff(height) * (width[:-1] + width[1:]))
+            errors.append(abs(area / expected - 1))
+            if sampling == "profile":
+                self.assertEqual(float(width.max()), shape.radius)
+                self.assertEqual(float(height[width.argmax()]), 0.75 * shape.length)
+                scalar = shape.mesh(4, 4, "scalar", axial_sampling=sampling)
+                for name in mesh:
+                    np.testing.assert_array_equal(mesh[name], scalar[name])
+        self.assertLess(errors[1], 0.015)
+        self.assertLess(errors[1], errors[0] / 3)
 
     def test_straight_sector_approaches_analytic_volume(self):
         shape = Needle(section="sector", sector_count=5, bend=0, twist=0)
@@ -120,7 +147,12 @@ class NeedleTests(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 Needle(**changes)
-        for options in ({"segments": 1}, {"sides": 7}, {"method": "other"}):
+        for options in (
+            {"segments": 1},
+            {"sides": 7},
+            {"method": "other"},
+            {"axial_sampling": "other"},
+        ):
             with self.assertRaises(ValueError):
                 Needle().mesh(**options)
         shape = Needle(
