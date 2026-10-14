@@ -57,40 +57,8 @@
     },
     {
       "id": "Vienna-bridge-before",
-      "title": "03 · Brückenteilnetz · vorher",
-      "caption": "Wien · bisheriger Brückenplan im vollständigen Kachelverbund.",
-      "model": "bridge-continuations/Vienna-continuation-whole-before-solid",
-      "tiles": [
-        "Vienna-Donau-West",
-        "Vienna-Donau",
-        "Vienna-Donau-South"
-      ],
-      "comparison": "bridge",
-      "surface_groups": [
-        {
-          "slots": [
-            1,
-            3
-          ],
-          "depth_m": 0.35
-        },
-        {
-          "slots": [
-            0
-          ],
-          "depth_m": 0.25
-        }
-      ],
-      "diagnostic": false,
-      "scope": "Three complete source tiles frame the previously valid partial bridge/ground plan, before the south-tile continuation. Unknown and unselected sources remain omitted.",
-      "image_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.png",
-      "report_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.json",
-      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
-    },
-    {
-      "id": "Vienna-bridge-after",
-      "title": "04 · Brückenteilnetz · jetzt",
-      "caption": "Wien · Fortsetzung und Höhenübergänge über drei Kacheln.",
+      "title": "03 · Verbund · vorher",
+      "caption": "Wien · Brücken und Erdgleise im vollständigen Kachelverbund.",
       "model": "bridge-continuations/Vienna-continuation-whole-rebuild-solid",
       "tiles": [
         "Vienna-Donau-West",
@@ -114,7 +82,51 @@
         }
       ],
       "diagnostic": false,
-      "scope": "Three complete source tiles frame the extended valid partial bridge/ground field. Previously planned affine surfaces are retained; two C1 height transitions with finite C0 faces. Remaining source IDs retain omission reasons in the original plan. Indoor/tunnel/other routes, terrain/water, rails, piers and structure remain uncertified.",
+      "scope": "Three full source tiles show the previous verified bridge and ground-rail partial plan before the two west tunnel sources are added.",
+      "image_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.png",
+      "report_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.json",
+      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+    },
+    {
+      "id": "Vienna-bridge-after",
+      "title": "04 · Verbund · jetzt",
+      "caption": "Wien · Brücken, Absenkung und Tunnelportale über drei Kacheln.",
+      "model": "tunnel-portals/Vienna-tunnel-whole-cubic-solid",
+      "tiles": [
+        "Vienna-Donau-West",
+        "Vienna-Donau",
+        "Vienna-Donau-South"
+      ],
+      "comparison": "bridge",
+      "surface_groups": [
+        {
+          "slots": [
+            1,
+            3
+          ],
+          "depth_m": 0.35
+        },
+        {
+          "slots": [
+            0
+          ],
+          "depth_m": 0.25
+        },
+        {
+          "slots": [
+            6
+          ],
+          "depth_m": 4.5
+        },
+        {
+          "slots": [
+            7
+          ],
+          "depth_m": 0.35
+        }
+      ],
+      "diagnostic": false,
+      "scope": "Three full source tiles show the connected bridge/ground/tunnel partial plan. Two real subway axes attach to chosen old ground floors, with C1 scalar height transition and closed lining against selected coarse terrain. Terrain reference is not rendered as a complete earth volume. Other transport/indoor contacts, train routes and structural loads remain unproven.",
       "image_source": "build/experiments/transport/whole-tiles/Vienna-bridge-after-solid.png",
       "report_source": "build/experiments/transport/whole-tiles/Vienna-bridge-after-solid.json",
       "origin_source": "build/experiments/transport/whole-tiles/origin.json"
