@@ -14,8 +14,7 @@ import shapely
 
 from compare_roof_oracle import cases
 from evidence import revision
-from outshine_ref.buildings.modelling import Face, Shape, prepare_hip
-from roof_inset_surface import inset
+from outshine_ref.buildings.modelling import Shape
 from showcase_groups import save_plot
 from showcase_hip_overhang import draw
 from showcase_roof_shed import spatial
@@ -46,7 +45,7 @@ def plan_view(data, output, provenance):
             axis.grid(alpha=.15)
             axis.legend(fontsize=16)
     fig.text(.035, .03, '417/444 gesamte Dachvergleiche bestätigt; 444/444 lokale Helfervergleiche. '
-             '16 ungültige Projektionen und elf weitere Abweichungen bleiben. Keine Überhang-Freigabe.', fontsize=22)
+             '16 ungültige Projektionen und elf weitere Abweichungen bleiben. Positive Überhänge weiter offen.', fontsize=22)
     fig.tight_layout(rect=(0., .07, 1., .94), h_pad=4., w_pad=3.)
     return save_plot(fig, output, 'current-hip-repair-plan', 'Dachüberhang · Konturreparatur',
                      'Echte Knoten/Kanten vor und nach der eigenen lokalen Reparatur. Hof und Wiener Traufdetail; '
@@ -54,41 +53,26 @@ def plan_view(data, output, provenance):
                      provenance, begin, [3840, 2160], label='hip-overhang-research')
 
 
-def patch_shapes(patches, origin, elevation):
-    shapes = []
-    for patch in patches:
-        polygon = shapely.orient_polygons(patch.polygon)
-        vertices, rings = [], []
-        for ring in (polygon.exterior, *polygon.interiors):
-            xy = np.asarray(ring.coords)[:-1]
-            heights = xy@patch.gradient+patch.intercept_m+elevation
-            indices = tuple(range(len(vertices), len(vertices)+len(xy)))
-            vertices.extend(np.c_[xy[:, 0]+origin[0], heights, -(xy[:, 1]+origin[1])])
-            rings.append(indices)
-        shapes.append((Shape.from_faces(vertices, [Face(rings[0], tuple(rings[1:]))]), 3))
-    return shapes
-
-
 def inset_view(output, provenance):
     row = next(r for r in cases() if r['id'] == 'Vienna:112890:45')
     polygon = row['polygon']
-    plan = prepare_hip(polygon)
-    patches, level = inset(plan, 3., 'byHeight', -.5)
     body = Shape.from_polygon(polygon).extrude(4.)
     roof = Shape.from_polygon(polygon, 4.).roof_hip(3., 'byHeight')
     top = tuple(f for f in roof.geometry.polygons if 'roof.top' in f.tags)
     before = [(body, 0), (Shape.from_faces(roof.emit()['vertices'], top), 3)]
-    after = [(body, 0)]+patch_shapes(patches, plan.origin, 4.)
+    closed = Shape.from_polygon(polygon,4.).roof_hip(3.,'byHeight',overhang=-.5)
+    prepared = closed.roof_info.insets[0]
+    after = [(body, 0),(closed,3)]
     spacing = polygon.bounds[2]-polygon.bounds[0]+10.
     shapes = before+[(s.translate('rel', 'world', spacing, 0., 0.), c) for s, c in after]
     metadata = dict(source_id=row['id'], source_sha256=row['source_sha256'], overhang_m=-.5,
-                    eave_level_m=level, nominal_roof_height_m=3., inset_patches=len(patches),
-                    geometry_scope='Direct affine field patches triangulated through Shape; independent valid inset, no SDK contour/UV/shared-root equivalence.')
+                    eave_level_m=prepared.eave_level_m, nominal_roof_height_m=3., inset_patches=len(prepared.facets),
+                    geometry_scope='Actual installed Shape.roof_hip negative inset: source UV0–9, shared geometric roots, bottom and rims; no SDK contour equivalence.')
     overview = spatial(output, provenance, 'current-hip-inset-vienna',
                    'Wien · vollständiges Dach und gültiger Höhenschnitt', shapes, metadata,
                    'Links Standarddach, rechts derselbe feste Dachhöhenverlauf oberhalb der neuen Traufhöhe. '
-                   'Eigenständige Alternative zu negativen SDK-Konturen; einfache Prüfköper, keine Architekturrezepte. '
-                   'UV-/Bottom-/Sides-/gemeinsamer Meshbesitz bleiben offen.',
+                   'Geschlossene eigene negative Variante mit ursprünglicher Unterseite und senkrechten Rändern; '
+                   'einfache Prüfkörper, keine Architekturrezepte oder SDK-Konturgleichheit.',
                    label='hip-overhang-research', direction=(1., -1.3, 1.8))
     ring = np.asarray(shapely.orient_polygons(polygon).exterior.coords)[:-1]
     edges = np.roll(ring, -1, axis=0)-ring
@@ -100,8 +84,8 @@ def inset_view(output, provenance):
     detail = spatial(output, provenance, 'current-hip-inset-detail', 'Traufdetail · eigenständiger Höhenschnitt',
                      after, metadata | dict(inspection_window_m=[6., 6., 3.]),
                      'Nahansicht des neuen Dachrands: 6×6 m um eine echte Traufkante. '
-                     'Gold: geschnittenes Dachfeld; Blau: unveränderter Prüfköper. '
-                     'Die offene Verbindung zeigt den noch fehlenden Bottom-/Sides-Vertrag ausdrücklich.',
+                     'Gold: tatsächliche geschlossene Dachhülle einschließlich Rand; Blau: unveränderter Prüfkörper. '
+                     'Der neue Rand reicht bis zum ursprünglichen Quellniveau und schließt die frühere offene Fuge.',
                      label='hip-overhang-research', camera=camera)
     return [overview, detail]
 

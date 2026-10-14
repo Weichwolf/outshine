@@ -18,6 +18,7 @@ from verify_modelling_roof_shed import source
 
 def measure(product):
     points = product['vertices']; triangles = points[product['faces']]
+    if not len(triangles):return 0.,dict(minimum_double_area_m2=None,maximum_normal_relative_uncertainty=None)
     first, last = triangles[:,1]-triangles[:,0], triangles[:,2]-triangles[:,0]
     normals = np.cross(first, last)
     products = abs(first[:,[1,2,0]]*last[:,[2,0,1]])+abs(first[:,[2,0,1]]*last[:,[1,2,0]])
@@ -68,11 +69,11 @@ def uv_surface(original, result):
     return checked
 
 
-def verify(shape, value=3., mode='byHeight', even=False):
-    before = shape.emit(); roof = shape.roof_hip(value, mode,even=even); mesh = local(roof)
+def verify(shape, value=3., mode='byHeight', even=False, overhang=0.):
+    before = shape.emit(); roof = shape.roof_hip(value, mode,even=even,overhang=overhang); mesh = local(roof)
     expected = 0.
-    for plan,surface in zip(roof.roof_info.plans,roof.roof_info.surfaces,strict=True):
-        facets=plan.facets if surface is None else surface.facets
+    for plan,surface,inset in zip(roof.roof_info.plans,roof.roof_info.surfaces,roof.roof_info.insets,strict=True):
+        facets=inset.facets if inset is not None else plan.facets if surface is None else surface.facets
         expected += sum(f.polygon.area*(np.asarray(f.gradient)@np.asarray(f.polygon.centroid.coords[0])+f.intercept_m)
                         for f in facets)*(plan if surface is None else surface).factor(value,mode)
         if surface is not None:
@@ -90,9 +91,12 @@ def verify(shape, value=3., mode='byHeight', even=False):
     for owner,face in enumerate(shape.geometry.polygons):
         normal=plane(local(shape)['vertices'],face)[0]
         selection=np.asarray(roof.roof_info.source_faces)[mesh['parts']]==owner
-        top=np.asarray(['roof.top' in face.tags for face in roof.geometry.polygons])[mesh['parts']]
+        top=np.asarray(['roof.top' in face.tags for face in roof.geometry.polygons],dtype=bool)[mesh['parts']]
         assert np.all(normals[selection&top]@normal>0), 'Hip top normal faces into its source plane'
-        assert np.all(normals[selection&~top]@normal<0), 'Hip bottom normal faces away from its source plane'
+        bottom=np.asarray(['roof.bottom' in face.tags for face in roof.geometry.polygons],dtype=bool)[mesh['parts']]
+        assert np.all(normals[selection&bottom]@normal<0), 'Hip bottom normal faces away from its source plane'
+        sides=selection&~top&~bottom
+        assert np.all(abs(normals[sides]@normal)<=1e-12*np.linalg.norm(normals[sides],axis=1)), 'Hip rim is not normal to the source plane'
     assert roof.geometry.group_names == shape.geometry.group_names and roof.geometry.material_defs == shape.geometry.material_defs
     assert roof.material == shape.material and roof.textures == shape.textures and roof.projections == shape.projections
     assert roof.comp_info == shape.comp_info
@@ -110,7 +114,7 @@ def verify(shape, value=3., mode='byHeight', even=False):
                 maximum_shared_height_adjustment_m=roof.roof_info.maximum_shared_height_adjustment_m)
 
 
-def controls(even=False):
+def controls(even=False,overhang=0.):
     polygons = [shapely.box(0,0,12,5),shapely.Polygon([(0,0),(10,0),(10,3),(5,3),(5,8),(0,8)]),
                 shapely.Polygon([(0,0),(10,0),(10,8),(0,8)], [[(2,2),(2,6),(7,6),(7,2)]]),
                 shapely.Polygon([(0,0),(12,0),(10,7),(2,6)])]
@@ -121,11 +125,11 @@ def controls(even=False):
                       replace(original,scope=replace(original.scope,pivot=Frame((7,-3,8),(7,11,19)),
                                                      object_frame=Frame((1e8,200,-300),(13,17,23))))):
             for value,mode in ((3.,'byHeight'),(25.,'byAngle')):
-                rows.append(verify(shape,value,mode,even))
+                rows.append(verify(shape,value,mode,even,overhang))
     base = source(polygons[0]); mesh = base.emit()
     changed = dict(mesh); changed['uv'] = mesh['uv'].copy(); changed['uv'][mesh['faces'][0]] += [7.,3.]
     seam = Shape.from_mesh(changed,base.scope,base.geometry.polygons).with_metadata(group_names=dict(base.geometry.group_names),material_defs=dict(base.geometry.material_defs))
-    rows.append(verify(seam,even=even))
+    rows.append(verify(seam,even=even,overhang=overhang))
     authored = Shape.from_mesh(mesh|dict(normals=np.tile([0.,1.,0.],(len(mesh['vertices']),1))),base.scope,base.geometry.polygons)
     roof = authored.roof_hip(3.,'byHeight'); assert roof.roof_info.authored_normals_rebuilt and 'normals' not in roof.emit()
     checked_roof=authored.roof_hip(3.,'byHeight',even=even);changed=local(checked_roof)
@@ -143,13 +147,13 @@ def controls(even=False):
     return rows
 
 
-def real_inputs(even=False):
+def real_inputs(even=False,overhang=0.):
     rows=[]
     for site in ('Vienna','Tokyo','Rosenheim'):
         samples,_=read_site(site)
         for sample in sorted(samples,key=lambda s:len(s['polygon'].exterior.coords),reverse=True)[:16]:
             try:
-                row=verify(source(sample['polygon']),even=even)
+                row=verify(source(sample['polygon']),even=even,overhang=overhang)
             except Exception as error:
                 raise AssertionError(f"Hip source failed: {sample['id']}") from error
             rows.append(row|dict(source_id=sample['id'],source_sha256=sample['source_sha256']))
@@ -160,8 +164,9 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=Path('build/experiments/buildings/modelling-roof-hip-verification.json'))
     parser.add_argument('--even',action='store_true')
-    args=parser.parse_args(); control=controls(args.even); real=real_inputs(args.even)
-    record=revision()|dict(status='pass',even=args.even,controls=control,real_cases=real,
-                          scope='Independent Gram-barycentric UV0-9 samples, metric volumes, source ownership and native closure; not SDK UV/overhang/even/trim or native frame proof')
+    parser.add_argument('--overhang',type=float,default=0.)
+    args=parser.parse_args(); control=controls(args.even,args.overhang); real=real_inputs(args.even,args.overhang)
+    record=revision()|dict(status='pass',even=args.even,overhang_m=args.overhang,controls=control,real_cases=real,
+                          scope='Independent Gram-barycentric UV0-9 samples, metric volumes, source ownership and native closure; own negative closed-inset semantics, not SDK UV/negative contour/even/trim or native frame proof')
     args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(dict(status='pass',controls=len(control),real_cases=len(real),uv_values_checked=sum(r['uv_values_checked'] for r in control+real))))
