@@ -237,7 +237,7 @@ Common-access plans remain preferred. Door placement checks the whole 0.90-m
 approach segment against the boundary of the two rooms and their actual opening,
 with the same 0.30-m actor radius. Full-width backing lines alone are insufficient.
 
-`verify_single_storey.py` checks seven recovered provider sources, twelve previous
+`verify_single_storey.py` checks seven recovered provider sources, thirteen previous
 successful plans with byte-equal mesh streams, and actual multi-storey/undersized
 controls. Independent shell sections, assembled actor rays, blocked entrances,
 stable room-light states and unchanged zero-setback/terrace paths are required.
@@ -245,6 +245,10 @@ Build phases are measured separately; the previous unplanned result is not a
 valid cheaper alternative. `single_storey_plan.py` draws actual mesh sections and
 the obstructed/valid door approaches outside the four-image page. These generic
 room controls are not complete architecture or use-programme families.
+The clearance region uses only polygonal area: GEOS may also return zero-area
+line fragments in a union, whose collection has no defined boundary. Discarding
+those lines preserves every surface and avoids a NaN clearance without relaxing
+the actor radius. The previous eleven-storey Tokyo control stays byte-equal.
 
 ```sh
 .venv/bin/python -W error test/experiments/buildings/verify_single_storey.py

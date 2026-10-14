@@ -140,6 +140,9 @@ def room_portals(floors, shared_edges):
             if len(owners[0])!=1 or len(owners[1])!=1 or owners[0]==owners[1]:continue
             approach = shapely.LineString([middle-normal*.45,middle+normal*.45])
             passage = floors[first].union(floors[second]).union(opening)
+            if passage.geom_type=='GeometryCollection':
+                passage=shapely.union_all([part for part in shapely.get_parts(passage)
+                                          if part.geom_type in ('Polygon','MultiPolygon')])
             if passage.covers(approach) and approach.distance(passage.boundary)>=AGENT_RADIUS_M:
                 doors.append(dict(id=f'door-{first}-{second}', rooms=[first, second], polygon=opening,
                                   centre=middle.tolist(), tangent=tangent.tolist(), height_m=2.15, kind='room-door'))

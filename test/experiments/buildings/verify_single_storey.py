@@ -16,6 +16,7 @@ from boolean_building_plan import sources
 from building_setbacks import apply as setbacks
 from building_terraces import apply as terraces
 from building_vertical import build
+from building_plan_cases import cases as layout_cases
 from evidence import revision
 from interior_light_plan import lights
 from structural_shell_geometry import assembly
@@ -85,11 +86,14 @@ def recovered(sample,before,plan,elapsed):
 
 def compatibility(old_vertical,old_layout):
     results=[]
-    for sample in previous_cases():
+    for sample in [*previous_cases(),next(s for s in layout_cases() if s['label']=='tokyo-compact')]:
         before=previous_plan(sample,old_vertical,old_layout);after=build(sample)
         equal_plan(before,after)
-        results.append(dict(id=sample['id'],source_sha256=sample['source_sha256'],previous_geometry_byte_equal=True))
-    if len(results)!=12:raise ValueError('Previous successful source set changed')
+        row=dict(id=sample['id'],source_sha256=sample['source_sha256'],previous_geometry_byte_equal=True)
+        if sample.get('label')=='tokyo-compact':
+            _,collision=assembly(after,construct(after),frames=True);row['access']=access(after,collision)
+        results.append(row)
+    if len(results)!=13:raise ValueError('Previous successful source set changed')
     return results
 
 
