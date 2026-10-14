@@ -734,6 +734,7 @@
     }
   ],
   "plot_lods": {
+    "leaf_library_plot": "lod-0",
     "generator_plot": "lod-1",
     "bark_plot": "lod-0",
     "selection_storage_plot": "lod-2",
