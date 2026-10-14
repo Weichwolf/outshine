@@ -36,6 +36,10 @@ def apply(plan,offsets):
         raise ValueError('Setbacks require finite nonnegative metre distances')
     if any(b<a for a,b in zip(offsets,offsets[1:])):raise ValueError('Setbacks must be nested')
     if 'storey_plans' in plan:raise ValueError('Apply setbacks to the original fixed envelope')
+    if plan.get('circulation_status')=='direct-rooms':
+        if any(offsets):raise ValueError('Direct single-storey rooms have no core for nonzero setbacks')
+        return plan|dict(storey_plans=(level(plan,0)|dict(terrace=shapely.Polygon()),),setback_decisions=[dict(storey=0,requested_offset_m=0.,reason=None,
+            footprint_area_m2=plan['footprint'].area,terrace_area_m2=0.)])
     reserve=shapely.union_all([plan['core_envelope'],plan['corridor_zone']]).buffer(WALL_M,join_style='mitre')
     reserve=canonical_geometry(reserve.intersection(plan['footprint']))
     floors=[];decisions=[];previous=plan['footprint']
