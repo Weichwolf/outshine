@@ -56,7 +56,7 @@ def terrain_tile(sources, coordinate, fetch):
     return heights, receipt
 
 
-def sample_targets(origin, xy, sources, zoom, fetch=False):
+def sample_targets(origin, xy, sources, zoom, fetch=False, *, tile_loader=None):
     count = 1 << zoom
     world = world_coordinates(origin, xy)
     if np.any(world[:, 1] < 0) or np.any(world[:, 1] > 1):
@@ -71,7 +71,7 @@ def sample_targets(origin, xy, sources, zoom, fetch=False):
     values = np.empty((len(xy), 4))
     receipts = []
     for i, tile in enumerate(tiles):
-        heights, receipt = terrain_tile(sources, (zoom, *map(int, tile)), fetch)
+        heights, receipt = (terrain_tile if tile_loader is None else tile_loader)(sources, (zoom, *map(int, tile)), fetch)
         receipts.append(receipt)
         selected = np.flatnonzero(owners == i)
         col, row = columns.ravel()[selected] % 512, rows.ravel()[selected] % 512

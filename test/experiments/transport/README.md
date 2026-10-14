@@ -176,6 +176,31 @@ Das C0-Mesh approximiert den DEM-Prior; der gemessene Fehler an Face-Zentren wir
 ausgewiesen und beweist keine globale DEM-Fehlerschranke. Adaptive Verfeinerung und
 glatte Profile bleiben weitere Arbeit; funktionale Zugangskontakte bleiben separat.
 
+## Gegenbeispiel: feste Terrain-Fächer verfeinern (#20)
+
+```sh
+.venv/bin/python -W error test/experiments/transport/ground_refinement_checks.py
+.venv/bin/python -W error test/experiments/transport/ground_refinement_experiment.py
+.venv/bin/python -W error test/experiments/transport/ground_refinement_showcase.py
+```
+
+Kantenmittelpunkte und Flächenzentren erhalten bei gleichem Budget alle bisherigen
+Vertices, Straßen und äußeren Ränder. Analytische Ganzflächenintervalle begrenzen
+die neue Einzelhöhe; eine lokale DEM-Stichprobe verhindert den zuerst gemessenen
+Extremfehleranstieg. Beide Methoden reduzieren danach den gemessenen Mittel-/RMS-
+Fehler. Der Zentrenpfad kostet weniger und verbessert p95 stärker; der Kantenpfad
+hat den kleineren gemessenen Maximalfehler. Die Prüfmenge bleibt unabhängig von
+den eingefügten Kandidaten. Dies ist keine globale DEM-Fehlerschranke.
+
+Die tatsächlich geöffneten 1920×1080-Ansichten (grob, 50%-Morph, fein) zeigen jedoch
+dreieckige Buckel und scharfe Falten. Dieser Pfad ist als **visuelle Lösung verworfen**;
+er wird weder in `lib/` übernommen noch ersetzt er die freigegebene Showcase.
+Reproduktion, Meshs und Messungen liegen unter `build/experiments/transport/refinement/`.
+Der vertikale grob/fein-Unterschied ist für affine Eltern-/Kindflächen an den
+feinen Vertices exakt begrenzt; das beweist weder C1 noch einen Bildgewinn.
+Als Nächstes die freie Terrain-Konnektivität zwischen tatsächlichen Straßenrändern
+prüfen, anstatt die unpassenden alten Innenkanten weiter zu fixieren.
+
 ```sh
 .venv/bin/python -W error -m unittest discover -s lib/tests
 .venv/bin/python -W error test/experiments/transport/surface_solid_checks.py
