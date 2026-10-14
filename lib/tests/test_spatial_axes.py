@@ -35,6 +35,42 @@ def example_axis():
 
 
 class SpatialAxisTests(unittest.TestCase):
+    def test_selected_stations_preserve_uniform_mesh_and_continuous_anchors(self):
+        axis = example_axis()
+        fractions = np.linspace(0, 1, 49)
+        angles = np.arange(12) * 2 * np.pi / 12
+        selected = axis.mesh_at(fractions, angles)
+        for name, values in axis.mesh(48, 12).items():
+            np.testing.assert_array_equal(values, selected[name])
+        fractions = np.unique(np.r_[fractions, 0.37])
+        angles = np.unique(np.r_[angles, 0.73])
+        mesh = axis.mesh_at(fractions, angles)
+        sample = axis.field.sample(0.37)
+        expected = sample["centre"] + axis.radius.evaluate(0.37) * (
+            axis.ellipse[0] * np.cos(0.73) * sample["lateral"]
+            + axis.ellipse[1] * np.sin(0.73) * sample["normal"]
+        )
+        index = np.searchsorted(fractions, 0.37) * len(angles)
+        index += np.searchsorted(angles, 0.73)
+        np.testing.assert_allclose(mesh["vertices"][index], expected, atol=2e-15)
+
+    def test_invalid_stations_refuse_before_preparing_parent(self):
+        axis = example_axis()
+        for fractions, angles in (
+            (0.5, [0, 1, 2]),
+            ([0, 0.5, 1], np.arange(129)),
+            (np.arange(1026), [0, 1, 2]),
+            ([0, 0.5, 0.5, 1], [0, 1, 2]),
+            ([0.1, 0.5, 1], [0, 1, 2]),
+            ([0, 0.5, 1], [0, 2, 1]),
+            ([0, 0.5, 1], [0, 1, 2 * np.pi]),
+            ([0, np.nan, 1], [0, 1, 2]),
+            ([False, True, True], [0, 1, 2]),
+        ):
+            with self.assertRaises(ValueError):
+                axis.mesh_at(fractions, angles)
+        self.assertNotIn("field", axis.__dict__)
+
     def test_linear_axis_has_exact_metric_frame_and_polygonal_volume(self):
         axis = SpatialAxis(
             straight_spine(2), Profile(np.full(4, 0.04)), ellipse=(1, 0.7)

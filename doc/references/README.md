@@ -226,6 +226,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   PDF-Seite 2 erneut optisch geprüft: generalisierte Zylinder begründen eigene Nadel-Sektorflächen ([#46](https://github.com/Weichwolf/outshine/issues/46)).
   Frenet-Singularitäten bei geraden Teilen/Wendepunkten durch stabile Rahmen vermeiden;
   die fotografischen Rinden-/Blatttexturen der Veröffentlichung werden nicht übernommen.
+- **Global and Local Deformations of Solid Primitives**, Barr, SIGGRAPH 1984.
+  [Primärmetadata](https://authors.library.caltech.edu/records/99pd2-73028) ·
+  [DOI](https://doi.org/10.1145/964965.808573) ·
+  [PDF](vegetation/siggraph/1984-global-local-deformations.pdf), Universitätskopie.
+  Jacobi-Matrix und inverse-transponierte Normalenabbildung begründen die eigene
+  Ringanheftung prozeduraler Rindenstücke ([#81](https://github.com/Weichwolf/outshine/issues/81)).
+  PDF-Seite 3 optisch geprüft: lokale Ableitungen, Normalenmatrix und Taper-Abbildung.
+  Kofaktor-Normalen gegen NumPy solve, Ableitungen gegen unabhängige Differenzen prüfen;
+  dies rekonstruiert weder die originale Parent-Projektion noch einen Boolean-Weld.
 - **Computing Vertex Normals from Polygonal Facets**, Thürmer / Wüthrich, JGT 1998.
   [Primärabstract](https://doi.org/10.1080/10867651.1998.10487487).
   Eckwinkel berücksichtigen die geometrische Beteiligung statt der Zahl entstandener Dreiecke ([#40](https://github.com/Weichwolf/outshine/issues/40)).

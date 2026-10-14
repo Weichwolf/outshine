@@ -201,6 +201,35 @@ feinen Vertices exakt begrenzt; das beweist weder C1 noch einen Bildgewinn.
 Als Nächstes die freie Terrain-Konnektivität zwischen tatsächlichen Straßenrändern
 prüfen, anstatt die unpassenden alten Innenkanten weiter zu fixieren.
 
+## Bodenverbindungen austauschen (#20)
+
+```sh
+.venv/bin/python -W error test/experiments/transport/ground_reconnect_checks.py
+.venv/bin/python -W error test/experiments/transport/ground_reconnect_experiment.py
+.venv/bin/python -W error test/experiments/transport/ground_reconnect_showcase.py
+```
+
+Der gespeicherte Zentrenversuch liefert dieselben 2500 zusätzlichen Punkte für zwei
+Verbindungsvarianten: GEOS-Delaunay mit Winkelgewinn gegen rein probengesteuerten
+Kantentausch. Beide halten sämtliche XYZ, Straßenfaces und Außenränder fest.
+Streng konvexe Bodenpaare dürfen die Diagonale tauschen, wenn die neuen Ganzflächen
+die Neigungsgrenze und denselben lokalen DEM-Qualitätscheck erfüllen. Bis acht
+Durchgänge, eine Million Proben, 65536 Faces/Vertices und zwölf Sekunden kooperative
+Zeitgrenze; eine begrenzte Phase kann überlaufen. Kein Frame-Verfahren.
+
+Drei frische Worker je Variante prüfen dieselben 40734 unabhängigen Abfragen, volle
+Coverage/Rand und Neigung, unveränderte Quellen und Verkehrsgeometrie. Zeit umfasst
+den Kantentausch einschließlich Vorbereitung/DEM-Proben, nicht spätere unabhängige
+Abnahme oder PNG-Export; Prozess-Peak-RSS wird separat gemessen. Ergebnisse und sechs
+1920×1080-Ansichten liegen unter `build/experiments/transport/reconnect/`.
+Gleiche Kamera vor/nachher für Kachel und 120×120-m-Bereich, keine Höhenüberhöhung.
+
+Geöffnete Detailbilder zeigen weniger Sternfalten; gemeinsame Kontakte bleiben
+erhalten. C0-Facetten bleiben sichtbar. Globale DEM-/C1-/native Abnahme und stabile
+LOD-Übergänge fehlen: der alte affine Eltern-/Kindbeweis gilt nach dem Kantentausch
+ausdrücklich nicht mehr. Dieser Pfad bleibt Experiment, keine `lib/`-Promotion und
+kein Ersatz des freigegebenen #69-Bodenplans.
+
 ```sh
 .venv/bin/python -W error -m unittest discover -s lib/tests
 .venv/bin/python -W error test/experiments/transport/surface_solid_checks.py

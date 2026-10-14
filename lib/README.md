@@ -157,6 +157,18 @@ erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rück
 `python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
 und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
 keine Deadline-Garantie innerhalb jedes Backend-Aufrufs.
+`HipPlanner` besitzt als expliziter Desktop-Kontext einen wiederverwendbaren
+Spawn-Prozess für dieselben Pläne. Eine Anfrage zugleich; begrenzte private
+Nachrichten, externe Anfragedeadline, `cancel()` und vollständiges Verwerfen
+der Verbindung nach Timeout/Abbruch. `close()` beendet den Prozess; Reaping
+hat ein eigenes begrenztes Budget. Prozessstart wird separat gemessen und kann
+auf OS-Ebene selbst nicht immer unterbrochen werden. Diese Referenz ist für
+Desktop-Erzeuger, keine iOS-/Frame-Garantie; direktes `prepare_hip` bleibt kooperativ.
+`hip_footprints(shape)` liefert die intrinsischen Quellflächen. Deren vorbereitete
+`HipPlan`-Tupel können mit `Shape.roof_hip(..., prepared_plans=plans)` für mehrere
+Höhen/even-/negative Distanzvarianten ausgegeben werden, auch nach Schließen
+des Workers. Faceanzahl und exakte intrinsische Domäne werden gebunden geprüft;
+die Ausgabe wiederholt keinen Skelettsolver. Meshausgabe bleibt separat budgetiert.
 `Shape.roof_hip(value, mode="byAngle")` verbindet diese Pläne mit nativen
 Quell-Dreiecken: Schnitte erhalten deren UV0–9-Interpolationsbereiche,
 Material-/Gruppen-/Tagbesitz und den lokalen Objektframe. Authored Normalen
@@ -273,3 +285,32 @@ Spatial classes load lazily, keeping prepared Profile import NumPy-only.
 Sources, independent references, original frame probes and open SpeedTree
 property/force/LOD/wind bindings belong to [#27](https://github.com/Weichwolf/outshine/issues/27),
 [#39](https://github.com/Weichwolf/outshine/issues/39) and [#52](https://github.com/Weichwolf/outshine/issues/52).
+
+### Procedural fin attachment
+
+`FinAttachment(parent, fraction, azimuth, start_angle)` maps a source mesh onto a
+fixed cross-section of a prepared `SpatialAxis`. Source X wraps around the ring;
+after rotation about X, Y offsets along the ellipse's outward unit normal and Z
+extends along the parent tangent. The nominal X radius is the geometric mean of
+the cross-section semiaxes; X is not actual elliptical arc length. Angles use
+radians and fraction uses normalized parent arc length. Templates remain owned
+by the caller; `deform` preserves source faces/UVs and emits owned positions,
+per-corner inverse-transpose differential normals and physical bark fields.
+
+Rotated Y must be nonnegative, |X| must stay strictly below π times the nominal
+radius, and each triangular face must span at most π/2 in X angle. Positive
+Jacobian determinant and face/corner orientation are checked. The continuous
+outward convex-ring warp is injective on this domain; overlapping source meshes
+and collisions with other objects remain the caller's responsibility. The
+cofactor normal method and independent NumPy `solve` method use the same full
+inputs; neither method is a native GPU cost claim.
+
+`SpatialAxis.mesh_at(fractions, angles)` accepts bounded increasing fractions
+covering [0,1] and increasing ring angles in [0,2π). Callers can include attachment
+anchors in both sampling grids. The Fin experiment shares exact parent/fin
+positions at those anchors. Indices still belong to separate meshes: this is not
+a Boolean union or topological weld, and off-ring vertices do not follow the
+longitudinal parent surface. Source vertices are bounded to 65,536 and triangles
+to 262,144 (or a smaller `max_faces`); oversized deform requests refuse before
+parent preparation. Full SpeedTree property, wind and LOD bindings remain open
+in [#81](https://github.com/Weichwolf/outshine/issues/81).

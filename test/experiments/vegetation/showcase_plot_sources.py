@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "fins/fins.json",
+        "fin_plot",
+        "Rindenfortsätze · Differentialnormalen und gemeinsame Ansatzpunkte",
+        "Drei eigene Vorlagen, je 4080 Dreiecke, fünf abwechselnde vollständige CPU-Abbildungen. Kofaktoren gegen NumPy solve: Positionen, UVs, Faces und Rindenfelder exakt; Normalen numerisch gleich. Ansatzkoordinaten mit Parent-Mesh geteilt; keine Boolean-Verschweißung, vollständige SpeedTree-Property- oder native GPU-Freigabe.",
+    ),
+    (
         "spine-library/spine-library.json",
         "spine_library_plot",
         "Räumliche Astbibliothek · sichere Pläne und Roll-Auflösung",
