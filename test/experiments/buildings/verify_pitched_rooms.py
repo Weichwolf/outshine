@@ -17,7 +17,8 @@ from boolean_sequence_reference import section,reference,solid_section
 from evidence import revision
 from pitched_room_details import complete,structure,plan_for
 from provider_contract import attributes
-from showcase_tiles import view_for
+from showcase_tiles import camera
+from demand import View
 from structural_shell_geometry import native,mesh_section,assembly
 from tile_buildings import SITES,read_tile
 from tile_roof_envelopes import choose,roof_surface,pitched_candidates,RoofChoice
@@ -30,7 +31,22 @@ from outshine_ref.buildings.modelling import heightfield_envelope
 
 
 def selected(site,rows):
-    ids=pitched_candidates(rows,view_for(rows))
+    from collections import defaultdict
+    bodies=[row for row in rows if row['layer']=='building']
+    focus=max(bodies,key=lambda row:float(row['properties'].get('render_height',9.)))['polygon'].centroid
+    if sum(row['polygon'].distance(focus)<350. for row in bodies)<25:
+        cells=defaultdict(list)
+        for row in bodies:
+            point=row['polygon'].centroid;cells[int(point.x//300),int(point.y//300)].append(point)
+        points=max(cells.values(),key=len);focus=shapely.Point(np.mean([[p.x,p.y] for p in points],axis=0))
+    boxes=[]
+    for row in bodies:
+        if row['polygon'].distance(focus)>=150.:continue
+        p=attributes({k:v for k,v in row['properties'].items() if k not in ('colour','color','building:colour')})
+        x0,y0,x1,y1=row['polygon'].bounds
+        boxes.extend((x,y,z) for x in (x0,x1) for y in (y0,y1) for z in (p['minHeight'],p['buildingHeight']))
+    prepared=camera(np.asarray(boxes));view=View(prepared.eye,prepared.target,width=2560,height=1440,fov_deg=prepared.fov_deg)
+    ids=pitched_candidates(rows,view)
     return [row for row in rows if row['id'] in ids]
 
 
