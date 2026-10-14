@@ -328,3 +328,34 @@ longitudinal parent surface. Source vertices are bounded to 65,536 and triangles
 to 262,144 (or a smaller `max_faces`); oversized deform requests refuse before
 parent preparation. Full SpeedTree property, wind and LOD bindings remain open
 in [#81](https://github.com/Weichwolf/outshine/issues/81).
+
+### Complete canonical plant plans
+
+`PlantPlan(seed, levels, blades)` uses immutable `AxisLevel` orders and `Blade`
+variants. Recipe version `branching-plant-2` binds stable UInt64 axis/leaf IDs;
+the two ID domains remain separate. Organ geometry uses X transverse/Y forward/Z
+normal; plant positions/frames use local ENU in metres. Circle-axis geometry is
+available as `outshine_ref.vegetation.axis_surface.axis_mesh` with owned Float64
+vertices/corner normals and Int32 faces; `bark=True` adds physical bark fields.
+This is an analytical form
+model; it does not implement the complete SpeedTree spine or joint solver.
+
+`summary(path)` returns counts, variant area and a conservative bound without
+creating axis or leaf placements. `axis(path)` requests ancestors as needed.
+`leaves(path, max_leaves)` and `expand(max_axes, max_leaves)` preflight complete
+requested counts; insufficient capacity returns `None` before placement work.
+Budgets are Python integers in [0,100000]. These row bounds are not a total
+memory/time guarantee. `Shoot.detail` shares the same bounded placement contract.
+Public `AxisState` frames must be finite, orthonormal and right-handed. Shared
+axis/leaf/shoot arrays have immutable bytes, and leaf mappings are read-only.
+
+`tables(max_axes, max_leaves)` returns cached complete immutable rows: axis IDs,
+parent IDs (-1 for root), seven-slot Int16 paths (-1 padding), origins, frames,
+lengths, bends, parent parameters and radius pairs; leaf IDs, owner-axis IDs,
+UInt8 variants, nodes, origins, frames and stem parameters. Numeric dimensions
+are Float64; IDs are UInt64, parent IDs Int64. Camera and mesh detail do not
+change these rows. The experiment's `canonical-plant-reference-1` manifest binds
+the recipe, rows, full mesh/placement levels and procedural material files.
+World instance identity/placement, source reservations and terrain remain the
+caller's responsibility. See [#86](https://github.com/Weichwolf/outshine/issues/86)
+for cache/material semantics, controls, costs and open botanical/LOD/wind limits.

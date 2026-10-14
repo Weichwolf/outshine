@@ -1,7 +1,40 @@
 {
-  "current_work": "Prozedurale Rindenfortsätze sind im installierbaren Kern an räumliche Astquerschnitte anheftbar. Differentialnormalen, gemeinsame Stamm-/Ansatzkoordinaten und Cache-Replay geprüft; neue Gesamt-/Nah-/Grobproben zeigen drei Formweisen. Die Beispiele prüfen Grundfunktionen. Vollständiger Funktionsumfang, natürliche Pflanzenrezepte, Wind und Wald-LOD bleiben offen.",
+  "current_work": "Vollständige räumliche Pflanzenpläne mit stabilen Achsen-/Blatt-IDs, Teilanfragen und unveränderlichen kanonischen Tabellen liegen im installierbaren Kern. Ein vollständiger 64-Achsen-/571-Blätter-Kontrollbaum ist mit prozeduraler Rinde, Blattoptik und passenden Nah-/Grobprodukten gecacht. Die Probe ist botanisch noch unvollständig; SpeedTree-Funktionsumfang, Wind und Wald-LOD bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/plant-library-near.png",
+      "title": "Räumlicher Pflanzenplan · vollständiger Jungbaum",
+      "label": "Quercus robur · Jungbaum als morphologische Kontrollprobe",
+      "genus": "quercus",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Alle 64 Holzachsen und 571 räumlichen Blätter aus demselben Plan. Prozedurale Rinde und separate Blattreflexion/Transmission; Normalen und Rauheits-Mips mit der Metrik jeder Blattvariante berechnet. Vollständige gecachte Tabellen/Prototypen laden ohne erneute Generatoraufrufe.",
+      "quality": "Spärliche vereinfachte Form, geteilte UV-Adermuster, keine botanische Rezeptfreigabe, verschweißte Gabeln oder allgemeine LOD-/Gerätefreigabe.",
+      "scenario": "build/experiments/vegetation/plant-library/assets/plant-library-near.json"
+    },
+    {
+      "image": "render/plant-library-detail.png",
+      "title": "Räumlicher Pflanzenplan · Blätter und Anschlüsse",
+      "label": "Quercus robur · Jungbaum als morphologische Kontrollprobe",
+      "genus": "quercus",
+      "category": "plant",
+      "lod": "lod-0",
+      "description": "Alle 64 Holzachsen und 571 räumlichen Blätter aus demselben Plan. Prozedurale Rinde und separate Blattreflexion/Transmission; Normalen und Rauheits-Mips mit der Metrik jeder Blattvariante berechnet. Vollständige gecachte Tabellen/Prototypen laden ohne erneute Generatoraufrufe.",
+      "quality": "Spärliche vereinfachte Form, geteilte UV-Adermuster, keine botanische Rezeptfreigabe, verschweißte Gabeln oder allgemeine LOD-/Gerätefreigabe.",
+      "scenario": "build/experiments/vegetation/plant-library/assets/plant-library-detail.json"
+    },
+    {
+      "image": "render/plant-library-coarse.png",
+      "title": "Räumlicher Pflanzenplan · grobe Geometrie",
+      "label": "Quercus robur · Jungbaum als morphologische Kontrollprobe",
+      "genus": "quercus",
+      "category": "plant",
+      "lod": "lod-1",
+      "description": "Alle 64 Holzachsen und 571 räumlichen Blätter aus demselben Plan. Prozedurale Rinde und separate Blattreflexion/Transmission; Normalen und Rauheits-Mips mit der Metrik jeder Blattvariante berechnet. Vollständige gecachte Tabellen/Prototypen laden ohne erneute Generatoraufrufe.",
+      "quality": "Spärliche vereinfachte Form, geteilte UV-Adermuster, keine botanische Rezeptfreigabe, verschweißte Gabeln oder allgemeine LOD-/Gerätefreigabe.",
+      "scenario": "build/experiments/vegetation/plant-library/assets/plant-library-coarse.json"
+    },
     {
       "image": "render/fin-stem.png",
       "title": "Rindenfortsätze · Gesamtansicht",
@@ -554,7 +587,8 @@
     "blade_library_plot": "lod-0",
     "placement_library_plot": "lod-0",
     "spine_library_plot": "lod-0",
-    "fin_plot": "lod-0"
+    "fin_plot": "lod-0",
+    "plant_library_plot": "lod-1"
   },
   "genera": [
     {
