@@ -605,3 +605,31 @@ supported vocabulary does not assert that OpenFreeMap actually delivers every
 listed class. [#130](https://github.com/Weichwolf/outshine/issues/130) owns source
 sampling, counterexamples and the measured interpretation limits. These functions
 do not generate meshes, establish native asset ABI or prove global accuracy.
+
+## Complete radial solids
+
+`buildings.modelling.RadialProfile(identifier, centre_xy, knots, materials)` is a
+complete camera-independent local ENU plan. Knots are increasing metre heights,
+outer radii and inner radii. Solid endpoints may collapse to cone tips; through
+channels require strictly positive separated radii throughout. Mixed/pinched
+channels reject. The immutable plan retains its stable identifier and full curve.
+This constructor uses ENU, unlike CGA shape scopes in the same namespace.
+
+`radial_mesh(profile, sides=32, error_m=None, max_sides=256,
+max_triangles=262144)` produces immutable corner buffers, explicit topology roots,
+outer/inner/end material roles, cylindrical/cap UVs and unit corner normals. Sharp
+height breaks/end rings remain separate normal boundaries. Counts are checked
+before emission. Signed volume/surface are measured on the actual polygonal mesh;
+the plan's circular volume is a separate analytic reference. No original CGA
+UV/group/normal/ABI equivalence is asserted.
+
+When `error_m` is supplied, directly reduce the complete profile and choose angular
+sides. Piecewise-linear radial deviation plus polygon sagitta bounds the reported
+metre error at every height. End heights, channels and a necessary interior anchor
+between two solid tips survive reduction. The caller converts projected quality to
+metres before emission; the logical profile stays unchanged. These are complete
+radial products, not visibility-clipped shells or a native cache/LOD ABI.
+[#136](https://github.com/Weichwolf/outshine/issues/136) owns geometry/binding/cost
+proofs. Trimesh.revolve is an equal-output comparison; its absolute small-area
+cutoff leaves a valid tiny tube open. The own indexed path preserves that geometry
+without position welding. Runtime/device budgets remain unproven.
