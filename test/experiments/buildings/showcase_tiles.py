@@ -5,12 +5,14 @@ import hashlib
 import json
 import math
 from pathlib import Path
+from collections import defaultdict
 import subprocess
 import sys
 import tempfile
 import time
 
 import numpy as np
+import shapely
 
 from demand import View
 from evidence import revision
@@ -40,6 +42,12 @@ def render(site,output,provenance,spp):
         points=[(x,y,z) for x in (x0,x1) for y in (y0,y1) for z in (low,high)]
         boxes.append((row,high,points))
     focus=max(boxes,key=lambda b:b[1])[0]['polygon'].centroid
+    if sum(row['polygon'].distance(focus)<350. for row,high,points in boxes)<25:
+        cells=defaultdict(list)
+        for row,high,points in boxes:
+            centre=row['polygon'].centroid;cells[int(centre.x//300),int(centre.y//300)].append(centre)
+        centres=max(cells.values(),key=len)
+        focus=shapely.Point(np.mean([[p.x,p.y] for p in centres],axis=0))
     selected=[points for row,high,points in boxes if row['polygon'].distance(focus)<350.]
     view=camera(np.concatenate([np.asarray(p) for p in selected]))
     projection=math.sqrt(1+(view.width/(2*view.focal_px))**2+(view.height/(2*view.focal_px))**2)
