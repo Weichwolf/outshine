@@ -1,0 +1,2773 @@
+{
+  "sources": [
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:32205120:16",
+      "xy": [
+        [
+          3394.8554045518363,
+          530.4638704548183
+        ],
+        [
+          3388.886129324562,
+          511.760141408034
+        ],
+        [
+          3361.4274632756233,
+          483.90352367909753
+        ],
+        [
+          3358.641801503226,
+          474.35268331446514
+        ],
+        [
+          3329.9892804118117,
+          440.12883867701504
+        ],
+        [
+          3321.2343434096574,
+          434.9554668122185
+        ],
+        [
+          3309.693744637588,
+          431.37390167610204
+        ],
+        [
+          3275.8678516813775,
+          425.00667476634715
+        ],
+        [
+          3258.7559293620316,
+          419.8333029027919
+        ],
+        [
+          3250.3989440423575,
+          416.2517377666754
+        ],
+        [
+          3236.072683497892,
+          407.89475244700145
+        ],
+        [
+          3207.022210721514,
+          384.8135549003811
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "cycleway",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "end_heights_m": [
+        161.21093750006548,
+        159.50000000011642
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:46884680:82",
+      "xy": [
+        [
+          3421.5181672358144,
+          415.85378608419506
+        ],
+        [
+          3425.0997323706897,
+          394.7623469474938
+        ],
+        [
+          3427.885394143087,
+          386.8033133103002
+        ],
+        [
+          3460.5174320543397,
+          360.9364539900415
+        ],
+        [
+          3485.588388010879,
+          340.2429665345793
+        ],
+        [
+          3515.036812467254,
+          312.78430048812316
+        ],
+        [
+          3520.2101843320506,
+          300.44779835109364
+        ],
+        [
+          3522.5978944219673,
+          292.0908130314197
+        ],
+        [
+          3521.8019910594894,
+          286.12153780414513
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "end_heights_m": [
+        159.3125,
+        159.94287109375
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:46884680:109",
+      "xy": [
+        [
+          3427.885394143087,
+          353.37537203532816
+        ],
+        [
+          3447.385026554832,
+          371.68114939963226
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:46884680:123",
+      "xy": [
+        [
+          3460.5174320543397,
+          360.9364539900415
+        ],
+        [
+          3439.028041235158,
+          341.834773262018
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "end_heights_m": [
+        159.75927734381185,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:46884680:126",
+      "xy": [
+        [
+          3546.077043651068,
+          315.1720105792813
+        ],
+        [
+          3542.49547851371,
+          311.9883971244038
+        ],
+        [
+          3515.036812467254,
+          312.78430048812316
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:50128440:6",
+      "xy": [
+        [
+          3676.605195293596,
+          175.49097025211861
+        ],
+        [
+          3639.19773720251,
+          142.06302897838788
+        ],
+        [
+          3654.3199011119364,
+          125.74701002276154
+        ]
+      ],
+      "width_m": 3.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "surface": "paved",
+        "class": "service"
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:50199940:3",
+      "xy": [
+        [
+          3778.87877752719,
+          66.45220942877212
+        ],
+        [
+          3768.134082117599,
+          53.7177556092623
+        ],
+        [
+          3761.7668552078444,
+          47.350528699507386
+        ],
+        [
+          3717.992170207003,
+          5.963553788583004
+        ],
+        [
+          3707.64542647741,
+          -7.566803393404911
+        ],
+        [
+          3702.074102932616,
+          -21.89306394035346
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "end_heights_m": [
+        160.92333984380548,
+        158.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:50224310:12",
+      "xy": [
+        [
+          3725.5532521617165,
+          -7.964755075885228
+        ],
+        [
+          3735.8999958888267,
+          6.759457152302368
+        ],
+        [
+          3743.46107784354,
+          15.116442470735054
+        ],
+        [
+          3778.4808258447097,
+          48.544383745707066
+        ],
+        [
+          3799.5722649838935,
+          60.08498251901721
+        ],
+        [
+          3803.551781801249,
+          64.06449933761402
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "end_heights_m": [
+        158.899658203125,
+        160.99023437500455
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:321352530:40",
+      "xy": [
+        [
+          3623.2796699281225,
+          208.91891152709061
+        ],
+        [
+          3625.2694283380415,
+          210.90866993700968
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "end_heights_m": [
+        159.912109375,
+        159.94995117187045
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:415718780:4",
+      "xy": [
+        [
+          3417.1406987334963,
+          428.5882399037049
+        ],
+        [
+          3392.8656461419173,
+          396.3541536736913
+        ]
+      ],
+      "width_m": 3.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "class": "service",
+        "service": "driveway"
+      },
+      "end_heights_m": [
+        159.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:415718780:5",
+      "xy": [
+        [
+          3411.967326871182,
+          432.96570840354076
+        ],
+        [
+          3385.7025158696842,
+          401.1295738560075
+        ]
+      ],
+      "width_m": 3.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "class": "service",
+        "service": "driveway"
+      },
+      "end_heights_m": [
+        159.0,
+        159.943603515625
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:415718780:9",
+      "xy": [
+        [
+          3653.921949429456,
+          209.31686320957095
+        ],
+        [
+          3624.0755732906005,
+          182.6541005255929
+        ]
+      ],
+      "width_m": 3.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "class": "service",
+        "service": "driveway"
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:0",
+      "xy": [
+        [
+          3324.4179568645345,
+          472.7608765870264
+        ],
+        [
+          3313.275309774946,
+          458.03666436008007
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "end_heights_m": [
+        159.82104492198232,
+        159.3437500000582
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:5",
+      "xy": [
+        [
+          3679.7888087484735,
+          150.02206261434023
+        ],
+        [
+          3673.819533521199,
+          144.05278738706565
+        ],
+        [
+          3673.0236301587206,
+          139.6753188872298
+        ],
+        [
+          3666.656403248966,
+          133.70604365995518
+        ],
+        [
+          3661.8809830666496,
+          132.91014029623582
+        ],
+        [
+          3655.911707839375,
+          127.73676843143933
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:6",
+      "xy": [
+        [
+          3780.868535937109,
+          8.351263879741095
+        ],
+        [
+          3780.4705842546286,
+          24.66728283536742
+        ],
+        [
+          3778.87877752719,
+          26.657041244045196
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:7",
+      "xy": [
+        [
+          3790.021424619261,
+          17.1062008806541
+        ],
+        [
+          3774.501309027354,
+          18.698007608092826
+        ],
+        [
+          3772.5115506174348,
+          20.6877660167706
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "end_heights_m": [
+        160.01220703127274,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280400:10",
+      "xy": [
+        [
+          3776.491067437273,
+          -1.1995764848912707
+        ],
+        [
+          3800.3681683463715,
+          21.483669380489964
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "end_heights_m": [
+        160.0,
+        160.161865234375
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:2",
+      "xy": [
+        [
+          3287.408450453446,
+          483.50557199785845
+        ],
+        [
+          3289.7961605458454,
+          486.2912337702556
+        ],
+        [
+          3293.775677363201,
+          491.06665395257176
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:3",
+      "xy": [
+        [
+          3697.2986827502996,
+          124.15520329532282
+        ],
+        [
+          3692.9212142504634,
+          120.175686476726
+        ],
+        [
+          3690.1355524780665,
+          117.39002470432887
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:6",
+      "xy": [
+        [
+          3680.5847121134343,
+          108.23713602217681
+        ],
+        [
+          3684.56422893079,
+          112.61460452201268
+        ],
+        [
+          3687.3498907031867,
+          115.00231461317077
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:7",
+      "xy": [
+        [
+          3758.185290072969,
+          25.065234516606466
+        ],
+        [
+          3762.562758572805,
+          29.442703017683602
+        ],
+        [
+          3765.348420345202,
+          31.830413108841697
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:4040280430:10",
+      "xy": [
+        [
+          3774.8992607098344,
+          41.38125347223279
+        ],
+        [
+          3770.5217922099982,
+          37.00378497239692
+        ],
+        [
+          3767.736130435119,
+          34.61607488123883
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "end_heights_m": [
+        160.0,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deferred",
+      "omission_reason": "indoor_surface_requires_buildings_contact"
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:11985918812:0",
+      "xy": [
+        [
+          3634.8202687001913,
+          200.959877889897
+        ],
+        [
+          3601.3923274264607,
+          188.62337575286747
+        ],
+        [
+          3540.505720103791,
+          132.91014029623582
+        ]
+      ],
+      "width_m": 1.5,
+      "width_origin": "class_recipe",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "footway",
+        "access": "no",
+        "surface": "paved",
+        "class": "path"
+      },
+      "end_heights_m": [
+        160.0,
+        158.34326171871726
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:46884600:0",
+      "xy": [
+        [
+          3265.9190596342646,
+          543.1983242730869
+        ],
+        [
+          3351.0807195485127,
+          480.321958542981
+        ],
+        [
+          3499.9146485578276,
+          363.72211576367994
+        ],
+        [
+          3554.8319806507398,
+          316.3658656242397
+        ],
+        [
+          3653.921949429456,
+          209.31686320957095
+        ],
+        [
+          3786.8378111643833,
+          68.04401615621084
+        ],
+        [
+          3780.4705842546286,
+          58.89112747281752
+        ],
+        [
+          3739.879512706182,
+          19.891862653051238
+        ],
+        [
+          3731.522527388991,
+          10.738973970899188
+        ],
+        [
+          3725.155300479236,
+          2.779940333705549
+        ],
+        [
+          3720.37988029692,
+          -5.577044984727136
+        ],
+        [
+          3713.216750024687,
+          -21.89306394035346
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath"
+      },
+      "end_heights_m": [
+        160.0,
+        158.375
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:46884630:3",
+      "xy": [
+        [
+          3207.022210721514,
+          395.95620199245224
+        ],
+        [
+          3216.175099403666,
+          404.71113899336524
+        ],
+        [
+          3227.3177464957375,
+          413.06812431179793
+        ],
+        [
+          3245.6235238600416,
+          423.81281972138873
+        ],
+        [
+          3259.1538810445118,
+          429.38414326742424
+        ],
+        [
+          3271.092431499061,
+          432.96570840354076
+        ],
+        [
+          3308.897841272628,
+          439.7308869945347
+        ],
+        [
+          3321.6322950921376,
+          444.5063071768509
+        ],
+        [
+          3351.0807195485127,
+          480.321958542981
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "end_heights_m": [
+        159.50000000011642,
+        159.2187500000582
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:46884630:4",
+      "xy": [
+        [
+          3398.039018006714,
+          209.71481489081
+        ],
+        [
+          3411.967326871182,
+          228.81649561883344
+        ],
+        [
+          3416.7427470534985,
+          232.00010907371092
+        ],
+        [
+          3421.916118915812,
+          233.1939641199106
+        ],
+        [
+          3428.2833458255673,
+          233.1939641199106
+        ],
+        [
+          3440.2218962801167,
+          232.00010907371092
+        ],
+        [
+          3455.7420118720233,
+          228.81649561883344
+        ],
+        [
+          3460.119480374342,
+          230.01035066503314
+        ],
+        [
+          3465.2928522366556,
+          233.59191580114964
+        ],
+        [
+          3509.46548892246,
+          276.96864912199305
+        ],
+        [
+          3521.8019910594894,
+          286.12153780414513
+        ],
+        [
+          3554.8319806507398,
+          316.3658656242397
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "end_heights_m": [
+        159.59375,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:11757600770:0",
+      "xy": [
+        [
+          3714.8085567521257,
+          -21.89306394035346
+        ],
+        [
+          3719.1860252519614,
+          -11.944271894482048
+        ],
+        [
+          3725.5532521617165,
+          -0.005721438691589265
+        ],
+        [
+          3732.318430751469,
+          9.545118924699507
+        ],
+        [
+          3742.2672227985818,
+          20.289814334290284
+        ],
+        [
+          3773.7054056623933,
+          49.73823879066548
+        ],
+        [
+          3789.2255212543005,
+          66.45220942877212
+        ],
+        [
+          3803.1538301187684,
+          85.55389015679557
+        ],
+        [
+          3820.6637041205945,
+          111.81870115829332
+        ],
+        [
+          3833.000206257624,
+          128.13472011391963
+        ],
+        [
+          3846.530563439612,
+          141.66507729590757
+        ],
+        [
+          3872.397422761112,
+          163.55241979756943
+        ],
+        [
+          3938.457401946095,
+          225.63288216519726
+        ],
+        [
+          3945.222580535848,
+          235.97962589230772
+        ],
+        [
+          3946.416435583289,
+          246.7243213018985
+        ],
+        [
+          3945.620532218328,
+          250.70383812049533
+        ],
+        [
+          3942.436918763451,
+          258.26492007520864
+        ],
+        [
+          3848.9182735320114,
+          358.9466955813637
+        ],
+        [
+          3842.5510466222563,
+          364.12006744491896
+        ],
+        [
+          3836.581771394982,
+          366.50777753607707
+        ],
+        [
+          3832.602254575144,
+          367.3036808997964
+        ],
+        [
+          3825.837075985391,
+          366.9057292185574
+        ],
+        [
+          3819.8678007581166,
+          364.51801912739927
+        ],
+        [
+          3815.0923805758002,
+          361.3344056725218
+        ],
+        [
+          3735.8999958888267,
+          286.12153780414513
+        ],
+        [
+          3729.930720661552,
+          278.95840753067085
+        ],
+        [
+          3727.145058889155,
+          272.9891323033962
+        ],
+        [
+          3726.3491555241944,
+          265.826002029922
+        ],
+        [
+          3727.940962251633,
+          257.8669683939696
+        ],
+        [
+          3730.72662402403,
+          252.29564484793406
+        ],
+        [
+          3818.6739457106755,
+          157.1851928878145
+        ],
+        [
+          3823.051414210511,
+          151.21591766053993
+        ],
+        [
+          3825.439124302911,
+          145.24664243326532
+        ],
+        [
+          3826.2350276653888,
+          138.87941552351043
+        ],
+        [
+          3825.0411726204306,
+          132.5121886137555
+        ],
+        [
+          3821.4596074855554,
+          124.95110665904218
+        ],
+        [
+          3777.286970799751,
+          58.89112747281752
+        ],
+        [
+          3765.348420345202,
+          45.758721972068656
+        ],
+        [
+          3730.3286723440324,
+          11.932829015857598
+        ],
+        [
+          3722.7675903868367,
+          1.188133606266821
+        ],
+        [
+          3719.583976931959,
+          -4.383189939768727
+        ],
+        [
+          3711.624943297248,
+          -21.89306394035346
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "tram",
+        "class": "transit"
+      },
+      "end_heights_m": [
+        158.4375,
+        158.3125
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "ground",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:1435426380:0",
+      "xy": [
+        [
+          3677.0031469760766,
+          128.93062347763902
+        ],
+        [
+          3657.9014662468117,
+          153.2056760692177
+        ],
+        [
+          3626.0653317005194,
+          199.7660228449386
+        ],
+        [
+          3604.9738925638185,
+          225.23493048271695
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "end_heights_m": [
+        160.0,
+        159.125
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deck",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:1435426380:1",
+      "xy": [
+        [
+          3818.275994030678,
+          -21.89306394035346
+        ],
+        [
+          3677.0031469760766,
+          128.93062347763902
+        ],
+        [
+          3642.779302337385,
+          164.74627484252784
+        ],
+        [
+          3614.5247329284507,
+          188.62337575286747
+        ],
+        [
+          3602.586182471419,
+          200.959877889897
+        ],
+        [
+          3583.0865500621567,
+          223.64312375527822
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "end_heights_m": [
+        160.0,
+        159.631103515625
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deck",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:1435426380:2",
+      "xy": [
+        [
+          3824.64322093795,
+          -21.89306394035346
+        ],
+        [
+          3819.8678007581166,
+          -16.719692076798232
+        ],
+        [
+          3791.2152796642195,
+          7.555360516021732
+        ],
+        [
+          3781.6644392995872,
+          17.1062008806541
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "end_heights_m": [
+        160.0,
+        160.001953125
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deck",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:1435426380:3",
+      "xy": [
+        [
+          3825.837075985391,
+          -21.89306394035346
+        ],
+        [
+          3817.480090665717,
+          -11.944271894482048
+        ],
+        [
+          3799.5722649838935,
+          15.51439415321537
+        ],
+        [
+          3789.2255212543005,
+          28.64679965396424
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "end_heights_m": [
+        160.0,
+        160.17407226558953
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deck",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:2433270960:0",
+      "xy": [
+        [
+          3207.022210721514,
+          543.5962759555673
+        ],
+        [
+          3319.244585002221,
+          457.63871267759976
+        ],
+        [
+          3343.5196375937994,
+          440.12883867701504
+        ],
+        [
+          3421.120215553334,
+          388.79307171897796
+        ],
+        [
+          3440.619847962597,
+          374.4668111732707
+        ],
+        [
+          3461.3133354193,
+          358.1507922176444
+        ],
+        [
+          3483.59862960096,
+          338.6511598071406
+        ],
+        [
+          3505.088020420141,
+          317.9576723516784
+        ],
+        [
+          3522.5978944219673,
+          299.6518949873743
+        ],
+        [
+          3535.332348241477,
+          285.32563444042574
+        ],
+        [
+          3558.0155941056173,
+          257.4690167114893
+        ],
+        [
+          3628.055090110439,
+          165.14422652500815
+        ],
+        [
+          3659.0953212942527,
+          128.13472011391963
+        ],
+        [
+          3799.9702166638913,
+          -21.89306394035346
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "end_heights_m": [
+        160.0,
+        159.8906249999418
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deck",
+      "omission_reason": ""
+    },
+    {
+      "source_id": "openfreemap:14/8939/5680:transportation:2433270960:1",
+      "xy": [
+        [
+          3836.1838197125016,
+          -21.89306394035346
+        ],
+        [
+          3800.7661200288517,
+          16.70824919817378
+        ],
+        [
+          3565.9746277428108,
+          267.4178087573607
+        ],
+        [
+          3542.49547851371,
+          291.69286135018064
+        ],
+        [
+          3507.873682195021,
+          324.3248992614333
+        ],
+        [
+          3471.2621274639305,
+          355.36513044524725
+        ],
+        [
+          3207.022210721514,
+          559.5143432287133
+        ]
+      ],
+      "width_m": 4.0,
+      "width_origin": "fallback_4m",
+      "width_assumed": true,
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "end_heights_m": [
+        160.1015625,
+        160.0
+      ],
+      "dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+          "bytes": 49798,
+          "origin": "retained"
+        }
+      ],
+      "role": "deck",
+      "omission_reason": ""
+    }
+  ],
+  "seed_source_id": "openfreemap:14/8939/5680:transportation:2433270960:0",
+  "source_input_sha256": "acb45dfe58a960e8f0faff99359f6e8da04bfadcea8d6e14aa392f485a3d78b3",
+  "pair_fixture_sha256": "6bfbc0e52757f51df1bef991cafb8595c99fa25b91aaeefe59f7d95087d92082",
+  "receipt": {
+    "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8939/5680.pbf",
+    "tile": [
+      14,
+      8939,
+      5680
+    ],
+    "sites": [
+      "Vienna-Donau"
+    ],
+    "sha256": "3dcb92070a132167d6a4ee7a06eb25a97c12879581a3730e5d8e2bb8a5965c66",
+    "bytes": 142379,
+    "origin": "network",
+    "seconds": 1.282215154991718,
+    "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/da83fb6db54a8dab2b4ec34289c6ebf468f8dda58d721f5997aa77b66620a287.pbf"
+  },
+  "origin_lat_lon": [
+    48.21,
+    16.37
+  ],
+  "all_axis_source_ids": [
+    "openfreemap:14/8939/5680:transportation:1016176032:0",
+    "openfreemap:14/8939/5680:transportation:2308973320:0",
+    "openfreemap:14/8939/5680:transportation:2308973320:1",
+    "openfreemap:14/8939/5680:transportation:2308973320:2",
+    "openfreemap:14/8939/5680:transportation:2308973320:3",
+    "openfreemap:14/8939/5680:transportation:2308973320:4",
+    "openfreemap:14/8939/5680:transportation:2308973320:5",
+    "openfreemap:14/8939/5680:transportation:2308973320:6",
+    "openfreemap:14/8939/5680:transportation:2309395652:0",
+    "openfreemap:14/8939/5680:transportation:5433196080:0",
+    "openfreemap:14/8939/5680:transportation:5433196080:1",
+    "openfreemap:14/8939/5680:transportation:5433196080:2",
+    "openfreemap:14/8939/5680:transportation:6119876370:0",
+    "openfreemap:14/8939/5680:transportation:6119876370:1",
+    "openfreemap:14/8939/5680:transportation:6970130432:0",
+    "openfreemap:14/8939/5680:transportation:7312072072:0",
+    "openfreemap:14/8939/5680:transportation:7389685860:0",
+    "openfreemap:14/8939/5680:transportation:7389685860:1",
+    "openfreemap:14/8939/5680:transportation:7389685860:2",
+    "openfreemap:14/8939/5680:transportation:7389685880:0",
+    "openfreemap:14/8939/5680:transportation:7389685880:1",
+    "openfreemap:14/8939/5680:transportation:291793312:0",
+    "openfreemap:14/8939/5680:transportation:291793582:0",
+    "openfreemap:14/8939/5680:transportation:86533292:0",
+    "openfreemap:14/8939/5680:transportation:3609458732:0",
+    "openfreemap:14/8939/5680:transportation:5576206192:0",
+    "openfreemap:14/8939/5680:transportation:6455536422:0",
+    "openfreemap:14/8939/5680:transportation:5452872590:0",
+    "openfreemap:14/8939/5680:transportation:5452872590:1",
+    "openfreemap:14/8939/5680:transportation:5452872590:2",
+    "openfreemap:14/8939/5680:transportation:5452872590:3",
+    "openfreemap:14/8939/5680:transportation:5452872590:4",
+    "openfreemap:14/8939/5680:transportation:5452872590:5",
+    "openfreemap:14/8939/5680:transportation:5452872590:6",
+    "openfreemap:14/8939/5680:transportation:5452872590:7",
+    "openfreemap:14/8939/5680:transportation:5452872590:8",
+    "openfreemap:14/8939/5680:transportation:5452872590:9",
+    "openfreemap:14/8939/5680:transportation:5452872590:10",
+    "openfreemap:14/8939/5680:transportation:5452872590:11",
+    "openfreemap:14/8939/5680:transportation:5452872590:12",
+    "openfreemap:14/8939/5680:transportation:9524053242:0",
+    "openfreemap:14/8939/5680:transportation:5452839132:0",
+    "openfreemap:14/8939/5680:transportation:5833669702:0",
+    "openfreemap:14/8939/5680:transportation:32205120:0",
+    "openfreemap:14/8939/5680:transportation:32205120:1",
+    "openfreemap:14/8939/5680:transportation:32205120:2",
+    "openfreemap:14/8939/5680:transportation:32205120:3",
+    "openfreemap:14/8939/5680:transportation:32205120:4",
+    "openfreemap:14/8939/5680:transportation:32205120:5",
+    "openfreemap:14/8939/5680:transportation:32205120:6",
+    "openfreemap:14/8939/5680:transportation:32205120:7",
+    "openfreemap:14/8939/5680:transportation:32205120:8",
+    "openfreemap:14/8939/5680:transportation:32205120:9",
+    "openfreemap:14/8939/5680:transportation:32205120:10",
+    "openfreemap:14/8939/5680:transportation:32205120:11",
+    "openfreemap:14/8939/5680:transportation:32205120:12",
+    "openfreemap:14/8939/5680:transportation:32205120:13",
+    "openfreemap:14/8939/5680:transportation:32205120:14",
+    "openfreemap:14/8939/5680:transportation:32205120:15",
+    "openfreemap:14/8939/5680:transportation:32205120:16",
+    "openfreemap:14/8939/5680:transportation:32205120:17",
+    "openfreemap:14/8939/5680:transportation:32205120:18",
+    "openfreemap:14/8939/5680:transportation:32205120:19",
+    "openfreemap:14/8939/5680:transportation:32205120:20",
+    "openfreemap:14/8939/5680:transportation:32205120:21",
+    "openfreemap:14/8939/5680:transportation:32205120:22",
+    "openfreemap:14/8939/5680:transportation:32205120:23",
+    "openfreemap:14/8939/5680:transportation:32205120:24",
+    "openfreemap:14/8939/5680:transportation:32205120:25",
+    "openfreemap:14/8939/5680:transportation:32205120:26",
+    "openfreemap:14/8939/5680:transportation:32205120:27",
+    "openfreemap:14/8939/5680:transportation:46884680:0",
+    "openfreemap:14/8939/5680:transportation:46884680:1",
+    "openfreemap:14/8939/5680:transportation:46884680:2",
+    "openfreemap:14/8939/5680:transportation:46884680:3",
+    "openfreemap:14/8939/5680:transportation:46884680:4",
+    "openfreemap:14/8939/5680:transportation:46884680:5",
+    "openfreemap:14/8939/5680:transportation:46884680:6",
+    "openfreemap:14/8939/5680:transportation:46884680:7",
+    "openfreemap:14/8939/5680:transportation:46884680:8",
+    "openfreemap:14/8939/5680:transportation:46884680:9",
+    "openfreemap:14/8939/5680:transportation:46884680:10",
+    "openfreemap:14/8939/5680:transportation:46884680:11",
+    "openfreemap:14/8939/5680:transportation:46884680:12",
+    "openfreemap:14/8939/5680:transportation:46884680:13",
+    "openfreemap:14/8939/5680:transportation:46884680:14",
+    "openfreemap:14/8939/5680:transportation:46884680:15",
+    "openfreemap:14/8939/5680:transportation:46884680:16",
+    "openfreemap:14/8939/5680:transportation:46884680:17",
+    "openfreemap:14/8939/5680:transportation:46884680:18",
+    "openfreemap:14/8939/5680:transportation:46884680:19",
+    "openfreemap:14/8939/5680:transportation:46884680:20",
+    "openfreemap:14/8939/5680:transportation:46884680:21",
+    "openfreemap:14/8939/5680:transportation:46884680:22",
+    "openfreemap:14/8939/5680:transportation:46884680:23",
+    "openfreemap:14/8939/5680:transportation:46884680:24",
+    "openfreemap:14/8939/5680:transportation:46884680:25",
+    "openfreemap:14/8939/5680:transportation:46884680:26",
+    "openfreemap:14/8939/5680:transportation:46884680:27",
+    "openfreemap:14/8939/5680:transportation:46884680:28",
+    "openfreemap:14/8939/5680:transportation:46884680:29",
+    "openfreemap:14/8939/5680:transportation:46884680:30",
+    "openfreemap:14/8939/5680:transportation:46884680:31",
+    "openfreemap:14/8939/5680:transportation:46884680:32",
+    "openfreemap:14/8939/5680:transportation:46884680:33",
+    "openfreemap:14/8939/5680:transportation:46884680:34",
+    "openfreemap:14/8939/5680:transportation:46884680:35",
+    "openfreemap:14/8939/5680:transportation:46884680:36",
+    "openfreemap:14/8939/5680:transportation:46884680:37",
+    "openfreemap:14/8939/5680:transportation:46884680:38",
+    "openfreemap:14/8939/5680:transportation:46884680:39",
+    "openfreemap:14/8939/5680:transportation:46884680:40",
+    "openfreemap:14/8939/5680:transportation:46884680:41",
+    "openfreemap:14/8939/5680:transportation:46884680:42",
+    "openfreemap:14/8939/5680:transportation:46884680:43",
+    "openfreemap:14/8939/5680:transportation:46884680:44",
+    "openfreemap:14/8939/5680:transportation:46884680:45",
+    "openfreemap:14/8939/5680:transportation:46884680:46",
+    "openfreemap:14/8939/5680:transportation:46884680:47",
+    "openfreemap:14/8939/5680:transportation:46884680:48",
+    "openfreemap:14/8939/5680:transportation:46884680:49",
+    "openfreemap:14/8939/5680:transportation:46884680:50",
+    "openfreemap:14/8939/5680:transportation:46884680:51",
+    "openfreemap:14/8939/5680:transportation:46884680:52",
+    "openfreemap:14/8939/5680:transportation:46884680:53",
+    "openfreemap:14/8939/5680:transportation:46884680:54",
+    "openfreemap:14/8939/5680:transportation:46884680:55",
+    "openfreemap:14/8939/5680:transportation:46884680:56",
+    "openfreemap:14/8939/5680:transportation:46884680:57",
+    "openfreemap:14/8939/5680:transportation:46884680:58",
+    "openfreemap:14/8939/5680:transportation:46884680:59",
+    "openfreemap:14/8939/5680:transportation:46884680:60",
+    "openfreemap:14/8939/5680:transportation:46884680:61",
+    "openfreemap:14/8939/5680:transportation:46884680:62",
+    "openfreemap:14/8939/5680:transportation:46884680:63",
+    "openfreemap:14/8939/5680:transportation:46884680:64",
+    "openfreemap:14/8939/5680:transportation:46884680:65",
+    "openfreemap:14/8939/5680:transportation:46884680:66",
+    "openfreemap:14/8939/5680:transportation:46884680:67",
+    "openfreemap:14/8939/5680:transportation:46884680:68",
+    "openfreemap:14/8939/5680:transportation:46884680:69",
+    "openfreemap:14/8939/5680:transportation:46884680:70",
+    "openfreemap:14/8939/5680:transportation:46884680:71",
+    "openfreemap:14/8939/5680:transportation:46884680:72",
+    "openfreemap:14/8939/5680:transportation:46884680:73",
+    "openfreemap:14/8939/5680:transportation:46884680:74",
+    "openfreemap:14/8939/5680:transportation:46884680:75",
+    "openfreemap:14/8939/5680:transportation:46884680:76",
+    "openfreemap:14/8939/5680:transportation:46884680:77",
+    "openfreemap:14/8939/5680:transportation:46884680:78",
+    "openfreemap:14/8939/5680:transportation:46884680:79",
+    "openfreemap:14/8939/5680:transportation:46884680:80",
+    "openfreemap:14/8939/5680:transportation:46884680:81",
+    "openfreemap:14/8939/5680:transportation:46884680:82",
+    "openfreemap:14/8939/5680:transportation:46884680:83",
+    "openfreemap:14/8939/5680:transportation:46884680:84",
+    "openfreemap:14/8939/5680:transportation:46884680:85",
+    "openfreemap:14/8939/5680:transportation:46884680:86",
+    "openfreemap:14/8939/5680:transportation:46884680:87",
+    "openfreemap:14/8939/5680:transportation:46884680:88",
+    "openfreemap:14/8939/5680:transportation:46884680:89",
+    "openfreemap:14/8939/5680:transportation:46884680:90",
+    "openfreemap:14/8939/5680:transportation:46884680:91",
+    "openfreemap:14/8939/5680:transportation:46884680:92",
+    "openfreemap:14/8939/5680:transportation:46884680:93",
+    "openfreemap:14/8939/5680:transportation:46884680:94",
+    "openfreemap:14/8939/5680:transportation:46884680:95",
+    "openfreemap:14/8939/5680:transportation:46884680:96",
+    "openfreemap:14/8939/5680:transportation:46884680:97",
+    "openfreemap:14/8939/5680:transportation:46884680:98",
+    "openfreemap:14/8939/5680:transportation:46884680:99",
+    "openfreemap:14/8939/5680:transportation:46884680:100",
+    "openfreemap:14/8939/5680:transportation:46884680:101",
+    "openfreemap:14/8939/5680:transportation:46884680:102",
+    "openfreemap:14/8939/5680:transportation:46884680:103",
+    "openfreemap:14/8939/5680:transportation:46884680:104",
+    "openfreemap:14/8939/5680:transportation:46884680:105",
+    "openfreemap:14/8939/5680:transportation:46884680:106",
+    "openfreemap:14/8939/5680:transportation:46884680:107",
+    "openfreemap:14/8939/5680:transportation:46884680:108",
+    "openfreemap:14/8939/5680:transportation:46884680:109",
+    "openfreemap:14/8939/5680:transportation:46884680:110",
+    "openfreemap:14/8939/5680:transportation:46884680:111",
+    "openfreemap:14/8939/5680:transportation:46884680:112",
+    "openfreemap:14/8939/5680:transportation:46884680:113",
+    "openfreemap:14/8939/5680:transportation:46884680:114",
+    "openfreemap:14/8939/5680:transportation:46884680:115",
+    "openfreemap:14/8939/5680:transportation:46884680:116",
+    "openfreemap:14/8939/5680:transportation:46884680:117",
+    "openfreemap:14/8939/5680:transportation:46884680:118",
+    "openfreemap:14/8939/5680:transportation:46884680:119",
+    "openfreemap:14/8939/5680:transportation:46884680:120",
+    "openfreemap:14/8939/5680:transportation:46884680:121",
+    "openfreemap:14/8939/5680:transportation:46884680:122",
+    "openfreemap:14/8939/5680:transportation:46884680:123",
+    "openfreemap:14/8939/5680:transportation:46884680:124",
+    "openfreemap:14/8939/5680:transportation:46884680:125",
+    "openfreemap:14/8939/5680:transportation:46884680:126",
+    "openfreemap:14/8939/5680:transportation:46884680:127",
+    "openfreemap:14/8939/5680:transportation:46884680:128",
+    "openfreemap:14/8939/5680:transportation:46884680:129",
+    "openfreemap:14/8939/5680:transportation:46884680:130",
+    "openfreemap:14/8939/5680:transportation:46884680:131",
+    "openfreemap:14/8939/5680:transportation:46884680:132",
+    "openfreemap:14/8939/5680:transportation:46884680:133",
+    "openfreemap:14/8939/5680:transportation:46884680:134",
+    "openfreemap:14/8939/5680:transportation:46884680:135",
+    "openfreemap:14/8939/5680:transportation:46884680:136",
+    "openfreemap:14/8939/5680:transportation:46884680:137",
+    "openfreemap:14/8939/5680:transportation:46884680:138",
+    "openfreemap:14/8939/5680:transportation:46884680:139",
+    "openfreemap:14/8939/5680:transportation:46884680:140",
+    "openfreemap:14/8939/5680:transportation:46884680:141",
+    "openfreemap:14/8939/5680:transportation:46884680:142",
+    "openfreemap:14/8939/5680:transportation:46884680:143",
+    "openfreemap:14/8939/5680:transportation:46884680:144",
+    "openfreemap:14/8939/5680:transportation:46884680:145",
+    "openfreemap:14/8939/5680:transportation:46884680:146",
+    "openfreemap:14/8939/5680:transportation:46884680:147",
+    "openfreemap:14/8939/5680:transportation:46884680:148",
+    "openfreemap:14/8939/5680:transportation:46884680:149",
+    "openfreemap:14/8939/5680:transportation:46884680:150",
+    "openfreemap:14/8939/5680:transportation:46884680:151",
+    "openfreemap:14/8939/5680:transportation:46884680:152",
+    "openfreemap:14/8939/5680:transportation:46884680:153",
+    "openfreemap:14/8939/5680:transportation:46884680:154",
+    "openfreemap:14/8939/5680:transportation:46884680:155",
+    "openfreemap:14/8939/5680:transportation:46884680:156",
+    "openfreemap:14/8939/5680:transportation:46884680:157",
+    "openfreemap:14/8939/5680:transportation:46884680:158",
+    "openfreemap:14/8939/5680:transportation:46884680:159",
+    "openfreemap:14/8939/5680:transportation:46884680:160",
+    "openfreemap:14/8939/5680:transportation:46884680:161",
+    "openfreemap:14/8939/5680:transportation:46884680:162",
+    "openfreemap:14/8939/5680:transportation:46884680:163",
+    "openfreemap:14/8939/5680:transportation:46884680:164",
+    "openfreemap:14/8939/5680:transportation:46884680:165",
+    "openfreemap:14/8939/5680:transportation:46884680:166",
+    "openfreemap:14/8939/5680:transportation:46884680:167",
+    "openfreemap:14/8939/5680:transportation:46884680:168",
+    "openfreemap:14/8939/5680:transportation:46884680:169",
+    "openfreemap:14/8939/5680:transportation:46884680:170",
+    "openfreemap:14/8939/5680:transportation:46884680:171",
+    "openfreemap:14/8939/5680:transportation:46884680:172",
+    "openfreemap:14/8939/5680:transportation:46884680:173",
+    "openfreemap:14/8939/5680:transportation:46884680:174",
+    "openfreemap:14/8939/5680:transportation:46884680:175",
+    "openfreemap:14/8939/5680:transportation:46884680:176",
+    "openfreemap:14/8939/5680:transportation:46884680:177",
+    "openfreemap:14/8939/5680:transportation:46884680:178",
+    "openfreemap:14/8939/5680:transportation:46884680:179",
+    "openfreemap:14/8939/5680:transportation:46884680:180",
+    "openfreemap:14/8939/5680:transportation:46884680:181",
+    "openfreemap:14/8939/5680:transportation:46884680:182",
+    "openfreemap:14/8939/5680:transportation:46884680:183",
+    "openfreemap:14/8939/5680:transportation:46884680:184",
+    "openfreemap:14/8939/5680:transportation:46884680:185",
+    "openfreemap:14/8939/5680:transportation:46884680:186",
+    "openfreemap:14/8939/5680:transportation:46884680:187",
+    "openfreemap:14/8939/5680:transportation:46884680:188",
+    "openfreemap:14/8939/5680:transportation:46884680:189",
+    "openfreemap:14/8939/5680:transportation:46884680:190",
+    "openfreemap:14/8939/5680:transportation:46884680:191",
+    "openfreemap:14/8939/5680:transportation:46884680:192",
+    "openfreemap:14/8939/5680:transportation:46884680:193",
+    "openfreemap:14/8939/5680:transportation:46884680:194",
+    "openfreemap:14/8939/5680:transportation:46884680:195",
+    "openfreemap:14/8939/5680:transportation:46884680:196",
+    "openfreemap:14/8939/5680:transportation:46884680:197",
+    "openfreemap:14/8939/5680:transportation:46884680:198",
+    "openfreemap:14/8939/5680:transportation:50128440:0",
+    "openfreemap:14/8939/5680:transportation:50128440:1",
+    "openfreemap:14/8939/5680:transportation:50128440:2",
+    "openfreemap:14/8939/5680:transportation:50128440:3",
+    "openfreemap:14/8939/5680:transportation:50128440:4",
+    "openfreemap:14/8939/5680:transportation:50128440:5",
+    "openfreemap:14/8939/5680:transportation:50128440:6",
+    "openfreemap:14/8939/5680:transportation:50128440:7",
+    "openfreemap:14/8939/5680:transportation:50128440:8",
+    "openfreemap:14/8939/5680:transportation:50128440:9",
+    "openfreemap:14/8939/5680:transportation:50128440:10",
+    "openfreemap:14/8939/5680:transportation:50128440:11",
+    "openfreemap:14/8939/5680:transportation:50128440:12",
+    "openfreemap:14/8939/5680:transportation:50128440:13",
+    "openfreemap:14/8939/5680:transportation:50199940:0",
+    "openfreemap:14/8939/5680:transportation:50199940:1",
+    "openfreemap:14/8939/5680:transportation:50199940:2",
+    "openfreemap:14/8939/5680:transportation:50199940:3",
+    "openfreemap:14/8939/5680:transportation:50199940:4",
+    "openfreemap:14/8939/5680:transportation:50224310:0",
+    "openfreemap:14/8939/5680:transportation:50224310:1",
+    "openfreemap:14/8939/5680:transportation:50224310:2",
+    "openfreemap:14/8939/5680:transportation:50224310:3",
+    "openfreemap:14/8939/5680:transportation:50224310:4",
+    "openfreemap:14/8939/5680:transportation:50224310:5",
+    "openfreemap:14/8939/5680:transportation:50224310:6",
+    "openfreemap:14/8939/5680:transportation:50224310:7",
+    "openfreemap:14/8939/5680:transportation:50224310:8",
+    "openfreemap:14/8939/5680:transportation:50224310:9",
+    "openfreemap:14/8939/5680:transportation:50224310:10",
+    "openfreemap:14/8939/5680:transportation:50224310:11",
+    "openfreemap:14/8939/5680:transportation:50224310:12",
+    "openfreemap:14/8939/5680:transportation:50224442:0",
+    "openfreemap:14/8939/5680:transportation:50757470:0",
+    "openfreemap:14/8939/5680:transportation:50757470:1",
+    "openfreemap:14/8939/5680:transportation:50757470:2",
+    "openfreemap:14/8939/5680:transportation:50757470:3",
+    "openfreemap:14/8939/5680:transportation:50757470:4",
+    "openfreemap:14/8939/5680:transportation:98234212:0",
+    "openfreemap:14/8939/5680:transportation:291788890:0",
+    "openfreemap:14/8939/5680:transportation:291788890:1",
+    "openfreemap:14/8939/5680:transportation:291790212:0",
+    "openfreemap:14/8939/5680:transportation:293193320:0",
+    "openfreemap:14/8939/5680:transportation:293193320:1",
+    "openfreemap:14/8939/5680:transportation:293193320:2",
+    "openfreemap:14/8939/5680:transportation:293193320:3",
+    "openfreemap:14/8939/5680:transportation:321352530:0",
+    "openfreemap:14/8939/5680:transportation:321352530:1",
+    "openfreemap:14/8939/5680:transportation:321352530:2",
+    "openfreemap:14/8939/5680:transportation:321352530:3",
+    "openfreemap:14/8939/5680:transportation:321352530:4",
+    "openfreemap:14/8939/5680:transportation:321352530:5",
+    "openfreemap:14/8939/5680:transportation:321352530:6",
+    "openfreemap:14/8939/5680:transportation:321352530:7",
+    "openfreemap:14/8939/5680:transportation:321352530:8",
+    "openfreemap:14/8939/5680:transportation:321352530:9",
+    "openfreemap:14/8939/5680:transportation:321352530:10",
+    "openfreemap:14/8939/5680:transportation:321352530:11",
+    "openfreemap:14/8939/5680:transportation:321352530:12",
+    "openfreemap:14/8939/5680:transportation:321352530:13",
+    "openfreemap:14/8939/5680:transportation:321352530:14",
+    "openfreemap:14/8939/5680:transportation:321352530:15",
+    "openfreemap:14/8939/5680:transportation:321352530:16",
+    "openfreemap:14/8939/5680:transportation:321352530:17",
+    "openfreemap:14/8939/5680:transportation:321352530:18",
+    "openfreemap:14/8939/5680:transportation:321352530:19",
+    "openfreemap:14/8939/5680:transportation:321352530:20",
+    "openfreemap:14/8939/5680:transportation:321352530:21",
+    "openfreemap:14/8939/5680:transportation:321352530:22",
+    "openfreemap:14/8939/5680:transportation:321352530:23",
+    "openfreemap:14/8939/5680:transportation:321352530:24",
+    "openfreemap:14/8939/5680:transportation:321352530:25",
+    "openfreemap:14/8939/5680:transportation:321352530:26",
+    "openfreemap:14/8939/5680:transportation:321352530:27",
+    "openfreemap:14/8939/5680:transportation:321352530:28",
+    "openfreemap:14/8939/5680:transportation:321352530:29",
+    "openfreemap:14/8939/5680:transportation:321352530:30",
+    "openfreemap:14/8939/5680:transportation:321352530:31",
+    "openfreemap:14/8939/5680:transportation:321352530:32",
+    "openfreemap:14/8939/5680:transportation:321352530:33",
+    "openfreemap:14/8939/5680:transportation:321352530:34",
+    "openfreemap:14/8939/5680:transportation:321352530:35",
+    "openfreemap:14/8939/5680:transportation:321352530:36",
+    "openfreemap:14/8939/5680:transportation:321352530:37",
+    "openfreemap:14/8939/5680:transportation:321352530:38",
+    "openfreemap:14/8939/5680:transportation:321352530:39",
+    "openfreemap:14/8939/5680:transportation:321352530:40",
+    "openfreemap:14/8939/5680:transportation:321352530:41",
+    "openfreemap:14/8939/5680:transportation:321352530:42",
+    "openfreemap:14/8939/5680:transportation:321352530:43",
+    "openfreemap:14/8939/5680:transportation:321352530:44",
+    "openfreemap:14/8939/5680:transportation:321352530:45",
+    "openfreemap:14/8939/5680:transportation:321352530:46",
+    "openfreemap:14/8939/5680:transportation:321352530:47",
+    "openfreemap:14/8939/5680:transportation:321352530:48",
+    "openfreemap:14/8939/5680:transportation:321352530:49",
+    "openfreemap:14/8939/5680:transportation:321352530:50",
+    "openfreemap:14/8939/5680:transportation:321352530:51",
+    "openfreemap:14/8939/5680:transportation:321352530:52",
+    "openfreemap:14/8939/5680:transportation:321352530:53",
+    "openfreemap:14/8939/5680:transportation:321352530:54",
+    "openfreemap:14/8939/5680:transportation:321352530:55",
+    "openfreemap:14/8939/5680:transportation:321352530:56",
+    "openfreemap:14/8939/5680:transportation:321352530:57",
+    "openfreemap:14/8939/5680:transportation:321352530:58",
+    "openfreemap:14/8939/5680:transportation:321352530:59",
+    "openfreemap:14/8939/5680:transportation:321352530:60",
+    "openfreemap:14/8939/5680:transportation:321352530:61",
+    "openfreemap:14/8939/5680:transportation:321352530:62",
+    "openfreemap:14/8939/5680:transportation:321352530:63",
+    "openfreemap:14/8939/5680:transportation:321352530:64",
+    "openfreemap:14/8939/5680:transportation:321352530:65",
+    "openfreemap:14/8939/5680:transportation:326452870:0",
+    "openfreemap:14/8939/5680:transportation:326452870:1",
+    "openfreemap:14/8939/5680:transportation:328460520:0",
+    "openfreemap:14/8939/5680:transportation:328460520:1",
+    "openfreemap:14/8939/5680:transportation:328460520:2",
+    "openfreemap:14/8939/5680:transportation:328460520:3",
+    "openfreemap:14/8939/5680:transportation:328460520:4",
+    "openfreemap:14/8939/5680:transportation:328460520:5",
+    "openfreemap:14/8939/5680:transportation:328460520:6",
+    "openfreemap:14/8939/5680:transportation:328460520:7",
+    "openfreemap:14/8939/5680:transportation:328460520:8",
+    "openfreemap:14/8939/5680:transportation:328460520:9",
+    "openfreemap:14/8939/5680:transportation:328460520:10",
+    "openfreemap:14/8939/5680:transportation:328460520:11",
+    "openfreemap:14/8939/5680:transportation:328460520:12",
+    "openfreemap:14/8939/5680:transportation:328460520:13",
+    "openfreemap:14/8939/5680:transportation:328460520:14",
+    "openfreemap:14/8939/5680:transportation:328460520:15",
+    "openfreemap:14/8939/5680:transportation:328460520:16",
+    "openfreemap:14/8939/5680:transportation:328460520:17",
+    "openfreemap:14/8939/5680:transportation:328460520:18",
+    "openfreemap:14/8939/5680:transportation:328460520:19",
+    "openfreemap:14/8939/5680:transportation:328460520:20",
+    "openfreemap:14/8939/5680:transportation:328460520:21",
+    "openfreemap:14/8939/5680:transportation:328460520:22",
+    "openfreemap:14/8939/5680:transportation:328460520:23",
+    "openfreemap:14/8939/5680:transportation:328460520:24",
+    "openfreemap:14/8939/5680:transportation:328460520:25",
+    "openfreemap:14/8939/5680:transportation:328460520:26",
+    "openfreemap:14/8939/5680:transportation:328460520:27",
+    "openfreemap:14/8939/5680:transportation:328460520:28",
+    "openfreemap:14/8939/5680:transportation:328460520:29",
+    "openfreemap:14/8939/5680:transportation:328460520:30",
+    "openfreemap:14/8939/5680:transportation:328460520:31",
+    "openfreemap:14/8939/5680:transportation:328460520:32",
+    "openfreemap:14/8939/5680:transportation:328460520:33",
+    "openfreemap:14/8939/5680:transportation:328460520:34",
+    "openfreemap:14/8939/5680:transportation:328460520:35",
+    "openfreemap:14/8939/5680:transportation:328460520:36",
+    "openfreemap:14/8939/5680:transportation:328460520:37",
+    "openfreemap:14/8939/5680:transportation:328460520:38",
+    "openfreemap:14/8939/5680:transportation:328460520:39",
+    "openfreemap:14/8939/5680:transportation:328460520:40",
+    "openfreemap:14/8939/5680:transportation:328460520:41",
+    "openfreemap:14/8939/5680:transportation:328460520:42",
+    "openfreemap:14/8939/5680:transportation:328460520:43",
+    "openfreemap:14/8939/5680:transportation:328460520:44",
+    "openfreemap:14/8939/5680:transportation:328460520:45",
+    "openfreemap:14/8939/5680:transportation:328460520:46",
+    "openfreemap:14/8939/5680:transportation:328460520:47",
+    "openfreemap:14/8939/5680:transportation:328460520:48",
+    "openfreemap:14/8939/5680:transportation:328460520:49",
+    "openfreemap:14/8939/5680:transportation:328460520:50",
+    "openfreemap:14/8939/5680:transportation:328460520:51",
+    "openfreemap:14/8939/5680:transportation:328460520:52",
+    "openfreemap:14/8939/5680:transportation:328460520:53",
+    "openfreemap:14/8939/5680:transportation:328460520:54",
+    "openfreemap:14/8939/5680:transportation:328460520:55",
+    "openfreemap:14/8939/5680:transportation:328460520:56",
+    "openfreemap:14/8939/5680:transportation:328460520:57",
+    "openfreemap:14/8939/5680:transportation:328460520:58",
+    "openfreemap:14/8939/5680:transportation:328460520:59",
+    "openfreemap:14/8939/5680:transportation:328460520:60",
+    "openfreemap:14/8939/5680:transportation:328460520:61",
+    "openfreemap:14/8939/5680:transportation:328460520:62",
+    "openfreemap:14/8939/5680:transportation:357687050:0",
+    "openfreemap:14/8939/5680:transportation:357687050:1",
+    "openfreemap:14/8939/5680:transportation:357687050:2",
+    "openfreemap:14/8939/5680:transportation:357687050:3",
+    "openfreemap:14/8939/5680:transportation:357687050:4",
+    "openfreemap:14/8939/5680:transportation:357687420:0",
+    "openfreemap:14/8939/5680:transportation:363388090:0",
+    "openfreemap:14/8939/5680:transportation:363388090:1",
+    "openfreemap:14/8939/5680:transportation:363388090:2",
+    "openfreemap:14/8939/5680:transportation:363388090:3",
+    "openfreemap:14/8939/5680:transportation:363388090:4",
+    "openfreemap:14/8939/5680:transportation:363388090:5",
+    "openfreemap:14/8939/5680:transportation:363388090:6",
+    "openfreemap:14/8939/5680:transportation:363388090:7",
+    "openfreemap:14/8939/5680:transportation:363388090:8",
+    "openfreemap:14/8939/5680:transportation:363388090:9",
+    "openfreemap:14/8939/5680:transportation:363388100:0",
+    "openfreemap:14/8939/5680:transportation:363388100:1",
+    "openfreemap:14/8939/5680:transportation:363388172:0",
+    "openfreemap:14/8939/5680:transportation:398584920:0",
+    "openfreemap:14/8939/5680:transportation:398584920:1",
+    "openfreemap:14/8939/5680:transportation:415718690:0",
+    "openfreemap:14/8939/5680:transportation:415718690:1",
+    "openfreemap:14/8939/5680:transportation:415718690:2",
+    "openfreemap:14/8939/5680:transportation:415718780:0",
+    "openfreemap:14/8939/5680:transportation:415718780:1",
+    "openfreemap:14/8939/5680:transportation:415718780:2",
+    "openfreemap:14/8939/5680:transportation:415718780:3",
+    "openfreemap:14/8939/5680:transportation:415718780:4",
+    "openfreemap:14/8939/5680:transportation:415718780:5",
+    "openfreemap:14/8939/5680:transportation:415718780:6",
+    "openfreemap:14/8939/5680:transportation:415718780:7",
+    "openfreemap:14/8939/5680:transportation:415718780:8",
+    "openfreemap:14/8939/5680:transportation:415718780:9",
+    "openfreemap:14/8939/5680:transportation:415718780:10",
+    "openfreemap:14/8939/5680:transportation:415718780:11",
+    "openfreemap:14/8939/5680:transportation:415718780:12",
+    "openfreemap:14/8939/5680:transportation:415718780:13",
+    "openfreemap:14/8939/5680:transportation:415718780:14",
+    "openfreemap:14/8939/5680:transportation:415718780:15",
+    "openfreemap:14/8939/5680:transportation:486560220:0",
+    "openfreemap:14/8939/5680:transportation:486560220:1",
+    "openfreemap:14/8939/5680:transportation:486560220:2",
+    "openfreemap:14/8939/5680:transportation:486560220:3",
+    "openfreemap:14/8939/5680:transportation:486560220:4",
+    "openfreemap:14/8939/5680:transportation:486560220:5",
+    "openfreemap:14/8939/5680:transportation:486560220:6",
+    "openfreemap:14/8939/5680:transportation:486560220:7",
+    "openfreemap:14/8939/5680:transportation:486560220:8",
+    "openfreemap:14/8939/5680:transportation:487028440:0",
+    "openfreemap:14/8939/5680:transportation:487028440:1",
+    "openfreemap:14/8939/5680:transportation:536516770:0",
+    "openfreemap:14/8939/5680:transportation:536516770:1",
+    "openfreemap:14/8939/5680:transportation:536516770:2",
+    "openfreemap:14/8939/5680:transportation:536516770:3",
+    "openfreemap:14/8939/5680:transportation:536516770:4",
+    "openfreemap:14/8939/5680:transportation:536516770:5",
+    "openfreemap:14/8939/5680:transportation:621473480:0",
+    "openfreemap:14/8939/5680:transportation:621473480:1",
+    "openfreemap:14/8939/5680:transportation:621473480:2",
+    "openfreemap:14/8939/5680:transportation:621473480:3",
+    "openfreemap:14/8939/5680:transportation:654459020:0",
+    "openfreemap:14/8939/5680:transportation:654459020:1",
+    "openfreemap:14/8939/5680:transportation:992084750:0",
+    "openfreemap:14/8939/5680:transportation:992084750:1",
+    "openfreemap:14/8939/5680:transportation:992084750:2",
+    "openfreemap:14/8939/5680:transportation:992084750:3",
+    "openfreemap:14/8939/5680:transportation:992084750:4",
+    "openfreemap:14/8939/5680:transportation:992084750:5",
+    "openfreemap:14/8939/5680:transportation:992084750:6",
+    "openfreemap:14/8939/5680:transportation:992084750:7",
+    "openfreemap:14/8939/5680:transportation:992084750:8",
+    "openfreemap:14/8939/5680:transportation:992084750:9",
+    "openfreemap:14/8939/5680:transportation:992084750:10",
+    "openfreemap:14/8939/5680:transportation:992084750:11",
+    "openfreemap:14/8939/5680:transportation:992084750:12",
+    "openfreemap:14/8939/5680:transportation:992084750:13",
+    "openfreemap:14/8939/5680:transportation:992084750:14",
+    "openfreemap:14/8939/5680:transportation:992084750:15",
+    "openfreemap:14/8939/5680:transportation:992084750:16",
+    "openfreemap:14/8939/5680:transportation:992084750:17",
+    "openfreemap:14/8939/5680:transportation:992084750:18",
+    "openfreemap:14/8939/5680:transportation:992084750:19",
+    "openfreemap:14/8939/5680:transportation:992084750:20",
+    "openfreemap:14/8939/5680:transportation:992084750:21",
+    "openfreemap:14/8939/5680:transportation:992084750:22",
+    "openfreemap:14/8939/5680:transportation:992084750:23",
+    "openfreemap:14/8939/5680:transportation:992084750:24",
+    "openfreemap:14/8939/5680:transportation:992084750:25",
+    "openfreemap:14/8939/5680:transportation:992084750:26",
+    "openfreemap:14/8939/5680:transportation:992084750:27",
+    "openfreemap:14/8939/5680:transportation:992084750:28",
+    "openfreemap:14/8939/5680:transportation:992084750:29",
+    "openfreemap:14/8939/5680:transportation:992084750:30",
+    "openfreemap:14/8939/5680:transportation:992084750:31",
+    "openfreemap:14/8939/5680:transportation:992084750:32",
+    "openfreemap:14/8939/5680:transportation:992084750:33",
+    "openfreemap:14/8939/5680:transportation:992084750:34",
+    "openfreemap:14/8939/5680:transportation:1016176072:0",
+    "openfreemap:14/8939/5680:transportation:1016176152:0",
+    "openfreemap:14/8939/5680:transportation:1071264420:0",
+    "openfreemap:14/8939/5680:transportation:1071264420:1",
+    "openfreemap:14/8939/5680:transportation:1071264420:2",
+    "openfreemap:14/8939/5680:transportation:1071264420:3",
+    "openfreemap:14/8939/5680:transportation:1071264420:4",
+    "openfreemap:14/8939/5680:transportation:1589250402:0",
+    "openfreemap:14/8939/5680:transportation:1589250422:0",
+    "openfreemap:14/8939/5680:transportation:1589250422:1",
+    "openfreemap:14/8939/5680:transportation:1663705782:0",
+    "openfreemap:14/8939/5680:transportation:1663705822:0",
+    "openfreemap:14/8939/5680:transportation:1963198450:0",
+    "openfreemap:14/8939/5680:transportation:1963198450:1",
+    "openfreemap:14/8939/5680:transportation:2079585720:0",
+    "openfreemap:14/8939/5680:transportation:2079585720:1",
+    "openfreemap:14/8939/5680:transportation:2079585720:2",
+    "openfreemap:14/8939/5680:transportation:2142874860:0",
+    "openfreemap:14/8939/5680:transportation:2142874860:1",
+    "openfreemap:14/8939/5680:transportation:2142874860:2",
+    "openfreemap:14/8939/5680:transportation:2142874860:3",
+    "openfreemap:14/8939/5680:transportation:2262047552:0",
+    "openfreemap:14/8939/5680:transportation:2270535070:0",
+    "openfreemap:14/8939/5680:transportation:2270535070:1",
+    "openfreemap:14/8939/5680:transportation:2270535070:2",
+    "openfreemap:14/8939/5680:transportation:2289129342:0",
+    "openfreemap:14/8939/5680:transportation:2289129352:0",
+    "openfreemap:14/8939/5680:transportation:2309395592:0",
+    "openfreemap:14/8939/5680:transportation:2335850980:0",
+    "openfreemap:14/8939/5680:transportation:2335850980:1",
+    "openfreemap:14/8939/5680:transportation:2430852142:0",
+    "openfreemap:14/8939/5680:transportation:3505846312:0",
+    "openfreemap:14/8939/5680:transportation:3773546832:0",
+    "openfreemap:14/8939/5680:transportation:4040280400:0",
+    "openfreemap:14/8939/5680:transportation:4040280400:1",
+    "openfreemap:14/8939/5680:transportation:4040280400:2",
+    "openfreemap:14/8939/5680:transportation:4040280400:3",
+    "openfreemap:14/8939/5680:transportation:4040280400:4",
+    "openfreemap:14/8939/5680:transportation:4040280400:5",
+    "openfreemap:14/8939/5680:transportation:4040280400:6",
+    "openfreemap:14/8939/5680:transportation:4040280400:7",
+    "openfreemap:14/8939/5680:transportation:4040280400:8",
+    "openfreemap:14/8939/5680:transportation:4040280400:9",
+    "openfreemap:14/8939/5680:transportation:4040280400:10",
+    "openfreemap:14/8939/5680:transportation:4040280430:0",
+    "openfreemap:14/8939/5680:transportation:4040280430:1",
+    "openfreemap:14/8939/5680:transportation:4040280430:2",
+    "openfreemap:14/8939/5680:transportation:4040280430:3",
+    "openfreemap:14/8939/5680:transportation:4040280430:4",
+    "openfreemap:14/8939/5680:transportation:4040280430:5",
+    "openfreemap:14/8939/5680:transportation:4040280430:6",
+    "openfreemap:14/8939/5680:transportation:4040280430:7",
+    "openfreemap:14/8939/5680:transportation:4040280430:8",
+    "openfreemap:14/8939/5680:transportation:4040280430:9",
+    "openfreemap:14/8939/5680:transportation:4040280430:10",
+    "openfreemap:14/8939/5680:transportation:4040280470:0",
+    "openfreemap:14/8939/5680:transportation:4040280470:1",
+    "openfreemap:14/8939/5680:transportation:4040280470:2",
+    "openfreemap:14/8939/5680:transportation:4040280470:3",
+    "openfreemap:14/8939/5680:transportation:4040280470:4",
+    "openfreemap:14/8939/5680:transportation:4040280470:5",
+    "openfreemap:14/8939/5680:transportation:4588959640:0",
+    "openfreemap:14/8939/5680:transportation:4588959640:1",
+    "openfreemap:14/8939/5680:transportation:4588959640:2",
+    "openfreemap:14/8939/5680:transportation:4588959640:3",
+    "openfreemap:14/8939/5680:transportation:4588959640:4",
+    "openfreemap:14/8939/5680:transportation:4588959640:5",
+    "openfreemap:14/8939/5680:transportation:4588959640:6",
+    "openfreemap:14/8939/5680:transportation:4588959640:7",
+    "openfreemap:14/8939/5680:transportation:4588959640:8",
+    "openfreemap:14/8939/5680:transportation:4588959640:9",
+    "openfreemap:14/8939/5680:transportation:5143978572:0",
+    "openfreemap:14/8939/5680:transportation:5345864410:0",
+    "openfreemap:14/8939/5680:transportation:5345864410:1",
+    "openfreemap:14/8939/5680:transportation:5345864470:0",
+    "openfreemap:14/8939/5680:transportation:5345864470:1",
+    "openfreemap:14/8939/5680:transportation:5345864470:2",
+    "openfreemap:14/8939/5680:transportation:5345864470:3",
+    "openfreemap:14/8939/5680:transportation:5345864470:4",
+    "openfreemap:14/8939/5680:transportation:5399797460:0",
+    "openfreemap:14/8939/5680:transportation:5399797460:1",
+    "openfreemap:14/8939/5680:transportation:5399797460:2",
+    "openfreemap:14/8939/5680:transportation:5399797460:3",
+    "openfreemap:14/8939/5680:transportation:5399797460:4",
+    "openfreemap:14/8939/5680:transportation:5399797460:5",
+    "openfreemap:14/8939/5680:transportation:5399797460:6",
+    "openfreemap:14/8939/5680:transportation:5399797460:7",
+    "openfreemap:14/8939/5680:transportation:5399797460:8",
+    "openfreemap:14/8939/5680:transportation:5399797460:9",
+    "openfreemap:14/8939/5680:transportation:5399797460:10",
+    "openfreemap:14/8939/5680:transportation:5399797460:11",
+    "openfreemap:14/8939/5680:transportation:5399797460:12",
+    "openfreemap:14/8939/5680:transportation:5399797460:13",
+    "openfreemap:14/8939/5680:transportation:5399797460:14",
+    "openfreemap:14/8939/5680:transportation:5399797460:15",
+    "openfreemap:14/8939/5680:transportation:5422900660:0",
+    "openfreemap:14/8939/5680:transportation:5422900660:1",
+    "openfreemap:14/8939/5680:transportation:5422900660:2",
+    "openfreemap:14/8939/5680:transportation:5422900660:3",
+    "openfreemap:14/8939/5680:transportation:5422900660:4",
+    "openfreemap:14/8939/5680:transportation:5422900660:5",
+    "openfreemap:14/8939/5680:transportation:5427658200:0",
+    "openfreemap:14/8939/5680:transportation:5427658200:1",
+    "openfreemap:14/8939/5680:transportation:5427658200:2",
+    "openfreemap:14/8939/5680:transportation:5427658200:3",
+    "openfreemap:14/8939/5680:transportation:5427658200:4",
+    "openfreemap:14/8939/5680:transportation:5427658200:5",
+    "openfreemap:14/8939/5680:transportation:5427658200:6",
+    "openfreemap:14/8939/5680:transportation:5427658200:7",
+    "openfreemap:14/8939/5680:transportation:5427658200:8",
+    "openfreemap:14/8939/5680:transportation:5427658200:9",
+    "openfreemap:14/8939/5680:transportation:5427658200:10",
+    "openfreemap:14/8939/5680:transportation:5427658200:11",
+    "openfreemap:14/8939/5680:transportation:5427658200:12",
+    "openfreemap:14/8939/5680:transportation:5427658200:13",
+    "openfreemap:14/8939/5680:transportation:5427658200:14",
+    "openfreemap:14/8939/5680:transportation:5427658200:15",
+    "openfreemap:14/8939/5680:transportation:5433196100:0",
+    "openfreemap:14/8939/5680:transportation:5433196100:1",
+    "openfreemap:14/8939/5680:transportation:5433196100:2",
+    "openfreemap:14/8939/5680:transportation:5433196100:3",
+    "openfreemap:14/8939/5680:transportation:5433196100:4",
+    "openfreemap:14/8939/5680:transportation:5433196100:5",
+    "openfreemap:14/8939/5680:transportation:5433196100:6",
+    "openfreemap:14/8939/5680:transportation:5435254550:0",
+    "openfreemap:14/8939/5680:transportation:5435254550:1",
+    "openfreemap:14/8939/5680:transportation:5435254550:2",
+    "openfreemap:14/8939/5680:transportation:5435254550:3",
+    "openfreemap:14/8939/5680:transportation:5435254550:4",
+    "openfreemap:14/8939/5680:transportation:5435254550:5",
+    "openfreemap:14/8939/5680:transportation:5437230800:0",
+    "openfreemap:14/8939/5680:transportation:5437230800:1",
+    "openfreemap:14/8939/5680:transportation:5437230800:2",
+    "openfreemap:14/8939/5680:transportation:5519941082:0",
+    "openfreemap:14/8939/5680:transportation:5798848092:0",
+    "openfreemap:14/8939/5680:transportation:6429285752:0",
+    "openfreemap:14/8939/5680:transportation:6429297952:0",
+    "openfreemap:14/8939/5680:transportation:6429297992:0",
+    "openfreemap:14/8939/5680:transportation:6429298012:0",
+    "openfreemap:14/8939/5680:transportation:6429298042:0",
+    "openfreemap:14/8939/5680:transportation:6429298062:0",
+    "openfreemap:14/8939/5680:transportation:6429298082:0",
+    "openfreemap:14/8939/5680:transportation:7678087892:0",
+    "openfreemap:14/8939/5680:transportation:8680462150:0",
+    "openfreemap:14/8939/5680:transportation:8680462150:1",
+    "openfreemap:14/8939/5680:transportation:8816782672:0",
+    "openfreemap:14/8939/5680:transportation:9543942930:0",
+    "openfreemap:14/8939/5680:transportation:9543942930:1",
+    "openfreemap:14/8939/5680:transportation:9584956380:0",
+    "openfreemap:14/8939/5680:transportation:9584956380:1",
+    "openfreemap:14/8939/5680:transportation:9584956380:2",
+    "openfreemap:14/8939/5680:transportation:10593428052:0",
+    "openfreemap:14/8939/5680:transportation:11712954652:0",
+    "openfreemap:14/8939/5680:transportation:11985918812:0",
+    "openfreemap:14/8939/5680:transportation:13380036922:0",
+    "openfreemap:14/8939/5680:transportation:14260858342:0",
+    "openfreemap:14/8939/5680:transportation:14260858502:0",
+    "openfreemap:14/8939/5680:transportation:44356392:0",
+    "openfreemap:14/8939/5680:transportation:46884600:0",
+    "openfreemap:14/8939/5680:transportation:46884630:0",
+    "openfreemap:14/8939/5680:transportation:46884630:1",
+    "openfreemap:14/8939/5680:transportation:46884630:2",
+    "openfreemap:14/8939/5680:transportation:46884630:3",
+    "openfreemap:14/8939/5680:transportation:46884630:4",
+    "openfreemap:14/8939/5680:transportation:46884630:5",
+    "openfreemap:14/8939/5680:transportation:46884630:6",
+    "openfreemap:14/8939/5680:transportation:46884630:7",
+    "openfreemap:14/8939/5680:transportation:46884630:8",
+    "openfreemap:14/8939/5680:transportation:46884630:9",
+    "openfreemap:14/8939/5680:transportation:46884630:10",
+    "openfreemap:14/8939/5680:transportation:46884630:11",
+    "openfreemap:14/8939/5680:transportation:48631682:0",
+    "openfreemap:14/8939/5680:transportation:50044982:0",
+    "openfreemap:14/8939/5680:transportation:102999222:0",
+    "openfreemap:14/8939/5680:transportation:291788582:0",
+    "openfreemap:14/8939/5680:transportation:291790862:0",
+    "openfreemap:14/8939/5680:transportation:291791302:0",
+    "openfreemap:14/8939/5680:transportation:291793592:0",
+    "openfreemap:14/8939/5680:transportation:291794272:0",
+    "openfreemap:14/8939/5680:transportation:315361480:0",
+    "openfreemap:14/8939/5680:transportation:363388132:0",
+    "openfreemap:14/8939/5680:transportation:363388162:0",
+    "openfreemap:14/8939/5680:transportation:1545310432:0",
+    "openfreemap:14/8939/5680:transportation:1545310452:0",
+    "openfreemap:14/8939/5680:transportation:1552050852:0",
+    "openfreemap:14/8939/5680:transportation:3173488692:0",
+    "openfreemap:14/8939/5680:transportation:3585417752:0",
+    "openfreemap:14/8939/5680:transportation:5143978552:0",
+    "openfreemap:14/8939/5680:transportation:5292526002:0",
+    "openfreemap:14/8939/5680:transportation:5292555582:0",
+    "openfreemap:14/8939/5680:transportation:5452839142:0",
+    "openfreemap:14/8939/5680:transportation:5833669712:0",
+    "openfreemap:14/8939/5680:transportation:15011241982:0",
+    "openfreemap:14/8939/5680:transportation:15011241992:0",
+    "openfreemap:14/8939/5680:transportation:96397952:0",
+    "openfreemap:14/8939/5680:transportation:234519252:0",
+    "openfreemap:14/8939/5680:transportation:291789122:0",
+    "openfreemap:14/8939/5680:transportation:291792752:0",
+    "openfreemap:14/8939/5680:transportation:347640800:0",
+    "openfreemap:14/8939/5680:transportation:347640892:0",
+    "openfreemap:14/8939/5680:transportation:10623120202:0",
+    "openfreemap:14/8939/5680:transportation:3178454942:0",
+    "openfreemap:14/8939/5680:transportation:3585419382:0",
+    "openfreemap:14/8939/5680:transportation:314778430:0",
+    "openfreemap:14/8939/5680:transportation:4988952120:0",
+    "openfreemap:14/8939/5680:transportation:4988952120:1",
+    "openfreemap:14/8939/5680:transportation:11757600770:0",
+    "openfreemap:14/8939/5680:transportation:11757600782:0",
+    "openfreemap:14/8939/5680:transportation:13916818320:0",
+    "openfreemap:14/8939/5680:transportation:13916818320:1",
+    "openfreemap:14/8939/5680:transportation:86533302:0",
+    "openfreemap:14/8939/5680:transportation:1539678132:0",
+    "openfreemap:14/8939/5680:transportation:1545310362:0",
+    "openfreemap:14/8939/5680:transportation:1545310372:0",
+    "openfreemap:14/8939/5680:transportation:1545310382:0",
+    "openfreemap:14/8939/5680:transportation:1545310392:0",
+    "openfreemap:14/8939/5680:transportation:1545310402:0",
+    "openfreemap:14/8939/5680:transportation:292227160:0",
+    "openfreemap:14/8939/5680:transportation:302401792:0",
+    "openfreemap:14/8939/5680:transportation:326039362:0",
+    "openfreemap:14/8939/5680:transportation:326039372:0",
+    "openfreemap:14/8939/5680:transportation:3675184510:0",
+    "openfreemap:14/8939/5680:transportation:3675184510:1",
+    "openfreemap:14/8939/5680:transportation:3675184510:2",
+    "openfreemap:14/8939/5680:transportation:10593428062:0",
+    "openfreemap:14/8939/5680:transportation:94031072:0",
+    "openfreemap:14/8939/5680:transportation:291790192:0",
+    "openfreemap:14/8939/5680:transportation:321248532:0",
+    "openfreemap:14/8939/5680:transportation:326039342:0",
+    "openfreemap:14/8939/5680:transportation:2236300762:0",
+    "openfreemap:14/8939/5680:transportation:3715122632:0",
+    "openfreemap:14/8939/5680:transportation:10911266442:0",
+    "openfreemap:14/8939/5680:transportation:291793262:0",
+    "openfreemap:14/8939/5680:transportation:291793302:0",
+    "openfreemap:14/8939/5680:transportation:291793612:0",
+    "openfreemap:14/8939/5680:transportation:363388142:0",
+    "openfreemap:14/8939/5680:transportation:363388152:0",
+    "openfreemap:14/8939/5680:transportation:1545310412:0",
+    "openfreemap:14/8939/5680:transportation:5292555652:0",
+    "openfreemap:14/8939/5680:transportation:1545310422:0",
+    "openfreemap:14/8939/5680:transportation:1545310442:0",
+    "openfreemap:14/8939/5680:transportation:1435426380:0",
+    "openfreemap:14/8939/5680:transportation:1435426380:1",
+    "openfreemap:14/8939/5680:transportation:1435426380:2",
+    "openfreemap:14/8939/5680:transportation:1435426380:3",
+    "openfreemap:14/8939/5680:transportation:2433270960:0",
+    "openfreemap:14/8939/5680:transportation:2433270960:1",
+    "openfreemap:14/8939/5680:transportation:363388082:0"
+  ],
+  "unselected_reason": "outside_connected_bridge_component_area_scope",
+  "deferred_source_ids": [
+    "openfreemap:14/8939/5680:transportation:195742393",
+    "openfreemap:14/8939/5680:transportation:200231203",
+    "openfreemap:14/8939/5680:transportation:200701913",
+    "openfreemap:14/8939/5680:transportation:321352542",
+    "openfreemap:14/8939/5680:transportation:1589250462",
+    "openfreemap:14/8939/5680:transportation:1589250772",
+    "openfreemap:14/8939/5680:transportation:1873396222",
+    "openfreemap:14/8939/5680:transportation:1873396432",
+    "openfreemap:14/8939/5680:transportation:2335850162",
+    "openfreemap:14/8939/5680:transportation:2335850982",
+    "openfreemap:14/8939/5680:transportation:4258700832",
+    "openfreemap:14/8939/5680:transportation:5037723132",
+    "openfreemap:14/8939/5680:transportation:5037723142",
+    "openfreemap:14/8939/5680:transportation:5037723152",
+    "openfreemap:14/8939/5680:transportation:5037723162",
+    "openfreemap:14/8939/5680:transportation:5037723172",
+    "openfreemap:14/8939/5680:transportation:5037723182",
+    "openfreemap:14/8939/5680:transportation:5037723202",
+    "openfreemap:14/8939/5680:transportation:5168711192",
+    "openfreemap:14/8939/5680:transportation:5292431692",
+    "openfreemap:14/8939/5680:transportation:5427658392",
+    "openfreemap:14/8939/5680:transportation:5435213712",
+    "openfreemap:14/8939/5680:transportation:5479710032",
+    "openfreemap:14/8939/5680:transportation:5479710122",
+    "openfreemap:14/8939/5680:transportation:5479710132",
+    "openfreemap:14/8939/5680:transportation:5479710142",
+    "openfreemap:14/8939/5680:transportation:6278058332",
+    "openfreemap:14/8939/5680:transportation:7053704012",
+    "openfreemap:14/8939/5680:transportation:9359446292",
+    "openfreemap:14/8939/5680:transportation:11308852462",
+    "openfreemap:14/8939/5680:transportation:15374556302",
+    "openfreemap:14/8939/5680:transportation:60798123",
+    "openfreemap:14/8939/5680:transportation:60798203",
+    "openfreemap:14/8939/5680:transportation:181772323",
+    "openfreemap:14/8939/5680:transportation:13916838662",
+    "openfreemap:14/8939/5680:transportation:13916838672",
+    "openfreemap:14/8939/5680:transportation:13916841072",
+    "openfreemap:14/8939/5680:transportation:1071264672",
+    "openfreemap:14/8939/5680:transportation:5292526032",
+    "openfreemap:14/8939/5680:transportation:5345864422",
+    "openfreemap:14/8939/5680:transportation:5427598402",
+    "openfreemap:14/8939/5680:transportation:150971723",
+    "openfreemap:14/8939/5680:transportation:150971733",
+    "openfreemap:14/8939/5680:transportation:5225395172"
+  ],
+  "deferred_reason": "polygon_source_has_no_axis_recipe",
+  "scope": "Seed is the pinned pair fixture's most-crossed bridge. Expand all positively overlapping or shared-edge bridge corridors; include every other positively overlapping corridor from the complete source tile, including footprint-only conflicts. Further ground neighbors, tile neighbors and traffic routes are not certified."
+}
