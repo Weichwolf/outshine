@@ -259,3 +259,28 @@ the actor radius. The previous eleven-storey Tokyo control stays byte-equal.
 and tile demonstration. Generic programmes do not count as complete architecture
 families; external terrain/transport contact, native controller/cache/device
 integration and city-wide complete room coverage remain open.
+
+## Small-body roof envelopes in complete tiles
+
+`tile_roof_envelopes.py` imports the general heightfield-envelope kernel and the
+existing Shape shed/ridge operators. A stable scalar choice precedes geometry:
+unclipped ordinary 10–70 m² bodies, 3.5–12 m height and sufficient width receive
+an explicitly procedural small-body roof estimate. Other bodies and the larger
+complete room controls retain their flat envelope. Explicit roof fields remain
+preserved; unsupported supplied sloped-roof/room composition is labelled rather
+than silently replaced by an inferred claim.
+
+The full source height/footprint remains. A subpixel roof may directly use a
+simple bound with the same logical choice, before constructing roof geometry;
+this is a geometric experiment criterion, not native image/frame admission.
+Actual construction failures retain the valid source prism and record their
+cause. `verify_roof_envelopes.py` checks actual native solid topology/volume,
+same-source independent body/roof composition and all relevant height sections.
+Rejected comparison paths remain rejected and do not enter cost comparisons.
+`roof_envelope_plan.py` draws actual upper surfaces and sections privately.
+The public page continues to show exactly four complete source scenes.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py
+.venv/bin/python test/experiments/buildings/roof_envelope_plan.py
+```
