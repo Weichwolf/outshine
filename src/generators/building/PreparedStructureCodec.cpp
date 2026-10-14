@@ -4,6 +4,7 @@
 #include "PreparedStructurePlan.h"
 #include "BuildingMesh.h"
 #include "BuildingScratch.h"
+#include "HipRoofCodec.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -22,10 +23,10 @@ using StructureBinary::Reader;
 using StructureBinary::Writer;
 constexpr uint32_t kMagic = 0x31425350;
 constexpr uint32_t kLegacyVersion = 3;
-constexpr uint32_t kVersion = 8;
+constexpr uint32_t kVersion = 9;
 constexpr uint32_t kLegacyIndexVersion = 4;
-constexpr uint32_t kIndexVersion = 7;
-constexpr uint32_t kBasisVersion = 5;
+constexpr uint32_t kIndexVersion = 8;
+constexpr uint32_t kBasisVersion = 6;
 constexpr uint32_t kLegacyBlockMagic = 0x31435342;
 constexpr uint32_t kBlockMagic = 0x33435342;
 constexpr auto scalar = [](auto &archive, auto &value) { return archive.Number(value); };
@@ -171,7 +172,8 @@ constexpr auto shape = [](auto &archive, auto &value, bool facadeFields) {
       archive.Number(value.FrontEdge);
   if (!read) { return false; }
   if (facadeFields) {
-    return archive.Number(value.OpeningStyle) && archive.Number(value.RoundFootprint);
+    return archive.Number(value.OpeningStyle) && archive.Number(value.RoundFootprint) &&
+           HipRoofCodec::Fields(archive, value.HipRoof);
   }
   if constexpr (std::is_same_v<std::remove_cvref_t<decltype(archive)>, Reader>) {
     value.OpeningStyle = BuildingFacadeStyle(value.Form);
@@ -306,6 +308,8 @@ public:
     for (size_t index = 0; index < value.Shapes_.size(); ++index) {
       const auto &part = value.Shapes_[index];
       if (!part.Valid() || part.PartyWallEdges.size() != part.Ring.size() ||
+          !HipRoofCodec::BoundTo(part.HipRoof, part.Ring, part.Holes) ||
+          (part.Roof == RoofKind::Hip && (!part.HipRoof || !*part.HipRoof)) ||
           part.Form > BuildingForm::Spire || part.OpeningStyle < FacadeStyle::Outbuilding ||
           part.OpeningStyle > FacadeStyle::Glazing || part.Roof > RoofKind::Dome ||
           part.Storeys < 1 || part.FloorM <= 0 || part.BayM <= 0 || part.FrontEdge < -1 ||

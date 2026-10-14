@@ -251,7 +251,7 @@ PrepareFacets(const Input &input, HipRoofPlan::Limits limits) {
   return facets;
 }
 
-bool Contains(std::span<const EastNorth> ring, EastNorth point, double tolerance) {
+bool ContainsPoint(std::span<const EastNorth> ring, EastNorth point, double tolerance) {
   bool inside = false;
   for (size_t at = 0; at < ring.size(); ++at) {
     const auto a = ring[at];
@@ -279,6 +279,10 @@ bool Contains(std::span<const EastNorth> ring, EastNorth point, double tolerance
 
 double HipRoofPlan::Facet::DistanceAt(EastNorth point) const noexcept {
   return point.EastM * Gradient.EastM + point.NorthM * Gradient.NorthM + InterceptM;
+}
+
+bool HipRoofPlan::Facet::Contains(EastNorth point, double tolerance) const noexcept {
+  return ContainsPoint(Ring, point, tolerance);
 }
 
 std::expected<HipRoofPlan, HipRoofError>
@@ -332,7 +336,7 @@ std::optional<double> HipRoofPlan::DistanceAt(EastNorth point) const noexcept {
   const auto local = Local(point, Origin_);
   if (!std::isfinite(local.EastM) || !std::isfinite(local.NorthM)) { return std::nullopt; }
   for (const auto &facet : Facets_) {
-    if (Contains(facet.Ring, local, PrecisionM_)) { return std::max(0.0, facet.DistanceAt(local)); }
+    if (facet.Contains(local, PrecisionM_)) { return std::max(0.0, facet.DistanceAt(local)); }
   }
   return std::nullopt;
 }

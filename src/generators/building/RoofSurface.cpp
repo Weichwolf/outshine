@@ -222,22 +222,15 @@ int CreasesOf(const BuildingShape &s, std::span<Line> lines) {
 }
 
 int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
-  const double d = s.HalfUm - s.HalfVm;
   switch (s.Roof) {
     case RoofKind::Flat:
+    case RoofKind::Hip:
     case RoofKind::Shed: return 0;
     case RoofKind::Dome:
       lines[0] = {.A = 1.0, .B = 0.0, .C = 0.0};
       lines[1] = {.A = 0.0, .B = 1.0, .C = 0.0};
       return 2;
     case RoofKind::Gable: lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0}; return 1;
-    case RoofKind::Hip:
-      lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0};
-      lines[1] = {.A = 1.0, .B = -1.0, .C = d};
-      lines[2] = {.A = 1.0, .B = 1.0, .C = d};
-      lines[3] = {.A = 1.0, .B = 1.0, .C = -d};
-      lines[4] = {.A = 1.0, .B = -1.0, .C = -d};
-      return 5;
     case RoofKind::Mansard:
       lines[0] = {.A = 0.0, .B = 1.0, .C = 0.0};
       lines[1] = {.A = 0.0, .B = 1.0, .C = s.BreakFracV * s.HalfVm};
@@ -259,8 +252,6 @@ int CreasesUncounted(const BuildingShape &s, std::span<Line> lines) {
 
 }
 
-RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
-
 bool RoofSurface::Contains(const EastNorth &enu) const noexcept {
   return Inside(Shape_.Ring, enu, 0.0) && std::ranges::none_of(Shape_.Holes, [&](const auto &hole) {
            return Inside(hole, enu, 0.0);
@@ -268,6 +259,7 @@ bool RoofSurface::Contains(const EastNorth &enu) const noexcept {
 }
 
 double RoofSurface::HeightAt(const EastNorth &enu) const noexcept {
+  if (Shape_.Roof == RoofKind::Hip) { return HipHeightAt(enu); }
   double u = 0.0;
   double v = 0.0;
   const Boxed boxed = Shape_.ToBox(enu);
@@ -280,7 +272,7 @@ double RoofSurface::HeightAt(const EastNorth &enu) const noexcept {
   switch (Shape_.Roof) {
     case RoofKind::Flat: return 0.0;
     case RoofKind::Gable: f = 1.0 - std::fabs(v) / hv; break;
-    case RoofKind::Hip: f = std::min(hv - std::fabs(v), hu - std::fabs(u)) / hv; break;
+    case RoofKind::Hip: return HipHeightAt(enu);
     case RoofKind::Shed: f = 0.5 * (v / hv) + 0.5; break;
     case RoofKind::Mansard: {
       const double b = Shape_.BreakFracV * hv;
@@ -362,6 +354,10 @@ void ClipHalf(const BuildingShape &shape,
 void RoofSurface::BreaksAlong(const EastNorth &from,
                               const EastNorth &to,
                               std::vector<double> &at) const {
+  if (Shape_.Roof == RoofKind::Hip) {
+    HipBreaksAlong(from, to, at);
+    return;
+  }
   at.clear();
   std::array<Line, kMaxCreases> lines{};
   const int n = CreasesOf(Shape_, lines);
@@ -392,9 +388,10 @@ void RoofSurface::BreaksAlong(const EastNorth &from,
            at.end());
 }
 
-void RoofSurface::Cover(std::span<const EastNorth> plan,
+bool RoofSurface::Cover(std::span<const EastNorth> plan,
                         BuildingScratch &scratch,
                         std::vector<EastNorth> &tris) const {
+  if (Shape_.Roof == RoofKind::Hip) { return CoverHip(plan, scratch, tris); }
   const size_t first = tris.size();
 
   std::array<Line, kMaxCreases> lines{};
@@ -406,7 +403,7 @@ void RoofSurface::Cover(std::span<const EastNorth> plan,
     cells.Next().assign(plan.begin(), plan.end());
   } else {
     scratch.Mine.clear();
-    if (!Fill(plan, scratch, scratch.Mine, Shape_.Holes)) { return; }
+    if (!Fill(plan, scratch, scratch.Mine, Shape_.Holes)) { return false; }
     for (size_t at = 0; at + 2 < scratch.Mine.size(); at += 3) {
       const auto triangle = std::span(scratch.Mine).subspan(at, 3);
       cells.Next().assign(triangle.begin(), triangle.end());
@@ -434,11 +431,12 @@ void RoofSurface::Cover(std::span<const EastNorth> plan,
   for (const std::vector<EastNorth> &cell : cells.Standing()) {
     if (!EarClip(cell, scratch.Poly, mine)) {
       tris.resize(first);
-      return;
+      return false;
     }
   }
-  if (mine.empty()) { return; }
+  if (mine.empty()) { return false; }
   tris.insert(tris.end(), mine.begin(), mine.end());
+  return true;
 }
 
 void RoofSurface::Widened(std::span<const EastNorth> ring,
