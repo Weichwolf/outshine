@@ -2,8 +2,7 @@
 
 import numpy as np
 from outshine_ref.contracts import Mesh
-from outshine_ref.geometry import SurfaceSampler
-from overpass_clearance import vertical_clearance
+from outshine_ref.geometry import SurfaceSampler, vertical_clearance
 from shared_bridge_geometry import layout
 from surface_height_methods import checked_fit
 

@@ -4,12 +4,12 @@ import numpy as np
 import shapely
 from bridge_approach_recipe import height_field
 from outshine_ref.contracts import Mesh
+from outshine_ref.geometry import vertical_clearance
 from outshine_ref.transport import (
     minimum_transition_length,
     plan_vertical_transition,
     sample_vertical_transition,
 )
-from overpass_clearance import vertical_clearance
 from retained_surface import flat_domain
 from shared_bridge_geometry import corridor
 

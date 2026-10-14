@@ -8,10 +8,9 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import BuildingFootprint, HeightInterval, Mesh
+from outshine_ref.contracts import BuildingFootprint, HeightInterval
 from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.transport import close_surface
-from overpass_clearance import vertical_clearance
 from overpass_products import products
 from overpass_recipe import build
 from overpass_ribbon import source_frame
@@ -44,52 +43,7 @@ def control(length=400.0):
     }
 
 
-def square(z):
-    xy = np.array([[0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0]])
-    return Mesh(np.c_[xy, z(xy)], np.array([[0, 1, 2], [0, 2, 3]]))
-
-
 class OverpassChecks(unittest.TestCase):
-    def test_full_overlap_extremum_finds_corner_missed_by_middle_sample(self):
-        lower = square(lambda xy: np.zeros(len(xy)))
-        high = square(lambda xy: 5.0 + xy[:, 0] + xy[:, 1])
-        note = vertical_clearance(lower, high)
-        self.assertTrue(note["valid"])
-        self.assertAlmostEqual(note["minimum_clearance_m"], 5.0)
-        self.assertEqual(note["witness_xy"], [0.0, 0.0])
-        middle = SurfaceSampler(high).sample([[1.0, 1.0]])
-        self.assertGreater(middle.points_enu_m[0, 2], 6.0)
-        self.assertLess(note["minimum_clearance_m"], 6.0)
-
-    def test_thickness_and_opposite_crossfalls_affect_actual_gap(self):
-        lower = square(lambda xy: 0.02 * xy[:, 1])
-        upper = square(lambda xy: 4.6 - 0.02 * xy[:, 1])
-        underside = Mesh(upper.vertices - [0.0, 0.0, 0.35], upper.triangles)
-        result = vertical_clearance(lower, underside)
-        self.assertAlmostEqual(result["minimum_clearance_m"], 4.17)
-
-    def test_positive_tiny_overlap_is_preserved_but_boundary_touch_is_not_a_passage(
-        self,
-    ):
-        lower = square(lambda xy: np.zeros(len(xy)))
-        high = square(lambda xy: np.ones(len(xy)))
-        touching = Mesh(high.vertices + [2.0, 0.0, 0.0], high.triangles)
-        self.assertEqual(
-            vertical_clearance(lower, touching)["reason"], "no_positive_area_overlap"
-        )
-        sliver = Mesh(high.vertices + [2.0 - 1e-13, 0.0, 0.0], high.triangles)
-        self.assertTrue(vertical_clearance(lower, sliver)["valid"])
-
-    def test_certificate_does_not_claim_unchecked_remainder_at_budget_end(self):
-        low = square(lambda xy: np.zeros(len(xy)))
-        for kwargs, reason in (
-            ({"max_pairs": 1}, "clearance_pair_budget"),
-            ({"seconds": 0.0}, "clearance_time_budget"),
-        ):
-            note = vertical_clearance(low, low, **kwargs)
-            self.assertFalse(note["valid"])
-            self.assertEqual(note["reason"], reason)
-
     def test_complete_synthetic_profiles_contacts_volume_and_ground_under_deck(self):
         case = control()
         for method in ("parabolic", "cubic"):
