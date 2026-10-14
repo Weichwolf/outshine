@@ -1,3 +1,9 @@
+struct GroundDetail {
+  float AlbedoScale;
+  float RoughnessOffset;
+  float BumpM;
+};
+
 uint groundMaterialRow(int which, uint rows) {
   return which >= 0 && uint(which) < rows ? uint(which) : rows;
 }

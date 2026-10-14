@@ -17,7 +17,9 @@ const float kPi = acos(-1.0);
 #endif
 #include "groundClass.glsl"
 #include "groundMaterial.glsl"
+#include "surfaceNoise.glsl"
 #include "groundRock.glsl"
+#include "groundSubstrate.glsl"
 #include "surfaceGradient.glsl"
 void main() {
   M surface = materialAt();
@@ -35,16 +37,29 @@ void main() {
   float rockWeight = edgeM < kGroundNoEdgeM
       ? mix(groundRockWeight(runnerUp, rows, slopeDeg), groundRockWeight(which, rows, slopeDeg), smoothstep(-acrossM, acrossM, edgeM))
       : groundRockWeight(which, rows, slopeDeg);
-  RockDetail detail = RockDetail(1.0, 0.0, 0.0);
+  GroundDetail detail = GroundDetail(1.0, 0.0, 0.0);
   vec3 worldM = groundWorldM;
   float footprintM = max(length(dFdx(worldM)), length(dFdy(worldM)));
   if (rockWeight > 0.0) {
     detail = rockDetail(worldM, footprintM, rows);
   }
-  float heightM = detail.BumpM * rockWeight;
+  vec2 atM = worldM.xz;
+  float acrossSubstrateM = max(length(dFdx(atM)), length(dFdy(atM)));
+  GroundDetail substrate = GroundDetail(1.0, 0.0, 0.0);
+  if (rockWeight < 1.0) {
+    substrate = substrateDetail(which, atM, acrossSubstrateM, rows);
+    if (edgeM < kGroundNoEdgeM) {
+      GroundDetail other = substrateDetail(runnerUp, atM, acrossSubstrateM, rows);
+      float weight = smoothstep(-acrossM, acrossM, edgeM);
+      substrate = GroundDetail(mix(other.AlbedoScale, substrate.AlbedoScale, weight),
+                               mix(other.RoughnessOffset, substrate.RoughnessOffset, weight),
+                               mix(other.BumpM, substrate.BumpM, weight));
+    }
+  }
+  float heightM = mix(substrate.BumpM, detail.BumpM, rockWeight);
   shadingNormal = bumpNormal(shadingNormal, shadingNormal, dFdx(position), dFdy(position), dFdx(heightM), dFdy(heightM));
-  vec3 albedo = min(wears.rgb * mix(1.0, detail.AlbedoScale, rockWeight), vec3(1.0));
-  float roughness = clamp(wears.a + detail.RoughnessOffset * rockWeight, 0.04, 1.0);
+  vec3 albedo = min(wears.rgb * mix(substrate.AlbedoScale, detail.AlbedoScale, rockWeight), vec3(1.0));
+  float roughness = clamp(wears.a + mix(substrate.RoughnessOffset, detail.RoughnessOffset, rockWeight), 0.04, 1.0);
 #if SUBJECT_BASE_LOCATION > 0
   outputMaterial(albedo, roughness, surface.metalness);
   outputSurface(vec4(0.0), shadingNormal, surface.identity);

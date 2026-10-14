@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 import time
+import xml.etree.ElementTree as ET
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -67,10 +68,9 @@ def grains(at, footprint, recipe, radius=1):
 def picture(at, spacing, recipe, varied):
     if varied:
         scale, rough, bump = detail(at, spacing, recipe)
-        if recipe['name'] == 'gravel':
-            tint, grain_bump = grains(at, spacing, recipe)
-            scale *= tint
-            bump += grain_bump
+        tint, grain_bump = grains(at, spacing, recipe)
+        scale *= tint
+        bump += grain_bump
     else:
         scale = np.ones(at.shape[:-1])
         bump = np.zeros(at.shape[:-1])
@@ -85,10 +85,25 @@ def picture(at, spacing, recipe, varied):
     return Image.fromarray(np.uint8(np.clip(rgb, 0., 1.)*255)), scale, rough
 
 
+def write_controls(output):
+    cases = [('GroundDetail', 1.6, 240., 60.), ('GroundGrains', .2, 240., 60.),
+             ('GroundGrainsZoom', 1.6, 210., 6.)]
+    for name, height, bearing, fov in cases:
+        tree = ET.parse(ROOT/'src/assets/places/Koerbersee.scenario')
+        root = tree.getroot()
+        root.find('world').set('vegetation', 'no')
+        root.find('views/view').set('fovDeg', str(fov))
+        at = root.find('views/view/at')
+        at.set('heightM', str(height)); at.set('samplesHeight', 'yes')
+        at.set('bearingDeg', str(bearing)); at.set('pitchDeg', '-55')
+        tree.write(output/(name+'.scenario'), encoding='unicode')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT/'build/experiments/render/ground-detail')
     args = parser.parse_args(); args.output.mkdir(parents=True, exist_ok=True)
+    write_controls(args.output)
     source = ROOT/'src/assets/world/ground-materials.json'
     recipes = json.loads(source.read_text())['classes']
     spacing = .02
@@ -129,7 +144,7 @@ def main():
     canvas.save(args.output/'substrates.png')
     report = dict(results=results, max_equal_plane_error=error, corner_hashes_per_resolved_sample=8, gravel_extra_hashes=9, gravel_wide_reference_hashes=25, grain_reference_samples=1024,
                   same_cell_max_distance_cells=float(np.sqrt(2.)*.75), outside_stencil_min_distance_cells=1.25,
-                  scope='Metric two-field preview and bounded 3x3-cell gravel relief. Nine extra hashes only for resolved gravel; no leaf-litter shapes. Footprint fade is an approximation, not exact band limiting. No runtime/GPU/BRDF or complete litter-recipe proof.',
+                  scope='Metric two-field preview and bounded 3x3-cell gravel relief. Nine extra hashes only for resolved substrate grains; no leaf-litter shapes. Footprint fade is an approximation, not exact band limiting. No runtime/GPU/BRDF or complete litter-recipe proof.',
                   material_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
                   experiment_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
     (args.output/'comparison.json').write_text(json.dumps(report, indent=2)+'\n')
