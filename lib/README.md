@@ -148,7 +148,10 @@ Der Aufrufer setzt diesen lokalen Ebenenrahmen ausdrücklich in die Welt ein.
 Konkavität und Höfe bleiben erhalten. Rechtecke benötigen keinen Skelettsolver;
 allgemeine Formen verwenden das optionale Extra `pip install -e './lib[roofs]'`.
 SFCGAL wird zuerst geprüft; vereinfacht es ursprüngliche Quellkanten, übernimmt
-der Python-Solver. Beide Ergebnisse müssen dieselben Geometrie-/Quellkantenprüfungen
+der Python-Solver. Für Höfe werden gemessene Skelett-Bisektoren mit den unveränderten
+Quellringen polygonisiert; Trauf-Endpunkte werden innerhalb der bestehenden
+Rundungstoleranz an die ursprünglichen Punkte gebunden. Der direkte Facettenexport
+bleibt für Formen ohne Höfe erhalten. Beide Ergebnisse müssen dieselben Geometrie-/Quellkantenprüfungen
 erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rückfälle.
 `SkeletonLimits` begrenzt Eingaben, Knoten und kooperativ verstrichene Zeit;
 `python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
