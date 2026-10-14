@@ -16,6 +16,7 @@ from building_plan import aperture_fits, build as baseline, edges, entrance, own
 
 MAX_SPACES = 24
 MIN_PRIVATE_AREA_M2 = 5.
+MAX_ROUTING_ATTEMPTS = 12
 
 
 def private_pieces(part):
@@ -33,20 +34,25 @@ def private_pieces(part):
     return rooms, polygons(part.difference(occupied))
 
 
-def route_inputs(interior, core, root, zones):
+def route_inputs(interior, core, root, zones, landing_ports=False):
     inset = interior.difference(core).buffer(-CORRIDOR_ZONE_M/2, join_style='mitre')
     space = next((part for part in polygons(inset) if part.covers(shapely.Point(root))), None)
     if space is None:
         return None, None, None
     candidates = []
-    for a, b in edges(core):
-        tangent = (b-a)/np.linalg.norm(b-a)
+    boundary = edges(core)
+    longest = max(np.linalg.norm(b-a) for a,b in boundary)
+    for a, b in boundary:
+        length = np.linalg.norm(b-a)
+        tangent = (b-a)/length
         normal = np.array([tangent[1], -tangent[0]])
-        centre = (a+b)/2
-        target = centre+normal*(CORRIDOR_ZONE_M/2+.02)
-        connector = rectangle(centre, tangent, CORRIDOR_ZONE_M, CORRIDOR_ZONE_M/2+.12, .05).difference(core)
-        if space.covers(shapely.Point(target)) and connector.difference(interior).area <= 1e-8:
-            candidates.append((np.linalg.norm(target-root), centre.tolist(), target.tolist(), connector))
+        fractions = (CORRIDOR_ZONE_M/(2*length),1-CORRIDOR_ZONE_M/(2*length)) if landing_ports and length==longest else (.5,)
+        for fraction in fractions:
+            centre = a+(b-a)*fraction
+            target = centre+normal*(CORRIDOR_ZONE_M/2+.02)
+            connector = rectangle(centre, tangent, CORRIDOR_ZONE_M, CORRIDOR_ZONE_M/2+.12, .05).difference(core)
+            if space.covers(shapely.Point(target)) and connector.difference(interior).area <= 1e-8:
+                candidates.append((np.linalg.norm(target-root), centre.tolist(), target.tolist(), connector))
     if not candidates:
         return None, None, None
     _, _, core_target, connector = min(candidates, key=lambda row: row[:2])
@@ -131,9 +137,9 @@ def finish(plan, interior, zones, core, corridor, reverse, entry):
     return result, None
 
 
-def attempt(plan, interior, seeds, core, root, entry_local, reverse, entry, method):
+def attempt(plan, interior, seeds, core, root, entry_local, reverse, entry, method, landing_ports=False):
     began = time.perf_counter()
-    space, anchors, connector = route_inputs(interior, core['polygon'], root, seeds)
+    space, anchors, connector = route_inputs(interior, core['polygon'], root, seeds, landing_ports)
     result, routing, reason = None, {}, 'core has no connected common-access approach'
     if space is not None:
         paths, routing = routes(space, anchors, method)
@@ -158,6 +164,41 @@ def attempt(plan, interior, seeds, core, root, entry_local, reverse, entry, meth
     return result, report
 
 
+def seed_partitions(local):
+    sets, signatures, sources = [], [], []
+    for name, procedure in (('strips', strips), ('bsp', bsp)):
+        seeds = procedure(local)[0]
+        signature = tuple(sorted(polygon.normalize().wkb for polygon in seeds))
+        if signature in signatures:
+            sources[signatures.index(signature)].append(name)
+        else:
+            sets.append((name, seeds));signatures.append(signature);sources.append([name])
+    return sets, sources
+
+
+def evaluate_routes(plan, local, cores, root, plug, reverse, entry, seed_sets, require_stairs, reports):
+    candidates = []
+    for seed_method, seeds in seed_sets:
+        if len(seeds) > MAX_ROOMS:
+            continue
+        for index, core in enumerate(cores):
+            for method in ('doglegs', 'orthogonal-grid'):
+                if len(reports) >= MAX_ROUTING_ATTEMPTS:
+                    return candidates
+                landing_ports = seed_method=='open-floor' and require_stairs and plan['storeys']>1
+                candidate, report = attempt(plan, local, seeds, core, root, plug, reverse, entry, method, landing_ports)
+                if candidate is not None and require_stairs and candidate['storeys'] > 1:
+                    from building_stair import connect
+                    candidate, reason = connect(candidate)
+                    if candidate is None:
+                        report.update(valid=False, reason=reason)
+                report.update(core_candidate=index, seed_method=seed_method)
+                reports.append(report)
+                if candidate is not None:
+                    candidates.append((report['score'], index, method, candidate, report, core))
+    return candidates
+
+
 def build(sample, require_stairs=False, body_top_m=None):
     plan = baseline(sample,body_top_m)
     plan.update(circulation_status='unplanned', core_alternatives=[], circulation_alternatives=[])
@@ -171,7 +212,7 @@ def build(sample, require_stairs=False, body_top_m=None):
         return plan
     forward, reverse = frame(interior)
     local = affine_transform(interior, forward)
-    seed_sets = [(name, procedure(local)[0]) for name, procedure in (('strips', strips), ('bsp', bsp))]
+    seed_sets, seed_sources = seed_partitions(local)
     centre = np.asarray(entry['centre'])
     tangent = np.asarray(entry['tangent'])
     normal = np.array([tangent[1], -tangent[0]])
@@ -179,22 +220,12 @@ def build(sample, require_stairs=False, body_top_m=None):
     plug = affine_transform(rectangle(centre, tangent, CORRIDOR_ZONE_M, .10, WALL_M+CORRIDOR_ZONE_M), forward)
     rise = (plan['body_top_m']-plan['base_z_m'])/plan['storeys']
     cores, plan['core_alternatives'] = placements(local, shapely.Point(root), plan['storeys'], rise)
-    candidates, reports = [], []
-    for seed_method, seeds in seed_sets:
-        if len(seeds) > MAX_ROOMS:
-            continue
-        for index, core in enumerate(cores):
-            for method in ('doglegs', 'orthogonal-grid'):
-                candidate, report = attempt(plan, local, seeds, core, root, plug, reverse, entry, method)
-                if candidate is not None and require_stairs and candidate['storeys'] > 1:
-                    from building_stair import connect
-                    candidate, reason = connect(candidate)
-                    if candidate is None:
-                        report.update(valid=False, reason=reason)
-                report.update(core_candidate=index, seed_method=seed_method)
-                reports.append(report)
-                if candidate is not None:
-                    candidates.append((report['score'], index, method, candidate, report, core))
+    reports = []
+    candidates = evaluate_routes(plan, local, cores, root, plug, reverse, entry, seed_sets, require_stairs, reports)
+    if not candidates and len(reports) < MAX_ROUTING_ATTEMPTS:
+        candidates = evaluate_routes(plan, local, cores, root, plug, reverse, entry,
+                                     [('open-floor', [local])], require_stairs, reports)
+    plan['partition_sources'] = seed_sources
     plan['circulation_alternatives'] = reports
     if not candidates:
         plan['omissions'].append('bounded core/corridor alternatives unsuitable; retain the connected baseline rooms')
@@ -203,6 +234,7 @@ def build(sample, require_stairs=False, body_top_m=None):
     result.update(version=2, circulation_status='common-access', method=method,
                   scope='first-storey common access and reserved core; no constructed stairs or use programme',
                   core_alternatives=plan['core_alternatives'], circulation_alternatives=reports,
+                  partition_sources=seed_sources,
                   alternatives=reports, circulation=dict(method=method, private_rooms=len(result['rooms'])-2,
                   corridor_area_m2=result['rooms'][0].area,
                   corridor_fraction=result['rooms'][0].area/interior.area, core_kind=core['kind'],

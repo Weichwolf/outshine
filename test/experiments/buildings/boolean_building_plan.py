@@ -27,7 +27,8 @@ def sources(plan):
                 current['floor_z_m']+window['head_m'])
         if index<plan['storeys']-1 and 'stair' in plan:
             result[prefix+'/stair-opening']=Prism(plan['stair']['opening'],current['ceiling_z_m'],level(plan,index+1)['floor_z_m'])
-    return result
+    return {name:Prism(shapely.set_precision(prism.polygon,0.),prism.low,prism.high)
+            for name,prism in result.items()}
 
 
 def composite(name,prism,owner):

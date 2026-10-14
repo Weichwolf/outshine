@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "inventory": "special-structures-20261014.json",
+  "selection": "Two deterministic source-ID hash samples per height bucket/site; eligibility width>=8m, area70-800m2, <=32 corners, unclipped ordinary building; no successful-result selection",
+  "purpose": "Calibration/regression inputs from the actual preferred provider; no global classification or recipe-family claim",
+  "cases": [
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/25289500/4/270"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/25289500/4/57"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/16961800/9/65"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/23857170/19/87"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/15390470/39/510"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/15390470/39/535"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/1159"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/853"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/1267876600/4/3"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/1281719710/6/12"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/1267876880/11/4"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/1267876880/11/0"
+    }
+  ]
+}

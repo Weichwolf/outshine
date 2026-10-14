@@ -3,6 +3,7 @@ import unittest
 import manifold3d as manifold
 import numpy as np
 import shapely
+from shapely.affinity import translate
 
 from outshine_ref.buildings.modelling import PrismVolume,union_prisms
 
@@ -56,6 +57,19 @@ class PrismUnions(unittest.TestCase):
         for values in [*a.mesh.values(),a.vertex_roots,a.source_indices,a.source_triangles]:
             self.assertFalse(values.flags.writeable)
             with self.assertRaises(ValueError):values.setflags(write=True)
+
+    def test_translated_batches_keep_metric_boundary_and_source_identity(self):
+        shape=shapely.Polygon([(0,0),(3,0),(3,4),(0,4)])
+        expected=union_prisms([PrismVolume('lower',shape,-2,1,4),PrismVolume('upper',shape,1,3,8)])
+        for x,y in ((512.,-256.),(1e6,-2e6)):
+            with self.subTest(origin=(x,y)):
+                moved=translate(shape,xoff=x,yoff=y)
+                result=union_prisms([PrismVolume('lower',moved,-2,1,4),PrismVolume('upper',moved,1,3,8)])
+                closed(result)
+                self.assertEqual(result.source_ids,expected.source_ids)
+                np.testing.assert_array_equal(result.mesh['vertices']-[x,y,0],expected.mesh['vertices'])
+                for name in ('faces','materials'):np.testing.assert_array_equal(result.mesh[name],expected.mesh[name])
+                for name in ('vertex_roots','source_indices','source_triangles'):np.testing.assert_array_equal(getattr(result,name),getattr(expected,name))
 
     def test_invalid_shapes_heights_and_materials_fail_before_generation(self):
         for shape in (None,shapely.LineString([(0,0),(1,1)]),shapely.Polygon([(0,0,1),(1,0,1),(0,1,1)])):
