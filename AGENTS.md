@@ -32,7 +32,8 @@
   Nachrichten beginnen mit `[Absenderbranch → Zielbranches]` (`master`, `transport`, `buildings`,
   `vegetation`): Fach-Issue/PR-Link und konkrete Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen.
   Ein kurzes Fach-Issue besitzt genau einen abgrenzbaren Vertrag, Fehler oder Entscheidungsbedarf;
-  Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR,
+  Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR
+  oder bei direkter Master-Lieferung beim verlinkten Commit im Fach-Issue;
   ausführliche Berichte in verlinkten Artefakten. Jede Aussage hat einen Ort; andere Stellen verlinken sie.
   Antworten bleiben bei der Fachfrage. Zuständige Branches antworten ausdrücklich; Schweigen ist keine Zustimmung.
   Ich lese repositoryweit nur neue oder bearbeitete Kommentare seit meinem lokalen Abrufmarker;
