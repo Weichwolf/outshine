@@ -1,0 +1,169 @@
+{
+  "version": "leaf-optics-provenance-1",
+  "table": "leaf-optics-table-1.json",
+  "sha256": "55be125973ee8c2f6558b4c1ff33aff97db723d7dca051f1f2108305aa00ea79",
+  "shape": [
+    33,
+    33,
+    6
+  ],
+  "dtype": "float64",
+  "payload_bytes": 52272,
+  "created_at": "2026-10-14",
+  "reference_model": "PROSPECT-D; spectral integration to linear sRGB",
+  "fixed_parameters": {
+    "n": 1.3,
+    "car": 10.0,
+    "cbrown": 0.0,
+    "cw": 0.012,
+    "cm": 0.01,
+    "alpha": 40.0
+  },
+  "parameter_units": {
+    "n": "dimensionless leaf structure parameter, not IOR",
+    "car": "ug/cm2",
+    "cbrown": "dimensionless",
+    "cw": "cm",
+    "cm": "g/cm2",
+    "alpha": "degrees"
+  },
+  "spectral_range_nm": [
+    400,
+    780
+  ],
+  "wavelength_step_nm": 1,
+  "observer": "CIE 1931 2 degree",
+  "illuminant": "D65",
+  "pigment_axis_order": [
+    "chlorophyll",
+    "anthocyanin"
+  ],
+  "pigment_units": "ug/cm2",
+  "grid": "uniform log1p pigment axes; bilinear interpolation of raw values",
+  "resolve": "gamut_map after interpolation, with shared R/T luminance preservation and max(R)+max(T)<=1; no preview mixing",
+  "runtime_illumination_baked": false,
+  "symmetrical_leaf_sides": true,
+  "species_calibrated": false,
+  "dependency_versions": {
+    "prosail": "2.0.5",
+    "colour-science": "0.4.7",
+    "numpy": "2.5.4"
+  },
+  "producer_sha256": {
+    "test/experiments/vegetation/leaf_pigment_optics.py": "98dd7c1d25b8319e514b678f8b34e90243964ee17ff97d94d0c758db096f40ac",
+    "test/experiments/vegetation/leaf_library_experiment.py": "a8bb5c7ef3d757e1a6a25cf60f783e2be6e6ad85a404f5489b6bc5f17a19e49c"
+  },
+  "validation": {
+    "pigments_ug_cm2": [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        45.0,
+        0.2
+      ],
+      [
+        8.0,
+        0.2
+      ],
+      [
+        10.0,
+        8.0
+      ],
+      [
+        80.0,
+        10.0
+      ]
+    ],
+    "direct_spectral_raw_rt": [
+      [
+        0.525207765217866,
+        0.2526732261056617,
+        0.014725108892860432,
+        0.6407390203078105,
+        0.30876580780647284,
+        -0.016163802282921393
+      ],
+      [
+        0.0526547500871907,
+        0.09477773171429493,
+        0.035352467990998025,
+        0.05960149787240697,
+        0.11907362325088792,
+        -0.010766362327296296
+      ],
+      [
+        0.2592397444733436,
+        0.18949435628111833,
+        0.023605865348553773,
+        0.34574354773253785,
+        0.2385649262092935,
+        -0.014426737560102858
+      ],
+      [
+        0.16884692394618311,
+        0.07618963547555742,
+        0.03580425262294768,
+        0.24156375651323594,
+        0.08932830603172424,
+        -0.004790826131222022
+      ],
+      [
+        0.03702299155555135,
+        0.045402670331486136,
+        0.04063491701410023,
+        0.01600141307906433,
+        0.029324959272408736,
+        -0.002972514226110673
+      ]
+    ],
+    "direct_spectral_resolved_rt": [
+      [
+        0.4507596359977286,
+        0.2657660892498146,
+        0.10424943786104665,
+        0.5492403640022715,
+        0.32390047788736964,
+        0.10334171418107052
+      ],
+      [
+        0.05553822786603778,
+        0.09345508948113701,
+        0.03996363626484378,
+        0.06334139498866759,
+        0.11687503056779536,
+        0.0
+      ],
+      [
+        0.2554920650927983,
+        0.1896540638743378,
+        0.03305924160386342,
+        0.33999225320239157,
+        0.2388181627379144,
+        0.0
+      ],
+      [
+        0.16580988619693404,
+        0.07686141812641215,
+        0.03809255281130024,
+        0.23649367567370755,
+        0.09035179811758765,
+        0.0
+      ],
+      [
+        0.037708130720387124,
+        0.045169786970263685,
+        0.040924357367316436,
+        0.01689526854751891,
+        0.02875917459718693,
+        0.0
+      ]
+    ],
+    "max_table_error": 9.436006200130853e-05,
+    "max_abs_error_allowed": 0.0003
+  },
+  "source_core_commit": "70d73f8f2",
+  "source_merge_commit": "43a7c5fc3ea390a55d6ff01b6b6fd00ec93b6cf1",
+  "reference": "https://doi.org/10.1016/j.rse.2017.03.004"
+}
