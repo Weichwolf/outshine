@@ -449,3 +449,26 @@ bounds consume the spatial guide. Circular guide arrays remain unchanged.
 `ArcMeasure.fraction` now returns exact 0/1 at both endpoints to prevent
 roundoff from producing an out-of-domain coordinate. Proof and limits:
 [#103](https://github.com/Weichwolf/outshine/issues/103).
+
+`GrowthSpine(length, fields, initial_direction)` prepares a complete spatial axis
+from local geometric growth influences. `DirectionField` and softened
+`AttractionField` carry immutable rate profiles in m⁻¹; optional `RadialFalloff`
+uses linear, squared or step attenuation in metres. Raw directions survive JSON
+replay; normalization belongs to their prepared values. World influences must
+first be expressed in the chosen local axis frame.
+
+The own tropism model integrates P′=T and T′=F−(F·T)T. Constant direction has an
+analytic tangent and bounded Gauss integration; other fields default to RK45.
+DOP853 is an independent comparison. Prepared scalar callbacks avoid repeated
+small NumPy operations; public batch fields provide the reference evaluation.
+This controls growth shape and does not implement elastic weight/stiffness.
+
+`prepare(stations=33, max_evaluations=4096)` returns `GrowthResult` with a C1
+`CubicSpine`, method/work counters and measured approximation errors. Lengths
+are 1 µm–1000 m, at most 16 fields and 65 stations, length × rate bound ≤16.
+Insufficient work budget or unresolved station detail returns `None`.
+Four samples per interval check position error ≤5×10⁻⁶ length and tangent error
+≤2×10⁻⁴ rad against integration samples. These are sampled comparisons, not
+global bounds between probes. `growth-spine-1` records the full authoring recipe;
+cache the prepared spine and complete mesh/material products for solver-free
+detail/replay. Contract, reference and costs: [#105](https://github.com/Weichwolf/outshine/issues/105).

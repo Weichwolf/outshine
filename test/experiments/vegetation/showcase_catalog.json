@@ -1,7 +1,37 @@
 {
-  "current_work": "Frondflächen und Mittelrippen folgen jetzt freien räumlichen Achsen mit transportierten Rahmen. Lokale Fiederform, Profile und Roll bleiben kohärent; direkte Nah-/Grobprodukte teilen Plan und Anker. Grundfunktionen geprüft, natürliche Artenrezepte, vollständige Kräfte-/Windfunktionen und Wald-LOD weiter offen.",
+  "current_work": "Wuchsachsen entstehen jetzt aus gerichteten Profilen und lokaler Punktanziehung. Vollständige vorbereitete Kurven führen Fiedern und Mittelrippe; direkte Nah-/Grobprodukte brauchen keine Kraftneuintegration. Allgemeine Formsteuerung geprüft, natürliche Artenrezepte, übrige Force-/Windfunktionen und Wald-LOD offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/growth-forces.png",
+      "title": "Wachstumsfelder · neutral, Richtung, Profile, Anziehung",
+      "label": "Eigene Wuchssteuerung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Vier eigene Funktionsproben mit gleicher lokaler Fiederform: neutrale Achse, gerichtete Biegung, wechselnde Profile mit Rückkehr und lokale Punktanziehung. Mittelrippe und Fiedern folgen derselben erzeugten Kurve.",
+      "quality": "2560×1440; geometrische Tropismen. Mechanisches Gewicht/Steifheit, vollständige SpeedTree-Forces und botanische Artenrezepte bleiben offen.",
+      "scenario": "build/experiments/vegetation/growth-force/growth-forces.json"
+    },
+    {
+      "image": "render/growth-force-detail.png",
+      "title": "Punktanziehung · erzeugte Achse und Fiederform",
+      "label": "Eigene Wuchssteuerung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-0",
+      "description": "Weich regulierte lokale Anziehung mit radialer Abschwächung und Richtungsbeitrag. Vorbereitete Kurve statt frei gezeichneter Kontrollen; prozedurale Blatt-/Rindenmaterialien.",
+      "quality": "2560×1440; geometrische Tropismen. Mechanisches Gewicht/Steifheit, vollständige SpeedTree-Forces und botanische Artenrezepte bleiben offen.",
+      "scenario": "build/experiments/vegetation/growth-force/growth-force-detail.json"
+    },
+    {
+      "image": "render/growth-force-coarse.png",
+      "title": "Wachstumsplan · direktes Grobprodukt",
+      "label": "Eigene Wuchssteuerung · allgemeine Funktionsprobe",
+      "category": "frond",
+      "lod": "lod-1",
+      "description": "Gleicher vorbereiteter Plan und Kamera wie Nahansicht. Quelle direkt mit 12×1 statt 48×4 Blattunterteilungen; keine Kraftneuintegration, gemeinsame Anker und Punkte.",
+      "quality": "2560×1440; geometrische Tropismen. Mechanisches Gewicht/Steifheit, vollständige SpeedTree-Forces und botanische Artenrezepte bleiben offen.",
+      "scenario": "build/experiments/vegetation/growth-force/growth-force-coarse.json"
+    },
     {
       "image": "render/spatial-fronds.png",
       "title": "Freie Frondachsen · planar, räumlich, wendend",
@@ -681,7 +711,8 @@
     "frame_cost_plot": "lod-1",
     "frond_library_plot": "lod-0",
     "leaflet_shape_plot": "lod-0",
-    "spatial_frond_plot": "lod-0"
+    "spatial_frond_plot": "lod-0",
+    "growth_force_plot": "lod-0"
   },
   "genera": [
     {
