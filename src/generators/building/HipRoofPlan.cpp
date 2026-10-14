@@ -1,4 +1,5 @@
 #include "HipRoofPlan.h"
+#include "PolygonTriangulation.h"
 
 #include <SFCGAL/capi/sfcgal_c.h>
 #include <algorithm>
@@ -244,6 +245,16 @@ std::optional<std::vector<HipRoofPlan::Facet>> RectangleFacets(const Input &inpu
 std::expected<std::vector<HipRoofPlan::Facet>, HipRoofError>
 PrepareFacets(const Input &input, HipRoofPlan::Limits limits) {
   if (auto rectangle = RectangleFacets(input)) { return std::move(*rectangle); }
+  std::vector<PolygonRing> rings;
+  for (const auto &edge : input.Edges) {
+    if (edge.Number == 0) { rings.emplace_back(); }
+    rings.back().push_back({edge.From.EastM, edge.From.NorthM});
+  }
+  constexpr double kMinimumRoofClearanceM = 1e-6;
+  const auto clearance = PolygonMinimumClearance(rings);
+  if (!clearance || *clearance < kMinimumRoofClearanceM) {
+    return std::unexpected(HipRoofError::InsufficientClearance);
+  }
   const OwnedGeometry partition(
       sfcgal_geometry_straight_skeleton_partition(input.Polygon.get(), true),
       &sfcgal_geometry_delete);

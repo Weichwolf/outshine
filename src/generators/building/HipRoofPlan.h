@@ -11,7 +11,13 @@
 
 namespace outshine::Generators {
 
-enum class HipRoofError { InvalidInput, CapacityExceeded, PartitionFailed, InvalidFacet };
+enum class HipRoofError {
+  InvalidInput,
+  CapacityExceeded,
+  PartitionFailed,
+  InvalidFacet,
+  InsufficientClearance
+};
 
 class HipRoofPlan {
 public:
