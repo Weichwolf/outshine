@@ -27,8 +27,9 @@ from verify_boolean_attributes import authored,check,COLOURS
 from verify_boolean_surfaces import Prism,check_uv,measure,reference
 
 
-def render_product(output,provenance,stem,title,first,second,operation,expected):
+def render_product(output,provenance,stem,title,first,second,operation,expected,*,transform=None):
     product=boolean(authored(first,0),authored(second,1),operation)
+    if transform is not None:product=transform(product)
     actual=measure(product);np.testing.assert_allclose(actual,expected,atol=1e-7,rtol=1e-9)
     check_uv(product);bound=bind_attributes(product);check(product,bound)
     mesh=engine_mesh(product.mesh);mesh['materials']=bound.materials+np.uint16(13)
