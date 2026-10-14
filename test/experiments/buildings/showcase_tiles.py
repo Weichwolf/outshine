@@ -33,8 +33,8 @@ def camera(points):
     return View(target+direction*(required.max()+10.),target,width=2560,height=1440,fov_deg=48.)
 
 
-def render(site,output,provenance,spp):
-    start=time.perf_counter();rows,receipt=read_tile(site);boxes=[]
+def view_for(rows):
+    boxes=[]
     for row in rows:
         if row['layer']!='building' or hidden(row['properties']):continue
         low=number(row['properties'].get('render_min_height',0.));high=number(row['properties'].get('render_height',9.))
@@ -50,7 +50,11 @@ def render(site,output,provenance,spp):
         centres=max(cells.values(),key=len)
         focus=shapely.Point(np.mean([[p.x,p.y] for p in centres],axis=0))
     selected=[points for row,high,points in boxes if row['polygon'].distance(focus)<150.]
-    view=camera(np.concatenate([np.asarray(p) for p in selected]))
+    return camera(np.concatenate([np.asarray(p) for p in selected]))
+
+
+def render(site,output,provenance,spp):
+    start=time.perf_counter();rows,receipt=read_tile(site);view=view_for(rows)
     projection=math.sqrt(1+(view.width/(2*view.focal_px))**2+(view.height/(2*view.focal_px))**2)
     def error_for(row,parameters):
         x0,y0,x1,y1=row['polygon'].bounds
@@ -78,7 +82,7 @@ def render(site,output,provenance,spp):
         detail_policy='Source envelopes before emission; front-facing radial deviation <=0.5 projected pixel by minimum-depth bound; behind-camera complete profiles use 0.25 m',
         camera_scope='Near view of complete generated tile; source content is not cropped or culled before emission',
         image_sha256=hashlib.sha256(image.read_bytes()).hexdigest(),completed_recipe_families=0,
-        limits='Complete near-control structures and radial prototypes, other normal buildings remain prisms. General functional architecture families, terrain/transport/vegetation and native LOD/frame/device admission incomplete.')
+        limits='Complete generic near-control roof/room structures, small roof envelopes and radial prototypes; remaining ordinary bodies are source prisms. General functional architecture families, terrain/transport/vegetation and native LOD/frame/device admission incomplete.')
     name=stem+'-report.json';(output/name).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(dict(site=site,generated=source['generated'],triangles=len(mesh['faces']),status='pass')),flush=True)
     return name

@@ -707,3 +707,29 @@ invalid channel bindings and unsupported fields reject. Domain overlap tolerance
 is 1e-8 m²; boundary residual tolerance is 1e-8 m, checked in a local XY frame.
 [#152](https://github.com/Weichwolf/outshine/issues/152) owns actual provider roof
 controls, independent closed composition/height slices and build-cost comparison.
+
+## Prism openings in closed surfaces
+
+`subtract_prisms(surface_id, surface, sources, max_triangles=262144)` subtracts
+the union of declared `PrismVolume` cutters from a closed ENU mesh with explicit
+`vertex_roots`. It works with `HeightfieldEnvelope`, preserving a sloped roof
+while cutting actual rooms, doorways and windows below it. Coordinates are
+encoded in a local XY frame; exact topology roots remain separate from position
+welding.
+
+Immutable `PrismCut` holds the corner mesh, topology roots, ordered source IDs,
+source index and original triangle per output face, omissions, volume and area.
+Source zero is the original surface. Original UV0–9 interpolate across source
+triangles; cutter UVs are explicit zeros, cutter materials follow their declared
+volume and normals are rebuilt from actual output triangles. Empty cutters are
+reported; complete erasure returns an empty mesh. Stable source relations are
+independent of backend ID allocation.
+
+Groups, CGA tags/resources, authored normals and recursive Shape Boolean
+semantics remain outside this primitive. Unknown property fields reject;
+documented face metadata is not inherited implicitly. Input/output cardinality
+checks do not prove a backend time or memory bound. The optional `solids` extra
+provides Manifold3D. [#156](https://github.com/Weichwolf/outshine/issues/156)
+owns independent structure/slice, real opening/actor and source/wheel checks;
+general CGA Boolean conformance remains
+[#88](https://github.com/Weichwolf/outshine/issues/88).

@@ -284,3 +284,34 @@ The public page continues to show exactly four complete source scenes.
 .venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py
 .venv/bin/python test/experiments/buildings/roof_envelope_plan.py
 ```
+
+## Rooms below small source roofs
+
+`pitched_room_details.py` uses the same stable roof choice before planning
+storeys below the eave. It cuts declared room/door/window prisms from the closed
+roof envelope through `subtract_prisms`, then reuses the existing panes,
+metrical frames, entry landings and stairs. The complete source height, roof
+domain and logical room/opening IDs remain; attic space is currently unfitted.
+Failed room plans retain the complete roof envelope with a reason.
+
+The tile experiment adds at most sixteen visible small-body controls per tile,
+using the same industrial classification as the whole source builder. This is
+a prototype sampling bound, not an engine quota or native LOD admission.
+The larger established room controls remain unchanged. The private verifier
+checks analytical lower structure plus original upper triangles/boundary
+segments, independent body/roof composition, every planned height slab,
+actual window rays to their declared rooms, frames/panes, and the unchanged
+0.30 m radius/1.90 m height actor. Sealed entrances/windows and missing floors
+must fail. Invalid independent compositions retain their full rejection.
+
+All source and installed-wheel tests stay independent from native cache,
+controller, frame and device gates. The public page keeps exactly four current
+whole source scenes; close views of these scenes do not fit every source body
+on screen. [#156](https://github.com/Weichwolf/outshine/issues/156) owns this
+roof/room connection; general use programmes and architecture families remain
+in #31/#32, general Shape Boolean semantics in #88.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_pitched_rooms.py
+.venv/bin/python test/experiments/buildings/pitched_room_plan.py
+```
