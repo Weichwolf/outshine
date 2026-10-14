@@ -241,6 +241,10 @@ def validate(local, nodes, distances, faces, owners):
 
 
 def native_data(local, rings, boundaries, limits):
+    if local.interiors:
+        from .skeleton_graph import graph_data
+        data, _ = graph_data(local, rings, limits.nodes)
+        return data, face_boundaries(data[0], data[2], boundaries)
     from .skeleton_native import partition
     nodes, faces = partition(local, rings, limits.nodes)
     owners = face_boundaries(nodes, faces, boundaries); incident = [[] for _ in nodes]
