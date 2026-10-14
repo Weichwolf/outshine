@@ -17,7 +17,7 @@ import shapely
 from demand import View
 from evidence import revision
 from tile_buildings import SITES,construct,read_tile
-from tile_room_details import RoomDetails
+from tile_roof_envelopes import OrdinaryDetails
 from provider_contract import number,hidden
 
 
@@ -57,9 +57,10 @@ def render(site,output,provenance,spp):
         points=np.array([(x,y,z) for x in (x0,x1) for y in (y0,y1) for z in (parameters['minHeight'],parameters['buildingHeight'])])
         depth=float(np.min((points-view.eye)@view.basis[2]))
         return .5*depth/(view.focal_px*projection+.5) if depth>0 else .25
-    rooms=RoomDetails(rows,view)
+    rooms=OrdinaryDetails(rows,view)
     mesh,source=construct(site,error_m=error_for,prepared=(rows,receipt),ordinary_builder=rooms);stem='current-tile-'+site.lower()
-    source['room_detail']=rooms.report()
+    source['room_detail']=rooms.rooms.report()
+    source['roof_envelopes']=rooms.report()
     path=output/(stem+'-mesh.npz');np.savez_compressed(path,**mesh)
     config=dict(profile=[2560,1440],mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         eye=view.eye.tolist(),target=view.target.tolist(),fov_deg=view.fov_deg,wall_linear=[.68,.67,.64],roof_linear=[.22,.24,.25],
@@ -72,7 +73,7 @@ def render(site,output,provenance,spp):
     image=output/(stem+'.png');renderer=json.loads(image.with_suffix('.renderer.json').read_text())
     if renderer['included_source_triangles']!=len(mesh['faces']):raise ValueError('Whole-tile renderer omitted triangles')
     report=provenance|dict(representation='showcase-current',view='tile',page='tile',title=TITLES[site],profile=[2560,1440],
-        caption='Vollständige Kachelszene mit Sonderformen und begrenzten echten Raum-/Fassadenkontrollen. Übrige Gebäude zeigen ihre Grundvolumen.',
+        caption='Vollständige Kachelszene mit Dachhüllen kleiner Körper, Sonderformen und begrenzten echten Raum-/Fassadenkontrollen. Weitere Architekturprogramme bleiben offen.',
         renderer=renderer,source=source,triangles=len(mesh['faces']),build_seconds=time.perf_counter()-start,
         detail_policy='Source envelopes before emission; front-facing radial deviation <=0.5 projected pixel by minimum-depth bound; behind-camera complete profiles use 0.25 m',
         camera_scope='Near view of complete generated tile; source content is not cropped or culled before emission',
