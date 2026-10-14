@@ -21,6 +21,7 @@ const float kPi = acos(-1.0);
 #include "groundRock.glsl"
 #include "groundSubstrate.glsl"
 #include "surfaceGradient.glsl"
+#include "surfaceBlend.glsl"
 void main() {
   M surface = materialAt();
   vec3 shadingNormal = facing(normal, gl_FrontFacing);
@@ -37,7 +38,7 @@ void main() {
   float rockWeight = edgeM < kGroundNoEdgeM
       ? mix(groundRockWeight(runnerUp, rows, slopeDeg), groundRockWeight(which, rows, slopeDeg), smoothstep(-acrossM, acrossM, edgeM))
       : groundRockWeight(which, rows, slopeDeg);
-  GroundDetail detail = GroundDetail(1.0, 0.0, 0.0, vec2(0.0));
+  GroundDetail detail = GroundDetail(1.0, 0.0, vec2(0.0));
   vec3 worldM = groundWorldM;
   vec3 worldDx = dFdx(worldM);
   vec3 worldDy = dFdy(worldM);
@@ -48,9 +49,7 @@ void main() {
   vec2 atM = worldM.xz;
   float acrossSubstrateM = max(length(worldDx.xz), length(worldDy.xz));
   float classWeight = smoothstep(-acrossM, acrossM, edgeM);
-  vec2 classDxDy = vec2(dFdx(classWeight), dFdy(classWeight));
-  vec2 rockDxDy = vec2(dFdx(rockWeight), dFdy(rockWeight));
-  GroundDetail substrate = GroundDetail(1.0, 0.0, 0.0, vec2(0.0));
+  GroundDetail substrate = GroundDetail(1.0, 0.0, vec2(0.0));
   if (rockWeight < 1.0) {
     substrate = substrateDetail(which, atM, worldDx.xz, worldDy.xz, acrossSubstrateM, rows);
     if (edgeM < kGroundNoEdgeM) {
@@ -58,18 +57,10 @@ void main() {
       float weight = classWeight;
       substrate = GroundDetail(mix(other.AlbedoScale, substrate.AlbedoScale, weight),
                                mix(other.RoughnessOffset, substrate.RoughnessOffset, weight),
-                               mix(other.BumpM, substrate.BumpM, weight),
-                               mix(other.BumpDxDy, substrate.BumpDxDy, weight) +
-                                (substrate.BumpM - other.BumpM) * classDxDy);
+                               blendBumpDerivatives(other.BumpDxDy, substrate.BumpDxDy, weight));
     }
   }
-  vec2 heightDxDy = mix(substrate.BumpDxDy, detail.BumpDxDy, rockWeight) +
-                    (detail.BumpM - substrate.BumpM) * rockDxDy;
-  vec2 selection = vec2(float(which), float(runnerUp));
-  float selectionChange = dot(abs(dFdx(selection)) + abs(dFdy(selection)), vec2(1.0));
-  float heightM = mix(substrate.BumpM, detail.BumpM, rockWeight);
-  vec2 boundaryDxDy = vec2(dFdx(heightM), dFdy(heightM));
-  heightDxDy = selectionChange > 0.0 ? boundaryDxDy : heightDxDy;
+  vec2 heightDxDy = blendBumpDerivatives(substrate.BumpDxDy, detail.BumpDxDy, rockWeight);
   shadingNormal = bumpNormal(shadingNormal, shadingNormal, dFdx(position), dFdy(position), heightDxDy.x, heightDxDy.y);
   vec3 albedo = min(wears.rgb * mix(substrate.AlbedoScale, detail.AlbedoScale, rockWeight), vec3(1.0));
   float roughness = clamp(wears.a + mix(substrate.RoughnessOffset, detail.RoughnessOffset, rockWeight), 0.04, 1.0);

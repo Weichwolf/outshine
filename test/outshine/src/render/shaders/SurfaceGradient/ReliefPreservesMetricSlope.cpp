@@ -1,4 +1,5 @@
 #include "Check.h"
+#include <math/Vec2.h>
 #include <math/Vec3.h>
 #include <algorithm>
 #include <cmath>
@@ -6,6 +7,7 @@
 namespace {
 
 using vec3 = outshine::Vec3f;
+using vec2 = outshine::Vec2f;
 using std::abs;
 using std::max;
 
@@ -43,6 +45,7 @@ vec3 normalize(vec3 value) {
 }
 
 #include "src/render/shaders/surfaceGradient.glsl"
+#include "src/render/shaders/surfaceBlend.glsl"
 
 void SameNormal(vec3 actual, vec3 expected) {
   for (size_t axis = 0; axis < 3; ++axis) {
@@ -80,5 +83,12 @@ int main() {
   SameNormal(bumpNormal(n, n, dx, dy, 0.0f, 0.0f), n);
   const vec3 mapped = normalize({{-0.1f, 1.0f, -0.02f}});
   SameNormal(bumpNormal(n, mapped, dx, dy, 0.205f, -0.33f), normalize({{-0.22f, 1.0f, 0.05f}}));
+  for (const float weight : {0.0f, .25f, .5f, .75f, 1.0f}) {
+    const auto flat = blendBumpDerivatives({}, {}, weight);
+    SameNormal(bumpNormal(n, n, dx, dy, flat[0], flat[1]), n);
+    const auto combined = blendBumpDerivatives({{.205f, -.33f}}, {{-.03f, .34f}}, weight);
+    const vec3 slope{{-.12f * (1 - weight) + .04f * weight, 1, .07f * (1 - weight) - .1f * weight}};
+    SameNormal(bumpNormal(n, n, dx, dy, combined[0], combined[1]), normalize(slope));
+  }
   return Report();
 }

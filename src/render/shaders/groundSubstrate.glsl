@@ -6,8 +6,8 @@ vec3 substrateFiltered(vec2 atM, float footprintM, float wavelengthM) {
   return vec3(field.xy / wavelengthM, field.z - 0.5) * visibility;
 }
 
-vec4 substrateGrains(vec2 atM, float footprintM, float grainM, float heightM) {
-  if (grainM <= 0.0 || heightM <= 0.0 || footprintM >= grainM * 0.8) { return vec4(1.0, 0.0, 0.0, 0.0); }
+vec3 substrateGrains(vec2 atM, float footprintM, float grainM, float heightM) {
+  if (grainM <= 0.0 || heightM <= 0.0 || footprintM >= grainM * 0.8) { return vec3(1.0, 0.0, 0.0); }
   float visibility = 1.0 - smoothstep(0.25, 0.8, footprintM / grainM);
   vec2 point = atM / grainM;
   ivec2 cell = ivec2(floor(point));
@@ -31,7 +31,7 @@ vec4 substrateGrains(vec2 atM, float footprintM, float grainM, float heightM) {
   float radius = sqrt(nearest);
   float relief = max(1.0 - radius, 0.0);
   float slope = radius > 0.0 ? 2.0 * heightM * visibility * relief / (grainM * radius) : 0.0;
-  return vec4(1.0 + 0.35 * visibility * tint, heightM * visibility * relief * relief,
+  return vec3(1.0 + 0.35 * visibility * tint,
               nearestOffset * slope);
 }
 
@@ -43,15 +43,15 @@ GroundDetail substrateDetail(int which, vec2 atM, vec2 worldDx, vec2 worldDy, fl
   float grainM = groundPalette[at];
   float largestM = max(max(coarseM, fineM), grainM);
   if (coarseM <= 0.0 || fineM <= 0.0 || footprintM >= largestM * 0.8) {
-    return GroundDetail(1.0, 0.0, 0.0, vec2(0.0));
+    return GroundDetail(1.0, 0.0, vec2(0.0));
   }
   float heightM = groundPalette[at + 1u];
   float contrast = clamp(groundPalette[at + 4u], 0.0, 1.0);
   float coarse = substrateFiltered(atM, footprintM, coarseM).z;
   vec3 fine = substrateFiltered(atM, footprintM, fineM);
-  vec4 grain = substrateGrains(atM, footprintM, grainM, heightM);
-  vec2 gradient = heightM * fine.xy + grain.zw;
+  vec3 grain = substrateGrains(atM, footprintM, grainM, heightM);
+  vec2 gradient = heightM * fine.xy + grain.yz;
   return GroundDetail((1.0 + contrast * (0.7 * coarse + 0.3 * fine.z)) * grain.x,
-                      0.06 * coarse + 0.04 * fine.z, heightM * fine.z + grain.y,
+                      0.06 * coarse + 0.04 * fine.z,
                        vec2(dot(gradient, worldDx), dot(gradient, worldDy)));
 }

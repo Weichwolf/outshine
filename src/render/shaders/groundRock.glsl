@@ -15,10 +15,10 @@ GroundDetail rockDetail(vec3 worldM, vec3 worldDx, vec3 worldDy, float footprint
   float coarseM = groundPalette[at + 2u];
   float fineM = groundPalette[at + 3u];
   float contrast = clamp(groundPalette[at + 4u], 0.0, 1.0);
-  if (coarseM <= 0.0 || fineM <= 0.0) { return GroundDetail(1.0, 0.0, 0.0, vec2(0.0)); }
+  if (coarseM <= 0.0 || fineM <= 0.0) { return GroundDetail(1.0, 0.0, vec2(0.0)); }
   float macroM = coarseM * 12.0;
   if (footprintM >= max(macroM, fineM) * 0.8) {
-    return GroundDetail(1.0, 0.0, 0.0, vec2(0.0));
+    return GroundDetail(1.0, 0.0, vec2(0.0));
   }
   float macroVisibility = 1.0 - smoothstep(0.25, 0.8, footprintM / macroM);
   float coarseVisibility = 1.0 - smoothstep(0.25, 0.8, footprintM * 1.04 / coarseM);
@@ -40,7 +40,6 @@ GroundDetail rockDetail(vec3 worldM, vec3 worldDx, vec3 worldDy, float footprint
   float coarseHeight = min(coarseM * 0.04, 0.4);
   vec2 macroRelief = rockCrevice(macroField.w - 0.5, footprintM, macroM);
   vec2 coarseRelief = rockCrevice(coarseField.w - 0.5, footprintM * 1.04, coarseM);
-  float bumpM = macroHeight * macroRelief.x + coarseHeight * coarseRelief.x + heightAmplitudeM * fine;
   vec3 coarseGradient = (coarseField.x * vec3(0.12, 1.0, 0.08) +
                         vec3(coarseField.y * 0.125, 0.0, coarseField.z * 0.125)) / coarseM;
   vec3 fineGradient = fineField.x * vec3(0.94, 0.04, 0.34) +
@@ -49,6 +48,6 @@ GroundDetail rockDetail(vec3 worldM, vec3 worldDx, vec3 worldDy, float footprint
   vec3 gradient = macroHeight * macroRelief.y * macroField.xyz / macroM +
                   coarseHeight * coarseRelief.y * coarseGradient +
                   heightAmplitudeM * fineGradient;
-  return GroundDetail(albedoScale, roughnessOffset, bumpM,
+  return GroundDetail(albedoScale, roughnessOffset,
                        vec2(dot(gradient, worldDx), dot(gradient, worldDy)));
 }
