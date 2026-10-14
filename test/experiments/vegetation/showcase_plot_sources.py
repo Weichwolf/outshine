@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "plant-library/plant-library.json",
+        "plant_library_plot",
+        "Vollständiger Pflanzenplan · Bedarf und geteilte Daten",
+        "Drei Seeds, je 64 Achsen/571 Blätter; alte und neue kanonische Arrays/IDs/Rezepte sowie je 128 Nah-/Grobmeshes exakt. Fünf abwechselnde CPU-Läufe, frischer Gesamtaufbau, frische Teilanfrage und warmer Treffer getrennt. Die Bibliothek sichert geteilte Daten und Eingaben, kostet beim Aufbau mehr. Keine native Frame-/Gerätefreigabe; vollständige Cacheprodukte separat mit verbotenen Generatoraufrufen erneut geladen.",
+    ),
+    (
         "fins/fins.json",
         "fin_plot",
         "Rindenfortsätze · Differentialnormalen und gemeinsame Ansatzpunkte",
