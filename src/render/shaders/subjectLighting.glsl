@@ -1,4 +1,5 @@
 #include "shadowFilter.glsl"
+#include "thinSheet.glsl"
 
 float sunShadowVisibility(sampler2D map, vec2 uv, float receiverDepth, vec2 receiverSlope,
                           vec4 atlas) {
@@ -65,6 +66,7 @@ vec3 shadeRow(M surface,
 
   if (!(iridescenceThickness > 0.0)) { iridescence = 0.0; }
   vec3 v = normalize(lights.viewPosition.xyz - p * lights.viewPosition.w);
+  bool thinSheet = surface.scattering > 0.5;
   float a = roughness * roughness;
   float a2 = a * a;
   vec3 diffuseColour = albedo * (1.0 - metalness) * (1.0 - surface.transmission);
@@ -73,10 +75,10 @@ vec3 shadeRow(M surface,
   float f90 = mix(dielectricF90, 1.0, metalness);
   float nv = max(dot(n, v), 1.0e-6);
 
-  vec3 energyScale = ggxEnergyScale(f0, roughness, nv);
+  vec3 energyScale = thinSheet ? vec3(0.0) : ggxEnergyScale(f0, roughness, nv);
 
   float anisoLen = length(tangentDir);
-  bool anisotropic = anisotropy > 0.0 && anisoLen > 0.0;
+  bool anisotropic = !thinSheet && anisotropy > 0.0 && anisoLen > 0.0;
   vec3 anisoT = vec3(1.0, 0.0, 0.0);
   vec3 anisoB = vec3(0.0, 1.0, 0.0);
   if (anisotropic) {
@@ -116,7 +118,12 @@ vec3 shadeRow(M surface,
       attenuation *= worldSunShadowVisibility(shadowMap, shadowCoordinate, receiverSlope);
     }
     float nl = dot(n, toward);
-    if (nl <= 0.0 || attenuation <= 0.0) { continue; }
+    if (attenuation <= 0.0) { continue; }
+    if (thinSheet) {
+      sum += thinSheetDiffuse(albedo, surface.diffuseTransmission, nl) * attenuation * light.tint.rgb;
+      continue;
+    }
+    if (nl <= 0.0) { continue; }
 
     vec3 h = normalize(toward + v);
     float nh = max(dot(n, h), 0.0);
@@ -158,6 +165,10 @@ vec3 shadeRow(M surface,
     sum = sum + layered * nl * attenuation * light.tint.rgb;
   }
 
+  if (thinSheet) {
+    return sum + diffuseEnvironment(n) * albedo +
+                 diffuseEnvironment(-n) * surface.diffuseTransmission + emitted;
+  }
   const float nvClamped = clamp(nv, 0.0, 1.0);
 
   const vec2 environmentBrdf = ggxEnvironmentBrdf(nvClamped, roughness);

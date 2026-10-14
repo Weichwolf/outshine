@@ -72,6 +72,13 @@ Geometry Product() {
   CHECK(material, "full native material is accepted");
   const auto defaultMaterial = geometry.addSurface("infinite attenuation", Material{});
   CHECK(defaultMaterial, "the native default permits infinite attenuation distance");
+  Material thin;
+  thin.Scattering = ScatteringModel::DiffuseThinSheet;
+  thin.BaseColour = {{0.1f, 0.2f, 0.03f, 1}};
+  thin.DiffuseTransmission = {{0.4f, 0.6f, 0.1f}};
+  thin.DoubleSided = true;
+  CHECK(geometry.addSurface("unlit optical coefficients", thin),
+        "native products store direct energy-bounded thin-sheet R/T alongside opaque materials");
   const auto part = geometry.addPart("road / water / facade", *material);
   CHECK(part, "native mesh part is accepted");
   const std::array<float, 9> xyz = {0, 0, 0, 1, 0, 0, 0, 0, 1};
@@ -108,7 +115,8 @@ void Compare(const Geometry &a, const Geometry &b) {
   for (int index = 0; index < a.surfaces(); ++index) {
     CHECK(a.surfaceAt(MaterialInstance(index)) == b.surfaceAt(MaterialInstance(index)) &&
               a.surfaceNameOf(index) == b.surfaceNameOf(index),
-          "all material factors, seven maps, UV transforms, samplers and names survive exactly");
+          "both scattering models, direct R/T, factors, maps, UV transforms and names survive "
+          "exactly");
   }
   for (int index = 0; index < a.images(); ++index) {
     const auto before = a.imageAt(index), after = b.imageAt(index);
@@ -164,6 +172,10 @@ int main() {
   corrupt = *encoded;
   corrupt[0] ^= 1;
   CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()), "unsupported format versions are misses");
+  corrupt = *encoded;
+  corrupt[5] = 1;
+  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),
+        "pre-optical material assets are rejected instead of misreading their old layout");
   corrupt = *encoded;
   std::fill_n(corrupt.end() - 4, 4, uint8_t{255});
   CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),

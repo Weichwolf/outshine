@@ -86,8 +86,9 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   const Content::ImpostorAtlasShape shape{.Pixels = 16, .Views = 1};
   const std::string provenance = ImpostorAtlasProvenance("ready-cards-fixture-1", shape);
-  CHECK(Content::ImpostorCards::AssetKey(provenance) == Sha256Hex("impostor-cards-2/" + provenance),
-        "prepared mip products have their own recipe without invalidating the source capture");
+  CHECK(
+      Content::ImpostorCards::AssetKey(provenance) == Sha256Hex("impostor-cards-3/" + provenance),
+      "optical-material-aware prepared products version their recipe without invalidating capture");
   std::string error;
   auto atlas = Atlas(error);
   CHECK(atlas, "capture fixture is valid");

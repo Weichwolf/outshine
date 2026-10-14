@@ -55,7 +55,7 @@ namespace MaterialValidation {
   for (int channel = 0; channel < 3; ++channel) {
     if (!Unit(row.BaseColour[channel]) || !Unit(row.SpecularColour[channel]) ||
         !Unit(row.SheenColour[channel]) || !Unit(row.AttenuationColour[channel]) ||
-        !Nonnegative(row.Emission[channel])) {
+        !Unit(row.DiffuseTransmission[channel]) || !Nonnegative(row.Emission[channel])) {
       return false;
     }
   }
@@ -73,6 +73,23 @@ namespace MaterialValidation {
 
 [[nodiscard]] inline bool MaterialValuesAreValid(const Material &row) noexcept {
   if (!MaterialValidation::Factors(row)) { return false; }
+  if (row.Scattering != ScatteringModel::MetallicRoughness &&
+      row.Scattering != ScatteringModel::DiffuseThinSheet) {
+    return false;
+  }
+  if (row.Scattering == ScatteringModel::DiffuseThinSheet) {
+    if (row.Metalness != 0 || row.Transmission != 0 || row.SheenColour != Vec3f{} ||
+        row.Clearcoat != 0 || row.Anisotropy != 0 || row.Iridescence != 0 ||
+        row.Pattern != SurfacePattern::None || row.MetalRoughMap.bound() ||
+        row.SpecularStrengthMap.bound() || row.SpecularTintMap.bound() ||
+        *std::ranges::max_element(row.BaseColour.Axis.begin(), row.BaseColour.Axis.begin() + 3) +
+                *std::ranges::max_element(row.DiffuseTransmission.Axis) >
+            1.0f) {
+      return false;
+    }
+  } else if (row.DiffuseTransmission != Vec3f{}) {
+    return false;
+  }
   if (row.Pattern != SurfacePattern::None && row.Pattern != SurfacePattern::Facade) {
     return false;
   }

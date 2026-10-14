@@ -28,7 +28,10 @@ enum class AlphaMode {
 /// Native surface detail evaluated from generator coordinates during metallic-roughness shading.
 enum class SurfacePattern { None, Facade };
 
-/// Native metallic-roughness surface parameters; default is a grey dielectric.
+/// Incident-light response independent of coverage and procedural surface detail.
+enum class ScatteringModel { MetallicRoughness, DiffuseThinSheet };
+
+/// Native surface parameters; default is a grey metallic-roughness dielectric.
 /// Factors are dimensionless unless a field specifies units. Supply finite values in the
 /// documented ranges; this value type performs no validation or clamping. The only permitted
 /// infinity is positive AttenuationDistance. Declaring a feature does not establish renderer
@@ -38,6 +41,16 @@ enum class SurfacePattern { None, Facade };
 /// No thread affinity or internal synchronization; immutable reads may run concurrently,
 /// mutations require external synchronization. Copying allocates nothing.
 struct Material {
+  /// DiffuseThinSheet uses BaseColour RGB as direct reflection and DiffuseTransmission RGB
+  /// as direct transmission; symmetric sides, no specular or directional thickness lobe.
+  /// Metalness, glass Transmission, sheen, clearcoat, anisotropy, iridescence and Pattern must
+  /// be disabled. MetalRoughMap and both specular maps must be unbound; other BRDF factors
+  /// do not affect this diffuse model. Normal, emission, occlusion and coverage remain active.
+  ScatteringModel Scattering = ScatteringModel::MetallicRoughness;
+  /// Linear RGB hemispherical transmission for DiffuseThinSheet, each in [0,1].
+  /// max(BaseColour RGB) + max(DiffuseTransmission RGB) must not exceed one.
+  /// Must be zero for MetallicRoughness.
+  Vec3f DiffuseTransmission;
   /// Procedural detail; Facade requires generated facade coordinates in UV0.
   SurfacePattern Pattern = SurfacePattern::None;
   /// Linear RGB reflectance and straight coverage alpha, each in [0,1]; multiplies BaseColourMap.

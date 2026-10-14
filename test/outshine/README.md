@@ -9,6 +9,9 @@
 Examples: `include/scene/Geometry/`, `src/base/curve/Ribbon/`,
 `src/import/Subject/`. Name each case after the behavior it proves.
 Test helpers belong with their component or in `test/harness/shared/`.
+Keep one owner for each behavior; extend its cases instead of repeating the same setup
+and assertions in a new executable. Keep API validation, asset persistence and GPU image
+response separate: success at one boundary does not establish the others.
 
 The default `make test` selects the world contracts in `test/world-gate.txt` and renders
 Wien, Tokyo and Central Park offline. `make test-khronos` retains explicit glTF/animation

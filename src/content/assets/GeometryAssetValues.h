@@ -19,7 +19,9 @@ template <class Archive> bool GeometryAssetMap(Archive &archive, SurfaceMap &map
 }
 
 template <class Archive> bool GeometryAssetMaterial(Archive &archive, Material &surface) {
-  if (!archive(surface.Pattern,
+  if (!archive(surface.Scattering,
+               surface.DiffuseTransmission.Axis,
+               surface.Pattern,
                surface.BaseColour.Axis,
                surface.Metalness,
                surface.Roughness,

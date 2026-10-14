@@ -14,8 +14,8 @@
 
 namespace outshine {
 namespace {
-constexpr uint64_t kGeometryAssetFormat = 0x0001314f45474fULL;
-constexpr uint64_t kPreparedGeometryAssetFormat = 0x0002314f45474fULL;
+constexpr uint64_t kGeometryAssetFormat = 0x0003314f45474fULL;
+constexpr uint64_t kPreparedGeometryAssetFormat = 0x0004314f45474fULL;
 static_assert(sizeof(float) == 4 && sizeof(double) == 8 && std::numeric_limits<float>::is_iec559 &&
               std::numeric_limits<double>::is_iec559);
 

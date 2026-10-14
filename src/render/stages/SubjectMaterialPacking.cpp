@@ -7,6 +7,10 @@
 
 namespace outshine::Render {
 
+static_assert(static_cast<int>(ScatteringModel::MetallicRoughness) == 0 &&
+              static_cast<int>(ScatteringModel::DiffuseThinSheet) == 1);
+static_assert(sizeof(PackedSubjectMaterial) == kSubjectSurfaceFloats * sizeof(float));
+
 PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
                                           float identity) noexcept {
   const Material &row = material.Row;
@@ -47,7 +51,11 @@ PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,
                               row.IridescenceIor,
                               row.IridescenceThicknessMinNm,
                               row.IridescenceThicknessMaxNm,
-                              static_cast<float>(row.Pattern)};
+                              static_cast<float>(row.Pattern),
+                              static_cast<float>(row.Scattering),
+                              row.DiffuseTransmission[0],
+                              row.DiffuseTransmission[1],
+                              row.DiffuseTransmission[2]};
   static_assert(scalars.size() == kSubjectSurfaceScalars);
   PackedSubjectMaterial packed{};
   std::ranges::copy(scalars, packed.begin());

@@ -31,7 +31,8 @@ int main() {
           "the native owner copies each interpretation independently");
   }
   const auto encoded = EncodeGeometryAsset(geometry, 4096);
-  CHECK(encoded && (*encoded)[5] == 2, "prepared images select the extended native codec");
+  CHECK(encoded && (*encoded)[5] == 4,
+        "prepared images select the optical-material-aware extended native codec");
   if (!encoded) { return Report(); }
   auto restored = DecodeGeometryAsset(*encoded, encoded->size());
   CHECK(restored, "prepared native product loads without image filtering or source data");
@@ -49,6 +50,10 @@ int main() {
           "native clones retain independent prepared mip ownership");
   }
   auto corrupt = *encoded;
+  corrupt[5] = 2;
+  CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()),
+        "pre-optical prepared products cannot masquerade as current native assets");
+  corrupt = *encoded;
   corrupt[96] = 8;
   CHECK(!DecodeGeometryAsset(corrupt, corrupt.size()), "unknown prepared interpretations fail");
   for (size_t count = 0; count < encoded->size(); count += 7) {

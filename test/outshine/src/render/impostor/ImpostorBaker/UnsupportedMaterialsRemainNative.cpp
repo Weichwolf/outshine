@@ -11,7 +11,7 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
-  for (int variant = 0; variant < 7; ++variant) {
+  for (int variant = 0; variant < 8; ++variant) {
     Geometry mesh;
     Material material;
     material.DoubleSided = true;
@@ -28,6 +28,11 @@ int main() {
         material.BaseColourMap.Image =
             *mesh.addImage(1, 1, std::array<uint8_t, 4>{128, 128, 128, 255});
         material.BaseColourMap.Set = UvSet::Uv1;
+        break;
+      case 7:
+        material.Scattering = ScatteringModel::DiffuseThinSheet;
+        material.BaseColour = {{0.1f, 0.2f, 0.03f, 1}};
+        material.DiffuseTransmission = {{0.4f, 0.6f, 0.1f}};
         break;
     }
     const auto surface = *mesh.addSurface("unsupported", material);

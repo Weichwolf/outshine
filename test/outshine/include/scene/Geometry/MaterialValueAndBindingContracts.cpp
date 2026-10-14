@@ -6,30 +6,11 @@
 #include <cstdint>
 #include <limits>
 
-int main() {
-  using namespace outshine;
-  using namespace outshine::Test;
+namespace {
+using namespace outshine;
+using namespace outshine::Test;
 
-  Geometry geometry;
-  Material valid;
-  valid.Emission = {{1000.0f, 0.0f, 0.0f}};
-  valid.Ior = 0.0f;
-  valid.AttenuationDistance = std::numeric_limits<float>::infinity();
-  const MaterialInstance surface = *geometry.addSurface("kept", valid);
-  constexpr std::array<uint8_t, 4> pixels{255u, 255u, 255u, 255u};
-  CHECK(*geometry.addImage(1, 1, pixels) == 0, "binding image exists");
-  const int part = *geometry.addPart("triangle", surface);
-  constexpr std::array positions{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
-  constexpr std::array indices{0u, 1u, 2u};
-  CHECK(geometry.setPositions(part, positions) && geometry.setTriangles(part, indices),
-        "material owner has complete geometry");
-
-  const auto reject = [&](const Material &candidate) {
-    const auto result = geometry.setSurface(surface, candidate);
-    CHECK(!result && result.error() == MaterialError::InvalidMaterial,
-          "invalid material replacement is rejected");
-    CHECK(geometry.surfaceAt(surface) == valid, "rejection preserves the published material");
-  };
+void CheckFactors(const Material &valid, const auto &reject) {
   for (Vec3f Material::*member :
        {&Material::SpecularColour, &Material::SheenColour, &Material::AttenuationColour}) {
     for (const float value : {-0.1f,
@@ -98,7 +79,9 @@ int main() {
   Material invertedThickness = valid;
   invertedThickness.IridescenceThicknessMinNm = invertedThickness.IridescenceThicknessMaxNm + 1.0f;
   reject(invertedThickness);
+}
 
+void CheckMaps(Material &valid, Geometry &geometry, MaterialInstance surface, const auto &reject) {
   for (SurfaceMap Material::*member : {&Material::BaseColourMap,
                                        &Material::NormalMap,
                                        &Material::MetalRoughMap,
@@ -136,6 +119,107 @@ int main() {
     (candidate.*member).Image = 1;
     reject(candidate);
   }
+}
+
+void CheckScattering(Material &valid,
+                     Geometry &geometry,
+                     MaterialInstance surface,
+                     const auto &reject) {
+  Material thin;
+  thin.Scattering = ScatteringModel::DiffuseThinSheet;
+  thin.BaseColour = {{0.1f, 0.2f, 0.03f, 1}};
+  thin.DiffuseTransmission = {{0.4f, 0.6f, 0.1f}};
+  thin.DoubleSided = true;
+  CHECK(geometry.setSurface(surface, thin), "direct energy-bounded R/T publishes a native sheet");
+  valid = thin;
+  for (const float value : {-0.1f,
+                            1.1f,
+                            std::numeric_limits<float>::quiet_NaN(),
+                            std::numeric_limits<float>::infinity()}) {
+    auto invalid = thin;
+    invalid.DiffuseTransmission[1] = value;
+    reject(invalid);
+  }
+  auto invalid = thin;
+  invalid.DiffuseTransmission = {{0.9f, 0.9f, 0.9f}};
+  reject(invalid);
+  invalid = thin;
+  invalid.Scattering = ScatteringModel::MetallicRoughness;
+  reject(invalid);
+  invalid = thin;
+  invalid.Scattering = static_cast<ScatteringModel>(255);
+  reject(invalid);
+  invalid = thin;
+  invalid.Pattern = static_cast<SurfacePattern>(255);
+  reject(invalid);
+  invalid.Pattern = SurfacePattern::Facade;
+  reject(invalid);
+  for (float Material::*member : {&Material::Metalness,
+                                  &Material::Transmission,
+                                  &Material::Clearcoat,
+                                  &Material::Anisotropy,
+                                  &Material::Iridescence}) {
+    invalid = thin;
+    invalid.*member = 0.1f;
+    reject(invalid);
+  }
+  invalid = thin;
+  invalid.SheenColour[0] = 0.1f;
+  reject(invalid);
+  for (SurfaceMap Material::*member :
+       {&Material::MetalRoughMap, &Material::SpecularStrengthMap, &Material::SpecularTintMap}) {
+    invalid = thin;
+    (invalid.*member).Image = 0;
+    reject(invalid);
+  }
+  auto boundary = thin;
+  boundary.BaseColour = {{0.25f, 0.25f, 0.25f, 1}};
+  boundary.DiffuseTransmission = {{0.75f, 0.75f, 0.75f}};
+  CHECK(geometry.setSurface(surface, boundary), "R/T permits exactly unit total energy");
+  valid = boundary;
+  CHECK(geometry.setSurface(surface, Material{}),
+        "switching back resets thin transmission explicitly");
+  valid = Material{};
+}
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Test;
+
+  Geometry geometry;
+  Material valid;
+  valid.Emission = {{1000.0f, 0.0f, 0.0f}};
+  valid.Ior = 0.0f;
+  valid.AttenuationDistance = std::numeric_limits<float>::infinity();
+  const MaterialInstance surface = *geometry.addSurface("kept", valid);
+  constexpr std::array<uint8_t, 4> pixels{255u, 255u, 255u, 255u};
+  CHECK(*geometry.addImage(1, 1, pixels) == 0, "binding image exists");
+  const int part = *geometry.addPart("triangle", surface);
+  constexpr std::array positions{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f};
+  constexpr std::array indices{0u, 1u, 2u};
+  CHECK(geometry.setPositions(part, positions) && geometry.setTriangles(part, indices),
+        "material owner has complete geometry");
+
+  const auto reject = [&](const Material &candidate) {
+    const auto result = geometry.setSurface(surface, candidate);
+    CHECK(!result && result.error() == MaterialError::InvalidMaterial,
+          "invalid material replacement is rejected");
+    CHECK(geometry.surfaceAt(surface) == valid && geometry.surfaces() == 1 &&
+              geometry.surfaceNameOf(0) == "kept",
+          "rejection preserves material values, identity and name");
+  };
+  CheckFactors(valid, reject);
+  const auto missing = geometry.setSurface(MaterialInstance(7), valid);
+  CHECK(!missing && missing.error() == MaterialError::MissingMaterial,
+        "missing slot is distinguished");
+  auto replacement = valid;
+  replacement.Roughness = 0.75f;
+  CHECK(geometry.setSurface(surface, replacement), "a valid retry succeeds after rejected changes");
+  CHECK(geometry.surfaceAt(surface) == replacement, "the complete replacement is visible");
+  valid = replacement;
+  CheckMaps(valid, geometry, surface, reject);
+  CheckScattering(valid, geometry, surface, reject);
   CHECK(geometry.wellFormed(), "every supported material binding remains owner-local and valid");
   return Report();
 }

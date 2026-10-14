@@ -24,6 +24,8 @@ struct M {
   float iridescenceThicknessMin;
   float iridescenceThicknessMax;
   float pattern;
+  float scattering;
+  vec3 diffuseTransmission;
   vec3 colourUvU;
   vec3 colourUvV;
   vec3 normalUvU;
@@ -80,6 +82,10 @@ layout(std140, set = 3, binding = 0) uniform Material {
   float iridescenceThicknessMin;
   float iridescenceThicknessMax;
   float pattern;
+  float scattering;
+  float diffuseTransmissionx;
+  float diffuseTransmissiony;
+  float diffuseTransmissionz;
   float colourUvUx;
   float colourUvUy;
   float colourUvUz;
@@ -126,6 +132,10 @@ layout(std140, set = 3, binding = 0) uniform Material {
 M materialAt() {
   M m;
   m.factor = float(packedMaterial.factor);
+  m.scattering = float(packedMaterial.scattering);
+  m.diffuseTransmission = vec3(packedMaterial.diffuseTransmissionx,
+                              packedMaterial.diffuseTransmissiony,
+                              packedMaterial.diffuseTransmissionz);
   m.cut = float(packedMaterial.cut);
   m.metalness = float(packedMaterial.metalness);
   m.roughness = float(packedMaterial.roughness);
