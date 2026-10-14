@@ -100,11 +100,12 @@ def overlay(product,max_candidates=1048576,max_triangles=262144,method='triangle
     if method=='exact-output':
         from boolean_output_repair import cancel
         before=len(roots)
-        roots,supports,native=cancel(roots,supports,native,nodes)
+        repair_evidence={}
+        roots,supports,native=cancel(roots,supports,native,nodes,evidence=repair_evidence)
         from boolean_exact_regions import point
         error=max((abs(a-b) for root,xyz in nodes.coordinates.items()
                    for a,b in zip(point(xyz),nodes.exact[root],strict=True)),default=0)
-        output_repair=dict(cancelled_facets=before-len(roots),
+        output_repair=repair_evidence|dict(cancelled_facets=before-len(roots),
             max_coordinate_rounding_m=float(np.nextafter(float(error),np.inf)) if error else 0.)
     points=np.asarray([nodes.coordinates[int(r)] for r in roots.ravel()])
     owner=np.asarray([s[0][0] for s in supports],dtype=np.int32);triangles=np.asarray([s[0][1] for s in supports],dtype=np.int32)
