@@ -1,6 +1,7 @@
 #ifndef OUTSHINE_BASE_MATERIALVALIDATION_H
 #define OUTSHINE_BASE_MATERIALVALIDATION_H
 #include <scene/Material.h>
+#include "MaterialMaps.h"
 #include <cmath>
 #include <algorithm>
 #include <array>
@@ -74,7 +75,8 @@ namespace MaterialValidation {
 [[nodiscard]] inline bool MaterialValuesAreValid(const Material &row) noexcept {
   if (!MaterialValidation::Factors(row)) { return false; }
   if (row.Scattering != ScatteringModel::MetallicRoughness &&
-      row.Scattering != ScatteringModel::DiffuseThinSheet) {
+      row.Scattering != ScatteringModel::DiffuseThinSheet &&
+      row.Scattering != ScatteringModel::AreaMixture) {
     return false;
   }
   if (row.Scattering == ScatteringModel::DiffuseThinSheet) {
@@ -82,12 +84,21 @@ namespace MaterialValidation {
         row.Clearcoat != 0 || row.Anisotropy != 0 || row.Iridescence != 0 ||
         row.Pattern != SurfacePattern::None || row.MetalRoughMap.bound() ||
         row.SpecularStrengthMap.bound() || row.SpecularTintMap.bound() ||
-        *std::ranges::max_element(row.BaseColour.Axis.begin(), row.BaseColour.Axis.begin() + 3) +
-                *std::ranges::max_element(row.DiffuseTransmission.Axis) >
-            1.0f) {
+        row.DiffuseReflectionMap.bound() ||
+        (!row.DiffuseTransmissionMap.bound() &&
+         *std::ranges::max_element(row.BaseColour.Axis.begin(), row.BaseColour.Axis.begin() + 3) +
+                 *std::ranges::max_element(row.DiffuseTransmission.Axis) >
+             1.0f)) {
       return false;
     }
-  } else if (row.DiffuseTransmission != Vec3f{}) {
+  } else if (row.Scattering == ScatteringModel::AreaMixture) {
+    if (!row.BaseColourMap.bound() || !row.DiffuseReflectionMap.bound() ||
+        !row.DiffuseTransmissionMap.bound() || row.Transmission != 0 ||
+        row.Alpha == AlphaMode::Opaque) {
+      return false;
+    }
+  } else if (row.DiffuseTransmission != Vec3f{} || row.DiffuseReflectionMap.bound() ||
+             row.DiffuseTransmissionMap.bound()) {
     return false;
   }
   if (row.Pattern != SurfacePattern::None && row.Pattern != SurfacePattern::Facade) {
@@ -97,26 +108,14 @@ namespace MaterialValidation {
       row.Alpha != AlphaMode::Blended) {
     return false;
   }
-  const std::array maps{&row.BaseColourMap,
-                        &row.NormalMap,
-                        &row.MetalRoughMap,
-                        &row.EmissiveMap,
-                        &row.OcclusionMap,
-                        &row.SpecularStrengthMap,
-                        &row.SpecularTintMap};
+  const auto maps = MaterialMaps(row);
   return std::ranges::all_of(
       maps, [](const SurfaceMap *map) { return MaterialValidation::MapParameters(*map); });
 }
 
 [[nodiscard]] inline bool MaterialIsValid(const Material &row, size_t images) noexcept {
   if (!MaterialValuesAreValid(row)) { return false; }
-  const std::array maps{&row.BaseColourMap,
-                        &row.NormalMap,
-                        &row.MetalRoughMap,
-                        &row.EmissiveMap,
-                        &row.OcclusionMap,
-                        &row.SpecularStrengthMap,
-                        &row.SpecularTintMap};
+  const auto maps = MaterialMaps(row);
   return std::ranges::all_of(maps, [images](const SurfaceMap *map) {
     return !map->bound() || std::cmp_less(map->Image, images);
   });

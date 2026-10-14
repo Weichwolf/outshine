@@ -93,6 +93,13 @@ Material MaterialOf(const Vec3f &colour, float roughness, bool doubleSided) {
   return result;
 }
 
+Material LeafMaterialOf(const TreeLook &look) {
+  Material result = MaterialOf(look.LeafRgb, look.LeafRoughness, true);
+  result.Scattering = ScatteringModel::DiffuseThinSheet;
+  result.DiffuseTransmission = look.LeafTransmission;
+  return result;
+}
+
 std::optional<TreeMesh> BladeOf(const TreeSpecies::Leaf &leaf,
                                 const TreePrototype::Rank &source,
                                 float height,
@@ -132,7 +139,7 @@ std::optional<Geometry> TreePrototype::GeometryAt(size_t rank) const {
     for (const uint32_t index : blade->LeafIdx) { leaves.Indices.push_back(first + index); }
   }
 
-  const Material leafMaterial = MaterialOf(Look_.LeafRgb, Look_.LeafRoughness, true);
+  const Material leafMaterial = LeafMaterialOf(Look_);
   Geometry geometry;
   if (!bark.Into(geometry, "bark", barkMaterial) ||
       !leaves.Into(geometry, "leaves", leafMaterial)) {
@@ -158,7 +165,7 @@ TreePrototype::InstancedGeometryAt(size_t rank) const {
   leaf.Indices = blade->LeafIdx;
   InstancedGeometry result;
   if (!bark.Into(result.Bark, "bark", MaterialOf(Look_.BarkRgb, Look_.BarkRoughness, false)) ||
-      !leaf.Into(result.Leaf, "leaves", MaterialOf(Look_.LeafRgb, Look_.LeafRoughness, true))) {
+      !leaf.Into(result.Leaf, "leaves", LeafMaterialOf(Look_))) {
     return std::nullopt;
   }
   result.LeastM = {{std::numeric_limits<double>::infinity(),

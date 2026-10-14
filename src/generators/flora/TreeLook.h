@@ -4,11 +4,11 @@
 #include "math/Vec3.h"
 #include "math/Srgb.h"
 #include "TreeSpecies.h"
+#include "LeafOpticsDefaults.h"
 
 namespace outshine {
 
 struct TreeLook {
-  static constexpr Vec3f kLeafBaseLinear = {{0.0684f, 0.1072f, 0.0273f}};
   Vec3f BarkRgb = {
       {ColourSpace::LinearFromSrgb(Generators::TreeSpecies::kShadingUnsaid.BarkColor[0]),
        ColourSpace::LinearFromSrgb(Generators::TreeSpecies::kShadingUnsaid.BarkColor[1]),
@@ -16,7 +16,8 @@ struct TreeLook {
   float BarkDark = Generators::TreeSpecies::kShadingUnsaid.BarkDark;
   float BarkFreq = Generators::TreeSpecies::kShadingUnsaid.BarkFreq;
   float BarkRidge = Generators::TreeSpecies::kShadingUnsaid.BarkRidge;
-  Vec3f LeafRgb = kLeafBaseLinear;
+  Vec3f LeafRgb = Generators::DefaultLeafReflection();
+  Vec3f LeafTransmission = Generators::DefaultLeafTransmission();
   float LeafWidth = Generators::TreeSpecies::kLeafUnsaid.Width;
   float LeafWidest = Generators::TreeSpecies::kLeafUnsaid.Widest;
   float LeafTip = Generators::TreeSpecies::kLeafUnsaid.Tip;

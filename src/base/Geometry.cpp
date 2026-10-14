@@ -112,13 +112,7 @@ std::expected<void, GeometryAppendError> Geometry::append(const Geometry &source
     const auto remap = [imageBase](SurfaceMap &map) {
       if (map.Image >= 0) { map.Image += imageBase; }
     };
-    remap(surface.Surface.BaseColourMap);
-    remap(surface.Surface.NormalMap);
-    remap(surface.Surface.MetalRoughMap);
-    remap(surface.Surface.EmissiveMap);
-    remap(surface.Surface.OcclusionMap);
-    remap(surface.Surface.SpecularStrengthMap);
-    remap(surface.Surface.SpecularTintMap);
+    for (auto *map : MaterialMaps(surface.Surface)) { remap(*map); }
     candidate.Held_->Surfaces.push_back(std::move(surface));
   }
   for (Held::Piece part : std::span(source.Held_->Parts).first(source.Held_->Live)) {

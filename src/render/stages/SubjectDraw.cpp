@@ -489,7 +489,15 @@ bool SubjectDraw::BindSurface(const SubjectMaterial &material, std::string &erro
       !bind(material.SpecularTint,
             SubjectResidency::Transfer::Srgb,
             TexelKind::Value,
-            slot.SpecularTint)) {
+            slot.SpecularTint) ||
+      !bind(material.DiffuseReflection,
+            SubjectResidency::Transfer::Linear,
+            TexelKind::Value,
+            slot.DiffuseReflection) ||
+      !bind(material.DiffuseTransmission,
+            SubjectResidency::Transfer::Linear,
+            TexelKind::Value,
+            slot.DiffuseTransmission)) {
     return false;
   }
 
@@ -1633,6 +1641,10 @@ void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout 
        {.texture = surface.SpecularStrength.Image.Get(),
         .sampler = surface.SpecularStrength.Sample.Get()},
        {.texture = surface.SpecularTint.Image.Get(), .sampler = surface.SpecularTint.Sample.Get()},
+       {.texture = surface.DiffuseReflection.Image.Get(),
+        .sampler = surface.DiffuseReflection.Sample.Get()},
+       {.texture = surface.DiffuseTransmission.Image.Get(),
+        .sampler = surface.DiffuseTransmission.Sample.Get()},
 
        {.texture = Binding().Behind != nullptr ? Binding().Behind : surface.Colour.Image.Get(),
         .sampler = Binding().BehindSampler != nullptr ? Binding().BehindSampler

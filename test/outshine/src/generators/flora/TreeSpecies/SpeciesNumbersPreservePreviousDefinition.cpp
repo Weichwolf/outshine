@@ -58,6 +58,11 @@ int main() {
                             "wind_freq"}) {
     for (const auto *bad : {"1e100", "-1e100", "\"0.5\"", "null", "false"}) { rejects(field, bad); }
   }
+  for (const auto *field : {"chlorophyll_ug_cm2", "anthocyanin_ug_cm2"}) {
+    for (const auto *bad : {"-1", "1e100", "\"2\"", "null", "true"}) { rejects(field, bad); }
+  }
+  rejects("chlorophyll_ug_cm2", "81");
+  rejects("anthocyanin_ug_cm2", "11");
   for (const auto *field : {"leaders", "trunk_sides", "whorl_count"}) { rejects(field, "65"); }
   for (const auto *field : {"trunk_steps", "whorl_spacing"}) {
     rejects(field, "0");

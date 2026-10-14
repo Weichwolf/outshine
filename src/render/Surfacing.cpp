@@ -76,7 +76,9 @@ bool ResolveNativeTextures(std::span<const ImageView> images,
     if (!bind(row.BaseColourMap, surface.Colour) || !bind(row.NormalMap, surface.Normal) ||
         !bind(row.MetalRoughMap, surface.MetalRough) || !bind(row.EmissiveMap, surface.Emissive) ||
         !bind(row.SpecularStrengthMap, surface.SpecularStrength) ||
-        !bind(row.SpecularTintMap, surface.SpecularTint)) {
+        !bind(row.SpecularTintMap, surface.SpecularTint) ||
+        !bind(row.DiffuseReflectionMap, surface.DiffuseReflection) ||
+        !bind(row.DiffuseTransmissionMap, surface.DiffuseTransmission)) {
       return false;
     }
   }

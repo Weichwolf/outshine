@@ -304,6 +304,18 @@ bool TreeSpecies::Read(const char *text, size_t len) {
   }
 
   Shading &s = Shading_;
+  if (const auto invalid = InvalidNumber(
+          r, std::array{"chlorophyll_ug_cm2"}, {.Least = 0, .Most = 80, .Integral = false})) {
+    Error_ = std::string(*invalid) + " must be in [0, 80]";
+    return false;
+  }
+  if (const auto invalid = InvalidNumber(
+          r, std::array{"anthocyanin_ug_cm2"}, {.Least = 0, .Most = 10, .Integral = false})) {
+    Error_ = std::string(*invalid) + " must be in [0, 10]";
+    return false;
+  }
+  s.ChlorophyllUgCm2 = NumF(r, "chlorophyll_ug_cm2", s.ChlorophyllUgCm2);
+  s.AnthocyaninUgCm2 = NumF(r, "anthocyanin_ug_cm2", s.AnthocyaninUgCm2);
   s.BarkRoughness = NumF(r, "bark_roughness", s.BarkRoughness);
   s.LeafRoughness = NumF(r, "leaf_roughness", s.LeafRoughness);
   if (!std::ranges::all_of(std::array{s.BarkRoughness, s.LeafRoughness},

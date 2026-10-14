@@ -26,6 +26,8 @@ struct M {
   float pattern;
   float scattering;
   vec3 diffuseTransmission;
+  vec3 thinReflection;
+  float thinWeight;
   vec3 colourUvU;
   vec3 colourUvV;
   vec3 normalUvU;
@@ -38,12 +40,18 @@ struct M {
   vec3 specularStrengthUvV;
   vec3 specularTintUvU;
   vec3 specularTintUvV;
+  vec3 diffuseReflectionUvU;
+  vec3 diffuseReflectionUvV;
+  vec3 diffuseTransmissionUvU;
+  vec3 diffuseTransmissionUvV;
   float colourUvSecond;
   float normalUvSecond;
   float metalRoughUvSecond;
   float emissiveUvSecond;
   float specularStrengthUvSecond;
   float specularTintUvSecond;
+  float diffuseReflectionUvSecond;
+  float diffuseTransmissionUvSecond;
 };
 layout(std140, set = 3, binding = 0) uniform Material {
   float factor;
@@ -122,12 +130,26 @@ layout(std140, set = 3, binding = 0) uniform Material {
   float specularTintUvVx;
   float specularTintUvVy;
   float specularTintUvVz;
+  float diffuseReflectionUvUx;
+  float diffuseReflectionUvUy;
+  float diffuseReflectionUvUz;
+  float diffuseReflectionUvVx;
+  float diffuseReflectionUvVy;
+  float diffuseReflectionUvVz;
+  float diffuseTransmissionUvUx;
+  float diffuseTransmissionUvUy;
+  float diffuseTransmissionUvUz;
+  float diffuseTransmissionUvVx;
+  float diffuseTransmissionUvVy;
+  float diffuseTransmissionUvVz;
   float colourUvSecond;
   float normalUvSecond;
   float metalRoughUvSecond;
   float emissiveUvSecond;
   float specularStrengthUvSecond;
   float specularTintUvSecond;
+  float diffuseReflectionUvSecond;
+  float diffuseTransmissionUvSecond;
 } packedMaterial;
 M materialAt() {
   M m;
@@ -140,6 +162,8 @@ M materialAt() {
   m.metalness = float(packedMaterial.metalness);
   m.roughness = float(packedMaterial.roughness);
   m.base = vec4(packedMaterial.basex, packedMaterial.basey, packedMaterial.basez, packedMaterial.basew);
+  m.thinWeight = m.scattering > 0.5 && m.scattering < 1.5 ? 1.0 : 0.0;
+  m.thinReflection = m.base.rgb * m.thinWeight;
   m.emissive = vec3(packedMaterial.emissivex, packedMaterial.emissivey, packedMaterial.emissivez);
   m.normalScale = float(packedMaterial.normalScale);
   m.identity = float(packedMaterial.identity);
@@ -172,12 +196,18 @@ M materialAt() {
   m.specularStrengthUvV = vec3(packedMaterial.specularStrengthUvVx, packedMaterial.specularStrengthUvVy, packedMaterial.specularStrengthUvVz);
   m.specularTintUvU = vec3(packedMaterial.specularTintUvUx, packedMaterial.specularTintUvUy, packedMaterial.specularTintUvUz);
   m.specularTintUvV = vec3(packedMaterial.specularTintUvVx, packedMaterial.specularTintUvVy, packedMaterial.specularTintUvVz);
+  m.diffuseReflectionUvU = vec3(packedMaterial.diffuseReflectionUvUx, packedMaterial.diffuseReflectionUvUy, packedMaterial.diffuseReflectionUvUz);
+  m.diffuseReflectionUvV = vec3(packedMaterial.diffuseReflectionUvVx, packedMaterial.diffuseReflectionUvVy, packedMaterial.diffuseReflectionUvVz);
+  m.diffuseTransmissionUvU = vec3(packedMaterial.diffuseTransmissionUvUx, packedMaterial.diffuseTransmissionUvUy, packedMaterial.diffuseTransmissionUvUz);
+  m.diffuseTransmissionUvV = vec3(packedMaterial.diffuseTransmissionUvVx, packedMaterial.diffuseTransmissionUvVy, packedMaterial.diffuseTransmissionUvVz);
   m.colourUvSecond = float(packedMaterial.colourUvSecond);
   m.normalUvSecond = float(packedMaterial.normalUvSecond);
   m.metalRoughUvSecond = float(packedMaterial.metalRoughUvSecond);
   m.emissiveUvSecond = float(packedMaterial.emissiveUvSecond);
   m.specularStrengthUvSecond = float(packedMaterial.specularStrengthUvSecond);
   m.specularTintUvSecond = float(packedMaterial.specularTintUvSecond);
+  m.diffuseReflectionUvSecond = float(packedMaterial.diffuseReflectionUvSecond);
+  m.diffuseTransmissionUvSecond = float(packedMaterial.diffuseTransmissionUvSecond);
   return m;
 }
 

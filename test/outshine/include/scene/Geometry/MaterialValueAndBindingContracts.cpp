@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdint>
+#include <initializer_list>
 #include <limits>
 
 namespace {
@@ -81,20 +82,21 @@ void CheckFactors(const Material &valid, const auto &reject) {
   reject(invertedThickness);
 }
 
-void CheckMaps(Material &valid, Geometry &geometry, MaterialInstance surface, const auto &reject) {
-  for (SurfaceMap Material::*member : {&Material::BaseColourMap,
-                                       &Material::NormalMap,
-                                       &Material::MetalRoughMap,
-                                       &Material::EmissiveMap,
-                                       &Material::OcclusionMap,
-                                       &Material::SpecularStrengthMap,
-                                       &Material::SpecularTintMap}) {
+void CheckMaps(Material &valid,
+               Geometry &geometry,
+               MaterialInstance surface,
+               std::initializer_list<SurfaceMap Material::*> members,
+               const auto &reject) {
+  for (SurfaceMap Material::*member : members) {
     Material candidate = valid;
     (candidate.*member).Image = 0;
     CHECK(geometry.setSurface(surface, candidate).has_value(), "every declared map binds an image");
     valid = candidate;
 
     candidate.*member = {};
+    (candidate.*member).Set = static_cast<UvSet>(255);
+    reject(candidate);
+    candidate = valid;
     (candidate.*member).Set = static_cast<UvSet>(255);
     reject(candidate);
     candidate = valid;
@@ -132,6 +134,7 @@ void CheckScattering(Material &valid,
   thin.DoubleSided = true;
   CHECK(geometry.setSurface(surface, thin), "direct energy-bounded R/T publishes a native sheet");
   valid = thin;
+  CheckMaps(valid, geometry, surface, {&Material::DiffuseTransmissionMap}, reject);
   for (const float value : {-0.1f,
                             1.1f,
                             std::numeric_limits<float>::quiet_NaN(),
@@ -218,8 +221,51 @@ int main() {
   CHECK(geometry.setSurface(surface, replacement), "a valid retry succeeds after rejected changes");
   CHECK(geometry.surfaceAt(surface) == replacement, "the complete replacement is visible");
   valid = replacement;
-  CheckMaps(valid, geometry, surface, reject);
+  CheckMaps(valid,
+            geometry,
+            surface,
+            {&Material::BaseColourMap,
+             &Material::NormalMap,
+             &Material::MetalRoughMap,
+             &Material::EmissiveMap,
+             &Material::OcclusionMap,
+             &Material::SpecularStrengthMap,
+             &Material::SpecularTintMap},
+            reject);
   CheckScattering(valid, geometry, surface, reject);
+  Material mixture;
+  mixture.Scattering = ScatteringModel::AreaMixture;
+  mixture.Alpha = AlphaMode::Masked;
+  mixture.DiffuseTransmission = {{1, 1, 1}};
+  mixture.BaseColourMap.Image = mixture.DiffuseReflectionMap.Image =
+      mixture.DiffuseTransmissionMap.Image = 0;
+  CHECK(geometry.setSurface(surface, mixture),
+        "a bounded optical area mixture binds native images");
+  valid = mixture;
+  CheckMaps(valid,
+            geometry,
+            surface,
+            {&Material::DiffuseReflectionMap, &Material::DiffuseTransmissionMap},
+            reject);
+  for (SurfaceMap Material::*member : {&Material::BaseColourMap,
+                                       &Material::DiffuseReflectionMap,
+                                       &Material::DiffuseTransmissionMap}) {
+    auto invalid = mixture;
+    (invalid.*member).Image = -1;
+    reject(invalid);
+    invalid = mixture;
+    (invalid.*member).Image = 1;
+    reject(invalid);
+  }
+  auto invalid = mixture;
+  invalid.Alpha = AlphaMode::Opaque;
+  reject(invalid);
+  invalid = mixture;
+  invalid.Transmission = 0.1f;
+  reject(invalid);
+  CHECK(geometry.setSurface(surface, Material{}),
+        "mixture maps do not leak into an ordinary material");
+  valid = Material{};
   CHECK(geometry.wellFormed(), "every supported material binding remains owner-local and valid");
   return Report();
 }

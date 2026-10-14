@@ -365,6 +365,8 @@ private:
 
     SubjectResidency::BoundImage SpecularStrength;
     SubjectResidency::BoundImage SpecularTint;
+    SubjectResidency::BoundImage DiffuseReflection;
+    SubjectResidency::BoundImage DiffuseTransmission;
 
     PackedSubjectMaterial Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
