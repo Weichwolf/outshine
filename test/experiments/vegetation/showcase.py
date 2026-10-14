@@ -26,6 +26,7 @@ from collar_plots import collar_figure, ray_figure
 from curved_plots import curved_figure
 from fin_plots import fin_figure
 from fork_plots import fork_figure
+from frame_cost_plots import frame_cost_figure
 from frond_plots import frond_figure
 from generator_plots import generator_figure
 from graph_wood_plots import wood_figure
@@ -536,10 +537,15 @@ def plant_library_plot(report):
     return save_plot(plant_library_figure(report), "plant-library")
 
 
+def frame_cost_plot(report):
+    return save_plot(frame_cost_figure(report), "frame-cost")
+
+
 def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            frame_cost_plot,
             plant_library_plot,
             fin_plot,
             closed_plot,

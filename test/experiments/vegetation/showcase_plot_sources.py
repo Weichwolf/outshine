@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "frame-cost/frame-cost.json",
+        "frame_cost_plot",
+        "Rahmenarbeit · feste 3D-Komponenten",
+        "Zwei Größen und zwei Seeds, je fünf wechselnde CPU-Läufe. Vollständige kanonische Tabellen, IDs, Positionen und Rahmen exakt; Inhalte/Details bleiben gleich. Frischer Gesamt-/Teilaufbau und warmer Treffer getrennt. Größere Kronen profitieren von weniger Achsen-Dispatch; kleine Pläne und Lookupzeiten streuen. Keine native Frame-/GPU-/Gerätefreigabe.",
+    ),
+    (
         "plant-library/plant-library.json",
         "plant_library_plot",
         "Vollständiger Pflanzenplan · Bedarf und geteilte Daten",
