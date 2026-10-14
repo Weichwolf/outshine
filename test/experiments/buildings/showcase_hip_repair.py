@@ -19,6 +19,7 @@ from roof_inset_surface import inset
 from showcase_groups import save_plot
 from showcase_hip_overhang import draw
 from showcase_roof_shed import spatial
+from showcase_scene import fitted_points
 
 
 def plan_view(data, output, provenance):
@@ -81,14 +82,28 @@ def inset_view(output, provenance):
     spacing = polygon.bounds[2]-polygon.bounds[0]+10.
     shapes = before+[(s.translate('rel', 'world', spacing, 0., 0.), c) for s, c in after]
     metadata = dict(source_id=row['id'], source_sha256=row['source_sha256'], overhang_m=-.5,
-                    eave_level_m=level, maximum_roof_height_m=3., inset_patches=len(patches),
+                    eave_level_m=level, nominal_roof_height_m=3., inset_patches=len(patches),
                     geometry_scope='Direct affine field patches triangulated through Shape; independent valid inset, no SDK contour/UV/shared-root equivalence.')
-    return spatial(output, provenance, 'current-hip-inset-vienna',
+    overview = spatial(output, provenance, 'current-hip-inset-vienna',
                    'Wien · vollständiges Dach und gültiger Höhenschnitt', shapes, metadata,
                    'Links Standarddach, rechts derselbe feste Dachhöhenverlauf oberhalb der neuen Traufhöhe. '
                    'Eigenständige Alternative zu negativen SDK-Konturen; einfache Prüfköper, keine Architekturrezepte. '
                    'UV-/Bottom-/Sides-/gemeinsamer Meshbesitz bleiben offen.',
                    label='hip-overhang-research', direction=(1., -1.3, 1.8))
+    ring = np.asarray(shapely.orient_polygons(polygon).exterior.coords)[:-1]
+    edges = np.roll(ring, -1, axis=0)-ring
+    longest = int(np.argmax(np.linalg.norm(edges, axis=1)))
+    centre = ring[longest]+edges[longest]/2
+    edge = edges[longest]/np.linalg.norm(edges[longest])
+    window = np.array([[centre[0]+x, centre[1]+y, z] for x in (-3., 3.) for y in (-3., 3.) for z in (2.5, 5.5)])
+    camera = fitted_points(window, [1920, 1080], direction=(edge[1], -edge[0], 1.4))
+    detail = spatial(output, provenance, 'current-hip-inset-detail', 'Traufdetail · eigenständiger Höhenschnitt',
+                     after, metadata | dict(inspection_window_m=[6., 6., 3.]),
+                     'Nahansicht des neuen Dachrands: 6×6 m um eine echte Traufkante. '
+                     'Gold: geschnittenes Dachfeld; Blau: unveränderter Prüfköper. '
+                     'Die offene Verbindung zeigt den noch fehlenden Bottom-/Sides-Vertrag ausdrücklich.',
+                     label='hip-overhang-research', camera=camera)
+    return [overview, detail]
 
 
 if __name__ == '__main__':
@@ -99,7 +114,7 @@ if __name__ == '__main__':
     comparison = Path('build/experiments/buildings/hip-repair-comparison.json')
     data = json.loads(comparison.read_text())
     provenance = revision()
-    reports = [plan_view(data, args.output, provenance), inset_view(args.output, provenance)]
+    reports = [plan_view(data, args.output, provenance), *inset_view(args.output, provenance)]
     for name in reports:
         path = args.output/name
         record = json.loads(path.read_text())

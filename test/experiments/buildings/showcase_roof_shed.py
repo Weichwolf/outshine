@@ -58,9 +58,10 @@ def mass(polygon,base,eave,roof):
     return [(Shape.from_faces(body.emit()['vertices'],body_faces),0),(Shape.from_faces(roof.emit()['vertices'],roof_faces),3)]
 
 
-def spatial(output,provenance,stem,title,shapes,metadata,caption,label='roof-shed',direction=(1.,-1.3,.9)):
+def spatial(output,provenance,stem,title,shapes,metadata,caption,label='roof-shed',direction=(1.,-1.3,.9),camera=None):
     mesh=inspection_mesh(shapes);path=output/(stem+'-mesh.npz');np.savez_compressed(path,**mesh);image=output/(stem+'.png')
-    camera=fitted_points(mesh['vertices'],[1920,1080],direction=direction);config,_=configuration([],camera,False,image)
+    camera=fitted_points(mesh['vertices'],[1920,1080],direction=direction) if camera is None else camera
+    config,_=configuration([],camera,False,image)
     config.update(inspection_workbench=True,constructive=dict(mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         wall_linear=[1.,1.,1.],roof_linear=[.2,.2,.2],extra_wall_colours=COLOURS))
     rendered=run_render(config,output/(stem+'-scene.json'));name=stem+'-report.json'

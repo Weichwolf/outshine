@@ -9,6 +9,7 @@ import shapely
 from compare_roof_oracle import cases
 from evidence import revision
 from outshine_ref.buildings.modelling import prepare_hip
+from outshine_ref.buildings.modelling.hip_surface import prepare_even
 from roof_inset_surface import inset
 
 
@@ -30,12 +31,18 @@ def compare(source):
         escaped = footprint.difference(plan.footprint).area
         tolerance = max(1e-7, plan.footprint.area*1e-10, plan.footprint.length*np.sqrt(2)*precision+2*np.pi*precision**2)
         assert footprint.is_valid and overlap <= tolerance and escaped <= tolerance, (identifier, overlap, escaped, tolerance)
-        minimum = float('inf')
+        minimum, maximum = float('inf'), -float('inf')
         for patch in patches:
             xy = np.asarray(patch.polygon.exterior.coords)
-            minimum = min(minimum, float((xy@patch.gradient+patch.intercept_m).min()))
+            heights = xy@patch.gradient+patch.intercept_m
+            minimum = min(minimum, float(heights.min()))
+            maximum = max(maximum, float(heights.max()))
         uncertainty = np.sqrt(2)*precision*max((np.linalg.norm(p.gradient) for p in patches), default=0.)
         assert not patches or minimum >= level-max(1e-7, uncertainty)
+        field = prepare_even(plan, previous['mode']) if previous['even'] else plan
+        expected_peak = float(field.distances_m.max()*field.factor(previous['value'], previous['mode']))
+        peak_error = abs(maximum-expected_peak) if patches else None
+        assert not patches or peak_error <= max(1e-7, uncertainty)
         sdk = previous['sdk_roof_geometry']
         points = np.asarray(sdk['positions_m'])
         sdk_polygons = [shapely.Polygon(points[f, :2]-plan.origin) for f in sdk['faces']]
@@ -49,6 +56,7 @@ def compare(source):
         results.append({k: previous[k] for k in ('id', 'mode', 'value', 'even', 'overhang_m')} | dict(
             status='valid' if patches else 'collapsed', eave_level_m=level, overlap_area_m2=overlap,
             precision_m=precision, area_tolerance_m2=tolerance, height_uncertainty_m=uncertainty,
+            expected_peak_m=expected_peak, peak_error_m=peak_error,
             escaped_source_area_m2=escaped, patch_count=len(patches), sdk_invalid_projected_faces=sdk_invalid,
             sdk_footprint_difference_m2=difference, sdk_comparison_error=comparison_error,
             previous_repair_status=previous['status']))
