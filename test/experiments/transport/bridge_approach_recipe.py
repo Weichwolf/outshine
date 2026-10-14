@@ -4,13 +4,12 @@ import numpy as np
 import shapely
 from adaptive_profile_surface import adaptive_mesh
 from outshine_ref.contracts import Mesh
-from outshine_ref.geometry import SurfaceSampler
+from outshine_ref.geometry import SurfaceSampler, vertical_clearance
 from outshine_ref.transport import (
     mesh_projected_profile,
     plan_vertical_transition,
     sample_vertical_transition,
 )
-from overpass_clearance import vertical_clearance
 from shared_bridge_geometry import corridor
 from surface_height_checks import normal_gradients
 

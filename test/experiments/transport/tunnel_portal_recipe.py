@@ -10,9 +10,9 @@ from outshine_ref.geometry import (
     ProjectedSurfaceBudget,
     SurfaceSampler,
     projected_height_surface,
+    vertical_clearance,
 )
 from outshine_ref.transport import plan_vertical_transition, sample_vertical_transition
-from overpass_clearance import vertical_clearance
 from retained_surface import flat_domain, old_contacts, stitch, surface_domain
 
 DEFAULT_BUDGET = ProjectedSurfaceBudget(time_limit_s=4.0)
