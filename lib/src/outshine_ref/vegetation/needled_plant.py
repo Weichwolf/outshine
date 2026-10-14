@@ -134,7 +134,10 @@ class NeedledPlant:
             "root_bound_radius_m": base["root_bound_radius_m"] + reach,
         }
 
-    def foliage(self, path, max_needles):
+    def foliage(self, path, max_needles, *, retain=True):
+        """Return owned physical poses; optionally leave new details unretained."""
+        if type(retain) is not bool:
+            raise ValueError("explicit boolean detail retention required")
         ordinal, depth = self.wood.ordinal(path), len(path)
         detail_budget(max_needles)
         slot, p = path[-1] if path else 0, self.patterns[depth]
@@ -168,10 +171,12 @@ class NeedledPlant:
                 % len(self.needles)
             ).astype(np.uint8),
         }
-        self._groups[path] = MappingProxyType(
+        result = MappingProxyType(
             dict(local) | {k: immutable_array(v) for k, v in changes.items()}
         )
-        return self._groups[path]
+        if retain:
+            self._groups[path] = result
+        return result
 
     def tables(self, max_axes, max_needles):
         detail_budget(max_axes)

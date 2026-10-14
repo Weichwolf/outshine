@@ -181,7 +181,9 @@ das Radialmaximum und verteilt Segmente getrennt über Körper/Spitze. Der Defau
 belegt weder Bildschirm-, Coverage- noch Shadingfehler; Vergleich und Grenzen:
 [#143](https://github.com/Weichwolf/outshine/issues/143).
 `summary(path)` bestimmt Bedarf ohne Achsen-/Nadelarrays, `foliage(path, max_needles)`
-liefert stabile Teilgruppen, `tables(max_axes, max_needles)` vollständige kanonische
+liefert stabile Teilgruppen, wahlweise mit `retain=False` ohne interne Akkumulation
+neuer Details; bereits gehaltene Gruppen dürfen wiederverwendet werden.
+Default/IDs/Rezept bleiben. `tables(max_axes, max_needles)` liefert vollständige kanonische
 Cachezeilen. Beide Budgets werden vor Detailarbeit geprüft; verweigerte Anfragen
 liefern `None`. Holz- und Organ-IDs bleiben innerhalb ihres vollständigen Plans
 stabil. Das `needled-plant-1`-Rezept enthält alle Quellen der prozeduralen Form.

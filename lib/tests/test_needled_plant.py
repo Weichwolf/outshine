@@ -30,6 +30,25 @@ def plant(seed=13):
 
 
 class NeedledPlantTests(unittest.TestCase):
+    def test_unretained_groups_preserve_identity_and_survive_later_queries(self):
+        p, q = plant(), plant()
+        path = (3, 2)
+        original = p.foliage(path, 100000)
+        saved = q.foliage(path, 100000, retain=False)
+        for other in q.wood.paths():
+            q.foliage(other, 100000, retain=False)
+        self.assertFalse(q._groups)
+        for key in original:
+            np.testing.assert_array_equal(original[key], saved[key])
+            self.assertFalse(saved[key].flags.writeable)
+        later = q.foliage(path, 100000)
+        self.assertIs(q.foliage(path, 100000, retain=False), later)
+        self.assertEqual(len(q._groups), 1)
+        self.assertEqual(p.recipe(), q.recipe())
+        self.assertEqual(p.identity, q.identity)
+        with self.assertRaises(ValueError):
+            q.foliage(path, 100000, retain=0)
+
     def test_summary_and_refusal_do_not_construct_detail(self):
         p = plant()
         summary = p.summary()
