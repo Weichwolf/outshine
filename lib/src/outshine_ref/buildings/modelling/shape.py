@@ -167,9 +167,9 @@ class Shape:
         from .roof_ridge import roof_ridge
         return roof_ridge(self,value,mode)
 
-    def roof_hip(self,value,mode='byAngle',overhang=0.,even=False,limits=None,max_cells=65536,prepared_plans=None):
+    def roof_hip(self,value,mode='byAngle',overhang=0.,even=False,limits=None,max_cells=65536,prepared_plans=None,*,shell_depth_m=.1):
         from .roof_hip import roof_hip
-        return roof_hip(self,value,mode,overhang,even,limits,max_cells,prepared_plans)
+        return roof_hip(self,value,mode,overhang,even,limits,max_cells,prepared_plans,shell_depth_m=shell_depth_m)
 
     def insert(self,asset,mode='alignSizeAndPosition',cleanup='noCleanup'):
         from .insert import insert

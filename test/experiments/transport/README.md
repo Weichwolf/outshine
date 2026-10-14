@@ -230,6 +230,67 @@ LOD-Übergänge fehlen: der alte affine Eltern-/Kindbeweis gilt nach dem Kantent
 ausdrücklich nicht mehr. Dieser Pfad bleibt Experiment, keine `lib/`-Promotion und
 kein Ersatz des freigegebenen #69-Bodenplans.
 
+## Externe CityEngine-Operationsreferenz (#19)
+
+```sh
+.venv/bin/python -W error test/experiments/transport/esri_transport_catalog.py
+.venv/bin/python -W error test/experiments/transport/esri_transport_ghidra.py
+.venv/bin/python -W error test/experiments/transport/verify_esri_transport_ghidra.py
+.venv/bin/python -W error test/experiments/transport/verify_esri_transport_oracle.py
+.venv/bin/python -W error test/experiments/transport/esri_transport_comparison.py
+.venv/bin/python -W error test/experiments/transport/esri_transport_showcase.py
+```
+
+Die externe SDK-Core-Binary liegt unter `~/Downloads/esri_ce_sdk-3.4.12206/bin/`.
+SDK-Version über die öffentliche `prt::getVersion`-ABI geprüft; SHA256
+`850a1b10182e9793f67791438989835de08a9facc2bd0d4f12c26c9a8be5ab45`.
+`nm -S --defined-only` und `c++filt` katalogisieren 16675 Textsymbole, davon 507
+Geometriekandidaten einschließlich Aliassen/Cold-Clones. Elf Funktionen decken
+Offset, Schnitt, Projektion, Triangulation, Extrusion und Version ab.
+
+Ghidra verwendet den vorhandenen Buildings-Skriptansatz, Snap-Projekte ausschließlich
+unter `~/snap/ghidra/common/`. Disassemblierung ist auf jeden ELF-Symbolbereich begrenzt.
+Ausgehende Sprünge werden als dokumentierte CALL_RETURN-Grenzhypothese modelliert;
+ihr Zielcode gehört nicht zum untersuchten Körper. Ursprüngliche Adressen/Mnemonics,
+direkte Aufrufe/PLT-Auflösung, indirekte Unsicherheit, Bytezählung und Exporthashes
+stehen im Report. Kein verifizierter Decompiler-Typvertrag oder Vollständigkeitsbeweis
+aller ausführbaren Pfade. Neue Nonce, exakte Bereiche und sämtliche frischen Exporte
+sind Pflicht; Exit 0 mit fehlendem/altem Teilstand wird abgewiesen. Prozess360 s,
+Decompiler25 s pro Funktion; globale Autoanalyse aus. Keine externen Codeexporte im Git.
+
+Linux-Orakel laufen in eigenen Prozessen: CPU8 s, Adressraum2 GiB, Parent-Wartegrenze10 s.
+Blockierter C-Aufruf und verweigerte3-GiB-Abbildung prüfen diese Grenzen; Prozessstart
+ist kein universeller harter Whole-call-Nachweis. `Vector3`-/Skalar-Ausgaben haben
+Canaries, private Offset-Vektoren geprüfte lesbare Speicherbereiche. Nur gepinnte
+skalare Schnitt-/Ray- und Offset-ABIs werden aufgerufen. Ray-Modus2 liefert den
+Multiplikator der eingegebenen Richtung, nicht grundsätzlich Meter.
+
+Der SDK-Triangulationsbackend `libglutess.so` besitzt SHA256
+`2b10c97d5a3c92a2885786d4e0d497cb753b9786ef0b450db1ee61381c1fda78`.
+Seine dokumentierte GLU-C-API verwendet opaque Handles; sie beweist nicht den privaten
+`util::Triangulator`-/Processor-Vertrag. Raw-Rasterdreiecke bleiben gespeichert;
+exakte Nullfaces werden vor CAD-Ausgabe entfernt, Randpunkte mit dem gemeinsamen
+`conform_triangles` eingepasst. SDK-Extrusion und Mesh-/Hauptachsenobjekte bleiben
+Decompiler-Hypothesen. Die 0,35-m-Bildkörper erzeugt unsere eigene Schließbibliothek.
+
+29 Offset-, 13 Triangulationsfälle und 256 echte Wiener Quellsegmentpaare vergleichen
+dieselben Eingaben, Geometrie/Topologie/Grenzen und Kosten. Float32-XY/Abstand beim
+Offset sind für beide Varianten identisch; Transport nutzt außerdem Rundprofile,
+dieser Vergleich untersucht ausdrücklich den Mitre-Inset. Der kleine SDK-Helfer
+liefert beim Dumbbell nur ein Fragment, GEOS beide; Löcher haben keinen expliziten
+ABI-Parameter und werden als fehlendes Orakel ausgewiesen. `edgesIntersect` hat
+beobachtete halb offene Enden und akzeptiert auch schiefe Annäherungen; kein Ersatz
+für echte räumliche Kontakte. Triangulationsdomänen/Ränder/Höfe/Quellpunkte stimmen
+nach offengelegtem CAD-Adapter im geprüften Umfang überein.
+
+Vier gleiche Offset-Qualitätsfälle haben je Methode drei frische Worker/fünf Samples.
+Zeit für vorbereitete Operation und XY-Decode, Startup getrennt; SDK-Speicherprüfungen
+zählen. Peak-RSS aus Linux VmHWM gehört zum aktuellen Exec-Adressraum einschließlich
+Imports/Quelle/Receipt; `ru_maxrss` wird separat gehalten, weil Fork-Vorgeschichte
+kleine Workerpeaks verdecken kann. Keine Geräte-/Runtime- oder Netzgenerator-Abnahme.
+Ergebnisse, Assembly, externe Hypothesen und sechs1920×1080-Bilder liegen unter
+`build/experiments/transport/esri-reference/`. Keine SDK-/Fremdcode-Abhängigkeit in lib/runtime.
+
 ```sh
 .venv/bin/python -W error -m unittest discover -s lib/tests
 .venv/bin/python -W error test/experiments/transport/surface_solid_checks.py

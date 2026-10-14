@@ -39,6 +39,7 @@ from leaf_terminal_plots import terminal_figure
 from needle_plots import needle_figure
 from placement_library_plots import placement_library_figure
 from placement_plots import placement_figure
+from plant_library_plots import plant_library_figure
 from plant_surface_plots import plant_surface_figure
 from profile_plots import cache_profile_figure, profile_figure
 from selection_plots import coverage_figure, storage_figure, views_render_figure
@@ -531,10 +532,15 @@ def fin_plot(report):
     return save_plot(fin_figure(report), "procedural-fins")
 
 
+def plant_library_plot(report):
+    return save_plot(plant_library_figure(report), "plant-library")
+
+
 def plot_entries(output, plot_lods):
     builders = {
         method.__name__: method
         for method in (
+            plant_library_plot,
             fin_plot,
             closed_plot,
             coupled_plot,
