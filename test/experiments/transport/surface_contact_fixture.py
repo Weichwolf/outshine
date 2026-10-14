@@ -51,7 +51,7 @@ def generate(output):
                     source_usage=ground["source_usage"], xy_tolerance_m=1e-8, height_tolerance_m=1e-7,
                     native_height_tolerance_m=1e-7, native_normal_tolerance=1e-12,
                     scope="Explicitly generated derived mesh/contact reference, not network source or a native result. Face indices and reasons exact; numeric comparison tolerances explicit. Missing height/normal are NaN.")
-    output.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\n")
+    output.with_suffix(".json").write_text(json.dumps(metadata, separators=(",", ":")) + "\n")
 
 
 def verify(path):
