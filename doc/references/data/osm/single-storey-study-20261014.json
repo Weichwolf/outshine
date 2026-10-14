@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "inventory": "special-structures-20261014.json",
+  "purpose": "Previously rejected real near controls; calibration inputs, not global coverage evidence",
+  "cases": [
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/1076"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/1106"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/1113"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/1135"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/1209"
+    },
+    {
+      "site": "Hameln",
+      "id": "Hameln/14/8617/5404/building/17363470/3/1506"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/25289500/4/153"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/23857170/19/79"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/16437100/28/274"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/16437100/28/277"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/16437100/28/281"
+    },
+    {
+      "site": "Spittelau",
+      "id": "Spittelau/14/8936/5679/building/15390470/39/330"
+    }
+  ]
+}

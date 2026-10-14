@@ -3,8 +3,8 @@
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
+from outshine_ref.geometry import vertical_clearance
 from outshine_ref.transport import plan_vertical_transition, sample_vertical_transition
-from overpass_clearance import vertical_clearance
 from overpass_ribbon import grade_audit, ribbon, source_frame
 
 

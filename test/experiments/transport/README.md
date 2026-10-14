@@ -650,3 +650,27 @@ und Vorherplan werden gesondert dokumentiert. Keinen Tunnelgrundriss pauschal
 gegen Gebäude/Freiräume abziehen; unbekannte Etagenkontakte aus #111 bleiben lokal
 mit `buildings_floor_surface_not_planned` abgelehnt. Implementation/Prüfbelege
 stehen im zugehörigen PR; #21 bleibt aktiv.
+
+
+## Installierbare Ganzflächen-Höhenabstände (#146)
+
+Brückenfreiheit, Portal-Innenraum/Deckung und Erhalt alter Flächen benutzen
+`geometry.vertical_clearance` aus `lib/`. Die frühere parallele Experimentkopie
+ist entfernt; elementare Abstandsfälle sind in `lib/tests/test_clearance.py`
+gebündelt, physische Rezept-/Realquellenprüfungen bleiben getrennt. Unvollständige
+Budgetläufe veröffentlichen kein vermeintliches Minimum. Zwei Flächen ohne
+positive XY-Überlappung sind kein belegter Durchfahrtkontakt.
+
+`height_gap_experiment.py` erzeugt einen portablen Korpus tatsächlicher
+Brücken-/Portal-Flächenpaare und vergleicht identische Buffer mit dem eigenen
+bisherigen Git-Stand e43a3fd73. Dessen Source-SHA256 ist explizit gepinnt; eine
+Kopie unter `build/experiments/transport/height-gap-library/` dient nur dem
+Vergleich und gehört nicht zur Runtime. Keine Änderungen an normalen Pins.
+Frische Worker messen vollständige Abfragen und Peak-RSS getrennt von
+Eingabevorbereitung/Importen; Paket-/Wheelprüfung und die geöffneten
+Kachel-/Portalprodukte folgen der Bibliotheksübernahme.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error -m unittest discover -s lib/tests -p test_clearance.py
+PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -W error test/experiments/transport/height_gap_experiment.py
+```

@@ -119,6 +119,28 @@ sampling unused profile intervals. No whole-world ground/deck selection, horizon
 route, driving, terrain deformation, collision or LOD claim. The same-source
 Wiener #119 experiment imports this library; proof and migration belong to #122.
 
+`geometry.vertical_clearance(lower, underside, max_pairs=65536, seconds=1.0,
+max_faces=8192)` prüft den kleinsten vorzeichenbehafteten Z-Abstand über alle
+positiven XY-Dreiecksschnittflächen. Beide Meshes sind ausdrücklich gewählte
+affine Höhenflächen im gemeinsamen metrischen Datum; Frame/Kind/Quelle und
+benötigte physische Freiheit bindet der Aufrufer. Es wird keine höchste Fläche
+gewählt und keine vollständig abgedeckte Welt oder Fahrbarkeit nachgewiesen.
+
+Ein vorhandenes Minimum liefert `valid`, `minimum_clearance_m`, `witness_xy`,
+`face_pair`, Kandidaten-/Überlappungszähler und Laufzeit. Negative Abstände sind
+numerisch gültig. Bei fehlender positiver Überlappung, degenerierter Projektion
+oder Ressourcenende liefert der Operator `valid=False` mit konkretem Grund,
+ohne unvollständiges Minimum als Zertifikat auszugeben. Punkt-/Kantenkontakt
+ist keine positive Schnittfläche. Eingabefaces, tatsächliche Kandidatenpaare
+und kooperative Zeit sind begrenzt; eine Abfrage alloziert höchstens
+`max_faces` Indices. Ein Hard-Worker-Limit gehört weiterhin zum Aufrufer.
+
+Ganzflächenminima können an neuen Schnittvertices liegen und werden nicht durch
+Quellvertexstichproben ersetzt. Der Kernel bereitet Ebenengradienten einmal je
+Face vor; alle Brücken-/Portalversuche importieren diesen installierbaren Kern.
+[#146](https://github.com/Weichwolf/outshine/issues/146) besitzt Übernahme und
+Vergleich; API-/Wheel-/Bild-/Kostenbelege stehen im zugehörigen PR.
+
 `geometry.SurfaceSampler(mesh)` bereitet eine ausdrücklich gewählte XY-Höhenfläche
 für wiederholte `sample(xy)`-Abfragen vor. `SurfaceSamples` besitzt unveränderliche
 Float64-XYZ-Punkte/Facettennormalen, Int64-Face-Indices und einen Grund je Abfrage.
