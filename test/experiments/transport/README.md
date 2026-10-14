@@ -33,8 +33,8 @@ Vor erneutem Anwenden hashgeprüfter Produkte die Nachweise unter den neuen Modu
 
 Wie bei Buildings (8766) und Vegetation (8765) veröffentlicht der Transport-Showcase
 einen festen Bildstand. Port 8767 zeigt genau vier Gesamtansichten in zwei
-Vorher/Nachher-Paaren: unabhängigen/gemeinsamen Boden und das Brückenteilnetz vor/nach
-der Fortsetzung über drei Kacheln. Kurze Bildunterschriften, Bildlinks und manuelles Aktualisieren bilden die
+Vorher/Nachher-Paaren: unabhängigen/gemeinsamen Boden und den Brücken-/Gleisverbund vor/nach
+seiner Fortsetzung in zwei U-Bahn-Tunnel über drei Kacheln. Kurze Bildunterschriften, Bildlinks und manuelles Aktualisieren bilden die
 gesamte Oberfläche. Fehlende Nachweise bleiben sichtbar unvollständig.
 
 ```sh
@@ -596,3 +596,57 @@ Keine Fahrkurven-/Gleishardware-/Terrain-/Wasser-/Pfeiler-/Innenraum-/Tunnel-/We
 Vorhandene Plan/Reservation-Verträge unverändert; Source/Kind/Frame explizit im Produkt.
 Grundlage: bestehende SIGGRAPH-Graph/Geometrie-Trennung und die geprüften Profil-/CAD-
 Bausteine aus #96/#119/#125; keine SDK-Abhängigkeit und keine neue Fremdcodekopie.
+
+
+## Gewählte U-Bahn-Portale am vorhandenen Gleisplan (#139)
+
+`capture_tunnel_portals.py --write-fixture` liest zwei echte Tunnelachsen aus der
+bereits gepinnten Westkachel. Ihre Endpunkte schließen exakt an die bisherigen
+Erdgleise an. Gewählte Kontaktflächen liefert der bestehende Höhenplan; entfernte
+Quellclips sind keine Geländekontakte. Originale, Quell-IDs, Attribute und die
+ungeplanten Innenetagen bleiben erhalten. Die explizite Breite von 4 m ist eine
+markierte Rezeptannahme, die Innenhöhe 4,5 m ebenfalls.
+
+SIGGRAPH 2008, Seite 2/Figure 2, trennt Graph und Geometrie. Galin et al. 2010,
+Seite 8/Figures 17–18, ergänzt parametrische Querschnitte und segmentiert die
+Trajektorie gegenüber dem Gelände. Beide PDF-Seiten wurden optisch geöffnet.
+Wir nutzen die vorhandene Geometrie und eigene Bibliotheksoperatoren; eine
+gewählte grobe C0-DEM-Fläche bildet die Deckungsreferenz. Der C1-Höhenübergang
+beginnt flach auf dem tatsächlich gewählten alten Boden und endet auf einem
+plausibel gewählten Untergrundniveau. Nach einer offenen Absenkung beginnt die
+Auskleidung; Roof-/Innenraumabstände werden über vollständige Schnittpolygone
+geprüft. Geschlossene Komponenten und offene Luftquerschnitte an den entfernten
+Clips werden getrennt geprüft. Endliche Faces bleiben C0.
+
+`tunnel_portal_recipe.py` erhält alle alten affinen Flächen und liefert bei einem
+Budget-/Semantikfehler den gültigen bisherigen Plan. Konstante Dach-/Wandflächen
+verwenden das geprüfte CDT-Verfahren mit Flächen-/Randnachweis; unnötige
+Höhenchords entfallen. Sehr kleine GEOS-Restdreiecke werden beim numerischen
+Zusammenführen wie beim früheren erhaltenden Adapter ausdrücklich entfernt,
+ohne die strenge Projektionsbibliothek zu verändern. Die Referenzdecke,
+Auskleidung und das Gelände sind keine vermessene Rekonstruktion oder statische
+Freigabe. Raumkurven/Fahrbarkeit, Schienenhardware, globale Kontakte und native
+Echtzeitqualität bleiben offen.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/tunnel_portal_checks.py
+PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -W error test/experiments/transport/tunnel_portal_experiment.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/tunnel_portal_showcase.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/showcase.py --render-tiles
+```
+
+`tunnel-portals/` unter `build/experiments/transport/` enthält Produkte,
+Nutzungsbilanz, frische Worker-Messungen und Körperansichten. Der kubische
+Übergang ist ein einzelnes Polynom mit geringerem Spitzengefälle; beide Verfahren
+werden mit gleichen Kontakten, Achsen, Portalposition, Innenraum-/Deckungs- und
+Ressourcenanforderungen verglichen. Kein allgemeiner Laufzeitvorsprung wird aus
+kleinen Unterschieden behauptet. Die Showcase behält genau vier ganze
+Kachelbilder; die separate Portalinspektion zeigt einen ausdrücklich markierten
+Dach-/Geländeschnitt und eine 5-cm-Anzeigeplatte, kein Erdvolumen.
+
+Räumliche Produkte verwenden bestehende Plan-/Reservation-Typen und metrische
+Höhenintervalle. Quellenbindungen, Struktur-/Verkehrszellen, gewählte Terrainfläche
+und Vorherplan werden gesondert dokumentiert. Keinen Tunnelgrundriss pauschal
+gegen Gebäude/Freiräume abziehen; unbekannte Etagenkontakte aus #111 bleiben lokal
+mit `buildings_floor_surface_not_planned` abgelehnt. Implementation/Prüfbelege
+stehen im zugehörigen PR; #21 bleibt aktiv.
