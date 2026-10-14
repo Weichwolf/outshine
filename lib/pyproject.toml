@@ -20,5 +20,5 @@ solids = ["manifold3d==3.5.4"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-outshine_ref = ["py.typed"]
+outshine_ref = ["py.typed", "vegetation/data/*.json"]
 
