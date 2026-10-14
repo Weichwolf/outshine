@@ -54,4 +54,3 @@ def graph_data(local,rings,node_limit):
         faces.append(tuple(face))
     return (np.asarray(nodes),np.asarray(heights),tuple(faces),None),dict(
         segments=len(segments),source_endpoint_tolerance_m=tolerance,maximum_source_endpoint_snap_m=maximum_snap)
-
