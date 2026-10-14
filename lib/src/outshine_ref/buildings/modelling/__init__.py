@@ -3,6 +3,7 @@
 from .axes import cga_to_enu, enu_to_cga
 from .components import Branch
 from .faces import Face
+from .heightfield import HeightfieldEnvelope, heightfield_envelope
 from .insert import Asset
 from .hip_inset import HipInset, prepare_hip_inset
 from .metadata import Material
@@ -27,3 +28,4 @@ __all__ += ["HipInset", "prepare_hip_inset"]
 __all__ += ["ExteriorChart", "extrapolate_chart", "partition_exterior_charts"]
 __all__ += ["PrismUnion", "PrismVolume", "union_prisms"]
 __all__ += ["RadialProfile", "RadialMesh", "radial_mesh"]
+__all__ += ["HeightfieldEnvelope", "heightfield_envelope"]

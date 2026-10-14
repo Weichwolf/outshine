@@ -56,79 +56,49 @@
       "origin_source": "build/experiments/transport/whole-tiles/origin.json"
     },
     {
-      "id": "Vienna-bridge-before",
-      "title": "03 · Verbund · vorher",
-      "caption": "Wien · Brücken und Erdgleise im vollständigen Kachelverbund.",
-      "model": "bridge-continuations/Vienna-continuation-whole-rebuild-solid",
+      "id": "Tokyo",
+      "title": "03 · Tokyo · ebene Kachel",
+      "caption": "Tokyo · gemeinsames Straßen- und Wegenetz, hier noch ohne Gelände-Höhenfit.",
+      "model": "components/snapshots/Tokyo-solid",
       "tiles": [
-        "Vienna-Donau-West",
-        "Vienna-Donau",
-        "Vienna-Donau-South"
+        "Tokyo"
       ],
-      "comparison": "bridge",
       "surface_groups": [
         {
           "slots": [
-            1,
-            3
-          ],
-          "depth_m": 0.35
-        },
-        {
-          "slots": [
-            0
+            0,
+            1
           ],
           "depth_m": 0.25
         }
       ],
       "diagnostic": false,
-      "scope": "Three full source tiles show the previous verified bridge and ground-rail partial plan before the two west tunnel sources are added.",
-      "image_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.png",
-      "report_source": "build/experiments/transport/whole-tiles/Vienna-bridge-before-solid.json",
+      "scope": "Complete captured OpenFreeMap source tile; supported flat ground axes and preserved source identities/access masks. Z=0 is a declared recipe, not DEM or a full drivable/grade-separated world.",
+      "image_source": "build/experiments/transport/whole-tiles/Tokyo-solid.png",
+      "report_source": "build/experiments/transport/whole-tiles/Tokyo-solid.json",
       "origin_source": "build/experiments/transport/whole-tiles/origin.json"
     },
     {
-      "id": "Vienna-bridge-after",
-      "title": "04 · Verbund · jetzt",
-      "caption": "Wien · Brücken, Absenkung und Tunnelportale über drei Kacheln.",
-      "model": "tunnel-portals/Vienna-tunnel-whole-cubic-solid",
+      "id": "CentralPark",
+      "title": "04 · Central Park · ebene Kachel",
+      "caption": "Central Park · gemeinsames Straßen- und Wegenetz, hier noch ohne Gelände-Höhenfit.",
+      "model": "components/snapshots/CentralPark-solid",
       "tiles": [
-        "Vienna-Donau-West",
-        "Vienna-Donau",
-        "Vienna-Donau-South"
+        "CentralPark"
       ],
-      "comparison": "bridge",
       "surface_groups": [
         {
           "slots": [
-            1,
-            3
-          ],
-          "depth_m": 0.35
-        },
-        {
-          "slots": [
-            0
+            0,
+            1
           ],
           "depth_m": 0.25
-        },
-        {
-          "slots": [
-            6
-          ],
-          "depth_m": 4.5
-        },
-        {
-          "slots": [
-            7
-          ],
-          "depth_m": 0.35
         }
       ],
       "diagnostic": false,
-      "scope": "Three full source tiles show the connected bridge/ground/tunnel partial plan. Two real subway axes attach to chosen old ground floors, with C1 scalar height transition and closed lining against selected coarse terrain. Terrain reference is not rendered as a complete earth volume. Other transport/indoor contacts, train routes and structural loads remain unproven.",
-      "image_source": "build/experiments/transport/whole-tiles/Vienna-bridge-after-solid.png",
-      "report_source": "build/experiments/transport/whole-tiles/Vienna-bridge-after-solid.json",
+      "scope": "Complete captured OpenFreeMap source tile; supported flat ground axes and preserved source identities/access masks. Z=0 is a declared recipe, not DEM or a full drivable/grade-separated world.",
+      "image_source": "build/experiments/transport/whole-tiles/CentralPark-solid.png",
+      "report_source": "build/experiments/transport/whole-tiles/CentralPark-solid.json",
       "origin_source": "build/experiments/transport/whole-tiles/origin.json"
     }
   ]
