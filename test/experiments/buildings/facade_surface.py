@@ -8,9 +8,11 @@ def project(mesh,tile_size_m=(2.4,1.2),material=1):
     if size.shape!=(2,) or not np.all(np.isfinite(size)) or np.any(size<=0):raise ValueError('Positive tile dimensions required')
     vertices=np.asarray(mesh['vertices']);faces=np.asarray(mesh['faces'])
     rows=np.flatnonzero(mesh['materials']==material);triangles=vertices[faces[rows]]
-    normal=np.cross(triangles[:,1]-triangles[:,0],triangles[:,2]-triangles[:,0])
+    u,v=triangles[:,1]-triangles[:,0],triangles[:,2]-triangles[:,0]
+    normal=np.cross(u,v)
     length=np.linalg.norm(normal,axis=1)
-    if np.any(length<=1e-12):raise ValueError('Degenerate wall triangle')
+    uncertainty=8*np.finfo(float).eps*np.linalg.norm(abs(u[:,[1,2,0]]*v[:,[2,0,1]])+abs(u[:,[2,0,1]]*v[:,[1,2,0]]),axis=1)
+    if np.any(length<=uncertainty):raise ValueError('Degenerate or unresolved wall triangle')
     normal/=length[:,None]
     tangent=np.column_stack((-normal[:,1],normal[:,0],np.zeros(len(rows))))
     horizontal=np.linalg.norm(tangent,axis=1)<1e-8
