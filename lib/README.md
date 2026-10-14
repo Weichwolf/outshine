@@ -157,6 +157,18 @@ erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rück
 `python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
 und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
 keine Deadline-Garantie innerhalb jedes Backend-Aufrufs.
+`HipPlanner` besitzt als expliziter Desktop-Kontext einen wiederverwendbaren
+Spawn-Prozess für dieselben Pläne. Eine Anfrage zugleich; begrenzte private
+Nachrichten, externe Anfragedeadline, `cancel()` und vollständiges Verwerfen
+der Verbindung nach Timeout/Abbruch. `close()` beendet den Prozess; Reaping
+hat ein eigenes begrenztes Budget. Prozessstart wird separat gemessen und kann
+auf OS-Ebene selbst nicht immer unterbrochen werden. Diese Referenz ist für
+Desktop-Erzeuger, keine iOS-/Frame-Garantie; direktes `prepare_hip` bleibt kooperativ.
+`hip_footprints(shape)` liefert die intrinsischen Quellflächen. Deren vorbereitete
+`HipPlan`-Tupel können mit `Shape.roof_hip(..., prepared_plans=plans)` für mehrere
+Höhen/even-/negative Distanzvarianten ausgegeben werden, auch nach Schließen
+des Workers. Faceanzahl und exakte intrinsische Domäne werden gebunden geprüft;
+die Ausgabe wiederholt keinen Skelettsolver. Meshausgabe bleibt separat budgetiert.
 `Shape.roof_hip(value, mode="byAngle")` verbindet diese Pläne mit nativen
 Quell-Dreiecken: Schnitte erhalten deren UV0–9-Interpolationsbereiche,
 Material-/Gruppen-/Tagbesitz und den lokalen Objektframe. Authored Normalen
