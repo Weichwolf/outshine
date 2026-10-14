@@ -1,4 +1,4 @@
-"""Repeat the common-access plan with real core openings and constructed stair flights."""
+"""Complete connected storeys, retaining direct room access when one floor needs no core."""
 
 import numpy as np
 import shapely
@@ -27,15 +27,19 @@ def build(sample, body_top_m=None):
     plan = circulation(sample, require_stairs=True,body_top_m=body_top_m)
     plan['vertical_status'] = 'unplanned'
     if plan.get('circulation_status') != 'common-access':
-        return plan
+        if plan['storeys']!=1 or plan['status']!='connected-first-storey':return plan
+        plan=plan|dict(circulation_status='direct-rooms',room_kinds=['generic-room']*len(plan['rooms']),
+            circulation=dict(seed_method=plan['method'],mode='single-storey direct rooms'))
     if plan['storeys'] > MAX_STOREYS:
         plan['omissions'].append('storey count exceeds the 64-storey constructive prototype budget')
         return plan
     if plan['storeys'] > 1 and 'stair' not in plan:
         plan['omissions'].append('no contained staircase with a connected approach landing')
         return plan
+    direct=plan.get('circulation_status')=='direct-rooms'
     plan.update(vertical_status='connected-storeys', version=3,
-                scope='All storeys of the fixed envelope, shared common access and constructed stairs; generic room programme',
+                scope='Complete single storey with directly connected generic rooms' if direct else
+                      'All storeys of the fixed envelope, shared common access and constructed stairs; generic room programme',
                 storey_room_ids=[[f"{plan['id']}:floor-{index}:access-{room}" for room in range(len(plan['rooms']))]
                                  for index in range(plan['storeys'])])
     if 'stair' in plan:
@@ -51,7 +55,8 @@ def build(sample, body_top_m=None):
     plan['omissions'] = [reason for reason in plan['omissions']
                          if 'upper storeys and vertical circulation remain unplanned' not in reason
                          and 'core envelope is reserved' not in reason]
-    plan['omissions'].append('stair headroom and geometric contacts are experimental; native player controller remains unproved')
+    plan['omissions'].append('room access and geometric contacts are experimental; native player controller remains unproved' if direct else
+        'stair headroom and geometric contacts are experimental; native player controller remains unproved')
     return plan
 
 

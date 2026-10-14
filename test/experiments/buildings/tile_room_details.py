@@ -78,6 +78,7 @@ class RoomDetails:
         output=corner_buffers(mesh,material)
         info=dict(form='Complete generic room/storey/door/window/stair structure from source envelope',
             storeys=plan['storeys'],rooms=len(plan['rooms'])*plan['storeys'],seed_method=plan['circulation']['seed_method'],
+            access_mode=plan['circulation_status'],
             routing_attempts=len(plan['circulation_alternatives']),room_ids=plan['storey_room_ids'],
             plan_ms=plan_ms,shell_ms=shell_ms,assembly_ms=assembly_ms,access=proof,
             functional_status='Sampled actual structural access; generic programme, external terrain/transport contact and native controller unproved')

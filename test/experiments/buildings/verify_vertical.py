@@ -14,7 +14,7 @@ from building_stair import FLIGHT_WIDTH_M, MAX_RISER_M, PLATE_M, TREAD_M, flight
 from building_vertical import build, level, mesh
 from evidence import revision
 from verify_circulation import verify as verify_access
-from verify_layout import closed_parts, occupancy
+from verify_layout import closed_parts, occupancy,verify as verify_layout
 
 
 class Columns:
@@ -108,7 +108,11 @@ def landing_poses(points, height):
 def verify(plan, product):
     if plan.get('vertical_status') != 'connected-storeys':
         raise AssertionError('No complete constructive storey plan')
-    verify_access(plan,first_mesh(plan))
+    if plan.get('circulation_status')=='direct-rooms':
+        if plan['storeys']!=1 or 'stair' in plan or plan['vertical_portals']:
+            raise AssertionError('Direct-room access cannot represent unconnected upper storeys')
+        verify_layout(plan,first_mesh(plan))
+    else:verify_access(plan,first_mesh(plan))
     connected_spaces(plan)
     closed_parts(product)
     bounds = product['vertices'][:,2].min(),product['vertices'][:,2].max()
