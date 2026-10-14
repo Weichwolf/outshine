@@ -53,19 +53,33 @@ def verify(node,expected):
         actual=dict(definitions[int(node.product.attributes.materials[i])].attributes)
         for key,value in wanted.items():
             if key not in MAPS:assert actual[key]==value
+            elif value:
+                original_resource=next(texture for texture in leaves[selected.source].shape.textures if texture.path==value)
+                output_resource=next(texture for texture in node.operand.shape.textures if texture.path==actual[key])
+                assert output_resource.sha256==original_resource.sha256
+                assert output_resource.encoded is original_resource.encoded
         for ancestor in node.origins[i]:
             source=leaves[ancestor.source];assert int(source.shape.geometry.fields['parts'][ancestor.triangle])==ancestor.face
     return len(product.mesh['faces'])
 
 
-def room():
+def room(strategy='union-first'):
     prisms=dict(outer=Prism(shapely.box(0,0,12,8),0.,6.),room=Prism(shapely.box(2,2,10,6),.2,7.),
         door=Prism(shapely.box(5,-1,7,2.5),.2,3.2))
     declared={name:source(name,prism,index%2) for index,(name,prism) in enumerate(prisms.items())}
-    cutter=combine('cutters',declared['room'],declared['door'])
-    expression=('union','room','door');verify(cutter,reference(prisms,expression))
-    shell=combine('room-shell',declared['outer'],cutter.operand,'subtract')
-    expression=('subtract','outer',expression);verify(shell,reference(prisms,expression))
+    if strategy=='union-first':
+        cutter=combine('cutters',declared['room'],declared['door'])
+        expression=('union','room','door');verify(cutter,reference(prisms,expression))
+        shell=combine('room-shell',declared['outer'],cutter.operand,'subtract')
+        expression=('subtract','outer',expression)
+    elif strategy=='subtract-sequential':
+        expression=('subtract','outer','room')
+        cutter=combine('room-cut',declared['outer'],declared['room'],'subtract')
+        verify(cutter,reference(prisms,expression))
+        shell=combine('room-shell',cutter.operand,declared['door'],'subtract')
+        expression=('subtract',expression,'door')
+    else:raise ValueError('Unknown room construction strategy')
+    verify(shell,reference(prisms,expression))
     route=shapely.LineString([(6,-.5),(6,4.)]).buffer(.3)
     sections=[]
     for height in (.3,1.,2.):

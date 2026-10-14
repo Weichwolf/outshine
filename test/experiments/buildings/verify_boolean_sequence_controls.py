@@ -9,6 +9,7 @@ import shapely
 from boolean_sequence import leaf,combine,Reference
 from verify_boolean_sequence import source,verify,room
 from verify_boolean_surfaces import Prism
+from verify_boolean_shape_controls import texture
 
 
 class SequenceControls(unittest.TestCase):
@@ -78,6 +79,31 @@ class SequenceControls(unittest.TestCase):
         recreated=source('a',self.prism,0);last=combine('replay',recreated,recreated)
         self.assertEqual(first.origins,last.origins);self.assertEqual(first.preferred,last.preferred)
         for key,value in before.items():np.testing.assert_array_equal(self.a.shape.emit()[key],value)
+
+    def test_recursive_conflicting_procedural_maps_preserve_original_bytes(self):
+        prisms,original,_,_,_=room()
+        colours=((60,130,80,255),(180,120,40,255),(80,100,170,255));declared={};prepared={}
+        for (name,value),colour in zip(original.items(),colours,strict=True):
+            prepared[name]=texture('shared.png',colour)
+            declared[name]=leaf(name,value.shape.texture(prepared[name]))
+        for strategy in ('union-first','subtract-sequential'):
+            if strategy=='union-first':
+                cutter=combine('textured-cutters',declared['room'],declared['door'])
+                shell=combine('textured-shell',declared['outer'],cutter.operand,'subtract')
+            else:
+                cutter=combine('textured-room',declared['outer'],declared['room'],'subtract')
+                shell=combine('textured-shell',cutter.operand,declared['door'],'subtract')
+            verify(shell,(378.4,579.2))
+            self.assertEqual(len(shell.operand.shape.textures),3)
+            self.assertEqual({value.sha256 for value in shell.operand.shape.textures},{value.sha256 for value in prepared.values()})
+            for value in shell.operand.shape.textures:
+                self.assertTrue(any(value.encoded is source.encoded for source in prepared.values()))
+        for name,value in declared.items():self.assertEqual(value.shape.textures,(prepared[name],))
+
+    def test_sequential_difference_matches_original_leaf_geometry(self):
+        _,_,_,last,sections=room('subtract-sequential')
+        verify(last,(378.4,579.2))
+        self.assertTrue(all(row['route_wall_overlap_m2']<1e-7 for row in sections))
 
 
 if __name__=='__main__':unittest.main()

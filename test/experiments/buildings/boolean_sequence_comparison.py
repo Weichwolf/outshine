@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import resource
 import time
 
 import numpy as np
@@ -50,7 +51,9 @@ def run():
                     actual=generated_section(final,height)
                     if actual.symmetric_difference(section(prisms,target,height)).area>1e-7:
                         raise ValueError('Compared strategy changed generated room section')
-                record.update(status='pass',pipeline_ms=elapsed,triangles=len(final.origins),logical_faces=len(final.product.regions.faces))
+                record.update(status='pass',pipeline_ms=elapsed,triangles=len(final.origins),logical_faces=len(final.product.regions.faces),
+                    output_array_bytes=sum(value.nbytes for value in final.product.overlay.product.mesh.values()),
+                    output_repair=final.product.overlay.output_repair)
             except Exception as error:record.update(status='rejected',reason=str(error))
             runs.append(record)
     return runs
@@ -58,6 +61,8 @@ def run():
 
 if __name__=='__main__':
     rows=run();report=revision()|dict(status='pass' if all(row['status']=='pass' for row in rows) else 'comparison-rejected',runs=rows,
+        process_peak_rss_mib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024,
+        measurement_scope='pipeline_ms covers two complete geometry/provenance/Shape operations, excluding independent verification; peak RSS covers the combined process, not either strategy individually.',
         scope='One fixed room/door workload, six alternating complete two-step pipelines; equal volume/surface/source UV/material leaf areas/generated slices, current tags correct within each expression. No general runtime winner.')
     Path('build/experiments/buildings/boolean-sequence-comparison.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(rows),flush=True)
