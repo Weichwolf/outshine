@@ -170,3 +170,12 @@ M materialAt() {
   m.specularTintUvSecond = float(packedMaterial.specularTintUvSecond);
   return m;
 }
+
+float materialCoverage(M surface, float textureAlpha, float vertexAlpha) {
+  return surface.factor * textureAlpha * vertexAlpha;
+}
+
+vec2 materialColourUv(M surface, vec2 uv, vec2 uv1) {
+  vec3 coordinate = vec3(mix(uv, uv1, surface.colourUvSecond), 1.0);
+  return vec2(dot(surface.colourUvU, coordinate), dot(surface.colourUvV, coordinate));
+}

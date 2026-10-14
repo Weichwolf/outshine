@@ -18,12 +18,10 @@ void main() {
 #endif
   vec4 tap = vec4(1.0);
 #if FLAT_TEXTURED
-  vec3 coordinate = vec3(mix(uv, uv1, surface.colourUvSecond), 1.0);
-  tap = texture(imageMap, vec2(dot(surface.colourUvU, coordinate),
-                               dot(surface.colourUvV, coordinate)));
+  tap = texture(imageMap, materialColourUv(surface, uv, uv1));
 #endif
 #if FLAT_KIND == 1
-  if (surface.factor * tap.a * colour.a < surface.cut) { discard; }
+  if (materialCoverage(surface, tap.a, colour.a) < surface.cut) { discard; }
 #endif
   vec4 shaded = vec4(emitted * tap.rgb * colour.rgb, 1.0);
 #if FLAT_KIND == 2

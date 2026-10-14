@@ -11,6 +11,7 @@ import numpy as np
 from .blade_surface import Blade
 from .curve_frame import arc_frame
 from .plan_arrays import detail_budget, immutable_array
+from .vector3 import cross3
 
 
 def normal_frame(direction, hint):
@@ -29,14 +30,14 @@ def normal_frame(direction, hint):
         raise ValueError("finite representable nonzero directions required")
     direction = direction / length
     hint = np.broadcast_to(hint, direction.shape)
-    lateral = np.cross(direction, hint)
+    lateral = cross3(direction, hint)
     fallback = np.eye(3)[np.argmin(np.abs(direction), axis=-1)]
-    fallback = np.cross(direction, fallback)
+    fallback = cross3(direction, fallback)
     lateral = np.where(
         np.linalg.norm(lateral, axis=-1, keepdims=True) < 1e-8, fallback, lateral
     )
     lateral /= np.linalg.norm(lateral, axis=-1, keepdims=True)
-    normal = np.cross(lateral, direction)
+    normal = cross3(lateral, direction)
     return np.stack((lateral, direction, normal), axis=-1)
 
 

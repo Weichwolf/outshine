@@ -26,9 +26,19 @@ def compile_helper(output):
     libraries = shlex.split(subprocess.check_output(['pkg-config','--libs','geos'],
                                                   text=True,env=environment,timeout=30))
     binary = output/'surface-contact-reference'
-    command = ['c++','-std=c++23','-O2','-ffp-contract=off','-fno-exceptions',
-               '-Wall','-Wextra','-Wshadow','-Werror','-Iinclude',str(SOURCE),
-               str(ROOT/'build/liboutshine.a'),*libraries,'-o',str(binary)]
+    entries = json.loads((ROOT/'compile_commands.json').read_text())
+    unit = ROOT/'src/base/spatial/SurfaceSampler.cpp'
+    entry = next(e for e in entries if Path(e['file']) == unit)
+    if Path(entry['directory']) != ROOT:
+        raise ValueError('compile database belongs to another checkout; run make db here')
+    arguments = iter(entry.get('arguments') or shlex.split(entry['command']))
+    command = []
+    for argument in arguments:
+        if argument == '-o':
+            next(arguments)
+        elif argument not in (str(unit), '-c'):
+            command.append(argument)
+    command += [str(SOURCE), str(ROOT/'build/liboutshine.a'), *libraries, '-o', str(binary)]
     subprocess.run(command,cwd=ROOT,check=True,timeout=120)
     return binary,command
 
