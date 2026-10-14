@@ -34,6 +34,11 @@
       "id": "bodenverfeinerung",
       "title": "Bodenverfeinerung",
       "description": "Dieselben Stützpunkte und Straßen, unterschiedliche Bodenverbindungen. Vorher zeigen feste Fächer Sternfalten; neue Verbindungen beruhigen das Relief. Gleiches Bildfenster ohne Höhenüberhöhung."
+    },
+    {
+      "id": "operationsreferenzen",
+      "title": "Operationsreferenzen",
+      "description": "Einzelne Flächenoperationen im Vergleich mit CityEngine: Fragmente, Innenloch und echte Wiener Anschlussfläche. Die Schaublöcke werden in beiden Varianten gleich geschlossen."
     }
   ],
   "images": [
@@ -421,6 +426,72 @@
       "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-fit-solid.png",
       "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-fit-solid.json",
       "origin_source": "build/experiments/transport/reconnect/origin.json"
+    },
+    {
+      "id": "SDK-reference-offset-fragments-python-solid",
+      "title": "Geteilte Fläche · Python",
+      "section": "operationsreferenzen",
+      "kind": "Python-Modell",
+      "description": "Der kleine SDK-Offset liefert nur das größte Fragment. Unser Flächenmodell erhält beide Teile.",
+      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-python-solid.png",
+      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-python-solid.json",
+      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
+    },
+    {
+      "id": "SDK-reference-offset-fragments-sdk-helper-solid",
+      "title": "Geteilte Fläche · SDK",
+      "section": "operationsreferenzen",
+      "kind": "Externe Operationsreferenz",
+      "description": "Der kleine SDK-Offset liefert nur das größte Fragment. Unser Flächenmodell erhält beide Teile.",
+      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-sdk-helper-solid.png",
+      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-offset-fragments-sdk-helper-solid.json",
+      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
+    },
+    {
+      "id": "SDK-reference-courtyard-python-solid",
+      "title": "Innenloch · Python",
+      "section": "operationsreferenzen",
+      "kind": "Python-Modell",
+      "description": "Beide Triangulationsvarianten erhalten das Innenloch und die vollständige Flächendomäne.",
+      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-python-solid.png",
+      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-python-solid.json",
+      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
+    },
+    {
+      "id": "SDK-reference-courtyard-sdk-backend-solid",
+      "title": "Innenloch · SDK",
+      "section": "operationsreferenzen",
+      "kind": "Externe Operationsreferenz",
+      "description": "Beide Triangulationsvarianten erhalten das Innenloch und die vollständige Flächendomäne.",
+      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-sdk-backend-solid.png",
+      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-courtyard-sdk-backend-solid.json",
+      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
+    },
+    {
+      "id": "SDK-reference-Vienna-junction-0-python-solid",
+      "title": "Wiener Anschluss · Python",
+      "section": "operationsreferenzen",
+      "kind": "Python-Modell",
+      "description": "Gespeicherte reale Verkehrsfläche mit denselben Randpunkten. Unterschiedliche Dreiecke, dieselbe Fläche.",
+      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-python-solid.png",
+      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-python-solid.json",
+      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
+    },
+    {
+      "id": "SDK-reference-Vienna-junction-0-sdk-backend-solid",
+      "title": "Wiener Anschluss · SDK",
+      "section": "operationsreferenzen",
+      "kind": "Externe Operationsreferenz",
+      "description": "Gespeicherte reale Verkehrsfläche mit denselben Randpunkten. Unterschiedliche Dreiecke, dieselbe Fläche.",
+      "scope": "Einzelne ebene Flächenoperation, gleiche Kamera und 0,35 m Schaublöcke. Keine SDK-Extrusions-, vollständige OSM- oder Runtime-Abnahme.",
+      "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-sdk-backend-solid.png",
+      "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-sdk-backend-solid.json",
+      "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
