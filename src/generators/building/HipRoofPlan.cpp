@@ -5,6 +5,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <expected>
 #include <limits>
 #include <map>
@@ -31,6 +32,21 @@ struct Input {
   std::vector<Edge> Edges;
   double ToleranceM = 0;
 };
+
+extern "C" int ReportLibraryError(const char *message, ...) {
+  return std::fprintf(
+      stderr, "sfcgal: %.120s\n", message != nullptr ? message : "partition failed");
+}
+
+extern "C" int IgnoreLibraryWarning(const char *message, ...) {
+  (void)message;
+  return 0;
+}
+
+void InitialiseLibrary() {
+  sfcgal_init();
+  sfcgal_set_error_handlers(IgnoreLibraryWarning, ReportLibraryError);
+}
 
 EastNorth Local(EastNorth point, EastNorth origin) {
   return {.EastM = point.EastM - origin.EastM, .NorthM = point.NorthM - origin.NorthM};
@@ -294,7 +310,7 @@ HipRoofPlan::Prepare(std::span<const EastNorth> exterior,
     return std::unexpected(HipRoofError::InvalidInput);
   }
   static std::once_flag initialised;
-  std::call_once(initialised, sfcgal_init);
+  std::call_once(initialised, InitialiseLibrary);
   auto input = ReadInput(exterior, holes, limits, exterior.front());
   if (!input) { return std::unexpected(input.error()); }
   auto facets = PrepareFacets(*input, limits);

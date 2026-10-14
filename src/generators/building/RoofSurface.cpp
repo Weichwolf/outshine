@@ -2,7 +2,6 @@
 #include <algorithm>
 #include "math/Units.h"
 #include "RoofSurface.h"
-#include "PolygonTriangulation.h"
 
 #include <cstddef>
 #include <limits>
@@ -29,83 +28,9 @@ struct Line {
 constexpr double kSamePointM = 0.01;
 constexpr double kWeldM = 0.02;
 constexpr double kOnLineM = kWeldM;
-constexpr double kSliverM2 = 1.0e-4;
 constexpr int kMaxCreases = 14;
-constexpr double kCourtyardAreaToleranceM2 = 1.0e-6;
-constexpr double kCourtyardRelativeAreaTolerance = 1.0e-8;
 
-void PushTri(std::vector<EastNorth> &out,
-             const EastNorth &a,
-             const EastNorth &b,
-             const EastNorth &c) {
-  const double ab =
-      (a.EastM - b.EastM) * (a.EastM - b.EastM) + (a.NorthM - b.NorthM) * (a.NorthM - b.NorthM);
-  const double bc =
-      (b.EastM - c.EastM) * (b.EastM - c.EastM) + (b.NorthM - c.NorthM) * (b.NorthM - c.NorthM);
-  const double ca =
-      (c.EastM - a.EastM) * (c.EastM - a.EastM) + (c.NorthM - a.NorthM) * (c.NorthM - a.NorthM);
-  if (ab < kSliverM2 || bc < kSliverM2 || ca < kSliverM2) { return; }
-  out.push_back(a);
-  out.push_back(b);
-  out.push_back(c);
-}
-
-struct Ear {
-  uint32_t Before;
-  uint32_t Tip;
-  uint32_t After;
-};
-
-[[nodiscard]] bool IsEar(std::span<const EastNorth> ring, std::span<const uint32_t> poly, Ear ear) {
-  const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
-    return (ring[b].EastM - ring[a].EastM) * (ring[c].NorthM - ring[a].NorthM) -
-           (ring[c].EastM - ring[a].EastM) * (ring[b].NorthM - ring[a].NorthM);
-  };
-  const double area = cross(ear.Before, ear.Tip, ear.After);
-  if (!std::isfinite(area) || area <= 0) { return false; }
-  for (const uint32_t point : poly) {
-    if (point == ear.Before || point == ear.Tip || point == ear.After) { continue; }
-    const std::array sides{cross(ear.Before, ear.Tip, point),
-                           cross(ear.Tip, ear.After, point),
-                           cross(ear.After, ear.Before, point)};
-    if (!std::ranges::all_of(sides, [](double side) { return std::isfinite(side); })) {
-      return false;
-    }
-    if (std::ranges::all_of(sides, [](double side) { return side >= 0; })) { return false; }
-  }
-  return true;
-}
-
-[[nodiscard]] bool EarClip(std::span<const EastNorth> ring,
-                           std::vector<uint32_t> &poly,
-                           std::vector<EastNorth> &tris) {
-  const size_t n = ring.size();
-  if (n < 3 || n > std::numeric_limits<uint32_t>::max()) { return false; }
-  if (!std::ranges::all_of(ring, [](const EastNorth &point) {
-        return std::isfinite(point.EastM) && std::isfinite(point.NorthM);
-      })) {
-    return false;
-  }
-  poly.resize(n);
-  for (size_t i = 0; i < n; ++i) { poly[i] = static_cast<uint32_t>(i); }
-  while (poly.size() > 2) {
-    bool cut = false;
-    for (size_t i = 0; i < poly.size(); ++i) {
-      const Ear ear{.Before = poly[(i + poly.size() - 1) % poly.size()],
-                    .Tip = poly[i],
-                    .After = poly[(i + 1) % poly.size()]};
-      if (!IsEar(ring, poly, ear)) { continue; }
-      PushTri(tris, ring[ear.Before], ring[ear.Tip], ring[ear.After]);
-      poly.erase(poly.begin() + static_cast<std::ptrdiff_t>(i));
-      cut = true;
-      break;
-    }
-    if (!cut) { return false; }
-  }
-  return true;
-}
-
-[[nodiscard]] bool Inside(std::span<const EastNorth> ring, const EastNorth &p, double marginM) {
+bool Inside(std::span<const EastNorth> ring, const EastNorth &p, double marginM) {
   const size_t n = ring.size();
   if (n < 3) { return true; }
   bool in = false;
@@ -131,69 +56,6 @@ struct Ear {
     nearest = std::min(nearest, dx * dx + dy * dy);
   }
   return nearest <= marginM * marginM;
-}
-
-double PolygonArea(std::span<const EastNorth> ring) {
-  double twice = 0.0;
-  for (size_t at = 0; at < ring.size(); ++at) {
-    const auto &a = ring[at];
-    const auto &b = ring[(at + 1) % ring.size()];
-    twice += a.EastM * b.NorthM - a.NorthM * b.EastM;
-  }
-  return 0.5 * std::abs(twice);
-}
-
-bool FillCourtyard(std::span<const EastNorth> plan,
-                   std::span<const std::vector<EastNorth>> holes,
-                   std::vector<EastNorth> &tris) {
-  std::vector<std::vector<std::array<double, 2>>> polygon;
-  std::vector<EastNorth> vertices;
-  double expectedArea = PolygonArea(plan);
-  const auto append = [&](std::span<const EastNorth> ring) {
-    auto &points = polygon.emplace_back();
-    points.reserve(ring.size());
-    for (const auto &point : ring) {
-      points.push_back({point.EastM, point.NorthM});
-      vertices.push_back(point);
-    }
-  };
-  append(plan);
-  for (const auto &hole : holes) {
-    if (hole.size() < 3 ||
-        !std::ranges::all_of(hole, [&](const auto &point) { return Inside(plan, point, 0.0); })) {
-      return false;
-    }
-    expectedArea -= PolygonArea(hole);
-    append(hole);
-  }
-  if (expectedArea <= 0.0 || vertices.size() > std::numeric_limits<uint32_t>::max()) {
-    return false;
-  }
-  const auto indices = TriangulatePolygon(polygon);
-  if (!indices) { return false; }
-  const size_t first = tris.size();
-  double actualArea = 0.0;
-  for (size_t at = 0; at + 2 < indices->size(); at += 3) {
-    const auto &a = vertices[(*indices)[at]];
-    const auto &b = vertices[(*indices)[at + 1]];
-    const auto &c = vertices[(*indices)[at + 2]];
-    const double area = 0.5 * ((b.EastM - a.EastM) * (c.NorthM - a.NorthM) -
-                               (b.NorthM - a.NorthM) * (c.EastM - a.EastM));
-    const size_t before = tris.size();
-    if (area > 0.0) {
-      PushTri(tris, a, b, c);
-    } else {
-      PushTri(tris, a, c, b);
-    }
-    if (tris.size() != before) { actualArea += std::abs(area); }
-  }
-  if (tris.size() == first ||
-      std::abs(actualArea - expectedArea) >
-          std::max(kCourtyardAreaToleranceM2, expectedArea * kCourtyardRelativeAreaTolerance)) {
-    tris.resize(first);
-    return false;
-  }
-  return true;
 }
 
 int Deduped(std::span<Line> lines, int n) {
@@ -296,19 +158,6 @@ double RoofSurface::HeightAt(const EastNorth &enu) const noexcept {
   }
 
   return f * rise;
-}
-
-bool RoofSurface::Fill(std::span<const EastNorth> plan,
-                       BuildingScratch &scratch,
-                       std::vector<EastNorth> &tris,
-                       std::span<const std::vector<EastNorth>> holes) {
-  if (!holes.empty()) { return FillCourtyard(plan, holes, tris); }
-  const size_t first = tris.size();
-  if (!EarClip(plan, scratch.Poly, tris)) {
-    tris.resize(first);
-    return false;
-  }
-  return true;
 }
 
 namespace {
@@ -429,7 +278,7 @@ bool RoofSurface::Cover(std::span<const EastNorth> plan,
   std::vector<EastNorth> &mine = scratch.Mine;
   mine.clear();
   for (const std::vector<EastNorth> &cell : cells.Standing()) {
-    if (!EarClip(cell, scratch.Poly, mine)) {
+    if (!Fill(cell, scratch, mine)) {
       tris.resize(first);
       return false;
     }

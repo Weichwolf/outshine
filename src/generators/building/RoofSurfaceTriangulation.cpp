@@ -4,8 +4,10 @@
 #include <geos_c.h>
 #include <algorithm>
 #include <cstddef>
+#include <cmath>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -27,7 +29,7 @@ struct DeleteGeometry {
 
 using Geometry = std::unique_ptr<GEOSGeometry, DeleteGeometry>;
 
-Geometry Polygon(GEOSContextHandle_t context, std::span<const EastNorth> points) {
+Geometry LinearRing(GEOSContextHandle_t context, std::span<const EastNorth> points) {
   if (points.size() < 3) { return {nullptr, {context}}; }
   auto *coordinates = GEOSCoordSeq_create_r(context, static_cast<unsigned>(points.size() + 1), 2);
   if (coordinates == nullptr) { return {nullptr, {context}}; }
@@ -39,9 +41,26 @@ Geometry Polygon(GEOSContextHandle_t context, std::span<const EastNorth> points)
       return {nullptr, {context}};
     }
   }
-  auto *ring = GEOSGeom_createLinearRing_r(context, coordinates);
-  if (ring == nullptr) { return {nullptr, {context}}; }
-  return {GEOSGeom_createPolygon_r(context, ring, nullptr, 0), {context}};
+  return {GEOSGeom_createLinearRing_r(context, coordinates), {context}};
+}
+
+Geometry Polygon(GEOSContextHandle_t context,
+                 std::span<const EastNorth> points,
+                 std::span<const std::vector<EastNorth>> holes = {}) {
+  auto exterior = LinearRing(context, points);
+  if (!exterior) { return {nullptr, {context}}; }
+  std::vector<Geometry> owned;
+  owned.reserve(holes.size());
+  for (const auto &hole : holes) {
+    owned.push_back(LinearRing(context, hole));
+    if (!owned.back()) { return {nullptr, {context}}; }
+  }
+  std::vector<GEOSGeometry *> inner;
+  inner.reserve(owned.size());
+  for (auto &hole : owned) { inner.push_back(hole.release()); }
+  return {GEOSGeom_createPolygon_r(
+              context, exterior.release(), inner.data(), static_cast<unsigned>(inner.size())),
+          {context}};
 }
 
 bool ReadRing(GEOSContextHandle_t context, const GEOSGeometry *ring, PolygonRing &points) {
@@ -64,6 +83,10 @@ bool AppendPolygon(GEOSContextHandle_t context,
                    const GEOSGeometry *polygon,
                    EastNorth origin,
                    std::vector<EastNorth> &triangles) {
+  double areaM2 = 0;
+  constexpr double kWeldAreaM2 = 1 / (kBuildingWeldPerM * kBuildingWeldPerM);
+  if (GEOSArea_r(context, polygon, &areaM2) == 0) { return false; }
+  if (areaM2 <= kWeldAreaM2) { return true; }
   const int holes = GEOSGetNumInteriorRings_r(context, polygon);
   if (holes < 0) { return false; }
   std::vector<PolygonRing> rings(static_cast<size_t>(holes) + 1);
@@ -95,6 +118,39 @@ bool AppendPolygon(GEOSContextHandle_t context,
   return true;
 }
 
+struct QuadInput {
+  std::span<const EastNorth> Requested, Local;
+};
+
+bool AppendQuad(QuadInput quad, std::vector<EastNorth> &triangles) {
+  const auto requested = quad.Requested;
+  const auto local = quad.Local;
+  if (requested.size() != 4) { return false; }
+  const auto cross = [&](size_t a, size_t b, size_t c) {
+    return (local[b].EastM - local[a].EastM) * (local[c].NorthM - local[a].NorthM) -
+           (local[b].NorthM - local[a].NorthM) * (local[c].EastM - local[a].EastM);
+  };
+  if (cross(3, 0, 1) <= 0 || cross(3, 1, 2) <= 0) { return false; }
+  triangles.reserve(triangles.size() + 6);
+  for (const size_t at : {3u, 0u, 1u, 3u, 1u, 2u}) { triangles.push_back(requested[at]); }
+  return true;
+}
+
+std::optional<std::vector<std::vector<EastNorth>>>
+LocalHoles(std::span<const std::vector<EastNorth>> holes, EastNorth origin) {
+  std::vector<std::vector<EastNorth>> local;
+  local.reserve(holes.size());
+  for (const auto &hole : holes) {
+    auto &ring = local.emplace_back();
+    ring.reserve(hole.size());
+    for (const auto p : hole) {
+      if (!std::isfinite(p.EastM) || !std::isfinite(p.NorthM)) { return std::nullopt; }
+      ring.push_back({.EastM = p.EastM - origin.EastM, .NorthM = p.NorthM - origin.NorthM});
+    }
+  }
+  return local;
+}
+
 bool AppendIntersection(GEOSContextHandle_t context,
                         const GEOSGeometry *geometry,
                         EastNorth origin,
@@ -116,6 +172,49 @@ bool AppendIntersection(GEOSContextHandle_t context,
   }
   return type >= 0;
 }
+}
+
+bool RoofSurface::Fill(std::span<const EastNorth> requested,
+                       BuildingScratch &scratch,
+                       std::vector<EastNorth> &triangles,
+                       std::span<const std::vector<EastNorth>> holes) {
+  (void)scratch;
+  if (requested.size() < 3) { return false; }
+  const auto origin = requested.front();
+  std::vector<EastNorth> local;
+  double twiceArea = 0;
+  for (size_t at = 0; at < requested.size(); ++at) {
+    const auto a = requested[at];
+    const auto b = requested[(at + 1) % requested.size()];
+    if (!std::isfinite(a.EastM) || !std::isfinite(a.NorthM)) { return false; }
+    const EastNorth p{.EastM = a.EastM - origin.EastM, .NorthM = a.NorthM - origin.NorthM};
+    local.push_back(p);
+    twiceArea += p.EastM * (b.NorthM - origin.NorthM) - p.NorthM * (b.EastM - origin.EastM);
+  }
+  if (!std::isfinite(twiceArea) || (holes.empty() && twiceArea <= 0)) { return false; }
+  if (holes.empty() && AppendQuad({.Requested = requested, .Local = local}, triangles)) {
+    return true;
+  }
+  const auto localHoles = LocalHoles(holes, origin);
+  if (!localHoles) { return false; }
+  const Context context;
+  if (context.Handle == nullptr) { return false; }
+  auto polygon = Polygon(context.Handle, local, *localHoles);
+  if (!polygon) { return false; }
+  const char valid = GEOSisValid_r(context.Handle, polygon.get());
+  if (valid == 2) { return false; }
+  if (valid == 0) {
+    if (!holes.empty()) { return false; }
+    polygon.reset(GEOSMakeValid_r(context.Handle, polygon.get()));
+  }
+  if (!polygon) { return false; }
+  const size_t first = triangles.size();
+  if (!AppendIntersection(context.Handle, polygon.get(), origin, triangles) ||
+      triangles.size() == first) {
+    triangles.resize(first);
+    return false;
+  }
+  return true;
 }
 
 bool RoofSurface::CoverHip(std::span<const EastNorth> requested,
