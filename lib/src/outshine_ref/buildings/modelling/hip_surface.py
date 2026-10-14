@@ -23,6 +23,7 @@ class HipSurface:
     distances_m: object
     facets: tuple
     ridge_groups: tuple
+    mode: str
 
     @property
     def origin(self):return self.plan.origin
@@ -33,29 +34,40 @@ class HipSurface:
     @property
     def maximum_refinement_m(self):return self.plan.maximum_refinement_m
 
+    def factor(self,value,mode='byAngle'):
+        if mode!=self.mode:raise ValueError('Equalized roof surface belongs to its prepared value type')
+        return self.plan.factor(value,mode)
+
+
+def edge_owners(rings):
+    edges={}
+    for number,nodes in enumerate(rings):
+        for a,b in zip(nodes,nodes[1:]+nodes[:1]):edges.setdefault(tuple(sorted((a,b))),[]).append((number,a,b))
+    return edges
+
 
 def ridge_groups(plan):
-    edges={}; parents=np.arange(len(plan.positions_m))
-    for number,facet in enumerate(plan.facets):
-        nodes=facet.node_indices
-        for a,b in zip(nodes,nodes[1:]+nodes[:1]):
-            edges.setdefault(tuple(sorted((a,b))),[]).append((number,a,b))
+    rings=[f.node_indices if f.polygon.exterior.is_ccw else f.node_indices[::-1] for f in plan.facets];edges=edge_owners(rings)
+    parents=np.arange(len(plan.positions_m));counts=np.zeros(len(parents),dtype=int)
     def root(node):
         while parents[node]!=node:
             parents[node]=parents[parents[node]];node=int(parents[node])
         return node
+    threshold=-np.sin(np.deg2rad(2.))
     for owners in edges.values():
         if len(owners)!=2:continue
-        first,a,b=owners[0];second=owners[1][0]
+        for first,a,b in owners:
+            if plan.distances_m[b]<=0:continue
+            second=next(o[0] for o in owners if o[0]!=first)
+            left,right=rings[first],rings[second]
+            prior=left[(left.index(a)-1)%len(left)];after=right[(right.index(a)+1)%len(right)]
+            x,y=plan.positions_m[after]-plan.positions_m[a],plan.positions_m[prior]-plan.positions_m[a]
+            length=np.linalg.norm(x)*np.linalg.norm(y)
+            if length and (x[0]*y[1]-x[1]*y[0])/length>=threshold:counts[a]+=1;counts[b]+=1
+    for (a,b),owners in edges.items():
+        if len(owners)!=2:continue
         if plan.distances_m[a]<=0 or plan.distances_m[b]<=0:continue
-        tangent=plan.positions_m[b]-plan.positions_m[a]
-        length=np.linalg.norm(tangent)
-        if length==0:
-            ra,rb=root(a),root(b);parents[max(ra,rb)]=min(ra,rb);continue
-        inward=np.array([-tangent[1],tangent[0]])/length
-        if not plan.facets[first].polygon.exterior.is_ccw:inward=-inward
-        change=(np.asarray(plan.facets[first].gradient)-plan.facets[second].gradient)@inward
-        if change < -64*np.finfo(float).eps:
+        if np.array_equal(plan.positions_m[a],plan.positions_m[b]) or counts[a]+counts[b]>1:
             ra,rb=root(a),root(b);parents[max(ra,rb)]=min(ra,rb)
     groups={}
     for node in np.flatnonzero(plan.distances_m>0):groups.setdefault(root(int(node)),[]).append(int(node))
@@ -77,11 +89,13 @@ def patches_for(plan,heights,owner,lookup):
         yield SurfacePatch(triangle,tuple(gradient),float(values[0]-points[0]@gradient),owner,nodes)
 
 
-def prepare_even(plan):
+def prepare_even(plan,mode='byAngle'):
+    if mode not in ('byAngle','byHeight'):raise ValueError('Unknown equalized roof value type')
     groups=ridge_groups(plan);heights=plan.distances_m.copy()
     for group in groups:
         _,unique=np.unique(plan.positions_m[list(group)],axis=0,return_index=True)
-        heights[list(group)]=plan.distances_m[np.asarray(group)[unique]].mean()
+        values=plan.distances_m[np.asarray(group)[unique]]
+        heights[list(group)]=values.max() if mode=='byHeight' else values.mean()
     lookup={tuple(xy):i for i,xy in enumerate(plan.positions_m)}
     patches=[patch for owner in range(len(plan.facets)) for patch in patches_for(plan,heights,owner,lookup)]
-    return HipSurface(plan,immutable_array(heights),tuple(patches),groups)
+    return HipSurface(plan,immutable_array(heights),tuple(patches),groups,mode)

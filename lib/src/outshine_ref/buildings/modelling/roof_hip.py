@@ -84,9 +84,10 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even
     tangent = edges[np.argmax(np.linalg.norm(edges, axis=1))]
     tangent -= normal*np.dot(tangent, normal); tangent /= np.linalg.norm(tangent)
     basis = np.array([tangent, np.cross(normal, tangent)])
-    plan = prepare_hip(polygon, limits=limits); factor = plan.factor(value, mode)
-    surface = prepare_even(plan) if even else None
+    plan = prepare_hip(polygon, limits=limits)
+    surface = prepare_even(plan,mode) if even else None
     field = plan if surface is None else surface
+    factor = field.factor(value, mode)
     uv = channel_faces(face, mesh)
     face = replace(face, tags=face.tags-ROOF_TAGS.keys(), uvs=uv[0], uv_sets=tuple((c, v) for c, v in uv.items() if c))
     source = source_cut(shape, mesh, number, face, normal, channels)
@@ -94,7 +95,7 @@ def hip_face(shape, mesh, number, value, mode, channels, limits, max_cells, even
     cut = overlay(projected[source.triangles], field, max_cells)
     properties = attributes(source, projected, cut)
     points = cut.corners.reshape(-1, 2); owners = np.repeat(cut.facets, 3)
-    builder = RoofMesh(channels)
+    builder = RoofMesh(channels,normal if even else None)
     roots, upper, heights, adjustment = canonical(builder, points, properties, owners, field, factor, cut.precision_m)
     order = np.arange(len(properties)).reshape(-1, 3)[:, ::-1].ravel()
     builder.append(properties[order], roots[order], 'bottom', replace(face, tags=face.tags|{'roof.bottom'}))
