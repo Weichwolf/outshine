@@ -529,3 +529,56 @@ Falsche Typen/Werte sind API-Fehler. Die ganze Höhe ist zum analytischen Feld
 zertifiziert; die erzeugten Facetten bleiben C0. Gleiche echte Eingaben und
 Globalflächen-/Budgetgegenfälle, Wheelimport und unveränderte Bilder/Kosten
 werden geprüft. Bibliotheksübernahme allein ist keine native Weltabnahme.
+
+
+## Schienenfeld über den Kachelrand (#128)
+
+`capture_bridge_continuations.py` liest dieselben drei vollständigen, gehashten
+20260927-OpenFreeMap-Eingaben wie der Anschlussversuch. Explizite Aufnahme mit
+`--write-fixture`; normale Prüfungen/Experimente verändern keine Pins.
+Fixture `bridge-continuations-vienna.json`, SHA256
+`fcc91443d76d69223c8173061cf1f2f69d78446a9cc26fd58d9482c3e4f68db4`:
+19 kompatible positiv überlappende Layer-1-Subway-Brücken, zwei bestehende Zufahrten,
+48 bekannte untere Außenflächen und 37 lokale ungelöste Quellen.
+Alle 3259 Quell-IDs/Achsenflächen der drei Eingaben werden bilanziert; 69 verwendet.
+Die komplette Original-MVT-Aufbereitung bleibt in den bisherigen Eingaben erhalten.
+
+Das ursprüngliche westliche C1-Höhenfeld bleibt erhalten. Ein disjunkter östlicher
+flacher C1-Übergang auf derselben Projektionsachse sichert die zusätzlichen bekannten
+Durchfahrten: 4,52 m mit 0,35 m Deckdicke und 2 cm Reserve. Die benötigte Anhebung
+wird über ganze affine Flächenschnitte bestimmt; mindestens erforderliche Profillänge
+unter 2,4 % Grad und 0,002 1/m zweiter Ableitung. Anhebung über 8 m oder fehlender
+Raum liefert den vorher unabhängig geprüften Plan statt ungültiger neuer Geometrie.
+Diese Länge ist nur für dieses Höhen-/Grenzrezept minimal, keine Netzoptimalität.
+Kachel-Clips haben keinen gewählten Bodenkontakt; deren DEM-Werte sind weiche
+Geländeprioren. Die frühere 8-m-Priorgrenze des kleinen Deckrezepts wird neuen
+internen Brückenclips nicht als Bodenanker aufgezwungen. Alte Kontakte bleiben erhalten.
+
+`bridge_continuation_field.py` komponiert die beiden installierbaren Profilrezepte;
+`geometry.projected_height_surface` erzeugt das komplette Stationsmesh.
+`retained_surface.py` erweitert den alten Boden über dessen Exterior, übernimmt
+ursprüngliche XY-Vertices vorrangig und fixiert alle alten affinen Höhenkontakte.
+Nur nach numerischem Schweißen/Splitten exakt flächenlose Faces werden entfernt;
+anschließend volle konforme Coverage, Flächenfehler und Hausdorff ≤1e-8 m geprüft.
+Die Bibliotheks-Triangulation bleibt unverändert und lehnt numerisch kollabierte
+Eingaben weiterhin ab. Neuer Boden bleibt unter 2,5 % und höchstens 2 m Prioränderung.
+Vollständige obere Neutriangulation und erhaltende Erweiterung werden bei denselben
+Flächen, Profilen, Fehler-/Neigungs-/Kontakt-/Freiraumanforderungen verglichen.
+Maximal 128 gewählte Quellen, 64 Brücken, 64 untere Quellen, 8192 Vertices/Faces
+je Produkt; weitere Geometrie-/Stations-/Paargrenzen über `ProjectedSurfaceBudget`.
+GEOS-/Solverzeit kooperativ, harte Kinder CPU15s/AS2GiB und Parent40s.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_continuation_checks.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_continuation_experiment.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_continuation_showcase.py
+```
+
+Ausgaben: `build/experiments/transport/bridge-continuations/`. Drei frische Worker
+je Methode, fünf Samples nach Warmup; alter Root-/Anschlussaufbau außerhalb der
+Erweiterungszeit, im Peak enthalten. Neun 1920×1080-Bilder, jeweils gleiche Kameras.
+Analytisches XY-Höhenfeld C1, endliche Faces C0; Originalachsen bleiben ungeglättet.
+Keine Fahrkurven-/Gleishardware-/Terrain-/Wasser-/Pfeiler-/Innenraum-/Tunnel-/Weltabnahme.
+Vorhandene Plan/Reservation-Verträge unverändert; Source/Kind/Frame explizit im Produkt.
+Grundlage: bestehende SIGGRAPH-Graph/Geometrie-Trennung und die geprüften Profil-/CAD-
+Bausteine aus #96/#119/#125; keine SDK-Abhängigkeit und keine neue Fremdcodekopie.
