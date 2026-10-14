@@ -30,6 +30,7 @@ public:
     size_t SourceEdge = 0;
 
     [[nodiscard]] double DistanceAt(EastNorth point) const noexcept;
+    [[nodiscard]] bool Contains(EastNorth point, double tolerance) const noexcept;
   };
 
   [[nodiscard]] static std::expected<HipRoofPlan, HipRoofError>
@@ -48,6 +49,7 @@ public:
   [[nodiscard]] std::optional<double> DistanceAt(EastNorth point) const noexcept;
 
 private:
+  friend class HipRoofCodec;
   EastNorth Origin_;
   double MaximumDistanceM_ = 0;
   double PrecisionM_ = 0;

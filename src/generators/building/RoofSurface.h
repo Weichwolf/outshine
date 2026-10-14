@@ -14,6 +14,11 @@ namespace outshine::Generators {
 class RoofSurface {
 public:
   explicit RoofSurface(const BuildingShape &shape);
+  RoofSurface(const RoofSurface &) = delete;
+  RoofSurface &operator=(const RoofSurface &) = delete;
+  RoofSurface(RoofSurface &&) = delete;
+  RoofSurface &operator=(RoofSurface &&) = delete;
+  [[nodiscard]] static std::expected<void, HipRoofError> PrepareHip(BuildingShape &shape);
 
   [[nodiscard]] double HeightAt(const EastNorth &enu) const noexcept;
 
@@ -29,9 +34,9 @@ public:
                                          double maximum,
                                          std::vector<double> &cuts) const;
 
-  void Cover(std::span<const EastNorth> plan,
-             BuildingScratch &scratch,
-             std::vector<EastNorth> &tris) const;
+  [[nodiscard]] bool Cover(std::span<const EastNorth> plan,
+                           BuildingScratch &scratch,
+                           std::vector<EastNorth> &tris) const;
 
   void BreaksAlong(const EastNorth &from, const EastNorth &to, std::vector<double> &at) const;
 
@@ -47,6 +52,18 @@ public:
 
 private:
   const BuildingShape &Shape_;
+  std::optional<std::expected<HipRoofPlan, HipRoofError>> LocalHip_;
+  const std::expected<HipRoofPlan, HipRoofError> *Hip_ = nullptr;
+
+  [[nodiscard]] double HipHeightAt(EastNorth point) const noexcept;
+  [[nodiscard]] std::optional<Hit> TraceHip(const Vec3 &origin,
+                                            const Vec3 &direction,
+                                            double minimum,
+                                            double maximum) const noexcept;
+  [[nodiscard]] bool CoverHip(std::span<const EastNorth> requested,
+                              BuildingScratch &scratch,
+                              std::vector<EastNorth> &triangles) const;
+  void HipBreaksAlong(EastNorth from, EastNorth to, std::vector<double> &at) const;
 };
 
 }

@@ -25,7 +25,7 @@ int main() {
     RoofSurface roof(shape);
     BuildingScratch scratch;
     std::vector<EastNorth> triangles;
-    roof.Cover(shape.Ring, scratch, triangles);
+    CHECK(roof.Cover(shape.Ring, scratch, triangles), "roof coverage is successfully triangulated");
     CHECK(!triangles.empty() && triangles.size() / 3 <= 2 * corners,
           "a simple round roof has linear cost in source footprint corners");
     double areaM2 = 0;
