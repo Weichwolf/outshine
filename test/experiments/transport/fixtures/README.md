@@ -28,3 +28,12 @@ hash-checked `4ea502363` Ground/benchmark products under `build/experiments/tran
 
 Generation verifies the original query and full-result digests before writing.
 Normal tests and the default verifier never create reference data or update pins.
+
+`vertical-transition-cases.json` contains 256 saved Vienna straight ground axes,
+original source IDs/tags/XY, DEM endpoint targets, class grade recipes and original
+OpenFreeMap/Mapterhorn receipts. It supplies portable inputs for #20's flat-ended
+vertical profile comparison, without requiring the original decoder/cache. Flat
+end grades and fallback width are explicit procedural assumptions. Normal runs of
+`vertical_transition_experiment.py` only read it; `--capture-inputs` deliberately
+replaces it from the retained original source and DEM cache. These cases do not
+prove a complete junction/terrain/grade-separated network or native integration.

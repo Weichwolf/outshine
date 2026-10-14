@@ -62,10 +62,36 @@ Zeitlimit überschreiten. Dies ist ein Offline-Verfahren, kein Framebudget-Vertr
 SciPy/Clarabel werden erst für die Höhenlösung importiert; bereits gültige Priors
 brauchen keinen Solver. Die minimax Zielgröße gilt für das feste Eingabemesh und
 die vorgegebenen Gradientenrahmen, nicht für eine optimale Erdrekonstruktion.
-C1-Anschlüsse, Überhöhung, Terrainformung, Zugänge und Ebenenplanung bleiben offen.
+C1-Netzanschlüsse, Überhöhung, Terrainformung, Zugänge und Ebenenplanung bleiben offen.
 Der Operator ändert keine gemeinsamen Plan-/Reservierungsverträge; ein erhöhtes
 Road-Mesh allein ist kein Boden-/Gebäudekontaktprodukt. Fachvertrag:
 [#20](https://github.com/Weichwolf/outshine/issues/20), Übernahme #50.
+
+`transport.plan_vertical_transition(z0, z1, length, grade=0.08,
+second_derivative=0.002, method="parabolic")` liefert einen unveränderlichen
+`VerticalTransition` samt Bericht oder `None` mit lokalem Längengrund. Stationen,
+Höhen und lokale Polynomkoeffizienten verwenden Meter; beide Endneigungen sind null.
+Stückweise parabolisch/linear/parabolisch: minimale mögliche Länge unter den
+eindimensionalen Neigungs-/Zweitableitungsgrenzen; bei vorgegebener längerer Strecke
+wird die kleinste ausreichende maximale Zweitableitung gewählt. Alternativ kubisches
+Smoothstep-Profil unter denselben Grenzen. Das ist keine Netzoptimalität oder
+Fahrdynamik-Abnahme; die Zweitableitung hat die Einheit 1/m, keine Geschwindigkeitsbindung.
+`minimum_transition_length(delta_z, grade, second_derivative, method=...)` gibt die
+jeweilige Längengrenze; `evaluate(stations, derivative=0|1|2)` extrapoliert nicht.
+
+`sample_vertical_transition(profile, height_error_m=0.01, max_vertices=4096)` liefert
+Stations-/Höhenpaare oder begründete Abwesenheit vor der Vertexallokation.
+Die linearen Höhenchords besitzen pro Polynomintervall die Schranke
+`max(abs(z''))*step²/8`; Segmentgrenzen werden erhalten, Default-Querycap 65536.
+C1 gilt für den analytischen Plan. Endliche Dreiecksflächen bleiben C0 und erhalten
+begrenzte Facetten-/Endneigungssprünge; C2 an flachen Anschlüssen wird nicht behauptet.
+Unterstützt: Höhen ±1e7 m, Länge 1e-6..1e7 m, Neigung 1e-9..1,
+Zweitableitung 1e-12..1/m. Der konstante Aufwand der Planung umfasst höchstens drei
+Polynomintervalle; SciPy-PPoly wird erst beim ersten Profilaufbau geladen.
+Querneigung und der vollständige XY-Querschnitt verbrauchen eigenes Neigungsbudget.
+Der Caller bindet Quell-ID, Frame, Deck/Boden, Anschluss und Reservierungen.
+Gekrümmte Achsen, freie Anschlussneigungen, DEM-Innenfit und Ebenenplanung folgen
+getrennt; `Plan`/`Reservation` und vorhandene Sampler bleiben erhalten (#20).
 
 `geometry.SurfaceSampler(mesh)` bereitet eine ausdrücklich gewählte XY-Höhenfläche
 für wiederholte `sample(xy)`-Abfragen vor. `SurfaceSamples` besitzt unveränderliche
