@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from ..contracts import FootprintAdjustment, Hint, LocalFrame, Mesh, Reservation, collection
 from .surface import close_surface
 from .heights import HeightBudget, HeightFit, fit_surface_heights
+from .vertical import VerticalTransition, minimum_transition_length, plan_vertical_transition, sample_vertical_transition
 
 
 @dataclass(frozen=True, slots=True)

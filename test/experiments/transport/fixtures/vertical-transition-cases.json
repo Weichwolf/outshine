@@ -1,0 +1,6234 @@
+{
+  "source_sha256": "b5a36c59aadd12c4dbe40aa1d1692a884dcfca37c5da4ad365941fd7cc72677d",
+  "source_receipt": {
+    "bytes": 724171,
+    "origin": "network",
+    "seconds": 0.375080333,
+    "sha256": "b4deeb4a88698dc96f5d6ab862da7ee455f7b696f0975b86807c1771726f5717",
+    "sites": [
+      "Vienna"
+    ],
+    "tile": [
+      14,
+      8937,
+      5681
+    ],
+    "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8937/5681.pbf",
+    "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/c9c5c8369e0a6dc9bb04e01e1e8e5c19f0b3144f0803f93680f0270fdb90e848.pbf"
+  },
+  "dem": {
+    "origin_lat_lon": [
+      48.21,
+      16.37
+    ],
+    "dem_sources": [
+      {
+        "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+        "path": "/home/cosmo/.local/share/outshine/outshine/sources/transport-experiments/mapterhorn/ed046ca3dc763c637e2265eb9c22dbbc9d3b4a58b472a7f41575f0b81b1e3d6f.webp",
+        "tile": [
+          11,
+          1117,
+          710
+        ],
+        "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8",
+        "bytes": 49798,
+        "origin": "retained",
+        "acquisition_and_decode_ms": 57.14777200046228
+      }
+    ],
+    "mesh_sha256": "9cf891d4436d8b4cf35f0542f3237101add2d18df32ce24bcfa9d8acdc5c466e",
+    "sampled_at": "2026-10-13T18:33:26.019719+00:00",
+    "zoom": 11,
+    "height_range_m": [
+      159.8902862714204,
+      175.5676413391597
+    ],
+    "sampling": "bilinear at raster pixel centres with adjacent tile support, longitude wrapping and polar raster clamping",
+    "scope": "Coarse prior for constructive profiles, not measured road elevations."
+  },
+  "cases": [
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:303229342:0",
+      "properties": {
+        "bicycle": "use_sidepath",
+        "surface": "paved",
+        "class": "secondary",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          722.6098609913025,
+          -394.773789824877
+        ],
+        [
+          485.4306586153448,
+          -742.5835597541025
+        ]
+      ],
+      "target_heights_m": [
+        166.006591796875,
+        169.0
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134305272:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1106.633233966656,
+          -1205.7993174164294
+        ],
+        [
+          1062.062645600854,
+          -944.3450624464105
+        ]
+      ],
+      "target_heights_m": [
+        171.93847656261278,
+        169.67285156289108
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134300010:6",
+      "properties": {
+        "subclass": "footway",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1132.8980449681537,
+          -1201.0238972341133
+        ],
+        [
+          1088.3274566023517,
+          -949.1204826287267
+        ]
+      ],
+      "target_heights_m": [
+        171.04980468740723,
+        167.62499999976717
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58918872:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          371.61647760719956,
+          -1349.8578262421865
+        ],
+        [
+          155.13076268794532,
+          -1461.6822488391715
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        174.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:512",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1036.1957862818367,
+          -402.73282346207066
+        ],
+        [
+          1116.9799776962489,
+          -239.17468222580965
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:290657612:0",
+      "properties": {
+        "bicycle": "use_sidepath",
+        "surface": "paved",
+        "class": "secondary",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          485.4306586153448,
+          -742.5835597541025
+        ],
+        [
+          401.8608054285354,
+          -864.7547260781979
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        170.0
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:24",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          733.7525080833736,
+          -1505.4569338424953
+        ],
+        [
+          754.0480438575968,
+          -1651.9031527594107
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        173.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:463",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          868.2601765457398,
+          -774.4196943003946
+        ],
+        [
+          962.57472514214,
+          -884.652310171182
+        ]
+      ],
+      "target_heights_m": [
+        164.3127441406441,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:129843122:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          392.7079167463834,
+          -1213.3603993711426
+        ],
+        [
+          253.82277978418136,
+          -1240.0231620538796
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.82055664065683
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80345420:4",
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "xy": [
+        [
+          491.3999338426194,
+          -755.318013572371
+        ],
+        [
+          412.2075491556459,
+          -871.5199046704331
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:78303080:10",
+      "properties": {
+        "subclass": "pedestrian",
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1020.2777190074494,
+          -409.4980020530646
+        ],
+        [
+          1146.4284021526241,
+          -466.405092555896
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        165.01904296877365
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:441666062:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          955.0136431874266,
+          -881.8666483975436
+        ],
+        [
+          865.8724664533404,
+          -777.2053560740329
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        164.35595703134823
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:236488560:22",
+      "properties": {
+        "subclass": "footway",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "xy": [
+        [
+          677.6413209430203,
+          -763.2770472095647
+        ],
+        [
+          760.4152707673517,
+          -656.625996476135
+        ]
+      ],
+      "target_heights_m": [
+        163.28515625041473,
+        163.056640625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895752:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1283.7217323873874,
+          -1308.072899648782
+        ],
+        [
+          1149.2140639250213,
+          -1298.92001096663
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        171.596435546875
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:360",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1570.6448949939434,
+          -1084.4240544548122
+        ],
+        [
+          1441.3105983963737,
+          -1096.3626049093614
+        ]
+      ],
+      "target_heights_m": [
+        168.0,
+        169.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:236488560:17",
+      "properties": {
+        "subclass": "footway",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "xy": [
+        [
+          780.7108065415748,
+          -680.5030973864747
+        ],
+        [
+          701.120470172121,
+          -781.5828245738688
+        ]
+      ],
+      "target_heights_m": [
+        162.184814453125,
+        161.6064453125
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895922:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          567.8066567547132,
+          -1322.0012085132503
+        ],
+        [
+          652.9683166689614,
+          -1227.68665991685
+        ]
+      ],
+      "target_heights_m": [
+        169.0683593750564,
+        168.96582031248727
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12809074982:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          428.1256164300331,
+          -791.9295683022206
+        ],
+        [
+          358.484072107692,
+          -892.6113438071343
+        ]
+      ],
+      "target_heights_m": [
+        169.609375,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134139992:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          878.6069202728502,
+          -1065.7203254080277
+        ],
+        [
+          850.7503025439138,
+          -946.7327725375685
+        ]
+      ],
+      "target_heights_m": [
+        170.078125,
+        169.22167968726808
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:59304422:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          178.2119602345656,
+          -705.1761016605336
+        ],
+        [
+          138.41679204859742,
+          -818.9902826674377
+        ]
+      ],
+      "target_heights_m": [
+        172.421875,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:13",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          589.6939992563752,
+          -449.6911219190306
+        ],
+        [
+          657.3457851687972,
+          -350.20320145907516
+        ]
+      ],
+      "target_heights_m": [
+        167.078857421875,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:265648220:0",
+      "properties": {
+        "subclass": "subway",
+        "class": "transit"
+      },
+      "xy": [
+        [
+          762.4050291747882,
+          -750.1446417088158
+        ],
+        [
+          676.0495142155817,
+          -833.7144948956252
+        ]
+      ],
+      "target_heights_m": [
+        166.42480468736176,
+        165.45312500004366
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:264219332:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          705.4979386719568,
+          -383.6311427328059
+        ],
+        [
+          638.2441044420151,
+          -483.1190631940026
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        167.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:7685867992:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          629.4891674398608,
+          -330.7035690485714
+        ],
+        [
+          529.205343616186,
+          -264.64358986358803
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.64062500011642
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:265648220:1",
+      "properties": {
+        "subclass": "subway",
+        "class": "transit"
+      },
+      "xy": [
+        [
+          678.0392726255006,
+          -835.704253304303
+        ],
+        [
+          764.3947875847073,
+          -752.5323517999739
+        ]
+      ],
+      "target_heights_m": [
+        165.720458984375,
+        166.44140625
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895882:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1159.5608076521316,
+          -1357.4189081969
+        ],
+        [
+          1278.9463122050713,
+          -1366.9697485615322
+        ]
+      ],
+      "target_heights_m": [
+        171.16503906255184,
+        171.203125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:278932480:51",
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1157.9690009246929,
+          -1306.4810929213431
+        ],
+        [
+          1275.3647470677133,
+          -1314.4401265585368
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        171.0859375
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58919082:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          106.18270581982507,
+          -1651.9031527594107
+        ],
+        [
+          211.24194982581602,
+          -1606.9346127111285
+        ]
+      ],
+      "target_heights_m": [
+        175.0,
+        174.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:6364149692:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1021.07362237241,
+          -1417.1116604733697
+        ],
+        [
+          1027.440849282165,
+          -1303.2974794664658
+        ]
+      ],
+      "target_heights_m": [
+        173.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:264219982:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          920.7897985487352,
+          -141.27856849205168
+        ],
+        [
+          856.7195777711884,
+          -235.1951654072128
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:34",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          807.3735692230704,
+          -1629.2199068940295
+        ],
+        [
+          696.3450499898048,
+          -1644.7400224859364
+        ]
+      ],
+      "target_heights_m": [
+        173.1098632812209,
+        172.93896484374545
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:7",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          683.2126444902972,
+          -1550.0275222082971
+        ],
+        [
+          794.2411637235627,
+          -1534.5074066163902
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.765625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:14",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          692.3655331724492,
+          -1617.2813564394803
+        ],
+        [
+          803.3940524057148,
+          -1602.1591925288124
+        ]
+      ],
+      "target_heights_m": [
+        172.967041015625,
+        173.125
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895662:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1437.3310815765358,
+          -1103.1277835015965
+        ],
+        [
+          1451.6573421234843,
+          -1214.156302734862
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5426608142:0",
+      "properties": {
+        "bicycle": "use_sidepath",
+        "surface": "paved",
+        "class": "secondary",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          107.37656086726602,
+          -897.3867639894505
+        ],
+        [
+          1.919365178794757,
+          -861.9690643058008
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        173.34375
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134359422:0",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1404.3010919852852,
+          -940.3655456278136
+        ],
+        [
+          1298.047992934336,
+          -969.8139700841888
+        ]
+      ],
+      "target_heights_m": [
+        169.4375000000582,
+        169.15380859378183
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:265656172:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          444.8395870668985,
+          -411.48776046174237
+        ],
+        [
+          499.7569191598108,
+          -315.9793568203838
+        ]
+      ],
+      "target_heights_m": [
+        167.0,
+        167.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895862:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1348.9858082098926,
+          -1326.7766286955664
+        ],
+        [
+          1347.3940014824539,
+          -1216.9419645072592
+        ]
+      ],
+      "target_heights_m": [
+        170.734375,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:100706090:5",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary"
+      },
+      "xy": [
+        [
+          1003.563748370584,
+          -172.71675135834593
+        ],
+        [
+          906.4635380017867,
+          -122.57483944650855
+        ]
+      ],
+      "target_heights_m": [
+        160.970458984375,
+        166.0
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:102140002:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1578.603928631137,
+          -1090.3933296820867
+        ],
+        [
+          1470.759022852749,
+          -1099.9441700467191
+        ]
+      ],
+      "target_heights_m": [
+        168.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:100697422:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1491.054558626972,
+          -745.7671732077387
+        ],
+        [
+          1556.7165861294752,
+          -660.2075616122515
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12717119432:0",
+      "properties": {
+        "surface": "paved",
+        "class": "secondary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1086.3376981949152,
+          -611.2595047466139
+        ],
+        [
+          1134.4898516955923,
+          -516.5470044677334
+        ]
+      ],
+      "target_heights_m": [
+        164.765625,
+        164.759765625231
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:278932480:54",
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1271.7831819328383,
+          -1359.806618288058
+        ],
+        [
+          1166.325986244367,
+          -1350.255777924667
+        ]
+      ],
+      "target_heights_m": [
+        171.484375,
+        171.58984375
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895892:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1419.0253042122315,
+          -1214.9522060985814
+        ],
+        [
+          1421.0150626221507,
+          -1320.8073534682917
+        ]
+      ],
+      "target_heights_m": [
+        169.703125,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:42",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          1149.2140639250213,
+          -1298.92001096663
+        ],
+        [
+          1167.1218896068451,
+          -1401.1935932002236
+        ]
+      ],
+      "target_heights_m": [
+        171.596435546875,
+        171.40624999988358
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895682:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1488.6668485345729,
+          -1315.2360299222562
+        ],
+        [
+          1470.759022852749,
+          -1213.7583510523818
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:278932480:53",
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1270.9872785678776,
+          -1371.7451687438486
+        ],
+        [
+          1168.7136963342837,
+          -1362.9902317429355
+        ]
+      ],
+      "target_heights_m": [
+        171.515625,
+        171.46874999988358
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:30",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1217.2638015199236,
+          -834.9083499405837
+        ],
+        [
+          1234.3757238392693,
+          -935.1921737642584
+        ]
+      ],
+      "target_heights_m": [
+        169.783203125,
+        169.953125
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:260",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1187.4174253810681,
+          -1130.5864495480528
+        ],
+        [
+          1288.4971525697035,
+          -1128.596691139375
+        ]
+      ],
+      "target_heights_m": [
+        170.02490234375,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:48",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          1528.4620167180585,
+          -451.68088032770834
+        ],
+        [
+          1605.664642995113,
+          -516.5470044677334
+        ]
+      ],
+      "target_heights_m": [
+        162.22265624992178,
+        164.01757812526012
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12991414622:0",
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          155.13076268794532,
+          -1461.6822488391715
+        ],
+        [
+          190.94641405159288,
+          -1555.2008940718524
+        ]
+      ],
+      "target_heights_m": [
+        174.0,
+        174.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12020768852:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          826.475249952335,
+          -1409.5505785186565
+        ],
+        [
+          925.9631704110492,
+          -1415.9178054284114
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.234375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:300623442:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1325.506658980792,
+          -50.54558503300929
+        ],
+        [
+          1250.2937911111742,
+          13.12668406205728
+        ]
+      ],
+      "target_heights_m": [
+        161.609375,
+        162.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:278932480:23",
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "xy": [
+        [
+          555.4701546176838,
+          -1559.9763142541685
+        ],
+        [
+          589.6939992563752,
+          -1651.9031527594107
+        ]
+      ],
+      "target_heights_m": [
+        173.0,
+        174.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:576",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1627.9499371792551,
+          -850.8264172137297
+        ],
+        [
+          1553.1350209921175,
+          -787.5520998011434
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:78303080:5",
+      "properties": {
+        "subclass": "pedestrian",
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          513.685228024279,
+          -492.6699035573937
+        ],
+        [
+          590.8878543013335,
+          -551.566752470144
+        ]
+      ],
+      "target_heights_m": [
+        169.78515625047476,
+        167.45068359383185
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58896022:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1027.440849282165,
+          -1303.2974794664658
+        ],
+        [
+          1033.4101245094396,
+          -1206.5952207801488
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:371",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1487.075041807134,
+          -1201.8198005978327
+        ],
+        [
+          1475.136491352585,
+          -1106.311396956474
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895532:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          963.370628504618,
+          -1211.3706409612237
+        ],
+        [
+          968.5440003694146,
+          -1307.2769962850625
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895982:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          712.263117264192,
+          -1322.3991601957305
+        ],
+        [
+          708.283600444354,
+          -1226.4928048718916
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        168.796875
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:303228682:0",
+      "properties": {
+        "bicycle": "use_sidepath",
+        "surface": "paved",
+        "class": "secondary",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          776.7312897217367,
+          -315.58140513914475
+        ],
+        [
+          722.6098609913025,
+          -394.773789824877
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.006591796875
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895562:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          902.4840211844312,
+          -1310.8585614224203
+        ],
+        [
+          897.708601002115,
+          -1215.7481094623008
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        171.064453125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:96542682:0",
+      "properties": {
+        "horse": "yes",
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1536.0230986727718,
+          -271.01081677210163
+        ],
+        [
+          1485.085283397215,
+          -350.60115314031424
+        ]
+      ],
+      "target_heights_m": [
+        161.0,
+        162.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80345420:3",
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "xy": [
+        [
+          701.120470172121,
+          -405.9164369169481
+        ],
+        [
+          647.7949448066474,
+          -483.9149665577219
+        ]
+      ],
+      "target_heights_m": [
+        166.514892578125,
+        167.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:278932480:52",
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1341.8226779351771,
+          -1320.8073534682917
+        ],
+        [
+          1341.026774572699,
+          -1227.288708235611
+        ]
+      ],
+      "target_heights_m": [
+        170.5,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895810:3",
+      "properties": {
+        "class": "service",
+        "service": "driveway",
+        "access": "no"
+      },
+      "xy": [
+        [
+          1230.7941587019116,
+          -1630.811713621468
+        ],
+        [
+          1321.9250938434343,
+          -1649.1174909870135
+        ]
+      ],
+      "target_heights_m": [
+        174.42138671869725,
+        175.0
+      ],
+      "width_m": 3.5,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12135710902:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          481.0531901155089,
+          -441.3341366005979
+        ],
+        [
+          403.4526121559741,
+          -492.2719518761546
+        ]
+      ],
+      "target_heights_m": [
+        168.4375,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2302099132:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          757.2316573124742,
+          -933.6003670368196
+        ],
+        [
+          692.3655331724492,
+          -999.2623945405641
+        ]
+      ],
+      "target_heights_m": [
+        165.0,
+        165.564453125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:1",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          163.88569968761703,
+          -119.39122599163109
+        ],
+        [
+          88.6728318204816,
+          -66.06570062491625
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895572:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1149.2140639250213,
+          -1298.92001096663
+        ],
+        [
+          1134.0919000155945,
+          -1208.1870275075876
+        ]
+      ],
+      "target_heights_m": [
+        171.596435546875,
+        171.039794921875
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134122582:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          788.6698401762859,
+          -1097.9544116368002
+        ],
+        [
+          725.79347444618,
+          -1031.0985290880974
+        ]
+      ],
+      "target_heights_m": [
+        166.54687499988358,
+        165.078125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:346",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1413.8519323499177,
+          -1315.2360299222562
+        ],
+        [
+          1413.056028984957,
+          -1225.6969015081722
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        169.9375
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137367602:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1452.8511971684427,
+          -135.7072449472574
+        ],
+        [
+          1375.648570891388,
+          -92.330511626414
+        ]
+      ],
+      "target_heights_m": [
+        161.0,
+        161.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:96536392:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1363.3120687543587,
+          29.044751335203287
+        ],
+        [
+          1325.506658980792,
+          -50.54558503300929
+        ]
+      ],
+      "target_heights_m": [
+        162.0,
+        161.609375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80411752:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1337.047257752861,
+          -199.3795140410827
+        ],
+        [
+          1420.21915925719,
+          -228.42998681497758
+        ]
+      ],
+      "target_heights_m": [
+        161.04150390618815,
+        161.65625000011642
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80529412:0",
+      "properties": {
+        "subclass": "pedestrian",
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "path",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          527.2155852087495,
+          -481.12930478408356
+        ],
+        [
+          597.2550812110884,
+          -533.658926787079
+        ]
+      ],
+      "target_heights_m": [
+        169.7294921876255,
+        167.42480468743088
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:585",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1627.9499371792551,
+          -1424.672742428083
+        ],
+        [
+          1543.1862289474873,
+          -1424.274790746844
+        ]
+      ],
+      "target_heights_m": [
+        170.7109375000291,
+        171.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:287",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          974.1153239142088,
+          -1300.5118176940687
+        ],
+        [
+          968.5440003694146,
+          -1216.5440128260202
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:10420133512:0",
+      "properties": {
+        "surface": "paved",
+        "class": "secondary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          312.32167701445144,
+          -967.4262599930307
+        ],
+        [
+          341.7701014708266,
+          -1045.822741316285
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:96549052:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1610.8380148599094,
+          -1087.6076679096896
+        ],
+        [
+          1627.9499371792551,
+          -1169.5857143690603
+        ]
+      ],
+      "target_heights_m": [
+        168.0,
+        168.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:290",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          909.2491997741838,
+          -1304.4913345126654
+        ],
+        [
+          904.4737795918677,
+          -1220.9214813258561
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        171.0541992186827
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2302100782:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          657.7437368512775,
+          -1099.5462183642387
+        ],
+        [
+          711.0692622192337,
+          -1164.0143908230248
+        ]
+      ],
+      "target_heights_m": [
+        165.59375,
+        165.84375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:284",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          893.331132502279,
+          -1221.7173846895755
+        ],
+        [
+          897.3106493196346,
+          -1305.2872378763848
+        ]
+      ],
+      "target_heights_m": [
+        171.20947265625,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:266",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1038.9814480542339,
+          -1214.156302734862
+        ],
+        [
+          1034.603979554398,
+          -1296.9302525579521
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12027402922:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1593.3281408580833,
+          -396.36559655231576
+        ],
+        [
+          1518.5132246734283,
+          -360.94789686866596
+        ]
+      ],
+      "target_heights_m": [
+        161.17456054689865,
+        161.8349609375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:520",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          934.3201557307232,
+          -128.54411467378313
+        ],
+        [
+          1007.5432651904221,
+          -164.7577177211523
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        161.62255859375
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:71953002:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1524.8804515831832,
+          -940.3655456278136
+        ],
+        [
+          1465.1876993054723,
+          -884.652310171182
+        ]
+      ],
+      "target_heights_m": [
+        169.4375000000582,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137367572:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1479.5139598524208,
+          -241.96034399820678
+        ],
+        [
+          1507.370577581357,
+          -165.55362108487165
+        ]
+      ],
+      "target_heights_m": [
+        161.0,
+        161.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1167582410:5",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path",
+        "foot": "permissive"
+      },
+      "xy": [
+        [
+          1315.159915251199,
+          -729.8491059345927
+        ],
+        [
+          1382.8117011661038,
+          -685.6764692500299
+        ]
+      ],
+      "target_heights_m": [
+        168.21874999988358,
+        167.5624999999418
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:19",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          269.74084705608607,
+          -146.84989203808723
+        ],
+        [
+          200.89520609870556,
+          -104.66701376344349
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        170.6484375
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58918712:0",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          729.7729912635356,
+          -927.2331401270648
+        ],
+        [
+          682.8146928078169,
+          -991.7013125858507
+        ]
+      ],
+      "target_heights_m": [
+        165.76562500011642,
+        166.383544921875
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137367502:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1428.576144576864,
+          -462.82352741977945
+        ],
+        [
+          1491.054558626972,
+          -511.77158428541713
+        ]
+      ],
+      "target_heights_m": [
+        163.0,
+        163.7343749999418
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:96546182:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1467.9733610778694,
+          -401.14101673463193
+        ],
+        [
+          1528.4620167180585,
+          -451.68088032770834
+        ]
+      ],
+      "target_heights_m": [
+        162.0,
+        162.22265624992178
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:231654580:21",
+      "properties": {
+        "subclass": "footway",
+        "class": "path",
+        "access": "no"
+      },
+      "xy": [
+        [
+          1401.515430212888,
+          -1491.528624978027
+        ],
+        [
+          1388.7809763933783,
+          -1569.1292029363206
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.890625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:59304662:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          418.5747760654008,
+          -875.4994214877886
+        ],
+        [
+          462.7474127487223,
+          -810.6332973477637
+        ]
+      ],
+      "target_heights_m": [
+        169.9997558593759,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134300010:2",
+      "properties": {
+        "subclass": "footway",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          601.6325497109243,
+          -551.9647041513831
+        ],
+        [
+          557.4599130276027,
+          -616.432876610169
+        ]
+      ],
+      "target_heights_m": [
+        167.45214843737358,
+        168.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:314005990:0",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "service"
+      },
+      "xy": [
+        [
+          486.6245136603032,
+          -1072.4855039990216
+        ],
+        [
+          543.5316041631346,
+          -1125.8110293657364
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        168.0
+      ],
+      "width_m": 3.5,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:2",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          65.59163427386133,
+          -123.37074280898663
+        ],
+        [
+          15.84767404326299,
+          -182.66554340421735
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:5",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          223.18050028284776,
+          -268.2251549997045
+        ],
+        [
+          153.93690764050436,
+          -236.38902045217122
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:3458733992:0",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "service",
+        "foot": "yes"
+      },
+      "xy": [
+        [
+          431.70718156490835,
+          -290.90840086508575
+        ],
+        [
+          465.93102620359974,
+          -222.8586632701833
+        ]
+      ],
+      "target_heights_m": [
+        170.4355468751237,
+        169.7832031251619
+      ],
+      "width_m": 3.5,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:433085722:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          363.65744397248847,
+          -659.0137065672931
+        ],
+        [
+          408.6259840182881,
+          -597.7291475633847
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        169.37500000011642
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:433085692:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          416.18706597548396,
+          -695.2273096146623
+        ],
+        [
+          460.3597026588055,
+          -633.5447989295147
+        ]
+      ],
+      "target_heights_m": [
+        169.078125,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12752521272:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          774.7415313118177,
+          -189.4307219952113
+        ],
+        [
+          736.5381698557708,
+          -254.69479781647533
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134300010:11",
+      "properties": {
+        "subclass": "footway",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1212.8863330200877,
+          -130.93182476494124
+        ],
+        [
+          1219.2535599298428,
+          -55.71895689656452
+        ]
+      ],
+      "target_heights_m": [
+        164.578125,
+        162.640869140625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:273562342:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          223.57845196284552,
+          -1105.1175419102742
+        ],
+        [
+          246.6596495094658,
+          -1033.4862391792553
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80727442:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          453.9924757490506,
+          -538.4343469693952
+        ],
+        [
+          408.6259840182881,
+          -597.7291475633847
+        ]
+      ],
+      "target_heights_m": [
+        169.21875,
+        169.37500000011642
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:336",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1553.5329726745977,
+          -1493.9163350691852
+        ],
+        [
+          1627.9499371792551,
+          -1494.3142867504241
+        ]
+      ],
+      "target_heights_m": [
+        171.296875,
+        171.15625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:34",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          640.6318145319318,
+          -1052.5879199072788
+        ],
+        [
+          692.3655331724492,
+          -999.2623945405641
+        ]
+      ],
+      "target_heights_m": [
+        165.58544921875,
+        165.564453125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:23",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          -36.283996277252164,
+          -567.4848197432901
+        ],
+        [
+          34.55140309004741,
+          -589.770113926191
+        ]
+      ],
+      "target_heights_m": [
+        174.9877929687409,
+        174.04980468749636
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:24",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          17.439480770701717,
+          -643.4935909753862
+        ],
+        [
+          -52.99796691660008,
+          -620.0144417462856
+        ]
+      ],
+      "target_heights_m": [
+        174.06884765625,
+        175.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:54",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          951.8300297325492,
+          -381.2434326428891
+        ],
+        [
+          1020.2777190074494,
+          -409.4980020530646
+        ]
+      ],
+      "target_heights_m": [
+        165.33837890625,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:15472113462:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          -5.641716775918565,
+          -1425.4686457918024
+        ],
+        [
+          24.602611042934722,
+          -1358.6127632430996
+        ]
+      ],
+      "target_heights_m": [
+        173.6093749999418,
+        172.538330078125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58895672:0",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1250.2937911111742,
+          -1125.4130776844975
+        ],
+        [
+          1247.9060810212573,
+          -1052.1899682260398
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:6747460932:0",
+      "properties": {
+        "surface": "paved",
+        "class": "primary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          300.3831265599022,
+          -1142.9229516850821
+        ],
+        [
+          368.8308158348024,
+          -1117.4540440473038
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 9.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:37",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          864.678611408382,
+          -1006.0275731315579
+        ],
+        [
+          935.5140107756815,
+          -989.711554177173
+        ]
+      ],
+      "target_heights_m": [
+        169.93408203127728,
+        171.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80345420:2",
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "xy": [
+        [
+          642.2236212593706,
+          -492.2719518761546
+        ],
+        [
+          601.6325497109243,
+          -551.9647041513831
+        ]
+      ],
+      "target_heights_m": [
+        167.0,
+        167.45214843737358
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2987813492:0",
+      "properties": {
+        "surface": "paved",
+        "class": "secondary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          368.8308158348024,
+          -1117.4540440473038
+        ],
+        [
+          394.6976751538199,
+          -1184.3099265960066
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        169.0
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80589022:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          556.2660579826444,
+          -789.1439065285821
+        ],
+        [
+          516.8688414791565,
+          -848.8366588050519
+        ]
+      ],
+      "target_heights_m": [
+        168.0,
+        168.12500000011642
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:101303152:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          214.02761159821316,
+          -94.71822171757208
+        ],
+        [
+          258.9961516464953,
+          -39.402937940938195
+        ]
+      ],
+      "target_heights_m": [
+        170.64624023441684,
+        170.14062499993452
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:36",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          157.91642446034245,
+          -1079.250682591257
+        ],
+        [
+          180.99762200696273,
+          -1011.9968483600738
+        ]
+      ],
+      "target_heights_m": [
+        170.00341796875,
+        170.1953125
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1851277052:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          234.3231473724363,
+          -492.2719518761546
+        ],
+        [
+          300.3831265599022,
+          -517.7408595139331
+        ]
+      ],
+      "target_heights_m": [
+        172.24316406261278,
+        171.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13072797522:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1049.3281917838267,
+          -886.2441168986207
+        ],
+        [
+          1036.593737964317,
+          -816.6025725762795
+        ]
+      ],
+      "target_heights_m": [
+        167.654296875,
+        167.67236328125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:33",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          5.102978633672213,
+          -773.2258392554361
+        ],
+        [
+          71.9588611811337,
+          -796.3070368020564
+        ]
+      ],
+      "target_heights_m": [
+        174.0,
+        173.0556640625109
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58918762:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          -37.0798996422128,
+          -1344.6844543786315
+        ],
+        [
+          -48.62049841428167,
+          -1414.3259987009726
+        ]
+      ],
+      "target_heights_m": [
+        171.0546875,
+        172.171875
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13145819322:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          820.9039264050582,
+          -92.72846330765303
+        ],
+        [
+          792.2514053136437,
+          -157.19663576643896
+        ]
+      ],
+      "target_heights_m": [
+        166.77148437508004,
+        166.44140625
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:15568569132:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          363.65744397248847,
+          -659.0137065672931
+        ],
+        [
+          321.07661401412315,
+          -715.124893706405
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.583984375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:320087172:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          308.7401118770936,
+          -620.4123934287659
+        ],
+        [
+          263.7715718288115,
+          -674.5338221592001
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:59304572:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          223.18050028284776,
+          -268.2251549997045
+        ],
+        [
+          204.078819553583,
+          -335.8769409121266
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80727512:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          263.7715718288115,
+          -674.5338221592001
+        ],
+        [
+          321.07661401412315,
+          -715.124893706405
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        170.583984375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:269459062:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          462.7474127487223,
+          -810.6332973477637
+        ],
+        [
+          501.74667756972985,
+          -752.5323517999739
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137368302:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1419.423255894712,
+          -41.790648032096286
+        ],
+        [
+          1466.381554352913,
+          9.545118924699507
+        ]
+      ],
+      "target_heights_m": [
+        161.0,
+        162.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:250",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1111.8066058314523,
+          -870.3260496242334
+        ],
+        [
+          1124.143107968482,
+          -938.3757872191359
+        ]
+      ],
+      "target_heights_m": [
+        169.9560546875,
+        169.71875
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:59304342:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          512.4913729793207,
+          -668.5645469306842
+        ],
+        [
+          473.4921081583131,
+          -725.4716374347569
+        ]
+      ],
+      "target_heights_m": [
+        168.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:150",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          66.38753763633942,
+          -1048.210451407443
+        ],
+        [
+          88.6728318204816,
+          -983.344327267418
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        171.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:21",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          397.48333692869954,
+          -141.67652017453202
+        ],
+        [
+          444.8395870668985,
+          -92.330511626414
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134301092:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1053.7056602836626,
+          -734.2265744344286
+        ],
+        [
+          1065.6442107382118,
+          -800.6845053018923
+        ]
+      ],
+      "target_heights_m": [
+        166.76269531249454,
+        166.53125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:249",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1145.6324987876635,
+          -899.3765223993696
+        ],
+        [
+          1211.2945262926492,
+          -887.8359236248182
+        ]
+      ],
+      "target_heights_m": [
+        169.4375,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:41",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          906.0655863193064,
+          7.555360516021732
+        ],
+        [
+          839.6076554518427,
+          8.749215560980142
+        ]
+      ],
+      "target_heights_m": [
+        165.0,
+        166.13452148440956
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:226",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          520.0524549340339,
+          -844.0612386227357
+        ],
+        [
+          574.9697870294287,
+          -881.4686967163045
+        ]
+      ],
+      "target_heights_m": [
+        168.00000000011642,
+        168.0390625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:224",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          482.64499684294765,
+          -922.0597682635096
+        ],
+        [
+          520.4504066165143,
+          -867.5403878518363
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        168.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:35",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          138.41679204859742,
+          -818.9902826674377
+        ],
+        [
+          117.32535291189616,
+          -881.4686967163045
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134404160:1",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "xy": [
+        [
+          982.4723092338828,
+          -337.0707959583263
+        ],
+        [
+          1041.3691581466333,
+          -366.5192204147015
+        ]
+      ],
+      "target_heights_m": [
+        165.89453125,
+        166.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5531937412:0",
+      "properties": {
+        "surface": "paved",
+        "class": "primary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          974.9112272791695,
+          -319.1629702752613
+        ],
+        [
+          945.4628028227943,
+          -378.05981918801166
+        ]
+      ],
+      "target_heights_m": [
+        164.119384765625,
+        163.69384765625
+      ],
+      "width_m": 9.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12142993512:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          628.2953123949023,
+          -497.44532373970986
+        ],
+        [
+          590.8878543013335,
+          -551.566752470144
+        ]
+      ],
+      "target_heights_m": [
+        167.12890625,
+        167.45068359383185
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:100436422:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1213.2842847000857,
+          -496.25146869475145
+        ],
+        [
+          1240.7429507490242,
+          -436.55871641828173
+        ]
+      ],
+      "target_heights_m": [
+        163.68359375010186,
+        163.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2267008330:488",
+      "properties": {
+        "subclass": "corridor",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1586.9609139483284,
+          -814.2148624851214
+        ],
+        [
+          1627.9499371792551,
+          -762.8790955270844
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        169.5937499999418
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:6850029042:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          437.2785051121852,
+          -966.2324049480724
+        ],
+        [
+          491.0019821601391,
+          -1003.2419113591608
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2987808442:0",
+      "properties": {
+        "surface": "paved",
+        "class": "secondary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          361.66768556256943,
+          -1007.6193798589967
+        ],
+        [
+          339.78034306090757,
+          -946.7327725375685
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134300010:8",
+      "properties": {
+        "subclass": "footway",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          880.198727000289,
+          -498.6391787846683
+        ],
+        [
+          908.0553447292255,
+          -440.5382332368785
+        ]
+      ],
+      "target_heights_m": [
+        162.04833984365814,
+        162.013671875
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:394",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1215.6719947924848,
+          -919.6720581723514
+        ],
+        [
+          1204.5293477004138,
+          -856.3977407597652
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:11670893872:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1551.145262584681,
+          -235.59311708845186
+        ],
+        [
+          1570.2469433114632,
+          -174.30855808578465
+        ]
+      ],
+      "target_heights_m": [
+        161.431396484375,
+        161.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:269306792:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          384.7488831091897,
+          -929.6208502182228
+        ],
+        [
+          437.2785051121852,
+          -966.2324049480724
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:100706090:4",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary"
+      },
+      "xy": [
+        [
+          853.1380126363131,
+          -339.4585060494844
+        ],
+        [
+          911.6369098665832,
+          -364.52946200478243
+        ]
+      ],
+      "target_heights_m": [
+        165.9951171875,
+        162.43945312508004
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2297664242:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          57.63260063666769,
+          -1304.4913345126654
+        ],
+        [
+          24.602611042934722,
+          -1358.6127632430996
+        ]
+      ],
+      "target_heights_m": [
+        171.703125,
+        172.538330078125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12135711522:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          543.1336524806543,
+          -344.6318779130396
+        ],
+        [
+          594.8673711211716,
+          -380.8454809604088
+        ]
+      ],
+      "target_heights_m": [
+        167.0,
+        166.619140625
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:6808746272:0",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          841.1994621792813,
+          -331.49947241229074
+        ],
+        [
+          789.8636952237268,
+          -296.081772728641
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:307732472:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          430.1153748399522,
+          -789.1439065285821
+        ],
+        [
+          464.73717115864133,
+          -737.8081395717863
+        ]
+      ],
+      "target_heights_m": [
+        169.53125,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975560:7",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          61.612117454023235,
+          -302.4489996383959
+        ],
+        [
+          122.10077309421234,
+          -315.58140513914475
+        ]
+      ],
+      "target_heights_m": [
+        172.515625,
+        172.01171875
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:96548242:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1420.6171109396703,
+          -50.14763335052897
+        ],
+        [
+          1471.1569745327467,
+          -85.56533303417876
+        ]
+      ],
+      "target_heights_m": [
+        161.0,
+        161.00000000002
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:4855970932:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          -31.9065277774163,
+          -1480.7839295684362
+        ],
+        [
+          -5.641716775918565,
+          -1425.4686457918024
+        ]
+      ],
+      "target_heights_m": [
+        174.0,
+        173.6093749999418
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:587",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1627.9499371792551,
+          -1592.210400482941
+        ],
+        [
+          1614.817531677265,
+          -1651.9031527594107
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.01562500011642
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:288",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          924.3713636836105,
+          -1316.0319332859756
+        ],
+        [
+          921.5857019112134,
+          -1376.9185406074037
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80727332:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          86.28512172808225,
+          -976.1811969939438
+        ],
+        [
+          104.19294741238856,
+          -918.0802514449127
+        ]
+      ],
+      "target_heights_m": [
+        171.03125,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80345420:15",
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "xy": [
+        [
+          908.0553447292255,
+          -440.5382332368785
+        ],
+        [
+          933.9222040482429,
+          -385.62090114272496
+        ]
+      ],
+      "target_heights_m": [
+        162.013671875,
+        161.703124999367
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13295966122:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1327.4964173882286,
+          -487.49653169383845
+        ],
+        [
+          1301.2316063867308,
+          -542.0159121055117
+        ]
+      ],
+      "target_heights_m": [
+        163.48437499988358,
+        163.69750976553678
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1922511052:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          684.4064995352556,
+          -276.5821403181372
+        ],
+        [
+          738.9258799481702,
+          -302.4489996383959
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134136722:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          805.7817624956316,
+          -1018.7620269510678
+        ],
+        [
+          864.678611408382,
+          -1006.0275731315579
+        ]
+      ],
+      "target_heights_m": [
+        167.29736328109175,
+        169.93408203127728
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:184",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          -52.99796691660008,
+          -1407.1628684274983
+        ],
+        [
+          -42.651223187007076,
+          -1347.8680678335088
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        170.958984375
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:126167512:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1546.3698424023648,
+          -1488.3450115231497
+        ],
+        [
+          1546.3698424023648,
+          -1428.2543075654407
+        ]
+      ],
+      "target_heights_m": [
+        171.078125,
+        171.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:6292553512:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          270.1387987385664,
+          -26.270532440189328
+        ],
+        [
+          311.127821969493,
+          17.504152561893147
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        169.203125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134393762:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1059.2769838284569,
+          -315.58140513914475
+        ],
+        [
+          1005.5535067805031,
+          -289.71454581888605
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134395412:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1025.849042554726,
+          -243.1541990431652
+        ],
+        [
+          1079.1745679201997,
+          -269.4190100446629
+        ]
+      ],
+      "target_heights_m": [
+        165.40234374996726,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:378",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1243.5286125214213,
+          -1054.1797266347176
+        ],
+        [
+          1184.2338119261908,
+          -1056.1694850433953
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:265656182:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          529.205343616186,
+          -264.64358986358803
+        ],
+        [
+          499.7569191598108,
+          -315.9793568203838
+        ]
+      ],
+      "target_heights_m": [
+        166.64062500011642,
+        167.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:393",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1219.2535599298428,
+          -939.1716905828553
+        ],
+        [
+          1229.2023519744728,
+          -997.2726361318862
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:101440342:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1458.8204723957172,
+          -1429.0502109291601
+        ],
+        [
+          1458.4225207157194,
+          -1487.9470598406692
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:96538672:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1499.4115439441634,
+          -28.65824253134742
+        ],
+        [
+          1478.7180564899427,
+          -83.57557462550099
+        ]
+      ],
+      "target_heights_m": [
+        162.0,
+        161.050048828125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:440720912:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          705.4979386719568,
+          -383.6311427328059
+        ],
+        [
+          657.3457851687972,
+          -350.20320145907516
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12725474862:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          465.13512284112164,
+          -727.4613958434346
+        ],
+        [
+          416.18706597548396,
+          -695.2273096146623
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.078125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5918300162:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1627.9499371792551,
+          -183.4614467679367
+        ],
+        [
+          1570.2469433114632,
+          -174.30855808578465
+        ]
+      ],
+      "target_heights_m": [
+        161.578125,
+        161.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1725863802:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1400.3215751654473,
+          -29.8520975775471
+        ],
+        [
+          1348.5878565274124,
+          -2.7913832123299986
+        ]
+      ],
+      "target_heights_m": [
+        161.08203125002183,
+        162.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:3127294880:1",
+      "properties": {
+        "subclass": "corridor",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1119.765639468646,
+          -372.0905439594958
+        ],
+        [
+          1171.4993581066808,
+          -397.1614999160351
+        ]
+      ],
+      "target_heights_m": [
+        166.7500000000582,
+        165.32299804696413
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1165311742:0",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          420.5645344753198,
+          29.044751335203287
+        ],
+        [
+          390.320206653984,
+          -19.50535384919537
+        ]
+      ],
+      "target_heights_m": [
+        169.5,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1817703600:4",
+      "properties": {
+        "surface": "paved",
+        "class": "service",
+        "service": "driveway"
+      },
+      "xy": [
+        [
+          609.9895350305983,
+          -160.38024922131643
+        ],
+        [
+          635.8563943496157,
+          -109.84038562699872
+        ]
+      ],
+      "target_heights_m": [
+        169.0625,
+        169.45312500011642
+      ],
+      "width_m": 3.5,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12671495702:0",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1245.5183709313405,
+          -1125.4130776844975
+        ],
+        [
+          1189.009232108507,
+          -1125.8110293657364
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:127",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          96.23391377519494,
+          -921.2638648997902
+        ],
+        [
+          78.72403977336893,
+          -974.9873419489853
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        171.078125
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80529442:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          590.8878543013335,
+          -551.566752470144
+        ],
+        [
+          559.8476231200021,
+          -598.525050927104
+        ]
+      ],
+      "target_heights_m": [
+        167.45068359383185,
+        168.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12763708712:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1216.0699464749653,
+          -356.1724766863498
+        ],
+        [
+          1267.007761750522,
+          -380.0495775966894
+        ]
+      ],
+      "target_heights_m": [
+        164.794921875,
+        162.8154296875
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:35",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          619.5403753952306,
+          -1058.5571951345535
+        ],
+        [
+          657.7437368512775,
+          -1099.5462183642387
+        ]
+      ],
+      "target_heights_m": [
+        167.09375,
+        165.59375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:67917540:9",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          1502.595157399041,
+          -520.9244729688105
+        ],
+        [
+          1546.7677940823626,
+          -555.1483176062605
+        ]
+      ],
+      "target_heights_m": [
+        164.09375,
+        164.88671874975626
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13413427882:0",
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          155.13076268794532,
+          -1461.6822488391715
+        ],
+        [
+          135.23317859371994,
+          -1409.5505785186565
+        ]
+      ],
+      "target_heights_m": [
+        174.0,
+        173.984375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13413427892:0",
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          211.24194982581602,
+          -1606.9346127111285
+        ],
+        [
+          190.94641405159288,
+          -1555.2008940718524
+        ]
+      ],
+      "target_heights_m": [
+        174.0,
+        174.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137367452:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1417.8314491672731,
+          -464.4153341472182
+        ],
+        [
+          1385.9953146209812,
+          -509.7818258767394
+        ]
+      ],
+      "target_heights_m": [
+        163.0,
+        164.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137367532:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1456.4327623058005,
+          -404.3246301895094
+        ],
+        [
+          1426.586386166945,
+          -450.884976963989
+        ]
+      ],
+      "target_heights_m": [
+        162.0,
+        163.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80345420:11",
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "xy": [
+        [
+          156.32461773290373,
+          -1278.6244751924069
+        ],
+        [
+          180.99762200696273,
+          -1326.7766286955664
+        ]
+      ],
+      "target_heights_m": [
+        171.95605468748363,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:303220842:0",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "subclass": "pedestrian",
+        "class": "path",
+        "foot": "yes",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          -52.99796691660008,
+          -14.729933666879186
+        ],
+        [
+          -6.4376201408792,
+          12.728732379576963
+        ]
+      ],
+      "target_heights_m": [
+        173.0,
+        173.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:258",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1185.4276669711492,
+          -1043.4350312251267
+        ],
+        [
+          1239.1511440215857,
+          -1041.0473211339688
+        ]
+      ],
+      "target_heights_m": [
+        170.34179687504547,
+        170.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726572:0",
+      "properties": {
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          -14.794605458070613,
+          -240.76648895200708
+        ],
+        [
+          22.2149009530179,
+          -201.7672241322408
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:278932480:60",
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1537.6149054002105,
+          -1499.0897069327405
+        ],
+        [
+          1591.3383824506468,
+          -1499.0897069327405
+        ]
+      ],
+      "target_heights_m": [
+        171.5234375000582,
+        171.5
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:6946813492:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          138.41679204859742,
+          -38.60703457721883
+        ],
+        [
+          181.39557368944304,
+          -70.44316912475212
+        ]
+      ],
+      "target_heights_m": [
+        171.9975585937691,
+        171.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5045940892:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1295.2623311594562,
+          -319.5609219565003
+        ],
+        [
+          1247.508129338777,
+          -295.68382104616063
+        ]
+      ],
+      "target_heights_m": [
+        162.56250000011642,
+        164.85937500003274
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13249751762:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          562.235333209919,
+          -223.65456663390268
+        ],
+        [
+          611.1833900755566,
+          -244.74600577060392
+        ]
+      ],
+      "target_heights_m": [
+        166.72314453125,
+        165.89453124999545
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80247552:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          590.8878543013335,
+          -386.41680450644435
+        ],
+        [
+          561.4394298449583,
+          -430.5894411910071
+        ]
+      ],
+      "target_heights_m": [
+        166.85351562502183,
+        167.58007812518008
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137367562:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1486.279138444656,
+          -252.70503940779756
+        ],
+        [
+          1536.0230986727718,
+          -271.01081677210163
+        ]
+      ],
+      "target_heights_m": [
+        161.0,
+        161.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137314972:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1344.6083397075743,
+          -448.8952185553112
+        ],
+        [
+          1366.0977305267559,
+          -400.7430650521516
+        ]
+      ],
+      "target_heights_m": [
+        162.5410156249145,
+        162.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:33",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          823.6895881799379,
+          -731.4409126620315
+        ],
+        [
+          790.2616469037247,
+          -771.6340325279974
+        ]
+      ],
+      "target_heights_m": [
+        167.640625,
+        167.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:3156392282:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          850.7503025439138,
+          -946.7327725375685
+        ],
+        [
+          801.0063423133154,
+          -962.2528881294755
+        ]
+      ],
+      "target_heights_m": [
+        169.22167968726808,
+        167.04443359358447
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12017730262:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          945.8607545052746,
+          -1029.1087706781782
+        ],
+        [
+          954.217739822466,
+          -1080.4445376362153
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        171.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80726280:45",
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "xy": [
+        [
+          1429.7699996218223,
+          -1052.1899682260398
+        ],
+        [
+          1437.3310815765358,
+          -1103.1277835015965
+        ]
+      ],
+      "target_heights_m": [
+        169.28125,
+        169.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:88854042:0",
+      "properties": {
+        "surface": "paved",
+        "class": "busway",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1553.1350209921175,
+          -787.5520998011434
+        ],
+        [
+          1518.115272990948,
+          -824.9595578947122
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80729892:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          529.205343616186,
+          -264.64358986358803
+        ],
+        [
+          552.6844928452866,
+          -219.27709813282553
+        ]
+      ],
+      "target_heights_m": [
+        166.64062500011642,
+        166.92968750001637
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5379788342:0",
+      "properties": {
+        "surface": "paved",
+        "class": "secondary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1134.4898516955923,
+          -516.5470044677334
+        ],
+        [
+          1157.5710492422127,
+          -471.18051273821214
+        ]
+      ],
+      "target_heights_m": [
+        164.759765625231,
+        164.859375
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:11849701102:0",
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          132.04956514132502,
+          -1402.3874482451822
+        ],
+        [
+          113.74378777453839,
+          -1355.0311981057419
+        ]
+      ],
+      "target_heights_m": [
+        173.703125,
+        172.8437499999418
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137313932:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1444.892163531249,
+          -349.80524977659485
+        ],
+        [
+          1394.3522999381726,
+          -349.0093464128755
+        ]
+      ],
+      "target_heights_m": [
+        162.0,
+        162.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134404160:0",
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "xy": [
+        [
+          -23.549542460224888,
+          -148.0437470842869
+        ],
+        [
+          -52.99796691660008,
+          -189.03277031273097
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12027403022:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1580.1957353585758,
+          -672.9420154317613
+        ],
+        [
+          1621.9806619519804,
+          -701.1965848419369
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        168.78002929685954
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:282426542:0",
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          113.74378777453839,
+          -1355.0311981057419
+        ],
+        [
+          95.04005873023652,
+          -1308.4708513312623
+        ]
+      ],
+      "target_heights_m": [
+        172.8437499999418,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:340",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1549.95140753724,
+          -1433.0297277465156
+        ],
+        [
+          1549.5534558572422,
+          -1483.1716396583531
+        ]
+      ],
+      "target_heights_m": [
+        171.0,
+        171.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:4",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          159.11027950530087,
+          -183.0634950854564
+        ],
+        [
+          137.62088868611932,
+          -228.03203513373853
+        ]
+      ],
+      "target_heights_m": [
+        171.171875,
+        172.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:9",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          648.9887998516058,
+          -1536.497165025068
+        ],
+        [
+          660.1314469436769,
+          -1585.047270210708
+        ]
+      ],
+      "target_heights_m": [
+        171.97070312494543,
+        172.4375
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:4252979572:0",
+      "properties": {
+        "surface": "paved",
+        "class": "secondary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          420.9624861553176,
+          -1162.0246324131056
+        ],
+        [
+          403.4526121559741,
+          -1115.464285638626
+        ]
+      ],
+      "target_heights_m": [
+        169.0,
+        169.8154296875
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80411362:0",
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1627.9499371792551,
+          -5.974996667207454
+        ],
+        [
+          1587.3588656308089,
+          -34.62751775862201
+        ]
+      ],
+      "target_heights_m": [
+        161.0,
+        161.09374999999454
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:302925600:31",
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1565.8694748116272,
+          -559.9237377885768
+        ],
+        [
+          1599.6953677678382,
+          -523.7101347412076
+        ]
+      ],
+      "target_heights_m": [
+        166.359375,
+        165.313720703125
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49987302:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          124.48848318412917,
+          -31.841855986224875
+        ],
+        [
+          88.6728318204816,
+          -66.06570062491625
+        ]
+      ],
+      "target_heights_m": [
+        172.0,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:812994932:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          823.2916364974576,
+          -1360.2045699705384
+        ],
+        [
+          826.475249952335,
+          -1409.5505785186565
+        ]
+      ],
+      "target_heights_m": [
+        171.91064453125,
+        172.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5531937272:0",
+      "properties": {
+        "surface": "paved",
+        "class": "primary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1061.6646939208563,
+          -146.45194035684818
+        ],
+        [
+          1039.7773514191945,
+          -190.6245770401697
+        ]
+      ],
+      "target_heights_m": [
+        163.762451171875,
+        163.4023437498272
+      ],
+      "width_m": 9.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:218",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          413.0034525206065,
+          -1107.1073003189522
+        ],
+        [
+          394.2997234738221,
+          -1061.7408085894308
+        ]
+      ],
+      "target_heights_m": [
+        169.91284179692138,
+        169.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:11522749262:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          -52.99796691660008,
+          -1413.5300953372532
+        ],
+        [
+          -5.641716775918565,
+          -1425.4686457918024
+        ]
+      ],
+      "target_heights_m": [
+        172.140625,
+        173.6093749999418
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:11",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          9.08249545102776,
+          -302.8469513196349
+        ],
+        [
+          54.44898718179023,
+          -320.7547770027
+        ]
+      ],
+      "target_heights_m": [
+        172.53125,
+        173.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:14353458012:0",
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          410.2177907457268,
+          -1109.4950104101101
+        ],
+        [
+          392.30996506390306,
+          -1064.128518680589
+        ]
+      ],
+      "target_heights_m": [
+        169.86035156256366,
+        169.015625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12752521142:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          781.9046615865333,
+          -163.56386267495262
+        ],
+        [
+          738.5279282656899,
+          -141.27856849205168
+        ]
+      ],
+      "target_heights_m": [
+        166.67382812504184,
+        167.84375
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1167582410:6",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path",
+        "foot": "permissive"
+      },
+      "xy": [
+        [
+          1270.1913752053995,
+          -758.5016270272486
+        ],
+        [
+          1311.1803984338435,
+          -732.2368160257507
+        ]
+      ],
+      "target_heights_m": [
+        168.191162109375,
+        168.0625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2267008550:0",
+      "properties": {
+        "subclass": "corridor",
+        "class": "path",
+        "layer": 1
+      },
+      "xy": [
+        [
+          -5.641716775918565,
+          -1339.5110825150762
+        ],
+        [
+          -52.99796691660008,
+          -1329.1643387867246
+        ]
+      ],
+      "target_heights_m": [
+        171.509521484375,
+        170.4140624999036
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:2018563982:0",
+      "properties": {
+        "surface": "paved",
+        "class": "secondary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          -52.99796691660008,
+          -921.2638648997902
+        ],
+        [
+          -38.27375468717121,
+          -875.4994214877886
+        ]
+      ],
+      "target_heights_m": [
+        173.0,
+        173.9843750000582
+      ],
+      "width_m": 7.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1180458532:0",
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "minor",
+        "foot": "yes",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          227.55796878268362,
+          -1651.9031527594107
+        ],
+        [
+          211.24194982581602,
+          -1606.9346127111285
+        ]
+      ],
+      "target_heights_m": [
+        175.0,
+        174.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5352027462:0",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1173.8870681990802,
+          -407.5082436443868
+        ],
+        [
+          1153.1935807423768,
+          -450.4870252827499
+        ]
+      ],
+      "target_heights_m": [
+        165.117919921875,
+        165.09448242195322
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:278",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          812.9448927703471,
+          -1023.5374471333839
+        ],
+        [
+          859.5052395435855,
+          -1013.1907034050322
+        ]
+      ],
+      "target_heights_m": [
+        167.5859375,
+        169.7165527343259
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975862:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          -14.396653778072839,
+          -525.3019414686463
+        ],
+        [
+          -52.99796691660008,
+          -497.44532373970986
+        ]
+      ],
+      "target_heights_m": [
+        174.7229003907105,
+        175.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137356712:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1373.2608608014714,
+          -510.5777292404587
+        ],
+        [
+          1336.2513543903829,
+          -481.12930478408356
+        ]
+      ],
+      "target_heights_m": [
+        164.0,
+        163.5312499999418
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12135711472:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          537.5623289358599,
+          -391.59017636999954
+        ],
+        [
+          543.1336524806543,
+          -344.6318779130396
+        ]
+      ],
+      "target_heights_m": [
+        167.3232421875,
+        167.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12163875802:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          652.1724133064832,
+          9.943070607179823
+        ],
+        [
+          609.1936316681201,
+          29.044751335203287
+        ]
+      ],
+      "target_heights_m": [
+        168.046875,
+        168.5
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:381766652:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          773.149724584379,
+          -284.9391256365699
+        ],
+        [
+          734.150459765854,
+          -258.67431463507216
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:92265872:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          116.92740122941585,
+          29.044751335203287
+        ],
+        [
+          93.05030032031748,
+          -11.148368530762683
+        ]
+      ],
+      "target_heights_m": [
+        172.4140625000582,
+        172.705810546875
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:547",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1153.9894841073374,
+          19.095959289331873
+        ],
+        [
+          1107.8270890140968,
+          26.25908956280615
+        ]
+      ],
+      "target_heights_m": [
+        165.902587890625,
+        165.078125
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12671495492:0",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1504.58491580896,
+          -840.0817218041389
+        ],
+        [
+          1473.9426363076263,
+          -874.7035181240693
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:58896152:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          692.3655331724492,
+          -999.2623945405641
+        ],
+        [
+          725.79347444618,
+          -1031.0985290880974
+        ]
+      ],
+      "target_heights_m": [
+        165.564453125,
+        165.078125
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:1784464992:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1485.085283397215,
+          -350.60115314031424
+        ],
+        [
+          1463.9938442605137,
+          -391.59017636999954
+        ]
+      ],
+      "target_heights_m": [
+        162.0,
+        162.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13249751642:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          258.9961516464953,
+          -39.402937940938195
+        ],
+        [
+          295.60770637758606,
+          -67.25955566987466
+        ]
+      ],
+      "target_heights_m": [
+        170.14062499993452,
+        171.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:5624078952:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1606.858498042554,
+          -832.9185915319058
+        ],
+        [
+          1577.8080252661764,
+          -868.3362912155557
+        ]
+      ],
+      "target_heights_m": [
+        169.76904296875,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:134400052:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1020.2777190074494,
+          -409.4980020530646
+        ],
+        [
+          1040.1753030991922,
+          -368.50897882337927
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:80247582:0",
+      "properties": {
+        "surface": "paved",
+        "class": "tertiary",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          776.7312897217367,
+          -315.58140513914475
+        ],
+        [
+          819.7100713600998,
+          -330.7035690485714
+        ]
+      ],
+      "target_heights_m": [
+        166.0,
+        166.0
+      ],
+      "width_m": 6.5,
+      "longitudinal_grade": 0.06
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:310",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1019.0838639624909,
+          -1365.3779418340937
+        ],
+        [
+          1017.0941055525719,
+          -1410.7444335636148
+        ]
+      ],
+      "target_heights_m": [
+        173.40625,
+        173.0
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:101440952:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1546.3698424023648,
+          -1382.8878158346783
+        ],
+        [
+          1546.3698424023648,
+          -1428.2543075654407
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        171.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:12849326242:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          367.2390091073637,
+          -519.3326662413717
+        ],
+        [
+          403.4526121559741,
+          -492.2719518761546
+        ]
+      ],
+      "target_heights_m": [
+        170.0,
+        170.0
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:13137312492:0",
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      },
+      "xy": [
+        [
+          1447.6778253061286,
+          -175.10446144826275
+        ],
+        [
+          1432.9536130766999,
+          -217.6852914053868
+        ]
+      ],
+      "target_heights_m": [
+        161.28002929690865,
+        161.15625
+      ],
+      "width_m": null,
+      "longitudinal_grade": 0.08
+    },
+    {
+      "source_id": "openfreemap:14/8937/5681:transportation:49975780:590",
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "xy": [
+        [
+          1212.8863330200877,
+          -1651.9031527594107
+        ],
+        [
+          1206.1211544278526,
+          -1607.7305160748479
+        ]
+      ],
+      "target_heights_m": [
+        173.5078125,
+        171.9228515625
+      ],
+      "width_m": 1.5,
+      "longitudinal_grade": 0.1
+    }
+  ]
+}

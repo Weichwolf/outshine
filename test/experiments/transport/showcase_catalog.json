@@ -39,6 +39,11 @@
       "id": "operationsreferenzen",
       "title": "Operationsreferenzen",
       "description": "Einzelne Flächenoperationen im Vergleich mit CityEngine: Fragmente, Innenloch und echte Wiener Anschlussfläche. Die Schaublöcke werden in beiden Varianten gleich geschlossen."
+    },
+    {
+      "id": "hoehenuebergaenge",
+      "title": "Höhenübergänge",
+      "description": "Flacher Anschluss an einen Höhenübergang: linearer Knick, parabolisch und kubisch. Gleiche erste 30 Meter, echte Breite und Querneigung, ohne Höhenüberhöhung. Grün: flacher Kontakt."
     }
   ],
   "images": [
@@ -492,6 +497,72 @@
       "image_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-sdk-backend-solid.png",
       "report_source": "build/experiments/transport/esri-reference/inspection/SDK-reference-Vienna-junction-0-sdk-backend-solid.json",
       "origin_source": "build/experiments/transport/esri-reference/inspection/origin.json"
+    },
+    {
+      "id": "ramp-control-linear-solid",
+      "title": "Rampe · Kontrolle · linearer Knick",
+      "section": "hoehenuebergaenge",
+      "kind": "Vorher",
+      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
+      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
+      "image_source": "build/experiments/transport/vertical-profiles/ramp-control-linear-solid.png",
+      "report_source": "build/experiments/transport/vertical-profiles/ramp-control-linear-solid.json",
+      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
+    },
+    {
+      "id": "ramp-control-parabolic-solid",
+      "title": "Rampe · Kontrolle · parabolischer Übergang",
+      "section": "hoehenuebergaenge",
+      "kind": "C1-Plan",
+      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
+      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
+      "image_source": "build/experiments/transport/vertical-profiles/ramp-control-parabolic-solid.png",
+      "report_source": "build/experiments/transport/vertical-profiles/ramp-control-parabolic-solid.json",
+      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
+    },
+    {
+      "id": "ramp-control-cubic-solid",
+      "title": "Rampe · Kontrolle · kubischer Übergang",
+      "section": "hoehenuebergaenge",
+      "kind": "Vergleich",
+      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
+      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
+      "image_source": "build/experiments/transport/vertical-profiles/ramp-control-cubic-solid.png",
+      "report_source": "build/experiments/transport/vertical-profiles/ramp-control-cubic-solid.json",
+      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
+    },
+    {
+      "id": "Vienna-profile-linear-solid",
+      "title": "Wien · Quellabschnitt · linearer Knick",
+      "section": "hoehenuebergaenge",
+      "kind": "Vorher",
+      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
+      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
+      "image_source": "build/experiments/transport/vertical-profiles/Vienna-profile-linear-solid.png",
+      "report_source": "build/experiments/transport/vertical-profiles/Vienna-profile-linear-solid.json",
+      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
+    },
+    {
+      "id": "Vienna-profile-parabolic-solid",
+      "title": "Wien · Quellabschnitt · parabolischer Übergang",
+      "section": "hoehenuebergaenge",
+      "kind": "C1-Plan",
+      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
+      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
+      "image_source": "build/experiments/transport/vertical-profiles/Vienna-profile-parabolic-solid.png",
+      "report_source": "build/experiments/transport/vertical-profiles/Vienna-profile-parabolic-solid.json",
+      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
+    },
+    {
+      "id": "Vienna-profile-cubic-solid",
+      "title": "Wien · Quellabschnitt · kubischer Übergang",
+      "section": "hoehenuebergaenge",
+      "kind": "Vergleich",
+      "description": "Anschlussdetail der vollständigen Fahrfläche mit flachem Kontakt. Die Wiener Endhöhen stammen aus dem gespeicherten DEM; flache Anschlussneigung ist eine Rezeptannahme.",
+      "scope": "Erste 30 m plus flacher Kontakt; endliches Chordmesh, 0,35 m Darstellungsdicke. C1 gilt für den analytischen Plan; keine vollständige Kreuzungs-/Terrain-/Brückenplanung.",
+      "image_source": "build/experiments/transport/vertical-profiles/Vienna-profile-cubic-solid.png",
+      "report_source": "build/experiments/transport/vertical-profiles/Vienna-profile-cubic-solid.json",
+      "origin_source": "build/experiments/transport/vertical-profiles/origin.json"
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
