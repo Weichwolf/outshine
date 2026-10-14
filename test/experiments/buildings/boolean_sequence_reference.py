@@ -38,6 +38,10 @@ def generated_section(node,height):
         merge_from_vert=indices[selected].astype(np.uint64),merge_to_vert=target[selected].astype(np.uint64))
     solid=manifold.Manifold(encoded)
     if solid.status()!=manifold.Error.NoError:raise ValueError('Generated room section rejected compiled logical geometry')
+    return solid_section(solid,height)
+
+
+def solid_section(solid,height):
     polygons=solid.slice(height).to_polygons()
     if not len(polygons):return shapely.Polygon()
     rings=[shapely.Polygon(np.asarray(ring)) for ring in polygons]

@@ -7,6 +7,7 @@ from .insert import Asset
 from .hip_inset import HipInset, prepare_hip_inset
 from .metadata import Material
 from .plan_split import split_plan
+from .prism_union import PrismUnion, PrismVolume, union_prisms
 from .scope import Frame, Relative, Scope
 from .shape import Geometry, Shape
 from .skeleton_plan import HipFacet, HipPlan, SkeletonBudgetExceeded, SkeletonLimits, prepare_hip
@@ -22,3 +23,4 @@ __all__ += ["HipFacet", "HipPlan", "SkeletonBudgetExceeded", "SkeletonLimits", "
 __all__ += ["HipPlanner", "HipWorkerCancelled", "HipWorkerError", "hip_footprints"]
 __all__ += ["HipInset", "prepare_hip_inset"]
 __all__ += ["ExteriorChart", "extrapolate_chart", "partition_exterior_charts"]
+__all__ += ["PrismUnion", "PrismVolume", "union_prisms"]
