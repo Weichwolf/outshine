@@ -166,7 +166,7 @@ auf OS-Ebene selbst nicht immer unterbrochen werden. Diese Referenz ist für
 Desktop-Erzeuger, keine iOS-/Frame-Garantie; direktes `prepare_hip` bleibt kooperativ.
 `hip_footprints(shape)` liefert die intrinsischen Quellflächen. Deren vorbereitete
 `HipPlan`-Tupel können mit `Shape.roof_hip(..., prepared_plans=plans)` für mehrere
-Höhen/even-/negative Distanzvarianten ausgegeben werden, auch nach Schließen
+Höhen/even-/negative und positive Distanzvarianten ausgegeben werden, auch nach Schließen
 des Workers. Faceanzahl und exakte intrinsische Domäne werden gebunden geprüft;
 die Ausgabe wiederholt keinen Skelettsolver. Meshausgabe bleibt separat budgetiert.
 `Shape.roof_hip(value, mode="byAngle")` verbindet diese Pläne mit nativen
@@ -194,8 +194,22 @@ jeweiligen Rand-UV-Chart ohne zusätzliche Variation entlang der Höhe.
 `roof_info.insets` enthält Domäne, Traufhöhe und Raster; vollständig kollabierte
 Quellflächen stehen in `collapsed_source_faces` und erzeugen leere Produkte.
 Der Schnitt ändert die erhaltenen Firste nicht. Das ist eine eigene gültige
-Interpretation und keine SDK-Kontur-/Bottom-/UV-Gleichheit. Positive Überhänge,
-genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben bei
+Interpretation und keine SDK-Kontur-/Bottom-/UV-Gleichheit.
+Positive `overhang`-Werte erzeugen eine kontinuierliche CDT-Dachschürze zwischen
+der ursprünglichen Traufe und einem GEOS-Miter-Offset mit Limit 5. Die Eingabe
+misst Dachlänge; die horizontale Distanz ist `overhang / hypot(1, slope)`.
+Das innere Standard-/even-Dachfeld bleibt erhalten. Außenfacetten übernehmen
+affine UV0–9 der zugeordneten ursprünglichen Traufe; ihr Chartbesitz ist beim
+Schnitt auf diese Außenfacette begrenzt. Kleine Raster-Konfliktzellen werden
+bis `4 * precision * perimeter` nach größter Schnittfläche zugeordnet.
+`shell_depth_m=0.1` legt den Boden explizit unter die tiefste äußere Traufe;
+positive Dicke verhindert Nullstärke am ursprünglichen Rand. Innere/äußere
+Ränder schließen diese Hülle. `roof_info.exteriors` hält Domäne, Außenfacetten,
+Bodenniveau und Raster pro Quellfläche. Beliebige planare Quellframes und
+vorbereitete Pläne sind unterstützt; mehrere Quellflächen bleiben eigenständige
+Hüllen, ihre Schnittvereinigung ist nicht behauptet. Die Dachschürze ist ein
+eigenes Verfahren, keine SDK-Überstands-/Tessellierungs-/UV-Gleichheit.
+Genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben bei
 [#67](https://github.com/Weichwolf/outshine/issues/67); positive Überhänge werden
 weiterhin ausdrücklich abgelehnt.
 

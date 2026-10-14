@@ -127,8 +127,8 @@ class HipModelling(unittest.TestCase):
         source=Shape.from_polygon(shapely.box(0,0,12,5))
         for options in ({'max_cells':1},{'limits':SkeletonLimits(seconds=1e-12)},{'limits':SkeletonLimits(vertices=3)}):
             with self.assertRaises(SkeletonBudgetExceeded):source.roof_hip(3.,'byHeight',**options)
-        for options in ({'overhang':.5},):
-            with self.assertRaises(NotImplementedError):source.roof_hip(3.,'byHeight',**options)
+        for thickness in (0.,-1.,float('nan'),float('inf')):
+            with self.assertRaises(ValueError):source.roof_hip(3.,'byHeight',overhang=.5,shell_depth_m=thickness)
         for value,mode in ((0.,'byHeight'),(-1.,'byHeight'),(90.,'byAngle'),(float('nan'),'byAngle'),(True,'byAngle')):
             with self.assertRaises(ValueError):source.roof_hip(value,mode)
         for options in ({'even':1},{'max_cells':False},{'max_cells':0}):
