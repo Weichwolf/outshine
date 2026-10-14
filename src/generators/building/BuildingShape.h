@@ -7,6 +7,8 @@
 #include <expected>
 #include <optional>
 #include "Earth.h"
+#include "HipRoofPlan.h"
+#include <memory>
 #include <cstdint>
 #include <vector>
 
@@ -31,6 +33,7 @@ struct Boxed {
 struct BuildingShape {
   std::vector<EastNorth> Ring;
   std::vector<std::vector<EastNorth>> Holes;
+  std::shared_ptr<const std::expected<HipRoofPlan, HipRoofError>> HipRoof;
   size_t TidiedAway = 0;
 
   std::vector<uint8_t> PartyWallEdges;

@@ -231,6 +231,8 @@ public:
 
   [[nodiscard]] std::expected<void, StructureMeshError> Status() const noexcept { return Status_; }
 
+  void Reject() noexcept { Status_ = std::unexpected(StructureMeshError::BuildFailed); }
+
   [[nodiscard]] static bool Representable(const Vtx &v) noexcept {
     constexpr double exclusiveLimit = 0x1p63;
     const std::array coordinates{v.P.EastM, v.P.NorthM, v.Z};
@@ -622,7 +624,10 @@ void Covering(const BuildingShape &s,
               Site &site) {
   std::vector<EastNorth> &tris = site.Scratch().Tris;
   tris.clear();
-  roof.Cover(plan, site.Scratch(), tris);
+  if (!roof.Cover(plan, site.Scratch(), tris)) {
+    site.Reject();
+    return;
+  }
   const Facade kind = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i + 2 < tris.size(); i += 3) {
     std::array<Vtx, 3> v{};

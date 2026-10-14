@@ -23,6 +23,8 @@ enum class MvtSchema : uint8_t { Shortbread, OpenMapTiles };
   if (canonical == "water_lines") { return "waterway"; }
   if (canonical == "streets") { return "transportation"; }
   if (canonical == "street_polygons") { return {}; }
+  if (canonical == "land") { return "landcover"; }
+  if (canonical == "sites") { return "landuse"; }
   return canonical;
 }
 

@@ -6,6 +6,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 | Bibliothek | Geprüfter lokaler Stand | Zuständiger WI | Verwendung |
 |---|---|---|---|
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
+| SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
 | meshoptimizer | 1.3 | [#12](https://github.com/Weichwolf/outshine/issues/12) | Geplant: native Index-/Vertexbuffer, begrenzte Simplifizierung |
 | simdjson | 4.6.11 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer JSON-Decoder |
 | pugixml | 1.16 | [#9](https://github.com/Weichwolf/outshine/issues/9) | Geplant: gemeinsamer XML-Decoder |
@@ -17,7 +18,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 ## Installation
 
 ```sh
-brew install geos simdjson pugixml eigen bullet sqlite zstd
+brew install geos sfcgal simdjson pugixml eigen bullet sqlite zstd
 ```
 
 meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../lib/Formula/meshoptimizer.rb)
@@ -35,12 +36,14 @@ Bei einem Bibliotheksupdate Release/Hash und ABI prüfen, Paket bauen und Engine
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install libgeos-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
+sudo apt install libgeos-dev libsfcgal-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
 ```
 
-GEOS, SQLite, Zstandard, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
+SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.
+GEOS, SFCGAL, SQLite, Zstandard, simdjson, pugixml, Eigen und Bullet liefern pkg-config-Metadaten. meshoptimizer liefert
 einen CMake-Vertrag (`meshoptimizer::meshoptimizer`); keine erfundene pkg-config-Abhängigkeit.
 Optionale Pakete werden erst beim jeweiligen Feature an den Build angeschlossen.
 
 Der integrierte native Assetcache benötigt SQLite und Zstandard auch im Runtime-Link. Statische
 Nutzer von `liboutshine.a` binden zusätzlich `pkg-config --libs sqlite3 libzstd` ein.
+Der Building-Generator benötigt beim statischen Link zusätzlich `pkg-config --libs sfcgal`.

@@ -1,7 +1,17 @@
 {
-  "current_work": "Blatt-/Grasformen, Nadeln, Profile und längenabhängige Blattfolgen/Astquirle liegen im installierbaren Kern. Standorttabellen sind unveränderlich; Batch-Vorabprüfung und geteilte Winkelarbeit vermeiden Arbeit an leeren Eltern. Vollständige Standortfolgen und Graphprodukte bleiben erhalten. Weitere Generatorfunktionen, Wind, LOD-Deckung und Pflanzenrezepte sind offen.",
+  "current_work": "Räumliche Kurven, Bogenlängen, stabile Querschnittsrahmen und geschlossene Astflächen liegen neben Blatt/Nadel/Profil/Blattfolgen im installierbaren Kern. Vorbereitete Kurvendaten sind unveränderlich; öffentliche SciPy-Objekte unabhängig. Roll-Aliasing und falsch orientierte Facetten werden abgelehnt. Vollständiger Funktionsumfang, Wind, Wald-LOD und Pflanzenrezepte bleiben offen.",
   "quality_gap": "SpeedTree-Qualität und Funktionsumfang sind noch nicht erreicht. Die Gattungsproben sind Kalibrierungsfälle. Vollständige botanisch geprüfte Pflanzenrezepte, artspezifische Bestände, direkte grobe Pflanzen-/Waldprodukte, vollständige SpeedTree-Property-/Elternbindung, Rinde, Wind, Fernwald, Übergänge und native GPU-Kosten bleiben offen.",
   "renders": [
+    {
+      "image": "render/branch-roll.png",
+      "title": "Räumlicher Ast · Roll-Aliasing",
+      "label": "Geometrische Funktionsprobe · keine botanische Form",
+      "category": "branch",
+      "lod": "lod-0",
+      "description": "Gleiche kontinuierliche elliptische Holzfläche mit 100 Radiant Roll. Links 4×8: zu grober negativer Kontrollfall, der trotz positiver Eckorientierungen mehrere Umläufe überspringt. Rechts 512×16: aufgelöstes Produkt. Die linke Geometrie wird nicht als Pflanzenasset akzeptiert.",
+      "quality": "Roll-Abtastung, Orientierung und Cachebesitz; keine botanische Form oder allgemeine LOD-Freigabe.",
+      "scenario": "build/experiments/vegetation/spine-library/branch-roll.json"
+    },
     {
       "image": "render/blade-twist.png",
       "title": "Blattfläche · Twist-Gegenfall",
@@ -512,7 +522,8 @@
     "needle_plot": "lod-0",
     "profile_cache_plot": "lod-0",
     "blade_library_plot": "lod-0",
-    "placement_library_plot": "lod-0"
+    "placement_library_plot": "lod-0",
+    "spine_library_plot": "lod-0"
   },
   "genera": [
     {

@@ -13,7 +13,7 @@
 
 namespace outshine::Generators {
 std::string PreparedBuildingAssets::BasisKey(const std::string &key) {
-  return Sha256Hex("prepared-building-basis-1/" + key);
+  return Sha256Hex("prepared-building-basis-2/" + key);
 }
 
 std::expected<void, StructureBakeError>

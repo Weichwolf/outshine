@@ -58,13 +58,7 @@ Vec3 NormalAt(const BuildingShape &shape, const EastNorth &point) {
   switch (shape.Roof) {
     case RoofKind::Flat: break;
     case RoofKind::Gable: dv = -std::copysign(shape.RiseM / hv, v); break;
-    case RoofKind::Hip:
-      if (hv - std::abs(v) <= hu - std::abs(u)) {
-        dv = -std::copysign(shape.RiseM / hv, v);
-      } else {
-        du = -std::copysign(shape.RiseM / hv, u);
-      }
-      break;
+    case RoofKind::Hip: break;
     case RoofKind::Shed: dv = shape.RiseM / (2.0 * hv); break;
     case RoofKind::Mansard: {
       const double b = shape.BreakFracV * hv;
@@ -210,6 +204,9 @@ std::optional<RoofSurface::Hit> RoofSurface::Trace(const Vec3 &origin,
                                                    std::vector<double> &cuts) const {
   if (!ValidQuery({.Origin = origin, .Direction = direction}, minimum, maximum)) {
     return std::nullopt;
+  }
+  if (Shape_.Roof == RoofKind::Hip && Shape_.RiseM > 0) {
+    return TraceHip(origin, direction, minimum, maximum);
   }
   if (Shape_.Roof == RoofKind::Flat || Shape_.RiseM == 0.0) {
     if (direction[2] == 0.0) { return std::nullopt; }

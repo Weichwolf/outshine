@@ -2,6 +2,12 @@
 
 PLOT_SOURCES = (
     (
+        "spine-library/spine-library.json",
+        "spine_library_plot",
+        "Räumliche Astbibliothek · sichere Pläne und Roll-Auflösung",
+        "Gleiche räumliche Kurven, Felder und vollständige Meshs vor/nach exakt. Frischer Plan, 513 warme Rahmen und kompletter 48×12-Aufbau getrennt in fünf wechselnden CPU-Läufen. Öffentliche Kurvenobjekte sind unabhängige Kopien; Knoten unveränderlich. Unaufgelöster Roll und falsche Facetten werden abgelehnt, keine allgemeine LOD-Deckungsgrenze.",
+    ),
+    (
         "placement-library/placement-library.json",
         "placement_library_plot",
         "Blattfolgen-/Quirlbibliothek · Bedarf vor Arbeit",

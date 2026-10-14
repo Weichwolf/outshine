@@ -126,7 +126,7 @@ an der gemeinsamen ENU-Grenze, ohne Dreieckswinding oder Höhenbezug zu ändern.
 Alle Gebäudeexperimente verwenden diese Implementierung. Der verbundene Modellierkern
 enthält außerdem `Shape`, `Geometry`, `Face`, `Material`, `Asset`, `Texture`,
 `Branch`, `Part` und `Floating`: Komponenten, Extrusion, Unterteilung, Offset,
-Pult-/Firstdächer, UV-/Materialbearbeitung, Projektionen und statische Asset-Platzierung.
+Pult-/First-/Walmdächer, UV-/Materialbearbeitung, Projektionen und statische Asset-Platzierung.
 `Shape.rotate_scope` richtet nur den Scope neu aus und erhält die sichtbare Geometrie.
 `Shape.align_scope_to_geometry_bbox("xz")` findet die flächenminimale projizierte
 Box mit GEOS; das erste benannte Ausmaß ist länger, die dritte Achse bleibt fest.
@@ -139,6 +139,64 @@ ein isoliertes SDK-Orakel abgeglichen; Trim-Planes bleiben offen.
 Die vorhandenen Gegenfälle/Referenzen bleiben unter `test/experiments/buildings/`.
 Konstruktive Gebäudepläne und Rezepte liegen weiterhin dort (#51); viele dokumentierte
 CityEngine-Fähigkeiten und Teilverträge sind noch offen (#34).
+
+`prepare_hip(polygon)` bereitet unveränderliche metrische Walmdach-Pläne vor:
+Facetten, ursprüngliche Quellkanten, geteilte Ridgeknoten und Wavefront-Distanzen.
+`HipPlan.lifted_vertices(value, mode)` verwendet dieselbe Topologie für `byAngle`
+oder `byHeight`; sein XY gehört zur Eingabeebene, Z zeigt entlang deren Normale.
+Der Aufrufer setzt diesen lokalen Ebenenrahmen ausdrücklich in die Welt ein.
+Konkavität und Höfe bleiben erhalten. Rechtecke benötigen keinen Skelettsolver;
+allgemeine Formen verwenden das optionale Extra `pip install -e './lib[roofs]'`.
+SFCGAL wird zuerst geprüft; vereinfacht es ursprüngliche Quellkanten, übernimmt
+der Python-Solver. Für Höfe werden gemessene Skelett-Bisektoren mit den unveränderten
+Quellringen polygonisiert; Trauf-Endpunkte werden innerhalb der bestehenden
+Rundungstoleranz an die ursprünglichen Punkte gebunden. Der direkte Facettenexport
+bleibt für Formen ohne Höfe erhalten. Beide Ergebnisse müssen dieselben Geometrie-/Quellkantenprüfungen
+erfüllen. Der vollständige Verfahrensvergleich umfasst auch die nötigen Rückfälle.
+`SkeletonLimits` begrenzt Eingaben, Knoten und kooperativ verstrichene Zeit;
+`python_events` gilt nur für den Python-Solver. Native Ereigniszahlen sind unbekannt
+und werden als `None` gemeldet. Schwere Aufrufe gehören in abbrechbare Worker,
+keine Deadline-Garantie innerhalb jedes Backend-Aufrufs.
+`Shape.roof_hip(value, mode="byAngle")` verbindet diese Pläne mit nativen
+Quell-Dreiecken: Schnitte erhalten deren UV0–9-Interpolationsbereiche,
+Material-/Gruppen-/Tagbesitz und den lokalen Objektframe. Authored Normalen
+werden bei der geänderten Geometrie neu aufgebaut; fehlendes UV0 bleibt fehlend.
+Die gemeinsame planare Überlagerung verwendet ein explizites Präzisionsraster
+und berichtet dessen Meterweite im `roof_info`. `max_cells` begrenzt vorab
+Quell-Dreieck-/Facettenkandidaten, danach Zellen und Ausgabedreiecke.
+`byHeight` ist ebenfalls verfügbar. `even=True` unterscheidet Firstgruppen
+von verbindenden Walmlinien und hält Traufknoten fest. Bei `byAngle` werden
+Gruppenhöhen gemittelt, bei `byHeight` auf das jeweilige Gruppenmaximum gesetzt.
+Die vorgegebene maximale Dachhöhe bleibt dabei erhalten. Nichtplanare Facetten besitzen
+eine feste Triangulation vor dem UV-Schnitt; unverändert planare Flächen
+behalten ihre ursprüngliche Darstellung. Die Gruppierung folgt dem statisch
+untersuchten 2°-Knotenfächer und wird gegen einen isolierten SDK-Geometrieaufruf
+geprüft. Ein degenerierter realer SDK-Gegenfall bleibt ausdrücklich offen.
+`roof_info.surfaces` hält die vorbereiteten Flächen; tatsächliche gemeinsame
+Höhenanpassungen am Präzisionsraster werden in Metern berichtet.
+Negative `overhang`-Werte schneiden das feste Dachfeld an einer höheren Traufe.
+Die eigene Variante bildet eine geschlossene Hülle: Unterseite im ursprünglichen
+Quellniveau, verbleibende Dachfläche und senkrechte äußere/innere Randflächen.
+UV0–9 folgen weiterhin den nativen Quell-Dreiecken; Randflächen erben den
+jeweiligen Rand-UV-Chart ohne zusätzliche Variation entlang der Höhe.
+`roof_info.insets` enthält Domäne, Traufhöhe und Raster; vollständig kollabierte
+Quellflächen stehen in `collapsed_source_faces` und erzeugen leere Produkte.
+Der Schnitt ändert die erhaltenen Firste nicht. Das ist eine eigene gültige
+Interpretation und keine SDK-Kontur-/Bottom-/UV-Gleichheit. Positive Überhänge,
+genaue SDK-Gratgruppen-Semantik und Trim-Planes bleiben bei
+[#67](https://github.com/Weichwolf/outshine/issues/67); positive Überhänge werden
+weiterhin ausdrücklich abgelehnt.
+
+`partition_exterior_charts(corners, a, b, exterior)` zerlegt eine bereits gültige
+Außendomäne nach den nativen Dreieck-Charts an einer ursprünglichen Traufkante.
+Stationen entlang der Kante bestimmen den Besitzer; erster/letzter Chart reichen
+in die Eckbereiche. `extrapolate_chart` setzt die zugehörigen affinen
+Eckattribute fort, ohne die UVs am Grundrissrand zu klemmen. Die Domäne bleibt im
+ursprünglichen Koordinatenrahmen; eine Rotation schmaler GEOS-Konturen kann ihre
+Topologie durch Rundung verändern. Ein gemeinsamer Roof-/Source-Schnitt muss
+die Chartgrenzen anschließend in der tatsächlichen Mesh-Ausgabe erhalten.
+Das ist eine eigene Rand-Chart-Politik, kein SDK-UV-Orakel und noch keine gültige
+Gesamtgeometrie für positive Überhänge.
 
 ```sh
 .venv/bin/python -m pip install -e './lib[assets]'
@@ -191,3 +249,27 @@ Preflight uses conservative capacities: an insufficient aggregate budget returns
 and populated tables own immutable bytes. The implementation skips empty parents
 after vectorized preflight, with bounded parent/site work. This does not establish
 a complete SpeedTree property mapping, botanical recipe or native placement ABI.
+
+### Spatial branch curves and surfaces
+
+`outshine_ref.vegetation.CubicSpine`, `ArcMeasure`, `SpineField` and `SpatialAxis`
+provide camera-independent cubic plans, monotone arc coordinates, transported
+frames and closed elliptical sweeps. Plant-local X is transverse, Y forward,
+Z normal, in metres. World conversion remains the caller's explicit ENU boundary.
+Cubic controls certify positive forward speed and a conservative curvature bound;
+radius must satisfy the local tube certificate. This proves neither global
+collision freedom nor a general silhouette/coverage bound.
+
+Prepared knots have immutable bytes. Public SciPy polynomial/curve properties
+return independent inspection copies; hot sampling uses private prepared objects.
+`ArcMeasure.evaluate(t, derivative)` evaluates arc length or its derivatives at
+a normalized raw curve parameter. `parameter(fraction)` maps normalized arc
+length to the raw curve parameter. `SpatialAxis.mesh` owns Float64 positions,
+per-corner normals and physical bark fields plus Int32 faces; caps retain hard
+normals. Roll-profile total variation per band must stay at most π/2, and every
+facet must agree with each corner normal. Refine within the caller's budget or
+explicitly refuse unresolved detail; do not accept aliased full rotations.
+Spatial classes load lazily, keeping prepared Profile import NumPy-only.
+Sources, independent references, original frame probes and open SpeedTree
+property/force/LOD/wind bindings belong to [#27](https://github.com/Weichwolf/outshine/issues/27),
+[#39](https://github.com/Weichwolf/outshine/issues/39) and [#52](https://github.com/Weichwolf/outshine/issues/52).
