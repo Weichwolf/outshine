@@ -9,6 +9,10 @@
 namespace {
 using uint = uint32_t;
 
+struct vec2 {
+  float x, y;
+};
+
 struct vec4 {
   float x, y, z, w;
 };

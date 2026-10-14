@@ -2,6 +2,7 @@ struct GroundDetail {
   float AlbedoScale;
   float RoughnessOffset;
   float BumpM;
+  vec2 BumpDxDy;
 };
 
 uint groundMaterialRow(int which, uint rows) {

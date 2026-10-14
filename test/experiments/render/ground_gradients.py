@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from rock_direction import BEDDING, FRACTURES, value
+from ground_detail import grains, noise2
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -57,6 +58,51 @@ def surface_gradient(n, dx, dy, hx, hy, normalized):
     return np.zeros(3) if abs(determinant) < 1e-8 else (a*hx+b*hy)/determinant
 
 
+def grain_gradient(at, recipe):
+    grain, height = recipe['grainSizeM'], recipe['heightAmplitudeM']
+    point = at/grain
+    cell = np.floor(point).astype(np.int64)
+    fraction = point-cell
+    nearest = np.full(at.shape[:-1], np.inf)
+    offset = np.zeros_like(at)
+    for y in range(-1, 2):
+        for x in range(-1, 2):
+            shift = np.array([x, y])
+            site = cell+shift
+            key = np.concatenate([site, np.zeros(site.shape[:-1]+(1,), dtype=np.int64)], axis=-1)
+            bits = np.rint(value(key)*16777215.).astype(np.uint32)
+            jitter = .25+.5*np.stack([bits & 255, (bits >> 8) & 255], axis=-1)/255.
+            delta = shift+jitter-fraction
+            distance = np.sum(delta*delta, axis=-1)
+            nearer = distance < nearest
+            offset = np.where(nearer[..., None], delta, offset)
+            nearest = np.minimum(nearest, distance)
+    radius = np.sqrt(nearest)
+    relief = np.maximum(1.-radius, 0.)
+    slope = np.divide(2.*height*relief, grain*radius, out=np.zeros_like(radius), where=radius>0)
+    return height*relief*relief, offset*slope[..., None]
+
+
+def substrate_controls():
+    points = np.random.default_rng(110).uniform(-8., 8., (512, 2))
+    _, derivative = noise_gradient(np.concatenate([points, np.zeros((512, 1))], axis=-1))
+    estimated = np.empty_like(points)
+    for axis in range(2):
+        delta = np.zeros(2); delta[axis] = 1e-6
+        estimated[:, axis] = (noise2(points+delta)-noise2(points-delta))/2e-6
+    noise_error = float(np.max(np.abs(derivative[:, :2]-estimated)))
+    recipe = dict(grainSizeM=.035, heightAmplitudeM=.012)
+    height, derivative = grain_gradient(points, recipe)
+    np.testing.assert_allclose(height, grains(points, 0., recipe)[1], rtol=0, atol=1e-12)
+    for axis in range(2):
+        delta = np.zeros(2); delta[axis] = 1e-7
+        estimated[:, axis] = (grains(points+delta, 0., recipe)[1]-grains(points-delta, 0., recipe)[1])/2e-7
+    grain_error = float(np.max(np.abs(derivative-estimated)))
+    assert noise_error < 1e-7 and grain_error < 1e-7
+    return dict(noise2_derivative_error=noise_error, grain_derivative_error=grain_error,
+                scope='Away from nearest-site ties and cap tips; unchanged cone caps, four noise taps and nine grain sites.')
+
+
 def render(normals):
     light = np.array([.4, .7, .5]); light /= np.linalg.norm(light)
     brightness = .2+.8*np.clip(np.sum(normals*light, axis=-1), 0., 1.)
@@ -102,7 +148,7 @@ def main():
         old = surface_gradient(np.array([0., 1., 0.]), dx, dy, .1*scale, .2*scale, False)
         np.testing.assert_allclose(fixed, [.1, 0., .2], rtol=0, atol=1e-15)
         scale_controls.append(dict(scale_m=scale, old_error=float(np.max(np.abs(old-[.1, 0., .2])))))
-    report = dict(scale_controls=scale_controls, spacing_m=spacing, height_m=1770.773, independent_derivative_error=derivative_error,
+    report = dict(substrate=substrate_controls(), scale_controls=scale_controls, spacing_m=spacing, height_m=1770.773, independent_derivative_error=derivative_error,
                   screen_gradient_rmse=float(np.sqrt(np.mean((finite_tangent-screen_reference)**2))),
                   analytic_gradient_rmse=float(np.sqrt(np.mean((gradient-reference)**2))),
                   hashes_per_sample=24, scope='Fixed footprint/recipe, equal hashes; isolated noise-height precision. Not a complete GPU, blend, normal-filter or pixel-budget proof.')
