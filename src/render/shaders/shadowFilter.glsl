@@ -1,3 +1,7 @@
+vec3 shadowReceiverVector(vec3 coordinate) {
+  return vec3(coordinate.x * 0.5f, coordinate.y * -0.5f, coordinate.z);
+}
+
 vec2 shadowReceiverSlope(vec3 dx, vec3 dy) {
   float determinant = dx.x * dy.y - dx.y * dy.x;
   return determinant == 0.0 ? vec2(0.0) :
