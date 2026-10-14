@@ -52,13 +52,13 @@ def terrain(directory):
     }
 
 
-def plants(directory, roots):
+def plants(directory, roots, source_directory=OUTPUT):
     products, plans = [], []
     rotations = Rotation.from_euler(
         "z", np.array((0.27, 1.16, -0.7, 2.1))[:, None]
     ).as_matrix()
     for index, key in enumerate(SPECIES):
-        source = OUTPUT / key
+        source = source_directory / key
         recipe = json.loads((source / "whole.json").read_text())
         for product in recipe["products"]:
             result = dict(product)
@@ -87,7 +87,7 @@ def plants(directory, roots):
                 "origin_m": roots[index].tolist(),
                 "frame": rotations[index].tolist(),
                 "recipe": os.path.relpath(source / "whole-plan.json", directory),
-                "tables": os.path.relpath(source / "whole-tables.npz", directory),
+                "tables": os.path.relpath(source / recipe["tables"], directory),
             }
         )
     poses(directory / "tile-roots.npz", roots, rotations, np.arange(4, dtype=np.uint64))
@@ -159,15 +159,15 @@ def grass(directory, sampler, roots):
     return products, dict(samples.report)
 
 
-def main():
-    directory = OUTPUT / "tile"
+def make_tile(source_directory=OUTPUT):
+    directory = source_directory / "tile"
     directory.mkdir(parents=True, exist_ok=True)
     sampler, ground = terrain(directory)
     xy = np.array(((-2.2, -1.4), (1.6, -2.2), (-1.2, 2), (2.1, 1.2)))
     contacts = sampler.sample(xy)
     if any(contacts.reasons):
         raise AssertionError("all tree roots require an actual terrain contact")
-    products, plans = plants(directory, contacts.points_enu_m)
+    products, plans = plants(directory, contacts.points_enu_m, source_directory)
     blades, report = grass(directory, sampler, contacts.points_enu_m)
     recipe = {
         "version": "conifer-preview-1",
@@ -214,6 +214,10 @@ def main():
             indent=2,
         )
     )
+
+
+def main():
+    make_tile()
 
 
 if __name__ == "__main__":

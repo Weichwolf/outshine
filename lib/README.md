@@ -159,6 +159,8 @@ das Radialmaximum und verteilt Segmente getrennt über Körper/Spitze. Der Defau
 belegt weder Bildschirm-, Coverage- noch Shadingfehler; Vergleich und Grenzen:
 [#143](https://github.com/Weichwolf/outshine/issues/143).
 `summary(path)` bestimmt Bedarf ohne Achsen-/Nadelarrays, `foliage(path, max_needles)`
+liefert wahlweise mit `retain=False` neue Triebdetails ohne interne Akkumulation;
+bereits gehaltene Gruppen dürfen wiederverwendet werden. Default/IDs/Rezept bleiben.
 liefert stabile Teilgruppen, `tables(max_axes, max_needles)` vollständige kanonische
 Cachezeilen. Beide Budgets werden vor Detailarbeit geprüft; verweigerte Anfragen
 liefern `None`. Holz- und Organ-IDs bleiben innerhalb ihres vollständigen Plans
