@@ -29,6 +29,11 @@
       "id": "netze",
       "title": "OSM-Netze",
       "description": "Wien, Zürich und Basel im vollständigen Fenster. Fehlende lokale Belege bleiben sichtbar."
+    },
+    {
+      "id": "bodenverfeinerung",
+      "title": "Bodenverfeinerung",
+      "description": "Dieselben Stützpunkte und Straßen, unterschiedliche Bodenverbindungen. Vorher zeigen feste Fächer Sternfalten; neue Verbindungen beruhigen das Relief. Gleiches Bildfenster ohne Höhenüberhöhung."
     }
   ],
   "images": [
@@ -350,6 +355,72 @@
       "image_source": "build/experiments/transport/solid/Vienna-solid.png",
       "report_source": "build/experiments/transport/solid/Vienna-solid.json",
       "origin_source": "build/experiments/transport/solid/origin.json"
+    },
+    {
+      "id": "Vienna-reconnect-centroid-solid",
+      "title": "Wien · Feste Fächer",
+      "section": "bodenverfeinerung",
+      "kind": "Verworfene Bildvariante",
+      "description": "Feste alte Innenkanten erzeugen sternförmige Buckel trotz besserer DEM-Messwerte.",
+      "scope": "Gespeicherte Quellkachel, ganzer Bodenplan. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-centroid-solid.png",
+      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-centroid-solid.json",
+      "origin_source": "build/experiments/transport/reconnect/origin.json"
+    },
+    {
+      "id": "Vienna-reconnect-delaunay-solid",
+      "title": "Wien · Neue Bodenverbindungen",
+      "section": "bodenverfeinerung",
+      "kind": "Geprüfter Verfahrensversuch",
+      "description": "Viele Sternfalten verschwinden. Die Straßen und alle Stützpunkthöhen bleiben unverändert.",
+      "scope": "Gespeicherte Quellkachel, ganzer Bodenplan. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-delaunay-solid.png",
+      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-delaunay-solid.json",
+      "origin_source": "build/experiments/transport/reconnect/origin.json"
+    },
+    {
+      "id": "Vienna-reconnect-fit-solid",
+      "title": "Wien · Alternative Verbindungen",
+      "section": "bodenverfeinerung",
+      "kind": "Gleiche Punkte und Budgets",
+      "description": "Probengesteuerter Kantentausch als Vergleich; er beruhigt den Boden weniger gleichmäßig.",
+      "scope": "Gespeicherte Quellkachel, ganzer Bodenplan. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-fit-solid.png",
+      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-fit-solid.json",
+      "origin_source": "build/experiments/transport/reconnect/origin.json"
+    },
+    {
+      "id": "Vienna-reconnect-detail-centroid-solid",
+      "title": "Detail · Feste Fächer",
+      "section": "bodenverfeinerung",
+      "kind": "Verworfene Bildvariante",
+      "description": "Feste alte Innenkanten erzeugen sternförmige Buckel trotz besserer DEM-Messwerte.",
+      "scope": "Gespeicherte Quellkachel, 120×120-m-Ausschnitt. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-centroid-solid.png",
+      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-centroid-solid.json",
+      "origin_source": "build/experiments/transport/reconnect/origin.json"
+    },
+    {
+      "id": "Vienna-reconnect-detail-delaunay-solid",
+      "title": "Detail · Neue Bodenverbindungen",
+      "section": "bodenverfeinerung",
+      "kind": "Geprüfter Verfahrensversuch",
+      "description": "Viele Sternfalten verschwinden. Die Straßen und alle Stützpunkthöhen bleiben unverändert.",
+      "scope": "Gespeicherte Quellkachel, 120×120-m-Ausschnitt. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-delaunay-solid.png",
+      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-delaunay-solid.json",
+      "origin_source": "build/experiments/transport/reconnect/origin.json"
+    },
+    {
+      "id": "Vienna-reconnect-detail-fit-solid",
+      "title": "Detail · Alternative Verbindungen",
+      "section": "bodenverfeinerung",
+      "kind": "Gleiche Punkte und Budgets",
+      "description": "Probengesteuerter Kantentausch als Vergleich; er beruhigt den Boden weniger gleichmäßig.",
+      "scope": "Gespeicherte Quellkachel, 120×120-m-Ausschnitt. C0-Modell; glatte Übergänge, LOD und native Abnahme offen. 5 m Darstellungsblock, keine Höhenüberhöhung.",
+      "image_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-fit-solid.png",
+      "report_source": "build/experiments/transport/reconnect/Vienna-reconnect-detail-fit-solid.json",
+      "origin_source": "build/experiments/transport/reconnect/origin.json"
     }
   ],
   "note": "Fester veröffentlichter Bildstand. Die Wiener Quellkachel und ihr grobes DEM sind offline gespeichert; das vollständige frühere Wiener Testfenster sowie Zürich und Basel sind noch nicht wiederhergestellt. Zeitwerte enthalten keine Bilderzeugung.",
