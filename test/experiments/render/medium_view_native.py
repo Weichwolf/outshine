@@ -53,7 +53,17 @@ def main():
     receipt = output / "receipt.json"
     receipt.unlink(missing_ok=True)
     record = {"commands": [], "cases": {}}
-    compiler = shlex.split(os.environ.get("CXX", "clang++"))
+    compiler = shlex.split(os.environ.get("CXX", "c++"))
+    declarations = dict(
+        line.split("=", 1)
+        for line in (ROOT / "test/run.sh").read_text().splitlines()
+        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    )
+    toolchain = [
+        flag
+        for key in ("CXXSTD", "WARN", "OPT")
+        for flag in shlex.split(declarations[key].strip('"'))
+    ]
     glslang = shlex.split(os.environ.get("GLSLANG", "glslangValidator"))
 
     def run(argv, name, expected=0):
@@ -124,15 +134,8 @@ def main():
             "-n",
             "10",
             *compiler,
-            "-std=c++23",
-            "-O2",
-            "-ffp-contract=off",
+            *toolchain,
             "-fno-exceptions",
-            "-Wall",
-            "-Wextra",
-            "-Wpedantic",
-            "-Wshadow",
-            "-Werror",
             *(f"-I{directory}" for directory in includes),
             *SOURCES,
             archive,
