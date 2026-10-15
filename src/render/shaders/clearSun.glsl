@@ -9,8 +9,7 @@
 #undef MEDIUM_INLINE
 #undef MEDIUM_ARG
 
-vec3 clearSunTransfer(Medium medium, MediumLook point, sampler2D veil) {
-  if (!mediumSunVisible(medium, point, kMediumGroundLiftKm)) { return vec3(0.0); }
+vec3 clearSunUnoccludedTransfer(Medium medium, MediumLook point, sampler2D veil) {
   if (point.RadiusKm > medium.TopRadiusKm) {
     float projection = point.RadiusKm * point.CosZenith;
     float discriminant = projection * projection +
@@ -19,7 +18,13 @@ vec3 clearSunTransfer(Medium medium, MediumLook point, sampler2D veil) {
     point.RadiusKm = medium.TopRadiusKm;
     point.CosZenith = -sqrt(discriminant) / medium.TopRadiusKm;
   }
-  return textureLod(veil, mediumTransmittanceUv(medium, point), 0.0).rgb;
+  vec3 value = textureLod(veil, mediumTransmittanceUv(medium, point), 0.0).rgb;
+  return value;
+}
+
+vec3 clearSunTransfer(Medium medium, MediumLook point, sampler2D veil) {
+  if (!mediumSunVisible(medium, point, kMediumGroundLiftKm)) { return vec3(0.0); }
+  return clearSunUnoccludedTransfer(medium, point, veil);
 }
 
 #endif
