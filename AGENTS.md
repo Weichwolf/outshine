@@ -27,9 +27,10 @@
   Die drei Forschungsagenten arbeiten ausschließlich in Python: Experimente unter `test/experiments/`,
   gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Engine-Implementierung.
   Ich übernehme ihre verifizierten Verfahren eigenständig maschinennah in C++ unter `src/`.
-  Die vier nativen Fachagenten liefern PRs gegen `master`; ich reviewe und integriere sie,
-  verantworte gemeinsame Bildqualität/Places und halte das A18-Pro-Profil 1280×720/30.
-  Native Fachagenten mergen erst nach diesem Review; die Python-Merge-Regel bleibt separat.
+  Die vier nativen Fachagenten verbessern diese integrierte Basis und entwickeln ihre Bereiche
+  weiter. Sie mergen fertige PRs nach bestandenen betroffenen Prüfungen selbst nach `master`.
+  Ich prüfe anschließend die gemeinsame Integration, verantworte Bildqualität/Places und halte
+  das A18-Pro-Profil 1280×720/30. Mein vorheriges Review ist keine Merge-Voraussetzung.
   Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
   Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
 - Jeder Agent darf und soll architektonische und organisatorische Verbesserungen einbringen.
@@ -232,11 +233,12 @@
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
 - Native Fachagenten liefern Format, betroffene Tests und fokussiertes clang-tidy selbst;
   der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
-  Ein zur Integration übergebener PR bleibt bis auf angeforderte Korrekturen stabil; neue Arbeit folgt separat.
-  Nach Übernahme von Master prüfen sie betroffene Übergänge. Vorhandene passende Belege wiederverwenden;
+  Sie aktualisieren ihren Branch vor dem Merge gegen `master`, lösen Konflikte und prüfen betroffene
+  Übergänge. Kleine vollständige PRs eigenständig mergen; zusätzliche Features folgen separat.
+  Gemeinsame Verträge vorher mit betroffenen Verbrauchern abstimmen. Vorhandene passende Belege wiederverwenden;
   sporadische Gesamtläufe untereinander abstimmen, keine pauschalen Wiederholungen je Agent oder PR.
-  Ich bündele kompatible prüffertige PRs, reviewe ihre Änderungen und prüfe neue Wechselwirkungen,
-  Metal/A18 sowie betroffene Places. Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und
+  Ich prüfe integrierte Änderungen gebündelt auf neue Wechselwirkungen, Metal/A18 und betroffene
+  Places. Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und
   Kostenbeleg an `outshine_performance`; ich übernehme die Geräte-/Bildgegenprüfung.
   Ein gemeinsamer Voll-Lint gilt dem eingefrorenen Integrationsstand;
   Änderungen danach benötigen die davon betroffenen Prüfungen. Unabhängige Drafts halten das Paket nicht auf.

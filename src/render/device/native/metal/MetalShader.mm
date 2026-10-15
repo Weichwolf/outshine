@@ -1,9 +1,25 @@
-#include "MetalShader.h"
+#include "MetalInternal.h"
 #include <spirv_cross_c.h>
 #include <algorithm>
 #include <memory>
 
 namespace outshine::Render::Native::Metal {
+
+Result<id<MTLFunction>> Function(id<MTLDevice> device, const Shader &shader, MTLFunctionType type) {
+  NSError *error = nil;
+  MTLCompileOptions *const options = [MTLCompileOptions new];
+  options.mathMode = MTLMathModeSafe;
+  const id<MTLLibrary> library = [device newLibraryWithSource:Text(shader.Source)
+                                                      options:options
+                                                        error:&error];
+  if (library == nil) { return Failure(ErrorKind::Invalid, error.localizedDescription.UTF8String); }
+  const id<MTLFunction> function = [library newFunctionWithName:Text(shader.Entry)];
+  if (function == nil || function.functionType != type) {
+    return Failure(ErrorKind::Invalid, "SPIR-V entry has the wrong Metal execution stage");
+  }
+  return function;
+}
+
 namespace {
 
 std::optional<Format> ImageFormat(SpvImageFormat format) {
@@ -51,7 +67,8 @@ ReflectOne(spvc_compiler compiler, const spvc_reflected_resource &item, BindingK
                  .Usage = Access::Read},
       .Buffer = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
       .Texture = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
-      .Sampler = spvc_compiler_msl_get_automatic_resource_binding_secondary(compiler, item.id)};
+      .Sampler = spvc_compiler_msl_get_automatic_resource_binding_secondary(compiler, item.id),
+      .TexelFormat = std::nullopt};
   if (kind == BindingKind::StorageBuffer) {
     const auto access = BufferAccess(compiler, item.id);
     if (!access) { return std::unexpected(access.error()); }
@@ -153,6 +170,8 @@ Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry
   if (spvc_compiler_compile(compiler, &source) != SPVC_SUCCESS) { return failure(); }
   Shader shader{.Source = source,
                 .Entry = spvc_compiler_get_cleansed_entry_point_name(compiler, name.c_str(), model),
+                .Layout = {},
+                .Resources = {},
                 .NeedsBufferSizes =
                     static_cast<bool>(spvc_compiler_msl_needs_buffer_size_buffer(compiler))};
   if (model == SpvExecutionModelGLCompute) {

@@ -24,6 +24,9 @@ namespace outshine::Render::Native::Metal {
                                 encoding:NSUTF8StringEncoding];
 }
 
+[[nodiscard]] Result<id<MTLFunction>>
+Function(id<MTLDevice> device, const Shader &shader, MTLFunctionType type);
+
 struct BufferState {
   id<MTLBuffer> Native;
   uint64_t Device;
@@ -139,6 +142,19 @@ struct TrackedResource {
   Access Usage;
 };
 
+struct AttachmentState {
+  id<MTLTexture> Native;
+  Format Texels;
+  uint32_t Mip, Layer, Width, Height;
+};
+
+struct RenderState {
+  id<MTLRenderCommandEncoder> Encoder;
+  std::vector<AttachmentState> Colours;
+  std::optional<AttachmentState> Depth;
+  uint32_t Width = 0, Height = 0;
+};
+
 class MetalCommands final : public Commands {
 public:
   MetalCommands(uint64_t device,
@@ -158,6 +174,8 @@ public:
   Result<void> Dispatch(const ComputePipeline &pipeline,
                         std::span<const Binding> bindings,
                         Workgroups groups) override;
+  Result<void> BeginRenderPass(const RenderPassDescription &description) override;
+  Result<void> EndRenderPass() override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
@@ -171,6 +189,7 @@ private:
   std::vector<Reservation> Held;
   std::shared_ptr<CommandPermit> Permit;
   id<MTLComputeCommandEncoder> Compute = nil;
+  std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
 
   void UpdateAccesses(std::span<const DispatchArgument> arguments);
@@ -197,6 +216,8 @@ public:
                                                  std::string_view label) override;
   Result<std::unique_ptr<ComputePipeline>> CreateComputePipeline(std::span<const uint32_t> spirv,
                                                                  ComputeOptions settings) override;
+  Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline(const GraphicsDescription &description) override;
   Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) override;
   Result<std::span<const std::byte>> MapRead(Buffer &buffer, ByteRange range) override;
   Result<void> Unmap(Buffer &buffer) override;
