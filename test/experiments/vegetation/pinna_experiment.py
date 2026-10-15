@@ -88,7 +88,9 @@ def run(inputs, output, span_m):
             mesh = dict(np.load(inputs / f"{kind}-{variant}{suffix}.npz"))
             extent = np.linalg.norm(mesh["vertices"], axis=1).max()
             radii = np.linalg.norm(population["origins"][mask], axis=1)
-            scales = population["scales"][mask].max(axis=1)
+            scales = population["scales"][mask]
+            if scales.ndim == 2:
+                scales = scales.max(axis=1)
             receiver_radius_m = max(
                 receiver_radius_m, float((radii + scales * extent).max())
             )
