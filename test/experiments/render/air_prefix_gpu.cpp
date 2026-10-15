@@ -1,8 +1,5 @@
 #include "Atmosphere.h"
-#include "GpuOwned.h"
-#include "Readback.h"
-#include "ShaderFile.h"
-#include <SDL3/SDL.h>
+#include "render/device/native/Device.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -14,20 +11,20 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <ios>
 #include <print>
 #include <ratio>
 #include <span>
-#include <string>
+#include <utility>
 #include <system_error>
 #include <type_traits>
 #include <vector>
 
 namespace {
 using namespace outshine;
-using namespace outshine::Render;
-constexpr ComputeShape kShape = {
-    .Samplers = 2, .ReadOnlyBuffers = 2, .ReadWriteBuffers = 1, .UniformBuffers = 1, .GroupX = 64};
+namespace gpu = outshine::Render::Native;
+constexpr uint32_t kGroupWidth = 64;
 constexpr size_t kMaximumFileBytes = size_t{128} * 1024 * 1024;
 using uint = uint32_t;
 #include "AirRayLayout.h"
@@ -49,53 +46,17 @@ static_assert(offsetof(ProbeSample, ThroughR) == 12 &&
 std::vector<std::byte> Read(const char *path) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   const auto bytes = static_cast<std::streamoff>(file.tellg());
-  if (!file || bytes <= 0 || static_cast<size_t>(bytes) > kMaximumFileBytes) { return {}; }
+  if (!file || bytes <= 0 || std::cmp_greater(bytes, kMaximumFileBytes)) { return {}; }
   std::vector<std::byte> data(static_cast<size_t>(bytes));
   file.seekg(0);
   if (!file.read(reinterpret_cast<char *>(data.data()), bytes)) { return {}; }
   return data;
 }
 
-struct BufferSpec {
-  uint32_t Bytes;
-  SDL_GPUBufferUsageFlags Usage;
-};
-
 struct TextureExtent {
   uint32_t WidthPx;
   uint32_t HeightPx;
 };
-
-OwnedBuffer Buffer(SDL_GPUDevice *device, BufferSpec spec) {
-  SDL_GPUBufferCreateInfo info{};
-  info.size = spec.Bytes;
-  info.usage = spec.Usage;
-  return {device, SDL_CreateGPUBuffer(device, &info)};
-}
-
-OwnedTexture Texture(SDL_GPUDevice *device, TextureExtent extent) {
-  SDL_GPUTextureCreateInfo info{};
-  info.type = SDL_GPU_TEXTURETYPE_2D;
-  info.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
-  info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  info.width = extent.WidthPx;
-  info.height = extent.HeightPx;
-  info.layer_count_or_depth = info.num_levels = 1;
-  return {device, SDL_CreateGPUTexture(device, &info)};
-}
-
-OwnedTransfer Upload(SDL_GPUDevice *device, std::span<const std::byte> bytes) {
-  SDL_GPUTransferBufferCreateInfo info{};
-  info.size = static_cast<uint32_t>(bytes.size());
-  info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  OwnedTransfer transfer(device, SDL_CreateGPUTransferBuffer(device, &info));
-  if (!transfer) { return {}; }
-  void *mapped = SDL_MapGPUTransferBuffer(device, transfer.Get(), false);
-  if (mapped == nullptr) { return {}; }
-  std::memcpy(mapped, bytes.data(), bytes.size());
-  SDL_UnmapGPUTransferBuffer(device, transfer.Get());
-  return transfer;
-}
 
 struct Data {
   std::array<std::vector<std::byte>, 5> Sources;
@@ -163,108 +124,217 @@ struct Data {
   }
 };
 
+template <typename Value> bool Keep(gpu::Result<Value> result, Value &destination) {
+  if (!result) {
+    std::println(stderr, "native GPU: {}", result.error().Message);
+    return false;
+  }
+  destination = std::move(*result);
+  return true;
+}
+
+bool Check(const gpu::Result<void> &result) {
+  if (!result) { std::println(stderr, "native GPU: {}", result.error().Message); }
+  return result.has_value();
+}
+
+bool Fill(gpu::Device &device, gpu::Buffer &buffer, std::span<const std::byte> bytes) {
+  auto mapped = device.MapWrite(buffer, {.Bytes = bytes.size()});
+  if (!mapped) {
+    std::println(stderr, "native GPU map: {}", mapped.error().Message);
+    return false;
+  }
+  std::ranges::copy(bytes, mapped->begin());
+  return Check(device.Unmap(buffer));
+}
+
 struct Inputs {
-  OwnedBuffer Rays, Queries, Output;
-  OwnedTexture Veil, Multi;
-  OwnedSampler Linear;
-  std::array<OwnedTransfer, 4> Transfers;
+  std::unique_ptr<gpu::Buffer> Rays, Queries, Output, Readback;
+  std::unique_ptr<gpu::Texture> Veil, Multi;
+  std::unique_ptr<gpu::Sampler> Linear;
+  std::array<std::unique_ptr<gpu::Buffer>, 4> Transfers;
 
-  Inputs(SDL_GPUDevice *device, const Data &data)
-      : Rays(Buffer(device,
-                    {.Bytes = static_cast<uint32_t>(data.Sources[0].size()),
-                     .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ})),
-        Queries(Buffer(device,
-                       {.Bytes = static_cast<uint32_t>(data.Sources[1].size()),
-                        .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ})),
-        Output(Buffer(device,
-                      {.Bytes = data.QueryCount * kSampleBytes,
-                       .Usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE})),
-        Veil(Texture(device, data.Extents[0])),
-        Multi(Texture(device, data.Extents[1])) {
-    SDL_GPUSamplerCreateInfo info{};
-    info.address_mode_u = info.address_mode_v = info.address_mode_w =
-        SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    info.min_filter = info.mag_filter = SDL_GPU_FILTER_LINEAR;
-    Linear = {device, SDL_CreateGPUSampler(device, &info)};
-    for (size_t index = 0; index < Transfers.size(); ++index) {
-      Transfers[index] = Upload(device, data.Sources[index]);
+  bool Create(gpu::Device &device, const Data &data) {
+    const uint64_t outputBytes = uint64_t{data.QueryCount} * kSampleBytes;
+    constexpr auto kReadUse = gpu::BufferUse::CopyDestination | gpu::BufferUse::Storage;
+    constexpr auto kOutputUse = gpu::BufferUse::Storage | gpu::BufferUse::CopySource;
+    if (!Keep(device.CreateBuffer({.Bytes = data.Sources[0].size(), .Use = kReadUse}, "AirRays"),
+              Rays) ||
+        !Keep(device.CreateBuffer({.Bytes = data.Sources[1].size(), .Use = kReadUse}, "AirQueries"),
+              Queries) ||
+        !Keep(device.CreateBuffer({.Bytes = outputBytes, .Use = kOutputUse}, "AirResults"),
+              Output) ||
+        !Keep(device.CreateBuffer({.Bytes = outputBytes,
+                                   .Use = gpu::BufferUse::CopyDestination,
+                                   .Placement = gpu::Memory::Readback},
+                                  "AirReadback"),
+              Readback) ||
+        !Keep(device.CreateSampler({}), Linear)) {
+      return false;
     }
-  }
-
-  [[nodiscard]] bool Ready() const {
-    if (!Rays || !Queries || !Output || !Veil || !Multi || !Linear) { return false; }
-    return std::ranges::all_of(Transfers,
-                               [](const auto &transfer) { return static_cast<bool>(transfer); });
-  }
-
-  bool Copy(SDL_GPUCommandBuffer *commands, const Data &data) const {
-    auto *copy = SDL_BeginGPUCopyPass(commands);
-    if (copy == nullptr) { return false; }
-    const std::array<SDL_GPUBuffer *, 2> buffers = {Rays.Get(), Queries.Get()};
-    for (size_t index = 0; index < buffers.size(); ++index) {
-      SDL_GPUTransferBufferLocation source{};
-      source.transfer_buffer = Transfers[index].Get();
-      SDL_GPUBufferRegion target{};
-      target.buffer = buffers[index];
-      target.size = static_cast<uint32_t>(data.Sources[index].size());
-      SDL_UploadToGPUBuffer(copy, &source, &target, false);
+    constexpr auto kTextureUse = gpu::TextureUse::CopyDestination | gpu::TextureUse::Sampled;
+    if (!device.Supports(gpu::Format::Rgba32Float, kTextureUse, true)) {
+      std::println(stderr, "native GPU: linearly filtered RGBA32F upload is unsupported");
+      return false;
     }
-    const std::array<SDL_GPUTexture *, 2> textures = {Veil.Get(), Multi.Get()};
+    const std::array<std::unique_ptr<gpu::Texture> *, 2> textures = {&Veil, &Multi};
     for (size_t index = 0; index < textures.size(); ++index) {
-      SDL_GPUTextureTransferInfo source{};
-      source.transfer_buffer = Transfers[index + buffers.size()].Get();
-      SDL_GPUTextureRegion target{};
-      target.texture = textures[index];
-      target.w = data.Extents[index].WidthPx;
-      target.h = data.Extents[index].HeightPx;
-      target.d = 1;
-      SDL_UploadToGPUTexture(copy, &source, &target, false);
+      if (!Keep(device.CreateTexture({.Width = data.Extents[index].WidthPx,
+                                      .Height = data.Extents[index].HeightPx,
+                                      .Texels = gpu::Format::Rgba32Float,
+                                      .Use = kTextureUse}),
+                *textures[index])) {
+        return false;
+      }
     }
-    SDL_EndGPUCopyPass(copy);
+    for (size_t index = 0; index < Transfers.size(); ++index) {
+      if (!Keep(device.CreateBuffer({.Bytes = data.Sources[index].size(),
+                                     .Use = gpu::BufferUse::CopySource,
+                                     .Placement = gpu::Memory::Upload}),
+                Transfers[index]) ||
+          !Fill(device, *Transfers[index], data.Sources[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool Copy(gpu::Commands &commands, const Data &data) const {
+    const std::array<gpu::Buffer *, 2> buffers = {Rays.get(), Queries.get()};
+    for (size_t index = 0; index < buffers.size(); ++index) {
+      if (!Check(commands.Copy(
+              *Transfers[index], *buffers[index], {.Bytes = data.Sources[index].size()}))) {
+        return false;
+      }
+    }
+    const std::array<gpu::Texture *, 2> textures = {Veil.get(), Multi.get()};
+    for (size_t index = 0; index < textures.size(); ++index) {
+      if (!Check(commands.Copy(*Transfers[index + buffers.size()],
+                               *textures[index],
+                               {.RowBytes = uint64_t{data.Extents[index].WidthPx} * kPixelBytes,
+                                .Region = {.Width = data.Extents[index].WidthPx,
+                                           .Height = data.Extents[index].HeightPx}}))) {
+        return false;
+      }
+    }
     return true;
   }
 };
 
-bool Dispatch(SDL_GPUComputePipeline *pipeline,
-              const Inputs &inputs,
-              const Data &data,
-              SDL_GPUCommandBuffer *commands) {
-  SDL_GPUStorageBufferReadWriteBinding target{};
-  target.buffer = inputs.Output.Get();
-  auto *compute = SDL_BeginGPUComputePass(commands, nullptr, 0, &target, 1);
-  if (compute == nullptr) {
-    SDL_CancelGPUCommandBuffer(commands);
+bool LayoutValid(const gpu::ComputeLayout &layout) {
+  constexpr std::array<gpu::ShaderBinding, 6> expected = {{
+      {.Set = 0,
+       .Slot = 0,
+       .Kind = gpu::BindingKind::SampledTexture,
+       .Usage = gpu::Access::Read,
+       .MinimumBytes = 0},
+      {.Set = 0,
+       .Slot = 1,
+       .Kind = gpu::BindingKind::SampledTexture,
+       .Usage = gpu::Access::Read,
+       .MinimumBytes = 0},
+      {.Set = 0,
+       .Slot = 2,
+       .Kind = gpu::BindingKind::StorageBuffer,
+       .Usage = gpu::Access::Read,
+       .MinimumBytes = 0},
+      {.Set = 0,
+       .Slot = 3,
+       .Kind = gpu::BindingKind::StorageBuffer,
+       .Usage = gpu::Access::Read,
+       .MinimumBytes = 0},
+      {.Set = 1,
+       .Slot = 0,
+       .Kind = gpu::BindingKind::StorageBuffer,
+       .Usage = gpu::Access::Write,
+       .MinimumBytes = 0},
+      {.Set = 2,
+       .Slot = 0,
+       .Kind = gpu::BindingKind::Uniform,
+       .Usage = gpu::Access::Read,
+       .MinimumBytes = sizeof(Medium)},
+  }};
+  if (layout.LocalSize != std::array<uint32_t, 3>{kGroupWidth, 1, 1} ||
+      layout.Bindings.size() != expected.size()) {
     return false;
   }
-  SDL_BindGPUComputePipeline(compute, pipeline);
-  const std::array<SDL_GPUTextureSamplerBinding, 2> textures = {
-      SDL_GPUTextureSamplerBinding{inputs.Veil.Get(), inputs.Linear.Get()},
-      SDL_GPUTextureSamplerBinding{inputs.Multi.Get(), inputs.Linear.Get()}};
-  SDL_BindGPUComputeSamplers(compute, 0, textures.data(), static_cast<uint32_t>(textures.size()));
-  std::array<SDL_GPUBuffer *, 2> buffers = {inputs.Rays.Get(), inputs.Queries.Get()};
-  SDL_BindGPUComputeStorageBuffers(
-      compute, 0, buffers.data(), static_cast<uint32_t>(buffers.size()));
-  SDL_PushGPUComputeUniformData(commands, 0, &data.Air, sizeof(data.Air));
-  SDL_DispatchGPUCompute(compute, (data.RayCount + kShape.GroupX - 1u) / kShape.GroupX, 1, 1);
-  SDL_EndGPUComputePass(compute);
-  return true;
+  return std::ranges::all_of(expected, [&](const auto &need) {
+    return std::ranges::any_of(layout.Bindings, [&](const auto &actual) {
+      return actual.Set == need.Set && actual.Slot == need.Slot && actual.Kind == need.Kind &&
+             actual.Usage == need.Usage &&
+             (need.Kind != gpu::BindingKind::Uniform || actual.MinimumBytes == need.MinimumBytes);
+    });
+  });
 }
 
-bool ResidentRuns(SDL_GPUDevice *device,
-                  SDL_GPUComputePipeline *pipeline,
+bool Dispatch(gpu::Commands &commands,
+              const gpu::ComputePipeline &pipeline,
+              const Inputs &inputs,
+              const Data &data) {
+  const std::array<gpu::Binding, 6> bindings = {{
+      {.Set = 0,
+       .Slot = 0,
+       .Value = gpu::SampledTexture{.Image = {.Image = inputs.Veil.get()},
+                                    .Sampling = inputs.Linear.get()}},
+      {.Set = 0,
+       .Slot = 1,
+       .Value = gpu::SampledTexture{.Image = {.Image = inputs.Multi.get()},
+                                    .Sampling = inputs.Linear.get()}},
+      {.Set = 0,
+       .Slot = 2,
+       .Value = gpu::StorageBuffer{.Data = inputs.Rays.get(),
+                                   .Range = {.Bytes = data.Sources[0].size()}}},
+      {.Set = 0,
+       .Slot = 3,
+       .Value = gpu::StorageBuffer{.Data = inputs.Queries.get(),
+                                   .Range = {.Bytes = data.Sources[1].size()}}},
+      {.Set = 1,
+       .Slot = 0,
+       .Value = gpu::StorageBuffer{.Data = inputs.Output.get(),
+                                   .Range = {.Bytes = uint64_t{data.QueryCount} * kSampleBytes}}},
+      {.Set = 2, .Slot = 0, .Value = gpu::Uniform{.Bytes = std::as_bytes(std::span(&data.Air, 1))}},
+  }};
+  return Check(commands.Dispatch(
+      pipeline, bindings, {.X = (data.RayCount + kGroupWidth - 1u) / kGroupWidth}));
+}
+
+bool Complete(gpu::Device &device, gpu::Completion completion) {
+  constexpr auto kWaitBudget = std::chrono::seconds(30);
+  const auto deadline = std::chrono::steady_clock::now() + kWaitBudget;
+  while (std::chrono::steady_clock::now() < deadline) {
+    const auto status = device.Wait(completion, std::chrono::milliseconds(100));
+    if (!status) {
+      std::println(stderr, "native GPU wait: {}", status.error().Message);
+      return false;
+    }
+    if (*status == gpu::CompletionStatus::Ready) { return true; }
+  }
+  std::println(stderr, "offline probe exceeded its 30 second completion budget");
+  return false;
+}
+
+bool Submit(gpu::Device &device, std::unique_ptr<gpu::Commands> commands) {
+  const auto submitted = device.Submit(std::move(commands));
+  if (!submitted) {
+    std::println(stderr, "native GPU submit: {}", submitted.error().Message);
+    return false;
+  }
+  return Complete(device, *submitted);
+}
+
+bool ResidentRuns(gpu::Device &device,
+                  const gpu::ComputePipeline &pipeline,
                   const Inputs &inputs,
                   const Data &data,
                   uint32_t repeats) {
   std::vector<double> times;
   for (uint32_t index = 0; index < repeats; ++index) {
-    auto *commands = SDL_AcquireGPUCommandBuffer(device);
-    if (commands == nullptr) { return false; }
+    std::unique_ptr<gpu::Commands> commands;
+    if (!Keep(device.Begin(), commands)) { return false; }
     const auto start = std::chrono::steady_clock::now();
-    if (!Dispatch(pipeline, inputs, data, commands)) { return false; }
-    const OwnedFence fence(device, SDL_SubmitGPUCommandBufferAndAcquireFence(commands));
-    if (!fence) { return false; }
-    SDL_GPUFence *handle = fence.Get();
-    if (!SDL_WaitForGPUFences(device, true, &handle, 1)) { return false; }
+    if (!Dispatch(*commands, pipeline, inputs, data) || !Submit(device, std::move(commands))) {
+      return false;
+    }
     const auto elapsed =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start);
     times.push_back(elapsed.count());
@@ -273,7 +343,7 @@ bool ResidentRuns(SDL_GPUDevice *device,
     std::ranges::sort(times);
     constexpr size_t kP95Numerator = 19;
     constexpr size_t kPercentileDenominator = 20;
-    std::println("resident_dispatch_submit_fence_wall_ms samples={} p50={} p95={} maximum={}; "
+    std::println("resident_dispatch_submit_wait_wall_ms samples={} p50={} p95={} maximum={}; "
                  "CPU/GPU queue wall, not GPU timestamps or scene frames",
                  times.size(),
                  times[times.size() / 2],
@@ -283,44 +353,50 @@ bool ResidentRuns(SDL_GPUDevice *device,
   return true;
 }
 
-int Run(SDL_GPUDevice *device,
+int Run(gpu::Device &device,
         const char *shader,
         const Data &data,
         const char *output,
         uint32_t repeats) {
-  std::string error;
-  const OwnedComputePipeline pipeline(device,
-                                      CompileComputePipeline(device, shader, kShape, error));
-  if (!pipeline) {
-    std::println(stderr, "pipeline: {}", error);
+  const auto shaderBytes = Read(shader);
+  if (shaderBytes.empty() || shaderBytes.size() % sizeof(uint32_t) != 0) { return 2; }
+  std::vector<uint32_t> spirv(shaderBytes.size() / sizeof(uint32_t));
+  std::memcpy(spirv.data(), shaderBytes.data(), shaderBytes.size());
+  std::unique_ptr<gpu::ComputePipeline> pipeline;
+  if (!Keep(device.CreateComputePipeline(spirv), pipeline)) { return 2; }
+  if (!LayoutValid(pipeline->Layout())) {
+    std::println(stderr, "unexpected SPIR-V layout; expected AirPrefix six bindings and Medium80");
     return 2;
   }
-  const Inputs inputs(device, data);
-  if (!inputs.Ready()) { return 2; }
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  if (commands == nullptr) { return 2; }
-  if (!inputs.Copy(commands, data)) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return 2;
-  }
+  Inputs inputs;
+  if (!inputs.Create(device, data)) { return 2; }
+  std::unique_ptr<gpu::Commands> commands;
+  if (!Keep(device.Begin(), commands)) { return 2; }
   const auto start = std::chrono::steady_clock::now();
-  if (!Dispatch(pipeline.Get(), inputs, data, commands) || !SDL_SubmitGPUCommandBuffer(commands)) {
+  const uint64_t bytes = uint64_t{data.QueryCount} * kSampleBytes;
+  if (!inputs.Copy(*commands, data) || !Dispatch(*commands, *pipeline, inputs, data) ||
+      !Check(commands->Copy(*inputs.Output, *inputs.Readback, {.Bytes = bytes})) ||
+      !Submit(device, std::move(commands))) {
     return 2;
   }
-  Readback readback;
-  const uint32_t bytes = data.QueryCount * kSampleBytes;
-  if (readback.FromBuffer(device, inputs.Output.Get(), bytes) != ReadState::Ready) { return 2; }
+  auto mapped = device.MapRead(*inputs.Readback, {.Bytes = bytes});
+  if (!mapped) {
+    std::println(stderr, "native GPU readback: {}", mapped.error().Message);
+    return 2;
+  }
   const auto wall =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start);
   std::ofstream file(output, std::ios::binary);
-  file.write(reinterpret_cast<const char *>(readback.Rows()), bytes);
-  if (!file) { return 2; }
-  std::println("backend={} rays={} queries={} submit_copy_compute_readback_wall_ms={}",
-               SDL_GetGPUDeviceDriver(device),
+  file.write(reinterpret_cast<const char *>(mapped->data()), static_cast<std::streamsize>(bytes));
+  file.flush();
+  const bool unmapped = Check(device.Unmap(*inputs.Readback));
+  if (!file || !unmapped) { return 2; }
+  std::println("device={} rays={} queries={} submit_copy_compute_readback_wall_ms={}",
+               device.Limits().Name,
                data.RayCount,
                data.QueryCount,
                wall.count());
-  return ResidentRuns(device, pipeline.Get(), inputs, data, repeats) ? 0 : 2;
+  return ResidentRuns(device, *pipeline, inputs, data, repeats) ? 0 : 2;
 }
 }
 
@@ -343,16 +419,7 @@ int main(int argc, char **argv) {
     std::println(stderr, "invalid fixture extents or query spans");
     return 2;
   }
-  if (!SDL_SetHint(SDL_HINT_ASSERT, "abort") || !SDL_Init(SDL_INIT_VIDEO)) { return 2; }
-  int status = 2;
-  {
-    const OwnedDevice device(SDL_CreateGPUDevice(
-        SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB,
-        true,
-        nullptr));
-    if (device) { status = Run(device.Get(), argv[1], data, argv[7], repeats); }
-    if (status != 0) { std::println(stderr, "SDL: {}", SDL_GetError()); }
-  }
-  SDL_Quit();
-  return status;
+  std::unique_ptr<gpu::Device> device;
+  if (!Keep(gpu::CreateDevice({.Validation = true}), device)) { return 2; }
+  return Run(*device, argv[1], data, argv[7], repeats);
 }
