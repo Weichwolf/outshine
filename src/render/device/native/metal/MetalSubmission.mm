@@ -52,6 +52,7 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     Pending_.push_back(submission);
     ++NextSerial_;
     [metal->Native commit];
+    metal->ReleaseImages();
     return Completion{.Device = Identity_, .Serial = submission->Serial};
   }
 }
