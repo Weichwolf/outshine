@@ -15,6 +15,7 @@ Result<AttachmentState> Attachment(TextureView view, TextureUse use, uint64_t de
   }
   const auto &description = texture->Description();
   return AttachmentState{.Native = texture->Native,
+                         .Recording = texture->Recording,
                          .Texels = description.Texels,
                          .Mip = view.FirstMip,
                          .Layer = view.FirstLayer,
@@ -99,6 +100,12 @@ Result<void> MetalCommands::BeginRenderPass(const RenderPassDescription &descrip
       state.Height = attachment->Height;
       state.Depth = *attachment;
     }
+    std::vector<std::shared_ptr<TextureRecording>> images;
+    images.reserve(state.Colours.size() + (state.Depth ? 1 : 0));
+    for (const auto &colour : state.Colours) { images.push_back(colour.Recording); }
+    if (state.Depth) { images.push_back(state.Depth->Recording); }
+    const auto held = HoldImages(images);
+    if (!held) { return held; }
     Finish();
     state.Encoder = [Native renderCommandEncoderWithDescriptor:descriptor];
     if (state.Encoder == nil) {

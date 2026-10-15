@@ -27,6 +27,7 @@ TextureArgument(const ResourceBinding &layout, const Binding &binding, uint64_t 
   if (!selected) { return std::unexpected(selected.error()); }
   ShaderArgument argument{.Layout = &layout,
                           .Buffer = {},
+                          .Recording = texture->Recording,
                           .Image = image,
                           .Texture = *selected,
                           .Resource = texture->Native};
@@ -70,7 +71,7 @@ Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t devi
       return Failure(ErrorKind::Invalid, "missing or repeated Metal dispatch binding");
     }
     const auto &binding = *std::ranges::find_if(bindings, matches);
-    ShaderArgument argument{.Layout = &layout, .Buffer = {}};
+    ShaderArgument argument{.Layout = &layout, .Buffer = {}, .Recording = {}};
     if (layout.Source.Kind == BindingKind::Uniform) {
       argument.Constants = std::get_if<Uniform>(&binding.Value);
       constexpr size_t maxUniformBytes = 64L * 1024;
@@ -101,7 +102,29 @@ Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t devi
     }
     result.push_back(std::move(argument));
   }
+  const auto aliases = CheckImageAliases(result, result);
+  if (!aliases) { return std::unexpected(aliases.error()); }
   return result;
+}
+
+Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
+                               std::span<const ShaderArgument> second) {
+  for (const auto &a : first) {
+    if (a.Texture == nil) { continue; }
+    for (const auto &b : second) {
+      if (&a == &b || b.Texture == nil || a.Resource != b.Resource ||
+          (a.Layout->Source.Usage == Access::Read && b.Layout->Source.Usage == Access::Read)) {
+        continue;
+      }
+      const auto &x = *a.Image;
+      const auto &y = *b.Image;
+      if (x.FirstMip < y.FirstMip + y.Mips && y.FirstMip < x.FirstMip + x.Mips &&
+          x.FirstLayer < y.FirstLayer + y.Layers && y.FirstLayer < x.FirstLayer + x.Layers) {
+        return Failure(ErrorKind::Invalid, "Metal sampled/writable texture subresources overlap");
+      }
+    }
+  }
+  return {};
 }
 
 Result<void> Bind(id<MTLComputeCommandEncoder> encoder,

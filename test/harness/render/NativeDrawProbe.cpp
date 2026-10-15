@@ -191,6 +191,20 @@ void InvalidDraws(Commands &commands, const DrawDescription &description, const 
   reject(draw);
 }
 
+void ReservedImages(Device &device, const Texture &target, Texture &source, Buffer &pixels) {
+  auto other = Require(device.Begin());
+  const auto targetUse = other->Copy(
+      target, pixels, {.RowBytes = kRowBytes, .Region = {.Width = kWidth, .Height = kHeight}});
+  CHECK(!targetUse && targetUse.error().Kind == ErrorKind::Busy,
+        "an active render attachment stays reserved by its recording");
+  const auto upload = Require(device.CreateBuffer(
+      {.Bytes = kRowBytes, .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
+  const auto sampledUse =
+      other->Copy(*upload, source, {.RowBytes = kRowBytes, .Region = {.Width = 1, .Height = 1}});
+  CHECK(!sampledUse && sampledUse.error().Kind == ErrorKind::Busy,
+        "a sampled draw image stays reserved by its recording");
+}
+
 void Draw(Device &device,
           std::span<const uint32_t> vertex,
           std::span<const uint32_t> fragment,
@@ -263,6 +277,7 @@ void Draw(Device &device,
                                                               .Clear = clear}}));
   if (variant == Case::Normal) { InvalidDraws(*commands, draw, *target); }
   Require(commands->Draw(draw));
+  if (variant == Case::Normal) { ReservedImages(device, *target, *texture, *pixels); }
   transform.Transform.fill(0);
   tint.fill(0);
   Require(commands->EndRenderPass());

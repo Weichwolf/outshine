@@ -110,6 +110,8 @@ Result<void> MetalCommands::Draw(const DrawDescription &description) {
                         ? Arguments(*graphics.Fragment, state.Bindings, Device)
                         : Result<std::vector<ShaderArgument>>(std::vector<ShaderArgument>{});
     if (!fragment) { return std::unexpected(fragment.error()); }
+    const auto aliases = CheckImageAliases(*vertex, *fragment);
+    if (!aliases) { return aliases; }
     std::vector<id<MTLResource>> hazards;
     const auto alias = [&](const ShaderArgument &argument) {
       return AttachmentAlias(*Render, argument);
@@ -171,12 +173,7 @@ Result<void> MetalCommands::Draw(const DrawDescription &description) {
                baseInstance:range.FirstInstance];
     UpdateAccesses(*vertex);
     UpdateAccesses(*fragment);
-    for (const auto &binding : *vertices) {
-      if (std::ranges::find(Accesses, binding.State->Native, &TrackedResource::Resource) ==
-          Accesses.end()) {
-        Accesses.push_back({.Resource = binding.State->Native, .Usage = Access::Read});
-      }
-    }
+    for (const auto &binding : *vertices) { UpdateAccess(binding.State->Native, Access::Read); }
     return {};
   }
 }

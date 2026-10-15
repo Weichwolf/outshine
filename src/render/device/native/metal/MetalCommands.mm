@@ -13,6 +13,26 @@ Reservation::~Reservation() {
 
 MetalCommands::~MetalCommands() {
   Finish();
+  ReleaseImages();
+}
+
+Result<void> MetalCommands::HoldImages(std::span<const std::shared_ptr<TextureRecording>> images) {
+  for (const auto &image : images) {
+    if (image->Owner != nullptr && image->Owner != this) {
+      return Failure(ErrorKind::Busy, "Metal texture belongs to another unsubmitted recording");
+    }
+  }
+  for (const auto &image : images) {
+    if (image->Owner == this) { continue; }
+    image->Owner = this;
+    HeldImages.push_back(image);
+  }
+  return {};
+}
+
+void MetalCommands::ReleaseImages() {
+  for (const auto &image : HeldImages) { image->Owner = nullptr; }
+  HeldImages.clear();
 }
 
 void MetalCommands::Finish() {
@@ -129,6 +149,7 @@ void MetalCommands::TrackHazard(id<MTLResource> resource,
 
 Result<void> MetalCommands::PrepareResources(std::span<const ShaderArgument> arguments,
                                              std::vector<id<MTLResource>> &hazards) {
+  std::vector<std::shared_ptr<TextureRecording>> images;
   for (const auto &argument : arguments) {
     if (argument.Buffer) {
       const auto held = Hold(argument.Buffer);
@@ -137,20 +158,24 @@ Result<void> MetalCommands::PrepareResources(std::span<const ShaderArgument> arg
     if (argument.Resource != nil) {
       TrackHazard(argument.Resource, argument.Layout->Source.Usage, hazards);
     }
+    if (argument.Recording) { images.push_back(argument.Recording); }
   }
-  return {};
+  return HoldImages(images);
+}
+
+void MetalCommands::UpdateAccess(id<MTLResource> resource, Access usage) {
+  if (resource == nil) { return; }
+  const auto existing = std::ranges::find(Accesses, resource, &TrackedResource::Resource);
+  if (existing == Accesses.end()) {
+    Accesses.push_back({.Resource = resource, .Usage = usage});
+  } else if (existing->Usage != usage) {
+    existing->Usage = Access::ReadWrite;
+  }
 }
 
 void MetalCommands::UpdateAccesses(std::span<const ShaderArgument> arguments) {
   for (const auto &argument : arguments) {
-    if (argument.Resource == nil) { continue; }
-    const auto existing =
-        std::ranges::find(Accesses, argument.Resource, &TrackedResource::Resource);
-    if (existing == Accesses.end()) {
-      Accesses.push_back({.Resource = argument.Resource, .Usage = argument.Layout->Source.Usage});
-    } else if (existing->Usage != argument.Layout->Source.Usage) {
-      existing->Usage = Access::ReadWrite;
-    }
+    UpdateAccess(argument.Resource, argument.Layout->Source.Usage);
   }
 }
 
