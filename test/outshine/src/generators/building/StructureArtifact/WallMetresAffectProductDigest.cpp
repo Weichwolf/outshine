@@ -1,7 +1,8 @@
 #include "StructureBake.h"
 #include "BuildingMesh.h"
 #include "Check.h"
-#include <algorithm>
+#include <expected>
+#include <optional>
 
 namespace {
 using namespace outshine;
@@ -22,8 +23,21 @@ int main() {
   using namespace outshine;
   using namespace outshine::Generators;
   using namespace outshine::Test;
+  constexpr double kMinLatDeg = 48.2;
+  constexpr double kMinLonDeg = 16.37;
+  constexpr double kMaxLatDeg = 48.2002;
+  constexpr double kMaxLonDeg = 16.3706;
+  constexpr double kBuildingHeightM = 12;
+  constexpr double kTileSpanM = 1000;
   RawTile raw;
-  raw.LatLon = {48.2, 16.37, 48.2, 16.3706, 48.2002, 16.3706, 48.2002, 16.37};
+  raw.LatLon = {kMinLatDeg,
+                kMinLonDeg,
+                kMinLatDeg,
+                kMaxLonDeg,
+                kMaxLatDeg,
+                kMaxLonDeg,
+                kMaxLatDeg,
+                kMinLonDeg};
   const Ground::GeoBounds bounds{
       .MinLonDeg = 16.37, .MinLatDeg = 48.2, .MaxLonDeg = 16.378, .MaxLatDeg = 48.208};
   const auto cell = StructureCellOf(bounds, raw.LatLon);
@@ -32,13 +46,13 @@ int main() {
   raw.Structures.push_back({.PointCount = 4,
                             .SourceFirst = 12,
                             .Cell = *cell,
-                            .HeightM = 12.0,
+                            .HeightM = kBuildingHeightM,
                             .Pitched = 1,
                             .WallColour = std::nullopt,
                             .Facade = FacadeStyle::House});
   raw.RequestedDetail = LevelOfDetail::Shell;
   raw.RequestedCell = cell->Index;
-  raw.TileSpanM = 1000;
+  raw.TileSpanM = kTileSpanM;
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
   block.Raster = {.Side = 2, .Postings = 2};
@@ -49,7 +63,8 @@ int main() {
   const BuildingMesh original;
   const ChangedMaterial changed;
   auto scratch = original.Scratch();
-  BakedTile first, second;
+  BakedTile first;
+  BakedTile second;
   CHECK(BakeStructures(raw, *heights, original, *scratch, first), "the real producer bakes");
   CHECK(BakeStructures(raw, *heights, changed, *scratch, second), "the material counter bakes");
   CHECK(!first.Built.WallMaterialM.empty(), "the native recipe emits the optional metric data");
