@@ -19,7 +19,7 @@
 
 namespace outshine {
 namespace {
-constexpr uint64_t kFormat = 0x0003314e5247ULL;
+constexpr uint64_t kFormat = 0x0004314e5247ULL;
 constexpr uint32_t kPagesMost = 65536;
 constexpr size_t kPageHeaderBytes = 7 * sizeof(uint32_t) + sizeof(uint8_t);
 
@@ -29,8 +29,9 @@ template <class T> bool Finite(std::span<const T> values) {
 
 bool ValidGrid(const ClassStructure::Grid &grid) {
   if (grid.W < 0 || grid.H < 0 || !std::isfinite(grid.OrgE) || !std::isfinite(grid.OrgN) ||
-      !std::isfinite(grid.CellM) || grid.CellM <= 0 || grid.Seeds.size() % kClassSeedWords != 0 ||
-      grid.Edges.size() % 4 != 0 ||
+      !std::isfinite(grid.CellM) || grid.CellM <= 0 || !std::isfinite(grid.BoundaryHaloM) ||
+      grid.BoundaryHaloM < 0 || grid.BoundaryHaloM > std::numeric_limits<float>::max() ||
+      grid.Seeds.size() % kClassSeedWords != 0 || grid.Edges.size() % 4 != 0 ||
       grid.Cells.size() != static_cast<uint64_t>(grid.W) * static_cast<uint64_t>(grid.H) * 2 ||
       !Finite<float>(grid.Edges)) {
     return false;
@@ -61,7 +62,7 @@ bool ValidGrid(const ClassStructure::Grid &grid) {
 }
 
 template <class Archive, class Grid> bool GridFields(Archive &archive, Grid &grid) {
-  return archive(grid.W, grid.H, grid.OrgE, grid.OrgN, grid.CellM) &&
+  return archive(grid.W, grid.H, grid.OrgE, grid.OrgN, grid.CellM, grid.BoundaryHaloM) &&
          archive.template Array<uint32_t>(grid.Cells) &&
          archive.template Array<uint32_t>(grid.Seeds) &&
          archive.template Array<uint32_t>(grid.Refs) && archive.template Array<float>(grid.Edges) &&

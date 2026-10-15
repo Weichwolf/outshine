@@ -271,6 +271,7 @@ CompileClassRegions(const ClassificationRasterizer::Input &source, const std::st
   output.Raster.CamE = source.CamE;
   output.Raster.CamN = source.CamN;
   output.Raster.CellM = source.CellM;
+  output.Raster.BoundaryHaloM = source.BoundaryHaloM;
   output.Raster.HalfCells = source.HalfCells;
   const Context context;
   for (const auto &group : Groups(source)) {
