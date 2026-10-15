@@ -2,7 +2,8 @@
 
 [#226](https://github.com/Weichwolf/outshine/issues/226) owns the compact atlas;
 #25 owns actual botanical forms. This experiment compares exact membership in
-one real botanical-country dataset, before binding ecological/species pools.
+one real botanical-country dataset and a geometry-free regional candidate
+lookup, before binding ecological/species pools.
 It does not identify individual plants or establish a worldwide species catalog.
 
 The geographic cells follow existing `include/world/data/GeoCellId.h`: level L
@@ -53,9 +54,9 @@ spherical-uniform random coordinates and nine named real geographic controls;
 alternating query order avoids always favouring one warm order. Preparation,
 table construction, query times and peak process RSS are distinct observations.
 Known geographic controls remain a separate gate: the source does not cover
-the San Francisco point 37.77/−122.42, although its expected region is CAL.
-That failed control is retained; Sacramento is an additional interior control.
-The benchmark records timings/equivalence even with this source gap, then exits2.
+San Francisco 37.77/−122.42 (expected CAL) or Hobart −42.88/147.32 (expected TAS).
+Both failed controls are retained; Sacramento is an additional interior control.
+The benchmark records timings/equivalence even with these source gaps, then exits2.
 Exact agreement with source polygons alone does not prove geographic coverage.
 
 The second, separate quality contract returns all regions intersecting the
@@ -67,8 +68,65 @@ must match exactly on the same corpus. This prior can retain a coastal region
 candidate despite a coarse polygon's point gap; it still needs local habitat,
 climate/height filtering, transition weights and actual species recipes.
 Its cost is compared against the same cell-candidate task, separately from
-the exact-point comparison. The original failed geographic control stays red.
+the exact-point comparison. Both original failed geographic controls stay red.
 The numeric experiment layout is not yet a public/untrusted asset decoder.
+
+## Completed comparison
+
+Frozen commit `976d78f5b9f8af39da48d32d36b1a23385885b07`, source SHA256
+`c172bcf6aba20e19477adc60aebf0023068f0175dca8480f0760b090dcf64840`.
+The 64,420-coordinate corpus contains all normalized source vertices and
+20,000 spherical-uniform random points (seed17). Medians of six alternating
+rounds on the same corpus and normalized geometry:
+
+| Identical quality contract | Direct STRtree | Compiled cells |
+|---|---:|---:|
+| Exact point membership, boundary polygons retained | 254.260 ms | 121.122 ms |
+| All regions intersecting containing closed GeoCell | 1,028.911 ms | 10.216 ms |
+
+Both result-pair arrays agree exactly with their respective direct reference.
+The second row uses no geometry in its compiled query; it does not claim exact
+point membership. It finds the expected regional candidate in all nine named
+controls, including both coarse-coast source gaps. At most five candidate
+regions occur per query in this corpus; that is an observation, not a bound.
+
+Level8 uses 65,536 cells: 40,102 empty, 15,378 direct interior and 10,056 boundary
+cells. The table occupies 131,072 bytes and the 1,102 shared candidate lists
+and offsets another 8,984 bytes: **140,056 bytes total**, excluding region names,
+species metadata, ecological fields and recipes. Reading/normalization took
+0.362 s; index construction 1.193 s. Whole-process peak RSS was 95.56 MiB,
+including GEOS/source geometry and both comparison implementations; this is
+not the runtime memory of the numeric index. Concurrent host load was not
+recorded, so these observations do not establish isolated/device costs.
+
+The complete runner ended with exit2 because the separate strict geographic
+control gate remains red (7/9), while both equivalence gates and the regional
+candidate controls passed. Reports and numeric research arrays are retained
+at `/var/tmp/outshine-vegetation-atlas-976d78f5b/`; public delivery contains code
+and this compact evidence, not the source or derived geographic map.
+
+## Intended species selection
+
+Compile geography and species-region links offline. At generation time, query
+the geographic prior once per homogeneous stand/environment patch, merge its
+small candidate pools, then weight species by altitude, long-term climate and
+local land cover. Urban/cultivated pools may differ from native-range pools.
+Prepare the resulting sampler once per patch and vegetation layer; select
+with stable site identities independently of camera, render order and LOD.
+Persist these choices in the existing complete stand/asset plan.
+
+Cells accelerate candidate discovery; they must not define visible vegetation
+borders. Ecological transition weights need spatially continuous support and
+candidate unions across neighbouring patches before sampling. Abrupt declared
+land-use changes may remain abrupt. Missing data and procedural assumptions
+remain distinguishable. Neither transition quality nor species selection is
+implemented or accepted by this geographic experiment.
+
+Species metadata, recipe families and finite reusable form variants belong
+in separate shared tables. A plant instance stores species/form IDs, seed,
+transform and state rather than its own duplicate complete geometry/textures.
+Far products and demand-generated near organs derive from the same plan;
+instantaneous weather changes appearance, not the established species mix.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 \
@@ -77,9 +135,11 @@ PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 \
 ```
 
 `species_geo_experiment.py --source <explicit-GeoJSON> --output <system-temp>`
-runs the real comparison only in an idle protected host window from frozen
-source. Until its terminal result is inspected, speed and memory advantages
-remain unproven. No image/LOD/native/device acceptance follows from geography.
+runs the real comparison from frozen source with an explicit temporary output
+directory. Choose concurrency from available resources and report actual load;
+there is no global host lock. No image/LOD/native/device acceptance follows
+from geography. Dataset rights, ecological weighting, actual species/recipes,
+source/wheel library delivery and integration remain open under #226/#25.
 The retained architecture reference is Deussen et al., SIGGRAPH1998 §2/Fig.1
 (`doc/references/vegetation/siggraph/1998-plant-ecosystems.pdf`, pages3/4 also
 opened optically): distribution and shared procedural forms are separate.
