@@ -71,3 +71,30 @@ Gumbel-Max rule is used here, not the paper's continuous A* search algorithm.
 filed under `doc/references/vegetation/nips/2014-a-star-sampling.pdf`,
 SHA256`8e775c95aa4cf563ba1f6903a95b1c55794fcb56057d27bf0ab13d44ab8d24a8`.
 This is our own spatial application; no reference implementation is bundled.
+
+## First completed actual-source comparison
+
+Frozen `9c6993496` completes with exit0 on all53,200 unchanged IDs;43,347 forest
+choices and9,853 unsupported nonforest sites remain. Stream/matrix and full
+reversed-field traversal choose exactly the same taxa. Three alternating rounds:
+stream median3.420350s; score-matrix3.476795s. Their costs are similar at six taxa;
+no meaningful speedup is claimed. Per-taxon field evaluation costs more than the
+one-field model from PR#258; this buys independent spatial species marks, not
+an identical joint distribution. Zero-weight sites avoid field/hash work.
+Whole comparison31.183s wall/28.404CPU-s,86.67MiB peak RSS; actual host load is
+recorded. This is cold plan work, not a runtime/frame/device/cache-load budget.
+
+Same-species nearest-neighbour fraction within30m changes from0.560397 (shared
+rank) to0.690561 (competing taxa), with43,330 pairs and10.118m median distance.
+Neither statistic is a calibrated ecological target. Canonical species counts
+change from`[275,9008,7109,16955,3889,6111]` to
+`[223,10181,8073,16752,3352,4766]`; pointwise ensemble probabilities remain the
+specified weights, but this finite correlated stand is not a quota sample.
+Fresh-process replay reproduces47,284 reversed/subset forest choices exactly,
+without source/provider/catalog/PROJ/generator import or constructor work.
+The2560×1440 actual-source before/after plot was opened: distinct groups remain,
+and the right-hand result is independent of field iteration order. Regular
+source spacing and lacking3D botanical verification remain visible limitations.
+Six new controls and ten preceding spatial/mixture controls pass.
+Current reports/choices/replay/plot:
+`/tmp/outshine-vegetation-species-competition-9c6993496/`.
