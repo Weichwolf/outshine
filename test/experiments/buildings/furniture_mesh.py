@@ -22,12 +22,21 @@ def table(storage, x, y, width, depth, height):
             box(storage, (a, b, a + 0.04, b + 0.04), 0.02, height - 0.055, METAL)
 
 
-def chair(storage, x, y, width=0.48, depth=0.48, height=1.05):
+def chair(storage, x, y, width=0.48, depth=0.48, height=1.05, heading_deg=0.0):
+    first = len(storage[0])
     box(storage, (x, y, x + width, y + depth), 0.43, 0.49, FABRIC)
     box(storage, (x, y + depth - 0.055, x + width, y + depth), 0.49, height, FABRIC)
     for a in (x + 0.045, x + width - 0.075):
         for b in (y + 0.045, y + depth - 0.075):
             box(storage, (a, b, a + 0.03, b + 0.03), 0.0, 0.43, METAL)
+    if heading_deg:
+        angle = np.deg2rad(heading_deg)
+        c, s = np.cos(angle), np.sin(angle)
+        matrix = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+        centre = np.array([x + width / 2, y + depth / 2, 0.0])
+        storage[0][first:] = (
+            (np.asarray(storage[0][first:]) - centre) @ matrix.T + centre
+        ).tolist()
 
 
 def template(spec):
@@ -58,9 +67,16 @@ def template(spec):
             )
     elif spec.kind == "meeting-group":
         table(storage, -width / 2 + 0.52, 0.50, width - 1.04, depth - 1.0, 0.76)
-        for x in (-width / 2, width / 2 - 0.48):
-            for y in (0.0, depth - 0.48):
-                chair(storage, x, y, height=height)
+        chair(storage, -width / 2, depth / 2 - 0.24, height=height, heading_deg=90.0)
+        chair(
+            storage,
+            width / 2 - 0.48,
+            depth / 2 - 0.24,
+            height=height,
+            heading_deg=-90.0,
+        )
+        chair(storage, -0.24, 0.0, height=height, heading_deg=180.0)
+        chair(storage, -0.24, depth - 0.48, height=height)
     elif spec.kind == "tea-counter":
         box(storage, (-width / 2, 0.0, width / 2, depth), 0.0, 0.90, WOOD)
         box(storage, (-width / 2, 0.0, width / 2, depth), 0.90, 0.94, CERAMIC)
