@@ -181,13 +181,18 @@ def prepare(args):
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError("fresh empty external render output required")
     args.output.mkdir(parents=True, exist_ok=True)
-    pins = json.loads((args.flat_release / "sha256.json").read_text())
+    if args.camera_products is not None:
+        input_root = args.camera_products
+        input_directory = input_root / "inputs"
+        pins = json.loads((input_root / "generation.json").read_text())["files"]
+    else:
+        input_root = args.flat_release
+        input_directory = input_root / "geometry/components/inputs"
+        pins = json.loads((input_root / "sha256.json").read_text())
     rows, reports = [], {}
     for name, source in PLACES:
-        input_path = (
-            args.flat_release / "geometry/components/inputs" / (source + "-input.json")
-        )
-        original = json.loads(pinned(input_path, args.flat_release, pins).read_text())
+        input_path = input_directory / (source + "-input.json")
+        original = json.loads(pinned(input_path, input_root, pins).read_text())
         view, camera_proof = camera(name, original["origin_lat_lon"], args.sources)
         if name == "Wien":
             top, slots, model_proof = vienna_model(args.port_plan)
@@ -247,13 +252,15 @@ def prepare(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--flat-release", type=Path, required=True)
+    parser.add_argument("--flat-release", type=Path)
     parser.add_argument("--port-plan", type=Path, required=True)
     parser.add_argument("--camera-products", type=Path)
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--build-only", action="store_true")
     args = parser.parse_args()
+    if args.flat_release is None and args.camera_products is None:
+        parser.error("--camera-products or --flat-release required")
     began = time.monotonic()
     scene = prepare(args)
     if args.build_only:

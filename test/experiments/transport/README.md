@@ -64,9 +64,9 @@ Quellen in seiner Nähe erhalten einen expliziten Reservierungsgrund. Die
 zusätzlichen lokalen Netze werden nicht als mit diesem Plan gekoppelt ausgegeben.
 
 ```sh
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --output "$TRANSPORT_CAMERA_INPUTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_MVT_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --output "$TRANSPORT_CAMERA_INPUTS"
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_CAMERA_INPUTS" --worker Vienna components
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NEW_SHOTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NEW_SHOTS"
 ```
 
 Die Variablen benennen ausdrücklich gewählte externe Pfade. Vor dem Rendern

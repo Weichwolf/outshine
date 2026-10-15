@@ -72,15 +72,15 @@ def acquire(url, cache):
 
 
 def case(name, source, args, reserved):
-    old_path = (
-        args.flat_release / "geometry/components/inputs" / (source + "-input.json")
+    references = json.loads(
+        (ROOT / "test/experiments/transport/reference/place-sources.json").read_text()
     )
-    previous = json.loads(old_path.read_text())
+    previous = next(row for row in references["cases"] if row["source"] == source)
     origin = previous["origin_lat_lon"]
     selected = camera_tiles(name, origin)
     if name != "Wien":
         selected.add(tuple(previous["receipt"]["tile"]))
-    cache = Path(previous["receipt"]["path"]).parent
+    cache = args.cache
     prefix = previous["receipt"]["url"].rsplit("/", 3)[0]
     merged = {
         "origin_lat_lon": origin,
@@ -94,6 +94,11 @@ def case(name, source, args, reserved):
     for tile in sorted(selected):
         label = source + "-" + "-".join(map(str, tile))
         receipt = acquire(prefix + "/" + "/".join(map(str, tile)) + ".pbf", cache)
+        if (
+            list(tile) == previous["receipt"]["tile"]
+            and receipt["sha256"] != previous["receipt"]["sha256"]
+        ):
+            raise ValueError("immutable legacy tile hash changed")
         receipt.update(tile=list(tile), sites=[label])
         inventory = stage / "inventory.json"
         inventory.write_text(
@@ -146,7 +151,7 @@ def case(name, source, args, reserved):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--flat-release", type=Path, required=True)
+    parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--port-plan", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
