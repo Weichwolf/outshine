@@ -74,6 +74,8 @@ Python 3.13.5 /NumPy 2.2.4 /SciPy 1.18.1 /Clarabel 0.11.1; BLAS/OMP threads 1.
 Default solver 8 s /100 iterations, input caps 131072 vertices /160000 faces as explicitly
 chosen by these experiments. Address space 2 GiB, CPU 60 s and 90 s parent observation
 guards; preparation/one-step overruns are separate from requested solver time.
+Measured host reports an Intel i5-1135G7 with four logical CPUs; host/guest
+identity and memory observations are retained in `machine.json`.
 Minimal `Popen`/`os.wait4` supervisors record terminal state, CPU, actual child RSS
 and before-load snapshots. Foreign CPU work is recorded; measurements keep normal
 priority, builds/rendering run nice10. These are loaded-host offline observations,
