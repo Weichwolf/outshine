@@ -1,0 +1,51 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "airSource.glsl"
+#include "AirPrefixProbeLayout.h"
+#include "transfer_grid.glsl"
+
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0) uniform sampler2D veil;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
+layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+layout(set = 0, binding = 4) uniform sampler2D visibilityField;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
+layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+
+vec3 transferVisibility(uint index) {
+  ivec2 pixel = ivec2(int(index) % transferImageExtent.x, int(index) / transferImageExtent.x);
+  ivec2 extent = textureSize(visibilityField, 0);
+  ivec2 cell = min(pixel / transferStep, extent - 2);
+  ivec2 begin = cell * transferStep;
+  ivec2 end = min(begin + transferStep, transferImageExtent - 1);
+  vec2 weight = vec2(pixel - begin) / vec2(end - begin);
+  vec2 uv = (vec2(cell) + weight + 0.5) / vec2(extent);
+  return textureLod(visibilityField, uv, 0.0).rgb;
+}
+
+vec3 transferIntegral(vec3 sigma, float lengthKm) {
+  vec3 tau = sigma * lengthKm;
+  vec3 small = lengthKm * (1.0 - tau * (0.5 - tau / 6.0));
+  vec3 large = (vec3(1.0) - exp(-tau)) / sigma;
+  return mix(large, small, lessThan(tau, vec3(0.01)));
+}
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= uint(from.rays.length())) { return; }
+  ProbeRay inputRay = from.rays[index];
+  AirPathSpan span = airPhysicalSpan(pushed.Air, inputRay.Ray);
+  AirRay ray = airPathRay(pushed.Air, inputRay.Ray, span);
+  AirSourceTerms terms = airSourceTermsAt(pushed.Air, ray, 0.0,
+      airSunVisible(pushed.Air, ray, 0.0), veil, multiScatter);
+  vec3 visibility = transferVisibility(index);
+  for (uint at = inputRay.QueryBegin; at < inputRay.QueryEnd; ++at) {
+    float lengthKm = max(0.0, min(query.distanceKm[at], span.EndKm) - span.BeginKm);
+    vec3 through = exp(-terms.Extinction * lengthKm);
+    vec3 integral = transferIntegral(terms.Extinction, lengthKm);
+    vec3 radiance = integral * (terms.DirectEmission * visibility + terms.DiffuseEmission);
+    into.samples[at] = ProbeSample(radiance.r, radiance.g, radiance.b,
+        through.r, through.g, through.b, 1u, 0u);
+  }
+}
