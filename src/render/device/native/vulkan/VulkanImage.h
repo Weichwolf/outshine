@@ -11,6 +11,7 @@
 namespace outshine::Render::Native::Vulkan {
 
 class Recording;
+struct PresentLease;
 
 struct ImageState {
   std::shared_ptr<Context> Owner;
@@ -19,6 +20,7 @@ struct ImageState {
   TextureDescription Description;
   std::vector<VkImageLayout> Layouts;
   Recording *Reserved = nullptr;
+  std::shared_ptr<PresentLease> Presentation;
 
   ImageState() = default;
   ~ImageState();
