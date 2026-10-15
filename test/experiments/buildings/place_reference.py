@@ -1,6 +1,6 @@
 """Building Place selection and a demand-view adapter over the shared geospatial core."""
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from demand import View
@@ -8,7 +8,14 @@ from outshine_ref.places import PlaceCamera as SharedCamera
 from outshine_ref.places import read_camera
 
 ROOT = Path(__file__).resolve().parents[3]
-PLACES = ("DarmstadtWest", "Flensburg", "Rosenheim", "Tokyo")
+PLACES = ("Husum", "Flensburg", "ZuerichHauptbahnhof", "Tokyo")
+REFERENCE_PLACES = PLACES + ("DarmstadtWest", "Feldkirch", "Rosenheim")
+FLAT_HEIGHTS_M = {
+    "Husum": 20.0,
+    "Flensburg": 35.0,
+    "ZuerichHauptbahnhof": 70.0,
+    "Tokyo": 60.0,
+}
 
 
 class PlaceCamera(SharedCamera):
@@ -28,8 +35,14 @@ class PlaceCamera(SharedCamera):
 
 
 def read(name):
-    if name not in PLACES:
+    if name not in REFERENCE_PLACES:
         raise ValueError("Unknown fixed Buildings Place")
     return PlaceCamera(
         **asdict(read_camera(ROOT / "src/assets/places" / (name + ".scenario")))
+    )
+
+
+def flat(name):
+    return replace(
+        read(name), declared_height_m=FLAT_HEIGHTS_M[name], samples_height=False
     )

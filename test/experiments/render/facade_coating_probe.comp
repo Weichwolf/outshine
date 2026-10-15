@@ -12,7 +12,7 @@ layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped;
 #include "facadeBands.glsl"
 #include "facadeFootprint.glsl"
 #include "facadeProfiles.glsl"
-#include "facade_coating_kernel.glsl"
+#include "facadeCoating.glsl"
 #ifndef FACADE_COATED
 #define FACADE_COATED 1
 #endif
