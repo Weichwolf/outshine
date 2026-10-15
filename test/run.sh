@@ -1,7 +1,6 @@
 #!/bin/sh
 
 set -u
-set -m
 AUDIT=0
 AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
@@ -99,25 +98,15 @@ Die() {
   exit 2
 }
 
-RUNNING_GROUPS=""
+RUNNING_OWNER=""
+RUNNING_ERROR=""
 KillRunning() {
-  for runningGroup in $RUNNING_GROUPS; do
-    kill -TERM -"$runningGroup" 2>/dev/null
-    kill -KILL -"$runningGroup" 2>/dev/null
-  done
-  for runningGroup in $RUNNING_GROUPS; do
-    cleanupAttempts=0
-    while kill -0 -"$runningGroup" 2>/dev/null; do
-      if [ "$cleanupAttempts" -ge 100 ]; then
-        printf 'run.sh: owned process group %s survived cleanup\n' "$runningGroup" >&2
-        return 1
-      fi
-      sleep 0.05
-      cleanupAttempts=$((cleanupAttempts + 1))
-    done
-    wait "$runningGroup" 2>/dev/null
-  done
-  RUNNING_GROUPS=""
+  if [ -n "${RUNNING_OWNER:-}" ]; then
+    kill -TERM "$RUNNING_OWNER" 2>/dev/null
+    wait "$RUNNING_OWNER" 2>/dev/null
+    RUNNING_OWNER=""
+  fi
+  [ ! -f "${RUNNING_ERROR:-}" ]
 }
 
 ReleaseNest() {
@@ -638,32 +627,24 @@ RunWithTimeout() {
   log=$2
   marker=$3
   runArgument=$4
-  rm -f "$marker"
+  rm -f "$marker" "$marker.start" "$marker.cleanup-failed"
   # board:1778: a case that is killed by the budget measured NOTHING. Handing it the budget lets
   # it stop inside one and REPORT, which is a measurement, instead of being cut off mid-drive.
   export OUTSHINE_TIMEOUT_S="$TIMEOUT_S"
+  RUNNING_ERROR=$marker.cleanup-failed
   if [ -n "$runArgument" ]; then
-    "$binary" "$runArgument" >"$log" 2>&1 &
+    python3 "$ROOT/test/scripts/run_with_timeout.py" "$$" "$TIMEOUT_S" "$log" "$marker" \
+      "$binary" "$runArgument" &
   else
-    "$binary" >"$log" 2>&1 &
+    python3 "$ROOT/test/scripts/run_with_timeout.py" "$$" "$TIMEOUT_S" "$log" "$marker" \
+      "$binary" &
   fi
-  child=$!
-  RUNNING_GROUPS=$child
-  (
-    sleep "$TIMEOUT_S"
-    if kill -0 "$child" 2>/dev/null; then
-      : >"$marker"
-      kill -TERM -"$child" 2>/dev/null
-      sleep 2
-      kill -KILL -"$child" 2>/dev/null
-    fi
-  ) >/dev/null 2>&1 &
-  watchdog=$!
-  RUNNING_GROUPS="$child $watchdog"
-  wait "$child" 2>/dev/null
+  RUNNING_OWNER=$!
+  : >"$marker.start"
+  wait "$RUNNING_OWNER" 2>/dev/null
   status=$?
-  KillRunning || Die "an owned process group survived cleanup; refusing another case"
-  wait "$watchdog" 2>/dev/null
+  RUNNING_OWNER=""
+  [ ! -f "$RUNNING_ERROR" ] || Die "an owned process group survived cleanup; refusing another case"
   return $status
 }
 

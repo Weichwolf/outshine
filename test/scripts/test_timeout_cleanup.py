@@ -1,6 +1,8 @@
+import ctypes
 import os
 from pathlib import Path
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -30,6 +32,8 @@ class TimeoutCleanup(unittest.TestCase):
         self.child.write_text('import os,signal,sys,time\n'
                               'from pathlib import Path\n'
                               'signal.signal(signal.SIGTERM,signal.SIG_IGN)\n'
+                              'if "TEST_STARTED" in os.environ:\n'
+                              ' Path(os.environ["TEST_STARTED"]).write_text(str(os.getpid()))\n'
                               'time.sleep(float(os.environ.get("TEST_START_DELAY","0")))\n'
                               'Path(sys.argv[1]).write_text(str(os.getpid()))\n'
                               'while True: time.sleep(1)\n')
@@ -51,7 +55,9 @@ class TimeoutCleanup(unittest.TestCase):
             self.assertIsNotNone(match, name)
             selected.append(match.group())
         helper = self.directory / 'runner.sh'
-        helper.write_text('set -u\nset -m\nRUNNING_GROUPS=""\nTIMEOUT_S="$TEST_TIMEOUT_S"\n' +
+        helper.write_text('set -u\nRUNNING_OWNER=""\nRUNNING_ERROR=""\n'
+                          'ROOT=' + shlex.quote(str(SOURCE.resolve().parents[1])) + '\n'
+                          'TIMEOUT_S="$TEST_TIMEOUT_S"\n' +
                           '\n'.join(selected) +
                           '\ntrap \'KillRunning; exit 143\' TERM\n'
                           'RunWithTimeout "$TEST_FIXTURE" "$TEST_LOG" "$TEST_MARKER" "$1"\n'
@@ -59,10 +65,11 @@ class TimeoutCleanup(unittest.TestCase):
         self.helper = helper
         self.pidfile = self.directory / 'child.pid'
         self.marker = self.directory / 'timeout.marker'
+        self.started = self.directory / 'started.pid'
         self.environment = dict(os.environ, TEST_PYTHON=sys.executable,
                                 TEST_CHILD=str(self.child), TEST_PIDFILE=str(self.pidfile),
                                 TEST_FIXTURE=str(fixture), TEST_LOG=str(self.directory / 'case.log'),
-                                TEST_MARKER=str(self.marker))
+                                TEST_MARKER=str(self.marker), TEST_STARTED=str(self.started))
 
     def read_pid(self, path):
         until = time.monotonic() + 5
@@ -82,13 +89,13 @@ class TimeoutCleanup(unittest.TestCase):
             detail += '; case=' + case_log.read_text(errors='replace')[-1000:]
         self.fail('fixture did not publish its PID' + detail)
 
-    def start(self, mode, timeout=1, delay=0):
+    def start(self, mode, timeout=1, delay=0, wait_for_publication=True):
         environment = dict(self.environment, TEST_TIMEOUT_S=str(timeout), TEST_START_DELAY=str(delay))
         runner = subprocess.Popen(['sh', str(self.helper), mode], env=environment,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   start_new_session=True, text=True)
         self.runners.append(runner)
-        child = self.read_pid(self.pidfile)
+        child = self.read_pid(self.pidfile if wait_for_publication else self.started)
         return runner, child
 
     def assert_clean(self, runner, child):
@@ -128,6 +135,73 @@ class TimeoutCleanup(unittest.TestCase):
     def test_interrupt_cleans_descendants_after_slow_start(self):
         self.assert_interrupted(delay=1.25)
 
+    def test_interrupt_before_descendant_pid_publication(self):
+        runner, child = self.start('timeout', timeout=30, delay=2, wait_for_publication=False)
+        self.assertFalse(self.pidfile.exists(), 'interrupt must precede normal PID publication')
+        runner.terminate()
+        self.assert_clean(runner, child)
+        self.assertEqual(runner.returncode, 143)
+        self.assertFalse(self.marker.exists())
+
+    def test_interrupt_before_permission_to_launch(self):
+        registered = self.directory / 'registered.pid'
+        self.environment['TEST_REGISTERED'] = str(registered)
+        source = self.helper.read_text()
+        self.assertIn(': >"$marker.start"', source)
+        self.helper.write_text(source.replace(': >"$marker.start"',
+                                             'printf "%s" "$RUNNING_OWNER" >"$TEST_REGISTERED"\n'
+                                             '  while :; do sleep 0.02; done'))
+        runner = subprocess.Popen(['sh', str(self.helper), 'timeout'],
+                                  env=dict(self.environment, TEST_TIMEOUT_S='30'),
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  start_new_session=True, text=True)
+        self.runners.append(runner)
+        supervisor = self.read_pid(registered)
+        runner.terminate()
+        self.assert_clean(runner, supervisor)
+        self.assertEqual(runner.returncode, 143)
+        self.assertFalse(self.started.exists(), 'target launched before ownership registration')
+        self.assertFalse(self.marker.exists())
+
+    def test_timeout_kills_owner_that_ignores_term(self):
+        fixture = Path(self.environment['TEST_FIXTURE'])
+        fixture.write_text(fixture.read_text().replace('trap "exit 0" TERM', 'trap "" TERM'))
+        runner, child = self.start('timeout')
+        stdout, stderr = self.assert_clean(runner, child)
+        self.assertEqual(runner.returncode, 137, stdout + stderr)
+        self.assertTrue(self.marker.exists())
+
+    def test_exit_status_without_argument_is_preserved(self):
+        fixture = Path(self.environment['TEST_FIXTURE'])
+        fixture.write_text('#!/bin/sh\nexit 7\n')
+        runner = subprocess.Popen(['sh', str(self.helper), ''],
+                                  env=dict(self.environment, TEST_TIMEOUT_S='30'),
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  start_new_session=True, text=True)
+        self.runners.append(runner)
+        stdout, stderr = runner.communicate(timeout=10)
+        self.assertEqual(runner.returncode, 7, stdout + stderr)
+        self.assertFalse(self.marker.exists())
+        self.assertIsNone(self.foreign.poll(), 'foreign process was killed')
+
+    def test_owner_killed_cleans_descendants(self):
+        runner, child = self.start('timeout', timeout=30)
+        runner.kill()
+        self.assert_clean(runner, child)
+        self.assertEqual(runner.returncode, -signal.SIGKILL)
+        self.assertFalse(self.marker.exists())
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'Linux orphan adoption contract')
+    def test_supervisor_reaps_before_outer_subreaper(self):
+        libc = ctypes.CDLL(None, use_errno=True)
+        previous = ctypes.c_int()
+        self.assertEqual(libc.prctl(37, ctypes.byref(previous), 0, 0, 0), 0)
+        self.assertEqual(libc.prctl(36, 1, 0, 0, 0), 0)
+        try:
+            self.assert_normal_exit()
+        finally:
+            self.assertEqual(libc.prctl(36, previous.value, 0, 0, 0), 0)
+
     def tearDown(self):
         for runner in self.runners:
             if runner.poll() is None:
@@ -145,6 +219,10 @@ class TimeoutCleanup(unittest.TestCase):
                     os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+            try:
+                os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                pass
         self.temp.cleanup()
 
 
