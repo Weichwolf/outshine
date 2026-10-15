@@ -33,16 +33,18 @@ vec4 shaded() {
   float alongView = (reconstruction.x - written * reconstruction.y) /
                     max(reconstruction.z + written * reconstruction.w, 1.0e-9);
   float reachKm = alongView * 0.001 / max(1.0e-6, dot(dir, normalize(pushed.fwd.xyz)));
+  if (reachKm <= 0.0) { return lit; }
 
   vec3 worldUp = normalize(pushed.worldUp.xyz);
   vec3 sunDir = normalize(pushed.sunDir.xyz);
   AirRay ray = AirRay(pushed.eyeRadiusKm, clamp(dot(dir, worldUp), -1.0, 1.0),
       clamp(dot(sunDir, worldUp), -1.0, 1.0), clamp(dot(dir, sunDir), -1.0, 1.0), reachKm);
-  AirPathSpan span = airPathSpan(pushed.air, ray);
-  if (span.EndKm <= span.BeginKm) { return lit; }
+  AirPathSpan span = airPhysicalSpan(pushed.air, ray);
+  if (span.EndKm <= span.BeginKm || reachKm <= span.BeginKm) { return lit; }
   ray = airPathRay(pushed.air, ray, span);
   AirPrefix prefix = airPrefixBegin(pushed.air, ray, veil, multiScatter);
-  AirTransfer air = airPrefixAdvance(prefix, pushed.air, ray.DistanceKm, veil, multiScatter);
+  float queryKm = min(reachKm - span.BeginKm, ray.DistanceKm);
+  AirTransfer air = airPrefixAdvance(prefix, pushed.air, queryKm, veil, multiScatter);
   return vec4(lit.rgb * air.Transmittance +
       pushed.illuminance * air.RadiancePerLux, lit.a);
 }
