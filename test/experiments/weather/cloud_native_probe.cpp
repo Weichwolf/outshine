@@ -101,7 +101,8 @@ bool Configure(Resources &gpu, const char *shaderPath, uint64_t bytes) {
   auto device = Native::CreateDevice({.Validation = true});
   if (!device) { return Failed("create device", device.error()); }
   gpu.Device = std::move(*device);
-  auto pipeline = gpu.Device->CreateComputePipeline(code, "main", "cloud-probe");
+  auto pipeline =
+      gpu.Device->CreateComputePipeline(code, {.Entry = "main", .Label = "cloud-probe"});
   if (!pipeline) { return Failed("create cloud pipeline", pipeline.error()); }
   if (!LayoutMatches((*pipeline)->Layout(), bytes)) {
     std::fputs("cloud pipeline does not match the two-binding/128-byte/8x8 contract\n", stderr);
