@@ -53,6 +53,11 @@ struct LogField {
   /// @param v Integer to represent.
   LogField(const char *key, int v);
 
+  /// Format a signed long integer in decimal.
+  /// @param key Borrowed field name, not null.
+  /// @param v Integer to represent without floating-point conversion.
+  LogField(const char *key, long v);
+
   /// Format a wide signed integer in decimal.
   /// @param key Borrowed field name, not null.
   /// @param v Integer to represent without floating-point conversion.
