@@ -88,9 +88,9 @@ struct SubjectMaterial {
   [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
 
   [[nodiscard]] bool ReadsSecondUv() const {
-    return Colour.Set == outshine::UvSet::Uv1 || Normal.Set == outshine::UvSet::Uv1 ||
-           MetalRough.Set == outshine::UvSet::Uv1 || Emissive.Set == outshine::UvSet::Uv1 ||
-           SpecularStrength.Set == outshine::UvSet::Uv1 ||
+    return Row.Pattern == SurfacePattern::FacadeMetres || Colour.Set == outshine::UvSet::Uv1 ||
+           Normal.Set == outshine::UvSet::Uv1 || MetalRough.Set == outshine::UvSet::Uv1 ||
+           Emissive.Set == outshine::UvSet::Uv1 || SpecularStrength.Set == outshine::UvSet::Uv1 ||
            SpecularTint.Set == outshine::UvSet::Uv1 ||
            DiffuseReflection.Set == outshine::UvSet::Uv1 ||
            DiffuseTransmission.Set == outshine::UvSet::Uv1;

@@ -179,6 +179,7 @@ int main(int argc, char *const *argv) {
   if (argc != 5 && !secondUv) { return 1; }
   const auto input = Read(argv[3], secondUv);
   auto device = Require(CreateDevice({.Validation = true}));
+  std::println("DEVICE {}", device->Limits().Name);
   Capture(*device, argv[1], argv[2], input, argv[4], secondUv);
   return Report();
 }

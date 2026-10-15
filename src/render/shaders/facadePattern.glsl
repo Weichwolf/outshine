@@ -5,6 +5,7 @@
 #include "facadeFootprint.glsl"
 #include "facadeCoating.glsl"
 #include "facadeProfiles.glsl"
+#include "facadeMasonry.glsl"
 
 void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) {
   FacadeGlazing glass = facadeGlazing(coverage, albedo, roughness);
@@ -40,9 +41,11 @@ void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 localM, vec3 n, inout v
 }
 
 void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
-                 inout vec3 albedo, inout float roughness, out vec2 heightChange) {
+                 bool metreMaterial, vec2 materialM, inout vec3 albedo, inout float roughness, out vec2 heightChange) {
   heightChange = vec2(0.0);
   vec2 dx = dFdx(coordinates);
+  vec2 materialDx = dFdx(materialM);
+  vec2 materialDy = dFdy(materialM);
   vec2 dy = dFdy(coordinates);
   vec3 dxM = dFdx(metricM);
   vec3 dyM = dFdy(metricM);
@@ -108,7 +111,27 @@ void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 lo
     storeysPerM = 0.0;
   }
   vec4 filtered = facadeCoatedFootprint(fractions, at, dx, dy, storeysPerM, metricM, dxM, dyM);
+  bool masonry = metreMaterial && variant > 5.5 && variant < 6.5;
+  float masonryField = 0.0;
+  vec3 amplitude = vec3(0.0);
+  float roughnessAmplitude = 0.0;
+  if (masonry) {
+    masonryField = facadeMasonryField(fractions, at, dx, dy, storeysPerM,
+                               materialM, materialDx, materialDy, filtered.xyz);
+    amplitude = facadeMasonryAmplitude(albedo);
+    roughnessAmplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
+  }
   FacadeGlazing wall = facadeCoatedWindow(filtered, albedo, roughness);
+  if (masonry) {
+    wall.albedo += amplitude * masonryField;
+    wall.roughness += roughnessAmplitude * masonryField;
+  }
   albedo = wall.albedo;
   roughness = wall.roughness;
+}
+
+void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
+                 inout vec3 albedo, inout float roughness, out vec2 heightChange) {
+  applyFacade(code, coordinates, paint, positionM, localM, metricM, n,
+               false, vec2(0.0), albedo, roughness, heightChange);
 }

@@ -39,7 +39,7 @@ def model(path, mats):
     return obj
 
 
-def render(inputs, output, case):
+def render(inputs, output, case, view="default"):
     start = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     mats = palette(inputs)
@@ -97,6 +97,22 @@ def render(inputs, output, case):
         scene = setup(
             "Laubwald", {"size_m": 4, "camera": [4, -6, 4], "target": [0, 0, 0.18]}
         )
+    if view != "default":
+        size = 1.6 if case in ("plant", "field") else 4
+        target_z = 0.24 if size == 1.6 else 0.18
+        eye = (
+            (-size, size * 1.5, size)
+            if view == "back"
+            else (0, -size * 2, target_z + size * 0.15)
+        )
+        scene.camera = configure_camera(
+            {
+                "projection": "orthographic",
+                "eye": eye,
+                "target": [0, 0, target_z],
+                "span_m": 1.7 if size == 1.6 else 7.4,
+            }
+        )
     output.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str((output / (case + ".png")).resolve())
     ready = time.perf_counter()
@@ -110,6 +126,7 @@ def render(inputs, output, case):
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "case": case,
+        "view": view,
         "input_hashes": hashes,
         "resolution": [1920, 1080],
         "samples": scene.eevee.taa_render_samples,
@@ -130,5 +147,8 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--case", choices=("plant", "field", "tile"), required=True)
+    parser.add_argument(
+        "--view", choices=("default", "back", "grazing"), default="default"
+    )
     args = parser.parse_args()
-    render(args.inputs, args.output, args.case)
+    render(args.inputs, args.output, args.case, args.view)

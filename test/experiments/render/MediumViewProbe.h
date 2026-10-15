@@ -56,6 +56,8 @@ struct ImageShape {
   uint32_t RowBytes;
 };
 
+[[nodiscard]] std::vector<Pixel> ReadImage(Device &device, Buffer &readback, ImageShape shape);
+
 template <typename Value, typename Function>
 std::vector<std::byte> ImageBytes(ImageShape shape, Function value) {
   std::vector<std::byte> bytes(size_t{shape.RowBytes} * shape.Height);

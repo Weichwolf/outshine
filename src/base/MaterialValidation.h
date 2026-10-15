@@ -101,7 +101,8 @@ namespace MaterialValidation {
              row.DiffuseTransmissionMap.bound()) {
     return false;
   }
-  if (row.Pattern != SurfacePattern::None && row.Pattern != SurfacePattern::Facade) {
+  if (row.Pattern != SurfacePattern::None && row.Pattern != SurfacePattern::Facade &&
+      row.Pattern != SurfacePattern::FacadeMetres) {
     return false;
   }
   if (row.Alpha != AlphaMode::Opaque && row.Alpha != AlphaMode::Masked &&

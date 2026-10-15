@@ -30,11 +30,13 @@ public:
   struct Surfaces {
     Render::PieceSurface Walls{1};
     Render::PieceSurface Roofs{2};
+    std::optional<Render::PieceSurface> MetreWalls = std::nullopt;
   };
 
   void SetSurfaces(Surfaces these) noexcept {
     WallsSurface_ = these.Walls;
     RoofsSurface_ = these.Roofs;
+    MetreWallsSurface_ = these.MetreWalls;
   }
 
   [[nodiscard]] bool Hands(uint32_t tile,
@@ -199,6 +201,7 @@ private:
   TangentFrame Frame_;
   Render::PieceSurface WallsSurface_{1};
   Render::PieceSurface RoofsSurface_{2};
+  std::optional<Render::PieceSurface> MetreWallsSurface_;
   std::vector<Standing> Standing_;
   uint64_t Digest_ = 0;
   size_t Handed_ = 0;
