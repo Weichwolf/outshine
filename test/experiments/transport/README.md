@@ -40,15 +40,15 @@ Vor erneutem Anwenden hashgeprüfter Produkte die Nachweise unter den neuen Modu
 
 ## Vier repräsentative Transportaufnahmen
 
-[doc/images/transport/](../../../doc/images/transport/) enthält genau vier eigene
-Python-Transportbilder: Zürich Gleisvorfeld, Basel Badischer Bahnhof,
+Lokale Python-Transportbilder im System-Tempverzeichnis zeigen Zürich Gleisvorfeld, Basel Badischer Bahnhof,
 Wien Brücken-/Tunnelverbund und New York Midtown. Der Nutzer hat die frühere Auswahl
 und ihre niedrigen Kameras durch diese transportreichen Ansichten ersetzt (#283).
 Die getrennte Deklaration [transport-gallery.json](reference/transport-gallery.json)
 fixiert echte Quellorte, vollständige Kacheln und erhöhte Schrägansichten;
 die gemeinsamen nativen Places-Szenarien werden dadurch nicht geändert.
 Gleiche Kameras bei späteren Vergleichen; nach geöffnetem Vergleich bei deutlich
-sichtbarer Verbesserung aktualisieren. Kein HTTP-Server.
+sichtbarer Verbesserung aktualisieren. Keine Bilder committen; nur master veröffentlicht
+integrierte Places. Kein HTTP-Server.
 
 `capture_transport_gallery.py` speichert vollständige Originalquellen, IDs und
 Attribute aus dem versionierten OpenFreeMap-Snapshot sowie DEM-Receipts.
@@ -110,8 +110,8 @@ für bestehende Geometrie- und Kostenbelege erhalten, nicht als aktuelle Galerie
 Private Renderergebnisse und Kamerabelege liegen außerhalb des Repositorys.
 Der Offline-Aufruf `transport_place_shots.py` erhält explizit den aktuellen
 Arbeitsstand, den geprüften Wiener Höhenplan, deklarierte DEM-Receipts und sein
-Ausgabeverzeichnis. Nur die vier abschließend geöffneten PNGs werden nach
-`doc/images/transport/` übernommen; Herkunft, Rezeptgrenzen und Kosten stehen im
+Ausgabeverzeichnis im System-Tempverzeichnis. Alle Forschungsbilder bleiben lokal;
+Herkunft, Rezeptgrenzen und Kosten stehen im
 verlinkten Fach-Issue/PR. Besitzer: #209 unter #19.
 
 
