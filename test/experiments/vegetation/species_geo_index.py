@@ -5,11 +5,12 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from shapely.affinity import translate
 
 MIXED = 1 << 15
 
 
-def read_regions(path, *, union_multipart=False):
+def read_regions(path, *, union_multipart=False, wrap_longitude=False):
     path = Path(path)
     if not 0 < path.stat().st_size <= 4 * 1024**2:
         raise ValueError("bounded explicit botanical-region GeoJSON required")
@@ -51,8 +52,35 @@ def read_regions(path, *, union_multipart=False):
                 "unique region code and valid nonempty source polygon required"
             )
         coordinates = shapely.get_coordinates(geometry)
-        if not np.isfinite(coordinates).all() or np.any(abs(coordinates) > (180, 90)):
+        if (
+            not np.isfinite(coordinates).all()
+            or np.any(abs(coordinates[:, 1]) > 90)
+            or np.any(abs(coordinates[:, 0]) > 540)
+        ):
             raise ValueError("finite WGS84 source polygon required")
+        if np.any(abs(coordinates[:, 0]) > 180):
+            if not wrap_longitude:
+                raise ValueError(
+                    "source longitude needs explicit periodic normalization"
+                )
+            original_area = geometry.area
+            world = shapely.box(-180, -90, 180, 90)
+            geometry = shapely.union_all(
+                [
+                    shapely.intersection(translate(geometry, xoff=shift), world)
+                    for shift in (-360, 0, 360)
+                ]
+            )
+            normalizations.append(
+                {
+                    "code": code,
+                    "operation": "periodic longitude split at world meridian; original source retained",
+                    "source_minimum_longitude": float(coordinates[:, 0].min()),
+                    "source_maximum_longitude": float(coordinates[:, 0].max()),
+                    "source_area_deg2": original_area,
+                    "canonical_area_deg2": geometry.area,
+                }
+            )
         codes.append(code)
         seen.add(code)
         geometries.append(geometry)

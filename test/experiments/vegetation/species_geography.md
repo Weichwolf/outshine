@@ -36,10 +36,19 @@ not reinterpret nested siblings as holes or apply a generic silent repair.
 Both alternatives use the same normalized source. Other invalid geometry still
 refuses. The source has no duplicate region codes.
 
-Four independent controls cover source-coordinate precision, holes, overlapping regions, exact boundary
+`MAG` also extends to longitude −180.000026°. Default reading refuses this;
+`wrap_longitude=True` explicitly splits periodic copies at the world meridian,
+retaining the small sliver on the opposite side instead of clipping it away.
+The source remains unchanged; longitude limits and degree-area sums are recorded.
+Together these produce 20 declared input normalizations. Point queries preserve
+all in-domain coordinate bits and use ordered cell-edge comparisons: adding
+180 before floor can otherwise erase a tiny offset at an internal cell edge.
+
+Five independent controls cover source-coordinate precision, holes, overlapping regions, exact boundary
 points, poles/dateline, random points, a direct interior path requiring no
 polygon predicate, candidate refusal before allocation and nested siblings
-remaining filled under union. The full experiment adds every source vertex,
+remaining filled under union, plus preserved source slivers at the dateline.
+The full experiment adds every normalized source vertex,
 spherical-uniform random coordinates and eight named real geographic controls;
 alternating query order avoids always favouring one warm order. Preparation,
 table construction, query times and peak process RSS are distinct observations.

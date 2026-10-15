@@ -15,7 +15,9 @@ from species_geo_index import CellRegions, DirectRegions, read_regions
 
 def run(source, output):
     started = time.perf_counter()
-    codes, geometries, normalizations = read_regions(source, union_multipart=True)
+    codes, geometries, normalizations = read_regions(
+        source, union_multipart=True, wrap_longitude=True
+    )
     read_s = time.perf_counter() - started
     started = time.perf_counter()
     shapely.prepare(geometries)

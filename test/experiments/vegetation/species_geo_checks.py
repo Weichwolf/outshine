@@ -12,6 +12,36 @@ from species_geo_index import CellRegions, DirectRegions, points, read_regions
 
 
 class SpeciesGeographyTests(unittest.TestCase):
+    def test_wrapped_source_sliver_is_retained_on_both_meridian_sides(self):
+        geometry = shapely.box(-180.1, 60, -179.9, 61)
+        source = json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {"LEVEL3_COD": "OWN"},
+                        "geometry": json.loads(shapely.to_geojson(geometry)),
+                    }
+                ],
+            }
+        )
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.species-wrap."
+        ) as directory:
+            path = Path(directory) / "regions.json"
+            path.write_text(source)
+            with self.assertRaisesRegex(ValueError, "periodic"):
+                read_regions(path)
+            codes, canonical, records = read_regions(path, wrap_longitude=True)
+            self.assertEqual(path.read_text(), source)
+        self.assertEqual(codes, ("OWN",))
+        self.assertAlmostEqual(canonical[0].area, geometry.area, places=11)
+        self.assertTrue(canonical[0].covers(shapely.Point(179.95, 60.5)))
+        self.assertTrue(canonical[0].covers(shapely.Point(-179.95, 60.5)))
+        self.assertFalse(canonical[0].covers(shapely.Point(0, 60.5)))
+        self.assertEqual(records[0]["code"], "OWN")
+
     def test_source_coordinate_precision_survives_internal_cell_edges(self):
         longitude = np.array(
             (np.nextafter(180.0, 0), np.nextafter(-180.0, 0), -1e-15, 180)
