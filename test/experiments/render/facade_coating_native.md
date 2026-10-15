@@ -1,10 +1,15 @@
-# Joint metric facade coating prototype
+# Joint metric facade coating
 
 [#278](https://github.com/Weichwolf/outshine/issues/278) owns this experiment.
-It does not activate coating in the product. The existing large FP32 world
-coordinates fail the fine-field precision comparison below; a stable, precise
-source/asset material frame must be agreed before integration. The verified
-window/band coverage filter from #285 remains independently integrated.
+The verified kernel now lives in `src/render/shaders/facadeCoating.glsl` and
+is consumed by the production facade path. Native structure pieces already
+transform relative ECEF vertices into a fixed local scene frame through
+`TilePieces::RowFor` and `TangentFrame`. `litVertex` supplies this unshifted
+East/Up/North position at location10; `litFragment` now consumes it. No new GPU
+resource, placement layout, cache or material parameter is required.
+The large-coordinate experiment below remains a rejected generic/legacy input;
+it does not describe the native Place-piece frame. Full lit Places, Metal/A18
+execution and frame/memory budgets remain integration checks with master.
 
 ## Field and composition
 
@@ -51,7 +56,7 @@ amplitude. These finite results are not a global filtering or TAA guarantee;
 they do not bound the existing region-coverage approximation's whole-image error.
 
 Four additional colour cohorts check bounded reflectance, black/white identity,
-unchanged far mean and full glazing. ![Native coating prototype; runtime inactive](../../../doc/images/materials/facade-coating-native.png)
+unchanged far mean and full glazing. Local diagnostic: `facade-coating-native.png` (generated in system temp; not published).
 
 The separate image chart contains actual
 native material colours at160×96 pixels, enlarged2×, in a small explicit meter
@@ -85,11 +90,49 @@ linear RGB at the default wall colour. This is a concrete rejected input frame,
 not a shader-parity failure or a Place rendering. The input includes its full
 physical points and native outputs for inspection.
 
-Performance confirmed the current RuntimeScene anchor is fixed through ordinary
-streaming/LOD. That prevents camera swimming but does not recover fine precision.
-General SubjectMesh anchors can also change. The source/asset phase and basis,
-including placement/LOD/rebasing behavior, remain the explicit missing contract
-in #278; no shared GPU layout or phase encoding has been changed here.
+The fixed WGS84 RuntimeScene anchor concerns a different path from the native
+streamed structures. `HandsPiecesOver` sets the piece frame once from the declared
+scenario origin; `PrepareBuildingSurfaces` uses the same tangent frame. Asset and
+LOD anchors change the relative ECEF coordinates and placement translation, not
+the common metric scene coordinates. Arbitrary scene-origin rebasing and
+Earth-sized generic inputs remain outside this finite precision proof.
+
+## Actual production raster
+
+`facade_coating_raster.py` and `NativeFacadeProbe.cpp` execute the actual
+`litVertex`/`litFragment` pair through the ordinary native archive, not a replacement
+fragment. The material pass writes three160×96 float attachments. A real
+`TangentFrame` at Wien supplies its ECEF origin and axes; fixtures follow the
+existing `TilePieces::RowFor` formula. Two asset anchors separated by hundreds of
+meters and an independent camera shift describe the same physical wall. This
+checks the unchanged row formula and existing vertex transport, not the tile
+streaming scheduler or a complete LOD transition.
+
+Twenty-six raster captures cover House, Commercial, walls without openings,
+gables, complete glazing, pane fields, negative trim/glass/metal-roof codes and
+the far fade. All complete opaque pixels are present. Different asset anchors
+and camera shifts disagree by at most3.04e-6 in albedo/metalness/roughness under
+the fixed2e-4 comparison. The controls and far field remain exactly unchanged;
+windowed roughness differs by at most5.97e-8 from the baseline. Near opaque RGB
+changes by at most0.05442. The local comparison PDF was optically opened: broad
+flat wall patches gain restrained coherent variation while windows/bands remain
+readable. This is an albedo component gain, not lit Place acceptance.
+
+The original3624-case independent-area/parity/motion proof and matched compute
+cost comparison remain applicable because the production kernel is byte-identical
+to the verified experimental source. Production fragment SPIR-V/MSL2.3 translation
+passes252 old/new variant pairs: resources, layouts, output contracts and MSL
+resource slots agree. Only the existing matching vertex location10 is added as a
+fragment input. MSL translation does not prove Metal execution.
+
+The focused C++ consumer is strict C++23/no-exceptions, with fixed-size fixture,
+vertex offsets and complete-output checks. Its archive and headers must match.
+For each capture it requests two upload buffers(288B), vertex/placement buffers
+(288B), three245760B colour images plus737280B of readback storage, and608 uniform input bytes;
+these logical products are test overhead, not new runtime material allocations.
+The production change adds at most72 noise-corner hashes per near wall fragment,
+fades noise to zero beyond3m/pixel and skips fully glazed/negative-code surfaces.
+Actual driver allocations/peak memory and integrated device times remain open.
 
 ## Reproduction
 
@@ -102,6 +145,20 @@ MSL2.3 separately. Use the regular production archive's exact native headers and
 PYTHONPATH=lib/src python3 test/experiments/render/facade_coating_native.py --binary /path/to/native_material --output /tmp/outshine-material-coating-native
 PYTHONPATH=lib/src python3 test/experiments/render/facade_coating_image.py --binary /path/to/native_material --output /tmp/outshine-material-coating-image
 PYTHONPATH=lib/src python3 test/experiments/render/facade_coating_precision.py --binary /path/to/native_material --output /tmp/outshine-material-coating-precision
+```
+
+Build the raster consumer against the matching current product archive/headers
+and the platform's native link flags (requires SDL3 and the backend dependencies):
+
+```sh
+c++ -std=c++23 -Wall -Wextra -Werror -fno-exceptions -ffp-contract=off -Iinclude -Isrc/base -Isrc/base/geo -Isrc/render/device/native -Itest/harness/shared -Itest/harness/render test/harness/render/NativeFacadeProbe.cpp build/liboutshine.a $(sh test/run.sh --native-link-flags) -o /tmp/outshine-native-facade
+```
+
+The production raster comparison accepts a baseline fragment alongside its
+baseline include directory, generated BRDF tables and SPIRV-Cross reflection:
+
+```sh
+python3 test/experiments/render/facade_coating_raster.py --binary /path/to/native_facade --baseline /path/to/baseline-shaders/litFragment.glsl --output /tmp/outshine-material-coating-raster
 ```
 
 All outputs require an explicit system-temp path. `--reference-only` is CPU-only

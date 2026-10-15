@@ -40,15 +40,15 @@ Vor erneutem Anwenden hashgeprüfter Produkte die Nachweise unter den neuen Modu
 
 ## Vier repräsentative Transportaufnahmen
 
-[doc/images/transport/](../../../doc/images/transport/) enthält genau vier eigene
-Python-Transportbilder: Zürich Gleisvorfeld, Basel Badischer Bahnhof,
+Lokale Python-Transportbilder im System-Tempverzeichnis zeigen Zürich Gleisvorfeld, Basel Badischer Bahnhof,
 Wien Brücken-/Tunnelverbund und New York Midtown. Der Nutzer hat die frühere Auswahl
 und ihre niedrigen Kameras durch diese transportreichen Ansichten ersetzt (#283).
 Die getrennte Deklaration [transport-gallery.json](reference/transport-gallery.json)
 fixiert echte Quellorte, vollständige Kacheln und erhöhte Schrägansichten;
 die gemeinsamen nativen Places-Szenarien werden dadurch nicht geändert.
 Gleiche Kameras bei späteren Vergleichen; nach geöffnetem Vergleich bei deutlich
-sichtbarer Verbesserung aktualisieren. Kein HTTP-Server.
+sichtbarer Verbesserung aktualisieren. Keine Bilder committen; nur master veröffentlicht
+integrierte Places. Kein HTTP-Server.
 
 `capture_transport_gallery.py` speichert vollständige Originalquellen, IDs und
 Attribute aus dem versionierten OpenFreeMap-Snapshot sowie DEM-Receipts.
@@ -79,6 +79,28 @@ Alte geprüfte Netz-/Höhenprodukte bleiben als Regressionen erhalten. Die neue
 Ortsauswahl belegt weder vollständige Ebenen-/Fahrnetzplanung noch LOD/native
 Kosten oder Gerätebudgets.
 
+## Wiener gemeinsamer Boden unter Brücken und Portalen (#299)
+
+`wien_ground_experiment.py` vergleicht die unveränderlichen alten unteren
+Straßenhöhen mit einer gemeinsamen DEM-/Straßen-/Bodenplanung. Die neue Planung
+darf untere Straßen senken; ihre XY-Flächen und die oberen C1-/Tunnelprodukte
+bleiben erhalten. Ganze affine Überlappungen begrenzen Boden unter Brücken und
+über Tunneldächern; offene Portale erhalten echte Aussparungen. Alte freigegebene
+Kontaktprodukte und öffentliche Bibliotheksverträge werden dadurch nicht ersetzt.
+Gleiche Eingaben, isolierte Worker, feste Grenzen und tatsächlich geöffnete
+720p-Vorher/Nachheransichten; eine vollständig ausgefüllte Erdmasse ist damit
+nicht nachgewiesen. Forschungsbilder bleiben lokal; nur master veröffentlicht
+integrierte Places. [Vergleich und Grenzen](wien_ground_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/wien_ground_experiment.py --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --dem-sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_WIEN_GROUND_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -m unittest wien_ground_checks ground_surface_checks surface_height_checks
+```
+
+Das Ausgabeverzeichnis muss frisch sein; Quellen werden ausschließlich aus den
+ausdrücklich gewählten hashgeprüften alten Bridge-Produkten und dem DEM-Cache
+gelesen. `--no-images` führt denselben Geometrie-/Kostenvergleich ohne Blender aus.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
@@ -88,8 +110,8 @@ für bestehende Geometrie- und Kostenbelege erhalten, nicht als aktuelle Galerie
 Private Renderergebnisse und Kamerabelege liegen außerhalb des Repositorys.
 Der Offline-Aufruf `transport_place_shots.py` erhält explizit den aktuellen
 Arbeitsstand, den geprüften Wiener Höhenplan, deklarierte DEM-Receipts und sein
-Ausgabeverzeichnis. Nur die vier abschließend geöffneten PNGs werden nach
-`doc/images/transport/` übernommen; Herkunft, Rezeptgrenzen und Kosten stehen im
+Ausgabeverzeichnis im System-Tempverzeichnis. Alle Forschungsbilder bleiben lokal;
+Herkunft, Rezeptgrenzen und Kosten stehen im
 verlinkten Fach-Issue/PR. Besitzer: #209 unter #19.
 
 

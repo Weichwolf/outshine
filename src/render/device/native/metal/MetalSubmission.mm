@@ -1,4 +1,4 @@
-#include "MetalInternal.h"
+#include "MetalPresentation.h"
 #include <algorithm>
 
 namespace outshine::Render::Native::Metal {
@@ -27,6 +27,10 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     if (metal == nullptr || metal->Device != Identity_ || metal->Render) {
       return Failure(ErrorKind::Invalid, "Metal submission requires its device and closed passes");
     }
+    auto *const frame = dynamic_cast<MetalPresentFrame *>(metal->Presentation.get());
+    if (frame != nullptr && !frame->Current(Identity_)) {
+      return Failure(ErrorKind::Invalid, "Metal submission contains a stale presentation frame");
+    }
     metal->Finish();
     const auto submission = std::make_shared<Submission>();
     submission->Serial = NextSerial_;
@@ -34,9 +38,11 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     const auto held = std::make_shared<SubmissionResources>();
     held->Buffers = std::move(metal->Held);
     held->Permit = std::move(metal->Permit);
+    held->Presentation = std::move(metal->Presentation);
     [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {
       held->Buffers.clear();
       held->Permit.reset();
+      held->Presentation.reset();
       {
         const std::scoped_lock lock(submission->Mutex);
         if (finished.status != MTLCommandBufferStatusCompleted) {
@@ -51,6 +57,7 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     }];
     Pending_.push_back(submission);
     ++NextSerial_;
+    if (frame != nullptr) { frame->Schedule(metal->Native); }
     [metal->Native commit];
     metal->ReleaseImages();
     return Completion{.Device = Identity_, .Serial = submission->Serial};

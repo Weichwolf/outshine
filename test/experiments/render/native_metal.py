@@ -45,6 +45,7 @@ def native_api(output, glslang, toolchain, link_flags):
         binary = output / name
         run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain,
              "-fno-exceptions",
+             *shlex.split(run(["pkg-config", "--cflags", "sdl3"])),
              "-I" + str(ROOT / "src/render/device/native"),
              "-I" + str(ROOT / "test/harness/shared"),
              str(ROOT / "test/harness/render" / source),
@@ -105,11 +106,16 @@ def native_api(output, glslang, toolchain, link_flags):
     mrt_draw_checks = check_probe("native-mrt-draw-probe", "NativeMrtDrawProbe.cpp",
                                   output / "fullscreen.vert.spv", output / "native_metal_mrt.frag.spv",
                                   "--validation")
+    present_shader = output / "native_present.frag.spv"
+    run([glslang, "-V", "--target-env", "vulkan1.0",
+         str(Path(__file__).with_name("native_present.frag")), "-o", str(present_shader)])
+    present_checks = check_probe("native-present-probe", "NativePresentProbe.cpp",
+                                 output / "fullscreen.vert.spv", present_shader)
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
             "indexed_indirect_checks": indexed_checks, "draw_transition_checks": transition_checks,
-            "mrt_draw_checks": mrt_draw_checks}, sources
+            "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks}, sources
 
 
 
@@ -172,6 +178,8 @@ def main():
              ROOT / "test/harness/render/NativeIndexedProbe.cpp",
              ROOT / "test/harness/render/NativeDrawTransitionsProbe.cpp",
              ROOT / "test/harness/render/NativeMrtDrawProbe.cpp",
+             ROOT / "test/harness/render/NativePresentProbe.cpp",
+             Path(__file__).with_name("native_present.frag"),
              Path(__file__).with_name("native_draw_transitions.vert"),
              Path(__file__).with_name("native_draw_transitions.frag"),
              Path(__file__).with_name("native_draw_indirect.comp"),

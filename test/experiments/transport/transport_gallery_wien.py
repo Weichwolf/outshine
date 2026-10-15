@@ -44,12 +44,13 @@ def replay(model, previous, note):
     }
 
 
-def render(name, mesh, slots, output, profile, direction):
+def render(name, mesh, slots, output, profile, direction, *, camera_vertices=None):
     path = output / (name + ".npz")
     np.savez_compressed(
         path, vertices=mesh.vertices, triangles=mesh.triangles, materials=slots
     )
-    view = inspection_view(mesh.vertices, eye_direction=direction)
+    camera_vertices = mesh.vertices if camera_vertices is None else camera_vertices
+    view = inspection_view(camera_vertices, eye_direction=direction)
     view["profile"] = profile
     case = next(
         r
@@ -59,7 +60,7 @@ def render(name, mesh, slots, output, profile, direction):
         if r["id"] == name
     )
     if "focus_xy_m" in case:
-        focus = np.r_[case["focus_xy_m"], float(np.median(mesh.vertices[:, 2]))]
+        focus = np.r_[case["focus_xy_m"], float(np.median(camera_vertices[:, 2]))]
         view.update(
             eye=(focus + np.asarray(direction) * case["span_m"]).tolist(),
             target=focus.tolist(),

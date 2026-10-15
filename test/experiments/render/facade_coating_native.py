@@ -356,7 +356,7 @@ def main():
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in [
                 Path(__file__),
-                ROOT / "test/experiments/render/facade_coating_kernel.glsl",
+                ROOT / "src/render/shaders/facadeCoating.glsl",
                 ROOT / "test/experiments/render/facade_coating_probe.comp",
             ]
         },

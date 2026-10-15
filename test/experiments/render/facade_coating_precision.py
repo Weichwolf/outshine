@@ -1,4 +1,4 @@
-"""Measure fine coating loss in the existing Earth-sized FP32 material frame."""
+"""Measure fine coating loss for a generic/legacy Earth-sized FP32 input frame."""
 
 import argparse
 import json

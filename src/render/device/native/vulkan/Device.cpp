@@ -233,6 +233,10 @@ private:
 }
 
 Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
+  if (options.Window != nullptr) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native Vulkan presentation unavailable"});
+  }
   auto context = Vulkan::CreateContext(options);
   if (!context) { return std::unexpected(context.error()); }
   return std::make_unique<Vulkan::VulkanDevice>(std::move(*context));

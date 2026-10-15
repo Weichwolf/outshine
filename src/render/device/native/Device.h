@@ -11,6 +11,8 @@
 #include <string>
 #include <string_view>
 
+struct SDL_Window;
+
 namespace outshine::Render::Native {
 
 struct Capabilities {
@@ -37,6 +39,7 @@ enum class CompletionStatus { Pending, Ready };
 
 struct DeviceOptions {
   bool Validation = false;
+  SDL_Window *Window = nullptr;
 };
 
 struct ComputeOptions {
@@ -75,6 +78,12 @@ public:
   [[nodiscard]] virtual Result<void> Unmap(Buffer &buffer) = 0;
 
   [[nodiscard]] virtual Result<std::unique_ptr<Commands>> Begin() = 0;
+
+  [[nodiscard]] virtual Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native presentation unavailable"});
+  }
+
   [[nodiscard]] virtual Result<Completion> Submit(std::unique_ptr<Commands> commands) = 0;
   [[nodiscard]] virtual Result<CompletionStatus> Poll(Completion completion) = 0;
   [[nodiscard]] virtual Result<CompletionStatus> Wait(Completion completion,
