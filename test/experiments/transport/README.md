@@ -50,7 +50,7 @@ Bildvergleich bei deutlich sichtbarer Verbesserung. Ein HTTP-Server ist entfalle
 
 Private Renderergebnisse und Kamerabelege liegen außerhalb des Repositorys.
 Der Offline-Aufruf `transport_place_shots.py` erhält explizit den aktuellen
-Arbeitsstand, den geprüften Wiener Höhenplan, den DEM-Quellcache und sein
+Arbeitsstand, den geprüften Wiener Höhenplan, deklarierte DEM-Receipts und sein
 Ausgabeverzeichnis. Nur die vier abschließend geöffneten PNGs werden nach
 `doc/images/transport/` übernommen; Herkunft, Rezeptgrenzen und Kosten stehen im
 verlinkten Fach-Issue/PR. Besitzer: #209 unter #19.
@@ -64,9 +64,10 @@ Quellen in seiner Nähe erhalten einen expliziten Reservierungsgrund. Die
 zusätzlichen lokalen Netze werden nicht als mit diesem Plan gekoppelt ausgegeben.
 
 ```sh
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_elevation.py --cache "$TRANSPORT_PLACE_SOURCES" --output "$TRANSPORT_CAMERA_ELEVATION"
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_MVT_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --retain-flat-release "$TRANSPORT_FLAT_RELEASE" --output "$TRANSPORT_CAMERA_INPUTS"
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_CAMERA_INPUTS" --worker Vienna components
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NEW_SHOTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --elevation-inventory "$TRANSPORT_CAMERA_ELEVATION" --output "$TRANSPORT_NEW_SHOTS"
 ```
 
 Die Variablen benennen ausdrücklich gewählte externe Pfade. Vor dem Rendern
@@ -82,6 +83,25 @@ serielle Alternative lieferte nach ihrem 15-Sekunden-Vorbereitungsbudget keine
 Fläche. Die bestehende Kachel wird deshalb unverändert reserviert; zusätzliche
 Quellen außerhalb ihres 64-m-Schutzbereichs werden unabhängig geplant. Alle
 Quellen und Gründe bleiben erhalten, ohne behauptete Kopplung der Fenster.
+
+Der gemeinsame Eingang `outshine_ref.places` liest Kameras, prüft Quellbytes
+und dekodiert MVT/Terrarium. `capture_place_elevation.py` deklariert für relative
+Kameras z16 mit z15/z14-Eltern; `--fetch` erlaubt ausdrücklich fehlende neue
+Quellen. Ohne diesen Schalter bleibt der Aufruf offline. Gemeinsame Quellen
+liegen unter `<Cache>/mapterhorn/` beziehungsweise `<Cache>/openfreemap/`.
+Der Renderer hat keinen Netzwerkpfad und dokumentiert die tatsächlich benutzte
+DEM-Stufe. Absolute Kameraangaben benötigen keine künstliche Bodenhöhe.
+
+Die historischen Transportpläne bleiben im expliziten skalierten Mercator-Rahmen
+und behalten ihre verifizierten Höhen, Indizes und Quell-IDs. Nur die Darstellung
+übersetzt ihre Vertices über geographische Koordinaten nach WGS84-ENU des
+Szenarios. Kein Geoid-Ausgleich oder neuer Gradienten-/Kontaktbeleg daraus.
+`reference/place-sources.json` bindet die bisherigen starren Flachrezept-Datumswerte
+an ihre ursprünglichen groben DEM-Receipts; sie werden nicht durch feinere neue
+Kamerahöhen umgedeutet. Die historische Pixelzentrum-Interpolation in
+`capture_height_targets.py` bleibt ein ausdrücklich getrennter numerischer
+Vergleichsvertrag; Provider und Terrariumdecoder verwendet auch sie gemeinsam.
+Migration und Frame-/Bildbelege besitzt #225 unter #216.
 
 Ältere Verfahrensansichten bleiben als private Geometriekontrollen nutzbar:
 
