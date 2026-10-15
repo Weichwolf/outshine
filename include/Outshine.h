@@ -94,12 +94,13 @@ struct Loading {
 
   /// One registered world-data source that delivered tiles during this engine lifetime.
   struct UsedSource {
-    std::string Kind;                 ///< Elevation, vector or stars.
-    std::string Id;                   ///< Stable source dataset identity.
-    std::string Revision;             ///< Declared source pin, possibly empty for shipped defaults.
-    std::string Key;                  ///< Opaque fingerprint of dataset, endpoint, pin and format.
-    int Priority = 0;                 ///< Source order within its kind; lower is queried first.
-    std::uint64_t TileDeliveries = 0; ///< Completed requests, including repeats and cache hits.
+    std::string Kind;     ///< Native source category, including weather.
+    std::string Id;       ///< Stable source dataset identity.
+    std::string Revision; ///< Declared source pin, possibly empty for shipped defaults.
+    std::string Key;      ///< Opaque fingerprint of dataset, endpoint, pin and format.
+    int Priority = 0;     ///< Source order within its kind; lower is queried first.
+    std::uint64_t TileDeliveries =
+        0; ///< Completed requests, including whole payloads, repeats and cache hits.
   };
 
   std::vector<UsedSource> Sources; ///< Used sources only; bounded by registered source count.
@@ -130,6 +131,7 @@ struct Roots {
       AssetCache; ///< Persistent native asset directory; empty disables prepared-asset storage.
 };
 
+struct WeatherSnapshot;
 class Engine;
 
 /// Move-only capture lock over one Engine's published render state.
@@ -366,6 +368,14 @@ public:
   /// @param required Required near-contact or complete visual-coverage quality.
   /// @return True only when every readiness component for that quality is complete.
   [[nodiscard]] bool settled(WorldQuality required = WorldQuality::Playable) const;
+  /// Return the owned immutable weather selected at the resolved declaration UTC.
+  /// No source or an absent exact source time returns an empty shared pointer;
+  /// unknown fields remain optional inside a present snapshot. Does not round time,
+  /// start IO, wait or apply the currently unsupported Clock::Rate.
+  /// Serialize with Engine calls. A returned snapshot outlives later declarations
+  /// and Engine destruction. Requires assembling the current declaration.
+  /// @return Snapshot, empty selection, or an owned pending/setup/source/decode error.
+  [[nodiscard]] Holds<std::shared_ptr<const WeatherSnapshot>> weather() const;
   /// Describe the work still blocking settled(required), without waiting or changing state.
   /// Returns an owned empty string when settled; may allocate. Serialize with Engine mutations.
   /// @param required Required near-contact or complete visual-coverage quality.

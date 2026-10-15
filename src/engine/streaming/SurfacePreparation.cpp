@@ -98,6 +98,41 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
                               LogSink *diagnostics,
                               double patienceS,
                               const Data::ProviderRegistry *registry) {
+  const auto position = Generators::Osm::OsmField::Locate(focus, kFineZoom);
+  if (!position) {
+    say.Refuse(std::string(position.error()));
+    return false;
+  }
+  const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
+  if (!config) {
+    say.Refuse(std::string(config.error()));
+    return false;
+  }
+  Data::ProviderRegistry defaults;
+  if (registry == nullptr) { Generators::RegisterShippedProviders(defaults); }
+  auto sources = Data::SourceSession::Open({.Directory = under.Cache},
+                                           providers,
+                                           under.Shipped,
+                                           registry != nullptr ? *registry : defaults);
+  if (!sources) {
+    say.Refuse(sources.error());
+    return false;
+  }
+  return OpenSession(under, std::move(*sources), focus, wire, compute, say, diagnostics, patienceS);
+}
+
+bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
+                                     std::shared_ptr<Data::SourceSession> session,
+                                     LongitudeLatitude focus,
+                                     Data::Transport &wire,
+                                     Tasks &compute,
+                                     Sink &say,
+                                     LogSink *diagnostics,
+                                     double patienceS) {
+  if (!session) {
+    say.Refuse("surface preparation requires configured sources");
+    return false;
+  }
   const auto position = ::outshine::Generators::Osm::OsmField::Locate(focus, kFineZoom);
   if (!position) {
     say.Refuse(std::string(position.error()));
@@ -109,21 +144,8 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
     return false;
   }
   Close();
-  outshine::Data::ContentStore::Config keeping;
-  keeping.Directory = under.Cache;
-  Store_ = std::make_unique<outshine::Data::ContentStore>(keeping);
-  Sources_ = std::make_unique<outshine::Data::SourceSet>(*Store_);
-  outshine::Data::SourceSet &sources = *Sources_;
-  std::string refused;
-  Data::ProviderRegistry defaults;
-  if (registry == nullptr) { Generators::RegisterShippedProviders(defaults); }
-  const bool registered = outshine::Data::RegisterSources(
-      sources, providers, under.Shipped, refused, registry != nullptr ? *registry : defaults);
-  if (!registered) {
-    say.Refuse(refused);
-    Close();
-    return false;
-  }
+  Sources_ = std::move(session);
+  auto &sources = Sources_->Sources();
   for (size_t at = 0; at < sources.Count(); ++at) {
     const auto &decl = sources.At(at).Declaration();
     if (decl.Kind != Data::DataKind::VectorMap) { continue; }
@@ -202,7 +224,6 @@ void SurfacePreparation::Close() {
   WaterMode_ = WaterMode::Immediate;
   LandingCursor_ = {};
   Sources_.reset();
-  Store_.reset();
   HasVectorSource_ = false;
   VectorZoom_ = kFineZoom;
   VectorSchema_ = Generators::Osm::MvtSchema::Shortbread;
@@ -215,8 +236,8 @@ void SurfacePreparation::Close() {
 int SurfacePreparation::FinestZoomOf(Data::DataKind kind) const {
   int finest = 0;
   if (!Sources_) { return finest; }
-  for (size_t at = 0; at < Sources_->Count(); ++at) {
-    const Data::SourceDecl &decl = Sources_->At(at).Declaration();
+  for (size_t at = 0; at < Sources_->Sources().Count(); ++at) {
+    const Data::SourceDecl &decl = Sources_->Sources().At(at).Declaration();
     if (decl.Kind != kind) { continue; }
     const int zoom = kind == Data::DataKind::Elevation && decl.How == Data::Scheme::GeographicCell
                          ? kGeographicTerrainRenderZoom
