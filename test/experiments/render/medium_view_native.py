@@ -158,6 +158,14 @@ def main():
     negative.mkdir(exist_ok=True)
     controls = (
         (
+            "depth-cancellation",
+            "mediumView.glsl",
+            "  float delta = fragment.z - frame.OrthoProjection.w;\n  float alongViewM = (depth.x - delta * depth.y) / (depth.z + delta * depth.w);",
+            "  float foldedA = depth.x + frame.OrthoProjection.w * depth.y;\n  float foldedC = depth.z - frame.OrthoProjection.w * depth.w;\n  float alongViewM = (foldedA - fragment.z * depth.y) / (foldedC + fragment.z * depth.w);",
+            1,
+            "actual native fragment rays match independently projected world geometry",
+        ),
+        (
             "geometry",
             "mediumView.glsl",
             "  vec3 offsetKm = offsetM * 0.001;",
@@ -226,7 +234,11 @@ def main():
     record["sha256"] = {str(path): digest(path) for path in dependencies}
     record["captures_sha256"] = {
         str(path): digest(path)
-        for name in ("actual", "repeat", "negative-geometry", "negative-opaque")
+        for name in (
+            "actual",
+            "repeat",
+            *(f"negative-{control[0]}" for control in controls),
+        )
         for path in output.glob(name + ".*")
         if path.suffix in (".geometry", ".opaque", ".reference")
     }

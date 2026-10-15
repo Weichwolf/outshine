@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   auto device = Require(CreateDevice({.Validation = true}));
   std::println("device={} geometry_frames={} opaque_frames={}",
                device->Limits().Name,
-               Scenarios().size(),
+               GeometryScenarios().size(),
                2 * Scenarios().size() + 3);
   const auto geometry = Pipeline(*device, argv[1], argv[2], 3);
   const auto opaque = Pipeline(*device, argv[3], argv[4], 1);
