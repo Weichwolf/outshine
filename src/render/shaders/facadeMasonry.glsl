@@ -40,9 +40,12 @@ float facadeMasonryField(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float storey
   return clamp(field / 16.0, -0.16 * wall, 0.84 * wall);
 }
 
-vec3 facadeMasonryAmplitude(vec3 albedo) {
+vec3 facadeMasonryAmplitude(vec3 albedo, vec3 coatingAmplitude) {
   vec3 desired = (vec3(0.48, 0.46, 0.42) - albedo) / 0.84;
-  vec3 positive = min(albedo / 0.16, (vec3(1.0) - albedo) / 0.84);
-  vec3 negative = min(albedo / 0.84, (vec3(1.0) - albedo) / 0.16);
+  const float roundoffRoom = 1.0 - 1.0 / 524288.0;
+  vec3 low = max(albedo - 0.5 * coatingAmplitude, vec3(0.0)) * roundoffRoom;
+  vec3 high = max(vec3(1.0) - albedo - 0.5 * coatingAmplitude, vec3(0.0)) * roundoffRoom;
+  vec3 positive = min(low / 0.16, high / 0.84);
+  vec3 negative = min(low / 0.84, high / 0.16);
   return clamp(desired, -max(negative, vec3(0.0)), max(positive, vec3(0.0)));
 }

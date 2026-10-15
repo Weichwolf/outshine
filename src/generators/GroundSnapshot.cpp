@@ -26,7 +26,6 @@ std::shared_ptr<const GroundTable> TableOf(const outshine::Ground::VegetationTem
       table[at].Surface.BaseColour[channel] = rows[at].Ground[channel];
     }
     table[at].Surface.Roughness = rows[at].Ground[3];
-    table[at].SlopeMaxDeg = rows[at].Edge[3];
   }
   return GroundTable::Of(std::span<const GroundTable::Row>(table.data(), table.size()));
 }

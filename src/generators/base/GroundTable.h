@@ -10,7 +10,6 @@
 namespace outshine::Generators {
 
 constexpr float kFrictionUnsaid = 0.6f;
-constexpr float kSlopeMaxUnsaidDeg = 90.0f;
 
 class GroundTable {
 public:
@@ -18,8 +17,6 @@ public:
     Material Surface;
 
     float FrictionMu = kFrictionUnsaid;
-
-    float SlopeMaxDeg = kSlopeMaxUnsaidDeg;
   };
 
   static std::shared_ptr<const GroundTable> Of(std::span<const Row> rows);
