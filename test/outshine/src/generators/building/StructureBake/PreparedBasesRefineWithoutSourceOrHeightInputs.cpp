@@ -36,6 +36,8 @@ RawTile Inputs() {
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);
   const Ground::GeoBounds region{
       .MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.02, .MaxLatDeg = 47.02};
+  constexpr std::array facades{
+      FacadeStyle::Commercial, FacadeStyle::Institutional, FacadeStyle::Religious};
   for (uint32_t index = 0; index < 3; ++index) {
     const double lon = 9.001 + static_cast<double>(index) * 0.002;
     const std::array ring{47.001, lon, 47.001, lon + 0.0002, 47.0012, lon + 0.0002, 47.0012, lon};
@@ -50,7 +52,8 @@ RawTile Inputs() {
                               .Cell = *cell,
                               .HeightM = index == 0 ? 0.0 : 12.0,
                               .MinimumHeightM = index == 2 ? 3.0 : 0.0,
-                              .Pitched = 0});
+                              .Pitched = 0,
+                              .Facade = facades[index]});
   }
   raw.Ways.push_back({.LocalFirst = static_cast<uint32_t>(raw.LatLon.size() / 2),
                       .PointCount = 2,

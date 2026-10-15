@@ -88,5 +88,19 @@ int main() {
                                        return part.FloorM > 0 && std::isfinite(part.FloorM);
                                      }),
         "a thin raised roof retains valid opening coordinates");
+  for (const auto style : {FacadeStyle::Commercial,
+                           FacadeStyle::Institutional,
+                           FacadeStyle::Hall,
+                           FacadeStyle::Religious}) {
+    roofOnly.Facade = style;
+    const auto classified = PrepareBuildingShapes(roofOnly, scratch);
+    CHECK(classified && classified->size() == 1 && classified->front().TopM() == 20.1 &&
+              classified->front().OpeningStyle == style,
+          "supplied facade rhythms preserve raised thin building heights");
+  }
+  roofOnly.Facade = static_cast<FacadeStyle>(kStyleCount);
+  const auto invalid = PrepareBuildingShapes(roofOnly, scratch);
+  CHECK(!invalid && invalid.error() == StructureMeshError::InvalidPlan,
+        "direct surface preparation rejects an invalid style before indexing the shared table");
   return Report();
 }

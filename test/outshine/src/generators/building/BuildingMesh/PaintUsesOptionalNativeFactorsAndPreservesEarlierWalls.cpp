@@ -35,7 +35,8 @@ int main() {
     const auto uv = result.WallCorners[at].uv();
     if (uv[0] < 0.0f) { continue; }
     ++painted;
-    CHECK(std::floor(uv[0] / 256.0f) < 24.0f, "supplied paint replaces the fallback palette");
+    CHECK(std::floor(uv[0] / kBayCeil) < static_cast<float>(kStyleCount * kFieldsCount),
+          "supplied paint replaces the fallback palette");
     for (size_t channel = 0; channel < 3; ++channel) {
       CHECK_NEAR(result.WallColours[at * 4 + channel] * kBuildingWallColour[channel],
                  (*plan.WallColour)[channel],

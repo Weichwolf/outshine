@@ -1,8 +1,10 @@
 #include "FacadeOpeningValues.h"
 
-float facadeOpeningCoverage(float bay, float storey, float bayWidth, float storeyWidth) {
-  float column = periodicBand(fract(bay), kOpeningLowU, kOpeningHighU, bayWidth);
-  float row = periodicBand(fract(storey), kOpeningLowV, kOpeningHighV, storeyWidth);
+float facadeOpeningCoverage(vec2 fractions, float bay, float storey, float bayWidth, float storeyWidth) {
+  float column = periodicBand(fract(bay), (1.0f - fractions.x) * 0.5f,
+                              (1.0f + fractions.x) * 0.5f, bayWidth);
+  float row = periodicBand(fract(storey), (1.0f - fractions.y) * 0.5f,
+                           (1.0f + fractions.y) * 0.5f, storeyWidth);
   return column * row;
 }
 
@@ -11,10 +13,14 @@ struct FacadeGlazing {
   float roughness;
 };
 
-float facadePaneCoverage(float bay, float storey, float bayWidth, float storeyWidth) {
-  float left = periodicBand(fract(bay), kPaneLowU, kMullionLowU, bayWidth);
-  float right = periodicBand(fract(bay), kMullionHighU, kPaneHighU, bayWidth);
-  float row = periodicBand(fract(storey), kPaneLowV, kPaneHighV, storeyWidth);
+float facadePaneCoverage(vec2 fractions, float bay, float storey, float bayWidth, float storeyWidth) {
+  if (fractions.x <= 2.0f * kPaneInset || fractions.y <= 2.0f * kPaneInset) { return 0.0f; }
+  float left = periodicBand(fract(bay), (1.0f - fractions.x) * 0.5f + kPaneInset,
+                            kMullionLowU, bayWidth);
+  float right = periodicBand(fract(bay), kMullionHighU,
+                             (1.0f + fractions.x) * 0.5f - kPaneInset, bayWidth);
+  float row = periodicBand(fract(storey), (1.0f - fractions.y) * 0.5f + kPaneInset,
+                           (1.0f + fractions.y) * 0.5f - kPaneInset, storeyWidth);
   return (left + right) * row;
 }
 

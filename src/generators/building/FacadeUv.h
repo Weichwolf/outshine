@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include "FacadeProfiles.h"
 
 namespace outshine {
 
@@ -21,21 +22,9 @@ enum class Facade : int {
   Glass = 11
 };
 
-enum class FacadeStyle : int {
-  Outbuilding = 0,
-  House = 1,
-  Terrace = 2,
-  Block = 3,
-  Hall = 4,
-  Tower = 5,
-  Spire = 6,
-  Glazing = 7
-};
-
-enum class Fields : int { Back = 0, Front = 1, Entrance = 2 };
+enum class Fields : int { Back = 0, Pane = 1, Entrance = 2 };
 
 constexpr float kBayCeil = 256.0f;
-constexpr int kStyleCount = 8;
 constexpr int kFieldsCount = 3;
 constexpr int kFacadeVariants = 8;
 
@@ -51,7 +40,9 @@ constexpr int kIdentCount = 64;
 
 [[nodiscard]] constexpr bool IsGlazingUv(float u) {
   return u >= 0.0f &&
-         static_cast<int>(u / kBayCeil) % kStyleCount == static_cast<int>(FacadeStyle::Glazing);
+         (static_cast<int>(u / kBayCeil) % kStyleCount == static_cast<int>(FacadeStyle::Glazing) ||
+          static_cast<int>(u / (kBayCeil * kStyleCount)) % kFieldsCount ==
+              static_cast<int>(Fields::Pane));
 }
 
 [[nodiscard]] constexpr float FacadeUvX(FacadeStyle style, Fields standing, int ident, float bay) {
