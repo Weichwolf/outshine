@@ -9,12 +9,12 @@ def pinna_pattern(seed):
     return PinnatePattern(
         seed=seed,
         length=1,
-        pairs=6,
-        leaflet_length=0.21,
-        aspect=0.25,
-        angle=1.1,
-        first=0.08,
-        last=0.94,
+        pairs=11,
+        leaflet_length=0.32,
+        aspect=0.45,
+        angle=1.2,
+        first=0.04,
+        last=0.97,
         variance=0.04,
         leaflet_shape=LeafletShape(
             bend=Profile(np.full(4, 0.12)),
