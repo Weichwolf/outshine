@@ -165,6 +165,23 @@ void CheckCapture(Finish finish) {
   CheckCurrentLighting(*card);
 }
 
+bool PureMasonryPane(const Content::ImpostorAtlas::View &view, size_t at, size_t pixels) {
+  constexpr float kCapturedPaneRoughness = .1199951171875f;
+  const size_t row = at / pixels;
+  const size_t column = at % pixels;
+  if (row == 0 || column == 0 || row + 1 >= pixels || column + 1 >= pixels) { return false; }
+  for (size_t y = row - 1; y <= row + 1; ++y) {
+    for (size_t x = column - 1; x <= column + 1; ++x) {
+      const size_t neighbour = y * pixels + x;
+      if (view.Texels[neighbour].Surface == 0 ||
+          view.Materials[neighbour].Roughness != kCapturedPaneRoughness) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void CheckMasonry() {
   using namespace outshine::Test;
   Geometry source = Fixture(Finish::Facade);
@@ -174,7 +191,6 @@ void CheckMasonry() {
   constexpr std::array<float, 6> kMetres{.03f, .01f, 1.03f, .01f, .53f, 1.01f};
   constexpr int kPixels = 129;
   constexpr float kVisibleDelta = .01f;
-  constexpr float kCapturedPaneRoughness = .1199951171875f;
   CHECK(source.setTexture(0, kFacadeUv) && source.setTexture(0, kMetres, 1),
         "capture fixture has independent facade metadata and physical UV1");
   const auto bake = [](Geometry mesh, SurfacePattern pattern) {
@@ -201,21 +217,6 @@ void CheckMasonry() {
   CHECK(a.Materials.size() == b.Materials.size() && a.Texels.size() == b.Texels.size(),
         "material mode preserves capture shape");
   if (a.Materials.size() != b.Materials.size() || a.Texels.size() != b.Texels.size()) { return; }
-  const auto purePane = [&](size_t at) {
-    const size_t row = at / kPixels;
-    const size_t column = at % kPixels;
-    if (row == 0 || column == 0 || row + 1 >= kPixels || column + 1 >= kPixels) { return false; }
-    for (size_t y = row - 1; y <= row + 1; ++y) {
-      for (size_t x = column - 1; x <= column + 1; ++x) {
-        const size_t neighbour = y * kPixels + x;
-        if (a.Texels[neighbour].Surface == 0 ||
-            a.Materials[neighbour].Roughness != kCapturedPaneRoughness) {
-          return false;
-        }
-      }
-    }
-    return true;
-  };
   size_t changed = 0;
   size_t panes = 0;
   float worst = 0;
@@ -228,7 +229,7 @@ void CheckMasonry() {
     const float delta = std::abs(old.BaseColour[2] - now.BaseColour[2]);
     worst = std::max(worst, delta);
     changed += delta > kVisibleDelta ? 1u : 0u;
-    if (purePane(at)) {
+    if (PureMasonryPane(a, at, kPixels)) {
       ++panes;
       CHECK(old.BaseColour == now.BaseColour && old.Roughness == now.Roughness,
             "resolved pure glass remains exact during metre-aware material capture");

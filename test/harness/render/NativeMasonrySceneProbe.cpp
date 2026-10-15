@@ -15,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -153,7 +154,7 @@ int main(int argc, char **argv) {
   Fixture fixture{};
   std::ifstream input(argv[1], std::ios::binary | std::ios::ate);
   const std::streamoff bytes = input.tellg();
-  CHECK(input && bytes == static_cast<std::streamoff>(sizeof(fixture)),
+  CHECK(input && std::cmp_equal(bytes, sizeof(fixture)),
         "actual source/cache fixture has its exact native layout");
   input.seekg(0);
   input.read(reinterpret_cast<char *>(&fixture), sizeof(fixture));
