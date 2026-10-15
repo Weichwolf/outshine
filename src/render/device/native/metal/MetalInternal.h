@@ -142,6 +142,19 @@ struct TrackedResource {
   Access Usage;
 };
 
+struct AttachmentState {
+  id<MTLTexture> Native;
+  Format Texels;
+  uint32_t Mip, Layer, Width, Height;
+};
+
+struct RenderState {
+  id<MTLRenderCommandEncoder> Encoder;
+  std::vector<AttachmentState> Colours;
+  std::optional<AttachmentState> Depth;
+  uint32_t Width = 0, Height = 0;
+};
+
 class MetalCommands final : public Commands {
 public:
   MetalCommands(uint64_t device,
@@ -161,6 +174,8 @@ public:
   Result<void> Dispatch(const ComputePipeline &pipeline,
                         std::span<const Binding> bindings,
                         Workgroups groups) override;
+  Result<void> BeginRenderPass(const RenderPassDescription &description) override;
+  Result<void> EndRenderPass() override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
@@ -174,6 +189,7 @@ private:
   std::vector<Reservation> Held;
   std::shared_ptr<CommandPermit> Permit;
   id<MTLComputeCommandEncoder> Compute = nil;
+  std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
 
   void UpdateAccesses(std::span<const DispatchArgument> arguments);
