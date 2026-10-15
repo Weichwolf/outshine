@@ -2,8 +2,10 @@
 
 Events are ordered from eye to background. Surface radiance excludes transmitted
 background, is coverage-premultiplied, and uses the same units as air radiance.
-Surface RGB transmittance includes uncovered area. Prefixes contain clear air
-only, without surface attenuation. No refraction, angular mixing or motion model.
+Surface RGB transmittance includes uncovered area. Prefixes contain all media
+before the surface, without surface attenuation. Clear air alone is insufficient
+when foreground clouds or fog contribute. No refraction, angular mixing or motion
+model; constructing a converged joint medium is a separate requirement.
 """
 
 import argparse
@@ -117,11 +119,34 @@ def run_checks():
     eye = front_l + front_t * 0.8
     collapsed_then_fogged = front_l + front_t * eye
     assert abs(collapsed_then_fogged - eye) / eye > 0.06
+    postfog_example = {'background_eye': eye,
+                       'incorrect_result': collapsed_then_fogged,
+                       'relative_identity_error': abs(collapsed_then_fogged - eye) / eye}
+    # A coloured surface must not tint light emitted by foreground clouds.
+    sigma_air = np.array([0.1, 0.2, 0.3])
+    sigma_cloud = np.array([0.8, 0.7, 0.6])
+    j_air = np.array([0.02, 0.03, 0.04])
+    j_cloud = np.array([0.2, 0.3, 0.4])
+    joint_sigma = sigma_air + sigma_cloud
+    joint_t = np.exp(-joint_sigma)
+    joint_l = (j_air + j_cloud) * -np.expm1(-joint_sigma) / joint_sigma
+    clear_t = np.exp(-sigma_air)
+    clear_l = j_air * -np.expm1(-sigma_air) / sigma_air
+    intrinsic = np.array([0.8, 0.3, 0.1])
+    eye = joint_l + joint_t * intrinsic
+    surface = np.zeros(3)
+    surface_t = np.array([0.4, 0.8, 0.1])
+    correct = compose_events(eye, [joint_l], [joint_t], [surface], [surface_t])
+    local = joint_l + joint_t * (surface + surface_t * intrinsic)
+    np.testing.assert_allclose(correct, local, rtol=2e-13, atol=2e-13)
+    clear_only = compose_events(eye, [clear_l], [clear_t], [surface], [surface_t])
+    clear_front_error = float(np.max(np.abs(clear_only - local)))
+    assert clear_front_error > 0.1
+    cases += 1
     return {'cases': cases, 'max_absolute_rgb_error': worst,
             'neutral_identity': 'exact', 'division_by_air_transmittance': False,
-            'old_postpass_counterexample': {
-                'background_eye': eye, 'incorrect_result': collapsed_then_fogged,
-                'relative_identity_error': abs(collapsed_then_fogged - eye) / eye},
+            'old_postpass_counterexample': postfog_example,
+            'clear_only_front_with_cloud_max_absolute_error': clear_front_error,
             'scope': 'Affine RGB layer algebra; no raster/depth/velocity/Place proof'}
 
 
