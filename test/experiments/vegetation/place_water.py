@@ -8,20 +8,38 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.places import decode_vector, tile_geography
 
 
+def source_regions(receipts):
+    tiles = {tuple(r["tile"]) for r in receipts if r["kind"] == "vector"}
+    boxes = {
+        tile: shapely.box(
+            x / (1 << z), y / (1 << z), (x + 1) / (1 << z), (y + 1) / (1 << z)
+        )
+        for tile in tiles
+        for z, x, y in (tile,)
+    }
+    higher = {
+        z: shapely.union_all([shape for tile, shape in boxes.items() if tile[0] > z])
+        for z in {tile[0] for tile in tiles}
+    }
+    return {tile: shape.difference(higher[tile[0]]) for tile, shape in boxes.items()}
+
+
 def water(camera, elevation, receipts):
     vertices, faces, records, rejected = [], [], [], []
+    regions = source_regions(receipts)
     offset = 0
     for receipt in receipts:
         if receipt["kind"] != "vector":
             continue
         layer = decode_vector(receipt).get("water", {})
         extent = layer.get("extent", 4096)
+        zoom, x, y = receipt["tile"]
+        region = shapely.transform(
+            regions[tuple(receipt["tile"])],
+            lambda p, z=zoom, xy=(x, y), e=extent: (p * (1 << z) - xy) * e,
+        )
         for ordinal, feature in enumerate(layer.get("features", ())):
             kind = feature["properties"].get("class")
-            if (receipt["tile"][0] == 8 and kind not in ("lake", "ocean", "river")) or (
-                receipt["tile"][0] == 14 and kind != "pond"
-            ):
-                continue
             identifier = f"{receipt['tile']}/water/{feature.get('id')}/{ordinal}"
             geometry = shapely.from_geojson(json.dumps(feature["geometry"]))
             if not geometry.is_valid or geometry.geom_type not in (
@@ -30,6 +48,21 @@ def water(camera, elevation, receipts):
             ):
                 rejected.append(
                     {"id": identifier, "reason": "invalid/unsupported water polygon"}
+                )
+                continue
+            geometry = shapely.union_all(
+                [
+                    p
+                    for p in shapely.get_parts(geometry.intersection(region))
+                    if p.geom_type in ("Polygon", "MultiPolygon")
+                ]
+            )
+            if geometry.is_empty:
+                rejected.append(
+                    {
+                        "id": identifier,
+                        "reason": "outside tile or superseded by finer vector coverage",
+                    }
                 )
                 continue
             center = np.asarray(geometry.representative_point().coords)
@@ -78,5 +111,5 @@ def water(camera, elevation, receipts):
     ), {
         "sources": records,
         "rejected": rejected,
-        "limits": "Initial unconnected source water polygons at one representative DEM height (ocean zero), curvature retained. No hydrological/shoreline, transport or native water admission. Fine source pools omitted; coarse far lake shapes can differ from near source detail.",
+        "limits": "Finest supplied vector tile owns water coverage, including fine lakes; coarse polygons are clipped outside finer tile footprints. One representative DEM height per source fragment (ocean zero), curvature retained. No hydrological/shoreline, transport or native water admission; cross-tile water levels remain unconnected.",
     }
