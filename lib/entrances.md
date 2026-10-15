@@ -37,6 +37,12 @@ procedural assumptions; no measured OSM entrance or complete room programme.
 Exactly one ground-row cell changes kind. All other opening axes stay in place.
 Where real recesses are demanded, bounded repeat subranges exclude that cell;
 otherwise at most three planar rectangles preserve the existing repeat UVs.
+On rising/gabled source walls, only the one cell is subtracted from original
+triangles with GEOS; remaining upper wall shapes and repeat UVs are retained.
+Coverage must be exactly once within the existing1e−7m² area tolerance.
+Tiny fragments whose UV determinant is unusable are counted and bounded by
+that same area tolerance. A pinned actual Paris shed/entry replay checks this
+case independently; it does not fabricate provider frontage evidence.
 The near cell uses the through slab, existing U-shaped casing and
 `DoorLeaf`/local leaf template, plus simple arrival floor/ceiling and landing.
 The leaf hinge uses the actual0.24m inner wall face. Angle is separate render

@@ -65,9 +65,7 @@ def selection(triangles, normals, frame, bottom):
         )[:, 2].sum()
         / 2
     )
-    if abs(area - frame["width_m"] * frame["height_m"]) > 1e-7:
-        raise ValueError("cell capacity or non-rectangular facade")
-    return selected, basis
+    return selected, basis, abs(area - frame["width_m"] * frame["height_m"]) <= 1e-7
 
 
 def window_parts(
@@ -185,13 +183,24 @@ def attach(
     normals /= np.linalg.norm(normals, axis=1, keepdims=True)
     bottom, remaining = parameters["minHeight"], max_cells
     for frame, request, entry in requests:
-        try:
-            selected, _ = selection(triangles, normals, frame, bottom)
-        except ValueError as error:
-            rejected.append({"id": frame["id"], "reason": str(error)})
+        selected, _, rectangular = selection(triangles, normals, frame, bottom)
+        if not rectangular and not entry:
+            rejected.append(
+                {"id": frame["id"], "reason": "cell capacity or non-rectangular facade"}
+            )
             continue
         parts, count = [], 0
-        if request is not None:
+        dropped = 0.0
+        if not rectangular:
+            from facade_entry_clip import remainder
+
+            try:
+                retained, dropped = remainder(mesh, selected, entry)
+                parts.append(retained)
+            except ValueError as error:
+                rejected.append({"id": frame["id"], "reason": str(error)})
+                continue
+        elif request is not None:
             try:
                 parts, count = window_parts(
                     frame,
@@ -220,6 +229,10 @@ def attach(
                     "facade_id": frame["id"],
                     "cell": [entry["column"], 0],
                     "mode": mode,
+                    "remainder": "repeat-rectangle"
+                    if rectangular
+                    else "preserved-source",
+                    "dropped_area_m2": dropped,
                     "cells": 0,
                     "angle_deg": entry["angle_deg"],
                     "triangles": sum(len(p["faces"]) for p in added),

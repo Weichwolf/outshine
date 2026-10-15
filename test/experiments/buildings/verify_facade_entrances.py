@@ -1,7 +1,9 @@
 """Actual source entrances retain cells, independent states and whole arrival clearance."""
 
 import copy
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -29,6 +31,76 @@ def plan(row, facades, p, angle=0.0, neighbors=()):
 
 
 class FacadeEntrances(unittest.TestCase):
+    def test_actual_shed_keeps_rising_wall_and_uvs_around_prepared_entry(self):
+        saved = json.loads(
+            Path(__file__).with_name("data").joinpath("entrance-shed.json").read_text()
+        )
+        row = {k: saved[k] for k in ("id", "properties", "context")}
+        row.update(polygon=shapely.from_wkb(saved["footprint_wkb"]), clipped=False)
+        mesh, frames, p = source_facades(row)
+        raw = saved["entrance_plan"]
+        frame = next(f for f in frames if f["id"] == raw["facade_id"])
+        e = {
+            "id": raw["id"],
+            "frame": frame,
+            "column": raw["cell"][0],
+            "cell_width_m": frame["width_m"] / frame["columns"],
+            "floor_m": frame["height_m"] / frame["rows"],
+            "interior": shapely.from_wkb(raw["arrival_space_wkb"]),
+            "angle_deg": 90.0,
+            "floor_z_m": 0.16,
+            "wall_depth_m": 0.24,
+            "door": {
+                "centre": raw["centre"],
+                "tangent": raw["tangent"],
+                "height_m": raw["height_m"],
+                "landing": shapely.from_wkb(raw["landing_wkb"]),
+            },
+        }
+        out, records, rejected = attach(
+            mesh,
+            row,
+            p,
+            frames,
+            camera(frame, 25),
+            lambda: 32769,
+            32768,
+            plain_wall_material=1,
+            entrance=e,
+        )
+        record = next(r for r in records if r.get("kind") == "entrance")
+        self.assertEqual(record["remainder"], "preserved-source", rejected)
+        self.assertLessEqual(record["dropped_area_m2"], 1e-7)
+        from facade_entry_geometry import basis_for
+
+        basis = basis_for(frame)
+        origin = np.r_[frame["a"], 0.0]
+
+        def front_surface(data):
+            world = data["vertices"][data["faces"]]
+            local = (world - origin) @ basis.T
+            normals = np.cross(world[:, 1] - world[:, 0], world[:, 2] - world[:, 0])
+            normals /= np.linalg.norm(normals, axis=1, keepdims=True)
+            selected = (abs(local[:, :, 2]).max(axis=1) < 1e-7) & (
+                normals @ basis[2] > 0.999999
+            )
+            return shapely.union_all(
+                [shapely.Polygon(t[:, :2]) for t in local[selected]]
+            )
+
+        centre = (e["column"] + 0.5) * e["cell_width_m"]
+        hole = shapely.box(centre - 0.55, 0.16, centre + 0.55, 2.31)
+        self.assertLess(
+            front_surface(out)
+            .symmetric_difference(front_surface(mesh).difference(hole))
+            .area,
+            1e-7,
+        )
+        from blender_city_mesh import cell_sizes
+
+        self.assertTrue(np.isfinite(cell_sizes(out, (32768, 32769))).all())
+        self.assertEqual(out["vertices"][:, 2].max(), mesh["vertices"][:, 2].max())
+
     def test_inside_arrival_keeps_floor_and_door_bundle_when_looking_away(self):
         row = sources()[1]
         _, f, p = source_facades(row)

@@ -87,6 +87,14 @@ def benchmark():
                     ),
                     "tracemalloc_peak_bytes": peak,
                     "solid_difference_m3": difference,
+                    "explicit_position_arrays": 17 if name == "direct" else None,
+                    "explicit_position_materialized_bytes": 2 * 16 * 4 * 3 * 8
+                    if name == "direct"
+                    else None,
+                    "explicit_position_stack_copied_bytes": 16 * 4 * 3 * 8
+                    if name == "direct"
+                    else None,
+                    "backend_allocations_and_copies": None,
                     "work": "16 fixed quads, no boolean/topology backend"
                     if name == "direct"
                     else "2 prism meshes, 1 union, 1 difference; backend allocation work uninstrumented",
