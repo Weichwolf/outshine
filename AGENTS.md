@@ -89,6 +89,9 @@
   Bild, Kosten und Verträge und entscheide, ohne auf Lösungsvorschläge des Nutzers zu warten.
 - Kostenbestimmende Verfahren vergleiche ich zuerst in kleinen Python-Experimenten mit echten
   Eingaben und gleichen Qualitätsanforderungen; den Gewinner integriere und messe ich nativ.
+  Kostenbelege erfassen auch bearbeitete Elemente/Rechenschritte, Allokationen, kopierte Bytes und
+  Peak-Speicher, nicht nur Laufzeit/FPS. Hardwareübergreifende Arbeitsersparnis und tatsächliche
+  Gerätezeiten getrennt belegen; Speicherzugriffe und Lokalität gehören zum Kostenmodell.
   Beibehaltene Pfade brauchen Korrektheits-/Kostenbelege und Alternativenvergleich; globale
   Optimalität behaupte ich nur mit einer tatsächlich hergeleiteten Grenze.
 - Vor Arbeitsblöcken, nach Integration und bei Regressionen durchdenke ich den vollständigen
