@@ -16,6 +16,58 @@ from tile_facades import project
 
 
 class FacadeFinishShaderControls(unittest.TestCase):
+    def test_opaque_band_colour_preserves_metallic_roughness_response(self):
+        mi.set_variant("llvm_ad_rgb")
+        dr.set_thread_count(2)
+        context = mi.BSDFContext()
+        si = mi.SurfaceInteraction3f()
+        si.wi = mi.Vector3f([0.2, 0.3, float(np.sqrt(0.87))])
+        si.sh_frame = mi.Frame3f(mi.Vector3f([0, 0, 1]))
+        samples = np.random.default_rng(245).random((128, 2))
+        outgoing = mi.warp.square_to_cosine_hemisphere(mi.Point2f(samples.T))
+        for roughness in (0.2, 0.68, 0.9):
+            for metallic in (0.0, 0.65, 1.0):
+                for tint in (0.0, 0.65, 1.0):
+                    for fraction in (0.0, 0.1, 0.5, 1.0):
+                        colour = np.array([0.7, 0.6, 0.5])
+                        base = {
+                            "type": "principled",
+                            "base_color": {"type": "rgb", "value": colour.tolist()},
+                            "roughness": roughness,
+                            "metallic": metallic,
+                        }
+                        band = base | {
+                            "base_color": {
+                                "type": "rgb",
+                                "value": (colour * tint).tolist(),
+                            }
+                        }
+                        mixed = mi.load_dict(
+                            {
+                                "type": "blendbsdf",
+                                "weight": fraction,
+                                "bsdf_0": base,
+                                "bsdf_1": band,
+                            }
+                        )
+                        combined = mi.load_dict(
+                            base
+                            | {
+                                "base_color": {
+                                    "type": "rgb",
+                                    "value": (
+                                        colour * (1 - fraction + fraction * tint)
+                                    ).tolist(),
+                                }
+                            }
+                        )
+                        np.testing.assert_allclose(
+                            np.asarray(mixed.eval(context, si, outgoing)),
+                            np.asarray(combined.eval(context, si, outgoing)),
+                            atol=1e-6,
+                            rtol=2e-6,
+                        )
+
     def test_actual_front_oblique_and_far_rays_match_metric_area_weights(self):
         mi.set_variant("llvm_ad_rgb")
         dr.set_thread_count(2)
@@ -58,7 +110,9 @@ class FacadeFinishShaderControls(unittest.TestCase):
             bsdf, _ = material(spec, config, wall)
             shape, _ = physical_mesh("wall", data, np.arange(len(data["faces"])), bsdf)
             scene = mi.load_dict({"type": "scene", "wall": shape})
-            ray = mi.Ray3f(mi.Point3f(eye), mi.Vector3f((points - np.asarray(eye)).T))
+            ray = mi.Ray3f(
+                mi.Point3f(eye), dr.normalize(mi.Vector3f((points - np.asarray(eye)).T))
+            )
             si = scene.ray_intersect(ray)
             self.assertTrue(bool(dr.all(si.is_valid())))
             outer = mi.load_dict(bsdf["weight"])
@@ -66,9 +120,9 @@ class FacadeFinishShaderControls(unittest.TestCase):
             glass = (
                 np.asarray(mi.load_dict(bsdf["bsdf_1"]["weight"]).eval_1(si)) * opening
             )
-            band = np.asarray(mi.load_dict(bsdf["bsdf_0"]["weight"]).eval_1(si)) * (
-                1 - opening
-            )
+            band = np.asarray(
+                mi.load_dict(bsdf["bsdf_0"]["base_color"]["weight"]).eval_1(si)
+            ) * (1 - opening)
             actual = np.column_stack([1 - opening - band, opening - glass, glass, band])
             scale = np.asarray(repeat.cell_size_m)
             centres = np.asarray(si.uv).T * scale
@@ -76,6 +130,22 @@ class FacadeFinishShaderControls(unittest.TestCase):
             expected = finish.coverage(repeat, centres, footprint)
             np.testing.assert_allclose(actual, expected, atol=2e-5, rtol=2e-5)
             np.testing.assert_allclose(actual.sum(axis=1), 1.0, atol=2e-7)
+            explicit, _ = material(
+                spec,
+                config
+                | {
+                    "facade_finishes": config["facade_finishes"]
+                    | {"explicit_band_reference": True}
+                },
+                wall,
+            )
+            context, outgoing = mi.BSDFContext(), mi.Vector3f([0, 0, 1])
+            np.testing.assert_allclose(
+                np.asarray(mi.load_dict(bsdf).eval(context, si, outgoing)),
+                np.asarray(mi.load_dict(explicit).eval(context, si, outgoing)),
+                atol=1e-6,
+                rtol=2e-5,
+            )
         for key in data:
             np.testing.assert_array_equal(data[key], snapshot[key])
 

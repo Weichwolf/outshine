@@ -82,10 +82,12 @@ def run(output):
         "denoise": True,
     }
     reports = {}
-    for name in ("baseline", "finished"):
+    for name in ("baseline", "finished", "finished-reference"):
         current = config | {"output": str((output / (name + ".png")).resolve())}
-        if name == "finished":
+        if name != "baseline":
             current["facade_finishes"] = default_finish()
+            if name == "finished-reference":
+                current["facade_finishes"]["explicit_band_reference"] = True
         scene = output / (name + "-scene.json")
         scene.write_text(json.dumps(current, indent=2) + "\n")
         with (output / (name + ".log")).open("w") as stream:
@@ -101,9 +103,10 @@ def run(output):
                 check=True,
             )
         reports[name] = json.loads((output / (name + ".renderer.json")).read_text())
-    if (
-        reports["baseline"]["projection"] != reports["finished"]["projection"]
-        or reports["baseline"]["mesh_sha256"] != reports["finished"]["mesh_sha256"]
+    if any(
+        reports["baseline"]["projection"] != report["projection"]
+        or reports["baseline"]["mesh_sha256"] != report["mesh_sha256"]
+        for report in reports.values()
     ):
         raise ValueError("Surface control changed geometry or camera")
     (output / "verification.json").write_text(
