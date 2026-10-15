@@ -310,6 +310,12 @@ void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch
   CHECK(mesher.Mesh(plan, scratch, painted), "the explicitly painted source meshes");
   CHECK(painted.WallMaterialM.empty(),
         "explicit source colour retains priority over generated masonry");
+  plan.Facade = FacadeStyle::Glazing;
+  plan.WallColour.reset();
+  Raised glass;
+  CHECK(mesher.Mesh(plan, scratch, glass), "the explicit glazing source meshes");
+  CHECK(glass.WallMaterialM.empty(), "glazing does not acquire generated masonry metres");
+  plan.Facade = FacadeStyle::House;
   const size_t previous = painted.WallCorners.size();
   plan.Prepared = &source;
   plan.WallColour.reset();
