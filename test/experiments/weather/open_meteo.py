@@ -133,7 +133,7 @@ def horizontal_wind(speed, bearing):
     if bearing is None:
         return None
     angle = math.radians(bearing)
-    return [-speed * math.sin(angle), speed * math.cos(angle)]
+    return [-speed * math.sin(angle), -speed * math.cos(angle)]
 
 
 def sample_at(at, index, values):
@@ -145,7 +145,7 @@ def sample_at(at, index, values):
             value %= 360.0
         target = precipitation if field.previous_hour else sample
         target[field.target] = value
-    sample["wind_horizontal_10m_east_south_m_s"] = horizontal_wind(
+    sample["wind_horizontal_10m_east_north_m_s"] = horizontal_wind(
         sample["wind_speed_10m_m_s"], sample["wind_from_10m_deg"]
     )
     sample["precipitation_previous_hour"] = precipitation
@@ -182,7 +182,7 @@ def normalize(raw, receipt):
     if offset is not None and type(offset) is not int:
         raise ValueError("utc_offset_seconds: integer or unknown required")
     return {
-        "schema": "outshine.open-meteo.hourly-reference.v1",
+        "schema": "outshine.open-meteo.hourly-reference.v2",
         "source": {
             "provider": "open-meteo",
             "kind": "model_forecast",

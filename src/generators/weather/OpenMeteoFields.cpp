@@ -136,7 +136,7 @@ void Wind(HourlyWeather &hour) noexcept {
   } else if (hour.WindFrom10mDeg) {
     const double angle = *hour.WindFrom10mDeg * std::numbers::pi / kHalfCircleDeg;
     hour.Wind10m = HorizontalWind10m{.EastMs = -*hour.WindSpeed10mMs * std::sin(angle),
-                                     .SouthMs = *hour.WindSpeed10mMs * std::cos(angle)};
+                                     .NorthMs = -*hour.WindSpeed10mMs * std::cos(angle)};
   }
 }
 }
