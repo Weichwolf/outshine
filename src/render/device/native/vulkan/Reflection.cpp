@@ -1,5 +1,5 @@
 #ifdef __linux__
-#include "Pipeline.h"
+#include "Reflection.h"
 #include <utility>
 #include <string_view>
 #include <span>
@@ -14,29 +14,14 @@
 
 namespace outshine::Render::Native::Vulkan {
 
-namespace {
-
-struct Reflection {
-  spvc_context Owner = nullptr;
-  spvc_compiler Compiler = nullptr;
-  spvc_resources Resources = nullptr;
-
-  Reflection() = default;
-
-  ~Reflection() {
-    if (Owner != nullptr) { spvc_context_destroy(Owner); }
-  }
-
-  Reflection(const Reflection &) = delete;
-  Reflection &operator=(const Reflection &) = delete;
-};
-
 Error ReflectionError(const Reflection &reflection) {
   const auto *const text = reflection.Owner == nullptr
                                ? "cannot create SPIRV-Cross context"
                                : spvc_context_get_last_error_string(reflection.Owner);
   return {.Kind = ErrorKind::Invalid, .Message = text == nullptr ? "invalid SPIR-V" : text};
 }
+
+namespace {
 
 Result<void>
 ParseReflection(Reflection &reflection, std::span<const uint32_t> spirv, std::string_view entry) {
@@ -66,9 +51,7 @@ ParseReflection(Reflection &reflection, std::span<const uint32_t> spirv, std::st
           SPVC_SUCCESS) {
     return std::unexpected(ReflectionError(reflection));
   }
-  constexpr std::array unsupported = {SPVC_RESOURCE_TYPE_SAMPLED_IMAGE,
-                                      SPVC_RESOURCE_TYPE_STORAGE_IMAGE,
-                                      SPVC_RESOURCE_TYPE_SEPARATE_IMAGE,
+  constexpr std::array unsupported = {SPVC_RESOURCE_TYPE_SEPARATE_IMAGE,
                                       SPVC_RESOURCE_TYPE_SEPARATE_SAMPLERS,
                                       SPVC_RESOURCE_TYPE_PUSH_CONSTANT,
                                       SPVC_RESOURCE_TYPE_SUBPASS_INPUT,
@@ -83,8 +66,7 @@ ParseReflection(Reflection &reflection, std::span<const uint32_t> spirv, std::st
     }
     if (count != 0) {
       return std::unexpected(
-          Error{.Kind = ErrorKind::Unsupported,
-                .Message = "initial Vulkan compute path supports buffers and UBOs"});
+          Error{.Kind = ErrorKind::Unsupported, .Message = "unsupported compute resource kind"});
     }
   }
   return {};
@@ -143,12 +125,13 @@ Result<void> AppendBindings(const Reflection &reflection,
 
 }
 
-Result<ComputeLayout> ReflectCompute(std::span<const uint32_t> spirv, std::string_view entry) {
+Result<ComputeReflection> ReflectCompute(std::span<const uint32_t> spirv, std::string_view entry) {
   Reflection reflection;
   if (auto parsed = ParseReflection(reflection, spirv, entry); !parsed) {
     return std::unexpected(parsed.error());
   }
-  ComputeLayout layout;
+  ComputeReflection reflected;
+  auto &layout = reflected.Layout;
   for (unsigned at = 0; at < layout.LocalSize.size(); ++at) {
     layout.LocalSize[at] = spvc_compiler_get_execution_mode_argument_by_index(
         reflection.Compiler, SpvExecutionModeLocalSize, at);
@@ -165,6 +148,11 @@ Result<ComputeLayout> ReflectCompute(std::span<const uint32_t> spirv, std::strin
       !result) {
     return std::unexpected(result.error());
   }
+  for (const auto kind : {SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, SPVC_RESOURCE_TYPE_STORAGE_IMAGE}) {
+    if (auto result = AppendImages(reflection, kind, reflected); !result) {
+      return std::unexpected(result.error());
+    }
+  }
   std::ranges::sort(layout.Bindings, [](const ShaderBinding &left, const ShaderBinding &right) {
     return std::pair(left.Set, left.Slot) < std::pair(right.Set, right.Slot);
   });
@@ -175,7 +163,7 @@ Result<ComputeLayout> ReflectCompute(std::span<const uint32_t> spirv, std::strin
           Error{.Kind = ErrorKind::Invalid, .Message = "duplicate compute binding"});
     }
   }
-  return layout;
+  return reflected;
 }
 
 }
