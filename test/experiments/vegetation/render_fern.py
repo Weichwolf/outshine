@@ -55,8 +55,8 @@ def render(inputs, output, case):
         "summary.json",
     ):
         digest(inputs / name)
-    if case == "plant":
-        path = inputs / "fern-0-near.npz"
+    if case in ("plant", "field"):
+        path = inputs / ("fern-0-near.npz" if case == "plant" else "fern-0-field.npz")
         model(path, mats)
         digest(path)
         scene = setup(
@@ -129,6 +129,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--case", choices=("plant", "tile"), required=True)
+    parser.add_argument("--case", choices=("plant", "field", "tile"), required=True)
     args = parser.parse_args()
     render(args.inputs, args.output, args.case)

@@ -66,8 +66,11 @@ def compare(plan, pinna):
         "times_s": times,
         "separate_untimed_tracemalloc": trace,
         "work": {
-            "source_pinna_reused": 133,
-            "guide_evaluations": {"batch": 7, "individual": 140},
+            "source_pinna_reused": sum(len(row["pinnae"]) for row in plan["fronds"]),
+            "guide_evaluations": {
+                "batch": len(plan["fronds"]),
+                "individual": sum(1 + len(row["pinnae"]) for row in plan["fronds"]),
+            },
         },
         "scope": "Same whole plant and triangles. Traced/registered NumPy memory, not all allocator calls or copy traffic; full process RSS measured separately.",
     }
@@ -98,7 +101,7 @@ def run(output):
         (output / f"fern-{variant}-plan.json").write_text(
             json.dumps(plan, indent=2) + "\n"
         )
-        for detail, segments, rib, sides in (("near", 6, 24, 6), ("field", 2, 10, 4)):
+        for detail, segments, rib, sides in (("near", 6, 24, 6), ("field", 4, 10, 4)):
             start = time.perf_counter()
             pinna = pinna_mesh(
                 plan,
