@@ -1,4 +1,5 @@
 #include "CloudLayer.h"
+#include "CloudIntegration.h"
 
 #include <algorithm>
 #include <array>
@@ -64,17 +65,10 @@ double CloudOpticalDepth(const CloudLayer &layer,
                          const Vec3 &originM,
                          const Vec3 &direction,
                          const CloudTrace &trace) noexcept {
-  if (layer.Cover <= 0.0) { return 0.0; }
   double optical = 0.0;
-  for (const CloudSegment &segment : CloudShell(layer, originM, direction)) {
-    const double endM = std::min(segment.EndM, trace.MaximumM);
-    if (endM <= segment.BeginM) { continue; }
-    const double stepM = (endM - segment.BeginM) / static_cast<double>(kCloudIntegrationSamples);
-    for (size_t sample = 0; sample < kCloudIntegrationSamples; ++sample) {
-      const double distance = segment.BeginM + (static_cast<double>(sample) + 0.5) * stepM;
-      optical += CloudExtinction(layer, originM + direction * distance, trace.Seconds) * stepM;
-    }
-  }
+  VisitCloudCells(layer, originM, direction, trace, [&](const CloudCell &cell) noexcept {
+    optical += cell.OpticalDepth;
+  });
   return optical;
 }
 

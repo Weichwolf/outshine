@@ -1,5 +1,9 @@
 # Begrenzte Wolkenschicht
 
+Die SDL-GPU-Proben unten dokumentieren historische Gegenchecks. Der aktuelle
+Renderpfad wird gemäß [#48](https://github.com/Weichwolf/outshine/issues/48) auf native
+Metal-/Vulkan-Backends migriert; Dichtekern und Extinktionsmomente sind backendfrei.
+
 [#193](https://github.com/Weichwolf/outshine/issues/193) besitzt den ersten deklarierten
 Wolkenfall unter #7/#191. Der Vergleich verwendet die vorhandene Körbersee-Kamera,
 eine ausdrücklich prozedurale Schicht von 2572 bis 3172 m und Wind aus 240° mit 8 m/s.
@@ -170,6 +174,39 @@ unvollständig; ein gespeichertes PNG allein besteht kein Gate. Dieser einzelne
 Kameracapture mit Einschwingframes ist eine Bilddiagnose, kein Lade-/Framebudget-
 oder Bewegungsbeleg. Vorher/Nachher verwenden dieselben Overrides und Eingaben;
 die drei verschiedenen Wetterfälle ersetzen diesen Vergleich nicht.
+
+## Endliche Extinktionsmomente
+
+[#239](https://github.com/Weichwolf/outshine/issues/239) untersucht die endliche
+Wolkentiefe für Bewegungsrekonstruktion unabhängig vom Grafikbackend.
+`cloud_moments.py` vergleicht Mittelpunktmomente und den analytischen Beer-Schwerpunkt
+jeder konstanten Dichtezelle. Für optische Zelltiefe t und Länge l liegt dieser bei
+`l * (1/t - exp(-t)/(1-exp(-t)))`; eine Reihe um t=0 vermeidet Auslöschung.
+128 logarithmisch verteilte Fälle gegen 90-stellige Decimal-Rechnung prüfen dünne und gesättigte
+Zellen; Teilung eines homogenen Intervalls erhält dieselben Momente.
+
+`TraceCloudMoments` liefert M0 als `Weight` und das rohe M1 in Metern als
+`WeightedDistanceM`. `VisitCloudCells` hält die Dichteabtastung identisch zum
+bestehenden optischen Kern. Die analytische Integration gilt für dessen konstante
+Zellen, nicht für das innerhalb einer Zelle weiter variierende Quellfeld.
+Beide Momente gemeinsam filtern, erst danach dividieren; 0/0 bleibt der klare Fall.
+M1 in Metern kann FP16 überlaufen. Kilometerdarstellung ist ein untersuchter
+Gegenfall, noch keine vereinbarte neue Textur oder ein GPU-Packingvertrag.
+
+```sh
+python3 -W error test/experiments/weather/cloud_moments.py --output "$cloud_out/moments"
+```
+
+Die Referenz verfeinert das echte deklarierte Feld mit 512/1024 Zellen pro
+Schichtintervall. Probenzahl und Dichtearbeit bleiben im Methodenvergleich gleich.
+Ein Zellschwerpunkt beseitigt weder Dichte-Unterabtastung noch die Mehrdeutigkeit
+zweier Tiefen: Bei 100/10000 m, Gewichten 0,1/0,8, 960 Pixel Brennweite und
+50 m/s Querbewegung bei 30 fps unterscheidet sich die Bewegung aus M1/M0 um
+1,74 Pixel vom gewichteten Bewegungsmittel. Das ist ein Gegenbeispiel, keine
+TAA-/Ghostingabnahme. Native Pässe, History, Ressourcen und Submission folgen dem
+angekündigten Ersatz von SDL3_GPU. Yang/Liu/Salvi, *A Survey of Temporal Antialiasing
+Techniques*, CGF 2020, §3.2/Gleichung 1, PDF-Seiten 3/4 als Bilder geprüft:
+`doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf`.
 
 ## Grenzen der Lieferung
 
