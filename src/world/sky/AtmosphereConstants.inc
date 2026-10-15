@@ -1,4 +1,4 @@
-MEDIUM_UINT(kTransmittanceLutWidth, 256)
+MEDIUM_UINT(kTransmittanceLutWidth, 768)
 MEDIUM_UINT(kTransmittanceLutHeight, 64)
 MEDIUM_INT(kTransmittanceSteps, 40)
 MEDIUM_FLOAT(kMediumSampleSegment, 0.5f)

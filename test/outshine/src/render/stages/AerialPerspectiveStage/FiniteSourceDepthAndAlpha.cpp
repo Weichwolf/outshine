@@ -16,12 +16,14 @@ namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
-constexpr uint32_t kSkyWidth = 16;
-constexpr uint32_t kSkyHeight = 8;
+constexpr uint32_t kSourceWidth = 16;
+constexpr uint32_t kSourceHeight = 8;
 constexpr uint32_t kVeilWidth = 64;
 constexpr uint32_t kVeilHeight = 32;
 constexpr auto kColour = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
-constexpr double kSamplerTolerance = 2.0 / (kSkyWidth - 1u) / 256.0;
+constexpr std::array<float, 4> kScene = {.1f, .2f, .3f, .7f};
+constexpr std::array<float, 3> kSolar = {.8f, .6f, .3f};
+constexpr std::array<float, 3> kPsi = {.01f, .02f, .03f};
 
 OwnedTexture Texture(SDL_GPUDevice *device,
                      uint32_t width,
@@ -71,18 +73,23 @@ bool Upload(SDL_GPUDevice *device,
 }
 
 struct Sources {
-  OwnedTexture Scene, Depth, Sky, Veil, Output;
+  OwnedTexture Scene, Depth, Multi, Veil, Output;
   OwnedSampler Exact, Linear;
   Medium Air = kEarthAir;
 
   explicit Sources(SDL_GPUDevice *device)
       : Scene(Texture(device, 1, 1)),
         Depth(Texture(device, 1, 1, SDL_GPU_TEXTUREFORMAT_R32_FLOAT)),
-        Sky(Texture(device, kSkyWidth, kSkyHeight)),
+        Multi(Texture(device, kSourceWidth, kSourceHeight)),
         Veil(Texture(device, kVeilWidth, kVeilHeight)),
         Output(Texture(device, 1, 1)) {
     Air.BottomRadiusKm = 1;
     Air.TopRadiusKm = 2;
+    Air.RayleighScaleHeightKm = Air.MieScaleHeightKm = 1e20f;
+    Air.RayleighScatteringPerKm = {.1f, .2f, .3f};
+    Air.MieScatteringPerKm = .03f;
+    Air.MieExtinctionPerKm = .04f;
+    Air.OzoneAbsorptionPerKm = {};
     SDL_GPUSamplerCreateInfo info{};
     info.address_mode_u = info.address_mode_v = info.address_mode_w =
         SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
@@ -92,30 +99,22 @@ struct Sources {
   }
 
   bool Prepare(SDL_GPUDevice *device) const {
-    if (!Scene || !Depth || !Sky || !Veil || !Output || !Exact || !Linear) { return false; }
-    std::vector<float> sky(kSkyWidth * kSkyHeight * 4u);
-    for (uint32_t y = 0; y < kSkyHeight; ++y) {
-      for (uint32_t x = 0; x < kSkyWidth; ++x) {
-        const size_t at = (y * kSkyWidth + x) * 4u;
-        sky[at] = y < kSkyHeight / 2u ? .25f + 2.0f * x / (kSkyWidth - 1u) : 1000.0f;
-        sky[at + 1] = y < kSkyHeight / 2u ? .5f : 0.0f;
-        sky[at + 2] = y < kSkyHeight / 2u ? 1.0f : 0.0f;
-        sky[at + 3] = 1;
+    if (!Scene || !Depth || !Multi || !Veil || !Output || !Exact || !Linear) { return false; }
+    std::vector<float> multi(kSourceWidth * kSourceHeight * 4u, 1);
+    for (size_t pixel = 0; pixel < multi.size() / 4u; ++pixel) {
+      for (size_t channel = 0; channel < 3; ++channel) {
+        multi[pixel * 4u + channel] = kPsi[channel];
       }
     }
     std::vector<float> veil(kVeilWidth * kVeilHeight * 4u, 1);
-    for (uint32_t y = 0; y < kVeilHeight; ++y) {
-      for (uint32_t x = 0; x < kVeilWidth; ++x) {
-        const auto look = medium_core::mediumTransmittanceParams(
-            Air, {(x + .5f) / kVeilWidth, (y + .5f) / kVeilHeight});
-        const float through = std::exp(-mediumTopReach(Air, look.RadiusKm, look.CosZenith));
-        const size_t at = (y * kVeilWidth + x) * 4u;
-        for (size_t channel = 0; channel < 3; ++channel) { veil[at + channel] = through; }
+    for (size_t pixel = 0; pixel < veil.size() / 4u; ++pixel) {
+      for (size_t channel = 0; channel < 3; ++channel) {
+        veil[pixel * 4u + channel] = kSolar[channel];
       }
     }
-    return Upload(device, Scene.Get(), 1, 1, std::array<float, 4>{0, 0, 0, 1}) &&
+    return Upload(device, Scene.Get(), 1, 1, kScene) &&
            Upload(device, Depth.Get(), 1, 1, std::array<float, 1>{1}) &&
-           Upload(device, Sky.Get(), kSkyWidth, kSkyHeight, sky) &&
+           Upload(device, Multi.Get(), kSourceWidth, kSourceHeight, multi) &&
            Upload(device, Veil.Get(), kVeilWidth, kVeilHeight, veil);
   }
 };
@@ -126,11 +125,7 @@ std::array<float, 4> Draw(SDL_GPUDevice *device,
                           Vec3f up,
                           Vec3f look,
                           Vec3f sun) {
-  stage.Declare(source.Air,
-                {.SunDir = sun,
-                 .WorldUp = up,
-                 .IlluminanceLux = 1,
-                 .EyeHeightM = (0.5f - kMediumGroundLiftKm) * 1000});
+  stage.Declare(source.Air, {.SunDir = sun, .WorldUp = up, .IlluminanceLux = 1, .EyeHeightM = 500});
   stage.SetBasis({.Right = {}, .Up = {}, .Forward = look});
   stage.SetDepthReconstruction({{250, 0, 1, 0}});
   auto *commands = SDL_AcquireGPUCommandBuffer(device);
@@ -162,7 +157,7 @@ std::array<float, 4> Draw(SDL_GPUDevice *device,
 void CheckDirections(SDL_GPUDevice *device) {
   const Sources source(device);
   const bool prepared = source.Prepare(device);
-  CHECK(prepared, "independent sky/ground colours and extinction upload");
+  CHECK(prepared, "independent homogeneous source and scene products upload");
   if (!prepared) { return; }
   AerialPerspectiveStage stage;
   std::string error;
@@ -171,7 +166,7 @@ void CheckDirections(SDL_GPUDevice *device) {
   const bool configured = stage.Configure(gpu,
                                           {.Scene = source.Scene.Get(),
                                            .Depth = source.Depth.Get(),
-                                           .SkyView = source.Sky.Get(),
+                                           .MultiScatter = source.Multi.Get(),
                                            .Transmittance = source.Veil.Get(),
                                            .Exact = source.Exact.Get(),
                                            .Lut = source.Linear.Get()},
@@ -185,30 +180,40 @@ void CheckDirections(SDL_GPUDevice *device) {
     const float diagonal = std::sqrt(0.5f);
     const std::array<Vec3f, 6> suns{
         up, up * -1.0f, along, along * -1.0f, across, (along + across) * diagonal};
-    const std::array<float, 6> sunColumns{
-        0, 0, 0, 1, diagonal, std::sqrt((1.0f - diagonal) * 0.5f)};
-    for (size_t index = 0; index < suns.size(); ++index) {
+    for (const auto &sun : suns) {
       for (const Vec3f look : {up, up * -1.0f, along}) {
-        const auto pixel = Draw(device, source, stage, up, look, suns[index]);
-        for (const float value : pixel) {
-          CHECK(std::isfinite(value), "zenith and nadir sun/look directions keep finite radiance");
+        const auto pixel = Draw(device, source, stage, up, look, sun);
+        const double cosine = Dot(look, sun);
+        const double g = source.Air.MiePhaseG;
+        const double pi = std::acos(-1.0);
+        const double phaseR = 3.0 * (1.0 + cosine * cosine) / (16.0 * pi);
+        const double phaseM = 3.0 / (8.0 * pi) * (1.0 - g * g) / (2.0 + g * g) *
+                              (1.0 + cosine * cosine) /
+                              std::pow(1.0 + g * g - 2.0 * g * cosine, 1.5);
+        const bool lit = Dot(sun, up) >= 0;
+        for (size_t channel = 0; channel < 3; ++channel) {
+          const double rayleigh = source.Air.RayleighScatteringPerKm[channel];
+          const double mie = source.Air.MieScatteringPerKm;
+          const double extinction = rayleigh + source.Air.MieExtinctionPerKm;
+          const double emission = (lit ? kSolar[channel] : 0) * (rayleigh * phaseR + mie * phaseM) +
+                                  (rayleigh + mie) * kPsi[channel];
+          const double through = std::exp(-extinction * .25);
+          const double expected =
+              kScene[channel] * through + emission * -std::expm1(-extinction * .25) / extinction;
+          CHECK_NEAR(pixel[channel],
+                     expected,
+                     std::max(1e-7, std::fabs(expected) * 1e-5),
+                     "radiance",
+                     "the real aerial pass composes finite RGB-T and source exactly once");
         }
-        CHECK(pixel[2] > .01f && pixel[2] < 1, "a finite segment receives positive sky scattering");
-        if (!(pixel[2] > .01f)) { continue; }
-        const float column = Dot(look, along) > .5f ? sunColumns[index] : 0;
-        CHECK_NEAR(pixel[0] / pixel[2],
-                   .25 + 2 * column,
-                   kSamplerTolerance,
-                   "radiance ratio",
-                   "relative sun azimuth uses the correct finite texel centres");
-        CHECK_NEAR(pixel[1] / pixel[2],
-                   .5,
-                   1e-4,
-                   "radiance ratio",
-                   "horizon and downward rays exclude the bright virtual ground");
+        CHECK(pixel[3] == kScene[3], "finite aerial transport preserves scene alpha");
       }
     }
   }
+  CHECK(Upload(device, source.Depth.Get(), 1, 1, std::array<float, 1>{0}),
+        "background depth uploads");
+  const auto background = Draw(device, source, stage, {{0, 1, 0}}, {{1, 0, 0}}, {{0, 1, 0}});
+  CHECK(background == kScene, "background bypass is bit exact and does not shade sky twice");
 }
 }
 

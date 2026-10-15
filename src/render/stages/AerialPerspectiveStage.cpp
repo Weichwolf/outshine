@@ -16,7 +16,7 @@ bool AerialPerspectiveStage::Configure(const Gpu &gpu,
                                        std::string &error) {
   Scene = from.Scene;
   Depth = from.Depth;
-  SkyView = from.SkyView;
+  MultiScatter = from.MultiScatter;
   Veil = from.Transmittance;
   Exact = from.Exact;
   Lut = from.Lut;
@@ -61,16 +61,15 @@ void AerialPerspectiveStage::Declare(const Medium &medium, SkyStanding stands) {
     Pushed_.WorldUp[axis] = stands.WorldUp[axis];
   }
   Pushed_.Illuminance = stands.IlluminanceLux;
-  Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (stands.EyeHeightM > 0.0f ? stands.EyeHeightM : 0.0f) / kMPerKmF;
+  Pushed_.EyeRadiusKm =
+      medium.BottomRadiusKm + (stands.EyeHeightM > 0.0f ? stands.EyeHeightM : 0.0f) / kMPerKmF;
   Pushed_.Air = medium;
   Declared_ = true;
 }
 
 void AerialPerspectiveStage::Eye(const Medium &medium, float eyeHeightM) {
   if (!Declared_) { return; }
-  Pushed_.EyeRadiusKm = medium.BottomRadiusKm + kMediumGroundLiftKm +
-                        (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
+  Pushed_.EyeRadiusKm = medium.BottomRadiusKm + (eyeHeightM > 0.0f ? eyeHeightM : 0.0f) / kMPerKmF;
 }
 
 void AerialPerspectiveStage::SetBasis(const EyeBasis &eye) {
@@ -87,10 +86,11 @@ void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording
   (void)ctx;
   if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const std::array<SDL_GPUTextureSamplerBinding, 4> bound = {{{.texture = Scene, .sampler = Exact},
-                                                              {.texture = Depth, .sampler = Exact},
-                                                              {.texture = SkyView, .sampler = Lut},
-                                                              {.texture = Veil, .sampler = Lut}}};
+  const std::array<SDL_GPUTextureSamplerBinding, 4> bound = {
+      {{.texture = Scene, .sampler = Exact},
+       {.texture = Depth, .sampler = Exact},
+       {.texture = MultiScatter, .sampler = Lut},
+       {.texture = Veil, .sampler = Lut}}};
   SDL_BindGPUFragmentSamplers(into.Pass, 0, bound.data(), 4);
   SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
   SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);

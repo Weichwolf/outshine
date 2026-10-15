@@ -5,6 +5,7 @@
 #include "math/Vec2.h"
 #include "math/Vec3.h"
 #include <string>
+#include <cstddef>
 
 #include "KernelShape.h"
 
@@ -23,7 +24,7 @@ public:
   struct Tables {
     SDL_GPUTexture *Scene = nullptr;
     SDL_GPUTexture *Depth = nullptr;
-    SDL_GPUTexture *SkyView = nullptr;
+    SDL_GPUTexture *MultiScatter = nullptr;
     SDL_GPUTexture *Transmittance = nullptr;
     SDL_GPUSampler *Exact = nullptr;
     SDL_GPUSampler *Lut = nullptr;
@@ -58,10 +59,22 @@ private:
     Medium Air;
   };
 
+  static_assert(sizeof(Pushed) == 7 * sizeof(Vec4f) + sizeof(Medium) && alignof(Pushed) == 16);
+  static_assert(offsetof(Pushed, Right) == 0 && offsetof(Pushed, Up) == sizeof(Vec4f) &&
+                offsetof(Pushed, Fwd) == 2 * sizeof(Vec4f) &&
+                offsetof(Pushed, WorldUp) == 3 * sizeof(Vec4f) &&
+                offsetof(Pushed, SunDir) == 4 * sizeof(Vec4f) &&
+                offsetof(Pushed, TanHalf) == 5 * sizeof(Vec4f) &&
+                offsetof(Pushed, Illuminance) == 5 * sizeof(Vec4f) + sizeof(Vec2f) &&
+                offsetof(Pushed, EyeRadiusKm) ==
+                    5 * sizeof(Vec4f) + sizeof(Vec2f) + sizeof(float) &&
+                offsetof(Pushed, DepthReconstruction) == 6 * sizeof(Vec4f) &&
+                offsetof(Pushed, Air) == 7 * sizeof(Vec4f));
+
   OwnedPipeline Pipe;
   SDL_GPUTexture *Scene = nullptr;
   SDL_GPUTexture *Depth = nullptr;
-  SDL_GPUTexture *SkyView = nullptr;
+  SDL_GPUTexture *MultiScatter = nullptr;
   SDL_GPUTexture *Veil = nullptr;
   SDL_GPUSampler *Exact = nullptr;
   SDL_GPUSampler *Lut = nullptr;

@@ -1,12 +1,11 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "medium.glsl"
-#include "skyViewLookup.glsl"
+#include "airPrefix.glsl"
 layout(location = 0) in vec2 ndc;
 layout(location = 0) out vec4 colour;
 layout(set = 2, binding = 0) uniform sampler2D scene;
 layout(set = 2, binding = 1) uniform sampler2D depth;
-layout(set = 2, binding = 2) uniform sampler2D skyView;
+layout(set = 2, binding = 2) uniform sampler2D multiScatter;
 layout(set = 2, binding = 3) uniform sampler2D veil;
 layout(std140, set = 3, binding = 0) uniform Pushed {
   vec4 right;
@@ -20,15 +19,6 @@ layout(std140, set = 3, binding = 0) uniform Pushed {
   vec4 depthReconstruction;
   Medium air;
 } pushed;
-vec3 skyViewAt(sampler2D skyView, vec3 dir, vec3 worldUp,
-                               vec3 sunDir, float radiusKm, float bottomRadiusKm) {
-  ivec2 extent = textureSize(skyView, 0);
-  MediumUv uv = skyViewAtmosphereSample(bottomRadiusKm, radiusKm,
-      SkyViewLook(dot(dir, worldUp), skyLightViewCos(dir, worldUp, sunDir)),
-      MediumLutSize(float(extent.x), float(extent.y)));
-  return textureLod(skyView, vec2(uv.U, uv.V), 0.0).rgb;
-}
-
 vec4 shaded() {
 
   uvec2 px = uvec2(gl_FragCoord.xy);
@@ -44,34 +34,17 @@ vec4 shaded() {
                     max(reconstruction.z + written * reconstruction.w, 1.0e-9);
   float reachKm = alongView * 0.001 / max(1.0e-6, dot(dir, normalize(pushed.fwd.xyz)));
 
-  float radiusKm = pushed.eyeRadiusKm;
-  float cosZenith = dot(dir, pushed.worldUp.xyz);
-  float endRadiusKm =
-      sqrt(max(pushed.air.BottomRadiusKm * pushed.air.BottomRadiusKm,
-               radiusKm * radiusKm + reachKm * reachKm + 2.0 * radiusKm * reachKm * cosZenith));
-  float endCosZenith = clamp((radiusKm * cosZenith + reachKm) / endRadiusKm, -1.0, 1.0);
-
-  vec3 through;
-  if (mediumGroundReach(pushed.air, radiusKm, cosZenith) < 0.0) {
-    vec3 atEye =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(radiusKm, cosZenith)), 0.0).rgb;
-    vec3 atEnd =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(endRadiusKm, endCosZenith)), 0.0).rgb;
-    through = clamp(atEye / max(atEnd, vec3(1.0e-6)), vec3(0.0), vec3(1.0));
-  } else {
-    vec3 atEye =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(radiusKm, -cosZenith)), 0.0).rgb;
-    vec3 atEnd =
-        textureLod(veil, mediumTransmittanceUv(pushed.air, MediumLook(endRadiusKm, -endCosZenith)), 0.0).rgb;
-    through = clamp(atEnd / max(atEye, vec3(1.0e-6)), vec3(0.0), vec3(1.0));
-  }
-
-  vec3 inscattered =
-      skyViewAt(skyView, dir, pushed.worldUp.xyz, normalize(pushed.sunDir.xyz), radiusKm,
-                pushed.air.BottomRadiusKm) *
-      pushed.illuminance;
-
-  return vec4(lit.rgb * through + inscattered * (1.0 - through), lit.a);
+  vec3 worldUp = normalize(pushed.worldUp.xyz);
+  vec3 sunDir = normalize(pushed.sunDir.xyz);
+  AirRay ray = AirRay(pushed.eyeRadiusKm, clamp(dot(dir, worldUp), -1.0, 1.0),
+      clamp(dot(sunDir, worldUp), -1.0, 1.0), clamp(dot(dir, sunDir), -1.0, 1.0), reachKm);
+  AirPathSpan span = airPathSpan(pushed.air, ray);
+  if (span.EndKm <= span.BeginKm) { return lit; }
+  ray = airPathRay(pushed.air, ray, span);
+  AirPrefix prefix = airPrefixBegin(pushed.air, ray, veil, multiScatter);
+  AirTransfer air = airPrefixAdvance(prefix, pushed.air, ray.DistanceKm, veil, multiScatter);
+  return vec4(lit.rgb * air.Transmittance +
+      pushed.illuminance * air.RadiancePerLux, lit.a);
 }
 
 void main() { colour = shaded(); }
