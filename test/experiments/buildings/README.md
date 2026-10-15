@@ -181,6 +181,7 @@ the actual UV-to-metre binding. This adds no opening, collision or room programm
 PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_facade_finish.py'
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_facade_finish_shader.py
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_mitsuba_sampling.py
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_footprint_probe.py --output /tmp/outshine-buildings-facade-footprints
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_finish_probe.py --output /tmp/outshine-buildings-facade-controls
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/rerender_places.py <temp>/Flensburg-report.json --output /tmp/outshine-buildings-facade-places --samples-per-pass 4
 ```
@@ -202,6 +203,11 @@ projected pixel parallelogram; it is an approximation for rotated/sheared or
 rank-deficient footprints, not EWA or an exact projected-pixel integral. The
 native material composition/filter owner is #189; transmission and lighting
 must not acquire a second illumination path during integration.
+The footprint probe checks 216 rotated/thin/sheared nonzero-area pixels at finite
+domain edges against independent exact polygon intersections. Sign reversal and
+derivative exchange preserve results, axis-aligned pixels recover the box
+integral, and singular pixels are explicitly excluded from the area oracle.
+It reports the approximation error rather than asserting projected-pixel accuracy.
 
 Small residential roofs are extended beyond the old 70 m² envelope scope in
 `residential_roof_choice.py` (#229): 70–350 m², ordinary residential source or
