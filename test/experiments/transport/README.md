@@ -475,8 +475,9 @@ Ganzplaner ein. `port_highs_checks.py` prüft unabhängige Kreis-/Ellipsenlösun
 gemeinsame Kontakte und Abbrüche. Eine LP-Statusmeldung ersetzt keine vollständige
 Konus-, Geometrie- oder Kontaktprüfung. `support` wählt je Sparse-Spaltenmuster
 den stärksten verletzten Konus; geprüft werden weiterhin alle Originalkonusse.
-Herleitung und Primärquellen stehen in #217. Das ist ein Experiment, noch kein
-übernommener Bibliothekspfad oder Nachweis gleicher DEM-Qualität.
+Der [Ganzplanvergleich](port_highs_comparison.md) verwirft die getesteten Varianten
+unter unveränderten Grenzen; Clarabel bleibt die Referenz. Herleitung und
+Primärquellen stehen in #217. Kein experimenteller Pfad wurde nach `lib/` übernommen.
 
 ```sh
 PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest port_highs_checks
