@@ -1,0 +1,6 @@
+#ifndef OUTSHINE_BASE_SPATIAL_CLASSSEEDVALUES_H
+#define OUTSHINE_BASE_SPATIAL_CLASSSEEDVALUES_H
+
+const int kClassSeedWordCount = 4;
+
+#endif

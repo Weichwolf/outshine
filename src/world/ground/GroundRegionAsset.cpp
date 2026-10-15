@@ -1,4 +1,5 @@
 #include "GroundRegionAsset.h"
+#include "ClassSeed.h"
 #include "BinaryValueArchive.h"
 #include "math/Units.h"
 #include "content/GeometryAsset.h"
@@ -18,7 +19,7 @@
 
 namespace outshine {
 namespace {
-constexpr uint64_t kFormat = 0x0002314e5247ULL;
+constexpr uint64_t kFormat = 0x0004314e5247ULL;
 constexpr uint32_t kPagesMost = 65536;
 constexpr size_t kPageHeaderBytes = 7 * sizeof(uint32_t) + sizeof(uint8_t);
 
@@ -28,8 +29,9 @@ template <class T> bool Finite(std::span<const T> values) {
 
 bool ValidGrid(const ClassStructure::Grid &grid) {
   if (grid.W < 0 || grid.H < 0 || !std::isfinite(grid.OrgE) || !std::isfinite(grid.OrgN) ||
-      !std::isfinite(grid.CellM) || grid.CellM <= 0 || grid.Seeds.size() % 3 != 0 ||
-      grid.Edges.size() % 4 != 0 ||
+      !std::isfinite(grid.CellM) || grid.CellM <= 0 || !std::isfinite(grid.BoundaryHaloM) ||
+      grid.BoundaryHaloM < 0 || grid.BoundaryHaloM > std::numeric_limits<float>::max() ||
+      grid.Seeds.size() % kClassSeedWords != 0 || grid.Edges.size() % 4 != 0 ||
       grid.Cells.size() != static_cast<uint64_t>(grid.W) * static_cast<uint64_t>(grid.H) * 2 ||
       !Finite<float>(grid.Edges)) {
     return false;
@@ -37,13 +39,21 @@ bool ValidGrid(const ClassStructure::Grid &grid) {
   for (size_t cell = 0; cell < grid.Cells.size(); cell += 2) {
     const size_t count = (grid.Cells[cell] >> 16u) & 255u;
     const size_t first = grid.Cells[cell + 1];
-    if (first > grid.Seeds.size() / 3 || count > grid.Seeds.size() / 3 - first) { return false; }
+    if (first > grid.Seeds.size() / kClassSeedWords ||
+        count > grid.Seeds.size() / kClassSeedWords - first || count > kClassSeedsPerCell) {
+      return false;
+    }
+    uint64_t references = 0;
+    for (size_t seed = first; seed < first + count; ++seed) {
+      references += grid.Seeds[seed * kClassSeedWords + 2];
+    }
+    if (references > kClassReferencesPerCell) { return false; }
   }
-  for (size_t seed = 0; seed < grid.Seeds.size(); seed += 3) {
-    const size_t count = (grid.Seeds[seed] >> 16u) & 255u;
+  for (size_t seed = 0; seed < grid.Seeds.size(); seed += kClassSeedWords) {
+    const size_t count = grid.Seeds[seed + 2];
     const size_t first = grid.Seeds[seed + 1];
     if (first > grid.Refs.size() || count > grid.Refs.size() - first ||
-        !std::isfinite(std::bit_cast<float>(grid.Seeds[seed + 2]))) {
+        !std::isfinite(std::bit_cast<float>(grid.Seeds[seed + 3]))) {
       return false;
     }
   }
@@ -52,7 +62,7 @@ bool ValidGrid(const ClassStructure::Grid &grid) {
 }
 
 template <class Archive, class Grid> bool GridFields(Archive &archive, Grid &grid) {
-  return archive(grid.W, grid.H, grid.OrgE, grid.OrgN, grid.CellM) &&
+  return archive(grid.W, grid.H, grid.OrgE, grid.OrgN, grid.CellM, grid.BoundaryHaloM) &&
          archive.template Array<uint32_t>(grid.Cells) &&
          archive.template Array<uint32_t>(grid.Seeds) &&
          archive.template Array<uint32_t>(grid.Refs) && archive.template Array<float>(grid.Edges) &&

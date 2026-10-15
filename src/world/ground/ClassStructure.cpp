@@ -1,10 +1,11 @@
 #include "math/Vec2.h"
 #include "ClassStructure.h"
+#include "ClassSeed.h"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstddef>
-#include <cstring>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -72,6 +73,37 @@ double SegDist(Vec2 from, Edge of) {
   return std::sqrt(qx * qx + qy * qy);
 }
 
+struct SeedSample {
+  int Class;
+  int Rank;
+  bool Inside;
+  double SignedDistanceM;
+};
+
+SeedSample SampleSeed(const ClassStructure::Grid &grid, size_t seed, Vec2 at, Vec2 corner) {
+  const auto labels = grid.Seeds[seed];
+  const auto first = grid.Seeds[seed + 1];
+  const auto count = grid.Seeds[seed + 2];
+  const auto halfWidthM = std::bit_cast<float>(grid.Seeds[seed + 3]);
+  int winding = static_cast<int>((labels >> kWindShift) & kByteMask) - kSignedByteBias;
+  double distance = ClassStructure::kNoEdgeM;
+  for (uint32_t r = 0; r < count; ++r) {
+    const auto edge = EdgeAt(&grid.Edges[static_cast<size_t>(grid.Refs[first + r]) * 4]);
+    if (halfWidthM <= 0) {
+      winding += CrossX(edge, corner[1], {.Least = corner[0], .Most = at[0]});
+      winding += CrossY(edge, at[0], {.Least = corner[1], .Most = at[1]});
+    }
+    distance = std::min(distance, SegDist(at, edge));
+  }
+  const bool inside = halfWidthM > 0 ? distance <= halfWidthM : winding != 0;
+  double signedDistance = inside ? distance : -distance;
+  if (halfWidthM > 0) { signedDistance = halfWidthM - distance; }
+  return {.Class = static_cast<int>(labels & kByteMask),
+          .Rank = static_cast<int>((labels >> 8u) & kByteMask),
+          .Inside = inside,
+          .SignedDistanceM = signedDistance};
+}
+
 }
 
 ClassStructure::ClassStructure(const TangentFrame &frame,
@@ -86,7 +118,8 @@ ClassStructure::ClassStructure(const TangentFrame &frame,
   Measures_.BuildMs = of.BuildMs;
   Measures_.Overflow = of.Overflow;
   Measures_.Edges = static_cast<long>((Fine_->Edges.size() + Coarse_->Edges.size()) / 4);
-  Measures_.Seeds = static_cast<long>((Fine_->Seeds.size() + Coarse_->Seeds.size()) / 3);
+  Measures_.Seeds =
+      static_cast<long>((Fine_->Seeds.size() + Coarse_->Seeds.size()) / kClassSeedWords);
   Probe();
 }
 
@@ -141,41 +174,72 @@ ClassStructure::Sample ClassStructure::EvaluateGrid(const Grid &B, Vec2 at) {
   const double cx = B.OrgE + static_cast<double>(i) * B.CellM;
   const double cy = B.OrgN + static_cast<double>(j) * B.CellM;
   for (uint32_t s = 0; s < nseed; s++) {
-    const uint32_t w0 = B.Seeds[static_cast<size_t>(seedFirst + s) * 3];
-    const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];
-    float halfW;
-    std::memcpy(&halfW, &B.Seeds[(seedFirst + s) * 3 + 2], sizeof halfW);
-    const int tpl = static_cast<int>(w0 & kByteMask);
-    const int rank = static_cast<int>((w0 >> 8u) & kByteMask);
-    const uint32_t nref = (w0 >> 16u) & kByteMask;
-    int wind = static_cast<int>((w0 >> kWindShift) & kByteMask) - kSignedByteBias;
-    double d = kNoEdgeM;
-    for (uint32_t r = 0; r < nref; r++) {
-      const float *p = &B.Edges[static_cast<size_t>(B.Refs[refFirst + r]) * 4];
-      if (halfW <= 0.0f) {
-        wind += CrossX(EdgeAt(p), cy, {.Least = cx, .Most = e});
-        wind += CrossY(EdgeAt(p), e, {.Least = cy, .Most = n});
-      }
-      d = std::min(d, SegDist({{e, n}}, EdgeAt(p)));
-    }
-    if (halfW > 0.0f) {
-      if (d > halfW) { continue; }
-      d = static_cast<double>(halfW) - d;
-    } else if (wind == 0) {
-      continue;
-    }
-    if (rank > bestRank) {
+    const size_t seed = static_cast<size_t>(seedFirst + s) * kClassSeedWords;
+    const auto candidate = SampleSeed(B, seed, at, {{cx, cy}});
+    if (!candidate.Inside) { continue; }
+    if (candidate.Rank > bestRank) {
       second = best;
       secondRank = bestRank;
-      best = tpl;
-      bestRank = rank;
-      bestDist = d;
-    } else if (rank > secondRank) {
-      second = tpl;
-      secondRank = rank;
+      best = candidate.Class;
+      bestRank = candidate.Rank;
+      bestDist = candidate.SignedDistanceM;
+    } else if (candidate.Rank > secondRank) {
+      second = candidate.Class;
+      secondRank = candidate.Rank;
     }
   }
-  return {.Class = best, .RunnerUp = second, .DistanceM = bestDist};
+  return {.Class = best, .Rank = bestRank, .RunnerUp = second, .DistanceM = bestDist};
+}
+
+ClassStructure::MaterialBlend
+ClassStructure::MaterialForGrid(const Grid &grid, Vec2 at, Sample sample) {
+  MaterialBlend result{.Class = sample.Class, .HaloM = grid.BoundaryHaloM};
+  if (grid.BoundaryHaloM <= 0) { return result; }
+  const int i = static_cast<int>(std::floor((at[0] - grid.OrgE) / grid.CellM));
+  const int j = static_cast<int>(std::floor((at[1] - grid.OrgN) / grid.CellM));
+  const size_t cell = (static_cast<size_t>(j) * grid.W + static_cast<size_t>(i)) * 2;
+  const auto count = (grid.Cells[cell] >> 16u) & kByteMask;
+  const auto first = grid.Cells[cell + 1];
+  const double cornerE = grid.OrgE + i * grid.CellM;
+  const double cornerN = grid.OrgN + j * grid.CellM;
+  int edgeRank = -1;
+  for (uint32_t s = 0; s < count; ++s) {
+    const size_t seed = static_cast<size_t>(first + s) * kClassSeedWords;
+    const auto labels = grid.Seeds[seed];
+    const int rank = static_cast<int>((labels >> 8u) & kByteMask);
+    if (rank < sample.Rank || rank < edgeRank) { continue; }
+    const auto candidate = SampleSeed(grid, seed, at, {{cornerE, cornerN}});
+    const double signedDistance = candidate.SignedDistanceM;
+    if (std::abs(signedDistance) > grid.BoundaryHaloM ||
+        (rank == edgeRank && std::abs(signedDistance) >= std::abs(result.SignedEdgeM))) {
+      continue;
+    }
+    result.Class = candidate.Class;
+    result.Other = candidate.Inside ? sample.RunnerUp : sample.Class;
+    result.SignedEdgeM = signedDistance;
+    edgeRank = rank;
+  }
+  if (result.Other == result.Class) { return {.Class = sample.Class, .HaloM = grid.BoundaryHaloM}; }
+  return result;
+}
+
+ClassStructure::MaterialBlend
+ClassStructure::MaterialAt(double e, double n, double halfFootprintM) const {
+  if (!std::isfinite(e) || !std::isfinite(n) || !std::isfinite(halfFootprintM) ||
+      halfFootprintM < 0) {
+    return {};
+  }
+  for (const auto *grid : {Fine_.get(), Coarse_.get()}) {
+    if (grid->W <= 0 || grid->H <= 0 || e < grid->OrgE || n < grid->OrgN ||
+        e >= grid->OrgE + grid->W * grid->CellM || n >= grid->OrgN + grid->H * grid->CellM) {
+      continue;
+    }
+    if (grid->BoundaryHaloM > 0 && halfFootprintM > .5 * grid->CellM) { continue; }
+    const auto sample = EvaluateGrid(*grid, {{e, n}});
+    const auto result = MaterialForGrid(*grid, {{e, n}}, sample);
+    if (sample.Class >= 0 || result.SignedEdgeM < kNoEdgeM) { return result; }
+  }
+  return {};
 }
 
 }

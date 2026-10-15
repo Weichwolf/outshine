@@ -2,19 +2,11 @@
 #define OUTSHINE_BASE_SPATIAL_GEOSTRIANGLE_H
 
 #include "math/Vec3.h"
+#include "GeosGeometry.h"
 #include <geos_c.h>
 #include <array>
-#include <memory>
 
 namespace outshine::Spatial {
-struct DestroyGeosGeometry {
-  GEOSContextHandle_t Context;
-
-  void operator()(GEOSGeometry *geometry) const { GEOSGeom_destroy_r(Context, geometry); }
-};
-
-using GeosGeometry = std::unique_ptr<GEOSGeometry, DestroyGeosGeometry>;
-
 inline GeosGeometry ProjectedTriangle(GEOSContextHandle_t context,
                                       const std::array<Vec3, 3> &corners) {
   GEOSCoordSequence *coordinates = GEOSCoordSeq_create_r(context, 4, 2);

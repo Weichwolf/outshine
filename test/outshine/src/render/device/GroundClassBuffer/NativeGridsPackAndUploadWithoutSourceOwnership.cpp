@@ -19,8 +19,9 @@ int main() {
   fine->OrgE = -2;
   fine->OrgN = 3;
   fine->CellM = 4;
+  fine->BoundaryHaloM = 2.5;
   fine->Cells = {0x109, 0};
-  fine->Seeds = {0x10203, 17, 0x3f000000};
+  fine->Seeds = {0x203, 17, 1, 0x3f000000};
   fine->Refs = {0};
   fine->Edges = {1, 2, 3, 4};
   auto coarse = std::make_shared<ClassStructure::Grid>();
@@ -42,16 +43,17 @@ int main() {
   fine.reset();
   coarse.reset();
   CHECK(sourceLifetime.expired(), "the render upload does not retain the native world snapshot");
-  const std::array<uint32_t, 40> expected{
-      4,          16, 0xffffffff, 0,          1,          1,          0xc0000000, 0x40400000,
-      0x40800000, 28, 30,         33,         34,         0,          0,          0,
-      1,          1,  0xc0a00000, 0xc0a00000, 0x41200000, 38,         40,         40,
-      40,         0,  0,          0,          0x109,      0,          0x10203,    17,
-      0x3f000000, 0,  0x3f800000, 0x40000000, 0x40400000, 0x40800000, 0x107,      0};
+  const std::array<uint32_t, 41> expected{
+      0x4u,        0x10u,       0xffffffffu, 0x0u,        0x1u,        0x1u,        0xc0000000u,
+      0x40400000u, 0x40800000u, 0x1cu,       0x1eu,       0x22u,       0x23u,       0x40200000u,
+      0x0u,        0x0u,        0x1u,        0x1u,        0xc0a00000u, 0xc0a00000u, 0x41200000u,
+      0x27u,       0x29u,       0x29u,       0x29u,       0x0u,        0x0u,        0x0u,
+      0x109u,      0x0u,        0x203u,      0x11u,       0x1u,        0x3f000000u, 0x0u,
+      0x3f800000u, 0x40000000u, 0x40400000u, 0x40800000u, 0x107u,      0x0u};
   CHECK(std::ranges::equal(packed.Words(), expected),
         "shader headers, offsets, float bits and complete payload match the independent layout");
-  CHECK(packed.Digest() == 0x07cf19c08a298369ull,
-        "the existing word digest is preserved after moving packing out of world");
+  CHECK(packed.Digest() == 0x2961d18a81c7d12eull,
+        "the versioned four-word payload has a deterministic word digest");
   CHECK(packed.HeapBytes() >= sizeof(expected), "the render owner accounts its allocated words");
   const auto emptyGrid = std::make_shared<const ClassStructure::Grid>();
   const ClassStructure emptyNative(TangentFrame::At({}), emptyGrid, emptyGrid, {.UnmappedRow = 13});

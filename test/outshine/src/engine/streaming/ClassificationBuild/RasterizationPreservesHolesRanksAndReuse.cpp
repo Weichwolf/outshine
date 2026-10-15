@@ -13,7 +13,7 @@ ClassificationBuild::Job Polygon(bool overlay) {
   job.Frame = TangentFrame::At({});
   job.Raster.CellM = 2;
   job.Raster.HalfCells = 16;
-  // Opposite windings: outer square and inner hole. Probes avoid curved corners.
+  // Opposite windings: straight outer square and inner hole.
   job.Raster.Points = {-12, -12, 12, -12, 12, 12, -12, 12, -4, -4, -4, 4, 4, 4, 4, -4};
   job.Raster.Rings = {{0, 4}, {4, 4}};
   job.Raster.Features = {{.FirstRing = 0,
@@ -43,6 +43,26 @@ std::shared_ptr<const ClassStructure> Build(ClassificationBuild &builder,
   CHECK(result.has_value(), "a completed raster job is collectable after its wake");
   return result ? result->Structure : nullptr;
 }
+
+void CheckShoreline(const ClassStructure &field) {
+  CHECK(field.Evaluate(0, -11.5, nullptr, nullptr) == 3,
+        "water remains inside the source outer boundary");
+  CHECK(field.Evaluate(0, -12.5, nullptr, nullptr) == -1,
+        "water does not extend beyond the straight source shoreline");
+  CHECK(field.Evaluate(0, -4.5, nullptr, nullptr) == 3,
+        "water reaches the straight source island boundary");
+  CHECK(field.Evaluate(0, -3.5, nullptr, nullptr) == -1, "island interior remains dry");
+  CHECK(field.Evaluate(11.5, 11.5, nullptr, nullptr) == 3,
+        "source polygon corners remain represented");
+  for (double north = -15.5; north < 16; north += 1) {
+    for (double east = -15.5; east < 16; east += 1) {
+      const bool outer = east > -12 && east < 12 && north > -12 && north < 12;
+      const bool island = east > -4 && east < 4 && north > -4 && north < 4;
+      CHECK(field.Evaluate(east, north, nullptr, nullptr) == (outer && !island ? 3 : -1),
+            "subcell classification agrees with independent rectangular set difference");
+    }
+  }
+}
 }
 
 int main() {
@@ -51,6 +71,7 @@ int main() {
   const auto hole = Build(builder, Polygon(false));
   CHECK(hole != nullptr, "polygon field published");
   if (!hole) { return Report(); }
+  CheckShoreline(*hole);
   CHECK(hole->Evaluate(8, 0, nullptr, nullptr) == 3, "outer interior has polygon class");
   CHECK(hole->Evaluate(0, 0, nullptr, nullptr) == -1, "opposite winding leaves central hole");
   CHECK(hole->Evaluate(24, 0, nullptr, nullptr) == -1, "exterior remains unclassified");

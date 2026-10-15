@@ -121,10 +121,6 @@ from both expressions. It checks exact output roots/supports/native IDs before
 reporting isolated kernel time. Source geometry capture and verification are
 excluded from that timer; the historical own-source kernel stays in build output.
 
-```sh
-.venv/bin/python test/experiments/buildings/showcase.py --publish --serve
-```
-
 `boolean_building_plan` converts complete existing multi-storey plans into room,
 door, window and stair-opening CSG sources. Balanced/sequential expressions are
 retained comparisons, including rejected topology/candidate-capacity cases.
@@ -151,21 +147,136 @@ entrance/stair openings and missing flights are negative controls.
 generic room programme, native player controller and architecture families remain
 separate.
 
-The showcase reads the checked current snapshot and serves it on localhost:8766.
-The latest user instruction replaces the earlier multi-page gallery: exactly four
-current complete tile images, no diagnostic panels or subpages. New stands appear
-on opening or via the manual refresh button; no polling timer runs. Detailed
-controls/plots remain private experiment artifacts. Outputs remain under
-`build/experiments/buildings/`; native runtime/device budgets remain unproven.
+The Buildings gallery uses four fixed native Place locations/cameras:
+DarmstadtWest, Flensburg, Rosenheim and Tokyo from `src/assets/places/`.
+`doc/images/places/` supplies the comparison images only. Own current Python
+building renders stay in system-temp directories, at 1920×1080 or higher with
+the same aspect ratio and vertical FOV. Only master publishes integrated Places.
+Do not copy native images as Python results. The local server and its UI are retired.
+Private source data and intermediate outputs stay in system-temp directories.
 
 ```sh
-.venv/bin/python test/experiments/buildings/showcase_tiles.py
-.venv/bin/python test/experiments/buildings/showcase.py --publish
-.venv/bin/python test/experiments/buildings/showcase.py --serve
+.venv/bin/python test/experiments/buildings/verify_place_reference.py
+.venv/bin/python test/experiments/buildings/place_sources.py --fetch --output <temp>/source-receipts.json
+.venv/bin/python test/experiments/buildings/render_places.py --sources <temp>/source-receipts.json --output <temp>/verified-place-renders
+.venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders --output <temp>/inspected-building-renders
 ```
 
-The publisher reads `tile-showcase/reports.json` directly and prunes obsolete public
-images. It requires four clean render reports from the same source commit.
+The publisher requires all four own clean render reports and matching scenario
+camera hashes before exporting the local comparison. A manifest may declare one `commit`
+for the whole set or explicit `commits` keyed by all four Places, preserving each
+image's actual generator snapshot during gradual verified updates. Tokyo's height requires actual DEM
+sampling; the other three scenario heights are absolute. Source extent, missing
+world classes and terrain/material/light differences remain explicit. The initial
+source acquisition is a declared 3 km window, not native 240 km Place admission.
+
+Filtered facade finishes (#245) reuse the existing opening repeat. The reference
+adds metric inner frames and opaque floor bands; near-detail geometry and direct
+opening patches keep their existing surface path. Wall/frame/glass/band areas
+come from the installable `outshine_ref.buildings.facade_finish` library. Explicit
+rectangle integration and physical mesh rays independently check coverage and
+the actual UV-to-metre binding. This adds no opening, collision or room programme.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_facade_finish.py'
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_facade_finish_shader.py
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_mitsuba_sampling.py
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_footprint_probe.py --output /tmp/outshine-buildings-facade-footprints
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_finish_probe.py --output /tmp/outshine-buildings-facade-controls
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/rerender_places.py <temp>/Flensburg-report.json --output /tmp/outshine-buildings-facade-places --samples-per-pass 4
+```
+
+The cached render path checks the original geometry report/mesh hash and actual
+projection/triangle count. It performs no provider decode or mesh construction.
+Geometry and renderer commits are recorded separately; the four-image publisher
+preserves both. This is a whole-scene experiment cache, not native per-asset cache
+or runtime admission. Source geometry must remain available at the checked path.
+The optional `--samples-per-pass` bounds concurrent CPU sample work, retaining
+total spp, scene and resolution. Tokyo's initial renderer exceeded this 16 GiB
+host's memory (kernel OOM, 11.36 GiB process anonymous RSS); a four-sample limit
+alone did not resolve it. Mitsuba still supports its deprecated explicit pass
+limit; the report records it separately from the dispatch fix below.
+Pass grouping can change random sample ordering, so pixel identity is not claimed.
+Energy, full image extent, total spp and named denoising AOVs have a separate control.
+
+The facade filter is exact for its axis-aligned UV box. That box bounds the
+projected pixel parallelogram; it is an approximation for rotated/sheared or
+rank-deficient footprints, not EWA or an exact projected-pixel integral. The
+native material composition/filter owner is #189; transmission and lighting
+must not acquire a second illumination path during integration.
+The footprint probe checks 216 rotated/thin/sheared nonzero-area pixels at finite
+domain edges against independent exact polygon intersections. Sign reversal and
+derivative exchange preserve results, axis-aligned pixels recover the box
+integral, and singular pixels are explicitly excluded from the area oracle.
+It reports the approximation error rather than asserting projected-pixel accuracy.
+
+CPU facade fields read constant per-source-triangle domain extents directly.
+This avoids nesting virtual shape-attribute lookup inside each material branch;
+source vertex attributes, triangles and camera stay unchanged. A varying extent
+within one triangle is rejected rather than silently changing interpolation.
+Controls exercise real bound BSDFs, reversed primitive order and a null shape
+pointer; direct opening patches retain the prior path. `facade_palette_probe.py`
+isolates this dispatch choice with a supplied real palette and small repeated
+control mesh (64×36/1spp radiance arrays, never a published Place image):
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_palette_probe.py --scene <temp>/Tokyo-scene.json --mesh <temp>/facade-finish-mesh.npz --count 32 --lookup shape --output /tmp/outshine-buildings-palette-shape
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_palette_probe.py --scene <temp>/Tokyo-scene.json --mesh <temp>/facade-finish-mesh.npz --count 32 --lookup triangle --output /tmp/outshine-buildings-palette-triangle
+```
+
+The `shape` option exists only in the diagnostic. Captured JIT operation counts
+cover setup and rendering together, not retired CPU instructions or GPU work.
+The native owner composes linear material parameters before one illumination;
+the explicit CPU BRDF mixture is an independent surface reference.
+
+Small residential roofs are extended beyond the old 70 m² envelope scope in
+`residential_roof_choice.py` (#229): 70–350 m², ordinary residential source or
+site context, ground-level height 3.5–15 m and bounded footprint complexity.
+Explicit roof choices and other uses retain their previous path. Source heights,
+footprints and properties stay unchanged; roof space is reserved before rooms.
+Supplied levels require at least 2.64 m each below the roof. This is a procedural
+roof assumption, not a reconstructed roof or a complete architecture family.
+`verify_residential_roofs.py` checks four pinned real Flensburg footprints against
+independent solid composition, sections and topology plus semantic counterparts.
+`residential_roof_probe.py --output <temp>/roof-controls` produces actual 1920×1080
+plan/section/2.5D controls and equal-shape method timings. Native section comparison
+uses millimetres internally to reduce measured quantization, retaining the existing
+1e-7 m² threshold; an intentional 1 mm geometry shift must still fail.
+
+## Support doors and furniture
+
+Joint support doors and furnishing (#197) use immutable metric leaf plans from
+`outshine_ref.buildings.interiors.doors`. The library's `placement_reserved`
+keeps furniture and activity zones out of the whole movement envelope; routing
+uses the actual parked leaf separately. `office_support_plan.refine(...,
+door_aware=True)` rejects otherwise compact partitions that cannot accommodate
+the unchanged full-size functions and either inward hinge. It tries at most24
+door layouts per partition step; no state/camera/LOD transition replans rooms.
+Original source boundaries, old openings and unsupported floors remain intact.
+The old fixed partitions and post-fit selection remain diagnostic counterparts;
+an unfit fixed room remains explicitly partial rather than being resized in place.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_door_geometry.py'
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_furnishing_placement.py'
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_door_joint.py --output /tmp/outshine-buildings-door-joint/verification.json
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/door_joint_plan.py --output /tmp/outshine-buildings-door-joint/plan.png
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/door_joint_benchmark.py --output /tmp/outshine-buildings-door-joint/cost.json
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/door_probe.py --output /tmp/outshine-buildings-door-joint/views --render
+```
+
+The paired full-building Berlin tea-door views use one fixed corridor camera,
+actual geometry/furniture/area lights and 1920×1080/32spp CPU path tracing.
+Ceiling fixtures near circulation portals supplement the single room-centre
+fixture, with physical square containment and stable portal-bound IDs. They
+are independent of the camera/leaf angle, share the room's light state and
+are prepared once for the paired views. The default room-light API is unchanged;
+the optional `circulation_portals=True` adds at most32 fixtures per corridor.
+`door_assembly.prepare` similarly retains static frames and local leaf templates;
+state expansion validates their fixed leaf identity and rebuilds neither.
+They are private controls. Public presentation remains the four latest complete
+Place images; a hidden interior change alone does not justify replacing them.
+Whole-building usage, native controller/cache/LOD, handles and services remain open.
 
 ## Sonderbauwerke aus dem bevorzugten Provider
 
@@ -281,8 +392,8 @@ Rejected comparison paths remain rejected and do not enter cost comparisons.
 The public page continues to show exactly four complete source scenes.
 
 ```sh
-.venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py
-.venv/bin/python test/experiments/buildings/roof_envelope_plan.py
+.venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
+.venv/bin/python test/experiments/buildings/roof_envelope_plan.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
 ```
 
 ## Rooms below small source roofs
@@ -406,3 +517,89 @@ at #31/#32/#33/#48. The bounded form contract belongs to
 .venv/bin/python test/experiments/buildings/stepped_source_probe.py --spp 32
 .venv/bin/python test/experiments/buildings/showcase_tiles.py --spp 32
 ```
+
+## Source-scoped room programmes
+
+`room_programme.py` binds one bounded office furnishing programme to the existing
+source room/storey/door identities. An actual office attribute can cover the
+building; a uniquely hosted office POI supplies local use evidence only. Missing
+levels explicitly assume a candidate ground floor, never a supplied tenant
+boundary. Known levels outside the available storeys stay unresolved. Other
+storeys, common access, stairs and service reservations remain unchanged.
+
+Workstations, storage, meeting groups, tea counters, WC and basin use owned
+procedural geometry with matching footprint/height bounds. Full activity areas
+and actor routes are planned by `outshine_ref.buildings.interiors`; the original
+circulation experiments import the same installed routing kernel. Wall and
+deterministically jittered candidates, greedy and bounded beam search compare
+identical actual rooms and required functions. No unbounded search or global
+optimum claim. Missing furniture does not turn into a completed programme.
+
+`verify_furniture.py` compiles actual furniture with the existing structural
+shell, frames and stairs. All original access paths and every activity route
+retain 0.30 m radius/1.90 m height. Corrupted actual object heights, a shelf
+blocking the entrance, missing sanitary function, weakened requirements and
+unsupported source floors must fail. `furniture_benchmark.py` separates source
+preparation from layout and reports fresh-process peak RSS. `room_programme_plan`
+and `room_programme_probe` produce private 2D, 2.5D, indoor day/night and exterior
+window controls; the interior camera uses an actual checked room-side anchor.
+
+These are furnishing controls, **zero complete architecture recipe families**.
+Oversized legacy rooms, plumbing, ventilation, occupancy/accessibility rules,
+other programme families, seated interactions and native detail admission remain
+open at [#174](https://github.com/Weichwolf/outshine/issues/174), #31/#32/#33/#48.
+The public gallery retains four fixed Place views. Invisible far furniture is
+not generated for those views.
+
+`inspect_render_exposure.py <render-report.json> --exposure 8` derives a private
+display inspection from the stored linear denoised radiance. Its provenance
+retains the original tracing commit and pixel buffers; the explicitly changed
+exposure does not alter geometry, lights or the fixed day/night comparison.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_furniture_controls.py
+.venv/bin/python -W error test/experiments/buildings/verify_furniture.py
+.venv/bin/python test/experiments/buildings/furniture_benchmark.py --repeats 7
+.venv/bin/python test/experiments/buildings/room_programme_plan.py
+.venv/bin/python test/experiments/buildings/room_programme_probe.py --spp 32
+```
+
+
+## Compact office support room plans
+
+`office_support_plan.py` refines only the actual office scope already established
+by `room_programme.office_scope`. Source envelopes, existing doors/windows,
+common corridors, stairs and unsupported storeys remain intact. Original room
+IDs remain as the identifiable parents of appended support-room IDs. Compact
+sanitary rooms and separate tea rooms receive their own full-width door from the
+existing corridor; neither is a route through another work/support function.
+
+`office_support_geometry.py` compares wall-end/centre placements with seven
+sliding wall positions under the same whole-polygon, retained-approach, window
+and 0.30 m actor requirements. At most 48 candidates per room, 24 spaces per
+floor and four intermediate floor states. More candidates do not guarantee a
+better bounded result: the current sliding control misses Hameln's tea room.
+The successful wall-end controls remain research plans, not optimal or measured
+real interiors. Compact support rooms use deterministic unperturbed furniture
+wall anchors: replacing these by random inward shifts can remove every fitting
+tea-counter/basin candidate. Each room records its actual placement method;
+work/meeting rooms retain the requested method. The actual mesh gate requires
+all added support functions, even when another original room stays incomplete. No training corpus or learned architectural model is claimed.
+
+`verify_office_support_controls.py` exercises notches, full-width backing,
+retained doors, clear sanitary windows, rigid transforms and capacity.
+`office_support_verification.py` independently checks source/room ancestry,
+unchanged openings, floor/wall accounting, compact areas and full-radius access.
+`verify_office_support.py` adds actual furniture meshes, original building paths
+and deliberately removed/escaped/misassigned/unsupported-floor counterparts.
+
+`office_support_benchmark.py` times subdivision alone with equal compact-room
+constraints, deterministic replay and independent pre/post admission; source
+preparation and whole fresh-process Linux RSS stay separate.
+`office_support_probe.py` writes private 2880×2160 before/after plans.
+`room_programme_probe.py --support-plan --overview-only` uses the chosen plan,
+then renders a declared ground-office cut: actual body parts capped at 1.10 m
+above that floor, upper storeys/ceiling omitted, full furniture retained. The
+uncut mesh is checked separately. The public gallery retains four fixed Place views.
+Door leaves/privacy states, services/ventilation, complete architectural
+programmes, other uses, runtime LOD/cache and native admission remain open.

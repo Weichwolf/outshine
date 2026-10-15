@@ -1,5 +1,6 @@
 """Four progress snapshots framed by complete, pinned OpenFreeMap source tiles."""
 
+import argparse
 import hashlib
 import json
 import math
@@ -16,8 +17,6 @@ from surface_solid_showcase import inspection_view, write_case
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-BASE = ROOT / "build/experiments/transport"
-OUTPUT = BASE / "whole-tiles"
 GIRTH_M = 40075016.68557849
 COLOURS = (
     (0.14, 0.20, 0.20, 1.0),
@@ -35,8 +34,8 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def tile_region(name):
-    path = BASE / "inputs" / f"{name}-input.json"
+def tile_region(name, *, data_root):
+    path = data_root / "inputs" / f"{name}-input.json"
     source = json.loads(path.read_text())
     receipt = source["receipt"]
     if digest(Path(receipt["path"])) != receipt["sha256"]:
@@ -60,7 +59,7 @@ def tile_region(name):
     corners = (corners - anchor) * math.cos(math.radians(latitude))
     region = shapely.Polygon(corners)
     proof = {
-        "input": str(path.relative_to(ROOT)),
+        "input": str(path.resolve()),
         "input_sha256": digest(path),
         "receipt": receipt,
         "origin_lat_lon": source["origin_lat_lon"],
@@ -69,8 +68,8 @@ def tile_region(name):
     return region, proof
 
 
-def snapshot(stem, *, diagnostic=False):
-    path = BASE / f"{stem}.npz"
+def snapshot(stem, *, data_root, diagnostic=False):
+    path = data_root / f"{stem}.npz"
     report_path = path.with_suffix(".json")
     report = json.loads(report_path.read_text())
     origin = json.loads((path.parent / "origin.json").read_text())
@@ -145,12 +144,12 @@ def tile_frame(regions, height):
     return body(mesh, np.full(len(mesh.triangles), 6, dtype=int), 0.1)
 
 
-def prepare(entry, configurations):
-    tiles = [tile_region(name) for name in entry["tiles"]]
+def prepare(entry, configurations, *, data_root, output_dir):
+    tiles = [tile_region(name, data_root=data_root) for name in entry["tiles"]]
     regions = [tile[0] for tile in tiles]
     region = shapely.union_all(regions)
     original, slots, provenance = snapshot(
-        entry["model"], diagnostic=entry.get("diagnostic", False)
+        entry["model"], data_root=data_root, diagnostic=entry.get("diagnostic", False)
     )
     parts, checks = crop_surfaces(original, slots, region, entry["surface_groups"])
     parts.append(tile_frame(regions, original.vertices[:, 2].min() - 2.0))
@@ -174,20 +173,21 @@ def prepare(entry, configurations):
         report,
         configurations,
         view=view,
-        output_dir=OUTPUT,
+        output_dir=output_dir,
     )
     return model
 
 
-def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
+def main(*, data_root):
+    output = data_root / "whole-tiles"
+    output.mkdir(parents=True, exist_ok=True)
     entries = json.loads((HERE / "showcase_catalog.json").read_text())["images"]
     if len(entries) != 4:
         raise ValueError("whole-tile showcase needs exactly four entries")
     configurations = []
     comparisons = {}
     for entry in entries:
-        model = prepare(entry, configurations)
+        model = prepare(entry, configurations, data_root=data_root, output_dir=output)
         if entry.get("comparison"):
             comparisons.setdefault(entry["comparison"], []).append(
                 (model, configurations[-1])
@@ -203,7 +203,7 @@ def main():
         )
         for _model, configuration in pair:
             configuration.update(view)
-    scene = OUTPUT / "scenes.json"
+    scene = output / "scenes.json"
     scene.write_text(json.dumps(configurations, indent=2) + "\n")
     # Old files cannot make an interrupted or incomplete render appear successful.
     for configuration in configurations:
@@ -249,7 +249,7 @@ def main():
         cwd=ROOT,
         text=True,
     ).strip()
-    (OUTPUT / "origin.json").write_text(
+    (output / "origin.json").write_text(
         json.dumps(
             {
                 "commit": commit,
@@ -264,4 +264,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-root", type=Path, required=True)
+    args = parser.parse_args()
+    main(data_root=args.data_root.resolve())

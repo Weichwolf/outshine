@@ -1,4 +1,4 @@
-"""Reduce the four manually inspected local masters to the requested GitHub 720p."""
+"""Reduce four manually inspected local masters to 720p for local comparison."""
 
 import argparse
 import json
@@ -34,10 +34,6 @@ def publish(source, output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path(__file__).resolve().parents[3] / "doc/images/vegetation",
-    )
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     publish(args.source, args.output)

@@ -57,6 +57,12 @@ Lieferlücken von Rezept-/Integrationslücken unterscheiden; keine globale Volls
   [PDF](buildings/siggraph/2010-computer-generated-residential-building-layouts.pdf).
   Raumprogramm/Adjazenzen → gemeinsam abgestimmte Geschosspläne → vollständige Innen-/Außengeometrie.
   WI [#31](https://github.com/Weichwolf/outshine/issues/31) vergleicht begrenzte Verfahren mit festen OSM-Körpern; keine ungemessene Übernahme des Optimierers.
+- **Interactive Furniture Layout Using Interior Design Guidelines**, Merrell et al., SIGGRAPH 2011.
+  [Autorenquelle](https://graphics.stanford.edu/~pmerrell/furnitureLayout2.pdf) ·
+  [PDF](buildings/siggraph/2011-interactive-furniture-layout.pdf).
+  Volle Objekt-/Aktivitätsflächen, freie Konfigurationsräume und erreichbare Nutzungsziele;
+  Seite 3/Tabelle 1/Gleichungen optisch geprüft. [#174](https://github.com/Weichwolf/outshine/issues/174)
+  vergleicht begrenzte eigene Kandidatensuche, keine vollständige GPU-MCMC- oder Baurechtsgleichheit.
 - **Finding the Maximum Area Axis-Parallel Rectangle in a Polygon**, Daniels / Milenkovic / Roth,
   Autorenpreprint Oktober 1993, später Computational Geometry 1997.
   [Quelle](https://cogcomp.seas.upenn.edu/papers/maaprJ.pdf) ·

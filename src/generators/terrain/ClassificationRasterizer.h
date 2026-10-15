@@ -12,8 +12,11 @@
 namespace outshine::Generators {
 class ClassificationRasterizer {
 public:
+  enum class RingRole : uint8_t { Unspecified, Exterior, Hole };
+
   struct Ring {
     uint32_t First = 0, Count = 0;
+    RingRole Role = RingRole::Unspecified;
   };
 
   enum class Shape : uint8_t { Point = 1, Line = 2, Polygon = 3 };
@@ -30,6 +33,7 @@ public:
   struct Input {
     double CamE = 0, CamN = 0;
     double CellM = 1;
+    double BoundaryHaloM = 0;
     int HalfCells = 0;
     std::vector<float> Points;
     std::vector<Ring> Rings;
@@ -55,6 +59,7 @@ private:
     std::vector<uint8_t> Base, BaseRank;
     std::vector<int32_t> SeedHead, SeedNext;
     std::vector<uint32_t> SeedCount;
+    std::vector<uint32_t> SeedReferences;
     std::vector<float> Edges, Curve;
     std::vector<uint32_t> ByY, Act;
     std::vector<int32_t> CellHead, CellNext;

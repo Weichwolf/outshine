@@ -150,8 +150,11 @@ void ClassificationPreparation::Ingest(Tier &t) {
   if (rings.size() > t.RingsDone) {
     t.Rings.resize(rings.size());
     for (size_t i = t.RingsDone; i < rings.size(); i++) {
-      t.Rings[i] = Generators::ClassificationRasterizer::Ring{.First = rings[i].First,
-                                                              .Count = rings[i].Count};
+      t.Rings[i] = Generators::ClassificationRasterizer::Ring{
+          .First = rings[i].First,
+          .Count = rings[i].Count,
+          .Role = rings[i].Exterior ? Generators::ClassificationRasterizer::RingRole::Exterior
+                                    : Generators::ClassificationRasterizer::RingRole::Hole};
     }
     t.RingsDone = rings.size();
   }
@@ -255,6 +258,11 @@ ClassificationPreparation::LendTo(Tier &t, ClassGrain grain, double camE, double
   job.Raster.CamE = camE;
   job.Raster.CamN = camN;
   job.Raster.CellM = t.CellM;
+  double reachM = 0;
+  for (size_t row = 0; row < Veg_->TemplateCount(); ++row) {
+    reachM = std::max(reachM, static_cast<double>(Veg_->Rows()[row].Edge[0]));
+  }
+  job.Raster.BoundaryHaloM = reachM + .5 * t.CellM;
   job.Raster.HalfCells = t.HalfCells;
   job.UnmappedRow = Veg_->UnmappedRow();
   job.Raster.Points = std::move(t.Pts);

@@ -1,7 +1,6 @@
 #!/bin/sh
 
 set -u
-set -m
 AUDIT=0
 AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
@@ -26,6 +25,50 @@ TREES=test
 # the sources under test/ that git holds or would hold -- the lab's .venv under test/lab carries
 # a numpy .cpp nobody wrote, and a walk that saw it died naming a directory the harness knows no
 TestSources() { git ls-files --cached --others --exclude-standard "$TREES" | grep '\.cpp$'; }
+
+BUILD_PLATFORM=$(uname -s)
+SOURCE_UNITS=$(python3 test/scripts/source_units.py) || exit 2
+
+SourceUnits() {
+  if [ $# -eq 0 ]; then printf '%s\n' "$SOURCE_UNITS"; return; fi
+  printf '%s\n' "$SOURCE_UNITS" | awk -v wanted="$1" '
+    $0 == wanted { print; next }
+    index($0, wanted "/") == 1 {
+      tail = substr($0, length(wanted) + 2)
+      if (index(tail, "/") == 0) print
+    }'
+}
+
+NativeGroups() {
+  SourceUnits | sed -n '\|^src/render/device/native/|s|/[^/]*$||p' | sort -u | tr '\n' ' '
+}
+
+SpirvCrossFlags() {
+  if pkg-config --exists spirv-cross-c-shared; then
+    pkg-config "$1" spirv-cross-c-shared
+  else
+    pkg-config "$1" spirv-cross-c || return
+    case "$1" in
+      --libs) printf '%s' ' -lspirv-cross-msl -lspirv-cross-hlsl -lspirv-cross-glsl -lspirv-cross-reflect -lspirv-cross-cpp -lspirv-cross-core' ;;
+    esac
+  fi
+}
+
+NativeLink() {
+  nativeCrossLibs=$(SpirvCrossFlags --libs) || return
+  case "$BUILD_PLATFORM" in
+    Darwin) printf '%s' "$nativeCrossLibs -framework Foundation -framework Metal" ;;
+    Linux)
+      nativeVulkanLibs=$(pkg-config --libs vulkan) || return
+      printf '%s' "$nativeVulkanLibs $nativeCrossLibs"
+      ;;
+  esac
+}
+
+if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
+  NativeLink
+  exit $?
+fi
 
 BUILD=${TMPDIR:-/tmp}
 # the nest carries the checkout identity (board:1649): parallel checkouts get parallel
@@ -99,25 +142,15 @@ Die() {
   exit 2
 }
 
-RUNNING_GROUPS=""
+RUNNING_OWNER=""
+RUNNING_ERROR=""
 KillRunning() {
-  for runningGroup in $RUNNING_GROUPS; do
-    kill -TERM -"$runningGroup" 2>/dev/null
-    kill -KILL -"$runningGroup" 2>/dev/null
-  done
-  for runningGroup in $RUNNING_GROUPS; do
-    cleanupAttempts=0
-    while kill -0 -"$runningGroup" 2>/dev/null; do
-      if [ "$cleanupAttempts" -ge 100 ]; then
-        printf 'run.sh: owned process group %s survived cleanup\n' "$runningGroup" >&2
-        return 1
-      fi
-      sleep 0.05
-      cleanupAttempts=$((cleanupAttempts + 1))
-    done
-    wait "$runningGroup" 2>/dev/null
-  done
-  RUNNING_GROUPS=""
+  if [ -n "${RUNNING_OWNER:-}" ]; then
+    kill -TERM "$RUNNING_OWNER" 2>/dev/null
+    wait "$RUNNING_OWNER" 2>/dev/null
+    RUNNING_OWNER=""
+  fi
+  [ ! -f "${RUNNING_ERROR:-}" ]
 }
 
 ReleaseNest() {
@@ -325,22 +358,22 @@ LayerLink() {
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 ImportGroups() {
-  find src/import -name '*.cpp' | sort | tr '\n' ' '
+  SourceUnits | sed -n '\|^src/import/|p' | tr '\n' ' '
 }
 
 GeneratorGroups() {
-  find src/generators -name '*.cpp' | sort | tr '\n' ' '
+  SourceUnits | sed -n '\|^src/generators/|p' | tr '\n' ' '
 }
 
 EngineRootGroups() {
-  find src/engine -maxdepth 1 -name '*.cpp' | sort | tr '\n' ' '
+  SourceUnits src/engine | tr '\n' ' '
 }
 
 LayerGroups() {
@@ -359,14 +392,18 @@ LayerGroups() {
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     profile/base) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
-    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
 
 GroupRepresentatives() {
+  representativeProfiles=" "
   for representativeSuite in "$@"; do
+    representativeProfile=$(TestProfile "$representativeSuite")
+    case "$representativeProfiles" in *" $representativeProfile "*) continue ;; esac
+    representativeProfiles="$representativeProfiles$representativeProfile "
     representativeGroups=$(LayerGroups "$representativeSuite" 2>/dev/null) || continue
     printf '%s\t%s\n' "$representativeGroups" "$representativeSuite"
   done | awk -F '\t' '!seen[$1]++ { print $2 }'
@@ -392,7 +429,8 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
-    scripts) printf '%s' "build tools compiled by the Makefile; their emitted shaders are compiled by glslang" ;;
+    scripts) printf '%s' "standalone build and diagnostic tools compiled by the Makefile" ;;
+    harness/render) printf '%s' "internal GPU probes compiled and judged by paired render experiments" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
@@ -489,6 +527,10 @@ GroupIncludes() {
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
   case "$includeTier" in render) includeSet="$includeSet $(pkg-config --cflags sdl3-shadercross)" ;; esac
   case "$1" in
+    src/render/device/native|src/render/device/native/*)
+      includeSet="$includeSet $(SpirvCrossFlags --cflags)"
+      case "$BUILD_PLATFORM" in Linux) includeSet="$includeSet $(pkg-config --cflags vulkan)" ;; esac
+      ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;
     src/generators/building) includeSet="$includeSet $(pkg-config --cflags sfcgal)" ;;
     src/content/assets) includeSet="$includeSet $(pkg-config --cflags sqlite3 libzstd)" ;;
@@ -514,6 +556,13 @@ GroupToolchain() {
 # source and every prerequisite the compiler named.
 # the stamp is (mtime, size, name) of the source and every prerequisite, gathered in ONE
 # stat call: a backwards mtime DIFFERS from the recorded one, where "-nt" called it current
+FileStamp() {
+  case "$(uname -s)" in
+    Linux) stat -c '%Y|%s|%n' -- "$@" ;;
+    *) stat -f '%m|%z|%N' -- "$@" ;;
+  esac
+}
+
 SourceStamp() {
   stampSource=$1
   stampDeps=$2
@@ -521,7 +570,7 @@ SourceStamp() {
   if [ -f "$stampDeps" ]; then
     stampFiles="$stampFiles $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps")"
   fi
-  stat -f '%m|%z|%N' -- $stampFiles 2>/dev/null || return 1
+  FileStamp $stampFiles 2>/dev/null || return 1
 }
 
 # THE COMPILE LINE'S IDENTITY IS IN THE OBJECT'S NAME, so freshness only has to answer the other
@@ -555,6 +604,12 @@ OBJDIR=$BUILD/obj
 # error text arrives interleaved is a build that reads differently twice.
 JOBS=${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
 
+SetGroupCompileFlags() {
+  arcStd="$groupStd -fobjc-arc"
+  setId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
+  arcSetId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
+}
+
 BuildGroup() {
   group=$1
   case "$group" in
@@ -564,10 +619,7 @@ BuildGroup() {
   esac
   groupIncludes=$(GroupIncludes "$group") || Die "no include set declared for the source group $group"
   groupStd=$(GroupToolchain "$group")
-  case "$group" in
-    *.cpp) groupUnits=$group ;;
-    *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
-  esac
+  groupUnits=$(SourceUnits "$group")
   # A TOOL'S ENTRY POINT IS NOT AN ARCHIVE MEMBER. `src/camera` is part of the library and its
   # `main` is not: archived, it would sit in `liboutshine.a` waiting to be pulled into somebody
   # else's link. It is compiled where the tools are built instead.
@@ -577,7 +629,7 @@ BuildGroup() {
   # old one, and two of five flag groups is not an identity (board:1751). It is a GROUP's
   # property, so it is computed once here rather than once per unit: at 157 units that was
   # three processes each for a value that could not differ between them.
-  setId=$(printf '%s|%s|%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
+  SetGroupCompileFlags
   groupPool=$OBJDIR/pool.$$
   groupFailed=$OBJDIR/failed.$$
   groupSaid=
@@ -594,20 +646,23 @@ BuildGroup() {
     [ -e "$unit" ] || continue
     unitFolder=${unit%/*}
     unitStem=${unit##*/}
-    unitObject=$OBJDIR/$(printf '%s' "$unitFolder" | tr / -)-${unitStem%.cpp}.$setId.o
+    unitStd=$groupStd
+    unitSetId=$setId
+    case "$unit" in *.mm) unitStd=$arcStd; unitSetId=$arcSetId ;; esac
+    unitObject=$OBJDIR/$(printf '%s' "$unitFolder" | tr / -)-${unitStem%.*}.$unitSetId.o
     # THE COMPILE LINE, WRITTEN DOWN WHERE A TOOL CAN READ IT. clang-tidy, clang-format and clangd
     # all want to know how a file is compiled, and this file is the only thing that knows -- the
     # include set is DERIVED from the tier graph, so no second map can be kept without going stale.
     # Emitting it here means the database cannot disagree with the build: it is the same string.
     if [ -n "${COMPILEDB:-}" ]; then
-      printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s -c -o %s"},\n' \
-        "$PWD" "$PWD/$unit" "$unitObject" "$CXX" "$PWD/$unit" "$groupStd" "$OPT" "$WARN" \
-        "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
+      printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s %s %s -c -o %s"},\n' \
+        "$PWD" "$PWD/$unit" "$unitObject" "$CXX" "$PWD/$unit" "$unitStd" "$OPT" "$WARN" \
+        "$SAN" "$EXTRA_DEFINES" "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
     fi
     if ! UpToDate "$unitObject" "$unit"; then
       read -r _poolToken <&9
       {
-        $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes \
+        $CXX "$unit" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes \
           -c -o "$unitObject" >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
         printf '.\n' >&9
       } &
@@ -634,32 +689,24 @@ RunWithTimeout() {
   log=$2
   marker=$3
   runArgument=$4
-  rm -f "$marker"
+  rm -f "$marker" "$marker.start" "$marker.cleanup-failed"
   # board:1778: a case that is killed by the budget measured NOTHING. Handing it the budget lets
   # it stop inside one and REPORT, which is a measurement, instead of being cut off mid-drive.
   export OUTSHINE_TIMEOUT_S="$TIMEOUT_S"
+  RUNNING_ERROR=$marker.cleanup-failed
   if [ -n "$runArgument" ]; then
-    "$binary" "$runArgument" >"$log" 2>&1 &
+    python3 "$ROOT/test/scripts/run_with_timeout.py" "$$" "$TIMEOUT_S" "$log" "$marker" \
+      "$binary" "$runArgument" &
   else
-    "$binary" >"$log" 2>&1 &
+    python3 "$ROOT/test/scripts/run_with_timeout.py" "$$" "$TIMEOUT_S" "$log" "$marker" \
+      "$binary" &
   fi
-  child=$!
-  RUNNING_GROUPS=$child
-  (
-    sleep "$TIMEOUT_S"
-    if kill -0 "$child" 2>/dev/null; then
-      : >"$marker"
-      kill -TERM -"$child" 2>/dev/null
-      sleep 2
-      kill -KILL -"$child" 2>/dev/null
-    fi
-  ) >/dev/null 2>&1 &
-  watchdog=$!
-  RUNNING_GROUPS="$child $watchdog"
-  wait "$child" 2>/dev/null
+  RUNNING_OWNER=$!
+  : >"$marker.start"
+  wait "$RUNNING_OWNER" 2>/dev/null
   status=$?
-  KillRunning || Die "an owned process group survived cleanup; refusing another case"
-  wait "$watchdog" 2>/dev/null
+  RUNNING_OWNER=""
+  [ ! -f "$RUNNING_ERROR" ] || Die "an owned process group survived cleanup; refusing another case"
   return $status
 }
 
@@ -746,6 +793,20 @@ SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
+ArchiveFresh() {
+  archiveFreshPath=$1
+  shift
+  [ -f "$archiveFreshPath" ] || return 1
+  archiveFreshActual=$(ar t "$archiveFreshPath" 2>/dev/null) || return 1
+  archiveFreshExpected=$(printf '%s\n' "$@" | sed 's|.*/||')
+  [ "$archiveFreshActual" = "$archiveFreshExpected" ] || return 1
+  for archiveFreshMember in "$@"; do
+    [ -f "$archiveFreshMember" ] || return 1
+    [ "$archiveFreshMember" -nt "$archiveFreshPath" ] && return 1
+  done
+  return 0
+}
+
 # THE LIBRARY ENTIRE, from the same declarations the tests build with: every source under src/
 # resolves to a group -- its own file arm when GroupIncludes names it, its directory otherwise --
 # and a source neither names is a refusal, never a guess. The Makefile's `all` target is this call,
@@ -753,7 +814,7 @@ Now() { "$BUILD/millis"; }
 BuildLibrary() {
   OBJECTS=""
   libraryGroups=" "
-  for libraryUnit in $(find src -name '*.cpp' | sort); do
+  for libraryUnit in $(SourceUnits); do
     case "$libraryUnit" in src/diagnostics/*) continue ;; esac
     libraryGroup=${libraryUnit%/*}
     case "$libraryGroups" in *" $libraryGroup "*) continue ;; esac
@@ -761,14 +822,7 @@ BuildLibrary() {
     BuildGroup "$libraryGroup" || Die "the library group $libraryGroup did not build"
   done
   mkdir -p build
-  archiveStale=yes
-  if [ -f build/liboutshine.a ]; then
-    archiveStale=no
-    for member in $OBJECTS; do
-      if [ "$member" -nt build/liboutshine.a ]; then archiveStale=yes; break; fi
-    done
-  fi
-  if [ "$archiveStale" = yes ]; then
+  if ! ArchiveFresh build/liboutshine.a $OBJECTS; then
     rm -f build/liboutshine.a
     ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
   fi
@@ -857,7 +911,7 @@ EverySourceStillCompiles() {
       *)
         seenLayers="$seenLayers $layer"
         for extra in $(LayerExtraSources "$layer"); do
-          case "$extra" in *.cpp) beside="$beside $extra" ;; esac
+          case "$extra" in *.cpp|*.mm) beside="$beside $extra" ;; esac
         done
         ;;
     esac
@@ -1077,10 +1131,10 @@ StateStranded() {
   for suiteDir in $(TestSources | sed 's|/[^/]*\.cpp$||' | sed 's|^test/||' | sort -u); do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
-      if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
+      SourceUnits "$group"
     done
   done | sort -u > "$BUILD/log/state-linked"
-  find src -name '*.cpp' -not -path 'src/assets/*' | sort > "$BUILD/log/state-carried"
+  SourceUnits | sed '\|^src/assets/|d' > "$BUILD/log/state-carried"
   comm -23 "$BUILD/log/state-carried" "$BUILD/log/state-linked" | sed 's|^|  |'
 }
 
@@ -1404,7 +1458,7 @@ if [ "$AUDIT" = 1 ]; then
     files=""
     for group in $groups; do
       if [ -d "$group" ]; then
-        files="$files $(find "$group" -maxdepth 1 -name '*.cpp' | sort)"
+        files="$files $(SourceUnits "$group")"
       else
         files="$files $group"
       fi
@@ -1418,12 +1472,12 @@ if [ "$AUDIT" = 1 ]; then
   for suiteDir in $auditSuites; do
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
-      if [ -d "$group" ]; then find "$group" -maxdepth 1 -name '*.cpp'; else printf '%s\n' "$group"; fi
+      SourceUnits "$group"
     done
   done | sort -u > "$BUILD/audit-linked.txt"
   # src/client is the ONE program `make` links, not a suite's source: the client audits itself
   # by building, and a suite that listed it would link a second main
-  find src -name '*.cpp' -not -path 'src/assets/*' -not -path 'src/client/*' | sort > "$BUILD/audit-carried.txt"
+  SourceUnits | sed '\|^src/assets/|d; \|^src/client/|d' > "$BUILD/audit-carried.txt"
   stranded=$(comm -23 "$BUILD/audit-carried.txt" "$BUILD/audit-linked.txt")
   strandedCount=$(printf '%s' "$stranded" | grep -c . || true)
   if [ "$strandedCount" != "$STRANDED" ]; then
@@ -1436,9 +1490,16 @@ if [ "$AUDIT" = 1 ]; then
   fi
   archived=0
   missing=0
-  for source in $(find src -name '*.cpp' -not -path 'src/assets/*' | sort); do
-    layer=$(dirname "$source")
-    if GroupIncludes "$layer" >/dev/null 2>&1 || GroupIncludes "$source" >/dev/null 2>&1; then
+  auditKnownLayers=" "
+  for source in $(SourceUnits | sed '\|^src/assets/|d'); do
+    layer=${source%/*}
+    case "$auditKnownLayers" in
+      *" $layer "*) archived=$((archived + 1)); continue ;;
+    esac
+    if GroupIncludes "$layer" >/dev/null 2>&1; then
+      auditKnownLayers="$auditKnownLayers$layer "
+      archived=$((archived + 1))
+    elif GroupIncludes "$source" >/dev/null 2>&1; then
       archived=$((archived + 1))
     else
       printf 'AUDIT no library group builds %s\n' "$source"
@@ -1465,7 +1526,7 @@ if [ "$AUDITLINK" = 1 ]; then
     groups=$(LayerGroups "$suiteDir" 2>/dev/null) || continue
     for group in $groups; do
       case "$group" in
-        *.cpp)
+        *.cpp|*.mm)
           if [ ! -e "$group" ]; then
             printf 'AUDIT %s declares %s and no such source exists -- a ghost in the listing\n' "$suiteDir" "$group"
             bad=1
@@ -1482,7 +1543,7 @@ if [ "$AUDITLINK" = 1 ]; then
     stragglers=ok
     for group in $groups; do
       case "$group" in
-        *.cpp)
+        *.cpp|*.mm)
           if [ ! -e "$group" ]; then
             printf 'AUDIT %s declares %s and no such source exists -- a ghost in the listing\n' "$suiteDir" "$group"
             stragglers=refused
@@ -1499,13 +1560,13 @@ if [ "$AUDITLINK" = 1 ]; then
       # the id carries the WHOLE compile line: includes, std, optimisation and warnings --
     # editing -O2 or the warning set in this file silently reused objects built with the
     # old one, and two of five flag groups is not an identity (board:1751)
-    setId=$(printf '%s|%s|%s|%s|%s|%s' "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
+    SetGroupCompileFlags
       case "$group" in
-        *.cpp) groupUnits=$group ;;
-        *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
+        *.cpp|*.mm) groupUnits=$group ;;
+        *) groupUnits=$(SourceUnits "$group") ;;
       esac
-      pairs=$(printf '%s\n' $groupUnits | awk -v id="$setId" \
-        '{ u=$0; s=u; sub(/\.cpp$/, "", s); gsub(/\//, "-", s); print u " " s "." id ".o" }')
+      pairs=$(printf '%s\n' $groupUnits | awk -v cppId="$setId" -v arcId="$arcSetId" \
+        '{ u=$0; s=u; id=(u ~ /\.mm$/ ? arcId : cppId); sub(/\.(cpp|mm)$/, "", s); gsub(/\//, "-", s); print u " " s "." id ".o" }')
       groupBuilt=no
       set -- $pairs
       while [ $# -ge 2 ]; do
@@ -1977,7 +2038,7 @@ BinaryStamp() {
       stampFiles="$stampFiles $stampNeed"
     done
   fi
-  stat -f '%m|%z|%N' -- $stampFiles $OBJECTS 2>/dev/null || return 1
+  FileStamp $stampFiles $OBJECTS 2>/dev/null || return 1
 }
 
 Fresh() {

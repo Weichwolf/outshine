@@ -5,9 +5,11 @@
 
 
 
+#include "base/spatial/ClassSeedValues.h"
+
 struct GroundGrid {
   uint W, H, CellsAt, SeedsAt, RefsAt, EdgesAt;
-  float OrgE, OrgN, CellM;
+  float OrgE, OrgN, CellM, BoundaryHaloM;
 };
 
 GroundGrid groundGridAt(uint head) {
@@ -21,6 +23,7 @@ GroundGrid groundGridAt(uint head) {
   g.SeedsAt = groundClasses[head + 6];
   g.RefsAt = groundClasses[head + 7];
   g.EdgesAt = groundClasses[head + 8];
+  g.BoundaryHaloM = uintBitsToFloat(groundClasses[head + 9]);
   return g;
 }
 
@@ -50,20 +53,24 @@ const float kGroundNoEdgeM = 1.0e30;
 
 
 
-int groundClassAt(
+int groundMaterialAt(
                                 vec2 at,
+                                float halfFootprintM,
                                 out float edgeM,
-                                out int runnerUp) {
+                                out int runnerUp,
+                                out float haloM) {
   int best = -1;
   int bestRank = -1;
   int second = -1;
   int secondRank = -1;
   edgeM = kGroundNoEdgeM;
   runnerUp = -1;
+  haloM = 0.0;
   for (uint b = 0; b < 2u; ++b) {
     const uint head = groundClasses[b];
     if (head == 0u) { continue; }
     const GroundGrid g = groundGridAt(head);
+    if (g.BoundaryHaloM > 0.0 && halfFootprintM > 0.5 * g.CellM) { continue; }
     const int i = int(floor((at.x - g.OrgE) / g.CellM));
     const int j = int(floor((at.y - g.OrgN) / g.CellM));
     if (i < 0 || j < 0 || uint(i) >= g.W || uint(j) >= g.H) { continue; }
@@ -76,14 +83,18 @@ int groundClassAt(
       bestRank = int((c0 >> 8) & 0xFFu);
     }
     const vec2 corner = vec2(g.OrgE + float(i) * g.CellM, g.OrgN + float(j) * g.CellM);
+    int edgeClass = -1;
+    int edgeRank = -1;
+    float signedEdgeM = kGroundNoEdgeM;
+    bool edgeInside = false;
     for (uint s = 0; s < seeds; ++s) {
-      const uint seedAt = g.SeedsAt + (seedFirst + s) * 3u;
+      const uint seedAt = g.SeedsAt + (seedFirst + s) * uint(kClassSeedWordCount);
       const uint w0 = groundClasses[seedAt];
       const uint refFirst = groundClasses[seedAt + 1u];
-      const float halfW = uintBitsToFloat(groundClasses[seedAt + 2u]);
+      const uint refs = groundClasses[seedAt + 2u];
+      const float halfW = uintBitsToFloat(groundClasses[seedAt + 3u]);
       const int tpl = int(w0 & 0xFFu);
       const int rank = int((w0 >> 8) & 0xFFu);
-      const uint refs = (w0 >> 16) & 0xFFu;
       int wind = int((w0 >> 24) & 0xFFu) - 128;
       float d = kGroundNoEdgeM;
       for (uint r = 0; r < refs; ++r) {
@@ -97,25 +108,34 @@ int groundClassAt(
         }
         d = min(d, groundSegDist(at, p0, p1));
       }
-      if (halfW > 0.0) {
-        if (d > halfW) { continue; }
-        d = halfW - d;
-      } else if (wind == 0) {
-        continue;
+      bool inside = halfW > 0.0 ? d <= halfW : wind != 0;
+      float signedDistance = halfW > 0.0 ? halfW - d : (inside ? d : -d);
+      if (g.BoundaryHaloM > 0.0 && abs(signedDistance) <= g.BoundaryHaloM &&
+          (rank > edgeRank || (rank == edgeRank && abs(signedDistance) < abs(signedEdgeM)))) {
+        edgeClass = tpl;
+        edgeRank = rank;
+        signedEdgeM = signedDistance;
+        edgeInside = inside;
       }
+      if (!inside) { continue; }
       if (rank > bestRank) {
         second = best;
         secondRank = bestRank;
         best = tpl;
         bestRank = rank;
-        edgeM = d;
       } else if (rank > secondRank) {
         second = tpl;
         secondRank = rank;
       }
     }
-    if (best >= 0) { break; }
+    if (edgeRank >= 0 && edgeRank >= bestRank) {
+      runnerUp = edgeInside ? second : best;
+      if (runnerUp == edgeClass) { return best; }
+      edgeM = signedEdgeM;
+      haloM = g.BoundaryHaloM;
+      return edgeClass;
+    }
+    if (best >= 0) { return best; }
   }
-  runnerUp = second;
   return best;
 }

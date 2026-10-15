@@ -54,7 +54,7 @@ int main(int argc, const char **argv) {
     uint64_t format = 0;
     double longitude = 0;
     double latitude = 0;
-    if (!header(format, longitude, latitude) || format != 0x0002314e5247ULL) { return 2; }
+    if (!header(format, longitude, latitude) || format != 0x0004314e5247ULL) { return 2; }
     std::println("{:.17g} {:.17g}", latitude, longitude);
     return 0;
   }

@@ -17,19 +17,11 @@ from evidence import revision
 from tile_buildings import SITES,construct,read_tile
 from tile_facades import contexts
 from tile_stepped import SteppedDetails
+from tile_camera import camera
 from provider_contract import number,hidden
 
 
 TITLES={'Spittelau':'Wien · Spittelau','BerlinFernsehturm':'Berlin · Fernsehturm','Grohnde':'Grohnde · Industriebauten','Hameln':'Hameln · Stadtgrundrisse'}
-
-
-def camera(points):
-    target=(points.min(axis=0)+points.max(axis=0))/2
-    direction=np.array([1.,-1.25,.95]);direction/=np.linalg.norm(direction)
-    view=View(target+direction,target,width=3840,height=2160,fov_deg=48.)
-    projected=(points-target)@view.basis.T
-    required=np.maximum(abs(projected[:,0])*view.focal_px/(view.width*.46),abs(projected[:,1])*view.focal_px/(view.height*.43))-projected[:,2]
-    return View(target+direction*(required.max()+10.),target,width=view.width,height=view.height,fov_deg=48.)
 
 
 def view_for(rows):
