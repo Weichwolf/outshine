@@ -402,6 +402,22 @@ ohne Höhenüberhöhung sowie die unveränderte ganze Elternkachel als Kontext. 
 werden nicht als zusammengesetztes neues Netz ausgegeben. Die öffentliche Showcase
 bleibt bei ihren vier ganzen Kacheln; API-/Kostenbelege und Grenzen stehen im PR.
 
+### Gemeinsam geneigte ganze Straßenports (#169)
+
+Das aktive Experiment [#169](https://github.com/Weichwolf/outshine/issues/169)
+plant gemeinsame geneigte Straßenports vor dem Höhenfit. Die vollständigen
+unveränderten Wiener XY-/Port-/DEM-Eingaben samt Quellen und Herkunft liegen
+portabel unter [reference/port-planes/](reference/port-planes/README.md).
+`port_plane_checks.py` prüft ganze schiefe Kontakte, rationale Bernstein-Schranken,
+globale Konus-/LP-Fits und unabhängige Ableitungen. `port_plane_world_checks.py`
+prüft gemeinsamen Boden, konforme Red/Green-Verfeinerung und die adaptive Pipeline.
+`port_plane_experiment.py` ist der Straßenvergleich, `port_plane_world.py` der
+ungefeinerte gekoppelte Bodenversuch, `port_plane_adaptive.py` begrenzt Verfeinerung
+und erneuten Fit. Alle liefern explizite Geometrie-/Kontakt-/Budgetzustände.
+Eine gültige grobe Fläche ist noch kein 0.01m-Höhenchordnachweis. Ausgabe erst nach
+vollständiger Prüfung, geöffneter 3D-Inspektion und dokumentiertem Kostenvergleich
+freigeben; vorhandene Showcase-/Höhenprodukte bleiben bis dahin erhalten.
+
 ### Lokale Zweiebenenrezepte (#21)
 
 `overpass_recipe.py` verbindet #96-Rampen mit einem starren Überlappungskern.

@@ -1,0 +1,39 @@
+{
+  "frame": "Vienna-ENU-48.21N-16.37E-Z-mapterhorn-as-supplied",
+  "origin_lat_lon": [
+    48.21,
+    16.37
+  ],
+  "vertical_datum": "Mapterhorn values as supplied; no geoid/MSL conversion claim",
+  "source_kind": "explicit jointly fitted road/soil XY plan; DEM priors separate from generated heights",
+  "inputs": {
+    "build/experiments/transport/surface-vienna-cuts/Vienna-flat-surfaces.npz": "9cf891d4436d8b4cf35f0542f3237101add2d18df32ce24bcfa9d8acdc5c466e",
+    "build/experiments/transport/heights/Vienna-profile-input.npz": "a0f5d1d2a8774a8560010c71e1f08fc918f7389d20f8b229b1279f8e33868b16",
+    "build/experiments/transport/ground/Vienna-ground.npz": "05dcef48bf923d158ac2f7f2fa95bb597383cb35c08b6e0c85f28d5a591fdd75",
+    "build/experiments/transport/inputs/Vienna-input.json": "b5a36c59aadd12c4dbe40aa1d1692a884dcfca37c5da4ad365941fd7cc72677d",
+    "build/experiments/transport/flat-vienna/Vienna-flat-network.json": "4eb284d38a744186e6fa3e5779b132deba95035ac9f33200f69ec7de33e908e6",
+    "build/experiments/transport/heights/Vienna-profile-input.json": "0fc255827e890feeb00706384d2644587c945d78494a3d05d43dd4eb29f94f9e",
+    "build/experiments/transport/ground/Vienna-ground.json": "e9821421becc4432373da7932318dd1b850d96717b3d152fadede4625cd95e8a",
+    "build/experiments/transport/heights/Vienna-targets.json": "a8caef644b3c20f566cd4b79388d4f6380076c5b42c42e7ec4276de3e41d1237"
+  },
+  "files": {
+    "Vienna.npz": {
+      "bytes": 1962254,
+      "sha256": "05bae1944e0411fdf5497021a72bd06ea434bd0465441c17c7604acf6642d52b"
+    },
+    "sources.json.gz": {
+      "bytes": 416928,
+      "sha256": "6e792f01bcdf9bb926ede75a8ae80f8dabfdc0e4fdd15bbb0c09500ddcbcbf04"
+    }
+  },
+  "counts": {
+    "original_road_vertices": 30256,
+    "original_road_faces": 31780,
+    "original_parts": 3317,
+    "original_ports": 3888,
+    "ground_vertices": 30260,
+    "ground_faces": 60514
+  },
+  "credits": "\u00a9 OpenMapTiles \u00b7 \u00a9 OpenStreetMap contributors; elevation Mapterhorn. URLs/source hashes retained in sources.json.gz.",
+  "scope": "Original captured inputs, not expected C1 results. Original triangle/vertex/module/port order preserved. Normal tests do not recapture or modify this fixture."
+}
