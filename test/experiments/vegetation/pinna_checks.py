@@ -16,6 +16,7 @@ from pinna_boundary import (
     select,
     snapshot,
 )
+from pinna_experiment import light_requests
 from pinna_surface import domain
 
 
@@ -43,6 +44,38 @@ def fan():
 
 
 class PinnaChecks(unittest.TestCase):
+    def test_finite_area_light_height_and_unbounded_projection_counterexamples(self):
+        directions, angles, gain = light_requests(3.3, 0.8)
+        # Independent differential of perspective projection from fixed point
+        # emitters onto z=0; random receivers/lights stay in the declared balls.
+        rng = np.random.default_rng(41)
+        for _ in range(128):
+            p = rng.uniform(-1, 1, 3)
+            p *= 3.3 / max(1, np.linalg.norm(p))
+            p[2] = rng.uniform(0, 0.8)
+            lamp = rng.normal(size=3)
+            lamp = np.array((-8, -12, 18)) + lamp / np.linalg.norm(lamp) * 9
+            h = 1e-5
+
+            def projected(q, emitter=lamp):
+                return (emitter[2] * q[:2] - q[2] * emitter[:2]) / (emitter[2] - q[2])
+
+            jac = np.column_stack(
+                [
+                    (projected(p + h * e) - projected(p - h * e)) / (2 * h)
+                    for e in np.eye(3)
+                ]
+            )
+            self.assertLessEqual(
+                float(np.linalg.svd(jac, compute_uv=False).max()), gain[2]
+            )
+        self.assertGreater(gain[2], light_requests(3.3, 0)[2][2])
+        self.assertEqual(directions.shape, (3, 3))
+        self.assertEqual(angles[0], 0)
+        for radius, height in ((3, 9), (10, 1)):
+            with self.assertRaises(ValueError):
+                light_requests(radius, height)
+
     def test_known_pyramid_bound_and_strict_selector_fallback(self):
         source = fan()
         coarse = boundary_product(source)

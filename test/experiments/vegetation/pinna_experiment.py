@@ -19,7 +19,7 @@ from pinna_surface import overlay, surface
 from scipy.spatial.transform import Rotation
 
 
-def light_requests(receiver_radius_m):
+def light_requests(receiver_radius_m, receiver_height_m):
     sun = Rotation.from_euler("xyz", (0.45, -0.65, -0.6)).apply((0, 0, 1))
     area = np.asarray((-8, -12, 18), float)
     area /= np.linalg.norm(area)
@@ -32,12 +32,19 @@ def light_requests(receiver_radius_m):
     directions /= np.linalg.norm(directions, axis=1, keepdims=True)
     cosine = directions[:, 2]
     minimum = cosine * np.cos(angles) - np.sqrt(1 - cosine**2) * np.sin(angles)
+    # A finite emitter projects perspectively onto z=0. Its Jacobian adds
+    # lamp_z/(lamp_z-receiver_z); the enclosing light sphere has lamp_z>=9m.
+    if receiver_height_m >= 9 or np.any(minimum[1:] <= 0):
+        raise ValueError("flat-ground light projection is not bounded in this scene")
     gains = np.r_[1, 1 / minimum[1:]]
+    gains[2] *= 9 / (9 - receiver_height_m)
     return directions, angles, gains
 
 
-def compare(plan, source, full, scale, pixels_per_metre, receiver_radius_m):
-    directions, angles, gains = light_requests(receiver_radius_m)
+def compare(
+    plan, source, full, scale, pixels_per_metre, receiver_radius_m, receiver_height_m
+):
+    directions, angles, gains = light_requests(receiver_radius_m, receiver_height_m)
     rows = []
     for method in ("quad", "contour"):
         start = time.perf_counter()
@@ -77,7 +84,7 @@ def run(inputs, output, span_m):
         if path.is_file():
             (output / path.name).symlink_to(path.resolve())
     poses = dict(np.load(inputs / "fern-population.npz"))
-    receiver_radius_m, grass_triangles = 0.0, 0
+    receiver_radius_m, receiver_height_m, grass_triangles = 0.0, 0.0, 0
     for kind, count in (("fern", 4), ("grass", 8)):
         population = dict(np.load(inputs / (kind + "-population.npz")))
         for variant in range(count):
@@ -94,9 +101,13 @@ def run(inputs, output, span_m):
             receiver_radius_m = max(
                 receiver_radius_m, float((radii + scales * extent).max())
             )
+            receiver_height_m = max(
+                receiver_height_m,
+                float((population["origins"][mask, 2] + scales * extent).max()),
+            )
             if kind == "grass":
                 grass_triangles += int(mask.sum()) * len(mesh["faces"])
-    gain = float(light_requests(receiver_radius_m)[2].max())
+    gain = float(light_requests(receiver_radius_m, receiver_height_m)[2].max())
     pixels_per_metre = 1920 / span_m
     rows, total_before, total_after = [], 0, 0
     for variant in range(4):
@@ -144,7 +155,13 @@ def run(inputs, output, span_m):
         }
         if variant == 0:
             row["plane_prefilter"] = compare(
-                plan, source, full, scale, pixels_per_metre, receiver_radius_m
+                plan,
+                source,
+                full,
+                scale,
+                pixels_per_metre,
+                receiver_radius_m,
+                receiver_height_m,
             )
         rows.append(row)
     result = {
@@ -153,6 +170,7 @@ def run(inputs, output, span_m):
         "max_surface_displacement_px": 0.75,
         "maximum_flat_ground_shadow_gain": gain,
         "receiver_sphere_radius_m": receiver_radius_m,
+        "receiver_height_upper_m": receiver_height_m,
         "fern_instance_triangles_before": total_before,
         "fern_instance_triangles_after": total_after,
         "unchanged_grass_triangles": grass_triangles,
