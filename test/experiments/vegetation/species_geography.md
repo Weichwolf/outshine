@@ -49,9 +49,14 @@ points, poles/dateline, random points, a direct interior path requiring no
 polygon predicate, candidate refusal before allocation and nested siblings
 remaining filled under union, plus preserved source slivers at the dateline.
 The full experiment adds every normalized source vertex,
-spherical-uniform random coordinates and eight named real geographic controls;
+spherical-uniform random coordinates and nine named real geographic controls;
 alternating query order avoids always favouring one warm order. Preparation,
 table construction, query times and peak process RSS are distinct observations.
+Known geographic controls remain a separate gate: the source does not cover
+the San Francisco point 37.77/−122.42, although its expected region is CAL.
+That failed control is retained; Sacramento is an additional interior control.
+The benchmark records timings/equivalence even with this source gap, then exits2.
+Exact agreement with source polygons alone does not prove geographic coverage.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 \

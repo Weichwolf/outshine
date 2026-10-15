@@ -44,6 +44,7 @@ def run(source, output):
         ("DarmstadtWest", 49.875871, 8.662596, "GER"),
         ("Malcesine", 45.744855, 10.800445, "ITA"),
         ("California", 37.77, -122.42, "CAL"),
+        ("Sacramento", 38.58, -121.49, "CAL"),
         ("Tasmania", -42.88, 147.32, "TAS"),
         ("Victoria", -37.81, 144.96, "VIC"),
         ("Kenya", -1.28, 36.82, "KEN"),
@@ -52,10 +53,15 @@ def run(source, output):
     for name, lat, lon, expected in cases:
         matches = index.query(lat, lon)
         result = [codes[i] for i in matches[1]]
-        if expected not in result:
-            raise ValueError(f"known botanical country mismatch: {name}: {result}")
         controls.append(
-            {"name": name, "latitude": lat, "longitude": lon, "codes": result}
+            {
+                "name": name,
+                "latitude": lat,
+                "longitude": lon,
+                "expected": expected,
+                "codes": result,
+                "passed": expected in result,
+            }
         )
     timings = {"direct": [], "cell": []}
     for repeat in range(6):
@@ -97,6 +103,8 @@ def run(source, output):
         "peak_process_rss_MiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         / 1024,
         "controls": controls,
+        "source_membership_equivalence_passed": True,
+        "geographic_controls_passed": all(c["passed"] for c in controls),
         "scope": "Same normalized research source, all vertices and spherical-uniform random coordinates. Exact source memberships, not species/ecology/visual/native admission; no source redistribution approval.",
     }
     (output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -112,6 +120,7 @@ def run(source, output):
         ),
         flush=True,
     )
+    return report["geographic_controls_passed"]
 
 
 if __name__ == "__main__":
@@ -119,4 +128,4 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
-    run(arguments.source, arguments.output)
+    raise SystemExit(0 if run(arguments.source, arguments.output) else 2)
