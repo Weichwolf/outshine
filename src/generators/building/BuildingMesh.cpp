@@ -713,6 +713,7 @@ void RaiseMassedEnvelope(const BuildingShape &s, std::span<const EastNorth> ring
   const Facade roof = s.Roof == RoofKind::Flat ? Facade::RoofFlat : Facade::RoofPitch;
   for (size_t i = 0; i < 4; i++) {
     const size_t j = (i + 1) % 4;
+    site.UseWall(s, ring[i], ring[j]);
     const double bays = FacadeBays(EdgeLength(ring[i], ring[j]), s.BayM);
     site.Quad(Wall(s, ring[i], lowZ, 0.0, Fields::Back),
               Wall(s, ring[j], lowZ, bays, Fields::Back),

@@ -26,7 +26,8 @@ using namespace outshine::Generators;
 using namespace outshine::Test;
 constexpr double kLatitudeDeg = 48.2;
 constexpr double kLongitudeDeg = 16.37;
-constexpr double kWidthDeg = 0.0003;
+constexpr double kWidthDeg = 0.0006;
+constexpr double kWidthStepDeg = 0.000001;
 constexpr double kDepthDeg = 0.0002;
 constexpr double kAslM = 100;
 constexpr double kMetricToleranceM = 0.0002;
@@ -276,13 +277,14 @@ void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch
 int main(int argc, char *const *argv) {
   BuildingScratch scratch;
   for (size_t seed = 0; seed < kSearchCases; ++seed) {
-    const double longitude = kLongitudeDeg + static_cast<double>(seed) * kWidthDeg;
+    const double longitude = kLongitudeDeg;
+    const double width = kWidthDeg + static_cast<double>(seed) * kWidthStepDeg;
     const std::array ring{kLatitudeDeg,
                           longitude,
                           kLatitudeDeg,
-                          longitude + kWidthDeg,
+                          longitude + width,
                           kLatitudeDeg + kDepthDeg,
-                          longitude + kWidthDeg,
+                          longitude + width,
                           kLatitudeDeg + kDepthDeg,
                           longitude};
     StructurePlan plan;
@@ -296,7 +298,6 @@ int main(int argc, char *const *argv) {
               plan.AnchorEcef);
     const auto source = BuildingSurface::Prepare(plan, scratch);
     if (!source || source->Shapes().size() != 1 ||
-        source->Shapes().front().Roof != RoofKind::Gable ||
         !UsesWallMaterialMetres(source->Shapes().front())) {
       continue;
     }
