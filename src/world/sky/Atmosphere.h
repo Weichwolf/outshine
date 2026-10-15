@@ -377,15 +377,42 @@ template <typename ToSun, typename Psi>
   const float toTop = mediumTopReach(medium, radiusKm, cosZenith);
   const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
 
+  if (steps <= 0 || span <= 0.0f) { return {1.0f, 1.0f, 1.0f}; }
+  const int cells = steps / 2;
+  float focus = 0.0f;
+  if (cells > 0 && cosZenith > 0.0f && medium.MieExtinctionPerKm > 0.0f) {
+    const Vec3f start = MediumExtinctionPerKm(medium, radiusKm - medium.BottomRadiusKm);
+    focus = medium_core::mediumSolarFocus(
+        medium, std::min({start[0], start[1], start[2]}), look, span / static_cast<float>(cells));
+  }
   Vec3 depth = {0.0, 0.0, 0.0};
-  const float stride = span / static_cast<float>(steps);
-  for (int step = 0; step < steps; ++step) {
-    const float along = stride * (static_cast<float>(step) + kMediumSampleSegment);
-
-    const Vec3f extinction =
-        MediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along));
-    for (int channel = 0; channel < 3; ++channel) {
-      depth[channel] += static_cast<double>(extinction[channel]) * static_cast<double>(stride);
+  if (focus == 0.0f) {
+    const float stride = span / static_cast<float>(steps);
+    for (int step = 0; step < steps; ++step) {
+      const float along = stride * (static_cast<float>(step) + kMediumSampleSegment);
+      const Vec3f extinction =
+          MediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along));
+      for (int channel = 0; channel < 3; ++channel) {
+        depth[channel] += static_cast<double>(extinction[channel]) * static_cast<double>(stride);
+      }
+    }
+  } else {
+    for (int cell = 0; cell < cells; ++cell) {
+      const float beginKm = medium_core::mediumSolarEdge(
+          span, static_cast<float>(cell) / static_cast<float>(cells), focus);
+      const float endKm = medium_core::mediumSolarEdge(
+          span, static_cast<float>(cell + 1) / static_cast<float>(cells), focus);
+      const float halfWidthKm = (endKm - beginKm) * 0.5f;
+      const float middleKm = (endKm + beginKm) * 0.5f;
+      const float offsetKm = halfWidthKm * std::numbers::inv_sqrt3_v<float>;
+      const Vec3f left = MediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm - offsetKm));
+      const Vec3f right = MediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm + offsetKm));
+      for (int channel = 0; channel < 3; ++channel) {
+        depth[channel] +=
+            static_cast<double>(left[channel] + right[channel]) * static_cast<double>(halfWidthKm);
+      }
     }
   }
   Vec3f out;
