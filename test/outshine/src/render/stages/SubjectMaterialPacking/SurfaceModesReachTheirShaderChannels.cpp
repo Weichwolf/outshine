@@ -15,7 +15,12 @@ int main() {
   const auto patterned = PackSubjectMaterial(ordinary, 0.0f);
   CHECK(MaterialValuesAreValid(ordinary.Row) && patterned[35] == 1.0f,
         "native facade mode reaches its dedicated GPU scalar");
-  ordinary.Row.Pattern = static_cast<SurfacePattern>(2);
+  ordinary.Row.Pattern = SurfacePattern::FacadeMetres;
+  const auto metric = PackSubjectMaterial(ordinary, 0.0f);
+  CHECK(MaterialValuesAreValid(ordinary.Row) && metric[35] == 2.0f && ordinary.ReadsSecondUv() &&
+            !ordinary.ReadsAnyImage(),
+        "explicit facade metres require UV1 and retain their distinct packed value without images");
+  ordinary.Row.Pattern = static_cast<SurfacePattern>(3);
   CHECK(!MaterialValuesAreValid(ordinary.Row), "unknown procedural mode is rejected");
   Material material;
   material.Scattering = ScatteringModel::DiffuseThinSheet;
