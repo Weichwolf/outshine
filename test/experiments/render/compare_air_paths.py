@@ -111,6 +111,8 @@ def main():
         )
     totals = aggregate(rows)
     refinement = max(row["reference_refinement_relative_max"] for row in rows)
+    refinement_t = max(row["reference_refinement_t_max"] for row in rows)
+    reference_valid = refinement <= 0.001 and refinement_t <= 0.0002
     report = {
         "scope": "Single Rayleigh scattering plus ozone; Haze=0; no multiple scattering, "
         "clouds, terrain shadows, ground bounce, finite Sky-View LUT or runtime proof.",
@@ -131,7 +133,8 @@ def main():
         "radiance_relative_floor_per_sr": RADIANCE_FLOOR_PER_SR,
         "quadrature_setup_seconds": setup_seconds,
         "maximum_reference_refinement_relative_error": refinement,
-        "reference_passes_0_1_percent": refinement <= 0.001,
+        "maximum_reference_transmittance_refinement_error": refinement_t,
+        "reference_meets_targets": reference_valid,
         "requirements": {
             "owner": "outshine_light",
             "origin": "pre-measurement experiment target, not a renderer gate",
@@ -141,7 +144,7 @@ def main():
         "meeting_requirements": [
             name
             for name, row in totals.items()
-            if refinement <= 0.001
+            if reference_valid
             and row["radiance_relative_max"] <= 0.01
             and row["transmittance_absolute_max"] <= 0.002
         ],
