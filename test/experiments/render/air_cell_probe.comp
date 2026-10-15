@@ -1,0 +1,21 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "world/sky/AirCellLayout.h"
+#define AIR_INLINE
+#define AIR_NOEXCEPT
+#define AIR_FLOAT(name, value) const float name = value;
+#include "world/sky/AirCellConstants.inc"
+#undef AIR_FLOAT
+#include "world/sky/AirCellCore.h"
+#undef AIR_NOEXCEPT
+#undef AIR_INLINE
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Inputs { AirCellInput cells[]; } from;
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { AirCellChannel samples[]; } into;
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= uint(from.cells.length())) { return; }
+  into.samples[index] = airIntegrateCell(from.cells[index]);
+}

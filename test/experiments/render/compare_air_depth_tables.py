@@ -19,6 +19,23 @@ from compare_air_paths import RADIANCE_FLOOR_PER_SR
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def load_reference(path, root=ROOT):
+    report = json.loads(path.read_text())
+    if not report["reference_meets_targets"]:
+        raise ValueError("comparison requires a converged reference")
+    for name, expected in report["inputs_sha256"].items():
+        if hashlib.sha256((root / name).read_bytes()).hexdigest() != expected:
+            raise ValueError(f"reference input changed: {name}")
+    for name in ("air_path_integral.py", "air_path_segments.py", "air_path_cases.py"):
+        expected = report["sources_sha256"][name]
+        if (
+            hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+            != expected
+        ):
+            raise ValueError(f"reference physics changed: {name}")
+    return report
+
+
 def validation_distances(medium, case, limit, sparse_rows):
     distances = [row["distance_km"] for row in sparse_rows if row["case"] == case.name]
     distances.extend(np.geomspace(0.001, limit, 96))
@@ -76,19 +93,7 @@ def main():
         raise ValueError("table outputs belong in build/experiments/ or system temp")
     medium = engine_clear_air(ROOT / "src/world/sky/Atmosphere.h")
     cases, _ = place_cases(ROOT)
-    reference_report = json.loads(args.reference.read_text())
-    if not reference_report["reference_meets_targets"]:
-        raise ValueError("depth comparison requires a converged reference")
-    for name, expected in reference_report["inputs_sha256"].items():
-        if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != expected:
-            raise ValueError(f"reference input changed: {name}")
-    for name in ("air_path_integral.py", "air_path_segments.py", "air_path_cases.py"):
-        expected = reference_report["sources_sha256"][name]
-        if (
-            hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-            != expected
-        ):
-            raise ValueError(f"reference physics changed: {name}")
+    reference_report = load_reference(args.reference)
     errors = {}
     refinement, refinement_t = 0.0, 0.0
     for case in cases:
