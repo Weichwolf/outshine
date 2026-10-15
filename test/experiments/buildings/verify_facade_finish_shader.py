@@ -7,6 +7,7 @@ import mitsuba as mi
 import numpy as np
 import shapely
 from mitsuba_facade import bind, material, validate
+from mitsuba_facade_extent import bind as bind_extent
 from mitsuba_mesh import mesh as physical_mesh
 from outshine_ref.buildings.facade_finish import FacadeFinish
 from outshine_ref.buildings.facades import FacadeRepeat
@@ -149,13 +150,43 @@ class FacadeFinishShaderControls(unittest.TestCase):
                 for index, lobe in enumerate(lobes)
             )
             np.testing.assert_allclose(
-                np.asarray(mi.load_dict(bsdf).eval(context, si, outgoing)),
+                np.asarray(si.bsdf().eval(context, si, outgoing)),
                 independent,
                 atol=1e-6,
                 rtol=2e-5,
             )
         for key in data:
             np.testing.assert_array_equal(data[key], snapshot[key])
+
+    def test_direct_extent_reads_actual_primitive_order_without_shape_dispatch(self):
+        mi.set_variant("llvm_ad_rgb")
+        bind()
+        data = {"facade_extent": np.array([[4, 3, 0]] * 3 + [[1, 1, 0]] * 3)}
+        indices = np.array([[3, 4, 5], [0, 1, 2]])
+        texture = {
+            "type": "outshine_facade_finish",
+            "mode": "opening",
+            "width": 0.48,
+            "height": 0.53,
+            "filtered": False,
+            "eye": mi.ScalarPoint3f([0, -10, 5]),
+            "right": mi.ScalarVector3f([1, 0, 0]),
+            "up": mi.ScalarVector3f([0, 0, 1]),
+            "forward": mi.ScalarVector3f([0, 1, 0]),
+            "focal_px": 1000.0,
+        }
+        bound = mi.load_dict(bind_extent(texture, data, indices))
+        si = mi.SurfaceInteraction3f()
+        si.prim_index = mi.UInt32([0, 1])
+        si.uv = mi.Point2f(1.5, 1.5)
+        # si.shape stays null: only the explicit primitive fields can work.
+        np.testing.assert_array_equal(np.asarray(bound.eval_1(si)), [0, 1])
+        altered = {"facade_extent": data["facade_extent"].copy()}
+        altered["facade_extent"][0, 0] += 1
+        with self.assertRaises(ValueError):
+            bind_extent(texture, altered, indices)
+        plain = {"type": "diffuse"}
+        self.assertIs(bind_extent(plain, {}, indices), plain)
 
     def test_direct_opening_patches_retain_the_original_surface_path(self):
         mi.set_variant("llvm_ad_rgb")
