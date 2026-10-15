@@ -40,12 +40,13 @@ constexpr size_t kVertexStride = 24, kNormalOffset = 20;
 static_assert(sizeof(Vertex) == kVertexStride && offsetof(Vertex, Uv) == 12 &&
               offsetof(Vertex, Normal) == kNormalOffset);
 constexpr size_t kVerticesBytes = 6 * sizeof(Vertex);
+constexpr size_t kSecondUvBytes = 6 * sizeof(std::array<float, 2>);
 constexpr size_t kInputBytes = kViewBytes + kMaterialBytes + kPlacementBytes + kVerticesBytes;
 
 std::vector<std::byte> Read(const char *path, bool secondUv) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   const std::streamoff bytes = file ? static_cast<std::streamoff>(file.tellg()) : -1;
-  const size_t inputBytes = kInputBytes + (secondUv ? 6 * 2 * sizeof(float) : 0);
+  const size_t inputBytes = kInputBytes + (secondUv ? kSecondUvBytes : 0);
   const bool complete = file && std::cmp_equal(bytes, inputBytes);
   CHECK(complete, "the fixed fixture contains complete view/material/placement/vertex inputs");
   if (!complete) { Failed(); }
@@ -119,7 +120,7 @@ void Capture(Device &device,
       Binding{.Set = 3, .Slot = 0, .Value = Uniform{input.subspan(kViewBytes, kMaterialBytes)}}};
   const std::array vertices{
       VertexBuffer{.Stream = 0, .Data = geometry.get(), .Range = {.Bytes = kVerticesBytes}},
-      VertexBuffer{.Stream = 1, .Data = uv.get(), .Range = {.Bytes = 6 * 2 * sizeof(float)}}};
+      VertexBuffer{.Stream = 1, .Data = uv.get(), .Range = {.Bytes = kSecondUvBytes}}};
   std::array<std::unique_ptr<Texture>, 3> images;
   std::array<ColourAttachment, 3> colours;
   for (size_t index = 0; index < images.size(); ++index) {

@@ -85,6 +85,10 @@ double MeshError(const BuildingSurface &source, const Raised &mesh) {
 }
 
 void Cache(const Raised &mesh) {
+  if (mesh.WallMaterialM.empty()) {
+    CHECK(false, "the masonry cache probe needs emitted material coordinates");
+    return;
+  }
   BakedTile product;
   product.Built = mesh;
   const auto key = Sha256Hex("wall-material-metre-fixture");
@@ -171,9 +175,64 @@ void Fixture(const char *prefix,
   CHECK(file, "the emitted cached wall and actual UV1 bytes are saved");
 }
 
+void Patches(const BuildingSurface &source) {
+  const auto &shape = source.Shapes().front();
+  std::vector<double> cuts;
+  size_t walls = 0;
+  size_t gables = 0;
+  constexpr double kHalfPatchM = 0.02;
+  const auto global = [&source](const Vec3 &p) {
+    return source.Origin() + source.Axes().East * p[0] + source.Axes().North * p[1] +
+           source.Axes().Up * p[2];
+  };
+  for (size_t edge = 0; edge < shape.Ring.size(); ++edge) {
+    const auto &a = shape.Ring[edge];
+    const auto &b = shape.Ring[(edge + 1) % shape.Ring.size()];
+    const double e = b.EastM - a.EastM;
+    const double n = b.NorthM - a.NorthM;
+    const double length = std::hypot(e, n);
+    const Vec3 along = source.Axes().East * (e / length) + source.Axes().North * (n / length);
+    const Vec3 outward = source.Axes().East * (n / length) - source.Axes().North * (e / length);
+    for (const double height : {shape.FloorM * 0.5, shape.EavesM + shape.RiseM * 0.5}) {
+      const Vec3 centre = global({{(a.EastM + b.EastM) * 0.5,
+                                   (a.NorthM + b.NorthM) * 0.5,
+                                   shape.SeatM + shape.FootM + height}});
+      const auto hit =
+          source.Trace({.Origin = centre + outward, .Direction = outward * -1.0}, 0, 2, cuts);
+      if (!hit || hit->Face < 2) { continue; }
+      const auto point = [&source, &centre, &along](double u, double v) {
+        return centre + along * u + source.Axes().Up * v;
+      };
+      const std::array split{BuildingSurfacePatch{.Sample = *hit,
+                                                  .Corners = {point(-kHalfPatchM, -kHalfPatchM),
+                                                              point(0, -kHalfPatchM),
+                                                              point(0, kHalfPatchM),
+                                                              point(-kHalfPatchM, kHalfPatchM)}},
+                             BuildingSurfacePatch{.Sample = *hit,
+                                                  .Corners = {point(0, -kHalfPatchM),
+                                                              point(kHalfPatchM, -kHalfPatchM),
+                                                              point(kHalfPatchM, kHalfPatchM),
+                                                              point(0, kHalfPatchM)}}};
+      Raised mesh;
+      source.MeshPatches(split, mesh);
+      CHECK(mesh.WallMaterialM.size() == 8, "both actual source patches emit their metric stream");
+      if (mesh.WallMaterialM.size() != 8) { continue; }
+      CHECK(mesh.WallMaterialM[1] == mesh.WallMaterialM[4] &&
+                mesh.WallMaterialM[2] == mesh.WallMaterialM[7],
+            "detail subdivision preserves shared-edge material phase exactly");
+      MeshError(source, mesh);
+      Cache(mesh);
+      walls += hit->Gable ? 0u : 1u;
+      gables += hit->Gable ? 1u : 0u;
+    }
+  }
+  CHECK(walls > 0 && gables > 0, "the native patch comparison contains walls and actual gables");
+}
+
 void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch &scratch) {
   plan.Prepared = &source;
   const BuildingMesh mesher;
+  Patches(source);
   for (const auto detail :
        {LevelOfDetail::Fine, LevelOfDetail::Shell, LevelOfDetail::Massed, LevelOfDetail::Skyline}) {
     plan.Coarseness = detail;
@@ -197,6 +256,20 @@ void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch
   CHECK(mesher.Mesh(plan, scratch, painted), "the explicitly painted source meshes");
   CHECK(painted.WallMaterialM.empty(),
         "explicit source colour retains priority over generated masonry");
+  const size_t previous = painted.WallCorners.size();
+  plan.Prepared = &source;
+  plan.WallColour.reset();
+  CHECK(mesher.Mesh(plan, scratch, painted), "masonry appends to an existing painted product");
+  CHECK(painted.WallMaterialM.size() == painted.WallCorners.size() &&
+            std::ranges::all_of(std::span(painted.WallMaterialM).first(previous),
+                                [](const Vec2f &uv) { return uv[0] == 0 && uv[1] == 0; }),
+        "optional stream activation pads the existing non-masonry prefix");
+  const auto saved = painted.WallMaterialM;
+  const auto savedVertices = painted.WallCorners.size();
+  plan.HeightM = std::numeric_limits<double>::quiet_NaN();
+  CHECK(!mesher.Mesh(plan, scratch, painted), "invalid append is rejected");
+  CHECK(painted.WallMaterialM == saved && painted.WallCorners.size() == savedVertices,
+        "failed append preserves existing metric values and geometry");
 }
 }
 
@@ -223,6 +296,7 @@ int main(int argc, char *const *argv) {
               plan.AnchorEcef);
     const auto source = BuildingSurface::Prepare(plan, scratch);
     if (!source || source->Shapes().size() != 1 ||
+        source->Shapes().front().Roof != RoofKind::Gable ||
         !UsesWallMaterialMetres(source->Shapes().front())) {
       continue;
     }
