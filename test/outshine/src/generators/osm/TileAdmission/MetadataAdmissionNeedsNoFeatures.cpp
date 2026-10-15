@@ -6,10 +6,27 @@
 int main() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Test;
-  const std::array<OsmField::Tile, 3> tiles{
-      {{.Z = 14, .X = 12, .Y = 10, .FirstFeature = 400000000, .FeatureCount = 100000000},
-       {.Z = 14, .X = 10, .Y = 10, .FirstFeature = 600000000, .FeatureCount = 200000000},
-       {.Z = 14, .X = 10, .Y = 11, .FirstFeature = 800000000, .FeatureCount = 0}}};
+  const std::array<OsmField::Tile, 3> tiles{{{.Z = 14,
+                                              .X = 12,
+                                              .Y = 10,
+                                              .FirstFeature = 400000000,
+                                              .FeatureCount = 100000000,
+                                              .Source = {},
+                                              .InputDigest = {}},
+                                             {.Z = 14,
+                                              .X = 10,
+                                              .Y = 10,
+                                              .FirstFeature = 600000000,
+                                              .FeatureCount = 200000000,
+                                              .Source = {},
+                                              .InputDigest = {}},
+                                             {.Z = 14,
+                                              .X = 10,
+                                              .Y = 11,
+                                              .FirstFeature = 800000000,
+                                              .FeatureCount = 0,
+                                              .Source = {},
+                                              .InputDigest = {}}}};
   TileAdmission admission;
   size_t attempts = 0;
   const auto nearest = admission.Ask(
