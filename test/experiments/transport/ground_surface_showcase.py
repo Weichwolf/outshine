@@ -40,6 +40,26 @@ def baseline_ground(bounds, meta):
     return Mesh(np.c_[xy, h], faces)
 
 
+def sample_vertices(sampler, xy, *, batch_queries=4096, max_candidates=1000000):
+    if type(batch_queries) is not int or not 0 < batch_queries <= 65536:
+        raise ValueError(
+            "positive query batch within the existing sampler limit required"
+        )
+    points = np.empty((len(xy), 3))
+    remaining = max_candidates
+    for begin in range(0, len(xy), batch_queries):
+        stop = min(len(xy), begin + batch_queries)
+        contact = sampler.sample(
+            xy[begin:stop], max_queries=batch_queries, max_candidates=remaining
+        )
+        if any(contact.reasons):
+            reasons = sorted({reason for reason in contact.reasons if reason})
+            raise ValueError("clipped contact unresolved: " + ", ".join(reasons))
+        remaining -= contact.report["candidates"]
+        points[begin:stop] = contact.points_enu_m
+    return points
+
+
 def clipped(mesh, slots, region, *, max_faces=65536):
     polygons = shapely.polygons(mesh.vertices[mesh.triangles, :2])
     hits = shapely.STRtree(polygons).query(region, predicate="intersects")
@@ -51,14 +71,12 @@ def clipped(mesh, slots, region, *, max_faces=65536):
     xy, labels = np.unique(points.reshape(-1, 2), axis=0, return_inverse=True)
     xy, canonical, displacement = welded_vertices(xy, 1e-8)
     faces = canonical[labels].reshape(-1, 3)
-    contact = SurfaceSampler(mesh, max_faces=max_faces).sample(xy)
-    if any(contact.reasons):
-        raise ValueError("clipped contact is outside or ambiguous")
+    points = sample_vertices(SurfaceSampler(mesh, max_faces=max_faces), xy)
     # Conformance must not silently change the owner mapping used for colours.
     indices, audit = conform_triangles(xy, faces)
     if audit["added_triangles"]:
         raise ValueError("inspection clipping needs additional interface ownership")
-    return Mesh(contact.points_enu_m, indices), slots[hits[owners]], displacement
+    return Mesh(points, indices), slots[hits[owners]], displacement
 
 
 def body(mesh, slots, depth):

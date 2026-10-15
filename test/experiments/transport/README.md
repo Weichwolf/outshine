@@ -759,6 +759,9 @@ curbs per component was rejected after a Hong Kong domain mismatch.
 Whole-tile inspection declares its 262144-face preparation budget, matching the
 assembler output cap; SurfaceSampler and the older ground inspection retain
 their 65536-face default. Existing numeric tolerances and hard process limits remain.
+Clipped inspection vertices use batches of at most 4096 queries, with one unchanged
+1000000-candidate budget across all batches; no sampler limit is raised for denser
+tiles. Any unresolved contact still rejects the inspection mesh.
 `original_edges` and `source_indices` bind unchanged direction/access masks to the
 original prepared graph. This does not certify drivable turns or physical profiles.
 
@@ -777,7 +780,17 @@ files are retained. The offline inputs contain every original transportation
 feature, part ID, attribute and deferred polygon reason. Source transport bodies
 use a declared flat Z=0/depth0.25 m recipe, not DEM or a complete city world.
 
+When captured widths are absent, `source_roads` applies the existing recipe for
+the normalized class (`minor` becomes `residential`; `path`/`transit` use their
+subclass). Explicit source widths and axis recipes retain precedence. These
+widths are procedural assumptions, counted in `normalization.inferred_widths`;
+unknown classes, route-only features, other levels and indoor sources keep their
+own reasons. Original coordinates, tags and source IDs are retained. Historical
+input/product pins are not rewritten by this correction (#183).
+
 ```sh
+PYTHONPATH=lib/src:test/experiments/transport .venv/bin/python -W error \
+  test/experiments/transport/width_recipe_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
   .venv/bin/python -W error test/experiments/transport/component_surface_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
