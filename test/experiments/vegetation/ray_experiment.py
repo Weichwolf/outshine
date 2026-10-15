@@ -65,15 +65,14 @@ def shade(plant, meshes, plans, references):
     products, counts = [], []
     for mesh, plan in zip(meshes, plans, strict=True):
         path = plan["path"]
-        state, level = plant.axis(path), plant.levels[len(path) - 1]
-        radius = level.base_radius + state.parent_parameter * (
-            level.tip_radius - level.base_radius
-        )
+        state = plant.axis(path)
+        parent_base, parent_tip = plant.radii(path[:-1])
+        radius = parent_base + state.parent_parameter * (parent_tip - parent_base)
         product, work = blend_collar_normals(
             mesh,
             [references[indices[path[:-1]]], references[indices[path]]],
             radius,
-            plant.levels[len(path)].base_radius,
+            plant.radii(path)[0],
         )
         products.append(product)
         counts.append(work)

@@ -35,12 +35,26 @@ class AxisLevel:
     arrangement: str = "spiral"
     whorl_size: int = 1
     angle_tip: float | None = None
+    radius_parent_ratio: float | None = None
 
     def __post_init__(self):
         if type(self.branches) is not int or not 1 <= self.branches <= 64:
             raise ValueError("one to 64 branches per order required")
         if type(self.whorl_size) is not int or not 1 <= self.whorl_size <= 16:
             raise ValueError("one to 16 branches per whorl required")
+        if self.radius_parent_ratio is not None:
+            ratio = np.asarray(self.radius_parent_ratio)
+            if (
+                ratio.shape != ()
+                or ratio.dtype.kind not in "fiu"
+                or not np.isfinite(ratio)
+                or not 0 < ratio <= 1
+            ):
+                raise ValueError("finite parent radius ratio in (0, 1] required")
+            value = float(ratio)
+            if not 0 < value <= 1:
+                raise ValueError("parent radius ratio must be representable as Float64")
+            object.__setattr__(self, "radius_parent_ratio", value)
         values = [v for v in asdict(self).values() if isinstance(v, (int, float))]
         if not all(np.isfinite(v) for v in values):
             raise ValueError("finite axis parameters required")

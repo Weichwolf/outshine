@@ -21,12 +21,12 @@ def axis_products(plant, segments=24, sides=8, max_axes=4096):
     products = []
     for path in plant.paths():
         state = plant.axis(path)
-        level = plant.levels[len(path)]
+        base_radius, tip_radius = plant.radii(path)
         mesh = axis_mesh(
             state.length,
             state.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             segments=segments,
             sides=sides,
         )

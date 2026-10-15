@@ -39,11 +39,11 @@ class NeedledPlant:
             raise ValueError("one to 16 physical needle variants required")
         if sum(self.needle_counts) >= 2**64:
             raise ValueError("needle identities must fit UInt64")
-        for level, p in zip(self.wood.levels, self.patterns):
-            if (
-                p
-                and min(level.length_at(slot) for slot in range(level.branches))
-                < 8 * level.base_radius
+        for level, p, limits in zip(
+            self.wood.levels, self.patterns, self.wood.radius_limits
+        ):
+            if p and any(
+                level.length_at(slot) < 8 * radius for slot, radius in enumerate(limits)
             ):
                 raise ValueError("needle-bearing twigs require slender physical radii")
 
@@ -146,10 +146,8 @@ class NeedledPlant:
             return None
         if path in self._groups:
             return self._groups[path]
-        axis, level = self.wood.axis(path), self.wood.levels[depth]
-        local = p.detail(
-            axis, (level.base_radius, level.tip_radius), self.wood.seed, count
-        )
+        axis = self.wood.axis(path)
+        local = p.detail(axis, self.wood.radii(path), self.wood.seed, count)
         first = sum(self.needle_counts[:depth]) + repeated_prefix(
             self.slot_counts[depth], ordinal
         )

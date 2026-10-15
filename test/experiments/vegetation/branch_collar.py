@@ -18,11 +18,10 @@ def collar_field(plant, path, shrink=0.96, strength=2.0):
     if not path or not 0.5 <= shrink < 1 or not 0 < strength <= 2:
         raise ValueError("child path and bounded local collar parameters required")
     state, parent = plant.axis(path), plant.axis(path[:-1])
-    level, parent_level = plant.levels[len(path)], plant.levels[len(path) - 1]
+    base, tip = plant.radii(path)
+    parent_base, parent_tip = plant.radii(path[:-1])
     parameter = state.parent_parameter
-    parent_radius = parent_level.base_radius + parameter * (
-        parent_level.tip_radius - parent_level.base_radius
-    )
+    parent_radius = parent_base + parameter * (parent_tip - parent_base)
     span = 2.5 * parent_radius
     first, last = parameter - span / parent.length, parameter + span / parent.length
     child_end = span / state.length
@@ -34,15 +33,13 @@ def collar_field(plant, path, shrink=0.96, strength=2.0):
     parent_points = (
         arc_frame(parent.length, parent.bend, 0, t)[0] @ parent.frame.T + parent.origin
     )
-    parent_radii = parent_level.base_radius + t * (
-        parent_level.tip_radius - parent_level.base_radius
-    )
+    parent_radii = parent_base + t * (parent_tip - parent_base)
     t_child = np.linspace(0.0, child_end, 5)
     child_points = (
         arc_frame(state.length, state.bend, 0, t_child)[0] @ state.frame.T
         + state.origin
     )
-    child_radii = level.base_radius + t_child * (level.tip_radius - level.base_radius)
+    child_radii = base + t_child * (tip - base)
     field = CurvedFork(
         (
             CurveBranch(
@@ -56,7 +53,7 @@ def collar_field(plant, path, shrink=0.96, strength=2.0):
                 arc_chord_error(state.length, state.bend, span, 4),
             ),
         ),
-        strength * parent_radius * level.base_radius,
+        strength * parent_radius * base,
     )
     return field, {
         "path": path,
