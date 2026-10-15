@@ -20,20 +20,10 @@ MetalDevice::CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptio
       invocations *= size;
     }
     NSError *error = nil;
-    MTLCompileOptions *const options = [MTLCompileOptions new];
-    options.mathMode = MTLMathModeSafe;
-    const id<MTLLibrary> library = [Native_ newLibraryWithSource:Text(shader->Source)
-                                                         options:options
-                                                           error:&error];
-    if (library == nil) {
-      return Failure(ErrorKind::Invalid, error.localizedDescription.UTF8String);
-    }
-    const id<MTLFunction> function = [library newFunctionWithName:Text(shader->Entry)];
-    if (function == nil || function.functionType != MTLFunctionTypeKernel) {
-      return Failure(ErrorKind::Invalid, "SPIR-V entry is not a Metal compute kernel");
-    }
+    const auto function = Function(Native_, *shader, MTLFunctionTypeKernel);
+    if (!function) { return std::unexpected(function.error()); }
     MTLComputePipelineDescriptor *const description = [MTLComputePipelineDescriptor new];
-    description.computeFunction = function;
+    description.computeFunction = *function;
     description.label = Text(settings.Label.empty() ? settings.Entry : settings.Label);
     const id<MTLComputePipelineState> pipeline =
         [Native_ newComputePipelineStateWithDescriptor:description

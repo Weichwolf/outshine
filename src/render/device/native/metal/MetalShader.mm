@@ -1,9 +1,25 @@
-#include "MetalShader.h"
+#include "MetalInternal.h"
 #include <spirv_cross_c.h>
 #include <algorithm>
 #include <memory>
 
 namespace outshine::Render::Native::Metal {
+
+Result<id<MTLFunction>> Function(id<MTLDevice> device, const Shader &shader, MTLFunctionType type) {
+  NSError *error = nil;
+  MTLCompileOptions *const options = [MTLCompileOptions new];
+  options.mathMode = MTLMathModeSafe;
+  const id<MTLLibrary> library = [device newLibraryWithSource:Text(shader.Source)
+                                                      options:options
+                                                        error:&error];
+  if (library == nil) { return Failure(ErrorKind::Invalid, error.localizedDescription.UTF8String); }
+  const id<MTLFunction> function = [library newFunctionWithName:Text(shader.Entry)];
+  if (function == nil || function.functionType != type) {
+    return Failure(ErrorKind::Invalid, "SPIR-V entry has the wrong Metal execution stage");
+  }
+  return function;
+}
+
 namespace {
 
 std::optional<Format> ImageFormat(SpvImageFormat format) {
