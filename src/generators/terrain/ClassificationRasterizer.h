@@ -33,6 +33,7 @@ public:
   struct Input {
     double CamE = 0, CamN = 0;
     double CellM = 1;
+    double BoundaryHaloM = 0;
     int HalfCells = 0;
     std::vector<float> Points;
     std::vector<Ring> Rings;

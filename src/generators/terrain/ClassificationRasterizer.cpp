@@ -14,6 +14,7 @@
 #include <cstring>
 #include <vector>
 #include <memory>
+#include <limits>
 #include <utility>
 #include <optional>
 #include <stop_token>
@@ -41,6 +42,12 @@ constexpr float kCurveTolM = 0.60f;
 constexpr uint8_t kFullCover = 0xFF;
 constexpr unsigned kAlphaShift = 24u;
 constexpr int kCurveMaxSplit = 8;
+
+int ClampedCell(double coordinate, double origin, double cellM, int low, int high) {
+  return static_cast<int>(std::clamp(std::floor((coordinate - origin) / cellM),
+                                     static_cast<double>(low),
+                                     static_cast<double>(high)));
+}
 
 void CatmullPoint(
     const float *p0, const float *p1, const float *p2, const float *p3, float u, Vec2f &out) {
@@ -122,7 +129,10 @@ size_t ClassificationRasterizer::ScratchBytes() const {
 std::optional<ClassificationRasterizer::Built>
 ClassificationRasterizer::Build(const Input &input, const std::stop_token &stop) {
   Stop_ = stop;
-  if (Stop_.stop_requested()) { return std::nullopt; }
+  if (Stop_.stop_requested() || !std::isfinite(input.BoundaryHaloM) || input.BoundaryHaloM < 0 ||
+      input.BoundaryHaloM > std::numeric_limits<float>::max()) {
+    return std::nullopt;
+  }
   auto grid = std::make_shared<ClassStructure::Grid>();
   int overflow = 0;
   const double began = Clock();
@@ -187,17 +197,14 @@ void ClassificationRasterizer::IndexFeatureEdges(const Feature &feature,
   ceNext.clear();
   ceEdge.clear();
 
-  const float epad = (feature.Form == Shape::Polygon) ? 0.0f : feature.WidthM * 0.5f;
+  const double epad =
+      grid.BoundaryHaloM + (feature.Form == Shape::Polygon ? 0.0 : feature.WidthM * 0.5);
   for (size_t e = 0; e < ne; e++) {
     const float *p = &ex[e * 4];
-    const int ei0 = std::max(
-        i0, static_cast<int>(std::floor((std::min(p[0], p[2]) - epad - grid.OrgE) / cell)));
-    const int ei1 = std::min(
-        i1, static_cast<int>(std::floor((std::max(p[0], p[2]) + epad - grid.OrgE) / cell)));
-    const int ej0 = std::max(
-        j0, static_cast<int>(std::floor((std::min(p[1], p[3]) - epad - grid.OrgN) / cell)));
-    const int ej1 = std::min(
-        j1, static_cast<int>(std::floor((std::max(p[1], p[3]) + epad - grid.OrgN) / cell)));
+    const int ei0 = ClampedCell(std::min(p[0], p[2]) - epad, grid.OrgE, cell, i0, i1 + 1);
+    const int ei1 = ClampedCell(std::max(p[0], p[2]) + epad, grid.OrgE, cell, i0 - 1, i1);
+    const int ej0 = ClampedCell(std::min(p[1], p[3]) - epad, grid.OrgN, cell, j0, j1 + 1);
+    const int ej1 = ClampedCell(std::max(p[1], p[3]) + epad, grid.OrgN, cell, j0 - 1, j1);
     for (int j = ej0; j <= ej1; j++) {
       for (int i = ei0; i <= ei1; i++) {
         const size_t c = static_cast<size_t>(j - j0) * bw + static_cast<size_t>(i - i0);
@@ -382,18 +389,19 @@ void ClassificationRasterizer::RasterizeFeature(const Input &job,
   const int W = grid.W;
   const int H = grid.H;
   const double cell = grid.CellM;
-  if (feature.MaxE < grid.OrgE || feature.MinE > grid.OrgE + W * cell || feature.MaxN < grid.OrgN ||
-      feature.MinN > grid.OrgN + H * cell) {
+  if (W <= 0 || H <= 0) { return; }
+  const double halo = grid.BoundaryHaloM;
+  if (feature.MaxE + halo < grid.OrgE || feature.MinE - halo > grid.OrgE + W * cell ||
+      feature.MaxN + halo < grid.OrgN || feature.MinN - halo > grid.OrgN + H * cell) {
     return;
   }
   BuildFeatureEdges(job, feature);
   if (Workspace_.Edges.empty()) { return; }
-  const RasterWindow window{
-      .I0 = std::max(0, static_cast<int>(std::floor((feature.MinE - grid.OrgE) / cell))),
-      .I1 = std::min(W - 1, static_cast<int>(std::floor((feature.MaxE - grid.OrgE) / cell))),
-      .J0 = std::max(0, static_cast<int>(std::floor((feature.MinN - grid.OrgN) / cell))),
-      .J1 = std::min(H - 1, static_cast<int>(std::floor((feature.MaxN - grid.OrgN) / cell))),
-      .Generation = generation + 1};
+  const RasterWindow window{.I0 = ClampedCell(feature.MinE - halo, grid.OrgE, cell, 0, W - 1),
+                            .I1 = ClampedCell(feature.MaxE + halo, grid.OrgE, cell, 0, W - 1),
+                            .J0 = ClampedCell(feature.MinN - halo, grid.OrgN, cell, 0, H - 1),
+                            .J1 = ClampedCell(feature.MaxN + halo, grid.OrgN, cell, 0, H - 1),
+                            .Generation = generation + 1};
   if (window.I0 > window.I1 || window.J0 > window.J1) { return; }
   ++generation;
   IndexFeatureEdges(feature, grid, window);
@@ -404,6 +412,7 @@ void ClassificationRasterizer::RasterizeFeature(const Input &job,
 bool ClassificationRasterizer::LayDown(const Input &job, ClassStructure::Grid &out, int &overflow) {
   out.W = out.H = job.HalfCells * 2;
   out.CellM = job.CellM;
+  out.BoundaryHaloM = job.BoundaryHaloM;
   out.OrgE = std::floor(job.CamE / job.CellM - job.HalfCells) * job.CellM;
   out.OrgN = std::floor(job.CamN / job.CellM - job.HalfCells) * job.CellM;
   const size_t cells = static_cast<size_t>(out.W) * out.H;

@@ -26,13 +26,15 @@ struct GridHeader {
   uint32_t Width, Height;
   float OriginEastM, OriginNorthM, CellM;
   uint32_t CellsAt, SeedsAt, RefsAt, EdgesAt;
-  std::array<uint32_t, 3> Reserved;
+  float BoundaryHaloM;
+  std::array<uint32_t, 2> Reserved;
 };
 
 constexpr size_t kHeaderWords = 4;
 constexpr size_t kGridWords = 12;
 constexpr size_t kWordBytes = sizeof(uint32_t);
-constexpr size_t kCellsWord = 5, kSeedsWord = 6, kRefsWord = 7, kEdgesWord = 8, kReservedWord = 9;
+constexpr size_t kCellsWord = 5, kSeedsWord = 6, kRefsWord = 7, kEdgesWord = 8, kHaloWord = 9,
+                 kReservedWord = 10;
 
 static_assert(kWordBytes == 4);
 static_assert(sizeof(ClassHeader) == kHeaderWords * kWordBytes &&
@@ -49,6 +51,7 @@ static_assert(sizeof(GridHeader) == kGridWords * kWordBytes && alignof(GridHeade
               offsetof(GridHeader, SeedsAt) == kSeedsWord * kWordBytes &&
               offsetof(GridHeader, RefsAt) == kRefsWord * kWordBytes &&
               offsetof(GridHeader, EdgesAt) == kEdgesWord * kWordBytes &&
+              offsetof(GridHeader, BoundaryHaloM) == kHaloWord * kWordBytes &&
               offsetof(GridHeader, Reserved) == kReservedWord * kWordBytes);
 static_assert(sizeof(float) == kWordBytes && std::numeric_limits<float>::is_iec559);
 
@@ -90,6 +93,7 @@ GroundClassBuffer::GroundClassBuffer(const ClassStructure &classes) {
                             .SeedsAt = append(grid.Seeds),
                             .RefsAt = append(grid.Refs),
                             .EdgesAt = static_cast<uint32_t>(Words_.size()),
+                            .BoundaryHaloM = static_cast<float>(grid.BoundaryHaloM),
                             .Reserved = {}};
     const size_t edgeAt = Words_.size();
     Words_.resize(edgeAt + grid.Edges.size());

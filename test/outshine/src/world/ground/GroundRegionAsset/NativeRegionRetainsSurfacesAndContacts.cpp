@@ -35,6 +35,7 @@ int main() {
   auto grid = std::make_shared<ClassStructure::Grid>();
   grid->W = 1;
   grid->H = 1;
+  grid->BoundaryHaloM = .75;
   grid->Cells = {7, 0};
   region.Classes = std::make_shared<const ClassStructure>(
       TangentFrame::At(region.Anchor),
@@ -55,6 +56,7 @@ int main() {
             restored->ClassPalette == region.ClassPalette,
         "deformed contact pages, collision and material inputs survive");
   CHECK(restored->Classes && restored->Classes->Version() == 123 &&
+            restored->Classes->Fine().BoundaryHaloM == .75 &&
             restored->Classes->Evaluate(0.5, 0.5, nullptr, nullptr) == 7 &&
             restored->Surfaces.surfaceAt(MaterialInstance(restored->GroundSurface)).Roughness ==
                 0.75f,

@@ -21,6 +21,7 @@ public:
     std::vector<float> Edges;
     int W = 0, H = 0;
     double OrgE = 0, OrgN = 0, CellM = 1;
+    double BoundaryHaloM = 0;
   };
 
   struct Measures {
@@ -61,16 +62,26 @@ public:
 
   static constexpr double kNoEdgeM = kBeyondAnyCoordinate;
 
+  struct MaterialBlend {
+    int Class = -1;
+    int Other = -1;
+    double SignedEdgeM = kNoEdgeM;
+    double HaloM = 0;
+  };
+
   int Evaluate(double e, double n, double *distM, int *runnerUp) const;
+  [[nodiscard]] MaterialBlend MaterialAt(double e, double n, double halfFootprintM = 0) const;
 
 private:
   struct Sample {
     int Class = -1;
+    int Rank = -1;
     int RunnerUp = -1;
     double DistanceM = kNoEdgeM;
   };
 
   [[nodiscard]] static Sample EvaluateGrid(const Grid &B, Vec2 at);
+  [[nodiscard]] static MaterialBlend MaterialForGrid(const Grid &grid, Vec2 at, Sample sample);
   void Probe();
 
   TangentFrame Frame_;

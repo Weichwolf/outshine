@@ -258,6 +258,11 @@ ClassificationPreparation::LendTo(Tier &t, ClassGrain grain, double camE, double
   job.Raster.CamE = camE;
   job.Raster.CamN = camN;
   job.Raster.CellM = t.CellM;
+  double reachM = 0;
+  for (size_t row = 0; row < Veg_->TemplateCount(); ++row) {
+    reachM = std::max(reachM, static_cast<double>(Veg_->Rows()[row].Edge[0]));
+  }
+  job.Raster.BoundaryHaloM = reachM + .5 * t.CellM;
   job.Raster.HalfCells = t.HalfCells;
   job.UnmappedRow = Veg_->UnmappedRow();
   job.Raster.Points = std::move(t.Pts);
