@@ -57,7 +57,7 @@ SpirvCrossFlags() {
 NativeLink() {
   nativeCrossLibs=$(SpirvCrossFlags --libs) || return
   case "$BUILD_PLATFORM" in
-    Darwin) printf '%s' "$nativeCrossLibs -framework Foundation -framework Metal" ;;
+    Darwin) printf '%s' "$nativeCrossLibs -framework Foundation -framework Metal -framework QuartzCore" ;;
     Linux)
       nativeVulkanLibs=$(pkg-config --libs vulkan) || return
       printf '%s' "$nativeVulkanLibs $nativeCrossLibs"
@@ -66,6 +66,7 @@ NativeLink() {
 }
 
 if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
+  pkg-config --libs sdl3 | tr '\n' ' '
   NativeLink
   exit $?
 fi
