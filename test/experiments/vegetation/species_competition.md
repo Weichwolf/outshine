@@ -57,7 +57,7 @@ and patches field/weight constructors to reject reconstruction.
 
 Use the existing source-site plot with explicit titles, identical window and
 colours,2560×1440. This is a distribution comparison, no3D Place image or new
-optically accepted species. Actual-source results are pending.
+optically accepted species. Completed actual-source results follow below.
 
 ## Sources
 
@@ -98,3 +98,13 @@ source spacing and lacking3D botanical verification remain visible limitations.
 Six new controls and ten preceding spatial/mixture controls pass.
 Current reports/choices/replay/plot:
 `/tmp/outshine-vegetation-species-competition-9c6993496/`.
+
+The focused delivery on frozen `ee2189054` corrects the receipt's neighbour
+labels to distinguish shared-rank and competing fields. Its complete actual
+rerun and fresh replay also end with exit0; all saved choice columns exactly
+match the first run. At higher recorded host load, medians are3.955267s stream
+and4.227258s matrix. External terminal receipt:37.052s wall/29.679CPU-s and
+102.25MiB peak RSS; the in-process report is a pre-exit snapshot, not that
+terminal peak. No timing threshold is fitted to either run. Current choices,
+the identical inspected plot, report and replay are retained under
+`/tmp/outshine-vegetation-species-competition-ee2189054/`.
