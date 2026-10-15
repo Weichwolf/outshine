@@ -3,6 +3,7 @@
 #include "RoadCrossSection.h"
 #include "JunctionSlopePlan.h"
 #include "Heap.h"
+#include "Log.h"
 
 #include <algorithm>
 #include <array>
@@ -16,6 +17,7 @@
 #include <span>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace outshine::Generators {
@@ -27,9 +29,12 @@ struct HeightAttachment {
   uint32_t Junction = std::numeric_limits<uint32_t>::max();
 };
 
+enum class CrossingCoreRecipe { Flat, Profiled };
+
 struct ProfileLimits {
   double MaxGradient = 0.0;
   double MinimumM = 0.0;
+  CrossingCoreRecipe Core = CrossingCoreRecipe::Flat;
 };
 
 struct SlopeAttachment {
@@ -43,6 +48,7 @@ struct Corridors::HeightGraph {
   std::vector<RoadHeightNode> Nodes;
   std::vector<RoadHeightLink> Links;
   std::vector<RoadHeightClearance> Clearances;
+  std::vector<std::array<size_t, 2>> ClearanceLanes;
   std::vector<uint32_t> Stations;
   std::vector<double> OffsetsM;
   std::vector<uint32_t> StationPlanes;
@@ -52,6 +58,8 @@ struct Corridors::HeightGraph {
   std::unordered_map<uint64_t, uint64_t> HeightOwners;
   std::unordered_map<uint64_t, uint32_t> JunctionAt;
   std::unordered_map<uint64_t, double> CrossingCoreRadiusM;
+  std::unordered_map<size_t, double> RigidRiseM;
+  std::unordered_set<size_t> FlexibleCoreLinks;
   std::vector<bool> Adjusted;
   size_t AdjustedJunctions = 0;
 };
@@ -62,6 +70,7 @@ constexpr double kStationChangeToleranceM = .01;
 constexpr double kPlaneClearanceMarginM = 1e-8;
 constexpr size_t kPlaneAttemptsMost = 64;
 constexpr auto kPlaneTimeBudget = std::chrono::seconds(5);
+constexpr size_t kCycleLogConstraintsMost = 16;
 
 uint64_t ProfileNode(std::span<const RoadStation> along, std::array<uint64_t, 2> ends, size_t at) {
   if (at == 0) { return ends[0]; }
@@ -150,6 +159,69 @@ CrossingCoreIntervals(std::span<const RoadStation> along,
   return merged;
 }
 
+bool SelectFlexibleCores(const RoadHeightFailure &failure, auto &graph) {
+  bool changed = false;
+  for (const auto &constraint : failure.CycleConstraints) {
+    if (constraint.Kind == RoadHeightConstraintKind::Clearance) { continue; }
+    const auto found = graph.RigidRiseM.find(constraint.Index);
+    if (found == graph.RigidRiseM.end() || !(found->second > 0)) { continue; }
+    changed |= graph.FlexibleCoreLinks.insert(constraint.Index).second;
+  }
+  return changed;
+}
+
+bool SelectLevelDecks(const RoadHeightFailure &failure,
+                      const auto &on,
+                      auto &into,
+                      const auto &graph) {
+  bool changed = false;
+  for (const auto &constraint : failure.CycleConstraints) {
+    if (constraint.Kind != RoadHeightConstraintKind::Clearance) { continue; }
+    for (const size_t lane : graph.ClearanceLanes[constraint.Index]) {
+      if (on.Ways.Ways()[lane].Bridge) { changed |= into.UnbankedWays.insert(lane).second; }
+    }
+  }
+  return changed;
+}
+
+void LogHeightCycle(const RoadHeightFailure &failure,
+                    const auto &on,
+                    const auto &into,
+                    const auto &graph) {
+  const auto cycle =
+      std::span(failure.CycleConstraints)
+          .first(std::min(failure.CycleConstraints.size(), kCycleLogConstraintsMost));
+  for (const auto &constraint : cycle) {
+    if (constraint.Kind == RoadHeightConstraintKind::Clearance) {
+      const auto &gap = graph.Clearances[constraint.Index];
+      Log::Error(LogTag::World,
+                 "road_cycle_gap",
+                 {{"lower", static_cast<int64_t>(gap.Lower)},
+                  {"upper", static_cast<int64_t>(gap.Upper)},
+                  {"gapM", gap.MinimumGapM}});
+      continue;
+    }
+    const auto &link = graph.Links[constraint.Index];
+    const size_t at = graph.LinkStations[constraint.Index];
+    const auto edge = std::ranges::find_if(into.Edges, [&](const auto &one) {
+      return one.PlannedFirst <= at && at + 1 < one.PlannedFirst + one.PlannedCount;
+    });
+    if (edge == into.Edges.end()) { continue; }
+    const auto &way = on.Ways.Ways()[edge->Lane];
+    Log::Error(LogTag::World,
+               "road_cycle_link",
+               {{"lane", static_cast<int64_t>(edge->Lane)},
+                {"first", static_cast<int64_t>(link.First)},
+                {"second", static_cast<int64_t>(link.Second)},
+                {"riseM", link.MaximumRiseM},
+                {"offset0", link.FirstOffsetM},
+                {"offset1", link.SecondOffsetM},
+                {"layer", way.Layer},
+                {"bridge", way.Bridge},
+                {"halfM", way.HalfWidthM}});
+  }
+}
+
 uint64_t HeightOwner(uint64_t node, const auto &graph) {
   for (;;) {
     const auto found = graph.HeightOwners.find(node);
@@ -218,7 +290,10 @@ void AppendProfile(std::span<const RoadStation> along,
       const double runM = std::hypot(along[at].EastM - along[at - 1].EastM,
                                      along[at].NorthM - along[at - 1].NorthM);
       while (core < cores.size() && cores[core][1] <= reached) { ++core; }
-      const bool rigid = core < cores.size() && cores[core][0] < reached + runM;
+      const bool rigid = limits.Core == CrossingCoreRecipe::Flat && core < cores.size() &&
+                         cores[core][0] < reached + runM &&
+                         !graph.FlexibleCoreLinks.contains(graph.Links.size());
+      if (rigid) { graph.RigidRiseM.emplace(graph.Links.size(), limits.MaxGradient * runM); }
       graph.Links.push_back({previous,
                              node,
                              rigid ? 0 : limits.MaxGradient * runM,
@@ -280,6 +355,13 @@ AdjustJunctionPlanes(const RoadHeightFailure &failure,
     slopes.push_back({junction.SlopeE, junction.SlopeN, junction.MaxGradient});
   }
   if (auto plan = FitJunctionSlopes(slopes, graph.PlaneConstraints, deadline); !plan) {
+    const auto &constraint = graph.PlaneConstraints.back();
+    Log::Error(LogTag::World,
+               "road_height_cycle",
+               {{"constraints", static_cast<int64_t>(graph.PlaneConstraints.size())},
+                {"cycle", static_cast<int64_t>(failure.CycleConstraints.size())},
+                {"planes", static_cast<int64_t>(constraint.Terms.size())},
+                {"riseM", constraint.MinimumRiseM}});
     return plan;
   }
   for (size_t at = 0; at < into.Junctions.size(); ++at) {
@@ -348,7 +430,7 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
     const auto bankExtent = [&](size_t side) {
       const size_t lane = crossing.Lanes[side];
       const auto &way = on.Ways.Ways()[lane];
-      if (!way.Bridge) { return 0.0; }
+      if (!way.Bridge || into.UnbankedWays.contains(lane)) { return 0.0; }
       const Section section = RoadSection(way.HalfWidthM, ProfileOf(on, lane));
       return (section.HalfWidthM + section.ShoulderM) * kCrossfall;
     };
@@ -363,6 +445,7 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
                                 .MinimumGapM = lowerWay.ClearanceM +
                                                (upperWay.Bridge ? kSealedDepthM : 0) + lowerBankM +
                                                upperBankM});
+    graph.ClearanceLanes.push_back({crossing.Lanes[lower], crossing.Lanes[upper]});
   }
 }
 
@@ -373,7 +456,9 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
   });
   graph.Nodes.clear();
   graph.Links.clear();
+  graph.RigidRiseM.clear();
   graph.Clearances.clear();
+  graph.ClearanceLanes.clear();
   graph.Named.clear();
   graph.Stations.clear();
   graph.OffsetsM.clear();
@@ -399,10 +484,20 @@ void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &gr
       at.GradeM = junction.GradeM + ends[end].OffsetM;
     }
     const auto &way = on.Ways.Ways()[edge.Lane];
+    const bool isolated = std::ranges::all_of(
+        ends, [](const auto &end) { return end.Junction == std::numeric_limits<uint32_t>::max(); });
+    if (!isolated && !CrossingCoreIntervals(along, ends, graph).empty()) {
+      into.UnbankedWays.insert(edge.Lane);
+    }
     const double minimumM = way.Bridge && into.DeckM[edge.Lane] > kUnraisedDeckM
                                 ? into.DeckM[edge.Lane]
                                 : -std::numeric_limits<double>::infinity();
-    AppendProfile(along, ends, {.MaxGradient = RoadGradient(way), .MinimumM = minimumM}, graph);
+    AppendProfile(along,
+                  ends,
+                  {.MaxGradient = RoadGradient(way),
+                   .MinimumM = minimumM,
+                   .Core = isolated ? CrossingCoreRecipe::Flat : CrossingCoreRecipe::Profiled},
+                  graph);
   }
   CrossingClearances(on, into, graph);
 }
@@ -438,9 +533,14 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
         std::chrono::steady_clock::now() - began >= kPlaneTimeBudget) {
       return std::unexpected("road junction plane planning exceeded its work bound");
     }
-    if (auto adjusted = AdjustJunctionPlanes(failure, into, graph, began + kPlaneTimeBudget);
-        !adjusted) {
-      return adjusted;
+    if (SelectFlexibleCores(failure, graph) || SelectLevelDecks(failure, on, into, graph)) {
+      graph.PlaneConstraints.clear();
+    } else {
+      if (auto adjusted = AdjustJunctionPlanes(failure, into, graph, began + kPlaneTimeBudget);
+          !adjusted) {
+        LogHeightCycle(failure, on, into, graph);
+        return adjusted;
+      }
     }
     HeightConstraints(on, into, graph);
     plan = PlanRoadHeights(graph.Nodes, graph.Links, graph.Clearances, RoadHeightFit::PreferCuts);
@@ -467,6 +567,12 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
     }
     BindJunctionPorts(junction, into);
   }
+  Notes(into,
+        "streets: flexible crossing core links",
+        static_cast<double>(graph.FlexibleCoreLinks.size()),
+        "links");
+  Notes(
+      into, "streets: level crossing decks", static_cast<double>(into.UnbankedWays.size()), "ways");
   Notes(into, "streets: joint height nodes", static_cast<double>(graph.Nodes.size()), "nodes");
   Notes(into,
         "streets: planned level clearances",
