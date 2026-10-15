@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
+ROOT = Path(__file__).resolve().parents[3]
 WIDTH, HEIGHT, OPAQUE_FRAMES, GEOMETRY_FRAMES = 43, 31, 75, 36
 SELECTION = (
     (2, "Perspective, full viewport"),
@@ -35,6 +36,8 @@ def main():
     parser.add_argument("--samples", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.output.resolve().is_relative_to(ROOT):
+        parser.error("private outputs belong outside the checkout")
     actual = np.fromfile(str(args.samples) + ".opaque", "<f4").reshape(
         OPAQUE_FRAMES, HEIGHT, WIDTH, 4
     )
@@ -66,7 +69,8 @@ def main():
             ):
                 axes[row, col].imshow(pixels, interpolation="nearest")
                 axes[row, col].set_axis_off()
-            axes[row, 0].set_title(label, fontsize=9, loc="left")
+            if row > 0:
+                axes[row, 0].set_title(label, fontsize=9, loc="left")
         for col, title in enumerate(
             (
                 "Actual native raster",
@@ -78,7 +82,7 @@ def main():
                 f"{title}\n{SELECTION[0][1] if col == 0 else ' '}", fontsize=10
             )
         figure.suptitle(
-            "Shared MediumView224 • actual43×31 homogeneous transport controls",
+            "Shared MediumView224 • actual 43×31 homogeneous transport controls",
             fontsize=15,
         )
         figure.supxlabel(
