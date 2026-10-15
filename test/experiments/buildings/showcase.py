@@ -15,6 +15,13 @@ def publish(source, output):
     reports = snapshot["reports"]
     if set(reports) != set(PLACES):
         raise ValueError("Publication requires all four fixed Python Places")
+    commits = snapshot.get("commits")
+    if commits is None:
+        commits = {name: snapshot["commit"] for name in PLACES}
+    if not isinstance(commits, dict) or set(commits) != set(PLACES):
+        raise ValueError(
+            "Publication requires an explicit render commit for each Place"
+        )
     prepared = []
     for name in PLACES:
         filename = reports[name]
@@ -33,8 +40,13 @@ def publish(source, output):
             or report["experiment_tree_dirty"]
         ):
             raise ValueError("Clean own Python render proof required")
-        if report["commit"] != snapshot["commit"]:
-            raise ValueError("Place reports must share the supplied render snapshot")
+        if report["commit"] != commits[name]:
+            raise ValueError("Place report differs from its declared render snapshot")
+        if (
+            report.get("geometry_mesh_sha256", report["renderer"]["mesh_sha256"])
+            != report["renderer"]["mesh_sha256"]
+        ):
+            raise ValueError("Cached geometry differs from the actual renderer input")
         reference = read(name)
         view = reference.view(
             report.get("camera_ground_height_m"), tuple(report["profile"])
@@ -82,7 +94,7 @@ def publish(source, output):
     )
     (output / "README.md").write_text(caption)
     receipt = {
-        "render_commit": snapshot["commit"],
+        "render_commits": commits,
         "places": {
             name: {
                 key: report[key]
@@ -96,11 +108,15 @@ def publish(source, output):
                     "limits",
                 )
             }
+            | {
+                "geometry_commit": report.get("geometry_commit", report["commit"]),
+                "mesh_sha256": report["renderer"]["mesh_sha256"],
+            }
             for name, _, report in prepared
         },
     }
     (output / "render-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    return {"places": list(PLACES), "render_commit": snapshot["commit"]}
+    return {"places": list(PLACES), "render_commits": commits}
 
 
 if __name__ == "__main__":

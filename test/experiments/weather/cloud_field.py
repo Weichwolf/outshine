@@ -34,9 +34,9 @@ def noise(position):
                 bits = key[..., 0] * np.uint64(1597334677)
                 bits ^= key[..., 1] * np.uint64(3812015801)
                 bits ^= key[..., 2] * np.uint64(2798796415)
-                bits &= np.uint64(0xffffffff)
+                bits &= np.uint64(0xFFFFFFFF)
                 bits ^= bits >> 16
-                bits = (bits * np.uint64(2246822519)) & np.uint64(0xffffffff)
+                bits = (bits * np.uint64(2246822519)) & np.uint64(0xFFFFFFFF)
                 bits ^= bits >> 13
                 sample = (bits >> 8).astype(np.float64) / 16777215.0
                 weight = np.prod(np.where(corner, blend, 1.0 - blend), axis=-1)
@@ -45,13 +45,17 @@ def noise(position):
 
 
 def altitude(position, radius):
-    relative_square = np.sum(position * position, axis=-1) + 2.0 * radius * position[..., 1]
+    relative_square = (
+        np.sum(position * position, axis=-1) + 2.0 * radius * position[..., 1]
+    )
     return relative_square / (np.sqrt(relative_square + radius * radius) + radius)
 
 
 def density(position, layer, seconds=0.0):
     height = (altitude(position, layer.radius_m) - layer.base_m) / layer.thickness_m
-    profile = np.where((height > 0.0) & (height < 1.0), 6.0 * height * (1.0 - height), 0.0)
+    profile = np.where(
+        (height > 0.0) & (height < 1.0), 6.0 * height * (1.0 - height), 0.0
+    )
     advected = (position - wind(layer) * seconds) / 1400.0
     broad = noise(advected)
     detail = noise(advected * 3.1 + np.array([19.0, 7.0, 3.0]))
@@ -62,8 +66,11 @@ def density(position, layer, seconds=0.0):
 
 def sphere_roots(origin, direction, height_m, radius_m):
     b = np.sum(origin * direction, axis=-1) + radius_m * direction[..., 1]
-    c = (np.sum(origin * origin, axis=-1) + 2.0 * radius_m * origin[..., 1]
-         - height_m * (2.0 * radius_m + height_m))
+    c = (
+        np.sum(origin * origin, axis=-1)
+        + 2.0 * radius_m * origin[..., 1]
+        - height_m * (2.0 * radius_m + height_m)
+    )
     discriminant = b * b - c
     root = np.sqrt(np.maximum(discriminant, 0.0))
     return -b - root, -b + root, discriminant >= 0.0
@@ -72,12 +79,16 @@ def sphere_roots(origin, direction, height_m, radius_m):
 def segments(origin, direction, layer):
     """Up to two forward shell intervals, clipped by the opaque spherical planet."""
     outer_near, outer_far, outer_hit = sphere_roots(
-        origin, direction, layer.base_m + layer.thickness_m, layer.radius_m)
+        origin, direction, layer.base_m + layer.thickness_m, layer.radius_m
+    )
     inner_near, inner_far, inner_hit = sphere_roots(
-        origin, direction, layer.base_m, layer.radius_m)
+        origin, direction, layer.base_m, layer.radius_m
+    )
     ground_near, _, ground_hit = sphere_roots(origin, direction, 0.0, layer.radius_m)
     start = np.maximum(outer_near, 0.0)
-    inward = np.sum(origin * direction, axis=-1) + layer.radius_m * direction[..., 1] < 0.0
+    inward = (
+        np.sum(origin * direction, axis=-1) + layer.radius_m * direction[..., 1] < 0.0
+    )
     ground_blocks = ground_hit & inward & (ground_near >= 0.0)
     stop = np.minimum(outer_far, np.where(ground_blocks, ground_near, np.inf))
     inner_intersects = inner_hit & (inner_far > start) & (inner_near < stop)

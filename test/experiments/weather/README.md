@@ -261,7 +261,9 @@ bestehenden optischen Kern. Die analytische Integration gilt für dessen konstan
 Zellen, nicht für das innerhalb einer Zelle weiter variierende Quellfeld.
 Beide Momente gemeinsam filtern, erst danach dividieren; 0/0 bleibt der klare Fall.
 M1 in Metern kann FP16 überlaufen. Kilometerdarstellung ist ein untersuchter
-Gegenfall, noch keine vereinbarte neue Textur oder ein GPU-Packingvertrag.
+Gegenfall, noch keine vereinbarte neue Textur oder ein GPU-Packingvertrag. Bei sehr
+dünnen Wolken kann FP16 selbst in Kilometern M0 auf0 quantisieren, während M1
+positiv bleibt; beide Momente benötigen deshalb einen gemeinsam geprüften Bereich.
 
 ```sh
 python3 -W error test/experiments/weather/cloud_moments.py --output "$cloud_out/moments"

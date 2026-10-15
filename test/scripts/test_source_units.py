@@ -11,7 +11,7 @@ class NativeSourceSelection(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='outshine-source-units-')
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        self.root = Path(self.temp.name).resolve()
         self.names = ['src/client/Main.cpp', 'src/render/Scene.cpp',
                       'src/render/device/native/Shared.cpp',
                       'src/render/device/native/vulkan/Device.cpp',

@@ -1,0 +1,593 @@
+{
+  "receipt": {
+    "kind": "vector",
+    "tile": [
+      14,
+      8621,
+      5199
+    ],
+    "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8621/5199.pbf",
+    "sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+    "bytes": 188222
+  },
+  "frame": "WGS84 ENU at Flensburg scenario origin; height-zero ellipsoid",
+  "cases": [
+    {
+      "id": "Flensburg/14/8621/5199/building/22626210/0/1",
+      "area_m2": 144.8577386991523,
+      "height_m": 4.0,
+      "source_properties": {
+        "render_height": 4,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+        "evidence": [
+          {
+            "id": "housenumber:1709331660:0:0",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "26"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              -458.6940195158714,
+              628.493553162159
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "landuse:29807060:49:0",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "area-overlap",
+            "coverage": 1.0000000000000002,
+            "context_area_m2": 17014.892352927018,
+            "scope": "site-context"
+          },
+          {
+            "id": "transportation:250556920:39:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 6.109010690484462,
+            "position_xy": [
+              -453.99866156047017,
+              642.5781383682206
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation_name:681898040:168:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Wrangelstra\u00dfe",
+              "name_int": "Wrangelstra\u00dfe",
+              "class": "minor",
+              "name:latin": "Wrangelstra\u00dfe",
+              "name_de": "Wrangelstra\u00dfe",
+              "name_en": "Wrangelstra\u00dfe"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 6.109010690484462,
+            "position_xy": [
+              -453.99866156047017,
+              642.5781383682206
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:29807060:49:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "footprint_wkb": "01030000000100000005000000A998DEEE26357DC05E942200EB8D83400559B7BC00957CC0F2B2A7B791EB8340825D97840E217CC0155CA39FFAB98340AABAF4FBAEBB7CC01809A7F8145F8340A998DEEE26357DC05E942200EB8D8340"
+    },
+    {
+      "id": "Flensburg/14/8621/5199/building/22626210/0/5",
+      "area_m2": 146.16086967654738,
+      "height_m": 4.0,
+      "source_properties": {
+        "render_height": 4,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+        "evidence": [
+          {
+            "id": "housenumber:1680225940:89:0",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "38"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              -306.84230193654673,
+              690.1164709157692
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "landuse:29807060:49:4",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "area-overlap",
+            "coverage": 1.0,
+            "context_area_m2": 23848.23164591549,
+            "scope": "site-context"
+          },
+          {
+            "id": "transportation:249714890:33:6",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "path",
+              "surface": "paved",
+              "class": "path",
+              "foot": "yes"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 1.610092241658853,
+            "position_xy": [
+              -304.0925841755501,
+              699.4849315170464
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:249720660:35:5",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "steps",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 1.2466492851469497,
+            "position_xy": [
+              -316.4447955333936,
+              692.91453868088
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:250556920:39:1",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 9.8738371581867,
+            "position_xy": [
+              -320.76878450825285,
+              677.7032226766182
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation_name:249713060:121:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Reepschl\u00e4gerbahn",
+              "name_int": "Reepschl\u00e4gerbahn",
+              "class": "minor",
+              "name:latin": "Reepschl\u00e4gerbahn",
+              "name_de": "Reepschl\u00e4gerbahn",
+              "name_en": "Reepschl\u00e4gerbahn"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 9.8738371581867,
+            "position_xy": [
+              -320.76878450825285,
+              677.7032226766182
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          },
+          {
+            "id": "transportation_name:253001620:33:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name_int": "B\u00f6ckmannsgang",
+              "name_de": "B\u00f6ckmannsgang",
+              "name": "B\u00f6ckmannsgang",
+              "subclass": "path",
+              "class": "path",
+              "name:latin": "B\u00f6ckmannsgang",
+              "name_en": "B\u00f6ckmannsgang"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 1.610092241658853,
+            "position_xy": [
+              -304.0925841755501,
+              699.4849315170464
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:29807060:49:4"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "footprint_wkb": "01030000000100000009000000980A29B209BD73C0035DBAC1B59E85406E71C67440F672C0EE0D417149D08540E281C266B0E572C09EA87A28C2BF8540E5CAF1AE1FD572C04036EC3483C285401D92B07D6FA372C071680059ED90854079BE26CFD48573C051FFFC461657854019547D0A85B773C0970628FCEA858540E6C9CFC179AC73C01178F5446D8B8540980A29B209BD73C0035DBAC1B59E8540"
+    },
+    {
+      "id": "Flensburg/14/8621/5199/building/22626210/0/8",
+      "area_m2": 245.68131595466582,
+      "height_m": 4.0,
+      "source_properties": {
+        "render_height": 4,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+        "evidence": [
+          {
+            "id": "housenumber:1699816170:83:2",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "40"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              25.492186871828256,
+              688.040118051948
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "landuse:29807060:49:5",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "area-overlap",
+            "coverage": 1.0000000000000002,
+            "context_area_m2": 70311.10601661383,
+            "scope": "site-context"
+          },
+          {
+            "id": "transportation:249713580:32:7",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "service",
+              "service": "driveway"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 1.7531176286351817,
+            "position_xy": [
+              14.21141042591871,
+              692.9709596309783
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:252469000:41:0",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "path",
+              "bicycle": "yes",
+              "surface": "paved",
+              "class": "path",
+              "foot": "yes"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 0.0,
+            "position_xy": [
+              18.965656113041096,
+              684.9164438687228
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:252469000:41:2",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "path",
+              "bicycle": "yes",
+              "surface": "paved",
+              "class": "path",
+              "foot": "yes"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 2.4616887823946914,
+            "position_xy": [
+              20.315681524833977,
+              677.7101231807973
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:29807060:49:5"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "footprint_wkb": "0103000000010000000500000066CD816148C43740857B5DC96A258540A0CB2C6434472E40892616FBDD9B85408077D8E20F903B40424BAF1AB7D58540D047FED35F18424010420B330562854066CD816148C43740857B5DC96A258540"
+    },
+    {
+      "id": "Flensburg/14/8621/5199/building/269509960/6/2",
+      "area_m2": 251.7406841482906,
+      "height_m": 15.0,
+      "source_properties": {
+        "render_height": 15,
+        "render_min_height": 0
+      },
+      "context": {
+        "version": 1,
+        "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+        "evidence": [
+          {
+            "id": "housenumber:1675999180:94:1",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "39"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              -85.63092386472124,
+              698.715134784392
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "housenumber:37838344571:164:0",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "39-41"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              -82.87000786215182,
+              703.8800465281081
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "landuse:29807060:49:5",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "area-overlap",
+            "coverage": 1.0000000000000002,
+            "context_area_m2": 70311.10601661383,
+            "scope": "site-context"
+          },
+          {
+            "id": "poi:37838344571:256:0",
+            "layer": "poi",
+            "properties": {
+              "name_int": "Gandalph",
+              "level": 0,
+              "name_de": "Gandalph",
+              "name": "Gandalph",
+              "subclass": "toys",
+              "rank": 37,
+              "class": "shop",
+              "name:latin": "Gandalph",
+              "name_en": "Gandalph"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "unique-point-host",
+            "role": "retail",
+            "position_xy": [
+              -82.87000786215182,
+              703.8800465281081
+            ],
+            "scope": "partial-use",
+            "level": 0,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "transportation:236931490:26:1",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "pedestrian",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 1.932946712280425,
+            "position_xy": [
+              -83.14305770417522,
+              709.4990924212706
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:236931490:26:4",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "pedestrian",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 6.338558257842526,
+            "position_xy": [
+              -76.91478086898519,
+              710.6180318691579
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:249714890:33:9",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "path",
+              "surface": "paved",
+              "class": "path",
+              "foot": "yes"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 6.592922440558892,
+            "position_xy": [
+              -73.55224160867944,
+              704.224215683785
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation_name:252473512:31:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name_int": "Heiligengeistgang",
+              "name_de": "Heiligengeistgang",
+              "name": "Heiligengeistgang",
+              "subclass": "pedestrian",
+              "class": "path",
+              "name:latin": "Heiligengeistgang",
+              "name_en": "Heiligengeistgang"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 1.932946712280425,
+            "position_xy": [
+              -83.14305770417522,
+              709.4990924212706
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          },
+          {
+            "id": "transportation_name:252481412:32:0",
+            "layer": "transportation_name",
+            "properties": {
+              "route_1_ref": "Kap",
+              "name_int": "Gro\u00dfe Stra\u00dfe",
+              "route_1_name": "Kapit\u00e4nsweg",
+              "name_de": "Gro\u00dfe Stra\u00dfe",
+              "name": "Gro\u00dfe Stra\u00dfe",
+              "subclass": "pedestrian",
+              "route_1_network": "lwn",
+              "class": "path",
+              "name:latin": "Gro\u00dfe Stra\u00dfe",
+              "name_en": "Gro\u00dfe Stra\u00dfe"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 6.338558257842526,
+            "position_xy": [
+              -76.91478086898519,
+              710.6180318691579
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          },
+          {
+            "id": "transportation_name:6805866612:80:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name_int": "Gro\u00dfe Stra\u00dfe",
+              "name_de": "Gro\u00dfe Stra\u00dfe",
+              "name": "Gro\u00dfe Stra\u00dfe",
+              "subclass": "pedestrian",
+              "class": "path",
+              "name:latin": "Gro\u00dfe Stra\u00dfe",
+              "name_en": "Gro\u00dfe Stra\u00dfe"
+            },
+            "source_sha256": "94007beb7cacec172f2d60067c105a0809c8f6740a4c5e36f05aead76d912519",
+            "relation": "nearby",
+            "distance_m": 6.592922440558892,
+            "position_xy": [
+              -73.55224160867944,
+              704.224215683785
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:29807060:49:5"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "footprint_wkb": "010300000001000000080000000A0805CF999D56C0C5504B981E9985409286BB72899057C0E615959A49FC8540ACD61FEB96A154C06C63A066571D8640E0051BF3878F52C044B6229B9B9385407FEB1244919455C0A1D605BF8D728540E46E68E4141956C02B71D0515D968540FF51BFF9838756C07C24BE01DB9085400A0805CF999D56C0C5504B981E998540"
+    }
+  ]
+}

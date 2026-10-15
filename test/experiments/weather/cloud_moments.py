@@ -100,6 +100,9 @@ def controls():
         raise AssertionError("raw first moment in metres must expose the FP16 overflow")
     packed_km = struct.unpack("e", struct.pack("e", raw_m1 / 1000.0))[0]
     assert packed_km == 72.0
+    tiny_weight = struct.unpack("e", struct.pack("e", 1e-8))[0]
+    tiny_first_km = struct.unpack("e", struct.pack("e", 80000.0 * 1e-8 / 1000.0))[0]
+    assert tiny_weight == 0.0 and tiny_first_km > 0.0
     weights = np.array([1.0, 0.1])
     depths = np.array([1000.0, 80000.0])
     filtered_depth = np.mean(weights * depths) / np.mean(weights)
@@ -117,6 +120,7 @@ def controls():
     return {
         "decimal_centroid_max_error": max(errors),
         "raw_fp16_metre_overflow": True,
+        "fp16_thin_moment_weight_underflow": True,
         "homogeneous_subdivision_max_error": float(
             np.max(np.abs(np.array(divided) - whole))
         ),

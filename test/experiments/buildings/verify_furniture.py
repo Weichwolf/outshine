@@ -22,7 +22,7 @@ from verify_structural_shell import access as building_access
 from verify_vertical import landing_poses
 
 
-def verify(plan, product):
+def verify(plan, product, doors=()):
     programme_proof = admission(plan, product)
     mesh, description = furnishings(product)
     instance_bounds(plan, product, mesh, description)
@@ -30,6 +30,13 @@ def verify(plan, product):
     shell = construct(plan)
     _, collision = assembly(plan, shell, frames=True)
     combined = collision + furniture
+    door_proof = []
+    if doors:
+        from door_state_verification import check
+
+        combined, door_proof = check(
+            combined, doors, plan["base_z_m"] - 1.0, plan["source_top_m"] + 1.0
+        )
     building = building_access(plan, combined)
     columns = NativeColumns(
         combined, plan["base_z_m"] - 1.0, plan["source_top_m"] + 1.0
@@ -39,8 +46,15 @@ def verify(plan, product):
     for room in product["rooms"]:
         current = level(plan, room["storey"])
         shape = current["rooms"][room["room_index"]]
+        for door in doors:
+            if door["room_id"] == room["room_id"]:
+                shape = shape.difference(door["open"])
         expected = access(
-            shape, room["portal_anchors"], room["result"]["items"], room["reserved"]
+            shape,
+            room["portal_anchors"],
+            room["result"]["items"],
+            room["reserved"],
+            placement_reserved=room.get("placement_reserved", ()),
         )
         anchors = np.c_[
             room["portal_anchors"],
@@ -52,7 +66,7 @@ def verify(plan, product):
             sequence = landing_poses(np.asarray(path.coords), room["floor_z_m"])
             minimum = min(minimum, inspect_poses(columns, sequence))
             poses += len(sequence)
-    return {
+    result = {
         "status": product["status"],
         "programme": programme_proof,
         "instances": len(description["instances"]),
@@ -65,6 +79,9 @@ def verify(plan, product):
         "source_properties": plan["source_properties"],
         "source_height_interval_m": [plan["base_z_m"], plan["source_top_m"]],
     }
+    if doors:
+        result["door_states"] = door_proof
+    return result
 
 
 def controls():
@@ -159,6 +176,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("build/experiments/buildings/room-programme"),
+        required=True,
     )
     run(parser.parse_args().output)

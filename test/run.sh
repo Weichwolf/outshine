@@ -399,7 +399,11 @@ LayerGroups() {
 }
 
 GroupRepresentatives() {
+  representativeProfiles=" "
   for representativeSuite in "$@"; do
+    representativeProfile=$(TestProfile "$representativeSuite")
+    case "$representativeProfiles" in *" $representativeProfile "*) continue ;; esac
+    representativeProfiles="$representativeProfiles$representativeProfile "
     representativeGroups=$(LayerGroups "$representativeSuite" 2>/dev/null) || continue
     printf '%s\t%s\n' "$representativeGroups" "$representativeSuite"
   done | awk -F '\t' '!seen[$1]++ { print $2 }'
@@ -425,8 +429,9 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
-    experiments/weather) printf '%s' "standalone Vulkan cloud probe compiled by make all and exercised through its declared experiment inputs" ;;
-    scripts) printf '%s' "build tools compiled by the Makefile; their emitted shaders are compiled by glslang" ;;
+    experiments/weather) printf '%s' "standalone native cloud probe built and judged by declared weather experiments" ;;
+    scripts) printf '%s' "standalone build and diagnostic tools compiled by the Makefile" ;;
+    harness/render) printf '%s' "internal GPU probes compiled and judged by paired render experiments" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
