@@ -47,6 +47,22 @@ VkImageUsageFlags ImageUsage(UseMask<TextureUse> use) noexcept {
   return flagsOut;
 }
 
+namespace {
+
+bool TypedStorageFormat(const Context &context, Format format) {
+  switch (format) {
+    case Format::Rgba8Unorm:
+    case Format::Rgba16Float:
+    case Format::R32Float:
+    case Format::Rgba32Float: return true;
+    case Format::R8Unorm:
+    case Format::Rg16Float: return context.StorageImageExtendedFormats;
+    default: return false;
+  }
+}
+
+}
+
 bool Supports(const Context &context, Format format, UseMask<TextureUse> use, bool filtered) {
   constexpr uint32_t knownUses = (1u << 6u) - 1;
   const auto bits = static_cast<uint32_t>(use);
@@ -61,8 +77,7 @@ bool Supports(const Context &context, Format format, UseMask<TextureUse> use, bo
     return false;
   }
   if ((bits & static_cast<uint32_t>(TextureUse::Storage)) != 0 &&
-      (format == Format::R8Unorm || format == Format::Rg16Float) &&
-      !context.StorageImageExtendedFormats) {
+      !TypedStorageFormat(context, format)) {
     return false;
   }
   VkFormatProperties properties{};

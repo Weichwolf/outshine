@@ -150,6 +150,14 @@ void Sample(Device &device, const ComputePipeline &pipeline, bool linear) {
 void Invalid(Device &device) {
   CHECK(!device.Supports(Format::Rgba8Srgb, TextureUse::Storage, false),
         "sRGB storage writes are not advertised");
+  for (const auto format : {Format::Bgra8Unorm, Format::Bgra8Srgb, Format::Depth32Float}) {
+    CHECK(!device.Supports(format, TextureUse::Storage, false),
+          "unrepresentable typed storage formats are not advertised");
+  }
+  const auto unsupported = device.CreateTexture(
+      {.Width = 8, .Height = 4, .Texels = Format::Bgra8Unorm, .Use = TextureUse::Storage});
+  CHECK(!unsupported && unsupported.error().Kind == ErrorKind::Unsupported,
+        "BGRA storage is rejected before native image creation");
   CHECK(!device.Supports(Format::Depth32Float, TextureUse::ColourAttachment, false),
         "depth data cannot be a colour attachment");
   const auto bad =
