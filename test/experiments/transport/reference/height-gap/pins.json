@@ -1,0 +1,231 @@
+{
+  "generator_commit": "12c90df93a1700a7b4cb49e9898fda42972314b1",
+  "previous_reference_commit": "e43a3fd733843f04d48794c18a04b82a52b4f8dc",
+  "results": [
+    {
+      "name": "overpass-26-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3445.638492081323,
+        371.0702491347929
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-27-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3458.310645857252,
+        357.9714000444149
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-27-cubic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3458.310645857252,
+        357.9714000444149
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-31-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3398.7173375439793,
+        401.2154103691082
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-32-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3391.8111802663707,
+        405.7840990296975
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-33-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3610.742451386297,
+        191.27457297422922
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-36-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3529.017474134415,
+        295.4402664555685
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-36-cubic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3529.017474134415,
+        295.4402664555685
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-43-parabolic",
+      "minimum_clearance_m": 4.519999999999982,
+      "witness_xy": [
+        3402.368805083225,
+        406.06408038051643
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-44-parabolic",
+      "minimum_clearance_m": 4.519999999999982,
+      "witness_xy": [
+        3396.06202489104,
+        410.9366379687331
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-45-parabolic",
+      "minimum_clearance_m": 4.519999999999982,
+      "witness_xy": [
+        3636.181221784244,
+        191.12188420369193
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-46-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3632.502766241086,
+        199.30516536130816
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-46-cubic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3632.502766241086,
+        199.30516536130816
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-49-parabolic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3535.316262270726,
+        301.2078314963513
+      ],
+      "checks": 4
+    },
+    {
+      "name": "overpass-49-cubic",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3535.316262270726,
+        301.2078314963513
+      ],
+      "checks": 4
+    },
+    {
+      "name": "continuation-rebuild",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        4879.34728317334,
+        -102.08091398703301
+      ],
+      "checks": 587
+    },
+    {
+      "name": "continuation-retain",
+      "minimum_clearance_m": 4.52000000000001,
+      "witness_xy": [
+        3767.9555307479122,
+        54.66916258311174
+      ],
+      "checks": 636
+    },
+    {
+      "name": "old-floor-forward-parabolic",
+      "minimum_clearance_m": 0.0,
+      "witness_xy": [
+        4889.341251489392,
+        -98.16399668750024
+      ],
+      "checks": 3149
+    },
+    {
+      "name": "old-floor-backward-parabolic",
+      "minimum_clearance_m": 0.0,
+      "witness_xy": [
+        4889.341251489392,
+        -98.16399668750024
+      ],
+      "checks": 3149
+    },
+    {
+      "name": "portal-cover-parabolic",
+      "minimum_clearance_m": 2.8790141069194988,
+      "witness_xy": [
+        2143.689449817123,
+        869.8713137544452
+      ],
+      "checks": 171
+    },
+    {
+      "name": "portal-headroom-parabolic",
+      "minimum_clearance_m": 4.5,
+      "witness_xy": [
+        2262.458090021874,
+        865.3258472774744
+      ],
+      "checks": 126
+    },
+    {
+      "name": "old-floor-forward-cubic",
+      "minimum_clearance_m": 0.0,
+      "witness_xy": [
+        4889.341251489392,
+        -98.16399668750024
+      ],
+      "checks": 3149
+    },
+    {
+      "name": "old-floor-backward-cubic",
+      "minimum_clearance_m": 0.0,
+      "witness_xy": [
+        4889.341251489392,
+        -98.16399668750024
+      ],
+      "checks": 3149
+    },
+    {
+      "name": "portal-cover-cubic",
+      "minimum_clearance_m": 2.8790141069194988,
+      "witness_xy": [
+        2143.689449817123,
+        869.8713137544452
+      ],
+      "checks": 171
+    },
+    {
+      "name": "portal-headroom-cubic",
+      "minimum_clearance_m": 4.5,
+      "witness_xy": [
+        2262.458090021874,
+        865.3258472774744
+      ],
+      "checks": 126
+    }
+  ]
+}
