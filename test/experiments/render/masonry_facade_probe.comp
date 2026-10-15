@@ -36,7 +36,7 @@ void main() {
   vec2 dyM = vec2(palette[offset + 16], palette[offset + 17]);
   field = facadeMasonryField(fractions, p.PointDx.xy, p.PointDx.zw, p.Dy, perM,
                              atM, dxM, dyM, filtered.xyz);
-  surface.albedo += facadeMasonryAmplitude(source) * field;
+  surface.albedo += facadeMasonryAmplitude(source, facadeCoatingAmplitude(source)) * field;
   float amplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
   surface.roughness += amplitude * field;
 #endif
