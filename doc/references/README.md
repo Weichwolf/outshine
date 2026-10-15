@@ -124,6 +124,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   BaseColor/Metallic/Roughness und gemeinsame Materialbibliothek vereinheitlichen den Look.
   Masken vor Licht auswerten; begrenzte Parameterblend spart BRDF-Arbeit, ist aber keine
   exakte Mischung beliebiger Reflexionsmodelle. Lack/Metall und extreme Roughness prüfen.
+- **Synthetic Texturing Using Digital Filters**, Feibush / Levoy / Cook, SIGGRAPH1980.
+  [Quelle](https://graphics.stanford.edu/papers/texture-filtering/) ·
+  [PDF](materials/siggraph/1980-synthetic-texturing-using-digital-filters.pdf).
+  Gefilterte projizierte Pixelfläche und Geometriekanten gemeinsam betrachten;
+  Seiten3/7 optisch geprüft. #306 nutzt unabhängiges Polygon-Clipping als Referenz,
+  keinen übernommenen Renderer oder Shadercode.
 - **Crafting a Next-Gen Material Pipeline for The Order: 1886**, Neubelt / Pettineo,
   SIGGRAPH-Kurs 2013.
   [Quelle](https://blog.selfshadow.com/publications/s2013-shading-course/rad/s2013_pbs_rad_notes.pdf) ·
