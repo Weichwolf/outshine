@@ -53,6 +53,8 @@ def compile_probe(args, case, commands, definitions):
     includes = [
         ROOT / "src",
         ROOT / "src/render/shaders",
+        ROOT / "src/generators/weather/shaders",
+        ROOT / "test/experiments/weather",
         args.air_root / "src",
         args.air_root / "src/render/shaders",
         args.air_root / "test/experiments/render",
@@ -294,14 +296,16 @@ def replay(args):
     reports["source_sha256"] = {
         str(path.relative_to(ROOT)): sha(path)
         for path in [
-            ROOT / "src/render/shaders" / name
-            for name in [
-                "cloudPrefix.glsl",
-                "cloudAirCell.glsl",
-                "cloudAirPrefix.glsl",
-                "cloudLayer.glsl",
-                "cloudRadiance.glsl",
-            ]
+            ROOT / "src/render/shaders/mediumCell.glsl",
+            ROOT / "test/experiments/weather/cloud_air_prefix.glsl",
+            *[
+                ROOT / "src/generators/weather/shaders" / name
+                for name in [
+                    "cloudLayer.glsl",
+                    "cloudRadiance.glsl",
+                    "cloudPrefix.glsl",
+                ]
+            ],
         ]
     }
     reports["scope"] = (
