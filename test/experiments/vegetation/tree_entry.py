@@ -125,7 +125,7 @@ def build(output):
 
 
 def load(inputs, *, geometry=True):
-    """Fresh complete cache read: no source plan, RNG, curve or mesh construction."""
+    """Read requested plan/geometry arrays without source construction; maps load separately."""
     metadata = json.loads((inputs / "entry.json").read_text())
     products = {}
     names = [metadata["tables"], *(metadata["products"] if geometry else [])]
