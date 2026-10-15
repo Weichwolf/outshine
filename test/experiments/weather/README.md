@@ -48,12 +48,8 @@ flock -n /var/tmp/outshine-heavy.lock python3 -W error \
   test/experiments/weather/cloud_countercases.py --output "$cloud_out"
 "$GLSLANG" -V --target-env vulkan1.0 -Isrc \
   test/experiments/weather/cloud_probe.comp -o "$cloud_out/cloud_probe.comp.spv"
-c++ -std=c++23 -O2 -ffp-contract=off -fno-exceptions -Wall -Wextra -Wpedantic \
-  -Wshadow -Werror -Iinclude -Isrc/world/weather -Isrc/render/stages \
-  -Isrc/render/device src/world/weather/CloudShell.cpp \
-  src/world/weather/CloudDensity.cpp test/experiments/weather/cloud_probe.cpp \
-  $(pkg-config --cflags --libs sdl3) -o "$cloud_out/cloud_probe"
-flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+make build/cloud-probe
+flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
   "$cloud_out/cloud_probe.comp.spv" "$cloud_out/broken-native.f32" 240 135 0.65
 flock -n /var/tmp/outshine-heavy.lock python3 -W error \
   test/experiments/weather/cloud_comparison.py --output "$cloud_out" \
@@ -80,7 +76,7 @@ räumliche Lichtwirkung; die volle dortige Beleuchtungsmethode ist nicht umgeset
 "$GLSLANG" -V --target-env vulkan1.0 -Isrc \
   -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 \
   test/experiments/weather/cloud_picture.comp -o "$cloud_out/cloud_picture.comp.spv"
-flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
   "$cloud_out/cloud_picture.comp.spv" "$cloud_out/rgb.f32" 1280 720 0.65 4
 python3 -W error test/experiments/weather/cloud_radiance.py --output "$cloud_out/rgb" \
   --input "$cloud_out/rgb.f32" --width 1280 --height 720 --cover 0.65 \
@@ -124,13 +120,13 @@ direkte Ansicht. Eine höhere Quellauflösung ist ebenfalls kein Konvergenzbewei
 "$GLSLANG" -V --target-env vulkan1.0 -Isrc \
   -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 -DCLOUD_SOURCE_HORIZON=1 \
   test/experiments/weather/cloud_source.comp -o "$cloud_out/horizon.spv"
-flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
   "$cloud_out/source.spv" "$cloud_out/source-clear.f32" 4 4 0 4
-flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
   "$cloud_out/filter.spv" "$cloud_out/filter-reference.f32" 128 64 0.65 4
-flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
   "$cloud_out/source.spv" "$cloud_out/source-256.f32" 258 258 0.65 4
-flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
   "$cloud_out/horizon.spv" "$cloud_out/horizon-256x256.f32" 258 258 0.65 4
 flock -n /var/tmp/outshine-heavy.lock python3 -W error \
   test/experiments/weather/cloud_source_comparison.py --output "$cloud_out/source-report" \

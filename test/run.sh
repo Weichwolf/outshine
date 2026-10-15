@@ -381,6 +381,7 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
+    experiments/weather) printf '%s' "standalone Vulkan cloud probe compiled by make all and exercised through its declared experiment inputs" ;;
     scripts) printf '%s' "build tools compiled by the Makefile; their emitted shaders are compiled by glslang" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
