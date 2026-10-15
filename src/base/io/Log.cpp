@@ -17,6 +17,8 @@ LogField::LogField(const char *key, double v) : Key(key) {
 
 LogField::LogField(const char *key, int v) : Key(key), Value(std::to_string(v)) {}
 
+LogField::LogField(const char *key, long v) : Key(key), Value(std::to_string(v)) {}
+
 LogField::LogField(const char *key, long long v) : Key(key), Value(std::to_string(v)) {}
 
 LogField::LogField(const char *key, std::string v) : Key(key), Value(std::move(v)) {}
