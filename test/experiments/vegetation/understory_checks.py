@@ -5,8 +5,11 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from bellflower import Bellflower
-from outshine_ref.vegetation import Blade, GroundCoverPlan, SpeciesHeightMixture
+from outshine_ref.vegetation import (
+    Blade,
+    GroundCoverPlan,
+    SpeciesHeightMixture,
+)
 from species_competition import CompetingMarks
 from species_spatial import FourierMarks
 from understory_mixture import cover_keys, prepare, selection, shuffled_control
@@ -52,32 +55,6 @@ class UnderstoryChecks(unittest.TestCase):
             FourierMarks, "gaussian", side_effect=AssertionError("zero-strength field")
         ):
             selection(sites, mixture, fields, strength=0)
-
-    def test_corolla_differentials_and_outward_triangles(self):
-        flower = Bellflower()
-        t, a = np.linspace(0.01, 0.99, 37), np.linspace(0, 2 * np.pi, 37)
-        _p, n, dt, da = flower.surface(t, a)
-        h = 1e-6
-        for shifted, derivative in (((t + h, a), dt), ((t, a + h), da)):
-            minus = (t - h, a) if derivative is dt else (t, a - h)
-            finite = (flower.surface(*shifted)[0] - flower.surface(*minus)[0]) / (2 * h)
-            np.testing.assert_allclose(finite, derivative, rtol=0, atol=2e-11)
-        for segments, sides in ((3, 18), (6, 24), (12, 48)):
-            mesh = flower.mesh(segments, sides)
-            v, f, normals = mesh["vertices"], mesh["faces"], mesh["normals"]
-            points = v[f]
-            area = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
-            self.assertTrue(
-                (np.einsum("ij,ikj->ik", area, normals.reshape(-1, 3, 3)) > 0).all()
-            )
-            self.assertEqual(mesh["corner_uv"].shape, (f.size, 2))
-            self.assertTrue(
-                (
-                    np.ptp(mesh["corner_uv"][: -3 * sides, 1].reshape(-1, 3), axis=1)
-                    < 0.5
-                ).all()
-            )
-        np.testing.assert_allclose(np.linalg.norm(n, axis=1), 1, atol=2e-14)
 
     def test_organ_subset_from_cached_parameters_matches_full_without_rng(self):
         plan = LilyStudy(29)

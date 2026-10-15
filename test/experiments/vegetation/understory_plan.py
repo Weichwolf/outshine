@@ -3,9 +3,8 @@
 from dataclasses import asdict, dataclass
 
 import numpy as np
-from bellflower import Bellflower
 from biome_models import Assembly
-from outshine_ref.vegetation import Blade
+from outshine_ref.vegetation import Bellflower, Blade
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from outshine_ref.vegetation.curve_frame import arc_frame
 from outshine_ref.vegetation.shoot_plan import normal_frame

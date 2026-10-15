@@ -1,6 +1,7 @@
 """Own thin pendulous six-lobed corolla surface; closed attachment, open mouth."""
 
 from dataclasses import dataclass
+from numbers import Real
 
 import numpy as np
 
@@ -13,16 +14,24 @@ class Bellflower:
 
     def __post_init__(self):
         if (
-            not np.isfinite((self.length, self.radius)).all()
-            or min(self.length, self.radius) <= 0
+            not all(isinstance(value, Real) for value in (self.length, self.radius))
+            or not np.isfinite((self.length, self.radius)).all()
+            or min(self.length, self.radius) < 1e-6
+            or max(self.length, self.radius) > 10
         ):
-            raise ValueError("positive finite corolla dimensions required")
+            raise ValueError(
+                "finite corolla dimensions within1micrometre..10metres required"
+            )
         if type(self.lobes) is not int or not 3 <= self.lobes <= 12:
             raise ValueError("three to12 corolla lobes required")
 
     def surface(self, t, angle):
         t, angle = np.broadcast_arrays(np.asarray(t, float), np.asarray(angle, float))
-        if not np.isfinite((t, angle)).all() or np.any((t < 0) | (t > 1)):
+        if (
+            not np.isfinite((t, angle)).all()
+            or np.any((t < 0) | (t > 1))
+            or np.any(abs(angle) > 16 * np.pi)
+        ):
             raise ValueError("finite corolla angle and longitudinal0..1 required")
         phase = self.lobes * angle
         lobe = 0.5 + 0.5 * np.cos(phase)
@@ -75,11 +84,19 @@ class Bellflower:
             np.arange(sides),
             (np.arange(sides) + 1) % sides,
         ]
-        return {
+        result = {
             "vertices": vertices,
-            "faces": np.vstack((faces, cap)),
+            "faces": np.vstack((faces, cap)).astype(np.int32),
             "normals": np.vstack((n, np.tile((0, 0, 1), (3 * sides, 1)))),
             "corner_uv": np.vstack(
                 (uv, vertices[cap.ravel(), :2] / (2 * self.radius) + 0.5)
             ),
         }
+        points = vertices[result["faces"]]
+        geometric = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+        corners = result["normals"].reshape(-1, 3, 3)
+        if not np.all(np.einsum("ij,ikj->ik", geometric, corners) > 0):
+            raise ValueError(
+                "subdivision does not resolve the oriented corolla surface"
+            )
+        return result

@@ -945,3 +945,8 @@ Research images stay local; only master publishes integrated Places.
 kanonischen Zell-/Ordinal-IDs, separaten Zähl-/Positionsströmen und exaktem
 Teil-Replay im selben festen Meterrahmen. Mengen/Budgets werden vor Platzierungen
 ermittelt. Vertrag, Kosten und optisch geprüfter Grasverbrauch: [ground_cover.md](ground_cover.md) (#304).
+
+`vegetation.Bellflower` liefert eine eigene reguläre hängende Glockenfläche mit
+analytischen Normalen, geschlossener Ansatzkappe, offener Mündung und expliziten
+Eck-UVs. Herleitung, Unterteilungsgrenzen und tatsächlicher blühender Verbraucher:
+[bellflower.md](bellflower.md) (#316).
