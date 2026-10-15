@@ -30,7 +30,11 @@ def planned(row):
         raise ValueError("No complete stepped base room/storey plan")
 
     def detail_clearance(current):
-        circulation(current, attach(detailed_mesh(current), expand(slots(current))))
+        from stepped_envelope_geometry import geometry
+
+        _, _, complete, _ = exterior(current, 1)
+        geometry(current, complete)
+        near(current, 1)
 
     result = choose(plan, validate=detail_clearance)
     result["storey_portals"] = [list(row) for row in result["storey_portals"]]

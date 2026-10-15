@@ -109,7 +109,7 @@ def choose(plan, widths=(1.2, 1.8, 2.8), validate=None):
                     method=method,
                     side=side,
                     width_m=width,
-                    status="rejected-detail",
+                    status="rejected-product",
                     reason=str(error),
                 )
             )
@@ -125,5 +125,5 @@ def choose(plan, widths=(1.2, 1.8, 2.8), validate=None):
             )
         )
     raise ValueError(
-        "No planned stepped alternative survives actual opening-detail clearance"
+        "No planned stepped alternative passes actual opening details and complete far geometry"
     )

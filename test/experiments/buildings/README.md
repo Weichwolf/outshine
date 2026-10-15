@@ -357,6 +357,8 @@ Every positive terrace component needs its own actual door; opening frames
 must leave the connected 0.30 m actor clearance. Invalid alternatives retain
 the previous valid body and an explicit reason. Numeric geometry failures
 reject locally. There is no new source provider or use-class inference.
+The choice also audits the complete far union and compiled near actor paths;
+failed products try the next already planned alternative before fallback.
 
 `stepped_source.py` reserves the roof parapet within the source height before
 room planning. Its distant envelope uses the installed `union_prisms` directly
