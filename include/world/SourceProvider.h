@@ -40,7 +40,7 @@ struct SourceProvider {
   std::optional<SourceCoverage>
       Coverage; ///< OSM chunk bounds; absent for an official API catalogue.
   std::string
-      PayloadSha256; ///< Optional 64-digit lowercase OSM response digest, separate from revision.
+      PayloadSha256; ///< Provider-validated original response digest, separate from revision.
 
   std::string Schema; ///< Provider-owned semantic schema; empty selects its documented default.
 
