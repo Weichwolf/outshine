@@ -220,6 +220,11 @@ bool SceneRenderer::Executable(Stage stage) {
 
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
+  if (SDL_GetVersion() < SDL_VERSIONNUM(3, 2, 24)) {
+    ActiveState().WhyNot = "SDL 3.2.24 or newer is required for eight render color attachments";
+    Log::Error(LogTag::Render, "unsupported_sdl", {{"msg", ActiveState().WhyNot}});
+    return false;
+  }
   if (SDL_WasInit(SDL_INIT_VIDEO) == 0u) {
     Log::Error(LogTag::Render, "no_video", {{"msg", "the client did not initialise SDL video"}});
     ActiveState().WhyNot =
