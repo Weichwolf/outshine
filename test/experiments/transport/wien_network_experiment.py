@@ -100,13 +100,42 @@ def fit_case(name, arrays, meta, output):
     return mesh, meta
 
 
+def compare_assembly(flat, domain, previous, roof, prior, output):
+    reports, united = {}, None
+    for method in ("cells", "domain"):
+        try:
+            candidate, report = union_traffic(previous[1], flat, method)
+            path = output / (method + "-union.npz")
+            np.savez_compressed(
+                path, vertices=candidate.vertices, faces=candidate.triangles
+            )
+            reports[method] = dict(report, valid=True, mesh_sha256=digest(path))
+            united = candidate
+        except (ValueError, shapely.errors.GEOSException) as failure:
+            reports[method] = {"valid": False, "reason": str(failure)}
+    try:
+        if united is None:
+            raise ValueError("no valid dense traffic layout")
+        arrays, meta = dense_input(
+            united, domain, previous[0], roof, previous[1], prior
+        )
+        _dense, dense_note = fit_case("dense", arrays, meta, output)
+    except (ValueError, shapely.errors.GEOSException) as failure:
+        dense_note = {
+            "fit": {"valid": False, "reason": str(failure)},
+            "phase": "dense_preparation",
+        }
+        (output / "dense.json").write_text(json.dumps(dense_note, indent=2) + "\n")
+    return reports, dense_note
+
+
 def export_body(mesh, slots, path):
     xyz = mesh.vertices[mesh.triangles]
     normals = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
     lengths = np.linalg.norm(normals, axis=1)
     if not np.all(np.isfinite(lengths)) or np.any(lengths == 0):
         raise ValueError("closed source body has a degenerate normal")
-    normals = np.repeat(normals / lengths[:, None], 3, axis=0)
+    normals = np.repeat((normals / lengths[:, None]).astype(np.float32), 3, axis=0)
     np.savez_compressed(
         path,
         vertices=mesh.vertices,
@@ -125,6 +154,9 @@ def export_body(mesh, slots, path):
         + mesh.triangles.nbytes
         + normals.nbytes
         + slots.nbytes,
+        "explicit_indexed_xyz_copy_bytes": xyz.nbytes,
+        "explicit_corner_normal_copy_bytes": normals.nbytes,
+        "copy_count_scope": "These two explicit NumPy copies only; not all pipeline copies.",
     }
 
 
@@ -211,19 +243,12 @@ def build(args):
         raise ValueError("new traffic intrudes into a retained open portal")
     for label, shape in (("traffic", traffic), ("world", domain)):
         (args.output / (label + ".wkb")).write_bytes(shape.wkb)
-    union_notes = {}
-    for method in ("cells", "domain"):
-        united, report = union_traffic(previous[1], flat, method)
-        path = args.output / (method + "-union.npz")
-        np.savez_compressed(path, vertices=united.vertices, faces=united.triangles)
-        union_notes[method] = dict(report, mesh_sha256=digest(path))
     prior = lambda xy: sample_targets(
         fixture["origin_lat_lon"], xy, args.dem_sources, 11, fetch=False
     )
-    arrays, meta = dense_input(
-        united, domain, previous[0], model["roof"], previous[1], prior
+    union_notes, dense_note = compare_assembly(
+        flat, domain, previous, model["roof"], prior, args.output
     )
-    _dense, dense_note = fit_case("dense", arrays, meta, args.output)
     with np.load(args.basis_reference / "input.npz") as data:
         seed = Mesh(np.c_[data["xy"], np.zeros(len(data["xy"]))], data["faces"])
     masks = np.r_[

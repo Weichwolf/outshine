@@ -18,6 +18,7 @@ from retained_surface import surface_domain
 from surface_solid_checks import audit_closed
 from transport_flat_plan import examples, plan
 from transport_network import transport_widths
+from wien_network_experiment import compare_assembly
 from wien_network_sources import full_ledger, select
 from wien_network_union import union_traffic
 
@@ -80,6 +81,26 @@ class NetworkGeometry(unittest.TestCase):
         self.assertAlmostEqual(
             audit_closed(close_surface(mesh, 0.25)), domain.area * 0.25
         )
+
+    def test_rejected_comparators_are_reported_without_blocking_the_selected_path(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch(
+                "wien_network_experiment.union_traffic",
+                side_effect=ValueError("face_budget"),
+            ),
+        ):
+            reports, dense = compare_assembly(
+                self.field,
+                self.domain,
+                (self.field, self.field),
+                self.field,
+                None,
+                Path(directory),
+            )
+        self.assertTrue(all(not r["valid"] for r in reports.values()))
+        self.assertFalse(dense["fit"]["valid"])
+        self.assertEqual(dense["fit"]["reason"], "no valid dense traffic layout")
 
 
 class NetworkSources(unittest.TestCase):
