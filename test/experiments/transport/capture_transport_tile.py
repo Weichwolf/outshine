@@ -14,10 +14,14 @@ ROOT = Path(__file__).resolve().parents[3]
 GIRTH_M = 40075016.68557849
 
 
-def capture(site, inventory_path, cache, output):
+def capture(site, inventory_path, cache, output, *, zoom=14):
     inventory = json.loads(inventory_path.read_text())
     receipts = sorted(
-        (r for r in inventory["receipts"] if site in r["sites"] and r["tile"][0] == 14),
+        (
+            r
+            for r in inventory["receipts"]
+            if site in r["sites"] and r["tile"][0] == zoom
+        ),
         key=lambda r: r["tile"],
     )
     if not receipts:
