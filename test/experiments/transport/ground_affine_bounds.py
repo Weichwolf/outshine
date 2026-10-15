@@ -7,7 +7,15 @@ import shapely
 
 
 def overlap_bounds(
-    xy, faces, barrier, *, offset_m=0, sign=1, seconds=4, max_pairs=65536
+    xy,
+    faces,
+    barrier,
+    *,
+    offset_m=0,
+    sign=1,
+    seconds=4,
+    max_pairs=65536,
+    max_faces=8192,
 ):
     if (
         sign not in (-1, 1)
@@ -18,7 +26,9 @@ def overlap_bounds(
         or not 0 <= max_pairs <= 65536
     ):
         raise ValueError("finite signed height offset and time budget required")
-    if not 1 <= len(faces) <= 8192 or not 1 <= len(barrier.triangles) <= 8192:
+    if type(max_faces) is not int or not 1 <= max_faces <= 262144:
+        raise ValueError("affine bound input allocation cap")
+    if not 1 <= len(faces) <= max_faces or not 1 <= len(barrier.triangles) <= max_faces:
         raise ValueError("affine bound face budget")
     began = time.monotonic()
     shapes = shapely.polygons(xy[faces])
