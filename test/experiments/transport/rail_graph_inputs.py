@@ -9,9 +9,13 @@ import numpy as np
 import shapely
 
 
-def read_window(root, name):
+def read_window(root, name, *, files=None):
     root = Path(root)
-    pins = json.loads((root / "generation.json").read_text())["files"]
+    pins = (
+        json.loads((root / "generation.json").read_text())["files"]
+        if files is None
+        else dict(files)
+    )
 
     def checked(relative):
         path = root / relative
@@ -76,7 +80,9 @@ def read_window(root, name):
         {
             "generation_sha256": hashlib.sha256(
                 (root / "generation.json").read_bytes()
-            ).hexdigest(),
+            ).hexdigest()
+            if files is None
+            else None,
             "input_sha256": pins[f"inputs/{name}-input.json"],
         },
     )
