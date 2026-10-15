@@ -19,7 +19,7 @@
   | `outshine_transport` | Reine Python-Forschung: Verkehrsnetze, Profile, Ebenen und räumliche Reservierungen | [#47](https://github.com/Weichwolf/outshine/issues/47) |
   | `outshine_buildings` | Reine Python-Forschung: Gebäudeformen, Architekturrezepte und Räume | [#47](https://github.com/Weichwolf/outshine/issues/47) |
   | `outshine_vegetation` | Reine Python-Forschung: Pflanzen, Wälder und Vegetationsdarstellung | [#47](https://github.com/Weichwolf/outshine/issues/47) |
-  | `outshine_performance` | Native Entwicklung: Renderarbeit, Sichtbarkeit, Batching, Speicher; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
+  | `outshine_performance` | Native Entwicklung: Vulkan-Backend, Renderarbeit, Sichtbarkeit, Batching, Speicher; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
   | `outshine_material` | Native Entwicklung: prozedurale Oberflächen, Materialkomposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
   | `outshine_light` | Native Entwicklung: Licht, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
   | `outshine_weather` | Native Entwicklung: Wetterdaten/-zustand, Wolken, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
@@ -189,7 +189,11 @@
   schlage ich immer zuerst in SIGGRAPH-Veröffentlichungen nach, ergänze
   passende Primärquellen und verankere Verfahren und Quellen im zuständigen Issue.
   PDFs prüfe ich immer auch optisch, insbesondere Abbildungen, Diagramme und Gleichungen.
-- C++23, SDL3/SDL_GPU, GLSL; RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
+- C++23, native Metal-/Vulkan-Backends, GLSL; SDL3 für Fenster, Eingabe und Audio.
+  Ich implementiere Metal, `outshine_performance` Vulkan; gemeinsame GPU-Verträge stimmen wir
+  vor der Integration ab. SDL3_GPU wird ersetzt; vorhandene Bildqualität und Funktionen erhalten.
+  Backendentscheidungen und Übergang stehen in [#48](https://github.com/Weichwolf/outshine/issues/48).
+  RAII, Composition, Zustandsautomaten. Runtime ohne Exceptions;
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
   Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
