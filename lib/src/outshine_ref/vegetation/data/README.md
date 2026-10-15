@@ -1,4 +1,12 @@
-# Vorbereitete Blattoptik
+# Vorbereitete Vegetationseingaben
+
+`species-pilot-1.json` ist ein eigener kompakter Artdaten-Pilot aus WCVP16:
+30 akzeptierte Arten, 31 Anfragen, 2.068 Vorkommensangaben; 66.103 Byte.
+CC-BY-3.0-Herkunft, Original-IDs, Zustand und Anpassungsbeschreibung sind enthalten.
+Es sind keine optisch abgenommenen Pflanzenrezepte. Vertrag und Quellen:
+[species_catalog.md](../../../../species_catalog.md), Issue #226.
+
+## Blattoptik
 
 `leaf-optics-table-1.json` ist ein eigenes versioniertes Generatorprodukt aus
 der geprüften PROSPECT-D-Referenzrechnung von [PR126](https://github.com/Weichwolf/outshine/pull/126).
