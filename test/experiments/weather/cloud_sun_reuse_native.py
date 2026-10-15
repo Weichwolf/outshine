@@ -34,7 +34,7 @@ def gpu_times(stdout):
     return values
 
 
-def build_consumer(args, execute):
+def build_consumer(args, execute, source=None, extra_includes=()):
     api = args.api_root.resolve()
     archive = args.archive.resolve()
     provenance = json.loads(args.archive_receipt.read_text())
@@ -68,7 +68,7 @@ def build_consumer(args, execute):
             cwd=api,
         )
     )
-    binary = args.output / "air-prefix-source-reuse"
+    binary = args.output / (source.stem if source else "air-prefix-source-reuse")
     execute(
         [
             "nice",
@@ -86,7 +86,8 @@ def build_consumer(args, execute):
                     "test/experiments/render",
                 )
             ),
-            ROOT / "test/experiments/render/air_prefix_gpu.cpp",
+            *(f"-I{path}" for path in extra_includes),
+            source or ROOT / "test/experiments/render/air_prefix_gpu.cpp",
             archive,
             *link,
             "-o",

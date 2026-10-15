@@ -5,6 +5,10 @@ component, not a complete medium/renderer profile. The actual eye-cloud transfer
 cannot simply be filtered across pixels: the supplied full-image controls and
 independent witnesses deliberately reject that shortcut.
 
+The resident GPU continuation and live-state controls are in
+`cloud_air_transfer_gpu.md`. The runner below remains the explicit CPU-normalized
+comparison, with its original bilinear default.
+
 The current control has homogeneous clear-air coefficients and the same constant
 solar/Psi inputs as #350/#363. Weather's actual density, wind phase37s and six-tap
 solar transfer still shade Direct at each physical source. Camera extinction and
