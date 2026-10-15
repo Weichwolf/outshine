@@ -16,6 +16,7 @@
 #include <print>
 #include <ratio>
 #include <span>
+#include <string>
 #include <utility>
 #include <system_error>
 #include <type_traits>
@@ -167,7 +168,7 @@ struct Inputs {
   std::unique_ptr<gpu::Sampler> Linear;
   std::array<std::unique_ptr<gpu::Buffer>, 4> Transfers;
 
-  bool Create(gpu::Device &device, const Data &data) {
+  bool Create(gpu::Device &device, const Data &data, bool generateVeil) {
     const uint64_t outputBytes = uint64_t{data.QueryCount} * kSampleBytes;
     constexpr auto kReadUse = gpu::BufferUse::CopyDestination | gpu::BufferUse::Storage;
     constexpr auto kOutputUse = gpu::BufferUse::Storage | gpu::BufferUse::CopySource;
@@ -188,7 +189,11 @@ struct Inputs {
     constexpr auto kTextureUse = gpu::TextureUse::CopyDestination | gpu::TextureUse::Sampled;
     const std::array<std::unique_ptr<gpu::Texture> *, 2> textures = {&Veil, &Multi};
     for (size_t index = 0; index < textures.size(); ++index) {
-      if (!device.Supports(data.Formats[index], kTextureUse, true)) {
+      const auto use =
+          index == 0 && generateVeil
+              ? gpu::TextureUse::Storage | gpu::TextureUse::CopySource | gpu::TextureUse::Sampled
+              : kTextureUse;
+      if (!device.Supports(data.Formats[index], use, true)) {
         std::println(stderr,
                      "native GPU: filtered LUT with {} byte texels is unsupported",
                      data.PixelBytes[index]);
@@ -197,12 +202,13 @@ struct Inputs {
       if (!Keep(device.CreateTexture({.Width = data.Extents[index].WidthPx,
                                       .Height = data.Extents[index].HeightPx,
                                       .Texels = data.Formats[index],
-                                      .Use = kTextureUse}),
+                                      .Use = use}),
                 *textures[index])) {
         return false;
       }
     }
     for (size_t index = 0; index < Transfers.size(); ++index) {
+      if (generateVeil && index == 2) { continue; }
       if (!Keep(device.CreateBuffer({.Bytes = data.Sources[index].size(),
                                      .Use = gpu::BufferUse::CopySource,
                                      .Placement = gpu::Memory::Upload}),
@@ -224,6 +230,7 @@ struct Inputs {
     }
     const std::array<gpu::Texture *, 2> textures = {Veil.get(), Multi.get()};
     for (size_t index = 0; index < textures.size(); ++index) {
+      if (!Transfers[index + buffers.size()]) { continue; }
       if (!Check(commands.Copy(
               *Transfers[index + buffers.size()],
               *textures[index],
@@ -234,6 +241,89 @@ struct Inputs {
       }
     }
     return true;
+  }
+};
+
+bool ReadPipeline(gpu::Device &device,
+                  const char *path,
+                  std::unique_ptr<gpu::ComputePipeline> &pipeline) {
+  const auto bytes = Read(path);
+  if (bytes.empty() || bytes.size() % sizeof(uint32_t) != 0) { return false; }
+  std::vector<uint32_t> spirv(bytes.size() / sizeof(uint32_t));
+  std::memcpy(spirv.data(), bytes.data(), bytes.size());
+  return Keep(device.CreateComputePipeline(spirv), pipeline);
+}
+
+struct VeilPass {
+  std::unique_ptr<gpu::ComputePipeline> Pipeline;
+  std::unique_ptr<gpu::Buffer> Readback;
+
+  bool Create(gpu::Device &device, const char *shader, const Data &data) {
+    if (data.Formats[0] != gpu::Format::Rgba16Float) {
+      std::println(stderr, "production Veil generation requires an explicit RGBA16F extent");
+      return false;
+    }
+    if (!ReadPipeline(device, shader, Pipeline)) { return false; }
+    const auto &layout = Pipeline->Layout();
+    if (layout.LocalSize != std::array<uint32_t, 3>{8, 8, 1} || layout.Bindings.size() != 2 ||
+        !std::ranges::any_of(layout.Bindings,
+                             [](const auto &binding) {
+                               return binding.Set == 1 && binding.Slot == 0 &&
+                                      binding.Kind == gpu::BindingKind::StorageTexture &&
+                                      binding.Usage == gpu::Access::Write;
+                             }) ||
+        !std::ranges::any_of(layout.Bindings, [](const auto &binding) {
+          return binding.Set == 2 && binding.Slot == 0 &&
+                 binding.Kind == gpu::BindingKind::Uniform && binding.Usage == gpu::Access::Read &&
+                 binding.MinimumBytes == sizeof(Medium);
+        })) {
+      std::println(stderr, "unexpected production Veil layout; expected image and Medium80");
+      return false;
+    }
+    const auto extent = data.Extents[0];
+    return Keep(device.CreateBuffer(
+                    {.Bytes = uint64_t{extent.WidthPx} * extent.HeightPx * data.PixelBytes[0],
+                     .Use = gpu::BufferUse::CopyDestination,
+                     .Placement = gpu::Memory::Readback},
+                    "AirVeilReadback"),
+                Readback);
+  }
+
+  bool Record(gpu::Commands &commands, const Inputs &inputs, const Data &data) const {
+    const std::array bindings{
+        gpu::Binding{.Set = 1,
+                     .Slot = 0,
+                     .Value = gpu::StorageTexture{.Image = {.Image = inputs.Veil.get()}}},
+        gpu::Binding{.Set = 2,
+                     .Slot = 0,
+                     .Value = gpu::Uniform{.Bytes = std::as_bytes(std::span(&data.Air, 1))}}};
+    const auto extent = data.Extents[0];
+    return Check(commands.Dispatch(
+        *Pipeline, bindings, {.X = (extent.WidthPx + 7) / 8, .Y = (extent.HeightPx + 7) / 8}));
+  }
+
+  bool Copy(gpu::Commands &commands, const Inputs &inputs, const Data &data) const {
+    const auto extent = data.Extents[0];
+    return Check(commands.Copy(*inputs.Veil,
+                               *Readback,
+                               {.RowBytes = uint64_t{extent.WidthPx} * data.PixelBytes[0],
+                                .Region = {.Width = extent.WidthPx, .Height = extent.HeightPx}}));
+  }
+
+  bool Save(gpu::Device &device, const Data &data, const char *output) const {
+    const auto extent = data.Extents[0];
+    const uint64_t bytes = uint64_t{extent.WidthPx} * extent.HeightPx * data.PixelBytes[0];
+    const auto mapped = device.MapRead(*Readback, {.Bytes = bytes});
+    if (!mapped) {
+      std::println(stderr, "native Veil readback: {}", mapped.error().Message);
+      return false;
+    }
+    std::ofstream file(std::string(output) + ".veil", std::ios::binary);
+    file.write(reinterpret_cast<const char *>(&extent), sizeof(extent));
+    file.write(reinterpret_cast<const char *>(mapped->data()), static_cast<std::streamsize>(bytes));
+    file.flush();
+    const bool unmapped = Check(device.Unmap(*Readback));
+    return file && unmapped;
   }
 };
 
@@ -373,25 +463,29 @@ int Run(gpu::Device &device,
         const char *shader,
         const Data &data,
         const char *output,
-        uint32_t repeats) {
-  const auto shaderBytes = Read(shader);
-  if (shaderBytes.empty() || shaderBytes.size() % sizeof(uint32_t) != 0) { return 2; }
-  std::vector<uint32_t> spirv(shaderBytes.size() / sizeof(uint32_t));
-  std::memcpy(spirv.data(), shaderBytes.data(), shaderBytes.size());
+        uint32_t repeats,
+        const char *veilShader) {
   std::unique_ptr<gpu::ComputePipeline> pipeline;
-  if (!Keep(device.CreateComputePipeline(spirv), pipeline)) { return 2; }
+  if (!ReadPipeline(device, shader, pipeline)) { return 2; }
   if (!LayoutValid(pipeline->Layout())) {
     std::println(stderr, "unexpected SPIR-V layout; expected AirPrefix six bindings and Medium80");
     return 2;
   }
   Inputs inputs;
-  if (!inputs.Create(device, data)) { return 2; }
+  VeilPass veil;
+  const bool generateVeil = veilShader != nullptr;
+  if (!inputs.Create(device, data, generateVeil) ||
+      (generateVeil && !veil.Create(device, veilShader, data))) {
+    return 2;
+  }
   std::unique_ptr<gpu::Commands> commands;
   if (!Keep(device.Begin(), commands)) { return 2; }
   const auto start = std::chrono::steady_clock::now();
   const uint64_t bytes = uint64_t{data.QueryCount} * kSampleBytes;
-  if (!inputs.Copy(*commands, data) || !Dispatch(*commands, *pipeline, inputs, data) ||
+  if (!inputs.Copy(*commands, data) || (generateVeil && !veil.Record(*commands, inputs, data)) ||
+      !Dispatch(*commands, *pipeline, inputs, data) ||
       !Check(commands->Copy(*inputs.Output, *inputs.Readback, {.Bytes = bytes})) ||
+      (generateVeil && !veil.Copy(*commands, inputs, data)) ||
       !Submit(device, std::move(commands))) {
     return 2;
   }
@@ -407,6 +501,7 @@ int Run(gpu::Device &device,
   file.flush();
   const bool unmapped = Check(device.Unmap(*inputs.Readback));
   if (!file || !unmapped) { return 2; }
+  if (generateVeil && !veil.Save(device, data, output)) { return 2; }
   std::println("device={} rays={} queries={} submit_copy_compute_readback_wall_ms={}",
                device.Limits().Name,
                data.RayCount,
@@ -417,14 +512,14 @@ int Run(gpu::Device &device,
 }
 
 int main(int argc, char **argv) {
-  if (argc != 8 && argc != 9) {
+  if (argc < 8 || argc > 10) {
     std::println(stderr,
                  "usage: air-prefix-gpu kernel.spv rays.bin queries.bin veil.bin multi.bin "
-                 "medium.bin output.bin [resident-repeats]");
+                 "medium.bin output.bin [resident-repeats [veil-kernel.spv]]");
     return 2;
   }
   uint32_t repeats = 0;
-  if (argc == 9) {
+  if (argc >= 9) {
     constexpr uint32_t kMaximumRepeats = 120;
     const char *last = argv[8] + std::strlen(argv[8]);
     const auto parsed = std::from_chars(argv[8], last, repeats);
@@ -437,5 +532,5 @@ int main(int argc, char **argv) {
   }
   std::unique_ptr<gpu::Device> device;
   if (!Keep(gpu::CreateDevice({.Validation = true}), device)) { return 2; }
-  return Run(*device, argv[1], data, argv[7], repeats);
+  return Run(*device, argv[1], data, argv[7], repeats, argc == 10 ? argv[9] : nullptr);
 }
