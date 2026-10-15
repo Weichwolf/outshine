@@ -7,10 +7,27 @@
 int main() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Test;
-  const std::array<::outshine::Generators::Osm::OsmField::Tile, 3> tiles{
-      {{.Z = 14, .X = 1, .Y = 1, .FirstFeature = 0, .FeatureCount = 1},
-       {.Z = 14, .X = 2, .Y = 1, .FirstFeature = 1, .FeatureCount = 1},
-       {.Z = 14, .X = 3, .Y = 1, .FirstFeature = 2, .FeatureCount = 1}}};
+  const std::array<::outshine::Generators::Osm::OsmField::Tile, 3> tiles{{{.Z = 14,
+                                                                           .X = 1,
+                                                                           .Y = 1,
+                                                                           .FirstFeature = 0,
+                                                                           .FeatureCount = 1,
+                                                                           .Source = {},
+                                                                           .InputDigest = {}},
+                                                                          {.Z = 14,
+                                                                           .X = 2,
+                                                                           .Y = 1,
+                                                                           .FirstFeature = 1,
+                                                                           .FeatureCount = 1,
+                                                                           .Source = {},
+                                                                           .InputDigest = {}},
+                                                                          {.Z = 14,
+                                                                           .X = 3,
+                                                                           .Y = 1,
+                                                                           .FirstFeature = 2,
+                                                                           .FeatureCount = 1,
+                                                                           .Source = {},
+                                                                           .InputDigest = {}}}};
   ::outshine::Generators::Osm::TileAdmission mark;
   size_t attempts = 0;
   const ::outshine::Generators::Osm::TileAdmission::Next next =

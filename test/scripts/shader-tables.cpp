@@ -82,6 +82,7 @@ int main() try {
   IridescenceTables();
   return std::ferror(stdout) != 0 ? 1 : 0;
 } catch (...) {
+
   std::fputs("shader table generation failed\n", stderr);
   return 1;
 }

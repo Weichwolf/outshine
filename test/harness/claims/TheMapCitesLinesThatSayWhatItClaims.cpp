@@ -38,10 +38,14 @@ namespace {
 // once per citation.
 [[nodiscard]] std::map<std::string, std::string> TheTreesFilesByName() {
   std::map<std::string, std::string> byName;
-  for (const auto &entry : std::filesystem::recursive_directory_iterator(".")) {
+  for (std::filesystem::recursive_directory_iterator at("."), end; at != end; ++at) {
+    if (at->path().filename() == ".git") {
+      at.disable_recursion_pending();
+      continue;
+    }
+    const auto &entry = *at;
     if (!entry.is_regular_file()) { continue; }
     const std::string path = entry.path().string();
-    if (path.find("/.git/") != std::string::npos) { continue; }
     byName.emplace(entry.path().filename().string(), path);
   }
   return byName;

@@ -1,7 +1,6 @@
 #!/bin/sh
 
 set -u
-set -m
 AUDIT=0
 AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
@@ -99,25 +98,15 @@ Die() {
   exit 2
 }
 
-RUNNING_GROUPS=""
+RUNNING_OWNER=""
+RUNNING_ERROR=""
 KillRunning() {
-  for runningGroup in $RUNNING_GROUPS; do
-    kill -TERM -"$runningGroup" 2>/dev/null
-    kill -KILL -"$runningGroup" 2>/dev/null
-  done
-  for runningGroup in $RUNNING_GROUPS; do
-    cleanupAttempts=0
-    while kill -0 -"$runningGroup" 2>/dev/null; do
-      if [ "$cleanupAttempts" -ge 100 ]; then
-        printf 'run.sh: owned process group %s survived cleanup\n' "$runningGroup" >&2
-        return 1
-      fi
-      sleep 0.05
-      cleanupAttempts=$((cleanupAttempts + 1))
-    done
-    wait "$runningGroup" 2>/dev/null
-  done
-  RUNNING_GROUPS=""
+  if [ -n "${RUNNING_OWNER:-}" ]; then
+    kill -TERM "$RUNNING_OWNER" 2>/dev/null
+    wait "$RUNNING_OWNER" 2>/dev/null
+    RUNNING_OWNER=""
+  fi
+  [ ! -f "${RUNNING_ERROR:-}" ]
 }
 
 ReleaseNest() {
@@ -366,7 +355,11 @@ LayerGroups() {
 }
 
 GroupRepresentatives() {
+  representativeProfiles=" "
   for representativeSuite in "$@"; do
+    representativeProfile=$(TestProfile "$representativeSuite")
+    case "$representativeProfiles" in *" $representativeProfile "*) continue ;; esac
+    representativeProfiles="$representativeProfiles$representativeProfile "
     representativeGroups=$(LayerGroups "$representativeSuite" 2>/dev/null) || continue
     printf '%s\t%s\n' "$representativeGroups" "$representativeSuite"
   done | awk -F '\t' '!seen[$1]++ { print $2 }'
@@ -392,7 +385,8 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
-    scripts) printf '%s' "build tools compiled by the Makefile; their emitted shaders are compiled by glslang" ;;
+    scripts) printf '%s' "standalone build and diagnostic tools compiled by the Makefile" ;;
+    harness/render) printf '%s' "internal GPU probes compiled and judged by paired render experiments" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
@@ -514,6 +508,13 @@ GroupToolchain() {
 # source and every prerequisite the compiler named.
 # the stamp is (mtime, size, name) of the source and every prerequisite, gathered in ONE
 # stat call: a backwards mtime DIFFERS from the recorded one, where "-nt" called it current
+FileStamp() {
+  case "$(uname -s)" in
+    Linux) stat -c '%Y|%s|%n' -- "$@" ;;
+    *) stat -f '%m|%z|%N' -- "$@" ;;
+  esac
+}
+
 SourceStamp() {
   stampSource=$1
   stampDeps=$2
@@ -521,7 +522,7 @@ SourceStamp() {
   if [ -f "$stampDeps" ]; then
     stampFiles="$stampFiles $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps")"
   fi
-  stat -f '%m|%z|%N' -- $stampFiles 2>/dev/null || return 1
+  FileStamp $stampFiles 2>/dev/null || return 1
 }
 
 # THE COMPILE LINE'S IDENTITY IS IN THE OBJECT'S NAME, so freshness only has to answer the other
@@ -634,32 +635,24 @@ RunWithTimeout() {
   log=$2
   marker=$3
   runArgument=$4
-  rm -f "$marker"
+  rm -f "$marker" "$marker.start" "$marker.cleanup-failed"
   # board:1778: a case that is killed by the budget measured NOTHING. Handing it the budget lets
   # it stop inside one and REPORT, which is a measurement, instead of being cut off mid-drive.
   export OUTSHINE_TIMEOUT_S="$TIMEOUT_S"
+  RUNNING_ERROR=$marker.cleanup-failed
   if [ -n "$runArgument" ]; then
-    "$binary" "$runArgument" >"$log" 2>&1 &
+    python3 "$ROOT/test/scripts/run_with_timeout.py" "$$" "$TIMEOUT_S" "$log" "$marker" \
+      "$binary" "$runArgument" &
   else
-    "$binary" >"$log" 2>&1 &
+    python3 "$ROOT/test/scripts/run_with_timeout.py" "$$" "$TIMEOUT_S" "$log" "$marker" \
+      "$binary" &
   fi
-  child=$!
-  RUNNING_GROUPS=$child
-  (
-    sleep "$TIMEOUT_S"
-    if kill -0 "$child" 2>/dev/null; then
-      : >"$marker"
-      kill -TERM -"$child" 2>/dev/null
-      sleep 2
-      kill -KILL -"$child" 2>/dev/null
-    fi
-  ) >/dev/null 2>&1 &
-  watchdog=$!
-  RUNNING_GROUPS="$child $watchdog"
-  wait "$child" 2>/dev/null
+  RUNNING_OWNER=$!
+  : >"$marker.start"
+  wait "$RUNNING_OWNER" 2>/dev/null
   status=$?
-  KillRunning || Die "an owned process group survived cleanup; refusing another case"
-  wait "$watchdog" 2>/dev/null
+  RUNNING_OWNER=""
+  [ ! -f "$RUNNING_ERROR" ] || Die "an owned process group survived cleanup; refusing another case"
   return $status
 }
 
@@ -1436,9 +1429,16 @@ if [ "$AUDIT" = 1 ]; then
   fi
   archived=0
   missing=0
+  auditKnownLayers=" "
   for source in $(find src -name '*.cpp' -not -path 'src/assets/*' | sort); do
-    layer=$(dirname "$source")
-    if GroupIncludes "$layer" >/dev/null 2>&1 || GroupIncludes "$source" >/dev/null 2>&1; then
+    layer=${source%/*}
+    case "$auditKnownLayers" in
+      *" $layer "*) archived=$((archived + 1)); continue ;;
+    esac
+    if GroupIncludes "$layer" >/dev/null 2>&1; then
+      auditKnownLayers="$auditKnownLayers$layer "
+      archived=$((archived + 1))
+    elif GroupIncludes "$source" >/dev/null 2>&1; then
       archived=$((archived + 1))
     else
       printf 'AUDIT no library group builds %s\n' "$source"
@@ -1977,7 +1977,7 @@ BinaryStamp() {
       stampFiles="$stampFiles $stampNeed"
     done
   fi
-  stat -f '%m|%z|%N' -- $stampFiles $OBJECTS 2>/dev/null || return 1
+  FileStamp $stampFiles $OBJECTS 2>/dev/null || return 1
 }
 
 Fresh() {
