@@ -10,6 +10,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 struct SDL_Window;
 
@@ -37,9 +38,26 @@ struct Completion {
 
 enum class CompletionStatus { Pending, Ready };
 
+struct DispatchTiming {
+  uint64_t Ordinal = 0;
+  uint64_t Begin = 0;
+  uint64_t End = 0;
+  double NanosecondsPerTick = 0;
+  uint32_t ValidBits = 0;
+  bool Available = false;
+};
+
+struct GpuTimingResults {
+  CompletionStatus Status = CompletionStatus::Pending;
+  uint64_t DispatchCount = 0;
+  bool Truncated = false;
+  std::vector<DispatchTiming> Dispatches;
+};
+
 struct DeviceOptions {
   bool Validation = false;
   SDL_Window *Window = nullptr;
+  bool GpuTiming = false;
 };
 
 struct ComputeOptions {
@@ -93,6 +111,12 @@ public:
   [[nodiscard]] virtual Result<CompletionStatus> Poll(Completion completion) = 0;
   [[nodiscard]] virtual Result<CompletionStatus> Wait(Completion completion,
                                                       std::chrono::nanoseconds budget) = 0;
+
+  [[nodiscard]] virtual Result<GpuTimingResults>
+  GpuTimings([[maybe_unused]] Completion completion) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native dispatch timing unavailable"});
+  }
 
 protected:
   Device() = default;

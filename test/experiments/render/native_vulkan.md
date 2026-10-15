@@ -33,6 +33,28 @@ The initial window adapter requires Vulkan 1.3, swapchain maintenance1, and two
 queues in one graphics/compute/present family. Ordinary SDL X11/Wayland windows
 use SDL's native window properties; SDL Vulkan windows use its surface helper.
 X11 is the measured platform; a compiled Wayland adapter is not a runtime proof.
+
+SDR presentation prefers an actual sRGB attachment with SRGB_NONLINEAR surface
+colourspace. The exposed image format determines pipeline selection; callers
+must not assume BGRA UNORM. `CreatePresentPipeline` uses the existing copy shader
+for sRGB targets and the explicit OETF variant for UNORM targets. The sampled
+sRGB surface is already decoded to linear; hardware or shader encodes it once.
+Alpha remains linear. HDR and data intermediates retain their original semantics.
+The factory rejects non-SDR formats rather than applying another tonemap.
+
+`NativeSdrTransferProbe` checks all 256 display code values and alpha on all four
+RGBA/BGRA, sRGB/UNORM targets through the production pipeline factory. The original
+unencoded UNORM copy is a mandatory negative control. Window probes derive their
+CPU byte expectations from the actual target transfer and channel ordering;
+offscreen UNORM expectations remain unchanged. The target-switch probe prepares
+all supported SDR pipelines before SDL video, preserving its late-attachment
+and original-resource lifetime checks. This is not a complete native Place proof.
+
+The transfer contract is the existing
+[SDL SDR_LINEAR contract](https://wiki.libsdl.org/SDL3/SDL_GPUSwapchainComposition)
+and [Vulkan texel conversion](https://docs.vulkan.org/spec/latest/chapters/images.html),
+confirmed for the migration in #328, comment 6200869285. Metal layer/display
+colourspace and hardware image validation remain with its backend owner.
 Headless operation does not require SDL initialization or presentation extensions.
 
 A worker owns swapchain creation, finite-timeout acquire, present, and cancelled
@@ -99,3 +121,60 @@ For an actually non-present-capable Vulkan driver, run the same compiled consume
 with `--unavailable`, optionally selecting that driver via `VK_DRIVER_FILES`.
 It requires Unsupported for window attachment and verifies the pre-existing
 buffer/queue remain functional. This does not replace the actual RTX run.
+
+Dispatch timing is opt-in through `DeviceOptions.GpuTiming`. Capability support
+is reported separately by `Capabilities.GpuTimestamps`. Without opt-in, no query
+pools, timestamp commands, result reads or completed timing history are created.
+The default shared implementation returns Unsupported until the backend provides
+actual dispatch counters; whole-commandbuffer time is not a substitute.
+
+`GpuTimings(Completion)` never waits for the GPU. Pending results contain no
+dispatch samples. Ready results include the actual DispatchCount and at most
+128 samples in recording order. Truncated explicitly reports further dispatches.
+Only the last eight completed submissions retain results, including submissions
+without dispatches. Expired, foreign and invalid completions return Invalid;
+disabled or unsupported timing returns Unsupported. Retrieval is repeatable and
+returns an independent value. Device access remains on its owner thread.
+
+Each sample supplies its ordinal, raw Begin/End, NanosecondsPerTick, ValidBits
+and Available. Unavailable samples have zero raw values and must not be used
+as zero elapsed time. For an available sample, mask unsigned `(End - Begin)` to
+ValidBits before multiplication by NanosecondsPerTick; 64 bits uses UINT64_MAX.
+The interval must be shorter than the counter wrap period. There is no calibrated
+CPU timestamp, cross-device clock or GPU core-frequency claim.
+The host interval from recording to completed query retrieval bounds the possible
+GPU duration. A counter delta outside that bound or an interval long enough for
+multiple wraps is unavailable. This rejects provably disjoint values; Vulkan has
+no separate disjoint flag, so undetectable driver clock faults are not claimed.
+
+Vulkan resets a bounded query pool in its recording, writes TOP_OF_PIPE after
+resource barriers and pipeline/binding recording immediately before Dispatch,
+and writes BOTTOM_OF_PIPE immediately after Dispatch. This is a GPU execution
+enclosure and may include dependency stalls. Upload, readback, queue/fence wall
+and host result retrieval remain separate. Completed query results are read
+without WAIT before recording resources are destroyed; pool destruction follows
+the same GPU lifetime as the command buffer. The source technique is the
+[Khronos timestamp example](https://docs.vulkan.org/guide/latest/profiling.html).
+
+`NativeTimingProbe` checks real Pending/Ready, dependent arithmetic/readback,
+per-dispatch availability and metadata, truncation, eight-submission retention,
+independent repeated retrieval, owner rejection, abandoned recordings and
+shutdown with accepted GPU work. These checks establish the timing contract,
+not a full renderer, image-quality improvement or target-device frame budget.
+
+`ReadbackTransfer` is the native readback state used by the renderer migration.
+Start submits a copy of an image region or buffer byte range. Poll only asks for
+completion and exposes no partial bytes; Wait accepts an explicit finite caller
+budget for offline capture. The transfer owns the destination buffer and its
+mapped allocation, not a borrowed Device pointer. Each query requires the correct
+live device/owner, even after mapping. A returned span remains valid while its
+transfer owns the allocation, including across transfer moves and after device
+facade destruction. Native resource ownership retains accepted copies when their
+source wrapper or an abandoned transfer is released. Image bytes are packed by
+row without format conversion; RowBytes describes that packing.
+
+The real GPU probe verifies mip/array-layer crops, partial buffer ranges,
+nonblocking pending data, move/lifetime behavior, cancellation, wrong owner and
+overflow/bounds rejection. It does not establish completion of the SceneRenderer
+port: the existing SDL readback is removed when its actual callers migrate under
+#328. There is no fallback from native failure to SDL.
