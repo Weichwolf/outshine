@@ -173,6 +173,8 @@ struct RenderState {
   uint32_t Width = 0, Height = 0;
 };
 
+enum class DrawKind { Direct, Indexed, Indirect };
+
 class MetalCommands final : public Commands {
 public:
   MetalCommands(uint64_t device,
@@ -195,6 +197,8 @@ public:
   Result<void> BeginRenderPass(const RenderPassDescription &description) override;
   Result<void> EndRenderPass() override;
   Result<void> Draw(const DrawDescription &description) override;
+  Result<void> DrawIndexed(const IndexedDrawDescription &description) override;
+  Result<void> DrawIndexedIndirect(const IndirectDrawDescription &description) override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
@@ -216,6 +220,12 @@ private:
 
   void UpdateAccesses(std::span<const ShaderArgument> arguments);
   void UpdateAccess(id<MTLResource> resource, Access usage);
+  [[nodiscard]] Result<void> PrepareReads(std::span<const std::shared_ptr<BufferState>> buffers,
+                                          std::vector<id<MTLResource>> &hazards);
+  [[nodiscard]] Result<void> PrepareDraw(const DrawState &state,
+                                         VertexRange range,
+                                         DrawKind kind,
+                                         std::span<const std::shared_ptr<BufferState>> reads = {});
   [[nodiscard]] Result<void> PrepareResources(std::span<const ShaderArgument> arguments,
                                               std::vector<id<MTLResource>> &hazards);
   void

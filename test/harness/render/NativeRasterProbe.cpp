@@ -1,5 +1,9 @@
 #include "NativeGpuCheck.h"
+#include "Check.h"
 #include <array>
+#include <string_view>
+#include <cstdint>
+#include <optional>
 
 namespace {
 using namespace outshine::Render::Native;
@@ -18,9 +22,12 @@ void Pipelines(Device &device, const char *vertexPath, const char *fragmentPath)
   for (auto &colour : colours) { colour.Texels = Format::Rgba32Float; }
   const GraphicsDescription description{.Vertex = {.Spirv = vertex},
                                         .Fragment = ShaderCode{.Spirv = fragment},
+                                        .Streams = {},
+                                        .Attributes = {},
                                         .Colours = colours,
                                         .Depth = DepthTarget{},
-                                        .Culling = Cull::None};
+                                        .Culling = Cull::None,
+                                        .Label = {}};
   const auto pipeline = Require(device.CreateGraphicsPipeline(description));
   CHECK(pipeline->Layout().Bindings.empty(), "the MRT shader has no invented resource bindings");
   auto depthOnly = description;
@@ -41,12 +48,13 @@ void Pipelines(Device &device, const char *vertexPath, const char *fragmentPath)
   bad = description;
   bad.Colours = excess;
   Rejected(device, bad, "attachment count is checked before indexing native descriptors");
-  const std::array depthColour{ColourTarget{.Texels = Format::Depth32Float}};
+  const std::array depthColour{
+      ColourTarget{.Texels = Format::Depth32Float, .Rgb = {}, .Alpha = {}}};
   bad = description;
   bad.Colours = depthColour;
   Rejected(device, bad, "depth texels cannot become a colour target");
   bad = description;
-  bad.Depth->Texels = Format::Rgba8Unorm;
+  bad.Depth = DepthTarget{.Texels = Format::Rgba8Unorm};
   Rejected(device, bad, "colour texels cannot become a depth target");
   const std::array repeated{VertexStream{.Slot = 0, .Stride = 16},
                             VertexStream{.Slot = 0, .Stride = 16}};
@@ -65,12 +73,16 @@ void Pipelines(Device &device, const char *vertexPath, const char *fragmentPath)
 void PresentPipeline(Device &device, const char *vertexPath, const char *fragmentPath) {
   const auto vertex = Spirv(vertexPath);
   const auto fragment = Spirv(fragmentPath);
-  const std::array colour{ColourTarget{.Texels = Format::Rgba8Unorm}};
+  const std::array colour{ColourTarget{.Texels = Format::Rgba8Unorm, .Rgb = {}, .Alpha = {}}};
   const auto pipeline =
       Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
                                              .Fragment = ShaderCode{.Spirv = fragment},
+                                             .Streams = {},
+                                             .Attributes = {},
                                              .Colours = colour,
-                                             .Culling = Cull::None}));
+                                             .Depth = std::nullopt,
+                                             .Culling = Cull::None,
+                                             .Label = {}}));
   const auto &bindings = pipeline->Layout().Bindings;
   CHECK(bindings.size() == 1 && bindings[0].Resource.Set == 2 && bindings[0].Resource.Slot == 0 &&
             bindings[0].Resource.Kind == BindingKind::SampledTexture &&
@@ -82,8 +94,10 @@ void PresentPipeline(Device &device, const char *vertexPath, const char *fragmen
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 4) { return 1; }
-  auto device = Require(CreateDevice());
+  if ((argc != 4 && argc != 5) || (argc == 5 && std::string_view(argv[4]) != "--validation")) {
+    return 1;
+  }
+  auto device = Require(CreateDevice({.Validation = argc == 5}));
   Pipelines(*device, argv[1], argv[2]);
   PresentPipeline(*device, argv[1], argv[3]);
   return Report();

@@ -3,6 +3,7 @@
 #include "Device.h"
 #include <algorithm>
 #include <array>
+#include <string_view>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -171,8 +172,10 @@ void Render(Device &device,
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 4) { return 1; }
-  auto device = Require(CreateDevice());
+  if ((argc != 4 && argc != 5) || (argc == 5 && std::string_view(argv[4]) != "--validation")) {
+    return 1;
+  }
+  auto device = Require(CreateDevice({.Validation = argc == 5}));
   Render(*device, argv[1], argv[2], argv[3]);
   return Report();
 }

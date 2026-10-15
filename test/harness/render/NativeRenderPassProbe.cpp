@@ -2,6 +2,7 @@
 #include "Check.h"
 #include "Device.h"
 #include <array>
+#include <string_view>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -259,8 +260,10 @@ void PassBoundaries(Device &device, const char *shaderPath) {
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 2) { return 1; }
-  auto device = Require(CreateDevice());
+  if ((argc != 2 && argc != 3) || (argc == 3 && std::string_view(argv[2]) != "--validation")) {
+    return 1;
+  }
+  auto device = Require(CreateDevice({.Validation = argc == 3}));
   Clears(*device);
   InvalidAttachments(*device);
   DepthActions(*device);

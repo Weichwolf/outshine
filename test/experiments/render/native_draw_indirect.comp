@@ -1,0 +1,21 @@
+#version 450
+layout(local_size_x = 1) in;
+layout(set = 0, binding = 0, std430) writeonly buffer Vertices { vec2 positions[]; } vertices;
+layout(set = 0, binding = 1, std430) writeonly buffer Arguments { uint words[]; } args;
+void main() {
+  vertices.positions[0] = vec2(8);
+  vertices.positions[1] = vec2(-1, -1);
+  vertices.positions[2] = vec2(1, -1);
+  vertices.positions[3] = vec2(-1, 1);
+  vertices.positions[4] = vec2(-1, 1);
+  vertices.positions[5] = vec2(1, -1);
+  vertices.positions[6] = vec2(1, 1);
+  for (uint draw = 0; draw < 2; ++draw) {
+    uint at = 4 + draw * 8;
+    args.words[at] = draw == 0 ? 6 : 0;
+    args.words[at + 1] = 1;
+    args.words[at + 2] = 1;
+    args.words[at + 3] = uint(-1);
+    args.words[at + 4] = 2;
+  }
+}
