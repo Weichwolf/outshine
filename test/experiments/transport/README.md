@@ -65,7 +65,7 @@ zusätzlichen lokalen Netze werden nicht als mit diesem Plan gekoppelt ausgegebe
 
 ```sh
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_elevation.py --cache "$TRANSPORT_PLACE_SOURCES" --output "$TRANSPORT_CAMERA_ELEVATION"
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_MVT_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --retain-flat-release "$TRANSPORT_FLAT_RELEASE" --output "$TRANSPORT_CAMERA_INPUTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_PLACE_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --retain-flat-release "$TRANSPORT_FLAT_RELEASE" --output "$TRANSPORT_CAMERA_INPUTS"
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_CAMERA_INPUTS" --worker Vienna components
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --elevation-inventory "$TRANSPORT_CAMERA_ELEVATION" --output "$TRANSPORT_NEW_SHOTS"
 ```
@@ -129,7 +129,7 @@ Frische Worker messen sieben Aufbauzeiten und ihren vollständigen Peak-RSS.
 ```sh
 "$TRANSPORT_PY" -m pip install -r test/experiments/transport/requirements.txt
 "$TRANSPORT_PY" -m pip install -e ./lib
-"$TRANSPORT_PY" test/experiments/transport/capture_transport_tile.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_transport_tile.py --output "$TRANSPORT_WORK/inputs"
 "$TRANSPORT_PY" test/experiments/transport/transport_flat_network.py --input build/experiments/transport/inputs --output build/experiments/transport/flat-vienna Vienna
 "$TRANSPORT_PY" test/experiments/transport/transport_flat_surface_network.py --input build/experiments/transport/flat-vienna --output build/experiments/transport/surface-vienna-cuts --junction-mode cuts Vienna
 "$TRANSPORT_PY" test/experiments/transport/surface_solid_benchmark.py
@@ -164,7 +164,7 @@ Grenzen; jede unsichere Richtung wird mit Face und Quell-ID festgehalten.
 
 ```sh
 "$TRANSPORT_PY" -m pip install -e './lib[transport]'
-"$TRANSPORT_PY" test/experiments/transport/capture_height_targets.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_height_targets.py --mesh "$TRANSPORT_WORK/surface-vienna-cuts/Vienna-flat-surfaces.npz" --input "$TRANSPORT_WORK/inputs/Vienna-input.json" --output "$TRANSPORT_WORK/heights"
 "$TRANSPORT_PY" test/experiments/transport/surface_height_frames.py
 "$TRANSPORT_PY" -W error test/experiments/transport/height_source_checks.py
 "$TRANSPORT_PY" -W error test/experiments/transport/surface_height_checks.py

@@ -111,9 +111,7 @@ def main():
         default=Path.home()
         / ".local/share/outshine/outshine/sources/building-experiments/openfreemap",
     )
-    parser.add_argument(
-        "--output", type=Path, default=ROOT / "build/experiments/transport/inputs"
-    )
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     capture(args.site, args.inventory, args.cache, args.output)
 

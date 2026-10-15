@@ -107,19 +107,16 @@ def main():
         default=Path.home()
         / ".local/share/outshine/outshine/sources/transport-experiments/mapterhorn",
     )
-    parser.add_argument(
-        "--output", type=Path, default=ROOT / "build/experiments/transport/heights"
-    )
+    parser.add_argument("--mesh", type=Path, required=True)
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if not 0 <= args.zoom <= 14:
         parser.error("coarse DEM zoom must be between 0 and 14")
-    mesh_path = (
-        ROOT
-        / "build/experiments/transport/surface-vienna-cuts/Vienna-flat-surfaces.npz"
-    )
+    mesh_path = args.mesh
     with np.load(mesh_path) as mesh:
         xy, faces = mesh["vertices"], mesh["indices"]
-    original = ROOT / "build/experiments/transport/inputs/Vienna-input.json"
+    original = args.input
     origin = json.loads(original.read_text())["origin_lat_lon"]
     targets, receipts = sample_targets(origin, xy, args.sources, args.zoom, args.fetch)
     args.output.mkdir(parents=True, exist_ok=True)
