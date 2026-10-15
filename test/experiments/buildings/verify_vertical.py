@@ -68,6 +68,7 @@ def inspect_poses(columns, poses, feet=True):
 
 def connected_spaces(plan):
     spaces = {identifier for row in plan['storey_room_ids'] for identifier in row}
+    spaces.update(plan.get('terrace_space_ids',()))
     graph = {identifier:set() for identifier in spaces|{'outside'}}
     for portal in [item for row in plan['storey_portals'] for item in row]+plan['vertical_portals']:
         linked = portal['rooms']+(['outside'] if portal.get('outside') else [])

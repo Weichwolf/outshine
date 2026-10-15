@@ -347,3 +347,51 @@ The public page still contains exactly four current complete 3840×2160 tiles.
 .venv/bin/python test/experiments/buildings/facade_filter_plan.py
 .venv/bin/python test/experiments/buildings/facade_physical_controls.py
 ```
+
+## Source-derived stepped controls
+
+`stepped_form_plan.py` compares at most thirty whole-storey alternatives:
+all-side erosion and cuts along four directed source axes, with one or two
+upper setbacks. The existing rooms, core, common access and stable IDs remain.
+Every positive terrace component needs its own actual door; opening frames
+must leave the connected 0.30 m actor clearance. Invalid alternatives retain
+the previous valid body and an explicit reason. Numeric geometry failures
+reject locally. There is no new source provider or use-class inference.
+
+`stepped_source.py` reserves the roof parapet within the source height before
+room planning. Its distant envelope uses the installed `union_prisms` directly
+from the same contours, without building room geometry. Layer interfaces are
+the actual indoor **floor** heights, including the exposed terrace plates.
+Near assembly contains the existing room walls, slabs, stairs, glazing,
+frames, terrace decks and guards. Actual compiled solid rays check access.
+`stepped_openings.py` supplies two triangles per distant opening with the same
+window/entrance/terrace and room IDs; its 1 mm exterior surface offset and
+rough dielectric/absorbing-room estimate are explicit approximations.
+
+The stricter `layered_envelope.py` alternative remains an experiment: analytic
+controls compare directed closure, volume **and** area, source/role/material,
+metric UV0, holes, remote translation and replay. Source clipping can leave
+floating point support differences that it rejects. Its direct triangulation
+was slower and emitted more faces on the same analytic control than the
+existing prism union; it is not installed or advertised as a faster kernel.
+`verify_stepped_source.py` records the same-input comparison and every actual
+source rejection. Missing decks/guards, sealed portals, closed stair openings,
+disconnected terrace graphs and lowered far terraces must fail independently.
+
+Private source plans and physical 2.5D/opposite/terrace/night controls keep
+readable detail separate from the public page. `tile_stepped.py` admits at most
+eight verified prototype plans per tile; this is a research selection bound,
+not a native quota. The public page retains **exactly four complete current
+3840×2160 source tiles**, the existing camera/light and all source accounting.
+These remain generic room programmes, zero complete architecture families;
+continuous native players, coherent general LOD/cache and device gates stay
+at #31/#32/#33/#48. The bounded form contract belongs to
+[#166](https://github.com/Weichwolf/outshine/issues/166).
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_layered_envelope.py
+.venv/bin/python -W error test/experiments/buildings/verify_stepped_source.py
+.venv/bin/python test/experiments/buildings/stepped_source_plan.py
+.venv/bin/python test/experiments/buildings/stepped_source_probe.py --spp 32
+.venv/bin/python test/experiments/buildings/showcase_tiles.py --spp 32
+```
