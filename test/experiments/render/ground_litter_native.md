@@ -41,7 +41,7 @@ that phase only and explicitly records `gpu_executed: false`. Preparing inputs
 is not GPU validation. A native comparison requires the actual linked consumer;
 there is no fallback to software, a mock backend or archived result files.
 
-The default box uses the existing independent 64x64 midpoint reference. Oriented
+The explicit box comparison uses the existing independent 64x64 midpoint reference. Oriented
 variants use NumPy's two-/three-node Legendre quadrature as a numerical parity
 reference, including the declared near-point approximation and far fade. This
 checks the implementation of the selected candidate. The independent pixel-area
@@ -61,4 +61,5 @@ per-launch logs preserve the actual error.
 These are component parameters. There is no frame-rate, GPU-time, complete
 Metal/Vulkan renderer or Place-image claim from either input preparation or the
 component checks. The caller needs the published shared backend implementation
-to execute; the native consumer and shader alternatives remain frozen in #246.
+to execute; the consumer/caller are integrated through #268. Production now selects nine
+points by default; explicit box/four definitions remain compile-time comparisons.

@@ -7,11 +7,11 @@ sample locations, weights and derivative-length fade in the actual material
 composition path, as well as in the scalar component probe.
 
 The internal translation definition `GROUND_LITTER_GAUSS_POINTS` selects the
-existing box at zero (the default), four samples at two, or nine at three.
-Other values are compilation errors. It is a temporary comparison mechanism,
-not a new engine setting or scenario option. Native device cost and identical
-Place pairs determine the final production filter; the alternatives are not
-three permanent runtime paths.
+box at zero, four samples at two, or nine at three (the production default).
+Other values are compilation errors. It is a comparison mechanism, not an engine setting or scenario option.
+Normal builds select nine points; explicit box/four definitions support matched
+comparisons while Master completes the integrated device/Place counterchecks.
+Only one path exists in each compiled shader.
 
 Both oriented variants return the declared mean at two cells, use the existing
 point approximation below 0.01 cells, and smoothly fade between one and two.
@@ -24,7 +24,7 @@ No material parameters, palette bytes, bindings, textures or passes are added.
 output variant declared by Make, for all three candidates. It translates each
 SPIR-V module to MSL 2.3, compares reflected resource layouts and translated
 resource-type/index maps with the box variant, checks the 64x1x1 compute shape,
-proves default/explicit-box SPIR-V equality for the component probe and rejects
+proves default/explicit-nine SPIR-V equality for the component probe and rejects
 an invalid definition.
 SPIRV-Cross translates SPIR-V directly. The checker compares buffer access,
 set/binding, member offsets and array strides, and verifies the compute input/
@@ -52,8 +52,10 @@ This option neither links a backend nor substitutes for a native execution.
 The next native check uses the common Metal/Vulkan compute operations and the
 existing 32-byte probe/result records; it does not require another backend API.
 Native mask/complete-surface correctness, timestamped GPU costs and lit Places
-remain required before selecting a candidate. The unchanged box remains the
-production default until those measurements justify the change.
+remain required before selecting a candidate. Nine samples are selected from the native correctness, motion, shear and component-cost
+comparison in #196. Master retains the subsequent identical lit Places/Metal/A18/frame/memory
+countercheck. Explicit zero/two definitions remain comparison-only compile overrides,
+not runtime quality options.
 
 `test/harness/render/NativeGroundLitterProbe.cpp` consumes the shared native
 contract published by Performance at `b4b361429`, without SDL or native API types.
