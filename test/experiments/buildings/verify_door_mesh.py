@@ -2,10 +2,13 @@
 
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
 import manifold3d as manifold
 import numpy as np
 import shapely
+from door_assembly import mesh as assembly_mesh
+from door_assembly import prepare
 from door_frame import frame
 from door_mesh import expand, template
 from door_state_verification import check
@@ -15,6 +18,33 @@ from structural_shell_geometry import native
 
 
 class DoorMesh(unittest.TestCase):
+    def test_angle_changes_reuse_prepared_static_frames_and_local_leaf_geometry(self):
+        leaf = DoorLeaf("fixed", (0, 0), (1, 0), (0, 1), 0.16)
+        selected = ({"leaf": leaf, "storey": 0},)
+        fixed = prepare(selected)
+        expected = [assembly_mesh(selected, angle) for angle in (0.0, 45.0, 90.0)]
+        before = {key: value.copy() for key, value in fixed[0][1].items()}
+        with (
+            patch(
+                "door_assembly.frame",
+                side_effect=AssertionError("Rebuilt static frame"),
+            ),
+            patch(
+                "door_assembly.template",
+                side_effect=AssertionError("Rebuilt local leaf"),
+            ),
+        ):
+            for angle, reference in zip((0.0, 45.0, 90.0), expected, strict=True):
+                actual = assembly_mesh(selected, angle, fixed=fixed)
+                for key in actual:
+                    np.testing.assert_array_equal(actual[key], reference[key])
+        for key, value in before.items():
+            np.testing.assert_array_equal(fixed[0][1][key], value)
+        with self.assertRaises(ValueError):
+            assembly_mesh(
+                ({"leaf": replace(leaf, width_m=1.3), "storey": 0},), 45.0, fixed=fixed
+            )
+
     def test_assembled_state_verifier_keeps_open_and_closed_queries_distinct(self):
         leaf = DoorLeaf("door/leaf", (0, 0), (1, 0), (0, 1), 0.16)
         opened, proof = check(

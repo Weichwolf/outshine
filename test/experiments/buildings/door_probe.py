@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from building_vertical import mesh as building_mesh
 from door_assembly import mesh as door_mesh
+from door_assembly import prepare
 from door_furnishing import joint
 from evidence import revision
 from furniture_mesh import build as furnishings
@@ -50,8 +51,12 @@ def run(output, render=False, spp=32):
         centre, inward = np.asarray(leaf.centre), np.asarray(leaf.inward)
         eye = np.r_[centre - inward * 0.85, leaf.floor_z_m + 1.55]
         target = np.r_[centre + inward * 0.90, leaf.floor_z_m + 1.35]
+        light_state = lights(plan, "all-lit", circulation_portals=True)
+        fixed = prepare(selected)
         for label, angle in (("closed", 0.0), ("open", 90.0)):
-            scene_mesh = combine(attach(body, door_mesh(selected, angle)), furniture)
+            scene_mesh = combine(
+                attach(body, door_mesh(selected, angle, fixed=fixed)), furniture
+            )
             stem = site + "-support-door-" + label
             path = output / (stem + "-mesh.npz")
             np.savez_compressed(path, **scene_mesh)
@@ -70,7 +75,7 @@ def run(output, render=False, spp=32):
                 "seed": 17,
                 "denoise": True,
                 "night": True,
-                "room_lights": lights(plan, "all-lit"),
+                "room_lights": light_state,
                 "output": str((output / (stem + ".png")).resolve()),
             }
             scene = output / (stem + "-scene.json")

@@ -5,7 +5,18 @@ from door_frame import frame
 from door_mesh import expand, template
 
 
-def mesh(selected, angle_deg):
+def prepare(selected):
+    return tuple(
+        (row["leaf"], frame(row["leaf"]), template(row["leaf"])) for row in selected
+    )
+
+
+def mesh(selected, angle_deg, *, fixed=None):
+    fixed = prepare(selected) if fixed is None else fixed
+    if len(fixed) != len(selected) or any(
+        cached[0] != row["leaf"] for cached, row in zip(fixed, selected, strict=True)
+    ):
+        raise ValueError("Prepared door geometry differs from its fixed plan")
     arrays = {
         key: []
         for key in (
@@ -18,9 +29,9 @@ def mesh(selected, angle_deg):
         )
     }
     offset = part_offset = 0
-    for index, row in enumerate(selected):
+    for index, (row, cached) in enumerate(zip(selected, fixed, strict=True)):
         leaf = row["leaf"]
-        for body in (frame(leaf), expand(leaf, template(leaf), angle_deg)):
+        for body in (cached[1], expand(leaf, cached[2], angle_deg)):
             arrays["vertices"].append(body["vertices"])
             arrays["faces"].append(body["faces"] + offset)
             arrays["materials"].append(body["materials"])

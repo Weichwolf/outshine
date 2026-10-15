@@ -4,7 +4,7 @@ import hashlib
 import numpy as np
 
 
-def lights(plan,state='all-lit'):
+def lights(plan,state='all-lit', *, circulation_portals=False):
     if state not in ('all-lit','mixed','off'):raise ValueError('Unknown diagnostic room-light state')
     result=[]
     for floor,identifiers in enumerate(plan['storey_room_ids']):
@@ -20,4 +20,7 @@ def lights(plan,state='all-lit'):
                 enabled=enabled and size>.02 and not reserved,radiance=[18.,12.,6.],
                 omitted_reason='service reservation remains unlit' if reserved else 'insufficient fixture clearance' if size<=.02 else '',
                 origin='procedural ceiling fixture inside cached room; shared across cameras'))
+            if circulation_portals and current['room_kinds'][index] == 'corridor':
+                from corridor_lights import additional
+                result.extend(additional(current, index, result[-1]))
     return result

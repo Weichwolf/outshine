@@ -1,14 +1,15 @@
 """Independent state queries against complete building, furniture, frames and leaf solids."""
 
 import numpy as np
-from door_assembly import mesh
+from door_assembly import mesh, prepare
 from furniture_collision import furnishing_solid
 from structural_shell_geometry import NativeColumns, inspect_poses
 
 
 def check(base, selected, low, high):
-    opened = base + furnishing_solid(mesh(selected, 90.0))
-    closed = base + furnishing_solid(mesh(selected, 0.0))
+    fixed = prepare(selected)
+    opened = base + furnishing_solid(mesh(selected, 90.0, fixed=fixed))
+    closed = base + furnishing_solid(mesh(selected, 0.0, fixed=fixed))
     columns = NativeColumns(closed, low, high)
     records = []
     for row in selected:
