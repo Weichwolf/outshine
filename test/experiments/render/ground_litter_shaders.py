@@ -148,7 +148,7 @@ def main():
     run([glslang, '-V', '--target-env', 'vulkan1.0', '-S', 'comp',
          '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', '-Ibuild/shaders',
          str(source), '-o', str(default)], output, 'default-compile')
-    assert default.read_bytes() == (output / '0-probe.spv').read_bytes()
+    assert default.read_bytes() == (output / '3-probe.spv').read_bytes()
     negative = subprocess.run(['nice', '-n', '10', glslang, '-V', '-DGROUND_LITTER_GAUSS_POINTS=4', '-Isrc/render/shaders',
                                str(source), '-o', str(output / 'invalid.spv')],
                               cwd=ROOT, capture_output=True, text=True, timeout=60)
@@ -160,7 +160,7 @@ def main():
              'test/experiments/render/ground_litter_probe.comp', str(Path(__file__).relative_to(ROOT)),
              'test/harness/render/NativeGroundLitterProbe.cpp']
     report = dict(scope=__doc__, records=records, invalid_configuration_rejected=True,
-                  default_matches_explicit_box_spirv=True,
+                  default_matches_explicit_nine_spirv=True,
                   native_syntax=native,
                   source_sha256={name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
                                  for name in paths},

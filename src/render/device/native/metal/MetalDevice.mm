@@ -127,6 +127,9 @@ Result<std::unique_ptr<Commands>> MetalDevice::Begin() {
 namespace outshine::Render::Native {
 
 Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
+  if (options.Window != nullptr) {
+    return Metal::Failure(ErrorKind::Unsupported, "native Metal presentation unavailable");
+  }
   @autoreleasepool {
     static std::atomic<uint64_t> identity{1};
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();

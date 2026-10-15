@@ -45,12 +45,13 @@ def packed_mesh(products):
     }
 
 
-def generate_window(name, source_name, source_root, output):
+def generate_window(name, source_name, source_root, output, *, datum=None):
     began = time.perf_counter()
     source, raw, graphs, bed, pins = read_window(source_root, source_name)
-    recipes = json.loads((HERE / "reference/place-sources.json").read_text())
-    recipe_record = next(r for r in recipes["cases"] if r["place"] == name)
-    datum = recipe_record["flat_recipe_datum_m"]
+    if datum is None:
+        recipes = json.loads((HERE / "reference/place-sources.json").read_text())
+        recipe_record = next(r for r in recipes["cases"] if r["place"] == name)
+        datum = recipe_record["flat_recipe_datum_m"]
     chains, branches = [], []
     for graph in graphs:
         if graph["rail_graph"]:
@@ -101,6 +102,7 @@ def generate_window(name, source_name, source_root, output):
     np.savez_compressed(path, **packed)
     report = {
         "place": name,
+        "source_name": source_name,
         "origin_lat_lon": source["origin_lat_lon"],
         "horizontal_bed_datum_m": datum,
         "pins": pins,
@@ -151,14 +153,24 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     resource.setrlimit(resource.RLIMIT_AS, (2 * 1024**3, 2 * 1024**3))
     resource.setrlimit(resource.RLIMIT_CPU, (60, 60))
-    rows = {}
-    for name, source in (
-        ("Wien", "Vienna"),
-        ("Tokyo", "Tokyo"),
-        ("CentralPark", "CentralPark"),
-        ("Feldkirch", "Feldkirch"),
-    ):
-        rows[name] = generate_window(name, source, args.camera_products, args.output)
+    cases = json.loads((args.camera_products / "generation.json").read_text()).get(
+        "rail_cases",
+        {
+            name: {"source": source, "datum_m": None}
+            for name, source in (
+                ("Wien", "Vienna"),
+                ("Tokyo", "Tokyo"),
+                ("CentralPark", "CentralPark"),
+                ("Feldkirch", "Feldkirch"),
+            )
+        },
+    )
+    rows = {
+        name: generate_window(
+            name, row["source"], args.camera_products, args.output, datum=row["datum_m"]
+        )
+        for name, row in cases.items()
+    }
     receipt = {
         "generation_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
