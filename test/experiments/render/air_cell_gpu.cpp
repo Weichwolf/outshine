@@ -1,9 +1,10 @@
 #include "AirCell.h"
-#include "GpuOwned.h"
-#include "Readback.h"
-#include "ShaderFile.h"
-#include <SDL3/SDL.h>
+#include "render/device/native/Device.h"
 #include <algorithm>
+#include <array>
+#include <chrono>
+#include <memory>
+#include <utility>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -21,8 +22,8 @@
 
 namespace {
 using namespace outshine;
-using namespace outshine::Render;
-constexpr ComputeShape kShape = {.ReadOnlyBuffers = 1, .ReadWriteBuffers = 1, .GroupX = 64};
+namespace gpu = outshine::Render::Native;
+constexpr uint32_t kGroupWidth = 64;
 constexpr size_t kMaximumInputBytes = size_t{64} * 1024 * 1024;
 constexpr double kRadianceFloorPerSr = 1e-5;
 constexpr double kRadianceRelativeTolerance = 1e-5;
@@ -41,7 +42,7 @@ std::expected<std::vector<Value>, std::string> ReadBinary(const char *path) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   if (!file) { return std::unexpected(std::string(path) + " cannot be opened"); }
   const auto bytes = static_cast<std::streamoff>(file.tellg());
-  if (bytes <= 0 || static_cast<size_t>(bytes) > kMaximumInputBytes ||
+  if (bytes <= 0 || std::cmp_greater(bytes, kMaximumInputBytes) ||
       bytes % static_cast<std::streamoff>(sizeof(Value)) != 0) {
     return std::unexpected(std::string(path) + " has an invalid record extent");
   }
@@ -92,90 +93,100 @@ bool Compare(std::string_view label,
   return failures == 0;
 }
 
-std::expected<std::vector<AirCellChannel>, std::string>
-Run(SDL_GPUDevice *device, SDL_GPUComputePipeline *pipeline, std::span<const AirCellInput> inputs) {
-  const auto inputBytes = static_cast<uint32_t>(inputs.size_bytes());
-  const auto outputBytes = static_cast<uint32_t>(inputs.size() * sizeof(AirCellChannel));
-  SDL_GPUBufferCreateInfo bufferInfo{};
-  bufferInfo.size = inputBytes;
-  bufferInfo.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-  const OwnedBuffer source(device, SDL_CreateGPUBuffer(device, &bufferInfo));
-  bufferInfo.size = outputBytes;
-  bufferInfo.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
-  const OwnedBuffer target(device, SDL_CreateGPUBuffer(device, &bufferInfo));
-  SDL_GPUTransferBufferCreateInfo transferInfo{};
-  transferInfo.size = inputBytes;
-  transferInfo.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  const OwnedTransfer upload(device, SDL_CreateGPUTransferBuffer(device, &transferInfo));
-  if (!source || !target || !upload) { return std::unexpected(std::string(SDL_GetError())); }
-  void *mapped = SDL_MapGPUTransferBuffer(device, upload.Get(), false);
-  if (mapped == nullptr) { return std::unexpected(std::string(SDL_GetError())); }
-  std::memcpy(mapped, inputs.data(), inputBytes);
-  SDL_UnmapGPUTransferBuffer(device, upload.Get());
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  if (commands == nullptr) { return std::unexpected(std::string(SDL_GetError())); }
-  auto *copy = SDL_BeginGPUCopyPass(commands);
-  if (copy == nullptr) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return std::unexpected(std::string(SDL_GetError()));
+std::expected<std::vector<AirCellChannel>, std::string> Run(gpu::Device &device,
+                                                            const gpu::ComputePipeline &pipeline,
+                                                            std::span<const AirCellInput> inputs) {
+  const uint64_t outputBytes = inputs.size() * sizeof(AirCellChannel);
+  constexpr auto kReadUse = gpu::BufferUse::CopyDestination | gpu::BufferUse::Storage;
+  constexpr auto kWriteUse = gpu::BufferUse::CopySource | gpu::BufferUse::Storage;
+  const std::array<gpu::BufferDescription, 4> descriptions = {{
+      {.Bytes = inputs.size_bytes(), .Use = kReadUse},
+      {.Bytes = outputBytes, .Use = kWriteUse},
+      {.Bytes = inputs.size_bytes(),
+       .Use = gpu::BufferUse::CopySource,
+       .Placement = gpu::Memory::Upload},
+      {.Bytes = outputBytes,
+       .Use = gpu::BufferUse::CopyDestination,
+       .Placement = gpu::Memory::Readback},
+  }};
+  std::array<std::unique_ptr<gpu::Buffer>, 4> buffers;
+  for (size_t index = 0; index < buffers.size(); ++index) {
+    auto buffer = device.CreateBuffer(descriptions[index]);
+    if (!buffer) { return std::unexpected(buffer.error().Message); }
+    buffers[index] = std::move(*buffer);
   }
-  SDL_GPUTransferBufferLocation from{};
-  from.transfer_buffer = upload.Get();
-  SDL_GPUBufferRegion to{};
-  to.buffer = source.Get();
-  to.size = inputBytes;
-  SDL_UploadToGPUBuffer(copy, &from, &to, false);
-  SDL_EndGPUCopyPass(copy);
-  SDL_GPUStorageBufferReadWriteBinding into{};
-  into.buffer = target.Get();
-  auto *compute = SDL_BeginGPUComputePass(commands, nullptr, 0, &into, 1);
-  if (compute == nullptr) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return std::unexpected(std::string(SDL_GetError()));
+  auto mapped = device.MapWrite(*buffers[2], {.Bytes = inputs.size_bytes()});
+  if (!mapped) { return std::unexpected(mapped.error().Message); }
+  std::memcpy(mapped->data(), inputs.data(), inputs.size_bytes());
+  const auto unmapped = device.Unmap(*buffers[2]);
+  if (!unmapped) { return std::unexpected(unmapped.error().Message); }
+  auto commands = device.Begin();
+  if (!commands) { return std::unexpected(commands.error().Message); }
+  const auto copied = (*commands)->Copy(*buffers[2], *buffers[0], {.Bytes = inputs.size_bytes()});
+  if (!copied) { return std::unexpected(copied.error().Message); }
+  const std::array<gpu::Binding, 2> bindings = {{
+      {.Set = 0,
+       .Slot = 0,
+       .Value =
+           gpu::StorageBuffer{.Data = buffers[0].get(), .Range = {.Bytes = inputs.size_bytes()}}},
+      {.Set = 1,
+       .Slot = 0,
+       .Value = gpu::StorageBuffer{.Data = buffers[1].get(), .Range = {.Bytes = outputBytes}}},
+  }};
+  const auto dispatched = (*commands)->Dispatch(
+      pipeline,
+      bindings,
+      {.X = (static_cast<uint32_t>(inputs.size()) + kGroupWidth - 1) / kGroupWidth});
+  if (!dispatched) { return std::unexpected(dispatched.error().Message); }
+  const auto readback = (*commands)->Copy(*buffers[1], *buffers[3], {.Bytes = outputBytes});
+  if (!readback) { return std::unexpected(readback.error().Message); }
+  const auto submitted = device.Submit(std::move(*commands));
+  if (!submitted) { return std::unexpected(submitted.error().Message); }
+  const auto status = device.Wait(*submitted, std::chrono::seconds(30));
+  if (!status) { return std::unexpected(status.error().Message); }
+  if (*status != gpu::CompletionStatus::Ready) {
+    return std::unexpected("cell probe did not complete within its bounded offline wait");
   }
-  SDL_BindGPUComputePipeline(compute, pipeline);
-  SDL_GPUBuffer *input = source.Get();
-  SDL_BindGPUComputeStorageBuffers(compute, 0, &input, 1);
-  SDL_DispatchGPUCompute(
-      compute, (static_cast<uint32_t>(inputs.size()) + kShape.GroupX - 1u) / kShape.GroupX, 1, 1);
-  SDL_EndGPUComputePass(compute);
-  if (!SDL_SubmitGPUCommandBuffer(commands)) {
-    return std::unexpected(std::string(SDL_GetError()));
-  }
-  Readback readback;
-  if (readback.FromBuffer(device, target.Get(), outputBytes) != ReadState::Ready) {
-    return std::unexpected(std::string(SDL_GetError()));
-  }
+  const auto downloaded = device.MapRead(*buffers[3], {.Bytes = outputBytes});
+  if (!downloaded) { return std::unexpected(downloaded.error().Message); }
   std::vector<AirCellChannel> samples(inputs.size());
-  std::memcpy(samples.data(), readback.Rows(), outputBytes);
+  std::memcpy(samples.data(), downloaded->data(), static_cast<size_t>(outputBytes));
+  const auto released = device.Unmap(*buffers[3]);
+  if (!released) { return std::unexpected(released.error().Message); }
   return samples;
 }
 
 int OnDevice(const char *shader,
              std::span<const AirCellInput> inputs,
              std::span<const Reference> expected) {
-  const OwnedDevice device(SDL_CreateGPUDevice(
-      SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_METALLIB,
-      true,
-      nullptr));
+  const auto device = gpu::CreateDevice({.Validation = true});
   if (!device) {
-    std::println(stderr, "device: {}", SDL_GetError());
+    std::println(stderr, "device: {}", device.error().Message);
     return 2;
   }
-  std::string error;
-  const OwnedComputePipeline pipeline(device.Get(),
-                                      CompileComputePipeline(device.Get(), shader, kShape, error));
+  const auto spirv = ReadBinary<uint32_t>(shader);
+  if (!spirv) {
+    std::println(stderr, "SPIR-V: {}", spirv.error());
+    return 2;
+  }
+  const auto pipeline = (*device)->CreateComputePipeline(*spirv);
   if (!pipeline) {
-    std::println(stderr, "pipeline: {}", error);
+    std::println(stderr, "pipeline: {}", pipeline.error().Message);
     return 2;
   }
-  const auto samples = Run(device.Get(), pipeline.Get(), inputs);
+  const auto &layout = (*pipeline)->Layout();
+  if (layout.LocalSize != std::array<uint32_t, 3>{kGroupWidth, 1, 1} ||
+      layout.Bindings.size() != 2) {
+    std::println(stderr, "cell shader needs two bindings and LocalSize64");
+    return 2;
+  }
+  const auto samples = Run(**device, **pipeline, inputs);
   if (!samples) {
     std::println(stderr, "dispatch/readback: {}", samples.error());
     return 2;
   }
-  std::println("backend={}; cell mathematics only; no source-LUT or frame-time proof",
-               SDL_GetGPUDeviceDriver(device.Get()));
+  std::println("device={}; cell mathematics only; no source-LUT or frame-time proof",
+               (*device)->Limits().Name);
   return Compare("GPU", *samples, expected) ? 0 : 1;
 }
 }
@@ -203,11 +214,5 @@ int main(int argc, char **argv) {
   cpu.reserve(inputs->size());
   for (const auto &input : *inputs) { cpu.push_back(outshine::air_cell::airIntegrateCell(input)); }
   if (!Compare("CPU", cpu, *expected)) { return 1; }
-  if (!SDL_SetHint(SDL_HINT_ASSERT, "abort") || !SDL_Init(SDL_INIT_VIDEO)) {
-    std::println(stderr, "SDL: {}", SDL_GetError());
-    return 2;
-  }
-  const int status = OnDevice(argv[1], *inputs, *expected);
-  SDL_Quit();
-  return status;
+  return OnDevice(argv[1], *inputs, *expected);
 }
