@@ -190,6 +190,15 @@ def prepare(args):
         input_directory = input_root / "geometry/components/inputs"
         pins = json.loads((input_root / "sha256.json").read_text())
     rows, reports = [], {}
+    retained = (
+        json.loads((args.camera_products / "generation.json").read_text()).get(
+            "retained_flat_cases", []
+        )
+        if args.camera_products is not None
+        else []
+    )
+    if retained and args.flat_release is None:
+        raise ValueError("retained flat windows require --flat-release")
     for name, source in PLACES:
         input_path = input_directory / (source + "-input.json")
         original = json.loads(pinned(input_path, input_root, pins).read_text())
@@ -218,6 +227,20 @@ def prepare(args):
                 camera_proof["local_flat_datum_m"],
                 args.camera_products,
             )
+            if name in retained:
+                old_pins = json.loads((args.flat_release / "sha256.json").read_text())
+                old, old_slots, old_proof = flat_model(
+                    source,
+                    args.flat_release,
+                    old_pins,
+                    camera_proof["local_flat_datum_m"],
+                )
+                top, slots, overlap = append_camera_window(old, old_slots, top, slots)
+                model_proof.update(
+                    retained_verified_flat_plan=old_proof,
+                    retained_ground_overlap_m2=overlap,
+                    uncoupled_windows=True,
+                )
         body = close_surface(top, 0.25)
         materials = np.full(len(body.triangles), 2, int)
         materials[: len(top.triangles)] = slots

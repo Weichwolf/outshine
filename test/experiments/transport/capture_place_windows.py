@@ -13,7 +13,7 @@ import numpy as np
 import shapely
 from capture_height_targets import world_coordinates
 from capture_transport_tile import capture
-from transport_place_shots import PLACES, ROOT, mercator
+from transport_place_shots import PLACES, ROOT, flat_model, mercator
 
 
 def camera_tiles(name, origin, *, distance_m=1600.0):
@@ -71,7 +71,18 @@ def acquire(url, cache):
     }
 
 
-def case(name, source, args, reserved):
+def reserve_axes(merged, reserved, reason):
+    merged["roads"], merged["reserved_sources"] = [], []
+    for row in merged["original_axes"]:
+        if shapely.LineString(row["coordinates"]).distance(reserved) <= 64.0:
+            merged["reserved_sources"].append(
+                {"id": row["source_id"], "reason": reason}
+            )
+        else:
+            merged["roads"].append(row)
+
+
+def case(name, source, args, reservations):
     references = json.loads(
         (ROOT / "test/experiments/transport/reference/place-sources.json").read_text()
     )
@@ -111,26 +122,16 @@ def case(name, source, args, reserved):
         merged["receipts"].append(data["receipt"])
     merged["original_axes"] = list(merged["roads"])
     merged["reserved_sources"] = []
-    if name == "Wien":
-        kept = []
-        for row in merged["roads"]:
-            if shapely.LineString(row["coordinates"]).distance(reserved) <= 64.0:
-                merged["reserved_sources"].append(
-                    {
-                        "id": row["source_id"],
-                        "reason": "existing_verified_height_plan_reservation",
-                    }
-                )
-            else:
-                kept.append(row)
-        merged["roads"] = kept
+    if name in reservations:
+        reserved, reason = reservations[name]
+        reserve_axes(merged, reserved, reason)
     merged["camera_window"] = {
         "place": name,
         "distance_m": 1600.0,
         "whole_tiles": [list(t) for t in sorted(selected)],
         "retained_legacy_tile": name != "Wien",
         "immutable_provider_prefix": prefix,
-        "reserved_ground_guard_m": 64.0 if name == "Wien" else 0.0,
+        "reserved_ground_guard_m": 64.0 if name in reservations else 0.0,
     }
     path = args.output / "inputs" / (source + "-input.json")
     path.write_text(json.dumps(merged, separators=(",", ":")) + "\n")
@@ -153,6 +154,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache", type=Path, required=True)
     parser.add_argument("--port-plan", type=Path, required=True)
+    parser.add_argument("--retain-flat-release", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
@@ -161,7 +163,16 @@ def main():
     with np.load(args.port_plan / "plan.npz") as plan:
         xy = plan["xy"]
         reserved = shapely.box(*xy.min(axis=0), *xy.max(axis=0))
-    sites = [case(name, source, args, reserved) for name, source in PLACES]
+    reservations = {"Wien": (reserved, "existing_verified_height_plan_reservation")}
+    if args.retain_flat_release is not None:
+        pins = json.loads((args.retain_flat_release / "sha256.json").read_text())
+        mesh, _, _ = flat_model("CentralPark", args.retain_flat_release, pins, 0.0)
+        xy = mesh.vertices[:, :2]
+        reservations["CentralPark"] = (
+            shapely.box(*xy.min(axis=0), *xy.max(axis=0)),
+            "existing_verified_flat_plan_reservation",
+        )
+    sites = [case(name, source, args, reservations) for name, source in PLACES]
     (args.output / "inventory.json").write_text(
         json.dumps({"sites": sites}, indent=2) + "\n"
     )
@@ -174,6 +185,9 @@ def main():
                 ).strip(),
                 "sites": sites,
                 "original_height_plan_reserved_xy_bounds": list(reserved.bounds),
+                "retained_flat_cases": ["CentralPark"]
+                if args.retain_flat_release
+                else [],
             },
             indent=2,
         )

@@ -64,9 +64,9 @@ Quellen in seiner Nähe erhalten einen expliziten Reservierungsgrund. Die
 zusätzlichen lokalen Netze werden nicht als mit diesem Plan gekoppelt ausgegeben.
 
 ```sh
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_MVT_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --output "$TRANSPORT_CAMERA_INPUTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_MVT_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --retain-flat-release "$TRANSPORT_FLAT_RELEASE" --output "$TRANSPORT_CAMERA_INPUTS"
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_CAMERA_INPUTS" --worker Vienna components
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NEW_SHOTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NEW_SHOTS"
 ```
 
 Die Variablen benennen ausdrücklich gewählte externe Pfade. Vor dem Rendern
@@ -75,6 +75,13 @@ kompletten Quellbilanzen und Produkte als `generation.json` hashgebunden.
 Wien behält sein angepasstes C0-Boden-/C1-Straßenprodukt; ergänzte Netze verwenden
 den expliziten ebenen Höhenbezug am lokalen DEM-Ursprung. Profil-/Ebenen- und
 Weltvollständigkeit bleiben unabhängig von diesen Kamerabildern zu prüfen.
+
+Central Park behält optional seine geprüfte ganze alte Kachel als separates
+Fenster. Der gemeinsame Drei-Kachel-Aufbau überschritt 60 CPU-Sekunden; die
+serielle Alternative lieferte nach ihrem 15-Sekunden-Vorbereitungsbudget keine
+Fläche. Die bestehende Kachel wird deshalb unverändert reserviert; zusätzliche
+Quellen außerhalb ihres 64-m-Schutzbereichs werden unabhängig geplant. Alle
+Quellen und Gründe bleiben erhalten, ohne behauptete Kopplung der Fenster.
 
 Ältere Verfahrensansichten bleiben als private Geometriekontrollen nutzbar:
 
