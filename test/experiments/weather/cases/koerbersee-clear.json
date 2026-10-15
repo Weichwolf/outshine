@@ -1,0 +1,11 @@
+{
+  "world": {
+    "cloudCover": 0.0,
+    "cloudLow": 0.0,
+    "cloudMid": 0.0,
+    "cloudHigh": 0.0,
+    "cloudBaseAglM": 800.0,
+    "windDeg": 240.0,
+    "windMs": 8.0
+  }
+}

@@ -134,6 +134,43 @@ flock -n /var/tmp/outshine-heavy.lock python3 -W error \
   --sides 256 --horizon-sizes 256x256
 ```
 
+## Deklarierte Clientfälle
+
+`cases/koerbersee-{clear,broken,overcast}.json` sind generische Szenario-Overrides
+für `src/assets/places/Koerbersee.scenario`, keine Wetterbeobachtungen. Kamera,
+Uhrzeit, Sichtweite, Geometrie und Renderprofil bleiben im gemeinsamen Place.
+Die drei Fälle variieren nur Gesamt-/Low-Bedeckung 0/0,65/1; Low/Mid/High bleiben
+Metadaten. Alle verwenden 800 m AGL sowie Wind aus 240° mit 8 m/s. Die tatsächliche
+absolute Wolkenbasis folgt der vorhandenen Referenzhöhe am Weltursprung und wird
+nicht auf die 2572 m des unabhängigen Dichtevergleichs festgesetzt.
+
+Quellenerwerb und Assetaufbau erfolgen bei fehlenden Eingaben vor dem Bildvergleich
+mit `build/outshine-client prepare Koerbersee 1800` (bestehendes Vorbereitungsbudget).
+Das verlängert weder die 30-Sekunden-Startgrenze des Capture-Pfads noch ein warmes
+Ladegate. Erst nach vollständiger Vorbereitung ist ein Offline-Vergleich sinnvoll.
+
+```sh
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+case = 'koerbersee-broken'
+overrides = Path(f'test/experiments/weather/cases/{case}.json').read_text()
+subprocess.run(['build/outshine-client', 'measures', '--view', 'station',
+                '--at-seconds', '0', '--quality', 'refined', '--into', 'weather',
+                '--stats', '--scenario-overrides', overrides,
+                'src/assets/places/Koerbersee.scenario', case], check=True)
+PY
+```
+
+Erster Erwerb verwendet die normalen Client-Quellen-/Assetpfade; ein nachfolgender
+frischer Prozess kann `--offline` verwenden, sobald die vollständigen Eingaben
+vorliegen. Bei aktiven Wolken müssen die Metriken für bekannte Referenzhöhe und
+Schicht innerhalb der Atmosphäre wahr sein. Fehlende Welt-/Wetterprodukte bleiben
+unvollständig; ein gespeichertes PNG allein besteht kein Gate. Dieser einzelne
+Kameracapture mit Einschwingframes ist eine Bilddiagnose, kein Lade-/Framebudget-
+oder Bewegungsbeleg. Vorher/Nachher verwenden dieselben Overrides und Eingaben;
+die drei verschiedenen Wetterfälle ersetzen diesen Vergleich nicht.
+
 ## Grenzen der Lieferung
 
 Der native Kern setzt endliche gültige Schichtparameter, normierte Richtungen,
