@@ -40,22 +40,36 @@ def native_api(output, glslang, toolchain, cross_flags):
         shaders.append(str(destination))
     backend = ROOT / "src/render/device/native/metal"
     sources = sorted(backend.glob("*.mm"))
-    binary = output / "native-compute-probe"
-    run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain,
-         "-fno-exceptions", "-fobjc-arc", "-x", "objective-c++",
-         "-I" + str(ROOT / "src/render/device/native"),
-         "-I" + str(ROOT / "test/harness/shared"),
-         str(ROOT / "test/harness/render/NativeComputeProbe.cpp"),
-         *map(str, sources), *cross_flags,
-         "-lspirv-cross-msl", "-lspirv-cross-hlsl", "-lspirv-cross-glsl",
-         "-lspirv-cross-reflect", "-lspirv-cross-cpp", "-lspirv-cross-core",
-         "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
+    def build_probe(name, source):
+        binary = output / name
+        run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain,
+             "-fno-exceptions", "-fobjc-arc", "-x", "objective-c++",
+             "-I" + str(ROOT / "src/render/device/native"),
+             "-I" + str(ROOT / "test/harness/shared"),
+             str(ROOT / "test/harness/render" / source),
+             *map(str, sources), *cross_flags,
+             "-lspirv-cross-msl", "-lspirv-cross-hlsl", "-lspirv-cross-glsl",
+             "-lspirv-cross-reflect", "-lspirv-cross-cpp", "-lspirv-cross-core",
+             "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
+        return binary
+
+    binary = build_probe("native-compute-probe", "NativeComputeProbe.cpp")
     text = run([str(binary), *shaders])
     (output / "native-compute-probe.log").write_text(text)
     verdict = [line.split() for line in text.splitlines() if line.startswith("CHECKS ")]
     if len(verdict) != 1 or verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
         raise SystemExit(f"native compute did not produce a clean verdict: {text}")
-    return {"checks": int(verdict[0][1]), "failures": 0}, sources
+    texture_shader = output / "native_texture.comp.spv"
+    run([glslang, "-V", "--target-env", "vulkan1.0",
+         str(Path(__file__).with_name("native_texture.comp")), "-o", str(texture_shader)])
+    texture_binary = build_probe("native-texture-probe", "NativeTextureProbe.cpp")
+    texture_text = run([str(texture_binary), str(texture_shader), str(output / "depthPyramid.comp.spv")])
+    (output / "native-texture-probe.log").write_text(texture_text)
+    texture_verdict = [line.split() for line in texture_text.splitlines() if line.startswith("CHECKS ")]
+    if len(texture_verdict) != 1 or texture_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
+        raise SystemExit(f"native textures did not produce a clean verdict: {texture_text}")
+    return {"checks": int(verdict[0][1]), "failures": 0,
+            "texture_checks": int(texture_verdict[0][1])}, sources
 
 
 def main():
@@ -111,6 +125,9 @@ def main():
              ROOT / "test/harness/render/MetalShader.cpp",
              ROOT / "test/harness/render/MetalShader.h", ROOT / "Makefile", Path(__file__),
              ROOT / "test/harness/render/NativeComputeProbe.cpp",
+             ROOT / "test/harness/render/NativeTextureProbe.cpp",
+             ROOT / "test/harness/render/NativeGpuCheck.h",
+             Path(__file__).with_name("native_texture.comp"),
              ROOT / "src/render/shaders/subjectScanKernel.comp",
              ROOT / "src/render/shaders/subjectCompactKernel.comp",
              ROOT / "src/render/shaders/cullView.glsl", *backend_sources,

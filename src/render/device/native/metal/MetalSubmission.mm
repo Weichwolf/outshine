@@ -17,6 +17,9 @@ void MetalDevice::Collect() {
 }
 
 Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   @autoreleasepool {
     Collect();
     if (Failed_) { return std::unexpected(*Failed_); }
@@ -54,6 +57,9 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
 }
 
 Result<CompletionStatus> MetalDevice::Poll(Completion completion) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   if (completion.Device != Identity_ || completion.Serial == 0 ||
       completion.Serial >= NextSerial_) {
     return Failure(ErrorKind::Invalid, "invalid Metal completion token");
@@ -64,6 +70,9 @@ Result<CompletionStatus> MetalDevice::Poll(Completion completion) {
 }
 
 Result<CompletionStatus> MetalDevice::Wait(Completion completion, std::chrono::nanoseconds budget) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   const auto now = std::chrono::steady_clock::now();
   if (budget.count() < 0 || budget > std::chrono::steady_clock::time_point::max() - now) {
     return Failure(ErrorKind::Invalid, "invalid or overflowing Metal wait budget");

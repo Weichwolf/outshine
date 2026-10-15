@@ -1,5 +1,4 @@
-#include "Device.h"
-#include "Check.h"
+#include "NativeGpuCheck.h"
 
 #include <algorithm>
 #include <array>
@@ -10,69 +9,12 @@
 #include <limits>
 #include <print>
 #include <span>
+#include <thread>
 
 namespace {
 using namespace outshine::Render::Native;
 using namespace outshine::Test;
-
-[[noreturn]] void Failed() {
-  const int status = Report();
-  std::fflush(stdout);
-  std::_Exit(status);
-}
-
-void Require(Result<void> result) {
-  CHECK(result, "native GPU operation succeeds");
-  if (!result) {
-    std::println(stderr, "{}", result.error().Message);
-    Failed();
-  }
-}
-
-template <typename T> T Require(Result<T> result) {
-  CHECK(result, "native GPU operation returns a value");
-  if (!result) {
-    std::println(stderr, "{}", result.error().Message);
-    Failed();
-  }
-  return std::move(*result);
-}
-
-std::vector<uint32_t> Spirv(const char *path) {
-  std::ifstream file(path, std::ios::binary | std::ios::ate);
-  constexpr std::streamoff maximum = 16L * 1024 * 1024;
-  const std::streamoff bytes = file ? file.tellg() : std::streampos(-1);
-  CHECK(bytes > 0 && bytes <= maximum && bytes % sizeof(uint32_t) == 0,
-        "the shader has a bounded word-aligned size");
-  if (bytes <= 0 || bytes > maximum || bytes % sizeof(uint32_t) != 0) { Failed(); }
-  std::vector<uint32_t> words(static_cast<size_t>(bytes) / sizeof(uint32_t));
-  file.seekg(0);
-  file.read(reinterpret_cast<char *>(words.data()), bytes);
-  CHECK(file, "the complete shader is readable");
-  return words;
-}
-
-std::unique_ptr<Buffer>
-Upload(Device &device, Commands &commands, std::span<const uint32_t> words) {
-  auto upload = Require(device.CreateBuffer(
-      {.Bytes = words.size_bytes(), .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
-  const auto mapped = Require(device.MapWrite(*upload, {.Bytes = words.size_bytes()}));
-  std::memcpy(mapped.data(), words.data(), words.size_bytes());
-  Require(device.Unmap(*upload));
-  auto result = Require(device.CreateBuffer(
-      {.Bytes = words.size_bytes(),
-       .Use = BufferUse::Storage | BufferUse::CopyDestination | BufferUse::CopySource}));
-  Require(commands.Copy(*upload, *result, {.Bytes = words.size_bytes()}));
-  auto busy = device.MapWrite(*upload, {.Bytes = words.size_bytes()});
-  CHECK(!busy && busy.error().Kind == ErrorKind::Busy, "recorded uploads cannot be rewritten");
-  return result;
-}
-
-Binding Storage(uint32_t set, uint32_t slot, const Buffer &buffer) {
-  return {.Set = set,
-          .Slot = slot,
-          .Value = StorageBuffer{.Data = &buffer, .Range = {.Bytes = buffer.Description().Bytes}}};
-}
+using namespace outshine::Test::Gpu;
 
 struct Data {
   std::vector<uint32_t> Kept, Batches, Jobs, Source, Slots, Args, Draw;
@@ -145,6 +87,10 @@ void ScanCompact(Device &device, const char *scanPath, const char *compactPath) 
   auto draw = Upload(device, *commands, untouched);
   const std::array scanBindings{
       Storage(0, 0, *kept), Storage(0, 1, *batches), Storage(1, 0, *slots), Storage(1, 1, *args)};
+  const auto overflowing =
+      commands->Dispatch(*scan, scanBindings, {.X = std::numeric_limits<uint32_t>::max()});
+  CHECK(!overflowing && overflowing.error().Kind == ErrorKind::Invalid,
+        "dispatch grid multiplication cannot overflow shader coordinates");
   Require(commands->Dispatch(*scan, scanBindings, {.X = 3}));
   CullConstants constants;
   const std::array compactBindings{
@@ -290,6 +236,28 @@ void RecordingCapacity(Device &device) {
   CHECK(reusable, "cancelling recordings restores command capacity");
 }
 
+void ForeignThreads(Device &device) {
+  auto source = Require(device.CreateBuffer(
+      {.Bytes = 16, .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
+  auto destination = Require(device.CreateBuffer({.Bytes = 16, .Use = BufferUse::CopyDestination}));
+  auto commands = Require(device.Begin());
+  std::array<ErrorKind, 3> errors;
+  errors.fill(ErrorKind::Driver);
+  std::thread worker([&] {
+    const auto recording = device.Begin();
+    if (!recording) { errors[0] = recording.error().Kind; }
+    const auto mapping = device.MapWrite(*source, {.Bytes = 16});
+    if (!mapping) { errors[1] = mapping.error().Kind; }
+    const auto copy = commands->Copy(*source, *destination, {.Bytes = 16});
+    if (!copy) { errors[2] = copy.error().Kind; }
+  });
+  worker.join();
+  for (const auto error : errors) {
+    CHECK(error == ErrorKind::Invalid,
+          "device and recording reject operations from a foreign thread");
+  }
+}
+
 }
 
 int main(int argc, char *const *argv) {
@@ -297,6 +265,7 @@ int main(int argc, char *const *argv) {
   auto device = Require(CreateDevice());
   Boundaries(*device);
   RecordingCapacity(*device);
+  ForeignThreads(*device);
   ScanCompact(*device, argv[1], argv[2]);
   BufferLengths(*device, argv[3]);
   return Report();

@@ -6,6 +6,18 @@
 namespace outshine::Render::Native::Metal {
 namespace {
 
+std::optional<Format> ImageFormat(SpvImageFormat format) {
+  switch (format) {
+    case SpvImageFormatR8: return Format::R8Unorm;
+    case SpvImageFormatRgba8: return Format::Rgba8Unorm;
+    case SpvImageFormatRg16f: return Format::Rg16Float;
+    case SpvImageFormatRgba16f: return Format::Rgba16Float;
+    case SpvImageFormatR32f: return Format::R32Float;
+    case SpvImageFormatRgba32f: return Format::Rgba32Float;
+    default: return std::nullopt;
+  }
+}
+
 Result<Access> BufferAccess(spvc_compiler compiler, spvc_variable_id id) {
   const SpvDecoration *decorations = nullptr;
   size_t count = 0;
@@ -20,6 +32,59 @@ Result<Access> BufferAccess(spvc_compiler compiler, spvc_variable_id id) {
   return Access::ReadWrite;
 }
 
+Access ImageAccess(spvc_compiler compiler, spvc_variable_id id) {
+  if (spvc_compiler_has_decoration(compiler, id, SpvDecorationNonWritable) != SPVC_FALSE) {
+    return Access::Read;
+  }
+  if (spvc_compiler_has_decoration(compiler, id, SpvDecorationNonReadable) != SPVC_FALSE) {
+    return Access::Write;
+  }
+  return Access::ReadWrite;
+}
+
+Result<ResourceBinding>
+ReflectOne(spvc_compiler compiler, const spvc_reflected_resource &item, BindingKind kind) {
+  ResourceBinding result{
+      .Source = {.Set = spvc_compiler_get_decoration(compiler, item.id, SpvDecorationDescriptorSet),
+                 .Slot = spvc_compiler_get_decoration(compiler, item.id, SpvDecorationBinding),
+                 .Kind = kind,
+                 .Usage = Access::Read},
+      .Buffer = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
+      .Texture = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
+      .Sampler = spvc_compiler_msl_get_automatic_resource_binding_secondary(compiler, item.id)};
+  if (kind == BindingKind::StorageBuffer) {
+    const auto access = BufferAccess(compiler, item.id);
+    if (!access) { return std::unexpected(access.error()); }
+    result.Source.Usage = *access;
+  }
+  if (kind == BindingKind::Uniform || kind == BindingKind::StorageBuffer) {
+    size_t bytes = 0;
+    if (spvc_compiler_get_declared_struct_size(
+            compiler, spvc_compiler_get_type_handle(compiler, item.base_type_id), &bytes) !=
+        SPVC_SUCCESS) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Invalid, .Message = "SPIR-V buffer extent is invalid"});
+    }
+    result.Source.MinimumBytes = bytes;
+    return result;
+  }
+  const auto *const image = spvc_compiler_get_type_handle(compiler, item.base_type_id);
+  if (spvc_type_get_image_dimension(image) != SpvDim2D) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "Metal image dimension is unsupported"});
+  }
+  result.ArrayTexture = spvc_type_get_image_arrayed(image) != SPVC_FALSE;
+  if (kind == BindingKind::StorageTexture) {
+    result.Source.Usage = ImageAccess(compiler, item.id);
+    result.TexelFormat = ImageFormat(spvc_type_get_image_storage_format(image));
+    if (!result.TexelFormat) {
+      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                   .Message = "Metal storage image format is unsupported"});
+    }
+  }
+  return result;
+}
+
 Result<void> Reflect(spvc_compiler compiler,
                      spvc_resources resources,
                      spvc_resource_type type,
@@ -32,33 +97,10 @@ Result<void> Reflect(spvc_compiler compiler,
         Error{.Kind = ErrorKind::Invalid, .Message = "SPIR-V resource reflection failed"});
   }
   for (size_t i = 0; i < count; ++i) {
-    const auto &item = items[i];
-    ShaderBinding binding{
-        .Set = spvc_compiler_get_decoration(compiler, item.id, SpvDecorationDescriptorSet),
-        .Slot = spvc_compiler_get_decoration(compiler, item.id, SpvDecorationBinding),
-        .Kind = kind,
-        .Usage = Access::Read};
-    if (kind == BindingKind::StorageBuffer) {
-      const auto access = BufferAccess(compiler, item.id);
-      if (!access) { return std::unexpected(access.error()); }
-      binding.Usage = *access;
-    }
-    if (kind == BindingKind::Uniform || kind == BindingKind::StorageBuffer) {
-      size_t bytes = 0;
-      if (spvc_compiler_get_declared_struct_size(
-              compiler, spvc_compiler_get_type_handle(compiler, item.base_type_id), &bytes) !=
-          SPVC_SUCCESS) {
-        return std::unexpected(
-            Error{.Kind = ErrorKind::Invalid, .Message = "SPIR-V buffer extent is invalid"});
-      }
-      binding.MinimumBytes = bytes;
-    }
-    shader.Layout.Bindings.push_back(binding);
-    shader.Resources.push_back(
-        {.Source = binding,
-         .Buffer = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
-         .Texture = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
-         .Sampler = spvc_compiler_msl_get_automatic_resource_binding_secondary(compiler, item.id)});
+    const auto resource = ReflectOne(compiler, items[i], kind);
+    if (!resource) { return std::unexpected(resource.error()); }
+    shader.Layout.Bindings.push_back(resource->Source);
+    shader.Resources.push_back(*resource);
   }
   return {};
 }

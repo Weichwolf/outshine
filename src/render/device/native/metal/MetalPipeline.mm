@@ -3,18 +3,14 @@
 
 namespace outshine::Render::Native::Metal {
 
-Result<std::unique_ptr<ComputePipeline>> MetalDevice::CreateComputePipeline(
-    std::span<const uint32_t> spirv, std::string_view entry, std::string_view label) {
+Result<std::unique_ptr<ComputePipeline>>
+MetalDevice::CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptions settings) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   @autoreleasepool {
-    auto shader = Translate(spirv, entry);
+    auto shader = Translate(spirv, settings.Entry);
     if (!shader) { return std::unexpected(shader.error()); }
-    if (std::ranges::any_of(shader->Resources, [](const ResourceBinding &binding) {
-          return binding.Source.Kind == BindingKind::SampledTexture ||
-                 binding.Source.Kind == BindingKind::StorageTexture;
-        })) {
-      return Failure(ErrorKind::Unsupported,
-                     "Metal compute texture bindings are not integrated yet");
-    }
     uint64_t invocations = 1;
     for (size_t axis = 0; axis < shader->Layout.LocalSize.size(); ++axis) {
       const auto size = shader->Layout.LocalSize[axis];
@@ -38,7 +34,7 @@ Result<std::unique_ptr<ComputePipeline>> MetalDevice::CreateComputePipeline(
     }
     MTLComputePipelineDescriptor *const description = [MTLComputePipelineDescriptor new];
     description.computeFunction = function;
-    description.label = Text(label.empty() ? entry : label);
+    description.label = Text(settings.Label.empty() ? settings.Entry : settings.Label);
     const id<MTLComputePipelineState> pipeline =
         [Native_ newComputePipelineStateWithDescriptor:description
                                                options:MTLPipelineOptionNone
