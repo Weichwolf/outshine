@@ -131,14 +131,13 @@ def build_probe(api, output, run):
             commit,
             "--name-only",
             "--",
-            "src",
+            "src/render/device/native",
             "include",
-            ":(exclude)src/generators/weather/shaders/cloudMoments.glsl",
         ],
         "api-match",
     ):
         raise RuntimeError(
-            "consumer source/headers differ from the archive API producer"
+            "consumer native implementation/public headers differ from the archive API producer"
         )
     declaration = dict(
         line.split("=", 1)

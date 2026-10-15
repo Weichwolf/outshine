@@ -65,6 +65,7 @@ def cases():
                     (0, 1, 0),
                     (0.8, 0.6, 0),
                     (0.999, 0.04, 0),
+                    (0.99955, -0.03, 0),
                     (0, -1, 0),
                 ):
                     direction = np.asarray(direction) / np.linalg.norm(direction)
@@ -211,6 +212,10 @@ def verify(queries, answers, labels):
     )
     if np.any(answers[:, 0, 2] < 0) or np.any(answers[:, 0, 2:] > CELLS):
         raise AssertionError("work counters exceed the actual bounded iterator")
+    if answers[:, 0, 2].max() != CELLS:
+        raise AssertionError(
+            "the field cohort must exercise both complete shell intervals"
+        )
     for index, label in enumerate(labels):
         if (
             label["kind"] == "field"

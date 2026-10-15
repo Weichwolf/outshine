@@ -26,6 +26,8 @@ Rohmoment und exakte0 für fehlende Extinktion. Fehler werden nicht weggeklammer
 CloudPrefix-/Dichteimplementierung. Physische volle Zellen entstehen vor der
 Empfängerabfrage; eine Teilzelle behält ihren ursprünglichen Dichtepunkt.
 Native GPU-Ausgaben enthalten auch die tatsächlich verwendeten Zellkoeffizienten.
+Ein flacher Blick von4km Höhe trifft beide vollständigen Schalenintervalle;
+der native Zähler muss dafür tatsächlich32 Dichteauswertungen erreichen.
 Die private Probe nutzt SSBO0/0→1/0:608Byte je Query,528Byte je Antwort,
 32 Zellen maximal. C++-Offsets/Alignment und SPIR-V-Strides/Mitgliedsoffsets
 werden geprüft. Zwei unabhängige Aufzeichnungen müssen bytegleich sein;
@@ -65,7 +67,10 @@ python3 test/experiments/weather/cloud_moment_raster.py \
 ```
 
 `ARCHIVE_ROOT` besitzt ein regulär gebautes Archiv und passende saubere Header;
-die neue einzelne GLSL-Datei ändert dessen C++-ABI nicht. Ein frischer CloudView-
+der private C++-Verbraucher benutzt dessen Header. Native Backendquellen und
+öffentliche Header werden gegen diesen Producer verglichen; andere Generatoren
+gehören nicht zu diesem Device-Verbraucher. Die neue GLSL-Datei ändert dessen
+C++-ABI nicht. Ein frischer CloudView-
 Verbraucher entsteht mit `cloud_view_native.py`; ein bestehender passender
 Verbraucher darf per gehashtem Originalreceipt wiederverwendet werden.
 Alle Aufrufe, Originalbytes, Shader-/Archivhashes und terminalen Ergebnisse
