@@ -101,8 +101,12 @@ def draw_source(source, direction, size=128, bounds=None):
     return image, (frame, lower, upper, offset)
 
 
-def bake_chart(source, direction, size=128, grid=8):
-    image, (frame, lower, upper, _offset) = draw_source(source, direction, size * 2)
+def bake_chart(source, direction, size=128, grid=8, *, draw=None):
+    image, (frame, lower, upper, _offset) = (
+        draw_source(source, direction, size * 2)
+        if draw is None
+        else draw(direction, size * 2)
+    )
     image = average_blocks(image, 2)
     normal = image[..., 4:7] @ frame
     encoded = np.concatenate(
@@ -114,12 +118,13 @@ def bake_chart(source, direction, size=128, grid=8):
     ]
 
 
-def bake_product(source, output, count=64, size=128, grid=8):
+def bake_product(source, output, count=64, size=128, grid=8, *, draw=None):
     if type(size) is not int or size not in (32, 64, 128, 256):
         raise ValueError("bounded whole-plant view size required")
     began = time.perf_counter()
     views = [
-        bake_chart(source, direction, size, grid) for direction in directions(count)
+        bake_chart(source, direction, size, grid, draw=draw)
+        for direction in directions(count)
     ]
     output.mkdir(parents=True, exist_ok=True)
     (output / "plant-recipe.json").write_text(
@@ -162,7 +167,11 @@ def bake_product(source, output, count=64, size=128, grid=8):
     stats["atlas_material_r8_bytes"] = material.nbytes
     stats["atlas_base_bytes"] = stats["atlas_rgba8_bytes"] + material.nbytes
     stats["atlas_bytes_with_mips_estimate"] = stats["atlas_base_bytes"] * 4 / 3
-    points = np.concatenate((source["mesh"]["vertices"], source["wood"]["vertices"]))
+    points = source.get("bounds_points")
+    if points is None:
+        points = np.concatenate(
+            (source["mesh"]["vertices"], source["wood"]["vertices"])
+        )
     result = stats | {
         "version": "whole-plant-views-1",
         "plan_identity": source["plan_identity"],
@@ -181,7 +190,10 @@ def bake_product(source, output, count=64, size=128, grid=8):
             "leaf_weight": "plant-leaf-weight.png",
         },
         "input_sha256": source["input_sha256"],
-        "source_scope": "cached group views and wood; no organ placement or meshing, cold recipe-only construction remains open",
+        "source_scope": source.get(
+            "source_scope",
+            "cached group views and wood; no organ placement or meshing, cold recipe-only construction remains open",
+        ),
         "bounds_m": [points.min(axis=0).tolist(), points.max(axis=0).tolist()],
         "render_bounds_m": [
             mesh["vertices"].min(axis=0).tolist(),

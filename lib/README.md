@@ -213,6 +213,21 @@ Cachezeilen. Beide Budgets werden vor Detailarbeit geprüft; verweigerte Anfrage
 liefern `None`. Holz- und Organ-IDs bleiben innerhalb ihres vollständigen Plans
 stabil. Das `needled-plant-1`-Rezept enthält alle Quellen der prozeduralen Form.
 
+`window_summary(nominal_span_m=0.08, max_groups=64)` zählt vollständige physische
+Triebfenster ohne Achsen-/Organplatzierung. `windows(max_axes, max_windows, ...)`
+prüft beide Budgets davor und liefert `None` bei Überschreitung, andernfalls eigene,
+unveränderliche NumPy-Arrays in einer schreibgeschützten Zuordnung. Die Zeilen enthalten
+Achsen-ID/-Ordnung, ersten Nadelindex und Anzahl, Vorlagenkapazität, Ursprung,
+orthonormalen lokalen Achsrahmen, nominalen Elternparameter und Phyllotaxisphase.
+Längen sind Meter im Pflanzenraum. Der Rahmen hat X quer, Y tangential, Z normal;
+die Phase gehört noch nicht zum Rahmen. Bereiche decken alle kanonischen Nadel-IDs ab.
+Die Fenster sind statistische Bindestellen für physisch große Vorlagen: Ihre Mittelpunkte
+folgen den nominalen Knotenabständen, nicht dem Jitter einzelner Nahnadeln. Teilfenster
+melden eine kleinere Anzahl; deren Deckung, Silhouette und Normalen sind damit nicht
+bewiesen. Fenster expandieren keine Nadeln und ändern weder Nahrezepte noch Identität;
+die begrenzten Holzachsen bleiben intern wiederverwendbar. Der Katalog-/Bildvergleich
+steht bei [#168](https://github.com/Weichwolf/outshine/issues/168).
+
 `AxisLevel.whorl_size` und `angle_tip` ergänzen Astquirle und den oberen Astwinkel.
 Neue Semantik sowie Holzpläne ohne `Blade` verwenden `branching-plant-3`;
 vorhandene Spiralrezepte behalten ihre v2-Rezepte und kanonischen Arrays exakt.
