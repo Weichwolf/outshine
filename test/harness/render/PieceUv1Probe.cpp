@@ -26,6 +26,7 @@ using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
 constexpr std::array<float, 6> kMetres{0, 0, 3, 0, 3, 2};
+constexpr float kChangedInput = 99.0f;
 
 void CheckResident(SDL_GPUDevice *device, SubjectDraw &subjects) {
   std::string error;
@@ -39,8 +40,9 @@ void CheckResident(SDL_GPUDevice *device, SubjectDraw &subjects) {
       device, subjects.Resident().Buffer(SubjectResidency::Stream::Uv1).Get(), sizeof(kMetres));
   CHECK(state == ReadState::Ready, "actual optional UV1 residency is readable");
   if (state == ReadState::Ready) {
-    CHECK(std::memcmp(read.Rows(), kMetres.data(), sizeof(kMetres)) == 0,
-          "the GPU contains the original independent float2 data");
+    std::array<float, kMetres.size()> observed{};
+    std::memcpy(observed.data(), read.Rows(), sizeof(observed));
+    CHECK(observed == kMetres, "the GPU contains the original independent float2 data");
   }
   const auto allocations = subjects.Resident().Allocations();
   std::println(R"({{"uv1_buffer_bytes":{},"vertex_slots":{},"transfer_bytes":{}}})",
@@ -96,7 +98,7 @@ void GpuOwnership(SDL_GPUDevice *device) {
           "the owned source copies exactly the additional float2 bytes");
     std::println(
         R"({{"source_with_uv1_bytes":{},"source_without_uv1_bytes":{}}})", withUv1, withoutUv1);
-    coordinates.fill(99);
+    coordinates.fill(kChangedInput);
     CheckResident(device, subjects);
     CHECK(std::ranges::any_of(subjects.Drawn(),
                               [](const DrawBatch &batch) { return !CarriesUv1(batch.Layout); }),
@@ -157,7 +159,7 @@ int main(int argc, char *const *argv) {
   if (argc == 2 && std::string_view(argv[1]) == "--gpu") {
     CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL initializes for the actual existing residency path");
     {
-      OwnedDevice device(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, "vulkan"));
+      const OwnedDevice device(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, "vulkan"));
       CHECK(static_cast<bool>(device), "the real renderer device is available");
       if (device) { GpuOwnership(device.Get()); }
     }
