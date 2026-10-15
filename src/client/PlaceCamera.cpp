@@ -118,6 +118,9 @@ PlaceViewIndex(std::span<const Scenario::View> views) {
     return std::unexpected(path.string() + ": " + read.error());
   }
   const auto &declared = reader.declaration();
+  if (const auto profile = FrameProfile::ForPlace(declared.Render.FrameRateHz); !profile) {
+    return std::unexpected(path.string() + ": " + profile.error());
+  }
   if (!declared.Ground.Declared || !declared.Render.Declared ||
       declared.Render.Frame.WidthPx <= 0 || declared.Render.Frame.HeightPx <= 0 ||
       !declared.Time.Declared || declared.Time.Live || declared.Time.Start.empty()) {
@@ -227,6 +230,12 @@ bool Audits = false;
 
 namespace {
 bool OpenPlace(Engine &engine, const Place &place, Shot &shot, Roots roots) {
+  const auto profile = FrameProfile::ForPlace(place.Declaration.Render.FrameRateHz);
+  if (!profile) {
+    shot.Why = place.Name + ": " + profile.error();
+    return false;
+  }
+  shot.Profile = *profile;
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     shot.Why = "SDL did not start, so nothing can be drawn";
     return false;
@@ -247,7 +256,8 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, Roots roots) {
   Scenario::Document stands = place.Declaration;
   stands.Views = PlaceTurn(place.Declaration.Views.front(),
                            {.LongitudeDeg = stands.Ground.Origin.LongitudeDeg,
-                            .LatitudeDeg = stands.Ground.Origin.LatitudeDeg});
+                            .LatitudeDeg = stands.Ground.Origin.LatitudeDeg},
+                           shot.Profile);
   stands.Render.Audits = Audits;
 
   const auto began = std::chrono::steady_clock::now();
@@ -309,8 +319,13 @@ Shot Take(const Place &place, bool tells, double preloadSeconds, Roots roots) {
   Engine engine;
   Shot shot;
   if (!OpenPlace(engine, place, shot, std::move(roots))) { return shot; }
-  Shot drawn =
-      Draw(engine, place.Name, tells, "places", preloadSeconds, engine.declaration().Views);
+  Shot drawn = Draw(engine,
+                    place.Name,
+                    tells,
+                    "places",
+                    preloadSeconds,
+                    engine.declaration().Views,
+                    shot.Profile);
   drawn.StandingMs = shot.StandingMs;
   drawn.LoadingAtEnd = engine.loading();
   drawn.Playable = engine.settled(WorldQuality::Playable);
@@ -355,7 +370,8 @@ bool MeasureFrames(Engine &engine,
   renderedMs.reserve(count);
   Client::FramePacer pacer;
   const auto began = std::chrono::steady_clock::now();
-  const Client::FrameSchedule schedule(SDL_GetTicksNS());
+  const Client::FrameSchedule schedule(SDL_GetTicksNS(), shot.Profile.RateHz());
+  const double frameBudgetMs = shot.Profile.BudgetMs();
   for (std::size_t at = 0; at < count; ++at) {
     if (turn.empty()) {
       pacer.Wait();
@@ -388,8 +404,9 @@ bool MeasureFrames(Engine &engine,
     renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
     heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
     if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
-    shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
+    shot.OverBudget += heldMs.back() > frameBudgetMs ? 1u : 0u;
   }
+  if (!turn.empty()) { schedule.Wait(count); }
   shot.MeasurementMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   shot.TurnDegrees = turn.empty() ? 0.0 : 2.0 * kDegPerHalfTurn;
@@ -457,8 +474,10 @@ Shot Draw(Engine &engine,
           bool tells,
           std::string_view under,
           double preloadSeconds,
-          std::span<const Scenario::View> turn) {
+          std::span<const Scenario::View> turn,
+          FrameProfile profile) {
   Shot shot;
+  shot.Profile = profile;
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
   if (!MeasureFrames(engine, name, shot, turn)) { return shot; }

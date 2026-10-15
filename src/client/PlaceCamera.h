@@ -11,6 +11,7 @@
 
 #include <Outshine.h>
 #include "ShotOptions.h"
+#include "PlaceFrameProfile.h"
 
 namespace outshine {
 class Engine;
@@ -21,7 +22,6 @@ namespace outshine::Shots {
 
 inline constexpr int kWidePx = 1280;
 inline constexpr int kHighPx = 720;
-inline constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 
 struct Place {
   std::string Name;
@@ -29,6 +29,7 @@ struct Place {
 };
 
 struct Shot {
+  FrameProfile Profile{};
   std::string Digest;
   std::string Wrote;
   std::string Why;
@@ -68,7 +69,8 @@ struct Shot {
                         bool tells,
                         std::string_view under = "places",
                         double preloadSeconds = Client::kDefaultPreloadSeconds,
-                        std::span<const Scenario::View> turn = {});
+                        std::span<const Scenario::View> turn = {},
+                        FrameProfile profile = {});
 
 [[nodiscard]] std::expected<std::vector<Place>, std::string>
 LoadPlaces(const std::filesystem::path &directory, std::string_view overrides = {});

@@ -91,21 +91,23 @@ void Tell(const Shot &shot, std::string_view name) {
     std::println("SHOT    {:<26} -- {}", name, shot.Why);
     return;
   }
-  std::println("SHOT    {:<26} {}  p50 {:6.2f}  p95 {:6.2f}  p99 {:6.2f} ms  {} of {} over {:.2f}, "
-               "worst at {}  [sim p99 {:.2f} worst {:.2f} | draw p99 {:.2f} worst {:.2f}]",
-               name,
-               shot.Digest.empty() ? "--------" : std::string_view{shot.Digest},
-               shot.P50Ms,
-               shot.P95Ms,
-               shot.P99Ms,
-               shot.OverBudget,
-               shot.Frames,
-               outshine::Shots::kFrameBudgetMs,
-               shot.WorstAt,
-               shot.AdvanceP99Ms,
-               shot.AdvanceWorstMs,
-               shot.RenderP99Ms,
-               shot.RenderWorstMs);
+  std::println(
+      "SHOT    {:<26} {}  p50 {:6.2f}  p95 {:6.2f}  p99 {:6.2f} ms  {} fps, {} of {} over {:.2f}, "
+      "worst at {}  [sim p99 {:.2f} worst {:.2f} | draw p99 {:.2f} worst {:.2f}]",
+      name,
+      shot.Digest.empty() ? "--------" : std::string_view{shot.Digest},
+      shot.P50Ms,
+      shot.P95Ms,
+      shot.P99Ms,
+      shot.Profile.RateHz(),
+      shot.OverBudget,
+      shot.Frames,
+      shot.Profile.BudgetMs(),
+      shot.WorstAt,
+      shot.AdvanceP99Ms,
+      shot.AdvanceWorstMs,
+      shot.RenderP99Ms,
+      shot.RenderWorstMs);
   std::println(
       "        {:.0f} triangle(s), {:.0f} bare tile(s), varies by {:.3f} of 255 along its rows; "
       "{:.1f} s stood, {:.1f} s waited ({:.1f} s streamed); peak heap {:.0f} MB; {}",
@@ -207,7 +209,8 @@ void Usage(std::string_view verb = {}) {
                  "  --measures                      print engine diagnostic samples\n"
                  "  --rows                          machine-readable capture rows\n"
                  "  --stats                         timing, readiness and source STAT rows\n"
-                 "With no place, capture all. Preparation time is separate from frame timing.");
+                 "With no place, capture all. Preparation time is separate from frame timing.\n"
+                 "Place measurements use 25, 30 or 60 fps for one second, default 60.");
   } else if (verb == "prepare") {
     std::println(
         "Usage: outshine-client prepare <place> <timeout-seconds>\n"
@@ -385,6 +388,8 @@ void ReportShot(const Shot &shot,
     }
   }
   if (options.Stats) {
+    std::println("STAT\t{}\ttarget_frame_rate_hz\t{}\tHz", name, shot.Profile.RateHz());
+    std::println("STAT\t{}\tframe_budget_ms\t{}\tms", name, shot.Profile.BudgetMs());
     if (options.Rows) { outshine::Client::PrintCostReport(name, shot.Measures); }
     const double elapsedMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
