@@ -159,7 +159,7 @@ def build(reference, capture, output):
     views["portal"] = render(
         "Wien-portal", tunnel, tunnel_slots, output, [384, 216], (0.8, -0.8, 0.6)
     )
-    from PIL import Image, ImageDraw
+    from PIL import Image, ImageDraw, ImageFont
 
     with Image.open(output / "Wien-whole.png") as source:
         image = source.convert("RGB")
@@ -169,6 +169,14 @@ def build(reference, capture, output):
         x, y = position
         ImageDraw.Draw(image).rectangle(
             (x - 1, y - 1, x + 384, y + 216), outline=(100, 110, 110)
+        )
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((x, y, x + 383, y + 22), fill=(244, 245, 242))
+        draw.text(
+            (x + 6, y + 3),
+            "Brücke" if name == "bridge" else "Tunnel · Schnitt",
+            font=ImageFont.load_default(size=14),
+            fill=(45, 55, 55),
         )
     image.save(output / "Wien.png")
     receipt = {
