@@ -68,8 +68,19 @@ def native_api(output, glslang, toolchain, cross_flags):
     texture_verdict = [line.split() for line in texture_text.splitlines() if line.startswith("CHECKS ")]
     if len(texture_verdict) != 1 or texture_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
         raise SystemExit(f"native textures did not produce a clean verdict: {texture_text}")
+    raster_binary = build_probe("native-raster-probe", "NativeRasterProbe.cpp")
+    present = ROOT / "src/render/shaders/present.frag"
+    present_shader = output / "present.frag.spv"
+    run([glslang, "-V", "--target-env", "vulkan1.0", str(present), "-o", str(present_shader)])
+    raster_text = run([str(raster_binary), str(output / "fullscreen.vert.spv"),
+                       str(output / "native_metal_mrt.frag.spv"), str(present_shader)])
+    (output / "native-raster-probe.log").write_text(raster_text)
+    raster_verdict = [line.split() for line in raster_text.splitlines() if line.startswith("CHECKS ")]
+    if len(raster_verdict) != 1 or raster_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
+        raise SystemExit(f"native raster pipelines did not produce a clean verdict: {raster_text}")
     return {"checks": int(verdict[0][1]), "failures": 0,
-            "texture_checks": int(texture_verdict[0][1])}, sources
+            "texture_checks": int(texture_verdict[0][1]),
+            "raster_pipeline_checks": int(raster_verdict[0][1])}, sources
 
 
 def main():
@@ -127,6 +138,8 @@ def main():
              ROOT / "test/run.sh", ROOT / "test/scripts/source_units.py",
              ROOT / "test/harness/render/NativeComputeProbe.cpp",
              ROOT / "test/harness/render/NativeTextureProbe.cpp",
+             ROOT / "test/harness/render/NativeRasterProbe.cpp",
+             ROOT / "src/render/shaders/present.frag",
              ROOT / "test/harness/render/NativeGpuCheck.h",
              Path(__file__).with_name("native_texture.comp"),
              ROOT / "src/render/shaders/subjectScanKernel.comp",
@@ -137,7 +150,7 @@ def main():
              *(ROOT / "src/render/device/native/metal").glob("*.h")]
     result["source_sha256"] = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                                for p in files}
-    result["scope"] = "direct Metal MRT and common-API compute adapter; not native Place acceptance"
+    result["scope"] = "direct Metal MRT and common-API compute/textures/graphics pipeline creation; not native Place acceptance"
     (output / "receipt.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))
 
