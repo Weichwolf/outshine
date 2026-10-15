@@ -17,6 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely
+from building_mesh import slice_triangles
 from evidence import revision
 from facade_entry_clip import remainder
 from facade_entry_geometry import basis_for
@@ -89,6 +90,20 @@ def benchmark():
                     "surface_difference_m2": difference,
                     "source_triangles": int(selected.sum()),
                     "cut_cells": len(columns) + 1,
+                    "known_full_position_buffer_allocations": len(result["vertices"])
+                    // 4
+                    + 3
+                    if name == "rectangles"
+                    else None,
+                    "known_full_position_materialized_bytes": len(result["vertices"])
+                    * 3
+                    * 8
+                    * 4
+                    if name == "rectangles"
+                    else None,
+                    "known_position_stack_copied_bytes": len(result["vertices"]) * 3 * 8
+                    if name == "rectangles"
+                    else None,
                     "work": "one quad per retained rectangular range"
                     if name == "rectangles"
                     else "per-source-triangle GEOS intersection/difference and constrained triangulation",
@@ -119,8 +134,8 @@ def diagram(row, plan, output):
             for m in materials
         ]
     )
-    figure = plt.figure(figsize=(24, 8))
-    ax = figure.add_subplot(131)
+    figure = plt.figure(figsize=(28, 8))
+    ax = figure.add_subplot(141)
     xy = np.asarray(row["polygon"].exterior.coords)
     ax.plot(*xy.T, color="black")
     xy = np.asarray(entry["door"]["landing"].exterior.coords)
@@ -133,7 +148,7 @@ def diagram(row, plan, output):
         xlabel="Ost [m]",
         ylabel="Nord [m]",
     )
-    ax = figure.add_subplot(132)
+    ax = figure.add_subplot(142)
     for t, colour in sorted(
         zip(local, colours, strict=True), key=lambda row: row[0][:, 2].mean()
     ):
@@ -144,7 +159,23 @@ def diagram(row, plan, output):
         xlabel="Fassaden-U [m]",
         ylabel="Höhe [m]",
     )
-    ax = figure.add_subplot(133, projection="3d")
+    ax = figure.add_subplot(143)
+    section_mesh = {
+        "vertices": local.reshape(-1, 3),
+        "faces": np.arange(local.size // 3).reshape(-1, 3),
+        "materials": materials,
+    }
+    for line, material in slice_triangles(
+        section_mesh, [0, 1, 0], entry["floor_m"] / 2
+    ):
+        ax.plot(line[:, 0], line[:, 2], color="teal" if material == 32769 else "black")
+    ax.set(
+        aspect="equal",
+        title="Tatsächlicher Mittelschnitt",
+        xlabel="Fassaden-U [m]",
+        ylabel="Außennormale [m]",
+    )
+    ax = figure.add_subplot(144, projection="3d")
     ax.add_collection3d(Poly3DCollection(local, facecolors=colours, edgecolors="none"))
     ax.set(
         xlim=(local[:, :, 0].min(), local[:, :, 0].max()),
