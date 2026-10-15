@@ -68,3 +68,45 @@ algorithm is duplicated here. Perbet/Cani's I3D2001
 provides the relevant geometric/volumetric/texture grass hierarchy comparison;
 its prairie LOD/wind implementation is not reproduced or accepted by this fix.
 No photographs, source implementation or native Place PNG are used as assets.
+
+## Completed actual-source and near inspection
+
+Frozen `86e5b9b94` builds all eight12-blade/360-triangle form variants with exit0:
+0.136s inside the builder; standalone0.667s wall/0.619CPU-s/72.45MiB peak RSS.
+The full cached-prototype Place export also ends0 with `Blade.mesh` patched to
+reject reconstruction:20.524s wall/20.799CPU-s/580.42MiB peak RSS. This still
+includes source stand preparation; it is not a complete source-free warm-world
+cache measurement. It proves prototype consumption without organ regeneration.
+
+All53,200 original IDs, contact positions, frames, source indices and scale
+values match the preceding water-corrected scene exactly. Only9,853 grass form
+indices change;43,347 wood sites retain the existing tree proxy. Actual demand:
+3,428 camera/3,428 sun tree instances;1,103 camera/1,313 sun grass instances.
+The grass union is1,313 shared spatial instances. The composed view draws
+1,350,248 instanced triangles versus1,196,160 before; no geometry-count reduction
+is claimed. Ground, water and camera remain unchanged.
+
+The same2560×1440/one-sample diagnostic completes with exit0:
+26.653s wall/51.684CPU-s/3108.13MiB peak RSS on llvmpipe. The whole image and
+before/after were opened. Large spurious trees over grass are gone; the fine
+lake remains. Standard pixel comparison changes57,237/3,686,400pixels (1.5527%),
+not a quality score. Low-frequency terrain, pale materials and sparse grass
+coverage remain obvious. No botanical/world-density or original64-sample gate.
+Current complete product/report/PNG and exact plan comparison:
+`/tmp/outshine-vegetation-place-grass-86e5b9b94/`.
+
+The independent cached-form control on frozen `38a2f8690` also completes0 at
+2560×1440/four samples:22.530s wall/37.927CPU-s/2166.89MiB peak RSS. All eight
+variants/96 blades were opened, with organ reconstruction forbidden. Folded
+ribbons, lean/length/colour variation and grounded shadows are visible; the
+forms remain sparse unidentified grass, not a named botanical recipe. Near
+product and receipt: `/tmp/outshine-vegetation-grass-near-38a2f8690/`.
+
+The pure constructor is now `outshine_ref.vegetation.graminoid` in `lib/`.
+Four independent family controls plus six original Blade controls and17 Place
+controls pass. A fresh installed wheel passes the ten library controls and
+reproduces every array of all eight actually rendered prototype variants
+byte-for-byte, with all library imports verified from that wheel.
+Wheel/source proof: `/tmp/outshine-vegetation-graminoid-ad099345c/gates.json`.
+Library contract owns bounds and API; this report owns the Place binding and
+optical evidence. Native integration and species/LOD/wind approval stay open.
