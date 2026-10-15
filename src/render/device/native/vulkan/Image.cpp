@@ -11,7 +11,9 @@
 namespace outshine::Render::Native::Vulkan {
 
 ImageState::~ImageState() {
-  if (Handle != VK_NULL_HANDLE) { vkDestroyImage(Owner->Logical, Handle, nullptr); }
+  if (!Presentation && Handle != VK_NULL_HANDLE) {
+    vkDestroyImage(Owner->Logical, Handle, nullptr);
+  }
   if (Allocation != VK_NULL_HANDLE) { vkFreeMemory(Owner->Logical, Allocation, nullptr); }
 }
 

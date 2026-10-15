@@ -30,6 +30,24 @@ mediumHeightAlong(MEDIUM_ARG medium, float radiusKm, float cosZenith, float alon
   return raised / (sampleKm + medium.BottomRadiusKm);
 }
 
+MEDIUM_INLINE float
+mediumSolarFocus(MEDIUM_ARG medium, float leastExtinction, MediumLook look, float strideKm) {
+  if (strideKm <= 0.0f || look.CosZenith <= 0.0f || medium.MieExtinctionPerKm <= 0.0f) {
+    return 0.0f;
+  }
+  const float heightKm = max(0.0f, look.RadiusKm - medium.BottomRadiusKm);
+  const float mie = medium.MieExtinctionPerKm * exp(-heightKm / medium.MieScaleHeightKm);
+  const float least = max(mie, leastExtinction);
+  const float fraction = least > 0.0f ? mie / least : 0.0f;
+  const float variation = look.CosZenith * strideKm / medium.MieScaleHeightKm * sqrt(fraction);
+  const float kMaximumDensityVariation = 0.25f;
+  return max(0.0f, 1.0f - kMaximumDensityVariation / max(kMaximumDensityVariation, variation));
+}
+
+MEDIUM_INLINE float mediumSolarEdge(float spanKm, float unit, float focus) {
+  return spanKm * unit * (1.0f + focus * (unit - 1.0f));
+}
+
 MEDIUM_INLINE MediumLook mediumTransmittanceParams(MEDIUM_ARG medium, MediumUv uv) {
   const float span = sqrt(
       max(0.0f,

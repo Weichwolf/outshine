@@ -29,6 +29,7 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "GroundCoverPlan": "ground_cover",
     "SpeciesHeightMixture": "species_mixture",
     "species_site_uniforms": "species_mixture",
     "SpeciesCatalog": "species_catalog",
@@ -74,6 +75,7 @@ def __getattr__(name):
 
 
 __all__ = [
+    "GroundCoverPlan",
     "SpeciesHeightMixture",
     "species_site_uniforms",
     "SpeciesCatalog",
