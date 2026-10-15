@@ -54,8 +54,15 @@ class FloatEnvironment:
 
 
 class DirectGeos:
-    def __init__(self):
-        self.library = ct.CDLL(shapely.lib.__file__)
+    def __init__(self, path=None):
+        selected = (
+            str(path.resolve(strict=True)) if path is not None else shapely.lib.__file__
+        )
+        self.path = selected
+        self.library = ct.CDLL(selected)
+        self.version = bind(self.library, "GEOSversion", [], ct.c_char_p)().decode(
+            "ascii"
+        )
         pointer, size = ct.c_void_p, ct.c_size_t
         self.init = bind(self.library, "GEOS_init_r", [], pointer)
         self.finish = bind(self.library, "GEOS_finish_r", [pointer], None)
@@ -136,7 +143,7 @@ def shape(name):
     return shapely.from_wkt(wkt[name])
 
 
-def probe(name, helper):
+def probe(name, helper, geos_library=None):
     fenv = FloatEnvironment(helper)
     initial_flags, initial_rounding = fenv.flags(), fenv.rounding()
     control = fenv.decoded(fenv.control())
@@ -157,7 +164,8 @@ def probe(name, helper):
     except RuntimeWarning as exception:
         error = str(exception)
     after = fenv.decoded(fenv.flags())
-    actual, direct_flags = DirectGeos().measure(shapely.to_wkb(source), fenv)
+    backend = DirectGeos(geos_library)
+    actual, direct_flags = backend.measure(shapely.to_wkb(source), fenv)
     direct = shapely.from_wkb(actual)
     equal = (
         None
@@ -174,6 +182,8 @@ def probe(name, helper):
         "after_wrapper_flags": after,
         "strict_wrapper_error": error,
         "direct_geos_flags": direct_flags,
+        "direct_geos_library": backend.path,
+        "direct_geos_version": backend.version,
         "direct_geometry": shapely.to_wkt(direct, rounding_precision=17),
         "strict_geometry": None
         if strict is None
@@ -217,7 +227,7 @@ def compile_helper(output):
     }
 
 
-def run(output):
+def run(output, geos_library=None):
     output.mkdir(parents=True, exist_ok=True)
     library, compilation = compile_helper(output)
     records = []
@@ -232,6 +242,11 @@ def run(output):
                 name,
                 "--helper",
                 str(library.resolve()),
+                *(
+                    ["--geos-library", str(geos_library.resolve(strict=True))]
+                    if geos_library
+                    else []
+                ),
             ],
             capture_output=True,
             text=True,
@@ -249,6 +264,9 @@ def run(output):
             "shapely": shapely.__version__,
             "geos": shapely.geos_version_string,
             "extension": shapely.lib.__file__,
+            "direct_geos_library": str(geos_library.resolve(strict=True))
+            if geos_library
+            else shapely.lib.__file__,
         },
         "scope": "Fresh process per case; strict Python warnings retained, direct GEOS flags measured in C with its own context and WKB ownership. No modelling/backend change, warning suppression, platform fix or native gate claim.",
     }
@@ -282,10 +300,11 @@ if __name__ == "__main__":
     )
     parser.add_argument("--case", choices=CASES)
     parser.add_argument("--helper", type=Path)
+    parser.add_argument("--geos-library", type=Path)
     args = parser.parse_args()
     if args.case:
         if not args.helper:
             parser.error("--case requires --helper")
-        print(json.dumps(probe(args.case, args.helper)))
+        print(json.dumps(probe(args.case, args.helper, args.geos_library)))
     else:
-        run(args.output)
+        run(args.output, args.geos_library)

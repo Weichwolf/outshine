@@ -16,6 +16,13 @@ public reentrant C API from the actual loaded Shapely extension. The control
 uses independent GEOS context/reader/writer/geometry ownership and lossless WKB,
 avoiding a borrowed Shapely pointer or an unrelated system GEOS installation.
 
+`--geos-library /absolute/path/to/libgeos_c.dylib` explicitly selects an existing
+alternative C library for the **direct** call only; use a separate `--output`.
+Its actual C API version and path are reported. Shapely still uses its original
+bundled backend. No borrowed geometry or context crosses library versions: input
+and output cross only as WKB bytes. A clean direct alternative is a candidate for
+an isolated source build of Shapely, not proof that its unchanged wrapper passed.
+
 Each square, rational rotated rectangle, line and point runs in a fresh process.
 The strict Shapely operation runs with RuntimeWarnings promoted to errors.
 Errors are reported explicitly. A C call records FP flags immediately after
