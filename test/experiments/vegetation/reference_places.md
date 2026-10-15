@@ -119,3 +119,14 @@ original image files; it must retain 2560×1440, EEVEE/64 samples and the saved
 camera/light settings. This is a static selected reference view, not a complete
 runtime world/cache asset. Export success is not a rendered/optically reviewed
 Place image; hardware/backend, render costs and final PNG remain separate.
+
+Frozen `77277ff26` exports the actual Koerbersee view successfully: 14,136,746
+bytes, three packed images, 20.03 s wall/20.04 CPU-s and 576.93 MiB peak RSS.
+All six site-array columns remain bit-exact against `30aef3c0c`. A separate
+isolated fresh Blender process opened the file without GIS/generator imports,
+verified camera/profile/64 samples and packed-image hashes, replaced every
+original image path with a nonexistent path and successfully reloaded all
+three images. Both processes ended0. No rendering occurred in this check.
+Current packet, cost and portability receipts:
+`/var/tmp/outshine-vegetation-packed-77277ff26/`. Blend SHA256:
+`942c844d36d37340d05e1ab853be5fdcdc4e6821410dcecdae0be04ed020bbc4`.
