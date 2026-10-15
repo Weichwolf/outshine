@@ -20,7 +20,7 @@ Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
 
 ```sh
 TRANSPORT_PY=/var/tmp/outshine-transport-python-355154544/bin/python
-TRANSPORT_WORK=/var/tmp/outshine-transport-workspace-0241b3f81
+TRANSPORT_WORK=/tmp/outshine-transport-workspace-0241b3f81
 ```
 
 Neue eigene Umgebungen ebenfalls extern mit `python3 -m venv <Temp-Pfad>` erzeugen.
@@ -908,3 +908,6 @@ SIGGRAPH2008 Fig.2/page2 was inspected visually: retained graph and 3D geometry
 are separate stages, not a reproduced full paper algorithm. Source acquisition
 uses the [documented offline request policy](https://openfreemap.org/quick_start/)
 and a unique User-Agent. Provider credits remain visible in the four-image page.
+
+Der eingefrorene Vier-Orte-/Instanzvergleich zu #250 steht in
+[rail_hardware_comparison.md](rail_hardware_comparison.md).
