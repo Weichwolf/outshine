@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from air_path_cases import place_cases
+from air_path_depth_table import depth_limit
 from air_path_integral import engine_clear_air
 from air_path_prefix import AirCells, AirPrefix, build_cells
 from air_path_segments import view_edges
@@ -95,6 +96,21 @@ class AirPrefixContracts(unittest.TestCase):
         self.assertGreater(radiance[0], 0.0)
         self.assertTrue(np.all((through > 0.0) & (through <= 1.0)))
         self.assertLessEqual(cells.source_evaluations, 64)
+
+    def test_descending_night_ray_does_not_light_its_ground_endpoint(self):
+        medium = engine_clear_air(ROOT / "src/world/sky/Atmosphere.h")
+        cases, _ = place_cases(ROOT)
+        case = next(
+            case
+            for case in cases
+            if case.name == "Rosenheim/2026-09-07T18:00:00Z/elevation=-1.6"
+        )
+        distance = depth_limit(medium, case.height_km, case.arguments()[1], 200.0)
+        cells = build_cells(medium, case.arguments(), distance, 47)
+        prefix = AirPrefix(cells)
+        for point in (0.001, distance * 0.5, distance):
+            radiance, _ = prefix.advance(point)
+            np.testing.assert_array_equal(radiance, np.zeros(3))
 
 
 if __name__ == "__main__":

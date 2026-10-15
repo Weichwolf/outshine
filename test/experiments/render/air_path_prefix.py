@@ -36,8 +36,8 @@ def build_cells(medium, arguments, distance_km, count, interpolation="linear"):
         )
     positions = np.stack([edges[:-1], edges[1:]], axis=1)
     offset = np.minimum(1e-6, np.diff(edges) * 1e-6)
-    positions[:, 0] += np.isin(positions[:, 0], physical[1:-1]) * offset
-    positions[:, 1] -= np.isin(positions[:, 1], physical[1:-1]) * offset
+    positions[:, 0] += np.isin(positions[:, 0], physical) * offset
+    positions[:, 1] -= np.isin(positions[:, 1], physical) * offset
     unique, indices = np.unique(positions, return_inverse=True)
     extinction, emission = source(medium, *arguments, unique)
     shape = (len(edges) - 1, 2, 3)
