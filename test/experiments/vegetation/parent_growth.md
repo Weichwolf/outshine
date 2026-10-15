@@ -56,6 +56,34 @@ mature spruce, requested physical area, bounded costs and matching near/far
 products are still required before another complete eight-form bake.
 The public showcase remains four current whole-tile pictures.
 
+## Physical area before another bake
+
+`parent_growth_area_probe.py` compares the three length/count policies against
+the actual mature variant-1 recipes without creating axes or organs. The first
+order remains unchanged. Later relative lengths use the actual parent length;
+the physical-distance policy uses the nominal parent's original branch spacing
+and the installed `DistancePattern`, with a continuous tapered length profile.
+These proposed layouts do not yet define production IDs. The original alternative
+must reproduce the installed needle counts and physical-area result exactly.
+An independent three-parent case also checks the proposed relative lengths and
+7/5/3 physical attachment counts. All ten small checks pass.
+
+| Policy | Spruce area (m²) | Pine area (m²) |
+|---|---:|---:|
+| Original absolute lengths/counts | 200.00 | 202.46 |
+| Relative lengths, fixed counts | 85.30 | 117.44 |
+| Relative lengths, physical spacing | 34.88 | 59.89 |
+
+Physical needle sizes, spacings and prototype areas remain unchanged. Thus the
+parent-length correction alone loses substantial needle area; the alternatives
+are not equal-quality candidates. Physical spacing also reduces complete axis
+counts from 50,401 to 14,251 for spruce and from 19,705 to 8,959 for pine.
+The next mature recipe must explicitly recover the requested area through a
+plausible bounded branching architecture before an equal-quality cost decision.
+Alpha or needle-size changes cannot conceal that missing area. Detailed length
+quantiles and input hashes remain under
+`build/experiments/vegetation/parent-growth-area/`.
+
 ## Primary source and scope
 
 Weber and Penn, SIGGRAPH 1995, *Creation and Rendering of Realistic Trees*,

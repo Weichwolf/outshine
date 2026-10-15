@@ -9,7 +9,8 @@ from unittest.mock import patch
 import numpy as np
 from generator_graph import GeneratorGraph
 from generator_specs import Generator, Placement, TubeShape
-from outshine_ref.vegetation import Profile
+from outshine_ref.vegetation import AxisLevel, PlantPlan, Profile
+from parent_growth_area_probe import length_orders
 from parent_growth_graph import ParentGrowthGraph
 from parent_growth_models import control_nodes
 
@@ -19,6 +20,24 @@ def graph(ratio=0.5):
 
 
 class ParentGrowthTests(unittest.TestCase):
+    def test_length_count_probe_matches_the_independent_three_parent_control(self):
+        wood = PlantPlan(
+            17,
+            (
+                AxisLevel(1, 2, 0.02, 0.01),
+                AxisLevel(3, 1.5, 0.003, 0.001, tip_scale=1 / 3),
+                AxisLevel(7, 0.75, 0.0002, 0.0001, tip_scale=1, first=0.1, last=0.9),
+            ),
+            (),
+        )
+        absolute = length_orders(wood, "absolute-fixed")
+        relative = length_orders(wood, "relative-fixed")
+        distance = length_orders(wood, "relative-distance")
+        np.testing.assert_allclose(absolute[2], np.full(21, 0.75))
+        np.testing.assert_allclose(relative[2], np.repeat((0.75, 0.5, 0.25), 7))
+        np.testing.assert_allclose(distance[2], np.repeat((0.75, 0.5, 0.25), (7, 5, 3)))
+        self.assertFalse(wood._axes)
+
     def test_actual_parent_lengths_drive_child_lengths_counts_and_fixed_needles(self):
         g = graph()
         self.assertFalse(g._poses)
