@@ -35,6 +35,11 @@ vor; `species_site_uniforms` bindet die Auswahl an stabile Standort-IDs.
 Mathematischer Vertrag, realer Vergleich, Cache-Replay und Grenzen stehen in
 [species_mixture.md](species_mixture.md) (#226).
 
+`vegetation.graminoid` liefert begrenzte geteilte Grasbüschel-Meshes aus dem
+bestehenden analytischen `Blade`, mit stabilen Blatt-IDs und Auflösungsproben.
+Vertrag, tatsächlicher Orts-/Nahverbrauch und botanische/LOD-Grenzen stehen in
+[graminoid.md](graminoid.md) (#22/#208).
+
 `materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
 Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
 integriert die kubische Übergangsmaske im eindimensionalen Normalen-Footprint; beide Seiten

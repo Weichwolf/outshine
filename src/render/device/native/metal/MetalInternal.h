@@ -24,6 +24,9 @@ namespace outshine::Render::Native::Metal {
                                 encoding:NSUTF8StringEncoding];
 }
 
+[[nodiscard]] Result<id<MTLFunction>>
+Function(id<MTLDevice> device, const Shader &shader, MTLFunctionType type);
+
 struct BufferState {
   id<MTLBuffer> Native;
   uint64_t Device;
@@ -197,6 +200,8 @@ public:
                                                  std::string_view label) override;
   Result<std::unique_ptr<ComputePipeline>> CreateComputePipeline(std::span<const uint32_t> spirv,
                                                                  ComputeOptions settings) override;
+  Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline(const GraphicsDescription &description) override;
   Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) override;
   Result<std::span<const std::byte>> MapRead(Buffer &buffer, ByteRange range) override;
   Result<void> Unmap(Buffer &buffer) override;
