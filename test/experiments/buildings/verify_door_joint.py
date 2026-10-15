@@ -37,8 +37,9 @@ def motion(plan, product, selection):
                     raise ValueError(
                         "Door movement occupies a required object or activity"
                     )
+        fixed = template(row["leaf"])
         for angle in np.linspace(0.0, 90.0, 181):
-            body = expand(template(row["leaf"]), row["leaf"], float(angle))
+            body = expand(row["leaf"], fixed, float(angle))
             projected = shapely.MultiPoint(body["vertices"][:, :2]).convex_hull
             if not row["motion"].covers(projected):
                 raise ValueError("Actual leaf mesh leaves its reserved motion envelope")
