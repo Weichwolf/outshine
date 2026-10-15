@@ -55,7 +55,7 @@ water and demand controls alongside these tests. Real Koerbersee cached export
 must reject any organ reconstruction, retain all53,200 source IDs/contacts and
 change only grass form kinds. Then render and open the same whole2560×1440
 private one-sample profile before/after; do not replace the public four shots or
-claim the original64-sample cost gate passed. Actual-source results pending.
+claim the original64-sample cost gate passed. Completed actual-source results follow below.
 
 ## Sources and scope
 

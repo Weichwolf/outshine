@@ -61,7 +61,11 @@ acceptance. Coarse terrain/materials, sparse grass stocking, matching grass
 far products, habitat/species recipes and wind remain open.
 
 Current evidence lives under `/tmp/outshine-vegetation-place-grass-86e5b9b94/`
-and `/tmp/outshine-vegetation-grass-near-38a2f8690/`. Procedure/source references
-and full Place costs belong to `test/experiments/vegetation/place_grass.md`.
+and `/tmp/outshine-vegetation-grass-near-38a2f8690/`. The
+[Place experiment report](https://github.com/Weichwolf/outshine/blob/fc06c4182/test/experiments/vegetation/place_grass.md#completed-actual-source-and-near-inspection)
+owns procedure/source references and full Place costs. Ten source library tests
+and ten fresh installed-wheel tests pass; all library module origins are from
+that wheel, and all eight rendered variant arrays match byte-for-byte. The
+compact proof is `/tmp/outshine-vegetation-graminoid-ad099345c/gates.json`.
 Native transfer is separate (#48); finished catalog assets may be shared by
 many world instances and cached without per-instance blade reconstruction.
