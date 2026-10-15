@@ -73,6 +73,7 @@ def population(name, recipe):
         np.arange(-size / 2 + step / 2, size / 2, step),
     )
     xy = np.c_[x.ravel(), y.ravel()] + rng.uniform(-0.4 * step, 0.4 * step, (x.size, 2))
+    xy = np.clip(xy, -size / 2 + 0.001, size / 2 - 0.001)
     result = []
     variants = rng.integers(0, 8, len(xy))
     for index in range(8):
@@ -147,6 +148,7 @@ def setup(name, recipe):
     scene.render.image_settings.file_format = "PNG"
     scene.eevee.taa_render_samples = 4
     scene.view_settings.view_transform = "AgX"
+    scene.view_settings.exposure = 1.5
     size = recipe["size_m"]
     bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, -0.25))
     bpy.context.object.scale = (size, size, 0.5)
@@ -188,7 +190,7 @@ def setup(name, recipe):
     cam.rotation_euler = (
         (Vector(recipe["target"]) - cam.location).to_track_quat("-Z", "Y").to_euler()
     )
-    cam.data.type, cam.data.ortho_scale = "ORTHO", size * 1.5
+    cam.data.type, cam.data.ortho_scale = "ORTHO", size * 1.85
     scene.camera = cam
     return scene
 
