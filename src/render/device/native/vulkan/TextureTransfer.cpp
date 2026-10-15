@@ -64,6 +64,10 @@ VkBufferImageCopy CopyRegion(const ImageState &image, TextureTransfer transfer) 
 
 Result<void> Recording::Copy(const Buffer &source, Texture &destination, TextureTransfer region) {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  if (Render_) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Invalid, .Message = "transfer inside render pass"});
+  }
   const auto from = BufferFrom(source, *Context_);
   const auto into = ImageFrom(destination, *Context_);
   if (!from) { return std::unexpected(from.error()); }
@@ -95,6 +99,10 @@ Result<void> Recording::Copy(const Buffer &source, Texture &destination, Texture
 
 Result<void> Recording::Copy(const Texture &source, Buffer &destination, TextureTransfer region) {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  if (Render_) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Invalid, .Message = "transfer inside render pass"});
+  }
   const auto from = ImageFrom(source, *Context_);
   const auto into = BufferFrom(destination, *Context_);
   if (!from) { return std::unexpected(from.error()); }
@@ -134,6 +142,10 @@ Result<void> Recording::Copy(const Texture &source,
                              Texture &destination,
                              TextureRegion destinationRegion) {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  if (Render_) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Invalid, .Message = "transfer inside render pass"});
+  }
   const auto from = ImageFrom(source, *Context_);
   const auto into = ImageFrom(destination, *Context_);
   if (!from) { return std::unexpected(from.error()); }

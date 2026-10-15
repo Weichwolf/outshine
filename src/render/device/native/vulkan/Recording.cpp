@@ -48,7 +48,7 @@ Result<void> Recording::Initialize() {
 
 Result<void> Recording::End() {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
-  if (Finished_) {
+  if (Finished_ || Render_) {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "commands already ended"});
   }
   const auto result = vkEndCommandBuffer(Commands_);
@@ -90,6 +90,10 @@ void Recording::Use(const BufferState &buffer, ByteRange range, BufferAccess acc
 
 Result<void> Recording::Copy(const Buffer &source, Buffer &destination, BufferCopy region) {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  if (Render_) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Invalid, .Message = "transfer inside render pass"});
+  }
   const auto from = BufferFrom(source, *Context_);
   const auto into = BufferFrom(destination, *Context_);
   if (!from) { return std::unexpected(from.error()); }

@@ -83,6 +83,12 @@ public:
     return CreatePipeline(Context_, spirv, options.Entry);
   }
 
+  [[nodiscard]] Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline(const GraphicsDescription &description) override {
+    if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
+    return CreateGraphics(Context_, description);
+  }
+
   [[nodiscard]] Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) override {
     if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
     const auto native = BufferFrom(buffer, *Context_);

@@ -54,7 +54,8 @@ Result<std::vector<VkDescriptorSet>> Recording::AllocateSets(const PipelineState
 }
 
 Result<VkDescriptorBufferInfo> Recording::BindBuffer(const ShaderBinding &declared,
-                                                     const Binding &binding) {
+                                                     const Binding &binding,
+                                                     VkPipelineStageFlags2 stages) {
   std::shared_ptr<BufferState> data;
   ByteRange range;
   VkAccessFlags2 access = VK_ACCESS_2_SHADER_READ_BIT;
@@ -103,26 +104,27 @@ Result<VkDescriptorBufferInfo> Recording::BindBuffer(const ShaderBinding &declar
     if (declared.Usage == Access::Write) { access = VK_ACCESS_2_SHADER_WRITE_BIT; }
   }
   if (auto held = Hold(data); !held) { return std::unexpected(held.error()); }
-  Use(*data, range, {.Stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, .Access = access});
+  Use(*data, range, {.Stage = stages, .Access = access});
   return VkDescriptorBufferInfo{
       .buffer = data->Handle, .offset = range.Offset, .range = range.Bytes};
 }
 
-Result<std::vector<VkDescriptorSet>> Recording::BindResources(const VulkanPipeline &pipeline,
-                                                              std::span<const Binding> bindings) {
-  const auto &layout = pipeline.Layout();
-  if (bindings.size() != layout.Bindings.size()) {
+Result<std::vector<VkDescriptorSet>> Recording::BindResources(const PipelineState &pipeline,
+                                                              std::span<const ShaderBinding> layout,
+                                                              std::span<const Binding> bindings,
+                                                              VkPipelineStageFlags2 stages) {
+  if (bindings.size() != layout.size()) {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid,
                                  .Message = "compute binding count does not match reflection"});
   }
-  auto sets = AllocateSets(*pipeline.State());
+  auto sets = AllocateSets(pipeline);
   if (!sets) { return std::unexpected(sets.error()); }
-  std::vector<VkDescriptorBufferInfo> buffers(layout.Bindings.size());
-  std::vector<VkDescriptorImageInfo> images(layout.Bindings.size());
+  std::vector<VkDescriptorBufferInfo> buffers(layout.size());
+  std::vector<VkDescriptorImageInfo> images(layout.size());
   std::vector<VkWriteDescriptorSet> writes;
-  writes.reserve(layout.Bindings.size());
-  for (std::size_t at = 0; at < layout.Bindings.size(); ++at) {
-    const auto &declared = layout.Bindings[at];
+  writes.reserve(layout.size());
+  for (std::size_t at = 0; at < layout.size(); ++at) {
+    const auto &declared = layout[at];
     const auto bound = std::ranges::find_if(bindings, [&declared](const Binding &binding) {
       return declared.Set == binding.Set && declared.Slot == binding.Slot;
     });
@@ -137,12 +139,12 @@ Result<std::vector<VkDescriptorSet>> Recording::BindResources(const VulkanPipeli
     write.descriptorCount = 1;
     write.descriptorType = DescriptorType(declared.Kind);
     if (declared.Kind == BindingKind::Uniform || declared.Kind == BindingKind::StorageBuffer) {
-      const auto info = BindBuffer(declared, *bound);
+      const auto info = BindBuffer(declared, *bound, stages);
       if (!info) { return std::unexpected(info.error()); }
       buffers[at] = *info;
       write.pBufferInfo = &buffers[at];
     } else {
-      const auto info = BindImage(declared, *bound, *pipeline.State());
+      const auto info = BindImage(declared, *bound, pipeline, stages);
       if (!info) { return std::unexpected(info.error()); }
       images[at] = *info;
       write.pImageInfo = &images[at];
@@ -205,7 +207,7 @@ Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
                                  Workgroups groups) {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
   const auto *const native = dynamic_cast<const VulkanPipeline *>(&pipeline);
-  if (native == nullptr || native->State()->Owner != Context_ || Finished_) {
+  if (native == nullptr || native->State()->Owner != Context_ || Finished_ || Render_) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Invalid, .Message = "invalid compute pipeline or command state"});
   }
@@ -217,7 +219,10 @@ Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
     }
   }
   if (auto valid = CheckImageAliases(native->Layout(), bindings); !valid) { return valid; }
-  const auto sets = BindResources(*native, bindings);
+  const auto sets = BindResources(*native->State(),
+                                  native->Layout().Bindings,
+                                  bindings,
+                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
   if (!sets) { return std::unexpected(sets.error()); }
   if (std::ranges::find(Pipelines_, native->State()) == Pipelines_.end()) {
     Pipelines_.push_back(native->State());
