@@ -55,7 +55,9 @@ def materials(tile):
 
 
 def poses(xy, rng, scale=1):
-    frames = Rotation.from_euler("z", rng.uniform(-np.pi, np.pi, len(xy))).as_matrix()
+    frames = Rotation.from_euler(
+        "z", rng.uniform(-np.pi, np.pi, (len(xy), 1))
+    ).as_matrix()
     return (
         np.c_[xy, np.zeros(len(xy))],
         frames,
