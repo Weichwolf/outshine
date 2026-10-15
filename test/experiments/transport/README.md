@@ -937,8 +937,8 @@ PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error test/expe
 ```
 
 Alle Ausgabevariablen benennen frische externe Temp-Pfade. Je Variante/Ort ein
-frischer Worker, Solverlimit8s plus gemessene Vorbereitung/Schrittüberlauf,
-Adressraum2GiB und60CPU-s. Die unabhängige Prüfung rekonstruiert alle tatsächlich
+frischer Worker, Solverlimit 8 s plus gemessene Vorbereitung/Schrittüberlauf,
+Adressraum 2 GiB und 60 CPU-s. Die unabhängige Prüfung rekonstruiert alle tatsächlich
 unverändert hohen Bettfacetten und verlangt vollständige Footprint-Abdeckung;
 Vertexkontakte allein reichen nicht. Änderungen an fester Kamera/Galerie bleiben
 an den vollständigen sauberen Replay und geöffneten Vorher/Nachher-Vergleich

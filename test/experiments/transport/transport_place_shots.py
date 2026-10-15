@@ -94,6 +94,13 @@ def flat_model(name, release, pins, datum, camera_products=None, height_products
         "recipe": "Accepted flat recipe rigidly placed at the coarse DEM height of its captured local origin. No terrain fit, bank, tier or drivable-turn claim.",
         "flat_datum_m": datum,
     }
+    if height_products is not None:
+        proof["recipe"] = (
+            "Experimental shared coarse DEM fit on unchanged XY/topology, with whole "
+            "verified rail-support facets fixed at the reference datum. Per-product "
+            "proof declares valid fit or original-flat fallback. No C1/tier/traffic claim."
+        )
+        proof["reference_flat_datum_m"] = proof.pop("flat_datum_m")
     return mesh, np.concatenate(colours), proof
 
 
