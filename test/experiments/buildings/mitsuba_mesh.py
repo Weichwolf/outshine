@@ -22,6 +22,11 @@ def mesh(name,data,rows,bsdf,emitter=None):
             raise ValueError('Physical mesh requires finite unit per-vertex normals')
         normals=source_normals[used].astype(np.float32)
     result=mi.Mesh(name,vertex_count=len(positions),face_count=len(faces),props=props,has_vertex_texcoords=uv is not None,has_vertex_normals=normals is not None)
+    if 'facade_extent' in data:
+        extent=np.asarray(data['facade_extent'])
+        if extent.shape!=(len(data['vertices']),3) or not np.isfinite(extent).all() or np.any(extent<0):
+            raise ValueError('Facade extent requires finite nonnegative per-vertex triples')
+        result.add_attribute('vertex_facade_extent',3,extent[used].astype(np.float32).ravel())
     values=mi.traverse(result)
     values['vertex_positions']=mi.Float(positions.ravel());values['faces']=mi.UInt32(faces.ravel())
     if uv is not None:values['vertex_texcoords']=mi.Float(uv.ravel())

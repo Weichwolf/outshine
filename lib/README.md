@@ -733,3 +733,26 @@ provides Manifold3D. [#156](https://github.com/Weichwolf/outshine/issues/156)
 owns independent structure/slice, real opening/actor and source/wheel checks;
 general CGA Boolean conformance remains
 [#88](https://github.com/Weichwolf/outshine/issues/88).
+
+## Compact facade coverage
+
+`FacadeRepeat(width_m, height_m, columns, rows, opening_width, opening_height)`
+stores immutable metrical axes. `coverage(centres_m, footprints_m)` returns the
+exact area mean of centred rectangular openings inside an explicit rectangular
+filter. The finite facade domain contributes zero outside its bounds. No window
+geometry, derivation tree or texture bitmap is expanded.
+
+`rectangle_coverage(centres, footprints, fractions, counts=None)` evaluates the
+same field in unit-cell coordinates; omitting counts selects an infinite
+periodic domain, including negative coordinates. Fractions allow zero and one.
+Counts are positive uint32 values on `FacadeRepeat`. Invalid dimensions,
+filter footprints and domain bindings reject. A fully contained small box
+returns exactly one instead of subtracting nearly equal antiderivatives.
+
+Independent explicit rectangles verify area, finite boundaries, subpixel
+queries, periodic translations, whole-domain energy and replay. The previous
+experiment `facade_plan.coverage` imports this core. Rectangular coverage is a
+declared surface filter, not an EWA, shaded image-error or native LOD bound.
+[#161](https://github.com/Weichwolf/outshine/issues/161) owns context-scoped real
+tile facade plans, physical CPU binding and costs; full programmes/near room
+transitions remain #31/#33, native integration #48.

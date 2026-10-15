@@ -96,7 +96,9 @@ def construct(site,error_m=1.,prepared=None,ordinary_builder=None):
                 mesh,info=detail if detail is not None else prism(row,params,material)
             vertices=mesh['vertices'];expected=(params['minHeight'],params['buildingHeight'])
             if not np.array_equal([vertices[:,2].min(),vertices[:,2].max()],expected):raise ValueError('Generated body changed provider height interval')
-            meshes.append(dict(vertices=vertices,faces=mesh['faces']+offset,normals=mesh['normals'],uv=mesh['uv'],materials=mesh['materials']))
+            component=dict(vertices=vertices,faces=mesh['faces']+offset,normals=mesh['normals'],uv=mesh['uv'],materials=mesh['materials'])
+            if 'facade_extent' in mesh:component['facade_extent']=mesh['facade_extent']
+            meshes.append(component)
             offset+=len(vertices);counts[decision.kind]+=1
             members.append(dict(id=row['id'],source_properties=row['properties'],footprint_wkb=row['polygon'].wkb_hex,
                 kind=decision.kind,origin=decision.origin,alternatives=decision.alternatives,prototype=info,
@@ -104,7 +106,9 @@ def construct(site,error_m=1.,prepared=None,ordinary_builder=None):
         except (ValueError,shapely.errors.GEOSException) as error:
             omissions.append(dict(id=row['id'],reason=str(error)))
     if not meshes:raise ValueError('Tile contains no valid generated building')
-    mesh={key:np.concatenate([m[key] for m in meshes]) for key in meshes[0]}
+    mesh={key:np.concatenate([m[key] for m in meshes]) for key in ('vertices','faces','normals','uv','materials')}
+    if any('facade_extent' in m for m in meshes):
+        mesh['facade_extent']=np.concatenate([m.get('facade_extent',np.zeros((len(m['vertices']),3))) for m in meshes])
     delivered=sum(r['layer']=='building' for r in rows)+len(invalid_buildings)
     if len(members)+len(omissions)!=delivered:raise ValueError('Whole-tile source accounting incomplete')
     return mesh,receipt|dict(delivered_building_polygons=delivered,generated=len(members),counts=dict(counts),
