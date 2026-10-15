@@ -48,7 +48,7 @@ def build(output):
     run([os.environ.get("CXX", "clang++"), "-std=c++23", "-O2", "-fno-exceptions",
          "-Wall", "-Wextra", "-Wpedantic", "-Wshadow", "-Werror", "-Wno-unused-parameter",
          *["-I" + str(ROOT / path) for path in includes],
-         str(Path(__file__).with_suffix(".cpp")),
+         str(ROOT / "test/scripts/ground-litter-probe.cpp"),
          *[str(ROOT / "src" / (path + ".cpp")) for path in source], *flags, "-o", str(binary)])
     return binary, shader
 
