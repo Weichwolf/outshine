@@ -134,6 +134,10 @@
   Texturen werden prozedural erzeugt und dürfen als fertige Assets gecacht werden.
 - Besitz, Lebensdauer, Abbruch, Rückstau und Fehler bleiben explizit. Kein blockierendes IO oder
   unbegrenztes Warten im Frame. GPU-Ressourcen erst nach letzter Nutzung freigeben.
+- Ressourcenbedarf folgt dem Hardwareprofil: Auf dem A18 Pro begrenzen zwei Performance- und vier
+  Effizienzkerne Datenaufbereitung/Simulation; Cachetreffer vermeiden diese Arbeit weitgehend.
+  Hintergrundarbeit bleibt begrenzt und priorisiert. Stärkere GPUs erhalten sichtbar höhere Qualität;
+  CPU-, GPU- und Speicherbudgets bleiben unabhängig, zusätzliche GPU-Leistung erhöht nicht pauschal CPU-Arbeit.
 
 ## Qualität und Abnahme
 - Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. RDR2/GTA5 sind
