@@ -8,11 +8,11 @@ from outshine_ref.places import PlaceCamera as SharedCamera
 from outshine_ref.places import read_camera
 
 ROOT = Path(__file__).resolve().parents[3]
-PLACES = ("Husum", "Feldkirch", "ZuerichHauptbahnhof", "Tokyo")
-REFERENCE_PLACES = PLACES + ("DarmstadtWest", "Flensburg", "Rosenheim")
+PLACES = ("Husum", "Flensburg", "ZuerichHauptbahnhof", "Tokyo")
+REFERENCE_PLACES = PLACES + ("DarmstadtWest", "Feldkirch", "Rosenheim")
 FLAT_HEIGHTS_M = {
     "Husum": 20.0,
-    "Feldkirch": 80.0,
+    "Flensburg": 35.0,
     "ZuerichHauptbahnhof": 70.0,
     "Tokyo": 60.0,
 }

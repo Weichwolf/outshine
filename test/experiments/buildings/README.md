@@ -156,13 +156,13 @@ generic room programme, native player controller and architecture families remai
 separate.
 
 The Buildings gallery uses four fixed Place locations/bearings/lenses:
-Husum, Feldkirch, ZuerichHauptbahnhof and Tokyo from `src/assets/places/`.
-These contrast small harbour houses, dense old-town buildings, large city
+Husum, Flensburg, ZuerichHauptbahnhof and Tokyo from `src/assets/places/`.
+These contrast small harbour houses, varied compact town buildings, large city
 complexes and high-rise density. Changing the selection does not establish new
 architecture recipes; repeated forms and missing details remain visible deficits.
 Buildings stand on a shared zero-height plane; acquisition requests only OSM
 vectors, never DEM. The native geographic camera altitudes are replaced by
-explicit fixed heights above this flat plane: Husum 20 m, Feldkirch 80 m,
+explicit fixed heights above this flat plane: Husum 20 m, Flensburg 35 m,
 ZuerichHauptbahnhof 70 m, Tokyo 60 m. Scenario sources and these camera changes
 remain explicit in the receipts. `doc/images/places/` supplies comparison images only. Own current Python
 building renders are inspected internally at 1920×1080 or higher with the same
