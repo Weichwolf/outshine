@@ -94,7 +94,6 @@ std::span<const char *const> Forest::NoteNames() const noexcept {
                                                                    "zeroDensity",
                                                                    "densityDraw",
                                                                    "aboveTreeline",
-                                                                   "tooSteep",
                                                                    "woodyDraw",
                                                                    "occupiedSurface",
                                                                    "highestStandAslM"};
@@ -174,18 +173,9 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   const double woody = Limit_.WoodyFraction(
       {.LongitudeDeg = region.AnchorLon(), .LatitudeDeg = latDeg, .HeightM = aslM},
       {.EastM = jitterE + eastM, .NorthM = jitterN + northM});
-  double steep = 0.0;
-  if (woody > 0.0 && static_cast<size_t>(*row) < ground.Table().Count()) {
-    steep = Limit_.BareBySlope(
-        ground.SlopeDeg({.EastM = eastM, .NorthM = northM}),
-        static_cast<double>(ground.Table().At(static_cast<size_t>(*row)).SlopeMaxDeg));
-  }
   if (woody <= 0.0) { return Outcome::AboveTreeline; }
-  if (steep >= 1.0) { return Outcome::TooSteep; }
 
-  if (static_cast<double>(Unit24(draw >> kWoodyShift)) >= woody * (1.0 - steep)) {
-    return Outcome::WoodyDraw;
-  }
+  if (static_cast<double>(Unit24(draw >> kWoodyShift)) >= woody) { return Outcome::WoodyDraw; }
 
   if (Held_ == 0) { return Outcome::NoSpecies; }
   const auto seed = region.Seed(index * kStreamsPerCell + 3);
@@ -228,7 +218,6 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
         case Outcome::ZeroDensity: yield.Count(ZeroDensity); continue;
         case Outcome::DensityDraw: yield.Count(DensityDraw); continue;
         case Outcome::AboveTreeline: yield.Count(AboveTreeline); continue;
-        case Outcome::TooSteep: yield.Count(TooSteep); continue;
         case Outcome::WoodyDraw: yield.Count(WoodyDraw); continue;
         case Outcome::OccupiedSurface: yield.Count(OccupiedSurface); continue;
         case Outcome::Placed: break;

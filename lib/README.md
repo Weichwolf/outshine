@@ -27,6 +27,11 @@ gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrück
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
 stehen in [rail_hardware.md](rail_hardware.md) (#250).
 
+`build_planar_rail_hardware` ergänzt dieselben metrischen Profile auf einer
+ausdrücklich gewählten affinen Bettebene. `PlanarRailHardware` besitzt starre
+Rahmen/Instanzen, tatsächliche projizierte Footprints und alle Schwellenunterecken;
+endliche Kontakt-/Freiraumzulassung bleibt beim Aufrufer (#376).
+
 `transport.supports.SupportVolumeBuilder` erzeugt geschlossene ganze Kontaktkörper
 zwischen zwei ausdrücklich gewählten endlichen Höhenflächen. Knicke, Innenlöcher,
 Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
@@ -979,3 +984,5 @@ ermittelt. Vertrag, Kosten und optisch geprüfter Grasverbrauch: [ground_cover.m
 analytischen Normalen, geschlossener Ansatzkappe, offener Mündung und expliziten
 Eck-UVs. Herleitung, Unterteilungsgrenzen und tatsächlicher blühender Verbraucher:
 [bellflower.md](bellflower.md) (#316).
+
+The actual Python city consumer also reuses `FacadeRepeat`/`RecessPlan` for bounded retail/food ground-floor display fronts (#377), with unchanged upper-cell scale and shared entrance anchors. Provider-use/host/level and frontage policy stays in `test/experiments/buildings/facade_shopfronts.py`; no second library planner or native contract is introduced. Reproduction and limits are in the building experiment README.
