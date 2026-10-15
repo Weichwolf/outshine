@@ -34,6 +34,7 @@ using uint = uint32_t;
 constexpr uint32_t kRayBytes = sizeof(ProbeRay);
 constexpr uint32_t kSampleBytes = sizeof(ProbeSample);
 constexpr uint32_t kPixelChannels = 4;
+constexpr std::array<size_t, 3> kTextureSourceSlots = {2, 3, 5};
 constexpr double kNanosecondsPerMillisecond = 1'000'000.0;
 static_assert(std::endian::native == std::endian::little);
 static_assert(std::is_trivially_copyable_v<ProbeRay> && sizeof(ProbeRay) == 32);
@@ -64,10 +65,11 @@ struct TextureExtent {
 static_assert(sizeof(TextureExtent) == 2 * sizeof(uint32_t));
 
 struct Data {
-  std::array<std::vector<std::byte>, 5> Sources;
-  std::array<TextureExtent, 2> Extents{};
-  std::array<gpu::Format, 2> Formats{};
-  std::array<uint32_t, 2> PixelBytes{};
+  std::array<std::vector<std::byte>, 6> Sources;
+  std::array<TextureExtent, 3> Extents{};
+  std::array<gpu::Format, 3> Formats{};
+  std::array<uint32_t, 3> PixelBytes{};
+  size_t TextureCount = 2;
   uint32_t RayCount = 0;
   uint32_t QueryCount = 0;
   Medium Air{};
@@ -101,21 +103,28 @@ struct Data {
     return previousEnd == QueryCount;
   }
 
-  bool Load(char **paths) {
-    for (size_t index = 0; index < Sources.size(); ++index) { Sources[index] = Read(paths[index]); }
-    for (size_t index = 0; index < Extents.size(); ++index) {
-      auto &pixels = Sources[index + 2];
+  bool Load(char **paths, const char *sourceMap) {
+    for (size_t index = 0; index < 5; ++index) { Sources[index] = Read(paths[index]); }
+    if (sourceMap != nullptr) {
+      Sources[5] = Read(sourceMap);
+      TextureCount = 3;
+    }
+    for (size_t index = 0; index < TextureCount; ++index) {
+      auto &pixels = Sources[kTextureSourceSlots[index]];
       if (pixels.size() < sizeof(TextureExtent)) { return false; }
       std::memcpy(&Extents[index], pixels.data(), sizeof(TextureExtent));
       const auto extent = Extents[index];
-      constexpr uint32_t kMaximumDimension = 2048;
+      const uint32_t kMaximumDimension = index == 2 ? 8192u : 2048u;
       if (extent.WidthPx == 0 || extent.HeightPx == 0 || extent.WidthPx > kMaximumDimension ||
           extent.HeightPx > kMaximumDimension) {
         return false;
       }
       const auto channels = size_t{extent.WidthPx} * extent.HeightPx * kPixelChannels;
       const auto payload = pixels.size() - sizeof(TextureExtent);
-      if (payload == channels * sizeof(uint16_t)) {
+      if (index == 2 && payload == channels / kPixelChannels * sizeof(float)) {
+        Formats[index] = gpu::Format::R32Float;
+        PixelBytes[index] = sizeof(float);
+      } else if (payload == channels * sizeof(uint16_t)) {
         Formats[index] = gpu::Format::Rgba16Float;
         PixelBytes[index] = kPixelChannels * sizeof(uint16_t);
       } else if (payload == channels * sizeof(float)) {
@@ -165,9 +174,9 @@ bool Fill(gpu::Device &device, gpu::Buffer &buffer, std::span<const std::byte> b
 
 struct Inputs {
   std::unique_ptr<gpu::Buffer> Rays, Queries, Output, Readback;
-  std::unique_ptr<gpu::Texture> Veil, Multi;
+  std::unique_ptr<gpu::Texture> Veil, Multi, SourceMap;
   std::unique_ptr<gpu::Sampler> Linear;
-  std::array<std::unique_ptr<gpu::Buffer>, 4> Transfers;
+  std::array<std::unique_ptr<gpu::Buffer>, 5> Transfers;
 
   bool Create(gpu::Device &device, const Data &data, bool generateVeil) {
     const uint64_t outputBytes = uint64_t{data.QueryCount} * kSampleBytes;
@@ -188,8 +197,8 @@ struct Inputs {
       return false;
     }
     constexpr auto kTextureUse = gpu::TextureUse::CopyDestination | gpu::TextureUse::Sampled;
-    const std::array<std::unique_ptr<gpu::Texture> *, 2> textures = {&Veil, &Multi};
-    for (size_t index = 0; index < textures.size(); ++index) {
+    const std::array<std::unique_ptr<gpu::Texture> *, 3> textures = {&Veil, &Multi, &SourceMap};
+    for (size_t index = 0; index < data.TextureCount; ++index) {
       const auto use =
           index == 0 && generateVeil
               ? gpu::TextureUse::Storage | gpu::TextureUse::CopySource | gpu::TextureUse::Sampled
@@ -208,13 +217,14 @@ struct Inputs {
         return false;
       }
     }
-    for (size_t index = 0; index < Transfers.size(); ++index) {
+    for (size_t index = 0; index < data.TextureCount + 2; ++index) {
       if (generateVeil && index == 2) { continue; }
-      if (!Keep(device.CreateBuffer({.Bytes = data.Sources[index].size(),
+      const size_t source = index < 4 ? index : kTextureSourceSlots[2];
+      if (!Keep(device.CreateBuffer({.Bytes = data.Sources[source].size(),
                                      .Use = gpu::BufferUse::CopySource,
                                      .Placement = gpu::Memory::Upload}),
                 Transfers[index]) ||
-          !Fill(device, *Transfers[index], data.Sources[index])) {
+          !Fill(device, *Transfers[index], data.Sources[source])) {
         return false;
       }
     }
@@ -229,8 +239,8 @@ struct Inputs {
         return false;
       }
     }
-    const std::array<gpu::Texture *, 2> textures = {Veil.get(), Multi.get()};
-    for (size_t index = 0; index < textures.size(); ++index) {
+    const std::array<gpu::Texture *, 3> textures = {Veil.get(), Multi.get(), SourceMap.get()};
+    for (size_t index = 0; index < data.TextureCount; ++index) {
       if (!Transfers[index + buffers.size()]) { continue; }
       if (!Check(commands.Copy(
               *Transfers[index + buffers.size()],
@@ -328,8 +338,8 @@ struct VeilPass {
   }
 };
 
-bool LayoutValid(const gpu::ComputeLayout &layout) {
-  constexpr std::array<gpu::ShaderBinding, 6> expected = {{
+bool LayoutValid(const gpu::ComputeLayout &layout, bool sourceMap) {
+  constexpr std::array<gpu::ShaderBinding, 7> expected = {{
       {.Set = 0,
        .Slot = 0,
        .Kind = gpu::BindingKind::SampledTexture,
@@ -360,12 +370,18 @@ bool LayoutValid(const gpu::ComputeLayout &layout) {
        .Kind = gpu::BindingKind::Uniform,
        .Usage = gpu::Access::Read,
        .MinimumBytes = sizeof(Medium)},
+      {.Set = 0,
+       .Slot = 4,
+       .Kind = gpu::BindingKind::SampledTexture,
+       .Usage = gpu::Access::Read,
+       .MinimumBytes = 0},
   }};
+  const auto bindings = std::span(expected).first(sourceMap ? 7u : 6u);
   if (layout.LocalSize != std::array<uint32_t, 3>{kGroupWidth, 1, 1} ||
-      layout.Bindings.size() != expected.size()) {
+      layout.Bindings.size() != bindings.size()) {
     return false;
   }
-  return std::ranges::all_of(expected, [&](const auto &need) {
+  return std::ranges::all_of(bindings, [&](const auto &need) {
     return std::ranges::any_of(layout.Bindings, [&](const auto &actual) {
       return actual.Set == need.Set && actual.Slot == need.Slot && actual.Kind == need.Kind &&
              actual.Usage == need.Usage &&
@@ -378,7 +394,7 @@ bool Dispatch(gpu::Commands &commands,
               const gpu::ComputePipeline &pipeline,
               const Inputs &inputs,
               const Data &data) {
-  const std::array<gpu::Binding, 6> bindings = {{
+  const std::array<gpu::Binding, 7> bindings = {{
       {.Set = 0,
        .Slot = 0,
        .Value = gpu::SampledTexture{.Image = {.Image = inputs.Veil.get()},
@@ -400,9 +416,14 @@ bool Dispatch(gpu::Commands &commands,
        .Value = gpu::StorageBuffer{.Data = inputs.Output.get(),
                                    .Range = {.Bytes = uint64_t{data.QueryCount} * kSampleBytes}}},
       {.Set = 2, .Slot = 0, .Value = gpu::Uniform{.Bytes = std::as_bytes(std::span(&data.Air, 1))}},
+      {.Set = 0,
+       .Slot = 4,
+       .Value = gpu::SampledTexture{.Image = {.Image = inputs.SourceMap.get()},
+                                    .Sampling = inputs.Linear.get()}},
   }};
-  return Check(commands.Dispatch(
-      pipeline, bindings, {.X = (data.RayCount + kGroupWidth - 1u) / kGroupWidth}));
+  return Check(commands.Dispatch(pipeline,
+                                 std::span(bindings).first(data.TextureCount == 3 ? 7u : 6u),
+                                 {.X = (data.RayCount + kGroupWidth - 1u) / kGroupWidth}));
 }
 
 bool Complete(gpu::Device &device, gpu::Completion completion) {
@@ -511,8 +532,8 @@ int Run(gpu::Device &device,
         bool timing) {
   std::unique_ptr<gpu::ComputePipeline> pipeline;
   if (!ReadPipeline(device, shader, pipeline)) { return 2; }
-  if (!LayoutValid(pipeline->Layout())) {
-    std::println(stderr, "unexpected SPIR-V layout; expected AirPrefix six bindings and Medium80");
+  if (!LayoutValid(pipeline->Layout(), data.TextureCount == 3)) {
+    std::println(stderr, "unexpected SPIR-V layout for AirPrefix fixture bindings and Medium80");
     return 2;
   }
   Inputs inputs;
@@ -560,10 +581,16 @@ int Run(gpu::Device &device,
 int main(int argc, char **argv) {
   const bool timing = argc > 1 && std::strcmp(argv[argc - 1], "--gpu-timing") == 0;
   if (timing) { --argc; }
+  const char *sourceMap = nullptr;
+  if (argc >= 3 && std::strcmp(argv[argc - 2], "--source-map") == 0) {
+    sourceMap = argv[argc - 1];
+    argc -= 2;
+  }
   if (argc < 8 || argc > 10) {
     std::println(stderr,
                  "usage: air-prefix-gpu kernel.spv rays.bin queries.bin veil.bin multi.bin "
-                 "medium.bin output.bin [resident-repeats [veil-kernel.spv]] [--gpu-timing]");
+                 "medium.bin output.bin [resident-repeats [veil-kernel.spv]] "
+                 "[--source-map map.bin] [--gpu-timing]");
     return 2;
   }
   uint32_t repeats = 0;
@@ -574,7 +601,7 @@ int main(int argc, char **argv) {
     if (parsed.ec != std::errc{} || parsed.ptr != last || repeats > kMaximumRepeats) { return 2; }
   }
   Data data;
-  if (!data.Load(argv + 2)) {
+  if (!data.Load(argv + 2, sourceMap)) {
     std::println(stderr, "invalid fixture extents or query spans");
     return 2;
   }
