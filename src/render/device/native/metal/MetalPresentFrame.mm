@@ -40,7 +40,11 @@ void MetalPresentFrame::Schedule(id<MTLCommandBuffer> commands) {
   const id<CAMetalDrawable> drawable = Drawable_;
   const dispatch_queue_t presenter = Mailbox_->Presenter;
   [commands addScheduledHandler:^(id<MTLCommandBuffer>) {
-    dispatch_async(presenter, ^{ [drawable present]; });
+    dispatch_async(presenter, ^{
+      @autoreleasepool {
+        [drawable present];
+      }
+    });
   }];
   Release();
 }
