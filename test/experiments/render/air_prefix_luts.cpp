@@ -3,6 +3,7 @@
 #include <bit>
 #include <charconv>
 #include <cstddef>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <ios>
@@ -42,11 +43,20 @@ uint32_t Dimension(std::string_view text) {
 
 int main(int argc, char **argv) {
   static_assert(std::endian::native == std::endian::little);
-  if (argc != 2 && argc != 4) { return 2; }
-  const uint32_t width = argc == 4 ? Dimension(argv[2]) : kTransmittanceLutWidth;
-  const uint32_t height = argc == 4 ? Dimension(argv[3]) : kTransmittanceLutHeight;
+  if (argc != 2 && argc != 4 && argc != 5) { return 2; }
+  const uint32_t width = argc >= 4 ? Dimension(argv[2]) : kTransmittanceLutWidth;
+  const uint32_t height = argc >= 4 ? Dimension(argv[3]) : kTransmittanceLutHeight;
   if (width == 0 || height == 0) { return 2; }
-  const Medium medium = Hazed(kEarthAir, 0.0);
+  float haze = 0.0f;
+  if (argc == 5) {
+    const auto text = std::string_view(argv[4]);
+    const auto parsed = std::from_chars(text.data(), text.data() + text.size(), haze);
+    if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size() ||
+        !std::isfinite(haze) || haze < 0.0f) {
+      return 2;
+    }
+  }
+  const Medium medium = Hazed(kEarthAir, haze);
   const std::string folder = argv[1];
   std::vector<float> veil(size_t{width} * height * 4u);
   std::vector<MediumLook> looks(size_t{width} * height);
