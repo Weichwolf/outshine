@@ -30,11 +30,13 @@ struct Pending {
 
 class VulkanDevice final : public Device {
 public:
-  explicit VulkanDevice(std::shared_ptr<Context> context) : Context_(std::move(context)) {}
+  VulkanDevice(std::shared_ptr<Context> context, std::unique_ptr<Presenter> presenter)
+      : Context_(std::move(context)), Presenter_(std::move(presenter)) {}
 
   ~VulkanDevice() override {
     assert(OnOwner(*Context_));
-    if (!Pending_.empty() || FailedSubmission_) {
+    if (Presenter_) { Presenter_->Stop(); }
+    if (!Pending_.empty() || FailedSubmission_ || Presenter_) {
       const auto result = vkDeviceWaitIdle(Context_->Logical);
       if (result != VK_SUCCESS) {
         std::println(stderr, "Vulkan shutdown: VkResult {}", static_cast<int>(result));
@@ -44,6 +46,9 @@ public:
       vkDestroyFence(Context_->Logical, pending.Fence, nullptr);
     }
     if (FailedSubmission_) { vkDestroyFence(Context_->Logical, FailedSubmission_->Fence, nullptr); }
+    Pending_.clear();
+    FailedSubmission_.reset();
+    Presenter_.reset();
   }
 
   [[nodiscard]] const Capabilities &Limits() const noexcept override { return Context_->Limits; }
@@ -121,6 +126,15 @@ public:
     return commands;
   }
 
+  [[nodiscard]] Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() override {
+    if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
+    if (!Presenter_) {
+      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                   .Message = "headless Vulkan device has no presentation"});
+    }
+    return Presenter_->Acquire();
+  }
+
   [[nodiscard]] Result<Completion> Submit(std::unique_ptr<Commands> commands) override {
     if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
     if (Pending_.size() >= kMaxPendingSubmissions) { return std::unexpected(Backpressure()); }
@@ -142,6 +156,9 @@ public:
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
     submit.commandBufferInfoCount = 1;
     submit.pCommandBufferInfos = &buffer;
+    VkSemaphoreSubmitInfo wait{};
+    VkSemaphoreSubmitInfo signal{};
+    native->BindPresentation(submit, wait, signal);
     result = vkQueueSubmit2(Context_->Queue, 1, &submit, fence);
     auto held = std::unique_ptr<Recording>(static_cast<Recording *>(commands.release()));
     if (result != VK_SUCCESS) {
@@ -151,6 +168,7 @@ public:
     }
     const auto serial = ++Submitted_;
     native->CommitImages();
+    native->CommitPresent();
     Pending_.push_back({.Recorded = std::move(held), .Fence = fence, .Serial = serial});
     return Completion{.Device = Context_->Cookie, .Serial = serial};
   }
@@ -222,6 +240,7 @@ private:
   static constexpr std::size_t kMaxPendingSubmissions = 3;
   static constexpr uint32_t kMaxLiveRecordings = 8;
   std::shared_ptr<Context> Context_;
+  std::unique_ptr<Presenter> Presenter_;
   std::deque<Pending> Pending_;
   std::optional<Pending> FailedSubmission_;
   std::optional<Error> Failed_;
@@ -233,13 +252,14 @@ private:
 }
 
 Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
-  if (options.Window != nullptr) {
-    return std::unexpected(
-        Error{.Kind = ErrorKind::Unsupported, .Message = "native Vulkan presentation unavailable"});
-  }
   auto context = Vulkan::CreateContext(options);
   if (!context) { return std::unexpected(context.error()); }
-  return std::make_unique<Vulkan::VulkanDevice>(std::move(*context));
+  std::unique_ptr<Vulkan::Presenter> presenter;
+  if (options.Window != nullptr) {
+    presenter = std::make_unique<Vulkan::Presenter>(*context, options.Window);
+    if (auto started = presenter->Start(); !started) { return std::unexpected(started.error()); }
+  }
+  return std::make_unique<Vulkan::VulkanDevice>(std::move(*context), std::move(presenter));
 }
 
 }
