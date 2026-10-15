@@ -19,6 +19,7 @@ from .vertical import (
     sample_vertical_transition,
 )
 from .profile_surface import mesh_projected_profile
+from .endpoint_grades import EndpointTransition, plan_endpoint_transition
 
 
 @dataclass(frozen=True, slots=True)

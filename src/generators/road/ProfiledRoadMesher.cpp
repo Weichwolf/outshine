@@ -227,12 +227,16 @@ bool LayPiece(std::span<const double> eastNorthM,
     return false;
   }
 
+  std::vector<double> requiredStations;
+  requiredStations.reserve(rise.size());
+  for (const Knot &knot : rise) { requiredStations.push_back(knot.AlongM); }
   const Ribbon woven = Sweep(line,
                              RoadSection(how.HalfWidthM, how.Profile),
                              0.0,
                              line.LengthM(),
                              StepFor(tightestM),
-                             how.Form);
+                             how.Form,
+                             requiredStations);
   if (!woven.Woven) {
     ++rejections.Sweep;
     return false;

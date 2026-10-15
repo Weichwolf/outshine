@@ -1,10 +1,12 @@
 #include "Check.h"
 #include "Corridors.h"
 #include "ProfiledRoadMesher.h"
+#include <scene/SurfaceClearance.h>
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -14,8 +16,34 @@
 
 namespace {
 
+struct SelectedSurface {
+  std::vector<outshine::Vec3> Vertices;
+  std::vector<std::array<uint32_t, 3>> Triangles;
+
+  void
+  Append(const outshine::RoadMeshBuffers &mesh, std::span<const uint32_t> indices, double facing) {
+    for (size_t at = 0; at < indices.size(); at += 3) {
+      const std::array face{indices[at], indices[at + 1], indices[at + 2]};
+      if (!std::ranges::all_of(
+              face, [&](uint32_t vertex) { return facing * mesh.NormalM[vertex * 3 + 1] > .5; })) {
+        continue;
+      }
+      const auto first = static_cast<uint32_t>(Vertices.size());
+      for (uint32_t vertex : face) {
+        Vertices.push_back({{mesh.PositionM[vertex * 3],
+                             -mesh.PositionM[vertex * 3 + 2],
+                             mesh.PositionM[vertex * 3 + 1]}});
+      }
+      Triangles.push_back({first, first + 1, first + 2});
+    }
+  }
+
+  outshine::HeightSurfaceView View() const { return {Vertices, Triangles}; }
+};
+
 struct RecordingMesher final : outshine::RoadMesher {
   mutable std::array<double, 2> CrossingHeightM{};
+  mutable std::array<SelectedSurface, 2> Top, Underside;
   mutable size_t JunctionCount = 0;
   outshine::Generators::ProfiledRoadMesher Native;
 
@@ -31,7 +59,12 @@ struct RecordingMesher final : outshine::RoadMesher {
       CrossingHeightM[eastward ? 1 : 0] =
           std::lerp(along[at - 1].GradeM, along[at].GradeM, -first / (last - first));
     }
-    return Native.Sweep(along, how, into);
+    const size_t before = into.Index.size();
+    const auto result = Native.Sweep(along, how, into);
+    const auto faces = std::span(into.Index).subspan(before);
+    Top[eastward ? 1 : 0].Append(into, faces, 1);
+    Underside[eastward ? 1 : 0].Append(into, faces, -1);
+    return result;
   }
 
   void Junction(std::span<const outshine::RoadGate> gates,
@@ -50,7 +83,9 @@ enum class Crossing {
   RoadMeetsPath,
   RailMeetsPath,
   RailEndMeetsPath,
-  SameBridgeTier
+  SameBridgeTier,
+  DenseStack,
+  ObliqueStack
 };
 
 void CheckHeights(Crossing kind,
@@ -70,20 +105,27 @@ void CheckHeights(Crossing kind,
   CHECK(mesher.CrossingHeightM[1] - kSealedDepthM >=
             mesher.CrossingHeightM[0] + lower.ClearanceM - 1e-6,
         "the upper underside clears the lower road envelope, independently of source order");
+  const auto gap = MeasureSurfaceClearance(mesher.Top[0].View(), mesher.Underside[1].View());
+  CHECK(gap.has_value(), "selected native road top and bridge underside overlap over their width");
+  if (gap) {
+    if (gap->MinimumM < lower.ClearanceM - 1e-4) {
+      std::printf("crossing=%u gap=%.9f required=%.9f xy=%.9f,%.9f centre=%.9f,%.9f\n",
+                  static_cast<unsigned>(kind),
+                  gap->MinimumM,
+                  lower.ClearanceM,
+                  gap->Witness[0],
+                  gap->Witness[1],
+                  mesher.CrossingHeightM[0],
+                  mesher.CrossingHeightM[1]);
+    }
+    CHECK(gap->MinimumM >= lower.ClearanceM - 1e-4,
+          "the entire rendered overlap preserves vehicle clearance within float32 mesh precision");
+  }
 }
 
-void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) {
+std::vector<outshine::Generators::Osm::OsmField::Declared> DeclaredCrossing(Crossing kind,
+                                                                            bool duplicate) {
   using namespace outshine;
-  using namespace outshine::Test;
-  constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
-  Ground::GroundMaterials materials;
-  Ground::VegetationTemplates vegetation;
-  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
-            vegetation.Load("src/assets/world/vegetation.json", materials),
-        "both bridge decks use production road dimensions");
-  if (!vegetation.Ready()) { return; }
-  const std::array<std::string, 1> layers{"streets"};
-  Generators::Osm::OsmField vectors(14, layers);
   std::vector declared{Generators::Osm::OsmField::Declared{.Layer = "streets",
                                                            .Key = "kind",
                                                            .Value = "residential",
@@ -133,6 +175,34 @@ void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) 
     const auto copies = declared;
     declared.insert(declared.end(), copies.begin(), copies.end());
   }
+  if (kind == Crossing::ObliqueStack) { declared[1].LatLon = {48.999, 7.998, 49.001, 8.002}; }
+  if (kind == Crossing::DenseStack) {
+    for (auto &source : declared) {
+      const auto endpoints = source.LatLon;
+      source.LatLon.clear();
+      for (size_t at = 0; at <= 255; ++at) {
+        const double weight = static_cast<double>(at) / 255;
+        source.LatLon.push_back(std::lerp(endpoints[0], endpoints[2], weight));
+        source.LatLon.push_back(std::lerp(endpoints[1], endpoints[3], weight));
+      }
+    }
+  }
+  return declared;
+}
+
+void CheckStack(bool reversed, bool duplicate, Crossing kind = Crossing::Stack) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  constexpr LongitudeLatitude origin{.LongitudeDeg = 8, .LatitudeDeg = 49};
+  Ground::GroundMaterials materials;
+  Ground::VegetationTemplates vegetation;
+  CHECK(materials.Load("src/assets/world/ground-materials.json") &&
+            vegetation.Load("src/assets/world/vegetation.json", materials),
+        "both bridge decks use production road dimensions");
+  if (!vegetation.Ready()) { return; }
+  const std::array<std::string, 1> layers{"streets"};
+  Generators::Osm::OsmField vectors(14, layers);
+  auto declared = DeclaredCrossing(kind, duplicate);
   if (reversed) { std::ranges::reverse(declared); }
   CHECK(vectors.Declare(declared, origin).has_value(), "crossing decks declare distinct levels");
   Generators::Osm::StreetField ways;
@@ -187,6 +257,10 @@ int main() {
     CheckStack(true, duplicate);
     CheckStack(false, duplicate, Crossing::SameBridgeTier);
     CheckStack(true, duplicate, Crossing::SameBridgeTier);
+  }
+  for (const auto kind : {Crossing::DenseStack, Crossing::ObliqueStack}) {
+    CheckStack(false, false, kind);
+    CheckStack(true, false, kind);
   }
   CheckStack(false, false, Crossing::NearEnd);
   CheckStack(true, false, Crossing::NearEnd);

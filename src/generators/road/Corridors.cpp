@@ -412,7 +412,9 @@ void Corridors::PaveEdge(const Paving &on,
                                {.HalfWidthM = static_cast<double>(lane.HalfWidthM),
                                 .Profile = profile,
                                 .WearsLinear = wears,
-                                .Crossfall = lane.Bridge ? std::atan(kCrossfall) : 0.0,
+                                .Crossfall = lane.Bridge && !into.UnbankedWays.contains(laneAt)
+                                                 ? std::atan(kCrossfall)
+                                                 : 0.0,
                                 .Form = lane.Bridge ? RibbonForm::ClosedShell : RibbonForm::Surface,
                                 .EndPorts = edge.EndPorts},
                                pavement);

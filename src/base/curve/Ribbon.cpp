@@ -201,74 +201,26 @@ void BoundaryNormals(size_t stations, Ribbon &out) {
   }
 }
 
-}
-
-Ribbon Sweep(const ReferenceLine &along,
-             const Section &section,
-             double fromM,
-             double toM,
-             double stepM,
-             RibbonForm form) {
-  Ribbon out;
-  out.FromM = fromM;
-  out.ToM = toM;
-
-  const auto count = StationCount(section, fromM, toM, stepM);
-  if (!count) {
-    out.Error = count.error();
-    return out;
-  }
-  const auto curvature = along.MaxAbsCurvaturePerM(fromM, toM);
-  if (!curvature) {
-    out.Error = "ribbon requires a finite reference-line interval";
-    return out;
-  }
-  if (*curvature > 0.0 && section.HalfWidthM + section.ShoulderM >= 1.0 / *curvature) {
-    out.Error = "ribbon width reaches the local curvature radius and folds its horizontal offset";
-    return out;
-  }
-  const size_t stations = *count;
-
+bool AppendSections(const ReferenceLine &along,
+                    const Section &section,
+                    std::span<const double> sampling,
+                    RibbonForm form,
+                    Ribbon &out) {
   const std::array<double, kRibbonAcross> acrossAt = {{-(section.HalfWidthM + section.ShoulderM),
                                                        -section.HalfWidthM,
                                                        section.HalfWidthM,
                                                        section.HalfWidthM + section.ShoulderM}};
-
-  const size_t vertices = form == RibbonForm::Surface
-                              ? stations * kRibbonAcross
-                              : stations * kVerticesPerStation + 4 * kRibbonAcross;
-  out.PositionM.reserve(vertices * 3);
-  out.NormalM.reserve(vertices * 3);
-  out.AcrossM.reserve(vertices);
-  out.Index.reserve(form == RibbonForm::Surface
-                        ? (stations - 1) * (kRibbonAcross - 1) * 6
-                        : (stations - 1) * kRibbonAcross * 12 + (kRibbonAcross - 1) * 12);
-
-  {
-    Placed first;
-    if (!along.At(fromM, first)) {
-      out.Error = "the reference line places nothing at " + std::to_string(fromM) + " m";
-      return out;
-    }
-    const Astride surface = StandAt(along, {.AlongM = fromM, .AcrossM = 0.0, .HalfWidthM = 0.0});
-    out.OriginM[0] = first.EastM;
-    out.OriginM[1] = surface.HeightM;
-    out.OriginM[2] = RenderFrame::ZOfNorth(first.NorthM);
-  }
-
-  for (size_t station = 0; station < stations; ++station) {
-    const double atM = station + 1 == stations ? toM : fromM + static_cast<double>(station) * stepM;
+  for (const double atM : sampling) {
     Placed on;
-    if (!along.At(atM > toM ? toM : atM, on)) {
+    if (!along.At(atM, on)) {
       out.Error = "the reference line places nothing at " + std::to_string(atM) + " m";
-      return out;
+      return false;
     }
     const Vec2 left = {{-std::sin(on.HeadingRad), std::cos(on.HeadingRad)}};
 
     std::array<Astride, kRibbonAcross> stood{};
     for (size_t which = 0; which < kRibbonAcross; ++which) {
-      stood[which] = StandAt(
-          along, {.AlongM = atM > toM ? toM : atM, .AcrossM = acrossAt[which], .HalfWidthM = 0.0});
+      stood[which] = StandAt(along, {.AlongM = atM, .AcrossM = acrossAt[which], .HalfWidthM = 0.0});
       const double eastM = on.EastM + left[0] * acrossAt[which];
       const double northM = on.NorthM + left[1] * acrossAt[which];
       Put(out.PositionM,
@@ -295,6 +247,92 @@ Ribbon Sweep(const ReferenceLine &along,
     }
     WallsAt(on, left, stood, acrossAt, section.ThicknessM, out);
   }
+
+  return true;
+}
+
+std::expected<std::vector<double>, std::string_view>
+SamplingStations(const Section &section,
+                 double fromM,
+                 double toM,
+                 double stepM,
+                 std::span<const double> required) {
+  const auto count = StationCount(section, fromM, toM, stepM);
+  if (!count) { return std::unexpected(count.error()); }
+  if (required.size() > kMaxRibbonStations) {
+    return std::unexpected("required ribbon stations exceed their input budget");
+  }
+  if (!std::ranges::is_sorted(required) || std::ranges::any_of(required, [&](double at) {
+        return !std::isfinite(at) || at < fromM || at > toM;
+      })) {
+    return std::unexpected("required ribbon stations must be finite, sorted and in the interval");
+  }
+  std::vector<double> uniform(*count);
+  for (size_t at = 0; at < *count; ++at) {
+    uniform[at] = at + 1 == *count ? toM : std::min(toM, fromM + static_cast<double>(at) * stepM);
+  }
+  std::vector<double> sampling(uniform.size() + required.size());
+  std::ranges::merge(uniform, required, sampling.begin());
+  const auto duplicates = std::ranges::unique(sampling);
+  sampling.erase(duplicates.begin(), duplicates.end());
+  if (sampling.size() > kMaxRibbonStations) {
+    return std::unexpected("combined ribbon stations exceed their generation budget");
+  }
+  return sampling;
+}
+
+}
+
+Ribbon Sweep(const ReferenceLine &along,
+             const Section &section,
+             double fromM,
+             double toM,
+             double stepM,
+             RibbonForm form,
+             std::span<const double> requiredStations) {
+  Ribbon out;
+  out.FromM = fromM;
+  out.ToM = toM;
+
+  const auto sampling = SamplingStations(section, fromM, toM, stepM, requiredStations);
+  if (!sampling) {
+    out.Error = sampling.error();
+    return out;
+  }
+  const auto curvature = along.MaxAbsCurvaturePerM(fromM, toM);
+  if (!curvature) {
+    out.Error = "ribbon requires a finite reference-line interval";
+    return out;
+  }
+  if (*curvature > 0.0 && section.HalfWidthM + section.ShoulderM >= 1.0 / *curvature) {
+    out.Error = "ribbon width reaches the local curvature radius and folds its horizontal offset";
+    return out;
+  }
+  const size_t stations = sampling->size();
+
+  const size_t vertices = form == RibbonForm::Surface
+                              ? stations * kRibbonAcross
+                              : stations * kVerticesPerStation + 4 * kRibbonAcross;
+  out.PositionM.reserve(vertices * 3);
+  out.NormalM.reserve(vertices * 3);
+  out.AcrossM.reserve(vertices);
+  out.Index.reserve(form == RibbonForm::Surface
+                        ? (stations - 1) * (kRibbonAcross - 1) * 6
+                        : (stations - 1) * kRibbonAcross * 12 + (kRibbonAcross - 1) * 12);
+
+  {
+    Placed first;
+    if (!along.At(fromM, first)) {
+      out.Error = "the reference line places nothing at " + std::to_string(fromM) + " m";
+      return out;
+    }
+    const Astride surface = StandAt(along, {.AlongM = fromM, .AcrossM = 0.0, .HalfWidthM = 0.0});
+    out.OriginM[0] = first.EastM;
+    out.OriginM[1] = surface.HeightM;
+    out.OriginM[2] = RenderFrame::ZOfNorth(first.NorthM);
+  }
+
+  if (!AppendSections(along, section, *sampling, form, out)) { return out; }
 
   constexpr std::array<uint32_t, 3> allBands = {0, 1, 2};
   const std::span<const uint32_t> bands = allBands;
