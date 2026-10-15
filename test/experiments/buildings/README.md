@@ -121,10 +121,6 @@ from both expressions. It checks exact output roots/supports/native IDs before
 reporting isolated kernel time. Source geometry capture and verification are
 excluded from that timer; the historical own-source kernel stays in build output.
 
-```sh
-.venv/bin/python test/experiments/buildings/showcase.py --publish --serve
-```
-
 `boolean_building_plan` converts complete existing multi-storey plans into room,
 door, window and stair-opening CSG sources. Balanced/sequential expressions are
 retained comparisons, including rejected topology/candidate-capacity cases.
@@ -151,21 +147,26 @@ entrance/stair openings and missing flights are negative controls.
 generic room programme, native player controller and architecture families remain
 separate.
 
-The showcase reads the checked current snapshot and serves it on localhost:8766.
-The latest user instruction replaces the earlier multi-page gallery: exactly four
-current complete tile images, no diagnostic panels or subpages. New stands appear
-on opening or via the manual refresh button; no polling timer runs. Detailed
-controls/plots remain private experiment artifacts. Outputs remain under
-`build/experiments/buildings/`; native runtime/device budgets remain unproven.
+The Buildings gallery uses four fixed native Place locations/cameras:
+DarmstadtWest, Flensburg, Rosenheim and Tokyo from `src/assets/places/`.
+`doc/images/places/` supplies the comparison images only. Own current Python
+building renders belong in `doc/images/buildings/`, at 1920×1080 or higher with
+the same aspect ratio and vertical FOV; replace them after clearly visible gains.
+Do not copy native images as Python results. The local server and its UI are retired.
+Private source data and intermediate outputs stay in system-temp directories.
 
 ```sh
-.venv/bin/python test/experiments/buildings/showcase_tiles.py
-.venv/bin/python test/experiments/buildings/showcase.py --publish
-.venv/bin/python test/experiments/buildings/showcase.py --serve
+.venv/bin/python test/experiments/buildings/verify_place_reference.py
+.venv/bin/python test/experiments/buildings/place_sources.py --fetch --output <temp>/source-receipts.json
+.venv/bin/python test/experiments/buildings/render_places.py --sources <temp>/source-receipts.json --output <temp>/verified-place-renders
+.venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders
 ```
 
-The publisher reads `tile-showcase/reports.json` directly and prunes obsolete public
-images. It requires four clean render reports from the same source commit.
+The publisher requires all four own clean render reports and matching scenario
+camera hashes before replacing the gallery. Tokyo's height requires actual DEM
+sampling; the other three scenario heights are absolute. Source extent, missing
+world classes and terrain/material/light differences remain explicit. The initial
+source acquisition is a declared 3 km window, not native 240 km Place admission.
 
 ## Sonderbauwerke aus dem bevorzugten Provider
 
@@ -437,8 +438,8 @@ These are furnishing controls, **zero complete architecture recipe families**.
 Oversized legacy rooms, plumbing, ventilation, occupancy/accessibility rules,
 other programme families, seated interactions and native detail admission remain
 open at [#174](https://github.com/Weichwolf/outshine/issues/174), #31/#32/#33/#48.
-The public showcase retains exactly four complete current source tiles and its
-manual refresh. Invisible far furniture is not generated for those views.
+The public gallery retains four fixed Place views. Invisible far furniture is
+not generated for those views.
 
 `inspect_render_exposure.py <render-report.json> --exposure 8` derives a private
 display inspection from the stored linear denoised radiance. Its provenance
@@ -489,6 +490,6 @@ preparation and whole fresh-process Linux RSS stay separate.
 `room_programme_probe.py --support-plan --overview-only` uses the chosen plan,
 then renders a declared ground-office cut: actual body parts capped at 1.10 m
 above that floor, upper storeys/ceiling omitted, full furniture retained. The
-uncut mesh is checked separately. Public showcase remains four whole tiles.
+uncut mesh is checked separately. The public gallery retains four fixed Place views.
 Door leaves/privacy states, services/ventilation, complete architectural
 programmes, other uses, runtime LOD/cache and native admission remain open.
