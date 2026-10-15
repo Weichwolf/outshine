@@ -248,6 +248,34 @@ ohne dieses Feld bleibt der bisherige Palettenpfad erhalten. 1280×720 für den
 Eindruck, 1920×1080 nur lokale Prüfung; keine Galerie/Publikation. Materialrezepte,
 Beleuchtung und native APIs behalten ihre Besitzer; keine neuen Landcoverdaten.
 
+## Räumliche Straßenrandprofile (#364)
+
+`curb_experiment.py` baut optionale prozedurale Bordkörper außerhalb der gesamten
+bestehenden Verkehrsfläche. Nominell höchstens18cm XY-Breite und12cm vertikale
+Höhe; vorhandene Fahr-/Geh-/Gleisbreiten bleiben erhalten. Gewählte tatsächlich
+verwendete befestigte urbane Quellen binden die Auswahl. Querungen, Endports und
+obere Bauwerke/Pfeiler/Portale werden ausgespart. Der installierbare Ganzflächenkern
+konstruiert auf dem ursprünglichen Höhenfeld; tatsächlicher feiner Boden bleibt
+unabhängige Kontaktreferenz. [Vergleich, Pins, Bild und Kosten](curb_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/curb_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SURFACE_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_CURB_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/curb_verify.py --products "$TRANSPORT_CURB_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SURFACE_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_CURB_OUTPUT/verification.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CURB_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CURB_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CURB_OUTPUT/after-1080-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/curb_cost.py --products "$TRANSPORT_CURB_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --method fine --output "$TRANSPORT_CURB_COST_FINE"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/curb_cost.py --products "$TRANSPORT_CURB_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --method field --output "$TRANSPORT_CURB_COST_FIELD"
+```
+
+Frische explizite System-Temp-Ausgaben und sauber eingefrorene Quellen. Optionales
+`--profile` benötigt `memray==1.20.0` ausschließlich für Allokationsmessung. Beide
+Kostenmethoden nutzen dieselben tatsächlich von beiden Methoden zugelassenen
+Footprints; einseitige/budgetbedingt fehlende Fälle bleiben im ganzen Vergleich.
+Regionale1280×720-Ansicht mit1100m horizontaler Spannweite,1080 nur lokal; keine
+Galerie oder Bilderpublikation. Vollständige Gehweghöhen/Absenkungen, zusätzliche
+Verbraucherreservierungen, native oder Geräteabnahme werden nicht daraus abgeleitet.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
