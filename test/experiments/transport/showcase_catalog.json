@@ -26,9 +26,9 @@
       ],
       "diagnostic": true,
       "scope": "Complete source tile; historical diagnostic of independently fitted roads and unmodified DEM terrain with intentional interpenetration. Not a valid final combined surface.",
-      "image_source": "build/experiments/transport/whole-tiles/Vienna-before-solid.png",
-      "report_source": "build/experiments/transport/whole-tiles/Vienna-before-solid.json",
-      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+      "image_source": "whole-tiles/Vienna-before-solid.png",
+      "report_source": "whole-tiles/Vienna-before-solid.json",
+      "origin_source": "whole-tiles/origin.json"
     },
     {
       "id": "Vienna-after",
@@ -51,9 +51,9 @@
       ],
       "diagnostic": false,
       "scope": "Complete source tile; valid coarse C0 shared road/soil surface. Display slab, not earth volume or proven physical collision material. Not a full Place or native runtime.",
-      "image_source": "build/experiments/transport/whole-tiles/Vienna-after-solid.png",
-      "report_source": "build/experiments/transport/whole-tiles/Vienna-after-solid.json",
-      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+      "image_source": "whole-tiles/Vienna-after-solid.png",
+      "report_source": "whole-tiles/Vienna-after-solid.json",
+      "origin_source": "whole-tiles/origin.json"
     },
     {
       "id": "Tokyo",
@@ -74,9 +74,9 @@
       ],
       "diagnostic": false,
       "scope": "Complete captured OpenFreeMap source tile; supported flat ground axes and preserved source identities/access masks. Z=0 is a declared recipe, not DEM or a full drivable/grade-separated world.",
-      "image_source": "build/experiments/transport/whole-tiles/Tokyo-solid.png",
-      "report_source": "build/experiments/transport/whole-tiles/Tokyo-solid.json",
-      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+      "image_source": "whole-tiles/Tokyo-solid.png",
+      "report_source": "whole-tiles/Tokyo-solid.json",
+      "origin_source": "whole-tiles/origin.json"
     },
     {
       "id": "CentralPark",
@@ -97,9 +97,9 @@
       ],
       "diagnostic": false,
       "scope": "Complete captured OpenFreeMap source tile; supported flat ground axes and preserved source identities/access masks. Z=0 is a declared recipe, not DEM or a full drivable/grade-separated world.",
-      "image_source": "build/experiments/transport/whole-tiles/CentralPark-solid.png",
-      "report_source": "build/experiments/transport/whole-tiles/CentralPark-solid.json",
-      "origin_source": "build/experiments/transport/whole-tiles/origin.json"
+      "image_source": "whole-tiles/CentralPark-solid.png",
+      "report_source": "whole-tiles/CentralPark-solid.json",
+      "origin_source": "whole-tiles/origin.json"
     }
   ]
 }

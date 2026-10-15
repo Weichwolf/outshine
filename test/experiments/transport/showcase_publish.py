@@ -19,21 +19,21 @@ def atomic_write(path, data):
     temporary.replace(path)
 
 
-def local_path(name):
-    path = (ROOT / name).resolve()
-    if not path.is_relative_to(ROOT / "build"):
-        raise ValueError("Bildnachweise müssen unter build/ liegen")
+def local_path(name, source_root):
+    path = (source_root / name).resolve()
+    if not path.is_relative_to(source_root.resolve()):
+        raise ValueError("Bildnachweise müssen unter dem Datenverzeichnis liegen")
     return path
 
 
-def image_record(entry, root):
+def image_record(entry, root, source_root):
     record = dict(entry, status="incomplete")
     try:
-        path = local_path(entry["image_source"])
+        path = local_path(entry["image_source"], source_root)
         data = path.read_bytes()
-        report_path = local_path(entry["report_source"])
+        report_path = local_path(entry["report_source"], source_root)
         report = json.loads(report_path.read_text(encoding="utf-8"))
-        origin_path = local_path(entry["origin_source"])
+        origin_path = local_path(entry["origin_source"], source_root)
         origin = json.loads(origin_path.read_text(encoding="utf-8"))
         proof = origin["records"][report_path.stem]
         digest = hashlib.sha256(data).hexdigest()
@@ -98,7 +98,7 @@ def page(images):
     )
 
 
-def publish(root, catalog):
+def publish(root, catalog, *, source_root):
     root = root.resolve()
     selected = json.loads(catalog.read_text(encoding="utf-8"))
     entries = selected["images"]
@@ -107,7 +107,7 @@ def publish(root, catalog):
     root.mkdir(parents=True, exist_ok=True)
     (root / "assets").mkdir(exist_ok=True)
     atomic_write(root / "showcase.css", (HERE / "showcase.css").read_bytes())
-    images = [image_record(entry, root) for entry in entries]
+    images = [image_record(entry, root, source_root) for entry in entries]
     commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
     ).strip()
