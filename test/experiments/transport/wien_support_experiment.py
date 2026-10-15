@@ -15,6 +15,7 @@ from bridge_support_plan import plan_supports, stations
 from camera_height_inputs import digest
 from ground_surface_showcase import combined
 from outshine_ref.contracts import Mesh
+from outshine_ref.transport.supports import SupportVolumeBuilder
 from retained_surface import surface_domain
 from wien_network_experiment import export_body
 from wien_network_sources import scene
@@ -109,15 +110,14 @@ def build(args):
         args.network, args.reference_root
     )
     candidates = stations([r for r in sources if r["role"] == "deck"])
-    lower, upper = ContactSurface(ground), ContactSurface(deck)
-    methods, selected = {}, None
+    builder = SupportVolumeBuilder(ground, deck)
+    preparation_seconds = builder.preparation_seconds
+    methods, cases, selected = {}, {}, None
     for method in ("fixed", "shifted"):
         products, contacts, shapes, report = plan_supports(
-            candidates, lower, upper, excluded, method=method
+            candidates, builder, excluded, method=method
         )
-        report["verification"] = verify(
-            products, contacts, shapes, lower, upper, excluded, world
-        )
+        cases[method] = products, contacts, shapes
         report["reasons"] = dict(
             Counter(r["reason"] for r in report["stations"] if not r["valid"])
         )
@@ -142,6 +142,13 @@ def build(args):
         )
     if not selected:
         raise ValueError("no valid piers; unchanged network remains valid")
+    del builder
+    lower, upper = ContactSurface(ground), ContactSurface(deck)
+    for method, (products, contacts, shapes) in cases.items():
+        methods[method]["verification"] = verify(
+            products, contacts, shapes, lower, upper, excluded, world
+        )
+    del lower, upper
     rows = write_scenes(args.network, args.output, before, selected)
     result = {
         "commit": subprocess.check_output(
@@ -154,6 +161,7 @@ def build(args):
         "origin_lat_lon": fixture["origin_lat_lon"],
         "methods": methods,
         "selected": chosen,
+        "support_preparation_seconds": preparation_seconds,
         "render_inputs": rows,
         "seconds": time.perf_counter() - began,
         "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
