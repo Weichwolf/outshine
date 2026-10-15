@@ -12,6 +12,7 @@ import gpu
 import numpy as np
 from blender_instances import instance_group
 from blender_preview import material, mesh_object
+from ground_cover_scene import ground_population
 from mathutils import Vector
 from preview_shadows import configure_preview
 from scipy.spatial.transform import Rotation
@@ -65,7 +66,7 @@ def poses(xy, rng, scale=1):
     )
 
 
-def population(name, recipe):
+def reference_population(name, recipe):
     rng = np.random.default_rng(recipe["seed"])
     size, step = recipe["size_m"], recipe["grass_step_m"]
     x, y = np.meshgrid(
@@ -104,6 +105,16 @@ def population(name, recipe):
         selected = np.sin(xy[:, 0] * 0.6) + np.cos(xy[:, 1] * 0.8) > -0.5
         result.append(("heather", *poses(xy[selected], rng, 1.5)))
     return result
+
+
+def population(name, recipe):
+    # Preserve the comparison's existing woody poses while replacing only grass.
+    reference = reference_population(name, recipe)
+    if "grass_density_m2" not in recipe:
+        return reference
+    return ground_population(name, recipe) + [
+        row for row in reference if not row[0].startswith("grass-")
+    ]
 
 
 def plants(name, recipe, products):

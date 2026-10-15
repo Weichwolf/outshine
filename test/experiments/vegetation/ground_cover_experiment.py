@@ -7,8 +7,8 @@ import time
 from pathlib import Path
 
 import numpy as np
-from ground_cover import GroundCoverPlan
 from ground_cover_scene import tuft_geometry, tuft_poses
+from outshine_ref.vegetation import GroundCoverPlan
 from outshine_ref.vegetation.shoot_plan import normal_frame
 from raster_batch import fragments
 

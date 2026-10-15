@@ -1,6 +1,7 @@
 """Prepare independent tuft transforms, retaining each original root identity."""
 
 import numpy as np
+from outshine_ref.vegetation import GroundCoverPlan
 from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
 
 
@@ -38,3 +39,31 @@ def tuft_geometry(poses, segments=3):
         faces.append(f.reshape(-1, 3) + offset)
         offset += v.size // 3
     return np.concatenate(vertices), np.concatenate(faces)
+
+
+def ground_population(name, recipe):
+    half = recipe["size_m"] / 2
+    plan = GroundCoverPlan(recipe["seed"], recipe["grass_density_m2"])
+    sites = plan.sites((-half, -half), (half, half))
+    if sites is None:
+        raise ValueError("whole grass study exceeds the explicit cell/root budget")
+    poses = tuft_poses(sites)
+    result = []
+    for index in range(8):
+        selected = poses["variants"] == index
+        if not selected.any():
+            continue
+        scales = np.repeat(poses["scales"][selected, None], 3, axis=1)
+        if name == "Steppe":
+            scales *= (0.8, 0.8, 1.65)
+        if name == "Heide":
+            scales *= (0.7, 0.7, 0.6)
+        result.append(
+            (
+                f"grass-{index}",
+                poses["origins"][selected],
+                poses["frames"][selected],
+                scales,
+            )
+        )
+    return result

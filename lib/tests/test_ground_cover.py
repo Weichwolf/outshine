@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
-from ground_cover import GroundCoverPlan
+from outshine_ref.vegetation import GroundCoverPlan
 
 
 def ordered(product):
@@ -73,11 +73,23 @@ class CoverChecks(unittest.TestCase):
             self.assertTrue(np.all((column >= 0) & (column < 1)))
 
     def test_bad_numeric_inputs_and_zero_density(self):
-        for args in ((-1, 10), (1, np.inf), (1, -1), (1, 3, 0), (True, 10)):
+        for args in (
+            (-1, 10),
+            (1, np.inf),
+            (1, -1),
+            (1, 3, 0),
+            (True, 10),
+            (1, [1]),
+            (1, "3"),
+            (1, 1j),
+        ):
             with self.assertRaises(ValueError):
                 GroundCoverPlan(*args)
         plan = GroundCoverPlan(1, 0)
-        self.assertEqual(plan.sites((-2, -2), (2, 2), 0)["ids"].shape, (0, 3))
+        with patch.object(
+            GroundCoverPlan, "_random", side_effect=AssertionError("empty field RNG")
+        ):
+            self.assertEqual(plan.sites((-2, -2), (2, 2), 0)["ids"].shape, (0, 3))
         for a, b in (((1, 0), (0, 1)), ((np.nan, 0), (1, 1))):
             with self.assertRaises(ValueError):
                 plan.sites(a, b)

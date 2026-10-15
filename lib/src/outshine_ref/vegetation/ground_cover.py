@@ -3,6 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass
+from numbers import Real
 
 import numpy as np
 
@@ -16,9 +17,17 @@ class GroundCoverPlan:
     def __post_init__(self):
         if type(self.seed) is not int or not 0 <= self.seed < 2**64:
             raise ValueError("uint64 seed required")
-        if not np.isfinite(self.density_m2) or not 0 <= self.density_m2 <= 2048:
+        if (
+            not isinstance(self.density_m2, Real)
+            or not np.isfinite(self.density_m2)
+            or not 0 <= self.density_m2 <= 2048
+        ):
             raise ValueError("finite expected root density within0..2048/m2 required")
-        if not np.isfinite(self.cell_m) or not 0.25 <= self.cell_m <= 16:
+        if (
+            not isinstance(self.cell_m, Real)
+            or not np.isfinite(self.cell_m)
+            or not 0.25 <= self.cell_m <= 16
+        ):
             raise ValueError("finite canonical cell side within0.25..16m required")
 
     def recipe(self):
@@ -82,13 +91,19 @@ class GroundCoverPlan:
         if region is None:
             return None
         lower, upper, cells = region
-        counts = np.fromiter(
-            (
-                self._random(cell, b"count").poisson(self.density_m2 * self.cell_m**2)
-                for cell in cells
-            ),
-            dtype=np.int64,
-            count=len(cells),
+        counts = (
+            np.fromiter(
+                (
+                    self._random(cell, b"count").poisson(
+                        self.density_m2 * self.cell_m**2
+                    )
+                    for cell in cells
+                ),
+                dtype=np.int64,
+                count=len(cells),
+            )
+            if self.density_m2
+            else np.zeros(len(cells), np.int64)
         )
         return {
             "cells": cells,
@@ -107,6 +122,8 @@ class GroundCoverPlan:
         xy = np.empty((total, 2))
         ids = np.empty((total, 3), np.int64)
         marks = np.empty((total, 3))
+        if not total:
+            return {"ids": ids, "xy": xy, "marks": marks}
         begin = 0
         for cell, count in zip(summary["cells"], summary["counts"], strict=True):
             end = begin + int(count)
