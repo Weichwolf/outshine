@@ -1,3 +1,5 @@
+from outshine_ref.transport.port_heights._quality import quality
+
 """Refine complete C1 road plans and refit matching soil within bounded work (#169)."""
 
 import argparse
@@ -9,52 +11,16 @@ import time
 from pathlib import Path
 
 import numpy as np
-from port_plane_contacts import contact_audit
+from outshine_ref.transport.port_heights._contacts import contact_audit
+from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._system import continuous_matrix, fit_planes
+from outshine_ref.transport.port_heights._world import (
+    assemble_world,
+)
 from port_plane_fixture import REFERENCE, load_reference
-from port_plane_layout import prepare_plane_field
 from port_plane_refinement import refine
-from port_plane_system import continuous_matrix, fit_planes
-from port_plane_world import approximation_bounds, assemble_world, finite_ports
-from surface_height_checks import normal_gradients
 
 ROOT = Path(__file__).resolve().parents[3]
-
-
-def quality(field, coefficients, mesh, roles):
-    errors, maximum = approximation_bounds(
-        field, coefficients, mesh["xy"], mesh["faces"], mesh["parts"], mesh["frames"]
-    )
-    gradients = normal_gradients(mesh["xy"], mesh["faces"], mesh["heights"])
-    normalized = np.linalg.norm(
-        np.einsum("nki,ni->nk", mesh["frames"], gradients), axis=1
-    )
-    bad_ports, contacts = finite_ports(
-        mesh["xy"],
-        mesh["faces"],
-        mesh["parts"],
-        mesh["heights"],
-        mesh["port_roots"],
-        roles,
-    )
-    road = mesh["parts"] >= 0
-    marked = (errors > 0.01) | (road & (normalized > 1.0000001))
-    marked[bad_ports] = True
-    note = {
-        "maximum_height_chord_bound_m": float(errors.max()),
-        "maximum_normalized_continuous_grade": maximum,
-        "maximum_normalized_finite_grade": float(normalized.max()),
-        "maximum_normalized_finite_road_grade": float(normalized[road].max(initial=0)),
-        "maximum_normalized_soil_grade": float(normalized[~road].max(initial=0)),
-        "bad_finite_road_faces": int(np.count_nonzero(road & (normalized > 1.0000001))),
-        "bad_road_faces": int(np.count_nonzero(marked)),
-        "bad_soil_faces": int(np.count_nonzero(~road & (normalized > 1.0000001))),
-        "finite_contacts": contacts,
-    }
-    note["geometry_complete"] = not marked.any()
-    note["whole_world_valid"] = bool(
-        normalized.max() <= 1.0000001 and maximum <= 1.0000001
-    )
-    return marked, note, errors
 
 
 def resample_road(field, coefficients, datum, mesh):

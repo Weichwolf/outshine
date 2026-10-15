@@ -74,6 +74,36 @@ Der Operator ändert keine gemeinsamen Plan-/Reservierungsverträge; ein erhöht
 Road-Mesh allein ist kein Boden-/Gebäudekontaktprodukt. Fachvertrag:
 [#20](https://github.com/Weichwolf/outshine/issues/20), Übernahme #50.
 
+`transport.plan_port_heights(PortHeightInput(...), budget=PortHeightBudget())`
+plant gemeinsame geneigte Kreuzungsebenen, ganze rationale C1-Straßenübergänge
+und einen konformen C0-Straßen-/Bodenmesh. Eingabe: unveränderlicher `Mesh` mit
+weichen originalen Höhenpriors, Face-Modul-IDs (`-1` für Boden), Rollen (`0`
+Korridor/`1` Kreuzung), ganze gemeinsame Portkanten und deren Modulpaare sowie
+ein normierender 2×2-Gradientenrahmen je Face. Originale Face-/Modul-IDs und
+Vertexanker bleiben erhalten, auch bei anderer Face-Reihenfolge oder Winding.
+`PortHeightFit` enthält einen `PortHeightPlan` oder einen konkreten Grund je Modul.
+
+Der Plan besitzt unveränderliche Feldparameter, endlichen `mesh`, Quellface- und
+Vertex-/Portabbildungen, Ganzflächen-Höhenschranken und geerbte Gradientenrahmen.
+`plan.evaluate(xy, module_ids)` liefert absolute analytische Höhen/XY-Gradienten;
+es ist ausdrücklich keine Kontakt- oder automatische Flächenabfrage.
+Tatsächliche endliche Kontakte konsumieren
+`geometry.SurfaceSampler(plan.mesh, max_faces=budget.max_output_faces)`;
+Frame, Kind, originale Quellen/Attribute und vorherige Auslassungen bindet der
+Aufrufer. `PortPlaneField` bietet separat die mathematische Patchfamilie samt
+`evaluate`/`bounds`; außerhalb der gewählten Domäne ist das nur eine Fortsetzung.
+
+Abnahme: ganze normierte Neigungen ≤1+1e-7, Höhenchords ≤0,01m und endliche
+Port-Gradfehler ≤0,005. Nur originale Beobachtungen gehen in den Fit ein.
+Die Verfeinerung reserviert vor einem weiteren Fit intern 20% der Höhen-/Port-
+Approximation, beendet sich aber an den tatsächlichen Abnahmegrenzen. Alle
+ursprünglichen Flächen und konkurrierenden Rahmen müssen erhalten bleiben.
+Budgets begrenzen Eingaben, Variablen, Kegel/Sparse-Arbeit, Queries, Fits und
+Geometrie. Zeit ist kooperativ; harte CPU-/Adressraumgrenzen setzt der Offline-
+Worker. Clarabel bleibt optional; weder SDK noch Experimentimports sind nötig.
+Keine globale Zweitableitungs-/Fahrdynamik-, C1-Boden-, Ebenennetz-/LOD-/native
+Abnahme. Fachnachweis #169/PR #175, Paketübernahme #177, native Integration #48.
+
 `transport.plan_vertical_transition(z0, z1, length, grade=0.08,
 second_derivative=0.002, method="parabolic")` liefert einen unveränderlichen
 `VerticalTransition` samt Bericht oder `None` mit lokalem Längengrund. Stationen,

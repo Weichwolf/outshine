@@ -404,7 +404,8 @@ bleibt bei ihren vier ganzen Kacheln; API-/Kostenbelege und Grenzen stehen im PR
 
 ### Gemeinsam geneigte ganze Straßenports (#169)
 
-Das aktive Experiment [#169](https://github.com/Weichwolf/outshine/issues/169)
+Das geometrisch geprüfte Experiment [#169](https://github.com/Weichwolf/outshine/issues/169),
+PR #175, mit Bibliotheksübernahme [#177](https://github.com/Weichwolf/outshine/issues/177)
 plant gemeinsame geneigte Straßenports vor dem Höhenfit. Die vollständigen
 unveränderten Wiener XY-/Port-/DEM-Eingaben samt Quellen und Herkunft liegen
 portabel unter [reference/port-planes/](reference/port-planes/README.md).
@@ -426,6 +427,9 @@ prüft Rundungsgrenzen, schmale Zellen, ursprüngliche Beobachtungen und Budgets
 öffnet `port_plane_render.py` ganze und nahe Vorher/Nachheransichten. Herleitung,
 Grenzen und Reproduktion stehen beim [portablen Eingang](reference/port-planes/README.md).
 Analytisch C1, endliche Faces und Boden C0; kein vollständiger Dynamik-/LOD-Beleg.
+Der ausgewählte `--fit`-Pfad importiert die öffentliche installierbare
+`transport.plan_port_heights`-API; Originaleingaben/Quellen und Budgetdiagnosen
+bleiben im Experiment. Mathematische Kerne besitzen ausschließlich `lib/`.
 
 ### Lokale Zweiebenenrezepte (#21)
 

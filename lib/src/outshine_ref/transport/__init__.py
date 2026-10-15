@@ -20,6 +20,10 @@ from .vertical import (
 )
 from .profile_surface import mesh_projected_profile
 from .endpoint_grades import EndpointTransition, plan_endpoint_transition
+from .port_heights import (
+    PortHeightBudget, PortHeightInput, PortHeightPlan, PortHeightFit,
+    PortPlaneField, plan_port_heights,
+)
 
 
 @dataclass(frozen=True, slots=True)

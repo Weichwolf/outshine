@@ -5,6 +5,9 @@ from math import factorial
 
 import numpy as np
 
+from ._arrays import owned
+from ._budget import PortLimit
+
 
 def triangular_bernstein(degree=4):
     powers = np.array(
@@ -26,61 +29,80 @@ def triangular_bernstein(degree=4):
     return powers, nodes, inverse
 
 
-POWERS, NODES, INVERSE = triangular_bernstein()
+POWERS, NODES, INVERSE = (
+    owned(v, v.dtype, v.shape, "Bernstein table") for v in triangular_bernstein()
+)
 
 
 def affine_basis(xy, origins):
     return np.concatenate((np.ones((*xy.shape[:-1], 1)), xy - origins), axis=-1)
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class PlaneField:
+    """Owned mathematical C1 patch family; evaluation is not a surface contact query."""
+
     origins: np.ndarray
     plane_ids: np.ndarray
     cut_centres: np.ndarray
     inward_normals: np.ndarray
     scales: np.ndarray
+    max_queries: int = 262144
 
     def __post_init__(self):
-        self.origins = np.asarray(self.origins, float)
-        self.plane_ids = np.asarray(self.plane_ids, np.int64)
-        self.cut_centres = np.asarray(self.cut_centres, float)
-        self.inward_normals = np.asarray(self.inward_normals, float)
-        self.scales = np.asarray(self.scales, float)
-        count = len(self.plane_ids)
-        if (
-            self.origins.ndim != 2
-            or self.origins.shape[1] != 2
-            or not len(self.origins)
+        if len(self.origins) > 16384 or len(self.plane_ids) > 8192:
+            raise ValueError("bounded plane and patch counts required")
+        origins = np.asarray(self.origins)
+        parents = np.asarray(self.plane_ids)
+        if origins.ndim != 2 or origins.shape[1] != 2 or not 0 < len(origins) <= 16384:
+            raise ValueError("bounded nonempty plane origins required")
+        if parents.ndim != 2 or parents.shape[1] != 2 or not 0 < len(parents) <= 8192:
+            raise ValueError("bounded paired patch parents required")
+        count = len(parents)
+        for name, dtype, shape, integer in (
+            ("origins", float, origins.shape, False),
+            ("plane_ids", np.int64, (count, 2), True),
+            ("cut_centres", float, (count, 2, 2), False),
+            ("inward_normals", float, (count, 2, 2), False),
+            ("scales", float, (count,), False),
         ):
-            raise ValueError("nonempty plane origins required")
-        if (
-            self.plane_ids.shape != (count, 2)
-            or np.any(self.plane_ids < 0)
-            or np.any(self.plane_ids >= len(self.origins))
-        ):
-            raise ValueError("two explicit existing parent planes per patch required")
-        if (
-            self.cut_centres.shape != (count, 2, 2)
-            or self.inward_normals.shape != (count, 2, 2)
-            or self.scales.shape != (count,)
-        ):
-            raise ValueError(
-                "paired cut centres/normals and one scale per patch required"
+            object.__setattr__(
+                self,
+                name,
+                owned(getattr(self, name), dtype, shape, name, integer=integer),
             )
-        if not all(
-            np.isfinite(v).all()
-            for v in (self.origins, self.cut_centres, self.inward_normals, self.scales)
-        ) or np.any(self.scales <= 0):
-            raise ValueError("finite geometry and positive patch scales required")
+        if np.any(self.plane_ids < 0) or np.any(self.plane_ids >= len(origins)):
+            raise ValueError("two explicit existing parent planes per patch required")
+        if np.any(self.scales < 1e-8) or np.any(self.scales > 4e7):
+            raise ValueError("metric patch scales in [1e-8,4e7] required")
+        if max(abs(self.origins).max(), abs(self.cut_centres).max()) > 4e7:
+            raise ValueError("bounded metric plane/cut coordinates required")
+        blend = self.plane_ids[:, 0] != self.plane_ids[:, 1]
+        length = np.linalg.norm(self.inward_normals[blend], axis=2)
+        if np.any(abs(length - 1) > 1e-12):
+            raise ValueError(
+                "actual unit inward normals for blended whole cuts required"
+            )
+        if type(self.max_queries) is not int or not 0 < self.max_queries <= 1048576:
+            raise ValueError("positive query work cap at most 1048576 required")
 
     def local_basis(self, xy, parts):
-        xy, parts = np.asarray(xy, float), np.asarray(parts, np.int64)
+        if len(xy) > self.max_queries:
+            raise PortLimit("port_query_budget")
+        xy, raw_parts = np.asarray(xy, float), np.asarray(parts)
+        if xy.ndim != 2 or xy.shape[1] != 2:
+            raise ValueError("two-dimensional metric XY queries required")
+        if len(xy) > self.max_queries:
+            raise PortLimit("port_query_budget")
+        if raw_parts.size and raw_parts.dtype.kind not in "iu":
+            raise ValueError("integer query module indices without truncation required")
+        parts = np.asarray(raw_parts, np.int64)
         if (
             xy.ndim != 2
             or xy.shape[1] != 2
             or parts.shape != (len(xy),)
             or not np.isfinite(xy).all()
+            or abs(xy).max(initial=0) > 4e7
         ):
             raise ValueError("finite XY queries and patch ownership required")
         if np.any(parts < 0) or np.any(parts >= len(self.plane_ids)):
@@ -124,21 +146,58 @@ class PlaneField:
 
     def evaluate(self, xy, parts, coefficients):
         columns, height, gradient, _ = self.local_basis(xy, parts)
-        coefficients = np.asarray(coefficients, float)
-        if (
-            coefficients.shape != (3 * len(self.origins),)
-            or not np.isfinite(coefficients).all()
-        ):
-            raise ValueError("one finite height and two gradients per plane required")
+        coefficients = self._coefficients(coefficients)
         local = coefficients[columns]
         return np.einsum("ni,ni->n", height, local), np.einsum(
             "nji,ni->nj", gradient, local
         )
 
+    def _coefficients(self, coefficients):
+        values = np.asarray(coefficients, float)
+        if (
+            values.shape != (3 * len(self.origins),)
+            or not np.isfinite(values).all()
+            or abs(values).max() > 4e7
+        ):
+            raise ValueError(
+                "one bounded metric height and two gradients per plane required"
+            )
+        return values
+
+    def bounds(self, triangles_xy_m, part_ids, coefficients, grade_frames):
+        """Bound every analytic gradient and height chord on explicit triangles.
+
+        Positive rational Bernstein denominators give conservative whole-face
+        bounds. This does not certify a field's physical domain or finite contacts.
+        """
+        coefficients = self._coefficients(coefficients)
+        frames = np.asarray(grade_frames, float)
+        if (
+            frames.shape != (len(part_ids), 2, 2)
+            or not np.isfinite(frames).all()
+            or abs(frames).max(initial=0) > 1e12
+            or np.any(np.linalg.det(frames) == 0)
+        ):
+            raise ValueError(
+                "bounded nonsingular 2x2 grade frames per triangle required"
+            )
+        return control_bounds(self, triangles_xy_m, part_ids, coefficients, frames)
+
     def triangle_controls(self, triangles, parts):
-        triangles, parts = np.asarray(triangles, float), np.asarray(parts, np.int64)
+        if len(parts) * len(NODES) > self.max_queries:
+            raise PortLimit("port_triangle_query_budget")
+        triangles, raw_parts = np.asarray(triangles, float), np.asarray(parts)
+        if raw_parts.ndim != 1 or (raw_parts.size and raw_parts.dtype.kind not in "iu"):
+            raise ValueError(
+                "integer triangle module ownership without truncation required"
+            )
+        if len(raw_parts) * len(NODES) > self.max_queries:
+            raise PortLimit("port_triangle_query_budget")
+        parts = np.asarray(raw_parts, np.int64)
         if triangles.shape != (len(parts), 3, 2):
             raise ValueError("triangle XY and explicit patch ownership required")
+        if not np.isfinite(triangles).all() or abs(triangles).max(initial=0) > 4e7:
+            raise ValueError("bounded finite metric triangles required")
         points = np.einsum("ki,nij->nkj", NODES, triangles)
         owners = np.repeat(parts, len(NODES))
         columns, height, gradient, d = self.local_basis(points.reshape(-1, 2), owners)
