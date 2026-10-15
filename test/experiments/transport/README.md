@@ -418,6 +418,15 @@ Eine gültige grobe Fläche ist noch kein 0.01m-Höhenchordnachweis. Ausgabe ers
 vollständiger Prüfung, geöffneter 3D-Inspektion und dokumentiertem Kostenvergleich
 freigeben; vorhandene Showcase-/Höhenprodukte bleiben bis dahin erhalten.
 
+Der Red/Green-Versuch scheitert auf dünnen echten Quelldreiecken. Die Alternative
+`port_plane_slice_experiment.py --fit --rounds 6` unterteilt nach rationalen
+Parameterlinien und passt den Boden gemeinsam an. `port_plane_slice_checks.py`
+prüft Rundungsgrenzen, schmale Zellen, ursprüngliche Beobachtungen und Budgets;
+`port_plane_verify.py` kontrolliert gespeicherte ganze Pläne unabhängig, danach
+öffnet `port_plane_render.py` ganze und nahe Vorher/Nachheransichten. Herleitung,
+Grenzen und Reproduktion stehen beim [portablen Eingang](reference/port-planes/README.md).
+Analytisch C1, endliche Faces und Boden C0; kein vollständiger Dynamik-/LOD-Beleg.
+
 ### Lokale Zweiebenenrezepte (#21)
 
 `overpass_recipe.py` verbindet #96-Rampen mit einem starren Überlappungskern.

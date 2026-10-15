@@ -66,9 +66,11 @@ def contact_audit(field, coefficients, product, heights):
         "maximum_cut_line_distance_m": float(error[blended].max(initial=0)),
         "maximum_contact_height_error_m": float(height_error.max(initial=0)),
         "maximum_contact_grade_error": float(grade_error.max(initial=0)),
-        "finite_face_gradient_jump_maximum": float(jumps.max(initial=0)),
-        "finite_face_gradient_jump_p95": float(np.quantile(jumps, 0.95))
+        "original_unrefined_finite_gradient_jump_maximum": float(jumps.max(initial=0)),
+        "original_unrefined_finite_gradient_jump_p95": float(np.quantile(jumps, 0.95))
         if len(jumps)
         else 0.0,
-        "finite_port_faces_exceeding_0_005": int(np.count_nonzero(jumps > 0.005)),
+        "original_unrefined_finite_ports_exceeding_0_005": int(
+            np.count_nonzero(jumps > 0.005)
+        ),
     }

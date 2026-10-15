@@ -75,7 +75,9 @@ def render(configuration):
     )
     view = np.asarray(camera.matrix_world.inverted())
     clip = np.c_[vertices, np.ones(len(vertices))] @ view.T @ projection.T
-    if np.any(np.abs(clip[:, :2] / clip[:, 3:4]) > 1.00001):
+    if not configuration.get("detail_view", False) and np.any(
+        np.abs(clip[:, :2] / clip[:, 3:4]) > 1.00001
+    ):
         raise ValueError("full model is outside the inspection camera")
     bpy.ops.render.render(write_still=True)
     print(
