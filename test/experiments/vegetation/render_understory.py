@@ -107,10 +107,10 @@ def hero_scene():
     return scene
 
 
-def render(inputs, output, case):
+def render(inputs, output, case, *, palette_factory=palette):
     start = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    mats = palette(inputs)
+    mats = palette_factory(inputs)
     hashes = {
         name: hashlib.sha256((inputs / name).read_bytes()).hexdigest()
         for name in (

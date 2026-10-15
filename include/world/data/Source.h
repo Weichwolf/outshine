@@ -3,8 +3,10 @@
 
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <scene/HeightRaster.h>
+#include <world/weather/WeatherSnapshot.h>
 
 #include "Fetched.h"
 #include "Fetch.h"
@@ -81,6 +83,17 @@ public:
   /// No IO, persistent generated cache or retained byte references; may allocate bounded scratch.
   [[nodiscard]] virtual std::expected<HeightRaster, DecodeFailure>
   DecodeElevation([[maybe_unused]] std::span<const uint8_t> bytes) const {
+    return std::unexpected(DecodeFailure::Unsupported);
+  }
+
+  /// Decode one exact-time native weather snapshot on a compute worker, without IO.
+  /// @param bytes Borrowed original cached/network payload; retained references are forbidden.
+  /// @param utcS Exact signed Unix UTC validity time; no interpolation or nearest-hour fallback.
+  /// @return Owned snapshot, empty for an absent exact time, or unsupported/corrupt failure.
+  /// May allocate bounded scratch. Missing fields remain unknown, independently of missing time.
+  [[nodiscard]] virtual std::expected<std::optional<WeatherSnapshot>, DecodeFailure>
+  DecodeWeather([[maybe_unused]] std::span<const uint8_t> bytes,
+                [[maybe_unused]] int64_t utcS) const {
     return std::unexpected(DecodeFailure::Unsupported);
   }
 
