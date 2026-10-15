@@ -366,7 +366,11 @@ LayerGroups() {
 }
 
 GroupRepresentatives() {
+  representativeProfiles=" "
   for representativeSuite in "$@"; do
+    representativeProfile=$(TestProfile "$representativeSuite")
+    case "$representativeProfiles" in *" $representativeProfile "*) continue ;; esac
+    representativeProfiles="$representativeProfiles$representativeProfile "
     representativeGroups=$(LayerGroups "$representativeSuite" 2>/dev/null) || continue
     printf '%s\t%s\n' "$representativeGroups" "$representativeSuite"
   done | awk -F '\t' '!seen[$1]++ { print $2 }'
@@ -1436,9 +1440,16 @@ if [ "$AUDIT" = 1 ]; then
   fi
   archived=0
   missing=0
+  auditKnownLayers=" "
   for source in $(find src -name '*.cpp' -not -path 'src/assets/*' | sort); do
-    layer=$(dirname "$source")
-    if GroupIncludes "$layer" >/dev/null 2>&1 || GroupIncludes "$source" >/dev/null 2>&1; then
+    layer=${source%/*}
+    case "$auditKnownLayers" in
+      *" $layer "*) archived=$((archived + 1)); continue ;;
+    esac
+    if GroupIncludes "$layer" >/dev/null 2>&1; then
+      auditKnownLayers="$auditKnownLayers$layer "
+      archived=$((archived + 1))
+    elif GroupIncludes "$source" >/dev/null 2>&1; then
       archived=$((archived + 1))
     else
       printf 'AUDIT no library group builds %s\n' "$source"
