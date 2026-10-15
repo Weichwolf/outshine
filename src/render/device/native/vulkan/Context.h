@@ -2,12 +2,14 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_VULKAN_CONTEXT_H
 
 #ifdef __linux__
-#include "../Device.h"
+#include "Device.h"
 #include <vulkan/vulkan.h>
 #include <atomic>
 #include <memory>
 #include <string_view>
 #include <thread>
+#include <string>
+#include <vector>
 
 namespace outshine::Render::Native::Vulkan {
 
@@ -19,7 +21,11 @@ struct Context {
   VkQueue Queue = VK_NULL_HANDLE;
   VkQueue PresentQueue = VK_NULL_HANDLE;
   VkSurfaceKHR Surface = VK_NULL_HANDLE;
-  bool SdlVulkan = false;
+  std::vector<std::string> InstanceExtensions;
+  bool WsiEnabled = false;
+  bool PresentCapable = false;
+  bool HasPresentTarget = false;
+  uint32_t QueueCount = 0;
   PFN_vkReleaseSwapchainImagesEXT ReleaseImages = nullptr;
   uint32_t QueueFamily = 0;
   uint64_t Cookie = 0;
@@ -31,6 +37,7 @@ struct Context {
   std::atomic<uint32_t> ValidationErrors{0};
   const std::thread::id OwnerThread = std::this_thread::get_id();
   uint32_t Recordings = 0;
+  uint32_t OpenRecordings = 0;
   VkPhysicalDeviceProperties Properties{};
   VkPhysicalDeviceMemoryProperties MemoryProperties{};
   Capabilities Limits;

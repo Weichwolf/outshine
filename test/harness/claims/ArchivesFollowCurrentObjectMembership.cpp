@@ -15,9 +15,10 @@ sed -n '/^ArchiveFresh()/,/^}/p' test/run.sh > "$root/check.sh"
 . "$root/check.sh"
 cd "$root"
 mkdir objects
-printf 'first' > objects/first.o
-printf 'second' > objects/second.o
-printf 'third' > objects/third.o
+for object in first second third; do
+  printf 'int %s;\n' "$object" > "objects/$object.cpp"
+  ${CXX:-c++} -c "objects/$object.cpp" -o "objects/$object.o"
+done
 touch -t 202001010000 objects/*.o
 if ArchiveFresh library.a objects/first.o; then exit 10; fi
 ar rcs library.a objects/first.o objects/second.o
@@ -38,7 +39,7 @@ if ArchiveFresh broken.a objects/first.o; then exit 18; fi
 rm library.a
 ar rcs library.a objects/first.o
 ArchiveFresh library.a objects/first.o || exit 19
-[ "$(ar t library.a)" = first.o ] || exit 20
+ar p library.a first.o | cmp - objects/first.o || exit 20
 if ArchiveFresh library.a objects/first.o objects/first.o; then exit 21; fi
 )SH",
                           said);

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_DEVICE_NATIVE_METAL_METALGRAPHICS_H
 #define OUTSHINE_RENDER_DEVICE_NATIVE_METAL_METALGRAPHICS_H
 
-#include "../Graphics.h"
+#include "Graphics.h"
 #include "MetalShader.h"
 #import <Metal/Metal.h>
 #include <memory>

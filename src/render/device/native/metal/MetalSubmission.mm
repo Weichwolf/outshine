@@ -37,6 +37,7 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     submission->Commands = metal->Native;
     const auto held = std::make_shared<SubmissionResources>();
     held->Buffers = std::move(metal->Held);
+    metal->Permit->ReleaseRecording();
     held->Permit = std::move(metal->Permit);
     held->Presentation = std::move(metal->Presentation);
     [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {

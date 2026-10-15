@@ -59,7 +59,11 @@ def main():
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True))
     log_path = output / 'run.log'
     with log_path.open('w') as log:
-        compiler = shlex.split(os.environ.get('CXX', 'clang++'))
+        compiler = shlex.split(os.environ.get('CXX', 'c++'))
+        declarations = dict(line.split('=', 1) for line in (ROOT / 'test/run.sh').read_text().splitlines()
+                            if line.startswith(('CXXSTD=', 'WARN=', 'OPT=')))
+        toolchain = [flag for key in ('CXXSTD', 'WARN', 'OPT')
+                     for flag in shlex.split(declarations[key].strip('"'))]
         glslang = shlex.split(os.environ.get('GLSLANG', 'glslangValidator'))
         flags = shlex.split(run(
             ['pkg-config', '--cflags', 'vulkan', 'spirv-cross-c-shared', 'sdl3'], log).stdout)
@@ -86,7 +90,8 @@ def main():
                    Path(__file__).with_name('native_draw.frag')]
         if args.present:
             sources += [Path(__file__).with_name('native_present.frag'),
-                        Path(__file__).with_name('native_vulkan_present.frag')]
+                        Path(__file__).with_name('native_vulkan_present.frag'),
+                        Path(__file__).with_name('native_target_delay.comp')]
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -100,12 +105,12 @@ def main():
                       'NativeDrawProbe.cpp', 'NativeMrtProbe.cpp')]
         if args.present:
             consumers += [ROOT / 'test/harness/render/NativePresentProbe.cpp',
-                          ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp']
+                          ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp',
+                          ROOT / 'test/harness/render/NativePresentTargetProbe.cpp']
         binaries = []
         for source in consumers:
             binary = output / source.stem
-            run(['nice', '-n', '10', *compiler, '-std=c++23', '-O2', '-fno-exceptions',
-                 '-Wall', '-Wextra', '-Wpedantic', '-Werror', '-I.',
+            run(['nice', '-n', '10', *compiler, *toolchain, '-fno-exceptions', '-I.',
                  '-Isrc/render/device/native', '-Itest/harness/shared', str(source),
                  str(archive), *flags, '-o', str(binary)], log)
             binaries.append(binary)
@@ -143,13 +148,18 @@ def main():
             report['vulkan_wsi_checks'] = verdict(run(
                 [str(binaries[10]), str(shaders[4]), str(shaders[14]), str(output / 'swapchain.ppm')],
                 log, environment=environment, timeout=30), log)
+        if args.present:
+            report['present_target_checks'] = verdict(run(
+                [str(binaries[11]), str(shaders[4]), str(shaders[13]), str(shaders[15])],
+                log, environment=environment, timeout=45), log)
         report.update(commit=commit, dirty=dirty, log=str(log_path),
                       archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                       native_archive_objects=len(native))
         headers = list((ROOT / 'src/render/device/native').glob('*.h'))
         headers += list((ROOT / 'src/render/device/native/vulkan').glob('*.h'))
         report['sources'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                             for path in [*native, *headers, *consumers, *sources]}
+                             for path in [*native, *headers, *consumers, *sources, Path(__file__),
+                                          ROOT / 'test/run.sh', ROOT / 'test/scripts/source_units.py']}
         (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps({key: value for key, value in report.items() if key != 'sources'}))
 

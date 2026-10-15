@@ -1,7 +1,6 @@
 #ifdef __linux__
 #include "Context.h"
 #include "Surface.h"
-#include <SDL3/SDL_vulkan.h>
 #include <array>
 #include <string_view>
 #include <thread>
@@ -15,6 +14,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -36,6 +36,9 @@ Result<void> CheckOwner(const Context &context) {
 Error Failure(std::string_view operation, VkResult result) {
   auto kind = ErrorKind::Driver;
   if (result == VK_ERROR_DEVICE_LOST) { kind = ErrorKind::DeviceLost; }
+  if (result == VK_ERROR_EXTENSION_NOT_PRESENT || result == VK_ERROR_FEATURE_NOT_PRESENT) {
+    kind = ErrorKind::Unsupported;
+  }
   if (result == VK_ERROR_OUT_OF_DEVICE_MEMORY || result == VK_ERROR_OUT_OF_HOST_MEMORY) {
     kind = ErrorKind::OutOfMemory;
   }
@@ -51,7 +54,6 @@ Context::~Context() {
   }
   if (Surface != VK_NULL_HANDLE) { vkDestroySurfaceKHR(Instance, Surface, nullptr); }
   if (Instance != VK_NULL_HANDLE) { vkDestroyInstance(Instance, nullptr); }
-  if (SdlVulkan) { SDL_Vulkan_UnloadLibrary(); }
 }
 
 namespace {
@@ -74,8 +76,12 @@ ReportValidation(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
 }
 
 Result<void> InitInstance(Context &context, DeviceOptions options) {
-  auto extensions = WindowExtensions(context, options.Window);
-  if (!extensions) { return std::unexpected(extensions.error()); }
+  if (auto prepared = PrepareInstanceExtensions(context, options.Window); !prepared) {
+    return prepared;
+  }
+  std::vector<const char *> extensions;
+  extensions.reserve(context.InstanceExtensions.size() + 1);
+  for (const auto &name : context.InstanceExtensions) { extensions.push_back(name.c_str()); }
   VkApplicationInfo application{};
   application.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   application.pApplicationName = "Outshine";
@@ -88,10 +94,10 @@ Result<void> InitInstance(Context &context, DeviceOptions options) {
   if (options.Validation) {
     create.enabledLayerCount = 1;
     create.ppEnabledLayerNames = &validation;
-    extensions->push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
   }
-  create.enabledExtensionCount = static_cast<uint32_t>(extensions->size());
-  create.ppEnabledExtensionNames = extensions->data();
+  create.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+  create.ppEnabledExtensionNames = extensions.data();
   const auto result = vkCreateInstance(&create, nullptr, &context.Instance);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateInstance", result)); }
   context.DebugMarkers = options.Validation;
@@ -118,26 +124,33 @@ Result<void> InitInstance(Context &context, DeviceOptions options) {
   return {};
 }
 
-bool SelectQueue(VkPhysicalDevice physical, VkSurfaceKHR surface, uint32_t &family) {
+struct QueueSelection {
+  uint32_t Family = 0;
+  uint32_t Count = 0;
+};
+
+std::optional<QueueSelection> SelectQueue(const Context &context, VkPhysicalDevice physical) {
   uint32_t count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(physical, &count, nullptr);
   std::vector<VkQueueFamilyProperties> queues(count);
   vkGetPhysicalDeviceQueueFamilyProperties(physical, &count, queues.data());
   constexpr auto required = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-  for (uint32_t at = 0; at < count; ++at) {
-    VkBool32 presents = VK_TRUE;
-    if (surface != VK_NULL_HANDLE &&
-        vkGetPhysicalDeviceSurfaceSupportKHR(physical, at, surface, &presents) != VK_SUCCESS) {
-      continue;
-    }
-    const uint32_t needed = surface == VK_NULL_HANDLE ? 1u : 2u;
-    if (queues[at].queueCount >= needed && presents != VK_FALSE &&
-        (queues[at].queueFlags & required) == required) {
-      family = at;
-      return true;
+  const bool window = context.Surface != VK_NULL_HANDLE;
+  for (uint32_t wanted = context.WsiEnabled ? 2u : 1u; wanted > 0; --wanted) {
+    if (window && wanted < 2) { break; }
+    for (uint32_t at = 0; at < count; ++at) {
+      VkBool32 presents = VK_TRUE;
+      if (window && vkGetPhysicalDeviceSurfaceSupportKHR(
+                        physical, at, context.Surface, &presents) != VK_SUCCESS) {
+        continue;
+      }
+      if (queues[at].queueCount >= wanted && presents != VK_FALSE &&
+          (queues[at].queueFlags & required) == required) {
+        return QueueSelection{.Family = at, .Count = queues[at].queueCount};
+      }
     }
   }
-  return false;
+  return std::nullopt;
 }
 
 Result<void> SelectPhysical(Context &context) {
@@ -154,18 +167,16 @@ Result<void> SelectPhysical(Context &context) {
   for (auto *const physical : devices) {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physical, &properties);
-    uint32_t family = 0;
-    if (properties.apiVersion < VK_API_VERSION_1_3 ||
-        !SelectQueue(physical, context.Surface, family)) {
-      continue;
-    }
+    const auto queue = SelectQueue(context, physical);
+    if (properties.apiVersion < VK_API_VERSION_1_3 || !queue) { continue; }
     if (context.Physical != VK_NULL_HANDLE &&
         properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
       continue;
     }
     context.Physical = physical;
     context.Properties = properties;
-    context.QueueFamily = family;
+    context.QueueFamily = queue->Family;
+    context.QueueCount = queue->Count;
   }
   if (context.Physical == VK_NULL_HANDLE) {
     return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
@@ -180,7 +191,9 @@ Result<void> InitLogical(Context &context) {
   supported.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance{};
   maintenance.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT;
-  if (context.Surface != VK_NULL_HANDLE) { supported.pNext = &maintenance; }
+  const bool candidate =
+      context.WsiEnabled && context.QueueCount >= 2 && HasPresentExtensions(context.Physical);
+  if (candidate) { supported.pNext = &maintenance; }
   VkPhysicalDeviceFeatures2 features{};
   features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   features.pNext = &supported;
@@ -190,7 +203,8 @@ Result<void> InitLogical(Context &context) {
         Error{.Kind = ErrorKind::Unsupported,
               .Message = "Vulkan synchronization2/dynamicRendering is unavailable"});
   }
-  if (context.Surface != VK_NULL_HANDLE && maintenance.swapchainMaintenance1 == VK_FALSE) {
+  context.PresentCapable = candidate && maintenance.swapchainMaintenance1 != VK_FALSE;
+  if (context.Surface != VK_NULL_HANDLE && !context.PresentCapable) {
     return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
                                  .Message = "Vulkan swapchain maintenance1 unavailable"});
   }
@@ -198,7 +212,7 @@ Result<void> InitLogical(Context &context) {
   enabled.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   enabled.synchronization2 = VK_TRUE;
   enabled.dynamicRendering = VK_TRUE;
-  if (context.Surface != VK_NULL_HANDLE) { enabled.pNext = &maintenance; }
+  if (context.PresentCapable) { enabled.pNext = &maintenance; }
   VkPhysicalDeviceFeatures core{};
   core.robustBufferAccess = features.features.robustBufferAccess;
   core.independentBlend = features.features.independentBlend;
@@ -215,7 +229,7 @@ Result<void> InitLogical(Context &context) {
   VkDeviceQueueCreateInfo queue{};
   queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
   queue.queueFamilyIndex = context.QueueFamily;
-  queue.queueCount = context.Surface == VK_NULL_HANDLE ? 1u : 2u;
+  queue.queueCount = context.PresentCapable ? 2u : 1u;
   queue.pQueuePriorities = priorities.data();
   VkDeviceCreateInfo create{};
   create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -223,14 +237,14 @@ Result<void> InitLogical(Context &context) {
   create.pEnabledFeatures = &core;
   create.queueCreateInfoCount = 1;
   create.pQueueCreateInfos = &queue;
-  if (context.Surface != VK_NULL_HANDLE) {
+  if (context.PresentCapable) {
     create.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     create.ppEnabledExtensionNames = extensions.data();
   }
   const auto result = vkCreateDevice(context.Physical, &create, nullptr, &context.Logical);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateDevice", result)); }
   vkGetDeviceQueue(context.Logical, context.QueueFamily, 0, &context.Queue);
-  if (context.Surface != VK_NULL_HANDLE) {
+  if (context.PresentCapable) {
     vkGetDeviceQueue(context.Logical, context.QueueFamily, 1, &context.PresentQueue);
     context.ReleaseImages = reinterpret_cast<PFN_vkReleaseSwapchainImagesEXT>(
         vkGetDeviceProcAddr(context.Logical, "vkReleaseSwapchainImagesEXT"));

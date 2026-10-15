@@ -1,6 +1,7 @@
 #!/bin/sh
 
 set -u
+export LC_ALL=C
 AUDIT=0
 AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
@@ -279,6 +280,7 @@ TestProfile() {
       printf '%s' 'profile/device' ;;
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
     outshine/src/base/io/Png | outshine/src/base/io/Tasks) printf '%s' 'profile/base' ;;
+    outshine/src/render/stages/MediumView) printf '%s' 'profile/medium-view' ;;
     outshine/src/*) printf '%s' 'profile/internal' ;;
     outshine/integration/places|outshine/integration/world_regressions) printf '%s' 'profile/engine' ;;
     *) printf '%s' "$1" ;;
@@ -289,6 +291,7 @@ LayerIncludes() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
     profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
+    profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
     profile/osm-xml) GroupIncludes src/generators/osm/import ;;
     profile/transport-native) printf '%s' "-Iinclude -Isrc/world/navigation -Isrc/world/products" ;;
@@ -334,7 +337,7 @@ LayerToolchain() {
 # Instrumenting repository-claim wrappers would not instrument their subprocesses.
 LayerSanitiser() {
   case "$(TestProfile "$1")" in
-    profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
+    profile/medium-view | profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     harness/khronos/validator | harness/geographiclib/geodesic)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
@@ -382,6 +385,7 @@ LayerGroups() {
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
     profile/public) LayerGroups profile/internal ;;
+    profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;
     profile/vector) printf '%s' "src/generators/osm/providers/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
     profile/transport-native) printf '%s' "src/world/navigation/TransportTopology.cpp" ;;
@@ -432,6 +436,7 @@ NotTheHarnesses() {
   case "$1" in
     scripts) printf '%s' "standalone build and diagnostic tools compiled by the Makefile" ;;
     harness/render) printf '%s' "internal GPU probes compiled and judged by paired render experiments" ;;
+    experiments/*) printf '%s' "standalone experiment tools compiled and judged by paired scripts" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;
@@ -799,6 +804,8 @@ ArchiveFresh() {
   shift
   [ -f "$archiveFreshPath" ] || return 1
   archiveFreshActual=$(ar t "$archiveFreshPath" 2>/dev/null) || return 1
+  archiveFreshActual=$(printf '%s\n' "$archiveFreshActual" | awk '
+    $0 !~ /^__\.SYMDEF(_64)?( SORTED)?$/ && $0 != "/" && $0 != "//" && $0 != "/SYM64/"')
   archiveFreshExpected=$(printf '%s\n' "$@" | sed 's|.*/||')
   [ "$archiveFreshActual" = "$archiveFreshExpected" ] || return 1
   for archiveFreshMember in "$@"; do

@@ -3,6 +3,7 @@
 
 #include "MetalInternal.h"
 #include <SDL3/SDL_metal.h>
+#include <dispatch/dispatch.h>
 #import <QuartzCore/CAMetalLayer.h>
 
 namespace outshine::Render::Native::Metal {
@@ -13,6 +14,7 @@ struct PresentMailbox {
   std::mutex Mutex;
   std::condition_variable Changed;
   CAMetalLayer *Layer;
+  dispatch_queue_t Presenter;
   id<CAMetalDrawable> Ready = nil;
   PresentRequest Request = PresentRequest::Idle;
   uint64_t Generation = 0, NextLease = 1, ActiveLease = 0;
@@ -55,6 +57,8 @@ public:
   MetalPresentation &operator=(const MetalPresentation &) = delete;
 
   [[nodiscard]] Result<std::unique_ptr<PresentFrame>> Acquire();
+
+  [[nodiscard]] bool Targets(SDL_Window *window) const noexcept { return Window_ == window; }
 
 private:
   void Resize(uint32_t width, uint32_t height);

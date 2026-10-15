@@ -31,7 +31,8 @@ Result<Recording::TrackedImage *> Recording::TrackImage(const std::shared_ptr<Im
   }
   if (image->Presentation) {
     const auto phase = image->Presentation->Phase.load();
-    if (phase != PresentPhase::Acquired && phase != PresentPhase::Recorded) {
+    if (!image->Presentation->Current() ||
+        (phase != PresentPhase::Acquired && phase != PresentPhase::Recorded)) {
       return std::unexpected(Error{.Kind = ErrorKind::Invalid,
                                    .Message = "present image lease is no longer recordable"});
     }

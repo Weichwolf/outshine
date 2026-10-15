@@ -111,11 +111,17 @@ def native_api(output, glslang, toolchain, link_flags):
          str(Path(__file__).with_name("native_present.frag")), "-o", str(present_shader)])
     present_checks = check_probe("native-present-probe", "NativePresentProbe.cpp",
                                  output / "fullscreen.vert.spv", present_shader)
+    delay_shader = output / "native_target_delay.comp.spv"
+    run([glslang, "-V", "--target-env", "vulkan1.0",
+         str(Path(__file__).with_name("native_target_delay.comp")), "-o", str(delay_shader)])
+    target_checks = check_probe("native-present-target-probe", "NativePresentTargetProbe.cpp",
+                                output / "fullscreen.vert.spv", present_shader, delay_shader)
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
             "indexed_indirect_checks": indexed_checks, "draw_transition_checks": transition_checks,
-            "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks}, sources
+            "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks,
+            "presentation_target_checks": target_checks}, sources
 
 
 
@@ -149,6 +155,8 @@ def main():
     binary = output / "native-metal-probe"
     run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain, "-fno-exceptions",
          "-x", "objective-c++", "-fobjc-arc",
+         "-I" + str(ROOT),
+         "-I" + str(ROOT / "src/render/device/native"),
          str(ROOT / "test/harness/render/NativeMetalProbe.mm"),
          str(ROOT / "test/harness/render/MetalShader.cpp"),
          "-x", "none", str(ROOT / "build/liboutshine.a"), *link_flags, "-o", str(binary)])
@@ -179,6 +187,8 @@ def main():
              ROOT / "test/harness/render/NativeDrawTransitionsProbe.cpp",
              ROOT / "test/harness/render/NativeMrtDrawProbe.cpp",
              ROOT / "test/harness/render/NativePresentProbe.cpp",
+             ROOT / "test/harness/render/NativePresentTargetProbe.cpp",
+             Path(__file__).with_name("native_target_delay.comp"),
              Path(__file__).with_name("native_present.frag"),
              Path(__file__).with_name("native_draw_transitions.vert"),
              Path(__file__).with_name("native_draw_transitions.frag"),
