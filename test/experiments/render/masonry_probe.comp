@@ -1,0 +1,28 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float palette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+#include "periodicBand.glsl"
+#include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
+#include "facadeFootprint.glsl"
+#include "facadeProfiles.glsl"
+#include "masonry_filter.glsl"
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe p = probes[index];
+  vec4 filtered = masonryFootprint(p.PointDx.xy, p.PointDx.zw, p.Dy, kFacadeProfiles[p.Which]);
+  vec3 source = vec3(palette[4], palette[5], palette[6]);
+  float roughness = palette[7];
+  FacadeGlazing result = facadeBandedWindow(filtered.x, filtered.y, filtered.z, source, roughness);
+  result.albedo += masonryAmplitude(source) * filtered.w;
+  float roughnessAmplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
+  result.roughness += roughnessAmplitude * filtered.w;
+  results[index] = Result(vec4(result.albedo, result.roughness), filtered);
+}
