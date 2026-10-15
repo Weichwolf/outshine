@@ -1,5 +1,6 @@
 #include "math/Vec2.h"
 #include "ClassStructure.h"
+#include "ClassSeed.h"
 
 #include <algorithm>
 #include <cmath>
@@ -86,7 +87,8 @@ ClassStructure::ClassStructure(const TangentFrame &frame,
   Measures_.BuildMs = of.BuildMs;
   Measures_.Overflow = of.Overflow;
   Measures_.Edges = static_cast<long>((Fine_->Edges.size() + Coarse_->Edges.size()) / 4);
-  Measures_.Seeds = static_cast<long>((Fine_->Seeds.size() + Coarse_->Seeds.size()) / 3);
+  Measures_.Seeds =
+      static_cast<long>((Fine_->Seeds.size() + Coarse_->Seeds.size()) / kClassSeedWords);
   Probe();
 }
 
@@ -141,13 +143,14 @@ ClassStructure::Sample ClassStructure::EvaluateGrid(const Grid &B, Vec2 at) {
   const double cx = B.OrgE + static_cast<double>(i) * B.CellM;
   const double cy = B.OrgN + static_cast<double>(j) * B.CellM;
   for (uint32_t s = 0; s < nseed; s++) {
-    const uint32_t w0 = B.Seeds[static_cast<size_t>(seedFirst + s) * 3];
-    const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];
+    const size_t seed = static_cast<size_t>(seedFirst + s) * kClassSeedWords;
+    const uint32_t w0 = B.Seeds[seed];
+    const uint32_t refFirst = B.Seeds[seed + 1];
     float halfW;
-    std::memcpy(&halfW, &B.Seeds[(seedFirst + s) * 3 + 2], sizeof halfW);
+    std::memcpy(&halfW, &B.Seeds[seed + 3], sizeof halfW);
     const int tpl = static_cast<int>(w0 & kByteMask);
     const int rank = static_cast<int>((w0 >> 8u) & kByteMask);
-    const uint32_t nref = (w0 >> 16u) & kByteMask;
+    const uint32_t nref = B.Seeds[seed + 2];
     int wind = static_cast<int>((w0 >> kWindShift) & kByteMask) - kSignedByteBias;
     double d = kNoEdgeM;
     for (uint32_t r = 0; r < nref; r++) {
