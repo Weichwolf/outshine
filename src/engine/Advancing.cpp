@@ -496,6 +496,7 @@ bool Engine::State::UpdateTriggers() {
 }
 
 bool Engine::State::Updates() {
+  if (!PollWeather()) { return false; }
   if (!RequestOriginalCells()) { return false; }
   PollOsmSources();
   if (Session.Declared.Ground.Declared) {

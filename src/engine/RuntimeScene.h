@@ -37,6 +37,7 @@ namespace outshine::Core {
 constexpr Vec3 kGroundAlbedoUnsaid = {{0.10, 0.13, 0.07}};
 
 struct Declaration {
+  std::optional<int64_t> UtcS;
   double Haze = 1.0;
   PlaybackPolicy Playback = PlaybackPolicy::Once;
   int Clip = 0;

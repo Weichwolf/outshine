@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <utility>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -154,7 +155,10 @@ int main() {
     Engine engine;
     CHECK(engine.registerProvider(provider), "external provider registers through the public API");
     CHECK(!engine.registerProvider(provider), "duplicate registration preserves the first factory");
-    CHECK(engine.setRoots({.Shipped = "src/assets", .Offline = true}), "offline roots configured");
+    Roots roots;
+    roots.Shipped = "src/assets";
+    roots.Offline = true;
+    CHECK(engine.setRoots(std::move(roots)), "offline roots configured");
     CHECK(engine.setRenderTarget(Extent{64, 64}), "offscreen target configured");
     Scenario::Document scene;
     scene.Ground.Declared = true;
