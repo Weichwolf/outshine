@@ -911,3 +911,49 @@ and a unique User-Agent. Provider credits remain visible in the four-image page.
 
 Der eingefrorene Vier-Orte-/Instanzvergleich zu #250 steht in
 [rail_hardware_comparison.md](rail_hardware_comparison.md).
+
+## Gemeinsame Höhen der ergänzten Kamera-Netze (#265)
+
+`camera_height_experiment.py` vergleicht den vorhandenen Minimax-Konusfit mit
+flächengewichteter quadratischer Passung unter denselben ganzen anisotropen
+Face-Neigungsbedingungen. Eingaben sind die gepinnten Kamera-Meshes und dieselben
+retained z11-DEM-Bytes, keine neue Akquisition. Alle Bettfacetten unter vollständigen
+geprüften Schienen-/Schwellenfootprints bleiben auf ihrem bisherigen Datum fest.
+Die neue Passung ist zunächst experimentell; kein neues öffentliches Bibliotheks-API.
+
+Bei der quadratischen Variante werden feste Kontakte vor einer konservativen
+Rücknahme exakt projiziert. Für das flache zulässige Referenzbett d gilt
+`gradient(d + alpha*(z-d)) = alpha*gradient(z)`. Mit gemessenem maximalem
+normalisiertem Face-Gradient M wird `alpha=min(1,(1-1e-5)/M)` gewählt.
+Eine unabhängige ganze Face-/Kontaktprüfung mit unveränderter Toleranz folgt;
+dies ist ein zulässiger Kandidat und kein Optimalitätsnachweis. Unzulässige
+Minimax-Ergebnisse bleiben ohne Mesh und erhalten das bisherige gültige Bett.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error -m unittest camera_height_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error test/experiments/transport/camera_height_experiment.py --prepare --camera-products "$TRANSPORT_CAMERA_INPUTS" --rail-products "$TRANSPORT_RAIL_PRODUCTS" --dem-sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_HEIGHT_INPUTS"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error test/experiments/transport/camera_height_experiment.py --inputs "$TRANSPORT_HEIGHT_INPUTS" --place Feldkirch --mode least_squares --output "$TRANSPORT_HEIGHT_RESULT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error test/experiments/transport/camera_height_verify.py --inputs "$TRANSPORT_HEIGHT_INPUTS" --result "$TRANSPORT_HEIGHT_RESULT" --rails "$TRANSPORT_RAIL_PRODUCTS" --place Feldkirch --mode least_squares --output "$TRANSPORT_HEIGHT_RESULT/verification.json"
+```
+
+Alle Ausgabevariablen benennen frische externe Temp-Pfade. Je Variante/Ort ein
+frischer Worker, Solverlimit 8 s plus gemessene Vorbereitung/Schrittüberlauf,
+Adressraum 2 GiB und 60 CPU-s. Die unabhängige Prüfung rekonstruiert alle tatsächlich
+unverändert hohen Bettfacetten und verlangt vollständige Footprint-Abdeckung;
+Vertexkontakte allein reichen nicht. Änderungen an fester Kamera/Galerie bleiben
+an den vollständigen sauberen Replay und geöffneten Vorher/Nachher-Vergleich
+gebunden. Quelle/XY/Indices, alte C1-/Flat-Fenster und Hardware bleiben erhalten;
+C1-Netzprofile, Ebenen, geneigte Gleise und native Integration bleiben offen.
+
+`transport_place_shots.py --height-products "$TRANSPORT_HEIGHT_RUN"` konsumiert
+die sauberen unabhängigen Ergebnisse unter
+`<Place>-least_squares/<Place>-least_squares.{json,npz}` mit
+`verification.json` und den vorbereiteten Eingaben unter `inputs/`.
+Dazu gehören dieselben `--camera-products` und `--rail-products` wie im Fit.
+Nur neue Kamera-Fenster erhalten ihre geprüften Höhen; unveränderte alte
+Wiener/Central-Park-Produkte bleiben erhalten. Ein explizit ungültiger Fit
+behält das vorherige Bett mit Grund; schmutzige oder fremd gebundene Ergebnisse
+werden nicht dargestellt. Der Standard ohne `--height-products` bleibt eben.
+
+Aktueller eingefrorener Vergleich, Grenzen, Kosten und Bildbelege:
+[camera_height_comparison.md](camera_height_comparison.md).
