@@ -1,5 +1,6 @@
 #include "ClassificationBuild.h"
 #include "Capacity.h"
+#include "ClassRegionCompiler.h"
 
 #include <atomic>
 #include <cassert>
@@ -10,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ratio>
 #include <stop_token>
 #include <utility>
 
@@ -38,6 +40,7 @@ struct ClassificationBuild::Work {
   std::atomic<size_t> HeapBytes{0};
   std::atomic<size_t> InputBytes{0};
   std::atomic<size_t> UploadBytes{0};
+  std::atomic<size_t> RegionBytes{0};
 };
 
 ClassificationBuild::ClassificationBuild(Tasks &pool)
@@ -85,7 +88,16 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
     work.Pending.reset();
   }
   Handback result;
-  if (const auto built = work.Rasterizer.Build(job.Raster, stop); built && !stop.stop_requested()) {
+  const auto began = std::chrono::steady_clock::now();
+  const auto regions = Generators::CompileClassRegions(job.Raster, stop);
+  if (regions) {
+    size_t bytes = CapacityBytes(regions->Raster.Points) + CapacityBytes(regions->Raster.Rings) +
+                   CapacityBytes(regions->Raster.Features) + CapacityBytes(regions->Contributors);
+    for (const auto &sources : regions->Contributors) { bytes += CapacityBytes(sources); }
+    work.RegionBytes.store(bytes, std::memory_order_relaxed);
+  }
+  const auto built = regions ? work.Rasterizer.Build(regions->Raster, stop) : std::nullopt;
+  if (built && !stop.stop_requested()) {
     if (work.FineSource.Frame != job.Source.Frame || work.FineSource.Fine != job.Source.Fine) {
       work.Fine = std::make_shared<const ClassStructure::Grid>();
     }
@@ -100,14 +112,15 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
       work.Coarse = built->Grid;
       work.CoarseSource = job.Source;
     }
-    result.BuildMs = built->BuildMs;
+    result.BuildMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
     result.Structure = std::make_shared<const ClassStructure>(
         job.Frame,
         work.Fine,
         work.Coarse,
         ClassStructure::FromRun{.Version = ++work.Version,
                                 .UnmappedRow = job.UnmappedRow,
-                                .BuildMs = built->BuildMs,
+                                .BuildMs = result.BuildMs,
                                 .Overflow = built->Overflow});
     result.Upload = std::make_shared<const Render::GroundClassBuffer>(*result.Structure);
     work.UploadBytes.store(result.Upload->HeapBytes(), std::memory_order_relaxed);
@@ -115,6 +128,7 @@ void ClassificationBuild::Run(Work &work, const std::stop_token &stop) {
                              work.Rasterizer.ScratchBytes(),
                          std::memory_order_relaxed);
   }
+  work.RegionBytes.store(0, std::memory_order_relaxed);
   result.Returned = std::move(job);
   {
     const std::scoped_lock lock(work.Mutex);
@@ -148,6 +162,7 @@ bool ClassificationBuild::AwaitCompletion(double seconds) {
 size_t ClassificationBuild::HeapBytes() const {
   return Work_->HeapBytes.load(std::memory_order_relaxed) +
          Work_->InputBytes.load(std::memory_order_relaxed) +
-         Work_->UploadBytes.load(std::memory_order_relaxed);
+         Work_->UploadBytes.load(std::memory_order_relaxed) +
+         Work_->RegionBytes.load(std::memory_order_relaxed);
 }
 }

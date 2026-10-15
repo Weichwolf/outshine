@@ -150,8 +150,11 @@ void ClassificationPreparation::Ingest(Tier &t) {
   if (rings.size() > t.RingsDone) {
     t.Rings.resize(rings.size());
     for (size_t i = t.RingsDone; i < rings.size(); i++) {
-      t.Rings[i] = Generators::ClassificationRasterizer::Ring{.First = rings[i].First,
-                                                              .Count = rings[i].Count};
+      t.Rings[i] = Generators::ClassificationRasterizer::Ring{
+          .First = rings[i].First,
+          .Count = rings[i].Count,
+          .Role = rings[i].Exterior ? Generators::ClassificationRasterizer::RingRole::Exterior
+                                    : Generators::ClassificationRasterizer::RingRole::Hole};
     }
     t.RingsDone = rings.size();
   }
