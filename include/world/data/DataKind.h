@@ -10,7 +10,8 @@ enum class DataKind : uint8_t {
   Elevation,     ///< Meter-valued terrain source.
   VectorMap,     ///< Explicit legacy vector-tile fixture; not original OSM.
   StarCatalogue, ///< Star-band catalogue product.
-  OriginalOsm    ///< Original OSM nodes, ways, relations and tags.
+  OriginalOsm,   ///< Original OSM nodes, ways, relations and tags.
+  Weather        ///< Native weather values at an explicitly selected UTC.
 };
 
 /// Describe a data category without allocation.

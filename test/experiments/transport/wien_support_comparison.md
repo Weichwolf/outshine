@@ -34,7 +34,8 @@ every affine cell and independent oriented-edge/volume checks are mandatory.
 
 Independently clipping neighbouring source faces first failed on almost
 coincident Vienna boundary intersections. The saved minimal real counterexample
-`fixtures/bridge-support-contact-vienna.json` fixes that regression. Original
+[`lib/tests/fixtures/bridge-support-contact-vienna.json`](../../../lib/tests/fixtures/bridge-support-contact-vienna.json)
+(moved with #332) fixes that regression. Original
 edges are now noded together once, without precision reduction or a new weld.
 
 ## Fair real-input comparison
