@@ -148,6 +148,8 @@ void CheckLandClasses() {
 
   constexpr std::array cases{Case{"land", "landcover", "wood", "mixed_broadleaf"},
                              Case{"land", "landcover", "grass", "meadow"},
+                             Case{"land", "landcover", "rock", "rock_crevice"},
+                             Case{"land", "landcover", "ice", "glacier"},
                              Case{"sites", "landuse", "park", "meadow"},
                              Case{"sites", "landuse", "farmland", "arable"},
                              Case{"sites", "landuse", "construction", "heath"}};
@@ -169,6 +171,54 @@ void CheckLandClasses() {
     CHECK(field.Str(feature, "class") == test.Kind && kind == test.Kind && rule &&
               templates.Name(static_cast<size_t>(rule->Tpl)) == test.Template,
           "raw class and source polygon survive while existing land material recipe is selected");
+  }
+}
+
+void CheckLandSubclasses() {
+  using namespace outshine::Generators::Osm;
+  using namespace outshine::Ground;
+  using namespace outshine::Test;
+  GroundMaterials materials;
+  VegetationTemplates templates;
+  CHECK(materials.Load("src/assets/world/ground-materials.json"), "ground material catalog loads");
+  CHECK(templates.Load("src/assets/world/vegetation.json", materials), "landcover recipes load");
+  if (!templates.Ready()) { return; }
+
+  struct Case {
+    std::string_view Kind, Subclass, Template;
+  };
+
+  constexpr std::array cases{Case{"rock", "bare_rock", "rock_crevice"},
+                             Case{"rock", "scree", "scree"},
+                             Case{"ice", "glacier", "glacier"},
+                             Case{"grass", "grassland", "alpine_grassland"},
+                             Case{"grass", "scrub", "heath"},
+                             Case{"farmland", "orchard", "arable"},
+                             Case{"wood", "forest", "mixed_broadleaf"},
+                             Case{"wood", "unknown_subclass", "mixed_broadleaf"},
+                             Case{"wetland", "wetland", ""}};
+  const std::array<std::string, 1> layers{"land"};
+  for (const auto &test : cases) {
+    OsmField field(2, layers, MvtSchema::OpenMapTiles);
+    CHECK(field.Accept(1,
+                       1,
+                       Layer("landcover",
+                             3,
+                             std::array<std::string_view, 2>{"class", "subclass"},
+                             std::array{String(test.Kind), String(test.Subclass)})) &&
+              field.Features().size() == 1,
+          "real provider classes and subclasses enter the same polygon field");
+    if (field.Features().empty()) { continue; }
+    const auto &feature = field.Features().front();
+    const auto *rule = GroundRuleOf(field, feature, templates);
+    CHECK(field.Str(feature, "class") == test.Kind && field.Str(feature, "kind") == test.Kind &&
+              field.Str(feature, "subclass") == test.Subclass,
+          "recipe selection preserves every supplied class and subclass");
+    CHECK(
+        test.Template.empty()
+            ? rule == nullptr
+            : rule && templates.Name(static_cast<size_t>(rule->Tpl)) == test.Template,
+        "specific supported cover wins; unknown detail falls back without inventing wetland water");
   }
 }
 
@@ -473,6 +523,7 @@ int main() {
         "absent coarse height is a generated estimate, not a contradictory source");
   CheckExplicitValuePrecedence();
   CheckLandClasses();
+  CheckLandSubclasses();
   CheckBuildingColours();
   CheckUnprefixedBuildingColours();
   CheckRailClassRules();

@@ -38,12 +38,17 @@ void UploadImage(Device &device,
 }
 
 std::vector<Pixel> ReadImage(Device &device, Buffer &readback) {
-  const auto bytes = Require(device.MapRead(readback, {.Bytes = uint64_t{kRowBytes} * kHeight}));
-  std::vector<Pixel> result(size_t{kWidth} * kHeight);
-  for (uint32_t y = 0; y < kHeight; ++y) {
-    std::memcpy(result.data() + size_t{y} * kWidth,
-                bytes.data() + size_t{y} * kRowBytes,
-                size_t{kWidth} * sizeof(Pixel));
+  return ReadImage(device, readback, {.Width = kWidth, .Height = kHeight, .RowBytes = kRowBytes});
+}
+
+std::vector<Pixel> ReadImage(Device &device, Buffer &readback, ImageShape shape) {
+  const auto bytes =
+      Require(device.MapRead(readback, {.Bytes = uint64_t{shape.RowBytes} * shape.Height}));
+  std::vector<Pixel> result(size_t{shape.Width} * shape.Height);
+  for (uint32_t y = 0; y < shape.Height; ++y) {
+    std::memcpy(result.data() + size_t{y} * shape.Width,
+                bytes.data() + size_t{y} * shape.RowBytes,
+                size_t{shape.Width} * sizeof(Pixel));
   }
   Require(device.Unmap(readback));
   return result;

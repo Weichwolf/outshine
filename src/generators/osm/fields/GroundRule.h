@@ -12,6 +12,12 @@ GroundRuleOf(const OsmField &field,
              const Ground::VegetationTemplates &templates) {
   const auto layer = field.LayerName(feature.Layer);
   const auto kind = field.Str(feature, "kind");
+  if (field.Schema() == MvtSchema::OpenMapTiles && layer == "land") {
+    const auto subclass = field.Str(feature, "subclass");
+    if (const auto *specific = templates.Find(layer, subclass)) { return specific; }
+    if (kind == "ice") { return templates.Find("water_polygons", "glacier"); }
+    if (kind == "rock") { return templates.Find(layer, "bare_rock"); }
+  }
   const auto *rule = templates.Find(layer, kind);
   return rule == nullptr && field.Schema() == MvtSchema::OpenMapTiles && layer == "sites"
              ? templates.Find("land", kind)
