@@ -85,6 +85,53 @@ double MeshError(const BuildingSurface &source, const Raised &mesh) {
   return maximum;
 }
 
+void StreamCache(const BakedTile &product) {
+  std::vector<uint8_t> stream;
+  size_t largest = 0;
+  constexpr size_t kBlockBytes = 128;
+  const auto written = WriteStructureProduct(
+      product,
+      [&](std::span<const uint8_t> bytes) {
+        largest = std::max(largest, bytes.size());
+        stream.insert(stream.end(), bytes.begin(), bytes.end());
+        return true;
+      },
+      kBlockBytes);
+  CHECK(written && largest <= kBlockBytes,
+        "real metric products stream within the fixed transient block budget");
+  size_t cursor = 0;
+  const auto read = [&](std::span<uint8_t> into) {
+    if (cursor > stream.size() || into.size() > stream.size() - cursor) { return false; }
+    std::copy_n(stream.begin() + cursor, into.size(), into.begin());
+    cursor += into.size();
+    return true;
+  };
+  const auto &mesh = product.Built;
+  const size_t resident =
+      mesh.WallCorners.size() * sizeof(StoredVertex) + mesh.WallRun.size() * sizeof(uint32_t) +
+      mesh.WallColours.size() * sizeof(float) + mesh.WallMaterialM.size() * sizeof(float) +
+      mesh.RoofCorners.size() * sizeof(StoredVertex) + mesh.RoofRun.size() * sizeof(uint32_t);
+  CHECK(!ReadStructureProduct(
+            read, {.EncodedBytes = stream.size(), .ResidentBytesMost = resident - 1}, 1),
+        "the native resident cap includes the complete additional metre stream");
+  cursor = 0;
+  const auto decoded =
+      ReadStructureProduct(read, {.EncodedBytes = stream.size(), .ResidentBytesMost = resident}, 1);
+  CHECK(decoded && decoded->Built.WallMaterialM == mesh.WallMaterialM && cursor == stream.size(),
+        "fresh streaming decode preserves every coordinate at the exact resident budget");
+}
+
+void RejectOldVersion(std::vector<uint8_t> bytes, std::string_view key) {
+  constexpr size_t kVersionOffset = std::string_view("outshine-structure").size();
+  constexpr uint8_t kOldVersion = 9;
+  bytes[kVersionOffset] = kOldVersion;
+  constexpr size_t kHashBytes = 64;
+  const auto checksum = Sha256Hex(bytes.data(), bytes.size() - kHashBytes);
+  std::copy(checksum.begin(), checksum.end(), bytes.end() - kHashBytes);
+  CHECK(!DecodeStructureArtifact(bytes, key, 1),
+        "a checksum-valid old schema cannot masquerade as a current cache hit");
+}
+
 void Cache(const Raised &mesh) {
   if (mesh.WallMaterialM.empty()) {
     CHECK(false, "the masonry cache probe needs emitted material coordinates");
@@ -96,6 +143,8 @@ void Cache(const Raised &mesh) {
   const auto encoded = EncodeStructureArtifact(product, key);
   CHECK(encoded.has_value(), "the actual complete building asset accepts valid metric coordinates");
   if (!encoded) { return; }
+  RejectOldVersion(*encoded, key);
+  StreamCache(product);
   auto decoded = DecodeStructureArtifact(*encoded, key, 1);
   CHECK(decoded.has_value(), "a fresh asset decode includes the metric stream");
   if (!decoded) { return; }
