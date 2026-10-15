@@ -801,6 +801,8 @@ ArchiveFresh() {
   shift
   [ -f "$archiveFreshPath" ] || return 1
   archiveFreshActual=$(ar t "$archiveFreshPath" 2>/dev/null) || return 1
+  archiveFreshActual=$(printf '%s\n' "$archiveFreshActual" | awk '
+    $0 !~ /^__\.SYMDEF(_64)?( SORTED)?$/ && $0 != "/" && $0 != "//" && $0 != "/SYM64/"')
   archiveFreshExpected=$(printf '%s\n' "$@" | sed 's|.*/||')
   [ "$archiveFreshActual" = "$archiveFreshExpected" ] || return 1
   for archiveFreshMember in "$@"; do

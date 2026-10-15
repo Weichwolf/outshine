@@ -39,7 +39,7 @@ if ArchiveFresh broken.a objects/first.o; then exit 18; fi
 rm library.a
 ar rcs library.a objects/first.o
 ArchiveFresh library.a objects/first.o || exit 19
-[ "$(ar t library.a)" = first.o ] || exit 20
+ar p library.a first.o | cmp - objects/first.o || exit 20
 if ArchiveFresh library.a objects/first.o objects/first.o; then exit 21; fi
 )SH",
                           said);
