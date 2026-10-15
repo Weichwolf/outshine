@@ -91,6 +91,12 @@ consumer. Never relink new native headers against an older Present ABI.
 exponential and triangular ozone column. Old production40 fails 30 checks; the
 selected rule passes all 684. No expectation or 0.002 transmission limit changed.
 
+Additional actual 256×64 captures retain the original dense clear-prefix failure:
+2.038785% before and after, byte-identical output. At that width Haze4 improves
+from 2.942506% to 0.992225%; the other vertical haze controls also pass. This
+pre-existing interpolation error stays red under #259/#206; it is not an excuse
+to increase the 1% target or claim the candidate-wide LUT is already integrated.
+
 Full clear/hazy Places, temporal transitions, direct device times and Metal/A18
 counterchecks remain open under #286/#206. Master publishes integrated Places;
 no specialist image publication under doc/. The finite-aerial/Thin/cloud ordering
