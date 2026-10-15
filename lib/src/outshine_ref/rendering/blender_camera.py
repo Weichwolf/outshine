@@ -117,7 +117,7 @@ def verify_camera(configuration, projection, view, vertices):
     ):
         raise ValueError("Blender camera disagrees with declared orthographic span")
     positions = np.c_[vertices, np.ones(len(vertices))] @ view.T @ projection.T
-    inside = np.all(np.abs(positions[:, :2] / positions[:, 3:4]) <= 1.00001, axis=1)
+    inside = np.all(np.abs(positions[:, :3] / positions[:, 3:4]) <= 1.00001, axis=1)
     if not inside.any() or (
         not configuration.get("detail_view", False) and not inside.all()
     ):

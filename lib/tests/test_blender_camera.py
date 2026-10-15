@@ -97,6 +97,14 @@ class BlenderCameras(unittest.TestCase):
         verify_camera(config, projection, view, points)
         np.testing.assert_array_equal(points, before)
 
+    def test_whole_ortho_model_rejects_depth_clipped_vertices(self):
+        config = self.configuration("orthographic")
+        projection, view = self.matrices(config)
+        eye, target = np.asarray(config["eye"]), np.asarray(config["target"])
+        behind = eye + (eye - target)
+        with self.assertRaisesRegex(ValueError, "outside"):
+            verify_camera(config, projection, view, np.r_[self.vertices, [behind]])
+
     def test_whole_ortho_model_rejects_visible_and_offscreen_mixture(self):
         config = self.configuration("orthographic")
         projection, view = self.matrices(config)
