@@ -8,16 +8,36 @@ import numpy as np
 from blender_instances import instance_group
 from blender_preview import mesh_object
 from conifer_whole_preview import conifer_material
+from place_demand import demand, spheres
+from preview_lighting import SUN_ANGULAR_DIAMETER_DEG
 from sheet_material import sheet_material
 
 
-def populate(sites, products_path, eye, sun):
-    inputs, total = [products_path], 0
+def receiver_floor(sites, manifests, scene_floor):
+    result = scene_floor
+    for kind, manifest in enumerate(manifests):
+        members = sites["kind"] == kind
+        if not members.any():
+            continue
+        centers, radii = spheres(
+            manifest["render_bounds_m"],
+            *(sites[key][members] for key in ("positions", "frames", "scales")),
+        )
+        result = min(result, float(np.min(centers[:, 2] - radii)))
+    return result
+
+
+def populate(sites, products_path, camera, ground, sun, min_receiver_z):
+    inputs, total, counts = [products_path], 0, []
     products = json.loads(products_path.read_text())
-    for kind, item in enumerate(products):
+    manifests = [
+        json.loads((Path(item["directory"]) / "plant-product.json").read_text())
+        for item in products
+    ]
+    min_receiver_z = receiver_floor(sites, manifests, min_receiver_z)
+    for kind, (item, manifest) in enumerate(zip(products, manifests, strict=True)):
         directory = Path(item["directory"])
         manifest_path = directory / "plant-product.json"
-        manifest = json.loads(manifest_path.read_text())
         recipe_path = directory / manifest["recipe"]
         identity = hashlib.sha256(
             json.dumps(json.loads(recipe_path.read_text()), sort_keys=True).encode()
@@ -35,9 +55,29 @@ def populate(sites, products_path, eye, sun):
         )
         if not len(selected):
             continue
+        bounds = np.asarray(manifest["render_bounds_m"])
+        if np.any(mesh["vertices"] < bounds[0]) or np.any(mesh["vertices"] > bounds[1]):
+            raise ValueError("angular-product bounds do not enclose cached geometry")
+        centers, radii = spheres(bounds, positions, frames, scales)
+        masks = demand(
+            camera,
+            ground,
+            centers,
+            radii,
+            sun,
+            min_receiver_z,
+            sun_angular_radius_deg=SUN_ANGULAR_DIAMETER_DEG / 2,
+        )
+        counts.append(
+            {
+                "kind": kind,
+                "planned": len(selected),
+                **{k: int(m.sum()) for k, m in masks.items()},
+            }
+        )
         pivot = np.mean(manifest["bounds_m"], axis=0)
         for role, ray in (
-            ("camera", np.asarray(eye) - positions),
+            ("camera", camera.eye(ground) - positions),
             ("sun", np.broadcast_to(sun, positions.shape)),
         ):
             local = np.einsum("nji,nj->ni", frames, ray) / scales[:, None]
@@ -61,7 +101,7 @@ def populate(sites, products_path, eye, sun):
                 )
             )
             v, t = manifest["vertices_per_view"], manifest["draw_triangles"]
-            for view in np.unique(views):
+            for view in np.unique(views[masks[role]]):
                 first, face_first = int(view) * v, int(view) * t
                 faces = mesh["faces"][face_first : face_first + t] - first
                 prototype = mesh_object(
@@ -76,7 +116,7 @@ def populate(sites, products_path, eye, sun):
                 prototype.data.uv_layers.new(
                     name="complete plant atlas"
                 ).data.foreach_set("uv", uv.ravel())
-                members = np.flatnonzero(views == view)
+                members = np.flatnonzero((views == view) & masks[role])
                 for begin in range(0, len(members), 100000):
                     part = members[begin : begin + 100000]
                     holder = instance_group(
@@ -97,5 +137,6 @@ def populate(sites, products_path, eye, sun):
         "instanced_triangles_camera_plus_sun": total,
         "sites": len(sites["positions"]),
         "models": products,
+        "demand": counts,
         "limits": "Existing 64-view whole-plant products and separate sunlight views. No organ generation. Statistical angular/needle fidelity and runtime LOD remain unapproved; initial two morphology proxies do not resolve all local species.",
     }

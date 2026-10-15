@@ -38,6 +38,22 @@ def surface(name, model, shader):
     return obj
 
 
+def renderer_camera(scene):
+    actual = np.array(scene.camera.matrix_world)
+    projection = scene.camera.calc_matrix_camera(
+        bpy.context.evaluated_depsgraph_get(),
+        x=RESOLUTION[0],
+        y=RESOLUTION[1],
+        scale_x=1,
+        scale_y=1,
+    )
+    return {
+        "eye_enu_m": actual[:3, 3].tolist(),
+        "basis_right_up_back": actual[:3, :3].tolist(),
+        "vertical_fov_deg": float(np.rad2deg(2 * np.arctan(1 / projection[1][1]))),
+    }
+
+
 def render(name, sources, products, output):
     modified = subprocess.check_output(
         ["git", "status", "--porcelain"], cwd=ROOT, text=True
@@ -64,6 +80,16 @@ def render(name, sources, products, output):
     water_model, water_report = water(camera, elevation, receipts)
     output.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(output / f"{name}-sites.npz", **site_arrays)
+    print(
+        json.dumps(
+            {
+                "stage": "plan",
+                "sites": site_report["sites"],
+                "elapsed_s": time.perf_counter() - start,
+            }
+        ),
+        flush=True,
+    )
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete(use_global=False)
     surface("actual DEM terrain", model, ground_material())
@@ -72,24 +98,31 @@ def render(name, sources, products, output):
             "source water", water_model, material("water", (0.018, 0.07, 0.065), 0.12)
         )
     sun, solar = sun_direction(camera)
-    plant_inputs, canopy = populate(site_arrays, products, camera.eye(ground), sun)
+    receiver_floor = min(
+        float(model.vertices[:, 2].min()),
+        float(water_model.vertices[:, 2].min())
+        if len(water_model.vertices)
+        else float("inf"),
+    )
+    plant_inputs, canopy = populate(
+        site_arrays, products, camera, ground, sun, receiver_floor
+    )
+    print(
+        json.dumps(
+            {
+                "stage": "canopy",
+                "demand": canopy["demand"],
+                "elapsed_s": time.perf_counter() - start,
+            }
+        ),
+        flush=True,
+    )
     scene = setup(camera, ground, RESOLUTION, sun)
     bpy.context.view_layer.update()
-    actual = np.array(scene.camera.matrix_world)
-    projection = scene.camera.calc_matrix_camera(
-        bpy.context.evaluated_depsgraph_get(),
-        x=RESOLUTION[0],
-        y=RESOLUTION[1],
-        scale_x=1,
-        scale_y=1,
-    )
-    actual_camera = {
-        "eye_enu_m": actual[:3, 3].tolist(),
-        "basis_right_up_back": actual[:3, :3].tolist(),
-        "vertical_fov_deg": float(np.rad2deg(2 * np.arctan(1 / projection[1][1]))),
-    }
+    actual_camera = renderer_camera(scene)
     scene.render.filepath = str((output / f"{name}.png").resolve())
     setup_s = time.perf_counter() - start
+    print(json.dumps({"stage": "render", "setup_s": setup_s}), flush=True)
     began = time.perf_counter()
     bpy.ops.render.render(write_still=True)
     renderer_s = time.perf_counter() - began

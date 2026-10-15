@@ -70,3 +70,31 @@ lock from a clean frozen worktree. `publish_places.py` checks all four actual
 camera/lens reports, source hashes and historical implementation snapshots
 before copying the manually opened/reviewed PNGs. A successful publisher is
 not an optical-quality verdict; visible improvement remains the update rule.
+
+The first frozen `17fa3b60f` Koerbersee attempt stored all 53,200 stable sites
+but hit its explicit 180 CPU-s limit before saving a PNG (SIGXCPU, 77.82 s wall,
+3158.22 MiB peak RSS). Its original inputs and failure remain in
+`/var/tmp/outshine-vegetation-place-shots-17fa3b60f/`. A local EGL query reports
+software llvmpipe for the default surfaceless backend; no GPU rendering claim
+follows from using EEVEE.
+
+`place_demand.py` now bounds complete cached angular geometry with transformed
+spheres before any Blender instance is created. The camera tests six expanded
+perspective halfspaces. Sunlight additionally sweeps each sphere toward every
+possible receiver down to a declared scene floor, intersecting the allowed
+travel intervals of all six planes. The floor includes terrain, water and all
+plant-product bounds. This retains off-screen and behind-camera casters.
+The sphere grows by `2*sin(a/2)` per metre for solar angular radius `a`, covering
+the finite sun disk's penumbra; minimum downward light direction bounds travel.
+Light disks touching the horizon conservatively keep every caster. A 5 cm
+renderer tolerance plus a Float64 magnitude guard expand the tests. There is no
+occlusion or exact sphere/polyhedron claim. All 64-view cached vertices must
+fit their declared bounds; every original site/ID remains in the complete plan.
+
+Five independent controls include near/far intersections, off-screen and
+behind-camera shadow casters, a penumbra missed by a point light, transformed
+box corners/projected shadow samples, invalid frames and the low-sun fallback.
+Run `place_demand_checks` with the previous scene/camera controls. The correction
+retains source data, camera, resolution, light, samples and existing plant
+products; only irrelevant renderer instances are rejected. A successful
+unchanged-profile image remains required before any public image update.

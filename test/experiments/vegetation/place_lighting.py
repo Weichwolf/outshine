@@ -10,6 +10,7 @@ from blender_preview import material
 from mathutils import Matrix, Vector
 from organ_preview import link_shadow_products
 from outshine_ref.places import axes
+from preview_lighting import SUN_ANGULAR_DIAMETER_DEG
 from preview_shadows import configure_preview
 
 
@@ -49,7 +50,7 @@ def setup(camera, ground, profile, sun):
     obj.matrix_world = Matrix(transform.tolist())
     scene.camera = obj
     light = bpy.data.lights.new("actual Place sun", "SUN")
-    light.energy, light.angle = 3.2, np.deg2rad(0.53)
+    light.energy, light.angle = 3.2, np.deg2rad(SUN_ANGULAR_DIAMETER_DEG)
     lamp = bpy.data.objects.new("sun", light)
     bpy.context.collection.objects.link(lamp)
     lamp.rotation_euler = Vector((-sun).tolist()).to_track_quat("-Z", "Y").to_euler()
