@@ -35,7 +35,7 @@ struct Raised {
   std::vector<StoredVertex> WallCorners, RoofCorners;
   std::vector<uint32_t> WallRun, RoofRun;
   std::vector<float> WallColours;
-  std::vector<float> WallMaterialM{};
+  std::vector<float> WallMaterialM;
 
   void Clear() noexcept {
     WallCorners.clear();
