@@ -187,6 +187,12 @@ shared Blender camera/import helpers, procedural facade masks and Principled
 material parameter composition. Its Eevee sampling is not an analytic CPU
 footprint oracle. The shared research workflow and fixed daylight values belong
 to [#291](https://github.com/Weichwolf/outshine/issues/291).
+Buildings now follows Transport's verified local normal-material path: supplied
+point normals become an exact float32 CORNER attribute, transformed as NORMAL
+from object to world and normalized before Principled. Blenders packed custom
+normals are recorded for comparison and are not the intended material input.
+`verify_city_normals.py` exercises an actual Eevee pixel with identity and
+nonuniform object scaling. No new shared Blender or native API is required.
 
 Near ordinary facades additionally reuse the old real-recess prototype through
 the installable `RecessPlan`/`recess_surface` library (#318). The same existing

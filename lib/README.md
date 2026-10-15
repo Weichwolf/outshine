@@ -932,6 +932,9 @@ wall colour and existing near-detail geometry are preserved by that consumer.
 Shared optional Blender-host helpers live in `outshine_ref.rendering.blender_camera` and
 `blender_mesh` ([#291](https://github.com/Weichwolf/outshine/issues/291)).
 They preserve supplied triangles, point/corner normals and optional point UVs.
+Normals are assigned to Blender as supplied; its packed mesh-normal encoding is
+not an exact shader-vector guarantee. Consumers can bind explicit FLOAT_VECTOR
+corner attributes in their local material path, as recorded in #291.
 Perspective FOV is vertical; orthographic `span_m` is horizontal. Blender stays an
 optional host dependency; module import does not require `bpy`. Buildings research
 uses `.venv` with `bpy==5.2.2`; Transport retains its current Workbench profile
