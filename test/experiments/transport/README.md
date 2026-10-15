@@ -130,6 +130,12 @@ eingefrorener Quellstand sind Pflicht. Die beiden regionalen Bilder sind
 1920×1080. Kamera-, Mesh-/Normalenimport und Tageslicht verwenden den gemeinsamen
 #291-Pfad unter `outshine_ref.rendering`. Keine Bilder nach `doc/` veröffentlichen.
 
+`transport_field_cost.py prepare` erzeugt optional einen dichten Nachfit-Input
+auf exakt derselben geprüften Geometrie. `measure --allocations` vergleicht
+gespeicherte Inputs in getrennten Prozessen mit dem nur dafür benötigten
+`memray==1.20.0`. Erfasste Allokationen und instrumentierte Zeiten bleiben von
+normalen Solverzeiten getrennt; der gültige kleine Höhenplan bleibt Rückfallprodukt.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
