@@ -152,6 +152,7 @@ struct CommandPermit {
 struct SubmissionResources {
   std::vector<Reservation> Buffers;
   std::shared_ptr<CommandPermit> Permit;
+  std::unique_ptr<PresentFrame> Presentation;
 };
 
 struct TrackedResource {
@@ -174,6 +175,8 @@ struct RenderState {
 };
 
 enum class DrawKind { Direct, Indexed, Indirect };
+
+class MetalPresentation;
 
 class MetalCommands final : public Commands {
 public:
@@ -199,6 +202,7 @@ public:
   Result<void> Draw(const DrawDescription &description) override;
   Result<void> DrawIndexed(const IndexedDrawDescription &description) override;
   Result<void> DrawIndexedIndirect(const IndirectDrawDescription &description) override;
+  Result<void> Present(std::unique_ptr<PresentFrame> frame) override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
@@ -214,6 +218,7 @@ private:
   std::vector<Reservation> Held;
   std::vector<std::shared_ptr<TextureRecording>> HeldImages;
   std::shared_ptr<CommandPermit> Permit;
+  std::unique_ptr<PresentFrame> Presentation;
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
@@ -259,6 +264,8 @@ public:
   Result<std::span<const std::byte>> MapRead(Buffer &buffer, ByteRange range) override;
   Result<void> Unmap(Buffer &buffer) override;
   Result<std::unique_ptr<Commands>> Begin() override;
+  Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() override;
+  Result<void> Attach(SDL_Window *window);
   Result<Completion> Submit(std::unique_ptr<Commands> commands) override;
   Result<CompletionStatus> Poll(Completion completion) override;
   Result<CompletionStatus> Wait(Completion completion, std::chrono::nanoseconds budget) override;
@@ -278,6 +285,7 @@ private:
   std::deque<std::shared_ptr<Submission>> Pending_;
   std::optional<Error> Failed_;
   std::shared_ptr<std::atomic<uint32_t>> Active_ = std::make_shared<std::atomic<uint32_t>>(0);
+  std::unique_ptr<MetalPresentation> Presentation_;
 };
 
 template <typename Flag> bool Has(UseMask<Flag> mask, Flag flag) {

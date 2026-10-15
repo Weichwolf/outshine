@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -80,7 +79,7 @@ public:
 
   [[nodiscard]] virtual Result<std::unique_ptr<Commands>> Begin() = 0;
 
-  [[nodiscard]] virtual Result<std::optional<std::unique_ptr<PresentFrame>>> AcquirePresentFrame() {
+  [[nodiscard]] virtual Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() {
     return std::unexpected(
         Error{.Kind = ErrorKind::Unsupported, .Message = "native presentation unavailable"});
   }

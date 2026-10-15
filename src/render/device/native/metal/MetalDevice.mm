@@ -1,4 +1,4 @@
-#include "MetalInternal.h"
+#include "MetalPresentation.h"
 #include <atomic>
 #include <limits>
 
@@ -127,9 +127,6 @@ Result<std::unique_ptr<Commands>> MetalDevice::Begin() {
 namespace outshine::Render::Native {
 
 Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
-  if (options.Window != nullptr) {
-    return Metal::Failure(ErrorKind::Unsupported, "native Metal presentation unavailable");
-  }
   @autoreleasepool {
     static std::atomic<uint64_t> identity{1};
     const id<MTLDevice> device = MTLCreateSystemDefaultDevice();
@@ -143,7 +140,12 @@ Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
     }
     const id<MTLCommandQueue> queue = [device newCommandQueue];
     if (queue == nil) { return Metal::Failure(ErrorKind::Driver, "Metal queue creation failed"); }
-    return std::make_unique<Metal::MetalDevice>(identity.fetch_add(1), device, queue);
+    auto result = std::make_unique<Metal::MetalDevice>(identity.fetch_add(1), device, queue);
+    if (options.Window != nullptr) {
+      const auto attached = result->Attach(options.Window);
+      if (!attached) { return std::unexpected(attached.error()); }
+    }
+    return result;
   }
 }
 
