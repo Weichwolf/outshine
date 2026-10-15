@@ -27,6 +27,14 @@ CityEngine capability set or building generator. Issue [#51](https://github.com/
 tracks that transfer; [#34](https://github.com/Weichwolf/outshine/issues/34) owns
 modelling capabilities.
 
+Current visual priority is exterior architecture: varied building forms,
+facades, roofs and special structures at CityEngine quality, owned by
+[#8](https://github.com/Weichwolf/outshine/issues/8) and
+[#32](https://github.com/Weichwolf/outshine/issues/32). Simple interior depth
+and believable window lighting suffice for this stage. Detailed room programmes
+and furnishing remain available components; their further expansion follows
+the exterior quality goal.
+
 Experimental coplanar CSG support partitioning compares GEOS triangle/plane
 regions with exact rational convex clipping and original-edge stations. The
 `exact-rounded` alternative contracts only existing edges whose endpoints
@@ -147,9 +155,16 @@ entrance/stair openings and missing flights are negative controls.
 generic room programme, native player controller and architecture families remain
 separate.
 
-The Buildings gallery uses four fixed native Place locations/cameras:
-DarmstadtWest, Flensburg, Rosenheim and Tokyo from `src/assets/places/`.
-`doc/images/places/` supplies the comparison images only. Own current Python
+The Buildings gallery uses four fixed Place locations/bearings/lenses:
+Husum, Feldkirch, ZuerichHauptbahnhof and Tokyo from `src/assets/places/`.
+These contrast small harbour houses, dense hillside buildings, large city
+complexes and high-rise density. Changing the selection does not establish new
+architecture recipes; repeated forms and missing details remain visible deficits.
+Buildings stand on a shared zero-height plane; acquisition requests only OSM
+vectors, never DEM. The native geographic camera altitudes are replaced by
+explicit fixed heights above this flat plane: Husum 20 m, Feldkirch 80 m,
+ZuerichHauptbahnhof 70 m, Tokyo 60 m. Scenario sources and these camera changes
+remain explicit in the receipts. `doc/images/places/` supplies comparison images only. Own current Python
 building renders belong in `doc/images/buildings/`, at 1920×1080 or higher with
 the same aspect ratio and vertical FOV; replace them after clearly visible gains.
 Do not copy native images as Python results. The local server and its UI are retired.
@@ -157,17 +172,19 @@ Private source data and intermediate outputs stay in system-temp directories.
 
 ```sh
 .venv/bin/python test/experiments/buildings/verify_place_reference.py
+.venv/bin/python test/experiments/buildings/verify_flat_places.py
 .venv/bin/python test/experiments/buildings/place_sources.py --fetch --output <temp>/source-receipts.json
 .venv/bin/python test/experiments/buildings/render_places.py --sources <temp>/source-receipts.json --output <temp>/verified-place-renders
 .venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders
 ```
 
 The publisher requires all four own clean render reports and matching scenario
-camera hashes before replacing the gallery. A manifest may declare one `commit`
+camera hashes and the flat camera projection before replacing the gallery.
+A manifest may declare one `commit`
 for the whole set or explicit `commits` keyed by all four Places, preserving each
-image's actual generator snapshot during gradual verified updates. Tokyo's height requires actual DEM
-sampling; the other three scenario heights are absolute. Source extent, missing
-world classes and terrain/material/light differences remain explicit. The initial
+image's actual generator snapshot during gradual verified updates. Old geographic
+DEM-based reports cannot be republished as flat results. Source extent, missing
+world classes and material/light differences remain explicit. The initial
 source acquisition is a declared 3 km window, not native 240 km Place admission.
 
 Filtered facade finishes (#245) reuse the existing opening repeat. The reference

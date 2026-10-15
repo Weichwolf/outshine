@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from place_reference import PLACES, ROOT, read
+from place_reference import PLACES, ROOT, flat
 
 
 def publish(source, output):
@@ -30,7 +30,8 @@ def publish(source, output):
         report = json.loads((source / filename).read_text())
         if (
             report["place"] != name
-            or report["camera"]["scenario_sha256"] != read(name).scenario_sha256
+            or report["camera"]["scenario_sha256"] != flat(name).scenario_sha256
+            or report.get("ground_mode") != "flat-no-dem"
         ):
             raise ValueError(
                 "Place render does not match the current native scenario camera"
@@ -47,7 +48,7 @@ def publish(source, output):
             != report["renderer"]["mesh_sha256"]
         ):
             raise ValueError("Cached geometry differs from the actual renderer input")
-        reference = read(name)
+        reference = flat(name)
         view = reference.view(
             report.get("camera_ground_height_m"), tuple(report["profile"])
         )
@@ -85,9 +86,7 @@ def publish(source, output):
     for path in output.glob("*.png"):
         if path.stem not in PLACES:
             path.unlink()
-    caption = (
-        "Aktueller Python-Gebäudegenerator an den festen Outshine-Place-Kameras.\n\n"
-    )
+    caption = "Aktueller Python-Gebäudegenerator: vier OSM-Orte auf flacher Bodenebene, ohne DEM.\n\n"
     caption += (
         "\n\n".join(name + "\n\n![" + name + "](" + name + ".png)" for name in PLACES)
         + "\n"
@@ -101,6 +100,7 @@ def publish(source, output):
                 for key in (
                     "camera",
                     "camera_ground_height_m",
+                    "ground_mode",
                     "profile",
                     "image_sha256",
                     "triangles",

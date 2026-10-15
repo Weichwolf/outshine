@@ -237,7 +237,10 @@ def construct(site, error_m=1.0, prepared=None, ordinary_builder=None):
                 members[-1].update(
                     placement_base_enu_m=row["placement_base_enu_m"],
                     ground_asl_m=row["ground_asl_m"],
-                    placement_origin="separate sampled DEM placement, provider height interval unchanged",
+                    placement_origin=row.get(
+                        "placement_origin",
+                        "separate sampled DEM placement, provider height interval unchanged",
+                    ),
                 )
         except (ValueError, shapely.errors.GEOSException) as error:
             omissions.append({"id": row["id"], "reason": str(error)})
