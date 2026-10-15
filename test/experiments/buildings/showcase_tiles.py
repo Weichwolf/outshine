@@ -15,7 +15,7 @@ import numpy as np
 from demand import View
 from evidence import revision
 from tile_buildings import SITES,construct,read_tile
-from tile_roof_envelopes import OrdinaryDetails
+from tile_facades import FacadeDetails,contexts
 from provider_contract import number,hidden
 
 
@@ -53,22 +53,23 @@ def frame_proof(mesh,view):
 
 
 def render(site,output,provenance,spp):
-    start=time.perf_counter();rows,receipt=read_tile(site);view=view_for(rows)
+    start=time.perf_counter();rows,receipt=read_tile(site);context=contexts(rows,receipt);view=view_for(rows)
     projection=math.sqrt(1+(view.width/(2*view.focal_px))**2+(view.height/(2*view.focal_px))**2)
     def error_for(row,parameters):
         x0,y0,x1,y1=row['polygon'].bounds
         points=np.array([(x,y,z) for x in (x0,x1) for y in (y0,y1) for z in (parameters['minHeight'],parameters['buildingHeight'])])
         depth=float(np.min((points-view.eye)@view.basis[2]))
         return .5*depth/(view.focal_px*projection+.5) if depth>0 else .25
-    rooms=OrdinaryDetails(rows,view)
-    mesh,source=construct(site,error_m=error_for,prepared=(rows,receipt),ordinary_builder=rooms);stem='current-tile-'+site.lower()
+    facades=FacadeDetails(rows,view);rooms=facades.base
+    mesh,source=construct(site,error_m=error_for,prepared=(rows,receipt),ordinary_builder=facades);stem='current-tile-'+site.lower()
     framing=frame_proof(mesh,view)
     source['room_detail']=rooms.rooms.report()
     source['roof_envelopes']=rooms.report()
+    source['facade_detail']=facades.report();source['context_report']=context
     path=output/(stem+'-mesh.npz');np.savez_compressed(path,**mesh)
     config=dict(profile=[view.width,view.height],mesh=str(path.resolve()),mesh_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         eye=view.eye.tolist(),target=view.target.tolist(),fov_deg=view.fov_deg,wall_linear=[.68,.67,.64],roof_linear=[.22,.24,.25],
-        material_definitions=source['material_definitions'],ground_span_m=source['span_m']*1.5,
+        material_definitions=source['material_definitions'],facade_materials=facades.bindings,ground_span_m=source['span_m']*1.5,
         spp=spp,seed=17,denoise=True,output=str((output/(stem+'.png')).resolve()))
     scene=output/(stem+'-scene.json');scene.write_text(json.dumps(config,indent=2)+'\n')
     log=Path(tempfile.gettempdir())/('outshine-buildings-'+stem+'-'+provenance['commit'][:9]+'.log')
@@ -77,7 +78,7 @@ def render(site,output,provenance,spp):
     image=output/(stem+'.png');renderer=json.loads(image.with_suffix('.renderer.json').read_text())
     if renderer['included_source_triangles']!=len(mesh['faces']):raise ValueError('Whole-tile renderer omitted triangles')
     report=provenance|dict(representation='showcase-current',view='tile',page='tile',title=TITLES[site],profile=[view.width,view.height],
-        caption='Vollständige Kachelszene mit Dachhüllen kleiner Körper, Sonderformen und begrenzten echten Raum-/Fassadenkontrollen. Weitere Architekturprogramme bleiben offen.',
+        caption='Vollständige Quellkachel mit kontextbezogenen geschätzten Fassadenachsen, Dachhüllen und Sonderformen. Funktionale Architekturprogramme bleiben offen.',
         renderer=renderer,source=source,triangles=len(mesh['faces']),build_seconds=time.perf_counter()-start,
         detail_policy='Source envelopes before emission; front-facing radial deviation <=0.5 projected pixel by minimum-depth bound; behind-camera complete profiles use 0.25 m',
         camera_scope='Complete tile overview with all generated geometry inside the image',camera_framing=framing,
