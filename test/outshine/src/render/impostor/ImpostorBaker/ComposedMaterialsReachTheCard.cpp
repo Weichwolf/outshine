@@ -6,9 +6,11 @@
 #include "math/Srgb.h"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <string>
@@ -162,6 +164,87 @@ void CheckCapture(Finish finish) {
   CHECK(covered > 30, "fixture checks a rendered surface, not an empty capture");
   CheckCurrentLighting(*card);
 }
+
+bool PureMasonryPane(const Content::ImpostorAtlas::View &view, size_t at, size_t pixels) {
+  constexpr float kCapturedPaneRoughness = .1199951171875f;
+  const size_t row = at / pixels;
+  const size_t column = at % pixels;
+  if (row == 0 || column == 0 || row + 1 >= pixels || column + 1 >= pixels) { return false; }
+  for (size_t y = row - 1; y <= row + 1; ++y) {
+    for (size_t x = column - 1; x <= column + 1; ++x) {
+      const size_t neighbour = y * pixels + x;
+      if (view.Texels[neighbour].Surface == 0 ||
+          view.Materials[neighbour].Roughness != kCapturedPaneRoughness) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+void CheckMasonry() {
+  using namespace outshine::Test;
+  Geometry source = Fixture(Finish::Facade);
+  constexpr float kCode = static_cast<float>(6 * 3 * 11 + 1) * 256;
+  constexpr std::array<float, 6> kFacadeUv{
+      kCode + .12f, 1.2f, kCode + .43f, 1.2f, kCode + .275f, 1.54f};
+  constexpr std::array<float, 6> kMetres{.03f, .01f, 1.03f, .01f, .53f, 1.01f};
+  constexpr int kPixels = 129;
+  constexpr float kVisibleDelta = .01f;
+  CHECK(source.setTexture(0, kFacadeUv) && source.setTexture(0, kMetres, 1),
+        "capture fixture has independent facade metadata and physical UV1");
+  const auto bake = [](Geometry mesh, SurfacePattern pattern) {
+    Material material = mesh.surfaceAt(MaterialInstance(0));
+    material.Pattern = pattern;
+    CHECK(mesh.setSurface(MaterialInstance(0), material), "capture mode is explicit");
+    Render::ImpostorCapture capture;
+    constexpr Vec3 kLeastM{{-.5, -.5, -.1}};
+    constexpr Vec3 kMostM{{.5, .5, .1}};
+    capture.LeastM = kLeastM;
+    capture.MostM = kMostM;
+    capture.Sources.push_back({.Mesh = std::move(mesh), .Instances = {Mat4{}}});
+    std::string error;
+    auto atlas =
+        Render::ImpostorBaker::Bake(std::move(capture), {.Pixels = kPixels, .Views = 1}, error);
+    CHECK(atlas.has_value(), error.c_str());
+    return atlas;
+  };
+  const auto before = bake(source.clone(), SurfacePattern::Facade);
+  const auto after = bake(std::move(source), SurfacePattern::FacadeMetres);
+  if (!before || !after) { return; }
+  const auto &a = before->Views()[0];
+  const auto &b = after->Views()[0];
+  CHECK(a.Materials.size() == b.Materials.size() && a.Texels.size() == b.Texels.size(),
+        "material mode preserves capture shape");
+  if (a.Materials.size() != b.Materials.size() || a.Texels.size() != b.Texels.size()) { return; }
+  size_t changed = 0;
+  size_t panes = 0;
+  float worst = 0;
+  for (size_t at = 0; at < a.Texels.size(); ++at) {
+    CHECK(a.Texels[at].Surface == b.Texels[at].Surface,
+          "masonry never changes capture coverage or surface identity");
+    if (a.Texels[at].Surface == 0) { continue; }
+    const auto &old = a.Materials[at];
+    const auto &now = b.Materials[at];
+    const float delta = std::abs(old.BaseColour[2] - now.BaseColour[2]);
+    worst = std::max(worst, delta);
+    changed += delta > kVisibleDelta ? 1u : 0u;
+    if (PureMasonryPane(a, at, kPixels)) {
+      ++panes;
+      CHECK(old.BaseColour == now.BaseColour && old.Roughness == now.Roughness,
+            "resolved pure glass remains exact during metre-aware material capture");
+    }
+    CHECK(old.Metalness == now.Metalness && std::isfinite(now.Roughness) && now.Roughness >= 0 &&
+              now.Roughness <= 1,
+          "capture preserves metallic and bounded composed roughness");
+  }
+  CHECK(changed > 30 && worst > kVisibleDelta && panes > 30,
+        "real capture sees UV1 masonry while retaining actual window panes");
+  const auto card = Render::BuildImpostorSurface(*after, 0);
+  CHECK(card && card->wellFormed() &&
+            card->surfaceAt(MaterialInstance(0)).Pattern == SurfacePattern::None,
+        "resolved card samples its captured channels without applying masonry a second time");
+}
 }
 
 int main() {
@@ -170,6 +253,7 @@ int main() {
   CheckCapture(Finish::Textured);
   CheckCapture(Finish::Facade);
   CheckCapture(Finish::Mapped);
+  CheckMasonry();
   SDL_Quit();
   return Report();
 }

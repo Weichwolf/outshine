@@ -26,7 +26,11 @@ enum class AlphaMode {
 };
 
 /// Native surface detail evaluated from generator coordinates during metallic-roughness shading.
-enum class SurfacePattern { None, Facade };
+enum class SurfacePattern {
+  None,
+  Facade,
+  FacadeMetres ///< Facade metadata in UV0 and physical wall-edge metres in UV1.
+};
 
 /// Incident-light response independent of coverage and procedural surface detail.
 enum class ScatteringModel { MetallicRoughness, DiffuseThinSheet, AreaMixture };
