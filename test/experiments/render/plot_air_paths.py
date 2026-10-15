@@ -17,8 +17,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     root, output = Path(__file__).resolve().parents[3], args.output.resolve()
-    if output == root or root in output.parents:
-        raise ValueError("private comparison figures belong outside the repository")
+    allowed = (root / "build/experiments").resolve()
+    if (output == root or root in output.parents) and not (
+        output == allowed or allowed in output.parents
+    ):
+        raise ValueError("figures belong in build/experiments/ or system temp")
     report = json.loads(args.report.read_text())
     if not report["reference_meets_targets"]:
         raise ValueError(
