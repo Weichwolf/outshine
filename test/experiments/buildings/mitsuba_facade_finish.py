@@ -42,11 +42,25 @@ def register(coverage):
             self.frame = float(props.get("frame_m", 0.0))
             self.band = float(props.get("band_m", 0.0))
             self.mode = str(props["mode"])
+            self.extent_fields = (
+                [props["extent_" + axis] for axis in "xyz"]
+                if "extent_x" in props
+                else None
+            )
             if self.mode not in ("opening", "glass_ratio", "band_ratio"):
                 raise ValueError("Unknown facade finish coverage mode")
 
         def eval_1(self, si, active=True):
-            extent = si.shape.eval_attribute_3("vertex_facade_extent", si, active)
+            extent = (
+                mi.Vector3f(
+                    *[
+                        dr.gather(mi.Float, value, si.prim_index, active)
+                        for value in self.extent_fields
+                    ]
+                )
+                if self.extent_fields is not None
+                else si.shape.eval_attribute_3("vertex_facade_extent", si, active)
+            )
             footprint = self.footprint(si) if self.filtered else mi.Vector2f(1e-5)
             opening = self.rectangle(si, footprint, extent, self.fractions)
             if self.mode == "opening":
