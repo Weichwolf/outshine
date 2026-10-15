@@ -21,6 +21,7 @@ IMPLEMENTATION = (
     "needle_group_views.py",
     "needle_group_reprojection.py",
     "needle_group_layers.py",
+    "needle_composition.py",
     "needle_group_depth_experiment.py",
     "needle_group_checks.py",
     "plant_depth.py",
