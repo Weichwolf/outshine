@@ -15,13 +15,20 @@ int main() {
   const auto patterned = PackSubjectMaterial(ordinary, 0.0f);
   CHECK(MaterialValuesAreValid(ordinary.Row) && patterned[35] == 1.0f,
         "native facade mode reaches its dedicated GPU scalar");
-  ordinary.Row.Pattern = static_cast<SurfacePattern>(2);
+  ordinary.Row.Pattern = SurfacePattern::FacadeMetres;
+  const auto metric = PackSubjectMaterial(ordinary, 0.0f);
+  CHECK(MaterialValuesAreValid(ordinary.Row) && metric[35] == 2.0f && ordinary.ReadsSecondUv() &&
+            !ordinary.ReadsAnyImage(),
+        "explicit facade metres require UV1 and retain their distinct packed value without images");
+  ordinary.Row.Pattern = static_cast<SurfacePattern>(3);
   CHECK(!MaterialValuesAreValid(ordinary.Row), "unknown procedural mode is rejected");
   Material material;
   material.Scattering = ScatteringModel::DiffuseThinSheet;
   material.BaseColour = {{.1f, .2f, .03f, 1}};
   material.DiffuseTransmission = {{.4f, .6f, .1f}};
-  const auto packed = Render::PackSubjectMaterial({.Row = material}, 42);
+  SubjectMaterial mapped;
+  mapped.Row = material;
+  const auto packed = Render::PackSubjectMaterial(mapped, 42);
   CHECK(packed[36] == 1 && packed[37] == .4f && packed[38] == .6f && packed[39] == .1f,
         "the CPU/GPU boundary carries the scattering model and direct RGB transmission");
   CHECK(packed[4] == .1f && packed[5] == .2f && packed[6] == .03f && packed[12] == 42,
@@ -29,7 +36,6 @@ int main() {
   const auto defaultRow = Render::PackSubjectMaterial({}, 0);
   CHECK(defaultRow[36] == 0 && defaultRow[37] == 0 && defaultRow[38] == 0 && defaultRow[39] == 0,
         "existing metallic-roughness materials do not acquire diffuse transmission");
-  SubjectMaterial mapped{.Row = material};
   mapped.Colour.Set = UvSet::Uv1;
   mapped.Colour.Uv.M[2] = 0.125;
   mapped.Colour.Uv.M[5] = 0.25;

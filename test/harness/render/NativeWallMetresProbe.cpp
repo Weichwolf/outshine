@@ -175,12 +175,17 @@ void Cache(const Raised &mesh) {
 void Fixture(const char *prefix,
              double anchorM,
              const BuildingSurface &source,
-             BuildingScratch &scratch) {
+             BuildingScratch &scratch,
+             const BuildingSurfacePatch *patch = nullptr) {
   if (prefix == nullptr) { return; }
   const BuildingSurface::Face face{.Part = 0, .Side = 2};
   BakedTile product;
-  CHECK(source.MeshVisible(std::span(&face, 1), scratch, product.Built),
-        "the raster fixture uses an actual emitted native source face");
+  if (patch == nullptr) {
+    CHECK(source.MeshVisible(std::span(&face, 1), scratch, product.Built),
+          "the raster fixture uses an actual emitted native source face");
+  } else {
+    source.MeshPatches(std::span(patch, 1), product.Built);
+  }
   const auto key = Sha256Hex("actual-wall-uv1-raster");
   const auto encoded = EncodeStructureArtifact(product, key);
   if (!encoded) {
@@ -200,9 +205,11 @@ void Fixture(const char *prefix,
   const std::array frame{
       source.Origin(), source.Axes().East, source.Axes().Up, source.Axes().North};
   const auto &shape = source.Shapes().front();
+  const size_t first = patch == nullptr ? 0 : patch->Sample.Face - 2;
+  const size_t next = (first + 1) % shape.Ring.size();
   const std::array edge{
-      Vec3{{shape.Ring[0].EastM, shape.SeatM + shape.FootM, shape.Ring[0].NorthM}},
-      Vec3{{shape.Ring[1].EastM, shape.SeatM + shape.FootM, shape.Ring[1].NorthM}}};
+      Vec3{{shape.Ring[first].EastM, shape.SeatM + shape.FootM, shape.Ring[first].NorthM}},
+      Vec3{{shape.Ring[next].EastM, shape.SeatM + shape.FootM, shape.Ring[next].NorthM}}};
   const std::string path =
       std::string(prefix) + "-" + std::to_string(static_cast<int>(anchorM)) + ".bin";
   std::ofstream file(path, std::ios::binary);
@@ -225,6 +232,47 @@ void Fixture(const char *prefix,
     file.write(reinterpret_cast<const char *>(uv), 2 * sizeof(float));
   }
   CHECK(file, "the emitted cached wall and actual UV1 bytes are saved");
+}
+
+void GableFixture(const char *prefix,
+                  double anchorM,
+                  const BuildingSurface &source,
+                  BuildingScratch &scratch) {
+  if (prefix == nullptr) { return; }
+  const auto &shape = source.Shapes().front();
+  std::vector<double> cuts;
+  for (size_t edge = 0; edge < shape.Ring.size(); ++edge) {
+    const auto &a = shape.Ring[edge];
+    const auto &b = shape.Ring[(edge + 1) % shape.Ring.size()];
+    const double e = b.EastM - a.EastM;
+    const double n = b.NorthM - a.NorthM;
+    const double length = std::hypot(e, n);
+    const Vec3 along = source.Axes().East * (e / length) + source.Axes().North * (n / length);
+    const Vec3 outward = source.Axes().East * (n / length) - source.Axes().North * (e / length);
+    const Vec3 centre =
+        source.Origin() + source.Axes().East * ((a.EastM + b.EastM) * 0.5) +
+        source.Axes().North * ((a.NorthM + b.NorthM) * 0.5) +
+        source.Axes().Up * (shape.SeatM + shape.FootM + shape.EavesM + shape.RiseM * 0.5);
+    const auto hit =
+        source.Trace({.Origin = centre + outward, .Direction = outward * -1.0}, 0, 2, cuts);
+    if (!hit || !hit->Gable) { continue; }
+    constexpr double kHalfM = .5;
+    const std::array corners{centre - along * kHalfM - source.Axes().Up * kHalfM,
+                             centre + along * kHalfM - source.Axes().Up * kHalfM,
+                             centre + along * kHalfM + source.Axes().Up * kHalfM,
+                             centre - along * kHalfM + source.Axes().Up * kHalfM};
+    const bool supported = std::ranges::all_of(corners, [&](const Vec3 &point) {
+      const auto corner =
+          source.Trace({.Origin = point + outward, .Direction = outward * -1.0}, 0, 2, cuts);
+      return corner && corner->Gable && corner->Face == hit->Face;
+    });
+    if (!supported) { continue; }
+    const BuildingSurfacePatch patch{.Sample = *hit, .Corners = corners};
+    const std::string name = std::string(prefix) + "-gable";
+    Fixture(name.c_str(), anchorM, source, scratch, &patch);
+    return;
+  }
+  CHECK(false, "the raster counterexample requires an actual bounded source gable");
 }
 
 void Patches(const BuildingSurface &source) {
@@ -364,6 +412,7 @@ int main(int argc, char *const *argv) {
     }
     Exercise(plan, *source, scratch);
     Fixture(argc == 2 ? argv[1] : nullptr, 0, *source, scratch);
+    GableFixture(argc == 2 ? argv[1] : nullptr, 0, *source, scratch);
     constexpr double kAnchorM = 500;
     plan.AnchorEcef =
         plan.AnchorEcef + source->Axes().East * kAnchorM + source->Axes().North * kAnchorM;
@@ -372,6 +421,7 @@ int main(int argc, char *const *argv) {
     if (moved) {
       Exercise(plan, *moved, scratch);
       Fixture(argc == 2 ? argv[1] : nullptr, kAnchorM, *moved, scratch);
+      GableFixture(argc == 2 ? argv[1] : nullptr, kAnchorM, *moved, scratch);
     }
     return Report();
   }
