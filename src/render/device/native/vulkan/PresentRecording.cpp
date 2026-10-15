@@ -9,7 +9,7 @@ namespace outshine::Render::Native::Vulkan {
 
 Result<void> Recording::Present(std::unique_ptr<PresentFrame> frame) {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
-  if (Context_->Surface == VK_NULL_HANDLE && !frame) {
+  if (!Context_->HasPresentTarget && !frame) {
     return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
                                  .Message = "headless Vulkan recording cannot present"});
   }

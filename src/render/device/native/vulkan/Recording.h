@@ -18,6 +18,7 @@ class Recording final : public Commands {
 public:
   explicit Recording(std::shared_ptr<Context> context) : Context_(std::move(context)) {
     ++Context_->Recordings;
+    ++Context_->OpenRecordings;
   }
 
   ~Recording() override;
@@ -25,6 +26,7 @@ public:
   [[nodiscard]] Result<void> Initialize();
   [[nodiscard]] Result<void> End();
   void CommitImages() noexcept;
+  void CommitSubmission() noexcept;
   void CommitPresent() noexcept;
   void BindPresentation(VkSubmitInfo2 &submit,
                         VkSemaphoreSubmitInfo &wait,
@@ -113,6 +115,7 @@ private:
   VkCommandBuffer Commands_ = VK_NULL_HANDLE;
   VkDescriptorPool Descriptors_ = VK_NULL_HANDLE;
   bool Finished_ = false;
+  bool Submitted_ = false;
   std::vector<TrackedImage> Images_;
   std::vector<VkImageView> Views_;
   std::vector<std::shared_ptr<SamplerState>> Samplers_;
