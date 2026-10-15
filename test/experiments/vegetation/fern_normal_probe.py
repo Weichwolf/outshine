@@ -65,7 +65,8 @@ def probe(output, name, normal, scale, bump=False):
     )
     attach_normals(obj, np.tile(normal, (6, 1)))
     obj.data.uv_layers.new(name="UV").data.foreach_set(
-        "uv", np.array(((0, 0), (1, 0), (1, 1), (0, 0), (1, 1), (0, 1))).ravel()
+        "uv",
+        np.array(((0, 0), (1, 0), (1, 1), (0, 0), (1, 1), (0, 1)), np.float32).ravel(),
     )
     frame = Rotation.from_rotvec((0.2, -0.3, 0.4)).as_matrix()
     scale = np.asarray(scale, float)
