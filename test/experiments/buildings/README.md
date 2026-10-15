@@ -478,6 +478,9 @@ unchanged openings, floor/wall accounting, compact areas and full-radius access.
 `verify_office_support.py` adds actual furniture meshes, original building paths
 and deliberately removed/escaped/misassigned/unsupported-floor counterparts.
 
+`office_support_benchmark.py` times subdivision alone with equal compact-room
+constraints, deterministic replay and independent pre/post admission; source
+preparation and whole fresh-process Linux RSS stay separate.
 `office_support_probe.py` writes private 2880×2160 before/after plans.
 `room_programme_probe.py --support-plan --overview-only` uses the chosen plan,
 then renders a declared ground-office cut: actual body parts capped at 1.10 m
