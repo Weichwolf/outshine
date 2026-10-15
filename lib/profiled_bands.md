@@ -65,9 +65,14 @@ buffers. A conservative displacement sphere bounds the projected distance from
 the original wall: with camera-space source position `q`, nearest positive
 depth `z`, camera movement radius `m`, and maximum miter displacement `r`, the
 error is at most `f*r*(max|q|+m)/(z*(z-r))`, where `z` includes movement. Plane
-crossing keeps detail. Frustum tests expand by `m+r`; no source-wall backface
+crossing keeps detail. The first pass uses the allowed miter limit; the second
+uses the actual largest endpoint displacement from each validated edge support.
+Both retain the same 0.5-pixel positional budget. No sweep expansion is needed
+for this refinement. Frustum tests expand by `m+r`; no source-wall backface
 test discards the band's potentially visible upper/lower surfaces. This bound
-only controls positional displacement. The painted far wall is not an admitted
+only controls positional displacement. Neighbor checks cover the caller's
+supplied building rows; scene-window exterior coverage is unproven.
+The painted far wall is not an admitted
 equivalent for radiance, shadows, night lighting or changing LOD transitions.
 
 Independent controls cover oriented watertight solids, planar metric UVs,

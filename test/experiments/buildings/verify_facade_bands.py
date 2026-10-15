@@ -1,6 +1,7 @@
 """Actual source controls: opening-safe bands, unchanged source mesh and neighbor clearance."""
 
 import copy
+import itertools
 import unittest
 from unittest.mock import patch
 
@@ -13,6 +14,36 @@ from verify_urban_roofs import sources
 
 
 class FacadeBands(unittest.TestCase):
+    def test_actual_miters_remove_overestimated_far_demand(self):
+        from outshine_ref.buildings.profiled_bands import BandPlan, edge_footprints
+        from tile_facade_bands import BandSpec
+
+        row = {
+            "id": "rectangle",
+            "polygon": shapely.box(0, 0, 12, 18),
+            "properties": {"render_height": 12},
+        }
+        coords = list(shapely.orient_polygons(row["polygon"]).exterior.coords)
+        facades = [
+            {"a": a, "b": b, "width_m": float(np.linalg.norm(np.asarray(b) - a))}
+            for a, b in itertools.pairwise(coords)
+        ]
+        spec = BandSpec(
+            "cornice", 11.7, ((0.0, 0.0), (0.2, 0.0), (0.2, 0.3), (0.0, 0.3))
+        )
+        supports = edge_footprints(BandPlan(row["polygon"], spec.profile, spec.base_m))
+        f = facades[0]
+        a, b = np.asarray(f["a"]), np.asarray(f["b"])
+        normal = np.r_[(b - a)[1], -(b - a)[0], 0.0] / f["width_m"]
+        target = np.r_[(a + b) / 2, 11.85]
+        view = View(target + normal * 1000, target, width=1920, height=1080, fov_deg=48)
+        self.assertTrue(demanded(f, spec, view))
+        self.assertFalse(
+            BandDetails([row]).refined_edges(facades, spec, supports, (0,), view)
+        )
+        radius = np.sqrt(2) * 0.2
+        self.assertFalse(demanded(f, spec, view, radius=radius))
+
     def test_sphere_projection_rejects_only_subpixel_displacements(self):
         row = sources()[1]
         _, facades, p = source_facades(row)

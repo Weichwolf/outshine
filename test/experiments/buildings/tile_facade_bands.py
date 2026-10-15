@@ -64,7 +64,7 @@ def specifications(facades, bottom):
     return specs
 
 
-def demanded(frame, spec, view):
+def demanded(frame, spec, view, *, radius=None):
     a, b = np.asarray(frame["a"]), np.asarray(frame["b"])
     points = np.array(
         [
@@ -75,7 +75,8 @@ def demanded(frame, spec, view):
         ]
     )
     # Expand clipping planes conservatively for any displacement up to the miter limit.
-    radius = max(d for d, _ in spec.profile) * 4
+    if radius is None:
+        radius = max(d for d, _ in spec.profile) * 4
     expanded = view.movement_m + radius
     coordinates = (points - view.eye) @ view.basis.T
     distances = coordinates @ view.planes[:, :3].T + view.planes[:, 3]
@@ -121,6 +122,15 @@ class BandDetails:
             (blocked if collision else edges).append(i)
         return edges, blocked
 
+    def refined_edges(self, facades, spec, footprints, requested, view):
+        selected = []
+        for i in requested:
+            corners = np.asarray(footprints[i].exterior.coords)[:4]
+            radius = float(np.linalg.norm(corners[2:] - corners[1::-1], axis=1).max())
+            if demanded(facades[i], spec, view, radius=radius):
+                selected.append(i)
+        return selected
+
     def __call__(self, mesh, row, parameters, facades, view, material, family):
         if family not in (
             "residential",
@@ -156,6 +166,11 @@ class BandDetails:
                         rtol=0,
                     ):
                         raise ValueError("Facade boundary identity/order changed")
+                requested = self.refined_edges(
+                    facades, spec, footprints, requested, view
+                )
+                if not requested:
+                    continue
                 edges, blocked = self.free_edges(row, spec, footprints, requested)
                 if not edges:
                     self.rejected.append(
