@@ -174,6 +174,13 @@ Result<void> InitLogical(Context &context) {
   enabled.synchronization2 = VK_TRUE;
   enabled.dynamicRendering = VK_TRUE;
   VkPhysicalDeviceFeatures core{};
+  core.robustBufferAccess = features.features.robustBufferAccess;
+  core.independentBlend = features.features.independentBlend;
+  core.multiDrawIndirect = features.features.multiDrawIndirect;
+  core.drawIndirectFirstInstance = features.features.drawIndirectFirstInstance;
+  context.IndependentBlend = core.independentBlend != VK_FALSE;
+  context.MultiDrawIndirect = core.multiDrawIndirect != VK_FALSE;
+  context.IndirectFirstInstance = core.drawIndirectFirstInstance != VK_FALSE;
   core.shaderStorageImageExtendedFormats = features.features.shaderStorageImageExtendedFormats;
   context.StorageImageExtendedFormats = core.shaderStorageImageExtendedFormats != VK_FALSE;
   const float priority = 1.0f;

@@ -22,9 +22,15 @@ struct Reflection {
   Reflection &operator=(const Reflection &) = delete;
 };
 
+[[nodiscard]] Result<void> ParseReflection(Reflection &reflection,
+                                           std::span<const uint32_t> spirv,
+                                           std::string_view entry,
+                                           SpvExecutionModel stage);
+[[nodiscard]] Result<ShaderResources> ReadResources(const Reflection &reflection);
+
 [[nodiscard]] Error ReflectionError(const Reflection &reflection);
 [[nodiscard]] Result<void>
-AppendImages(const Reflection &reflection, spvc_resource_type kind, ComputeReflection &into);
+AppendImages(const Reflection &reflection, spvc_resource_type kind, ShaderResources &into);
 
 }
 #endif
