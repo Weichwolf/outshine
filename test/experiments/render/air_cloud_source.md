@@ -32,7 +32,7 @@ using `expm1` and a stable zero-slope limit. An independent Gauss quadrature of
 the physical integrand is refined separately. Sun directions below the horizon
 remove the direct term; a prescribed diffuse input can remain. The unit tests
 cover eyes below, inside and above the cloud, upward/downward/horizontal rays,
-positive and negative solar cosines, repeated query endpoints, zero distance,
+positive and negative solar cosines, zero distance,
 null cloud and affine-transfer composition.
 
 In the default upward case, leaving the direct source unshadowed produces
