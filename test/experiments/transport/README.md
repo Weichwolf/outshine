@@ -944,3 +944,13 @@ Vertexkontakte allein reichen nicht. Änderungen an fester Kamera/Galerie bleibe
 an den vollständigen sauberen Replay und geöffneten Vorher/Nachher-Vergleich
 gebunden. Quelle/XY/Indices, alte C1-/Flat-Fenster und Hardware bleiben erhalten;
 C1-Netzprofile, Ebenen, geneigte Gleise und native Integration bleiben offen.
+
+`transport_place_shots.py --height-products "$TRANSPORT_HEIGHT_RUN"` konsumiert
+die sauberen unabhängigen Ergebnisse unter
+`<Place>-least_squares/<Place>-least_squares.{json,npz}` mit
+`verification.json` und den vorbereiteten Eingaben unter `inputs/`.
+Dazu gehören dieselben `--camera-products` und `--rail-products` wie im Fit.
+Nur neue Kamera-Fenster erhalten ihre geprüften Höhen; unveränderte alte
+Wiener/Central-Park-Produkte bleiben erhalten. Ein explizit ungültiger Fit
+behält das vorherige Bett mit Grund; schmutzige oder fremd gebundene Ergebnisse
+werden nicht dargestellt. Der Standard ohne `--height-products` bleibt eben.

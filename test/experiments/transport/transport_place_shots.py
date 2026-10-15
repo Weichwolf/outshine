@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from camera_height_display import window_heights
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport import close_surface
 from PIL import Image
@@ -37,7 +38,7 @@ def pinned(path, release, pins):
     return path
 
 
-def flat_model(name, release, pins, datum, camera_products=None):
+def flat_model(name, release, pins, datum, camera_products=None, height_products=None):
     if camera_products is None:
         base = release / "geometry/components"
     else:
@@ -52,14 +53,32 @@ def flat_model(name, release, pins, datum, camera_products=None):
     for index in range(report["products"]):
         path = pinned(directory / f"product-{index}.npz", release, pins)
         with np.load(path) as data:
+            heights = np.full(len(data["vertices"]), datum)
+            height_proof = None
+            if height_products is not None:
+                if camera_products is None or report["products"] != 1:
+                    raise ValueError(
+                        "height result requires one captured camera product"
+                    )
+                heights, height_proof = window_heights(
+                    height_products,
+                    name,
+                    data["vertices"],
+                    data["indices"],
+                    digest(path),
+                    digest(camera_products / "generation.json"),
+                    datum,
+                )
             top = Mesh(
-                np.c_[data["vertices"], np.full(len(data["vertices"]), datum)],
+                np.c_[data["vertices"], heights],
                 data["indices"],
             )
             slots = data["part_roles"][data["face_owners"]]
         meshes.append(top)
         colours.append(slots)
-        sources.append({"path": str(path), "sha256": digest(path)})
+        sources.append(
+            {"path": str(path), "sha256": digest(path), "height_product": height_proof}
+        )
     offsets = np.cumsum([0] + [len(m.vertices) for m in meshes])
     mesh = Mesh(
         np.vstack([m.vertices for m in meshes]),
@@ -161,6 +180,7 @@ def prepare(args):
                     pins,
                     camera_proof["local_flat_datum_m"],
                     args.camera_products,
+                    args.height_products,
                 )
                 top, slots, overlap = append_camera_window(top, slots, near, near_slots)
                 model_proof.update(
@@ -175,6 +195,7 @@ def prepare(args):
                 pins,
                 camera_proof["local_flat_datum_m"],
                 args.camera_products,
+                args.height_products,
             )
             if name in retained:
                 old_pins = json.loads((args.flat_release / "sha256.json").read_text())
@@ -244,6 +265,7 @@ def main():
     parser.add_argument("--port-plan", type=Path, required=True)
     parser.add_argument("--camera-products", type=Path)
     parser.add_argument("--rail-products", type=Path)
+    parser.add_argument("--height-products", type=Path)
     parser.add_argument("--elevation-inventory", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--build-only", action="store_true")
@@ -252,6 +274,10 @@ def main():
         parser.error("--camera-products or --flat-release required")
     if args.rail_products is not None and args.camera_products is None:
         parser.error("--rail-products requires its captured --camera-products")
+    if args.height_products is not None and (
+        args.camera_products is None or args.rail_products is None
+    ):
+        parser.error("--height-products requires its captured camera and rail products")
     began = time.monotonic()
     scene = prepare(args)
     if args.build_only:
