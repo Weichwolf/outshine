@@ -98,6 +98,10 @@ Tatsächliche endliche Kontakte konsumieren
 Frame, Kind, originale Quellen/Attribute und vorherige Auslassungen bindet der
 Aufrufer. `PortPlaneField` bietet separat die mathematische Patchfamilie samt
 `evaluate`/`bounds`; außerhalb der gewählten Domäne ist das nur eine Fortsetzung.
+Bei exakt gespeicherten Ankern kann `xy_tolerance_m=0` ausdrücklich gewählt
+werden. Ein positiver Suchradius kann mehrere benachbarte Features treffen;
+der bestehende Sampler meldet dann konservativ einen mehrdeutigen Kontakt statt
+einer erfundenen Höhe. Das verändert weder seine Defaults noch gemeinsame APIs.
 
 Abnahme: ganze normierte Neigungen ≤1+1e-7, Höhenchords ≤0,01m und endliche
 Port-Gradfehler ≤0,005. Nur originale Beobachtungen gehen in den Fit ein.
