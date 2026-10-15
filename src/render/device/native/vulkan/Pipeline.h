@@ -12,11 +12,26 @@
 
 namespace outshine::Render::Native::Vulkan {
 
+struct ImageRequirement {
+  uint32_t Set = 0;
+  uint32_t Slot = 0;
+  bool Array = false;
+  VkFormat StorageFormat = VK_FORMAT_UNDEFINED;
+};
+
+struct ComputeReflection {
+  ComputeLayout Layout;
+  std::vector<ImageRequirement> Images;
+};
+
+[[nodiscard]] VkDescriptorType DescriptorType(BindingKind kind) noexcept;
+
 struct PipelineState {
   std::shared_ptr<Context> Owner;
   VkPipeline Handle = VK_NULL_HANDLE;
   VkPipelineLayout Layout = VK_NULL_HANDLE;
   std::vector<VkDescriptorSetLayout> Sets;
+  std::vector<ImageRequirement> Images;
 
   PipelineState() = default;
   ~PipelineState();
@@ -35,8 +50,8 @@ private:
   std::shared_ptr<PipelineState> State_;
 };
 
-[[nodiscard]] Result<ComputeLayout> ReflectCompute(std::span<const uint32_t> spirv,
-                                                   std::string_view entry);
+[[nodiscard]] Result<ComputeReflection> ReflectCompute(std::span<const uint32_t> spirv,
+                                                       std::string_view entry);
 [[nodiscard]] Result<std::unique_ptr<ComputePipeline>> CreatePipeline(
     std::shared_ptr<Context> context, std::span<const uint32_t> spirv, std::string_view entry);
 
