@@ -151,5 +151,17 @@ all 350 source sites and 700 independent camera/sun selections remain present.
 All 24 near subsets preserve source ranges and actual radius offsets, with maximum
 radial residual 4.16e-15 m. The reference EEVEE process took 84.33 s / 3122.78 MiB;
 89,600 tree triangles, 700 tree objects and 32,258 ground triangles are separate.
-OS file caches may be warm. The complete 24-shoot × 17-direction window-fidelity
-gate remains pending after the reserved Buildings and Transport measurement slots.
+OS file caches may be warm. The frozen `543579f5b` control completed all 24
+actual shoots × 17 directions with cached ranges exact and complete near-plant
+generation disabled. All old 17-direction controls remain exact. The isolated
+comparison process took 67.82 s / 208.00 MiB peak RSS; projection controls passed.
+This verifies the comparison and range matching, not a smaller acceptable LOD.
+Median/p95 relative covered-area error is 0.0299/0.0976 for spruce and
+0.0445/0.1274 for pine. At a 2-pixel control size, normalized coverage L1 still
+has p95 0.4912/0.3315 and maxima 0.6348/0.6499. Actual matching stand-camera
+shoot bounds span 0.443–4.002 px and 0.839–5.028 px respectively. Thus even the
+smallest measured controls have substantial local errors; no LOD approval follows.
+These unlit shoot controls do not measure full-image error, visibility or shadows.
+`build/experiments/vegetation/mature-window-543579f5b/summary.json` retains the
+complete quantiles; #168 owns fidelity. The separate parent-growth prototype and
+its still-pending visual proof are documented in [parent_growth.md](parent_growth.md).
