@@ -249,3 +249,7 @@ test-writer-inventory: ## verify scenario writer source inventory
 .PHONY: test-timeout-cleanup
 test-timeout-cleanup: ## verify owned process-group cleanup and foreign-process isolation
 	@cd $(SELF_DIR) && python3 test/scripts/test_timeout_cleanup.py
+
+.PHONY: test-file-stamps
+test-file-stamps: ## verify portable native test file metadata and failure handling
+	@cd $(SELF_DIR) && python3 test/scripts/test_file_stamps.py
