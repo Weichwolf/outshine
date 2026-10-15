@@ -130,3 +130,45 @@ three images. Both processes ended0. No rendering occurred in this check.
 Current packet, cost and portability receipts:
 `/var/tmp/outshine-vegetation-packed-77277ff26/`. Blend SHA256:
 `942c844d36d37340d05e1ab853be5fdcdc4e6821410dcecdae0be04ed020bbc4`.
+
+## First complete private optical diagnosis and fine-water correction
+
+Frozen `48b46571d` now renders the complete packed Koerbersee scene at its
+unchanged2560×1440 camera with an explicitly private **one-sample** profile.
+Stored64samples and the original cost gate remain untouched; this diagnostic
+is not a cheaper passing version of that comparison. Its first PNG completed:
+27.077s wall/53.905CPU-s/3152.69MiB peak RSS, llvmpipe OpenGL. The whole image
+and the native camera reference were opened. It exposed coarse green terrain,
+uniform narrow conifer proxies and a missing near lake. No public image update.
+
+The cause of the missing lake was the water filter: fine z14 `lake` features
+were discarded while only `pond` survived. `f1af72d2e` retains fine water and
+clips coarser polygons to regions outside supplied finer tile footprints.
+Buffered geometry is clipped to its own tile too; boundary-only intersections
+do not create surface records. Superseded/outside sources keep explicit reasons.
+Three independent controls cover fine lakes, dry fine tiles and exact disjoint,
+order-independent tile ownership; original scene/contact/hole controls pass.
+This changes neither DEM nor the complete planting plan, and does not claim
+connected water levels or hydrological/shoreline accuracy.
+
+The corrected full composition/export completes with exit0:
+19.817s wall/19.765CPU-s/580.18MiB peak RSS. All six original columns of all
+53,200 sites and the actual camera remain bit-exact. Water sources207→224,
+including17 fine lake fragments. New packed scene SHA256:
+`b93e86e4a01be72e34f9a94a42c16bf05b00c78d69ef8a8f3c5c511823aa59e8`.
+The same private one-sample profile then completes with exit0:
+26.694s wall/53.657CPU-s/3196.54MiB terminal child peak RSS. Before/after PNGs
+were opened: the near lake is now present. It still has a simplified shoreline
+and overly pale material; terrain form/material and inappropriate generic
+conifers over grass remain the next concrete image deficits. Species atlas/
+spatial-marking experiments have not yet changed these prototype instances.
+
+Inputs and first diagnosis: `/tmp/outshine-vegetation-packed-optical-48b46571d/`.
+Current export, exact plan comparison, PNG and terminal reports:
+`/tmp/outshine-vegetation-place-water-f1af72d2e/`.
+`render_packed_preview.py` takes an explicit packed scene, source receipt,
+diagnostic profile and temporary output. It requires packed procedural images,
+retains the source resolution and records both old/new sample counts. The profile
+in`packed_optical_diagnostic.json` explicitly forbids presentation/cost admission.
+Four final public Place images, the64-sample cost gate and SpeedTree/botanical/
+LOD/native acceptance remain open. No HTTP showcase is restored.
