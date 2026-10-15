@@ -78,6 +78,16 @@ def place_camera(name, inventory):
     proof = {
         "scenario": str(path.relative_to(ROOT)),
         "scenario_sha256": camera.scenario_sha256,
+        "time_utc": camera.time_utc,
+        "geographic_pose": {
+            "latitude_deg": camera.latitude_deg,
+            "longitude_deg": camera.longitude_deg,
+            "declared_height_m": camera.declared_height_m,
+            "samples_height": camera.samples_height,
+            "bearing_deg": camera.bearing_deg,
+            "pitch_deg": camera.pitch_deg,
+        },
+        "lighting_recipe": "Fixed Workbench studio inspection; declared clock retained, no native sun/shading claim.",
         "local_origin_lat_lon": [
             camera.origin_latitude_deg,
             camera.origin_longitude_deg,
