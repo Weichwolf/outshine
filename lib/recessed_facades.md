@@ -37,6 +37,9 @@ partial/full replay and capacity rejection before expansion. The city adapter
 checks actual source-footprint containment and original rectangular facade area,
 keeps far geometry by identity, and leaves constructive room/door plans alone.
 Its existing painted fallback remains for nonrectangular or unsupported frames.
+Projected recess demand is a geometry criterion, not a radiance, shadow or night
+lighting error bound. Material/lighting continuity across detail transitions and
+native admission remain unproved.
 
 The source derives from the former `facade_geometry.py` prototype. References:
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf),
