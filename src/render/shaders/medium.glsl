@@ -161,19 +161,41 @@ vec3 mediumSkyRay(Medium medium, float radiusKm, SkyViewLook look,
   return summed;
 }
 
-vec3
-mediumTransmittance(Medium medium, MediumLook look, uint steps, float segment) {
+vec3 mediumTransmittance(Medium medium, MediumLook look, uint steps) {
   float radiusKm = look.RadiusKm;
   float cosZenith = look.CosZenith;
   float toGround = mediumGroundReach(medium, radiusKm, cosZenith);
   float toTop = mediumTopReach(medium, radiusKm, cosZenith);
   float span = toGround < 0.0 ? toTop : min(toTop, toGround);
+  if (steps == 0u || span <= 0.0) { return vec3(1.0); }
+  uint cells = steps / 2u;
+  float focus = 0.0;
+  if (cells > 0u && cosZenith > 0.0 && medium.MieExtinctionPerKm > 0.0) {
+    vec3 start = mediumExtinctionPerKm(medium, radiusKm - medium.BottomRadiusKm);
+    focus = mediumSolarFocus(medium, min(start.r, min(start.g, start.b)), look, span / float(cells));
+  }
   vec3 depth = vec3(0.0);
-  float stride = span / float(steps);
-  for (uint step = 0u; step < steps; step = step + 1u) {
-    float along = stride * (float(step) + segment);
-    depth += mediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along)) *
-             stride;
+  if (focus == 0.0) {
+    float stride = span / float(steps);
+    for (uint step = 0u; step < steps; ++step) {
+      float along = stride * (float(step) + kMediumSampleSegment);
+      depth +=
+          mediumExtinctionPerKm(medium, mediumHeightAlong(medium, radiusKm, cosZenith, along)) *
+          stride;
+    }
+  } else {
+    for (uint cell = 0u; cell < cells; ++cell) {
+      float beginKm = mediumSolarEdge(span, float(cell) / float(cells), focus);
+      float endKm = mediumSolarEdge(span, float(cell + 1u) / float(cells), focus);
+      float halfWidthKm = (endKm - beginKm) * 0.5;
+      float middleKm = (endKm + beginKm) * 0.5;
+      float offsetKm = halfWidthKm * 0.5773502691896258;
+      vec3 left = mediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm - offsetKm));
+      vec3 right = mediumExtinctionPerKm(
+          medium, mediumHeightAlong(medium, radiusKm, cosZenith, middleKm + offsetKm));
+      depth += (left + right) * halfWidthKm;
+    }
   }
   return exp(-depth);
 }
