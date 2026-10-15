@@ -81,8 +81,38 @@ The86-case PDF was optically opened. Current gallery7f69a41f0 and the dated
 Koerbersee reference2026-09-07T12:40 local were also compared optically in a PDF;
 large pale walls and missing conifer stands are separate unresolved deficits.
 
-Native component evidence is not a Place or full-world frame proof. Identical
-public-client before/after images, motion, device costs and integration checks
-remain required before accepting the production change. Master owns published
-Places and Metal/A18 counterchecks. The declared global limestone assumption is
-unchanged and is a separate issue from this filtering comparison.
+The86-case work cohort uses1320 old corner hashes versus1480 with either mapped
+variant (165 versus185 active fields); the reference integrates15679488 hashes.
+The mapped variants preserve more fields, rather than universally saving work.
+
+## Public client countercheck
+
+The regular Linux build on2a6f211c7 includes the material-independent forest
+placement fix. Same executable, scenario/source/assets and render settings are
+used for both shader roots; only21 Ground fragment artifacts differ. Width/height
+1280×720,60 timed frames,360° in one second, only the final PNG. Camera, palette,
+clock and geometry remain unchanged. Cached fresh offline preloads are below10s.
+Initial source acquisition/asset construction is separate from these runs.
+
+Optically opened full-image and identical crop PDFs show a small local change:
+more resolved crevice response on Koerbersee's rock faces; the pale large walls,
+geometric shore teeth and missing conifer forest are still visible deficits.
+Central Park remains visually close. No general webcam-quality claim follows.
+Final screen-derivative composition preserves the component's scalar values;
+its small floating-point gradient differences require their own final captures.
+
+The frame gate is still RED. Koerbersee's initial paired p99 is9.5564/9.4264ms;
+the final screen variant is5.4926ms. Central Park initially gives12.9970/25.7638ms,
+reverse order20.4776/14.9547ms, and screen/baseline21.0365/19.3087ms. Each failure
+is at frame index1, beyond the unchanged16.67ms60Hz budget. No extra warm frames
+or raised threshold are used. Component GPU timestamps do not clear this gate.
+
+A private, unchanged-call SDL timing shim identifies synchronous submit wall time
+on that frame:27.633862ms old,24.289410ms new. These instrumented runs are
+diagnostics, not acceptance or GPU execution measurements. Pipeline creation is
+earlier, and the fence-wait calls do not contain this spike. Evidence is reported
+to the submission owner under #328/6204546022 and its follow-up. No parallel
+renderer/SDL repair is included. A native submission/frame countercheck remains
+necessary before accepting this production change. Master owns Metal/A18 and
+publication; no image belongs under doc/ from this experiment. The declared
+global limestone assumption remains unchanged and is a separate issue.
