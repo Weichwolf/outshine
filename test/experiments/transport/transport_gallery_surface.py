@@ -23,9 +23,45 @@ from outshine_ref.transport.weighted_heights import fit_weighted_heights
 from rail_place_display import append_hardware
 from surface_height_frames import frames_for_surface
 from surface_solid_showcase import inspection_view
+from transport_building_clearance import street_kind
 from transport_place_shots import flat_model
 
 HERE = Path(__file__).resolve().parent
+COLOURS = [
+    [0.18, 0.21, 0.23, 1],
+    [0.20, 0.23, 0.25, 1],
+    [0.45, 0.49, 0.46, 1],
+    [0.12, 0.43, 0.65, 1],
+    [0.9, 0.29, 0.1, 1],
+    [0.62, 0.66, 0.48, 1],
+    [0.68, 0.71, 0.74, 1],
+    [0.32, 0.27, 0.21, 1],
+    [0.68, 0.65, 0.55, 1],
+    [0.43, 0.46, 0.48, 1],
+    [0.18, 0.42, 0.30, 1],
+]
+
+
+def materials(meta, roles, root):
+    source = meta["flat_product"]["source_name"]
+    raw = json.loads((root / "inputs" / (source + "-input.json")).read_text())
+    kinds = {r["source_id"]: street_kind(r["properties"]) for r in raw["roads"]}
+    palette = {
+        "rail": 9,
+        "light_rail": 9,
+        "tram": 9,
+        "footway": 8,
+        "pedestrian": 8,
+        "track": 8,
+        "steps": 8,
+        "path": 8,
+        "cycleway": 10,
+    }
+    source_ids = meta["frame_recipe"]["source_ids"]
+    slots = np.full(len(roles), 5, int)
+    slots[: len(source_ids)] = [palette.get(kinds[s], 0) for s in source_ids]
+    slots[(slots == 0) & (roles == 1)] = 1
+    return slots
 
 
 def prepared(name, root, rails, sources):
@@ -34,6 +70,7 @@ def prepared(name, root, rails, sources):
     raw = json.loads((root / "inputs" / (source + "-input.json")).read_text())
     datum = capture["datum_m"]
     top, slots, proof = flat_model(source, None, {}, datum, camera_products=root)
+    proof["source_name"] = source
     xy, road_faces = top.vertices[:, :2], top.triangles
     domain = shapely.box(*(xy.min(axis=0) - 4), *(xy.max(axis=0) + 4))
     layout, ground = ground_layout(xy, road_faces, domain, max_faces=262144)
@@ -113,7 +150,7 @@ def build(name, root, rails, sources, output):
         "valid": True,
         "input_sha256": digest(input_path),
         "mesh_sha256": digest(fitted),
-        "fit": result.report,
+        "fit": dict(result.report),
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
@@ -128,7 +165,8 @@ def build(name, root, rails, sources, output):
     )
     body = close_surface(result.mesh, 1.0)
     slots = np.r_[
-        arrays["roles"], np.full(len(body.triangles) - len(arrays["faces"]), 2)
+        materials(meta, arrays["roles"], root),
+        np.full(len(body.triangles) - len(arrays["faces"]), 2),
     ]
     body, slots, hardware = append_hardware(
         body,
@@ -152,6 +190,7 @@ def build(name, root, rails, sources, output):
         mesh_sha256=digest(mesh),
         output=str(output / (name + ".png")),
         background=[0.82, 0.85, 0.85],
+        colours=COLOURS,
         **view,
     )
     (output / (name + "-scene.json")).write_text(json.dumps([scene], indent=2) + "\n")
@@ -173,7 +212,7 @@ def build(name, root, rails, sources, output):
                 "seconds": proof["seconds"],
                 "vertices": len(body.vertices),
                 "faces": len(body.triangles),
-                "fit": result.report,
+                "fit": dict(result.report),
             }
         ),
         flush=True,
