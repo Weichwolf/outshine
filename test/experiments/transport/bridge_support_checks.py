@@ -1,6 +1,8 @@
 """Independent whole-contact and source-preserving support-placement controls."""
 
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -20,6 +22,27 @@ def grid(height):
 
 
 class WholeSupportContacts(unittest.TestCase):
+    def test_real_vienna_shared_boundary_is_noded_once(self):
+        row = json.loads(
+            (
+                Path(__file__).parent / "fixtures/bridge-support-contact-vienna.json"
+            ).read_text()
+        )
+        lower = ContactSurface(
+            Mesh(np.array(row["lower_vertices"]), np.array(row["lower_faces"]))
+        )
+        upper = ContactSurface(
+            Mesh(np.array(row["upper_vertices"]), np.array(row["upper_faces"]))
+        )
+        body, contacts, note = contact_prism(
+            shapely.Polygon(row["footprint"]), lower, upper
+        )
+        self.assertGreater(audit_closed(body), 0)
+        self.assertLess(note["coverage_error_m2"], 1e-8)
+        self.assertEqual(note["conformance"]["added_triangles"], 0)
+        self.assertLess(replay_contact(contacts[0], lower), 1e-7)
+        self.assertLess(replay_contact(contacts[1], upper), 1e-7)
+
     def test_crossing_creases_have_exact_whole_contacts_and_volume(self):
         lower = ContactSurface(grid(lambda p: abs(p[:, 0])))
         upper = ContactSurface(grid(lambda p: 6 + 0.3 * abs(p[:, 1])))

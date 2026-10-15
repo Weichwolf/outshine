@@ -42,11 +42,13 @@ def contact_prism(footprint, lower, upper, *, minimum_height=2.0):
         or minimum_height <= 0
     ):
         raise ValueError("bounded valid support polygon and positive height required")
-    bottom, bottom_pieces, low_count = lower.patch(footprint)
-    top, top_pieces, high_count = upper.patch(footprint)
+    bottom, _bottom_pieces, low_count = lower.patch(footprint)
+    top, _top_pieces, high_count = upper.patch(footprint)
+    # Node original edges together once. Independently clipped face boundaries
+    # introduced nearly coincident points at the same footprint edge in Vienna.
     lines = np.r_[
-        shapely.get_parts(shapely.boundary(bottom_pieces)),
-        shapely.get_parts(shapely.boundary(top_pieces)),
+        contact_edges(bottom),
+        contact_edges(top),
         [footprint.boundary],
     ]
     noded = shapely.get_parts(shapely.union_all(lines))
@@ -104,6 +106,12 @@ def contact_prism(footprint, lower, upper, *, minimum_height=2.0):
             "volume_m3": audit_closed(result),
         },
     )
+
+
+def contact_edges(mesh):
+    edges = mesh.triangles[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2)
+    edges = np.unique(np.sort(edges, axis=1), axis=0)
+    return shapely.linestrings(mesh.vertices[edges, :2])
 
 
 def replay_contact(actual, reference):
