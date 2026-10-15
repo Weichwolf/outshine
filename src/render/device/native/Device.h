@@ -46,7 +46,8 @@ public:
   Device &operator=(const Device &) = delete;
 
   [[nodiscard]] virtual const Capabilities &Limits() const noexcept = 0;
-  [[nodiscard]] virtual bool Supports(Format format, TextureUse use, bool filtered) const = 0;
+  [[nodiscard]] virtual bool
+  Supports(Format format, UseMask<TextureUse> use, bool filtered) const = 0;
 
   [[nodiscard]] virtual Result<std::unique_ptr<Buffer>>
   CreateBuffer(BufferDescription description, std::string_view label = {}) = 0;
