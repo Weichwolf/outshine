@@ -73,6 +73,8 @@ def main():
     transfer = np.empty((args.height, args.width, 6), dtype="<f4")
     rgb = np.empty((args.height, args.width, 3), dtype="<f4")
     rows = []
+    work_sum = np.zeros(4, dtype=np.uint64)
+    work_max = np.zeros(4, dtype=np.uint32)
     for y in range(0, args.height, 90):
         for x in range(0, args.width, 160):
             width, height = min(160, args.width - x), min(90, args.height - y)
@@ -113,6 +115,16 @@ def main():
             assert len(samples) == width * height and np.isfinite(values).all()
             assert (values >= 0).all() and (samples["through"] <= 1).all()
             assert (samples["counts"] & 255).max() == 0
+            work = np.column_stack(
+                [
+                    (samples["counts"] >> 16) & 255,
+                    (samples["counts"] >> 8) & 255,
+                    samples["sources"],
+                    samples["counts"] >> 24,
+                ]
+            )
+            work_sum += work.sum(axis=0, dtype=np.uint64)
+            work_max = np.maximum(work_max, work.max(axis=0))
             background = np.where(ground[:, None], [0.04, 0.06, 0.025], [0.0, 0.0, 0.0])
             transfer[y : y + height, x : x + width] = values.reshape(height, width, 6)
             composed = samples["radiance"] + samples["through"] * background
@@ -137,6 +149,15 @@ def main():
                 "image_sha256": digest(args.output / "image.png"),
                 "transfer_sha256": digest(args.output / "transfer.f32"),
                 "captures": len(rows),
+                "packed_work": {
+                    name: {"sum": int(total), "max": int(peak)}
+                    for name, total, peak in zip(
+                        ("view_density", "cloud_source", "clear_source", "union_cells"),
+                        work_sum,
+                        work_max,
+                        strict=True,
+                    )
+                },
                 "scope": "Native full physical ray extent; supplied source-LUT model, fixed cloud lighting, spherical placeholder. No terrain/asset/Place or numerical convergence/frame-budget claim.",
             },
             indent=2,
