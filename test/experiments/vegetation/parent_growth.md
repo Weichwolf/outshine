@@ -58,7 +58,8 @@ support a material or fine-geometry quality judgement. These remain private
 functional controls; they do not establish botanical or mature-tree quality.
 A single convincing mature spruce, requested physical area, bounded costs and
 matching near/far products are still required before another eight-form bake.
-The public showcase remains four current whole-tile pictures.
+Public progress now uses four actual Python Place renderings under
+`doc/images/vegetation/`, owned by [#208](https://github.com/Weichwolf/outshine/issues/208).
 
 | Control | Process wall time (s) | Peak process RSS (MiB) |
 |---|---:|---:|
@@ -138,9 +139,10 @@ Private working data have moved from `build/experiments/vegetation/` to
 unchanged. Own main-checkout evidence directories have moved to
 `/var/tmp/outshine-vegetation-archives-2d633a079/`; the duplicate 47-file rendered
 control archive now links to its SHA-verified canonical data directory.
-The showcase takes an explicit `--inputs` directory and checks relocated input
-bytes against the original rendering hashes. Its four published images remain
-unchanged; new data paths do not imply new optical or cost approval.
+The former web showcase was stopped and its server/frontend removed at the
+user's request. The previous four private landscape controls remain in the
+canonical data directory with their original hashes; they are not the new Place
+renderings. New data paths do not imply new optical or cost approval.
 
 ## Primary source and scope
 

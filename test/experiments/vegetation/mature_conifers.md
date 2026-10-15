@@ -128,8 +128,10 @@ The frozen `c82c10616` run completed all eight 64-view products, a fresh cache
 process, 24 requested near subsets and the whole 2560×1440 frame with exit 0.
 The image was opened against both the original closed proxies and the rejected
 first mature frame. It is denser, but spruce remains conspicuously columnar.
-The minimal showcase now displays this actual current generator result with
-that gap in its caption, as requested; publication is not botanical/art/LOD approval.
+The former web showcase displayed this result with that gap in its caption.
+The user's newer [#208](https://github.com/Weichwolf/outshine/issues/208) request
+replaces that server with four actual Python Place renderings. The mature forest
+control remains a private reference, without botanical/art/LOD approval.
 
 The remaining form defect is structural. In spruce variant 1, the lowest/highest
 primary axes are 2.565/0.23085 m long. Their first secondary axes are both 0.855 m,
