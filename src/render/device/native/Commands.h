@@ -2,8 +2,10 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_COMMANDS_H
 
 #include "Compute.h"
+#include "Presentation.h"
 #include "Render.h"
 #include <expected>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -90,6 +92,11 @@ public:
   [[nodiscard]] virtual Result<void> EndRenderPass() {
     return std::unexpected(
         Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<void> Present([[maybe_unused]] std::unique_ptr<PresentFrame> frame) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native presentation unavailable"});
   }
 
   virtual void BeginLabel(std::string_view name) = 0;
