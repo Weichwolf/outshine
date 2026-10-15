@@ -5,6 +5,7 @@
 
 #include "BuildingMesh.h"
 #include "Forest.h"
+#include "ForestMixtures.h"
 #include "GroundPatchwork.h"
 #include "Structures.h"
 #include "ProfiledRoadMesher.h"
@@ -46,23 +47,32 @@ constexpr Rank kRankFlora{200};
 bool Shipping::EnsureCatalogue(const outshine::Ground::VegetationTemplates &declared,
                                std::string_view speciesDir,
                                std::string &error,
-                               bool vegetation) {
-  if (Ready() && VegetationEnabled_ == vegetation) { return true; }
+                               bool vegetation,
+                               std::string_view mixturesPath) {
+  if (Ready() && VegetationEnabled_ == vegetation && SpeciesDirectory_ == speciesDir &&
+      MixturesPath_ == mixturesPath) {
+    return true;
+  }
   Shipping candidate;
-  if (!candidate.BuildCatalogue(declared, speciesDir, error, vegetation)) { return false; }
+  if (!candidate.BuildCatalogue(declared, speciesDir, error, vegetation, mixturesPath)) {
+    return false;
+  }
   Species_.swap(candidate.Species_);
   Made_.swap(candidate.Made_);
   Draws_.swap(candidate.Draws_);
   std::swap(Placing_, candidate.Placing_);
   std::swap(Drawing_, candidate.Drawing_);
   VegetationEnabled_ = vegetation;
+  SpeciesDirectory_ = speciesDir;
+  MixturesPath_ = mixturesPath;
   return true;
 }
 
 bool Shipping::BuildCatalogue(const outshine::Ground::VegetationTemplates &declared,
                               std::string_view speciesDir,
                               std::string &error,
-                              bool vegetation) {
+                              bool vegetation,
+                              std::string_view mixturesPath) {
   std::vector<TreeSpecies> species;
   std::vector<ForestDraw::Prototype> prototypes;
   if (vegetation) {
@@ -92,9 +102,16 @@ bool Shipping::BuildCatalogue(const outshine::Ground::VegetationTemplates &decla
       return false;
     }
 
-    auto made = std::make_unique<Forest>(std::span<const Forest::Stem>(stems.data(), stems.size()),
-                                         std::span<const float>(perM2.data(), perM2.size()),
-                                         declared.Limit());
+    std::vector<SpeciesMixture> mixtures;
+    if (!mixturesPath.empty()) {
+      auto prepared = ReadForestMixtures(mixturesPath, declared, species);
+      if (!prepared) {
+        error = std::move(prepared.error());
+        return false;
+      }
+      mixtures = std::move(*prepared);
+    }
+    auto made = std::make_unique<Forest>(stems, perM2, declared.Limit(), std::move(mixtures));
     auto drawn = std::make_unique<ForestDraw>(prototypes);
     if (!Placing_.Add(kRankFlora, *made) || !Drawing_.Add(kRankFlora, *drawn)) {
       error = "the shipped catalogue names one rank twice";
