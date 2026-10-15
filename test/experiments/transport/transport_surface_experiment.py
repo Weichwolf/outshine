@@ -47,7 +47,10 @@ def presentation(output, baseline, arrays, selected, areas, ground_triangles):
             "target",
             "span_m",
             "camera_basis",
-            "fov_y_degrees",
+            "vertical_fov_deg",
+            "clip_near_m",
+            "clip_far_m",
+            "detail_view",
         ]
         if k in source
     }

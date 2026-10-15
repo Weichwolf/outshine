@@ -37,6 +37,9 @@ class SurfaceFamilies(unittest.TestCase):
                         "sha256": "stale",
                         "exported_array_bytes": -1,
                         "explicit_indexed_xyz_copy_bytes": -2,
+                        "detail_view": True,
+                        "clip_near_m": 0.5,
+                        "clip_far_m": 5000,
                     }
                 )
             )
@@ -49,6 +52,9 @@ class SurfaceFamilies(unittest.TestCase):
                 arrays["vertices"][arrays["triangles"], :2],
             )
             for row in rows:
+                self.assertTrue(row["detail_view"])
+                self.assertEqual(row["clip_near_m"], 0.5)
+                self.assertEqual(row["clip_far_m"], 5000)
                 self.assertNotIn("path", row)
                 self.assertNotIn("sha256", row)
                 self.assertNotIn("explicit_indexed_xyz_copy_bytes", row)
