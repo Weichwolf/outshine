@@ -101,6 +101,35 @@ Das Ausgabeverzeichnis muss frisch sein; Quellen werden ausschließlich aus den
 ausdrücklich gewählten hashgeprüften alten Bridge-Produkten und dem DEM-Cache
 gelesen. `--no-images` führt denselben Geometrie-/Kostenvergleich ohne Blender aus.
 
+## Wiener Bodenverkehr um den Brücken-/Portalverbund (#303)
+
+`wien_network_experiment.py` verwendet dieselben vollständigen drei Wiener
+Quellkacheln wie #283/#299. Die vorhandenen Komponentenrezepte ergänzen neue
+Bodenquellen; alte obere C1-/Portalflächen bleiben erhalten. Geschosswege ohne
+gewählte Fläche werden ausdrücklich zurückgestellt. Neue untere Höhenkontakte
+sind ein eigener Plan, keine stillschweigende Ersetzung alter Verbraucherprodukte.
+
+Die dichten Randvertices bestimmen nicht mehr die Anzahl der Höhenvariablen.
+`transport_field_plan.py` plant ein gemeinsames affines Feld auf dem bisherigen
+groben Geländeplan. `affine_field_surface.py` erzeugt daraus tatsächliche
+Verkehrs-/Bodenfacetten über eine gemeinsame genodete Kantenanordnung; alle
+endgültigen Flächen und Freiräume werden unabhängig geprüft.
+[Vergleich, Grenzen und Belege](wien_network_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/wien_network_experiment.py --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --capture "$TRANSPORT_GALLERY_INPUTS/inputs/ViennaResearch-input.json" --basis-reference "$TRANSPORT_WIEN_GROUND_OUTPUT" --dem-sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NETWORK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_NETWORK_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_NETWORK_OUTPUT/after-scene.json"
+```
+
+Alle Verzeichnisse sind ausdrücklich gewählte externe System-Temp-/Quellpfade.
+`TRANSPORT_WIEN_GROUND_OUTPUT` ist der hashgeprüfte vollständige #299-Vergleich;
+`TRANSPORT_BLENDER_PY` besitzt `bpy==5.2.2`. Frische Ausgaben und ein sauberer
+eingefrorener Quellstand sind Pflicht. Die beiden regionalen Bilder sind
+1280×720; `after-1080-scene.json` prüft dieselbe Kamera zusätzlich lokal in
+1920×1080. Kamera-, Mesh-/Normalenimport und Tageslicht verwenden den gemeinsamen
+#291-Pfad unter `outshine_ref.rendering`. Keine Bilder nach `doc/` veröffentlichen.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

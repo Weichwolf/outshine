@@ -16,7 +16,11 @@ def ground_layout(xy, road_faces, domain, *, method="coverage", max_faces=65536)
         raise ValueError("ground input exceeds face budget")
     road = Mesh(np.c_[xy, np.zeros(len(xy))], road_faces)
     xy, road_faces = road.vertices[:, :2], road.triangles
-    if domain.is_empty or not domain.is_valid or domain.geom_type != "Polygon":
+    if (
+        domain.is_empty
+        or not domain.is_valid
+        or domain.geom_type not in ("Polygon", "MultiPolygon")
+    ):
         raise ValueError("valid polygon ground domain required")
     began = time.perf_counter()
     polygons = shapely.polygons(xy[road_faces])
