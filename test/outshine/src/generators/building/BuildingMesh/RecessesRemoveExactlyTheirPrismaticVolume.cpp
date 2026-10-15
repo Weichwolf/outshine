@@ -43,7 +43,7 @@ double GlassArea(const Raised &mesh) {
 }
 }
 
-int main() {
+void CheckFacade(outshine::FacadeStyle style, float width, float height) {
   using namespace outshine;
   using namespace outshine::Test;
   constexpr std::array<double, 8> ring{47, 9, 47, 9.00015, 47.0001, 9.00015, 47.0001, 9};
@@ -51,6 +51,7 @@ int main() {
   plan.RingLatLon = ring;
   plan.HeightM = 9;
   plan.HeightMeasured = true;
+  plan.Facade = style;
   GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 0}, plan.AnchorEcef);
   Generators::BuildingMesh mesher;
   auto scratch = mesher.Scratch();
@@ -67,9 +68,11 @@ int main() {
     if (!IsGlazingUv(uv[0])) { continue; }
     const float bay = std::fmod(uv[0], 1.0f);
     const float storey = std::fmod(uv[1], 1.0f);
-    CHECK(std::abs(bay - 0.27f) < 0.003f || std::abs(bay - 0.73f) < 0.003f,
+    CHECK(std::abs(bay - (1.0f - width) * .5f) < 0.005f ||
+              std::abs(bay - (1.0f + width) * .5f) < 0.005f,
           "glass retains the same opening columns as the shell");
-    CHECK(std::abs(storey - 0.28f) < 0.003f || std::abs(storey - 0.78f) < 0.003f,
+    CHECK(std::abs(storey - (1.0f - height) * .5f) < 0.003f ||
+              std::abs(storey - (1.0f + height) * .5f) < 0.003f,
           "glass retains the same opening rows as the shell");
   }
   const double removed = std::abs(Volume(shell)) - std::abs(Volume(fine));
@@ -79,5 +82,19 @@ int main() {
              "m3",
              "the closed wall loses exactly glass area times recess depth");
   CHECK(fine.RoofRun.size() == shell.RoofRun.size(), "opening detail preserves the roof");
-  return Report();
+  CHECK(fine.RoofCorners.size() == shell.RoofCorners.size(), "roof vertices stay intact");
+  for (size_t at = 0; at < std::min(fine.RoofCorners.size(), shell.RoofCorners.size()); ++at) {
+    CHECK(Position(fine.RoofCorners[at]) == Position(shell.RoofCorners[at]),
+          "facade details do not move the supplied roof envelope");
+  }
+}
+
+int main() {
+  using outshine::FacadeStyle;
+  CheckFacade(FacadeStyle::House, .48f, .53f);
+  CheckFacade(FacadeStyle::Commercial, .68f, .65f);
+  CheckFacade(FacadeStyle::Institutional, .57f, .62f);
+  CheckFacade(FacadeStyle::Hall, .30f, .22f);
+  CheckFacade(FacadeStyle::Religious, .25f, .55f);
+  return outshine::Test::Report();
 }

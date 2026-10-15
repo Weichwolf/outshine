@@ -1,6 +1,7 @@
 #include "periodicBand.glsl"
 #include "roofTiles.glsl"
 #include "facadeOpenings.glsl"
+#include "facadeProfiles.glsl"
 
 void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) {
   FacadeGlazing glass = facadeGlazing(coverage, albedo, roughness);
@@ -8,12 +9,12 @@ void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) 
   roughness = glass.roughness;
 }
 
-void applyFacadeWindow(vec2 encoded, bool glazing, inout vec3 albedo, inout float roughness) {
+void applyFacadeWindow(vec2 encoded, vec2 fractions, bool glazing, inout vec3 albedo, inout float roughness) {
   vec2 footprint = abs(dFdx(encoded)) + abs(dFdy(encoded));
   float bay = mod(encoded.x, 256.0);
   float storey = encoded.y - 1.0;
-  float opening = facadeOpeningCoverage(bay, storey, footprint.x, footprint.y);
-  float pane = facadePaneCoverage(bay, storey, footprint.x, footprint.y);
+  float opening = facadeOpeningCoverage(fractions, bay, storey, footprint.x, footprint.y);
+  float pane = facadePaneCoverage(fractions, bay, storey, footprint.x, footprint.y);
   if (glazing) {
     pane = clamp(pane / max(opening, 0.0001), 0.0, 1.0);
     opening = 1.0;
@@ -83,12 +84,14 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   }
 
   float group = floor(encoded.x / 256.0);
-  float style = mod(group, 8.0);
-  if (style > 6.5) {
-    applyFacadeWindow(encoded, true, albedo, roughness);
+  int style = int(mod(group, float(kFacadeStyleCount)));
+  vec2 fractions = facadeFractions(style);
+  float field = mod(floor(group / float(kFacadeStyleCount)), 3.0);
+  if (style == 7 || (field > 0.5 && field < 1.5)) {
+    applyFacadeWindow(encoded, fractions, true, albedo, roughness);
     return;
   }
-  float variant = floor(encoded.x / (256.0 * 24.0));
+  float variant = floor(encoded.x / (256.0 * float(kFacadeStyleCount) * 3.0));
   vec3 wallTint = vec3(1.0);
   if (variant > 0.5 && variant < 1.5) { wallTint = vec3(0.90, 0.94, 1.00); }
   else if (variant < 2.5 && variant > 1.5) { wallTint = vec3(1.07, 1.05, 1.04); }
@@ -98,7 +101,7 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   else if (variant < 6.5 && variant > 5.5) { wallTint = vec3(0.62, 0.43, 0.32); }
   else if (variant > 6.5) { wallTint = vec3(0.82, 0.69, 0.61); }
   albedo *= wallTint * paint;
-  if (style > 0.5 && style < 3.5 && encoded.y >= 1.0) {
-    applyFacadeWindow(encoded, false, albedo, roughness);
+  if (fractions.x > 0.0 && fractions.y > 0.0 && encoded.y >= 1.0) {
+    applyFacadeWindow(encoded, fractions, false, albedo, roughness);
   }
 }

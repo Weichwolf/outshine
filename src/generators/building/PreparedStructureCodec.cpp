@@ -310,9 +310,9 @@ public:
       if (!part.Valid() || part.PartyWallEdges.size() != part.Ring.size() ||
           !HipRoofCodec::BoundTo(part.HipRoof, part.Ring, part.Holes) ||
           (part.Roof == RoofKind::Hip && (!part.HipRoof || !*part.HipRoof)) ||
-          part.Form > BuildingForm::Spire || part.OpeningStyle < FacadeStyle::Outbuilding ||
-          part.OpeningStyle > FacadeStyle::Glazing || part.Roof > RoofKind::Dome ||
-          part.Storeys < 1 || part.FloorM <= 0 || part.BayM <= 0 || part.FrontEdge < -1 ||
+          part.Form > BuildingForm::Spire || !ValidFacadeStyle(part.OpeningStyle) ||
+          part.Roof > RoofKind::Dome || part.Storeys < 1 || part.FloorM <= 0 || part.BayM <= 0 ||
+          part.FrontEdge < -1 ||
           (part.FrontEdge >= 0 && std::cmp_greater_equal(part.FrontEdge, part.Ring.size()))) {
         return false;
       }
@@ -409,9 +409,7 @@ public:
           record.Cell.Index == 0 || record.Cell.Index > kStructureCellsPerTile ||
           entry.Standing.PointCount != record.PointCount ||
           entry.Standing.Source > Ground::BuildingHeightSource::Generated || entry.AreaM2 < 0 ||
-          entry.AcrossM < 0 ||
-          (record.Facade &&
-           (*record.Facade < FacadeStyle::Outbuilding || *record.Facade > FacadeStyle::Glazing)) ||
+          entry.AcrossM < 0 || (record.Facade && !ValidFacadeStyle(*record.Facade)) ||
           !ValidSurface(value.Surfaces[index])) {
         return false;
       }

@@ -123,6 +123,9 @@ double PlinthTopZ(const BuildingShape &s, const FoundationGround &ground) {
 
 std::expected<std::span<BuildingShape>, StructureMeshError>
 PrepareBuildingShapes(const StructurePlan &plan, BuildingScratch &scratch) {
+  if (plan.Facade && !ValidFacadeStyle(*plan.Facade)) {
+    return std::unexpected(StructureMeshError::InvalidPlan);
+  }
   auto parts = MassOf(plan.RingLatLon,
                       {.HeightM = plan.HeightM,
                        .MinimumHeightM = plan.MinimumHeightM,
@@ -140,11 +143,11 @@ PrepareBuildingShapes(const StructurePlan &plan, BuildingScratch &scratch) {
         2.0 * part.HalfVm >= kRegularTowerWidthM) {
       part.OpeningStyle = FacadeStyle::Block;
     }
-    if (part.EavesM > 0.0 && part.OpeningStyle == FacadeStyle::Block &&
-        (part.Form == BuildingForm::Hall || part.Form == BuildingForm::Tower)) {
-      part.Storeys = std::max(1, static_cast<int>(std::lround(part.EavesM / kFloorUnsaidM)));
+    const auto &profile = FacadeProfileOf(part.OpeningStyle);
+    if (part.EavesM > 0.0 && profile.OpeningWidth > 0.0f && profile.OpeningHeight > 0.0f) {
+      part.Storeys = std::max(1, static_cast<int>(std::lround(part.EavesM / profile.FloorM)));
       part.FloorM = part.EavesM / static_cast<double>(part.Storeys);
-      part.BayM = 3.0;
+      part.BayM = profile.BayM;
     }
     if (plan.WallColour) { part.WallVariant = 0; }
     part.SeatM = plan.MinimumHeightM != 0.0 ? 0.0 : PlinthTopZ(part, ground);
