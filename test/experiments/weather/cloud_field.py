@@ -99,7 +99,7 @@ def segments(origin, direction, layer):
 
 def optical_depth(origin, direction, layer, steps, seconds=0.0, maximum_m=np.inf):
     intervals = segments(origin, direction, layer)
-    optical = np.zeros(direction.shape[:-1])
+    optical = np.zeros(intervals.shape[:-2])
     for interval in range(2):
         start = intervals[..., interval, 0]
         stop = np.maximum(start, np.minimum(intervals[..., interval, 1], maximum_m))

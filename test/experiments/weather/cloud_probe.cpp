@@ -8,7 +8,12 @@
 #include <cstddef>
 #include <cstdio>
 #include <fstream>
+#include <ios>
+#include <numbers>
+#include <print>
+#include <ratio>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace {
@@ -90,7 +95,7 @@ bool Capture(Resources &gpu, const Pushed &pushed, Uint32 bytes, const char *out
   SDL_DownloadFromGPUBuffer(copy, &source, &destination);
   SDL_EndGPUCopyPass(copy);
   const auto encoded = std::chrono::steady_clock::now();
-  OwnedFence fence(gpu.Device.Get(), SDL_SubmitGPUCommandBufferAndAcquireFence(commands));
+  const OwnedFence fence(gpu.Device.Get(), SDL_SubmitGPUCommandBufferAndAcquireFence(commands));
   if (!fence) { return false; }
   const auto submitted = std::chrono::steady_clock::now();
   const auto deadline = submitted + std::chrono::seconds(30);
@@ -104,31 +109,35 @@ bool Capture(Resources &gpu, const Pushed &pushed, Uint32 bytes, const char *out
   std::ofstream output(outputPath, std::ios::binary);
   output.write(static_cast<const char *>(mapped), bytes);
   SDL_UnmapGPUTransferBuffer(gpu.Device.Get(), gpu.Download.Get());
-  std::printf("backend=%s encode_ms=%.6f submit_ms=%.6f fence_observation_ms=%.6f bytes=%u "
-              "gpu_ms=unmeasured\n",
-              SDL_GetGPUDeviceDriver(gpu.Device.Get()),
-              std::chrono::duration<double, std::milli>(encoded - before).count(),
-              std::chrono::duration<double, std::milli>(submitted - encoded).count(),
-              std::chrono::duration<double, std::milli>(finished - submitted).count(),
-              bytes);
+  std::println("backend={} encode_ms={:.6f} submit_ms={:.6f} fence_observation_ms={:.6f} bytes={} "
+               "gpu_ms=unmeasured",
+               SDL_GetGPUDeviceDriver(gpu.Device.Get()),
+               std::chrono::duration<double, std::milli>(encoded - before).count(),
+               std::chrono::duration<double, std::milli>(submitted - encoded).count(),
+               std::chrono::duration<double, std::milli>(finished - submitted).count(),
+               bytes);
   return static_cast<bool>(output);
 }
 }
 
 int main(int argc, char **argv) {
-  int width = 0, height = 0;
+  int width = 0;
+  int height = 0;
+  int channels = 1;
   double cover = 0.0;
-  if (argc != 6 || !Number(argv[3], width) || !Number(argv[4], height) || !Number(argv[5], cover) ||
-      width < 1 || width > 4096 || height < 1 || height > 4096 || !std::isfinite(cover) ||
-      cover < 0.0 || cover > 1.0) {
-    std::fputs("usage: cloud_probe shader.spv output.f32 width height cover\n", stderr);
+  if ((argc != 6 && argc != 7) || !Number(argv[3], width) || !Number(argv[4], height) ||
+      !Number(argv[5], cover) || width < 1 || width > 4096 || height < 1 || height > 4096 ||
+      !std::isfinite(cover) || cover < 0.0 || cover > 1.0 ||
+      (argc == 7 && !Number(argv[6], channels)) || (channels != 1 && channels != 4)) {
+    std::fputs("usage: cloud_probe shader.spv output.f32 width height cover [1|4 channels]\n",
+               stderr);
     return 2;
   }
   if (!SDL_Init(SDL_INIT_VIDEO)) {
-    std::fprintf(stderr, "%s\n", SDL_GetError());
+    std::println(stderr, "{}", SDL_GetError());
     return 1;
   }
-  const Uint32 bytes = static_cast<Uint32>(width * height) * sizeof(float);
+  const Uint32 bytes = static_cast<Uint32>(width * height * channels) * sizeof(float);
   bool ready = false;
   {
     Resources gpu;
@@ -136,9 +145,9 @@ int main(int argc, char **argv) {
       const CloudLayer layer{.BaseM = 2572.0,
                              .Cover = cover,
                              .WindMs = CloudWindFrom({.FromDeg = 240.0, .SpeedMs = 8.0})};
-      constexpr double bearing = 240.0 * 3.14159265358979323846 / 180.0;
-      constexpr double pitch = -0.5 * 3.14159265358979323846 / 180.0;
-      const float halfHeight = static_cast<float>(std::tan(33.97 * 3.14159265358979323846 / 360.0));
+      constexpr double bearing = 240.0 * std::numbers::pi / 180.0;
+      constexpr double pitch = -0.5 * std::numbers::pi / 180.0;
+      const auto halfHeight = static_cast<float>(std::tan(33.97 * std::numbers::pi / 360.0));
       const Pushed pushed{
           .Layer = PackCloudLayer(layer, 0.0),
           .Origin = {{0.0f, 1772.0f, 0.0f, 0.0f}},
@@ -161,7 +170,7 @@ int main(int argc, char **argv) {
       ready = Capture(gpu, pushed, bytes, argv[2]);
     }
   }
-  if (!ready) { std::fprintf(stderr, "cloud probe failed: %s\n", SDL_GetError()); }
+  if (!ready) { std::println(stderr, "cloud probe failed: {}", SDL_GetError()); }
   SDL_Quit();
   return ready ? 0 : 1;
 }

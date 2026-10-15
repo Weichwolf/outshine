@@ -66,6 +66,38 @@ schreibt genau einen angeforderten Ergebnisbuffer und meldet Encode-/Submission-
 Fence-Beobachtung getrennt. Diese Zeiten enthalten CPU/Dispatch/Download und sind
 keine GPU-Passzeit. Die optische Diagnose ist kein Place-Bild.
 
+## RGB- und Faltungsdiagnose
+
+`cloudRadiance.glsl` und `cloud_radiance.py` ergänzen einen untersuchten RGB-Pfad.
+Die Quelle verwendet normalisierte Henyey-Greenstein-Einfachstreuung mit g=0,65,
+Sonnen-Transmittanz derselben Dichte und einen ausdrücklich heuristischen
+Mehrfachstreuungsterm. Die feste Himmelsfüllung und der Kugelboden der Bildprobe
+sind Diagnoseeingaben, kein Ersatz für klare Atmosphäre, Terrain oder Client.
+Die zusätzlich optisch geöffneten PDF-Seiten 69/70/72 zeigen die beabsichtigte
+räumliche Lichtwirkung; die volle dortige Beleuchtungsmethode ist nicht umgesetzt.
+
+```sh
+"$GLSLANG" -V --target-env vulkan1.0 -Isrc \
+  -DCLOUD_VIEW_SAMPLES=512 -DCLOUD_LIGHT_SAMPLES=32 \
+  test/experiments/weather/cloud_picture.comp -o "$cloud_out/cloud_picture.comp.spv"
+flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+  "$cloud_out/cloud_picture.comp.spv" "$cloud_out/rgb.f32" 1280 720 0.65 4
+python3 -W error test/experiments/weather/cloud_radiance.py --output "$cloud_out/rgb" \
+  --input "$cloud_out/rgb.f32" --width 1280 --height 720 --cover 0.65 \
+  --view-samples 512 --light-samples 32
+flock -n /var/tmp/outshine-heavy.lock python3 -W error \
+  test/experiments/weather/cloud_environment.py --output "$cloud_out/environment"
+```
+
+RGB-Referenzen müssen Ansicht **und** Sonnenabtastung verfeinern. Der bisherige
+16-Schritt-Nachweis für optische Tiefe belegt keine ausreichende RGB-Bildqualität.
+Auch konvergierte Punktstrahlen benötigen eine eigene Prüfung der räumlichen
+Filterung. `CLOUD_VIEW_WARP=2` untersucht quadratische Eintrittsabtastung bei
+gleicher Schrittzahl. Keine dieser Varianten ist bereits als Bildpfad abgenommen.
+`cloud_environment.py` vergleicht vorbereitete Octaeder-Quellen mit identischen
+GGX-/Kosinusproben ausschließlich für Transmittanz; RGB, Bodenfüllung,
+GPU-Kosten und native Source-Textur bleiben getrennte offene Nachweise.
+
 ## Grenzen der Lieferung
 
 Der native Kern setzt endliche gültige Schichtparameter, normierte Richtungen,

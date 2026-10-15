@@ -1,0 +1,32 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "render/shaders/cloudRadiance.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { vec4 values[]; } result;
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  CloudLayer layer;
+  vec4 origin;
+  vec4 forward;
+  vec4 right;
+  vec4 up;
+  vec4 extent;
+} pushed;
+
+void main() {
+  uvec2 at = gl_GlobalInvocationID.xy;
+  uvec2 extent = uvec2(pushed.extent.xy);
+  if (any(greaterThanEqual(at, extent))) { return; }
+  vec2 ndc = (vec2(at) + 0.5) / vec2(extent) * 2.0 - 1.0;
+  vec3 direction = normalize(pushed.forward.xyz + ndc.x * pushed.extent.z * pushed.right.xyz
+                             - ndc.y * pushed.extent.w * pushed.up.xyz);
+  vec3 toSun = normalize(vec3(-0.6, 0.8, 0.0));
+  CloudLight light = CloudLight(toSun, vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
+  vec3 sky = mix(vec3(0.55, 0.67, 0.80), vec3(0.18, 0.40, 0.85), clamp(direction.y, 0.0, 1.0));
+  if (dot(direction, toSun) > cos(0.0046542)) { sky += vec3(5000.0, 4800.0, 4400.0); }
+  vec3 ground = cloudSphereRoots(pushed.origin.xyz, direction, 0.0, pushed.layer.shell.x);
+  float maximumM = ground.z > 0.0 && ground.x > 0.0 ? ground.x : 1.0e8;
+  if (maximumM < 1.0e8) { sky = vec3(0.04, 0.06, 0.025); }
+  vec4 cloud = cloudRadiance(pushed.layer, pushed.origin.xyz, direction, maximumM, light);
+  result.values[at.y * extent.x + at.x] = vec4(cloud.rgb + cloud.a * sky, cloud.a);
+}

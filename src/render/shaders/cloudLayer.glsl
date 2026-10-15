@@ -87,20 +87,25 @@ float cloudExtinction(CloudLayer layer, vec3 positionM) {
   return layer.shell.w * 6.0 * height * (1.0 - height) * amount;
 }
 
-float cloudOpticalDepth(CloudLayer layer, vec3 originM, vec3 direction, float maximumM) {
+float cloudOpticalDepthSteps(CloudLayer layer, vec3 originM, vec3 direction, float maximumM,
+                             int sampleCount) {
   if (layer.field.x <= 0.0) { return 0.0; }
   mat2 intervals = cloudShell(layer, originM, direction, maximumM);
   float optical = 0.0;
   for (int interval = 0; interval < 2; ++interval) {
     vec2 span = intervals[interval];
     if (span.y <= span.x) { continue; }
-    float stepM = (span.y - span.x) / 16.0;
-    for (int sampleIndex = 0; sampleIndex < 16; ++sampleIndex) {
+    float stepM = (span.y - span.x) / float(sampleCount);
+    for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex) {
       float distanceM = span.x + (float(sampleIndex) + 0.5) * stepM;
       optical += cloudExtinction(layer, originM + direction * distanceM) * stepM;
     }
   }
   return optical;
+}
+
+float cloudOpticalDepth(CloudLayer layer, vec3 originM, vec3 direction, float maximumM) {
+  return cloudOpticalDepthSteps(layer, originM, direction, maximumM, 16);
 }
 
 #endif
