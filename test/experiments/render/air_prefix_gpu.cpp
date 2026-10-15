@@ -79,10 +79,9 @@ struct Data {
       std::memcpy(&ray, rays.data() + offset, sizeof(ray));
       if (ray.QueryBegin != previousEnd || ray.QueryBegin > ray.QueryEnd ||
           ray.QueryEnd > QueryCount || !std::isfinite(ray.Ray.RadiusKm) ||
-          ray.Ray.RadiusKm < Air.BottomRadiusKm || ray.Ray.RadiusKm > Air.TopRadiusKm ||
-          !std::isfinite(ray.Ray.DistanceKm) || ray.Ray.DistanceKm < 0.0f ||
-          !(std::fabs(ray.Ray.CosView) <= 1.0f) || !(std::fabs(ray.Ray.CosSun) <= 1.0f) ||
-          !(std::fabs(ray.Ray.ViewSun) <= 1.0f)) {
+          ray.Ray.RadiusKm < Air.BottomRadiusKm || !std::isfinite(ray.Ray.DistanceKm) ||
+          ray.Ray.DistanceKm < 0.0f || !(std::fabs(ray.Ray.CosView) <= 1.0f) ||
+          !(std::fabs(ray.Ray.CosSun) <= 1.0f) || !(std::fabs(ray.Ray.ViewSun) <= 1.0f)) {
         return false;
       }
       float previousKm = 0.0f;

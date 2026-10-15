@@ -282,6 +282,11 @@ Techniques*, CGF 2020, §3.2/Gleichung 1, PDF-Seiten 3/4 als Bilder geprüft:
 
 ## Grenzen der Lieferung
 
+Der [gemeinsame begrenzte Wolken-/Luftpräfix](cloud_air_prefix.md) ergänzt den
+nativen Teilstreckenverbraucher für transparente Fragmente. Er verwendet Lights
+vorhandenen klaren Kern und feste gemeinsame Quellenzellen; die unabhängigen
+Wetter-/Licht-, Weltbild- und Budgetabnahmen stehen weiterhin separat aus.
+
 Der native Kern setzt endliche gültige Schichtparameter, normierte Richtungen,
 einen gemeinsamen metrischen Ost/Oben/Süd-Frame und eine gemeinsame Windphase voraus.
 Die optische Tiefe ist durch 16 Abtastungen je sichtbarem Intervall begrenzt; die
