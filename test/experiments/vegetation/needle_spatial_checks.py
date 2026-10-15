@@ -7,8 +7,10 @@ from unittest.mock import patch as mock_patch
 
 import numpy as np
 from needle_composition import composite
+from needle_group_layers import render_layers
 from needle_group_reprojection import reproject
 from needle_group_source import source_geometry
+from needle_group_views import projection
 from needle_spatial_cache import load_product
 from needle_spatial_planes import plane_patches
 from needle_spatial_product import trim_view
@@ -39,6 +41,24 @@ def mask_correlation():
         reverse = composite(layers, 2)
         expected = a if layers[0] is disjoint else b
         np.testing.assert_array_equal(reverse["rgba"], expected["rgba"])
+
+    source = {"vertices": np.array(((-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)))}
+    frame, lower, upper = projection(source["vertices"], (0, 0, 1))
+
+    def view(data):
+        return data | {
+            "frame": frame,
+            "lower": lower,
+            "upper": upper,
+            "roughness_fourth": data["rgba"][..., 3, None] * 0.8**4,
+        }
+
+    for back, expected in ((disjoint, a), (coincident, b)):
+        actual = render_layers(
+            (view(front), view(back)), source, (0, 0, 1), size=1, samples=2
+        )
+        np.testing.assert_allclose(actual["rgba"], expected["rgba"], atol=1e-14)
+        np.testing.assert_allclose(actual["depth"], expected["depth"], atol=1e-14)
 
 
 def partition_checks(source, epsilon=0.0005):
