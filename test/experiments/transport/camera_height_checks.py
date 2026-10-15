@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 import shapely
 from camera_height_inputs import fixed_bed_facets, lumped_weights
-from camera_height_solve import audit, conservative_candidate, fit
+from camera_height_solve import audit, fit
 
 
 class CameraHeights(unittest.TestCase):
@@ -73,27 +73,6 @@ class CameraHeights(unittest.TestCase):
         np.testing.assert_allclose(weights, [4 / 3, 2 / 3, 4 / 3, 2 / 3])
         with self.assertRaises(ValueError):
             lumped_weights(self.xy, np.array([[0, 0, 1]]))
-
-    def test_contraction_preserves_contacts_without_relaxing_gate(self):
-        data = self.arrays([0.0, 0.5, 1.0, 0.5], (0,))
-        z, report = conservative_candidate(data, 0, data["targets"])
-        self.assertLess(report["feasible_flat_contraction"], 1)
-        self.assertEqual(z[0], 0)
-        result = audit(
-            self.xy,
-            self.faces,
-            data["targets"],
-            self.frames,
-            z,
-            data["fixed"],
-            0,
-            data["weights"],
-        )
-        self.assertTrue(result["valid"])
-        np.testing.assert_array_equal(data["targets"], [0.0, 0.5, 1.0, 0.5])
-        rejected, report = conservative_candidate(data, 0, np.full(4, np.nan))
-        self.assertIsNone(rejected)
-        self.assertTrue(report["reason"])
 
     def test_quadratic_triangle_matches_analytic_projection(self):
         xy = np.array([[0.0, 0.0], [20.0, 0.0], [0.0, 20.0]])

@@ -16,6 +16,12 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`transport.weighted_heights.fit_weighted_heights` passt gemeinsame Vertexhöhen
+quadratisch unter ganzen Face-Neigungsgrenzen und festen Kontakten auf einem
+expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit`;
+Gewichte, Besitz, gültige Kandidaten und Grenzen stehen in
+[weighted_heights.md](weighted_heights.md) (#265).
+
 `transport.rail_hardware.build_rail_hardware` liefert vereinfachte geschlossene Schienen und
 gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrücklich
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht

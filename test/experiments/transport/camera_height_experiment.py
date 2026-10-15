@@ -10,6 +10,7 @@ import numpy as np
 from camera_height_inputs import digest, prepare_case
 from camera_height_solve import audit, fit
 from outshine_ref.transport import heights as height_library
+from outshine_ref.transport import weighted_heights as weighted_library
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -29,6 +30,10 @@ def provenance():
         "implementations": {p.name: digest(p) for p in HERE.glob("camera_height_*.py")},
         "shared_implementation_sha256": {
             "transport/heights.py": digest(height_library.__file__),
+            **{
+                "transport/weighted_heights/" + p.name: digest(p)
+                for p in Path(weighted_library.__file__).parent.glob("*.py")
+            },
             "surface_height_frames.py": digest(HERE / "surface_height_frames.py"),
             "capture_height_targets.py": digest(HERE / "capture_height_targets.py"),
         },
