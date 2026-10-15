@@ -67,6 +67,37 @@ def section_volume(polygon):
     return value
 
 
+def horizontal_slice(mesh, z):
+    lines = []
+    for triangle in mesh["vertices"][mesh["faces"]]:
+        intersections = []
+        for a, b in zip(triangle, np.roll(triangle, -1, axis=0), strict=True):
+            if (a[2] < z < b[2]) or (b[2] < z < a[2]):
+                intersections.append(
+                    a[:2] + (b[:2] - a[:2]) * (z - a[2]) / (b[2] - a[2])
+                )
+        if intersections:
+            if len(intersections) != 2:
+                raise AssertionError("Non-vertex plane should cut two triangle edges")
+            lines.append(shapely.LineString(np.round(intersections, 8)))
+    cells = list(
+        shapely.get_parts(
+            shapely.polygonize(list(shapely.get_parts(shapely.union_all(lines))))
+        )
+    )
+    loops = {}
+    for cell in cells:
+        for ring in (cell.exterior, *cell.interiors):
+            p = shapely.Polygon(ring)
+            loops[shapely.normalize(p).wkb] = p
+    kept = [
+        cell
+        for cell in cells
+        if sum(p.contains(cell.representative_point()) for p in loops.values()) % 2
+    ]
+    return shapely.union_all(kept)
+
+
 class ProfileBands(unittest.TestCase):
     def test_rectangle_concave_and_courtyard_volumes(self):
         polygons = (
@@ -84,6 +115,14 @@ class ProfileBands(unittest.TestCase):
             self.assertAlmostEqual(solid(self, mesh), section_volume(polygon), places=8)
             self.assertEqual(mesh["vertices"][:, 2].min(), 19)
             self.assertEqual(mesh["vertices"][:, 2].max(), 19.3)
+            for z in (0.04, 0.13, 0.27):
+                for (r0, z0), (r1, z1) in pairwise(PROFILE):
+                    if z0 < z < z1:
+                        radius = r0 + (r1 - r0) * (z - z0) / (z1 - z0)
+                        break
+                expected = polygon.buffer(radius, join_style=2).difference(polygon)
+                actual = horizontal_slice(mesh, 19 + z)
+                self.assertLess(actual.symmetric_difference(expected).area, 2e-6)
             self.assertTrue(
                 all(p.is_valid and p.area > 0 for p in edge_footprints(plan))
             )

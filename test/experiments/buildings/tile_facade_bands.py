@@ -96,8 +96,8 @@ def demanded(frame, spec, view):
 
 class BandDetails:
     def __init__(self, rows):
-        self.rows = rows
-        self.tree = shapely.STRtree([r["polygon"] for r in rows])
+        self.rows = [r for r in rows if r.get("layer", "building") == "building"]
+        self.tree = shapely.STRtree([r["polygon"] for r in self.rows])
         self.completed = []
         self.rejected = []
 

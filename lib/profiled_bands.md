@@ -54,6 +54,8 @@ source walls, opening axes, roofs, room controls and attributes. Neighbor source
 footprints with overlapping heights reject intersecting edge supports before
 emission. Partial runs are capped. Special families, clipped sources, collapsed
 offsets and incomplete boundary frames retain the original representation.
+Context landuse polygons are not building obstacles; the mixed city-input
+control verifies identical geometry with and without that context layer.
 Transport reservations and physical entrance routes are not yet consumed by
 this new trim path. Source solids are unchanged; outward trim extents are
 procedural additions, not measured OSM footprints.
@@ -69,12 +71,14 @@ only controls positional displacement. The painted far wall is not an admitted
 equivalent for radiance, shadows, night lighting or changing LOD transitions.
 
 Independent controls cover oriented watertight solids, planar metric UVs,
-analytic/GEOS-integrated rectangle/concave/courtyard volumes after rigid XY
+actual horizontal mesh slices and analytic/GEOS-integrated
+rectangle/concave/courtyard volumes after rigid XY
 transforms, every nonempty rectangular edge subset, stable edge IDs, equal
 scalar/batch output, empty products, capacity-before-expansion, invalid profiles,
 sharp corners and collapsing courtyards. Actual source consumers additionally
 check original arrays/attributes, window-free heights, far no-buffer access,
-height-aware neighbor exclusions and truthful atomic fallback reporting.
+height-aware neighbor exclusions, independent projection/movement displacements,
+mixed landuse inputs and truthful atomic fallback reporting.
 
 Primary references: local SIGGRAPH 2006 *Procedural Modeling of Buildings*,
 PDF page 3/Figure 4 (absolute ledge and repeated floors), and SIGGRAPH 2003

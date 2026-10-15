@@ -6,12 +6,66 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from tile_facade_bands import BandDetails, specifications
+from demand import View
+from tile_facade_bands import BandDetails, demanded, specifications
 from verify_recess_consumer import camera, source_facades
 from verify_urban_roofs import sources
 
 
 class FacadeBands(unittest.TestCase):
+    def test_sphere_projection_rejects_only_subpixel_displacements(self):
+        row = sources()[1]
+        _, facades, p = source_facades(row)
+        frame = facades[0]
+        spec = specifications(facades, p["minHeight"])[-1]
+        a, b = np.asarray(frame["a"]), np.asarray(frame["b"])
+        x, z = np.meshgrid(
+            np.linspace(0, 1, 15), np.linspace(0, spec.profile[-1][1], 15)
+        )
+        points = np.c_[a + (b - a) * x.ravel()[:, None], spec.base_m + z.ravel()]
+        radius = max(d for d, _ in spec.profile) * 4
+        rng = np.random.default_rng(342)
+        directions = rng.normal(size=(64, 3))
+        directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+        rejected = 0
+        for distance in (100.0, 500.0, 1500.0, 5000.0):
+            v = camera(frame, distance)
+            view = View(
+                v.eye, v.target, width=1920, height=1080, fov_deg=48, movement_m=0.4
+            )
+            if demanded(frame, spec, view):
+                continue
+            rejected += 1
+            for direction in directions:
+                move = np.roll(direction, 1) * view.movement_m
+                q = (points - view.eye - move) @ view.basis.T
+                displaced = (
+                    points + direction * radius - view.eye - move
+                ) @ view.basis.T
+                before = q[:, :2] / q[:, 2:3] * view.focal_px
+                after = displaced[:, :2] / displaced[:, 2:3] * view.focal_px
+                self.assertLessEqual(
+                    np.linalg.norm(after - before, axis=1).max(), view.detail_error_px
+                )
+        self.assertGreater(rejected, 0)
+
+    def test_context_landuse_is_not_a_building_obstacle(self):
+        row = sources()[1]
+        mesh, facades, p = source_facades(row)
+        view = camera(facades[0], 25)
+        plain = BandDetails([row])
+        a = plain(mesh, row, p, facades, view, 1, "residential")
+        landuse = {
+            "layer": "landuse",
+            "polygon": row["polygon"].buffer(100),
+            "properties": {"class": "residential"},
+        }
+        contextual = BandDetails([row, landuse])
+        b = contextual(mesh, row, p, facades, view, 1, "residential")
+        for key in a:
+            np.testing.assert_array_equal(a[key], b[key])
+        self.assertEqual(plain.completed, contextual.completed)
+
     def test_actual_sources_keep_all_original_mesh_and_window_free_heights(self):
         for row in sources():
             original = copy.deepcopy(row)
