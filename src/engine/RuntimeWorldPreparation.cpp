@@ -57,7 +57,9 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) { return true; }
+  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) {
+    return ConfigureWorldSources(tileProviders);
+  }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
   if (!World.OsmSource) {
@@ -78,6 +80,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
         Generators::Osm::SourceAcquisition::Target::Inputs,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
+  if (!ConfigureWorldSources(tileProviders)) { return false; }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();
   if (!RequestOsmSources(osmProviders)) { return false; }
@@ -202,24 +205,20 @@ bool Engine::State::PrepareRuntimeWorld() {
     }
   }
 
-  if (tileProviders.empty()) {
-    const auto shipped = Generators::ShippedProviders();
-    tileProviders.assign(shipped.begin(), shipped.end());
-  }
   Collecting say;
   const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
                                          .Cache = Session.Under.Cache,
                                          .AssetCache = Session.Under.AssetCache};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
-                                                 tileProviders,
-                                                 {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-                                                 *World.Wire,
-                                                 *World.Pool,
-                                                 say,
-                                                 Diagnostics,
-                                                 Session.Declared.Ground.PatienceS,
-                                                 &World.Providers)) {
+  if (!World.Stack.Opened() &&
+      !World.Stack.OpenSession(worldStorage,
+                               World.Sources,
+                               {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
+                               *World.Wire,
+                               *World.Pool,
+                               say,
+                               Diagnostics,
+                               Session.Declared.Ground.PatienceS)) {
     Error = say.WhyNot();
     return false;
   }

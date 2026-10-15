@@ -764,15 +764,15 @@ struct PhysicsSettings {
 };
 
 /// Owned world-time declaration, distinct from simulation step accumulation.
-/// Current runtime samples the astronomical sun during declaration; this structure
-/// does not itself advance time or synchronize access. Copying Start may allocate.
+/// Current runtime resolves one UTC during declaration for the sun and initial weather;
+/// this structure does not itself advance time or synchronize access. Copying Start may allocate.
 struct Clock {
   bool Declared = false; ///< Whether a clock section was explicitly supplied.
-  /// Permit system UTC fallback when Start is absent or invalid during sky setup.
+  /// Permit system UTC fallback when Start is absent or invalid during declaration.
   /// Does not currently promise continuous resampling of the system clock.
   bool Live = false;
-  /// Owned ISO 8601 UTC starting instant. During automatic sun setup an invalid value
-  /// fails when Declared and not Live; otherwise system UTC is used as fallback.
+  /// Owned ISO 8601 UTC starting instant. An invalid value fails during declaration
+  /// when Declared and not Live; otherwise system UTC is used as fallback.
   std::string Start;
   double Rate = 1.0; ///< Declared world-time scale, retained but not yet applied by runtime.
 };
