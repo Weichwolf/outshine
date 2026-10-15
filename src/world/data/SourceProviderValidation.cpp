@@ -188,8 +188,9 @@ ValidateSourceProviders(std::span<const SourceProvider> providers) {
   for (size_t at = 0; at < providers.size(); ++at) {
     const SourceProvider &provider = providers[at];
     if (provider.Kind.empty()) { return std::unexpected("a provider kind must not be empty"); }
-    if (provider.Kind != "osm" && !provider.PayloadSha256.empty()) {
-      return std::unexpected("only an osm provider can declare a response sha256");
+    if (provider.Kind != "osm" && provider.Kind != "open-meteo" &&
+        !provider.PayloadSha256.empty()) {
+      return std::unexpected("this provider does not accept a response sha256");
     }
     if (provider.Missing != MissingDataPolicy::Continue &&
         provider.Missing != MissingDataPolicy::Fail) {
