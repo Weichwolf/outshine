@@ -503,6 +503,13 @@ GroupToolchain() {
 # source and every prerequisite the compiler named.
 # the stamp is (mtime, size, name) of the source and every prerequisite, gathered in ONE
 # stat call: a backwards mtime DIFFERS from the recorded one, where "-nt" called it current
+FileStamp() {
+  case "$(uname -s)" in
+    Linux) stat -c '%Y|%s|%n' -- "$@" ;;
+    *) stat -f '%m|%z|%N' -- "$@" ;;
+  esac
+}
+
 SourceStamp() {
   stampSource=$1
   stampDeps=$2
@@ -510,7 +517,7 @@ SourceStamp() {
   if [ -f "$stampDeps" ]; then
     stampFiles="$stampFiles $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps")"
   fi
-  stat -f '%m|%z|%N' -- $stampFiles 2>/dev/null || return 1
+  FileStamp $stampFiles 2>/dev/null || return 1
 }
 
 # THE COMPILE LINE'S IDENTITY IS IN THE OBJECT'S NAME, so freshness only has to answer the other
@@ -1958,7 +1965,7 @@ BinaryStamp() {
       stampFiles="$stampFiles $stampNeed"
     done
   fi
-  stat -f '%m|%z|%N' -- $stampFiles $OBJECTS 2>/dev/null || return 1
+  FileStamp $stampFiles $OBJECTS 2>/dev/null || return 1
 }
 
 Fresh() {
