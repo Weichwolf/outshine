@@ -1,8 +1,3 @@
-from outshine_ref.transport import PortHeightBudget
-from outshine_ref.transport.port_heights._solve import (
-    solve_slices,
-)
-
 """Compare bounded parameter-aligned tessellation with an unchanged captured C1 plan."""
 
 import argparse
@@ -14,8 +9,12 @@ import time
 from pathlib import Path
 
 import numpy as np
+from outshine_ref.transport import PortHeightBudget
 from outshine_ref.transport.port_heights._contacts import contact_audit
 from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._solve import (
+    solve_slices,
+)
 from port_plane_adaptive import initial_mesh
 from port_plane_fixture import load_reference
 

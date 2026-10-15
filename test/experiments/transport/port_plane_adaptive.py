@@ -1,5 +1,3 @@
-from outshine_ref.transport.port_heights._quality import quality
-
 """Refine complete C1 road plans and refit matching soil within bounded work (#169)."""
 
 import argparse
@@ -13,6 +11,7 @@ from pathlib import Path
 import numpy as np
 from outshine_ref.transport.port_heights._contacts import contact_audit
 from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._quality import quality
 from outshine_ref.transport.port_heights._system import continuous_matrix, fit_planes
 from outshine_ref.transport.port_heights._world import (
     assemble_world,

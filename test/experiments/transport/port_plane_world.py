@@ -1,9 +1,3 @@
-from outshine_ref.transport.port_heights._world import (
-    approximation_bounds,
-    assemble_world,
-    finite_ports,
-)
-
 """Joint road-plane and soil-height fitting on the existing conforming whole tile."""
 
 import argparse
@@ -18,6 +12,11 @@ from outshine_ref.transport.port_heights._contacts import contact_audit
 from outshine_ref.transport.port_heights._layout import prepare_plane_field
 from outshine_ref.transport.port_heights._system import (
     fit_planes,
+)
+from outshine_ref.transport.port_heights._world import (
+    approximation_bounds,
+    assemble_world,
+    finite_ports,
 )
 from port_plane_fixture import REFERENCE, load_reference
 from surface_height_checks import normal_gradients
