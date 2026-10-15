@@ -34,6 +34,11 @@ emitted traffic is independently checked at the original 0.025 limit, soil at
 the old deck underside, all soil 0.02 m below that underside, and roofs 2 m below
 the 0.25 m soil shell underside. These are explicit procedural recipe values.
 
+Rejected comparison constructions are recorded as absent and cannot prevent
+the independent selected field from running. The direct dense construction may
+fail its own degenerate-face guard before reaching its solver. No such failed
+surface is exported or rendered.
+
 Lifting unconstrained fine triangles across height-field creases is insufficient.
 Cutting neighbours independently also failed the real coverage check. The final
 method globally nodes the field edges, traffic boundary and actual world boundary,
@@ -42,6 +47,15 @@ keeps its owned XY and queries only its height. Whole-face normals, complete
 road/world domains, old footprint preservation, interior-crack absence, source
 axes and actual clearances are replayed. Closed bodies and supplied flat corner
 normals are exported for the renderer. Solver status alone proves nothing.
+
+The real indexed bodies exposed Blender 5.2.2 custom-normal packing errors even
+without degenerate float32 faces. Sharp edges and reapplying packed normals did
+not preserve all supplied vectors. Transport therefore supplies its exact
+FLOAT_VECTOR/CORNER normal attribute directly to the material's object-to-world
+normal transform and Principled input. A real Eevee pixel control verifies the
+attribute/shader path; import checks preserve float32 vectors exactly. Packed
+mesh-normal deviations are measured and unused, never silently accepted as the
+intended source normals. Shared camera/mesh/daylight APIs remain unchanged.
 
 ## References and provenance
 

@@ -16,6 +16,8 @@ from outshine_ref.rendering.blender_camera import configure_camera, verify_camer
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_mesh import mesh_object
 
+NORMAL_ATTRIBUTE = "transport_source_normal"
+
 
 def materials(colours):
     result = []
@@ -27,6 +29,23 @@ def materials(colours):
         shader.inputs["Base Color"].default_value = colour
         shader.inputs["Roughness"].default_value = 0.86
         shader.inputs["Metallic"].default_value = 0
+        attribute = surface.node_tree.nodes.new("ShaderNodeAttribute")
+        attribute.attribute_name = NORMAL_ATTRIBUTE
+        transform = surface.node_tree.nodes.new("ShaderNodeVectorTransform")
+        transform.vector_type, transform.convert_from, transform.convert_to = (
+            "NORMAL",
+            "OBJECT",
+            "WORLD",
+        )
+        normalize = surface.node_tree.nodes.new("ShaderNodeVectorMath")
+        normalize.operation = "NORMALIZE"
+        surface.node_tree.links.new(
+            attribute.outputs["Vector"], transform.inputs["Vector"]
+        )
+        surface.node_tree.links.new(transform.outputs["Vector"], normalize.inputs[0])
+        surface.node_tree.links.new(
+            normalize.outputs["Vector"], shader.inputs["Normal"]
+        )
         result.append(surface)
     return result
 
@@ -56,15 +75,25 @@ def import_body(row):
     obj.data.vertices.foreach_get("co", actual.ravel())
     if not np.array_equal(actual, vertices.astype(np.float32)):
         raise ValueError("Blender changed source transport positions")
-    got_normals = np.array([n.vector[:] for n in obj.data.corner_normals])
-    if not np.allclose(got_normals, normals, rtol=0, atol=1e-4):
-        raise ValueError("Blender changed supplied transport corner normals")
+    # Blender's packed custom-normal spaces lose accuracy on the real shared
+    # indexed bodies. Preserve the supplied vectors directly for the material.
+    packed = np.empty_like(normals, dtype=np.float32)
+    obj.data.corner_normals.foreach_get("vector", packed.ravel())
+    attribute = obj.data.attributes.new(NORMAL_ATTRIBUTE, "FLOAT_VECTOR", "CORNER")
+    attribute.data.foreach_set("vector", normals.astype(np.float32).ravel())
+    actual_normals = np.empty_like(normals, dtype=np.float32)
+    attribute.data.foreach_get("vector", actual_normals.ravel())
+    if not np.array_equal(actual_normals, normals.astype(np.float32)):
+        raise ValueError("Blender changed explicit source normal attribute")
     return vertices, {
         "vertices": len(vertices),
         "triangles": len(faces),
         "supplied_corner_normals": len(normals),
         "topology_exact": True,
         "positions_float32_exact": True,
+        "source_normal_attribute_float32_exact": True,
+        "source_normal_attribute": NORMAL_ATTRIBUTE,
+        "unused_packed_normal_max_error": float(abs(packed - normals).max()),
     }
 
 
@@ -107,6 +136,7 @@ def render(row):
     report = {
         "id": row["id"],
         "source_mesh_sha256": row["mesh_sha256"],
+        "scene_config_sha256": row["scene_config_sha256"],
         "image_sha256": digest(output),
         "camera": camera,
         "imported": imported,
@@ -147,4 +177,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("scene", type=Path)
     args = parser.parse_args()
-    render(json.loads(args.scene.read_text()))
+    render(
+        dict(json.loads(args.scene.read_text()), scene_config_sha256=digest(args.scene))
+    )
