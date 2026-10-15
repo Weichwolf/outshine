@@ -14,6 +14,7 @@ from outshine_ref.transport import close_surface
 from PIL import Image
 from port_height_library_comparison import load
 from port_plane_fixture import load_reference
+from rail_place_display import append_hardware
 from transport_place_inputs import place_camera, plan_vertices
 
 HERE = Path(__file__).resolve().parent
@@ -192,6 +193,17 @@ def prepare(args):
         body = close_surface(top, 0.25)
         materials = np.full(len(body.triangles), 2, int)
         materials[: len(top.triangles)] = slots
+        if args.rail_products is not None:
+            body, materials, rail_proof = append_hardware(
+                body,
+                materials,
+                args.rail_products,
+                name,
+                original["origin_lat_lon"],
+                camera_proof["local_flat_datum_m"],
+                digest(args.camera_products / "generation.json"),
+            )
+            model_proof["rail_hardware"] = rail_proof
         path = args.output / (name + ".npz")
         np.savez_compressed(
             path,
@@ -231,12 +243,15 @@ def main():
     parser.add_argument("--flat-release", type=Path)
     parser.add_argument("--port-plan", type=Path, required=True)
     parser.add_argument("--camera-products", type=Path)
+    parser.add_argument("--rail-products", type=Path)
     parser.add_argument("--elevation-inventory", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--build-only", action="store_true")
     args = parser.parse_args()
     if args.flat_release is None and args.camera_products is None:
         parser.error("--camera-products or --flat-release required")
+    if args.rail_products is not None and args.camera_products is None:
+        parser.error("--rail-products requires its captured --camera-products")
     began = time.monotonic()
     scene = prepare(args)
     if args.build_only:
