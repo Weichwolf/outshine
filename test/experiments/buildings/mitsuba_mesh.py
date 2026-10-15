@@ -2,12 +2,13 @@
 
 import numpy as np
 import mitsuba as mi
+from mitsuba_facade_extent import bind as bind_facade_extent
 
 
 def mesh(name,data,rows,bsdf,emitter=None):
     indices=data['faces'][rows];used=np.unique(indices);positions=data['vertices'][used].astype(np.float32)
     faces=np.searchsorted(used,indices).astype(np.uint32)
-    props=mi.Properties();props['bsdf']=mi.load_dict(bsdf)
+    props=mi.Properties();props['bsdf']=mi.load_dict(bind_facade_extent(bsdf,data,indices))
     if emitter is not None:props['emitter']=mi.load_dict(emitter)
     uv=None
     if 'uv' in data:
