@@ -133,6 +133,10 @@ db: strip shaders ## compile_commands.json for clangd, clang-tidy and clang-form
 experiment-tree-cost: all db ## compare native tree expansion/instancing (CPU, no GPU proof)
 	@cd $(SELF_DIR) && python3 test/experiments/render/tree_representation_cost.py
 
+.PHONY: experiment-vulkan
+experiment-vulkan: ## native Vulkan upload/scan/compact/readback; VULKAN_VALIDATION=1 enables validation
+	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py
+
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
