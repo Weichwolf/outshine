@@ -956,3 +956,20 @@ are expanded. This is surface coverage, not an opening/collision or native
 LOD contract. #245 owns independent explicit rectangle integration, actual
 physical CPU binding and same-camera cached Place comparisons. The source
 wall colour and existing near-detail geometry are preserved by that consumer.
+
+Shared optional Blender-host helpers live in `outshine_ref.rendering.blender_camera` and
+`blender_mesh` ([#291](https://github.com/Weichwolf/outshine/issues/291)).
+They preserve supplied triangles, point/corner normals and optional point UVs.
+Perspective FOV is vertical; orthographic `span_m` is horizontal. Blender stays an
+optional host dependency; module import does not require `bpy`. Buildings research
+uses `.venv` with `bpy==5.2.2`; Transport retains its current Workbench profile
+until its presentation migration. These helpers do not imply a native/device gate.
+
+`outshine_ref.rendering.blender_light.configure_daylight` applies the agreed
+Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
+Research images stay local; only master publishes integrated Places.
+
+`vegetation.GroundCoverPlan` erzeugt begrenzte Poisson-Bodenstandorte mit
+kanonischen Zell-/Ordinal-IDs, separaten Zähl-/Positionsströmen und exaktem
+Teil-Replay im selben festen Meterrahmen. Mengen/Budgets werden vor Platzierungen
+ermittelt. Vertrag, Kosten und optisch geprüfter Grasverbrauch: [ground_cover.md](ground_cover.md) (#304).

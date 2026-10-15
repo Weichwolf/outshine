@@ -70,6 +70,7 @@ def render(name, inputs, output, spp):
         "place": name,
         "camera": asdict(scene["camera"]),
         "camera_ground_height_m": scene["camera_ground_height_m"],
+        "ground_mode": scene["ground_mode"],
         "profile": config["profile"],
         "image": name + ".png",
         "image_sha256": renderer["image_sha256"],

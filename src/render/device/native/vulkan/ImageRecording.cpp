@@ -19,9 +19,8 @@ void Recording::CommitImages() noexcept {
   }
 }
 
-Result<void> Recording::UseImage(const std::shared_ptr<ImageState> &image,
-                                 TextureView view,
-                                 ImageAccess access) {
+Result<Recording::TrackedImage *> Recording::TrackImage(const std::shared_ptr<ImageState> &image,
+                                                        TextureView view) {
   if (!ValidView(*image, view) || Finished_) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Invalid, .Message = "invalid image view or recording state"});
@@ -30,13 +29,30 @@ Result<void> Recording::UseImage(const std::shared_ptr<ImageState> &image,
     return std::unexpected(
         Error{.Kind = ErrorKind::Busy, .Message = "texture belongs to another open recording"});
   }
+  if (image->Presentation) {
+    const auto phase = image->Presentation->Phase.load();
+    if (phase != PresentPhase::Acquired && phase != PresentPhase::Recorded) {
+      return std::unexpected(Error{.Kind = ErrorKind::Invalid,
+                                   .Message = "present image lease is no longer recordable"});
+    }
+  }
   auto found = std::ranges::find_if(
       Images_, [&image](const TrackedImage &tracked) { return tracked.Image == image; });
   if (found == Images_.end()) {
     Images_.push_back({.Image = image, .Layouts = image->Layouts});
     image->Reserved = this;
+    if (image->Presentation) { image->Presentation->Recordings.fetch_add(1); }
     found = Images_.end() - 1;
   }
+  return &*found;
+}
+
+Result<void> Recording::UseImage(const std::shared_ptr<ImageState> &image,
+                                 TextureView view,
+                                 ImageAccess access) {
+  const auto tracked = TrackImage(image, view);
+  if (!tracked) { return std::unexpected(tracked.error()); }
+  auto *const found = *tracked;
   std::vector<VkImageMemoryBarrier2> barriers;
   for (uint32_t mip = view.FirstMip; mip < view.FirstMip + view.Mips; ++mip) {
     uint32_t layer = view.FirstLayer;

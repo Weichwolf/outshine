@@ -19,6 +19,10 @@ Recording::~Recording() {
   for (auto *const view : Views_) { vkDestroyImageView(Context_->Logical, view, nullptr); }
   for (const auto &tracked : Images_) {
     if (tracked.Image->Reserved == this) { tracked.Image->Reserved = nullptr; }
+    if (tracked.Image->Presentation) {
+      tracked.Image->Presentation->Recordings.fetch_sub(1);
+      tracked.Image->Presentation->Wake();
+    }
   }
   for (const auto &buffer : Buffers_) { --buffer->RecordedUses; }
   --Context_->Recordings;
@@ -51,6 +55,7 @@ Result<void> Recording::End() {
   if (Finished_ || Render_) {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "commands already ended"});
   }
+  if (auto presented = FinalizePresentation(); !presented) { return presented; }
   const auto result = vkEndCommandBuffer(Commands_);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkEndCommandBuffer", result)); }
   Finished_ = true;
