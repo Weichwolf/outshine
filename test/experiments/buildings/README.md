@@ -166,7 +166,7 @@ optimum or native world-coverage gate.
 Urban roof studies ([#308](https://github.com/Weichwolf/outshine/issues/308)) connect
 the existing `Shape.roof_hip`/heightfield-envelope kernels to ordinary complete
 150–2500 m², 8–36 m bodies beyond the existing small-house scope. Courtyards and
-source top heights remain; supplied roof types, clipped/elevated/round/slender
+source top heights remain; supplied roof fields, clipped/elevated/round/slender
 bodies and incompatible uses keep their previous alternatives. Roof form is
 explicitly inferred, without city/name lookup. Delivered storeys reserve at least
 2.64 m each before roof space. A bounded sub-0.1-micrometre height normalization
