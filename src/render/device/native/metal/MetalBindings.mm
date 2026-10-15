@@ -25,7 +25,8 @@ TextureArgument(const ResourceBinding &layout, const Binding &binding, uint64_t 
   }
   const auto selected = View(image, device);
   if (!selected) { return std::unexpected(selected.error()); }
-  DispatchArgument argument{.Layout = &layout, .Texture = *selected, .Resource = texture->Native};
+  DispatchArgument argument{
+      .Layout = &layout, .Buffer = {}, .Texture = *selected, .Resource = texture->Native};
   constexpr uint32_t noSampler = std::numeric_limits<uint32_t>::max();
   if (sampling && layout.Sampler != noSampler) {
     const auto *const sampler = dynamic_cast<const MetalSampler *>(sampled->Sampling);
@@ -61,7 +62,7 @@ Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint
       return Failure(ErrorKind::Invalid, "missing or repeated Metal dispatch binding");
     }
     const auto &binding = *std::ranges::find_if(bindings, matches);
-    DispatchArgument argument{.Layout = &layout};
+    DispatchArgument argument{.Layout = &layout, .Buffer = {}};
     if (layout.Source.Kind == BindingKind::Uniform) {
       argument.Constants = std::get_if<Uniform>(&binding.Value);
       constexpr size_t maxUniformBytes = 64L * 1024;

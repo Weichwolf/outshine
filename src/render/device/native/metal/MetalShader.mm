@@ -67,7 +67,8 @@ ReflectOne(spvc_compiler compiler, const spvc_reflected_resource &item, BindingK
                  .Usage = Access::Read},
       .Buffer = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
       .Texture = spvc_compiler_msl_get_automatic_resource_binding(compiler, item.id),
-      .Sampler = spvc_compiler_msl_get_automatic_resource_binding_secondary(compiler, item.id)};
+      .Sampler = spvc_compiler_msl_get_automatic_resource_binding_secondary(compiler, item.id),
+      .TexelFormat = std::nullopt};
   if (kind == BindingKind::StorageBuffer) {
     const auto access = BufferAccess(compiler, item.id);
     if (!access) { return std::unexpected(access.error()); }
@@ -169,6 +170,8 @@ Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry
   if (spvc_compiler_compile(compiler, &source) != SPVC_SUCCESS) { return failure(); }
   Shader shader{.Source = source,
                 .Entry = spvc_compiler_get_cleansed_entry_point_name(compiler, name.c_str(), model),
+                .Layout = {},
+                .Resources = {},
                 .NeedsBufferSizes =
                     static_cast<bool>(spvc_compiler_msl_needs_buffer_size_buffer(compiler))};
   if (model == SpvExecutionModelGLCompute) {

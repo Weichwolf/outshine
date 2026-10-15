@@ -919,7 +919,11 @@ flächengewichteter quadratischer Passung unter denselben ganzen anisotropen
 Face-Neigungsbedingungen. Eingaben sind die gepinnten Kamera-Meshes und dieselben
 retained z11-DEM-Bytes, keine neue Akquisition. Alle Bettfacetten unter vollständigen
 geprüften Schienen-/Schwellenfootprints bleiben auf ihrem bisherigen Datum fest.
-Die neue Passung ist zunächst experimentell; kein neues öffentliches Bibliotheks-API.
+Die quadratische Passung importiert den installierbaren Kern
+`outshine_ref.transport.weighted_heights.fit_weighted_heights`; Gewichtung,
+Besitz, horizontale Referenz und Budget stehen in
+[lib/weighted_heights.md](../../../lib/weighted_heights.md).
+Der bisherige Minimax-Einstieg bleibt als Vergleich erhalten.
 
 Bei der quadratischen Variante werden feste Kontakte vor einer konservativen
 Rücknahme exakt projiziert. Für das flache zulässige Referenzbett d gilt
@@ -957,3 +961,6 @@ werden nicht dargestellt. Der Standard ohne `--height-products` bleibt eben.
 
 Aktueller eingefrorener Vergleich, Grenzen, Kosten und Bildbelege:
 [camera_height_comparison.md](camera_height_comparison.md).
+
+Bibliotheksübernahme und aktuelle Source-/Wheel-/Kosten-/Bildprüfung:
+[weighted_height_library_comparison.md](weighted_height_library_comparison.md).
