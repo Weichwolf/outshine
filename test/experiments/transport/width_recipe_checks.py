@@ -57,16 +57,22 @@ class WidthRecipes(unittest.TestCase):
     def test_explicit_source_and_axis_recipe_widths_keep_their_precedence(self):
         recipes = deepcopy(RECIPES)
         recipes["axisRecipes"].update(
-            residential={"widthM": 7.0}, tram={"widthFrom": "cycleway"}
+            residential={"widthM": 7.0},
+            tram={"widthFrom": "cycleway"},
+            minor_construction={"widthM": 7.75},
         )
         sources = [
             road(0, width=4.25),
             road(1),
             road(2, **{"class": "transit", "subclass": "tram"}),
+            road(3, **{"class": "minor_construction"}),
         ]
         accepted, report = source_roads(sources, recipes, WIDTHS)
-        self.assertEqual([r["width"] for r in accepted], [4.25, 7.0, 2.0])
-        self.assertEqual(report["inferred_widths"], {"residential": 1, "tram": 1})
+        self.assertEqual([r["width"] for r in accepted], [4.25, 7.0, 2.0, 7.75])
+        self.assertEqual(
+            report["inferred_widths"],
+            {"residential": 1, "tram": 1, "minor_construction": 1},
+        )
 
     def test_routes_unknown_classes_and_construction_aliases_stay_distinct(self):
         sources = [

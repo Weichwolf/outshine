@@ -66,7 +66,7 @@ def source_roads(transport, recipes=None, widths=None):
         if width is None:
             width = recipe.get("widthM", widths.get(recipe.get("widthFrom", kind)))
             suffix = recipes.get("constructionSuffix")
-            if suffix and kind.endswith(suffix):
+            if width is None and suffix and kind.endswith(suffix):
                 base = kind[: -len(suffix)]
                 width = widths.get(
                     recipes.get("constructionAliases", {}).get(base, base)
