@@ -121,7 +121,8 @@ Frozen direct-source four-place generation: 8.713 s wall /109.1 MiB child peak R
 independent full verification: 13.831 s /304.4 MiB. Installed-wheel generation:
 8.860 s /110.0 MiB. These include worker input/output, are offline Python jobs,
 and are not native asset-cache load times. Generator limits: 2 GiB address space,
-60 CPU s overall, 15 s cooperative per-window preparation/admission, 2048 pieces;
+60 CPU s overall, a 15 s cooperative check between per-window hardware builds,
+2048 pieces;
 per-product defaults 4096 stations/8192 sleepers/98304 rail vertices. Pair caps,
 batch sizes and absence reasons are in the public API documentation and receipts.
 Only per-process RSS is reported, not summed process-tree/OS/GPU memory.
@@ -171,7 +172,13 @@ Final images and loaded-host render observations (two threads, nice10):
 | CentralPark | 229 | `a54379037c768bcb55f89c2b983885258d538877ee5ac10cab515dc7f0d35a6e` | 70.996 / 1233.6 |
 | Feldkirch | 1816 | `6837fd6987d529fa9c9b69cceab33456302af5134a18047741c90d01216d9a49` | 46.642 / 1032.8 |
 
-Feldkirch first reached the90s preview-process guard under competing load,
-without saving a PNG. One unchanged-scene retry passed the same90s guard.
+Feldkirch first reached the 90 s preview-process guard under competing load,
+without saving a PNG. One unchanged-scene retry passed the same 90 s guard.
 The failed run remains in the process receipt; no timeout or product budget was
 raised. Render costs are offline inspection costs, not frame timings.
+
+After merging compatible master changes, frozen `8c0b46bb0` passes all 357
+library tests and 35 focused controls. Every rail implementation, shared Mesh
+contract, renderer and scene-preparation file is byte-identical to the measured
+`e4e9733af` sources; geometry, wheel, cost and image proofs remain applicable.
+Only subsequent report edits accompany this integration check.
