@@ -19,11 +19,10 @@ from transport_network import source_identity, transport_widths
 from transport_travel import compile_travel
 
 ROOT = Path(__file__).resolve().parents[3]
-BASE = ROOT / "build/experiments/transport/components"
 
 
-def prepared(site):
-    path = BASE / "inputs" / (site + "-input.json")
+def prepared(site, base):
+    path = base / "inputs" / (site + "-input.json")
     source = json.loads(path.read_text())
     roads = [
         {
@@ -140,13 +139,13 @@ def store_graphs(graphs, accepted, output):
     )
 
 
-def worker(site, method):
+def worker(site, method, base):
     resource.setrlimit(resource.RLIMIT_AS, (2 * 1024**3, 2 * 1024**3))
     resource.setrlimit(resource.RLIMIT_CPU, (60, 60))
-    output = BASE / "results" / site / method
+    output = base / "results" / site / method
     output.mkdir(parents=True, exist_ok=True)
     began = time.perf_counter()
-    source, roads, accepted, graphs, usage, travel = prepared(site)
+    source, roads, accepted, graphs, usage, travel = prepared(site, base)
     prepared_ms = (time.perf_counter() - began) * 1000
     cpu_before = resource.getrusage(resource.RUSAGE_SELF)
     began = time.perf_counter()
@@ -171,7 +170,7 @@ def worker(site, method):
         "site": site,
         "method": method,
         "input_sha256": hashlib.sha256(
-            (BASE / "inputs" / (site + "-input.json")).read_bytes()
+            (base / "inputs" / (site + "-input.json")).read_bytes()
         ).hexdigest(),
         "original_features": len(source["original_features"]),
         "deferred_polygons": len(source["deferred_sources"]),
@@ -217,22 +216,30 @@ def worker(site, method):
     )
 
 
-def compare():
-    inventory = json.loads((BASE / "inventory.json").read_text())
+def compare(base):
+    inventory = json.loads((base / "inventory.json").read_text())
     # Start every worker before the large independent geometry comparison phase;
     # fork/exec must not inherit a previous case's parent-side RSS high-water mark.
     for site, _, _ in inventory["sites"]:
         for method in ("global", "serial", "components"):
             subprocess.run(
-                [sys.executable, __file__, "--worker", site, method],
+                [
+                    sys.executable,
+                    __file__,
+                    "--data-root",
+                    str(base),
+                    "--worker",
+                    site,
+                    method,
+                ],
                 check=True,
                 timeout=90,
             )
     rows = []
     for site, _, _ in inventory["sites"]:
-        paths = [BASE / "results" / site / m for m in ("global", "components")]
+        paths = [base / "results" / site / m for m in ("global", "components")]
         before, after = [json.loads((p / "result.json").read_text()) for p in paths]
-        serial_path = BASE / "results" / site / "serial"
+        serial_path = base / "results" / site / "serial"
         serial = json.loads((serial_path / "result.json").read_text())
         assert (
             before["input_sha256"] == after["input_sha256"]
@@ -272,17 +279,18 @@ def compare():
         ),
         "cases": rows,
     }
-    (BASE / "comparison.json").write_text(json.dumps(output, indent=2) + "\n")
+    (base / "comparison.json").write_text(json.dumps(output, indent=2) + "\n")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--worker", nargs=2, metavar=("SITE", "METHOD"))
     args = parser.parse_args()
     if args.worker:
-        worker(*args.worker)
+        worker(*args.worker, args.data_root.resolve())
     else:
-        compare()
+        compare(args.data_root.resolve())
 
 
 if __name__ == "__main__":
