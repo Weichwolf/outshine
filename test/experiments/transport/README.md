@@ -55,6 +55,27 @@ Ausgabeverzeichnis. Nur die vier abschließend geöffneten PNGs werden nach
 `doc/images/transport/` übernommen; Herkunft, Rezeptgrenzen und Kosten stehen im
 verlinkten Fach-Issue/PR. Besitzer: #209 unter #19.
 
+
+`capture_place_windows.py` wählt ganze MVT-Kacheln aus Kamera, horizontalem
+Blickfeld und 1600 m lokalem Bedarf. Die bestehende unveränderliche
+OpenFreeMap-Snapshot-URL bleibt erhalten. Alte Quellen/Attribute/IDs bleiben
+vorhanden. Wiens verifizierter Höhenplan wird unverändert reserviert; neue
+Quellen in seiner Nähe erhalten einen expliziten Reservierungsgrund. Die
+zusätzlichen lokalen Netze werden nicht als mit diesem Plan gekoppelt ausgegeben.
+
+```sh
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --output "$TRANSPORT_CAMERA_INPUTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_CAMERA_INPUTS" --worker Vienna components
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NEW_SHOTS"
+```
+
+Die Variablen benennen ausdrücklich gewählte externe Pfade. Vor dem Rendern
+werden alle vier Komponenten-Worker isoliert ausgeführt und ihre Eingaben,
+kompletten Quellbilanzen und Produkte als `generation.json` hashgebunden.
+Wien behält sein angepasstes C0-Boden-/C1-Straßenprodukt; ergänzte Netze verwenden
+den expliziten ebenen Höhenbezug am lokalen DEM-Ursprung. Profil-/Ebenen- und
+Weltvollständigkeit bleiben unabhängig von diesen Kamerabildern zu prüfen.
+
 Ältere Verfahrensansichten bleiben als private Geometriekontrollen nutzbar:
 
 ```sh
@@ -781,7 +802,7 @@ PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error \
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
   "$TRANSPORT_PY" -W error test/experiments/transport/component_surface_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
-  "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py
+  "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_WORK/components"
 PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" \
   test/experiments/transport/component_surface_showcase.py
 PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" \

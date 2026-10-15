@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
+import shapely
 from capture_height_targets import GIRTH_M, sample_targets
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport import close_surface
@@ -92,13 +93,17 @@ def pinned(path, release, pins):
     return path
 
 
-def flat_model(name, release, pins, datum):
-    base = release / "geometry/components"
+def flat_model(name, release, pins, datum, camera_products=None):
+    if camera_products is None:
+        base = release / "geometry/components"
+    else:
+        release = base = camera_products
+        pins = json.loads((base / "generation.json").read_text())["files"]
     directory = base / "results" / name / "components"
     report_path = pinned(directory / "result.json", release, pins)
     report = json.loads(report_path.read_text())
-    if not report["report"]["complete"]:
-        raise ValueError("complete accepted flat component product required")
+    if not report["report"]["valid_components"] or report["products"] < 1:
+        raise ValueError("accepted nonempty flat component products required")
     meshes, colours, sources = [], [], []
     for index in range(report["products"]):
         path = pinned(directory / f"product-{index}.npz", release, pins)
@@ -122,6 +127,7 @@ def flat_model(name, release, pins, datum):
         "report_sha256": digest(report_path),
         "source_states": report["source_states"],
         "source_reasons": report["source_reasons"],
+        "complete": report["report"]["complete"],
         "recipe": "Accepted flat recipe rigidly placed at the coarse DEM height of its captured local origin. No terrain fit, bank, tier or drivable-turn claim.",
         "flat_datum_m": datum,
     }
@@ -155,6 +161,22 @@ def vienna_model(directory):
     return mesh, slots, proof
 
 
+def append_camera_window(top, slots, near, near_slots):
+    reserved = shapely.box(
+        *top.vertices[:, :2].min(axis=0), *top.vertices[:, :2].max(axis=0)
+    )
+    polygons = shapely.polygons(near.vertices[near.triangles, :2])
+    hits = shapely.STRtree(polygons).query(reserved, predicate="intersects")
+    overlap = float(shapely.area(shapely.intersection(polygons[hits], reserved)).sum())
+    if overlap > 1e-7:
+        raise ValueError("new camera window intersects the retained verified ground")
+    mesh = Mesh(
+        np.vstack((top.vertices, near.vertices)),
+        np.vstack((top.triangles, near.triangles + len(top.vertices))),
+    )
+    return mesh, np.r_[slots, near_slots], overlap
+
+
 def prepare(args):
     if args.output.exists() and any(args.output.iterdir()):
         raise ValueError("fresh empty external render output required")
@@ -169,9 +191,27 @@ def prepare(args):
         view, camera_proof = camera(name, original["origin_lat_lon"], args.sources)
         if name == "Wien":
             top, slots, model_proof = vienna_model(args.port_plan)
+            if args.camera_products is not None:
+                near, near_slots, near_proof = flat_model(
+                    source,
+                    args.flat_release,
+                    pins,
+                    camera_proof["local_flat_datum_m"],
+                    args.camera_products,
+                )
+                top, slots, overlap = append_camera_window(top, slots, near, near_slots)
+                model_proof.update(
+                    additional_camera_window=near_proof,
+                    retained_ground_overlap_m2=overlap,
+                    uncoupled_windows=True,
+                )
         else:
             top, slots, model_proof = flat_model(
-                source, args.flat_release, pins, camera_proof["local_flat_datum_m"]
+                source,
+                args.flat_release,
+                pins,
+                camera_proof["local_flat_datum_m"],
+                args.camera_products,
             )
         body = close_surface(top, 0.25)
         materials = np.full(len(body.triangles), 2, int)
@@ -209,6 +249,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--flat-release", type=Path, required=True)
     parser.add_argument("--port-plan", type=Path, required=True)
+    parser.add_argument("--camera-products", type=Path)
     parser.add_argument("--sources", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--build-only", action="store_true")
