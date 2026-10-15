@@ -37,10 +37,13 @@ class Entrances(unittest.TestCase):
         self.assertIsNone(entrance(self.polygon, [], {}))
 
     def test_capacity_and_invalid_candidates_before_geometry(self):
-        with patch(
-            "outshine_ref.buildings.interiors.entrances.rectangle",
-            side_effect=AssertionError("expanded"),
-        ), self.assertRaisesRegex(ValueError, "capacity"):
+        with (
+            patch(
+                "outshine_ref.buildings.interiors.entrances.rectangle",
+                side_effect=AssertionError("expanded"),
+            ),
+            self.assertRaisesRegex(ValueError, "capacity"),
+        ):
             entrance(self.polygon, self.rooms, {}, max_candidates=1)
         for positions in (
             {0: [0.5]},

@@ -96,10 +96,13 @@ class OpeningPanels(unittest.TestCase):
             with self.assertRaises(ValueError):
                 OpeningPanel(3.2, 3.0, opening)
         plan = OpeningPanel(3.2, 3.0, (1.05, 0.16, 2.15, 2.31))
-        with patch(
-            "outshine_ref.buildings.opening_panels.np.array",
-            side_effect=AssertionError("expanded"),
-        ), self.assertRaisesRegex(ValueError, "capacity"):
+        with (
+            patch(
+                "outshine_ref.buildings.opening_panels.np.array",
+                side_effect=AssertionError("expanded"),
+            ),
+            self.assertRaisesRegex(ValueError, "capacity"),
+        ):
             panel_surface(plan, max_triangles=31)
         a, b = panel_surface(plan), panel_surface(plan)
         for key in a:
