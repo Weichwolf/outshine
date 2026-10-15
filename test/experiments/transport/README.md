@@ -136,6 +136,33 @@ gespeicherte Inputs in getrennten Prozessen mit dem nur dafür benötigten
 `memray==1.20.0`. Erfasste Allokationen und instrumentierte Zeiten bleiben von
 normalen Solverzeiten getrennt; der gültige kleine Höhenplan bleibt Rückfallprodukt.
 
+## Ganze Brückenpfeilerkontakte auf dem Wiener Netz (#326)
+
+`wien_support_experiment.py` ergänzt prozedurale Pfeiler zwischen tatsächlicher
+Deckunterseite und dem unveränderten #303-Boden. Unterer Verkehr und Portale
+bleiben frei; kleine Stationsverschiebungen vermeiden zusätzliche Konflikte.
+Beide Kontaktflächen werden gemeinsam zugeschnitten und vollständig geprüft.
+Nicht gebaute Stationen behalten Quelle und Grund. Das ist kein Statiknachweis.
+[Vergleich, Quellen und Grenzen](wien_support_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/wien_support_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_SUPPORT_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/wien_support_verify.py --products "$TRANSPORT_SUPPORT_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_SUPPORT_OUTPUT/verification.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/after-1080-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error -m unittest bridge_support_checks
+```
+
+Ausgaben sind frische explizite System-Temp-Pfade, Erzeugerstände sauber und
+eingefroren. Die regionale Kamera ist gegenüber #303 mäßig von 1400 m auf 1100 m
+gezoomt; das Vorher/Nachherpaar selbst benutzt dieselbe Kamera und Präsentation.
+1280×720 für den Eindruck, 1920×1080 nur zur lokalen Detailprüfung. Keine Bilder
+nach `doc/` veröffentlichen. `support_station_cost.py` misst optional mit
+`memray==1.20.0` je einen isolierten Plan (`--method fixed` bzw. `shifted`) vor
+Export und unabhängigem Replay; CLI verlangt dieselben drei Eingabepfade und
+ein frisches `--output`. Instrumentierte Zeiten sind separat ausgewiesen.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
