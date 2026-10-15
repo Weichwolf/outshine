@@ -57,7 +57,8 @@ Copyable swapchains disable clipping so advertised readback covers obscured pixe
 
 This is an adapter correctness proof, not a full native Stage/Client/Place proof.
 It supplies no GPU stage timings, full-frame p99, total memory budget, A18 result,
-or late window-target transaction. Those remain #243/#48/#188.
+or integrated Engine/SceneRenderer target switching. Those remain #243/#48/#188.
+The backend target transaction is checked separately below.
 
 Sources:
 
@@ -67,3 +68,34 @@ Sources:
 - [Presentation fence lifetime guarantees](https://docs.vulkan.org/refpages/latest/refpages/source/VkSwapchainPresentFenceInfoKHR.html)
 - [Releasing acquired images](https://docs.vulkan.org/refpages/latest/refpages/source/vkReleaseSwapchainImagesKHR.html)
 - [Swapchain generations and clipping](https://docs.vulkan.org/refpages/latest/refpages/source/VkSwapchainCreateInfoKHR.html)
+
+`Device::SetPresentTarget(window)` prepares a target transaction outside open
+unsubmitted recordings; those return Busy. Successful submissions may still be
+pending. A failed preparation keeps the previous target and generation usable.
+`nullptr` detaches to offscreen. Same-target selection is a no-op while healthy.
+The optional presentation extensions/second queue are prepared at device creation
+without initializing SDL video. A device lacking that capability remains usable
+offscreen and returns Unsupported for a later window. No device/world rebuild.
+
+Surfaces own their context, swapchains own their surface, and leases capture an
+immutable generation separately from the physical swapchain. The WSI worker can
+therefore reuse a still-live inactive A swapchain after A→B→A without making old
+A leases valid again. A driver-retired swapchain is not reused. Surface creation
+and SDL property queries stay on the owner/main thread; swapchain preparation,
+commit and later retirement stay on the existing worker. Only successful
+preparation publishes the new target. The synchronous target-preparation call
+may wait outside frames; Acquire continues to try the ready mailbox.
+
+The additional `NativePresentTargetProbe` creates its device, pipelines, texture
+and GPU buffer before SDL video, then checks late attachment, different window
+extents, A→B→A stale rejection, Busy with an open recording, offscreen raster and
+readback on the original texture, pending GPU work across detach, occupied-window
+rollback and wrong-thread rejection. Its long integer kernel is a test workload,
+not renderer work. Host target-call/Acquire maxima are diagnostic observations,
+not frame p99 or GPU time. Window pixel readback is checked only if CopySource is
+advertised; offscreen readback remains mandatory.
+
+For an actually non-present-capable Vulkan driver, run the same compiled consumer
+with `--unavailable`, optionally selecting that driver via `VK_DRIVER_FILES`.
+It requires Unsupported for window attachment and verifies the pre-existing
+buffer/queue remain functional. This does not replace the actual RTX run.

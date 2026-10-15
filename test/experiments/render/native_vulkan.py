@@ -90,7 +90,8 @@ def main():
                    Path(__file__).with_name('native_draw.frag')]
         if args.present:
             sources += [Path(__file__).with_name('native_present.frag'),
-                        Path(__file__).with_name('native_vulkan_present.frag')]
+                        Path(__file__).with_name('native_vulkan_present.frag'),
+                        Path(__file__).with_name('native_target_delay.comp')]
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -104,7 +105,8 @@ def main():
                       'NativeDrawProbe.cpp', 'NativeMrtProbe.cpp')]
         if args.present:
             consumers += [ROOT / 'test/harness/render/NativePresentProbe.cpp',
-                          ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp']
+                          ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp',
+                          ROOT / 'test/harness/render/NativePresentTargetProbe.cpp']
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -146,6 +148,10 @@ def main():
             report['vulkan_wsi_checks'] = verdict(run(
                 [str(binaries[10]), str(shaders[4]), str(shaders[14]), str(output / 'swapchain.ppm')],
                 log, environment=environment, timeout=30), log)
+        if args.present:
+            report['present_target_checks'] = verdict(run(
+                [str(binaries[11]), str(shaders[4]), str(shaders[13]), str(shaders[15])],
+                log, environment=environment, timeout=45), log)
         report.update(commit=commit, dirty=dirty, log=str(log_path),
                       archive_sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
                       native_archive_objects=len(native))

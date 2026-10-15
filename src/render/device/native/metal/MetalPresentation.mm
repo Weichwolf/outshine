@@ -3,6 +3,10 @@
 
 namespace outshine::Render::Native::Metal {
 
+namespace {
+constexpr auto kTargetOwner = "outshine.metal.present.owner";
+}
+
 MetalPresentation::MetalPresentation(SDL_Window *window,
                                      SDL_MetalView view,
                                      CAMetalLayer *layer,
@@ -23,6 +27,10 @@ MetalPresentation::~MetalPresentation() {
   }
   Mailbox_->Changed.notify_one();
   Worker_.join();
+  const auto properties = SDL_GetWindowProperties(Window_);
+  if (SDL_GetPointerProperty(properties, kTargetOwner, nullptr) == this) {
+    SDL_ClearProperty(properties, kTargetOwner);
+  }
   SDL_Metal_DestroyView(View_);
 }
 
@@ -30,6 +38,14 @@ Result<std::unique_ptr<MetalPresentation>>
 MetalPresentation::Create(SDL_Window *window, id<MTLDevice> device, uint64_t identity) {
   if (!SDL_IsMainThread()) {
     return Failure(ErrorKind::Invalid, "Metal window attachment requires the main thread");
+  }
+  if (SDL_WasInit(SDL_INIT_VIDEO) == 0 || SDL_GetWindowID(window) == 0) {
+    return Failure(ErrorKind::Invalid, "Metal target requires a live SDL window");
+  }
+  const auto properties = SDL_GetWindowProperties(window);
+  if (properties == 0) { return Failure(ErrorKind::Driver, SDL_GetError()); }
+  if (SDL_GetPointerProperty(properties, kTargetOwner, nullptr) != nullptr) {
+    return Failure(ErrorKind::Busy, "Metal target belongs to another presentation");
   }
   auto *const view = SDL_Metal_CreateView(window);
   if (view == nullptr) { return Failure(ErrorKind::Driver, SDL_GetError()); }
@@ -43,7 +59,11 @@ MetalPresentation::Create(SDL_Window *window, id<MTLDevice> device, uint64_t ide
   layer.framebufferOnly = YES;
   layer.allowsNextDrawableTimeout = YES;
   layer.presentsWithTransaction = NO;
-  return std::make_unique<MetalPresentation>(window, view, layer, identity);
+  auto presentation = std::make_unique<MetalPresentation>(window, view, layer, identity);
+  if (!SDL_SetPointerProperty(properties, kTargetOwner, presentation.get())) {
+    return Failure(ErrorKind::Driver, SDL_GetError());
+  }
+  return presentation;
 }
 
 void MetalPresentation::Resize(uint32_t width, uint32_t height) {
@@ -116,11 +136,28 @@ void MetalPresentation::Run(const std::shared_ptr<PresentMailbox> &mailbox) {
   }
 }
 
-Result<void> MetalDevice::Attach(SDL_Window *window) {
-  auto presentation = MetalPresentation::Create(window, Native_, Identity_);
-  if (!presentation) { return std::unexpected(presentation.error()); }
-  Presentation_ = std::move(*presentation);
-  return {};
+Result<void> MetalDevice::SetPresentTarget(SDL_Window *window) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
+  if (Counts_->Recording.load() != 0) {
+    return Failure(ErrorKind::Busy, "Metal target change requires closed recordings");
+  }
+  if (window == nullptr && !Presentation_) { return {}; }
+  if (!SDL_IsMainThread()) {
+    return Failure(ErrorKind::Invalid, "Metal target change requires the main thread");
+  }
+  if (window == nullptr) {
+    Presentation_.reset();
+    return {};
+  }
+  if (Presentation_ && Presentation_->Targets(window)) { return {}; }
+  @autoreleasepool {
+    auto presentation = MetalPresentation::Create(window, Native_, Identity_);
+    if (!presentation) { return std::unexpected(presentation.error()); }
+    Presentation_ = std::move(*presentation);
+    return {};
+  }
 }
 
 Result<std::unique_ptr<PresentFrame>> MetalDevice::AcquirePresentFrame() {

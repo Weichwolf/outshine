@@ -7,7 +7,18 @@ from outshine_ref.transport.heights import _gradient_matrix, _gradient_weights
 from surface_height_checks import normal_gradients
 
 
-def fit(xy, faces, target, frames, bounds, weights, *, seconds=8, iterations=100):
+def fit(
+    xy,
+    faces,
+    target,
+    frames,
+    bounds,
+    weights,
+    *,
+    seconds=8,
+    iterations=100,
+    max_elements=8192,
+):
     import clarabel
     from scipy import sparse
 
@@ -15,8 +26,10 @@ def fit(xy, faces, target, frames, bounds, weights, *, seconds=8, iterations=100
     count = len(xy)
     columns, coefficients, limits = bounds
     if (
-        not 1 <= count <= 8192
-        or not 1 <= len(faces) <= 8192
+        type(max_elements) is not int
+        or not 1 <= max_elements <= 262144
+        or not 1 <= count <= max_elements
+        or not 1 <= len(faces) <= max_elements
         or not 1 <= len(limits) <= 65536
         or columns.shape != coefficients.shape
         or columns.shape != (len(limits), 3)
@@ -61,8 +74,9 @@ def fit(xy, faces, target, frames, bounds, weights, *, seconds=8, iterations=100
         1,
     )
     settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-10
+    hessian = sparse.diags(weights, format="csc")
     result = clarabel.DefaultSolver(
-        sparse.diags(weights, format="csc"),
+        hessian,
         -weights * (target - centre),
         matrix,
         rhs,
@@ -77,6 +91,14 @@ def fit(xy, faces, target, frames, bounds, weights, *, seconds=8, iterations=100
         "solver_ms": result.solve_time * 1000,
         "matrix_shape": list(matrix.shape),
         "matrix_nonzeros": matrix.nnz,
+        "matrix_storage_bytes": matrix.data.nbytes
+        + matrix.indices.nbytes
+        + matrix.indptr.nbytes,
+        "hessian_storage_bytes": hessian.data.nbytes
+        + hessian.indices.nbytes
+        + hessian.indptr.nbytes,
+        "face_cones": len(faces),
+        "affine_bound_rows": len(limits),
         "total_ms": (time.perf_counter() - began) * 1000,
     }
     heights = None if result.x is None else np.asarray(result.x) + centre

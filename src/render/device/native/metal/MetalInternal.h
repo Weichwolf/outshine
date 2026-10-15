@@ -138,15 +138,31 @@ struct Submission {
   std::optional<Error> Failed;
 };
 
+struct CommandCounts {
+  std::atomic<uint32_t> Live{0}, Recording{0};
+};
+
 struct CommandPermit {
-  explicit CommandPermit(std::shared_ptr<std::atomic<uint32_t>> count) : Count(std::move(count)) {}
+  explicit CommandPermit(std::shared_ptr<CommandCounts> counts) : Counts(std::move(counts)) {
+    Counts->Recording.fetch_add(1);
+  }
 
   CommandPermit(const CommandPermit &) = delete;
   CommandPermit &operator=(const CommandPermit &) = delete;
 
-  ~CommandPermit() { Count->fetch_sub(1); }
+  ~CommandPermit() {
+    ReleaseRecording();
+    Counts->Live.fetch_sub(1);
+  }
 
-  std::shared_ptr<std::atomic<uint32_t>> Count;
+  void ReleaseRecording() {
+    if (!Recording) { return; }
+    Counts->Recording.fetch_sub(1);
+    Recording = false;
+  }
+
+  std::shared_ptr<CommandCounts> Counts;
+  bool Recording = true;
 };
 
 struct SubmissionResources {
@@ -265,7 +281,7 @@ public:
   Result<void> Unmap(Buffer &buffer) override;
   Result<std::unique_ptr<Commands>> Begin() override;
   Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() override;
-  Result<void> Attach(SDL_Window *window);
+  Result<void> SetPresentTarget(SDL_Window *window) override;
   Result<Completion> Submit(std::unique_ptr<Commands> commands) override;
   Result<CompletionStatus> Poll(Completion completion) override;
   Result<CompletionStatus> Wait(Completion completion, std::chrono::nanoseconds budget) override;
@@ -284,7 +300,7 @@ private:
   Capabilities Limits_;
   std::deque<std::shared_ptr<Submission>> Pending_;
   std::optional<Error> Failed_;
-  std::shared_ptr<std::atomic<uint32_t>> Active_ = std::make_shared<std::atomic<uint32_t>>(0);
+  std::shared_ptr<CommandCounts> Counts_ = std::make_shared<CommandCounts>();
   std::unique_ptr<MetalPresentation> Presentation_;
 };
 

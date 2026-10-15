@@ -109,11 +109,11 @@ Result<std::unique_ptr<Commands>> MetalDevice::Begin() {
     Collect();
     if (Failed_) { return std::unexpected(*Failed_); }
     constexpr uint32_t maxRecordings = 8;
-    if (Active_->fetch_add(1) >= maxRecordings) {
-      Active_->fetch_sub(1);
+    if (Counts_->Live.fetch_add(1) >= maxRecordings) {
+      Counts_->Live.fetch_sub(1);
       return Failure(ErrorKind::Busy, "Metal command recording capacity is occupied");
     }
-    auto permit = std::make_shared<CommandPermit>(Active_);
+    auto permit = std::make_shared<CommandPermit>(Counts_);
     const id<MTLCommandBuffer> commands = [Queue_ commandBuffer];
     if (commands == nil) {
       return Failure(ErrorKind::Driver, "Metal command buffer allocation failed");
@@ -142,7 +142,7 @@ Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
     if (queue == nil) { return Metal::Failure(ErrorKind::Driver, "Metal queue creation failed"); }
     auto result = std::make_unique<Metal::MetalDevice>(identity.fetch_add(1), device, queue);
     if (options.Window != nullptr) {
-      const auto attached = result->Attach(options.Window);
+      const auto attached = result->SetPresentTarget(options.Window);
       if (!attached) { return std::unexpected(attached.error()); }
     }
     return result;
