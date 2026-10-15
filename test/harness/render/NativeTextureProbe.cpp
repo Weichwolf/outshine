@@ -2,6 +2,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <limits>
 
 namespace {
 using namespace outshine::Render::Native;
@@ -147,6 +148,107 @@ void Invalid(Device &device) {
       device.CreateTexture({.Width = 8, .Height = 8, .Mips = 5, .Use = TextureUse::Sampled});
   CHECK(!bad && bad.error().Kind == ErrorKind::Invalid,
         "mip count is bounded by actual dimensions");
+  const std::array ranges{SamplerDescription{.MinLod = -1},
+                          SamplerDescription{.MinLod = 2, .MaxLod = 1},
+                          SamplerDescription{.MinLod = std::numeric_limits<float>::quiet_NaN()},
+                          SamplerDescription{.MaxLod = std::numeric_limits<float>::infinity()}};
+  for (const auto &range : ranges) {
+    const auto sampler = device.CreateSampler(range);
+    CHECK(!sampler && sampler.error().Kind == ErrorKind::Invalid,
+          "invalid sampler LOD ranges are rejected before the driver");
+  }
+}
+
+std::unique_ptr<Texture> MipColours(Device &device, Commands &commands) {
+  constexpr uint64_t bytes = uint64_t{kRowBytes} * kHeight * 2;
+  auto upload = Require(device.CreateBuffer(
+      {.Bytes = bytes, .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
+  const auto mapped = Require(device.MapWrite(*upload, {.Bytes = bytes}));
+  std::memset(mapped.data(), 0, bytes);
+  constexpr std::array colours{std::array{.25f, .5f, .75f, 1.f}, std::array{.75f, .25f, .5f, 1.f}};
+  for (uint32_t level = 0; level < colours.size(); ++level) {
+    for (uint32_t y = 0; y < (kHeight >> level); ++y) {
+      for (uint32_t x = 0; x < (kWidth >> level); ++x) {
+        const uint64_t offset = uint64_t{level * kHeight + y} * kRowBytes + x * sizeof(colours[0]);
+        std::memcpy(mapped.data() + offset, colours[level].data(), sizeof(colours[0]));
+      }
+    }
+  }
+  Require(device.Unmap(*upload));
+  auto image =
+      Require(device.CreateTexture({.Width = kWidth,
+                                    .Height = kHeight,
+                                    .Mips = 2,
+                                    .Type = TextureType::Image2DArray,
+                                    .Texels = Format::Rgba32Float,
+                                    .Use = TextureUse::CopyDestination | TextureUse::Sampled}));
+  for (uint32_t level = 0; level < 2; ++level) {
+    Require(commands.Copy(
+        *upload,
+        *image,
+        {.BufferOffset = uint64_t{level} * kRowBytes * kHeight,
+         .RowBytes = kRowBytes,
+         .Region = {.Mip = level, .Width = kWidth >> level, .Height = kHeight >> level}}));
+  }
+  return image;
+}
+
+void LodClamps(Device &device, const ComputePipeline &pipeline) {
+  auto uploads = Require(device.Begin());
+  const auto image = MipColours(device, *uploads);
+  const auto uploaded = Require(device.Submit(std::move(uploads)));
+  CHECK(Require(device.Wait(uploaded, std::chrono::seconds(10))) == CompletionStatus::Ready,
+        "both distinct source mip colours are uploaded before sampling");
+  const auto output =
+      Require(device.CreateTexture({.Width = kWidth,
+                                    .Height = kHeight,
+                                    .Type = TextureType::Image2DArray,
+                                    .Texels = Format::Rgba32Float,
+                                    .Use = TextureUse::Storage | TextureUse::CopySource}));
+  constexpr uint64_t bytes = uint64_t{kRowBytes} * kHeight;
+  auto readback = Require(device.CreateBuffer(
+      {.Bytes = bytes, .Use = BufferUse::CopyDestination, .Placement = Memory::Readback}));
+  for (uint32_t test = 0; test < 4; ++test) {
+    auto commands = Require(device.Begin());
+    auto sampler = Require(device.CreateSampler({.Min = Filter::Nearest,
+                                                 .Mag = Filter::Nearest,
+                                                 .Mip = Filter::Nearest,
+                                                 .MinLod = test == 2 ? 1.f : 0.f,
+                                                 .MaxLod = test == 3 ? 0.f : 1.f}));
+    Parameters parameters;
+    parameters.Shift[2] = static_cast<float>(test % 2);
+    const std::array bindings{
+        Binding{.Set = 0,
+                .Slot = 0,
+                .Value = SampledTexture{.Image = {.Image = image.get(), .Mips = 2},
+                                        .Sampling = sampler.get()}},
+        Binding{.Set = 1, .Slot = 0, .Value = StorageTexture{.Image = {.Image = output.get()}}},
+        Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&parameters, 1))}}};
+    Require(commands->Dispatch(pipeline, bindings, {.X = 1, .Y = 1}));
+    sampler.reset();
+    Require(
+        commands->Copy(*output,
+                       *readback,
+                       {.RowBytes = kRowBytes, .Region = {.Width = kWidth, .Height = kHeight}}));
+    const auto completion = Require(device.Submit(std::move(commands)));
+    CHECK(Require(device.Wait(completion, std::chrono::seconds(10))) == CompletionStatus::Ready,
+          "sampler LOD draws finish with their outer sampler owner released");
+    const auto result = Require(device.MapRead(*readback, {.Bytes = bytes}));
+    const std::array expected =
+        test == 1 || test == 2 ? std::array{2.5f, .25f, 2.f, 1.f} : std::array{1.5f, .5f, 3.f, 1.f};
+    for (uint32_t y = 0; y < kHeight; ++y) {
+      for (uint32_t x = 0; x < kWidth; ++x) {
+        std::array<float, 4> rgba{};
+        std::memcpy(
+            rgba.data(), result.data() + size_t{y} * kRowBytes + x * sizeof(rgba), sizeof(rgba));
+        for (uint32_t channel = 0; channel < rgba.size(); ++channel) {
+          CHECK(rgba[channel] == expected[channel],
+                "sampler LOD clamps select the expected distinct mip colour");
+        }
+      }
+    }
+    Require(device.Unmap(*readback));
+  }
 }
 
 struct alignas(16) Reducing {
@@ -239,6 +341,7 @@ int main(int argc, char *const *argv) {
   Invalid(*device);
   Sample(*device, *pipeline, false);
   Sample(*device, *pipeline, true);
+  LodClamps(*device, *pipeline);
   Pyramid(*device, argv[2]);
   return Report();
 }
