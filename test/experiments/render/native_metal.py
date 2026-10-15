@@ -78,9 +78,16 @@ def native_api(output, glslang, toolchain, cross_flags):
     raster_verdict = [line.split() for line in raster_text.splitlines() if line.startswith("CHECKS ")]
     if len(raster_verdict) != 1 or raster_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
         raise SystemExit(f"native raster pipelines did not produce a clean verdict: {raster_text}")
+    pass_binary = build_probe("native-render-pass-probe", "NativeRenderPassProbe.cpp")
+    pass_text = run([str(pass_binary), shaders[-1]])
+    (output / "native-render-pass-probe.log").write_text(pass_text)
+    pass_verdict = [line.split() for line in pass_text.splitlines() if line.startswith("CHECKS ")]
+    if len(pass_verdict) != 1 or pass_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
+        raise SystemExit(f"native render passes did not produce a clean verdict: {pass_text}")
     return {"checks": int(verdict[0][1]), "failures": 0,
             "texture_checks": int(texture_verdict[0][1]),
-            "raster_pipeline_checks": int(raster_verdict[0][1])}, sources
+            "raster_pipeline_checks": int(raster_verdict[0][1]),
+            "render_pass_checks": int(pass_verdict[0][1])}, sources
 
 
 def main():
@@ -139,6 +146,7 @@ def main():
              ROOT / "test/harness/render/NativeComputeProbe.cpp",
              ROOT / "test/harness/render/NativeTextureProbe.cpp",
              ROOT / "test/harness/render/NativeRasterProbe.cpp",
+             ROOT / "test/harness/render/NativeRenderPassProbe.cpp",
              ROOT / "src/render/shaders/present.frag",
              ROOT / "test/harness/render/NativeGpuCheck.h",
              Path(__file__).with_name("native_texture.comp"),
@@ -150,7 +158,7 @@ def main():
              *(ROOT / "src/render/device/native/metal").glob("*.h")]
     result["source_sha256"] = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                                for p in files}
-    result["scope"] = "direct Metal MRT and common-API compute/textures/graphics pipeline creation; not native Place acceptance"
+    result["scope"] = "direct Metal MRT and common-API compute/textures/graphics pipelines/render passes; not native Place acceptance"
     (output / "receipt.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))
 

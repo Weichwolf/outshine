@@ -1,6 +1,6 @@
 """Measure bounded depth interpolation against the converged finite-air reference (#206).
 
-NumPy is required. Pass an explicit external --output; run under the shared host lock.
+NumPy is required. Use an explicit --output under build/experiments/ or system temp.
 Only the depth axis is tested: this cannot validate a frustum volume or a GPU budget.
 """
 
@@ -86,10 +86,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = args.output.resolve()
-    if output == ROOT or ROOT in output.parents:
-        raise ValueError(
-            "private table comparison outputs belong outside the repository"
-        )
+    allowed = (ROOT / "build/experiments").resolve()
+    if (output == ROOT or ROOT in output.parents) and not (
+        output == allowed or allowed in output.parents
+    ):
+        raise ValueError("table outputs belong in build/experiments/ or system temp")
     medium = engine_clear_air(ROOT / "src/world/sky/Atmosphere.h")
     cases, _ = place_cases(ROOT)
     reference_report = load_reference(args.reference)

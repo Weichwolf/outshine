@@ -24,8 +24,8 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     Collect();
     if (Failed_) { return std::unexpected(*Failed_); }
     auto *const metal = dynamic_cast<MetalCommands *>(commands.get());
-    if (metal == nullptr || metal->Device != Identity_) {
-      return Failure(ErrorKind::Invalid, "Metal submission belongs to a different device");
+    if (metal == nullptr || metal->Device != Identity_ || metal->Render) {
+      return Failure(ErrorKind::Invalid, "Metal submission requires its device and closed passes");
     }
     metal->Finish();
     const auto submission = std::make_shared<Submission>();
