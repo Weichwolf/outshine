@@ -20,7 +20,7 @@ def capture_case(row, spec, cache, dem_sources, output):
     centre = np.floor(
         world_coordinates(origin, np.zeros((1, 2)))[0] * (1 << zoom)
     ).astype(int)
-    tiles = [(zoom, *map(int, centre))]
+    tiles = row.get("tiles", [(zoom, *map(int, centre))])
     stage = output / "tile-capture"
     stage.mkdir(exist_ok=True)
     merged = {

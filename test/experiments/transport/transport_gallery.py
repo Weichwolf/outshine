@@ -66,6 +66,24 @@ def python(script, *arguments):
 
 def render_case(case, args, rails, stages, spec):
     name = case["id"]
+    if case.get("recipe") == "bridge_tunnel_reference":
+        stages.append(
+            run(
+                "research-" + name,
+                python(
+                    "transport_gallery_wien.py",
+                    "--reference-root",
+                    args.research_root,
+                    "--capture",
+                    args.data_root,
+                    "--output",
+                    args.output,
+                ),
+                args.logs,
+                timeout=300,
+            )
+        )
+        return
     stages.append(
         run(
             "ground-" + name,
@@ -141,6 +159,7 @@ def main():
     parser.add_argument("--dem-sources", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--logs", type=Path, required=True)
+    parser.add_argument("--research-root", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
         parser.error("fresh empty gallery output required")
@@ -157,6 +176,8 @@ def main():
     stages = []
 
     for case in spec["cases"]:
+        if case.get("recipe") == "bridge_tunnel_reference":
+            continue
         stages.append(
             run(
                 "flat-" + case["id"],
@@ -179,7 +200,11 @@ def main():
     }
     generation = {
         "files": files,
-        "rail_cases": capture["cases"],
+        "rail_cases": {
+            r["id"]: capture["cases"][r["id"]]
+            for r in spec["cases"]
+            if r.get("recipe") != "bridge_tunnel_reference"
+        },
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
         ).strip(),

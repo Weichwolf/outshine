@@ -183,7 +183,11 @@ def build(name, root, rails, sources, output):
     )
     spec = json.loads((HERE / "reference/transport-gallery.json").read_text())
     case = next(r for r in spec["cases"] if r["id"] == name)
-    view = inspection_view(body.vertices, eye_direction=case["eye_direction"])
+    camera_frame = np.c_[
+        arrays["xy"], np.full(len(arrays["xy"]), meta["fixed_datum_m"])
+    ]
+    view = inspection_view(camera_frame, eye_direction=case["eye_direction"])
+    view["profile"] = spec["profile"]
     scene = dict(
         id=name,
         mesh=str(mesh),

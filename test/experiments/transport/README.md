@@ -38,15 +38,53 @@ Gemeinsame räumliche Verträge stehen in [#18](https://github.com/Weichwolf/out
 Historische Berichte behalten ursprüngliche Pfade, Hashes und Messcommits nach der Verschiebung.
 Vor erneutem Anwenden hashgeprüfter Produkte die Nachweise unter den neuen Modulnamen regenerieren.
 
-## Vier feste Place-Aufnahmen
+## Vier repräsentative Transportaufnahmen
 
 [doc/images/transport/](../../../doc/images/transport/) enthält genau vier eigene
-Python-Transportaufnahmen: Wien, Tokyo, Central Park und Feldkirch.
-[doc/images/places/](../../../doc/images/places/) und die zugehörigen versionierten
-Place-Szenarien liefern Orts-/Kamerareferenzen. Die Python-Bilder werden mit dem
-aktuellen geprüften Forschungsstand gerendert; native Bilder werden nicht kopiert.
-Die Kamera bleibt für Vorher/Nachher gleich. Aktualisiert wird nach geöffnetem
-Bildvergleich bei deutlich sichtbarer Verbesserung. Ein HTTP-Server ist entfallen.
+Python-Transportbilder: Zürich Gleisvorfeld, Basel Badischer Bahnhof,
+Wien Brücken-/Tunnelverbund und New York Midtown. Der Nutzer hat die frühere Auswahl
+und ihre niedrigen Kameras durch diese transportreichen Ansichten ersetzt (#283).
+Die getrennte Deklaration [transport-gallery.json](reference/transport-gallery.json)
+fixiert echte Quellorte, vollständige Kacheln und erhöhte Schrägansichten;
+die gemeinsamen nativen Places-Szenarien werden dadurch nicht geändert.
+Gleiche Kameras bei späteren Vergleichen; nach geöffnetem Vergleich bei deutlich
+sichtbarer Verbesserung aktualisieren. Kein HTTP-Server.
+
+`capture_transport_gallery.py` speichert vollständige Originalquellen, IDs und
+Attribute aus dem versionierten OpenFreeMap-Snapshot sowie DEM-Receipts.
+`transport_gallery.py` ruft dieselben vorhandenen Komponenten-, Schienen- und
+gewichteten Höhenkerne auf. Wien verwendet die bereits geprüften echten
+Brücken-/C1-Zufahrts-/Portalrezepte aus #21 mit ihren drei vollständigen
+Quellkacheln; aktuelle Neuberechnung, alte Kontakte und ganze Freiräume werden
+nochmals geprüft. Zwei kleine tatsächliche 3D-Detailansichten im selben Wiener
+Bild zeigen Brücke und den ausdrücklich geschnittenen Tunnelinnenraum.
+`ground_layout` ergänzt bei den anderen Orten den konformen Boden statt
+sichtbarer Himmelslöcher unter dem Netz. Ganze Gradientenkegel und vollständige
+Gleiskontakte werden aus den gespeicherten Meshes unabhängig erneut geprüft.
+Jede Quelle behält ihren Nutzungsstatus und einen lokalen Auslassungsgrund.
+Die vier Bilder zeigen diese Python-Produkte in 1280×720; native Bilder werden
+nicht kopiert. [Abnahme und Grenzen](transport_gallery_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/capture_transport_gallery.py --cache "$TRANSPORT_PLACE_SOURCES" --dem-sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_GALLERY_INPUTS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/transport_gallery.py --data-root "$TRANSPORT_GALLERY_INPUTS" --dem-sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_GALLERY_OUTPUT" --logs "$TRANSPORT_GALLERY_LOGS" --research-root "$TRANSPORT_RESEARCH_REFERENCE"
+```
+
+Alle Variablen benennen ausdrücklich gewählte externe Pfade; der Cache ist das
+Client-Quellverzeichnis mit `openfreemap/` und `mapterhorn/` darunter. Die
+Erzeugung benötigt einen sauberen eingefrorenen Commit und frische Ausgaben.
+`TRANSPORT_RESEARCH_REFERENCE` enthält den ursprünglichen hashgeprüften
+`bridge-continuations/`-Plan aus PR133/144; keine native Geometrie wird importiert.
+Nur abschließend tatsächlich geöffnete PNGs werden in die Galerie übernommen.
+Alte geprüfte Netz-/Höhenprodukte bleiben als Regressionen erhalten. Die neue
+Ortsauswahl belegt weder vollständige Ebenen-/Fahrnetzplanung noch LOD/native
+Kosten oder Gerätebudgets.
+
+## Historische Place-Kameras (#209)
+
+Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
+Feldkirch-Vergleiche mit den ursprünglichen nativen Kamerareferenzen. Sie werden
+für bestehende Geometrie- und Kostenbelege erhalten, nicht als aktuelle Galerie.
 
 Private Renderergebnisse und Kamerabelege liegen außerhalb des Repositorys.
 Der Offline-Aufruf `transport_place_shots.py` erhält explizit den aktuellen
