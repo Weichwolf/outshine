@@ -10,11 +10,15 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
-from port_plane_contacts import contact_audit
-from port_plane_field import control_bounds
+from outshine_ref.transport.port_heights._contacts import contact_audit
+from outshine_ref.transport.port_heights._field import control_bounds
+from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._system import (
+    assemble,
+    fit_generated,
+    fit_planes,
+)
 from port_plane_fixture import REFERENCE, load_reference
-from port_plane_layout import prepare_plane_field
-from port_plane_system import assemble, fit_generated, fit_planes
 from surface_height_checks import normal_gradients
 
 ROOT = Path(__file__).resolve().parents[3]

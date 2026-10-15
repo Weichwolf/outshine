@@ -3,8 +3,10 @@
 import time
 
 import numpy as np
-from port_plane_field import NODES
 from scipy import sparse
+
+from ._budget import PortLimit
+from ._field import NODES
 
 
 def local_matrix(columns, values, count):
@@ -20,7 +22,7 @@ def local_matrix(columns, values, count):
     return matrix
 
 
-def vertex_matrices(field, xy, faces, owners):
+def vertex_matrices(field, xy, faces, owners, *, budget=None):
     road = owners >= 0
     keys = np.unique(np.c_[faces[road].ravel(), np.repeat(owners[road], 3)], axis=0)
     ids, parts = keys.T
@@ -28,6 +30,8 @@ def vertex_matrices(field, xy, faces, owners):
     road_vertices = ids[first]
     soil_vertices = np.setdiff1d(np.arange(len(xy)), road_vertices)
     count = 3 * len(field.origins) + len(soil_vertices)
+    if budget and (len(keys) > budget.max_queries or count > budget.max_variables):
+        raise PortLimit("port_variable_or_sample_budget")
     columns, values, gradients, _ = field.local_basis(xy[ids], parts)
     heights = local_matrix(columns, values, count)
     derivatives = local_matrix(columns, gradients, count)
@@ -58,9 +62,17 @@ def vertex_matrices(field, xy, faces, owners):
     return chosen, equality, road_vertices, vertex_parts
 
 
-def continuous_matrix(field, xy, faces, owners, frames):
+def continuous_matrix(field, xy, faces, owners, frames, *, max_cones=None):
     count = 3 * len(field.origins)
     blended = np.diff(field.plane_ids[owners], axis=1).ravel() != 0
+    plain = np.flatnonzero(~blended)
+    keys = np.c_[field.plane_ids[owners[plain], 0], frames[plain].reshape(-1, 4)]
+    unique = np.unique(keys, axis=0)
+    if (
+        max_cones is not None
+        and len(NODES) * int(blended.sum()) + len(unique) > max_cones
+    ):
+        raise PortLimit("port_continuous_constraint_budget")
     blocks = []
     triangles = xy[faces]
     for begin in range(0, len(faces), 256):
@@ -72,9 +84,6 @@ def continuous_matrix(field, xy, faces, owners, frames):
         )
         values = np.einsum("nji,nkil->nkjl", frames[selected], controls)
         blocks.append(local_matrix(columns, values, count))
-    plain = np.flatnonzero(~blended)
-    keys = np.c_[field.plane_ids[owners[plain], 0], frames[plain].reshape(-1, 4)]
-    unique = np.unique(keys, axis=0)
     columns = np.tile(3 * unique[:, 0, None].astype(int) + np.arange(3), (1, 2))
     values = np.zeros((len(unique), 2, 6))
     values[:, :, 1:3] = unique[:, 1:].reshape(-1, 2, 2)
@@ -126,8 +135,64 @@ def assemble(field, xy, faces, owners, frames):
     return height, gradient, equality, vertex_parts, report
 
 
+def polygon_fit(
+    objective,
+    error,
+    bounds,
+    fixed,
+    gradient,
+    *,
+    seconds,
+    margin,
+    began,
+    max_iterations=100,
+):
+    count = len(objective) - 1
+    from scipy.optimize import linprog
+
+    number, sides = gradient.shape[0] // 2, 16
+    angles = (np.arange(sides) + 0.5) * 2 * np.pi / sides
+    directions = np.c_[np.cos(angles), np.sin(angles)]
+    coords = gradient.tocoo()
+    rows = (coords.row[:, None] // 2 * sides + np.arange(sides)).ravel()
+    columns = np.broadcast_to(coords.col[:, None], (len(coords.data), sides)).ravel()
+    values = (coords.data[:, None] * directions[:, coords.row % 2].T).ravel()
+    norm = sparse.coo_matrix(
+        (values, (rows, columns)), shape=(number * sides, count + 1)
+    ).tocsc()
+    setup_ms = (time.perf_counter() - began) * 1000
+    result = linprog(
+        objective,
+        A_ub=sparse.vstack([error, norm]).tocsc(),
+        b_ub=np.r_[bounds, np.full(number * sides, margin * np.cos(np.pi / sides))],
+        A_eq=fixed if fixed.shape[0] else None,
+        b_eq=np.zeros(fixed.shape[0]) if fixed.shape[0] else None,
+        bounds=[(None, None)] * count + [(0, None)],
+        method="highs",
+        options={"time_limit": seconds, "maxiter": max_iterations},
+    )
+    coefficients = result.x[:-1] if result.x is not None else None
+    report = {
+        "method": "lp",
+        "status": result.message,
+        "setup_ms": setup_ms,
+        "iterations": result.nit,
+        "polygon_sides": sides,
+        "solver_ms": (time.perf_counter() - began) * 1000 - setup_ms,
+    }
+    return coefficients, report
+
+
 def fit_planes(
-    height, gradient, equality, targets, *, method="cone", seconds=8, margin=0.99
+    height,
+    gradient,
+    equality,
+    targets,
+    *,
+    method="cone",
+    seconds=8,
+    margin=0.99,
+    max_iterations=100,
 ):
     began = time.perf_counter()
     if not np.isfinite(seconds) or seconds < 0 or not 0 < margin <= 1:
@@ -169,7 +234,11 @@ def fit_planes(
             cones.append(clarabel.ZeroConeT(equality.shape[0]))
         settings = clarabel.DefaultSettings()
         settings.verbose = False
-        settings.max_iter, settings.max_threads, settings.time_limit = 100, 1, seconds
+        settings.max_iter, settings.max_threads, settings.time_limit = (
+            max_iterations,
+            1,
+            seconds,
+        )
         settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-9
         setup_ms = (time.perf_counter() - began) * 1000
         solver = clarabel.DefaultSolver(
@@ -197,40 +266,17 @@ def fit_planes(
             "dual_objective": result.obj_val_dual,
         }
     elif method == "lp":
-        from scipy.optimize import linprog
-
-        number, sides = gradient.shape[0] // 2, 16
-        angles = (np.arange(sides) + 0.5) * 2 * np.pi / sides
-        directions = np.c_[np.cos(angles), np.sin(angles)]
-        coords = gradient.tocoo()
-        rows = (coords.row[:, None] // 2 * sides + np.arange(sides)).ravel()
-        columns = np.broadcast_to(
-            coords.col[:, None], (len(coords.data), sides)
-        ).ravel()
-        values = (coords.data[:, None] * directions[:, coords.row % 2].T).ravel()
-        norm = sparse.coo_matrix(
-            (values, (rows, columns)), shape=(number * sides, count + 1)
-        ).tocsc()
-        setup_ms = (time.perf_counter() - began) * 1000
-        result = linprog(
+        coefficients, report = polygon_fit(
             objective,
-            A_ub=sparse.vstack([error, norm]).tocsc(),
-            b_ub=np.r_[bounds, np.full(number * sides, margin * np.cos(np.pi / sides))],
-            A_eq=fixed if equality.shape[0] else None,
-            b_eq=np.zeros(equality.shape[0]) if equality.shape[0] else None,
-            bounds=[(None, None)] * count + [(0, None)],
-            method="highs",
-            options={"time_limit": seconds},
+            error,
+            bounds,
+            fixed,
+            gradient,
+            seconds=seconds,
+            margin=margin,
+            began=began,
+            max_iterations=max_iterations,
         )
-        coefficients = result.x[:-1] if result.x is not None else None
-        report = {
-            "method": method,
-            "status": result.message,
-            "setup_ms": setup_ms,
-            "iterations": result.nit,
-            "polygon_sides": sides,
-            "solver_ms": (time.perf_counter() - began) * 1000 - setup_ms,
-        }
     else:
         raise ValueError("known bounded plane solver required")
     report.update(

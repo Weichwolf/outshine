@@ -1,17 +1,20 @@
 """Bounded fixed-envelope room partitions; geometry precedes architectural decoration."""
 
+import itertools
 import math
 import time
 
 import numpy as np
 import shapely
+from outshine_ref.buildings.interiors import geometry as interior_geometry
 from shapely.affinity import affine_transform
-
 
 WALL_M = .24
 PARTITION_M = .12
 DOOR_M = 1.10
-AGENT_RADIUS_M = .30
+
+AGENT_RADIUS_M = interior_geometry.AGENT_RADIUS_M
+polygons = interior_geometry.polygons
 MAX_ROOMS = 12
 TARGET_AREA_M2 = 70.
 DERIVED_GRID_M = 1e-8
@@ -25,14 +28,10 @@ def canonical_geometry(geometry):
     return result
 
 
-def polygons(geometry):
-    return [part for part in shapely.get_parts(geometry) if part.geom_type == 'Polygon' and part.area > 1e-8]
-
-
 def segments(geometry):
     if geometry.geom_type == 'LineString':
         points = list(geometry.simplify(1e-8).coords)
-        return [shapely.LineString([a, b]) for a, b in zip(points, points[1:]) if math.dist(a, b) > 1e-8]
+        return [shapely.LineString([a, b]) for a, b in itertools.pairwise(points) if math.dist(a, b) > 1e-8]
     if geometry.geom_type in ('MultiLineString', 'GeometryCollection'):
         return [line for part in shapely.get_parts(geometry) for line in segments(part)]
     return []
@@ -144,8 +143,8 @@ def room_portals(floors, shared_edges):
                 passage=shapely.union_all([part for part in shapely.get_parts(passage)
                                           if part.geom_type in ('Polygon','MultiPolygon')])
             if passage.covers(approach) and approach.distance(passage.boundary)>=AGENT_RADIUS_M:
-                doors.append(dict(id=f'door-{first}-{second}', rooms=[first, second], polygon=opening,
-                                  centre=middle.tolist(), tangent=tangent.tolist(), height_m=2.15, kind='room-door'))
+                doors.append({'id': f'door-{first}-{second}', 'rooms': [first, second], 'polygon': opening,
+                                  'centre': middle.tolist(), 'tangent': tangent.tolist(), 'height_m': 2.15, 'kind': 'room-door'})
                 break
     return doors
 
@@ -196,9 +195,9 @@ def partitions(interior):
         began = time.perf_counter()
         zones, tested = procedure(local)
         if len(zones) > MAX_ROOMS:
-            results.append(dict(method=name, zones=[], rooms=[], portals=[], valid=False, score=None,
-                                candidates=tested, elapsed_ms=(time.perf_counter()-began)*1000,
-                                reason='clipped strips exceed the bounded room count'))
+            results.append({'method': name, 'zones': [], 'rooms': [], 'portals': [], 'valid': False, 'score': None,
+                                'candidates': tested, 'elapsed_ms': (time.perf_counter()-began)*1000,
+                                'reason': 'clipped strips exceed the bounded room count'})
             continue
         shared_edges = contacts(zones)
         walls = shapely.union_all([line for _, _, shared in shared_edges for line in shared]).buffer(
@@ -214,13 +213,13 @@ def partitions(interior):
         zones = [affine_transform(zone, reverse) for zone in zones]
         rooms = [world_floor(room, reverse) for room in rooms]
         valid = valid and all(not room.is_empty for room in rooms)
-        results.append(dict(method=name, zones=zones, rooms=rooms, portals=portals, valid=valid and connected,
-                            score=score, candidates=tested, elapsed_ms=(time.perf_counter()-began)*1000,
-                            reason=None if valid and connected else 'room size, clearance or portal connectivity'))
+        results.append({'method': name, 'zones': zones, 'rooms': rooms, 'portals': portals, 'valid': valid and connected,
+                            'score': score, 'candidates': tested, 'elapsed_ms': (time.perf_counter()-began)*1000,
+                            'reason': None if valid and connected else 'room size, clearance or portal connectivity'})
     valid = [result for result in results if result['valid']]
-    winner = min(valid, key=lambda item: (item['score'], item['method'])) if valid else dict(
-        method='open-plan', zones=[interior], rooms=[interior], portals=[], candidates=0,
-        valid=True, reason='bounded partitions unsuitable; retain one open room')
+    winner = min(valid, key=lambda item: (item['score'], item['method'])) if valid else {
+        'method': 'open-plan', 'zones': [interior], 'rooms': [interior], 'portals': [], 'candidates': 0,
+        'valid': True, 'reason': 'bounded partitions unsuitable; retain one open room'}
     comparison = [{key: row[key] for key in ('method', 'valid', 'score', 'candidates', 'elapsed_ms', 'reason')}
-                  | dict(rooms=len(row['rooms'])) for row in results]
+                  | {'rooms': len(row['rooms'])} for row in results]
     return winner, comparison

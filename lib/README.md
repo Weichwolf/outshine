@@ -80,6 +80,45 @@ Der Operator ändert keine gemeinsamen Plan-/Reservierungsverträge; ein erhöht
 Road-Mesh allein ist kein Boden-/Gebäudekontaktprodukt. Fachvertrag:
 [#20](https://github.com/Weichwolf/outshine/issues/20), Übernahme #50.
 
+`transport.plan_port_heights(PortHeightInput(...), budget=PortHeightBudget())`
+plant gemeinsame geneigte Kreuzungsebenen, ganze rationale C1-Straßenübergänge
+und einen konformen C0-Straßen-/Bodenmesh. Eingabe: unveränderlicher `Mesh` mit
+weichen originalen Höhenpriors, Face-Modul-IDs (`-1` für Boden), Rollen (`0`
+Korridor/`1` Kreuzung), ganze gemeinsame Portkanten und deren Modulpaare sowie
+ein normierender 2×2-Gradientenrahmen je Face. Originale Face-/Modul-IDs und
+Vertexanker bleiben erhalten, auch bei anderer Face-Reihenfolge oder Winding.
+`PortHeightFit` enthält einen `PortHeightPlan` oder einen konkreten Grund je Modul.
+
+Der Plan besitzt unveränderliche Feldparameter, endlichen `mesh`, Quellface- und
+Vertex-/Portabbildungen, Ganzflächen-Höhenschranken und geerbte Gradientenrahmen.
+`plan.evaluate(xy, module_ids)` liefert absolute analytische Höhen/XY-Gradienten;
+es ist ausdrücklich keine Kontakt- oder automatische Flächenabfrage.
+Tatsächliche endliche Kontakte konsumieren
+`geometry.SurfaceSampler(plan.mesh, max_faces=budget.max_output_faces)`;
+Frame, Kind, originale Quellen/Attribute und vorherige Auslassungen bindet der
+Aufrufer. `PortPlaneField` bietet separat die mathematische Patchfamilie samt
+`evaluate`/`bounds`; außerhalb der gewählten Domäne ist das nur eine Fortsetzung.
+Bei exakt gespeicherten Ankern kann `xy_tolerance_m=0` ausdrücklich gewählt
+werden. Ein positiver Suchradius kann mehrere benachbarte Features treffen;
+der bestehende Sampler meldet dann konservativ einen mehrdeutigen Kontakt statt
+einer erfundenen Höhe. Das verändert weder seine Defaults noch gemeinsame APIs.
+
+Abnahme: ganze normierte Neigungen ≤1+1e-7, Höhenchords ≤0,01m und endliche
+Port-Gradfehler ≤0,005. Nur originale Beobachtungen gehen in den Fit ein.
+Ein bereits zulässiger globaler Ebenenprior bleibt bis auf Rundungsfehler erhalten,
+auch an freien Korridorenden. Derselbe Topologie-, Neigungs- und Kontaktcheck gilt;
+dafür sind weder zusätzliche Unterteilung, Sparse-Assemblierung noch ein
+numerischer Solver nötig. Alle Vertex-/Modulpaare werden gegen die gemeinsame
+Ebene geprüft; der numerische Eckhöhenunterschied ergänzt die Chordschranke.
+Die Verfeinerung reserviert vor einem weiteren Fit intern 20% der Höhen-/Port-
+Approximation, beendet sich aber an den tatsächlichen Abnahmegrenzen. Alle
+ursprünglichen Flächen und konkurrierenden Rahmen müssen erhalten bleiben.
+Budgets begrenzen Eingaben, Variablen, Kegel/Sparse-Arbeit, Queries, Fits und
+Geometrie. Zeit ist kooperativ; harte CPU-/Adressraumgrenzen setzt der Offline-
+Worker. Clarabel bleibt optional; weder SDK noch Experimentimports sind nötig.
+Keine globale Zweitableitungs-/Fahrdynamik-, C1-Boden-, Ebenennetz-/LOD-/native
+Abnahme. Fachnachweis #169/PR #175, Paketübernahme #177, native Integration #48.
+
 `transport.plan_vertical_transition(z0, z1, length, grade=0.08,
 second_derivative=0.002, method="parabolic")` liefert einen unveränderlichen
 `VerticalTransition` samt Bericht oder `None` mit lokalem Längengrund. Stationen,
@@ -268,6 +307,28 @@ coarse = organ.mesh(16, 8)
 
 Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/outshine/issues/45),
 [#46](https://github.com/Weichwolf/outshine/issues/46), Übernahme [#52](https://github.com/Weichwolf/outshine/issues/52).
+
+`buildings.interiors.Furnishing(kind, width_m, depth_m, height_m, activity_depth_m)`
+beschreibt einen vollständigen Möbelgrundriss mit notwendiger Aktivitätsfläche.
+`layout(room, portals, requests, identifier, reserved=(), method="wall-anchors",
+max_candidates=64, beam_width=1, objective="short-paths")` platziert in einem
+gelieferten Raum, ohne Portal-/Nutzungsfreiräume zu blockieren. Alternative:
+`jittered-anchors`; die deterministische Breitsuche hält höchstens acht Zustände.
+Die Programme vergleichen dieselben Anforderungen mit `beam_width=1|4` und
+`objective="open-activity"` (Weglänge und überlagerte Aktivitätsflächen).
+Keine globale Optimalitätsbehauptung. Fehlende Objekte bleiben samt Grund erhalten.
+Vollständige Polygonabdeckung statt Eckentest; 0,30-m-Figurzentrum muss alle
+Portal- und Aktivitätsziele im freien Raum erreichen. Wandseitige Aktivitätszone,
+bei `meeting-group` ringsum. Logische Platzierung vor tatsächlicher Mesh-Emission;
+3D-Höhen, Boden, Kopf- und Treppenfreiheit prüft der Aufrufer am konkreten Mesh.
+XY-Eingaben sind Meter im gemeinsamen lokalen Rahmen; der Aufrufer besitzt
+Quell-/Raum-IDs, Nutzung und Höhendatum. Eigene unveränderliche Koordinatenarrays;
+keine impliziten Anbieterabfragen oder Welt-/Cachezustände. Kapazitäten:
+256 Raumringkoordinaten, 16 Portale, 32 Objekte, 256 Kandidaten je Objekt,
+40×40 Routingraster. Das sind Größenlimits, keine harte CPU-/RAM-/Frame-Garantie.
+`access` und `placed` ermöglichen unabhängige Prüfungen und explizite Platzierung.
+Programme, eigene Möbel, reale Gegenfälle und Bild-/Kostenbelege:
+[#174](https://github.com/Weichwolf/outshine/issues/174).
 
 `buildings.modelling.PrismVolume(identifier, polygon, low_m, high_m, material=1)`
 beschreibt ein vollständiges ENU-Prisma in Metern. Polygon/MultiPolygon und

@@ -1,0 +1,20 @@
+{
+  "title": "Interactive Furniture Layout Using Interior Design Guidelines",
+  "authors": [
+    "Paul Merrell",
+    "Eric Schkufza",
+    "Zeyang Li",
+    "Maneesh Agrawala",
+    "Vladlen Koltun"
+  ],
+  "year": 2011,
+  "venue": "ACM Transactions on Graphics / SIGGRAPH",
+  "source": "https://graphics.stanford.edu/~pmerrell/furnitureLayout2.pdf",
+  "project": "https://graphics.stanford.edu/projects/furniture/",
+  "sha256": "d7f776158316b6f21d36d375c5eef73bae5795e36a70b47ac47f4bf9dee09612",
+  "optically_reviewed_pages": [
+    3
+  ],
+  "used": "Clearance/Minkowski sums, connected configuration space, activity/pair constraints. Own bounded candidate search; no paper-equivalent GPU MCMC or anthropometric/code compliance claim. Outshine retains its declared 0.30 m/1.90 m actor tests.",
+  "owner_issue": 174
+}

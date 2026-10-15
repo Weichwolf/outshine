@@ -8,12 +8,15 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from outshine_ref.transport.port_heights._contacts import contact_audit
+from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._system import (
+    continuous_matrix,
+    vertex_matrices,
+)
+from outshine_ref.transport.port_heights._topology import topology_audit
 from port_plane_adaptive import initial_mesh, quality
-from port_plane_contacts import contact_audit
 from port_plane_fixture import load_reference
-from port_plane_layout import prepare_plane_field
-from port_plane_slice_experiment import topology_audit
-from port_plane_system import continuous_matrix, vertex_matrices
 
 
 def verify_coverage(original, mesh):
@@ -31,6 +34,19 @@ def verify_coverage(original, mesh):
     return error
 
 
+def verify_implementation(report):
+    for name, digest in report["implementation_sha256"].items():
+        if (
+            hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+            != digest
+        ):
+            raise ValueError(f"verification source differs from generation: {name}")
+    root = Path(__file__).resolve().parents[3]
+    for relative, digest in report.get("library_sha256", {}).items():
+        if hashlib.sha256((root / relative).read_bytes()).hexdigest() != digest:
+            raise ValueError(f"library differs from generation: {relative}")
+
+
 def verify(directory, *, allow_dirty=False):
     began = time.monotonic()
     report = json.loads((directory / "report.json").read_text())
@@ -44,14 +60,7 @@ def verify(directory, *, allow_dirty=False):
     if report["working_tree_dirty"] and not allow_dirty:
         raise ValueError("release verification requires a clean generation commit")
     if not allow_dirty:
-        for name, digest in report["implementation_sha256"].items():
-            if (
-                hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-                != digest
-            ):
-                raise ValueError(
-                    f"verification source differs from the generation source: {name}"
-                )
+        verify_implementation(report)
     product, captured, metadata, _sources = load_reference()
     model, _ = prepare_plane_field(product)
     with np.load(path, allow_pickle=False) as source:

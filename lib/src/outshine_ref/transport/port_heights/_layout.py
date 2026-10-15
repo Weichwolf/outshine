@@ -3,7 +3,8 @@
 import itertools
 
 import numpy as np
-from port_plane_field import PlaneField
+
+from ._field import PlaneField
 
 
 class Groups:
@@ -59,6 +60,10 @@ def oriented_ports(product):
         if len(touching) != 2 or len(inside) != 1:
             raise ValueError(
                 "each full port must have one face from each original module"
+            )
+        if not np.array_equal(np.sort(owners[touching]), np.sort(adjacent[index])):
+            raise ValueError(
+                "whole port module IDs must match their actual adjacent faces"
             )
         delta = xy[product["indices"][inside[0]]].mean(axis=0) - centers[index]
         sign = np.dot(delta, normals[index])

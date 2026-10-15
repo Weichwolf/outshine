@@ -3,14 +3,18 @@
 import time
 
 import numpy as np
-from port_plane_system import discrete_matrix, fit_planes, vertex_matrices
 from scipy import sparse
 
+from ._budget import PortLimit
+from ._system import discrete_matrix, fit_planes, vertex_matrices
 
-def fit_sliced(model, captured, mesh, certificates, *, seconds=8, method="cone"):
+
+def fit_sliced(
+    model, captured, mesh, certificates, *, seconds=8, method="cone", budget=None
+):
     began = time.monotonic()
     h, equal, _, _parts = vertex_matrices(
-        model, mesh["xy"], mesh["faces"], mesh["parts"]
+        model, mesh["xy"], mesh["faces"], mesh["parts"], budget=budget
     )
     certificate, original_note = certificates
     certificate = sparse.hstack(
@@ -22,12 +26,24 @@ def fit_sliced(model, captured, mesh, certificates, *, seconds=8, method="cone")
         ]
     )
     soil = mesh["parts"] < 0
+    cones = certificate.shape[0] // 2 + int(soil.sum())
+    if budget and (
+        cones > budget.max_cones
+        or 12 * cones + 24 * len(mesh["xy"]) > budget.max_sparse_nonzeros
+    ):
+        raise PortLimit("port_constraint_or_sparse_budget")
     gradient = sparse.vstack(
         [
             certificate,
             discrete_matrix(mesh["xy"], mesh["faces"][soil], mesh["frames"][soil], h),
         ]
     ).tocsc()
+    if (
+        budget
+        and (gradient.nnz + h.nnz + equal.nnz) * (16 if method == "lp" else 1)
+        > budget.max_sparse_nonzeros
+    ):
+        raise PortLimit("port_sparse_work_budget")
     # New cut points interpolate a prior; only the original captured DEM observations
     # belong in the fitting objective. Finite road gradients remain a mandatory
     # independent acceptance check; parameter refinement fixes their approximation.
@@ -50,6 +66,7 @@ def fit_sliced(model, captured, mesh, certificates, *, seconds=8, method="cone")
             captured["ground_targets"],
             seconds=seconds,
             method=method,
+            max_iterations=budget.max_iterations if budget else 100,
         )
     except MemoryError:
         return (
