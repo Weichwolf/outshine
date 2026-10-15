@@ -48,7 +48,6 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   for (const Data::SourceProvider &provider : Session.Declared.Providers) {
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
   }
-  if (!ConfigureWorldSources(tileProviders)) { return false; }
   std::vector<Generators::Osm::CircuitRequest> routes;
   routes.reserve(Session.Declared.Routes.size());
   for (const Scenario::RouteDeclaration &declared : Session.Declared.Routes) {
@@ -58,7 +57,9 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
     Error = "semantic OSM routes require a source";
     return false;
   }
-  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) { return true; }
+  if (osmProviders.empty() && !World.OsmSource && !World.OsmTransport) {
+    return ConfigureWorldSources(tileProviders);
+  }
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Io) { World.Io = std::make_unique<Tasks>(1); }
   if (!World.OsmSource) {
@@ -79,6 +80,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
         Generators::Osm::SourceAcquisition::Target::Inputs,
         Generators::Osm::MakeStructureCellCompiler(Generators::Osm::kDefaultStructurePolicy));
   }
+  if (!ConfigureWorldSources(tileProviders)) { return false; }
   World.OsmRoutes = std::move(routes);
   World.OriginalSourceDemand.reset();
   if (!RequestOsmSources(osmProviders)) { return false; }
