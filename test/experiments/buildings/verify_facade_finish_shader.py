@@ -120,9 +120,9 @@ class FacadeFinishShaderControls(unittest.TestCase):
             glass = (
                 np.asarray(mi.load_dict(bsdf["bsdf_1"]["weight"]).eval_1(si)) * opening
             )
-            band = np.asarray(
-                mi.load_dict(bsdf["bsdf_0"]["base_color"]["weight"]).eval_1(si)
-            ) * (1 - opening)
+            band = np.asarray(mi.load_dict(bsdf["bsdf_0"]["weight"]).eval_1(si)) * (
+                1 - opening
+            )
             actual = np.column_stack([1 - opening - band, opening - glass, glass, band])
             scale = np.asarray(repeat.cell_size_m)
             centres = np.asarray(si.uv).T * scale
@@ -130,19 +130,27 @@ class FacadeFinishShaderControls(unittest.TestCase):
             expected = finish.coverage(repeat, centres, footprint)
             np.testing.assert_allclose(actual, expected, atol=2e-5, rtol=2e-5)
             np.testing.assert_allclose(actual.sum(axis=1), 1.0, atol=2e-7)
-            explicit, _ = material(
-                spec,
-                config
-                | {
-                    "facade_finishes": config["facade_finishes"]
-                    | {"explicit_band_reference": True}
-                },
-                wall,
-            )
             context, outgoing = mi.BSDFContext(), mi.Vector3f([0, 0, 1])
+            band_wall = wall | {
+                "base_color": {
+                    "type": "rgb",
+                    "value": (np.asarray(wall["base_color"]["value"]) * 0.65).tolist(),
+                }
+            }
+            lobes = [
+                wall,
+                bsdf["bsdf_1"]["bsdf_0"],
+                bsdf["bsdf_1"]["bsdf_1"],
+                band_wall,
+            ]
+            independent = sum(
+                np.asarray(mi.load_dict(lobe).eval(context, si, outgoing))
+                * actual[:, index]
+                for index, lobe in enumerate(lobes)
+            )
             np.testing.assert_allclose(
                 np.asarray(mi.load_dict(bsdf).eval(context, si, outgoing)),
-                np.asarray(mi.load_dict(explicit).eval(context, si, outgoing)),
+                independent,
                 atol=1e-6,
                 rtol=2e-5,
             )

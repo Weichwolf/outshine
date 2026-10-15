@@ -83,36 +83,6 @@ def register(coverage):
 
     mi.register_texture("outshine_facade_finish", lambda props: FinishCoverage(props))
 
-    class BandColour(mi.Texture):
-        def __init__(self, props):
-            super().__init__(props)
-            self.weight = props["weight"]
-            self.colour = mi.Color3f(props["value"])
-            self.tint = float(props["tint"])
-            self.average = np.asarray(mi.luminance(props["value"])).item() * (
-                1 - (1 - self.tint) * 0.5
-            )
-
-        def eval_3(self, si, active=True):
-            return self.colour * (1 - (1 - self.tint) * self.weight.eval_1(si, active))
-
-        def eval(self, si, active=True):
-            return mi.Spectrum(self.eval_3(si, active))
-
-        def eval_1(self, si, active=True):
-            return mi.luminance(self.eval_3(si, active))
-
-        def is_spatially_varying(self):
-            return True
-
-        def mean(self):
-            return self.average
-
-        def to_string(self):
-            return "FacadeBandColour[]"
-
-    mi.register_texture("outshine_facade_band_colour", lambda props: BandColour(props))
-
 
 def material(texture, parameters, wall, glazing):
     finish = FacadeFinish(
@@ -130,7 +100,7 @@ def material(texture, parameters, wall, glazing):
         raise NotImplementedError(
             "Facade band reference needs an explicitly bound RGB parent material"
         )
-    original_colour = colour["value"]
+    colour["value"] = (np.asarray(colour["value"]) * tint).tolist()
     frame = {
         "type": "principled",
         "base_color": {"type": "rgb", "value": [0.12, 0.14, 0.16]},
@@ -146,27 +116,12 @@ def material(texture, parameters, wall, glazing):
             "mode": mode,
         }
 
-    if parameters.get("explicit_band_reference") or not set(surface) <= {
-        "type",
-        "base_color",
-        "metallic",
-        "roughness",
-    }:
-        colour["value"] = (np.asarray(original_colour) * tint).tolist()
-        opaque = {
-            "type": "blendbsdf",
-            "weight": weight("band_ratio"),
-            "bsdf_0": wall,
-            "bsdf_1": band,
-        }
-    else:
-        surface["base_color"] = {
-            "type": "outshine_facade_band_colour",
-            "weight": weight("band_ratio"),
-            "value": mi.ScalarColor3f(original_colour),
-            "tint": tint,
-        }
-        opaque = band
+    opaque = {
+        "type": "blendbsdf",
+        "weight": weight("band_ratio"),
+        "bsdf_0": wall,
+        "bsdf_1": band,
+    }
     opening = {
         "type": "blendbsdf",
         "weight": weight("glass_ratio"),
