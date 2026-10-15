@@ -91,13 +91,22 @@ def run(output, fetch, radius_m):
     for name in PLACES:
         reference = read(name)
         selected = []
-        for kind, template, zoom in (
-            ("vector", vector, 14),
-            ("elevation", elevation, 11),
+        vector_tiles = tiles(
+            reference.latitude_deg, reference.longitude_deg, radius_m, 14
+        )
+        dem_tiles = sorted(
+            {
+                (11, x // 8 + dx, y // 8 + dy)
+                for _zoom, x, y in vector_tiles
+                for dx in (-1, 0, 1)
+                for dy in (-1, 0, 1)
+            }
+        )
+        for kind, template, selected_tiles in (
+            ("vector", vector, vector_tiles),
+            ("elevation", elevation, dem_tiles),
         ):
-            for tile in tiles(
-                reference.latitude_deg, reference.longitude_deg, radius_m, zoom
-            ):
+            for tile in selected_tiles:
                 url = template.format(z=tile[0], x=tile[1], y=tile[2])
                 subjects[url] = kind, tile, url
                 selected.append(url)
