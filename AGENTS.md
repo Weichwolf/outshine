@@ -218,6 +218,11 @@
   Ich referenziere aktuelle Issues als `#N` oder per URL und aktiviere sie vor Implementierung.
   Abgeschlossene Anforderungen in ihren Besitzer übernehmen, dann das Issue schließen; nichts lokal löschen.
   Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
+- Nach dem Merge löscht der PR-Besitzer den temporären Themenbranch lokal und auf GitHub,
+  sobald dessen aktueller Stand vollständig integriert ist. `master` und die sieben dauerhaften
+  `outshine_<bereich>`-Arbeitsbranches bleiben bestehen. Offene PRs, belegte Worktrees und
+  nicht integrierte Commits schützen vor automatischer Bereinigung; Remote-Löschungen sichern
+  den geprüften Commitstand per Lease. Keine globale Merge-Löschautomatik für dauerhafte Agentenbranches.
 - Auf `outshine_vegetation` wird jeder geprüfte Fortschritt committed und gepusht;
   geprüfte fokussierte PRs werden eigenständig nach master gemergt. Kein Showcase-Server.
   Genau vier aktuelle eigene Python-Bilder unter `doc/images/vegetation/` zeigen den
