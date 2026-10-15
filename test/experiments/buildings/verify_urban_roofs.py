@@ -95,6 +95,8 @@ class UrbanRoofs(unittest.TestCase):
         for props in (
             {"roof:shape": "flat"},
             {"roof_shape": "flat"},
+            {"roof:height": 2.0},
+            {"roof_angle": 30.0},
             {"building": "industrial"},
             {"building": "church"},
             {"building:levels": 7},

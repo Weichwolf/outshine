@@ -10,7 +10,9 @@ from recipes import choose as facade_recipe
 def extend(row, parameters, previous):
     properties, polygon = row["properties"], row["polygon"]
     if previous.kind != "flat" or any(
-        key in properties for key in ("roof:shape", "roof_shape")
+        key in properties
+        for field in ("shape", "height", "angle", "direction", "orientation")
+        for key in ("roof:" + field, "roof_" + field)
     ):
         return previous
     height, area = parameters["bodyHeight"], polygon.area
