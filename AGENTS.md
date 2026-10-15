@@ -9,7 +9,7 @@
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
 - Ich bin Technical und Art Director; der Nutzer ist Regisseur. Fachagenten arbeiten zusammen:
-  Der Transport-Agent auf `transport`, der Buildings-Agent auf `buildings` und der Vegetation-Agent auf
+  Der Transport-Agent auf `outshine_transport`, der Buildings-Agent auf `buildings` und der Vegetation-Agent auf
   `vegetation` erforschen ihre Fachverfahren in Python und entwickeln gemeinsam die Referenzbibliotheken unter `lib/`.
   Der Outshine-Hauptagent auf `master` entwickelt Outshine selbstständig weiter und integriert eigenständig
   verifizierte Neuerungen aus `lib/` maschinennah in C++ unter `src/`, einschließlich Generatoren und öffentlicher APIs.
@@ -44,7 +44,7 @@
 - [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang;
   der vereinbarte Ablauf steht in [#108](https://github.com/Weichwolf/outshine/issues/108).
   Nachrichten beginnen mit `[Absenderbranch → Zielbranches]`: Fach-Issue/PR-Link und konkrete
-  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Branches heißen `master`, `transport`,
+  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Branches heißen `master`, `outshine_transport`,
   `buildings`, `vegetation` und die oben genannten nativen Agenten.
   Ein kurzes Fach-Issue besitzt genau einen abgrenzbaren Vertrag, Fehler oder Entscheidungsbedarf;
   Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR
