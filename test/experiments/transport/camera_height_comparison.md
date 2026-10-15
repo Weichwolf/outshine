@@ -1,9 +1,10 @@
 # Shared camera-window bed heights
 
 Owner: [#265](https://github.com/Weichwolf/outshine/issues/265), under #20.
-Experimental numerical/geometry stage; the installable minimax library and native
-runtime remain unchanged. Reusable quadratic fitting still needs its public
-contract/library promotion and source/wheel acceptance; #265 remains active.
+Historical numerical/geometry stage from PR275. The subsequent installable
+quadratic kernel, current public contract, source/wheel acceptance and updated
+cost/image checks are in [weighted_height_library_comparison.md](weighted_height_library_comparison.md).
+The native runtime remains a separate integration.
 
 ## Problem, scope and decision
 
