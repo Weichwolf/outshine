@@ -17,7 +17,7 @@ from preview_shadows import configure_preview
 from scipy.spatial.transform import Rotation
 
 
-def probe(output, name, normal, scale, bump=False):
+def probe(output, name, normal, scale, bump=False, bad_transform=False):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     configure_preview(scene)
@@ -37,6 +37,12 @@ def probe(output, name, normal, scale, bump=False):
     )
     expected /= np.linalg.norm(expected)
     socket = source_normal(result)
+    if bad_transform:
+        from fern_material import NORMAL_ATTRIBUTE
+
+        raw = nodes.new("ShaderNodeAttribute")
+        raw.attribute_name = NORMAL_ATTRIBUTE
+        socket = raw.outputs["Vector"]
     if bump:
         uv = nodes.new("ShaderNodeTexCoord")
         split = nodes.new("ShaderNodeSeparateXYZ")
@@ -107,6 +113,7 @@ def probe(output, name, normal, scale, bump=False):
         "source_normal": normal.tolist(),
         "scale": scale.tolist(),
         "bump": bump,
+        "expected_correct": not bad_transform,
         "expected": expected.tolist(),
         "residual_gain": gain,
         "encoded_residual_pixel": encoded.tolist(),
@@ -124,6 +131,13 @@ if __name__ == "__main__":
         probe(args.output, "uniform", (0.3, 0.2, 1), (1, 1, 1)),
         probe(args.output, "nonuniform", (0.3, 0.2, 1), (2, 0.7, 1.3)),
         probe(args.output, "nonuniform-bump", (0, 0, 1), (2, 0.7, 1.3), True),
+        probe(
+            args.output,
+            "missing-transform-control",
+            (0.3, 0.2, 1),
+            (2, 0.7, 1.3),
+            bad_transform=True,
+        ),
     ]
     report = {
         "commit": subprocess.check_output(
@@ -132,9 +146,12 @@ if __name__ == "__main__":
         "renderer": gpu.platform.renderer_get(),
         "rows": rows,
         "limit": 2e-5,
-        "scope": "64x64 linear32-bit EXR emission normals, three planar cases through actual GeometryNodes instances; no arbitrary curved/mip/native admission.",
+        "scope": "64x64 linear32-bit EXR amplified residuals, three planar cases and a deliberately wrong transform through actual GeometryNodes instances; no arbitrary curved/mip/native admission.",
     }
     (args.output / "probe.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report), flush=True)
-    if any(row["max_abs_error"] > report["limit"] for row in rows):
+    if any(
+        (row["max_abs_error"] <= report["limit"]) != row["expected_correct"]
+        for row in rows
+    ):
         raise SystemExit(1)
