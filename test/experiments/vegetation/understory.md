@@ -10,7 +10,8 @@ not two newly accepted species.
 ## Own organ construction and optical reference
 
 Local first source: Prusinkiewicz/Lindenmayer/Hanan, SIGGRAPH1988 *Developmental
-Models of Herbaceous Plants*, `doc/references/vegetation/siggraph/1988-developmental-models-of-plant-architecture.pdf`.
+Models of Herbaceous Plants for Computer Imagery Purposes*,
+`doc/references/vegetation/siggraph/1988-developmental-models-of-plant-architecture.pdf`.
 PDF-page5/Fig9 was opened, including its two broad basal leaves and unilateral
 pendant inflorescence; §4 describes the raceme, §6 separates surfaces from the
 architecture. This figure is itself a procedural model, not an herbarium
@@ -107,8 +108,15 @@ Source controls cover corolla jets/regularity, UVs, organ attachments and saved
 partial reconstruction, signed IDs, exact partial field replay, matched shuffled
 budgets and unchanged legacy fields. A fresh old ECEF replay additionally
 reproduces47,284 stored forest choices with constructors/provider work forbidden.
-Ruff/format and focused checks are run on the delivery; no native/Place/device
-or whole-engine gate is claimed.
+The source and a fresh installed wheel each pass25 focused checks. All nine
+saved near/field herb prototypes regenerate byte-exactly from their stored
+recipes through the installed public Bellflower after promotion to lib/.
+Wheel SHA256:75bb33289d16666932155cf2ea155427fc6fde843aee3cfa48e6627e28d40b20;
+receipt: `/tmp/outshine-vegetation-understory-wheel-77a6d7943/verification.json`.
+Changed modules pass Ruff/format; the export-only init change retains the same
+two pre-existing TRY004/RUF022 findings as master, independently compared.
+`make lint-docs` passes its AGENTS-only check. No native/Place/device or
+whole-engine gate is claimed.
 
 Transport's actual Blender custom-normal packing discrepancy is acknowledged
 under #291. These images still use that host path; CPU source vectors are
