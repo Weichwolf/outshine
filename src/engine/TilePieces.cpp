@@ -30,7 +30,8 @@ PlaceStructurePiece(Render::SceneRenderer &renderer,
                     Render::PieceSurface surface,
                     const Mat4 &row,
                     bool textured,
-                    std::span<const float> colours = {}) {
+                    std::span<const float> colours = {},
+                    std::span<const float> secondUv = {}) {
   if (run.empty()) { return Render::PieceHandle{}; }
   if (textured && (std::ranges::any_of(corners,
                                        [](const StoredVertex &v) {
@@ -50,6 +51,7 @@ PlaceStructurePiece(Render::SceneRenderer &renderer,
        .Clusters =
            cooked ? std::span<const DagCluster>(cut.Clusters) : std::span<const DagCluster>(),
        .Colours = colours,
+       .Uv1 = secondUv,
        .Row = row,
        .Instances = {},
        .Surface = surface,
@@ -161,14 +163,16 @@ bool TilePieces::Store(uint32_t tile,
                  .Row = row,
                  .Visible = visible};
   const Raised &built = baked.Built;
-  const auto walls = PlaceStructurePiece(*Renderer_,
-                                         built.WallCorners,
-                                         built.WallRun,
-                                         baked.Walls,
-                                         WallsSurface_,
-                                         row,
-                                         true,
-                                         built.WallColours);
+  const auto walls = PlaceStructurePiece(
+      *Renderer_,
+      built.WallCorners,
+      built.WallRun,
+      baked.Walls,
+      built.WallMaterialM.empty() ? WallsSurface_ : MetreWallsSurface_.value_or(WallsSurface_),
+      row,
+      true,
+      built.WallColours,
+      built.WallMaterialM);
   if (!walls) {
     ++Refused_;
     Why_ = walls.error();

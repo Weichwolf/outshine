@@ -63,6 +63,7 @@ struct BuildingPositionHash {
 
 struct BuildingCornerKey {
   uint32_t Position, Normal, TextureU, TextureV;
+  uint32_t MaterialU, MaterialV;
   constexpr bool operator==(const BuildingCornerKey &) const = default;
 };
 
@@ -71,7 +72,9 @@ struct BuildingCornerHash {
     return static_cast<uint64_t>(key.Position) * kBuildingHashMultipliers[0] ^
            static_cast<uint64_t>(key.Normal) * kBuildingHashMultipliers[1] ^
            static_cast<uint64_t>(key.TextureU) * kBuildingHashMultipliers[3] ^
-           static_cast<uint64_t>(key.TextureV) * kBuildingHashMultipliers[4];
+           static_cast<uint64_t>(key.TextureV) * kBuildingHashMultipliers[4] ^
+           static_cast<uint64_t>(key.MaterialU) * kBuildingHashMultipliers[1] ^
+           static_cast<uint64_t>(key.MaterialV) * kBuildingHashMultipliers[2];
   }
 };
 

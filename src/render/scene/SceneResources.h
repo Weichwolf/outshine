@@ -115,6 +115,7 @@ private:
     std::vector<uint32_t> Indices;
     std::vector<DagCluster> Clusters;
     std::vector<float> Colours;
+    std::vector<float> Uv1;
   };
 
   struct Piece {

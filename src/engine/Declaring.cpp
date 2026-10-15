@@ -594,9 +594,25 @@ void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration
   declared.PictureHeightFrac = picture.HeightFrac;
 }
 
+[[nodiscard]] Result
+PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std::string &error) {
+  int64_t utcS = 0;
+  if (clock.Start.empty() || !ParseIsoUtc(clock.Start.c_str(), utcS)) {
+    if (clock.Declared && !clock.Live) {
+      error = "this scenario declares a clock that is neither LIVE nor a stated instant -- '" +
+              clock.Start + "' is not an ISO 8601 UTC time";
+      return std::unexpected(error);
+    }
+    utcS = static_cast<int64_t>(std::time(nullptr));
+  }
+  declared.UtcS = utcS;
+  return {};
+}
+
 [[nodiscard]] Result PrepareLighting(const Scenario::Document &scenario,
                                      Core::Declaration &declared,
                                      std::string &error) {
+  if (const auto time = PrepareWorldTime(scenario.Time, declared, error); !time) { return time; }
   if (scenario.Lit.Declared) {
     declared.KeyLux = scenario.Lit.Key.Lux;
     declared.KeyElevationDeg = scenario.Lit.Key.ElevationDeg;
@@ -616,22 +632,10 @@ void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration
       return std::unexpected(error);
     }
     if (scenario.Ground.Declared && !anglePut) {
-      int64_t whenS = 0;
-      const bool usesLiveClock = !scenario.Time.Declared || scenario.Time.Live;
-      if (scenario.Time.Start.empty() || !ParseIsoUtc(scenario.Time.Start.c_str(), whenS)) {
-        if (!usesLiveClock && scenario.Time.Declared) {
-          error = "this scenario declares a clock that is neither LIVE nor a stated instant -- "
-                  "'" +
-                  scenario.Time.Start +
-                  "' is not an ISO 8601 UTC time, and a sky has to "
-                  "stand at some hour";
-          return std::unexpected(error);
-        }
-        whenS = static_cast<int64_t>(std::time(nullptr));
-      }
+      if (!declared.UtcS) { return std::unexpected("world UTC was not resolved"); }
       const Solar sun = SolarAt({.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg,
                                  .LatitudeDeg = scenario.Ground.Origin.LatitudeDeg},
-                                static_cast<double>(whenS));
+                                static_cast<double>(*declared.UtcS));
       declared.KeyElevationDeg = static_cast<double>(sun.SunElDeg);
       declared.KeyBearingDeg = static_cast<double>(sun.SunAzDeg);
       declared.KeyFromClock = true;

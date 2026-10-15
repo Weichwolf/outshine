@@ -3,6 +3,9 @@
 
 #include <array>
 #include <cstdint>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include "math/Mat4.h"
 #include "ClusterDag.h"
 #include "StoredVertex.h"
@@ -85,9 +88,9 @@ struct SubjectMaterial {
   [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
 
   [[nodiscard]] bool ReadsSecondUv() const {
-    return Colour.Set == outshine::UvSet::Uv1 || Normal.Set == outshine::UvSet::Uv1 ||
-           MetalRough.Set == outshine::UvSet::Uv1 || Emissive.Set == outshine::UvSet::Uv1 ||
-           SpecularStrength.Set == outshine::UvSet::Uv1 ||
+    return Row.Pattern == SurfacePattern::FacadeMetres || Colour.Set == outshine::UvSet::Uv1 ||
+           Normal.Set == outshine::UvSet::Uv1 || MetalRough.Set == outshine::UvSet::Uv1 ||
+           Emissive.Set == outshine::UvSet::Uv1 || SpecularStrength.Set == outshine::UvSet::Uv1 ||
            SpecularTint.Set == outshine::UvSet::Uv1 ||
            DiffuseReflection.Set == outshine::UvSet::Uv1 ||
            DiffuseTransmission.Set == outshine::UvSet::Uv1;
@@ -151,12 +154,23 @@ struct PieceMesh {
   std::span<const uint32_t> Indices;
   std::span<const DagCluster> Clusters;
   std::span<const float> Colours;
+  std::span<const float> Uv1;
   Mat4 Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   std::span<const Mat4> Instances;
   uint32_t MaxInstances = 0;
   PieceSurface Surface;
   bool Textured = false;
 };
+
+inline constexpr auto kPieceUv1Error =
+    "piece second UVs require UV0 and exactly two finite floats per vertex";
+
+[[nodiscard]] inline bool ValidPieceUv1(const PieceMesh &piece) noexcept {
+  return piece.Uv1.empty() ||
+         (piece.Textured && piece.Verts.size() <= std::numeric_limits<size_t>::max() / 2 &&
+          piece.Uv1.size() == piece.Verts.size() * 2 &&
+          std::ranges::all_of(piece.Uv1, [](float value) { return std::isfinite(value); }));
+}
 
 using PieceId = uint32_t;
 inline constexpr PieceId kNoPiece = ~0u;

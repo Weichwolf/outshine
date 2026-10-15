@@ -40,15 +40,17 @@ constexpr size_t kVertexStride = 24, kNormalOffset = 20;
 static_assert(sizeof(Vertex) == kVertexStride && offsetof(Vertex, Uv) == 12 &&
               offsetof(Vertex, Normal) == kNormalOffset);
 constexpr size_t kVerticesBytes = 6 * sizeof(Vertex);
+constexpr size_t kSecondUvBytes = 6 * sizeof(std::array<float, 2>);
 constexpr size_t kInputBytes = kViewBytes + kMaterialBytes + kPlacementBytes + kVerticesBytes;
 
-std::vector<std::byte> Read(const char *path) {
+std::vector<std::byte> Read(const char *path, bool secondUv) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   const std::streamoff bytes = file ? static_cast<std::streamoff>(file.tellg()) : -1;
-  const bool complete = file && std::cmp_equal(bytes, kInputBytes);
+  const size_t inputBytes = kInputBytes + (secondUv ? kSecondUvBytes : 0);
+  const bool complete = file && std::cmp_equal(bytes, inputBytes);
   CHECK(complete, "the fixed fixture contains complete view/material/placement/vertex inputs");
   if (!complete) { Failed(); }
-  std::vector<std::byte> contents(kInputBytes);
+  std::vector<std::byte> contents(inputBytes);
   file.seekg(0);
   file.read(reinterpret_cast<char *>(contents.data()),
             static_cast<std::streamsize>(contents.size()));
@@ -76,38 +78,49 @@ void Capture(Device &device,
              const char *vertexPath,
              const char *fragmentPath,
              std::span<const std::byte> input,
-             const char *outputPath) {
+             const char *outputPath,
+             bool secondUv) {
   const auto vertex = Spirv(vertexPath);
   const auto fragment = Spirv(fragmentPath);
-  const std::array streams{VertexStream{.Slot = 0, .Stride = sizeof(Vertex)}};
+  const std::array streams{VertexStream{.Slot = 0, .Stride = sizeof(Vertex)},
+                           VertexStream{.Slot = 1, .Stride = 2 * sizeof(float)}};
   const std::array attributes{
       VertexAttribute{.Location = 0, .Stream = 0, .Format = VertexFormat::Float3},
       VertexAttribute{.Location = 1, .Stream = 0, .Offset = 12, .Format = VertexFormat::Float2},
       VertexAttribute{
-          .Location = 3, .Stream = 0, .Offset = kNormalOffset, .Format = VertexFormat::Uint32}};
+          .Location = 3, .Stream = 0, .Offset = kNormalOffset, .Format = VertexFormat::Uint32},
+      VertexAttribute{.Location = 6, .Stream = 1, .Format = VertexFormat::Float2}};
   std::array<ColourTarget, 3> targets{};
   for (auto &target : targets) { target.Texels = Format::Rgba32Float; }
-  const auto pipeline =
-      Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
-                                             .Fragment = ShaderCode{.Spirv = fragment},
-                                             .Streams = streams,
-                                             .Attributes = attributes,
-                                             .Colours = targets,
-                                             .Depth = std::nullopt,
-                                             .Culling = Cull::None,
-                                             .Label = "native facade material"}));
+  const auto pipeline = Require(
+      device.CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
+                                     .Fragment = ShaderCode{.Spirv = fragment},
+                                     .Streams = std::span(streams).first(secondUv ? 2 : 1),
+                                     .Attributes = std::span(attributes).first(secondUv ? 4 : 3),
+                                     .Colours = targets,
+                                     .Depth = std::nullopt,
+                                     .Culling = Cull::None,
+                                     .Label = "native facade material"}));
   auto commands = Require(device.Begin());
   const auto placement = UploadAs(device,
                                   *commands,
                                   input.subspan(kViewBytes + kMaterialBytes, kPlacementBytes),
                                   BufferUse::Storage);
-  const auto geometry = UploadAs(device, *commands, input.last(kVerticesBytes), BufferUse::Vertex);
+  const auto geometry =
+      UploadAs(device,
+               *commands,
+               input.subspan(kViewBytes + kMaterialBytes + kPlacementBytes, kVerticesBytes),
+               BufferUse::Vertex);
+  const auto uv = secondUv
+                      ? UploadAs(device, *commands, input.subspan(kInputBytes), BufferUse::Vertex)
+                      : nullptr;
   const std::array bindings{
       Storage(0, 0, *placement),
       Binding{.Set = 1, .Slot = 0, .Value = Uniform{input.first(kViewBytes)}},
       Binding{.Set = 3, .Slot = 0, .Value = Uniform{input.subspan(kViewBytes, kMaterialBytes)}}};
   const std::array vertices{
-      VertexBuffer{.Stream = 0, .Data = geometry.get(), .Range = {.Bytes = kVerticesBytes}}};
+      VertexBuffer{.Stream = 0, .Data = geometry.get(), .Range = {.Bytes = kVerticesBytes}},
+      VertexBuffer{.Stream = 1, .Data = uv.get(), .Range = {.Bytes = kSecondUvBytes}}};
   std::array<std::unique_ptr<Texture>, 3> images;
   std::array<ColourAttachment, 3> colours;
   for (size_t index = 0; index < images.size(); ++index) {
@@ -125,7 +138,7 @@ void Capture(Device &device,
   Require(commands->BeginRenderPass({.Colours = colours, .Depth = std::nullopt}));
   Require(commands->Draw({.State = {.Pipeline = pipeline.get(),
                                     .Bindings = bindings,
-                                    .Vertices = vertices,
+                                    .Vertices = std::span(vertices).first(secondUv ? 2 : 1),
                                     .Area = {.Width = kWidth, .Height = kHeight},
                                     .Clip = {.Width = kWidth, .Height = kHeight}},
                           .Range = {.Count = 6}}));
@@ -162,9 +175,11 @@ int main(int argc, char *const *argv) {
     Frame();
     return 0;
   }
-  if (argc != 5) { return 1; }
-  const auto input = Read(argv[3]);
+  const bool secondUv = argc == 6 && std::string_view(argv[5]) == "--uv1";
+  if (argc != 5 && !secondUv) { return 1; }
+  const auto input = Read(argv[3], secondUv);
   auto device = Require(CreateDevice({.Validation = true}));
-  Capture(*device, argv[1], argv[2], input, argv[4]);
+  std::println("DEVICE {}", device->Limits().Name);
+  Capture(*device, argv[1], argv[2], input, argv[4], secondUv);
   return Report();
 }

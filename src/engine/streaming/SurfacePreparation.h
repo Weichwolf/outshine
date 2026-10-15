@@ -12,6 +12,7 @@
 #include "ContentStore.h"
 #include "SourceConfiguration.h"
 #include "SourceSet.h"
+#include "SourceSession.h"
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedGroundRegions.h"
@@ -76,6 +77,14 @@ public:
                           LogSink *diagnostics,
                           double patienceS = 0.0,
                           const Data::ProviderRegistry *registry = nullptr);
+  [[nodiscard]] bool OpenSession(const World::StoragePaths &under,
+                                 std::shared_ptr<Data::SourceSession> session,
+                                 LongitudeLatitude focus,
+                                 Data::Transport &wire,
+                                 Tasks &compute,
+                                 Sink &say,
+                                 LogSink *diagnostics,
+                                 double patienceS = 0.0);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }
@@ -95,22 +104,18 @@ public:
 
   [[nodiscard]] TilePool &Pool() const { return *Pool_; }
 
-  struct SourceCounters {
-    Data::SourceSet::Ledger Sources;
-    Data::ContentStore::Ledger Store;
-  };
+  using SourceCounters = Data::SourceSession::Ledger;
 
   [[nodiscard]] SourceCounters Counters() const {
-    return {.Sources = Sources_ ? Sources_->Counters() : Data::SourceSet::Ledger{},
-            .Store = Store_ ? Store_->Counters() : Data::ContentStore::Ledger{}};
+    return Sources_ ? Sources_->Counters() : SourceCounters{};
   }
 
   [[nodiscard]] Data::ContentStore::Ledger StoreCosts() const {
-    return Store_ ? Store_->Counters() : Data::ContentStore::Ledger{};
+    return Sources_ ? Sources_->Store().Counters() : Data::ContentStore::Ledger{};
   }
 
   [[nodiscard]] auto ProviderCosts() const {
-    return Sources_ ? Sources_->ProviderCosts()
+    return Sources_ ? Sources_->Sources().ProviderCosts()
                     : std::array<Data::SourceSet::Ledger::ProviderCost,
                                  Data::SourceSet::Ledger::KindCount>{};
   }
@@ -266,8 +271,7 @@ private:
   [[nodiscard]] std::expected<TileAt, std::string_view>
   ValidatePosition(LongitudeLatitude at) const;
 
-  std::unique_ptr<Data::ContentStore> Store_;
-  std::unique_ptr<Data::SourceSet> Sources_;
+  std::shared_ptr<Data::SourceSession> Sources_;
   std::shared_ptr<::outshine::Generators::PreparedTerrainAssets> PreparedTerrain_;
   std::shared_ptr<::outshine::Generators::PreparedBuildingAssets> PreparedBuildings_;
   std::shared_ptr<Generators::Osm::PreparedStreetGraph> PreparedNetwork_;

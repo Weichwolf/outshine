@@ -77,6 +77,8 @@ public:
   [[nodiscard]] std::optional<Hit>
   Trace(const Ray &ray, double minimum, double maximum, std::vector<double> &cuts) const;
   [[nodiscard]] StoredVertex VertexAt(const Hit &hit, const Vec3 &position) const noexcept;
+  [[nodiscard]] bool UsesMaterialMetres(const Hit &hit) const noexcept;
+  [[nodiscard]] Vec2f MaterialMetresAt(const Hit &hit, const Vec3 &position) const noexcept;
   [[nodiscard]] Vec3f ColourFactor(const Hit &hit) const noexcept;
 
   [[nodiscard]] bool IsRoof(const Hit &hit) const noexcept {

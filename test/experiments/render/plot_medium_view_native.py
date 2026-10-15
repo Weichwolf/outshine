@@ -11,7 +11,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 
 ROOT = Path(__file__).resolve().parents[3]
-WIDTH, HEIGHT, OPAQUE_FRAMES, GEOMETRY_FRAMES = 43, 31, 75, 36
+WIDTH, HEIGHT = 43, 31
 SELECTION = (
     (2, "Perspective, full viewport"),
     (14, "Perspective, jitter and inset"),
@@ -39,13 +39,13 @@ def main():
     if args.output.resolve().is_relative_to(ROOT):
         parser.error("private outputs belong outside the checkout")
     actual = np.fromfile(str(args.samples) + ".opaque", "<f4").reshape(
-        OPAQUE_FRAMES, HEIGHT, WIDTH, 4
+        -1, HEIGHT, WIDTH, 4
     )
     reference = np.fromfile(str(args.samples) + ".opaque.reference", "<f4").reshape(
         actual.shape
     )
     geometry = np.fromfile(str(args.samples) + ".geometry", "<f4").reshape(
-        GEOMETRY_FRAMES, HEIGHT, WIDTH, 3, 4
+        -1, HEIGHT, WIDTH, 3, 4
     )
     if not all(np.isfinite(values).all() for values in (actual, reference, geometry)):
         raise ValueError("nonfinite native capture")

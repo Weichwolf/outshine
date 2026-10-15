@@ -15,6 +15,7 @@ from camera_height_inputs import digest
 from outshine_ref.rendering.blender_camera import configure_camera, verify_camera
 from outshine_ref.rendering.blender_light import configure_daylight
 from outshine_ref.rendering.blender_mesh import mesh_object
+from transport_surface_colour import attach_face_colours
 
 NORMAL_ATTRIBUTE = "transport_source_normal"
 
@@ -58,6 +59,7 @@ def import_body(row):
         vertices, faces, normals, slots = (
             saved[k] for k in ("vertices", "triangles", "normals", "materials")
         )
+        colours = saved.get("face_base_colour_linear_rgba", None)
     surfaces = materials(row["colours"])
     obj = mesh_object(
         row["id"], vertices, faces, normals, surfaces[0], corner_normals=True
@@ -85,6 +87,7 @@ def import_body(row):
     attribute.data.foreach_get("vector", actual_normals.ravel())
     if not np.array_equal(actual_normals, normals.astype(np.float32)):
         raise ValueError("Blender changed explicit source normal attribute")
+    colour_proof = {} if colours is None else attach_face_colours(obj, colours)
     return vertices, {
         "vertices": len(vertices),
         "triangles": len(faces),
@@ -94,6 +97,7 @@ def import_body(row):
         "source_normal_attribute_float32_exact": True,
         "source_normal_attribute": NORMAL_ATTRIBUTE,
         "unused_packed_normal_max_error": float(abs(packed - normals).max()),
+        **colour_proof,
     }
 
 

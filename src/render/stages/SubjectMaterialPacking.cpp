@@ -10,6 +10,9 @@ namespace outshine::Render {
 static_assert(static_cast<int>(ScatteringModel::MetallicRoughness) == 0 &&
               static_cast<int>(ScatteringModel::DiffuseThinSheet) == 1 &&
               static_cast<int>(ScatteringModel::AreaMixture) == 2);
+static_assert(static_cast<int>(SurfacePattern::None) == 0 &&
+              static_cast<int>(SurfacePattern::Facade) == 1 &&
+              static_cast<int>(SurfacePattern::FacadeMetres) == 2);
 static_assert(sizeof(PackedSubjectMaterial) == kSubjectSurfaceFloats * sizeof(float));
 
 PackedSubjectMaterial PackSubjectMaterial(const SubjectMaterial &material,

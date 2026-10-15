@@ -72,15 +72,16 @@ int main() {
   TemporaryCache cache;
   SilentSink sink;
   VectorTransport wire;
-  const std::array providers{
-      Data::SourceProvider{.Kind = "vector",
-                           .Dataset = "fixture.openmaptiles",
-                           .Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf",
-                           .Schema = "openmaptiles"}};
+  Data::SourceProvider source;
+  source.Kind = "vector";
+  source.Dataset = "fixture.openmaptiles";
+  source.Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
+  source.Schema = "openmaptiles";
+  const std::array providers{source};
   Tasks compute(1);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 1, .LatitudeDeg = 1};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
+  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                    providers,
                    focus,
                    wire,

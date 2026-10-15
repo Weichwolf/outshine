@@ -1,0 +1,44 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float palette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+#include "periodicBand.glsl"
+#include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
+#include "facadeFootprint.glsl"
+#include "facadeProfiles.glsl"
+#include "facadeCoating.glsl"
+#include "facadeMasonry.glsl"
+vec3 metricAt(uint offset) {
+  return vec3(palette[offset], palette[offset + 1], palette[offset + 2]);
+}
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe p = probes[index];
+  uint offset = 320 + 20 * index;
+  vec2 fractions = facadeFractions(p.Which);
+  float perM = uintBitsToFloat(p.Mode);
+  vec4 filtered = facadeCoatedFootprint(fractions, p.PointDx.xy, p.PointDx.zw, p.Dy, perM,
+                                       metricAt(offset), metricAt(offset + 4), metricAt(offset + 8));
+  vec3 source = vec3(palette[4], palette[5], palette[6]);
+  float roughness = palette[7];
+  FacadeGlazing surface = facadeCoatedWindow(filtered, source, roughness);
+  float field = 0.0;
+#if FACADE_MASONRY
+  vec2 atM = vec2(palette[offset + 12], palette[offset + 13]);
+  vec2 dxM = vec2(palette[offset + 14], palette[offset + 15]);
+  vec2 dyM = vec2(palette[offset + 16], palette[offset + 17]);
+  field = facadeMasonryField(fractions, p.PointDx.xy, p.PointDx.zw, p.Dy, perM,
+                             atM, dxM, dyM, filtered.xyz);
+  surface.albedo += facadeMasonryAmplitude(source) * field;
+  float amplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
+  surface.roughness += amplitude * field;
+#endif
+  results[index] = Result(vec4(surface.albedo, surface.roughness), vec4(filtered.xyz, field));
+}
