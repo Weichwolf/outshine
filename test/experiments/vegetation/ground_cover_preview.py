@@ -50,6 +50,8 @@ def render(inputs, output):
         poses["origins"][:, 0] += x
         for index, prototype in enumerate(prototypes):
             selected = poses["variants"] == index
+            if not selected.any():
+                continue
             instance_group(
                 prototype,
                 poses["origins"][selected],
