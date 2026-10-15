@@ -38,7 +38,7 @@ def render(inputs, output, view):
             np.ones(int(mask.sum())),
             name=f"stored leaf variant {i}",
         )
-    eye, target, width = (3, -4, 2.7), (0, 0, 0.95), 3.5
+    eye, target, width = (3, -4, 2.7), (0, 0, 0.95), 4.5
     if view == "detail":
         eye, target, width = (1.7, -2.0, 1.9), (0.4, -0.1, 1.35), 1.5
     scene = setup("Laubwald", {"size_m": 4, "camera": eye, "target": target})
