@@ -57,7 +57,7 @@ public:
                                .Found = true});
       }
     }
-    const auto key = [tiles, centreX, centreY](const Next &one) {
+    const auto key = [tiles, centreX, centreY](const Next &one) -> uint64_t {
       if (one.Tile >= tiles.size()) { return kNoAdmissionKey; }
       const OsmField::Tile &which = tiles[one.Tile];
       const int64_t across = static_cast<int64_t>(which.X) - centreX;
