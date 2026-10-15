@@ -36,6 +36,7 @@ struct GeometricRay {
 };
 
 [[nodiscard]] std::vector<Scenario> Scenarios();
+[[nodiscard]] std::vector<Scenario> GeometryScenarios();
 [[nodiscard]] GeometricRay
 ReferenceRay(const Scenario &scenario, Vec3 fragment, const Medium &medium);
 [[nodiscard]] Scissor ViewClip(const Scenario &scenario);
@@ -54,6 +55,8 @@ struct ImageShape {
   uint32_t Height;
   uint32_t RowBytes;
 };
+
+[[nodiscard]] std::vector<Pixel> ReadImage(Device &device, Buffer &readback, ImageShape shape);
 
 template <typename Value, typename Function>
 std::vector<std::byte> ImageBytes(ImageShape shape, Function value) {

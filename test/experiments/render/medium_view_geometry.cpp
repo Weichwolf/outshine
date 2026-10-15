@@ -162,7 +162,7 @@ void Geometry(Device &device, const GraphicsPipeline &pipeline, const char *outp
   std::ofstream saved(output, std::ios::binary);
   std::array<std::vector<Pixel>, kTargets> previous;
   size_t index = 0;
-  for (const auto &scenario : Scenarios()) {
+  for (const auto &scenario : GeometryScenarios()) {
     auto pixels = targets.Draw(device, pipeline, scenario);
     CheckGeometry(scenario, pixels, saved);
     if (index % 2 == 0) {

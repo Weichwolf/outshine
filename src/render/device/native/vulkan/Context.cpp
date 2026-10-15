@@ -127,6 +127,7 @@ Result<void> InitInstance(Context &context, DeviceOptions options) {
 struct QueueSelection {
   uint32_t Family = 0;
   uint32_t Count = 0;
+  uint32_t TimestampValidBits = 0;
 };
 
 std::optional<QueueSelection> SelectQueue(const Context &context, VkPhysicalDevice physical) {
@@ -146,7 +147,9 @@ std::optional<QueueSelection> SelectQueue(const Context &context, VkPhysicalDevi
       }
       if (queues[at].queueCount >= wanted && presents != VK_FALSE &&
           (queues[at].queueFlags & required) == required) {
-        return QueueSelection{.Family = at, .Count = queues[at].queueCount};
+        return QueueSelection{.Family = at,
+                              .Count = queues[at].queueCount,
+                              .TimestampValidBits = queues[at].timestampValidBits};
       }
     }
   }
@@ -177,6 +180,7 @@ Result<void> SelectPhysical(Context &context) {
     context.Properties = properties;
     context.QueueFamily = queue->Family;
     context.QueueCount = queue->Count;
+    context.TimestampValidBits = queue->TimestampValidBits;
   }
   if (context.Physical == VK_NULL_HANDLE) {
     return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
@@ -273,7 +277,7 @@ void ReadLimits(Context &context) {
                                           limits.maxComputeWorkGroupCount[1],
                                           limits.maxComputeWorkGroupCount[2]},
                     .MaxWorkgroupInvocations = limits.maxComputeWorkGroupInvocations,
-                    .GpuTimestamps = false};
+                    .GpuTimestamps = context.TimestampValidBits != 0};
 }
 
 }
@@ -291,6 +295,7 @@ Result<std::shared_ptr<Context>> CreateContext(DeviceOptions options) {
   if (auto result = SelectPhysical(*context); !result) { return std::unexpected(result.error()); }
   if (auto result = InitLogical(*context); !result) { return std::unexpected(result.error()); }
   ReadLimits(*context);
+  context->GpuTiming = options.GpuTiming && context->Limits.GpuTimestamps;
   return context;
 }
 

@@ -1,6 +1,7 @@
 #include "BuildingSurface.h"
 #include "BuildingWallNormals.h"
 #include "BuildingMaterials.h"
+#include "BuildingWallMaterial.h"
 #include "BuildingPreparation.h"
 #include "FacadeUv.h"
 #include "RoofSurface.h"
@@ -254,6 +255,20 @@ StoredVertex BuildingSurface::VertexAt(const Hit &hit, const Vec3 &position) con
                           {{static_cast<float>(normal[0]),
                             static_cast<float>(normal[1]),
                             static_cast<float>(normal[2])}});
+}
+
+bool BuildingSurface::UsesMaterialMetres(const Hit &hit) const noexcept {
+  return hit.Face >= 2 && UsesWallMaterialMetres(Resident().Shapes_[hit.Part]);
+}
+
+Vec2f BuildingSurface::MaterialMetresAt(const Hit &hit, const Vec3 &position) const noexcept {
+  if (!UsesMaterialMetres(hit)) { return {}; }
+  const auto &shape = Resident().Shapes_[hit.Part];
+  const auto edge = EdgeOf(shape, hit.Face);
+  if (edge.A == nullptr || edge.B == nullptr) { return {}; }
+  const Vec3 local = Local(Axes_, position - Origin_);
+  return BuildingWallMaterial::Of(shape, *edge.A, *edge.B)
+      .At({.EastM = local[0], .NorthM = local[1]}, local[2]);
 }
 
 Vec3f BuildingSurface::ColourFactor(const Hit &hit) const noexcept {

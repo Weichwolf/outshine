@@ -977,6 +977,11 @@ until its presentation migration. These helpers do not imply a native/device gat
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
 
+`buildings.profiled_bands.BandPlan` / `band_surface` emit bounded closed mitred
+profile bands, including courtyard boundaries and capped partial edge runs.
+Normals, metric UVs and stable source-edge IDs are caller-owned. See
+[profiled_bands.md](profiled_bands.md) for limits, neighbor ownership and evidence.
+
 `buildings.recessed_facades.RecessPlan` and `recess_surface` reuse existing
 `FacadeRepeat` axes for bounded inward window surfaces with stable global cell
 identities, supplied hard normals and UVs. Partial replay and scalar/batch
