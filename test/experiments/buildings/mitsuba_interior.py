@@ -34,6 +34,10 @@ def materials(config,prepared=None):
             value,_,_=reference(Material('',attributes))
         result[index]=(value,None)
     for index,values in config.get('material_definitions',{}).items():result[int(index)]=reference(Material('',values))[:2]
+    if config.get('facade_materials'):
+        from mitsuba_facade import bind,material
+        bind()
+        for index,values in config['facade_materials'].items():result[int(index)]=material(values,config,result[int(values['wall_material'])][0])
     if prepared is not None:result[1]=reference(prepared[0],prepared[1])[:2]
     return result
 
@@ -53,6 +57,9 @@ def render(config):
     source=Path(config['mesh']);encoded=source.read_bytes()
     if hashlib.sha256(encoded).hexdigest()!=config['mesh_sha256']:raise ValueError('Cached interior source mesh changed')
     data=dict(np.load(source));prepared=None;surface=None
+    if config.get('facade_materials'):
+        from mitsuba_facade import validate
+        validate(data,config['facade_materials'])
     if config.get('procedural_panels'):
         options=dict(color=linear_to_srgb(config['wall_linear']).tolist())|config['procedural_panels']
         prepared=panels(**options);data,surface=project(data,prepared[2]['tile_size_m'])

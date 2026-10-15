@@ -315,3 +315,35 @@ in #31/#32, general Shape Boolean semantics in #88.
 .venv/bin/python -W error test/experiments/buildings/verify_pitched_rooms.py
 .venv/bin/python test/experiments/buildings/pitched_room_plan.py
 ```
+
+## Context-scoped whole-tile facades
+
+`tile_facades.py` attaches the existing exact provider-context joins once,
+retains unknown whole-building use, and uses the existing context recipe
+parameters to prepare source-aligned facade axes. It decorates complete source
+envelopes; actual room/control meshes bypass this placeholder. Geometry, source
+height/footprint/colour and radial special structures remain unchanged.
+The facade fields are procedural estimates, not a complete architecture family.
+
+`FacadeRepeat` and `rectangle_coverage` in `lib` replace the duplicate facade
+coverage implementation. `facade_extent` is an experiment-only per-vertex
+domain binding; UV0 carries cell coordinates. `mitsuba_facade.py` blends live
+wall PBR with a rough dielectric/absorbing-room approximation using analytic
+coverage of the current camera's tangent-plane box. This explicit projection
+is checked against independent finite-difference ray/plane intersections.
+It is not Mitsuba path-ray differential filtering, EWA, actual rooms or a
+native cache/shader ABI. Missing/zero/nonintegral bindings reject before render.
+
+Unlit surface parameters remain camera-independent. Current camera/shading is
+resolved after loading the saved mesh and scene; cached data contains no baked
+lighting or acquired textures. Existing constructed near controls retain real
+openings; general replacement by a coherent near programme stays open in #33.
+Finite source domains, metric UVs, analytic/explicit area, wrong attribute
+names, preserved sources and physical point/box controls are checked privately.
+The public page still contains exactly four current complete 3840×2160 tiles.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_tile_facades.py
+.venv/bin/python test/experiments/buildings/facade_filter_plan.py
+.venv/bin/python test/experiments/buildings/facade_physical_controls.py
+```
