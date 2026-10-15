@@ -2,6 +2,7 @@
 
 import dataclasses
 import unittest
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -13,6 +14,7 @@ from air_path_integral import (
     source,
     transmittance,
 )
+from air_path_segments import column_edges, view_edges
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -72,9 +74,55 @@ class AirPathContracts(unittest.TestCase):
     def test_ozone_column_matches_triangle_area(self):
         air = dataclasses.replace(self.air, rayleigh_per_km=(0, 0, 0))
         distance = air.ozone_centre_km + air.ozone_width_km
-        actual = transmittance(air, air.bottom_km, 1.0, distance, samples=256)
+        actual = transmittance(air, air.bottom_km, 1.0, distance, samples=4)
         expected = np.exp(-np.array(air.ozone_per_km) * air.ozone_width_km)
-        np.testing.assert_allclose(actual, expected, rtol=0, atol=1e-6)
+        np.testing.assert_allclose(actual, expected, rtol=0, atol=1e-13)
+
+    def test_vertical_shell_crossings_follow_authored_heights(self):
+        centre, width, start = self.air.ozone_centre_km, self.air.ozone_width_km, 5.0
+        edges = np.unique(column_edges(self.air, self.air.bottom_km + start, 1.0, 60.0))
+        expected = [
+            0.0,
+            centre - width - start,
+            centre - start,
+            centre + width - start,
+            60.0,
+        ]
+        np.testing.assert_allclose(edges, expected, rtol=0, atol=1e-10)
+
+    def test_shadow_partition_agrees_with_cartesian_sphere_intersections(self):
+        height, distance = 0.5, 100.0
+        sun_cos, view_cos = np.sin(np.deg2rad(-2.0)), 0.5
+        sun = np.array([np.sqrt(1.0 - sun_cos**2), sun_cos, 0.0])
+        view = np.array([np.sqrt(1.0 - view_cos**2), view_cos, 0.0])
+        origin = np.array([0.0, self.air.bottom_km + height, 0.0])
+        edges = view_edges(self.air, height, view_cos, sun_cos, 1.0, distance)
+        states = []
+        for low, high in pairwise(edges):
+            points = (
+                origin
+                + (low + (high - low) * np.array([0.01, 0.5, 0.99]))[:, None] * view
+            )
+            projection = points @ sun
+            discriminant = (
+                projection**2 - np.sum(points**2, axis=1) + self.air.bottom_km**2
+            )
+            occluded = (discriminant >= 0.0) & (
+                -projection - np.sqrt(np.maximum(0.0, discriminant)) > 0.0
+            )
+            self.assertTrue(np.all(occluded == occluded[0]))
+            states.append(bool(occluded[0]))
+        self.assertTrue(states[0])
+        self.assertFalse(states[-1])
+        self.assertEqual(sum(a != b for a, b in pairwise(states)), 1)
+
+    def test_long_ozone_segment_transmittance_composes(self):
+        first, second = 20.0, 40.0
+        radius = self.air.bottom_km + 0.5
+        a = transmittance(self.air, radius, 1.0, first)
+        b = transmittance(self.air, radius + first, 1.0, second)
+        whole = transmittance(self.air, radius, 1.0, first + second)
+        np.testing.assert_allclose(a * b, whole, rtol=1e-11, atol=1e-13)
 
 
 if __name__ == "__main__":

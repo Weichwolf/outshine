@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
+from air_path_segments import column_edges, view_edges, weighted_nodes
 
 
 @dataclass(frozen=True)
@@ -96,19 +97,20 @@ def coefficients(medium, height):
     return scattering, extinction
 
 
-def transmittance(medium, radius, cosine, distance, samples=64):
+def transmittance(medium, radius, cosine, distance, samples=16):
     nodes, weights = quadrature(samples)
     radius, cosine, distance = np.broadcast_arrays(radius, cosine, distance)
-    heights = height_along(
-        medium, radius[..., None], cosine[..., None], distance[..., None] * nodes
+    positions, weighted = weighted_nodes(
+        column_edges(medium, radius, cosine, distance), nodes, weights
     )
+    heights = height_along(medium, radius[..., None], cosine[..., None], positions)
     _, extinction = coefficients(medium, heights)
-    depth = distance[..., None] * np.sum(extinction * weights[:, None], axis=-2)
+    depth = np.sum(extinction * weighted[..., None], axis=-2)
     return np.exp(-depth)
 
 
 def source(
-    medium, height_km, view_cos, sun_cos, relative_cos, distances, sun_samples=64
+    medium, height_km, view_cos, sun_cos, relative_cos, distances, sun_samples=16
 ):
     radius = medium.bottom_km + height_km
     height = height_along(medium, radius, view_cos, distances)
@@ -121,8 +123,12 @@ def source(
     )
     sun_here = np.clip((radius * sun_cos + distances * view_sun) / here, -1.0, 1.0)
     reach = boundary_distance(here, sun_here, medium.top_km)
-    sunlight = transmittance(medium, here, sun_here, reach, sun_samples)
-    sunlight = np.where(hits_ground(medium, here, sun_here)[..., None], 0.0, sunlight)
+    lit = ~hits_ground(medium, here, sun_here)
+    sunlight = np.zeros(here.shape + (3,))
+    if np.any(lit):
+        sunlight[lit] = transmittance(
+            medium, here[lit], sun_here[lit], reach[lit], sun_samples
+        )
     phase = 3.0 * (1.0 + view_sun**2) / (16.0 * np.pi)
     scattering, extinction = coefficients(medium, height)
     return extinction, scattering * sunlight * phase
@@ -136,17 +142,23 @@ def gauss_path(
     relative_cos,
     distance_km,
     samples,
-    optical_samples=64,
+    optical_samples=16,
+    segmented=False,
 ):
     nodes, weights = quadrature(samples)
-    distances = nodes * distance_km
+    edges = (
+        view_edges(medium, height_km, view_cos, sun_cos, relative_cos, distance_km)
+        if segmented
+        else np.array([0.0, distance_km])
+    )
+    distances, weighted = weighted_nodes(edges, nodes, weights)
     _, scattered = source(
         medium, height_km, view_cos, sun_cos, relative_cos, distances, optical_samples
     )
     toward_eye = transmittance(
         medium, medium.bottom_km + height_km, view_cos, distances, optical_samples
     )
-    radiance = distance_km * np.sum(scattered * toward_eye * weights[:, None], axis=0)
+    radiance = np.sum(scattered * toward_eye * weighted[:, None], axis=0)
     through = transmittance(
         medium, medium.bottom_km + height_km, view_cos, distance_km, optical_samples
     )
@@ -174,7 +186,7 @@ def midpoint_path(
 
 
 def distant_sky(
-    medium, height_km, view_cos, sun_cos, relative_cos, samples=512, optical_samples=64
+    medium, height_km, view_cos, sun_cos, relative_cos, samples=64, optical_samples=16
 ):
     radius = medium.bottom_km + height_km
     horizon_cos = -np.sqrt(radius * radius - medium.bottom_km**2) / radius
@@ -189,4 +201,5 @@ def distant_sky(
         reach,
         samples,
         optical_samples,
+        segmented=True,
     )[0]

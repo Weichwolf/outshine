@@ -23,6 +23,7 @@ from air_path_integral import (
     midpoint_path,
     quadrature,
 )
+from air_path_segments import view_edges
 
 ROOT = Path(__file__).resolve().parents[3]
 COUNTS = (4, 8, 16, 32, 64)
@@ -31,10 +32,14 @@ RADIANCE_FLOOR_PER_SR = 1e-5
 
 def evaluate(medium, case, distance, sky):
     arguments = (medium, *case.arguments(), distance)
-    reference, reference_t = gauss_path(*arguments, 512, optical_samples=128)
-    refined, refined_t = gauss_path(*arguments, 1024, optical_samples=256)
+    reference, reference_t = gauss_path(
+        *arguments, 64, optical_samples=16, segmented=True
+    )
+    refined, refined_t = gauss_path(*arguments, 128, optical_samples=32, segmented=True)
     candidates = {"sky_times_loss": (sky * (1.0 - reference_t), reference_t)}
     elapsed = {}
+    evaluations = {"sky_times_loss": None}
+    segments = len(view_edges(*arguments)) - 1
     for name, method in [("midpoint", midpoint_path), ("gauss", gauss_path)]:
         for count in COUNTS:
             key = f"{name}_{count}"
@@ -42,6 +47,13 @@ def evaluate(medium, case, distance, sky):
             result = method(*arguments, count)
             elapsed[key] = time.perf_counter() - began
             candidates[key] = result
+            evaluations[key] = count
+    for count in (4, 8, 16):
+        key = f"segmented_gauss_{count}"
+        began = time.perf_counter()
+        candidates[key] = gauss_path(*arguments, count, segmented=True)
+        elapsed[key] = time.perf_counter() - began
+        evaluations[key] = count * segments
     scale = np.maximum(reference, RADIANCE_FLOOR_PER_SR)
     errors = {}
     for name, (radiance, through) in candidates.items():
@@ -53,6 +65,7 @@ def evaluate(medium, case, distance, sky):
             ),
             "transmittance_absolute_max": float(np.max(np.abs(through - reference_t))),
             "cpu_seconds": elapsed.get(name),
+            "view_source_evaluations": evaluations[name],
         }
     return {
         "case": case.name,
@@ -83,6 +96,10 @@ def aggregate(rows):
                 row["transmittance_absolute_max"] for row in errors
             ),
             "cpu_seconds_total": sum(cpu) if cpu else None,
+            "view_source_evaluations_max": max(
+                (row["view_source_evaluations"] or 0) for row in errors
+            )
+            or None,
         }
     return totals
 
@@ -99,12 +116,12 @@ def main():
     medium = engine_clear_air(medium_path)
     cases, inputs = place_cases(root)
     began = time.perf_counter()
-    for count in [*COUNTS, 128, 256, 512, 1024]:
+    for count in [*COUNTS, 128]:
         quadrature(count)
     setup_seconds = time.perf_counter() - began
     rows = []
     for case in cases:
-        sky = distant_sky(medium, *case.arguments(), samples=512, optical_samples=128)
+        sky = distant_sky(medium, *case.arguments())
         rows.extend(
             evaluate(medium, case, distance, sky)
             for distance in usable_distances(medium, case)
@@ -125,11 +142,15 @@ def main():
         },
         "host": platform.platform(),
         "numpy": np.__version__,
-        "reference_view_nodes": 512,
-        "refined_view_nodes": 1024,
-        "candidate_optical_depth_nodes": 64,
-        "reference_optical_depth_nodes": 128,
-        "refined_optical_depth_nodes": 256,
+        "reference_view_nodes_per_interval": 64,
+        "refined_view_nodes_per_interval": 128,
+        "candidate_optical_depth_nodes_per_interval": 16,
+        "reference_optical_depth_nodes_per_interval": 16,
+        "refined_optical_depth_nodes_per_interval": 32,
+        "intervals": "Ozone shell kinks split every optical column; planetary solar "
+        "shadow and ozone shells additionally split reference/segmented view paths. "
+        "Candidates share the same accurate source evaluator; the reported view "
+        "count alone is not a GPU operation count or a runtime implementation.",
         "radiance_relative_floor_per_sr": RADIANCE_FLOOR_PER_SR,
         "quadrature_setup_seconds": setup_seconds,
         "maximum_reference_refinement_relative_error": refinement,
