@@ -9,6 +9,9 @@ MetalPresentation::MetalPresentation(SDL_Window *window,
                                      uint64_t device)
     : Window_(window), View_(view), Device_(device), Mailbox_(std::make_shared<PresentMailbox>()) {
   Mailbox_->Layer = layer;
+  const auto priority =
+      dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INTERACTIVE, 0);
+  Mailbox_->Presenter = dispatch_queue_create("outshine.metal.present", priority);
   Worker_ = std::thread([mailbox = Mailbox_] { Run(mailbox); });
 }
 

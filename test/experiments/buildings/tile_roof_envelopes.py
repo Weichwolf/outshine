@@ -8,7 +8,12 @@ from dataclasses import dataclass
 import numpy as np
 import shapely
 from building_layout import frame
-from outshine_ref.buildings.modelling import Shape, cga_to_enu, heightfield_envelope
+from outshine_ref.buildings.modelling import (
+    Shape,
+    SkeletonBudgetExceeded,
+    cga_to_enu,
+    heightfield_envelope,
+)
 from outshine_ref.buildings.structures import classify_structure
 from provider_contract import attributes, number
 from shapely.affinity import translate
@@ -110,8 +115,23 @@ def legacy_choice(row, parameters):
 
 def choose(row, parameters):
     from residential_roof_choice import extend
+    from urban_roof_choice import extend as urban
 
-    return extend(row, parameters, legacy_choice(row, parameters))
+    return urban(
+        row, parameters, extend(row, parameters, legacy_choice(row, parameters))
+    )
+
+
+def normalise_hip(mesh, choice):
+    heights = mesh["vertices"][:, 2]
+    extent = float(heights.max())
+    if abs(extent - choice.rise_m) > 1e-7:
+        raise ValueError("Hip overlay exceeded the roof height precision contract")
+    factor = choice.rise_m / extent
+    mesh["vertices"][:, 2] *= factor
+    if "normals" in mesh:
+        mesh["normals"][:, 2] /= factor
+        mesh["normals"] /= np.linalg.norm(mesh["normals"], axis=1, keepdims=True)
 
 
 def roof_surface(row, choice):
@@ -121,16 +141,21 @@ def roof_surface(row, choice):
     source = Shape.from_polygon(
         translate(polygon, *-origin), 0.0, material=9
     ).rotate_scope(0.0, choice.ridge_degrees, 0.0)
-    shape = (
-        source.roof_ridge(choice.rise_m, "byHeight")
-        if choice.kind == "ridge"
-        else source.roof_shed(choice.rise_m, index=choice.edge_index, mode="byHeight")
-    )
+    if choice.kind == "hip":
+        shape = source.roof_hip(choice.rise_m, "byHeight")
+    elif choice.kind == "ridge":
+        shape = source.roof_ridge(choice.rise_m, "byHeight")
+    else:
+        shape = source.roof_shed(
+            choice.rise_m, index=choice.edge_index, mode="byHeight"
+        )
     mesh = shape.emit()
     mesh["vertices"] = cga_to_enu(mesh["vertices"])
     mesh["vertices"][:, :2] += origin
     if "normals" in mesh:
         mesh["normals"] = cga_to_enu(mesh["normals"])
+    if choice.kind == "hip":
+        normalise_hip(mesh, choice)
     mesh["vertices"][:, 2] += choice.eave_m
     known_top = number(
         row["properties"].get(
@@ -198,7 +223,7 @@ def pitched_candidates(rows, view, limit=16):
                 }
             )
             choice = choose(row, p)
-            if p["hide3d"] or choice.kind == "flat":
+            if p["hide3d"] or choice.kind not in ("ridge", "shed"):
                 continue
             coverage = min(
                 1.0, row["polygon"].intersection(industry).area / row["polygon"].area
@@ -267,7 +292,12 @@ class OrdinaryDetails:
             return self.rooms(row, parameters, material)
         try:
             return self.complete(row, parameters, material, choice)
-        except (ValueError, NotImplementedError, shapely.errors.GEOSException) as error:
+        except (
+            ValueError,
+            NotImplementedError,
+            SkeletonBudgetExceeded,
+            shapely.errors.GEOSException,
+        ) as error:
             self.rejected.append(
                 {"id": row["id"], "kind": choice.kind, "reason": str(error)}
             )
@@ -344,5 +374,5 @@ class OrdinaryDetails:
             "room_selected": len(self.pitched),
             "room_completed": self.room_completed,
             "room_rejected": self.room_rejected,
-            "scope": "Small ordinary and bounded residential envelopes plus at most sixteen visible constructive roof/room controls. No architecture-family/native LOD admission",
+            "scope": "Small ordinary, bounded residential and urban hip envelopes plus at most sixteen visible constructive small-roof/room controls. Urban roof forms are inferred, not measured. No architecture-family/native LOD admission",
         }

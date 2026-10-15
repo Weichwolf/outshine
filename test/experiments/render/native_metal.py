@@ -149,6 +149,8 @@ def main():
     binary = output / "native-metal-probe"
     run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain, "-fno-exceptions",
          "-x", "objective-c++", "-fobjc-arc",
+         "-I" + str(ROOT),
+         "-I" + str(ROOT / "src/render/device/native"),
          str(ROOT / "test/harness/render/NativeMetalProbe.mm"),
          str(ROOT / "test/harness/render/MetalShader.cpp"),
          "-x", "none", str(ROOT / "build/liboutshine.a"), *link_flags, "-o", str(binary)])

@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_DEVICE_NATIVE_METAL_METALINTERNAL_H
 #define OUTSHINE_RENDER_DEVICE_NATIVE_METAL_METALINTERNAL_H
 
-#include "../Device.h"
+#include "Device.h"
 #include "MetalShader.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
