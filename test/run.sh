@@ -43,12 +43,32 @@ NativeGroups() {
   SourceUnits | sed -n '\|^src/render/device/native/|s|/[^/]*$||p' | sort -u | tr '\n' ' '
 }
 
+SpirvCrossFlags() {
+  if pkg-config --exists spirv-cross-c-shared; then
+    pkg-config "$1" spirv-cross-c-shared
+  else
+    pkg-config "$1" spirv-cross-c || return
+    case "$1" in
+      --libs) printf '%s' ' -lspirv-cross-msl -lspirv-cross-hlsl -lspirv-cross-glsl -lspirv-cross-reflect -lspirv-cross-cpp -lspirv-cross-core' ;;
+    esac
+  fi
+}
+
 NativeLink() {
+  nativeCrossLibs=$(SpirvCrossFlags --libs) || return
   case "$BUILD_PLATFORM" in
-    Darwin) printf '%s' "$(pkg-config --libs spirv-cross-c-shared) -framework Foundation -framework Metal" ;;
-    Linux) printf '%s' "$(pkg-config --libs vulkan spirv-cross-c-shared)" ;;
+    Darwin) printf '%s' "$nativeCrossLibs -framework Foundation -framework Metal" ;;
+    Linux)
+      nativeVulkanLibs=$(pkg-config --libs vulkan) || return
+      printf '%s' "$nativeVulkanLibs $nativeCrossLibs"
+      ;;
   esac
 }
+
+if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
+  NativeLink
+  exit $?
+fi
 
 BUILD=${TMPDIR:-/tmp}
 # the nest carries the checkout identity (board:1649): parallel checkouts get parallel
@@ -504,7 +524,7 @@ GroupIncludes() {
   case "$includeTier" in render) includeSet="$includeSet $(pkg-config --cflags sdl3-shadercross)" ;; esac
   case "$1" in
     src/render/device/native|src/render/device/native/*)
-      includeSet="$includeSet $(pkg-config --cflags spirv-cross-c-shared)"
+      includeSet="$includeSet $(SpirvCrossFlags --cflags)"
       case "$BUILD_PLATFORM" in Linux) includeSet="$includeSet $(pkg-config --cflags vulkan)" ;; esac
       ;;
     src/generators/flora|src/generators/flora/*) includeSet="$includeSet -Ibuild/generated" ;;

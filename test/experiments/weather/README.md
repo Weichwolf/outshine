@@ -36,8 +36,9 @@ klare Vorderluft bleibt vor absorbierenden Wolken erhalten.
 
 ## Reproduktion
 
-Erforderlich: NumPy, Pillow, C++23-Compiler, pkg-config, SPIRV-Cross-C und unter Linux
-Vulkan; der vorhandene gepinnte glslang-Compiler erzeugt SPIR-V. Alle privaten
+Erforderlich: NumPy, Pillow, C++23-Compiler, pkg-config und ein passendes reguläres
+`build/liboutshine.a` aus `make all`. Native Linkflags stammen aus dem Produktions-
+Build; der vorhandene gepinnte glslang-Compiler erzeugt SPIR-V. Alle privaten
 Ausgaben explizit ins System-Tempverzeichnis legen. CPU-Arbeit läuft mit nice10;
 Parallelität nach tatsächlichen Ressourcen wählen. GPU-Captures laufen mit normaler Priorität.
 
@@ -79,11 +80,15 @@ Uniform set2/binding0 werden über ihre tatsächlichen Werte gebunden; Workgroup
 nice -n 10 make build/cloud-native-probe
 ```
 
-Der Builder nutzt dieselbe `source_units`-Plattformauswahl wie der Produktionsbuild
-und kompiliert die ausgewählten nativen Backend-Units ohne SDL. Objective-C++ erhält
-ARC ausschließlich für `.mm`-Units; Darwin linkt Foundation/Metal, Linux Vulkan.
-Temporäre Objekte werden nach dem Link entfernt. Linux/Vulkan ist tatsächlich
-ausgeführt; der Darwin-Build dieses Verbrauchers ist noch nicht geprüft.
+Der Builder kompiliert nur die beiden fachlichen Verbraucher-Units und linkt das
+reguläre Enginearchiv. Er erzeugt keine zweite Backend-/ARC-/Quellenauswahl.
+`test/run.sh --native-link-flags` liefert dieselben nativen Linkflags wie der
+Produktionsbuild, einschließlich Homebrews statischem SPIRV-Cross-C-Paket.
+Temporäre Objekte werden nach dem Link entfernt. `CLOUD_PROBE_ARCHIVE` kann ein
+explizites eingefrorenes Archiv mit denselben nativen Headerverträgen auswählen.
+Linux/Vulkan ist tatsächlich ausgeführt; Master hat den stabilen Verbraucher
+0d561dc66 auf A18 Pro gegen das reguläre Metal-Archiv geprüft. Der korrigierte
+Builder benötigt noch dessen eigenen Darwin-Gegenlauf.
 Kanalzahl1 gehört zur optischen,4 zur RGB-Probe und muss zum Shader passen.
 
 Dispatch kopiert den Uniform sofort; Storage-Result und Readback bleiben bis zur

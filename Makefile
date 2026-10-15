@@ -109,8 +109,9 @@ build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) 
 	@mkdir -p $(@D)
 	@$(GLSLANG) $(GLSLANG_FLAGS) $< -o $@
 
-build/cloud-native-probe: test/experiments/weather/cloud_native_probe.cpp test/experiments/weather/build_cloud_probe.py test/scripts/source_units.py src/world/weather/CloudShell.cpp src/world/weather/CloudLayer.h src/render/stages/CloudLayerUniform.h $(shell find src/render/device/native -type f) include/math/Vec3.h include/math/Vec4.h
-	@cd $(SELF_DIR) && CXX="$(CXX)" python3 test/experiments/weather/build_cloud_probe.py --output "$@"
+CLOUD_PROBE_ARCHIVE ?= build/liboutshine.a
+build/cloud-native-probe: $(CLOUD_PROBE_ARCHIVE) test/experiments/weather/cloud_native_probe.cpp test/experiments/weather/build_cloud_probe.py test/run.sh src/world/weather/CloudShell.cpp src/world/weather/CloudLayer.h src/render/stages/CloudLayerUniform.h $(shell find src/render/device/native -type f) include/math/Vec3.h include/math/Vec4.h
+	@cd $(SELF_DIR) && CXX="$(CXX)" python3 test/experiments/weather/build_cloud_probe.py --archive "$(CLOUD_PROBE_ARCHIVE)" --output "$@"
 
 all: strip shaders ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
