@@ -77,6 +77,7 @@ def main():
             fontsize=9,
         )
         figure.tight_layout(rect=(0, 0.05, 1, 0.96))
+        figure.subplots_adjust(hspace=0.3)
         pdf.savefig(figure)
         plt.close(figure)
 
