@@ -77,7 +77,7 @@ void InvalidTransfers(Device &device, const Buffer &upload, Texture &image) {
   CHECK(!overflow && overflow.error().Kind == ErrorKind::Invalid, "overflowing pitch is rejected");
   invalid = Transfer();
   invalid.Region.Height = 1;
-  invalid.RowBytes = uint64_t{1} << 31u;
+  invalid.RowBytes = uint64_t{std::numeric_limits<int32_t>::max()} + 1;
   const auto nativePitch = commands->Copy(upload, image, invalid);
   CHECK(!nativePitch && nativePitch.error().Kind == ErrorKind::Invalid,
         "a one-row pitch still obeys the Vulkan signed-31-bit row-byte limit");
