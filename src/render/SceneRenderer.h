@@ -990,6 +990,7 @@ private:
   };
 
   struct WorldCandidate : SceneStateCore {
+    WorldCandidate();
     std::optional<FrameResources> Frame;
   };
 

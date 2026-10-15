@@ -33,6 +33,8 @@
 
 namespace outshine::Render {
 
+SceneRenderer::WorldCandidate::WorldCandidate() = default;
+
 void SceneRenderer::SetContentSelection(const ContentSelection &selection) {
   auto &content = ActiveState().Content;
   content.Subjects.Ground().SetDrawEnabled(selection.HeightLattice);
