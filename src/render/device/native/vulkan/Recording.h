@@ -3,7 +3,7 @@
 
 #ifdef __linux__
 #include "Buffer.h"
-#include "Image.h"
+#include "VulkanImage.h"
 #include "Pipeline.h"
 #include <memory>
 #include <span>

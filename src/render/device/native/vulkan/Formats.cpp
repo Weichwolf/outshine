@@ -1,5 +1,5 @@
 #ifdef __linux__
-#include "Image.h"
+#include "VulkanImage.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
