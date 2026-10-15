@@ -71,7 +71,7 @@ vectorized CPU observation at nice10, not a fair shader/device cost ranking.
 There is no GPU-time, temporal-stability, A18 or lit-Place result here.
 
 ```sh
-PYTHONPATH=lib/src python3 test/experiments/render/facade_coating.py --output build/experiments/render/facade-coating-278 --plot
+PYTHONPATH=lib/src python3 test/experiments/render/facade_coating.py --output /tmp/outshine-material-facade-coating-278 --plot
 ```
 
 Use the reference library's declared Python dependencies. This mathematical
@@ -79,6 +79,7 @@ path requires NumPy; importing the package also requires Shapely. `--plot`
 additionally needs Matplotlib and produces standalone PNG/SVG. The checked run
 used a private system-site-packages environment with Shapely/Matplotlib installed
 in system temp. No dependency or downloaded code is vendored in the repository.
+Outputs require an explicit system-temp path; repository output is rejected.
 Reports identify source hashes. Compressed arrays retain actual cases,
 candidate values and refinement selections for inspection; normal tests do not
 regenerate output pins. Optional plotting is an experiment artifact, not a

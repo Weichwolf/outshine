@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import time
+import tempfile
 
 import numpy as np
 
@@ -106,6 +107,9 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--plot', action='store_true')
     args = parser.parse_args()
+    args.output = args.output.resolve()
+    if args.output.is_relative_to(ROOT) or not args.output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
+        parser.error('use a directory in system temp')
     args.output.mkdir(parents=True, exist_ok=True)
     at, dx, dy = controls()
     paths = [ROOT / 'src/content/shade/FacadeProfiles.inc', ROOT / 'src/generators/building/BuildingMaterials.h']
