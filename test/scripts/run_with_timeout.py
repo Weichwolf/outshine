@@ -27,6 +27,10 @@ def signal_group(group, number):
         return True
     except ProcessLookupError:
         return False
+    except PermissionError:
+        if number == 0:
+            return True
+        raise
 
 
 def clean_group(process, grace):
