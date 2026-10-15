@@ -1,6 +1,6 @@
 #include "MetalShader.h"
 
-#include "../../../src/render/device/native/metal/MetalShader.h"
+#include "src/render/device/native/metal/MetalShader.h"
 #include <fstream>
 
 std::expected<MetalShader, std::string> TranslateMetal(const char *path) {
