@@ -961,3 +961,6 @@ werden nicht dargestellt. Der Standard ohne `--height-products` bleibt eben.
 
 Aktueller eingefrorener Vergleich, Grenzen, Kosten und Bildbelege:
 [camera_height_comparison.md](camera_height_comparison.md).
+
+Bibliotheksübernahme und aktuelle Source-/Wheel-/Kosten-/Bildprüfung:
+[weighted_height_library_comparison.md](weighted_height_library_comparison.md).
