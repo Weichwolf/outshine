@@ -440,6 +440,11 @@ open at [#174](https://github.com/Weichwolf/outshine/issues/174), #31/#32/#33/#4
 The public showcase retains exactly four complete current source tiles and its
 manual refresh. Invisible far furniture is not generated for those views.
 
+`inspect_render_exposure.py <render-report.json> --exposure 8` derives a private
+display inspection from the stored linear denoised radiance. Its provenance
+retains the original tracing commit and pixel buffers; the explicitly changed
+exposure does not alter geometry, lights or the fixed day/night comparison.
+
 ```sh
 .venv/bin/python -W error test/experiments/buildings/verify_furniture_controls.py
 .venv/bin/python -W error test/experiments/buildings/verify_furniture.py
