@@ -113,6 +113,8 @@ def project(mesh, row, parameters, fractions, axis_m, floor_m):
 
 class FacadeDetails:
     def __init__(self, rows, view):
+        from tile_facade_bands import BandDetails
+
         self.base = OrdinaryDetails(rows, view)
         self.palette = {}
         self.bindings = {}
@@ -121,6 +123,7 @@ class FacadeDetails:
         self.view = view
         self.recesses = []
         self.recess_rejected = []
+        self.bands = BandDetails(rows)
 
     def __call__(self, row, parameters, material):
         before = self.base(row, parameters, material)
@@ -169,6 +172,9 @@ class FacadeDetails:
             )
             self.recesses.extend(details)
             self.recess_rejected.extend(rejected)
+            projected = self.bands(
+                projected, row, parameters, facades, self.view, material, family
+            )
             record = {
                 "id": row["id"],
                 "family": family,
@@ -210,5 +216,7 @@ class FacadeDetails:
             "families": dict(Counter(r["family"] for r in self.completed)),
             "recesses": self.recesses,
             "recess_rejected": self.recess_rejected,
-            "scope": "Context-scoped facades and bounded demanded recesses, zero completed architecture families; existing constructed room controls untouched",
+            "bands": self.bands.completed,
+            "band_rejected": self.bands.rejected,
+            "scope": "Context-scoped facades, bounded demanded recesses and neighbor-free profile bands; zero completed architecture families; existing constructed room controls untouched",
         }
