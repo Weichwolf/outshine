@@ -38,7 +38,7 @@ def providers(root):
 def subjects(camera, definitions, *, vector_radius_m, terrain_radius_m):
     vectors = covering_tiles(
         camera.latitude_deg, camera.longitude_deg, vector_radius_m, 14
-    )
+    ) + covering_tiles(camera.latitude_deg, camera.longitude_deg, terrain_radius_m, 8)
     elevations = {
         tile
         for zoom, radius in (
@@ -53,19 +53,18 @@ def subjects(camera, definitions, *, vector_radius_m, terrain_radius_m):
     # Real MVT buffer counterexample from #205: keep neighbouring DEM parents.
     elevations.update(
         (11, (x // 8 + dx) % (1 << 11), y // 8 + dy)
-        for _, x, y in vectors
+        for zoom, x, y in vectors
+        if zoom == 14
         for dx in (-1, 0, 1)
         for dy in (-1, 0, 1)
         if 0 <= y // 8 + dy < (1 << 11)
     )
-    if camera.samples_height:
-        elevations.update(
-            tile
-            for zoom in range(12, 18)
-            for tile in covering_tiles(
-                camera.latitude_deg, camera.longitude_deg, 0, zoom
-            )
-        )
+    # Absolute cameras also need fine terrain to verify that the eye is above it.
+    elevations.update(
+        tile
+        for zoom in range(12, 18)
+        for tile in covering_tiles(camera.latitude_deg, camera.longitude_deg, 0, zoom)
+    )
     return tuple(
         (
             kind,

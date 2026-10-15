@@ -41,3 +41,32 @@ host are not assumed to be available. Current state and missing images belong
 in #208. Private data, reference comparisons and intermediate images stay in
 system temp. Only the four current final PNGs are published; visibly improved
 results replace them after opening and comparing, without a history gallery.
+
+`place_inputs.py` selects explicit native provider URLs through that shared
+kernel. Raw responses and receipts stay under an explicitly supplied temporary
+directory. Fine DEM requests at every camera verify eye clearance even for
+absolute camera heights. Initial vector coverage is 3 km at z14; coarse z8 water
+and DEM extend to a declared 120 km terrain request window. Finest actual zoom
+may be lower than requested. These windows do not prove complete 240 km world
+coverage. An explicitly supplied Buildings receipt set can be reused without
+copying or modifying its sources.
+
+`render_place.py` composes actual curved DEM, source water and initial planting
+sites from landcover. The rendered terrain mesh supplies the plant contacts
+through the shared `SurfaceSampler`; fine camera terrain is retained. Source
+buildings/water and nominal road buffers exclude sites. Final predecessor
+reservations and reusable Buildings scene context still need binding. The
+current catalog supplies one generic broadleaf architecture and experimental
+parent-grown *Picea abies*, not a botanical identification of all source areas.
+Complete cached angular products supply separate camera/sun views without
+regenerating organs. Astral binds the sun to the actual fixed clock. This is an
+initial Python image composition, without botanical/LOD/native admission.
+
+Three independent scene controls check upward curved terrain and camera
+clearance, source-site exclusion/stability under camera rotation, and a water
+hole that must remain uncovered. Run `place_scene_checks` alongside the five
+camera controls. Heavy actual renders run one at a time under the shared host
+lock from a clean frozen worktree. `publish_places.py` checks all four actual
+camera/lens reports, source hashes and historical implementation snapshots
+before copying the manually opened/reviewed PNGs. A successful publisher is
+not an optical-quality verdict; visible improvement remains the update rule.
