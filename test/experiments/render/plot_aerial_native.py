@@ -56,7 +56,7 @@ def main():
             ),
             interpolation="nearest",
         )
-        axes[row, 0].set_ylabel(label, fontsize=8)
+        axes[row, 0].set_title(label, fontsize=8, loc="left")
         for axis in axes[row]:
             axis.set_xticks([])
             axis.set_yticks([])
@@ -67,7 +67,8 @@ def main():
             "Absolute linear RGB error x10000",
         )
     ):
-        axes[0, column].set_title(title, fontsize=10)
+        case = SELECTION[0][1] if column == 0 else ""
+        axes[0, column].set_title(f"{title}\n{case}", fontsize=9, loc="left")
     figure.suptitle(
         "Finite aerial raster control: actual scene/depth, half LUTs, "
         "linear RGBA32F output\nDisplay encoding only; no Place/image-quality "
