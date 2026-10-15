@@ -1,4 +1,4 @@
-"""Fresh 3D gallery of the verified bridge/approach/tunnel research, in its whole source window."""
+"""Fresh 3D gallery of the verified bridge/approach/tunnel research, in a single regional view."""
 
 import argparse
 import json
