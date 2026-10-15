@@ -53,7 +53,7 @@ void main() {
     float scale = groundPalette[at + 2u];
     float field =
         scale > 0.0
-            ? groundLitterField(probe.PointDx.xy, abs(probe.PointDx.zw) + abs(probe.Dy), scale)
+            ? groundLitterFootprintField(probe.PointDx.xy, probe.PointDx.zw, probe.Dy, scale)
             : 0.0;
     results[index] = Result(vec4(field, 0.0, 0.0, 0.0), vec4(0.0));
   } else {
