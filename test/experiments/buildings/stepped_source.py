@@ -131,7 +131,8 @@ def exterior(plan, wall_material, inspect_layers=False):
     material = complete.mesh["materials"].copy()
     xyz = points[faces]
     normal = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
-    material[(complete.source_indices < len(declared)) & (normal[:, 2] > 0)] = 9
+    upward = normal[:, 2] > 0.5 * np.linalg.norm(normal, axis=1)
+    material[(complete.source_indices < len(declared)) & upward] = 9
     mesh = dict(vertices=points, faces=faces, materials=material)
     mesh = corner_buffers(mesh, wall_material)
     return mesh, envelope, complete, "prism-union"

@@ -143,6 +143,11 @@ def run(output, sites, repeats):
                 continue
             metrics = geometry(plan, envelope)
             complete = complete_geometry(plan, guard)
+            normals = outer["normals"][outer["faces"]].mean(axis=1)
+            if np.any((outer["materials"] == 9) & (normals[:, 2] < 0.5)):
+                raise ValueError(
+                    "Stepped wall was assigned roof material by a near-zero upward normal"
+                )
             spaces = connected_spaces(plan)
             patched, opening_records = opening_patches(plan, outer, 32768)
             if [r["id"] for r in opening_records] != [r["id"] for r in slots(plan)]:
