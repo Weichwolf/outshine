@@ -1,4 +1,4 @@
-"""Fresh 3D gallery of the verified bridge/approach/tunnel research, with two details."""
+"""Fresh 3D gallery of the verified bridge/approach/tunnel research, in its whole source window."""
 
 import argparse
 import json
@@ -17,7 +17,6 @@ from surface_solid_checks import audit_closed
 from surface_solid_showcase import inspection_view
 from transport_place_inputs import GIRTH_M, mercator
 from tunnel_portal_experiment import complete, source_usage
-from tunnel_portal_showcase import assembled
 from whole_tile_showcase import COLOURS, tile_frame
 
 HERE = Path(__file__).resolve().parent
@@ -138,47 +137,8 @@ def build(reference, capture, output):
     frames = tile_frame(regions(raw), float(solid.vertices[:, 2].min() - 2))
     whole, colours = combined([(solid, slots), frames])
     views = {
-        "whole": render(
-            "Wien-whole", whole, colours, output, [1280, 720], (-0.3, -1, 0.85)
-        )
+        "whole": render("Wien", whole, colours, output, [1280, 720], (-0.3, -1, 0.85))
     }
-    bridge, bridge_slots = assembled(
-        model, previous, region=shapely.box(3720, -95, 3900, 85)
-    )
-    views["bridge"] = render(
-        "Wien-bridge", bridge, bridge_slots, output, [384, 216], (-0.3, -1, 0.45)
-    )
-    field_origin, axis, _table = model["field"]
-    portal = field_origin + axis * note["field"]["roof_start_m"]
-    tunnel, tunnel_slots = assembled(
-        model,
-        previous,
-        region=shapely.box(*(portal - [65, 35]), *(portal + [65, 35])),
-        cutaway=True,
-    )
-    views["portal"] = render(
-        "Wien-portal", tunnel, tunnel_slots, output, [384, 216], (0.8, -0.8, 0.6)
-    )
-    from PIL import Image, ImageDraw, ImageFont
-
-    with Image.open(output / "Wien-whole.png") as source:
-        image = source.convert("RGB")
-    for name, position in (("bridge", (888, 8)), ("portal", (888, 496))):
-        with Image.open(output / ("Wien-" + name + ".png")) as detail:
-            image.paste(detail.convert("RGB"), position)
-        x, y = position
-        ImageDraw.Draw(image).rectangle(
-            (x - 1, y - 1, x + 384, y + 216), outline=(100, 110, 110)
-        )
-        draw = ImageDraw.Draw(image)
-        draw.rectangle((x, y, x + 383, y + 22), fill=(244, 245, 242))
-        draw.text(
-            (x + 6, y + 3),
-            "Brücke" if name == "bridge" else "Tunnel · Schnitt",
-            font=ImageFont.load_default(size=14),
-            fill=(45, 55, 55),
-        )
-    image.save(output / "Wien.png")
     receipt = {
         "fixture_sha256": PIN,
         "previous": origin,
@@ -190,7 +150,7 @@ def build(reference, capture, output):
         "image_sha256": digest(output / "Wien.png"),
         "seconds": time.perf_counter() - began,
         "manual_review_required": True,
-        "scope": "Fresh unchanged Python bridge/approach/tunnel research in its real three source tiles. Insets are actual 3D closeups; portal uses the existing explicit lining/terrain cutaway. No height exaggeration or native screenshot. Complete common terrain/other tile traffic, piers, train routing and native integration remain open.",
+        "scope": "Fresh unchanged Python bridge/approach/tunnel research in its real three source tiles. Whole view only, without insets or display cuts. No height exaggeration or native screenshot. Complete common terrain/other tile traffic, piers, train routing and native integration remain open.",
     }
     (output / "Wien-research.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(

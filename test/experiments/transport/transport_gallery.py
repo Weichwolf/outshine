@@ -146,19 +146,6 @@ def render_case(case, args, rails, stages, spec):
             args.logs,
         )
     )
-    stages.append(
-        run(
-            "detail-" + name,
-            python(
-                "transport_gallery_detail.py",
-                "--products",
-                args.output,
-                "--place",
-                name,
-            ),
-            args.logs,
-        )
-    )
     with Image.open(args.output / (name + ".png")) as image:
         if image.format != "PNG" or list(image.size) != spec["profile"]:
             raise ValueError("fresh full gallery image required")

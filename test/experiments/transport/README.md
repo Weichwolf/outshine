@@ -56,8 +56,7 @@ Attribute aus dem versionierten OpenFreeMap-Snapshot sowie DEM-Receipts.
 gewichteten Höhenkerne auf. Wien verwendet die bereits geprüften echten
 Brücken-/C1-Zufahrts-/Portalrezepte aus #21 mit ihren drei vollständigen
 Quellkacheln; aktuelle Neuberechnung, alte Kontakte und ganze Freiräume werden
-nochmals geprüft. Zwei kleine tatsächliche 3D-Detailansichten im selben Wiener
-Bild zeigen Brücke und den ausdrücklich geschnittenen Tunnelinnenraum.
+nochmals geprüft. Keine Nahansichten, Einblendungen oder zusätzlichen Bilddateien in der Galerie.
 `ground_layout` ergänzt bei den anderen Orten den konformen Boden statt
 sichtbarer Himmelslöcher unter dem Netz. Ganze Gradientenkegel und vollständige
 Gleiskontakte werden aus den gespeicherten Meshes unabhängig erneut geprüft.
