@@ -7,17 +7,14 @@ import time
 from pathlib import Path
 
 import numpy as np
-import shapely
 from camera_height_inputs import digest
 from capture_tunnel_portals import FIXTURE, PIN, base_surfaces
-from ground_surface_showcase import combined
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler, vertical_clearance
 from surface_solid_checks import audit_closed
 from surface_solid_showcase import inspection_view
-from transport_place_inputs import GIRTH_M, mercator
 from tunnel_portal_experiment import complete, source_usage
-from whole_tile_showcase import COLOURS, tile_frame
+from whole_tile_showcase import COLOURS
 
 HERE = Path(__file__).resolve().parent
 
@@ -47,25 +44,6 @@ def replay(model, previous, note):
     }
 
 
-def regions(raw):
-    result = []
-    origin = raw["origin_lat_lon"]
-    for receipt in raw["receipts"]:
-        if digest(Path(receipt["path"])) != receipt["sha256"]:
-            raise ValueError("research source bytes changed")
-        z, x, y = receipt["tile"]
-        span = GIRTH_M / (1 << z)
-        xy = np.array(
-            [
-                [tx * span - GIRTH_M / 2, GIRTH_M / 2 - ty * span]
-                for tx, ty in ((x, y + 1), (x + 1, y + 1), (x + 1, y), (x, y))
-            ]
-        )
-        xy = (xy - mercator(*origin)) * np.cos(np.radians(origin[0]))
-        result.append(shapely.Polygon(xy))
-    return result
-
-
 def render(name, mesh, slots, output, profile, direction):
     path = output / (name + ".npz")
     np.savez_compressed(
@@ -73,6 +51,21 @@ def render(name, mesh, slots, output, profile, direction):
     )
     view = inspection_view(mesh.vertices, eye_direction=direction)
     view["profile"] = profile
+    case = next(
+        r
+        for r in json.loads((HERE / "reference/transport-gallery.json").read_text())[
+            "cases"
+        ]
+        if r["id"] == name
+    )
+    if "focus_xy_m" in case:
+        focus = np.r_[case["focus_xy_m"], float(np.median(mesh.vertices[:, 2]))]
+        view.update(
+            eye=(focus + np.asarray(direction) * case["span_m"]).tolist(),
+            target=focus.tolist(),
+            span_m=case["span_m"],
+            detail_view=True,
+        )
     row = {
         "id": name,
         "mesh": str(path),
@@ -134,10 +127,11 @@ def build(reference, capture, output):
         )
     if raw["origin_lat_lon"] != fixture["origin_lat_lon"]:
         raise ValueError("research and captured source frame differ")
-    frames = tile_frame(regions(raw), float(solid.vertices[:, 2].min() - 2))
-    whole, colours = combined([(solid, slots), frames])
+    for receipt in raw["receipts"]:
+        if digest(Path(receipt["path"])) != receipt["sha256"]:
+            raise ValueError("research source bytes changed")
     views = {
-        "whole": render("Wien", whole, colours, output, [1280, 720], (-0.3, -1, 0.85))
+        "regional": render("Wien", solid, slots, output, [1280, 720], (-0.3, -1, 0.45))
     }
     receipt = {
         "fixture_sha256": PIN,
@@ -150,7 +144,7 @@ def build(reference, capture, output):
         "image_sha256": digest(output / "Wien.png"),
         "seconds": time.perf_counter() - began,
         "manual_review_required": True,
-        "scope": "Fresh unchanged Python bridge/approach/tunnel research in its real three source tiles. Whole view only, without insets or display cuts. No height exaggeration or native screenshot. Complete common terrain/other tile traffic, piers, train routing and native integration remain open.",
+        "scope": "Fresh unchanged Python bridge/approach/tunnel research in its real three source tiles. Single regional camera, without insets, guides or display cuts. No height exaggeration or native screenshot. Complete common terrain/other tile traffic, piers, train routing and native integration remain open.",
     }
     (output / "Wien-research.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(
@@ -167,6 +161,9 @@ def main():
     parser.add_argument("--capture", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    if (args.output / "Wien.png").exists():
+        parser.error("fresh Vienna image output required")
     build(args.reference_root, args.capture, args.output)
 
 
