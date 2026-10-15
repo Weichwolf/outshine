@@ -1,0 +1,65 @@
+# Directed rock pixel footprints
+
+Owner: #370 / #6 / #189. The existing three noise fields and catalogue material
+values are retained. Baseline source: 1a1d1d885 (ground shaders also identical to
+archived a56f3e3be). SIGGRAPH2009 Sparse Gabor Noise, section5.2/Figure6/page6 was
+read optically: mapping derivatives precede spectral filtering. This experiment
+uses existing cubic value-noise, not Gabor convolution.
+
+The old shader applies a global longest world footprint, with a1.04 bound for
+transformed fields. The first alternative transforms both derivatives but keeps
+the worst-case signal-gradient bound. It improves albedo while barely improving
+normals. The selected alternative additionally uses local phase increments
+`dot(noiseGradient, mappedDx/Dy)` and uniform-pixel variance `(dx²+dy²)/12` for the
+existing Gaussian crevice profile. This is a local Gaussian approximation, not
+exact integration of arbitrary nonlinear noise or a BRDF.
+
+The field helper now tests its transformed squared footprint before noise work.
+Unresolved fields return zero. Near fields avoid the visibility square root.
+At most24 corner hashes remain; some pixels now correctly retain fields that the
+old bound discarded. The global rockDetail footprint parameter is removed from
+its only production caller. rockCrevice now takes explicit phase variance;
+visibility and invalid wavelengths belong to the field sampler. No GPU binding,
+block/asset layout, palette, source classification, lighting or geometry change.
+The independent Gaussian primitive test retains its numerical thresholds and
+extends to1,345 checks over both phase axes. Disabled/unresolved cases move to
+actual field-level GPU checks, where visibility is now decided.
+
+## Reproduction
+
+Use Python with NumPy, Matplotlib and outshine_ref; glslang, Vulkan validation,
+and the existing NativeGroundLitterProbe consumer linked to a matching native
+archive/header closure. Its public timestamp option comes from PR368/#336.
+All outputs must be explicit system-temp paths.
+
+```sh
+PYTHONPATH=lib/src python test/experiments/render/rock_footprint.py \
+  --output /tmp/outshine-rock-reference
+PYTHONPATH=lib/src python test/experiments/render/rock_footprint_native.py \
+  --binary /tmp/native-material --baseline-checkout /tmp/old-rock-checkout \
+  --output /tmp/outshine-rock-native --profile
+```
+
+CPU comparison:86 cases, including long/sheared pixels, lattice critical points,
+translation across critical points and swapped pixel axes. Point-material
+integration doubles its grid from32 through at most512, requiring successive
+nominal RGB change<=1e-5 and world-gradient change<=1e-4. These are numerical
+convergence checks, not a rigorous global quadrature bound.
+
+The initial86-case CPU cohort reduces normal error RMS from1.9083 to0.5553degrees,
+maximum8.3251 to1.7097degrees. Some individual cases still worsen. Transformed
+footprints alone give1.8835degrees RMS. Normals resolve the integrated gradient;
+this does not establish filtered normal variance or integrated radiance.
+
+The native comparison uses the unchanged versioned14-row native palette input,
+its exact float32 metric records, and the actual old/current production functions
+in addition to both private alternatives. Catalogue nominal RGB in the CPU study
+and already attenuated native RGB are distinguished. Scalar parity must stay
+below2e-4 and normal parity below0.05degrees. Current native differences are far
+smaller; source/output hashes and final measured costs belong to the delivery PR.
+
+Native component evidence is not a Place or full-world frame proof. Identical
+public-client before/after images, motion, device costs and integration checks
+remain required before accepting the production change. Master owns published
+Places and Metal/A18 counterchecks. The declared global limestone assumption is
+unchanged and is a separate issue from this filtering comparison.
