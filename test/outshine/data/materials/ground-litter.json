@@ -1,0 +1,23 @@
+{
+  "kind": "Native component input; not an output oracle or world asset cache",
+  "encoding": "little-endian IEEE754 binary32",
+  "bytes": 1276,
+  "sha256": "059da3be6ad5787c4e89a77dbe92482dd300e6ab4b50fb7def4aa5c69e5a78f5",
+  "float_count": 319,
+  "rows": 14,
+  "rock_row": 6,
+  "layer_offset_floats": 199,
+  "unmapped_row": 13,
+  "producer_commit": "c0f5053944160a6ea47d464eda9cd5f03db6f889",
+  "producer_function": "outshine::Render::GroundMaterialPalette",
+  "fallback": [
+    0.11,
+    0.22,
+    0.33,
+    0.9
+  ],
+  "recipe_sha256": {
+    "src/assets/world/ground-materials.json": "8d98fc709485870de6c8d61af160c1337424ef00994a512a5dda43173c88a658",
+    "src/assets/world/vegetation.json": "016c0fb56f819327c6c225fda06bfa362f0fa579f6cb14230b4f75955b886adf"
+  }
+}
