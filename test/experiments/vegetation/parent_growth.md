@@ -66,7 +66,9 @@ and the installed `DistancePattern`, with a continuous tapered length profile.
 These proposed layouts do not yet define production IDs. The original alternative
 must reproduce the installed needle counts and physical-area result exactly.
 An independent three-parent case also checks the proposed relative lengths and
-7/5/3 physical attachment counts. All ten small checks pass.
+7/5/3 physical attachment counts. Eleven small checks pass, including independent
+policy refusal when the fixed counts exceed the same budget and a single fixed
+child per physical parent. Refusal of one policy does not suppress other policies.
 
 | Policy | Spruce area (m²) | Pine area (m²) |
 |---|---:|---:|
@@ -83,6 +85,37 @@ plausible bounded branching architecture before an equal-quality cost decision.
 Alpha or needle-size changes cannot conceal that missing area. Detailed length
 quantiles and input hashes remain under
 `build/experiments/vegetation/parent-growth-area/`.
+
+Increasing only the terminal sibling count also fails in the two measured
+variant-1 candidates. The largest count within the existing 1..64 family and
+65,536-axis limit is 23 for spruce and 64 for pine. Their relative-length results
+are 105.65/186.20 m² at 63,601/31,225 axes, still below the original area.
+These candidates change only that count in the input JSON and run through the
+same probe; recipes and reports are in its `candidates/` directory. This is a
+counterexample to that proposed repair, not a global impossibility or optimum.
+
+Redistributing the counts gives a feasible area candidate: 201 nominal secondary
+sites with physical spacing and one fixed following child per secondary axis.
+The fixed single child keeps the full nominal parent-relative ratio rather than
+applying a profile intended to taper a series of siblings. In spruce variant 1,
+this gives 52,811 actual axes, 70,990 physical windows and 203.87094 m² against
+204.14069 m² requested: 0.13214% error. Needle shapes, sizes, physical spacings and
+the original primary order remain unchanged. Both existing budgets hold. The
+equivalent absolute/fixed-count proposals exceed the axis budget and refuse.
+This ledger does not prove attachment geometry, a botanical crown or equal image
+quality. The next step is a matching executable parent-growth form and its image.
+
+```sh
+OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/vegetation \
+  .venv/bin/python -W error test/experiments/vegetation/parent_growth_candidate.py \
+  --recipe build/experiments/vegetation/mature-density-c82c10616/recipes/picea-abies-1.json \
+  --species picea-abies --secondary 201 --terminal 1 --target-area 204.14069063026471 \
+  --output build/experiments/vegetation/parent-growth-area/candidate-201-1
+```
+
+The stored v4 JSON is explicitly probe input, not a production recipe with the
+new length/count semantics. The proposal report carries the chosen policy,
+physical-area result and budgets; no production identity has been assigned.
 
 ## Primary source and scope
 

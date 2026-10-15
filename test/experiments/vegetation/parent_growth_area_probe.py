@@ -7,10 +7,15 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-from mature_density import MAX_AXES, needle_areas
+from mature_density import MAX_AXES, WINDOW_SETTINGS, needle_areas
 from outshine_ref.vegetation import DistancePattern, NeedledPlant, Profile
+from outshine_ref.vegetation.needle_windows import capacities
 
 MODES = ("absolute-fixed", "relative-fixed", "relative-distance")
+
+
+class AxisBudgetExceeded(ValueError):
+    pass
 
 
 def length_orders(wood, mode):
@@ -19,12 +24,16 @@ def length_orders(wood, mode):
     orders = [np.array([wood.levels[0].length_at(0)])]
     for depth, level in enumerate(wood.levels[1:], 1):
         previous = orders[-1]
+        remaining = MAX_AXES - sum(len(order) for order in orders)
+        fixed = depth == 1 or mode != "relative-distance" or level.branches == 1
+        if fixed and len(previous) * level.branches > remaining:
+            raise AxisBudgetExceeded("complete axis count exceeds the mature budget")
         if depth == 1 or mode == "absolute-fixed":
             lengths = np.tile(
                 [level.length_at(slot) for slot in range(level.branches)],
                 len(previous),
             )
-        elif mode == "relative-fixed":
+        elif mode == "relative-fixed" or level.branches == 1:
             local = np.array([level.length_at(slot) for slot in range(level.branches)])
             lengths = (
                 previous[:, None] * local / wood.levels[depth - 1].length
@@ -44,19 +53,53 @@ def length_orders(wood, mode):
                 spacing=Profile(np.full(4, spacing)), limit_groups=level.branches
             )
             table = pattern.tables(
-                previous, level.first, level.last, max_sites=MAX_AXES
+                previous, level.first, level.last, max_sites=remaining
             )
             if table is None:
-                raise ValueError("physical child placement exceeds the axis budget")
+                raise AxisBudgetExceeded(
+                    "physical child placement exceeds the axis budget"
+                )
             parameters = np.concatenate([rows[:, 0] for rows in table])
             parents = np.repeat(np.arange(len(previous)), [len(rows) for rows in table])
             fraction = (parameters - level.first) / (level.last - level.first)
             shape = 1 + (level.tip_scale - 1) * fraction
             lengths = previous[parents] * level.length / parent_length * shape
         if sum(len(order) for order in orders) + len(lengths) > MAX_AXES:
-            raise ValueError("complete axis count exceeds the existing mature budget")
+            raise AxisBudgetExceeded("complete axis count exceeds the mature budget")
         orders.append(lengths)
     return orders
+
+
+def measure(plant, areas, mode):
+    lengths = length_orders(plant.wood, mode)
+    counts, windows = [], 0
+    groups = capacities(plant, **WINDOW_SETTINGS)
+    for order, pattern, capacity in zip(lengths, plant.patterns, groups, strict=True):
+        local = [pattern.count(float(length)) for length in order] if pattern else []
+        counts.append(sum(local))
+        if local:
+            size = capacity * pattern.group_size
+            windows += sum((count + size - 1) // size for count in local)
+    total, first = 0.0, 0
+    for count, pattern in zip(counts, plant.patterns, strict=True):
+        cycles, remainder = divmod(count, len(areas))
+        variants = np.full(len(areas), cycles, dtype=np.int64)
+        for index in range(remainder):
+            variants[(first + plant.wood.seed + index) % len(areas)] += 1
+        variance = pattern.scale_variation**2 / 3 if pattern else 0
+        total += float(variants @ areas) * (1 + variance)
+        first += count
+    return {
+        "mode": mode,
+        "status": "measured",
+        "axis_counts": [len(order) for order in lengths],
+        "needle_counts": counts,
+        "windows": windows,
+        "expected_area_m2": total,
+        "length_min_median_max_m": [
+            np.quantile(order, (0, 0.5, 1)).tolist() for order in lengths
+        ],
+    }
 
 
 def probe(recipe, species):
@@ -64,33 +107,20 @@ def probe(recipe, species):
     areas, hashes = needle_areas(species)
     rows = []
     for mode in MODES:
-        lengths = length_orders(plant.wood, mode)
-        counts = [
-            sum(pattern.count(float(length)) for length in order) if pattern else 0
-            for order, pattern in zip(lengths, plant.patterns, strict=True)
-        ]
-        total, first = 0.0, 0
-        for count, pattern in zip(counts, plant.patterns, strict=True):
-            cycles, remainder = divmod(count, len(areas))
-            variants = np.full(len(areas), cycles, dtype=np.int64)
-            for index in range(remainder):
-                variants[(first + plant.wood.seed + index) % len(areas)] += 1
-            variance = pattern.scale_variation**2 / 3 if pattern else 0
-            total += float(variants @ areas) * (1 + variance)
-            first += count
-        row = {
-            "mode": mode,
-            "axis_counts": [len(order) for order in lengths],
-            "needle_counts": counts,
-            "expected_area_m2": total,
-            "length_min_median_max_m": [
-                np.quantile(order, (0, 0.5, 1)).tolist() for order in lengths
-            ],
-        }
+        try:
+            row = measure(plant, areas, mode)
+        except AxisBudgetExceeded as error:
+            rows.append(
+                {"mode": mode, "status": "budget-refused", "reason": str(error)}
+            )
+            continue
         if mode == "absolute-fixed":
             expected = plant.area_summary(areas)
-            assert tuple(counts) == plant.needle_counts
-            np.testing.assert_allclose(total, expected["expected_area_m2"], rtol=1e-14)
+            assert tuple(row["needle_counts"]) == plant.needle_counts
+            assert row["windows"] == plant.window_summary(**WINDOW_SETTINGS)["windows"]
+            np.testing.assert_allclose(
+                row["expected_area_m2"], expected["expected_area_m2"], rtol=1e-14
+            )
         rows.append(row)
     assert not plant.wood._axes
     return {
@@ -109,7 +139,8 @@ def probe(recipe, species):
         "implementation_sha256": hashlib.sha256(
             Path(__file__).read_bytes()
         ).hexdigest(),
-        "scope": "analytic count/length alternatives; baseline checked against installed area kernel; relative modes are proposed layouts, not production IDs or botanical/visual approval; no axes or organs created",
+        "absolute_baseline_checked": rows[0]["status"] == "measured",
+        "scope": "analytic count/length alternatives; each feasible absolute baseline checked against installed count/area/window kernels; relative modes are proposed layouts, not production IDs or botanical/visual approval; no axes or organs created",
         "alternatives": rows,
     }
 

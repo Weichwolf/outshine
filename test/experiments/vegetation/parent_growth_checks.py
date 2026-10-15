@@ -10,7 +10,7 @@ import numpy as np
 from generator_graph import GeneratorGraph
 from generator_specs import Generator, Placement, TubeShape
 from outshine_ref.vegetation import AxisLevel, PlantPlan, Profile
-from parent_growth_area_probe import length_orders
+from parent_growth_area_probe import AxisBudgetExceeded, length_orders
 from parent_growth_graph import ParentGrowthGraph
 from parent_growth_models import control_nodes
 
@@ -20,6 +20,32 @@ def graph(ratio=0.5):
 
 
 class ParentGrowthTests(unittest.TestCase):
+    def test_single_child_policy_and_independent_mode_budget_refusal(self):
+        wood = PlantPlan(
+            17,
+            (
+                AxisLevel(1, 2, 0.02, 0.01),
+                AxisLevel(3, 1.5, 0.003, 0.001, tip_scale=1 / 3),
+                AxisLevel(7, 0.75, 0.0002, 0.0001, tip_scale=1, first=0.1, last=0.9),
+            ),
+            (),
+        )
+        with patch("parent_growth_area_probe.MAX_AXES", 21):
+            for mode in ("absolute-fixed", "relative-fixed"):
+                with self.assertRaises(AxisBudgetExceeded):
+                    length_orders(wood, mode)
+            self.assertEqual(
+                sum(map(len, length_orders(wood, "relative-distance"))), 19
+            )
+        single = replace(
+            wood, levels=(*wood.levels[:2], replace(wood.levels[2], branches=1))
+        )
+        np.testing.assert_allclose(
+            length_orders(single, "relative-distance")[2], (0.75, 0.5, 0.25)
+        )
+        self.assertFalse(wood._axes)
+        self.assertFalse(single._axes)
+
     def test_length_count_probe_matches_the_independent_three_parent_control(self):
         wood = PlantPlan(
             17,
