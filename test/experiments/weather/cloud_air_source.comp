@@ -21,6 +21,12 @@
 #ifndef SOURCE_FIELD_STATE
 #define SOURCE_FIELD_STATE SOURCE_VISIBILITY_OUTPUT
 #endif
+#ifndef SOURCE_LINEAR_DEPTH
+#define SOURCE_LINEAR_DEPTH 0
+#endif
+#if SOURCE_LINEAR_DEPTH && (SOURCE_VISIBILITY_OUTPUT || SOURCE_CLOUD_MODE != 0)
+#error Linear depth control requires the direct source and SSBO transfer output
+#endif
 #ifndef SOURCE_WIND_EAST_M
 #define SOURCE_WIND_EAST_M 256.34352
 #endif
@@ -104,6 +110,9 @@ float sourceWeatherGrid(AirRay ray, uint index) {
 #define AIR_SOURCE_PROVIDER sourceWeatherAir
 #include "cloud_air_prefix.glsl"
 
+#if SOURCE_LINEAR_DEPTH
+#include "cloud_air_depth_source.glsl"
+#else
 void main() {
   uint index = gl_GlobalInvocationID.x;
   if (index >= uint(from.rays.length())) { return; }
@@ -162,3 +171,5 @@ void main() {
 #endif
   }
 }
+
+#endif
