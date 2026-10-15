@@ -11,4 +11,8 @@ mediumSunVisible(MEDIUM_ARG medium, MediumLook point, float groundLiftKm) SUN_NO
   return projection * projection < heightKm * (radiusKm + medium.BottomRadiusKm);
 }
 
+MEDIUM_INLINE bool mediumPhysicalSunVisible(MEDIUM_ARG medium, MediumLook point) SUN_NOEXCEPT {
+  return mediumSunVisible(medium, point, 0.0f);
+}
+
 #endif

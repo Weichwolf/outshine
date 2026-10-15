@@ -22,7 +22,12 @@ vec3 clearSunUnoccludedTransfer(Medium medium, MediumLook point, sampler2D veil)
   return value;
 }
 
-vec3 clearSunTransfer(Medium medium, MediumLook point, sampler2D veil) {
+vec3 clearSunPhysicalTransfer(Medium medium, MediumLook point, sampler2D veil) {
+  if (!mediumPhysicalSunVisible(medium, point)) { return vec3(0.0); }
+  return clearSunUnoccludedTransfer(medium, point, veil);
+}
+
+vec3 clearSunLegacyTransfer(Medium medium, MediumLook point, sampler2D veil) {
   if (!mediumSunVisible(medium, point, kMediumGroundLiftKm)) { return vec3(0.0); }
   return clearSunUnoccludedTransfer(medium, point, veil);
 }
