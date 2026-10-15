@@ -137,6 +137,13 @@ class SparseLP:
             )
         )
 
+    def seed_box(self, gradient, margin):
+        for begin in range(0, gradient.shape[0], 4096):
+            block = self.work.matrix(gradient[begin : begin + 4096], copied_values=True)
+            lower = self.work.array(np.full(block.shape[0], -margin))
+            upper = self.work.array(np.full(block.shape[0], margin))
+            self.add(block, lower, upper)
+
     def solve(self, remaining, iterations):
         check_status(
             self.highs.setOptionValue("time_limit", self.highs.getRunTime() + remaining)

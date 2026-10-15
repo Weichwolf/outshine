@@ -102,8 +102,8 @@ def validate_problem(
 
 
 def inspect_iterate(values, status, height, gradient, equality, shifted, margin, work):
-    if not status.endswith("kOptimal"):
-        raise CutLimit("delayed_lp_subproblem_not_solved")
+    if status.rsplit(".", 1)[-1] not in ("kOptimal", "kTimeLimit", "kIterationLimit"):
+        raise CutLimit("delayed_lp_subproblem_failed")
     if values is None or not np.isfinite(values).all():
         raise CutLimit("delayed_lp_no_finite_iterate")
     coefficients = values[:-1]
@@ -116,6 +116,7 @@ def inspect_iterate(values, status, height, gradient, equality, shifted, margin,
     checked, note = validated_candidate(
         coefficients, {}, height, gradient, equality, shifted, margin
     )
+    note["lp_epigraph_rho_m"] = float(values[-1])
     work.gradient_nonzeros_visited += 2 * gradient.nnz
     work.full_cones_checked += 2 * len(norms)
     work.height_nonzeros_visited += height.nnz
@@ -177,9 +178,13 @@ def fit_delayed(
         model = SparseLP(
             height, equality, shifted, solver, work, max_nonzeros, retained
         )
+        model.seed_box(rows, margin)
+        report["initial_outer_relaxation"] = (
+            "All paired gradient coordinates bounded by +/-margin; imported in 4096-row blocks."
+        )
         report["setup_ms"] = (time.perf_counter() - began) * 1000
         for step in range(max_iterations):
-            remaining = seconds - (time.perf_counter() - began)
+            remaining = seconds - report["solver_ms"] / 1000
             left = max_iterations - report["iterations"]
             if remaining <= 0 or left <= 0:
                 raise CutLimit("delayed_lp_time_or_iteration_budget")
