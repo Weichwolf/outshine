@@ -30,7 +30,7 @@ class Assembly:
             uv = np.column_stack(((parameter[:, 1] + 1) / 2, parameter[:, 0]))
         else:
             uv = np.zeros((len(v), 2))
-        uv = uv[f.ravel()]
+        uv = mesh["corner_uv"] if "corner_uv" in mesh else uv[f.ravel()]
         self.parts.append(
             {
                 "vertices": vertices.reshape(-1, 3),
