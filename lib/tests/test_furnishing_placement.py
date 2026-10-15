@@ -12,6 +12,39 @@ STORAGE = Furnishing("storage", 1.05, 0.4, 1.55, 0.75)
 
 
 class PlacementControls(unittest.TestCase):
+    def test_motion_reservation_excludes_activity_without_blocking_transit(self):
+        room = shapely.box(0, 0, 8, 6)
+        item = placed(STORAGE, [4.0, 2.0], [1.0, 0.0], "motion-item")
+        activity_only = shapely.box(3.6, 2.5, 4.4, 2.8)
+        self.assertFalse(item["footprint"].intersects(activity_only))
+        access(room, [(0.5, 3.0)], [item])
+        with self.assertRaisesRegex(ValueError, "reserved movement"):
+            access(room, [(0.5, 3.0)], [item], placement_reserved=(activity_only,))
+        transit = shapely.box(2.0, 2.5, 2.4, 3.5)
+        result = access(room, [(0.5, 3.0)], [item], placement_reserved=(transit,))
+        self.assertTrue(any(path.intersects(transit) for path in result["paths"]))
+
+    def test_reserved_motion_is_respected_before_complete_or_partial_placement(self):
+        room = shapely.box(0, 0, 8, 6)
+        reserved = shapely.box(2.0, 0.0, 5.0, 2.0)
+        args = (room, [(0.5, 3.0)], (DESK, STORAGE), "motion-layout")
+        result = layout(*args, placement_reserved=(reserved,))
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(len(result["items"]), 2)
+        for item in result["items"]:
+            for field in ("footprint", "activity"):
+                self.assertLessEqual(item[field].intersection(reserved).area, 1e-9)
+        blocked = layout(*args, placement_reserved=(room,))
+        self.assertEqual(blocked["status"], "incomplete")
+        self.assertEqual(blocked["items"], ())
+        self.assertEqual(blocked["missing"], (DESK.kind, STORAGE.kind))
+
+    def test_motion_reservations_reject_invalid_geometry_and_excess_capacity(self):
+        room = shapely.box(0, 0, 8, 6)
+        for regions in ((shapely.Point(1, 1),), (room,) * 17):
+            with self.assertRaises(ValueError):
+                access(room, [(0.5, 3.0)], [], placement_reserved=regions)
+
     def test_access_report_owns_portal_and_activity_coordinates(self):
         room = shapely.box(0, 0, 8, 6)
         portal = np.array([0.5, 3.0])
