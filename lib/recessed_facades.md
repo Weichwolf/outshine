@@ -41,6 +41,15 @@ Projected recess demand is a geometry criterion, not a radiance, shadow or night
 lighting error bound. Material/lighting continuity across detail transitions and
 native admission remain unproved.
 
+The city consumer bounds the actual fixed inward displacement in camera space.
+For point `q=(x,y,z)`, displacement `d` and focal length `f`, the projected delta is
+`f*(d.xy*z-q.xy*d.z)/(z*(z+d.z))`. The numerator norm is convex over a clipped
+facade, so its maximum is bounded by the polygon corners. Camera movement of
+radius `m` adds at most `m*length(d)` to that numerator. The positive denominator
+is bounded below at `z_min-m`; crossing the camera plane retains detail.
+This tightens direction-independent demand at the same 0.5-pixel geometry budget;
+it does not turn that budget into a material/radiance bound.
+
 The source derives from the former `facade_geometry.py` prototype. References:
 [CGA Shape, SIGGRAPH 2006](../doc/references/buildings/siggraph/2006-procedural-modeling-of-buildings.pdf),
 the external local Candler `WindowOpening`/negative-extrusion rule and pinned

@@ -8,6 +8,21 @@ from outshine_ref.buildings.facades import FacadeRepeat
 from outshine_ref.buildings.recessed_facades import RecessPlan, recess_surface
 
 
+def recess_error(points, normal, view, depth=0.18):
+    coordinates = (points - view.eye) @ view.basis.T
+    displacement = (-depth * normal) @ view.basis.T
+    nearest = float(coordinates[:, 2].min()) - view.movement_m
+    if nearest <= 0 or nearest + displacement[2] <= 0:
+        return float("inf")
+    numerator = (
+        displacement[:2] * coordinates[:, 2:3] - coordinates[:, :2] * displacement[2]
+    )
+    maximum = np.linalg.norm(
+        numerator, axis=1
+    ).max() + view.movement_m * np.linalg.norm(displacement)
+    return float(view.focal_px * maximum / (nearest * (nearest + displacement[2])))
+
+
 def demand(frame, bottom, view, depth=0.18):
     a, b = np.asarray(frame["a"]), np.asarray(frame["b"])
     tangent = (b - a) / frame["width_m"]
@@ -26,15 +41,7 @@ def demand(frame, bottom, view, depth=0.18):
     visible = clip(points, view)
     if len(visible) < 3:
         return None
-    minimum = (
-        ((visible - view.eye) @ view.basis.T)[:, 2].min() - view.movement_m - depth
-    )
-    factor = np.sqrt(
-        1
-        + (view.width / (2 * view.focal_px)) ** 2
-        + (view.height / (2 * view.focal_px)) ** 2
-    )
-    error = view.focal_px * depth * factor / max(minimum, 0.1)
+    error = recess_error(visible, normal, view, depth)
     return (normal, tangent, float(error)) if error > view.detail_error_px else None
 
 

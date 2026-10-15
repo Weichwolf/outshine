@@ -8,7 +8,7 @@ import numpy as np
 import shapely
 from demand import View
 from provider_contract import attributes
-from tile_facade_recess import attach
+from tile_facade_recess import attach, recess_error
 from tile_facades import project
 from tile_roof_envelopes import choose
 from verify_roof_envelopes import case
@@ -37,6 +37,69 @@ def camera(frame, distance):
 
 
 class RecessConsumers(unittest.TestCase):
+    def test_directional_error_bounds_dense_independent_projections_and_movement(self):
+        corners = np.array(
+            [[0.0, 0.0, 0.0], [12.0, 0.0, 0.0], [12.0, 0.0, 9.0], [0.0, 0.0, 9.0]]
+        )
+        normal = np.array([0.0, -1.0, 0.0])
+        x, z = np.meshgrid(np.linspace(0, 12, 21), np.linspace(0, 9, 21))
+        points = np.c_[x.ravel(), np.zeros(x.size), z.ravel()]
+        rng = np.random.default_rng(318)
+        moves = rng.normal(size=(128, 3))
+        moves *= 0.4 / np.linalg.norm(moves, axis=1, keepdims=True)
+        for eye in ([6.0, -25.0, 4.5], [25.0, -9.0, 6.0], [4.0, -30.0, 20.0]):
+            view = View(
+                np.array(eye),
+                np.array([6.0, 0.0, 4.5]),
+                width=1920,
+                height=1080,
+                fov_deg=48,
+                movement_m=0.4,
+            )
+            bound = recess_error(corners, normal, view)
+            for move in moves:
+                original = (points - view.eye - move) @ view.basis.T
+                recessed = (points - 0.18 * normal - view.eye - move) @ view.basis.T
+                before = original[:, :2] / original[:, 2:3] * view.focal_px
+                after = recessed[:, :2] / recessed[:, 2:3] * view.focal_px
+                self.assertLessEqual(
+                    float(np.linalg.norm(after - before, axis=1).max()), bound + 1e-10
+                )
+
+    def test_front_on_projection_avoids_unnecessary_geometry_without_changing_budget(
+        self,
+    ):
+        corners = np.array(
+            [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [4.0, 0.0, 4.0], [0.0, 0.0, 4.0]]
+        )
+        view = View(
+            np.array([2.0, -100.0, 2.0]),
+            np.array([2.0, 0.0, 2.0]),
+            width=1920,
+            height=1080,
+            fov_deg=48,
+        )
+        bound = recess_error(corners, np.array([0.0, -1.0, 0.0]), view)
+        old = (
+            view.focal_px
+            * 0.18
+            * np.sqrt(
+                1
+                + (view.width / (2 * view.focal_px)) ** 2
+                + (view.height / (2 * view.focal_px)) ** 2
+            )
+            / (100 - 0.18)
+        )
+        self.assertLess(bound, view.detail_error_px)
+        self.assertGreater(old, view.detail_error_px)
+        self.assertLess(bound, old / 10)
+        crossing = View(
+            np.array([2.0, -0.1, 2.0]), np.array([2.0, 0.0, 2.0]), movement_m=0.2
+        )
+        self.assertTrue(
+            np.isinf(recess_error(corners, np.array([0.0, -1.0, 0.0]), crossing))
+        )
+
     def test_actual_sources_near_recesses_stay_inside_footprint_and_source_heights(
         self,
     ):
