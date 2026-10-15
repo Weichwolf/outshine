@@ -16,6 +16,13 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
+Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
+integriert die kubische Übergangsmaske im eindimensionalen Normalen-Footprint; beide Seiten
+teilen komplementäre Gewichte. Keine Geometrie-/Klassenänderung und keine exakte Integration
+gekrümmter Ränder oder beliebig orientierter quadratischer Pixel. #173 besitzt die native
+Übernahme samt räumlichen Hinweisen und Bild-/Kostenprüfung.
+
 Alle Produkte verwenden denselben benannten rechtshändigen lokalen Rahmen:
 X Ost, Y Nord, Z oben, Meter. Geometrien sind XY; Höhenintervalle beziehen sich auf
 denselben lokalen Z-Ursprung. Die Quellaufbereitung bindet Projektion und Datum vor
