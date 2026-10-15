@@ -114,6 +114,7 @@ def project(mesh, row, parameters, fractions, axis_m, floor_m):
 class FacadeDetails:
     def __init__(self, rows, view, *, door_states=None):
         from facade_entrances import EntranceDetails
+        from facade_shopfronts import ShopfrontDetails
         from tile_facade_bands import BandDetails
 
         self.base = OrdinaryDetails(rows, view)
@@ -127,6 +128,8 @@ class FacadeDetails:
         self.bands = BandDetails(rows)
         self.entrances = EntranceDetails(self.bands.rows, self.bands.tree, door_states)
         self.entrance_geometry = []
+        self.shopfronts = ShopfrontDetails(self.entrances)
+        self.shopfront_geometry = []
 
     def __call__(self, row, parameters, material):
         before = self.base(row, parameters, material)
@@ -162,6 +165,7 @@ class FacadeDetails:
             identifier = self.binding(material, fractions)
             projected["materials"][selected] = identifier
             entry = self.entrances.plan(row, parameters, facades, family)
+            shopfront = self.shopfronts.plan(row, entry)
             from tile_facade_recess import attach as recesses
 
             projected, details, rejected = recesses(
@@ -174,10 +178,17 @@ class FacadeDetails:
                 identifier,
                 plain_wall_material=material,
                 entrance=entry,
+                shopfront=shopfront,
+                shop_material=lambda fractions: self.binding(material, fractions),
             )
-            self.recesses.extend(r for r in details if r.get("kind") != "entrance")
+            self.recesses.extend(
+                r for r in details if r.get("kind") not in ("entrance", "shopfront")
+            )
             self.entrance_geometry.extend(
                 r for r in details if r.get("kind") == "entrance"
+            )
+            self.shopfront_geometry.extend(
+                r for r in details if r.get("kind") == "shopfront"
             )
             self.recess_rejected.extend(rejected)
             projected = self.bands(
@@ -207,6 +218,7 @@ class FacadeDetails:
                 "facade_origin": recipe["origin"],
                 "facade_plan": facades,
                 "entrance_plan": self.entrances.planned[-1] if entry else None,
+                "shopfront_plan": self.shopfronts.planned[-1] if shopfront else None,
                 "functional_status": "Exterior facade placeholder, source use unproven; actual rooms remain separate unresolved programme",
             }
         except ValueError as error:
@@ -237,5 +249,8 @@ class FacadeDetails:
             "entrances": self.entrances.planned,
             "entrance_geometry": self.entrance_geometry,
             "entrance_rejected": self.entrances.rejected,
+            "shopfronts": self.shopfronts.planned,
+            "shopfront_geometry": self.shopfront_geometry,
+            "shopfront_rejected": self.shopfronts.rejected,
             "scope": "Context-scoped facades, bounded demanded recesses and neighbor-free profile bands; zero completed architecture families; existing constructed room controls untouched",
         }
