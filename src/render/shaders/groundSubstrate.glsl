@@ -35,18 +35,15 @@ vec3 substrateGrains(vec2 atM, float footprintM, float grainM, float heightM) {
               nearestOffset * slope);
 }
 
-GroundDetail substrateDetail(int which, vec2 atM, vec2 worldDx, vec2 worldDy, float footprintM, uint rows) {
-  uint row = groundSubstrateRow(which, rows);
-  uint at = 4u * (rows + 2u) + rows + 1u + row * 8u;
-  float coarseM = groundPalette[at + 2u];
-  float fineM = groundPalette[at + 3u];
-  float grainM = groundPalette[at];
+GroundDetail substrateDetail(vec4 recipe, float contrast, vec2 atM, vec2 worldDx, vec2 worldDy, float footprintM) {
+  float coarseM = recipe.z;
+  float fineM = recipe.w;
+  float grainM = recipe.x;
   float largestM = max(max(coarseM, fineM), grainM);
   if (coarseM <= 0.0 || fineM <= 0.0 || footprintM >= largestM * 0.8) {
     return GroundDetail(1.0, 0.0, vec2(0.0));
   }
-  float heightM = groundPalette[at + 1u];
-  float contrast = clamp(groundPalette[at + 4u], 0.0, 1.0);
+  float heightM = recipe.y;
   float coarse = substrateFiltered(atM, footprintM, coarseM).z;
   vec3 fine = substrateFiltered(atM, footprintM, fineM);
   vec3 grain = substrateGrains(atM, footprintM, grainM, heightM);

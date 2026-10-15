@@ -5,6 +5,7 @@
 #include <optional>
 #include "math/Units.h"
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <span>
 #include <string>

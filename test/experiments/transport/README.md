@@ -38,65 +38,84 @@ Gemeinsame räumliche Verträge stehen in [#18](https://github.com/Weichwolf/out
 Historische Berichte behalten ursprüngliche Pfade, Hashes und Messcommits nach der Verschiebung.
 Vor erneutem Anwenden hashgeprüfter Produkte die Nachweise unter den neuen Modulnamen regenerieren.
 
-## Lokaler Showcase
+## Vier feste Place-Aufnahmen
 
-Wie bei Buildings (8766) und Vegetation (8765) veröffentlicht der Transport-Showcase
-einen festen Bildstand. Port 8767 zeigt genau vier ganze Quellkacheln: Wien mit
-unabhängigem/gemeinsamem Boden vorher/nachher sowie die ebenen Netze von Tokyo
-und Central Park. Kurze Bildunterschriften, Bildlinks und manuelles Aktualisieren bilden die
-gesamte Oberfläche. Fehlende Nachweise bleiben sichtbar unvollständig.
+[doc/images/transport/](../../../doc/images/transport/) enthält genau vier eigene
+Python-Transportaufnahmen: Wien, Tokyo, Central Park und Feldkirch.
+[doc/images/places/](../../../doc/images/places/) und die zugehörigen versionierten
+Place-Szenarien liefern Orts-/Kamerareferenzen. Die Python-Bilder werden mit dem
+aktuellen geprüften Forschungsstand gerendert; native Bilder werden nicht kopiert.
+Die Kamera bleibt für Vorher/Nachher gleich. Aktualisiert wird nach geöffnetem
+Bildvergleich bei deutlich sichtbarer Verbesserung. Ein HTTP-Server ist entfallen.
+
+Private Renderergebnisse und Kamerabelege liegen außerhalb des Repositorys.
+Der Offline-Aufruf `transport_place_shots.py` erhält explizit den aktuellen
+Arbeitsstand, den geprüften Wiener Höhenplan, deklarierte DEM-Receipts und sein
+Ausgabeverzeichnis. Nur die vier abschließend geöffneten PNGs werden nach
+`doc/images/transport/` übernommen; Herkunft, Rezeptgrenzen und Kosten stehen im
+verlinkten Fach-Issue/PR. Besitzer: #209 unter #19.
+
+
+`capture_place_windows.py` wählt ganze MVT-Kacheln aus Kamera, horizontalem
+Blickfeld und 1600 m lokalem Bedarf. Die bestehende unveränderliche
+OpenFreeMap-Snapshot-URL bleibt erhalten. Alte Quellen/Attribute/IDs bleiben
+vorhanden. Wiens verifizierter Höhenplan wird unverändert reserviert; neue
+Quellen in seiner Nähe erhalten einen expliziten Reservierungsgrund. Die
+zusätzlichen lokalen Netze werden nicht als mit diesem Plan gekoppelt ausgegeben.
 
 ```sh
-"$TRANSPORT_PY" -m pip install numpy scipy 'shapely>=2.1' matplotlib pillow
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --render-tiles --serve
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_elevation.py --cache "$TRANSPORT_PLACE_SOURCES" --output "$TRANSPORT_CAMERA_ELEVATION"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_PLACE_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --retain-flat-release "$TRANSPORT_FLAT_RELEASE" --output "$TRANSPORT_CAMERA_INPUTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_CAMERA_INPUTS" --worker Vienna components
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --elevation-inventory "$TRANSPORT_CAMERA_ELEVATION" --output "$TRANSPORT_NEW_SHOTS"
 ```
 
-`whole_tile_showcase.py` verwendet hashgeprüfte Generatorprodukte aus den unten
-beschriebenen Boden- und Komponentenexperimenten. Das erste Bild zeigt ausdrücklich die
-bekannte frühere Überdeckung durch unabhängiges Gelände als Vorher-Diagnose;
-die anderen drei Bilder verwenden gültige Teilpläne. Die
-gespeicherten Eingaben/Produkte müssen zuvor vorhanden sein. Originale
-Erzeugungscommits bleiben im Bildreport erhalten; der Rendercommit steht in
-`origin.json`. Es wird keine erneute Generatorausführung vorgetäuscht.
-GEOS ist als Systembibliothek erforderlich (`libgeos-dev` unter Debian).
-Der Solver importiert die installierte Referenzbibliothek: bei vorhandenem `lib/`
-einmal `"$TRANSPORT_PY" -m pip install -e ./lib` ausführen.
-Private Bilder, Produkte und Messreports liegen im ausdrücklich gewählten externen
-Datenverzeichnis, hier `$TRANSPORT_WORK/whole-tiles/`; die veröffentlichte Website
-liegt hier unter `$TRANSPORT_WORK/showcase/site/`. `--data-root` ist beim Erzeugen
-oder Veröffentlichen erforderlich. Der Server erzeugt keine Geometrie bei Anfragen.
-Blender Workbench rendert frisch mit Fehler-Exitcode und prüft alle vier vollständigen
-1920×1080-PNGs. Kachelgrenzen kommen aus den gepinnten Quelldaten; Zuschnitte
-erhalten Flächendeckung und Vertexhöhen. Dünne Kachelrahmen sind Anzeigehilfen,
-kein Gelände. Es gibt keine Höhenübertreibung. Tokyo und Central Park verwenden
-das deklarierte Z=0-Rezept ohne DEM-Höhenfit. Nicht verwendete Quellen behalten
-ihre Gründe im ursprünglichen Plan.
+Die Variablen benennen ausdrücklich gewählte externe Pfade. Vor dem Rendern
+werden alle vier Komponenten-Worker isoliert ausgeführt und ihre Eingaben,
+kompletten Quellbilanzen und Produkte als `generation.json` hashgebunden.
+Wien behält sein angepasstes C0-Boden-/C1-Straßenprodukt; ergänzte Netze verwenden
+den expliziten ebenen Höhenbezug am lokalen DEM-Ursprung. Profil-/Ebenen- und
+Weltvollständigkeit bleiben unabhängig von diesen Kamerabildern zu prüfen.
+
+Central Park behält optional seine geprüfte ganze alte Kachel als separates
+Fenster. Der gemeinsame Drei-Kachel-Aufbau überschritt 60 CPU-Sekunden; die
+serielle Alternative lieferte nach ihrem 15-Sekunden-Vorbereitungsbudget keine
+Fläche. Die bestehende Kachel wird deshalb unverändert reserviert; zusätzliche
+Quellen außerhalb ihres 64-m-Schutzbereichs werden unabhängig geplant. Alle
+Quellen und Gründe bleiben erhalten, ohne behauptete Kopplung der Fenster.
+
+Der gemeinsame Eingang `outshine_ref.places` liest Kameras, prüft Quellbytes
+und dekodiert MVT/Terrarium. `capture_place_elevation.py` deklariert für relative
+Kameras z16 mit z15/z14-Eltern; `--fetch` erlaubt ausdrücklich fehlende neue
+Quellen. Ohne diesen Schalter bleibt der Aufruf offline. Gemeinsame Quellen
+liegen unter `<Cache>/mapterhorn/` beziehungsweise `<Cache>/openfreemap/`.
+Der Renderer hat keinen Netzwerkpfad und dokumentiert die tatsächlich benutzte
+DEM-Stufe. Absolute Kameraangaben benötigen keine künstliche Bodenhöhe.
+
+Die historischen Transportpläne bleiben im expliziten skalierten Mercator-Rahmen
+und behalten ihre verifizierten Höhen, Indizes und Quell-IDs. Nur die Darstellung
+übersetzt ihre Vertices über geographische Koordinaten nach WGS84-ENU des
+Szenarios. Kein Geoid-Ausgleich oder neuer Gradienten-/Kontaktbeleg daraus.
+`reference/place-sources.json` bindet die bisherigen starren Flachrezept-Datumswerte
+an ihre ursprünglichen groben DEM-Receipts; sie werden nicht durch feinere neue
+Kamerahöhen umgedeutet. Die historische Pixelzentrum-Interpolation in
+`capture_height_targets.py` bleibt ein ausdrücklich getrennter numerischer
+Vergleichsvertrag; Provider und Terrariumdecoder verwendet auch sie gemeinsam.
+Migration und Frame-/Bildbelege besitzt #225 unter #216.
+
+Ältere Verfahrensansichten bleiben als private Geometriekontrollen nutzbar:
 
 ```sh
-"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
-"$TRANSPORT_PY" test/experiments/transport/showcase.py --root "$TRANSPORT_WORK/showcase/site" --serve --host 0.0.0.0 --port 8767
-"$TRANSPORT_PY" -W error test/experiments/transport/showcase_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/whole_tile_showcase.py --data-root "$TRANSPORT_WORK"
 PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/whole_tile_checks.py
 ```
 
-`--catalog` wählt einen anderen Katalog mit genau vier Bildplätzen. Jeder Eintrag nennt Bild, Messreport und
-Erzeugungsnachweis relativ zu `--data-root`. Aufgelöste Pfade dürfen dieses
-Verzeichnis auch über Symlinks nicht verlassen. `origin.json` enthält den Erzeugungscommit,
-`working_tree_dirty` und unter `records` die SHA-256-Werte von Bild und Report,
-indiziert durch den Report-Dateinamen ohne Erweiterung. Nur übereinstimmende lesbare
-PNGs werden veröffentlicht. Synthetische Flächenprüfungen belegen keine glatten
-Fahrkurven, vollständige Befahrbarkeit, Höhen oder native Echtzeitqualität.
-Der ursprüngliche Serverauftrag steht in [#49](https://github.com/Weichwolf/outshine/issues/49),
-die minimale Gesamtansicht in [#135](https://github.com/Weichwolf/outshine/issues/135).
-
 Die Pfadbeispiele älterer Versuche unten dokumentieren die damalige Erzeugung.
-Ihre privaten Linux-Daten liegen jetzt außerhalb des Repositorys:
-Arbeitsstand `/var/tmp/outshine-transport-workspace-0241b3f81/`,
-referenzierte Belege `/var/tmp/outshine-transport-evidence-0241b3f81/`.
-Die frühere relative Wurzel `build/experiments/transport/` entfällt dort.
-Beim weiteren Ausbau erhalten diese Versuchsaufrufer explizite Ein-/Ausgabepfade.
-`endpoint_grade_render.py` nutzt dafür `--input`, `--output` und `--data-root`;
-die Quelldaten und ausgewählten festen Meshreferenzen bleiben voneinander getrennt.
+Ihre privaten Linux-Daten liegen außerhalb des Repositorys: Arbeitsstand
+`/var/tmp/outshine-transport-workspace-0241b3f81/`, referenzierte Belege
+`/var/tmp/outshine-transport-evidence-0241b3f81/`. Die frühere relative Wurzel
+`build/experiments/transport/` entfällt dort. Beim weiteren Ausbau erhalten diese
+Versuchsaufrufer explizite Ein-/Ausgabepfade.
 
 ## Geschlossene 3D-Körper und gespeicherte Wiener Quellkachel
 
@@ -110,12 +129,11 @@ Frische Worker messen sieben Aufbauzeiten und ihren vollständigen Peak-RSS.
 ```sh
 "$TRANSPORT_PY" -m pip install -r test/experiments/transport/requirements.txt
 "$TRANSPORT_PY" -m pip install -e ./lib
-"$TRANSPORT_PY" test/experiments/transport/capture_transport_tile.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_transport_tile.py --output "$TRANSPORT_WORK/inputs"
 "$TRANSPORT_PY" test/experiments/transport/transport_flat_network.py --input build/experiments/transport/inputs --output build/experiments/transport/flat-vienna Vienna
 "$TRANSPORT_PY" test/experiments/transport/transport_flat_surface_network.py --input build/experiments/transport/flat-vienna --output build/experiments/transport/surface-vienna-cuts --junction-mode cuts Vienna
 "$TRANSPORT_PY" test/experiments/transport/surface_solid_benchmark.py
 "$TRANSPORT_PY" test/experiments/transport/surface_solid_showcase.py
-"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
 ```
 
 Die Aufnahme liest ausschließlich die bereits gepinnte OpenFreeMap-Kachel aus dem
@@ -146,13 +164,12 @@ Grenzen; jede unsichere Richtung wird mit Face und Quell-ID festgehalten.
 
 ```sh
 "$TRANSPORT_PY" -m pip install -e './lib[transport]'
-"$TRANSPORT_PY" test/experiments/transport/capture_height_targets.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_height_targets.py --mesh "$TRANSPORT_WORK/surface-vienna-cuts/Vienna-flat-surfaces.npz" --input "$TRANSPORT_WORK/inputs/Vienna-input.json" --output "$TRANSPORT_WORK/heights"
 "$TRANSPORT_PY" test/experiments/transport/surface_height_frames.py
 "$TRANSPORT_PY" -W error test/experiments/transport/height_source_checks.py
 "$TRANSPORT_PY" -W error test/experiments/transport/surface_height_checks.py
 "$TRANSPORT_PY" test/experiments/transport/surface_height_benchmark.py
 "$TRANSPORT_PY" test/experiments/transport/surface_height_showcase.py
-"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
 ```
 
 Bei fehlendem DEM-Cache zuerst denselben Capture-Aufruf einmal mit `--fetch`:
@@ -189,7 +206,6 @@ Input-/Output-Coverage, vollständige Domain, Ränder und ganze Gradienten werde
 "$TRANSPORT_PY" -W error test/experiments/transport/ground_surface_experiment.py
 "$TRANSPORT_PY" -W error test/experiments/transport/surface_contact_benchmark.py
 "$TRANSPORT_PY" -W error test/experiments/transport/ground_surface_showcase.py
-"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
 ```
 
 Der Geometrievergleich nutzt optimierte Coverage-Union und allgemeine Union samt
@@ -723,7 +739,6 @@ Echtzeitqualität bleiben offen.
 PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/tunnel_portal_checks.py
 PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error test/experiments/transport/tunnel_portal_experiment.py
 PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/tunnel_portal_showcase.py
-PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/showcase.py --render-tiles
 ```
 
 `tunnel-portals/` unter `build/experiments/transport/` enthält Produkte,
@@ -814,7 +829,7 @@ PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error \
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
   "$TRANSPORT_PY" -W error test/experiments/transport/component_surface_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
-  "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py
+  "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_WORK/components"
 PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" \
   test/experiments/transport/component_surface_showcase.py
 PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" \

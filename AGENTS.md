@@ -89,6 +89,9 @@
   Bild, Kosten und Verträge und entscheide, ohne auf Lösungsvorschläge des Nutzers zu warten.
 - Kostenbestimmende Verfahren vergleiche ich zuerst in kleinen Python-Experimenten mit echten
   Eingaben und gleichen Qualitätsanforderungen; den Gewinner integriere und messe ich nativ.
+  Kostenbelege erfassen auch bearbeitete Elemente/Rechenschritte, Allokationen, kopierte Bytes und
+  Peak-Speicher, nicht nur Laufzeit/FPS. Hardwareübergreifende Arbeitsersparnis und tatsächliche
+  Gerätezeiten getrennt belegen; Speicherzugriffe und Lokalität gehören zum Kostenmodell.
   Beibehaltene Pfade brauchen Korrektheits-/Kostenbelege und Alternativenvergleich; globale
   Optimalität behaupte ich nur mit einer tatsächlich hergeleiteten Grenze.
 - Vor Arbeitsblöcken, nach Integration und bei Regressionen durchdenke ich den vollständigen
@@ -135,6 +138,10 @@
   RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
   1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
+- Transport rendert eigene Python-Aufnahmen von Wien, Tokyo, Central Park und Feldkirch nach
+  den festen Orts-/Kamerareferenzen in `doc/images/places/` und den Place-Szenarien.
+  Genau vier Referenz-PNGs liegen unter `doc/images/transport/`; bei deutlich sichtbaren
+  Verbesserungen nach tatsächlichem Vorher/Nachher-Bildvergleich aktualisieren. Kein Showcase-Server.
 - Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
@@ -206,8 +213,23 @@
   betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
   nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
-- Ein schwerer Lauf je physischem Host zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
-  detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
+- Native Fachagenten liefern Format, betroffene Tests und fokussiertes clang-tidy selbst;
+  der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
+  Ein zur Integration übergebener PR bleibt bis auf angeforderte Korrekturen stabil; neue Arbeit folgt separat.
+  Nach Übernahme von Master prüfen sie betroffene Übergänge. Vorhandene passende Belege wiederverwenden;
+  sporadische Gesamtläufe untereinander abstimmen, keine pauschalen Wiederholungen je Agent oder PR.
+  Ich bündele kompatible prüffertige PRs, reviewe ihre Änderungen und prüfe neue Wechselwirkungen,
+  Metal/A18 sowie betroffene Places. Gemessene A18-Engpässe gehen mit Szenario, Profil, Commit und
+  Kostenbeleg an `outshine_performance`; ich übernehme die Geräte-/Bildgegenprüfung.
+  Ein gemeinsamer Voll-Lint gilt dem eingefrorenen Integrationsstand;
+  Änderungen danach benötigen die davon betroffenen Prüfungen. Unabhängige Drafts halten das Paket nicht auf.
+- Agenten beurteilen parallele Läufe selbst anhand laufender Prozesse und verfügbarer Ressourcen;
+  keine globale Ein-Lauf-Sperre je Host. Ein unter Last bestandener Budgettest zählt für den gemessenen
+  Lastfall; Vergleichsläufe nennen ihren Lastzustand. Breite Prüfungen und aufwendige Renderexperimente
+  bevorzugt auf dem gemeinsamen Fachagentenrechner (Nutzerangabe: schnelle 6-Kern-CPU, 32 GB RAM,
+  RTX 3060), Metal-/A18-Abnahme auf dem Zielgerät.
+  Lange Gates auf eingefrorenem Commit im detached Worktree mit eigenem Build; Jobzahl nach Ressourcen.
+  Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
 - Im Repository liegt nur, was gemeinsam für Outshine gebraucht wird: Produktcode, Tests,
   wiederverwendbare Experimentquellen unter `test/experiments/`, feste Testeingaben, Dokumentation,
