@@ -3,12 +3,14 @@
 import dataclasses
 import json
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.supports import SupportBudget, SupportVolumeBuilder
+from outshine_ref.transport.supports._geometry import preflight_noding
 
 
 def grid(height):
@@ -132,6 +134,17 @@ class SupportAPI(unittest.TestCase):
                 product, note = self.build(budget)
                 self.assertIsNone(product)
                 self.assertIn(reason, note["reason"])
+
+    def test_crossing_segment_work_is_bounded_before_arrangement_emission(self):
+        lines = shapely.linestrings(
+            [[[x, -10], [x, 10]] for x in range(-9, 10)]
+            + [[[-10, y], [10, y]] for y in range(-9, 10)]
+        )
+        with patch.object(
+            shapely, "union_all", side_effect=AssertionError("noding must not run")
+        ):
+            with self.assertRaisesRegex(ValueError, "preflight segment budget"):
+                preflight_noding(lines, 100)
 
     def test_invalid_recipe_and_budget_are_errors(self):
         for options in (

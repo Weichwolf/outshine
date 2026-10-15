@@ -17,6 +17,7 @@ def edges(mesh):
 
 def arrangement(footprint, lower, upper, budget):
     lines = np.r_[edges(lower), edges(upper), [footprint.boundary]]
+    pair_candidates = preflight_noding(lines, budget.maximum_segments)
     noded = shapely.get_parts(shapely.union_all(lines))
     if len(noded) > budget.maximum_segments:
         raise ValueError("support contact arrangement segment budget")
@@ -43,7 +44,37 @@ def arrangement(footprint, lower, upper, budget):
         max_faces=budget.maximum_contact_faces,
         max_candidates=budget.maximum_interface_candidates,
     )
-    return xy, faces, {"noded_segments": len(noded), "conformance": conformance}
+    return (
+        xy,
+        faces,
+        {
+            "noded_segments": len(noded),
+            "noding_pair_candidates": pair_candidates,
+            "conformance": conformance,
+        },
+    )
+
+
+def preflight_noding(lines, maximum):
+    # Each segment pair can add at most two cuts to each participant. Count
+    # endpoint/collinear pairs conservatively before GEOS emits an arrangement.
+    lines = shapely.get_parts(lines)
+    count = int(np.sum(shapely.get_num_coordinates(lines)) - len(lines))
+    if count > maximum:
+        raise ValueError("support contact arrangement input segment budget")
+    parts = []
+    for line in lines:
+        xy = shapely.get_coordinates(line)
+        parts.append(shapely.linestrings(np.stack((xy[:-1], xy[1:]), axis=1)))
+    segments = np.concatenate(parts)
+    tree = shapely.STRtree(segments)
+    pairs = 0
+    for index, segment in enumerate(segments):
+        hits = tree.query(segment, predicate="intersects")
+        pairs += int(np.count_nonzero(hits > index))
+        if count + 4 * pairs > maximum:
+            raise ValueError("support contact arrangement preflight segment budget")
+    return pairs
 
 
 def heights(mesh, xy, budget):
