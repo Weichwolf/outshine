@@ -89,7 +89,6 @@ def execute(args):
         backend_scope="Experimental scoped replacement of _fit.fit_planes; unchanged public planner, finite quality, topology and contact checks.",
     )
     path.write_text(json.dumps(report, indent=2) + "\n")
-    (args.output / "backend-work.json").write_text(json.dumps(calls, indent=2) + "\n")
     return valid
 
 
