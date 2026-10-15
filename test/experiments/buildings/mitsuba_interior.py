@@ -19,6 +19,7 @@ from outshine_ref.buildings.modelling.material_schema import linear_to_srgb
 from denoise_reference import denoise
 from procedural_surface import panels
 from facade_surface import project
+from mitsuba_sampling import integrator as sampling_integrator
 
 
 def materials(config,prepared=None):
@@ -65,8 +66,7 @@ def render(config):
         prepared=panels(**options);data,surface=project(data,prepared[2]['tile_size_m'])
         surface.update(recipe=prepared[2],textures={texture.path:texture.sha256 for texture in prepared[1]})
     palette=materials(config,prepared);spp=config.get('spp',64);sensor,projection=camera(config,spp)
-    path_integrator=dict(type='path',max_depth=12,rr_depth=5)
-    integrator=dict(type='aov',aovs='albedo:albedo,normal:sh_normal',image=path_integrator) if config.get('denoise') else path_integrator
+    integrator=sampling_integrator(config,spp)
     scene_data=dict(type='scene',integrator=integrator,sensor=sensor,
                     sky=dict(type='constant',radiance=dict(type='rgb',value=[.35,.4,.48] if not config.get('night') else [.001,.002,.004])))
     if not config.get('night'):scene_data['sun']=dict(type='directional',direction=[-.4,-.5,-1.],irradiance=dict(type='rgb',value=[3.,2.8,2.5]))
@@ -92,7 +92,7 @@ def render(config):
         filter_log=Path(tempfile.gettempdir())/('outshine-buildings-'+output.stem+'-'+config['mesh_sha256'][:12]+'.oidn.log')
         pixels,filter_info=denoise(raw,layers['albedo'],layers['normal'],output.with_suffix(''),filter_log)
     mi.util.write_bitmap(str(output),pixels,write_async=False)
-    record=dict(renderer='Mitsuba '+mi.__version__,backend='LLVM CPU',threads=dr.thread_count(),profile=config['profile'],spp=spp,seed=config.get('seed',17),
+    record=dict(renderer='Mitsuba '+mi.__version__,backend='LLVM CPU',threads=dr.thread_count(),profile=config['profile'],spp=spp,samples_per_pass=config.get('samples_per_pass'),seed=config.get('seed',17),
         setup_seconds=setup_seconds,render_seconds=render_seconds,mesh_sha256=config['mesh_sha256'],projection=projection,bindings=bindings,surface=surface,
         included_source_triangles=sum(row['triangles'] for row in bindings),source_triangles=len(data['faces']),room_light_state=light_state,
         glass='closed dielectric with procedural IOR 1.52' if config.get('glass')!='hidden' else 'explicit no-glass control',

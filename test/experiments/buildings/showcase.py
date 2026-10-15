@@ -42,6 +42,11 @@ def publish(source, output):
             raise ValueError("Clean own Python render proof required")
         if report["commit"] != commits[name]:
             raise ValueError("Place report differs from its declared render snapshot")
+        if (
+            report.get("geometry_mesh_sha256", report["renderer"]["mesh_sha256"])
+            != report["renderer"]["mesh_sha256"]
+        ):
+            raise ValueError("Cached geometry differs from the actual renderer input")
         reference = read(name)
         view = reference.view(
             report.get("camera_ground_height_m"), tuple(report["profile"])
@@ -102,6 +107,10 @@ def publish(source, output):
                     "source_radius_m",
                     "limits",
                 )
+            }
+            | {
+                "geometry_commit": report.get("geometry_commit", report["commit"]),
+                "mesh_sha256": report["renderer"]["mesh_sha256"],
             }
             for name, _, report in prepared
         },
