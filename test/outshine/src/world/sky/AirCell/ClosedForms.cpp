@@ -7,6 +7,10 @@
 namespace {
 using namespace outshine::Test;
 using outshine::air_cell::airIntegrateCell;
+constexpr double kAbsoluteRadianceTolerance = 1e-12;
+constexpr double kRelativeRadianceTolerance = 3e-6;
+constexpr double kTransmittanceTolerance = 2e-7;
+constexpr double kSourceIdentityTolerance = 2e-6;
 
 void Homogeneous(outshine::AirCellInput cell) {
   const auto sample = airIntegrateCell(cell);
@@ -20,12 +24,12 @@ void Homogeneous(outshine::AirCellInput cell) {
         "thin, opaque and zero-extinction cells remain finite");
   CHECK_NEAR(sample.RadiancePerLux,
              expected,
-             std::max(1e-12, std::fabs(expected) * 3e-6),
+             std::max(kAbsoluteRadianceTolerance, std::fabs(expected) * kRelativeRadianceTolerance),
              "radiance/lux",
              "constant coefficients retain the closed-form transport including zero extinction");
   CHECK_NEAR(sample.Transmittance,
              std::exp(-depth),
-             2e-7,
+             kTransmittanceTolerance,
              "transmittance",
              "cell opacity agrees with Beer-Lambert transport");
 }
@@ -47,18 +51,19 @@ void ConstantSource(float width, float distance) {
                                 extinction[2] * unit * unit * unit / 3.0);
   CHECK_NEAR(sample.Transmittance,
              std::exp(-depth),
-             2e-7,
+             kTransmittanceTolerance,
              "transmittance",
              "positive quadratic extinction keeps its analytic column");
   CHECK_NEAR(sample.RadiancePerLux,
              -std::expm1(-depth) * source,
-             2e-6,
+             kSourceIdentityTolerance,
              "radiance/lux",
              "source-function identity is independent of optical thickness");
 }
 }
 
 int main() {
+  constexpr float kHomogeneousSource = 0.03f;
   for (const float width : {0.001f, 1.0f, 10.0f}) {
     for (const float fraction : {0.0f, 0.0001f, 0.01f, 0.25f, 0.75f, 1.0f}) {
       for (const float extinction : {0.0f, 1e-12f, 1e-8f, 0.001f, 0.1f, 1.0f, 100.0f}) {
@@ -67,9 +72,9 @@ int main() {
                      .ExtinctionA = extinction,
                      .ExtinctionB = extinction,
                      .ExtinctionC = extinction,
-                     .SourceA = 0.03f,
-                     .SourceB = 0.03f,
-                     .SourceC = 0.03f});
+                     .SourceA = kHomogeneousSource,
+                     .SourceB = kHomogeneousSource,
+                     .SourceC = kHomogeneousSource});
       }
       ConstantSource(width, width * fraction);
     }

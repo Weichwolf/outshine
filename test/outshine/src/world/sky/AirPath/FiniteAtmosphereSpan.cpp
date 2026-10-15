@@ -7,6 +7,8 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
+constexpr double kCosineTolerance = 1e-6;
+constexpr double kKilometresToMetres = 1000;
 
 struct Case {
   float RadiusKm;
@@ -17,8 +19,11 @@ struct Case {
 };
 
 void Verify(Case expected) {
-  const AirRay ray = {
-      expected.RadiusKm, expected.Cosine, 0.25f, expected.Cosine * 0.25f, expected.DistanceKm};
+  const AirRay ray = {.RadiusKm = expected.RadiusKm,
+                      .CosView = expected.Cosine,
+                      .CosSun = 0.25f,
+                      .ViewSun = expected.Cosine * 0.25f,
+                      .DistanceKm = expected.DistanceKm};
   const auto span = air_path::airPathSpan(kEarthAir, ray);
   constexpr double kMetreKm = 0.001;
   CHECK_NEAR(span.BeginKm, expected.BeginKm, kMetreKm, "km", "air entry is depth bounded");
@@ -37,8 +42,13 @@ void Verify(Case expected) {
         "the prefix starts inside its atmospheric domain");
   if (span.BeginKm > 0.0f) {
     CHECK(clipped.RadiusKm == kEarthAir.TopRadiusKm, "orbital air starts on the top shell");
-    CHECK_NEAR(clipped.CosView, -1.0, 1e-6, "cosine", "radial entry still points inward");
-    CHECK_NEAR(clipped.CosSun, ray.CosSun, 1e-6, "cosine", "radial entry retains solar zenith");
+    CHECK_NEAR(
+        clipped.CosView, -1.0, kCosineTolerance, "cosine", "radial entry still points inward");
+    CHECK_NEAR(clipped.CosSun,
+               ray.CosSun,
+               kCosineTolerance,
+               "cosine",
+               "radial entry retains solar zenith");
   }
 }
 
@@ -64,7 +74,7 @@ DoubleSpan Reference(AirRay ray) {
     const double hit = -projection - std::sqrt(groundDiscriminant);
     if (hit >= 0) { end = std::min(end, hit); }
   }
-  return end > start ? DoubleSpan{start, end} : DoubleSpan{};
+  return end > start ? DoubleSpan{.Begin = start, .End = end} : DoubleSpan{};
 }
 
 void SlantedRays() {
@@ -75,7 +85,11 @@ void SlantedRays() {
                              kEarthAir.TopRadiusKm + 1000}) {
     for (const float cosine : {-1.0f, -.99f, -.5f, -.1f, 0.0f, .5f, 1.0f}) {
       for (const float distance : {.001f, .25f, 2.0f, 50.0f, 200.0f, 3000.0f}) {
-        const AirRay ray = {radius, cosine, 0.25f, 0, distance};
+        const AirRay ray = {.RadiusKm = radius,
+                            .CosView = cosine,
+                            .CosSun = 0.25f,
+                            .ViewSun = 0,
+                            .DistanceKm = distance};
         const auto reference = Reference(ray);
         const auto span = air_path::airPathSpan(kEarthAir, ray);
         const double errorKm = std::max(std::fabs(span.BeginKm - reference.Begin),
@@ -94,7 +108,7 @@ void SlantedRays() {
       }
     }
   }
-  Note("maximum_entry_exit_error", maximumErrorKm * 1000, "m");
+  Note("maximum_entry_exit_error", maximumErrorKm * kKilometresToMetres, "m");
 }
 
 }
@@ -104,22 +118,23 @@ int main() {
   const float ground = kEarthAir.BottomRadiusKm;
   const float top = kEarthAir.TopRadiusKm;
   const std::array cases = {
-      Case{ground + 2, 1, 200, 0, 98},
-      Case{ground + 2, -1, 200, 0, 2},
-      Case{ground + 2, -1, 0.5f, 0, 0.5f},
-      Case{ground + 2, 0, 200, 0, 200},
-      Case{top + 1000, -1, 3000, 1000, 1100},
-      Case{top + 1000, -1, 500, 0, 0},
-      Case{top + 1000, 1, 3000, 0, 0},
-      Case{top + 1000, 0, 3000, 0, 0},
-      Case{ground, 1, 200, 0, 100},
-      Case{ground, -1, 200, 0, 0},
-      Case{ground, 0, 200, 0, 200},
-      Case{top, 1, 200, 0, 0},
-      Case{top, -1, 200, 0, 100},
-      Case{top, 0, 200, 0, 0},
-      Case{ground - 1, 1, 200, 0, 0},
-      Case{ground + 2, 1, 0, 0, 0},
+      Case{.RadiusKm = ground + 2, .Cosine = 1, .DistanceKm = 200, .BeginKm = 0, .EndKm = 98},
+      Case{.RadiusKm = ground + 2, .Cosine = -1, .DistanceKm = 200, .BeginKm = 0, .EndKm = 2},
+      Case{.RadiusKm = ground + 2, .Cosine = -1, .DistanceKm = 0.5f, .BeginKm = 0, .EndKm = 0.5f},
+      Case{.RadiusKm = ground + 2, .Cosine = 0, .DistanceKm = 200, .BeginKm = 0, .EndKm = 200},
+      Case{
+          .RadiusKm = top + 1000, .Cosine = -1, .DistanceKm = 3000, .BeginKm = 1000, .EndKm = 1100},
+      Case{.RadiusKm = top + 1000, .Cosine = -1, .DistanceKm = 500, .BeginKm = 0, .EndKm = 0},
+      Case{.RadiusKm = top + 1000, .Cosine = 1, .DistanceKm = 3000, .BeginKm = 0, .EndKm = 0},
+      Case{.RadiusKm = top + 1000, .Cosine = 0, .DistanceKm = 3000, .BeginKm = 0, .EndKm = 0},
+      Case{.RadiusKm = ground, .Cosine = 1, .DistanceKm = 200, .BeginKm = 0, .EndKm = 100},
+      Case{.RadiusKm = ground, .Cosine = -1, .DistanceKm = 200, .BeginKm = 0, .EndKm = 0},
+      Case{.RadiusKm = ground, .Cosine = 0, .DistanceKm = 200, .BeginKm = 0, .EndKm = 200},
+      Case{.RadiusKm = top, .Cosine = 1, .DistanceKm = 200, .BeginKm = 0, .EndKm = 0},
+      Case{.RadiusKm = top, .Cosine = -1, .DistanceKm = 200, .BeginKm = 0, .EndKm = 100},
+      Case{.RadiusKm = top, .Cosine = 0, .DistanceKm = 200, .BeginKm = 0, .EndKm = 0},
+      Case{.RadiusKm = ground - 1, .Cosine = 1, .DistanceKm = 200, .BeginKm = 0, .EndKm = 0},
+      Case{.RadiusKm = ground + 2, .Cosine = 1, .DistanceKm = 0, .BeginKm = 0, .EndKm = 0},
   };
   for (const auto &expected : cases) { Verify(expected); }
   SlantedRays();
