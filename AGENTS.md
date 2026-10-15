@@ -238,7 +238,12 @@
   Änderungen danach benötigen die davon betroffenen Prüfungen. Unabhängige Drafts halten das Paket nicht auf.
 - Agenten beurteilen parallele Läufe selbst anhand laufender Prozesse und verfügbarer Ressourcen;
   keine globale Ein-Lauf-Sperre je Host. Ein unter Last bestandener Budgettest zählt für den gemessenen
-  Lastfall; Vergleichsläufe nennen ihren Lastzustand. Breite Prüfungen und aufwendige Renderexperimente
+  Lastfall; Vergleichsläufe nennen ihren Lastzustand. CPU-lastige Builds, Lint und Gates laufen
+  neben interaktiver Arbeit oder Messungen mit `nice -n 10`; Messprozesse behalten normale Priorität.
+  Nice begrenzt weder RAM-/Speicherbandbreite noch GPU-Konkurrenz; Jobzahl nach Ressourcen wählen.
+  Im Entwicklungsloop entscheiden Trends vergleichbarer Szenarien; einzelne verrauschte Läufe
+  nicht ausermitteln. Wiederholungen/isolierte Gegenmessungen für größere Entscheidungen,
+  vermutete Regressionen und Geräteabnahme bündeln. Breite Prüfungen und aufwendige Renderexperimente
   bevorzugt auf dem gemeinsamen Fachagentenrechner (Nutzerangabe: schnelle 6-Kern-CPU, 32 GB RAM,
   RTX 3060), Metal-/A18-Abnahme auf dem Zielgerät.
   Lange Gates auf eingefrorenem Commit im detached Worktree mit eigenem Build; Jobzahl nach Ressourcen.
