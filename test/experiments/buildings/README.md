@@ -196,10 +196,10 @@ colours use recorded procedural neutral values while original properties remain.
 classified source dimensions. Proportions are procedural, fine type/blueprint and
 functional access remain unproven. Normal buildings remain supplied footprint prisms.
 
-`showcase_tiles.py` chooses a near view from source envelopes before emission,
+`showcase_tiles.py` fits every delivered building envelope from the complete tile before emission,
 retaining the complete tile scene. Front-facing radial products use a conservative
 minimum-depth 0.5-pixel error bound; behind-camera profiles stay complete at 0.25 m.
-Four 2560×1440 physical CPU renders use generated geometry and PBR materials.
+Four 3840×2160 physical CPU renders use generated geometry and PBR materials.
 `radial_probe.py` compares own and Trimesh construction with the same binding work,
 records the small-cap rejection and current-address-space Linux VmHWM. General
 primitive contracts and independent volume/area/topology tests belong to #136;
@@ -283,4 +283,35 @@ The public page continues to show exactly four complete source scenes.
 ```sh
 .venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py
 .venv/bin/python test/experiments/buildings/roof_envelope_plan.py
+```
+
+## Rooms below small source roofs
+
+`pitched_room_details.py` uses the same stable roof choice before planning
+storeys below the eave. It cuts declared room/door/window prisms from the closed
+roof envelope through `subtract_prisms`, then reuses the existing panes,
+metrical frames, entry landings and stairs. The complete source height, roof
+domain and logical room/opening IDs remain; attic space is currently unfitted.
+Failed room plans retain the complete roof envelope with a reason.
+
+The tile experiment adds at most sixteen visible small-body controls per tile,
+using the same industrial classification as the whole source builder. This is
+a prototype sampling bound, not an engine quota or native LOD admission.
+The larger established room controls remain unchanged. The private verifier
+checks analytical lower structure plus original upper triangles/boundary
+segments, independent body/roof composition, every planned height slab,
+actual window rays to their declared rooms, frames/panes, and the unchanged
+0.30 m radius/1.90 m height actor. Sealed entrances/windows and missing floors
+must fail. Invalid independent compositions retain their full rejection.
+
+All source and installed-wheel tests stay independent from native cache,
+controller, frame and device gates. The public page keeps exactly four current
+whole source scenes with every source envelope inside the image margins. Private
+near-control views retain readable opening/room proof independently of this overview. [#156](https://github.com/Weichwolf/outshine/issues/156) owns this
+roof/room connection; general use programmes and architecture families remain
+in #31/#32, general Shape Boolean semantics in #88.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_pitched_rooms.py
+.venv/bin/python test/experiments/buildings/pitched_room_plan.py
 ```

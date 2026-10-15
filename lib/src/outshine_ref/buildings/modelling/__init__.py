@@ -9,6 +9,7 @@ from .hip_inset import HipInset, prepare_hip_inset
 from .metadata import Material
 from .plan_split import split_plan
 from .prism_union import PrismUnion, PrismVolume, union_prisms
+from .prism_cut import PrismCut, subtract_prisms
 from .radial_profile import RadialProfile
 from .radial_mesh import RadialMesh, radial_mesh
 from .scope import Frame, Relative, Scope
@@ -29,3 +30,4 @@ __all__ += ["ExteriorChart", "extrapolate_chart", "partition_exterior_charts"]
 __all__ += ["PrismUnion", "PrismVolume", "union_prisms"]
 __all__ += ["RadialProfile", "RadialMesh", "radial_mesh"]
 __all__ += ["HeightfieldEnvelope", "heightfield_envelope"]
+__all__ += ["PrismCut", "subtract_prisms"]
