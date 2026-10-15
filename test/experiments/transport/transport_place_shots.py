@@ -288,24 +288,27 @@ def main():
     scene = prepare(args)
     if args.build_only:
         return
-    subprocess.run(
-        [
-            "blender",
-            "--background",
-            "--factory-startup",
-            "--threads",
-            "2",
-            "--python-exit-code",
-            "1",
-            "--python",
-            str(HERE / "render_transport_solid.py"),
-            "--",
-            str(scene),
-        ],
-        check=True,
-        cwd=ROOT,
-        timeout=180,
-    )
+    for row in json.loads(scene.read_text()):
+        selected = args.output / (row["id"] + "-scene.json")
+        selected.write_text(json.dumps([row], indent=2) + "\n")
+        subprocess.run(
+            [
+                "blender",
+                "--background",
+                "--factory-startup",
+                "--threads",
+                "2",
+                "--python-exit-code",
+                "1",
+                "--python",
+                str(HERE / "render_transport_solid.py"),
+                "--",
+                str(selected),
+            ],
+            check=True,
+            cwd=ROOT,
+            timeout=90,
+        )
     for name, _ in PLACES:
         with Image.open(args.output / (name + ".png")) as image:
             if image.format != "PNG" or image.size != (1280, 720):
