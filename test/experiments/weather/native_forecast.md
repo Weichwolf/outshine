@@ -3,8 +3,9 @@
 [#253](https://github.com/Weichwolf/outshine/issues/253) owns the fields and
 consumer agreement. `src/generators/weather` now decodes the same fixed response
 as the [Python reference](data/open-meteo/README.md), using the existing `Json`
-and SHA-256 implementation. The forecast remains private to the extension;
-the public snapshot publication hook under #9 and its runtime consumer are open.
+and SHA-256 implementation. The forecast container remains private to the extension;
+the [public snapshot/source entry and low-cloud consumer](weather_snapshot.md)
+publish exact native values without exposing that container or provider JSON.
 
 The acquisition caller supplies the original request URI, typed requested
 position, HTTP status, payload digest and optional acquisition/model metadata.

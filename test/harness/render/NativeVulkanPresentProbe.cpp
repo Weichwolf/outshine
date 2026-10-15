@@ -1,4 +1,5 @@
 #include "NativeGpuCheck.h"
+#include "NativeSdr.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -35,10 +36,10 @@ std::unique_ptr<PresentFrame> Acquire(Device &device) {
 }
 
 std::unique_ptr<GraphicsPipeline>
-Pipeline(Device &device, const char *vertex, const char *fragment) {
+Pipeline(Device &device, const char *vertex, const char *fragment, Format format) {
   const auto vs = Spirv(vertex);
   const auto fs = Spirv(fragment);
-  const std::array targets{ColourTarget{.Texels = Format::Bgra8Unorm, .Rgb = {}, .Alpha = {}}};
+  const std::array targets{ColourTarget{.Texels = format, .Rgb = {}, .Alpha = {}}};
   return Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vs},
                                                 .Fragment = ShaderCode{.Spirv = fs},
                                                 .Streams = {},
@@ -67,9 +68,9 @@ void Draw(Commands &commands, const GraphicsPipeline &pipeline, const Texture &i
 void Pixels(Device &device, const GraphicsPipeline &pipeline, const char *path) {
   auto frame = Acquire(device);
   const auto size = frame->Image().Description();
-  CHECK(size.Texels == Format::Bgra8Unorm &&
+  CHECK(IsSrgb(size.Texels) &&
             (static_cast<uint32_t>(size.Use) & static_cast<uint32_t>(TextureUse::CopySource)) != 0,
-        "the measured RTX surface supplies the actual BGRA8 copyable image");
+        "the measured RTX SDR surface supplies an actual sRGB copyable image");
   const uint64_t bytes = uint64_t{size.Width} * size.Height * 4;
   auto readback = Require(device.CreateBuffer(
       {.Bytes = bytes, .Use = BufferUse::CopyDestination, .Placement = Memory::Readback}));
@@ -85,21 +86,23 @@ void Pixels(Device &device, const GraphicsPipeline &pipeline, const char *path) 
         "the real swapchain render and readback complete before inspection");
   const auto mapped = Require(device.MapRead(*readback, {.Bytes = bytes}));
   std::vector<unsigned char> rgb(static_cast<size_t>(size.Width) * size.Height * 3);
+  const auto channels =
+      IsBgra(size.Texels) ? std::array<size_t, 3>{2, 1, 0} : std::array<size_t, 3>{0, 1, 2};
   uint64_t wrong = 0;
   for (uint32_t y = 0; y < size.Height; ++y) {
     for (uint32_t x = 0; x < size.Width; ++x) {
       const auto at = static_cast<size_t>(y) * size.Width + x;
-      const int red = static_cast<int>(std::lround(255.0 * (x % 17) / 16));
-      const int green = static_cast<int>(std::lround(255.0 * (y % 13) / 12));
-      const int blue = ((x / 17 + y / 13) % 2) != 0 ? 255 : 0;
-      const std::array expected{blue, green, red, 255};
+      const auto expected = SdrPixel(static_cast<double>(x % 17) / 16,
+                                     static_cast<double>(y % 13) / 12,
+                                     ((x / 17 + y / 13) % 2) != 0 ? 1.0 : 0.0,
+                                     size.Texels);
       for (size_t channel = 0; channel < 4; ++channel) {
         if (std::abs(std::to_integer<int>(mapped[at * 4 + channel]) - expected[channel]) > 1) {
           ++wrong;
         }
       }
       for (size_t channel = 0; channel < 3; ++channel) {
-        rgb[at * 3 + channel] = std::to_integer<unsigned char>(mapped[at * 4 + 2 - channel]);
+        rgb[at * 3 + channel] = std::to_integer<unsigned char>(mapped[at * 4 + channels[channel]]);
       }
     }
   }
@@ -184,7 +187,10 @@ int main(int argc, char *const *argv) {
   auto device = Require(CreateDevice({.Validation = true, .Window = window.get()}));
   CHECK(device->Limits().Name.find("RTX 3060") != std::string::npos,
         "WSI runs on the declared RTX 3060");
-  auto pipeline = Pipeline(*device, argv[1], argv[2]);
+  auto formatFrame = Acquire(*device);
+  const auto format = formatFrame->Image().Description().Texels;
+  formatFrame.reset();
+  auto pipeline = Pipeline(*device, argv[1], argv[2], format);
   Backpressure(*device);
   MissingLease(*device, *pipeline);
   Pixels(*device, *pipeline, argv[3]);

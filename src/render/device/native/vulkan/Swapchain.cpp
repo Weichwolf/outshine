@@ -30,10 +30,10 @@ Result<VkSurfaceFormatKHR> SurfaceFormat(const SurfaceState &surface) {
   if (result != VK_SUCCESS) {
     return std::unexpected(Failure("vkGetPhysicalDeviceSurfaceFormatsKHR", result));
   }
-  constexpr std::array preferred{VK_FORMAT_B8G8R8A8_UNORM,
-                                 VK_FORMAT_R8G8B8A8_UNORM,
-                                 VK_FORMAT_B8G8R8A8_SRGB,
-                                 VK_FORMAT_R8G8B8A8_SRGB};
+  constexpr std::array preferred{VK_FORMAT_B8G8R8A8_SRGB,
+                                 VK_FORMAT_R8G8B8A8_SRGB,
+                                 VK_FORMAT_B8G8R8A8_UNORM,
+                                 VK_FORMAT_R8G8B8A8_UNORM};
   for (const auto texels : preferred) {
     const auto found = std::ranges::find_if(formats, [texels](const VkSurfaceFormatKHR &format) {
       return format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR &&

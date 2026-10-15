@@ -3,7 +3,6 @@ import copy
 import json
 import os
 from pathlib import Path
-import shutil
 import struct
 import subprocess
 import tempfile
@@ -80,7 +79,7 @@ class AssetRender(unittest.TestCase):
             struct.pack("<II", len(binary), 0x004E4942) + binary)
         np.testing.assert_array_equal(self.render(), self.render(asset="scene.glb", output="glb.png"))
 
-    def test_groundless_scenario_capture_does_not_wait_for_world_tiles(self):
+    def scenario_file(self):
         scenario = self.root / "asset.scn"
         scenario.write_text(f'''<scenario>
 <render widthPx="128" heightPx="64"/>
@@ -88,20 +87,24 @@ class AssetRender(unittest.TestCase):
 <views><view id="front" fovDeg="50"><at x="0" y="0" z="5"/>
 <lookAt x="0" y="0" z="0"/><up x="0" y="1" z="0"/>
 </view></views></scenario>''')
-        shots_parent = ROOT / "build/shots"
-        shots_parent.mkdir(parents=True, exist_ok=True)
-        shots = Path(tempfile.mkdtemp(prefix="client-groundless-", dir=shots_parent))
-        self.addCleanup(shutil.rmtree, shots)
+        return scenario
+
+    def test_groundless_scenario_capture_does_not_wait_for_world_tiles(self):
+        scenario = self.scenario_file()
+        shots = self.root / "groundless-shots"
+        shots.mkdir()
         linear = shots / "scene.npy"
         result = subprocess.run([str(CLIENT), "run", "--rows", "--stats", "--into",
-                                 shots.name, "--linear-out", linear, scenario, "groundless"], cwd=ROOT,
+                                 str(shots), "--linear-out", linear, scenario, "groundless"], cwd=ROOT,
                                 capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         row = next(line.split("\t") for line in result.stdout.splitlines()
                    if line.startswith("ROW\tgroundless\t"))
         self.assertEqual(row[3], "1")
         self.assertEqual(row[7], "120")
-        self.assertIn("STAT\tgroundless\trefined\t0\t", result.stdout)
+        self.assertIn("STAT\tgroundless\trefined\t1\t", result.stdout,
+                      "no required world data means no pending refinement")
+        self.assertIn("STAT\tgroundless\tremote_starts\t0\t", result.stdout)
         pixels = np.asarray(Image.open(shots / f"groundless-{row[2]}.png").convert("RGB"))
         self.assertTrue(np.any(pixels[..., 0] > 128))
         radiance = np.load(linear, allow_pickle=False)
@@ -109,11 +112,36 @@ class AssetRender(unittest.TestCase):
         self.assertEqual(radiance.dtype, np.dtype("<f4"))
         self.assertTrue(np.isfinite(radiance).all())
         self.assertGreater(float(radiance[..., 0].max()), 0.0)
-        invalid = subprocess.run([str(CLIENT), "run", "--into", shots.name,
+        invalid = subprocess.run([str(CLIENT), "run", "--into", str(shots),
                                   "--linear-out", shots, scenario, "bad-linear"], cwd=ROOT,
                                  capture_output=True, text=True, timeout=60)
         self.assertEqual(invalid.returncode, 1)
         self.assertIn("linear output", invalid.stdout + invalid.stderr)
+
+    def test_scenario_pixel_probe_keeps_requested_attachments(self):
+        scenario = self.scenario_file()
+        shots = self.root / "probe-shots"
+        result = subprocess.run([str(CLIENT), "run", "--offline", "--view", "front",
+                                 "--at-seconds", "0", "--quality", "refined", "--probe-pixel",
+                                 "64,32", "--into", str(shots), scenario, "probe"], cwd=ROOT,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        rows = [line.split("\t") for line in result.stdout.splitlines()
+                if line.startswith("PIXEL\t")]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row[1:4], ["probe", "64", "32"])
+        rgba = [int(value) for value in row[4].split(",")]
+        self.assertGreater(rgba[0], 128, result.stdout + result.stderr)
+        self.assertEqual(rgba[1:3], [0, 0])
+        self.assertGreater(float(row[6]), 0.0)
+        normal = np.array([float(value) for value in row[7].split(",")])
+        self.assertTrue(np.isfinite(normal).all())
+        np.testing.assert_array_equal(normal, np.zeros(3),
+                                      err_msg="the unlit fixture has no shading normal")
+        self.assertTrue(np.isfinite(float(row[8])))
+        self.assertEqual(row[9], "groundless")
+        self.assertTrue(list(shots.glob("probe-front-tick*.png")))
 
     def test_stats_report_render_stages_and_failure(self):
         output = self.root / "stats.png"

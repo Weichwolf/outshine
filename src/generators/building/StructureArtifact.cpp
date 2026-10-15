@@ -21,7 +21,7 @@
 namespace outshine::Generators {
 namespace {
 static_assert(sizeof(size_t) == sizeof(uint64_t));
-constexpr uint32_t kVersion = 9;
+constexpr uint32_t kVersion = 10;
 constexpr size_t kHashBytes = 64;
 constexpr size_t kMostBytes = kStructureArtifactBytesMost;
 constexpr std::string_view kMagic = "outshine-structure";
@@ -83,7 +83,8 @@ template <typename Archive, typename Tile> bool Product(Archive &archive, Tile &
   if (!archive.List(tile.Built.WallCorners, vertex) ||
       !archive.List(tile.Built.RoofCorners, vertex) || !archive.List(tile.Built.WallRun, scalar) ||
       !archive.List(tile.Built.RoofRun, scalar) || !archive.List(tile.Walls.Clusters, cluster) ||
-      !archive.List(tile.Built.WallColours, scalar) || !archive.List(tile.Walls.Index, scalar) ||
+      !archive.List(tile.Built.WallColours, scalar) ||
+      !archive.List(tile.Built.WallMaterialM, scalar) || !archive.List(tile.Walls.Index, scalar) ||
       !archive.List(tile.Roofs.Clusters, cluster) || !archive.List(tile.Roofs.Index, scalar) ||
       !archive.Number(tile.Digest) || !archive.Number(tile.FallbackHeights) ||
       !archive.Maybe(tile.SelectedView,
@@ -166,7 +167,13 @@ bool Valid(const BakedTile &tile) {
       tile.Built.WallColours.empty() ||
       (tile.Built.WallColours.size() == tile.Built.WallCorners.size() * 4 &&
        std::ranges::all_of(tile.Built.WallColours, [](float c) { return std::isfinite(c); }));
-  return colourValid && MeshValid(tile.Built.WallCorners, tile.Built.WallRun, tile.Walls) &&
+  const bool materialValid =
+      tile.Built.WallMaterialM.empty() ||
+      (tile.Built.WallMaterialM.size() == tile.Built.WallCorners.size() * 2 &&
+       std::ranges::all_of(tile.Built.WallMaterialM,
+                           [](float value) { return std::isfinite(value); }));
+  return colourValid && materialValid &&
+         MeshValid(tile.Built.WallCorners, tile.Built.WallRun, tile.Walls) &&
          MeshValid(tile.Built.RoofCorners, tile.Built.RoofRun, tile.Roofs);
 }
 

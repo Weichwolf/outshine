@@ -10,6 +10,7 @@ import shapely
 from bridge_support_contacts import ContactSurface, contact_prism, replay_contact
 from bridge_support_plan import plan_supports, stations
 from outshine_ref.contracts import Mesh
+from outshine_ref.transport.supports import SupportVolumeBuilder
 from surface_solid_checks import audit_closed
 from wien_support_experiment import packed
 from wien_support_verify import caps_match_body, unpack
@@ -28,7 +29,8 @@ class WholeSupportContacts(unittest.TestCase):
     def test_real_vienna_shared_boundary_is_noded_once(self):
         row = json.loads(
             (
-                Path(__file__).parent / "fixtures/bridge-support-contact-vienna.json"
+                Path(__file__).resolve().parents[3]
+                / "lib/tests/fixtures/bridge-support-contact-vienna.json"
             ).read_text()
         )
         lower = ContactSurface(
@@ -106,8 +108,9 @@ class SupportStations(unittest.TestCase):
             [{"source_id": "original-bridge", "xy": [[0, 0], [70, 0]]}]
         )
         crossing = shapely.box(11, -10, 13, 10)
-        fixed = plan_supports(candidates, lower, upper, crossing, method="fixed")
-        shifted = plan_supports(candidates, lower, upper, crossing, method="shifted")
+        builder = SupportVolumeBuilder(lower.mesh, upper.mesh)
+        fixed = plan_supports(candidates, builder, crossing, method="fixed")
+        shifted = plan_supports(candidates, builder, crossing, method="shifted")
         self.assertEqual(len(fixed[0]), 2)
         self.assertEqual(len(shifted[0]), 3)
         self.assertTrue(
@@ -123,8 +126,7 @@ class SupportStations(unittest.TestCase):
         )
         result = plan_supports(
             candidates,
-            contact,
-            contact,
+            SupportVolumeBuilder(contact.mesh, contact.mesh),
             shapely.Polygon(),
             method="shifted",
             seconds=1e-20,

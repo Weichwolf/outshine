@@ -27,6 +27,11 @@ gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrück
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
 stehen in [rail_hardware.md](rail_hardware.md) (#250).
 
+`transport.supports.SupportVolumeBuilder` erzeugt geschlossene ganze Kontaktkörper
+zwischen zwei ausdrücklich gewählten endlichen Höhenflächen. Knicke, Innenlöcher,
+Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
+[supports.md](supports.md) (#332). Der Wiener Pfeilerversuch nutzt denselben Kern.
+
 `places` teilt die geodätische Szenariokamera sowie begrenzte, explizit ausgewählte
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
@@ -932,6 +937,9 @@ wall colour and existing near-detail geometry are preserved by that consumer.
 Shared optional Blender-host helpers live in `outshine_ref.rendering.blender_camera` and
 `blender_mesh` ([#291](https://github.com/Weichwolf/outshine/issues/291)).
 They preserve supplied triangles, point/corner normals and optional point UVs.
+Normals are assigned to Blender as supplied; its packed mesh-normal encoding is
+not an exact shader-vector guarantee. Consumers can bind explicit FLOAT_VECTOR
+corner attributes in their local material path, as recorded in #291.
 Perspective FOV is vertical; orthographic `span_m` is horizontal. Blender stays an
 optional host dependency; module import does not require `bpy`. Buildings research
 uses `.venv` with `bpy==5.2.2`; Transport retains its current Workbench profile
@@ -940,6 +948,17 @@ until its presentation migration. These helpers do not imply a native/device gat
 `outshine_ref.rendering.blender_light.configure_daylight` applies the agreed
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
+
+`buildings.profiled_bands.BandPlan` / `band_surface` emit bounded closed mitred
+profile bands, including courtyard boundaries and capped partial edge runs.
+Normals, metric UVs and stable source-edge IDs are caller-owned. See
+[profiled_bands.md](profiled_bands.md) for limits, neighbor ownership and evidence.
+
+`buildings.recessed_facades.RecessPlan` and `recess_surface` reuse existing
+`FacadeRepeat` axes for bounded inward window surfaces with stable global cell
+identities, supplied hard normals and UVs. Partial replay and scalar/batch
+construction share a template. Geometry, ownership, capacity and consumer limits
+are documented in [recessed_facades.md](recessed_facades.md) (#318).
 
 `vegetation.GroundCoverPlan` erzeugt begrenzte Poisson-Bodenstandorte mit
 kanonischen Zell-/Ordinal-IDs, separaten Zähl-/Positionsströmen und exaktem

@@ -8,7 +8,18 @@ struct AirSource {
   vec3 Emission;
 };
 
-AirSource airSourceAt(Medium medium, AirRay ray, float distanceKm, bool sunVisible,
+struct AirSourceTerms {
+  vec3 Extinction;
+  vec3 DirectEmission;
+  vec3 DiffuseEmission;
+};
+
+struct AirSourceRay {
+  vec3 OriginM;
+  vec3 Direction;
+};
+
+AirSourceTerms airSourceTermsAt(Medium medium, AirRay ray, float distanceKm, bool sunVisible,
                       sampler2D veil, sampler2D multiScatter) {
   float heightKm = max(0.0,
       mediumHeightAlong(medium, ray.RadiusKm, ray.CosView, distanceKm));
@@ -24,10 +35,22 @@ AirSource airSourceAt(Medium medium, AirRay ray, float distanceKm, bool sunVisib
   vec3 rayleigh = exp(-heightKm / medium.RayleighScaleHeightKm) *
       vec3(medium.RayleighScatteringPerKm);
   vec3 mie = vec3(exp(-heightKm / medium.MieScaleHeightKm) * medium.MieScatteringPerKm);
-  AirSource result;
+  AirSourceTerms result;
   result.Extinction = mediumExtinctionPerKm(medium, heightKm);
-  result.Emission = toSun * (rayleigh * rayleighPhase(ray.ViewSun) +
-      mie * miePhase(medium.MiePhaseG, ray.ViewSun)) + (rayleigh + mie) * psi;
+  result.DirectEmission = toSun * (rayleigh * rayleighPhase(ray.ViewSun) +
+      mie * miePhase(medium.MiePhaseG, ray.ViewSun));
+  result.DiffuseEmission = (rayleigh + mie) * psi;
   return result;
+}
+
+AirSource airSourceAt(Medium medium, AirRay ray, float distanceKm, bool sunVisible,
+                      sampler2D veil, sampler2D multiScatter) {
+  AirSourceTerms source = airSourceTermsAt(medium, ray, distanceKm, sunVisible, veil, multiScatter);
+  return AirSource(source.Extinction, source.DirectEmission + source.DiffuseEmission);
+}
+
+AirSource airSourceForRay(Medium medium, AirRay ray, float distanceKm, bool sunVisible,
+                          sampler2D veil, sampler2D multiScatter, AirSourceRay sourceRay) {
+  return airSourceAt(medium, ray, distanceKm, sunVisible, veil, multiScatter);
 }
 #endif
