@@ -7,8 +7,31 @@ import numpy as np
 from ._budget import PortLimit
 from ._quality import quality
 from ._slices import slice_mesh
-from ._solve import apply_seed
 from ._topology import topology_audit
+
+
+def affine_heights(model, mesh, planes, gradient, datum, budget):
+    road = mesh["parts"] >= 0
+    keys = np.unique(
+        np.c_[mesh["faces"][road].ravel(), np.repeat(mesh["parts"][road], 3)], axis=0
+    )
+    vertices, parts = keys.T
+    soil = np.setdiff1d(np.arange(len(mesh["xy"])), np.unique(vertices))
+    if (
+        len(keys) > budget.max_queries
+        or 3 * len(model.origins) + len(soil) > budget.max_variables
+    ):
+        raise PortLimit("port_variable_or_sample_budget")
+    heights, gradients = model.evaluate(mesh["xy"][vertices], parts, planes)
+    mesh["heights"] = mesh["targets"]
+    differences = abs(heights + datum - mesh["heights"][vertices])
+    grade_error = float(np.linalg.norm(gradients - gradient, axis=1).max())
+    if differences.max() > 0.5e-7 or grade_error > 0.5e-10:
+        return None
+    delta = np.zeros(len(mesh["xy"]))
+    np.maximum.at(delta, vertices, differences)
+    coefficients = np.r_[planes, mesh["heights"][soil] - datum]
+    return coefficients, max(float(differences.max()), grade_error), delta
 
 
 def affine_prior(model, product, captured, original, budget, began):
@@ -46,13 +69,18 @@ def affine_prior(model, product, captured, original, budget, began):
         max_weld_pairs=budget.max_weld_pairs,
     )
     note["topology"] = topology_audit(original, mesh)
-    if 24 * len(mesh["xy"]) > budget.max_sparse_nonzeros:
-        raise PortLimit("port_sparse_work_budget")
-    coefficients, equality_error = apply_seed(model, mesh, seed, budget=budget)
+    direct = affine_heights(model, mesh, planes, line[1:], datum, budget)
+    if direct is None:
+        return None
+    coefficients, equality_error, delta = direct
     prior_error = float(abs(mesh["heights"][mesh["original_vertex_map"]] - z).max())
     marked, audit, errors = quality(model, planes, mesh, product["part_roles"])
+    road = mesh["parts"] >= 0
+    errors[road] += delta[mesh["faces"][road]].max(axis=1)
+    audit["maximum_height_chord_bound_m"] = float(errors.max())
     if (
         prior_error > guard
+        or errors.max() > 0.01
         or not audit["geometry_complete"]
         or not audit["whole_world_valid"]
     ):
@@ -64,7 +92,11 @@ def affine_prior(model, product, captured, original, budget, began):
         "equality_error": equality_error,
         "elapsed_ms": (time.monotonic() - began) * 1000,
         "fitting": {
-            "system": {"objective_observations": len(z), "direct_global_plane": True},
+            "system": {
+                "objective_observations": len(z),
+                "direct_global_plane": True,
+                "sparse_nonzeros": 0,
+            },
             "solver": {
                 "valid": True,
                 "reason": "",
