@@ -58,8 +58,10 @@ def compare_prefixes(medium, cases, report):
         limit = depth_limit(medium, case.height_km, case.arguments()[1], 200.0)
         rows = probe_references(medium, case, limit, report)
         references.extend(rows)
-        for interpolation in ("constant", "linear"):
-            for count in (8, 16, 32, 47):
+        for interpolation in ("constant", "linear", "quadratic"):
+            for count in (
+                (4, 8, 16, 19) if interpolation == "quadratic" else (8, 16, 32, 47)
+            ):
                 key = f"{interpolation}_{count}"
                 cells = build_cells(
                     medium, case.arguments(), limit, count, interpolation

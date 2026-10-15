@@ -34,18 +34,57 @@ def build_cells(medium, arguments, distance_km, count, interpolation="linear"):
             np.repeat(emission[:, None], 2, axis=1),
             len(positions),
         )
-    positions = np.stack([edges[:-1], edges[1:]], axis=1)
+    positions = (
+        np.stack([edges[:-1], (edges[:-1] + edges[1:]) * 0.5, edges[1:]], axis=1)
+        if interpolation == "quadratic"
+        else np.stack([edges[:-1], edges[1:]], axis=1)
+    )
     offset = np.minimum(1e-6, np.diff(edges) * 1e-6)
     positions[:, 0] += np.isin(positions[:, 0], physical) * offset
-    positions[:, 1] -= np.isin(positions[:, 1], physical) * offset
+    positions[:, -1] -= np.isin(positions[:, -1], physical) * offset
     unique, indices = np.unique(positions, return_inverse=True)
     extinction, emission = source(medium, *arguments, unique)
-    shape = (len(edges) - 1, 2, 3)
-    return AirCells(
-        edges,
+    shape = (len(edges) - 1, positions.shape[1], 3)
+    extinction, emission = (
         extinction[indices].reshape(shape),
         emission[indices].reshape(shape),
+    )
+    if interpolation == "quadratic":
+        for coefficients in (extinction, emission):
+            coefficients[:, 1] = np.maximum(
+                0.0,
+                2.0 * coefficients[:, 1]
+                - 0.5 * (coefficients[:, 0] + coefficients[:, 2]),
+            )
+    return AirCells(
+        edges,
+        extinction,
+        emission,
         len(unique),
+    )
+
+
+def coefficient_value(controls, fraction):
+    unit = np.asarray(fraction)[..., None]
+    if len(controls) == 2:
+        return controls[0] * (1.0 - unit) + controls[1] * unit
+    return (
+        controls[0] * (1.0 - unit) ** 2
+        + 2.0 * controls[1] * unit * (1.0 - unit)
+        + controls[2] * unit**2
+    )
+
+
+def optical_depth(controls, fraction, width):
+    unit = np.asarray(fraction)[..., None]
+    if len(controls) == 2:
+        return width * (
+            controls[0] * (unit - 0.5 * unit**2) + controls[1] * 0.5 * unit**2
+        )
+    return width * (
+        controls[0] * (unit - unit**2 + unit**3 / 3.0)
+        + controls[1] * (unit**2 - 2.0 * unit**3 / 3.0)
+        + controls[2] * unit**3 / 3.0
     )
 
 
@@ -55,11 +94,22 @@ def cell_integral(cells, index, distance_km):
     positions = nodes * distance_km
     extinction = cells.extinction[index]
     emission = cells.emission[index]
-    slope = (extinction[1] - extinction[0]) / width
-    depth = positions[:, None] * extinction[0] + 0.5 * positions[:, None] ** 2 * slope
-    light = emission[0] + positions[:, None] * (emission[1] - emission[0]) / width
-    radiance = distance_km * np.sum(light * np.exp(-depth) * weights[:, None], axis=0)
-    through = np.exp(-distance_km * extinction[0] - 0.5 * distance_km**2 * slope)
+    depth = optical_depth(extinction, positions / width, width)
+    light = coefficient_value(emission, positions / width)
+    weighted = weights[:, None] * np.exp(-(depth - depth[0]))
+    numerator = np.sum(light * weighted, axis=0)
+    denominator = np.sum(
+        coefficient_value(extinction, positions / width) * weighted, axis=0
+    )
+    total_depth = optical_depth(extinction, distance_km / width, width)
+    opacity = -np.expm1(-total_depth)
+    radiance = np.divide(
+        opacity * numerator,
+        denominator,
+        out=distance_km * numerator,
+        where=denominator > 0.0,
+    )
+    through = np.exp(-total_depth)
     return radiance, through
 
 

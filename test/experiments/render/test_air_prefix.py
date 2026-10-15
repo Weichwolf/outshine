@@ -56,6 +56,43 @@ class AirPrefixContracts(unittest.TestCase):
                 radiance, source * (1.0 - expected_t), rtol=1e-11, atol=1e-14
             )
 
+    def test_optically_thick_constant_source_keeps_exact_opacity(self):
+        edges = np.array([0.0, 1.0, 3.0, 10.0])
+        extinction = np.broadcast_to([0.0, 1.0, 100.0], (3, 2, 3)).copy()
+        emission = np.broadcast_to([0.5, 0.2, 20.0], (3, 2, 3)).copy()
+        prefix = AirPrefix(AirCells(edges, extinction, emission, 0))
+        for distance in (0.001, 0.5, 1.0, 5.0, 10.0):
+            radiance, through = prefix.advance(distance)
+            expected = np.array(
+                [
+                    0.5 * distance,
+                    0.2 * -np.expm1(-distance),
+                    0.2 * -np.expm1(-100.0 * distance),
+                ]
+            )
+            np.testing.assert_allclose(radiance, expected, rtol=1e-13, atol=1e-14)
+            np.testing.assert_allclose(
+                through, np.exp(-np.array([0.0, 1.0, 100.0]) * distance), rtol=1e-13
+            )
+
+    def test_positive_quadratic_coefficients_keep_their_column_and_source_identity(
+        self,
+    ):
+        edges = np.array([0.0, 1.0, 3.0, 10.0])
+        controls = np.array(
+            [[0.01, 0.02, 0.03], [0.02, 0.03, 0.04], [0.03, 0.04, 0.05]]
+        )
+        source = np.array([0.2, 0.3, 0.4])
+        extinction = np.broadcast_to(controls, (3, 3, 3)).copy()
+        prefix = AirPrefix(AirCells(edges, extinction, extinction * source, 0))
+        for distance in edges[1:]:
+            radiance, through = prefix.advance(distance)
+            expected_t = np.exp(-distance * np.sum(controls, axis=0) / 3.0)
+            np.testing.assert_allclose(through, expected_t, rtol=1e-13)
+            np.testing.assert_allclose(
+                radiance, source * (1.0 - expected_t), rtol=1e-13, atol=1e-14
+            )
+
     def test_cloud_event_queries_preserve_the_same_final_front(self):
         cells = constant_cells()
         direct = AirPrefix(cells).advance(10.0)
