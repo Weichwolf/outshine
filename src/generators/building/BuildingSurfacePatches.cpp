@@ -32,8 +32,14 @@ void BuildingSurface::MeshPatches(std::span<const BuildingSurfacePatch> patches,
     const bool paint = !roof && (WallColour_ || !into.WallColours.empty());
     if (paint && into.WallColours.empty()) { into.WallColours.resize(vertices.size() * 4, 1.0f); }
     const Vec3f colour = ColourFactor(patch.Sample);
+    const bool metres = !roof && UsesMaterialMetres(patch.Sample);
+    const bool carryMetres = !roof && (metres || !into.WallMaterialM.empty());
+    if (carryMetres && into.WallMaterialM.empty()) { into.WallMaterialM.resize(vertices.size()); }
     for (const auto &corner : patch.Corners) {
       vertices.push_back(VertexAt(patch.Sample, corner));
+      if (carryMetres) {
+        into.WallMaterialM.push_back(metres ? MaterialMetresAt(patch.Sample, corner) : Vec2f{});
+      }
       if (paint) {
         into.WallColours.insert(into.WallColours.end(), {colour[0], colour[1], colour[2], 1.0f});
       }

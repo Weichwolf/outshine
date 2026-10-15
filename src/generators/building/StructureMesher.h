@@ -35,6 +35,7 @@ struct Raised {
   std::vector<StoredVertex> WallCorners, RoofCorners;
   std::vector<uint32_t> WallRun, RoofRun;
   std::vector<float> WallColours;
+  std::vector<Vec2f> WallMaterialM;
 
   void Clear() noexcept {
     WallCorners.clear();
@@ -42,6 +43,7 @@ struct Raised {
     WallRun.clear();
     RoofRun.clear();
     WallColours.clear();
+    WallMaterialM.clear();
   }
 
   void Settle() {
@@ -50,18 +52,20 @@ struct Raised {
     WallRun.shrink_to_fit();
     RoofRun.shrink_to_fit();
     WallColours.shrink_to_fit();
+    WallMaterialM.shrink_to_fit();
   }
 
   [[nodiscard]] std::size_t HeapBytes() const noexcept {
     return WallCorners.capacity() * sizeof(StoredVertex) +
            RoofCorners.capacity() * sizeof(StoredVertex) + WallRun.capacity() * sizeof(uint32_t) +
-           RoofRun.capacity() * sizeof(uint32_t) + WallColours.capacity() * sizeof(float);
+           RoofRun.capacity() * sizeof(uint32_t) + WallColours.capacity() * sizeof(float) +
+           WallMaterialM.capacity() * sizeof(Vec2f);
   }
 
   [[nodiscard]] std::size_t UsedBytes() const noexcept {
     return WallCorners.size() * sizeof(StoredVertex) + RoofCorners.size() * sizeof(StoredVertex) +
            WallRun.size() * sizeof(uint32_t) + RoofRun.size() * sizeof(uint32_t) +
-           WallColours.size() * sizeof(float);
+           WallColours.size() * sizeof(float) + WallMaterialM.size() * sizeof(Vec2f);
   }
 };
 

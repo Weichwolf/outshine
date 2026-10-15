@@ -106,6 +106,10 @@ std::expected<void, StructureMeshError> RaiseStructureMass(const StructureMassPl
   for (const uint32_t one : built.WallRun) { fold(one); }
   for (const uint32_t one : built.RoofRun) { fold(one); }
   for (const float one : built.WallColours) { fold(std::bit_cast<uint32_t>(one)); }
+  for (const auto &point : built.WallMaterialM) {
+    fold(std::bit_cast<uint32_t>(point[0]));
+    fold(std::bit_cast<uint32_t>(point[1]));
+  }
   return mixed;
 }
 

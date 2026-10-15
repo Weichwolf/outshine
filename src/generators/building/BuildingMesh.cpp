@@ -1,5 +1,6 @@
 #include "math/Units.h"
 #include "BuildingMaterials.h"
+#include "BuildingWallMaterial.h"
 #include "Digest.h"
 #include <generation/Generate.h>
 
@@ -204,6 +205,11 @@ public:
 
   void UseShape(const BuildingShape &shape) noexcept {
     CurvedShape_ = HasCurvedShaftWalls(shape) ? &shape : nullptr;
+    MaterialMetres_ = UsesWallMaterialMetres(shape);
+  }
+
+  void UseWall(const BuildingShape &shape, const EastNorth &from, const EastNorth &to) noexcept {
+    MaterialFrame_ = BuildingWallMaterial::Of(shape, from, to);
   }
 
   [[nodiscard]] double CoordinateMagnitudeM(const BuildingShape &shape) const noexcept {
@@ -312,17 +318,27 @@ private:
           static_cast<float>(normal[0] * East_[c] + normal[1] * North_[c] + normal[2] * Up_[c]);
     }
     const StoredVertex vertex = StoredVertex::Of(placeM, Vec2f{{v.U, v.V}}, turned);
+    const Vec2f material =
+        side == 0 && MaterialMetres_ && v.U >= 0.0f ? MaterialFrame_.At(v.P, v.Z) : Vec2f{};
     const BuildingCornerKey key{.Position = at,
                                 .Normal = vertex.normWord,
                                 .TextureU = std::bit_cast<uint32_t>(vertex.texture[0]),
-                                .TextureV = std::bit_cast<uint32_t>(vertex.texture[1])};
+                                .TextureV = std::bit_cast<uint32_t>(vertex.texture[1]),
+                                .MaterialU = std::bit_cast<uint32_t>(material[0]),
+                                .MaterialV = std::bit_cast<uint32_t>(material[1])};
     auto &corners = Scratch_.Corners[static_cast<size_t>(side)];
     const auto made = corners.Emplace(key, static_cast<uint32_t>(soup.size()));
     if (!made) {
       Status_ = std::unexpected(StructureMeshError::BuildFailed);
       return 0;
     }
-    if (made->second) { soup.push_back(vertex); }
+    if (made->second) {
+      if (side == 0 && (MaterialMetres_ || !Out_.WallMaterialM.empty())) {
+        if (Out_.WallMaterialM.empty()) { Out_.WallMaterialM.resize(soup.size()); }
+        Out_.WallMaterialM.push_back(material);
+      }
+      soup.push_back(vertex);
+    }
     return *made->first;
   }
 
@@ -334,6 +350,8 @@ private:
   bool RecessedOpenings_ = true;
   double MinimumHeightM_ = 0.0;
   const BuildingShape *CurvedShape_ = nullptr;
+  BuildingWallMaterial MaterialFrame_;
+  bool MaterialMetres_ = false;
 };
 
 double EdgeLength(const EastNorth &p, const EastNorth &q) {
@@ -537,6 +555,7 @@ void Walls(const BuildingShape &s,
     const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
+    site.UseWall(s, p, q);
     const double bays = (exterior && s.PartyWallEdges[i] != 0u) ? 0.0 : FacadeBays(len, s.BayM);
     const Fields stand =
         exterior && std::cmp_equal(i, s.FrontEdge) ? Fields::Entrance : Fields::Back;
@@ -592,6 +611,7 @@ void Gables(const BuildingShape &s,
     const EastNorth &q = ring[(i + 1) % n];
     const double len = EdgeLength(p, q);
     if (len < kLeastEdgeM) { continue; }
+    site.UseWall(s, p, q);
     const bool overhung = wide.size() == n;
     BreaksBoth(roof,
                {.Face = {.From = p, .To = q},
@@ -845,11 +865,13 @@ BuildingMesh::Mesh(const StructurePlan &plan, MeshScratch &lent, Raised &into) c
   auto &scratch = *buildingScratch;
   const std::array sizes{
       into.WallCorners.size(), into.RoofCorners.size(), into.WallRun.size(), into.RoofRun.size()};
+  const size_t materialSize = into.WallMaterialM.size();
   const auto rollback = [&] noexcept {
     TrimAppend(into.WallCorners, sizes[0]);
     TrimAppend(into.RoofCorners, sizes[1]);
     TrimAppend(into.WallRun, sizes[2]);
     TrimAppend(into.RoofRun, sizes[3]);
+    TrimAppend(into.WallMaterialM, materialSize);
   };
   const auto mass = ShapesFor(plan, scratch);
   if (!mass) { return std::unexpected(mass.error()); }
@@ -922,6 +944,7 @@ bool WallFace(const BuildingShape &shape,
   if (edge >= ring.size()) { return false; }
   const auto &p = ring[edge];
   const auto &q = ring[(edge + 1) % ring.size()];
+  site.UseWall(shape, p, q);
   const double bays =
       exterior && shape.PartyWallEdges[edge] != 0 ? 0.0 : FacadeBays(EdgeLength(p, q), shape.BayM);
   const Fields stand =
