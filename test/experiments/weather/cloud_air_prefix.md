@@ -22,6 +22,35 @@ Planetenstrahl. Gültige endliche Parameter und monotone Abfragen zwischen0 und
 physicalExtentM sind Voraussetzung. Vor dem Atmosphäreneintritt gilt L=0/T=1;
 Wolken bleiben an ihrer tatsächlichen räumlichen Strecke begrenzt.
 
+## Modulgrenze und tatsächliche Verbraucher
+
+Die Wolkendichte, das deklarierte Quellrezept und ihr begrenzter Zelleniterator
+liegen unter `src/generators/weather/shaders/`: `cloudLayer.glsl`,
+`cloudRadiance.glsl` und `cloudPrefix.glsl`. Diese Dateien importieren keinen
+Renderer. Das Quellrezept ist weiterhin der deklarierte Versuch; seine vollständige
+Licht-/Schattenkomposition gehört Light unter #266.
+
+`src/render/shaders/mediumCell.glsl` integriert ein Teilstück des vorhandenen
+klaren Bernstein-Präfixes mit zusätzlichen konstanten Extinktions-/Emissionswerten.
+Der Aufrufer liefert diese Koeffizienten; der Renderer kennt weder Wolkenparameter
+noch ihre Dichtefunktion, Windphase, Schichtgeometrie oder Iteration.
+
+Der gemischte `CloudAirPrefix`-Adapter liegt als `cloud_air_prefix.glsl` beim
+vorhandenen Experiment und wird ausschließlich von `cloud_air_prefix.comp`
+aufgerufen. Begin/Advance, Typen, Einheiten und feste Partition bleiben erhalten.
+Dieser tatsächliche native Nachweis ist noch keine öffentliche Shader-/Generator-
+API oder Engine-/Opaque-Anbindung. Diese Integration bleibt #193/#266/#9.
+Für die Assembly sind die Include-Verzeichnisse `src/render/shaders/`,
+`src/generators/weather/shaders/` und `test/experiments/weather/` explizit.
+
+Der unveränderte Architekturtest `TheRendererNamesNoSubject` bleibt maßgeblich.
+Der Strukturvergleich der zwölf Shadervarianten lässt ausschließlich `OpName`
+und `OpMemberName` aus: Diese beiden Einträge sind
+[SPIR-V-Debuganweisungen](https://github.com/KhronosGroup/SPIRV-Headers/blob/main/include/spirv/unified1/spirv.core.grammar.json).
+Header, IDs, Operationen, Konstanten, Dekorationen, Layouts und Bindings werden
+vollständig bytegleich verglichen. Dies ist kein Laufzeit-/Gerätenachweis;
+die nativen Referenzkontrollen bleiben separat erforderlich.
+
 Die physische Extent und beide Quellenpartitionen bleiben während aller Abfragen
 fest. Zwei sichtbare Wolkenintervalle besitzen je16 Dichtezellen. Eine Tiefenabfrage
 innerhalb einer Zelle integriert deren unveränderte Koeffizienten nur teilweise.
