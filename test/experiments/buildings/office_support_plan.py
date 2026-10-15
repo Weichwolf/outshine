@@ -79,6 +79,8 @@ def support_step(states, kind, method, floor, rejected, door_aware=False):
         proposals,
         key=lambda r: (r[0], r[2]["host"], r[2]["candidate"], tuple(r[1]["ids"])),
     ):
+        if door_aware and door_trials >= 24:
+            break
         try:
             current, ids, record = apply_candidate(
                 state["plan"], state["ids"], candidate
@@ -102,8 +104,6 @@ def support_step(states, kind, method, floor, rejected, door_aware=False):
                             "door_attempts": attempts,
                         }
                     )
-                    if door_trials >= 24:
-                        break
                     continue
             following.append(
                 {
@@ -114,8 +114,6 @@ def support_step(states, kind, method, floor, rejected, door_aware=False):
                 }
             )
             if len(following) == 4:
-                break
-            if door_aware and door_trials >= 24:
                 break
         except ValueError as error:
             rejected.append(
