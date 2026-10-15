@@ -118,7 +118,7 @@ void applyFacade(int code, vec2 coordinates, vec3 paint, vec3 positionM, vec3 lo
   if (masonry) {
     masonryField = facadeMasonryField(fractions, at, dx, dy, storeysPerM,
                                materialM, materialDx, materialDy, filtered.xyz);
-    amplitude = facadeMasonryAmplitude(albedo);
+    amplitude = facadeMasonryAmplitude(albedo, facadeCoatingAmplitude(albedo));
     roughnessAmplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
   }
   FacadeGlazing wall = facadeCoatedWindow(filtered, albedo, roughness);
