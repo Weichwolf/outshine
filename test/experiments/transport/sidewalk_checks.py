@@ -48,7 +48,7 @@ class Sidewalks(unittest.TestCase):
                 row["shape"].boundary.intersection(shapes[i].boundary).length, 6
             )
 
-    def test_alternative_masks_preserve_actual_corner_and_hole_geometry(self):
+    def test_alternative_masks_preserve_profile_and_excluded_crossing(self):
         left = self.proposals("combined")[0]
         right = self.proposals("individual")[0]
         a = shapely.union_all([r["shape"] for r in left])
