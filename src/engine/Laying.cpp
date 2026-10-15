@@ -835,6 +835,8 @@ std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates 
           wearing.Rows()[row].GroundSurf[channel];
     }
     palette[surfacesAt + kSurfaceStride * row + kPaletteStride] = wearing.Rows()[row].Mix[1];
+    palette[surfacesAt + kSurfaceStride * row + 5u] = wearing.Rows()[row].Edge[0];
+    palette[surfacesAt + kSurfaceStride * row + 6u] = wearing.Rows()[row].Edge[1];
   }
   for (size_t channel = 0; channel < 3; ++channel) {
     palette[rowAt(rows) + channel] = fallback.GroundAlbedo[channel];

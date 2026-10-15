@@ -17,6 +17,7 @@ const float kPi = acos(-1.0);
 #endif
 #include "groundClass.glsl"
 #include "groundMaterial.glsl"
+#include "groundEdge.glsl"
 #include "surfaceNoise.glsl"
 #include "groundRock.glsl"
 #include "groundSubstrate.glsl"
@@ -26,17 +27,20 @@ void main() {
   M surface = materialAt();
   vec3 shadingNormal = facing(normal, gl_FrontFacing);
   float edgeM;
+  float haloM;
   int runnerUp;
-  int which = groundClassAt(uv, edgeM, runnerUp);
+  float acrossM = max(groundHalfFootprint(dFdx(uv), dFdy(uv)), 5.0e-5);
+  int which = groundMaterialAt(uv, acrossM, edgeM, runnerUp, haloM);
   uint rows = floatBitsToUint(groundPalette[0]);
-  vec2 stepM = fwidth(uv);
-  float acrossM = 0.5 * max(max(stepM.x, stepM.y), 1.0e-4);
+  float reachM = groundBoundaryReach(which, runnerUp, rows);
+  float halfFootprintM = min(acrossM, max(haloM - reachM, 0.0));
+  float classWeight = groundEdgeWeight(edgeM, reachM, halfFootprintM);
   float slopeDeg = degrees(acos(clamp(dot(normalize(normal), normalize(lights.up.xyz)), 0.0, 1.0)));
   vec4 wears = edgeM < kGroundNoEdgeM
-      ? mix(groundWearsSlope(runnerUp, rows, slopeDeg), groundWearsSlope(which, rows, slopeDeg), smoothstep(-acrossM, acrossM, edgeM))
+      ? mix(groundWearsSlope(runnerUp, rows, slopeDeg), groundWearsSlope(which, rows, slopeDeg), classWeight)
       : groundWearsSlope(which, rows, slopeDeg);
   float rockWeight = edgeM < kGroundNoEdgeM
-      ? mix(groundRockWeight(runnerUp, rows, slopeDeg), groundRockWeight(which, rows, slopeDeg), smoothstep(-acrossM, acrossM, edgeM))
+      ? mix(groundRockWeight(runnerUp, rows, slopeDeg), groundRockWeight(which, rows, slopeDeg), classWeight)
       : groundRockWeight(which, rows, slopeDeg);
   GroundDetail detail = GroundDetail(1.0, 0.0, vec2(0.0));
   vec3 worldM = groundWorldM;
@@ -48,7 +52,6 @@ void main() {
   }
   vec2 atM = worldM.xz;
   float acrossSubstrateM = max(length(worldDx.xz), length(worldDy.xz));
-  float classWeight = smoothstep(-acrossM, acrossM, edgeM);
   GroundDetail substrate = GroundDetail(1.0, 0.0, vec2(0.0));
   if (rockWeight < 1.0) {
     substrate = substrateDetail(which, atM, worldDx.xz, worldDy.xz, acrossSubstrateM, rows);

@@ -36,3 +36,14 @@ vec4 groundWearsSlope(int which, uint rows, float slopeDeg) {
   return mix(groundWears(which, rows), groundWears(rock, rows),
              groundRockWeight(which, rows, slopeDeg));
 }
+
+float groundBoundaryReach(int which, int other, uint rows) {
+  uint first = groundSubstrateRow(which, rows);
+  uint second = groundSubstrateRow(other, rows);
+  uint surfacesAt = 4u * (rows + 2u) + rows + 1u;
+  float firstReach = groundPalette[surfacesAt + 8u * first + 5u];
+  float secondReach = groundPalette[surfacesAt + 8u * second + 5u];
+  float constructed = max(groundPalette[surfacesAt + 8u * first + 6u],
+                          groundPalette[surfacesAt + 8u * second + 6u]);
+  return constructed > 0.0f ? 0.0f : max(firstReach, secondReach);
+}
