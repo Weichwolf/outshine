@@ -26,7 +26,7 @@
       "name": "Pinus sylvestris",
       "weights": [0.6, 0.6, 0.6, 0.7, 0.8, 0.6, 0.4, 0.25, 0.1, 0, 0, 0],
       "reference": "https://www.infoflora.ch/de/flora/pinus-sylvestris.html",
-      "reference_fact": "Dry forests across lower and mountain elevation belts; soil/moisture response is not modelled here."
+      "reference_fact": "Forest, rocky/alluvial sites and pioneer growth on nutrient-poor soils across lower to subalpine belts; soil/moisture response is not modelled here."
     },
     {
       "name": "Pinus cembra",
@@ -38,7 +38,7 @@
       "name": "Larix decidua",
       "weights": [0, 0, 0, 0.05, 0.2, 0.4, 0.65, 0.85, 1, 0.15, 0.005, 0],
       "reference": "https://www.infoflora.ch/de/flora/larix-decidua.html",
-      "reference_fact": "Mountain forests, upper forest/pasture transitions; a spatially complete native map is not inferred."
+      "reference_fact": "Subalpine forests in Switzerland; planted occurrences in lower regions do not provide a natural-range model."
     }
   ],
   "checked": "2026-10-15",
