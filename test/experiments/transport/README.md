@@ -468,6 +468,29 @@ Der ausgewählte `--fit`-Pfad importiert die öffentliche installierbare
 `transport.plan_port_heights`-API; Originaleingaben/Quellen und Budgetdiagnosen
 bleiben im Experiment. Mathematische Kerne besitzen ausschließlich `lib/`.
 
+Der Solververgleich [#217](https://github.com/Weichwolf/outshine/issues/217) ersetzt
+versuchsweise ausschließlich den Fit-Aufruf: `port_highs_experiment.py` bindet
+HiGHS 1.15.1 mit nachträglichen Konus-Stützebenen in denselben öffentlichen
+Ganzplaner ein. `port_highs_checks.py` prüft unabhängige Kreis-/Ellipsenlösungen,
+gemeinsame Kontakte und Abbrüche. Eine LP-Statusmeldung ersetzt keine vollständige
+Konus-, Geometrie- oder Kontaktprüfung. `support` wählt je Sparse-Spaltenmuster
+den stärksten verletzten Konus; geprüft werden weiterhin alle Originalkonusse.
+Herleitung und Primärquellen stehen in #217. Das ist ein Experiment, noch kein
+übernommener Bibliothekspfad oder Nachweis gleicher DEM-Qualität.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest port_highs_checks
+PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error test/experiments/transport/port_highs_experiment.py --backend highs-ipm-support --output "${TMPDIR:-/tmp}/outshine-transport-delayed-cuts/whole"
+```
+
+Erforderlich sind `highspy==1.15.1` und die bisherigen Python-Abhängigkeiten.
+Jeder Lauf braucht ein frisches explizites Temp-Ausgabeverzeichnis. Der Worker
+behält 3 GiB Adressraum, 90 CPU-Sekunden, 8 Sekunden je Fit und 100 Iterationen;
+extern nach 110 Sekunden abbrechen. `--snapshot` exportiert optional den ersten
+originalen Sparse-Fit in einen weiteren frischen Temp-Pfad; seine Kosten werden
+getrennt genannt. Arbeitszähler zählen ausgewiesene Frontend-Materialisierungen,
+explizite Kopien und API-Nutzlast, keine unbekannten internen Solverallokationen.
+
 ### Lokale Zweiebenenrezepte (#21)
 
 `overpass_recipe.py` verbindet #96-Rampen mit einem starren Überlappungskern.
