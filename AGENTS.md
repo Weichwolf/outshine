@@ -205,9 +205,15 @@
 - Ein schwerer Lauf je physischem Host zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
   detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
-- Experimentquellen nach Fachbereich unter `test/experiments/`, Eingaben und Ergebnisse
-  nach `build/experiments/`. In `build/shots/` bleiben ausgewählte Präsentationsbilder und benötigte
-  Referenzen. Überholte Versuchsdateien nach Auswertung löschen.
+- Im Repository liegt nur, was gemeinsam für Outshine gebraucht wird: Produktcode, Tests,
+  wiederverwendbare Experimentquellen unter `test/experiments/`, feste Testeingaben, Dokumentation,
+  Papers und aktuelle Präsentationsbilder. Produkt-Builds bleiben unter `build/`; in `build/shots/`
+  liegen ausgewählte Präsentationsbilder und benötigte Referenzen.
+  Private Versuchsausgaben, Arbeitsdaten, Hilfsumgebungen und Zwischenprodukte liegen ausschließlich
+  im jeweiligen System-Tempverzeichnis (`${TMPDIR:-/tmp}/outshine-<Agent>-<Auftrag>-<Commit>`).
+  Kein privater Experimentbaum unter `build/experiments/`. Skripte nutzen explizite Temp-Ausgabepfade;
+  beim betroffenen Ausbau alte Standardpfade migrieren. Gemeinsam benötigte feste Referenzinputs
+  erhalten einen passenden versionierten Testdatenpfad, keine Abhängigkeit von privaten Tempbäumen.
 - Jeder Agent räumt seine Artefakte nach jedem Arbeitsblock und vor einer Lieferung auf:
   ersetzte/fehlgeschlagene Versuchsausgaben, doppelte Exporte, alte Renderings und entbehrliche
   Zwischenprodukte löschen. Aktuellen geprüften Stand, nötigen Vorher-Vergleich, weiter benötigte
