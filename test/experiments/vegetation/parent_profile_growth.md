@@ -38,7 +38,21 @@ counts, window budget, finite orthonormal frames and warm queries. It stores
 the explicit graph descriptor and packed wood poses; three requested paths must
 replay exactly in a fresh graph without rebuilding the complete tree. Expected
 physical area uses the same variant-cycle kernel as the analytic probe.
-The complete frozen run is still pending; targeted requests do not prove it.
+The complete frozen run on `05ea70e70` ended with exit 0 and unchanged source.
+All 52,811 actual axes, 70,990 windows and order needle counts
+`0 / 47,650 / 7,891,105 / 3,689,505` match the analytical proposal exactly.
+Expected physical area is 203.87094066 m² against 204.14069063 m² requested,
+relative error 0.132139%. The largest orthonormal-frame residual is 7.78e-16.
+Fresh replay of three requested axes and their physical needle subsets is exact;
+warm complete wood queries create no new poses. No complete organs were built.
+
+The isolated protected Linux child process took 32.40 s wall time and 202.87 MiB
+peak RSS. These are offline Python wood/cache observations, not frame or GPU
+measurements. Files are in
+`/var/tmp/outshine-vegetation-parent-execution-05ea70e70/`; terminal transcript and
+getrusage record are `/tmp/outshine-parent-profile-05ea70e70.log` and
+`/tmp/outshine-parent-profile-05ea70e70-cost.json`. The host lock was released and
+the explicit handoff posted immediately after the terminal result.
 
 Reproduction uses explicit private data paths:
 
@@ -63,6 +77,21 @@ No complete needle placement, near mesh, whole-tree atlas or botanical approval
 comes from the wood ledger. In particular, very short axes also acquire thin
 uniformly scaled radii; physical radius policy needs review with the actual form.
 The next optical gate remains one convincing spruce before another eight-form bake.
+
+`parent_window_product.py` binds these cached actual poses/counts to the existing
+finite physical shoot catalog. It reuses the extracted internal per-axis window
+packing kernel and the original catalog phase/tail binding. It must not invoke
+complete needle placement/meshing or recompute any wood pose. Its complete
+experimental descriptor includes both the parent-profile graph and original
+physical source recipe, so the whole-product identity also includes needles.
+The frozen angular bake and its optical form judgement are separate from the
+completed wood ledger; the existing statistical window/LOD limits still apply.
+Four independent cache/window controls check actual per-axis counts and centres
+against requested needles, exact global ID prefixes/tails, catalog-capacity
+refusal, transformed physical wood bounds/normals and budget refusal before
+catalog I/O or window allocation. All nine legacy window columns remain
+byte-exact against `05ea70e70` for a separate scalar control and all four original
+conifer recipes (5,216 / 2,365 / 4,417 / 4,771 windows).
 
 Weber/Penn SIGGRAPH 1995 §4.3 and the existing #26 prepared-profile work motivate
 the parent-dependent binding. Their PDFs and the JRC spruce page were inspected

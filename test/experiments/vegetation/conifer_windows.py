@@ -40,9 +40,18 @@ def plan_windows(
     )
     if plan is None:
         return None
+    return bind_windows(plant, plan, catalog)
+
+
+def bind_windows(plant, plan, catalog):
     templates = [
         catalog[pattern_key(plant.patterns[int(order)])] for order in plan["orders"]
     ]
+    if any(
+        info["needles"] != capacity
+        for info, capacity in zip(templates, plan["capacities"], strict=True)
+    ):
+        raise ValueError("catalog capacity must match every physical window")
     phase = plan["phases"] - np.array([t["phase"] for t in templates])
     return dict(plan) | {
         "frames": np.einsum("nij,njk->nik", plan["frames"], rotate_y(-phase)),
