@@ -1,0 +1,97 @@
+"""Monotone finite-air prefix with shared local coefficients, for #206/#193.
+
+The Python proof stores cells explicitly. A native implementation can stream the same
+cells and retain only the current endpoints; this file makes no GPU-memory claim.
+"""
+
+from dataclasses import dataclass
+
+import numpy as np
+from air_path_depth_table import depth_nodes
+from air_path_integral import quadrature, source
+from air_path_segments import view_edges
+
+
+@dataclass(frozen=True)
+class AirCells:
+    edges: np.ndarray
+    extinction: np.ndarray
+    emission: np.ndarray
+    source_evaluations: int
+
+
+def build_cells(medium, arguments, distance_km, count, interpolation="linear"):
+    physical = view_edges(medium, *arguments, distance_km)
+    edges = np.unique(
+        np.concatenate([physical, depth_nodes(count + 1, distance_km, "quadratic")])
+    )
+    if interpolation == "constant":
+        positions = (edges[:-1] + edges[1:]) * 0.5
+        extinction, emission = source(medium, *arguments, positions)
+        return AirCells(
+            edges,
+            np.repeat(extinction[:, None], 2, axis=1),
+            np.repeat(emission[:, None], 2, axis=1),
+            len(positions),
+        )
+    positions = np.stack([edges[:-1], edges[1:]], axis=1)
+    offset = np.minimum(1e-6, np.diff(edges) * 1e-6)
+    positions[:, 0] += np.isin(positions[:, 0], physical[1:-1]) * offset
+    positions[:, 1] -= np.isin(positions[:, 1], physical[1:-1]) * offset
+    unique, indices = np.unique(positions, return_inverse=True)
+    extinction, emission = source(medium, *arguments, unique)
+    shape = (len(edges) - 1, 2, 3)
+    return AirCells(
+        edges,
+        extinction[indices].reshape(shape),
+        emission[indices].reshape(shape),
+        len(unique),
+    )
+
+
+def cell_integral(cells, index, distance_km):
+    width = cells.edges[index + 1] - cells.edges[index]
+    nodes, weights = quadrature(4)
+    positions = nodes * distance_km
+    extinction = cells.extinction[index]
+    emission = cells.emission[index]
+    slope = (extinction[1] - extinction[0]) / width
+    depth = positions[:, None] * extinction[0] + 0.5 * positions[:, None] ** 2 * slope
+    light = emission[0] + positions[:, None] * (emission[1] - emission[0]) / width
+    radiance = distance_km * np.sum(light * np.exp(-depth) * weights[:, None], axis=0)
+    through = np.exp(-distance_km * extinction[0] - 0.5 * distance_km**2 * slope)
+    return radiance, through
+
+
+class AirPrefix:
+    def __init__(self, cells):
+        self.cells = cells
+        self.distance_km = 0.0
+        self.cell = 0
+        self.radiance_at_start = np.zeros(3)
+        self.through_at_start = np.ones(3)
+        self.partial_integrals = 0
+
+    def advance(self, distance_km):
+        if not self.distance_km <= distance_km <= self.cells.edges[-1]:
+            raise ValueError(
+                "prefix distances must be finite, monotone and inside the declared ray"
+            )
+        self.distance_km = distance_km
+        while (
+            self.cell + 1 < len(self.cells.edges) - 1
+            and distance_km >= self.cells.edges[self.cell + 1]
+        ):
+            width = self.cells.edges[self.cell + 1] - self.cells.edges[self.cell]
+            radiance, through = cell_integral(self.cells, self.cell, width)
+            self.radiance_at_start += self.through_at_start * radiance
+            self.through_at_start *= through
+            self.cell += 1
+            self.partial_integrals += 1
+        distance = distance_km - self.cells.edges[self.cell]
+        radiance, through = cell_integral(self.cells, self.cell, distance)
+        self.partial_integrals += distance > 0.0
+        return (
+            self.radiance_at_start + self.through_at_start * radiance,
+            self.through_at_start * through,
+        )
