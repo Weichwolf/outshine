@@ -42,7 +42,10 @@ def footprint_reference(view,points,a,tangent,normal,cell_size):
 def shader_controls():
     mi.set_variant('llvm_ad_rgb');dr.set_thread_count(2);bind()
     row=dict(id='shader-wall',polygon=shapely.box(0,0,20,10),properties=dict(render_height=15.,render_min_height=0.))
-    p=attributes(row['properties']);original,_=prism(row,p,12);mesh,selected,facades=project(original,row,p,(.48,.53),3.2,3.)
+    p=attributes(row['properties']);original,_=prism(row,p,12)
+    original['uv']=np.c_[original['vertices'][:,0]*.17,original['vertices'][:,1]*.13]
+    mesh,selected,facades=project(original,row,p,(.48,.53),3.2,3.)
+    np.testing.assert_array_equal(mesh['uv'][mesh['faces'][~selected]],original['uv'][original['faces'][~selected]])
     mesh['materials'][selected]=32768
     spec={'32768':dict(fractions=[.48,.53],wall_material=12)};validate(mesh,spec)
     for value in (dict(mesh,facade_extent=np.zeros_like(mesh['facade_extent'])),{k:v for k,v in mesh.items() if k!='facade_extent'}):

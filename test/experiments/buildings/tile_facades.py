@@ -29,7 +29,7 @@ def project(mesh,row,parameters,fractions,axis_m,floor_m):
     triangles=mesh['vertices'][mesh['faces']];vectors=np.cross(triangles[:,1]-triangles[:,0],triangles[:,2]-triangles[:,0])
     normals=vectors/np.linalg.norm(vectors,axis=1,keepdims=True);walls=abs(normals[:,2])<1e-8
     top=float(parameters.get('eave_m',parameters['buildingHeight']));bottom=parameters['minHeight'];height=top-bottom
-    rows=max(1,int(math.floor(height/floor_m+.5)));uv=np.zeros((len(triangles),3,2));extent=np.zeros((len(triangles),3,3));assigned=np.zeros(len(triangles),dtype=bool);facades=[]
+    rows=max(1,int(math.floor(height/floor_m+.5)));uv=mesh['uv'][mesh['faces']].copy();extent=np.zeros((len(triangles),3,3));assigned=np.zeros(len(triangles),dtype=bool);facades=[]
     polygon=shapely.orient_polygons(row['polygon'])
     for ring in (polygon.exterior,*polygon.interiors):
         for a,b in zip(list(ring.coords)[:-1],list(ring.coords)[1:],strict=True):
