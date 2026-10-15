@@ -130,6 +130,7 @@ experiment-metal: ## direct Metal MRT/depth/Hi-Z proof; METAL_OUTPUT must name a
 	@test -n "$(METAL_OUTPUT)" || { echo 'set METAL_OUTPUT to a system-temp directory' >&2; exit 2; }
 	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" python3 test/experiments/render/native_metal.py --output "$(METAL_OUTPUT)"
 
+
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
@@ -203,6 +204,10 @@ format: strip ## apply repository formatting to the same owned files lint checks
 .PHONY: test-format
 test-format: ## verify formatting coverage, real diagnostics and failure handling
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_format_sources.py
+
+.PHONY: test-source-units
+test-source-units: ## verify native platform and Objective-C++ source selection
+	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
 
 .PHONY: test-client-arguments
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
