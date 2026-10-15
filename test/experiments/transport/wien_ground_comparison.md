@@ -79,5 +79,49 @@ The newer publication rule in #47/AGENTS removes research galleries entirely:
 all these images stay local; only master publishes integrated Places. No
 replacement gallery is created.
 
-Frozen-run measurements, source commit and selected artifact hashes follow in
-the linked delivery PR after the fresh generation is independently replayed.
+## Frozen result
+
+Fresh generation and 66 affected tests pass on clean
+`3784b07cf65124492de89fe803a78723b3a8b40b`. All numerical functions are at most
+120 lines; Ruff, formatting, diff and documentation checks pass. The eight old
+portal counterexamples still use the original hash-checked external bridge
+reference. No pins, old recipe tests or public library APIs changed.
+Environment: Python 3.13.5, NumPy 2.2.4, SciPy 1.18.1, Clarabel 0.11.1,
+Shapely 2.2.0/GEOS 3.14.1, Pillow 12.3.0; Blender 4.3.2/Workbench.
+
+| Variant | Median of five fit wall times, ms | Worker peak, MiB | Area-weighted DEM vertex RMS, m | Independent geometric result |
+|---|---:|---:|---:|---|
+| Fixed old contacts |59.303|91.168|absent|Impossible; independent contact contradiction |
+| Equal weights, selected |197.380|94.719|0.6629034923|Pass |
+| Area weights |255.154|94.711|0.6612803221|Pass |
+
+Five equal-weight samples: 198.570, 197.622, 197.070, 197.380, 196.884 ms;
+area-weight samples: 255.154, 264.811, 248.909, 250.320, 275.692 ms.
+Small offline case on this Linux host, not native/device/frame costs. Worker RSS
+includes interpreter/solver and all five runs; generator/Blender process peaks,
+GPU memory and GPU execution time are not measured. Full fresh comparison with
+both renders took 13.325 s including setup, checks, workers and image saves.
+
+The common surface covers 7,967,844.8026 m² with 1,022 vertices and 1,819 faces
+(834 old traffic, 985 soil). Independent symmetric domain error is
+6.57e-12 m². All old road XY/faces remain exact; their new heights decrease by
+at most 2.152830 m. Maximum normalized grade is 1.000000000011, within the
+unchanged 1e-7 tolerance. Whole lower-road/bridge underside clearance is
+**4.534284 m**, all-soil/upper underside separation **0.02 m**, and roof cover
+to the soil shell underside **2.999792 m**. Original upper contacts, 4.5 m tunnel
+air and old independent recipe regression remain valid. Original source
+ledger: 71 used /3,188 explained omissions.
+
+Input SHA256 `e740d969b6b6baa230c50cb1c3475350d8610b1685119c2bb619732acde89442`;
+assembled solid `02e2966f21537d6dffe096cfad9a7c3296a991b1c28a47aaf2a34c4730d11a17`.
+Opened before PNG `ce1601a5946ab2a7b5b6050221409f52427688d02c01269c6b06aa0be3ca09a1`;
+after PNG `b718e0be723909b3c74a00bedc7506bc043e0826f3b3e1189f41a081156dfb26`.
+Both are exactly 1280×720 with identical eye/target/span. These local research
+pictures explicitly fail the clear visual-improvement criterion and are not
+published. The new common daylight/Blender 5.2.2 profile in #291 is separate.
+
+Fresh inputs, both complete geometry candidates, closed solid, receipts, source
+ledger, scene/camera proofs and images are preserved in
+`/tmp/outshine-transport-ground-299-final/`. Terminal logs:
+`/tmp/outshine-transport-ground-3784b07cf.log` and
+`/tmp/outshine-transport-ground-3784b07cf-tests.log`.
