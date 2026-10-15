@@ -370,7 +370,7 @@ bool MeasureFrames(Engine &engine,
   renderedMs.reserve(count);
   Client::FramePacer pacer;
   const auto began = std::chrono::steady_clock::now();
-  const Client::FrameSchedule schedule(SDL_GetTicksNS(), shot.Profile.RateHz());
+  const Client::FrameSchedule schedule(SDL_GetTicksNS(), shot.Profile);
   const double frameBudgetMs = shot.Profile.BudgetMs();
   for (std::size_t at = 0; at < count; ++at) {
     if (turn.empty()) {
@@ -406,7 +406,7 @@ bool MeasureFrames(Engine &engine,
     if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
     shot.OverBudget += heldMs.back() > frameBudgetMs ? 1u : 0u;
   }
-  if (!turn.empty()) { schedule.Wait(count); }
+  schedule.Wait(turn.size());
   shot.MeasurementMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   shot.TurnDegrees = turn.empty() ? 0.0 : 2.0 * kDegPerHalfTurn;

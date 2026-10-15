@@ -14,7 +14,7 @@ int main() {
     const auto profile = Shots::FrameProfile::ForPlace(rate);
     CHECK(profile.has_value(), "declared measurement profile is valid");
     if (!profile) { continue; }
-    Client::FrameSchedule schedule(start, profile->RateHz());
+    Client::FrameSchedule schedule(start, *profile);
     std::uint64_t now = start;
     std::size_t samples = 0;
     for (std::uint64_t frame = 0; frame < profile->Frames(); ++frame) {

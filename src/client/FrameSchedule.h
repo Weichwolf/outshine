@@ -2,17 +2,15 @@
 #define OUTSHINE_CLIENT_FRAMESCHEDULE_H
 
 #include "FramePacer.h"
-#include <cassert>
+#include "PlaceFrameProfile.h"
 #include <cstdint>
 
 namespace outshine::Client {
 
 class FrameSchedule {
 public:
-  explicit FrameSchedule(std::uint64_t startedNs, std::uint64_t rateHz = kFrameRateHz) noexcept
-      : StartedNs_(startedNs), RateHz_(rateHz) {
-    assert(rateHz > 0);
-  }
+  explicit FrameSchedule(std::uint64_t startedNs, Shots::FrameProfile profile = {}) noexcept
+      : StartedNs_(startedNs), RateHz_(profile.RateHz()) {}
 
   template <class Clock, class Sleep>
   void Wait(std::uint64_t frame, Clock clock, Sleep sleep) const noexcept {

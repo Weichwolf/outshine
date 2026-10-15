@@ -29,7 +29,7 @@ struct Place {
 };
 
 struct Shot {
-  FrameProfile Profile{};
+  FrameProfile Profile;
   std::string Digest;
   std::string Wrote;
   std::string Why;
