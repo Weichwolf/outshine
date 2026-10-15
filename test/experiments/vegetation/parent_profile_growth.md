@@ -73,8 +73,8 @@ subsets replay exactly with their persisted global ID prefixes and variant cycle
 
 The executable form currently uses uniform source scaling and fixed bend shapes.
 It does not reproduce source attachment jitter or claim full old-tree geometry.
-No complete needle placement, near mesh, whole-tree atlas or botanical approval
-comes from the wood ledger. In particular, very short axes also acquire thin
+No complete needle placement, near mesh or botanical approval comes from the
+wood ledger alone. The complete angular product is measured below. Very short axes acquire thin
 uniformly scaled radii; physical radius policy needs review with the actual form.
 The next optical gate remains one convincing spruce before another eight-form bake.
 
@@ -92,6 +92,23 @@ refusal, transformed physical wood bounds/normals and budget refusal before
 catalog I/O or window allocation. All nine legacy window columns remain
 byte-exact against `05ea70e70` for a separate scalar control and all four original
 conifer recipes (5,216 / 2,365 / 4,417 / 4,771 windows).
+
+The clean frozen `c24f6d73f` run completed the actual angular product with exit 0:
+64 views, 256-texel charts, 2112×2112 atlases, 2,534,960 wood triangles,
+52,811 axes, 70,990 physical windows and 11,628,260 represented needles. All
+individual-needle placement/meshing and wood-pose recomputation were disabled.
+The isolated complete-product phase took 456.62 s wall and 1795.15 MiB peak RSS.
+Targeted gates passed 124 vegetation source tests, the same 124 in a separately
+installed wheel, and 24 experimental checks. Logs and outputs are under
+`/var/tmp/outshine-vegetation-parent-windows-c24f6d73f/`; the runner is
+`/var/tmp/outshine-parent-windows-c24f6d73f-run.py`.
+
+Both complete unlit atlases were opened at their original resolution against
+the old `mature-density-c82c10616/products/picea-abies-1` product. The new crown
+has a pointed conical top where the old form remained almost columnar. Regular
+stepped branch rows remain obvious; this is a visible morphology improvement,
+not botanical/SpeedTree or LOD approval. The next lit inspection uses the actual
+Koerbersee Place composition from #208, rather than another synthetic showcase.
 
 Weber/Penn SIGGRAPH 1995 §4.3 and the existing #26 prepared-profile work motivate
 the parent-dependent binding. Their PDFs and the JRC spruce page were inspected
