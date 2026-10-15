@@ -3,8 +3,8 @@
 import dataclasses
 import json
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -140,11 +140,13 @@ class SupportAPI(unittest.TestCase):
             [[[x, -10], [x, 10]] for x in range(-9, 10)]
             + [[[-10, y], [10, y]] for y in range(-9, 10)]
         )
-        with patch.object(
-            shapely, "union_all", side_effect=AssertionError("noding must not run")
+        with (
+            patch.object(
+                shapely, "union_all", side_effect=AssertionError("noding must not run")
+            ),
+            self.assertRaisesRegex(ValueError, "preflight segment budget"),
         ):
-            with self.assertRaisesRegex(ValueError, "preflight segment budget"):
-                preflight_noding(lines, 100)
+            preflight_noding(lines, 100)
 
     def test_invalid_recipe_and_budget_are_errors(self):
         for options in (

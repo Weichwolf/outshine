@@ -27,6 +27,11 @@ gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrück
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
 stehen in [rail_hardware.md](rail_hardware.md) (#250).
 
+`transport.supports.SupportVolumeBuilder` erzeugt geschlossene ganze Kontaktkörper
+zwischen zwei ausdrücklich gewählten endlichen Höhenflächen. Knicke, Innenlöcher,
+Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
+[supports.md](supports.md) (#332). Der Wiener Pfeilerversuch nutzt denselben Kern.
+
 `places` teilt die geodätische Szenariokamera sowie begrenzte, explizit ausgewählte
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
