@@ -1,0 +1,64 @@
+#include "MetalInternal.h"
+#include <algorithm>
+
+namespace outshine::Render::Native::Metal {
+
+Result<std::unique_ptr<ComputePipeline>> MetalDevice::CreateComputePipeline(
+    std::span<const uint32_t> spirv, std::string_view entry, std::string_view label) {
+  @autoreleasepool {
+    auto shader = Translate(spirv, entry);
+    if (!shader) { return std::unexpected(shader.error()); }
+    if (std::ranges::any_of(shader->Resources, [](const ResourceBinding &binding) {
+          return binding.Source.Kind == BindingKind::SampledTexture ||
+                 binding.Source.Kind == BindingKind::StorageTexture;
+        })) {
+      return Failure(ErrorKind::Unsupported,
+                     "Metal compute texture bindings are not integrated yet");
+    }
+    uint64_t invocations = 1;
+    for (size_t axis = 0; axis < shader->Layout.LocalSize.size(); ++axis) {
+      const auto size = shader->Layout.LocalSize[axis];
+      if (size == 0 || size > Limits_.MaxWorkgroupSize[axis]) {
+        return Failure(ErrorKind::Invalid, "Metal compute local size exceeds device limits");
+      }
+      invocations *= size;
+    }
+    NSError *error = nil;
+    MTLCompileOptions *const options = [MTLCompileOptions new];
+    options.mathMode = MTLMathModeSafe;
+    const id<MTLLibrary> library = [Native_ newLibraryWithSource:Text(shader->Source)
+                                                         options:options
+                                                           error:&error];
+    if (library == nil) {
+      return Failure(ErrorKind::Invalid, error.localizedDescription.UTF8String);
+    }
+    const id<MTLFunction> function = [library newFunctionWithName:Text(shader->Entry)];
+    if (function == nil || function.functionType != MTLFunctionTypeKernel) {
+      return Failure(ErrorKind::Invalid, "SPIR-V entry is not a Metal compute kernel");
+    }
+    MTLComputePipelineDescriptor *const description = [MTLComputePipelineDescriptor new];
+    description.computeFunction = function;
+    description.label = Text(label.empty() ? entry : label);
+    const id<MTLComputePipelineState> pipeline =
+        [Native_ newComputePipelineStateWithDescriptor:description
+                                               options:MTLPipelineOptionNone
+                                            reflection:nil
+                                                 error:&error];
+    if (pipeline == nil) {
+      return Failure(ErrorKind::Driver, error.localizedDescription.UTF8String);
+    }
+    if (invocations > pipeline.maxTotalThreadsPerThreadgroup) {
+      return Failure(ErrorKind::Invalid, "Metal compute workgroup exceeds pipeline limits");
+    }
+    auto state = std::make_shared<PipelineState>();
+    state->Native = pipeline;
+    state->Translated = std::move(*shader);
+    state->Device = Identity_;
+    Limits_.MaxWorkgroupInvocations =
+        std::max(Limits_.MaxWorkgroupInvocations,
+                 static_cast<uint32_t>(pipeline.maxTotalThreadsPerThreadgroup));
+    return std::make_unique<MetalPipeline>(std::move(state));
+  }
+}
+
+}
