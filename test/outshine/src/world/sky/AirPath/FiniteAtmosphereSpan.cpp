@@ -77,6 +77,40 @@ DoubleSpan Reference(AirRay ray) {
   return end > start ? DoubleSpan{.Begin = start, .End = end} : DoubleSpan{};
 }
 
+void PhysicalRays() {
+  constexpr double kMetreKm = 0.001;
+  constexpr float kSolarCosine = 0.25f;
+  for (const float radius : {kEarthAir.BottomRadiusKm + .005f,
+                             kEarthAir.BottomRadiusKm + 2,
+                             kEarthAir.TopRadiusKm + 1000}) {
+    for (const float cosine : {-1.0f, -.99f, -.5f, -.1f, 0.0f, .5f, 1.0f}) {
+      AirRay ray{.RadiusKm = radius,
+                 .CosView = cosine,
+                 .CosSun = kSolarCosine,
+                 .ViewSun = 0,
+                 .DistanceKm = 2 * (radius + kEarthAir.TopRadiusKm)};
+      const auto expected = Reference(ray);
+      const auto canonical = air_path::airPhysicalSpan(kEarthAir, ray);
+      for (const float distance : {0.0f, .001f, .25f, 2.0f, 50.0f, 200.0f, 3000.0f}) {
+        ray.DistanceKm = distance;
+        const auto physical = air_path::airPhysicalSpan(kEarthAir, ray);
+        CHECK_NEAR(physical.BeginKm,
+                   expected.Begin,
+                   kMetreKm,
+                   "km",
+                   "the physical atmosphere entry matches the independent sphere intersection");
+        CHECK_NEAR(physical.EndKm,
+                   expected.End,
+                   kMetreKm,
+                   "km",
+                   "the physical endpoint stops at the first planet hit or atmosphere exit");
+        CHECK(physical.BeginKm == canonical.BeginKm && physical.EndKm == canonical.EndKm,
+              "opaque and thin query depths cannot change the physical source partition");
+      }
+    }
+  }
+}
+
 void SlantedRays() {
   double maximumErrorKm = 0;
   constexpr double kMetreKm = 0.001;
@@ -138,5 +172,6 @@ int main() {
   };
   for (const auto &expected : cases) { Verify(expected); }
   SlantedRays();
+  PhysicalRays();
   return outshine::Test::Report();
 }
