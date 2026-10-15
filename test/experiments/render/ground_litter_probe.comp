@@ -1,0 +1,65 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Palette {
+  float groundPalette[];
+};
+
+struct Probe {
+  vec4 PointDx;
+  vec2 Dy;
+  int Which;
+  uint Mode;
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer Inputs {
+  Probe probes[];
+};
+
+struct Result {
+  vec4 Wearing;
+  vec4 Detail;
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs {
+  Result results[];
+};
+
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  uint count;
+  uint unmapped;
+  uvec2 padding;
+};
+
+uint groundClasses[3];
+
+#include "surfaceNoise.glsl"
+#include "surfaceBlend.glsl"
+#include "groundMaterial.glsl"
+#include "groundSubstrate.glsl"
+#include "groundLayers.glsl"
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  groundClasses[2] = unmapped;
+  Probe probe = probes[index];
+  uint rows = floatBitsToUint(groundPalette[0]);
+  if (probe.Mode == 0u) {
+    uint row = groundSubstrateRow(probe.Which, rows);
+    uint at = 4u * (rows + 2u) + rows + 1u + row * 8u;
+    float scale = groundPalette[at + 2u];
+    float field =
+        scale > 0.0
+            ? groundLitterField(probe.PointDx.xy, abs(probe.PointDx.zw) + abs(probe.Dy), scale)
+            : 0.0;
+    results[index] = Result(vec4(field, 0.0, 0.0, 0.0), vec4(0.0));
+  } else {
+    GroundSurface surface =
+        groundSubstrateSurface(probe.Which, probe.PointDx.xy, probe.PointDx.zw, probe.Dy, rows);
+    results[index] =
+        Result(vec4(surface.Albedo, surface.Roughness), vec4(surface.BumpDxDy, 0.0, 0.0));
+  }
+}

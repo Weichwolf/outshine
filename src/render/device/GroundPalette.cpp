@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <vector>
 
 namespace outshine::Render {
 namespace {
@@ -17,6 +18,7 @@ struct LitterLayer {
 constexpr size_t kPaletteStride = 4u;
 constexpr size_t kSurfaceStride = 8u;
 constexpr size_t kLayerStride = 8u;
+constexpr float kVerticalSlopeDeg = 90.0f;
 static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559 &&
               sizeof(LitterLayer) == kLayerStride * sizeof(float) && alignof(LitterLayer) == 4 &&
               offsetof(LitterLayer, Difference) == 0 && offsetof(LitterLayer, Surface) == 16);
@@ -53,7 +55,7 @@ std::vector<float> GroundMaterialPalette(const Ground::VegetationTemplates &wear
   for (size_t channel = 0; channel < kPaletteStride; ++channel) {
     palette[kPaletteStride * (rows + 1u) + channel] = fallback[channel];
   }
-  palette[slopesAt + rows] = 90.0f;
+  palette[slopesAt + rows] = kVerticalSlopeDeg;
   return palette;
 }
 }
