@@ -1,5 +1,6 @@
 #include "Corridors.h"
 #include "RoadHeightPlan.h"
+#include "RoadCrossSection.h"
 #include "JunctionSlopePlan.h"
 #include "Heap.h"
 
@@ -50,6 +51,7 @@ struct Corridors::HeightGraph {
   std::unordered_map<uint64_t, uint32_t> Named;
   std::unordered_map<uint64_t, uint64_t> HeightOwners;
   std::unordered_map<uint64_t, uint32_t> JunctionAt;
+  std::unordered_map<uint64_t, double> CrossingCoreRadiusM;
   std::vector<bool> Adjusted;
   size_t AdjustedJunctions = 0;
 };
@@ -60,6 +62,93 @@ constexpr double kStationChangeToleranceM = .01;
 constexpr double kPlaneClearanceMarginM = 1e-8;
 constexpr size_t kPlaneAttemptsMost = 64;
 constexpr auto kPlaneTimeBudget = std::chrono::seconds(5);
+
+uint64_t ProfileNode(std::span<const RoadStation> along, std::array<uint64_t, 2> ends, size_t at) {
+  if (at == 0) { return ends[0]; }
+  if (at + 1 == along.size()) { return ends[1]; }
+  return along[at].Node;
+}
+
+std::unordered_map<uint64_t, Vec2> CrossingDirections(const auto &into, const auto &graph) {
+  std::unordered_map<uint64_t, Vec2> directions;
+  for (const auto &edge : into.Edges) {
+    const auto along = std::span(into.Planned).subspan(edge.PlannedFirst, edge.PlannedCount);
+    if (along.size() < 2) { continue; }
+    for (size_t at = 0; at < along.size(); ++at) {
+      const uint64_t node = ProfileNode(along, edge.NodeAt, at);
+      if (!graph.CrossingCoreRadiusM.contains(node)) { continue; }
+      const auto &first = along[at == 0 ? 0 : at - 1];
+      const auto &last = along[at + 1 == along.size() ? at : at + 1];
+      const double east = last.EastM - first.EastM;
+      const double north = last.NorthM - first.NorthM;
+      const double length = std::hypot(east, north);
+      if (length > 0) { directions.try_emplace(node, Vec2{{east / length, north / length}}); }
+    }
+  }
+  return directions;
+}
+
+bool SeparatedCrossing(const auto &on, const auto &crossing) {
+  if (crossing.Nodes[0] == 0 || crossing.Nodes[1] == 0 || crossing.Nodes[0] == crossing.Nodes[1]) {
+    return false;
+  }
+  const auto &first = on.Ways.Ways()[crossing.Lanes[0]];
+  const auto &second = on.Ways.Ways()[crossing.Lanes[1]];
+  return (first.Bridge || second.Bridge) &&
+         (first.Layer != second.Layer || first.Bridge != second.Bridge);
+}
+
+void PrepareCrossingCores(const auto &on, const auto &into, auto &graph, const auto &halfWidth) {
+  graph.CrossingCoreRadiusM.clear();
+  for (const auto &crossing : into.Crossings) {
+    if (!SeparatedCrossing(on, crossing)) { continue; }
+    for (const uint64_t node : crossing.Nodes) { graph.CrossingCoreRadiusM.try_emplace(node, 0); }
+  }
+  const auto directions = CrossingDirections(into, graph);
+  for (const auto &crossing : into.Crossings) {
+    if (!SeparatedCrossing(on, crossing)) { continue; }
+    const auto first = directions.find(crossing.Nodes[0]);
+    const auto second = directions.find(crossing.Nodes[1]);
+    if (first == directions.end() || second == directions.end()) { continue; }
+    const double sine =
+        std::abs(first->second[0] * second->second[1] - first->second[1] * second->second[0]);
+    if (!(sine > 0)) { continue; }
+    const double radius = (halfWidth(crossing.Lanes[0]) + halfWidth(crossing.Lanes[1])) / sine;
+    if (!std::isfinite(radius)) { continue; }
+    for (const uint64_t node : crossing.Nodes) {
+      graph.CrossingCoreRadiusM[node] = std::max(graph.CrossingCoreRadiusM[node], radius);
+    }
+  }
+}
+
+std::vector<std::array<double, 2>>
+CrossingCoreIntervals(std::span<const RoadStation> along,
+                      const std::array<HeightAttachment, 2> &ends,
+                      const auto &graph) {
+  std::vector<std::array<double, 2>> intervals;
+  double reached = 0;
+  for (size_t at = 0; at < along.size(); ++at) {
+    if (at > 0) {
+      reached += std::hypot(along[at].EastM - along[at - 1].EastM,
+                            along[at].NorthM - along[at - 1].NorthM);
+    }
+    const uint64_t node = ProfileNode(along, {ends[0].Node, ends[1].Node}, at);
+    const auto found = graph.CrossingCoreRadiusM.find(node);
+    if (found != graph.CrossingCoreRadiusM.end() && found->second > 0) {
+      intervals.push_back({reached - found->second, reached + found->second});
+    }
+  }
+  std::ranges::sort(intervals);
+  std::vector<std::array<double, 2>> merged;
+  for (const auto &interval : intervals) {
+    if (merged.empty() || interval[0] > merged.back()[1]) {
+      merged.push_back(interval);
+    } else {
+      merged.back()[1] = std::max(merged.back()[1], interval[1]);
+    }
+  }
+  return merged;
+}
 
 uint64_t HeightOwner(uint64_t node, const auto &graph) {
   for (;;) {
@@ -111,6 +200,9 @@ void AppendProfile(std::span<const RoadStation> along,
                    auto &graph) {
   uint32_t previous = 0;
   double previousOffsetM = 0.0;
+  const auto cores = CrossingCoreIntervals(along, ends, graph);
+  size_t core = 0;
+  double reached = 0;
   for (size_t at = 0; at < along.size(); ++at) {
     HeightAttachment attachment{.Node = along[at].Node};
     if (at == 0) {
@@ -125,9 +217,15 @@ void AppendProfile(std::span<const RoadStation> along,
     if (at > 0) {
       const double runM = std::hypot(along[at].EastM - along[at - 1].EastM,
                                      along[at].NorthM - along[at - 1].NorthM);
-      graph.Links.push_back(
-          {previous, node, limits.MaxGradient * runM, previousOffsetM, attachment.OffsetM});
+      while (core < cores.size() && cores[core][1] <= reached) { ++core; }
+      const bool rigid = core < cores.size() && cores[core][0] < reached + runM;
+      graph.Links.push_back({previous,
+                             node,
+                             rigid ? 0 : limits.MaxGradient * runM,
+                             previousOffsetM,
+                             attachment.OffsetM});
       graph.LinkStations.push_back(static_cast<uint32_t>(graph.Stations.size() - 2));
+      reached += runM;
     }
     previous = node;
     previousOffsetM = attachment.OffsetM;
@@ -247,18 +345,32 @@ void Corridors::CrossingClearances(const Paving &on, const Paved &into, HeightGr
     if (above == graph.Named.end() || below == graph.Named.end()) { continue; }
     const auto &upperWay = on.Ways.Ways()[crossing.Lanes[upper]];
     const auto &lowerWay = on.Ways.Ways()[crossing.Lanes[lower]];
+    const auto bankExtent = [&](size_t side) {
+      const size_t lane = crossing.Lanes[side];
+      const auto &way = on.Ways.Ways()[lane];
+      if (!way.Bridge) { return 0.0; }
+      const Section section = RoadSection(way.HalfWidthM, ProfileOf(on, lane));
+      return (section.HalfWidthM + section.ShoulderM) * kCrossfall;
+    };
+    const double lowerBankM = bankExtent(lower);
+    const double upperBankM = bankExtent(upper);
     if (lowerWay.Bridge) {
       auto &node = graph.Nodes[below->second];
-      node.MinimumM = std::max(node.MinimumM, crossing.GradeM + kSealedDepthM);
+      node.MinimumM = std::max(node.MinimumM, crossing.GradeM + kSealedDepthM + lowerBankM);
     }
-    graph.Clearances.push_back(
-        {.Lower = below->second,
-         .Upper = above->second,
-         .MinimumGapM = lowerWay.ClearanceM + (upperWay.Bridge ? kSealedDepthM : 0)});
+    graph.Clearances.push_back({.Lower = below->second,
+                                .Upper = above->second,
+                                .MinimumGapM = lowerWay.ClearanceM +
+                                               (upperWay.Bridge ? kSealedDepthM : 0) + lowerBankM +
+                                               upperBankM});
   }
 }
 
 void Corridors::HeightConstraints(const Paving &on, Paved &into, HeightGraph &graph) {
+  PrepareCrossingCores(on, into, graph, [&](size_t lane) {
+    const Section section = RoadSection(on.Ways.Ways()[lane].HalfWidthM, ProfileOf(on, lane));
+    return section.HalfWidthM + section.ShoulderM;
+  });
   graph.Nodes.clear();
   graph.Links.clear();
   graph.Clearances.clear();
