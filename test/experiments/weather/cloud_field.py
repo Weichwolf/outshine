@@ -108,7 +108,9 @@ def segments(origin, direction, layer):
     return np.stack([first, second], axis=-2)
 
 
-def optical_depth(origin, direction, layer, steps, seconds=0.0, maximum_m=np.inf):
+def optical_depth(
+    origin, direction, layer, steps, seconds=0.0, maximum_m=np.inf, quadrature=None
+):
     intervals = segments(origin, direction, layer)
     optical = np.zeros(intervals.shape[:-2])
     for interval in range(2):
@@ -118,9 +120,15 @@ def optical_depth(origin, direction, layer, steps, seconds=0.0, maximum_m=np.inf
             continue
         step_m = (stop - start) / steps
         for sample in range(steps):
-            distance = start + (sample + 0.5) * step_m
+            if quadrature is None:
+                distance = start + (sample + 0.5) * step_m
+                weight_m = step_m
+            else:
+                nodes, weights = quadrature
+                distance = start + nodes[sample] * (stop - start)
+                weight_m = weights[sample] * (stop - start)
             position = origin + distance[..., None] * direction
-            optical += density(position, layer, seconds) * step_m
+            optical += density(position, layer, seconds) * weight_m
     return optical
 
 

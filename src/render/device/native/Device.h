@@ -79,6 +79,11 @@ public:
 
   [[nodiscard]] virtual Result<std::unique_ptr<Commands>> Begin() = 0;
 
+  [[nodiscard]] virtual Result<void> SetPresentTarget([[maybe_unused]] SDL_Window *window) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native target switching unavailable"});
+  }
+
   [[nodiscard]] virtual Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() {
     return std::unexpected(
         Error{.Kind = ErrorKind::Unsupported, .Message = "native presentation unavailable"});

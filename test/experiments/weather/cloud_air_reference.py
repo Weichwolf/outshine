@@ -92,18 +92,29 @@ def coefficients(ray, medium, metadata):
     )
 
 
-def cloud_cells(layer, origin, direction, extent_m, warp=1):
+def cloud_cells(
+    layer,
+    origin,
+    direction,
+    extent_m,
+    warp=1,
+    view_samples=16,
+    light_samples=6,
+    light_gauss3=False,
+):
     cells = []
     for start, end in segments(origin, direction, layer):
         end = min(end, extent_m)
         if end <= start:
             continue
-        for tap in range(16):
-            begin = start + (end - start) * (tap / 16) ** warp
-            finish = start + (end - start) * ((tap + 1) / 16) ** warp
+        for tap in range(view_samples):
+            begin = start + (end - start) * (tap / view_samples) ** warp
+            finish = start + (end - start) * ((tap + 1) / view_samples) ** warp
             at = origin + direction * (0.5 * (begin + finish))
             extinction = float(density(at, layer, 37.0))
-            emission = extinction * source(at, direction, layer, 37.0)
+            emission = extinction * source(
+                at, direction, layer, 37.0, light_samples, light_gauss3
+            )
             cells.append((begin, finish, extinction, emission))
     return cells
 
@@ -120,12 +131,35 @@ def clear_span(origin, direction, extent_m, bottom_m, top_m):
     return (begin, end) if end > begin else (0.0, 0.0)
 
 
-def reference_ray(ray, distances, medium, metadata, cover, warp):
+def reference_ray(
+    ray,
+    distances,
+    medium,
+    metadata,
+    cover,
+    warp,
+    view_samples=16,
+    light_samples=6,
+    light_gauss3=False,
+):
     bottom_m, top_m = float(medium[0]) * 1000, float(medium[1]) * 1000
     origin, direction = origin_for(ray, medium[0]), direction_for(ray)
     layer = Layer(radius_m=bottom_m, cover=cover)
     extent_m = float(ray["ray"][4]) * 1000
-    cells = cloud_cells(layer, origin, direction, extent_m, warp) if cover > 0 else []
+    cells = (
+        cloud_cells(
+            layer,
+            origin,
+            direction,
+            extent_m,
+            warp,
+            view_samples,
+            light_samples,
+            light_gauss3,
+        )
+        if cover > 0
+        else []
+    )
     air_begin, air_end = clear_span(origin, direction, extent_m, bottom_m, top_m)
     air_extinction, air_emission = coefficients(ray, medium, metadata)
     edges = sorted(
@@ -163,7 +197,16 @@ def reference_ray(ray, distances, medium, metadata, cover, warp):
     return np.array(results), np.array(counts)
 
 
-def prepare(output, fixtures, cover, subset, warp=1):
+def prepare(
+    output,
+    fixtures,
+    cover,
+    subset,
+    warp=1,
+    view_samples=16,
+    light_samples=6,
+    light_gauss3=False,
+):
     medium = np.fromfile(fixtures / "medium.bin", dtype="<f4")
     if medium[2] < 1e19 or medium[3] < 1e19 or np.any(medium[8:11] != 0):
         raise ValueError(
@@ -177,7 +220,15 @@ def prepare(output, fixtures, cover, subset, warp=1):
     for ray in rays:
         begin, end = int(ray["begin"]), int(ray["end"])
         reference, counts = reference_ray(
-            ray, distances[begin:end], medium, metadata, cover, warp
+            ray,
+            distances[begin:end],
+            medium,
+            metadata,
+            cover,
+            warp,
+            view_samples,
+            light_samples,
+            light_gauss3,
         )
         references.append(reference)
         density_counts.extend(counts)
@@ -191,11 +242,14 @@ def prepare(output, fixtures, cover, subset, warp=1):
         "queries": len(distances),
         "cover": cover,
         "warp": warp,
+        "view_samples": view_samples,
+        "light_samples": light_samples,
+        "light_gauss3": light_gauss3,
         "scope": "Homogeneous finite clear air, actual procedural cloud cells and sources; no general LUT/field convergence.",
     }
 
 
-def check(output, samples_path, cover):
+def check(output, samples_path, cover, view_samples=16, light_samples=6):
     samples = np.fromfile(samples_path, dtype=SAMPLE)
     references = np.load(output / "reference.npz")
     measured = np.concatenate([samples["radiance"], samples["through"]], axis=1)
@@ -213,7 +267,9 @@ def check(output, samples_path, cover):
         "max_cloud_source_evaluations": int(sources.max()),
         "max_clear_source_evaluations": int(samples["sources"].max()),
         "max_committed_union_cells": int((samples["counts"] >> 24).max()),
-        "cloud_density_work_upper_bound": int(np.max(density_counts + 12 * sources)),
+        "cloud_density_work_upper_bound": int(
+            np.max(density_counts + 2 * light_samples * sources)
+        ),
         "density_counts_match": bool(
             np.array_equal(density_counts, references["density_counts"])
         ),
@@ -228,10 +284,10 @@ def check(output, samples_path, cover):
         report["finite"] and report["nonnegative"] and report["bounded_transmittance"]
     )
     assert report["invalid_queries"] == 0 and report["density_counts_match"]
-    assert report["max_cloud_density_evaluations"] <= 32
-    assert report["max_cloud_source_evaluations"] <= 32
+    assert report["max_cloud_density_evaluations"] <= 2 * view_samples
+    assert report["max_cloud_source_evaluations"] <= 2 * view_samples
     assert report["max_clear_source_evaluations"] <= 63
-    assert report["max_committed_union_cells"] <= 68
+    assert report["max_committed_union_cells"] <= 2 * view_samples + 36
     assert (
         report["max_radiance_error"] < radiance_limit
         and report["max_transmittance_error"] < through_limit
@@ -247,14 +303,40 @@ def main():
     parser.add_argument("--samples", type=Path)
     parser.add_argument("--subset", choices=("all", "ground", "orbit"), default="all")
     parser.add_argument("--warp", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--view-samples", type=int, default=16)
+    parser.add_argument("--light-samples", type=int, default=6)
+    parser.add_argument("--light-gauss3", action="store_true")
     args = parser.parse_args()
+    if not 1 <= args.view_samples <= 64 or not 1 <= args.light_samples <= 32:
+        parser.error("require view samples in [1,64] and light samples in [1,32]")
+    if args.light_gauss3 and args.light_samples != 3:
+        parser.error("Gauss3 requires exactly three light samples")
     print(
         json.dumps(
-            prepare(args.output, args.fixtures, args.cover, args.subset, args.warp)
+            prepare(
+                args.output,
+                args.fixtures,
+                args.cover,
+                args.subset,
+                args.warp,
+                args.view_samples,
+                args.light_samples,
+                args.light_gauss3,
+            )
         )
     )
     if args.samples:
-        print(json.dumps(check(args.output, args.samples, args.cover)))
+        print(
+            json.dumps(
+                check(
+                    args.output,
+                    args.samples,
+                    args.cover,
+                    args.view_samples,
+                    args.light_samples,
+                )
+            )
+        )
 
 
 if __name__ == "__main__":
