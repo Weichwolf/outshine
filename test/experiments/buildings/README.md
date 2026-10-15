@@ -163,6 +163,23 @@ Full selected source polygons and source heights remain, with clipped census
 pieces and generation failures recorded. This is a local study, not a global
 optimum or native world-coverage gate.
 
+Urban roof studies ([#308](https://github.com/Weichwolf/outshine/issues/308)) connect
+the existing `Shape.roof_hip`/heightfield-envelope kernels to ordinary complete
+150–2500 m², 8–36 m bodies beyond the existing small-house scope. Courtyards and
+source top heights remain; supplied roof types, clipped/elevated/round/slender
+bodies and incompatible uses keep their previous alternatives. Roof form is
+explicitly inferred, without city/name lookup. Delivered storeys reserve at least
+2.64 m each before roof space. A bounded sub-0.1-micrometre height normalization
+absorbs skeleton/overlay rounding, with normals transformed consistently.
+Rectangle volume and concave/courtyard offset sections are independent controls;
+three provider fixtures also exercise actual facade frames ending at the eave.
+`urban_roof_probe.py --output <temp>/urban-roofs` records actual plan/section/2.5D
+geometry and seven warm construction runs against the previous flat envelope.
+The flat comparison measures incremental work for different visible quality.
+Output buffer bytes are not total allocations; native/device/LOD budgets remain
+unproved. The broader city-envelope scope test now uses a 3600 m² exclusion;
+400 m² bodies are intentionally inside the new urban scope.
+
 Buildings stand on one flat plane without DEM. `city_scene.py` uses the existing
 Python roof, facade, stepped-envelope and simple room-control procedures.
 `blender_city.py` consumes the exact frozen mesh and supplied normals/UVs with
