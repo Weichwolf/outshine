@@ -124,7 +124,34 @@ def run(output):
     (output / "comparison.json").write_text(json.dumps(result, indent=2) + "\n")
 
 
+def cache_costs(output):
+    """Decode complete prepared arrays once; OS cache state is not controlled."""
+    rows = []
+    for path in sorted(output.glob("*-*-*.npz")):
+        start = time.perf_counter()
+        with np.load(path) as stored:
+            arrays = {key: stored[key] for key in stored.files}
+        rows.append(
+            {
+                "file": path.name,
+                "decode_s": time.perf_counter() - start,
+                "compressed_bytes": path.stat().st_size,
+                "returned_arrays": len(arrays),
+                "returned_payload_bytes": sum(v.nbytes for v in arrays.values()),
+            }
+        )
+        del arrays
+    (output / "cache-costs.json").write_text(
+        json.dumps({"scope": cache_costs.__doc__, "products": rows}, indent=2) + "\n"
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    run(parser.parse_args().output)
+    parser.add_argument("--cache-only", action="store_true")
+    args = parser.parse_args()
+    if args.cache_only:
+        cache_costs(args.output)
+    else:
+        run(args.output)

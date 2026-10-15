@@ -3,7 +3,7 @@
 from dataclasses import replace
 
 import numpy as np
-from biome_models import woody_plan
+from biome_recipes import woody_plan
 from outshine_ref.vegetation import AxisLevel, PlantPlan
 
 
