@@ -5,6 +5,7 @@
 #include <array>
 #include <string>
 #include <cstdint>
+#include <cstddef>
 
 namespace outshine::Render {
 
@@ -84,8 +85,10 @@ void AerialPerspectiveStage::SetBasis(const EyeBasis &eye) {
 }
 
 void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording &into) {
-  (void)ctx;
   if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
+  for (size_t axis = 0; axis < 3; ++axis) {
+    Pushed_.Clouds.OriginM[axis] = static_cast<float>(-ctx.PreViewTranslation[axis]);
+  }
   SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
   const std::array<SDL_GPUTextureSamplerBinding, 4> bound = {{{.texture = Scene, .sampler = Exact},
                                                               {.texture = Depth, .sampler = Exact},

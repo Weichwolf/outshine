@@ -9,6 +9,8 @@
 #include <string_view>
 
 namespace outshine {
+inline constexpr double kMaximumCloudWindMs = 1000.0;
+
 namespace Says {
 inline constexpr std::string_view InvalidWeather =
     "weather requires finite numbers within the declared physical and storage ranges";
@@ -42,6 +44,9 @@ ValidateWeather(const Scenario::Weather &weather) noexcept {
     if (!std::isfinite(value) || value < field.Minimum || value > field.Maximum) {
       return std::unexpected(Says::InvalidWeather);
     }
+  }
+  if (weather.CloudCover > 0.0 && weather.WindMs > kMaximumCloudWindMs) {
+    return std::unexpected(Says::InvalidWeather);
   }
   return {};
 }

@@ -501,6 +501,7 @@ struct Engine::State {
   [[nodiscard]] bool GroundDeformationPending() const noexcept;
   [[nodiscard]] bool AwaitGroundDeformation(double seconds) const;
   [[nodiscard]] bool UpdateActiveCamera();
+  void UpdateWeather();
   [[nodiscard]] std::expected<std::optional<Vec3>, std::string_view>
   GeodeticCameraPosition(const Scenario::View &view) const;
   void PublishCameraHeightMeasurements(LongitudeLatitude at);

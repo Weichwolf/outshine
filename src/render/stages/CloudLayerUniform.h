@@ -12,6 +12,8 @@ struct alignas(16) CloudLayerUniform {
   Vec4f Shell;
   Vec4f Field;
   Vec4f Drift;
+
+  [[nodiscard]] constexpr bool operator==(const CloudLayerUniform &) const = default;
 };
 
 [[nodiscard]] inline CloudLayerUniform PackCloudLayer(const CloudLayer &layer,
@@ -27,7 +29,7 @@ struct alignas(16) CloudLayerUniform {
                      0.0f}}};
 }
 
-static_assert(sizeof(CloudLayerUniform) == 48 && alignof(CloudLayerUniform) == 16);
+static_assert(sizeof(CloudLayerUniform) == 3 * sizeof(Vec4f) && alignof(CloudLayerUniform) == 16);
 static_assert(offsetof(CloudLayerUniform, Shell) == 0);
 static_assert(offsetof(CloudLayerUniform, Field) == 16);
 static_assert(offsetof(CloudLayerUniform, Drift) == 32);

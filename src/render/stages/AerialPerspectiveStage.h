@@ -13,8 +13,13 @@
 #include "GpuOwned.h"
 #include "Atmosphere.h"
 #include "SkyPass.h"
+#include "CloudViewUniform.h"
+
+#include <cstddef>
 
 namespace outshine::Render {
+
+inline constexpr size_t kAerialClearUniformBytes = 192;
 
 class AerialPerspectiveStage {
 public:
@@ -40,6 +45,8 @@ public:
 
   void SetDepthReconstruction(Vec4f coefficients) { Pushed_.DepthReconstruction = coefficients; }
 
+  void Clouds(CloudViewUniform clouds) { Pushed_.Clouds = clouds; }
+
   [[nodiscard]] bool Stands() const { return Declared_; }
 
   void Encode(const FrameContext &ctx, const PassRecording &into);
@@ -56,7 +63,13 @@ private:
     float EyeRadiusKm;
     Vec4f DepthReconstruction;
     Medium Air;
+    CloudViewUniform Clouds;
   };
+
+  static_assert(sizeof(Pushed) == kAerialClearUniformBytes + sizeof(CloudViewUniform));
+  static_assert(alignof(Pushed) == 16);
+  static_assert(offsetof(Pushed, Air) == 7 * sizeof(Vec4f));
+  static_assert(offsetof(Pushed, Clouds) == kAerialClearUniformBytes);
 
   OwnedPipeline Pipe;
   SDL_GPUTexture *Scene = nullptr;

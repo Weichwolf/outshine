@@ -1603,6 +1603,8 @@ SubjectDraw::PackedLights(const FrameContext &ctx) const {
   packed.ViewPosition = ctx.ViewPosition;
   packed.SkyUp = LightVector(Reflections_.Up);
   packed.SkyToSun = LightVector(Reflections_.ToSun);
+  packed.Clouds = Clouds_;
+  packed.CloudOriginM = LightVector(ctx.PreViewTranslation * -1.0);
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
     auto &entry = packed.Items[at];

@@ -102,13 +102,15 @@ struct Georeference {
 
 /// Owned weather declaration, copied with the scenario; no borrowed storage or synchronization.
 /// Do not mutate concurrently with readers. Import/export preserve these fields when the world
-/// section is declared. Cloud and wind values are currently metadata: they do not yet drive
-/// rendering or simulation. Only Haze is consumed by the renderer. Import, Engine::declare and
+/// section is declared. CloudCover/CloudBaseAglM and wind drive a bounded procedural deck once
+/// the world's reference ground height is available; layer fractions remain metadata. Haze
+/// controls clear-air aerosols. Import, Engine::declare and
 /// export reject nonfinite/out-of-range values, including values in an inactive world section.
 /// Failed import/declaration preserves the previous document/engine declaration. XML requires
 /// complete numeric tokens; omitted attributes retain defaults. The aggregate itself is unchecked.
 struct Weather {
-  /// Requested total cloud fraction in [0,1]; independent of the layer fractions, not their sum.
+  /// Requested total cloud fraction in [0,1]; controls the procedural deck's density threshold.
+  /// Independent of the layer fractions, not their sum or an exact measured footprint fraction.
   double CloudCover = 0.0;
   /// Requested low-layer cloud fraction in [0,1]; layer altitude bands are not defined here.
   double CloudLow = 0.0;
@@ -118,11 +120,14 @@ struct Weather {
   double CloudHigh = 0.0;
   /// Requested nonnegative cloud-base height in metres above local ground, not sea level.
   /// Zero is a literal value; it is not an automatic-height sentinel.
+  /// The reference ground is sampled at the world's declared origin. An unknown reference
+  /// or a layer outside the clear-atmosphere envelope is reported through weather measures.
   double CloudBaseAglM = 0.0;
   /// Meteorological wind-from bearing in degrees: north 0, east 90, clockwise viewed from above.
-  /// Stored without wrapping; conversion into world-space wind is not implemented yet.
+  /// Stored without wrapping; converted to east/up/south flow for procedural cloud advection.
   double WindDeg = 0.0;
   /// Requested nonnegative wind speed in metres per second; zero means calm.
+  /// A nonzero CloudCover requires at most 1000 m/s for the bounded native cloud recipe.
   double WindMs = 0.0;
   /// Dimensionless multiplier of the reference air's Mie scattering and extinction only.
   /// One retains the reference aerosols, zero removes them, and values above one increase them.

@@ -286,6 +286,8 @@ public:
 
   void SetEnvironment(const SubjectEnvironment &environment) { IndirectLight = environment; }
 
+  void SetClouds(const CloudLayerUniform &clouds) { Clouds_ = clouds; }
+
   [[nodiscard]] const SubjectEnvironment &Environment() const { return IndirectLight; }
 
   struct Reflections {
@@ -411,6 +413,7 @@ private:
   SDL_GPUTexture *Atlas_ = nullptr;
   SDL_GPUSampler *AtlasSampler_ = nullptr;
   std::array<ShadowRegionUniform, kSunShadowRegions> ShadowRegions_{};
+  CloudLayerUniform Clouds_;
   size_t ShadowRegionCount_ = 0;
   Mat4 LightFromWorld_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   bool Shadowed_ = false;

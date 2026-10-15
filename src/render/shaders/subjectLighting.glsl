@@ -118,6 +118,10 @@ vec3 shadeRow(M surface,
     if (light.tint.w <= 0.5 && lights.count.z > 0.5) {
       attenuation *= worldSunShadowVisibility(shadowMap, shadowCoordinate, receiverSlope);
     }
+    if (light.tint.w <= 0.5 && lights.clouds.field.x > 0.0) {
+      vec3 receiverM = p + lights.cloudOriginM.xyz;
+      attenuation *= exp(-cloudOpticalDepth(lights.clouds, receiverM, toward, 1.0e8));
+    }
     float nl = dot(n, toward);
     if (attenuation <= 0.0) { continue; }
     if (surface.thinWeight > 0.0) {
