@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "cases": [
     {
       "place": "Wien",
@@ -16,7 +16,28 @@
           5681
         ],
         "sha256": "3a89a622f7113bc78fa751f045e062901fab4ac617b397ac2938270eff8e252b"
-      }
+      },
+      "flat_recipe_datum_m": 173.0,
+      "flat_recipe_dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/709.webp",
+          "tile": [
+            11,
+            1117,
+            709
+          ],
+          "sha256": "f87bdc1013a15dac1cb795927b030f5ce37aa38623aabdff423e985a1c6e7696"
+        },
+        {
+          "url": "https://tiles.mapterhorn.com/11/1117/710.webp",
+          "tile": [
+            11,
+            1117,
+            710
+          ],
+          "sha256": "7c088f873b05259eba77fe0e8c8ec97eb740c5e304da8ba8d73c9d87114093b8"
+        }
+      ]
     },
     {
       "place": "Tokyo",
@@ -33,7 +54,19 @@
           6452
         ],
         "sha256": "20e36728038a8fdc6f3d1fc501887514b213e3d8334d927d85fa61f5a8f5e564"
-      }
+      },
+      "flat_recipe_datum_m": 16.0466422704624,
+      "flat_recipe_dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1818/806.webp",
+          "tile": [
+            11,
+            1818,
+            806
+          ],
+          "sha256": "bb056f14582122320b20b39067c7359213b79f740c2915ef51926c108fcec017"
+        }
+      ]
     },
     {
       "place": "CentralPark",
@@ -50,7 +83,19 @@
           6156
         ],
         "sha256": "7bbe3fd23ae69c0b120200e9e6ad2910b0c37ea557feb868dc63c249dc601a21"
-      }
+      },
+      "flat_recipe_datum_m": 31.04132406366663,
+      "flat_recipe_dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/603/769.webp",
+          "tile": [
+            11,
+            603,
+            769
+          ],
+          "sha256": "cc42a9c50c02d79dbe767f74c381c754392cf1e73057cc28c81c68ed45e1be73"
+        }
+      ]
     },
     {
       "place": "Feldkirch",
@@ -67,8 +112,20 @@
           5746
         ],
         "sha256": "872cd114f94179eabfbe1d65c0adea3a45f5ad343c1529bf8460cb90998ff694"
-      }
+      },
+      "flat_recipe_datum_m": 457.2707875199727,
+      "flat_recipe_dem": [
+        {
+          "url": "https://tiles.mapterhorn.com/11/1078/718.webp",
+          "tile": [
+            11,
+            1078,
+            718
+          ],
+          "sha256": "e87cbb0a75183e43dc82b7e825b241a3199b35cd3d1937d9a35406f691de9df4"
+        }
+      ]
     }
   ],
-  "scope": "Fixed numeric frames and existing immutable-source pins for camera-window capture; camera declarations remain solely in src/assets/places."
+  "scope": "Fixed historical scaled-Mercator frames, immutable source pins and accepted flat-recipe datums. Camera declarations remain solely in native scenarios; recipe datums are not current terrain contacts."
 }
