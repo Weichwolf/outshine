@@ -14,6 +14,7 @@ from blender_city_material import base
 from blender_city_mesh import import_mesh
 from evidence import revision
 from outshine_ref.rendering.blender_camera import configure_camera, verify_camera
+from outshine_ref.rendering.blender_light import configure_daylight
 
 
 def studio(scene, data, samples):
@@ -22,17 +23,7 @@ def studio(scene, data, samples):
     )
     scene.render.threads_mode, scene.render.threads = "FIXED", 2
     scene.eevee.taa_render_samples = samples
-    scene.view_settings.view_transform = "AgX"
-    scene.view_settings.exposure = 1.5
-    bpy.ops.object.light_add(type="SUN")
-    light = bpy.context.object
-    light.rotation_euler = (0.45, -0.65, -0.6)
-    light.data.energy, light.data.angle = 2.5, 0.04
-    scene.world = bpy.data.worlds.new("neutral research studio")
-    scene.world.use_nodes = True
-    background = scene.world.node_tree.nodes["Background"]
-    background.inputs["Color"].default_value = (0.35, 0.45, 0.6, 1.0)
-    background.inputs["Strength"].default_value = 0.35
+    lighting = configure_daylight(scene)
     low, high = data["vertices"][:, :2].min(axis=0), data["vertices"][:, :2].max(axis=0)
     centre, span = (low + high) / 2, float((high - low).max()) * 2
     bpy.ops.mesh.primitive_plane_add(size=span, location=(*centre, -0.01))
@@ -40,14 +31,7 @@ def studio(scene, data, samples):
         base("flat neutral ground", (0.20, 0.22, 0.24), 0.95)
     )
     return {
-        "profile": "vegetation-base candidate from #291",
-        "sun_rotation_radians": [0.45, -0.65, -0.6],
-        "sun_energy": 2.5,
-        "sun_angle_radians": 0.04,
-        "world_linear_rgb": [0.35, 0.45, 0.6],
-        "world_strength": 0.35,
-        "view_transform": "AgX",
-        "exposure": 1.5,
+        **lighting,
         "extra_lights": [],
         "ground_z_m": -0.01,
         "ground_span_m": span,

@@ -936,3 +936,7 @@ Perspective FOV is vertical; orthographic `span_m` is horizontal. Blender stays 
 optional host dependency; module import does not require `bpy`. Buildings research
 uses `.venv` with `bpy==5.2.2`; Transport retains its current Workbench profile
 until its presentation migration. These helpers do not imply a native/device gate.
+
+`outshine_ref.rendering.blender_light.configure_daylight` applies the agreed
+Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
+Research images stay local; only master publishes integrated Places.

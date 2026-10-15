@@ -18,7 +18,9 @@ class BlenderCameras(unittest.TestCase):
 
         bpy.ops.wm.read_factory_settings(use_empty=True)
         self.scene = bpy.context.scene
-        self.folder = tempfile.TemporaryDirectory(prefix="outshine-blender-camera-")
+        self.folder = tempfile.TemporaryDirectory(
+            prefix="outshine-tests." + Path.cwd().name + "-blender-camera-"
+        )
         self.addCleanup(self.folder.cleanup)
         self.vertices = np.array([[-1.0, -1.0, 0.0], [1.0, 1.0, 2.0]])
 

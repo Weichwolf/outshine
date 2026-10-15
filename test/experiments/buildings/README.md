@@ -156,7 +156,7 @@ generic room programme, native player controller and architecture families remai
 separate.
 
 Current compact city studies use Paris, Rome, Berlin and London. The actual
-preferred-provider census compares nine800×800-metre windows in each of five
+preferred-provider census compares nine 800×800-metre windows in each of five
 cities before selection. Density and area/height/shape diversity are explicit;
 nearby POIs describe context rather than proving whole-building functions.
 Full selected source polygons and source heights remain, with clipped census
@@ -171,7 +171,7 @@ material parameter composition. Its Eevee sampling is not an analytic CPU
 footprint oracle. The shared research workflow and fixed daylight values belong
 to [#291](https://github.com/Weichwolf/outshine/issues/291).
 
-Research images stay local in system-temp directories, normally1920×1080 for
+Research images stay local in system-temp directories, normally 1920×1080 for
 detail inspection. Only master publishes integrated Places in `doc/images/places/`;
 no Buildings gallery or substitute publication is created. Source geometries,
 materials and cameras remain distinguishable from image-renderer changes. The
