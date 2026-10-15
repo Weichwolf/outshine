@@ -1,5 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#if CLOUD_LIGHT_GAUSS3
+#include "cloud_sampling_gauss3.glsl"
+#endif
 #include "cloud_air_prefix.glsl"
 #include "AirPrefixProbeLayout.h"
 
@@ -14,6 +17,9 @@
 #endif
 #ifndef CLOUD_PREFIX_CLEAR_CONTROL
 #define CLOUD_PREFIX_CLEAR_CONTROL 0
+#endif
+#ifndef CLOUD_PREFIX_SUN_SCALE
+#define CLOUD_PREFIX_SUN_SCALE 1.0
 #endif
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -32,7 +38,7 @@ CloudAirPrefix beginCloudRay(ProbeRay inputRay) {
   CloudLayer layer = CloudLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, CLOUD_PREFIX_EXTINCTION_PER_M),
       vec4(CLOUD_PREFIX_COVER, 0.0, 0.0, 0.0), vec4(256.34352, 0.0, -148.0, 0.0));
   CloudLight light = CloudLight(vec3(-0.6, 0.8, 0.0),
-      vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
+      CLOUD_PREFIX_SUN_SCALE * vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
   AirPathSpan span = airPathSpan(pushed.Air, inputRay.Ray);
   AirRay clearRay = airPathRay(pushed.Air, inputRay.Ray, span);
   AirPrefix clear = airPrefixBegin(pushed.Air, clearRay, veil, multiScatter);
@@ -58,6 +64,8 @@ void main() {
 #endif
     bool valid = CLOUD_PREFIX_COVER <= 0.0 ||
         (queryM >= prefix.BeginM && queryM <= prefix.EndM);
+    valid = valid && prefix.CellsVisited <= 255u &&
+        prefix.Cloud.DensityEvaluations <= 255u && prefix.Cloud.SourceEvaluations <= 255u;
     uint counts = (prefix.CellsVisited << 24u) | (prefix.Cloud.DensityEvaluations << 16u) |
         (prefix.Cloud.SourceEvaluations << 8u) | (valid ? 0u : 1u);
     into.samples[at] = ProbeSample(result.RadiancePerLux.r, result.RadiancePerLux.g,
