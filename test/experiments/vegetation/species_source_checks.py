@@ -88,10 +88,7 @@ class SpeciesSourceTests(unittest.TestCase):
             [("Fictiona arbor", "Accepted", "10"), ("Fictiona prior", "Synonym", "11")],
         )
         self.assertEqual(
-            {
-                r["region"]: (r["introduced"], r["extinct"], r["doubtful"])
-                for r in species["distribution"]
-            },
+            {r[0]: tuple(r[1:4]) for r in species["distribution"]},
             {"SWI": (0, 0, 0), "TEX": (1, 0, 0), "GER": (0, 1, 0), "AUT": (0, 0, 1)},
         )
 

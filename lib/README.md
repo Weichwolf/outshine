@@ -20,6 +20,11 @@ Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkou
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
 
+`vegetation.load_species_catalog()` lädt einen festen lizenzierten Pilot mit
+30 akzeptierten Arten, Herkunft und getrennten regionalen Vorkommenszuständen.
+Vorbereitete Kandidatenlisten, Format und noch offene ökologische/botanische
+Abnahme stehen in [species_catalog.md](species_catalog.md) (#226).
+
 `materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
 Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
 integriert die kubische Übergangsmaske im eindimensionalen Normalen-Footprint; beide Seiten

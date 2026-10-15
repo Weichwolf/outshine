@@ -114,13 +114,7 @@ def distributions(archive, accepted):
             row["plant_locality_id"]
         )
     return {
-        key: [
-            dict(
-                zip(("region", "introduced", "extinct", "doubtful"), flags),
-                source_ids=sorted(values),
-            )
-            for flags, values in sorted(group.items())
-        ]
+        key: [[*flags, sorted(values)] for flags, values in sorted(group.items())]
         for key, group in groups.items()
     }
 
@@ -161,6 +155,13 @@ def compile_catalog(source, specification):
         )
     return {
         "format": "outshine-species-pilot-1",
+        "distribution_fields": [
+            "region",
+            "introduced",
+            "extinct",
+            "doubtful",
+            "source_ids",
+        ],
         "source": specification["source"],
         "scope": "Explicit pilot species, not full flora or ecological/visual acceptance. Empty traits mean missing source data. Distribution flags are independent evidence, not abundance or cultivated planting instructions.",
         "requests": [
@@ -184,7 +185,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     catalog = compile_catalog(args.source, json.loads(args.specification.read_text()))
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n")
+    args.output.write_text(
+        json.dumps(catalog, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\n"
+    )
     print(
         json.dumps(
             {
