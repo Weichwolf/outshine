@@ -35,7 +35,22 @@ def albedos(camera):
 
 
 def presentation(output, baseline, arrays, selected, areas, ground_triangles):
-    camera = json.loads((baseline / "after-scene.json").read_text())
+    source = json.loads((baseline / "after-scene.json").read_text())
+    camera = {
+        k: source[k]
+        for k in [
+            "projection",
+            "profile",
+            "samples",
+            "colours",
+            "eye",
+            "target",
+            "span_m",
+            "camera_basis",
+            "fov_y_degrees",
+        ]
+        if k in source
+    }
     rgb, material = albedos(camera)
     area = shapely.area(shapely.polygons(ground_triangles))
     palette = np.asarray(camera["colours"], np.float32)
@@ -51,6 +66,8 @@ def presentation(output, baseline, arrays, selected, areas, ground_triangles):
             mesh=str(mesh),
             mesh_sha256=digest(mesh),
             output=str(output / (name + ".png")),
+            source_array_payload_bytes=sum(a.nbytes for a in arrays.values())
+            + (colour.nbytes if name == "after" else 0),
         )
         (output / (name + "-scene.json")).write_text(json.dumps(row, indent=2) + "\n")
         rows.append(row)

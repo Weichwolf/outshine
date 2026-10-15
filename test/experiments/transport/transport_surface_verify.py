@@ -82,6 +82,10 @@ def verify_body(args, report, arrays, selected, areas):
         "ij,jk->ik", areas / areas.sum(axis=1)[:, None], rgb
     ).astype(np.float32)
     with np.load(path) as d:
+        if sum(d[k].nbytes for k in d.files) != scene["source_array_payload_bytes"]:
+            raise ValueError(
+                "scene payload bytes do not describe the actual exported arrays"
+            )
         if set(d.files) != set(arrays) | {"face_base_colour_linear_rgba"}:
             raise ValueError("unexpected body arrays or missing colour field")
         for key in arrays:

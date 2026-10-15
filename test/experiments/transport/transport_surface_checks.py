@@ -1,14 +1,63 @@
 """Whole-area, unknown, priority, holes and level-bound source counterexamples."""
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
 from transport_surface_areas import centroid_areas, family_areas
+from transport_surface_experiment import presentation
 from transport_surface_families import family_domains, old_ground_records, source_family
 
 
 class SurfaceFamilies(unittest.TestCase):
+    def test_scenes_do_not_inherit_stale_export_proofs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            baseline = root / "base"
+            output = root / "new"
+            baseline.mkdir()
+            output.mkdir()
+            arrays = {
+                "vertices": np.array([[0.0, 0, 0], [1.0, 0, 0], [0.0, 1, 0]]),
+                "triangles": np.array([[0, 1, 2]], np.uint32),
+                "normals": np.tile([0.0, 0, 1], (3, 1)),
+                "materials": np.zeros(1, np.uint8),
+            }
+            np.savez_compressed(baseline / "after-body.npz", **arrays)
+            (baseline / "after-scene.json").write_text(
+                json.dumps(
+                    {
+                        "colours": [[0.2, 0.2, 0.2, 1]],
+                        "projection": "orthographic",
+                        "profile": [1280, 720],
+                        "path": "stale",
+                        "sha256": "stale",
+                        "exported_array_bytes": -1,
+                        "explicit_indexed_xyz_copy_bytes": -2,
+                    }
+                )
+            )
+            rows, _materials, _copies = presentation(
+                output,
+                baseline,
+                arrays,
+                np.array([0]),
+                np.array([[0.5, 0, 0, 0, 0, 0, 0, 0, 0]]),
+                arrays["vertices"][arrays["triangles"], :2],
+            )
+            for row in rows:
+                self.assertNotIn("path", row)
+                self.assertNotIn("sha256", row)
+                self.assertNotIn("explicit_indexed_xyz_copy_bytes", row)
+                with np.load(row["mesh"]) as d:
+                    self.assertEqual(
+                        row["source_array_payload_bytes"],
+                        sum(d[k].nbytes for k in d.files),
+                    )
+
     def test_paved_is_evidence_not_surveyed_asphalt(self):
         self.assertEqual(
             source_family({"class": "minor", "surface": "paved"}),
