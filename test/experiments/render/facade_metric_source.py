@@ -66,12 +66,16 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = args.output.resolve()
-    if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
+    if output.is_relative_to(
+        Path(__file__).resolve().parents[3]
+    ) or not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error("use an explicit system-temp output")
     output.mkdir(parents=True, exist_ok=True)
     (output / "comparison.json").unlink(missing_ok=True)
     command = ["nice", "-n", "10", str(args.binary.resolve())]
-    run = subprocess.run(command, check=False, capture_output=True, text=True, timeout=90)
+    run = subprocess.run(
+        command, check=False, capture_output=True, text=True, timeout=90
+    )
     (output / "source.log").write_text(run.stdout + run.stderr)
     assert run.returncode == 0, (run.returncode, run.stderr)
     checks = re.search(
