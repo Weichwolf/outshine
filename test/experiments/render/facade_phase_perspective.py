@@ -16,6 +16,7 @@ from facade_phase_raster import (
     capture,
     compile_pairs,
     payload,
+    pdf,
     run,
 )
 
@@ -95,11 +96,30 @@ def main():
                 }
             )
     assert max(r["max_metadata_error"]["old"] for r in records) > 0.4
+    pdf(
+        output, [images["old"][0], images["old"][7], images["new"][7], images["new"][0]]
+    )
+    data = (output / "s7-f2-v7.bin").read_bytes()
+    old_code, new_code = [
+        capture(
+            args.binary.resolve(), output, "code-control", mode, data, diagnostic=True
+        )
+        for mode in ("old", "new")
+    ]
+    expected_code = 7 + 11 * (2 + 3 * 7)
+    assert (new_code[0, :, :, 3] == expected_code).all()
+    wrong_old = int(np.count_nonzero(old_code[0, :, :, 3] != expected_code))
+    assert wrong_old > 0
     sources = [Path(__file__), Path(__file__).with_name("facade_phase_raster.py")]
     report = {
         "scope": __doc__,
         "native_raster": True,
-        "captures": 144,
+        "captures": 146,
+        "classification_control": {
+            "expected_code": expected_code,
+            "wrong_old_pixels": wrong_old,
+            "wrong_new_pixels": 0,
+        },
         "cases": records,
         "source_sha256": {
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -111,7 +131,7 @@ def main():
         json.dumps(
             {
                 "native_raster": True,
-                "captures": 144,
+                "captures": 146,
                 "max_fixed_error": max(r["max_metadata_error"]["new"] for r in records),
             }
         )
