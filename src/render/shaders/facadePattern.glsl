@@ -39,11 +39,12 @@ void applyRoofCourses(vec2 encoded, vec3 positionM, vec3 localM, vec3 n, inout v
   heightChange = -0.004 * (joint.courseSlope * courseChange + joint.tileSlope * tileChange);
 }
 
-void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
+void applyFacade(vec2 encoded, float bay, vec3 paint, vec3 positionM, vec3 localM, vec3 metricM, vec3 n,
                  inout vec3 albedo, inout float roughness, out vec2 heightChange) {
   heightChange = vec2(0.0);
-  vec2 dx = dFdx(encoded);
-  vec2 dy = dFdy(encoded);
+  vec2 coordinates = vec2(bay, encoded.y);
+  vec2 dx = dFdx(coordinates);
+  vec2 dy = dFdy(coordinates);
   vec3 dxM = dFdx(metricM);
   vec3 dyM = dFdy(metricM);
   float storeysPerM = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM), dx.y, dy.y));
@@ -89,7 +90,7 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 met
   int style = int(mod(group, float(kFacadeStyleCount)));
   vec2 fractions = facadeFractions(style);
   float field = mod(floor(group / float(kFacadeStyleCount)), 3.0);
-  vec2 at = vec2(mod(encoded.x, 256.0), encoded.y - 1.0);
+  vec2 at = vec2(bay, encoded.y - 1.0);
   if (style == 7 || (field > 0.5 && field < 1.5)) {
     applyFacadeGlazedWindow(at, fractions, dx, dy, albedo, roughness);
     return;
