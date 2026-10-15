@@ -177,3 +177,11 @@ routes, additional sources/places, functional rail accessories, LOD, spatial con
 binding and native/device acceptance. Fine rail additions alone do not resolve the
 washed-out regional road/material impression; prioritize a larger visible deficit
 before another microscopic hardware increment.
+
+Terminal final gate **ec210d649d89a36d45ab51b44889618c31d07a69**:42 source/library
+controls +13 real Blender controls,0 skips; both saved alternatives independently
+replayed as `verification-final.json`. The old #340 lower product independently
+replays as `verification-upper352-width.json`, including the new section-width
+check. All five child processes exit0. No geometry/render/helper input changed
+since3d82488b8. Final report append is documentation only; Ruff/format/AST≤120 and
+`make lint-docs` pass. No native/engine/device gate claimed.
