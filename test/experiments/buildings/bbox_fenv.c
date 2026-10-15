@@ -1,6 +1,8 @@
 #include <fenv.h>
 
-typedef void *(*UnaryGeometry)(void *, const void *);
+typedef struct GEOSContextHandle_HS *GEOSContextHandle_t;
+typedef struct GEOSGeom_t GEOSGeometry;
+typedef GEOSGeometry *(*UnaryGeometry)(GEOSContextHandle_t, const GEOSGeometry *);
 
 int outshine_fenv_mask(int index) {
   switch (index) {
@@ -32,9 +34,9 @@ int outshine_fenv_control(void) {
 }
 
 int outshine_fenv_geometry(UnaryGeometry operation,
-                           void *context,
-                           const void *geometry,
-                           void **result) {
+                           GEOSContextHandle_t context,
+                           const GEOSGeometry *geometry,
+                           GEOSGeometry **result) {
   if (!operation || !context || !geometry || !result) { return -1; }
   if (feclearexcept(FE_ALL_EXCEPT) != 0) { return -2; }
   *result = operation(context, geometry);
