@@ -114,7 +114,9 @@ def main():
     report = {
         "scope": "Single Rayleigh scattering and ozone, clear case inputs from #212. "
         "Fixed quadratic coefficient cells split at physical boundaries. Linear or constant "
-        "local coefficients; four-point integration of partial cells, shared across queries. "
+        "local coefficients, including positive quadratic Bernstein coefficients; "
+        "four-point source integration normalized to exact polynomial cell opacity, "
+        "shared across queries. "
         "No multiple scattering, native LUT approximation, runtime image or GPU costs.",
         "requirements": reference_report["requirements"],
         "source_budget_candidate": 64,
@@ -122,6 +124,15 @@ def main():
         "maximum_reference_refinement_relative_error": refinement,
         "maximum_reference_transmittance_refinement_error": refinement_t,
         "summary": summary,
+        "meeting_requirements": [
+            name
+            for name, row in summary.items()
+            if refinement <= 0.001
+            and refinement_t <= 0.0002
+            and row["radiance_relative_max"] <= 0.01
+            and row["transmittance_absolute_max"] <= 0.002
+            and row["source_evaluations_max"] <= 64
+        ],
         "results": errors,
         "references": references,
         "inputs_sha256": reference_report["inputs_sha256"],
