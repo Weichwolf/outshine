@@ -26,6 +26,9 @@ class RacemeChecks(unittest.TestCase):
         for index, birth in enumerate(births):
             self.assertFalse(states(recipe, float(birth))["active"][index])
             self.assertTrue(states(recipe, float(birth + 1e-8))["active"][index])
+            opening = birth + recipe["duration"] * recipe["opening"]
+            self.assertFalse(states(recipe, float(opening - 1e-8))["open"][index])
+            self.assertTrue(states(recipe, float(opening + 1e-8))["open"][index])
         self.assertTrue(states(recipe, 3)["open"].all())
         for mutate in ("births", "side_angles"):
             bad = copy.deepcopy(recipe)
@@ -97,6 +100,31 @@ class RacemeChecks(unittest.TestCase):
         ):
             self.assertIsNone(phase_mesh(recipe, 0.95, max_organs=1))
             self.assertIsNone(phase_mesh(recipe, -0.1, selected=[(3, 0)]))
+
+    def test_near_and_field_keep_phase_tables_and_same_flower_anchors(self):
+        recipe = prepare(121)
+        near, nr, ns = phase_mesh(recipe, 0.95)
+        field, fr, fs = phase_mesh(
+            recipe,
+            0.95,
+            leaf_segments=8,
+            bell_segments=3,
+            bell_sides=18,
+            bud_segments=4,
+            bud_sides=8,
+        )
+        self.assertEqual([r["id"] for r in nr], [r["id"] for r in fr])
+        self.assertLess(len(field["faces"]), len(near["faces"]))
+        for key in ns:
+            np.testing.assert_array_equal(ns[key], fs[key])
+        for mesh, ranges in ((near, nr), (field, fr)):
+            for row in ranges:
+                kind, index = row["id"]
+                if kind != 3:
+                    continue
+                begin, end = row["vertex_range"]
+                anchor = mesh["vertices"][end - 1 if ns["open"][index] else begin]
+                np.testing.assert_array_equal(anchor, ns["ends"][index])
 
 
 if __name__ == "__main__":

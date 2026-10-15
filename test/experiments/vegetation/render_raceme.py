@@ -25,5 +25,5 @@ if __name__ == "__main__":
     receipt = json.loads(path.read_text())
     state = args.inputs / "maturation-state.json"
     receipt["phenology"] = json.loads(state.read_text())
-    receipt["input_sha256"][state.name] = hashlib.sha256(state.read_bytes()).hexdigest()
+    receipt["input_hashes"][state.name] = hashlib.sha256(state.read_bytes()).hexdigest()
     path.write_text(json.dumps(receipt, indent=2) + "\n")
