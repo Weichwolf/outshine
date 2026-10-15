@@ -1,0 +1,3225 @@
+{
+  "schema": 1,
+  "issue": 158,
+  "source_pr": "https://github.com/Weichwolf/outshine/pull/150",
+  "mesh_pairs": 25,
+  "pairs_sha256": "e4b8279fccabcb5f10999417f2ae6e6a87c282c19a4322ab4681f2a835d101de",
+  "pins_sha256": "c6fe7c83907f579e66c093d3a16c0c6b6679fed8bde2a7dbdf79243fd9a12eef",
+  "frame": {
+    "identifier": "Vienna-ENU-48.21-16.37",
+    "aliases": [
+      "ENU:48.21:16.37"
+    ],
+    "origin_lat_lon": [
+      48.21,
+      16.37
+    ],
+    "axes": [
+      "east",
+      "north",
+      "up"
+    ],
+    "units": "metres",
+    "xy_projection": "Mercator offsets scaled by cos(48.21 degrees), as captured; no reprojection of these arrays",
+    "z_datum": "Captured Mapterhorn heights plus declared own recipe shifts, same numeric frame; no separately established geoid/MSL datum"
+  },
+  "binding_scope": "source_ids describe the chosen whole surfaces/positive contributions, not exclusive per-face OSM ownership. Face rows remain unchanged. Terrain is an explicitly selected height surface; original DEM receipts live in the pinned fixture.",
+  "fixtures": [
+    {
+      "path": "test/experiments/transport/fixtures/overpass-vienna-cases.json",
+      "sha256": "6bfbc0e52757f51df1bef991cafb8595c99fa25b91aaeefe59f7d95087d92082"
+    },
+    {
+      "path": "test/experiments/transport/fixtures/bridge-continuations-vienna.json",
+      "sha256": "fcc91443d76d69223c8173061cf1f2f69d78446a9cc26fd58d9482c3e4f68db4"
+    },
+    {
+      "path": "test/experiments/transport/fixtures/tunnel-portals-vienna.json",
+      "sha256": "f7b728c98e21bda79beb38cceea0e8152361af64451e11a73a8e4267b6793c56"
+    }
+  ],
+  "source_catalog": {
+    "openfreemap:14/8939/5680:transportation:32205120:16": {
+      "properties": {
+        "subclass": "cycleway",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:46884680:82": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:46884680:109": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:46884680:123": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:46884680:126": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:50128440:6": {
+      "properties": {
+        "surface": "paved",
+        "class": "service"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:50199940:3": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:50224310:12": {
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:321352530:40": {
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:415718780:4": {
+      "properties": {
+        "class": "service",
+        "service": "driveway"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:415718780:5": {
+      "properties": {
+        "class": "service",
+        "service": "driveway"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:415718780:9": {
+      "properties": {
+        "class": "service",
+        "service": "driveway"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280400:0": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280400:5": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280400:6": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280400:7": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280400:10": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280430:2": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280430:3": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280430:6": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280430:7": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4040280430:10": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:11985918812:0": {
+      "properties": {
+        "subclass": "footway",
+        "access": "no",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:46884600:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:46884630:3": {
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:46884630:4": {
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:11757600770:0": {
+      "properties": {
+        "subclass": "tram",
+        "class": "transit"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:1435426380:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:1435426380:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:1435426380:2": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:1435426380:3": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:2433270960:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:2433270960:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8938/5680:transportation:742727752:0": {
+      "properties": {
+        "brunnel": "tunnel",
+        "surface": "paved",
+        "class": "service",
+        "layer": -1
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8938/5680:transportation:2154579170:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "tunnel",
+        "class": "transit",
+        "layer": -1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "explicit_subway_recipe_4m"
+    },
+    "openfreemap:14/8938/5680:transportation:2154579170:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "tunnel",
+        "class": "transit",
+        "layer": -1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "explicit_subway_recipe_4m"
+    },
+    "openfreemap:14/8938/5680:transportation:2353312250:0": {
+      "properties": {
+        "class": "service",
+        "brunnel": "tunnel"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8938/5680:transportation:3308048600:14": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8938/5680:transportation:4040549820:1": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8938/5680:transportation:90865760:0": {
+      "properties": {
+        "subclass": "subway",
+        "class": "transit"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8938/5680:transportation:90865760:1": {
+      "properties": {
+        "subclass": "subway",
+        "class": "transit"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8938/5680:transportation:3689382840:8": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path",
+        "level": 1,
+        "layer": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8938/5680:transportation:90865750:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8938/5680:transportation:90865750:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:46884680:58": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:50202060:2": {
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "service"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:50202200:3": {
+      "properties": {
+        "surface": "paved",
+        "class": "service"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:50202200:22": {
+      "properties": {
+        "surface": "paved",
+        "class": "service"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:50757310:47": {
+      "properties": {
+        "subclass": "footway",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:118158140:3": {
+      "properties": {
+        "class": "service",
+        "service": "parking_aisle"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:118158140:4": {
+      "properties": {
+        "class": "service",
+        "service": "parking_aisle"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:118158140:5": {
+      "properties": {
+        "class": "service",
+        "service": "parking_aisle"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:118158140:6": {
+      "properties": {
+        "class": "service",
+        "service": "parking_aisle"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:230875380:1": {
+      "properties": {
+        "class": "service",
+        "access": "no"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:266095850:1": {
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:266095850:13": {
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:1267526990:6": {
+      "properties": {
+        "subclass": "path",
+        "official": 0,
+        "surface": "unpaved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:3525249310:5": {
+      "properties": {
+        "class": "service",
+        "service": "driveway"
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088850:0": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088850:1": {
+      "properties": {
+        "subclass": "footway",
+        "surface": "paved",
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088860:3": {
+      "properties": {
+        "subclass": "steps",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:0": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:1": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:2": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:5": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:6": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:9": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:11": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:12": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:16": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088870:17": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 0
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:0": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:4": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:5": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:6": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:8": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:10": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:11": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089170:13": {
+      "properties": {
+        "subclass": "footway",
+        "indoor": 1,
+        "class": "path",
+        "level": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031089842:0": {
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "subclass": "cycleway",
+        "class": "path",
+        "foot": "designated",
+        "oneway": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:6794295520:14": {
+      "properties": {
+        "subclass": "path",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:6794295520:15": {
+      "properties": {
+        "subclass": "path",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:6794295520:17": {
+      "properties": {
+        "subclass": "path",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:11868809302:0": {
+      "properties": {
+        "bicycle": "designated",
+        "surface": "paved",
+        "subclass": "cycleway",
+        "class": "path",
+        "foot": "designated",
+        "oneway": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:46884600:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:4260756382:0": {
+      "properties": {
+        "bicycle": "use_sidepath",
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:10838782682:0": {
+      "properties": {
+        "bicycle": "use_sidepath",
+        "surface": "paved",
+        "class": "minor",
+        "foot": "use_sidepath",
+        "oneway": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:4031088840:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "primary",
+        "foot": "use_sidepath"
+      },
+      "width_m": 9.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:1435680662:0": {
+      "properties": {
+        "subclass": "subway",
+        "class": "transit",
+        "service": "yard"
+      },
+      "width_m": 4,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1813759830:3": {
+      "properties": {
+        "subclass": "rail",
+        "class": "rail",
+        "service": "siding"
+      },
+      "width_m": 3.8,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:2742957270:0": {
+      "properties": {
+        "subclass": "rail",
+        "class": "rail"
+      },
+      "width_m": 3.8,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:2742957270:1": {
+      "properties": {
+        "subclass": "rail",
+        "class": "rail"
+      },
+      "width_m": 3.8,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031060640:2": {
+      "properties": {
+        "subclass": "platform",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:4031060640:3": {
+      "properties": {
+        "subclass": "platform",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5681:transportation:11757600770:1": {
+      "properties": {
+        "subclass": "tram",
+        "class": "transit"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426280:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426280:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426310:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "yard"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426310:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "yard"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426330:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426330:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426330:2": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426330:3": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426330:4": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "siding"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426340:0": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "crossover"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5681:transportation:1435426340:1": {
+      "properties": {
+        "subclass": "subway",
+        "brunnel": "bridge",
+        "class": "transit",
+        "layer": 1,
+        "service": "crossover"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8937/5681:transportation:1847196630:0": {
+      "properties": {
+        "subclass": "steps",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8937/5681:transportation:236490160:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "bicycle": "no",
+        "surface": "paved",
+        "subclass": "footway",
+        "class": "path",
+        "foot": "yes",
+        "layer": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8937/5681:transportation:1847196630:1": {
+      "properties": {
+        "subclass": "steps",
+        "bicycle": "no",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8937/5681:transportation:49975560:35": {
+      "properties": {
+        "subclass": "pedestrian",
+        "surface": "paved",
+        "class": "path"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8937/5681:transportation:386325260:0": {
+      "properties": {
+        "subclass": "footway",
+        "brunnel": "bridge",
+        "surface": "paved",
+        "class": "path",
+        "layer": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:32205120:20": {
+      "properties": {
+        "subclass": "cycleway",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:94031072:0": {
+      "properties": {
+        "subclass": "cycleway",
+        "brunnel": "bridge",
+        "surface": "paved",
+        "class": "path",
+        "foot": "yes",
+        "layer": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:50224310:9": {
+      "properties": {
+        "subclass": "cycleway",
+        "bicycle": "designated",
+        "surface": "paved",
+        "class": "path",
+        "foot": "designated"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:5143978552:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "motorway",
+        "toll": 1,
+        "oneway": 1,
+        "ramp": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:291790192:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "surface": "paved",
+        "service": "driveway",
+        "class": "service",
+        "layer": 1,
+        "oneway": 1
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:86533302:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "motorway",
+        "toll": 1,
+        "oneway": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:314778430:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "primary"
+      },
+      "width_m": 9.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:326039342:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "surface": "paved",
+        "class": "service",
+        "layer": 1
+      },
+      "width_m": 3.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4988952120:0": {
+      "properties": {
+        "subclass": "rail",
+        "class": "rail"
+      },
+      "width_m": 3.8,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4988952120:1": {
+      "properties": {
+        "subclass": "rail",
+        "class": "rail"
+      },
+      "width_m": 3.8,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:4588959640:1": {
+      "properties": {
+        "subclass": "path",
+        "class": "path",
+        "access": "no"
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:10911266442:0": {
+      "properties": {
+        "subclass": "footway",
+        "brunnel": "bridge",
+        "class": "path",
+        "layer": 1
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:291793612:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "ramp": 1,
+        "class": "motorway",
+        "toll": 1,
+        "layer": 1,
+        "oneway": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:291790862:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "motorway",
+        "toll": 1,
+        "oneway": 1,
+        "ramp": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:363388142:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "ramp": 1,
+        "class": "motorway",
+        "toll": 1,
+        "layer": 1,
+        "oneway": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:363388152:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "ramp": 1,
+        "class": "motorway",
+        "toll": 1,
+        "layer": 1,
+        "oneway": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:1545310422:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "surface": "paved",
+        "class": "tertiary",
+        "layer": 1,
+        "oneway": 1
+      },
+      "width_m": 6.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:1545310392:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "motorway",
+        "toll": 1,
+        "oneway": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:1545310442:0": {
+      "properties": {
+        "brunnel": "bridge",
+        "surface": "paved",
+        "class": "tertiary",
+        "layer": 1,
+        "oneway": 1
+      },
+      "width_m": 6.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:291794272:0": {
+      "properties": {
+        "bicycle": "yes",
+        "surface": "paved",
+        "class": "minor"
+      },
+      "width_m": 4.0,
+      "width_assumed": true,
+      "width_origin": "fallback_4m"
+    },
+    "openfreemap:14/8939/5680:transportation:363388082:0": {
+      "properties": {
+        "horse": "no",
+        "brunnel": "bridge",
+        "bicycle": "designated",
+        "surface": "paved",
+        "subclass": "path",
+        "class": "path",
+        "layer": 2
+      },
+      "width_m": 1.5,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:1539678132:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "motorway",
+        "toll": 1,
+        "oneway": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    },
+    "openfreemap:14/8939/5680:transportation:1545310402:0": {
+      "properties": {
+        "surface": "paved",
+        "class": "motorway",
+        "toll": 1,
+        "oneway": 1
+      },
+      "width_m": 12.0,
+      "width_assumed": true,
+      "width_origin": "class_recipe"
+    }
+  },
+  "cases": [
+    {
+      "name": "overpass-26-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:46884680:109"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_0",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "9a3eb6c2b2618d99a0121e3753dd92de241e7cc1f8b9ecdd323be80182dc8937"
+          },
+          "faces": {
+            "key": "lower_faces_0",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_0",
+            "shape": [
+              86,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "f7ac82a5d9f69131b30df6b54f5dfa5197854c7014e2e1630487c3f5c09ae4a2"
+          },
+          "faces": {
+            "key": "upper_faces_0",
+            "shape": [
+              84,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "7b4f239e77cf0ad4efaf4da0b9519adeb07ac3c6eef7996405e92060d0246124"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-27-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:46884680:123"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_1",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e84ac1cb1b1c55321169b3c88406a0160b15a768076fd4fc98b2a1a2a1a8ea13"
+          },
+          "faces": {
+            "key": "lower_faces_1",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_1",
+            "shape": [
+              86,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "20ed648ed6216828da94bd09c59228be5b5caf642e8823ff73bd442797bc2ac2"
+          },
+          "faces": {
+            "key": "upper_faces_1",
+            "shape": [
+              84,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "7b4f239e77cf0ad4efaf4da0b9519adeb07ac3c6eef7996405e92060d0246124"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-27-cubic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:46884680:123"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_2",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e84ac1cb1b1c55321169b3c88406a0160b15a768076fd4fc98b2a1a2a1a8ea13"
+          },
+          "faces": {
+            "key": "lower_faces_2",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_2",
+            "shape": [
+              104,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "c36351e22e77015ef2bd185b3841b4c0fd0b2e5daa0da3362110e62fa8f73b82"
+          },
+          "faces": {
+            "key": "upper_faces_2",
+            "shape": [
+              102,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "fa2484bfa8a6460018a05b4c7e7c0f0a543ab55870f05c55ecde7624be0b6030"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-31-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:415718780:4"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_3",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "a856e56362f1255906320fda36f8d8e5d9a611a374ad0e2e46f383b56c95ba0c"
+          },
+          "faces": {
+            "key": "lower_faces_3",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_3",
+            "shape": [
+              78,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "8f6296bd8d5c8c092443c232cc1d67b99dea66a29fea0ea26e9e4f04c315b4d5"
+          },
+          "faces": {
+            "key": "upper_faces_3",
+            "shape": [
+              76,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "a0eafeaa4bf53c6e6c3e19221356d2d6b666d8251b179939b4261f6595ad5fb4"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-32-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:415718780:5"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_4",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "0838c992a7425170032e95c9d9a3d91670a8bf84b2900d9e77b13b8c844f748d"
+          },
+          "faces": {
+            "key": "lower_faces_4",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_4",
+            "shape": [
+              78,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "31586a89a0ab1f3c1ca3e0d1b67ca5ce8846d1d22a327489e8123837f1288dbb"
+          },
+          "faces": {
+            "key": "upper_faces_4",
+            "shape": [
+              76,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "a0eafeaa4bf53c6e6c3e19221356d2d6b666d8251b179939b4261f6595ad5fb4"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-33-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:11985918812:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_5",
+            "shape": [
+              6,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "d90c0be31f1658d82093a14ca64232c40fe03b1923c6c0e6e10f5d3aadbc7db1"
+          },
+          "faces": {
+            "key": "lower_faces_5",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "5c577e26ba64aabcc4d040dc1db4d425909d76b5ba944660cd3e74fdde14d2f3"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_5",
+            "shape": [
+              86,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "98282480106cfe0a3b20c0e2d023dea46e31759d079dbf77a0073354cee6e9b6"
+          },
+          "faces": {
+            "key": "upper_faces_5",
+            "shape": [
+              84,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "7b4f239e77cf0ad4efaf4da0b9519adeb07ac3c6eef7996405e92060d0246124"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-36-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:46884630:4"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_6",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e9614d6b2ef9f0b7e8a542d8634fec380080598e3121e42fa9c8ea60d465ffc0"
+          },
+          "faces": {
+            "key": "lower_faces_6",
+            "shape": [
+              22,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "35cea3785f294d8d35f70a39afe9496a7d1ff58105b56a96ddd39bdf8a801a72"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_6",
+            "shape": [
+              94,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "4adf199f9b41b9724469e20c4e5abc5bfcb01b695a87ce9edaafd611c3a81b3b"
+          },
+          "faces": {
+            "key": "upper_faces_6",
+            "shape": [
+              92,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "dc5c0418c22420d1d6031c829096341e19ee3a75b6741a9104a6ee3cb724f0b4"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-36-cubic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:46884630:4"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_7",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e9614d6b2ef9f0b7e8a542d8634fec380080598e3121e42fa9c8ea60d465ffc0"
+          },
+          "faces": {
+            "key": "lower_faces_7",
+            "shape": [
+              22,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "35cea3785f294d8d35f70a39afe9496a7d1ff58105b56a96ddd39bdf8a801a72"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_7",
+            "shape": [
+              108,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "a5e61a4f4a18744e2e8f57fd8cb474969addd881e45afde1a6bfc78e86b155e6"
+          },
+          "faces": {
+            "key": "upper_faces_7",
+            "shape": [
+              106,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "b59f1820be8202f28d16f51c3860f381734bdf67deb34a50a4feb02c964458b4"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-43-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:415718780:4"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_8",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "a856e56362f1255906320fda36f8d8e5d9a611a374ad0e2e46f383b56c95ba0c"
+          },
+          "faces": {
+            "key": "lower_faces_8",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_8",
+            "shape": [
+              64,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "0f4126a61ff703795adb9f64874e5a982662d10e4990292c93624a9b88f7a57d"
+          },
+          "faces": {
+            "key": "upper_faces_8",
+            "shape": [
+              62,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "829b0448c14be701ca81a812c5921575e7bacfd76896af2a1fbf42c2514bb2ba"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-44-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:415718780:5"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_9",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "0838c992a7425170032e95c9d9a3d91670a8bf84b2900d9e77b13b8c844f748d"
+          },
+          "faces": {
+            "key": "lower_faces_9",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_9",
+            "shape": [
+              64,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "319a874cf9e468928b9954ce1a7f0dffed89710d23bfc5e3da971fe0a9514e7f"
+          },
+          "faces": {
+            "key": "upper_faces_9",
+            "shape": [
+              62,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "829b0448c14be701ca81a812c5921575e7bacfd76896af2a1fbf42c2514bb2ba"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-45-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:415718780:9"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_10",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "86a084fcf9f17c9f8e38d58664740656625c7b3475732117efcf89cf959f7d61"
+          },
+          "faces": {
+            "key": "lower_faces_10",
+            "shape": [
+              2,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "752a6e22358c492163d1de31bfafb249c23a54c303ce495a18abf04cf82e01b2"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_10",
+            "shape": [
+              72,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "269e75cc3a9425ca94ebf89411e3ed73a8325be9ec376e6af30ad3376d2f5ada"
+          },
+          "faces": {
+            "key": "upper_faces_10",
+            "shape": [
+              70,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "991d44d67109123f81e94a5d79de95eee3c1b433ca5925685030bae84ef92182"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-46-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:11985918812:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_11",
+            "shape": [
+              6,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "d90c0be31f1658d82093a14ca64232c40fe03b1923c6c0e6e10f5d3aadbc7db1"
+          },
+          "faces": {
+            "key": "lower_faces_11",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "5c577e26ba64aabcc4d040dc1db4d425909d76b5ba944660cd3e74fdde14d2f3"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_11",
+            "shape": [
+              72,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "f9276e0a62cb0780fbf59b832f7d486bd1943d18182b03572d33dc97ddcabd06"
+          },
+          "faces": {
+            "key": "upper_faces_11",
+            "shape": [
+              70,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "991d44d67109123f81e94a5d79de95eee3c1b433ca5925685030bae84ef92182"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-46-cubic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:11985918812:0"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_12",
+            "shape": [
+              6,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "d90c0be31f1658d82093a14ca64232c40fe03b1923c6c0e6e10f5d3aadbc7db1"
+          },
+          "faces": {
+            "key": "lower_faces_12",
+            "shape": [
+              4,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "5c577e26ba64aabcc4d040dc1db4d425909d76b5ba944660cd3e74fdde14d2f3"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_12",
+            "shape": [
+              92,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "afda47ac56cb72c418b59a5e007be84eb76411f44f774bf3e00d2c41d13b8fe3"
+          },
+          "faces": {
+            "key": "upper_faces_12",
+            "shape": [
+              90,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "95ab353b0429ab1c666a59ad2e9e698abfb13dbc75d9cb233810fcbdf2d3436b"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-49-parabolic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:46884630:4"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_13",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e9614d6b2ef9f0b7e8a542d8634fec380080598e3121e42fa9c8ea60d465ffc0"
+          },
+          "faces": {
+            "key": "lower_faces_13",
+            "shape": [
+              22,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "35cea3785f294d8d35f70a39afe9496a7d1ff58105b56a96ddd39bdf8a801a72"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_13",
+            "shape": [
+              78,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "88446f5918bf6f8436473ccf33016979bddfe67b2c74db9b24f505806858b9f2"
+          },
+          "faces": {
+            "key": "upper_faces_13",
+            "shape": [
+              76,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "a0eafeaa4bf53c6e6c3e19221356d2d6b666d8251b179939b4261f6595ad5fb4"
+          }
+        }
+      }
+    },
+    {
+      "name": "overpass-49-cubic",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:46884630:4"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_14",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e9614d6b2ef9f0b7e8a542d8634fec380080598e3121e42fa9c8ea60d465ffc0"
+          },
+          "faces": {
+            "key": "lower_faces_14",
+            "shape": [
+              22,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "35cea3785f294d8d35f70a39afe9496a7d1ff58105b56a96ddd39bdf8a801a72"
+          }
+        }
+      },
+      "upper": {
+        "kind": "deck_underside",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:2433270960:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_14",
+            "shape": [
+              92,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "7b9fea95e23c4caa7675dfdf9b7d8756ae9493680854d08e45378bd636076e4c"
+          },
+          "faces": {
+            "key": "upper_faces_14",
+            "shape": [
+              90,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "95ab353b0429ab1c666a59ad2e9e698abfb13dbc75d9cb233810fcbdf2d3436b"
+          }
+        }
+      }
+    },
+    {
+      "name": "continuation-rebuild",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:11757600770:0",
+          "openfreemap:14/8939/5680:transportation:11985918812:0",
+          "openfreemap:14/8939/5680:transportation:321352530:40",
+          "openfreemap:14/8939/5680:transportation:32205120:16",
+          "openfreemap:14/8939/5680:transportation:415718780:4",
+          "openfreemap:14/8939/5680:transportation:415718780:5",
+          "openfreemap:14/8939/5680:transportation:415718780:9",
+          "openfreemap:14/8939/5680:transportation:46884600:0",
+          "openfreemap:14/8939/5680:transportation:46884630:3",
+          "openfreemap:14/8939/5680:transportation:46884630:4",
+          "openfreemap:14/8939/5680:transportation:46884680:109",
+          "openfreemap:14/8939/5680:transportation:46884680:123",
+          "openfreemap:14/8939/5680:transportation:46884680:126",
+          "openfreemap:14/8939/5680:transportation:46884680:82",
+          "openfreemap:14/8939/5680:transportation:50128440:6",
+          "openfreemap:14/8939/5680:transportation:50199940:3",
+          "openfreemap:14/8939/5680:transportation:50224310:12",
+          "openfreemap:14/8939/5681:transportation:10838782682:0",
+          "openfreemap:14/8939/5681:transportation:11757600770:1",
+          "openfreemap:14/8939/5681:transportation:118158140:3",
+          "openfreemap:14/8939/5681:transportation:118158140:4",
+          "openfreemap:14/8939/5681:transportation:118158140:5",
+          "openfreemap:14/8939/5681:transportation:118158140:6",
+          "openfreemap:14/8939/5681:transportation:11868809302:0",
+          "openfreemap:14/8939/5681:transportation:1267526990:6",
+          "openfreemap:14/8939/5681:transportation:1813759830:3",
+          "openfreemap:14/8939/5681:transportation:230875380:1",
+          "openfreemap:14/8939/5681:transportation:266095850:1",
+          "openfreemap:14/8939/5681:transportation:266095850:13",
+          "openfreemap:14/8939/5681:transportation:2742957270:0",
+          "openfreemap:14/8939/5681:transportation:2742957270:1",
+          "openfreemap:14/8939/5681:transportation:3525249310:5",
+          "openfreemap:14/8939/5681:transportation:4031060640:2",
+          "openfreemap:14/8939/5681:transportation:4031060640:3",
+          "openfreemap:14/8939/5681:transportation:4031088840:0",
+          "openfreemap:14/8939/5681:transportation:4031088850:0",
+          "openfreemap:14/8939/5681:transportation:4031088850:1",
+          "openfreemap:14/8939/5681:transportation:4031089842:0",
+          "openfreemap:14/8939/5681:transportation:4260756382:0",
+          "openfreemap:14/8939/5681:transportation:46884600:0",
+          "openfreemap:14/8939/5681:transportation:46884680:58",
+          "openfreemap:14/8939/5681:transportation:50202060:2",
+          "openfreemap:14/8939/5681:transportation:50202200:22",
+          "openfreemap:14/8939/5681:transportation:50202200:3",
+          "openfreemap:14/8939/5681:transportation:50757310:47",
+          "openfreemap:14/8939/5681:transportation:6794295520:14",
+          "openfreemap:14/8939/5681:transportation:6794295520:15",
+          "openfreemap:14/8939/5681:transportation:6794295520:17"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_15",
+            "shape": [
+              795,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "9b440d78907f64ac22b4f9cd9dbc81932577c04a7429ef77406a9b7d25566937"
+          },
+          "faces": {
+            "key": "lower_faces_15",
+            "shape": [
+              834,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "43b9cd3e13f3e2b954ed90a697e351b3bc0b2c47d5860b06765067dda7145795"
+          }
+        }
+      },
+      "upper": {
+        "kind": "joined_transport_underside",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_15",
+            "shape": [
+              438,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "b1e392f2dd09cd1f0a426febfef9163a01e0649e904677189adb52ec0745004b"
+          },
+          "faces": {
+            "key": "upper_faces_15",
+            "shape": [
+              468,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "235db160d1609ea269f4f0dadca16db9aca54fa76734c4294a86c4b0912f3455"
+          }
+        }
+      }
+    },
+    {
+      "name": "continuation-retain",
+      "lower": {
+        "kind": "ground_traffic",
+        "source_ids": [
+          "openfreemap:14/8939/5680:transportation:11757600770:0",
+          "openfreemap:14/8939/5680:transportation:11985918812:0",
+          "openfreemap:14/8939/5680:transportation:321352530:40",
+          "openfreemap:14/8939/5680:transportation:32205120:16",
+          "openfreemap:14/8939/5680:transportation:415718780:4",
+          "openfreemap:14/8939/5680:transportation:415718780:5",
+          "openfreemap:14/8939/5680:transportation:415718780:9",
+          "openfreemap:14/8939/5680:transportation:46884600:0",
+          "openfreemap:14/8939/5680:transportation:46884630:3",
+          "openfreemap:14/8939/5680:transportation:46884630:4",
+          "openfreemap:14/8939/5680:transportation:46884680:109",
+          "openfreemap:14/8939/5680:transportation:46884680:123",
+          "openfreemap:14/8939/5680:transportation:46884680:126",
+          "openfreemap:14/8939/5680:transportation:46884680:82",
+          "openfreemap:14/8939/5680:transportation:50128440:6",
+          "openfreemap:14/8939/5680:transportation:50199940:3",
+          "openfreemap:14/8939/5680:transportation:50224310:12",
+          "openfreemap:14/8939/5681:transportation:10838782682:0",
+          "openfreemap:14/8939/5681:transportation:11757600770:1",
+          "openfreemap:14/8939/5681:transportation:118158140:3",
+          "openfreemap:14/8939/5681:transportation:118158140:4",
+          "openfreemap:14/8939/5681:transportation:118158140:5",
+          "openfreemap:14/8939/5681:transportation:118158140:6",
+          "openfreemap:14/8939/5681:transportation:11868809302:0",
+          "openfreemap:14/8939/5681:transportation:1267526990:6",
+          "openfreemap:14/8939/5681:transportation:1813759830:3",
+          "openfreemap:14/8939/5681:transportation:230875380:1",
+          "openfreemap:14/8939/5681:transportation:266095850:1",
+          "openfreemap:14/8939/5681:transportation:266095850:13",
+          "openfreemap:14/8939/5681:transportation:2742957270:0",
+          "openfreemap:14/8939/5681:transportation:2742957270:1",
+          "openfreemap:14/8939/5681:transportation:3525249310:5",
+          "openfreemap:14/8939/5681:transportation:4031060640:2",
+          "openfreemap:14/8939/5681:transportation:4031060640:3",
+          "openfreemap:14/8939/5681:transportation:4031088840:0",
+          "openfreemap:14/8939/5681:transportation:4031088850:0",
+          "openfreemap:14/8939/5681:transportation:4031088850:1",
+          "openfreemap:14/8939/5681:transportation:4031089842:0",
+          "openfreemap:14/8939/5681:transportation:4260756382:0",
+          "openfreemap:14/8939/5681:transportation:46884600:0",
+          "openfreemap:14/8939/5681:transportation:46884680:58",
+          "openfreemap:14/8939/5681:transportation:50202060:2",
+          "openfreemap:14/8939/5681:transportation:50202200:22",
+          "openfreemap:14/8939/5681:transportation:50202200:3",
+          "openfreemap:14/8939/5681:transportation:50757310:47",
+          "openfreemap:14/8939/5681:transportation:6794295520:14",
+          "openfreemap:14/8939/5681:transportation:6794295520:15",
+          "openfreemap:14/8939/5681:transportation:6794295520:17"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_16",
+            "shape": [
+              795,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "9b440d78907f64ac22b4f9cd9dbc81932577c04a7429ef77406a9b7d25566937"
+          },
+          "faces": {
+            "key": "lower_faces_16",
+            "shape": [
+              834,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "43b9cd3e13f3e2b954ed90a697e351b3bc0b2c47d5860b06765067dda7145795"
+          }
+        }
+      },
+      "upper": {
+        "kind": "joined_transport_underside",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_16",
+            "shape": [
+              446,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "08e3d89e46dd64a4090125e4f119fd029aac81ec09f3e3011b7865080aa2202b"
+          },
+          "faces": {
+            "key": "upper_faces_16",
+            "shape": [
+              484,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "11a634518fed04379f399c66a6419291f337650476cc52401c3e8178d4b0d9e7"
+          }
+        }
+      }
+    },
+    {
+      "name": "old-floor-forward-parabolic",
+      "lower": {
+        "kind": "old_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_17",
+            "shape": [
+              438,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "cd2db3e2684473cd83472ad7f55c55bf40ec87cf02e57668e8517738ce706f9e"
+          },
+          "faces": {
+            "key": "lower_faces_17",
+            "shape": [
+              468,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "235db160d1609ea269f4f0dadca16db9aca54fa76734c4294a86c4b0912f3455"
+          }
+        }
+      },
+      "upper": {
+        "kind": "extended_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1",
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_17",
+            "shape": [
+              578,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "a6bb4c95c8756d7db1252ae2ae7a5263ff4dc98daf2feb467514849cb1a60b75"
+          },
+          "faces": {
+            "key": "upper_faces_17",
+            "shape": [
+              612,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "feed841b5242f4570457b092c1a91b0765d2046b45f32e04cd96663c1bec620b"
+          }
+        }
+      }
+    },
+    {
+      "name": "old-floor-backward-parabolic",
+      "lower": {
+        "kind": "extended_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1",
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_18",
+            "shape": [
+              578,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "a6bb4c95c8756d7db1252ae2ae7a5263ff4dc98daf2feb467514849cb1a60b75"
+          },
+          "faces": {
+            "key": "lower_faces_18",
+            "shape": [
+              612,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "feed841b5242f4570457b092c1a91b0765d2046b45f32e04cd96663c1bec620b"
+          }
+        }
+      },
+      "upper": {
+        "kind": "old_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_18",
+            "shape": [
+              438,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "cd2db3e2684473cd83472ad7f55c55bf40ec87cf02e57668e8517738ce706f9e"
+          },
+          "faces": {
+            "key": "upper_faces_18",
+            "shape": [
+              468,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "235db160d1609ea269f4f0dadca16db9aca54fa76734c4294a86c4b0912f3455"
+          }
+        }
+      }
+    },
+    {
+      "name": "portal-cover-parabolic",
+      "lower": {
+        "kind": "tunnel_roof_outer",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_19",
+            "shape": [
+              28,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e25654144d3998f0ef388b2298b88ed058c328216e32e2c75a4b20c3f764a18a"
+          },
+          "faces": {
+            "key": "lower_faces_19",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "6d415b3c784349a8b854a64511673b0138b2a2b51828b9e3a1269608980fa0c8"
+          }
+        }
+      },
+      "upper": {
+        "kind": "selected_coarse_terrain",
+        "source_ids": [],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_19",
+            "shape": [
+              240,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "005d76883fddc2819ea3042c9ce815e3c8feef36d4c78459d643331bbf1f6f15"
+          },
+          "faces": {
+            "key": "upper_faces_19",
+            "shape": [
+              390,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "7fcf3c6bf1762ce6d05d946beb71e2d05e0ffa0cfb1c556287d7c12255a38046"
+          }
+        }
+      }
+    },
+    {
+      "name": "portal-headroom-parabolic",
+      "lower": {
+        "kind": "tunnel_floor",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_20",
+            "shape": [
+              136,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "cea56efbe2d0aa5cdac303fa3c7a28153bfc805c319fc9bc52cd7d35e394e7eb"
+          },
+          "faces": {
+            "key": "lower_faces_20",
+            "shape": [
+              134,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "a767ec20c143b81a98f14d4806b8d7ae4dbb4749e2ae27f6bad812d2c34d9750"
+          }
+        }
+      },
+      "upper": {
+        "kind": "tunnel_roof_underside",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_20",
+            "shape": [
+              28,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "1008c48639d0569fc46c857eb144ba9a2bc4cae28a44737541ae09f29f738557"
+          },
+          "faces": {
+            "key": "upper_faces_20",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "6d415b3c784349a8b854a64511673b0138b2a2b51828b9e3a1269608980fa0c8"
+          }
+        }
+      }
+    },
+    {
+      "name": "old-floor-forward-cubic",
+      "lower": {
+        "kind": "old_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_21",
+            "shape": [
+              438,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "cd2db3e2684473cd83472ad7f55c55bf40ec87cf02e57668e8517738ce706f9e"
+          },
+          "faces": {
+            "key": "lower_faces_21",
+            "shape": [
+              468,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "235db160d1609ea269f4f0dadca16db9aca54fa76734c4294a86c4b0912f3455"
+          }
+        }
+      },
+      "upper": {
+        "kind": "extended_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1",
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_21",
+            "shape": [
+              594,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "aba83609fe4dd074e98c69de643be88da00800534383df4348c983aebaafa00f"
+          },
+          "faces": {
+            "key": "upper_faces_21",
+            "shape": [
+              628,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "8c3dec18435434d3eca3cecf7138ae3df48d6276dda221e0670335b892966403"
+          }
+        }
+      }
+    },
+    {
+      "name": "old-floor-backward-cubic",
+      "lower": {
+        "kind": "extended_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1",
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_22",
+            "shape": [
+              594,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "aba83609fe4dd074e98c69de643be88da00800534383df4348c983aebaafa00f"
+          },
+          "faces": {
+            "key": "lower_faces_22",
+            "shape": [
+              628,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "8c3dec18435434d3eca3cecf7138ae3df48d6276dda221e0670335b892966403"
+          }
+        }
+      },
+      "upper": {
+        "kind": "old_joined_transport_top",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:90865750:0",
+          "openfreemap:14/8938/5680:transportation:90865750:1",
+          "openfreemap:14/8938/5680:transportation:90865760:0",
+          "openfreemap:14/8938/5680:transportation:90865760:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:0",
+          "openfreemap:14/8939/5680:transportation:1435426380:1",
+          "openfreemap:14/8939/5680:transportation:1435426380:2",
+          "openfreemap:14/8939/5680:transportation:1435426380:3",
+          "openfreemap:14/8939/5680:transportation:2433270960:0",
+          "openfreemap:14/8939/5680:transportation:2433270960:1",
+          "openfreemap:14/8939/5681:transportation:1435426280:0",
+          "openfreemap:14/8939/5681:transportation:1435426280:1",
+          "openfreemap:14/8939/5681:transportation:1435426310:0",
+          "openfreemap:14/8939/5681:transportation:1435426310:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:0",
+          "openfreemap:14/8939/5681:transportation:1435426330:1",
+          "openfreemap:14/8939/5681:transportation:1435426330:2",
+          "openfreemap:14/8939/5681:transportation:1435426330:3",
+          "openfreemap:14/8939/5681:transportation:1435426330:4",
+          "openfreemap:14/8939/5681:transportation:1435426340:0",
+          "openfreemap:14/8939/5681:transportation:1435426340:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_22",
+            "shape": [
+              438,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "cd2db3e2684473cd83472ad7f55c55bf40ec87cf02e57668e8517738ce706f9e"
+          },
+          "faces": {
+            "key": "upper_faces_22",
+            "shape": [
+              468,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "235db160d1609ea269f4f0dadca16db9aca54fa76734c4294a86c4b0912f3455"
+          }
+        }
+      }
+    },
+    {
+      "name": "portal-cover-cubic",
+      "lower": {
+        "kind": "tunnel_roof_outer",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_23",
+            "shape": [
+              28,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e25654144d3998f0ef388b2298b88ed058c328216e32e2c75a4b20c3f764a18a"
+          },
+          "faces": {
+            "key": "lower_faces_23",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "6d415b3c784349a8b854a64511673b0138b2a2b51828b9e3a1269608980fa0c8"
+          }
+        }
+      },
+      "upper": {
+        "kind": "selected_coarse_terrain",
+        "source_ids": [],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_23",
+            "shape": [
+              240,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "005d76883fddc2819ea3042c9ce815e3c8feef36d4c78459d643331bbf1f6f15"
+          },
+          "faces": {
+            "key": "upper_faces_23",
+            "shape": [
+              390,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "7fcf3c6bf1762ce6d05d946beb71e2d05e0ffa0cfb1c556287d7c12255a38046"
+          }
+        }
+      }
+    },
+    {
+      "name": "portal-headroom-cubic",
+      "lower": {
+        "kind": "tunnel_floor",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "lower_vertices_24",
+            "shape": [
+              152,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "e3aa0c5ba7604e6746607da9cdeed19726b09dd60ac276e914c18d280ca4adf8"
+          },
+          "faces": {
+            "key": "lower_faces_24",
+            "shape": [
+              150,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "5f6d3fc6aa1ed95c366ccd93baafb93ef61badaa48f7de20446e301edd9ce232"
+          }
+        }
+      },
+      "upper": {
+        "kind": "tunnel_roof_underside",
+        "source_ids": [
+          "openfreemap:14/8938/5680:transportation:2154579170:0",
+          "openfreemap:14/8938/5680:transportation:2154579170:1"
+        ],
+        "face_ids": "unchanged row indices of the matching faces array",
+        "arrays": {
+          "vertices": {
+            "key": "upper_vertices_24",
+            "shape": [
+              28,
+              3
+            ],
+            "dtype": "<f8",
+            "sha256": "1008c48639d0569fc46c857eb144ba9a2bc4cae28a44737541ae09f29f738557"
+          },
+          "faces": {
+            "key": "upper_faces_24",
+            "shape": [
+              24,
+              3
+            ],
+            "dtype": "<u4",
+            "sha256": "6d415b3c784349a8b854a64511673b0138b2a2b51828b9e3a1269608980fa0c8"
+          }
+        }
+      }
+    }
+  ],
+  "scope": "Individual signed affine-surface gap operations only; no complete OSM street generator, native runtime or device claim."
+}
