@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--medium", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--storage-bits", type=int, choices=(16, 32), default=32)
     args = parser.parse_args()
     output = args.output.resolve()
     if output == ROOT or ROOT in output.parents:
@@ -39,6 +40,9 @@ def main():
     extinction = medium[4:7].astype(float) + float(medium[11])
     sunlight = np.array([0.8, 0.6, 0.3], dtype="<f4").astype(float)
     psi = np.array([0.01, 0.02, 0.03], dtype="<f4").astype(float)
+    if args.storage_bits == 16:
+        sunlight = sunlight.astype("<f2").astype(float)
+        psi = psi.astype("<f2").astype(float)
     rays, queries, references, descriptions = [], [], [], []
     for sun_cos in (1.0, 0.0, -1.0):
         for view_cos in (-0.5, 0.0, 0.5, 1.0):
@@ -97,11 +101,26 @@ def main():
     medium.tofile(output / "medium.bin")
     (output / "rays.bin").write_bytes(b"".join(rays))
     np.asarray(queries, dtype="<f4").tofile(output / "queries.bin")
-    write_texture(output / "veil.bin", np.tile([*sunlight, 1.0], (4, 1)), 2, 2)
-    write_texture(output / "multi.bin", np.tile([*psi, 1.0], (4, 1)), 2, 2)
+    write_texture(
+        output / "veil.bin",
+        np.tile([*sunlight, 1.0], (4, 1)),
+        2,
+        2,
+        storage_bits=args.storage_bits,
+    )
+    write_texture(
+        output / "multi.bin",
+        np.tile([*psi, 1.0], (4, 1)),
+        2,
+        2,
+        storage_bits=args.storage_bits,
+    )
     report = {
         "scope": "Homogeneous closed forms with finite positive constant coefficients, RGB Sun/Psi, Mie phase and explicit planetary night. Functional retention, not atmospheric multiple-scattering convergence.",
         "native_medium_header_sha256": hashlib.sha256(header.read_bytes()).hexdigest(),
+        "lut_storage_bits": args.storage_bits,
+        "stored_sunlight_rgb": sunlight.tolist(),
+        "stored_psi_rgb": psi.tolist(),
         "ray_count": len(rays),
         "query_count": len(queries),
         "descriptions": descriptions,

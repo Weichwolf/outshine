@@ -31,7 +31,7 @@ using uint = uint32_t;
 #include "AirPrefixProbeLayout.h"
 constexpr uint32_t kRayBytes = sizeof(ProbeRay);
 constexpr uint32_t kSampleBytes = sizeof(ProbeSample);
-constexpr uint32_t kPixelBytes = 4 * sizeof(float);
+constexpr uint32_t kPixelChannels = 4;
 static_assert(std::endian::native == std::endian::little);
 static_assert(std::is_trivially_copyable_v<ProbeRay> && sizeof(ProbeRay) == 32);
 static_assert(sizeof(AirRay) == 5 * sizeof(float) &&
@@ -58,9 +58,13 @@ struct TextureExtent {
   uint32_t HeightPx;
 };
 
+static_assert(sizeof(TextureExtent) == 2 * sizeof(uint32_t));
+
 struct Data {
   std::array<std::vector<std::byte>, 5> Sources;
   std::array<TextureExtent, 2> Extents{};
+  std::array<gpu::Format, 2> Formats{};
+  std::array<uint32_t, 2> PixelBytes{};
   uint32_t RayCount = 0;
   uint32_t QueryCount = 0;
   Medium Air{};
@@ -104,9 +108,18 @@ struct Data {
       const auto extent = Extents[index];
       constexpr uint32_t kMaximumDimension = 2048;
       if (extent.WidthPx == 0 || extent.HeightPx == 0 || extent.WidthPx > kMaximumDimension ||
-          extent.HeightPx > kMaximumDimension ||
-          pixels.size() !=
-              sizeof(TextureExtent) + size_t{extent.WidthPx} * extent.HeightPx * kPixelBytes) {
+          extent.HeightPx > kMaximumDimension) {
+        return false;
+      }
+      const auto channels = size_t{extent.WidthPx} * extent.HeightPx * kPixelChannels;
+      const auto payload = pixels.size() - sizeof(TextureExtent);
+      if (payload == channels * sizeof(uint16_t)) {
+        Formats[index] = gpu::Format::Rgba16Float;
+        PixelBytes[index] = kPixelChannels * sizeof(uint16_t);
+      } else if (payload == channels * sizeof(float)) {
+        Formats[index] = gpu::Format::Rgba32Float;
+        PixelBytes[index] = kPixelChannels * sizeof(float);
+      } else {
         return false;
       }
       pixels.erase(pixels.begin(), pixels.begin() + sizeof(TextureExtent));
@@ -173,15 +186,17 @@ struct Inputs {
       return false;
     }
     constexpr auto kTextureUse = gpu::TextureUse::CopyDestination | gpu::TextureUse::Sampled;
-    if (!device.Supports(gpu::Format::Rgba32Float, kTextureUse, true)) {
-      std::println(stderr, "native GPU: linearly filtered RGBA32F upload is unsupported");
-      return false;
-    }
     const std::array<std::unique_ptr<gpu::Texture> *, 2> textures = {&Veil, &Multi};
     for (size_t index = 0; index < textures.size(); ++index) {
+      if (!device.Supports(data.Formats[index], kTextureUse, true)) {
+        std::println(stderr,
+                     "native GPU: filtered LUT with {} byte texels is unsupported",
+                     data.PixelBytes[index]);
+        return false;
+      }
       if (!Keep(device.CreateTexture({.Width = data.Extents[index].WidthPx,
                                       .Height = data.Extents[index].HeightPx,
-                                      .Texels = gpu::Format::Rgba32Float,
+                                      .Texels = data.Formats[index],
                                       .Use = kTextureUse}),
                 *textures[index])) {
         return false;
@@ -209,11 +224,12 @@ struct Inputs {
     }
     const std::array<gpu::Texture *, 2> textures = {Veil.get(), Multi.get()};
     for (size_t index = 0; index < textures.size(); ++index) {
-      if (!Check(commands.Copy(*Transfers[index + buffers.size()],
-                               *textures[index],
-                               {.RowBytes = uint64_t{data.Extents[index].WidthPx} * kPixelBytes,
-                                .Region = {.Width = data.Extents[index].WidthPx,
-                                           .Height = data.Extents[index].HeightPx}}))) {
+      if (!Check(commands.Copy(
+              *Transfers[index + buffers.size()],
+              *textures[index],
+              {.RowBytes = uint64_t{data.Extents[index].WidthPx} * data.PixelBytes[index],
+               .Region = {.Width = data.Extents[index].WidthPx,
+                          .Height = data.Extents[index].HeightPx}}))) {
         return false;
       }
     }
