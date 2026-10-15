@@ -60,6 +60,13 @@ def run(baseline, output):
         mixture_index=data["mixture_index"],
         species_index=expected,
     )
+    stats = neighbours(data["world_m"], data["species_index"], expected)
+    stats["shared_rank_same_species_fraction"] = stats.pop(
+        "independent_same_species_fraction"
+    )
+    stats["competing_same_species_fraction"] = stats.pop(
+        "correlated_same_species_fraction"
+    )
     result = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
@@ -80,7 +87,7 @@ def run(baseline, output):
         "timings_s": timing,
         "stream_matrix_choices_exact": True,
         "reversed_taxon_field_order_choices_exact": True,
-        "neighbours": neighbours(data["world_m"], data["species_index"], expected),
+        "neighbours": stats,
         "species_counts_rank_field": np.bincount(
             data["species_index"][expected >= 0]
         ).tolist(),
