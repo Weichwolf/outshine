@@ -1,6 +1,7 @@
 #!/bin/sh
 
 set -u
+export LC_ALL=C
 AUDIT=0
 AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
