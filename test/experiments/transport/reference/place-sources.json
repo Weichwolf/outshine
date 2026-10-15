@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "place": "Wien",
+      "source": "Vienna",
+      "origin_lat_lon": [
+        48.21,
+        16.37
+      ],
+      "receipt": {
+        "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8937/5681.pbf",
+        "tile": [
+          14,
+          8937,
+          5681
+        ],
+        "sha256": "3a89a622f7113bc78fa751f045e062901fab4ac617b397ac2938270eff8e252b"
+      }
+    },
+    {
+      "place": "Tokyo",
+      "source": "Tokyo",
+      "origin_lat_lon": [
+        35.66,
+        139.7
+      ],
+      "receipt": {
+        "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/14549/6452.pbf",
+        "tile": [
+          14,
+          14549,
+          6452
+        ],
+        "sha256": "20e36728038a8fdc6f3d1fc501887514b213e3d8334d927d85fa61f5a8f5e564"
+      }
+    },
+    {
+      "place": "CentralPark",
+      "source": "CentralPark",
+      "origin_lat_lon": [
+        40.78,
+        -73.965
+      ],
+      "receipt": {
+        "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/4825/6156.pbf",
+        "tile": [
+          14,
+          4825,
+          6156
+        ],
+        "sha256": "7bbe3fd23ae69c0b120200e9e6ad2910b0c37ea557feb868dc63c249dc601a21"
+      }
+    },
+    {
+      "place": "Feldkirch",
+      "source": "Feldkirch",
+      "origin_lat_lon": [
+        47.238,
+        9.599
+      ],
+      "receipt": {
+        "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8628/5746.pbf",
+        "tile": [
+          14,
+          8628,
+          5746
+        ],
+        "sha256": "872cd114f94179eabfbe1d65c0adea3a45f5ad343c1529bf8460cb90998ff694"
+      }
+    }
+  ],
+  "scope": "Fixed numeric frames and existing immutable-source pins for camera-window capture; camera declarations remain solely in src/assets/places."
+}
