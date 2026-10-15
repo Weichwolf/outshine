@@ -30,6 +30,7 @@
 #include "Style.h"
 #include "scene/Material.h"
 #include "Atmosphere.h"
+#include "CloudLayer.h"
 #include "Surfacing.h"
 
 namespace outshine::Core {
@@ -194,6 +195,8 @@ public:
   [[nodiscard]] size_t SkyIntegrations() const { return GroundAir_.Integrations(); }
 
   [[nodiscard]] double MeteredLux() const;
+
+  void SetClouds(const CloudLayer &layer, double seconds);
 
   void ReadIrradiance(std::span<const float, Render::kIrradianceFloats> irradiance);
 

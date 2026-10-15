@@ -530,6 +530,20 @@ public:
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
+  void SetClouds(const CloudViewUniform &clouds) {
+    if (ActiveState().Clouds == clouds) { return; }
+    const auto &previous = ActiveState().Clouds;
+    const bool changed = previous.Layer.Shell != clouds.Layer.Shell ||
+                         previous.Layer.Field != clouds.Layer.Field ||
+                         previous.SunIrradiance != clouds.SunIrradiance ||
+                         previous.SkyRadiance != clouds.SkyRadiance;
+    ActiveState().Clouds = clouds;
+    if (!Candidate_) {
+      if (changed) { BeginTemporalRun(); }
+      ApplyWorldDeclarations();
+    }
+  }
+
   void
   SetShadowFrame(const Vec3f &toSun, const Vec3f &up, double radiusM, bool cameraCentred = false) {
     ActiveState().ShadowToSun = toSun;
@@ -943,6 +957,7 @@ private:
     std::shared_ptr<const Compiled> Plan;
     WorldContent Content;
     Medium Medium = kEarthAir;
+    CloudViewUniform Clouds;
     float CosSunZenith = 1.0f;
     float EyeHeightM = 0.0f;
     bool HistoryStarted = false;
@@ -990,6 +1005,7 @@ private:
   };
 
   struct WorldCandidate : SceneStateCore {
+    WorldCandidate();
     std::optional<FrameResources> Frame;
   };
 

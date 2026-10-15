@@ -44,5 +44,12 @@ int main() {
   candidate.Ground.Sky.Haze = 2.5;
   candidate.Ground.Sky.WindDeg = -90;
   CHECK(engine.declare(candidate).has_value(), "unwrapped wind and aerosol multiplier accepted");
+  candidate.Ground.Sky.CloudCover = 1.0;
+  candidate.Ground.Sky.WindMs = 1000.0;
+  CHECK(engine.declare(candidate).has_value(), "bounded cloud wind accepts its declared limit");
+  const auto bounded = engine.writeScenario();
+  candidate.Ground.Sky.WindMs = 1000.1;
+  CHECK(!engine.declare(candidate), "active cloud wind rejects an unsupported GPU recipe input");
+  CHECK(engine.writeScenario() == bounded, "invalid cloud wind preserves the previous declaration");
   return Report();
 }

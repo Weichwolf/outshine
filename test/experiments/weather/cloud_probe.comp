@@ -1,0 +1,25 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "render/shaders/cloudLayer.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { float values[]; } result;
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  CloudLayer layer;
+  vec4 origin;
+  vec4 forward;
+  vec4 right;
+  vec4 up;
+  vec4 extent;
+} pushed;
+
+void main() {
+  uvec2 at = gl_GlobalInvocationID.xy;
+  uvec2 extent = uvec2(pushed.extent.xy);
+  if (any(greaterThanEqual(at, extent))) { return; }
+  vec2 ndc = (vec2(at) + 0.5) / vec2(extent) * 2.0 - 1.0;
+  vec3 direction = normalize(pushed.forward.xyz + ndc.x * pushed.extent.z * pushed.right.xyz
+                             - ndc.y * pushed.extent.w * pushed.up.xyz);
+  float optical = cloudOpticalDepth(pushed.layer, pushed.origin.xyz, direction, 1.0e8);
+  result.values[at.y * extent.x + at.x] = exp(-optical);
+}

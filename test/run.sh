@@ -430,6 +430,7 @@ Programs() {
 
 NotTheHarnesses() {
   case "$1" in
+    experiments/weather) printf '%s' "standalone native cloud probe built and judged by declared weather experiments" ;;
     scripts) printf '%s' "standalone build and diagnostic tools compiled by the Makefile" ;;
     harness/render) printf '%s' "internal GPU probes compiled and judged by paired render experiments" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;

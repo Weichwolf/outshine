@@ -3,6 +3,7 @@
 
 #include "SubjectTypes.h"
 #include "ShadowRegionUniform.h"
+#include "CloudLayerUniform.h"
 #include "math/Vec4.h"
 #include <array>
 #include <cstddef>
@@ -14,10 +15,15 @@ struct alignas(16) SubjectLightUniform {
   Vec4f Tint, Place, Beam, Cone;
 };
 
+inline constexpr size_t kSubjectCloudsOffset =
+    kSubjectLightItemsOffset + kMaxSubjectLights * sizeof(SubjectLightUniform);
+
 struct alignas(16) SubjectLightingUniform {
   Vec4f Count, Environment, Bounced, Up, SkyGround, ViewPosition, SkyUp, SkyToSun;
   std::array<ShadowRegionUniform, kSunShadowRegions> ShadowRegions;
   std::array<SubjectLightUniform, kMaxSubjectLights> Items;
+  CloudLayerUniform Clouds;
+  Vec4f CloudOriginM;
 };
 
 static_assert(sizeof(Vec4f) == 16);
@@ -26,7 +32,8 @@ static_assert(offsetof(SubjectLightUniform, Tint) == 0);
 static_assert(offsetof(SubjectLightUniform, Place) == 16);
 static_assert(offsetof(SubjectLightUniform, Beam) == 32);
 static_assert(offsetof(SubjectLightUniform, Cone) == 3 * sizeof(Vec4f));
-static_assert(sizeof(SubjectLightingUniform) == kSubjectLightItemsOffset + 64 * kMaxSubjectLights);
+static_assert(sizeof(SubjectLightingUniform) ==
+              kSubjectCloudsOffset + sizeof(CloudLayerUniform) + sizeof(Vec4f));
 static_assert(alignof(SubjectLightingUniform) == 16);
 static_assert(offsetof(SubjectLightingUniform, Count) == 0);
 static_assert(offsetof(SubjectLightingUniform, Environment) == 16);
@@ -38,5 +45,8 @@ static_assert(offsetof(SubjectLightingUniform, SkyUp) == 6 * sizeof(Vec4f));
 static_assert(offsetof(SubjectLightingUniform, SkyToSun) == 7 * sizeof(Vec4f));
 static_assert(offsetof(SubjectLightingUniform, ShadowRegions) == 128);
 static_assert(offsetof(SubjectLightingUniform, Items) == kSubjectLightItemsOffset);
+static_assert(offsetof(SubjectLightingUniform, Clouds) == kSubjectCloudsOffset);
+static_assert(offsetof(SubjectLightingUniform, CloudOriginM) ==
+              kSubjectCloudsOffset + sizeof(CloudLayerUniform));
 }
 #endif

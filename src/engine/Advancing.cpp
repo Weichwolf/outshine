@@ -587,8 +587,8 @@ bool Engine::State::Draws() {
       }
     }
   }
-  if (Picture.Standing && !Picture.Standing->Advance(Error)) { return false; }
-  return true;
+  UpdateWeather();
+  return !Picture.Standing || Picture.Standing->Advance(Error);
 }
 
 void Engine::keepSamples(size_t steps) {

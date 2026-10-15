@@ -33,6 +33,8 @@
 
 namespace outshine::Render {
 
+SceneRenderer::WorldCandidate::WorldCandidate() = default;
+
 void SceneRenderer::SetContentSelection(const ContentSelection &selection) {
   auto &content = ActiveState().Content;
   content.Subjects.Ground().SetDrawEnabled(selection.HeightLattice);
@@ -1016,6 +1018,9 @@ bool SceneRenderer::ConfigureLightVisibility(SceneRenderer &renderer,
 }
 
 void SceneRenderer::ApplyWorldDeclarations() {
+  ActiveFrame().Aerial.Clouds(ActiveState().Clouds);
+  ActiveState().Content.Subjects.SetClouds(ActiveState().Clouds.Layer);
+  ActiveState().Content.Glass.SetClouds(ActiveState().Clouds.Layer);
   if (ActiveState().MediumDeclared) {
     ActiveFrame().MediumTransmittance.Declare(ActiveState().Medium);
     ActiveFrame().MultiScatter.Declare(ActiveState().Medium);

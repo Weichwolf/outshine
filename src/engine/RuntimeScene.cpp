@@ -5,6 +5,8 @@
 #include "math/Units.h"
 #include "math/Mat4.h"
 #include "RuntimeScene.h"
+#include "CloudViewUniform.h"
+#include "CloudLayerUniform.h"
 #include "AzimuthElevation.h"
 
 #include <cstdint>
@@ -362,6 +364,23 @@ double Photopic(const Vec3f &triple) {
 
 Medium RuntimeScene::DeclaredAir() const {
   return Hazed(kEarthAir, Declared_.Haze);
+}
+
+void RuntimeScene::SetClouds(const CloudLayer &layer, double seconds) {
+  if (Renderer_ == nullptr) { return; }
+  Render::CloudViewUniform clouds{};
+  if (layer.Cover > 0.0) {
+    clouds.Layer = Render::PackCloudLayer(layer, seconds);
+    const Vec3f toSun = TowardTheKey();
+    const GroundLight light = GroundAir_.Evaluate(DeclaredAir(), static_cast<double>(toSun[1]));
+    for (size_t axis = 0; axis < 3; ++axis) {
+      clouds.SunIrradiance[axis] = light.SunTransmittance[axis];
+      clouds.SkyRadiance[axis] =
+          static_cast<float>(light.SkyIrradiance[axis] / (2.0 * std::numbers::pi));
+    }
+  }
+  const auto published = Renderer_->PublishedWorld();
+  Renderer_->SetClouds(clouds);
 }
 
 double RuntimeScene::MeteredLux() const {
