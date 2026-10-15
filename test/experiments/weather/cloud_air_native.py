@@ -67,6 +67,12 @@ def compile_probe(args, case, commands, definitions):
         "-V",
     ]
     command += ["-I" + str(path) for path in includes]
+    definitions = {
+        "CLOUD_VIEW_SAMPLES": args.view_samples,
+        "CLOUD_LIGHT_SAMPLES": args.light_samples,
+        "CLOUD_LIGHT_GAUSS3": int(args.light_gauss3),
+        **definitions,
+    }
     command += [f"-D{name}={value}" for name, value in definitions.items()]
     command += [
         "test/experiments/weather/cloud_air_prefix.comp",
@@ -184,6 +190,43 @@ def sparse_control(args, commands):
     return {"samples": len(rays), "same_shader_schedule_bit_identical": True}
 
 
+def packed_counter_control(args, commands):
+    case = args.output / "packed-counter-overflow"
+    case.mkdir(exist_ok=True)
+    rays = np.fromfile(args.output / "overcast/rays.bin", dtype=RAY)
+    ray = rays[np.flatnonzero(rays["ray"][:, 1] > 0.1)[0] :][:1].copy()
+    ray["begin"], ray["end"] = 0, 1
+    ray.tofile(case / "rays.bin")
+    ray["ray"][:, 4].astype("<f4").tofile(case / "queries.bin")
+    compile_probe(
+        args,
+        case,
+        commands,
+        {
+            "CLOUD_VIEW_SAMPLES": 256,
+            "CLOUD_PREFIX_COVER": 1.0,
+            "CLOUD_VIEW_WARP": args.warp,
+        },
+    )
+    fixture = args.air_root / "test/experiments/render/data/air-prefix/homogeneous"
+    command = [
+        str(args.probe),
+        str(case / "probe.spv"),
+        str(case / "rays.bin"),
+        str(case / "queries.bin"),
+        *[str(fixture / name) for name in ("veil.bin", "multi.bin", "medium.bin")],
+        str(case / "native.bin"),
+    ]
+    run(command, case, "capture", commands)
+    assert not commands[-1]["stderr"], "native validation emitted diagnostics"
+    sample = np.fromfile(case / "native.bin", dtype=SAMPLE)
+    assert len(sample) == 1 and np.isfinite(sample["radiance"]).all()
+    assert (sample["counts"] & 255).item() == 1, (
+        "overflow must not look like valid work"
+    )
+    return {"view_samples": 256, "invalid_packed_counter_flag": True}
+
+
 def replay(args):
     args.output.mkdir(parents=True, exist_ok=True)
     receipt = args.output / "receipt.json"
@@ -219,6 +262,11 @@ def replay(args):
             args.subset,
             "--warp",
             str(args.warp),
+            "--view-samples",
+            str(args.view_samples),
+            "--light-samples",
+            str(args.light_samples),
+            *(["--light-gauss3"] if args.light_gauss3 else []),
         ]
         run(command, case, "prepare", commands)
         shader = case / "probe.spv"
@@ -244,13 +292,16 @@ def replay(args):
             str(case / "native.bin"),
         ]
         run(command, case, "capture", commands)
-        reports[name] = check(case, case / "native.bin", cover)
+        reports[name] = check(
+            case, case / "native.bin", cover, args.view_samples, args.light_samples
+        )
         reports[name]["bit_identical_repeated_queries"] = repeated_queries(case)
         reports[name]["shader_sha256"] = sha(shader)
         assert not commands[-1]["stderr"], "native validation emitted diagnostics"
     reports["dense_clear_repartitioned"] = dense_control(args, commands)
     reports["invalid_input_controls"] = invalid_controls(args, commands)
     reports["sparse_schedule"] = sparse_control(args, commands)
+    reports["packed_counter_overflow"] = packed_counter_control(args, commands)
     streamed = np.fromfile(args.output / "broken/native.bin", dtype=SAMPLE)
     fresh = np.fromfile(args.output / "fresh/native.bin", dtype=SAMPLE)
     difference = max(
@@ -283,6 +334,9 @@ def replay(args):
     reports["consumer_sha256"] = sha(args.probe)
     reports["subset"] = args.subset
     reports["warp"] = args.warp
+    reports["view_samples"] = args.view_samples
+    reports["light_samples"] = args.light_samples
+    reports["light_gauss3"] = args.light_gauss3
     reports["probe_shader_sha256"] = sha(
         ROOT / "test/experiments/weather/cloud_air_prefix.comp"
     )
@@ -298,6 +352,7 @@ def replay(args):
         for path in [
             ROOT / "src/render/shaders/mediumCell.glsl",
             ROOT / "test/experiments/weather/cloud_air_prefix.glsl",
+            ROOT / "test/experiments/weather/cloud_sampling_gauss3.glsl",
             *[
                 ROOT / "src/generators/weather/shaders" / name
                 for name in [
@@ -348,7 +403,14 @@ def main():
     parser.add_argument("--probe", type=Path, required=True)
     parser.add_argument("--subset", choices=("all", "ground", "orbit"), default="all")
     parser.add_argument("--warp", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--view-samples", type=int, default=16)
+    parser.add_argument("--light-samples", type=int, default=6)
+    parser.add_argument("--light-gauss3", action="store_true")
     args = parser.parse_args()
+    if not 1 <= args.view_samples <= 64 or not 1 <= args.light_samples <= 32:
+        parser.error("require view samples in [1,64] and light samples in [1,32]")
+    if args.light_gauss3 and args.light_samples != 3:
+        parser.error("Gauss3 requires exactly three light samples")
     for name in ("output", "air_root", "probe"):
         setattr(args, name, getattr(args, name).resolve())
     replay(args)

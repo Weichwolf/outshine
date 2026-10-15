@@ -154,6 +154,11 @@ Die Aufnahme hat1280×720 Pixel. Die weiterhin sichtbaren Horizontstreifen bleib
 ein Bilddefizit unter #264; der mathematisch korrekte Transfer ist keine Abnahme
 der begrenzten Dichte-/Schattenabtastung oder des gesamten Wetterbilds.
 
+Die [Blickzellen-/Quellengegenfälle](cloud_sampling.md) isolieren diese Fehler
+mit verfeinerter Float64-Kohorte und nativen Vollbildern. Sie verwerfen einen
+einzelnen neuen Quellpunkt und eine scheinbar gleich teure Dreipunkt-Lichtregel;
+gemeinsame Produktionsdefaults werden dadurch nicht geändert.
+
 Grundlagen: Schneider/Vos, SIGGRAPH2015, Wolkenkurs PDF-Seite54 (Beer), sowie
 Hillaire, EGSR2020, PDF-Seiten2/3 (Strahlgeometrie, Gleichungen1–4 und gemeinsame
 Extinktion). Beide PDFs liegen unter `doc/references/`; die genannten Seiten wurden
