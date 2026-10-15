@@ -1,6 +1,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <vector>
 #include "src/base/curve/Ribbon.h"
 #include "Check.h"
 
@@ -53,5 +54,41 @@ int main() {
   CHECK(rejected(Sweep(line, section, 0, 10, std::numeric_limits<double>::denorm_min())),
         "overflowing station quotient rejected before integer conversion");
   CHECK(rejected(Sweep(line, section, 0, 10, 1e-8)), "finite oversized station count rejected");
+  const std::array required{0.0, 1.5, 3.0, 3.0, 10.0};
+  const auto merged = Sweep(line, section, 0, 10, 3, RibbonForm::Surface, required);
+  const std::array mergedStations{0.0, 1.5, 3.0, 6.0, 9.0, 10.0};
+  CHECK(merged.Woven && merged.Stations == mergedStations.size(),
+        "uniform and required stations form one ordered mesh without duplicate rings");
+  if (merged.Woven) {
+    for (size_t at = 0; at < mergedStations.size(); ++at) {
+      CHECK_NEAR(merged.PositionM[at * kRibbonAcross * 3],
+                 mergedStations[at],
+                 0,
+                 "meters",
+                 "required geometric events retain their exact longitudinal position");
+    }
+  }
+  for (const auto &invalid :
+       std::array<std::vector<double>, 5>{{{4, 3}, {-1}, {11}, {nan}, {inf}}}) {
+    CHECK(rejected(Sweep(line, section, 0, 10, 3, RibbonForm::Surface, invalid)),
+          "invalid required stations are rejected before geometry allocation");
+  }
+  const std::vector<double> oversized(262145, 1.5);
+  CHECK(rejected(Sweep(line, section, 0, 10, 3, RibbonForm::Surface, oversized)),
+        "required-station input has an independent finite bound");
+  CHECK(line.Rise(
+            {{.AlongM = 0, .Value = 0}, {.AlongM = 1.5, .Value = 2}, {.AlongM = 10, .Value = 0}},
+            error),
+        "narrow analytic height crest is declared");
+  const auto crest = Sweep(line, section, 0, 10, 32, RibbonForm::Surface, required);
+  CHECK(crest.Woven && crest.Stations == 4,
+        "height events remain present even between distant uniform samples");
+  if (crest.Woven) {
+    CHECK_NEAR(crest.PositionM[kRibbonAcross * 3 + 1],
+               2,
+               1e-6,
+               "meters",
+               "the required crest ring preserves its planned height");
+  }
   return Report();
 }

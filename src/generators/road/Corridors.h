@@ -14,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <diagnostics/DiagnosticSample.h>
@@ -154,6 +155,7 @@ private:
     std::vector<double> FitEastNorth;
     double TightestDemandM = 0.0;
     std::vector<double> DeckM;
+    std::unordered_set<size_t> UnbankedWays;
     std::vector<Crossing> Crossings;
     std::unordered_map<uint64_t, std::vector<uint32_t>> AtCrossing;
     std::unordered_map<uint64_t, double> EndM;

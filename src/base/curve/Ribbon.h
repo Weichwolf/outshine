@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <span>
 #include <vector>
 
 #include "math/Vec3.h"
@@ -41,7 +42,8 @@ struct Ribbon {
                            double fromM,
                            double toM,
                            double stepM,
-                           RibbonForm form = RibbonForm::ClosedShell);
+                           RibbonForm form = RibbonForm::ClosedShell,
+                           std::span<const double> requiredStations = {});
 
 }
 

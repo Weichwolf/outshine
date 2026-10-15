@@ -93,6 +93,31 @@ Der Caller bindet Quell-ID, Frame, Deck/Boden, Anschluss und Reservierungen.
 Gekrümmte Achsen, freie Anschlussneigungen, DEM-Innenfit und Ebenenplanung folgen
 getrennt; `Plan`/`Reservation` und vorhandene Sampler bleiben erhalten (#20).
 
+`transport.plan_endpoint_transition(z0, z1, length, start_grade, end_grade,
+grade=0.08, second_derivative=0.002, method="envelope")` ergänzt ausdrücklich
+vorgegebene Endneigungen bei fester Länge. Ergebnis: unveränderlicher
+`EndpointTransition` mit Bericht oder begründete Abwesenheit. Dieselben Einheiten,
+Eingabegrenzen und Query-/Chordbudgets wie oben; höchstens acht Polynomintervalle.
+Die erreichbaren Grad-Hüllen sind
+`lower=max(-G,g0-A*s,g1-A*(L-s))`,
+`upper=min(G,g0+A*s,g1+A*(L-s))`.
+Eine konvexe Mischung ihrer Integrale trifft die Endhöhe und erhält die Endgrade
+sowie die ganzen Neigungs-/Zweitableitungsgrenzen. Das charakterisiert die skalare
+Feasibilität in exakter Arithmetik; numerisch nicht zertifizierbare Fälle bleiben
+ausgewiesen. Passende affine Kontakte werden direkt als Gerade erhalten, ohne
+zusätzliche Biegung. Alternativ prüft `method="hermite"` direkt ein kubisches Hermite-Polynom;
+es kann bei denselben Grenzen scheitern, obwohl die Hüllenkonstruktion gelingt.
+Bei freien Endgraden ist Feasibilität über der Länge nicht monoton. Deshalb gibt
+es hierfür keine bisektierte globale Mindestlänge. Der vorhandene flache Typ und
+`minimum_transition_length` behalten ihren Vertrag.
+
+`sample_vertical_transition` unterstützt beide Profiltypen. Die Endneigungen
+betreffen nur die skalare Station; der Aufrufer muss ganze Kontaktquerschnitte,
+Querneigung, Frame/Flächenart und Quellen prüfen. Der flach extrapolierende
+`mesh_projected_profile` akzeptiert weiterhin ausschließlich `VerticalTransition`.
+Vorhandene facettierte Netze erhalten durch dieses Einzelprofil keine C1-Ports;
+variable Bank, gekrümmte Achsen und Netzplanung bleiben bei #20/#163.
+
 `transport.mesh_projected_profile(domain, profile, origin_xy_m, direction_xy,
 start_station_m=0, height_error_m=0.01, budget=ProjectedSurfaceBudget())` creates
 a complete conforming height mesh for a polygon/multipolygon, including holes.
