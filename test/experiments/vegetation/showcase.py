@@ -15,7 +15,6 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-EXPERIMENTS = ROOT / "build/experiments/vegetation"
 
 
 def read_json(path):
@@ -33,15 +32,26 @@ def atomic_text(path, text):
     temporary.replace(path)
 
 
-def render_entry(entry, output):
-    source = (EXPERIMENTS / entry["image"]).resolve()
-    source.relative_to(EXPERIMENTS)
+def input_path(name, inputs):
+    path = Path(name)
+    if path.is_file():
+        return path
+    anchor = ("build", "experiments", "vegetation")
+    for index in range(len(path.parts) - len(anchor) + 1):
+        if path.parts[index : index + len(anchor)] == anchor:
+            return inputs.joinpath(*path.parts[index + len(anchor) :])
+    return path
+
+
+def render_entry(entry, output, inputs):
+    source = (inputs / entry["image"]).resolve()
+    source.relative_to(inputs)
     metadata = read_json(source.with_suffix(".json"))
     for kind in ("input_sha256", "implementation_sha256"):
         if not metadata.get(kind):
             raise ValueError(f"Missing current rendering provenance: {source.name}")
         for name, expected in metadata[kind].items():
-            path = Path(name) if kind == "input_sha256" else HERE / name
+            path = input_path(name, inputs) if kind == "input_sha256" else HERE / name
             if not path.is_file() or digest(path) != expected:
                 raise ValueError(f"Rendering input changed: {path}")
     with Image.open(source) as image:
@@ -66,13 +76,13 @@ def render_entry(entry, output):
     }
 
 
-def publish(output):
+def publish(output, inputs):
     catalog = read_json(HERE / "showcase_catalog.json")
     if len(catalog["renders"]) != 4:
         raise ValueError("The showcase contains exactly four whole-tile images")
     output.mkdir(parents=True, exist_ok=True)
     (output / "images").mkdir(exist_ok=True)
-    entries = [render_entry(e, output) for e in catalog["renders"]]
+    entries = [render_entry(e, output, inputs) for e in catalog["renders"]]
     commit = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
     ).strip()
@@ -142,6 +152,7 @@ def start_server(output, port):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument(
         "--output", type=Path, default=Path("/tmp/outshine-vegetation-showcase")
     )
@@ -151,7 +162,7 @@ def main():
     if not 1 <= args.port <= 65535:
         parser.error("port must lie between 1 and 65535")
     output = args.output.resolve()
-    payload = publish(output)
+    payload = publish(output, args.inputs.resolve())
     if args.start:
         start_server(output, args.port)
     print(

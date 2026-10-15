@@ -12,7 +12,7 @@ from outshine_ref.vegetation import NeedledPlant
 from parent_growth_area_probe import probe
 
 
-def prepare(source, output, species, secondary, terminal, target_area):
+def prepare(source, output, species, secondary, terminal, target_area, needle_source):
     if not 0 < target_area < float("inf"):
         raise ValueError("finite positive physical area target required")
     plant = NeedledPlant.from_recipe(json.loads(source.read_text()))
@@ -25,7 +25,7 @@ def prepare(source, output, species, secondary, terminal, target_area):
     output.mkdir(parents=True, exist_ok=True)
     path = output / "proposal-input.json"
     path.write_text(json.dumps(proposal.recipe(), indent=2) + "\n")
-    report = probe(path, species)
+    report = probe(path, species, needle_source)
     selected = report["alternatives"][-1]
     if selected["status"] != "measured":
         raise ValueError("proposed physical layout exceeds the axis budget")
@@ -66,6 +66,7 @@ if __name__ == "__main__":
     parser.add_argument("--secondary", type=int, required=True)
     parser.add_argument("--terminal", type=int, required=True)
     parser.add_argument("--target-area", type=float, required=True)
+    parser.add_argument("--needle-source", type=Path, required=True)
     args = parser.parse_args()
     print(
         json.dumps(
@@ -76,6 +77,7 @@ if __name__ == "__main__":
                 args.secondary,
                 args.terminal,
                 args.target_area,
+                args.needle_source,
             )
         )
     )

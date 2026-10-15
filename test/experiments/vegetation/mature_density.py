@@ -13,8 +13,8 @@ MAX_WINDOWS = 100000
 MAX_RELATIVE_AREA_ERROR = 0.05
 
 
-def needle_areas(species):
-    directory = BASE / species
+def needle_areas(species, source=BASE):
+    directory = source / species
     path = directory / "shoot.json"
     scene = json.loads(path.read_text())
     inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()}

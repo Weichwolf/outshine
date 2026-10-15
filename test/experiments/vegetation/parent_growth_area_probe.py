@@ -70,6 +70,19 @@ def length_orders(wood, mode):
     return orders
 
 
+def expected_area(counts, patterns, seed, areas):
+    total, first = 0.0, 0
+    for count, pattern in zip(counts, patterns, strict=True):
+        cycles, remainder = divmod(count, len(areas))
+        variants = np.full(len(areas), cycles, dtype=np.int64)
+        for index in range(remainder):
+            variants[(first + seed + index) % len(areas)] += 1
+        variance = pattern.scale_variation**2 / 3 if pattern else 0
+        total += float(variants @ areas) * (1 + variance)
+        first += count
+    return total
+
+
 def measure(plant, areas, mode):
     lengths = length_orders(plant.wood, mode)
     counts, windows = [], 0
@@ -80,15 +93,7 @@ def measure(plant, areas, mode):
         if local:
             size = capacity * pattern.group_size
             windows += sum((count + size - 1) // size for count in local)
-    total, first = 0.0, 0
-    for count, pattern in zip(counts, plant.patterns, strict=True):
-        cycles, remainder = divmod(count, len(areas))
-        variants = np.full(len(areas), cycles, dtype=np.int64)
-        for index in range(remainder):
-            variants[(first + plant.wood.seed + index) % len(areas)] += 1
-        variance = pattern.scale_variation**2 / 3 if pattern else 0
-        total += float(variants @ areas) * (1 + variance)
-        first += count
+    total = expected_area(counts, plant.patterns, plant.wood.seed, areas)
     return {
         "mode": mode,
         "status": "measured",
@@ -102,9 +107,9 @@ def measure(plant, areas, mode):
     }
 
 
-def probe(recipe, species):
+def probe(recipe, species, needle_source):
     plant = NeedledPlant.from_recipe(json.loads(recipe.read_text()))
-    areas, hashes = needle_areas(species)
+    areas, hashes = needle_areas(species, needle_source)
     rows = []
     for mode in MODES:
         try:
@@ -152,8 +157,9 @@ if __name__ == "__main__":
         "--species", choices=("picea-abies", "pinus-sylvestris"), required=True
     )
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--needle-source", type=Path, required=True)
     args = parser.parse_args()
-    result = probe(args.recipe, args.species)
+    result = probe(args.recipe, args.species, args.needle_source)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result["alternatives"]))

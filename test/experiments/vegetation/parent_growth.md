@@ -43,7 +43,7 @@ OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/vegetation \
   .venv/bin/python -W error test/experiments/vegetation/parent_growth_checks.py
 ```
 
-`parent_growth_experiment.py --output <build-directory>` prepares three private
+`parent_growth_experiment.py --output <system-temp-directory>` prepares three private
 2560×1440 scenes using the existing product exporter. The absolute-length control
 has five children per parent; the next uses parent-relative lengths with the same
 counts; the third also uses physical spacing. They contain 105/135/151 needles
@@ -123,14 +123,24 @@ quality. The next step is a matching executable parent-growth form and its image
 ```sh
 OPENBLAS_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/vegetation \
   .venv/bin/python -W error test/experiments/vegetation/parent_growth_candidate.py \
-  --recipe build/experiments/vegetation/mature-density-c82c10616/recipes/picea-abies-1.json \
+  --recipe /var/tmp/outshine-vegetation-data-2d633a079/mature-density-c82c10616/recipes/picea-abies-1.json \
+  --needle-source /var/tmp/outshine-vegetation-data-2d633a079/conifer-crowns \
   --species picea-abies --secondary 201 --terminal 1 --target-area 204.14069063026471 \
-  --output build/experiments/vegetation/parent-growth-area/candidate-201-1
+  --output /var/tmp/outshine-vegetation-parent-candidate
 ```
 
 The stored v4 JSON is explicitly probe input, not a production recipe with the
 new length/count semantics. The proposal report carries the chosen policy,
 physical-area result and budgets; no production identity has been assigned.
+
+Private working data have moved from `build/experiments/vegetation/` to
+`/var/tmp/outshine-vegetation-data-2d633a079/`. Original input bytes and hashes are
+unchanged. Own main-checkout evidence directories have moved to
+`/var/tmp/outshine-vegetation-archives-2d633a079/`; the duplicate 47-file rendered
+control archive now links to its SHA-verified canonical data directory.
+The showcase takes an explicit `--inputs` directory and checks relocated input
+bytes against the original rendering hashes. Its four published images remain
+unchanged; new data paths do not imply new optical or cost approval.
 
 ## Primary source and scope
 
