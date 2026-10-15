@@ -82,8 +82,7 @@ bool ValidPlanParameters(const StructurePlan &plan) {
   const bool colourValid = !plan.WallColour || std::ranges::all_of(*plan.WallColour, [](float c) {
     return std::isfinite(c) && c >= 0.0f && c <= 1.0f;
   });
-  const bool facadeValid = !plan.Facade || (*plan.Facade >= FacadeStyle::Outbuilding &&
-                                            *plan.Facade <= FacadeStyle::Glazing);
+  const bool facadeValid = !plan.Facade || ValidFacadeStyle(*plan.Facade);
   return colourValid && facadeValid && std::ranges::all_of(values, finite) &&
          std::ranges::all_of(plan.RingLatLon, finite) &&
          std::ranges::all_of(plan.CornerAslM, finite);
@@ -378,18 +377,17 @@ void Opening(const BuildingShape &s,
                         .NorthM = (q.EastM - p.EastM) * kOpeningDepthM / length};
   const EastNorth a{.EastM = p.EastM + inset.EastM, .NorthM = p.NorthM + inset.NorthM};
   const EastNorth b{.EastM = q.EastM + inset.EastM, .NorthM = q.NorthM + inset.NorthM};
+  const auto opening = FacadeOpeningBounds(s.OpeningStyle);
   const auto glass = [&s, coordinates](const EastNorth &point, double z, float offset) {
     auto vertex = Wall(s, point, z, coordinates.Bay + offset, coordinates.Standing);
-    vertex.U = FacadeUvX(FacadeStyle::Glazing,
-                         coordinates.Standing,
-                         s.WallVariant,
-                         static_cast<float>(coordinates.Bay) + offset);
+    vertex.U = FacadeUvX(
+        s.OpeningStyle, Fields::Pane, s.WallVariant, static_cast<float>(coordinates.Bay) + offset);
     return vertex;
   };
-  site.Quad(glass(a, lowZ, kOpeningLowU),
-            glass(b, lowZ, kOpeningHighU),
-            glass(b, highZ, kOpeningHighU),
-            glass(a, highZ, kOpeningLowU));
+  site.Quad(glass(a, lowZ, opening[0]),
+            glass(b, lowZ, opening[1]),
+            glass(b, highZ, opening[1]),
+            glass(a, highZ, opening[0]));
   site.Quad(Face(s, p, lowZ, Facade::Trim),
             Face(s, q, lowZ, Facade::Trim),
             Face(s, b, lowZ, Facade::Trim),
@@ -418,32 +416,33 @@ struct FacadeWall {
 };
 
 bool RecessedWall(const BuildingShape &s, const FacadeWall &wall, Site &site) {
-  const bool housing = s.OpeningStyle == FacadeStyle::House ||
-                       s.OpeningStyle == FacadeStyle::Terrace ||
-                       s.OpeningStyle == FacadeStyle::Block;
+  const auto &profile = FacadeProfileOf(s.OpeningStyle);
+  const bool hasOpenings = profile.OpeningWidth > 0.0f && profile.OpeningHeight > 0.0f &&
+                           s.OpeningStyle != FacadeStyle::Glazing;
+  const auto opening = FacadeOpeningBounds(s.OpeningStyle);
   const auto &p = wall.From;
   const auto &q = wall.To;
   const double bays = wall.Bays;
   const Fields stand = wall.Standing;
-  if (site.Coarseness() != LevelOfDetail::Fine || !site.RecessedOpenings() || !housing ||
+  if (site.Coarseness() != LevelOfDetail::Fine || !site.RecessedOpenings() || !hasOpenings ||
       bays < 1.0) {
     return false;
   }
   double below = wall.BottomM;
   for (int storey = 0; storey < s.Storeys; ++storey) {
     const double base = s.SeatM + s.FootM + storey * s.FloorM;
-    const double bottom = base + kOpeningLowV * s.FloorM;
-    const double top = base + kOpeningHighV * s.FloorM;
+    const double bottom = base + opening[2] * s.FloorM;
+    const double top = base + opening[3] * s.FloorM;
     WallPanel(s, p, q, 0.0, bays, below, bottom, stand, site);
     for (int bay = 0; bay < wall.Bays; ++bay) {
       const double axis = bay;
-      const auto left = Along(p, q, (axis + kOpeningLowU) / bays);
-      const auto right = Along(p, q, (axis + kOpeningHighU) / bays);
+      const auto left = Along(p, q, (axis + opening[0]) / bays);
+      const auto right = Along(p, q, (axis + opening[1]) / bays);
       WallPanel(s,
                 Along(p, q, static_cast<double>(bay) / bays),
                 left,
                 bay,
-                axis + kOpeningLowU,
+                axis + opening[0],
                 bottom,
                 top,
                 stand,
@@ -451,7 +450,7 @@ bool RecessedWall(const BuildingShape &s, const FacadeWall &wall, Site &site) {
       WallPanel(s,
                 right,
                 Along(p, q, (bay + 1.0) / bays),
-                axis + kOpeningHighU,
+                axis + opening[1],
                 bay + 1.0,
                 bottom,
                 top,

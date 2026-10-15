@@ -12,7 +12,15 @@ from building_vertical import level
 def candidate(source,footprint):
     if footprint.equals(source['footprint']):return source,None
     interior=footprint.buffer(-WALL_M,join_style='mitre')
-    rooms=[canonical_geometry(room.intersection(interior)) for room in source['rooms']]
+    rooms=[]
+    for room in source['rooms']:
+        clipped=canonical_geometry(room.intersection(interior))
+        if clipped.geom_type=='GeometryCollection':
+            parts=[part for part in shapely.get_parts(clipped) if part.geom_type in ('Polygon','MultiPolygon')]
+            area=shapely.union_all(parts)
+            if area.area!=clipped.area:raise ValueError('Setback room area changed when resolving zero-area boundary pieces')
+            clipped=area
+        rooms.append(clipped)
     if any(room.geom_type!='Polygon' or room.is_empty or room.area<5. for room in rooms):
         return None,'setback leaves an empty, disconnected or undersized room'
     current=source|dict(footprint=footprint,rooms=rooms,
@@ -27,7 +35,7 @@ def candidate(source,footprint):
     return current,None
 
 
-def apply(plan,offsets):
+def apply(plan,offsets,outlines=None):
     if plan.get('vertical_status')!='connected-storeys':raise ValueError('Setbacks require a connected storey plan')
     offsets=tuple(offsets)
     if len(offsets)!=plan['storeys'] or not offsets or offsets[0]!=0:
@@ -36,6 +44,12 @@ def apply(plan,offsets):
         raise ValueError('Setbacks require finite nonnegative metre distances')
     if any(b<a for a,b in zip(offsets,offsets[1:])):raise ValueError('Setbacks must be nested')
     if 'storey_plans' in plan:raise ValueError('Apply setbacks to the original fixed envelope')
+    if outlines is not None:
+        outlines=tuple(outlines)
+        if len(outlines)!=plan['storeys'] or any(not isinstance(value,shapely.Geometry) or not value.is_valid or
+            value.is_empty or value.geom_type!='Polygon' for value in outlines):raise ValueError('One valid polygon outline per storey is required')
+        if not outlines[0].equals(plan['footprint']):raise ValueError('Explicit stepped ground floor must preserve the source')
+        if any(value.difference(plan['footprint']).area>1e-7 for value in outlines):raise ValueError('Explicit stepped outline escapes the source')
     if plan.get('circulation_status')=='direct-rooms':
         if any(offsets):raise ValueError('Direct single-storey rooms have no core for nonzero setbacks')
         return plan|dict(storey_plans=(level(plan,0)|dict(terrace=shapely.Polygon()),),setback_decisions=[dict(storey=0,requested_offset_m=0.,reason=None,
@@ -45,7 +59,10 @@ def apply(plan,offsets):
     floors=[];decisions=[];previous=plan['footprint']
     for index,distance in enumerate(offsets):
         source=level(plan,index)
-        outline=canonical_geometry(plan['footprint'].buffer(-distance,join_style='mitre').union(reserve).intersection(previous)) if distance else previous
+        proposed=outlines[index] if outlines is not None else plan['footprint'].buffer(-distance,join_style='mitre')
+        outline=canonical_geometry(proposed.union(reserve).intersection(previous)) if distance else previous
+        if outlines is not None and distance:
+            outline=shapely.set_precision(outline,0.).intersection(shapely.set_precision(previous,0.))
         current,reason=None,None
         if outline.geom_type=='Polygon' and not outline.is_empty and outline.is_valid:
             current,reason=candidate(source,outline)

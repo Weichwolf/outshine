@@ -24,5 +24,9 @@ int main() {
             BuildingFacadeOf("greenhouse") == FacadeStyle::Glazing &&
             BuildingFacadeOf("garage") == FacadeStyle::Outbuilding,
         "housing, glazing and closed service buildings retain independent opening families");
+  CHECK(BuildingFacadeOf("office") == FacadeStyle::Commercial &&
+            BuildingFacadeOf("school") == FacadeStyle::Institutional &&
+            BuildingFacadeOf("church") == FacadeStyle::Religious,
+        "supplied uses retain distinct facade rhythms rather than one residential pattern");
   return Report();
 }

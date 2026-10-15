@@ -8,6 +8,7 @@ import numpy as np
 import shapely
 
 from building_setbacks import apply as setbacks
+from building_layout import polygons
 from building_terraces import apply,PARAPET_HEIGHT_M
 from building_vertical import build,mesh
 from evidence import revision
@@ -45,7 +46,9 @@ def circulation(plan,product):
         path=shapely.LineString(row['path'])
         connected=next((part for part in shapely.get_parts(free) if part.buffer(1e-8).covers(path)),None)
         assert connected is not None,'Detail blocks terrace portal'
-        usable=current['terrace'].difference(obstacles).buffer(-.3,join_style='mitre')
+        components=polygons(current['terrace'])
+        if row['component']>=len(components):raise AssertionError('Terrace portal refers to a missing component')
+        usable=components[row['component']].difference(obstacles).buffer(-.3,join_style='mitre')
         assert usable.difference(connected).area<1e-6,'Detail disconnects terrace circulation'
 
 
@@ -71,6 +74,10 @@ def controls():
         plan=apply(base);product=mesh(plan)
         paths=check(plan,product)
         if name=='rectangle':assert len(paths)==2,'Both terraces require access'
+        elif name=='wing':
+            assert not paths and plan['terrace_access'] and all(row['reason'] for row in plan['terrace_access'])
+            assert not any(door['kind']=='terrace' for current in plan['storey_plans'] for door in current['doors'])
+            assert base['setback_decisions'][1]['reason'] is None and base['setback_decisions'][2]['reason']
         else:
             assert not plan['terrace_access'] and all(row['reason'] for row in base['setback_decisions'][1:])
             np.testing.assert_array_equal(product['faces'],mesh(base)['faces'])

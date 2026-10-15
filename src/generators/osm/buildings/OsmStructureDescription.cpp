@@ -28,7 +28,11 @@ Ground::StructureOpenings OpeningsOf(std::optional<FacadeStyle> facade) {
     case FacadeStyle::Glazing: return Ground::StructureOpenings::Glazed;
     case FacadeStyle::House:
     case FacadeStyle::Terrace:
-    case FacadeStyle::Block: return Ground::StructureOpenings::Regular;
+    case FacadeStyle::Block:
+    case FacadeStyle::Hall:
+    case FacadeStyle::Commercial:
+    case FacadeStyle::Institutional:
+    case FacadeStyle::Religious: return Ground::StructureOpenings::Regular;
     default: return Ground::StructureOpenings::Closed;
   }
 }
