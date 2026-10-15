@@ -149,6 +149,10 @@
   Verbesserungen nach tatsächlichem Vorher/Nachher-Bildvergleich aktualisieren. Kein Showcase-Server.
 - Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
+  Ein Teil der Places stammt von [foto-webcam.eu](https://www.foto-webcam.eu/).
+  Live- und Archivbilder liefern Inspiration und Vergleich für Wetter, Tages- und Jahreszeiten;
+  passende Aufnahme samt Datum/Zustand wählen und Outshines Formen, Materialien und Licht dagegen prüfen.
+  Fotos bleiben ausschließlich visuelle Referenzen gemäß den Quellenregeln.
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
