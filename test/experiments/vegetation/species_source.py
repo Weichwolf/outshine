@@ -53,13 +53,15 @@ def rows(archive, member, required, maximum):
             yield row
 
 
-def resolve_names(archive, requested):
+def resolve_names(archive, requested, name_ids):
     matches = {name: [] for name in requested}
     for row in rows(archive, "wcvp_names.csv", NAME_FIELDS, 512 << 20):
         if row["taxon_name"] in matches:
             matches[row["taxon_name"]].append(row)
     chosen = {}
     for name, values in matches.items():
+        if name in name_ids:
+            values = [row for row in values if row["plant_name_id"] == name_ids[name]]
         if len(values) != 1:
             raise ValueError(
                 f"exact name must resolve uniquely: {name} ({len(values)})"
@@ -133,8 +135,11 @@ def compile_catalog(source, specification):
     requested = specification["requested_names"]
     if not 1 <= len(requested) <= 2048 or len(set(requested)) != len(requested):
         raise ValueError("bounded unique exact species requests required")
+    name_ids = specification.get("name_ids", {})
+    if not isinstance(name_ids, dict) or not name_ids.keys() <= set(requested):
+        raise ValueError("disambiguation must refer to requested exact names")
     with zipfile.ZipFile(source) as archive:
-        matched, accepted = resolve_names(archive, requested)
+        matched, accepted = resolve_names(archive, requested, name_ids)
         regions = distributions(archive, accepted)
     records = []
     for key, row in sorted(accepted.items(), key=lambda item: item[1]["taxon_name"]):

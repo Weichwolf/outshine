@@ -125,6 +125,18 @@ class SpeciesSourceTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unique exact"):
                 compile_catalog(source, specification)
 
+    def test_explicit_source_id_resolves_homonyms_and_cannot_select_other_name(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.species-source."
+        ) as directory:
+            source, specification = fixture(Path(directory), duplicate=True)
+            specification["name_ids"] = {"Fictiona arbor": "10"}
+            catalog = compile_catalog(source, specification)
+            self.assertEqual([r["wcvp_id"] for r in catalog["species"]], ["10"])
+            specification["name_ids"] = {"Fictiona arbor": "20"}
+            with self.assertRaisesRegex(ValueError, "uniquely"):
+                compile_catalog(source, specification)
+
 
 if __name__ == "__main__":
     unittest.main()
