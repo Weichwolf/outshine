@@ -29,6 +29,7 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "Bellflower": "bellflower",
     "GroundCoverPlan": "ground_cover",
     "SpeciesHeightMixture": "species_mixture",
     "species_site_uniforms": "species_mixture",
@@ -88,6 +89,7 @@ __all__ = [
     "AttractionField",
     "AxisLevel",
     "AxisState",
+    "Bellflower",
     "Blade",
     "CubicSpine",
     "DirectionField",
