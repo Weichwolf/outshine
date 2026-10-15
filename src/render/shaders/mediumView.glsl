@@ -34,7 +34,8 @@ MediumViewRay mediumViewRay(MediumView frame, vec3 fragment) {
                          : normalize(frame.Fwd.xyz + frame.Right.xyz * (ndc.x * frame.TanHalf.x) +
                                      frame.Up.xyz * (ndc.y * frame.TanHalf.y));
   vec4 depth = frame.DepthReconstruction;
-  float alongViewM = (depth.x - fragment.z * depth.y) / (depth.z + fragment.z * depth.w);
+  float delta = fragment.z - frame.OrthoProjection.w;
+  float alongViewM = (depth.x - delta * depth.y) / (depth.z + delta * depth.w);
   float distanceKm = max(0.0, alongViewM) * 0.001 / (ortho ? 1.0 : dot(direction, frame.Fwd.xyz));
   vec3 offsetKm = offsetM * 0.001;
   float deltaSquared = dot(offsetKm, offsetKm);

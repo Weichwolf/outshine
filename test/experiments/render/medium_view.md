@@ -22,7 +22,7 @@ Viewport extent/offset; its jitter uses the actual projection matrix. Lens
 picture dimensions and viewport dimensions need not be equal.
 
 OrthoProjection at208 contains explicit half width/height in metres and a Z flag
-(1 orthographic,0 perspective); W is reserved zero. Lens.OrthoWidthM/OrthoM are
+(1 orthographic,0 perspective); W holds Viewport.MinDepth for both projection kinds. Lens.OrthoWidthM/OrthoM are
 full dimensions. Perspective direction varies by pixel with a common camera
 origin. Orthographic direction is constant, with a distinct physical origin per
 pixel. `mediumViewRay` returns this world-space OriginOffsetM and Direction plus
@@ -36,7 +36,12 @@ viewport alone is not assumed to mask an oversized fullscreen triangle.
 
 For projection coefficients A=p14,B=p15,C=p10,D=−p11,
 view distance is `(A−z*B)/(C+z*D)`. With actual window depth `w=m+s*z`, fold its
-range into the existing four coefficients as `(A*s+m*B, B, C*s−m*D, D)`.
+range into the existing four coefficients as `(A*s, B, C*s, D)` and evaluate
+`delta=w−m` first, then `(A*s−delta*B)/(C*s+delta*D)`. This avoids cancellation
+of a separately rounded `C*s−m*D` at distant perspective receivers. MinDepth0
+retains the previous arithmetic. The separately stored Float32 depth still has
+quantization error against the ideal world surface: the unchanged2mm native
+ray check compares against FP64 inversion of that same stored depth.
 No extra depth-range uniform or depth texture is required by Thin. No10m ground
 lift is added to physical camera height. Invalid viewport, projection, camera
 basis and nonfinite medium inputs return a named expected error.
@@ -67,11 +72,14 @@ records source/consumer/archive hashes and terminal commands; it does not
 compile a private backend copy. The same consumer/shaders can run on Metal/A18.
 Runtime acceptance there is required separately; MSL translation is not that run.
 
-- 1,022 CPU projection/depth controls cover finite/infinite perspective and ortho,
+- 1,034 CPU projection/depth controls cover finite/infinite perspective and ortho,
   nonzero jitter, viewport offset, reversed/window depth and invalid inputs.
-- 36 actual43×31 three-target geometric raster frames compare radius, origin,
+- 44 actual43×31 three-target geometric raster frames compare radius, origin,
   direction, solar/view cosines and distance to independently projected world
   points. Paired depths preserve physical origins/directions/cosines bitwise.
+  Eight added frames isolate distant depth reconstruction at4.5/5km with an
+  inset depth range, both projection kinds and jitter. They do not expand the
+  separate homogeneous lighting cohort.
 - 75 actual opaque frames compare clear Rayleigh/Mie/Psi transport against an
   independent homogeneous analytic solution. Asymmetric scene/depth/solar/Psi
   inputs, both world-up axes, rotated views, day/night, top entry, planet clip,
@@ -83,8 +91,9 @@ Runtime acceptance there is required separately; MSL translation is not that run
   not imply every distant point is shadowed. The analytic reference uses double
   precision world projection/sphere intersections, not the shader's fitted source
   coefficients or its reconstruction implementation.
-- Two native repetitions must be byte-identical. A private wrong orthographic
-  origin and a no-medium opaque mutation must fail their intended assertions
+- Two native repetitions must be byte-identical. Private mutations restoring
+  depth cancellation, dropping the orthographic origin, or removing opaque
+  medium composition must fail their intended assertions
   with the same native resource interfaces and no validation diagnostics.
 
 Raw captures and references are retained; plot them with:

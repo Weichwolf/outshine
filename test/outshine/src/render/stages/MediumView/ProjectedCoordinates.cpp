@@ -54,7 +54,8 @@ void CheckProjection(Lens lens, Native::Viewport area) {
                    "NDC",
                    "native top origin and Y jitter invert");
         const auto &depth = frame->DepthReconstruction;
-        const double actualM = (depth[0] - written * depth[1]) / (depth[2] + written * depth[3]);
+        const double delta = written - frame->OrthoProjection[3];
+        const double actualM = (depth[0] - delta * depth[1]) / (depth[2] + delta * depth[3]);
         CHECK_NEAR(actualM,
                    alongM,
                    kDepthToleranceM,
@@ -63,6 +64,8 @@ void CheckProjection(Lens lens, Native::Viewport area) {
       }
     }
   }
+  CHECK(frame->OrthoProjection[3] == area.MinDepth,
+        "both projection kinds preserve the actual minimum window depth separately");
   CHECK((frame->OrthoProjection[2] > 0) == ortho, "the shader receives the actual projection kind");
   if (ortho) {
     CHECK_NEAR(frame->OrthoProjection[0],

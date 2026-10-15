@@ -70,7 +70,8 @@ MakeMediumViewParameters(const Lens &lens,
   const float halfWidth = 1 / projection[0];
   const float halfHeight = 1 / projection[5];
   result.TanHalf = ortho ? Vec2f{} : Vec2f{{halfWidth, halfHeight}};
-  result.OrthoProjection = ortho ? Vec4f{{halfWidth, halfHeight, 1, 0}} : Vec4f{};
+  result.OrthoProjection = ortho ? Vec4f{{halfWidth, halfHeight, 1, viewport.MinDepth}}
+                                 : Vec4f{{0, 0, 0, viewport.MinDepth}};
   const float scaleX = 2 / viewport.Width;
   const float scaleY = -2 / viewport.Height;
   const float shiftX = ortho ? projection[12] : -projection[8];
@@ -78,10 +79,8 @@ MakeMediumViewParameters(const Lens &lens,
   result.PixelToNdc = {
       {scaleX, scaleY, -1 - viewport.X * scaleX - shiftX, 1 - viewport.Y * scaleY - shiftY}};
   const float range = viewport.MaxDepth - viewport.MinDepth;
-  result.DepthReconstruction = {{projection[14] * range + viewport.MinDepth * projection[15],
-                                 projection[15],
-                                 projection[10] * range + viewport.MinDepth * projection[11],
-                                 -projection[11]}};
+  result.DepthReconstruction = {
+      {projection[14] * range, projection[15], projection[10] * range, -projection[11]}};
   result.Illuminance = sky.IlluminanceLux;
   constexpr float kKmPerM = 0.001f;
   result.EyeRadiusKm = air.BottomRadiusKm + sky.EyeHeightM * kKmPerM;
