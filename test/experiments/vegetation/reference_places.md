@@ -172,3 +172,14 @@ retains the source resolution and records both old/new sample counts. The profil
 in`packed_optical_diagnostic.json` explicitly forbids presentation/cost admission.
 Four final public Place images, the64-sample cost gate and SpeedTree/botanical/
 LOD/native acceptance remain open. No HTTP showcase is restored.
+
+The subsequent source-grass correction is complete for the Koerbersee prototype:
+`86e5b9b94` changes the9,853 nonwood grass form indices to cached graminoid tufts,
+while retaining all IDs/positions/frames/source indices/scales. The whole private
+before/after is opened; scattered inappropriate conifers on grass are gone.
+Eight actual cached forms are also opened in the declared near control.
+[place_grass.md](place_grass.md) owns the exact verification, costs and remaining
+coverage/material/LOD limitations. The shared geometry constructor is delivered
+independently through PR#276; this does not add accepted botanical species or
+replace the public four Place images. Current complete diagnostic and product:
+`/tmp/outshine-vegetation-place-grass-86e5b9b94/`.
