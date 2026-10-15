@@ -12,7 +12,7 @@ import numpy as np
 from outshine_ref.vegetation import load_species_catalog
 
 
-def plot(sites_path, baseline, product):
+def plot(sites_path, baseline, product, titles=None):
     sites = np.load(sites_path, allow_pickle=False)
     before = np.load(baseline / "choices.npz", allow_pickle=False)
     after = np.load(product / "choices.npz", allow_pickle=False)
@@ -31,10 +31,14 @@ def plot(sites_path, baseline, product):
     forest = before["species_index"] >= 0
     centre = np.median(xy[forest], axis=0)
     window = np.all(abs(xy - centre) <= 900, axis=1)
+    titles = titles or (
+        "Independent site marks",
+        "World-anchored correlated marks · 60m / 0.85",
+    )
     for ax, data, title in zip(
         axes,
         (before, after),
-        ("Independent site marks", "World-anchored correlated marks · 60m / 0.85"),
+        titles,
         strict=True,
     ):
         unsupported = window & (data["species_index"] < 0)
@@ -70,5 +74,6 @@ if __name__ == "__main__":
     p.add_argument("--sites", type=Path, required=True)
     p.add_argument("--baseline", type=Path, required=True)
     p.add_argument("--product", type=Path, required=True)
+    p.add_argument("--titles", nargs=2)
     a = p.parse_args()
-    plot(a.sites, a.baseline, a.product)
+    plot(a.sites, a.baseline, a.product, a.titles)
