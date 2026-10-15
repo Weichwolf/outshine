@@ -20,8 +20,8 @@
   | `outshine_buildings` | Reine Python-Forschung: Gebäudeformen, Architekturrezepte und Räume | [#47](https://github.com/Weichwolf/outshine/issues/47) |
   | `outshine_vegetation` | Reine Python-Forschung: Pflanzen, Wälder und Vegetationsdarstellung | [#47](https://github.com/Weichwolf/outshine/issues/47) |
   | `outshine_performance` | Native Entwicklung: Vulkan-Backend, Renderarbeit, Sichtbarkeit, Batching, Speicher; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
-  | `outshine_material` | Native Entwicklung: prozedurale Oberflächen, Materialkomposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
-  | `outshine_light` | Native Entwicklung: Licht, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
+  | `outshine_material` | Native Entwicklung: vollständiger Materialbaukasten, prozedurale Oberflächen, Verteilung, Komposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
+  | `outshine_light` | Native Entwicklung: Tages-/Nachtlicht, Tausende lokale Lichtquellen, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
   | `outshine_weather` | Native Entwicklung: Wetterdaten/-zustand, Wolken, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
 
   Die drei Forschungsagenten arbeiten ausschließlich in Python: Experimente unter `test/experiments/`,
@@ -33,6 +33,10 @@
   das A18-Pro-Profil 1280×720/30. Mein vorheriges Review ist keine Merge-Voraussetzung.
   Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
   Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
+  Material entwickelt alle benötigten Materialfamilien und ihre kohärenten Übergänge.
+  Light besitzt auch skalierende lokale Beleuchtung, sämtliche Schatten und den Tag-/Nachtzyklus;
+  Weather liefert Wetter-/Wolken-/Nebelzustand und vereinbarte Mediumdaten. Light verantwortet
+  die gemeinsame Licht-/Schattenkomposition; Performance unterstützt GPU-Ausführung und Speicher.
 - Jeder Agent darf und soll architektonische und organisatorische Verbesserungen einbringen.
   Outshine soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt,
   gut gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine
