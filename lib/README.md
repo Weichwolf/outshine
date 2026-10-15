@@ -105,6 +105,9 @@ einer erfundenen Höhe. Das verändert weder seine Defaults noch gemeinsame APIs
 
 Abnahme: ganze normierte Neigungen ≤1+1e-7, Höhenchords ≤0,01m und endliche
 Port-Gradfehler ≤0,005. Nur originale Beobachtungen gehen in den Fit ein.
+Ein bereits zulässiger globaler Ebenenprior bleibt bis auf Rundungsfehler erhalten,
+auch an freien Korridorenden. Derselbe Topologie-, Neigungs- und Kontaktcheck gilt;
+dafür sind weder zusätzliche Unterteilung noch ein numerischer Solver nötig.
 Die Verfeinerung reserviert vor einem weiteren Fit intern 20% der Höhen-/Port-
 Approximation, beendet sich aber an den tatsächlichen Abnahmegrenzen. Alle
 ursprünglichen Flächen und konkurrierenden Rahmen müssen erhalten bleiben.

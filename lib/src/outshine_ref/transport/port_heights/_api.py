@@ -1,12 +1,14 @@
 """Bounded public shared-port planning with independently checked finite products."""
 
 import time
+from copy import deepcopy
 from dataclasses import replace
 
 import numpy as np
 import shapely
 
 from ...contracts import Mesh
+from ._affine import affine_prior
 from ._budget import DEFAULT_BUDGET, PortHeightBudget, PortLimit
 from ._contacts import contact_audit
 from ._input import PortHeightInput, prepare_input
@@ -143,18 +145,24 @@ def plan_port_heights(source, *, budget=DEFAULT_BUDGET, method="cone", progress=
                 "datum_m": datum,
             }
             try:
-                raw = solve_slices(
-                    model,
-                    product,
-                    captured,
-                    original,
-                    seed,
-                    budget=budget,
-                    method=method,
-                    progress=progress,
-                    records=report["rounds"],
-                    began=began,
-                )
+                raw = affine_prior(model, product, captured, original, budget, began)
+                if raw is None:
+                    raw = solve_slices(
+                        model,
+                        product,
+                        captured,
+                        original,
+                        seed,
+                        budget=budget,
+                        method=method,
+                        progress=progress,
+                        records=report["rounds"],
+                        began=began,
+                    )
+                else:
+                    report["rounds"].extend(raw[-1])
+                    if progress:
+                        progress(deepcopy(raw[-1][-1]))
                 plan, checked = final_plan(model, product, captured, raw, domain)
                 report.update(checked)
             except PortLimit as error:
