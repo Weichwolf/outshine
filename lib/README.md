@@ -940,3 +940,8 @@ until its presentation migration. These helpers do not imply a native/device gat
 `outshine_ref.rendering.blender_light.configure_daylight` applies the agreed
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
+
+`vegetation.GroundCoverPlan` erzeugt begrenzte Poisson-Bodenstandorte mit
+kanonischen Zell-/Ordinal-IDs, separaten Zähl-/Positionsströmen und exaktem
+Teil-Replay im selben festen Meterrahmen. Mengen/Budgets werden vor Platzierungen
+ermittelt. Vertrag, Kosten und optisch geprüfter Grasverbrauch: [ground_cover.md](ground_cover.md) (#304).

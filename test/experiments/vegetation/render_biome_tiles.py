@@ -11,8 +11,12 @@ import bpy
 import gpu
 import numpy as np
 from blender_instances import instance_group
-from blender_preview import material, mesh_object
+from blender_preview import material
+from ground_cover_scene import ground_population
 from mathutils import Vector
+from outshine_ref.rendering.blender_camera import configure_camera
+from outshine_ref.rendering.blender_light import configure_daylight
+from outshine_ref.rendering.blender_mesh import mesh_object
 from preview_shadows import configure_preview
 from scipy.spatial.transform import Rotation
 from scipy.stats import qmc
@@ -65,7 +69,7 @@ def poses(xy, rng, scale=1):
     )
 
 
-def population(name, recipe):
+def reference_population(name, recipe):
     rng = np.random.default_rng(recipe["seed"])
     size, step = recipe["size_m"], recipe["grass_step_m"]
     x, y = np.meshgrid(
@@ -104,6 +108,16 @@ def population(name, recipe):
         selected = np.sin(xy[:, 0] * 0.6) + np.cos(xy[:, 1] * 0.8) > -0.5
         result.append(("heather", *poses(xy[selected], rng, 1.5)))
     return result
+
+
+def population(name, recipe):
+    # Preserve the comparison's existing woody poses while replacing only grass.
+    reference = reference_population(name, recipe)
+    if "grass_density_m2" not in recipe:
+        return reference
+    return ground_population(name, recipe) + [
+        row for row in reference if not row[0].startswith("grass-")
+    ]
 
 
 def plants(name, recipe, products):
@@ -147,8 +161,7 @@ def setup(name, recipe):
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.eevee.taa_render_samples = 4
-    scene.view_settings.view_transform = "AgX"
-    scene.view_settings.exposure = 1.5
+    configure_daylight(scene)
     size = recipe["size_m"]
     bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, -0.25))
     bpy.context.object.scale = (size, size, 0.5)
@@ -167,30 +180,21 @@ def setup(name, recipe):
     bpy.context.object.data.materials.append(
         material("studio", (0.085, 0.095, 0.11), 0.9)
     )
-    bpy.ops.object.light_add(type="SUN")
-    bpy.context.object.rotation_euler = (0.45, -0.65, -0.6)
-    bpy.context.object.data.energy, bpy.context.object.data.angle = 2.5, 0.04
     bpy.ops.object.light_add(type="AREA", location=(-8, -12, 18))
     bpy.context.object.data.energy, bpy.context.object.data.shape = 900, "DISK"
     bpy.context.object.data.size = 18
     bpy.context.object.rotation_euler = (
         Vector((8, 12, -18)).to_track_quat("-Z", "Y").to_euler()
     )
-    scene.world = bpy.data.worlds.new("neutral research studio")
-    scene.world.use_nodes = True
-    scene.world.node_tree.nodes["Background"].inputs["Color"].default_value = (
-        0.35,
-        0.45,
-        0.6,
-        1,
+    cam = configure_camera(
+        {
+            "projection": "orthographic",
+            "eye": recipe["camera"],
+            "target": recipe["target"],
+            "span_m": size * 1.85,
+        }
     )
-    scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.35
-    bpy.ops.object.camera_add(location=recipe["camera"])
-    cam = bpy.context.object
-    cam.rotation_euler = (
-        (Vector(recipe["target"]) - cam.location).to_track_quat("-Z", "Y").to_euler()
-    )
-    cam.data.type, cam.data.ortho_scale = "ORTHO", size * 1.85
+    cam.data.clip_start, cam.data.clip_end = 0.1, 1000
     scene.camera = cam
     return scene
 
