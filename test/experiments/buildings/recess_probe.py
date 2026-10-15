@@ -122,7 +122,7 @@ def diagram(output):
     plt.close(figure)
 
 
-def building(row, view, name, output, provenance):
+def building(row, view, name, output, provenance, *, scope=None):
     details = FacadeDetails([row], view)
     mesh, source = construct(
         name,
@@ -154,7 +154,8 @@ def building(row, view, name, output, provenance):
         "triangles": len(mesh["faces"]),
         "facade_materials": details.bindings,
         "procedures": details.report(),
-        "scope": "Same actual source and facade repeat; inward render recesses use existing physical frame component10, whose response differs from the prior flat shader frame. No new room/door programme or native/device/LOD admission.",
+        "scope": scope
+        or "Same actual source and facade repeat; inward render recesses use existing physical frame component10, whose response differs from the prior flat shader frame. No new room/door programme or native/device/LOD admission.",
     }
     (output / (name + "-geometry.json")).write_text(json.dumps(record, indent=2) + "\n")
     return {
@@ -182,12 +183,16 @@ def run(output):
     opposite = replace(near, eye=near.target + (near.eye - near.target) * [-1, -1, 1])
     far = replace(near, eye=near.target + (near.eye - near.target) * 30)
     with patch(
-        "tile_facade_recess.attach",
-        side_effect=lambda mesh, *args, **kwargs: (mesh, [], []),
+        "tile_facade_bands.BandDetails.__call__",
+        side_effect=lambda mesh, *args, **kwargs: mesh,
     ):
-        cases = [building(row, near, "Flat", output, provenance)]
-    for name, view in (("Near", near), ("Opposite", opposite), ("Far", far)):
-        cases.append(building(row, view, name, output, provenance))
+        with patch(
+            "tile_facade_recess.attach",
+            side_effect=lambda mesh, *args, **kwargs: (mesh, [], []),
+        ):
+            cases = [building(row, near, "Flat", output, provenance)]
+        for name, view in (("Near", near), ("Opposite", opposite), ("Far", far)):
+            cases.append(building(row, view, name, output, provenance))
     if (
         not cases[1]["recess_cells"]
         or not cases[2]["recess_cells"]
