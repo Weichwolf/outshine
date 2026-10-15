@@ -17,6 +17,7 @@ from cloud_air_transfer_reuse import (
     bilinear,
     clear_response,
     coefficients,
+    cubic,
     weighted_visibility,
 )
 
@@ -63,6 +64,9 @@ class TransferReuseTest(unittest.TestCase):
         actual = bilinear(values, width, height, step)[..., 0]
         expected = np.arange(width)[None, :] * 2 + np.arange(height)[:, None] * 3
         np.testing.assert_allclose(actual, expected, atol=1e-13)
+        np.testing.assert_allclose(
+            cubic(values, width, height, step)[..., 0], expected, atol=1e-13
+        )
         with self.assertRaises(ValueError):
             axis_nodes(1, step)
 
@@ -75,6 +79,14 @@ class TransferReuseTest(unittest.TestCase):
         medium[2] = 8
         with self.assertRaisesRegex(ValueError, "homogeneous"):
             coefficients(rays, medium)
+
+    def test_cubic_preserves_quadratic_curvature_inside_regular_cells(self):
+        width, height, step = 23, 19, 4
+        x, y = axis_nodes(width, step), axis_nodes(height, step)
+        values = (x[None, :] ** 2 + y[:, None] ** 2)[..., None]
+        actual = cubic(values, width, height, step)[..., 0]
+        expected = np.arange(width)[None, :] ** 2 + np.arange(height)[:, None] ** 2
+        np.testing.assert_allclose(actual[4:12, 4:16], expected[4:12, 4:16], atol=1e-12)
 
 
 if __name__ == "__main__":

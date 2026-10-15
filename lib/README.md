@@ -642,6 +642,10 @@ World instance identity/placement, source reservations and terrain remain the
 caller's responsibility. See [#86](https://github.com/Weichwolf/outshine/issues/86)
 for cache/material semantics, controls, costs and open botanical/LOD/wind limits.
 
+The [compact tree-entry reference](../test/experiments/vegetation/tree_entry.md)
+provides an unchanged existing64-axis/571-leaf recipe, fixed canonical rows and
+an executable cache-only whole-plant consumer for native comparison (#367).
+
 ### Frond guides, source patterns and cross-section curl
 
 `PinnatePattern` creates own planar pinnate sources with stable organ IDs and
@@ -948,6 +952,12 @@ until its presentation migration. These helpers do not imply a native/device gat
 `outshine_ref.rendering.blender_light.configure_daylight` applies the agreed
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
+
+`buildings.interiors.entrances.entrance` shares the existing first-storey
+selector with bounded facade-cell candidates and caller-owned acceptance.
+`buildings.opening_panels.OpeningPanel` / `panel_surface` emit an actual closed
+through-opening slab. Contracts, source attachment and limitations:
+[entrances.md](entrances.md).
 
 `buildings.profiled_bands.BandPlan` / `band_surface` emit bounded closed mitred
 profile bands, including courtyard boundaries and capped partial edge runs.

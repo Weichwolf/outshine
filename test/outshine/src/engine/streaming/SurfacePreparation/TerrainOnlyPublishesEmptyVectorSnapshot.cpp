@@ -45,12 +45,14 @@ int main() {
   TemporaryCache cache;
   SilentSink sink;
   Data::OfflineTransport wire;
-  const std::array providers{Data::SourceProvider{.Kind = "terrain"}};
+  Data::SourceProvider terrain;
+  terrain.Kind = "terrain";
+  const std::array providers{terrain};
   Tasks sourceCompute(1);
   SurfacePreparation stack;
   const LongitudeLatitude first{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   const LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
-  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
+  CHECK(stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                    providers,
                    first,
                    wire,

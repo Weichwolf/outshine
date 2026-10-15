@@ -77,6 +77,38 @@ def bilinear(values, width, height, step):
     return (1 - ty) * ((1 - tx) * a + tx * b) + ty * ((1 - tx) * c + tx * d)
 
 
+def cubic_axis(length, step):
+    nodes = axis_nodes(length, step)
+    positions = np.arange(length)
+    cell = np.minimum(positions // step, len(nodes) - 2)
+    indices = np.clip(cell[:, None] + np.arange(-1, 3), 0, len(nodes) - 1)
+    coordinate = nodes[indices]
+    spacing = coordinate[:, 2] - coordinate[:, 1]
+    t = (positions - coordinate[:, 1]) / spacing
+    h00, h10 = 2 * t**3 - 3 * t**2 + 1, t**3 - 2 * t**2 + t
+    h01, h11 = -2 * t**3 + 3 * t**2, t**3 - t**2
+    before = spacing / (coordinate[:, 2] - coordinate[:, 0])
+    after = spacing / (coordinate[:, 3] - coordinate[:, 1])
+    weights = np.stack(
+        [-h10 * before, h00 - h11 * after, h01 + h10 * before, h11 * after], axis=-1
+    )
+    return indices, weights
+
+
+def cubic(values, width, height, step):
+    x, wx = cubic_axis(width, step)
+    y, wy = cubic_axis(height, step)
+    result = np.zeros((height, width, values.shape[-1]))
+    for row in range(4):
+        for column in range(4):
+            result += (
+                wy[:, row, None, None]
+                * wx[None, :, column, None]
+                * values[y[:, row, None], x[None, :, column]]
+            )
+    return result
+
+
 def errors(actual, expected):
     rgb = np.max(
         abs(actual[:, :3] - expected[:, :3]) / np.maximum(abs(expected[:, :3]), 1e-5),

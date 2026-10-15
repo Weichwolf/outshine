@@ -131,7 +131,9 @@ class BandDetails:
                 selected.append(i)
         return selected
 
-    def __call__(self, mesh, row, parameters, facades, view, material, family):
+    def __call__(
+        self, mesh, row, parameters, facades, view, material, family, *, entrance=None
+    ):
         if family not in (
             "residential",
             "commercial",
@@ -169,6 +171,16 @@ class BandDetails:
                 requested = self.refined_edges(
                     facades, spec, footprints, requested, view
                 )
+                if (
+                    entrance
+                    and spec.base_m < 2.31
+                    and spec.base_m + spec.profile[-1][1] > 0.16
+                ):
+                    requested = [
+                        i
+                        for i in requested
+                        if facades[i]["id"] != entrance["frame"]["id"]
+                    ]
                 if not requested:
                     continue
                 edges, blocked = self.free_edges(row, spec, footprints, requested)
