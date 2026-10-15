@@ -1,0 +1,91 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cloud_air_source.glsl"
+#include "AirPrefixProbeLayout.h"
+
+#ifndef SOURCE_CLOUD_COVER
+#define SOURCE_CLOUD_COVER 0.65
+#endif
+#ifndef SOURCE_CLOUD_MODE
+#define SOURCE_CLOUD_MODE 0
+#endif
+#ifndef SOURCE_GRID_LOG
+#define SOURCE_GRID_LOG 0
+#endif
+
+layout(local_size_x = 64) in;
+layout(set = 0, binding = 0) uniform sampler2D veil;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
+layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
+layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+
+CloudLayer sourceWeatherLayer() {
+  return CloudLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, 0.012),
+      vec4(SOURCE_CLOUD_COVER, 0.0, 0.0, 0.0), vec4(256.34352, 0.0, -148.0, 0.0));
+}
+
+vec3 sourceSunDirection() { return vec3(-0.6, 0.8, 0.0); }
+
+AirSource sourceWeatherAir(Medium medium, AirRay ray, float distanceKm, bool sunVisible,
+                           sampler2D solar, sampler2D diffuse, AirSourceRay sourceRay) {
+#if SOURCE_CLOUD_MODE == 1
+  return airSourceAt(medium, ray, distanceKm, sunVisible, solar, diffuse);
+#elif SOURCE_CLOUD_MODE == 2
+  AirSourceTerms terms = airSourceTermsAt(medium, ray, distanceKm, sunVisible, solar, diffuse);
+  vec3 pointM = sourceRay.OriginM + sourceRay.Direction * (distanceKm * 1000.0);
+  float sunT = exp(-cloudOpticalDepthSteps(
+      sourceWeatherLayer(), pointM, sourceSunDirection(), 1.0e8, CLOUD_LIGHT_SAMPLES));
+  return AirSource(terms.Extinction, (terms.DirectEmission + terms.DiffuseEmission) * sunT);
+#else
+#if SOURCE_CLOUD_MODE == 3
+  sourceRay.OriginM = vec3(0.0);
+#endif
+  return cloudShadedAirSource(medium, ray, distanceKm, sunVisible, solar, diffuse,
+      sourceRay, sourceWeatherLayer(), sourceSunDirection());
+#endif
+}
+
+#if SOURCE_GRID_LOG
+float sourceWeatherGrid(AirRay ray, uint index) {
+  if (SOURCE_CLOUD_COVER <= 0.0) {
+    float fraction = float(index) / 22.0;
+    return ray.DistanceKm * fraction * fraction;
+  }
+  float fraction = float(index) / float(AIR_PREFIX_INTERVALS);
+  if (fraction >= 1.0) { return ray.DistanceKm; }
+  return 0.1 * (exp2(log2(1.0 + ray.DistanceKm / 0.1) * fraction) - 1.0);
+}
+#define AIR_PREFIX_GRID_PROVIDER sourceWeatherGrid
+#endif
+#define AIR_SOURCE_PROVIDER sourceWeatherAir
+#include "cloud_air_prefix.glsl"
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= uint(from.rays.length())) { return; }
+  ProbeRay inputRay = from.rays[index];
+  float azimuth = uintBitsToFloat(inputRay.Pad);
+  float horizontal = sqrt(max(0.0, 1.0 - inputRay.Ray.CosView * inputRay.Ray.CosView));
+  vec3 direction = vec3(horizontal * cos(azimuth), inputRay.Ray.CosView, horizontal * sin(azimuth));
+  vec3 originM = vec3(0.0, (inputRay.Ray.RadiusKm - pushed.Air.BottomRadiusKm) * 1000.0, 0.0);
+  AirPathSpan span = airPhysicalSpan(pushed.Air, inputRay.Ray);
+  AirRay clearRay = airPathRay(pushed.Air, inputRay.Ray, span);
+  AirSourceRay sourceRay = AirSourceRay(originM + direction * (span.BeginKm * 1000.0), direction);
+  AirPrefix clear = airPrefixBegin(pushed.Air, clearRay, veil, multiScatter, sourceRay);
+  CloudLight light = CloudLight(sourceSunDirection(), vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
+  CloudAirPrefix prefix = cloudAirPrefixBegin(sourceWeatherLayer(), originM, direction,
+      span.EndKm * 1000.0, light, clear, span.BeginKm * 1000.0);
+  for (uint at = inputRay.QueryBegin; at < inputRay.QueryEnd; ++at) {
+    AirTransfer result = cloudAirPrefixAdvance(
+        prefix, query.distanceKm[at] * 1000.0, pushed.Air, veil, multiScatter);
+    bool valid = prefix.CellsVisited < 1024u && prefix.Cloud.DensityEvaluations < 64u &&
+        prefix.Cloud.SourceEvaluations < 64u;
+    uint counts = prefix.CellsVisited | (prefix.Cloud.DensityEvaluations << 10u) |
+        (prefix.Cloud.SourceEvaluations << 16u) | (valid ? 0u : 0x80000000u);
+    into.samples[at] = ProbeSample(result.RadiancePerLux.r, result.RadiancePerLux.g,
+        result.RadiancePerLux.b, result.Transmittance.r, result.Transmittance.g,
+        result.Transmittance.b, prefix.Clear.SourceEvaluations, counts);
+  }
+}

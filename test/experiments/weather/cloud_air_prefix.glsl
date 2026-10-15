@@ -53,9 +53,11 @@ AirTransfer cloudAirPrefixPartial(inout CloudAirPrefix prefix, float queryM) {
 AirTransfer cloudAirPrefixAdvance(inout CloudAirPrefix prefix, float queryM,
                                   Medium medium, sampler2D veil, sampler2D multiScatter) {
   float query = clamp(queryM, 0.0, prefix.Cloud.ExtentM);
+  AirSourceRay sourceRay = AirSourceRay(
+      prefix.Cloud.OriginM + prefix.Cloud.Direction * prefix.ClearBeginM, prefix.Cloud.Direction);
   if (prefix.Cloud.Layer.field.x <= 0.0) {
     float clearKm = clamp((query - prefix.ClearBeginM) * 0.001, 0.0, prefix.Clear.Ray.DistanceKm);
-    return airPrefixAdvance(prefix.Clear, medium, clearKm, veil, multiScatter);
+    return airPrefixAdvance(prefix.Clear, medium, clearKm, veil, multiScatter, sourceRay);
   }
   for (int step = 0; step < 2 * CLOUD_VIEW_SAMPLES + AIR_PREFIX_INTERVALS + 14; ++step) {
     if (query < prefix.EndM || prefix.EndM >= prefix.Cloud.ExtentM) { break; }
@@ -66,7 +68,7 @@ AirTransfer cloudAirPrefixAdvance(inout CloudAirPrefix prefix, float queryM,
     prefix.BeginM = prefix.EndM;
     if (prefix.HasAir && prefix.BeginM >= prefix.ClearBeginM + prefix.Clear.EndKm * 1000.0 &&
         prefix.Clear.EndKm < prefix.Clear.Ray.DistanceKm) {
-      airPrefixAdvance(prefix.Clear, medium, prefix.Clear.EndKm, veil, multiScatter);
+      airPrefixAdvance(prefix.Clear, medium, prefix.Clear.EndKm, veil, multiScatter, sourceRay);
     }
     if (prefix.BeginM >= prefix.Cloud.EndM) { cloudPrefixNext(prefix.Cloud); }
     cloudAirPrefixPrepare(prefix);
