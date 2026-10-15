@@ -188,6 +188,20 @@ material parameter composition. Its Eevee sampling is not an analytic CPU
 footprint oracle. The shared research workflow and fixed daylight values belong
 to [#291](https://github.com/Weichwolf/outshine/issues/291).
 
+Near ordinary facades additionally reuse the old real-recess prototype through
+the installable `RecessPlan`/`recess_surface` library (#318). The same existing
+facade axes control openings; 0.18 m inward recesses and 0.06 m frames are generated
+only after visibility/detail demand and capacity checks. Thin/irregular boundaries
+keep the original painted wall; constructive room/door controls keep their own
+shared plans. Plain source wall materials cover return faces, and the existing
+physical frame component10 covers frames; its response differs from the older
+flat repeat's frame response. No shader or native API is changed.
+`recess_probe.py --output <temp>/recesses` writes plan/section/2.5D evidence, equal
+scalar/batch construction measurements and Flat/Near/Opposite/Far geometry reports
+from an actual provider building. Render those reports with `blender_city.py`.
+Far demand keeps the compact input without expanding cells or allocating a new
+material. This is no new room programme or complete architecture-family claim.
+
 Research images stay local in system-temp directories, normally 1920×1080 for
 detail inspection. Only master publishes integrated Places in `doc/images/places/`;
 no Buildings gallery or substitute publication is created. Source geometries,

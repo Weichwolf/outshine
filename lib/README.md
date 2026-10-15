@@ -941,6 +941,12 @@ until its presentation migration. These helpers do not imply a native/device gat
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
 
+`buildings.recessed_facades.RecessPlan` and `recess_surface` reuse existing
+`FacadeRepeat` axes for bounded inward window surfaces with stable global cell
+identities, supplied hard normals and UVs. Partial replay and scalar/batch
+construction share a template. Geometry, ownership, capacity and consumer limits
+are documented in [recessed_facades.md](recessed_facades.md) (#318).
+
 `vegetation.GroundCoverPlan` erzeugt begrenzte Poisson-Bodenstandorte mit
 kanonischen Zell-/Ordinal-IDs, separaten Zähl-/Positionsströmen und exaktem
 Teil-Replay im selben festen Meterrahmen. Mengen/Budgets werden vor Platzierungen
