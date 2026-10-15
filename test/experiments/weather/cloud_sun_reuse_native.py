@@ -7,13 +7,12 @@ import os
 import re
 import shlex
 import subprocess
-import time
+import sys
 from pathlib import Path
 
 import numpy as np
 from cloud_air_reference import SAMPLE
-from cloud_air_source_reference import medium_parameters, reference_ray
-from cloud_sun_reuse_cases import ray_controls, write_inputs, write_maps
+from cloud_sun_reuse_cases import ray_controls, write_inputs
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -160,36 +159,24 @@ def cohort(args, binary, execute, cover):
     case = args.output / f"cover-{cover}"
     case.mkdir(exist_ok=True)
     rays, queries = ray_controls()
-    start = time.monotonic()
-    fields, scenes, atlas_bytes = write_maps(case, rays, cover)
-    build_wall = time.monotonic() - start
-    expected = np.concatenate(
+    execute(
         [
-            reference_ray(
-                ray,
-                queries[int(ray["begin"]) : int(ray["end"])],
-                medium_parameters(),
-                cover,
-            )
-            for ray in rays
-        ]
+            "nice",
+            "-n",
+            "10",
+            sys.executable,
+            ROOT / "test/experiments/weather/cloud_sun_reuse_cases.py",
+            "--output",
+            case,
+            "--cover",
+            cover,
+        ],
+        case,
+        "prepare",
     )
-    refined = np.concatenate(
-        [
-            reference_ray(
-                ray,
-                queries[int(ray["begin"]) : int(ray["end"])],
-                medium_parameters(),
-                cover,
-                8,
-            )
-            for ray in rays
-        ]
-    )
-    refinement = float(np.max(np.abs(expected - refined)))
-    if refinement > 1e-8:
-        raise RuntimeError("independent RTE control is not converged")
-    np.save(case / "reference.npy", expected)
+    prepared = json.loads((case / "preparation.json").read_text())
+    atlas_bytes = prepared["atlas_bytes"]
+    expected = np.load(case / "reference.npy")
     profiles, numerical = [], {}
     last_records = rays["end"].astype(np.int64) - 1
     for name, reuse, diagnostic in (
@@ -262,13 +249,13 @@ def cohort(args, binary, execute, cover):
     result = {
         "rays": len(rays),
         "queries": len(queries),
-        "scenes": scenes,
+        "scenes": prepared["scenes"],
         "atlas_bytes": atlas_bytes,
-        "atlas_cpu_build_wall_s": build_wall,
+        "atlas_cpu_build_wall_s": prepared["atlas_cpu_build_wall_s"],
         "map_density_build_upper": 0 if cover == 0 else 6 * atlas_bytes // 4,
-        "reference_refinement_max_abs": refinement,
+        "reference_refinement_max_abs": prepared["reference_refinement_max_abs"],
         "profiles": profiles,
-        "map_bytes_per_virtual_camera": atlas_bytes // len(fields),
+        "map_bytes_per_virtual_camera": atlas_bytes // prepared["field_count"],
     }
     (case / "report.json").write_text(json.dumps(result, indent=2))
     print(cover, [(p["profile"], p["max_relative_RGB"]) for p in profiles], flush=True)

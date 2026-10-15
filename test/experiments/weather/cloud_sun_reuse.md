@@ -72,6 +72,8 @@ producer's headers and central compiler/link declarations. Current GLSL kernels
 are compiled separately. It does not relink old archives against new headers.
 The study emits input/maps, exact commands, source/artifact hashes and terminal
 results to the explicit system-temp output. CPU build wall time is not GPU time.
+CPU preparation/reference workers and compilers run with `nice -n 10`;
+the controlling CLI and measured native process retain normal priority.
 
 [Lokovic/Veach, SIGGRAPH2000](https://graphics.stanford.edu/papers/deepshadows/),
 PDF pages2/3 and figures3/4, motivates storing/transferring solar visibility.

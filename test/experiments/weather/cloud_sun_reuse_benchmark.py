@@ -1,12 +1,17 @@
 """Full-size numerical image and independent witnesses; not an engine frame gate."""
 
+import argparse
 import ctypes
 import ctypes.util
 import json
+import sys
+from pathlib import Path
 
 import numpy as np
 from cloud_air_reference import RAY, SAMPLE
 from cloud_air_source_reference import medium_parameters, reference_ray
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def load_snapshot():
@@ -122,15 +127,21 @@ def benchmark(args, binary, execute, compile_probe, gpu_times):
     output = args.output / "full-1920x1080"
     output.mkdir(exist_ok=True)
     case = args.output / "cover-0.65"
-    rays, queries = image_rays(width, height)
-    rays.tofile(output / "rays.bin")
-    queries.tofile(output / "queries.bin")
-    metadata = (
-        (case / "source_sun_maps.glsl")
-        .read_text()
-        .replace("return sourceSolarScenes[index];", "return 1u;")
+    execute(
+        [
+            "nice",
+            "-n",
+            "10",
+            sys.executable,
+            Path(__file__),
+            "--output",
+            output,
+            "--task",
+            "prepare",
+        ],
+        output,
+        "prepare-image",
     )
-    (output / "source_sun_maps.glsl").write_text(metadata)
     profiles = []
     for name, reuse in (("direct", 0), ("reuse", 1)):
         shader = compile_probe(args, output, name, reuse, 0, execute, 0.65)
@@ -178,7 +189,22 @@ def benchmark(args, binary, execute, compile_probe, gpu_times):
         / np.maximum(abs(direct["radiance"]), 1e-5),
         axis=1,
     )
-    witness = independent_witnesses(rays, direct, reused, error, output)
+    execute(
+        [
+            "nice",
+            "-n",
+            "10",
+            sys.executable,
+            Path(__file__),
+            "--output",
+            output,
+            "--task",
+            "witnesses",
+        ],
+        output,
+        "independent-witnesses",
+    )
+    witness = json.loads((output / "independent-witnesses.json").read_text())
     record = {
         "width": width,
         "height": height,
@@ -204,3 +230,35 @@ def benchmark(args, binary, execute, compile_probe, gpu_times):
         flush=True,
     )
     return record
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--task", choices=("prepare", "witnesses"), required=True)
+    args = parser.parse_args()
+    if args.output.resolve().is_relative_to(ROOT):
+        parser.error("private outputs belong outside the checkout")
+    args.output.mkdir(parents=True, exist_ok=True)
+    if args.task == "prepare":
+        rays, queries = image_rays(1920, 1080)
+        rays.tofile(args.output / "rays.bin")
+        queries.tofile(args.output / "queries.bin")
+        metadata = (args.output.parent / "cover-0.65/source_sun_maps.glsl").read_text()
+        (args.output / "source_sun_maps.glsl").write_text(
+            metadata.replace("return sourceSolarScenes[index];", "return 1u;")
+        )
+    else:
+        rays = np.memmap(args.output / "rays.bin", dtype=RAY, mode="r")
+        direct = np.memmap(args.output / "direct.bin", dtype=SAMPLE, mode="r")
+        reused = np.memmap(args.output / "reuse.bin", dtype=SAMPLE, mode="r")
+        error = np.max(
+            abs(direct["radiance"] - reused["radiance"])
+            / np.maximum(abs(direct["radiance"]), 1e-5),
+            axis=1,
+        )
+        independent_witnesses(rays, direct, reused, error, args.output)
+
+
+if __name__ == "__main__":
+    main()

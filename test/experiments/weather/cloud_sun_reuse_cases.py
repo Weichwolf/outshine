@@ -1,14 +1,25 @@
 """Actual Weather/air ray controls and explicit local-map fixture assembly."""
 
+import argparse
+import json
 import struct
+import time
 from pathlib import Path
 
 import numpy as np
 from cloud_air_reference import RAY, direction_for, origin_for
-from cloud_air_source_reference import PSI, SOLAR, inputs, medium_parameters
+from cloud_air_source_reference import (
+    PSI,
+    SOLAR,
+    inputs,
+    medium_parameters,
+    reference_ray,
+)
 from cloud_field import Layer
 from cloud_radiance import SUN
 from cloud_sun_reuse import build_field
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 def ray_controls(sparse=False):
@@ -95,3 +106,52 @@ def write_maps(output, rays, cover, dimension=513):
     )
     (output / "source_sun_maps.glsl").write_text(declaration)
     return fields, scenes, atlas.nbytes
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--cover", type=float, required=True)
+    args = parser.parse_args()
+    if args.output.resolve().is_relative_to(ROOT):
+        parser.error("private outputs belong outside the checkout")
+    args.output.mkdir(parents=True, exist_ok=True)
+    rays, queries = ray_controls()
+    start = time.monotonic()
+    fields, scenes, size = write_maps(args.output, rays, args.cover)
+    wall = time.monotonic() - start
+    references = [
+        np.concatenate(
+            [
+                reference_ray(
+                    ray,
+                    queries[int(ray["begin"]) : int(ray["end"])],
+                    medium_parameters(),
+                    args.cover,
+                    nodes,
+                )
+                for ray in rays
+            ]
+        )
+        for nodes in (16, 8)
+    ]
+    refinement = float(np.max(abs(references[0] - references[1])))
+    if refinement > 1e-8:
+        raise RuntimeError("independent RTE control is not converged")
+    np.save(args.output / "reference.npy", references[0])
+    (args.output / "preparation.json").write_text(
+        json.dumps(
+            {
+                "scenes": scenes,
+                "atlas_bytes": size,
+                "field_count": len(fields),
+                "atlas_cpu_build_wall_s": wall,
+                "reference_refinement_max_abs": refinement,
+            },
+            indent=2,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
