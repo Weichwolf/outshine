@@ -54,6 +54,8 @@ raster remains byte-identical on the previous independent compositor control.
 ```sh
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_conifer_experiment.py --plans-only
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_conifer_experiment.py --size 256
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_forest_checks.py --scenario build/experiments/vegetation/landscapes/boreal.json --products build/experiments/vegetation/mature-conifers/mature-products.json --output build/experiments/vegetation/mature-conifers/stand-checks.json
+OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/vegetation/mature_forest_preview.py -- --scenario build/experiments/vegetation/landscapes/boreal.json --products build/experiments/vegetation/mature-conifers/mature-products.json --output build/experiments/vegetation/mature-conifers/forest/render.png
 ```
 
 Use the previously generated `conifer-crowns` and `conifer-whole/*/catalog`
@@ -62,3 +64,13 @@ Whole stand images, frame costs and botanical/art quality remain separate from
 the scalar radius invariant. High local coverage errors of statistical windows,
 mean normals, shadows, wind and moving detail transitions remain open in #168.
 The full worldwide goal and the other Swiss/European species remain open.
+
+`mature_forest_plan.py` binds all original source sites to complete catalog forms.
+It rejects gaps, duplicate ownership and recipe mismatches; no site is discarded.
+Models are placed rigidly, because their recipes already own the size variation.
+Camera and sun views are independent. Cache checks keep texture/mesh allocations,
+disable all organ/window/axis generation and measure one 60-step camera orbit.
+Only requested terminal subsets are expanded separately to check physical needle
+offsets and exact cached ID ranges. CPU decode/query and resident arrays are not
+native frame, upload, GPU allocation or A18 evidence. The 2560×1440 whole-stand
+comparison must be optically accepted before replacing the old showcase image.
