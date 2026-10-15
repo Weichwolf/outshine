@@ -8,23 +8,27 @@
   Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Fachagenten arbeiten zusammen:
-  Der Transport-Agent auf `transport`, der Buildings-Agent auf `buildings` und der Vegetation-Agent auf
-  `vegetation` erforschen ihre Fachverfahren in Python und entwickeln gemeinsam die Referenzbibliotheken unter `lib/`.
-  Der Outshine-Hauptagent auf `master` entwickelt Outshine selbstständig weiter und integriert eigenständig
-  verifizierte Neuerungen aus `lib/` maschinennah in C++ unter `src/`, einschließlich Generatoren und öffentlicher APIs.
+- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich entwickle Outshine auf `master`
+  und integriere verifizierte Fachlieferungen einschließlich Generatoren und öffentlicher APIs.
+  Sieben Fachagenten arbeiten jeweils in einem eigenen Worktree und Branch namens `outshine_<bereich>`.
+  Laufende Umbenennungen übernehmen dieses Schema; sie erzeugen keine zusätzlichen Agenten.
   Die weltweite Sandbox steht in [#5](https://github.com/Weichwolf/outshine/issues/5), räumliche Verträge in [#18](https://github.com/Weichwolf/outshine/issues/18).
-- Native Fachagenten finden ihren kopierbaren `/goal`-Absatz und Einstieg hier:
 
-  | Agent/Branch | Zuständigkeit | Goal |
+  | Worktree/Branch | Rolle und Zuständigkeit | Einstieg |
   |---|---|---|
-  | `outshine_performance` | Renderarbeit, Sichtbarkeit, Batching, Speicher/Lebensdauer; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
-  | `outshine_material` | Prozedurale Oberflächen, gemeinsame Materialkomposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
-  | `outshine_light` | Beleuchtung, Schatten, Reflexion, klarer Himmel/Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
-  | `outshine_weather` | Wetterdaten/-zustand, Wolkendichte/-darstellung, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
+  | `outshine_transport` | Reine Python-Forschung: Verkehrsnetze, Profile, Ebenen und räumliche Reservierungen | [#47](https://github.com/Weichwolf/outshine/issues/47) |
+  | `outshine_buildings` | Reine Python-Forschung: Gebäudeformen, Architekturrezepte und Räume | [#47](https://github.com/Weichwolf/outshine/issues/47) |
+  | `outshine_vegetation` | Reine Python-Forschung: Pflanzen, Wälder und Vegetationsdarstellung | [#47](https://github.com/Weichwolf/outshine/issues/47) |
+  | `outshine_performance` | Native Entwicklung: Renderarbeit, Sichtbarkeit, Batching, Speicher; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
+  | `outshine_material` | Native Entwicklung: prozedurale Oberflächen, Materialkomposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
+  | `outshine_light` | Native Entwicklung: Licht, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
+  | `outshine_weather` | Native Entwicklung: Wetterdaten/-zustand, Wolken, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
 
-  Alle dürfen native PRs gegen `master` erstellen. Der Hauptagent reviewed und integriert sie,
-  verantwortet gemeinsame Bildqualität/Places und hält das A18-Pro-Profil 1280×720/30.
+  Die drei Forschungsagenten arbeiten ausschließlich in Python: Experimente unter `test/experiments/`,
+  gemeinsame installierbare Referenzbibliotheken unter `lib/`; keine native Engine-Implementierung.
+  Ich übernehme ihre verifizierten Verfahren eigenständig maschinennah in C++ unter `src/`.
+  Die vier nativen Fachagenten liefern PRs gegen `master`; ich reviewe und integriere sie,
+  verantworte gemeinsame Bildqualität/Places und halte das A18-Pro-Profil 1280×720/30.
   Native Fachagenten mergen erst nach diesem Review; die Python-Merge-Regel bleibt separat.
   Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
   Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
@@ -44,8 +48,8 @@
 - [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang;
   der vereinbarte Ablauf steht in [#108](https://github.com/Weichwolf/outshine/issues/108).
   Nachrichten beginnen mit `[Absenderbranch → Zielbranches]`: Fach-Issue/PR-Link und konkrete
-  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Branches heißen `master`, `transport`,
-  `buildings`, `vegetation` und die oben genannten nativen Agenten.
+  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Branch-Namen stehen in der Rollentabelle;
+  der Hauptagent adressiert und antwortet als `master`.
   Ein kurzes Fach-Issue besitzt genau einen abgrenzbaren Vertrag, Fehler oder Entscheidungsbedarf;
   Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR
   oder bei direkter Master-Lieferung beim verlinkten Commit im Fach-Issue;
@@ -58,7 +62,7 @@
   Eigene Änderungen bleiben erhalten; Gates bleiben eingefroren. Kompatible Arbeit braucht keine
   Freigaberunde. Fehlende Teilverträge benennen und unabhängig weiterarbeiten. Verlorene Nachrichten
   korrigiere ich anhand tatsächlicher Antworten, ohne eine gemeinsame Verwaltungsbibliothek aufzubauen.
-- Der aktive Nutzerauftrag bleibt maßgeblich; `GOAL.txt` auf `master` beschreibt den Outshine-/Integrationsauftrag.
+- Der aktive Nutzerauftrag bleibt maßgeblich; `goal.md` auf `master` beschreibt den Outshine-/Integrationsauftrag.
 - Ich baue eine plausible, funktionale Interpretation der Erde, keinen digitalen Zwilling.
   OSM, DEM und Wetter liefern Verteilung, Großformen, Parameter und Zustände, keine vollständigen
   Baupläne. Gelieferte Angaben steuern Vielfalt/Erdähnlichkeit. Prozedurale Rezepte ergänzen
@@ -189,7 +193,7 @@
   Ich referenziere aktuelle Issues als `#N` oder per URL und aktiviere sie vor Implementierung.
   Abgeschlossene Anforderungen in ihren Besitzer übernehmen, dann das Issue schließen; nichts lokal löschen.
   Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
-- Auf `vegetation` wird jeder geprüfte Fortschritt committed, gepusht und in der lokalen
+- Auf `outshine_vegetation` wird jeder geprüfte Fortschritt committed, gepusht und in der lokalen
   Showcase unter `/tmp/outshine-vegetation-showcase` veröffentlicht. Kein automatisches
   Neuladen; neue Stände erscheinen beim Öffnen oder über den manuellen Aktualisieren-Knopf.
   Gestaltung/Bedienung folgen der Building-Showcase; drei typische Landschaften sind feste Bildszenarien.
