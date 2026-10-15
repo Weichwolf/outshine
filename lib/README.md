@@ -949,6 +949,12 @@ until its presentation migration. These helpers do not imply a native/device gat
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
 
+`buildings.interiors.entrances.entrance` shares the existing first-storey
+selector with bounded facade-cell candidates and caller-owned acceptance.
+`buildings.opening_panels.OpeningPanel` / `panel_surface` emit an actual closed
+through-opening slab. Contracts, source attachment and limitations:
+[entrances.md](entrances.md).
+
 `buildings.profiled_bands.BandPlan` / `band_surface` emit bounded closed mitred
 profile bands, including courtyard boundaries and capped partial edge runs.
 Normals, metric UVs and stable source-edge IDs are caller-owned. See

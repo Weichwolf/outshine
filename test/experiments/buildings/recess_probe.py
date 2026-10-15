@@ -122,8 +122,8 @@ def diagram(output):
     plt.close(figure)
 
 
-def building(row, view, name, output, provenance, *, scope=None):
-    details = FacadeDetails([row], view)
+def building(row, view, name, output, provenance, *, scope=None, door_states=None):
+    details = FacadeDetails([row], view, door_states=door_states)
     mesh, source = construct(
         name,
         prepared=([row], {"invalid": [], "span_m": 100.0}),
@@ -182,9 +182,12 @@ def run(output):
     near = replace(view_for([row]), width=1920, height=1080)
     opposite = replace(near, eye=near.target + (near.eye - near.target) * [-1, -1, 1])
     far = replace(near, eye=near.target + (near.eye - near.target) * 30)
-    with patch(
-        "tile_facade_bands.BandDetails.__call__",
-        side_effect=lambda mesh, *args, **kwargs: mesh,
+    with (
+        patch("facade_entrances.EntranceDetails.plan", return_value=None),
+        patch(
+            "tile_facade_bands.BandDetails.__call__",
+            side_effect=lambda mesh, *args, **kwargs: mesh,
+        ),
     ):
         with patch(
             "tile_facade_recess.attach",
