@@ -150,8 +150,8 @@ format/dimensions/hash checked and opened against its previous PNG. Tokyo visibl
 resolves rails and sleepers in the foreground; the other cameras have smaller or
 distant rail coverage. These are baked geometry inspection pictures with simple
 materials, not a native or physically based renderer acceptance. Existing missing
-terrain/world content remains visible. Gallery: exactly four PNGs in
-`doc/images/transport/`; prior images stay in `build/shots/reference/transport/`.
+terrain/world content remains visible. Research images now remain local in system-temp
+directories; only master publishes integrated Places. The former research gallery is retired.
 
 Reproduction commands are in [README.md](README.md), rail section, using the
 single public kernel `outshine_ref.transport.rail_hardware`; experiments contain

@@ -50,14 +50,14 @@ Repeat the render for the other three named tiles. Open all four local
 the image receipts as `<tile>-cost.json`; they are measurements, not a new
 runtime budget. The publisher requires four successful process receipts and
 reduces the masters to exactly1280×720 with Pillow's Lanczos filter:
-`publish_biome_tiles.py --source /tmp/outshine-vegetation-biome-shots`. Only these four current PNGs
-are committed; larger masters remain local. There is no server or auto reload.
+`publish_biome_tiles.py --source /tmp/outshine-vegetation-biome-shots --output /tmp/outshine-vegetation-biome-comparison`.
+All images remain local; only master publishes integrated Places. There is no server or auto reload.
 
 Controls: `python -m unittest biome_tile_checks` with the same `PYTHONPATH`;
 run the existing `test_graminoid.py` and `test_blades.py` library controls too.
 They check complete reproducible flat populations, separate mixed/heath content,
 positive scales, rigid poses, valid physical triangles and normal/UV layout.
-Each published image additionally needs optical inspection.
+Each local comparison image additionally needs optical inspection.
 
 The procedural plant and instance separation follows the already studied local
 SIGGRAPH1998 Deussen ecosystem paper. Local SpeedTree analysis is documented

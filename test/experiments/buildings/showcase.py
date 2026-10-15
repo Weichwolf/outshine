@@ -1,9 +1,10 @@
-"""Publish four verified Python renders at the fixed native Place cameras; no server."""
+"""Export a legacy flat Place comparison locally; no server or repository gallery."""
 
 import argparse
 import hashlib
 import io
 import json
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,14 @@ from place_reference import PLACES, ROOT, flat
 
 
 def publish(source, output):
+    destination = output.resolve()
+    allowed = (Path(tempfile.gettempdir()).resolve(), Path("/var/tmp"))
+    if destination.is_relative_to(ROOT) or not any(
+        destination.is_relative_to(p) for p in allowed
+    ):
+        raise ValueError(
+            "Research comparisons must stay outside the repository in system temp"
+        )
     snapshot = json.loads((source / "place-reports.json").read_text())
     reports = snapshot["reports"]
     if set(reports) != set(PLACES):
@@ -91,7 +100,7 @@ def publish(source, output):
     for path in output.glob("*.png"):
         if path.stem not in PLACES:
             path.unlink()
-    caption = "Aktueller Python-Gebäudegenerator: vier OSM-Orte auf flacher Bodenebene, ohne DEM; 1280×720.\n\n"
+    caption = "Historischer lokaler Python-Vergleich: vier OSM-Orte auf flacher Bodenebene, ohne DEM; 1280×720.\n\n"
     caption += (
         "\n\n".join(name + "\n\n![" + name + "](" + name + ".png)" for name in PLACES)
         + "\n"
@@ -129,6 +138,6 @@ def publish(source, output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=ROOT / "doc/images/buildings")
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(publish(args.input, args.output), indent=2))

@@ -93,10 +93,23 @@ def native_api(output, glslang, toolchain, link_flags):
         run([glslang, "-V", "--target-env", "vulkan1.0", str(source), "-o", str(destination)])
         indexed_shaders.append(destination)
     indexed_checks = check_probe("native-indexed-probe", "NativeIndexedProbe.cpp", *indexed_shaders)
+    transition_shaders = []
+    for name in ("native_draw_transitions.vert", "native_draw_transitions.frag", "native_draw_indirect.comp"):
+        source = Path(__file__).with_name(name)
+        destination = output / (name + ".spv")
+        run([glslang, "-V", "--target-env", "vulkan1.0", "-Isrc", "-Isrc/render/shaders",
+             str(source), "-o", str(destination)])
+        transition_shaders.append(destination)
+    transition_checks = check_probe("native-draw-transitions-probe", "NativeDrawTransitionsProbe.cpp",
+                                    *transition_shaders, "--validation")
+    mrt_draw_checks = check_probe("native-mrt-draw-probe", "NativeMrtDrawProbe.cpp",
+                                  output / "fullscreen.vert.spv", output / "native_metal_mrt.frag.spv",
+                                  "--validation")
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
-            "indexed_indirect_checks": indexed_checks}, sources
+            "indexed_indirect_checks": indexed_checks, "draw_transition_checks": transition_checks,
+            "mrt_draw_checks": mrt_draw_checks}, sources
 
 
 
@@ -157,6 +170,11 @@ def main():
              ROOT / "test/harness/render/NativeRenderPassProbe.cpp",
              ROOT / "test/harness/render/NativeDrawProbe.cpp",
              ROOT / "test/harness/render/NativeIndexedProbe.cpp",
+             ROOT / "test/harness/render/NativeDrawTransitionsProbe.cpp",
+             ROOT / "test/harness/render/NativeMrtDrawProbe.cpp",
+             Path(__file__).with_name("native_draw_transitions.vert"),
+             Path(__file__).with_name("native_draw_transitions.frag"),
+             Path(__file__).with_name("native_draw_indirect.comp"),
              Path(__file__).with_name("native_indexed.vert"),
              Path(__file__).with_name("native_indexed.frag"),
              Path(__file__).with_name("native_indexed_arguments.comp"),

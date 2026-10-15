@@ -155,39 +155,35 @@ entrance/stair openings and missing flights are negative controls.
 generic room programme, native player controller and architecture families remain
 separate.
 
-The Buildings gallery uses four fixed Place locations/bearings/lenses:
-Husum, Flensburg, ZuerichHauptbahnhof and Tokyo from `src/assets/places/`.
-These contrast small harbour houses, varied compact town buildings, large city
-complexes and high-rise density. Changing the selection does not establish new
-architecture recipes; repeated forms and missing details remain visible deficits.
-Buildings stand on a shared zero-height plane; acquisition requests only OSM
-vectors, never DEM. The native geographic camera altitudes are replaced by
-explicit fixed heights above this flat plane: Husum 20 m, Flensburg 35 m,
-ZuerichHauptbahnhof 70 m, Tokyo 60 m. Scenario sources and these camera changes
-remain explicit in the receipts. `doc/images/places/` supplies comparison images only. Own current Python
-building renders are inspected internally at 1920×1080 or higher with the same
-aspect ratio and vertical FOV. Only 1280×720 downsampled PNGs are published in
-`doc/images/buildings/`; receipts distinguish original render and publication
-dimensions/hashes. Replace them after clearly visible gains.
-Do not copy native images as Python results. The local server and its UI are retired.
-Private source data and intermediate outputs stay in system-temp directories.
+Current compact city studies use Paris, Rome, Berlin and London. The actual
+preferred-provider census compares nine800×800-metre windows in each of five
+cities before selection. Density and area/height/shape diversity are explicit;
+nearby POIs describe context rather than proving whole-building functions.
+Full selected source polygons and source heights remain, with clipped census
+pieces and generation failures recorded. This is a local study, not a global
+optimum or native world-coverage gate.
+
+Buildings stand on one flat plane without DEM. `city_scene.py` uses the existing
+Python roof, facade, stepped-envelope and simple room-control procedures.
+`blender_city.py` consumes the exact frozen mesh and supplied normals/UVs with
+shared Blender camera/import helpers, procedural facade masks and Principled
+material parameter composition. Its Eevee sampling is not an analytic CPU
+footprint oracle. The shared research workflow and fixed daylight values belong
+to [#291](https://github.com/Weichwolf/outshine/issues/291).
+
+Research images stay local in system-temp directories, normally1920×1080 for
+detail inspection. Only master publishes integrated Places in `doc/images/places/`;
+no Buildings gallery or substitute publication is created. Source geometries,
+materials and cameras remain distinguishable from image-renderer changes. The
+old local server is retired; the legacy Place exporter requires an explicit temp
+destination.
 
 ```sh
-.venv/bin/python test/experiments/buildings/verify_place_reference.py
-.venv/bin/python test/experiments/buildings/verify_flat_places.py
-.venv/bin/python test/experiments/buildings/place_sources.py --fetch --output <temp>/source-receipts.json
-.venv/bin/python test/experiments/buildings/render_places.py --sources <temp>/source-receipts.json --output <temp>/verified-place-renders
-.venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/city_survey.py --fetch --output <temp>/census
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/city_scene.py --census <temp>/census/city-survey.json --output <temp>/city-meshes
+PYTHONPATH=lib/src LP_NUM_THREADS=2 .venv/bin/python test/experiments/buildings/blender_city.py <temp>/city-meshes/Rom-geometry.json --output <temp>/city-renders
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_blender_*.py'
 ```
-
-The publisher requires all four own clean render reports and matching scenario
-camera hashes and the flat camera projection before replacing the gallery.
-A manifest may declare one `commit`
-for the whole set or explicit `commits` keyed by all four Places, preserving each
-image's actual generator snapshot during gradual verified updates. Old geographic
-DEM-based reports cannot be republished as flat results. Source extent, missing
-world classes and material/light differences remain explicit. The initial
-source acquisition is a declared 3 km window, not native 240 km Place admission.
 
 Filtered facade finishes (#245) reuse the existing opening repeat. The reference
 adds metric inner frames and opaque floor bands; near-detail geometry and direct
