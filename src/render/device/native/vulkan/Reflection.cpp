@@ -88,7 +88,7 @@ Result<Access> BufferAccess(const Reflection &reflection, spvc_variable_id resou
 
 Result<void> AppendBindings(const Reflection &reflection,
                             spvc_resource_type resourceType,
-                            ComputeLayout &layout) {
+                            std::vector<ShaderBinding> &bindings) {
   const spvc_reflected_resource *resources = nullptr;
   std::size_t count = 0;
   if (spvc_resources_get_resource_list_for_type(
@@ -113,13 +113,13 @@ Result<void> AppendBindings(const Reflection &reflection,
     const auto usage =
         uniform ? Result<Access>(Access::Read) : BufferAccess(reflection, resource.id);
     if (!usage) { return std::unexpected(usage.error()); }
-    layout.Bindings.push_back({.Set = spvc_compiler_get_decoration(
-                                   reflection.Compiler, resource.id, SpvDecorationDescriptorSet),
-                               .Slot = spvc_compiler_get_decoration(
-                                   reflection.Compiler, resource.id, SpvDecorationBinding),
-                               .Kind = uniform ? BindingKind::Uniform : BindingKind::StorageBuffer,
-                               .Usage = *usage,
-                               .MinimumBytes = bytes});
+    bindings.push_back({.Set = spvc_compiler_get_decoration(
+                            reflection.Compiler, resource.id, SpvDecorationDescriptorSet),
+                        .Slot = spvc_compiler_get_decoration(
+                            reflection.Compiler, resource.id, SpvDecorationBinding),
+                        .Kind = uniform ? BindingKind::Uniform : BindingKind::StorageBuffer,
+                        .Usage = *usage,
+                        .MinimumBytes = bytes});
   }
   return {};
 }
@@ -151,16 +151,16 @@ Result<ComputeReflection> ReflectCompute(std::span<const uint32_t> spirv, std::s
 
 Result<ShaderResources> ReadResources(const Reflection &reflection) {
   ShaderResources reflected;
-  ComputeLayout layout;
-  if (auto result = AppendBindings(reflection, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, layout);
+  if (auto result =
+          AppendBindings(reflection, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, reflected.Bindings);
       !result) {
     return std::unexpected(result.error());
   }
-  if (auto result = AppendBindings(reflection, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, layout);
+  if (auto result =
+          AppendBindings(reflection, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, reflected.Bindings);
       !result) {
     return std::unexpected(result.error());
   }
-  reflected.Bindings = std::move(layout.Bindings);
   for (const auto kind : {SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, SPVC_RESOURCE_TYPE_STORAGE_IMAGE}) {
     if (auto result = AppendImages(reflection, kind, reflected); !result) {
       return std::unexpected(result.error());

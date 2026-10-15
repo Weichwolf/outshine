@@ -93,7 +93,7 @@ def main():
                      ('NativeVulkanProbe.cpp', 'NativeTextureProbe.cpp',
                       'NativeTextureLifetimeProbe.cpp', 'NativeRasterProbe.cpp',
                       'NativeRenderPassProbe.cpp', 'NativeMrtDrawProbe.cpp', 'NativeDrawTransitionsProbe.cpp',
-                      'NativeDrawProbe.cpp')]
+                      'NativeDrawProbe.cpp', 'NativeMrtProbe.cpp')]
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -123,7 +123,8 @@ def main():
                        ('render_pass_checks', 4, [7]),
                        ('mrt_draw_checks', 5, [4, 5]),
                        ('draw_transition_checks', 6, [8, 9, 10]),
-                       ('draw_checks', 7, [11, 12])]
+                       ('draw_checks', 7, [11, 12]),
+                       ('mrt_hiz_checks', 8, [4, 5, 3])]
         for key, binary, indices in raster_jobs:
             report[key] = verdict(run(
                 [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],

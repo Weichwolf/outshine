@@ -82,6 +82,7 @@ Result<void> Recording::DrawIndexedIndirect(const IndirectDrawDescription &descr
        .Access = VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT});
   packet->Indirect = std::move(*buffer);
   packet->IndirectBytes = range;
+  packet->IndirectBytes.Data = nullptr;
   return AppendDraw(std::move(*packet));
 }
 

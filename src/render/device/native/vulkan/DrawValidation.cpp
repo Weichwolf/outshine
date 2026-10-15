@@ -16,8 +16,11 @@ Result<void> CheckDrawArea(const Context &context, const RenderState &pass, cons
   const auto &limits = context.Properties.limits;
   const std::array floats{area.X, area.Y, area.Width, area.Height, area.MinDepth, area.MaxDepth};
   if (!std::ranges::all_of(floats, [](float value) { return std::isfinite(value); }) ||
-      area.Width <= 0 || area.Height <= 0 ||
-      area.Width > static_cast<float>(limits.maxViewportDimensions[0]) ||
+      area.X < 0 || area.Y < 0 || area.X > static_cast<float>(pass.Width) ||
+      area.Y > static_cast<float>(pass.Height) ||
+      area.Width > static_cast<float>(pass.Width) - area.X ||
+      area.Height > static_cast<float>(pass.Height) - area.Y || area.Width <= 0 ||
+      area.Height <= 0 || area.Width > static_cast<float>(limits.maxViewportDimensions[0]) ||
       area.Height > static_cast<float>(limits.maxViewportDimensions[1]) ||
       area.X < limits.viewportBoundsRange[0] || area.Y < limits.viewportBoundsRange[0] ||
       area.X + area.Width > limits.viewportBoundsRange[1] ||
