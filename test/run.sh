@@ -55,11 +55,20 @@ SpirvCrossFlags() {
 }
 
 NativeLink() {
+  nativeCrossLibs=$(SpirvCrossFlags --libs) || return
   case "$BUILD_PLATFORM" in
-    Darwin) printf '%s' "$(SpirvCrossFlags --libs) -framework Foundation -framework Metal" ;;
-    Linux) printf '%s' "$(pkg-config --libs vulkan) $(SpirvCrossFlags --libs)" ;;
+    Darwin) printf '%s' "$nativeCrossLibs -framework Foundation -framework Metal" ;;
+    Linux)
+      nativeVulkanLibs=$(pkg-config --libs vulkan) || return
+      printf '%s' "$nativeVulkanLibs $nativeCrossLibs"
+      ;;
   esac
 }
+
+if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
+  NativeLink
+  exit $?
+fi
 
 BUILD=${TMPDIR:-/tmp}
 # the nest carries the checkout identity (board:1649): parallel checkouts get parallel
