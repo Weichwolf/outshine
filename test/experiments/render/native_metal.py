@@ -1,4 +1,4 @@
-"""Exercise direct Metal MRT, depth, production Hi-Z, reflection and readback.
+"""Exercise the production Metal archive: MRT, depth, Hi-Z and compute/readback.
 
 Requires macOS Command Line Tools, glslang and Homebrew spirv-cross. This is
 a backend bootstrap, not a complete native renderer or a Place performance test.
@@ -43,11 +43,11 @@ def native_api(output, glslang, toolchain, cross_flags):
     def build_probe(name, source):
         binary = output / name
         run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain,
-             "-fno-exceptions", "-fobjc-arc", "-x", "objective-c++",
+             "-fno-exceptions",
              "-I" + str(ROOT / "src/render/device/native"),
              "-I" + str(ROOT / "test/harness/shared"),
              str(ROOT / "test/harness/render" / source),
-             *map(str, sources), *cross_flags,
+             str(ROOT / "build/liboutshine.a"), *cross_flags,
              "-lspirv-cross-msl", "-lspirv-cross-hlsl", "-lspirv-cross-glsl",
              "-lspirv-cross-reflect", "-lspirv-cross-cpp", "-lspirv-cross-core",
              "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
@@ -104,7 +104,7 @@ def main():
          "-x", "objective-c++", "-fobjc-arc",
          str(ROOT / "test/harness/render/NativeMetalProbe.mm"),
          str(ROOT / "test/harness/render/MetalShader.cpp"),
-         str(ROOT / "src/render/device/native/metal/MetalShader.mm"), *cross_flags,
+         "-x", "none", str(ROOT / "build/liboutshine.a"), *cross_flags,
          "-lspirv-cross-msl", "-lspirv-cross-hlsl", "-lspirv-cross-glsl",
          "-lspirv-cross-reflect", "-lspirv-cross-cpp", "-lspirv-cross-core",
          "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
@@ -124,6 +124,7 @@ def main():
              ROOT / "test/harness/render/NativeMetalProbe.mm",
              ROOT / "test/harness/render/MetalShader.cpp",
              ROOT / "test/harness/render/MetalShader.h", ROOT / "Makefile", Path(__file__),
+             ROOT / "test/run.sh", ROOT / "test/scripts/source_units.py",
              ROOT / "test/harness/render/NativeComputeProbe.cpp",
              ROOT / "test/harness/render/NativeTextureProbe.cpp",
              ROOT / "test/harness/render/NativeGpuCheck.h",
