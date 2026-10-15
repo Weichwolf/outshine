@@ -10,10 +10,13 @@ REACH_M = 1.82
 def dilation(shapes, method):
     if not 0 < len(shapes) <= 256:
         raise ValueError("bounded actual curb footprint set required")
+    united = shapely.union_all(shapes)
     if method == "combined":
-        return shapely.union_all(shapes).buffer(REACH_M, quad_segs=4)
+        return united.buffer(REACH_M, quad_segs=4)
     if method == "individual":
-        return shapely.union_all(shapely.buffer(shapes, REACH_M, quad_segs=4))
+        return shapely.union_all(
+            shapely.buffer(shapely.get_parts(united), REACH_M, quad_segs=4)
+        )
     raise ValueError("unknown sidewalk mask method")
 
 
