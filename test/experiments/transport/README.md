@@ -759,6 +759,9 @@ curbs per component was rejected after a Hong Kong domain mismatch.
 Whole-tile inspection declares its 262144-face preparation budget, matching the
 assembler output cap; SurfaceSampler and the older ground inspection retain
 their 65536-face default. Existing numeric tolerances and hard process limits remain.
+Clipped inspection vertices use batches of at most 4096 queries, with one unchanged
+1000000-candidate budget across all batches; no sampler limit is raised for denser
+tiles. Any unresolved contact still rejects the inspection mesh.
 `original_edges` and `source_indices` bind unchanged direction/access masks to the
 original prepared graph. This does not certify drivable turns or physical profiles.
 
