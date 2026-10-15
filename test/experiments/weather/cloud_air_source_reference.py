@@ -96,7 +96,9 @@ def inputs(sparse=False):
     return np.array(rows, RAY), np.asarray(values, "<f4")
 
 
-def reference_ray(ray, queries_km, medium, cover, nodes=16):
+def reference_ray(
+    ray, queries_km, medium, cover, nodes=16, air_sun_transfer=None, eye_cover=None
+):
     if np.any(medium[2:4] < 1e19) or np.any(medium[8:11] != 0):
         raise ValueError("the independent control requires homogeneous clear air")
     origin, direction = origin_for(ray, medium[0]), direction_for(ray)
@@ -104,7 +106,10 @@ def reference_ray(ray, queries_km, medium, cover, nodes=16):
         origin, direction, 1e7, float(medium[0]) * 1000, float(medium[1]) * 1000
     )
     layer = replace(Layer(), cover=cover)
-    cells = cloud_cells(layer, origin, direction, end) if cover > 0 else []
+    eye_layer = layer if eye_cover is None else replace(layer, cover=eye_cover)
+    cells = (
+        cloud_cells(eye_layer, origin, direction, end) if eye_layer.cover > 0 else []
+    )
     queries = np.clip(np.asarray(queries_km, float) * 1000, 0, end)
     maximum = float(queries.max())
     fixed = np.arange(begin, maximum, 25)
@@ -141,7 +146,11 @@ def reference_ray(ray, queries_km, medium, cover, nodes=16):
     sun_t = (
         np.ones_like(distance)
         if cover <= 0
-        else np.exp(-optical_depth(points, SUN, layer, 6, 37, maximum_m=1e8))
+        else (
+            air_sun_transfer(points)
+            if air_sun_transfer is not None
+            else np.exp(-optical_depth(points, SUN, layer, 6, 37, maximum_m=1e8))
+        )
     )
     source = emission[:, None, :] + inside[:, None, None] * (
         direct * sun_t[..., None] + diffuse

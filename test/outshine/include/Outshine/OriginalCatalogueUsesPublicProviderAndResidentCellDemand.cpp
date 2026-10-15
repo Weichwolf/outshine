@@ -62,13 +62,17 @@ int main() {
   Scenario::Document document;
   document.Ground.Origin = {.LatitudeDeg = 54.781286, .LongitudeDeg = 9.433995};
   document.Ground.SightM = 1.0;
-  document.Providers.push_back({.Kind = "osm",
-                                .Revision = "fixture-r1",
-                                .Missing = Data::MissingDataPolicy::Fail,
-                                .Dataset = "public.original.fixture",
-                                .Endpoint = "https://api.openstreetmap.org/api/0.6"});
+  Data::SourceProvider source;
+  source.Kind = "osm";
+  source.Revision = "fixture-r1";
+  source.Missing = Data::MissingDataPolicy::Fail;
+  source.Dataset = "public.original.fixture";
+  source.Endpoint = "https://api.openstreetmap.org/api/0.6";
+  document.Providers.push_back(std::move(source));
+  Roots roots;
+  roots.Offline = true;
   Engine engine;
-  CHECK(engine.registerProvider(provider) && engine.setRoots({.Offline = true}) &&
+  CHECK(engine.registerProvider(provider) && engine.setRoots(std::move(roots)) &&
             engine.declare(document) && engine.assemble(),
         "public original provider admits a position-based catalogue demand without renderer IO");
   CHECK(engine.preload(2.0) && engine.settled(WorldQuality::Refined) && provider.Acquired == 1,

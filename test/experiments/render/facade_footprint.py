@@ -45,7 +45,7 @@ def box_mask(at, width, low, high):
     return np.clip(result, 0, 1)
 
 
-def screen_rectangle(at, dx, dy, low, high):
+def screen_polygon(at, dx, dy, low, high):
     polygon = box(-0.5, -0.5, 0.5, 0.5)
     for axis in range(2):
         normal = np.array([dx[axis], dy[axis]])
@@ -57,7 +57,7 @@ def screen_rectangle(at, dx, dy, low, high):
             if offset >= radius:
                 continue
             if offset <= -radius:
-                return 0.0
+                return Polygon()
             squared = direction @ direction
             anchor = -offset * direction / squared
             inward = direction / np.sqrt(squared)
@@ -72,7 +72,11 @@ def screen_rectangle(at, dx, dy, low, high):
                     ]
                 )
             )
-    return polygon.area
+    return polygon
+
+
+def screen_rectangle(at, dx, dy, low, high):
+    return screen_polygon(at, dx, dy, low, high).area
 
 
 def polygon_mask(at, dx, dy, low, high):

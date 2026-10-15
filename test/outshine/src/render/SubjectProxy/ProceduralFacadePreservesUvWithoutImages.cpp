@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdint>
 #include <string>
 #include <SDL3/SDL.h>
 #include "Check.h"
@@ -22,6 +23,8 @@ void CheckLayouts() {
   part.IndexCount = 3;
   part.PositionsM = positions;
   part.Uv = uv;
+  part.Uv1 = uv;
+  part.HasUv1 = true;
   part.HasUv = true;
   Shape shape;
   shape.Parts = {&part, 1};
@@ -32,12 +35,14 @@ void CheckLayouts() {
   SubjectView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
-  view.Eye.ZNearM = 0.05;
+  constexpr double kNearM = 0.05;
+  view.Eye.ZNearM = kNearM;
   view.Eye.ZFarM = 10;
   SubjectScratch scratch;
   std::string error;
   constexpr std::array<uint32_t, 1> slots{0};
-  for (const auto pattern : {SurfacePattern::None, SurfacePattern::Facade}) {
+  for (const auto pattern :
+       {SurfacePattern::None, SurfacePattern::Facade, SurfacePattern::FacadeMetres}) {
     SubjectMaterial material;
     material.Row.Pattern = pattern;
     CHECK(!material.ReadsAnyImage(), "the procedural material carries no image");
@@ -45,8 +50,9 @@ void CheckLayouts() {
     CHECK(PlanPlacement(renderer, proxy, view, scratch, error), "native draw plan succeeds");
     CHECK(scratch.Draws.Draws().size() == 1, "the triangle remains in the draw plan");
     if (scratch.Draws.Draws().size() != 1) { continue; }
-    const auto expected =
-        pattern == SurfacePattern::Facade ? VertexLayout::PositionUv : VertexLayout::Position;
+    auto expected = VertexLayout::Position;
+    if (pattern == SurfacePattern::Facade) { expected = VertexLayout::PositionUv; }
+    if (pattern == SurfacePattern::FacadeMetres) { expected = VertexLayout::PositionUvUv1; }
     CHECK(scratch.Draws.Draws().front().Layout == expected,
           "facade coordinates survive without allocating UVs for ordinary materials");
   }
