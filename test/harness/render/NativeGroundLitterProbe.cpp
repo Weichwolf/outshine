@@ -238,7 +238,8 @@ bool Run(char **argv) {
   std::memcpy(words.data(), code.data(), code.size());
   auto device = Gpu::CreateDevice({.Validation = true});
   if (!Checked(device)) { return false; }
-  auto pipeline = (*device)->CreateComputePipeline(words, "main", "ground litter probe");
+  auto pipeline =
+      (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "ground litter probe"});
   if (!Checked(pipeline) || !Matches((*pipeline)->Layout())) { return false; }
   const Parameters parameters{.Count = static_cast<uint32_t>(probes.size() / kProbeStride),
                               .Unmapped = unmapped,
