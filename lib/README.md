@@ -23,6 +23,12 @@ teilen komplementäre Gewichte. Keine Geometrie-/Klassenänderung und keine exak
 gekrümmter Ränder oder beliebig orientierter quadratischer Pixel. #173 besitzt die native
 Übernahme samt räumlichen Hinweisen und Bild-/Kostenprüfung.
 
+`materials.MaterialRegion` bindet eine polygonale Fläche an lokalen Rahmen, Materialzeile,
+Rang und Quell-IDs. `coalesce_regions(tuple)` vereinigt gleiche Material-/Ranggruppen nur,
+wenn der Rang in der Eingabe eindeutig einem Material gehört. Mehrdeutige Ränge behalten
+ihre Originaleinträge/Reihenfolge. Quellen bleiben beim Aufrufer; alle beitragenden IDs bleiben
+im Ergebnis. GEOS-Union ist ein Offline-Verfahren, kein Runtime-/GPU-Kostenbeleg.
+
 Alle Produkte verwenden denselben benannten rechtshändigen lokalen Rahmen:
 X Ost, Y Nord, Z oben, Meter. Geometrien sind XY; Höhenintervalle beziehen sich auf
 denselben lokalen Z-Ursprung. Die Quellaufbereitung bindet Projektion und Datum vor
