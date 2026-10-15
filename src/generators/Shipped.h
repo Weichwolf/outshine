@@ -30,7 +30,8 @@ public:
   [[nodiscard]] bool EnsureCatalogue(const outshine::Ground::VegetationTemplates &declared,
                                      std::string_view speciesDir,
                                      std::string &error,
-                                     bool vegetation = true);
+                                     bool vegetation = true,
+                                     std::string_view mixturesPath = {});
 
   [[nodiscard]] bool Ready() const { return !Made_.empty(); }
 
@@ -54,8 +55,10 @@ private:
   [[nodiscard]] bool BuildCatalogue(const outshine::Ground::VegetationTemplates &declared,
                                     std::string_view speciesDir,
                                     std::string &error,
-                                    bool vegetation);
+                                    bool vegetation,
+                                    std::string_view mixturesPath);
   bool VegetationEnabled_ = true;
+  std::string SpeciesDirectory_, MixturesPath_;
   std::vector<TreeSpecies> Species_;
   std::unique_ptr<Generator> Offered_;
   std::unique_ptr<GroundMesher> Coverer_;

@@ -7,6 +7,7 @@
 #include <array>
 
 #include "Making.h"
+#include "SpeciesMixture.h"
 
 namespace outshine::Generators {
 
@@ -27,7 +28,10 @@ public:
     ContactMaterial Contact = ContactMaterial{0};
   };
 
-  Forest(std::span<const Stem> stems, std::span<const float> perM2ByRow, AlpineLimit limit);
+  Forest(std::span<const Stem> stems,
+         std::span<const float> perM2ByRow,
+         AlpineLimit limit,
+         std::vector<SpeciesMixture> speciesByRow = {});
 
   Forest(const Stem &stem, std::span<const float> perM2ByRow, const AlpineLimit &limit)
       : Forest(std::span<const Stem>(&stem, 1), perM2ByRow, limit) {}
@@ -36,7 +40,7 @@ public:
 
   [[nodiscard]] size_t SpeciesRefused() const noexcept { return Refused_; }
 
-  static constexpr size_t kMostSpecies = 64;
+  static constexpr size_t kMostSpecies = SpeciesMixture::kMostSpecies;
   static constexpr size_t kSpeciesTableBytes = kMostSpecies * sizeof(Stem);
 
   enum Note {
@@ -87,6 +91,7 @@ private:
   Consider(const Ground &ground, const Lattice &lattice, Cell cell, Solid *out) const noexcept;
 
   std::array<Stem, kMostSpecies> Stems_{};
+  std::vector<SpeciesMixture> SpeciesByRow_;
   size_t Held_ = 0;
   size_t Refused_ = 0;
   std::vector<float> PerM2_;
