@@ -740,10 +740,7 @@ bool UploadPieceRuns(SubjectResidency &res,
   for (const SubjectResidency::Crossing &one : crossings) {
     if (one.Bytes > 0 && one.Stands()) { crossings[count++] = one; }
   }
-  if (!res.Cross(std::span<SubjectResidency::Crossing>(crossings.data(), count), true, error)) {
-    return false;
-  }
-  return true;
+  return res.Cross(std::span<SubjectResidency::Crossing>(crossings.data(), count), true, error);
 }
 
 }
