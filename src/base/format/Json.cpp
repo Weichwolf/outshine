@@ -18,6 +18,35 @@ constexpr size_t kEscapeDigits = 4;
 constexpr size_t kPairEscapeLength = 6;
 constexpr int kHexBase = 16;
 
+namespace {
+std::optional<size_t> Utf8SequenceLength(std::string_view text, size_t at) {
+  constexpr unsigned kFirstMultibyteLead = 0xC2u;
+  constexpr unsigned kLastMultibyteLead = 0xF4u;
+  constexpr char32_t kLastScalar = 0x10FFFFu;
+  const auto lead = static_cast<unsigned char>(text[at]);
+  if (lead < kFirstMultibyteLead || lead > kLastMultibyteLead) { return std::nullopt; }
+  size_t length = 2;
+  char32_t minimum = kAsciiOver;
+  if (lead >= kFourByteMark) {
+    length = 4;
+    minimum = kThreeByteOver;
+  } else if (lead >= kThreeByteMark) {
+    length = 3;
+    minimum = kTwoByteOver;
+  }
+  if (length > text.size() - at) { return std::nullopt; }
+  for (size_t i = 1; i < length; ++i) {
+    if ((static_cast<unsigned char>(text[at + i]) & kTwoByteMark) != kContinuationMark) {
+      return std::nullopt;
+    }
+  }
+  char32_t code = 0;
+  ReadUtf8(text, at, code);
+  if (code < minimum || code > kLastScalar || IsSurrogate(code)) { return std::nullopt; }
+  return length;
+}
+}
+
 bool Json::Parse(const char *text, size_t len) {
   Ok_ = false;
   Nodes_.clear();
@@ -62,6 +91,12 @@ std::optional<Json::Quoted> Json::ParseString() {
       continue;
     }
     if (static_cast<unsigned char>(c) < 0x20u) { return std::nullopt; }
+    if (static_cast<unsigned char>(c) >= kAsciiOver) {
+      const auto length = Utf8SequenceLength(Text_, P_);
+      if (!length) { return std::nullopt; }
+      P_ += *length;
+      continue;
+    }
     if (c == '"') {
       const Quoted said{.Off = static_cast<uint32_t>(start),
                         .Len = static_cast<uint32_t>(P_ - start),

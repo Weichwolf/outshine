@@ -298,3 +298,10 @@ WeatherSnapshot/Open-Meteo, TAA-Invalidierung, Offline-Places und vollständige
 CPU-/GPU-/Speicher-/A18-Pro-Gates bleiben in #193/#7 offen. Der Dichtekern allein
 erfüllt die dortige Bildabnahme nicht. Entscheidungen und aktuelle Prüfbelege
 stehen im Fach-Issue beziehungsweise im verlinkten PR.
+
+## Native Wetterdaten
+
+Der [native Open-Meteo-Decoder](native_forecast.md) überträgt die bestätigten
+Felder aus #253 und prüft echte Antwortbytes sowie exakte UTC-Auswahl gegen die
+Python-Referenz. Öffentliche Snapshot-Publikation und sichtbarer Wetterverbrauch
+bleiben eigene Integrationsschritte.
