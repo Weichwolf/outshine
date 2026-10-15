@@ -54,7 +54,7 @@ def renderer_camera(scene):
     }
 
 
-def render(name, sources, products, output):
+def compose(name, sources, products, output):
     modified = subprocess.check_output(
         ["git", "status", "--porcelain"], cwd=ROOT, text=True
     )
@@ -121,16 +121,12 @@ def render(name, sources, products, output):
     bpy.context.view_layer.update()
     actual_camera = renderer_camera(scene)
     scene.render.filepath = str((output / f"{name}.png").resolve())
-    setup_s = time.perf_counter() - start
-    print(json.dumps({"stage": "render", "setup_s": setup_s}), flush=True)
-    began = time.perf_counter()
-    bpy.ops.render.render(write_still=True)
-    renderer_s = time.perf_counter() - began
     code = list((ROOT / "test/experiments/vegetation").glob("*.py")) + list(
         (ROOT / "lib/src/outshine_ref/places").glob("*.py")
     )
     paths = [
         sources,
+        products,
         ROOT / "src/assets/places" / f"{name}.scenario",
         *plant_inputs,
         *(Path(r["path"]) for r in receipts if not r.get("missing")),
@@ -153,23 +149,33 @@ def render(name, sources, products, output):
         "stand": site_report,
         "canopy": canopy,
         "solar": solar,
-        "setup_s": setup_s,
-        "render_s": renderer_s,
         "engine": scene.render.engine,
-        "backend": gpu.platform.backend_type_get(),
-        "renderer": gpu.platform.renderer_get(),
         "input_sha256": {str(p.resolve()): digest(p) for p in paths},
         "implementation_sha256": {str(p.relative_to(ROOT)): digest(p) for p in code},
         "limits": "Current Python vegetation with initial actual geospatial context. Buildings context and final transport reservations missing; incomplete far vegetation/species/terrain materials. No native world, botanical, LOD, frame or device admission.",
     }
+    report["setup_s"] = time.perf_counter() - start
+    return scene, report
+
+
+def render(name, sources, products, output):
+    _scene, report = compose(name, sources, products, output)
+    print(json.dumps({"stage": "render", "setup_s": report["setup_s"]}), flush=True)
+    began = time.perf_counter()
+    bpy.ops.render.render(write_still=True)
+    report.update(
+        render_s=time.perf_counter() - began,
+        backend=gpu.platform.backend_type_get(),
+        renderer=gpu.platform.renderer_get(),
+    )
     (output / f"{name}.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
         json.dumps(
             {
                 "place": name,
-                "sites": canopy["sites"],
-                "setup_s": setup_s,
-                "render_s": renderer_s,
+                "sites": report["canopy"]["sites"],
+                "setup_s": report["setup_s"],
+                "render_s": report["render_s"],
                 "renderer": report["renderer"],
             }
         )

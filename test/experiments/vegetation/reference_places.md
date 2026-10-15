@@ -65,8 +65,9 @@ initial Python image composition, without botanical/LOD/native admission.
 Three independent scene controls check upward curved terrain and camera
 clearance, source-site exclusion/stability under camera rotation, and a water
 hole that must remain uncovered. Run `place_scene_checks` alongside the five
-camera controls. Heavy actual renders run one at a time under the shared host
-lock from a clean frozen worktree. `publish_places.py` checks all four actual
+camera controls. Choose parallelism from actual host resources; use a clean
+frozen worktree and record load and terminal status. There is no global host
+lock. `publish_places.py` checks all four actual
 camera/lens reports, source hashes and historical implementation snapshots
 before copying the manually opened/reviewed PNGs. A successful publisher is
 not an optical-quality verdict; visible improvement remains the update rule.
@@ -98,3 +99,23 @@ Run `place_demand_checks` with the previous scene/camera controls. The correctio
 retains source data, camera, resolution, light, samples and existing plant
 products; only irrelevant renderer instances are rejected. A successful
 unchanged-profile image remains required before any public image update.
+
+The frozen `30aef3c0c` real Koerbersee composition keeps every column of all
+53,200 original sites bit-exact. It selects 4,569 camera and 4,776 sun instances
+instead of 106,400 role instances. Despite this reduction, the same 180 CPU-s
+render guard fired (66.16 s wall, 177.86 CPU-s, 2891.35 MiB peak RSS). A separate
+optical diagnostic also failed at its explicit 600 CPU-s guard (182.74 s wall,
+591.57 CPU-s, 2925.65 MiB); the original cost gate remains red. Neither produced
+a PNG. Constant and physical-sky full-resolution empty-scene probes both hit
+their separate guards; they do not establish that the sky model is the cause.
+
+`export_place.py` calls the same composition without rendering and saves a
+compressed `.blend`, packed procedural images and `<Place>-scene.json` receipt
+under an explicit system-temp output directory. The receipt records actual
+camera/clock, source and implementation hashes, complete site plan, selected
+roles, Blender version, samples and packed-image/file hashes. A fresh Blender
+process can load the scene without GIS dependencies, generator modules or
+original image files; it must retain 2560×1440, EEVEE/64 samples and the saved
+camera/light settings. This is a static selected reference view, not a complete
+runtime world/cache asset. Export success is not a rendered/optically reviewed
+Place image; hardware/backend, render costs and final PNG remain separate.
