@@ -13,8 +13,17 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
 
-Eingaben und Messergebnisse liegen unter `build/experiments/transport/`;
-ausgewählte Bilder unter `build/shots/experiments/transport/`, Logs im System-Temp.
+Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
+und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys. Ausgewählte
+Präsentationsbilder gehören nach `build/shots/experiments/transport/`.
+Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
+
+```sh
+TRANSPORT_PY=/var/tmp/outshine-transport-python-355154544/bin/python
+TRANSPORT_WORK=/var/tmp/outshine-transport-workspace-0241b3f81
+```
+
+Neue eigene Umgebungen ebenfalls extern mit `python3 -m venv <Temp-Pfad>` erzeugen.
 Die Probes verwenden ihre jeweiligen Eingabestände; gemessene Hashes bleiben unverändert.
 Für Probe-Aufrufe zeigt `PYTHONPATH=test/experiments/transport` auf die Solvermodule.
 
@@ -38,8 +47,8 @@ und Central Park. Kurze Bildunterschriften, Bildlinks und manuelles Aktualisiere
 gesamte Oberfläche. Fehlende Nachweise bleiben sichtbar unvollständig.
 
 ```sh
-.venv/bin/python -m pip install numpy scipy 'shapely>=2.1' matplotlib pillow
-PYTHONPATH=lib/src .venv/bin/python test/experiments/transport/showcase.py --render-tiles --serve
+"$TRANSPORT_PY" -m pip install numpy scipy 'shapely>=2.1' matplotlib pillow
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --render-tiles --serve
 ```
 
 `whole_tile_showcase.py` verwendet hashgeprüfte Generatorprodukte aus den unten
@@ -51,10 +60,11 @@ Erzeugungscommits bleiben im Bildreport erhalten; der Rendercommit steht in
 `origin.json`. Es wird keine erneute Generatorausführung vorgetäuscht.
 GEOS ist als Systembibliothek erforderlich (`libgeos-dev` unter Debian).
 Der Solver importiert die installierte Referenzbibliothek: bei vorhandenem `lib/`
-einmal `.venv/bin/python -m pip install -e ./lib` ausführen.
-Erzeugte Bilder, Produkte und Messreports liegen unter
-`build/experiments/transport/whole-tiles/`, die veröffentlichte Website unter
-`build/experiments/transport/showcase/site/`. Der Server erzeugt keine Geometrie bei Anfragen.
+einmal `"$TRANSPORT_PY" -m pip install -e ./lib` ausführen.
+Private Bilder, Produkte und Messreports liegen im ausdrücklich gewählten externen
+Datenverzeichnis, hier `$TRANSPORT_WORK/whole-tiles/`; die veröffentlichte Website
+liegt hier unter `$TRANSPORT_WORK/showcase/site/`. `--data-root` ist beim Erzeugen
+oder Veröffentlichen erforderlich. Der Server erzeugt keine Geometrie bei Anfragen.
 Blender Workbench rendert frisch mit Fehler-Exitcode und prüft alle vier vollständigen
 1920×1080-PNGs. Kachelgrenzen kommen aus den gepinnten Quelldaten; Zuschnitte
 erhalten Flächendeckung und Vertexhöhen. Dünne Kachelrahmen sind Anzeigehilfen,
@@ -63,20 +73,30 @@ das deklarierte Z=0-Rezept ohne DEM-Höhenfit. Nicht verwendete Quellen behalten
 ihre Gründe im ursprünglichen Plan.
 
 ```sh
-.venv/bin/python test/experiments/transport/showcase.py --publish
-.venv/bin/python test/experiments/transport/showcase.py --serve --host 0.0.0.0 --port 8767
-.venv/bin/python -W error test/experiments/transport/showcase_checks.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/whole_tile_checks.py
+"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
+"$TRANSPORT_PY" test/experiments/transport/showcase.py --root "$TRANSPORT_WORK/showcase/site" --serve --host 0.0.0.0 --port 8767
+"$TRANSPORT_PY" -W error test/experiments/transport/showcase_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/whole_tile_checks.py
 ```
 
 `--catalog` wählt einen anderen Katalog mit genau vier Bildplätzen. Jeder Eintrag nennt Bild, Messreport und
-Erzeugungsnachweis unter `build/`. `origin.json` enthält den Erzeugungscommit,
+Erzeugungsnachweis relativ zu `--data-root`. Aufgelöste Pfade dürfen dieses
+Verzeichnis auch über Symlinks nicht verlassen. `origin.json` enthält den Erzeugungscommit,
 `working_tree_dirty` und unter `records` die SHA-256-Werte von Bild und Report,
 indiziert durch den Report-Dateinamen ohne Erweiterung. Nur übereinstimmende lesbare
 PNGs werden veröffentlicht. Synthetische Flächenprüfungen belegen keine glatten
 Fahrkurven, vollständige Befahrbarkeit, Höhen oder native Echtzeitqualität.
 Der ursprüngliche Serverauftrag steht in [#49](https://github.com/Weichwolf/outshine/issues/49),
 die minimale Gesamtansicht in [#135](https://github.com/Weichwolf/outshine/issues/135).
+
+Die Pfadbeispiele älterer Versuche unten dokumentieren die damalige Erzeugung.
+Ihre privaten Linux-Daten liegen jetzt außerhalb des Repositorys:
+Arbeitsstand `/var/tmp/outshine-transport-workspace-0241b3f81/`,
+referenzierte Belege `/var/tmp/outshine-transport-evidence-0241b3f81/`.
+Die frühere relative Wurzel `build/experiments/transport/` entfällt dort.
+Beim weiteren Ausbau erhalten diese Versuchsaufrufer explizite Ein-/Ausgabepfade.
+`endpoint_grade_render.py` nutzt dafür `--input`, `--output` und `--data-root`;
+die Quelldaten und ausgewählten festen Meshreferenzen bleiben voneinander getrennt.
 
 ## Geschlossene 3D-Körper und gespeicherte Wiener Quellkachel
 
@@ -88,14 +108,14 @@ Körperbuffer, Kanten und Volumina für NumPy-Sortierung und eine Dictionary-Ref
 Frische Worker messen sieben Aufbauzeiten und ihren vollständigen Peak-RSS.
 
 ```sh
-.venv/bin/python -m pip install -r test/experiments/transport/requirements.txt
-.venv/bin/python -m pip install -e ./lib
-.venv/bin/python test/experiments/transport/capture_transport_tile.py
-.venv/bin/python test/experiments/transport/transport_flat_network.py --input build/experiments/transport/inputs --output build/experiments/transport/flat-vienna Vienna
-.venv/bin/python test/experiments/transport/transport_flat_surface_network.py --input build/experiments/transport/flat-vienna --output build/experiments/transport/surface-vienna-cuts --junction-mode cuts Vienna
-.venv/bin/python test/experiments/transport/surface_solid_benchmark.py
-.venv/bin/python test/experiments/transport/surface_solid_showcase.py
-.venv/bin/python test/experiments/transport/showcase.py --publish
+"$TRANSPORT_PY" -m pip install -r test/experiments/transport/requirements.txt
+"$TRANSPORT_PY" -m pip install -e ./lib
+"$TRANSPORT_PY" test/experiments/transport/capture_transport_tile.py
+"$TRANSPORT_PY" test/experiments/transport/transport_flat_network.py --input build/experiments/transport/inputs --output build/experiments/transport/flat-vienna Vienna
+"$TRANSPORT_PY" test/experiments/transport/transport_flat_surface_network.py --input build/experiments/transport/flat-vienna --output build/experiments/transport/surface-vienna-cuts --junction-mode cuts Vienna
+"$TRANSPORT_PY" test/experiments/transport/surface_solid_benchmark.py
+"$TRANSPORT_PY" test/experiments/transport/surface_solid_showcase.py
+"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
 ```
 
 Die Aufnahme liest ausschließlich die bereits gepinnte OpenFreeMap-Kachel aus dem
@@ -125,14 +145,14 @@ Anschlüsse sowie mehrdeutige/degenerierte Richtungen bekommen konservative isot
 Grenzen; jede unsichere Richtung wird mit Face und Quell-ID festgehalten.
 
 ```sh
-.venv/bin/python -m pip install -e './lib[transport]'
-.venv/bin/python test/experiments/transport/capture_height_targets.py
-.venv/bin/python test/experiments/transport/surface_height_frames.py
-.venv/bin/python -W error test/experiments/transport/height_source_checks.py
-.venv/bin/python -W error test/experiments/transport/surface_height_checks.py
-.venv/bin/python test/experiments/transport/surface_height_benchmark.py
-.venv/bin/python test/experiments/transport/surface_height_showcase.py
-.venv/bin/python test/experiments/transport/showcase.py --publish
+"$TRANSPORT_PY" -m pip install -e './lib[transport]'
+"$TRANSPORT_PY" test/experiments/transport/capture_height_targets.py
+"$TRANSPORT_PY" test/experiments/transport/surface_height_frames.py
+"$TRANSPORT_PY" -W error test/experiments/transport/height_source_checks.py
+"$TRANSPORT_PY" -W error test/experiments/transport/surface_height_checks.py
+"$TRANSPORT_PY" test/experiments/transport/surface_height_benchmark.py
+"$TRANSPORT_PY" test/experiments/transport/surface_height_showcase.py
+"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
 ```
 
 Bei fehlendem DEM-Cache zuerst denselben Capture-Aufruf einmal mit `--fetch`:
@@ -164,12 +184,12 @@ Zwischenraum erzeugen; die gemeinsame Lösung plant deren Höhen ausdrücklich n
 Input-/Output-Coverage, vollständige Domain, Ränder und ganze Gradienten werden geprüft.
 
 ```sh
-.venv/bin/python -W error test/experiments/transport/ground_surface_checks.py
-.venv/bin/python -W error test/experiments/transport/ground_surface_experiment.py --compare-geometry
-.venv/bin/python -W error test/experiments/transport/ground_surface_experiment.py
-.venv/bin/python -W error test/experiments/transport/surface_contact_benchmark.py
-.venv/bin/python -W error test/experiments/transport/ground_surface_showcase.py
-.venv/bin/python test/experiments/transport/showcase.py --publish
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_surface_checks.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_surface_experiment.py --compare-geometry
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_surface_experiment.py
+"$TRANSPORT_PY" -W error test/experiments/transport/surface_contact_benchmark.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_surface_showcase.py
+"$TRANSPORT_PY" test/experiments/transport/showcase.py --data-root "$TRANSPORT_WORK" --root "$TRANSPORT_WORK/showcase/site" --publish
 ```
 
 Der Geometrievergleich nutzt optimierte Coverage-Union und allgemeine Union samt
@@ -194,9 +214,9 @@ glatte Profile bleiben weitere Arbeit; funktionale Zugangskontakte bleiben separ
 ## Gegenbeispiel: feste Terrain-Fächer verfeinern (#20)
 
 ```sh
-.venv/bin/python -W error test/experiments/transport/ground_refinement_checks.py
-.venv/bin/python -W error test/experiments/transport/ground_refinement_experiment.py
-.venv/bin/python -W error test/experiments/transport/ground_refinement_showcase.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_refinement_checks.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_refinement_experiment.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_refinement_showcase.py
 ```
 
 Kantenmittelpunkte und Flächenzentren erhalten bei gleichem Budget alle bisherigen
@@ -219,9 +239,9 @@ prüfen, anstatt die unpassenden alten Innenkanten weiter zu fixieren.
 ## Bodenverbindungen austauschen (#20)
 
 ```sh
-.venv/bin/python -W error test/experiments/transport/ground_reconnect_checks.py
-.venv/bin/python -W error test/experiments/transport/ground_reconnect_experiment.py
-.venv/bin/python -W error test/experiments/transport/ground_reconnect_showcase.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_reconnect_checks.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_reconnect_experiment.py
+"$TRANSPORT_PY" -W error test/experiments/transport/ground_reconnect_showcase.py
 ```
 
 Der gespeicherte Zentrenversuch liefert dieselben 2500 zusätzlichen Punkte für zwei
@@ -248,12 +268,12 @@ kein Ersatz des freigegebenen #69-Bodenplans.
 ## Externe CityEngine-Operationsreferenz (#19)
 
 ```sh
-.venv/bin/python -W error test/experiments/transport/esri_transport_catalog.py
-.venv/bin/python -W error test/experiments/transport/esri_transport_ghidra.py
-.venv/bin/python -W error test/experiments/transport/verify_esri_transport_ghidra.py
-.venv/bin/python -W error test/experiments/transport/verify_esri_transport_oracle.py
-.venv/bin/python -W error test/experiments/transport/esri_transport_comparison.py
-.venv/bin/python -W error test/experiments/transport/esri_transport_showcase.py
+"$TRANSPORT_PY" -W error test/experiments/transport/esri_transport_catalog.py
+"$TRANSPORT_PY" -W error test/experiments/transport/esri_transport_ghidra.py
+"$TRANSPORT_PY" -W error test/experiments/transport/verify_esri_transport_ghidra.py
+"$TRANSPORT_PY" -W error test/experiments/transport/verify_esri_transport_oracle.py
+"$TRANSPORT_PY" -W error test/experiments/transport/esri_transport_comparison.py
+"$TRANSPORT_PY" -W error test/experiments/transport/esri_transport_showcase.py
 ```
 
 Die externe SDK-Core-Binary liegt unter `~/Downloads/esri_ce_sdk-3.4.12206/bin/`.
@@ -307,8 +327,8 @@ Ergebnisse, Assembly, externe Hypothesen und sechs1920×1080-Bilder liegen unter
 `build/experiments/transport/esri-reference/`. Keine SDK-/Fremdcode-Abhängigkeit in lib/runtime.
 
 ```sh
-.venv/bin/python -W error -m unittest discover -s lib/tests
-.venv/bin/python -W error test/experiments/transport/surface_solid_checks.py
+"$TRANSPORT_PY" -W error -m unittest discover -s lib/tests
+"$TRANSPORT_PY" -W error test/experiments/transport/surface_solid_checks.py
 ```
 
 ### Stetige Höhenübergänge (#20)
@@ -343,11 +363,11 @@ Parabolisch246/256 gültig, kubisch229/256;17 zusätzliche Lösungen, zehn in be
 Verfahren zu kurz. Jede unlösbare Quelle behält ID/Tags und benötigte Länge.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error -m unittest discover -s lib/tests -p 'test_transport*.py'
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_checks.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_experiment.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_benchmark.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/vertical_transition_showcase.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error -m unittest discover -s lib/tests -p 'test_transport*.py'
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/vertical_transition_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/vertical_transition_experiment.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/vertical_transition_benchmark.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/vertical_transition_showcase.py
 ```
 
 Nur `vertical_transition_experiment.py --capture-inputs` ersetzt die Eingabefixture
@@ -384,10 +404,10 @@ müssen vor dem gemeinsamen Höhenfit konstruktiv geplant werden; kein nachträg
 Nullsetzen oder Verengen der Kontakte. Bankwechsel bleiben offen.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error -m unittest discover -s lib/tests -p test_endpoint_grades.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/endpoint_grade_checks.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/endpoint_grade_benchmark.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/endpoint_grade_render.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error -m unittest discover -s lib/tests -p test_endpoint_grades.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/endpoint_grade_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/endpoint_grade_benchmark.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/endpoint_grade_render.py
 ```
 
 Ergebnisse nach `build/experiments/transport/endpoint-grades/`: drei frische Worker
@@ -464,9 +484,9 @@ geprüfte untere Fläche. Das ist keine gemeinsam komponierte Netzabdeckung; ein
 mehrfach vorkommende obere Quelle hat alternative lokale Pläne.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/overpass_checks.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/overpass_experiment.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/overpass_showcase.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/overpass_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/overpass_experiment.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/overpass_showcase.py
 ```
 
 Ergebnisse/ganze Meshes/Produktbindungen unter `build/experiments/transport/overpasses/`.
@@ -518,9 +538,9 @@ kein gemessener Brückenanschluss. Die angehobenen Außenanschlüsse benötigen 
 passende Nachbarrezepte; die flache Deckfläche allein beweist keine Gleisfahrkurven.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/shared_bridge_checks.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/shared_bridge_experiment.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/shared_bridge_showcase.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/shared_bridge_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/shared_bridge_experiment.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/shared_bridge_showcase.py
 ```
 
 Normale Prüfungen lesen nur Pins. `capture_shared_bridge.py` ersetzt die Fixture
@@ -572,9 +592,9 @@ deren zusätzliche Ganzflächenprüfung und die exakten Kontaktregionen sind ver
 Beide Profile/parabolisch-kubisch und beide Geometrieverfahren erfüllen denselben Vertrag.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_approach_checks.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_approach_experiment.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_approach_showcase.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/bridge_approach_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/bridge_approach_experiment.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/bridge_approach_showcase.py
 ```
 
 Ausgaben: `build/experiments/transport/bridge-approaches/`. Normal nur Pins lesen;
@@ -654,9 +674,9 @@ je Produkt; weitere Geometrie-/Stations-/Paargrenzen über `ProjectedSurfaceBudg
 GEOS-/Solverzeit kooperativ, harte Kinder CPU15s/AS2GiB und Parent40s.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_continuation_checks.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_continuation_experiment.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/bridge_continuation_showcase.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/bridge_continuation_checks.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/bridge_continuation_experiment.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/bridge_continuation_showcase.py
 ```
 
 Ausgaben: `build/experiments/transport/bridge-continuations/`. Drei frische Worker
@@ -700,10 +720,10 @@ Freigabe. Raumkurven/Fahrbarkeit, Schienenhardware, globale Kontakte und native
 Echtzeitqualität bleiben offen.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/tunnel_portal_checks.py
-PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -W error test/experiments/transport/tunnel_portal_experiment.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/tunnel_portal_showcase.py
-PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/showcase.py --render-tiles
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/tunnel_portal_checks.py
+PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error test/experiments/transport/tunnel_portal_experiment.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/tunnel_portal_showcase.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/showcase.py --render-tiles
 ```
 
 `tunnel-portals/` unter `build/experiments/transport/` enthält Produkte,
@@ -742,8 +762,8 @@ Eingabevorbereitung/Importen; Paket-/Wheelprüfung und die geöffneten
 Kachel-/Portalprodukte folgen der Bibliotheksübernahme.
 
 ```sh
-PYTHONPATH=lib/src .venv/bin/python -W error -m unittest discover -s lib/tests -p test_clearance.py
-PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -W error test/experiments/transport/height_gap_experiment.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error -m unittest discover -s lib/tests -p test_clearance.py
+PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error test/experiments/transport/height_gap_experiment.py
 ```
 
 ## Whole-tile component recovery (#153)
@@ -789,15 +809,15 @@ own reasons. Original coordinates, tags and source IDs are retained. Historical
 input/product pins are not rewritten by this correction (#183).
 
 ```sh
-PYTHONPATH=lib/src:test/experiments/transport .venv/bin/python -W error \
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error \
   test/experiments/transport/width_recipe_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
-  .venv/bin/python -W error test/experiments/transport/component_surface_checks.py
+  "$TRANSPORT_PY" -W error test/experiments/transport/component_surface_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
-  .venv/bin/python test/experiments/transport/component_surface_experiment.py
-PYTHONPATH=lib/src:test/experiments/transport .venv/bin/python \
+  "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" \
   test/experiments/transport/component_surface_showcase.py
-PYTHONPATH=lib/src:test/experiments/transport .venv/bin/python \
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" \
   test/experiments/transport/whole_tile_showcase.py
 ```
 
