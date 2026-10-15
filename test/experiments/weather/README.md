@@ -66,6 +66,32 @@ schreibt genau einen angeforderten Ergebnisbuffer und meldet Encode-/Submission-
 Fence-Beobachtung getrennt. Diese Zeiten enthalten CPU/Dispatch/Download und sind
 keine GPU-Passzeit. Die optische Diagnose ist kein Place-Bild.
 
+## Nativer Probeverbraucher
+
+`cloud_native_probe.cpp` konsumiert den gemeinsamen Device-/Commands-Vertrag aus
+[#48](https://github.com/Weichwolf/outshine/issues/48). Die Eingaben und der
+128-Byte-Uniform entsprechen der bisherigen Probe. Result-SSBO set1/binding0 und
+Uniform set2/binding0 werden über ihre tatsächlichen Werte gebunden; Workgroup
+8×8×1 und Uniformgröße werden gegen die reflektierte Pipeline geprüft.
+
+```sh
+nice -n 10 make build/cloud-native-probe.o
+```
+
+Dies übersetzt den Verbraucher ohne SDL. Die veröffentlichte Headerbasis allein
+liefert noch keine Device-Implementierung; Link, Dispatch und Vergleich bleiben
+bis zum ausführbaren nativen Backend offen. Es gibt keinen Ersatztreiber oder
+zweiten GPU-Vertrag. Nach dessen Lieferung folgen dieselben SPIR-V-/Float64-Fälle;
+Kanalzahl1 gehört zur optischen,4 zur RGB-Probe und muss zum Shader passen.
+
+Dispatch kopiert den Uniform sofort; Storage-Result und Readback bleiben bis zur
+Completion im Besitz des Verbrauchers. Compute→Copy wird über den gemeinsamen
+Commandpfad synchronisiert, MapRead erst nach begrenztem Wait auf Ready aufgerufen.
+Abgebrochene Aufzeichnung wird ohne Submit verworfen. Encode, Submit und
+Completion-Warten werden getrennt benannt; ohne Timestamp-API bleibt GPU-Zeit
+ausdrücklich ungemessen. Bestehende SDL-Proben bleiben historische Vergleichsbelege
+bis zur vollständigen Migration des Verbrauchers.
+
 ## RGB- und Faltungsdiagnose
 
 `cloudRadiance.glsl` und `cloud_radiance.py` ergänzen einen untersuchten RGB-Pfad.

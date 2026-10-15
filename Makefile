@@ -113,6 +113,10 @@ build/cloud-probe: test/experiments/weather/cloud_probe.cpp src/world/weather/Cl
 	@mkdir -p $(@D)
 	@$(CXX) -std=c++23 -O2 -ffp-contract=off -fno-exceptions -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude -Isrc/base -Isrc/world/weather -Isrc/render/stages -Isrc/render/device $< src/world/weather/CloudShell.cpp src/world/weather/CloudDensity.cpp $$(pkg-config --cflags --libs sdl3) -o $@
 
+build/cloud-native-probe.o: test/experiments/weather/cloud_native_probe.cpp src/world/weather/CloudLayer.h src/render/stages/CloudLayerUniform.h $(wildcard src/render/device/native/*.h) include/math/Vec3.h include/math/Vec4.h
+	@mkdir -p $(@D)
+	@$(CXX) -std=c++23 -O2 -ffp-contract=off -fno-exceptions -Wall -Wextra -Wpedantic -Wshadow -Werror -Iinclude -Isrc/world/weather -Isrc/render/stages -Isrc/render/device -c $< -o $@
+
 all: strip shaders build/cloud-probe ## the library, the generator archive, and the tools beside them
 	@cd $(SELF_DIR) && sh test/run.sh --library
 
