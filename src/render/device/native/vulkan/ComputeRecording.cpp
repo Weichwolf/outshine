@@ -93,7 +93,10 @@ Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
                             0,
                             nullptr);
   }
+  const auto query = Timings_.Begin(Commands_);
+  if (!query) { return std::unexpected(query.error()); }
   vkCmdDispatch(Commands_, groups.X, groups.Y, groups.Z);
+  Timings_.End(Commands_, *query);
   return {};
 }
 
