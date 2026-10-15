@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_VULKAN_PRESENTER_H
 #ifdef __linux__
 #include "VulkanImage.h"
+#include "Surface.h"
 #include <array>
 #include <atomic>
 #include <condition_variable>
@@ -16,7 +17,9 @@ namespace outshine::Render::Native::Vulkan {
 
 struct SwapchainState {
   std::shared_ptr<Context> Owner;
+  std::shared_ptr<SurfaceState> Surface;
   VkSwapchainKHR Handle = VK_NULL_HANDLE;
+  bool DriverRetired = false;
   VkExtent2D Extent{};
   Format Texels = Format::Bgra8Unorm;
   UseMask<TextureUse> Use = TextureUse::ColourAttachment;
@@ -45,6 +48,7 @@ struct PresentLease {
   std::shared_ptr<SwapchainState> Target;
   std::weak_ptr<PresentState> Dispatcher;
   uint32_t Index = 0;
+  uint64_t Generation = 0;
   VkSemaphore Acquired = VK_NULL_HANDLE;
   VkSemaphore Rendered = VK_NULL_HANDLE;
   VkFence Available = VK_NULL_HANDLE;
@@ -60,10 +64,19 @@ struct PresentLease {
   [[nodiscard]] bool Current() const noexcept;
 };
 
+struct TargetRequest {
+  std::shared_ptr<SurfaceState> Surface;
+  VkExtent2D Extent{};
+  std::optional<Error> Failure;
+  std::atomic<bool> Done{false};
+};
+
 struct PresentState {
   std::shared_ptr<Context> Owner;
   std::mutex Gate;
   std::condition_variable Changed;
+  std::shared_ptr<SurfaceState> Surface;
+  std::shared_ptr<TargetRequest> RequestedTarget;
   uint32_t Width = 0;
   uint32_t Height = 0;
   std::atomic<uint64_t> Generation{1};
@@ -73,7 +86,7 @@ struct PresentState {
   std::atomic<uint64_t> Revision{0};
   void Wake() noexcept;
   std::shared_ptr<SwapchainState> Active;
-  std::vector<std::shared_ptr<SwapchainState>> Retired;
+  std::vector<std::shared_ptr<SwapchainState>> Inactive;
   std::shared_ptr<PresentLease> Attempt;
 };
 
@@ -93,11 +106,12 @@ private:
 
 class Presenter {
 public:
-  Presenter(std::shared_ptr<Context> context, SDL_Window *window);
+  explicit Presenter(std::shared_ptr<Context> context);
   ~Presenter();
   Presenter(const Presenter &) = delete;
   Presenter &operator=(const Presenter &) = delete;
   [[nodiscard]] Result<void> Start();
+  [[nodiscard]] Result<void> SetTarget(SDL_Window *window);
   void Stop();
   [[nodiscard]] Result<std::unique_ptr<PresentFrame>> Acquire();
 
@@ -110,16 +124,17 @@ private:
 };
 
 [[nodiscard]] Result<std::shared_ptr<SwapchainState>>
-CreateSwapchain(std::shared_ptr<Context> context,
+CreateSwapchain(std::shared_ptr<SurfaceState> surface,
                 VkExtent2D extent,
                 uint64_t generation,
-                VkSwapchainKHR before);
+                const std::shared_ptr<SwapchainState> &before);
 [[nodiscard]] Result<std::shared_ptr<PresentLease>>
 AcquireLease(const std::shared_ptr<PresentState> &state,
              const std::shared_ptr<SwapchainState> &target);
 void RunPresenter(const std::shared_ptr<PresentState> &state);
 void DrainPresenter(const std::shared_ptr<PresentState> &state);
-void FailPresentation(PresentState &state, Error error);
+void FailPresentation(PresentState &state, Error error, uint64_t generation);
+void SwitchTarget(const std::shared_ptr<PresentState> &state);
 void InvalidatePresentation(PresentState &state, uint64_t generation);
 [[nodiscard]] Result<bool> AdvanceLease(const std::shared_ptr<PresentLease> &lease, bool stopping);
 
