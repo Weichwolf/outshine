@@ -16,7 +16,7 @@ namespace outshine {
 struct HeightSurfaceView {
   /// Finite positions, retained only for this call.
   std::span<const Vec3> Vertices;
-  /// Original face indices; winding does not select surface meaning.
+  /// Triangle vertex indices; input order supplies face IDs, winding does not select meaning.
   std::span<const std::array<uint32_t, 3>> Triangles;
 };
 

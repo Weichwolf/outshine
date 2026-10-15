@@ -15,8 +15,8 @@ Vorbereitet, aber noch kein belastbarer Engine-Nachweis:
 
 | Referenz | Zweck und nächster Schritt |
 |---|---|
-| Clear-sky / Egbert und ASTM G173 | Messdaten für Atmosphärenbeleuchtung. Alter Scorer ist schemawidrig und prüft keine Engine. Vergleich mit passenden Messgrößen und Randbedingungen aufbauen: [#7](https://github.com/Weichwolf/outshine/issues/7). |
-| OpenDRIVE / A9 | Straßenprofile und Verkehrsnetze. Vorhandenen Stationsscorer fachlich prüfen und an native Netze/Geometrie anbinden; keine Rekonstruktion der echten Straße verlangen: [#11](https://github.com/Weichwolf/outshine/issues/11). |
+| Clear-sky / Egbert und ASTM G173 | Manifest und Erwerb von Messdaten für Atmosphärenbeleuchtung; noch kein nativer Vergleich. Messgrößen und Randbedingungen besitzt [#7](https://github.com/Weichwolf/outshine/issues/7). |
+| OpenDRIVE / A9 | Manifest und Erwerb von Straßenprofilen/Verkehrsnetzen; noch kein nativer Vergleich. Anbindung an Netze/Geometrie besitzt [#11](https://github.com/Weichwolf/outshine/issues/11); keine Rekonstruktion der echten Straße verlangen. |
 
 `make corpus-prepare MANIFEST=...` bereitet deklarierte Daten vor.
 `make corpus-reference CASES=...` erzeugt Referenzpins ausdrücklich neu;
