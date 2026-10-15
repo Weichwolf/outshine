@@ -1,6 +1,10 @@
 """Clipping retains affine heights, holes and distinct traffic floors."""
 
+import hashlib
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -76,10 +80,30 @@ class WholeTileChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 crop_surfaces(mesh, colours, shapely.box(1, 1, 3, 3), groups)
 
-    def test_neighbouring_real_tile_boundaries_share_exact_edges(self):
-        west, _ = tile_region("Vienna-Donau-West")
-        east, _ = tile_region("Vienna-Donau")
-        south, _ = tile_region("Vienna-Donau-South")
+    def test_neighbouring_tile_boundaries_share_exact_edges(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.transport-tiles."
+        ) as tmp:
+            root = Path(tmp)
+            (root / "inputs").mkdir()
+            source = root / "source.pbf"
+            source.write_bytes(b"tile boundary fixture; no MVT decoding")
+            for name, tile in (
+                ("west", [14, 8936, 5681]),
+                ("east", [14, 8937, 5681]),
+                ("south", [14, 8937, 5682]),
+            ):
+                receipt = {
+                    "tile": tile,
+                    "path": str(source),
+                    "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+                }
+                (root / "inputs" / (name + "-input.json")).write_text(
+                    json.dumps({"receipt": receipt, "origin_lat_lon": [48.21, 16.37]})
+                )
+            west, _ = tile_region("west", data_root=root)
+            east, _ = tile_region("east", data_root=root)
+            south, _ = tile_region("south", data_root=root)
         self.assertEqual(west.bounds[2], east.bounds[0])
         self.assertEqual(east.bounds[1], south.bounds[3])
         self.assertGreater(west.intersection(east).length, 1600.0)
