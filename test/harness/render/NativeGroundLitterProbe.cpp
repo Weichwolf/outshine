@@ -6,16 +6,19 @@
 #include <array>
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <print>
 #include <span>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -25,6 +28,8 @@ namespace Gpu = outshine::Render::Native;
 
 constexpr std::streamoff kMaximumInputBytes = std::streamoff{64} * 1024 * 1024;
 constexpr uint32_t kThreadCount = 64;
+constexpr uint32_t kProfileDispatches = 32;
+constexpr double kNanosecondsPerMillisecond = 1e6;
 constexpr size_t kProbeStride = 32;
 constexpr size_t kWhichOffsetBytes = 24, kModeOffsetBytes = 28;
 constexpr auto kCaptureTimeout = std::chrono::seconds(30);
@@ -133,12 +138,37 @@ bool Matches(const Gpu::ComputeLayout &layout) {
   return true;
 }
 
+void Profile(Gpu::Device &device, Gpu::Completion completion) {
+  const auto result = device.GpuTimings(completion);
+  if (!result || result->Status != Gpu::CompletionStatus::Ready || result->Truncated ||
+      result->DispatchCount != kProfileDispatches ||
+      result->Dispatches.size() != kProfileDispatches) {
+    std::println("profile_available=0");
+    return;
+  }
+  double sumNs = 0;
+  for (const auto &sample : result->Dispatches) {
+    if (!sample.Available || sample.ValidBits == 0 || sample.ValidBits > 64 ||
+        !std::isfinite(sample.NanosecondsPerTick) || sample.NanosecondsPerTick <= 0) {
+      std::println("profile_available=0");
+      return;
+    }
+    const uint64_t mask = sample.ValidBits == 64 ? std::numeric_limits<uint64_t>::max()
+                                                 : (uint64_t{1} << sample.ValidBits) - 1;
+    sumNs += static_cast<double>((sample.End - sample.Begin) & mask) * sample.NanosecondsPerTick;
+  }
+  std::println("profile_available=1 profile_dispatches={} profile_sum_ms={:.9g}",
+               result->DispatchCount,
+               sumNs / kNanosecondsPerMillisecond);
+}
+
 bool Capture(Gpu::Device &device,
              const Gpu::ComputePipeline &pipeline,
              std::span<const std::byte> palette,
              std::span<const std::byte> probes,
              Parameters parameters,
-             const char *path) {
+             const char *path,
+             bool timed) {
   Buffers buffers;
   if (!Allocate(device, palette.size(), probes.size(), buffers)) { return false; }
   auto upload = device.MapWrite(buffers[Buffers::Upload],
@@ -177,10 +207,14 @@ bool Capture(Gpu::Device &device,
        .Value = Gpu::Uniform{std::as_bytes(std::span{&parameters, size_t{1}})}},
   }};
   (*commands)->BeginLabel("ground litter mask and composition");
-  const bool dispatched = Checked((*commands)->Dispatch(
-      pipeline,
-      bindings,
-      {.X = (parameters.Count + kThreadCount - 1) / kThreadCount, .Y = 1, .Z = 1}));
+  bool dispatched = true;
+  const uint32_t repeats = timed ? kProfileDispatches : 1;
+  for (uint32_t repeat = 0; repeat < repeats && dispatched; ++repeat) {
+    dispatched = Checked((*commands)->Dispatch(
+        pipeline,
+        bindings,
+        {.X = (parameters.Count + kThreadCount - 1) / kThreadCount, .Y = 1, .Z = 1}));
+  }
   (*commands)->EndLabel();
   if (!dispatched || !Checked((*commands)->Copy(
                          buffers[Buffers::Outputs],
@@ -192,6 +226,7 @@ bool Capture(Gpu::Device &device,
   if (!Checked(completion)) { return false; }
   auto waited = device.Wait(*completion, kCaptureTimeout);
   if (!Checked(waited) || *waited != Gpu::CompletionStatus::Ready) { return false; }
+  if (timed) { Profile(device, *completion); }
   auto download = device.MapRead(buffers[Buffers::Download], {.Offset = 0, .Bytes = probes.size()});
   if (!Checked(download)) { return false; }
   std::ofstream output(path, std::ios::binary);
@@ -199,11 +234,12 @@ bool Capture(Gpu::Device &device,
                static_cast<std::streamsize>(download->size()));
   output.close();
   const bool unmapped = Checked(device.Unmap(buffers[Buffers::Download]));
-  std::println("device={} probes={} buffer_bytes={} copy_bytes={} gpu_ms=unmeasured",
+  std::println("device={} probes={} buffer_bytes={} copy_bytes={} gpu_ms={}",
                device.Limits().Name,
                parameters.Count,
                2 * palette.size() + 4 * probes.size(),
-               palette.size() + 2 * probes.size());
+               palette.size() + 2 * probes.size(),
+               timed ? "see_profile" : "unmeasured");
   return unmapped && static_cast<bool>(output);
 }
 
@@ -217,7 +253,7 @@ bool FitsPalette(std::span<const std::byte> palette, uint32_t rows) {
                            8 * (uint64_t{rows} + 1) <= floatCount - layersAt);
 }
 
-bool Run(char **argv) {
+bool Run(char **argv, bool timed) {
   const auto code = Read(argv[1]);
   const auto palette = Read(argv[2]);
   const auto probes = Read(argv[3]);
@@ -236,7 +272,7 @@ bool Run(char **argv) {
   }
   std::vector<uint32_t> words(code.size() / sizeof(uint32_t));
   std::memcpy(words.data(), code.data(), code.size());
-  auto device = Gpu::CreateDevice({.Validation = true});
+  auto device = Gpu::CreateDevice({.Validation = true, .GpuTiming = timed});
   if (!Checked(device)) { return false; }
   auto pipeline =
       (*device)->CreateComputePipeline(words, {.Entry = "main", .Label = "ground litter probe"});
@@ -244,18 +280,19 @@ bool Run(char **argv) {
   const Parameters parameters{.Count = static_cast<uint32_t>(probes.size() / kProbeStride),
                               .Unmapped = unmapped,
                               .Padding = {0, 0}};
-  return Capture(**device, **pipeline, palette, probes, parameters, argv[4]);
+  return Capture(**device, **pipeline, palette, probes, parameters, argv[4], timed);
 }
 }
 
 int main(int argc, char **argv) {
-  if (argc != 6) {
-    std::fputs(
-        "usage: native_ground_litter shader.spv palette.f32 probes.bin result.f32 unmapped\n",
-        stderr);
+  const bool timed = argc == 7 && std::string_view(argv[6]) == "--gpu-timing";
+  if (argc != 6 && !timed) {
+    std::fputs("usage: native_ground_litter shader.spv palette.f32 probes.bin result.f32 unmapped "
+               "[--gpu-timing]\n",
+               stderr);
     return 2;
   }
-  const bool ready = Run(argv);
+  const bool ready = Run(argv, timed);
   if (!ready) { std::println(stderr, "native ground litter capture failed"); }
   return ready ? 0 : 1;
 }

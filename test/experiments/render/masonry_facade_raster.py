@@ -79,11 +79,10 @@ def compile_pair(output):
     }
 
 
-def native_view(raw, span, shift):
+def native_view(raw, span, shift, target_height_m=3.85):
     data, code = fixture(raw, span, shift)
     data = bytearray(data)
     metres = np.frombuffer(raw, dtype="<f4", offset=288).reshape(6, 2)
-    target_height_m = 3.85
     rise_m = target_height_m - metres[:, 1].mean(dtype=np.float64)
     view = np.frombuffer(data, dtype="<f4", count=56).copy()
     matrix = view[:16].reshape(4, 4).T.copy()
@@ -176,6 +175,46 @@ def chart(output, panels, device):
     plt.close(figure)
 
 
+def gables(binary, output, offsets):
+    records, panels, devices = [], [], set()
+    for anchor in (0, 500):
+        raw = (output / f"wall-gable-{anchor}.bin").read_bytes()
+        metres = np.frombuffer(raw, dtype="<f4", offset=288).reshape(6, 2)
+        height = metres[:, 1].mean(dtype=np.float64)
+        for perspective in (False, True):
+            for camera, shift in (("fixed", [0, 0, 0]), ("shift", [-17, -11, 8])):
+                data, _ = native_view(raw, 0.6, shift, height)
+                if perspective:
+                    data, _ = projective(data)
+                label = f"gable-a{anchor}-p{int(perspective)}-{camera}"
+                images = []
+                for mode in (1, 2):
+                    pixels, device = capture(
+                        binary,
+                        output,
+                        label + f"-m{mode}",
+                        material(data, offsets, mode),
+                    )
+                    devices.add(device)
+                    images.append(pixels)
+                delta = images[1][1, :, :, :3] - images[0][1, :, :, :3]
+                assert np.abs(delta).max() > 0.01, label
+                assert (images[0][2, :, :, 1] != np.float32(0.12)).all(), label
+                records.append(
+                    {
+                        "case": label,
+                        "max_rgb_change": float(np.abs(delta).max()),
+                        "mean_rgb_change": delta.mean(axis=(0, 1)).tolist(),
+                        "max_roughness_change": float(
+                            np.abs(images[1][2, :, :, 1] - images[0][2, :, :, 1]).max()
+                        ),
+                    }
+                )
+                if anchor == 0 and camera == "fixed":
+                    panels.append((label, *images))
+    return records, panels, devices
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-binary", type=Path, required=True)
@@ -235,6 +274,13 @@ def main():
                     )
                     if anchor == 0 and camera == "fixed":
                         panels.append((label, *images))
+    if (output / "wall-gable-0.bin").exists():
+        extra_records, extra_panels, extra_devices = gables(
+            args.binary.resolve(), output, offsets
+        )
+        records.extend(extra_records)
+        panels.extend(extra_panels)
+        devices.update(extra_devices)
     data, code = native_view((output / "wall-0.bin").read_bytes(), 4.0, [0, 0, 0])
     count = len(native_profiles())
     style, field = int(code) % count, (int(code) // count) % 3
