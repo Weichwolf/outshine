@@ -152,7 +152,7 @@ def compose(name, sources, products, output):
         "engine": scene.render.engine,
         "input_sha256": {str(p.resolve()): digest(p) for p in paths},
         "implementation_sha256": {str(p.relative_to(ROOT)): digest(p) for p in code},
-        "limits": "Current Python vegetation with initial actual geospatial context. Buildings context and final transport reservations missing; incomplete far vegetation/species/terrain materials. No native world, botanical, LOD, frame or device admission.",
+        "limits": "Vegetation-only Place research; source terrain and water supply ground contact and orientation. Buildings and transport are deliberately not rendered. Source blockers remain; final predecessor reservations, far vegetation/species and terrain materials remain incomplete. No native world, botanical, LOD, frame or device admission.",
     }
     report["setup_s"] = time.perf_counter() - start
     return scene, report

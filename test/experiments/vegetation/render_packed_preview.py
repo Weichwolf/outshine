@@ -1,4 +1,4 @@
-"""Bounded optical diagnosis of a complete packed Blender Place scene."""
+"""Render a complete packed Place for diagnosis or a current research snapshot."""
 
 import argparse
 import hashlib
@@ -15,10 +15,13 @@ def render(scene_path, receipt_path, profile_path, output):
     start = time.perf_counter()
     receipt = json.loads(receipt_path.read_text())
     profile = json.loads(profile_path.read_text())
-    if profile["purpose"] != "private-optical-diagnostic":
-        raise ValueError("this entry point does not admit a presentation/cost gate")
+    purpose = profile["purpose"]
+    if purpose not in ("private-optical-diagnostic", "current-vegetation-research"):
+        raise ValueError("explicit diagnosis or research snapshot profile required")
     encoded = scene_path.read_bytes()
     scene_sha = hashlib.sha256(encoded).hexdigest()
+    if scene_sha != receipt["scene_sha256"]:
+        raise ValueError("packed scene differs from its source receipt")
     bpy.ops.wm.open_mainfile(filepath=str(scene_path.resolve()))
     scene = bpy.context.scene
     resolution = (scene.render.resolution_x, scene.render.resolution_y)
@@ -54,7 +57,8 @@ def render(scene_path, receipt_path, profile_path, output):
     bpy.ops.render.render(write_still=True)
     image_path = Path(scene.render.filepath)
     result = {
-        "commit": subprocess.check_output(
+        **receipt,
+        "renderer_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "scene_sha256": scene_sha,
@@ -71,9 +75,12 @@ def render(scene_path, receipt_path, profile_path, output):
         "render_s": time.perf_counter() - began,
         "elapsed_s": time.perf_counter() - start,
         "image_sha256": hashlib.sha256(image_path.read_bytes()).hexdigest(),
-        "scope": "Private optical diagnostic only. Same complete packed scene and camera; lower sample count. No original64-sample cost pass, public Place image or quality acceptance.",
+        "render_completed": True,
+        "profile_purpose": purpose,
+        "scope": "Current Python vegetation research snapshot; same packed geometry and actual Place camera. Explicit sample profile, no original64-sample cost pass or botanical, native, LOD, frame or device acceptance.",
     }
-    (output / f"{receipt['place']}-diagnostic.json").write_text(
+    suffix = "-diagnostic" if purpose == "private-optical-diagnostic" else ""
+    (output / f"{receipt['place']}{suffix}.json").write_text(
         json.dumps(result, indent=2) + "\n"
     )
     print(json.dumps(result), flush=True)

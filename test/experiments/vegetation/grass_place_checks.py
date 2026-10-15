@@ -42,7 +42,7 @@ class GrassPlaceChecks(unittest.TestCase):
         self.assertTrue(grass.any() and (~grass).any())
         self.assertTrue((a["kind"][grass] == 2).all())
         self.assertTrue((a["kind"][~grass] == 1).all())
-        self.assertEqual(report["plan_format"], "source-site-plan-2")
+        self.assertEqual(report["plan_format"], "source-site-plan-3")
         self.assertEqual(len(np.unique(a["ids"], axis=0)), len(a["ids"]))
         self.assertEqual(report["sources"][1]["properties"]["class"], "grass")
 

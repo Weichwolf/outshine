@@ -5,6 +5,7 @@ import json
 import numpy as np
 import shapely
 from outshine_ref.places import axes, decode_vector, tile_geography
+from place_candidates import candidates
 
 
 def polygons(camera, receipt):
@@ -70,11 +71,8 @@ def sites(camera, receipts, ground, *, max_sites=250000):
                 }.get(row["properties"].get("class"), 5)
                 blockers.append(row["geometry"].buffer(width / 2 + 1))
         tile = tuple(receipt["tile"])
-        rng = np.random.default_rng(np.random.SeedSequence((17, *tile)))
-        x, y = np.meshgrid(np.arange(128), np.arange(128))
-        cell_ids = np.column_stack((x.ravel(), y.ravel()))
-        pixels = (cell_ids + 0.5 + rng.uniform(-0.38, 0.38, (len(cell_ids), 2))) * 32
-        lat, lon = tile_geography(pixels, 4096, tile)
+        candidate = candidates(camera, tile)
+        lat, lon = candidate["latitude"], candidate["longitude"]
         xy = camera.local(lat, lon, 0)[:, :2]
         points = shapely.points(xy)
         in_wood = shapely.contains(
@@ -83,7 +81,9 @@ def sites(camera, receipts, ground, *, max_sites=250000):
         in_grass = shapely.contains(
             shapely.union_all([r["geometry"] for r in grass]), points
         )
-        selected = in_wood | (in_grass & (rng.random(len(points)) < 0.035))
+        selected = (in_wood & candidate["tree"]) | (
+            in_grass & ~in_wood & candidate["grass"]
+        )
         if blockers:
             selected &= ~shapely.intersects(shapely.union_all(blockers), points)
         # Source tile IDs and site ordering are independent of the current camera view.
@@ -116,7 +116,7 @@ def sites(camera, receipts, ground, *, max_sites=250000):
                 for a, b in zip(lat[indices], lon[indices], strict=True)
             ]
         )
-        angles = rng.uniform(0, 2 * np.pi, len(points))[indices]
+        angles = candidate["angle"][indices]
         c, s = np.cos(angles), np.sin(angles)
         rotations = np.zeros((len(indices), 3, 3))
         rotations[:, 0, 0] = rotations[:, 1, 1] = c
@@ -129,13 +129,10 @@ def sites(camera, receipts, ground, *, max_sites=250000):
             {
                 "positions": contacts.points_enu_m,
                 "frames": frames,
-                "scales": rng.uniform(0.8, 1.6, len(points))[indices]
-                * np.where(tree_kind, 0.6, 1),
+                "scales": candidate["scale"][indices] * np.where(tree_kind, 0.6, 1),
                 "kind": kind,
                 "source": membership,
-                "ids": np.column_stack(
-                    (np.full((len(indices), 3), tile), cell_ids[indices])
-                ),
+                "ids": candidate["ids"][indices],
             }
         )
     shapes = {
@@ -151,7 +148,12 @@ def sites(camera, receipts, ground, *, max_sites=250000):
         for k, shape in shapes.items()
     }
     return result, {
-        "plan_format": "source-site-plan-2",
+        "plan_format": "source-site-plan-3",
+        "density": {
+            "tree_grid_side": 192,
+            "near_grass_radius_m": 40,
+            "fine_grass_grid_side": 4096,
+        },
         "kind_semantics": {
             "0": "broadleaf form proxy",
             "1": "conifer form proxy",
@@ -160,5 +162,5 @@ def sites(camera, receipts, ground, *, max_sites=250000):
         "sources": sources,
         "rejected": rejected,
         "sites": len(result["positions"]),
-        "limits": "Initial jittered source-tile cells; wood uses existing tree form proxies, grass uses graminoid tufts. Not botanical species inference or complete meadow/understorey stocking. Density is an explicit research recipe, not measured forest stocking. Water/buildings/nominal transport buffers excluded; final predecessor reservation products remain to be bound. Distant stand aggregation and near transition unapproved.",
+        "limits": "Authored jittered source-tile stocking, with independently world-anchored near grass demand. Fine cells outside the 40m camera-position window remain implicit, not deleted from the world. Camera rotation preserves this output; movement changes fine demand while shared identities and forms remain stable. Not botanical species inference or measured stocking. Water/buildings/nominal transport buffers excluded; final predecessor reservations, distant grass aggregation and near transition remain unapproved.",
     }
