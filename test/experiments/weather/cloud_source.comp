@@ -1,0 +1,59 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "render/shaders/cloudRadiance.glsl"
+#include "render/shaders/environmentSampling.glsl"
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { vec4 values[]; } result;
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  CloudLayer layer;
+  vec4 origin;
+  vec4 forward;
+  vec4 right;
+  vec4 up;
+  vec4 extent;
+} pushed;
+
+vec3 horizonDirection(vec2 uv) {
+  float heightM = max(0.0, cloudAltitude(pushed.origin.xyz, pushed.layer.shell.x));
+  float radiusM = pushed.layer.shell.x + heightM;
+  float horizon = acos(-sqrt(heightM * (2.0 * pushed.layer.shell.x + heightM)) / radiusM);
+  float fromHorizon = uv.y * 2.0 - 1.0;
+  float zenith = fromHorizon < 0.0
+      ? horizon * (1.0 - fromHorizon * fromHorizon)
+      : horizon + (acos(-1.0) - horizon) * fromHorizon * fromHorizon;
+  float azimuth = uv.x * 2.0 * acos(-1.0);
+  return vec3(cos(azimuth) * sin(zenith), sin(azimuth) * sin(zenith), cos(zenith));
+}
+
+vec3 probeDirection(uvec2 at, uvec2 extent) {
+#ifdef CLOUD_SOURCE_FILTER_PROBE
+  uint normalIndex = at.y / 4;
+  uint caseIndex = at.y % 4;
+  vec2 normalUv = (vec2(normalIndex % 4, normalIndex / 4) + 0.5) / 4.0;
+  vec3 n = octDirection(normalUv);
+  vec2 xi = vec2((float(at.x) + 0.5) / float(extent.x),
+                  float(bitfieldReverse(at.x)) * 2.3283064365386963e-10);
+  if (caseIndex == 3) { return environmentCosineDirection(xi, n); }
+  float roughness = caseIndex == 0 ? 0.2 : caseIndex == 1 ? 0.6 : 1.0;
+  return reflect(-n, environmentHalfVector(xi, roughness, n));
+#else
+  vec2 uv = (vec2(at) + 0.5 - 1.0) / vec2(extent - 2);
+#ifdef CLOUD_SOURCE_HORIZON
+  return horizonDirection(uv);
+#else
+  return octDirection(uv);
+#endif
+#endif
+}
+
+void main() {
+  uvec2 at = gl_GlobalInvocationID.xy;
+  uvec2 extent = uvec2(pushed.extent.xy);
+  if (any(greaterThanEqual(at, extent))) { return; }
+  vec3 direction = probeDirection(at, extent).xzy;
+  CloudLight light = CloudLight(normalize(vec3(-0.6, 0.8, 0.0)),
+                                 vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
+  result.values[at.y * extent.x + at.x] =
+      cloudRadiance(pushed.layer, pushed.origin.xyz, direction, 1.0e8, light);
+}

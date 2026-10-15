@@ -33,12 +33,19 @@ def oct_coordinates(direction):
 
 
 def bilinear(table, direction, side):
-    coordinate = oct_coordinates(direction) * side + 0.5
+    return bilinear_uv(table, oct_coordinates(direction), side)
+
+
+def bilinear_uv(table, uv, extent):
+    coordinate = uv * np.asarray(extent) + 0.5
     lower = np.floor(coordinate).astype(int)
     weight = coordinate - lower
     x, y = lower[..., 0], lower[..., 1]
-    return ((1.0-weight[..., 1]) * ((1.0-weight[..., 0])*table[y, x] + weight[..., 0]*table[y, x+1])
-            + weight[..., 1]*((1.0-weight[..., 0])*table[y+1, x] + weight[..., 0]*table[y+1, x+1]))
+    wx, wy = weight[..., 0], weight[..., 1]
+    if table.ndim == 3:
+        wx, wy = wx[..., None], wy[..., None]
+    return ((1.0-wy) * ((1.0-wx)*table[y, x] + wx*table[y, x+1])
+            + wy*((1.0-wx)*table[y+1, x] + wx*table[y+1, x+1]))
 
 
 def convolution_rays(normal, roughness, diffuse):

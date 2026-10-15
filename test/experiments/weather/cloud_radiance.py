@@ -48,16 +48,21 @@ def radiance(origin, direction, layer, maximum_m=np.inf, seconds=0.0, view_sampl
     return np.concatenate([value, through[..., None]], axis=-1)
 
 
-def picture(width, height, layer, view_samples=16, light_samples=6, warp=1):
-    origin = np.array([0.0, 1772.0, 0.0])
-    directions = view_rays(width, height, 240.0, -0.5, 33.97)
+def background(origin, directions, layer):
     blend = np.clip(directions[..., 1], 0.0, 1.0)
     sky = (1.0-blend[..., None])*np.array([0.55, 0.67, 0.80]) + blend[..., None]*np.array([0.18, 0.40, 0.85])
     sky += (np.sum(directions*SUN, axis=-1) > np.cos(0.0046542))[..., None]*np.array([5000.0, 4800.0, 4400.0])
     ground_near, _, ground_hit = sphere_roots(origin, directions, 0.0, layer.radius_m)
     ground = ground_hit & (ground_near > 0.0)
     sky = np.where(ground[..., None], np.array([0.04, 0.06, 0.025]), sky)
-    cloud = radiance(origin, directions, layer, np.where(ground, ground_near, np.inf),
+    return sky, np.where(ground, ground_near, np.inf)
+
+
+def picture(width, height, layer, view_samples=16, light_samples=6, warp=1):
+    origin = np.array([0.0, 1772.0, 0.0])
+    directions = view_rays(width, height, 240.0, -0.5, 33.97)
+    sky, maximum = background(origin, directions, layer)
+    cloud = radiance(origin, directions, layer, maximum,
                      view_samples=view_samples, light_samples=light_samples, warp=warp)
     return np.concatenate([cloud[..., :3]+cloud[..., 3:4]*sky, cloud[..., 3:4]], axis=-1)
 

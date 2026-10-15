@@ -78,13 +78,13 @@ räumliche Lichtwirkung; die volle dortige Beleuchtungsmethode ist nicht umgeset
 
 ```sh
 "$GLSLANG" -V --target-env vulkan1.0 -Isrc \
-  -DCLOUD_VIEW_SAMPLES=512 -DCLOUD_LIGHT_SAMPLES=32 \
+  -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 \
   test/experiments/weather/cloud_picture.comp -o "$cloud_out/cloud_picture.comp.spv"
 flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
   "$cloud_out/cloud_picture.comp.spv" "$cloud_out/rgb.f32" 1280 720 0.65 4
 python3 -W error test/experiments/weather/cloud_radiance.py --output "$cloud_out/rgb" \
   --input "$cloud_out/rgb.f32" --width 1280 --height 720 --cover 0.65 \
-  --view-samples 512 --light-samples 32
+  --view-samples 1024 --light-samples 64
 flock -n /var/tmp/outshine-heavy.lock python3 -W error \
   test/experiments/weather/cloud_environment.py --output "$cloud_out/environment"
 ```
@@ -97,6 +97,46 @@ gleicher Schrittzahl. Keine dieser Varianten ist bereits als Bildpfad abgenommen
 `cloud_environment.py` vergleicht vorbereitete Octaeder-Quellen mit identischen
 GGX-/Kosinusproben ausschließlich für Transmittanz; RGB, Bodenfüllung,
 GPU-Kosten und native Source-Textur bleiben getrennte offene Nachweise.
+
+`cloud_source.comp` wertet denselben RGB/T-Kern in einer vorbereiteten Quelle oder
+auf den tatsächlichen 128 GGX-/Kosinusstrahlen der 64 Filterfälle aus.
+`cloud_source_comparison.py` vergleicht FP32/FP16, Winkelinterpolation, gefaltetes
+RGB/T und periodische Ränder. Der direkte Source gilt nur für freie Sky-Pixel;
+die Kugelgeometrie bleibt tiefenbegrenzt. Die Kameraabweichung wird ausschließlich
+über Sky-Pixel ausgewertet. Die Planetenkante trennt die Interpolationsbereiche.
+
+Der Octaeder erhält einen Vergleich mit voller Azimutauflösung und quadratischer
+Zenitabbildung um den physischen Planetenhorizont. Grundlage: Hillaire,
+*A Scalable and Production Ready Sky and Atmosphere Rendering Technique*,
+EGSR 2020, §5.3/Abb.5, lokale PDF-Seiten 4/5 optisch geöffnet:
+`doc/references/atmosphere/egsr/2020-production-ready-atmosphere.pdf`.
+Die Wolkenquelle verwendet keinen Sonnen-Symmetriefold; beide Azimutrichtungen
+bleiben eigenständig. Kleiner gefalteter Fehler beweist keine ausreichende
+direkte Ansicht. Eine höhere Quellauflösung ist ebenfalls kein Konvergenzbeweis.
+
+```sh
+"$GLSLANG" -V --target-env vulkan1.0 -Isrc \
+  -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 \
+  test/experiments/weather/cloud_source.comp -o "$cloud_out/source.spv"
+"$GLSLANG" -V --target-env vulkan1.0 -Isrc \
+  -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 -DCLOUD_SOURCE_FILTER_PROBE=1 \
+  test/experiments/weather/cloud_source.comp -o "$cloud_out/filter.spv"
+"$GLSLANG" -V --target-env vulkan1.0 -Isrc \
+  -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 -DCLOUD_SOURCE_HORIZON=1 \
+  test/experiments/weather/cloud_source.comp -o "$cloud_out/horizon.spv"
+flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+  "$cloud_out/source.spv" "$cloud_out/source-clear.f32" 4 4 0 4
+flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+  "$cloud_out/filter.spv" "$cloud_out/filter-reference.f32" 128 64 0.65 4
+flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+  "$cloud_out/source.spv" "$cloud_out/source-256.f32" 258 258 0.65 4
+flock -n /var/tmp/outshine-heavy.lock "$cloud_out/cloud_probe" \
+  "$cloud_out/horizon.spv" "$cloud_out/horizon-256x256.f32" 258 258 0.65 4
+flock -n /var/tmp/outshine-heavy.lock python3 -W error \
+  test/experiments/weather/cloud_source_comparison.py --output "$cloud_out/source-report" \
+  --input "$cloud_out" --camera-reference "$cloud_out/rgb.f32" \
+  --sides 256 --horizon-sizes 256x256
+```
 
 ## Grenzen der Lieferung
 
