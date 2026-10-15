@@ -44,6 +44,10 @@ zwei getrennten Tiefen außerdem keinen exakten Bewegungsmittelwert. Deshalb
 belegen diese CPU-Prüfungen weder eine TAA-/Ghostingabnahme noch Placebilder oder
 Framebudgets. Renderanbindung folgt dem gemeinsamen Metal-/Vulkan-Vertrag #48.
 
+Der [native GPU-Momentverbrauch](cloud_moments_native.md) ergänzt dieselben rohen
+Momente mit unabhängigen Decimal-Kontrollen und tatsächlichem Scene/Depth-Raster.
+Er wählt weder Produktionspacking noch eine allgemeine Wolken-History.
+
 Verfahrensgrundlage: Schneider/Vos, *The Real-time Volumetric Cloudscapes of
 Horizon Zero Dawn*, SIGGRAPH 2015, PDF-Seiten31/33,54/56,76,84/86 optisch geprüft:
 `doc/references/clouds/siggraph/2015-horizon-volumetric-cloudscapes.pdf`.

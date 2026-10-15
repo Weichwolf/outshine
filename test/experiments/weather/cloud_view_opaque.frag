@@ -19,6 +19,9 @@
 #ifndef CLOUD_VIEW_CLEAR_OPAQUE_CONTROL
 #define CLOUD_VIEW_CLEAR_OPAQUE_CONTROL 0
 #endif
+#ifndef CLOUD_VIEW_MOMENT_REPLAY
+#define CLOUD_VIEW_MOMENT_REPLAY 0
+#endif
 
 layout(location = 0) out vec4 colour;
 layout(location = 1) out vec4 radianceDepth;
@@ -87,12 +90,23 @@ void main() {
                                                   light,
                                                   clear,
                                                   span.BeginKm * 1000.0);
+#if CLOUD_AIR_MOMENTS && CLOUD_VIEW_MOMENT_REPLAY
+      cloudAirPrefixAdvance(prefix, view.Air.DistanceKm * 500.0, frame.View.Air, veil, multiScatter);
+      cloudAirPrefixAdvance(prefix, view.Air.DistanceKm * 500.0, frame.View.Air, veil, multiScatter);
+#endif
       result = cloudAirPrefixAdvance(
           prefix, view.Air.DistanceKm * 1000.0, frame.View.Air, veil, multiScatter);
+#if CLOUD_AIR_MOMENTS && CLOUD_VIEW_MOMENT_REPLAY
+      result = cloudAirPrefixAdvance(
+          prefix, view.Air.DistanceKm * 1000.0, frame.View.Air, veil, multiScatter);
+#endif
       work = vec4(prefix.Cloud.DensityEvaluations,
                   prefix.Cloud.SourceEvaluations,
                   prefix.CellsVisited,
                   prefix.Clear.SourceEvaluations);
+#if CLOUD_AIR_MOMENTS
+      work = vec4(prefix.QueryMoments, prefix.Cloud.DensityEvaluations, prefix.CellsVisited);
+#endif
     }
   }
   vec3 combined = lit.rgb * result.Transmittance + frame.View.Illuminance * result.RadiancePerLux;
