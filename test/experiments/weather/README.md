@@ -96,6 +96,43 @@ ihre weiter benötigten Referenzinputs bleiben bei den verlinkten Prüfbelegen.
 
 ## RGB- und Faltungsdiagnose
 
+### Pixelfläche und Horizont
+
+[#264](https://github.com/Weichwolf/outshine/issues/264) trennt Strahlintegration,
+Pixelabtastung, Lichtquelle und Planetenkante. `cloud_footprint.py` berechnet eine
+unabhängige Float64-Kohorte von 64 tatsächlichen Pixeln der 1280×720-Ansicht.
+Gemittelt werden zusammengesetztes lineares RGB und Wolken-T je Teilstrahl; die
+Planetenkante bleibt mit ihrem Hintergrund gekoppelt. Boxraster und zentrierte
+Hammersley-Proben sind ausdrücklich endliche Quadraturen, keine allgemeine
+Konvergenz- oder TAA-Abnahme. Die unveränderte Standardprobe verwendet einen Strahl.
+
+```sh
+python3 -W error test/experiments/weather/cloud_footprint_native.py \
+  --output "$cloud_out/footprint-controls" --sides 1 2 4 \
+  --view-samples 256 --light-samples 16
+nice -n 10 python3 -W error test/experiments/weather/cloud_footprint.py \
+  --output "$cloud_out/footprint-python" --sides 1 2 4 \
+  --native-samples-dir "$cloud_out/footprint-controls"
+python3 -W error test/experiments/weather/cloud_footprint_native.py \
+  --output "$cloud_out/footprint-fine" --sides 16 32 64
+python3 -W error test/experiments/weather/cloud_footprint_native.py \
+  --output "$cloud_out/footprint-image" --mode image --sides 8 \
+  --view-samples 512 --light-samples 32 --independent-rays
+```
+
+Die native Referenz verteilt Teilstrahlen auf unabhängige Invocations. Große
+serielle Referenzschleifen sind nach einem tatsächlich beobachteten DeviceLost
+gesperrt. Bilder entstehen aus 160×90 logischen Pixeln je Kachel mit unveränderter
+Gesamtprojektion; unabhängige Teilstrahlen werden offline in Float64 gemittelt.
+Kleine Kandidaten können stattdessen direkt im Shader mitteln. Temporäre Strahl-
+ausgaben werden nach der Auflösung entfernt; fertiges Bild, Hashes, Befehle und
+terminale Status bleiben erhalten. Der Renderer verwendet diese Referenz nicht.
+
+SIGGRAPH-Grundlage: Horizon2015, PDF-Seiten83/94. Ergänzend Yang/Liu/Salvi,
+*A Survey of Temporal Antialiasing Techniques*, CGF2020, Abb.2/3 und §3/3.1,
+lokale PDF-Seiten2/3 optisch geprüft. Räumliche Integration ersetzt keine gültige
+Wolkenbewegung/History; deren endliche Extinktionstiefe bleibt bei #239.
+
 `cloudRadiance.glsl` und `cloud_radiance.py` ergänzen einen untersuchten RGB-Pfad.
 Die Quelle verwendet normalisierte Henyey-Greenstein-Einfachstreuung mit g=0,65,
 Sonnen-Transmittanz derselben Dichte und einen ausdrücklich heuristischen

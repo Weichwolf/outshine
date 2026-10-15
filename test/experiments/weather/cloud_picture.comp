@@ -3,7 +3,13 @@
 #include "render/shaders/cloudRadiance.glsl"
 
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-layout(std430, set = 1, binding = 0) writeonly buffer Results { vec4 values[]; } result;
+
+layout(std430, set = 1, binding = 0) writeonly buffer Results {
+  vec4 values[];
+}
+
+result;
+
 layout(std140, set = 2, binding = 0) uniform Pushed {
   CloudLayer layer;
   vec4 origin;
@@ -11,15 +17,32 @@ layout(std140, set = 2, binding = 0) uniform Pushed {
   vec4 right;
   vec4 up;
   vec4 extent;
-} pushed;
+}
 
-void main() {
-  uvec2 at = gl_GlobalInvocationID.xy;
-  uvec2 extent = uvec2(pushed.extent.xy);
-  if (any(greaterThanEqual(at, extent))) { return; }
-  vec2 ndc = (vec2(at) + 0.5) / vec2(extent) * 2.0 - 1.0;
-  vec3 direction = normalize(pushed.forward.xyz + ndc.x * pushed.extent.z * pushed.right.xyz
-                             - ndc.y * pushed.extent.w * pushed.up.xyz);
+pushed;
+
+#ifndef CLOUD_PIXEL_SIDE
+#define CLOUD_PIXEL_SIDE 1
+#endif
+#if CLOUD_PIXEL_SIDE < 1 || CLOUD_PIXEL_SIDE > 64 ||                                               \
+    (CLOUD_PIXEL_SIDE & (CLOUD_PIXEL_SIDE - 1)) != 0
+#error CLOUD_PIXEL_SIDE must be a power of two in [1,64]
+#endif
+#if CLOUD_PIXEL_SIDE > 8 && !defined(CLOUD_FOOTPRINT_SAMPLES)
+#error large reference grids require independent sample invocations
+#endif
+#if defined(CLOUD_FOOTPRINT_SAMPLES) && !defined(CLOUD_FOOTPRINT_COHORT) &&                        \
+    !defined(CLOUD_FOOTPRINT_IMAGE)
+#error independent sample output requires a footprint cohort or image
+#endif
+#if defined(CLOUD_FOOTPRINT_COHORT) && defined(CLOUD_FOOTPRINT_IMAGE)
+#error choose one footprint output domain
+#endif
+
+vec4 pictureAt(vec2 at, vec2 extent, vec2 halfExtent) {
+  vec2 ndc = at / extent * 2.0 - 1.0;
+  vec3 direction = normalize(pushed.forward.xyz + ndc.x * halfExtent.x * pushed.right.xyz -
+                             ndc.y * halfExtent.y * pushed.up.xyz);
   vec3 toSun = normalize(vec3(-0.6, 0.8, 0.0));
   CloudLight light = CloudLight(toSun, vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
   vec3 sky = mix(vec3(0.55, 0.67, 0.80), vec3(0.18, 0.40, 0.85), clamp(direction.y, 0.0, 1.0));
@@ -28,5 +51,59 @@ void main() {
   float maximumM = ground.z > 0.0 && ground.x > 0.0 ? ground.x : 1.0e8;
   if (maximumM < 1.0e8) { sky = vec3(0.04, 0.06, 0.025); }
   vec4 cloud = cloudRadiance(pushed.layer, pushed.origin.xyz, direction, maximumM, light);
-  result.values[at.y * extent.x + at.x] = vec4(cloud.rgb + cloud.a * sky, cloud.a);
+  return vec4(cloud.rgb + cloud.a * sky, cloud.a);
+}
+
+vec2 pixelOffset(int x, int y) {
+#ifdef CLOUD_PIXEL_HAMMERSLEY
+  uint index = uint(y * CLOUD_PIXEL_SIDE + x);
+  float count = float(CLOUD_PIXEL_SIDE * CLOUD_PIXEL_SIDE);
+  return vec2((float(index) + 0.5) / count,
+              float(bitfieldReverse(index)) * 2.3283064365386963e-10 + 0.5 / count);
+#else
+  return (vec2(x, y) + 0.5) / float(CLOUD_PIXEL_SIDE);
+#endif
+}
+
+void main() {
+  uvec2 at = gl_GlobalInvocationID.xy;
+  uvec2 extent = uvec2(pushed.extent.xy);
+  if (any(greaterThanEqual(at, extent))) { return; }
+  vec2 pixel = vec2(at);
+  vec2 pictureExtent = vec2(extent);
+  vec2 halfExtent = pushed.extent.zw;
+#ifdef CLOUD_FOOTPRINT_IMAGE
+#ifdef CLOUD_FOOTPRINT_SAMPLES
+  pixel = vec2(at / uint(CLOUD_PIXEL_SIDE));
+#endif
+  pixel += vec2(CLOUD_TILE_X, CLOUD_TILE_Y);
+  pictureExtent = vec2(1280.0, 720.0);
+#endif
+#ifdef CLOUD_FOOTPRINT_COHORT
+  uvec2 cohortAt = at;
+#ifdef CLOUD_FOOTPRINT_SAMPLES
+  cohortAt /= uint(CLOUD_PIXEL_SIDE);
+#endif
+  if (any(greaterThanEqual(cohortAt, uvec2(8)))) {
+    result.values[at.y * extent.x + at.x] = vec4(0.0);
+    return;
+  }
+  const float rows[8] = float[8](232.0, 256.0, 280.0, 304.0, 328.0, 352.0, 368.0, 378.0);
+  pixel = vec2(80.0 + 160.0 * float(cohortAt.x), rows[cohortAt.y]);
+  pictureExtent = vec2(1280.0, 720.0);
+  halfExtent.x = halfExtent.y * pictureExtent.x / pictureExtent.y;
+#endif
+#ifdef CLOUD_FOOTPRINT_SAMPLES
+  uvec2 sampleAt = at % uint(CLOUD_PIXEL_SIDE);
+  result.values[at.y * extent.x + at.x] =
+      pictureAt(pixel + pixelOffset(int(sampleAt.x), int(sampleAt.y)), pictureExtent, halfExtent);
+#else
+  vec4 sum = vec4(0.0);
+  for (int y = 0; y < CLOUD_PIXEL_SIDE; ++y) {
+    for (int x = 0; x < CLOUD_PIXEL_SIDE; ++x) {
+      sum += pictureAt(pixel + pixelOffset(x, y), pictureExtent, halfExtent);
+    }
+  }
+  result.values[at.y * extent.x + at.x] = sum / float(CLOUD_PIXEL_SIDE * CLOUD_PIXEL_SIDE);
+#endif
 }
