@@ -12,6 +12,10 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <expected>
+#include <span>
+#include <cstdint>
+#include <string_view>
 
 namespace {
 using namespace outshine;

@@ -615,6 +615,11 @@ struct Engine::State {
   [[nodiscard]] bool PrepareRuntimeWorld();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool PollWeather();
+
+  [[nodiscard]] bool WeatherRunning() const noexcept {
+    return World.Weather && World.Weather->Running();
+  }
+
   [[nodiscard]] std::string_view WeatherBlocker() const noexcept;
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);

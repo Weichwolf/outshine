@@ -632,6 +632,7 @@ PrepareWorldTime(const Scenario::Clock &clock, Core::Declaration &declared, std:
       return std::unexpected(error);
     }
     if (scenario.Ground.Declared && !anglePut) {
+      if (!declared.UtcS) { return std::unexpected("world UTC was not resolved"); }
       const Solar sun = SolarAt({.LongitudeDeg = scenario.Ground.Origin.LongitudeDeg,
                                  .LatitudeDeg = scenario.Ground.Origin.LatitudeDeg},
                                 static_cast<double>(*declared.UtcS));

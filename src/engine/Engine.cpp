@@ -700,7 +700,7 @@ Result Engine::State::PreloadTimeout(double bound, GroundQuality quality) {
 }
 
 bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
-  if (World.Weather && World.Weather->Running()) { return World.Weather->AwaitProgress(seconds); }
+  if (WeatherRunning()) { return World.Weather->AwaitProgress(seconds); }
   if (World.OsmSource && World.OsmSource->PendingCount() > 0) {
     return World.OsmSource->AwaitSlice(seconds);
   }
@@ -764,9 +764,8 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
     if (signalled || remaining() <= 0.0) { return; }
   }
   const bool sourceWorker = World.OsmSource && World.OsmSource->PendingCount() > 0;
-  const bool worldWorker = (World.Weather && World.Weather->Running()) ||
-                           GroundDeformationPending() || World.RoadAlignmentBuilds.Busy() ||
-                           sourceWorker ||
+  const bool worldWorker = WeatherRunning() || GroundDeformationPending() ||
+                           World.RoadAlignmentBuilds.Busy() || sourceWorker ||
                            (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
   if (worldWorker && World.Pool) {
     const auto began = std::chrono::steady_clock::now();

@@ -78,7 +78,7 @@ public:
                           double patienceS = 0.0,
                           const Data::ProviderRegistry *registry = nullptr);
   [[nodiscard]] bool Open(const World::StoragePaths &under,
-                          std::shared_ptr<Data::SourceSession> sources,
+                          std::shared_ptr<Data::SourceSession> session,
                           LongitudeLatitude focus,
                           Data::Transport &wire,
                           Tasks &compute,

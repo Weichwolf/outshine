@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstddef>
+#include <expected>
 #include <memory>
 #include <string>
 #include <string_view>

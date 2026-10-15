@@ -98,8 +98,14 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
                               LogSink *diagnostics,
                               double patienceS,
                               const Data::ProviderRegistry *registry) {
-  if (!GroundPoolConfig(focus, {.PatienceS = patienceS})) {
-    say.Refuse("surface preparation requires a valid geographic focus and patience");
+  const auto position = Generators::Osm::OsmField::Locate(focus, kFineZoom);
+  if (!position) {
+    say.Refuse(std::string(position.error()));
+    return false;
+  }
+  const auto config = GroundPoolConfig(focus, {.PatienceS = patienceS});
+  if (!config) {
+    say.Refuse(std::string(config.error()));
     return false;
   }
   Data::ProviderRegistry defaults;

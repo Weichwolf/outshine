@@ -44,13 +44,20 @@ int main() {
     Engine engine;
     CHECK(engine.registerProvider(provider).has_value(),
           "the normal public provider API registers");
-    CHECK(engine.setRoots({.Cache = directory, .Offline = true}).has_value(),
+    CHECK(engine
+              .setRoots({.Assets = {},
+                         .Shipped = {},
+                         .Cache = directory,
+                         .Offline = true,
+                         .AssetCache = {}})
+              .has_value(),
           "the engine uses the prepared source cache and disallows network acquisition");
     Scenario::Document scenario;
     scenario.Providers.push_back(capture->Declaration);
     scenario.Time = {.Declared = true, .Start = "2026-10-15T00:00:00Z"};
     scenario.Lit.Declared = true;
-    scenario.Lit.Key.ElevationDeg = 23.0;
+    constexpr double kManualSunElevationDeg = 23.0;
+    scenario.Lit.Key.ElevationDeg = kManualSunElevationDeg;
     CHECK(engine.declare(scenario).has_value(), "manual light and headless weather retain UTC");
     CHECK(!engine.weather(), "an unassembled declaration cannot expose the previous weather");
     CHECK(engine.assemble().has_value(), "no renderer or terrain is required to prepare weather");
