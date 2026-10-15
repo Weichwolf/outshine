@@ -14,7 +14,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -28,7 +27,7 @@ def run(command, log=None):
     return result.stdout
 
 
-def native_api(output, glslang, toolchain, cross_flags):
+def native_api(output, glslang, toolchain, link_flags):
     shaders = []
     inputs = [ROOT / "src/render/shaders" / name
               for name in ("subjectScanKernel.comp", "subjectCompactKernel.comp")]
@@ -49,10 +48,7 @@ def native_api(output, glslang, toolchain, cross_flags):
              "-I" + str(ROOT / "src/render/device/native"),
              "-I" + str(ROOT / "test/harness/shared"),
              str(ROOT / "test/harness/render" / source),
-             str(ROOT / "build/liboutshine.a"), *cross_flags,
-             "-lspirv-cross-msl", "-lspirv-cross-hlsl", "-lspirv-cross-glsl",
-             "-lspirv-cross-reflect", "-lspirv-cross-cpp", "-lspirv-cross-core",
-             "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
+             str(ROOT / "build/liboutshine.a"), *link_flags, "-o", str(binary)])
         return binary
 
     def check_probe(name, source, *arguments):
@@ -120,16 +116,13 @@ def main():
                         if line.startswith(("CXXSTD=", "WARN=", "OPT=")))
     toolchain = [flag for key in ("CXXSTD", "WARN", "OPT")
                  for flag in shlex.split(declarations[key].strip('"'))]
-    cross_flags = shlex.split(run(["pkg-config", "--cflags", "--libs", "spirv-cross-c"]))
+    link_flags = shlex.split(run(["sh", "test/run.sh", "--native-link-flags"]))
     binary = output / "native-metal-probe"
     run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain, "-fno-exceptions",
          "-x", "objective-c++", "-fobjc-arc",
          str(ROOT / "test/harness/render/NativeMetalProbe.mm"),
          str(ROOT / "test/harness/render/MetalShader.cpp"),
-         "-x", "none", str(ROOT / "build/liboutshine.a"), *cross_flags,
-         "-lspirv-cross-msl", "-lspirv-cross-hlsl", "-lspirv-cross-glsl",
-         "-lspirv-cross-reflect", "-lspirv-cross-cpp", "-lspirv-cross-core",
-         "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
+         "-x", "none", str(ROOT / "build/liboutshine.a"), *link_flags, "-o", str(binary)])
     result = json.loads(run([str(binary), *shaders], output / "native-metal-probe.log"))
     for name, data in (("truncated", b"\x03\x02\x23\x07"), ("bad-header", bytes(20))):
         bad = output / (name + ".spv")
@@ -139,7 +132,7 @@ def main():
         if rejected.returncode != 3:
             raise SystemExit(f"{name} was not rejected at the shader boundary: {rejected.stderr}")
     result["invalid_shader_rejections"] = 2
-    result["native_compute"], backend_sources = native_api(output, glslang, toolchain, cross_flags)
+    result["native_compute"], backend_sources = native_api(output, glslang, toolchain, link_flags)
     result["commit"] = run(["git", "rev-parse", "HEAD"]).strip()
     result["working_tree_dirty"] = bool(run(["git", "status", "--porcelain"]))
     files = [*sources, ROOT / "src/render/shaders/fullscreen.glsl",
@@ -166,8 +159,11 @@ def main():
              *(ROOT / "src/render/device/native/metal").glob("*.h")]
     result["source_sha256"] = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                                for p in files}
+    archive_hash = hashlib.sha256()
     with (ROOT / "build/liboutshine.a").open("rb") as archive:
-        result["archive_sha256"] = hashlib.file_digest(archive, "sha256").hexdigest()
+        while chunk := archive.read(1024 * 1024):
+            archive_hash.update(chunk)
+    result["archive_sha256"] = archive_hash.hexdigest()
     result["metal_debug_layer"] = os.environ.get("MTL_DEBUG_LAYER", "")
     result["scope"] = "direct Metal MRT and common-API compute/textures/graphics pipelines/render passes/draws; not native Place acceptance"
     (output / "receipt.json").write_text(json.dumps(result, indent=2) + "\n")
