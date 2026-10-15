@@ -5,7 +5,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 
 | Bibliothek | Geprüfter lokaler Stand | Zuständiger WI | Verwendung |
 |---|---|---|---|
-| SDL3 | 3.2.24 mindestens | [#237](https://github.com/Weichwolf/outshine/issues/237) | Acht Farbziele für native Render-/Impostorpässe; ältere Runtime wird vor Geräteanlage verweigert |
+| SDL3 | 3.2.28 (isolierter Linux-Build) | [#237](https://github.com/Weichwolf/outshine/issues/237) | Acht Farbziele für native Render-/Impostorpässe; mindestens 3.2.24, ältere Runtime wird vor Geräteanlage verweigert |
 | GEOS | 3.15.0 | [#8](https://github.com/Weichwolf/outshine/issues/8) | Polygontriangulation mit Höfen/Inseln über C-API; mindestens 3.10 |
 | SFCGAL | 2.3.0 | [#48](https://github.com/Weichwolf/outshine/issues/48) | Native Walmdachpartition mit Quellkanten/Höfen über C-API; mindestens 2.3, Rendererübernahme folgt |
 | meshoptimizer | 1.3 | [#12](https://github.com/Weichwolf/outshine/issues/12) | Geplant: native Index-/Vertexbuffer, begrenzte Simplifizierung |
