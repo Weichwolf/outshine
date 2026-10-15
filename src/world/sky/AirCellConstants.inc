@@ -1,0 +1,8 @@
+AIR_FLOAT(kAirCellThinDepth, 0.01f)
+AIR_FLOAT(kAirCellInverseFactorial3, 1.0f / 6.0f)
+AIR_FLOAT(kAirCellInverseFactorial4, 1.0f / 24.0f)
+AIR_FLOAT(kAirCellInverseFactorial5, 1.0f / 120.0f)
+AIR_FLOAT(kAirCellGaussOuterNode, 0.0694318442029737f)
+AIR_FLOAT(kAirCellGaussInnerNode, 0.330009478207572f)
+AIR_FLOAT(kAirCellGaussOuterWeight, 0.173927422568727f)
+AIR_FLOAT(kAirCellGaussInnerWeight, 0.326072577431273f)

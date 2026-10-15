@@ -1,0 +1,101 @@
+{
+  "scope": "Fixed cross-device two-LUT replay inputs. Dense physical FP64 reference unchanged; homogeneous controls have new explicitly FP16-rounded constant inputs and analytical expectations. No product-GPU LUT capture or full-scene proof.",
+  "source_issue": 206,
+  "source_pr": 233,
+  "copies": {
+    "dense/rays.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/fixtures-repeats/rays.bin",
+      "source_sha256": "20d838bf4d5d1076d8153270ee228bf996100f9a9ac0c66c1d053227fd49d401",
+      "stored_sha256": "20d838bf4d5d1076d8153270ee228bf996100f9a9ac0c66c1d053227fd49d401",
+      "operation": "copy"
+    },
+    "dense/queries.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/fixtures-repeats/queries.bin",
+      "source_sha256": "77b137f89b488ffb31e25d0a8fbf68413ee6d59b661856f9b811388e4fb0dd8b",
+      "stored_sha256": "77b137f89b488ffb31e25d0a8fbf68413ee6d59b661856f9b811388e4fb0dd8b",
+      "operation": "copy"
+    },
+    "dense/rays.json.gz": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/fixtures-repeats/rays.json",
+      "source_sha256": "6fda40be56f61c3c22d0241ffc111c0a3599af3824f3ebaba8f1d1fc43aa8adb",
+      "stored_sha256": "75120fbc50040a16ac8e8dceb25614874c15ef01edb0fcfeaafd0c2f6dbae231",
+      "operation": "lossless gzip"
+    },
+    "dense/medium.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/luts-768x64/medium.bin",
+      "source_sha256": "da18a0ae4d34cc50d05dec97ea45169dfa110be575b38ab62c1ca356f75e4951",
+      "stored_sha256": "da18a0ae4d34cc50d05dec97ea45169dfa110be575b38ab62c1ca356f75e4951",
+      "operation": "copy"
+    },
+    "homogeneous/rays.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/native-prefix/homogeneous16/rays.bin",
+      "source_sha256": "f1ca569f0507d5060d299b518b5ef44e423dba4fd2d07e0e89b2baf24b60a81f",
+      "stored_sha256": "f1ca569f0507d5060d299b518b5ef44e423dba4fd2d07e0e89b2baf24b60a81f",
+      "operation": "analytical FP16 controls"
+    },
+    "homogeneous/queries.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/native-prefix/homogeneous16/queries.bin",
+      "source_sha256": "965857d19bc2176869cd651ab84a3e10b53d87a6ffc11113adf137b3ea91155d",
+      "stored_sha256": "965857d19bc2176869cd651ab84a3e10b53d87a6ffc11113adf137b3ea91155d",
+      "operation": "analytical FP16 controls"
+    },
+    "homogeneous/medium.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/native-prefix/homogeneous16/medium.bin",
+      "source_sha256": "8234f4569bf79e895e8a585a588bd5b44727b199b8f034ec07f1a062b2af7cbf",
+      "stored_sha256": "8234f4569bf79e895e8a585a588bd5b44727b199b8f034ec07f1a062b2af7cbf",
+      "operation": "analytical FP16 controls"
+    },
+    "homogeneous/veil.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/native-prefix/homogeneous16/veil.bin",
+      "source_sha256": "fc59571461b3dd156176c275c96b754b2547ae86d82b51be02aca837dcf3507c",
+      "stored_sha256": "fc59571461b3dd156176c275c96b754b2547ae86d82b51be02aca837dcf3507c",
+      "operation": "analytical FP16 controls"
+    },
+    "homogeneous/multi.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/native-prefix/homogeneous16/multi.bin",
+      "source_sha256": "a7db563e7e6c009d66af4413351c059b36a74732ca4b30cd5f934226d6992ba9",
+      "stored_sha256": "a7db563e7e6c009d66af4413351c059b36a74732ca4b30cd5f934226d6992ba9",
+      "operation": "analytical FP16 controls"
+    },
+    "homogeneous/rays.json.gz": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/native-prefix/homogeneous16/rays.json",
+      "source_sha256": "9fdc9d4cdc9aed7de63bb6d9f33632e704c8975b603f23fc93616c62dcc925b6",
+      "stored_sha256": "ba8456ca84fcb217b188cfc8e9ad6a8ceef1c34ac5090197bbb164fea8186a3c",
+      "operation": "analytical FP16 controls; lossless gzip metadata"
+    }
+  },
+  "conversions": {
+    "dense/veil.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/luts-768x64/veil-native-f16.bin",
+      "source_sha256": "06a2dbf4d0fca291d994881db319e002efd101a698cfad43344bbbc1f4bd3857",
+      "stored_sha256": "e7630707f392e2d6eb17e8f49b99249b8c298337814ea5484b8c46ada654c1b1",
+      "storage": "RGBA16F",
+      "dimensions": [
+        768,
+        64
+      ],
+      "decoded_texels_equal_to_prior_fp16_rounded_float32": true
+    },
+    "dense/multi.bin": {
+      "source": "/tmp/outshine-light-air-prefix-native-633be42f5/luts-768x64/multi.bin",
+      "source_sha256": "eca88d837c0c87af418da29018a0e5fe391660ef21482eace651367740d608d1",
+      "stored_sha256": "58dde16374cb3f954f616552e30177f6d6379226bfc65eebd824f382678023ba",
+      "storage": "RGBA16F",
+      "dimensions": [
+        32,
+        32
+      ],
+      "decoded_texels_equal_to_prior_fp16_rounded_float32": true
+    }
+  },
+  "homogeneous32_previous_binary_and_reference_parity": true,
+  "total_stored_bytes": 1475835,
+  "texture_layout": "Little-endian uint32 width,height followed by tightly packed RGBA binary16. The consumer also accepts unambiguous RGBA binary32 payloads for retained comparisons, without capability fallback.",
+  "reference_metadata": "rays.json.gz decompresses losslessly; check_air_prefix_gpu.py reads it directly. Dense references are unchanged byte-for-byte. Homogeneous binary16 source constants are explicit in metadata; existing binary32 controls remain reproducible without changed values or tolerances.",
+  "source_sha256": {
+    "test/experiments/render/air_prefix_gpu.cpp": "5ea38d00e56b90944433b24bdd8e26b6cd0306000049d45e007d7ff051ec1b6a",
+    "test/experiments/render/export_air_prefix_controls.py": "529fa56b6a15576a3250c2c85243404bc4598673d8f5a4b2e3f3e1a7e0a21991",
+    "test/experiments/render/prepare_air_prefix_luts.py": "dd82185840e3a099c59dfb4b5d48dd1a4c835139f9dbd3fc9af2fb9eebd0c3b4",
+    "test/experiments/render/check_air_prefix_gpu.py": "a1f3b860418b6d92a4829ecbbd7034b4af969b2e53e59fcc0a2b9747d678622c"
+  }
+}
