@@ -1,6 +1,70 @@
 {
-  "Laubwald": {"seed": 31, "size_m": 28, "forest": "broadleaf", "grass_step_m": 0.65, "camera": [29, -39, 27], "target": [0, 1, 2]},
-  "Mischwald": {"seed": 79, "size_m": 28, "forest": "mixed", "grass_step_m": 0.65, "camera": [29, -39, 27], "target": [0, 1, 2]},
-  "Steppe": {"seed": 113, "size_m": 14, "forest": "none", "grass_step_m": 0.38, "camera": [14, -19, 12], "target": [0, 0, 0.3]},
-  "Heide": {"seed": 191, "size_m": 14, "forest": "heath", "grass_step_m": 0.7, "camera": [14, -19, 12], "target": [0, 0, 0.3]}
+  "Laubwald": {
+    "seed": 31,
+    "size_m": 28,
+    "forest": "broadleaf",
+    "grass_step_m": 0.65,
+    "camera": [
+      29,
+      -39,
+      27
+    ],
+    "target": [
+      0,
+      1,
+      2
+    ],
+    "grass_density_m2": 75
+  },
+  "Mischwald": {
+    "seed": 79,
+    "size_m": 28,
+    "forest": "mixed",
+    "grass_step_m": 0.65,
+    "camera": [
+      29,
+      -39,
+      27
+    ],
+    "target": [
+      0,
+      1,
+      2
+    ],
+    "grass_density_m2": 75
+  },
+  "Steppe": {
+    "seed": 113,
+    "size_m": 14,
+    "forest": "none",
+    "grass_step_m": 0.38,
+    "camera": [
+      14,
+      -19,
+      12
+    ],
+    "target": [
+      0,
+      0,
+      0.3
+    ],
+    "grass_density_m2": 150
+  },
+  "Heide": {
+    "seed": 191,
+    "size_m": 14,
+    "forest": "heath",
+    "grass_step_m": 0.7,
+    "camera": [
+      14,
+      -19,
+      12
+    ],
+    "target": [
+      0,
+      0,
+      0.3
+    ],
+    "grass_density_m2": 75
+  }
 }

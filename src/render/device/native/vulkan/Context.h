@@ -2,7 +2,7 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_VULKAN_CONTEXT_H
 
 #ifdef __linux__
-#include "../Device.h"
+#include "Device.h"
 #include <vulkan/vulkan.h>
 #include <atomic>
 #include <memory>

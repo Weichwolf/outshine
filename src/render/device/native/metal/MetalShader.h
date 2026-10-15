@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_DEVICE_NATIVE_METAL_METALSHADER_H
 #define OUTSHINE_RENDER_DEVICE_NATIVE_METAL_METALSHADER_H
 
-#include "../Commands.h"
+#include "Commands.h"
 #include <string>
 #include <optional>
 
