@@ -1,8 +1,8 @@
 # Begrenzte Wolkenschicht
 
-Die SDL-GPU-Proben unten dokumentieren historische Gegenchecks. Der aktuelle
-Renderpfad wird gemäß [#48](https://github.com/Weichwolf/outshine/issues/48) auf native
-Metal-/Vulkan-Backends migriert; Dichtekern und Extinktionsmomente sind backendfrei.
+Die Compute-Proben verwenden den gemeinsamen nativen Device-/Commands-Vertrag aus
+[#48](https://github.com/Weichwolf/outshine/issues/48) mit dem Produktionsbackend.
+Dichtekern und Extinktionsmomente sind backendfrei; die Probe benötigt kein SDL.
 
 [#193](https://github.com/Weichwolf/outshine/issues/193) besitzt den ersten deklarierten
 Wolkenfall unter #7/#191. Der Vergleich verwendet die vorhandene Körbersee-Kamera,
@@ -36,9 +36,10 @@ klare Vorderluft bleibt vor absorbierenden Wolken erhalten.
 
 ## Reproduktion
 
-Erforderlich: NumPy, Pillow; C++23-Compiler und SDL3 für die unabhängige Vulkan-Probe,
-der vorhandene gepinnte glslang-Compiler für SPIR-V. Alle privaten Ausgaben explizit
-ins System-Tempverzeichnis legen. Schwere Vergleiche am gemeinsamen Host-Lock ausführen.
+Erforderlich: NumPy, Pillow, C++23-Compiler, pkg-config, SPIRV-Cross-C und unter Linux
+Vulkan; der vorhandene gepinnte glslang-Compiler erzeugt SPIR-V. Alle privaten
+Ausgaben explizit ins System-Tempverzeichnis legen. CPU-Arbeit läuft mit nice10;
+Parallelität nach tatsächlichen Ressourcen wählen. GPU-Captures laufen mit normaler Priorität.
 
 ```sh
 cloud_out="${TMPDIR:-/tmp}/outshine-weather-cloud-layer-$(git rev-parse --short HEAD)"
@@ -46,16 +47,16 @@ export PYTHONDONTWRITEBYTECODE=1
 mkdir -p "$cloud_out"
 python3 -W error test/experiments/weather/cloud_controls.py
 python3 -W error test/experiments/weather/cloud_composition.py
-flock -n /var/tmp/outshine-heavy.lock python3 -W error \
+nice -n 10 python3 -W error \
   test/experiments/weather/cloud_comparison.py --output "$cloud_out"
-flock -n /var/tmp/outshine-heavy.lock python3 -W error \
+nice -n 10 python3 -W error \
   test/experiments/weather/cloud_countercases.py --output "$cloud_out"
 "$GLSLANG" -V --target-env vulkan1.0 -Isrc \
   test/experiments/weather/cloud_probe.comp -o "$cloud_out/cloud_probe.comp.spv"
-make build/cloud-probe
-flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
+nice -n 10 make build/cloud-native-probe
+build/cloud-native-probe \
   "$cloud_out/cloud_probe.comp.spv" "$cloud_out/broken-native.f32" 240 135 0.65
-flock -n /var/tmp/outshine-heavy.lock python3 -W error \
+nice -n 10 python3 -W error \
   test/experiments/weather/cloud_comparison.py --output "$cloud_out" \
   --gpu-result "$cloud_out/broken-native.f32"
 ```
@@ -75,13 +76,14 @@ Uniform set2/binding0 werden über ihre tatsächlichen Werte gebunden; Workgroup
 8×8×1 und Uniformgröße werden gegen die reflektierte Pipeline geprüft.
 
 ```sh
-nice -n 10 make build/cloud-native-probe.o
+nice -n 10 make build/cloud-native-probe
 ```
 
-Dies übersetzt den Verbraucher ohne SDL. Die veröffentlichte Headerbasis allein
-liefert noch keine Device-Implementierung; Link, Dispatch und Vergleich bleiben
-bis zum ausführbaren nativen Backend offen. Es gibt keinen Ersatztreiber oder
-zweiten GPU-Vertrag. Nach dessen Lieferung folgen dieselben SPIR-V-/Float64-Fälle;
+Der Builder nutzt dieselbe `source_units`-Plattformauswahl wie der Produktionsbuild
+und kompiliert die ausgewählten nativen Backend-Units ohne SDL. Objective-C++ erhält
+ARC ausschließlich für `.mm`-Units; Darwin linkt Foundation/Metal, Linux Vulkan.
+Temporäre Objekte werden nach dem Link entfernt. Linux/Vulkan ist tatsächlich
+ausgeführt; der Darwin-Build dieses Verbrauchers ist noch nicht geprüft.
 Kanalzahl1 gehört zur optischen,4 zur RGB-Probe und muss zum Shader passen.
 
 Dispatch kopiert den Uniform sofort; Storage-Result und Readback bleiben bis zur
@@ -89,8 +91,8 @@ Completion im Besitz des Verbrauchers. Compute→Copy wird über den gemeinsamen
 Commandpfad synchronisiert, MapRead erst nach begrenztem Wait auf Ready aufgerufen.
 Abgebrochene Aufzeichnung wird ohne Submit verworfen. Encode, Submit und
 Completion-Warten werden getrennt benannt; ohne Timestamp-API bleibt GPU-Zeit
-ausdrücklich ungemessen. Bestehende SDL-Proben bleiben historische Vergleichsbelege
-bis zur vollständigen Migration des Verbrauchers.
+ausdrücklich ungemessen. Die ersetzte SDL-Probe und ihr Buildpfad sind entfernt;
+ihre weiter benötigten Referenzinputs bleiben bei den verlinkten Prüfbelegen.
 
 ## RGB- und Faltungsdiagnose
 
@@ -106,12 +108,12 @@ räumliche Lichtwirkung; die volle dortige Beleuchtungsmethode ist nicht umgeset
 "$GLSLANG" -V --target-env vulkan1.0 -Isrc \
   -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 \
   test/experiments/weather/cloud_picture.comp -o "$cloud_out/cloud_picture.comp.spv"
-flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
+build/cloud-native-probe \
   "$cloud_out/cloud_picture.comp.spv" "$cloud_out/rgb.f32" 1280 720 0.65 4
 python3 -W error test/experiments/weather/cloud_radiance.py --output "$cloud_out/rgb" \
   --input "$cloud_out/rgb.f32" --width 1280 --height 720 --cover 0.65 \
   --view-samples 1024 --light-samples 64
-flock -n /var/tmp/outshine-heavy.lock python3 -W error \
+nice -n 10 python3 -W error \
   test/experiments/weather/cloud_environment.py --output "$cloud_out/environment"
 ```
 
@@ -150,15 +152,15 @@ direkte Ansicht. Eine höhere Quellauflösung ist ebenfalls kein Konvergenzbewei
 "$GLSLANG" -V --target-env vulkan1.0 -Isrc \
   -DCLOUD_VIEW_SAMPLES=1024 -DCLOUD_LIGHT_SAMPLES=64 -DCLOUD_SOURCE_HORIZON=1 \
   test/experiments/weather/cloud_source.comp -o "$cloud_out/horizon.spv"
-flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
+build/cloud-native-probe \
   "$cloud_out/source.spv" "$cloud_out/source-clear.f32" 4 4 0 4
-flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
+build/cloud-native-probe \
   "$cloud_out/filter.spv" "$cloud_out/filter-reference.f32" 128 64 0.65 4
-flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
+build/cloud-native-probe \
   "$cloud_out/source.spv" "$cloud_out/source-256.f32" 258 258 0.65 4
-flock -n /var/tmp/outshine-heavy.lock build/cloud-probe \
+build/cloud-native-probe \
   "$cloud_out/horizon.spv" "$cloud_out/horizon-256x256.f32" 258 258 0.65 4
-flock -n /var/tmp/outshine-heavy.lock python3 -W error \
+nice -n 10 python3 -W error \
   test/experiments/weather/cloud_source_comparison.py --output "$cloud_out/source-report" \
   --input "$cloud_out" --camera-reference "$cloud_out/rgb.f32" \
   --sides 256 --horizon-sizes 256x256
@@ -230,7 +232,7 @@ zweier Tiefen: Bei 100/10000 m, Gewichten 0,1/0,8, 960 Pixel Brennweite und
 50 m/s Querbewegung bei 30 fps unterscheidet sich die Bewegung aus M1/M0 um
 1,74 Pixel vom gewichteten Bewegungsmittel. Das ist ein Gegenbeispiel, keine
 TAA-/Ghostingabnahme. Native Pässe, History, Ressourcen und Submission folgen dem
-angekündigten Ersatz von SDL3_GPU. Yang/Liu/Salvi, *A Survey of Temporal Antialiasing
+gemeinsamen nativen Device-/Commands-Vertrag. Yang/Liu/Salvi, *A Survey of Temporal Antialiasing
 Techniques*, CGF 2020, §3.2/Gleichung 1, PDF-Seiten 3/4 als Bilder geprüft:
 `doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf`.
 
