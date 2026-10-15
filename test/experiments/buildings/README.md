@@ -163,10 +163,26 @@ Private source data and intermediate outputs stay in system-temp directories.
 ```
 
 The publisher requires all four own clean render reports and matching scenario
-camera hashes before replacing the gallery. Tokyo's height requires actual DEM
+camera hashes before replacing the gallery. A manifest may declare one `commit`
+for the whole set or explicit `commits` keyed by all four Places, preserving each
+image's actual generator snapshot during gradual verified updates. Tokyo's height requires actual DEM
 sampling; the other three scenario heights are absolute. Source extent, missing
 world classes and terrain/material/light differences remain explicit. The initial
 source acquisition is a declared 3 km window, not native 240 km Place admission.
+
+Small residential roofs are extended beyond the old 70 m² envelope scope in
+`residential_roof_choice.py` (#229): 70–350 m², ordinary residential source or
+site context, ground-level height 3.5–15 m and bounded footprint complexity.
+Explicit roof choices and other uses retain their previous path. Source heights,
+footprints and properties stay unchanged; roof space is reserved before rooms.
+Supplied levels require at least 2.64 m each below the roof. This is a procedural
+roof assumption, not a reconstructed roof or a complete architecture family.
+`verify_residential_roofs.py` checks four pinned real Flensburg footprints against
+independent solid composition, sections and topology plus semantic counterparts.
+`residential_roof_probe.py --output <temp>/roof-controls` produces actual 1920×1080
+plan/section/2.5D controls and equal-shape method timings. Native section comparison
+uses millimetres internally to reduce measured quantization, retaining the existing
+1e-7 m² threshold; an intentional 1 mm geometry shift must still fail.
 
 ## Sonderbauwerke aus dem bevorzugten Provider
 
@@ -282,8 +298,8 @@ Rejected comparison paths remain rejected and do not enter cost comparisons.
 The public page continues to show exactly four complete source scenes.
 
 ```sh
-.venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py
-.venv/bin/python test/experiments/buildings/roof_envelope_plan.py
+.venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
+.venv/bin/python test/experiments/buildings/roof_envelope_plan.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
 ```
 
 ## Rooms below small source roofs

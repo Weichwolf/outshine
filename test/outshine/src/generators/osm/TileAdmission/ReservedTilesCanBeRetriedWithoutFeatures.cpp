@@ -12,9 +12,20 @@ int main() {
   using namespace outshine::Generators::Osm;
   using namespace outshine::Test;
 
-  const std::array<::outshine::Generators::Osm::OsmField::Tile, 2> tiles{
-      {{.Z = 14, .X = 0, .Y = 1, .FirstFeature = 0, .FeatureCount = 1},
-       {.Z = 14, .X = 1, .Y = 1, .FirstFeature = 1, .FeatureCount = 1}}};
+  const std::array<::outshine::Generators::Osm::OsmField::Tile, 2> tiles{{{.Z = 14,
+                                                                           .X = 0,
+                                                                           .Y = 1,
+                                                                           .FirstFeature = 0,
+                                                                           .FeatureCount = 1,
+                                                                           .Source = {},
+                                                                           .InputDigest = {}},
+                                                                          {.Z = 14,
+                                                                           .X = 1,
+                                                                           .Y = 1,
+                                                                           .FirstFeature = 1,
+                                                                           .FeatureCount = 1,
+                                                                           .Source = {},
+                                                                           .InputDigest = {}}}};
   ::outshine::Generators::Osm::TileAdmission source;
   source.Take(0);
   source.Take(1);
