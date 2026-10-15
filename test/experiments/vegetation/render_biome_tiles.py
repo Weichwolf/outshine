@@ -11,11 +11,12 @@ import bpy
 import gpu
 import numpy as np
 from blender_instances import instance_group
-from blender_preview import material, mesh_object
+from blender_preview import material
 from ground_cover_scene import ground_population
 from mathutils import Vector
 from outshine_ref.rendering.blender_camera import configure_camera
 from outshine_ref.rendering.blender_light import configure_daylight
+from outshine_ref.rendering.blender_mesh import mesh_object
 from preview_shadows import configure_preview
 from scipy.spatial.transform import Rotation
 from scipy.stats import qmc
