@@ -97,7 +97,7 @@ size_t TagIndex(const char *tag) noexcept {
   return kOverflowTag;
 }
 
-inline size_t BlockBytes(const void *block) {
+inline size_t BlockBytes(void *block) {
 #ifdef __APPLE__
   return malloc_size(block);
 #else
