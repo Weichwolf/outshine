@@ -104,7 +104,7 @@ struct Data {
   uint32_t QueryCount = 0;
   Medium Air{};
 
-  bool QueriesValid() const {
+  [[nodiscard]] bool QueriesValid() const {
     const auto &rays = Sources[0];
     const auto &queries = Sources[1];
     uint32_t previousEnd = 0;
@@ -123,7 +123,10 @@ struct Data {
       for (uint32_t index = ray.QueryBegin; index < ray.QueryEnd; ++index) {
         float distanceKm = 0.0f;
         std::memcpy(&distanceKm, queries.data() + size_t{index} * sizeof(float), sizeof(float));
-        if (!(distanceKm >= previousKm && distanceKm <= ray.Ray.DistanceKm)) { return false; }
+        if (!std::isfinite(distanceKm) || distanceKm < previousKm ||
+            distanceKm > ray.Ray.DistanceKm) {
+          return false;
+        }
         previousKm = distanceKm;
       }
       previousEnd = ray.QueryEnd;
