@@ -262,11 +262,7 @@ def run(output, repeats):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=Path("build/experiments/buildings/roof-envelopes"),
-    )
+    parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--repeats", type=int, default=21)
     args = parser.parse_args()
     run(args.output, args.repeats)
