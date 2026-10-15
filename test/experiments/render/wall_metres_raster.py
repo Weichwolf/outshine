@@ -97,7 +97,7 @@ def fixture(raw, span, shift):
     return data, float(np.floor(vertices["uv"][0, 0] / 256))
 
 
-def chart(output, panels):
+def chart(output, panels, device):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -113,7 +113,7 @@ def chart(output, panels):
             axes[row, col].set_title(f"{name}: {dimension} error (mm)")
             figure.colorbar(plot, ax=axes[row, col])
     figure.suptitle(
-        "Actual native building -> cache -> UV1 -> production lit vertex / 160x96, RTX3060"
+        f"Actual native building -> cache -> UV1 -> production lit vertex / 160x96, {device}"
     )
     figure.savefig(output / "comparison.pdf")
     plt.close(figure)
@@ -138,7 +138,7 @@ def main():
         "source",
     )
     compile_shaders(output)
-    records, panels = [], []
+    records, panels, devices = [], [], set()
     for anchor in (0, 500):
         raw = (output / f"wall-{anchor}.bin").read_bytes()
         for view, span in (("near", 0.6), ("regular", 4.0)):
@@ -167,6 +167,9 @@ def main():
                         r"CHECKS (\d+) FAILURES 0 SKIPPED 0 UNPREPARED 0 PARTIAL 0", log
                     )
                     assert checks and int(checks[1]) > 0
+                    device = re.search(r"^DEVICE ([^\r\n]+)$", log, re.MULTILINE)
+                    assert device, f"{name}: missing actual GPU identity"
+                    devices.add(device[1])
                     pixels = np.fromfile(target, dtype="<f4").reshape(
                         3, HEIGHT, WIDTH, 4
                     )
@@ -185,9 +188,12 @@ def main():
                     )
                     if view == "near" and perspective and camera == "fixed":
                         panels.append((name, pixels))
-    chart(output, panels)
+    assert len(devices) == 1, devices
+    device = devices.pop()
+    chart(output, panels, device)
     (output / "comparison.json").write_text(
-        json.dumps({"scope": __doc__, "cases": records}, indent=2) + "\n"
+        json.dumps({"scope": __doc__, "device": device, "cases": records}, indent=2)
+        + "\n"
     )
     print(json.dumps(records, indent=2))
 
