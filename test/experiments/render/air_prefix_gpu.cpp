@@ -12,6 +12,7 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <limits>
 #include <ios>
 #include <print>
 #include <ratio>
@@ -33,6 +34,7 @@ using uint = uint32_t;
 constexpr uint32_t kRayBytes = sizeof(ProbeRay);
 constexpr uint32_t kSampleBytes = sizeof(ProbeSample);
 constexpr uint32_t kPixelChannels = 4;
+constexpr double kNanosecondsPerMillisecond = 1'000'000.0;
 static_assert(std::endian::native == std::endian::little);
 static_assert(std::is_trivially_copyable_v<ProbeRay> && sizeof(ProbeRay) == 32);
 static_assert(sizeof(AirRay) == 5 * sizeof(float) &&
@@ -418,31 +420,73 @@ bool Complete(gpu::Device &device, gpu::Completion completion) {
   return false;
 }
 
-bool Submit(gpu::Device &device, std::unique_ptr<gpu::Commands> commands) {
+bool Submit(gpu::Device &device,
+            std::unique_ptr<gpu::Commands> commands,
+            gpu::Completion &completion) {
   const auto submitted = device.Submit(std::move(commands));
   if (!submitted) {
     std::println(stderr, "native GPU submit: {}", submitted.error().Message);
     return false;
   }
-  return Complete(device, *submitted);
+  completion = *submitted;
+  return Complete(device, completion);
+}
+
+void PrintTimings(gpu::Device &device, gpu::Completion completion, bool enabled) {
+  if (!enabled) { return; }
+  const auto results = device.GpuTimings(completion);
+  if (!results) {
+    std::println("gpu_dispatch_timing unavailable={}", results.error().Message);
+    return;
+  }
+  if (results->Status != gpu::CompletionStatus::Ready) {
+    std::println("gpu_dispatch_timing unavailable=pending");
+    return;
+  }
+  std::println("gpu_dispatch_timings completion={} count={} truncated={}",
+               completion.Serial,
+               results->DispatchCount,
+               results->Truncated);
+  for (const auto &sample : results->Dispatches) {
+    if (!sample.Available || sample.ValidBits == 0 || sample.ValidBits > 64 ||
+        !std::isfinite(sample.NanosecondsPerTick) || sample.NanosecondsPerTick <= 0) {
+      std::println("gpu_dispatch_timing ordinal={} available=false", sample.Ordinal);
+      continue;
+    }
+    const auto mask = std::numeric_limits<uint64_t>::max() >> (64 - sample.ValidBits);
+    const auto ticks = (sample.End - sample.Begin) & mask;
+    std::println("gpu_dispatch_timing ordinal={} available=true begin={} end={} "
+                 "ns_per_tick={} valid_bits={} elapsed_ms={}",
+                 sample.Ordinal,
+                 sample.Begin,
+                 sample.End,
+                 sample.NanosecondsPerTick,
+                 sample.ValidBits,
+                 static_cast<double>(ticks) * sample.NanosecondsPerTick /
+                     kNanosecondsPerMillisecond);
+  }
 }
 
 bool ResidentRuns(gpu::Device &device,
                   const gpu::ComputePipeline &pipeline,
                   const Inputs &inputs,
                   const Data &data,
-                  uint32_t repeats) {
+                  uint32_t repeats,
+                  bool timing) {
   std::vector<double> times;
   for (uint32_t index = 0; index < repeats; ++index) {
     std::unique_ptr<gpu::Commands> commands;
     if (!Keep(device.Begin(), commands)) { return false; }
+    gpu::Completion completion;
     const auto start = std::chrono::steady_clock::now();
-    if (!Dispatch(*commands, pipeline, inputs, data) || !Submit(device, std::move(commands))) {
+    if (!Dispatch(*commands, pipeline, inputs, data) ||
+        !Submit(device, std::move(commands), completion)) {
       return false;
     }
     const auto elapsed =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start);
     times.push_back(elapsed.count());
+    PrintTimings(device, completion, timing);
   }
   if (!times.empty()) {
     std::ranges::sort(times);
@@ -463,7 +507,8 @@ int Run(gpu::Device &device,
         const Data &data,
         const char *output,
         uint32_t repeats,
-        const char *veilShader) {
+        const char *veilShader,
+        bool timing) {
   std::unique_ptr<gpu::ComputePipeline> pipeline;
   if (!ReadPipeline(device, shader, pipeline)) { return 2; }
   if (!LayoutValid(pipeline->Layout())) {
@@ -479,13 +524,14 @@ int Run(gpu::Device &device,
   }
   std::unique_ptr<gpu::Commands> commands;
   if (!Keep(device.Begin(), commands)) { return 2; }
+  gpu::Completion completion;
   const auto start = std::chrono::steady_clock::now();
   const uint64_t bytes = uint64_t{data.QueryCount} * kSampleBytes;
   if (!inputs.Copy(*commands, data) || (generateVeil && !veil.Record(*commands, inputs, data)) ||
       !Dispatch(*commands, *pipeline, inputs, data) ||
       !Check(commands->Copy(*inputs.Output, *inputs.Readback, {.Bytes = bytes})) ||
       (generateVeil && !veil.Copy(*commands, inputs, data)) ||
-      !Submit(device, std::move(commands))) {
+      !Submit(device, std::move(commands), completion)) {
     return 2;
   }
   auto mapped = device.MapRead(*inputs.Readback, {.Bytes = bytes});
@@ -506,15 +552,18 @@ int Run(gpu::Device &device,
                data.RayCount,
                data.QueryCount,
                wall.count());
-  return ResidentRuns(device, *pipeline, inputs, data, repeats) ? 0 : 2;
+  PrintTimings(device, completion, timing);
+  return ResidentRuns(device, *pipeline, inputs, data, repeats, timing) ? 0 : 2;
 }
 }
 
 int main(int argc, char **argv) {
+  const bool timing = argc > 1 && std::strcmp(argv[argc - 1], "--gpu-timing") == 0;
+  if (timing) { --argc; }
   if (argc < 8 || argc > 10) {
     std::println(stderr,
                  "usage: air-prefix-gpu kernel.spv rays.bin queries.bin veil.bin multi.bin "
-                 "medium.bin output.bin [resident-repeats [veil-kernel.spv]]");
+                 "medium.bin output.bin [resident-repeats [veil-kernel.spv]] [--gpu-timing]");
     return 2;
   }
   uint32_t repeats = 0;
@@ -530,6 +579,6 @@ int main(int argc, char **argv) {
     return 2;
   }
   std::unique_ptr<gpu::Device> device;
-  if (!Keep(gpu::CreateDevice({.Validation = true}), device)) { return 2; }
-  return Run(*device, argv[1], data, argv[7], repeats, argc == 10 ? argv[9] : nullptr);
+  if (!Keep(gpu::CreateDevice({.Validation = true, .GpuTiming = timing}), device)) { return 2; }
+  return Run(*device, argv[1], data, argv[7], repeats, argc == 10 ? argv[9] : nullptr, timing);
 }

@@ -14,5 +14,8 @@ CreateComputePipeline(Native::Device &device, ComputeShaderId shader);
 [[nodiscard]] Native::Result<std::unique_ptr<Native::ComputePipeline>>
 CompileComputePipeline(Native::Device &device, const ComputeShaderDescriptor &shader);
 
+[[nodiscard]] Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+CreatePresentPipeline(Native::Device &device, Native::Format target);
+
 }
 #endif

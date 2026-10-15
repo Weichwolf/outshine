@@ -168,6 +168,31 @@ nach `doc/` veröffentlichen. `support_station_cost.py` misst optional mit
 Export und unabhängigem Replay; CLI verlangt dieselben drei Eingabepfade und
 ein frisches `--output`. Instrumentierte Zeiten sind separat ausgewiesen.
 
+## Geneigte Schienen auf tatsächlichen Wiener Bodenbetten (#340)
+
+`tilted_rail_experiment.py` verwendet den bestehenden horizontalen
+`outshine_ref.transport.rail_hardware`-Kern in einer orthonormalen Bett-Ebene.
+Starre ENU-Transformation erhält Spurweite, Profil und Schwellenmaße. Ganze
+Kontaktflächen sind gegen den tatsächlichen #303-Verkehrsboden geprüft; die
+unveränderten #332-Pfeiler-/Brücken-/Portalprodukte bleiben die Basis.
+[Verfahren, Eingaben, Bild und Kosten](tilted_rail_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/tilted_rail_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SUPPORT_OUTPUT" --output "$TRANSPORT_TILTED_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/tilted_rail_replay.py --products "$TRANSPORT_TILTED_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SUPPORT_OUTPUT" --output "$TRANSPORT_TILTED_OUTPUT/verification.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TILTED_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TILTED_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TILTED_OUTPUT/after-1080-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/tilted_rail_cost.py --products "$TRANSPORT_TILTED_OUTPUT" --method batch --output "$TRANSPORT_TILTED_COST_BATCH"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/tilted_rail_cost.py --products "$TRANSPORT_TILTED_OUTPUT" --method scalar --output "$TRANSPORT_TILTED_COST_SCALAR"
+```
+
+Ausgabe-/Kostenpfade sind ausdrücklich gewählte frische System-Temp-Pfade;
+Erzeugerstand sauber und eingefroren. Optionale `--profile`-Datei benötigt nur
+für die Allokationsprobe `memray==1.20.0`. 1280×720 für den regionalen Vergleich,
+1920×1080 lokal zur Detailprüfung. Alle Bilder bleiben lokal. Neue obere
+Schienenprofile, Weichen und Übergänge über C0-Knicke bleiben getrennte Arbeit.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

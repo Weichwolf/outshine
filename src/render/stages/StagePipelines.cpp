@@ -66,4 +66,38 @@ CreateComputePipeline(Native::Device &device, ComputeShaderId shader) {
   return CompileComputePipeline(device, *descriptor);
 }
 
+Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+CreatePresentPipeline(Native::Device &device, Native::Format target) {
+  const char *fragmentPath = nullptr;
+  switch (target) {
+    case Native::Format::Bgra8Srgb:
+    case Native::Format::Rgba8Srgb: fragmentPath = "build/shaders/present.frag.spv"; break;
+    case Native::Format::Bgra8Unorm:
+    case Native::Format::Rgba8Unorm: fragmentPath = "build/shaders/presentUnorm.frag.spv"; break;
+    default:
+      return std::unexpected(
+          Native::Error{.Kind = Native::ErrorKind::Unsupported,
+                        .Message = "presentation requires an SDR colour target"});
+  }
+  const auto vertex = ReadSpirv("build/shaders/fullscreen.vert.spv");
+  if (!vertex) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
+  }
+  const auto fragment = ReadSpirv(fragmentPath);
+  if (!fragment) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
+  }
+  const std::array colours{Native::ColourTarget{.Texels = target, .Rgb = {}, .Alpha = {}}};
+  return device.CreateGraphicsPipeline({.Vertex = {.Spirv = *vertex},
+                                        .Fragment = Native::ShaderCode{.Spirv = *fragment},
+                                        .Streams = {},
+                                        .Attributes = {},
+                                        .Colours = colours,
+                                        .Depth = {},
+                                        .Culling = Native::Cull::None,
+                                        .Label = fragmentPath});
+}
+
 }

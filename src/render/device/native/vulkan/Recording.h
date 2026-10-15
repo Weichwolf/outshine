@@ -7,6 +7,7 @@
 #include "Presenter.h"
 #include "VulkanImage.h"
 #include "Pipeline.h"
+#include "Timing.h"
 #include <memory>
 #include <span>
 #include <utility>
@@ -16,7 +17,8 @@ namespace outshine::Render::Native::Vulkan {
 
 class Recording final : public Commands {
 public:
-  explicit Recording(std::shared_ptr<Context> context) : Context_(std::move(context)) {
+  explicit Recording(std::shared_ptr<Context> context)
+      : Context_(std::move(context)), Timings_(*Context_) {
     ++Context_->Recordings;
     ++Context_->OpenRecordings;
   }
@@ -35,6 +37,8 @@ public:
   [[nodiscard]] const std::shared_ptr<Context> &Owner() const noexcept { return Context_; }
 
   [[nodiscard]] VkCommandBuffer Handle() const noexcept { return Commands_; }
+
+  [[nodiscard]] GpuTimingResults Timings() const { return Timings_.Read(); }
 
   [[nodiscard]] Result<void>
   Copy(const Buffer &source, Buffer &destination, BufferCopy region) override;
@@ -111,6 +115,7 @@ private:
   std::shared_ptr<PresentLease> Presented_;
   std::optional<RenderState> Render_;
   std::shared_ptr<Context> Context_;
+  TimingQueries Timings_;
   VkCommandPool Pool_ = VK_NULL_HANDLE;
   VkCommandBuffer Commands_ = VK_NULL_HANDLE;
   VkDescriptorPool Descriptors_ = VK_NULL_HANDLE;
