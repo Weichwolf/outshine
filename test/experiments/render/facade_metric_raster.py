@@ -107,6 +107,8 @@ def main():
                 pixels = np.fromfile(target, dtype="<f4").reshape(3, HEIGHT, WIDTH, 4)
                 assert np.isfinite(pixels).all() and (pixels[1, :, :, 3] == 1).all()
                 error = pixels[1, :, :, :2] - pixels[2, :, :, :2]
+                if mode == "explicit":
+                    assert np.max(np.abs(error)) < 2e-4, label
                 records.append(
                     {
                         "case": label,
