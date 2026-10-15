@@ -29,6 +29,8 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "SpeciesCatalog": "species_catalog",
+    "load_species_catalog": "species_catalog",
     "NeedledPlant": "needled_plant",
     "NeedlePattern": "needle_pattern",
     "LeafOpticsTable": "leaf_optics",
@@ -70,6 +72,8 @@ def __getattr__(name):
 
 
 __all__ = [
+    "SpeciesCatalog",
+    "load_species_catalog",
     "CurlField",
     "GnarlField",
     "PlanarField",
