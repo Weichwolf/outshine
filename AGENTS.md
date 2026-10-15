@@ -208,6 +208,13 @@
 - Experimentquellen nach Fachbereich unter `test/experiments/`, Eingaben und Ergebnisse
   nach `build/experiments/`. In `build/shots/` bleiben ausgewählte Präsentationsbilder und benötigte
   Referenzen. Überholte Versuchsdateien nach Auswertung löschen.
+- Jeder Agent räumt seine Artefakte nach jedem Arbeitsblock und vor einer Lieferung auf:
+  ersetzte/fehlgeschlagene Versuchsausgaben, doppelte Exporte, alte Renderings und entbehrliche
+  Zwischenprodukte löschen. Aktuellen geprüften Stand, nötigen Vorher-Vergleich, weiter benötigte
+  Gegenbeispiele/Eingaben und referenzierte Pins/Belege erhalten. Reproduktion und kompakte
+  Ergebnisberichte ersetzen keine benötigten Originaleingaben; alte vollständige Ausgabekopien
+  dagegen nicht stapeln. Aktive/fremde Arbeiten, gemeinsame Quellen-/Assetcaches und benötigte
+  Referenzen nicht pauschal bereinigen. Diese Pflicht gilt auch im Haupt-Checkout und in Worktrees.
 - Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
   `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
   Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
