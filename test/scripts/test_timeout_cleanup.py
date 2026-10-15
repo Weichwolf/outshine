@@ -1,4 +1,5 @@
 import ctypes
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -9,6 +10,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = Path(os.environ.get('OUTSHINE_RUN_SOURCE', ROOT / 'test/run.sh'))
@@ -20,6 +22,30 @@ def alive(pid):
         return True
     except ProcessLookupError:
         return False
+
+
+class GroupSignals(unittest.TestCase):
+    def setUp(self):
+        path = SOURCE.parent / 'scripts/run_with_timeout.py'
+        spec = importlib.util.spec_from_file_location('timeout_supervisor', path)
+        self.supervisor = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.supervisor)
+
+    def test_permission_denied_probe_means_group_still_exists(self):
+        with mock.patch.object(self.supervisor.os, 'killpg', side_effect=PermissionError):
+            self.assertTrue(self.supervisor.signal_group(123, 0))
+
+    def test_permission_denied_for_real_signal_remains_an_error(self):
+        with mock.patch.object(self.supervisor.os, 'killpg', side_effect=PermissionError):
+            for number in (signal.SIGTERM, signal.SIGKILL):
+                with self.subTest(number=number), self.assertRaises(PermissionError):
+                    self.supervisor.signal_group(123, number)
+
+    def test_only_missing_group_is_absent(self):
+        with mock.patch.object(self.supervisor.os, 'killpg', side_effect=ProcessLookupError):
+            for number in (0, signal.SIGTERM, signal.SIGKILL):
+                with self.subTest(number=number):
+                    self.assertFalse(self.supervisor.signal_group(123, number))
 
 
 class TimeoutCleanup(unittest.TestCase):
