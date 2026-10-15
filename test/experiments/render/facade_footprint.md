@@ -28,8 +28,9 @@ code, outside the production shader.
 The independent area reference intersects actual pixel polygons with periodic
 opening/pane rectangles using GEOS through Shapely. Degenerate rank-one cases
 instead intersect the unit screen square with geometric half-plane polygons;
-there is no inversion of a singular UV Jacobian. Material inputs and pane/frame
-constants come from the shipped headers. Inputs are converted to float32 before
+there is no inversion of a singular UV Jacobian. Profiles and pane/frame constants come from the shipped headers; colour and
+roughness are explicit component parameters from the pinned palette input.
+They are not a claim about the current building wall colour. Inputs are converted to float32 before
 reference evaluation, so high-phase tests use the values the GPU actually sees.
 
 The cohort contains9514 cases: five facade profiles, rotation/shear/scale
