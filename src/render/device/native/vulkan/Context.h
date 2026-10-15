@@ -28,6 +28,8 @@ struct Context {
   uint32_t QueueCount = 0;
   PFN_vkReleaseSwapchainImagesEXT ReleaseImages = nullptr;
   uint32_t QueueFamily = 0;
+  uint32_t TimestampValidBits = 0;
+  bool GpuTiming = false;
   uint64_t Cookie = 0;
   bool DebugMarkers = false;
   bool StorageImageExtendedFormats = false;

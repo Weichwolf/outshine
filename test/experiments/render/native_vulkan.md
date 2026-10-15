@@ -99,3 +99,43 @@ For an actually non-present-capable Vulkan driver, run the same compiled consume
 with `--unavailable`, optionally selecting that driver via `VK_DRIVER_FILES`.
 It requires Unsupported for window attachment and verifies the pre-existing
 buffer/queue remain functional. This does not replace the actual RTX run.
+
+Dispatch timing is opt-in through `DeviceOptions.GpuTiming`. Capability support
+is reported separately by `Capabilities.GpuTimestamps`. Without opt-in, no query
+pools, timestamp commands, result reads or completed timing history are created.
+The default shared implementation returns Unsupported until the backend provides
+actual dispatch counters; whole-commandbuffer time is not a substitute.
+
+`GpuTimings(Completion)` never waits for the GPU. Pending results contain no
+dispatch samples. Ready results include the actual DispatchCount and at most
+128 samples in recording order. Truncated explicitly reports further dispatches.
+Only the last eight completed submissions retain results, including submissions
+without dispatches. Expired, foreign and invalid completions return Invalid;
+disabled or unsupported timing returns Unsupported. Retrieval is repeatable and
+returns an independent value. Device access remains on its owner thread.
+
+Each sample supplies its ordinal, raw Begin/End, NanosecondsPerTick, ValidBits
+and Available. Unavailable samples have zero raw values and must not be used
+as zero elapsed time. For an available sample, mask unsigned `(End - Begin)` to
+ValidBits before multiplication by NanosecondsPerTick; 64 bits uses UINT64_MAX.
+The interval must be shorter than the counter wrap period. There is no calibrated
+CPU timestamp, cross-device clock or GPU core-frequency claim.
+The host interval from recording to completed query retrieval bounds the possible
+GPU duration. A counter delta outside that bound or an interval long enough for
+multiple wraps is unavailable. This rejects provably disjoint values; Vulkan has
+no separate disjoint flag, so undetectable driver clock faults are not claimed.
+
+Vulkan resets a bounded query pool in its recording, writes TOP_OF_PIPE after
+resource barriers and pipeline/binding recording immediately before Dispatch,
+and writes BOTTOM_OF_PIPE immediately after Dispatch. This is a GPU execution
+enclosure and may include dependency stalls. Upload, readback, queue/fence wall
+and host result retrieval remain separate. Completed query results are read
+without WAIT before recording resources are destroyed; pool destruction follows
+the same GPU lifetime as the command buffer. The source technique is the
+[Khronos timestamp example](https://docs.vulkan.org/guide/latest/profiling.html).
+
+`NativeTimingProbe` checks real Pending/Ready, dependent arithmetic/readback,
+per-dispatch availability and metadata, truncation, eight-submission retention,
+independent repeated retrieval, owner rejection, abandoned recordings and
+shutdown with accepted GPU work. These checks establish the timing contract,
+not a full renderer, image-quality improvement or target-device frame budget.

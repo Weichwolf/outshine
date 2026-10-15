@@ -15,6 +15,7 @@
 #include <span>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace outshine::Render::Native {
 
@@ -26,6 +27,11 @@ struct Pending {
   std::unique_ptr<Recording> Recorded;
   VkFence Fence = VK_NULL_HANDLE;
   uint64_t Serial = 0;
+};
+
+struct CompletedTiming {
+  uint64_t Serial = 0;
+  GpuTimingResults Results;
 };
 
 class VulkanDevice final : public Device {
@@ -216,6 +222,24 @@ public:
     return Poll(completion);
   }
 
+  [[nodiscard]] Result<GpuTimingResults> GpuTimings(Completion completion) override {
+    if (auto valid = Validate(completion); !valid) { return std::unexpected(valid.error()); }
+    if (!Context_->GpuTiming) {
+      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                   .Message = "dispatch timing is disabled or unavailable"});
+    }
+    if (auto reaped = Reap(); !reaped) { return std::unexpected(reaped.error()); }
+    if (completion.Serial > Completed_) { return GpuTimingResults{}; }
+    const auto timing = std::ranges::find_if(Timings_, [completion](const CompletedTiming &entry) {
+      return entry.Serial == completion.Serial;
+    });
+    if (timing == Timings_.end()) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Invalid, .Message = "dispatch timing retention has expired"});
+    }
+    return timing->Results;
+  }
+
 private:
   [[nodiscard]] Result<void> Validate(Completion completion) const {
     if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
@@ -242,6 +266,10 @@ private:
         return std::unexpected(*Failed_);
       }
       Completed_ = Pending_.front().Serial;
+      if (Context_->GpuTiming) {
+        if (Timings_.size() == kRetainedTimings) { Timings_.erase(Timings_.begin()); }
+        Timings_.push_back({.Serial = Completed_, .Results = Pending_.front().Recorded->Timings()});
+      }
       vkDestroyFence(Context_->Logical, Pending_.front().Fence, nullptr);
       Pending_.pop_front();
     }
@@ -254,9 +282,11 @@ private:
 
   static constexpr std::size_t kMaxPendingSubmissions = 3;
   static constexpr uint32_t kMaxLiveRecordings = 8;
+  static constexpr size_t kRetainedTimings = 8;
   std::shared_ptr<Context> Context_;
   std::unique_ptr<Presenter> Presenter_;
   std::deque<Pending> Pending_;
+  std::vector<CompletedTiming> Timings_;
   std::optional<Pending> FailedSubmission_;
   std::optional<Error> Failed_;
   uint64_t Submitted_ = 0;
