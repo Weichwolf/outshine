@@ -16,9 +16,29 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`transport.rail_hardware.build_rail_hardware` liefert vereinfachte geschlossene Schienen und
+gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrücklich
+gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
+stehen in [rail_hardware.md](rail_hardware.md) (#250).
+
 `places` teilt die geodätische Szenariokamera sowie begrenzte, explizit ausgewählte
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
+
+`vegetation.load_species_catalog()` lädt einen festen lizenzierten Pilot mit
+30 akzeptierten Arten, Herkunft und getrennten regionalen Vorkommenszuständen.
+Vorbereitete Kandidatenlisten, Format und noch offene ökologische/botanische
+Abnahme stehen in [species_catalog.md](species_catalog.md) (#226).
+
+`vegetation.SpeciesHeightMixture` bereitet höhenabhängige relative Artengewichte
+vor; `species_site_uniforms` bindet die Auswahl an stabile Standort-IDs.
+Mathematischer Vertrag, realer Vergleich, Cache-Replay und Grenzen stehen in
+[species_mixture.md](species_mixture.md) (#226).
+
+`vegetation.graminoid` liefert begrenzte geteilte Grasbüschel-Meshes aus dem
+bestehenden analytischen `Blade`, mit stabilen Blatt-IDs und Auflösungsproben.
+Vertrag, tatsächlicher Orts-/Nahverbrauch und botanische/LOD-Grenzen stehen in
+[graminoid.md](graminoid.md) (#22/#208).
 
 `materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
 Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
@@ -315,7 +335,7 @@ Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/
 `buildings.interiors.Furnishing(kind, width_m, depth_m, height_m, activity_depth_m)`
 beschreibt einen vollständigen Möbelgrundriss mit notwendiger Aktivitätsfläche.
 `layout(room, portals, requests, identifier, reserved=(), method="wall-anchors",
-max_candidates=64, beam_width=1, objective="short-paths")` platziert in einem
+max_candidates=64, beam_width=1, objective="short-paths", *, placement_reserved=())` platziert in einem
 gelieferten Raum, ohne Portal-/Nutzungsfreiräume zu blockieren. Alternative:
 `jittered-anchors`; die deterministische Breitsuche hält höchstens acht Zustände.
 Die Programme vergleichen dieselben Anforderungen mit `beam_width=1|4` und
@@ -333,6 +353,22 @@ keine impliziten Anbieterabfragen oder Welt-/Cachezustände. Kapazitäten:
 `access` und `placed` ermöglichen unabhängige Prüfungen und explizite Platzierung.
 Programme, eigene Möbel, reale Gegenfälle und Bild-/Kostenbelege:
 [#174](https://github.com/Weichwolf/outshine/issues/174).
+
+`placement_reserved` hält Möbelkörper und ihre Aktivitätsflächen aus höchstens
+16 polygonalen Bewegungsreservierungen heraus. Die Reservierung sperrt keine
+Gehwege: Der Aufrufer zieht den tatsächlich geparkten beweglichen Körper vom
+begehbaren Raum ab. `reserved` behält seinen bisherigen Vertrag für freie
+Portal-/Fensterantritte; bestehende Aufrufe ändern sich nicht.
+
+`buildings.interiors.doors.DoorLeaf` besitzt einen unveränderlichen metrischen
+Gelenkrahmen und stabile ID, getrennt vom Winkel. `pose(leaf, angle_deg)` und
+`sweep(leaf, error_m=0.001, method="segmented", max_segments=128)` liefern
+Türgrundriss und konservative Schwenkhülle für 0–90°. Der Punkt-/Sehnenabstand
+ist begrenzt, die zusätzliche Hüllenfläche besitzt keine globale Fehlerschranke.
+Keine eigene Simulation, Welt-/Cachezustände oder Gebäudenutzungen. Der Aufrufer
+besitzt Wand-/Möbel-/Raumanschluss, 3D-Vorlage und veränderlichen Türzustand.
+Unabhängige dichte Winkel-/Transformprüfungen liegen unter `lib/tests/`;
+echte Gebäudezustände, Nutzungswahl und Kosten in [#197](https://github.com/Weichwolf/outshine/issues/197).
 
 `buildings.modelling.PrismVolume(identifier, polygon, low_m, high_m, material=1)`
 beschreibt ein vollständiges ENU-Prisma in Metern. Polygon/MultiPolygon und
@@ -874,3 +910,15 @@ declared surface filter, not an EWA, shaded image-error or native LOD bound.
 [#161](https://github.com/Weichwolf/outshine/issues/161) owns context-scoped real
 tile facade plans, physical CPU binding and costs; full programmes/near room
 transitions remain #31/#33, native integration #48.
+
+`buildings.facade_finish.FacadeFinish(frame_m=0.06, band_m=0.16)` evaluates
+`coverage(repeat, centres_m, footprints_m)` as wall/frame/glass/band fractions
+along the final array axis. The immutable `FacadeRepeat` supplies metric cells
+and finite counts. Frames occupy the inside of its existing opening. Bands
+are centred at floor boundaries, including clipped half-bands at the domain
+ends; their width is limited to the opaque vertical gap. Fractions sum to one,
+with wall outside the repeat domain. No window geometry or repeated rectangles
+are expanded. This is surface coverage, not an opening/collision or native
+LOD contract. #245 owns independent explicit rectangle integration, actual
+physical CPU binding and same-camera cached Place comparisons. The source
+wall colour and existing near-detail geometry are preserved by that consumer.

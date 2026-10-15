@@ -20,7 +20,7 @@ Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
 
 ```sh
 TRANSPORT_PY=/var/tmp/outshine-transport-python-355154544/bin/python
-TRANSPORT_WORK=/var/tmp/outshine-transport-workspace-0241b3f81
+TRANSPORT_WORK=/tmp/outshine-transport-workspace-0241b3f81
 ```
 
 Neue eigene Umgebungen ebenfalls extern mit `python3 -m venv <Temp-Pfad>` erzeugen.
@@ -50,7 +50,7 @@ Bildvergleich bei deutlich sichtbarer Verbesserung. Ein HTTP-Server ist entfalle
 
 Private Renderergebnisse und Kamerabelege liegen außerhalb des Repositorys.
 Der Offline-Aufruf `transport_place_shots.py` erhält explizit den aktuellen
-Arbeitsstand, den geprüften Wiener Höhenplan, den DEM-Quellcache und sein
+Arbeitsstand, den geprüften Wiener Höhenplan, deklarierte DEM-Receipts und sein
 Ausgabeverzeichnis. Nur die vier abschließend geöffneten PNGs werden nach
 `doc/images/transport/` übernommen; Herkunft, Rezeptgrenzen und Kosten stehen im
 verlinkten Fach-Issue/PR. Besitzer: #209 unter #19.
@@ -64,9 +64,10 @@ Quellen in seiner Nähe erhalten einen expliziten Reservierungsgrund. Die
 zusätzlichen lokalen Netze werden nicht als mit diesem Plan gekoppelt ausgegeben.
 
 ```sh
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_MVT_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --retain-flat-release "$TRANSPORT_FLAT_RELEASE" --output "$TRANSPORT_CAMERA_INPUTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_elevation.py --cache "$TRANSPORT_PLACE_SOURCES" --output "$TRANSPORT_CAMERA_ELEVATION"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_place_windows.py --cache "$TRANSPORT_PLACE_SOURCES" --port-plan "$TRANSPORT_PORT_PLAN" --retain-flat-release "$TRANSPORT_FLAT_RELEASE" --output "$TRANSPORT_CAMERA_INPUTS"
 PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/component_surface_experiment.py --data-root "$TRANSPORT_CAMERA_INPUTS" --worker Vienna components
-PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_NEW_SHOTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/transport_place_shots.py --flat-release "$TRANSPORT_FLAT_RELEASE" --port-plan "$TRANSPORT_PORT_PLAN" --camera-products "$TRANSPORT_CAMERA_INPUTS" --elevation-inventory "$TRANSPORT_CAMERA_ELEVATION" --output "$TRANSPORT_NEW_SHOTS"
 ```
 
 Die Variablen benennen ausdrücklich gewählte externe Pfade. Vor dem Rendern
@@ -82,6 +83,25 @@ serielle Alternative lieferte nach ihrem 15-Sekunden-Vorbereitungsbudget keine
 Fläche. Die bestehende Kachel wird deshalb unverändert reserviert; zusätzliche
 Quellen außerhalb ihres 64-m-Schutzbereichs werden unabhängig geplant. Alle
 Quellen und Gründe bleiben erhalten, ohne behauptete Kopplung der Fenster.
+
+Der gemeinsame Eingang `outshine_ref.places` liest Kameras, prüft Quellbytes
+und dekodiert MVT/Terrarium. `capture_place_elevation.py` deklariert für relative
+Kameras z16 mit z15/z14-Eltern; `--fetch` erlaubt ausdrücklich fehlende neue
+Quellen. Ohne diesen Schalter bleibt der Aufruf offline. Gemeinsame Quellen
+liegen unter `<Cache>/mapterhorn/` beziehungsweise `<Cache>/openfreemap/`.
+Der Renderer hat keinen Netzwerkpfad und dokumentiert die tatsächlich benutzte
+DEM-Stufe. Absolute Kameraangaben benötigen keine künstliche Bodenhöhe.
+
+Die historischen Transportpläne bleiben im expliziten skalierten Mercator-Rahmen
+und behalten ihre verifizierten Höhen, Indizes und Quell-IDs. Nur die Darstellung
+übersetzt ihre Vertices über geographische Koordinaten nach WGS84-ENU des
+Szenarios. Kein Geoid-Ausgleich oder neuer Gradienten-/Kontaktbeleg daraus.
+`reference/place-sources.json` bindet die bisherigen starren Flachrezept-Datumswerte
+an ihre ursprünglichen groben DEM-Receipts; sie werden nicht durch feinere neue
+Kamerahöhen umgedeutet. Die historische Pixelzentrum-Interpolation in
+`capture_height_targets.py` bleibt ein ausdrücklich getrennter numerischer
+Vergleichsvertrag; Provider und Terrariumdecoder verwendet auch sie gemeinsam.
+Migration und Frame-/Bildbelege besitzt #225 unter #216.
 
 Ältere Verfahrensansichten bleiben als private Geometriekontrollen nutzbar:
 
@@ -99,6 +119,50 @@ Versuchsaufrufer explizite Ein-/Ausgabepfade.
 
 ## Geschlossene 3D-Körper und gespeicherte Wiener Quellkachel
 
+### Schienenprofile und Schwellen auf gewählten Betten (#250)
+
+`rail_place_experiment.py` liest die gepinnten genodeten Achsen und unveränderten
+Nutzungsbilanzen der vier Kamerafenster. Der wiederverwendbare Profil-/Instanzkern
+liegt in `outshine_ref.transport.rail_hardware`; Vertrag und Rezeptannahmen stehen
+in [lib/rail_hardware.md](../../../lib/rail_hardware.md). Keine Place-Sondergeometrie
+oder neue Quellen. Fehlende Spurweiten verwenden ausdrücklich das prozedurale
+1,435-m-Rezept. Bestehende alte C1-/Flachfenster bleiben unverändert.
+
+Weichen, Querungen und nahe Fremdflächen erhalten konservative lokale Lücken.
+Ungeeignete Stücke behalten ihren Quellenbezug und konkreten Grund; ihre gültigen
+Betten verschwinden nicht. Ein echtes nach Zuschnitt überlappendes Tokyo-Paar liegt
+unter `fixtures/rail-overlap-tokyo.json`. Die optionale Hardwarezulassung prüft
+Schiene/Schiene und Schwelle/Schwelle; vertikale Auflage bleibt ein Kontakt.
+
+```sh
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_place_experiment.py --camera-products "$TRANSPORT_CAMERA_INPUTS" --output "$TRANSPORT_RAIL_PRODUCTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_place_verify.py --products "$TRANSPORT_RAIL_PRODUCTS" --camera-products "$TRANSPORT_CAMERA_INPUTS" --output "$TRANSPORT_RAIL_PRODUCTS/verification.json"
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_instance_cost.py --products "$TRANSPORT_RAIL_PRODUCTS" --mode instances --output "$TRANSPORT_RAIL_INSTANCE_COST"
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_instance_cost.py --products "$TRANSPORT_RAIL_PRODUCTS" --mode baked --output "$TRANSPORT_RAIL_BAKED_COST"
+```
+
+Alle Variablen sind frische explizite externe Temp-Pfade. Der Vier-Orte-Worker
+behält 2 GiB AS/60 CPU-Sekunden; optionaler Aufwand je Fenster kooperativ 15 s,
+Äste/Stücke/Paararbeit zusätzlich begrenzt. `rail_place_verify.py` prüft Exporte
+gegen tatsächliche gepinnte Bett-Dreiecke, sämtliche Spur-/Volumen-/Instanzwerte,
+ganze Footprints, Fremdflächen und Quellenachsen. Freigaben brauchen saubere
+eingefrorene Erzeugerstände und vollständige aktuelle Kernelhashes.
+
+Der Instanz-/Baked-Vergleich misst dieselben tatsächlichen Schwellen nach dem
+Quell-/Kontaktaufbau. Sieben Batches je frischem Worker, Daten-/Arbeitspayload und
+explizite Kopien getrennt von Gesamt-RSS. Optional `--profile <frischer Pfad>`
+mit extern installiertem `memray==1.20.0`: ein Aufruf mit Python-/Systemallokationen
+und nativen Stacks. Profilzeiten/RSS enthalten Profilerkosten; angeforderte
+Allokationsbytes sind keine einzigartigen/live Bytes, interne Kopiertotals bleiben
+unbekannt. Normale Messungen und GPU-/Native-Abnahme bleiben getrennt.
+
+`transport_place_shots.py --rail-products "$TRANSPORT_RAIL_PRODUCTS"` fügt nur
+gebackene Inspektionsgeometrie hinzu und erhält die bisherigen Körperbuffer als
+exakte Präfixe. Beide werden gemeinsam nach Szenario-ENU übersetzt. Metrische
+Spur-/Kontaktbelege bleiben dem historischen Planrahmen zugeordnet. Nach frischem
+Vierer-Rendering die Bilder tatsächlich vergleichen und bei sichtbarem Gewinn
+die vier Präsentations-PNGs aktualisieren.
+
 `transport.close_surface` aus `lib/` schließt bereits konforme Fahrflächen mit
 expliziten Vertexhöhen. Obere Anschlussvertices bleiben gemeinsam, Innenlöcher
 offen; Boden und Randwände bilden einen gerichteten Körper. Das ist ein
@@ -109,7 +173,7 @@ Frische Worker messen sieben Aufbauzeiten und ihren vollständigen Peak-RSS.
 ```sh
 "$TRANSPORT_PY" -m pip install -r test/experiments/transport/requirements.txt
 "$TRANSPORT_PY" -m pip install -e ./lib
-"$TRANSPORT_PY" test/experiments/transport/capture_transport_tile.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_transport_tile.py --output "$TRANSPORT_WORK/inputs"
 "$TRANSPORT_PY" test/experiments/transport/transport_flat_network.py --input build/experiments/transport/inputs --output build/experiments/transport/flat-vienna Vienna
 "$TRANSPORT_PY" test/experiments/transport/transport_flat_surface_network.py --input build/experiments/transport/flat-vienna --output build/experiments/transport/surface-vienna-cuts --junction-mode cuts Vienna
 "$TRANSPORT_PY" test/experiments/transport/surface_solid_benchmark.py
@@ -144,7 +208,7 @@ Grenzen; jede unsichere Richtung wird mit Face und Quell-ID festgehalten.
 
 ```sh
 "$TRANSPORT_PY" -m pip install -e './lib[transport]'
-"$TRANSPORT_PY" test/experiments/transport/capture_height_targets.py
+PYTHONPATH=lib/src "$TRANSPORT_PY" test/experiments/transport/capture_height_targets.py --mesh "$TRANSPORT_WORK/surface-vienna-cuts/Vienna-flat-surfaces.npz" --input "$TRANSPORT_WORK/inputs/Vienna-input.json" --output "$TRANSPORT_WORK/heights"
 "$TRANSPORT_PY" test/experiments/transport/surface_height_frames.py
 "$TRANSPORT_PY" -W error test/experiments/transport/height_source_checks.py
 "$TRANSPORT_PY" -W error test/experiments/transport/surface_height_checks.py
@@ -447,6 +511,30 @@ Analytisch C1, endliche Faces und Boden C0; kein vollständiger Dynamik-/LOD-Bel
 Der ausgewählte `--fit`-Pfad importiert die öffentliche installierbare
 `transport.plan_port_heights`-API; Originaleingaben/Quellen und Budgetdiagnosen
 bleiben im Experiment. Mathematische Kerne besitzen ausschließlich `lib/`.
+
+Der Solververgleich [#217](https://github.com/Weichwolf/outshine/issues/217) ersetzt
+versuchsweise ausschließlich den Fit-Aufruf: `port_highs_experiment.py` bindet
+HiGHS 1.15.1 mit nachträglichen Konus-Stützebenen in denselben öffentlichen
+Ganzplaner ein. `port_highs_checks.py` prüft unabhängige Kreis-/Ellipsenlösungen,
+gemeinsame Kontakte und Abbrüche. Eine LP-Statusmeldung ersetzt keine vollständige
+Konus-, Geometrie- oder Kontaktprüfung. `support` wählt je Sparse-Spaltenmuster
+den stärksten verletzten Konus; geprüft werden weiterhin alle Originalkonusse.
+Der [Ganzplanvergleich](port_highs_comparison.md) verwirft die getesteten Varianten
+unter unveränderten Grenzen; Clarabel bleibt die Referenz. Herleitung und
+Primärquellen stehen in #217. Kein experimenteller Pfad wurde nach `lib/` übernommen.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest port_highs_checks
+PYTHONPATH=lib/src OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error test/experiments/transport/port_highs_experiment.py --backend highs-ipm-support --output "${TMPDIR:-/tmp}/outshine-transport-delayed-cuts/whole"
+```
+
+Erforderlich sind `highspy==1.15.1` und die bisherigen Python-Abhängigkeiten.
+Jeder Lauf braucht ein frisches explizites Temp-Ausgabeverzeichnis. Der Worker
+behält 3 GiB Adressraum, 90 CPU-Sekunden, 8 Sekunden je Fit und 100 Iterationen;
+extern nach 110 Sekunden abbrechen. `--snapshot` exportiert optional den ersten
+originalen Sparse-Fit in einen weiteren frischen Temp-Pfad; seine Kosten werden
+getrennt genannt. Arbeitszähler zählen ausgewiesene Frontend-Materialisierungen,
+explizite Kopien und API-Nutzlast, keine unbekannten internen Solverallokationen.
 
 ### Lokale Zweiebenenrezepte (#21)
 
@@ -820,3 +908,52 @@ SIGGRAPH2008 Fig.2/page2 was inspected visually: retained graph and 3D geometry
 are separate stages, not a reproduced full paper algorithm. Source acquisition
 uses the [documented offline request policy](https://openfreemap.org/quick_start/)
 and a unique User-Agent. Provider credits remain visible in the four-image page.
+
+Der eingefrorene Vier-Orte-/Instanzvergleich zu #250 steht in
+[rail_hardware_comparison.md](rail_hardware_comparison.md).
+
+## Gemeinsame Höhen der ergänzten Kamera-Netze (#265)
+
+`camera_height_experiment.py` vergleicht den vorhandenen Minimax-Konusfit mit
+flächengewichteter quadratischer Passung unter denselben ganzen anisotropen
+Face-Neigungsbedingungen. Eingaben sind die gepinnten Kamera-Meshes und dieselben
+retained z11-DEM-Bytes, keine neue Akquisition. Alle Bettfacetten unter vollständigen
+geprüften Schienen-/Schwellenfootprints bleiben auf ihrem bisherigen Datum fest.
+Die neue Passung ist zunächst experimentell; kein neues öffentliches Bibliotheks-API.
+
+Bei der quadratischen Variante werden feste Kontakte vor einer konservativen
+Rücknahme exakt projiziert. Für das flache zulässige Referenzbett d gilt
+`gradient(d + alpha*(z-d)) = alpha*gradient(z)`. Mit gemessenem maximalem
+normalisiertem Face-Gradient M wird `alpha=min(1,(1-1e-5)/M)` gewählt.
+Eine unabhängige ganze Face-/Kontaktprüfung mit unveränderter Toleranz folgt;
+dies ist ein zulässiger Kandidat und kein Optimalitätsnachweis. Unzulässige
+Minimax-Ergebnisse bleiben ohne Mesh und erhalten das bisherige gültige Bett.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error -m unittest camera_height_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error test/experiments/transport/camera_height_experiment.py --prepare --camera-products "$TRANSPORT_CAMERA_INPUTS" --rail-products "$TRANSPORT_RAIL_PRODUCTS" --dem-sources "$TRANSPORT_DEM_SOURCES" --output "$TRANSPORT_HEIGHT_INPUTS"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error test/experiments/transport/camera_height_experiment.py --inputs "$TRANSPORT_HEIGHT_INPUTS" --place Feldkirch --mode least_squares --output "$TRANSPORT_HEIGHT_RESULT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" -W error test/experiments/transport/camera_height_verify.py --inputs "$TRANSPORT_HEIGHT_INPUTS" --result "$TRANSPORT_HEIGHT_RESULT" --rails "$TRANSPORT_RAIL_PRODUCTS" --place Feldkirch --mode least_squares --output "$TRANSPORT_HEIGHT_RESULT/verification.json"
+```
+
+Alle Ausgabevariablen benennen frische externe Temp-Pfade. Je Variante/Ort ein
+frischer Worker, Solverlimit 8 s plus gemessene Vorbereitung/Schrittüberlauf,
+Adressraum 2 GiB und 60 CPU-s. Die unabhängige Prüfung rekonstruiert alle tatsächlich
+unverändert hohen Bettfacetten und verlangt vollständige Footprint-Abdeckung;
+Vertexkontakte allein reichen nicht. Änderungen an fester Kamera/Galerie bleiben
+an den vollständigen sauberen Replay und geöffneten Vorher/Nachher-Vergleich
+gebunden. Quelle/XY/Indices, alte C1-/Flat-Fenster und Hardware bleiben erhalten;
+C1-Netzprofile, Ebenen, geneigte Gleise und native Integration bleiben offen.
+
+`transport_place_shots.py --height-products "$TRANSPORT_HEIGHT_RUN"` konsumiert
+die sauberen unabhängigen Ergebnisse unter
+`<Place>-least_squares/<Place>-least_squares.{json,npz}` mit
+`verification.json` und den vorbereiteten Eingaben unter `inputs/`.
+Dazu gehören dieselben `--camera-products` und `--rail-products` wie im Fit.
+Nur neue Kamera-Fenster erhalten ihre geprüften Höhen; unveränderte alte
+Wiener/Central-Park-Produkte bleiben erhalten. Ein explizit ungültiger Fit
+behält das vorherige Bett mit Grund; schmutzige oder fremd gebundene Ergebnisse
+werden nicht dargestellt. Der Standard ohne `--height-products` bleibt eben.
+
+Aktueller eingefrorener Vergleich, Grenzen, Kosten und Bildbelege:
+[camera_height_comparison.md](camera_height_comparison.md).

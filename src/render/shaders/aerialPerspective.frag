@@ -1,6 +1,7 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 #include "medium.glsl"
+#include "skyViewLookup.glsl"
 layout(location = 0) in vec2 ndc;
 layout(location = 0) out vec4 colour;
 layout(set = 2, binding = 0) uniform sampler2D scene;
@@ -21,30 +22,11 @@ layout(std140, set = 3, binding = 0) uniform Pushed {
 } pushed;
 vec3 skyViewAt(sampler2D skyView, vec3 dir, vec3 worldUp,
                                vec3 sunDir, float radiusKm, float bottomRadiusKm) {
-  float cosView = dot(dir, worldUp);
-  vec3 side = cross(worldUp, dir);
-  float sideLength = length(side);
-  float lightViewCos = 1.0;
-  if (sideLength > 1.0e-5) {
-    side = side / sideLength;
-    vec3 forward = normalize(cross(side, worldUp));
-    vec2 onPlane = normalize(vec2(dot(sunDir, forward), dot(sunDir, side)));
-    lightViewCos = onPlane.x;
-  }
-  float toHorizon = sqrt(max(0.0, radiusKm * radiusKm - bottomRadiusKm * bottomRadiusKm));
-  float beta = acos(clamp(toHorizon / radiusKm, -1.0, 1.0));
-  float zenithToHorizon = OUTSHINE_PI - beta;
-
-  float angle = min(acos(clamp(cosView, -1.0, 1.0)), zenithToHorizon);
-  float widthPx = float(textureSize(skyView, 0).x);
-  float heightPx = float(textureSize(skyView, 0).y);
-  float coord = angle / zenithToHorizon;
-  coord = 1.0 - sqrt(max(0.0, 1.0 - coord));
-  float v = coord * 0.5;
-  float u = sqrt(max(0.0, -lightViewCos * 0.5 + 0.5));
-  u = (u + 0.5 / widthPx) * (widthPx / (widthPx + 1.0));
-  v = (v + 0.5 / heightPx) * (heightPx / (heightPx + 1.0));
-  return textureLod(skyView, vec2(u, v), 0.0).rgb;
+  ivec2 extent = textureSize(skyView, 0);
+  MediumUv uv = skyViewAtmosphereSample(bottomRadiusKm, radiusKm,
+      SkyViewLook(dot(dir, worldUp), skyLightViewCos(dir, worldUp, sunDir)),
+      MediumLutSize(float(extent.x), float(extent.y)));
+  return textureLod(skyView, vec2(uv.U, uv.V), 0.0).rgb;
 }
 
 vec4 shaded() {

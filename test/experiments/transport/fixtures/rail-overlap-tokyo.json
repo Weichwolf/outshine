@@ -1,0 +1,48 @@
+{
+  "capture_date": "2026-10-15",
+  "input_sha256": "8740b09ecc9ad5bbc0346a792e6f360359a6ddd866b7ab0da4eaad19e7313c70",
+  "origin_lat_lon": [
+    35.66,
+    139.7
+  ],
+  "frame": "Historical scaled-Mercator local metres; normalized/clipped graph axes. Not original survey positions.",
+  "reason": "Distinct retained fragments of one chain overlap physically after local crossing exclusions. Preserve both source axes/beds; omit conflicting optional hardware locally.",
+  "cases": [
+    {
+      "xy": [
+        [
+          171.5828216456545,
+          670.8406843187247
+        ],
+        [
+          172.9437491196482,
+          682.8062317182242
+        ]
+      ],
+      "sources": [
+        "openfreemap:14/14549/6452:transportation:326191290:21",
+        "openfreemap:14/14550/6452:transportation:1441317310:5"
+      ],
+      "original_piece": 79,
+      "original_chain": 39
+    },
+    {
+      "xy": [
+        [
+          172.9436001154973,
+          682.8061094336779
+        ],
+        [
+          171.58284463228523,
+          670.8424055954858
+        ]
+      ],
+      "sources": [
+        "openfreemap:14/14549/6452:transportation:326191290:21",
+        "openfreemap:14/14550/6452:transportation:1441317310:5"
+      ],
+      "original_piece": 81,
+      "original_chain": 39
+    }
+  ]
+}

@@ -49,6 +49,7 @@
 #include "EngineHeld.h"
 #include "GroundWorldCandidate.h"
 #include "GroundDiagnostics.h"
+#include "GroundPalette.h"
 #include "WaterSurfaceBuilder.h"
 #include "GroundBuildSchedule.h"
 #include "GroundMesher.h"
@@ -110,7 +111,6 @@ private:
 };
 
 constexpr double kPerMille = 1000.0;
-constexpr float kVerticalSlopeDeg = 90.0f;
 
 constexpr float kWallRoughness = 0.88f;
 constexpr float kTileRed = 0.42f;
@@ -814,38 +814,6 @@ int Engine::State::VectorPreparationRing() const noexcept {
              : 0;
 }
 
-std::vector<float> Engine::State::PaletteOver(const Ground::VegetationTemplates &wearing,
-                                              const Medium &fallback) {
-  const size_t rows = wearing.TemplateCount();
-  constexpr size_t kSurfaceStride = 8u;
-  const size_t surfacesAt = kPaletteStride * (rows + 2u) + rows + 1u;
-  std::vector<float> palette(surfacesAt + kSurfaceStride * (rows + 1u), 0.0f);
-  palette[0] = std::bit_cast<float>(static_cast<uint32_t>(rows));
-  palette[1] = std::bit_cast<float>(static_cast<uint32_t>(wearing.RockTemplate()));
-  palette[2] = wearing.Limit().SlopeBandDeg();
-  const auto rowAt = [](size_t row) { return kPaletteStride * (row + 1u); };
-  for (size_t row = 0; row < rows; ++row) {
-    const auto appearance = wearing.Rows()[row].MeanGround();
-    for (size_t channel = 0; channel < kPaletteStride; ++channel) {
-      palette[rowAt(row) + channel] = appearance[channel];
-    }
-    palette[kPaletteStride * (rows + 2u) + row] = wearing.Rows()[row].Edge[3];
-    for (size_t channel = 0; channel < kPaletteStride; ++channel) {
-      palette[surfacesAt + kSurfaceStride * row + channel] =
-          wearing.Rows()[row].GroundSurf[channel];
-    }
-    palette[surfacesAt + kSurfaceStride * row + kPaletteStride] = wearing.Rows()[row].Mix[1];
-    palette[surfacesAt + kSurfaceStride * row + 5u] = wearing.Rows()[row].Edge[0];
-    palette[surfacesAt + kSurfaceStride * row + 6u] = wearing.Rows()[row].Edge[1];
-  }
-  for (size_t channel = 0; channel < 3; ++channel) {
-    palette[rowAt(rows) + channel] = fallback.GroundAlbedo[channel];
-  }
-  palette[rowAt(rows) + 3u] = Material{}.Roughness;
-  palette[kPaletteStride * (rows + 2u) + rows] = kVerticalSlopeDeg;
-  return palette;
-}
-
 Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePositionsM,
                                                GroundWorldCandidate &candidate) {
   Classed out;
@@ -856,7 +824,11 @@ Engine::State::Classed Engine::State::Classify(std::span<const Vec3f> probePosit
   if (classes && wearing.Ready()) {
     out.Structure = classes;
     out.Upload = publication.Upload;
-    out.Palette = PaletteOver(wearing, fallback);
+    const Vec4f unknown{{fallback.GroundAlbedo[0],
+                         fallback.GroundAlbedo[1],
+                         fallback.GroundAlbedo[2],
+                         Material{}.Roughness}};
+    out.Palette = Render::GroundMaterialPalette(wearing, unknown);
   }
   if (out.Structure && !out.Palette.empty()) {
     const size_t rows = std::bit_cast<uint32_t>(out.Palette[0]);

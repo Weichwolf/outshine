@@ -22,8 +22,8 @@ std::expected<std::string, std::string> ReadTextFile(std::string_view path, size
   };
   if (path.contains('\0')) { return error(Says::InvalidPath); }
   const std::string ownedPath(path);
-  std::unique_ptr<std::FILE, decltype(&std::fclose)> file(std::fopen(ownedPath.c_str(), "rb"),
-                                                          &std::fclose);
+  std::unique_ptr<std::FILE, int (*)(std::FILE *)> file(std::fopen(ownedPath.c_str(), "rb"),
+                                                        &std::fclose);
   if (!file) { return error(Says::OpenFailed); }
   std::string text;
   std::array<char, 4096> block{};
