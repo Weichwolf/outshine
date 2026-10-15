@@ -81,6 +81,28 @@ void AppendClippingPairs(std::vector<Scenario> &result) {
     }
   }
 }
+
+void AppendFarDepthPairs(std::vector<Scenario> &result) {
+  constexpr float kFarM = 6000;
+  constexpr float kFov = 55;
+  constexpr double kPitchCos = 0.8;
+  constexpr double kPitchSin = 0.6;
+  for (const bool ortho : {false, true}) {
+    for (const Vec2f jitter : {Vec2f{}, kJitter}) {
+      auto scenario = BaseScenario(ortho, false);
+      scenario.Projection.FovDeg = ortho ? 0.0f : kFov;
+      scenario.Projection.FarM = kFarM;
+      scenario.Projection.Jitter = jitter;
+      scenario.Area = kInset;
+      scenario.Basis.Up = {{0, kPitchCos, kPitchSin}};
+      scenario.Basis.Forward = {{0, kPitchSin, -kPitchCos}};
+      for (const float alongM : {4500.0f, 5000.0f}) {
+        scenario.AlongViewM = alongM;
+        result.push_back(scenario);
+      }
+    }
+  }
+}
 }
 
 std::vector<Scenario> Scenarios() {
@@ -91,6 +113,12 @@ std::vector<Scenario> Scenarios() {
     }
   }
   AppendClippingPairs(result);
+  return result;
+}
+
+std::vector<Scenario> GeometryScenarios() {
+  auto result = Scenarios();
+  AppendFarDepthPairs(result);
   return result;
 }
 
