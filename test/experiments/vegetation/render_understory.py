@@ -51,7 +51,8 @@ def palette(inputs):
     height.image = bpy.data.images.load(str(inputs / "parallel-leaf-height.png"))
     height.image.colorspace_settings.name = "Non-Color"
     bump = nodes.new("ShaderNodeBump")
-    bump.inputs["Distance"].default_value = 0.0001
+    metadata = json.loads((inputs / "parallel-leaf-material.json").read_text())
+    bump.inputs["Distance"].default_value = metadata["height_scale_m"]
     bump.inputs["Strength"].default_value = 0.25
     links.new(height.outputs["Color"], bump.inputs["Height"])
     links.new(bump.outputs[0], nodes["Principled BSDF"].inputs["Normal"])
@@ -109,7 +110,15 @@ def hero_scene():
 def render(inputs, output, case):
     start = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    mats, hashes = palette(inputs), {}
+    mats = palette(inputs)
+    hashes = {
+        name: hashlib.sha256((inputs / name).read_bytes()).hexdigest()
+        for name in (
+            "parallel-leaf-colour.png",
+            "parallel-leaf-height.png",
+            "parallel-leaf-material.json",
+        )
+    }
     if case == "plant":
         path = inputs / "convallaria-near.npz"
         model(path, mats)
