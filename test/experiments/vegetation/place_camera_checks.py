@@ -5,14 +5,15 @@ from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
-from place_camera import GeographicFrame, PlaceCamera, selected_cameras
+from place_camera import PlaceCamera, selected_cameras
+from pyproj import Transformer
 
 
 def north_camera():
     return PlaceCamera(
         "control",
-        "",
-        GeographicFrame(0, 0),
+        0,
+        0,
         0,
         0,
         0,
@@ -20,32 +21,45 @@ def north_camera():
         0,
         0,
         90,
-        1000,
+        (1600, 900),
         "2026-06-21T12:00:00Z",
+        "",
+        1000,
     )
 
 
 class PlaceCameraTests(unittest.TestCase):
     def test_wgs84_equator_matches_independent_circular_section(self):
-        frame = GeographicFrame(0, 0)
+        frame = north_camera()
         delta = 0.001
         angle = np.deg2rad(delta)
         expected = (6378137 * np.sin(angle), 0, 6378137 * (np.cos(angle) - 1))
-        np.testing.assert_allclose(frame.to_local(delta, 0, 0), expected, atol=1e-9)
-        self.assertLess(frame.to_local(delta, 0, 0)[2], 0)
+        np.testing.assert_allclose(frame.local(0, delta, 0), expected, atol=1e-9)
+        self.assertLess(frame.local(0, delta, 0)[2], 0)
 
     def test_geographic_roundtrip_and_one_common_height_datum(self):
-        frame = GeographicFrame(47.256121, 10.115857)
+        frame = replace(
+            north_camera(),
+            origin_latitude_deg=47.256121,
+            origin_longitude_deg=10.115857,
+        )
         lon = np.array((10.115857, 10.2, 9.9))
         lat = np.array((47.256121, 47.3, 47.1))
         height = np.array((1772, 1350, 2300))
-        local = frame.to_local(lon, lat, height)
-        np.testing.assert_allclose(local[0], (0, 0, 1772), atol=1e-9)
-        replay = frame.to_geographic(local)
-        np.testing.assert_allclose(
-            replay[:, :2], np.column_stack((lon, lat)), atol=1e-11
+        local = frame.local(lat, lon, height)
+        np.testing.assert_allclose(local[0], (0, 0, 1772), atol=2e-8)
+        oracle = Transformer.from_pipeline(
+            "+proj=pipeline +step +proj=cart +ellps=WGS84 +step +proj=topocentric "
+            "+ellps=WGS84 +lat_0=47.256121 +lon_0=10.115857 +h_0=0"
         )
-        np.testing.assert_allclose(replay[:, 2], height, atol=2e-6)
+        expected = np.stack(oracle.transform(lon, lat, height), axis=-1)
+        np.testing.assert_allclose(local, expected, atol=2e-8, rtol=0)
+        np.testing.assert_allclose(
+            frame.local(lat[:, None], lon[:, None], height[:, None]),
+            expected[:, None],
+            atol=2e-8,
+            rtol=0,
+        )
 
     def test_cardinal_cameras_are_right_handed_and_pitch_is_upward(self):
         camera = north_camera()
@@ -77,7 +91,7 @@ class PlaceCameraTests(unittest.TestCase):
         self.assertAlmostEqual(places["CentralPark"].eye(35)[2], 95, places=8)
         self.assertFalse(places["Koerbersee"].samples_height)
         self.assertAlmostEqual(places["Koerbersee"].eye(35)[2], 1772, places=8)
-        self.assertEqual(places["Koerbersee"].fov_y_deg, 33.97)
+        self.assertEqual(places["Koerbersee"].vertical_fov_deg, 33.97)
         self.assertEqual(places["DarmstadtWest"].pitch_deg, 2.6)
         self.assertEqual(places["Malcesine"].bearing_deg, 290)
 

@@ -14,8 +14,10 @@ outputs or background plates. The former web server and its UI are removed.
 
 The source `.scenario` files retain latitude/longitude, bearing, pitch and fixed
 UTC. New Python images use 2560×1440 with the same aspect and vertical FOV.
-`place_camera.py` reads those declarations. PROJ supplies WGS84 ECEF conversion;
-one explicit origin rotates into right-handed east/north/up metres. Curvature
+`place_camera.py` selects them through the shared `outshine_ref.places` camera
+reader ([#216](https://github.com/Weichwolf/outshine/issues/216),
+[contract](../../../lib/places.md)). One explicit WGS84 origin rotates ECEF
+into right-handed east/north/up metres. Curvature
 is retained rather than flattening distant mountains into a local XY plane.
 Source height numbers remain unchanged; no geoid/MSL correction is claimed.
 
@@ -23,8 +25,9 @@ The camera basis uses right/up/back columns for Blender. A positive native pitch
 raises the forward direction. Pixel projection has a top-left origin and uses
 the vertical FOV; points behind the camera have no valid projected pixels.
 Five independent controls check an equatorial circular section, curved-Earth
-roundtrip, cardinal directions/handedness, exact image edges and all four source
-height/lens declarations.
+coordinates against PROJ's topocentric pipeline, cardinal directions/handedness,
+exact image edges and all four source height/lens declarations. PROJ is a test
+oracle, rather than a second production camera implementation.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 \
