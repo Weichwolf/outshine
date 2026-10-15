@@ -98,6 +98,18 @@ Use the previously generated `conifer-crowns` organ assets as inputs. Only the
 finite physical catalog is loaded during whole production, never a near tree.
 `mature_crown_probe.py --output <probe> --catalogs <mature-output>/catalogs`
 creates one unlit physical-aspect diagnostic per species before all 64-view bakes.
+`mature_window_checks.py` checks the camera projection independently with a known
+2 m plane at 10 m depth, including off-axis placement, translation and rejection
+at the camera plane. `mature_window_comparison.py --products <mature-products.json>
+--scenario <boreal.json> --output <controls>` then requests three actual shoots
+from each complete mature recipe. It reuses the same cached closed physical
+needle meshes/materials, preserves every selected stable needle ID, and compares
+physical geometry with its cached window subset in 17 fixed unlit directions.
+Shared projection bounds and 4×4 subpixel sampling at 128 pixels are reduced to
+32/8/4/2 pixels to expose the approximation's scale dependence. Requested shoot
+bounds are also projected at every matching original stand site with the actual
+vertical-FOV camera. These screen extents do not claim visibility or occlusion.
+Only requested ancestry/shoots are expanded; no complete near tree is built.
 Whole stand images, frame costs and botanical/art quality remain separate from
 the scalar radius invariant. High local coverage errors of statistical windows,
 mean normals, shadows, wind and moving detail transitions remain open in #168.

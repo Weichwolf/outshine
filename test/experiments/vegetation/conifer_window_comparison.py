@@ -46,9 +46,9 @@ def shoot_sources(species, whole):
     return source, windows, banks, wood, bounds
 
 
-def compare_one(species, whole, size=128):
-    began = time.perf_counter()
-    source, windows, banks, wood, bounds = shoot_sources(species, whole)
+def compare_sources(
+    source, windows, banks, wood, bounds, size=128, reductions=(1, 4, 16)
+):
     rows = []
     for direction in directions(17):
         projection_data = projection(bounds, direction)
@@ -76,10 +76,17 @@ def compare_one(species, whole, size=128):
                         abs(average_blocks(b, factor) - average_blocks(a, factor)).sum()
                         / max(float(average_blocks(a, factor).sum()), 1e-20)
                     )
-                    for factor in (1, 4, 16)
+                    for factor in reductions
                 },
             }
         )
+    return rows
+
+
+def compare_one(species, whole, size=128):
+    began = time.perf_counter()
+    source, windows, banks, wood, bounds = shoot_sources(species, whole)
+    rows = compare_sources(source, windows, banks, wood, bounds, size)
     return {
         "species": species,
         "axis_path": source["axis_path"],
