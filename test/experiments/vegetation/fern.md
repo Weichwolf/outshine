@@ -6,6 +6,9 @@ PinnatePattern/Blade/FrondGuide procedures; it does not copy SpeedTree geometry
 or textures. The plant is a generic authored fern, with no accepted scientific
 species label. Botanical calibration remains #25.
 
+[Boundary-preserving products](pinna.md) compare lower-cost cached field meshes
+with the same source plant, spatial edges and direct camera/light needs (#354).
+
 ## Reference and prepared hierarchy
 
 [Source decision](https://github.com/Weichwolf/outshine/issues/339#issuecomment-6200847380):
