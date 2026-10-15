@@ -161,3 +161,20 @@ per-dispatch availability and metadata, truncation, eight-submission retention,
 independent repeated retrieval, owner rejection, abandoned recordings and
 shutdown with accepted GPU work. These checks establish the timing contract,
 not a full renderer, image-quality improvement or target-device frame budget.
+
+`ReadbackTransfer` is the native readback state used by the renderer migration.
+Start submits a copy of an image region or buffer byte range. Poll only asks for
+completion and exposes no partial bytes; Wait accepts an explicit finite caller
+budget for offline capture. The transfer owns the destination buffer and its
+mapped allocation, not a borrowed Device pointer. Each query requires the correct
+live device/owner, even after mapping. A returned span remains valid while its
+transfer owns the allocation, including across transfer moves and after device
+facade destruction. Native resource ownership retains accepted copies when their
+source wrapper or an abandoned transfer is released. Image bytes are packed by
+row without format conversion; RowBytes describes that packing.
+
+The real GPU probe verifies mip/array-layer crops, partial buffer ranges,
+nonblocking pending data, move/lifetime behavior, cancellation, wrong owner and
+overflow/bounds rejection. It does not establish completion of the SceneRenderer
+port: the existing SDL readback is removed when its actual callers migrate under
+#328. There is no fallback from native failure to SDL.

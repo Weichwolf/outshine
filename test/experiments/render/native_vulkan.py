@@ -92,6 +92,8 @@ def main():
             sources += [Path(__file__).with_name('native_present.frag'),
                         Path(__file__).with_name('native_vulkan_present.frag'),
                         Path(__file__).with_name('native_target_delay.comp')]
+        else:
+            sources.append(Path(__file__).with_name('native_target_delay.comp'))
         sources.append(ROOT / 'src/render/shaders/presentUnorm.frag')
         sources += [Path(__file__).with_name('native_timing.comp'),
                     Path(__file__).with_name('native_timing_empty.comp')]
@@ -111,6 +113,7 @@ def main():
                           ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp',
                           ROOT / 'test/harness/render/NativePresentTargetProbe.cpp']
         consumers.append(ROOT / 'test/harness/render/NativeTimingProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeReadbackProbe.cpp')
         consumers.append(ROOT / 'test/harness/render/NativeSdrTransferProbe.cpp')
         binaries = []
         for source in consumers:
@@ -149,6 +152,9 @@ def main():
         report['dispatch_timing_checks'] = verdict(run(
             [str(output / 'NativeTimingProbe'), *map(str, shaders[-2:])], log,
             environment=environment, timeout=30), log)
+        report['native_readback_checks'] = verdict(run(
+            [str(output / 'NativeReadbackProbe'), str(output / 'native_target_delay.comp.spv')], log,
+            environment=environment, timeout=30), log)
         report['sdr_transfer_checks'] = verdict(run(
             [str(output / 'NativeSdrTransferProbe')], log,
             environment=environment, timeout=30), log)
@@ -174,6 +180,8 @@ def main():
                              for path in [*native, *headers, *consumers, *sources, Path(__file__),
                                           ROOT / 'src/render/stages/StagePipelines.cpp',
                                           ROOT / 'src/render/stages/StagePipelines.h',
+                                          ROOT / 'src/render/device/ReadbackTransfer.h',
+                                          ROOT / 'src/render/device/ReadbackTransfer.cpp',
                                           ROOT / 'test/run.sh', ROOT / 'test/scripts/source_units.py']}
         (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps({key: value for key, value in report.items() if key != 'sources'}))
