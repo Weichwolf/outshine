@@ -49,7 +49,6 @@ public:
     ZeroDensity,
     DensityDraw,
     AboveTreeline,
-    TooSteep,
     WoodyDraw,
     OccupiedSurface,
     HighestStandAslM,
@@ -81,7 +80,6 @@ private:
     ZeroDensity,
     DensityDraw,
     AboveTreeline,
-    TooSteep,
     WoodyDraw,
     OccupiedSurface
   };
