@@ -61,7 +61,8 @@ def main():
         compiler = shlex.split(os.environ.get('CXX', 'clang++'))
         glslang = shlex.split(os.environ.get('GLSLANG', 'glslangValidator'))
         flags = shlex.split(run(
-            ['pkg-config', '--cflags', '--libs', 'vulkan', 'spirv-cross-c-shared'], log).stdout)
+            ['pkg-config', '--cflags', 'vulkan', 'spirv-cross-c-shared'], log).stdout)
+        flags += shlex.split(run(['sh', 'test/run.sh', '--native-link-flags'], log).stdout)
         selected = run(['python3', 'test/scripts/source_units.py'], log).stdout.splitlines()
         native = [ROOT / name for name in selected if name.startswith('src/render/device/native/')]
         members = run(['ar', 't', str(archive)], log).stdout.splitlines()
