@@ -35,6 +35,13 @@ class Furnishing:
             )
 
 
+def _owned_coordinates(value):
+    value = np.asarray(value, dtype=float)
+    if value.shape != (2,) or not np.isfinite(value).all():
+        raise ValueError("Furnishing coordinates require a finite XY pair")
+    return np.frombuffer(value.tobytes(), dtype=float)
+
+
 def placed(spec, centre, tangent, identifier):
     check_identifier(identifier)
     if not isinstance(spec, Furnishing):
@@ -77,21 +84,18 @@ def placed(spec, centre, tangent, identifier):
     activity = affine_transform(activity_local, transform)
     target = centre + front * (spec.depth_m + spec.activity_depth_m / 2)
 
-    def owned(value):
-        value = np.asarray(value, dtype=float)
-        return np.frombuffer(value.tobytes(), dtype=float).reshape(value.shape)
-
     return {
         "id": identifier,
         "kind": spec.kind,
         "spec": spec,
-        "centre": owned(centre),
-        "tangent": owned(tangent),
+        "centre": _owned_coordinates(centre),
+        "tangent": _owned_coordinates(tangent),
         "footprint": footprint,
         "activity": activity,
-        "target": owned(target),
+        "target": _owned_coordinates(target),
         "targets": tuple(
-            owned(centre + tangent * x + front * y) for x, y in local_targets
+            _owned_coordinates(centre + tangent * x + front * y)
+            for x, y in local_targets
         ),
     }
 
@@ -127,8 +131,8 @@ def access(room, portals, items, reserved=()):
         if any(item["footprint"].intersects(region) for region in reserved):
             raise ValueError("Furnishing intersects a reserved approach or opening")
     free = room.difference(obstacles).buffer(-AGENT_RADIUS_M, join_style="mitre")
-    anchors = [np.asarray(p, dtype=float) for p in portals] + [
-        point for r in items for point in r["targets"]
+    anchors = [_owned_coordinates(p) for p in portals] + [
+        _owned_coordinates(point) for r in items for point in r["targets"]
     ]
     if not anchors:
         raise ValueError("Furnished room has no actual portal anchor")

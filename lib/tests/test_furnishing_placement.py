@@ -12,6 +12,24 @@ STORAGE = Furnishing("storage", 1.05, 0.4, 1.55, 0.75)
 
 
 class PlacementControls(unittest.TestCase):
+    def test_access_report_owns_portal_and_activity_coordinates(self):
+        room = shapely.box(0, 0, 8, 6)
+        portal = np.array([0.5, 3.0])
+        item = placed(DESK, [4.0, 2.0], [1.0, 0.0], "caller-owned-target")
+        target = item["targets"][0].copy()
+        item = dict(item, targets=(target,))
+        expected_target = target.copy()
+        proof = access(room, [portal], [item])
+        portal[:] = 99.0
+        target[:] = 88.0
+        np.testing.assert_array_equal(proof["anchors"][0], [0.5, 3.0])
+        np.testing.assert_array_equal(proof["anchors"][1], expected_target)
+        for anchor in proof["anchors"]:
+            with self.assertRaises(ValueError):
+                anchor.setflags(write=True)
+        for path in proof["paths"]:
+            self.assertTrue(proof["free"].covers(path))
+
     def test_placement_arrays_own_immutable_coordinates(self):
         centre = np.array([3.0, 2.0])
         tangent = np.array([1.0, 0.0])
