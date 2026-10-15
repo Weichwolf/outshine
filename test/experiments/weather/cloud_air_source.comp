@@ -9,6 +9,9 @@
 #ifndef SOURCE_CLOUD_MODE
 #define SOURCE_CLOUD_MODE 0
 #endif
+#ifndef SOURCE_EYE_CLOUD_COVER
+#define SOURCE_EYE_CLOUD_COVER SOURCE_CLOUD_COVER
+#endif
 #ifndef SOURCE_GRID_LOG
 #define SOURCE_GRID_LOG 0
 #endif
@@ -87,7 +90,9 @@ void main() {
   AirSourceRay sourceRay = AirSourceRay(originM + direction * (span.BeginKm * 1000.0), direction);
   AirPrefix clear = airPrefixBegin(pushed.Air, clearRay, veil, multiScatter, sourceRay);
   CloudLight light = CloudLight(sourceSunDirection(), vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
-  CloudAirPrefix prefix = cloudAirPrefixBegin(sourceWeatherLayer(), originM, direction,
+  CloudLayer eyeLayer = sourceWeatherLayer();
+  eyeLayer.field.x = SOURCE_EYE_CLOUD_COVER;
+  CloudAirPrefix prefix = cloudAirPrefixBegin(eyeLayer, originM, direction,
       span.EndKm * 1000.0, light, clear, span.BeginKm * 1000.0);
   for (uint at = inputRay.QueryBegin; at < inputRay.QueryEnd; ++at) {
     AirTransfer result = cloudAirPrefixAdvance(
