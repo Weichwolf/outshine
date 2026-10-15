@@ -136,6 +136,7 @@ def building(row, view, name, output, provenance):
     record = provenance | {
         "city": name,
         "ground_mode": "flat-no-dem",
+        "ground_span_m": 10000.0,
         "source": source,
         "source_id": row["id"],
         "context_source_sha256": row["context"]["source_sha256"],

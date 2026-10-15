@@ -100,6 +100,28 @@ class RecessConsumers(unittest.TestCase):
         self.assertIs(output, mesh)
         self.assertEqual(records, [])
 
+    def test_far_demand_reads_no_geometry_buffers(self):
+        class UnreadableGeometry(dict):
+            def __getitem__(self, key):
+                raise AssertionError("Far demand read a geometry buffer: " + key)
+
+        row = sources()[0]
+        _, facades, p = source_facades(row)
+        guarded = UnreadableGeometry()
+        view = camera(max(facades, key=lambda f: f["width_m"]), 100000)
+        output, records, _ = attach(
+            guarded,
+            row,
+            p,
+            facades,
+            view,
+            lambda: self.fail("far material"),
+            32768,
+            plain_wall_material=1,
+        )
+        self.assertIs(output, guarded)
+        self.assertFalse(records)
+
     def test_capacity_fallback_retains_complete_painted_wall(self):
         row = sources()[1]
         mesh, facades, p = source_facades(row)

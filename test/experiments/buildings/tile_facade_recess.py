@@ -51,6 +51,12 @@ def attach(
     max_cells=4096,
 ):
     records, rejected, additions = [], [], []
+    requests = [
+        (frame, demand(frame, parameters["minHeight"], view)) for frame in facades
+    ]
+    requests = [(frame, request) for frame, request in requests if request is not None]
+    if not requests:
+        return mesh, records, rejected
     remove = np.zeros(len(mesh["faces"]), dtype=bool)
     triangles = mesh["vertices"][mesh["faces"]]
     normals = np.cross(
@@ -59,10 +65,7 @@ def attach(
     normals /= np.linalg.norm(normals, axis=1, keepdims=True)
     bottom = parameters["minHeight"]
     remaining = max_cells
-    for frame in facades:
-        request = demand(frame, bottom, view)
-        if request is None:
-            continue
+    for frame, request in requests:
         normal, tangent, error = request
         a = np.asarray(frame["a"])
         relative = triangles - np.r_[a, bottom]
