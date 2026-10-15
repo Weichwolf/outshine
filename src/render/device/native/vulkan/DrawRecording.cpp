@@ -2,9 +2,23 @@
 #include "Recording.h"
 #include <expected>
 #include <cstdint>
+#include <cstddef>
 #include <utility>
 
 namespace outshine::Render::Native::Vulkan {
+
+static_assert(sizeof(VkDrawIndexedIndirectCommand) == sizeof(IndexedIndirectArguments));
+static_assert(alignof(VkDrawIndexedIndirectCommand) == alignof(IndexedIndirectArguments));
+static_assert(offsetof(VkDrawIndexedIndirectCommand, indexCount) ==
+              offsetof(IndexedIndirectArguments, IndexCount));
+static_assert(offsetof(VkDrawIndexedIndirectCommand, instanceCount) ==
+              offsetof(IndexedIndirectArguments, InstanceCount));
+static_assert(offsetof(VkDrawIndexedIndirectCommand, firstIndex) ==
+              offsetof(IndexedIndirectArguments, FirstIndex));
+static_assert(offsetof(VkDrawIndexedIndirectCommand, vertexOffset) ==
+              offsetof(IndexedIndirectArguments, BaseVertex));
+static_assert(offsetof(VkDrawIndexedIndirectCommand, firstInstance) ==
+              offsetof(IndexedIndirectArguments, FirstInstance));
 
 Result<void> Recording::AppendDraw(DrawPacket packet) {
   if (!Render_) {
