@@ -1,0 +1,37 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float palette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+#include "periodicBand.glsl"
+#include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
+#include "facadeFootprint.glsl"
+#include "facadeCoating.glsl"
+#include "facadeMasonry.glsl"
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  uint at = 320u + 12u * uint(probes[index].Which);
+  vec3 source = vec3(palette[at], palette[at + 1u], palette[at + 2u]);
+  float roughness = palette[at + 3u];
+  vec3 regions = vec3(palette[at + 4u], palette[at + 5u], palette[at + 6u]);
+  float wall = facadeMasonryWall(regions);
+  vec4 filtered = vec4(regions, palette[at + 7u] * wall);
+  float field = palette[at + 8u] * wall;
+  FacadeGlazing surface = facadeCoatedWindow(filtered, source, roughness);
+  vec3 coated = surface.albedo;
+#if JOINT_FACADE_RANGE
+  vec3 amplitude = facadeMasonryAmplitude(source, facadeCoatingAmplitude(source));
+#else
+  vec3 amplitude = facadeMasonryAmplitude(source);
+#endif
+  surface.albedo += amplitude * field;
+  float roughnessAmplitude = max(min(0.04, min(roughness / 0.16, (1.0 - roughness) / 0.84)), 0.0);
+  surface.roughness += roughnessAmplitude * field;
+  results[index] = Result(vec4(surface.albedo, surface.roughness), vec4(coated, field));
+}

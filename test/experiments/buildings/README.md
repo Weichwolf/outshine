@@ -194,6 +194,20 @@ normals are recorded for comparison and are not the intended material input.
 `verify_city_normals.py` exercises an actual Eevee pixel with identity and
 nonuniform object scaling. No new shared Blender or native API is required.
 
+Ordinary ground-floor sources can now use the same existing entrance selector
+as the first-storey room experiments (#358), restricted to existing facade cells.
+`facade_entrances.py` records a procedural connected arrival-space assumption,
+known neighbor-free landing, stable ID and cell. `tile_facade_recess.py` excludes
+that one cell from the same window repeat, preserving other UV axes; the near
+cell uses `OpeningPanel`, existing casing/leaf and simple floor/ceiling/landing.
+The entrance-facade plinth is omitted so it cannot block the door. Complete room
+controls are untouched; their later transition, upper access, outside routes,
+night/radiance/LOD and native player/cache integration remain unproved.
+`entrance_probe.py --output <temp>` writes actual same-camera before/closed/open,
+side/overview/compact products, cuts/2.5D and direct-panel/CSG comparison. Render
+reports with `blender_city.py`; `verify_facade_entrances.py` checks actual sources
+and continuous compiled arrival-tube clearance. Core contract: lib/entrances.md.
+
 Near ordinary facades also have procedural plinths, selected storey belts and
 stepped cornices through `tile_facade_bands.py` / the installable
 `BandPlan`/`band_surface` (#342). Existing facade-repeat gaps determine heights;
