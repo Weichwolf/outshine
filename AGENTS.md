@@ -135,6 +135,10 @@
   RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
   1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
+- Transport rendert eigene Python-Aufnahmen von Wien, Tokyo, Central Park und Feldkirch nach
+  den festen Orts-/Kamerareferenzen in `doc/images/places/` und den Place-Szenarien.
+  Genau vier Referenz-PNGs liegen unter `doc/images/transport/`; bei deutlich sichtbaren
+  Verbesserungen nach tatsächlichem Vorher/Nachher-Bildvergleich aktualisieren. Kein Showcase-Server.
 - Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.

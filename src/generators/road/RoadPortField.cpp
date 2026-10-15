@@ -58,6 +58,7 @@ double HeightAt(const RoadPortField::Plane &plane, EastNorth at) {
 struct Blend {
   double Weight;
   RoadPlane Gradient;
+  double Denominator = 1.0;
 };
 
 std::expected<Blend, RoadPortField::Error> BlendAt(const RoadPortField::Patch &patch,
@@ -81,7 +82,8 @@ std::expected<Blend, RoadPortField::Error> BlendAt(const RoadPortField::Patch &p
                .Gradient = {.SlopeE = factor * (gradient[0].SlopeE * denominator -
                                                 u * (gradient[0].SlopeE + gradient[1].SlopeE)),
                             .SlopeN = factor * (gradient[0].SlopeN * denominator -
-                                                u * (gradient[0].SlopeN + gradient[1].SlopeN))}};
+                                                u * (gradient[0].SlopeN + gradient[1].SlopeN))},
+               .Denominator = denominator};
 }
 }
 
@@ -126,6 +128,34 @@ RoadPortField::Evaluate(size_t patch, EastNorth at) const noexcept {
                    .SlopeN = left.Gradient.SlopeN +
                              blend->Weight * (right.Gradient.SlopeN - left.Gradient.SlopeN) +
                              blend->Gradient.SlopeN * delta}};
+}
+
+std::expected<RoadPortField::Basis, RoadPortField::Error>
+RoadPortField::BasisAt(size_t patch, EastNorth at) const noexcept {
+  if (patch >= Patches_.size() || !Bounded(at)) { return std::unexpected(Error::InvalidQuery); }
+  const Patch &part = Patches_[patch];
+  Blend blend{.Weight = 0.0, .Gradient = {}};
+  if (part.Parents[0] != part.Parents[1]) {
+    const auto sampled = BlendAt(part, at);
+    if (!sampled) { return std::unexpected(sampled.error()); }
+    blend = *sampled;
+  }
+  Basis basis;
+  basis.Denominator = blend.Denominator;
+  for (size_t end = 0; end < 2; ++end) {
+    const double weight = end == 0 ? 1.0 - blend.Weight : blend.Weight;
+    const double sign = end == 0 ? -1.0 : 1.0;
+    const auto origin = Planes_[part.Parents[end]].Origin;
+    const std::array local{1.0, at.EastM - origin.EastM, at.NorthM - origin.NorthM};
+    for (size_t column = 0; column < 3; ++column) {
+      basis.Height[3 * end + column] = weight * local[column];
+      basis.Gradient[0][3 * end + column] =
+          (column == 1 ? weight : 0.0) + sign * blend.Gradient.SlopeE * local[column];
+      basis.Gradient[1][3 * end + column] =
+          (column == 2 ? weight : 0.0) + sign * blend.Gradient.SlopeN * local[column];
+    }
+  }
+  return basis;
 }
 
 }

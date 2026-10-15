@@ -28,7 +28,7 @@ size_t HeapProbe::LiveBytes() {
   return s.size_in_use;
 #else
   const struct mallinfo2 m = mallinfo2();
-  return (size_t)m.uordblks;
+  return m.uordblks + m.hblkhd;
 #endif
 }
 

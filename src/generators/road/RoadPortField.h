@@ -33,12 +33,19 @@ public:
     RoadPlane Gradient;
   };
 
+  struct FaceBounds {
+    double NormalizedGradientMaximum = 0.0;
+    double HeightChordErrorM = 0.0;
+  };
+
   enum class Error : uint8_t {
     InputBudget,
     InvalidPlane,
     InvalidPatch,
     InvalidQuery,
-    NonpositiveDenominator
+    NonpositiveDenominator,
+    InvalidGradeFrame,
+    NumericRange
   };
 
   [[nodiscard]] static std::expected<RoadPortField, Error> Make(std::span<const Plane> planes,
@@ -46,8 +53,28 @@ public:
 
   [[nodiscard]] std::expected<Sample, Error> Evaluate(size_t patch, EastNorth at) const noexcept;
 
+  [[nodiscard]] std::expected<FaceBounds, Error>
+  Bounds(size_t patch,
+         const std::array<EastNorth, 3> &triangle,
+         const std::array<double, 4> &gradeFrame) const noexcept;
+
 private:
   RoadPortField(std::vector<Plane> planes, std::vector<Patch> patches);
+
+  struct Basis {
+    std::array<double, 6> Height{};
+    std::array<std::array<double, 6>, 2> Gradient{};
+    double Denominator = 1.0;
+  };
+
+  struct Control {
+    std::array<double, 6> Error{};
+    std::array<std::array<double, 6>, 2> Gradient{};
+  };
+
+  [[nodiscard]] std::expected<Basis, Error> BasisAt(size_t patch, EastNorth at) const noexcept;
+  [[nodiscard]] std::expected<std::array<Control, 15>, Error>
+  Controls(size_t patch, const std::array<EastNorth, 3> &triangle) const noexcept;
 
   std::vector<Plane> Planes_;
   std::vector<Patch> Patches_;
