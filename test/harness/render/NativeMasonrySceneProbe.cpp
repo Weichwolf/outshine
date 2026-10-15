@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <ios>
@@ -22,6 +23,15 @@ using namespace outshine::Test;
 
 constexpr int kWidth = 1280, kHeight = 720;
 constexpr size_t kVertices = 6;
+constexpr double kKeyLux = 1000;
+constexpr double kKeyElevationDeg = 30;
+constexpr double kKeyBearingDeg = 180;
+constexpr double kAmbientRadiance = 0.1;
+constexpr double kCameraHeightM = 3.85;
+constexpr double kCameraNearM = 0.1;
+constexpr double kCameraFarM = 100;
+constexpr float kWallRoughness = 0.9f;
+constexpr Extent kFrame{.WidthPx = kWidth, .HeightPx = kHeight};
 
 struct Fixture {
   std::array<Vec3, 6> Frame;
@@ -29,7 +39,9 @@ struct Fixture {
   std::array<float, kVertices * 2> Metres;
 };
 
-static_assert(std::is_trivially_copyable_v<Fixture> && sizeof(Fixture) == 336);
+constexpr size_t kFixtureBytes =
+    6 * sizeof(Vec3) + kVertices * (sizeof(StoredVertex) + 2 * sizeof(float));
+static_assert(std::is_trivially_copyable_v<Fixture> && sizeof(Fixture) == kFixtureBytes);
 
 bool Accepted(const Result &result) {
   CHECK(result.has_value(), result ? "public operation accepted" : result.error().c_str());
@@ -42,7 +54,8 @@ Geometry Mesh(const Fixture &fixture, SurfacePattern pattern, double &centreX) {
   if (!Normalise(along)) { return {}; }
   const Vec3 horizontal = frame[1] * along[0] + frame[3] * along[2];
   const Vec3 facing = Cross(horizontal, frame[2]);
-  std::array<float, kVertices * 3> positions{}, normals{};
+  std::array<float, kVertices * 3> positions{};
+  std::array<float, kVertices * 3> normals{};
   std::array<float, kVertices * 2> uv{};
   for (size_t at = 0; at < kVertices; ++at) {
     const auto &vertex = fixture.Verts[at];
@@ -67,7 +80,7 @@ Geometry Mesh(const Fixture &fixture, SurfacePattern pattern, double &centreX) {
                           Generators::kBuildingWallColour[2],
                           1}};
   material.Pattern = pattern;
-  material.Roughness = 0.9f;
+  material.Roughness = kWallRoughness;
   material.DoubleSided = true;
   const auto surface = mesh.addSurface("actual-native-wall", material);
   CHECK(surface, "actual wall material is valid");
@@ -85,31 +98,33 @@ Geometry Mesh(const Fixture &fixture, SurfacePattern pattern, double &centreX) {
 bool RenderWall(const Geometry &mesh, double centreX, const char *prefix) {
   Scenario::Document scenario;
   scenario.Render.Declared = true;
-  scenario.Render.Frame = {kWidth, kHeight};
+  scenario.Render.Frame = kFrame;
   scenario.Render.Outputs = {"sceneLinear", "sceneDepth"};
   scenario.Lit.Declared = true;
-  scenario.Lit.Key.Lux = 1000;
-  scenario.Lit.Key.ElevationDeg = 30;
-  scenario.Lit.Key.BearingDeg = 180;
-  scenario.Lit.IndirectLight = {{0.1, 0.1, 0.1}};
+  scenario.Lit.Key.Lux = kKeyLux;
+  scenario.Lit.Key.ElevationDeg = kKeyElevationDeg;
+  scenario.Lit.Key.BearingDeg = kKeyBearingDeg;
+  scenario.Lit.IndirectLight = {{kAmbientRadiance, kAmbientRadiance, kAmbientRadiance}};
   Scenario::View view;
   view.Id = "wall";
   view.Person = "first";
   view.Placement = Scenario::CameraPlacement::Local;
-  view.Sees.PositionM = {{centreX, 3.85, 8}};
+  view.Sees.PositionM = {{centreX, kCameraHeightM, 8}};
   view.Sees.LooksAt = true;
-  view.Sees.LookAtM = {{centreX, 3.85, 0}};
-  view.Sees.setProjection(Camera::Ortho{.XMagM = 2, .YMagM = 1.125, .NearM = 0.1, .FarM = 100});
+  view.Sees.LookAtM = {{centreX, kCameraHeightM, 0}};
+  view.Sees.setProjection(Camera::Ortho{
+      .XMagM = 2, .YMagM = 2.0 * kHeight / kWidth, .NearM = kCameraNearM, .FarM = kCameraFarM});
   scenario.Views.push_back(view);
   Engine engine;
-  if (!Accepted(engine.setRenderTarget({kWidth, kHeight})) || !Accepted(engine.declare(scenario)) ||
+  if (!Accepted(engine.setRenderTarget(kFrame)) || !Accepted(engine.declare(scenario)) ||
       !Accepted(engine.setGeometry(mesh)) || !Accepted(engine.assemble())) {
     return false;
   }
   for (int repeat = 0; repeat < 3; ++repeat) {
     if (!Accepted(engine.advance()) || !Accepted(engine.renderer().render({}))) { return false; }
   }
-  std::vector<float> linear, depth;
+  std::vector<float> linear;
+  std::vector<float> depth;
   if (!Accepted(engine.renderer().readPixels(Buffer::Linear, linear)) ||
       !Accepted(engine.renderer().readPixels(Buffer::Depth, depth))) {
     return false;
@@ -137,7 +152,8 @@ int main(int argc, char **argv) {
   }
   Fixture fixture{};
   std::ifstream input(argv[1], std::ios::binary | std::ios::ate);
-  CHECK(input && input.tellg() == static_cast<std::streamoff>(sizeof(fixture)),
+  const std::streamoff bytes = input.tellg();
+  CHECK(input && bytes == static_cast<std::streamoff>(sizeof(fixture)),
         "actual source/cache fixture has its exact native layout");
   input.seekg(0);
   input.read(reinterpret_cast<char *>(&fixture), sizeof(fixture));

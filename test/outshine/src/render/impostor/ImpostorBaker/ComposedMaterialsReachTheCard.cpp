@@ -6,9 +6,11 @@
 #include "math/Srgb.h"
 
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <string>
@@ -167,22 +169,27 @@ void CheckMasonry() {
   using namespace outshine::Test;
   Geometry source = Fixture(Finish::Facade);
   constexpr float kCode = static_cast<float>(6 * 3 * 11 + 1) * 256;
-  CHECK(
-      source.setTexture(
-          0, std::array<float, 6>{kCode + .12f, 1.2f, kCode + .43f, 1.2f, kCode + .275f, 1.54f}) &&
-          source.setTexture(0, std::array<float, 6>{.03f, .01f, 1.03f, .01f, .53f, 1.01f}, 1),
-      "capture fixture has independent facade metadata and physical UV1");
+  constexpr std::array<float, 6> kFacadeUv{
+      kCode + .12f, 1.2f, kCode + .43f, 1.2f, kCode + .275f, 1.54f};
+  constexpr std::array<float, 6> kMetres{.03f, .01f, 1.03f, .01f, .53f, 1.01f};
+  constexpr int kPixels = 129;
+  constexpr float kVisibleDelta = .01f;
+  constexpr float kCapturedPaneRoughness = .1199951171875f;
+  CHECK(source.setTexture(0, kFacadeUv) && source.setTexture(0, kMetres, 1),
+        "capture fixture has independent facade metadata and physical UV1");
   const auto bake = [](Geometry mesh, SurfacePattern pattern) {
     Material material = mesh.surfaceAt(MaterialInstance(0));
     material.Pattern = pattern;
     CHECK(mesh.setSurface(MaterialInstance(0), material), "capture mode is explicit");
     Render::ImpostorCapture capture;
-    capture.LeastM = {{-.5, -.5, -.1}};
-    capture.MostM = {{.5, .5, .1}};
+    constexpr Vec3 kLeastM{{-.5, -.5, -.1}};
+    constexpr Vec3 kMostM{{.5, .5, .1}};
+    capture.LeastM = kLeastM;
+    capture.MostM = kMostM;
     capture.Sources.push_back({.Mesh = std::move(mesh), .Instances = {Mat4{}}});
     std::string error;
     auto atlas =
-        Render::ImpostorBaker::Bake(std::move(capture), {.Pixels = 129, .Views = 1}, error);
+        Render::ImpostorBaker::Bake(std::move(capture), {.Pixels = kPixels, .Views = 1}, error);
     CHECK(atlas.has_value(), error.c_str());
     return atlas;
   };
@@ -194,7 +201,23 @@ void CheckMasonry() {
   CHECK(a.Materials.size() == b.Materials.size() && a.Texels.size() == b.Texels.size(),
         "material mode preserves capture shape");
   if (a.Materials.size() != b.Materials.size() || a.Texels.size() != b.Texels.size()) { return; }
-  size_t changed = 0, panes = 0;
+  const auto purePane = [&](size_t at) {
+    const size_t row = at / kPixels;
+    const size_t column = at % kPixels;
+    if (row == 0 || column == 0 || row + 1 >= kPixels || column + 1 >= kPixels) { return false; }
+    for (size_t y = row - 1; y <= row + 1; ++y) {
+      for (size_t x = column - 1; x <= column + 1; ++x) {
+        const size_t neighbour = y * kPixels + x;
+        if (a.Texels[neighbour].Surface == 0 ||
+            a.Materials[neighbour].Roughness != kCapturedPaneRoughness) {
+          return false;
+        }
+      }
+    }
+    return true;
+  };
+  size_t changed = 0;
+  size_t panes = 0;
   float worst = 0;
   for (size_t at = 0; at < a.Texels.size(); ++at) {
     CHECK(a.Texels[at].Surface == b.Texels[at].Surface,
@@ -204,8 +227,8 @@ void CheckMasonry() {
     const auto &now = b.Materials[at];
     const float delta = std::abs(old.BaseColour[2] - now.BaseColour[2]);
     worst = std::max(worst, delta);
-    changed += delta > .01f ? 1u : 0u;
-    if (old.Roughness == .12f) {
+    changed += delta > kVisibleDelta ? 1u : 0u;
+    if (purePane(at)) {
       ++panes;
       CHECK(old.BaseColour == now.BaseColour && old.Roughness == now.Roughness,
             "resolved pure glass remains exact during metre-aware material capture");
@@ -214,7 +237,7 @@ void CheckMasonry() {
               now.Roughness <= 1,
           "capture preserves metallic and bounded composed roughness");
   }
-  CHECK(changed > 30 && worst > .01f && panes > 30,
+  CHECK(changed > 30 && worst > kVisibleDelta && panes > 30,
         "real capture sees UV1 masonry while retaining actual window panes");
   const auto card = Render::BuildImpostorSurface(*after, 0);
   CHECK(card && card->wellFormed() &&

@@ -49,7 +49,7 @@ python test/experiments/render/masonry_facade_raster.py \
   --binary /tmp/native-facade --output /tmp/outshine-material-masonry-raster
 python test/experiments/render/masonry_facade_pixel_reference.py \
   --binary /tmp/native-facade --input /tmp/outshine-material-masonry-raster \
-  --output /tmp/outshine-material-masonry-reference
+  --output /tmp/outshine-material-masonry-reference --legacy /tmp/predecessor-checkout
 python test/experiments/render/masonry_facade_cost.py \
   --binary /tmp/native-material --output /tmp/outshine-material-masonry-cost
 /tmp/native-masonry-scene /tmp/outshine-material-masonry-raster/wall-0.bin \
@@ -84,6 +84,10 @@ Linux/RTX3060, regular production build a56f3e3be,15October2026:
   additional-RGB error limit remains0.015; maximum0.0133591. Diagnostic-field
   parity with production stays below2e-4. This bounds the sampled additional
   albedo delta with local affine GPU derivatives, not full radiance/BRDF error.
+-Fourteen unflagged controls also remain byte-identical to the actual c8507e906
+  predecessor fragment: near/regular/perspective walls, gables and all eight
+  exclusions. This compares mode1 with the old shader, separately from comparing
+  the two new material modes.
 -The public Engine API renders the same native/cache wall through both modes at
   1280×720 with common directional light and MR shading. Both captures pass23
   checks and their PDF is optically opened. This exercises the current world
@@ -111,7 +115,8 @@ Linux/RTX3060, regular production build a56f3e3be,15October2026:
   c8507e906 predecessor/header/archive closure reproduces SIGABRT at the first
   textured control. Extended atlas coverage remains unproven on this host; retain
   the test for Metal/native-world counterchecking. No SDL backend patch or relaxed
-  checks are included to conceal it.
+  checks are included to conceal it. Its pure-pane control accounts for the actual
+  binary16 roughness attachment and checks the interior of a3×3 pane neighbourhood.
 
 Relief/bump, visible aging, full Place/device/frame/peak-memory counterchecks and
 the final atlas result remain open under #306/#328 and the owning integration

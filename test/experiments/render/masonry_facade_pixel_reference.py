@@ -12,11 +12,79 @@ from masonry_facade_reference import controls, exact
 from masonry_native import amplitude, source_colour
 
 
+def legacy_controls(binary, source, output, legacy):
+    fragment = output / "legacy.frag.spv"
+    run(
+        [
+            "nice",
+            "-n",
+            "10",
+            os.environ.get("GLSLANG", "glslangValidator"),
+            "-V",
+            "--target-env",
+            "vulkan1.0",
+            "-S",
+            "frag",
+            "-I" + str(legacy / "src"),
+            "-I" + str(legacy / "src/render/shaders"),
+            "-I" + str(legacy / "src/content/shade"),
+            "-I" + str(legacy / "build/shaders"),
+            "-DSUBJECT_WRITES_VELOCITY=0",
+            "-DSUBJECT_NORMAL_LOCATION=0",
+            "-DSUBJECT_IDENTITY_LOCATION=0",
+            "-DSUBJECT_BASE_LOCATION=1",
+            "-DSUBJECT_METALROUGH_LOCATION=2",
+            "-DLIT_KIND=0",
+            "-DLIT_TEXTURED=0",
+            "-DLIT_MAPPED=0",
+            str(legacy / "src/render/shaders/litFragment.glsl"),
+            "-o",
+            str(fragment),
+        ],
+        output,
+        "compile-legacy",
+    )
+    description = json.loads((source / "comparison.json").read_text())
+    names = [
+        x["case"]
+        for x in description["cases"]
+        if "a0-" in x["case"] and "fixed" in x["case"]
+    ]
+    names += description["excluded_equal"]
+    for name in names:
+        target = output / f"legacy-{name}.f32"
+        run(
+            [
+                str(binary),
+                str(source / "masonry.vert.spv"),
+                str(fragment),
+                str(source / f"{name}-m1.bin"),
+                str(target),
+                "--uv1",
+            ],
+            output,
+            "legacy-" + name,
+        )
+        old = np.fromfile(target, dtype="<f4").reshape(3, HEIGHT, WIDTH, 4)
+        now = np.fromfile(source / f"{name}-m1.f32", dtype="<f4").reshape(
+            3, HEIGHT, WIDTH, 4
+        )
+        np.testing.assert_array_equal(old, now, err_msg=name)
+    report = {
+        "cases_equal": names,
+        "legacy_checkout": str(legacy),
+        "scope": "Unflagged Facade1 versus the actual predecessor fragment, all MRT bytes.",
+    }
+    (output / "legacy.json").write_text(json.dumps(report, indent=2) + "\n")
+    return report
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--legacy", type=Path)
     args = parser.parse_args()
     source, output = args.input.resolve(), args.output.resolve()
     if output.is_relative_to(ROOT) or not output.is_relative_to(
@@ -24,6 +92,8 @@ def main():
     ):
         parser.error("use an explicit system-temp output")
     output.mkdir(parents=True, exist_ok=True)
+    if args.legacy:
+        legacy_controls(args.binary.resolve(), source, output, args.legacy.resolve())
     (output / "reference.json").unlink(missing_ok=True)
     checked_controls = controls()
     for mode in (0, 1):

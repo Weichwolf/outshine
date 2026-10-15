@@ -3,6 +3,7 @@
 #include <array>
 #include <algorithm>
 #include <cstdint>
+#include <cstddef>
 
 int main() {
   using namespace outshine;

@@ -1,4 +1,5 @@
 #include <array>
+#include <cstdint>
 #include <string>
 #include <SDL3/SDL.h>
 #include "Check.h"
@@ -34,7 +35,8 @@ void CheckLayouts() {
   SubjectView view;
   view.HasExplicitCamera = true;
   view.Eye.YfovRad = 1;
-  view.Eye.ZNearM = 0.05;
+  constexpr double kNearM = 0.05;
+  view.Eye.ZNearM = kNearM;
   view.Eye.ZFarM = 10;
   SubjectScratch scratch;
   std::string error;
@@ -48,9 +50,9 @@ void CheckLayouts() {
     CHECK(PlanPlacement(renderer, proxy, view, scratch, error), "native draw plan succeeds");
     CHECK(scratch.Draws.Draws().size() == 1, "the triangle remains in the draw plan");
     if (scratch.Draws.Draws().size() != 1) { continue; }
-    const auto expected = pattern == SurfacePattern::FacadeMetres ? VertexLayout::PositionUvUv1
-                          : pattern == SurfacePattern::Facade     ? VertexLayout::PositionUv
-                                                                  : VertexLayout::Position;
+    auto expected = VertexLayout::Position;
+    if (pattern == SurfacePattern::Facade) { expected = VertexLayout::PositionUv; }
+    if (pattern == SurfacePattern::FacadeMetres) { expected = VertexLayout::PositionUvUv1; }
     CHECK(scratch.Draws.Draws().front().Layout == expected,
           "facade coordinates survive without allocating UVs for ordinary materials");
   }
