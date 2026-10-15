@@ -50,3 +50,10 @@ Horizon Zero Dawn*, SIGGRAPH 2015, PDF-Seiten31/33,54/56,76,84/86 optisch geprü
 Yang/Liu/Salvi, *A Survey of Temporal Antialiasing Techniques*, CGF2020,
 §3.2/Gleichung1, PDF-Seiten3/4 als Bilder geprüft:
 `doc/references/presentation/cgf/2020-temporal-antialiasing-survey.pdf`.
+
+## Nativer gemeinsamer Wolken-/Luftpräfix
+
+Der [begrenzte native Teilstreckenverbraucher](cloud_air_prefix.md) ergänzt #193/#266.
+Er konsumiert den integrierten klaren Kern aus #233 und kombiniert die lokalen
+Wolken-/Luftkoeffizienten auf einer festen gemeinsamen Partition. Referenzen,
+Reproduktion und offene Bild-/Integrationsgrenzen stehen beim verlinkten Verfahren.
