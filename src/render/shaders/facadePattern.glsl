@@ -2,6 +2,7 @@
 #include "roofTiles.glsl"
 #include "facadeOpenings.glsl"
 #include "facadeBands.glsl"
+#include "facadeFootprint.glsl"
 #include "facadeProfiles.glsl"
 
 void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) {
@@ -10,18 +11,19 @@ void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) 
   roughness = glass.roughness;
 }
 
-void applyFacadeWindow(vec2 encoded, vec2 fractions, bool glazing, float band,
+void applyFacadeWindow(vec2 encoded, vec2 fractions, bool glazing, float storeysPerM,
                         inout vec3 albedo, inout float roughness) {
-  vec2 footprint = abs(dFdx(encoded)) + abs(dFdy(encoded));
   float bay = mod(encoded.x, 256.0);
   float storey = encoded.y - 1.0;
-  float opening = facadeOpeningCoverage(fractions, bay, storey, footprint.x, footprint.y);
-  float pane = facadePaneCoverage(fractions, bay, storey, footprint.x, footprint.y);
+  vec3 coverage = facadeFootprintCoverage(
+      fractions, vec2(bay, storey), dFdx(encoded), dFdy(encoded), storeysPerM);
+  float opening = coverage.x;
+  float pane = coverage.y;
   if (glazing) {
     pane = clamp(pane / max(opening, 0.0001), 0.0, 1.0);
     opening = 1.0;
   }
-  FacadeGlazing window = facadeBandedWindow(opening, pane, band, albedo, roughness);
+  FacadeGlazing window = facadeBandedWindow(opening, pane, coverage.z, albedo, roughness);
   albedo = window.albedo;
   roughness = window.roughness;
 }
@@ -106,8 +108,6 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   if (fractions.x > 0.0 && fractions.y > 0.0 && encoded.y >= 1.0) {
     float storeysPerM = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM),
                                                dFdx(encoded.y), dFdy(encoded.y)));
-    float band = facadeStoreyBand(fractions.y, encoded.y - 1.0,
-                                  abs(dFdx(encoded.y)) + abs(dFdy(encoded.y)), storeysPerM);
-    applyFacadeWindow(encoded, fractions, false, band, albedo, roughness);
+    applyFacadeWindow(encoded, fractions, false, storeysPerM, albedo, roughness);
   }
 }
