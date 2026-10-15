@@ -60,6 +60,10 @@ int main() {
     constexpr double kManualSunElevationDeg = 23.0;
     scenario.Lit.Key.ElevationDeg = kManualSunElevationDeg;
     CHECK(engine.declare(scenario).has_value(), "manual light and headless weather retain UTC");
+    auto invalid = scenario;
+    invalid.Time.Start = "not-an-ISO-UTC";
+    CHECK(!engine.declare(invalid) && engine.declaration().Time.Start == scenario.Time.Start,
+          "headless manual light cannot bypass invalid UTC or replace the valid declaration");
     CHECK(!engine.weather(), "an unassembled declaration cannot expose the previous weather");
     CHECK(engine.assemble().has_value(), "no renderer or terrain is required to prepare weather");
     CHECK(!engine.weather() && !engine.settled(), "unfinished weather is explicit and not ready");
