@@ -3,6 +3,13 @@
 #include "airSource.glsl"
 #include "AirPrefixProbeLayout.h"
 #include "transfer_grid.glsl"
+#include "cloud_air_transfer_response.glsl"
+#ifndef TRANSFER_CUBIC
+#define TRANSFER_CUBIC 0
+#endif
+#if TRANSFER_CUBIC
+#include "cloud_air_transfer_cubic.glsl"
+#endif
 
 layout(local_size_x = 64) in;
 layout(set = 0, binding = 0) uniform sampler2D veil;
@@ -15,6 +22,9 @@ layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
 
 vec3 transferVisibility(uint index) {
   ivec2 pixel = ivec2(int(index) % transferImageExtent.x, int(index) / transferImageExtent.x);
+#if TRANSFER_CUBIC
+  return transferCubicVisibility(visibilityField, pixel, transferImageExtent, transferStep);
+#else
   ivec2 extent = textureSize(visibilityField, 0);
   ivec2 cell = min(pixel / transferStep, extent - 2);
   ivec2 begin = cell * transferStep;
@@ -22,13 +32,7 @@ vec3 transferVisibility(uint index) {
   vec2 weight = vec2(pixel - begin) / vec2(end - begin);
   vec2 uv = (vec2(cell) + weight + 0.5) / vec2(extent);
   return textureLod(visibilityField, uv, 0.0).rgb;
-}
-
-vec3 transferIntegral(vec3 sigma, float lengthKm) {
-  vec3 tau = sigma * lengthKm;
-  vec3 small = lengthKm * (1.0 - tau * (0.5 - tau / 6.0));
-  vec3 large = (vec3(1.0) - exp(-tau)) / sigma;
-  return mix(large, small, lessThan(tau, vec3(0.01)));
+#endif
 }
 
 void main() {
