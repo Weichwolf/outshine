@@ -26,7 +26,7 @@ struct ForecastSource {
 
 struct HorizontalWind10m {
   double EastMs = 0.0;
-  double SouthMs = 0.0;
+  double NorthMs = 0.0;
 };
 
 struct PreviousHour {
