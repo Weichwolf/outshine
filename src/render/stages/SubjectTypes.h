@@ -154,7 +154,7 @@ struct PieceMesh {
   std::span<const uint32_t> Indices;
   std::span<const DagCluster> Clusters;
   std::span<const float> Colours;
-  std::span<const float> Uv1{};
+  std::span<const float> Uv1;
   Mat4 Row = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   std::span<const Mat4> Instances;
   uint32_t MaxInstances = 0;
