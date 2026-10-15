@@ -20,6 +20,10 @@ def main():
     if output == root or root in output.parents:
         raise ValueError("private comparison figures belong outside the repository")
     report = json.loads(args.report.read_text())
+    if not report["reference_meets_targets"]:
+        raise ValueError(
+            "the reference failed convergence; no diagnostic figure published"
+        )
     authored = {}
     cases = [
         case
@@ -36,7 +40,7 @@ def main():
         for name, style, colour in [
             ("sky_times_loss", "--", "#9a456a"),
             ("midpoint_16", ":", "#2d768d"),
-            ("gauss_8", "-.", "#70923e"),
+            ("segmented_gauss_4", "-.", "#70923e"),
         ]:
             radiance = np.array(
                 [row["candidates"][name]["radiance_rgb_per_sr"] for row in rows]
