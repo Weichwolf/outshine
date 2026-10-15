@@ -438,8 +438,8 @@ These are furnishing controls, **zero complete architecture recipe families**.
 Oversized legacy rooms, plumbing, ventilation, occupancy/accessibility rules,
 other programme families, seated interactions and native detail admission remain
 open at [#174](https://github.com/Weichwolf/outshine/issues/174), #31/#32/#33/#48.
-The public showcase retains exactly four complete current source tiles and its
-manual refresh. Invisible far furniture is not generated for those views.
+The public gallery retains four fixed Place views. Invisible far furniture is
+not generated for those views.
 
 `inspect_render_exposure.py <render-report.json> --exposure 8` derives a private
 display inspection from the stored linear denoised radiance. Its provenance
@@ -490,6 +490,6 @@ preparation and whole fresh-process Linux RSS stay separate.
 `room_programme_probe.py --support-plan --overview-only` uses the chosen plan,
 then renders a declared ground-office cut: actual body parts capped at 1.10 m
 above that floor, upper storeys/ceiling omitted, full furniture retained. The
-uncut mesh is checked separately. Public showcase remains four whole tiles.
+uncut mesh is checked separately. The public gallery retains four fixed Place views.
 Door leaves/privacy states, services/ventilation, complete architectural
 programmes, other uses, runtime LOD/cache and native admission remain open.

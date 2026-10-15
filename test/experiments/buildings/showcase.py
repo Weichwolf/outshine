@@ -81,6 +81,25 @@ def publish(source, output):
         + "\n"
     )
     (output / "README.md").write_text(caption)
+    receipt = {
+        "render_commit": snapshot["commit"],
+        "places": {
+            name: {
+                key: report[key]
+                for key in (
+                    "camera",
+                    "camera_ground_height_m",
+                    "profile",
+                    "image_sha256",
+                    "triangles",
+                    "source_radius_m",
+                    "limits",
+                )
+            }
+            for name, _, report in prepared
+        },
+    }
+    (output / "render-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     return {"places": list(PLACES), "render_commit": snapshot["commit"]}
 
 
