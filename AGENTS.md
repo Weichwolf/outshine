@@ -8,12 +8,26 @@
   Ich lese und bearbeite sie mit `gh issue list`, `gh issue view`, `gh issue create` und `gh issue edit`.
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
-- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Vier Agenten arbeiten zusammen:
+- Ich bin Technical und Art Director; der Nutzer ist Regisseur. Fachagenten arbeiten zusammen:
   Der Transport-Agent auf `transport`, der Buildings-Agent auf `buildings` und der Vegetation-Agent auf
   `vegetation` erforschen ihre Fachverfahren in Python und entwickeln gemeinsam die Referenzbibliotheken unter `lib/`.
   Der Outshine-Hauptagent auf `master` entwickelt Outshine selbstständig weiter und integriert eigenständig
   verifizierte Neuerungen aus `lib/` maschinennah in C++ unter `src/`, einschließlich Generatoren und öffentlicher APIs.
   Die weltweite Sandbox steht in [#5](https://github.com/Weichwolf/outshine/issues/5), räumliche Verträge in [#18](https://github.com/Weichwolf/outshine/issues/18).
+- Native Fachagenten finden ihren kopierbaren `/goal`-Absatz und Einstieg hier:
+
+  | Agent/Branch | Zuständigkeit | Goal |
+  |---|---|---|
+  | `outshine_performance` | Renderarbeit, Sichtbarkeit, Batching, Speicher/Lebensdauer; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
+  | `outshine_material` | Prozedurale Oberflächen, gemeinsame Materialkomposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
+  | `outshine_light` | Beleuchtung, Schatten, Reflexion, klarer Himmel/Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
+  | `outshine_weather` | Wetterdaten/-zustand, Wolkendichte/-darstellung, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
+
+  Alle dürfen native PRs gegen `master` erstellen. Der Hauptagent reviewed und integriert sie,
+  verantwortet gemeinsame Bildqualität/Places und hält das A18-Pro-Profil 1280×720/30.
+  Native Fachagenten mergen erst nach diesem Review; die Python-Merge-Regel bleibt separat.
+  Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
+  Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
 - `test/experiments/` enthält Versuche, Gegenbeispiele, faire Vergleiche, Benchmarks und Showcase-Code.
   Bewährte wiederverwendbare Python-Verfahren werden als installierbare Referenzbibliotheken unter `lib/` gepflegt.
   Experimente importieren diese Bibliotheken; Fachmodule teilen Verträge und erforderliche Geometrieverfahren.
@@ -25,12 +39,13 @@
   Gemeinsame Verträge mit betroffenen Verbrauchern abstimmen; keine fremden Fortschritte überschreiben.
   Der Outshine-Hauptagent übernimmt die native Integration samt Engine-, Bild- und Kostenprüfung eigenständig.
   Die Forschungsagenten warten dafür nicht auf eine native Umsetzung ihrer Python-Verfahren.
-  Alle vier Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
+  Alle Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
   Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
 - [#47](https://github.com/Weichwolf/outshine/issues/47) ist der gemeinsame Kommunikationseingang;
   der vereinbarte Ablauf steht in [#108](https://github.com/Weichwolf/outshine/issues/108).
-  Nachrichten beginnen mit `[Absenderbranch → Zielbranches]` (`master`, `transport`, `buildings`,
-  `vegetation`): Fach-Issue/PR-Link und konkrete Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen.
+  Nachrichten beginnen mit `[Absenderbranch → Zielbranches]`: Fach-Issue/PR-Link und konkrete
+  Frage, Entscheidung oder Lieferung, gewöhnlich 3–6 Zeilen. Branches heißen `master`, `transport`,
+  `buildings`, `vegetation` und die oben genannten nativen Agenten.
   Ein kurzes Fach-Issue besitzt genau einen abgrenzbaren Vertrag, Fehler oder Entscheidungsbedarf;
   Eltern verlinken Kinder. Umsetzung, API-Änderungen, Python-/Native-Grenze und Prüfbelege stehen im PR
   oder bei direkter Master-Lieferung beim verlinkten Commit im Fach-Issue;
@@ -112,7 +127,9 @@
 - Ich priorisiere Licht, Schatten, Materialien und Bildstabilität vor Pixelzahl. RDR2/GTA5 sind
   Qualitätsmaßstäbe, keine unbelegten Versprechen. Auflösung/Zielrate bleiben unabhängige Profile:
   480p, 1280×720, 1920×1080 und höher; 25/30/60 fps. Maße immer explizit Breite×Höhe.
-  Hohe Bildqualität bei 480p30 auf A18 Pro ist mein Ziel; 720p60 bleibt Vergleichsmessprofil.
+  Hohe Bildqualität bei 1280×720/30 auf A18 Pro ist mein Ziel; 1280×720/60 bleibt Vergleichsmessprofil.
+  RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
+  1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
 - Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
@@ -185,7 +202,7 @@
   betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
   nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
-- Ein schwerer Lauf zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
+- Ein schwerer Lauf je physischem Host zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
   detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
 - Experimentquellen nach Fachbereich unter `test/experiments/`, Eingaben und Ergebnisse
