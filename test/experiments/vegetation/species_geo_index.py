@@ -6,8 +6,7 @@ from pathlib import Path
 import numpy as np
 import shapely
 from shapely.affinity import translate
-
-MIXED = 1 << 15
+from species_pool_lookup import MIXED, cell_rows, points
 
 
 def read_regions(path, *, union_multipart=False, wrap_longitude=False):
@@ -92,21 +91,6 @@ def read_regions(path, *, union_multipart=False, wrap_longitude=False):
     )
 
 
-def points(latitude, longitude, *, max_queries=1000000):
-    latitude, longitude = np.broadcast_arrays(latitude, longitude)
-    if (
-        latitude.size > max_queries
-        or not np.isfinite(latitude).all()
-        or not np.isfinite(longitude).all()
-        or np.any(abs(latitude) > 90)
-        or np.any(abs(longitude) > 180)
-    ):
-        raise ValueError("bounded finite WGS84 query coordinates required")
-    return np.column_stack(
-        (np.where(longitude.ravel() == 180, -180, longitude.ravel()), latitude.ravel())
-    )
-
-
 def ordered(rows, regions):
     rows, regions = (
         np.asarray(rows, dtype=np.int64),
@@ -127,6 +111,14 @@ class DirectRegions:
         xy = points(latitude, longitude)
         pairs = self.tree.query(shapely.points(xy), predicate="covered_by")
         return ordered(*pairs)
+
+    def query_cells(self, latitude, longitude, *, level=8):
+        side = 1 << level
+        keys = cell_rows(level, points(latitude, longitude))
+        x, y = keys % side, keys // side
+        west, south = -180 + x * 360 / side, -90 + y * 180 / side
+        cells = shapely.box(west, south, west + 360 / side, south + 180 / side)
+        return ordered(*self.tree.query(cells, predicate="intersects"))
 
 
 class CellRegions:
@@ -179,22 +171,7 @@ class CellRegions:
         if type(max_candidates) is not int or not 0 <= max_candidates <= 16000000:
             raise ValueError("explicit candidate budget required")
         xy = points(latitude, longitude)
-        # Exact ordered edge comparisons avoid losing sub-ULP offsets when
-        # adding 180/90 before floor at an internal cell boundary.
-        cell = np.column_stack(
-            (
-                np.searchsorted(
-                    np.linspace(-180, 180, self.side + 1), xy[:, 0], side="right"
-                )
-                - 1,
-                np.searchsorted(
-                    np.linspace(-90, 90, self.side + 1), xy[:, 1], side="right"
-                )
-                - 1,
-            )
-        )
-        cell[:, 1] = np.minimum(cell[:, 1], self.side - 1)
-        values = self.table[cell[:, 1] * self.side + cell[:, 0]]
+        values = self.table[cell_rows(self.level, xy)]
         fast = np.flatnonzero((values > 0) & (values < MIXED))
         all_rows, all_regions = [fast], [values[fast].astype(np.int64) - 1]
         mixed = np.flatnonzero(values >= MIXED)

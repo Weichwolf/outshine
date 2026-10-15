@@ -44,7 +44,7 @@ Together these produce 20 declared input normalizations. Point queries preserve
 all in-domain coordinate bits and use ordered cell-edge comparisons: adding
 180 before floor can otherwise erase a tiny offset at an internal cell edge.
 
-Five independent controls cover source-coordinate precision, holes, overlapping regions, exact boundary
+Six independent controls cover source-coordinate precision, holes, overlapping regions, exact boundary
 points, poles/dateline, random points, a direct interior path requiring no
 polygon predicate, candidate refusal before allocation and nested siblings
 remaining filled under union, plus preserved source slivers at the dateline.
@@ -57,6 +57,18 @@ the San Francisco point 37.77/−122.42, although its expected region is CAL.
 That failed control is retained; Sacramento is an additional interior control.
 The benchmark records timings/equivalence even with this source gap, then exits2.
 Exact agreement with source polygons alone does not prove geographic coverage.
+
+The second, separate quality contract returns all regions intersecting the
+containing closed GeoCell as **regional candidates**, rather than claiming an
+exact country at the point. `DirectRegions.query_cells` computes those same
+candidates through the source STRtree. `species_pool_lookup.candidate_pairs`
+uses only the compiled numeric tables, with NumPy and no geometry. Both outputs
+must match exactly on the same corpus. This prior can retain a coastal region
+candidate despite a coarse polygon's point gap; it still needs local habitat,
+climate/height filtering, transition weights and actual species recipes.
+Its cost is compared against the same cell-candidate task, separately from
+the exact-point comparison. The original failed geographic control stays red.
+The numeric experiment layout is not yet a public/untrusted asset decoder.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 \

@@ -9,9 +9,41 @@ from unittest.mock import patch
 import numpy as np
 import shapely
 from species_geo_index import CellRegions, DirectRegions, points, read_regions
+from species_pool_lookup import candidate_pairs
 
 
 class SpeciesGeographyTests(unittest.TestCase):
+    def test_geometry_free_pool_matches_region_cell_intersections(self):
+        direct = DirectRegions(
+            [shapely.box(-180, -90, 0, 90), shapely.box(-1, 20, 50, 60)]
+        )
+        index = CellRegions(direct, level=3)
+        latitude, longitude = (0, 40, 40, 90, -90), (-40, 30, 51, -180, 180)
+        expected = direct.query_cells(latitude, longitude, level=3)
+        with patch(
+            "species_geo_index.shapely.covers",
+            side_effect=AssertionError("pool path queried geometry"),
+        ):
+            actual = candidate_pairs(
+                index.level,
+                index.table,
+                index.offsets,
+                index.candidates,
+                latitude,
+                longitude,
+            )
+        np.testing.assert_array_equal(actual, expected)
+        with self.assertRaisesRegex(ValueError, "before pair allocation"):
+            candidate_pairs(
+                index.level,
+                index.table,
+                index.offsets,
+                index.candidates,
+                latitude,
+                longitude,
+                max_pairs=0,
+            )
+
     def test_wrapped_source_sliver_is_retained_on_both_meridian_sides(self):
         geometry = shapely.box(-180.1, 60, -179.9, 61)
         source = json.dumps(
