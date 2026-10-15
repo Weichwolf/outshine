@@ -70,6 +70,12 @@ degeneration/inversion. Maximum added height over actual ground is 0.352110 m;
 the already whole-face-verified old bridge clearance yields a conservative
 **4.589256 m** remaining lower bound, above the retained 4.5 m requirement.
 
+32 affected source/library controls and 13 actual Blender controls pass, without
+skips, on final gate source `eafb2ae20df940af0b29787f3ed72131e4792e82`.
+Both forms of the saved graph reader and corruption rejection are controlled.
+The final input guard fixes the already captured domain SHA without changing
+physical arrays. Final independent replay rechecks the emitted products.
+
 ## Fair transformation costs
 
 Scalar point dispatch and batched NumPy matrix transforms use the same 4,800
