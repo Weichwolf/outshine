@@ -35,9 +35,10 @@ class Formatting(unittest.TestCase):
     def test_real_diagnostics_count_files_and_fix_is_idempotent(self):
         path = self.write('src/with space.cpp')
         self.write('include/value.h', 'int value();\n')
+        self.write('src/native.mm', 'void native(){@autoreleasepool{}}\n')
         status, output = self.run_format()
         self.assertEqual(status, 1)
-        self.assertIn('2 owned C++ files checked; 1 failed', output)
+        self.assertIn('3 owned C++ files checked; 2 failed', output)
         self.assertIn('error:', output)
         self.assertEqual(self.run_format(False)[0], 0)
         self.assertEqual(path.read_text(), 'int main() {\n  return 0;\n}\n')
@@ -48,7 +49,7 @@ class Formatting(unittest.TestCase):
 
     def test_owned_population_excludes_vendor_ignored_deleted_and_shader_files(self):
         (self.root / '.gitignore').write_text('test/.venv/\nsrc/ignored.cpp\n')
-        wanted = ['src/main.cpp', 'include/public.h', 'test/check.cpp',
+        wanted = ['src/main.cpp', 'src/native.mm', 'include/public.h', 'test/check.cpp',
                   'test/outshine/src/render/shaders/lookup.cpp']
         for name in wanted + ['test/.venv/vendor.h', 'src/ignored.cpp',
                               'src/render/shaders/generated.h', 'elsewhere/foreign.cpp']:

@@ -132,6 +132,7 @@ using std::acos;
 using std::cos;
 using std::exp;
 using std::fabs;
+using std::floor;
 using std::pow;
 using std::sqrt;
 #define MEDIUM_ARG const Medium &
