@@ -207,6 +207,10 @@ format: strip ## apply repository formatting to the same owned files lint checks
 test-format: ## verify formatting coverage, real diagnostics and failure handling
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_format_sources.py
 
+.PHONY: test-source-units
+test-source-units: ## verify native platform and Objective-C++ source selection
+	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
+
 .PHONY: test-client-arguments
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
