@@ -16,7 +16,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def row(sample):
-    wind = sample["wind_horizontal_10m_east_south_m_s"]
+    wind = sample["wind_horizontal_10m_east_north_m_s"]
     amount = sample["precipitation_previous_hour"]
     return [
         sample["utc_seconds"],

@@ -15,11 +15,13 @@ from scipy.special import ndtr, ndtri
 class FourierMarks:
     waves: np.ndarray
     coefficients: np.ndarray
+    coordinate_frame: str = "EPSG:4978-metres"
 
     def __post_init__(self):
         w, c = np.asarray(self.waves), np.asarray(self.coefficients)
         if (
-            w.ndim != 2
+            self.coordinate_frame not in ("EPSG:4978-metres", "stand-planar-metres")
+            or w.ndim != 2
             or w.shape[1:] != (3,)
             or not 1 <= len(w) <= 1024
             or c.shape != (len(w), 2)
@@ -27,7 +29,9 @@ class FourierMarks:
             or c.dtype.kind not in "fiu"
             or not np.isfinite(w).all()
             or not np.isfinite(c).all()
-            or np.any(abs(w) > 1)
+            or np.any(
+                abs(w) > (1 if self.coordinate_frame == "EPSG:4978-metres" else 8)
+            )
             or np.any(abs(c) > 100)
         ):
             raise ValueError(
@@ -37,37 +41,53 @@ class FourierMarks:
         object.__setattr__(self, "coefficients", immutable_array(c.astype(np.float64)))
 
     @classmethod
-    def prepare(cls, seed, length_m=60.0, count=256):
+    def prepare(
+        cls, seed, length_m=60.0, count=256, coordinate_frame="EPSG:4978-metres"
+    ):
         if (
             type(seed) is not int
             or not 0 <= seed < 2**64
             or not np.isfinite(length_m)
-            or not 10 <= length_m <= 10000
+            or coordinate_frame not in ("EPSG:4978-metres", "stand-planar-metres")
+            or not (10 if coordinate_frame == "EPSG:4978-metres" else 1)
+            <= length_m
+            <= 10000
             or type(count) is not int
             or not 1 <= count <= 1024
         ):
             raise ValueError(
-                "uint64 seed, 10..10000m length and 1..1024 waves required"
+                "uint64 seed, frame-appropriate physical length and1..1024 waves required"
             )
         rng = np.random.Generator(np.random.PCG64(seed))
-        return cls(rng.normal(size=(count, 3)) / length_m, rng.normal(size=(count, 2)))
+        return cls(
+            rng.normal(size=(count, 3)) / length_m,
+            rng.normal(size=(count, 2)),
+            coordinate_frame,
+        )
 
     def recipe(self):
         return {
-            "format": "fourier-species-marks-1",
-            "coordinate_frame": "EPSG:4978-metres",
+            "format": "fourier-species-marks-1"
+            if self.coordinate_frame == "EPSG:4978-metres"
+            else "fourier-stand-marks-1",
+            "coordinate_frame": self.coordinate_frame,
             "waves_rad_per_m": self.waves.tolist(),
             "coefficients": self.coefficients.tolist(),
         }
 
     @classmethod
     def from_recipe(cls, recipe):
-        if (
-            recipe["format"] != "fourier-species-marks-1"
-            or recipe["coordinate_frame"] != "EPSG:4978-metres"
-        ):
+        expected = {
+            "fourier-species-marks-1": "EPSG:4978-metres",
+            "fourier-stand-marks-1": "stand-planar-metres",
+        }
+        if expected.get(recipe["format"]) != recipe["coordinate_frame"]:
             raise ValueError("explicit prepared Fourier/ECEF mark recipe required")
-        return cls(recipe["waves_rad_per_m"], recipe["coefficients"])
+        return cls(
+            recipe["waves_rad_per_m"],
+            recipe["coefficients"],
+            recipe["coordinate_frame"],
+        )
 
     def gaussian(self, world_m, method="stream"):
         p = np.asarray(world_m)

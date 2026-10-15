@@ -68,9 +68,15 @@ class CompetingMarks:
             taxon_seed(name, seed, "site")
             if not isinstance(field, FourierMarks):
                 raise TypeError("prepared Fourier marks required")
+        if len({e[1].coordinate_frame for e in self.entries}) != 1:
+            raise ValueError(
+                "one saved coordinate frame for all competing fields required"
+            )
 
     @classmethod
-    def prepare(cls, taxa, seed, length_m=60, count=256):
+    def prepare(
+        cls, taxa, seed, length_m=60, count=256, coordinate_frame="EPSG:4978-metres"
+    ):
         if not 1 <= len(taxa) <= 128 or len(set(taxa)) != len(taxa):
             raise ValueError("one to128 unique taxon IDs required")
         return cls(
@@ -78,7 +84,10 @@ class CompetingMarks:
                 (
                     taxon,
                     FourierMarks.prepare(
-                        taxon_seed(taxon, seed, "field"), length_m, count
+                        taxon_seed(taxon, seed, "field"),
+                        length_m,
+                        count,
+                        coordinate_frame,
                     ),
                     taxon_seed(taxon, seed, "site"),
                 )
@@ -159,7 +168,7 @@ class CompetingMarks:
             if not active.any():
                 continue
             local = species_site_uniforms(keys[active], seed)
-            u = field.uniforms(p[active], local, strength)
+            u = field.uniforms(p[active], local, strength) if strength else local
             score = gumbel_scores(w[active], u)
             if matrix is not None:
                 matrix[active, i] = score
