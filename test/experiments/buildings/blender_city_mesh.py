@@ -20,6 +20,43 @@ DEFAULT_COLOURS = (
     (0.78, 0.76, 0.71),
 )
 
+NORMAL_ATTRIBUTE = "building_source_normal"
+
+
+def source_normals(obj, data, materials):
+    expected = data["normals"][data["faces"]].reshape(-1, 3).astype(np.float32)
+    attribute = obj.data.attributes.new(NORMAL_ATTRIBUTE, "FLOAT_VECTOR", "CORNER")
+    attribute.data.foreach_set("vector", expected.ravel())
+    actual = np.empty_like(expected)
+    attribute.data.foreach_get("vector", actual.ravel())
+    if not np.array_equal(actual, expected):
+        raise ValueError("Blender changed the explicit source normal attribute")
+    packed = np.empty_like(expected)
+    obj.data.corner_normals.foreach_get("vector", packed.ravel())
+    for material in materials:
+        tree = material.node_tree
+        source = tree.nodes.new("ShaderNodeAttribute")
+        source.attribute_name = NORMAL_ATTRIBUTE
+        transform = tree.nodes.new("ShaderNodeVectorTransform")
+        transform.vector_type, transform.convert_from, transform.convert_to = (
+            "NORMAL",
+            "OBJECT",
+            "WORLD",
+        )
+        normalize = tree.nodes.new("ShaderNodeVectorMath")
+        normalize.operation = "NORMALIZE"
+        tree.links.new(source.outputs["Vector"], transform.inputs["Vector"])
+        tree.links.new(transform.outputs["Vector"], normalize.inputs[0])
+        tree.links.new(
+            normalize.outputs["Vector"], tree.nodes["Principled BSDF"].inputs["Normal"]
+        )
+    return {
+        "source_normal_attribute": NORMAL_ATTRIBUTE,
+        "source_normal_attribute_float32_exact": True,
+        "source_normal_attribute_bytes": expected.nbytes,
+        "unused_packed_normal_max_error": float(abs(packed - expected).max()),
+    }
+
 
 def cell_sizes(data, identifiers):
     result = np.zeros((len(data["faces"]), 3), dtype=np.float32)
@@ -78,6 +115,7 @@ def import_mesh(report, data):
     )
     for surface in materials[1:]:
         obj.data.materials.append(surface)
+    normal_proof = source_normals(obj, data, materials)
     slots = np.searchsorted(identifiers, data["materials"]).astype(np.int32)
     obj.data.polygons.foreach_set("material_index", slots)
     cells = cell_sizes(data, [int(key) for key in facades])
@@ -100,11 +138,12 @@ def import_mesh(report, data):
     if not np.array_equal(indices.reshape(-1, 3), data["faces"]):
         raise ValueError("Blender changed supplied triangle topology")
     return obj, {
+        **normal_proof,
         "source_triangles": len(data["faces"]),
         "source_vertices": len(data["vertices"]),
         "float32_position_max_error_m": float(np.max(abs(actual - data["vertices"]))),
         "source_array_bytes": sum(value.nbytes for value in data.values()),
-        "normal_domain": "POINT; supplied custom split normals",
+        "normal_domain": "Supplied POINT vectors to explicit CORNER attribute; NORMAL Object/World and Normalize to Principled; packed mesh normals unused for the intended surface normal",
         "uv_domain": "POINT copied to face corners",
         "materials": len(materials),
         "facade_triangles": int(

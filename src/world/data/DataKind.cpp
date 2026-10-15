@@ -8,6 +8,7 @@ const char *Name(DataKind kind) noexcept {
     case DataKind::VectorMap: return "vector";
     case DataKind::StarCatalogue: return "stars";
     case DataKind::OriginalOsm: return "original-osm";
+    case DataKind::Weather: return "weather";
   }
   return "";
 }

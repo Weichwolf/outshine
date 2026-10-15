@@ -80,8 +80,7 @@ ParsePixelCoordinate(std::string_view value) noexcept {
   return PixelCoordinate{.X = *x, .Y = *y};
 }
 
-std::expected<void, std::string> PreparePixelAttachments(Engine &engine) {
-  Scenario::Document declared = engine.declaration();
+void PreparePixelAttachments(Scenario::Document &declared) {
   constexpr std::array<std::string_view, 2> attachments{"sceneShadingNormal",
                                                         "sceneSurfaceIdentity"};
   for (const std::string_view attachment : attachments) {
@@ -89,7 +88,6 @@ std::expected<void, std::string> PreparePixelAttachments(Engine &engine) {
       declared.Render.Outputs.emplace_back(attachment);
     }
   }
-  return engine.declare(declared);
 }
 
 std::expected<void, std::string>
