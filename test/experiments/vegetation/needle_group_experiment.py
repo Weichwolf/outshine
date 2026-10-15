@@ -133,10 +133,8 @@ def compare(species):
     }
 
 
-def main():
-    OUTPUT.mkdir(parents=True, exist_ok=True)
-    records = []
-    provenance = {
+def run_provenance():
+    return {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
@@ -154,6 +152,12 @@ def main():
             ).strip()
         ),
     }
+
+
+def main():
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    records = []
+    provenance = run_provenance()
     for species in ("picea-abies", "pinus-sylvestris", "pinus-cembra", "larix-decidua"):
         result = compare(species) | provenance
         records.append(result)

@@ -154,6 +154,7 @@ def main():
         *(
             HERE / n
             for n in (
+                "needle_group_experiment.py",
                 "needle_group_layers.py",
                 "needle_group_source.py",
                 "needle_group_views.py",

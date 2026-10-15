@@ -6,7 +6,7 @@ import time
 import matplotlib
 import numpy as np
 from foliage_selection import directions
-from needle_group_experiment import BASE, OUTPUT, error_summary
+from needle_group_experiment import BASE, OUTPUT, error_summary, run_provenance
 from needle_group_layers import depth_layers, render_layers
 from needle_group_reprojection import compare_images, reproject
 from needle_group_source import source_geometry
@@ -93,10 +93,8 @@ def main():
     result = {
         "plan_identity": source["identity"],
         "axis_path": source["axis_path"],
-        "commit": record["commit"],
-        "source_modified": record["source_modified"],
+        "control_commit": record["commit"],
         "input_sha256": source["input_sha256"],
-        "implementation_sha256": record["implementation_sha256"],
         "reference_view_size": 64,
         "reference_sample_rows": 8,
         "bake_view_count": 64,
@@ -106,7 +104,7 @@ def main():
         "diagnostic_direction": direction.tolist(),
         "decision": "Keep the closed whole-tile oracle; these averaged-depth alternatives do not approve close shoot coverage. Reassess representation before further repair iterations.",
         "scope": "Unlit first-hit coverage/depth only. Bands are organ partitions, not a complete LDI. No shader, shadow, wind, whole-tile, GPU or runtime approval.",
-    }
+    } | run_provenance()
     (OUTPUT / "picea-depth-report.json").write_text(json.dumps(result, indent=2) + "\n")
     for kind in (variants, bands):
         print(
