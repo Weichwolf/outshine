@@ -131,6 +131,9 @@ class AssetRender(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertEqual(row[1:4], ["probe", "64", "32"])
+        rgba = [int(value) for value in row[4].split(",")]
+        self.assertGreater(rgba[0], 128, result.stdout + result.stderr)
+        self.assertEqual(rgba[1:3], [0, 0])
         self.assertGreater(float(row[6]), 0.0)
         normal = np.array([float(value) for value in row[7].split(",")])
         self.assertTrue(np.isfinite(normal).all())
