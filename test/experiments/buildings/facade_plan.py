@@ -10,6 +10,7 @@ from massing import MIN_EDGE_M, polygons_of, stack
 from features import describe, prepare as prepare_features
 from provider_contract import attributes, hidden, number, origin, seed_for, srgb
 from recipes import choose, frontage
+from outshine_ref.buildings.facades import rectangle_coverage
 
 REPEAT_DTYPE = np.dtype([('width_m', '<f8'), ('height_m', '<f8'), ('depth_m', '<f8'),
                          ('columns', '<u4'), ('rows', '<u4'), ('opening_width', '<f8'), ('opening_height', '<f8')])
@@ -173,25 +174,13 @@ def expanded_splits(repeat):
     return np.asarray(result, dtype=np.float64).reshape(-1, 4)
 
 
-def interval_integral(position, period, count, fraction):
-    x = np.clip(np.asarray(position)/period, 0., count)
-    complete = np.floor(x)
-    partial = np.clip(x-complete-(1-fraction)*.5, 0., fraction)
-    return period*(complete*fraction+partial)
-
-
 def coverage(repeat, centres, footprint):
     centres, footprint = np.asarray(centres, dtype=float), np.asarray(footprint, dtype=float)
     if (centres.shape[-1] != 2 or footprint.shape[-1] != 2 or not np.isfinite(centres).all()
             or not np.isfinite(footprint).all() or np.any(footprint <= 0)):
         raise ValueError('positive finite box footprint required')
-    integral = []
-    for axis, (extent, count, fraction) in enumerate(((repeat.width_m, repeat.columns, repeat.opening_width),
-                                                   (repeat.height_m, repeat.rows, repeat.opening_height))):
-        lower, upper = centres[..., axis]-footprint[..., axis]*.5, centres[..., axis]+footprint[..., axis]*.5
-        area = interval_integral(upper, extent/count, count, fraction)-interval_integral(lower, extent/count, count, fraction)
-        integral.append(area/footprint[..., axis])
-    return np.clip(integral[0]*integral[1], 0., 1.)
+    scale=np.array([repeat.width_m/repeat.columns,repeat.height_m/repeat.rows])
+    return rectangle_coverage(centres/scale,footprint/scale,[repeat.opening_width,repeat.opening_height],[repeat.columns,repeat.rows])
 
 
 def pack_repeats(facades):
