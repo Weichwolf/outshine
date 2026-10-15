@@ -12,9 +12,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <fstream>
+#include <ios>
 #include <limits>
 #include <print>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace {
@@ -113,6 +116,61 @@ void Cache(const Raised &mesh) {
         "nonfinite material coordinates cannot enter the asset");
 }
 
+void Fixture(const char *prefix,
+             double anchorM,
+             const BuildingSurface &source,
+             BuildingScratch &scratch) {
+  if (prefix == nullptr) { return; }
+  const BuildingSurface::Face face{.Part = 0, .Side = 2};
+  BakedTile product;
+  CHECK(source.MeshVisible(std::span(&face, 1), scratch, product.Built),
+        "the raster fixture uses an actual emitted native source face");
+  const auto key = Sha256Hex("actual-wall-uv1-raster");
+  const auto encoded = EncodeStructureArtifact(product, key);
+  if (!encoded) {
+    CHECK(false, "the real raster asset encodes");
+    return;
+  }
+  const auto decoded = DecodeStructureArtifact(*encoded, key, 1);
+  if (!decoded) {
+    CHECK(false, "the real raster asset decodes");
+    return;
+  }
+  const auto &mesh = decoded->Built;
+  if (mesh.WallRun.size() < 6 || mesh.WallMaterialM.size() != mesh.WallCorners.size()) {
+    CHECK(false, "the decoded source face supplies both complete UV streams");
+    return;
+  }
+  const std::array frame{
+      source.Origin(), source.Axes().East, source.Axes().Up, source.Axes().North};
+  const auto &shape = source.Shapes().front();
+  const std::array edge{
+      Vec3{{shape.Ring[0].EastM, shape.SeatM + shape.FootM, shape.Ring[0].NorthM}},
+      Vec3{{shape.Ring[1].EastM, shape.SeatM + shape.FootM, shape.Ring[1].NorthM}}};
+  const std::string path =
+      std::string(prefix) + "-" + std::to_string(static_cast<int>(anchorM)) + ".bin";
+  std::ofstream file(path, std::ios::binary);
+  for (const auto &axis : frame) {
+    for (const double value : axis) {
+      file.write(reinterpret_cast<const char *>(&value), sizeof(value));
+    }
+  }
+  for (const auto &point : edge) {
+    for (const double value : point) {
+      file.write(reinterpret_cast<const char *>(&value), sizeof(value));
+    }
+  }
+  for (size_t at = 0; at < 6; ++at) {
+    const auto &v = mesh.WallCorners[mesh.WallRun[at]];
+    file.write(reinterpret_cast<const char *>(&v), sizeof(v));
+  }
+  for (size_t at = 0; at < 6; ++at) {
+    const auto &uv = mesh.WallMaterialM[mesh.WallRun[at]];
+    file.write(reinterpret_cast<const char *>(&uv), sizeof(uv));
+  }
+  CHECK(file, "the emitted cached wall and actual UV1 bytes are saved");
+}
+
 void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch &scratch) {
   plan.Prepared = &source;
   const BuildingMesh mesher;
@@ -142,7 +200,7 @@ void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch
 }
 }
 
-int main() {
+int main(int argc, char *const *argv) {
   BuildingScratch scratch;
   for (size_t seed = 0; seed < kSearchCases; ++seed) {
     const double longitude = kLongitudeDeg + static_cast<double>(seed) * kWidthDeg;
@@ -169,6 +227,16 @@ int main() {
       continue;
     }
     Exercise(plan, *source, scratch);
+    Fixture(argc == 2 ? argv[1] : nullptr, 0, *source, scratch);
+    constexpr double kAnchorM = 500;
+    plan.AnchorEcef =
+        plan.AnchorEcef + source->Axes().East * kAnchorM + source->Axes().North * kAnchorM;
+    const auto moved = BuildingSurface::Prepare(plan, scratch);
+    CHECK(moved.has_value(), "the producer accepts another tile anchor");
+    if (moved) {
+      Exercise(plan, *moved, scratch);
+      Fixture(argc == 2 ? argv[1] : nullptr, kAnchorM, *moved, scratch);
+    }
     return Report();
   }
   CHECK(false, "the declared fixture search must produce the actual masonry recipe");
