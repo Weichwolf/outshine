@@ -148,6 +148,8 @@ def plan(transport, recipes, widths, precision=0.001):
             rejected[key] = "deferred_level"
         elif road["properties"].get("indoor") in ("yes", 1, True):
             rejected[key] = "deferred_indoor_recipe"
+        elif road["properties"].get("level") not in (None, 0, "0"):
+            rejected[key] = "deferred_floor_level"
         else:
             eligible.append(dict(road, source_key=key, source_id=identifier(road)))
     budget = recipes["flatPlan"]
