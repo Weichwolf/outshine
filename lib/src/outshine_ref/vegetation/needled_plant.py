@@ -188,6 +188,18 @@ class NeedledPlant:
             return None
         return self._tables
 
+    def window_summary(self, *, nominal_span_m=0.08, max_groups=64):
+        """Describe a complete statistical window plan before constructing axes."""
+        from .needle_windows import window_summary
+
+        return window_summary(self, nominal_span_m, max_groups)
+
+    def windows(self, max_axes, max_windows, *, nominal_span_m=0.08, max_groups=64):
+        """Return owned readonly ranges/frames, without placing individual needles."""
+        from .needle_windows import window_tables
+
+        return window_tables(self, max_axes, max_windows, nominal_span_m, max_groups)
+
     @cached_property
     def _tables(self):
         from .needle_tables import canonical_tables
