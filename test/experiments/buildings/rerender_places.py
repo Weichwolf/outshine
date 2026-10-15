@@ -12,7 +12,7 @@ from evidence import revision
 from place_materials import default_finish
 
 
-def render(source_report, output):
+def render(source_report, output, samples_per_pass=None):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError(
@@ -35,6 +35,8 @@ def render(source_report, output):
         facade_finishes=default_finish(),
         output=str((output / (name + ".png")).resolve()),
     )
+    if samples_per_pass is not None:
+        config["samples_per_pass"] = samples_per_pass
     scene = output / (name + "-scene.json")
     scene.write_text(json.dumps(config, indent=2) + "\n")
     with (output / (name + "-render.log")).open("w") as stream:
@@ -79,5 +81,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source_report", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--samples-per-pass", type=int)
     args = parser.parse_args()
-    render(args.source_report, args.output)
+    render(args.source_report, args.output, args.samples_per_pass)

@@ -180,8 +180,9 @@ the actual UV-to-metre binding. This adds no opening, collision or room programm
 ```sh
 PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_facade_finish.py'
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_facade_finish_shader.py
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_mitsuba_sampling.py
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_finish_probe.py --output /tmp/outshine-buildings-facade-controls
-PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/rerender_places.py <temp>/Flensburg-report.json --output /tmp/outshine-buildings-facade-places
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/rerender_places.py <temp>/Flensburg-report.json --output /tmp/outshine-buildings-facade-places --samples-per-pass 4
 ```
 
 The cached render path checks the original geometry report/mesh hash and actual
@@ -189,6 +190,18 @@ projection/triangle count. It performs no provider decode or mesh construction.
 Geometry and renderer commits are recorded separately; the four-image publisher
 preserves both. This is a whole-scene experiment cache, not native per-asset cache
 or runtime admission. Source geometry must remain available at the checked path.
+The optional `--samples-per-pass` bounds concurrent CPU sample work, retaining
+total spp, scene and resolution. Tokyo's default full wavefront exceeded this
+16 GiB host's memory (kernel OOM, 11.36 GiB process anonymous RSS). Mitsuba still
+supports its deprecated explicit pass limit; the report records this workaround.
+Pass grouping can change random sample ordering, so pixel identity is not claimed.
+Energy, full image extent, total spp and named denoising AOVs have a separate control.
+
+The facade filter is exact for its axis-aligned UV box. That box bounds the
+projected pixel parallelogram; it is an approximation for rotated/sheared or
+rank-deficient footprints, not EWA or an exact projected-pixel integral. The
+native material composition/filter owner is #189; transmission and lighting
+must not acquire a second illumination path during integration.
 
 Small residential roofs are extended beyond the old 70 m² envelope scope in
 `residential_roof_choice.py` (#229): 70–350 m², ordinary residential source or
