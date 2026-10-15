@@ -65,10 +65,7 @@ def chart_fragments(mesh, colour, normal, frame, lower, upper, size):
     return pixel[order], depth[order], samples[order]
 
 
-def source_image(mesh, maps, wood, frame, lower, upper, size):
-    pixel, depth, samples = chart_fragments(
-        mesh, maps[0], maps[1], frame, lower, upper, size
-    )
+def wood_fragments(wood, frame, lower, upper, size):
     projected = wood["vertices"] @ frame
     attributes = np.concatenate(
         (
@@ -98,15 +95,21 @@ def source_image(mesh, maps, wood, frame, lower, upper, size):
             np.zeros(len(wood_pixels)),
         )
     )
+    depth = shaded[..., 3].ravel()[wood_pixels]
+    return wood_pixels, depth, np.column_stack((wood_samples, depth))
+
+
+def source_image(mesh, maps, wood, frame, lower, upper, size):
+    pixel, depth, samples = chart_fragments(
+        mesh, maps[0], maps[1], frame, lower, upper, size
+    )
+    samples = np.column_stack((samples, depth * samples[:, 3]))
+    wood_pixel, wood_depth, wood_samples = wood_fragments(
+        wood, frame, lower, upper, size
+    )
     return composite(
-        np.r_[pixel, wood_pixels],
-        np.r_[depth, shaded[..., 3].ravel()[wood_pixels]],
-        np.column_stack(
-            (
-                np.concatenate((samples, wood_samples)),
-                np.r_[depth, shaded[..., 3].ravel()[wood_pixels]]
-                * np.r_[samples[:, 3], wood_samples[:, 3]],
-            )
-        ),
+        np.r_[pixel, wood_pixel],
+        np.r_[depth, wood_depth],
+        np.concatenate((samples, wood_samples)),
         size,
     )
