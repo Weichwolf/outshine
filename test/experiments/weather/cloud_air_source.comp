@@ -15,18 +15,45 @@
 #ifndef SOURCE_GRID_LOG
 #define SOURCE_GRID_LOG 0
 #endif
+#ifndef SOURCE_VISIBILITY_OUTPUT
+#define SOURCE_VISIBILITY_OUTPUT 0
+#endif
+#ifndef SOURCE_FIELD_STATE
+#define SOURCE_FIELD_STATE SOURCE_VISIBILITY_OUTPUT
+#endif
+#ifndef SOURCE_WIND_EAST_M
+#define SOURCE_WIND_EAST_M 256.34352
+#endif
+#ifndef SOURCE_WIND_SOUTH_M
+#define SOURCE_WIND_SOUTH_M -148.0
+#endif
 
 layout(local_size_x = 64) in;
 layout(set = 0, binding = 0) uniform sampler2D veil;
 layout(set = 0, binding = 1) uniform sampler2D multiScatter;
 layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
 layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+#if SOURCE_VISIBILITY_OUTPUT
+layout(rgba32f, set = 1, binding = 0) writeonly uniform image2D intoVisibility;
+#include "cloud_air_transfer_response.glsl"
+#else
 layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
+#endif
+#if SOURCE_FIELD_STATE
+layout(std140, set = 2, binding = 1) uniform FieldState { vec4 CoverAndWind; } fieldState;
+#endif
 layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
 
 CloudLayer sourceWeatherLayer() {
+#if SOURCE_FIELD_STATE
   return CloudLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, 0.012),
-      vec4(SOURCE_CLOUD_COVER, 0.0, 0.0, 0.0), vec4(256.34352, 0.0, -148.0, 0.0));
+      vec4(fieldState.CoverAndWind.x, 0.0, 0.0, 0.0),
+      vec4(fieldState.CoverAndWind.y, 0.0, fieldState.CoverAndWind.z, 0.0));
+#else
+  return CloudLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, 0.012),
+      vec4(SOURCE_CLOUD_COVER, 0.0, 0.0, 0.0),
+      vec4(SOURCE_WIND_EAST_M, 0.0, SOURCE_WIND_SOUTH_M, 0.0));
+#endif
 }
 
 vec3 sourceSunDirection() { return vec3(-0.6, 0.8, 0.0); }
@@ -97,6 +124,22 @@ void main() {
   for (uint at = inputRay.QueryBegin; at < inputRay.QueryEnd; ++at) {
     AirTransfer result = cloudAirPrefixAdvance(
         prefix, query.distanceKm[at] * 1000.0, pushed.Air, veil, multiScatter);
+#if SOURCE_VISIBILITY_OUTPUT
+    AirSourceTerms terms = airSourceTermsAt(pushed.Air, clearRay, 0.0,
+        airSunVisible(pushed.Air, clearRay, 0.0), veil, multiScatter);
+    float lengthKm = max(0.0, min(query.distanceKm[at], span.EndKm) - span.BeginKm);
+    vec3 integral = transferIntegral(terms.Extinction, lengthKm);
+    vec3 visibility = vec3(1.0);
+    for (int channel = 0; channel < 3; ++channel) {
+      if (integral[channel] > 0.0 && terms.DirectEmission[channel] > 0.0) {
+        visibility[channel] = (result.RadiancePerLux[channel] / integral[channel] -
+            terms.DiffuseEmission[channel]) / terms.DirectEmission[channel];
+      }
+    }
+    ivec2 extent = imageSize(intoVisibility);
+    imageStore(intoVisibility, ivec2(int(at) % extent.x, int(at) / extent.x),
+        vec4(visibility, float(prefix.Clear.SourceEvaluations)));
+#else
     bool valid = prefix.CellsVisited < 1024u && prefix.Cloud.DensityEvaluations < 64u &&
         prefix.Cloud.SourceEvaluations < 64u;
 #if SOURCE_CLOUD_MODE == 4
@@ -116,5 +159,6 @@ void main() {
     into.samples[at] = ProbeSample(result.RadiancePerLux.r, result.RadiancePerLux.g,
         result.RadiancePerLux.b, result.Transmittance.r, result.Transmittance.g,
         result.Transmittance.b, sources, counts);
+#endif
   }
 }
