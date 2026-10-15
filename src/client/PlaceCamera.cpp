@@ -426,7 +426,7 @@ bool MeasureFrames(Engine &engine,
 namespace {
 void SavePlaceShot(Engine &engine, std::string_view name, Shot &shot, std::string_view under) {
   std::error_code failed;
-  const std::string into = std::string("build/shots/") + std::string(under);
+  const std::string into = (std::filesystem::path("build/shots") / under).string();
   std::filesystem::create_directories(into, failed);
   const std::string writing = into + "/" + std::string(name) + ".writing";
   if (engine.renderer().saveScreenshot(writing)) {
