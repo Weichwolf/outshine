@@ -37,10 +37,13 @@ vec4 facadeCoatedFootprint(vec2 fractions, vec2 at, vec2 dx, vec2 dy, float stor
   return result;
 }
 
+vec3 facadeCoatingAmplitude(vec3 albedo) {
+  vec3 room = 2.0 * max(min(albedo, vec3(1.0) - albedo), vec3(0.0));
+  return min(0.16 * max(albedo, vec3(0.0)), room);
+}
+
 FacadeGlazing facadeCoatedWindow(vec4 filtered, vec3 albedo, float roughness) {
   FacadeGlazing result = facadeBandedWindow(filtered.x, filtered.y, filtered.z, albedo, roughness);
-  vec3 room = 2.0 * max(min(albedo, vec3(1.0) - albedo), vec3(0.0));
-  vec3 amplitude = min(0.16 * max(albedo, vec3(0.0)), room);
-  result.albedo += amplitude * filtered.w;
+  result.albedo += facadeCoatingAmplitude(albedo) * filtered.w;
   return result;
 }

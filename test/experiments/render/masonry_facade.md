@@ -1,5 +1,8 @@
 # Native facade masonry composition
 
+The subsequent shared coating/masonry colour-range correction and its native
+counterexamples are documented in [facade_composition_range.md](facade_composition_range.md).
+
 Owner: #306, material composition #6, goal #189. The candidate comparison and
 sources remain in [masonry_filter.md](masonry_filter.md). This experiment connects
 its selected sixteen joint subcells to the existing nine-sample coating and the
