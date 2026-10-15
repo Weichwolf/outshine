@@ -954,3 +954,6 @@ Nur neue Kamera-Fenster erhalten ihre geprüften Höhen; unveränderte alte
 Wiener/Central-Park-Produkte bleiben erhalten. Ein explizit ungültiger Fit
 behält das vorherige Bett mit Grund; schmutzige oder fremd gebundene Ergebnisse
 werden nicht dargestellt. Der Standard ohne `--height-products` bleibt eben.
+
+Aktueller eingefrorener Vergleich, Grenzen, Kosten und Bildbelege:
+[camera_height_comparison.md](camera_height_comparison.md).
