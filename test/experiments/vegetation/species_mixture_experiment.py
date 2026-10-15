@@ -9,9 +9,8 @@ import time
 from pathlib import Path
 
 import numpy as np
-from outshine_ref.places import axes, ecef
+from outshine_ref.places import axes, ecef, read_camera
 from outshine_ref.vegetation import load_species_catalog
-from place_camera import selected_cameras
 from pyproj import Transformer
 from species_mixture import HeightMixture, site_uniforms
 from species_pool_lookup import MIXED, cell_rows, points
@@ -99,7 +98,7 @@ def choose(mixtures, values, height, uniforms, forest, method):
 def run(sites_path, scene_path, geography_path, model_path, output):
     start = time.perf_counter()
     scene = json.loads(scene_path.read_text())
-    camera = next(c for c in selected_cameras(ROOT) if c.name == scene["place"])
+    camera = read_camera(ROOT / "src/assets/places" / f"{scene['place']}.scenario")
     if camera.scenario_sha256 != scene["scenario_sha256"]:
         raise ValueError("cached stand and actual Place scenario differ")
     sites = np.load(sites_path, allow_pickle=False)
