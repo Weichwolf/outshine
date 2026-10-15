@@ -1,4 +1,5 @@
 #include "NativeGpuCheck.h"
+#include "NativeSdr.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -43,7 +44,7 @@ void Complete(Device &device, Completion completion) {
 void Render(Device &device, const GraphicsPipeline &pipeline, std::unique_ptr<PresentFrame> frame) {
   const auto &image = frame->Image();
   const auto description = image.Description();
-  CHECK(description.Width > 0 && description.Height > 0 && description.Texels == Format::Bgra8Unorm,
+  CHECK(description.Width > 0 && description.Height > 0 && IsSdr(description.Texels),
         "the acquired frame exposes its actual drawable dimensions and format");
   const std::array colours{
       ColourAttachment{.Image = {.Image = &image}, .Begin = Load::Clear, .Clear = {0, 0, 0, 1}}};
@@ -144,7 +145,10 @@ int main(int argc, char *const *argv) {
   other.join();
   const auto vertex = Spirv(argv[1]);
   const auto fragment = Spirv(argv[2]);
-  const std::array targets{ColourTarget{.Texels = Format::Bgra8Unorm, .Rgb = {}, .Alpha = {}}};
+  auto formatFrame = Acquire(*device);
+  const auto format = formatFrame->Image().Description().Texels;
+  formatFrame.reset();
+  const std::array targets{ColourTarget{.Texels = format, .Rgb = {}, .Alpha = {}}};
   auto pipeline = Require(device->CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
                                                           .Fragment = ShaderCode{.Spirv = fragment},
                                                           .Streams = {},
