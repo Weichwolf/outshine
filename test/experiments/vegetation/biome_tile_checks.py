@@ -5,10 +5,28 @@ import unittest
 
 import numpy as np
 from biome_models import woody
-from render_biome_tiles import HERE, population
+from render_biome_tiles import HERE, population, reference_population
 
 
 class BiomeTileChecks(unittest.TestCase):
+    def test_grass_density_does_not_move_or_reseed_existing_woody_plants(self):
+        recipes = json.loads((HERE / "biome_tiles.json").read_text())
+        for name, recipe in recipes.items():
+            old = [
+                row
+                for row in reference_population(name, recipe)
+                if not row[0].startswith("grass-")
+            ]
+            new = [
+                row
+                for row in population(name, recipe)
+                if not row[0].startswith("grass-")
+            ]
+            self.assertEqual([row[0] for row in old], [row[0] for row in new])
+            for a, b in zip(old, new, strict=True):
+                for x, y in zip(a[1:], b[1:], strict=True):
+                    np.testing.assert_array_equal(x, y)
+
     def test_four_replayable_flat_populations_fit_their_tiles(self):
         recipes = json.loads((HERE / "biome_tiles.json").read_text())
         self.assertEqual(set(recipes), {"Laubwald", "Mischwald", "Steppe", "Heide"})
