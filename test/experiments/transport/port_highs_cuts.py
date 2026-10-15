@@ -136,6 +136,7 @@ def fit_delayed(
     max_nonzeros=12000000,
     solver="ipm",
     selection="support",
+    initial_box="support",
     method="cone",
 ):
     began = time.perf_counter()
@@ -152,6 +153,8 @@ def fit_delayed(
         selection,
         method,
     )
+    if initial_box not in ("all", "support"):
+        raise ValueError("known bounded initial outer relaxation required")
     datum = float(np.median(targets))
     shifted = np.asarray(targets) - datum
     report = {
@@ -174,14 +177,16 @@ def fit_delayed(
         work.check(retained, max_nonzeros)
         rows = work.matrix(gradient.tocsr(copy=True), copied_values=True)
         sizes = work.array(np.diff(rows.indptr))
-        groups = support_groups(rows, work) if selection == "support" else None
+        groups = support_groups(rows, work)
         model = SparseLP(
             height, equality, shifted, solver, work, max_nonzeros, retained
         )
-        model.seed_box(rows, margin)
-        report["initial_outer_relaxation"] = (
-            "All paired gradient coordinates bounded by +/-margin; imported in 4096-row blocks."
-        )
+        seed = None
+        if initial_box == "support":
+            _, seed = np.unique(groups[0], return_index=True)
+            work.array(seed)
+        report["initial_box_rows"] = model.seed_box(rows, margin, seed)
+        report["initial_outer_relaxation"] = initial_box
         report["setup_ms"] = (time.perf_counter() - began) * 1000
         for step in range(max_iterations):
             remaining = seconds - report["solver_ms"] / 1000

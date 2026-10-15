@@ -55,7 +55,13 @@ def execute(args):
         began = time.perf_counter()
         if args.backend.startswith("highs"):
             _, solver, selection = args.backend.split("-")
-            result = fit_delayed(*values, **options, solver=solver, selection=selection)
+            result = fit_delayed(
+                *values,
+                **options,
+                solver=solver,
+                selection=selection,
+                initial_box=args.initial_box,
+            )
         else:
             result = original(*values, **options)
         record.update(wall_ms=(time.perf_counter() - began) * 1000, report=result[1])
@@ -75,6 +81,7 @@ def execute(args):
     report = json.loads(path.read_text())
     report.update(
         backend=args.backend,
+        initial_box=args.initial_box if args.backend.startswith("highs") else None,
         original_formulation=report["method"],
         backend_calls=calls,
         historical_frame="Frozen metric corpus; historical ENU label denotes the original scaled-Mercator source coordinates. No reprojecting or relabelling in this solver comparison.",
@@ -101,6 +108,7 @@ def main():
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--snapshot", type=Path)
+    parser.add_argument("--initial-box", choices=("support", "all"), default="support")
     args = parser.parse_args()
     if args.output.exists() and any(args.output.iterdir()):
         parser.error("fresh empty external output required")

@@ -137,12 +137,19 @@ class SparseLP:
             )
         )
 
-    def seed_box(self, gradient, margin):
-        for begin in range(0, gradient.shape[0], 4096):
-            block = self.work.matrix(gradient[begin : begin + 4096], copied_values=True)
+    def seed_box(self, gradient, margin, ids=None):
+        count = gradient.shape[0] if ids is None else 2 * len(ids)
+        for begin in range(0, count, 4096):
+            selected = slice(begin, begin + 4096)
+            if ids is not None:
+                selected = self.work.array(
+                    (2 * ids[begin // 2 : (begin + 4096) // 2, None] + [0, 1]).ravel()
+                )
+            block = self.work.matrix(gradient[selected], copied_values=True)
             lower = self.work.array(np.full(block.shape[0], -margin))
             upper = self.work.array(np.full(block.shape[0], margin))
             self.add(block, lower, upper)
+        return count
 
     def solve(self, remaining, iterations):
         check_status(

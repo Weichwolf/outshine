@@ -66,6 +66,13 @@ class HighsCuts(unittest.TestCase):
         np.testing.assert_allclose(coefficients, [0.5, 0.5], atol=1e-8)
         self.assertLessEqual(report["point_contact_error"], 1e-7)
 
+    def test_full_box_is_also_an_outer_relaxation(self):
+        coefficients, report = problem([1.0, 1.0], initial_box="all")
+        np.testing.assert_allclose(
+            coefficients, [0.99 / math.sqrt(2)] * 2, atol=2e-7, rtol=0
+        )
+        self.assertEqual(report["initial_box_rows"], 2)
+
     def test_grouped_separation_keeps_all_original_cones_in_validation(self):
         gradient = np.vstack((np.eye(2), np.diag([1.0, 2.0])))
         expected = np.full(2, 0.99 / math.sqrt(5))
