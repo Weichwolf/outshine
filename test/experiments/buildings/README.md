@@ -452,3 +452,36 @@ exposure does not alter geometry, lights or the fixed day/night comparison.
 .venv/bin/python test/experiments/buildings/room_programme_plan.py
 .venv/bin/python test/experiments/buildings/room_programme_probe.py --spp 32
 ```
+
+
+## Compact office support room plans
+
+`office_support_plan.py` refines only the actual office scope already established
+by `room_programme.office_scope`. Source envelopes, existing doors/windows,
+common corridors, stairs and unsupported storeys remain intact. Original room
+IDs remain as the identifiable parents of appended support-room IDs. Compact
+sanitary rooms and separate tea rooms receive their own full-width door from the
+existing corridor; neither is a route through another work/support function.
+
+`office_support_geometry.py` compares wall-end/centre placements with seven
+sliding wall positions under the same whole-polygon, retained-approach, window
+and 0.30 m actor requirements. At most 48 candidates per room, 24 spaces per
+floor and four intermediate floor states. More candidates do not guarantee a
+better bounded result: the current sliding control misses Hameln's tea room.
+The successful wall-end controls remain research plans, not optimal or measured
+real interiors. No training corpus or learned architectural model is claimed.
+
+`verify_office_support_controls.py` exercises notches, full-width backing,
+retained doors, clear sanitary windows, rigid transforms and capacity.
+`office_support_verification.py` independently checks source/room ancestry,
+unchanged openings, floor/wall accounting, compact areas and full-radius access.
+`verify_office_support.py` adds actual furniture meshes, original building paths
+and deliberately removed/escaped/misassigned/unsupported-floor counterparts.
+
+`office_support_probe.py` writes private 2880×2160 before/after plans.
+`room_programme_probe.py --support-plan --overview-only` uses the chosen plan,
+then renders a declared ground-office cut: actual body parts capped at 1.10 m
+above that floor, upper storeys/ceiling omitted, full furniture retained. The
+uncut mesh is checked separately. Public showcase remains four whole tiles.
+Door leaves/privacy states, services/ventilation, complete architectural
+programmes, other uses, runtime LOD/cache and native admission remain open.

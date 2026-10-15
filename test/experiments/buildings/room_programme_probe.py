@@ -100,21 +100,39 @@ def cameras(plan, product, full, cutaway):
     )
 
 
-def probe(output, site, identifier, spp):
+def probe(output, site, identifier, spp, support_plan=False, overview_only=False):
     output.mkdir(parents=True, exist_ok=True)
     _row, plan, receipt = source_plan(site, identifier)
+    subdivision = None
+    if support_plan:
+        from office_support_plan import refine
+        from office_support_verification import admission
+
+        original = plan
+        plan = refine(original)
+        subdivision = admission(original, plan)
     product = programme(plan, "jittered-anchors")
     proof = verify(plan, product)
     detail, instances = furnishings(product)
     body = attach(building_mesh(plan), expand(slots(plan)))
+    section = None
+    if support_plan:
+        from office_support_cutaway import cutaway as support_cutaway
+
+        cutaway, section = support_cutaway(plan, product, body)
     body, roles = surface_roles(plan, body)
     full = combine(body, detail)
-    cutaway = combine(body, detail, True)
+    if not support_plan:
+        cutaway = combine(body, detail, True)
     provenance = revision()
     names = []
-    for name, mesh, eye_point, target_point, night in cameras(
-        plan, product, full, cutaway
-    ):
+    views = cameras(plan, product, full, cutaway)
+    if support_plan:
+        view = overview(cutaway["vertices"], [1.0, -1.0, 1.5])
+        views = (("2_5d", cutaway, view.eye, view.target, False), *views[1:])
+    for name, mesh, eye_point, target_point, night in views:
+        if overview_only and name != "2_5d":
+            continue
         stem = "room-programme-" + name
         path = output / (stem + "-mesh.npz")
         np.savez_compressed(path, **mesh)
@@ -168,10 +186,12 @@ def probe(output, site, identifier, spp):
             "proof": proof,
             "instances": instances,
             "roles": roles,
+            "support_subdivision": subdivision,
+            "section": section if name == "2_5d" else None,
             "renderer": renderer,
             "profile": [1920, 1080],
             "image_sha256": renderer["image_sha256"],
-            "scope": "Private actual office-POI control with own procedural furnishings; 2.5D explicitly removes ceiling only. Interior eye uses an actual compiled actor-checked portal anchor. Complete architecture recipe families, services, ventilation and native LOD remain open",
+            "scope": "Private actual office-POI control with own procedural furnishings. Section metadata declares the support ground-floor cut; legacy 2.5D removes ceiling only. Interior eye uses an actual compiled actor-checked portal anchor. Complete architecture recipe families, door privacy, services, ventilation and native LOD remain open",
         }
         record = output / (stem + "-report.json")
         record.write_text(json.dumps(report, indent=2) + "\n")
@@ -192,5 +212,9 @@ if __name__ == "__main__":
     parser.add_argument("--site", default=CONTROLS[1][0])
     parser.add_argument("--id", default=CONTROLS[1][1])
     parser.add_argument("--spp", type=int, default=32)
+    parser.add_argument("--support-plan", action="store_true")
+    parser.add_argument("--overview-only", action="store_true")
     args = parser.parse_args()
-    probe(args.output, args.site, args.id, args.spp)
+    probe(
+        args.output, args.site, args.id, args.spp, args.support_plan, args.overview_only
+    )
