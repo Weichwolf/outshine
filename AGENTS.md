@@ -220,8 +220,13 @@
   Kostenbeleg an `outshine_performance`; ich übernehme die Geräte-/Bildgegenprüfung.
   Ein gemeinsamer Voll-Lint gilt dem eingefrorenen Integrationsstand;
   Änderungen danach benötigen die davon betroffenen Prüfungen. Unabhängige Drafts halten das Paket nicht auf.
-- Ein schwerer Lauf je physischem Host zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
-  detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
+- Agenten beurteilen parallele Läufe selbst anhand laufender Prozesse und verfügbarer Ressourcen;
+  keine globale Ein-Lauf-Sperre je Host. Ein unter Last bestandener Budgettest zählt für den gemessenen
+  Lastfall; Vergleichsläufe nennen ihren Lastzustand. Breite Prüfungen und aufwendige Renderexperimente
+  bevorzugt auf dem gemeinsamen Fachagentenrechner (Nutzerangabe: schnelle 6-Kern-CPU, 32 GB RAM,
+  RTX 3060), Metal-/A18-Abnahme auf dem Zielgerät.
+  Lange Gates auf eingefrorenem Commit im detached Worktree mit eigenem Build; Jobzahl nach Ressourcen.
+  Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
 - Im Repository liegt nur, was gemeinsam für Outshine gebraucht wird: Produktcode, Tests,
   wiederverwendbare Experimentquellen unter `test/experiments/`, feste Testeingaben, Dokumentation,

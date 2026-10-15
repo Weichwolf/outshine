@@ -1,7 +1,7 @@
 """Execute production ground GLSL through SDL/Vulkan; this is not a Place gate.
 
 Requires the test runner's C++ toolchain, SDL3, glslangValidator, NumPy and Pillow.
-Run under the host's shared heavy-run lock. All outputs need an explicit temp path.
+Choose concurrency for available host resources. Outputs need an explicit temp path.
 """
 
 import argparse
