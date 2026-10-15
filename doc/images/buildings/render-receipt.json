@@ -1,5 +1,10 @@
 {
-  "render_commit": "793eb286f27437aeb747ef7afc17a603390f3aa9",
+  "render_commits": {
+    "DarmstadtWest": "793eb286f27437aeb747ef7afc17a603390f3aa9",
+    "Flensburg": "064cdce97fbd38f34e99296d22d46fd17e27e316",
+    "Rosenheim": "793eb286f27437aeb747ef7afc17a603390f3aa9",
+    "Tokyo": "793eb286f27437aeb747ef7afc17a603390f3aa9"
+  },
   "places": {
     "DarmstadtWest": {
       "camera": {
@@ -47,15 +52,16 @@
           720
         ],
         "time_utc": "2025-07-15T10:00:00Z",
-        "scenario_sha256": "e8cf849a8025b70e4b6dbc02ee6e0155c14828df7e10f721c7e7b95540292dec"
+        "scenario_sha256": "e8cf849a8025b70e4b6dbc02ee6e0155c14828df7e10f721c7e7b95540292dec",
+        "sight_m": 240000.0
       },
       "camera_ground_height_m": 19.99925931204184,
       "profile": [
         1920,
         1080
       ],
-      "image_sha256": "fa1a1a1424a9a32166be496a1b5aa32b020137c8029f0cb93149791a33bba975",
-      "triangles": 866544,
+      "image_sha256": "afa80e9babc930d10e157d13e23a0f32f496b05dd9282d3313ad47641b7c5ccc",
+      "triangles": 921636,
       "source_radius_m": 3000.0,
       "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families."
     },
