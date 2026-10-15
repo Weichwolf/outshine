@@ -40,6 +40,9 @@ MetalCommands::Copy(const Buffer &source, Texture &destination, TextureTransfer 
         !FitsTransfer(*from, *to, region)) {
       return Failure(ErrorKind::Invalid, "invalid Metal buffer-to-texture transfer");
     }
+    const std::array images{to->Recording};
+    const auto reserved = HoldImages(images);
+    if (!reserved) { return reserved; }
     const auto held = Hold(from->State);
     if (!held) { return held; }
     Finish();
@@ -73,6 +76,9 @@ MetalCommands::Copy(const Texture &source, Buffer &destination, TextureTransfer 
         !FitsTransfer(*to, *from, region)) {
       return Failure(ErrorKind::Invalid, "invalid Metal texture-to-buffer transfer");
     }
+    const std::array images{from->Recording};
+    const auto reserved = HoldImages(images);
+    if (!reserved) { return reserved; }
     const auto held = Hold(to->State);
     if (!held) { return held; }
     Finish();
@@ -113,6 +119,9 @@ Result<void> MetalCommands::Copy(const Texture &source,
         (from->Native == to->Native && Overlap(sourceRegion, destinationRegion))) {
       return Failure(ErrorKind::Invalid, "invalid Metal texture copy or overlapping subresources");
     }
+    const std::array images{from->Recording, to->Recording};
+    const auto reserved = HoldImages(images);
+    if (!reserved) { return reserved; }
     Finish();
     const id<MTLBlitCommandEncoder> copy = [Native blitCommandEncoder];
     if (copy == nil) { return Failure(ErrorKind::Driver, "Metal texture copy encoder failed"); }

@@ -78,9 +78,11 @@ def main():
                    Path(__file__).with_name('native_metal_mrt.frag'),
                    ROOT / 'src/render/shaders/present.frag',
                    Path(__file__).with_name('native_buffer_lengths.comp'),
+                   Path(__file__).with_name('native_draw_transitions.vert'),
+                   Path(__file__).with_name('native_draw_transitions.frag'),
+                   Path(__file__).with_name('native_draw_indirect.comp'),
                    Path(__file__).with_name('native_draw.vert'),
-                   Path(__file__).with_name('native_draw.frag'),
-                   Path(__file__).with_name('native_draw_indirect.comp')]
+                   Path(__file__).with_name('native_draw.frag')]
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -90,7 +92,8 @@ def main():
         consumers = [ROOT / 'test/harness/render' / name for name in
                      ('NativeVulkanProbe.cpp', 'NativeTextureProbe.cpp',
                       'NativeTextureLifetimeProbe.cpp', 'NativeRasterProbe.cpp',
-                      'NativeRenderPassProbe.cpp', 'NativeMrtDrawProbe.cpp', 'NativeDrawProbe.cpp')]
+                      'NativeRenderPassProbe.cpp', 'NativeMrtDrawProbe.cpp', 'NativeDrawTransitionsProbe.cpp',
+                      'NativeDrawProbe.cpp')]
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -119,7 +122,8 @@ def main():
         raster_jobs = [('raster_pipeline_checks', 3, [4, 5, 6]),
                        ('render_pass_checks', 4, [7]),
                        ('mrt_draw_checks', 5, [4, 5]),
-                       ('draw_checks', 6, [8, 9, 10])]
+                       ('draw_transition_checks', 6, [8, 9, 10]),
+                       ('draw_checks', 7, [11, 12])]
         for key, binary, indices in raster_jobs:
             report[key] = verdict(run(
                 [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],

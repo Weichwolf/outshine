@@ -1,7 +1,12 @@
 #version 450
-layout(location = 0) in vec2 uv;
-layout(location = 1) flat in uint instance;
-layout(set = 0, binding = 0, std140) uniform Params { vec4 tint; vec4 control; } params;
-layout(set = 2, binding = 0) uniform sampler2D image;
+
+layout(location = 0) in vec2 surfaceUv;
 layout(location = 0) out vec4 colour;
-void main() { colour = texture(image, uv) * params.tint + vec4(0, 0, 0, float(instance) / 8.0); }
+layout(std140, set = 2, binding = 0) uniform FragmentParameters { vec4 tint; };
+layout(std430, set = 1, binding = 0) readonly buffer Levels { uint levels[]; };
+layout(set = 2, binding = 1) uniform sampler2D image;
+
+void main() {
+  colour = texture(image, surfaceUv) * tint;
+  colour.b += float(levels.length()) / 16.0;
+}

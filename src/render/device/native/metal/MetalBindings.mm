@@ -6,7 +6,7 @@ namespace outshine::Render::Native::Metal {
 
 namespace {
 
-Result<DispatchArgument>
+Result<ShaderArgument>
 TextureArgument(const ResourceBinding &layout, const Binding &binding, uint64_t device) {
   const auto *const sampled = std::get_if<SampledTexture>(&binding.Value);
   const auto *const storage = std::get_if<StorageTexture>(&binding.Value);
@@ -14,8 +14,8 @@ TextureArgument(const ResourceBinding &layout, const Binding &binding, uint64_t 
   if ((sampling && sampled == nullptr) || (!sampling && storage == nullptr)) {
     return Failure(ErrorKind::Invalid, "Metal texture binding kind differs from reflection");
   }
-  const auto image = sampling ? sampled->Image : storage->Image;
-  const auto *const texture = dynamic_cast<const MetalTexture *>(image.Image);
+  const auto *const image = sampling ? &sampled->Image : &storage->Image;
+  const auto *const texture = dynamic_cast<const MetalTexture *>(image->Image);
   if (texture == nullptr || texture->Device != device ||
       !Has(texture->Description().Use, sampling ? TextureUse::Sampled : TextureUse::Storage) ||
       layout.ArrayTexture != (texture->Description().Type == TextureType::Image2DArray) ||
@@ -23,10 +23,14 @@ TextureArgument(const ResourceBinding &layout, const Binding &binding, uint64_t 
     return Failure(ErrorKind::Invalid,
                    "Metal texture type, format, usage or ownership differs from reflection");
   }
-  const auto selected = View(image, device);
+  const auto selected = View(*image, device);
   if (!selected) { return std::unexpected(selected.error()); }
-  DispatchArgument argument{
-      .Layout = &layout, .Buffer = {}, .Texture = *selected, .Resource = texture->Native};
+  ShaderArgument argument{.Layout = &layout,
+                          .Buffer = {},
+                          .Recording = texture->Recording,
+                          .Image = image,
+                          .Texture = *selected,
+                          .Resource = texture->Native};
   constexpr uint32_t noSampler = std::numeric_limits<uint32_t>::max();
   if (sampling && layout.Sampler != noSampler) {
     const auto *const sampler = dynamic_cast<const MetalSampler *>(sampled->Sampling);
@@ -47,14 +51,19 @@ TextureArgument(const ResourceBinding &layout, const Binding &binding, uint64_t 
 
 }
 
-Result<std::vector<DispatchArgument>>
+Result<std::vector<ShaderArgument>>
 Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device) {
   if (bindings.size() != pipeline.Translated.Resources.size()) {
     return Failure(ErrorKind::Invalid, "Metal dispatch bindings differ from reflection");
   }
-  std::vector<DispatchArgument> result;
-  result.reserve(bindings.size());
-  for (const auto &layout : pipeline.Translated.Resources) {
+  return Arguments(pipeline.Translated, bindings, device);
+}
+
+Result<std::vector<ShaderArgument>>
+Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t device) {
+  std::vector<ShaderArgument> result;
+  result.reserve(shader.Resources.size());
+  for (const auto &layout : shader.Resources) {
     const auto matches = [&](const Binding &value) {
       return value.Set == layout.Source.Set && value.Slot == layout.Source.Slot;
     };
@@ -62,7 +71,7 @@ Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint
       return Failure(ErrorKind::Invalid, "missing or repeated Metal dispatch binding");
     }
     const auto &binding = *std::ranges::find_if(bindings, matches);
-    DispatchArgument argument{.Layout = &layout, .Buffer = {}};
+    ShaderArgument argument{.Layout = &layout, .Buffer = {}, .Recording = {}};
     if (layout.Source.Kind == BindingKind::Uniform) {
       argument.Constants = std::get_if<Uniform>(&binding.Value);
       constexpr size_t maxUniformBytes = 64L * 1024;
@@ -93,12 +102,34 @@ Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint
     }
     result.push_back(std::move(argument));
   }
+  const auto aliases = CheckImageAliases(result, result);
+  if (!aliases) { return std::unexpected(aliases.error()); }
   return result;
+}
+
+Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
+                               std::span<const ShaderArgument> second) {
+  for (const auto &a : first) {
+    if (a.Texture == nil) { continue; }
+    for (const auto &b : second) {
+      if (&a == &b || b.Texture == nil || a.Resource != b.Resource ||
+          (a.Layout->Source.Usage == Access::Read && b.Layout->Source.Usage == Access::Read)) {
+        continue;
+      }
+      const auto &x = *a.Image;
+      const auto &y = *b.Image;
+      if (x.FirstMip < y.FirstMip + y.Mips && y.FirstMip < x.FirstMip + x.Mips &&
+          x.FirstLayer < y.FirstLayer + y.Layers && y.FirstLayer < x.FirstLayer + x.Layers) {
+        return Failure(ErrorKind::Invalid, "Metal sampled/writable texture subresources overlap");
+      }
+    }
+  }
+  return {};
 }
 
 Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                   const Shader &shader,
-                  const std::vector<DispatchArgument> &arguments) {
+                  const std::vector<ShaderArgument> &arguments) {
   std::array<uint32_t, kBufferSizesSlot> sizes{};
   for (const auto &argument : arguments) {
     const auto slot = argument.Layout->Buffer;
