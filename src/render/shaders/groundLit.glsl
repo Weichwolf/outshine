@@ -21,8 +21,9 @@ const float kPi = acos(-1.0);
 #include "surfaceNoise.glsl"
 #include "groundRock.glsl"
 #include "groundSubstrate.glsl"
-#include "surfaceGradient.glsl"
 #include "surfaceBlend.glsl"
+#include "groundLayers.glsl"
+#include "surfaceGradient.glsl"
 void main() {
   M surface = materialAt();
   vec3 shadingNormal = facing(normal, gl_FrontFacing);
@@ -36,37 +37,33 @@ void main() {
   float halfFootprintM = min(acrossM, max(haloM - reachM, 0.0));
   float classWeight = groundEdgeWeight(edgeM, reachM, halfFootprintM);
   float slopeDeg = degrees(acos(clamp(dot(normalize(normal), normalize(lights.up.xyz)), 0.0, 1.0)));
-  vec4 wears = edgeM < kGroundNoEdgeM
-      ? mix(groundWearsSlope(runnerUp, rows, slopeDeg), groundWearsSlope(which, rows, slopeDeg), classWeight)
-      : groundWearsSlope(which, rows, slopeDeg);
-  float rockWeight = edgeM < kGroundNoEdgeM
-      ? mix(groundRockWeight(runnerUp, rows, slopeDeg), groundRockWeight(which, rows, slopeDeg), classWeight)
-      : groundRockWeight(which, rows, slopeDeg);
-  GroundDetail detail = GroundDetail(1.0, 0.0, vec2(0.0));
+  float rockWeight = groundRockWeight(which, rows, slopeDeg);
+  float otherRockWeight = edgeM < kGroundNoEdgeM ? groundRockWeight(runnerUp, rows, slopeDeg) : rockWeight;
   vec3 worldM = groundWorldM;
   vec3 worldDx = dFdx(worldM);
   vec3 worldDy = dFdy(worldM);
   float footprintM = max(length(worldDx), length(worldDy));
-  if (rockWeight > 0.0) {
-    detail = rockDetail(worldM, worldDx, worldDy, footprintM, rows);
+  int rockRow = int(floatBitsToUint(groundPalette[1]));
+  GroundSurface rock = groundSurface(groundWears(rockRow, rows), GroundDetail(1.0, 0.0, vec2(0.0)));
+  if (max(rockWeight, otherRockWeight) > 0.0) {
+    rock = groundSurface(groundWears(rockRow, rows), rockDetail(worldM, worldDx, worldDy, footprintM, rows));
   }
   vec2 atM = worldM.xz;
-  float acrossSubstrateM = max(length(worldDx.xz), length(worldDy.xz));
-  GroundDetail substrate = GroundDetail(1.0, 0.0, vec2(0.0));
+  GroundSurface composed = rock;
   if (rockWeight < 1.0) {
-    substrate = substrateDetail(which, atM, worldDx.xz, worldDy.xz, acrossSubstrateM, rows);
-    if (edgeM < kGroundNoEdgeM) {
-      GroundDetail other = substrateDetail(runnerUp, atM, worldDx.xz, worldDy.xz, acrossSubstrateM, rows);
-      float weight = classWeight;
-      substrate = GroundDetail(mix(other.AlbedoScale, substrate.AlbedoScale, weight),
-                               mix(other.RoughnessOffset, substrate.RoughnessOffset, weight),
-                               blendBumpDerivatives(other.BumpDxDy, substrate.BumpDxDy, weight));
-    }
+    composed = blendGroundSurfaces(groundSubstrateSurface(which, atM, worldDx.xz, worldDy.xz, rows), rock, rockWeight);
   }
-  vec2 heightDxDy = blendBumpDerivatives(substrate.BumpDxDy, detail.BumpDxDy, rockWeight);
+  if (edgeM < kGroundNoEdgeM && classWeight < 1.0) {
+    GroundSurface other = rock;
+    if (otherRockWeight < 1.0) {
+      other = blendGroundSurfaces(groundSubstrateSurface(runnerUp, atM, worldDx.xz, worldDy.xz, rows), rock, otherRockWeight);
+    }
+    composed = blendGroundSurfaces(other, composed, classWeight);
+  }
+  vec2 heightDxDy = composed.BumpDxDy;
   shadingNormal = bumpNormal(shadingNormal, shadingNormal, dFdx(position), dFdy(position), heightDxDy.x, heightDxDy.y);
-  vec3 albedo = min(wears.rgb * mix(substrate.AlbedoScale, detail.AlbedoScale, rockWeight), vec3(1.0));
-  float roughness = clamp(wears.a + mix(substrate.RoughnessOffset, detail.RoughnessOffset, rockWeight), 0.04, 1.0);
+  vec3 albedo = clamp(composed.Albedo, vec3(0.0), vec3(1.0));
+  float roughness = clamp(composed.Roughness, 0.04, 1.0);
 #if SUBJECT_BASE_LOCATION > 0
   outputMaterial(albedo, roughness, surface.metalness);
   outputSurface(vec4(0.0), shadingNormal, surface.identity);
