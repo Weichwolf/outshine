@@ -12,8 +12,11 @@
 namespace outshine::Generators {
 class ClassificationRasterizer {
 public:
+  enum class RingRole : uint8_t { Unspecified, Exterior, Hole };
+
   struct Ring {
     uint32_t First = 0, Count = 0;
+    RingRole Role = RingRole::Unspecified;
   };
 
   enum class Shape : uint8_t { Point = 1, Line = 2, Polygon = 3 };
