@@ -52,7 +52,7 @@ def footprint_at(line, station):
 
 
 def plan_supports(
-    candidates, lower, upper, excluded, *, method, seconds=20, builder=None
+    candidates, builder: SupportVolumeBuilder, excluded, *, method, seconds=20
 ):
     if (
         method not in ("fixed", "shifted")
@@ -61,8 +61,6 @@ def plan_supports(
     ):
         raise ValueError("bounded known support station method required")
     began = time.perf_counter()
-    if builder is None:
-        builder = SupportVolumeBuilder(lower.mesh, upper.mesh)
     shapes, products, contacts, ledger = [], [], [], []
     work = {
         "trials": 0,

@@ -9,7 +9,6 @@ from pathlib import Path
 
 import memray
 import numpy as np
-from bridge_support_contacts import ContactSurface
 from bridge_support_plan import plan_supports, stations
 from camera_height_inputs import digest
 from outshine_ref.transport.supports import SupportVolumeBuilder
@@ -24,7 +23,6 @@ def measure(args):
     sources, ground, deck, excluded, _world, _before, _fixture = read_inputs(
         args.network, args.reference_root
     )
-    lower, upper = ContactSurface(ground), ContactSurface(deck)
     builder = SupportVolumeBuilder(ground, deck)
     candidates = stations([r for r in sources if r["role"] == "deck"])
     began = time.perf_counter()
@@ -34,7 +32,7 @@ def measure(args):
         native_traces=True,
     ):
         products, contacts, _shapes, report = plan_supports(
-            candidates, lower, upper, excluded, method=args.method, builder=builder
+            candidates, builder, excluded, method=args.method
         )
     elapsed = time.perf_counter() - began
     expected_path = args.products / (args.method + ".npz")
