@@ -4,12 +4,6 @@
 #include <array>
 
 namespace outshine::Render::Native::Metal {
-namespace {
-
-struct AttributeFormat {
-  MTLVertexFormat Native;
-  uint32_t Bytes;
-};
 
 std::optional<AttributeFormat> Attribute(VertexFormat format) {
   switch (format) {
@@ -20,6 +14,8 @@ std::optional<AttributeFormat> Attribute(VertexFormat format) {
   }
   return std::nullopt;
 }
+
+namespace {
 
 Result<MTLVertexDescriptor *> Vertices(const GraphicsDescription &description) {
   MTLVertexDescriptor *const layout = [MTLVertexDescriptor vertexDescriptor];
