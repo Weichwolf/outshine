@@ -177,6 +177,7 @@ def worker(site, method):
         "deferred_polygons": len(source["deferred_sources"]),
         "input_axes": len(roads),
         "planned_axes": len(accepted),
+        "normalization": usage["normalization"],
         "source_states": dict(Counter(r["status"] for r in rows)),
         "source_reasons": dict(
             Counter(r["reason"] for r in rows if r["status"] == "not_used")

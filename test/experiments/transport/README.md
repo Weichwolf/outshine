@@ -772,7 +772,17 @@ files are retained. The offline inputs contain every original transportation
 feature, part ID, attribute and deferred polygon reason. Source transport bodies
 use a declared flat Z=0/depth0.25 m recipe, not DEM or a complete city world.
 
+When captured widths are absent, `source_roads` applies the existing recipe for
+the normalized class (`minor` becomes `residential`; `path`/`transit` use their
+subclass). Explicit source widths and axis recipes retain precedence. These
+widths are procedural assumptions, counted in `normalization.inferred_widths`;
+unknown classes, route-only features, other levels and indoor sources keep their
+own reasons. Original coordinates, tags and source IDs are retained. Historical
+input/product pins are not rewritten by this correction (#183).
+
 ```sh
+PYTHONPATH=lib/src:test/experiments/transport .venv/bin/python -W error \
+  test/experiments/transport/width_recipe_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
   .venv/bin/python -W error test/experiments/transport/component_surface_checks.py
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 PYTHONPATH=lib/src:test/experiments/transport \
