@@ -86,9 +86,17 @@ def native_api(output, glslang, toolchain, link_flags):
     mrt_checks = check_probe("native-mrt-probe", "NativeMrtProbe.cpp",
                              output / "fullscreen.vert.spv", output / "native_metal_mrt.frag.spv",
                              output / "depthPyramid.comp.spv")
+    indexed_shaders = []
+    for name in ("native_indexed.vert", "native_indexed.frag", "native_indexed_arguments.comp"):
+        source = Path(__file__).with_name(name)
+        destination = output / (name + ".spv")
+        run([glslang, "-V", "--target-env", "vulkan1.0", str(source), "-o", str(destination)])
+        indexed_shaders.append(destination)
+    indexed_checks = check_probe("native-indexed-probe", "NativeIndexedProbe.cpp", *indexed_shaders)
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
-            "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks}, sources
+            "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
+            "indexed_indirect_checks": indexed_checks}, sources
 
 
 
@@ -148,6 +156,10 @@ def main():
              ROOT / "test/harness/render/NativeRasterProbe.cpp",
              ROOT / "test/harness/render/NativeRenderPassProbe.cpp",
              ROOT / "test/harness/render/NativeDrawProbe.cpp",
+             ROOT / "test/harness/render/NativeIndexedProbe.cpp",
+             Path(__file__).with_name("native_indexed.vert"),
+             Path(__file__).with_name("native_indexed.frag"),
+             Path(__file__).with_name("native_indexed_arguments.comp"),
              ROOT / "test/harness/render/NativeMrtProbe.cpp",
              Path(__file__).with_name("native_draw.vert"),
              Path(__file__).with_name("native_draw.frag"),

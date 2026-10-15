@@ -147,6 +147,16 @@ void MetalCommands::TrackHazard(id<MTLResource> resource,
   }
 }
 
+Result<void> MetalCommands::PrepareReads(std::span<const std::shared_ptr<BufferState>> buffers,
+                                         std::vector<id<MTLResource>> &hazards) {
+  for (const auto &buffer : buffers) {
+    const auto held = Hold(buffer);
+    if (!held) { return held; }
+    TrackHazard(buffer->Native, Access::Read, hazards);
+  }
+  return {};
+}
+
 Result<void> MetalCommands::PrepareResources(std::span<const ShaderArgument> arguments,
                                              std::vector<id<MTLResource>> &hazards) {
   std::vector<std::shared_ptr<TextureRecording>> images;
