@@ -109,7 +109,7 @@ def figure(row, choice, envelope, top, output):
     plt.close(fig)
 
 
-def run(output):
+def run(output, rooms=False):
     output.mkdir(parents=True, exist_ok=True)
     results = []
     for index, row in enumerate(sources()):
@@ -120,6 +120,15 @@ def run(output):
             raise ValueError("Independent source roof comparison failed")
         image = f"house-{index}.png"
         figure(row, choice, envelope, top, output / image)
+        if rooms:
+            from pitched_room_details import complete
+
+            try:
+                mesh, info, _, _ = complete(row, parameters, 12, choice, top)
+                np.savez_compressed(output / f"house-{index}-rooms.npz", **mesh)
+                result["rooms"] = info
+            except ValueError as error:
+                result["rooms_rejected"] = str(error)
         results.append(
             result
             | {
@@ -131,9 +140,15 @@ def run(output):
     (output / "verification.json").write_text(
         json.dumps(revision() | {"cases": results}, indent=2) + "\n"
     )
+    if rooms and any("rooms_rejected" in result for result in results):
+        raise ValueError(
+            "Requested source roof/room control failed; inspect verification.json"
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    run(parser.parse_args().output)
+    parser.add_argument("--rooms", action="store_true")
+    args = parser.parse_args()
+    run(args.output, args.rooms)
