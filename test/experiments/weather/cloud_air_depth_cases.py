@@ -66,8 +66,9 @@ def prepare(output):
     (output / "sparse").mkdir(exist_ok=True)
     sparse_rays.tofile(output / "sparse/rays.bin")
     np.asarray(sparse, "<f4").tofile(output / "sparse/queries.bin")
-    empty = rays[[0, 24]].copy()
-    empty[0]["ray"][4] = 0
+    empty = rays[[24, 24]].copy()
+    empty[0]["ray"][1] = 0
+    empty[0]["ray"][3] = -0.6
     empty[1]["ray"][1] = 1
     empty[1]["ray"][3] = 0.8
     empty["begin"], empty["end"] = [0, 4], [4, 8]

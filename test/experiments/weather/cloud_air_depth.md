@@ -69,7 +69,7 @@ queries. Clear compares to closed forms. RGB limit remains1% with1e-5 floor;
 T remains2e-6 absolute, reference refinement1e-8 absolute.
 
 Additional native sparse/repeated queries must reproduce every32byte record,
-including work counters, exactly. Empty requests and outward orbit rays must
+including work counters, exactly. Empty physical paths and outward orbit rays must
 return L=0/T=1 without solar-source work. A hard analytic unit edge demonstrates
 that the earlier signed angular cubic filter ranges below0 and above1; this
 blocks a general physical-range claim and is not hidden by clamping. Angular
