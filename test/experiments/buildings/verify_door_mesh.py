@@ -6,12 +6,39 @@ from dataclasses import replace
 import manifold3d as manifold
 import numpy as np
 import shapely
+from door_frame import frame
 from door_geometry import DoorLeaf, pose
 from door_mesh import expand, template
+from furniture_collision import furnishing_solid
 from structural_shell_geometry import native
 
 
 class DoorMesh(unittest.TestCase):
+    def test_room_face_frame_blocks_oblique_privacy_rays_without_blocking_opening(self):
+        for side in (-1, 1):
+            leaf = DoorLeaf("door/leaf", (0, 0), (1, 0), (0, 1), 0.16, hinge_side=side)
+            fixed = template(leaf)
+            framing = furnishing_solid(frame(leaf))
+            closed = framing + native(expand(leaf, fixed, 0))
+            opened = framing + native(expand(leaf, fixed, 90))
+            for x in np.linspace(-0.549, 0.549, 13):
+                for slope in (-4.0, -1.0, 0.0, 1.0, 4.0):
+                    # All rays cross the actual inner wall-face aperture at x.
+                    start = [x - 0.56 * slope, -0.5, 1.2]
+                    end = [x + 0.44 * slope, 0.5, 1.2]
+                    self.assertTrue(closed.ray_cast(start, end))
+            for x in np.linspace(-0.54, 0.54, 13):
+                self.assertFalse(opened.ray_cast([x, -0.5, 1.2], [x, 0.5, 1.2]))
+            for angle in np.linspace(0, 90, 181):
+                self.assertLess(
+                    (framing ^ native(expand(leaf, fixed, float(angle)))).volume(),
+                    1e-10,
+                )
+            # The frame closes an actual leak at the leaf overlap's oblique edge.
+            a, b = [0.53 - 0.56 * 4, -0.5, 1.2], [0.53 + 0.44 * 4, 0.5, 1.2]
+            self.assertFalse(native(expand(leaf, fixed, 0)).ray_cast(a, b))
+            self.assertTrue(closed.ray_cast(a, b))
+
     def test_rigid_mesh_has_closed_positive_volume_and_matches_plan(self):
         for inward in ((0.0, 1.0), (0.0, -1.0)):
             for side in (-1, 1):

@@ -4,6 +4,8 @@ import numpy as np
 import shapely
 from building_vertical import level
 from door_geometry import DoorLeaf, pose, sweep
+from outshine_ref.buildings.interiors import access
+from room_programme import portals
 
 
 def choices(plan, product, method="segmented"):
@@ -65,3 +67,46 @@ def choices(plan, product, method="segmented"):
                 }
             )
     return result
+
+
+def select(plan, product):
+    groups = {}
+    for candidate in choices(plan, product):
+        groups.setdefault(candidate["room_id"], []).append(candidate)
+    rooms = {row["room_id"]: row for row in product["rooms"]}
+    selected, unresolved = [], []
+    for room_id, candidates in groups.items():
+        valid = [row for row in candidates if row["fits_existing"]]
+        attempts = []
+        for candidate in valid:
+            current = level(plan, candidate["storey"])
+            room = rooms[room_id]
+            shape = current["rooms"][room["room_index"]]
+            anchors, reserved = portals(current, room["room_index"])
+            try:
+                access(
+                    shape.difference(candidate["open"]),
+                    anchors,
+                    room["result"]["items"],
+                    reserved,
+                )
+            except ValueError as error:
+                attempts.append(
+                    {"hinge_side": candidate["leaf"].hinge_side, "reason": str(error)}
+                )
+                continue
+            selected.append(candidate)
+            break
+        else:
+            unresolved.append(
+                {
+                    "room_id": room_id,
+                    "reason": (
+                        "No candidate passes bounded open-door access"
+                        if valid
+                        else "Neither inward hinge clears existing room, furniture and activity areas"
+                    ),
+                    "attempts": attempts,
+                }
+            )
+    return {"selected": tuple(selected), "unresolved": unresolved}

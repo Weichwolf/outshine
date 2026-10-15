@@ -22,7 +22,7 @@ from verify_structural_shell import access as building_access
 from verify_vertical import landing_poses
 
 
-def verify(plan, product):
+def verify(plan, product, doors=()):
     programme_proof = admission(plan, product)
     mesh, description = furnishings(product)
     instance_bounds(plan, product, mesh, description)
@@ -30,6 +30,10 @@ def verify(plan, product):
     shell = construct(plan)
     _, collision = assembly(plan, shell, frames=True)
     combined = collision + furniture
+    if doors:
+        from door_assembly import mesh as door_mesh
+
+        combined += furnishing_solid(door_mesh(doors, 90.0))
     building = building_access(plan, combined)
     columns = NativeColumns(
         combined, plan["base_z_m"] - 1.0, plan["source_top_m"] + 1.0
@@ -39,6 +43,9 @@ def verify(plan, product):
     for room in product["rooms"]:
         current = level(plan, room["storey"])
         shape = current["rooms"][room["room_index"]]
+        for door in doors:
+            if door["room_id"] == room["room_id"]:
+                shape = shape.difference(door["open"])
         expected = access(
             shape, room["portal_anchors"], room["result"]["items"], room["reserved"]
         )
