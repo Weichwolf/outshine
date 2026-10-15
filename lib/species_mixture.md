@@ -41,9 +41,14 @@ These are explicit reference-array limits, not CPU/frame/device guarantees.
 Probabilities use Float64; variates have53bits. Tiny unrepresentable weights
 are not promised exact real-number probabilities. Camera/LOD are not inputs.
 
+Select during ecological plan construction and retain the resulting taxon
+indices. Wind, instantaneous weather and render selection do not resample an
+established plant; its logical/persistent state remains separate.
+
 `species_site_uniforms` takes an N×D nonnegative integer array, D1–16, and a
-Python integer seed in[0,2^64). Each row hashes independently with BLAKE2b-64:
-ASCII `outshine-species-1`, NUL, little-endian uint64 seed, little-endian uint16
+Python integer seed in[0,2^64). Each row hashes independently with BLAKE2b-64.
+The BLAKE2b digest output-length parameter is8bytes. Hash ASCII
+`outshine-species-1`, NUL, little-endian uint64 seed, little-endian uint16
 arity, then D little-endian uint64 components. Interpret the eight digest
 bytes little-endian; its upper53bits divided by2^53 give[0,1). Subsets, chunks,
 row permutation and host array endianness preserve values. These random
@@ -69,7 +74,7 @@ Both methods choose exactly the same taxa. Median of six alternating rounds:
 matrix10.278ms, binary7.608ms; all53,200 site variates70.672ms once. Whole
 experimental process0.877s wall/0.911CPU-s,81.11MiB peak RSS includes PROJ,
 source/metadata loading and both methods, not just the sampler. Host process
-load was recorded; no isolation, frame or A18 claim. Current reports:
+load was recorded; no isolation, frame or A18 claim. Original reports:
 `/var/tmp/outshine-vegetation-species-mixture-a6a7edf16/`.
 
 Stored choices retain every original site ID. A separate process reproduces
@@ -78,6 +83,18 @@ library promotion its normal base geometry dependency may be imported;
 providers, taxonomy catalog, PROJ and scene/generator preparation remain absent.
 This distinguishes dependency imports from prohibited source reconstruction.
 An actual runtime cache hit can consume the saved species indices directly.
+
+The promoted-library experiment on frozen `cc86e13cb` completed successfully:
+all four saved choice columns match the original experiment exactly. Median
+matrix9.278ms, binary7.762ms; site variates74.963ms. Whole process0.827s wall,
+0.813CPU-s,81.17MiB peak RSS, with the same scope and recorded host load.
+Fresh replay reproduced47,284 reversed/subset draws without provider, taxonomy,
+PROJ or generator work; the ordinary base geometry dependency was imported.
+Current reports: `/var/tmp/outshine-vegetation-species-mixture-cc86e13cb/`.
+Eight source species-library tests,16 experimental checks and eight tests in a
+fresh installed-wheel environment pass. Installed sampler bytes exactly match
+the final source. Wheel/source proof is retained in
+`/var/tmp/outshine-vegetation-species-mixture-1cef0e38a/gates.json`.
 
 The2560×1440 private site/composition plot was opened: the proposals vary with
 terrain height within existing forest polygons. Independent site draws still
