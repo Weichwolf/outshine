@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <fstream>
 #include <limits>
+#include <string>
 #include <vector>
 
 namespace {
@@ -68,9 +70,83 @@ void CheckThicknessAndSmallOverlap() {
   CHECK(MeasureSurfaceClearance({lower, faces}, {shifted, faces}).has_value(),
         "tiny positive overlap is included rather than mistaken for edge-only contact");
 }
+
+struct OwnedSurface {
+  std::vector<Vec3> Vertices;
+  std::vector<Face> Triangles;
+};
+
+bool ReadSurface(std::istream &input, OwnedSurface &surface) {
+  size_t vertices = 0, faces = 0;
+  input >> vertices >> faces;
+  if (!input || vertices > SurfaceClearanceLimits{}.MaxVertices ||
+      faces > SurfaceClearanceLimits{}.MaxFaces) {
+    return false;
+  }
+  surface.Vertices.resize(vertices);
+  surface.Triangles.resize(faces);
+  for (Vec3 &point : surface.Vertices) {
+    for (double &value : point.Axis) { input >> value; }
+  }
+  for (Face &face : surface.Triangles) {
+    for (uint32_t &index : face) { input >> index; }
+  }
+  return static_cast<bool>(input);
 }
 
-int main() {
+double WitnessHeight(const OwnedSurface &surface, size_t face, Vec2 xy) {
+  CHECK(face < surface.Triangles.size(), "witness selects an original input face");
+  if (face >= surface.Triangles.size()) { return std::numeric_limits<double>::quiet_NaN(); }
+  const auto &indices = surface.Triangles[face];
+  const Vec3 origin = surface.Vertices[indices[0]];
+  const Vec3 u = surface.Vertices[indices[1]] - origin;
+  const Vec3 v = surface.Vertices[indices[2]] - origin;
+  const double determinant = u[0] * v[1] - u[1] * v[0];
+  const double x = xy[0] - origin[0], y = xy[1] - origin[1];
+  const double a = (x * v[1] - y * v[0]) / determinant;
+  const double b = (u[0] * y - u[1] * x) / determinant;
+  CHECK(a >= -1e-8 && b >= -1e-8 && a + b <= 1 + 1e-8,
+        "witness lies in both original projected triangles, allowing numeric boundary roundoff");
+  return origin[2] + a * u[2] + b * v[2];
+}
+
+void CheckImmutableReference(const char *path) {
+  std::ifstream input(path);
+  size_t count = 0;
+  input >> count;
+  CHECK(input && count == 25, "explicit reference contains all 25 immutable whole-surface pairs");
+  if (!input || count != 25) { return; }
+  for (size_t at = 0; at < count; ++at) {
+    std::string name;
+    double expected = 0;
+    input >> name >> expected;
+    OwnedSurface lower, upper;
+    const bool read = ReadSurface(input, lower) && ReadSurface(input, upper);
+    CHECK(read, "reference surfaces are complete within public input caps");
+    if (!read) { return; }
+    const auto result = MeasureSurfaceClearance({lower.Vertices, lower.Triangles},
+                                                {upper.Vertices, upper.Triangles});
+    CHECK(result.has_value(), "every explicitly selected reference pair has positive overlap");
+    if (!result) { continue; }
+    CHECK_NEAR(result->MinimumM,
+               expected,
+               1e-7,
+               "meters",
+               "complete signed minimum matches the immutable Python reference");
+    const double attained = WitnessHeight(upper, result->UpperFace, result->Witness) -
+                            WitnessHeight(lower, result->LowerFace, result->Witness);
+    CHECK_NEAR(attained,
+               result->MinimumM,
+               1e-7,
+               "meters",
+               "returned witness attains the minimum even when plateau tie-breaking differs");
+  }
+  input >> std::ws;
+  CHECK(input.eof(), "no unexamined reference cases remain after the complete input");
+}
+}
+
+int main(int argc, char **argv) {
   using namespace outshine;
   using namespace outshine::Test;
   CheckSpatialBudgets();
@@ -130,5 +206,7 @@ int main() {
   CheckFailure({deep, faces}, {high, faces}, SurfaceClearanceError::Unrepresentable);
   CHECK(lower[0] == Vec3{} && upper[0][2] == -2.25,
         "successful and failed measurements preserve borrowed input buffers");
+  CHECK(argc <= 2, "reference comparison accepts one explicit input path");
+  if (argc == 2) { CheckImmutableReference(argv[1]); }
   return Report();
 }
