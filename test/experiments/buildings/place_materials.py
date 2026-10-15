@@ -3,6 +3,12 @@
 import json
 
 import numpy as np
+from outshine_ref.buildings.facade_finish import FacadeFinish
+
+
+def default_finish():
+    finish = FacadeFinish()
+    return {"frame_m": finish.frame_m, "band_m": finish.band_m, "band_tint": 0.65}
 
 
 class Palette:

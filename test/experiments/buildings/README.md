@@ -170,6 +170,26 @@ sampling; the other three scenario heights are absolute. Source extent, missing
 world classes and terrain/material/light differences remain explicit. The initial
 source acquisition is a declared 3 km window, not native 240 km Place admission.
 
+Filtered facade finishes (#245) reuse the existing opening repeat. The reference
+adds metric inner frames and opaque floor bands; near-detail geometry and direct
+opening patches keep their existing surface path. Wall/frame/glass/band areas
+come from the installable `outshine_ref.buildings.facade_finish` library. Explicit
+rectangle integration and physical mesh rays independently check coverage and
+the actual UV-to-metre binding. This adds no opening, collision or room programme.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_facade_finish.py'
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_facade_finish_shader.py
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_finish_probe.py --output /tmp/outshine-buildings-facade-controls
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/rerender_places.py <temp>/Flensburg-report.json --output /tmp/outshine-buildings-facade-places
+```
+
+The cached render path checks the original geometry report/mesh hash and actual
+projection/triangle count. It performs no provider decode or mesh construction.
+Geometry and renderer commits are recorded separately; the four-image publisher
+preserves both. This is a whole-scene experiment cache, not native per-asset cache
+or runtime admission. Source geometry must remain available at the checked path.
+
 Small residential roofs are extended beyond the old 70 m² envelope scope in
 `residential_roof_choice.py` (#229): 70–350 m², ordinary residential source or
 site context, ground-level height 3.5–15 m and bounded footprint complexity.
