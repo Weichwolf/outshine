@@ -8,7 +8,8 @@ from outshine_ref.places import PlaceCamera as SharedCamera
 from outshine_ref.places import read_camera
 
 ROOT = Path(__file__).resolve().parents[3]
-PLACES = ("DarmstadtWest", "Flensburg", "Rosenheim", "Tokyo")
+PLACES = ("Husum", "Feldkirch", "ZuerichHauptbahnhof", "Tokyo")
+REFERENCE_PLACES = PLACES + ("DarmstadtWest", "Flensburg", "Rosenheim")
 
 
 class PlaceCamera(SharedCamera):
@@ -28,7 +29,7 @@ class PlaceCamera(SharedCamera):
 
 
 def read(name):
-    if name not in PLACES:
+    if name not in REFERENCE_PLACES:
         raise ValueError("Unknown fixed Buildings Place")
     return PlaceCamera(
         **asdict(read_camera(ROOT / "src/assets/places" / (name + ".scenario")))
