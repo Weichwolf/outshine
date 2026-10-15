@@ -1,6 +1,6 @@
 """Execute production ground GLSL through SDL/Vulkan; this is not a Place gate.
 
-Requires clang++, SDL3 development files, glslangValidator, NumPy and Pillow.
+Requires the test runner's C++ toolchain, SDL3, glslangValidator, NumPy and Pillow.
 Run under the host's shared heavy-run lock. All outputs need an explicit temp path.
 """
 
@@ -44,11 +44,14 @@ def build(output):
     includes = ["include", "src/base", "src/base/io", "src/base/format",
                 "src/world/ground", "src/render/device"]
     flags = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs", "sdl3"], text=True))
+    declarations = dict(line.split("=", 1) for line in (ROOT / "test/run.sh").read_text().splitlines()
+                        if line.startswith(("CXXSTD=", "WARN=", "OPT=")))
+    toolchain = [flag for key in ("CXXSTD", "WARN", "OPT")
+                 for flag in shlex.split(declarations[key].strip('"'))]
     binary = output / "ground_litter_probe"
-    run([os.environ.get("CXX", "clang++"), "-std=c++23", "-O2", "-fno-exceptions",
-         "-Wall", "-Wextra", "-Wpedantic", "-Wshadow", "-Werror", "-Wno-unused-parameter",
+    run([*shlex.split(os.environ.get("CXX", "c++")), *toolchain, "-fno-exceptions",
          *["-I" + str(ROOT / path) for path in includes],
-         str(ROOT / "test/scripts/ground-litter-probe.cpp"),
+         str(ROOT / "test/harness/render/GroundLitterProbe.cpp"),
          *[str(ROOT / "src" / (path + ".cpp")) for path in source], *flags, "-o", str(binary)])
     return binary, shader
 
