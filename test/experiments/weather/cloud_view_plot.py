@@ -56,7 +56,7 @@ def main():
             axis.set_title(title)
             axis.axis("off")
         figure.suptitle(
-            f"Actual Vulkan raster outputs, {cloud['width']}×{cloud['height']}\n"
+            f"Actual native raster outputs, {cloud['width']}×{cloud['height']}\n"
             "Linear radiance converted to sRGB for display; native source files remain unchanged"
         )
         pages.savefig(figure)
