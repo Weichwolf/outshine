@@ -335,7 +335,7 @@ Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/
 `buildings.interiors.Furnishing(kind, width_m, depth_m, height_m, activity_depth_m)`
 beschreibt einen vollständigen Möbelgrundriss mit notwendiger Aktivitätsfläche.
 `layout(room, portals, requests, identifier, reserved=(), method="wall-anchors",
-max_candidates=64, beam_width=1, objective="short-paths")` platziert in einem
+max_candidates=64, beam_width=1, objective="short-paths", *, placement_reserved=())` platziert in einem
 gelieferten Raum, ohne Portal-/Nutzungsfreiräume zu blockieren. Alternative:
 `jittered-anchors`; die deterministische Breitsuche hält höchstens acht Zustände.
 Die Programme vergleichen dieselben Anforderungen mit `beam_width=1|4` und
@@ -353,6 +353,22 @@ keine impliziten Anbieterabfragen oder Welt-/Cachezustände. Kapazitäten:
 `access` und `placed` ermöglichen unabhängige Prüfungen und explizite Platzierung.
 Programme, eigene Möbel, reale Gegenfälle und Bild-/Kostenbelege:
 [#174](https://github.com/Weichwolf/outshine/issues/174).
+
+`placement_reserved` hält Möbelkörper und ihre Aktivitätsflächen aus höchstens
+16 polygonalen Bewegungsreservierungen heraus. Die Reservierung sperrt keine
+Gehwege: Der Aufrufer zieht den tatsächlich geparkten beweglichen Körper vom
+begehbaren Raum ab. `reserved` behält seinen bisherigen Vertrag für freie
+Portal-/Fensterantritte; bestehende Aufrufe ändern sich nicht.
+
+`buildings.interiors.doors.DoorLeaf` besitzt einen unveränderlichen metrischen
+Gelenkrahmen und stabile ID, getrennt vom Winkel. `pose(leaf, angle_deg)` und
+`sweep(leaf, error_m=0.001, method="segmented", max_segments=128)` liefern
+Türgrundriss und konservative Schwenkhülle für 0–90°. Der Punkt-/Sehnenabstand
+ist begrenzt, die zusätzliche Hüllenfläche besitzt keine globale Fehlerschranke.
+Keine eigene Simulation, Welt-/Cachezustände oder Gebäudenutzungen. Der Aufrufer
+besitzt Wand-/Möbel-/Raumanschluss, 3D-Vorlage und veränderlichen Türzustand.
+Unabhängige dichte Winkel-/Transformprüfungen liegen unter `lib/tests/`;
+echte Gebäudezustände, Nutzungswahl und Kosten in [#197](https://github.com/Weichwolf/outshine/issues/197).
 
 `buildings.modelling.PrismVolume(identifier, polygon, low_m, high_m, material=1)`
 beschreibt ein vollständiges ENU-Prisma in Metern. Polygon/MultiPolygon und
