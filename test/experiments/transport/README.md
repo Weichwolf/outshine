@@ -32,9 +32,9 @@ Vor erneutem Anwenden hashgeprüfter Produkte die Nachweise unter den neuen Modu
 ## Lokaler Showcase
 
 Wie bei Buildings (8766) und Vegetation (8765) veröffentlicht der Transport-Showcase
-einen festen Bildstand. Port 8767 zeigt genau vier Gesamtansichten in zwei
-Vorher/Nachher-Paaren: unabhängigen/gemeinsamen Boden und den Brücken-/Gleisverbund vor/nach
-seiner Fortsetzung in zwei U-Bahn-Tunnel über drei Kacheln. Kurze Bildunterschriften, Bildlinks und manuelles Aktualisieren bilden die
+einen festen Bildstand. Port 8767 zeigt genau vier ganze Quellkacheln: Wien mit
+unabhängigem/gemeinsamem Boden vorher/nachher sowie die ebenen Netze von Tokyo
+und Central Park. Kurze Bildunterschriften, Bildlinks und manuelles Aktualisieren bilden die
 gesamte Oberfläche. Fehlende Nachweise bleiben sichtbar unvollständig.
 
 ```sh
@@ -43,7 +43,7 @@ PYTHONPATH=lib/src .venv/bin/python test/experiments/transport/showcase.py --ren
 ```
 
 `whole_tile_showcase.py` verwendet hashgeprüfte Generatorprodukte aus den unten
-beschriebenen Boden- und Brückenexperimenten. Das erste Bild zeigt ausdrücklich die
+beschriebenen Boden- und Komponentenexperimenten. Das erste Bild zeigt ausdrücklich die
 bekannte frühere Überdeckung durch unabhängiges Gelände als Vorher-Diagnose;
 die anderen drei Bilder verwenden gültige Teilpläne. Die
 gespeicherten Eingaben/Produkte müssen zuvor vorhanden sein. Originale
@@ -57,9 +57,10 @@ Erzeugte Bilder, Produkte und Messreports liegen unter
 `build/experiments/transport/showcase/site/`. Der Server erzeugt keine Geometrie bei Anfragen.
 Blender Workbench rendert frisch mit Fehler-Exitcode und prüft alle vier vollständigen
 1920×1080-PNGs. Kachelgrenzen kommen aus den gepinnten Quelldaten; Zuschnitte
-erhalten Flächendeckung, Höhen und getrennte Verkehrsebenen. Dünne Kachelrahmen sind
-Anzeigehilfen, kein Gelände. Es gibt keine Höhenübertreibung. Das Brückenbild zeigt
-ausdrücklich ein Teilnetz; ungelöste Quellen behalten ihre Gründe im ursprünglichen Plan.
+erhalten Flächendeckung und Vertexhöhen. Dünne Kachelrahmen sind Anzeigehilfen,
+kein Gelände. Es gibt keine Höhenübertreibung. Tokyo und Central Park verwenden
+das deklarierte Z=0-Rezept ohne DEM-Höhenfit. Nicht verwendete Quellen behalten
+ihre Gründe im ursprünglichen Plan.
 
 ```sh
 .venv/bin/python test/experiments/transport/showcase.py --publish
@@ -404,7 +405,8 @@ bleibt bei ihren vier ganzen Kacheln; API-/Kostenbelege und Grenzen stehen im PR
 
 ### Gemeinsam geneigte ganze Straßenports (#169)
 
-Das aktive Experiment [#169](https://github.com/Weichwolf/outshine/issues/169)
+Das geometrisch geprüfte Experiment [#169](https://github.com/Weichwolf/outshine/issues/169),
+PR #175, mit Bibliotheksübernahme [#177](https://github.com/Weichwolf/outshine/issues/177)
 plant gemeinsame geneigte Straßenports vor dem Höhenfit. Die vollständigen
 unveränderten Wiener XY-/Port-/DEM-Eingaben samt Quellen und Herkunft liegen
 portabel unter [reference/port-planes/](reference/port-planes/README.md).
@@ -426,6 +428,9 @@ prüft Rundungsgrenzen, schmale Zellen, ursprüngliche Beobachtungen und Budgets
 öffnet `port_plane_render.py` ganze und nahe Vorher/Nachheransichten. Herleitung,
 Grenzen und Reproduktion stehen beim [portablen Eingang](reference/port-planes/README.md).
 Analytisch C1, endliche Faces und Boden C0; kein vollständiger Dynamik-/LOD-Beleg.
+Der ausgewählte `--fit`-Pfad importiert die öffentliche installierbare
+`transport.plan_port_heights`-API; Originaleingaben/Quellen und Budgetdiagnosen
+bleiben im Experiment. Mathematische Kerne besitzen ausschließlich `lib/`.
 
 ### Lokale Zweiebenenrezepte (#21)
 

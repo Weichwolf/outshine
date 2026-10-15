@@ -1,7 +1,8 @@
 """Whole original road interfaces: structural C1 proof and independent numeric checks."""
 
 import numpy as np
-from surface_height_checks import normal_gradients
+
+from ._world import normal_gradients
 
 
 def contact_audit(field, coefficients, product, heights):

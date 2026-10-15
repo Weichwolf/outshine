@@ -8,8 +8,10 @@ from dataclasses import field as data_field
 import numpy as np
 from scipy.spatial import cKDTree
 
+from ._budget import PortLimit
 
-class SliceLimit(ValueError):
+
+class SliceLimit(PortLimit):
     pass
 
 
@@ -26,7 +28,7 @@ def parameter_terms(model, xy, part, tolerance):
     return u, d, parameter
 
 
-def initial_knots(model, mesh, segments=8):
+def initial_knots(model, mesh, segments=8, *, max_stations=512):
     tolerance = 64 * np.finfo(float).eps * max(1, abs(mesh["xy"]).max())
     output = {}
     for part in np.unique(mesh["parts"][mesh["parts"] >= 0]):
@@ -37,6 +39,8 @@ def initial_knots(model, mesh, segments=8):
         knots = np.unique(np.r_[t, np.linspace(t.min(), t.max(), segments + 1)])
         epsilon = 64 * np.finfo(float).eps * max(1, abs(knots).max())
         output[int(part)] = knots[np.r_[True, np.diff(knots) > epsilon]]
+        if len(output[int(part)]) > max_stations:
+            raise SliceLimit("port_part_station_budget")
     return output
 
 
@@ -47,6 +51,7 @@ class SliceBuilder:
     original_targets: np.ndarray
     max_vertices: int = 131072
     max_faces: int = 262144
+    max_weld_pairs: int = 1048576
     xy: list = data_field(init=False)
     targets: list = data_field(init=False)
     nodes: dict = data_field(default_factory=dict)
@@ -212,7 +217,7 @@ def finish_mesh(builder, original, product, captured, faces, parents, intervals)
         np.setdiff1d(np.arange(len(original["xy"])), captured["road_vertex_map"])
     ] = True
     labels, report = weld_vertices(
-        xy, protected, len(original["xy"]), builder.tolerance
+        xy, protected, len(original["xy"]), builder.tolerance, builder.max_weld_pairs
     )
     faces = labels[np.asarray(faces, int)]
     parents, intervals = np.asarray(parents, int), np.asarray(intervals, float)
@@ -239,8 +244,12 @@ def finish_mesh(builder, original, product, captured, faces, parents, intervals)
             owners = parents[inverse == key]
             if np.ptp(original["parts"][owners]) != 0:
                 raise ValueError("rounding weld overlaps different original modules")
+            if np.any(original["frames"][owners] != original["frames"][owners[0]]):
+                raise ValueError("rounding weld cannot discard competing grade frames")
         faces, parents, intervals = faces[first], parents[first], intervals[first]
     report["duplicate_faces_removed"] = int(len(inverse) - len(faces))
+    if len(np.unique(parents)) != len(original["faces"]):
+        raise SliceLimit("port_original_face_unresolved")
     used, new_faces = np.unique(faces, return_inverse=True)
     lookup = np.full(len(xy), -1, int)
     lookup[used] = np.arange(len(used))
@@ -268,11 +277,31 @@ def finish_mesh(builder, original, product, captured, faces, parents, intervals)
     return mesh, report
 
 
-def slice_mesh(model, original, product, captured, knots, *, seconds=15):
+def slice_mesh(
+    model,
+    original,
+    product,
+    captured,
+    knots,
+    *,
+    seconds=15,
+    max_vertices=131072,
+    max_faces=262144,
+    max_weld_pairs=1048576,
+):
     if not np.isfinite(seconds) or seconds < 0:
         raise ValueError("finite nonnegative slice time required")
     began = time.monotonic()
-    builder = SliceBuilder(model, original["xy"], original["targets"])
+    if len(original["xy"]) > max_vertices or len(original["faces"]) > max_faces:
+        raise SliceLimit("port_output_budget")
+    builder = SliceBuilder(
+        model,
+        original["xy"],
+        original["targets"],
+        max_vertices,
+        max_faces,
+        max_weld_pairs,
+    )
     output, parents, intervals, deferred = [], [], [], []
     for face, (corners, part) in enumerate(zip(original["faces"], original["parts"])):
         if face % 256 == 0 and time.monotonic() - began > seconds:

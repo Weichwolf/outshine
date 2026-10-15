@@ -5,12 +5,12 @@ import unittest
 from contextlib import redirect_stdout
 
 import numpy as np
+from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._system import fit_planes
+from outshine_ref.transport.port_heights._world import assemble_world, finite_ports
 from port_plane_adaptive import solve_adaptive
 from port_plane_checks import shared_strip
-from port_plane_layout import prepare_plane_field
 from port_plane_refinement import children, refine
-from port_plane_system import fit_planes
-from port_plane_world import assemble_world, finite_ports
 
 
 def strip_and_soil():

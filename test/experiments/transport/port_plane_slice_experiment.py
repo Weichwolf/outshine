@@ -9,64 +9,14 @@ import time
 from pathlib import Path
 
 import numpy as np
-import shapely
-from port_plane_adaptive import initial_mesh, quality
-from port_plane_contacts import contact_audit
+from outshine_ref.transport import PortHeightBudget
+from outshine_ref.transport.port_heights._contacts import contact_audit
+from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._solve import (
+    solve_slices,
+)
+from port_plane_adaptive import initial_mesh
 from port_plane_fixture import load_reference
-from port_plane_layout import prepare_plane_field
-from port_plane_slice_fit import fit_sliced
-from port_plane_slices import initial_knots, slice_mesh
-from port_plane_system import continuous_matrix, vertex_matrices
-from scipy.spatial import cKDTree
-
-
-def topology_audit(original, mesh):
-    faces = mesh["faces"]
-    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
-    unique, inverse, counts = np.unique(
-        np.sort(edges, axis=1), axis=0, return_inverse=True, return_counts=True
-    )
-    winding = np.bincount(inverse, weights=np.where(edges[:, 0] < edges[:, 1], 1, -1))
-    if np.any(counts > 2) or np.any(winding[counts == 2] != 0):
-        raise ValueError(
-            "sliced world has nonmanifold or inconsistently oriented edges"
-        )
-    old_faces = original["faces"]
-    old_edges = np.concatenate(
-        [old_faces[:, [0, 1]], old_faces[:, [1, 2]], old_faces[:, [2, 0]]]
-    )
-    old_unique, old_counts = np.unique(
-        np.sort(old_edges, axis=1), axis=0, return_counts=True
-    )
-    expected = old_unique[old_counts == 1]
-    boundary = unique[counts == 1]
-    old_lines = shapely.union_all(shapely.linestrings(original["xy"][expected]))
-    new_lines = shapely.union_all(shapely.linestrings(mesh["xy"][boundary]))
-    tolerance = 64 * np.finfo(float).eps * max(1, abs(original["xy"]).max())
-    _, degree = np.unique(boundary, return_counts=True)
-    if (
-        np.any(degree != 2)
-        or shapely.hausdorff_distance(old_lines, new_lines) > tolerance
-        or abs(old_lines.length - new_lines.length) > tolerance * max(1, len(boundary))
-    ):
-        raise ValueError(
-            "sliced world changed the original outer boundary or has a T-junction"
-        )
-    new_corners = mesh["xy"][faces]
-    a, b = new_corners[:, 1] - new_corners[:, 0], new_corners[:, 2] - new_corners[:, 0]
-    new_area = 0.5 * (a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0])
-    old_corners = original["xy"][old_faces]
-    a, b = old_corners[:, 1] - old_corners[:, 0], old_corners[:, 2] - old_corners[:, 0]
-    old_area = 0.5 * (a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0])
-    root_area = np.bincount(mesh["roots"], weights=new_area, minlength=len(old_faces))
-    error = float(abs(root_area - old_area).max())
-    if error > 1e-6 or np.any(new_area <= 0):
-        raise ValueError("sliced world changed resolvable source areas")
-    return {
-        "outer_edges": len(boundary),
-        "original_outer_edges": len(expected),
-        "maximum_root_area_error_m2": error,
-    }
 
 
 def seed_plan(path, model):
@@ -94,103 +44,6 @@ def seed_plan(path, model):
     }
 
 
-def apply_seed(model, mesh, seed):
-    h, equal, _, parts = vertex_matrices(
-        model, mesh["xy"], mesh["faces"], mesh["parts"]
-    )
-    soil = np.flatnonzero(parts < 0)
-    distance, nearest = cKDTree(seed["vertices"][:, :2]).query(mesh["xy"][soil])
-    if np.max(distance, initial=0) != 0:
-        raise ValueError("new unconstrained soil point needs a coupled refit")
-    coefficients = np.r_[
-        seed["plane_coefficients"], seed["vertices"][nearest, 2] - seed["datum_m"]
-    ]
-    mesh["heights"] = h @ coefficients + seed["datum_m"]
-    error = float(abs(equal @ coefficients).max(initial=0))
-    if error > 1e-7:
-        raise ValueError("slice source contacts violate their shared plane equalities")
-    return coefficients, error
-
-
-def add_knots(knots, mesh, marked):
-    changes = 0
-    for part in np.unique(mesh["parts"][marked]):
-        if part not in knots:
-            continue
-        intervals = mesh["intervals"][marked & (mesh["parts"] == part)]
-        mid = np.unique(intervals.mean(axis=1))
-        updated = np.unique(np.r_[knots[part], mid[np.isfinite(mid)]])
-        if len(updated) > 512:
-            raise ValueError("slice_part_station_budget")
-        changes += len(updated) - len(knots[part])
-        knots[part] = updated
-    return changes
-
-
-def solve_slices(args, model, product, captured, original, seed, began):
-    knots = initial_knots(model, original, args.segments)
-    records, fits = [], 0
-    certificates = (
-        continuous_matrix(
-            model,
-            product["vertices"],
-            product["indices"],
-            product["face_owners"],
-            captured["road_frames"],
-        )
-        if args.fit
-        else None
-    )
-    for iteration in range(args.rounds):
-        mesh, note = slice_mesh(model, original, product, captured, knots)
-        note["topology"] = topology_audit(original, mesh)
-        coefficients, equality_error = apply_seed(model, mesh, seed)
-        needs_fit = args.fit and iteration == 0
-        if not needs_fit:
-            marked, audit, errors = quality(
-                model, seed["plane_coefficients"], mesh, product["part_roles"]
-            )
-            needs_fit = args.fit and audit["bad_soil_faces"] and fits < 3
-        fitting = None
-        if needs_fit:
-            fitted, system, solver = fit_sliced(
-                model,
-                captured,
-                mesh,
-                certificates,
-                seconds=args.seconds,
-                method=args.method,
-            )
-            fitting = {"system": system, "solver": solver}
-            fits += 1
-            print(
-                json.dumps(dict(stage="coupled-fit", iteration=iteration, **fitting)),
-                flush=True,
-            )
-            if fitted is not None:
-                seed, coefficients = fitted
-            marked, audit, errors = quality(
-                model, seed["plane_coefficients"], mesh, product["part_roles"]
-            )
-        record = {
-            "iteration": iteration,
-            "mesh": note,
-            "quality": audit,
-            "equality_error": equality_error,
-            "elapsed_ms": (time.monotonic() - began) * 1000,
-            "fitting": fitting,
-        }
-        records.append(record)
-        print(json.dumps(record), flush=True)
-        if fitting and not fitting["solver"]["valid"]:
-            break
-        if not marked.any() or iteration == args.rounds - 1:
-            break
-        if not add_knots(knots, mesh, marked):
-            break
-    return mesh, coefficients, seed, marked, errors, records
-
-
 def run(args):
     began = time.monotonic()
     product, captured, metadata, sources = load_reference()
@@ -209,7 +62,20 @@ def run(args):
             "kind": "constant feasible initialization only; never accepted without a successful data fit"
         }
     mesh, coefficients, seed, marked, errors, records = solve_slices(
-        args, model, product, captured, original, seed, began
+        model,
+        product,
+        captured,
+        original,
+        seed,
+        budget=PortHeightBudget(
+            solver_time_limit_s=args.seconds,
+            max_rounds=args.rounds,
+            initial_segments=args.segments,
+        ),
+        method=args.method,
+        fit=args.fit,
+        began=began,
+        progress=lambda record: print(json.dumps(record), flush=True),
     )
     args.output.mkdir(parents=True, exist_ok=True)
     audit = records[-1]["quality"]
@@ -322,6 +188,10 @@ def main():
         parser.error("output must be new or empty so stale products cannot pass")
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3, 3 * 1024**3))
     resource.setrlimit(resource.RLIMIT_CPU, (90, 90))
+    if args.fit:
+        from port_height_library_experiment import run as run_library
+
+        raise SystemExit(0 if run_library(args) else 2)
     raise SystemExit(0 if run(args) else 2)
 
 

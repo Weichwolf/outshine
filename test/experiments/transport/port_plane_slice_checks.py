@@ -1,47 +1,52 @@
 """Isoline cells retain the complete XY domain, source anchors and whole ports."""
 
-import io
-import time
 import unittest
-from argparse import Namespace
-from contextlib import redirect_stdout
 
 import numpy as np
 import shapely
+from outshine_ref.transport.port_heights._fit import fit_sliced
+from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._slices import (
+    SliceBuilder,
+    initial_knots,
+    slice_mesh,
+    weld_vertices,
+)
+from outshine_ref.transport.port_heights._system import (
+    continuous_matrix,
+    vertex_matrices,
+)
 from port_plane_adaptive import quality, resample_road
 from port_plane_checks import field
-from port_plane_layout import prepare_plane_field
-from port_plane_slice_experiment import solve_slices
-from port_plane_slice_fit import fit_sliced
-from port_plane_slices import SliceBuilder, initial_knots, slice_mesh, weld_vertices
-from port_plane_system import continuous_matrix, vertex_matrices
 from port_plane_world_checks import strip_and_soil
 
 
 class SliceChecks(unittest.TestCase):
     def test_complete_fit_starts_without_external_generated_seed(self):
+        from outshine_ref.contracts import Mesh
+        from outshine_ref.transport import (
+            PortHeightBudget,
+            PortHeightInput,
+            plan_port_heights,
+        )
+
         product, original = strip_and_soil()
-        model, _ = prepare_plane_field(product)
-        captured = {
-            "ground_targets": original["targets"],
-            "road_frames": original["frames"][:6],
-            "road_vertex_map": np.arange(8),
-        }
-        seed = {
-            "plane_coefficients": np.zeros(3 * len(model.origins)),
-            "vertices": np.c_[original["xy"], np.full(len(original["xy"]), 7)],
-            "datum_m": 7,
-        }
-        options = Namespace(fit=True, seconds=1, method="cone", segments=8, rounds=3)
-        with redirect_stdout(io.StringIO()):
-            mesh, _, _, marked, _, records = solve_slices(
-                options, model, product, captured, original, seed, time.monotonic()
-            )
-        self.assertFalse(marked.any())
-        self.assertTrue(records[-1]["quality"]["whole_world_valid"])
-        self.assertTrue(records[0]["fitting"]["solver"]["valid"])
+        source = PortHeightInput(
+            Mesh(np.c_[original["xy"], original["targets"]], original["faces"]),
+            original["parts"],
+            product["part_roles"],
+            product["port_edges"],
+            product["port_parts"],
+            original["frames"],
+        )
+        result = plan_port_heights(
+            source, budget=PortHeightBudget(solver_time_limit_s=1, max_rounds=3)
+        )
+        self.assertIsNotNone(result.plan, result.report)
+        mesh = result.plan.mesh
+        self.assertTrue(result.report["audit"]["whole_world_valid"])
         np.testing.assert_allclose(
-            mesh["heights"][mesh["original_vertex_map"]],
+            mesh.vertices[result.plan.original_vertex_map, 2],
             original["targets"],
             atol=1e-7,
             rtol=0,

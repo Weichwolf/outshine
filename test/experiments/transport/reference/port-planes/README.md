@@ -49,6 +49,12 @@ probes and rigid frame changes.
 
 ## Finite geometry
 
+The selected planner now lives in the installed `outshine_ref.transport` package:
+`PortHeightInput`, `PortHeightBudget`, `PortHeightPlan`, `PortHeightFit` and
+`plan_port_heights`. The experiment's `--fit` path calls that public API; the
+retained failed alternatives and fixed-field controls import the same package
+kernels. No reusable mathematical implementation remains duplicated here.
+
 Red/green subdivision is retained as a failed real-input comparison. It reaches
 the height-error target but preserves poor source angles and introduces spurious
 finite gradients. Smaller triangles alone do not prove valid geometry.
@@ -69,6 +75,15 @@ bounded by six geometry rounds, three requested eight-second fits, 131072
 vertices, 262144 faces, 512 stations per part, 90 CPU seconds and 3 GiB address
 space. A solver step or geometry phase can overrun its cooperative request;
 measured setup/total costs remain separate. No optimum is claimed at MaxTime.
+
+The library's time requests are cooperative; the experiment worker applies the
+hard CPU/address-space limits. Explicit variable, cone, sparse, query and weld-pair
+work caps bound allocations before a solve. Only soil gradients are tested before
+a soil refit; the complete road certificate is checked once after that fit. When
+another refinement is needed, height/port targets use a 20% internal reserve to
+absorb changes from the next bounded fit. Final acceptance remains 0.01m/0.005;
+the library stops as soon as those true bounds hold. An original triangle or a
+competing grade frame may not disappear under floating-point normalization.
 
 Roundoff welding is limited to `64*eps*max(1,coordinate magnitude)`; distinct
 original port vertices remain protected. Every original vertex has a retained

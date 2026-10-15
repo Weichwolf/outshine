@@ -3,10 +3,14 @@
 import unittest
 
 import numpy as np
-from port_plane_contacts import contact_audit
-from port_plane_field import PlaneField, control_bounds
-from port_plane_layout import prepare_plane_field
-from port_plane_system import assemble, fit_generated, fit_planes
+from outshine_ref.transport.port_heights._contacts import contact_audit
+from outshine_ref.transport.port_heights._field import PlaneField, control_bounds
+from outshine_ref.transport.port_heights._layout import prepare_plane_field
+from outshine_ref.transport.port_heights._system import (
+    assemble,
+    fit_generated,
+    fit_planes,
+)
 
 
 def field(skew=0.0):
@@ -197,7 +201,11 @@ class PortPlaneChecks(unittest.TestCase):
 
     def test_nonpositive_denominator_is_rejected(self):
         model = field()
-        model.inward_normals[0, 1] = [1, 0]
+        from dataclasses import replace
+
+        normals = model.inward_normals.copy()
+        normals[0, 1] = [1, 0]
+        model = replace(model, inward_normals=normals)
         with self.assertRaises(ValueError):
             model.evaluate([[50, 0]], [0], [0, 0, 0, 3, 0, 0])
 
