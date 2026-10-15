@@ -55,7 +55,10 @@ MetalPresentation::Create(SDL_Window *window, id<MTLDevice> device, uint64_t ide
     return Failure(ErrorKind::Driver, "SDL Metal view has no layer");
   }
   layer.device = device;
-  layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+  layer.pixelFormat = MTLPixelFormatBGRA8Unorm_sRGB;
+  auto *const colourSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+  layer.colorspace = colourSpace;
+  CGColorSpaceRelease(colourSpace);
   layer.framebufferOnly = YES;
   layer.allowsNextDrawableTimeout = YES;
   layer.presentsWithTransaction = NO;

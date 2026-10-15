@@ -49,6 +49,33 @@ def metric_audit(product, gauge):
         float(abs(np.einsum("ij,ij->i", g, lateral) - gauge).max())
         for g in (gap[:-1], gap[1:])
     )
+    widths = np.array(
+        [
+            -0.075,
+            0.075,
+            0.075,
+            0.012,
+            0.00825,
+            0.036,
+            0.036,
+            -0.036,
+            -0.036,
+            -0.00825,
+            -0.012,
+            -0.075,
+        ]
+    )
+    expected_widths = np.array([-1, 1])[:, None, None] * (gauge + 0.072) / 2
+    expected_widths = expected_widths + widths[None, None, :]
+    width_error = max(
+        float(
+            abs(
+                np.einsum("rijk,ik->rij", q - a[None, :, None, :], lateral)
+                - expected_widths
+            ).max()
+        )
+        for q, a in ((rings[:, :-1], axis[:-1]), (rings[:, 1:], axis[1:]))
+    )
     levels = (
         np.array(
             [0, 0, 0.014, 0.035, 0.121, 0.136, 0.172, 0.172, 0.136, 0.121, 0.035, 0.014]
@@ -76,7 +103,8 @@ def metric_audit(product, gauge):
         closed_volume(product.rails) - 2 * 0.00892425 * lengths.sum()
     )
     if (
-        max(gauge_error, dimension_error, contact_error, section_error) > 1e-9
+        max(gauge_error, dimension_error, contact_error, section_error, width_error)
+        > 1e-9
         or max(volume_error, rail_volume_error) > 1e-7
     ):
         raise ValueError("actual tilted gauge, section, contact or volume failed")
@@ -84,6 +112,7 @@ def metric_audit(product, gauge):
         "gauge_error_m": gauge_error,
         "dimension_error_m": dimension_error,
         "section_height_error_m": section_error,
+        "section_width_error_m": width_error,
         "contact_error_m": contact_error,
         "sleeper_volume_error_m3": volume_error,
         "rail_volume_error_m3": rail_volume_error,

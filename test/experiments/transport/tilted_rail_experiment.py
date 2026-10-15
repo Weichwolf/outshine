@@ -35,7 +35,9 @@ def save_piece(path, product):
     )
 
 
-def generate(pieces, field, raw, bed, reference):
+def generate(pieces, field, raw, bed, reference, *, max_pieces=128):
+    if type(max_pieces) is not int or not 1 <= max_pieces <= 512:
+        raise ValueError("bounded optional rail piece limit required")
     products, rows = [], []
     began = time.perf_counter()
     sleeper_count = 0
@@ -51,7 +53,7 @@ def generate(pieces, field, raw, bed, reference):
         try:
             if (
                 time.perf_counter() - began > 40
-                or len(products) >= 128
+                or len(products) >= max_pieces
                 or sleeper_count >= 16384
             ):
                 raise ValueError("tilted_rail_time_piece_or_sleeper_budget")
