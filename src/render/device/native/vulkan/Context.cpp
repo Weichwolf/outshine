@@ -1,5 +1,8 @@
 #ifdef __linux__
 #include "Context.h"
+#include "Surface.h"
+#include <SDL3/SDL_vulkan.h>
+#include <array>
 #include <string_view>
 #include <thread>
 #include <print>
@@ -46,7 +49,9 @@ Context::~Context() {
         vkGetInstanceProcAddr(Instance, "vkDestroyDebugUtilsMessengerEXT"));
     if (destroy != nullptr) { destroy(Instance, Debug, nullptr); }
   }
+  if (Surface != VK_NULL_HANDLE) { vkDestroySurfaceKHR(Instance, Surface, nullptr); }
   if (Instance != VK_NULL_HANDLE) { vkDestroyInstance(Instance, nullptr); }
+  if (SdlVulkan) { SDL_Vulkan_UnloadLibrary(); }
 }
 
 namespace {
@@ -69,6 +74,8 @@ ReportValidation(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
 }
 
 Result<void> InitInstance(Context &context, DeviceOptions options) {
+  auto extensions = WindowExtensions(context, options.Window);
+  if (!extensions) { return std::unexpected(extensions.error()); }
   VkApplicationInfo application{};
   application.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   application.pApplicationName = "Outshine";
@@ -77,13 +84,14 @@ Result<void> InitInstance(Context &context, DeviceOptions options) {
   create.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create.pApplicationInfo = &application;
   const char *validation = "VK_LAYER_KHRONOS_validation";
-  const char *debug = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+
   if (options.Validation) {
     create.enabledLayerCount = 1;
     create.ppEnabledLayerNames = &validation;
-    create.enabledExtensionCount = 1;
-    create.ppEnabledExtensionNames = &debug;
+    extensions->push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
   }
+  create.enabledExtensionCount = static_cast<uint32_t>(extensions->size());
+  create.ppEnabledExtensionNames = extensions->data();
   const auto result = vkCreateInstance(&create, nullptr, &context.Instance);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateInstance", result)); }
   context.DebugMarkers = options.Validation;
@@ -110,14 +118,21 @@ Result<void> InitInstance(Context &context, DeviceOptions options) {
   return {};
 }
 
-bool SelectQueue(VkPhysicalDevice physical, uint32_t &family) {
+bool SelectQueue(VkPhysicalDevice physical, VkSurfaceKHR surface, uint32_t &family) {
   uint32_t count = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(physical, &count, nullptr);
   std::vector<VkQueueFamilyProperties> queues(count);
   vkGetPhysicalDeviceQueueFamilyProperties(physical, &count, queues.data());
   constexpr auto required = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
   for (uint32_t at = 0; at < count; ++at) {
-    if (queues[at].queueCount > 0 && (queues[at].queueFlags & required) == required) {
+    VkBool32 presents = VK_TRUE;
+    if (surface != VK_NULL_HANDLE &&
+        vkGetPhysicalDeviceSurfaceSupportKHR(physical, at, surface, &presents) != VK_SUCCESS) {
+      continue;
+    }
+    const uint32_t needed = surface == VK_NULL_HANDLE ? 1u : 2u;
+    if (queues[at].queueCount >= needed && presents != VK_FALSE &&
+        (queues[at].queueFlags & required) == required) {
       family = at;
       return true;
     }
@@ -140,7 +155,10 @@ Result<void> SelectPhysical(Context &context) {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physical, &properties);
     uint32_t family = 0;
-    if (properties.apiVersion < VK_API_VERSION_1_3 || !SelectQueue(physical, family)) { continue; }
+    if (properties.apiVersion < VK_API_VERSION_1_3 ||
+        !SelectQueue(physical, context.Surface, family)) {
+      continue;
+    }
     if (context.Physical != VK_NULL_HANDLE &&
         properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
       continue;
@@ -160,6 +178,9 @@ Result<void> SelectPhysical(Context &context) {
 Result<void> InitLogical(Context &context) {
   VkPhysicalDeviceVulkan13Features supported{};
   supported.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+  VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT maintenance{};
+  maintenance.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT;
+  if (context.Surface != VK_NULL_HANDLE) { supported.pNext = &maintenance; }
   VkPhysicalDeviceFeatures2 features{};
   features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   features.pNext = &supported;
@@ -169,10 +190,15 @@ Result<void> InitLogical(Context &context) {
         Error{.Kind = ErrorKind::Unsupported,
               .Message = "Vulkan synchronization2/dynamicRendering is unavailable"});
   }
+  if (context.Surface != VK_NULL_HANDLE && maintenance.swapchainMaintenance1 == VK_FALSE) {
+    return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                 .Message = "Vulkan swapchain maintenance1 unavailable"});
+  }
   VkPhysicalDeviceVulkan13Features enabled{};
   enabled.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   enabled.synchronization2 = VK_TRUE;
   enabled.dynamicRendering = VK_TRUE;
+  if (context.Surface != VK_NULL_HANDLE) { enabled.pNext = &maintenance; }
   VkPhysicalDeviceFeatures core{};
   core.robustBufferAccess = features.features.robustBufferAccess;
   core.independentBlend = features.features.independentBlend;
@@ -183,21 +209,36 @@ Result<void> InitLogical(Context &context) {
   context.IndirectFirstInstance = core.drawIndirectFirstInstance != VK_FALSE;
   core.shaderStorageImageExtendedFormats = features.features.shaderStorageImageExtendedFormats;
   context.StorageImageExtendedFormats = core.shaderStorageImageExtendedFormats != VK_FALSE;
-  const float priority = 1.0f;
+  constexpr std::array priorities{1.0f, .5f};
+  constexpr std::array extensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+                                  VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME};
   VkDeviceQueueCreateInfo queue{};
   queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
   queue.queueFamilyIndex = context.QueueFamily;
-  queue.queueCount = 1;
-  queue.pQueuePriorities = &priority;
+  queue.queueCount = context.Surface == VK_NULL_HANDLE ? 1u : 2u;
+  queue.pQueuePriorities = priorities.data();
   VkDeviceCreateInfo create{};
   create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   create.pNext = &enabled;
   create.pEnabledFeatures = &core;
   create.queueCreateInfoCount = 1;
   create.pQueueCreateInfos = &queue;
+  if (context.Surface != VK_NULL_HANDLE) {
+    create.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    create.ppEnabledExtensionNames = extensions.data();
+  }
   const auto result = vkCreateDevice(context.Physical, &create, nullptr, &context.Logical);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateDevice", result)); }
   vkGetDeviceQueue(context.Logical, context.QueueFamily, 0, &context.Queue);
+  if (context.Surface != VK_NULL_HANDLE) {
+    vkGetDeviceQueue(context.Logical, context.QueueFamily, 1, &context.PresentQueue);
+    context.ReleaseImages = reinterpret_cast<PFN_vkReleaseSwapchainImagesEXT>(
+        vkGetDeviceProcAddr(context.Logical, "vkReleaseSwapchainImagesEXT"));
+    if (context.ReleaseImages == nullptr) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan swapchain release unavailable"});
+    }
+  }
   return {};
 }
 
@@ -228,6 +269,9 @@ Result<std::shared_ptr<Context>> CreateContext(DeviceOptions options) {
   auto context = std::make_shared<Context>();
   context->Cookie = nextCookie.fetch_add(1, std::memory_order_relaxed);
   if (auto result = InitInstance(*context, options); !result) {
+    return std::unexpected(result.error());
+  }
+  if (auto result = CreateSurface(*context, options.Window); !result) {
     return std::unexpected(result.error());
   }
   if (auto result = SelectPhysical(*context); !result) { return std::unexpected(result.error()); }

@@ -49,9 +49,6 @@ Recording::PrepareAttachment(TextureView view, Load begin, Store end, bool depth
     return std::unexpected(Error{.Kind = ErrorKind::Invalid,
                                  .Message = "invalid attachment format, usage or subresource"});
   }
-  auto native = CreateView(**image, view);
-  if (!native) { return std::unexpected(native.error()); }
-  Views_.push_back(*native);
   const ImageAccess access =
       depth ? ImageAccess{.Stage = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
                                    VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
@@ -63,6 +60,9 @@ Recording::PrepareAttachment(TextureView view, Load begin, Store end, bool depth
                                     VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                           .Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
   if (auto used = UseImage(*image, view, access); !used) { return std::unexpected(used.error()); }
+  auto native = CreateView(**image, view);
+  if (!native) { return std::unexpected(native.error()); }
+  Views_.push_back(*native);
   RenderAttachment attachment{.Image = std::move(*image), .Range = view};
   attachment.Range.Image = nullptr;
   attachment.Native.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;

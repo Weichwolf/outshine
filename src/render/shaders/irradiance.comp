@@ -27,8 +27,7 @@ void main() {
   vec3 skylight = summed * (OUTSHINE_PI / float(kMultiScatterGrid * kMultiScatterGrid));
   vec3 sunReach = mediumTransmittance(pushed.declared,
                                         MediumLook(pushed.groundRadiusKm, pushed.cosSunZenith),
-                                        kTransmittanceSteps,
-                                        kMediumSampleSegment);
+                                        kTransmittanceSteps);
   for (uint channel = 0; channel < 3; ++channel) {
     into[channel] = skylight[channel];
     into[3u + channel] = sunReach[channel];
