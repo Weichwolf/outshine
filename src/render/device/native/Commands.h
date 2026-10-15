@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_COMMANDS_H
 
 #include "Compute.h"
+#include "Render.h"
 #include <expected>
 #include <span>
 #include <string>
@@ -62,6 +63,34 @@ public:
   [[nodiscard]] virtual Result<void> Dispatch(const ComputePipeline &pipeline,
                                               std::span<const Binding> bindings,
                                               Workgroups groups) = 0;
+
+  [[nodiscard]] virtual Result<void>
+  BeginRenderPass([[maybe_unused]] const RenderPassDescription &description) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<void> Draw([[maybe_unused]] const DrawDescription &description) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<void>
+  DrawIndexed([[maybe_unused]] const IndexedDrawDescription &description) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<void>
+  DrawIndexedIndirect([[maybe_unused]] const IndirectDrawDescription &description) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<void> EndRenderPass() {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native raster commands unavailable"});
+  }
 
   virtual void BeginLabel(std::string_view name) = 0;
   virtual void EndLabel() = 0;

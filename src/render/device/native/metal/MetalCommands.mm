@@ -16,6 +16,10 @@ MetalCommands::~MetalCommands() {
 }
 
 void MetalCommands::Finish() {
+  if (Render) {
+    [Render->Encoder endEncoding];
+    Render.reset();
+  }
   if (Compute != nil) {
     [Compute endEncoding];
     Compute = nil;
@@ -35,8 +39,8 @@ Result<void> MetalCommands::Hold(const std::shared_ptr<BufferState> &state) {
 }
 
 Result<void> MetalCommands::Copy(const Buffer &source, Buffer &destination, BufferCopy region) {
-  if (!OnOwner()) {
-    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  if (!OnOwner() || Render) {
+    return Failure(ErrorKind::Invalid, "Metal copy requires its owner outside a render pass");
   }
   @autoreleasepool {
     const auto *const from = dynamic_cast<const MetalBuffer *>(&source);
@@ -71,8 +75,8 @@ Result<void> MetalCommands::Copy(const Buffer &source, Buffer &destination, Buff
 Result<void> MetalCommands::Dispatch(const ComputePipeline &pipeline,
                                      std::span<const Binding> bindings,
                                      Workgroups groups) {
-  if (!OnOwner()) {
-    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  if (!OnOwner() || Render) {
+    return Failure(ErrorKind::Invalid, "Metal dispatch requires its owner outside a render pass");
   }
   @autoreleasepool {
     const auto *const metal = dynamic_cast<const MetalPipeline *>(&pipeline);
