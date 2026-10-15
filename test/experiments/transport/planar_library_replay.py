@@ -44,11 +44,11 @@ def replay(args):
         proofs.append(proof)
         groups[source["bed_kind"]].append(product)
         rows[source["bed_kind"]].append({"valid": True})
-    for kind in groups:
-        chosen, _note = admit(groups[kind], rows[kind])
-        if len(chosen) != len(groups[kind]):
+    for kind, products in groups.items():
+        chosen, _note = admit(products, rows[kind])
+        if len(chosen) != len(products):
             raise ValueError("new actual pieces fail original mutual conflict check")
-        packed = packed_mesh(groups[kind])
+        packed = packed_mesh(products)
         for path in [
             args.output / (kind + "-hardware.npz"),
             (args.lower if kind == "ground" else args.upper) / "hardware.npz",
