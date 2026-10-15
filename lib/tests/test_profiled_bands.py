@@ -108,11 +108,18 @@ class ProfileBands(unittest.TestCase):
                 [[(12, 8), (28, 8), (28, 22), (12, 22)]],
             ),
         )
-        for polygon in polygons:
+        for index, polygon in enumerate(polygons):
             polygon = translate(rotate(polygon, 27), -130, 210)
             plan = BandPlan(polygon, PROFILE, base_m=19)
             mesh = band_surface(plan)
             self.assertAlmostEqual(solid(self, mesh), section_volume(polygon), places=8)
+            if index == 0:
+                analytic = 0.0
+                for (r0, z0), (r1, z1) in pairwise(PROFILE):
+                    mean_radius = (r0 + r1) / 2
+                    mean_square = (r0 * r0 + r0 * r1 + r1 * r1) / 3
+                    analytic += (z1 - z0) * (60 * mean_radius + 4 * mean_square)
+                self.assertAlmostEqual(solid(self, mesh), analytic, places=8)
             self.assertEqual(mesh["vertices"][:, 2].min(), 19)
             self.assertEqual(mesh["vertices"][:, 2].max(), 19.3)
             for z in (0.04, 0.13, 0.27):
