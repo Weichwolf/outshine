@@ -28,7 +28,8 @@ class WholeSupportContacts(unittest.TestCase):
     def test_real_vienna_shared_boundary_is_noded_once(self):
         row = json.loads(
             (
-                Path(__file__).parent / "fixtures/bridge-support-contact-vienna.json"
+                Path(__file__).resolve().parents[3]
+                / "lib/tests/fixtures/bridge-support-contact-vienna.json"
             ).read_text()
         )
         lower = ContactSurface(

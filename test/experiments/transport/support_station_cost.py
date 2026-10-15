@@ -12,6 +12,7 @@ import numpy as np
 from bridge_support_contacts import ContactSurface
 from bridge_support_plan import plan_supports, stations
 from camera_height_inputs import digest
+from outshine_ref.transport.supports import SupportVolumeBuilder
 from rail_instance_cost import profile_note
 from wien_support_experiment import packed, read_inputs
 
@@ -24,6 +25,7 @@ def measure(args):
         args.network, args.reference_root
     )
     lower, upper = ContactSurface(ground), ContactSurface(deck)
+    builder = SupportVolumeBuilder(ground, deck)
     candidates = stations([r for r in sources if r["role"] == "deck"])
     began = time.perf_counter()
     with memray.Tracker(
@@ -32,7 +34,7 @@ def measure(args):
         native_traces=True,
     ):
         products, contacts, _shapes, report = plan_supports(
-            candidates, lower, upper, excluded, method=args.method
+            candidates, lower, upper, excluded, method=args.method, builder=builder
         )
     elapsed = time.perf_counter() - began
     expected_path = args.products / (args.method + ".npz")
@@ -62,6 +64,7 @@ def measure(args):
             m.vertices.nbytes + m.triangles.nbytes for pair in contacts for m in pair
         ),
         identical_saved_geometry=True,
+        support_preparation_seconds=builder.preparation_seconds,
         scope="One cold planning call after input decode and both contact-index builds. Python/native allocations observed; cumulative bytes are not live memory. Instrumented timing is separate from normal generation. Output packing and independent verification are excluded; peak RSS includes loaded original scene and probe exports. Work source-face/arrangement totals count accepted prisms only; all trials and accepted-pier pair checks are counted. Array payloads are known ownership/copies, not a complete internal copy count.",
     )
     (args.output / "measurement.json").write_text(json.dumps(report, indent=2) + "\n")

@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 import shapely
-from bridge_support_contacts import contact_prism
+from outshine_ref.transport.supports import SupportVolumeBuilder
 
 
 def stations(sources, spacing=24.0):
@@ -51,7 +51,9 @@ def footprint_at(line, station):
     return shapely.Polygon(corners)
 
 
-def plan_supports(candidates, lower, upper, excluded, *, method, seconds=20):
+def plan_supports(
+    candidates, lower, upper, excluded, *, method, seconds=20, builder=None
+):
     if (
         method not in ("fixed", "shifted")
         or not 0 < seconds <= 60
@@ -59,6 +61,8 @@ def plan_supports(candidates, lower, upper, excluded, *, method, seconds=20):
     ):
         raise ValueError("bounded known support station method required")
     began = time.perf_counter()
+    if builder is None:
+        builder = SupportVolumeBuilder(lower.mesh, upper.mesh)
     shapes, products, contacts, ledger = [], [], [], []
     work = {
         "trials": 0,
@@ -87,7 +91,13 @@ def plan_supports(candidates, lower, upper, excluded, *, method, seconds=20):
                     raise ValueError("support_pair_budget")
                 if shapes and np.any(shapely.intersects(shape, shapes)):
                     raise ValueError("support_existing_pier_conflict")
-                body, caps, note = contact_prism(shape, lower, upper)
+                product, note = builder.build(shape, minimum_height_m=2.0)
+                if product is None:
+                    raise ValueError(note["reason"])
+                body, caps = (
+                    product.body,
+                    (product.lower_contact, product.upper_contact),
+                )
                 for key in (
                     "source_face_candidates",
                     "noded_segments",

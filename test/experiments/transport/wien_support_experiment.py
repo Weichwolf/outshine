@@ -15,6 +15,7 @@ from bridge_support_plan import plan_supports, stations
 from camera_height_inputs import digest
 from ground_surface_showcase import combined
 from outshine_ref.contracts import Mesh
+from outshine_ref.transport.supports import SupportVolumeBuilder
 from retained_surface import surface_domain
 from wien_network_experiment import export_body
 from wien_network_sources import scene
@@ -110,10 +111,11 @@ def build(args):
     )
     candidates = stations([r for r in sources if r["role"] == "deck"])
     lower, upper = ContactSurface(ground), ContactSurface(deck)
+    builder = SupportVolumeBuilder(ground, deck)
     methods, selected = {}, None
     for method in ("fixed", "shifted"):
         products, contacts, shapes, report = plan_supports(
-            candidates, lower, upper, excluded, method=method
+            candidates, lower, upper, excluded, method=method, builder=builder
         )
         report["verification"] = verify(
             products, contacts, shapes, lower, upper, excluded, world
@@ -154,6 +156,7 @@ def build(args):
         "origin_lat_lon": fixture["origin_lat_lon"],
         "methods": methods,
         "selected": chosen,
+        "support_preparation_seconds": builder.preparation_seconds,
         "render_inputs": rows,
         "seconds": time.perf_counter() - began,
         "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
