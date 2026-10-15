@@ -38,8 +38,8 @@ class LilyStudy:
                 lobes=0,
                 lobe_depth=0,
                 base_fill=0.04,
-                bend=rng.uniform(-0.2, 0.15),
-                fold=0.09,
+                bend=rng.uniform(-0.25, 0.65),
+                fold=rng.uniform(0.12, 0.24),
                 twist=rng.uniform(-0.12, 0.12),
                 petiole=0.018,
             )
@@ -51,7 +51,7 @@ class LilyStudy:
                     np.cos(lean),
                 )
             )
-            frame = normal_frame(direction, (0, 0, 1))
+            frame = normal_frame(direction, (0, -1, 0))
             node = np.array((0, 0, 0.01 + i * 0.009))
             leaves.append(
                 {

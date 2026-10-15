@@ -10,6 +10,7 @@ import numpy as np
 from outshine_ref.vegetation import GroundCoverPlan
 from outshine_ref.vegetation.graminoid import graminoid_tuft_mesh
 from scipy.spatial import cKDTree
+from understory_leaf_maps import write_maps
 from understory_mixture import prepare, selection, shuffled_control
 from understory_plan import LilyStudy
 
@@ -106,6 +107,7 @@ def run(output):
     }
     (output / "stand-plan.json").write_text(json.dumps(saved, indent=2) + "\n")
     records = models(output, mixture.taxa)
+    write_maps(output)
     triangles = sum(
         np.sum(
             (grouped["classes"] == mixture.taxa.index(row["form"]))

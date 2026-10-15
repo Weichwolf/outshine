@@ -20,7 +20,7 @@ from preview_shadows import configure_preview
 from render_biome_tiles import materials, setup
 
 
-def palette():
+def palette(inputs):
     result = materials("Laubwald")
     for name, color, roughness in (
         ("green flowering stalk", (0.035, 0.12, 0.015), 0.6),
@@ -29,6 +29,7 @@ def palette():
     ):
         mat = material(name, color, roughness)
         nodes, links = mat.node_tree.nodes, mat.node_tree.links
+        nodes["Principled BSDF"].inputs["Specular IOR Level"].default_value = 0.2
         thin = nodes.new("ShaderNodeBsdfTranslucent")
         thin.inputs["Color"].default_value = (*color, 1)
         mix = nodes.new("ShaderNodeMixShader")
@@ -37,6 +38,23 @@ def palette():
         links.new(thin.outputs[0], mix.inputs[2])
         links.new(mix.outputs[0], nodes["Material Output"].inputs["Surface"])
         result.append(mat)
+    nodes, links = result[6].node_tree.nodes, result[6].node_tree.links
+    colour = nodes.new("ShaderNodeTexImage")
+    colour.image = bpy.data.images.load(str(inputs / "parallel-leaf-colour.png"))
+    colour.image.colorspace_settings.name = "Non-Color"
+    links.new(colour.outputs["Color"], nodes["Principled BSDF"].inputs["Base Color"])
+    links.new(
+        colour.outputs["Color"],
+        next(n for n in nodes if n.type == "BSDF_TRANSLUCENT").inputs["Color"],
+    )
+    height = nodes.new("ShaderNodeTexImage")
+    height.image = bpy.data.images.load(str(inputs / "parallel-leaf-height.png"))
+    height.image.colorspace_settings.name = "Non-Color"
+    bump = nodes.new("ShaderNodeBump")
+    bump.inputs["Distance"].default_value = 0.0001
+    bump.inputs["Strength"].default_value = 0.25
+    links.new(height.outputs["Color"], bump.inputs["Height"])
+    links.new(bump.outputs[0], nodes["Principled BSDF"].inputs["Normal"])
     return result
 
 
@@ -91,7 +109,7 @@ def hero_scene():
 def render(inputs, output, case):
     start = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    mats, hashes = palette(), {}
+    mats, hashes = palette(inputs), {}
     if case == "plant":
         path = inputs / "convallaria-near.npz"
         model(path, mats)
