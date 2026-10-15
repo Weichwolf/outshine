@@ -2,9 +2,12 @@
 
 import argparse
 import json
+import resource
+import subprocess
 from pathlib import Path
 
 import numpy as np
+import shapely
 from bridge_support_contacts import ContactSurface, replay_contact
 from bridge_support_plan import footprint_at, stations
 from camera_height_inputs import digest
@@ -66,6 +69,14 @@ def caps_match_body(body, low, high):
     expected = float(np.sum(areas * heights[low.triangles].mean(axis=1)))
     if heights.min() < 2 or abs(audit_closed(body) - expected) > 1e-7:
         raise ValueError("support actual height or closed oriented volume invalid")
+    source = body.vertices[body.triangles]
+    actual = body.vertices.astype(np.float32).astype(float)[body.triangles]
+    normals = np.cross(source[:, 1] - source[:, 0], source[:, 2] - source[:, 0])
+    rendered = np.cross(actual[:, 1] - actual[:, 0], actual[:, 2] - actual[:, 0])
+    if np.any(np.linalg.norm(rendered, axis=1) == 0) or np.any(
+        np.einsum("ij,ij->i", normals, rendered) <= 0
+    ):
+        raise ValueError("support float32 presentation degenerates or inverts faces")
 
 
 def replay_method(root, name, report, sources, lower, upper, excluded, world):
@@ -123,6 +134,14 @@ def replay(root, network, reference):
     sources, ground, deck, excluded, world, base, _fixture = read_inputs(
         network, reference
     )
+    with np.load(network / "ground.npz") as saved:
+        traffic = Mesh(ground.vertices, ground.triangles[saved["road"]])
+    declared = shapely.from_wkb((network / "traffic.wkb").read_bytes())
+    if (
+        surface_domain(traffic).symmetric_difference(declared).area > 1e-7
+        or surface_domain(ground).symmetric_difference(world).area > 1e-7
+    ):
+        raise ValueError("support exclusions differ from actual pinned ground/traffic")
     lower, upper = ContactSurface(ground), ContactSurface(deck)
     notes = {
         name: replay_method(root, name, row, sources, lower, upper, excluded, world)
@@ -150,6 +169,9 @@ def replay(root, network, reference):
         "methods": notes,
         "unchanged_base_geometry_and_materials": True,
         "selected": report["selected"],
+        "verifier_commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip(),
     }
 
 
@@ -162,6 +184,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.output.exists():
         parser.error("fresh independent replay report required")
+    resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3, 3 * 1024**3))
+    resource.setrlimit(resource.RLIMIT_CPU, (90, 90))
     result = replay(args.products, args.network, args.reference_root)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result), flush=True)

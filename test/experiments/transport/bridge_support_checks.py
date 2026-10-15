@@ -173,6 +173,13 @@ class SavedSupportProducts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing walls"):
             caps_match_body(wrong, *self.caps)
 
+    def test_presentation_rejects_float32_collapsed_pier_faces(self):
+        offset = [1e8, 0, 0]
+        wrong = Mesh(self.body.vertices + offset, self.body.triangles)
+        shifted_caps = [Mesh(m.vertices + offset, m.triangles) for m in self.caps]
+        with self.assertRaisesRegex(ValueError, "float32 presentation"):
+            caps_match_body(wrong, *shifted_caps)
+
 
 if __name__ == "__main__":
     unittest.main()
