@@ -1,15 +1,15 @@
+Zürich
+
+![Zürich](Zuerich.png)
+
+Basel
+
+![Basel](Basel.png)
+
 Wien
 
 ![Wien](Wien.png)
 
-Tokyo
+New York
 
-![Tokyo](Tokyo.png)
-
-CentralPark
-
-![CentralPark](CentralPark.png)
-
-Feldkirch
-
-![Feldkirch](Feldkirch.png)
+![New York](NewYork.png)

@@ -2,6 +2,7 @@
 #include "MetalInternal.h"
 #include <algorithm>
 #include <array>
+#include <tuple>
 
 namespace outshine::Render::Native::Metal {
 
@@ -233,6 +234,9 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
     }
     std::string{}.swap(state->Vertex.Source);
     if (state->Fragment) { std::string{}.swap(state->Fragment->Source); }
+    std::ranges::sort(layout.Bindings, [](const GraphicsBinding &a, const GraphicsBinding &b) {
+      return std::tie(a.Resource.Set, a.Resource.Slot) < std::tie(b.Resource.Set, b.Resource.Slot);
+    });
     return std::make_unique<MetalGraphicsPipeline>(std::move(layout), std::move(state));
   }
 }
