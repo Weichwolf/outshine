@@ -194,6 +194,23 @@ normals are recorded for comparison and are not the intended material input.
 `verify_city_normals.py` exercises an actual Eevee pixel with identity and
 nonuniform object scaling. No new shared Blender or native API is required.
 
+Near ordinary facades also have procedural plinths, selected storey belts and
+stepped cornices through `tile_facade_bands.py` / the installable
+`BandPlan`/`band_surface` (#342). Existing facade-repeat gaps determine heights;
+the original wall/roof/opening/source arrays remain intact. Height-aware source
+neighbor checks exclude colliding edge supports; remaining runs have closed caps.
+Special/clipped/unsupported sources keep their prior representation. These
+outward trims are inferred, not supplied footprints or complete architecture.
+The positional projection bound leaves distant products compact, but is no
+radiance/shadow/night/transition admission. Physical entrances and transport
+reservation attachment remain separate work. `band_probe.py --output <temp>`
+writes actual source plan/cross-section/2.5D, same-camera before/near/opposite/far
+products and equal-array scalar/batch timings. Render its geometry reports with
+`blender_city.py`; research images remain local. `verify_facade_bands.py` checks
+the actual source path; independent solid controls are in
+`lib/tests/test_profiled_bands.py`. The recess-only probe deliberately suppresses
+the new bands to retain its earlier single-feature comparison.
+
 Near ordinary facades additionally reuse the old real-recess prototype through
 the installable `RecessPlan`/`recess_surface` library (#318). The same existing
 facade axes control openings; 0.18 m inward recesses and 0.06 m frames are generated
