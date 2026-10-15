@@ -57,3 +57,10 @@ Der [begrenzte native Teilstreckenverbraucher](cloud_air_prefix.md) ergänzt #19
 Er konsumiert den integrierten klaren Kern aus #233 und kombiniert die lokalen
 Wolken-/Luftkoeffizienten auf einer festen gemeinsamen Partition. Referenzen,
 Reproduktion und offene Bild-/Integrationsgrenzen stehen beim verlinkten Verfahren.
+
+## Native Wetterdaten
+
+Der [native Open-Meteo-Decoder](native_forecast.md) überträgt die bestätigten
+Felder aus #253 und prüft echte Antwortbytes sowie exakte UTC-Auswahl gegen die
+Python-Referenz. Öffentliche Snapshot-Publikation und sichtbarer Wetterverbrauch
+bleiben eigene Integrationsschritte.

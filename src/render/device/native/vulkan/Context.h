@@ -17,6 +17,10 @@ struct Context {
   VkPhysicalDevice Physical = VK_NULL_HANDLE;
   VkDevice Logical = VK_NULL_HANDLE;
   VkQueue Queue = VK_NULL_HANDLE;
+  VkQueue PresentQueue = VK_NULL_HANDLE;
+  VkSurfaceKHR Surface = VK_NULL_HANDLE;
+  bool SdlVulkan = false;
+  PFN_vkReleaseSwapchainImagesEXT ReleaseImages = nullptr;
   uint32_t QueueFamily = 0;
   uint64_t Cookie = 0;
   bool DebugMarkers = false;

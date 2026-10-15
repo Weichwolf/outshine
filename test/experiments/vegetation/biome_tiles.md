@@ -91,3 +91,10 @@ and eight blade segments. Full-model geometry and cache costs are intentionally
 visible in [the matched-area comparison](broadleaf_crowns.md); these products
 are offline references, not the selected forest render LOD. Current whole
 Laubwald/Mischwald images and costs are linked there. Steppe/Heide are unchanged.
+
+The [ground-cover experiment](ground_cover.md) replaces sparse raster grass
+with bounded Poisson roots,75/m² for forests/heath and150/m² for Steppe.
+Existing wood/shrub poses are byte-identical; Steppe and Laubwald were rendered
+and opened as whole current tiles. Homogeneous density, botanical forms and
+cheap selected grass/forest LOD remain open. The renderer now consumes shared
+Blender camera, daylight and mesh helpers from `outshine_ref.rendering` (#291).
