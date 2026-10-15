@@ -63,8 +63,9 @@ def measure(args):
         )
     timings = []
     products = None
+    values = None
     for _ in range(1 if args.profile else 7):
-        del products
+        del products, values
         gc.collect()
         began = time.perf_counter()
         with tracker:

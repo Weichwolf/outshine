@@ -15,6 +15,7 @@ from curb_inputs import inputs
 from curb_plan import WIDTH_M
 from outshine_ref.transport.supports import SupportVolume
 from retained_surface import surface_domain
+from transport_surface_experiment import PALETTE
 from wien_support_verify import unpack
 
 
@@ -24,6 +25,18 @@ def actual(path):
 
 
 def verify_display(args, report, before, curbs):
+    if digest(PALETTE) != report["presentation"]["material_json_sha256"]:
+        raise ValueError("curb source material catalogue changed")
+    concrete = next(
+        r["albedo"]
+        for r in json.loads(PALETTE.read_text())["classes"]
+        if r["name"] == "concrete"
+    )
+    if not np.array_equal(
+        np.asarray([*concrete, 1], np.float32),
+        np.asarray(report["presentation"]["linear_rgba"], np.float32),
+    ):
+        raise ValueError("curb albedo is not the pinned existing concrete value")
     row = report["render_inputs"][1]
     path = Path(row["mesh"])
     if digest(path) != row["mesh_sha256"]:
