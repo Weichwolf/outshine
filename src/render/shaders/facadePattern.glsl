@@ -1,6 +1,7 @@
 #include "periodicBand.glsl"
 #include "roofTiles.glsl"
 #include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
 #include "facadeProfiles.glsl"
 
 void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) {
@@ -9,7 +10,8 @@ void applyFacadeGlass(float coverage, inout vec3 albedo, inout float roughness) 
   roughness = glass.roughness;
 }
 
-void applyFacadeWindow(vec2 encoded, vec2 fractions, bool glazing, inout vec3 albedo, inout float roughness) {
+void applyFacadeWindow(vec2 encoded, vec2 fractions, bool glazing, float band,
+                        inout vec3 albedo, inout float roughness) {
   vec2 footprint = abs(dFdx(encoded)) + abs(dFdy(encoded));
   float bay = mod(encoded.x, 256.0);
   float storey = encoded.y - 1.0;
@@ -19,7 +21,7 @@ void applyFacadeWindow(vec2 encoded, vec2 fractions, bool glazing, inout vec3 al
     pane = clamp(pane / max(opening, 0.0001), 0.0, 1.0);
     opening = 1.0;
   }
-  FacadeGlazing window = facadeWindow(opening, pane, albedo, roughness);
+  FacadeGlazing window = facadeBandedWindow(opening, pane, band, albedo, roughness);
   albedo = window.albedo;
   roughness = window.roughness;
 }
@@ -88,7 +90,7 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   vec2 fractions = facadeFractions(style);
   float field = mod(floor(group / float(kFacadeStyleCount)), 3.0);
   if (style == 7 || (field > 0.5 && field < 1.5)) {
-    applyFacadeWindow(encoded, fractions, true, albedo, roughness);
+    applyFacadeWindow(encoded, fractions, true, 0.0, albedo, roughness);
     return;
   }
   float variant = floor(encoded.x / (256.0 * float(kFacadeStyleCount) * 3.0));
@@ -102,6 +104,10 @@ void applyFacade(vec2 encoded, vec3 paint, vec3 positionM, vec3 localM, vec3 n, 
   else if (variant > 6.5) { wallTint = vec3(0.82, 0.69, 0.61); }
   albedo *= wallTint * paint;
   if (fractions.x > 0.0 && fractions.y > 0.0 && encoded.y >= 1.0) {
-    applyFacadeWindow(encoded, fractions, false, albedo, roughness);
+    float storeysPerM = length(surfaceGradient(n, dFdx(positionM), dFdy(positionM),
+                                               dFdx(encoded.y), dFdy(encoded.y)));
+    float band = facadeStoreyBand(fractions.y, encoded.y - 1.0,
+                                  abs(dFdx(encoded.y)) + abs(dFdy(encoded.y)), storeysPerM);
+    applyFacadeWindow(encoded, fractions, false, band, albedo, roughness);
   }
 }
