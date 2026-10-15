@@ -98,6 +98,16 @@ def run(output):
             plan = refine(original, method)
             proof = admission(original, plan)
             product = programme(plan, "jittered-anchors")
+            support_ids = {r["id"] for r in plan["support_refinement"]["spaces"]}
+            furnished_support = [
+                r for r in product["rooms"] if r["room_id"] in support_ids
+            ]
+            if len(furnished_support) != len(support_ids) or any(
+                r["result"]["status"] != "complete" for r in furnished_support
+            ):
+                raise ValueError(
+                    "Added support rooms lack their required actual fixtures"
+                )
             mesh_proof = verify(plan, product)
             negative = counterexamples(original, plan)
             if fingerprints != [
@@ -122,6 +132,7 @@ def run(output):
                         "kind": r["kind"],
                         "area_m2": r["area_m2"],
                         "status": r["result"]["status"],
+                        "placement_method": r["placement_method"],
                         "missing": r["result"]["missing"],
                     }
                     for r in product["rooms"]

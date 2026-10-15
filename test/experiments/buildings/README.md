@@ -469,7 +469,11 @@ and 0.30 m actor requirements. At most 48 candidates per room, 24 spaces per
 floor and four intermediate floor states. More candidates do not guarantee a
 better bounded result: the current sliding control misses Hameln's tea room.
 The successful wall-end controls remain research plans, not optimal or measured
-real interiors. No training corpus or learned architectural model is claimed.
+real interiors. Compact support rooms use deterministic unperturbed furniture
+wall anchors: replacing these by random inward shifts can remove every fitting
+tea-counter/basin candidate. Each room records its actual placement method;
+work/meeting rooms retain the requested method. The actual mesh gate requires
+all added support functions, even when another original room stays incomplete. No training corpus or learned architectural model is claimed.
 
 `verify_office_support_controls.py` exercises notches, full-width backing,
 retained doors, clear sanitary windows, rigid transforms and capacity.

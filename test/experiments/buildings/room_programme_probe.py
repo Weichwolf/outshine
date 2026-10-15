@@ -185,6 +185,9 @@ def probe(output, site, identifier, spp, support_plan=False, overview_only=False
             "evidence": product["evidence"],
             "proof": proof,
             "instances": instances,
+            "furnishing_methods": {
+                r["room_id"]: r["placement_method"] for r in product["rooms"]
+            },
             "roles": roles,
             "support_subdivision": subdivision,
             "section": section if name == "2_5d" else None,

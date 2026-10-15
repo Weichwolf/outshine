@@ -6,6 +6,8 @@ import numpy as np
 import shapely
 from building_layout import rectangle
 from office_support_geometry import MAX_CANDIDATES, candidates, split
+from outshine_ref.buildings.interiors import layout
+from room_programme import BASIN, TEA, WC
 from shapely.affinity import rotate, translate
 
 
@@ -28,6 +30,28 @@ def fixture():
 
 
 class SupportControls(unittest.TestCase):
+    def test_compact_support_fits_full_functions_beside_reserved_door_approach(self):
+        room = shapely.box(0.0, 0.0, 1.68, 3.54)
+        approach = shapely.LineString([(0.84, -0.06), (0.84, 0.49)]).buffer(
+            0.42, cap_style="square", join_style="mitre"
+        )
+        for required in ((WC, BASIN), (TEA,)):
+            result = layout(
+                room,
+                [(0.84, 0.49)],
+                required,
+                "compact-support",
+                [approach],
+                "wall-anchors",
+                beam_width=4,
+                objective="open-activity",
+            )
+            self.assertEqual(result["status"], "complete")
+            self.assertEqual(tuple(item["spec"] for item in result["items"]), required)
+            for item in result["items"]:
+                self.assertTrue(room.covers(item["footprint"]))
+                self.assertFalse(item["footprint"].intersects(approach))
+
     def test_independent_corridor_access_preserves_old_door_and_whole_parent(self):
         original = fixture()
         for method in ("wall-ends", "sliding-wall"):

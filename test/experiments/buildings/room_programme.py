@@ -179,13 +179,18 @@ def programme(plan, method="wall-anchors", beam_width=4, objective="open-activit
             identifier = plan["storey_room_ids"][floor][index]
             anchors, reserved = portals(current, index)
             required = requests(kinds[index], current["rooms"][index].area)
+            placement_method = (
+                "wall-anchors"
+                if index in current.get("programme_kinds", {})
+                else method
+            )
             result = layout(
                 current["rooms"][index],
                 anchors,
                 required,
                 identifier + "/furniture",
                 reserved,
-                method,
+                placement_method,
                 beam_width=beam_width,
                 objective=objective,
             )
@@ -202,6 +207,7 @@ def programme(plan, method="wall-anchors", beam_width=4, objective="open-activit
                 "portal_anchors": anchors,
                 "reserved": reserved,
                 "required": required,
+                "placement_method": placement_method,
                 "result": result,
                 "origin": "Procedural programme fitted to existing connected source room; no claim about actual interior",
             }
@@ -249,6 +255,7 @@ def programme(plan, method="wall-anchors", beam_width=4, objective="open-activit
         "rooms": tuple(records),
         "unresolved": unresolved,
         "method": method,
+        "support_placement_method": "wall-anchors",
         "beam_width": beam_width,
         "objective": objective,
         "scope": "Bounded office work/meeting/tea/sanitary furnishing control; services/ventilation/occupancy regulations, other use families and native admission remain open",
