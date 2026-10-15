@@ -1,0 +1,41 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float palette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+#include "periodicBand.glsl"
+#include "facadeOpenings.glsl"
+#include "facadeBands.glsl"
+#include "facadeFootprint.glsl"
+#include "facadeProfiles.glsl"
+#include "facade_coating_kernel.glsl"
+#ifndef FACADE_COATED
+#define FACADE_COATED 1
+#endif
+vec3 metricAt(uint offset) {
+  return vec3(palette[offset], palette[offset + 1], palette[offset + 2]);
+}
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe p = probes[index];
+  uint offset = 320 + 12 * index;
+  vec2 fractions = facadeFractions(p.Which);
+  vec3 pointM = metricAt(offset);
+  vec3 dxM = metricAt(offset + 4);
+  vec3 dyM = metricAt(offset + 8);
+  float storeysPerM = uintBitsToFloat(p.Mode);
+#if FACADE_COATED
+  vec4 filtered = facadeCoatedFootprint(
+      fractions, p.PointDx.xy, p.PointDx.zw, p.Dy, storeysPerM, pointM, dxM, dyM);
+#else
+  vec4 filtered = vec4(facadeFootprintCoverage(
+      fractions, p.PointDx.xy, p.PointDx.zw, p.Dy, storeysPerM), 0.0);
+#endif
+  FacadeGlazing surface = facadeCoatedWindow(filtered, vec3(palette[4], palette[5], palette[6]), palette[7]);
+  results[index] = Result(vec4(surface.albedo, surface.roughness), filtered);
+}
