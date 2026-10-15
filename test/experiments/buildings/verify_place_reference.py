@@ -4,7 +4,8 @@ import unittest
 from dataclasses import replace
 
 import numpy as np
-from place_reference import PLACES, axes, ecef, read
+from outshine_ref.places import axes, ecef
+from place_reference import PLACES, read
 
 
 class PlaceReferences(unittest.TestCase):

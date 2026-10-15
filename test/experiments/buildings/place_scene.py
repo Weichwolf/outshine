@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import replace
 
 import numpy as np
-from place_height import Elevation
+from outshine_ref.places import Elevation
 from place_materials import Palette
 from place_reference import read
 from place_terrain import mesh as terrain_mesh

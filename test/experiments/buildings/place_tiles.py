@@ -1,29 +1,17 @@
 """Decode pinned Place vectors into one geodetic ENU frame with actual DEM base heights."""
 
-import hashlib
 import json
-from pathlib import Path
 
-import mapbox_vector_tile
 import numpy as np
 import shapely
 from context import attach
-
-
-def geography(points, extent, tile):
-    zoom, x, y = tile
-    world = (np.asarray(points) / extent + [x, y]) / (1 << zoom)
-    longitude = world[:, 0] * 360 - 180
-    latitude = np.rad2deg(np.arctan(np.sinh(np.pi * (1 - 2 * world[:, 1]))))
-    return latitude, longitude
+from outshine_ref.places import decode_vector
+from outshine_ref.places import tile_geography as geography
 
 
 def decode(reference, receipt, elevation):
-    data = Path(receipt["path"]).read_bytes()
-    if hashlib.sha256(data).hexdigest() != receipt["sha256"]:
-        raise ValueError("Pinned Place vector bytes changed")
     tile = tuple(receipt["tile"])
-    layers = mapbox_vector_tile.decode(data, default_options={"y_coord_down": True})
+    layers = decode_vector(receipt)
 
     def project(points, extent):
         latitude, longitude = geography(points, extent, tile)

@@ -5,13 +5,14 @@ import concurrent.futures
 import hashlib
 import json
 import re
-import subprocess
 from dataclasses import asdict
 from pathlib import Path
 
+from outshine_ref.places import acquire as acquire_source
+from outshine_ref.places import covering_tiles as tiles
 from place_reference import PLACES, ROOT, read
 from samples import SOURCES
-from special_sources import endpoint, tiles
+from special_sources import endpoint
 
 
 def elevation_endpoint():
@@ -27,59 +28,7 @@ def elevation_endpoint():
 
 
 def acquire(subject, fetch):
-    kind, tile, url = subject
-    folder = SOURCES if kind == "vector" else SOURCES.parent / "mapterhorn"
-    path = folder / (
-        hashlib.sha256(url.encode()).hexdigest()
-        + (".pbf" if kind == "vector" else ".webp")
-    )
-    if path.is_file():
-        data, origin = path.read_bytes(), "existing-source-cache"
-    elif fetch:
-        encoded = subprocess.check_output(
-            [
-                "curl",
-                "--silent",
-                "--show-error",
-                "--location",
-                "--max-time",
-                "60",
-                "--max-filesize",
-                str(16 * 1024 * 1024),
-                "--write-out",
-                "\n%{http_code}",
-                url,
-            ]
-        )
-        data, status = encoded[:-4], encoded[-3:].decode("ascii")
-        if status == "404" and kind == "elevation":
-            return {
-                "kind": kind,
-                "tile": list(tile),
-                "url": url,
-                "missing": True,
-                "reason": "Preferred elevation provider returns HTTP 404",
-            }
-        if status != "200":
-            raise ValueError("Preferred provider HTTP " + status + ": " + url)
-        if not data:
-            raise ValueError("Preferred provider returned an empty source")
-        folder.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(path.suffix + ".tmp")
-        temporary.write_bytes(data)
-        temporary.replace(path)
-        origin = "network"
-    else:
-        raise FileNotFoundError(str(path) + "; acquisition requires --fetch")
-    return {
-        "kind": kind,
-        "tile": list(tile),
-        "url": url,
-        "path": str(path),
-        "bytes": len(data),
-        "sha256": hashlib.sha256(data).hexdigest(),
-        "origin": origin,
-    }
+    return acquire_source(subject, SOURCES.parent, fetch=fetch)
 
 
 def run(output, fetch, radius_m):

@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+from outshine_ref.places import Elevation
 from PIL import Image
-from place_height import Elevation
 
 
 class Heights(unittest.TestCase):
