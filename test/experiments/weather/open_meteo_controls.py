@@ -121,11 +121,11 @@ class Controls(unittest.TestCase):
 
     def test_wind_from_cardinals_and_full_turn(self):
         for bearing, expected in [
-            (0, [0.0, 8.0]),
+            (0, [0.0, -8.0]),
             (90, [-8.0, 0.0]),
-            (180, [0.0, -8.0]),
+            (180, [0.0, 8.0]),
             (270, [8.0, 0.0]),
-            (360, [0.0, 8.0]),
+            (360, [0.0, -8.0]),
         ]:
             with self.subTest(bearing=bearing):
                 data = fixture()
@@ -137,7 +137,7 @@ class Controls(unittest.TestCase):
                 )
                 result = sample(data)
                 for actual, wanted in zip(
-                    result["wind_horizontal_10m_east_south_m_s"], expected
+                    result["wind_horizontal_10m_east_north_m_s"], expected
                 ):
                     self.assertAlmostEqual(actual, wanted, delta=1e-12)
                 self.assertEqual(result["wind_from_10m_deg"], bearing % 360)
@@ -147,9 +147,9 @@ class Controls(unittest.TestCase):
         data["hourly"]["wind_speed_10m"] = [0, 2]
         data["hourly_units"]["wind_speed_10m"] = "m/s"
         result = normalize(*encoded(data))["samples"]
-        self.assertEqual(result[0]["wind_horizontal_10m_east_south_m_s"], [0.0, 0.0])
+        self.assertEqual(result[0]["wind_horizontal_10m_east_north_m_s"], [0.0, 0.0])
         self.assertIsNone(result[0]["wind_from_10m_deg"])
-        self.assertIsNone(result[1]["wind_horizontal_10m_east_south_m_s"])
+        self.assertIsNone(result[1]["wind_horizontal_10m_east_north_m_s"])
 
     def test_query_and_grid_positions_remain_separate(self):
         data = fixture()
