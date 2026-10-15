@@ -362,6 +362,10 @@ reject locally. There is no new source provider or use-class inference.
 room planning. Its distant envelope uses the installed `union_prisms` directly
 from the same contours, without building room geometry. Layer interfaces are
 the actual indoor **floor** heights, including the exposed terrace plates.
+Brüstungen und Körper werden zu einer Außenhaut vereinigt; ihre innenliegenden
+Kontaktkappen verschwinden. Unabhängige Prismenintegration prüft Volumen,
+gesamte Außenfläche und jeden Höhenabschnitt; getrennte Kontaktkappen scheitern
+als Gegenfall trotz passendem Volumen.
 Near assembly contains the existing room walls, slabs, stairs, glazing,
 frames, terrace decks and guards. Actual compiled solid rays check access.
 `stepped_openings.py` supplies two triangles per distant opening with the same

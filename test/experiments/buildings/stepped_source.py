@@ -82,64 +82,55 @@ def layers(plan, wall_material=1):
     return result
 
 
-def roof_guard(plan, wall_material):
+def roof_volume(plan, wall_material):
     top = level(plan, plan["storeys"] - 1)["footprint"]
     guard = top.difference(top.buffer(-0.12, join_style="mitre"))
-    return union_prisms(
-        [
-            PrismVolume(
-                plan["id"] + "/roof-guard",
-                shapely.set_precision(guard, 0.0),
-                plan["body_top_m"],
-                plan["source_top_m"],
-                wall_material,
-            )
-        ]
+    return PrismVolume(
+        plan["id"] + "/roof-guard",
+        shapely.set_precision(guard, 0.0),
+        plan["body_top_m"],
+        plan["source_top_m"],
+        wall_material,
     )
 
 
-def terrace_guards(plan, wall_material):
-    return union_prisms(
-        [
-            PrismVolume(
-                plan["id"] + f"/terrace-guard-{index}",
-                shapely.set_precision(current["terrace_guard"], 0.0),
-                current["floor_z_m"],
-                current["floor_z_m"] + PARAPET_HEIGHT_M,
-                wall_material,
-            )
-            for index, current in enumerate(plan["storey_plans"])
-            if not current["terrace_guard"].is_empty
-        ]
-    )
+def roof_guard(plan, wall_material):
+    return union_prisms([roof_volume(plan, wall_material)])
 
 
-def exterior(plan, wall_material):
+def terrace_volumes(plan, wall_material):
+    return [
+        PrismVolume(
+            plan["id"] + f"/terrace-guard-{index}",
+            shapely.set_precision(current["terrace_guard"], 0.0),
+            current["floor_z_m"],
+            current["floor_z_m"] + PARAPET_HEIGHT_M,
+            wall_material,
+        )
+        for index, current in enumerate(plan["storey_plans"])
+        if not current["terrace_guard"].is_empty
+    ]
+
+
+def exterior(plan, wall_material, inspect_layers=False):
     declared = layers(plan, wall_material)
-    envelope = union_prisms(declared)
-    guard = roof_guard(plan, wall_material)
-    terraces = terrace_guards(plan, wall_material)
-    points = np.r_[
-        envelope.mesh["vertices"], guard.mesh["vertices"], terraces.mesh["vertices"]
-    ]
-    faces = np.r_[
-        envelope.mesh["faces"],
-        guard.mesh["faces"] + len(envelope.mesh["vertices"]),
-        terraces.mesh["faces"]
-        + len(envelope.mesh["vertices"])
-        + len(guard.mesh["vertices"]),
-    ]
-    material = np.r_[
-        envelope.mesh["materials"], guard.mesh["materials"], terraces.mesh["materials"]
-    ].copy()
+    envelope = union_prisms(declared) if inspect_layers else None
+    complete = union_prisms(
+        [
+            *declared,
+            roof_volume(plan, wall_material),
+            *terrace_volumes(plan, wall_material),
+        ]
+    )
+    points = complete.mesh["vertices"]
+    faces = complete.mesh["faces"]
+    material = complete.mesh["materials"].copy()
     xyz = points[faces]
     normal = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
-    material[: len(envelope.mesh["faces"])][
-        normal[: len(envelope.mesh["faces"]), 2] > 0
-    ] = 9
+    material[(complete.source_indices < len(declared)) & (normal[:, 2] > 0)] = 9
     mesh = dict(vertices=points, faces=faces, materials=material)
     mesh = corner_buffers(mesh, wall_material)
-    return mesh, envelope, guard, "prism-union"
+    return mesh, envelope, complete, "prism-union"
 
 
 def near(plan, wall_material):

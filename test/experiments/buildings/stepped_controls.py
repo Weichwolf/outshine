@@ -5,6 +5,8 @@ from boolean_building_bands import construct
 from building_vertical import level, mesh
 from opening_details import attach, expand, slots
 from outshine_ref.buildings.modelling import PrismVolume, union_prisms
+from stepped_envelope_geometry import declared as exterior_prisms
+from stepped_envelope_geometry import geometry as complete_geometry
 from stepped_source import layers
 from structural_shell_geometry import (
     NativeColumns,
@@ -24,6 +26,26 @@ def rejected(label, operation):
     except (ValueError, AssertionError) as error:
         return dict(case=label, status="rejected", reason=str(error))
     raise AssertionError("Broken actual stepped product accepted: " + label)
+
+
+def separate_caps(plan):
+    values, _, _ = exterior_prisms(plan)
+    pieces = [union_prisms([value]) for value in values]
+    vertices = []
+    faces = []
+    roots = []
+    offset = 0
+    for piece in pieces:
+        vertices.append(piece.mesh["vertices"])
+        faces.append(piece.mesh["faces"] + offset)
+        roots.append(piece.vertex_roots + offset)
+        offset += len(piece.mesh["vertices"])
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        mesh=dict(vertices=np.concatenate(vertices), faces=np.concatenate(faces)),
+        vertex_roots=np.concatenate(roots),
+    )
 
 
 def negative(plan):
@@ -116,6 +138,12 @@ def negative(plan):
             case="lowered-far-terrace",
             status="rejected",
             missing_deck_m2=current["terrace"].area,
+        )
+    )
+    separate = separate_caps(plan)
+    results.append(
+        rejected(
+            "internal-body-and-guard-caps", lambda: complete_geometry(plan, separate)
         )
     )
     return results

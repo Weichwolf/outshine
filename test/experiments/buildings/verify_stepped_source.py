@@ -15,6 +15,7 @@ from opening_details import slots
 from outshine_ref.buildings.modelling import PrismVolume, union_prisms
 from showcase_tiles import view_for
 from stepped_controls import negative
+from stepped_envelope_geometry import geometry as complete_geometry
 from stepped_openings import apply as opening_patches
 from stepped_source import exterior, layers, near, plan_for
 from structural_shell_geometry import mesh_section
@@ -132,13 +133,16 @@ def run(output, sites, repeats):
             started = time.perf_counter()
             try:
                 plan = plan_for(row)
-                outer, envelope, guard, comparison = exterior(plan, 20)
+                outer, envelope, guard, comparison = exterior(
+                    plan, 20, inspect_layers=True
+                )
                 near_mesh, access, terraces, light = near(plan, 20)
             except (ValueError, AssertionError, shapely.errors.GEOSException) as error:
                 rejected.append(dict(id=row["id"], reason=str(error)))
                 print(row["id"], "rejected", str(error), flush=True)
                 continue
             metrics = geometry(plan, envelope)
+            complete = complete_geometry(plan, guard)
             spaces = connected_spaces(plan)
             patched, opening_records = opening_patches(plan, outer, 32768)
             if [r["id"] for r in opening_records] != [r["id"] for r in slots(plan)]:
@@ -174,6 +178,7 @@ def run(output, sites, repeats):
                 far_openings=len(opening_records),
                 patched_triangles=len(patched["faces"]),
                 exterior_method=comparison,
+                complete_exterior=complete,
                 seconds=time.perf_counter() - started,
                 **metrics,
             )
