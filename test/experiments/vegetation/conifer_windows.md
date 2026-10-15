@@ -47,6 +47,10 @@ grass, camera, lights, 2560×1440 and 64 EEVEE samples as the complete physical 
 Camera, sun and fill choose views independently. Four trees require 1,536 draw
 triangles across the three roles; unchanged ground/grass bring the tile to
 136,160 triangles. This draw count excludes the offline catalog/atlas bake.
+`conifer_whole_cache.py` measures complete fresh-process product decode separately
+from 60 CPU view queries, without rebuilding plans, meshes or textures. Resident
+array bytes and host RSS are distinct; OS file caches may be warm. Upload, shading,
+GPU allocations and native frame costs are not measured by this experiment.
 Normals are raw mean controls and leaf roughness/transmission are approximate;
 no equivalence to the procedural physical-needle shader or #134 is claimed.
 
@@ -62,6 +66,7 @@ sizes; botanical/shading/perspective/wind and LOD-transition approval stay open.
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_products.py --phase catalog --output build/experiments/vegetation/conifer-whole --size 256
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_products.py --phase build --output build/experiments/vegetation/conifer-whole --size 256
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_checks.py --whole build/experiments/vegetation/conifer-whole --products
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_cache.py --products build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/fresh-cache.json
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_comparison.py --whole build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/shoot-comparison.json
 OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/vegetation/conifer_whole_preview.py -- --scenario build/experiments/vegetation/conifer-crowns/tile/tile.json --whole build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/tile/render.png
 ```
