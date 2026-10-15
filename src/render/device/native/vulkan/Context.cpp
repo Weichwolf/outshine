@@ -60,7 +60,10 @@ ReportValidation(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     static_cast<Context *>(user)->ValidationErrors.fetch_add(1, std::memory_order_relaxed);
   }
   if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-    std::println(stderr, "Vulkan validation [{}]: {}", message->pMessageIdName, message->pMessage);
+    std::println(stderr,
+                 "Vulkan validation [{}]: {}",
+                 message->pMessageIdName == nullptr ? "unnamed" : message->pMessageIdName,
+                 message->pMessage);
   }
   return VK_FALSE;
 }
@@ -170,6 +173,9 @@ Result<void> InitLogical(Context &context) {
   enabled.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   enabled.synchronization2 = VK_TRUE;
   enabled.dynamicRendering = VK_TRUE;
+  VkPhysicalDeviceFeatures core{};
+  core.shaderStorageImageExtendedFormats = features.features.shaderStorageImageExtendedFormats;
+  context.StorageImageExtendedFormats = core.shaderStorageImageExtendedFormats != VK_FALSE;
   const float priority = 1.0f;
   VkDeviceQueueCreateInfo queue{};
   queue.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -179,6 +185,7 @@ Result<void> InitLogical(Context &context) {
   VkDeviceCreateInfo create{};
   create.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   create.pNext = &enabled;
+  create.pEnabledFeatures = &core;
   create.queueCreateInfoCount = 1;
   create.pQueueCreateInfos = &queue;
   const auto result = vkCreateDevice(context.Physical, &create, nullptr, &context.Logical);

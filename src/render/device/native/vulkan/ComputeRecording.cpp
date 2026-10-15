@@ -21,10 +21,16 @@ Result<std::vector<VkDescriptorSet>> Recording::AllocateSets(const PipelineState
     constexpr uint32_t descriptorSetBudget = 128;
     constexpr uint32_t storageDescriptorBudget = 256;
     constexpr uint32_t uniformDescriptorBudget = 64;
-    constexpr std::array sizes = {VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                                                       .descriptorCount = storageDescriptorBudget},
-                                  VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                                                       .descriptorCount = uniformDescriptorBudget}};
+    constexpr uint32_t imageDescriptorBudget = 256;
+    constexpr std::array sizes = {
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                             .descriptorCount = storageDescriptorBudget},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                             .descriptorCount = uniformDescriptorBudget},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                             .descriptorCount = imageDescriptorBudget},
+        VkDescriptorPoolSize{.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                             .descriptorCount = imageDescriptorBudget}};
     VkDescriptorPoolCreateInfo create{};
     create.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     create.maxSets = descriptorSetBudget;
@@ -111,9 +117,12 @@ Result<std::vector<VkDescriptorSet>> Recording::BindResources(const VulkanPipeli
   }
   auto sets = AllocateSets(*pipeline.State());
   if (!sets) { return std::unexpected(sets.error()); }
-  std::vector<VkDescriptorBufferInfo> infos;
-  infos.reserve(bindings.size());
-  for (const auto &declared : layout.Bindings) {
+  std::vector<VkDescriptorBufferInfo> buffers(layout.Bindings.size());
+  std::vector<VkDescriptorImageInfo> images(layout.Bindings.size());
+  std::vector<VkWriteDescriptorSet> writes;
+  writes.reserve(layout.Bindings.size());
+  for (std::size_t at = 0; at < layout.Bindings.size(); ++at) {
+    const auto &declared = layout.Bindings[at];
     const auto bound = std::ranges::find_if(bindings, [&declared](const Binding &binding) {
       return declared.Set == binding.Set && declared.Slot == binding.Slot;
     });
@@ -121,27 +130,74 @@ Result<std::vector<VkDescriptorSet>> Recording::BindResources(const VulkanPipeli
       return std::unexpected(
           Error{.Kind = ErrorKind::Invalid, .Message = "compute reflected set/slot is not bound"});
     }
-    const auto info = BindBuffer(declared, *bound);
-    if (!info) { return std::unexpected(info.error()); }
-    infos.push_back(*info);
-  }
-  std::vector<VkWriteDescriptorSet> writes;
-  writes.reserve(bindings.size());
-  for (std::size_t at = 0; at < layout.Bindings.size(); ++at) {
-    const auto &binding = layout.Bindings[at];
     VkWriteDescriptorSet write{};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = (*sets)[binding.Set];
-    write.dstBinding = binding.Slot;
+    write.dstSet = (*sets)[declared.Set];
+    write.dstBinding = declared.Slot;
     write.descriptorCount = 1;
-    write.descriptorType = binding.Kind == BindingKind::Uniform ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-                                                                : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    write.pBufferInfo = &infos[at];
+    write.descriptorType = DescriptorType(declared.Kind);
+    if (declared.Kind == BindingKind::Uniform || declared.Kind == BindingKind::StorageBuffer) {
+      const auto info = BindBuffer(declared, *bound);
+      if (!info) { return std::unexpected(info.error()); }
+      buffers[at] = *info;
+      write.pBufferInfo = &buffers[at];
+    } else {
+      const auto info = BindImage(declared, *bound, *pipeline.State());
+      if (!info) { return std::unexpected(info.error()); }
+      images[at] = *info;
+      write.pImageInfo = &images[at];
+    }
     writes.push_back(write);
   }
   vkUpdateDescriptorSets(
       Context_->Logical, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
   return sets;
+}
+
+namespace {
+
+struct ImageUse {
+  TextureView View;
+  bool Writes = false;
+};
+
+Result<void> CheckImageAliases(const ComputeLayout &layout, std::span<const Binding> bindings) {
+  std::vector<ImageUse> images;
+  for (const auto &declared : layout.Bindings) {
+    const auto bound = std::ranges::find_if(bindings, [&declared](const Binding &binding) {
+      return declared.Set == binding.Set && declared.Slot == binding.Slot;
+    });
+    if (bound == bindings.end()) { continue; }
+    if (const auto *sampled = std::get_if<SampledTexture>(&bound->Value)) {
+      images.push_back({.View = sampled->Image});
+    }
+    if (const auto *storage = std::get_if<StorageTexture>(&bound->Value)) {
+      images.push_back({.View = storage->Image, .Writes = declared.Usage != Access::Read});
+    }
+  }
+  for (std::size_t left = 0; left < images.size(); ++left) {
+    const auto &first = images[left];
+    for (std::size_t right = left + 1; right < images.size(); ++right) {
+      const auto &second = images[right];
+      const auto intersects = [](uint32_t a, uint32_t sizeA, uint32_t b, uint32_t sizeB) {
+        return uint64_t(a) < uint64_t(b) + sizeB && uint64_t(b) < uint64_t(a) + sizeA;
+      };
+      if (first.View.Image != nullptr && first.View.Image == second.View.Image &&
+          (first.Writes || second.Writes) &&
+          intersects(
+              first.View.FirstMip, first.View.Mips, second.View.FirstMip, second.View.Mips) &&
+          intersects(first.View.FirstLayer,
+                     first.View.Layers,
+                     second.View.FirstLayer,
+                     second.View.Layers)) {
+        return std::unexpected(
+            Error{.Kind = ErrorKind::Invalid, .Message = "overlapping writable image bindings"});
+      }
+    }
+  }
+  return {};
+}
+
 }
 
 Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
@@ -160,6 +216,7 @@ Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
                                    .Message = "compute dispatch exceeds device workgroup limit"});
     }
   }
+  if (auto valid = CheckImageAliases(native->Layout(), bindings); !valid) { return valid; }
   const auto sets = BindResources(*native, bindings);
   if (!sets) { return std::unexpected(sets.error()); }
   if (std::ranges::find(Pipelines_, native->State()) == Pipelines_.end()) {

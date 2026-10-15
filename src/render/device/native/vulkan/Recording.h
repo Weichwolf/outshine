@@ -3,6 +3,7 @@
 
 #ifdef __linux__
 #include "Buffer.h"
+#include "Image.h"
 #include "Pipeline.h"
 #include <memory>
 #include <span>
@@ -21,6 +22,7 @@ public:
 
   [[nodiscard]] Result<void> Initialize();
   [[nodiscard]] Result<void> End();
+  void CommitImages() noexcept;
 
   [[nodiscard]] const std::shared_ptr<Context> &Owner() const noexcept { return Context_; }
 
@@ -48,7 +50,23 @@ private:
     VkAccessFlags2 Access = 0;
   };
 
+  struct ImageAccess {
+    VkPipelineStageFlags2 Stage = 0;
+    VkAccessFlags2 Access = 0;
+    VkImageLayout Layout = VK_IMAGE_LAYOUT_GENERAL;
+  };
+
+  struct TrackedImage {
+    std::shared_ptr<ImageState> Image;
+    std::vector<VkImageLayout> Layouts;
+  };
+
   [[nodiscard]] Result<void> Hold(const std::shared_ptr<BufferState> &buffer);
+  [[nodiscard]] Result<void>
+  UseImage(const std::shared_ptr<ImageState> &image, TextureView view, ImageAccess access);
+  [[nodiscard]] Result<VkDescriptorImageInfo>
+  BindImage(const ShaderBinding &declared, const Binding &binding, const PipelineState &pipeline);
+
   void Use(const BufferState &buffer, ByteRange range, BufferAccess access);
   [[nodiscard]] Result<std::vector<VkDescriptorSet>> AllocateSets(const PipelineState &pipeline);
   [[nodiscard]] Result<std::vector<VkDescriptorSet>>
@@ -61,6 +79,9 @@ private:
   VkCommandBuffer Commands_ = VK_NULL_HANDLE;
   VkDescriptorPool Descriptors_ = VK_NULL_HANDLE;
   bool Finished_ = false;
+  std::vector<TrackedImage> Images_;
+  std::vector<VkImageView> Views_;
+  std::vector<std::shared_ptr<SamplerState>> Samplers_;
   std::vector<std::shared_ptr<BufferState>> Buffers_;
   std::vector<std::shared_ptr<PipelineState>> Pipelines_;
 };

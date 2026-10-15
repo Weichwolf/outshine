@@ -1,8 +1,16 @@
 #include "NativeGpuCheck.h"
+#include "Check.h"
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+#include <span>
+#include <utility>
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <limits>
+#include <string_view>
 
 namespace {
 using namespace outshine::Render::Native;
@@ -335,8 +343,10 @@ void Pyramid(Device &device, const char *path) {
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 3) { return 1; }
-  auto device = Require(CreateDevice());
+  if ((argc != 3 && argc != 4) || (argc == 4 && std::string_view(argv[3]) != "--validation")) {
+    return 1;
+  }
+  auto device = Require(CreateDevice({.Validation = argc == 4}));
   const auto pipeline = Require(device->CreateComputePipeline(Spirv(argv[1])));
   Invalid(*device);
   Sample(*device, *pipeline, false);
