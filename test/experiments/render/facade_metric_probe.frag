@@ -21,7 +21,7 @@ void main() {
   float bays = materialAt().base.r;
   vec3 physical = groundWorldM - vec3(7.31, 8.73, 4.27);
   vec2 reference = vec2(dot(physical, vec3(cos(0.43), 0.0, sin(0.43))), physical.y);
-  reference += vec2(1.6 * bays, 2.9 * 10.23);
+  reference += vec2(1.6 * bays, materialAt().base.g);
   outMaterial = materialAt().base;
   outEstimate = vec4(at * metres, 0.0, 1.0);
   outReference = vec4(reference, metres);

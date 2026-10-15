@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from facade_coating_raster import HEIGHT, ROOT, WIDTH, compile_shaders, run
 from facade_phase_perspective import projective
-from facade_phase_raster import payload
+from facade_phase_raster import VERTEX, VERTEX_OFFSET, payload
 
 
 def main():
@@ -64,9 +64,12 @@ def main():
             if perspective:
                 data, _ = projective(data)
             data = bytearray(data)
-            np.frombuffer(data, dtype="<f4", count=96, offset=224)[offsets["basex"]] = (
-                bays
-            )
+            material = np.frombuffer(data, dtype="<f4", count=96, offset=224)
+            material[offsets["basex"]] = bays
+            vertices = np.frombuffer(data, dtype=VERTEX, count=6, offset=VERTEX_OFFSET)
+            material[offsets["basey"]] = (
+                vertices["uv"][:, 1].astype(float).mean() - 1
+            ) * 2.9
             label = name + ("-perspective" if perspective else "-ortho")
             source, target = output / f"{label}.bin", output / f"{label}.f32"
             source.write_bytes(data)
