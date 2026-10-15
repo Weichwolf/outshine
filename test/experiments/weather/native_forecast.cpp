@@ -81,7 +81,7 @@ void Hour(const HourlyWeather &hour) {
   std::print(",");
   Number(hour.Wind10m ? std::optional{hour.Wind10m->EastMs} : std::nullopt);
   std::print(",");
-  Number(hour.Wind10m ? std::optional{hour.Wind10m->SouthMs} : std::nullopt);
+  Number(hour.Wind10m ? std::optional{hour.Wind10m->NorthMs} : std::nullopt);
   constexpr std::array later = {&HourlyWeather::AirTemperature2mK,
                                 &HourlyWeather::RelativeHumidity2m,
                                 &HourlyWeather::VisibilityM,

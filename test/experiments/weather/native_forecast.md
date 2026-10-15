@@ -17,7 +17,9 @@ the native acquisition time is explicitly whole UTC seconds.
 Each decoded hour owns optional native values: missing/null remains unknown and
 known zero remains zero. Requested position, model-grid position and downscaling
 surface elevation stay separate. Wind is horizontal at 10 m AGL, expressed east
-and south; it does not assert cloud-height wind. Precipitation amounts belong to
+and north in ENU; it does not assert cloud-height wind. Meteorological wind-from
+uses east=-speed*sin(bearing), north=-speed*cos(bearing). Conversion to rendering
+belongs exclusively to `RenderFrame`. Precipitation amounts belong to
 the preceding hour. Cloud base, vertical wind and model-run UTC are not inferred.
 No surface history, snow mass, cloud deck or current weather is invented.
 

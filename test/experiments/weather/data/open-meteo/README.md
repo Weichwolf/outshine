@@ -28,12 +28,15 @@ fields from preceding-hour amounts. This bounded reference accepts one location,
 consecutive hourly Unix timestamps and explicit units. It checks the response hash,
 caps input size and preserves missing/null values as unknown; known zero stays zero.
 Malformed values or incompatible units fail instead of being guessed or clamped.
+Normalized schema v2 names the horizontal ENU vector `wind_horizontal_10m_east_north_m_s`;
+wind-from north flows toward negative north. Render-frame conversion happens later.
+This corrects the v1 reference's opposite second axis; original source bytes stay intact.
 
 | Input | Normalized meaning |
 | --- | --- |
 | UTC Unix time | Signed 64-bit seconds; timezone offset remains metadata |
 | Total/low/mid/high cloud cover | Separate fractions in [0, 1] |
-| Wind speed/direction at 10 m AGL | m/s, wind-from degrees, derived east/south velocity |
+| Wind speed/direction at 10 m AGL | m/s, wind-from degrees, derived ENU east/north velocity |
 | Temperature/humidity at 2 m AGL | K, relative humidity fraction |
 | Visibility/surface pressure | m, Pa |
 | Precipitation/rain/showers | Previous-hour water-equivalent amount in kg/m² |
