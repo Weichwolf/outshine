@@ -11,6 +11,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <fstream>
 #include <ios>
@@ -18,6 +19,7 @@
 #include <print>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -102,7 +104,7 @@ void StreamCache(const BakedTile &product) {
   size_t cursor = 0;
   const auto read = [&](std::span<uint8_t> into) {
     if (cursor > stream.size() || into.size() > stream.size() - cursor) { return false; }
-    std::copy_n(stream.begin() + cursor, into.size(), into.begin());
+    std::ranges::copy(std::span(stream).subspan(cursor, into.size()), into.begin());
     cursor += into.size();
     return true;
   };
@@ -127,7 +129,7 @@ void RejectOldVersion(std::vector<uint8_t> bytes, std::string_view key) {
   bytes[kVersionOffset] = kOldVersion;
   constexpr size_t kHashBytes = 64;
   const auto checksum = Sha256Hex(bytes.data(), bytes.size() - kHashBytes);
-  std::copy(checksum.begin(), checksum.end(), bytes.end() - kHashBytes);
+  std::ranges::copy(checksum, std::span(bytes).last(kHashBytes).begin());
   CHECK(!DecodeStructureArtifact(bytes, key, 1),
         "a checksum-valid old schema cannot masquerade as a current cache hit");
 }
