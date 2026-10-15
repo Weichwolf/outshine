@@ -26,14 +26,13 @@ python3 test/experiments/render/ground_litter_native.py --palette palette.f32 --
 ```
 
 Use `--palette test/outshine/data/materials/ground-litter.palette` for the shared
-cross-device comparison. This requires neither another agent's private temp
-directory nor running the retired SDL helper to acquire the input. The producer
+cross-device comparison. The fixture supplies the same input on each device without an external producer
+or another agent's private directory. The producer
 call was `GroundMaterialPalette(templates, {{.11f, .22f, .33f, .9f}})` after loading
 the two shipped catalogs at the recorded commit. Native-generated probe outputs
 remain in system temp and are checked against the mathematical references.
 
-`GLSLANG` identifies the existing glslangValidator tool. NumPy and Pillow are
-required through the shared reference module. Shader compilation runs at nice10;
+`GLSLANG` identifies the existing glslangValidator tool. NumPy is required; the mathematical reference module has no GPU dependency. Shader compilation runs at nice10;
 actual native execution uses normal priority. Outputs must be in system temp.
 
 Preparation emits the exact probe bytes, three palette variants, the three

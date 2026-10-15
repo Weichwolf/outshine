@@ -16,7 +16,7 @@ import tempfile
 import numpy as np
 
 from ground_detail import noise2
-from ground_litter_probe import ROOT, box_reference, make_probes, validate
+from ground_litter_reference import ROOT, box_reference, make_probes, validate
 
 
 def gauss_reference(at, dx, dy, scale, points):
@@ -83,7 +83,7 @@ def prepare(output, original):
                                            command=command, compile_exit=compiled.returncode,
                                            field_range=[float(reference.min()), float(reference.max())]))
     manifest['source_sha256'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-                                 for path in (Path(__file__), ROOT / 'test/experiments/render/ground_litter_probe.py',
+                                 for path in (Path(__file__), ROOT / 'test/experiments/render/ground_litter_reference.py',
                                               ROOT / 'src/render/shaders/groundLitterOriented.glsl')}
     (output / 'preparation.json').write_text(json.dumps(manifest, indent=2) + '\n')
     return variants, probes, count, panels

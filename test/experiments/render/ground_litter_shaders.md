@@ -22,23 +22,26 @@ No material parameters, palette bytes, bindings, textures or passes are added.
 
 `ground_litter_shaders.py` compiles the actual component probe and every ground
 output variant declared by Make, for all three candidates. It translates each
-SPIR-V module to MSL 2.3, compares reflected resource counts and translated
+SPIR-V module to MSL 2.3, compares reflected resource layouts and translated
 resource-type/index maps with the box variant, checks the 64x1x1 compute shape,
 proves default/explicit-box SPIR-V equality for the component probe and rejects
 an invalid definition.
-The existing offline shadercross tool supplies SPIRV-Cross translation during
-the backend transition; it creates no SDL GPU device. Reflection counts and
-MSL text translation do not prove native Metal compilation or execution.
+SPIRV-Cross translates SPIR-V directly. The checker compares buffer access,
+set/binding, member offsets and array strides, and verifies the compute input/
+output stride32 and uniform size16 against the native consumer. Translation
+and layout checks do not prove native Metal compilation or execution.
 
 Prepare the shared generated BRDF table with the repository toolchain, then run
-with glslangValidator and shadercross from the existing pinned tools:
+with glslangValidator and the SPIRV-Cross CLI:
 
 ```sh
 make build/shaders/brdfTables.glsl
 python3 test/experiments/render/ground_litter_shaders.py --output /tmp/outshine-material-oriented
 ```
 
-`GLSLANG` and `SHADERCROSS` can identify those installed tools. The experiment
+`GLSLANG` and `SPIRVCROSS` identify the installed tools. On Debian, the required
+CLI package is `spirv-cross`; the already used `spirv-cross-c-shared` development
+library alone does not provide that executable. The experiment
 requires explicit system-temp output and records source/tool hashes, reflected
 metadata and generated SPIR-V/MSL. Generated BRDF tables stay under `build/`.
 With `--native-syntax`, it also checks the native consumer using `CXX` and the
@@ -53,7 +56,7 @@ remain required before selecting a candidate. The unchanged box remains the
 production default until those measurements justify the change.
 
 `test/harness/render/NativeGroundLitterProbe.cpp` consumes the shared native
-contract published by Performance at `96eeafc4c`, without SDL or native API types.
+contract published by Performance at `b4b361429`, without SDL or native API types.
 It accepts the existing raw palette/probe fixtures, uploads once, dispatches the
 actual component shader, copies results to readback and waits with an explicit
 30-second diagnostic bound. The pipeline's reflected set/slot/access values,
@@ -69,6 +72,6 @@ native_ground_litter shader.spv palette.f32 probes.bin result.f32 unmapped
 request a total of `2*palette_bytes + 4*probe_bytes`; three copies transfer
 `palette_bytes + 2*probe_bytes`. These are logical requested/copy sizes, excluding
 driver allocation granularity, transient descriptors and CPU inputs. The probe
-does not call wall time GPU time. It can only link/run once the shared native
-headers and corresponding backend from #243/#240 are integrated; syntax checking
-against the published headers is not a backend execution result.
+does not call wall time GPU time. It links against the common backend from #243/#240. Source, compile and native
+execution must identify the corresponding backend commit; syntax checking alone
+is not a backend execution result.

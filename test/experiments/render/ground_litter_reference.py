@@ -1,69 +1,17 @@
-"""Execute production ground GLSL through SDL/Vulkan; this is not a Place gate.
+"""CPU input generation and numerical references for native ground materials."""
 
-Requires the test runner's C++ toolchain, SDL3, glslangValidator, NumPy and Pillow.
-Choose concurrency for available host resources. Outputs need an explicit temp path.
-"""
-
-import argparse
-import hashlib
-import json
-import os
 from pathlib import Path
-import shlex
-import subprocess
-import tempfile
 
 import numpy as np
-from PIL import Image, ImageDraw
 
 from ground_detail import grains, noise2
 from ground_gradients import grain_gradient, noise_gradient
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
 DTYPE = np.dtype([("point_dx", "<f4", (4,)), ("dy", "<f4", (2,)),
                   ("which", "<i4"), ("mode", "<u4")])
-
-
-def run(command, **kwargs):
-    result = subprocess.run(command, cwd=ROOT, check=True, text=True,
-                            capture_output=True, timeout=180, **kwargs)
-    print(result.stdout, end="", flush=True)
-    if result.stderr:
-        print(result.stderr, end="", flush=True)
-    return result
-
-
-def build(output):
-    shader = output / "ground_litter_probe.spv"
-    run([os.environ.get("GLSLANG", "glslangValidator"), "-V", "--target-env", "vulkan1.0",
-         "-I" + str(ROOT / "src/render/shaders"),
-         str(Path(__file__).with_suffix(".comp")), "-o", str(shader)])
-    source = ["render/device/GroundPalette", "world/ground/GroundMaterials",
-              "world/ground/VegetationTemplates", "world/ground/AlpineLimit",
-              "base/format/Json", "base/io/ReadTextFile", "base/io/Log"]
-    includes = ["include", "src/base", "src/base/io", "src/base/format",
-                "src/world/ground", "src/render/device"]
-    flags = shlex.split(subprocess.check_output(["pkg-config", "--cflags", "--libs", "sdl3"], text=True))
-    declarations = dict(line.split("=", 1) for line in (ROOT / "test/run.sh").read_text().splitlines()
-                        if line.startswith(("CXXSTD=", "WARN=", "OPT=")))
-    toolchain = [flag for key in ("CXXSTD", "WARN", "OPT")
-                 for flag in shlex.split(declarations[key].strip('"'))]
-    binary = output / "ground_litter_probe"
-    run([*shlex.split(os.environ.get("CXX", "c++")), *toolchain, "-fno-exceptions",
-         *["-I" + str(ROOT / path) for path in includes],
-         str(ROOT / "test/harness/render/GroundLitterProbe.cpp"),
-         *[str(ROOT / "src" / (path + ".cpp")) for path in source], *flags, "-o", str(binary)])
-    return binary, shader
-
-
-def capture(binary, shader, probes, output, variant):
-    path = output / "probes.bin"
-    probes.tofile(path)
-    target = output / (variant + ".f32")
-    result = run([str(binary), str(shader), str(path), str(target), variant])
-    (output / (variant + ".log")).write_text(result.stdout + result.stderr)
-    assert "Validation Error" not in result.stdout + result.stderr
-    return np.fromfile(target, dtype="<f4").reshape(-1, 8), np.fromfile(str(target) + ".palette", dtype="<f4")
 
 
 def make_probes(palette):
@@ -203,54 +151,3 @@ def validate(palette, probes, native, legacy, neutral, count, field_reference=bo
                 legacy_max_abs_error_against_same_reference=old_error,
                 reference=reference_description + "; CPU analytic micro-gradients",
                 scope="Shader component parameters only; no Place, lighting, frame-time or A18-Pro proof")
-
-
-def pictures(output, panels, native, legacy):
-    names = {0: "mixed_broadleaf", 1: "conifer_forest", 3: "alpine_grassland"}
-    for row, name in names.items():
-        canvas = Image.new("RGB", (768, 360), "white")
-        draw = ImageDraw.Draw(canvas)
-        for col, (_, width, start) in enumerate(p for p in panels if p[0] == row):
-            draw.text((col * 256 + 4, 4), f"{name} footprint/scale={width}", fill="black")
-            for line, (label, data) in enumerate((("old prefix", legacy), ("layer composition", native))):
-                rgb = np.clip(data[start:start + 128 * 96, :3], 0, 1).reshape(96, 128, 3)
-                srgb = np.where(rgb <= .0031308, 12.92 * rgb, 1.055 * rgb ** (1 / 2.4) - .055)
-                image = Image.fromarray(np.uint8(srgb * 255)).resize((256, 144))
-                draw.text((col * 256 + 4, 25 + line * 164), label + " linear albedo -> sRGB", fill="black")
-                canvas.paste(image, (col * 256, 42 + line * 164))
-        canvas.save(output / (name + ".png"))
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True, type=Path)
-    args = parser.parse_args()
-    output = args.output.resolve()
-    if output.is_relative_to(ROOT) or not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-        parser.error("private outputs must use the system temp directory")
-    output.mkdir(parents=True, exist_ok=True)
-    binary, shader = build(output)
-    bootstrap = np.zeros(1, dtype=DTYPE)
-    _, palette = capture(binary, shader, bootstrap, output, "native")
-    probes, count, panels = make_probes(palette)
-    native, palette = capture(binary, shader, probes, output, "native")
-    legacy, _ = capture(binary, shader, probes, output, "legacy")
-    neutral, _ = capture(binary, shader, probes, output, "neutral")
-    assert np.isfinite(native).all() and np.isfinite(legacy).all() and np.isfinite(neutral).all()
-    report = validate(palette, probes, native, legacy, neutral, count)
-    far_indices = np.concatenate([np.arange(start, start + 128 * 96) for _, width, start in panels if width == 2.])
-    np.testing.assert_allclose(native[far_indices], legacy[far_indices], rtol=0, atol=1e-7)
-    report["far_field_matches_legacy_max_abs_error"] = float(np.max(np.abs(native[far_indices] - legacy[far_indices])))
-    report["device_selection_environment"] = {key: os.environ.get(key, "") for key in
-                                               ("VK_DRIVER_FILES", "VK_INSTANCE_LAYERS", "VK_LAYER_PATH")}
-    report["commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    report["working_tree_dirty"] = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))
-    report["shader_sha256"] = hashlib.sha256(shader.read_bytes()).hexdigest()
-    report["total_probes_per_variant"] = len(probes)
-    pictures(output, panels, native, legacy)
-    (output / "result.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps(report, indent=2))
-
-
-if __name__ == "__main__":
-    main()

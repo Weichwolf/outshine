@@ -1,7 +1,7 @@
 """Compile the actual ground filter candidates without creating a GPU device.
 
-Requires the prepared BRDF tables, glslangValidator and the existing shadercross
-offline translator. SPIR-V/MSL generation and reflected counts are not native
+Requires the prepared BRDF tables, glslangValidator and SPIRV-Cross.
+SPIR-V/MSL generation and reflected layouts are not native
 execution, Metal compilation, GPU cost or a Place-quality proof.
 """
 
@@ -12,11 +12,50 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import subprocess
 import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def reflection_layout(document):
+    types = document['types']
+
+    def resolved(type_name):
+        if type_name not in types:
+            return type_name
+        source = types[type_name]
+        return dict(name=source.get('name'), members=[
+            dict({key: value for key, value in member.items() if key != 'type'},
+                 type=resolved(member['type'])) for member in source.get('members', [])])
+
+    resources = []
+    for kind in ('ssbos', 'ubos', 'textures', 'images', 'separate_images', 'separate_samplers'):
+        for resource in document.get(kind, []):
+            resources.append(dict(kind=kind, **{key: value for key, value in resource.items()
+                                               if key != 'type'}, type=resolved(resource['type'])))
+    return dict(entries=document['entryPoints'],
+                resources=sorted(resources, key=lambda row: (row['kind'], row.get('set', 0), row.get('binding', 0))),
+                inputs=document.get('inputs', []), outputs=document.get('outputs', []))
+
+
+def check_probe(layout):
+    assert layout['entries'][0]['workgroup_size'] == [64, 1, 1]
+    resources = {row['name']: row for row in layout['resources']}
+    assert set(resources) == {'Palette', 'Inputs', 'Outputs', 'Pushed'}
+    assert resources['Palette']['readonly'] and resources['Inputs']['readonly']
+    assert resources['Outputs']['writeonly']
+    assert [(resources[name]['set'], resources[name]['binding'])
+            for name in ('Palette', 'Inputs', 'Outputs', 'Pushed')] == [(0, 0), (0, 1), (1, 0), (2, 0)]
+    assert resources['Palette']['type']['members'][0]['array_stride'] == 4
+    for name, offsets in [('Inputs', [0, 16, 24, 28]), ('Outputs', [0, 16])]:
+        array = resources[name]['type']['members'][0]
+        assert array['array_stride'] == 32 and array['offset'] == 0
+        assert [member['offset'] for member in array['type']['members']] == offsets
+    assert resources['Pushed']['block_size'] == 16
+    assert [member['offset'] for member in resources['Pushed']['type']['members']] == [0, 4, 8]
 
 
 def run(command, output, name, expected=0):
@@ -44,15 +83,15 @@ def compile_variant(output, points, variant, glslang, translator):
          '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', '-Ibuild/shaders',
          *defines, str(source), '-o', str(spirv)], output, name + '-compile')
     metadata = output / (name + '.json')
-    prefix = [translator, str(spirv), '-s', 'SPIRV', '-t', 'compute' if stage == 'comp' else 'fragment']
-    run([*prefix, '-d', 'JSON', '-o', str(metadata)], output, name + '-reflect')
+    prefix = [translator, str(spirv)]
+    run([*prefix, '--reflect', '--output', str(metadata)], output, name + '-reflect')
     msl = output / (name + '.msl')
-    run([*prefix, '-d', 'MSL', '--msl-version', '2.3.0', '-o', str(msl)], output, name + '-msl')
+    run([*prefix, '--msl', '--msl-version', '20300', '--output', str(msl)], output, name + '-msl')
     assert msl.stat().st_size > 0
     pattern = r'([A-Za-z_]\w*(?:<[^<>]*>)?)[&*]?\s+\w+\s+\[\[(buffer|texture|sampler)\((\d+)\)\]\]'
     bindings = sorted(re.findall(pattern, msl.read_text()))
     assert bindings, name
-    return dict(variant=variant, points=points, shape=json.loads(metadata.read_text()),
+    return dict(variant=variant, points=points, shape=reflection_layout(json.loads(metadata.read_text())),
                 msl_resource_type_indices=bindings,
                 spirv_bytes=spirv.stat().st_size,
                 spirv_sha256=hashlib.sha256(spirv.read_bytes()).hexdigest(),
@@ -83,8 +122,9 @@ def main():
         parser.error('use a directory in system temp')
     output.mkdir(parents=True, exist_ok=True)
     native = native_syntax(output) if args.native_syntax else None
-    glslang = os.environ.get('GLSLANG', str(ROOT / 'build/deps/install/bin/glslangValidator'))
-    translator = os.environ.get('SHADERCROSS', str(ROOT / 'build/deps/install/bin/shadercross'))
+    glslang = shutil.which(os.environ.get('GLSLANG', 'glslangValidator'))
+    translator = shutil.which(os.environ.get('SPIRVCROSS', 'spirv-cross'))
+    assert glslang and translator, 'install glslangValidator and spirv-cross or set GLSLANG/SPIRVCROSS'
     result = run(['make', '--no-print-directory', '-s', '--eval',
                   'print-material-outputs:;@echo $(GROUND_OUTPUTS)', 'print-material-outputs'],
                  output, 'outputs')
@@ -101,10 +141,8 @@ def main():
             else:
                 assert layout == baseline[variant], (points, variant)
             records.append(record)
-        print(points, len(variants), 'SPIR-V/MSL variants and reflected counts pass', flush=True)
-    assert baseline['probe'][0] == dict(samplers=0, readonly_storage_textures=0, readonly_storage_buffers=2,
-                                        readwrite_storage_textures=0, readwrite_storage_buffers=1,
-                                        uniform_buffers=1, threadcount_x=64, threadcount_y=1, threadcount_z=1)
+        print(points, len(variants), 'SPIR-V/MSL variants, layouts and translated slots pass', flush=True)
+    check_probe(baseline['probe'][0])
     source = ROOT / 'test/experiments/render/ground_litter_probe.comp'
     default = output / 'default.spv'
     run([glslang, '-V', '--target-env', 'vulkan1.0', '-S', 'comp',
