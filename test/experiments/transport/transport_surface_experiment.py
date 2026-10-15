@@ -34,9 +34,8 @@ def albedos(camera):
     }
 
 
-def presentation(output, baseline, arrays, selected, areas, ground_triangles):
-    source = json.loads((baseline / "after-scene.json").read_text())
-    camera = {
+def camera_settings(source):
+    return {
         k: source[k]
         for k in [
             "projection",
@@ -54,6 +53,10 @@ def presentation(output, baseline, arrays, selected, areas, ground_triangles):
         ]
         if k in source
     }
+
+
+def presentation(output, baseline, arrays, selected, areas, ground_triangles):
+    camera = camera_settings(json.loads((baseline / "after-scene.json").read_text()))
     rgb, material = albedos(camera)
     area = shapely.area(shapely.polygons(ground_triangles))
     palette = np.asarray(camera["colours"], np.float32)
