@@ -169,6 +169,10 @@ class EntranceDetails:
 
 
 def demand(entry, view):
+    if 0.16 <= view.eye[2] <= entry["floor_m"] - 0.18 and entry["interior"].covers(
+        shapely.Point(view.eye[:2])
+    ):
+        return "through"
     frame = entry["frame"]
     a = np.asarray(frame["a"])
     tangent = (np.asarray(frame["b"]) - a) / frame["width_m"]
@@ -181,11 +185,11 @@ def demand(entry, view):
     distances = coordinates @ view.planes[:, :3].T + view.planes[:, 3]
     if np.any(
         distances.max(axis=0)
-        + (view.movement_m + 0.24) * np.linalg.norm(view.planes[:, :3], axis=1)
+        + (view.movement_m + 1.50) * np.linalg.norm(view.planes[:, :3], axis=1)
         < 0
     ):
         return None
-    nearest = float(coordinates[:, 2].min()) - view.movement_m - 0.24
+    nearest = float(coordinates[:, 2].min()) - view.movement_m - 1.50
     if nearest <= 0 or 1.10 * view.focal_px / nearest >= 6.0:
         return "through"
     return "compact" if 2.15 * view.focal_px / nearest >= 0.5 else None

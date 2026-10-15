@@ -45,7 +45,9 @@ height interval and footprint are retained; the outside landing is an explicit
 procedural extension. The plinth on the entrance facade is omitted rather than
 blocking the aperture; fine partial-edge trim interruption remains future work.
 
-Demand is determined from metadata before mesh-buffer reads. The experiment
+Demand is determined from metadata before mesh-buffer reads. Culling includes
+the outside landing's1.50m corner radius. An eye inside the provisional arrival
+space keeps its floor/ceiling/door bundle even while looking away. The experiment
 uses a compact opaque entrance cell below6px projected door width, actual
 through geometry above that, and the prior facade below0.5px projected height.
 These are experimental screen-size choices, not radiance/shadow/transition

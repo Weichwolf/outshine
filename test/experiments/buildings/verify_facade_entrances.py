@@ -5,6 +5,7 @@ import unittest
 
 import numpy as np
 import shapely
+from demand import View
 from entrance_clearance import clearance
 from facade_entrances import EntranceDetails, demand
 from facade_entry_geometry import products
@@ -28,6 +29,16 @@ def plan(row, facades, p, angle=0.0, neighbors=()):
 
 
 class FacadeEntrances(unittest.TestCase):
+    def test_inside_arrival_keeps_floor_and_door_bundle_when_looking_away(self):
+        row = sources()[1]
+        _, f, p = source_facades(row)
+        e, _ = plan(row, f, p)
+        c, t = np.asarray(e["door"]["centre"]), np.asarray(e["door"]["tangent"])
+        inward = np.array([-t[1], t[0]])
+        eye = np.r_[c + inward * 1.2, 1.81]
+        view = View(eye, eye + np.r_[inward, 0.0], width=1920, height=1080)
+        self.assertEqual(demand(e, view), "through")
+
     def test_actual_sources_keep_ids_and_cells_across_open_closed_compact_far(self):
         for row in sources():
             old = copy.deepcopy(row)
