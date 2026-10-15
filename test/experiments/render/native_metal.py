@@ -23,7 +23,7 @@ def run(command, log=None):
     if log is not None:
         log.write_text(result.stdout + result.stderr)
     if result.returncode:
-        raise SystemExit(f"{shlex.join(command)}\n{result.stdout}{result.stderr}")
+        raise SystemExit(f"{shlex.join(command)} exited {result.returncode}\n{result.stdout}{result.stderr}")
     return result.stdout
 
 
@@ -43,9 +43,12 @@ def native_api(output, glslang, toolchain, link_flags):
     sources = sorted(backend.glob("*.mm"))
     def build_probe(name, source):
         binary = output / name
+        platform_flags = (["-fobjc-arc", "-framework", "AppKit"]
+                          if Path(source).suffix == ".mm" else [])
         run(["nice", "-n", "10", *shlex.split(os.environ.get("CXX", "c++")), *toolchain,
-             "-fno-exceptions",
+             "-fno-exceptions", *platform_flags,
              *shlex.split(run(["pkg-config", "--cflags", "sdl3"])),
+             "-I" + str(ROOT),
              "-I" + str(ROOT / "src/render/device/native"),
              "-I" + str(ROOT / "test/harness/shared"),
              str(ROOT / "test/harness/render" / source),
@@ -116,12 +119,16 @@ def native_api(output, glslang, toolchain, link_flags):
          str(Path(__file__).with_name("native_target_delay.comp")), "-o", str(delay_shader)])
     target_checks = check_probe("native-present-target-probe", "NativePresentTargetProbe.cpp",
                                 output / "fullscreen.vert.spv", present_shader, delay_shader)
+    sdr_checks = check_probe("native-sdr-transfer-probe", "NativeSdrTransferProbe.cpp")
+    display_checks = check_probe("native-metal-presentation-probe", "NativeMetalPresentationProbe.mm")
+    readback_checks = check_probe("native-readback-probe", "NativeReadbackProbe.cpp", delay_shader)
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
             "indexed_indirect_checks": indexed_checks, "draw_transition_checks": transition_checks,
             "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks,
-            "presentation_target_checks": target_checks}, sources
+            "presentation_target_checks": target_checks, "sdr_transfer_checks": sdr_checks,
+            "display_colour_space_checks": display_checks, "native_readback_checks": readback_checks}, sources
 
 
 
@@ -188,6 +195,16 @@ def main():
              ROOT / "test/harness/render/NativeMrtDrawProbe.cpp",
              ROOT / "test/harness/render/NativePresentProbe.cpp",
              ROOT / "test/harness/render/NativePresentTargetProbe.cpp",
+             ROOT / "test/harness/render/NativeSdr.h",
+             ROOT / "test/harness/render/NativeSdrTransferProbe.cpp",
+             ROOT / "test/harness/render/NativeMetalPresentationProbe.mm",
+             ROOT / "test/harness/render/NativeReadbackProbe.cpp",
+             ROOT / "src/render/stages/StagePipelines.cpp",
+             ROOT / "src/render/stages/StagePipelines.h",
+             ROOT / "src/render/device/SpirvFile.cpp",
+             ROOT / "src/render/device/SpirvFile.h",
+             ROOT / "src/render/device/ReadbackTransfer.cpp",
+             ROOT / "src/render/device/ReadbackTransfer.h",
              Path(__file__).with_name("native_target_delay.comp"),
              Path(__file__).with_name("native_present.frag"),
              Path(__file__).with_name("native_draw_transitions.vert"),
@@ -200,6 +217,7 @@ def main():
              Path(__file__).with_name("native_draw.vert"),
              Path(__file__).with_name("native_draw.frag"),
              ROOT / "src/render/shaders/present.frag",
+             ROOT / "src/render/shaders/presentUnorm.frag",
              ROOT / "test/harness/render/NativeGpuCheck.h",
              Path(__file__).with_name("native_texture.comp"),
              ROOT / "src/render/shaders/subjectScanKernel.comp",
