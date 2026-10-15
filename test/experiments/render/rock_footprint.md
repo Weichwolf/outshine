@@ -58,6 +58,23 @@ and already attenuated native RGB are distinguished. Scalar parity must stay
 below2e-4 and normal parity below0.05degrees. Current native differences are far
 smaller; source/output hashes and final measured costs belong to the delivery PR.
 
+RTX3060 component cost:115200 matched probes,32 sequential timestamped dispatches
+per run. Legacy/production then production/legacy sums are1.372512/1.384288ms and
+1.368896/1.375712ms. This is approximately0.043ms per dispatch, not an established
+speedup or a full-frame/device budget. Timed and untimed outputs are byte-equal.
+Requested private probe buffers total25807360bytes and copy12903680bytes;
+these are not driver peaks. Production adds no binding, allocation or asset byte.
+The helper still uses at most24 corner hashes. Mapping before culling can retain
+previously discarded fields, so reduced global work is not claimed.
+
+All86 cases run through the actual old and new GPU functions, plus both private
+alternatives; maximum native normal/parity difference is0.000014664degrees.
+Twelve disabled/unresolved groups are exactly neutral, and exchanged pixel axes
+preserve scalar output while exchanging the corresponding screen derivatives.
+The86-case PDF was optically opened. Current gallery7f69a41f0 and the dated
+Koerbersee reference2026-09-07T12:40 local were also compared optically in a PDF;
+large pale walls and missing conifer stands are separate unresolved deficits.
+
 Native component evidence is not a Place or full-world frame proof. Identical
 public-client before/after images, motion, device costs and integration checks
 remain required before accepting the production change. Master owns published

@@ -46,10 +46,10 @@ int main() {
   constexpr std::array kPhaseSpans{0.0f, .01f, .05f, .2f, .4f, .7f, .8f, 2.0f};
   constexpr std::array kValues{-.49f, -.14f, -.02f, 0.0f, .02f, .14f, .49f};
   constexpr float kBoxVariance = 1.0f / 12.0f;
-  for (float dx : kPhaseSpans) {
-    for (float dy : kPhaseSpans) {
+  for (const float dx : kPhaseSpans) {
+    for (const float dy : kPhaseSpans) {
       const float variance = (dx * dx + dy * dy) * kBoxVariance;
-      for (float value : kValues) {
+      for (const float value : kValues) {
         const auto actual = Shader::rockCrevice(value, variance);
         const auto expected = Integrated(value, variance);
         CHECK_NEAR(actual.x,
