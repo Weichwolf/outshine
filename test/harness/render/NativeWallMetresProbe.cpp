@@ -170,7 +170,7 @@ void Fixture(const char *prefix,
     file.write(reinterpret_cast<const char *>(&v), sizeof(v));
   }
   for (size_t at = 0; at < 6; ++at) {
-    const auto *uv = mesh.WallMaterialM.data() + mesh.WallRun[at] * 2;
+    const auto *uv = mesh.WallMaterialM.data() + static_cast<size_t>(mesh.WallRun[at]) * 2;
     file.write(reinterpret_cast<const char *>(uv), 2 * sizeof(float));
   }
   CHECK(file, "the emitted cached wall and actual UV1 bytes are saved");
