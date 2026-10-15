@@ -271,7 +271,9 @@ bool Engine::State::PrepareRuntimeWorld() {
     if (!World.Shipping.EnsureCatalogue(World.Stack.Vegetation(),
                                         std::string(Session.Under.Shipped) + "/world/species",
                                         why,
-                                        declared.Ground.VegetationEnabled)) {
+                                        declared.Ground.VegetationEnabled,
+                                        std::string(Session.Under.Shipped) +
+                                            "/world/vegetation.json")) {
       Error = std::move(why);
       return false;
     }
