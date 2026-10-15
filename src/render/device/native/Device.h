@@ -63,6 +63,12 @@ public:
   [[nodiscard]] virtual Result<std::unique_ptr<ComputePipeline>>
   CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptions options = {}) = 0;
 
+  [[nodiscard]] virtual Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline([[maybe_unused]] const GraphicsDescription &description) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native graphics pipelines unavailable"});
+  }
+
   [[nodiscard]] virtual Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) = 0;
   [[nodiscard]] virtual Result<std::span<const std::byte>> MapRead(Buffer &buffer,
                                                                    ByteRange range) = 0;
