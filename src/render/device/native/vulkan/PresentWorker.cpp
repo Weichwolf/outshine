@@ -13,6 +13,7 @@ namespace outshine::Render::Native::Vulkan {
 namespace {
 
 struct Request {
+  std::shared_ptr<SurfaceState> Surface;
   VkExtent2D Extent{};
   uint64_t Generation = 0;
   bool Failed = false;
@@ -20,21 +21,28 @@ struct Request {
 
 Request Requested(PresentState &state) {
   const std::scoped_lock lock(state.Gate);
-  return {.Extent = {.width = state.Width, .height = state.Height},
+  return {.Surface = state.Surface,
+          .Extent = {.width = state.Width, .height = state.Height},
           .Generation = state.Generation.load(),
           .Failed = state.Failed.has_value()};
 }
 
 bool Target(const std::shared_ptr<PresentState> &state, const Request &request) {
-  if (request.Failed || request.Extent.width == 0 || request.Extent.height == 0) { return false; }
-  if (state->Active && state->Active->Generation == request.Generation) { return true; }
-  auto *const before = state->Active ? state->Active->Handle : VK_NULL_HANDLE;
-  auto made = CreateSwapchain(state->Owner, request.Extent, request.Generation, before);
-  if (!made) {
-    if (made.error().Kind != ErrorKind::Busy) { FailPresentation(*state, made.error()); }
+  if (!request.Surface || request.Failed || request.Extent.width == 0 ||
+      request.Extent.height == 0) {
     return false;
   }
-  if (state->Active) { state->Retired.push_back(std::move(state->Active)); }
+  if (state->Active && state->Active->Generation == request.Generation) { return true; }
+  const auto before =
+      state->Active && state->Active->Surface == request.Surface ? state->Active : nullptr;
+  auto made = CreateSwapchain(request.Surface, request.Extent, request.Generation, before);
+  if (!made) {
+    if (made.error().Kind != ErrorKind::Busy) {
+      FailPresentation(*state, made.error(), request.Generation);
+    }
+    return false;
+  }
+  if (state->Active) { state->Inactive.push_back(std::move(state->Active)); }
   state->Attempt.reset();
   state->Active = std::move(*made);
   return true;
@@ -49,17 +57,17 @@ bool Progress(const std::shared_ptr<PresentState> &state, const Request &request
       lease = state->Slots[slot];
     }
     if (!lease) { continue; }
-    if (lease->Target->Generation != request.Generation) {
+    if (lease->Generation != request.Generation) {
       auto before = PresentPhase::Ready;
       lease->Phase.compare_exchange_strong(before, PresentPhase::Cancelled);
     }
     const auto advanced = AdvanceLease(lease, stopping);
     if (!advanced) {
-      FailPresentation(*state, advanced.error());
+      FailPresentation(*state, advanced.error(), lease->Generation);
       pending = true;
       continue;
     }
-    if (lease->Target->Generation != request.Generation) {
+    if (lease->Generation != request.Generation) {
       auto before = PresentPhase::Ready;
       lease->Phase.compare_exchange_strong(before, PresentPhase::Cancelled);
     }
@@ -84,7 +92,7 @@ bool Fill(const std::shared_ptr<PresentState> &state) {
     }
     auto lease = AcquireLease(state, state->Active);
     if (!lease) {
-      FailPresentation(*state, lease.error());
+      FailPresentation(*state, lease.error(), state->Active->Generation);
       return false;
     }
     if (!*lease) { return true; }
@@ -100,16 +108,17 @@ bool Fill(const std::shared_ptr<PresentState> &state) {
 void RunPresenter(const std::shared_ptr<PresentState> &state) {
   while (!state->Stop.load()) {
     const auto revision = state->Revision.load();
+    SwitchTarget(state);
     const auto request = Requested(*state);
     bool pending = Progress(state, request, false);
     if (Target(state, request)) { pending = Fill(state) || pending; }
-    std::erase_if(state->Retired, [](const std::shared_ptr<SwapchainState> &target) {
+    std::erase_if(state->Inactive, [](const std::shared_ptr<SwapchainState> &target) {
       return target.use_count() == 1;
     });
     std::unique_lock lock(state->Gate);
     if (state->Stop.load()) { break; }
     const bool waitingTarget =
-        state->Width > 0 && state->Height > 0 && !state->Failed &&
+        state->Surface && state->Width > 0 && state->Height > 0 && !state->Failed &&
         (!state->Active || state->Active->Generation != state->Generation.load());
     if (pending || waitingTarget) {
       state->Changed.wait_for(lock, std::chrono::milliseconds(1), [&] {
@@ -127,7 +136,8 @@ void DrainPresenter(const std::shared_ptr<PresentState> &state) {
   Progress(state, request, true);
   state->Attempt.reset();
   state->Active.reset();
-  state->Retired.clear();
+  state->Inactive.clear();
+  state->Surface.reset();
 }
 
 }

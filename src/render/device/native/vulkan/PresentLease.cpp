@@ -17,7 +17,7 @@ PresentLease::~PresentLease() {
 
 bool PresentLease::Current() const noexcept {
   const auto state = Dispatcher.lock();
-  return state && !state->Stop.load() && state->Generation.load() == Target->Generation;
+  return state && !state->Stop.load() && state->Generation.load() == Generation;
 }
 
 void PresentLease::Wake() const noexcept {
@@ -82,11 +82,12 @@ Result<std::shared_ptr<PresentLease>> AcquireLease(const std::shared_ptr<Present
     state->Attempt = std::move(candidate);
   }
   auto lease = state->Attempt;
+  lease->Generation = target->Generation;
   const auto result = vkAcquireNextImageKHR(
       target->Owner->Logical, target->Handle, 0, lease->Acquired, lease->Available, &lease->Index);
   if (result == VK_NOT_READY || result == VK_TIMEOUT) { return std::shared_ptr<PresentLease>{}; }
   if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-    InvalidatePresentation(*state, target->Generation);
+    InvalidatePresentation(*state, lease->Generation);
     return std::shared_ptr<PresentLease>{};
   }
   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -94,7 +95,7 @@ Result<std::shared_ptr<PresentLease>> AcquireLease(const std::shared_ptr<Present
   }
   state->Attempt.reset();
   lease->InitialLayout = target->Layouts[lease->Index];
-  if (result == VK_SUBOPTIMAL_KHR) { InvalidatePresentation(*state, target->Generation); }
+  if (result == VK_SUBOPTIMAL_KHR) { InvalidatePresentation(*state, lease->Generation); }
   return lease;
 }
 

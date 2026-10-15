@@ -52,7 +52,7 @@ Result<void> Queue(PresentLease &lease) {
   present.pImageIndices = &lease.Index;
   const auto result = vkQueuePresentKHR(target.Owner->PresentQueue, &present);
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-    if (auto state = lease.Dispatcher.lock()) { InvalidatePresentation(*state, target.Generation); }
+    if (auto state = lease.Dispatcher.lock()) { InvalidatePresentation(*state, lease.Generation); }
   }
   if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR && result != VK_ERROR_OUT_OF_DATE_KHR &&
       result != VK_ERROR_SURFACE_LOST_KHR) {

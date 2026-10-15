@@ -11,8 +11,7 @@
 
 namespace outshine::Render::Native::Vulkan {
 
-Presenter::Presenter(std::shared_ptr<Context> context, SDL_Window *window)
-    : Window_(window), State_(std::make_shared<PresentState>()) {
+Presenter::Presenter(std::shared_ptr<Context> context) : State_(std::make_shared<PresentState>()) {
   State_->Owner = std::move(context);
 }
 
@@ -22,6 +21,7 @@ void *Presenter::Entry(void *self) {
 }
 
 Result<void> Presenter::Start() {
+  if (Started_) { return {}; }
   const auto result = pthread_create(&Worker_, nullptr, Entry, this);
   if (result != 0) {
     return std::unexpected(
@@ -47,6 +47,10 @@ void Presenter::Stop() {
 }
 
 Result<std::unique_ptr<PresentFrame>> Presenter::Acquire() {
+  if (Window_ == nullptr) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "headless Vulkan target"});
+  }
   int width = 0;
   int height = 0;
   if (!SDL_GetWindowSizeInPixels(Window_, &width, &height)) {
@@ -67,7 +71,7 @@ Result<std::unique_ptr<PresentFrame>> Presenter::Acquire() {
   }
   if (State_->Failed) { return std::unexpected(*State_->Failed); }
   for (const auto &lease : State_->Slots) {
-    if (!lease || lease->Target->Generation != State_->Generation) { continue; }
+    if (!lease || lease->Generation != State_->Generation) { continue; }
     auto before = PresentPhase::Ready;
     if (!lease->Phase.compare_exchange_strong(before, PresentPhase::Acquired)) { continue; }
     auto captured = lease;
@@ -83,9 +87,10 @@ void PresentState::Wake() noexcept {
   Changed.notify_one();
 }
 
-void FailPresentation(PresentState &state, Error error) {
+void FailPresentation(PresentState &state, Error error, uint64_t generation) {
   const std::scoped_lock lock(state.Gate);
-  if (!state.Failed) {
+  if (!state.Failed &&
+      (generation == state.Generation.load() || error.Kind == ErrorKind::DeviceLost)) {
     state.Failed = std::move(error);
     ++state.Generation;
     state.Wake();

@@ -26,6 +26,14 @@ Recording::~Recording() {
   }
   for (const auto &buffer : Buffers_) { --buffer->RecordedUses; }
   --Context_->Recordings;
+  if (!Submitted_) { --Context_->OpenRecordings; }
+}
+
+void Recording::CommitSubmission() noexcept {
+  Submitted_ = true;
+  --Context_->OpenRecordings;
+  CommitImages();
+  CommitPresent();
 }
 
 Result<void> Recording::Initialize() {
