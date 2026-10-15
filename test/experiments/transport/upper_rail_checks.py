@@ -1,15 +1,26 @@
 """Counterexamples for whole patch selection and real old-body separation."""
 
 import unittest
+from dataclasses import replace
 
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from rail_bed_patches import contact_patches, cut_to_patches
+from tilted_rail_geometry import build_tilted
+from tilted_rail_verify import metric_audit
 from upper_rail_contacts import UpperContact
 
 
 class UpperRailChecks(unittest.TestCase):
+    def test_volume_and_gauge_preserving_section_shear_is_rejected(self):
+        product, _ = build_tilted([[2, 2], [8, 2]], self.bed().vertices[:3])
+        vertices = product.rails.vertices.copy()
+        vertices[:, 1] += 0.05 * (vertices[:, 2] - 0.18)
+        sheared = replace(product, rails=Mesh(vertices, product.rails.triangles))
+        with self.assertRaisesRegex(ValueError, "section"):
+            metric_audit(sheared, 1.435)
+
     def bed(self, z=None):
         xy = np.array([[0, 0], [10, 0], [10, 4], [0, 4]], float)
         heights = np.zeros(4) if z is None else np.asarray(z, float)
