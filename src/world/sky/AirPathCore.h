@@ -27,13 +27,11 @@ AIR_INLINE AirRoots airSphereRoots(AirRay ray, float shellRadiusKm) AIR_NOEXCEPT
                    (ray.RadiusKm - shellRadiusKm) * (ray.RadiusKm + shellRadiusKm)));
 }
 
-AIR_INLINE AirPathSpan airPathSpan(MEDIUM_ARG medium, AirRay ray) AIR_NOEXCEPT {
-  if (ray.DistanceKm <= 0.0f || ray.RadiusKm < medium.BottomRadiusKm) {
-    return AirPathSpan(0.0f, 0.0f);
-  }
+AIR_INLINE AirPathSpan airPhysicalSpan(MEDIUM_ARG medium, AirRay ray) AIR_NOEXCEPT {
+  if (ray.RadiusKm < medium.BottomRadiusKm) { return AirPathSpan(0.0f, 0.0f); }
   const AirRoots top = airSphereRoots(ray, medium.TopRadiusKm);
   const float begin = max(0.0f, min(top.First, top.Second));
-  float end = min(ray.DistanceKm, max(top.First, top.Second));
+  float end = max(top.First, top.Second);
   if (end <= begin) { return AirPathSpan(0.0f, 0.0f); }
   if (ray.CosView < 0.0f) {
     const AirRoots ground = airSphereRoots(ray, medium.BottomRadiusKm);
@@ -41,6 +39,13 @@ AIR_INLINE AirPathSpan airPathSpan(MEDIUM_ARG medium, AirRay ray) AIR_NOEXCEPT {
     if (hit >= 0.0f) { end = min(end, hit); }
   }
   return end > begin ? AirPathSpan(begin, end) : AirPathSpan(0.0f, 0.0f);
+}
+
+AIR_INLINE AirPathSpan airPathSpan(MEDIUM_ARG medium, AirRay ray) AIR_NOEXCEPT {
+  if (ray.DistanceKm <= 0.0f) { return AirPathSpan(0.0f, 0.0f); }
+  AirPathSpan span = airPhysicalSpan(medium, ray);
+  span.EndKm = min(span.EndKm, ray.DistanceKm);
+  return span.EndKm > span.BeginKm ? span : AirPathSpan(0.0f, 0.0f);
 }
 
 AIR_INLINE AirRay airPathRay(MEDIUM_ARG medium, AirRay ray, AirPathSpan span) AIR_NOEXCEPT {
