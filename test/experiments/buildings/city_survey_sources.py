@@ -19,7 +19,7 @@ CITIES = {
 }
 
 
-def read(city, fetch):
+def projector(city, tile):
     latitude, longitude = CITIES[city]
     scale = math.cos(math.radians(latitude))
     anchor = np.array(
@@ -28,6 +28,20 @@ def read(city, fetch):
             math.asinh(math.tan(math.radians(latitude))) * GIRTH_M / (2 * math.pi),
         ]
     )
+    span = GIRTH_M / (1 << tile[0])
+
+    def project(xy, size):
+        return (
+            (xy / size + tile[1:]) * [span, -span]
+            + [-GIRTH_M / 2, GIRTH_M / 2]
+            - anchor
+        ) * scale
+
+    return project
+
+
+def read(city, fetch):
+    latitude, longitude = CITIES[city]
     template, definition, digest = endpoint()
     buildings, pois, receipts, omissions = [], [], [], []
     for tile in covering_tiles(latitude, longitude, 1000.0, 14):
@@ -35,14 +49,7 @@ def read(city, fetch):
         receipt = acquire(("vector", tile, url), SOURCES.parent, fetch=fetch)
         receipts.append(receipt)
         layers = decode_vector(receipt)
-        span = GIRTH_M / (1 << tile[0])
-
-        def project(xy, size, *, tile_xy=tile[1:], tile_span=span):
-            return (
-                (xy / size + tile_xy) * [tile_span, -tile_span]
-                + [-GIRTH_M / 2, GIRTH_M / 2]
-                - anchor
-            ) * scale
+        project = projector(city, tile)
 
         layer = layers.get("building", {})
         extent = layer.get("extent", 4096)
@@ -101,6 +108,10 @@ def read(city, fetch):
                                 "shape": shape,
                                 "properties": feature["properties"],
                                 "source_sha256": receipt["sha256"],
+                                "source_tile": list(tile),
+                                "coordinate_step_m": GIRTH_M
+                                * math.cos(math.radians(latitude))
+                                / ((1 << tile[0]) * extent),
                             }
                         )
                 except (ValueError, shapely.errors.GEOSException) as error:

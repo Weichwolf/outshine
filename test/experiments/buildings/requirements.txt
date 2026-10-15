@@ -10,3 +10,4 @@ trimesh==5.1.1
 pygltflib==1.16.5
 mitsuba==3.9.1
 drjit==1.5.0
+bpy==5.2.2
