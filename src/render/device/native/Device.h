@@ -39,6 +39,11 @@ struct DeviceOptions {
   bool Validation = false;
 };
 
+struct ComputeOptions {
+  std::string_view Entry = "main";
+  std::string_view Label;
+};
+
 class Device {
 public:
   virtual ~Device() = default;
@@ -46,7 +51,8 @@ public:
   Device &operator=(const Device &) = delete;
 
   [[nodiscard]] virtual const Capabilities &Limits() const noexcept = 0;
-  [[nodiscard]] virtual bool Supports(Format format, TextureUse use, bool filtered) const = 0;
+  [[nodiscard]] virtual bool
+  Supports(Format format, UseMask<TextureUse> use, bool filtered) const = 0;
 
   [[nodiscard]] virtual Result<std::unique_ptr<Buffer>>
   CreateBuffer(BufferDescription description, std::string_view label = {}) = 0;
@@ -55,9 +61,7 @@ public:
   [[nodiscard]] virtual Result<std::unique_ptr<Sampler>>
   CreateSampler(SamplerDescription description, std::string_view label = {}) = 0;
   [[nodiscard]] virtual Result<std::unique_ptr<ComputePipeline>>
-  CreateComputePipeline(std::span<const uint32_t> spirv,
-                        std::string_view entry = "main",
-                        std::string_view label = {}) = 0;
+  CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptions options = {}) = 0;
 
   [[nodiscard]] virtual Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) = 0;
   [[nodiscard]] virtual Result<std::span<const std::byte>> MapRead(Buffer &buffer,

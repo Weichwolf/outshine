@@ -30,6 +30,11 @@ Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
 Vorbereitete Kandidatenlisten, Format und noch offene ökologische/botanische
 Abnahme stehen in [species_catalog.md](species_catalog.md) (#226).
 
+`vegetation.SpeciesHeightMixture` bereitet höhenabhängige relative Artengewichte
+vor; `species_site_uniforms` bindet die Auswahl an stabile Standort-IDs.
+Mathematischer Vertrag, realer Vergleich, Cache-Replay und Grenzen stehen in
+[species_mixture.md](species_mixture.md) (#226).
+
 `materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
 Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
 integriert die kubische Übergangsmaske im eindimensionalen Normalen-Footprint; beide Seiten

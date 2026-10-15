@@ -29,6 +29,8 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "SpeciesHeightMixture": "species_mixture",
+    "species_site_uniforms": "species_mixture",
     "SpeciesCatalog": "species_catalog",
     "load_species_catalog": "species_catalog",
     "NeedledPlant": "needled_plant",
@@ -72,6 +74,8 @@ def __getattr__(name):
 
 
 __all__ = [
+    "SpeciesHeightMixture",
+    "species_site_uniforms",
     "SpeciesCatalog",
     "load_species_catalog",
     "CurlField",

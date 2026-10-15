@@ -7,6 +7,24 @@ namespace outshine::Render::Native {
 
 enum class Memory { Device, Upload, Readback };
 
+template <typename Flag> class UseMask {
+public:
+  constexpr UseMask() = default;
+
+  explicit(false) constexpr UseMask(Flag flag) noexcept : Bits_(static_cast<uint32_t>(flag)) {}
+
+  [[nodiscard]] constexpr UseMask operator|(UseMask right) const noexcept {
+    UseMask combined = *this;
+    combined.Bits_ |= right.Bits_;
+    return combined;
+  }
+
+  [[nodiscard]] explicit constexpr operator uint32_t() const noexcept { return Bits_; }
+
+private:
+  uint32_t Bits_ = 0;
+};
+
 enum class BufferUse : uint32_t {
   None = 0,
   CopySource = 1u << 0u,
@@ -17,8 +35,8 @@ enum class BufferUse : uint32_t {
   Indirect = 1u << 5u
 };
 
-[[nodiscard]] constexpr BufferUse operator|(BufferUse left, BufferUse right) noexcept {
-  return static_cast<BufferUse>(static_cast<uint32_t>(left) | static_cast<uint32_t>(right));
+[[nodiscard]] constexpr UseMask<BufferUse> operator|(BufferUse left, BufferUse right) noexcept {
+  return UseMask(left) | UseMask(right);
 }
 
 struct ByteRange {
@@ -28,7 +46,7 @@ struct ByteRange {
 
 struct BufferDescription {
   uint64_t Bytes = 0;
-  BufferUse Use = BufferUse::None;
+  UseMask<BufferUse> Use;
   Memory Placement = Memory::Device;
 };
 
@@ -71,8 +89,8 @@ enum class TextureUse : uint32_t {
   DepthAttachment = 1u << 5u
 };
 
-[[nodiscard]] constexpr TextureUse operator|(TextureUse left, TextureUse right) noexcept {
-  return static_cast<TextureUse>(static_cast<uint32_t>(left) | static_cast<uint32_t>(right));
+[[nodiscard]] constexpr UseMask<TextureUse> operator|(TextureUse left, TextureUse right) noexcept {
+  return UseMask(left) | UseMask(right);
 }
 
 enum class TextureType { Image2D, Image2DArray };
@@ -84,7 +102,7 @@ struct TextureDescription {
   uint32_t Layers = 1;
   TextureType Type = TextureType::Image2D;
   Format Texels = Format::Rgba8Unorm;
-  TextureUse Use = TextureUse::None;
+  UseMask<TextureUse> Use;
 };
 
 class Texture {
