@@ -61,6 +61,7 @@ SurfacePreparation::BindRegionCache(const World::StoragePaths &under,
   if (!materials || !vegetation) {
     return std::unexpected("could not bind the prepared ground region rules");
   }
+  materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
   auto regions =

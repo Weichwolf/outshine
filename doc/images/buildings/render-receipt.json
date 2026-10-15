@@ -1,9 +1,9 @@
 {
   "render_commits": {
-    "DarmstadtWest": "793eb286f27437aeb747ef7afc17a603390f3aa9",
-    "Flensburg": "064cdce97fbd38f34e99296d22d46fd17e27e316",
-    "Rosenheim": "064cdce97fbd38f34e99296d22d46fd17e27e316",
-    "Tokyo": "793eb286f27437aeb747ef7afc17a603390f3aa9"
+    "Flensburg": "9be285f32064cf75a0e3e6087fda711f0010d605",
+    "Rosenheim": "9be285f32064cf75a0e3e6087fda711f0010d605",
+    "DarmstadtWest": "e2bf45f11340c91530dd3ea6d8e311d6cb7a2318",
+    "Tokyo": "e2bf45f11340c91530dd3ea6d8e311d6cb7a2318"
   },
   "places": {
     "DarmstadtWest": {
@@ -23,17 +23,20 @@
           720
         ],
         "time_utc": "2026-09-07T10:40:00Z",
-        "scenario_sha256": "ea08cac0665722dc8a4b2b64bbd6e021fa611700c2a5f3fa0b4c0940390b930f"
+        "scenario_sha256": "ea08cac0665722dc8a4b2b64bbd6e021fa611700c2a5f3fa0b4c0940390b930f",
+        "sight_m": 240000.0
       },
       "camera_ground_height_m": 160.35907413340487,
       "profile": [
         1920,
         1080
       ],
-      "image_sha256": "0fc01717d8843e4c366d0e1f4fbe3abafeee3df1758a4dd4a29eac6e39df3f3f",
-      "triangles": 942248,
+      "image_sha256": "927572d5b8e6ece1f9be6131b6b25d32c87ab0cd322ccc88a8d130bab38245a3",
+      "triangles": 997120,
       "source_radius_m": 3000.0,
-      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families."
+      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families.",
+      "geometry_commit": "064cdce97fbd38f34e99296d22d46fd17e27e316",
+      "mesh_sha256": "04e34efb92f6662dfcedafaff8668f3b7e867fbe297ea02a8ffdb6f40607d93f"
     },
     "Flensburg": {
       "camera": {
@@ -60,10 +63,12 @@
         1920,
         1080
       ],
-      "image_sha256": "afa80e9babc930d10e157d13e23a0f32f496b05dd9282d3313ad47641b7c5ccc",
+      "image_sha256": "d9f88d3e606757b84cd147bcebaa256aaee6e48cf44991590a7d7088a97b3a54",
       "triangles": 921636,
       "source_radius_m": 3000.0,
-      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families."
+      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families.",
+      "geometry_commit": "064cdce97fbd38f34e99296d22d46fd17e27e316",
+      "mesh_sha256": "db01b8093430e20cabdeccb1b3660a910eca680a788e56e971f67e6e6787bbcf"
     },
     "Rosenheim": {
       "camera": {
@@ -90,10 +95,12 @@
         1920,
         1080
       ],
-      "image_sha256": "a1b169aae768123423e51c23f0b6d870b3e6790aef5eabd8c04aa9ec2a1b4069",
+      "image_sha256": "8d6bc109bea4a0e15bfd288682f7fd7f9c368dc7deb58428321308e675ce23ce",
       "triangles": 704376,
       "source_radius_m": 3000.0,
-      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families."
+      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families.",
+      "geometry_commit": "064cdce97fbd38f34e99296d22d46fd17e27e316",
+      "mesh_sha256": "7702a87825952b1009945e1ca64900944b00d5f7a487522670b0667c5d0b95f2"
     },
     "Tokyo": {
       "camera": {
@@ -119,10 +126,12 @@
         1920,
         1080
       ],
-      "image_sha256": "703767c770d65a070e7e2bb9ed482606d9e87cc52e7a6109d690e7df2f104b7e",
+      "image_sha256": "7599b83676caac53c0ea526009722d89e67ed7b560f5bd0b9e85c4441bf3702a",
       "triangles": 4040350,
       "source_radius_m": 3000.0,
-      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families."
+      "limits": "Declared initial near source window; distant terrain/buildings, transport, vegetation and water composition incomplete. Coarse DEM context and per-tile height-extent demand approximation are research controls, not native 240 km/LOD/frame/device admission. Zero complete architecture recipe families.",
+      "geometry_commit": "793eb286f27437aeb747ef7afc17a603390f3aa9",
+      "mesh_sha256": "36139e7aa3dc50292eb344bf826e3a2e43b57fe7c0fe3e47b63fc66eebac1e67"
     }
   }
 }

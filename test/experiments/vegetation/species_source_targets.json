@@ -1,0 +1,36 @@
+{
+  "source": {
+    "title": "World Checklist of Vascular Plants, version 16",
+    "url": "https://sftp.kew.org/pub/data-repositories/WCVP/wcvp.zip",
+    "doi": "https://doi.org/10.34885/egs6-cp24",
+    "version": "16",
+    "extracted": "2026-06-04",
+    "retrieved": "2026-10-15",
+    "sha256": "d32ea2b3a85e489b14e83bcc9eae7274532e1d113753f7be290d4b2dfde573fa",
+    "license": "CC-BY-3.0",
+    "license_url": "https://creativecommons.org/licenses/by/3.0/",
+    "license_evidence": "README_WCVP.xlsx, xl/sharedStrings.xml in the pinned ZIP: Licensed under http://creativecommons.org/licenses/by/3.0; Version 16; Extracted 04/06/2026",
+    "citation": "Govaerts R (ed.). 2026. WCVP: World Checklist of Vascular Plants. Facilitated by the Royal Botanic Gardens, Kew. https://doi.org/10.34885/egs6-cp24 [v16 accessed 04 Jun 2026].",
+    "adaptation": "Explicit selected species only; names and trait strings retained; synonymous requests resolve to accepted species; grouped region/introduced/extinct/doubtful records retain all source locality IDs. No geometry, images, descriptions or morphology recipes copied."
+  },
+  "name_ids": {
+    "Pinus sylvestris": "380126",
+    "Pinus cembra": "380472",
+    "Abies alba": "381621",
+    "Salix alba": "2918804",
+    "Juniperus communis": "377427",
+    "Quercus ilex": "173162",
+    "Hedera helix": "96659",
+    "Bambusa vulgaris": "399113"
+  },
+  "requested_names": [
+    "Picea abies", "Pinus sylvestris", "Pinus cembra", "Larix decidua",
+    "Abies alba", "Quercus robur", "Fagus sylvatica", "Betula pendula",
+    "Alnus glutinosa", "Salix alba", "Corylus avellana", "Juniperus communis",
+    "Quercus ilex", "Olea europaea", "Poa pratensis", "Festuca rubra",
+    "Phragmites australis", "Nymphaea alba", "Pteridium aquilinum", "Hedera helix",
+    "Sequoia sempervirens", "Sequoiadendron giganteum", "Pinus radiata",
+    "Eucalyptus globulus", "Eucalyptus regnans", "Acacia tortilis", "Vachellia tortilis",
+    "Adansonia digitata", "Bambusa vulgaris", "Cocos nucifera", "Ginkgo biloba"
+  ]
+}
