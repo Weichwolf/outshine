@@ -11,6 +11,10 @@ MetalDevice::MetalDevice(uint64_t identity, id<MTLDevice> device, id<MTLCommandQ
   constexpr uint32_t baselineInvocations = 256;
   Limits_.Name = device.name.UTF8String;
   Limits_.MaxColourAttachments = colourTargets;
+  constexpr uint32_t textureExtent = 16384;
+  constexpr uint32_t textureLayers = 2048;
+  Limits_.MaxTextureExtent = textureExtent;
+  Limits_.MaxTextureLayers = textureLayers;
   Limits_.StorageBufferAlignment = 4;
   Limits_.UniformBufferAlignment = baselineInvocations;
   Limits_.MaxStorageBufferBytes = device.maxBufferLength;
@@ -29,6 +33,9 @@ MetalDevice::~MetalDevice() {
 
 Result<std::unique_ptr<Buffer>> MetalDevice::CreateBuffer(BufferDescription description,
                                                           std::string_view label) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   @autoreleasepool {
     constexpr uint32_t knownUses = (1u << 6u) - 1;
     const auto uses = static_cast<uint32_t>(description.Use);
@@ -53,20 +60,11 @@ Result<std::unique_ptr<Buffer>> MetalDevice::CreateBuffer(BufferDescription desc
   }
 }
 
-Result<std::unique_ptr<Texture>>
-MetalDevice::CreateTexture([[maybe_unused]] TextureDescription description,
-                           [[maybe_unused]] std::string_view label) {
-  return Failure(ErrorKind::Unsupported, "Metal texture resources are not integrated yet");
-}
-
-Result<std::unique_ptr<Sampler>>
-MetalDevice::CreateSampler([[maybe_unused]] SamplerDescription description,
-                           [[maybe_unused]] std::string_view label) {
-  return Failure(ErrorKind::Unsupported, "Metal samplers are not integrated yet");
-}
-
 Result<std::span<std::byte>>
 MetalDevice::Map(Buffer &buffer, ByteRange range, Memory memory) const {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   const auto *const native = dynamic_cast<MetalBuffer *>(&buffer);
   if (native == nullptr || native->State->Device != Identity_ ||
       buffer.Description().Placement != memory || !Fits(range, buffer.Description().Bytes)) {
@@ -90,6 +88,9 @@ Result<std::span<const std::byte>> MetalDevice::MapRead(Buffer &buffer, ByteRang
 }
 
 Result<void> MetalDevice::Unmap(Buffer &buffer) {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   const auto *const native = dynamic_cast<MetalBuffer *>(&buffer);
   if (native == nullptr || native->State->Device != Identity_) {
     return Failure(ErrorKind::Invalid, "Metal buffer belongs to a different device");
@@ -101,6 +102,9 @@ Result<void> MetalDevice::Unmap(Buffer &buffer) {
 }
 
 Result<std::unique_ptr<Commands>> MetalDevice::Begin() {
+  if (!OnOwner()) {
+    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  }
   @autoreleasepool {
     Collect();
     if (Failed_) { return std::unexpected(*Failed_); }

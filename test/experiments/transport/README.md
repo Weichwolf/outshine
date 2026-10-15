@@ -20,7 +20,7 @@ Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
 
 ```sh
 TRANSPORT_PY=/var/tmp/outshine-transport-python-355154544/bin/python
-TRANSPORT_WORK=/var/tmp/outshine-transport-workspace-0241b3f81
+TRANSPORT_WORK=/tmp/outshine-transport-workspace-0241b3f81
 ```
 
 Neue eigene Umgebungen ebenfalls extern mit `python3 -m venv <Temp-Pfad>` erzeugen.
@@ -118,6 +118,50 @@ Ihre privaten Linux-Daten liegen außerhalb des Repositorys: Arbeitsstand
 Versuchsaufrufer explizite Ein-/Ausgabepfade.
 
 ## Geschlossene 3D-Körper und gespeicherte Wiener Quellkachel
+
+### Schienenprofile und Schwellen auf gewählten Betten (#250)
+
+`rail_place_experiment.py` liest die gepinnten genodeten Achsen und unveränderten
+Nutzungsbilanzen der vier Kamerafenster. Der wiederverwendbare Profil-/Instanzkern
+liegt in `outshine_ref.transport.rail_hardware`; Vertrag und Rezeptannahmen stehen
+in [lib/rail_hardware.md](../../../lib/rail_hardware.md). Keine Place-Sondergeometrie
+oder neue Quellen. Fehlende Spurweiten verwenden ausdrücklich das prozedurale
+1,435-m-Rezept. Bestehende alte C1-/Flachfenster bleiben unverändert.
+
+Weichen, Querungen und nahe Fremdflächen erhalten konservative lokale Lücken.
+Ungeeignete Stücke behalten ihren Quellenbezug und konkreten Grund; ihre gültigen
+Betten verschwinden nicht. Ein echtes nach Zuschnitt überlappendes Tokyo-Paar liegt
+unter `fixtures/rail-overlap-tokyo.json`. Die optionale Hardwarezulassung prüft
+Schiene/Schiene und Schwelle/Schwelle; vertikale Auflage bleibt ein Kontakt.
+
+```sh
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_place_experiment.py --camera-products "$TRANSPORT_CAMERA_INPUTS" --output "$TRANSPORT_RAIL_PRODUCTS"
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_place_verify.py --products "$TRANSPORT_RAIL_PRODUCTS" --camera-products "$TRANSPORT_CAMERA_INPUTS" --output "$TRANSPORT_RAIL_PRODUCTS/verification.json"
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_instance_cost.py --products "$TRANSPORT_RAIL_PRODUCTS" --mode instances --output "$TRANSPORT_RAIL_INSTANCE_COST"
+PYTHONPATH=lib/src "$TRANSPORT_PY" -W error test/experiments/transport/rail_instance_cost.py --products "$TRANSPORT_RAIL_PRODUCTS" --mode baked --output "$TRANSPORT_RAIL_BAKED_COST"
+```
+
+Alle Variablen sind frische explizite externe Temp-Pfade. Der Vier-Orte-Worker
+behält 2 GiB AS/60 CPU-Sekunden; optionaler Aufwand je Fenster kooperativ 15 s,
+Äste/Stücke/Paararbeit zusätzlich begrenzt. `rail_place_verify.py` prüft Exporte
+gegen tatsächliche gepinnte Bett-Dreiecke, sämtliche Spur-/Volumen-/Instanzwerte,
+ganze Footprints, Fremdflächen und Quellenachsen. Freigaben brauchen saubere
+eingefrorene Erzeugerstände und vollständige aktuelle Kernelhashes.
+
+Der Instanz-/Baked-Vergleich misst dieselben tatsächlichen Schwellen nach dem
+Quell-/Kontaktaufbau. Sieben Batches je frischem Worker, Daten-/Arbeitspayload und
+explizite Kopien getrennt von Gesamt-RSS. Optional `--profile <frischer Pfad>`
+mit extern installiertem `memray==1.20.0`: ein Aufruf mit Python-/Systemallokationen
+und nativen Stacks. Profilzeiten/RSS enthalten Profilerkosten; angeforderte
+Allokationsbytes sind keine einzigartigen/live Bytes, interne Kopiertotals bleiben
+unbekannt. Normale Messungen und GPU-/Native-Abnahme bleiben getrennt.
+
+`transport_place_shots.py --rail-products "$TRANSPORT_RAIL_PRODUCTS"` fügt nur
+gebackene Inspektionsgeometrie hinzu und erhält die bisherigen Körperbuffer als
+exakte Präfixe. Beide werden gemeinsam nach Szenario-ENU übersetzt. Metrische
+Spur-/Kontaktbelege bleiben dem historischen Planrahmen zugeordnet. Nach frischem
+Vierer-Rendering die Bilder tatsächlich vergleichen und bei sichtbarem Gewinn
+die vier Präsentations-PNGs aktualisieren.
 
 `transport.close_surface` aus `lib/` schließt bereits konforme Fahrflächen mit
 expliziten Vertexhöhen. Obere Anschlussvertices bleiben gemeinsam, Innenlöcher
@@ -864,3 +908,6 @@ SIGGRAPH2008 Fig.2/page2 was inspected visually: retained graph and 3D geometry
 are separate stages, not a reproduced full paper algorithm. Source acquisition
 uses the [documented offline request policy](https://openfreemap.org/quick_start/)
 and a unique User-Agent. Provider credits remain visible in the four-image page.
+
+Der eingefrorene Vier-Orte-/Instanzvergleich zu #250 steht in
+[rail_hardware_comparison.md](rail_hardware_comparison.md).

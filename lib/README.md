@@ -16,6 +16,11 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`transport.rail_hardware.build_rail_hardware` liefert vereinfachte geschlossene Schienen und
+gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrücklich
+gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
+stehen in [rail_hardware.md](rail_hardware.md) (#250).
+
 `places` teilt die geodätische Szenariokamera sowie begrenzte, explizit ausgewählte
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
@@ -884,3 +889,15 @@ declared surface filter, not an EWA, shaded image-error or native LOD bound.
 [#161](https://github.com/Weichwolf/outshine/issues/161) owns context-scoped real
 tile facade plans, physical CPU binding and costs; full programmes/near room
 transitions remain #31/#33, native integration #48.
+
+`buildings.facade_finish.FacadeFinish(frame_m=0.06, band_m=0.16)` evaluates
+`coverage(repeat, centres_m, footprints_m)` as wall/frame/glass/band fractions
+along the final array axis. The immutable `FacadeRepeat` supplies metric cells
+and finite counts. Frames occupy the inside of its existing opening. Bands
+are centred at floor boundaries, including clipped half-bands at the domain
+ends; their width is limited to the opaque vertical gap. Fractions sum to one,
+with wall outside the repeat domain. No window geometry or repeated rectangles
+are expanded. This is surface coverage, not an opening/collision or native
+LOD contract. #245 owns independent explicit rectangle integration, actual
+physical CPU binding and same-camera cached Place comparisons. The source
+wall colour and existing near-detail geometry are preserved by that consumer.

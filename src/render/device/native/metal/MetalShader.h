@@ -3,6 +3,7 @@
 
 #include "../Commands.h"
 #include <string>
+#include <optional>
 
 namespace outshine::Render::Native::Metal {
 
@@ -13,6 +14,8 @@ struct ResourceBinding {
   uint32_t Buffer = 0;
   uint32_t Texture = 0;
   uint32_t Sampler = 0;
+  bool ArrayTexture = false;
+  std::optional<Format> TexelFormat;
 };
 
 struct Shader {
