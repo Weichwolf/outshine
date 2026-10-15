@@ -58,7 +58,40 @@ Actual-source runner: `species_spatial_experiment.py --sites <cached-sites.npz>
 provider/camera/catalog/PROJ/Bpy/generator imports are forbidden.
 `species_spatial_plot.py` compares identical source windows in2560×1440.
 Current authored controls are60m length,256 waves and strength0.85; no botanical
-source claims these are measured forest parameters. Actual comparison pending.
+source claims these are measured forest parameters.
+
+## Completed actual-source comparison
+
+Frozen `19e25f93c` completed with exit0 on all53,200 original Koerbersee IDs;
+43,347 remain forest choices and9,853 remain unsupported nonforest sites. Six
+alternating rounds produce bit-exact matrix/stream variates and choices. Median
+stream0.590928s versus matrix1.725110s. The streamed path avoids a108,953,600-byte
+phase matrix; this is a concrete allocation difference, not measured process-RSS
+savings. The whole comparison includes both methods and peaks at288.87MiB;
+17.875s wall/17.022CPU-s, with host load recorded in the cost receipt.
+
+Among43,330 nearest-neighbour pairs within30m (median nearest distance10.118m),
+the same-species fraction rises from0.261782 to0.560397. This is descriptive,
+not an ecological target. Species counts change from
+`[257,10320,7679,16266,3644,5181]` to
+`[275,9008,7109,16955,3889,6111]` in canonical taxon order. No empirical quota
+correction is applied: clustered finite stands are not independent samples.
+Fresh process replay reproduces47,284 forest selections exactly for reversed
+and partial requests; all saved variates also match, with no provider/catalog/
+PROJ/generator import and field/weight preparation explicitly forbidden.
+
+The2560×1440 before/after plot was opened. The independent salt-and-pepper marks
+form spatial groups after correlation. Regular source-site spacing remains;
+this experiment deliberately preserves positions. Taxon adjacency from a
+single ordered latent value is a model limitation; independent per-taxon
+competitive marks are a sensible next alternative before ecological promotion.
+No plant form, material,3D image or ecological calibration is accepted here.
+
+Current frozen reports/choices/replay/plot:
+`/tmp/outshine-vegetation-species-spatial-19e25f93c/`.
+Four new independent mathematical controls and six existing mixture controls
+pass; Ruff format/check and the fresh-process replay complete successfully.
+The model remains experimental rather than a new public library/ecology API.
 
 ## Primary sources
 
