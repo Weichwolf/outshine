@@ -36,6 +36,7 @@ struct GeometricRay {
 };
 
 [[nodiscard]] std::vector<Scenario> Scenarios();
+[[nodiscard]] std::vector<Scenario> GeometryScenarios();
 [[nodiscard]] GeometricRay
 ReferenceRay(const Scenario &scenario, Vec3 fragment, const Medium &medium);
 [[nodiscard]] Scissor ViewClip(const Scenario &scenario);
