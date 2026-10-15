@@ -149,7 +149,8 @@ def detail(at, dx, dy, recipe, contrast):
     return result
 
 
-def validate(palette, probes, native, legacy, neutral, count):
+def validate(palette, probes, native, legacy, neutral, count, field_reference=box_reference,
+             reference_description="64x64 independent midpoint integration"):
     rows = int(palette[:1].view("<u4")[0])
     layers = int(palette[3:4].view("<u4")[0])
     surfaces = 4 * (rows + 2) + rows + 1
@@ -159,8 +160,8 @@ def validate(palette, probes, native, legacy, neutral, count):
     indices = np.where((p["which"] >= 0) & (p["which"] < rows), p["which"], unmapped)
     scales = palette[surfaces + 8 * indices + 2].astype(float)
     scales[scales <= 0] = 1
-    field = box_reference(p["point_dx"][:, :2].astype(float), p["point_dx"][:, 2:].astype(float),
-                          p["dy"].astype(float), scales)
+    field = field_reference(p["point_dx"][:, :2].astype(float), p["point_dx"][:, 2:].astype(float),
+                            p["dy"].astype(float), scales)
     field_error = float(np.max(np.abs(native[:count, 0] - field)))
     assert field_error < .00015, field_error
     full_error, neutral_error, old_error = 0., 0., 0.
@@ -200,7 +201,7 @@ def validate(palette, probes, native, legacy, neutral, count):
                 neutral_composition_max_abs_error=neutral_error, full_surface_max_abs_error=full_error,
                 full_surface_channel_max_abs_error=per_channel.tolist(),
                 legacy_max_abs_error_against_same_reference=old_error,
-                reference="64x64 independent midpoint integration; CPU analytic micro-gradients",
+                reference=reference_description + "; CPU analytic micro-gradients",
                 scope="Shader component parameters only; no Place, lighting, frame-time or A18-Pro proof")
 
 
