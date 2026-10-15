@@ -17,6 +17,8 @@ PINS = {
     + "source-ids.json": "1af5997a16aed95cf38576dbe41344a27056133e1b1c3470c994ca4fc4a13231",
     PREFIX
     + "source-usage.json": "0a17287132cca6e9bdb18923e01b91ab041317802eae433c7010abb150262bbc",
+    PREFIX
+    + "domain.wkb": "4a96433983228b9a5e1c6713de58dde8818ea30257298f8127a141dbc8403ff2",
 }
 FIELD_PIN = "20699c72258c3aae6e4a872d151241bc9d3cf8ce340a112e09e4847476206cac"
 GROUND_PIN = "16cd7e8b774136dc50e70e9549d376630b4f7bb88e221f4b46527c30367627e5"
@@ -30,8 +32,7 @@ def inputs(root):
         or digest(root / "field.npz") != FIELD_PIN
     ):
         raise ValueError("clean pinned actual ground and affine field required")
-    # The domain is also independently checked against actual emitted contacts.
-    pins = dict(PINS, **{PREFIX + "domain.wkb": digest(root / (PREFIX + "domain.wkb"))})
+    pins = dict(PINS)
     source, raw, graphs, bed, bindings = read_window(root, "ViennaNetwork", files=pins)
     with np.load(root / "ground.npz") as d:
         ground = Mesh(d["vertices"], d["faces"])
