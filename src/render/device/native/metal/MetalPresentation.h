@@ -58,6 +58,8 @@ public:
 
   [[nodiscard]] Result<std::unique_ptr<PresentFrame>> Acquire();
 
+  [[nodiscard]] bool Targets(SDL_Window *window) const noexcept { return Window_ == window; }
+
 private:
   void Resize(uint32_t width, uint32_t height);
   static void Run(const std::shared_ptr<PresentMailbox> &mailbox);
