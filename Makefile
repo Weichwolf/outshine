@@ -125,6 +125,15 @@ db: strip shaders ## compile_commands.json for clangd, clang-tidy and clang-form
 experiment-tree-cost: all db ## compare native tree expansion/instancing (CPU, no GPU proof)
 	@cd $(SELF_DIR) && python3 test/experiments/render/tree_representation_cost.py
 
+.PHONY: experiment-metal
+experiment-metal: all ## direct Metal MRT/depth/Hi-Z proof; METAL_OUTPUT must name a system-temp directory
+	@test -n "$(METAL_OUTPUT)" || { echo 'set METAL_OUTPUT to a system-temp directory' >&2; exit 2; }
+	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" python3 test/experiments/render/native_metal.py --output "$(METAL_OUTPUT)"
+
+.PHONY: experiment-vulkan
+experiment-vulkan: ## native Vulkan upload/scan/compact/readback; VULKAN_VALIDATION=1 enables validation
+	@cd $(SELF_DIR) && CXX="$(CXX)" GLSLANG="$(GLSLANG)" VULKAN_VALIDATION="$(VULKAN_VALIDATION)" python3 test/experiments/render/native_vulkan.py
+
 lint: ## format, static analysis, and this tree's own repository rules
 	@cd $(SELF_DIR) && GLSLANG="$(GLSLANG)" sh test/lint.sh
 
@@ -199,6 +208,10 @@ format: strip ## apply repository formatting to the same owned files lint checks
 test-format: ## verify formatting coverage, real diagnostics and failure handling
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_format_sources.py
 
+.PHONY: test-source-units
+test-source-units: ## verify native platform and Objective-C++ source selection
+	@cd $(SELF_DIR) && python3 test/scripts/test_source_units.py
+
 .PHONY: test-client-arguments
 test-client-arguments: db all ## reject invalid client coordinates before platform or provider startup
 	@cd $(SELF_DIR) && python3 test/scripts/test_client_arguments.py
@@ -249,3 +262,7 @@ test-writer-inventory: ## verify scenario writer source inventory
 .PHONY: test-timeout-cleanup
 test-timeout-cleanup: ## verify owned process-group cleanup and foreign-process isolation
 	@cd $(SELF_DIR) && python3 test/scripts/test_timeout_cleanup.py
+
+.PHONY: test-file-stamps
+test-file-stamps: ## verify portable native test file metadata and failure handling
+	@cd $(SELF_DIR) && python3 test/scripts/test_file_stamps.py

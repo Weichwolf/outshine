@@ -8,12 +8,9 @@ from pathlib import Path
 import re
 import subprocess
 import time
+from source_units import source_units
 
 DIAGNOSTIC = re.compile(r'^(.+?):\d+:\d+: (?:fatal )?(?:warning|error):', re.MULTILINE)
-
-
-def source_units(root):
-    return sorted(path.resolve() for path in (root / 'src').rglob('*.cpp'))
 
 
 def database_units(root):

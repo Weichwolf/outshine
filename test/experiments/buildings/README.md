@@ -121,10 +121,6 @@ from both expressions. It checks exact output roots/supports/native IDs before
 reporting isolated kernel time. Source geometry capture and verification are
 excluded from that timer; the historical own-source kernel stays in build output.
 
-```sh
-.venv/bin/python test/experiments/buildings/showcase.py --publish --serve
-```
-
 `boolean_building_plan` converts complete existing multi-storey plans into room,
 door, window and stair-opening CSG sources. Balanced/sequential expressions are
 retained comparisons, including rejected topology/candidate-capacity cases.
@@ -151,21 +147,101 @@ entrance/stair openings and missing flights are negative controls.
 generic room programme, native player controller and architecture families remain
 separate.
 
-The showcase reads the checked current snapshot and serves it on localhost:8766.
-The latest user instruction replaces the earlier multi-page gallery: exactly four
-current complete tile images, no diagnostic panels or subpages. New stands appear
-on opening or via the manual refresh button; no polling timer runs. Detailed
-controls/plots remain private experiment artifacts. Outputs remain under
-`build/experiments/buildings/`; native runtime/device budgets remain unproven.
+The Buildings gallery uses four fixed native Place locations/cameras:
+DarmstadtWest, Flensburg, Rosenheim and Tokyo from `src/assets/places/`.
+`doc/images/places/` supplies the comparison images only. Own current Python
+building renders belong in `doc/images/buildings/`, at 1920×1080 or higher with
+the same aspect ratio and vertical FOV; replace them after clearly visible gains.
+Do not copy native images as Python results. The local server and its UI are retired.
+Private source data and intermediate outputs stay in system-temp directories.
 
 ```sh
-.venv/bin/python test/experiments/buildings/showcase_tiles.py
-.venv/bin/python test/experiments/buildings/showcase.py --publish
-.venv/bin/python test/experiments/buildings/showcase.py --serve
+.venv/bin/python test/experiments/buildings/verify_place_reference.py
+.venv/bin/python test/experiments/buildings/place_sources.py --fetch --output <temp>/source-receipts.json
+.venv/bin/python test/experiments/buildings/render_places.py --sources <temp>/source-receipts.json --output <temp>/verified-place-renders
+.venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders
 ```
 
-The publisher reads `tile-showcase/reports.json` directly and prunes obsolete public
-images. It requires four clean render reports from the same source commit.
+The publisher requires all four own clean render reports and matching scenario
+camera hashes before replacing the gallery. A manifest may declare one `commit`
+for the whole set or explicit `commits` keyed by all four Places, preserving each
+image's actual generator snapshot during gradual verified updates. Tokyo's height requires actual DEM
+sampling; the other three scenario heights are absolute. Source extent, missing
+world classes and terrain/material/light differences remain explicit. The initial
+source acquisition is a declared 3 km window, not native 240 km Place admission.
+
+Filtered facade finishes (#245) reuse the existing opening repeat. The reference
+adds metric inner frames and opaque floor bands; near-detail geometry and direct
+opening patches keep their existing surface path. Wall/frame/glass/band areas
+come from the installable `outshine_ref.buildings.facade_finish` library. Explicit
+rectangle integration and physical mesh rays independently check coverage and
+the actual UV-to-metre binding. This adds no opening, collision or room programme.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_facade_finish.py'
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_facade_finish_shader.py
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_mitsuba_sampling.py
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_footprint_probe.py --output /tmp/outshine-buildings-facade-footprints
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_finish_probe.py --output /tmp/outshine-buildings-facade-controls
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/rerender_places.py <temp>/Flensburg-report.json --output /tmp/outshine-buildings-facade-places --samples-per-pass 4
+```
+
+The cached render path checks the original geometry report/mesh hash and actual
+projection/triangle count. It performs no provider decode or mesh construction.
+Geometry and renderer commits are recorded separately; the four-image publisher
+preserves both. This is a whole-scene experiment cache, not native per-asset cache
+or runtime admission. Source geometry must remain available at the checked path.
+The optional `--samples-per-pass` bounds concurrent CPU sample work, retaining
+total spp, scene and resolution. Tokyo's initial renderer exceeded this 16 GiB
+host's memory (kernel OOM, 11.36 GiB process anonymous RSS); a four-sample limit
+alone did not resolve it. Mitsuba still supports its deprecated explicit pass
+limit; the report records it separately from the dispatch fix below.
+Pass grouping can change random sample ordering, so pixel identity is not claimed.
+Energy, full image extent, total spp and named denoising AOVs have a separate control.
+
+The facade filter is exact for its axis-aligned UV box. That box bounds the
+projected pixel parallelogram; it is an approximation for rotated/sheared or
+rank-deficient footprints, not EWA or an exact projected-pixel integral. The
+native material composition/filter owner is #189; transmission and lighting
+must not acquire a second illumination path during integration.
+The footprint probe checks 216 rotated/thin/sheared nonzero-area pixels at finite
+domain edges against independent exact polygon intersections. Sign reversal and
+derivative exchange preserve results, axis-aligned pixels recover the box
+integral, and singular pixels are explicitly excluded from the area oracle.
+It reports the approximation error rather than asserting projected-pixel accuracy.
+
+CPU facade fields read constant per-source-triangle domain extents directly.
+This avoids nesting virtual shape-attribute lookup inside each material branch;
+source vertex attributes, triangles and camera stay unchanged. A varying extent
+within one triangle is rejected rather than silently changing interpolation.
+Controls exercise real bound BSDFs, reversed primitive order and a null shape
+pointer; direct opening patches retain the prior path. `facade_palette_probe.py`
+isolates this dispatch choice with a supplied real palette and small repeated
+control mesh (64×36/1spp radiance arrays, never a published Place image):
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_palette_probe.py --scene <temp>/Tokyo-scene.json --mesh <temp>/facade-finish-mesh.npz --count 32 --lookup shape --output /tmp/outshine-buildings-palette-shape
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/facade_palette_probe.py --scene <temp>/Tokyo-scene.json --mesh <temp>/facade-finish-mesh.npz --count 32 --lookup triangle --output /tmp/outshine-buildings-palette-triangle
+```
+
+The `shape` option exists only in the diagnostic. Captured JIT operation counts
+cover setup and rendering together, not retired CPU instructions or GPU work.
+The native owner composes linear material parameters before one illumination;
+the explicit CPU BRDF mixture is an independent surface reference.
+
+Small residential roofs are extended beyond the old 70 m² envelope scope in
+`residential_roof_choice.py` (#229): 70–350 m², ordinary residential source or
+site context, ground-level height 3.5–15 m and bounded footprint complexity.
+Explicit roof choices and other uses retain their previous path. Source heights,
+footprints and properties stay unchanged; roof space is reserved before rooms.
+Supplied levels require at least 2.64 m each below the roof. This is a procedural
+roof assumption, not a reconstructed roof or a complete architecture family.
+`verify_residential_roofs.py` checks four pinned real Flensburg footprints against
+independent solid composition, sections and topology plus semantic counterparts.
+`residential_roof_probe.py --output <temp>/roof-controls` produces actual 1920×1080
+plan/section/2.5D controls and equal-shape method timings. Native section comparison
+uses millimetres internally to reduce measured quantization, retaining the existing
+1e-7 m² threshold; an intentional 1 mm geometry shift must still fail.
 
 ## Sonderbauwerke aus dem bevorzugten Provider
 
@@ -281,8 +357,8 @@ Rejected comparison paths remain rejected and do not enter cost comparisons.
 The public page continues to show exactly four complete source scenes.
 
 ```sh
-.venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py
-.venv/bin/python test/experiments/buildings/roof_envelope_plan.py
+.venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
+.venv/bin/python test/experiments/buildings/roof_envelope_plan.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
 ```
 
 ## Rooms below small source roofs
@@ -437,8 +513,8 @@ These are furnishing controls, **zero complete architecture recipe families**.
 Oversized legacy rooms, plumbing, ventilation, occupancy/accessibility rules,
 other programme families, seated interactions and native detail admission remain
 open at [#174](https://github.com/Weichwolf/outshine/issues/174), #31/#32/#33/#48.
-The public showcase retains exactly four complete current source tiles and its
-manual refresh. Invisible far furniture is not generated for those views.
+The public gallery retains four fixed Place views. Invisible far furniture is
+not generated for those views.
 
 `inspect_render_exposure.py <render-report.json> --exposure 8` derives a private
 display inspection from the stored linear denoised radiance. Its provenance
@@ -489,6 +565,6 @@ preparation and whole fresh-process Linux RSS stay separate.
 `room_programme_probe.py --support-plan --overview-only` uses the chosen plan,
 then renders a declared ground-office cut: actual body parts capped at 1.10 m
 above that floor, upper storeys/ceiling omitted, full furniture retained. The
-uncut mesh is checked separately. Public showcase remains four whole tiles.
+uncut mesh is checked separately. The public gallery retains four fixed Place views.
 Door leaves/privacy states, services/ventilation, complete architectural
 programmes, other uses, runtime LOD/cache and native admission remain open.

@@ -141,7 +141,7 @@ def main(roots):
     for root in roots:
         for here, _, names in os.walk(root):
             paths.extend(Path(here, name) for name in sorted(names)
-                         if name.endswith((".h", ".cpp", ".hpp")) and
+                         if name.endswith((".h", ".cpp", ".hpp", ".mm")) and
                          policy(Path(here, name)) is not None)
     with ThreadPoolExecutor() as pool:
         done = list(pool.map(settle, sorted(set(paths))))
