@@ -5,7 +5,7 @@ from dataclasses import FrozenInstanceError
 
 import numpy as np
 import shapely
-from door_geometry import DoorLeaf, pose, sweep
+from outshine_ref.buildings.interiors.doors import DoorLeaf, pose, sweep
 
 
 class DoorGeometry(unittest.TestCase):

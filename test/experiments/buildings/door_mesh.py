@@ -3,7 +3,7 @@
 import math
 
 import numpy as np
-from door_geometry import pose
+from outshine_ref.buildings.interiors.doors import pose
 
 
 def template(leaf):

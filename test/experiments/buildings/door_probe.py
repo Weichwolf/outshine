@@ -10,13 +10,12 @@ from pathlib import Path
 import numpy as np
 from building_vertical import mesh as building_mesh
 from door_assembly import mesh as door_mesh
-from door_support_plan import select
+from door_furnishing import joint
 from evidence import revision
 from furniture_mesh import build as furnishings
 from interior_light_plan import lights
 from office_support_plan import refine
 from opening_details import attach, expand, slots
-from room_programme import programme
 from room_programme_plan import CONTROLS, source_plan
 from room_programme_probe import MATERIALS, combine
 from verify_furniture import verify
@@ -27,9 +26,8 @@ def run(output, render=False, spp=32):
     records = []
     for site, identifier in CONTROLS:
         _row, original, receipt = source_plan(site, identifier)
-        plan = refine(original)
-        product = programme(plan, "jittered-anchors")
-        selection = select(plan, product)
+        plan = refine(original, door_aware=True)
+        product, selection = joint(plan)
         selected = selection["selected"]
         proof = verify(plan, product, selected)
         record = {
@@ -43,11 +41,11 @@ def run(output, render=False, spp=32):
         }
         records.append(record)
         print(site, len(selected), "doors; full open access passed", flush=True)
-        if not render or site != "Hameln":
+        if not render or site != "BerlinFernsehturm":
             continue
         body = attach(building_mesh(plan), expand(slots(plan)))
         furniture, _ = furnishings(product)
-        door = next(row for row in selected if row["kind"] == "sanitary")
+        door = next(row for row in selected if row["kind"] == "tea")
         leaf = door["leaf"]
         centre, inward = np.asarray(leaf.centre), np.asarray(leaf.inward)
         eye = np.r_[centre - inward * 0.85, leaf.floor_z_m + 1.55]

@@ -3,7 +3,7 @@
 import numpy as np
 import shapely
 from building_mesh import solid
-from door_geometry import pose
+from outshine_ref.buildings.interiors.doors import pose
 
 
 def frame(leaf):

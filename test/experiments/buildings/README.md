@@ -243,6 +243,32 @@ plan/section/2.5D controls and equal-shape method timings. Native section compar
 uses millimetres internally to reduce measured quantization, retaining the existing
 1e-7 m² threshold; an intentional 1 mm geometry shift must still fail.
 
+## Support doors and furniture
+
+Joint support doors and furnishing (#197) use immutable metric leaf plans from
+`outshine_ref.buildings.interiors.doors`. The library's `placement_reserved`
+keeps furniture and activity zones out of the whole movement envelope; routing
+uses the actual parked leaf separately. `office_support_plan.refine(...,
+door_aware=True)` rejects otherwise compact partitions that cannot accommodate
+the unchanged full-size functions and either inward hinge. It tries at most24
+door layouts per partition step; no state/camera/LOD transition replans rooms.
+Original source boundaries, old openings and unsupported floors remain intact.
+The old fixed partitions and post-fit selection remain diagnostic counterparts;
+an unfit fixed room remains explicitly partial rather than being resized in place.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_door_geometry.py'
+PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_furnishing_placement.py'
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_door_joint.py --output /tmp/outshine-buildings-door-joint/verification.json
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/door_probe.py --output /tmp/outshine-buildings-door-joint/views --render
+```
+
+The paired full-building Berlin tea-door views use one fixed corridor camera,
+actual geometry/furniture/area lights and1920×1080/32spp CPU path tracing.
+They are private controls. Public presentation remains the four latest complete
+Place images; a hidden interior change alone does not justify replacing them.
+Whole-building usage, native controller/cache/LOD, handles and services remain open.
+
 ## Sonderbauwerke aus dem bevorzugten Provider
 
 `special_sources.py --fetch` samples named study windows against the endpoint

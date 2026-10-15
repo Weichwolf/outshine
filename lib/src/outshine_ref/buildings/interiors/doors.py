@@ -6,7 +6,8 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import identifier
+
+from ...contracts import identifier
 
 
 @dataclass(frozen=True, slots=True)

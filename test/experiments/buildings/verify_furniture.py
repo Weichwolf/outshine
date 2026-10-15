@@ -50,7 +50,11 @@ def verify(plan, product, doors=()):
             if door["room_id"] == room["room_id"]:
                 shape = shape.difference(door["open"])
         expected = access(
-            shape, room["portal_anchors"], room["result"]["items"], room["reserved"]
+            shape,
+            room["portal_anchors"],
+            room["result"]["items"],
+            room["reserved"],
+            placement_reserved=room.get("placement_reserved", ()),
         )
         anchors = np.c_[
             room["portal_anchors"],
@@ -172,6 +176,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("build/experiments/buildings/room-programme"),
+        required=True,
     )
     run(parser.parse_args().output)

@@ -6,10 +6,10 @@ import time
 from pathlib import Path
 
 import numpy as np
-from door_geometry import pose, sweep
 from door_support_plan import choices
 from evidence import revision
 from office_support_plan import refine
+from outshine_ref.buildings.interiors.doors import pose, sweep
 from room_programme import programme
 from room_programme_plan import CONTROLS, source_plan
 

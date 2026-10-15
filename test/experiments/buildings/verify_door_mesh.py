@@ -7,10 +7,10 @@ import manifold3d as manifold
 import numpy as np
 import shapely
 from door_frame import frame
-from door_geometry import DoorLeaf, pose
 from door_mesh import expand, template
 from door_state_verification import check
 from furniture_collision import furnishing_solid
+from outshine_ref.buildings.interiors.doors import DoorLeaf, pose
 from structural_shell_geometry import native
 
 

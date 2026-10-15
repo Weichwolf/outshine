@@ -58,7 +58,7 @@ def apply_candidate(current, identifiers, candidate):
     )
 
 
-def support_step(states, kind, method, floor, rejected):
+def support_step(states, kind, method, floor, rejected, door_aware=False):
     proposals = []
     for state in states:
         current = state["plan"]
@@ -74,6 +74,7 @@ def support_step(states, kind, method, floor, rejected):
             rejected.extend({"storey": floor, **row} for row in failures)
     following = []
     fingerprints = set()
+    door_trials = 0
     for score, state, candidate in sorted(
         proposals,
         key=lambda r: (r[0], r[2]["host"], r[2]["candidate"], tuple(r[1]["ids"])),
@@ -86,6 +87,24 @@ def support_step(states, kind, method, floor, rejected):
             if key in fingerprints:
                 continue
             fingerprints.add(key)
+            if door_aware:
+                from door_furnishing import fit
+
+                door_trials += 1
+                chosen, attempts = fit(current, record | {"storey": floor})
+                if chosen is None:
+                    rejected.append(
+                        {
+                            "storey": floor,
+                            "host": candidate["host"],
+                            "kind": kind,
+                            "reason": "Partition has no bounded door/furniture/activities layout",
+                            "door_attempts": attempts,
+                        }
+                    )
+                    if door_trials >= 24:
+                        break
+                    continue
             following.append(
                 {
                     "plan": current,
@@ -95,6 +114,8 @@ def support_step(states, kind, method, floor, rejected):
                 }
             )
             if len(following) == 4:
+                break
+            if door_aware and door_trials >= 24:
                 break
         except ValueError as error:
             rejected.append(
@@ -108,7 +129,7 @@ def support_step(states, kind, method, floor, rejected):
     return following or states
 
 
-def refine(plan, method="wall-ends"):
+def refine(plan, method="wall-ends", *, door_aware=False):
     if method not in ("wall-ends", "sliding-wall"):
         raise ValueError("Unknown compact support partition method")
     if "support_refinement" in plan:
@@ -137,7 +158,7 @@ def refine(plan, method="wall-ends"):
             {"plan": current, "ids": identifiers[floor], "records": [], "score": 0.0}
         ]
         for kind in ("sanitary", "tea"):
-            states = support_step(states, kind, method, floor, rejected)
+            states = support_step(states, kind, method, floor, rejected, door_aware)
         chosen = min(
             states, key=lambda s: (-len(s["records"]), s["score"], tuple(s["ids"]))
         )
@@ -166,6 +187,8 @@ def refine(plan, method="wall-ends"):
             "unresolved": unresolved,
             "maximum_floor_states": 4,
             "maximum_candidates_per_room": 48,
+            "door_aware": door_aware,
+            "maximum_door_layout_trials_per_step": 24 if door_aware else 0,
             "elapsed_ms": (time.perf_counter() - began) * 1000,
             "scope": "Procedural compact side rooms; original rooms remain identifiable parents. No furnishing, door privacy, regulatory or native admission claim.",
         },
