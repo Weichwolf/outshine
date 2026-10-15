@@ -9,11 +9,22 @@ import shapely
 from door_frame import frame
 from door_geometry import DoorLeaf, pose
 from door_mesh import expand, template
+from door_state_verification import check
 from furniture_collision import furnishing_solid
 from structural_shell_geometry import native
 
 
 class DoorMesh(unittest.TestCase):
+    def test_assembled_state_verifier_keeps_open_and_closed_queries_distinct(self):
+        leaf = DoorLeaf("door/leaf", (0, 0), (1, 0), (0, 1), 0.16)
+        opened, proof = check(
+            manifold.Manifold(), [{"leaf": leaf, "storey": 0}], -1.0, 4.0
+        )
+        self.assertEqual(proof[0]["paired_state_rays"], 39)
+        self.assertEqual(proof[0]["closed_oblique_rays"], 65)
+        self.assertTrue(proof[0]["closed_actor_rejected"])
+        self.assertFalse(opened.ray_cast([0, -0.5, 1.2], [0, 0.5, 1.2]))
+
     def test_room_face_frame_blocks_oblique_privacy_rays_without_blocking_opening(self):
         for side in (-1, 1):
             leaf = DoorLeaf("door/leaf", (0, 0), (1, 0), (0, 1), 0.16, hinge_side=side)

@@ -30,10 +30,13 @@ def verify(plan, product, doors=()):
     shell = construct(plan)
     _, collision = assembly(plan, shell, frames=True)
     combined = collision + furniture
+    door_proof = []
     if doors:
-        from door_assembly import mesh as door_mesh
+        from door_state_verification import check
 
-        combined += furnishing_solid(door_mesh(doors, 90.0))
+        combined, door_proof = check(
+            combined, doors, plan["base_z_m"] - 1.0, plan["source_top_m"] + 1.0
+        )
     building = building_access(plan, combined)
     columns = NativeColumns(
         combined, plan["base_z_m"] - 1.0, plan["source_top_m"] + 1.0
@@ -59,7 +62,7 @@ def verify(plan, product, doors=()):
             sequence = landing_poses(np.asarray(path.coords), room["floor_z_m"])
             minimum = min(minimum, inspect_poses(columns, sequence))
             poses += len(sequence)
-    return {
+    result = {
         "status": product["status"],
         "programme": programme_proof,
         "instances": len(description["instances"]),
@@ -72,6 +75,9 @@ def verify(plan, product, doors=()):
         "source_properties": plan["source_properties"],
         "source_height_interval_m": [plan["base_z_m"], plan["source_top_m"]],
     }
+    if doors:
+        result["door_states"] = door_proof
+    return result
 
 
 def controls():

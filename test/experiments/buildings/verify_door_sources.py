@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 from building_vertical import level
 from door_mesh import expand, template
-from door_support_plan import choices
+from door_support_plan import select
 from evidence import revision
 from office_support_plan import refine
 from outshine_ref.buildings.interiors import access
@@ -18,50 +18,21 @@ from structural_shell_geometry import native
 
 
 def verify(plan, product):
-    groups = {}
-    for candidate in choices(plan, product):
-        groups.setdefault(candidate["room_id"], []).append(candidate)
+    selection = select(plan, product)
     rooms = {row["room_id"]: row for row in product["rooms"]}
-    verified, unresolved = [], []
-    for room_id, candidates in groups.items():
-        valid = [candidate for candidate in candidates if candidate["fits_existing"]]
-        if not valid:
-            unresolved.append(
-                {
-                    "room_id": room_id,
-                    "reason": "Neither inward hinge clears existing room, furniture and activity areas",
-                }
-            )
-            continue
-        current = level(plan, valid[0]["storey"])
+    verified = []
+    for selected in selection["selected"]:
+        room_id = selected["room_id"]
+        current = level(plan, selected["storey"])
         room = rooms[room_id]
         shape = current["rooms"][room["room_index"]]
         anchors, reserved = portals(current, room["room_index"])
-        selected, rejected = None, []
-        for candidate in valid:
-            try:
-                result = access(
-                    shape.difference(candidate["open"]),
-                    anchors,
-                    room["result"]["items"],
-                    reserved,
-                )
-            except ValueError as error:
-                rejected.append(
-                    {"hinge_side": candidate["leaf"].hinge_side, "reason": str(error)}
-                )
-                continue
-            selected = candidate
-            break
-        if selected is None:
-            unresolved.append(
-                {
-                    "room_id": room_id,
-                    "reason": "No candidate passes bounded open-door access",
-                    "attempts": rejected,
-                }
-            )
-            continue
+        result = access(
+            shape.difference(selected["open"]),
+            anchors,
+            room["result"]["items"],
+            reserved,
+        )
         leaf = selected["leaf"]
         fixed = template(leaf)
         closed, opened = (native(expand(leaf, fixed, angle)) for angle in (0, 90))
@@ -94,7 +65,7 @@ def verify(plan, product):
         )
     return {
         "verified": verified,
-        "unresolved": unresolved,
+        "unresolved": selection["unresolved"],
         "scope": "Door solids, straight portal rays and 2D routes in affected support rooms; full building assembly, oblique privacy, frames and full actor route sampling remain unverified",
     }
 
