@@ -48,6 +48,29 @@ measured cases, not global bounds or a temporal reconstruction guarantee.
 
 ![Motion diagnostic](../../../doc/images/materials/ground-litter-motion.png)
 
+`ground_litter_shear.py` extends the area comparison to 120 Jacobians, including
+both handednesses, opening angles of 5/175 degrees and rank-one limits. It uses
+32 fixed points and the same three recipes, a 128x128 midpoint reference and
+64x64 refinement. The maximum field refinement delta is 0.00002540. Reversing
+one derivative and exchanging both derivatives preserve each candidate to
+1e-12; no division by a nearly zero determinant is required.
+
+Across this additional set, maximum linear RGB errors are 0.07364 (box),
+0.007151 (four samples) and 0.0006455 (nine samples). These maxima occur in
+different cases; they are finite-set results, not global bounds. The largest
+box error occurs for alpine grassland, width 1, aspect 1, angle 0 and opening
+175 degrees. The box fade is almost zero, while the derivative-length fade is
+one. The nine-sample RGB error in that same case is 0.0002365.
+
+![Sheared footprint diagnostic](../../../doc/images/materials/ground-litter-shear.png)
+
+The diagnostic samples a fixed world patch; probe spacing is independent of the
+footprint and its 64x48 samples are enlarged for inspection. It is albedo only,
+without geometry, lighting, native execution or a Place-image claim. Rank-one
+results use the limiting integral of the parameter square, not a uniform line
+average. This closes the declared shear test gap for these examples, not an
+arbitrary-Jacobian accuracy guarantee.
+
 Four and nine samples require at most 16 and 36 corner hashes without sharing;
 the rectangle uses at most 16. Arithmetic, register pressure, actual branches
 and backend execution can outweigh these counts. The nine-sample result is a
@@ -60,6 +83,7 @@ Run with Python, NumPy and Pillow from the repository root:
 ```sh
 python3 test/experiments/render/ground_litter_footprint.py --output /tmp/outshine-material-footprint
 python3 test/experiments/render/ground_litter_motion.py --output /tmp/outshine-material-motion
+python3 test/experiments/render/ground_litter_shear.py --output /tmp/outshine-material-shear
 ```
 
 Outputs are private system-temp artifacts: numerical records with source/input
