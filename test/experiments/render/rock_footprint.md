@@ -21,6 +21,12 @@ old bound discarded. The global rockDetail footprint parameter is removed from
 its only production caller. rockCrevice now takes explicit phase variance;
 visibility and invalid wavelengths belong to the field sampler. No GPU binding,
 block/asset layout, palette, source classification, lighting or geometry change.
+The final sampler returns screen derivatives directly: its existing two phase
+increments already are the required projected noise gradient. Composing these
+avoids reconstructing and reprojecting world gradients. The new native86-case
+comparison preserves scalar outputs exactly, changes derivatives by at most
+1.1921e-7, and retains the original parity limits. This does not itself explain
+or clear the observed Central-Park frame spike.
 The independent Gaussian primitive test retains its numerical thresholds and
 extends to1,345 checks over both phase axes. Disabled/unresolved cases move to
 actual field-level GPU checks, where visibility is now decided.
