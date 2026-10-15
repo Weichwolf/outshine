@@ -94,7 +94,7 @@ public:
       double Ms = 0.0;
     };
 
-    static constexpr size_t KindCount = static_cast<size_t>(DataKind::OriginalOsm) + 1;
+    static constexpr size_t KindCount = static_cast<size_t>(DataKind::Weather) + 1;
     std::array<ProviderCost, KindCount> Providers{};
     std::vector<UsedSource> Sources;
   };

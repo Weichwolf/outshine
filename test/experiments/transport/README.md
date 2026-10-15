@@ -145,6 +145,11 @@ Beide Kontaktflächen werden gemeinsam zugeschnitten und vollständig geprüft.
 Nicht gebaute Stationen behalten Quelle und Grund. Das ist kein Statiknachweis.
 [Vergleich, Quellen und Grenzen](wien_support_comparison.md).
 
+Der Konstruktionskern ist mit #332 installierbar unter
+[`outshine_ref.transport.supports`](../../../lib/supports.md). Experiment und
+frisches Wheel verwenden denselben Kern; unabhängige Referenz-/Volumenprüfung
+bleibt separat. [Migration, Identität und Kosten](support_library_comparison.md).
+
 ```sh
 PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/wien_support_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_SUPPORT_OUTPUT"
 PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/wien_support_verify.py --products "$TRANSPORT_SUPPORT_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_SUPPORT_OUTPUT/verification.json"
