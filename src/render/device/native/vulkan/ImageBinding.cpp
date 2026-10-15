@@ -30,7 +30,8 @@ Result<SampledBinding> Sampling(const Binding &binding, const Context &context) 
 
 Result<VkDescriptorImageInfo> Recording::BindImage(const ShaderBinding &declared,
                                                    const Binding &binding,
-                                                   const PipelineState &pipeline) {
+                                                   const PipelineState &pipeline,
+                                                   VkPipelineStageFlags2 stages) {
   TextureView view;
   std::shared_ptr<SamplerState> sampler;
   const bool storage = declared.Kind == BindingKind::StorageTexture;
@@ -69,11 +70,8 @@ Result<VkDescriptorImageInfo> Recording::BindImage(const ShaderBinding &declared
   VkAccessFlags2 access = VK_ACCESS_2_SHADER_READ_BIT;
   if (storage && declared.Usage != Access::Read) { access |= VK_ACCESS_2_SHADER_WRITE_BIT; }
   if (storage && declared.Usage == Access::Write) { access = VK_ACCESS_2_SHADER_WRITE_BIT; }
-  if (auto used = UseImage(*image,
-                           view,
-                           {.Stage = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-                            .Access = access,
-                            .Layout = VK_IMAGE_LAYOUT_GENERAL});
+  if (auto used = UseImage(
+          *image, view, {.Stage = stages, .Access = access, .Layout = VK_IMAGE_LAYOUT_GENERAL});
       !used) {
     return std::unexpected(used.error());
   }

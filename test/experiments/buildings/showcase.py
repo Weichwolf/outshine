@@ -1,4 +1,4 @@
-"""Publish four verified Python renders at the fixed native Place cameras; no server."""
+"""Export four verified Python renders for local inspection; no server."""
 
 import argparse
 import hashlib
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from place_reference import PLACES, ROOT, read
+from place_reference import PLACES, read
 
 
 def publish(source, output):
@@ -122,6 +122,6 @@ def publish(source, output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=ROOT / "doc/images/buildings")
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     print(json.dumps(publish(args.input, args.output), indent=2))

@@ -20,8 +20,8 @@
   | `outshine_buildings` | Reine Python-Forschung: Gebäudeformen, Architekturrezepte und Räume | [#47](https://github.com/Weichwolf/outshine/issues/47) |
   | `outshine_vegetation` | Reine Python-Forschung: Pflanzen, Wälder und Vegetationsdarstellung | [#47](https://github.com/Weichwolf/outshine/issues/47) |
   | `outshine_performance` | Native Entwicklung: Vulkan-Backend, Renderarbeit, Sichtbarkeit, Batching, Speicher; RTX 3060 bei 1920×1080/60 | [#188](https://github.com/Weichwolf/outshine/issues/188) |
-  | `outshine_material` | Native Entwicklung: prozedurale Oberflächen, Materialkomposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
-  | `outshine_light` | Native Entwicklung: Licht, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
+  | `outshine_material` | Native Entwicklung: vollständiger Materialbaukasten, prozedurale Oberflächen, Verteilung, Komposition und Filter | [#189](https://github.com/Weichwolf/outshine/issues/189) |
+  | `outshine_light` | Native Entwicklung: Tages-/Nachtlicht, Tausende lokale Lichtquellen, Schatten, Reflexion, klare Atmosphäre, Astronomie und Kameraantwort | [#190](https://github.com/Weichwolf/outshine/issues/190) |
   | `outshine_weather` | Native Entwicklung: Wetterdaten/-zustand, Wolken, Wind, Nebel und Niederschlag | [#191](https://github.com/Weichwolf/outshine/issues/191) |
 
   Die drei Forschungsagenten arbeiten ausschließlich in Python: Experimente unter `test/experiments/`,
@@ -33,6 +33,10 @@
   das A18-Pro-Profil 1280×720/30. Mein vorheriges Review ist keine Merge-Voraussetzung.
   Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
   Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
+  Material entwickelt alle benötigten Materialfamilien und ihre kohärenten Übergänge.
+  Light besitzt auch skalierende lokale Beleuchtung, sämtliche Schatten und den Tag-/Nachtzyklus;
+  Weather liefert Wetter-/Wolken-/Nebelzustand und vereinbarte Mediumdaten. Light verantwortet
+  die gemeinsame Licht-/Schattenkomposition; Performance unterstützt GPU-Ausführung und Speicher.
 - Jeder Agent darf und soll architektonische und organisatorische Verbesserungen einbringen.
   Outshine soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt,
   gut gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine
@@ -48,6 +52,9 @@
   betroffenen Prüfungen eigenständig nach `master`. Zugehörige Tests/Referenzdokumentation mitführen.
   Gemeinsame Verträge mit betroffenen Verbrauchern abstimmen; keine fremden Fortschritte überschreiben.
   Der Outshine-Hauptagent übernimmt die native Integration samt Engine-, Bild- und Kostenprüfung eigenständig.
+  Ich gebe den drei Forschungsagenten aus der Integration konkrete Bedarfe und Verbesserungsaufträge:
+  reproduzierbare Eingaben, Bild-/Funktionsdefizit, betroffener Vertrag und Priorität im Fach-Issue.
+  Python-Verfahrensfehler und Fehler meiner nativen Umsetzung unterscheide ich anhand der Belege.
   Die Forschungsagenten warten dafür nicht auf eine native Umsetzung ihrer Python-Verfahren.
   Alle Agenten benutzen dieselben GitHub Issues; Experiment, Bibliotheksstand und native Integration getrennt belegen.
   Gemeinsame Bibliotheksbasis: [#47](https://github.com/Weichwolf/outshine/issues/47); native Integration: [#48](https://github.com/Weichwolf/outshine/issues/48).
@@ -148,10 +155,10 @@
   RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
   1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
-- Transport rendert eigene Python-Aufnahmen von Wien, Tokyo, Central Park und Feldkirch nach
-  den festen Orts-/Kamerareferenzen in `doc/images/places/` und den Place-Szenarien.
-  Genau vier Referenz-PNGs liegen unter `doc/images/transport/`; bei deutlich sichtbaren
-  Verbesserungen nach tatsächlichem Vorher/Nachher-Bildvergleich aktualisieren. Kein Showcase-Server.
+- Nur der Hauptagent veröffentlicht Bilder: die integrierten Places unter `doc/images/places/`
+  und in der README-Galerie. Fachagenten pushen keine Bilder nach `doc/` und legen keine
+  Ersatzgalerien an. Forschungs-/Diagnosebilder bleiben lokal im System-Tempverzeichnis;
+  Verfahren, Tests und Renderer werden weiterhin geliefert. Tatsächliche Bildprüfung bleibt Pflicht.
 - Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
   Tokyo und Central Park sind zusätzliche harte Dichtebenchmarks und gehören ins Render-Gate.
   Ein Teil der Places stammt von [foto-webcam.eu](https://www.foto-webcam.eu/).
@@ -218,12 +225,13 @@
   Ich referenziere aktuelle Issues als `#N` oder per URL und aktiviere sie vor Implementierung.
   Abgeschlossene Anforderungen in ihren Besitzer übernehmen, dann das Issue schließen; nichts lokal löschen.
   Kleine vollständige Commits mit Issuebezug, ohne KI-Attribution. Ein Commit beendet das Gesamtziel nicht.
-- Auf `outshine_vegetation` wird jeder geprüfte Fortschritt committed, gepusht und in der lokalen
-  Showcase unter `/tmp/outshine-vegetation-showcase` veröffentlicht. Kein automatisches
-  Neuladen; neue Stände erscheinen beim Öffnen oder über den manuellen Aktualisieren-Knopf.
-  Gestaltung/Bedienung folgen der Building-Showcase; drei typische Landschaften sind feste Bildszenarien.
-  Vegetations-Showcase-Renderings mindestens 1920×1080, Standard 2560×1440 für erkennbare Details.
-  Für Vegetation gilt SpeedTree als Qualitätsmaßstab; die Nutzerbildreferenz besitzt [#1](https://github.com/Weichwolf/outshine/issues/1).
+- Nach dem Merge löscht der PR-Besitzer den temporären Themenbranch lokal und auf GitHub,
+  sobald dessen aktueller Stand vollständig integriert ist. `master` und die sieben dauerhaften
+  `outshine_<bereich>`-Arbeitsbranches bleiben bestehen. Offene PRs, belegte Worktrees und
+  nicht integrierte Commits schützen vor automatischer Bereinigung; Remote-Löschungen sichern
+  den geprüften Commitstand per Lease. Keine globale Merge-Löschautomatik für dauerhafte Agentenbranches.
+- Für Vegetation gilt SpeedTree als Qualitätsmaßstab;
+  die Nutzerbildreferenz besitzt [#1](https://github.com/Weichwolf/outshine/issues/1).
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.

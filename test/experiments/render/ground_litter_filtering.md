@@ -4,7 +4,7 @@ These experiments belong to [#196](https://github.com/Weichwolf/outshine/issues/
 They evaluate the existing cubic value-noise mask and shipped material recipes.
 They do not render lit Places, simulate a camera, evaluate TAA or measure GPU time.
 
-The production filter integrates the axis-aligned bounding rectangle of the two
+The former production filter integrated the axis-aligned bounding rectangle of the two
 XZ screen derivatives. A rotated pixel has a different area and different fade:
 the bounding rectangle can reach the two-cell mean cutoff before the actual
 derivative length does. Parameter blending and the palette layout are independent
@@ -24,7 +24,7 @@ nine samples. The independent 32/64 midpoint refinement differed by at most
 0.0001016 in the scalar field. The existing square-footprint wrapper remains
 unchanged; rectangular integration is the same separable procedure.
 
-![Footprint comparison](../../../doc/images/materials/ground-litter-pixel-footprint.png)
+Local diagnostic: `ground-litter-pixel-footprint.png` (generated in system temp; not published).
 
 `ground_litter_motion.py` follows 32 deterministic world points through 91 steps
 of square-footprint rotation, translation and growth across the mean cutoff.
@@ -46,7 +46,7 @@ The reference refinement's step RGB RMS is respectively 4.36e-9, 5.67e-8 and
 the two-cell cutoff and reproduce the quarter-turn square identity. These are
 measured cases, not global bounds or a temporal reconstruction guarantee.
 
-![Motion diagnostic](../../../doc/images/materials/ground-litter-motion.png)
+Local diagnostic: `ground-litter-motion.png` (generated in system temp; not published).
 
 `ground_litter_shear.py` extends the area comparison to 120 Jacobians, including
 both handednesses, opening angles of 5/175 degrees and rank-one limits. It uses
@@ -62,7 +62,7 @@ box error occurs for alpine grassland, width 1, aspect 1, angle 0 and opening
 175 degrees. The box fade is almost zero, while the derivative-length fade is
 one. The nine-sample RGB error in that same case is 0.0002365.
 
-![Sheared footprint diagnostic](../../../doc/images/materials/ground-litter-shear.png)
+Local diagnostic: `ground-litter-shear.png` (generated in system temp; not published).
 
 The diagnostic samples a fixed world patch; probe spacing is independent of the
 footprint and its 64x48 samples are enlarged for inspection. It is albedo only,
@@ -73,9 +73,9 @@ arbitrary-Jacobian accuracy guarantee.
 
 Four and nine samples require at most 16 and 36 corner hashes without sharing;
 the rectangle uses at most 16. Arithmetic, register pressure, actual branches
-and backend execution can outweigh these counts. The nine-sample result is a
-quality candidate; the native cost comparison and identical Place pairs still
-determine the production choice. No new buffer, texture, sampler, attachment or
+and backend execution can outweigh these counts. Nine samples are now the production default after the finite-set quality and
+native component-cost comparisons in #196/#268. Master retains the subsequent
+identical lit Place, Metal/A18 and integrated frame/memory counterchecks. No new buffer, texture, sampler, attachment or
 pass is required by either oriented candidate.
 
 Run with Python, NumPy and Pillow from the repository root:
@@ -91,3 +91,17 @@ hashes and diagnostic PNGs. No reference pins or product assets are rewritten.
 The orientation motivation is SIGGRAPH 2009, *Sparse Gabor Noise*, section 5.2
 and figure 6 (PDF page 6), previously inspected as a rendered page. This uses
 the existing value noise, not Gabor noise. Technique decisions remain in #196.
+
+The native choice chart is reproducible with the shared linked consumer and the
+artifacts from `ground_litter_shaders.py`:
+
+```sh
+python3 test/experiments/render/ground_litter_choice_image.py --binary /path/to/native_material --shaders /tmp/outshine-material-oriented --output /tmp/outshine-material-ground-choice
+```
+
+It captures9216 actual full-surface albedo values from three pinned palette rows
+on oblique affine pixels, before/after. The64×48 images are enlarged4×; pixel
+spacing matches the declared derivative pair. This remains a component image,
+without lighting or a Place claim. NumPy and Pillow are required.
+
+Local diagnostic: `ground-litter-oriented-native.png` (generated in system temp; not published).

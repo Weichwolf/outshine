@@ -50,7 +50,7 @@ ImageType(const Reflection &reflection, const spvc_reflected_resource &resource,
 }
 
 Result<void>
-AppendImages(const Reflection &reflection, spvc_resource_type kind, ComputeReflection &into) {
+AppendImages(const Reflection &reflection, spvc_resource_type kind, ShaderResources &into) {
   const spvc_reflected_resource *resources = nullptr;
   std::size_t count = 0;
   if (spvc_resources_get_resource_list_for_type(reflection.Resources, kind, &resources, &count) !=
@@ -70,7 +70,7 @@ AppendImages(const Reflection &reflection, spvc_resource_type kind, ComputeRefle
                        reflection.Compiler, resource.id, SpvDecorationNonReadable) != 0) {
       access = Access::Write;
     }
-    into.Layout.Bindings.push_back(
+    into.Bindings.push_back(
         {.Set = image->Set,
          .Slot = image->Slot,
          .Kind = storage ? BindingKind::StorageTexture : BindingKind::SampledTexture,

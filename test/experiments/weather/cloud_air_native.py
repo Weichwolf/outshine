@@ -153,6 +153,35 @@ def invalid_controls(args, commands):
     return 3
 
 
+def sparse_control(args, commands):
+    case = args.output / "sparse-schedule"
+    case.mkdir(exist_ok=True)
+    dense = args.output / "broken"
+    rays = np.fromfile(dense / "rays.bin", dtype=RAY)
+    queries = np.fromfile(dense / "queries.bin", dtype="<f4")
+    indices = rays["end"].astype(int) - 1
+    expected = np.fromfile(dense / "native.bin", dtype=SAMPLE)[indices]
+    queries[indices].tofile(case / "queries.bin")
+    rays["begin"] = np.arange(len(rays), dtype="<u4")
+    rays["end"] = rays["begin"] + 1
+    rays.tofile(case / "rays.bin")
+    fixture = args.air_root / "test/experiments/render/data/air-prefix/homogeneous"
+    command = [
+        str(args.probe),
+        str(dense / "probe.spv"),
+        str(case / "rays.bin"),
+        str(case / "queries.bin"),
+        str(fixture / "veil.bin"),
+        str(fixture / "multi.bin"),
+        str(fixture / "medium.bin"),
+        str(case / "native.bin"),
+    ]
+    run(command, case, "capture", commands)
+    assert not commands[-1]["stderr"], "native validation emitted diagnostics"
+    assert (case / "native.bin").read_bytes() == expected.tobytes()
+    return {"samples": len(rays), "same_shader_schedule_bit_identical": True}
+
+
 def replay(args):
     args.output.mkdir(parents=True, exist_ok=True)
     receipt = args.output / "receipt.json"
@@ -219,6 +248,7 @@ def replay(args):
         assert not commands[-1]["stderr"], "native validation emitted diagnostics"
     reports["dense_clear_repartitioned"] = dense_control(args, commands)
     reports["invalid_input_controls"] = invalid_controls(args, commands)
+    reports["sparse_schedule"] = sparse_control(args, commands)
     streamed = np.fromfile(args.output / "broken/native.bin", dtype=SAMPLE)
     fresh = np.fromfile(args.output / "fresh/native.bin", dtype=SAMPLE)
     difference = max(

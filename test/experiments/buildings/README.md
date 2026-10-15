@@ -150,8 +150,8 @@ separate.
 The Buildings gallery uses four fixed native Place locations/cameras:
 DarmstadtWest, Flensburg, Rosenheim and Tokyo from `src/assets/places/`.
 `doc/images/places/` supplies the comparison images only. Own current Python
-building renders belong in `doc/images/buildings/`, at 1920×1080 or higher with
-the same aspect ratio and vertical FOV; replace them after clearly visible gains.
+building renders stay in system-temp directories, at 1920×1080 or higher with
+the same aspect ratio and vertical FOV. Only master publishes integrated Places.
 Do not copy native images as Python results. The local server and its UI are retired.
 Private source data and intermediate outputs stay in system-temp directories.
 
@@ -159,11 +159,11 @@ Private source data and intermediate outputs stay in system-temp directories.
 .venv/bin/python test/experiments/buildings/verify_place_reference.py
 .venv/bin/python test/experiments/buildings/place_sources.py --fetch --output <temp>/source-receipts.json
 .venv/bin/python test/experiments/buildings/render_places.py --sources <temp>/source-receipts.json --output <temp>/verified-place-renders
-.venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders
+.venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders --output <temp>/inspected-building-renders
 ```
 
 The publisher requires all four own clean render reports and matching scenario
-camera hashes before replacing the gallery. A manifest may declare one `commit`
+camera hashes before exporting the local comparison. A manifest may declare one `commit`
 for the whole set or explicit `commits` keyed by all four Places, preserving each
 image's actual generator snapshot during gradual verified updates. Tokyo's height requires actual DEM
 sampling; the other three scenario heights are absolute. Source extent, missing
