@@ -51,10 +51,25 @@ and deliberately have unequal total leaf area. These are functional visual
 controls, not a fair equal-quality cost comparison. Signed root presentation
 offsets separate the three parents without changing plan identities or paths.
 
-No control has yet been rendered or optically approved. A single convincing
-mature spruce, requested physical area, bounded costs and matching near/far
-products are still required before another complete eight-form bake.
+The frozen `8b4ad1b87` run completed all three 2560×1440 EEVEE/32-sample images
+with exit 0 and unmodified source. All images were opened. The changed shoot
+lengths are visible, but the thin twigs/needles are too faint at this camera to
+support a material or fine-geometry quality judgement. These remain private
+functional controls; they do not establish botanical or mature-tree quality.
+A single convincing mature spruce, requested physical area, bounded costs and
+matching near/far products are still required before another eight-form bake.
 The public showcase remains four current whole-tile pictures.
+
+| Control | Process wall time (s) | Peak process RSS (MiB) |
+|---|---:|---:|
+| Absolute length, fixed counts | 60.45 | 2145.45 |
+| Relative length, fixed counts | 63.75 | 2194.80 |
+| Relative length, physical spacing | 64.64 | 2200.97 |
+
+These Linux child-process observations include renderer setup. They were obtained
+sequentially in the agreed shared-lock block, not as an equal-area performance
+comparison or a native/GPU/device measurement. The block ended immediately after
+the third process and handed off to Buildings before further artifact review.
 
 ## Physical area before another bake
 
