@@ -406,3 +406,44 @@ at #31/#32/#33/#48. The bounded form contract belongs to
 .venv/bin/python test/experiments/buildings/stepped_source_probe.py --spp 32
 .venv/bin/python test/experiments/buildings/showcase_tiles.py --spp 32
 ```
+
+## Source-scoped room programmes
+
+`room_programme.py` binds one bounded office furnishing programme to the existing
+source room/storey/door identities. An actual office attribute can cover the
+building; a uniquely hosted office POI supplies local use evidence only. Missing
+levels explicitly assume a candidate ground floor, never a supplied tenant
+boundary. Known levels outside the available storeys stay unresolved. Other
+storeys, common access, stairs and service reservations remain unchanged.
+
+Workstations, storage, meeting groups, tea counters, WC and basin use owned
+procedural geometry with matching footprint/height bounds. Full activity areas
+and actor routes are planned by `outshine_ref.buildings.interiors`; the original
+circulation experiments import the same installed routing kernel. Wall and
+deterministically jittered candidates, greedy and bounded beam search compare
+identical actual rooms and required functions. No unbounded search or global
+optimum claim. Missing furniture does not turn into a completed programme.
+
+`verify_furniture.py` compiles actual furniture with the existing structural
+shell, frames and stairs. All original access paths and every activity route
+retain 0.30 m radius/1.90 m height. Corrupted actual object heights, a shelf
+blocking the entrance, missing sanitary function, weakened requirements and
+unsupported source floors must fail. `furniture_benchmark.py` separates source
+preparation from layout and reports fresh-process peak RSS. `room_programme_plan`
+and `room_programme_probe` produce private 2D, 2.5D, indoor day/night and exterior
+window controls; the interior camera uses an actual checked room-side anchor.
+
+These are furnishing controls, **zero complete architecture recipe families**.
+Oversized legacy rooms, plumbing, ventilation, occupancy/accessibility rules,
+other programme families, seated interactions and native detail admission remain
+open at [#174](https://github.com/Weichwolf/outshine/issues/174), #31/#32/#33/#48.
+The public showcase retains exactly four complete current source tiles and its
+manual refresh. Invisible far furniture is not generated for those views.
+
+```sh
+.venv/bin/python -W error test/experiments/buildings/verify_furniture_controls.py
+.venv/bin/python -W error test/experiments/buildings/verify_furniture.py
+.venv/bin/python test/experiments/buildings/furniture_benchmark.py --repeats 7
+.venv/bin/python test/experiments/buildings/room_programme_plan.py
+.venv/bin/python test/experiments/buildings/room_programme_probe.py --spp 32
+```

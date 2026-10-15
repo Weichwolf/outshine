@@ -263,6 +263,28 @@ coarse = organ.mesh(16, 8)
 Quellen, Gegenfälle und Bild-/Kostenbelege: [#45](https://github.com/Weichwolf/outshine/issues/45),
 [#46](https://github.com/Weichwolf/outshine/issues/46), Übernahme [#52](https://github.com/Weichwolf/outshine/issues/52).
 
+`buildings.interiors.Furnishing(kind, width_m, depth_m, height_m, activity_depth_m)`
+beschreibt einen vollständigen Möbelgrundriss mit notwendiger Aktivitätsfläche.
+`layout(room, portals, requests, identifier, reserved=(), method="wall-anchors",
+max_candidates=64, beam_width=1, objective="short-paths")` platziert in einem
+gelieferten Raum, ohne Portal-/Nutzungsfreiräume zu blockieren. Alternative:
+`jittered-anchors`; die deterministische Breitsuche hält höchstens acht Zustände.
+Die Programme vergleichen dieselben Anforderungen mit `beam_width=1|4` und
+`objective="open-activity"` (Weglänge und überlagerte Aktivitätsflächen).
+Keine globale Optimalitätsbehauptung. Fehlende Objekte bleiben samt Grund erhalten.
+Vollständige Polygonabdeckung statt Eckentest; 0,30-m-Figurzentrum muss alle
+Portal- und Aktivitätsziele im freien Raum erreichen. Wandseitige Aktivitätszone,
+bei `meeting-group` ringsum. Logische Platzierung vor tatsächlicher Mesh-Emission;
+3D-Höhen, Boden, Kopf- und Treppenfreiheit prüft der Aufrufer am konkreten Mesh.
+XY-Eingaben sind Meter im gemeinsamen lokalen Rahmen; der Aufrufer besitzt
+Quell-/Raum-IDs, Nutzung und Höhendatum. Eigene unveränderliche Koordinatenarrays;
+keine impliziten Anbieterabfragen oder Welt-/Cachezustände. Kapazitäten:
+256 Raumringkoordinaten, 16 Portale, 32 Objekte, 256 Kandidaten je Objekt,
+40×40 Routingraster. Das sind Größenlimits, keine harte CPU-/RAM-/Frame-Garantie.
+`access` und `placed` ermöglichen unabhängige Prüfungen und explizite Platzierung.
+Programme, eigene Möbel, reale Gegenfälle und Bild-/Kostenbelege:
+[#174](https://github.com/Weichwolf/outshine/issues/174).
+
 `buildings.modelling.PrismVolume(identifier, polygon, low_m, high_m, material=1)`
 beschreibt ein vollständiges ENU-Prisma in Metern. Polygon/MultiPolygon und
 Höhen bleiben geliefert; der Konstruktor repariert oder rastert sie nicht.

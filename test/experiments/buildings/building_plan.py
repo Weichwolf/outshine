@@ -1,25 +1,29 @@
 """Construct the first storey from one fixed envelope and actual room/opening polygons."""
 
-import math
+import itertools
 
 import numpy as np
 import shapely
-
-from building_layout import AGENT_RADIUS_M, DOOR_M, PARTITION_M, WALL_M, canonical_geometry, partitions, polygons, rectangle
+from building_layout import (
+    AGENT_RADIUS_M,
+    DOOR_M,
+    PARTITION_M,
+    WALL_M,
+    canonical_geometry,
+    partitions,
+    polygons,
+    rectangle,
+)
+from outshine_ref.buildings.interiors import geometry as interior_geometry
 from provider_contract import attributes, number
 from recipes import choose
+
+edges = interior_geometry.edges
 
 
 FLOOR_M = .16
 CEILING_M = .18
 AGENT_HEIGHT_M = 1.90
-
-
-def edges(polygon, holes=True):
-    polygon = shapely.orient_polygons(polygon)
-    rings = [polygon.exterior]+list(polygon.interiors) if holes else [polygon.exterior]
-    return [(np.asarray(a), np.asarray(b)) for ring in rings
-            for a, b in zip(ring.coords, list(ring.coords)[1:]) if math.dist(a, b) > 1e-5]
 
 
 def owner(rooms, centre, tangent):
@@ -59,9 +63,9 @@ def entrance(polygon, rooms, context):
                 continue
             rank = (not bool(street), min((shapely.Point(centre).distance(p) for p in street), default=0.),
                     -width, index, fraction)
-            door = dict(id='entrance', rooms=[room], polygon=opening, centre=centre.tolist(),
-                        tangent=tangent.tolist(), height_m=2.15, kind='entrance', landing=landing,
-                        origin='context-frontage' if street else 'procedural longest usable facade')
+            door = {'id': 'entrance', 'rooms': [room], 'polygon': opening, 'centre': centre.tolist(),
+                        'tangent': tangent.tolist(), 'height_m': 2.15, 'kind': 'entrance', 'landing': landing,
+                        'origin': 'context-frontage' if street else 'procedural longest usable facade'}
             candidates.append((rank, door))
     return min(candidates, key=lambda row: row[0])[1] if candidates else None
 
@@ -80,8 +84,8 @@ def windows(polygon, rooms, doors):
             opening = rectangle(centre, tangent, 1.20, .10, WALL_M+PARTITION_M/2+.20)
             if any(opening.distance(door['polygon']) < .25 for door in doors):
                 continue
-            result.append(dict(id=f'window-{edge}-{column}', rooms=[room], polygon=opening,
-                               centre=centre.tolist(), tangent=tangent.tolist(), sill_m=.85, head_m=2.05, kind='window'))
+            result.append({'id': f'window-{edge}-{column}', 'rooms': [room], 'polygon': opening,
+                               'centre': centre.tolist(), 'tangent': tangent.tolist(), 'sill_m': .85, 'head_m': 2.05, 'kind': 'window'})
             if len(result) == 64:
                 return result
     return result
@@ -100,7 +104,7 @@ def wall_bands(plan):
     limits.update(plan['floor_z_m']+window[key] for window in plan['windows'] for key in ('sill_m', 'head_m'))
     levels = sorted(value for value in limits if plan['floor_z_m'] <= value <= plan['ceiling_z_m'])
     result = []
-    for low, high in zip(levels, levels[1:]):
+    for low, high in itertools.pairwise(levels):
         walls = wall_at(plan, (low+high)/2)
         result.append((canonical_geometry(walls), low, high))
     return result
@@ -130,15 +134,15 @@ def build(sample, body_top_m=None):
             raise ValueError('invalid supplied storey count')
         count = int(levels)
     storey = body_height/count
-    plan = dict(id=sample['id'], footprint=footprint, source_properties=sample['properties'].copy(),
-                context=sample.get('context', {}).copy(), source_attributes=data.copy(),
-                version=1, scope='procedural first-storey rooms without an architectural use programme',
-                source_sha256=sample.get('source_sha256'), recipe=recipe, status='unplanned', omissions=[],
-                base_z_m=data['minHeight'], source_top_m=data['buildingHeight'], body_top_m=top, storeys=count,
-                body_top_origin='source envelope' if body_top_m is None else 'procedural roof reservation',
-                storey_origin='supplied levels' if supplied_levels is not None else 'procedural height/use estimate',
-                floor_z_m=data['minHeight']+FLOOR_M, ceiling_z_m=data['minHeight']+storey-CEILING_M,
-                wall_m=WALL_M, partition_m=PARTITION_M, rooms=[], doors=[], windows=[], alternatives=[])
+    plan = {'id': sample['id'], 'footprint': footprint, 'source_properties': sample['properties'].copy(),
+                'context': sample.get('context', {}).copy(), 'source_attributes': data.copy(),
+                'version': 1, 'scope': 'procedural first-storey rooms without an architectural use programme',
+                'source_sha256': sample.get('source_sha256'), 'recipe': recipe, 'status': 'unplanned', 'omissions': [],
+                'base_z_m': data['minHeight'], 'source_top_m': data['buildingHeight'], 'body_top_m': top, 'storeys': count,
+                'body_top_origin': 'source envelope' if body_top_m is None else 'procedural roof reservation',
+                'storey_origin': 'supplied levels' if supplied_levels is not None else 'procedural height/use estimate',
+                'floor_z_m': data['minHeight']+FLOOR_M, 'ceiling_z_m': data['minHeight']+storey-CEILING_M,
+                'wall_m': WALL_M, 'partition_m': PARTITION_M, 'rooms': [], 'doors': [], 'windows': [], 'alternatives': []}
     if sum(len(ring.coords)-1 for ring in [footprint.exterior]+list(footprint.interiors)) > 256:
         plan['omissions'].append('footprint exceeds the 256-vertex scope of the bounded layout experiment')
         return plan
