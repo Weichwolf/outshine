@@ -144,4 +144,14 @@ MEDIUM_INLINE SkyViewSample skyViewSample(float bottomRadiusKm,
   return sampled;
 }
 
+MEDIUM_INLINE MediumUv skyViewAtmosphereSample(float bottomRadiusKm,
+                                               float radiusKm,
+                                               SkyViewLook look,
+                                               MediumLutSize size) {
+  MediumUv uv = skyViewSample(bottomRadiusKm, radiusKm, look, size).Uv;
+  const float lastSkyCentre = (floor(size.HeightPx * 0.5f) - 0.5f) / size.HeightPx;
+  uv.V = uv.V < lastSkyCentre ? uv.V : lastSkyCentre;
+  return uv;
+}
+
 #endif

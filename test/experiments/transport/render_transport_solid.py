@@ -8,7 +8,7 @@ from pathlib import Path
 
 import bpy
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 COLOURS = (
     (0.32, 0.38, 0.38, 1.0),
@@ -23,11 +23,14 @@ COLOURS = (
 def configure_camera(configuration):
     bpy.ops.object.camera_add(location=configuration["eye"])
     camera = bpy.context.object
-    camera.rotation_euler = (
-        (Vector(configuration["target"]) - camera.location)
-        .to_track_quat("-Z", "Y")
-        .to_euler()
-    )
+    if "camera_basis" in configuration:
+        camera.rotation_euler = Matrix(configuration["camera_basis"]).to_euler()
+    else:
+        camera.rotation_euler = (
+            (Vector(configuration["target"]) - camera.location)
+            .to_track_quat("-Z", "Y")
+            .to_euler()
+        )
     if configuration.get("projection") == "perspective":
         camera.data.type = "PERSP"
         camera.data.sensor_fit = "VERTICAL"
@@ -48,9 +51,12 @@ def verify_place_camera(configuration, projection, view, vertices):
     eye = np.asarray(configuration["eye"])
     forward = np.asarray(configuration["target"]) - eye
     forward /= np.linalg.norm(forward)
-    right = np.cross(forward, [0.0, 0.0, 1.0])
-    right /= np.linalg.norm(right)
-    up = np.cross(right, forward)
+    if "camera_basis" in configuration:
+        up = np.asarray(configuration["camera_basis"])[:, 1]
+    else:
+        right = np.cross(forward, [0.0, 0.0, 1.0])
+        right /= np.linalg.norm(right)
+        up = np.cross(right, forward)
     extent = math.tan(math.radians(configuration["vertical_fov_deg"]) / 2)
     probes = eye + 1000 * np.array(
         [forward, forward + up * extent, forward - up * extent]

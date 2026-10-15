@@ -9,6 +9,7 @@
 #include <bit>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -64,23 +65,30 @@ int main() {
         CHECK(false, error.c_str());
         return std::vector<float>{};
       }
-      std::array<uint32_t, 13> classes{};
+      constexpr auto kUnmapped = std::numeric_limits<uint32_t>::max();
+      std::array<uint32_t, 18> classes{};
+      classes[2] = kUnmapped;
       if (classified) {
-        classes = {2,
+        classes = {4,
+                   0,
+                   kUnmapped,
                    0,
                    1,
                    1,
                    std::bit_cast<uint32_t>(-10.0f),
                    std::bit_cast<uint32_t>(-10.0f),
                    std::bit_cast<uint32_t>(20.0f),
-                   11,
+                   16,
+                   0,
+                   0,
+                   0,
                    0,
                    0,
                    0,
                    0,
                    0};
       }
-      const std::array<float, 14> palette{std::bit_cast<float>(1u),
+      const std::array<float, 30> palette{std::bit_cast<float>(1u),
                                           std::bit_cast<float>(0u),
                                           10,
                                           0,

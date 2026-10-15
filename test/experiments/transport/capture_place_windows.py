@@ -1,34 +1,33 @@
 """Capture immutable MVT windows selected by the fixed Place viewing directions."""
 
 import argparse
-import hashlib
 import json
 import math
 import shutil
 import subprocess
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import numpy as np
 import shapely
 from capture_height_targets import world_coordinates
 from capture_transport_tile import capture
-from transport_place_shots import PLACES, ROOT, flat_model, mercator
+from outshine_ref.places import acquire as acquire_source
+from outshine_ref.places import read_camera
+from transport_place_inputs import mercator
+from transport_place_shots import PLACES, ROOT, flat_model
 
 
 def camera_tiles(name, origin, *, distance_m=1600.0):
-    scenario = ET.parse(ROOT / "src/assets/places" / (name + ".scenario")).getroot()
-    view = scenario.find("./views/view")
-    at, frame = view.find("at").attrib, scenario.find("render").attrib
-    xy = (mercator(float(at["lat"]), float(at["lon"])) - mercator(*origin)) * math.cos(
-        math.radians(origin[0])
-    )
+    camera = read_camera(ROOT / "src/assets/places" / (name + ".scenario"))
+    xy = (
+        mercator(camera.latitude_deg, camera.longitude_deg) - mercator(*origin)
+    ) * math.cos(math.radians(origin[0]))
     half = math.atan(
-        math.tan(math.radians(float(view.attrib["fovDeg"])) / 2)
-        * int(frame["widthPx"])
-        / int(frame["heightPx"])
+        math.tan(math.radians(camera.vertical_fov_deg) / 2)
+        * camera.native_profile[0]
+        / camera.native_profile[1]
     )
-    angles = math.radians(float(at["bearingDeg"])) + np.array([-half, 0.0, half])
+    angles = math.radians(camera.bearing_deg) + np.array([-half, 0.0, half])
     points = np.vstack((xy, xy + distance_m * np.c_[np.sin(angles), np.cos(angles)]))
     tiles = np.floor(world_coordinates(origin, points) * (1 << 14)).astype(int)
     lo, hi = tiles.min(axis=0), tiles.max(axis=0)
@@ -40,35 +39,11 @@ def camera_tiles(name, origin, *, distance_m=1600.0):
 
 
 def acquire(url, cache):
-    path = cache / (hashlib.sha256(url.encode()).hexdigest() + ".pbf")
-    if not path.exists():
-        data = subprocess.check_output(
-            [
-                "curl",
-                "--fail",
-                "--silent",
-                "--show-error",
-                "--location",
-                "--max-time",
-                "30",
-                "--max-filesize",
-                "8388608",
-                url,
-            ]
-        )
-        cache.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix(".tmp")
-        temp.write_bytes(data)
-        temp.replace(path)
-    data = path.read_bytes()
-    if not 0 < len(data) <= 8 * 1024**2:
-        raise ValueError("bounded nonempty MVT required")
-    return {
-        "url": url,
-        "path": str(path),
-        "bytes": len(data),
-        "sha256": hashlib.sha256(data).hexdigest(),
-    }
+    parts = url.rsplit("/", 3)
+    tile = (int(parts[1]), int(parts[2]), int(parts[3].removesuffix(".pbf")))
+    return acquire_source(
+        ("vector", tile, url), cache, fetch=True, max_bytes=8 * 1024**2, timeout_s=30
+    )
 
 
 def reserve_axes(merged, reserved, reason):
