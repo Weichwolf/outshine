@@ -29,8 +29,13 @@ int main() {
   const auto cell = StructureCellOf(bounds, raw.LatLon);
   CHECK(cell.has_value(), "the native digest fixture has a valid cell");
   if (!cell) { return Report(); }
-  raw.Structures.push_back(
-      {.PointCount = 4, .SourceFirst = 12, .Cell = *cell, .HeightM = 12.0, .Pitched = 1});
+  raw.Structures.push_back({.PointCount = 4,
+                            .SourceFirst = 12,
+                            .Cell = *cell,
+                            .HeightM = 12.0,
+                            .Pitched = 1,
+                            .WallColour = std::nullopt,
+                            .Facade = FacadeStyle::House});
   raw.RequestedDetail = LevelOfDetail::Shell;
   raw.RequestedCell = cell->Index;
   raw.TileSpanM = 1000;
