@@ -11,10 +11,26 @@ same 115,200 probes, including 2,304 scalar controls, and the same palette value
 The legacy control clears only the layer offset; the neutral control clears
 only the two height amplitudes, preserving all optical parameters and scales.
 
+A small shared input is pinned at
+`test/outshine/data/materials/ground-litter.palette`. Its neighbouring JSON records
+the exact producer commit, both recipe hashes, encoding, fallback colour and
+payload hash. It contains the real producer's 319 floats (1,276 bytes), including
+the layer offset at float 199 and unmapped row 13. It is component input, with no
+expected output, Place geometry or world-cache contents. Normal runs never
+rewrite it. Changing this input requires an explicit fixture migration; it is
+not a claim that the pinned recipe equals the latest live world material state.
+
 ```sh
 python3 test/experiments/render/ground_litter_native.py --palette palette.f32 --output /tmp/outshine-material-native-inputs --prepare-only
 python3 test/experiments/render/ground_litter_native.py --palette palette.f32 --output /tmp/outshine-material-native-results --binary /path/to/native_ground_litter
 ```
+
+Use `--palette test/outshine/data/materials/ground-litter.palette` for the shared
+cross-device comparison. This requires neither another agent's private temp
+directory nor running the retired SDL helper to acquire the input. The producer
+call was `GroundMaterialPalette(templates, {{.11f, .22f, .33f, .9f}})` after loading
+the two shipped catalogs at the recorded commit. Native-generated probe outputs
+remain in system temp and are checked against the mathematical references.
 
 `GLSLANG` identifies the existing glslangValidator tool. NumPy and Pillow are
 required through the shared reference module. Shader compilation runs at nice10;
