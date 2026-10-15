@@ -212,6 +212,7 @@
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
 - Native Fachagenten liefern Format, betroffene Tests und fokussiertes clang-tidy selbst;
   der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
+  Ein zur Integration übergebener PR bleibt bis auf angeforderte Korrekturen stabil; neue Arbeit folgt separat.
   Nach Übernahme von Master prüfen sie betroffene Übergänge. Vorhandene passende Belege wiederverwenden;
   sporadische Gesamtläufe untereinander abstimmen, keine pauschalen Wiederholungen je Agent oder PR.
   Ich bündele kompatible prüffertige PRs, reviewe ihre Änderungen und prüfe neue Wechselwirkungen,
