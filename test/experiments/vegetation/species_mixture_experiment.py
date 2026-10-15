@@ -180,6 +180,8 @@ def run(sites_path, scene_path, geography_path, model_path, output):
         "summary": summary,
         "prepared_s": prepared_s,
         "site_hash_s": hash_s,
+        "site_seed": 17,
+        "site_hash_version": "outshine-species-1",
         "timings_s": timings,
         "peak_process_rss_MiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         / 1024,
