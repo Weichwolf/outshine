@@ -183,7 +183,7 @@ void Usage(std::string_view verb = {}) {
         "  --motion                        render every paced tick; requires view and time\n"
         "  --samples                       save route-decile PNGs; requires --motion\n"
         "  --quality playable|refined      minimum final capture quality (default playable)\n"
-        "  --into <folder>                 relative to build/shots/ (default khronos)\n"
+        "  --into <folder>                 absolute or relative to build/shots/ (default khronos)\n"
         "  --cache-dir <directory>         default user-data directory/sources\n"
         "  --offline                       use only cached and shipped sources\n"
         "  --rows                          machine-readable capture rows\n"
@@ -761,12 +761,7 @@ int CaptureView(outshine::Engine &engine,
     std::println("outshine-client: {} -- {}", sourceName, sources.error());
     return 1;
   }
-  if (options.ProbePixel) {
-    if (const auto prepared = outshine::Client::PreparePixelAttachments(engine); !prepared) {
-      std::println(stderr, "outshine-client: pixel attachments: {}", prepared.error());
-      return 1;
-    }
-  }
+  if (options.ProbePixel) { outshine::Client::PreparePixelAttachments(declaration); }
   outshine::Extent frame = declaration.Render.Frame;
   if (frame.WidthPx <= 0 || frame.HeightPx <= 0) {
     frame = {.WidthPx = outshine::Shots::kWidePx, .HeightPx = outshine::Shots::kHighPx};

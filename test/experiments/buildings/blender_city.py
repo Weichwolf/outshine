@@ -17,7 +17,7 @@ from outshine_ref.rendering.blender_camera import configure_camera, verify_camer
 from outshine_ref.rendering.blender_light import configure_daylight
 
 
-def studio(scene, data, samples):
+def studio(scene, data, samples, ground_span_m=None):
     scene.render.engine = (
         "BLENDER_EEVEE" if bpy.app.version >= (5, 0, 0) else "BLENDER_EEVEE_NEXT"
     )
@@ -26,6 +26,10 @@ def studio(scene, data, samples):
     lighting = configure_daylight(scene)
     low, high = data["vertices"][:, :2].min(axis=0), data["vertices"][:, :2].max(axis=0)
     centre, span = (low + high) / 2, float((high - low).max()) * 2
+    if ground_span_m is not None:
+        if not np.isfinite(ground_span_m) or ground_span_m < span:
+            raise ValueError("Declared flat ground must contain the source scene")
+        span = float(ground_span_m)
     bpy.ops.mesh.primitive_plane_add(size=span, location=(*centre, -0.01))
     bpy.context.object.data.materials.append(
         base("flat neutral ground", (0.20, 0.22, 0.24), 0.95)
@@ -54,7 +58,7 @@ def render(geometry, output, samples):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     obj, imported = import_mesh(report, data)
     scene = bpy.context.scene
-    lighting = studio(scene, data, samples)
+    lighting = studio(scene, data, samples, report.get("ground_span_m"))
     output.mkdir(parents=True, exist_ok=True)
     image = output / (report["city"] + ".png")
     camera_config = report["camera"] | {
