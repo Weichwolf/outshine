@@ -207,16 +207,26 @@ def main():
     dependencies = (
         *SOURCES,
         *SHADERS,
+        *shaders,
+        *negative.glob("*.spv"),
         Path(__file__),
         archive,
         binary,
+        ROOT / "test/experiments/render/MediumViewProbe.h",
         ROOT / "src/render/stages/MediumView.cpp",
+        ROOT / "src/render/stages/MediumView.h",
         ROOT / "src/render/stages/MediumViewParameters.h",
         ROOT / "src/render/shaders/mediumView.glsl",
         ROOT / "src/render/shaders/mediumViewAir.glsl",
         ROOT / "src/render/shaders/mediumOpaque.glsl",
     )
     record["sha256"] = {str(path): digest(path) for path in dependencies}
+    record["captures_sha256"] = {
+        str(path): digest(path)
+        for name in ("actual", "repeat", "negative-geometry", "negative-opaque")
+        for path in output.glob(name + ".*")
+        if path.suffix in (".geometry", ".opaque", ".reference")
+    }
     record["scope"] = (
         "Actual native raster camera geometry and homogeneous clear-air controls; no joint-cloud/Thin/Place/temporal/device-budget acceptance."
     )
