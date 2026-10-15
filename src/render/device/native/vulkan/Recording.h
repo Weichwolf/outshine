@@ -4,6 +4,7 @@
 #ifdef __linux__
 #include "Buffer.h"
 #include "RenderState.h"
+#include "Presenter.h"
 #include "VulkanImage.h"
 #include "Pipeline.h"
 #include <memory>
@@ -24,6 +25,10 @@ public:
   [[nodiscard]] Result<void> Initialize();
   [[nodiscard]] Result<void> End();
   void CommitImages() noexcept;
+  void CommitPresent() noexcept;
+  void BindPresentation(VkSubmitInfo2 &submit,
+                        VkSemaphoreSubmitInfo &wait,
+                        VkSemaphoreSubmitInfo &signal) const noexcept;
 
   [[nodiscard]] const std::shared_ptr<Context> &Owner() const noexcept { return Context_; }
 
@@ -48,6 +53,7 @@ public:
   [[nodiscard]] Result<void>
   DrawIndexedIndirect(const IndirectDrawDescription &description) override;
   [[nodiscard]] Result<void> EndRenderPass() override;
+  [[nodiscard]] Result<void> Present(std::unique_ptr<PresentFrame> frame) override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
@@ -68,6 +74,9 @@ private:
     std::vector<VkImageLayout> Layouts;
   };
 
+  [[nodiscard]] Result<TrackedImage *> TrackImage(const std::shared_ptr<ImageState> &image,
+                                                  TextureView view);
+  [[nodiscard]] Result<void> FinalizePresentation();
   [[nodiscard]] Result<void> Hold(const std::shared_ptr<BufferState> &buffer);
   [[nodiscard]] Result<void>
   UseImage(const std::shared_ptr<ImageState> &image, TextureView view, ImageAccess access);
@@ -96,6 +105,8 @@ private:
   [[nodiscard]] Result<void> CheckFeedback(std::span<const Binding> bindings) const;
   void EncodeDraw(const DrawPacket &packet);
 
+  std::unique_ptr<PresentFrame> Frame_;
+  std::shared_ptr<PresentLease> Presented_;
   std::optional<RenderState> Render_;
   std::shared_ptr<Context> Context_;
   VkCommandPool Pool_ = VK_NULL_HANDLE;
