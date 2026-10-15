@@ -43,6 +43,12 @@ public:
   std::shared_ptr<BufferState> State;
 };
 
+class MetalCommands;
+
+struct TextureRecording {
+  const MetalCommands *Owner = nullptr;
+};
+
 class MetalTexture final : public Texture {
 public:
   MetalTexture(TextureDescription description, id<MTLTexture> texture, uint64_t device)
@@ -50,6 +56,7 @@ public:
 
   id<MTLTexture> Native;
   uint64_t Device;
+  std::shared_ptr<TextureRecording> Recording = std::make_shared<TextureRecording>();
 };
 
 class MetalSampler final : public Sampler {
@@ -93,6 +100,7 @@ struct ShaderArgument {
   const StorageBuffer *Storage = nullptr;
   const Uniform *Constants = nullptr;
   std::shared_ptr<BufferState> Buffer;
+  std::shared_ptr<TextureRecording> Recording;
   const TextureView *Image = nullptr;
   id<MTLTexture> Texture = nil;
   id<MTLSamplerState> Sampler = nil;
@@ -103,6 +111,8 @@ struct ShaderArgument {
 Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device);
 [[nodiscard]] Result<std::vector<ShaderArgument>>
 Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t device);
+[[nodiscard]] Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
+                                             std::span<const ShaderArgument> second);
 [[nodiscard]] Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                                 const Shader &shader,
                                 const std::vector<ShaderArgument> &arguments);
@@ -151,6 +161,7 @@ struct TrackedResource {
 
 struct AttachmentState {
   id<MTLTexture> Native;
+  std::shared_ptr<TextureRecording> Recording;
   Format Texels;
   uint32_t Mip, Layer, Width, Height;
 };
@@ -190,17 +201,21 @@ public:
 private:
   friend class MetalDevice;
   [[nodiscard]] Result<void> Hold(const std::shared_ptr<BufferState> &state);
+  [[nodiscard]] Result<void> HoldImages(std::span<const std::shared_ptr<TextureRecording>> images);
+  void ReleaseImages();
   void Finish();
 
   uint64_t Device;
   id<MTLCommandBuffer> Native;
   std::vector<Reservation> Held;
+  std::vector<std::shared_ptr<TextureRecording>> HeldImages;
   std::shared_ptr<CommandPermit> Permit;
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
 
   void UpdateAccesses(std::span<const ShaderArgument> arguments);
+  void UpdateAccess(id<MTLResource> resource, Access usage);
   [[nodiscard]] Result<void> PrepareResources(std::span<const ShaderArgument> arguments,
                                               std::vector<id<MTLResource>> &hazards);
   void

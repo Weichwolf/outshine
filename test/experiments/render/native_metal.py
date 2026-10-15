@@ -70,6 +70,8 @@ def native_api(output, glslang, toolchain, link_flags):
     present = ROOT / "src/render/shaders/present.frag"
     present_shader = output / "present.frag.spv"
     run([glslang, "-V", "--target-env", "vulkan1.0", str(present), "-o", str(present_shader)])
+    lifetime_checks = check_probe("native-texture-lifetime-probe", "NativeTextureLifetimeProbe.cpp",
+                                   texture_shader, "--validation")
     raster_checks = check_probe("native-raster-probe", "NativeRasterProbe.cpp",
                                 output / "fullscreen.vert.spv", output / "native_metal_mrt.frag.spv",
                                 present_shader)
@@ -86,7 +88,7 @@ def native_api(output, glslang, toolchain, link_flags):
                              output / "depthPyramid.comp.spv")
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
-            "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks}, sources
+            "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks}, sources
 
 
 
@@ -142,6 +144,7 @@ def main():
              ROOT / "test/run.sh", ROOT / "test/scripts/source_units.py",
              ROOT / "test/harness/render/NativeComputeProbe.cpp",
              ROOT / "test/harness/render/NativeTextureProbe.cpp",
+             ROOT / "test/harness/render/NativeTextureLifetimeProbe.cpp",
              ROOT / "test/harness/render/NativeRasterProbe.cpp",
              ROOT / "test/harness/render/NativeRenderPassProbe.cpp",
              ROOT / "test/harness/render/NativeDrawProbe.cpp",
