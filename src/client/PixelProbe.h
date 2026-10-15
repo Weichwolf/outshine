@@ -7,6 +7,10 @@
 
 namespace outshine {
 class Engine;
+
+namespace Scenario {
+struct Document;
+}
 }
 
 namespace outshine::Client {
@@ -19,7 +23,7 @@ struct PixelCoordinate {
 [[nodiscard]] std::expected<PixelCoordinate, std::string_view>
 ParsePixelCoordinate(std::string_view value) noexcept;
 
-[[nodiscard]] std::expected<void, std::string> PreparePixelAttachments(Engine &engine);
+void PreparePixelAttachments(Scenario::Document &declared);
 
 [[nodiscard]] std::expected<void, std::string>
 ReportPixel(Engine &engine, std::string_view name, PixelCoordinate at);
