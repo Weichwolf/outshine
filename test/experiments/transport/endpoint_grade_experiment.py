@@ -131,6 +131,12 @@ def audit_ribbon(row, profile, table):
     chord_error = float(
         abs(profile.evaluate(query) - np.interp(query, table[:, 0], table[:, 1])).max()
     )
+    spans = np.diff(table[:, 0])
+    chord_grades = np.diff(table[:, 1]) / spans
+    end_grade_errors = abs(chord_grades[[0, -1]] - row["end_grades"])
+    end_grade_bounds = profile.second_derivative_bound * spans[[0, -1]] * 0.5 + 1e-10
+    if np.any(end_grade_errors > end_grade_bounds):
+        raise ValueError("finite endpoint chord grade exceeds its Lipschitz bound")
     if height_error > 1e-7 or grade_error > 1e-10 or chord_error > 0.002 + 1e-7:
         raise ValueError("full-width endpoint or independent chord test failed")
     body = close_surface(mesh, 0.25)
@@ -146,6 +152,57 @@ def audit_ribbon(row, profile, table):
         "independent_chord_error_m": chord_error,
         "closed_oriented_body_volume_m3": volume,
         "display_depth_m": 0.25,
+        "finite_contact_grade_errors": end_grade_errors.tolist(),
+        "finite_contact_grade_error_bounds": end_grade_bounds.tolist(),
+    }
+
+
+def compare_controls(method):
+    common = [
+        (-5, -3, 120, 0.04, -0.02, 0.08, 0.002),
+        (153, 155, 130, -0.02, 0.04, 0.08, 0.002),
+        (0, 1, 120, -0.06, 0.06, 0.08, 0.002),
+        (0, 0.1, 10, 0, 0.02, 0.08, 0.002),
+    ]
+    extra = [(0, 0.001, 0.4, 0.1, 0.1, 0.2, 1), (0, 0.001, 0.1, 0.1, 0.1, 0.2, 1)]
+    reports = []
+    for z0, z1, length, g0, g1, grade, second in common + extra:
+        profile, report = plan_endpoint_transition(
+            z0, z1, length, g0, g1, grade=grade, second_derivative=second, method=method
+        )
+        if profile is not None:
+            x = np.linspace(0, length, 4097)
+            if (
+                abs(profile.evaluate(x, 1)).max() > grade + 1e-10
+                or abs(profile.evaluate(x, 2)).max() > second + 1e-12
+            ):
+                raise ValueError(
+                    "independent control probes exceed derivative constraints"
+                )
+        reports.append(
+            {"inputs": [z0, z1, length, g0, g1, grade, second], "report": report}
+        )
+    timings = []
+    for _ in range(7):
+        began = time.perf_counter_ns()
+        for z0, z1, length, g0, g1, grade, second in common:
+            profile, note = plan_endpoint_transition(
+                z0,
+                z1,
+                length,
+                g0,
+                g1,
+                grade=grade,
+                second_derivative=second,
+                method=method,
+            )
+            if profile is None:
+                raise ValueError(f"common control unexpectedly failed: {note}")
+        timings.append(time.perf_counter_ns() - began)
+    return {
+        "cases": reports,
+        "common_count": len(common),
+        "common_plan_batch_ns": timings,
     }
 
 
@@ -197,6 +254,7 @@ def worker(method, output):
         )
         row["mesh"] = str(path)
     mesh_ns = time.perf_counter_ns() - mesh_began
+    controls = compare_controls(method)
     hwm = next(
         line
         for line in Path("/proc/self/status").read_text().splitlines()
@@ -208,6 +266,7 @@ def worker(method, output):
         "omissions": dict(Counter(r["reason"] for r in rows if not r["valid"])),
         "valid": sum(r["valid"] for r in rows),
         "compatible_contacts": len(compatible),
+        "controls": controls,
         "plan_batch_ns": timings,
         "first_lazy_import_and_profile_ns": first_profile_ns,
         "surface_preparation_ns": preparation_ns,

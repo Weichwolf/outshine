@@ -104,7 +104,8 @@ Die erreichbaren Grad-Hüllen sind
 Eine konvexe Mischung ihrer Integrale trifft die Endhöhe und erhält die Endgrade
 sowie die ganzen Neigungs-/Zweitableitungsgrenzen. Das charakterisiert die skalare
 Feasibilität in exakter Arithmetik; numerisch nicht zertifizierbare Fälle bleiben
-ausgewiesen. Alternativ prüft `method="hermite"` direkt ein kubisches Hermite-Polynom;
+ausgewiesen. Passende affine Kontakte werden direkt als Gerade erhalten, ohne
+zusätzliche Biegung. Alternativ prüft `method="hermite"` direkt ein kubisches Hermite-Polynom;
 es kann bei denselben Grenzen scheitern, obwohl die Hüllenkonstruktion gelingt.
 Bei freien Endgraden ist Feasibilität über der Länge nicht monoton. Deshalb gibt
 es hierfür keine bisektierte globale Mindestlänge. Der vorhandene flache Typ und

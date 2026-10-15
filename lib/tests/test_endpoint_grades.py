@@ -1,5 +1,6 @@
 """Independent fixed-grade contact, feasibility and whole-polynomial checks."""
 
+import json
 import unittest
 
 import numpy as np
@@ -40,6 +41,20 @@ class EndpointGradeChecks(unittest.TestCase):
             )
             np.testing.assert_allclose(
                 curve.evaluate(x, 1), sign * 0.002 * x, atol=1e-12
+            )
+
+    def test_matching_affine_surface_gets_no_gratuitous_bends(self):
+        grade = -0.0024644059037959402
+        length, start = 110.17154138126546, 166.006591796875
+        for method in ("envelope", "hermite"):
+            profile, note = plan_endpoint_transition(
+                start, start + length * grade, length, grade, grade, method=method
+            )
+            self.assertTrue(note["direct_affine_contact"])
+            json.dumps(note)
+            self.assertEqual(len(profile.coefficients), 1)
+            np.testing.assert_array_equal(
+                profile.evaluate([0, length / 2, length], 2), [0, 0, 0]
             )
 
     def test_nonzero_end_grades_make_length_feasibility_nonmonotone(self):

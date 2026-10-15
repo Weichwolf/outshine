@@ -67,6 +67,11 @@ def main():
             "current_exec_peak_rss_bytes": max(
                 w["current_exec_peak_rss_bytes"] for w in workers
             ),
+            "p50_control_plan_us_per_case": statistics.median(
+                t for w in workers for t in w["controls"]["common_plan_batch_ns"]
+            )
+            / workers[0]["controls"]["common_count"]
+            / 1000,
             "workers": [
                 {
                     key: w[key]
@@ -79,6 +84,7 @@ def main():
                         "plan_batch_ns",
                         "mesh_sample_audit_write_ns",
                         "current_exec_peak_rss_bytes",
+                        "controls",
                     )
                 }
                 for w in workers

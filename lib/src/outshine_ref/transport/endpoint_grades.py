@@ -225,16 +225,22 @@ def plan_endpoint_transition(
         report["reason"] = "endpoint_grade_rate_infeasible"
         return None, report
     delta = end_height - start_height
-    if method == "envelope":
+    tolerance = (
+        64
+        * np.finfo(float).eps
+        * max(1, abs(start_height), abs(end_height), length * grade)
+    )
+    affine = start_grade == end_grade and abs(delta - length * start_grade) <= min(
+        1e-7, tolerance
+    )
+    if affine:
+        breaks = [0.0, length]
+        coefficients = np.array([[start_height, start_grade, 0.0, 0.0]])
+    elif method == "envelope":
         stations, lower, upper, areas, slopes = grade_envelopes(
             length, start_grade, end_grade, grade, second_derivative
         )
         report["reachable_height_change_m"] = areas
-        tolerance = (
-            64
-            * np.finfo(float).eps
-            * max(1, abs(start_height), abs(end_height), length * grade)
-        )
         if delta < areas[0] - tolerance or delta > areas[1] + tolerance:
             report["reason"] = "height_outside_reachable_grade_envelope"
             return None, report
@@ -279,5 +285,6 @@ def plan_endpoint_transition(
         intervals=len(breaks) - 1,
         c1_prescribed_endpoint_grades=True,
         c2_joins=False,
+        direct_affine_contact=bool(affine),
     )
     return profile, report

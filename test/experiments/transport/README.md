@@ -392,7 +392,10 @@ PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/endpoint
 Ergebnisse nach `build/experiments/transport/endpoint-grades/`: drei frische Worker
 je Methode, je sieben identische Neun-Quellen-Batches. CPU15s, Wall20s, AS2GiB,
 BLAS1; Imports, Flächenvorbereitung, ganze Kontaktwahl und Mesh-/Topologieprüfung
-getrennt. Ganze rotierte Bänder erfüllen dieselbe Gradellipse, 0.002/m und maximal
+getrennt. Die neun affinen Kontakte verwenden den direkten geraden Pfad beider
+Methoden; vier weitere gemeinsame nicht affine/beschleunigte Kontrollprofile
+besitzen getrennte gleiche Kostenbatches. Zwei weitere Gegenfälle prüfen
+Methodenfehlschlag bzw. Unlösbarkeit. Ganze rotierte Bänder erfüllen dieselbe Gradellipse, 0.002/m und maximal
 0.002m Chordfehler; unabhängige4097 Proben und geschlossene Körper prüfen das Resultat.
 Validierungsbilder zeigen vollständige Profile mit den gewählten schiefen Endebenen
 ohne Höhenüberhöhung sowie die unveränderte ganze Elternkachel als Kontext. Sie

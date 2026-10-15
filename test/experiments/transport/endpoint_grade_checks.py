@@ -4,7 +4,9 @@ import unittest
 
 import numpy as np
 from endpoint_grade_contacts import ContactSurface
+from endpoint_grade_experiment import audit_ribbon
 from outshine_ref.contracts import Mesh
+from outshine_ref.transport import plan_endpoint_transition, sample_vertical_transition
 
 
 def rectangle(x0, x1, y0, y1, *, longitudinal=0.02, crossfall=0.01, height=3):
@@ -24,6 +26,28 @@ def combine(*meshes):
 
 
 class CompleteContactChecks(unittest.TestCase):
+    def test_rotated_whole_ribbons_and_finite_contact_grade_bounds(self):
+        for angle in (0.0, 0.8, 2.5):
+            for method in ("hermite", "envelope"):
+                row = {
+                    "xy": [[31.0, -18.0]],
+                    "direction": [np.cos(angle), np.sin(angle)],
+                    "length_m": 120.0,
+                    "recipe_width_m": 12.0,
+                    "crossfall": 0.015,
+                    "longitudinal_grade": 0.08,
+                    "end_heights_m": [-5.0, -3.0],
+                    "end_grades": [0.04, -0.02],
+                }
+                profile, note = plan_endpoint_transition(
+                    -5, -3, 120, 0.04, -0.02, grade=0.064, method=method
+                )
+                self.assertTrue(note["valid"], note)
+                table, _ = sample_vertical_transition(profile, height_error_m=0.002)
+                _, result = audit_ribbon(row, profile, table)
+                self.assertLessEqual(result["maximum_normalized_face_grade"], 1.0000001)
+                self.assertLessEqual(result["full_width_contact_height_error_m"], 1e-7)
+
     def test_whole_width_plane_across_internal_mesh_edges(self):
         surface = ContactSurface(rectangle(-10, 10, -4, 4))
         result = surface.strip([0, 0], [1, 0], 8, exterior_side=-1)
