@@ -1,0 +1,239 @@
+{
+  "format": "outshine-port-field-reference-v1",
+  "magic": "OSPTREF1",
+  "binary": "Vienna-pr181-fields.bin",
+  "bytes": 5093952,
+  "sha256": "9b93a2a12bf2afc49916d2183a21cd36190f3ceeab84b69968cc69a7c506da09",
+  "arrays": {
+    "plane_origins": {
+      "offset": 8,
+      "bytes": 24576,
+      "dtype": "<f8",
+      "shape": [
+        1536,
+        2
+      ]
+    },
+    "plane_coefficients": {
+      "offset": 24584,
+      "bytes": 36864,
+      "dtype": "<f8",
+      "shape": [
+        1536,
+        3
+      ]
+    },
+    "plane_ids": {
+      "offset": 61448,
+      "bytes": 26536,
+      "dtype": "<u4",
+      "shape": [
+        3317,
+        2
+      ]
+    },
+    "cut_centres": {
+      "offset": 87984,
+      "bytes": 106144,
+      "dtype": "<f8",
+      "shape": [
+        3317,
+        2,
+        2
+      ]
+    },
+    "inward_normals": {
+      "offset": 194128,
+      "bytes": 106144,
+      "dtype": "<f8",
+      "shape": [
+        3317,
+        2,
+        2
+      ]
+    },
+    "scales": {
+      "offset": 300272,
+      "bytes": 26536,
+      "dtype": "<f8",
+      "shape": [
+        3317
+      ]
+    },
+    "datum_m": {
+      "offset": 326808,
+      "bytes": 8,
+      "dtype": "<f8",
+      "shape": []
+    },
+    "road_xy": {
+      "offset": 326816,
+      "bytes": 484096,
+      "dtype": "<f8",
+      "shape": [
+        30256,
+        2
+      ]
+    },
+    "source_faces": {
+      "offset": 810912,
+      "bytes": 381360,
+      "dtype": "<u4",
+      "shape": [
+        31780,
+        3
+      ]
+    },
+    "source_face_ids": {
+      "offset": 1192272,
+      "bytes": 127120,
+      "dtype": "<u4",
+      "shape": [
+        31780
+      ]
+    },
+    "face_parts": {
+      "offset": 1319392,
+      "bytes": 127120,
+      "dtype": "<u4",
+      "shape": [
+        31780
+      ]
+    },
+    "module_ids": {
+      "offset": 1446512,
+      "bytes": 13268,
+      "dtype": "<u4",
+      "shape": [
+        3317
+      ]
+    },
+    "part_roles": {
+      "offset": 1459784,
+      "bytes": 13268,
+      "dtype": "<u4",
+      "shape": [
+        3317
+      ]
+    },
+    "grade_frames": {
+      "offset": 1473056,
+      "bytes": 1016960,
+      "dtype": "<f8",
+      "shape": [
+        31780,
+        2,
+        2
+      ]
+    },
+    "port_ids": {
+      "offset": 2490016,
+      "bytes": 15552,
+      "dtype": "<u4",
+      "shape": [
+        3888
+      ]
+    },
+    "port_edges": {
+      "offset": 2505568,
+      "bytes": 31104,
+      "dtype": "<u4",
+      "shape": [
+        3888,
+        2
+      ]
+    },
+    "port_parts": {
+      "offset": 2536672,
+      "bytes": 31104,
+      "dtype": "<u4",
+      "shape": [
+        3888,
+        2
+      ]
+    },
+    "port_points": {
+      "offset": 2567776,
+      "bytes": 186624,
+      "dtype": "<f8",
+      "shape": [
+        3888,
+        3,
+        2
+      ]
+    },
+    "face_points": {
+      "offset": 2754400,
+      "bytes": 508480,
+      "dtype": "<f8",
+      "shape": [
+        31780,
+        2
+      ]
+    },
+    "face_values": {
+      "offset": 3262880,
+      "bytes": 762720,
+      "dtype": "<f8",
+      "shape": [
+        31780,
+        3
+      ]
+    },
+    "face_bounds": {
+      "offset": 4025600,
+      "bytes": 508480,
+      "dtype": "<f8",
+      "shape": [
+        31780,
+        2
+      ]
+    },
+    "port_values": {
+      "offset": 4534080,
+      "bytes": 559872,
+      "dtype": "<f8",
+      "shape": [
+        3888,
+        2,
+        3,
+        3
+      ]
+    }
+  },
+  "frame": "Vienna-ENU-48.21N-16.37E-Z-mapterhorn-as-supplied",
+  "plan_generation_commit": "e76d25da11d945e929d7d8d14b7ba727c80f6055",
+  "plan_sha256": "783a75a0b34681b85f639ff751d10f3c9d423dad97ce44591cec839a05846e21",
+  "verification_sha256": "43f92c4ac91934cee782d4688518b113712e984aac82cd2cae8ea67e09ab887a",
+  "report_sha256": "5c6e34e74d2ead18330f2cf2e525c6b7752751edceab3f4af3795bf846ba058c",
+  "export_commit": "626a447c973881bc808bde4008e2a8cd830c0d0a",
+  "exporter_sha256": "e8712f59585a641f0506ac1f3a0832754e21d0f082fc87c42c3139052315de29",
+  "input_sha256": {
+    "Vienna.npz": "05bae1944e0411fdf5497021a72bd06ea434bd0465441c17c7604acf6642d52b",
+    "metadata.json": "ec56b0ce593c06be426a5d90c0067c8d040aa651888bd81b53af15b51a1740b0",
+    "sources.json.gz": "6e792f01bcdf9bb926ede75a8ae80f8dabfdc0e4fdd15bbb0c09500ddcbcbf04"
+  },
+  "library_sha256": {
+    "lib/src/outshine_ref/transport/port_heights/_layout.py": "d8e76059c57a7b0feda88c5a44ffc485a33523f67d3142d9b821bc4673c32693",
+    "lib/src/outshine_ref/transport/port_heights/_topology.py": "828e8cf86feb33c8d868985d8f39f147e7ada2f83e933de64cb52cd1f7fc549b",
+    "lib/src/outshine_ref/transport/port_heights/__init__.py": "2dbbb3496b9e734e80eecb89ea82f9cfe09bc2fb67efbc9a760ed6e245890f2d",
+    "lib/src/outshine_ref/transport/port_heights/_quality.py": "e7c70c3fe155dc954dda8c03942ae4c0a3e45e173208233ba995424df626b5cb",
+    "lib/src/outshine_ref/transport/port_heights/_plan.py": "302c1e7bed7d659d9afb6bb71645528dfd3733ba606fe56574d303526f9aa019",
+    "lib/src/outshine_ref/transport/port_heights/_affine.py": "a3ddab36514a6a622d89a1144431c34b169d64e4085d9e218a6ff7f0903439a5",
+    "lib/src/outshine_ref/transport/port_heights/_budget.py": "2b998b9f99bb5228f7fe9f2baff5ec2e1fd6e02f29ad1d0832ee367a611bbfe2",
+    "lib/src/outshine_ref/transport/port_heights/_slices.py": "a2a013fd813b0467c13ee3d21d8a671b935568040d40d0e905ed0725981620e8",
+    "lib/src/outshine_ref/transport/port_heights/_fit.py": "401614b7e5bca89ad7657e9209f15d6871f9e855f621f35ba10ada8229e193d8",
+    "lib/src/outshine_ref/transport/port_heights/_field.py": "ee704eabe07a0e63f8ce9aaf0525f218a40e02c964864a8d07096161d6194a3f",
+    "lib/src/outshine_ref/transport/port_heights/_solve.py": "ed7756cc19bdef3e854caa158d21662a0dee671978e6013061eb2b86b5ebea87",
+    "lib/src/outshine_ref/transport/port_heights/_world.py": "af5d8b5b0da1352bf1af89ef7c256152fc04c6e376be7f91560115d06c42aae7",
+    "lib/src/outshine_ref/transport/port_heights/_arrays.py": "65743b524525ca63b2b54e7967d95affdf58b0a7c9bf02a5985303febcb7383a",
+    "lib/src/outshine_ref/transport/port_heights/_api.py": "1d6d107448f8e60a16a81f5b6050d2456803163b5fc1eae0c53ab6ce9618931f",
+    "lib/src/outshine_ref/transport/port_heights/_input.py": "3941b16b932836352e11373218fcf792046c8a596344a9c2a3e5d2c5287ecc2c",
+    "lib/src/outshine_ref/transport/port_heights/_system.py": "5177fef957b09320ea26e8f4f1acf30020996e56b98d278701f9387a002d3e5f",
+    "lib/src/outshine_ref/transport/port_heights/_contacts.py": "5bd99ed6a4e338b776e6ac4c9bf7ac72074fa82049f86c67d1e6346c886b7ce3",
+    "lib/src/outshine_ref/contracts.py": "1d51b6f29d10889fec7ad5ce5da793c7486c13ec4d0443c2503377ffdc6600fd",
+    "lib/src/outshine_ref/transport/heights.py": "99e0efca1247ce4f90cefa24383b1ceb64fb78879459dd49dba495eba7df550f"
+  },
+  "numpy_version": "2.2.4",
+  "scope": "Fixed installed PR181 field, all original road faces/modules and whole ports. Original coarse triangle bounds may exceed final mesh targets. Analytic samples are not physical surface contacts. No new solve, refinement, rendering or native/device acceptance."
+}
