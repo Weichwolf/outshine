@@ -118,6 +118,32 @@ def requests(kind, area):
     return tuple([DESK] * count + [STORAGE] + ([TEA] if kind == "work-tea" else []))
 
 
+def room_kinds(current, eligible, daylight):
+    forced = current.get("programme_kinds", {})
+    if any(
+        i not in eligible or kind not in ("sanitary", "tea")
+        for i, kind in forced.items()
+    ):
+        raise ValueError("Support programme must name actual eligible support rooms")
+    kinds = {i: "work" if i in daylight else "archive" for i in eligible} | forced
+    choices = daylight.difference(forced)
+    if not choices:
+        raise ValueError("Office programme lacks a retained daylight meeting room")
+    meeting = max(choices, key=lambda i: (current["rooms"][i].area, -i))
+    kinds[meeting] = "meeting"
+    remaining = [i for i in eligible if i != meeting and i not in forced]
+    if len(remaining) >= 2 and "sanitary" not in forced.values():
+        sanitary = min(
+            remaining, key=lambda i: (i in daylight, current["rooms"][i].area, i)
+        )
+        kinds[sanitary] = "sanitary"
+    working = [i for i in remaining if kinds[i] == "work"]
+    if working and "tea" not in forced.values():
+        kitchen = max(working, key=lambda i: (current["rooms"][i].area, -i))
+        kinds[kitchen] = "work-tea"
+    return kinds
+
+
 def programme(plan, method="wall-anchors", beam_width=4, objective="open-activity"):
     floors, evidence = office_scope(plan)
     records = []
@@ -148,30 +174,23 @@ def programme(plan, method="wall-anchors", beam_width=4, objective="open-activit
                 }
             )
             continue
-        kinds = {i: "work" if i in daylight else "archive" for i in eligible}
-        meeting = max(daylight, key=lambda i: (current["rooms"][i].area, -i))
-        kinds[meeting] = "meeting"
-        remaining = [i for i in eligible if i != meeting]
-        if len(remaining) >= 2:
-            sanitary = min(
-                remaining, key=lambda i: (i in daylight, current["rooms"][i].area, i)
-            )
-            kinds[sanitary] = "sanitary"
-            working = [i for i in remaining if i != sanitary and kinds[i] == "work"]
-            if working:
-                kitchen = max(working, key=lambda i: (current["rooms"][i].area, -i))
-                kinds[kitchen] = "work-tea"
+        kinds = room_kinds(current, eligible, daylight)
         for index in eligible:
             identifier = plan["storey_room_ids"][floor][index]
             anchors, reserved = portals(current, index)
             required = requests(kinds[index], current["rooms"][index].area)
+            placement_method = (
+                "wall-anchors"
+                if index in current.get("programme_kinds", {})
+                else method
+            )
             result = layout(
                 current["rooms"][index],
                 anchors,
                 required,
                 identifier + "/furniture",
                 reserved,
-                method,
+                placement_method,
                 beam_width=beam_width,
                 objective=objective,
             )
@@ -188,6 +207,7 @@ def programme(plan, method="wall-anchors", beam_width=4, objective="open-activit
                 "portal_anchors": anchors,
                 "reserved": reserved,
                 "required": required,
+                "placement_method": placement_method,
                 "result": result,
                 "origin": "Procedural programme fitted to existing connected source room; no claim about actual interior",
             }
@@ -235,6 +255,7 @@ def programme(plan, method="wall-anchors", beam_width=4, objective="open-activit
         "rooms": tuple(records),
         "unresolved": unresolved,
         "method": method,
+        "support_placement_method": "wall-anchors",
         "beam_width": beam_width,
         "objective": objective,
         "scope": "Bounded office work/meeting/tea/sanitary furnishing control; services/ventilation/occupancy regulations, other use families and native admission remain open",
