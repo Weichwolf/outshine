@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_DEVICE_NATIVE_RESOURCES_H
 
 #include <cstdint>
+#include <limits>
 
 namespace outshine::Render::Native {
 
@@ -11,7 +12,7 @@ template <typename Flag> class UseMask {
 public:
   constexpr UseMask() = default;
 
-  constexpr UseMask(Flag flag) noexcept : Bits_(static_cast<uint32_t>(flag)) {}
+  explicit(false) constexpr UseMask(Flag flag) noexcept : Bits_(static_cast<uint32_t>(flag)) {}
 
   [[nodiscard]] constexpr UseMask operator|(UseMask right) const noexcept {
     UseMask combined = *this;
@@ -137,6 +138,8 @@ struct SamplerDescription {
   Filter Mip = Filter::Linear;
   Address U = Address::ClampToEdge;
   Address V = Address::ClampToEdge;
+  float MinLod = 0;
+  float MaxLod = std::numeric_limits<float>::max();
 };
 
 class Sampler {

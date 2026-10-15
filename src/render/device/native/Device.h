@@ -39,6 +39,11 @@ struct DeviceOptions {
   bool Validation = false;
 };
 
+struct ComputeOptions {
+  std::string_view Entry = "main";
+  std::string_view Label;
+};
+
 class Device {
 public:
   virtual ~Device() = default;
@@ -56,9 +61,13 @@ public:
   [[nodiscard]] virtual Result<std::unique_ptr<Sampler>>
   CreateSampler(SamplerDescription description, std::string_view label = {}) = 0;
   [[nodiscard]] virtual Result<std::unique_ptr<ComputePipeline>>
-  CreateComputePipeline(std::span<const uint32_t> spirv,
-                        std::string_view entry = "main",
-                        std::string_view label = {}) = 0;
+  CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptions options = {}) = 0;
+
+  [[nodiscard]] virtual Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline([[maybe_unused]] const GraphicsDescription &description) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native graphics pipelines unavailable"});
+  }
 
   [[nodiscard]] virtual Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) = 0;
   [[nodiscard]] virtual Result<std::span<const std::byte>> MapRead(Buffer &buffer,
