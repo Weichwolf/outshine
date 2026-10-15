@@ -10,7 +10,7 @@ void main() {
   ivec2 size = imageSize(outputImage).xy;
   if (any(greaterThanEqual(at, size))) { return; }
   vec2 uv = (vec2(at) + shift.xy) / vec2(textureSize(inputImage, 0).xy);
-  vec4 value = textureLod(inputImage, vec3(uv, 0.0), 0.0) * tint;
+  vec4 value = textureLod(inputImage, vec3(uv, 0.0), shift.z) * tint;
   value.r += float(textureSize(inputImage, 0).z);
   imageStore(outputImage, ivec3(at, 0), value);
 }
