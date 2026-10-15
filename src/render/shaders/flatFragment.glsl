@@ -10,6 +10,7 @@
 layout(set = 2, binding = 0) uniform sampler2D imageMap;
 #endif
 #include "subjectOutput.glsl"
+#include "surfaceTransfer.glsl"
 void main() {
   float identity = 0.0;
 #if FLAT_MATERIAL
@@ -28,13 +29,11 @@ void main() {
   shaded.a = surface.factor * tap.a * colour.a;
 #endif
 #if FLAT_KIND == 3
-  vec3 medium = vec3(1.0);
-  if (surface.thickness > 0.0 && !isinf(surface.attenuationDistance)) {
-    medium = exp(log(max(surface.attenuationColour, vec3(1e-5))) *
-                 (surface.thickness / surface.attenuationDistance));
-  }
-  shaded.rgb += texelFetch(imageMap, ivec2(gl_FragCoord.xy), 0).rgb *
-                surface.base.rgb * colour.rgb * medium * surface.transmission;
+  vec3 medium = surfaceMediumTransmittance(surface.attenuationColour, surface.thickness,
+                                           surface.attenuationDistance);
+  SurfaceTransfer transfer = SurfaceTransfer(shaded.rgb, surface.base.rgb * colour.rgb * medium *
+                                                         surface.transmission);
+  shaded.rgb = surfaceTransferBehind(transfer, texelFetch(imageMap, ivec2(gl_FragCoord.xy), 0).rgb);
 #endif
   outputMaterial(shaded.rgb, 1.0, 0.0);
   outputSurface(shaded, vec3(0.0), identity);

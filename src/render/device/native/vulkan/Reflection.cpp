@@ -1,5 +1,5 @@
 #ifdef __linux__
-#include "Pipeline.h"
+#include "Reflection.h"
 #include <utility>
 #include <string_view>
 #include <span>
@@ -14,23 +14,6 @@
 
 namespace outshine::Render::Native::Vulkan {
 
-namespace {
-
-struct Reflection {
-  spvc_context Owner = nullptr;
-  spvc_compiler Compiler = nullptr;
-  spvc_resources Resources = nullptr;
-
-  Reflection() = default;
-
-  ~Reflection() {
-    if (Owner != nullptr) { spvc_context_destroy(Owner); }
-  }
-
-  Reflection(const Reflection &) = delete;
-  Reflection &operator=(const Reflection &) = delete;
-};
-
 Error ReflectionError(const Reflection &reflection) {
   const auto *const text = reflection.Owner == nullptr
                                ? "cannot create SPIRV-Cross context"
@@ -38,8 +21,10 @@ Error ReflectionError(const Reflection &reflection) {
   return {.Kind = ErrorKind::Invalid, .Message = text == nullptr ? "invalid SPIR-V" : text};
 }
 
-Result<void>
-ParseReflection(Reflection &reflection, std::span<const uint32_t> spirv, std::string_view entry) {
+Result<void> ParseReflection(Reflection &reflection,
+                             std::span<const uint32_t> spirv,
+                             std::string_view entry,
+                             SpvExecutionModel stage) {
   constexpr uint32_t magic = 0x07230203u;
   constexpr std::size_t headerWords = 5;
   if (spirv.size() < headerWords || spirv.front() != magic || entry.empty() ||
@@ -60,15 +45,12 @@ ParseReflection(Reflection &reflection, std::span<const uint32_t> spirv, std::st
     return std::unexpected(ReflectionError(reflection));
   }
   const std::string name(entry);
-  if (spvc_compiler_set_entry_point(
-          reflection.Compiler, name.c_str(), SpvExecutionModelGLCompute) != SPVC_SUCCESS ||
+  if (spvc_compiler_set_entry_point(reflection.Compiler, name.c_str(), stage) != SPVC_SUCCESS ||
       spvc_compiler_create_shader_resources(reflection.Compiler, &reflection.Resources) !=
           SPVC_SUCCESS) {
     return std::unexpected(ReflectionError(reflection));
   }
-  constexpr std::array unsupported = {SPVC_RESOURCE_TYPE_SAMPLED_IMAGE,
-                                      SPVC_RESOURCE_TYPE_STORAGE_IMAGE,
-                                      SPVC_RESOURCE_TYPE_SEPARATE_IMAGE,
+  constexpr std::array unsupported = {SPVC_RESOURCE_TYPE_SEPARATE_IMAGE,
                                       SPVC_RESOURCE_TYPE_SEPARATE_SAMPLERS,
                                       SPVC_RESOURCE_TYPE_PUSH_CONSTANT,
                                       SPVC_RESOURCE_TYPE_SUBPASS_INPUT,
@@ -83,12 +65,13 @@ ParseReflection(Reflection &reflection, std::span<const uint32_t> spirv, std::st
     }
     if (count != 0) {
       return std::unexpected(
-          Error{.Kind = ErrorKind::Unsupported,
-                .Message = "initial Vulkan compute path supports buffers and UBOs"});
+          Error{.Kind = ErrorKind::Unsupported, .Message = "unsupported compute resource kind"});
     }
   }
   return {};
 }
+
+namespace {
 
 Result<Access> BufferAccess(const Reflection &reflection, spvc_variable_id resource) {
   const SpvDecoration *decorations = nullptr;
@@ -105,7 +88,7 @@ Result<Access> BufferAccess(const Reflection &reflection, spvc_variable_id resou
 
 Result<void> AppendBindings(const Reflection &reflection,
                             spvc_resource_type resourceType,
-                            ComputeLayout &layout) {
+                            std::vector<ShaderBinding> &bindings) {
   const spvc_reflected_resource *resources = nullptr;
   std::size_t count = 0;
   if (spvc_resources_get_resource_list_for_type(
@@ -130,25 +113,27 @@ Result<void> AppendBindings(const Reflection &reflection,
     const auto usage =
         uniform ? Result<Access>(Access::Read) : BufferAccess(reflection, resource.id);
     if (!usage) { return std::unexpected(usage.error()); }
-    layout.Bindings.push_back({.Set = spvc_compiler_get_decoration(
-                                   reflection.Compiler, resource.id, SpvDecorationDescriptorSet),
-                               .Slot = spvc_compiler_get_decoration(
-                                   reflection.Compiler, resource.id, SpvDecorationBinding),
-                               .Kind = uniform ? BindingKind::Uniform : BindingKind::StorageBuffer,
-                               .Usage = *usage,
-                               .MinimumBytes = bytes});
+    bindings.push_back({.Set = spvc_compiler_get_decoration(
+                            reflection.Compiler, resource.id, SpvDecorationDescriptorSet),
+                        .Slot = spvc_compiler_get_decoration(
+                            reflection.Compiler, resource.id, SpvDecorationBinding),
+                        .Kind = uniform ? BindingKind::Uniform : BindingKind::StorageBuffer,
+                        .Usage = *usage,
+                        .MinimumBytes = bytes});
   }
   return {};
 }
 
 }
 
-Result<ComputeLayout> ReflectCompute(std::span<const uint32_t> spirv, std::string_view entry) {
+Result<ComputeReflection> ReflectCompute(std::span<const uint32_t> spirv, std::string_view entry) {
   Reflection reflection;
-  if (auto parsed = ParseReflection(reflection, spirv, entry); !parsed) {
+  if (auto parsed = ParseReflection(reflection, spirv, entry, SpvExecutionModelGLCompute);
+      !parsed) {
     return std::unexpected(parsed.error());
   }
-  ComputeLayout layout;
+  ComputeReflection reflected;
+  auto &layout = reflected.Layout;
   for (unsigned at = 0; at < layout.LocalSize.size(); ++at) {
     layout.LocalSize[at] = spvc_compiler_get_execution_mode_argument_by_index(
         reflection.Compiler, SpvExecutionModeLocalSize, at);
@@ -157,25 +142,41 @@ Result<ComputeLayout> ReflectCompute(std::span<const uint32_t> spirv, std::strin
                                    .Message = "compute needs a fixed nonzero local size"});
     }
   }
-  if (auto result = AppendBindings(reflection, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, layout);
+  auto resources = ReadResources(reflection);
+  if (!resources) { return std::unexpected(resources.error()); }
+  reflected.Layout.Bindings = std::move(resources->Bindings);
+  reflected.Images = std::move(resources->Images);
+  return reflected;
+}
+
+Result<ShaderResources> ReadResources(const Reflection &reflection) {
+  ShaderResources reflected;
+  if (auto result =
+          AppendBindings(reflection, SPVC_RESOURCE_TYPE_STORAGE_BUFFER, reflected.Bindings);
       !result) {
     return std::unexpected(result.error());
   }
-  if (auto result = AppendBindings(reflection, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, layout);
+  if (auto result =
+          AppendBindings(reflection, SPVC_RESOURCE_TYPE_UNIFORM_BUFFER, reflected.Bindings);
       !result) {
     return std::unexpected(result.error());
   }
-  std::ranges::sort(layout.Bindings, [](const ShaderBinding &left, const ShaderBinding &right) {
+  for (const auto kind : {SPVC_RESOURCE_TYPE_SAMPLED_IMAGE, SPVC_RESOURCE_TYPE_STORAGE_IMAGE}) {
+    if (auto result = AppendImages(reflection, kind, reflected); !result) {
+      return std::unexpected(result.error());
+    }
+  }
+  std::ranges::sort(reflected.Bindings, [](const ShaderBinding &left, const ShaderBinding &right) {
     return std::pair(left.Set, left.Slot) < std::pair(right.Set, right.Slot);
   });
-  for (std::size_t at = 1; at < layout.Bindings.size(); ++at) {
-    if (layout.Bindings[at - 1].Set == layout.Bindings[at].Set &&
-        layout.Bindings[at - 1].Slot == layout.Bindings[at].Slot) {
+  for (std::size_t at = 1; at < reflected.Bindings.size(); ++at) {
+    if (reflected.Bindings[at - 1].Set == reflected.Bindings[at].Set &&
+        reflected.Bindings[at - 1].Slot == reflected.Bindings[at].Slot) {
       return std::unexpected(
           Error{.Kind = ErrorKind::Invalid, .Message = "duplicate compute binding"});
     }
   }
-  return layout;
+  return reflected;
 }
 
 }

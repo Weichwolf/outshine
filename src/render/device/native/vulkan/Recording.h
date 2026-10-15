@@ -3,6 +3,8 @@
 
 #ifdef __linux__
 #include "Buffer.h"
+#include "RenderState.h"
+#include "VulkanImage.h"
 #include "Pipeline.h"
 #include <memory>
 #include <span>
@@ -21,6 +23,7 @@ public:
 
   [[nodiscard]] Result<void> Initialize();
   [[nodiscard]] Result<void> End();
+  void CommitImages() noexcept;
 
   [[nodiscard]] const std::shared_ptr<Context> &Owner() const noexcept { return Context_; }
 
@@ -39,6 +42,12 @@ public:
   [[nodiscard]] Result<void> Dispatch(const ComputePipeline &pipeline,
                                       std::span<const Binding> bindings,
                                       Workgroups groups) override;
+  [[nodiscard]] Result<void> BeginRenderPass(const RenderPassDescription &description) override;
+  [[nodiscard]] Result<void> Draw(const DrawDescription &description) override;
+  [[nodiscard]] Result<void> DrawIndexed(const IndexedDrawDescription &description) override;
+  [[nodiscard]] Result<void>
+  DrawIndexedIndirect(const IndirectDrawDescription &description) override;
+  [[nodiscard]] Result<void> EndRenderPass() override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
@@ -48,19 +57,54 @@ private:
     VkAccessFlags2 Access = 0;
   };
 
+  struct ImageAccess {
+    VkPipelineStageFlags2 Stage = 0;
+    VkAccessFlags2 Access = 0;
+    VkImageLayout Layout = VK_IMAGE_LAYOUT_GENERAL;
+  };
+
+  struct TrackedImage {
+    std::shared_ptr<ImageState> Image;
+    std::vector<VkImageLayout> Layouts;
+  };
+
   [[nodiscard]] Result<void> Hold(const std::shared_ptr<BufferState> &buffer);
+  [[nodiscard]] Result<void>
+  UseImage(const std::shared_ptr<ImageState> &image, TextureView view, ImageAccess access);
+  [[nodiscard]] Result<VkDescriptorImageInfo> BindImage(const ShaderBinding &declared,
+                                                        const Binding &binding,
+                                                        const PipelineState &pipeline,
+                                                        VkPipelineStageFlags2 stages);
+
   void Use(const BufferState &buffer, ByteRange range, BufferAccess access);
   [[nodiscard]] Result<std::vector<VkDescriptorSet>> AllocateSets(const PipelineState &pipeline);
   [[nodiscard]] Result<std::vector<VkDescriptorSet>>
-  BindResources(const VulkanPipeline &pipeline, std::span<const Binding> bindings);
-  [[nodiscard]] Result<VkDescriptorBufferInfo> BindBuffer(const ShaderBinding &declared,
-                                                          const Binding &binding);
+  BindResources(const PipelineState &pipeline,
+                std::span<const ShaderBinding> layout,
+                std::span<const Binding> bindings,
+                VkPipelineStageFlags2 stages);
+  [[nodiscard]] Result<VkDescriptorBufferInfo>
+  BindBuffer(const ShaderBinding &declared, const Binding &binding, VkPipelineStageFlags2 stages);
 
+  [[nodiscard]] Result<RenderAttachment>
+  PrepareAttachment(TextureView view, Load begin, Store end, bool depth);
+  [[nodiscard]] Result<DrawPacket> PrepareDraw(const DrawState &description);
+  [[nodiscard]] Result<void> BindVertices(DrawPacket &packet,
+                                          std::span<const VertexBuffer> vertices);
+  [[nodiscard]] Result<void> AppendDraw(DrawPacket packet);
+  [[nodiscard]] Result<void> BindIndices(DrawPacket &packet, const IndexBuffer &indices);
+  [[nodiscard]] Result<void> CheckFeedback(std::span<const Binding> bindings) const;
+  void EncodeDraw(const DrawPacket &packet);
+
+  std::optional<RenderState> Render_;
   std::shared_ptr<Context> Context_;
   VkCommandPool Pool_ = VK_NULL_HANDLE;
   VkCommandBuffer Commands_ = VK_NULL_HANDLE;
   VkDescriptorPool Descriptors_ = VK_NULL_HANDLE;
   bool Finished_ = false;
+  std::vector<TrackedImage> Images_;
+  std::vector<VkImageView> Views_;
+  std::vector<std::shared_ptr<SamplerState>> Samplers_;
   std::vector<std::shared_ptr<BufferState>> Buffers_;
   std::vector<std::shared_ptr<PipelineState>> Pipelines_;
 };

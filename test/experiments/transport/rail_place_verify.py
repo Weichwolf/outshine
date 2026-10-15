@@ -126,14 +126,13 @@ def cross_piece_audit(shapes, owners, kinds, graphs):
 
 
 def verify_case(name, directory, camera_products, row):
-    source_name = "Vienna" if name == "Wien" else name
+    source_name = row.get("source_name", "Vienna" if name == "Wien" else name)
     source, _raw, graphs, domain, pins = read_window(camera_products, source_name)
     if pins != row["pins"] or source["origin_lat_lon"] != row["origin_lat_lon"]:
         raise ValueError("hardware source/frame binding changed")
     bed, bed_error = actual_bed(camera_products, source_name, domain)
-    axis_lines = np.concatenate(
-        [g["lines"][g["eligible"]] for g in graphs if g["rail_graph"]]
-    )
+    lines = [g["lines"][g["eligible"]] for g in graphs if g["rail_graph"]]
+    axis_lines = np.concatenate(lines) if lines else np.empty(0, object)
     supported_axes = shapely.union_all(axis_lines).buffer(1e-8, quad_segs=4)
     path = directory / (name + ".npz")
     if hashlib.sha256(path.read_bytes()).hexdigest() != row["mesh_sha256"]:

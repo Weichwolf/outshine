@@ -16,6 +16,10 @@ Recording::~Recording() {
   if (Descriptors_ != VK_NULL_HANDLE) {
     vkDestroyDescriptorPool(Context_->Logical, Descriptors_, nullptr);
   }
+  for (auto *const view : Views_) { vkDestroyImageView(Context_->Logical, view, nullptr); }
+  for (const auto &tracked : Images_) {
+    if (tracked.Image->Reserved == this) { tracked.Image->Reserved = nullptr; }
+  }
   for (const auto &buffer : Buffers_) { --buffer->RecordedUses; }
   --Context_->Recordings;
 }
@@ -44,7 +48,7 @@ Result<void> Recording::Initialize() {
 
 Result<void> Recording::End() {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
-  if (Finished_) {
+  if (Finished_ || Render_) {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "commands already ended"});
   }
   const auto result = vkEndCommandBuffer(Commands_);
@@ -86,6 +90,10 @@ void Recording::Use(const BufferState &buffer, ByteRange range, BufferAccess acc
 
 Result<void> Recording::Copy(const Buffer &source, Buffer &destination, BufferCopy region) {
   if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
+  if (Render_) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Invalid, .Message = "transfer inside render pass"});
+  }
   const auto from = BufferFrom(source, *Context_);
   const auto into = BufferFrom(destination, *Context_);
   if (!from) { return std::unexpected(from.error()); }
@@ -120,28 +128,6 @@ Result<void> Recording::Copy(const Buffer &source, Buffer &destination, BufferCo
         {.Stage = VK_PIPELINE_STAGE_2_HOST_BIT, .Access = VK_ACCESS_2_HOST_READ_BIT});
   }
   return {};
-}
-
-Result<void> Recording::Copy([[maybe_unused]] const Buffer &source,
-                             [[maybe_unused]] Texture &destination,
-                             [[maybe_unused]] TextureTransfer region) {
-  return std::unexpected(
-      Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan texture upload pending"});
-}
-
-Result<void> Recording::Copy([[maybe_unused]] const Texture &source,
-                             [[maybe_unused]] Buffer &destination,
-                             [[maybe_unused]] TextureTransfer region) {
-  return std::unexpected(
-      Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan texture readback pending"});
-}
-
-Result<void> Recording::Copy([[maybe_unused]] const Texture &source,
-                             [[maybe_unused]] TextureRegion sourceRegion,
-                             [[maybe_unused]] Texture &destination,
-                             [[maybe_unused]] TextureRegion destinationRegion) {
-  return std::unexpected(
-      Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan texture copy pending"});
 }
 
 void Recording::BeginLabel(std::string_view name) {

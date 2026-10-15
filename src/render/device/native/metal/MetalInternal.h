@@ -43,6 +43,12 @@ public:
   std::shared_ptr<BufferState> State;
 };
 
+class MetalCommands;
+
+struct TextureRecording {
+  const MetalCommands *Owner = nullptr;
+};
+
 class MetalTexture final : public Texture {
 public:
   MetalTexture(TextureDescription description, id<MTLTexture> texture, uint64_t device)
@@ -50,6 +56,7 @@ public:
 
   id<MTLTexture> Native;
   uint64_t Device;
+  std::shared_ptr<TextureRecording> Recording = std::make_shared<TextureRecording>();
 };
 
 class MetalSampler final : public Sampler {
@@ -88,21 +95,31 @@ struct PipelineState {
   uint64_t Device;
 };
 
-struct DispatchArgument {
+struct ShaderArgument {
   const ResourceBinding *Layout = nullptr;
   const StorageBuffer *Storage = nullptr;
   const Uniform *Constants = nullptr;
   std::shared_ptr<BufferState> Buffer;
+  std::shared_ptr<TextureRecording> Recording;
+  const TextureView *Image = nullptr;
   id<MTLTexture> Texture = nil;
   id<MTLSamplerState> Sampler = nil;
   id<MTLResource> Resource = nil;
 };
 
-[[nodiscard]] Result<std::vector<DispatchArgument>>
+[[nodiscard]] Result<std::vector<ShaderArgument>>
 Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device);
+[[nodiscard]] Result<std::vector<ShaderArgument>>
+Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t device);
+[[nodiscard]] Result<void> CheckImageAliases(std::span<const ShaderArgument> first,
+                                             std::span<const ShaderArgument> second);
 [[nodiscard]] Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                                 const Shader &shader,
-                                const std::vector<DispatchArgument> &arguments);
+                                const std::vector<ShaderArgument> &arguments);
+[[nodiscard]] Result<void> Bind(id<MTLRenderCommandEncoder> encoder,
+                                ShaderStage stage,
+                                const Shader &shader,
+                                const std::vector<ShaderArgument> &arguments);
 
 class MetalPipeline final : public ComputePipeline {
 public:
@@ -144,6 +161,7 @@ struct TrackedResource {
 
 struct AttachmentState {
   id<MTLTexture> Native;
+  std::shared_ptr<TextureRecording> Recording;
   Format Texels;
   uint32_t Mip, Layer, Width, Height;
 };
@@ -154,6 +172,8 @@ struct RenderState {
   std::optional<AttachmentState> Depth;
   uint32_t Width = 0, Height = 0;
 };
+
+enum class DrawKind { Direct, Indexed, Indirect };
 
 class MetalCommands final : public Commands {
 public:
@@ -176,23 +196,40 @@ public:
                         Workgroups groups) override;
   Result<void> BeginRenderPass(const RenderPassDescription &description) override;
   Result<void> EndRenderPass() override;
+  Result<void> Draw(const DrawDescription &description) override;
+  Result<void> DrawIndexed(const IndexedDrawDescription &description) override;
+  Result<void> DrawIndexedIndirect(const IndirectDrawDescription &description) override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
 private:
   friend class MetalDevice;
   [[nodiscard]] Result<void> Hold(const std::shared_ptr<BufferState> &state);
+  [[nodiscard]] Result<void> HoldImages(std::span<const std::shared_ptr<TextureRecording>> images);
+  void ReleaseImages();
   void Finish();
 
   uint64_t Device;
   id<MTLCommandBuffer> Native;
   std::vector<Reservation> Held;
+  std::vector<std::shared_ptr<TextureRecording>> HeldImages;
   std::shared_ptr<CommandPermit> Permit;
   id<MTLComputeCommandEncoder> Compute = nil;
   std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
 
-  void UpdateAccesses(std::span<const DispatchArgument> arguments);
+  void UpdateAccesses(std::span<const ShaderArgument> arguments);
+  void UpdateAccess(id<MTLResource> resource, Access usage);
+  [[nodiscard]] Result<void> PrepareReads(std::span<const std::shared_ptr<BufferState>> buffers,
+                                          std::vector<id<MTLResource>> &hazards);
+  [[nodiscard]] Result<void> PrepareDraw(const DrawState &state,
+                                         VertexRange range,
+                                         DrawKind kind,
+                                         std::span<const std::shared_ptr<BufferState>> reads = {});
+  [[nodiscard]] Result<void> PrepareResources(std::span<const ShaderArgument> arguments,
+                                              std::vector<id<MTLResource>> &hazards);
+  void
+  TrackHazard(id<MTLResource> resource, Access usage, std::vector<id<MTLResource>> &hazards) const;
 
   [[nodiscard]] bool OnOwner() const noexcept { return Owner_ == std::this_thread::get_id(); }
 

@@ -20,6 +20,10 @@ struct Context {
   uint32_t QueueFamily = 0;
   uint64_t Cookie = 0;
   bool DebugMarkers = false;
+  bool StorageImageExtendedFormats = false;
+  bool IndependentBlend = false;
+  bool MultiDrawIndirect = false;
+  bool IndirectFirstInstance = false;
   std::atomic<uint32_t> ValidationErrors{0};
   const std::thread::id OwnerThread = std::this_thread::get_id();
   uint32_t Recordings = 0;

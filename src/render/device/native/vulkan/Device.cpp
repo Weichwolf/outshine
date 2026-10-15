@@ -48,10 +48,9 @@ public:
 
   [[nodiscard]] const Capabilities &Limits() const noexcept override { return Context_->Limits; }
 
-  [[nodiscard]] bool Supports([[maybe_unused]] Format format,
-                              [[maybe_unused]] UseMask<TextureUse> use,
-                              [[maybe_unused]] bool filtered) const override {
-    return false;
+  [[nodiscard]] bool
+  Supports(Format format, UseMask<TextureUse> use, bool filtered) const override {
+    return Vulkan::Supports(*Context_, format, use, filtered);
   }
 
   [[nodiscard]] Result<std::unique_ptr<Buffer>>
@@ -63,23 +62,31 @@ public:
   }
 
   [[nodiscard]] Result<std::unique_ptr<Texture>>
-  CreateTexture([[maybe_unused]] TextureDescription description,
-                [[maybe_unused]] std::string_view label) override {
-    return std::unexpected(
-        Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan texture creation pending"});
+  CreateTexture(TextureDescription description, [[maybe_unused]] std::string_view label) override {
+    if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
+    auto state = AllocateImage(Context_, description);
+    if (!state) { return std::unexpected(state.error()); }
+    return std::make_unique<VulkanTexture>(std::move(*state));
   }
 
   [[nodiscard]] Result<std::unique_ptr<Sampler>>
-  CreateSampler([[maybe_unused]] SamplerDescription description,
-                [[maybe_unused]] std::string_view label) override {
-    return std::unexpected(
-        Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan sampler creation pending"});
+  CreateSampler(SamplerDescription description, [[maybe_unused]] std::string_view label) override {
+    if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
+    auto state = AllocateSampler(Context_, description);
+    if (!state) { return std::unexpected(state.error()); }
+    return std::make_unique<VulkanSampler>(std::move(*state));
   }
 
   [[nodiscard]] Result<std::unique_ptr<ComputePipeline>>
   CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptions options) override {
     if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
     return CreatePipeline(Context_, spirv, options.Entry);
+  }
+
+  [[nodiscard]] Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline(const GraphicsDescription &description) override {
+    if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
+    return CreateGraphics(Context_, description);
   }
 
   [[nodiscard]] Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) override {
@@ -143,6 +150,7 @@ public:
       return std::unexpected(*Failed_);
     }
     const auto serial = ++Submitted_;
+    native->CommitImages();
     Pending_.push_back({.Recorded = std::move(held), .Fence = fence, .Serial = serial});
     return Completion{.Device = Context_->Cookie, .Serial = serial};
   }

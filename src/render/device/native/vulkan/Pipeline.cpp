@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -20,57 +21,78 @@ PipelineState::~PipelineState() {
   }
 }
 
-namespace {
-
-Result<void> CheckLayout(const Context &context, const ComputeLayout &layout) {
-  uint64_t lanes = 1;
-  for (std::size_t at = 0; at < layout.LocalSize.size(); ++at) {
-    if (layout.LocalSize[at] > context.Limits.MaxWorkgroupSize[at]) {
-      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
-                                   .Message = "compute local size exceeds device limit"});
-    }
-    lanes *= layout.LocalSize[at];
+VkDescriptorType DescriptorType(BindingKind kind) noexcept {
+  switch (kind) {
+    case BindingKind::Uniform: return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case BindingKind::StorageBuffer: return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case BindingKind::SampledTexture: return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    case BindingKind::StorageTexture: return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
   }
-  if (lanes > context.Limits.MaxWorkgroupInvocations) {
-    return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
-                                 .Message = "compute local invocations exceed device limit"});
+  return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+}
+
+Result<void> CheckBindings(const Context &context,
+                           std::span<const ShaderBinding> bindings,
+                           std::span<const ImageRequirement> imageRequirements,
+                           bool perStage) {
+  for (const auto &image : imageRequirements) {
+    if (!context.StorageImageExtendedFormats && (image.StorageFormat == VK_FORMAT_R8_UNORM ||
+                                                 image.StorageFormat == VK_FORMAT_R16G16_SFLOAT)) {
+      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                   .Message = "extended storage image formats unavailable"});
+    }
   }
   uint32_t uniforms = 0;
   uint32_t storage = 0;
-  for (const auto &binding : layout.Bindings) {
+  uint32_t sampled = 0;
+  uint32_t images = 0;
+  for (const auto &binding : bindings) {
     if (binding.Set >= context.Properties.limits.maxBoundDescriptorSets) {
       return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
                                    .Message = "compute descriptor set exceeds device limit"});
     }
     uniforms += binding.Kind == BindingKind::Uniform ? 1u : 0u;
     storage += binding.Kind == BindingKind::StorageBuffer ? 1u : 0u;
+    sampled += binding.Kind == BindingKind::SampledTexture ? 1u : 0u;
+    images += binding.Kind == BindingKind::StorageTexture ? 1u : 0u;
   }
   const auto &limits = context.Properties.limits;
-  if (uniforms > std::min(limits.maxPerStageDescriptorUniformBuffers,
+  const auto stageLimit = [perStage](uint32_t value) {
+    return perStage ? value : std::numeric_limits<uint32_t>::max();
+  };
+  if (uniforms > std::min(stageLimit(limits.maxPerStageDescriptorUniformBuffers),
                           limits.maxDescriptorSetUniformBuffers) ||
-      storage > std::min(limits.maxPerStageDescriptorStorageBuffers,
-                         limits.maxDescriptorSetStorageBuffers)) {
+      storage > std::min(stageLimit(limits.maxPerStageDescriptorStorageBuffers),
+                         limits.maxDescriptorSetStorageBuffers) ||
+      sampled > std::min({stageLimit(limits.maxPerStageDescriptorSampledImages),
+                          limits.maxDescriptorSetSampledImages,
+                          stageLimit(limits.maxPerStageDescriptorSamplers),
+                          limits.maxDescriptorSetSamplers}) ||
+      images > std::min(stageLimit(limits.maxPerStageDescriptorStorageImages),
+                        limits.maxDescriptorSetStorageImages) ||
+      bindings.size() > stageLimit(limits.maxPerStageResources)) {
     return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
                                  .Message = "compute descriptor count exceeds device limit"});
   }
   return {};
 }
 
-Result<void> CreateLayouts(PipelineState &state, const ComputeLayout &layout) {
+Result<void> CreateLayouts(PipelineState &state,
+                           std::span<const ShaderBinding> resources,
+                           std::span<const VkShaderStageFlags> stages) {
   uint32_t setCount = 0;
-  for (const auto &binding : layout.Bindings) { setCount = std::max(setCount, binding.Set + 1); }
+  for (const auto &binding : resources) { setCount = std::max(setCount, binding.Set + 1); }
   state.Sets.resize(setCount, VK_NULL_HANDLE);
   for (uint32_t at = 0; at < setCount; ++at) {
     std::vector<VkDescriptorSetLayoutBinding> bindings;
-    for (const auto &binding : layout.Bindings) {
+    for (std::size_t index = 0; index < resources.size(); ++index) {
+      const auto &binding = resources[index];
       if (binding.Set != at) { continue; }
       VkDescriptorSetLayoutBinding into{};
       into.binding = binding.Slot;
-      into.descriptorType = binding.Kind == BindingKind::Uniform
-                                ? VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-                                : VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+      into.descriptorType = DescriptorType(binding.Kind);
       into.descriptorCount = 1;
-      into.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+      into.stageFlags = stages.empty() ? VK_SHADER_STAGE_COMPUTE_BIT : stages[index];
       bindings.push_back(into);
     }
     VkDescriptorSetLayoutCreateInfo create{};
@@ -92,19 +114,32 @@ Result<void> CreateLayouts(PipelineState &state, const ComputeLayout &layout) {
   return {};
 }
 
-}
-
 Result<std::unique_ptr<ComputePipeline>> CreatePipeline(std::shared_ptr<Context> context,
                                                         std::span<const uint32_t> spirv,
                                                         std::string_view entry) {
   auto reflected = ReflectCompute(spirv, entry);
   if (!reflected) { return std::unexpected(reflected.error()); }
-  if (auto checked = CheckLayout(*context, *reflected); !checked) {
+  const auto &layout = reflected->Layout;
+  uint64_t lanes = 1;
+  for (std::size_t at = 0; at < layout.LocalSize.size(); ++at) {
+    if (layout.LocalSize[at] > context->Limits.MaxWorkgroupSize[at]) {
+      return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                   .Message = "compute local size exceeds device limit"});
+    }
+    lanes *= layout.LocalSize[at];
+  }
+  if (lanes > context->Limits.MaxWorkgroupInvocations) {
+    return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                 .Message = "compute local invocations exceed device limit"});
+  }
+  if (auto checked = CheckBindings(*context, reflected->Layout.Bindings, reflected->Images);
+      !checked) {
     return std::unexpected(checked.error());
   }
   auto state = std::make_shared<PipelineState>();
   state->Owner = std::move(context);
-  if (auto result = CreateLayouts(*state, *reflected); !result) {
+  state->Images = std::move(reflected->Images);
+  if (auto result = CreateLayouts(*state, reflected->Layout.Bindings); !result) {
     return std::unexpected(result.error());
   }
   VkShaderModuleCreateInfo module{};
@@ -126,7 +161,7 @@ Result<std::unique_ptr<ComputePipeline>> CreatePipeline(std::shared_ptr<Context>
       state->Owner->Logical, VK_NULL_HANDLE, 1, &create, nullptr, &state->Handle);
   vkDestroyShaderModule(state->Owner->Logical, shader, nullptr);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateComputePipelines", result)); }
-  return std::make_unique<VulkanPipeline>(std::move(state), std::move(*reflected));
+  return std::make_unique<VulkanPipeline>(std::move(state), std::move(reflected->Layout));
 }
 
 }
