@@ -175,7 +175,8 @@ format/dimensions/hash checked, and actually opened against its PR260 predecesso
 Feldkirch/Tokyo/CentralPark now show coherent coarse relief; Wien's established
 old C1 patch is untouched. Simple studio materials/lighting and absent terrain
 are still explicit research limitations. No close-up or camera adjustment hides
-unresolved geometry. Exactly four gallery PNGs remain under `doc/images/transport/`.
+unresolved geometry. The former research gallery is retired; new research images remain
+local in system-temp directories. Only master publishes integrated Places.
 Before-images are retained under `build/shots/reference/transport/heights-pr260/`
 in both the Transport and main checkouts; current presentations are copied to
 both `build/shots/experiments/transport/places/` directories.

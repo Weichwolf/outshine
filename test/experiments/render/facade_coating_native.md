@@ -51,7 +51,7 @@ amplitude. These finite results are not a global filtering or TAA guarantee;
 they do not bound the existing region-coverage approximation's whole-image error.
 
 Four additional colour cohorts check bounded reflectance, black/white identity,
-unchanged far mean and full glazing. ![Native coating prototype; runtime inactive](../../../doc/images/materials/facade-coating-native.png)
+unchanged far mean and full glazing. Local diagnostic: `facade-coating-native.png` (generated in system temp; not published).
 
 The separate image chart contains actual
 native material colours at160×96 pixels, enlarged2×, in a small explicit meter
