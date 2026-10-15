@@ -187,12 +187,30 @@
   betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
   nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
-- Ein schwerer Lauf zugleich; Prozesse zuerst prüfen. Lange Gates auf eingefrorenem Commit in
-  detached Worktree mit eigenem Build, `LINT_JOBS=2 make lint`. Kein geteilter Build/parallel spotless.
+- Agenten beurteilen parallele Läufe selbst anhand laufender Prozesse und verfügbarer Ressourcen;
+  keine globale Ein-Lauf-Sperre je Host. Ein unter Last bestandener Budgettest zählt für den gemessenen
+  Lastfall; Vergleichsläufe nennen ihren Lastzustand. Breite Prüfungen und aufwendige Renderexperimente
+  bevorzugt auf dem gemeinsamen Fachagentenrechner (Nutzerangabe: schnelle 6-Kern-CPU, 32 GB RAM,
+  RTX 3060), Metal-/A18-Abnahme auf dem Zielgerät.
+  Lange Gates auf eingefrorenem Commit im detached Worktree mit eigenem Build; Jobzahl nach Ressourcen.
+  Kein geteilter Build/parallel spotless.
   Ergebnisse brauchen terminalen Status und Commitzuordnung; geänderter Code neue betroffene Gates.
-- Experimentquellen nach Fachbereich unter `test/experiments/`, Eingaben und Ergebnisse
-  nach `build/experiments/`. In `build/shots/` bleiben ausgewählte Präsentationsbilder und benötigte
-  Referenzen. Überholte Versuchsdateien nach Auswertung löschen.
+- Im Repository liegt nur, was gemeinsam für Outshine gebraucht wird: Produktcode, Tests,
+  wiederverwendbare Experimentquellen unter `test/experiments/`, feste Testeingaben, Dokumentation,
+  Papers und aktuelle Präsentationsbilder. Produkt-Builds bleiben unter `build/`; in `build/shots/`
+  liegen ausgewählte Präsentationsbilder und benötigte Referenzen.
+  Private Versuchsausgaben, Arbeitsdaten, Hilfsumgebungen und Zwischenprodukte liegen ausschließlich
+  im jeweiligen System-Tempverzeichnis (`${TMPDIR:-/tmp}/outshine-<Agent>-<Auftrag>-<Commit>`).
+  Kein privater Experimentbaum unter `build/experiments/`. Skripte nutzen explizite Temp-Ausgabepfade;
+  beim betroffenen Ausbau alte Standardpfade migrieren. Gemeinsam benötigte feste Referenzinputs
+  erhalten einen passenden versionierten Testdatenpfad, keine Abhängigkeit von privaten Tempbäumen.
+- Jeder Agent räumt seine Artefakte nach jedem Arbeitsblock und vor einer Lieferung auf:
+  ersetzte/fehlgeschlagene Versuchsausgaben, doppelte Exporte, alte Renderings und entbehrliche
+  Zwischenprodukte löschen. Aktuellen geprüften Stand, nötigen Vorher-Vergleich, weiter benötigte
+  Gegenbeispiele/Eingaben und referenzierte Pins/Belege erhalten. Reproduktion und kompakte
+  Ergebnisberichte ersetzen keine benötigten Originaleingaben; alte vollständige Ausgabekopien
+  dagegen nicht stapeln. Aktive/fremde Arbeiten, gemeinsame Quellen-/Assetcaches und benötigte
+  Referenzen nicht pauschal bereinigen. Diese Pflicht gilt auch im Haupt-Checkout und in Worktrees.
 - Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
   `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
   Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
