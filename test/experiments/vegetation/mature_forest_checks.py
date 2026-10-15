@@ -173,8 +173,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = {
-        "near": check_near_ranges(args.products),
         "cache": cached_stand(args.scenario, args.products),
+        "near": check_near_ranges(args.products),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")

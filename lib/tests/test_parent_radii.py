@@ -167,3 +167,29 @@ class ParentRadiusTests(unittest.TestCase):
         self.assertEqual(
             replace(level, radius_parent_ratio=np.uint64(1)).radius_parent_ratio, 1.0
         )
+
+    def test_wide_v4_whorls_preserve_old_capacity_rejections(self):
+        p = wood()
+        with self.assertRaises(ValueError):
+            replace(p.levels[0], branches=65)
+        with self.assertRaises(ValueError):
+            replace(p.axis(()), path=(64,))
+        with self.assertRaises(ValueError):
+            replace(p.levels[1], branches=257)
+        q = PlantPlan(
+            p.seed,
+            (
+                p.levels[0],
+                replace(p.levels[1], branches=240),
+                replace(p.levels[2], branches=1),
+            ),
+            (),
+        )
+        self.assertEqual(q.summary()["axes"], 481)
+        self.assertFalse(q._axes)
+        state = q.axis((239, 0))
+        self.assertEqual(state.path_capacity, 256)
+        self.assertLessEqual(q.radii((239, 0))[0], q.radii((239,))[0])
+        r = PlantPlan.from_recipe(json.loads(json.dumps(q.recipe())))
+        for key, values in q.tables(481, 0).items():
+            np.testing.assert_array_equal(values, r.tables(481, 0)[key])

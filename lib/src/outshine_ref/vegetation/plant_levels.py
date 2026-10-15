@@ -38,8 +38,9 @@ class AxisLevel:
     radius_parent_ratio: float | None = None
 
     def __post_init__(self):
-        if type(self.branches) is not int or not 1 <= self.branches <= 64:
-            raise ValueError("one to 64 branches per order required")
+        capacity = 64 if self.radius_parent_ratio is None else 256
+        if type(self.branches) is not int or not 1 <= self.branches <= capacity:
+            raise ValueError(f"one to {capacity} branches per order required")
         if type(self.whorl_size) is not int or not 1 <= self.whorl_size <= 16:
             raise ValueError("one to 16 branches per whorl required")
         if self.radius_parent_ratio is not None:

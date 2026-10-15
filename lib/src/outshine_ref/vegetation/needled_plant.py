@@ -192,6 +192,12 @@ class NeedledPlant:
 
         return window_summary(self, nominal_span_m, max_groups)
 
+    def area_summary(self, unit_areas_m2):
+        """Count variants and expected physical area without organ placement."""
+        from .needle_area import area_summary
+
+        return area_summary(self, unit_areas_m2)
+
     def windows(self, max_axes, max_windows, *, nominal_span_m=0.08, max_groups=64):
         """Return owned readonly ranges/frames, without placing individual needles."""
         from .needle_windows import window_tables

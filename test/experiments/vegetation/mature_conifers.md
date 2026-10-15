@@ -2,6 +2,7 @@
 
 Owners: [#131](https://github.com/Weichwolf/outshine/issues/131) morphology,
 [#172](https://github.com/Weichwolf/outshine/issues/172) actual branch radii,
+[#179](https://github.com/Weichwolf/outshine/issues/179) requested needle area,
 [#168](https://github.com/Weichwolf/outshine/issues/168) coarse products.
 
 The existing boreal showcase contains 350 closed crown proxies over 160 m.
@@ -15,8 +16,8 @@ positions, variants, ground, camera, sun, resolution and samples stay the contro
 Spruce has whorled primary branches, lower droop and a persistent leader; pine
 has a higher, rounded crown and a long clear stem. Structural lengths/radii and
 deterministic seeds vary with the profile. Physical needle recipes, placement
-spacing and finite form catalog remain unchanged. This is a static procedural
-form interpretation, not a calibrated age, growth, population or LAI model.
+spacing remain unchanged. This is a static procedural form interpretation,
+not a calibrated age, growth or population model.
 
 Mature branches expose a real previous limitation: a fixed radius per order does
 not fit thin upper stem attachments. `AxisLevel.radius_parent_ratio` explicitly
@@ -27,6 +28,10 @@ ancestry; immutable `radius_limits` bounds all sibling/parent choices without
 placing axes. Tables, physical needle offsets, mesh, collar and bark consumers
 use those actual radii. Existing v2/v3 fields, IDs, recipes, default buffers and
 geometric rejections remain; old versions cannot smuggle the new field.
+Adaptive v4 levels explicitly permit up to 256 siblings, with
+`AxisState.path_capacity=256`; old level/path defaults retain their 64 limit.
+The spruce recipe uses 240 primary branches in 48 five-branch whorls. This avoids
+the first rejected recipe's 21 isolated whorls over a 35 m trunk.
 
 The parent-attachment maximum follows the principle in
 [Weber and Penn, SIGGRAPH 1995, §4.4, PDF page 4](../../../doc/references/vegetation/siggraph/1995-creation-and-rendering-of-realistic-trees.pdf),
@@ -37,13 +42,43 @@ Botanical form references, also opened optically:
 and [Pinus sylvestris, JRC 2016](../../../doc/references/vegetation/botany/2016-european-atlas-pinus-sylvestris.pdf).
 The photographs guide morphology/colour; they are not generated texture inputs.
 
+The first mature 350-site image was opened and rejected: sparse, pole-like
+crowns did not improve the original closed proxies. Its complete cache and
+attachment checks passed, illustrating why those checks do not replace the image.
+The recipes had ignored the profiles' existing `lai` input. At half the closed
+physical needle area they supplied nominal indices of about 3.15/1.10 rather
+than the requested 8.0/3.5. Correcting the radius invariant alone was insufficient.
+
+`NeedledPlant.area_summary(unit_areas_m2)` counts all deterministic variant IDs
+and expected area before axis/organ work. Uniform scalar variation contributes
+the exact expectation `1 + variation**2 / 3`. The experiment reads half the
+triangle area of each cached closed needle prototype, without meshing new organs.
+Its target is `profile.lai * pi * (profile.spread_m * variant_scale / 2)**2`.
+This convention follows the needle-area definition discussed by
+[Chen et al. 1997, PDF page 2](../../../doc/references/vegetation/botany/1997-leaf-area-index-of-boreal-forests.pdf),
+also opened optically. The declared circular crown area is a recipe reference,
+not a measured crown footprint or stand LAI; clumping/effective LAI differ.
+
+`mature_density.py` enumerates terminal branch degrees 1..64 within the fixed
+recipe family and selects minimum area error, then axis count, then degree.
+It requires relative expected-area error at most 5%. Needles keep their physical
+size/spacing, and alpha remains unchanged. No global plant optimum is claimed.
+
 `mature_conifer_experiment.py` first counts every planned axis/window, with at
-most 20,000 axes and 100,000 windows per new complete form. Existing 20,000-window
-experiment defaults remain unchanged. It then invokes the shared whole-product
+most 65,536 axes and 100,000 windows per new complete form. The larger explicit
+offline axis profile is needed for the previously ignored area requirement;
+the old low-count recipe fails that requirement. Existing 20,000-axis/window
+experiment defaults and all native/frame gates remain unchanged.
+It then invokes the shared whole-product
 baker with all individual-needle placement/meshing disabled. New recipes must
 match the catalog's physical needle recipes and pattern families. Demand is
 checked before catalog arrays decode. All original axes/needles remain represented
 by stable source ranges; cached recipe data supplies later requested near detail.
+The finite mature catalog uses nominal 0.32 m windows, at most 256 needle groups
+and 32×32 templates with 8×8 subpixel samples. Catalog generation and complete
+products run in separate processes. Defaults remain 0.08 m, 64 groups and 4×4.
+Larger windows approximate curvature and tails; matched physical shoot coverage
+must be reported separately, not inferred from correct total needle area.
 
 The optional far wood-colour field averages the existing procedural bark recipe
 along stem height and radius. It gives pine a warmer upper trunk and preserves
@@ -53,13 +88,16 @@ raster remains byte-identical on the previous independent compositor control.
 
 ```sh
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_conifer_experiment.py --plans-only
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_conifer_experiment.py --size 256
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_conifer_experiment.py --phase catalog
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_conifer_experiment.py --phase products --size 256
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/mature_forest_checks.py --scenario build/experiments/vegetation/landscapes/boreal.json --products build/experiments/vegetation/mature-conifers/mature-products.json --output build/experiments/vegetation/mature-conifers/stand-checks.json
 OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/vegetation/mature_forest_preview.py -- --scenario build/experiments/vegetation/landscapes/boreal.json --products build/experiments/vegetation/mature-conifers/mature-products.json --output build/experiments/vegetation/mature-conifers/forest/render.png
 ```
 
-Use the previously generated `conifer-crowns` and `conifer-whole/*/catalog`
-inputs. Only the finite physical catalog is loaded, never a complete near tree.
+Use the previously generated `conifer-crowns` organ assets as inputs. Only the
+finite physical catalog is loaded during whole production, never a near tree.
+`mature_crown_probe.py --output <probe> --catalogs <mature-output>/catalogs`
+creates one unlit physical-aspect diagnostic per species before all 64-view bakes.
 Whole stand images, frame costs and botanical/art quality remain separate from
 the scalar radius invariant. High local coverage errors of statistical windows,
 mean normals, shadows, wind and moving detail transitions remain open in #168.

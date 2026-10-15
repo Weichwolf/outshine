@@ -36,13 +36,19 @@ class AxisState:
     frame: np.ndarray
     phase: float
     parent_parameter: float
+    path_capacity: int = 64
 
     def __post_init__(self):
         origin, frame = np.asarray(self.origin), np.asarray(self.frame)
         if (
             not isinstance(self.path, tuple)
             or len(self.path) > 7
-            or any(type(slot) is not int or not 0 <= slot < 64 for slot in self.path)
+            or type(self.path_capacity) is not int
+            or self.path_capacity not in (64, 256)
+            or any(
+                type(slot) is not int or not 0 <= slot < self.path_capacity
+                for slot in self.path
+            )
             or type(self.id) is not int
             or not 0 <= self.id < 2**64
             or not np.isfinite(
@@ -317,6 +323,9 @@ class PlantPlan:
             frame,
             phase,
             parameter,
+            path_capacity=256
+            if any(level.branches > 64 for level in self.levels)
+            else 64,
         )
         self._axes[path] = state
         return state

@@ -82,7 +82,7 @@ def family_geometry(plant, pattern, meshes, groups):
     return source, metadata
 
 
-def catalog_sources(directory):
+def catalog_sources(directory, *, nominal_span_m=0.08, max_groups=64):
     scene_path = directory / "shoot.json"
     scene = json.loads(scene_path.read_text())
     recipe_path = directory / scene["plant_recipe"]
@@ -90,7 +90,9 @@ def catalog_sources(directory):
     meshes, paths = prototypes(directory, scene)
     paths += [scene_path, recipe_path]
     families = {}
-    group_capacities = plant.window_summary()["groups_per_window"]
+    group_capacities = plant.window_summary(
+        nominal_span_m=nominal_span_m, max_groups=max_groups
+    )["groups_per_window"]
     for order, pattern in enumerate(plant.patterns):
         if pattern is None or pattern_key(pattern) in families:
             continue
@@ -141,5 +143,8 @@ def template_image(source, direction, size=32, samples=4, *, projection_data=Non
     )
 
 
-def bake_template(source, count=64, size=32):
-    return [template_image(source, direction, size) for direction in directions(count)]
+def bake_template(source, count=64, size=32, samples=4):
+    return [
+        template_image(source, direction, size, samples)
+        for direction in directions(count)
+    ]

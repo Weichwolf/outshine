@@ -58,17 +58,23 @@ def load_catalog(directory, *, metadata=None):
     return metadata, banks
 
 
-def prepare_catalog(species, output_root=OUTPUT):
+def prepare_catalog(
+    species, output_root=OUTPUT, *, nominal_span_m=0.08, max_groups=64, samples=4
+):
     output = output_root / species
     began = time.perf_counter()
-    plant, families, inputs = catalog_sources(BASE / species)
-    banks = [bake_template(source) for source, _ in families.values()]
+    plant, families, inputs = catalog_sources(
+        BASE / species, nominal_span_m=nominal_span_m, max_groups=max_groups
+    )
+    banks = [bake_template(source, samples=samples) for source, _ in families.values()]
     save_catalog(output / "catalog", families, banks)
     catalog_s = time.perf_counter() - began
     source = {
         "recipe": plant.recipe(),
         "input_sha256": inputs,
         "catalog_build_s": catalog_s,
+        "window_settings": {"nominal_span_m": nominal_span_m, "max_groups": max_groups},
+        "template_subpixel_samples": samples,
         "scope": "finite canonical physical templates; no whole-plant needle expansion",
     }
     (output / "catalog/source.json").write_text(json.dumps(source, indent=2) + "\n")
@@ -84,6 +90,7 @@ def build_one(
     recipe_path=None,
     bark_path=None,
     max_windows=20000,
+    max_axes=20000,
 ):
     output = output_root / species
     directory = output / "catalog" if catalog_directory is None else catalog_directory
@@ -116,7 +123,10 @@ def build_one(
         plant = NeedledPlant.from_recipe(recipe)
         began = time.perf_counter()
         catalog = json.loads((directory / "catalog.json").read_text())
-        windows = plan_windows(plant, catalog, max_windows=max_windows)
+        settings = provenance.get("window_settings", {})
+        windows = plan_windows(
+            plant, catalog, max_windows=max_windows, max_axes=max_axes, **settings
+        )
         if windows is None:
             raise ValueError("whole product window budget exceeded")
         wood = plan_wood(plant, bark=bark)

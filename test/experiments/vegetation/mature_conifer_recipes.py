@@ -4,7 +4,9 @@ import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
 from conifer_whole_products import BASE
+from mature_density import WINDOW_SETTINGS, match_area, needle_areas
 from outshine_ref.vegetation import NeedledPlant
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -23,11 +25,11 @@ def mature_plan(species, profile, variant):
         length=height, base_radius=profile["dbh_cm"] / 200 * scale, tip_radius=0.0045
     )
     levels[1].update(
-        branches=63 if spruce else 24,
-        whorl_size=3,
+        branches=240 if spruce else 24,
+        whorl_size=5 if spruce else 3,
         first=profile["bole_frac"],
         last=0.96 if spruce else 0.94,
-        length=spread * (0.31 if spruce else 0.34),
+        length=spread * (0.45 if spruce else 0.53),
         base_radius=0.025 * scale if spruce else 0.045 * scale,
         tip_radius=0.0008,
         tip_scale=0.09 if spruce else 0.48,
@@ -40,7 +42,7 @@ def mature_plan(species, profile, variant):
         azimuth_variation=0.42,
     )
     levels[2].update(
-        branches=24 if spruce else 20,
+        branches=11 if spruce else 20,
         length=spread * (0.15 if spruce else 0.12),
         base_radius=0.0035 * scale if spruce else 0.006 * scale,
         tip_radius=0.0006,
@@ -51,7 +53,7 @@ def mature_plan(species, profile, variant):
         azimuth_variation=0.6,
     )
     levels[3].update(
-        branches=11 if spruce else 12,
+        branches=6 if spruce else 12,
         length=spread * (0.07 if spruce else 0.05),
         base_radius=0.0007 if spruce else 0.001,
         tip_radius=0.0002,
@@ -74,8 +76,12 @@ def prepare(output):
     for kind, (species, profile_name) in enumerate(SPECIES):
         profile_path = ROOT / "src/assets/world/species" / f"{profile_name}.json"
         profile = json.loads(profile_path.read_text())
+        areas, inputs = needle_areas(species)
         for variant in range(4):
             plan = mature_plan(species, profile, variant)
+            scale = 0.85 + variant * 0.1
+            footprint = np.pi * (profile["spread_m"] * scale / 2) ** 2
+            plan, density = match_area(plan, areas, profile["lai"] * footprint)
             key = f"{species}-{variant}"
             path = output / f"{key}.json"
             path.write_text(json.dumps(plan.recipe(), indent=2) + "\n")
@@ -88,7 +94,11 @@ def prepare(output):
                     "variant": variant,
                     "recipe": str(path),
                     "identity": plan.identity,
-                    "summary": plan.window_summary(),
+                    "summary": plan.window_summary(**WINDOW_SETTINGS),
+                    "density": density,
+                    "density_input_sha256": inputs,
+                    "reference_crown_area_m2": footprint,
+                    "requested_nominal_lai": profile["lai"],
                     "profile_sha256": hashlib.sha256(
                         profile_path.read_bytes()
                     ).hexdigest(),
