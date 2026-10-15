@@ -163,7 +163,9 @@ Private source data and intermediate outputs stay in system-temp directories.
 ```
 
 The publisher requires all four own clean render reports and matching scenario
-camera hashes before replacing the gallery. Tokyo's height requires actual DEM
+camera hashes before replacing the gallery. A manifest may declare one `commit`
+for the whole set or explicit `commits` keyed by all four Places, preserving each
+image's actual generator snapshot during gradual verified updates. Tokyo's height requires actual DEM
 sampling; the other three scenario heights are absolute. Source extent, missing
 world classes and terrain/material/light differences remain explicit. The initial
 source acquisition is a declared 3 km window, not native 240 km Place admission.
