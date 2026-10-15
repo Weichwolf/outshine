@@ -7,7 +7,10 @@ int main() {
   using namespace outshine::Test;
   Engine engine;
   Scenario::Document original;
-  original.Views.push_back({.Id = "original", .Placement = Scenario::CameraPlacement::Local});
+  Scenario::View view;
+  view.Id = "original";
+  view.Placement = Scenario::CameraPlacement::Local;
+  original.Views.push_back(view);
   CHECK(engine.declare(original).has_value(), "valid initial view is declared");
   const auto *previous = engine.declaration().Views.data();
   const auto rejected = [&](const Scenario::Document &candidate) {

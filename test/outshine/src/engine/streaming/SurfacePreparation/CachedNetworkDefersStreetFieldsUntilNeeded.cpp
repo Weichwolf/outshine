@@ -71,17 +71,18 @@ int main() {
   TemporaryCache cache;
   SilentSink sink;
   StreetTransport wire;
-  const std::array providers{
-      Data::SourceProvider{.Kind = "vector",
-                           .Dataset = "fixture.shortbread",
-                           .Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf",
-                           .Schema = "shortbread"}};
+  Data::SourceProvider source;
+  source.Kind = "vector";
+  source.Dataset = "fixture.shortbread";
+  source.Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf";
+  source.Schema = "shortbread";
+  const std::array providers{source};
   Tasks compute(1);
   SurfacePreparation stack;
   constexpr LongitudeLatitude focus{.LongitudeDeg = 8.5659, .LatitudeDeg = 49.3274};
   constexpr LongitudeLatitude moved{.LongitudeDeg = 8.6159, .LatitudeDeg = 49.3274};
   const auto open = [&] {
-    return stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string()},
+    return stack.Open({.Shipped = "src/assets", .Cache = cache.Path.string(), .AssetCache = {}},
                       providers,
                       focus,
                       wire,

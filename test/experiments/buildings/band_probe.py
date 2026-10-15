@@ -145,13 +145,14 @@ def run(output):
     opposite = replace(near, eye=near.target + (near.eye - near.target) * [-1, -1, 1])
     far = replace(near, eye=near.target + (near.eye - near.target) * 100)
     scope = "Actual source and unchanged opening plan; procedural profile bands in existing repeat gaps. Flat/no DEM. No entrance, full architecture-family, radiance/shadow/LOD/native/device admission."
-    with patch(
-        "tile_facade_bands.BandDetails.__call__",
-        side_effect=lambda mesh, *args, **kwargs: mesh,
-    ):
-        cases = [building(row, near, "Before", output, provenance, scope=scope)]
-    for name, view in (("Near", near), ("Opposite", opposite), ("Far", far)):
-        cases.append(building(row, view, name, output, provenance, scope=scope))
+    with patch("facade_entrances.EntranceDetails.plan", return_value=None):
+        with patch(
+            "tile_facade_bands.BandDetails.__call__",
+            side_effect=lambda mesh, *args, **kwargs: mesh,
+        ):
+            cases = [building(row, near, "Before", output, provenance, scope=scope)]
+        for name, view in (("Near", near), ("Opposite", opposite), ("Far", far)):
+            cases.append(building(row, view, name, output, provenance, scope=scope))
     for name in ("Near", "Opposite"):
         report = json.loads((output / (name + "-geometry.json")).read_text())
         if not report["procedures"]["bands"]:

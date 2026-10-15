@@ -276,6 +276,32 @@ Regionale1280×720-Ansicht mit1100m horizontaler Spannweite,1080 nur lokal; kein
 Galerie oder Bilderpublikation. Vollständige Gehweghöhen/Absenkungen, zusätzliche
 Verbraucherreservierungen, native oder Geräteabnahme werden nicht daraus abgeleitet.
 
+## Breite Gehwegkörper hinter den Borden (#372)
+
+`sidewalk_experiment.py` ergänzt begrenzte tatsächliche Gehwegkörper hinter den
+geprüften Bord-Footprints aus #364. Das gesamte Straßenrandprofil bleibt innerhalb
+von2m XY außerhalb der alten Verkehrsfläche; Höhe vertikal12cm über dem gewählten
+Boden. Bestehende Verkehrs-, Querungs-, Endport- und Bauwerksaussparungen gelten
+weiter. Ganze Kontaktkappen und sämtliche affinen Teilintervalle der tatsächlichen
+Bordanschlusslinien werden unabhängig geprüft. Ursprüngliche Körper und Quellnutzung
+bleiben erhalten. [Ergebnisse, Alternativen und Grenzen](sidewalk_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/sidewalk_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SURFACE_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --curbs "$TRANSPORT_CURB_OUTPUT" --output "$TRANSPORT_SIDEWALK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/sidewalk_verify.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SURFACE_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --curbs "$TRANSPORT_CURB_OUTPUT" --output "$TRANSPORT_SIDEWALK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SIDEWALK_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SIDEWALK_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/sidewalk_cost.py --curbs "$TRANSPORT_CURB_OUTPUT" --method combined --output "$TRANSPORT_SIDEWALK_COST_COMBINED"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/sidewalk_cost.py --curbs "$TRANSPORT_CURB_OUTPUT" --method individual --output "$TRANSPORT_SIDEWALK_COST_INDIVIDUAL"
+```
+
+Ausgaben explizit im System-Temp und frisch; Erzeuger benötigt sauberen eingefrorenen
+Commit. Kostenworker optional `--profile <frische Memray-Datei>` mit `memray==1.20.0`;
+normale und instrumentierte Zeiten bleiben getrennt. `after-1080-scene.json` nur
+lokale Prüfung,720p für den Eindruck. Keine durchgängige Fußroute, abgesenkten
+Querungen, Gebäudezugänge/-kollisionsfreiheit, neue Verbraucherreservation oder
+native/LOD-/Geräteabnahme daraus ableiten. Keine Bilderpublikation durch Fachagenten.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
