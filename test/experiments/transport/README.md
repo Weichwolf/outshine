@@ -219,6 +219,30 @@ Nur explizite frische System-Temp-Ausgaben; eingefrorener sauberer Erzeugerstand
 Regionale Bilder 1280×720, 1920×1080 nur lokale Prüfung, keine Galerie/Publikation.
 Keine Weichen, stetigen Knickübergänge, durchgängigen Zugrouten oder native Abnahme.
 
+## Installierbare geneigte Gleiskörper (#376)
+
+Die Erzeuger aus #340/#352 importieren jetzt denselben öffentlichen Kern
+`transport.rail_hardware.build_planar_rail_hardware`. Das flache API bleibt erhalten.
+133 bereits zugelassene echte Boden-/Deckstücke stehen mit Original-IDs und
+ausdrücklich gewählten Dreiecken unter `lib/tests/fixtures/planar-rail-vienna.json`.
+`capture_planar_rail_cases.py` ist ein expliziter einmaliger Referenzeingang;
+normale Tests ändern diese Daten nicht. [API](../../../lib/rail_hardware.md#explicit-affine-bed-planes-376),
+[Source-/Wheel-/Geometrie-/Bild-/Kostenbelege](planar_rail_library_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:lib/tests:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest test_planar_rail_hardware test_rail_hardware tilted_rail_checks upper_rail_checks tilted_rail_input_checks rail_hardware_checks rail_graph_checks rail_admission_checks
+PYTHONPATH="$TRANSPORT_PACKAGE_ROOT:lib/tests:test/experiments/transport" OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/planar_library_build.py --inputs lib/tests/fixtures/planar-rail-vienna.json --lower "$TRANSPORT_TILTED_OUTPUT" --upper "$TRANSPORT_UPPER_RAIL_OUTPUT" --latest "$TRANSPORT_SIDEWALK_OUTPUT" --package-root "$TRANSPORT_PACKAGE_ROOT" --output "$TRANSPORT_PLANAR_OUTPUT"
+PYTHONPATH="$TRANSPORT_PACKAGE_ROOT:lib/tests:test/experiments/transport" OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/planar_library_replay.py --inputs lib/tests/fixtures/planar-rail-vienna.json --lower "$TRANSPORT_TILTED_OUTPUT" --upper "$TRANSPORT_UPPER_RAIL_OUTPUT" --latest "$TRANSPORT_SIDEWALK_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --reference "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_PLANAR_OUTPUT"
+PYTHONPATH="$TRANSPORT_PACKAGE_ROOT:lib/tests:test/experiments/transport" "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_PLANAR_OUTPUT/after-scene.json"
+```
+
+`TRANSPORT_PACKAGE_ROOT` explizit `lib/src` oder ein frisches externes Wheel-Ziel;
+für Wheel-Prozesse kein `lib/src` in PYTHONPATH. Ausgabe frisch im System-Temp,
+sauber eingefrorener Commit. Gesamtbild übernimmt dieselbe regionale Kamera aus
+#372.720p für den Eindruck,1080p nur lokale Prüfung; Bilder bleiben lokal.
+Die Migration erhält Geometrie/Bild und beansprucht keine neue sichtbare Qualität.
+Bettauswahl, Weichen, Knickübergänge, neue Quellfreigaben und native Abnahme bleiben offen.
+
 ## Quellgebundene Belagsemantik (#357)
 
 `transport_surface_experiment.py` ergänzt ganze Familienanteile auf den unveränderten
