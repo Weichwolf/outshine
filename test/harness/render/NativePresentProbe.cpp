@@ -94,6 +94,7 @@ void InvalidAndCancel(Device &device, Device &headless) {
 void ResizeAndSuspend(Device &device, SDL_Window *window, const GraphicsPipeline &pipeline) {
   auto old = Acquire(device);
   CHECK(SDL_SetWindowSize(window, 448, 252), "the existing SDL window can be resized");
+  CHECK(SDL_SyncWindow(window), "the asynchronous resize is applied before testing its generation");
   SDL_PumpEvents();
   auto fresh = Acquire(device);
   int width = 0;
@@ -143,7 +144,7 @@ int main(int argc, char *const *argv) {
   other.join();
   const auto vertex = Spirv(argv[1]);
   const auto fragment = Spirv(argv[2]);
-  const std::array targets{ColourTarget{.Texels = Format::Bgra8Unorm}};
+  const std::array targets{ColourTarget{.Texels = Format::Bgra8Unorm, .Rgb = {}, .Alpha = {}}};
   auto pipeline = Require(device->CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
                                                           .Fragment = ShaderCode{.Spirv = fragment},
                                                           .Streams = {},

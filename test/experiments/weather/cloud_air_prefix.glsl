@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_CLOUD_AIR_PREFIX_GLSL
 #define OUTSHINE_CLOUD_AIR_PREFIX_GLSL
 
-#include "cloudAirCell.glsl"
+#include "mediumCell.glsl"
 #include "cloudPrefix.glsl"
 
 struct CloudAirPrefix {
@@ -46,7 +46,7 @@ AirTransfer cloudAirPrefixPartial(inout CloudAirPrefix prefix, float queryM) {
   if (prefix.HasCloud) { cloudPrefixEvaluate(prefix.Cloud); }
   float extinction = prefix.HasCloud ? prefix.Cloud.ExtinctionPerKm : 0.0;
   vec3 emission = prefix.HasCloud ? prefix.Cloud.EmissionPerKmPerLux : vec3(0.0);
-  return cloudAirCell(prefix.Clear, prefix.HasAir, prefix.ClearBeginM,
+  return mediumCellIntegrate(prefix.Clear, prefix.HasAir, prefix.ClearBeginM,
       prefix.BeginM, prefix.EndM, queryM, extinction, emission);
 }
 

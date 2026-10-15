@@ -1,6 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "cloudAirPrefix.glsl"
+#include "cloud_air_prefix.glsl"
 #include "AirPrefixProbeLayout.h"
 
 #ifndef CLOUD_PREFIX_COVER

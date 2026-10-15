@@ -1,6 +1,7 @@
 #!/bin/sh
 
 set -u
+export LC_ALL=C
 AUDIT=0
 AUDIT_LAYERS=0
 AUDIT_NUMBERS=0
@@ -432,6 +433,7 @@ NotTheHarnesses() {
   case "$1" in
     scripts) printf '%s' "standalone build and diagnostic tools compiled by the Makefile" ;;
     harness/render) printf '%s' "internal GPU probes compiled and judged by paired render experiments" ;;
+    experiments/render) printf '%s' "standalone atmosphere GPU probes compiled and judged by paired Python experiments" ;;
     harness/shared) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     harness/shared/graph) printf '%s' "the linker's own walks and the program that links the generator archive alone -- a claim compiles it, so the harness does not" ;;
     harness/wpt/css/prepare | harness/test262/js/prepare) printf '%s' "how a corpus is obtained, run by test/harness/shared/corpus/prepare.py and never by this script" ;;

@@ -12,6 +12,6 @@ void main() {
   if (at.x >= extent.x || at.y >= extent.y) { return; }
   vec2 uv = (vec2(at) + 0.5) / vec2(extent);
   MediumLook look = mediumTransmittanceParams(medium, MediumUv(uv.x, uv.y));
-  vec3 through = mediumTransmittance(medium, look, kTransmittanceSteps, kMediumSampleSegment);
+  vec3 through = mediumTransmittance(medium, look, kTransmittanceSteps);
   imageStore(lut, ivec2(at), vec4(through, 1.0));
 }
