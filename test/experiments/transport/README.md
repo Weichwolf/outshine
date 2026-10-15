@@ -361,6 +361,44 @@ C1 betrifft den analytischen Plan; das endliche Mesh bleibt C0 und seine Endneig
 weicht höchstens `sqrt(2*a*height_error)` vom flachen Kontakt ab. Kein C2-, DEM-Innenfit-,
 Fahrdynamik-, vollständiger Netz-/Brücken-/Tunnel- oder LOD-Nachweis.
 
+### Vorgegebene Endneigungen (#163)
+
+`lib/` ergänzt `EndpointTransition`/`plan_endpoint_transition` für feste Längen
+und explizite Anfangs-/Endgrade. Hermite-Passung und integrierte erreichbare
+Grad-Hüllen verwenden identische Grenzen; die Hüllen lösen zusätzliche skalare
+Fälle. Nicht monotone Längenfeasibilität ist ein eigener Gegenfall. Die bisherigen
+flachen Profile und alle 256 Quell-/DEM-Pins bleiben unverändert.
+
+`endpoint_grade_contacts.py` prüft die komplette Kontaktlinie auf der ausdrücklich
+gewählten portablen Wiener #69-Höhenfläche. Außen-Seite, affine Höhen und beide
+Gradienten müssen über die gesamte verwendete Breite passen; Lücken, überlappende
+Höhenflächen und wechselnde Gradienten werden lokal mit Original-ID ausgewiesen.
+Quellbreiten bleiben erhalten; fehlende Breite erhält ausdrücklich das gleiche
+4-m-Rezept wie PR96, separat von der ursprünglichen fehlenden Angabe dokumentiert.
+Auf den 256 Originalachsen: 207 nicht planare Kontaktstreifen, 40 verschiedene
+Querneigungen, neun kompatible Kontaktpaare. Diese neun liegen auf **Exterior-
+Bodenfaces**, jeweils einer gemeinsamen affinen Ebene. Sie belegen Bodenanschlüsse,
+keine bestehende Straßenkreuzung oder vollständige Netzprofilierung. C1-Portebenen
+müssen vor dem gemeinsamen Höhenfit konstruktiv geplant werden; kein nachträgliches
+Nullsetzen oder Verengen der Kontakte. Bankwechsel bleiben offen.
+
+```sh
+PYTHONPATH=lib/src .venv/bin/python -W error -m unittest discover -s lib/tests -p test_endpoint_grades.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/endpoint_grade_checks.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/endpoint_grade_benchmark.py
+PYTHONPATH=lib/src .venv/bin/python -W error test/experiments/transport/endpoint_grade_render.py
+```
+
+Ergebnisse nach `build/experiments/transport/endpoint-grades/`: drei frische Worker
+je Methode, je sieben identische Neun-Quellen-Batches. CPU15s, Wall20s, AS2GiB,
+BLAS1; Imports, Flächenvorbereitung, ganze Kontaktwahl und Mesh-/Topologieprüfung
+getrennt. Ganze rotierte Bänder erfüllen dieselbe Gradellipse, 0.002/m und maximal
+0.002m Chordfehler; unabhängige4097 Proben und geschlossene Körper prüfen das Resultat.
+Validierungsbilder zeigen vollständige Profile mit den gewählten schiefen Endebenen
+ohne Höhenüberhöhung sowie die unveränderte ganze Elternkachel als Kontext. Sie
+werden nicht als zusammengesetztes neues Netz ausgegeben. Die öffentliche Showcase
+bleibt bei ihren vier ganzen Kacheln; API-/Kostenbelege und Grenzen stehen im PR.
+
 ### Lokale Zweiebenenrezepte (#21)
 
 `overpass_recipe.py` verbindet #96-Rampen mit einem starren Überlappungskern.
