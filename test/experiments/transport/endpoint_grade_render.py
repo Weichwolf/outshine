@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-from endpoint_grade_experiment import OUTPUT, SURFACE
+from endpoint_grade_experiment import SURFACE
 from ground_surface_showcase import clipped
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport import (
@@ -22,11 +22,10 @@ from whole_tile_showcase import tile_region
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-RENDER = OUTPUT / "views"
 
 
-def selected_cases():
-    report = json.loads((OUTPUT / "envelope-0/report.json").read_text())
+def selected_cases(input_dir):
+    report = json.loads((input_dir / "envelope-0/report.json").read_text())
     selected = max(
         (r for r in report["cases"] if r["valid"]),
         key=lambda r: max(abs(v) for v in r["end_grades"]),
@@ -47,8 +46,8 @@ def selected_cases():
     return [("control", control), ("Vienna-soil-contact", selected)]
 
 
-def build_profile_views(configurations):
-    for name, row in selected_cases():
+def build_profile_views(configurations, *, input_dir, output_dir):
+    for name, row in selected_cases(input_dir):
         length = row["length_m"]
         direction = np.asarray(row["direction"])
         start = np.asarray(row["xy"][0])
@@ -102,12 +101,12 @@ def build_profile_views(configurations):
                 },
                 configurations,
                 view=view,
-                output_dir=RENDER,
+                output_dir=output_dir,
             )
 
 
-def build_whole_tile(configurations):
-    region, source = tile_region("Vienna")
+def build_whole_tile(configurations, *, data_root, output_dir):
+    region, source = tile_region("Vienna", data_root=data_root)
     with np.load(SURFACE) as data:
         top = Mesh(data["vertices"], data["triangles"])
         materials = np.where(
@@ -130,19 +129,27 @@ def build_whole_tile(configurations):
             "scope": "Entire original selected shared road/soil tile, unchanged contextual height mesh. New independent candidate ribbons are not composed into it. This image locates the real input scope; it does not prove a new C1 network or combined terrain.",
         },
         configurations,
-        output_dir=RENDER,
+        output_dir=output_dir,
     )
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-only", action="store_true")
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--data-root", type=Path, required=True)
     args = parser.parse_args()
-    RENDER.mkdir(parents=True, exist_ok=True)
+    output_dir = args.output.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
     configurations = []
-    build_profile_views(configurations)
-    build_whole_tile(configurations)
-    scenes = RENDER / "scenes.json"
+    build_profile_views(
+        configurations, input_dir=args.input.resolve(), output_dir=output_dir
+    )
+    build_whole_tile(
+        configurations, data_root=args.data_root.resolve(), output_dir=output_dir
+    )
+    scenes = output_dir / "scenes.json"
     scenes.write_text(json.dumps(configurations, indent=2) + "\n")
     if args.build_only:
         return
@@ -173,7 +180,7 @@ def main():
         }
         for row in configurations
     }
-    (RENDER / "origin.json").write_text(
+    (output_dir / "origin.json").write_text(
         json.dumps(
             {
                 "commit": subprocess.check_output(

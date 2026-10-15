@@ -97,13 +97,15 @@ size_t TagIndex(const char *tag) noexcept {
   return kOverflowTag;
 }
 
-inline size_t BlockBytes(void *block) {
 #ifdef __APPLE__
+inline size_t BlockBytes(const void *block) {
   return malloc_size(block);
-#else
-  return malloc_usable_size(block);
-#endif
 }
+#else
+inline size_t BlockBytes(void *block) {
+  return malloc_usable_size(block);
+}
+#endif
 
 inline void *Counted(void *block) {
   if (block == nullptr) { return block; }
