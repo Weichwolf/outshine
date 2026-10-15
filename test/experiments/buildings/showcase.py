@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import io
 import json
 from pathlib import Path
 
@@ -77,7 +78,11 @@ def publish(source, output):
                 raise ValueError(
                     "Python Place images require actual 1920×1080 or higher rendering"
                 )
-        prepared.append((name, data, report))
+            published = io.BytesIO()
+            picture.resize((1280, 720), Image.Resampling.LANCZOS).save(
+                published, format="PNG"
+            )
+        prepared.append((name, published.getvalue(), report))
     output.mkdir(parents=True, exist_ok=True)
     for name, data, report in prepared:
         temporary = output / (name + ".png.tmp")
@@ -86,7 +91,7 @@ def publish(source, output):
     for path in output.glob("*.png"):
         if path.stem not in PLACES:
             path.unlink()
-    caption = "Aktueller Python-Gebäudegenerator: vier OSM-Orte auf flacher Bodenebene, ohne DEM.\n\n"
+    caption = "Aktueller Python-Gebäudegenerator: vier OSM-Orte auf flacher Bodenebene, ohne DEM; 1280×720.\n\n"
     caption += (
         "\n\n".join(name + "\n\n![" + name + "](" + name + ".png)" for name in PLACES)
         + "\n"
@@ -101,8 +106,6 @@ def publish(source, output):
                     "camera",
                     "camera_ground_height_m",
                     "ground_mode",
-                    "profile",
-                    "image_sha256",
                     "triangles",
                     "source_radius_m",
                     "limits",
@@ -111,8 +114,12 @@ def publish(source, output):
             | {
                 "geometry_commit": report.get("geometry_commit", report["commit"]),
                 "mesh_sha256": report["renderer"]["mesh_sha256"],
+                "render_profile": report["profile"],
+                "render_image_sha256": report["image_sha256"],
+                "profile": [1280, 720],
+                "image_sha256": hashlib.sha256(data).hexdigest(),
             }
-            for name, _, report in prepared
+            for name, data, report in prepared
         },
     }
     (output / "render-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")

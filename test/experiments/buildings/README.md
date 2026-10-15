@@ -157,7 +157,7 @@ separate.
 
 The Buildings gallery uses four fixed Place locations/bearings/lenses:
 Husum, Feldkirch, ZuerichHauptbahnhof and Tokyo from `src/assets/places/`.
-These contrast small harbour houses, dense hillside buildings, large city
+These contrast small harbour houses, dense old-town buildings, large city
 complexes and high-rise density. Changing the selection does not establish new
 architecture recipes; repeated forms and missing details remain visible deficits.
 Buildings stand on a shared zero-height plane; acquisition requests only OSM
@@ -165,8 +165,10 @@ vectors, never DEM. The native geographic camera altitudes are replaced by
 explicit fixed heights above this flat plane: Husum 20 m, Feldkirch 80 m,
 ZuerichHauptbahnhof 70 m, Tokyo 60 m. Scenario sources and these camera changes
 remain explicit in the receipts. `doc/images/places/` supplies comparison images only. Own current Python
-building renders belong in `doc/images/buildings/`, at 1920×1080 or higher with
-the same aspect ratio and vertical FOV; replace them after clearly visible gains.
+building renders are inspected internally at 1920×1080 or higher with the same
+aspect ratio and vertical FOV. Only 1280×720 downsampled PNGs are published in
+`doc/images/buildings/`; receipts distinguish original render and publication
+dimensions/hashes. Replace them after clearly visible gains.
 Do not copy native images as Python results. The local server and its UI are retired.
 Private source data and intermediate outputs stay in system-temp directories.
 
