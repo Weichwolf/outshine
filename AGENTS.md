@@ -32,6 +32,11 @@
   Native Fachagenten mergen erst nach diesem Review; die Python-Merge-Regel bleibt separat.
   Materialparameter, Beleuchtung und Wetterzustand haben je einen Besitzer. Gemeinsame Pässe,
   Bindings und Radiance-/Transmittanzkomposition vor Änderungen mit den Verbrauchern abstimmen.
+- Jeder Agent darf und soll architektonische und organisatorische Verbesserungen einbringen.
+  Outshine soll in Darstellung, Code und Projektgestaltung schön sein: kohärent, klar benannt,
+  gut gegliedert und frei von unnötiger Komplexität. Lokale Verbesserungen brauchen keine
+  Freigaberunde; gemeinsame Verträge mit den Betroffenen abstimmen. Fachbesitz und die vereinbarte
+  Python-/Native-Arbeitsteilung bleiben erhalten; ich verantworte die kohärente Gesamtintegration.
 - `test/experiments/` enthält Versuche, Gegenbeispiele, faire Vergleiche, Benchmarks und Showcase-Code.
   Bewährte wiederverwendbare Python-Verfahren werden als installierbare Referenzbibliotheken unter `lib/` gepflegt.
   Experimente importieren diese Bibliotheken; Fachmodule teilen Verträge und erforderliche Geometrieverfahren.
