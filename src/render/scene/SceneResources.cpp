@@ -36,6 +36,7 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
           .Indices = Source->Indices,
           .Clusters = Source->Clusters,
           .Colours = Source->Colours,
+          .Uv1 = Source->Uv1,
           .Row = Row,
           .Instances = Rows,
           .MaxInstances = MaxInstances,
@@ -45,6 +46,7 @@ PieceMesh SceneResources::Piece::Mesh() const noexcept {
 
 std::expected<PieceHandle, std::string>
 SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceOwner owner) {
+  if (!ValidPieceUv1(piece)) { return std::unexpected(std::string(kPieceUv1Error)); }
   if (FirstFreePiece_ == kNoResourceSlot && Pieces_.size() >= kNoResourceSlot) {
     return std::unexpected(Says::PieceSlotLimit);
   }
@@ -53,7 +55,8 @@ SceneResources::PlacePiece(SubjectDraw &subjects, const PieceMesh &piece, PieceO
                   .Vertices = {piece.Verts.begin(), piece.Verts.end()},
                   .Indices = {piece.Indices.begin(), piece.Indices.end()},
                   .Clusters = {piece.Clusters.begin(), piece.Clusters.end()},
-                  .Colours = {piece.Colours.begin(), piece.Colours.end()}});
+                  .Colours = {piece.Colours.begin(), piece.Colours.end()},
+                  .Uv1 = {piece.Uv1.begin(), piece.Uv1.end()}});
   Piece held{.Source = std::move(source),
              .Row = piece.Row,
              .Rows = {piece.Instances.begin(), piece.Instances.end()},
@@ -323,7 +326,8 @@ size_t SceneResources::PieceSourceBytes() const noexcept {
                piece.Source->Vertices.capacity() * sizeof(StoredVertex) +
                piece.Source->Indices.capacity() * sizeof(uint32_t) +
                piece.Source->Clusters.capacity() * sizeof(DagCluster) +
-               piece.Source->Colours.capacity() * sizeof(float);
+               piece.Source->Colours.capacity() * sizeof(float) +
+               piece.Source->Uv1.capacity() * sizeof(float);
     }
     bytes += piece.Rows.capacity() * sizeof(Mat4);
   }
