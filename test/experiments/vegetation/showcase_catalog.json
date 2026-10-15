@@ -13,10 +13,10 @@
       "note": "410 Standorte · artspezifische Kronen noch offen"
     },
     {
-      "image": "render/landscape-boreal.png",
+      "image": "mature-density-c82c10616/forest/render.png",
       "title": "Borealer Nadelwald",
-      "label": "Picea spp. · Pinus spp. · Formproxies",
-      "note": "350 Standorte · neue Nadelbaumrezepte noch nicht im Fernbestand"
+      "label": "Picea abies · Pinus sylvestris",
+      "note": "350 Standorte · Fichtenkronen noch zu säulenförmig"
     },
     {
       "image": "render/landscape-savanna.png",

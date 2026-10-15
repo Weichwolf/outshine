@@ -5,7 +5,7 @@ Owners: [#131](https://github.com/Weichwolf/outshine/issues/131) morphology,
 [#179](https://github.com/Weichwolf/outshine/issues/179) requested needle area,
 [#168](https://github.com/Weichwolf/outshine/issues/168) coarse products.
 
-The existing boreal showcase contains 350 closed crown proxies over 160 m.
+The original boreal control contains 350 closed crown proxies over 160 m.
 Its spruce/pine profiles request 35/30 m trees. The four new cached conifers from
 PR #171 are young, about 3.5 m high; scaling them affinely would also enlarge
 their needles. This experiment instead creates eight distinct mature wood plans
@@ -122,5 +122,34 @@ Camera and sun views are independent. Cache checks keep texture/mesh allocations
 disable all organ/window/axis generation and measure one 60-step camera orbit.
 Only requested terminal subsets are expanded separately to check physical needle
 offsets and exact cached ID ranges. CPU decode/query and resident arrays are not
-native frame, upload, GPU allocation or A18 evidence. The 2560×1440 whole-stand
-comparison must be optically accepted before replacing the old showcase image.
+native frame, upload, GPU allocation or A18 evidence.
+
+The frozen `c82c10616` run completed all eight 64-view products, a fresh cache
+process, 24 requested near subsets and the whole 2560×1440 frame with exit 0.
+The image was opened against both the original closed proxies and the rejected
+first mature frame. It is denser, but spruce remains conspicuously columnar.
+The minimal showcase now displays this actual current generator result with
+that gap in its caption, as requested; publication is not botanical/art/LOD approval.
+
+The remaining form defect is structural. In spruce variant 1, the lowest/highest
+primary axes are 2.565/0.23085 m long. Their first secondary axes are both 0.855 m,
+and the next axes both 0.399 m, with the same 11/18 sibling counts. Thus tiny upper
+parents retain large populated descendants. Increasing total needle area did not
+correct the hierarchy. [#182](https://github.com/Weichwolf/outshine/issues/182)
+owns that missing parent-dependent growth binding. Profiles and physical distance
+patterns already belong to #26/#38; reuse them before adding another growth core.
+Further full eight-form bakes should follow a successful small form comparison.
+
+Local Linux observations, not native/GPU/A18 or isolated setup acceptance:
+the finite catalog took 20.14 s / 163.25 MiB peak RSS. Complete products took
+2805.34 s / 2451.83 MiB; that phase overlapped reported Buildings/Transport work
+and is explicitly not an isolated benchmark. Subsequent cache/near/render phases
+ran after both reported their earlier heavy work terminal, inside the shared lock.
+The fresh cache decoded 328,364,060 resident array bytes in 2.223 s, with 463.02 MiB
+process peak. Its 60 CPU view queries measured p50/p95/p99 0.596/0.698/0.775 ms;
+all 350 source sites and 700 independent camera/sun selections remain present.
+All 24 near subsets preserve source ranges and actual radius offsets, with maximum
+radial residual 4.16e-15 m. The reference EEVEE process took 84.33 s / 3122.78 MiB;
+89,600 tree triangles, 700 tree objects and 32,258 ground triangles are separate.
+OS file caches may be warm. The complete 24-shoot × 17-direction window-fidelity
+gate remains pending after the reserved Buildings and Transport measurement slots.
