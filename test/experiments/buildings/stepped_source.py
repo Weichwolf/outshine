@@ -123,7 +123,7 @@ def exterior(plan, wall_material, inspect_layers=False):
         [
             *declared,
             roof_volume(plan, wall_material),
-            *terrace_volumes(plan, wall_material),
+            *terrace_volumes(plan, 7),
         ]
     )
     points = complete.mesh["vertices"]
