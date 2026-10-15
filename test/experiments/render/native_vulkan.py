@@ -92,6 +92,9 @@ def main():
             sources += [Path(__file__).with_name('native_present.frag'),
                         Path(__file__).with_name('native_vulkan_present.frag'),
                         Path(__file__).with_name('native_target_delay.comp')]
+        else:
+            sources.append(Path(__file__).with_name('native_target_delay.comp'))
+        sources.append(ROOT / 'src/render/shaders/presentUnorm.frag')
         sources += [Path(__file__).with_name('native_timing.comp'),
                     Path(__file__).with_name('native_timing_empty.comp')]
         shaders = []
@@ -110,6 +113,8 @@ def main():
                           ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp',
                           ROOT / 'test/harness/render/NativePresentTargetProbe.cpp']
         consumers.append(ROOT / 'test/harness/render/NativeTimingProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeReadbackProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeSdrTransferProbe.cpp')
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -145,7 +150,13 @@ def main():
                 [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],
                 log, environment=environment, timeout=25), log)
         report['dispatch_timing_checks'] = verdict(run(
-            [str(binaries[-1]), *map(str, shaders[-2:])], log,
+            [str(output / 'NativeTimingProbe'), *map(str, shaders[-2:])], log,
+            environment=environment, timeout=30), log)
+        report['native_readback_checks'] = verdict(run(
+            [str(output / 'NativeReadbackProbe'), str(output / 'native_target_delay.comp.spv')], log,
+            environment=environment, timeout=30), log)
+        report['sdr_transfer_checks'] = verdict(run(
+            [str(output / 'NativeSdrTransferProbe')], log,
             environment=environment, timeout=30), log)
         report['gpu_timing'] = 'opt-in native dispatch timestamps'
         if args.present:
@@ -164,8 +175,13 @@ def main():
                       native_archive_objects=len(native))
         headers = list((ROOT / 'src/render/device/native').glob('*.h'))
         headers += list((ROOT / 'src/render/device/native/vulkan').glob('*.h'))
+        headers.append(ROOT / 'test/harness/render/NativeSdr.h')
         report['sources'] = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                              for path in [*native, *headers, *consumers, *sources, Path(__file__),
+                                          ROOT / 'src/render/stages/StagePipelines.cpp',
+                                          ROOT / 'src/render/stages/StagePipelines.h',
+                                          ROOT / 'src/render/device/ReadbackTransfer.h',
+                                          ROOT / 'src/render/device/ReadbackTransfer.cpp',
                                           ROOT / 'test/run.sh', ROOT / 'test/scripts/source_units.py']}
         (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps({key: value for key, value in report.items() if key != 'sources'}))

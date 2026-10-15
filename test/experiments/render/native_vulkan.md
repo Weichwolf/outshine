@@ -33,6 +33,28 @@ The initial window adapter requires Vulkan 1.3, swapchain maintenance1, and two
 queues in one graphics/compute/present family. Ordinary SDL X11/Wayland windows
 use SDL's native window properties; SDL Vulkan windows use its surface helper.
 X11 is the measured platform; a compiled Wayland adapter is not a runtime proof.
+
+SDR presentation prefers an actual sRGB attachment with SRGB_NONLINEAR surface
+colourspace. The exposed image format determines pipeline selection; callers
+must not assume BGRA UNORM. `CreatePresentPipeline` uses the existing copy shader
+for sRGB targets and the explicit OETF variant for UNORM targets. The sampled
+sRGB surface is already decoded to linear; hardware or shader encodes it once.
+Alpha remains linear. HDR and data intermediates retain their original semantics.
+The factory rejects non-SDR formats rather than applying another tonemap.
+
+`NativeSdrTransferProbe` checks all 256 display code values and alpha on all four
+RGBA/BGRA, sRGB/UNORM targets through the production pipeline factory. The original
+unencoded UNORM copy is a mandatory negative control. Window probes derive their
+CPU byte expectations from the actual target transfer and channel ordering;
+offscreen UNORM expectations remain unchanged. The target-switch probe prepares
+all supported SDR pipelines before SDL video, preserving its late-attachment
+and original-resource lifetime checks. This is not a complete native Place proof.
+
+The transfer contract is the existing
+[SDL SDR_LINEAR contract](https://wiki.libsdl.org/SDL3/SDL_GPUSwapchainComposition)
+and [Vulkan texel conversion](https://docs.vulkan.org/spec/latest/chapters/images.html),
+confirmed for the migration in #328, comment 6200869285. Metal layer/display
+colourspace and hardware image validation remain with its backend owner.
 Headless operation does not require SDL initialization or presentation extensions.
 
 A worker owns swapchain creation, finite-timeout acquire, present, and cancelled
@@ -139,3 +161,20 @@ per-dispatch availability and metadata, truncation, eight-submission retention,
 independent repeated retrieval, owner rejection, abandoned recordings and
 shutdown with accepted GPU work. These checks establish the timing contract,
 not a full renderer, image-quality improvement or target-device frame budget.
+
+`ReadbackTransfer` is the native readback state used by the renderer migration.
+Start submits a copy of an image region or buffer byte range. Poll only asks for
+completion and exposes no partial bytes; Wait accepts an explicit finite caller
+budget for offline capture. The transfer owns the destination buffer and its
+mapped allocation, not a borrowed Device pointer. Each query requires the correct
+live device/owner, even after mapping. A returned span remains valid while its
+transfer owns the allocation, including across transfer moves and after device
+facade destruction. Native resource ownership retains accepted copies when their
+source wrapper or an abandoned transfer is released. Image bytes are packed by
+row without format conversion; RowBytes describes that packing.
+
+The real GPU probe verifies mip/array-layer crops, partial buffer ranges,
+nonblocking pending data, move/lifetime behavior, cancellation, wrong owner and
+overflow/bounds rejection. It does not establish completion of the SceneRenderer
+port: the existing SDL readback is removed when its actual callers migrate under
+#328. There is no fallback from native failure to SDL.
