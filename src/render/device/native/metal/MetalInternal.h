@@ -88,21 +88,28 @@ struct PipelineState {
   uint64_t Device;
 };
 
-struct DispatchArgument {
+struct ShaderArgument {
   const ResourceBinding *Layout = nullptr;
   const StorageBuffer *Storage = nullptr;
   const Uniform *Constants = nullptr;
   std::shared_ptr<BufferState> Buffer;
+  const TextureView *Image = nullptr;
   id<MTLTexture> Texture = nil;
   id<MTLSamplerState> Sampler = nil;
   id<MTLResource> Resource = nil;
 };
 
-[[nodiscard]] Result<std::vector<DispatchArgument>>
+[[nodiscard]] Result<std::vector<ShaderArgument>>
 Arguments(const PipelineState &pipeline, std::span<const Binding> bindings, uint64_t device);
+[[nodiscard]] Result<std::vector<ShaderArgument>>
+Arguments(const Shader &shader, std::span<const Binding> bindings, uint64_t device);
 [[nodiscard]] Result<void> Bind(id<MTLComputeCommandEncoder> encoder,
                                 const Shader &shader,
-                                const std::vector<DispatchArgument> &arguments);
+                                const std::vector<ShaderArgument> &arguments);
+[[nodiscard]] Result<void> Bind(id<MTLRenderCommandEncoder> encoder,
+                                ShaderStage stage,
+                                const Shader &shader,
+                                const std::vector<ShaderArgument> &arguments);
 
 class MetalPipeline final : public ComputePipeline {
 public:
@@ -176,6 +183,7 @@ public:
                         Workgroups groups) override;
   Result<void> BeginRenderPass(const RenderPassDescription &description) override;
   Result<void> EndRenderPass() override;
+  Result<void> Draw(const DrawDescription &description) override;
   void BeginLabel(std::string_view name) override;
   void EndLabel() override;
 
@@ -192,7 +200,11 @@ private:
   std::optional<RenderState> Render;
   std::vector<TrackedResource> Accesses;
 
-  void UpdateAccesses(std::span<const DispatchArgument> arguments);
+  void UpdateAccesses(std::span<const ShaderArgument> arguments);
+  [[nodiscard]] Result<void> PrepareResources(std::span<const ShaderArgument> arguments,
+                                              std::vector<id<MTLResource>> &hazards);
+  void
+  TrackHazard(id<MTLResource> resource, Access usage, std::vector<id<MTLResource>> &hazards) const;
 
   [[nodiscard]] bool OnOwner() const noexcept { return Owner_ == std::this_thread::get_id(); }
 

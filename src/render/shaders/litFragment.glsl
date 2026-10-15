@@ -3,6 +3,7 @@
 #define VARYING in
 #include "subjectVaryings.glsl"
 #include "subjectOutput.glsl"
+#include "surfaceTransfer.glsl"
 #include "material.glsl"
 #include "subjectLights.glsl"
 #include "brdfTables.glsl"
@@ -103,15 +104,13 @@ void main() {
   shaded.a = surface.factor * tap.a * colour.a;
 #endif
 #if LIT_KIND == 3
-  vec3 medium = vec3(1.0);
-  if (surface.thickness > 0.0 && !isinf(surface.attenuationDistance)) {
-    medium = exp(log(max(surface.attenuationColour, vec3(1e-5))) *
-                 (surface.thickness / surface.attenuationDistance));
-  }
+  vec3 medium = surfaceMediumTransmittance(surface.attenuationColour, surface.thickness,
+                                           surface.attenuationDistance);
   vec3 view = normalize(lights.viewPosition.xyz - position * lights.viewPosition.w);
   vec3 reflected = brdfFresnel(f0, f90, clamp(dot(shadingNormal, view), 0.0, 1.0));
   vec3 transmitted = (vec3(1.0) - reflected) * (1.0 - metalness) * surface.transmission;
-  shaded.rgb += texelFetch(behindMap, ivec2(gl_FragCoord.xy), 0).rgb * albedo * medium * transmitted;
+  SurfaceTransfer transfer = SurfaceTransfer(shaded.rgb, albedo * medium * transmitted);
+  shaded.rgb = surfaceTransferBehind(transfer, texelFetch(behindMap, ivec2(gl_FragCoord.xy), 0).rgb);
 #endif
   outputSurface(shaded, shadingNormal, surface.identity);
 #endif

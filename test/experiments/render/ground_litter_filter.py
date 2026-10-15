@@ -30,11 +30,16 @@ def axis_weights(centre, width):
 
 
 def field(at, footprint, scale):
-    width = footprint / scale
-    if width >= 2.0:
+    return rectangular_field(at, np.array([footprint, footprint]), scale)
+
+
+def rectangular_field(at, footprint, scale):
+    width = np.asarray(footprint) / scale
+    largest = np.max(width)
+    if largest >= 2.0:
         return np.zeros(at.shape[:-1])
-    first_x, weights_x = axis_weights(at[..., 0] / scale, width)
-    first_y, weights_y = axis_weights(at[..., 1] / scale, width)
+    first_x, weights_x = axis_weights(at[..., 0] / scale, width[0])
+    first_y, weights_y = axis_weights(at[..., 1] / scale, width[1])
     total = np.zeros(at.shape[:-1])
     for y in range(4):
         for x in range(4):
@@ -42,6 +47,6 @@ def field(at, footprint, scale):
             if np.any(weight):
                 key = np.stack([first_x + x, first_y + y, np.zeros_like(first_x)], axis=-1)
                 total += weight * value(key)
-    transition = np.clip(width - 1.0, 0.0, 1.0)
+    transition = np.clip(largest - 1.0, 0.0, 1.0)
     visibility = 1.0 - transition * transition * (3.0 - 2.0 * transition)
     return (total - 0.5) * visibility
