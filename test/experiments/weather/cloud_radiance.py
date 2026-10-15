@@ -7,15 +7,27 @@ from pathlib import Path
 import numpy as np
 from cloud_comparison import view_rays
 from cloud_field import Layer, density, optical_depth, segments, sphere_roots
+from cloud_moments import centroid_fraction
 from PIL import Image
 
 SUN = np.array([-0.6, 0.8, 0.0])
 SUN_IRRADIANCE = np.array([1.0, 0.97, 0.92])
 SKY_RADIANCE = np.array([0.10, 0.12, 0.16])
+_GAUSS_NODES, _GAUSS_WEIGHTS = np.polynomial.legendre.leggauss(3)
+GAUSS3 = ((_GAUSS_NODES + 1.0) * 0.5, _GAUSS_WEIGHTS * 0.5)
 
 
-def source(position, direction, layer, seconds=0.0, light_samples=6):
-    sun_depth = optical_depth(position, SUN, layer, light_samples, seconds)
+def source(position, direction, layer, seconds=0.0, light_samples=6, gauss3=False):
+    if gauss3 and light_samples != 3:
+        raise ValueError("Gauss3 requires exactly three light samples")
+    sun_depth = optical_depth(
+        position,
+        SUN,
+        layer,
+        light_samples,
+        seconds,
+        quadrature=GAUSS3 if gauss3 else None,
+    )
     cosine = np.sum(direction * SUN, axis=-1)
     g = 0.65
     square = 1.0 + g * g - 2.0 * g * cosine
@@ -34,6 +46,8 @@ def radiance(
     view_samples=16,
     light_samples=6,
     warp=1,
+    source_centroid=False,
+    light_gauss3=False,
 ):
     intervals = segments(origin, direction, layer)
     value = np.zeros(direction.shape)
@@ -53,8 +67,14 @@ def radiance(
             position = origin + distance[..., None] * direction
             extinction = density(position, layer, seconds)
             step_through = np.exp(-extinction * step_m)
+            if source_centroid:
+                fraction = centroid_fraction(extinction * step_m)
+                distance = begin + (
+                    start_fraction + fraction * (end_fraction - start_fraction)
+                ) * (end - begin)
+                position = origin + distance[..., None] * direction
             value += (through * (1.0 - step_through))[..., None] * source(
-                position, direction, layer, seconds, light_samples
+                position, direction, layer, seconds, light_samples, light_gauss3
             )
             through *= step_through
     return np.concatenate([value, through[..., None]], axis=-1)
