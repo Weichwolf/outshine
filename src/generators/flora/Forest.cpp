@@ -2,6 +2,7 @@
 #include "Forest.h"
 
 #include <array>
+#include <cassert>
 #include <algorithm>
 #include <optional>
 #include <cstdint>
@@ -11,6 +12,7 @@
 #include <numbers>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include "Geodesy.h"
 #include "math/Units.h"
@@ -73,8 +75,14 @@ bool CrownOccupied(const FeatureField &field, EastNorth at, CrownVolume crown) n
 
 }
 
-Forest::Forest(std::span<const Stem> stems, std::span<const float> perM2ByRow, AlpineLimit limit)
-    : PerM2_(perM2ByRow.begin(), perM2ByRow.end()), Limit_(std::move(limit)) {
+Forest::Forest(std::span<const Stem> stems,
+               std::span<const float> perM2ByRow,
+               AlpineLimit limit,
+               std::vector<SpeciesMixture> speciesByRow)
+    : SpeciesByRow_(std::move(speciesByRow)),
+      PerM2_(perM2ByRow.begin(), perM2ByRow.end()),
+      Limit_(std::move(limit)) {
+  assert(SpeciesByRow_.empty() || SpeciesByRow_.size() == PerM2_.size());
   Held_ = stems.size() < kMostSpecies ? stems.size() : kMostSpecies;
   Refused_ = stems.size() - Held_;
   for (size_t at = 0; at < Held_; ++at) { Stems_[at] = stems[at]; }
@@ -180,7 +188,13 @@ Forest::Outcome Forest::Consider(const Ground &ground,
   }
 
   if (Held_ == 0) { return Outcome::NoSpecies; }
-  const auto variant = static_cast<uint32_t>(region.Seed(index * kStreamsPerCell + 3) % Held_);
+  const auto seed = region.Seed(index * kStreamsPerCell + 3);
+  const auto chosen = SpeciesByRow_.empty() ? std::optional(static_cast<uint32_t>(seed % Held_))
+                                            : SpeciesByRow_[static_cast<size_t>(*row)].Choose(
+                                                  static_cast<double>(seed >> 11u) * 0x1p-53);
+  if (!chosen) { return Outcome::NoSpecies; }
+  const auto variant = *chosen;
+  assert(variant < Held_);
   const Stem &stem = Stems_[variant];
   const float size = SizeFactor(region.Seed(index * kStreamsPerCell + 2), stem.HeightSigma);
   if (CrownOccupied(ground.Features(),
