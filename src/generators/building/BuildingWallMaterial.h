@@ -8,7 +8,6 @@
 namespace outshine::Generators {
 
 inline constexpr int kMasonryWallVariant = 6;
-static_assert(sizeof(Vec2f) == 2 * sizeof(float));
 
 [[nodiscard]] inline bool UsesWallMaterialMetres(const BuildingShape &shape) noexcept {
   return shape.WallVariant == kMasonryWallVariant && shape.OpeningStyle != FacadeStyle::Glazing;

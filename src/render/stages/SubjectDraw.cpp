@@ -674,6 +674,78 @@ void WritePieceUv(const void *carrying, float *into, uint32_t floats) {
   }
 }
 
+struct PieceAllocation {
+  SubjectResidency::Range Vertices, Indices, Colours, Tangents;
+};
+
+bool UploadPieceRuns(SubjectResidency &res,
+                     const PieceMesh &piece,
+                     const PieceAllocation &allocation,
+                     std::string &error) {
+  const auto verts = static_cast<uint32_t>(piece.Verts.size());
+  const auto indices = static_cast<uint32_t>(piece.Indices.size());
+  const auto &v = allocation.Vertices;
+  const auto &i = allocation.Indices;
+  const auto &c = allocation.Colours;
+  const auto &t = allocation.Tangents;
+  const PieceRun carrying{.Piece = &piece};
+  const RebasedRun rebased{.From = piece.Indices.data(), .Count = indices, .FirstVertex = v.First};
+  const auto floatsAt = [v](uint32_t wide) {
+    return v.First * wide * static_cast<uint32_t>(sizeof(float));
+  };
+  const auto vertexUse = SDL_GPU_BUFFERUSAGE_VERTEX;
+  const uint32_t positionBytes = verts * kPositionFloats * static_cast<uint32_t>(sizeof(float));
+  std::array<SubjectResidency::Crossing, 7> crossings = {{
+      {.Which = SubjectResidency::Stream::Vertex,
+       .Usage = vertexUse,
+       .Bytes = positionBytes,
+       .Offset = floatsAt(kPositionFloats),
+       .Writes = WritePiecePositions,
+       .Carrying = &carrying},
+      {.Which = SubjectResidency::Stream::Normal,
+       .Usage = vertexUse,
+       .Bytes = verts * static_cast<uint32_t>(sizeof(uint32_t)),
+       .Offset = floatsAt(1u),
+       .Writes = WritePieceNormals,
+       .Carrying = &carrying},
+      {.Which = SubjectResidency::Stream::Index,
+       .Usage = kIndexUse,
+       .Bytes = indices * static_cast<uint32_t>(sizeof(uint32_t)),
+       .Offset = i.First * static_cast<uint32_t>(sizeof(uint32_t)),
+       .Writes = WriteRebased,
+       .Carrying = &rebased},
+      {.Which = SubjectResidency::Stream::Uv,
+       .Usage = vertexUse,
+       .Bytes = piece.Textured ? verts * kPairFloats * static_cast<uint32_t>(sizeof(float)) : 0u,
+       .Offset = floatsAt(kPairFloats),
+       .Writes = WritePieceUv,
+       .Carrying = &carrying},
+      {.Which = SubjectResidency::Stream::Uv1,
+       .Usage = vertexUse,
+       .From = piece.Uv1.data(),
+       .Bytes = static_cast<uint32_t>(piece.Uv1.size() * sizeof(float)),
+       .Offset = floatsAt(kPairFloats)},
+      {.Which = SubjectResidency::Stream::Tangent,
+       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+       .From = piece.Tangents.data(),
+       .Bytes = static_cast<uint32_t>(piece.Tangents.size() * sizeof(float)),
+       .Offset = t.First * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
+      {.Which = SubjectResidency::Stream::Colour,
+       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+       .From = piece.Colours.data(),
+       .Bytes = static_cast<uint32_t>(piece.Colours.size() * sizeof(float)),
+       .Offset = c.First * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
+  }};
+  size_t count = 0;
+  for (const SubjectResidency::Crossing &one : crossings) {
+    if (one.Bytes > 0 && one.Stands()) { crossings[count++] = one; }
+  }
+  if (!res.Cross(std::span<SubjectResidency::Crossing>(crossings.data(), count), true, error)) {
+    return false;
+  }
+  return true;
+}
+
 }
 
 bool SubjectDraw::RoomForStreams(std::string &error) {
@@ -1048,6 +1120,10 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
 
 bool SubjectDraw::ValidatePiece(const PieceMesh &piece, std::string &error) const {
   if (Borrows()) { return false; }
+  if (!ValidPieceUv1(piece)) {
+    error = kPieceUv1Error;
+    return false;
+  }
   if (piece.MaxInstances > 0 && std::max(size_t{1}, piece.Instances.size()) > piece.MaxInstances) {
     error = Says::PieceInstanceLimit;
     return false;
@@ -1107,60 +1183,15 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
                                                          .ColourEnd = c.First + verts,
                                                          .TangentEnd = t.First + verts},
                                                         {.Uv = piece.Textured,
+                                                         .Uv1 = !piece.Uv1.empty(),
                                                          .Tangent = !piece.Tangents.empty(),
                                                          .Colour = !piece.Colours.empty()},
                                                         error)) {
     giveBack();
     return kNoPiece;
   }
-  const PieceRun carrying{.Piece = &piece};
-  const RebasedRun rebased{.From = piece.Indices.data(), .Count = indices, .FirstVertex = v.First};
-  const auto floatsAt = [v](uint32_t wide) {
-    return v.First * wide * static_cast<uint32_t>(sizeof(float));
-  };
-  const auto vertexUse = SDL_GPU_BUFFERUSAGE_VERTEX;
-  const uint32_t positionBytes = verts * kPositionFloats * static_cast<uint32_t>(sizeof(float));
-  std::array<SubjectResidency::Crossing, 6> crossings = {{
-      {.Which = SubjectResidency::Stream::Vertex,
-       .Usage = vertexUse,
-       .Bytes = positionBytes,
-       .Offset = floatsAt(kPositionFloats),
-       .Writes = WritePiecePositions,
-       .Carrying = &carrying},
-      {.Which = SubjectResidency::Stream::Normal,
-       .Usage = vertexUse,
-       .Bytes = verts * static_cast<uint32_t>(sizeof(uint32_t)),
-       .Offset = floatsAt(1u),
-       .Writes = WritePieceNormals,
-       .Carrying = &carrying},
-      {.Which = SubjectResidency::Stream::Index,
-       .Usage = kIndexUse,
-       .Bytes = indices * static_cast<uint32_t>(sizeof(uint32_t)),
-       .Offset = i.First * static_cast<uint32_t>(sizeof(uint32_t)),
-       .Writes = WriteRebased,
-       .Carrying = &rebased},
-      {.Which = SubjectResidency::Stream::Uv,
-       .Usage = vertexUse,
-       .Bytes = piece.Textured ? verts * kPairFloats * static_cast<uint32_t>(sizeof(float)) : 0u,
-       .Offset = floatsAt(kPairFloats),
-       .Writes = WritePieceUv,
-       .Carrying = &carrying},
-      {.Which = SubjectResidency::Stream::Tangent,
-       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
-       .From = piece.Tangents.data(),
-       .Bytes = static_cast<uint32_t>(piece.Tangents.size() * sizeof(float)),
-       .Offset = t.First * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
-      {.Which = SubjectResidency::Stream::Colour,
-       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
-       .From = piece.Colours.data(),
-       .Bytes = static_cast<uint32_t>(piece.Colours.size() * sizeof(float)),
-       .Offset = c.First * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
-  }};
-  size_t count = 0;
-  for (const SubjectResidency::Crossing &one : crossings) {
-    if (one.Bytes > 0 && one.Stands()) { crossings[count++] = one; }
-  }
-  if (!res.Cross(std::span<SubjectResidency::Crossing>(crossings.data(), count), true, error)) {
+  if (!UploadPieceRuns(
+          res, piece, {.Vertices = v, .Indices = i, .Colours = c, .Tangents = t}, error)) {
     giveBack();
     return kNoPiece;
   }
@@ -1192,6 +1223,7 @@ PieceId SubjectDraw::PlacePiece(const PieceMesh &piece, std::string &error) {
   VertexRunsCarried carried;
   carried.Normal = true;
   carried.Uv = piece.Textured;
+  carried.Uv1 = !piece.Uv1.empty();
   carried.Tangent = !piece.Tangents.empty();
   carried.Colour = !piece.Colours.empty();
   (void)LayoutOf(carried, held.Layout);

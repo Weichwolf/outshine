@@ -42,14 +42,14 @@ Vec3 Local(const BuildingSurface &source, const Vec3f &point) {
 }
 
 double MeshError(const BuildingSurface &source, const Raised &mesh) {
-  CHECK(mesh.WallMaterialM.size() == mesh.WallCorners.size(),
+  CHECK(mesh.WallMaterialM.size() == mesh.WallCorners.size() * 2,
         "the optional metre stream covers every wall vertex once present");
-  if (mesh.WallMaterialM.size() != mesh.WallCorners.size()) { return INFINITY; }
+  if (mesh.WallMaterialM.size() != mesh.WallCorners.size() * 2) { return INFINITY; }
   const auto &shape = source.Shapes().front();
   double maximum = 0.0;
   for (size_t at = 0; at < mesh.WallCorners.size(); ++at) {
     const auto &vertex = mesh.WallCorners[at];
-    const auto metric = mesh.WallMaterialM[at];
+    const Vec2f metric{{mesh.WallMaterialM[at * 2], mesh.WallMaterialM[at * 2 + 1]}};
     if (vertex.texture[0] < 0.0f) {
       CHECK(metric[0] == 0.0f && metric[1] == 0.0f,
             "negative trim/roof/plinth codes receive no masonry coordinates");
@@ -109,14 +109,14 @@ void Cache(const Raised &mesh) {
         "cache roundtrip preserves original geometry and packed facade UVs");
   product.Built.WallMaterialM.clear();
   const auto without = EncodeStructureArtifact(product, key);
-  CHECK(without && encoded->size() - without->size() == mesh.WallMaterialM.size() * sizeof(Vec2f),
+  CHECK(without && encoded->size() - without->size() == mesh.WallMaterialM.size() * sizeof(float),
         "the actual encoded cost is exactly eight additional bytes per covered wall vertex");
   product.Built.WallMaterialM = mesh.WallMaterialM;
   product.Built.WallMaterialM.pop_back();
   CHECK(!EncodeStructureArtifact(product, key),
         "a partial metric stream cannot become a cache hit");
   product.Built.WallMaterialM = mesh.WallMaterialM;
-  product.Built.WallMaterialM.front()[0] = std::numeric_limits<float>::quiet_NaN();
+  product.Built.WallMaterialM.front() = std::numeric_limits<float>::quiet_NaN();
   CHECK(!EncodeStructureArtifact(product, key),
         "nonfinite material coordinates cannot enter the asset");
 }
@@ -142,7 +142,7 @@ void Fixture(const char *prefix,
     return;
   }
   const auto &mesh = decoded->Built;
-  if (mesh.WallRun.size() < 6 || mesh.WallMaterialM.size() != mesh.WallCorners.size()) {
+  if (mesh.WallRun.size() < 6 || mesh.WallMaterialM.size() != mesh.WallCorners.size() * 2) {
     CHECK(false, "the decoded source face supplies both complete UV streams");
     return;
   }
@@ -170,8 +170,8 @@ void Fixture(const char *prefix,
     file.write(reinterpret_cast<const char *>(&v), sizeof(v));
   }
   for (size_t at = 0; at < 6; ++at) {
-    const auto &uv = mesh.WallMaterialM[mesh.WallRun[at]];
-    file.write(reinterpret_cast<const char *>(&uv), sizeof(uv));
+    const auto *uv = mesh.WallMaterialM.data() + mesh.WallRun[at] * 2;
+    file.write(reinterpret_cast<const char *>(uv), 2 * sizeof(float));
   }
   CHECK(file, "the emitted cached wall and actual UV1 bytes are saved");
 }
@@ -216,10 +216,14 @@ void Patches(const BuildingSurface &source) {
                                                               point(0, kHalfPatchM)}}};
       Raised mesh;
       source.MeshPatches(split, mesh);
-      CHECK(mesh.WallMaterialM.size() == 8, "both actual source patches emit their metric stream");
-      if (mesh.WallMaterialM.size() != 8) { continue; }
-      CHECK(mesh.WallMaterialM[1] == mesh.WallMaterialM[4] &&
-                mesh.WallMaterialM[2] == mesh.WallMaterialM[7],
+      CHECK(mesh.WallMaterialM.size() == 16, "both actual source patches emit their metric stream");
+      if (mesh.WallMaterialM.size() != 16) { continue; }
+      CHECK(std::equal(mesh.WallMaterialM.begin() + 2,
+                       mesh.WallMaterialM.begin() + 4,
+                       mesh.WallMaterialM.begin() + 8) &&
+                std::equal(mesh.WallMaterialM.begin() + 4,
+                           mesh.WallMaterialM.begin() + 6,
+                           mesh.WallMaterialM.begin() + 14),
             "detail subdivision preserves shared-edge material phase exactly");
       MeshError(source, mesh);
       Cache(mesh);
@@ -247,8 +251,8 @@ void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch
         R"({{"detail":{},"wall_vertices":{},"metres_bytes":{},"metres_capacity_bytes":{},"max_error_m":{:.17g}}})",
         static_cast<int>(detail),
         mesh.WallCorners.size(),
-        mesh.WallMaterialM.size() * sizeof(Vec2f),
-        mesh.WallMaterialM.capacity() * sizeof(Vec2f),
+        mesh.WallMaterialM.size() * sizeof(float),
+        mesh.WallMaterialM.capacity() * sizeof(float),
         error);
   }
   plan.Prepared = nullptr;
@@ -261,9 +265,9 @@ void Exercise(StructurePlan plan, const BuildingSurface &source, BuildingScratch
   plan.Prepared = &source;
   plan.WallColour.reset();
   CHECK(mesher.Mesh(plan, scratch, painted), "masonry appends to an existing painted product");
-  CHECK(painted.WallMaterialM.size() == painted.WallCorners.size() &&
-            std::ranges::all_of(std::span(painted.WallMaterialM).first(previous),
-                                [](const Vec2f &uv) { return uv[0] == 0 && uv[1] == 0; }),
+  CHECK(painted.WallMaterialM.size() == painted.WallCorners.size() * 2 &&
+            std::ranges::all_of(std::span(painted.WallMaterialM).first(previous * 2),
+                                [](float value) { return value == 0; }),
         "optional stream activation pads the existing non-masonry prefix");
   const auto saved = painted.WallMaterialM;
   const auto savedVertices = painted.WallCorners.size();

@@ -334,8 +334,8 @@ private:
     }
     if (made->second) {
       if (side == 0 && (MaterialMetres_ || !Out_.WallMaterialM.empty())) {
-        if (Out_.WallMaterialM.empty()) { Out_.WallMaterialM.resize(soup.size()); }
-        Out_.WallMaterialM.push_back(material);
+        if (Out_.WallMaterialM.empty()) { Out_.WallMaterialM.resize(soup.size() * 2); }
+        Out_.WallMaterialM.insert(Out_.WallMaterialM.end(), {material[0], material[1]});
       }
       soup.push_back(vertex);
     }
