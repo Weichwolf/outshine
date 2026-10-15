@@ -20,7 +20,7 @@ def polygons(camera, receipt):
                 rejected.append({"id": identifier, "reason": "invalid source geometry"})
                 continue
 
-            def project(points):
+            def project(points, extent=extent):
                 lat, lon = tile_geography(points, extent, receipt["tile"])
                 return camera.local(lat, lon, 0)[:, :2]
 
@@ -123,13 +123,14 @@ def sites(camera, receipts, ground, *, max_sites=250000):
         rotations[:, 0, 1], rotations[:, 1, 0], rotations[:, 2, 2] = -s, s, 1
         frames = frames @ rotations
         height = contacts.points_enu_m[:, 2]
-        kind = ((height > 900) & (abs(camera.latitude_deg) > 35)).astype(np.uint8)
+        tree_kind = ((height > 900) & (abs(camera.latitude_deg) > 35)).astype(np.uint8)
+        kind = np.where(in_wood[indices], tree_kind, 2).astype(np.uint8)
         arrays.append(
             {
                 "positions": contacts.points_enu_m,
                 "frames": frames,
                 "scales": rng.uniform(0.8, 1.6, len(points))[indices]
-                * np.where(kind, 0.6, 1),
+                * np.where(tree_kind, 0.6, 1),
                 "kind": kind,
                 "source": membership,
                 "ids": np.column_stack(
@@ -150,8 +151,14 @@ def sites(camera, receipts, ground, *, max_sites=250000):
         for k, shape in shapes.items()
     }
     return result, {
+        "plan_format": "source-site-plan-2",
+        "kind_semantics": {
+            "0": "broadleaf form proxy",
+            "1": "conifer form proxy",
+            "2": "graminoid tuft form proxy",
+        },
         "sources": sources,
         "rejected": rejected,
         "sites": len(result["positions"]),
-        "limits": "Initial jittered source-tile cells; two current morphological prototypes, not botanical species inference. Density is an explicit research recipe, not measured forest stocking. Water/buildings/nominal transport buffers excluded; final predecessor reservation products remain to be bound. Distant stand aggregation and near transition unapproved.",
+        "limits": "Initial jittered source-tile cells; wood uses existing tree form proxies, grass uses graminoid tufts. Not botanical species inference or complete meadow/understorey stocking. Density is an explicit research recipe, not measured forest stocking. Water/buildings/nominal transport buffers excluded; final predecessor reservation products remain to be bound. Distant stand aggregation and near transition unapproved.",
     }

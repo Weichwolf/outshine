@@ -9,6 +9,7 @@ from blender_instances import instance_group
 from blender_preview import mesh_object
 from conifer_whole_preview import conifer_material
 from place_demand import demand, spheres
+from place_grass import populate_grass
 from preview_lighting import SUN_ANGULAR_DIAMETER_DEG
 from sheet_material import sheet_material
 
@@ -30,6 +31,8 @@ def receiver_floor(sites, manifests, scene_floor):
 def populate(sites, products_path, camera, ground, sun, min_receiver_z):
     inputs, total, counts = [products_path], 0, []
     products = json.loads(products_path.read_text())
+    if any(int(kind) >= len(products) or kind < 0 for kind in np.unique(sites["kind"])):
+        raise ValueError("every retained form kind needs an explicit cached product")
     manifests = [
         json.loads((Path(item["directory"]) / "plant-product.json").read_text())
         for item in products
@@ -75,6 +78,9 @@ def populate(sites, products_path, camera, ground, sun, min_receiver_z):
                 **{k: int(m.sum()) for k, m in masks.items()},
             }
         )
+        if manifest.get("representation") == "spatial_mesh":
+            total += populate_grass(manifest, identity, mesh, sites, selected, masks)
+            continue
         pivot = np.mean(manifest["bounds_m"], axis=0)
         for role, ray in (
             ("camera", camera.eye(ground) - positions),
@@ -138,5 +144,5 @@ def populate(sites, products_path, camera, ground, sun, min_receiver_z):
         "sites": len(sites["positions"]),
         "models": products,
         "demand": counts,
-        "limits": "Existing 64-view whole-plant products and separate sunlight views. No organ generation. Statistical angular/needle fidelity and runtime LOD remain unapproved; initial two morphology proxies do not resolve all local species.",
+        "limits": "Cached 64-view tree proxies plus shared spatial graminoid tufts. Tree camera/sun products remain separate; grass uses one union of both demands. No organ generation on cache hit. Unidentified grass form, incomplete meadow/understorey density and unapproved angular/needle/LOD fidelity; not botanical species coverage.",
     }
