@@ -367,6 +367,11 @@ frames, terrace decks and guards. Actual compiled solid rays check access.
 `stepped_openings.py` supplies two triangles per distant opening with the same
 window/entrance/terrace and room IDs; its 1 mm exterior surface offset and
 rough dielectric/absorbing-room estimate are explicit approximations.
+Clipped rooms may contain zero-area boundary lines. Removing only these
+pieces preserves their exact polygon area; no positive room fragment is lost.
+The existing wing control consequently admits one room-safe inset but retains
+the explicit missing terrace access. It remains ineligible for a complete
+stepped prototype. The courtyard and narrow controls keep their rejections.
 
 The stricter `layered_envelope.py` alternative remains an experiment: analytic
 controls compare directed closure, volume **and** area, source/role/material,

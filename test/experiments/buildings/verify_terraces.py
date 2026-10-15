@@ -74,6 +74,10 @@ def controls():
         plan=apply(base);product=mesh(plan)
         paths=check(plan,product)
         if name=='rectangle':assert len(paths)==2,'Both terraces require access'
+        elif name=='wing':
+            assert not paths and plan['terrace_access'] and all(row['reason'] for row in plan['terrace_access'])
+            assert not any(door['kind']=='terrace' for current in plan['storey_plans'] for door in current['doors'])
+            assert base['setback_decisions'][1]['reason'] is None and base['setback_decisions'][2]['reason']
         else:
             assert not plan['terrace_access'] and all(row['reason'] for row in base['setback_decisions'][1:])
             np.testing.assert_array_equal(product['faces'],mesh(base)['faces'])
