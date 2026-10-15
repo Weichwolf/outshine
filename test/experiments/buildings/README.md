@@ -158,6 +158,7 @@ Private source data and intermediate outputs stay in system-temp directories.
 ```sh
 .venv/bin/python test/experiments/buildings/verify_place_reference.py
 .venv/bin/python test/experiments/buildings/place_sources.py --fetch --output <temp>/source-receipts.json
+.venv/bin/python test/experiments/buildings/render_places.py --sources <temp>/source-receipts.json --output <temp>/verified-place-renders
 .venv/bin/python test/experiments/buildings/showcase.py --input <temp>/verified-place-renders
 ```
 

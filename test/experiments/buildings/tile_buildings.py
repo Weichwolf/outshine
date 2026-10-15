@@ -96,6 +96,11 @@ def construct(site,error_m=1.,prepared=None,ordinary_builder=None):
                 mesh,info=detail if detail is not None else prism(row,params,material)
             vertices=mesh['vertices'];expected=(params['minHeight'],params['buildingHeight'])
             if not np.array_equal([vertices[:,2].min(),vertices[:,2].max()],expected):raise ValueError('Generated body changed provider height interval')
+            if 'placement_base_enu_m' in row:
+                placement = row['placement_base_enu_m']
+                if not np.isfinite(placement):raise ValueError('Source placement height is not finite')
+                vertices = vertices.copy()
+                vertices[:,2] += placement
             component=dict(vertices=vertices,faces=mesh['faces']+offset,normals=mesh['normals'],uv=mesh['uv'],materials=mesh['materials'])
             if 'facade_extent' in mesh:component['facade_extent']=mesh['facade_extent']
             meshes.append(component)
@@ -103,6 +108,10 @@ def construct(site,error_m=1.,prepared=None,ordinary_builder=None):
             members.append(dict(id=row['id'],source_properties=row['properties'],footprint_wkb=row['polygon'].wkb_hex,
                 kind=decision.kind,origin=decision.origin,alternatives=decision.alternatives,prototype=info,
                 clipped=row['clipped'],source_height_interval=expected,colour_origin=colour_note))
+            if 'placement_base_enu_m' in row:
+                members[-1].update(placement_base_enu_m=row['placement_base_enu_m'],
+                                   ground_asl_m=row['ground_asl_m'],
+                                   placement_origin='separate sampled DEM placement, provider height interval unchanged')
         except (ValueError,shapely.errors.GEOSException) as error:
             omissions.append(dict(id=row['id'],reason=str(error)))
     if not meshes:raise ValueError('Tile contains no valid generated building')
