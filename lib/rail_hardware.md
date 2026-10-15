@@ -65,3 +65,70 @@ is in this package. Public package ownership tests live in
 `lib/tests/test_rail_hardware.py`; experiment/native/source/frame proofs remain
 separate. Python/GEOS generation and baked Workbench inspection are offline
 measurements, not a renderer FPS, native LOD or device acceptance.
+
+## Explicit affine bed planes (#376)
+
+The previously experimental metric bed adaptation from #340/#352 is installable:
+
+```python
+from outshine_ref.transport.rail_hardware import build_planar_rail_hardware
+
+hardware, report = build_planar_rail_hardware(
+    [[0, 0], [40, 0]],
+    [[0, 0, 10], [100, 0, 20], [0, 100, 30]],
+)
+if hardware is not None:
+    rails = hardware.rails
+    instances = hardware.sleeper_transforms
+    actual_lower_corners = hardware.sleeper_bottoms
+```
+
+Signature `build_planar_rail_hardware(xy, triangle, recipe=RailRecipe(),
+budget=RailBudget()) -> (PlanarRailHardware | None, report)` keeps the original
+horizontal function unchanged. `xy` is a finite metric `N×2` centreline;
+`triangle` is one explicit finite nondegenerate height-plane triangle. It selects
+the infinite supporting plane, not the triangle's finite contact domain. No
+automatic ground/deck/highest-surface selection or source/level/access assignment.
+
+`rail_bed_frame(triangle)` returns read-only origin `(3,)` and frame `(3,3)`;
+columns are two orthonormal metric bed axes and its upward normal. Clockwise or
+counterclockwise triangles are accepted. Vertical/degenerate/unrepresentable
+planes and invalid coordinates raise `ValueError`; no inferred zero heights.
+The function rejects an oversized centreline before its conversion/projection.
+The same `RailBudget` station/rail-vertex/sleeper limits and local absence reasons
+apply to the local construction. Invalid recipe/budget types raise `TypeError`.
+
+The centreline is lifted to the selected plane, expressed in the metric frame,
+constructed by the existing horizontal kernel and rigidly transformed back.
+Gauge, rail section, sleeper dimensions and spacing remain metric; a vertical
+shear of flat hardware would change gauge on a cross slope. Sleeper height and
+rail section are measured along the bed normal, not world vertical.
+
+`PlanarRailHardware` owns read-only world rail `Mesh`, `N×3×4` transforms,
+`N×4×3` actual lower sleeper corners, plane origin/frame and immutable
+`horizontal: RailHardware` retaining the local construction. The shared unit
+sleeper is `horizontal.sleeper`; bake with the existing `bake_rail_sleepers`.
+`footprints` contains two rail projections followed by each complete 3D sleeper
+projection, including its upper corners. These differ from bottom-only
+projections on a tilted bed. Result and local arrays have separate ownership;
+inputs can be released or changed after construction. Shapes are immutable Shapely
+polygons. Retaining the local construction costs additional arrays explicitly
+measured in the experiment; this is an offline reference, not an optimized native layout.
+
+The caller must verify all finite bed contacts and conflicts, bind origin/source
+IDs/kind, handle local omissions and choose compatible joins. A valid infinite
+plane is not finite supporting terrain; a rail ending at a C0 crease is not a
+planned switch or train route. No new Plan/Reservation API, consumer admission,
+LOD, native/device or structural claim.
+
+Fixed real inputs are `lib/tests/fixtures/planar-rail-vienna.json`: all77 lower and
+56 upper previously admitted Wiener pieces with explicit triangles, original
+source IDs and archive pins. Tests never update the fixture. The experiment
+checks fresh source and installed wheel against the actual original saved
+profiles/instances, full finite contacts, dimensions/volume, packed hardware and
+the latest whole scene. Public controls include ownership, projection, true
+metric gauge, budgets before conversion and invalid planes.
+
+[Source/wheel/real geometry, image and cost evidence](../test/experiments/transport/planar_rail_library_comparison.md)
+is separate from native integration #48. No experiment imports in this package,
+no copied external implementation or new package dependency.

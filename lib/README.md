@@ -27,6 +27,11 @@ gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrück
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
 stehen in [rail_hardware.md](rail_hardware.md) (#250).
 
+`build_planar_rail_hardware` ergänzt dieselben metrischen Profile auf einer
+ausdrücklich gewählten affinen Bettebene. `PlanarRailHardware` besitzt starre
+Rahmen/Instanzen, tatsächliche projizierte Footprints und alle Schwellenunterecken;
+endliche Kontakt-/Freiraumzulassung bleibt beim Aufrufer (#376).
+
 `transport.supports.SupportVolumeBuilder` erzeugt geschlossene ganze Kontaktkörper
 zwischen zwei ausdrücklich gewählten endlichen Höhenflächen. Knicke, Innenlöcher,
 Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
