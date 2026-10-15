@@ -30,6 +30,12 @@ def probe(output, name, normal, scale, bump=False):
     nodes, links = result.node_tree.nodes, result.node_tree.links
     normal = np.asarray(normal, float)
     normal /= np.linalg.norm(normal)
+    frame = Rotation.from_rotvec((0.2, -0.3, 0.4)).as_matrix()
+    scale = np.asarray(scale, float)
+    expected = frame @ (
+        np.array((-0.004 / scale[0], 0, 1.0)) if bump else normal / scale
+    )
+    expected /= np.linalg.norm(expected)
     socket = source_normal(result)
     if bump:
         uv = nodes.new("ShaderNodeTexCoord")
@@ -43,8 +49,13 @@ def probe(output, name, normal, scale, bump=False):
         socket = perturb.outputs["Normal"]
     encode = nodes.new("ShaderNodeVectorMath")
     encode.operation = "SCALE"
-    encode.inputs["Scale"].default_value = 0.5
-    links.new(socket, encode.inputs[0])
+    gain = 512
+    residual = nodes.new("ShaderNodeVectorMath")
+    residual.operation = "SUBTRACT"
+    residual.inputs[1].default_value = expected.tolist()
+    links.new(socket, residual.inputs[0])
+    encode.inputs["Scale"].default_value = gain
+    links.new(residual.outputs[0], encode.inputs[0])
     add = nodes.new("ShaderNodeVectorMath")
     add.operation = "ADD"
     add.inputs[1].default_value = (0.5, 0.5, 0.5)
@@ -68,8 +79,6 @@ def probe(output, name, normal, scale, bump=False):
         "uv",
         np.array(((0, 0), (1, 0), (1, 1), (0, 0), (1, 1), (0, 1)), np.float32).ravel(),
     )
-    frame = Rotation.from_rotvec((0.2, -0.3, 0.4)).as_matrix()
-    scale = np.asarray(scale, float)
     instance_group(
         obj,
         np.zeros((1, 3)),
@@ -91,18 +100,16 @@ def probe(output, name, normal, scale, bump=False):
     image = bpy.data.images.load(str(path))
     pixels = np.empty(64 * 64 * 4, np.float32)
     image.pixels.foreach_get(pixels)
-    actual = pixels.reshape(64, 64, 4)[32, 32, :3].astype(float) * 2 - 1
-    if bump:
-        expected = frame @ np.array((-0.004 / scale[0], 0, 1.0))
-    else:
-        expected = frame @ (normal / scale)
-    expected /= np.linalg.norm(expected)
+    encoded = pixels.reshape(64, 64, 4)[32, 32, :3].astype(float)
+    actual = expected + (encoded - 0.5) / gain
     return {
         "case": name,
         "source_normal": normal.tolist(),
         "scale": scale.tolist(),
         "bump": bump,
         "expected": expected.tolist(),
+        "residual_gain": gain,
+        "encoded_residual_pixel": encoded.tolist(),
         "decoded_pixel": actual.tolist(),
         "max_abs_error": float(np.max(abs(actual - expected))),
     }
