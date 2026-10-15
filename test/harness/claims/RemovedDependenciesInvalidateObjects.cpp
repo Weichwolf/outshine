@@ -11,6 +11,7 @@ set -eu
 root=$(mktemp -d "${TMPDIR:-/tmp}/outshine-dependencies.XXXXXX")
 trap 'rm -rf "$root"' EXIT
 sed -n '/^UpToDate()/,/^}/p' test/run.sh > "$root/check.sh"
+sed -n '/^FileStamp()/,/^}/p' test/run.sh >> "$root/check.sh"
 sed -n '/^BinaryStamp()/,/^}/p' test/run.sh >> "$root/check.sh"
 sed -n '/^Fresh()/,/^}/p' test/run.sh >> "$root/check.sh"
 . "$root/check.sh"

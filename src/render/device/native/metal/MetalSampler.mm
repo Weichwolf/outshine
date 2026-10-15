@@ -1,4 +1,5 @@
 #include "MetalInternal.h"
+#include <cmath>
 
 namespace outshine::Render::Native::Metal {
 namespace {
@@ -25,8 +26,10 @@ Result<std::unique_ptr<Sampler>> MetalDevice::CreateSampler(SamplerDescription d
     const auto valid = [](Filter filter) {
       return filter == Filter::Nearest || filter == Filter::Linear;
     };
-    if (!u || !v || !valid(description.Min) || !valid(description.Mag) || !valid(description.Mip)) {
-      return Failure(ErrorKind::Invalid, "invalid Metal sampler filter or addressing");
+    if (!u || !v || !valid(description.Min) || !valid(description.Mag) || !valid(description.Mip) ||
+        !std::isfinite(description.MinLod) || !std::isfinite(description.MaxLod) ||
+        description.MinLod < 0 || description.MaxLod < description.MinLod) {
+      return Failure(ErrorKind::Invalid, "invalid Metal sampler filter, addressing or LOD range");
     }
     MTLSamplerDescriptor *const info = [MTLSamplerDescriptor new];
     info.sAddressMode = *u;
@@ -39,6 +42,8 @@ Result<std::unique_ptr<Sampler>> MetalDevice::CreateSampler(SamplerDescription d
     info.mipFilter =
         description.Mip == Filter::Linear ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
     info.label = Text(label);
+    info.lodMinClamp = description.MinLod;
+    info.lodMaxClamp = description.MaxLod;
     const id<MTLSamplerState> sampler = [Native_ newSamplerStateWithDescriptor:info];
     if (sampler == nil) { return Failure(ErrorKind::Driver, "Metal sampler creation failed"); }
     return std::make_unique<MetalSampler>(sampler,
