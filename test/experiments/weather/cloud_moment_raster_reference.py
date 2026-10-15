@@ -67,7 +67,7 @@ def judge(metadata, baseline_metadata):
         (before_medium, medium),
         (before_weather, weather),
     ):
-        np.testing.assert_array_equal(after, before)
+        np.testing.assert_array_equal(after.view(np.uint8), before.view(np.uint8))
     mask = images[2, :, 3] > 0
     expected, bound = reference(rays, medium, weather)
     expected[~mask] = 0

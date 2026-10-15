@@ -137,14 +137,14 @@ def main():
         replay = np.fromfile(
             str(output / "moments-2" / metadata.name)[:-5] + ".images.bin", "<f4"
         )
-        np.testing.assert_array_equal(replay, direct)
+        np.testing.assert_array_equal(replay.view(np.uint8), direct.view(np.uint8))
         if (args.width, args.height) == (43, 31):
             previous = args.native_receipt.parent / metadata.name
             before = np.fromfile(str(previous)[:-5] + ".images.bin", "<f4")
             current = np.fromfile(
                 str(output / "moments-0" / metadata.name)[:-5] + ".images.bin", "<f4"
             )
-            np.testing.assert_array_equal(current, before)
+            np.testing.assert_array_equal(current.view(np.uint8), before.view(np.uint8))
     if len(rows) != (1 if args.scenario else 13):
         raise RuntimeError(
             "the actual native raster cohort must contain all13 existing cases"
