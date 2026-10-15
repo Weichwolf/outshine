@@ -115,6 +115,7 @@ Result<void> MetalCommands::EndRenderPass() {
   }
   [Render->Encoder endEncoding];
   Render.reset();
+  Accesses.clear();
   return {};
 }
 

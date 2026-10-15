@@ -13,6 +13,13 @@ inline constexpr uint32_t kMetalBufferSlots = 31;
 inline constexpr uint32_t kVertexAttributeSlots = 31;
 inline constexpr uint32_t kVertexBufferSlots = kMetalBufferSlots - kFirstVertexBuffer;
 
+struct AttributeFormat {
+  MTLVertexFormat Native;
+  uint32_t Bytes;
+};
+
+[[nodiscard]] std::optional<AttributeFormat> Attribute(VertexFormat format);
+
 struct GraphicsState {
   id<MTLRenderPipelineState> Native;
   id<MTLDepthStencilState> Depth;

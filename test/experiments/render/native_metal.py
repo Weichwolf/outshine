@@ -8,19 +8,21 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import shlex
 import shutil
 import subprocess
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def run(command):
+def run(command, log=None):
     result = subprocess.run(command, cwd=ROOT, check=False, capture_output=True,
                             text=True, timeout=180)
+    if log is not None:
+        log.write_text(result.stdout + result.stderr)
     if result.returncode:
         raise SystemExit(f"{shlex.join(command)}\n{result.stdout}{result.stderr}")
     return result.stdout
@@ -53,41 +55,43 @@ def native_api(output, glslang, toolchain, cross_flags):
              "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
         return binary
 
-    binary = build_probe("native-compute-probe", "NativeComputeProbe.cpp")
-    text = run([str(binary), *shaders])
-    (output / "native-compute-probe.log").write_text(text)
-    verdict = [line.split() for line in text.splitlines() if line.startswith("CHECKS ")]
-    if len(verdict) != 1 or verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
-        raise SystemExit(f"native compute did not produce a clean verdict: {text}")
+    def check_probe(name, source, *arguments):
+        binary = build_probe(name, source)
+        text = run([str(binary), *map(str, arguments)], output / (name + ".log"))
+        verdict = [line.split() for line in text.splitlines() if line.startswith("CHECKS ")]
+        expected = ["FAILURES", "0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]
+        if (len(verdict) != 1 or verdict[0][2:] != expected or
+                not verdict[0][1].isdigit() or int(verdict[0][1]) <= 0):
+            raise SystemExit(f"{name} did not produce a clean verdict: {text}")
+        return int(verdict[0][1])
+
+    checks = check_probe("native-compute-probe", "NativeComputeProbe.cpp", *shaders)
     texture_shader = output / "native_texture.comp.spv"
     run([glslang, "-V", "--target-env", "vulkan1.0",
          str(Path(__file__).with_name("native_texture.comp")), "-o", str(texture_shader)])
-    texture_binary = build_probe("native-texture-probe", "NativeTextureProbe.cpp")
-    texture_text = run([str(texture_binary), str(texture_shader), str(output / "depthPyramid.comp.spv")])
-    (output / "native-texture-probe.log").write_text(texture_text)
-    texture_verdict = [line.split() for line in texture_text.splitlines() if line.startswith("CHECKS ")]
-    if len(texture_verdict) != 1 or texture_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
-        raise SystemExit(f"native textures did not produce a clean verdict: {texture_text}")
-    raster_binary = build_probe("native-raster-probe", "NativeRasterProbe.cpp")
+    texture_checks = check_probe("native-texture-probe", "NativeTextureProbe.cpp",
+                                 texture_shader, output / "depthPyramid.comp.spv")
     present = ROOT / "src/render/shaders/present.frag"
     present_shader = output / "present.frag.spv"
     run([glslang, "-V", "--target-env", "vulkan1.0", str(present), "-o", str(present_shader)])
-    raster_text = run([str(raster_binary), str(output / "fullscreen.vert.spv"),
-                       str(output / "native_metal_mrt.frag.spv"), str(present_shader)])
-    (output / "native-raster-probe.log").write_text(raster_text)
-    raster_verdict = [line.split() for line in raster_text.splitlines() if line.startswith("CHECKS ")]
-    if len(raster_verdict) != 1 or raster_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
-        raise SystemExit(f"native raster pipelines did not produce a clean verdict: {raster_text}")
-    pass_binary = build_probe("native-render-pass-probe", "NativeRenderPassProbe.cpp")
-    pass_text = run([str(pass_binary), shaders[-1]])
-    (output / "native-render-pass-probe.log").write_text(pass_text)
-    pass_verdict = [line.split() for line in pass_text.splitlines() if line.startswith("CHECKS ")]
-    if len(pass_verdict) != 1 or pass_verdict[0][3:] != ["0", "SKIPPED", "0", "UNPREPARED", "0", "PARTIAL", "0"]:
-        raise SystemExit(f"native render passes did not produce a clean verdict: {pass_text}")
-    return {"checks": int(verdict[0][1]), "failures": 0,
-            "texture_checks": int(texture_verdict[0][1]),
-            "raster_pipeline_checks": int(raster_verdict[0][1]),
-            "render_pass_checks": int(pass_verdict[0][1])}, sources
+    raster_checks = check_probe("native-raster-probe", "NativeRasterProbe.cpp",
+                                output / "fullscreen.vert.spv", output / "native_metal_mrt.frag.spv",
+                                present_shader)
+    pass_checks = check_probe("native-render-pass-probe", "NativeRenderPassProbe.cpp", shaders[-1])
+    draw_shaders = []
+    for name in ("native_draw.vert", "native_draw.frag"):
+        source = Path(__file__).with_name(name)
+        destination = output / (name + ".spv")
+        run([glslang, "-V", "--target-env", "vulkan1.0", str(source), "-o", str(destination)])
+        draw_shaders.append(str(destination))
+    draw_checks = check_probe("native-draw-probe", "NativeDrawProbe.cpp", *draw_shaders)
+    mrt_checks = check_probe("native-mrt-probe", "NativeMrtProbe.cpp",
+                             output / "fullscreen.vert.spv", output / "native_metal_mrt.frag.spv",
+                             output / "depthPyramid.comp.spv")
+    return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
+            "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
+            "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks}, sources
+
 
 
 def main():
@@ -126,11 +130,11 @@ def main():
          "-lspirv-cross-msl", "-lspirv-cross-hlsl", "-lspirv-cross-glsl",
          "-lspirv-cross-reflect", "-lspirv-cross-cpp", "-lspirv-cross-core",
          "-framework", "Foundation", "-framework", "Metal", "-o", str(binary)])
-    result = json.loads(run([str(binary), *shaders]))
+    result = json.loads(run([str(binary), *shaders], output / "native-metal-probe.log"))
     for name, data in (("truncated", b"\x03\x02\x23\x07"), ("bad-header", bytes(20))):
         bad = output / (name + ".spv")
         bad.write_bytes(data)
-        rejected = subprocess.run([str(binary), str(bad), *shaders[1:]], cwd=ROOT,
+        rejected = subprocess.run([str(binary), str(bad), *shaders[1:]], check=False, cwd=ROOT,
                                   capture_output=True, text=True, timeout=30)
         if rejected.returncode != 3:
             raise SystemExit(f"{name} was not rejected at the shader boundary: {rejected.stderr}")
@@ -147,6 +151,10 @@ def main():
              ROOT / "test/harness/render/NativeTextureProbe.cpp",
              ROOT / "test/harness/render/NativeRasterProbe.cpp",
              ROOT / "test/harness/render/NativeRenderPassProbe.cpp",
+             ROOT / "test/harness/render/NativeDrawProbe.cpp",
+             ROOT / "test/harness/render/NativeMrtProbe.cpp",
+             Path(__file__).with_name("native_draw.vert"),
+             Path(__file__).with_name("native_draw.frag"),
              ROOT / "src/render/shaders/present.frag",
              ROOT / "test/harness/render/NativeGpuCheck.h",
              Path(__file__).with_name("native_texture.comp"),
@@ -158,7 +166,10 @@ def main():
              *(ROOT / "src/render/device/native/metal").glob("*.h")]
     result["source_sha256"] = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
                                for p in files}
-    result["scope"] = "direct Metal MRT and common-API compute/textures/graphics pipelines/render passes; not native Place acceptance"
+    with (ROOT / "build/liboutshine.a").open("rb") as archive:
+        result["archive_sha256"] = hashlib.file_digest(archive, "sha256").hexdigest()
+    result["metal_debug_layer"] = os.environ.get("MTL_DEBUG_LAYER", "")
+    result["scope"] = "direct Metal MRT and common-API compute/textures/graphics pipelines/render passes/draws; not native Place acceptance"
     (output / "receipt.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))
 
