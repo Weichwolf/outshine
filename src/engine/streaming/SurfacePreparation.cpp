@@ -6,7 +6,6 @@
 #include "PreparedTerrainAssets.h"
 #include "PreparedBuildingAssets.h"
 #include "ReadTextFile.h"
-#include "GroundPalette.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -62,10 +61,9 @@ SurfacePreparation::BindRegionCache(const World::StoragePaths &under,
   if (!materials || !vegetation) {
     return std::unexpected("could not bind the prepared ground region rules");
   }
+  materials->insert(0, "ground-palette-layers-1\n");
   materials->push_back('\0');
   materials->append(*vegetation);
-  materials->push_back('\0');
-  materials->append(Render::kGroundMaterialPaletteRecipe);
   auto regions =
       Generators::Osm::PreparedGroundRegions::Open(under.AssetCache, sources, *materials);
   if (!regions) { return std::unexpected(std::move(regions.error())); }
