@@ -11,7 +11,7 @@ template <typename Flag> class UseMask {
 public:
   constexpr UseMask() = default;
 
-  constexpr UseMask(Flag flag) noexcept : Bits_(static_cast<uint32_t>(flag)) {}
+  explicit(false) constexpr UseMask(Flag flag) noexcept : Bits_(static_cast<uint32_t>(flag)) {}
 
   [[nodiscard]] constexpr UseMask operator|(UseMask right) const noexcept {
     UseMask combined = *this;
