@@ -28,6 +28,12 @@ vec3 operator*(vec3 value, float scale) {
   return {value.x * scale, value.y * scale, value.z * scale};
 }
 
+namespace {
+vec3 operator-(vec3 a, vec3 b) {
+  return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+}
+
 vec3 operator+(vec3 a, vec3 b) {
   return {a.x + b.x, a.y + b.y, a.z + b.z};
 }
@@ -42,6 +48,7 @@ float mix(float a, float b, float t) {
 
 #include "src/render/shaders/periodicBand.glsl"
 #include "src/render/shaders/facadeOpenings.glsl"
+#include "src/render/shaders/facadeBands.glsl"
 }
 
 namespace {
@@ -90,8 +97,71 @@ void CheckCoverage(Shader::vec2 fractions) {
   }
 }
 
+namespace {
+void CheckBands() {
+  using namespace outshine::Test;
+  constexpr double kBandM = 0.16;
+  constexpr double kBandDarkening = 0.35;
+  constexpr float kOpeningHeight = 0.53f;
+  constexpr float kCommercialHeight = 0.65f;
+  constexpr float kTypicalFloorM = 2.9f;
+  constexpr double kCoverageError = 5e-5;
+  constexpr double kLinearError = 1e-7;
+  constexpr double kNarrowGap = 0.02;
+  constexpr double kProductError = 0.002;
+  for (const float floorM : {1.0f, 2.4f, 2.9f, 4.0f, 12.0f}) {
+    const double fraction = std::min(kBandM / floorM, kBandDarkening);
+    for (const float at : {-4096.9f, -2.47f, 0.0f, 0.03f, 0.5f, 4096.125f}) {
+      for (const float width : {0.0002f, 0.03f, 0.5f, 1.0f, 16.0f}) {
+        const double expected = VisibleFraction(at, width, 0, 0.5 * fraction) +
+                                VisibleFraction(at, width, 1.0 - 0.5 * fraction, 1);
+        CHECK_NEAR(Shader::facadeStoreyBand(kCommercialHeight, at, width, 1.0f / floorM),
+                   expected,
+                   kCoverageError,
+                   "coverage",
+                   "metric bands equal explicitly clipped opaque floor-boundary intervals");
+      }
+    }
+  }
+  const float band = Shader::facadeStoreyBand(kOpeningHeight, 0.0f, 16.0f, 1.0f / kTypicalFloorM);
+  CHECK_NEAR(band,
+             kBandM / kTypicalFloorM,
+             kLinearError,
+             "coverage",
+             "whole floors preserve metric band area");
+  CHECK_NEAR(Shader::facadeStoreyBand(1.0f - static_cast<float>(kNarrowGap), 0.5f, 1.0f, 1.0f),
+             kNarrowGap,
+             kLinearError,
+             "coverage",
+             "band thickness is bounded by the opaque gap");
+  CHECK(Shader::facadeStoreyBand(1, 0, 1, 1) == 0, "full glazing leaves no band");
+  CHECK(Shader::facadeStoreyBand(kOpeningHeight, 0, 1, 0) == 0,
+        "degenerate metric frame adds no band");
+  constexpr float opening = 0.48f * 0.53f;
+  constexpr float pane = (0.44f - 0.012f) * 0.49f;
+  const Shader::vec3 wall(0.5f, 0.4f, 0.3f);
+  const auto result = Shader::facadeBandedWindow(opening, pane, band, wall, 0.8f);
+  const double expected =
+      0.5 * (1 - opening - band) + 0.325 * band + 0.48 * (opening - pane) + 0.025 * pane;
+  CHECK_NEAR(result.albedo.x,
+             expected,
+             kLinearError,
+             "linear",
+             "one disjoint wall/band/frame/glass mixture");
+  const auto old = Shader::facadeWindow(opening, pane, wall, 0.8f);
+  CHECK(result.roughness == old.roughness, "band and plaster share roughness");
+  const auto unchanged = Shader::facadeBandedWindow(opening, pane, 0, wall, 0.8f);
+  CHECK(unchanged.albedo.x == old.albedo.x && unchanged.roughness == old.roughness,
+        "zero band exactly preserves the existing facade");
+  const auto sequential = Shader::facadeWindow(opening, pane, wall * (1.0f - 0.35f * band), 0.8f);
+  CHECK(std::abs(sequential.albedo.x - result.albedo.x) > kProductError,
+        "multiplying already filtered masks fails the same area-weighted reference");
+}
+}
+
 int main() {
   using namespace outshine::Test;
+  CheckBands();
   for (const auto fractions : {Shader::vec2(.48f, .53f),
                                Shader::vec2(.68f, .65f),
                                Shader::vec2(.57f, .62f),
