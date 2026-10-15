@@ -1,0 +1,64 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "airPrefix.glsl"
+
+#include "AirPrefixProbeLayout.h"
+#ifndef AIR_PREFIX_BENCH_EVENTS
+#define AIR_PREFIX_BENCH_EVENTS 0
+#endif
+#ifndef AIR_PREFIX_PHYSICAL_RAY
+#define AIR_PREFIX_PHYSICAL_RAY 0
+#endif
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D veil;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
+layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
+layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+
+float probeQueryDistance(float requestedKm, float entryKm, float extentKm) {
+#if AIR_PREFIX_PHYSICAL_RAY
+  return clamp(requestedKm - entryKm, 0.0, extentKm);
+#else
+  return requestedKm;
+#endif
+}
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= uint(from.rays.length())) { return; }
+  ProbeRay ray = from.rays[index];
+  float entryKm = 0.0;
+#if AIR_PREFIX_PHYSICAL_RAY
+  AirPathSpan span = airPhysicalSpan(pushed.Air, ray.Ray);
+  entryKm = span.BeginKm;
+  ray.Ray = airPathRay(pushed.Air, ray.Ray, span);
+#endif
+  AirPrefix prefix = airPrefixBegin(pushed.Air, ray.Ray, veil, multiScatter);
+#if AIR_PREFIX_BENCH_EVENTS > 0
+  vec3 sumL = vec3(0.0);
+  vec3 sumT = vec3(0.0);
+  float endKm = query.distanceKm[ray.QueryBegin];
+  for (uint event = 1u; event <= uint(AIR_PREFIX_BENCH_EVENTS); ++event) {
+    float distanceKm = probeQueryDistance(
+        endKm * float(event) / float(AIR_PREFIX_BENCH_EVENTS), entryKm, ray.Ray.DistanceKm);
+    AirTransfer evaluated = airPrefixAdvance(prefix, pushed.Air, distanceKm, veil, multiScatter);
+    sumL += evaluated.RadiancePerLux;
+    sumT += evaluated.Transmittance;
+  }
+  sumL /= float(AIR_PREFIX_BENCH_EVENTS);
+  sumT /= float(AIR_PREFIX_BENCH_EVENTS);
+  into.samples[ray.QueryBegin] = ProbeSample(sumL.r, sumL.g, sumL.b, sumT.r, sumT.g, sumT.b,
+      prefix.SourceEvaluations, 0u);
+#else
+  for (uint at = ray.QueryBegin; at < ray.QueryEnd; ++at) {
+    float distanceKm = probeQueryDistance(query.distanceKm[at], entryKm, ray.Ray.DistanceKm);
+    AirTransfer evaluated = airPrefixAdvance(prefix, pushed.Air, distanceKm, veil, multiScatter);
+    into.samples[at] = ProbeSample(evaluated.RadiancePerLux.r, evaluated.RadiancePerLux.g,
+        evaluated.RadiancePerLux.b, evaluated.Transmittance.r, evaluated.Transmittance.g,
+        evaluated.Transmittance.b, prefix.SourceEvaluations, 0u);
+  }
+#endif
+}

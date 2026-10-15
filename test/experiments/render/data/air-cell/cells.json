@@ -1,0 +1,14 @@
+{
+  "scope": "One-cell mathematics on quantized FP32 coefficients; independent NumPy FP64 expectations. No source-LUT, streaming-state, GPU-time or runtime-image proof.",
+  "count": 6706,
+  "input_stride_bytes": 32,
+  "expected_stride_bytes": 16,
+  "endianness": "little",
+  "reference_sha256": "dc47f393d9a99212055f82fd3499cfded5c3ad83c58e4b6fef4cd2f8ff0ab20b",
+  "files_sha256": {
+    "inputs.bin": "c1e85bff8c438e4f6dd2d7ab49529b772218c5123a105f1bfdbd3d10507e90e7",
+    "expected.bin": "dfa13ab9ea9fc2f46fbe1b3c5804b39fe1185d76f362bae00d293fcb55cd26e3"
+  },
+  "provenance": "Unchanged coefficient fixtures previously checked in PR233 at88461d5de: 18 declared Place/time rays, positive Bernstein cells, 1024 seed206 adversarial records and homogeneous extremes. FP64 expectations evaluate the fixed four-node coefficient model, not a converged arbitrary opaque-cell RTE. Copied byte-identically for native Metal/Vulkan replay; normal tests do not generate or update them.",
+  "reference_source_commit": "a034042cf"
+}

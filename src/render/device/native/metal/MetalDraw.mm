@@ -38,19 +38,40 @@ bool AreaFits(const DrawState &state, const RenderState &pass) {
          clip.Width <= pass.Width - clip.X && clip.Height <= pass.Height - clip.Y;
 }
 
-Result<std::vector<VertexArgument>>
-VertexArguments(const GraphicsState &pipeline, const DrawDescription &draw, uint64_t device) {
-  if (draw.State.Vertices.size() != pipeline.Streams.size()) {
+bool FetchFits(ByteRange buffer,
+               uint32_t extent,
+               const VertexStream &stream,
+               VertexRange range,
+               DrawKind kind) {
+  if ((kind != DrawKind::Indirect && (range.Count == 0 || range.Instances == 0)) || extent == 0) {
+    return true;
+  }
+  if (extent > buffer.Bytes) { return false; }
+  if (kind == DrawKind::Indirect ||
+      (kind == DrawKind::Indexed && stream.Rate == VertexRate::Vertex)) {
+    return true;
+  }
+  const uint64_t count = stream.Rate == VertexRate::Vertex ? range.Count : range.Instances;
+  const uint64_t first = stream.Rate == VertexRate::Vertex ? range.First : range.FirstInstance;
+  return first + count - 1 <= (buffer.Bytes - extent) / stream.Stride;
+}
+
+Result<std::vector<VertexArgument>> VertexArguments(const GraphicsState &pipeline,
+                                                    const DrawState &state,
+                                                    VertexRange range,
+                                                    DrawKind kind,
+                                                    uint64_t device) {
+  if (state.Vertices.size() != pipeline.Streams.size()) {
     return Failure(ErrorKind::Invalid, "Metal vertex buffers differ from the pipeline layout");
   }
   std::vector<VertexArgument> result;
   result.reserve(pipeline.Streams.size());
   for (const auto &stream : pipeline.Streams) {
     const auto matches = [&](const VertexBuffer &buffer) { return buffer.Stream == stream.Slot; };
-    if (std::ranges::count_if(draw.State.Vertices, matches) != 1) {
+    if (std::ranges::count_if(state.Vertices, matches) != 1) {
       return Failure(ErrorKind::Invalid, "missing or repeated Metal vertex stream binding");
     }
-    const auto &binding = *std::ranges::find_if(draw.State.Vertices, matches);
+    const auto &binding = *std::ranges::find_if(state.Vertices, matches);
     const auto *const buffer = dynamic_cast<const MetalBuffer *>(binding.Data);
     if (buffer == nullptr || buffer->State->Device != device ||
         !Has(buffer->Description().Use, BufferUse::Vertex) ||
@@ -63,12 +84,7 @@ VertexArguments(const GraphicsState &pipeline, const DrawDescription &draw, uint
         extent = std::max(extent, attribute.Offset + Attribute(attribute.Format)->Bytes);
       }
     }
-    const auto &range = draw.Range;
-    const uint64_t count = stream.Rate == VertexRate::Vertex ? range.Count : range.Instances;
-    const uint64_t first = stream.Rate == VertexRate::Vertex ? range.First : range.FirstInstance;
-    if (range.Count != 0 && range.Instances != 0 && extent != 0 &&
-        (extent > binding.Range.Bytes ||
-         first + count - 1 > (binding.Range.Bytes - extent) / stream.Stride)) {
+    if (!FetchFits(binding.Range, extent, stream, range, kind)) {
       return Failure(ErrorKind::Invalid, "Metal draw exceeds the bound vertex/instance span");
     }
     result.push_back({.State = buffer->State, .Offset = binding.Range.Offset, .Slot = stream.Slot});
@@ -87,14 +103,42 @@ bool AttachmentAlias(const RenderState &pass, const ShaderArgument &argument) {
   return std::ranges::any_of(pass.Colours, overlaps) || (pass.Depth && overlaps(*pass.Depth));
 }
 
+void ApplyRasterState(id<MTLRenderCommandEncoder> encoder,
+                      const GraphicsState &graphics,
+                      const DrawState &state,
+                      std::span<const VertexArgument> vertices) {
+  [encoder setRenderPipelineState:graphics.Native];
+  [encoder setDepthStencilState:graphics.Depth];
+  [encoder setCullMode:graphics.Culling];
+  [encoder setFrontFacingWinding:graphics.Front];
+  const auto area = state.Area;
+  [encoder setViewport:MTLViewport{.originX = area.X,
+                                   .originY = area.Y,
+                                   .width = area.Width,
+                                   .height = area.Height,
+                                   .znear = area.MinDepth,
+                                   .zfar = area.MaxDepth}];
+  const auto clip = state.Clip;
+  [encoder
+      setScissorRect:MTLScissorRect{
+                         .x = clip.X, .y = clip.Y, .width = clip.Width, .height = clip.Height}];
+  for (const auto &binding : vertices) {
+    [encoder setVertexBuffer:binding.State->Native
+                      offset:binding.Offset
+                     atIndex:kFirstVertexBuffer + binding.Slot];
+  }
 }
 
-Result<void> MetalCommands::Draw(const DrawDescription &description) {
+}
+
+Result<void> MetalCommands::PrepareDraw(const DrawState &state,
+                                        VertexRange range,
+                                        DrawKind kind,
+                                        std::span<const std::shared_ptr<BufferState>> reads) {
   if (!OnOwner() || !Render) {
     return Failure(ErrorKind::Invalid, "Metal draw requires its owner and an open render pass");
   }
   @autoreleasepool {
-    const auto &state = description.State;
     const auto *const pipeline = dynamic_cast<const MetalGraphicsPipeline *>(state.Pipeline);
     if (pipeline == nullptr || pipeline->State->Device != Device ||
         !TargetsMatch(*Render, *pipeline->State) || !AreaFits(state, *Render) ||
@@ -102,7 +146,7 @@ Result<void> MetalCommands::Draw(const DrawDescription &description) {
       return Failure(ErrorKind::Invalid, "invalid Metal draw pipeline, targets, area or bindings");
     }
     const auto &graphics = *pipeline->State;
-    const auto vertices = VertexArguments(graphics, description, Device);
+    const auto vertices = VertexArguments(graphics, state, range, kind, Device);
     if (!vertices) { return std::unexpected(vertices.error()); }
     auto vertex = Arguments(graphics.Vertex, state.Bindings, Device);
     if (!vertex) { return std::unexpected(vertex.error()); }
@@ -110,6 +154,8 @@ Result<void> MetalCommands::Draw(const DrawDescription &description) {
                         ? Arguments(*graphics.Fragment, state.Bindings, Device)
                         : Result<std::vector<ShaderArgument>>(std::vector<ShaderArgument>{});
     if (!fragment) { return std::unexpected(fragment.error()); }
+    const auto aliases = CheckImageAliases(*vertex, *fragment);
+    if (!aliases) { return aliases; }
     std::vector<id<MTLResource>> hazards;
     const auto alias = [&](const ShaderArgument &argument) {
       return AttachmentAlias(*Render, argument);
@@ -121,6 +167,8 @@ Result<void> MetalCommands::Draw(const DrawDescription &description) {
       const auto prepared = PrepareResources(*arguments, hazards);
       if (!prepared) { return prepared; }
     }
+    const auto readBuffers = PrepareReads(reads, hazards);
+    if (!readBuffers) { return readBuffers; }
     for (const auto &binding : *vertices) {
       const auto held = Hold(binding.State);
       if (!held) { return held; }
@@ -143,42 +191,26 @@ Result<void> MetalCommands::Draw(const DrawDescription &description) {
       bound = Bind(encoder, ShaderStage::Fragment, *graphics.Fragment, *fragment);
       if (!bound) { return bound; }
     }
-    [encoder setRenderPipelineState:graphics.Native];
-    [encoder setDepthStencilState:graphics.Depth];
-    [encoder setCullMode:graphics.Culling];
-    [encoder setFrontFacingWinding:graphics.Front];
-    const auto area = state.Area;
-    [encoder setViewport:MTLViewport{.originX = area.X,
-                                     .originY = area.Y,
-                                     .width = area.Width,
-                                     .height = area.Height,
-                                     .znear = area.MinDepth,
-                                     .zfar = area.MaxDepth}];
-    const auto clip = state.Clip;
-    [encoder
-        setScissorRect:MTLScissorRect{
-                           .x = clip.X, .y = clip.Y, .width = clip.Width, .height = clip.Height}];
-    for (const auto &binding : *vertices) {
-      [encoder setVertexBuffer:binding.State->Native
-                        offset:binding.Offset
-                       atIndex:kFirstVertexBuffer + binding.Slot];
-    }
-    const auto range = description.Range;
-    [encoder drawPrimitives:MTLPrimitiveTypeTriangle
-                vertexStart:range.First
-                vertexCount:range.Count
-              instanceCount:range.Instances
-               baseInstance:range.FirstInstance];
+    ApplyRasterState(encoder, graphics, state, *vertices);
     UpdateAccesses(*vertex);
     UpdateAccesses(*fragment);
-    for (const auto &binding : *vertices) {
-      if (std::ranges::find(Accesses, binding.State->Native, &TrackedResource::Resource) ==
-          Accesses.end()) {
-        Accesses.push_back({.Resource = binding.State->Native, .Usage = Access::Read});
-      }
-    }
+    for (const auto &binding : *vertices) { UpdateAccess(binding.State->Native, Access::Read); }
+    for (const auto &buffer : reads) { UpdateAccess(buffer->Native, Access::Read); }
     return {};
   }
+}
+
+Result<void> MetalCommands::Draw(const DrawDescription &description) {
+  const auto prepared = PrepareDraw(description.State, description.Range, DrawKind::Direct);
+  if (!prepared) { return prepared; }
+  const auto range = description.Range;
+  if (range.Count == 0 || range.Instances == 0) { return {}; }
+  [Render->Encoder drawPrimitives:MTLPrimitiveTypeTriangle
+                      vertexStart:range.First
+                      vertexCount:range.Count
+                    instanceCount:range.Instances
+                     baseInstance:range.FirstInstance];
+  return {};
 }
 
 }

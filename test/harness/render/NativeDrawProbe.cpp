@@ -2,6 +2,8 @@
 #include "Check.h"
 #include "Device.h"
 #include <array>
+#include <algorithm>
+#include <string_view>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -191,6 +193,20 @@ void InvalidDraws(Commands &commands, const DrawDescription &description, const 
   reject(draw);
 }
 
+void ReservedImages(Device &device, const Texture &target, Texture &source, Buffer &pixels) {
+  auto other = Require(device.Begin());
+  const auto targetUse = other->Copy(
+      target, pixels, {.RowBytes = kRowBytes, .Region = {.Width = kWidth, .Height = kHeight}});
+  CHECK(!targetUse && targetUse.error().Kind == ErrorKind::Busy,
+        "an active render attachment stays reserved by its recording");
+  const auto upload = Require(device.CreateBuffer(
+      {.Bytes = kRowBytes, .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
+  const auto sampledUse =
+      other->Copy(*upload, source, {.RowBytes = kRowBytes, .Region = {.Width = 1, .Height = 1}});
+  CHECK(!sampledUse && sampledUse.error().Kind == ErrorKind::Busy,
+        "a sampled draw image stays reserved by its recording");
+}
+
 void Draw(Device &device,
           std::span<const uint32_t> vertex,
           std::span<const uint32_t> fragment,
@@ -205,7 +221,11 @@ void Draw(Device &device,
                                                           {1, -1, 1, 1},
                                                           {1, 1, 1, 0}}};
   constexpr std::array<float, 4> instances{100, 100, 0, 0};
-  constexpr std::array<uint32_t, 4> levels{999, 2, 3, 4};
+  constexpr uint32_t ignoredStorageWord = 999;
+  const auto storageOffset =
+      std::max<uint64_t>(sizeof(uint32_t), device.Limits().StorageBufferAlignment);
+  std::vector<uint32_t> levels(storageOffset / sizeof(uint32_t), ignoredStorageWord);
+  levels.insert(levels.end(), {2, 3, 4});
   auto geometry =
       UploadAs(device, *commands, std::as_bytes(std::span(vertices)), BufferUse::Vertex);
   auto offsets =
@@ -233,7 +253,8 @@ void Draw(Device &device,
       Binding{.Set = 0, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(&transform, 1))}},
       Binding{.Set = 1,
               .Slot = 0,
-              .Value = StorageBuffer{.Data = storage.get(), .Range = {.Offset = 4, .Bytes = 12}}},
+              .Value = StorageBuffer{.Data = storage.get(),
+                                     .Range = {.Offset = storageOffset, .Bytes = 12}}},
       Binding{.Set = 2, .Slot = 0, .Value = Uniform{std::as_bytes(std::span(tint))}},
       Binding{.Set = 2,
               .Slot = 1,
@@ -263,6 +284,7 @@ void Draw(Device &device,
                                                               .Clear = clear}}));
   if (variant == Case::Normal) { InvalidDraws(*commands, draw, *target); }
   Require(commands->Draw(draw));
+  if (variant == Case::Normal) { ReservedImages(device, *target, *texture, *pixels); }
   transform.Transform.fill(0);
   tint.fill(0);
   Require(commands->EndRenderPass());
@@ -290,8 +312,10 @@ void Draw(Device &device,
 }
 
 int main(int argc, char *const *argv) {
-  if (argc != 3) { return 1; }
-  auto device = Require(CreateDevice());
+  if ((argc != 3 && argc != 4) || (argc == 4 && std::string_view(argv[3]) != "--validation")) {
+    return 1;
+  }
+  auto device = Require(CreateDevice({.Validation = argc == 4}));
   const auto vertex = Spirv(argv[1]);
   const auto fragment = Spirv(argv[2]);
   for (const auto variant : {Case::Normal,
