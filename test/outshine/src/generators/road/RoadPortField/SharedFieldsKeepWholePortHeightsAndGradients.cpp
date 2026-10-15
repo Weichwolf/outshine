@@ -156,11 +156,128 @@ void CheckBoundaries() {
   CHECK(!RoadPortField::Make(planes, std::vector<RoadPortField::Patch>(8193)),
         "patch work is bounded before allocating owned state");
 }
+
+void CheckWholeFaceBounds() {
+  auto planes = Planes();
+  planes[0].HeightM = 0;
+  planes[0].Gradient = {};
+  planes[1].HeightM = 3;
+  planes[1].Gradient = {};
+  auto patch = Patch();
+  const std::array<EastNorth, 3> triangle{
+      {{.EastM = 0, .NorthM = -4}, {.EastM = 100, .NorthM = -4}, {.EastM = 100, .NorthM = 4}}};
+  const std::array frame{1., 0., 0., 1.};
+  const auto field = RoadPortField::Make(planes, std::span{&patch, 1u});
+  CHECK(field.has_value(), "a cubic rise has flat parent planes at both whole cuts");
+  if (!field) { return; }
+  const auto bound = field->Bounds(0, triangle, frame);
+  CHECK(bound.has_value(), "whole-face rational controls construct");
+  if (!bound) { return; }
+  CHECK(std::abs(bound->NormalizedGradientMaximum - .06) < 1.e-11,
+        "elevated quartic Bernstein controls bound the interior peak despite zero corner slopes");
+  CHECK(bound->HeightChordErrorM >= .75 - 1.e-11 && bound->HeightChordErrorM < .75 + 1.e-9,
+        "cubic-minus-chord controls have the independently derived three-quarter-metre hull");
+  for (int step = 0; step <= 1000; ++step) {
+    const double t = step / 1000.;
+    const double height = 9 * t * t - 6 * t * t * t;
+    const double slope = .18 * t * (1 - t);
+    CHECK(slope <= bound->NormalizedGradientMaximum + 1.e-12 &&
+              std::abs(height - 3 * t) <= bound->HeightChordErrorM + 1.e-12,
+          "independent cubic heights and derivative remain inside the entire-face hull");
+  }
+  CHECK(!field->Bounds(0, triangle, {0, 0, 0, 0}),
+        "singular grade frames cannot certify a surface");
+  CHECK(!field->Bounds(0, triangle, {1.e13, 0, 0, 1}), "grade-frame coefficients are bounded");
+  CHECK(!field->Bounds(1, triangle, frame), "bound queries validate patch ownership");
+  auto invalid = triangle;
+  invalid[0].EastM = std::numeric_limits<double>::infinity();
+  CHECK(!field->Bounds(0, invalid, frame), "all triangle corners must be finite");
+}
+
+void CheckPolynomialBounds() {
+  const auto planes = Planes();
+  auto patch = Patch();
+  const std::array<EastNorth, 3> triangle{
+      {{.EastM = 0, .NorthM = -4}, {.EastM = 100, .NorthM = -4}, {.EastM = 100, .NorthM = 4}}};
+  const std::array frame{12.5, 3., -2., 40.};
+  const auto field = RoadPortField::Make(planes, std::span{&patch, 1u});
+  CHECK(field.has_value(), "independent quartic road has unequal end grades and crossfalls");
+  if (!field) { return; }
+  const auto bound = field->Bounds(0, triangle, frame);
+  CHECK(bound.has_value(), "anisotropic grade frame receives a whole-face hull");
+  if (!bound) { return; }
+  for (int first = 0; first <= 80; ++first) {
+    for (int second = 0; first + second <= 80; ++second) {
+      const std::array weights{first / 80., second / 80., (80 - first - second) / 80.};
+      double x = 0;
+      double y = 0;
+      double linear = 0;
+      for (size_t corner = 0; corner < 3; ++corner) {
+        x += weights[corner] * triangle[corner].EastM;
+        y += weights[corner] * triangle[corner].NorthM;
+        linear +=
+            weights[corner] * Polynomial(triangle[corner].EastM, triangle[corner].NorthM).HeightM;
+      }
+      const auto sample = Polynomial(x, y);
+      const double normalized =
+          std::hypot(frame[0] * sample.Gradient.SlopeE + frame[1] * sample.Gradient.SlopeN,
+                     frame[2] * sample.Gradient.SlopeE + frame[3] * sample.Gradient.SlopeN);
+      CHECK(normalized <= bound->NormalizedGradientMaximum + 1.e-10 &&
+                std::abs(sample.HeightM - linear) <= bound->HeightChordErrorM + 1.e-10,
+            "independently expanded quartic stays inside every gradient and chord bound");
+    }
+  }
+  patch.Parents = {0, 0};
+  const auto affine = RoadPortField::Make(planes, std::span{&patch, 1u});
+  CHECK(affine.has_value(), "common-plane patches retain the affine fast case");
+  if (!affine) { return; }
+  const auto planeBound = affine->Bounds(0, triangle, frame);
+  const double expected =
+      std::hypot(frame[0] * .02 + frame[1] * .012, frame[2] * .02 + frame[3] * .012);
+  CHECK(planeBound && std::abs(planeBound->NormalizedGradientMaximum - expected) < 1.e-10 &&
+            planeBound->HeightChordErrorM < 1.e-8,
+        "an affine plane has its exact normalized gradient and only a numerical chord guard");
+}
+
+void CheckObliqueFaceBounds() {
+  std::array<RoadPortField::Plane, 2> planes{};
+  planes[1].HeightM = 3;
+  auto patch = Patch();
+  patch.InwardNormals[1] = {.EastM = -.8, .NorthM = .6};
+  const auto field = RoadPortField::Make(planes, std::span{&patch, 1u});
+  CHECK(field.has_value(), "oblique cuts retain the same flat parent planes");
+  if (!field) { return; }
+  const std::array<EastNorth, 3> triangle{
+      {{.EastM = 0, .NorthM = -4}, {.EastM = 97, .NorthM = -4}, {.EastM = 103, .NorthM = 4}}};
+  const auto bound = field->Bounds(0, triangle, {1, 0, 0, 1});
+  CHECK(bound.has_value(), "a nonconstant positive denominator yields a whole-face hull");
+  if (!bound) { return; }
+  for (int first = 0; first <= 50; ++first) {
+    for (int second = 0; first + second <= 50; ++second) {
+      const double a = first / 50.;
+      const double b = second / 50.;
+      const double c = 1 - a - b;
+      const double x = 97 * b + 103 * c;
+      const double y = -4 * (a + b) + 4 * c;
+      const double denominator = 80 + .2 * x + .6 * y;
+      const double t = x / denominator;
+      const double height = 9 * t * t - 6 * t * t * t;
+      const double factor = 18 * t * (1 - t) / (denominator * denominator);
+      const double gradient = std::hypot(factor * (80 + .6 * y), factor * .6 * x);
+      CHECK(gradient <= bound->NormalizedGradientMaximum + 1.e-11 &&
+                std::abs(height - 3 * (b + c)) <= bound->HeightChordErrorM + 1.e-11,
+            "independent rational height and XY derivative obey the positive Bernstein hull");
+    }
+  }
+}
 }
 
 int main() {
   CheckPolynomialAndFrame();
   CheckWholeObliquePorts();
   CheckBoundaries();
+  CheckWholeFaceBounds();
+  CheckPolynomialBounds();
+  CheckObliqueFaceBounds();
   return outshine::Test::Report();
 }
