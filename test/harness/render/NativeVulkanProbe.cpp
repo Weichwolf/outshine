@@ -277,6 +277,12 @@ int main(int argc, char **argv) {
   Check(scan->Layout().LocalSize[0] == 256, "scan workgroup reflected exactly");
   Check(compact->Layout().LocalSize[0] == 128, "compact workgroup reflected exactly");
   auto commands = Take(device->Begin());
+  const auto frame = device->AcquirePresentFrame();
+  Check(!frame && frame.error().Kind == ErrorKind::Unsupported,
+        "a headless device does not invent a present frame");
+  const auto presented = commands->Present(nullptr);
+  Check(!presented && presented.error().Kind == ErrorKind::Unsupported,
+        "a headless recording cannot silently accept presentation");
   std::vector<std::unique_ptr<Buffer>> staging;
   auto output = Record(*device, *commands, input, *scan, *compact, staging);
   auto slots = Readback(*device, *commands, *output.Slots);
