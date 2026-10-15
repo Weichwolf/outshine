@@ -1,4 +1,5 @@
 #include "NativeGpuCheck.h"
+#include "NativeSdr.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -26,6 +27,8 @@ constexpr int kFirstHeight = 96;
 constexpr int kSecondWidth = 154;
 constexpr int kSecondHeight = 112;
 constexpr int kOccupiedWidth = 192;
+constexpr std::array kRasterFormats{
+    Format::Bgra8Unorm, Format::Bgra8Srgb, Format::Rgba8Unorm, Format::Rgba8Srgb};
 double maxTargetMs = 0;
 double maxAcquireMs = 0;
 uint32_t targetCalls = 0;
@@ -42,11 +45,21 @@ Result<void> Target(Device &device, SDL_Window *window) {
 using Window = std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)>;
 
 struct Assets {
-  std::unique_ptr<GraphicsPipeline> Raster;
+  std::array<std::unique_ptr<GraphicsPipeline>, kRasterFormats.size()> Raster;
   std::unique_ptr<ComputePipeline> Delay;
   std::unique_ptr<Buffer> Values;
   std::unique_ptr<Texture> Offscreen;
   Completion First;
+
+  [[nodiscard]] const GraphicsPipeline &RasterFor(Format format) const {
+    const auto *const found = std::ranges::find(kRasterFormats, format);
+    CHECK(found != kRasterFormats.end(), "the target declares a supported SDR raster format");
+    if (found == kRasterFormats.end()) { Failed(); }
+    const auto index = static_cast<size_t>(found - kRasterFormats.begin());
+    CHECK(Raster[index] != nullptr, "the required pipeline was created before SDL video");
+    if (!Raster[index]) { Failed(); }
+    return *Raster[index];
+  }
 };
 
 std::unique_ptr<PresentFrame> Acquire(Device &device, SDL_Window *window) {
@@ -77,16 +90,21 @@ std::unique_ptr<PresentFrame> Acquire(Device &device, SDL_Window *window) {
 Assets Prepare(Device &device, char *const *argv) {
   const auto vertex = Spirv(argv[1]);
   const auto fragment = Spirv(argv[2]);
-  const std::array colours{ColourTarget{.Texels = Format::Bgra8Unorm, .Rgb = {}, .Alpha = {}}};
   Assets assets;
-  assets.Raster = Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
-                                                         .Fragment = ShaderCode{.Spirv = fragment},
-                                                         .Streams = {},
-                                                         .Attributes = {},
-                                                         .Colours = colours,
-                                                         .Depth = {},
-                                                         .Culling = Cull::None,
-                                                         .Label = {}}));
+  for (size_t index = 0; index < kRasterFormats.size(); ++index) {
+    const auto format = kRasterFormats[index];
+    if (!device.Supports(format, TextureUse::ColourAttachment, false)) { continue; }
+    const std::array colours{ColourTarget{.Texels = format, .Rgb = {}, .Alpha = {}}};
+    assets.Raster[index] =
+        Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vertex},
+                                               .Fragment = ShaderCode{.Spirv = fragment},
+                                               .Streams = {},
+                                               .Attributes = {},
+                                               .Colours = colours,
+                                               .Depth = {},
+                                               .Culling = Cull::None,
+                                               .Label = {}}));
+  }
   assets.Offscreen =
       Require(device.CreateTexture({.Width = 32,
                                     .Height = 16,
@@ -107,14 +125,14 @@ void Complete(Device &device, Completion done) {
         "accepted GPU work survives target changes");
 }
 
-void Pixels(Device &device, Buffer &readback, uint32_t width, uint32_t height) {
+void Pixels(Device &device, Buffer &readback, uint32_t width, uint32_t height, Format format) {
   const auto bytes = Require(device.MapRead(readback, {.Bytes = uint64_t{width} * height * 4}));
   uint64_t wrong = 0;
   for (uint32_t y = 0; y < height; ++y) {
     for (uint32_t x = 0; x < width; ++x) {
       const int band = static_cast<int>(x / 64 % 3);
-      const std::array expected{
-          band == 2 ? 204 : 26, band == 1 ? 204 : 26, band == 0 ? 204 : 26, 255};
+      const auto expected =
+          SdrPixel(band == 0 ? 0.8 : 0.1, band == 1 ? 0.8 : 0.1, band == 2 ? 0.8 : 0.1, format);
       for (size_t channel = 0; channel < 4; ++channel) {
         const int actual =
             std::to_integer<int>(bytes[(static_cast<size_t>(y) * width + x) * 4 + channel]);
@@ -134,7 +152,7 @@ Completion
 Render(Device &device, Assets &assets, std::unique_ptr<PresentFrame> frame, bool delayed = false) {
   const auto &image = frame->Image();
   const auto size = image.Description();
-  CHECK(size.Texels == Format::Bgra8Unorm, "the target exposes the actual shared BGRA format");
+  CHECK(IsSdr(size.Texels), "the target exposes its actual SDR attachment format");
   auto commands = Require(device.Begin());
   if (delayed) {
     const std::array bindings{Storage(0, 0, *assets.Values)};
@@ -142,7 +160,7 @@ Render(Device &device, Assets &assets, std::unique_ptr<PresentFrame> frame, bool
   }
   const std::array colours{ColourAttachment{.Image = {.Image = &image}, .Begin = Load::Clear}};
   Require(commands->BeginRenderPass({.Colours = colours, .Depth = {}}));
-  Require(commands->Draw({.State = {.Pipeline = assets.Raster.get(),
+  Require(commands->Draw({.State = {.Pipeline = &assets.RasterFor(size.Texels),
                                     .Bindings = {},
                                     .Vertices = {},
                                     .Area = {.Width = static_cast<float>(size.Width),
@@ -166,7 +184,7 @@ Render(Device &device, Assets &assets, std::unique_ptr<PresentFrame> frame, bool
   const auto done = Require(device.Submit(std::move(commands)));
   if (!delayed) {
     Complete(device, done);
-    if (readback) { Pixels(device, *readback, size.Width, size.Height); }
+    if (readback) { Pixels(device, *readback, size.Width, size.Height, size.Texels); }
   }
   return done;
 }
@@ -216,7 +234,7 @@ void Offscreen(Device &device, Assets &assets) {
       ColourAttachment{.Image = {.Image = assets.Offscreen.get()}, .Begin = Load::Clear}};
   auto commands = Require(device.Begin());
   Require(commands->BeginRenderPass({.Colours = colours, .Depth = {}}));
-  Require(commands->Draw({.State = {.Pipeline = assets.Raster.get(),
+  Require(commands->Draw({.State = {.Pipeline = &assets.RasterFor(size.Texels),
                                     .Bindings = {},
                                     .Vertices = {},
                                     .Area = {.Width = static_cast<float>(size.Width),
@@ -232,7 +250,7 @@ void Offscreen(Device &device, Assets &assets) {
                          {.RowBytes = uint64_t{size.Width} * 4,
                           .Region = {.Width = size.Width, .Height = size.Height}}));
   Complete(device, Require(device.Submit(std::move(commands))));
-  Pixels(device, *readback, size.Width, size.Height);
+  Pixels(device, *readback, size.Width, size.Height, size.Texels);
 }
 
 void Values(Device &device, const Assets &assets) {
