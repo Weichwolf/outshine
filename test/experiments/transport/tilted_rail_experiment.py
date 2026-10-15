@@ -108,19 +108,20 @@ def scenes(output, baseline, hardware, network):
     after = combined(
         [
             before,
-            (Mesh(hardware["vertices"], hardware["triangles"]), hardware["materials"]),
+            (
+                Mesh(hardware["vertices"], hardware["triangles"]),
+                np.where(hardware["materials"] == 6, 8, 9),
+            ),
         ]
     )
     camera = json.loads((baseline / "after-scene.json").read_text())
-    centre = (
-        hardware["vertices"][:, :2].min(axis=0)
-        + hardware["vertices"][:, :2].max(axis=0)
-    ) / 2
+    centre = np.median(hardware["vertices"][:, :2], axis=0)
     shift = np.r_[centre - np.asarray(camera["target"])[:2], 0]
     camera.update(
         eye=(np.asarray(camera["eye"]) + shift).tolist(),
         target=(np.asarray(camera["target"]) + shift).tolist(),
         span_m=1400,
+        colours=camera["colours"] + [[0.09, 0.11, 0.12, 1.0], [0.28, 0.26, 0.22, 1.0]],
     )
     records = []
     for name, (mesh, slots) in (("before", before), ("after", after)):

@@ -62,6 +62,15 @@ def metric_audit(product, gauge):
     bottom = np.concatenate(product.sleeper_bottoms)
     contact_error = float(abs((bottom - product.plane_origin) @ normal).max(initial=0))
     boxes = bake_rail_sleepers(transforms)
+    above = (
+        (np.vstack((product.rails.vertices, boxes.vertices)) - product.plane_origin)
+        @ normal
+        / normal[2]
+    )
+    if above.min() < -1e-9 or abs(above.max() - 0.352 / normal[2]) > 1e-9:
+        raise ValueError(
+            "actual tilted hardware envelope differs from its normal section"
+        )
     volume_error = abs(closed_volume(boxes) - len(transforms) * 2.6 * 0.24 * 0.18)
     rail_volume_error = abs(
         closed_volume(product.rails) - 2 * 0.00892425 * lengths.sum()
@@ -78,6 +87,7 @@ def metric_audit(product, gauge):
         "contact_error_m": contact_error,
         "sleeper_volume_error_m3": volume_error,
         "rail_volume_error_m3": rail_volume_error,
+        "maximum_height_above_actual_bed_m": float(above.max()),
     }
 
 
