@@ -54,7 +54,7 @@ int main() {
             !hour->CloudMid,
         "high cloud cover never creates an observed low cloud deck");
   CHECK(hour->Wind10m && std::abs(hour->Wind10m->EastMs + 4.0) < epsilon &&
-            std::abs(hour->Wind10m->SouthMs) < epsilon,
+            std::abs(hour->Wind10m->NorthMs) < epsilon,
         "meteorological east wind becomes westward flow at its stated 10m height");
   CHECK(hour->AirTemperature2mK == freezingK && hour->RelativeHumidity2m == 0.5 &&
             hour->SurfacePressurePa == expectedPressurePa,
@@ -72,7 +72,7 @@ int main() {
         "absent cloud base, vertical wind, visibility and model run are never fabricated");
   const auto &later = decoded->Hours[1];
   CHECK(!later.CloudTotal && !later.CloudLow && later.CloudHigh == 0.0 && later.Wind10m &&
-            later.Wind10m->EastMs == 0.0 && later.Wind10m->SouthMs == 0.0,
+            later.Wind10m->EastMs == 0.0 && later.Wind10m->NorthMs == 0.0,
         "null cloud values remain unknown; known calm does not require a bearing");
   return Report();
 }
