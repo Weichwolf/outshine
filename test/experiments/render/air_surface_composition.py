@@ -95,6 +95,23 @@ def run_checks():
                                         np.array([[2, 1, 3]]) * alpha,
                                         np.full((1, 3), 1 - alpha)))
         cases += 1
+        # Coverage is a mixture of an uncovered ray and the physical surface.
+        for physical_t in (np.zeros((1, 3)), np.ones((1, 3)),
+                           np.array([[0.1, 0.5, 0.9]])):
+            background = np.array([1, 2, 3])
+            intrinsic_surface = np.array([[2, 1, 3]])
+            uncovered = nested_transfer(background, source, air_t,
+                                         np.zeros((1, 3)), np.ones((1, 3)))
+            covered = nested_transfer(background, source, air_t,
+                                       intrinsic_surface, physical_t)
+            light, through = prefixes(source, air_t)
+            actual = compose_events(uncovered, light[:-1], through[:-1],
+                                     alpha * intrinsic_surface,
+                                     (1 - alpha) + alpha * physical_t)
+            expected = (1 - alpha) * uncovered + alpha * covered
+            np.testing.assert_allclose(actual, expected, rtol=2e-13, atol=2e-13)
+            worst = max(worst, float(np.max(np.abs(actual - expected))))
+            cases += 1
     front_t = np.exp(-0.1)
     front_l = 0.2 * (1 - front_t)
     eye = front_l + front_t * 0.8
