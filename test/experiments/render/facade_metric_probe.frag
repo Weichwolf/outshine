@@ -23,6 +23,10 @@ void main() {
   vec2 reference = vec2(dot(physical, vec3(cos(0.43), 0.0, sin(0.43))), physical.y);
   reference += vec2(1.6 * bays, materialAt().base.g);
   outMaterial = materialAt().base;
+#if EXPLICIT_METRES
+  outEstimate = vec4(uv - vec2(0.0, 1.0), 0.0, 1.0);
+#else
   outEstimate = vec4(at * metres, 0.0, 1.0);
+#endif
   outReference = vec4(reference, metres);
 }
