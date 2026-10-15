@@ -100,6 +100,9 @@ Die anfängliche Annahme einer Bitgleichheit zwischen verschiedenen Shader-
 Spezialisierungen ist damit ausdrücklich korrigiert. Bitgleiche Wiederholungen
 innerhalb jedes Kernels bleiben Pflicht. Kein Szenen-, Raster-, Bewegungs- oder
 Place-Nachweis daraus.
+Ein zusätzlicher Lauf desselben Shaders prüft bitgleich, dass die letzte Abfrage
+mit und ohne vorausgehende Zwischenabfragen denselben Transfer und dieselben
+Arbeitszähler liefert.
 
 Der Lauf prüft zusätzlich20868 vorhandene dichte Klarluftreferenzen mit variierenden
 Koeffizienten und echter gemeinsamer Zellteilung bei Wolkenextinktion0. Lights
