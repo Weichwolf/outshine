@@ -1,6 +1,10 @@
 #include "math/Units.h"
 #include "math/Vec2.h"
 #include "ClassificationRasterizer.h"
+#include "ClassSeed.h"
+#include <array>
+#include <cstddef>
+#include <bit>
 
 #include <algorithm>
 #include <cassert>
@@ -32,9 +36,6 @@ double Clock() {
              duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count()) *
          kMsPerMicrosecond;
 }
-
-constexpr int kSeedCap = 32;
-constexpr int kRefCap = 255;
 
 constexpr float kCurveTolM = 0.60f;
 constexpr uint8_t kFullCover = 0xFF;
@@ -111,11 +112,11 @@ void CurveLine(const float *pts, uint32_t first, uint32_t count, std::vector<flo
 size_t ClassificationRasterizer::ScratchBytes() const {
   const Workspace &w = Workspace_;
   return CapacityBytes(w.Base) + CapacityBytes(w.BaseRank) + CapacityBytes(w.SeedHead) +
-         CapacityBytes(w.SeedNext) + CapacityBytes(w.SeedCount) + CapacityBytes(w.Edges) +
-         CapacityBytes(w.Curve) + CapacityBytes(w.ByY) + CapacityBytes(w.Act) +
-         CapacityBytes(w.CellHead) + CapacityBytes(w.CellNext) + CapacityBytes(w.CellStamp) +
-         CapacityBytes(w.CellEdge) + CapacityBytes(w.CellCount) + CapacityBytes(w.Hits) +
-         CapacityBytes(w.Seeds);
+         CapacityBytes(w.SeedNext) + CapacityBytes(w.SeedCount) + CapacityBytes(w.SeedReferences) +
+         CapacityBytes(w.Edges) + CapacityBytes(w.Curve) + CapacityBytes(w.ByY) +
+         CapacityBytes(w.Act) + CapacityBytes(w.CellHead) + CapacityBytes(w.CellNext) +
+         CapacityBytes(w.CellStamp) + CapacityBytes(w.CellEdge) + CapacityBytes(w.CellCount) +
+         CapacityBytes(w.Hits) + CapacityBytes(w.Seeds);
 }
 
 std::optional<ClassificationRasterizer::Built>
@@ -260,6 +261,7 @@ void ClassificationRasterizer::SeedCell(const Feature &feature,
   auto &base = Workspace_.Base;
   auto &baseRank = Workspace_.BaseRank;
   auto &seedCount = Workspace_.SeedCount;
+  auto &seedReferences = Workspace_.SeedReferences;
   auto &seedHead = Workspace_.SeedHead;
   auto &seedNext = Workspace_.SeedNext;
   const auto i0 = window.I0;
@@ -272,8 +274,8 @@ void ClassificationRasterizer::SeedCell(const Feature &feature,
   const size_t bc = static_cast<size_t>(j - j0) * bw + static_cast<size_t>(i - i0);
   const uint32_t nce = ceStamp[bc] == stamp ? ceCount[bc] : 0u;
   const size_t ci = static_cast<size_t>(j) * W + static_cast<size_t>(i);
-  if (nce == 0 || seedCount[ci] >= static_cast<uint32_t>(kSeedCap) ||
-      nce > static_cast<uint32_t>(kRefCap)) {
+  if (nce == 0 || seedCount[ci] >= kClassSeedsPerCell ||
+      nce > kClassReferencesPerCell - seedReferences[ci]) {
     if (nce != 0) { overflow++; }
 
     if (feature.Form == Shape::Polygon && wind != 0) {
@@ -288,21 +290,20 @@ void ClassificationRasterizer::SeedCell(const Feature &feature,
                         ceEdge[static_cast<size_t>(k)]);
   }
   seedNext.push_back(seedHead[ci]);
-  seedHead[ci] = static_cast<int32_t>(grid.Seeds.size() / 3);
+  seedHead[ci] = static_cast<int32_t>(grid.Seeds.size() / kClassSeedWords);
   seedCount[ci]++;
-  grid.Seeds.push_back(
+  seedReferences[ci] += nce;
+  const uint32_t labels =
       static_cast<uint32_t>(feature.ClassRow) | (static_cast<uint32_t>(feature.Rank) << 8u) |
-      (nce << 16u) |
       (static_cast<uint32_t>(static_cast<uint8_t>(
            std::max(kSignedByteLeast, std::min(kSignedByteMost, wind)) + kSignedByteBias))
-       << kAlphaShift));
-  grid.Seeds.push_back(refFirst);
-  {
-    const float hw = (feature.Form == Shape::Polygon) ? 0.0f : feature.WidthM * 0.5f;
-    uint32_t bits;
-    std::memcpy(&bits, &hw, sizeof bits);
-    grid.Seeds.push_back(bits);
-  }
+       << kAlphaShift);
+  const ClassSeed seed{.Labels = labels,
+                       .FirstReference = refFirst,
+                       .ReferenceCount = nce,
+                       .HalfWidthM = feature.Form == Shape::Polygon ? 0.0f : feature.WidthM * 0.5f};
+  const auto words = std::bit_cast<std::array<uint32_t, kClassSeedWords>>(seed);
+  grid.Seeds.insert(grid.Seeds.end(), words.begin(), words.end());
 }
 
 void ClassificationRasterizer::ScanFeature(const Feature &feature,
@@ -359,11 +360,11 @@ void ClassificationRasterizer::PackGrid(ClassStructure::Grid &grid) {
   seeds.reserve(grid.Seeds.size());
   grid.Cells.assign(static_cast<size_t>(W) * H * 2, 0);
   for (size_t ci = 0; ci < static_cast<size_t>(W) * H; ci++) {
-    const auto first = static_cast<uint32_t>(seeds.size() / 3);
+    const auto first = static_cast<uint32_t>(seeds.size() / kClassSeedWords);
     for (int32_t s = seedHead[ci]; s >= 0; s = seedNext[static_cast<size_t>(s)]) {
-      seeds.push_back(grid.Seeds[static_cast<size_t>(s) * 3]);
-      seeds.push_back(grid.Seeds[static_cast<size_t>(s) * 3 + 1]);
-      seeds.push_back(grid.Seeds[static_cast<size_t>(s) * 3 + 2]);
+      const auto firstWord =
+          grid.Seeds.begin() + static_cast<ptrdiff_t>(s) * static_cast<ptrdiff_t>(kClassSeedWords);
+      seeds.insert(seeds.end(), firstWord, firstWord + static_cast<ptrdiff_t>(kClassSeedWords));
     }
     grid.Cells[ci * 2] = static_cast<uint32_t>(base[ci]) |
                          (static_cast<uint32_t>(baseRank[ci]) << 8u) |
@@ -411,6 +412,7 @@ bool ClassificationRasterizer::LayDown(const Input &job, ClassStructure::Grid &o
   Workspace_.SeedHead.assign(cells, -1);
   Workspace_.SeedNext.clear();
   Workspace_.SeedCount.assign(cells, 0);
+  Workspace_.SeedReferences.assign(cells, 0);
   std::ranges::fill(Workspace_.CellStamp, 0u);
   uint32_t generation = 0;
   for (const Feature &feature : job.Features) {

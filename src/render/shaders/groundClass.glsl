@@ -5,6 +5,8 @@
 
 
 
+#include "base/spatial/ClassSeedValues.h"
+
 struct GroundGrid {
   uint W, H, CellsAt, SeedsAt, RefsAt, EdgesAt;
   float OrgE, OrgN, CellM;
@@ -77,13 +79,13 @@ int groundClassAt(
     }
     const vec2 corner = vec2(g.OrgE + float(i) * g.CellM, g.OrgN + float(j) * g.CellM);
     for (uint s = 0; s < seeds; ++s) {
-      const uint seedAt = g.SeedsAt + (seedFirst + s) * 3u;
+      const uint seedAt = g.SeedsAt + (seedFirst + s) * uint(kClassSeedWordCount);
       const uint w0 = groundClasses[seedAt];
       const uint refFirst = groundClasses[seedAt + 1u];
-      const float halfW = uintBitsToFloat(groundClasses[seedAt + 2u]);
+      const uint refs = groundClasses[seedAt + 2u];
+      const float halfW = uintBitsToFloat(groundClasses[seedAt + 3u]);
       const int tpl = int(w0 & 0xFFu);
       const int rank = int((w0 >> 8) & 0xFFu);
-      const uint refs = (w0 >> 16) & 0xFFu;
       int wind = int((w0 >> 24) & 0xFFu) - 128;
       float d = kGroundNoEdgeM;
       for (uint r = 0; r < refs; ++r) {

@@ -55,6 +55,7 @@ private:
     std::vector<uint8_t> Base, BaseRank;
     std::vector<int32_t> SeedHead, SeedNext;
     std::vector<uint32_t> SeedCount;
+    std::vector<uint32_t> SeedReferences;
     std::vector<float> Edges, Curve;
     std::vector<uint32_t> ByY, Act;
     std::vector<int32_t> CellHead, CellNext;
