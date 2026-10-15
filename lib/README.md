@@ -937,6 +937,9 @@ wall colour and existing near-detail geometry are preserved by that consumer.
 Shared optional Blender-host helpers live in `outshine_ref.rendering.blender_camera` and
 `blender_mesh` ([#291](https://github.com/Weichwolf/outshine/issues/291)).
 They preserve supplied triangles, point/corner normals and optional point UVs.
+Normals are assigned to Blender as supplied; its packed mesh-normal encoding is
+not an exact shader-vector guarantee. Consumers can bind explicit FLOAT_VECTOR
+corner attributes in their local material path, as recorded in #291.
 Perspective FOV is vertical; orthographic `span_m` is horizontal. Blender stays an
 optional host dependency; module import does not require `bpy`. Buildings research
 uses `.venv` with `bpy==5.2.2`; Transport retains its current Workbench profile
@@ -945,6 +948,12 @@ until its presentation migration. These helpers do not imply a native/device gat
 `outshine_ref.rendering.blender_light.configure_daylight` applies the agreed
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
+
+`buildings.recessed_facades.RecessPlan` and `recess_surface` reuse existing
+`FacadeRepeat` axes for bounded inward window surfaces with stable global cell
+identities, supplied hard normals and UVs. Partial replay and scalar/batch
+construction share a template. Geometry, ownership, capacity and consumer limits
+are documented in [recessed_facades.md](recessed_facades.md) (#318).
 
 `vegetation.GroundCoverPlan` erzeugt begrenzte Poisson-Bodenstandorte mit
 kanonischen Zell-/Ordinal-IDs, separaten Zähl-/Positionsströmen und exaktem
