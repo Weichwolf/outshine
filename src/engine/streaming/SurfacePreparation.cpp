@@ -118,17 +118,17 @@ bool SurfacePreparation::Open(const World::StoragePaths &under,
     say.Refuse(sources.error());
     return false;
   }
-  return Open(under, std::move(*sources), focus, wire, compute, say, diagnostics, patienceS);
+  return OpenSession(under, std::move(*sources), focus, wire, compute, say, diagnostics, patienceS);
 }
 
-bool SurfacePreparation::Open(const World::StoragePaths &under,
-                              std::shared_ptr<Data::SourceSession> session,
-                              LongitudeLatitude focus,
-                              Data::Transport &wire,
-                              Tasks &compute,
-                              Sink &say,
-                              LogSink *diagnostics,
-                              double patienceS) {
+bool SurfacePreparation::OpenSession(const World::StoragePaths &under,
+                                     std::shared_ptr<Data::SourceSession> session,
+                                     LongitudeLatitude focus,
+                                     Data::Transport &wire,
+                                     Tasks &compute,
+                                     Sink &say,
+                                     LogSink *diagnostics,
+                                     double patienceS) {
   if (!session) {
     say.Refuse("surface preparation requires configured sources");
     return false;

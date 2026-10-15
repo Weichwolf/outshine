@@ -210,14 +210,15 @@ bool Engine::State::PrepareRuntimeWorld() {
                                          .Cache = Session.Under.Cache,
                                          .AssetCache = Session.Under.AssetCache};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
-  if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
-                                                 World.Sources,
-                                                 {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
-                                                 *World.Wire,
-                                                 *World.Pool,
-                                                 say,
-                                                 Diagnostics,
-                                                 Session.Declared.Ground.PatienceS)) {
+  if (!World.Stack.Opened() &&
+      !World.Stack.OpenSession(worldStorage,
+                               World.Sources,
+                               {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
+                               *World.Wire,
+                               *World.Pool,
+                               say,
+                               Diagnostics,
+                               Session.Declared.Ground.PatienceS)) {
     Error = say.WhyNot();
     return false;
   }

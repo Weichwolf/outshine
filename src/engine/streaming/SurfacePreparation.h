@@ -77,14 +77,14 @@ public:
                           LogSink *diagnostics,
                           double patienceS = 0.0,
                           const Data::ProviderRegistry *registry = nullptr);
-  [[nodiscard]] bool Open(const World::StoragePaths &under,
-                          std::shared_ptr<Data::SourceSession> session,
-                          LongitudeLatitude focus,
-                          Data::Transport &wire,
-                          Tasks &compute,
-                          Sink &say,
-                          LogSink *diagnostics,
-                          double patienceS = 0.0);
+  [[nodiscard]] bool OpenSession(const World::StoragePaths &under,
+                                 std::shared_ptr<Data::SourceSession> session,
+                                 LongitudeLatitude focus,
+                                 Data::Transport &wire,
+                                 Tasks &compute,
+                                 Sink &say,
+                                 LogSink *diagnostics,
+                                 double patienceS = 0.0);
   void Close();
 
   [[nodiscard]] bool Opened() const { return Opened_; }
