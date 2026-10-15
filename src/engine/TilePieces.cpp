@@ -163,15 +163,16 @@ bool TilePieces::Store(uint32_t tile,
                  .Row = row,
                  .Visible = visible};
   const Raised &built = baked.Built;
-  const auto walls = PlaceStructurePiece(*Renderer_,
-                                         built.WallCorners,
-                                         built.WallRun,
-                                         baked.Walls,
-                                         WallsSurface_,
-                                         row,
-                                         true,
-                                         built.WallColours,
-                                         built.WallMaterialM);
+  const auto walls = PlaceStructurePiece(
+      *Renderer_,
+      built.WallCorners,
+      built.WallRun,
+      baked.Walls,
+      built.WallMaterialM.empty() ? WallsSurface_ : MetreWallsSurface_.value_or(WallsSurface_),
+      row,
+      true,
+      built.WallColours,
+      built.WallMaterialM);
   if (!walls) {
     ++Refused_;
     Why_ = walls.error();

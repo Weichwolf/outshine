@@ -219,6 +219,35 @@ Nur explizite frische System-Temp-Ausgaben; eingefrorener sauberer Erzeugerstand
 Regionale Bilder 1280×720, 1920×1080 nur lokale Prüfung, keine Galerie/Publikation.
 Keine Weichen, stetigen Knickübergänge, durchgängigen Zugrouten oder native Abnahme.
 
+## Quellgebundene Belagsemantik (#357)
+
+`transport_surface_experiment.py` ergänzt ganze Familienanteile auf den unveränderten
+unteren Wiener Verkehrsfaces aus #303 im vollständigen #352-Körper. Verwendete
+noded edges/Breiten/Quell-IDs und ausdrücklich alte untere Quellen steuern die
+Zuordnung; obere/deep Quellen malen keinen Belag auf den Boden darunter.
+Flächengewichtete lineare Albedo aus dem vorhandenen Materialbaukasten ist eine
+Facettenapproximation; sie ersetzt keine exakten Materialgrenzen oder Pixelfilter.
+Positionen, Topologie, alte Materialslots und Normalen bleiben exakt erhalten.
+[Verfahren, Pins, Bilanz, Bild und Kosten](transport_surface_comparison.md).
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/transport_surface_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_UPPER_RAIL_OUTPUT" --output "$TRANSPORT_SURFACE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/transport_surface_verify.py --products "$TRANSPORT_SURFACE_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_UPPER_RAIL_OUTPUT" --output "$TRANSPORT_SURFACE_OUTPUT/verification.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SURFACE_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SURFACE_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SURFACE_OUTPUT/after-1080-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/transport_surface_cost.py --products "$TRANSPORT_SURFACE_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_UPPER_RAIL_OUTPUT" --method cells --output "$TRANSPORT_SURFACE_COST_CELLS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/transport_surface_cost.py --products "$TRANSPORT_SURFACE_OUTPUT" --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_UPPER_RAIL_OUTPUT" --method whole --output "$TRANSPORT_SURFACE_COST_WHOLE"
+```
+
+Alle Ausgaben sind explizite frische System-Temp-Pfade, Erzeuger sauber eingefroren.
+Optionale `--profile`-Datei benötigt nur für die Allokationsprobe `memray==1.20.0`.
+Renderer liest optional `face_base_colour_linear_rgba` pro Face als unverändertes
+lineares `FLOAT_COLOR/CORNER`-Attribut bis zum tatsächlichen Base-Color-Eingang;
+ohne dieses Feld bleibt der bisherige Palettenpfad erhalten. 1280×720 für den
+Eindruck, 1920×1080 nur lokale Prüfung; keine Galerie/Publikation. Materialrezepte,
+Beleuchtung und native APIs behalten ihre Besitzer; keine neuen Landcoverdaten.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

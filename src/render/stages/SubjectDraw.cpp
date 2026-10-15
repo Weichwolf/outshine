@@ -824,7 +824,7 @@ bool SubjectDraw::ValidateBatch(const SubjectMesh &mesh,
   if (batch.MaterialSlot < Slots.size() && Slots[batch.MaterialSlot].ReadsSecondUv &&
       !(CarriesUv1(batch.Layout) && mesh.Uv1.Stands())) {
     error = "surface slot " + std::to_string(batch.MaterialSlot) +
-            " reads an image from the second uv set and the draw wearing it " +
+            " requires the second UV set and the draw wearing it " +
             (mesh.Uv1.Stands() ? "takes a vertex layout that binds no second run"
                                : "has no second uv run at all") +
             ", and the first set is not a substitute for it";
@@ -1154,6 +1154,10 @@ bool SubjectDraw::ValidatePiece(const PieceMesh &piece, std::string &error) cons
                                                                                : "a native") +
             " surface " + std::to_string(piece.Surface.Index) + " but the subject has " +
             std::to_string(slots.size()) + " surface slots";
+    return false;
+  }
+  if (Slots[slots[piece.Surface.Index]].ReadsSecondUv && piece.Uv1.empty()) {
+    error = "piece surface requires a complete second UV run";
     return false;
   }
   return true;

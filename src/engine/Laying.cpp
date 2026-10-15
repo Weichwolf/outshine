@@ -921,7 +921,10 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
     tiles.BaseColour[2] = kTileBlue;
     tiles.Roughness = kTileRoughness;
     tiles.Pattern = SurfacePattern::Facade;
-    if (!materials.addSurface("walls", walls) || !materials.addSurface("roofs", tiles)) {
+    Material metreWalls = walls;
+    metreWalls.Pattern = SurfacePattern::FacadeMetres;
+    if (!materials.addSurface("walls", walls) || !materials.addSurface("roofs", tiles) ||
+        !materials.addSurface("metre walls", metreWalls)) {
       Error = Says::MaterialCreationFailed;
       return false;
     }
@@ -930,8 +933,10 @@ bool Engine::State::PrepareBuildingSurfaces(const TangentFrame &standing,
       Error = std::move(first.error());
       return false;
     }
-    build.Surfaces = TilePieces::Surfaces{.Walls = Render::PieceSurface::Registered(*first),
-                                          .Roofs = Render::PieceSurface::Registered(*first + 1u)};
+    build.Surfaces =
+        TilePieces::Surfaces{.Walls = Render::PieceSurface::Registered(*first),
+                             .Roofs = Render::PieceSurface::Registered(*first + 1u),
+                             .MetreWalls = Render::PieceSurface::Registered(*first + 2u)};
   }
   Published.RecordMetric(
       "rebuild: the ground ring took",

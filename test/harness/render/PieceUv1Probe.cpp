@@ -72,6 +72,10 @@ void GpuOwnership(SDL_GPUDevice *device) {
     SceneResources resources;
     Geometry materials;
     CHECK(materials.addSurface("plain", Material{}), "the fixture registers a real plain material");
+    Material metres;
+    metres.Pattern = SurfacePattern::FacadeMetres;
+    CHECK(materials.addSurface("metres", metres),
+          "the explicit metre material registers without images");
     const auto first = resources.RegisterPieceMaterials(subjects, nullptr, std::move(materials));
     CHECK(first.has_value(), "actual piece material registration succeeds");
     if (!first) { return; }
@@ -83,13 +87,20 @@ void GpuOwnership(SDL_GPUDevice *device) {
     piece.Indices = indices;
     piece.Uv1 = coordinates;
     piece.Textured = true;
-    piece.Surface = PieceSurface::Registered(*first);
+    piece.Surface = PieceSurface::Registered(*first + 1u);
     const auto placed = resources.PlacePiece(subjects, piece);
     CHECK(placed.has_value(), "the real piece path admits finite UV1 data");
     if (!placed) { return; }
     const size_t withUv1 = resources.PieceSourceBytes();
+    PieceMesh missing = piece;
+    missing.Uv1 = {};
+    CHECK(!resources.PlacePiece(subjects, missing),
+          "an explicit metre material rejects missing UV1 instead of sampling zeros");
+    CHECK(resources.PieceSourceCount() == 1 && resources.PieceSourceBytes() == withUv1,
+          "failed metre admission preserves the original owned piece only");
     PieceMesh legacy = piece;
     legacy.Uv1 = {};
+    legacy.Surface = PieceSurface::Registered(*first);
     const auto plain = resources.PlacePiece(subjects, legacy);
     CHECK(plain.has_value(), "a piece without optional data uses the existing path");
     if (!plain) { return; }
