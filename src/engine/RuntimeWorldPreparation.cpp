@@ -48,6 +48,7 @@ bool Engine::State::ConfigureSourceProviders(std::vector<Data::SourceProvider> &
   for (const Data::SourceProvider &provider : Session.Declared.Providers) {
     (provider.Kind == "osm" ? osmProviders : tileProviders).push_back(provider);
   }
+  if (!ConfigureWorldSources(tileProviders)) { return false; }
   std::vector<Generators::Osm::CircuitRequest> routes;
   routes.reserve(Session.Declared.Routes.size());
   for (const Scenario::RouteDeclaration &declared : Session.Declared.Routes) {
@@ -202,24 +203,19 @@ bool Engine::State::PrepareRuntimeWorld() {
     }
   }
 
-  if (tileProviders.empty()) {
-    const auto shipped = Generators::ShippedProviders();
-    tileProviders.assign(shipped.begin(), shipped.end());
-  }
   Collecting say;
   const World::StoragePaths worldStorage{.Shipped = Session.Under.Shipped,
                                          .Cache = Session.Under.Cache,
                                          .AssetCache = Session.Under.AssetCache};
   if (!World.Pool) { World.Pool = std::make_unique<Tasks>(Tasks::ComputeThreads()); }
   if (!World.Stack.Opened() && !World.Stack.Open(worldStorage,
-                                                 tileProviders,
+                                                 World.Sources,
                                                  {.LongitudeDeg = atLon, .LatitudeDeg = atLat},
                                                  *World.Wire,
                                                  *World.Pool,
                                                  say,
                                                  Diagnostics,
-                                                 Session.Declared.Ground.PatienceS,
-                                                 &World.Providers)) {
+                                                 Session.Declared.Ground.PatienceS)) {
     Error = say.WhyNot();
     return false;
   }

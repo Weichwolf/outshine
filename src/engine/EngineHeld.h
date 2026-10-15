@@ -53,6 +53,8 @@
 #include "Sink.h"
 #include "SourceConfiguration.h"
 #include "SurfacePreparation.h"
+#include "SourceSession.h"
+#include "WeatherPreparation.h"
 #include "PublishedRegion.h"
 #include "OsmTransportPreparation.h"
 #include "OsmSourceAcquisition.h"
@@ -234,7 +236,11 @@ struct Surrounds {
   Data::ProviderRegistry Providers;
   std::unique_ptr<Tasks> Pool;
   std::unique_ptr<Tasks> Io;
+  std::shared_ptr<Data::SourceSession> Sources;
+  std::vector<Data::SourceProvider> SourceDeclarations;
   Ground::SurfacePreparation Stack;
+  std::unique_ptr<WeatherPreparation> Weather;
+  std::optional<int64_t> WeatherUtcS;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
   Generators::Shipping Shipping;
@@ -607,6 +613,9 @@ struct Engine::State {
   [[nodiscard]] bool
   UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
+  [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
+  [[nodiscard]] bool PollWeather();
+  [[nodiscard]] std::string_view WeatherBlocker() const noexcept;
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);
   [[nodiscard]] bool RequestOriginalCells();

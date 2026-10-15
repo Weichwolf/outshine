@@ -322,7 +322,7 @@ bool Engine::State::RefinedGroundClassified(const GroundRevision &revision) cons
 
 WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
   const std::string_view osmBlocker = OsmWorldBlocker(Session.Declared.Providers, World);
-  if (!Session.Declared.Ground.Declared) { return {{osmBlocker}}; }
+  if (!Session.Declared.Ground.Declared) { return {{osmBlocker, WeatherBlocker()}}; }
   const auto *vectors = World.Stack.Vectors();
   const auto &ground = World.GroundPublished.Current();
   const bool refined = quality == GroundQuality::Refined;
@@ -355,7 +355,8 @@ WorldReadiness Engine::State::Readiness(GroundQuality quality) const {
                (World.Vegetation && World.Vegetation->Ready())
            ? ""
            : Says::kPendingVegetation,
-       osmBlocker}};
+       osmBlocker,
+       WeatherBlocker()}};
 }
 
 bool Engine::settled(WorldQuality required) const {
@@ -517,23 +518,8 @@ Loading Engine::loading() const {
   said.PreloadFlushes = S_->PreloadFlushes;
   said.PreloadAwaits = S_->PreloadAwaits;
   said.Waited = S_->PreloadWaited;
-  if (!S_->Session.Declared.Ground.Declared) { return said; }
-  const bool native = S_->World.GroundPublished.Current().has_value();
-  said.GroundWanted = native ? S_->World.Wanted : S_->World.AskedWanted;
-  const size_t missing = native ? S_->World.Pending : S_->World.AskedPending;
-  said.GroundArrived = said.GroundWanted >= missing ? said.GroundWanted - missing : 0;
-  if (!S_->World.Stack.Opened()) { return said; }
-  if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Stack.Vectors();
-      vectors != nullptr && S_->World.Stack.HasVectorSource()) {
-    said.VectorArrived = vectors->Tiles().size();
-    const int pending = vectors->PendingTiles();
-    said.VectorWanted = said.VectorArrived + (pending > 0 ? static_cast<size_t>(pending) : 0);
-  }
-  const Ground::TilePool::Ledger counted = S_->World.Stack.Pool().Counters();
-  said.Outstanding = counted.Outstanding > 0 ? static_cast<size_t>(counted.Outstanding) : 0;
-  said.FetchedMB = counted.FetchedMB;
-  said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / static_cast<double>(counted.Posts) : 0.0;
-  const Ground::SurfacePreparation::SourceCounters sources = S_->World.Stack.Counters();
+  const auto sources =
+      S_->World.Sources ? S_->World.Sources->Counters() : Data::SourceSession::Ledger{};
   said.StoreHits = static_cast<std::uint64_t>(sources.Store.Hits);
   said.StoreMisses = static_cast<std::uint64_t>(sources.Store.Misses);
   said.StoreWrites = static_cast<std::uint64_t>(sources.Store.Writes);
@@ -552,6 +538,22 @@ Loading Engine::loading() const {
                             .Priority = static_cast<int>(use.Order),
                             .TileDeliveries = static_cast<std::uint64_t>(use.Deliveries)});
   }
+  if (!S_->Session.Declared.Ground.Declared) { return said; }
+  const bool native = S_->World.GroundPublished.Current().has_value();
+  said.GroundWanted = native ? S_->World.Wanted : S_->World.AskedWanted;
+  const size_t missing = native ? S_->World.Pending : S_->World.AskedPending;
+  said.GroundArrived = said.GroundWanted >= missing ? said.GroundWanted - missing : 0;
+  if (!S_->World.Stack.Opened()) { return said; }
+  if (const ::outshine::Generators::Osm::OsmField *vectors = S_->World.Stack.Vectors();
+      vectors != nullptr && S_->World.Stack.HasVectorSource()) {
+    said.VectorArrived = vectors->Tiles().size();
+    const int pending = vectors->PendingTiles();
+    said.VectorWanted = said.VectorArrived + (pending > 0 ? static_cast<size_t>(pending) : 0);
+  }
+  const Ground::TilePool::Ledger counted = S_->World.Stack.Pool().Counters();
+  said.Outstanding = counted.Outstanding > 0 ? static_cast<size_t>(counted.Outstanding) : 0;
+  said.FetchedMB = counted.FetchedMB;
+  said.MeanFetchMs = counted.Posts > 0 ? counted.FetchMs / static_cast<double>(counted.Posts) : 0.0;
   return said;
 }
 
@@ -622,6 +624,7 @@ Result Engine::State::PumpPreload(GroundQuality quality) {
   Published.BeginFrame();
   if (!RequestOriginalCells()) { return std::unexpected(Error); }
   PollOsmSources();
+  if (!PollWeather()) { return std::unexpected(Error); }
   if ((World.OsmSource &&
        World.OsmSource->CurrentPhase() == Generators::Osm::SourceAcquisition::Phase::Failed) ||
       (World.OsmTransport && World.OsmTransport->CurrentPhase() ==
@@ -697,6 +700,7 @@ Result Engine::State::PreloadTimeout(double bound, GroundQuality quality) {
 }
 
 bool Engine::State::AwaitWorldWorkerProgress(double seconds) const {
+  if (World.Weather && World.Weather->Running()) { return World.Weather->AwaitProgress(seconds); }
   if (World.OsmSource && World.OsmSource->PendingCount() > 0) {
     return World.OsmSource->AwaitSlice(seconds);
   }
@@ -760,7 +764,8 @@ void Engine::State::AwaitPreloadProgress(double seconds) {
     if (signalled || remaining() <= 0.0) { return; }
   }
   const bool sourceWorker = World.OsmSource && World.OsmSource->PendingCount() > 0;
-  const bool worldWorker = GroundDeformationPending() || World.RoadAlignmentBuilds.Busy() ||
+  const bool worldWorker = (World.Weather && World.Weather->Running()) ||
+                           GroundDeformationPending() || World.RoadAlignmentBuilds.Busy() ||
                            sourceWorker ||
                            (World.OsmTransport && World.OsmTransport->PendingCount() > 0);
   if (worldWorker && World.Pool) {
