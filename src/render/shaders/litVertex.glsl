@@ -5,6 +5,7 @@
 #define GROUND_WORLD_POSITION
 #include "subjectVaryings.glsl"
 layout(location = 11) out float facadeBay;
+layout(location = 12) flat out float facadeCode;
 #if LIT_MAPPED
 layout(location = 9) out vec4 tangent;
 #endif
@@ -45,11 +46,13 @@ void main() {
   normal = normalize(m[0].xyz * vertexNormal.x + m[1].xyz * vertexNormal.y + m[2].xyz * vertexNormal.z);
   uv = vec2(0.0);
   facadeBay = 0.0;
+  facadeCode = 0.0;
   uv1 = vec2(0.0);
   colour = vec4(1.0);
 #if LIT_UVS > 0
   uv = vertexUv;
   facadeBay = mod(vertexUv.x, 256.0);
+  facadeCode = vertexUv.x < 0.0 ? vertexUv.x : floor(vertexUv.x / 256.0);
 #endif
 #if LIT_UVS > 1
   uv1 = vertexUv1;

@@ -4,6 +4,7 @@
 #define GROUND_WORLD_POSITION
 #include "subjectVaryings.glsl"
 layout(location = 11) in float facadeBay;
+layout(location = 12) flat in float facadeCode;
 #include "subjectOutput.glsl"
 #include "surfaceTransfer.glsl"
 #include "material.glsl"
@@ -67,7 +68,7 @@ void main() {
   float metalness = surface.metalness * orm.b;
   if (surface.pattern > 0.5) {
     vec2 heightChange;
-    applyFacade(uv, facadeBay, colour.rgb, position, localPosition, groundWorldM, facing(normal, gl_FrontFacing), albedo, roughness, heightChange);
+    applyFacade(int(facadeCode), vec2(facadeBay, uv.y), colour.rgb, position, localPosition, groundWorldM, facing(normal, gl_FrontFacing), albedo, roughness, heightChange);
     shadingNormal = bumpNormal(facing(normal, gl_FrontFacing), shadingNormal, dFdx(position), dFdy(position), heightChange.x, heightChange.y);
   }
   else { albedo *= colour.rgb; }
