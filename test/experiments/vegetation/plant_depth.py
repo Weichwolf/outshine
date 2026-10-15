@@ -18,9 +18,11 @@ def root_value(values, lower, upper):
     )
 
 
-def depth_mesh(image, frame, lower, upper, grid):
+def depth_mesh(image, frame, lower, upper, grid, *, anchored=True):
     if type(grid) is not int or grid not in (1, 4, 8, 16):
         raise ValueError("bounded cached depth grid required")
+    if type(anchored) is not bool:
+        raise ValueError("explicit depth-anchor mode required")
     axis = np.linspace(0, 1, grid + 1)
     u, v = np.meshgrid(axis, axis)
     uv = np.column_stack((u.ravel(), v.ravel()))
@@ -36,6 +38,11 @@ def depth_mesh(image, frame, lower, upper, grid):
         (np.stack((a, b, c), axis=-1), np.stack((a, c, d), axis=-1)), axis=2
     ).reshape(-1, 3)
     depth = np.zeros(len(uv))
+    if grid == 1 and not anchored:
+        total = image[..., 3].sum()
+        if total <= 0:
+            raise ValueError("nonempty plant projection required")
+        depth[:] = image[..., 8].sum() / total
     if grid > 1:
         covered = image[..., 3] > 0
         if not np.any(covered):
@@ -46,7 +53,8 @@ def depth_mesh(image, frame, lower, upper, grid):
         field = image[..., 8] / np.maximum(image[..., 3], 1e-12)
         field = field[tuple(nearest)]
         depth = sample_image(field[..., None], uv)[:, 0]
-        depth -= root_value(depth.reshape(grid + 1, grid + 1), lower, upper)
+        if anchored:
+            depth -= root_value(depth.reshape(grid + 1, grid + 1), lower, upper)
     return {
         "vertices": np.column_stack((xy, depth)) @ frame.T,
         "faces": faces.astype(np.int32),
