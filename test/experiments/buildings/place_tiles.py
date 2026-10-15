@@ -1,0 +1,89 @@
+"""Decode pinned Place vectors into one geodetic ENU frame with actual DEM base heights."""
+
+import hashlib
+import json
+from pathlib import Path
+
+import mapbox_vector_tile
+import numpy as np
+import shapely
+from context import attach
+
+
+def geography(points, extent, tile):
+    zoom, x, y = tile
+    world = (np.asarray(points) / extent + [x, y]) / (1 << zoom)
+    longitude = world[:, 0] * 360 - 180
+    latitude = np.rad2deg(np.arctan(np.sinh(np.pi * (1 - 2 * world[:, 1]))))
+    return latitude, longitude
+
+
+def decode(reference, receipt, elevation):
+    data = Path(receipt["path"]).read_bytes()
+    if hashlib.sha256(data).hexdigest() != receipt["sha256"]:
+        raise ValueError("Pinned Place vector bytes changed")
+    tile = tuple(receipt["tile"])
+    layers = mapbox_vector_tile.decode(data, default_options={"y_coord_down": True})
+
+    def project(points, extent):
+        latitude, longitude = geography(points, extent, tile)
+        return reference.local(latitude, longitude, 0.0)[:, :2]
+
+    rows, invalid = [], []
+    for name in ("building", "landuse"):
+        layer = layers.get(name, {})
+        extent = layer.get("extent", 4096)
+        for ordinal, feature in enumerate(layer.get("features", ())):
+            original = shapely.from_geojson(json.dumps(feature["geometry"]))
+            for part, piece in enumerate(shapely.get_parts(original)):
+                identifier = f"{reference.name}/{tile[0]}/{tile[1]}/{tile[2]}/{name}/{feature.get('id', 'unknown')}/{ordinal}/{part}"
+                if piece.geom_type != "Polygon" or not piece.is_valid or piece.is_empty:
+                    invalid.append(
+                        {
+                            "id": identifier,
+                            "layer": name,
+                            "reason": "Invalid or unsupported provider polygon",
+                        }
+                    )
+                    continue
+                polygon = shapely.transform(
+                    piece, lambda xy, size=extent: project(xy, size)
+                )
+                coordinates = shapely.get_coordinates(piece)
+                centre = np.asarray(piece.representative_point().coords)
+                latitude, longitude = geography(centre, extent, tile)
+                ground = float(elevation.sample(latitude, longitude)[0])
+                base = float(reference.local(latitude, longitude, ground)[0, 2])
+                step_m = (
+                    40075016.68557849
+                    * np.cos(np.deg2rad(reference.latitude_deg))
+                    / ((1 << tile[0]) * extent)
+                )
+                rows.append(
+                    {
+                        "id": identifier,
+                        "layer": name,
+                        "polygon": polygon,
+                        "properties": feature["properties"].copy(),
+                        "coordinate_step_m": float(step_m),
+                        "clipped": bool(
+                            np.any(coordinates <= 0) or np.any(coordinates >= extent)
+                        ),
+                        "ground_asl_m": ground,
+                        "placement_base_enu_m": base,
+                        "source_sha256": receipt["sha256"],
+                    }
+                )
+    context = attach(
+        [row for row in rows if row["layer"] == "building"],
+        layers,
+        project,
+        receipt["sha256"],
+    )
+    return rows, {
+        "receipt": receipt,
+        "invalid": invalid,
+        "context": context,
+        "frame": "WGS84 ENU at the native scenario origin, ellipsoid height zero",
+        "ground": "Highest acquired Terrarium sample at each representative source point; not a native foundation/terrain-modifier proof",
+    }
