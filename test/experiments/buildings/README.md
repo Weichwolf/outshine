@@ -260,11 +260,20 @@ an unfit fixed room remains explicitly partial rather than being resized in plac
 PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_door_geometry.py'
 PYTHONPATH=lib/src .venv/bin/python -m unittest discover -s lib/tests -p 'test_furnishing_placement.py'
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/verify_door_joint.py --output /tmp/outshine-buildings-door-joint/verification.json
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/door_joint_plan.py --output /tmp/outshine-buildings-door-joint/plan.png
+PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/door_joint_benchmark.py --output /tmp/outshine-buildings-door-joint/cost.json
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/door_probe.py --output /tmp/outshine-buildings-door-joint/views --render
 ```
 
 The paired full-building Berlin tea-door views use one fixed corridor camera,
-actual geometry/furniture/area lights and1920×1080/32spp CPU path tracing.
+actual geometry/furniture/area lights and 1920×1080/32spp CPU path tracing.
+Ceiling fixtures near circulation portals supplement the single room-centre
+fixture, with physical square containment and stable portal-bound IDs. They
+are independent of the camera/leaf angle, share the room's light state and
+are prepared once for the paired views. The default room-light API is unchanged;
+the optional `circulation_portals=True` adds at most32 fixtures per corridor.
+`door_assembly.prepare` similarly retains static frames and local leaf templates;
+state expansion validates their fixed leaf identity and rebuilds neither.
 They are private controls. Public presentation remains the four latest complete
 Place images; a hidden interior change alone does not justify replacing them.
 Whole-building usage, native controller/cache/LOD, handles and services remain open.
