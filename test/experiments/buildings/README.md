@@ -299,7 +299,7 @@ The public page continues to show exactly four complete source scenes.
 
 ```sh
 .venv/bin/python -W error test/experiments/buildings/verify_roof_envelopes.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
-.venv/bin/python test/experiments/buildings/roof_envelope_plan.py
+.venv/bin/python test/experiments/buildings/roof_envelope_plan.py --output "${TMPDIR:-/tmp}/outshine-buildings-roofs-$(git rev-parse --short HEAD)"
 ```
 
 ## Rooms below small source roofs
