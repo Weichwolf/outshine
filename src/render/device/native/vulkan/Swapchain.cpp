@@ -17,16 +17,16 @@ SwapchainState::~SwapchainState() {
 
 namespace {
 
-Result<VkSurfaceFormatKHR> SurfaceFormat(const Context &context) {
+Result<VkSurfaceFormatKHR> SurfaceFormat(const SurfaceState &surface) {
   uint32_t count = 0;
-  auto result =
-      vkGetPhysicalDeviceSurfaceFormatsKHR(context.Physical, context.Surface, &count, nullptr);
+  auto result = vkGetPhysicalDeviceSurfaceFormatsKHR(
+      surface.Owner->Physical, surface.Handle, &count, nullptr);
   if (result != VK_SUCCESS) {
     return std::unexpected(Failure("vkGetPhysicalDeviceSurfaceFormatsKHR", result));
   }
   std::vector<VkSurfaceFormatKHR> formats(count);
   result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-      context.Physical, context.Surface, &count, formats.data());
+      surface.Owner->Physical, surface.Handle, &count, formats.data());
   if (result != VK_SUCCESS) {
     return std::unexpected(Failure("vkGetPhysicalDeviceSurfaceFormatsKHR", result));
   }
@@ -70,30 +70,36 @@ VkCompositeAlphaFlagBitsKHR Composite(VkCompositeAlphaFlagsKHR supported) {
 
 }
 
-Result<std::shared_ptr<SwapchainState>> CreateSwapchain(std::shared_ptr<Context> context,
-                                                        VkExtent2D extent,
-                                                        uint64_t generation,
-                                                        VkSwapchainKHR before) {
+Result<std::shared_ptr<SwapchainState>>
+CreateSwapchain(std::shared_ptr<SurfaceState> surface,
+                VkExtent2D extent,
+                uint64_t generation,
+                const std::shared_ptr<SwapchainState> &before) {
+  const auto &context = surface->Owner;
   VkSurfaceCapabilitiesKHR caps{};
   auto result =
-      vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->Physical, context->Surface, &caps);
+      vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->Physical, surface->Handle, &caps);
   if (result != VK_SUCCESS) {
     return std::unexpected(Failure("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", result));
   }
-  const auto format = SurfaceFormat(*context);
+  const auto format = SurfaceFormat(*surface);
   if (!format) { return std::unexpected(format.error()); }
   if (caps.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
     extent = caps.currentExtent;
   }
   extent.width = std::clamp(extent.width, caps.minImageExtent.width, caps.maxImageExtent.width);
   extent.height = std::clamp(extent.height, caps.minImageExtent.height, caps.maxImageExtent.height);
-  if (extent.width == 0 || extent.height == 0 ||
-      (caps.supportedUsageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0) {
+  if ((caps.supportedUsageFlags & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0) {
+    return std::unexpected(Error{.Kind = ErrorKind::Unsupported,
+                                 .Message = "Vulkan surface has no colour-attachment support"});
+  }
+  if (extent.width == 0 || extent.height == 0) {
     return std::unexpected(Error{.Kind = ErrorKind::Busy,
                                  .Message = "Vulkan surface currently has no drawable extent"});
   }
   auto state = std::make_shared<SwapchainState>();
-  state->Owner = std::move(context);
+  state->Owner = context;
+  state->Surface = std::move(surface);
   state->Extent = extent;
   state->Generation = generation;
   state->Texels = NativeFormat(format->format);
@@ -106,7 +112,7 @@ Result<std::shared_ptr<SwapchainState>> CreateSwapchain(std::shared_ptr<Context>
   if (caps.maxImageCount != 0) { count = std::min(count, caps.maxImageCount); }
   VkSwapchainCreateInfoKHR create{};
   create.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  create.surface = state->Owner->Surface;
+  create.surface = state->Surface->Handle;
   create.minImageCount = count;
   create.imageFormat = format->format;
   create.imageColorSpace = format->colorSpace;
@@ -118,7 +124,8 @@ Result<std::shared_ptr<SwapchainState>> CreateSwapchain(std::shared_ptr<Context>
   create.compositeAlpha = Composite(caps.supportedCompositeAlpha);
   create.presentMode = VK_PRESENT_MODE_FIFO_KHR;
   create.clipped = (usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0 ? VK_FALSE : VK_TRUE;
-  create.oldSwapchain = before;
+  create.oldSwapchain = before ? before->Handle : VK_NULL_HANDLE;
+  if (before) { before->DriverRetired = true; }
   result = vkCreateSwapchainKHR(state->Owner->Logical, &create, nullptr, &state->Handle);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateSwapchainKHR", result)); }
   result = vkGetSwapchainImagesKHR(state->Owner->Logical, state->Handle, &count, nullptr);

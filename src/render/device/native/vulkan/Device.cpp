@@ -126,6 +126,22 @@ public:
     return commands;
   }
 
+  [[nodiscard]] Result<void> SetPresentTarget(SDL_Window *window) override {
+    if (auto ready = Reap(); !ready) { return ready; }
+    if (Context_->OpenRecordings != 0) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Busy,
+                .Message = "target changes require closed unsubmitted recordings"});
+    }
+    if (!Presenter_) {
+      if (window == nullptr) { return {}; }
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Unsupported,
+                .Message = "Vulkan device has no prepared presentation capability"});
+    }
+    return Presenter_->SetTarget(window);
+  }
+
   [[nodiscard]] Result<std::unique_ptr<PresentFrame>> AcquirePresentFrame() override {
     if (auto ready = Reap(); !ready) { return std::unexpected(ready.error()); }
     if (!Presenter_) {
@@ -167,8 +183,7 @@ public:
       return std::unexpected(*Failed_);
     }
     const auto serial = ++Submitted_;
-    native->CommitImages();
-    native->CommitPresent();
+    native->CommitSubmission();
     Pending_.push_back({.Recorded = std::move(held), .Fence = fence, .Serial = serial});
     return Completion{.Device = Context_->Cookie, .Serial = serial};
   }
@@ -255,9 +270,13 @@ Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
   auto context = Vulkan::CreateContext(options);
   if (!context) { return std::unexpected(context.error()); }
   std::unique_ptr<Vulkan::Presenter> presenter;
-  if (options.Window != nullptr) {
-    presenter = std::make_unique<Vulkan::Presenter>(*context, options.Window);
-    if (auto started = presenter->Start(); !started) { return std::unexpected(started.error()); }
+  if ((*context)->PresentCapable) {
+    presenter = std::make_unique<Vulkan::Presenter>(*context);
+    if (options.Window != nullptr) {
+      if (auto attached = presenter->SetTarget(options.Window); !attached) {
+        return std::unexpected(attached.error());
+      }
+    }
   }
   return std::make_unique<Vulkan::VulkanDevice>(std::move(*context), std::move(presenter));
 }
