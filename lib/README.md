@@ -16,6 +16,11 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`transport.rail_hardware.build_rail_hardware` liefert vereinfachte geschlossene Schienen und
+gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrücklich
+gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
+stehen in [rail_hardware.md](rail_hardware.md) (#250).
+
 `places` teilt die geodätische Szenariokamera sowie begrenzte, explizit ausgewählte
 MVT-/Terrarium-Eingaben zwischen den Python-Fachagenten. Installation, Einheiten,
 Fehlverhalten und Grenzen stehen in [places.md](places.md) (#216).
