@@ -14,6 +14,7 @@
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
+constexpr double kPreloadTimeoutS = 5.0;
 
 bool Prime(const WeatherCapture &capture,
            const Generators::Weather::OpenMeteoProvider &provider,
@@ -62,7 +63,7 @@ int main() {
     CHECK(!engine.weather(), "an unassembled declaration cannot expose the previous weather");
     CHECK(engine.assemble().has_value(), "no renderer or terrain is required to prepare weather");
     CHECK(!engine.weather() && !engine.settled(), "unfinished weather is explicit and not ready");
-    CHECK(engine.preload(5.0).has_value(),
+    CHECK(engine.preload(kPreloadTimeoutS).has_value(),
           "normal public preload pumps IO and compute weather work");
     const auto selected = engine.weather();
     CHECK(selected && *selected && (**selected).Values.ValidUtcS == kCapturedWeatherUtcS,
@@ -84,7 +85,8 @@ int main() {
               *engine.weather() == retained && engine.loading().SourceDeliveries == 1,
           "an unchanged request reuses its exact publication without fetching or normalizing");
     scenario.Time.Start = "2026-10-15T00:00:01Z";
-    CHECK(engine.declare(scenario) && !engine.weather() && engine.assemble() && engine.preload(5.0),
+    CHECK(engine.declare(scenario) && !engine.weather() && engine.assemble() &&
+              engine.preload(kPreloadTimeoutS),
           "another declared UTC invalidates the former publication before selection");
     CHECK(engine.weather() && !*engine.weather() && engine.settled(),
           "an absent exact time is terminal missing, never nearest-hour or declared fallback");
