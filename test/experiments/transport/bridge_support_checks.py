@@ -1,6 +1,7 @@
 """Independent whole-contact and source-preserving support-placement controls."""
 
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,8 @@ from bridge_support_contacts import ContactSurface, contact_prism, replay_contac
 from bridge_support_plan import plan_supports, stations
 from outshine_ref.contracts import Mesh
 from surface_solid_checks import audit_closed
+from wien_support_experiment import packed
+from wien_support_verify import caps_match_body, unpack
 
 
 def grid(height):
@@ -134,6 +137,41 @@ class SupportStations(unittest.TestCase):
                 for row in result[3]["stations"]
             )
         )
+
+
+class SavedSupportProducts(unittest.TestCase):
+    def setUp(self):
+        self.lower = ContactSurface(grid(lambda p: abs(p[:, 0])))
+        self.upper = ContactSurface(grid(lambda p: 6 + 0.3 * abs(p[:, 1])))
+        self.body, self.caps, _note = contact_prism(
+            shapely.box(-1, -1, 1, 1), self.lower, self.upper
+        )
+
+    def test_variable_sized_owned_products_replay_after_serialization(self):
+        other, caps, _note = contact_prism(
+            shapely.box(0.2, 0.2, 1, 1), self.lower, self.upper
+        )
+        arrays = packed([self.body, other], [self.caps, caps])
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "piers.npz"
+            np.savez_compressed(path, **arrays)
+            bodies, pairs, _arrays = unpack(path)
+        for original, body, pair in zip([self.body, other], bodies, pairs, strict=True):
+            np.testing.assert_array_equal(original.vertices, body.vertices)
+            np.testing.assert_array_equal(original.triangles, body.triangles)
+            caps_match_body(body, *pair)
+
+    def test_replay_rejects_a_body_that_differs_from_its_valid_contact_caps(self):
+        vertices = self.body.vertices.copy()
+        vertices[0, 2] += 0.01
+        wrong = Mesh(vertices, self.body.triangles)
+        with self.assertRaisesRegex(ValueError, "body differs"):
+            caps_match_body(wrong, *self.caps)
+
+    def test_replay_rejects_missing_side_geometry(self):
+        wrong = Mesh(self.body.vertices, self.body.triangles[:-1])
+        with self.assertRaisesRegex(ValueError, "missing walls"):
+            caps_match_body(wrong, *self.caps)
 
 
 if __name__ == "__main__":
