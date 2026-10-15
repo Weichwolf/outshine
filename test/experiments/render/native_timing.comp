@@ -1,0 +1,10 @@
+#version 450
+layout(local_size_x = 1) in;
+layout(std430, set = 0, binding = 0) buffer Values { uint value; uint steps; };
+void main() {
+  uint result = value;
+  for (uint at = 0; at < steps; ++at) {
+    result = (result ^ (result >> 13u)) * 1664525u + 1013904223u;
+  }
+  value = result;
+}

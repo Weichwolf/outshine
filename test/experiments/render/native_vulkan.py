@@ -92,6 +92,8 @@ def main():
             sources += [Path(__file__).with_name('native_present.frag'),
                         Path(__file__).with_name('native_vulkan_present.frag'),
                         Path(__file__).with_name('native_target_delay.comp')]
+        sources += [Path(__file__).with_name('native_timing.comp'),
+                    Path(__file__).with_name('native_timing_empty.comp')]
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -107,6 +109,7 @@ def main():
             consumers += [ROOT / 'test/harness/render/NativePresentProbe.cpp',
                           ROOT / 'test/harness/render/NativeVulkanPresentProbe.cpp',
                           ROOT / 'test/harness/render/NativePresentTargetProbe.cpp']
+        consumers.append(ROOT / 'test/harness/render/NativeTimingProbe.cpp')
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -141,6 +144,10 @@ def main():
             report[key] = verdict(run(
                 [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],
                 log, environment=environment, timeout=25), log)
+        report['dispatch_timing_checks'] = verdict(run(
+            [str(binaries[-1]), *map(str, shaders[-2:])], log,
+            environment=environment, timeout=30), log)
+        report['gpu_timing'] = 'opt-in native dispatch timestamps'
         if args.present:
             report['present_checks'] = verdict(run(
                 [str(binaries[9]), str(shaders[4]), str(shaders[13])], log,
