@@ -1,0 +1,12 @@
+{
+  "url": "https://api.open-meteo.com/v1/forecast?latitude=47.256121&longitude=10.115857&elevation=1772&hourly=cloud_cover%2Ccloud_cover_low%2Ccloud_cover_mid%2Ccloud_cover_high%2Cwind_speed_10m%2Cwind_direction_10m%2Ctemperature_2m%2Crelative_humidity_2m%2Cprecipitation%2Crain%2Cshowers%2Csnowfall%2Csnow_depth%2Cvisibility%2Csurface_pressure&forecast_days=1&timeformat=unixtime&timezone=GMT&wind_speed_unit=ms&temperature_unit=celsius&precipitation_unit=mm",
+  "acquired_utc": "2026-10-15T12:13:03.961561+00:00",
+  "source_sha256": "f520f538c6215a20b016df24e232bea1fbd465ff0e6a515bba506eb885142d65",
+  "http_status": 200,
+  "response_bytes": 2682,
+  "transport": "outshine::Fetching / Data::Transport",
+  "attribution": "Weather data by Open-Meteo.com",
+  "licence": "https://creativecommons.org/licenses/by/4.0/",
+  "source_licence": "https://open-meteo.com/en/licence",
+  "changes": "Response bytes unmodified; normalization is a separate output."
+}

@@ -28,8 +28,8 @@ bool Overlap(TextureRegion a, TextureRegion b) {
 
 Result<void>
 MetalCommands::Copy(const Buffer &source, Texture &destination, TextureTransfer region) {
-  if (!OnOwner()) {
-    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  if (!OnOwner() || Render) {
+    return Failure(ErrorKind::Invalid, "Metal copy requires its owner outside a render pass");
   }
   @autoreleasepool {
     const auto *const from = dynamic_cast<const MetalBuffer *>(&source);
@@ -61,8 +61,8 @@ MetalCommands::Copy(const Buffer &source, Texture &destination, TextureTransfer 
 
 Result<void>
 MetalCommands::Copy(const Texture &source, Buffer &destination, TextureTransfer region) {
-  if (!OnOwner()) {
-    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  if (!OnOwner() || Render) {
+    return Failure(ErrorKind::Invalid, "Metal copy requires its owner outside a render pass");
   }
   @autoreleasepool {
     const auto *const from = dynamic_cast<const MetalTexture *>(&source);
@@ -96,8 +96,8 @@ Result<void> MetalCommands::Copy(const Texture &source,
                                  TextureRegion sourceRegion,
                                  Texture &destination,
                                  TextureRegion destinationRegion) {
-  if (!OnOwner()) {
-    return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
+  if (!OnOwner() || Render) {
+    return Failure(ErrorKind::Invalid, "Metal copy requires its owner outside a render pass");
   }
   @autoreleasepool {
     const auto *const from = dynamic_cast<const MetalTexture *>(&source);

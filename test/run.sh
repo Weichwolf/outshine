@@ -55,11 +55,20 @@ SpirvCrossFlags() {
 }
 
 NativeLink() {
+  nativeCrossLibs=$(SpirvCrossFlags --libs) || return
   case "$BUILD_PLATFORM" in
-    Darwin) printf '%s' "$(SpirvCrossFlags --libs) -framework Foundation -framework Metal" ;;
-    Linux) printf '%s' "$(pkg-config --libs vulkan) $(SpirvCrossFlags --libs)" ;;
+    Darwin) printf '%s' "$nativeCrossLibs -framework Foundation -framework Metal" ;;
+    Linux)
+      nativeVulkanLibs=$(pkg-config --libs vulkan) || return
+      printf '%s' "$nativeVulkanLibs $nativeCrossLibs"
+      ;;
   esac
 }
+
+if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
+  NativeLink
+  exit $?
+fi
 
 BUILD=${TMPDIR:-/tmp}
 # the nest carries the checkout identity (board:1649): parallel checkouts get parallel
@@ -784,6 +793,20 @@ SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
+ArchiveFresh() {
+  archiveFreshPath=$1
+  shift
+  [ -f "$archiveFreshPath" ] || return 1
+  archiveFreshActual=$(ar t "$archiveFreshPath" 2>/dev/null) || return 1
+  archiveFreshExpected=$(printf '%s\n' "$@" | sed 's|.*/||')
+  [ "$archiveFreshActual" = "$archiveFreshExpected" ] || return 1
+  for archiveFreshMember in "$@"; do
+    [ -f "$archiveFreshMember" ] || return 1
+    [ "$archiveFreshMember" -nt "$archiveFreshPath" ] && return 1
+  done
+  return 0
+}
+
 # THE LIBRARY ENTIRE, from the same declarations the tests build with: every source under src/
 # resolves to a group -- its own file arm when GroupIncludes names it, its directory otherwise --
 # and a source neither names is a refusal, never a guess. The Makefile's `all` target is this call,
@@ -799,14 +822,7 @@ BuildLibrary() {
     BuildGroup "$libraryGroup" || Die "the library group $libraryGroup did not build"
   done
   mkdir -p build
-  archiveStale=yes
-  if [ -f build/liboutshine.a ]; then
-    archiveStale=no
-    for member in $OBJECTS; do
-      if [ "$member" -nt build/liboutshine.a ]; then archiveStale=yes; break; fi
-    done
-  fi
-  if [ "$archiveStale" = yes ]; then
+  if ! ArchiveFresh build/liboutshine.a $OBJECTS; then
     rm -f build/liboutshine.a
     ar rcs build/liboutshine.a $OBJECTS || Die "the archive did not write"
   fi
