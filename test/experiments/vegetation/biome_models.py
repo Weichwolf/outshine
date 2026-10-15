@@ -24,7 +24,14 @@ class Assembly:
         vertices = np.einsum("nij,vj->nvi", frames, v) + origins[:, None]
         faces = f[None] + np.arange(len(origins))[:, None, None] * len(v)
         normals = np.einsum("nij,cj->nci", frames, mesh["normals"].reshape(-1, 3))
-        uv = mesh.get("uv", np.zeros((len(v), 2)))[f.ravel()]
+        if "uv" in mesh:
+            uv = mesh["uv"]
+        elif "parameters" in mesh:
+            parameter = mesh["parameters"]
+            uv = np.column_stack(((parameter[:, 1] + 1) / 2, parameter[:, 0]))
+        else:
+            uv = np.zeros((len(v), 2))
+        uv = uv[f.ravel()]
         self.parts.append(
             {
                 "vertices": vertices.reshape(-1, 3),
@@ -64,7 +71,7 @@ def flower():
     return {"vertices": v, "faces": f, "normals": np.repeat(n, 3, axis=0)}
 
 
-def woody(key, seed):
+def woody_plan(key, seed):
     plant = plant_recipe("fagus" if key == "beech" else "quercus", seed)
     a, b, c = plant.levels
     if key == "heather":
@@ -117,8 +124,14 @@ def woody(key, seed):
             ),
         )
         blades = plant.blades
-    plan = PlantPlan(seed, levels, blades)
+    return PlantPlan(seed, levels, blades)
+
+
+def plant_mesh(plan, leaf_segments=3):
+    levels, blades = plan.levels, plan.blades
     data = plan.tables(10000, 100000)
+    if data is None:
+        raise ValueError("complete plant product exceeds10000 axes or100000 leaves")
     assembly = Assembly()
     for state in plan.expand(10000, 100000)["axes"]:
         level = levels[len(state.path)]
@@ -134,16 +147,27 @@ def woody(key, seed):
     for index, blade in enumerate(blades):
         selected = data["leaf_variants"] == index
         assembly.add(
-            blade.mesh(3, 1),
+            blade.mesh(leaf_segments, 1),
             data["leaf_origins"][selected],
             data["leaf_frames"][selected],
             1 + index % 3,
         )
+    return assembly.finish()
+
+
+def woody(key, seed):
+    plan = woody_plan(key, seed)
+    mesh = plant_mesh(plan)
     if key == "heather":
+        data = plan.tables(10000, 100000)
         ends = data["leaf_origins"][::3]
         frames = data["leaf_frames"][::3]
+        assembly = Assembly()
+        assembly.parts.append(mesh)
+        assembly.vertices = len(mesh["vertices"])
         assembly.add(flower(), ends, frames, 4)
-    return assembly.finish()
+        return assembly.finish()
+    return mesh
 
 
 def cached_conifer(directory):
