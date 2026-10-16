@@ -673,6 +673,10 @@ std::expected<void, std::string> RuntimeScene::BindBuild() {
     if (!Render::BindIllumination(*Renderer_, Stood_, Scratch_, error)) {
       return std::unexpected(std::move(error));
     }
+    if (Camera_.HasOverride()) {
+      if (!Look(error)) { return std::unexpected(std::move(error)); }
+      Camera_.MarkBound();
+    }
     return {};
   }
   Renderer_->SetPictureRegion({.X = Declared_.PictureLeftFrac,
