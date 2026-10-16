@@ -133,7 +133,7 @@ def arrangement(rows, domains, masks):
     )
 
 
-def layout(rows, method, *, width_reach_m=0.75, junctions=None):
+def layout(rows, method, *, width_reach_m=0.75, junctions=None, stairs=None):
     if method not in ("fixed", "width"):
         raise ValueError("known stair core method required")
     domains = [corridor(row) for row in rows]
@@ -175,5 +175,6 @@ def layout(rows, method, *, width_reach_m=0.75, junctions=None):
         "nodes": nodes,
         "incident": incident,
         "masks": masks,
+        "stairs": stairs if stairs is not None else [(0, 0, 1)],
         "note": note,
     }

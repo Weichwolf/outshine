@@ -17,19 +17,40 @@ def norm(mesh):
     return float(np.linalg.norm(normals[:, :2] / normals[:, 2, None], axis=1).max())
 
 
-def tread_proof(data):
+def stair_ranges(data):
+    owners = data.get("stair_owners", np.array([0]))
+    offsets = data.get("stair_level_offsets", np.array([0, len(data["levels_m"])]))
+    if (
+        len(owners) != len(set(owners))
+        or len(offsets) != len(owners) + 1
+        or offsets[0] != 0
+        or offsets[-1] != len(data["levels_m"])
+        or np.any(np.diff(offsets) < 2)
+        or np.any(np.diff(offsets) > 65)
+    ):
+        raise ValueError("invalid saved stair ownership/level ranges")
+    return [
+        (int(o), int(a), int(b))
+        for o, a, b in zip(owners, offsets[:-1], offsets[1:], strict=True)
+    ]
+
+
+def tread_proof(data, owner=0, start=0, stop=None):
     vertices, top = data["body_vertices"], data["top_faces"]
-    chosen, levels = data["face_step"], data["levels_m"]
+    chosen, levels = data["face_step"], data["levels_m"][start:stop]
     field = Mesh(
         data["reference_vertices"],
-        data["reference_faces"][(data["face_sources"] & 1) != 0],
+        data["reference_faces"][(data["face_sources"] & (1 << owner)) != 0],
     )
     maximum = norm(field)
     if maximum > 0.5 + 1e-7:
         raise ValueError("actual stair grade envelope exceeds fifty percent")
     footprints, disks = [], []
     for i in range(len(levels)):
-        polygons = shapely.polygons(vertices[top[chosen == i], :2])
+        selected = chosen == start + i
+        if np.any((data["face_sources"][selected] & (1 << owner)) == 0):
+            raise ValueError("saved tread level belongs to another stair source")
+        polygons = shapely.polygons(vertices[top[selected], :2])
         shape = shapely.union_all(polygons)
         if shape.geom_type != "Polygon" or shape.is_empty:
             raise ValueError("saved stair tread/landing is split or absent")
@@ -98,6 +119,8 @@ def audit(data, domains, *, limits=None, crossings=None):
         raise ValueError("saved stair body volume/actual Float32 orientation invalid")
     top = data["top_faces"]
     owners = data["face_sources"]
+    stairs = stair_ranges(data)
+    stair_owners = {r[0] for r in stairs}
     cycles, coverage = {}, []
     limits = limits if limits is not None else [0.5, *[0.06] * (len(domains) - 1)]
     for i in range(len(domains)):
@@ -107,19 +130,21 @@ def audit(data, domains, *, limits=None, crossings=None):
         if not shapely.coverage_is_valid(polygons) or error > 1e-7:
             raise ValueError("saved source cap lacks its whole original footprint once")
         coverage.append(error)
-        if i:
+        if i not in stair_owners:
             norms = [norm(Mesh(v, selected)) for v in (vertices, cast)]
             if max(norms) > limits[i] + 1e-7:
                 raise ValueError("actual saved source cap exceeds requested norm")
             cycles[str(i)] = norms
     levels = data["levels_m"]
-    if (
-        not 2 <= len(levels) <= 65
-        or np.any(np.diff(levels) <= 0)
-        or np.diff(levels).max() > 0.18
-    ):
-        raise ValueError("saved stair riser recipe outside bounds")
+    for _owner, start, stop in stairs:
+        if (
+            np.any(np.diff(levels[start:stop]) <= 0)
+            or np.diff(levels[start:stop]).max() > 0.18
+        ):
+            raise ValueError("saved stair riser recipe outside bounds")
     selected = data["face_step"] >= 0
+    if np.any(data["face_step"][selected] >= len(levels)):
+        raise ValueError("saved tread level is outside its stair recipe")
     expected = levels[data["face_step"][selected]]
     if np.max(abs(vertices[top[selected], 2] - expected[:, None])) > 1e-8:
         raise ValueError("saved stair tread is not at its actual horizontal level")
@@ -162,5 +187,9 @@ def audit(data, domains, *, limits=None, crossings=None):
         ): cycles,
         "source_coverage_error_m2": coverage,
         "clearance": separation,
-        "treads": tread_proof(data),
+        "treads": (
+            tread_proof(data)
+            if len(stairs) == 1
+            else {str(o): tread_proof(data, o, a, b) for o, a, b in stairs}
+        ),
     }

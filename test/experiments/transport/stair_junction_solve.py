@@ -40,6 +40,7 @@ class Conditions:
 
 def facets(plan, system, directions, reserve, flat, precision):
     seen = set()
+    stair_owners = {s[0] for s in plan.get("stairs", [(0, 0, 1)])}
     cast_xy = plan["xy"].astype(np.float32).astype(float)
     root = plan["rows"][0]["prior"][0]
     epsilon = float(np.spacing(np.float32(max(abs(root - 2), abs(root + 10))))) / 2
@@ -60,7 +61,7 @@ def facets(plan, system, directions, reserve, flat, precision):
                 )
                 for owners, mask in zip(plan["incident"], plan["masks"], strict=True)
             )
-            if precision and owner != 0 and not landing:
+            if precision and owner not in stair_owners and not landing:
                 quantized = directions @ gradient_rows(cast_xy, face)
                 for values in quantized:
                     bound = row["gradient"] * reserve - epsilon * float(
@@ -68,7 +69,7 @@ def facets(plan, system, directions, reserve, flat, precision):
                     )
                     if bound < 0:
                         raise ValueError(
-                            "cycle face requires a less ill-conditioned precision mesh"
+                            "source face requires a less ill-conditioned precision mesh"
                         )
                     system.add(face, values, bound)
 
@@ -90,7 +91,7 @@ def junctions(plan, system, directions, reserve, flat):
             system.add([east, north], direction, 0 if flat else 0.0598 * reserve)
 
 
-def overlap_conditions(plan, system, gap):
+def overlap_conditions(plan, system, gap, gap_variable=None):
     mapped = [
         {int(k): f for k, f in zip(keys, faces, strict=True)}
         for keys, faces in zip(plan["part_global_faces"], plan["parts"], strict=True)
@@ -107,19 +108,22 @@ def overlap_conditions(plan, system, gap):
                 raise ValueError("unplanned non-contact overlap between source bands")
             low, high = (b, a) if first else (a, b)
             for under, over in zip(low, high, strict=True):
-                system.add([under, over], [1, -1], -gap)
+                if gap_variable is None:
+                    system.add([under, over], [1, -1], -gap)
+                else:
+                    system.add([under, over, gap_variable], [1, -1, 1], 0)
                 checks += 1
     return checks
 
 
-def stair_conditions(plan, system):
+def stair_condition(plan, system, owner, low_node, high_node):
     count = len(plan["xy"])
-    face = plan["parts"][0]
-    low, high = 2 * count, 2 * count + 3
+    face = plan["parts"][owner]
+    low, high = 2 * count + 3 * low_node, 2 * count + 3 * high_node
     for i in np.unique(face):
         system.add([low, i], [1, -1], 0)
         system.add([i, high], [1, -1], 0)
-    row = plan["rows"][0]
+    row = plan["rows"][owner]
     shapes = shapely.polygons(plan["xy"][face])
     for a, b in itertools.pairwise(row["xy"]):
         tangent = (b - a) / np.linalg.norm(b - a)
@@ -159,7 +163,9 @@ def solve(
     normals = np.c_[np.cos(angles), np.sin(angles)]
     reserve = float(np.cos(np.pi / directions))
     plane_variables = 3 * len(plan["nodes"])
-    system = Conditions(2 * count + plane_variables)
+    capacity = gap_m is None
+    gap_variable = 2 * count + plane_variables if capacity else None
+    system = Conditions(2 * count + plane_variables + int(capacity))
     origin_z = plan["rows"][0]["prior"][0]
     priors = []
     for point, owner in zip(xy, plan["primary_source"], strict=True):
@@ -177,8 +183,9 @@ def solve(
         system.add([i, count + i], [-1, -1], -prior)
     facets(plan, system, normals, reserve, flat, precision)
     junctions(plan, system, normals, reserve, flat)
-    stair_conditions(plan, system)
-    overlaps = overlap_conditions(plan, system, gap_m)
+    for stair in plan.get("stairs", [(0, 0, 1)]):
+        stair_condition(plan, system, *stair)
+    overlaps = overlap_conditions(plan, system, gap_m, gap_variable)
     anchors = ((0, 0), (1, -1), (2, 0)) if fixed_port_heights else ((0, 0),)
     for owner, end in anchors:
         row = plan["rows"][owner]
@@ -189,13 +196,16 @@ def solve(
         system.equal([i], [1], float(row["prior"][end] - origin_z))
     matrix = system.matrix()
     prepared = time.perf_counter()
+    objective = np.r_[np.zeros(count), np.ones(count), np.zeros(plane_variables)]
+    bounds = [(-2, 10)] * count + [(0, None)] * count + [(None, None)] * plane_variables
+    if capacity:
+        objective = np.r_[np.zeros(len(objective)), -1.0]
+        bounds.append((0, 5))
     answer = linprog(
-        np.r_[np.zeros(count), np.ones(count), np.zeros(plane_variables)],
+        objective,
         A_ub=matrix,
         b_ub=system.bounds,
-        bounds=[(-2, 10)] * count
-        + [(0, None)] * count
-        + [(None, None)] * plane_variables,
+        bounds=bounds,
         method=solver,
         options={"time_limit": seconds, "primal_feasibility_tolerance": 1e-9},
     )
@@ -231,8 +241,14 @@ def solve(
     ]
     note.update(
         maximum_gradients=norms,
-        junction_planes=answer.x[-plane_variables:].reshape(-1, 3).tolist(),
+        junction_planes=answer.x[2 * count : 2 * count + plane_variables]
+        .reshape(-1, 3)
+        .tolist(),
         objective=float(answer.fun),
         maximum_residual=float(np.max(matrix @ answer.x - system.bounds)),
     )
+    if capacity:
+        from stair_junction_capacity import dual_bound
+
+        note["capacity"] = dual_bound(matrix, bounds, system.bounds, objective, answer)
     return z, note
