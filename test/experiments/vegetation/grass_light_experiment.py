@@ -133,6 +133,26 @@ def run(inputs, scenario, output):
             checks = check_rays(
                 index, stand, points[chosen], normals[chosen], sun, control["bias_m"]
             )
+            sky_checks = []
+            for lamp in state["lights"][1:]:
+                d = np.asarray(lamp["direction"])
+                subset = chosen[:16]
+                origins = query_origins(
+                    points[subset], normals[subset], d, control["bias_m"]
+                )
+                lengths = np.maximum(
+                    (index.maximum_height + 2 * control["bias_m"] - origins[:, 2])
+                    / d[2],
+                    0,
+                )
+                exact, counters = direct_visibility(
+                    stand["vertices"], stand["faces"], origins, d, lengths
+                )
+                actual, _ = index.visibility(
+                    points[subset], normals[subset], d, control["bias_m"]
+                )
+                np.testing.assert_array_equal(actual, exact)
+                sky_checks.append({"name": lamp["name"], **counters, "exact": True})
             first, _ = index.visibility(
                 points, normals, sun, bias=control["bias_m"] / 2
             )
@@ -153,6 +173,7 @@ def run(inputs, scenario, output):
                 "wall_s": wall,
                 "lights": result["lights"],
                 "ray_checks": checks,
+                "sky_checks": sky_checks,
                 "bias_changed_pixels": changed,
                 "pixels": len(points),
                 "mean_rgb": {
