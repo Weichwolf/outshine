@@ -24,13 +24,13 @@ GLSLANG names glslangValidator. Python uses only the standard library.
 ```sh
 python3 test/experiments/render/ground_material_diagnostic.py \
   --source-checkout /tmp/frozen-native --binary /tmp/frozen-native/build/relinked-client \
-  --output /tmp/outshine-ground-classes --mode classes Koerbersee
+  --preload-seconds 120 --output /tmp/outshine-ground-classes --mode classes Koerbersee
 python3 test/experiments/render/ground_material_diagnostic.py \
   --source-checkout /tmp/frozen-native --binary /tmp/frozen-native/build/relinked-client \
-  --output /tmp/outshine-ground-rock --mode rock-share Koerbersee
+  --preload-seconds 120 --output /tmp/outshine-ground-rock --mode rock-share Koerbersee
 python3 test/experiments/render/ground_material_diagnostic.py \
   --source-checkout /tmp/frozen-native --binary /tmp/frozen-native/build/relinked-client \
-  --output /tmp/outshine-ground-canopy --mode canopy-rgb --cover 0.829 Koerbersee
+  --preload-seconds 120 --output /tmp/outshine-ground-canopy --mode canopy-rgb --cover 0.829 Koerbersee
 ```
 
 Default1920×1080, unchanged scenario and ten-second preload. Longer preparation

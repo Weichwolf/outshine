@@ -138,7 +138,12 @@ def prepare(source, output, mode, family, cover):
                 str(artifact),
             ]
             subprocess.run(
-                command, cwd=source, stdout=log, stderr=subprocess.STDOUT, check=True
+                command,
+                cwd=source,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                check=True,
+                timeout=60,
             )
             commands.append(command)
     return {
@@ -209,16 +214,21 @@ def main():
             str(args.preload_seconds),
             args.place,
         ]
-        result = subprocess.run(
-            command,
-            cwd=output,
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=args.preload_seconds + 120,
-        )
-        (output / "capture.log").write_text(result.stdout + result.stderr)
-        report.update({"executed": True, "command": command, "exit": result.returncode})
+        with (output / "capture.log").open("w") as log:
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=output,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    check=False,
+                    timeout=args.preload_seconds + 120,
+                )
+                status = result.returncode
+            except subprocess.TimeoutExpired:
+                status = 124
+                report["reason"] = "client exceeded the diagnostic process timeout"
+        report.update({"executed": True, "command": command, "exit": status})
     (output / "diagnostic.json").write_text(json.dumps(report, indent=2) + "\n")
     print(output / "diagnostic.json")
     return report.get("exit", 0)
