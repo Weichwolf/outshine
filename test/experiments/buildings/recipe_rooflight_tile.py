@@ -37,7 +37,8 @@ def build(reference, output):
     for key in ("generated", "omissions", "counts", "material_definitions"):
         if source[key] != old["source"][key]:
             raise ValueError("Normal v2 tile changed source coverage/palette")
-    for first, last in zip(old["source"]["members"], source["members"], strict=True):
+    members = json.loads(json.dumps(source["members"]))
+    for first, last in zip(old["source"]["members"], members, strict=True):
         if {k: v for k, v in first.items() if k != "prototype"} != {
             k: v for k, v in last.items() if k != "prototype"
         }:
