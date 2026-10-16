@@ -10,8 +10,8 @@ import shapely
 from broken_hip import envelope, recipe, surface
 from outshine_ref.buildings.modelling import heightfield_envelope
 from provider_contract import attributes
-from structural_shell_geometry import mesh_section
 from stepped_source_probe import overview
+from structural_shell_geometry import mesh_section
 from tile_roof_envelopes import OrdinaryDetails, choose, roof_surface
 from verify_roof_envelopes import measures
 from verify_urban_roofs import control, sources
