@@ -9,6 +9,56 @@ from recipe_plant_values import PlantDetail, arrays
 from spatial_crown_replay import check_mesh
 
 
+def physical_references(plan, tables):
+    axes, needles, groups = (
+        sum(plan.wood.axis_counts),
+        sum(plan.needle_counts),
+        sum(plan.group_counts),
+    )
+    for key, count, bound in (
+        ("foliage_group_ids", needles, groups),
+        ("foliage_axis_ids", needles, axes),
+        ("foliage_short_axis_ids", groups, axes),
+    ):
+        values = tables[key]
+        if (
+            values.shape != (count,)
+            or values.dtype.kind not in "iu"
+            or np.any((values < 0) | (values >= bound))
+        ):
+            raise ValueError(
+                "Every physical organ needs a valid integer supporting owner"
+            )
+    for key, count in (
+        ("axis_origins", axes),
+        ("foliage_origins", needles),
+        ("foliage_short_origins", groups),
+    ):
+        if tables[key].shape != (count, 3):
+            raise ValueError("Complete physical point buffers required")
+    for key in ("axis_ids", "foliage_ids", "foliage_short_ids"):
+        if tables[key].dtype.kind not in "iu":
+            raise ValueError("Physical IDs require actual integer arrays")
+    owner = tables["foliage_short_axis_ids"][tables["foliage_group_ids"].astype(int)]
+    if not np.array_equal(owner, tables["foliage_axis_ids"]):
+        raise ValueError("Needle and supporting short-shoot owners disagree")
+    memberships = np.bincount(tables["foliage_group_ids"].astype(int), minlength=groups)
+    for row, path in enumerate(plan.wood.paths()):
+        mask = tables["foliage_short_axis_ids"] == row
+        pattern = plan.patterns[len(path)]
+        expected = (
+            pattern.count(tables["axis_lengths"][row]) // pattern.group_size
+            if pattern
+            else 0
+        )
+        if int(mask.sum()) != expected or (
+            pattern and np.any(memberships[mask] != pattern.group_size)
+        ):
+            raise ValueError(
+                "Complete per-axis group and per-group needle membership required"
+            )
+
+
 def physical_detail(value):
     if not isinstance(value, PlantDetail):
         raise TypeError("Actual vegetation detail payload required")
@@ -20,6 +70,7 @@ def physical_detail(value):
                 raise ValueError("Finite numeric physical buffers required")
             if a.dtype.kind == "f" and a.dtype != np.dtype("float64"):
                 raise ValueError("Float64 port requires actual Float64 arrays")
+    physical_references(plan, tables)
     n, groups = sum(plan.needle_counts), sum(plan.group_counts)
     for key, count in (
         ("axis_ids", sum(plan.wood.axis_counts)),

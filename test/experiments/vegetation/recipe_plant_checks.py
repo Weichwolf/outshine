@@ -168,6 +168,24 @@ class RecipePlantChecks(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "contacts"):
             physical_detail(replace(value, tables=altered))
 
+    def test_foreign_or_float_organ_owners_cannot_hide_unchecked_needles(self):
+        value = (
+            prepared()
+            .evaluate({"seed": seed_input(718)}, outputs=("detail",))
+            .outputs["detail"]
+            .value
+        )
+        for key in ("foliage_group_ids", "foliage_axis_ids", "foliage_short_axis_ids"):
+            bad = dict(value.tables)
+            bad[key] = bad[key].copy()
+            bad[key][0] = 999999
+            with self.assertRaisesRegex(ValueError, "owner"):
+                physical_detail(replace(value, tables=bad))
+        bad = dict(value.tables)
+        bad["foliage_ids"] = bad["foliage_ids"].astype(np.float64)
+        with self.assertRaisesRegex(ValueError, "integer"):
+            physical_detail(replace(value, tables=bad))
+
     def test_emissions_and_external_geometry_are_really_read_only(self):
         site = source_site()
         with self.assertRaises(ValueError):
