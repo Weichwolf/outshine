@@ -23,7 +23,7 @@ def measure(inputs, case, mode, output):
         return instance_group(prototype, positions, *args, **kwargs)
 
     start = time.perf_counter()
-    with patch("stand_prototype_scene.instance_group", side_effect=counted):
+    with patch("stand_prototype_scene.instance_group", new=counted):
         template = build_template(inputs, mode)
         prepared = time.perf_counter()
         prototype_groups = len(uploaded)
