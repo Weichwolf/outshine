@@ -55,12 +55,21 @@ def area_catalog(layer, tree, domains, rows, context):
     return sorted(result, key=lambda r: (r["feature_id"], r["geometry_type"]))
 
 
-def catalog(case, rows, context):
+def catalog(case, rows, context, *, rejected=()):
     path = INPUT.with_name(case["origin"]["payload_file"])
     receipt = dict(context["vector"], path=str(path))
     layer = decode_vector(receipt)["transportation"]
     sources = parts(layer, tuple(receipt["tile"]), np.array(context["origin_lat_lon"]))
     selected = {r["source_id"] for r in rows}
+    trials = {r["source_id"]: r for r in rejected}
+    if (
+        len(trials) != len(rejected)
+        or not set(trials) <= sources.keys()
+        or set(trials) & selected
+    ):
+        raise ValueError(
+            "rejected recipe trials require unique original unselected sources"
+        )
     for row in rows:
         source = sources[row["source_id"]]
         original = row.get("original_xy_m", row["xy"])
@@ -118,6 +127,11 @@ def catalog(case, rows, context):
                 else "32m axis search only; width/area semantics unresolved, not a collision guarantee",
             }
         )
+    for row in unadmitted:
+        if row["source_id"] in trials:
+            trial = trials[row["source_id"]]
+            row["reason"] = trial["reason"]
+            row["failed_recipe_trial"] = trial
     unadmitted.sort(key=lambda r: r["source_id"])
     unsupported = area_catalog(layer, tree, domains, rows, context)
     return {
