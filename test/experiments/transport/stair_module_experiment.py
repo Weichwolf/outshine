@@ -240,7 +240,7 @@ def generate(args):
         return report
 
 
-def arguments():
+def argument_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", type=Path, default=FIXTURE)
     parser.add_argument("--base", type=Path, required=True)
@@ -251,7 +251,11 @@ def arguments():
         choices=("heights", "fixed_displacement"),
         default="fixed_displacement",
     )
-    return parser.parse_args()
+    return parser
+
+
+def arguments():
+    return argument_parser().parse_args()
 
 
 if __name__ == "__main__":
