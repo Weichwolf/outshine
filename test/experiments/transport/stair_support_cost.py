@@ -42,7 +42,7 @@ def measure(args):
             import memray
 
             tracker = memray.Tracker(
-                str(args.profile), trace_python_allocators=False, native_traces=True
+                str(args.profile), trace_python_allocators=False, native_traces=False
             )
         began = time.perf_counter()
         with tracker:
@@ -82,6 +82,7 @@ def measure(args):
         allocations = profile_note(str(args.profile))
         allocations.update(
             trace_python_allocators=False,
+            native_traces=False,
             scope="One complete station plan including preparation, construction and physical checks after imports/source decode. Native allocations observed; Python allocator events/internal total copies unobserved. Requested bytes are not live or unique memory.",
         )
         result["allocations"] = allocations
