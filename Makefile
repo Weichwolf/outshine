@@ -69,7 +69,7 @@ build/compute-shader-contracts: test/scripts/compute-shader-contracts.cpp src/re
 	@$(CXX) -std=c++23 -O2 -Wall -Wextra -Werror -Isrc/render/stages $< -o $@
 
 build/compute-shaders.json: build/compute-shader-contracts
-	@$< > $@.tmp && mv $@.tmp $@
+	@$< > $@.tmp && if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
 build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
 	@mkdir -p $(@D)
@@ -87,13 +87,15 @@ build/shaders/flat-%.frag.spv: src/render/shaders/flatFragment.glsl $(wildcard s
 	@mkdir -p $(@D)
 	@variant=$*; base=$${variant:6:1}; metal=$${variant:7:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -DFLAT_KIND=$${variant:0:1} -DFLAT_TEXTURED=$${variant:1:1} -DSUBJECT_WRITES_VELOCITY=$${variant:3:1} -DSUBJECT_NORMAL_LOCATION=$${variant:4:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:5:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
 
-build/shader-tables: test/scripts/shader-tables.cpp $(wildcard src/render/stages/*.h) $(wildcard src/base/math/*.h)
+build/shader-tables: test/scripts/shader-tables.cpp Makefile
 	@mkdir -p $(@D)
-	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+	@$(CXX) -std=c++23 -O2 -ffp-contract=off -Wall -Wextra -Werror -MMD -MP -MF $@.d -Iinclude -Isrc/base -Isrc/render/stages $$(pkg-config --cflags sdl3) $< -o $@
+
+-include build/shader-tables.d
 
 build/shaders/brdfTables.glsl: build/shader-tables
 	@mkdir -p $(@D)
-	@$< > $@.tmp && mv $@.tmp $@
+	@$< > $@.tmp && if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
 
 build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
