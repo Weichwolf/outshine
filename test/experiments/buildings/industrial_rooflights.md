@@ -148,3 +148,9 @@ reference module; source/CSG preparation is retained, emission avoids repeated
 extrusion. Contract, counterexamples, scoped costs and image/replay evidence:
 [lib/rooflight_panels.md](../../../lib/rooflight_panels.md). This adds no v1 recipe
 semantics or automatic standard/LOD selection.
+
+Explicit normal hall v2 and its loadable domain recipe now use those closed
+components without prototype patches. Logical/full demand, retained products,
+source/tile controls, actual image inputs and scoped costs are documented in
+[recipe_rooflights.md](recipe_rooflights.md). Version1 stays the default; complete
+direct far roofs and transition/night/native admission remain open.
