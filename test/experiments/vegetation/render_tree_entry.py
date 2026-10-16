@@ -41,11 +41,15 @@ def render(inputs, output, view):
     eye, target, width = (3, -4, 2.7), (0, 0, 0.95), 4.5
     if view == "detail":
         eye, target, width = (1.7, -2.0, 1.9), (0.4, -0.1, 1.35), 1.5
+    if view in metadata.get("preview_views", {}):
+        camera = metadata["preview_views"][view]
+        eye, target, width = camera["eye"], camera["target"], camera["span_m"]
     scene = setup("Laubwald", {"size_m": 4, "camera": eye, "target": target})
     scene.camera = configure_camera(
         {"projection": "orthographic", "eye": eye, "target": target, "span_m": width}
     )
-    scene.eevee.taa_render_samples = 16
+    samples = metadata.get("preview_samples", 16)
+    scene.eevee.taa_render_samples = samples
     output.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str((output / (view + ".png")).resolve())
     ready = time.perf_counter()
@@ -58,7 +62,7 @@ def render(inputs, output, view):
         "view": view,
         "source_plan": metadata["plan_identity"],
         "resolution": [1920, 1080],
-        "samples": 16,
+        "samples": samples,
         "renderer": gpu.platform.renderer_get(),
         "setup_s": ready - began,
         "render_s": time.perf_counter() - ready,
