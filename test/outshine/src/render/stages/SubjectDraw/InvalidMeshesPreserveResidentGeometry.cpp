@@ -51,7 +51,9 @@ int main() {
       constexpr auto maximum = std::numeric_limits<uint32_t>::max();
       for (int fault = 0; fault < 10; ++fault) {
         DrawList draws;
-        CHECK(draws.Add(DrawItem{.IndexCount = 3}, error), "valid independent draw added");
+        DrawItem item{};
+        item.IndexCount = 3;
+        CHECK(draws.Add(item, error), "valid independent draw added");
         draws.Compile();
         SubjectMesh mesh;
         mesh.Verts.From = positions.data();
@@ -91,7 +93,9 @@ int main() {
               "invalid input leaves the rendered image unchanged");
       }
       DrawList draws;
-      CHECK(draws.Add(DrawItem{.IndexCount = 3}, error), "staged draw is valid");
+      DrawItem item{};
+      item.IndexCount = 3;
+      CHECK(draws.Add(item, error), "staged draw is valid");
       draws.Compile();
       constexpr std::array<float, 9> stagedPositions{
           -0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f};

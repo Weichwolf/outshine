@@ -3,14 +3,15 @@
 
 #include <array>
 #include <cstddef>
-#include <string>
+#include <memory>
+#include <span>
+#include <cstdint>
 #include "DrawList.h"
 
 #include "math/Mat4.h"
 #include "math/Vec3.h"
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
 #include "StageSubmission.h"
 #include "ShadowRegionUniform.h"
 
@@ -22,9 +23,13 @@ class SubjectDraw;
 
 class LightVisibilityStage {
 public:
-  [[nodiscard]] bool Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error);
+  [[nodiscard]] Native::Result<void> Configure(SubjectDraw &subjects, const Gpu &gpu);
 
-  void Binds(SubjectDraw &subjects) noexcept { Subjects_ = &subjects; }
+  void Binds(SubjectDraw &subjects) noexcept {
+    if (Subjects_ == &subjects) { return; }
+    Cache_.Invalidate();
+    Subjects_ = &subjects;
+  }
 
   void Invalidate() noexcept { Cache_.Invalidate(); }
 
@@ -43,7 +48,7 @@ public:
 
   [[nodiscard]] bool HasSubmittedData() const noexcept { return Cache_.Submitted(); }
 
-  void Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
 
   void Build(const Vec3 &preView);
 
@@ -75,9 +80,13 @@ public:
 private:
   [[nodiscard]] Vec3 CasterCentre() const;
   uint32_t CastsBelow_ = kNoBatch;
-  [[nodiscard]] bool ConfigureDepthOnly(const Gpu &gpu, std::string &error);
-  [[nodiscard]] bool ConfigureMasked(const Gpu &gpu, std::string &error);
-  [[nodiscard]] SDL_GPUGraphicsPipeline *MaskedPipeline(VertexLayout layout) const;
+  static constexpr size_t kMaskedUvLayouts = 3;
+  using MaskedPipelines =
+      std::array<std::unique_ptr<Native::GraphicsPipeline>, kMaskedUvLayouts * 2>;
+  [[nodiscard]] static Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+  ConfigureDepthOnly(Native::Device &device);
+  [[nodiscard]] static Native::Result<MaskedPipelines> ConfigureMasked(Native::Device &device);
+  [[nodiscard]] Native::GraphicsPipeline *MaskedPipeline(VertexLayout layout) const;
 
   struct LightBasis {
     Vec3 Right;
@@ -87,16 +96,17 @@ private:
 
   void
   BuildRegions(const LightBasis &basis, const Vec3 &centre, double radiusM, const Vec3 &preView);
-  void
+  [[nodiscard]] Native::Result<void>
   Cast(const Mat4 &lightFromWorld, const Vec3 &preView, size_t region, const PassRecording &into);
-  void CastSubjects(const PassRecording &into);
+  [[nodiscard]] Native::Result<void> CastSubjects(const PassRecording &into,
+                                                  std::span<const std::byte> view);
 
   size_t CastBatches_ = 0;
   Vec3 StoodAtM_;
   SubjectDraw *Subjects_ = nullptr;
-  OwnedPipeline DepthOnly_;
-  static constexpr size_t kMaskedUvLayouts = 3;
-  std::array<OwnedPipeline, kMaskedUvLayouts * 2> Masked_;
+  Native::Device *Device_ = nullptr;
+  std::unique_ptr<Native::GraphicsPipeline> DepthOnly_;
+  MaskedPipelines Masked_;
   Vec3 ToSun_ = {{0, 0, 1}};
   Vec3 Up_ = {{0, 1, 0}};
   double RadiusM_ = 0.0;

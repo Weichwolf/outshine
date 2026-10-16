@@ -4,22 +4,23 @@
 #include <span>
 #include <array>
 #include <cstdint>
-#include <expected>
-#include <string>
+#include <memory>
 #include <vector>
 
-#include <SDL3/SDL_gpu.h>
+#include "native/Device.h"
 
-#include "GpuOwned.h"
 #include "SubjectTypes.h"
 #include "shade/TexelChain.h"
 
 namespace outshine::Render {
+class UploadQueue;
 
 using Core::TexelKind;
 using Core::Texels;
 
 struct SubjectResidency {
+  void UploadsFrom(UploadQueue *queue) noexcept { Uploads_ = queue; }
+
   [[nodiscard]] size_t TakeUploadAttempts();
 
   [[nodiscard]] size_t TotalUploadAttempts() const;
@@ -53,14 +54,15 @@ struct SubjectResidency {
   enum class ExistingContents { Preserve, Discard };
 
   struct Need {
-    SDL_GPUBufferUsageFlags Usage = 0;
+    Native::UseMask<Native::BufferUse> Usage;
     uint32_t Bytes = 0;
     ExistingContents Existing = ExistingContents::Preserve;
+    bool Deferred = false;
   };
 
   struct Crossing {
     Stream Which = Stream::Count;
-    SDL_GPUBufferUsageFlags Usage = 0;
+    Native::UseMask<Native::BufferUse> Usage;
     const void *From = nullptr;
     uint32_t Bytes = 0;
     uint32_t Offset = 0;
@@ -72,8 +74,8 @@ struct SubjectResidency {
   };
 
   struct BoundImage {
-    SharedTexture Image;
-    SharedSampler Sample;
+    std::shared_ptr<Native::Texture> Image;
+    std::shared_ptr<Native::Sampler> Sample;
   };
 
   enum class Transfer { Srgb, Linear };
@@ -134,16 +136,15 @@ struct SubjectResidency {
     SubjectT_ = tangents;
   }
 
-  void StandsOn(SDL_GPUDevice *device) {
-    if (Device_ != device) { DefaultImages_.clear(); }
-    Device_ = device;
+  [[nodiscard]] Native::Result<void> StandsOn(Native::Device *device);
+
+  [[nodiscard]] Native::Device *Device() const { return Device_; }
+
+  [[nodiscard]] std::unique_ptr<Native::Buffer> &Buffer(Stream which) {
+    return Buffers_[static_cast<size_t>(which)];
   }
 
-  [[nodiscard]] SDL_GPUDevice *Device() const { return Device_; }
-
-  [[nodiscard]] OwnedBuffer &Buffer(Stream which) { return Buffers_[static_cast<size_t>(which)]; }
-
-  [[nodiscard]] const OwnedBuffer &Buffer(Stream which) const {
+  [[nodiscard]] const std::unique_ptr<Native::Buffer> &Buffer(Stream which) const {
     return Buffers_[static_cast<size_t>(which)];
   }
 
@@ -158,12 +159,15 @@ struct SubjectResidency {
   [[nodiscard]] uint64_t HeldBytes() const {
     uint64_t bytes = 0;
     for (const uint32_t one : Held_) { bytes += one; }
+    for (const auto &one : RetiredBuffers_) { bytes += one->Description().Bytes; }
     return bytes;
   }
 
   struct AllocationStats {
     std::array<uint32_t, kStreams> StreamBytes{};
     uint64_t TransferBytes = 0;
+    uint64_t RetiredDeviceBytes = 0;
+    uint64_t DeviceCopyBytes = 0;
     uint32_t VertexSlots = 0;
     uint32_t FreeVertexSlots = 0;
     uint32_t IndexSlots = 0;
@@ -176,23 +180,25 @@ struct SubjectResidency {
 
   [[nodiscard]] const Shaping &Shape() const { return Shape_; }
 
-  [[nodiscard]] bool Cross(std::span<Crossing> what, bool deferred, std::string &error);
-  [[nodiscard]] bool Submit(std::span<Crossing> what, uint32_t total, std::string &error);
-  [[nodiscard]] bool Grow(Stream which, Need need, std::string &error);
-  [[nodiscard]] bool FlushCrossings(SDL_GPUCommandBuffer *commands, std::string &error);
+  [[nodiscard]] Native::Result<void> Cross(std::span<Crossing> what, bool deferred);
+  [[nodiscard]] Native::Result<void> Grow(Stream which, Need need);
+  [[nodiscard]] Native::Result<void> FlushCrossings(Native::Commands *commands);
   void CommitCrossings();
   void ReleaseUploadScratch();
 
-  [[nodiscard]] bool SubmitPendingUploads(std::string &error);
+  [[nodiscard]] Native::Result<void> SubmitPendingUploads();
 
-  [[nodiscard]] std::expected<BoundImage, std::string>
+  [[nodiscard]] Native::Result<BoundImage>
   Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
 private:
-  [[nodiscard]] std::expected<void, std::string>
-  UploadMipChain(OwnedTexture &image, ImageView pixels, uint32_t levels, ImageMipKind kind) const;
+  [[nodiscard]] Native::Result<void> Submit(std::span<Crossing> what, uint32_t total);
+  [[nodiscard]] Native::Result<void> UploadMipChain(std::unique_ptr<Native::Texture> &image,
+                                                    ImageView pixels,
+                                                    uint32_t levels,
+                                                    ImageMipKind kind) const;
 
-  [[nodiscard]] std::expected<BoundImage, std::string>
+  [[nodiscard]] Native::Result<BoundImage>
   UploadImage(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
 
   struct DefaultImageKey {
@@ -219,17 +225,22 @@ private:
   mutable size_t StagingAttempts_ = 0;
 
   struct BufferChanges {
-    std::array<OwnedBuffer, kStreams> Buffers;
+    std::array<std::unique_ptr<Native::Buffer>, kStreams> Buffers;
     std::array<uint32_t, kStreams> Capacities{};
     std::array<bool, kStreams> Changed{};
   };
 
-  [[nodiscard]] bool
-  PrepareBuffers(std::span<Crossing> what, BufferChanges &previous, std::string &error);
+  [[nodiscard]] Native::Result<void> PrepareBuffers(std::span<Crossing> what,
+                                                    BufferChanges &previous);
   void RestoreBuffers(BufferChanges &previous);
-  [[nodiscard]] bool StageUploads(std::span<Crossing> what, uint32_t total, std::string &error);
-  [[nodiscard]] bool ReplacesBuffers(std::span<const Crossing> crossings) const;
-  void RecordCrossings(SDL_GPUCopyPass *copy);
+  void RetireBuffers(BufferChanges &previous);
+  [[nodiscard]] Native::Result<void>
+  PreserveBuffer(Native::Buffer &source, Native::Buffer &target, uint32_t bytes, bool deferred);
+  [[nodiscard]] Native::Result<void> StageUploads(std::span<Crossing> what, uint32_t total);
+  [[nodiscard]] Native::Result<void> RecordCrossings(Native::Commands &commands);
+  [[nodiscard]] Native::Result<std::span<std::byte>> PrepareStaging(uint32_t total);
+  [[nodiscard]] Native::Result<std::span<std::byte>> PrepareBulk(uint32_t total);
+  static void Fill(std::span<std::byte> mapped, uint32_t at, std::span<const Crossing> what);
   [[nodiscard]] static Range Take(std::vector<Range> &free, uint32_t count, uint32_t &top);
   static void Give(std::vector<Range> &free, Range back);
   std::vector<Range> FreeV_;
@@ -246,26 +257,29 @@ private:
   Range SubjectT_;
 
   struct Staged {
-    SDL_GPUBuffer *Into = nullptr;
+    Native::Buffer *Into = nullptr;
     uint32_t From = 0;
     uint32_t Bytes = 0;
     uint32_t Offset = 0;
-    SDL_GPUTransferBuffer *Staging = nullptr;
+    Native::Buffer *Staging = nullptr;
   };
 
-  SDL_GPUDevice *Device_ = nullptr;
-  std::array<OwnedBuffer, kStreams> Buffers_;
+  UploadQueue *Uploads_ = nullptr;
+  Native::Device *Device_ = nullptr;
+  std::array<std::unique_ptr<Native::Buffer>, kStreams> Buffers_;
   std::array<uint32_t, kStreams> Held_{};
   Shaping Shape_;
 
-  OwnedTransfer Staging_;
+  std::unique_ptr<Native::Buffer> Staging_;
 
   struct RetiredTransfer {
-    OwnedTransfer Buffer;
+    std::unique_ptr<Native::Buffer> Buffer;
     uint32_t Bytes = 0;
   };
 
   std::vector<RetiredTransfer> Retired_;
+  std::vector<std::unique_ptr<Native::Buffer>> RetiredBuffers_;
+  uint64_t DeviceCopyBytes_ = 0;
   uint32_t StagingBytes_ = 0;
   uint32_t StagingUsed_ = 0;
   uint32_t PendingUploadBytes_ = 0;
@@ -273,7 +287,7 @@ private:
   std::vector<Staged> Staged_;
   size_t StagedCount_ = 0;
 
-  OwnedTransfer Bulk_;
+  std::unique_ptr<Native::Buffer> Bulk_;
   uint32_t BulkBytes_ = 0;
 };
 

@@ -24,7 +24,6 @@ constexpr auto PieceUploadFailed = "piece geometry upload failed";
 constexpr auto PieceSlotLimit = "piece storage exceeds the native slot index range";
 constexpr auto PieceCapacity = "an instance update exceeds the piece capacity";
 constexpr auto HeightPageLimit = "height-page storage exceeds the native slot index range";
-constexpr auto HeightPageUploadFailed = "height-page upload failed";
 constexpr auto NoPieceMaterials = "piece material registration requires native materials";
 constexpr auto PieceMaterialLimit = "piece material registration exceeds the slot index range";
 constexpr auto PieceMaterialTables = "subject material tables disagree before piece registration";
@@ -345,12 +344,9 @@ SceneResources::PlaceHeightPage(SubjectDraw &subjects, std::span<const float> no
     return std::unexpected(Says::HeightPageLimit);
   }
   HeightPage held{.Nodes = std::make_shared<const std::vector<float>>(nodes.begin(), nodes.end())};
-  std::string error;
-  held.Resident = subjects.Ground().PlacePage(*held.Nodes, error);
-  if (held.Resident == kNoPage) {
-    return std::unexpected(error.empty() ? std::string(Says::HeightPageUploadFailed)
-                                         : std::move(error));
-  }
+  const auto placed = subjects.Ground().PlacePage(*held.Nodes);
+  if (!placed) { return std::unexpected(placed.error().Message); }
+  held.Resident = *placed;
   held.State.Occupied = true;
   uint32_t slot = FirstFreeHeightPage_;
   if (slot != kNoResourceSlot) {
@@ -389,8 +385,12 @@ PageId SceneResources::HeightPageResident(HeightPageHandle which) const noexcept
 bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &error) {
   for (HeightPage &page : HeightPages_) {
     if (!page.State.Occupied) { continue; }
-    page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
-    if (page.Resident == kNoPage) { return false; }
+    const auto placed = subjects.Ground().PlacePage(*page.Nodes);
+    if (!placed) {
+      error = placed.error().Message;
+      return false;
+    }
+    page.Resident = *placed;
   }
   return true;
 }
@@ -398,7 +398,11 @@ bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &erro
 bool SceneResources::SetGroundGrid(SubjectDraw &subjects,
                                    std::span<const float> fractions,
                                    std::string &error) {
-  if (!subjects.Ground().SetGrid(fractions, error)) { return false; }
+  const auto uploaded = subjects.Ground().SetGrid(fractions);
+  if (!uploaded) {
+    error = uploaded.error().Message;
+    return false;
+  }
   GroundGrid_.assign(fractions.begin(), fractions.end());
   return true;
 }
@@ -423,8 +427,10 @@ bool SceneResources::SetTerrainTiles(SubjectDraw &subjects,
   };
   std::vector<GroundTile> residentReal;
   std::vector<GroundTile> residentVirtual;
-  if (!translate(real, residentReal) || !translate(virtual_, residentVirtual) ||
-      !subjects.Ground().SetInstances(residentReal, residentVirtual, error)) {
+  if (!translate(real, residentReal) || !translate(virtual_, residentVirtual)) { return false; }
+  const auto uploaded = subjects.Ground().SetInstances(residentReal, residentVirtual);
+  if (!uploaded) {
+    error = uploaded.error().Message;
     return false;
   }
   GroundReal_.assign(real.begin(), real.end());
@@ -450,14 +456,15 @@ SceneResources::AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, s
   for (; nextPage < end; ++nextPage) {
     HeightPage &page = HeightPages_[nextPage];
     if (!page.State.Occupied) { continue; }
-    std::string error;
-    page.Resident = subjects.Ground().PlacePage(*page.Nodes, error);
-    if (page.Resident == kNoPage) { return std::unexpected(std::move(error)); }
+    const auto placed = subjects.Ground().PlacePage(*page.Nodes);
+    if (!placed) { return std::unexpected(placed.error().Message); }
+    page.Resident = *placed;
   }
   if (nextPage < HeightPages_.size()) { return false; }
   std::string error;
-  if (!GroundGrid_.empty() && !subjects.Ground().SetGrid(GroundGrid_, error)) {
-    return std::unexpected(std::move(error));
+  if (!GroundGrid_.empty()) {
+    const auto uploaded = subjects.Ground().SetGrid(GroundGrid_);
+    if (!uploaded) { return std::unexpected(uploaded.error().Message); }
   }
   if (!SetTerrainTiles(subjects, GroundReal_, GroundVirtual_, error)) {
     return std::unexpected(std::move(error));

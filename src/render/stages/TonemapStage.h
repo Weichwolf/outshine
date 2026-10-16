@@ -1,39 +1,33 @@
 #ifndef OUTSHINE_RENDER_STAGES_TONEMAPSTAGE_H
 #define OUTSHINE_RENDER_STAGES_TONEMAPSTAGE_H
 
-#include <string>
+#include <memory>
 
 #include "Extent.h"
 #include "math/Vec2.h"
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
-#include "KernelShape.h"
 #include "Resolve.h"
 
 namespace outshine::Render {
 
 class TonemapStage {
 public:
-  static constexpr DrawShape ShaderShape{.FragmentSamplers = 2, .FragmentUniformBuffers = 1};
-  static constexpr DrawShape TemporalShaderShape{.FragmentSamplers = 4,
-                                                 .FragmentUniformBuffers = 2};
-
   struct Feeds {
-    SDL_GPUTexture *Scene = nullptr;
-    SDL_GPUTexture *Depth = nullptr;
-    SDL_GPUSampler *Exact = nullptr;
-    SDL_GPUTextureFormat Linear{};
+    Native::Texture *Scene = nullptr;
+    Native::Texture *Depth = nullptr;
+    Native::Sampler *Exact = nullptr;
+    Native::Format Linear = Native::Format::Count;
   };
 
-  [[nodiscard]] bool
-  Configure(const Gpu &gpu, const Feeds &from, const DisplayOptions &options, std::string &error);
+  [[nodiscard]] Native::Result<void>
+  Configure(const Gpu &gpu, const Feeds &from, const DisplayOptions &options);
 
-  void Bind(SDL_GPUTexture *scene) { Scene = scene; }
+  void Bind(Native::Texture *scene) { Scene = scene; }
 
   struct Temporal {
-    SDL_GPUTexture *History = nullptr;
-    SDL_GPUTexture *Velocity = nullptr;
+    Native::Texture *History = nullptr;
+    Native::Texture *Velocity = nullptr;
   };
 
   void BindTemporal(Temporal from, Extent frame, const Vec2f &jitterDelta, bool historyHeld) {
@@ -48,20 +42,20 @@ public:
     HistoryHeld = historyHeld;
   }
 
-  void Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:
-  OwnedPipeline Pipe;
+  std::unique_ptr<Native::GraphicsPipeline> Pipe;
   DisplayOptions Display_;
-  SDL_GPUTexture *Scene = nullptr;
-  SDL_GPUTexture *Depth = nullptr;
-  SDL_GPUTexture *History = nullptr;
-  SDL_GPUTexture *Velocity = nullptr;
+  Native::Texture *Scene = nullptr;
+  Native::Texture *Depth = nullptr;
+  Native::Texture *History = nullptr;
+  Native::Texture *Velocity = nullptr;
   bool Temporal = false;
   bool HistoryHeld = false;
   int Width = 0, Height = 0;
   Vec2f JitterDelta = {{0.0f, 0.0f}};
-  SDL_GPUSampler *Exact = nullptr;
+  Native::Sampler *Exact = nullptr;
 };
 
 }

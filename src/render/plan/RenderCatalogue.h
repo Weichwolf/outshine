@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include <SDL3/SDL_gpu.h>
+#include "native/Render.h"
 #include "IrradianceLayout.h"
 
 namespace outshine::Render {
@@ -444,7 +444,7 @@ inline constexpr std::array<ResourceRow, static_cast<size_t>(Resource::kCount)> 
      .AliasOf = kNoEdge,
      .Format = TexelFormat::Table,
      .Name = "drawArguments",
-     .Stride = static_cast<uint32_t>(sizeof(SDL_GPUIndexedIndirectDrawCommand))},
+     .Stride = static_cast<uint32_t>(sizeof(Native::IndexedIndirectArguments))},
 }};
 
 [[nodiscard]] constexpr bool IsBuffer(const ResourceRow &row) {

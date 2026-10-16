@@ -22,7 +22,6 @@
 #include <limits>
 
 #include "Heap.h"
-#include "LightVisibilityStage.h"
 
 #include <array>
 #include <bit>
@@ -37,10 +36,8 @@
 #include "SceneTargets.h"
 #include "VertexArms.h"
 #include "SurfaceState.h"
-#include "ShaderFile.h"
 
 namespace outshine::Render {
-
 namespace Says {
 constexpr auto MissingMeshAttributes = "mesh vertex layout requires an absent attribute stream";
 constexpr auto InvalidMeshLayout = "mesh batch has an invalid vertex layout";
@@ -49,15 +46,12 @@ constexpr auto PieceInstanceLimit = "piece instance count exceeds its declared c
 constexpr auto MissingPiece = "instance update names no resident piece";
 }
 
-constexpr size_t kPrevAnchorSlot = 52;
-
-constexpr size_t kAnchorSlot = 48;
-
 namespace {
-
-constexpr SDL_GPUFrontFace kFrontFace = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-
-constexpr Winding kSubjectWinding = Winding::Trusted;
+bool Uploaded(Native::Result<void> result, std::string &error) {
+  if (result) { return true; }
+  error = std::move(result.error().Message);
+  return false;
+}
 
 bool UsesPrevious(const SubjectPose &pose, std::span<const DrawBatch> batches) {
   return pose.PrevVerts.Stands() && std::ranges::any_of(batches, [](const DrawBatch &batch) {
@@ -65,548 +59,6 @@ bool UsesPrevious(const SubjectPose &pose, std::span<const DrawBatch> batches) {
          });
 }
 
-SDL_GPUColorTargetBlendState OverBlend() {
-  SDL_GPUColorTargetBlendState blend{};
-  blend.enable_blend = true;
-  blend.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
-  blend.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-  blend.color_blend_op = SDL_GPU_BLENDOP_ADD;
-  blend.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
-  blend.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
-  blend.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
-  return blend;
-}
-
-const char *KindName(SurfaceKind kind) {
-  switch (kind) {
-    case SurfaceKind::Opaque: return "OPAQUE";
-    case SurfaceKind::Masked: return "MASK";
-    case SurfaceKind::Blended: return "BLEND";
-    case SurfaceKind::ThinTransmissive: return "a thin transmissive sheet";
-    case SurfaceKind::Refractive: return "a refracting volume";
-  }
-  return "an undeclared surface";
-}
-
-}
-
-namespace {
-
-struct VertexShape {
-  static constexpr uint32_t kRuns = 7;
-  std::array<SDL_GPUVertexBufferDescription, kRuns> Buffers{};
-  std::array<SDL_GPUVertexAttribute, kRuns> Attributes{};
-  uint32_t Count = 0;
-};
-
-struct Feed {
-  uint32_t Slot = 0;
-  uint32_t Floats = 0;
-};
-
-SDL_GPUVertexBufferDescription Run(Feed of) {
-  const uint32_t slot = of.Slot;
-  const uint32_t floats = of.Floats;
-  SDL_GPUVertexBufferDescription description{};
-  description.slot = slot;
-  description.pitch = floats * static_cast<uint32_t>(sizeof(float));
-  description.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-  return description;
-}
-
-struct Attribute {
-  uint32_t Location = 0;
-  uint32_t Slot = 0;
-};
-
-SDL_GPUVertexAttribute At(Attribute of, SDL_GPUVertexElementFormat format) {
-  const uint32_t location = of.Location;
-  const uint32_t slot = of.Slot;
-  SDL_GPUVertexAttribute attribute{};
-  attribute.location = location;
-  attribute.buffer_slot = slot;
-  attribute.format = format;
-  attribute.offset = 0;
-  return attribute;
-}
-
-SDL_GPUVertexElementFormat FormatOf(uint32_t floats) {
-  switch (floats) {
-    case 2: return SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2;
-    case 4: return SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4;
-    default: return SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
-  }
-}
-
-VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
-  std::array<VertexRun, kMostVertexRuns> runs = {{}};
-  const uint32_t count = RunsOf(layout, writesVelocity, runs);
-  VertexShape shape;
-  for (uint32_t at = 0; at < count; ++at) {
-    const bool packedNormal = CarriesNormal(layout) && runs[at].Location == 3;
-    shape.Buffers[at] = Run({.Slot = at, .Floats = packedNormal ? 1u : runs[at].Floats});
-    shape.Attributes[at] =
-        At({.Location = runs[at].Location, .Slot = at},
-           packedNormal ? SDL_GPU_VERTEXELEMENTFORMAT_UINT : FormatOf(runs[at].Floats));
-    ++shape.Count;
-  }
-  return shape;
-}
-
-}
-
-const char *
-SubjectDraw::FragmentEntry(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout) {
-  return FragmentArmNamed(domain, ShadingArmOf(layout), CarriesUv(layout), kind);
-}
-
-const char *SubjectDraw::VertexEntry(VertexLayout layout) {
-  return VertexArmName(layout);
-}
-
-namespace {
-
-std::string VertexShaderVariant(VertexLayout layout) {
-  int uvSets = 0;
-  if (CarriesUv1(layout)) {
-    uvSets = 2;
-  } else if (CarriesUv(layout)) {
-    uvSets = 1;
-  }
-  const int tinted = CarriesColour(layout) ? 1 : 0;
-  if (!CarriesNormal(layout)) { return std::format("flat-{}{}", uvSets, tinted); }
-  return std::format("lit-{}{}{}", uvSets, tinted, CarriesTangent(layout) ? 1 : 0);
-}
-
-std::string FragmentShaderVariant(SurfaceDomain domain, SurfaceKind kind, VertexLayout layout) {
-  if (domain == SurfaceDomain::Ground) { return "groundLit"; }
-  const bool transmits = kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive;
-  const int fragmentKind = transmits ? 3 : static_cast<int>(kind);
-  if (!CarriesNormal(layout)) {
-    return std::format("flat-{}{}", fragmentKind, CarriesUv(layout) && !transmits ? 1 : 0);
-  }
-  return std::format(
-      "lit-{}{}{}", fragmentKind, CarriesUv(layout) ? 1 : 0, CarriesTangent(layout) ? 1 : 0);
-}
-
-}
-
-class SubjectDraw::PipelineShaders {
-public:
-  explicit PipelineShaders(SDL_GPUDevice *device) : Device_(device) {}
-
-  [[nodiscard]] SDL_GPUShader *Get(const std::string &path,
-                                   SDL_GPUShaderStage stage,
-                                   const DrawShape &shape,
-                                   std::string &error) {
-    const bool fragment = stage == SDL_GPU_SHADERSTAGE_FRAGMENT;
-    const uint32_t samplers = fragment ? shape.FragmentSamplers : shape.VertexSamplers;
-    const uint32_t storage = fragment ? shape.FragmentStorageBuffers : shape.VertexStorageBuffers;
-    const uint32_t uniforms = fragment ? shape.FragmentUniformBuffers : shape.VertexUniformBuffers;
-    for (const Entry &entry : Entries_) {
-      if (entry.Path == path && entry.Stage == stage && entry.Samplers == samplers &&
-          entry.Storage == storage && entry.Uniforms == uniforms) {
-        return entry.Shader.Get();
-      }
-    }
-    OwnedShader shader(Device_, ShaderFrom(Device_, path, stage, shape, error));
-    if (!shader) { return nullptr; }
-    Entries_.push_back({.Path = path,
-                        .Stage = stage,
-                        .Samplers = samplers,
-                        .Storage = storage,
-                        .Uniforms = uniforms,
-                        .Shader = std::move(shader)});
-    return Entries_.back().Shader.Get();
-  }
-
-private:
-  struct Entry {
-    std::string Path;
-    SDL_GPUShaderStage Stage;
-    uint32_t Samplers;
-    uint32_t Storage;
-    uint32_t Uniforms;
-    OwnedShader Shader;
-  };
-
-  SDL_GPUDevice *const Device_;
-  std::vector<Entry> Entries_;
-};
-
-bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
-  SubjectPipelineBinding candidate;
-  if (!Configure(candidate, gpu, nullptr, nullptr, false, error)) { return false; }
-  OwnedBinding_ = std::move(candidate);
-  Binding_ = &OwnedBinding_;
-  Ground_.UsePipelines(OwnedBinding_.Ground);
-  return true;
-}
-
-void SubjectDraw::AttachPipelines(SubjectPipelineBinding &binding, const Gpu &gpu) noexcept {
-  Binding_ = &binding;
-  Bound().StandsOn(gpu.Device);
-  Ground_.UsePipelines(binding.Ground);
-}
-
-bool SubjectDraw::PrepareGroundStorage(const Gpu &gpu, std::string &error) {
-  return Ground_.AttachPipelines(Binding().Ground, gpu.Device, error);
-}
-
-bool SubjectDraw::Configure(SubjectPipelineBinding &binding,
-                            const Gpu &gpu,
-                            SDL_GPUTexture *behind,
-                            SDL_GPUSampler *exact,
-                            bool separateTransmission,
-                            std::string &error) {
-  std::vector<Resource> colours(gpu.SceneColours.begin(), gpu.SceneColours.end());
-  const bool writesVelocity = ColourAttachment(colours, Resource::SceneVelocity) >= 0;
-  const long normalIndex = ColourAttachment(colours, Resource::SceneShadingNormal);
-  const long identityIndex = ColourAttachment(colours, Resource::SceneSurfaceIdentity);
-
-  SourceOptions options;
-  options.WritesVelocity = writesVelocity;
-  options.NormalIndex = normalIndex;
-  options.IdentityIndex = identityIndex;
-  options.BaseIndex = ColourAttachment(colours, Resource::SceneSurfaceBase);
-  options.MetalRoughIndex = ColourAttachment(colours, Resource::SceneSurfaceMetalRough);
-  if ((options.BaseIndex >= 0 || options.MetalRoughIndex >= 0) &&
-      (writesVelocity || normalIndex != 1 || identityIndex != 2 || options.BaseIndex != 3 ||
-       options.MetalRoughIndex != 4)) {
-    error = "surface capture requires HDR, normal, identity, base and metallic-roughness targets";
-    return false;
-  }
-
-  std::array<OwnedPipeline, kPipelines> pipelines;
-  PipelineShaders shaders(gpu.Device);
-  uint32_t built = 0;
-
-  const bool glass = behind != nullptr;
-  for (const SurfaceKind kind : {SurfaceKind::Opaque,
-                                 SurfaceKind::Masked,
-                                 SurfaceKind::Blended,
-                                 SurfaceKind::ThinTransmissive,
-                                 SurfaceKind::Refractive}) {
-    if (!glass && (kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive)) {
-      continue;
-    }
-
-    if (!ConfigureKind(gpu, options, colours, kind, shaders, pipelines, built, error)) {
-      return false;
-    }
-  }
-
-  std::array<SDL_GPUColorTargetDescription, kMaxColourAttachments> targets = {{}};
-  targets[0].format = gpu.HdrFormat;
-  if (options.WritesVelocity) {
-    targets[ColourAttachment(colours, Resource::SceneVelocity)] = VelocityTarget(true);
-  }
-  if (options.NormalIndex >= 0) {
-    targets[options.NormalIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-  }
-  if (options.IdentityIndex >= 0) {
-    targets[options.IdentityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
-  }
-  if (options.BaseIndex >= 0) {
-    targets[options.BaseIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    targets[options.MetalRoughIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT;
-  }
-  if (!glass && !Ground_.Configure(
-                    binding.Ground,
-                    gpu.Device,
-                    options,
-                    std::span<const SDL_GPUColorTargetDescription>(targets.data(), colours.size()),
-                    error)) {
-    return false;
-  }
-
-  Bound().StandsOn(gpu.Device);
-  binding.Device = gpu.Device;
-  binding.Colours = std::move(colours);
-  binding.WritesVelocity = writesVelocity;
-  binding.CapturesMaterial = options.BaseIndex >= 0;
-  binding.Pipelines = std::move(pipelines);
-  binding.Built = built;
-  binding.Behind = behind;
-  binding.BehindSampler = exact;
-  binding.GlassDrawnElsewhere = separateTransmission;
-  return true;
-}
-
-long SubjectDraw::ColourAttachment(std::span<const Resource> colours, Resource which) {
-  const auto at = std::ranges::find(colours, which);
-  return at == colours.end() ? -1 : static_cast<long>(at - colours.begin());
-}
-
-bool SubjectDraw::ConfigureKind(const Gpu &gpu,
-                                const SourceOptions &options,
-                                std::span<const Resource> colours,
-                                SurfaceKind kind,
-                                PipelineShaders &shaders,
-                                std::array<OwnedPipeline, kPipelines> &pipelines,
-                                uint32_t &built,
-                                std::string &error) {
-  const bool blends = kind == SurfaceKind::Blended;
-  std::array<SDL_GPUColorTargetDescription, kMaxColourAttachments> targets = {{}};
-  targets[0].format = gpu.HdrFormat;
-  if (blends) { targets[0].blend_state = OverBlend(); }
-
-  if (options.WritesVelocity) {
-    targets[ColourAttachment(colours, Resource::SceneVelocity)] = VelocityTarget(!blends);
-  }
-
-  if (options.NormalIndex >= 0) {
-    targets[options.NormalIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-  }
-
-  if (options.IdentityIndex >= 0) {
-    targets[options.IdentityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
-  }
-  if (options.BaseIndex >= 0) {
-    targets[options.BaseIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    targets[options.MetalRoughIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16_FLOAT;
-  }
-  for (const SurfaceDomain domain : {SurfaceDomain::Subject, SurfaceDomain::Ground}) {
-    for (const VertexLayoutRow &row : kVertexLayouts) {
-      if (!DomainPresents(domain, ShadingArmOf(row.Layout), CarriesUv(row.Layout), kind)) {
-        continue;
-      }
-      if (!ConfigureVariant(
-              kind,
-              domain,
-              row.Layout,
-              options,
-              std::span<const SDL_GPUColorTargetDescription>(targets.data(), colours.size()),
-              gpu.Device,
-              shaders,
-              pipelines,
-              built,
-              error)) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-bool SubjectDraw::ConfigureVariant(SurfaceKind kind,
-                                   SurfaceDomain domain,
-                                   VertexLayout layout,
-                                   const SourceOptions &options,
-                                   std::span<const SDL_GPUColorTargetDescription> targets,
-                                   SDL_GPUDevice *device,
-                                   PipelineShaders &shaders,
-                                   std::array<OwnedPipeline, kPipelines> &pipelines,
-                                   uint32_t &built,
-                                   std::string &error) {
-  const VertexShape shape = ShapeOf(layout, options.WritesVelocity);
-  const char *const entry = FragmentEntry(domain, kind, layout);
-  const SurfaceBindings bindings(
-      layout, kind, domain, options.IdentityIndex, options.BaseIndex >= 0);
-  const std::string vertexPath = options.VertexPath(VertexShaderVariant(layout));
-  const std::string fragmentPath =
-      options.FragmentPath(FragmentShaderVariant(domain, kind, layout));
-  SDL_GPUShader *const vertex =
-      shaders.Get(vertexPath, SDL_GPU_SHADERSTAGE_VERTEX, bindings.Shape, error);
-  SDL_GPUShader *const fragment =
-      shaders.Get(fragmentPath, SDL_GPU_SHADERSTAGE_FRAGMENT, bindings.Shape, error);
-  if (vertex == nullptr || fragment == nullptr) { return false; }
-  SDL_GPUGraphicsPipelineCreateInfo wanted{};
-  wanted.vertex_shader = vertex;
-  wanted.fragment_shader = fragment;
-  wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  wanted.vertex_input_state.vertex_buffer_descriptions = shape.Buffers.data();
-  wanted.vertex_input_state.num_vertex_buffers = shape.Count;
-  wanted.vertex_input_state.vertex_attributes = shape.Attributes.data();
-  wanted.vertex_input_state.num_vertex_attributes = shape.Count;
-  wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  wanted.rasterizer_state.front_face = kFrontFace;
-  wanted.target_info.color_target_descriptions = targets.data();
-  wanted.target_info.num_color_targets = static_cast<Uint32>(targets.size());
-  wanted.target_info.has_depth_stencil_target = true;
-  wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-  wanted.depth_stencil_state.enable_depth_test = true;
-  wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
-
-  wanted.depth_stencil_state.enable_depth_write = kind != SurfaceKind::Blended;
-
-  for (const bool cullsBack : {false, true}) {
-    wanted.rasterizer_state.cull_mode = cullsBack ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
-    SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(device, &wanted);
-    if (made == nullptr) {
-      error = std::string("the subject's pipeline was refused at ") + entry + ": " + SDL_GetError();
-      return false;
-    }
-    pipelines[PipelineAt(domain, layout, kind, cullsBack)] = OwnedPipeline(device, made);
-    ++built;
-  }
-  return true;
-}
-
-size_t SubjectDraw::PipelineAt(SurfaceDomain domain,
-                               VertexLayout layout,
-                               SurfaceKind kind,
-                               bool cullsBack) {
-  const size_t placed =
-      (static_cast<size_t>(domain) * kVertexLayoutCount) + static_cast<size_t>(layout);
-  return (placed * 2u + (cullsBack ? 1u : 0u)) * kSurfaceKinds + static_cast<size_t>(kind);
-}
-
-bool SubjectDraw::BindSurface(const SubjectMaterial &material, std::string &error) {
-  SurfaceSlot slot;
-  slot.Kind = material.State().Kind();
-  slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
-  slot.Domain = material.Domain;
-  if (material.Row.Unlit) {
-    slot.Unlit = {
-        {material.Row.BaseColour[0], material.Row.BaseColour[1], material.Row.BaseColour[2]}};
-  }
-  slot.ReadsSecondUv = material.ReadsSecondUv();
-  const auto bind = [&](const SubjectTexture &texture,
-                        SubjectResidency::Transfer transfer,
-                        TexelKind texel,
-                        SubjectResidency::BoundImage &into) {
-    auto uploaded = Bound().Upload(texture, transfer, texel);
-    if (!uploaded) {
-      error = std::move(uploaded.error());
-      return false;
-    }
-    into = std::move(*uploaded);
-    return true;
-  };
-  if (!bind(material.Colour, SubjectResidency::Transfer::Srgb, TexelKind::Value, slot.Colour) ||
-      !bind(
-          material.Normal, SubjectResidency::Transfer::Linear, TexelKind::Direction, slot.Normal) ||
-      !bind(material.MetalRough,
-            SubjectResidency::Transfer::Linear,
-            TexelKind::Value,
-            slot.MetalRough) ||
-      !bind(material.Emissive, SubjectResidency::Transfer::Srgb, TexelKind::Value, slot.Emissive) ||
-      !bind(material.SpecularStrength,
-            SubjectResidency::Transfer::Linear,
-            TexelKind::Value,
-            slot.SpecularStrength) ||
-      !bind(material.SpecularTint,
-            SubjectResidency::Transfer::Srgb,
-            TexelKind::Value,
-            slot.SpecularTint) ||
-      !bind(material.DiffuseReflection,
-            SubjectResidency::Transfer::Linear,
-            TexelKind::Value,
-            slot.DiffuseReflection) ||
-      !bind(material.DiffuseTransmission,
-            SubjectResidency::Transfer::Linear,
-            TexelKind::Value,
-            slot.DiffuseTransmission)) {
-    return false;
-  }
-
-  const auto identity = static_cast<float>(Slots.size() + 1u);
-  slot.Row = PackSubjectMaterial(material, identity);
-  Slots.push_back(std::move(slot));
-  return true;
-}
-
-uint32_t SubjectDraw::ColourImages() const {
-  std::vector<SDL_GPUTexture *> distinct;
-  for (const SurfaceSlot &slot : Slots) {
-    SDL_GPUTexture *const colour = slot.Colour.Image.Get();
-    bool seen = false;
-    for (const SDL_GPUTexture *const held : distinct) { seen = seen || held == colour; }
-    if (!seen) { distinct.push_back(colour); }
-  }
-  return static_cast<uint32_t>(distinct.size());
-}
-
-uint32_t SubjectDraw::Layouts() const {
-  std::vector<VertexLayout> distinct;
-  for (const DrawBatch &batch : Batches) {
-    bool seen = false;
-    for (const VertexLayout held : distinct) { seen = seen || held == batch.Layout; }
-    if (!seen) { distinct.push_back(batch.Layout); }
-  }
-  return static_cast<uint32_t>(distinct.size());
-}
-
-uint32_t SubjectDraw::DistinctPlacements() const {
-  const size_t rows = Placed_.size() / 16u;
-  if (rows == 0) { return 0; }
-  uint32_t distinct = 0;
-  for (size_t row = 0; row < rows; ++row) {
-    bool seen = false;
-    for (size_t over = 0; over < row && !seen; ++over) {
-      seen = std::ranges::equal(std::span(Placed_).subspan(row * 16u, 16u),
-                                std::span(Placed_).subspan(over * 16u, 16u));
-    }
-    if (!seen) { ++distinct; }
-  }
-  return distinct;
-}
-
-uint32_t SubjectDraw::Textured() const {
-  uint32_t wearing = 0;
-  for (const SurfaceSlot &slot : Slots) {
-    if (slot.Colour.Image.Get() != nullptr) { ++wearing; }
-  }
-  return wearing;
-}
-
-bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
-                                    std::string &error) const {
-  if (Binding().Device == nullptr) {
-    error = "the subject unit has no device, so no surface can be bound";
-    return false;
-  }
-  for (size_t slot = 0; slot < materials.size(); ++slot) {
-    const SurfaceKind kind = materials[slot].State().Kind();
-
-    if ((kind == SurfaceKind::ThinTransmissive || kind == SurfaceKind::Refractive) &&
-        Binding().Behind == nullptr && !Binding().GlassDrawnElsewhere) {
-      error = "surface slot " + std::to_string(slot) + " is " + KindName(kind) +
-              ", and no pass of this plan draws it -- what is transmitted through a sheet or "
-              "refracted by a volume is the scene behind it, so a subject carrying one needs the "
-              "transmissive pass declared, and drawing it opaque instead would be a picture nobody "
-              "asked for";
-      return false;
-    }
-  }
-  return true;
-}
-
-bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
-  if (!ValidateMaterials(materials, error)) { return false; }
-  const size_t was = Slots.size();
-  for (const auto &material : materials) {
-    if (BindSurface(material, error)) { continue; }
-    Slots.resize(was);
-    return false;
-  }
-  if (!materials.empty()) { TablesStale_ = true; }
-  return true;
-}
-
-void SubjectDraw::TruncateMaterials(size_t count) noexcept {
-  if (count >= Slots.size()) { return; }
-  Slots.resize(count);
-  TablesStale_ = true;
-}
-
-bool SubjectDraw::SetMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
-  if (!ValidateMaterials(materials, error)) { return false; }
-  auto previousSlots = std::move(Slots);
-  auto previousBatches = std::move(Batches);
-  auto previousLayouts = std::move(BatchLayout);
-  const uint32_t previousIndices = Bound().Shape().Indices;
-  Slots.clear();
-  Batches.clear();
-  BatchLayout.clear();
-  Bound().Shape().Indices = 0;
-  if (AppendMaterials(materials, error)) { return true; }
-  Slots = std::move(previousSlots);
-  Batches = std::move(previousBatches);
-  BatchLayout = std::move(previousLayouts);
-  Bound().Shape().Indices = previousIndices;
-  return false;
 }
 
 namespace {
@@ -617,8 +69,7 @@ constexpr uint32_t kQuadFloats = 4;
 constexpr uint32_t kSphereFloats = 12;
 constexpr uint32_t kArgWords = 5;
 constexpr uint32_t kBatchWords = 2;
-constexpr SDL_GPUBufferUsageFlags kIndexUse =
-    SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
+constexpr auto kIndexUse = Native::BufferUse::Index | Native::BufferUse::Storage;
 
 struct RebasedRun {
   const uint32_t *From = nullptr;
@@ -693,7 +144,7 @@ bool UploadPieceRuns(SubjectResidency &res,
   const auto floatsAt = [v](uint32_t wide) {
     return v.First * wide * static_cast<uint32_t>(sizeof(float));
   };
-  const auto vertexUse = SDL_GPU_BUFFERUSAGE_VERTEX;
+  const auto vertexUse = Native::BufferUse::Vertex;
   const uint32_t positionBytes = verts * kPositionFloats * static_cast<uint32_t>(sizeof(float));
   std::array<SubjectResidency::Crossing, 7> crossings = {{
       {.Which = SubjectResidency::Stream::Vertex,
@@ -726,12 +177,12 @@ bool UploadPieceRuns(SubjectResidency &res,
        .Bytes = static_cast<uint32_t>(piece.Uv1.size() * sizeof(float)),
        .Offset = floatsAt(kPairFloats)},
       {.Which = SubjectResidency::Stream::Tangent,
-       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+       .Usage = Native::BufferUse::Storage,
        .From = piece.Tangents.data(),
        .Bytes = static_cast<uint32_t>(piece.Tangents.size() * sizeof(float)),
        .Offset = t.First * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
       {.Which = SubjectResidency::Stream::Colour,
-       .Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
+       .Usage = Native::BufferUse::Storage,
        .From = piece.Colours.data(),
        .Bytes = static_cast<uint32_t>(piece.Colours.size() * sizeof(float)),
        .Offset = c.First * kQuadFloats * static_cast<uint32_t>(sizeof(float))},
@@ -740,7 +191,8 @@ bool UploadPieceRuns(SubjectResidency &res,
   for (const SubjectResidency::Crossing &one : crossings) {
     if (one.Bytes > 0 && one.Stands()) { crossings[count++] = one; }
   }
-  return res.Cross(std::span<SubjectResidency::Crossing>(crossings.data(), count), true, error);
+  return Uploaded(res.Cross(std::span<SubjectResidency::Crossing>(crossings.data(), count), true),
+                  error);
 }
 
 }
@@ -752,17 +204,27 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
   const auto bytes = [](uint32_t count, uint32_t wide) {
     return count * wide * static_cast<uint32_t>(sizeof(float));
   };
-  const auto vertex = SDL_GPU_BUFFERUSAGE_VERTEX;
+  const auto vertex = Native::BufferUse::Vertex;
   using S = SubjectResidency::Stream;
-  return res.Grow(S::Vertex, {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats)}, error) &&
-         res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, 1u)}, error) &&
+  return Uploaded(
+             res.Grow(S::Vertex,
+                      {.Usage = vertex, .Bytes = bytes(verts, kPositionFloats), .Deferred = true}),
+             error) &&
+         Uploaded(
+             res.Grow(S::Normal, {.Usage = vertex, .Bytes = bytes(verts, 1u), .Deferred = true}),
+             error) &&
          (!res.Shape().HasPrevious || subject == 0 ||
-          res.Grow(
-              S::Previous, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
+          Uploaded(
+              res.Grow(
+                  S::Previous,
+                  {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats), .Deferred = true}),
+              error)) &&
          (subject == 0 ||
-          ((!res.Shape().HasEmitted ||
-            res.Grow(
-                S::Emitted, {.Usage = vertex, .Bytes = bytes(subject, kPositionFloats)}, error)) &&
+          ((!res.Shape().HasEmitted || Uploaded(res.Grow(S::Emitted,
+                                                         {.Usage = vertex,
+                                                          .Bytes = bytes(subject, kPositionFloats),
+                                                          .Deferred = true}),
+                                                error)) &&
            RoomForOptionalStreams(
                {.VertexEnd = res.SubjectVertices().First + res.Shape().Vertices,
                 .ColourEnd = res.SubjectColours().First + res.Shape().Vertices,
@@ -772,9 +234,10 @@ bool SubjectDraw::RoomForStreams(std::string &error) {
                 .Tangent = res.Shape().HasTangent,
                 .Colour = res.Shape().HasColour},
                error))) &&
-         res.Grow(S::Index,
-                  {.Usage = kIndexUse,
-                   .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t))},
+         Uploaded(res.Grow(S::Index,
+                           {.Usage = kIndexUse,
+                            .Bytes = res.IndexRoom() * static_cast<uint32_t>(sizeof(uint32_t)),
+                            .Deferred = true}),
                   error);
 }
 
@@ -783,23 +246,26 @@ bool SubjectDraw::RoomForOptionalStreams(OptionalStreamEnds ends,
                                          std::string &error) {
   using S = SubjectResidency::Stream;
   const auto grow = [&](S stream, bool present, uint32_t components) {
-    return !present || Bound().Grow(stream,
-                                    {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-                                     .Bytes = ends.VertexEnd * components *
-                                              static_cast<uint32_t>(sizeof(float))},
-                                    error);
+    return !present || Uploaded(Bound().Grow(stream,
+                                             {.Usage = Native::BufferUse::Vertex,
+                                              .Bytes = ends.VertexEnd * components *
+                                                       static_cast<uint32_t>(sizeof(float)),
+                                              .Deferred = true}),
+                                error);
   };
   return grow(S::Uv, carried.Uv, kPairFloats) && grow(S::Uv1, carried.Uv1, kPairFloats) &&
-         (!carried.Tangent || Bound().Grow(S::Tangent,
-                                           {.Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
-                                            .Bytes = ends.TangentEnd * kQuadFloats *
-                                                     static_cast<uint32_t>(sizeof(float))},
-                                           error)) &&
-         (!carried.Colour || Bound().Grow(S::Colour,
-                                          {.Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ,
-                                           .Bytes = ends.ColourEnd * kQuadFloats *
-                                                    static_cast<uint32_t>(sizeof(float))},
-                                          error));
+         (!carried.Tangent || Uploaded(Bound().Grow(S::Tangent,
+                                                    {.Usage = Native::BufferUse::Storage,
+                                                     .Bytes = ends.TangentEnd * kQuadFloats *
+                                                              static_cast<uint32_t>(sizeof(float)),
+                                                     .Deferred = true}),
+                                       error)) &&
+         (!carried.Colour || Uploaded(Bound().Grow(S::Colour,
+                                                   {.Usage = Native::BufferUse::Storage,
+                                                    .Bytes = ends.ColourEnd * kQuadFloats *
+                                                             static_cast<uint32_t>(sizeof(float)),
+                                                    .Deferred = true}),
+                                      error));
 }
 
 bool SubjectDraw::ValidateBatch(const SubjectMesh &mesh,
@@ -897,7 +363,7 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
   std::string error;
   LastMeshUpload_ = {};
   const auto admissionAt = std::chrono::steady_clock::now();
-  if (!ValidateMesh(mesh, error) || !Bound().SubmitPendingUploads(error)) {
+  if (!ValidateMesh(mesh, error) || !Uploaded(Bound().SubmitPendingUploads(), error)) {
     return std::unexpected(std::move(error));
   }
   ++Reshaped_;
@@ -983,14 +449,14 @@ SubjectDraw::BeginMesh(const SubjectMesh &mesh) {
         .Offset = i.First * static_cast<uint32_t>(sizeof(uint32_t)),
         .Writes = WriteRebased,
         .Carrying = &rebased}};
-    if (!Bound().Cross(run, false, error)) {
+    if (!Uploaded(Bound().Cross(run, true), error)) {
       Bound().Shape().Indices = 0;
       return std::unexpected(std::move(error));
     }
   }
   if (!Bound().Buffer(SubjectResidency::Stream::Index)) {
     Bound().Shape().Indices = 0;
-    error = std::string("the subject's index run did not reach the device: ") + SDL_GetError();
+    error = std::string("the subject's index run did not reach the device: ");
     return std::unexpected(std::move(error));
   }
   LastMeshUpload_.IndexMs =
@@ -1023,7 +489,7 @@ bool SubjectDraw::FinishMesh(MeshTicket ticket, const SubjectMesh &mesh, std::st
   PendingIndices_ = nullptr;
   PendingIndexCount_ = 0;
   const auto streamsAt = std::chrono::steady_clock::now();
-  if (!HandStreams(mesh, false, error)) { return false; }
+  if (!HandStreams(mesh, true, error)) { return false; }
   LastMeshUpload_.StreamsMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - streamsAt)
           .count();
@@ -1099,8 +565,9 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
     if (crossing->Bytes > 0 && crossing->Stands()) { streams[count++] = *crossing; }
   }
   if (!HandPlacements(deferred, error)) { return false; }
-  if (!Bound().Cross(
-          std::span<SubjectResidency::Crossing>(streams.data(), count), deferred, error)) {
+  if (!Uploaded(
+          Bound().Cross(std::span<SubjectResidency::Crossing>(streams.data(), count), deferred),
+          error)) {
     Bound().Shape().Indices = 0;
     return false;
   }
@@ -1109,7 +576,7 @@ bool SubjectDraw::HandStreams(const SubjectPose &pose, bool deferred, std::strin
       (Bound().Shape().HasPrevious && !Bound().Buffer(SubjectResidency::Stream::Previous)) ||
       (Bound().Shape().HasColour && !Bound().Buffer(SubjectResidency::Stream::Colour))) {
     Bound().Shape().Indices = 0;
-    error = std::string("the subject's vertex streams did not reach the device: ") + SDL_GetError();
+    error = std::string("the subject's vertex streams did not reach the device: ");
     return false;
   }
   return true;
@@ -1417,19 +884,20 @@ bool SubjectDraw::AppendPieceBatches(Piece &one, std::string &error) {
     if (one.Emitted != unlit) {
       using S = SubjectResidency::Stream;
       const uint32_t stride = kPositionFloats * static_cast<uint32_t>(sizeof(float));
-      if (!Bound().Grow(
-              S::Emitted,
-              {.Usage = SDL_GPU_BUFFERUSAGE_VERTEX, .Bytes = (one.V.First + one.V.Count) * stride},
-              error)) {
+      if (!Uploaded(Bound().Grow(S::Emitted,
+                                 {.Usage = Native::BufferUse::Vertex,
+                                  .Bytes = (one.V.First + one.V.Count) * stride,
+                                  .Deferred = true}),
+                    error)) {
         return false;
       }
       SubjectResidency::Crossing crossing{.Which = S::Emitted,
-                                          .Usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+                                          .Usage = Native::BufferUse::Vertex,
                                           .Bytes = one.V.Count * stride,
                                           .Offset = one.V.First * stride,
                                           .Writes = WritePieceEmission,
                                           .Carrying = &*unlit};
-      if (!Bound().Cross(std::span(&crossing, 1), false, error)) { return false; }
+      if (!Uploaded(Bound().Cross(std::span(&crossing, 1), true), error)) { return false; }
       one.Emitted = unlit;
     }
     VertexRunsCarried carried;
@@ -1505,7 +973,7 @@ bool SubjectDraw::UploadTables(std::string &error) {
     return true;
   }
 
-  const auto read = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
+  const auto read = Native::BufferUse::Storage;
   std::array cut = {
       SubjectResidency::Crossing{.Which = SubjectResidency::Stream::ClusterSpheres,
                                  .Usage = read,
@@ -1520,38 +988,40 @@ bool SubjectDraw::UploadTables(std::string &error) {
                                  .From = rows.data(),
                                  .Bytes = static_cast<uint32_t>(rows.size() * sizeof(uint32_t))},
   };
-  if (!Bound().Cross(cut, false, error)) {
+  if (!Uploaded(Bound().Cross(cut, true), error)) {
     Args_.clear();
     Jobs_ = 0;
     return false;
   }
 
-  constexpr SDL_GPUBufferUsageFlags kCullUse =
-      SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
+  constexpr auto kCullUse = Native::BufferUse::Storage;
   const uint32_t jobBytes = Jobs_ * static_cast<uint32_t>(sizeof(uint32_t));
   constexpr auto discard = SubjectResidency::ExistingContents::Discard;
-  if (!Bound().Grow(SubjectResidency::Stream::ClusterKept,
-                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard},
-                    error) ||
-      !Bound().Grow(SubjectResidency::Stream::ClusterSlot,
-                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard},
-                    error) ||
-      !Bound().Grow(SubjectResidency::Stream::DrawIndex,
-                    {.Usage = SDL_GPU_BUFFERUSAGE_INDEX | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-                     .Bytes = base * static_cast<uint32_t>(sizeof(uint32_t)),
-                     .Existing = discard},
-                    error) ||
-      !Bound().Grow(
-          SubjectResidency::Stream::DrawArguments,
-          {.Usage = SDL_GPU_BUFFERUSAGE_INDIRECT | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-           .Bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t)),
-           .Existing = discard},
-          error)) {
+  if (!Uploaded(Bound().Grow(
+                    SubjectResidency::Stream::ClusterKept,
+                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard, .Deferred = true}),
+                error) ||
+      !Uploaded(Bound().Grow(
+                    SubjectResidency::Stream::ClusterSlot,
+                    {.Usage = kCullUse, .Bytes = jobBytes, .Existing = discard, .Deferred = true}),
+                error) ||
+      !Uploaded(Bound().Grow(SubjectResidency::Stream::DrawIndex,
+                             {.Usage = Native::BufferUse::Index | Native::BufferUse::Storage,
+                              .Bytes = base * static_cast<uint32_t>(sizeof(uint32_t)),
+                              .Existing = discard,
+                              .Deferred = true}),
+                error) ||
+      !Uploaded(Bound().Grow(SubjectResidency::Stream::DrawArguments,
+                             {.Usage = Native::BufferUse::Indirect | Native::BufferUse::Storage,
+                              .Bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t)),
+                              .Existing = discard,
+                              .Deferred = true}),
+                error)) {
     Args_.clear();
     Jobs_ = 0;
     return false;
   }
-  return HandDrawArguments(false, error);
+  return HandDrawArguments(true, error);
 }
 
 bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
@@ -1559,10 +1029,10 @@ bool SubjectDraw::HandDrawArguments(bool deferred, std::string &error) {
   for (size_t at = 0; at * 5u < Args_.size(); ++at) { Args_[at * 5u] = 0u; }
   const auto bytes = static_cast<uint32_t>(Args_.size() * sizeof(uint32_t));
   std::array table = {SubjectResidency::Crossing{.Which = SubjectResidency::Stream::DrawArguments,
-                                                 .Usage = SDL_GPU_BUFFERUSAGE_INDIRECT,
+                                                 .Usage = Native::BufferUse::Indirect,
                                                  .From = Args_.data(),
                                                  .Bytes = bytes}};
-  return Bound().Cross(table, deferred, error);
+  return Uploaded(Bound().Cross(table, deferred), error);
 }
 
 bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
@@ -1592,296 +1062,10 @@ bool SubjectDraw::SetPose(const SubjectPose &pose, std::string &error) {
   return HandStreams(pose, true, error);
 }
 
-bool SubjectDraw::SetLights(std::span<const SubjectLight> lights, std::string &error) {
-  if (lights.size() > kMaxSubjectLights) {
-    error = "the subject declares " + std::to_string(lights.size()) +
-            " punctual lights over a list of " + std::to_string(kMaxSubjectLights) +
-            ", and a light this unit cannot bind is a refusal rather than a light left out of the "
-            "picture";
-    return false;
-  }
-  Placed.assign(lights.begin(), lights.end());
-  return true;
-}
-
-static_assert(static_cast<int>(LightKind::Directional) == 0 &&
-                  static_cast<int>(LightKind::Point) == 1 && static_cast<int>(LightKind::Spot) == 2,
-              "the shader reads the kind as the enum's own number, so reordering LightKind moves "
-              "every light to another shape");
-
-namespace {
-Vec4f LightVector(const auto &source, float tail = 0) {
-  return {{static_cast<float>(source[0]),
-           static_cast<float>(source[1]),
-           static_cast<float>(source[2]),
-           tail}};
-}
-}
-
-std::array<float, SubjectDraw::kLightFloats>
-SubjectDraw::PackedLights(const FrameContext &ctx) const {
-  SubjectLightingUniform packed{};
-  packed.Count = {{static_cast<float>(Placed.size()),
-                   0,
-                   Shadowed_ ? 1.0f : 0.0f,
-                   static_cast<float>(ShadowRegionCount_)}};
-  packed.ShadowRegions = ShadowRegions_;
-  packed.Environment =
-      LightVector(IndirectLight.RadianceLinear,
-                  Reflections_.Atlas != nullptr ? static_cast<float>(IndirectLight.SkyLux) : 0.0f);
-  packed.Bounced = LightVector(IndirectLight.GroundLinear);
-  packed.Up = LightVector(IndirectLight.UpUnit);
-  packed.SkyGround =
-      LightVector(IndirectLight.GroundAlbedo, static_cast<float>(IndirectLight.CosSunZenith));
-  packed.ViewPosition = ctx.ViewPosition;
-  packed.SkyUp = LightVector(Reflections_.Up);
-  packed.SkyToSun = LightVector(Reflections_.ToSun);
-  for (size_t at = 0; at < Placed.size(); ++at) {
-    const PunctualLight &light = Placed[at].Light;
-    auto &entry = packed.Items[at];
-    entry.Tint = LightVector(light.Colour, static_cast<float>(light.Kind));
-    for (int channel = 0; channel < 3; ++channel) { entry.Tint[channel] *= light.Intensity; }
-    for (int axis = 0; axis < 3; ++axis) {
-      entry.Place[axis] =
-          static_cast<float>(Placed[at].PositionEcefM[axis] + ctx.PreViewTranslation[axis]);
-    }
-    entry.Place[3] = light.RangeM > 0.0f ? 1.0f / light.RangeM : 0.0f;
-    entry.Beam = LightVector(light.Direction);
-    const float outer = std::cos(light.OuterConeRad);
-    const float inner = std::cos(light.InnerConeRad);
-    entry.Cone = {{outer, inner > outer ? 1.0f / (inner - outer) : 0.0f, 0, 0}};
-  }
-  return std::bit_cast<std::array<float, kLightFloats>>(packed);
-}
-
 uint32_t SubjectDraw::DrawCount() const {
   uint32_t drawn = 0;
   for (const DrawBatch &batch : Batches) { drawn += batch.Draws; }
   return drawn;
 }
 
-static_assert(sizeof(SDL_GPUIndexedIndirectDrawCommand) == 5u * sizeof(uint32_t),
-              "the indirect argument table is written as five uints a batch");
-inline constexpr size_t kIndirectStride = sizeof(SDL_GPUIndexedIndirectDrawCommand);
-
-void SubjectDraw::BindSlot(const PassRecording &into, size_t slot, VertexLayout layout) const {
-  const SurfaceSlot &surface = Slots[slot];
-  const std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> images = {
-      {{.texture = surface.Colour.Image.Get(), .sampler = surface.Colour.Sample.Get()},
-       {.texture = surface.Normal.Image.Get(), .sampler = surface.Normal.Sample.Get()},
-       {.texture = surface.MetalRough.Image.Get(), .sampler = surface.MetalRough.Sample.Get()},
-       {.texture = surface.Emissive.Image.Get(), .sampler = surface.Emissive.Sample.Get()},
-       {.texture = surface.SpecularStrength.Image.Get(),
-        .sampler = surface.SpecularStrength.Sample.Get()},
-       {.texture = surface.SpecularTint.Image.Get(), .sampler = surface.SpecularTint.Sample.Get()},
-       {.texture = surface.DiffuseReflection.Image.Get(),
-        .sampler = surface.DiffuseReflection.Sample.Get()},
-       {.texture = surface.DiffuseTransmission.Image.Get(),
-        .sampler = surface.DiffuseTransmission.Sample.Get()},
-
-       {.texture = Binding().Behind != nullptr ? Binding().Behind : surface.Colour.Image.Get(),
-        .sampler = Binding().BehindSampler != nullptr ? Binding().BehindSampler
-                                                      : surface.Colour.Sample.Get()},
-
-       {.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
-        .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()},
-       {.texture = Reflections_.Atlas != nullptr ? Reflections_.Atlas : surface.Colour.Image.Get(),
-        .sampler =
-            Reflections_.Sampler != nullptr ? Reflections_.Sampler : surface.Colour.Sample.Get()}}};
-  const SurfaceBindings bindings(
-      layout, surface.Kind, surface.Domain, 0, Binding().CapturesMaterial);
-  std::array<SDL_GPUTextureSamplerBinding, kSubjectImages> selected{};
-  for (uint32_t at = 0; at < bindings.Count; ++at) { selected[at] = images[bindings.Images[at]]; }
-  if (bindings.Count > 0) {
-    SDL_BindGPUFragmentSamplers(into.Pass, 0, selected.data(), bindings.Count);
-  }
-  if (surface.Domain == SurfaceDomain::Ground) {
-    std::array<SDL_GPUBuffer *const, 2> storage = {GroundClasses_, GroundPalette_};
-    SDL_BindGPUFragmentStorageBuffers(
-        into.Pass, 0, storage.data(), bindings.Shape.FragmentStorageBuffers);
-  }
-  SDL_PushGPUFragmentUniformData(into.Commands,
-                                 0,
-                                 surface.Row.data(),
-                                 static_cast<uint32_t>(surface.Row.size() * sizeof(float)));
-}
-
-void SubjectDraw::BindShadowMask(const PassRecording &into, const DrawBatch &batch) const {
-  const SurfaceSlot &surface = Slots[batch.MaterialSlot];
-  std::array<SDL_GPUBufferBinding, 3> streams{};
-  uint32_t count = 0;
-  streams[count++] = {.buffer = Bound().Buffer(SubjectResidency::Stream::Vertex).Get(),
-                      .offset = 0};
-  if (CarriesUv(batch.Layout)) {
-    streams[count++] = {.buffer = Bound().Buffer(SubjectResidency::Stream::Uv).Get(), .offset = 0};
-    const SDL_GPUTextureSamplerBinding image{.texture = surface.Colour.Image.Get(),
-                                             .sampler = surface.Colour.Sample.Get()};
-    SDL_BindGPUFragmentSamplers(into.Pass, 0, &image, 1);
-  }
-  if (CarriesUv1(batch.Layout)) {
-    streams[count++] = {.buffer = Bound().Buffer(SubjectResidency::Stream::Uv1).Get(), .offset = 0};
-  }
-  SDL_BindGPUVertexBuffers(into.Pass, 0, streams.data(), count);
-  std::array<SDL_GPUBuffer *, 2> storage{Bound().Buffer(SubjectResidency::Stream::Placements).Get(),
-                                         Bound().Buffer(SubjectResidency::Stream::Colour).Get()};
-  SDL_BindGPUVertexStorageBuffers(
-      into.Pass, 0, storage.data(), CarriesColour(batch.Layout) ? 2u : 1u);
-  SDL_PushGPUFragmentUniformData(into.Commands,
-                                 0,
-                                 surface.Row.data(),
-                                 static_cast<uint32_t>(surface.Row.size() * sizeof(float)));
-}
-
-void SubjectDraw::EncodeGround(const PassRecording &into) const {
-  if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return; }
-  for (const SurfaceSlot &surface : Slots) {
-    if (surface.Domain != SurfaceDomain::Ground) { continue; }
-    const std::array<SDL_GPUTextureSamplerBinding, 2> images{
-        {{.texture = Atlas_ != nullptr ? Atlas_ : surface.Colour.Image.Get(),
-          .sampler = AtlasSampler_ != nullptr ? AtlasSampler_ : surface.Colour.Sample.Get()},
-         {.texture =
-              Reflections_.Atlas != nullptr ? Reflections_.Atlas : surface.Colour.Image.Get(),
-          .sampler = Reflections_.Sampler != nullptr ? Reflections_.Sampler
-                                                     : surface.Colour.Sample.Get()}}};
-    if (!Binding().CapturesMaterial) {
-      SDL_BindGPUFragmentSamplers(
-          into.Pass, 0, images.data(), static_cast<uint32_t>(images.size()));
-    }
-    std::array<SDL_GPUBuffer *const, 2> storage = {GroundClasses_, GroundPalette_};
-    SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, storage.data(), 2);
-    SDL_PushGPUFragmentUniformData(into.Commands,
-                                   0,
-                                   surface.Row.data(),
-                                   static_cast<uint32_t>(surface.Row.size() * sizeof(float)));
-    Ground_.Encode(into);
-    return;
-  }
-}
-
-void SubjectDraw::PushFrameUniforms(const FrameContext &ctx, const PassRecording &into) {
-  std::array<float, kUniFloats> uniform = {{}};
-  for (int axis = 0; axis < 3; ++axis) {
-    uniform[kAnchorSlot + axis] = static_cast<float>(Anchor[axis] + ctx.PreViewTranslation[axis]);
-    uniform[kPrevAnchorSlot + axis] =
-        static_cast<float>(Anchor[axis] + ctx.PrevPreViewTranslation[axis]);
-  }
-  for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp[i]; }
-  for (int i = 0; i < 16; i++) { uniform[16 + i] = ctx.PrevMvp[i]; }
-  for (int i = 0; i < 16; i++) { uniform[32 + i] = static_cast<float>(LightFromWorld_[i]); }
-  ++UniformPushes_;
-  SDL_PushGPUVertexUniformData(
-      into.Commands, 0, uniform.data(), static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
-  const std::array<float, kLightFloats> lights = PackedLights(ctx);
-  ShadowedFrames_ += lights[2] > 0.5f ? 1u : 0u;
-  SDL_PushGPUFragmentUniformData(
-      into.Commands, 1, lights.data(), static_cast<uint32_t>(lights.size() * sizeof(float)));
-}
-
-void SubjectDraw::BindVertexStreams(const PassRecording &into,
-                                    VertexLayout layout,
-                                    VertexMotion motion) const {
-  const bool textured = CarriesUv(layout);
-  const bool lit = CarriesNormal(layout);
-  const bool secondUv = CarriesUv1(layout);
-  std::array<SDL_GPUBufferBinding, VertexShape::kRuns> runs = {{}};
-  uint32_t count = 0;
-  runs[count++] = SDL_GPUBufferBinding{
-      .buffer = Bound().Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
-  if (textured) {
-    runs[count++] = SDL_GPUBufferBinding{
-        .buffer = Bound().Buffer(SubjectResidency::Stream::Uv).Get(), .offset = 0};
-  }
-  if (secondUv) {
-    runs[count++] = SDL_GPUBufferBinding{
-        .buffer = Bound().Buffer(SubjectResidency::Stream::Uv1).Get(), .offset = 0};
-  }
-  runs[count++] =
-      SDL_GPUBufferBinding{.buffer = lit ? Bound().Buffer(SubjectResidency::Stream::Normal).Get()
-                                         : Bound().Buffer(SubjectResidency::Stream::Emitted).Get(),
-                           .offset = 0};
-
-  if (Binding().WritesVelocity) {
-    const auto stream = motion == VertexMotion::Rigid || !Bound().Shape().HasPrevious
-                            ? SubjectResidency::Stream::Vertex
-                            : SubjectResidency::Stream::Previous;
-    runs[count++] = SDL_GPUBufferBinding{.buffer = Bound().Buffer(stream).Get(), .offset = 0};
-  }
-  SDL_BindGPUVertexBuffers(into.Pass, 0, runs.data(), count);
-}
-
-size_t SubjectDraw::IndirectRunEnd(size_t first) const noexcept {
-  const DrawBatch &batch = Batches[first];
-  size_t end = first + 1u;
-  while (end < Batches.size() && Batches[end].JobCount > 0 &&
-         Batches[end].MaterialSlot == batch.MaterialSlot &&
-         BatchLayout[end] == BatchLayout[first] && Batches[end].Motion == batch.Motion) {
-    ++end;
-  }
-  return end;
-}
-
-void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
-  EncodedDrawCalls_ = 0;
-  const bool drawsBatches = !Batches.empty() && Bound().Buffer(SubjectResidency::Stream::Vertex) &&
-                            Bound().Buffer(SubjectResidency::Stream::Index);
-  if (!drawsBatches && (Binding().Behind != nullptr || Ground_.Drawn() == 0)) { return; }
-  PushFrameUniforms(ctx, into);
-
-  enum class IndexBinding { Unbound, Direct, Indirect };
-  IndexBinding indexBinding = IndexBinding::Unbound;
-
-  std::pair bound{kPipelines, VertexMotion::Deforming};
-  uint32_t boundSlot = kNoSlot;
-  const bool cut = Bound().Buffer(SubjectResidency::Stream::DrawIndex) &&
-                   Bound().Buffer(SubjectResidency::Stream::DrawArguments) && !Args_.empty();
-  for (size_t at = 0; drawsBatches && at < Batches.size(); ++at) {
-    const DrawBatch &batch = Batches[at];
-    const bool culled = cut && batch.JobCount > 0;
-    const SurfaceSlot &surface = Slots[batch.MaterialSlot];
-
-    const bool glassSlot =
-        surface.Kind == SurfaceKind::ThinTransmissive || surface.Kind == SurfaceKind::Refractive;
-    if (glassSlot != (Binding().Behind != nullptr)) { continue; }
-
-    const VertexLayout wanted = BatchLayout[at];
-    const size_t wantedPipeline =
-        PipelineAt(surface.Domain, wanted, surface.Kind, surface.CullsBack);
-    const std::pair wantedBinding{wantedPipeline, batch.Motion};
-    if (wantedBinding != bound) {
-      SDL_BindGPUGraphicsPipeline(into.Pass, Binding().Pipelines[wantedPipeline].Get());
-      BindVertexStreams(into, wanted, batch.Motion);
-      BindPlacementStorage(into, wanted);
-      bound = wantedBinding;
-      boundSlot = kNoSlot;
-    }
-    if (boundSlot != batch.MaterialSlot) {
-      BindSlot(into, batch.MaterialSlot, wanted);
-      boundSlot = batch.MaterialSlot;
-    }
-    const auto wantedIndex = culled ? IndexBinding::Indirect : IndexBinding::Direct;
-    if (indexBinding != wantedIndex) {
-      const SDL_GPUBufferBinding indices{
-          .buffer = culled ? Bound().Buffer(SubjectResidency::Stream::DrawIndex).Get()
-                           : Bound().Buffer(SubjectResidency::Stream::Index).Get(),
-          .offset = 0};
-      SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-      indexBinding = wantedIndex;
-    }
-    if (culled) {
-      const size_t end = IndirectRunEnd(at);
-      ++EncodedDrawCalls_;
-      SDL_DrawGPUIndexedPrimitivesIndirect(
-          into.Pass,
-          Bound().Buffer(SubjectResidency::Stream::DrawArguments).Get(),
-          static_cast<Uint32>(at * kIndirectStride),
-          static_cast<Uint32>(end - at));
-      at = end - 1u;
-      continue;
-    }
-    SDL_DrawGPUIndexedPrimitives(
-        into.Pass, batch.IndexCount, batch.Instances, batch.FirstIndex, 0, batch.ModelSlot);
-    ++EncodedDrawCalls_;
-  }
-  EncodeGround(into);
-}
 }
