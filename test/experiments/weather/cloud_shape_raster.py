@@ -35,16 +35,20 @@ def judge(metadata, view_samples, light_samples, expected_profile=1):
     _, end = physical_air(rays[active], medium)
     query_m = rays[active, 10] * 1000
     query_m[sky[active]] = end[sky[active]]
-    expected = transfer(
-        rays[active],
-        medium,
-        layer,
-        info["phase_s"],
-        kind,
-        view_samples=view_samples,
-        light_samples=light_samples,
-        query_m=query_m,
-    )
+    selected_rays = rays[active]
+    expected = np.empty((len(selected_rays), 6))
+    for begin in range(0, len(selected_rays), 16384):
+        block = slice(begin, begin + 16384)
+        expected[block] = transfer(
+            selected_rays[block],
+            medium,
+            layer,
+            info["phase_s"],
+            kind,
+            view_samples=view_samples,
+            light_samples=light_samples,
+            query_m=query_m[block],
+        )
     actual = np.c_[images[2, active, :3], images[3, active, :3]].astype(float)
     error = np.abs(actual - expected)
     combined = images[0, active, :3] * expected[:, 3:] + expected[:, :3]
@@ -159,6 +163,7 @@ def main():
                 "cases": rows,
                 "cross_cases": cross,
                 "sampling": [args.view_samples, args.light_samples],
+                "reference_batch_pixels": 16384,
                 "scope": "Native/FP64 numerical agreement; finite quadrature convergence and full budget remain separate",
             },
             indent=2,
