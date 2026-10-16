@@ -111,14 +111,25 @@ def project(mesh, row, parameters, fractions, axis_m, floor_m):
     return result, assigned, facades
 
 
+def recipe_for(row, parameters):
+    return choose(
+        row["properties"],
+        row.get("context", {}),
+        row["polygon"],
+        parameters["buildingHeight"],
+        parameters["minHeight"],
+    )
+
+
 class FacadeDetails:
-    def __init__(self, rows, view, *, door_states=None):
+    def __init__(self, rows, view, *, door_states=None, gate_states=None):
         from facade_balconies import BalconyDetails
         from facade_entrances import EntranceDetails
         from facade_frame_geometry import FrameDetails
         from facade_shopfronts import ShopfrontDetails
         from facade_window_bays import WindowBayDetails
         from tile_facade_bands import BandDetails
+        from tile_industrial_halls import HallDetails
 
         self.base = OrdinaryDetails(rows, view)
         self.palette = {}
@@ -130,6 +141,7 @@ class FacadeDetails:
         self.recess_rejected = []
         self.bands = BandDetails(rows)
         self.entrances = EntranceDetails(self.bands.rows, self.bands.tree, door_states)
+        self.halls = HallDetails(self.entrances, gate_states)
         self.frames = FrameDetails(self.entrances)
         self.entrance_geometry = []
         self.shopfronts = ShopfrontDetails(self.entrances)
@@ -149,30 +161,29 @@ class FacadeDetails:
         if "room_ids" in info:
             return before
         began = time.perf_counter()
-        recipe = choose(
-            row["properties"],
-            row.get("context", {}),
-            row["polygon"],
-            parameters["buildingHeight"],
-            parameters["minHeight"],
-        )
+        recipe = recipe_for(row, parameters)
         family = recipe["family"]
         rhythm = recipe["parameters"]
         if family in ("unknown", "utility", "garage"):
             return before
         try:
-            fractions = (rhythm["width"], rhythm["height"])
-            projected, selected, facades = project(
-                mesh,
-                row,
-                parameters | info,
-                fractions,
-                rhythm["axis_m"],
-                rhythm["floor_m"],
+            projected, facades, identifier = self.surface(
+                mesh, row, parameters | info, rhythm, material
             )
-            identifier = self.binding(material, fractions)
-            projected["materials"][selected] = identifier
             entry = self.entrances.plan(row, parameters, facades, family)
+            hall = self.halls(
+                row,
+                parameters,
+                info,
+                facades,
+                entry,
+                family,
+                self.base.current_envelope,
+                material,
+                self.view,
+            )
+            if hall is not None:
+                return hall
             shopfront = self.shopfronts.plan(row, entry)
             bays, balconies, programme = self.projections(row, entry, family)
             from tile_facade_recess import attach as recesses
@@ -239,7 +250,9 @@ class FacadeDetails:
                 "scope": "Procedural opening/material estimate on complete exterior; full near room/door programme not admitted",
             }
             self.completed.append(record)
-            return projected, info | self.frames.logical_info(len(replaced_frames)) | {
+            return projected, info | (
+                self.halls.current or {}
+            ) | self.frames.logical_info(len(replaced_frames)) | {
                 "facade_recipe": family,
                 "facade_origin": recipe["origin"],
                 "facade_programme": programme,
@@ -285,6 +298,15 @@ class FacadeDetails:
             }
         return self.palette[key]
 
+    def surface(self, mesh, row, parameters, rhythm, material):
+        fractions = (rhythm["width"], rhythm["height"])
+        projected, selected, facades = project(
+            mesh, row, parameters, fractions, rhythm["axis_m"], rhythm["floor_m"]
+        )
+        identifier = self.binding(material, fractions)
+        projected["materials"][selected] = identifier
+        return projected, facades, identifier
+
     def report(self):
         return {
             "completed": self.completed,
@@ -295,6 +317,7 @@ class FacadeDetails:
             "bands": self.bands.completed,
             "band_rejected": self.bands.rejected,
             "frames": self.frames.completed,
+            "halls": self.halls.report(),
             "frame_rejected": self.frames.rejected,
             "entrances": self.entrances.planned,
             "entrance_geometry": self.entrance_geometry,
