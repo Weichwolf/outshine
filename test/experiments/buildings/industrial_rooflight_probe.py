@@ -177,6 +177,37 @@ def benchmark(fields):
     return results
 
 
+def visible_vertices(mesh, view):
+    q = (mesh["vertices"] - view.eye) @ view.basis.T
+    selected = (q[:, 2] > 0.1) & np.all(
+        abs(q[:, :2]) * view.focal_px
+        <= np.maximum(q[:, 2:3], 0.01) * [view.width / 2, view.height / 2],
+        axis=1,
+    )
+    return int(selected.sum())
+
+
+def inside_view(fields, hall, before, after):
+    region = shapely.from_wkb(hall["interior_wkb"]).buffer(-0.30)
+    for item in fields:
+        target = np.array(shapely.from_wkb(item["footprint_wkb"]).centroid.coords[0])
+        axes = np.asarray(item["axes"])
+        for shift in (-1.2, 1.2):
+            eye = target + axes[1] * shift
+            if not region.covers(shapely.Point(eye)):
+                continue
+            view = View(
+                np.r_[eye, 1.8],
+                np.r_[target, item["ceiling_m"] + 0.8],
+                width=1920,
+                height=1080,
+                fov_deg=80,
+            )
+            if min(visible_vertices(before, view), visible_vertices(after, view)) >= 4:
+                return view
+    raise ValueError("No admitted interior camera sees both actual source products")
+
+
 def run(output):
     proof = revision()
     if proof["experiment_tree_dirty"]:
@@ -184,7 +215,9 @@ def run(output):
     output.mkdir(parents=True, exist_ok=True)
     costs = []
     for index, (row, neighbors) in enumerate(sources()[:3]):
-        mesh, shell, _body, _added, fields, hall, *_ = generate(row, neighbors)
+        mesh, shell, _body, _added, fields, hall, before, _info = generate(
+            row, neighbors
+        )
         diagram(mesh, shell, fields, row, output, index)
         costs.append({"source_id": row["id"], "costs": benchmark(fields)})
         axes = np.asarray(fields[0]["axes"])
@@ -204,28 +237,22 @@ def run(output):
                     ),
                 )
             )
-            centre = np.asarray(row["polygon"].representative_point().coords[0])
-            item = min(
-                fields,
-                key=lambda f: np.linalg.norm(
-                    shapely.from_wkb(f["footprint_wkb"]).centroid.coords[0] - centre
-                ),
+            views.append(("Inside", inside_view(fields, hall, before, mesh)))
+            item = fields[0]
+            xy = np.array(shapely.from_wkb(item["footprint_wkb"]).centroid.coords[0])
+            target = np.r_[xy, item["ceiling_m"] + 0.8]
+            near = View(
+                target + np.r_[8 * (axes[0] + axes[1]), 7],
+                target,
+                width=1920,
+                height=1080,
+                fov_deg=55,
             )
-            target = np.array(
-                shapely.from_wkb(item["footprint_wkb"]).centroid.coords[0]
-            )
-            views.append(
-                (
-                    "Inside",
-                    View(
-                        np.r_[target + axes[1] * 3, 1.8],
-                        np.r_[target, item["ceiling_m"] + 0.8],
-                        width=1920,
-                        height=1080,
-                        fov_deg=65,
-                    ),
+            if min(visible_vertices(before, near), visible_vertices(mesh, near)) < 4:
+                raise ValueError(
+                    "Near roof comparison lacks visible reference vertices"
                 )
-            )
+            views.append(("Near", near))
         for name, view in views:
             for rooflit in (False, True):
                 label = f"Rooflight{index}{name}" + ("Glazed" if rooflit else "Before")
