@@ -47,8 +47,9 @@ def receiver_material(variant):
     return receiver
 
 
-def populate(variant):
+def populate(variant, clip_end=1000):
     scene = setup(VIEW)
+    scene.camera.data.clip_end = clip_end
     receiver = receiver_material(variant)
     absorber = sheet("opaque absorber", np.full(3, 0.02))
     for mat in (receiver, absorber):
@@ -92,11 +93,11 @@ def sample_image(target, shadows):
     return rows
 
 
-def run(output, variant):
+def run(output, variant, clip_end):
     if output.exists():
         raise ValueError("fresh controlled stack output directory required")
     output.mkdir(parents=True)
-    scene, lamp = populate(variant)
+    scene, lamp = populate(variant, clip_end)
     rows, timings, images = [], [], []
     for shadows in (False, True):
         lamp.data.use_shadow = shadows
@@ -123,6 +124,7 @@ def run(output, variant):
         "profile": [1920, 1080],
         "samples": 8,
         "variant": variant,
+        "clip_end_m": clip_end,
         "view": VIEW.tolist(),
         "light": LIGHT.tolist(),
         "receiver_rt": [*REFLECTION.tolist(), *TRANSMISSION.tolist()],
@@ -149,13 +151,14 @@ def run(output, variant):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--clip-end", type=float, default=1000)
     parser.add_argument(
         "--variant",
         choices=("baseline", "shadow_thickness", "flipped_diffuse"),
         default="baseline",
     )
     args = parser.parse_args()
-    run(args.output, args.variant)
+    run(args.output, args.variant, args.clip_end)
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
