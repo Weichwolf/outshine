@@ -9,6 +9,7 @@ import manifold3d as manifold
 import numpy as np
 from industrial_hall_plan import metadata
 from outshine_ref.buildings.rooflight_panels import closed
+from provider_contract import attributes
 from recipe_graph_data import Budget, canonical
 from recipe_hall_operators import inputs_for
 from recipe_hall_operators import prepare as previous
@@ -16,6 +17,8 @@ from recipe_rooflight_operators import ROOT, panel_representation, prepare
 from recipe_rooflight_products import assemble
 from rooflight_surface_probe import prepared
 from structural_shell_geometry import native
+from tile_facades import FacadeDetails
+from tile_industrial_halls import HallDetails
 from verify_industrial_halls import (
     hall_route,
     loading_access,
@@ -28,6 +31,48 @@ from verify_recipe_halls import mesh_equal
 
 
 class RecipeRooflights(unittest.TestCase):
+    def test_normal_tile_builder_v2_matches_graph_without_any_prototype_patch(self):
+        for row, neighbors in sources()[:3]:
+            view = view_for(row)
+            run = prepare().evaluate(inputs_for(row, neighbors))
+            owner = FacadeDetails(
+                [row, *neighbors],
+                view,
+                door_states={row["id"] + ":floor-0:entrance": 90},
+            )
+            owner.halls = HallDetails(
+                owner.entrances,
+                {row["id"] + ":floor-0:loading-0": 1},
+                version="2",
+            )
+            mesh, info = owner(row, attributes(row["properties"]), 1)
+            self.assertEqual(info["hall_recipe"], "buildings.industrial-hall/2")
+            expected, _, _ = assemble(run, view, opened=1, staff_angle=90)
+            mesh_equal(mesh, expected)
+            self.assertEqual(
+                canonical(owner.halls.planned[0]["rooflights"]),
+                canonical(run.outputs["rooflights"].value),
+            )
+
+    def test_deferred_v2_tile_retains_full_glazing_plan_before_any_hall_geometry(self):
+        row, neighbors = sources()[2]
+        owner = FacadeDetails([row, *neighbors], view_for(row))
+        owner.halls = HallDetails(owner.entrances, version="2")
+        with (
+            patch("tile_industrial_halls.demanded", return_value=False),
+            patch(
+                "tile_industrial_halls.structure",
+                side_effect=AssertionError("deferred CSG"),
+            ),
+        ):
+            owner(row, attributes(row["properties"]), 1)
+        self.assertEqual(len(owner.halls.planned[0]["rooflights"]), 46)
+        self.assertEqual(owner.halls.completed, [])
+        self.assertEqual(owner.halls.current["hall_render"], "deferred")
+        for version in (1, True, "3"):
+            with self.assertRaises(ValueError):
+                HallDetails(owner.entrances, version=version)
+
     def test_logical_fields_do_not_build_envelope_shell_or_panels(self):
         graph = prepare()
         for row, neighbors in sources()[:3]:
