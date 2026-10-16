@@ -12,6 +12,7 @@ from stair_junction_solve import solve
 from stair_network_geometry import vertex_links
 from stair_outer_inputs import FIXTURE, load
 from stair_terrain_audit import body_proof, clearance, top_surface
+from stair_terrain_display import overview_span
 from stair_terrain_layout import gentle_candidate, partition, selected_surfaces
 from stair_terrain_solid import protected_excavation, retaining_body, split_roots
 
@@ -28,6 +29,25 @@ def crossing_layout():
 
 
 class TerrainCounters(unittest.TestCase):
+    def test_overview_fits_soil_corners_beyond_the_original_road_camera(self):
+        body, _ = retaining_body(split_roots(crossing_layout()))
+        camera = {
+            "eye": [3, -3, 4],
+            "target": [1.0, 1, 0],
+            "profile": [1280, 720],
+            "span_m": 1.0,
+        }
+        span = overview_span(camera, [body])
+        self.assertGreater(span, camera["span_m"])
+        target = np.asarray(camera["target"])
+        forward = target - camera["eye"]
+        forward /= np.linalg.norm(forward)
+        right = np.cross(forward, [0.0, 0, 1])
+        right /= np.linalg.norm(right)
+        up = np.cross(right, forward)
+        self.assertLess(abs((body.vertices - target) @ right).max(), span / 2)
+        self.assertLess(abs((body.vertices - target) @ up).max(), span / 2 * 720 / 1280)
+
     def test_unsplit_cut_to_fill_seam_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "zero root"):
             retaining_body(crossing_layout())

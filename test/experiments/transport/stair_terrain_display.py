@@ -7,10 +7,35 @@ from camera_height_inputs import digest
 from cycle_bridge_display import append
 
 
+def overview_span(camera, bodies):
+    target = np.asarray(camera["target"])
+    forward = target - camera["eye"]
+    forward /= np.linalg.norm(forward)
+    right = np.cross(forward, [0.0, 0, 1])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, forward)
+    ratio = camera["profile"][0] / camera["profile"][1]
+    return float(
+        max(
+            camera["span_m"],
+            *[
+                2.2
+                * max(
+                    abs((body.vertices - target) @ right).max(),
+                    ratio * abs((body.vertices - target) @ up).max(),
+                )
+                for body in bodies
+            ],
+        )
+    )
+
+
 def scenes(output, products, retaining, excavated, palette_path):
     with np.load(products / "after/display-body.npz") as data:
         roads = dict(data)
     palette = np.array(json.loads(palette_path.read_text())["colours"])
+    wide = json.loads((products / "after/overview-scene.json").read_text())
+    span = overview_span(wide, (retaining, excavated))
     result = {}
     for name, body in (("before", retaining), ("after", excavated)):
         actual = type(body)(
@@ -28,6 +53,8 @@ def scenes(output, products, retaining, excavated, palette_path):
         np.savez_compressed(path, **display)
         for view in ("overview", "diagnostic"):
             row = json.loads((products / "after" / (view + "-scene.json")).read_text())
+            if view == "overview":
+                row["span_m"] = span
             row.update(
                 id="Wien-terrain-" + name + "-" + view,
                 mesh=str(path),
@@ -38,4 +65,5 @@ def scenes(output, products, retaining, excavated, palette_path):
                 json.dumps(row, indent=2) + "\n"
             )
         result[name + "_display_sha256"] = digest(path)
+    result["overview_span_m"] = span
     return result
