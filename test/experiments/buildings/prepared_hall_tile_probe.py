@@ -73,7 +73,7 @@ def models(output):
             "scope": "All original source rows. Retained complete physical hall assets with independent adaptive draw parts; diagnostic whole-tile export still copies full source bodies. No complete body LOD, native cache, shadow/night or device admission.",
         }
         (output / (name + "-geometry.json")).write_text(
-            json.dumps(plain(record), indent=2, allow_nan=False) + "\n",
+            json.dumps(record, default=plain, indent=2, allow_nan=False) + "\n",
         )
         results.append(
             {
