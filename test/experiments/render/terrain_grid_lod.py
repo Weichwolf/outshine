@@ -77,9 +77,12 @@ def barycentric(points, faces):
     return np.column_stack((1 - v - w, v, w))
 
 
-def stencil(fractions, stride, keep_boundary=True):
+def stencil(fractions, stride, keep_boundary=True, vertical=None):
     side = len(fractions)
-    xy = np.stack(np.meshgrid(fractions, fractions), axis=-1).reshape(-1, 2)
+    vertical = fractions if vertical is None else vertical
+    if len(vertical) != side:
+        raise ValueError("both grid axes must have the same node count")
+    xy = np.stack(np.meshgrid(fractions, vertical), axis=-1).reshape(-1, 2)
     fine, coarse = triangles(side, 1), triangles(side, stride, keep_boundary)
     fine_polygons, coarse_polygons = (
         shapely.polygons(xy[fine]),
