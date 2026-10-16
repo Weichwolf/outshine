@@ -55,3 +55,71 @@ geometrischen Vereinigungen; die räumliche Anfrage vermeidet diese Arbeit.
 Das ist keine Herleitung globaler Optimalität. Tragfähigkeit, weitere Quellen,
 Änderungs-/Reservationsverträge und native Integration bleiben wie im
 [Pfeilervergleich](stair_support_comparison.md) offen. Keine Welt-/Frame-/A18-/RTX-Abnahme.
+
+
+## Eingefrorene Ergebnisse
+
+Messungen auf `ea6edb4bf9d7f011464fb36e13761553ded1d4fc`. Danach ergänzt
+`044c8a32b` die Größenprüfung vor temporärer Array-/Geometrievorbereitung;
+abschließender Masterabgleich `5e0c0c819a314774067068388bb8cc21cecdb921`.
+31 Kontrollen in 0,358 s, terminal OK; frische Erzeugung beider Strategien und
+unabhängiger Leser bestanden. Alle vier NPZ-Produkte (beide Körper/Kappen,
+Vorher-/Nachherdarstellung) bytegleich zum originalen PR-#496-Stand. 66 feste
+und 70 verschobene Pfeiler, sämtliche Quell-/Kontakt-/Float32-/Verkehrsgrenzen
+und lokalen Auslassungen erhalten. Größenlimits werden vor Maskenkonversion
+und vor Aufbau der Verkehrsdreiecke geprüft, ohne höhere Ressourcenbudgets.
+
+Die vier ursprünglichen tatsächlich geöffneten 720p-Bilder bleiben passende
+Referenzen: aktueller kompletter Mesh-Payload bytegleich, alle Kamera-/Licht-/
+Profilparameter außer Dateipfaden exakt, ursprüngliche Receipt-/PNG-/Helper-
+Hashes erneut geprüft, alle Bilder vollständig decodiert. Beide Nachherbilder
+nochmals geöffnet. Kein neuer Renderlauf oder Bildgewinn aus dieser Optimierung
+behauptet; die bestehende Galerie wird nicht dupliziert.
+
+Gleiche 70 Pfeiler, je sieben normale vollständige Pläne plus Warmplan, eigener
+Worker je Variante und normale Priorität; Geometrie und ganze physische Abnahme
+bleiben innerhalb der Zeit. Import/Decode, Packvergleich und Datei-IO außerhalb.
+Alle gepackten Körper-/Kappenarrays in jedem Lauf exakt gegen den unveränderten
+unabhängigen Export. Keine eigenen Builds/Renderer gleichzeitig; gemeinsamer
+Host nicht von fremder Fachlast isoliert. i5-1135G7, zwei physische/vier logische
+CPUs, 16 GiB RAM; keine Geräte-/Frameabnahme oder allgemeiner Speedup-Faktor.
+
+| Ganze Planung und explizite Vorbereitung | Je Quelle | Gemeinsam |
+|---|---:|---:|
+| Gültige Pfeiler |70|70|
+| Phase, Median ms |2925,325|1692,716|
+| Prozess-Peak B |152596480|125587456|
+| Konstruktions-Builder |5|1|
+| Deren vorbereitete Terrainfacetten |83550|16710|
+| Deren obere Facetten |1201|1192|
+| Verkehrsdreieck-Einträge beider Präzisionen |38188|8080|
+| Geometrische Verkehrsflächen-Vereinigungen |10|0|
+| Geteilte Verkehrsindices |0|2|
+| Logischer XY-Payload expliziter Dreiecksindexierung, B |1833024|387840|
+| Eigene Maskenarraybytes der Verkehrsindices |0|64640|
+
+Gleiche Stationen/Versuche/physische Kontaktpaarprüfungen und Ausgabebytes.
+Neun mehrfach besessene obere Facetten werden nicht erneut aufbereitet;
+66840 wiederholte Terrainfacetten und zehn Verkehrsunions entfallen.
+Die XY-Bytes bezeichnen den logischen Payload der expliziten NumPy-Auszüge,
+nicht alle Kopien oder native Backing-Allocations. Interne Gesamtkopien bleiben
+unbeobachtet. Das Darstellungsarray und dessen 7 078 656 B Concatenate-/Cast-
+Zielpuffer bleiben unverändert; reine Erzeugungs-/Prüfarbeitsersparnis.
+
+Getrennte Memray-1.20.0-Phasen inklusive vollständiger Vorbereitung, Konstruktion
+und physischer Abnahme: alle Arrays erneut exakt, gleiche Zeit-/Speichergrenzen.
+Der aktuelle passende Verfahrensvergleich ergibt:
+10360760/3800497 beobachtete Allokationsereignisse,
+1408656961/523552353 angeforderte B,
+46086540/20853436 B getrackter Heap-Peak. Profilierte Phasen 6754,708/2987,916 ms,
+Prozess-Peaks 163721216/131969024 B. Python-Allocatorereignisse und native Stack-
+Traces aus; native Allokationen bleiben erfasst. Kumulative Anfragen sind keine
+lebenden RAM-Bytes und profilierte Phasen keine unverfälschten Laufzeiten.
+Die verbleibende physische Prüfung ist weiterhin erhebliche Arbeit; kein
+unbelegtes globales Optimum oder Cache-/Weltladegewinn aus diesem kleinen Fall.
+
+Abschließende Produkte/Leser/Bildbindung:
+`/tmp/outshine-transport-stair-support-prep-final-044c8a32b/`;
+Kosten/Allokationen: `/tmp/outshine-transport-stair-support-prep-cost-ea6edb4bf/`.
+Ursprüngliche Körper/Bilder/Profilierungsgegenfälle bleiben unter dem im
+Pfeilervergleich angegebenen ursprünglichen Pfad erhalten.
