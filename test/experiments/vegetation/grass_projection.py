@@ -2,6 +2,7 @@
 
 import numpy as np
 from raster_batch import fragments
+from raster_rows import fragments as row_fragments
 
 
 def query_domain(lower, upper, direction, size):
@@ -70,7 +71,15 @@ def batch_winners(triangle, pixel, z, count, method):
 
 
 def contacts(
-    vertices, faces, lower, upper, direction, size, pair_budget=262144, method="scatter"
+    vertices,
+    faces,
+    lower,
+    upper,
+    direction,
+    size,
+    pair_budget=262144,
+    method="scatter",
+    sampler="boxes",
 ):
     projected, lower, upper = projected_mesh(
         vertices, faces, lower, upper, direction, size
@@ -79,6 +88,8 @@ def contacts(
         raise ValueError("bounded pair batch with room for one full footprint required")
     if method not in ("sort", "scatter"):
         raise ValueError("explicit sort/scatter winner comparison required")
+    if sampler not in ("boxes", "rows"):
+        raise ValueError("explicit boxes/rows candidate sampler required")
     depth = np.full(size * size, -np.inf)
     face = np.full(size * size, -1, np.int32)
     work = {"accepted_fragments": 0, "batches": 0, "max_fragment_batch": 0}
@@ -99,9 +110,12 @@ def contacts(
         input_geometry_bytes=vertices.nbytes + faces.nbytes,
         projected_vertex_copy_bytes=projected.nbytes,
     )
-    for triangle, _, pixel, z in fragments(
-        projected, faces, lower, upper, size, pair_budget
-    ):
+    iterator = (
+        row_fragments(projected, faces, lower, upper, size, pair_budget, work)
+        if sampler == "rows"
+        else fragments(projected, faces, lower, upper, size, pair_budget)
+    )
+    for triangle, _, pixel, z in iterator:
         valid = z >= 0
         triangle, pixel, z = triangle[valid], pixel[valid], z[valid]
         work["accepted_fragments"] += len(pixel)

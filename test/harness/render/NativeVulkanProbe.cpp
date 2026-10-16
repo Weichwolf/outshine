@@ -307,11 +307,12 @@ int main(int argc, char **argv) {
   Check(!negativeWait && negativeWait.error().Kind == ErrorKind::Invalid,
         "negative wait is rejected");
   std::println(
-      R"({{"device":"{}","checks":{},"jobs":{},"indices":{},"validation":{},"gpu_timing":"unavailable","places":"unproven"}})",
+      R"({{"device":"{}","checks":{},"jobs":{},"indices":{},"validation":{},"depth_clamp":{},"gpu_timing":"unavailable","places":"unproven"}})",
       device->Limits().Name,
       gChecks,
       input.Jobs.size(),
       input.ExpectedIndices.size(),
-      validation);
+      validation,
+      device->Limits().DepthClamp);
   return EXIT_SUCCESS;
 }
