@@ -45,6 +45,44 @@ def camera(current, distance):
 
 
 class BalconyCells(unittest.TestCase):
+    def test_every_unmodified_upper_cell_keeps_its_actual_surface_material_and_metric_uvs(
+        self,
+    ):
+        from verify_shopfronts import Shopfronts
+
+        for row in sources()[:2]:
+            mesh, frames, parameters, entry, _owner, plan = prepared(row)
+            for distance in (10, 500):
+                view = camera(plan["cells"][0], distance)
+                kwargs = {"plain_wall_material": 1, "entrance": entry}
+                before, _, _ = attach(
+                    mesh, row, parameters, frames, view, lambda: 32769, 32768, **kwargs
+                )
+                after, records, _ = attach(
+                    mesh,
+                    row,
+                    parameters,
+                    frames,
+                    view,
+                    lambda: 32769,
+                    32768,
+                    balconies=plan,
+                    **kwargs,
+                )
+                excluded = {
+                    plan["frame"]["id"]: {
+                        tuple(r["cell"]) for r in records if r.get("kind") == "balcony"
+                    }
+                }
+                Shopfronts.assert_upper_surface(
+                    self,
+                    before,
+                    after,
+                    frames,
+                    entry["floor_m"],
+                    excluded_cells=excluded,
+                )
+
     def test_actual_plans_keep_source_ids_and_do_not_expand_templates_until_demand(
         self,
     ):
