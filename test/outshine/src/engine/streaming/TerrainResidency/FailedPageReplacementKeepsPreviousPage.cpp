@@ -1,52 +1,12 @@
 #include "RuntimeScene.h"
 #include "HeightSheets.h"
 #include "Check.h"
-#include "test/harness/render/NativeDeviceProxy.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <chrono>
-#include <expected>
 #include <memory>
 #include <string>
-#include <utility>
 #include <vector>
-
-namespace {
-namespace Native = outshine::Render::Native;
-
-struct UploadFailure {
-  bool Armed = false;
-  unsigned Rejected = 0;
-};
-
-class HeightUploadDevice final : public outshine::Test::Gpu::NativeDeviceProxy {
-public:
-  HeightUploadDevice(std::unique_ptr<Native::Device> device, UploadFailure &failure)
-      : NativeDeviceProxy(*device), Device_(std::move(device)), Failure_(failure) {}
-
-  [[nodiscard]] static Native::Result<std::unique_ptr<Native::Device>>
-  Create(void *context, Native::DeviceOptions options) {
-    auto device = Native::CreateDevice(options);
-    if (!device) { return std::unexpected(device.error()); }
-    return std::make_unique<HeightUploadDevice>(std::move(*device),
-                                                *static_cast<UploadFailure *>(context));
-  }
-
-  [[nodiscard]] Native::Result<Native::Completion>
-  Submit(std::unique_ptr<Native::Commands> commands) override {
-    if (Failure_.Armed) {
-      Failure_.Armed = false;
-      ++Failure_.Rejected;
-      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
-                                           .Message = "injected height-page upload failure"});
-    }
-    return Backing().Submit(std::move(commands));
-  }
-
-private:
-  std::unique_ptr<Native::Device> Device_;
-  UploadFailure &Failure_;
-};
-}
 
 int main() {
   using namespace outshine;
@@ -56,8 +16,9 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    UploadFailure failure;
-    Render::SceneRenderer renderer({.Context = &failure, .Create = HeightUploadDevice::Create});
+    outshine::Test::Gpu::UploadFailure failure{.Message = "injected height-page upload failure"};
+    Render::SceneRenderer renderer(
+        {.Context = &failure, .Create = outshine::Test::Gpu::NativeUploadFaultDevice::Create});
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
