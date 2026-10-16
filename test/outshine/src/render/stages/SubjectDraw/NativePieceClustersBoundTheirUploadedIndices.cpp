@@ -1,7 +1,8 @@
 #include "Check.h"
 #include "ClusterCook.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include "test/harness/render/NativeOfflineDevice.h"
+#include "test/harness/render/NativeGpuCheck.h"
 #include "Readback.h"
 #include "SubjectDraw.h"
 #include <SDL3/SDL.h>
@@ -34,13 +35,13 @@ bool ReplaceMain(outshine::Render::SubjectDraw &draw, std::string &error) {
   return draw.SetMesh(mesh, error);
 }
 
-void Compare(const outshine::Render::SubjectDraw &draw, SDL_GPUDevice *device) {
+void Compare(const outshine::Render::SubjectDraw &draw, outshine::Render::Native::Device *device) {
   using namespace outshine;
   using namespace outshine::Render;
   using namespace outshine::Test;
   const auto &resident = draw.Resident();
   const auto read = [&](SubjectResidency::Stream stream, Readback &into) {
-    return into.FromBuffer(device, resident.Buffer(stream).Get(), resident.HeldOf(stream)) ==
+    return into.FromBuffer(device, resident.Buffer(stream).get(), resident.HeldOf(stream)) ==
            ReadState::Ready;
   };
   Readback vertices;
@@ -84,20 +85,16 @@ int main() {
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    const OwnedDevice device(SDL_CreateGPUDevice(
-        SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL,
-        false,
-        nullptr));
-    CHECK(device, "GPU device opens");
-    if (!device) { return Report(); }
+    auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
+    outshine::Test::Gpu::NativeOfflineDevice device(*native);
     SubjectDraw draw;
-    Gpu gpu;
-    gpu.Device = device.Get();
-    gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    gpu.SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    outshine::Render::Gpu gpu;
+    gpu.Device = &device;
+    gpu.HdrFormat = Native::Format::Rgba16Float;
+    gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
     gpu.Width = gpu.Height = 32;
     std::string error;
-    CHECK(gpu.SceneColours.Add(Resource::SceneLinear) && draw.Configure(gpu, error),
+    CHECK(gpu.SceneColours.Add(Resource::SceneLinear) && draw.Configure(gpu).has_value(),
           "native pipelines configure");
     const std::array<SubjectMaterial, 1> materials{};
     CHECK(draw.AppendMaterials(materials, error), "native material registers");
@@ -138,9 +135,13 @@ int main() {
     }
     CHECK(draw.HandTables(error), "cluster job tables publish");
     CHECK(draw.ClusterJobs() == 256, "both clusters of every remaining native piece survive");
-    Compare(draw, device.Get());
+    CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+          "accepted cluster streams submit before inspection");
+    Compare(draw, &device);
     CHECK(ReplaceMain(draw, error) && draw.HandTables(error), "main mesh replaces independently");
-    Compare(draw, device.Get());
+    CHECK(draw.Owned().SubmitPendingUploads().has_value(),
+          "accepted cluster streams submit before inspection");
+    Compare(draw, &device);
   }
   SDL_Quit();
   return Report();

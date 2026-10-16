@@ -1,13 +1,13 @@
 #ifndef OUTSHINE_RENDER_STAGES_MEDIUMMULTISCATTERSTAGE_H
 #define OUTSHINE_RENDER_STAGES_MEDIUMMULTISCATTERSTAGE_H
 
-#include <string>
+#include <memory>
+#include <optional>
 
 #include "ComputeShaders.h"
 #include "StageSubmission.h"
 
 #include "Gpu.h"
-#include "GpuOwned.h"
 #include "Atmosphere.h"
 
 namespace outshine::Render {
@@ -16,24 +16,23 @@ class MediumMultiScatterStage {
 public:
   static constexpr ComputeShaderId Shader = ComputeShaderId::MediumMultiScatter;
   static constexpr ComputeShape KernelShape = FindComputeShader(Shader)->Shape;
-  [[nodiscard]] bool Configure(const Gpu &gpu,
-                               SDL_GPUTexture *transmittance,
-                               SDL_GPUSampler *lut,
-                               SDL_GPUTexture *into,
-                               std::string &error);
+  [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu,
+                                               Native::Texture *transmittance,
+                                               Native::Sampler *lut,
+                                               Native::Texture *into);
 
   void Declare(const Medium &medium);
 
-  void Encode(const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const PassRecording &into);
 
   [[nodiscard]] bool Settled() const noexcept { return Cache_.Submitted(); }
 
 private:
-  OwnedComputePipeline Pipe;
-  SDL_GPUTexture *Transmittance = nullptr;
-  SDL_GPUSampler *Lut = nullptr;
-  SDL_GPUTexture *Into = nullptr;
-  Medium Declared_;
+  std::unique_ptr<Native::ComputePipeline> Pipe;
+  Native::Texture *Transmittance = nullptr;
+  Native::Sampler *Lut = nullptr;
+  Native::Texture *Into = nullptr;
+  std::optional<Medium> Declared_;
   StageCache Cache_;
 };
 

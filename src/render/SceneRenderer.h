@@ -22,13 +22,14 @@
 #include <type_traits>
 #include <vector>
 
-#include <SDL3/SDL_gpu.h>
+struct SDL_Window;
 
 #include "FrameContext.h"
 #include "Gpu.h"
 #include "GpuSubmission.h"
+#include "UploadQueue.h"
 #include "GroundStorage.h"
-#include "GpuOwned.h"
+
 #include "Readback.h"
 #include "scene/SceneResources.h"
 #include "Viewing.h"
@@ -107,6 +108,11 @@ class SceneRenderer {
 public:
   [[nodiscard]] std::expected<void, std::string> Init(Extent frame,
                                                       std::shared_ptr<const Compiled> plan);
+
+  [[nodiscard]] UploadQueue::WaitScope OfflineUploads(std::chrono::nanoseconds budget) {
+    return {UploadBudget_, budget};
+  }
+
   [[nodiscard]] bool
   BeginsWorldCandidate(std::string &error,
                        SceneResources::PieceSources pieces = SceneResources::PieceSources::Copy);
@@ -133,9 +139,9 @@ public:
 
   void SetContentSelection(const ContentSelection &selection);
 
-  [[nodiscard]] SDL_GPUTextureFormat SurfaceFormat() const;
+  [[nodiscard]] Native::Format SurfaceFormat() const;
 
-  void PresentInto(SDL_GPUTexture *surface) { ActiveFrame().HostSurface = surface; }
+  void PresentInto(Native::Texture *surface) { ActiveFrame().HostSurface = surface; }
 
   struct Region {
     double X = 0.0;
@@ -153,9 +159,9 @@ public:
     ActiveState().RegionAspect = into.Aspect;
   }
 
-  [[nodiscard]] std::expected<OwnedFence, std::string> PrepareWorldResources();
+  [[nodiscard]] std::expected<Native::Completion, std::string> PrepareWorldResources();
 
-  [[nodiscard]] bool WorldResourcesComplete(const OwnedFence &fence);
+  [[nodiscard]] bool WorldResourcesComplete(const Native::Completion &completion);
 
   [[nodiscard]] std::expected<void, std::string> RenderFrame();
 
@@ -179,7 +185,7 @@ public:
     return ActiveState().Plan ? ActiveState().Plan->SettleFrames() : 1;
   }
 
-  [[nodiscard]] bool Queued() const { return Presenting_ == SDL_GPU_PRESENTMODE_VSYNC; }
+  [[nodiscard]] bool Queued() const { return Presenting_; }
 
   [[nodiscard]] bool Presents() const { return Showing_ != nullptr; }
 
@@ -232,7 +238,12 @@ public:
   void ReleasePiece(PieceId which) { ActiveState().Content.Subjects.ReleasePiece(which); }
 
   [[nodiscard]] PageId PlaceHeightPage(std::span<const float> nodes, std::string &error) {
-    return ActiveState().Content.Subjects.Ground().PlacePage(nodes, error);
+    auto placed = ActiveState().Content.Subjects.Ground().PlacePage(nodes);
+    if (!placed) {
+      error = std::move(placed.error().Message);
+      return kNoPage;
+    }
+    return *placed;
   }
 
   [[nodiscard]] std::expected<HeightPageHandle, std::string>
@@ -279,7 +290,7 @@ public:
   [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,
                                       std::span<const GroundTile> virtual_,
                                       std::string &error) {
-    return ActiveState().Content.Subjects.Ground().SetInstances(real, virtual_, error);
+    return Accepted(ActiveState().Content.Subjects.Ground().SetInstances(real, virtual_), error);
   }
 
   [[nodiscard]] uint32_t GroundLatticeTriangles() const {
@@ -409,18 +420,20 @@ public:
   [[nodiscard]] bool ReplaceOverlay(std::span<const OverlayQuad> quads,
                                     const OverlayDraw::AtlasPixels *atlas,
                                     std::string &error) {
-    return ActiveState().Content.Overlay.Replace(
-        ActiveFrame().Handles, quads.data(), quads.size(), atlas, error);
+    return Accepted(ActiveState().Content.Overlay.Replace(
+                        ActiveFrame().Handles, quads.data(), quads.size(), atlas),
+                    error);
   }
 
   [[nodiscard]] bool SetOverlay(const OverlayQuad *quads, size_t count, std::string &error) {
-    return ActiveState().Content.Overlay.SetQuads(ActiveFrame().Handles, quads, count, error);
+    return Accepted(ActiveState().Content.Overlay.SetQuads(ActiveFrame().Handles, quads, count),
+                    error);
   }
 
   [[nodiscard]] bool
   SetOverlayAtlas(const uint8_t *rgba, int width, int height, std::string &error) {
-    return ActiveState().Content.Overlay.SetAtlas(
-        ActiveFrame().Handles, rgba, width, height, error);
+    return Accepted(
+        ActiveState().Content.Overlay.SetAtlas(ActiveFrame().Handles, rgba, width, height), error);
   }
 
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
@@ -557,14 +570,14 @@ public:
     if (!Candidate_) { ApplyWorldDeclarations(); }
   }
 
-  [[nodiscard]] SDL_GPUTexture *SkyViewTable() const { return ActiveFrame().SkyViewLut.Get(); }
+  [[nodiscard]] Native::Texture *SkyViewTable() const { return ActiveFrame().SkyViewLut.get(); }
 
-  [[nodiscard]] SDL_GPUTexture *MultiScatterTable() const {
-    return ActiveFrame().MultiScatterLut.Get();
+  [[nodiscard]] Native::Texture *MultiScatterTable() const {
+    return ActiveFrame().MultiScatterLut.get();
   }
 
-  [[nodiscard]] SDL_GPUTexture *TransmittanceTable() const {
-    return ActiveFrame().TransmittanceLut.Get();
+  [[nodiscard]] Native::Texture *TransmittanceTable() const {
+    return ActiveFrame().TransmittanceLut.get();
   }
 
   void SetSubjectEnvironment(const SubjectEnvironment &environment) {
@@ -710,6 +723,7 @@ public:
   }
 
 private:
+  [[nodiscard]] static bool Accepted(Native::Result<void> result, std::string &error);
   friend class Core::RuntimeScene;
 
   [[nodiscard]] bool UploadGroundClasses(std::span<const uint32_t> classes,
@@ -719,6 +733,8 @@ private:
 
   struct FrameResources;
 
+  [[nodiscard]] Native::Result<void> FlushCrossings(Native::Commands &commands);
+  [[nodiscard]] Native::Result<void> WaitForFrameSlot();
   [[nodiscard]] std::expected<void, std::string> PrepareFrame();
   [[nodiscard]] std::expected<void, std::string> RenderPublishedFrame();
   GpuSubmission Submission_;
@@ -730,10 +746,12 @@ private:
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming SlowestRenderFrameTiming_;
 
-  void CreateSampler(FrameResources &frame, Resource resource);
-  void CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, Resource resource);
+  [[nodiscard]] Native::Result<void> CreateSampler(FrameResources &frame, Resource resource);
+  [[nodiscard]] Native::Result<void>
+  CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, Resource resource);
   void CommitSubmittedFrame(StageSubmission &stageSubmission);
-  void Create(FrameResources &frame, const Compiled &plan, Resource resource);
+  [[nodiscard]] Native::Result<void>
+  Create(FrameResources &frame, const Compiled &plan, Resource resource);
   [[nodiscard]] static bool Created(const FrameResources &frame, Resource resource);
   [[nodiscard]] bool Configure(Stage stage,
                                FrameResources &frame,
@@ -744,7 +762,7 @@ private:
   ConfigurePlanStages(FrameResources &frame, const Compiled &plan, bool drawsGlass);
   [[nodiscard]] static AttachmentSet
   ColoursForStage(const FrameResources &frame, const Compiled &plan, Stage wanted);
-  void EncodeStage(Stage stage, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeStage(Stage stage, const PassRecording &into);
 
   struct Executor {
     Stage Named;
@@ -753,13 +771,14 @@ private:
                       const Compiled &plan,
                       bool drawsGlass,
                       std::string &error);
-    void (SceneRenderer::*Encode)(const FrameContext &ctx, const PassRecording &into);
+    Native::Result<void> (SceneRenderer::*Encode)(const FrameContext &ctx,
+                                                  const PassRecording &into);
   };
 
   static constexpr size_t kExecutorCount = 19;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
-  void Picture(bool picture, const PassRecording &into);
+  [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
   [[nodiscard]] static bool ConfigureSubjects(SceneRenderer &renderer,
                                               FrameResources &frame,
                                               const Compiled &plan,
@@ -840,49 +859,69 @@ private:
                                                  const Compiled &plan,
                                                  bool drawsGlass,
                                                  std::string &error);
-  void EncodeSubjects(const FrameContext &ctx, const PassRecording &into);
-  void EncodeGlass(const FrameContext &ctx, const PassRecording &into);
-  void EncodeCompositeTransmission(const FrameContext &ctx, const PassRecording &into);
-  void EncodeOverlay(const FrameContext &ctx, const PassRecording &into);
-  void EncodePresent(const FrameContext &ctx, const PassRecording &into);
-  void EncodeTonemap(const FrameContext &ctx, const PassRecording &into);
-  void EncodeMediumTransmittance(const FrameContext &ctx, const PassRecording &into);
-  void EncodeMediumMultiScatter(const FrameContext &ctx, const PassRecording &into);
-  void EncodeMediumRadiance(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeSubjects(const FrameContext &ctx,
+                                                    const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGlass(const FrameContext &ctx,
+                                                 const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeCompositeTransmission(const FrameContext &ctx,
+                                                                 const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeOverlay(const FrameContext &ctx,
+                                                   const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodePresent(const FrameContext &ctx,
+                                                   const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeTonemap(const FrameContext &ctx,
+                                                   const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeMediumTransmittance(const FrameContext &ctx,
+                                                               const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeMediumMultiScatter(const FrameContext &ctx,
+                                                              const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeMediumRadiance(const FrameContext &ctx,
+                                                          const PassRecording &into);
 
-  void EncodeEnvironmentSpecular(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeEnvironmentSpecular(const FrameContext &ctx,
+                                                               const PassRecording &into);
 
-  void EncodeIrradiance(const FrameContext &ctx, const PassRecording &into);
-  void EncodeDepthPyramid(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeIrradiance(const FrameContext &ctx,
+                                                      const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeDepthPyramid(const FrameContext &ctx,
+                                                        const PassRecording &into);
   [[nodiscard]] EyeBasis Eye() const;
-  void EncodeSky(const FrameContext &ctx, const PassRecording &into);
-  void EncodeAerialPerspective(const FrameContext &ctx, const PassRecording &into);
-  void EncodeLightVisibility(const FrameContext &ctx, const PassRecording &into);
-  void EncodeSubjectCull(const FrameContext &ctx, const PassRecording &into);
-  void EncodeSubjectScan(const FrameContext &ctx, const PassRecording &into);
-  void EncodeSubjectCompact(const FrameContext &ctx, const PassRecording &into);
-  void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass, StageSubmission &submission);
-  void EncodeComputePass(SDL_GPUCommandBuffer *commands,
-                         const Compiled::Pass &declared,
-                         StageSubmission &submission);
-  void EncodeGraphicsPass(SDL_GPUCommandBuffer *commands,
-                          const Compiled::Pass &declared,
-                          StageSubmission &submission);
+  [[nodiscard]] Native::Result<void> EncodeSky(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeAerialPerspective(const FrameContext &ctx,
+                                                             const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeLightVisibility(const FrameContext &ctx,
+                                                           const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeSubjectCull(const FrameContext &ctx,
+                                                       const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeSubjectScan(const FrameContext &ctx,
+                                                       const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeSubjectCompact(const FrameContext &ctx,
+                                                          const PassRecording &into);
+  [[nodiscard]] Native::Result<void>
+  EncodePass(Native::Commands *commands, size_t pass, StageSubmission &submission);
+  [[nodiscard]] Native::Result<void> EncodeComputePass(Native::Commands *commands,
+                                                       const Compiled::Pass &declared,
+                                                       StageSubmission &submission);
+  [[nodiscard]] Native::Result<void> EncodeGraphicsPass(Native::Commands *commands,
+                                                        const Compiled::Pass &declared,
+                                                        StageSubmission &submission);
   [[nodiscard]] FrameContext Framing() const;
   void SettleShadow();
   std::array<bool, kResourceCount> Touched_ = {{}};
-  [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
-  [[nodiscard]] static SDL_GPUTexture *Target(const FrameResources &frame, Resource resource);
+  [[nodiscard]] Native::Texture *Target(Resource resource) const;
+  [[nodiscard]] static Native::Texture *Target(const FrameResources &frame, Resource resource);
   void BindFrameResources();
   void ApplyWorldDeclarations();
 
-  [[nodiscard]] SDL_GPUBuffer *BufferFor(Resource resource) const;
+  [[nodiscard]] Native::Buffer *BufferFor(Resource resource) const;
   [[nodiscard]] DisplayOptions Display() const;
 
-  [[nodiscard]] SDL_GPUTexture *LinearSource() const;
-  [[nodiscard]] SDL_GPUTexture *DisplaySource() const;
+  [[nodiscard]] Native::Texture *LinearSource() const;
+  [[nodiscard]] Native::Texture *DisplaySource() const;
 
-  OwnedDevice Device_;
+  std::unique_ptr<Native::Device> Device_;
+  std::chrono::nanoseconds UploadBudget_{};
+  std::unique_ptr<UploadQueue> Uploads_;
 
   struct WorldContent {
     GroundStorage Ground;
@@ -901,24 +940,25 @@ private:
   };
 
   struct FrameResources {
-    SDL_GPUTexture *HostSurface = nullptr;
+    const Native::Texture *HostSurface = nullptr;
     Shown Shown;
-    OwnedTexture Offscreen;
+    std::unique_ptr<Native::Texture> Offscreen;
     Gpu Handles;
-    OwnedTexture HdrTex, VelTex, DepthTex, FrameTex;
-    OwnedTexture TransmittanceLut, MultiScatterLut, SkyViewLut, EnvironmentSpecular;
-    OwnedTexture ShadowAtlas;
-    OwnedTexture TransmissiveTex, CompositedTex, AerialTex;
-    OwnedTexture ShadingNormalTex;
-    OwnedTexture SurfaceIdentityTex;
-    OwnedTexture SurfaceBaseTex;
-    OwnedTexture SurfaceMetalRoughTex;
-    OwnedSampler Samp, LutSamp;
-    OwnedBuffer IrradianceBuffer;
-    OwnedBuffer Pyramid;
+    std::unique_ptr<Native::Texture> HdrTex, VelTex, DepthTex, FrameTex;
+    std::unique_ptr<Native::Texture> TransmittanceLut, MultiScatterLut, SkyViewLut,
+        EnvironmentSpecular;
+    std::unique_ptr<Native::Texture> ShadowAtlas;
+    std::unique_ptr<Native::Texture> TransmissiveTex, CompositedTex, AerialTex;
+    std::unique_ptr<Native::Texture> ShadingNormalTex;
+    std::unique_ptr<Native::Texture> SurfaceIdentityTex;
+    std::unique_ptr<Native::Texture> SurfaceBaseTex;
+    std::unique_ptr<Native::Texture> SurfaceMetalRoughTex;
+    std::unique_ptr<Native::Sampler> Samp, LutSamp;
+    std::unique_ptr<Native::Buffer> IrradianceBuffer;
+    std::unique_ptr<Native::Buffer> Pyramid;
     Readback PyramidRead;
     int Width = 0, Height = 0;
-    std::array<OwnedTexture, 2> LinearTex{};
+    std::array<std::unique_ptr<Native::Texture>, 2> LinearTex{};
     int LinearAt = 0;
     bool HistoryHeld = false;
     CompositeTransmissionStage CompositeTransmission;
@@ -1013,14 +1053,14 @@ private:
   [[nodiscard]] std::expected<FrameResources, std::string>
   BuildFrameResources(Extent frame, const Compiled &plan, bool presents);
   void PublishFrameResources(FrameResources frame, std::shared_ptr<const Compiled> plan);
-  void LogReadyPlan(SDL_GPUDevice *device) const;
+  void LogReadyPlan(Native::Device *device) const;
   [[nodiscard]] std::expected<void, std::string>
   StandsOffscreen(FrameResources &frame, const Compiled *plan, bool presents);
-  [[nodiscard]] std::expected<OwnedTexture, std::string> MakeOffscreen(const Compiled *plan,
-                                                                       Extent frame);
-  [[nodiscard]] std::expected<SDL_GPUPresentMode, std::string> ClaimWindow(SDL_Window *window);
+  [[nodiscard]] std::expected<std::unique_ptr<Native::Texture>, std::string>
+  MakeOffscreen(const Compiled *plan, Extent frame);
+  [[nodiscard]] std::expected<bool, std::string> ClaimWindow(SDL_Window *window);
 
-  SDL_GPUPresentMode Presenting_ = SDL_GPU_PRESENTMODE_VSYNC;
+  bool Presenting_ = true;
   SDL_Window *Showing_ = nullptr;
   static constexpr int kJitterPeriod = 8;
 
@@ -1117,7 +1157,7 @@ private:
                : State_.Frame;
   }
 
-  std::array<SDL_GPUFence *, kFramesInFlight> Landed_ = {};
+  std::array<std::optional<Native::Completion>, kFramesInFlight> Landed_{};
   int LandedAt_ = 0;
   SceneState State_;
   std::optional<WorldCandidate> Candidate_;

@@ -6,7 +6,10 @@
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
 
 namespace outshine::Render {
 
@@ -79,25 +82,63 @@ CreatePresentPipeline(Native::Device &device, Native::Format target) {
           Native::Error{.Kind = Native::ErrorKind::Unsupported,
                         .Message = "presentation requires an SDR colour target"});
   }
-  const auto vertex = ReadSpirv("build/shaders/fullscreen.vert.spv");
+  const std::array colours{Native::ColourTarget{.Texels = target, .Rgb = {}, .Alpha = {}}};
+  return CreateFullscreenPipeline(device, fragmentPath, colours);
+}
+
+namespace {
+struct ShaderFiles {
+  std::string_view Vertex, Fragment;
+};
+
+Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+CompileFullscreen(Native::Device &device,
+                  ShaderFiles files,
+                  std::span<const Native::ColourTarget> colours,
+                  std::optional<Native::DepthTarget> depth) {
+  const auto vertex = ReadSpirv(files.Vertex);
   if (!vertex) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = vertex.error()});
   }
-  const auto fragment = ReadSpirv(fragmentPath);
+  const auto fragment = ReadSpirv(files.Fragment);
   if (!fragment) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = fragment.error()});
   }
-  const std::array colours{Native::ColourTarget{.Texels = target, .Rgb = {}, .Alpha = {}}};
   return device.CreateGraphicsPipeline({.Vertex = {.Spirv = *vertex},
                                         .Fragment = Native::ShaderCode{.Spirv = *fragment},
                                         .Streams = {},
                                         .Attributes = {},
                                         .Colours = colours,
-                                        .Depth = {},
+                                        .Depth = depth,
                                         .Culling = Native::Cull::None,
-                                        .Label = fragmentPath});
+                                        .Label = files.Fragment});
 }
 
+}
+
+Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+CreateFullscreenPipeline(Native::Device &device,
+                         std::string_view fragmentPath,
+                         std::span<const Native::ColourTarget> colours,
+                         std::optional<Native::DepthTarget> depth) {
+  return CompileFullscreen(
+      device,
+      {.Vertex = "build/shaders/fullscreen.vert.spv", .Fragment = fragmentPath},
+      colours,
+      depth);
+}
+
+Native::Result<std::unique_ptr<Native::GraphicsPipeline>>
+CreateFullscreenNdcPipeline(Native::Device &device,
+                            std::string_view fragmentPath,
+                            std::span<const Native::ColourTarget> colours,
+                            std::optional<Native::DepthTarget> depth) {
+  return CompileFullscreen(
+      device,
+      {.Vertex = "build/shaders/fullscreenNdc.vert.spv", .Fragment = fragmentPath},
+      colours,
+      depth);
+}
 }

@@ -153,6 +153,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
                         const Ui::Font *font,
                         std::unique_ptr<RuntimeScene> &out,
                         std::string &error) {
+  const auto offlineUploads = renderer.OfflineUploads(std::chrono::seconds(5));
   const bool framesSubject = out && !out->Camera_.Prepared().HasExplicitCamera;
   if (!renderer.BeginsWorldCandidate(error)) { return false; }
   std::unique_ptr<RuntimeScene> candidate;
@@ -166,7 +167,7 @@ bool RuntimeScene::Open(Render::SceneRenderer &renderer,
     return false;
   }
   if (framesSubject) { candidate->FrameItself(); }
-  if (!renderer.PublishesWorldCandidate(error)) {
+  if (!renderer.Settle(error) || !renderer.PublishesWorldCandidate(error)) {
     candidate.reset();
     renderer.AbandonsWorldCandidate();
     return false;

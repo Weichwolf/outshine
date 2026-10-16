@@ -1,6 +1,9 @@
 #include "src/render/stages/StagePipelines.h"
+#include "src/render/stages/PresentStage.h"
+#include "src/render/stages/StageSubmission.h"
 #include "src/render/device/SpirvFile.h"
 #include "NativeGpuCheck.h"
+#include "NativeDeviceProxy.h"
 #include "NativeSdr.h"
 #include "Check.h"
 #include <array>
@@ -60,8 +63,20 @@ std::unique_ptr<Texture> UploadImage(Device &device, const Pixels &pixels) {
 Pixels Render(Device &device,
               const Texture &source,
               const Sampler &sampler,
-              const GraphicsPipeline &pipeline,
-              Format format) {
+              Format format,
+              const GraphicsPipeline *pipeline = nullptr) {
+  PresentStage present;
+  StageSubmission submission;
+  if (pipeline == nullptr) {
+    Require(present.Configure(&source, &sampler));
+    Require(present.For(device, format));
+    const auto unsupported = present.For(device, Format::Rgba16Float);
+    CHECK(!unsupported && unsupported.error().Kind == ErrorKind::Unsupported,
+          "an unsupported target does not replace the accepted SDR pipeline");
+    const auto absent = present.Configure(nullptr, &sampler);
+    CHECK(!absent && absent.error().Kind == ErrorKind::Invalid,
+          "a rejected source does not replace the accepted presentation feeds");
+  }
   auto target =
       Require(device.CreateTexture({.Width = kCodes,
                                     .Height = 1,
@@ -73,16 +88,23 @@ Pixels Render(Device &device,
   const std::array colours{
       ColourAttachment{.Image = {.Image = target.get()}, .Begin = Load::Clear}};
   Require(commands->BeginRenderPass({.Colours = colours, .Depth = {}}));
-  const std::array bindings{
-      Binding{.Set = 2,
-              .Slot = 0,
-              .Value = SampledTexture{.Image = {.Image = &source}, .Sampling = &sampler}}};
-  Require(commands->Draw({.State = {.Pipeline = &pipeline,
-                                    .Bindings = bindings,
-                                    .Vertices = {},
-                                    .Area = {.Width = static_cast<float>(kCodes), .Height = 1},
-                                    .Clip = {.Width = kCodes, .Height = 1}},
-                          .Range = {.Count = 3}}));
+  const Viewport area{.Width = static_cast<float>(kCodes), .Height = 1};
+  const Scissor clip{.Width = kCodes, .Height = 1};
+  if (pipeline == nullptr) {
+    Require(present.Encode(
+        {.Commands = commands.get(), .Submission = submission, .Area = area, .Clip = clip}));
+  } else {
+    const std::array bindings{
+        Binding{.Set = 2,
+                .Slot = 0,
+                .Value = SampledTexture{.Image = {.Image = &source}, .Sampling = &sampler}}};
+    Require(commands->Draw({.State = {.Pipeline = pipeline,
+                                      .Bindings = bindings,
+                                      .Vertices = {},
+                                      .Area = area,
+                                      .Clip = clip},
+                            .Range = {.Count = 3}}));
+  }
   Require(commands->EndRenderPass());
   Require(commands->Copy(
       *target, *readback, {.RowBytes = sizeof(Pixels), .Region = {.Width = kCodes, .Height = 1}}));
@@ -92,6 +114,37 @@ Pixels Render(Device &device,
   std::memcpy(result.data(), mapped.data(), sizeof(result));
   Require(device.Unmap(*readback));
   return result;
+}
+
+class PipelineCounter final : public NativeDeviceProxy {
+public:
+  using NativeDeviceProxy::NativeDeviceProxy;
+  size_t Made = 0;
+  bool Reject = false;
+
+  Result<std::unique_ptr<GraphicsPipeline>>
+  CreateGraphicsPipeline(const GraphicsDescription &description) override {
+    ++Made;
+    if (Reject) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Driver,
+                .Message = "pipeline creation forbidden during cached presentation"});
+    }
+    return Backing().CreateGraphicsPipeline(description);
+  }
+};
+
+void CachedVariants(Device &device, Texture &image, Sampler &sampler) {
+  PipelineCounter observed(device);
+  PresentStage stage;
+  Require(stage.Configure(&image, &sampler));
+  for (const auto format : kTargets) { Require(stage.For(observed, format)); }
+  const auto built = observed.Made;
+  CHECK(built == kTargets.size(), "all actual SDR variants are prepared before frame recording");
+  observed.Reject = true;
+  for (const auto format : kTargets) { Require(stage.For(observed, format)); }
+  CHECK(observed.Made == built,
+        "target switches reuse every prepared native presentation pipeline");
 }
 
 std::unique_ptr<GraphicsPipeline> MissingOetf(Device &device) {
@@ -119,9 +172,9 @@ int main() {
   auto image = UploadImage(*device, pixels);
   auto sampler = Require(device->CreateSampler(
       {.Min = Filter::Nearest, .Mag = Filter::Nearest, .Mip = Filter::Nearest, .MaxLod = 0}));
+  CachedVariants(*device, *image, *sampler);
   for (const auto format : kTargets) {
-    auto pipeline = Require(CreatePresentPipeline(*device, format));
-    const auto result = Render(*device, *image, *sampler, *pipeline, format);
+    const auto result = Render(*device, *image, *sampler, format);
     for (size_t at = 0; at < kCodes; ++at) {
       for (size_t channel = 0; channel < kChannels; ++channel) {
         const auto expectedChannel = IsBgra(format) && channel < 3 ? 2 - channel : channel;
@@ -133,7 +186,7 @@ int main() {
     }
   }
   auto wrong = MissingOetf(*device);
-  const auto bad = Render(*device, *image, *sampler, *wrong, Format::Bgra8Unorm);
+  const auto bad = Render(*device, *image, *sampler, Format::Bgra8Unorm, wrong.get());
   CHECK(bad[size_t{128} * kChannels + 2] < pixels[size_t{128} * kChannels],
         "the unchanged old UNORM copy is independently too dark");
   const auto unsupported = CreatePresentPipeline(*device, Format::Rgba16Float);

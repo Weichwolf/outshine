@@ -3,16 +3,31 @@
 #include <array>
 #include <cmath>
 #include <memory>
+#include <cstdio>
+#include <print>
 #include <string>
 #include <vector>
 #include "Check.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
+#include "test/harness/render/NativeDeviceProxy.h"
+#include <expected>
+#include <chrono>
+#include <span>
+#include <cstddef>
+#include <utility>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
+
+auto CompilePlan(std::vector<Resource> outputs, std::vector<Stage> content) {
+  PlanSpec spec;
+  spec.Outputs = std::move(outputs);
+  spec.Content = std::move(content);
+  return Compiled::Compile(spec);
+}
 
 struct Faults {
   enum class Point { None, Map, Acquire, Submit, FenceWait, Wait };
@@ -22,69 +37,85 @@ struct Faults {
   size_t Cancelled = 0;
   size_t FenceWaits = 0;
 
+  class Observed final : public outshine::Test::Gpu::NativeDeviceProxy {
+  public:
+    Observed(std::unique_ptr<Native::Device> actual, Faults &faults)
+        : NativeDeviceProxy(*actual), Actual_(std::move(actual)), Faults_(faults) {}
+
+    Native::Result<std::span<std::byte>> MapWrite(Native::Buffer &buffer,
+                                                  Native::ByteRange range) override {
+      if (Faults_.Next == Point::Map) {
+        Faults_.Next = Point::None;
+        return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                             .Message = "injected initialization map failure"});
+      }
+      return Backing().MapWrite(buffer, range);
+    }
+
+  private:
+    std::unique_ptr<Native::Device> Actual_;
+    Faults &Faults_;
+  };
+
   GpuSubmission Functions() {
     return {
         .Context = this,
-        .Acquire = [](void *context, SDL_GPUDevice *device) -> SDL_GPUCommandBuffer * {
+        .Create = [](void *context, Native::DeviceOptions options)
+            -> Native::Result<std::unique_ptr<Native::Device>> {
+          auto actual = Native::CreateDevice(options);
+          if (!actual) { return std::unexpected(actual.error()); }
+          return std::make_unique<Observed>(std::move(*actual), *static_cast<Faults *>(context));
+        },
+        .Acquire = [](void *context,
+                      Native::Device *device) -> Native::Result<std::unique_ptr<Native::Commands>> {
           auto &faults = *static_cast<Faults *>(context);
           if (faults.Next == Point::Acquire) {
             faults.Next = Point::None;
-            SDL_SetError("injected frame acquire failure");
-            return nullptr;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected frame acquire failure"});
           }
           ++faults.Acquired;
-          return SDL_AcquireGPUCommandBuffer(device);
+          return device->Begin();
         },
-        .Submit = [](void *context, SDL_GPUCommandBuffer *commands) -> SDL_GPUFence * {
+        .Submit =
+            [](void *context,
+               Native::Device *device,
+               std::unique_ptr<Native::Commands> commands) -> Native::Result<Native::Completion> {
           auto &faults = *static_cast<Faults *>(context);
           ++faults.Submitted;
           if (faults.Next == Point::Submit) {
             faults.Next = Point::None;
-            // Only offscreen commands are cancelled: cancellation after swapchain acquire is
-            // illegal.
-            CHECK(SDL_CancelGPUCommandBuffer(commands),
-                  "the injected failure consumes real commands");
+            CHECK(commands, "the injected failure receives owned native commands for cancellation");
             ++faults.Cancelled;
-            SDL_SetError("injected frame submit failure");
-            return nullptr;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected frame submit failure"});
           }
-          return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
-        },
-        .MapUpload =
-            [](void *context, SDL_GPUDevice *device, SDL_GPUTransferBuffer *transfer) -> void * {
-          auto &faults = *static_cast<Faults *>(context);
-          if (faults.Next == Point::Map) {
-            faults.Next = Point::None;
-            SDL_SetError("injected initialization map failure");
-            return nullptr;
-          }
-          return SDL_MapGPUTransferBuffer(device, transfer, false);
+          return device->Submit(std::move(commands));
         },
         .WaitFence =
-            [](void *context, SDL_GPUDevice *device, SDL_GPUFence *const *fences, uint32_t count) {
-              auto &faults = *static_cast<Faults *>(context);
-              ++faults.FenceWaits;
-              if (faults.Next == Point::FenceWait) {
-                faults.Next = Point::None;
-                return SDL_SetError("injected frame fence wait failure");
-              }
-              return SDL_WaitForGPUFences(device, true, fences, count);
-            },
-        .WaitIdle =
-            [](void *context, SDL_GPUDevice *device) {
-              auto &faults = *static_cast<Faults *>(context);
-              if (faults.Next == Point::Wait) {
-                faults.Next = Point::None;
-                return SDL_SetError("injected GPU wait failure");
-              }
-              return SDL_WaitForGPUIdle(device);
-            }};
+            [](void *context,
+               Native::Device *device,
+               Native::Completion completion,
+               std::chrono::nanoseconds budget) -> Native::Result<Native::CompletionStatus> {
+          auto &faults = *static_cast<Faults *>(context);
+          if (faults.Next == Point::Wait) {
+            faults.Next = Point::None;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected GPU wait failure"});
+          }
+          ++faults.FenceWaits;
+          if (faults.Next == Point::FenceWait) {
+            faults.Next = Point::None;
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected frame fence wait failure"});
+          }
+          return device->Wait(completion, budget);
+        }};
   }
 };
 
 void InitializationUploads() {
-  const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::Surface, Resource::IrradianceBuffer}, .Content = {Stage::Sky}});
+  const auto compiled = CompilePlan({Resource::Surface, Resource::IrradianceBuffer}, {Stage::Sky});
   CHECK(compiled.has_value(),
         "the initialization oracle requires irradiance and its ground bindings");
   if (!compiled) { return; }
@@ -101,7 +132,7 @@ void InitializationUploads() {
     if (renderer.DeviceUsable()) {
       faults.Next = Faults::Point::Wait;
       CHECK(!renderer.Settle(error) && error.find("injected GPU wait failure") != std::string::npos,
-            "GPU wait failure is returned with an owned SDL diagnosis");
+            "GPU wait failure is returned with an owned native diagnosis");
       SDL_ClearError();
       CHECK(error.find("injected GPU wait failure") != std::string::npos,
             "clearing SDL error does not invalidate the caller's diagnosis");
@@ -114,7 +145,7 @@ void InitializationUploads() {
     SceneRenderer renderer(faults.Functions());
     const auto stood = renderer.Init({32, 32}, *compiled);
     CHECK(!stood && stood.error().find("injected") != std::string::npos,
-          "failed fallback upload returns the SDL diagnosis");
+          "failed fallback upload returns the native diagnosis");
     CHECK(!renderer.DeviceUsable(), "failed fallback upload prevents renderer readiness");
   }
 }
@@ -197,14 +228,12 @@ void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool c
 }
 
 void ReinitializationInvalidatesFrames(bool temporal) {
-  const auto compiled =
-      Compiled::Compile({.Outputs = {Resource::Surface}, .Content = {Stage::Sky}});
+  const auto compiled = CompilePlan({Resource::Surface}, {Stage::Sky});
   CHECK(compiled.has_value(), "reinitialization plan compiles");
   if (!compiled) { return; }
   const auto previous =
       temporal
-          ? Compiled::Compile({.Outputs = {Resource::Surface},
-                               .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}})
+          ? CompilePlan({Resource::Surface}, {Stage::Subjects, Stage::Sky, Stage::TemporalResolve})
           : compiled;
   CHECK(previous.has_value(), "previous render plan compiles");
   if (!previous) { return; }
@@ -258,19 +287,21 @@ void ReinitializationInvalidatesFrames(bool temporal) {
 }
 
 void TransmissionFollowsReplacementPlan() {
-  const auto opaque =
-      Compiled::Compile({.Outputs = {Resource::Surface}, .Content = {Stage::Subjects, Stage::Sky}});
-  const auto glass =
-      Compiled::Compile({.Outputs = {Resource::Surface, Resource::SceneComposited},
-                         .Content = {Stage::Subjects, Stage::SubjectsTransmissive, Stage::Sky}});
+  const auto opaque = CompilePlan({Resource::Surface}, {Stage::Subjects, Stage::Sky});
+  const auto glass = CompilePlan({Resource::Surface, Resource::SceneComposited},
+                                 {Stage::Subjects, Stage::SubjectsTransmissive, Stage::Sky});
   CHECK(opaque.has_value() && glass.has_value(), "transmission switching plans compile");
   if (!opaque || !glass) { return; }
-  const std::array<SubjectMaterial, 1> materials{{{.Row = {.Transmission = 1}}}};
+  std::array<SubjectMaterial, 1> materials{};
+  materials.front().Row.Transmission = 1;
   SceneRenderer renderer;
   std::string error;
   for (bool enabled : {true, false, true}) {
-    CHECK(renderer.Init({32, 32}, enabled ? *glass : *opaque).has_value(),
-          "replacement transmission configuration initializes");
+    const auto initialized = renderer.Init({32, 32}, enabled ? *glass : *opaque);
+    if (!initialized) {
+      std::println(stderr, "transmission initialization {}: {}", enabled, initialized.error());
+    }
+    CHECK(initialized.has_value(), "replacement transmission configuration initializes");
     if (!renderer.DeviceUsable()) { return; }
     CHECK(renderer.AppendSubjectMaterials(materials, error) == enabled,
           "material admission follows current transmission plan, not previous plan");
@@ -278,9 +309,9 @@ void TransmissionFollowsReplacementPlan() {
 }
 
 void WorldPreparationCompletesLighting() {
-  const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-       .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}});
+  const auto compiled =
+      CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
+                  {Stage::Subjects, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "world preparation uses the real atmosphere and temporal plan");
   if (!compiled) { return; }
   Faults faults;
@@ -349,9 +380,9 @@ void WorldPreparationCompletesLighting() {
 }
 
 void Exercise() {
-  const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-       .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}});
+  const auto compiled =
+      CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
+                  {Stage::Subjects, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "the real sky, irradiance and temporal plan compiles");
   if (!compiled) { return; }
   CHECK((*compiled)->Holds(Stage::TemporalResolve) && (*compiled)->Holds(Stage::MediumRadiance),
@@ -420,7 +451,7 @@ void Exercise() {
             faults.Next == Faults::Point::None,
         "a reused in-flight fence propagates its wait failure");
   CHECK(faults.Submitted == submits && faults.FenceWaits == waits + 1,
-        "failed fence waiting cancels the new command before submission");
+        "failed fence waiting prevents acquiring and submitting a new command");
   CHECK(actual.LastRenderFrameTiming().TotalMs == lastTiming.TotalMs &&
             actual.LastRenderFrameTiming().PhaseMs == lastTiming.PhaseMs &&
             actual.SlowestRenderFrameTiming().TotalMs == worstTiming.TotalMs &&
@@ -438,8 +469,8 @@ void Exercise() {
   Match(changed, Capture(actual));
   CHECK(changed.Irradiance != first.Irradiance,
         "the changed atmosphere is a meaningful LUT update");
-  CHECK(faults.Cancelled == 4 && faults.Acquired == faults.Submitted + 1,
-        "four rejected submissions and one rejected fence wait consume every acquired command");
+  CHECK(faults.Cancelled == 4 && faults.Acquired == faults.Submitted,
+        "four rejected submissions release owned commands; rejected fence waiting acquires none");
 
   Core::Declaration declaration;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
