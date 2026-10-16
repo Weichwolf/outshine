@@ -56,3 +56,27 @@ def instance_group(prototype, origins, frames, scales, *, name):
     holder.modifiers.new(name, "NODES").node_group = group
     prototype.hide_render = True
     return holder
+
+
+def join_instances(objects, *, name):
+    if not 1 <= len(objects) <= 32:
+        raise ValueError("bounded complete prototype component list required")
+    mesh = bpy.data.meshes.new(name)
+    holder = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(holder)
+    group = bpy.data.node_groups.new(name, "GeometryNodeTree")
+    group.interface.new_socket(
+        name="Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry"
+    )
+    nodes, links = group.nodes, group.links
+    joined, output = nodes.new("GeometryNodeJoinGeometry"), nodes.new("NodeGroupOutput")
+    for obj in objects:
+        source = nodes.new("GeometryNodeObjectInfo")
+        source.transform_space = "ORIGINAL"
+        source.inputs["Object"].default_value = obj
+        source.inputs["As Instance"].default_value = True
+        links.new(source.outputs["Geometry"], joined.inputs["Geometry"])
+        obj.hide_render = True
+    links.new(joined.outputs["Geometry"], output.inputs["Geometry"])
+    holder.modifiers.new(name, "NODES").node_group = group
+    return holder
