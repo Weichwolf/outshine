@@ -34,11 +34,12 @@ def main():
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--archive-receipt", type=Path, required=True)
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--joint", action="store_true")
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(ROOT) or not 1 <= args.repeats <= 16:
         parser.error("use an explicit temp output and1..16 warm repeats")
     args.output.mkdir(parents=True, exist_ok=True)
-    record = {"commands": [], "profiles": {}}
+    record = {"commands": [], "profiles": {}, "joint": args.joint}
     receipt = args.output / "receipt.json"
 
     def execute(command, folder, name, cwd=ROOT):
@@ -68,29 +69,50 @@ def main():
         ["git", "status", "--porcelain"], args.output, "status"
     ).strip()
     binary, record["consumer"] = build_consumer(args, execute)
+    reference = "cloud_air_depth_reference.py"
+    profiles = PROFILES
+    states = (
+        ("advected", []),
+        ("stationary", ["-DSOURCE_WIND_EAST_M=0", "-DSOURCE_WIND_SOUTH_M=0"]),
+        ("clear", ["-USOURCE_CLOUD_COVER", "-DSOURCE_CLOUD_COVER=0"]),
+    )
+    if args.joint:
+        from linear_medium_reference import PROFILES as joint_profiles
+        from linear_medium_reference import STATES
+
+        reference = "linear_medium_reference.py"
+        profiles = joint_profiles
+        states = [
+            (
+                name,
+                ["-USOURCE_CLOUD_COVER", f"-DSOURCE_CLOUD_COVER={cover}"]
+                + (
+                    ["-DSOURCE_WIND_EAST_M=0", "-DSOURCE_WIND_SOUTH_M=0"]
+                    if seconds == 0
+                    else []
+                ),
+            )
+            for name, cover, seconds in STATES
+        ]
     worker = [
         "nice",
         "-n",
         "10",
         sys.executable,
-        ROOT / "test/experiments/weather/cloud_air_depth_reference.py",
+        ROOT / "test/experiments/weather" / reference,
         "--output",
         args.output,
     ]
     execute([*worker, "--task", "prepare"], args.output, "prepare")
-    for state, defines in (
-        ("advected", []),
-        ("stationary", ["-DSOURCE_WIND_EAST_M=0", "-DSOURCE_WIND_SOUTH_M=0"]),
-        ("clear", ["-USOURCE_CLOUD_COVER", "-DSOURCE_CLOUD_COVER=0"]),
-    ):
-        for profile, algorithm in PROFILES.items():
+    for state, defines in states:
+        for profile, algorithm in profiles.items():
             name = f"{profile}-{state}"
             shader = args.output / f"{name}.spv"
             compile_kernel(
                 args.output,
                 shader,
                 execute,
-                "-DSOURCE_EYE_CLOUD_COVER=0",
+                *([] if args.joint else ["-DSOURCE_EYE_CLOUD_COVER=0"]),
                 *algorithm,
                 *defines,
             )
@@ -99,14 +121,15 @@ def main():
                 record["profiles"][f"{subset or 'dense'}/{name}"] = run_capture(
                     args, binary, shader, folder, folder / f"{name}.bin", execute
                 )
-            if profile == "growth-128":
+            if profile == ("joint" if args.joint else "growth-128"):
                 folder = args.output / "empty"
                 record["profiles"][f"empty/{state}"] = run_capture(
                     args, binary, shader, folder, folder / f"{name}.bin", execute
                 )
     execute([*worker, "--task", "reference"], args.output, "reference")
     execute([*worker, "--task", "analyze"], args.output, "analyze")
-    execute([*worker, "--task", "reconstruction"], args.output, "reconstruction")
+    if not args.joint:
+        execute([*worker, "--task", "reconstruction"], args.output, "reconstruction")
     record["analysis"] = json.loads((args.output / "analysis.json").read_text())
     record["hashes"] = {
         str(path.relative_to(args.output)): digest(path)
@@ -126,6 +149,12 @@ def main():
         "cloud_field.py",
         "cloud_radiance.py",
     ]
+    if args.joint:
+        names += [
+            "linear_medium_source.glsl",
+            "linear_medium_reference.py",
+            "linear_medium.py",
+        ]
     record["source_hashes"] = {
         name: digest(ROOT / "test/experiments/weather" / name) for name in names
     }
