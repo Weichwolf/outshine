@@ -19,7 +19,9 @@ Native::Binding Storage(uint32_t set, uint32_t slot, const Native::Buffer *buffe
 }
 
 Native::SampledTexture Image(const SubjectResidency::BoundImage &image) {
-  return {.Image = {.Image = image.Image.get()}, .Sampling = image.Sample.get()};
+  return {.Image = {.Image = image.Image.get(),
+                    .Mips = image.Image ? image.Image->Description().Mips : 1u},
+          .Sampling = image.Sample.get()};
 }
 
 Native::VertexBuffer Vertex(uint32_t slot, const Native::Buffer *buffer) {

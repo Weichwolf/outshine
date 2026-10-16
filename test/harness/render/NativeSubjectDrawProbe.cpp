@@ -243,6 +243,34 @@ void PieceUv1(Device &device, SubjectDraw &subject, Targets &targets, const Mesh
   subject.ReleasePiece(id);
 }
 
+void PreparedMipChain(Device &device, SubjectDraw &subject, Targets &targets) {
+  static constexpr std::array<uint8_t, 16> base{
+      255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255};
+  static constexpr std::array<uint8_t, 4> lower{0, 255, 0, 255};
+  SubjectMaterial material;
+  material.Row.Unlit = true;
+  material.Row.DoubleSided = true;
+  material.Row.BaseColour = {{kColour[0], kColour[1], kColour[2], 1}};
+  material.Colour = {
+      .Rgba = base.data(), .Width = 2, .Height = 2, .Mip = SubjectMip::Nearest, .Uv = {}};
+  material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Colour)] = std::span(lower);
+  material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
+  std::string error;
+  CheckSceneUpload(subject.SetMesh(SubjectMesh{}, error), error);
+  CheckSceneUpload(subject.SetMaterials(std::span(&material, 1), error), error);
+  MeshData data;
+  constexpr float uvMost = 64;
+  data.Uv = {0, 0, uvMost, 0, uvMost, uvMost, 0, uvMost};
+  DrawList draws;
+  CheckSceneUpload(
+      draws.Add({.Order = {}, .IndexCount = 6, .Layout = VertexLayout::PositionNormalUv}, error),
+      error);
+  draws.Compile();
+  CheckSceneUpload(subject.SetMesh(data.Mesh(VertexLayout::PositionNormalUv, draws), error), error);
+  constexpr std::array<uint16_t, 4> expected{0, 0x3800, 0, 0x3c00};
+  Draw(device, subject, targets, nullptr, expected);
+}
+
 }
 
 int main() {
@@ -282,5 +310,6 @@ int main() {
   }
   Indirect(device, subject, targets, source, gpu);
   PieceUv1(device, subject, targets, source);
+  PreparedMipChain(device, subject, targets);
   return Report();
 }

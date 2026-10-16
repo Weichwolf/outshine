@@ -44,7 +44,7 @@ constexpr auto kSun = LightVisibilityStage::Overhead{.ToSun = {{0, 0, 1}}, .Up =
 
 struct MaskCase {
   uint32_t Uv = 0;
-  bool Tinted = false, Thin = false, Reverse = false;
+  bool Tinted = false, Thin = false, Reverse = false, Minified = false;
 };
 
 struct Scene {
@@ -89,6 +89,15 @@ void SetMask(Scene &scene, MaskCase mask) {
                        .Set = mask.Uv == 2 ? UvSet::Uv1 : UvSet::Uv0};
     if (mask.Reverse) { material.Colour.Uv.M = {{-1, 0, 1, 0, 1, 0}}; }
   }
+  if (mask.Minified) {
+    static constexpr std::array<uint8_t, 16> base{};
+    static constexpr std::array<uint8_t, 4> lower{255, 255, 255, 255};
+    material.Colour.Rgba = base.data();
+    material.Colour.Width = material.Colour.Height = 2;
+    material.Colour.Mip = SubjectMip::Nearest;
+    material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Colour)] = std::span(lower);
+    material.Colour.LowerMips[static_cast<size_t>(ImageMipKind::Linear)] = std::span(lower);
+  }
   std::string error;
   CheckSceneUpload(scene.Subjects.SetMesh(SubjectMesh{}, error), error);
   CheckSceneUpload(scene.Subjects.SetMaterials(std::span(&material, 1), error), error);
@@ -97,8 +106,13 @@ void SetMask(Scene &scene, MaskCase mask) {
   for (size_t i = 0; i < 4; ++i) {
     for (size_t c = 0; c < 4; ++c) { colours[i * 4 + c] = c == 3 && mask.Thin ? 0.5f : 1; }
   }
-  constexpr std::array<float, 8> uv{0, 0, 1, 0, 1, 1, 0, 1};
-  constexpr std::array<float, 8> uv1{1, 0, 0, 0, 0, 1, 1, 1};
+  std::array<float, 8> uv{0, 0, 1, 0, 1, 1, 0, 1};
+  std::array<float, 8> uv1{1, 0, 0, 0, 0, 1, 1, 1};
+  if (mask.Minified) {
+    constexpr float uvScale = 65536;
+    for (auto &value : uv) { value *= uvScale; }
+    for (auto &value : uv1) { value *= uvScale; }
+  }
   VertexRunsCarried carried;
   carried.Uv = mask.Uv > 0;
   carried.Uv1 = mask.Uv > 1;
@@ -184,7 +198,7 @@ bool CastsAt(WorldPoint point, MaskCase mask) {
     double u = (localX + kHalfM) / (2 * kHalfM);
     if (mask.Uv == 2) { u = 1 - u; }
     if (mask.Reverse) { u = 1 - u; }
-    if (mask.Uv == 0 || u < 0.5) { return true; }
+    if (mask.Uv == 0 || mask.Minified || u < 0.5) { return true; }
   }
   return false;
 }
@@ -416,6 +430,16 @@ void GroundOnly(Device &device, Scene &scene) {
         "ground generation invalidates and clears the accepted atlas without subject vertices");
 }
 
+void MinifiedMasks(Device &device, Scene &scene) {
+  for (const uint32_t uv : {1u, 2u}) {
+    const MaskCase mask{.Uv = uv, .Minified = true};
+    SetMask(scene, mask);
+    const FrameContext frame;
+    Record(device, scene, frame, true);
+    Coverage(scene, Read(device, scene), mask);
+  }
+}
+
 }
 
 int main(int argc, char **argv) {
@@ -423,6 +447,7 @@ int main(int argc, char **argv) {
   NativeOfflineDevice device(*actual);
   Scene scene(device);
   Masks(device, scene);
+  MinifiedMasks(device, scene);
   Cancel(device, scene);
   Regions(device, scene, argc > 1 ? argv[1] : std::string_view{});
   RejectedRecording(device, scene);
