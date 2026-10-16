@@ -1,6 +1,7 @@
 # Broken hip profile composition
 
-Owner: [#469](https://github.com/Weichwolf/outshine/issues/469), work in progress.
+Owner: [#469](https://github.com/Weichwolf/outshine/issues/469),
+[PR #470](https://github.com/Weichwolf/outshine/pull/470).
 
 [CGA Shape, SIGGRAPH 2006](../siggraph/2006-procedural-modeling-of-buildings.pdf),
 p. 4 optically checked, Figure 7 explicitly includes gambrel and mansard forms;
@@ -35,4 +36,17 @@ roundtrips. Existing `mesh_section` also omits an entire ring when its plane
 coincides with a profile knot: tests therefore use an independent native solid
 section at that exact knot, plus unchanged original sections on either side.
 No diagnostic failure is used to relax the closed-surface/coverage requirements.
-Whole-city/picture/cost evidence remains pending; no native/device admission.
+The improved full logical split/emit followed by the same global height map
+passes all three actual source controls and remains the valid equal-work
+baseline. It is distinct from the rejected separately scaled scopes. Exact
+closed-solid sections/volume, UV interpolation and face ownership are checked;
+the direct path avoids its logical reconstruction/extra shape results.
+
+Frozen source/wheel controls, six opened actual 1920×1080 component images and
+the whole Paris comparison are recorded in the PR/experiment README. All 988
+Paris sources remain, with 210 morphology-selected profiles; the Rome image
+is a forced component test only. The first city process ended 143 after writing
+the mesh/report. A controlled fresh domain call returned and explicitly flushed/
+exited 0; all arrays/dtypes match the first trial. This proves that bounded
+construction result, not normal backend/destructor cleanup or native/device
+admission. Broader roof/dormer/attic/architecture and image-LOD work stays open.

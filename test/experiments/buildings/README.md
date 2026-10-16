@@ -836,7 +836,7 @@ uniformly (253,040→263,432 KiB and 267,924→254,704 KiB); these small samples
 include concurrent host work and establish neither a device/frame budget nor
 a general peak-memory improvement. Native exterior adoption remains separate.
 
-### Broken urban hip profiles (#469, research in progress)
+### Broken urban hip profiles (#469)
 
 `broken_hip.surface` clips the existing conformal hip surface into two height
 zones using the installed `Slab` surface cutter. It maps both zones through one
@@ -864,7 +864,23 @@ Freeze source and run `broken_hip_probe.py --output <system-temp>` for exact
 sections, plans/2.5D and paired whole/opposite Blender inputs at 1920×1080. The
 probe deliberately profiles all three fixed component controls; only its
 `automatic_profile` field establishes current morphology-policy selection.
-Current whole-city, equal-work cost and lit-picture admission is pending.
+Frozen runtime `cfb90060f` and comparison `dabb16bec` pass 27 source and 27
+installed-wheel controls without skips; all 79 unchanged building library
+modules match the installed wheel exactly. Three source plan/section/2.5D
+studies and six actual whole/opposite before/after Blender images at
+1920×1080 were optically opened, followed by the whole Paris comparison.
+The Rome pair is a forced component control, not automatic policy coverage.
+
+Paris retains all 988 sources, 210 constructed profiles, 778 unchanged source
+prototype records (except build times), and the same camera/material/source
+bindings. For the 210 hosts only the profile and triangle counts change; all
+remaining source and procedure fields match except build times. Final triangle
+count is 375,043 versus 332,807 (+42,236 / 12.69%). The controlled whole build
+returned in 213.645 s at 645,228 KiB process peak under concurrent host work;
+this is not a native/frame/device budget. Its arrays/dtypes exactly match the
+first trial, whose process ended 143 after writing its results. Controlled
+city/render runners explicitly flush and exit only after the domain function
+returns; no native/backend cleanup admission is inferred from that exit.
 
 `broken_hip_compare.py --output <json> --repeats 21` compares direct retained
 triangle cuts against a full logical split/emit followed by the same global
@@ -873,3 +889,15 @@ scaled scopes: all three real sources pass closed-solid/volume/section checks.
 Two warmups precede timing; tracing runs separately. Output-array bytes and
 cutter source-triangle visits are scoped observations; native/GEOS allocations,
 cumulative allocation/copy traffic and device work remain unenumerated.
+
+Over 21 measured runs, direct versus logical surface medians were 4.08/11.60 ms
+(rectangle), 73.55/171.70 and 9.69/22.11 ms (Paris), 106.88/267.05 ms (Rome).
+Corresponding final arrays have identical byte counts and 24/513/65/668
+triangles; volume errors are zero and maximum section difference is
+1.8e-14 m². Both scan 2× source triangles; the direct path avoids two logical
+face reconstructions and two additional `Shape.from_mesh` geometries. Known
+successful owned shape-result arrays total 29,638/102,997, 3,650/12,945 and
+39,712/135,236 bytes on the real sources. Those counts omit output buffers,
+other temporaries, native allocations and cumulative copy traffic. Local
+nonisolated wall times do not establish a global or device speedup. Traced
+peaks improve only within the separately measured Python/NumPy scope.
