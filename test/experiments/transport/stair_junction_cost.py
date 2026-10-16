@@ -22,7 +22,27 @@ def saved_model(args):
     report = json.loads((args.products / "comparison.json").read_text())
     verified = json.loads((args.products / "verification.json").read_text())
     extra = {}
-    if args.context is not None:
+    if args.network is not None:
+        from stair_network_geometry import interactions
+        from stair_network_inputs import PROFILES, load
+
+        if (
+            report["fixture_sha256"] != digest(args.network)
+            or report["profile_recipe_sha256"] != digest(PROFILES)
+            or not verified["valid_local_bodies"]
+            or digest(args.input) != report["native_case_sha256"]
+        ):
+            raise ValueError("actual verified three-stair inputs required")
+        _case, rows, nodes, stairs, _context, _recipe = load(
+            args.network, native_path=args.input
+        )
+        plan = layout(rows, "width", junctions=nodes, stairs=stairs)
+        model = report["after"]
+        input_file = args.products / "after/height-input.npz"
+        expected = model["solve"]["objective"]
+        pairs, _note = interactions(rows, nodes)
+        extra = {"limits": [r["gradient"] for r in rows], "crossings": pairs}
+    elif args.context is not None:
         from stair_context_experiment import crossings
         from stair_context_inputs import PROFILES, load
 
@@ -130,6 +150,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", type=Path)
     parser.add_argument("--context", type=Path)
+    parser.add_argument("--network", type=Path)
     parser.add_argument("--repetitions", type=int, choices=range(1, 22), default=11)
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3, 3 * 1024**3))
     resource.setrlimit(resource.RLIMIT_CPU, (90, 90))
