@@ -327,13 +327,13 @@ LayerToolchain() {
     profile/client-roundtrip | profile/client-preparation) LayerToolchain profile/internal ;;
     profile/public) LayerToolchain profile/internal ;;
     profile/diagnostics) LayerToolchain profile/internal ;;
-    profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
+    profile/internal|profile/device) LayerToolchain profile/engine ;;
     profile/engine | harness/wpt/css) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
   esac
 }
-# Vector decoding runs under ASan/UBSan; GPU fault injection also runs with SDL validation.
+# Vector decoding runs under ASan/UBSan; GPU fault injection also runs with native validation.
 # Instrumenting repository-claim wrappers would not instrument their subprocesses.
 LayerSanitiser() {
   case "$(TestProfile "$1")" in
@@ -362,7 +362,7 @@ LayerLink() {
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -531,7 +531,6 @@ GroupIncludes() {
     done
   done
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
-  case "$includeTier" in render) includeSet="$includeSet $(pkg-config --cflags sdl3-shadercross)" ;; esac
   case "$1" in
     src/render/device/native|src/render/device/native/*)
       includeSet="$includeSet $(SpirvCrossFlags --cflags)"
