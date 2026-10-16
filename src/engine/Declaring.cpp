@@ -4,6 +4,7 @@
 #include "ScenarioWrite.h"
 #include "AssetValidation.h"
 #include "WeatherValidation.h"
+#include "NativeWeather.h"
 #include "PlayerValidation.h"
 #include "BodyValidation.h"
 #include "WorldValidation.h"
@@ -493,6 +494,9 @@ namespace {
   if (const auto valid = ValidateWeather(scenario.Ground.Sky); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
+  if (const auto valid = ValidateScenarioWeather(scenario); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   for (const auto &asset : scenario.Assets) {
     const auto valid = ValidateAssetPlayback(asset);
     if (!valid) { return std::unexpected(std::string(valid.error())); }
@@ -671,6 +675,9 @@ Result Engine::declare(const Scenario::Document &scenario) {
   PrepareImportedAssets(scenario, S_->Session.Under.Assets, declared);
   PrepareRenderSettings(scenario, declared);
   if (const auto lit = PrepareLighting(scenario, declared, S_->Error); !lit) { return lit; }
+  if (const auto valid = ValidateScenarioWeather(scenario, declared.UtcS); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
 
   declared.Surfaces = PrepareSurfaces(scenario.Surfaces);
   if (!declared.Surfaces.empty() &&

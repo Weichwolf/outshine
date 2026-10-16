@@ -2,11 +2,13 @@
 #include "ScenarioLayer.h"
 
 #include "ScenarioRead.h"
+#include "NativeWeather.h"
 #include <array>
 #include <vector>
 #include <string_view>
 #include <string>
 #include <cstddef>
+#include <utility>
 
 namespace outshine {
 
@@ -188,12 +190,13 @@ bool MergeLayer(Scenario::Document &into,
   return true;
 }
 
-bool ApplyLayer(Scenario::Document &into,
-                const char *text,
-                size_t size,
-                std::string_view named,
-                std::vector<std::string> &trace,
-                std::string &error) {
+namespace {
+bool ApplyLayerOnto(Scenario::Document &into,
+                    const char *text,
+                    size_t size,
+                    std::string_view named,
+                    std::vector<std::string> &trace,
+                    std::string &error) {
   std::string converted;
   if (IsJsonScenario({text, size})) {
     const auto xml = ScenarioXmlFromJson({text, size});
@@ -246,7 +249,29 @@ bool ApplyLayer(Scenario::Document &into,
     trace.push_back("layer '" + std::string(named) + "' merged into the " + section.What +
                     " -- omitted attributes keep the base's values");
   }
+  if (fragment.Weather) {
+    trace.push_back("layer '" + std::string(named) + "' replaces the native weather declaration");
+  }
   return ReadSectionsOnto(document.Root(), into, error);
+}
+}
+
+bool ApplyLayer(Scenario::Document &into,
+                const char *text,
+                size_t size,
+                std::string_view named,
+                std::vector<std::string> &trace,
+                std::string &error) {
+  auto next = into;
+  auto nextTrace = trace;
+  if (!ApplyLayerOnto(next, text, size, named, nextTrace, error)) { return false; }
+  if (const auto valid = ValidateScenarioWeather(next); !valid) {
+    error = valid.error();
+    return false;
+  }
+  into = std::move(next);
+  trace = std::move(nextTrace);
+  return true;
 }
 
 }

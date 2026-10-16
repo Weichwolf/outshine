@@ -2,10 +2,12 @@
 #define OUTSHINE_SCENARIO_H
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include <world/SourceProvider.h>
+#include <scenario/WeatherDeclaration.h>
 #include <audio/AudioScene.h>
 #include <render/RenderConfiguration.h>
 #include <physics/PrismaticJoint.h>
@@ -895,6 +897,11 @@ struct Document {
   double WheelStepPx = kWheelStepUnsaidPx;
   /// Selectors of instance traits to save; this vector contains no captured runtime values.
   std::vector<Persisted> State;
+  /// Explicit initial native weather input, independent of Ground.Sky defaults and terrain.
+  /// Engine::weather publishes an owned ScenarioDeclaration snapshot after assemble().
+  /// Weather providers and this declaration are mutually exclusive; missing provider data
+  /// never selects this as a fallback. Import/export preserve optional fields and intervals.
+  std::optional<WeatherDeclaration> Weather = std::nullopt;
 };
 
 }

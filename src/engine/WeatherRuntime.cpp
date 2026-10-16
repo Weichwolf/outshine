@@ -1,6 +1,8 @@
 #include "EngineHeld.h"
 #include "ShippedProviders.h"
 #include "OfflineTransport.h"
+#include "DeclaredWeather.h"
+#include "WeatherInput.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -17,6 +19,31 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
   if (providers.empty() && Session.Declared.Ground.Declared) {
     const auto defaults = Generators::ShippedProviders();
     providers.assign(defaults.begin(), defaults.end());
+  }
+  if (const auto &declared = Session.Declared.Weather; declared) {
+    if (std::ranges::any_of(providers, [](const Data::SourceProvider &provider) {
+          return provider.Kind == "weather";
+        })) {
+      Error = "weather declaration and weather provider are mutually exclusive";
+      return false;
+    }
+    if (!World.DeclaredWeather || World.DeclaredWeatherRevision != Session.DeclarationRevision) {
+      if (!Picture.Shown.UtcS) {
+        Error = "weather declaration requires the resolved scenario UTC";
+        return false;
+      }
+      auto snapshot = Generators::Weather::MakeDeclaredWeather(
+          declared->At, declared->Values, *Picture.Shown.UtcS);
+      if (!snapshot) {
+        Error = WeatherInputMessage(snapshot.error());
+        return false;
+      }
+      World.DeclaredWeather = std::make_shared<const WeatherSnapshot>(std::move(*snapshot));
+      World.DeclaredWeatherRevision = Session.DeclarationRevision;
+    }
+  } else {
+    World.DeclaredWeather.reset();
+    World.DeclaredWeatherRevision = 0;
   }
   if (providers.empty()) {
     World.Weather.reset();
@@ -109,6 +136,7 @@ Holds<std::shared_ptr<const WeatherSnapshot>> Engine::weather() const {
   if (const auto blocker = S_->WeatherBlocker(); !blocker.empty()) {
     return std::unexpected(std::string(blocker));
   }
+  if (S_->World.DeclaredWeather) { return S_->World.DeclaredWeather; }
   return S_->World.Weather ? S_->World.Weather->Snapshot() : nullptr;
 }
 }

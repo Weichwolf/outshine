@@ -6,6 +6,7 @@
 #include "CameraSpellings.h"
 #include "Tables.h"
 #include "WeatherValidation.h"
+#include "NativeWeather.h"
 #include "PlayerValidation.h"
 #include "WorldValidation.h"
 #include "RouteValidation.h"
@@ -826,6 +827,9 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
   if (const auto valid = ValidateWeather(declared.Ground.Sky); !valid) {
     return std::unexpected(std::string(valid.error()));
   }
+  if (const auto valid = ValidateScenarioWeather(declared); !valid) {
+    return std::unexpected(std::string(valid.error()));
+  }
   if (auto tables = TableBook::Stand(declared.Tables); !tables) {
     return std::unexpected(std::move(tables.error()));
   }
@@ -847,6 +851,7 @@ std::expected<std::string, std::string> WriteScenario(const Scenario::Document &
     return std::unexpected(std::move(surfaces.error()));
   }
   WriteWorld(said, declared.Ground);
+  WriteNativeWeather(said, declared.Weather);
   WriteRender(said, declared.Render);
   if (declared.Motion.Declared) {
     said += "  <physics";

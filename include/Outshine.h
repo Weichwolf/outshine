@@ -368,8 +368,8 @@ public:
   /// @param required Required near-contact or complete visual-coverage quality.
   /// @return True only when every readiness component for that quality is complete.
   [[nodiscard]] bool settled(WorldQuality required = WorldQuality::Playable) const;
-  /// Return the owned immutable weather selected at the resolved declaration UTC.
-  /// No source or an absent exact source time returns an empty shared pointer;
+  /// Return owned immutable provider or explicit scenario weather at the resolved initial UTC.
+  /// No input or an absent exact provider time returns an empty shared pointer;
   /// unknown fields remain optional inside a present snapshot. Does not round time,
   /// start IO, wait or apply the currently unsupported Clock::Rate.
   /// Serialize with Engine calls. A returned snapshot outlives later declarations

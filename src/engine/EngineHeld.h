@@ -241,6 +241,8 @@ struct Surrounds {
   Ground::SurfacePreparation Stack;
   std::unique_ptr<WeatherPreparation> Weather;
   std::optional<int64_t> WeatherUtcS;
+  std::shared_ptr<const WeatherSnapshot> DeclaredWeather;
+  uint64_t DeclaredWeatherRevision = 0;
   std::shared_ptr<const ::outshine::Generators::Osm::PublishedRegion> Region;
   Generators::Registry Offering;
   Generators::Shipping Shipping;
