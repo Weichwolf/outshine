@@ -1,9 +1,10 @@
 # Filtered masonry height derivatives
 
-Owner: #387, parent #306, material composition #6, goal #189. This is a private
-experiment. No production shader, binding, cached asset or geometry is changed.
+Owner: #387, parent #306, material composition #6, goal #189. PR #399 records the initial private
+comparison. The following production candidate shares its selected bevel primitive
+with the standalone probes; it changes no binding, cached asset or geometry.
 
-The integrated metric brick colour/roughness still has zero wall heightChange.
+Before the production hookup, metric brick colour/roughness had zero heightChange.
 This study gives the existing250×80mm running bond,10mm mortar gaps, a declared
 2mm depth and2mm linear bevel. These dimensions are recipe assumptions, not
 observed source attributes. Each axis is its rectangular brick band convolved
@@ -17,6 +18,21 @@ break invariance under a constant height offset. A flat brick across a partially
 covered window edge must therefore retain exactly zero bump. Pure pane and
 zero-depth controls also remain zero. Existing surfaceGradient/bumpNormal resolves
 the final normal, including its degenerate-frame fallback.
+
+## Production hookup
+
+facadeMasonryRelief.glsl owns the chosen analytic bevel primitive; facadeMasonryField
+accumulates its gradient under the existing16 wall/window/band weights and returns
+screen-space heightChange. applyFacade consumes that existing output. All direct
+experimental callers are migrated; the standalone probe imports the same primitive
+while its polygon integral remains independent. Source RGB/MR arithmetic is retained.
+Paired captures disable only the gradient contribution in a temporary source copy;
+the enabled copy is the actual production shader. No runtime switch is introduced.
+
+The public Engine wall consumer now also uploads an authored normal texel/tangent
+frame when mode3 is selected, and captures sceneShadingNormal via the public API.
+Its old modes1/2 are retained. Production tests and frame results follow in the PR;
+Metal/A18 and complete native-world integration remain separate requirements.
 
 ## Comparison and reference
 

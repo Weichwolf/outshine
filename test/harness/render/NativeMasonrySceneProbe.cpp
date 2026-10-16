@@ -49,7 +49,7 @@ bool Accepted(const Result &result) {
   return result.has_value();
 }
 
-Geometry Mesh(const Fixture &fixture, SurfacePattern pattern, double &centreX) {
+Geometry Mesh(const Fixture &fixture, SurfacePattern pattern, bool mapped, double &centreX) {
   const auto &frame = fixture.Frame;
   Vec3 along = frame[5] - frame[4];
   if (!Normalise(along)) { return {}; }
@@ -83,6 +83,12 @@ Geometry Mesh(const Fixture &fixture, SurfacePattern pattern, double &centreX) {
   material.Pattern = pattern;
   material.Roughness = kWallRoughness;
   material.DoubleSided = true;
+  if (mapped) {
+    const auto image = mesh.addImage(1, 1, std::array<uint8_t, 4>{157, 110, 249, 255});
+    CHECK(image, "authored normal texel uploads through the public asset API");
+    if (!image) { return {}; }
+    material.NormalMap.Image = *image;
+  }
   const auto surface = mesh.addSurface("actual-native-wall", material);
   CHECK(surface, "actual wall material is valid");
   if (!surface) { return {}; }
@@ -93,6 +99,11 @@ Geometry Mesh(const Fixture &fixture, SurfacePattern pattern, double &centreX) {
             mesh.setTexture(*part, uv) && mesh.setTexture(*part, fixture.Metres, 1) &&
             mesh.setTriangles(*part, std::array<uint32_t, 6>{0, 1, 2, 3, 4, 5}),
         "public geometry retains both actual native UV streams");
+  if (mapped) {
+    std::array<float, kVertices * 4> tangents{};
+    for (size_t at = 0; at < kVertices; ++at) { tangents[at * 4] = tangents[at * 4 + 3] = 1; }
+    CHECK(mesh.setTangents(*part, tangents), "authored wall tangent frame uploads");
+  }
   return mesh;
 }
 
@@ -100,7 +111,7 @@ bool RenderWall(const Geometry &mesh, double centreX, const char *prefix) {
   Scenario::Document scenario;
   scenario.Render.Declared = true;
   scenario.Render.Frame = kFrame;
-  scenario.Render.Outputs = {"sceneLinear", "sceneDepth"};
+  scenario.Render.Outputs = {"sceneLinear", "sceneDepth", "sceneShadingNormal"};
   scenario.Lit.Declared = true;
   scenario.Lit.Key.Lux = kKeyLux;
   scenario.Lit.Key.ElevationDeg = kKeyElevationDeg;
@@ -126,8 +137,10 @@ bool RenderWall(const Geometry &mesh, double centreX, const char *prefix) {
   }
   std::vector<float> linear;
   std::vector<float> depth;
+  std::vector<float> normals;
   if (!Accepted(engine.renderer().readPixels(Buffer::Linear, linear)) ||
-      !Accepted(engine.renderer().readPixels(Buffer::Depth, depth))) {
+      !Accepted(engine.renderer().readPixels(Buffer::Depth, depth)) ||
+      !Accepted(engine.renderer().readPixels(Buffer::ShadingNormal, normals))) {
     return false;
   }
   CHECK(linear.size() == static_cast<size_t>(kWidth * kHeight * 4) &&
@@ -137,7 +150,15 @@ bool RenderWall(const Geometry &mesh, double centreX, const char *prefix) {
         "lit MR output is finite");
   CHECK(std::ranges::all_of(depth, [](float value) { return value > 0; }),
         "the actual cached face covers the whole camera crop");
+  CHECK(normals.size() == linear.size() &&
+            std::ranges::all_of(normals, [](float value) { return std::isfinite(value); }),
+        "the public shading-normal attachment is complete and finite");
   const std::string path(prefix);
+  std::ofstream normalOutput(path + ".normal.f32", std::ios::binary);
+  normalOutput.write(reinterpret_cast<const char *>(normals.data()),
+                     static_cast<std::streamsize>(normals.size() * sizeof(float)));
+  normalOutput.close();
+  CHECK(normalOutput, "actual shading normals are saved without display encoding");
   std::ofstream output(path + ".f32", std::ios::binary);
   output.write(reinterpret_cast<const char *>(linear.data()),
                static_cast<std::streamsize>(linear.size() * sizeof(float)));
@@ -161,9 +182,10 @@ int main(int argc, char **argv) {
   if (!input || !SDL_Init(SDL_INIT_VIDEO)) { return 1; }
   {
     double centreX = 0;
-    const auto pattern =
-        std::string_view(argv[3]) == "2" ? SurfacePattern::FacadeMetres : SurfacePattern::Facade;
-    const auto mesh = Mesh(fixture, pattern, centreX);
+    const auto pattern = (std::string_view(argv[3]) == "2" || std::string_view(argv[3]) == "3")
+                             ? SurfacePattern::FacadeMetres
+                             : SurfacePattern::Facade;
+    const auto mesh = Mesh(fixture, pattern, std::string_view(argv[3]) == "3", centreX);
     CHECK(mesh.wellFormed(), "the actual transformed source face is a valid native asset");
     CHECK(RenderWall(mesh, centreX, argv[2]), "public engine material capture completes");
   }
