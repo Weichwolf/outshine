@@ -203,10 +203,16 @@ bool RuntimeScene::ReplacesGeometry(Render::SceneRenderer &renderer,
                                     const Ui::Font *font,
                                     std::unique_ptr<RuntimeScene> &out,
                                     std::string &error) {
+  const auto offlineUploads = renderer.OfflineUploads(std::chrono::seconds(5));
   std::unique_ptr<RuntimeScene> candidate;
   const auto drivenParts = static_cast<size_t>(replacement.parts());
   if (!PreparesGeometryReplacement(
           renderer, previous, std::move(replacement), drivenParts, font, candidate, error)) {
+    return false;
+  }
+  if (!renderer.Settle(error)) {
+    candidate.reset();
+    renderer.AbandonsWorldCandidate();
     return false;
   }
   return PublishesPreparedWorld(renderer, out, candidate, error);
