@@ -776,3 +776,32 @@ full-plan admission path remains the verified implementation. Its seconds of
 room/clearance construction dominate these milliseconds; no whole-generator or
 frame speedup is inferred. Output arrays/coordinate observations, traced Python
 peak and GEOS exclusions are explicit in the benchmark.
+
+### Reuse validated stepped near assemblies (#460)
+
+`stepped_source.plan_and_near` returns the chosen plan and the exact physical
+near product already constructed by its successful validation callback. The
+final portal graph is checked after metadata completion. The previous
+`plan_for` result and default remain available. No global cache or second plan
+is introduced. The tile consumer reuses this product for resolved opening
+components or an inside-source view; otherwise it retains the compact exterior.
+
+`stepped_facade_details` uses the existing 0.5 px threshold and conservative
+0.25 m opening-component radius, motion and expanded frustum. This component
+criterion is not an error bound for the entire interior/shadow/image LOD.
+Presentation accepts at most 512 logical openings and 65,536 near triangles;
+a local presentation failure records a compact fallback without discarding
+the valid stepped source. Near products contain the existing complete simple
+rooms and stairs, so their drawing cost exceeds the compact hull. Native/device
+admission and a more selective exterior product remain separate work.
+
+Presentation shares positions, indices and normals with the validated product.
+Metric glass UVs use the existing gravity projection; the existing opaque
+procedural full-glass facade binding gives consistent exterior diagnostics.
+This does not admit transparent or illuminated interiors. Walls retain the
+supplied parent material; no shader/material parameter owner changes.
+
+Run `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest verify_stepped_facade_details verify_facade_bands verify_stepped_contours verify_place_scene verify_flat_places -q`.
+Freeze source, run `stepped_facade_probe.py --output <system-temp>`, then render
+its geometry JSONs using shared `blender_city.py`. It compares identical sources,
+rooms and cameras at whole/opposite/close/far scales; source fixture from #442.

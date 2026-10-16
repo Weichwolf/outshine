@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
+from demand import displacement_error
 from outshine_ref.buildings.profiled_bands import (
     BandPlan,
     band_surface,
@@ -85,14 +86,7 @@ def demanded(frame, spec, view, *, radius=None):
         < 0
     ):
         return False
-    nearest = float(coordinates[:, 2].min()) - view.movement_m
-    if nearest <= radius:
-        return True
-    numerator = radius * (np.linalg.norm(coordinates, axis=1).max() + view.movement_m)
-    return (
-        view.focal_px * numerator / (nearest * (nearest - radius))
-        > view.detail_error_px
-    )
+    return displacement_error(points, view, radius) > view.detail_error_px
 
 
 class BandDetails:
