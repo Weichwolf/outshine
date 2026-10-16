@@ -63,7 +63,11 @@ def site_input(value):
 
 def source_site(path=None):
     rows = list(plans()) if path is None else list(plans(Path(path)))
-    feature, stand = rows[-1]
+    feature, stand = next(
+        (feature, stand)
+        for feature, stand in rows
+        if feature["properties"]["feature_id"] == 2999194372
+    )
     sites = stand.sites((6, 35, 42), max_sites=64)
     selected = int(np.flatnonzero(sites["ids"][:, 3] == 1)[0])
     origin = np.r_[sites["positions_xy_m"][selected], 0.0]

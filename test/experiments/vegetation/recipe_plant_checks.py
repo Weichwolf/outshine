@@ -178,6 +178,30 @@ class RecipePlantChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 a.setflags(write=True)
 
+    def test_external_factory_snapshots_a_mutable_callers_root(self):
+        original = source_site()
+        mutable = replace(original, origin=original.origin.copy())
+        product = site_input(mutable)
+        mutable.origin[0] += 10
+        np.testing.assert_array_equal(product.value.origin, original.origin)
+        with self.assertRaises(ValueError):
+            product.value.origin.setflags(write=True)
+        read_site(product)
+
+    def test_branch_budget_precedes_wood_construction(self):
+        rows = definitions()
+        rows[FORM]["nodes"]["wood"]["parameters"]["levels"][1]["branches"] = 100000
+        with (
+            patch(
+                "recipe_plant_operators.PlantPlan.from_recipe",
+                side_effect=AssertionError,
+            ),
+            self.assertRaisesRegex(ValueError, "before construction"),
+        ):
+            prepared(loader=loader(rows)).evaluate(
+                {"seed": seed_input(718)}, outputs=("plan",)
+            )
+
     def test_unphysical_needled_twigs_are_refused_before_meshing(self):
         rows = definitions()
         wood = rows[FORM]["nodes"]["wood"]["parameters"]["levels"][1]
