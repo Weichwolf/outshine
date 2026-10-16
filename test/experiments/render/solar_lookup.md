@@ -98,4 +98,4 @@ compile to SPIR-V/MSL2.3 with resolved uniform/resource layouts unchanged.
 Focused tidy passes all 39 dependent production units and the new tests/exporter
 without own diagnostics. The migrated existing aerial test keeps 17 baseline
 diagnostics; its expectations are unchanged. Later edits only name test constants,
-use explicit test initializers and document evidence; production remains d4f183620.
+use explicit test initializers and document evidence; lighting code remains d4f183620.
