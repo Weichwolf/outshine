@@ -8,19 +8,38 @@ import time
 from pathlib import Path
 
 import numpy as np
+from collar_shading import blend_collar_normals, tube_reference
 from collar_union_product import add_collars
 from crown_collars import demanded_collars
 from tree_entry import load
 
 
 def build(
-    inputs, output, nodes=(13,), cells=48, method="blocked", strength=2.0, samples=9
+    inputs,
+    output,
+    nodes=(13,),
+    cells=48,
+    method="blocked",
+    strength=2.0,
+    samples=9,
+    normal_blend=False,
+    curve_tolerance_m=0.001,
 ):
     if output.exists():
         raise FileExistsError(output)
     start = time.perf_counter()
     metadata, products = load(inputs / "spatial")
-    collars, plans = demanded_collars(inputs, nodes, cells, method, strength, samples)
+    collars, plans = demanded_collars(
+        inputs, nodes, cells, method, strength, samples, curve_tolerance_m
+    )
+    if collars and normal_blend:
+        reference = tube_reference(products["wood.npz"], "embree")
+        for index, plan in enumerate(plans):
+            parent_r = plan["span_m"] / 2.5
+            child_r = max(b["radii_m"][0] / b["shrink"] for b in plan["branches"][1:])
+            collars[index], plan["normal_blend"] = blend_collar_normals(
+                collars[index], [reference], parent_r, child_r
+            )
     built = time.perf_counter()
     wood, work = add_collars(products["wood.npz"], collars, sorted(nodes))
     wood["surface"] = np.zeros(len(wood["faces"]), np.uint8)
@@ -33,8 +52,15 @@ def build(
         "method": method,
         "strength": strength,
         "samples": samples,
+        "normal_blend": normal_blend,
+        "curve_tolerance_m": curve_tolerance_m,
     }
-    identity = hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
+    shape_recipe = {k: v for k, v in recipe.items() if k != "method"}
+    identity = (
+        hashlib.sha256(json.dumps(shape_recipe, sort_keys=True).encode()).hexdigest()
+        if nodes
+        else metadata["geometry_identity"]
+    )
     old_faces = len(products["wood.npz"]["faces"])
     entry = dict(
         metadata,
@@ -52,8 +78,9 @@ def build(
             if source.is_file() and source.name != "entry.json":
                 (folder / source.name).symlink_to(source.resolve())
         (folder / "entry.json").write_text(json.dumps(info, indent=2) + "\n")
-    (output / "spatial/wood.npz").unlink()
-    np.savez_compressed(output / "spatial/wood.npz", **wood)
+    if nodes:
+        (output / "spatial/wood.npz").unlink()
+        np.savez_compressed(output / "spatial/wood.npz", **wood)
     for source in inputs.iterdir():
         if source.is_file() and source.name.startswith(
             ("spatial-plan.", "wood-source-nodes.")
@@ -99,6 +126,8 @@ if __name__ == "__main__":
     parser.add_argument("--method", choices=("dense", "blocked"), default="blocked")
     parser.add_argument("--strength", type=float, default=2.0)
     parser.add_argument("--samples", type=int, default=9)
+    parser.add_argument("--normal-blend", action="store_true")
+    parser.add_argument("--curve-tolerance", type=float, default=0.001)
     args = parser.parse_args()
     build(
         args.inputs,
@@ -108,4 +137,6 @@ if __name__ == "__main__":
         args.method,
         args.strength,
         args.samples,
+        args.normal_blend,
+        args.curve_tolerance,
     )

@@ -21,7 +21,12 @@ def add_collars(base, collars, nodes):
     start = time.perf_counter()
     solids, sources, ownership = [], {}, {}
     for index, mesh in enumerate([base, *collars]):
-        check_mesh(mesh)
+        try:
+            check_mesh(mesh)
+        except AssertionError as error:
+            raise ValueError(
+                "input collar or cached wood violates oriented surface contract"
+            ) from error
         raw = manifold.Mesh64(
             np.array(mesh["vertices"], dtype=np.float64, order="C"),
             np.array(mesh["faces"], dtype=np.uint64, order="C"),
