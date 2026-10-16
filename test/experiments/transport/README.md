@@ -514,6 +514,33 @@ Eine explizite DEM-Neuaufnahme verlangt `stair_outer_inputs.py --dem-receipt ...
 --output ...` mit dem unveränderten ursprünglichen Rohreceipt. Normale Tests ändern
 keine Eingänge. Keine neue Runtime-/SDK- oder öffentliche/native API-Abhängigkeit.
 
+## Gegenprobe: echte Terrainkontakte am Treppenverbund (#434)
+
+`stair_terrain_experiment.py` vergleicht eine begrenzte sanfte Bodenfläche, ganze
+Stützwände und einen geschützten Brücken-Aushub an denselben unveränderten18Quellen
+und demselben echten DEM-Fenster. Der Versuch liefert ausdrücklich noch kein
+freigegebenes Terrainprodukt: geschlossene Körper und erfolgreicher Kernelabschluss
+beweisen weder Float32-Kontakte noch eine überzeugende Geländeform.
+Zusätzlich zu den obigen Paketen braucht dieser getrennte Diagnoseversuch
+`clarabel` und `manifold3d==3.5.4`; keine SDK-/Runtime-Abhängigkeit.
+`TRANSPORT_OUTER_OUTPUT` bezeichnet einen frisch erzeugten/geprüften Außenversuch
+aus dem vorigen Abschnitt, `TRANSPORT_TERRAIN_OUTPUT` einen neuen expliziten Temp-Pfad.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_terrain_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_terrain_experiment.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_TERRAIN_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_terrain_verify.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_TERRAIN_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/after-diagnostic-scene.json"
+```
+
+Die Kontrollen enthalten echte18-Quellen-Gegenfälle und synthetische wechselnde
+Cut-/Fill-Vorzeichen; keine Quelle wird freigegeben. Privater Installationspräfix
+bei Bedarf in `PYTHONPATH` ergänzen. Der gespeicherte Reader löst/trianguliert/gräbt
+nicht neu. Native Gates und vollständige Terrain-/Verkehrsabnahme bleiben getrennt.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
