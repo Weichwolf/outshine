@@ -215,7 +215,7 @@ def render(
         ).hexdigest(),
         "stand_identity": result["stand_identity"],
         "views": rows,
-        "scope": "Actual opaque-occlusion/diffuse-sheet Blender reference versus per-frame CPU maps. Different shadow discretization, not a numerical transport oracle or full natural grass model.",
+        "scope": "Actual geometry with the isolated-sheet EEVEE adapter versus per-frame CPU maps. Opaque-shadow camera range is qualified; neighbouring-blade occlusion of the Translucent closure fails the leaf-stack control. Not a canopy-transmission oracle or full natural grass model; see leaf_stack.md.",
     }
     (output / "render.json").write_text(json.dumps(receipt, indent=2))
 

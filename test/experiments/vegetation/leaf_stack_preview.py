@@ -93,6 +93,43 @@ def sample_image(target, shadows):
     return rows
 
 
+def scene_settings(scene, lamp):
+    return {
+        "camera": camera_depth_receipt(scene),
+        "sun": {
+            key: getattr(lamp.data, key)
+            for key in (
+                "angle",
+                "energy",
+                "shadow_buffer_clip_start",
+                "shadow_filter_radius",
+                "shadow_maximum_resolution",
+                "use_shadow_jitter",
+            )
+        },
+        "materials": [
+            {
+                "name": mat.name,
+                "thickness_mode": mat.thickness_mode,
+                "use_thickness_from_shadow": mat.use_thickness_from_shadow,
+                "use_backface_culling": mat.use_backface_culling,
+                "use_backface_culling_shadow": mat.use_backface_culling_shadow,
+            }
+            for mat in bpy.data.materials
+        ],
+        "terminator_geometry_offset": [
+            obj.shadow_terminator_geometry_offset
+            for obj in scene.objects
+            if obj.type == "MESH"
+        ],
+        "terminator_normal_offset": [
+            obj.shadow_terminator_normal_offset
+            for obj in scene.objects
+            if obj.type == "MESH"
+        ],
+    }
+
+
 def run(output, variant, clip_end):
     if output.exists():
         raise ValueError("fresh controlled stack output directory required")
@@ -126,6 +163,7 @@ def run(output, variant, clip_end):
         "variant": variant,
         "clip_end_m": clip_end,
         "camera": camera_depth_receipt(scene),
+        "settings": scene_settings(scene, lamp),
         "view": VIEW.tolist(),
         "light": LIGHT.tolist(),
         "receiver_rt": [*REFLECTION.tolist(), *TRANSMISSION.tolist()],
