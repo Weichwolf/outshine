@@ -42,17 +42,16 @@ def scenes(args, before, bodies, problem):
     camera = camera_settings(
         json.loads((args.baseline / "after-scene.json").read_text())
     )
-    centre = np.asarray(problem["domain"].centroid.coords[0])
-    old = np.array(camera["target"])
+    centre = np.asarray(problem["domain"].centroid.coords[0]) - [0, 200]
     target = np.r_[
         centre,
         problem["reference"][2]
         + (centre - problem["reference"][:2]) @ problem["gradient"],
     ]
     camera.update(
-        eye=(np.array(camera["eye"]) + target - old).tolist(),
+        eye=(target + [0, -1000, 950]).tolist(),
         target=target.tolist(),
-        span_m=900,
+        span_m=950,
         profile=[1280, 720],
         detail_view=True,
     )
