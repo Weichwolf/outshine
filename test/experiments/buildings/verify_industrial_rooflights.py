@@ -181,17 +181,65 @@ class IndustrialRooflights(unittest.TestCase):
             light_paths(shell, fields)
 
     def test_four_bars_and_ring_have_same_actual_frame_and_glass_volume(self):
+        for row, neighbors in sources()[:3]:
+            *_, fields, _hall, _prior, _info = generate(row, neighbors)
+            ring = manifold.Manifold.batch_boolean(
+                list(map(native, components(fields))), manifold.OpType.Add
+            )
+            bars = manifold.Manifold.batch_boolean(
+                list(map(native, components(fields, method="bars"))),
+                manifold.OpType.Add,
+            )
+            self.assertEqual(ring.status(), manifold.Error.NoError)
+            self.assertEqual(bars.status(), manifold.Error.NoError)
+            self.assertLess((ring - bars).volume() + (bars - ring).volume(), 1e-7)
+
+    def test_rigid_frame_change_preserves_field_identity_and_metric_detail(self):
         row, neighbors = sources()[1]
-        *_, fields, _hall, _prior, _info = generate(row, neighbors)
-        ring = manifold.Manifold.batch_boolean(
-            list(map(native, components(fields))), manifold.OpType.Add
+        _owner, _mesh, _info, hall, *_ = construct(row, neighbors)
+        section = section_for(row, choose(row, attributes(row["properties"])))
+        before = plan(hall, section)
+        angle = np.deg2rad(37)
+        rotate = np.array(
+            [[np.cos(angle), np.sin(angle)], [-np.sin(angle), np.cos(angle)]]
         )
-        bars = manifold.Manifold.batch_boolean(
-            list(map(native, components(fields, method="bars"))), manifold.OpType.Add
+        offset = np.array([12345.0, -23456.0])
+        region = shapely.transform(
+            shapely.from_wkb(hall["interior_wkb"]), lambda xy: xy @ rotate + offset
         )
-        self.assertEqual(ring.status(), manifold.Error.NoError)
-        self.assertEqual(bars.status(), manifold.Error.NoError)
-        self.assertLess((ring - bars).volume() + (bars - ring).volume(), 1e-7)
+        other = RoofSection(
+            section.knots,
+            tuple(np.asarray(section.axis_xy) @ rotate),
+            tuple(np.asarray(section.origin_xy) @ rotate + offset),
+        )
+        after = plan(dict(hall, interior_wkb=region.wkb_hex), other)
+        self.assertEqual([f["id"] for f in before], [f["id"] for f in after])
+        for a, b in zip(before, after, strict=True):
+            expected = shapely.transform(
+                shapely.from_wkb(a["footprint_wkb"]), lambda xy: xy @ rotate + offset
+            )
+            self.assertLess(
+                expected.symmetric_difference(
+                    shapely.from_wkb(b["footprint_wkb"])
+                ).area,
+                1e-6,
+            )
+        for part in components(after):
+            vertices, uv = part["vertices"][part["faces"]], part["uv"][part["faces"]]
+            for first, last in ((0, 1), (1, 2), (2, 0)):
+                np.testing.assert_allclose(
+                    np.linalg.norm(vertices[:, first] - vertices[:, last], axis=1),
+                    np.linalg.norm(uv[:, first] - uv[:, last], axis=1),
+                    atol=1e-7,
+                    rtol=0,
+                )
+            normals = np.cross(
+                vertices[:, 1] - vertices[:, 0], vertices[:, 2] - vertices[:, 0]
+            )
+            normals /= np.linalg.norm(normals, axis=1, keepdims=True)
+            np.testing.assert_allclose(
+                normals, part["normals"][part["faces"][:, 0]], atol=1e-7
+            )
 
     def test_planning_precedes_geometry_capacity_and_preserves_holes(self):
         hall = {
