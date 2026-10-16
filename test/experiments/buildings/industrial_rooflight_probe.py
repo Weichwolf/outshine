@@ -2,10 +2,11 @@
 
 import argparse
 import gc
+import hashlib
 import json
 import time
 import tracemalloc
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
@@ -27,7 +28,11 @@ from industrial_rooflights import components, cuts, plan, templates
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from recess_probe import building
 from stepped_source_probe import overview
+from tile_buildings import construct as tile_mesh
+from tile_buildings import read_tile
+from tile_facades import contexts
 from tile_roof_envelopes import choose
+from tile_stepped import SteppedDetails
 from verify_industrial_halls import sources
 from verify_industrial_rooflights import generate
 
@@ -208,7 +213,92 @@ def inside_view(fields, hall, before, after):
     raise ValueError("No admitted interior camera sees both actual source products")
 
 
-def run(output):
+def tile(output, proof):
+    from provider_contract import attributes
+    from recipes import choose as recipe_for
+
+    rows, receipt = read_tile("Grohnde")
+    contexts(rows, receipt)
+    selected = [
+        r["polygon"]
+        for r in rows
+        if r["layer"] == "building"
+        and recipe_for(
+            r["properties"],
+            r.get("context", {}),
+            r["polygon"],
+            attributes(r["properties"])["buildingHeight"],
+            0,
+        )["family"]
+        == "industrial"
+    ]
+    a, b, c, d = shapely.union_all(selected).bounds
+    view = overview(
+        np.array([[x, y, z] for x in (a, c) for y in (b, d) for z in (0, 8)]),
+        [1, -1, 0.65],
+    )
+    view = replace(
+        view, eye=view.target + (view.eye - view.target) * 0.45, width=1920, height=1080
+    )
+    records = []
+    for rooflit in (False, True):
+        name = "GrohndeRooflights" + ("Glazed" if rooflit else "Before")
+        owner = SteppedDetails(rows, view)
+        with prototype() if rooflit else nullcontext():
+            mesh, source = tile_mesh(
+                "Grohnde", prepared=(rows, receipt), ordinary_builder=owner
+            )
+        path = output / (name + "-mesh.npz")
+        np.savez_compressed(path, **mesh)
+        record = proof | {
+            "city": name,
+            "ground_mode": "flat-no-dem",
+            "sources": receipt,
+            "source": source,
+            "camera": {
+                "projection": "perspective",
+                "eye": view.eye.tolist(),
+                "target": view.target.tolist(),
+                "vertical_fov_deg": view.fov_deg,
+                "clip_near_m": 0.1,
+                "clip_far_m": 10000,
+                "profile": [1920, 1080],
+            },
+            "mesh": str(path.resolve()),
+            "mesh_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "triangles": len(mesh["faces"]),
+            "facade_materials": owner.facades.bindings,
+            "procedures": {
+                "facades": owner.facades.report(),
+                "roofs": owner.facades.base.report(),
+            },
+            "scope": "All source buildings retained; same industrial-group close camera, flat/no DEM. Prototype full rooflights on demanded halls only; no compact/far or whole-image LOD admission.",
+        }
+        (output / (name + "-geometry.json")).write_text(
+            json.dumps(record, indent=2) + "\n"
+        )
+        records.append(record)
+        print(
+            name,
+            source["generated"],
+            len(mesh["faces"]),
+            len(owner.facades.halls.completed),
+            owner.facades.halls.rejected,
+            flush=True,
+        )
+    first, last = records
+    for key in ("generated", "omissions"):
+        if first["source"][key] != last["source"][key]:
+            raise ValueError("Rooflight variant changed source generation/omissions")
+    old = first["procedures"]["facades"]["halls"]
+    new = last["procedures"]["facades"]["halls"]
+    if old["rejected"] != new["rejected"] or [p["id"] for p in old["completed"]] != [
+        p["id"] for p in new["completed"]
+    ]:
+        raise ValueError("Rooflight variant lost an existing functional hall")
+
+
+def run(output, with_tile=False):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze source before preparing actual render inputs")
@@ -282,10 +372,13 @@ def run(output):
     (output / "costs.json").write_text(
         json.dumps(proof | {"cases": costs}, indent=2) + "\n"
     )
+    if with_tile:
+        tile(output, proof)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--tile", action="store_true")
     args = parser.parse_args()
-    run(args.output)
+    run(args.output, args.tile)
