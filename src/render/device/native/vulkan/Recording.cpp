@@ -13,10 +13,6 @@ namespace outshine::Render::Native::Vulkan {
 Recording::~Recording() {
   assert(OnOwner(*Context_));
   if (Pool_ != VK_NULL_HANDLE) { vkDestroyCommandPool(Context_->Logical, Pool_, nullptr); }
-  if (Descriptors_ != VK_NULL_HANDLE) {
-    vkDestroyDescriptorPool(Context_->Logical, Descriptors_, nullptr);
-  }
-  for (auto *const view : Views_) { vkDestroyImageView(Context_->Logical, view, nullptr); }
   for (const auto &tracked : Images_) {
     if (tracked.Image->Reserved == this) { tracked.Image->Reserved = nullptr; }
     if (tracked.Image->Presentation) {
@@ -64,6 +60,7 @@ Result<void> Recording::End() {
     return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "commands already ended"});
   }
   if (auto presented = FinalizePresentation(); !presented) { return presented; }
+  if (auto sealed = Storage_.Seal(); !sealed) { return sealed; }
   const auto result = vkEndCommandBuffer(Commands_);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkEndCommandBuffer", result)); }
   Finished_ = true;

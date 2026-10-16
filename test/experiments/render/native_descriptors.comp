@@ -1,0 +1,18 @@
+#version 450
+layout(local_size_x = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Input {
+  uint words[];
+} source;
+
+layout(set = 1, binding = 0) uniform Object {
+  uvec4 value;
+} object;
+
+layout(std430, set = 2, binding = 0) writeonly buffer Output {
+  uint words[];
+} target;
+
+void main() {
+  target.words[object.value.x] = source.words[object.value.x] + object.value.y;
+}
