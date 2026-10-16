@@ -1,14 +1,20 @@
 """Actual whole-neighbour contacts, unsafe approaches and full-payload inventory."""
 
+import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 import numpy as np
 import shapely
 from stair_context_experiment import crossings
 from stair_junction_audit import audit
 from stair_junction_body import build
+from stair_junction_display import display
 from stair_junction_layout import layout
 from stair_junction_solve import solve
+from stair_junction_verify import display_proof
 from stair_network_geometry import interactions, vertex_links
 from stair_outer_context import catalog
 from stair_outer_geometry import bound_contacts, outer_ends
@@ -124,6 +130,29 @@ class StairOuter(unittest.TestCase):
                 for r in result["unadmitted_sources"]
             )
         )
+
+    def test_saved_display_replay_needs_only_used_palette_values(self):
+        palette_path = Path(__file__).with_name("fixtures") / "research-palette.json"
+        with TemporaryDirectory(prefix="outshine-transport-palette-") as temp:
+            args = SimpleNamespace(output=Path(temp), palette_scene=palette_path)
+            report = {"presentation": display(args, self.body, self.data)}
+            alias = json.loads(palette_path.read_text())
+            alias["unused_old_private_mesh_path"] = "/different/host/unused.npz"
+            args.palette_scene = Path(temp) / "relocated-palette.json"
+            args.palette_scene.write_text(json.dumps(alias))
+            display_proof(args, self.data, report)
+
+    def test_changed_used_colour_is_rejected_even_with_other_palette_metadata(self):
+        palette_path = Path(__file__).with_name("fixtures") / "research-palette.json"
+        with TemporaryDirectory(prefix="outshine-transport-palette-") as temp:
+            args = SimpleNamespace(output=Path(temp), palette_scene=palette_path)
+            report = {"presentation": display(args, self.body, self.data)}
+            alias = json.loads(palette_path.read_text())
+            alias["colours"][3][0] += 0.01
+            args.palette_scene = Path(temp) / "changed-palette.json"
+            args.palette_scene.write_text(json.dumps(alias))
+            with self.assertRaisesRegex(ValueError, "normal/colour ownership differs"):
+                display_proof(args, self.data, report)
 
 
 if __name__ == "__main__":

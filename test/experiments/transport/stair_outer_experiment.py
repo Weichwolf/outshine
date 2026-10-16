@@ -179,7 +179,11 @@ def generate(args):
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", type=Path, default=FIXTURE)
-    parser.add_argument("--palette-scene", type=Path, required=True)
+    parser.add_argument(
+        "--palette-scene",
+        type=Path,
+        default=Path(__file__).with_name("fixtures") / "research-palette.json",
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
