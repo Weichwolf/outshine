@@ -78,6 +78,16 @@ def upper_wall_regions(mesh, row, eave):
 
 
 class IndustrialRoofs(unittest.TestCase):
+    def test_near_roof_selection_does_not_decode_unrelated_bad_colour(self):
+        row, neighbors = sources()[0]
+        row = row | {"properties": row["properties"] | {"colour": "not-a-colour"}}
+        with self.assertRaises(ValueError):
+            attributes(row["properties"])
+        owner = OrdinaryDetails(
+            [row, *neighbors], view_for(row | {"properties": {"render_height": 5}})
+        )
+        self.assertIn(row["id"], owner.industrial_rooms)
+
     def test_real_source_volume_bounds_closure_and_unchanged_inputs(self):
         kinds = set()
         for row, _ in sources():

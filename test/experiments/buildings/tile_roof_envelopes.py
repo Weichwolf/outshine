@@ -19,7 +19,7 @@ from outshine_ref.buildings.structures import classify_structure
 from provider_contract import attributes, number
 from shapely.affinity import translate
 from tile_buildings import prism
-from tile_room_details import RoomDetails
+from tile_room_details import RoomDetails, numeric_properties
 
 
 @dataclass(frozen=True)
@@ -298,7 +298,7 @@ class OrdinaryDetails:
             row["id"]
             for row in rows
             if row["id"] in self.rooms.identifiers
-            and choose(row, attributes(row["properties"])).kind in KINDS
+            and choose(row, attributes(numeric_properties(row))).kind in KINDS
         }
         self.pitched.update(self.industrial_rooms)
         self.room_completed = []

@@ -971,3 +971,47 @@ host; neither is a native frame/device budget or a measured speedup.
 Diagnostic cuts were corrected in `de7e03d54`; the distant camera in
 `0ab9d9a5a` keeps the small building inside the camera range. No complete
 architecture family/night/controller/device or full image/shadow LOD claim.
+
+### Repeated industrial roof sections (#480)
+
+`outshine_ref.buildings.section_roofs.RoofSection` holds immutable metre-valued
+run/height knots and an ENU XY frame. `section_surface` clips the actual polygon
+with holes into profile intervals, triangulates with batched GEOS/CDT and emits
+an upward surface with interval IDs, geometric normals and developed metre UVs.
+`heightfield_envelope` supplies the existing closed reference. At most65 knots,
+256 boundary vertices and the conservative triangle budget are admitted before
+clipping. Outer cuts extend past the source domain to avoid roundoff slivers;
+interior section boundaries are shared, with no epsilon position welding.
+
+`industrial_roof_choice` infers2..8 symmetric/asymmetric roof bays for bounded
+ordinary industrial-context sources. It preserves footprint, provider top,
+supplied roof fields and special-structure exclusions. The programme reserves
+roof rise before facade/storey planning. Existing selected generic near rooms
+remain attached with the same IDs and sampled physical access; local failures
+retain the previous functional flat model. Ordinary industrial facades can use
+the existing entrance/landing/arrival selector. This does not supply loading
+doors, industrial room programmes or glazed clerestories.
+
+`data/industrial-roofs.json` contains three actual width-spaced Grohnde sources
+and bounded neighbor/context/provider receipts. No city/ID-dependent recipe.
+Run `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest test_section_roofs verify_industrial_roofs -q`.
+Freeze source, then `industrial_roof_probe.py --output <system-temp> --tile`
+for sections/2.5D and whole/opposite/far inputs; `--roof-end --tile` adds gable
+comparisons and frames the industrial group more closely. All provider sources
+remain in the whole-tile model even where the camera excludes distant outliers.
+`roof_section_compare.py --output <json> --repeats 21` checks scalar/batched
+full arrays and dtypes, including normals/UV/material/interval ownership.
+
+Runtime `558ddbe63`:77 source and77 wheel checks passed, no skips,81 packaged
+building modules byte-exact. On the actual4/8/16-interval roofs, batched p50
+was0.538/0.635/0.946 ms versus scalar0.677/0.980/1.725 ms (21 measured runs,
+2 warmups, nonisolated). Both methods process the same intervals; Python-to-GEOS
+dispatch is2 versus8/16/32. Separate traced peaks15579/19515/28187 versus
+16083/20939/31779 bytes exclude the native heap. Final outputs1680/3360/7140
+bytes; local XY copy plus final packed XYZ writes960/1920/4080 bytes per
+method, excluding other temporary/internal/allocator copies. No native speedup.
+The complete37-source tile has16 new roof plans (8 per kind), no roof/facade
+failure or source omission,2724→3610 triangles (+886). Near5-/15-room source
+controls preserve room IDs and physical access. Facade/roof shapes improve;
+complete industrial architectural families and broader detail/night/LOD/device
+quality remain open. Actual current image/camera admission is recorded in the PR.
