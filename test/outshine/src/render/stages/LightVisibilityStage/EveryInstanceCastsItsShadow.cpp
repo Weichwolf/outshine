@@ -69,7 +69,10 @@ void CheckInstances(bool clustered) {
                                              .ParentRadius = 14,
                                              .ParentErr = kDagRootErr,
                                              .Count = kBoxIndices.size()}}};
-  PieceMesh piece{.Verts = vertices, .Indices = kBoxIndices, .Instances = rows};
+  PieceMesh piece;
+  piece.Verts = vertices;
+  piece.Indices = kBoxIndices;
+  piece.Instances = rows;
   if (clustered) { piece.Clusters = clusters; }
   const auto id = renderer.PlacePiece(piece, error);
   CHECK(id != kNoPiece, id == kNoPiece ? error.c_str() : "instance prototype is resident");

@@ -112,8 +112,11 @@ void CheckMask(MaskCase mask) {
                            {{0, 0, 1}});
     }
     const std::array<Mat4, 1> rows{};
-    const PieceMesh piece{
-        .Verts = vertices, .Indices = indices, .Instances = rows, .Textured = true};
+    PieceMesh piece;
+    piece.Verts = vertices;
+    piece.Indices = indices;
+    piece.Instances = rows;
+    piece.Textured = true;
     CHECK(renderer.PlacePiece(piece, error) != kNoPiece, "masked instance is resident");
   }
   CHECK(scene->Draw(error), error.empty() ? "masked shadow draws" : error.c_str());
