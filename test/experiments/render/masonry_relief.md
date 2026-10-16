@@ -194,6 +194,17 @@ over the same pixel. Supplement: Mikkelsen JCGT2020 Surface Gradient-Based Bump
 Mapping Framework, local PDF pages3/9, Equations2–3/17 optically reviewed. This
 uses the existing derivative-frame contract, without introducing tangent assets.
 
+The prepared Flensburg1920×1080/60 comparison is red: p99 before12.0354ms,
+after25.7969ms; reversed after18.8958ms, before22.7139ms. All overruns are at
+frame1, p50 stays0.98–1.03ms;60 frames/360degrees,585262 triangles and the
+71c88aff PNG are unchanged. Warm offline preload3.64–6.00s; separate online
+source acquisition/asset construction291.20s. Initial offline cache misses are
+retained, not interpreted as frame timing. This does not isolate a shader
+regression or satisfy the frame gate. The same image and dated Foto-Webcam.eu
+2025-07-15 12:00CEST reference are optically reviewed in the local comparison PDF;
+no Place image gain is claimed. A private material marker additionally checks
+whether this view actually exercises the selected material family.
+
 Before merging the production hookup, the affected frame countercheck remains
 required. Original material atlas and Metal/A18 counterchecks belong to Master;
 full native-world/device-memory acceptance remains open. Real normal-texture
