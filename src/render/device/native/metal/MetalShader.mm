@@ -181,7 +181,10 @@ Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry
     }
   }
   spvc_resources resources = nullptr;
-  if (spvc_compiler_create_shader_resources(compiler, &resources) != SPVC_SUCCESS) {
+  spvc_set active = nullptr;
+  if (spvc_compiler_get_active_interface_variables(compiler, &active) != SPVC_SUCCESS ||
+      spvc_compiler_create_shader_resources_for_active_variables(compiler, &resources, active) !=
+          SPVC_SUCCESS) {
     return failure();
   }
   for (const auto &[type, kind] :

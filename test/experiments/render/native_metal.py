@@ -39,6 +39,11 @@ def native_api(output, glslang, toolchain, link_flags):
              "-I" + str(ROOT / "src/render/shaders"),
              str(source), "-o", str(destination)])
         shaders.append(str(destination))
+    run(["make", "db"])
+    database = json.loads((ROOT / "compile_commands.json").read_text())
+    stage = next(item for item in database if Path(item["file"]).name == "StagePipelines.cpp")
+    arguments = stage.get("arguments") or shlex.split(stage["command"])
+    includes = [flag for flag in arguments if flag.startswith("-I")]
     backend = ROOT / "src/render/device/native/metal"
     sources = sorted(backend.glob("*.mm"))
     def build_probe(name, source):
@@ -50,6 +55,7 @@ def native_api(output, glslang, toolchain, link_flags):
              *shlex.split(run(["pkg-config", "--cflags", "sdl3"])),
              "-I" + str(ROOT),
              "-I" + str(ROOT / "src/render/device/native"),
+             *includes,
              "-I" + str(ROOT / "test/harness/shared"),
              str(ROOT / "test/harness/render" / source),
              str(ROOT / "build/liboutshine.a"), *link_flags, "-o", str(binary)])
