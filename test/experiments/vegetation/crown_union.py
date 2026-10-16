@@ -37,7 +37,7 @@ def overlapped_shoot(mesh):
     }
 
 
-def ring_cells(mesh, stations, owner):
+def ring_cells(mesh, stations, owner, root=True):
     rings = mesh["vertices"][:-2].reshape(stations, 8, 3)
     centre = rings.mean(axis=1)
     centre[0], centre[-1] = mesh["vertices"][-2:]
@@ -61,7 +61,7 @@ def ring_cells(mesh, stations, owner):
             source_kind=0,
             source_node=owner,
             cell=index,
-            forbidden_caps=tuple(range(16, 24)) if index else (),
+            forbidden_caps=tuple(range(16, 24)) if index or not root else (),
         )
         if index + 1 < stations - 1:
             piece["forbidden_caps"] += tuple(range(24, 32))
@@ -94,7 +94,7 @@ def wood_sources(body, paths, along, wood, hosts, representation="cells"):
             "normals": body["normals"][fo * 3 : (fo + nf) * 3],
         }
         if representation == "cells":
-            products.extend(ring_cells(mesh, n, path[1]))
+            products.extend(ring_cells(mesh, n, path[1], root=path[0] == 0))
         else:
             mesh.update(source_kind=0, source_node=path[1], cell=-1, forbidden_caps=())
             products.append(mesh)
