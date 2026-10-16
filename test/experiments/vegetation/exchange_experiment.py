@@ -100,7 +100,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--inputs", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
-    p.add_argument("--samples", type=int, default=8)
+    p.add_argument("--samples", type=int, default=4)
     p.add_argument("--ground-grid", type=int, default=64)
     a = p.parse_args()
     run(a.inputs, a.output, a.samples, a.ground_grid)
