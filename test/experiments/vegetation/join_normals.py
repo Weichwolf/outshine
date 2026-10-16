@@ -27,7 +27,6 @@ def corner_weights(vertices, faces, method):
 
 def smooth_join_normals(mesh, axes, plans, method="angle"):
     vertices, faces = mesh["vertices"], mesh["faces"]
-    normals = mesh["normals"].reshape(-1, 3, 3)
     if len(faces) > 1_000_000 or len(axes) > 128:
         raise ValueError("bounded joined wood required")
     lookup = {a.path: a for a in axes}
@@ -37,6 +36,15 @@ def smooth_join_normals(mesh, axes, plans, method="angle"):
         local |= (
             np.linalg.norm(vertices - child.pose.anchor, axis=1) < 2 * plan["span_m"]
         )
+    return smooth_join_corners(mesh, local, method)
+
+
+def smooth_join_corners(mesh, local, method="angle"):
+    vertices, faces = mesh["vertices"], mesh["faces"]
+    normals = mesh["normals"].reshape(-1, 3, 3)
+    local = np.asarray(local)
+    if len(faces) > 1_000_000 or local.shape != (len(vertices),) or local.dtype != bool:
+        raise ValueError("bounded mesh and one boolean join marker per vertex required")
     weights = corner_weights(vertices, faces, method)
     accumulated = np.zeros_like(vertices)
     np.add.at(accumulated, faces.ravel(), (normals * weights[..., None]).reshape(-1, 3))

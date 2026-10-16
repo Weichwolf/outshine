@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 from crown_union import join_sources, wood_sources
+from join_normals import smooth_join_corners
 from spatial_crown_cost import restore
 from tree_entry import load
 
@@ -40,12 +41,21 @@ def build(inputs, plan, output):
     if built is None:
         raise ValueError("complete union exceeds output capacity")
     mesh, work = built
+    owner = mesh["source_node"].astype(np.uint64) + (
+        mesh["source_kind"].astype(np.uint64) << 32
+    )
+    lowest = np.full(len(mesh["vertices"]), np.iinfo(np.uint64).max, np.uint64)
+    highest = np.zeros(len(mesh["vertices"]), np.uint64)
+    np.minimum.at(lowest, mesh["faces"].ravel(), np.repeat(owner, 3))
+    np.maximum.at(highest, mesh["faces"].ravel(), np.repeat(owner, 3))
+    mesh, work["join_shading"] = smooth_join_corners(mesh, lowest != highest)
     mesh["surface"] = np.zeros(len(mesh["faces"]), np.uint8)
     mesh["corner_uv"] = np.zeros((mesh["faces"].size, 2))
     recipe = {
         "format": "cached-crown-cell-union-1",
         "source": metadata["geometry_identity"],
         "manifold3d": importlib.metadata.version("manifold3d"),
+        "join_shading": "angle-45deg-source-contacts",
     }
     identity = hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
     old_faces = len(np.load(inputs / "spatial/wood.npz")["faces"])
