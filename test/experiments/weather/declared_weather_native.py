@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--width", type=int, default=43)
     parser.add_argument("--height", type=int, default=31)
+    parser.add_argument("--measure-cost", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -85,18 +86,21 @@ def main():
         name for name in SOURCES if not name.endswith("/cloud_view_native.cpp")
     )
     binary = output / "declared-weather-native"
+    compiler = [
+        "nice",
+        "-n",
+        "10",
+        *shlex.split(os.environ.get("CXX", "c++")),
+        *toolchain,
+        "-fno-exceptions",
+        *(
+            f"-I{archive_root / path if path.startswith(('src', 'include')) else ROOT / path}"
+            for path in INCLUDES + ("src/scenario",)
+        ),
+    ]
     run(
         [
-            "nice",
-            "-n",
-            "10",
-            *shlex.split(os.environ.get("CXX", "c++")),
-            *toolchain,
-            "-fno-exceptions",
-            *(
-                f"-I{archive_root / path if path.startswith(('src', 'include')) else ROOT / path}"
-                for path in INCLUDES + ("src/scenario",)
-            ),
+            *compiler,
             *sources,
             archive,
             *link,
@@ -105,6 +109,16 @@ def main():
         ],
         "build",
     )
+    if args.measure_cost:
+        cost_source = "test/experiments/weather/declared_weather_cost.cpp"
+        cost_binary = output / "declared-weather-cost"
+        run(
+            [*compiler, "-gdwarf-4", cost_source, archive, *link, "-o", cost_binary],
+            "build-cost",
+        )
+        run([cost_binary], "cost", archive_root)
+        sources += (cost_source,)
+        record["cost_binary_sha256"] = digest(cost_binary)
     definitions = {
         "CLOUD_VIEW_SAMPLES": 32,
         "CLOUD_LIGHT_SAMPLES": 12,
@@ -134,7 +148,7 @@ def main():
         )
         shaders.append(target)
     inputs = []
-    for name in ("cloudy", "clear", "missing-low"):
+    for name in ("cloudy", "overcast", "clear", "missing-low"):
         folder = output / name
         folder.mkdir(exist_ok=True)
         original = (ROOT / INPUT).read_bytes()
@@ -144,7 +158,9 @@ def main():
         else:
             tree = ET.fromstring(original)
             weather = tree.find("weather")
-            if name == "clear":
+            if name == "overcast":
+                weather.set("cloudLow", "1")
+            elif name == "clear":
                 weather.set("cloudLow", "0")
             else:
                 del weather.attrib["cloudLow"]

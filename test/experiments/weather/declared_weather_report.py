@@ -23,22 +23,27 @@ def main():
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error("private reports belong in system temp")
     output.mkdir(parents=True, exist_ok=True)
-    names = ("cloudy", "clear", "missing-low")
+    names = ("cloudy", "overcast", "clear", "missing-low")
     labels = (
         "Explicit low cover0.65: procedural CumulusV1",
+        "Explicit low cover1: continuous overcast",
         "Known low cover0: transparent cloud product",
         "Unknown low cover: no cloud product",
     )
     actual = []
     rows = []
-    fig, axes = plt.subplots(3, 1, figsize=(12, 17), layout="constrained")
-    for name, label, axis, low in zip(names, labels, axes, (0.65, 0.0, None)):
+    fig, axes = plt.subplots(4, 1, figsize=(12, 22), layout="constrained")
+    for name, label, axis, low in zip(names, labels, axes, (0.65, 1.0, 0.0, None)):
         path = args.captures / name / "actual.sky-broken.json"
         rows.append(judge(path, 32, 12, expected_profile=1))
-        info, images, _, _, _ = read(path)
+        info, images, _, _, weather = read(path)
         if info["cloud_low"] != low or info["snapshot_utc_s"] != 1792022400:
             raise AssertionError(
                 "the original native declaration must remain distinguishable"
+            )
+        if weather[1, 0] != np.float32(0.0 if low is None else low):
+            raise AssertionError(
+                "the actual GPU frame must consume the declared low cover"
             )
         actual.append(images[1])
         rgb = np.maximum(
@@ -48,8 +53,8 @@ def main():
         axis.set_title(f"{label}; {info['width']}×{info['height']}")
         axis.set_axis_off()
         print(json.dumps({"case": name, "fp64": rows[-1]}), flush=True)
-    np.testing.assert_array_equal(actual[1], actual[2])
-    changed = np.any(actual[0][:, :3] != actual[1][:, :3], axis=1)
+    np.testing.assert_array_equal(actual[2], actual[3])
+    changed = np.any(actual[0][:, :3] != actual[2][:, :3], axis=1)
     if not np.any(changed):
         raise AssertionError(
             "the actual declared low cover must change the native image"
