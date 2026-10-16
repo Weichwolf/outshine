@@ -191,6 +191,12 @@ def tile(output, proof):
         [1, -1, 0.65],
     )
     view = replace(view, width=1920, height=1080)
+    for name, factor in (("Grohnde", 1.0), ("GrohndeClose", 0.45)):
+        current = replace(view, eye=view.target + (view.eye - view.target) * factor)
+        tile_product(output, proof, rows, receipt, current, name)
+
+
+def tile_product(output, proof, rows, receipt, view, name):
     for label in ("Before", "Halls"):
         owner = SteppedDetails(rows, view)
         option = (
@@ -202,10 +208,10 @@ def tile(output, proof):
             mesh, source = tile_mesh(
                 "Grohnde", prepared=(rows, receipt), ordinary_builder=owner
             )
-        path = output / f"Grohnde{label}-mesh.npz"
+        path = output / f"{name}{label}-mesh.npz"
         np.savez_compressed(path, **mesh)
         record = proof | {
-            "city": "Grohnde" + label,
+            "city": name + label,
             "ground_mode": "flat-no-dem",
             "sources": receipt,
             "source": source,
@@ -228,7 +234,7 @@ def tile(output, proof):
             },
             "scope": "All actual provider building sources retained; industrial group camera, flat/no DEM; simple source-bound halls, no native/device/night/whole-image LOD admission",
         }
-        (output / f"Grohnde{label}-geometry.json").write_text(
+        (output / f"{name}{label}-geometry.json").write_text(
             json.dumps(record, indent=2) + "\n"
         )
         print(
