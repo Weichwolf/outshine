@@ -49,6 +49,7 @@ def render(inputs, output):
             "target": [0, 0, 0],
         },
     )
+    scene.camera.data.clip_end = max(1000.0, size * 4)
     scene.eevee.taa_render_samples = 8
     output.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str((output / "support.png").resolve())
@@ -68,6 +69,7 @@ def render(inputs, output):
             (inputs / "coarse-support.npz").read_bytes()
         ).hexdigest(),
         "presentation_translation_xy_m": (-centre).tolist(),
+        "camera_far_m": scene.camera.data.clip_end,
         "scope": summary["scope"],
     }
     (output / "support.json").write_text(json.dumps(result, indent=2) + "\n")
