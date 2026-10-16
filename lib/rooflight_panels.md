@@ -103,6 +103,30 @@ The prepared body plus contact parts uses 10144 instead of 10512 triangles in th
 large individual hall; the same 37-source tile uses 71339 instead of 72523. No
 source, existing hall or access programme is removed to obtain those numbers.
 
+## Direct two-sided sheets
+
+`sheet_template(width, length, slope)` and `sheets(fields)` directly emit an
+optional 20-triangle render component: 16 frame-cap triangles plus four glass
+triangles. Both upper/lower caps retain their actual positions, thickness,
+orientation, metric UVs and slots 10/3. Vertical frame/glass sides are omitted.
+Templates share the same guarded rectangle and surface packing with the closed
+construction; neither the closed 44 nor checked-contact 36 output changes.
+The typed 32-entry cache and read-only arrays/mapping apply to both constructors.
+
+Each omitted vertical frame-side point has a cap point at the same XY within
+0.06 m; glass sides have a 0.003 m bound. The retained caps are subsets of the
+corresponding closed material surfaces. This gives a restricted two-sided
+geometric surface-distance bound, not collision, first-hit, normal, shadow or
+radiance equivalence. Sheets are **open render geometry**; the complete physical
+frame/pane and source body remain independent products. No opaque-host contact
+certificate is needed for an approximation, unlike the exact buried-face rule.
+
+The library makes no camera/LOD selection. The experimental
+[field policy and controls](../test/experiments/buildings/rooflight_lamina.md)
+derive conservative projection bounds, retain full parts nearby, independently
+check all 117 actual fields/materials and compare real images and complete scoped
+allocation costs. The normal tile's deferred compact body remains separate work.
+
 Nine new 1920×1080 Eevee images (16 samples, llvmpipe) were rendered and optically
 opened; both final raster batches ended0 using the previously documented flush/
 post-render teardown workaround. Pixel differences are small but nonzero:

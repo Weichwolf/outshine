@@ -125,5 +125,7 @@ Source reference inputs are reproducible with [industrial_rooflights.md](industr
 The geometric/component reference remains SIGGRAPH 2003 *Instant Architecture*,
 page4 optically inspected, and the prior bounded SDK/Ghidra primitive study;
 no ready Esri hall recipe, full CGA implementation or new Esri oracle is claimed.
-Complete direct far roofs, per-field distance demand, transition/shadow/night
-bounds, broad architectural families and native integration remain open in #500/#32.
+An optional [per-field sheet experiment](rooflight_lamina.md) now supplies early
+bounded geometry selection over the retained body. Complete compact bodies,
+stable transition/shadow/night behaviour, broad architectural families and
+native integration remain open in #500/#32.
