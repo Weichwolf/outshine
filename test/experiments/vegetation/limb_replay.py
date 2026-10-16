@@ -44,6 +44,7 @@ def run(source, products, output):
         )
         unchanged.append(file.name)
     paths = json.loads((products / "limb-paths.json").read_text())
+    along = json.loads((products / "comparison.json").read_text())["along"]
     edges = np.array([edge for path in paths for edge in pairwise(path)])
     np.testing.assert_array_equal(
         np.sort(edges[:, 1]), np.arange(1, len(crown.parents))
@@ -55,7 +56,7 @@ def run(source, products, output):
         body = {key: data[key] for key in data.files}
     face_offset, vertex_offset = 0, 0
     for path in paths:
-        stations = (len(path) - 1) * 2 + 1
+        stations = (len(path) - 1) * along + 1
         nv, nf = stations * 8 + 2, stations * 16
         v = body["vertices"][vertex_offset : vertex_offset + nv]
         f = body["faces"][face_offset : face_offset + nf] - vertex_offset
@@ -83,7 +84,7 @@ def run(source, products, output):
         face_offset += nf
         vertex_offset += nv
     assert face_offset == len(body["faces"]) and vertex_offset == len(body["vertices"])
-    rebuilt, rebuilt_paths = canonical_wood(crown)
+    rebuilt, rebuilt_paths = canonical_wood(crown, along)
     assert tuple(map(tuple, paths)) == rebuilt_paths
     for key, values in body.items():
         np.testing.assert_array_equal(values, rebuilt[key])
@@ -91,7 +92,7 @@ def run(source, products, output):
         "limb_experiment.limb_mesh",
         side_effect=AssertionError("mesh before whole demand"),
     ):
-        assert canonical_wood(crown, max_faces=face_offset - 1) is None
+        assert canonical_wood(crown, along, max_faces=face_offset - 1) is None
     baseline = branch_tubes(crown.positions, crown.parents, radii, 8)
     ov, of = len(baseline[0]), len(baseline[1])
     np.testing.assert_array_equal(
