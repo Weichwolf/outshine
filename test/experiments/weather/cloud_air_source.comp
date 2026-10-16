@@ -24,6 +24,12 @@
 #ifndef SOURCE_LINEAR_DEPTH
 #define SOURCE_LINEAR_DEPTH 0
 #endif
+#ifndef SOURCE_LINEAR_EYE
+#define SOURCE_LINEAR_EYE 0
+#endif
+#if SOURCE_LINEAR_EYE && !SOURCE_LINEAR_DEPTH
+#error Linear eye composition requires the linear source depth control
+#endif
 #if SOURCE_LINEAR_DEPTH && (SOURCE_VISIBILITY_OUTPUT || SOURCE_CLOUD_MODE != 0)
 #error Linear depth control requires the direct source and SSBO transfer output
 #endif
