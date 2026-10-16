@@ -81,7 +81,7 @@ std::vector<float> Capture(size_t fills, const char *outputPrefix) {
   Engine engine;
   Scenario::Document scenario;
   scenario.Render.Declared = true;
-  scenario.Render.Frame = {.Width = kSide, .Height = kSide};
+  scenario.Render.Frame = {.WidthPx = kSide, .HeightPx = kSide};
   scenario.Render.Outputs = {"surface", "sceneLinear", "shadowAtlas"};
   scenario.Lit.Declared = true;
   scenario.Lit.Key.Lux = kLux;
@@ -98,7 +98,7 @@ std::vector<float> Capture(size_t fills, const char *outputPrefix) {
   view.Sees.setProjection(Camera::Ortho{.XMagM = 3, .YMagM = 3, .NearM = kNearM, .FarM = kFarM});
   scenario.Views.push_back(view);
   std::vector<float> pixels;
-  if (!Accepted(engine.setRenderTarget({.Width = kSide, .Height = kSide}),
+  if (!Accepted(engine.setRenderTarget({.WidthPx = kSide, .HeightPx = kSide}),
                 "public offscreen target opens") ||
       !Accepted(engine.declare(scenario), "public scenario declares its actual key and shadows") ||
       !Accepted(engine.setGeometry(geometry), "public geometry carries the authored fill lights") ||
