@@ -152,7 +152,12 @@ def render_case(stand, result, state_name, mode, inputs, output):
     }
 
 
-def render(inputs, output):
+def render(
+    inputs,
+    output,
+    states=("front", "back"),
+    modes=("physical", "radiance", "independent_mean", "reflection_only"),
+):
     if output.exists():
         raise ValueError("fresh diagnostic images directory required")
     result = json.loads((inputs / "result.json").read_text())
@@ -165,8 +170,8 @@ def render(inputs, output):
     _, stand, _ = read_product(source)
     output.mkdir(parents=True)
     rows = []
-    for state in ("front", "back"):
-        for mode in ("physical", "radiance", "independent_mean", "reflection_only"):
+    for state in states:
+        for mode in modes:
             # Map data are frame diagnostics; geometry products never store this light.
             rows.append(render_case(stand, result, state, mode, inputs, output))
             print(json.dumps(rows[-1]), flush=True)
@@ -188,5 +193,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--states", nargs="+", choices=("front", "back"), default=("front", "back")
+    )
+    parser.add_argument(
+        "--modes",
+        nargs="+",
+        choices=("physical", "radiance", "independent_mean", "reflection_only"),
+        default=("physical", "radiance", "independent_mean", "reflection_only"),
+    )
     args = parser.parse_args()
-    render(args.inputs, args.output)
+    render(args.inputs, args.output, args.states, args.modes)
