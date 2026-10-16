@@ -1,0 +1,26 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "clearSun.glsl"
+#include "world/sky/AirRayLayout.h"
+#include "AirPrefixProbeLayout.h"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(set = 0, binding = 0) uniform sampler2D veil;
+layout(set = 0, binding = 1) uniform sampler2D multiScatter;
+layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
+layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
+layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= uint(from.rays.length())) { return; }
+  ProbeRay ray = from.rays[index];
+  vec3 value = clearSunPhysicalTransfer(pushed.Air,
+      MediumLook(ray.Ray.RadiusKm, ray.Ray.CosSun), veil);
+  vec3 unusedSource = textureLod(multiScatter, vec2(0.5), 0.0).rgb *
+      query.distanceKm[ray.QueryBegin];
+  into.samples[ray.QueryBegin] = ProbeSample(value.r + unusedSource.r,
+      value.g + unusedSource.g, value.b + unusedSource.b,
+      value.r, value.g, value.b, 0u, 0u);
+}

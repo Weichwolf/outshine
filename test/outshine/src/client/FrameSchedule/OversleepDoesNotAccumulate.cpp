@@ -8,10 +8,11 @@ int main() {
   constexpr std::uint64_t start = 700;
   constexpr std::uint64_t work = 3'000'000;
   constexpr std::uint64_t oversleep = 1'600'000;
+  constexpr std::uint64_t rateHz = 60;
   std::uint64_t now = start;
   unsigned sleeps = 0;
   FrameSchedule schedule(start);
-  for (std::uint64_t frame = 0; frame < 60; ++frame) {
+  for (std::uint64_t frame = 0; frame < rateHz; ++frame) {
     schedule.Wait(
         frame,
         [&] { return now; },
@@ -19,7 +20,7 @@ int main() {
           now += duration + oversleep;
           ++sleeps;
         });
-    const auto expected = frame * kNanosecondsPerSecond / kFrameRateHz;
+    const auto expected = (frame * kNanosecondsPerSecond + rateHz - 1) / rateHz;
     CHECK(now - start == expected + (frame ? oversleep : 0),
           "each frame keeps its original deadline despite repeated scheduler oversleep");
     now += work;
