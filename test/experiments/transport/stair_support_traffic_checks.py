@@ -46,6 +46,17 @@ class SourceMasks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "owner bit"):
                 index.for_source(owner)
 
+    def test_face_limit_precedes_mask_array_conversion(self):
+        class ExcessiveMasks:
+            def __len__(self):
+                return 65537
+
+            def __array__(self, *args, **kwargs):
+                raise AssertionError("oversized masks were converted before rejection")
+
+        with self.assertRaisesRegex(ValueError, "bounded matching"):
+            TrafficIndex([shapely.Point(0, 0)] * 65537, ExcessiveMasks())
+
 
 class SharedConstruction(unittest.TestCase):
     def test_both_preparations_preserve_complete_finite_outputs(self):

@@ -79,6 +79,10 @@ def source_surfaces(road, owners, *, preparation="shared"):
     upper_surfaces, exclusions = {}, {}
     if not owners:
         return upper_surfaces, exclusions
+    if len(road["top_faces"]) > 65536 or len(road["top_faces"]) != len(
+        road["face_sources"]
+    ):
+        raise ValueError("bounded matching traffic faces and source masks required")
     rounded = road["body_vertices"].astype("f4").astype(float)
     indices = (
         [

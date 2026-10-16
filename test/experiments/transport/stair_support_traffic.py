@@ -8,8 +8,12 @@ import shapely
 
 class TrafficIndex:
     def __init__(self, shapes, source_masks):
+        if len(source_masks) != len(shapes) or len(source_masks) > 65536:
+            raise ValueError(
+                "bounded matching traffic shapes and source masks required"
+            )
         original = np.asarray(source_masks)
-        if original.ndim != 1 or len(original) != len(shapes) or len(original) > 65536:
+        if original.ndim != 1:
             raise ValueError(
                 "bounded matching traffic shapes and source masks required"
             )
