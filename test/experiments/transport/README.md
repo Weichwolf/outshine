@@ -516,7 +516,8 @@ keine Eingänge. Keine neue Runtime-/SDK- oder öffentliche/native API-Abhängig
 
 ## Gegenprobe: echte Terrainkontakte am Treppenverbund (#434)
 
-`stair_terrain_experiment.py` vergleicht eine begrenzte sanfte Bodenfläche, ganze
+Der [Terrain-Gegenvergleich](stair_terrain_comparison.md) mit `stair_terrain_experiment.py`
+vergleicht eine begrenzte sanfte Bodenfläche, ganze
 Stützwände und einen geschützten Brücken-Aushub an denselben unveränderten18Quellen
 und demselben echten DEM-Fenster. Der Versuch liefert ausdrücklich noch kein
 freigegebenes Terrainprodukt: geschlossene Körper und erfolgreicher Kernelabschluss
