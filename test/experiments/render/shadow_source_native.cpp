@@ -45,10 +45,18 @@ Parameters Read(const char *path) {
   return data;
 }
 
-void Finish(Device &device, std::unique_ptr<Commands> commands) {
+void Finish(Device &device, std::unique_ptr<Commands> commands, const char *phase, int iteration) {
   const auto completion = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(completion, std::chrono::seconds(30))) == CompletionStatus::Ready,
         "the controlled native light draw completes within the offline bound");
+  const auto timing = Require(device.SubmissionGpuTime(completion));
+  CHECK(timing.Status == CompletionStatus::Ready && std::isfinite(timing.ElapsedNanoseconds) &&
+            timing.ElapsedNanoseconds >= 0,
+        "the completed submission has an actual finite GPU timestamp interval");
+  std::println("gpu_submission phase={} iteration={} nanoseconds={}",
+               phase,
+               iteration,
+               timing.ElapsedNanoseconds);
 }
 
 std::unique_ptr<Texture> Source(Device &device, uint32_t side) {
@@ -68,7 +76,7 @@ void Prepare(Device &device, Texture &shadow, Texture &environment) {
       ColourAttachment{.Image = {.Image = &environment}, .Begin = Load::Clear}};
   Require(commands->BeginRenderPass({.Colours = environmentTarget, .Depth = std::nullopt}));
   Require(commands->EndRenderPass());
-  Finish(device, std::move(commands));
+  Finish(device, std::move(commands), "prepare", 0);
 }
 
 std::unique_ptr<GraphicsPipeline>
@@ -123,18 +131,22 @@ void DrawCase(Device &device,
       Binding{.Set = 3, .Slot = 0, .Value = Uniform{data.first(kMaterialBytes)}},
       Binding{.Set = 3, .Slot = 1, .Value = Uniform{data.subspan(kMaterialBytes)}}};
   const std::array targets{ColourAttachment{.Image = {.Image = image.get()}, .Begin = Load::Clear}};
-  auto commands = Require(device.Begin());
-  Require(commands->BeginRenderPass({.Colours = targets, .Depth = std::nullopt}));
-  Require(commands->Draw({.State = {.Pipeline = &pipeline,
-                                    .Bindings = bindings,
-                                    .Vertices = {},
-                                    .Area = {.Width = kWidth, .Height = kHeight},
-                                    .Clip = {.Width = kWidth, .Height = kHeight}},
-                          .Range = {.Count = 3}}));
-  Require(commands->EndRenderPass());
-  Require(commands->Copy(
-      *image, *readback, {.RowBytes = kRowBytes, .Region = {.Width = kWidth, .Height = kHeight}}));
-  Finish(device, std::move(commands));
+  for (int iteration = 0; iteration < 4; ++iteration) {
+    auto commands = Require(device.Begin());
+    Require(commands->BeginRenderPass({.Colours = targets, .Depth = std::nullopt}));
+    Require(commands->Draw({.State = {.Pipeline = &pipeline,
+                                      .Bindings = bindings,
+                                      .Vertices = {},
+                                      .Area = {.Width = kWidth, .Height = kHeight},
+                                      .Clip = {.Width = kWidth, .Height = kHeight}},
+                            .Range = {.Count = 3}}));
+    Require(commands->EndRenderPass());
+    Require(
+        commands->Copy(*image,
+                       *readback,
+                       {.RowBytes = kRowBytes, .Region = {.Width = kWidth, .Height = kHeight}}));
+    Finish(device, std::move(commands), "draw-readback", iteration);
+  }
   const auto pixels = Require(device.MapRead(*readback, {.Bytes = kImageBytes}));
   std::ofstream file(outputPath, std::ios::binary);
   file.write(reinterpret_cast<const char *>(pixels.data()),
@@ -147,7 +159,7 @@ void DrawCase(Device &device,
 int main(int argc, char **argv) {
   if (argc != 5) { return 2; }
   const auto parameters = Read(argv[3]);
-  auto device = Require(CreateDevice({.Validation = true}));
+  auto device = Require(CreateDevice({.Validation = true, .GpuTiming = true}));
   const auto pipeline = Pipeline(*device, argv[1], argv[2]);
   std::println("device={} width={} height={}", device->Limits().Name, kWidth, kHeight);
   DrawCase(*device, *pipeline, parameters, argv[4]);

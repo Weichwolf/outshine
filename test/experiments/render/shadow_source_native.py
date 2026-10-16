@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -151,12 +152,12 @@ def main():
             tag = material + "-" + name
             before, after = fixture(offsets, material, count, index, kind, atlas)
             expected = reference(after)
-            arrays = {}
+            arrays, timings = {}, {}
             for mode, data in (("before", before), ("selected", after)):
                 source = args.output / f"{tag}-{mode}.parameters"
                 source.write_bytes(data)
                 target = args.output / f"{tag}-{mode}.rgba32"
-                run(
+                stdout = run(
                     [
                         binary,
                         args.output / "vertex.spv",
@@ -167,6 +168,23 @@ def main():
                     args.output,
                     tag + "-" + mode,
                 )
+                entries = re.findall(
+                    r"gpu_submission phase=(\S+) iteration=(\d+) nanoseconds=(\S+)",
+                    stdout,
+                )
+                if [(p, int(i)) for p, i, _ in entries] != [
+                    ("prepare", 0),
+                    *(("draw-readback", i) for i in range(4)),
+                ]:
+                    raise RuntimeError("missing actual preparation/draw GPU timestamps")
+                values = [float(v) / 1e6 for _, _, v in entries]
+                if not np.isfinite(values).all() or min(values) < 0:
+                    raise RuntimeError("invalid GPU timestamp interval")
+                timings[mode] = {
+                    "prepare_ms": values[0],
+                    "first_draw_readback_ms": values[1],
+                    "repeat_draw_readback_ms": values[2:],
+                }
                 arrays[mode] = np.fromfile(target, "<f4").reshape(HEIGHT, WIDTH, 4)
                 if (
                     not np.isfinite(arrays[mode]).all()
@@ -197,6 +215,7 @@ def main():
                     "unchanged": unchanged,
                     "source_index": index,
                     "light_count": count,
+                    "submission_gpu": timings,
                 }
             )
             if material == "opaque" and name == "last":

@@ -43,13 +43,19 @@ speichert die drei linearen Bilder, normale Tests schreiben keine Referenzbilder
 
 `receipt.json` trennt Archiv-/Headerpaar, Quellen-/Capturehashes, terminale Befehle
 und Prozess-/IO-Wallzeiten. Letztere sind keine GPU-/Framezeiten. Der native
-Device-Versuch liefert keine Raster-/Submission-Timestamps auf dem gepaarten Host.
+Device-Versuch verlangt das passende neue Device-Archiv mit Submission-GPU-Zeit.
+Er misst die Vorbereitung getrennt sowie eine erste und drei wiederholte identische
+Draw-/Readback-Submissions. Dieser GPU-Scope umfasst Raster und Bildkopie, keine
+Pipelineerzeugung, CPU-Arbeit oder vollständigen Frames. Fehlende Timestamps
+führen zum Fehler; Fence-Wartezeit ersetzt sie nicht. Die wenigen Wiederholungen
+belegen kein p99 oder Framebudget. Gleichzeitige Host-/GPU-Last wird im Beleg genannt.
 Der Engine-Hosttest verwendet den jeweils vollständig passenden Bibliotheks-/
 Header-/Shaderstand; seine vorhandene Renderer-Backendversion wird ausdrücklich
 benannt. Der native Rendererport #328 wird nicht parallel umgesetzt.
 
 Quellenarbeit: höchstens eine quellenbezogene Schattenabfrage pro Fragment, gegenüber
 allen gerichteten Lichtquellen zuvor. Das ist eine Aussage über den Shaderquelltext;
-Compiler-Hoisting/ tatsächliche Texturarbeit und GPU-Dauer bleiben getrennt zu messen.
+Compiler-Hoisting und tatsächliche Texturarbeit folgen daraus nicht. Die gemessene
+GPU-Submission ist ein eigener, größerer Scope.
 Keine neuen Produktpuffer/-sampler/-pässe. Volle Places, Frame/p99, A18 und sämtliche
 Schatten anderer Lichtquellen bleiben eigene Abnahmen.
