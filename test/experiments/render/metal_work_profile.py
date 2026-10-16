@@ -17,6 +17,23 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "test/harness/render/MetalWorkProfile.mm"
 
 
+def compiler_command():
+    records = json.loads((ROOT / "compile_commands.json").read_text())
+    record = next(row for row in records
+                  if Path(row["file"]).name == "MetalCommands.mm")
+    flags = record.get("arguments") or shlex.split(record["command"])
+    command = []
+    skip = False
+    for flag in flags:
+        if skip:
+            skip = False
+        elif flag == "-o":
+            skip = True
+        elif flag != "-c" and Path(flag).resolve() != Path(record["file"]).resolve():
+            command.append(flag)
+    return command
+
+
 def parse_records(text):
     passes = {}
     work = []
@@ -114,13 +131,7 @@ def main():
         "nice",
         "-n",
         "10",
-        *shlex.split(os.environ.get("CXX", "c++")),
-        "-std=c++23",
-        "-Wall",
-        "-Wextra",
-        "-Wpedantic",
-        "-Werror",
-        "-fobjc-arc",
+        *compiler_command(),
         "-dynamiclib",
         str(SOURCE),
         "-framework",

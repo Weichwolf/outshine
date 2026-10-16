@@ -58,7 +58,7 @@ SceneRenderer::CreateAtmosphereLut(FrameResources &frame, const Compiled &plan, 
     std::unique_ptr<Native::Texture> *Into;
   };
 
-  const Shape shape = [&frame, resource]() -> Shape {
+  const Shape shape = [&frame, resource] -> Shape {
     switch (resource) {
       case Resource::MultiScatterLut:
         return {.Width = kMultiScatterLutSize,

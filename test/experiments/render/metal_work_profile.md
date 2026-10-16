@@ -4,6 +4,8 @@ This diagnostic instruments the native Metal backend through an injected local l
 It does not replace the renderer, alter shaders or change generated assets. Build the
 native client first. Command Line Tools and an Apple GPU with stage-boundary timestamp
 sampling are required; Xcode is not required.
+Compiler, language, warnings and Objective-C flags come from the native Metal unit in
+`compile_commands.json`; prepare it with `make db` using the repository toolchain.
 
 ```sh
 python3 test/experiments/render/metal_work_profile.py \
