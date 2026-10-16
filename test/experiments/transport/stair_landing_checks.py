@@ -74,6 +74,13 @@ class LandingPolicy(unittest.TestCase):
             ledger[0]["reason"], "whole_profiles_already_supported_by_neighbours"
         )
 
+    def test_real_box_recipe_is_rejected_for_two_unplanned_band_overlaps(self):
+        _, rows, nodes, stairs, _, _ = load(CORNER)
+        pads, _ = complete_landings(rows, nodes, stairs, method="profile_box")
+        self.assertEqual(len(pads), 9)
+        with self.assertRaisesRegex(ValueError, "non-axis band overlap"):
+            interactions(rows, nodes)
+
     def test_whole_shared_edge_requires_matching_actual_owned_surface_heights(self):
         rows, nodes, _ = toy()
         rows[0]["xy"] = np.array([[-2, 0], [0, 0]], float)
