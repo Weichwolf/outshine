@@ -152,7 +152,10 @@ class IndustrialRoofs(unittest.TestCase):
             p = attributes(row["properties"])
             with patch("tile_room_details.candidates", return_value=(set(), {})):
                 owner = FacadeDetails([row, *neighbors], view_for(row))
-            mesh, info = owner(row, p, 1)
+            # This control preserves the exterior-only roof stream. Hollow-hall CSG
+            # intentionally retriangulates/reorders it; its physical/UV check is separate.
+            with patch("tile_industrial_halls.HallDetails.__call__", return_value=None):
+                mesh, info = owner(row, p, 1)
             self.assertIn(info["roof_kind"], KINDS)
             self.assertEqual(info["roof_section"], metadata(row, choose(row, p)))
             self.assertTrue(info["facade_plan"])
