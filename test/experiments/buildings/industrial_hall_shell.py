@@ -42,9 +42,9 @@ def cuts(plan, material):
     return result
 
 
-def structure(plan, envelope, material):
+def structure(plan, envelope, material, *, extra_cuts=()):
     shell = subtract_prisms(
-        plan["id"] + ":roof-envelope", envelope, cuts(plan, material)
+        plan["id"] + ":roof-envelope", envelope, [*cuts(plan, material), *extra_cuts]
     )
     raw = dict(shell.mesh)
     points = raw["vertices"][raw["faces"]]

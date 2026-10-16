@@ -27,3 +27,8 @@ peak RSS approximately 13.6 versus 1181 MiB. Both resolved the same 66 descripto
 The descriptors average about 114 bytes; this does not predict real recipe sizes
 or geometry generation costs. Real consumers, dependency failures/versioning and
 bounded residency are required before selecting the production contract.
+
+The isolated typed recipe graph and real source-hall consumer are documented in
+[recipe_graph.md](recipe_graph.md) (#494). It uses two small actual definitions
+and keeps trusted domain solvers behind typed ports. This does not replace the
+capacity/index experiment or admit the shared/native/cache contract in #483.
