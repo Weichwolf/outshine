@@ -17,8 +17,8 @@ from stair_cycle_contacts import contacts
 from stair_cycle_inputs import FIXTURE, load
 from stair_network_geometry import interactions, vertex_links
 from stair_outer_context import catalog
-from stair_outer_experiment import cameras
 from stair_outer_geometry import outer_ends
+from stair_terrain_display import overview_span
 from stair_terrain_experiment import PALETTE, frozen
 
 
@@ -48,7 +48,16 @@ def base(args):
 
 
 def presentation(args, rows, body, terrain, roles):
-    cameras(args, body.vertices)
+    overview = args.output / "after/overview-scene.json"
+    wide = json.loads(overview.read_text())
+    center = (body.vertices.min(axis=0) + body.vertices.max(axis=0)) / 2
+    wide.update(
+        target=center.tolist(),
+        eye=(center + [600, -800, 650]).tolist(),
+        detail_view=False,
+    )
+    wide["span_m"] = overview_span(wide, [body])
+    overview.write_text(json.dumps(wide, indent=2) + "\n")
     target = np.r_[np.mean(rows[-1]["xy"], axis=0), np.mean(body.vertices[:, 2])]
     diagnostic = args.output / "after/diagnostic-scene.json"
     row = json.loads(diagnostic.read_text())
