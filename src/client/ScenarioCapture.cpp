@@ -33,7 +33,6 @@ namespace {
 constexpr double kMaximumCaptureTimeS = 3600.0;
 constexpr double kPreloadBudgetS = 30.0;
 constexpr double kRefinedPreloadBudgetS = 120.0;
-constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 constexpr double kBytesPerMiB = 1024.0 * 1024.0;
 constexpr unsigned kAllRouteFields = 31u;
 constexpr size_t kRouteMarkCount = 10;
@@ -42,6 +41,17 @@ struct MotionSchedule {
   size_t Ticks = 0;
   double StepS = 0.0;
 };
+
+[[nodiscard]] Result ValidateCaptureOptions(const ScenarioCaptureOptions &options) {
+  if (options.View.empty() || options.Name.empty() || options.Into.empty() ||
+      !std::isfinite(options.AtS) || options.AtS < 0.0 || options.AtS > kMaximumCaptureTimeS) {
+    return std::unexpected("capture needs a view, output name/folder and time in [0,3600] s");
+  }
+  if (options.SampleImages && !options.RenderMotion) {
+    return std::unexpected("route samples require motion capture");
+  }
+  return {};
+}
 
 struct MotionState {
   double StationM = 0.0;
@@ -284,15 +294,14 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
   frames.reserve(schedule.Ticks);
   frameMs.reserve(schedule.Ticks);
   HeapProbe::ForgetPeak();
-  FramePacer pacer(static_cast<std::uint64_t>(
-      std::ceil(std::max(schedule.StepS, 1.0 / kFrameRateHz) * kNanosecondsPerSecond)));
+  FramePacer pacer(result.Timing.DeadlineNs(1));
   size_t nextMark = 0;
   const auto previousCamera = ReadSubmittedCamera(engine);
   double previousCameraSerial = previousCamera ? previousCamera->Serial : 0.0;
   for (size_t tick = 0; tick < schedule.Ticks; ++tick) {
     pacer.Wait();
     const auto began = std::chrono::steady_clock::now();
-    if (const auto advanced = engine.advance(); !advanced) {
+    if (const auto advanced = engine.advance(schedule.StepS); !advanced) {
       return std::unexpected(Refusal("motion advance", advanced.error()));
     }
     const auto route = ReadMotionState(engine);
@@ -326,7 +335,7 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
     RecordRoadContact(result, *contact);
     frames.push_back(frame);
     frameMs.push_back(advanceMs + renderMs);
-    result.OverBudget += frameMs.back() > kFrameBudgetMs ? 1u : 0u;
+    result.OverBudget += frameMs.back() > result.Timing.BudgetMs() ? 1u : 0u;
     result.Unsettled += settled ? 0u : 1u;
     if (sampleImages) {
       if (const auto saved =
@@ -376,7 +385,7 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
                                                             bool isRoute,
                                                             bool awaitRefined,
                                                             ScenarioCaptureResult &result) {
-  FramePacer pacer;
+  FramePacer pacer(static_cast<std::uint64_t>(std::ceil(schedule.StepS * kNanosecondsPerSecond)));
   for (size_t tick = 0; tick < schedule.Ticks; ++tick) {
     pacer.Wait();
     if (const auto advanced = engine.advance(); !advanced) {
@@ -397,25 +406,24 @@ WriteMotionTrace(std::string_view path, std::span<const MotionFrame> frames) {
 
 std::expected<ScenarioCaptureResult, std::string>
 CaptureScenarioView(Engine &engine, const ScenarioCaptureOptions &options) {
-  if (options.View.empty() || options.Name.empty() || options.Into.empty() ||
-      !std::isfinite(options.AtS) || options.AtS < 0.0 || options.AtS > kMaximumCaptureTimeS) {
-    return std::unexpected("capture needs a view, output name/folder and time in [0,3600] s");
+  if (const auto valid = ValidateCaptureOptions(options); !valid) {
+    return std::unexpected(valid.error());
   }
-  if (options.SampleImages && !options.RenderMotion) {
-    return std::unexpected("route samples require motion capture");
-  }
+  const auto timing = FrameTiming::At(engine.declaration().Render.FrameRateHz);
+  if (!timing) { return std::unexpected(timing.error()); }
   if (const auto ready = engine.preload(kPreloadBudgetS); !ready) {
     return std::unexpected(Refusal("initial world preload", ready.error()));
   }
   if (const auto selected = engine.setView(options.View); !selected) {
     return std::unexpected(Refusal("view selection", selected.error()));
   }
-  const double stepS = engine.stepSeconds();
+  const double stepS = options.RenderMotion ? 1.0 / timing->RateHz : engine.stepSeconds();
   if (!std::isfinite(stepS) || stepS <= 0.0) {
     return std::unexpected("capture requires a finite positive simulation step in seconds");
   }
   const auto ticks = static_cast<size_t>(std::max(1.0, std::ceil(options.AtS / stepS)));
   ScenarioCaptureResult result;
+  result.Timing = *timing;
   result.SimTimeS = static_cast<double>(ticks) * stepS;
   const auto route = PrepareCapturePath(engine, options.View, result.SimTimeS);
   if (!route) { return std::unexpected(route.error()); }
