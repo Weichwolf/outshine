@@ -21,7 +21,6 @@ constexpr std::array<float, 3> kAlongM{500.0f, 1600.0f, 4500.0f};
 constexpr std::array<Pixel, 3> kLit{Pixel{0.8f, 0.2f, 0.1f, 0.25f},
                                     Pixel{0.2f, 0.7f, 0.9f, 0.5f},
                                     Pixel{0.9f, 0.85f, 0.25f, 0.75f}};
-constexpr Pixel kSky{0.035f, 0.05f, 0.075f, 0.125f};
 
 Scissor Band(Viewport area, size_t index) {
   constexpr std::array<float, 3> left{0.03f, 0.36f, 0.70f};
@@ -84,12 +83,14 @@ void Targets::Scene(Commands &commands,
                     const GraphicsPipeline &pipeline,
                     const Case &scenario) const {
   const std::array colours{
-      ColourAttachment{.Image = {.Image = Inputs_[0].get()}, .Begin = Load::Clear, .Clear = kSky}};
+      ColourAttachment{.Image = {.Image = Inputs_[0].get()},
+                       .Begin = Load::Clear,
+                       .Clear = scenario.BoundarySky ? scenario.Boundary : kCloudViewBoundary}};
   Require(commands.BeginRenderPass(
       {.Colours = colours,
        .Depth = DepthAttachment{.Image = {.Image = Inputs_[1].get()}, .Begin = Load::Clear}}));
   const auto projection = scenario.View.Projection.Projection();
-  for (size_t index = 0; index < kAlongM.size(); ++index) {
+  for (size_t index = 0; !scenario.SkyOnly && index < kAlongM.size(); ++index) {
     const float distanceM = kAlongM[index];
     const Vec4f clip{{(projection[14] - projection[10] * distanceM) /
                           (projection[15] - projection[11] * distanceM),

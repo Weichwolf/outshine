@@ -62,6 +62,10 @@ Er konsumiert den integrierten klaren Kern aus #233 und kombiniert die lokalen
 Wolken-/Luftkoeffizienten auf einer festen gemeinsamen Partition. Referenzen,
 Reproduktion und offene Bild-/Integrationsgrenzen stehen beim verlinkten Verfahren.
 
+Der [native Boundary-Sky-Verbraucher](cloud_sky_raster.md) integriert dieselben
+Medien bis zur physischen Himmelsgrenze. Sein ausdrücklich gewählter
+Grenzradiance-Vertrag erhält den bisherigen bereits integrierten Eye-Sky-Modus.
+
 ## Native Wetterdaten
 
 Der [native Open-Meteo-Decoder](native_forecast.md) überträgt die bestätigten
