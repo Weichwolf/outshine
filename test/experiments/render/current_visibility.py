@@ -113,7 +113,9 @@ def box_bounds(boxes, view):
     return lo, hi, nearest, safe, visible, z.min(axis=1)
 
 
-def occluded(lo, hi, nearest, safe, depth, level_count=4):
+def occluded(
+    lo, hi, nearest, safe, depth, level_count=4, absolute_bias=1e-6, relative_bias=0.0
+):
     height, width = depth.shape
     lo = np.clip(lo, (0, 0), (width, height))
     hi = np.clip(hi, (0, 0), (width, height))
@@ -139,7 +141,12 @@ def occluded(lo, hi, nearest, safe, depth, level_count=4):
                 active = (p <= end).all(axis=1)
                 value = image[np.minimum(p[:, 1], h - 1), np.minimum(p[:, 0], w - 1)]
                 farthest = np.minimum(farthest, np.where(active, value, 1))
-        hidden[selected] = tested & (nearest[selected] + 1e-6 < farthest)
+        hidden[selected] = tested & (
+            nearest[selected]
+            + absolute_bias
+            + np.abs(nearest[selected]) * relative_bias
+            < farthest
+        )
     return hidden
 
 
