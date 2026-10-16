@@ -11,26 +11,20 @@ from pathlib import Path
 import bpy
 import numpy as np
 from grass_light_preview import mesh_object, setup, sheet
-from leaf_stack_cases import IRRADIANCE, REFLECTION, VIEW, patch_geometry
+from leaf_stack_cases import IRRADIANCE, REFLECTION, VIEW, reflection_control_geometry
 from mathutils import Vector
 from PIL import Image
 from preview_shadows import configure_preview
 
 
-def control_geometry():
-    receivers = [patch_geometry(0, y) for y in (-0.25, 0.25)]
-    v, f = patch_geometry(0.1, 0.25)
-    v[:, 2] = np.sign(v[:, 2]) * 0.015 - 0.1 / np.sqrt(3)
-    return receivers, (v, f)
-
-
-def run(output):
+def run(output, clip_end):
     if output.exists():
         raise ValueError("fresh opaque-shadow control directory required")
     output.mkdir(parents=True)
     scene = setup(VIEW)
+    scene.camera.data.clip_end = clip_end
     mat = sheet("ordinary opaque Lambert receiver", REFLECTION)
-    receivers, occluder = control_geometry()
+    receivers, occluder = reflection_control_geometry()
     for i, (v, f) in enumerate(receivers):
         mesh_object(f"receiver {i}", v, f, mat)
     mesh_object("opaque blocker outside camera centre rays", *occluder, mat)
@@ -61,6 +55,7 @@ def run(output):
         rows.append(
             {
                 "shadows": shadows,
+                "clip_end_m": clip_end,
                 "measured_rgb": np.array(means).tolist(),
                 "expected_rgb": desired.tolist(),
                 "max_error": float(abs(np.array(means) - desired).max()),
@@ -77,7 +72,9 @@ def run(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    run(parser.parse_args().output)
+    parser.add_argument("--clip-end", type=float, default=1000)
+    args = parser.parse_args()
+    run(args.output, args.clip_end)
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)

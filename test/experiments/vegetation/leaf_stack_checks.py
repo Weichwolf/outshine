@@ -5,10 +5,29 @@ import unittest
 import numpy as np
 from grass_shadow import GrassShadowIndex, query_origins
 from grass_shadow_reference import direct_visibility
-from leaf_stack_cases import CASES, LIGHT, case_parts, full_geometry, receiver_points
+from leaf_stack_cases import (
+    CASES,
+    LIGHT,
+    VIEW,
+    case_parts,
+    full_geometry,
+    receiver_points,
+    reflection_control_geometry,
+)
 
 
 class LeafStackChecks(unittest.TestCase):
+    def test_reflection_control_shadow_is_outside_camera_centre_rays(self):
+        _, (v, f) = reflection_control_geometry()
+        points = np.array(
+            [(0, y, z) for y in (-0.25, 0.25) for z in (-0.004, 0, 0.004)]
+        )
+        light = np.array((VIEW[0], 0, -VIEW[2]))
+        exact, _ = direct_visibility(v, f, points, light, np.ones(6))
+        np.testing.assert_array_equal(exact, [True] * 3 + [False] * 3)
+        camera, _ = direct_visibility(v, f, points, VIEW, np.ones(6))
+        self.assertTrue(camera.all())
+
     def test_exact_opaque_visibility_at_every_gap_and_winding(self):
         vertices, faces = full_geometry()
         points = receiver_points()

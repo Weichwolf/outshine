@@ -55,3 +55,10 @@ def full_geometry():
 
 def receiver_points():
     return np.array([(0, (i - 4) * 0.14, 0) for i in range(len(CASES))], float)
+
+
+def reflection_control_geometry():
+    receivers = [patch_geometry(0, y) for y in (-0.25, 0.25)]
+    v, f = patch_geometry(0.1, 0.25)
+    v[:, 2] = np.sign(v[:, 2]) * 0.015 - 0.1 / np.sqrt(3)
+    return receivers, (v, f)
