@@ -15,8 +15,11 @@ def validate(stations, lower, upper, rate):
         or not 2 <= n <= 256
         or lower.shape != (n,)
         or upper.shape != (n,)
-        or rate.shape != (2,)
-        or rate[0] > rate[1]
+        or rate.shape not in ((2,), (n - 1, 2))
+        or np.any(
+            np.asarray(rate).reshape(-1, 2)[:, 0]
+            > np.asarray(rate).reshape(-1, 2)[:, 1]
+        )
         or not all(np.isfinite(a).all() for a in (stations, lower, rate))
         or np.any(np.isnan(upper))
         or np.any(np.isneginf(upper))
@@ -25,7 +28,7 @@ def validate(stations, lower, upper, rate):
         raise ValueError(
             "finite bounded increasing chain and ordered derivative interval required"
         )
-    return stations, lower, upper, rate
+    return stations, lower, upper, np.broadcast_to(rate, (n - 1, 2))
 
 
 def audit(stations, lower, upper, rate, result):
@@ -33,11 +36,12 @@ def audit(stations, lower, upper, rate, result):
         return {"valid": False, "reason": "absent_or_nonfinite_profile"}
     delta = np.diff(result)
     ds = np.diff(stations)
+    rate = np.broadcast_to(rate, (len(ds), 2))
     error = max(
         float(np.max(lower - result)),
         float(np.max(result - upper)),
-        float(np.max(rate[0] * ds - delta)),
-        float(np.max(delta - rate[1] * ds)),
+        float(np.max(rate[:, 0] * ds - delta)),
+        float(np.max(delta - rate[:, 1] * ds)),
     )
     return {
         "valid": error <= 1e-8,
@@ -64,9 +68,9 @@ def solve(stations, lower, upper, rate, *, method="chain", seconds=2):
     if method == "chain":
         result = lower.copy()
         for i in range(n - 1):
-            result[i + 1] = max(result[i + 1], result[i] + rate[0] * ds[i])
+            result[i + 1] = max(result[i + 1], result[i] + rate[i, 0] * ds[i])
         for i in range(n - 2, -1, -1):
-            result[i] = max(result[i], result[i + 1] - rate[1] * ds[i])
+            result[i] = max(result[i], result[i + 1] - rate[i, 1] * ds[i])
         work = {
             "relaxations": 2 * (n - 1),
             "owned_array_bytes": result.nbytes,
@@ -80,7 +84,7 @@ def solve(stations, lower, upper, rate, *, method="chain", seconds=2):
         columns = np.tile(np.c_[np.arange(n - 1), np.arange(1, n)].ravel(), 2)
         values = np.r_[np.tile([-1.0, 1.0], n - 1), np.tile([1.0, -1.0], n - 1)]
         matrix = sparse.csc_matrix((values, (rows, columns)), shape=(2 * (n - 1), n))
-        rhs = np.r_[rate[1] * ds, -rate[0] * ds]
+        rhs = np.r_[rate[:, 1] * ds, -rate[:, 0] * ds]
         answer = linprog(
             weights,
             A_ub=matrix,
