@@ -19,6 +19,9 @@ terrain by distance or projected coverage produces modest savings; full native
 cost and first-frame reliability remain unknown. Normal cones are safe in the
 measured CPU cases but reject little, especially in Vienna. Compare representation
 and spatially adaptive geometric detail next; keep shading detail independent.
+The subsequent [local patch comparison](terrain_patch_lod.md) cuts the same
+one-pixel all-resident geometry by 45–51%; it supports a bounded native prototype,
+with shading and actual GPU acceptance still open.
 
 ## Conservative lower envelopes
 
