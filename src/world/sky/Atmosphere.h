@@ -370,13 +370,10 @@ template <typename ToSun, typename Psi>
   return irradiance;
 }
 
-[[nodiscard]] inline Vec3f MediumTransmittance(const Medium &medium, MediumLook look, int steps) {
+[[nodiscard]] inline Vec3f
+MediumTransmittanceOver(const Medium &medium, MediumLook look, float span, int steps) {
   const float radiusKm = look.RadiusKm;
   const float cosZenith = look.CosZenith;
-  const float toGround = mediumGroundReach(medium, radiusKm, cosZenith);
-  const float toTop = mediumTopReach(medium, radiusKm, cosZenith);
-  const float span = toGround < 0.0f ? toTop : std::fmin(toTop, toGround);
-
   if (steps <= 0 || span <= 0.0f) { return {1.0f, 1.0f, 1.0f}; }
   const int cells = steps / 2;
   float focus = 0.0f;
@@ -420,6 +417,19 @@ template <typename ToSun, typename Psi>
     out[channel] = static_cast<float>(std::exp(-depth[channel]));
   }
   return out;
+}
+
+[[nodiscard]] inline Vec3f
+MediumTransmittanceToTop(const Medium &medium, MediumLook look, int steps) {
+  return MediumTransmittanceOver(
+      medium, look, mediumTopReach(medium, look.RadiusKm, look.CosZenith), steps);
+}
+
+[[nodiscard]] inline Vec3f MediumTransmittance(const Medium &medium, MediumLook look, int steps) {
+  const float toGround = mediumGroundReach(medium, look.RadiusKm, look.CosZenith);
+  const float toTop = mediumTopReach(medium, look.RadiusKm, look.CosZenith);
+  return MediumTransmittanceOver(
+      medium, look, toGround < 0.0f ? toTop : std::fmin(toTop, toGround), steps);
 }
 
 inline constexpr double kSolarIlluminanceLx = 133000.0;
