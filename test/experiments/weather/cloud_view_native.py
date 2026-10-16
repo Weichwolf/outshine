@@ -55,7 +55,10 @@ def main():
     parser.add_argument("--view-samples", type=int, choices=range(1, 65), default=16)
     parser.add_argument("--light-samples", type=int, choices=range(1, 33), default=6)
     parser.add_argument("--warp", type=int, choices=(1, 2), default=1)
-    parser.add_argument("--boundary-sky", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--boundary-sky", action="store_true")
+    mode.add_argument("--cumulus-sky", action="store_true")
+    mode.add_argument("--stratus-sky", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -135,7 +138,9 @@ def main():
         "CLOUD_VIEW_SAMPLES": args.view_samples,
         "CLOUD_LIGHT_SAMPLES": args.light_samples,
         "CLOUD_VIEW_WARP": args.warp,
-        "CLOUD_VIEW_BOUNDARY_SKY": int(args.boundary_sky),
+        "CLOUD_VIEW_BOUNDARY_SKY": int(
+            args.boundary_sky or args.cumulus_sky or args.stratus_sky
+        ),
     }
     for source in SHADERS:
         target = output / (Path(source).name + ".spv")
@@ -163,7 +168,15 @@ def main():
             binary,
             *shader_paths,
             output / "actual",
-            *([43, 31, "all", "boundary-sky"] if args.boundary_sky else []),
+            *(
+                [43, 31, "all", "cumulus-sky"]
+                if args.cumulus_sky
+                else [43, 31, "all", "stratus-sky"]
+                if args.stratus_sky
+                else [43, 31, "all", "boundary-sky"]
+                if args.boundary_sky
+                else []
+            ),
         ],
         "actual",
     )
@@ -186,6 +199,8 @@ def main():
                 "src/render/shaders/mediumOpaque.glsl",
                 "test/experiments/weather/cloud_air_prefix.glsl",
                 "test/experiments/weather/cloud_view_boundary.glsl",
+                "src/generators/weather/shaders/cloudLayer.glsl",
+                "src/generators/weather/shaders/cloudCumulus.glsl",
             )
         },
         parameters=definitions,
