@@ -16,10 +16,10 @@ from structural_shell_geometry import NativeColumns, assembly, inspect_poses, na
 from tile_room_details import corner_buffers, numeric_properties
 from verify_structural_shell import access
 from verify_terraces import circulation
-from verify_vertical import landing_poses
+from verify_vertical import connected_spaces, landing_poses
 
 
-def planned(row, profile="legacy"):
+def planned(row, profile="legacy", *, near_products=None):
     height = float(row["properties"]["render_height"])
     began = time.perf_counter()
     plan = build(
@@ -38,7 +38,9 @@ def planned(row, profile="legacy"):
 
         _, _, complete, _ = exterior(current, 1)
         geometry(current, complete)
-        near(current, 1)
+        product = near(current, 1)
+        if near_products is not None:
+            near_products[:] = product
 
     try:
         result = choose(plan, validate=detail_clearance, profile=profile)
@@ -68,14 +70,23 @@ def planned(row, profile="legacy"):
     return result
 
 
-def plan_for(row, profile="legacy"):
+def plan_for(row, profile="legacy", *, _near_products=None):
     try:
         with np.errstate(divide="raise", invalid="raise", over="raise"):
-            return planned(row, profile)
+            return planned(row, profile, near_products=_near_products)
     except (FloatingPointError, RuntimeWarning) as error:
         raise ValueError(
             "Source stepped planning rejected numeric geometry: " + str(error)
         ) from error
+
+
+def plan_and_near(row, profile="legacy"):
+    products = []
+    plan = plan_for(row, profile, _near_products=products)
+    if len(products) != 4:
+        raise ValueError("Selected source plan has no validated near product")
+    connected_spaces(plan)
+    return plan, tuple(products)
 
 
 def layers(plan, wall_material=1):

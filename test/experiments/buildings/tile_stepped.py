@@ -3,9 +3,11 @@
 import numpy as np
 import shapely
 from provider_contract import attributes
+from stepped_facade_details import demand as facade_demand
+from stepped_facade_details import opening_records, present
 from stepped_form_profiles import profile_for
 from stepped_openings import apply as opening_patches
-from stepped_source import exterior, near, plan_for
+from stepped_source import exterior, plan_and_near
 from tile_facades import FacadeDetails
 from tile_room_details import numeric_properties
 
@@ -70,13 +72,14 @@ class SteppedDetails:
         self.completed = []
         self.rejected = []
         self.plans = {}
+        self.view = view
 
     def __call__(self, row, parameters, material):
         if row["id"] in self.selected:
             try:
-                plan = plan_for(row, profile_for(row["id"]))
-                _, proof, paths, _ = near(plan, material)
-                mesh, _envelope, _guard, comparison = exterior(plan, material)
+                plan, (detail, proof, paths, _light) = plan_and_near(
+                    row, profile_for(row["id"])
+                )
                 self.plans[row["id"]] = plan
                 key = (material, 1.0, 1.0)
                 if key not in self.facades.palette:
@@ -87,7 +90,24 @@ class SteppedDetails:
                         "fractions": [1.0, 1.0],
                         "filtered": True,
                     }
-                mesh, openings = opening_patches(plan, mesh, self.facades.palette[key])
+                try:
+                    resolved, presentation = facade_demand(plan, self.view)
+                    if resolved:
+                        mesh = present(detail, material, self.facades.palette[key])
+                        openings = opening_records(plan)
+                        comparison = "validated-near-assembly"
+                    else:
+                        mesh, _envelope, _guard, comparison = exterior(plan, material)
+                        mesh, openings = opening_patches(
+                            plan, mesh, self.facades.palette[key]
+                        )
+                    presentation["mode"] = "near" if resolved else "compact"
+                except (ValueError, shapely.errors.GEOSException) as error:
+                    mesh, _envelope, _guard, comparison = exterior(plan, material)
+                    mesh, openings = opening_patches(
+                        plan, mesh, self.facades.palette[key]
+                    )
+                    presentation = {"mode": "compact-fallback", "reason": str(error)}
                 record = {
                     "id": row["id"],
                     "storeys": plan["storeys"],
@@ -97,6 +117,7 @@ class SteppedDetails:
                     "access": proof,
                     "terrace_mesh_paths": paths,
                     "exterior_method": comparison,
+                    "facade_presentation": presentation,
                     "openings": openings,
                     "triangles": len(mesh["faces"]),
                     "scope": "Complete stepped outer product from usable generic room/core plan; actual native player/frame and use programme remain unproved",

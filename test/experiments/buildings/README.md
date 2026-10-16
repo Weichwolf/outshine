@@ -776,3 +776,62 @@ full-plan admission path remains the verified implementation. Its seconds of
 room/clearance construction dominate these milliseconds; no whole-generator or
 frame speedup is inferred. Output arrays/coordinate observations, traced Python
 peak and GEOS exclusions are explicit in the benchmark.
+
+### Reuse validated stepped near assemblies (#460)
+
+`stepped_source.plan_and_near` returns the chosen plan and the exact physical
+near product already constructed by its successful validation callback. The
+final portal graph is checked after metadata completion. The previous
+`plan_for` result and default remain available. No global cache or second plan
+is introduced. The tile consumer reuses this product for resolved opening
+components or an inside-source view; otherwise it retains the compact exterior.
+
+`stepped_facade_details` uses the existing 0.5 px threshold and conservative
+0.25 m opening-component radius, motion and expanded frustum. A full near
+assembly additionally requires an opening width of at least 8 px, matching the
+existing bay full-detail class; inside-source views override this width limit. This component
+criterion is not an error bound for the entire interior/shadow/image LOD.
+Presentation accepts at most 512 logical openings and 65,536 near triangles;
+a local presentation failure records a compact fallback without discarding
+the valid stepped source. Near products contain the existing complete simple
+rooms and stairs, so their drawing cost exceeds the compact hull. Native/device
+admission and a more selective exterior product remain separate work.
+
+Presentation shares complete position/index/normal buffers with the validated product.
+Projection still materializes its selected glass triangles; those temporary
+copies are distinct from result-buffer sharing.
+Metric glass UVs use the existing gravity projection; the existing opaque
+procedural full-glass facade binding gives consistent exterior diagnostics.
+This does not admit transparent or illuminated interiors. Walls retain the
+supplied parent material; no shader/material parameter owner changes.
+
+Run `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest verify_stepped_facade_details verify_facade_bands verify_stepped_contours verify_place_scene verify_flat_places -q`.
+Freeze source, run `stepped_facade_probe.py --output <system-temp>`, then render
+its geometry JSONs using shared `blender_city.py`. It compares identical sources,
+rooms and cameras at whole/opposite/close/far scales; source fixture from #442.
+`stepped_facade_sections.py --output <system-temp>` cuts the exact original
+compact/physical triangles horizontally and vertically through one window with
+a sill and one terrace window without it. Local AABB filtering only limits plot
+candidates; it does not rebuild a facade or weld component vertices.
+`stepped_product_cost.py --case 0 --method reuse --repeats 3 --output <json>`
+compares the identical retained physical product against `--method rebuild`;
+repeat both methods for case 2. Counts cover successful owned near-result arrays,
+not failed candidates, backend allocations or all temporary UV arrays.
+
+Frozen runtime `3e0e80b6c`: 40 source controls and 28 installed-wheel controls
+pass without skips. The unchanged wheel's 79 building modules match the source
+exactly. Final Paris has the same 988 sources and all mesh arrays/dtypes, camera
+and material bindings as #442: 332,807 triangles, all four stepped hosts compact.
+Source/procedure fields match except measured build times and the added demand
+report. Whole/close/opposite physical study inputs are exact to the actual
+1920×1080 images produced on `c9e1c651a`; those images are retained with their
+original production receipts, not relabelled as new renders. The radius-only
+515,351-triangle city trial remains a rejected overdetail cost comparison.
+
+Three nonisolated normal-priority runs per method/source have byte-identical
+physical results. Source 0 saves one assembly and 8,393,264 owned result bytes;
+source 2 saves one assembly and 9,519,672 bytes. Local median elapsed times are
+28.286→21.010 s and 21.929→14.191 s respectively. Process peaks do not improve
+uniformly (253,040→263,432 KiB and 267,924→254,704 KiB); these small samples
+include concurrent host work and establish neither a device/frame budget nor
+a general peak-memory improvement. Native exterior adoption remains separate.
