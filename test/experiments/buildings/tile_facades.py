@@ -1,15 +1,13 @@
 """Context-scoped compact facade plans on existing complete source envelopes."""
 
 import hashlib
-import math
 import time
 from collections import Counter
 
 import mapbox_vector_tile
 import numpy as np
-import shapely
 from context import attach
-from outshine_ref.buildings.facades import FacadeRepeat
+from facade_axes import layout
 from recipes import choose
 from samples import SOURCES
 from tile_roof_envelopes import OrdinaryDetails
@@ -38,58 +36,35 @@ def project(mesh, row, parameters, fractions, axis_m, floor_m):
     )
     normals = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
     walls = abs(normals[:, 2]) < 1e-8
-    top = float(parameters.get("eave_m", parameters["buildingHeight"]))
     bottom = parameters["minHeight"]
-    height = top - bottom
-    rows = max(1, math.floor(height / floor_m + 0.5))
     uv = mesh["uv"][mesh["faces"]].copy()
     extent = np.zeros((len(triangles), 3, 3))
     assigned = np.zeros(len(triangles), dtype=bool)
     facades = []
-    polygon = shapely.orient_polygons(row["polygon"])
-    for ring in (polygon.exterior, *polygon.interiors):
-        for a, b in zip(list(ring.coords)[:-1], list(ring.coords)[1:], strict=True):
-            a, b = np.asarray(a), np.asarray(b)
-            delta = b - a
-            length = float(np.linalg.norm(delta))
-            if length == 0:
-                continue
-            tangent = delta / length
-            normal = np.array([tangent[1], -tangent[0]])
-            distance = (triangles[:, :, :2] - a) @ normal
-            along = (triangles[:, :, :2] - a) @ tangent
-            selected = (
-                walls
-                & ((normals[:, :2] @ normal) > 0.999999)
-                & (abs(distance).max(axis=1) < 1e-7)
-                & (along.min(axis=1) >= -1e-7)
-                & (along.max(axis=1) <= length + 1e-7)
-            )
-            if not selected.any():
-                continue
-            if np.any(assigned & selected):
-                raise ValueError("Facade triangle has multiple source boundary owners")
-            columns = max(1, math.floor(length / axis_m + 0.5))
-            repeat = FacadeRepeat(length, height, columns, rows, *fractions)
-            uv[selected, :, 0] = along[selected] / repeat.cell_size_m[0]
-            uv[selected, :, 1] = (
-                triangles[selected, :, 2] - bottom
-            ) / repeat.cell_size_m[1]
-            extent[selected] = [columns, rows, 0]
-            assigned |= selected
-            facades.append(
-                {
-                    "id": row["id"] + f"/facade-{len(facades)}",
-                    "a": a.tolist(),
-                    "b": b.tolist(),
-                    "width_m": length,
-                    "height_m": height,
-                    "columns": columns,
-                    "rows": rows,
-                    "fractions": list(fractions),
-                    "opening_count": repeat.opening_count,
-                }
-            )
+    for frame in layout(row, parameters, fractions, axis_m, floor_m):
+        a, b = np.asarray(frame["a"]), np.asarray(frame["b"])
+        length, height = frame["width_m"], frame["height_m"]
+        columns, rows = frame["columns"], frame["rows"]
+        tangent = (b - a) / length
+        normal = np.array([tangent[1], -tangent[0]])
+        distance = (triangles[:, :, :2] - a) @ normal
+        along = (triangles[:, :, :2] - a) @ tangent
+        selected = (
+            walls
+            & ((normals[:, :2] @ normal) > 0.999999)
+            & (abs(distance).max(axis=1) < 1e-7)
+            & (along.min(axis=1) >= -1e-7)
+            & (along.max(axis=1) <= length + 1e-7)
+        )
+        if not selected.any():
+            continue
+        if np.any(assigned & selected):
+            raise ValueError("Facade triangle has multiple source boundary owners")
+        uv[selected, :, 0] = along[selected] / (length / columns)
+        uv[selected, :, 1] = (triangles[selected, :, 2] - bottom) / (height / rows)
+        extent[selected] = [columns, rows, 0]
+        assigned |= selected
+        facades.append(frame | {"id": row["id"] + f"/facade-{len(facades)}"})
     if np.any(walls & ~assigned):
         raise ValueError("Exterior wall lacks a source facade frame")
     if not assigned.any():
