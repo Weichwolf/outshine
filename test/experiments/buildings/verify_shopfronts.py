@@ -83,7 +83,7 @@ def upper_triangles(mesh, height):
 
 class Shopfronts(unittest.TestCase):
     def assert_upper_surface(
-        self, before, after, frames, floor, *, excluded_cells=None
+        self, before, after, frames, floor, *, excluded_cells=None, ceiling=10000
     ):
         for frame in frames:
             basis, origin = basis_for(frame), np.r_[frame["a"], 0.0]
@@ -91,7 +91,7 @@ class Shopfronts(unittest.TestCase):
                 frame["width_m"] / frame["columns"],
                 frame["height_m"] / frame["rows"],
             ]
-            domain = shapely.box(0, floor, frame["width_m"], 10000).difference(
+            domain = shapely.box(0, floor, frame["width_m"], ceiling).difference(
                 shapely.union_all(
                     [
                         shapely.box(

@@ -116,6 +116,7 @@ class FacadeDetails:
         from facade_balconies import BalconyDetails
         from facade_entrances import EntranceDetails
         from facade_shopfronts import ShopfrontDetails
+        from facade_window_bays import WindowBayDetails
         from tile_facade_bands import BandDetails
 
         self.base = OrdinaryDetails(rows, view)
@@ -133,6 +134,8 @@ class FacadeDetails:
         self.shopfront_geometry = []
         self.balconies = BalconyDetails(self.entrances, door_states)
         self.balcony_geometry = []
+        self.bays = WindowBayDetails(self.entrances)
+        self.bay_geometry = []
 
     def __call__(self, row, parameters, material):
         before = self.base(row, parameters, material)
@@ -169,7 +172,7 @@ class FacadeDetails:
             projected["materials"][selected] = identifier
             entry = self.entrances.plan(row, parameters, facades, family)
             shopfront = self.shopfronts.plan(row, entry)
-            balconies = self.balconies.plan(row, entry, family)
+            bays, balconies, programme = self.projections(row, entry, family)
             from tile_facade_recess import attach as recesses
 
             projected, details, rejected = recesses(
@@ -185,11 +188,13 @@ class FacadeDetails:
                 shopfront=shopfront,
                 shop_material=lambda fractions: self.binding(material, fractions),
                 balconies=balconies,
+                bays=bays,
             )
             self.recesses.extend(
                 r
                 for r in details
-                if r.get("kind") not in ("entrance", "shopfront", "balcony")
+                if r.get("kind")
+                not in ("entrance", "shopfront", "balcony", "window_bay")
             )
             self.entrance_geometry.extend(
                 r for r in details if r.get("kind") == "entrance"
@@ -200,6 +205,9 @@ class FacadeDetails:
             self.recess_rejected.extend(rejected)
             self.balcony_geometry.extend(
                 r for r in details if r.get("kind") == "balcony"
+            )
+            self.bay_geometry.extend(
+                r for r in details if r.get("kind") == "window_bay"
             )
             projected = self.bands(
                 projected,
@@ -216,6 +224,7 @@ class FacadeDetails:
                 "family": family,
                 "origin": recipe["origin"],
                 "reason": recipe["reason"],
+                "facade_programme": programme,
                 "facades": facades,
                 "source_properties": row["properties"],
                 "site_use": recipe["site_use"],
@@ -226,15 +235,36 @@ class FacadeDetails:
             return projected, info | {
                 "facade_recipe": family,
                 "facade_origin": recipe["origin"],
+                "facade_programme": programme,
                 "facade_plan": facades,
                 "entrance_plan": self.entrances.planned[-1] if entry else None,
                 "shopfront_plan": self.shopfronts.planned[-1] if shopfront else None,
                 "balcony_plan": self.balconies.planned[-1] if balconies else None,
+                "window_bay_plan": self.bays.planned[-1] if bays else None,
                 "functional_status": "Exterior facade placeholder, source use unproven; actual rooms remain separate unresolved programme",
             }
         except ValueError as error:
             self.rejected.append({"id": row["id"], "reason": str(error)})
             return before
+
+    def projections(self, row, entry, family):
+        from provider_contract import seed_for
+
+        variant = seed_for(row["id"]) % 3
+        bays = (
+            self.bays.plan(row, entry, family, (1.0, 0.65)[variant])
+            if variant < 2
+            else None
+        )
+        balconies = self.balconies.plan(row, entry, family) if bays is None else None
+        programme = (
+            ("rectangular-bay-stack" if variant == 0 else "chamfered-bay-stack")
+            if bays
+            else "balcony-stacks"
+            if balconies
+            else "ordinary-repeat"
+        )
+        return bays, balconies, programme
 
     def binding(self, material, fractions):
         key = (material, *fractions)
@@ -266,5 +296,8 @@ class FacadeDetails:
             "balconies": self.balconies.planned,
             "balcony_geometry": self.balcony_geometry,
             "balcony_rejected": self.balconies.rejected,
-            "scope": "Context-scoped facades, bounded demanded recesses and neighbor-free profile bands; zero completed architecture families; existing constructed room controls untouched",
+            "window_bays": self.bays.planned,
+            "window_bay_geometry": self.bay_geometry,
+            "window_bay_rejected": self.bays.rejected,
+            "scope": "Context-scoped facades, exclusive balcony/window-bay programmes, bounded recesses and neighbor-free bands; zero completed architecture families; existing constructed room controls untouched",
         }

@@ -27,7 +27,10 @@ bool AddOccluder(outshine::Render::SceneRenderer &renderer, std::string &error) 
   }
   constexpr std::array<uint32_t, 36> indices{0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4,
                                              3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5};
-  return renderer.PlacePiece({.Verts = vertices, .Indices = indices}, error) != Render::kNoPiece;
+  Render::PieceMesh piece;
+  piece.Verts = vertices;
+  piece.Indices = indices;
+  return renderer.PlacePiece(piece, error) != Render::kNoPiece;
 }
 }
 
@@ -81,7 +84,7 @@ int main() {
     eye->ZNearM = 1;
     eye->ZFarM = 1000;
     scene->Eye(*eye);
-    renderer.SetShadowFrame({{0, 0.70710677f, 0.70710677f}}, {{0, 1, 0}}, 240000, true);
+    renderer.SetShadowFrame({{0, 0.70710677f, 0.70710677f}}, {{0, 1, 0}}, 240000, true, 0);
     renderer.CastsBelow(0);
     CHECK(scene->Draw(error), "receiver draws with no caster");
     renderer.WaitForGpu();

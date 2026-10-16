@@ -234,7 +234,10 @@ def generate(output):
 
 
 def run(output):
-    with patch("facade_balconies.BalconyDetails.plan", return_value=None):
+    with (
+        patch("facade_balconies.BalconyDetails.plan", return_value=None),
+        patch("facade_window_bays.WindowBayDetails.plan", return_value=None),
+    ):
         return generate(output)
 
 
