@@ -615,6 +615,7 @@ struct Engine::State {
   [[nodiscard]] bool
   UpdateSceneBodyTransform(size_t which, const Physics::Rigid &body, const Vec3 &shiftM);
   [[nodiscard]] bool PrepareRuntimeWorld();
+  [[nodiscard]] bool ConfigureDeclaredWeather();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool PollWeather();
   [[nodiscard]] Result ValidateDeclaredWeatherProviders(const Scenario::Document &scenario) const;

@@ -29,11 +29,7 @@ Result Engine::State::ValidateDeclaredWeatherProviders(const Scenario::Document 
   return {};
 }
 
-bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
-  if (providers.empty() && Session.Declared.Ground.Declared) {
-    const auto defaults = Generators::ShippedProviders();
-    providers.assign(defaults.begin(), defaults.end());
-  }
+bool Engine::State::ConfigureDeclaredWeather() {
   if (const auto &declared = Session.Declared.Weather; declared) {
     if (!World.DeclaredWeather || World.DeclaredWeatherRevision != Session.DeclarationRevision) {
       if (!Picture.Shown.UtcS) {
@@ -53,6 +49,15 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
     World.DeclaredWeather.reset();
     World.DeclaredWeatherRevision = 0;
   }
+  return true;
+}
+
+bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
+  if (providers.empty() && Session.Declared.Ground.Declared) {
+    const auto defaults = Generators::ShippedProviders();
+    providers.assign(defaults.begin(), defaults.end());
+  }
+  if (!ConfigureDeclaredWeather()) { return false; }
   if (providers.empty()) {
     World.Weather.reset();
     World.WeatherUtcS.reset();

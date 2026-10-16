@@ -161,7 +161,12 @@ def main():
         producer_commit=producer,
         archive_sha256=digest(archive),
         binary_sha256=digest(binary),
-        source_sha256={name: digest(ROOT / name) for name in sources + (INPUT,)},
+        source_sha256={
+            name: digest(ROOT / name)
+            for name in sources
+            + SHADERS
+            + (INPUT, "test/experiments/weather/CloudViewProbe.h")
+        },
         shaders={str(path): digest(path) for path in shaders},
         inputs=inputs,
         definitions=definitions,

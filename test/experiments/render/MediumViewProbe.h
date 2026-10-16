@@ -48,7 +48,7 @@ void UploadImage(Device &device,
                  Texture &texture,
                  std::span<const std::byte> bytes,
                  uint32_t rowBytes);
-[[nodiscard]] std::vector<Pixel> ReadImage(Device &device, Buffer &readback);
+[[nodiscard]] std::vector<Pixel> ReadImage(Device &device, Render::Native::Buffer &readback);
 
 struct ImageShape {
   uint32_t Width;
@@ -56,7 +56,8 @@ struct ImageShape {
   uint32_t RowBytes;
 };
 
-[[nodiscard]] std::vector<Pixel> ReadImage(Device &device, Buffer &readback, ImageShape shape);
+[[nodiscard]] std::vector<Pixel>
+ReadImage(Device &device, Render::Native::Buffer &readback, ImageShape shape);
 
 template <typename Value, typename Function>
 std::vector<std::byte> ImageBytes(ImageShape shape, Function value) {

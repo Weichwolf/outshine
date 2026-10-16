@@ -7,6 +7,7 @@
 #include "Check.h"
 
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -39,7 +40,7 @@ Scenario::Document Read(const char *path) {
   return scenario;
 }
 
-uint32_t Extent(const char *text) {
+uint32_t ReadExtent(const char *text) {
   constexpr uint32_t kMaximum = 8192;
   uint32_t value = 0;
   const std::string_view input(text);
@@ -59,8 +60,8 @@ int main(int argc, char **argv) {
                  "front.frag output-prefix scenario [width height]");
     return 2;
   }
-  const uint32_t width = argc == 9 ? Extent(argv[7]) : MediumViewProbe::kWidth;
-  const uint32_t height = argc == 9 ? Extent(argv[8]) : MediumViewProbe::kHeight;
+  const uint32_t width = argc == 9 ? ReadExtent(argv[7]) : MediumViewProbe::kWidth;
+  const uint32_t height = argc == 9 ? ReadExtent(argv[8]) : MediumViewProbe::kHeight;
   constexpr uint32_t kRowAlignment = 256;
   const MediumViewProbe::ImageShape shape{
       .Width = width,
