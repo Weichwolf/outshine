@@ -95,6 +95,12 @@ Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
 
+`geometry.weld_vertices` kanonisiert numerische Vertices mit begrenzter Vertex- und
+Paarkapazität und prüft die tatsächliche Verschiebung jedes Eingangsvertices.
+[Vertrag und Grenzen](welding.md): unveränderliche eigene Arrays, Zählung vor
+Paarallokation und ausdrückliche Ablehnung zu langer transitiver Ketten;
+Topologie, Quellen und tatsächliche Exportabnahme bleiben beim Aufrufer.
+
 `transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
 Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
 [Vertrag und Grenzen](junction_pads.md): unveränderliches Polygon, tatsächliche

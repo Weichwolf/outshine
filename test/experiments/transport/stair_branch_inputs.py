@@ -3,6 +3,14 @@
 import numpy as np
 
 
+def shared_cycle_path(props):
+    return (
+        props.get("subclass") == "path"
+        and props.get("bicycle") == "designated"
+        and props.get("foot") == "designated"
+    )
+
+
 def branch_rows(recipe, available, existing, profiles, sample):
     declarations = recipe.get("exterior_source_extensions", [])
     if not isinstance(declarations, list) or len(declarations) > 8:
@@ -12,13 +20,23 @@ def branch_rows(recipe, available, existing, profiles, sample):
         key, role = item["source_id"], item["recipe"]
         if not isinstance(key, str) or key in seen or key not in available:
             raise ValueError("unique additional original source identity required")
-        if role not in ("exterior_cycle_bridge", "exterior_cycle_path"):
+        if role not in (
+            "exterior_cycle_bridge",
+            "exterior_cycle_path",
+            "exterior_shared_cycle_bridge",
+            "exterior_shared_cycle_path",
+        ):
             raise ValueError("known explicit cycle bridge/path recipe required")
         source = available[key]
         props = source["properties"]
-        bridge = role == "exterior_cycle_bridge"
+        bridge = role.endswith("_bridge")
+        kind_matches = (
+            shared_cycle_path(props)
+            if role.startswith("exterior_shared_")
+            else props.get("subclass") == "cycleway"
+        )
         if (
-            props.get("subclass") != "cycleway"
+            not kind_matches
             or props.get("indoor")
             or (bridge and props.get("brunnel") != "bridge")
             or (not bridge and props.get("brunnel"))
@@ -59,3 +77,20 @@ def surface_sampling(rows, mode):
         props = row["original"]["source"]["feature"]["properties"]
         if props.get("subclass") != "steps":
             row["surface_cross_section_mode"] = mode
+
+
+def surface_welding(rows, tolerance):
+    if tolerance is not None and (
+        isinstance(tolerance, bool)
+        or not isinstance(tolerance, (int, float))
+        or not np.isfinite(tolerance)
+        or not 1e-8 <= tolerance <= 1e-7
+    ):
+        raise ValueError(
+            "explicit numeric surface weld bound in [1e-8, 1e-7] metres required"
+        )
+    for row in rows:
+        if tolerance is None:
+            row.pop("surface_weld_tolerance_m", None)
+        else:
+            row["surface_weld_tolerance_m"] = float(tolerance)
