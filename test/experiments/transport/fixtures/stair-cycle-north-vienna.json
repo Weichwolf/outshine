@@ -1,0 +1,68 @@
+{
+  "format": 1,
+  "outer_sha256": "a2989e49b3df55ee9d28f72e39b096ef9b81877017a6a96c33671b202398ab73",
+  "elevation": [
+    {
+      "tile": [
+        14,
+        8937,
+        5678
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8937/5678.webp",
+      "raw_sha256": "67a97b8fa2f5dde52f7e7afdfd31e8cb63f24591c21b70e6273d506d78ffa177",
+      "raw_bytes": 56194,
+      "window_file": "stair-cycle-north-vienna-dem-8937.npz",
+      "window_sha256": "c4b67acfbcb048eba71c96735471aa1e95c4529ad957450847c508d9770a0439"
+    },
+    {
+      "tile": [
+        14,
+        8938,
+        5678
+      ],
+      "url": "https://tiles.mapterhorn.com/14/8938/5678.webp",
+      "raw_sha256": "f0588282420d4654f76e742d68813e3d5fecca792a1158770a64d0d062d5fee7",
+      "raw_bytes": 63642,
+      "window_file": "stair-cycle-north-vienna-dem-8938.npz",
+      "window_sha256": "9705a94340b2160d63d0de0d4ae570d366f60c1ca2bbc6e456f6e4f45656c9fd"
+    }
+  ],
+  "scope": "Whole original neighbour; planar contacts are explicit choices. DEM priors select their actual tile without extrapolation. No measured deck, indoor or cross-tile vector continuity claim.",
+  "additional_source_ids": [
+    "openfreemap:14/8937/5678:transportation:32651280:3",
+    "openfreemap:14/8937/5678:transportation:39881120:23"
+  ],
+  "protected_profiles": [
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:26",
+      "openfreemap:14/8937/5678:transportation:39881120:28",
+      -1
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:97041640:6",
+      "openfreemap:14/8937/5678:transportation:39881120:34",
+      0
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:34",
+      "openfreemap:14/8937/5678:transportation:32651280:3",
+      0
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:34",
+      "openfreemap:14/8937/5678:transportation:32651280:3",
+      -1
+    ],
+    [
+      "openfreemap:14/8937/5678:transportation:39881120:28",
+      "openfreemap:14/8937/5678:transportation:39881120:23",
+      -1
+    ]
+  ],
+  "focus_source_ids": [
+    "openfreemap:14/8937/5678:transportation:39881120:28",
+    "openfreemap:14/8937/5678:transportation:39881120:23"
+  ],
+  "terrain_precision_mode": "selective",
+  "terrain_interface_mode": "boundary_band"
+}

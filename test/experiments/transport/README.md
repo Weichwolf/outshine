@@ -611,6 +611,28 @@ werden: `stair_cycle_inputs.py --receipts ORIGINAL-RECEIPT EAST-RECEIPT --output
 Die Receipts müssen die im festen Rezept belegten ursprünglichen Bytes tragen;
 neue Quellenstände ersetzen keine Referenz automatisch.
 
+## Nördlicher Radweg: erhaltene Kontaktfacetten und Rundungsreserven (#434)
+
+Der [Nordvergleich](stair_cycle_north_comparison.md) nutzt dieselben Werkzeuge auf
+einer zweiten festen Instanz. Bisherige Ostprodukte explizit übergeben; neue
+Eingabe enthält keine gelösten Höhen und erzeugt keine Katalogeinträge je Straße.
+Dieselben Pakete; kein zusätzlicher Erwerb oder neue Runtime-Abhängigkeit.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_cycle_north_checks stair_cycle_checks stair_blend_checks stair_blend_precision_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_experiment.py --fixture test/experiments/transport/fixtures/stair-cycle-north-vienna.json --base-network "$TRANSPORT_CYCLE_OUTPUT" --base-terrain "$TRANSPORT_CYCLE_OUTPUT" --output "$TRANSPORT_NORTH_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_verify.py --fixture test/experiments/transport/fixtures/stair-cycle-north-vienna.json --base-network "$TRANSPORT_CYCLE_OUTPUT" --base-terrain "$TRANSPORT_CYCLE_OUTPUT" --output "$TRANSPORT_NORTH_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_terrain_cost.py --products "$TRANSPORT_NORTH_OUTPUT" --mode selective --output "$TRANSPORT_NORTH_OUTPUT/selective-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_terrain_cost.py --products "$TRANSPORT_NORTH_OUTPUT" --mode all --output "$TRANSPORT_NORTH_OUTPUT/all-cost.json"
+```
+
+Kostenprozesse nacheinander bei normaler Priorität. Optionale Memray-Messung wie
+oben mit separatem frischem `--output` und `--profile`. Dieselben vier Renderaufrufe
+wie im Ostvergleich auf `TRANSPORT_NORTH_OUTPUT` anwenden. Die Kamera wird aus den
+tatsächlichen ausgewählten Quellflächen abgeleitet; alle Bilder bleiben lokal 1280×720.
+Gewöhnliche Außenwege dürfen keine indoor-/Ebenenquellen durch ein generisches
+Mesh-Rezept ersetzen. Globale/native Abnahme bleibt offen.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

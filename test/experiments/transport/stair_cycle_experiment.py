@@ -13,7 +13,7 @@ from stair_blend_display import scenes
 from stair_blend_experiment import stage as terrain_stage
 from stair_blend_plan import prepare
 from stair_context_experiment import stage
-from stair_cycle_contacts import contacts
+from stair_cycle_contacts import bindings, contacts
 from stair_cycle_inputs import FIXTURE, load
 from stair_network_geometry import interactions, vertex_links
 from stair_outer_context import catalog
@@ -25,16 +25,26 @@ from stair_terrain_experiment import PALETTE, frozen
 def base(args):
     report = json.loads((args.base_terrain / "comparison.json").read_text())
     replay = json.loads((args.base_terrain / "verification.json").read_text())
+    legacy = "network_products" in report
+    network_path = Path(report["network_products"]) if legacy else args.base_terrain
+    body_hash = (
+        report["source_body_sha256"] if legacy else report["after"]["body_sha256"]
+    )
+    accepted = (
+        replay.get("valid_local_terrain")
+        if legacy
+        else replay.get("valid_local_candidate")
+    )
     if (
-        not replay["valid_local_terrain"]
+        not accepted
         or replay["products_report_sha256"]
         != digest(args.base_terrain / "comparison.json")
-        or Path(report["network_products"]).resolve() != args.base_network.resolve()
-        or report["source_body_sha256"] != digest(args.base_network / "after/body.npz")
+        or network_path.resolve() != args.base_network.resolve()
+        or body_hash != digest(args.base_network / "after/body.npz")
         or report["display"]["after_display_sha256"]
         != digest(args.base_terrain / "after-display.npz")
     ):
-        raise ValueError("verified original eighteen-source terrain baseline required")
+        raise ValueError("verified whole source/terrain baseline required")
     for name, expected in report["artifacts"].items():
         if digest(args.base_terrain / name) != expected:
             raise ValueError("original terrain baseline artifact changed")
@@ -47,7 +57,7 @@ def base(args):
     }
 
 
-def presentation(args, rows, body, terrain, roles):
+def presentation(args, rows, body, data, terrain, roles):
     overview = args.output / "after/overview-scene.json"
     wide = json.loads(overview.read_text())
     center = (body.vertices.min(axis=0) + body.vertices.max(axis=0)) / 2
@@ -64,6 +74,16 @@ def presentation(args, rows, body, terrain, roles):
     row.update(
         target=target.tolist(), eye=(target + [240, -320, 260]).tolist(), span_m=420
     )
+    recipe = json.loads(args.fixture.read_text())
+    if "focus_source_ids" in recipe:
+        keys = [r["source_id"] for r in rows]
+        bits = sum(1 << keys.index(key) for key in recipe["focus_source_ids"])
+        chosen = data["top_faces"][(data["face_sources"] & bits) != 0]
+        ids, inverse = np.unique(chosen, return_inverse=True)
+        focus = Mesh(body.vertices[ids], inverse.reshape(-1, 3))
+        center = (focus.vertices.min(0) + focus.vertices.max(0)) / 2
+        row.update(target=center.tolist(), eye=(center + [240, -320, 260]).tolist())
+        row["span_m"] = overview_span(row, [focus])
     diagnostic.write_text(json.dumps(row, indent=2) + "\n")
     report = scenes(args.output, args.output, [("after", terrain, roles)])
     before = args.output / "before-display.npz"
@@ -92,7 +112,7 @@ def generate(args):
     if args.output.exists():
         raise ValueError("fresh explicit cycle extension output required")
     began = time.perf_counter()
-    case, rows, nodes, stairs, context, sample = load()
+    case, rows, nodes, stairs, context, sample = load(args.fixture)
     args.output.mkdir(parents=True)
     network = stage(args, "after", rows, nodes, outer_ends(rows, nodes), stairs)
     data = dict(np.load(args.output / "after/body.npz"))
@@ -102,7 +122,17 @@ def generate(args):
     whole.update(vertex_links(data["body_vertices"], data["body_faces"]))
     body = Mesh(data["body_vertices"], data["body_faces"])
     _initial, layout, ground, upper, footprint, plan = prepare(
-        data, rows, context, None, sample
+        data,
+        rows,
+        context,
+        None,
+        sample,
+        precision=json.loads(args.fixture.read_text()).get(
+            "terrain_precision_mode", "legacy"
+        ),
+        interface=json.loads(args.fixture.read_text()).get(
+            "terrain_interface_mode", "grid"
+        ),
     )
     np.savez_compressed(args.output / "terrain-plan.npz", **layout)
     terrain, roles, proof = terrain_stage(
@@ -116,11 +146,12 @@ def generate(args):
     )
     report = {
         "commit": commit,
-        "fixture_sha256": digest(FIXTURE),
+        "fixture_sha256": digest(args.fixture),
+        "fixture_path": str(args.fixture.resolve()),
         "baseline": baseline,
         "after": network,
         "whole_interactions": whole,
-        "whole_profile_contacts": contacts(data, rows),
+        "whole_profile_contacts": contacts(data, rows, bindings(args.fixture, rows)),
         "terrain_plan": plan,
         "terrain": proof,
         "source_catalog_sha256": digest(args.output / "source-catalog.json"),
@@ -128,8 +159,8 @@ def generate(args):
         "admitted_source_ids": [],
         "seconds_before_display": time.perf_counter() - began,
         "peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
-        "scope": "Whole nineteen-source local body and continuous terrain; joint heights replanned, all original axes except the existing folded ramp unchanged. Two former eastern ports bound, three old and two new outer profiles remain open. Indoor, remaining source/level, user-envelope, statutory and native admission remain open.",
-        "display": presentation(args, rows, body, terrain, roles),
+        "scope": "Whole bounded source body and continuous terrain; joint heights replanned, existing axes and original sources retained. Actual remaining outer profiles listed separately. Indoor, remaining source/level, user-envelope, statutory and native admission remain open.",
+        "display": presentation(args, rows, body, data, terrain, roles),
     }
     report["artifacts"] = {
         name: digest(args.output / name)
@@ -146,6 +177,7 @@ def generate(args):
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-network", type=Path, required=True)
+    parser.add_argument("--fixture", type=Path, default=FIXTURE)
     parser.add_argument("--base-terrain", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--palette-scene", type=Path, default=PALETTE)

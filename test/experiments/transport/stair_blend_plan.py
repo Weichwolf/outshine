@@ -7,12 +7,18 @@ from stair_blend_solve import solve
 from stair_terrain_layout import partition, selected_surfaces
 
 
-def prepare(data, rows, context, raster, sample):
+def prepare(
+    data, rows, context, raster, sample, *, precision="legacy", interface="grid"
+):
     ground, upper = selected_surfaces(data, rows)
     footprint = shapely.union_all(
         shapely.polygons(ground.vertices[ground.triangles, :2])
     )
-    initial, note = partition(ground, context, raster, sample=sample)
+    initial, note = partition(
+        ground, context, raster, sample=sample, interface=interface
+    )
+    if precision != "legacy":
+        initial["precision_mode"] = np.array(precision)
     heights, _roles, probe = solve(initial, None, footprint)
     if heights is None:
         raise ValueError("bounded refinement probe failed: " + str(probe))
@@ -22,6 +28,8 @@ def prepare(data, rows, context, raster, sample):
     else:
         layout = dict(initial, parent_faces=np.arange(len(initial["faces"])))
         refinement = {"refined_cells": 0, "edge_midpoints": 0}
+    if precision != "legacy":
+        layout["precision_mode"] = np.array(precision)
     return (
         initial,
         layout,

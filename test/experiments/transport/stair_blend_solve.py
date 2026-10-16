@@ -8,9 +8,11 @@ import shapely
 from outshine_ref.transport.heights import _gradient_weights
 from scipy import sparse
 from stair_blend_constraints import upper_rows
+from stair_blend_precision import RESERVE, SOIL, check_interval
+from stair_blend_precision import blocks as precision_blocks
 from surface_height_checks import normal_gradients
 
-SOIL_LIMIT = 2 / 3
+SOIL_LIMIT = SOIL
 REACH_M = 5.0
 
 
@@ -78,7 +80,7 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
         (-np.ones(len(ids)), (3 * ids, np.arange(n, total))), shape=gradient.shape
     )
     rhs = np.c_[
-        np.full(len(faces), SOIL_LIMIT - 0.002), np.zeros((len(faces), 2))
+        np.full(len(faces), SOIL_LIMIT - RESERVE), np.zeros((len(faces), 2))
     ].ravel()
     cones = [clarabel.SecondOrderConeT(3) for _ in faces]
     pins, values = pins_for(layout)
@@ -101,6 +103,12 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
         clarabel.NonnegativeConeT(len(ids)),
         clarabel.NonnegativeConeT(len(ids)),
     ]
+    extra, rhs_extra, cones_extra, precision_note = precision_blocks(
+        layout, faces, eligible, structure_limit, datum, gradient_matrix
+    )
+    blocks.extend(extra)
+    bounds.extend(rhs_extra)
+    cones.extend(cones_extra)
     bridge = None
     bridge_note = {}
     if upper is not None:
@@ -126,6 +134,7 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
         "areas": areas,
         "structure_limit": structure_limit,
         "smoothing_m2": smoothing,
+        "precision": precision_note,
     }
 
 
@@ -142,6 +151,7 @@ def field_grades(layout, heights, model):
 
 
 def check_grades(layout, heights, model, first, exported):
+    check_interval(layout, heights)
     constructed = np.maximum(first, exported) > SOIL_LIMIT
     if np.any(constructed & ~model["eligible"]):
         raise ValueError("constructed slope escapes the declared contact zone")
@@ -202,6 +212,7 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
         "smoothing_m2": smoothing,
         "structure_limit": structure_limit,
         "bridge_bounds": model["bridge_note"],
+        "precision": model["precision"],
         "retained_sparse_bytes": int(
             sum(
                 matrix.data.nbytes + matrix.indices.nbytes + matrix.indptr.nbytes
