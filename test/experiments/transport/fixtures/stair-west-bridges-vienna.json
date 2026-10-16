@@ -197,5 +197,6 @@
       "upper": "openfreemap:14/8937/5678:transportation:258321810:4"
     }
   ],
-  "surface_cross_section_mode": "source_knots"
+  "surface_cross_section_mode": "source_knots",
+  "terrain_refinement_rounds": 2
 }

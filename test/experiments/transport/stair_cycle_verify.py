@@ -81,6 +81,10 @@ def verify(args):
         "surface_cross_section_mode", "end_neighbourhood"
     ):
         raise ValueError("saved surface discretisation mode changed")
+    if report.get("terrain_refinement_rounds", 1) != recipe.get(
+        "terrain_refinement_rounds", 1
+    ):
+        raise ValueError("saved terrain refinement budget changed")
     if (
         report["candidate_source_ids"] != [r["source_id"] for r in rows]
         or report["admitted_source_ids"]
