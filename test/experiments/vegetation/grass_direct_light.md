@@ -51,8 +51,9 @@ changes413/65536 classifications between10/40µm and fails the preset1per-thousa
 criterion.2µm is selected:1/4µm changes37 front/39 back samples, same unchanged
 criterion. This is measured offset sensitivity, not a universal geometry bound.
 
-384 independent Float64 checks cover both sun directions and every sky beam;
-all match.128-sun-ray scalar/packet outputs match in each state over three
+384 independent-reference Float64 checks cover both sun directions and every sky
+beam (320 unique point/direction pairs;64 sky checks repeat in the second state).
+All match.128-sun-ray scalar/packet outputs match in each state over three
 repeats. Analytic sheet/layer fixtures check empty space, self-shadow refusal,
 packet boundaries, normal orientation and the existing front/back R/T response.
 25 source and installed-reference controls pass; no new wheel is claimed.
