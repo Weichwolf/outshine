@@ -81,6 +81,17 @@ int main() {
   CHECK(!declared.Values.CloudBaseAglM && !declared.Values.Wind10m &&
             declared.Source.Origin == WeatherOrigin::ScenarioDeclaration,
         "procedural completion neither mutates the source nor invents ten-metre wind");
+  auto cumulusRecipe = recipe;
+  cumulusRecipe.Profile = CloudProfile::CumulusV1;
+  const auto cumulus = MakeLowCloud(declared, cumulusRecipe);
+  CHECK(cumulus && *cumulus && (**cumulus).Layer.Profile == CloudProfile::CumulusV1 &&
+            (**cumulus).ProceduralGeometry && (**cumulus).Layer.Cover == kDeclaredLowCover &&
+            (**cloudy).Layer.Profile == CloudProfile::Stratus,
+        "cloud shape is an explicit procedural recipe while old callers retain stratus");
+  cumulusRecipe.Profile = static_cast<CloudProfile>(2);
+  const auto unsupported = MakeLowCloud(declared, cumulusRecipe);
+  CHECK(!unsupported && unsupported.error() == LowCloudFailure::InvalidRecipe,
+        "unsupported recipe versions fail instead of silently changing shape");
   declared.Values.CloudLow.reset();
   const auto unknown = MakeLowCloud(declared, recipe);
   CHECK(unknown && !*unknown, "missing low-cloud cover is not filled from a recipe or total cover");
