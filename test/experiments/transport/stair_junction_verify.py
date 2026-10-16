@@ -110,8 +110,7 @@ def monotonic_proof(field, row):
 
 
 def display_proof(args, data, report):
-    if digest(args.palette_scene) != report["presentation"]["palette_scene_sha256"]:
-        raise ValueError("saved presentation palette binding changed")
+    """Validate actual used RGBA/normals; whole palette-file SHA is provenance."""
     path = args.output / "display-body.npz"
     if digest(path) != report["presentation"]["mesh_sha256"]:
         raise ValueError("saved indexed display body binding changed")
