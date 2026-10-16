@@ -79,6 +79,9 @@ def run(inputs, prepared, reference, output):
         or ref["stand_identity"] != report["stand_identity"]
         or ref["resolution"] != [1920, 1080]
         or ref["samples"] != 4
+        or any(
+            build["states"][name] != ref["states"][name] for name in ("front", "back")
+        )
     ):
         raise ValueError(
             "matching complete canonical four-sample ray reference required"

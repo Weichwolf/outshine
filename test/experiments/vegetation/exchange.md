@@ -96,6 +96,12 @@ it is an observed approximation error, not excused as reference noise. Local
 aliasing/noise and source/receiver collocation remain. No full-image per-pixel
 or temporal acceptance follows from the block comparison.
 
+`exchange_conformance.py` independently reconstructs64 stored full-stand sample
+counters with Float64 closest triangles and scalar source-side/ground-cell mapping;
+all agree. This audits actual cached contacts beyond the small explicit matrices.
+It retains the sampled-conformance limit, including uncertified Float32 misses.
+The image comparator also requires the original complete light/material states.
+
 ## Separated costs and fresh replay
 
 Proof root `/tmp/outshine-vegetation-form-transfer-proof-b5f6e617d`. Receipts pin
