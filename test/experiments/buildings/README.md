@@ -835,3 +835,33 @@ source 2 saves one assembly and 9,519,672 bytes. Local median elapsed times are
 uniformly (253,040→263,432 KiB and 267,924→254,704 KiB); these small samples
 include concurrent host work and establish neither a device/frame budget nor
 a general peak-memory improvement. Native exterior adoption remains separate.
+
+### Broken urban hip profiles (#469, research in progress)
+
+`broken_hip.surface` clips the existing conformal hip surface into two height
+zones using the installed `Slab` surface cutter. It maps both zones through one
+continuous global height function, preserving the source eave/top and existing
+triangle UV interpolation/face ownership while rebuilding geometric normals.
+The initial separate split/scale/emit composition left an unmatched edge on one
+actual Paris source; it is a rejected alternative, not a valid general baseline.
+No epsilon position welding or bounding-box footprint replacement is used.
+The component currently accepts UV0 and known face fields; extra vertex channels
+reject explicitly. Its conservative three-times-input triangle cap precedes
+source preparation. A source plateau on the profile knot rejects instead of
+duplicating its coplanar surface.
+
+The ordinary tile consumer infers this profile for a bounded subset of its
+existing urban hip estimates based on height and height/sqrt(area); no source-ID,
+place-name or camera-dependent style. Existing roof attributes prevent this
+addition. The 15% base-height knot maps to 65% final rise, leaving a steeper lower
+zone and shallower upper one. Profile construction/closure failure retains the
+existing hip and a reason. Existing subpixel need precedes roof construction;
+no added native/shared/material API. These remain exterior envelopes, with no
+new attic/use/interior/controller/night or complete architecture-family claim.
+
+Run `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest verify_broken_hips verify_urban_roofs verify_roof_envelopes -q`.
+Freeze source and run `broken_hip_probe.py --output <system-temp>` for exact
+sections, plans/2.5D and paired whole/opposite Blender inputs at 1920×1080. The
+probe deliberately profiles all three fixed component controls; only its
+`automatic_profile` field establishes current morphology-policy selection.
+Current whole-city, equal-work cost and lit-picture admission is pending.
