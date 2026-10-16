@@ -157,9 +157,7 @@ def read_page(row, directory):
     return height, fractions
 
 
-def page_geometry(row, directory):
-    height, fractions = read_page(row, directory)
-    side = int(row["side"])
+def page_frame(row):
     z, x, y = (int(row[k]) for k in ("zoom", "x", "y"))
     scale = 2**z
     lon = np.array((x, x + 1)) / scale * 360 - 180
@@ -177,14 +175,10 @@ def page_geometry(row, directory):
     corners = np.einsum(
         "ij,kj->ik", ecef(lon[[0, 1, 0, 1]], lat[[0, 0, 1, 1]]) - centre, axes[:2]
     )
-    corners = corners.astype("float32").astype(float)
-    u, v = np.meshgrid(fractions, fractions)
-    en = (1 - v[..., None]) * (
-        (1 - u[..., None]) * corners[0] + u[..., None] * corners[1]
-    ) + v[..., None] * ((1 - u[..., None]) * corners[2] + u[..., None] * corners[3])
-    sag_inv = float(np.float32(1 / np.linalg.norm(centre)))
-    h = height[1:-1, 1:-1].astype(float) - 0.5 * np.sum(en * en, axis=-1) * sag_inv
-    local = np.concatenate((en, h[..., None]), axis=-1).reshape(-1, 3)
+    return centre, axes, corners.astype("float32").astype(float)
+
+
+def page_steps(corners, side):
     step_e = float(
         np.float32(
             0.5
@@ -199,6 +193,21 @@ def page_geometry(row, directory):
             / (side - 1)
         )
     )
+    return step_e, step_n
+
+
+def page_geometry(row, directory):
+    height, fractions = read_page(row, directory)
+    side = int(row["side"])
+    centre, axes, corners = page_frame(row)
+    u, v = np.meshgrid(fractions, fractions)
+    en = (1 - v[..., None]) * (
+        (1 - u[..., None]) * corners[0] + u[..., None] * corners[1]
+    ) + v[..., None] * ((1 - u[..., None]) * corners[2] + u[..., None] * corners[3])
+    sag_inv = float(np.float32(1 / np.linalg.norm(centre)))
+    h = height[1:-1, 1:-1].astype(float) - 0.5 * np.sum(en * en, axis=-1) * sag_inv
+    local = np.concatenate((en, h[..., None]), axis=-1).reshape(-1, 3)
+    step_e, step_n = page_steps(corners, side)
     de = (height[1:-1, 2:] - height[1:-1, :-2]) / (2 * max(step_e, 0.001))
     dn = (height[:-2, 1:-1] - height[2:, 1:-1]) / (2 * max(step_n, 0.001))
     normals = (
@@ -250,6 +259,33 @@ def camera(scenario, rows, directory):
         ecef(lon, lat, height),
         float(view.get("fovDeg")),
         {"lat": lat, "lon": lon, "height_m": float(height)},
+    )
+
+
+def raster_view(scenario, rows, pages, width, height, yaw):
+    eye, fov, _ = camera(scenario, rows, pages)
+    at = ET.parse(scenario).getroot().find("views/view[@id='station']/at")
+    lat, lon = np.deg2rad([float(at.get("lat")), float(at.get("lon"))])
+    east = np.array([-np.sin(lon), np.cos(lon), 0])
+    north = np.array(
+        [-np.sin(lat) * np.cos(lon), -np.sin(lat) * np.sin(lon), np.cos(lat)]
+    )
+    up = np.cross(east, north)
+    bearing, pitch = np.deg2rad(
+        [float(at.get("bearingDeg", 0)) + yaw, float(at.get("pitchDeg", 0))]
+    )
+    forward = (
+        np.cos(pitch) * (np.cos(bearing) * north + np.sin(bearing) * east)
+        + np.sin(pitch) * up
+    )
+    right = np.cross(forward, up)
+    right /= np.linalg.norm(right)
+    return (
+        eye,
+        np.stack([right, np.cross(right, forward), forward]),
+        height / (2 * np.tan(np.deg2rad(fov) / 2)),
+        width,
+        height,
     )
 
 

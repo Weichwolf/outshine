@@ -148,5 +148,33 @@ class CurrentVisibility(unittest.TestCase):
             self.assertTrue(np.all(vertices[face] <= high[split[i]]))
 
 
+class DepthBias(unittest.TestCase):
+    def test_relative_depth_bias_scales_with_reverse_depth(self):
+        from current_visibility import occluded
+
+        lo, hi = np.array([[0.0, 0.0]]), np.array([[1.0, 1.0]])
+        safe = np.array([True])
+        depth = np.full((4, 4), 1e-5)
+        behind = np.array([0.999e-5])
+        self.assertFalse(occluded(lo, hi, behind, safe, depth)[0])
+        self.assertTrue(
+            occluded(lo, hi, behind, safe, depth, absolute_bias=0, relative_bias=1e-6)[
+                0
+            ]
+        )
+        for nearest in (1e-5, 1.01e-5):
+            self.assertFalse(
+                occluded(
+                    lo,
+                    hi,
+                    np.array([nearest]),
+                    safe,
+                    depth,
+                    absolute_bias=0,
+                    relative_bias=1e-6,
+                )[0]
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
