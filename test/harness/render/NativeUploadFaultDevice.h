@@ -20,7 +20,8 @@ enum class UploadFailurePoint {
   Submit,
   Texture,
   UploadBuffer,
-  DeviceBuffer
+  DeviceBuffer,
+  Pipeline
 };
 
 struct UploadFailure {
@@ -29,6 +30,7 @@ struct UploadFailure {
   bool Armed = false;
   unsigned Skip = 0;
   unsigned Rejected = 0;
+  unsigned DeviceBufferRequests = 0;
   unsigned VertexBufferAllocations = 0;
 
   [[nodiscard]] bool Reject(UploadFailurePoint point) {
@@ -88,6 +90,9 @@ public:
 
   [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::Buffer>>
   CreateBuffer(Render::Native::BufferDescription description, std::string_view label) override {
+    if (description.Placement == Render::Native::Memory::Device) {
+      ++Failure_.DeviceBufferRequests;
+    }
     if ((description.Placement == Render::Native::Memory::Device &&
          Failure_.Reject(UploadFailurePoint::DeviceBuffer)) ||
         (description.Placement == Render::Native::Memory::Upload &&
@@ -106,6 +111,12 @@ public:
   CreateTexture(Render::Native::TextureDescription description, std::string_view label) override {
     if (Failure_.Reject(UploadFailurePoint::Texture)) { return std::unexpected(Failure_.Error()); }
     return Backing().CreateTexture(description, label);
+  }
+
+  [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::GraphicsPipeline>>
+  CreateGraphicsPipeline(const Render::Native::GraphicsDescription &description) override {
+    if (Failure_.Reject(UploadFailurePoint::Pipeline)) { return std::unexpected(Failure_.Error()); }
+    return Backing().CreateGraphicsPipeline(description);
   }
 
   [[nodiscard]] Render::Native::Result<std::span<std::byte>>
