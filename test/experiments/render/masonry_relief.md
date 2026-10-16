@@ -1,9 +1,10 @@
 # Filtered masonry height derivatives
 
-Owner: #387, parent #306, material composition #6, goal #189. This is a private
-experiment. No production shader, binding, cached asset or geometry is changed.
+Owner: #387, parent #306, material composition #6, goal #189. PR #399 records the initial private
+comparison. The following production candidate shares its selected bevel primitive
+with the standalone probes; it changes no binding, cached asset or geometry.
 
-The integrated metric brick colour/roughness still has zero wall heightChange.
+Before the production hookup, metric brick colour/roughness had zero heightChange.
 This study gives the existing250×80mm running bond,10mm mortar gaps, a declared
 2mm depth and2mm linear bevel. These dimensions are recipe assumptions, not
 observed source attributes. Each axis is its rectangular brick band convolved
@@ -17,6 +18,45 @@ break invariance under a constant height offset. A flat brick across a partially
 covered window edge must therefore retain exactly zero bump. Pure pane and
 zero-depth controls also remain zero. Existing surfaceGradient/bumpNormal resolves
 the final normal, including its degenerate-frame fallback.
+
+## Production hookup
+
+facadeMasonryRelief.glsl owns the chosen analytic bevel primitive; facadeMasonryField
+accumulates its gradient under the existing16 wall/window/band weights and returns
+screen-space heightChange. applyFacade consumes that existing output. All direct
+experimental callers are migrated; the standalone probe imports the same primitive
+while its polygon integral remains independent. Source RGB/MR arithmetic is retained.
+Paired captures disable only the gradient contribution in a temporary source copy;
+the enabled copy is the actual production shader. No runtime switch is introduced.
+
+The public Engine wall consumer also uploads an authored normal texel/tangent
+frame when mode3 is selected and captures sceneShadingNormal via the public API.
+Its old modes1/2 remain. The actual production-enabled pair is byte-identical to
+the prior verified prototype in all32 raster frames; the temporary enabled
+source also compiles byte-identically to the unmodified production source.
+
+Production-candidate checks on RTX3060 retain the976-input/five-method gradient
+and period/authored-vector controls,32 raster pairs and480 independent pixel
+normals. The public wall pair passes26 checks each. The real normal-texture pair
+passes28 checks each:921600 normals, maximum composition error0.029556degrees,
+RMS0.003081degrees;796017 flat normals are byte-equal. The fixed0.2degree tolerance
+accounts for reconstructing the gradient from binary16 attachments; this compares
+composition, while the polygon integral separately checks the height derivatives.
+The native raster/compute probes use Vulkan Device; the paired public Engine uses
+the explicit matching a56f3e3be headers/archive and retained SDL renderer. It does
+not use a current Device vtable with an old archive.
+
+The integrated helper's115200-probe cost sums under concurrent host/GPU use were
+14.012512→40.498208ms and reverse31.514816→14.010368ms, each32 dispatches. The colour
+control itself differs from the earlier isolated batch, so no code-regression or
+whole-frame claim follows from comparing those absolute times. All six existing
+colour/roughness/region outputs remain byte-equal, as do timed/plain captures.
+No added buffers/bindings; shader code/register pressure still has a cost.
+491 shader artifacts and nine compute contracts pass;262 artifacts (252 lit,
+eight standalone controls and two fused cost probes) cross-compile to MSL2.1.
+Focused clang-tidy on the changed wall consumer exits0 with no changed-unit
+findings; the unchanged Check.h retains its14 existing diagnostics. Original
+Metal atlas execution, Metal/A18 and equal-quality frame/device-memory checks stay open.
 
 ## Comparison and reference
 
@@ -130,14 +170,136 @@ PYTHONPATH=lib/src python3 test/experiments/render/masonry_relief_cost.py \
   --binary /tmp/native-material --output /tmp/outshine-masonry-relief-fused-cost
 ```
 
+Production-only checks use the extended native wall consumer with its matching
+headers/archive and the prepared scene shader package:
+
+```sh
+PYTHONPATH=lib/src python3 test/experiments/render/masonry_relief_mapping.py \
+  --binary /tmp/native-mapped-masonry-scene --fixture /tmp/wall.bin \
+  --scene /tmp/outshine-masonry-relief-scene \
+  --output /tmp/outshine-masonry-relief-mapping
+PYTHONPATH=lib/src python3 test/experiments/render/masonry_relief_places.py \
+  --binary /tmp/matching-outshine-client --scene /tmp/outshine-masonry-relief-scene \
+  --output /tmp/outshine-masonry-relief-places Flensburg
+```
+
+The Place script uses fresh offline processes,1920×1080/60, unchanged scenario and
+60 frames/360degrees, and checks preload<10s plus p99<=1000/60ms with no overruns.
+Its ROW input omits StandingMs: LoadingMs measures preload, while full fresh-process
+warm readiness also includes source configuration, declaration and assembly before
+preload. Therefore even passing these numeric thresholds cannot establish the full
+warm-load target. The report explicitly leaves complete warm loading unmeasured.
+Source acquisition/asset construction must finish separately before the warm run.
+Unprepared-cache failures are retained separately, never passed as frame results.
+Numeric timing thresholds do not assert image parity or complete-world quality.
+
 Source basis: SIGGRAPH1980 Synthetic Texturing Using Digital Filters, local PDF
 pages2/4 and Figures1/2 optically reviewed; filter texture and surface coverage
 over the same pixel. Supplement: Mikkelsen JCGT2020 Surface Gradient-Based Bump
 Mapping Framework, local PDF pages3/9, Equations2–3/17 optically reviewed. This
 uses the existing derivative-frame contract, without introducing tangent assets.
 
-Production hookup, the original material atlas, normal-texture composition, actual
-frame/device-memory cost and Metal/A18 remain required before production adoption. #386's known SDL submit
+## Corrected native world diagnostic
+
+After #407 / Draft #416 restores the projected metre stream, the actual native
+client now exercises brick walls. Both sides use exactly the same native binary
+187a5b380+6156a8010 with only the verified two coordinate objects updated; the
+owned42-link-input/header closure is recorded with #416. All491 shader artifacts
+are identical except the252 paired lit fragments from this production candidate.
+The disabled side reproduces the previous corrected-producer4b3734d8 PNG exactly.
+
+At1920×1080/60 with unchanged declared fill0.6,585262 triangles/zero bare tiles,
+60 frames/360degrees, enabling relief produces0b1301a6.6238 display pixels change,
+141 by more than1/255, worst4/255, mean RGB difference0.001449/255. The optically
+opened full/crop PDF shows a small distant joint-lighting response, no broad
+Place improvement. Camera, clock, native geometry, cached products and RGB/MR
+recipe remain the same. The strongest-difference224pixel crop is recorded at
+(1280,544)-(1504,768); its selection scans96pixel windows in32pixel steps.
+
+The first fresh10second offline attempts both fail before any frame, at10.087s
+and11.711s under measured host load7.1–7.4. These are retained. A separate120second
+image-preparation timeout produces complete paired captures: actual preload
+8.002/13.006s, p9913.2218/11.3666ms, zero frame overruns. This is neither a speedup
+claim nor warm-load acceptance; the after load still exceeds10s. At that source state, native
+shadow/foliage parity was also open in #328, so those good frame samples did not
+complete equal-quality frame acceptance. The current concrete Flensburg parity
+repair and its countercheck are recorded below. Timing-consumer outputs now say
+`timing_thresholds_met` and explicitly leave image acceptance unasserted.
+
+The earlier retained SDL-renderer comparison, before the producer correction, is red: p99 before12.0354ms,
+after25.7969ms; reversed after18.8958ms, before22.7139ms. All overruns are at
+frame1, p50 stays0.98–1.03ms;60 frames/360degrees,585262 triangles and the
+71c88aff PNG are unchanged. Warm offline preload3.64–6.00s; separate online
+source acquisition/asset construction291.20s. Initial offline cache misses are
+retained, not interpreted as frame timing. This does not isolate a shader
+regression or satisfy the frame gate. The same image and dated Foto-Webcam.eu
+2025-07-15 12:00CEST reference are optically reviewed in the local comparison PDF;
+no Place image gain is claimed. The private material marker and #407 subsequently
+proved that this earlier comparison had no metric-wall pixels; it cannot validate
+the relief in the world. The corrected native comparison above does exercise it.
+
+The unchanged original ComposedMaterialsReachTheCard.cpp consumer also runs against
+this exact native renderer/header closure: before/after each31056 checks, zero
+failures/skips/unprepared/partial, terminal0. The test exercises atlas generation,
+normal capture and card consumption without changing its assertions. Source SHA256
+f130e70dc0c5034a16de300e538d2642f1d56df5b5efcf50dec2aeb845d88908;
+native consumer binary e0e56fecfa123639ed4a40d232109f94f6ec15a16b803a8cc6cc1f0b9a6f5f44.
+Exact compile/link inputs and terminal runs are retained in atlas-build.json and
+atlas.json beside the corrected-world captures. This proves native Vulkan atlas
+consumption, not Metal execution or equal-quality whole-world frame acceptance.
+
+## Current coherent native countercheck
+
+Source813eaa58b includes master36be5afa3; production relief is unchanged from801cd0875.
+The provided immutable native5ea6f823b package supplies matching headers, Main.o,
+ProcessHeap.o and the complete core archive. Its baseline relink is byte-identical
+with the supplied executable. The corrected producer client reuses that exact
+closure and recompiles only #416's two generator units against its own headers.
+Both relief sides use this same binary, SHA256
+c66a16d9e4da32ff4e05394af4c1f33f8a053537e1c04c70fd05c03239721169.
+No old diagnostic Main/Framing objects are mixed with a newer Device archive.
+
+Source shader comparisons find only the two intended facade callers different;
+the added relief primitive is shared. Both252 lit-fragment families compile with
+the supplied native shader package; the other240 shader/include files remain
+byte-identical. Flensburg's unchanged declared fill0.6,1920×1080/60, clock,
+camera and corrected metre producer give2f507cd3 disabled andf2dbbc36 enabled.
+There are6203 changed pixels,137 above1/255, worst4/255, mean RGB0.001439686/255.
+All three PDF pages were optically opened: full pair, the same224pixel crop and
+the dated2025-07-15 12:00CEST webcam reference. The distant normal response remains
+small; no broad Place improvement or matched-weather claim follows. #425 now
+independently proves byte-equal concrete Flensburg colour/depth/shadow across the
+SDL/native pair; that previous blanket parity objection no longer applies here.
+
+The first fresh10second attempts still fail before frames: actual preload
+11.9098/12.6083s. Separate120second image preparation finishes with2.9/2.8s standing
+and12.7/11.7s preload, rounded by the human client report. Both full warm loads
+therefore exceed10s; #441 owns this independently red cache-readiness case.
+Both image runs retain585262 triangles, zero bare tiles and exactly60 frames;
+the unchanged client source performs the360degree turn. CPU p50/p95/p99 is
+6.06/11.23/15.79ms disabled,6.31/15.26/19.64ms enabled: zero/one over-budget frames,
+worst at47/27. GPU mean/max is8.427/9.580ms and9.815/13.363ms,60/60 timestamp
+samples each, zero unavailable, query CPU total0.033/0.028ms. Host load at launch
+was8.62/8.98, with concurrent foreign work. The CPU after-p99 is red; this single
+pair does not isolate a shader regression or support a speedup claim.
+
+The unchanged original atlas consumer is freshly compiled against the same
+current native package and retains the two corrected generator objects when
+linked. Both sides pass31056 checks with zero failures/skips/unprepared/partial,
+terminal0, no logged validation errors. No assertion, test input or pin changes.
+Source SHA remainsf130e70dc0c5034a16de300e538d2642f1d56df5b5efcf50dec2aeb845d88908.
+
+Exact source/package/binary and shader hashes, commands, original logs, raw PNGs,
+PDF and unchanged atlas inputs are retained at
+`/tmp/outshine-material-relief-current-813eaa58b/`. The previous original atlas,
+gradient/raster/mapped-normal evidence remains valid for its stated scope.
+No full-lint rerun or new Metal/device-memory claim. Warm load and the affected
+CPU frame countercheck remain red, so this production candidate stays Draft.
+
+Before merging the production hookup, the affected equal-quality frame/load
+countercheck remains required. Metal/A18 counterchecks belong to Master;
+full native-world/device-memory acceptance remains open. Real normal-texture
+composition is now checked as described above. #386's known SDL submit
 stall is independently recorded under #328; this experiment does not repair it.
 Only Master publishes integrated Places. Private PDFs and raw inputs stay in
 explicit system-temp directories; no images are pushed under doc/.
