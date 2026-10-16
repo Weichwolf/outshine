@@ -10,6 +10,7 @@ from cloud_air_depth_reference import independent, sparse_identity
 from cloud_air_reference import RAY, SAMPLE
 from cloud_air_source_reference import medium_parameters
 from cloud_air_transfer_reuse import clear_response, errors, numeric
+from cloud_field import Layer, density, segments
 
 BASE = [
     "-DSOURCE_LINEAR_DEPTH=1",
@@ -31,6 +32,33 @@ STATES = (
 )
 
 
+def raster_transmittance(output, cover, seconds):
+    rays = np.fromfile(output / "raster/rays.bin", RAY)
+    queries = np.fromfile(output / "raster/queries.bin", "<f4")
+    origin = np.zeros((len(rays), 3))
+    origin[:, 1] = ((rays["ray"][:, 0] - np.float32(6360)) * np.float32(1000)).astype(
+        float
+    )
+    cosine = rays["ray"][:, 1].astype(float)
+    horizontal = np.sqrt(1 - cosine * cosine)
+    azimuth = rays["azimuth"].astype(float)
+    direction = np.c_[
+        horizontal * np.cos(azimuth), cosine, horizontal * np.sin(azimuth)
+    ]
+    _, through, _, _ = clear_response(rays, queries, medium_parameters())
+    layer = Layer(cover=cover)
+    intervals = segments(origin, direction, layer)
+    tau = np.zeros(len(rays))
+    if cover > 0:
+        for interval in range(2):
+            a, b = intervals[:, interval, 0], intervals[:, interval, 1]
+            width = (b - a) / 16
+            for index in range(16):
+                points = origin + direction * (a + (index + 0.5) * width)[:, None]
+                tau += density(points, layer, seconds) * width
+    return through * np.exp(-tau[:, None])
+
+
 def analyze(output):
     rays = np.fromfile(output / "rays.bin", RAY)
     queries = np.fromfile(output / "queries.bin", "<f4")
@@ -43,8 +71,9 @@ def analyze(output):
         "scope": "joint homogeneous-air/declared-eye-cloud native component; no resident depth volume or runtime pass",
         "states": {},
     }
-    for state, cover, _ in STATES:
+    for state, cover, seconds in STATES:
         ref = clear if cover == 0 else np.load(output / f"{state}-reference.npy")
+        raster_t = raster_transmittance(output, cover, seconds)
         limit = 2e-6 if cover == 0 else 1e-4
         rows = {}
         for name in PROFILES:
@@ -72,8 +101,24 @@ def analyze(output):
             row["sparse_records"] = sparse_identity(output, tag)
             final = records[rays["end"] - 1]
             row["source_positions"] = int(final["sources"].astype(np.uint64).sum())
+            raster = np.fromfile(output / "raster" / f"{tag}.bin", SAMPLE)
+            values = numeric(raster)
+            if (
+                not np.isfinite(values).all()
+                or np.any(values < 0)
+                or np.any(values[:, 3:] > 1)
+            ):
+                raise RuntimeError(
+                    "coarse native raster violates physical numeric bounds"
+                )
+            row["raster_T_abs"] = float(np.max(abs(values[:, 3:] - raster_t)))
+            row["raster_source_positions"] = int(
+                raster["sources"].astype(np.uint64).sum()
+            )
             if name != "legacy" and cover > 0:
-                if np.any(records["counts"] & 0x80000000):
+                if np.any(records["counts"] & 0x80000000) or np.any(
+                    raster["counts"] & 0x80000000
+                ):
                     raise RuntimeError(
                         "joint native prefix exceeded its fixed cell/work bounds"
                     )
@@ -87,7 +132,10 @@ def analyze(output):
                     ((final["counts"] >> 18) & 63).sum()
                 )
             rows[name] = row
-        if not rows["joint"]["passed"]:
+        if not all(
+            rows[name]["passed"] and rows[name]["raster_T_abs"] <= limit
+            for name in ("joint", "growth-96")
+        ):
             raise RuntimeError(
                 "joint source/extinction integration failed unchanged limits"
             )
@@ -106,6 +154,7 @@ def analyze(output):
                 "empty physical rays must be neutral without source work"
             )
         report["states"][state] = rows
+    report["selected_finite_cohort"] = "growth-96"
     (output / "analysis.json").write_text(json.dumps(report, indent=2))
 
 
