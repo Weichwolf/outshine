@@ -1074,3 +1074,36 @@ was freshly examined with Ghidra at Processor::extrude004b5210 and
 Processor::subtract00541230 (empty/invalid input guards, transform and Boolean
 operation dispatch). This bounds primitive-level reference use; no Esri source,
 roller simulation, ready hall recipe or oracle-render equivalence is claimed.
+
+Runtime62bd10218 passes116 source checks; the final room-identity correction
+4e5828277 passes all6 affected source controls and the fresh wheel passes the
+same116-check set, no skips. All82 installed building modules are byte-exact;
+wheel SHA256 `aac088cf20ef7b05728ba62cdc57d85735fccb92a71e4650d9085d3d4d3315b6`.
+Fifteen final models retain every geometry stream/dtype, camera and material
+binding exactly against the earlier frozen render inputs. Thirteen actual
+1920×1080 Blender images and three2400×1350 plan/section/2.5D diagrams were
+opened. Eleven images use the original4be795a59 inputs, accepted only through
+that exact equality proof; the closer tile pair uses4e5828277 inputs. Render
+processes return0 after successful Eevee completion; the existing `bpy` cleanup
+crash is bypassed with `os._exit(0)` only after render returns, no normal-teardown
+claim. This is llvmpipe reference rendering, not an RTX/device budget result.
+
+In the closer complete37-source comparison, six near halls replace former
+facades,32445→60123 triangles (+27678); eight logical halls, one unsuitable
+loading case with a reason, no source omissions/roof/facade errors. Source IDs,
+properties, footprints, heights, classifications and provenance remain exact.
+The wide camera retains3610 triangles with hall geometry deferred. The closer
+tile pair changes10417/2073600 pixels (0.5024%); gate/window differences read
+more clearly in the individual near shots. Broad facade/roof detail, roof glass,
+credible material/weather variation, exterior transport connection and native/
+night/complete-family/full-image LOD quality remain open.
+
+Equal physical sheets at opening0/.35/.5 use168/112/88 triangles for both direct
+and generic Shape extrusion versus324/212/164 for strip-heightfield closure.
+Measured direct p50 is2.442/3.184/1.859ms, Shape30.660/18.976/16.629ms and
+strips18.779/13.355/10.232ms over21 runs (2 warmups, shared-host load). Direct
+traced peaks81852/56316/45956bytes versus423939/291121/233911 (Shape) and
+416879/279735/220959 (strips) exclude native allocations. Equal volume, surface
+area and developed UV edge lengths are independently checked. Final buffer
+bytes/writes and live traced allocation counts are in the reproducible JSON;
+these timings do not imply a native frame/device factor.
