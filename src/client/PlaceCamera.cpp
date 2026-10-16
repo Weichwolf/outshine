@@ -245,9 +245,15 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, Roots roots) {
   }
 
   Scenario::Document stands = place.Declaration;
+  const auto timing = Client::FrameTiming::At(stands.Render.FrameRateHz);
+  if (!timing) {
+    shot.Why = timing.error();
+    return false;
+  }
   stands.Views = PlaceTurn(place.Declaration.Views.front(),
                            {.LongitudeDeg = stands.Ground.Origin.LongitudeDeg,
-                            .LatitudeDeg = stands.Ground.Origin.LatitudeDeg});
+                            .LatitudeDeg = stands.Ground.Origin.LatitudeDeg},
+                           *timing);
   stands.Render.Audits = Audits;
 
   const auto began = std::chrono::steady_clock::now();
@@ -353,9 +359,9 @@ bool MeasureFrames(Engine &engine,
   heldMs.reserve(count);
   advancedMs.reserve(count);
   renderedMs.reserve(count);
-  Client::FramePacer pacer;
+  Client::FramePacer pacer(shot.Timing.DeadlineNs(1));
   const auto began = std::chrono::steady_clock::now();
-  const Client::FrameSchedule schedule(SDL_GetTicksNS());
+  const Client::FrameSchedule schedule(SDL_GetTicksNS(), shot.Timing);
   for (std::size_t at = 0; at < count; ++at) {
     if (turn.empty()) {
       pacer.Wait();
@@ -388,8 +394,9 @@ bool MeasureFrames(Engine &engine,
     renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
     heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
     if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
-    shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
+    shot.OverBudget += heldMs.back() > shot.Timing.BudgetMs() ? 1u : 0u;
   }
+  schedule.Wait(count);
   shot.MeasurementMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   shot.TurnDegrees = turn.empty() ? 0.0 : 2.0 * kDegPerHalfTurn;
@@ -459,6 +466,13 @@ Shot Draw(Engine &engine,
           double preloadSeconds,
           std::span<const Scenario::View> turn) {
   Shot shot;
+  const auto timing = Client::FrameTiming::At(engine.declaration().Render.FrameRateHz);
+  if (!timing) {
+    shot.Why = timing.error();
+    return shot;
+  }
+  shot.Timing = *timing;
+  shot.Frame = engine.swapChain().extent();
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
   if (!MeasureFrames(engine, name, shot, turn)) { return shot; }
