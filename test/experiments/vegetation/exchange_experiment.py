@@ -93,7 +93,21 @@ def run(inputs, output, samples, grid):
         "scope": "Experimental face-centre/ground-grid approximation of the first exchange only. Geometry-only operator excludes current light/material/camera; fixed static finite geometry, no wind/world/LOD/device admission.",
     }
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
-    print(json.dumps(result), flush=True)
+    print(
+        json.dumps(
+            {
+                key: result[key]
+                for key in (
+                    "product_identity",
+                    "nodes",
+                    "samples",
+                    "timings",
+                    "current_material_exchange_s",
+                )
+            }
+        ),
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
