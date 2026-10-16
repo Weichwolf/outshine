@@ -450,6 +450,35 @@ derselben Versions-URL ist ausdrücklich kein Identitätsbeweis.
 `--profile` für separate Kostenaufnahmen benötigt das vorhandene `memray==1.20.0`.
 Kein neuer nativer/öffentlicher Vertrag; kein SDK zur Laufzeit.
 
+## Drei Treppen, parallele Fuß-/Radbrücken und längere Radauffahrt (#434)
+
+Der [Netzvergleich](stair_network_comparison.md) erweitert den wirklichen Kontext
+auf15Quellen, drei echte Treppen/24Stufen,13ganze Kontakte und vier Unterführungen.
+Eine prozedurale Radauffahrt erhält alle tatsächlichen Anschlussorte. Originale
+und Priors bleiben erhalten;66weitere Kontextachsen und zwei tatsächliche
+Außen-/Geländeanbindungen sind noch nicht freigegeben. Ausgabe-/Kostenpfade frisch
+im System-Tempverzeichnis; `TRANSPORT_LAYERED_OUTPUT` liefert nur die bekannte Palette.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_junction_checks stair_context_checks stair_network_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_network_experiment.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_NETWORK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_network_verify.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_NETWORK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --network test/experiments/transport/fixtures/stair-network-vienna.json --products "$TRANSPORT_STAIR_NETWORK_OUTPUT" --solver highs-ds --repetitions 7 --output "$TRANSPORT_STAIR_NETWORK_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --network test/experiments/transport/fixtures/stair-network-vienna.json --products "$TRANSPORT_STAIR_NETWORK_OUTPUT" --solver highs-ipm --repetitions 7 --output "$TRANSPORT_STAIR_NETWORK_COST_IPM"
+```
+
+Für alle59betroffenen Kontrollen zusätzlich die bestehenden Module
+`foot_ramp_checks cycle_bridge_checks layered_bridge_checks` ausführen; ältere
+Rampenkontrollen benötigen das dort dokumentierte optionale `manifold3d==3.5.4`.
+Separate Kostenaufnahmen mit `--profile` benötigen das vorhandene `memray==1.20.0`.
+Keine neue Runtime-/SDK-Abhängigkeit oder öffentliche/native/Reservations-API.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
