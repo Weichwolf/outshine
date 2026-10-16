@@ -15,6 +15,12 @@
 #ifndef SOURCE_GRID_LOG
 #define SOURCE_GRID_LOG 0
 #endif
+#ifndef SOURCE_GRID_GROWTH
+#define SOURCE_GRID_GROWTH 0.0
+#endif
+#ifndef SOURCE_GRID_SYMMETRIC
+#define SOURCE_GRID_SYMMETRIC 0
+#endif
 #ifndef SOURCE_VISIBILITY_OUTPUT
 #define SOURCE_VISIBILITY_OUTPUT 0
 #endif
@@ -103,6 +109,20 @@ AirSource sourceWeatherAir(Medium medium, AirRay ray, float distanceKm, bool sun
 
 #if SOURCE_GRID_LOG
 float sourceWeatherGrid(AirRay ray, uint index) {
+  if (SOURCE_GRID_GROWTH > 0.0) {
+    if (index >= uint(AIR_PREFIX_INTERVALS)) { return ray.DistanceKm; }
+#if SOURCE_GRID_SYMMETRIC
+    float halfSteps = ceil(log2(1.0 + ray.DistanceKm * 0.5) /
+        (SOURCE_GRID_GROWTH * 1.44269504089));
+    if (float(index) >= 2.0 * halfSteps) { return ray.DistanceKm; }
+    float step = min(float(index), 2.0 * halfSteps - float(index));
+    float distanceKm = min(ray.DistanceKm * 0.5,
+        exp2(SOURCE_GRID_GROWTH * 1.44269504089 * step) - 1.0);
+    return float(index) <= halfSteps ? distanceKm : ray.DistanceKm - distanceKm;
+#else
+    return min(ray.DistanceKm, exp2(SOURCE_GRID_GROWTH * 1.44269504089 * float(index)) - 1.0);
+#endif
+  }
   if (SOURCE_CLOUD_COVER <= 0.0) {
     float fraction = float(index) / 22.0;
     return ray.DistanceKm * fraction * fraction;
