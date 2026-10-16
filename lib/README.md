@@ -1004,3 +1004,17 @@ The actual Python city consumer also reuses `FacadeRepeat`/`RecessPlan` for boun
 
 
 `buildings.window_bays.bay_flat(plan, back_covered=True)` supplies a separate46-triangle open exterior. Three panes move outward by `(wall_m-glass_m)/2`; removed reveals map along the same three directions. Only the exposed Y≤0 domain has this positional bound. Omitted attachment pieces at Y>0 require the caller's opaque source-cell cover. No interior/collision, topology, radiance or shadow equivalence. The building consumer admits this product using the existing directional projection bound over conservative bounds/camera movement; otherwise it retains86triangles, with full physical parts near/inside. Both render constructors now bypass hidden section/post construction; prior skin/physical arrays are preserved in representative paired controls (#428).
+
+`buildings.roller_gates.RollerGate` and `leaf_surface` supply bounded closed
+visible roller sheets in local `(width, height, outward)` metres. Static
+width/height/pitch/depth/rib and the separate opening fraction determine the
+remaining sheet; hidden winding is omitted. At most32 slats, finite dimensions,
+16-bit material and conservative triangle capacity are checked before expansion.
+`lift` snaps remaining heights≤1e−7m to fully open; consumers use that same lift
+for clearance. Detailed sawtooth strips have geometric normals and developed
+metre UVs; `detail=False` directly emits12 triangles at nominal depth without
+expanding corrugation. The front displacement is at most `rib_m`; this is no
+whole-image/shadow LOD admission. A fully open leaf emits no triangles. Housing,
+tracks, attachment, room/collision use, visibility and source interpretation
+remain consumer-owned. Actual source hall consumer, physical alternatives,
+functional negatives and reproduction live in building experiments (#489).

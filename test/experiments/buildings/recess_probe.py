@@ -131,9 +131,12 @@ def building(
     *,
     scope=None,
     door_states=None,
+    gate_states=None,
     context_rows=(),
 ):
-    details = FacadeDetails([row, *context_rows], view, door_states=door_states)
+    details = FacadeDetails(
+        [row, *context_rows], view, door_states=door_states, gate_states=gate_states
+    )
     mesh, source = construct(
         name,
         prepared=([row], {"invalid": [], "span_m": 100.0}),
