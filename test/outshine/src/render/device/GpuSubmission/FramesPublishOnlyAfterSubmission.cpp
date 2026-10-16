@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <utility>
 #include <memory>
 #include <string>
 #include <vector>
@@ -82,9 +85,15 @@ struct Faults {
   }
 };
 
+auto CompilePlan(std::vector<Resource> outputs, std::vector<Stage> content) {
+  PlanSpec plan;
+  plan.Outputs = std::move(outputs);
+  plan.Content = std::move(content);
+  return Compiled::Compile(plan);
+}
+
 void InitializationUploads() {
-  const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::Surface, Resource::IrradianceBuffer}, .Content = {Stage::Sky}});
+  const auto compiled = CompilePlan({Resource::Surface, Resource::IrradianceBuffer}, {Stage::Sky});
   CHECK(compiled.has_value(),
         "the initialization oracle requires irradiance and its ground bindings");
   if (!compiled) { return; }
@@ -197,14 +206,12 @@ void Reject(SceneRenderer &renderer, Faults &faults, Faults::Point point, bool c
 }
 
 void ReinitializationInvalidatesFrames(bool temporal) {
-  const auto compiled =
-      Compiled::Compile({.Outputs = {Resource::Surface}, .Content = {Stage::Sky}});
+  const auto compiled = CompilePlan({Resource::Surface}, {Stage::Sky});
   CHECK(compiled.has_value(), "reinitialization plan compiles");
   if (!compiled) { return; }
   const auto previous =
       temporal
-          ? Compiled::Compile({.Outputs = {Resource::Surface},
-                               .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}})
+          ? CompilePlan({Resource::Surface}, {Stage::Subjects, Stage::Sky, Stage::TemporalResolve})
           : compiled;
   CHECK(previous.has_value(), "previous render plan compiles");
   if (!previous) { return; }
@@ -258,14 +265,13 @@ void ReinitializationInvalidatesFrames(bool temporal) {
 }
 
 void TransmissionFollowsReplacementPlan() {
-  const auto opaque =
-      Compiled::Compile({.Outputs = {Resource::Surface}, .Content = {Stage::Subjects, Stage::Sky}});
-  const auto glass =
-      Compiled::Compile({.Outputs = {Resource::Surface, Resource::SceneComposited},
-                         .Content = {Stage::Subjects, Stage::SubjectsTransmissive, Stage::Sky}});
+  const auto opaque = CompilePlan({Resource::Surface}, {Stage::Subjects, Stage::Sky});
+  const auto glass = CompilePlan({Resource::Surface, Resource::SceneComposited},
+                                 {Stage::Subjects, Stage::SubjectsTransmissive, Stage::Sky});
   CHECK(opaque.has_value() && glass.has_value(), "transmission switching plans compile");
   if (!opaque || !glass) { return; }
-  const std::array<SubjectMaterial, 1> materials{{{.Row = {.Transmission = 1}}}};
+  std::array<SubjectMaterial, 1> materials{};
+  materials[0].Row.Transmission = 1;
   SceneRenderer renderer;
   std::string error;
   for (bool enabled : {true, false, true}) {
@@ -278,9 +284,9 @@ void TransmissionFollowsReplacementPlan() {
 }
 
 void WorldPreparationCompletesLighting() {
-  const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-       .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}});
+  const auto compiled =
+      CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
+                  {Stage::Subjects, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "world preparation uses the real atmosphere and temporal plan");
   if (!compiled) { return; }
   Faults faults;
@@ -349,9 +355,9 @@ void WorldPreparationCompletesLighting() {
 }
 
 void Exercise() {
-  const auto compiled = Compiled::Compile(
-      {.Outputs = {Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
-       .Content = {Stage::Subjects, Stage::Sky, Stage::TemporalResolve}});
+  const auto compiled =
+      CompilePlan({Resource::Surface, Resource::SceneLinear, Resource::IrradianceBuffer},
+                  {Stage::Subjects, Stage::Sky, Stage::TemporalResolve});
   CHECK(compiled.has_value(), "the real sky, irradiance and temporal plan compiles");
   if (!compiled) { return; }
   CHECK((*compiled)->Holds(Stage::TemporalResolve) && (*compiled)->Holds(Stage::MediumRadiance),
@@ -542,7 +548,7 @@ void ShadowSubmission() {
         "changing the caster mask invalidates and clears the old shadow");
   for (auto *renderer : renderers) {
     renderer->CastsBelow(kNoBatch);
-    renderer->SetShadowFrame({{0.6f, 0.5f, 0.7f}}, {{0, 1, 0}}, 8);
+    renderer->SetShadowFrame({{0.6f, 0.5f, 0.7f}}, {{0, 1, 0}}, 8, false, 0);
   }
   reject();
   const auto changed = drawPair();
