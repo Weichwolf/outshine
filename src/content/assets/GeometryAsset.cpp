@@ -1,6 +1,7 @@
 #include "content/GeometryAsset.h"
 #include "BinaryValueArchive.h"
 #include "GeometryAssetValues.h"
+#include "MaterialValidation.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -38,8 +39,13 @@ bool ValidLamp(const PunctualLight &light, const Mat4 &placement) {
 }
 
 bool Complete(const Geometry &geometry) {
-  return geometry.wellFormed() || (geometry.parts() == 0 && geometry.surfaces() == 0 &&
-                                   geometry.images() == 0 && geometry.lamps() == 0);
+  if (geometry.parts() != 0) { return geometry.wellFormed(); }
+  for (int index = 0; index < geometry.surfaces(); ++index) {
+    if (!MaterialIsValid(geometry.surfaceAt(MaterialInstance(index)), geometry.images())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool WriteImages(BinaryValueWriter &out, const Geometry &geometry, bool preparedImages) {
