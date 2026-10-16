@@ -32,7 +32,7 @@ def unique_caps(plan):
 def partition(plan, heights):
     faces, source_masks = unique_caps(plan)
     xy = plan["xy"]
-    a, b = [int(np.argmin(np.linalg.norm(xy - p, axis=1))) for p in plan["nodes"]]
+    a, b = [int(np.argmin(np.linalg.norm(xy - p, axis=1))) for p in plan["nodes"][:2]]
     low, high = float(heights[a]), float(heights[b])
     count = math.ceil((high - low) / 0.179)
     if not 1 <= count <= 64:

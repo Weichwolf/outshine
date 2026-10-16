@@ -155,8 +155,9 @@
   RTX 3060 verwendet separat 1920×1080/60. Framebudgets: 1000/30 = 33,33 ms beziehungsweise
   1000/60 = 16,67 ms einschließlich p99; Speicher und CPU/GPU pro Gerät getrennt belegen.
   Das Ziel ersetzt keinen gemessenen Gerätenachweis.
-- Nur der Hauptagent veröffentlicht Bilder: die integrierten Places unter `doc/images/places/`
-  und in der README-Galerie. Fachagenten pushen keine Bilder nach `doc/` und legen keine
+- Nur der Hauptagent veröffentlicht Bilder: genau drei frei wählbare integrierte Places unter
+  `doc/images/places/` und in der README-Galerie. Die Auswahl darf jederzeit wechseln;
+  ersetzte Galeriebilder werden entfernt. Fachagenten pushen keine Bilder nach `doc/` und legen keine
   Ersatzgalerien an. Forschungs-/Diagnosebilder bleiben lokal im System-Tempverzeichnis;
   Verfahren, Tests und Renderer werden weiterhin geliefert. Tatsächliche Bildprüfung bleibt Pflicht.
 - Alle acht Places aus [#5](https://github.com/Weichwolf/outshine/issues/5) sind visuelle Regressionen, mindestens einer gehört ins Gate.
@@ -168,8 +169,8 @@
   Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
-  Die README-Galerie erhält dieselben aktuellen PNGs unter `doc/images/places/`, untereinander
-  nur mit Ortsangabe und ohne Vergrößerungslink.
+  Alle Places bleiben lokal aktuell. Die README-Galerie zeigt nur die drei ausgewählten aktuellen
+  PNGs unter `doc/images/places/`, untereinander nur mit Ortsangabe und ohne Vergrößerungslink.
   Fehlende/unvollständige Bilder bleiben rot. Unbelegte Bildänderungen gelten als Verschlechterung.
 - Vollständiger Asset-Cache → frischer Offline-Prozess → vollständige Welt so schnell wie möglich.
   Vorbereitete Places sollen warm unter zehn Sekunden laden; eine Sekunde ist ein Optimierungs-
