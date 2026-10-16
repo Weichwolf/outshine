@@ -46,6 +46,7 @@ def material_probes(base, after, collars, bounds, positions):
         expected |= winding_inside(collar, points)
     actual = winding_inside(after, points)
     np.testing.assert_array_equal(actual, expected)
+    assert np.any(actual & ~original)
     assert original[:96].all() and actual[:96].all()
     np.testing.assert_array_equal(actual[-96:], original[-96:])
     return {
@@ -88,8 +89,7 @@ def run(inputs, products, output):
             ):
                 continue
             other = target / source.name
-            if not other.is_file():
-                continue
+            assert other.is_file(), source.name
             assert (
                 hashlib.sha256(source.read_bytes()).digest()
                 == hashlib.sha256(other.read_bytes()).digest()
