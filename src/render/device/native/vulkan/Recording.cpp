@@ -51,7 +51,7 @@ Result<void> Recording::Initialize() {
   begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
   result = vkBeginCommandBuffer(Commands_, &begin);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkBeginCommandBuffer", result)); }
-  return {};
+  return Timings_.BeginSubmission(Commands_);
 }
 
 Result<void> Recording::End() {
@@ -61,6 +61,7 @@ Result<void> Recording::End() {
   }
   if (auto presented = FinalizePresentation(); !presented) { return presented; }
   if (auto sealed = Storage_.Seal(); !sealed) { return sealed; }
+  Timings_.EndSubmission(Commands_);
   const auto result = vkEndCommandBuffer(Commands_);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkEndCommandBuffer", result)); }
   Finished_ = true;
