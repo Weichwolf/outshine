@@ -20,6 +20,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   zwölf ganze Endprofile und unveränderte Unterführungs-/Terrain-/Pfeilergrenzen.
 - [Ganze gewählte Podeste](stair_landing_comparison.md): alle 41 inneren
   Endprofile, neun kleine Ergänzungen und derselbe installierbare Profilkern.
+- [Nullflächen nach Konformierung](stair_conformance_comparison.md): fester
+  Wiener Gegenfall des begrenzten Bodenmoduls und unveränderte Flächenprüfung.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.

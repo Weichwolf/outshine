@@ -139,6 +139,12 @@ def arrangement(rows, domains, masks):
     signed = signed[signed != 0]
     faces[signed < 0] = faces[signed < 0, ::-1]
     faces, _note = conform_triangles(xy, faces, max_faces=8192, max_candidates=65536)
+    points = xy[faces]
+    first, second = points[:, 1] - points[:, 0], points[:, 2] - points[:, 0]
+    nonzero = first[:, 0] * second[:, 1] != first[:, 1] * second[:, 0]
+    if not nonzero.all():
+        weld_note["conformed_zero_faces_removed"] = int((~nonzero).sum())
+        faces = faces[nonzero]
     shapes = shapely.polygons(xy[faces])
     if (
         not shapely.coverage_is_valid(shapes)
