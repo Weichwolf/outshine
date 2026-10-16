@@ -1,6 +1,7 @@
 #include "CostReport.h"
 
 #include <print>
+#include <array>
 #include <span>
 #include <string_view>
 #include <string>
@@ -41,6 +42,36 @@ void Group(std::string_view scene,
     if (divisor <= 0.0) { std::print("/{:.0f}", count); }
   }
   std::println("");
+}
+
+void PrintGpuTimes(std::span<const DiagnosticSample> samples, double frames) {
+  constexpr std::array frameNames{"cost.gpu.frames",
+                                  "cost.gpu.total_ms",
+                                  "cost.gpu.max_ms",
+                                  "cost.gpu.unavailable",
+                                  "cost.gpu.query_ms"};
+  constexpr std::array captureNames{"capture.gpu.frames",
+                                    "capture.gpu.total_ms",
+                                    "capture.gpu.max_ms",
+                                    "capture.gpu.unavailable",
+                                    "capture.gpu.query_ms"};
+  const bool captured = Value(samples, "capture.gpu.render_frames") == frames;
+  const auto &names = captured ? captureNames : frameNames;
+  const double gpuFrames = Value(samples, names[0]);
+  if (gpuFrames > 0) {
+    std::println("; gpu_ms(mean/max)={:.3f}/{:.3f} samples={:.0f}/{:.0f} unavailable={:.0f} "
+                 "query_cpu_total_ms={:.3f}",
+                 Value(samples, names[1]) / gpuFrames,
+                 Value(samples, names[2]),
+                 gpuFrames,
+                 frames,
+                 Value(samples, names[3]),
+                 Value(samples, names[4]));
+  } else {
+    std::println("; gpu_ms=unavailable samples=0/{:.0f} unavailable={:.0f}",
+                 frames,
+                 Value(samples, names[3]));
+  }
 }
 
 }
@@ -147,7 +178,7 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
                sample.Value / frames,
                get(base + ".worst_ms"));
   }
-  std::println("; gpu_ms=unavailable(native timestamps not recorded)");
+  PrintGpuTimes(samples, frames);
   Group(scene, samples, "cost.stage.", frames);
   std::println("PERF {} diagnostics lifetime: publication={:.2f}ms max={:.3f}ms; "
                "parents include children; output after measurement",

@@ -102,6 +102,11 @@ public:
     return Backing_.GpuTimings(completion);
   }
 
+  [[nodiscard]] Render::Native::Result<Render::Native::SubmissionGpuTiming>
+  SubmissionGpuTime(Render::Native::Completion completion) override {
+    return Backing_.SubmissionGpuTime(completion);
+  }
+
 protected:
   [[nodiscard]] Render::Native::Device &Backing() const noexcept { return Backing_; }
 

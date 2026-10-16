@@ -20,7 +20,7 @@ constexpr float kGreen = 0.125f, kBlue = 0.0625f;
 constexpr double kNearM = 0.1;
 constexpr double kFarM = 10;
 
-void Exercise() {
+void Exercise(bool timing) {
   Geometry geometry;
   Material material;
   material.Unlit = true;
@@ -36,7 +36,13 @@ void Exercise() {
   declaration.InitialGeometry = &geometry;
   declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kSide;
   declaration.Outputs = {"surface"};
-  Render::SceneRenderer renderer;
+  Render::GpuSubmission submission;
+  submission.Context = &timing;
+  submission.Create = [](void *context, Render::Native::DeviceOptions options) {
+    if (!*static_cast<const bool *>(context)) { options.GpuTiming = false; }
+    return Render::Native::CreateDevice(options);
+  };
+  Render::SceneRenderer renderer(submission);
   std::unique_ptr<Core::RuntimeScene> scene;
   std::string error;
   CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), error.c_str());
@@ -62,12 +68,29 @@ void Exercise() {
   std::vector<uint8_t> display;
   CHECK(renderer.ReadPixels(display) == Render::ReadState::Ready && display.size() == kPixels * 4,
         "the same submitted native frame reaches the display output");
+  const auto first = renderer.Costs();
+  CHECK(first.Frames == 1 && first.Gpu.Frames == static_cast<uint64_t>(timing) &&
+            first.UnavailableGpuFrames == static_cast<uint64_t>(!timing),
+        "each accepted frame contributes exactly one GPU result or an explicit missing value");
+  CHECK(std::isfinite(first.Gpu.TotalMs) && first.Gpu.TotalMs == first.Gpu.MostMs &&
+            (timing ? first.Gpu.TotalMs > 0 : first.Gpu.TotalMs == 0),
+        "completed frames use hardware GPU time and unsupported timing invents no duration");
+  CHECK(std::isfinite(first.GpuQueryMs) && first.GpuQueryMs >= 0,
+        "GPU result collection records its own CPU cost separately");
+  CHECK(renderer.ReadPixels(display) == Render::ReadState::Ready,
+        "repeated readback remains valid after the frame timing is retired");
+  CHECK(renderer.Costs().Gpu.Frames == first.Gpu.Frames &&
+            renderer.Costs().UnavailableGpuFrames == first.UnavailableGpuFrames,
+        "repeated readback never duplicates a GPU frame sample or missing value");
 }
 }
 
 int main() {
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
-  if (SDL_WasInit(SDL_INIT_VIDEO) != 0) { Exercise(); }
+  if (SDL_WasInit(SDL_INIT_VIDEO) != 0) {
+    Exercise(true);
+    Exercise(false);
+  }
   SDL_Quit();
   return Report();
 }

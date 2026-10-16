@@ -631,6 +631,9 @@ public:
 
     std::array<StageCost, kStageCount> Stages{};
     RenderFrameTiming HostTotals;
+    StageCost Gpu;
+    uint64_t UnavailableGpuFrames = 0;
+    double GpuQueryMs = 0.0;
     uint64_t Frames = 0;
   };
 
@@ -741,6 +744,8 @@ private:
   std::array<Effort, kStageCount> Spent_ = {{}};
   SubmittedCameraFrame LastSubmittedCamera_;
   void CommitCostProfile(const RenderFrameTiming &timing);
+  void CollectGpuTime(Native::Completion completion);
+  void CollectCompletedFrameTimes();
   CostProfile Costs_;
   std::array<Effort, kStageCount> PendingSpent_{};
   RenderFrameTiming LastRenderFrameTiming_;

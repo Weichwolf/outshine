@@ -669,6 +669,7 @@ struct Engine::State {
                                std::chrono::steady_clock::time_point rebuildBegan);
   void PublishFrameMeasurements();
   void PublishCostMeasurements();
+  void PublishGpuFrameMeasurements(bool completedCapture = false);
   void PublishSubmittedCameraMeasurements();
   void PublishResourcePayloadMeasurements();
   void PublishAudioSnapshot();

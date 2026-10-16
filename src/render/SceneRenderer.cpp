@@ -222,7 +222,8 @@ bool SceneRenderer::Executable(Stage stage) {
 
 bool SceneRenderer::Stands() {
   if (Device_) { return true; }
-  auto made = Submission_.Create(Submission_.Context, {.Validation = kGpuValidation});
+  auto made =
+      Submission_.Create(Submission_.Context, {.Validation = kGpuValidation, .GpuTiming = true});
   if (!made) {
     ActiveState().WhyNot = made.error().Message;
     return false;
@@ -1320,6 +1321,7 @@ bool SceneRenderer::Settle(std::string &error) {
     error = "GPU completion exceeds the explicit settle budget";
     return false;
   }
+  CollectCompletedFrameTimes();
   error.clear();
   return true;
 }
@@ -1486,21 +1488,6 @@ Native::Result<void> SceneRenderer::FlushCrossings(Native::Commands &commands) {
   if (ActiveState().Content.DrawsGlass) {
     return ActiveState().Content.Glass.FlushCrossings(&commands);
   }
-  return {};
-}
-
-Native::Result<void> SceneRenderer::WaitForFrameSlot() {
-  auto &completion = Landed_[LandedAt_];
-  if (!completion) { return {}; }
-  const auto ready = Submission_.WaitFence(
-      Submission_.Context, Device_.get(), *completion, std::chrono::seconds(5));
-  if (!ready) { return std::unexpected(ready.error()); }
-  if (*ready != Native::CompletionStatus::Ready) {
-    return std::unexpected(
-        Native::Error{.Kind = Native::ErrorKind::Busy,
-                      .Message = "GPU frame completion exceeds the explicit wait budget"});
-  }
-  completion.reset();
   return {};
 }
 
@@ -1675,32 +1662,6 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
   return {};
 }
 
-void SceneRenderer::CommitCostProfile(const RenderFrameTiming &timing) {
-  ++Costs_.Frames;
-  Costs_.HostTotals.TotalMs += timing.TotalMs;
-  for (size_t at = 0; at < timing.PhaseMs.size(); ++at) {
-    Costs_.HostTotals.PhaseMs[at] += timing.PhaseMs[at];
-  }
-  Spent_ = PendingSpent_;
-  for (size_t at = 0; at < Spent_.size(); ++at) {
-    if (Spent_[at].TookMs == 0.0) { continue; }
-    auto &cost = Costs_.Stages[at];
-    ++cost.Frames;
-    cost.TotalMs += Spent_[at].TookMs;
-    cost.MostMs = std::max(cost.MostMs, Spent_[at].TookMs);
-  }
-}
-
-void SceneRenderer::WaitForGpu() {
-  if (!Device_) { return; }
-  std::string error;
-  if (!Settle(error)) {
-    Log::Error(LogTag::Render, "gpu_settle_failed", {{"msg", error}});
-    return;
-  }
-  for (auto &completion : Landed_) { completion.reset(); }
-}
-
 ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
   ActiveState().WhyNot.clear();
   if (!ActiveState().Ready || !ActiveState().Submitted) {
@@ -1731,6 +1692,7 @@ ReadState SceneRenderer::ReadPixels(std::vector<uint8_t> &rgba) {
     ActiveState().WhyNot = std::string(Says::kColourReadbackFailed) + read.WhyNot();
     return ReadState::Failed;
   }
+  CollectCompletedFrameTimes();
   rgba.resize(static_cast<size_t>(ActiveFrame().Width) * static_cast<size_t>(ActiveFrame().Height) *
               4u);
   std::memcpy(rgba.data(), read.Rows(), rgba.size());
