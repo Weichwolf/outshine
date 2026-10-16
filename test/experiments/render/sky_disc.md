@@ -46,3 +46,7 @@ gepaarte Probehost liefert keine Raster-/Submission-Timestamps; keine Zeit aus
 Fences ableiten. Neue Device-Header benötigen ihr dazu gebautes reguläres Archiv.
 Sky-/Aerial-/History-/Place-/A18-Abnahme bleibt getrennt. Der allgemeine klare
 Sonnenpfad und die solaren Integrationsgrenzen bleiben bei #206/#259/#353.
+
+`python test/experiments/render/sky_disc_report.py --output <derselbe Pfad>`
+erzeugt ein dreiseitiges PDF mit Vorher/Nachher, Lookupfehlern und tatsächlichen
+nativen Spektren. Es benötigt Matplotlib; die Referenz benötigt NumPy.
