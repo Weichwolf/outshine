@@ -2,6 +2,7 @@
 #define OUTSHINE_CLIENT_PLACETURN_H
 
 #include "TangentFrame.h"
+#include "PlaceFrameProfile.h"
 #include "math/RenderFrame.h"
 #include <scenario/Scenario.h>
 #include <cmath>
@@ -12,12 +13,11 @@
 
 namespace outshine::Shots {
 
-inline constexpr std::size_t kTurnFrames = 60;
-
-[[nodiscard]] inline std::vector<Scenario::View> PlaceTurn(const Scenario::View &initial,
-                                                           LongitudeLatitude origin) {
+[[nodiscard]] inline std::vector<Scenario::View>
+PlaceTurn(const Scenario::View &initial, LongitudeLatitude origin, FrameProfile profile = {}) {
   std::vector<Scenario::View> views;
-  views.reserve(kTurnFrames);
+  const auto count = profile.Frames();
+  views.reserve(count);
   views.push_back(initial);
   const auto frame = TangentFrame::At(origin);
   const auto point = frame.ToLocalPosition(initial.Geographic.Geodetic);
@@ -25,11 +25,11 @@ inline constexpr std::size_t kTurnFrames = 60;
       Vec3{{point.EastM, point.UpM, RenderFrame::ZOfNorth(point.NorthM)}} + initial.OffsetM;
   const auto vertical = frame.ToLocalDirection(EnuAxesEcef(initial.Geographic.Geodetic).Up);
   const Vec3 up{{vertical.EastM, vertical.UpM, RenderFrame::ZOfNorth(vertical.NorthM)}};
-  for (std::size_t index = 1; index < kTurnFrames; ++index) {
+  for (std::size_t index = 1; index < count; ++index) {
     auto view = initial;
     view.Id += "/turn/" + std::to_string(index);
     const double degrees =
-        2.0 * kDegPerHalfTurn * static_cast<double>(index) / static_cast<double>(kTurnFrames);
+        2.0 * kDegPerHalfTurn * static_cast<double>(index) / static_cast<double>(count);
     if (initial.Sees.LooksAt) {
       const double angle = -degrees * kDeg2Rad;
       const auto rotate = [&](Vec3 value) {
