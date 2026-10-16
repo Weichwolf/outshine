@@ -32,6 +32,7 @@ def group(unit, weights, indices, work):
         "indices": indices,
         "area": area,
         "normal": mean / np.linalg.norm(mean),
+        "length": min(float(np.linalg.norm(mean)), 1),
         "score": max(eigenvalues[-1], 0),
         "axis": eigenvectors[:, -1],
     }
@@ -85,8 +86,20 @@ def partition(gradient, weights, strategy="area"):
         coverage = np.array([g["area"] for g in groups])
         np.testing.assert_allclose(coverage.sum(), 1, atol=1e-12, rtol=0)
         np.testing.assert_allclose(np.linalg.norm(lobes, axis=1), 1, atol=1e-12, rtol=0)
-        models[capacity] = (lobes, coverage, work.copy())
+        models[capacity] = (
+            lobes,
+            coverage,
+            work.copy(),
+            np.array([g["length"] for g in groups]),
+        )
     return models
+
+
+def roughened(roughness, length):
+    a2 = roughness**4
+    d = length * a2 + 2 * (1 - a2) * (1 - length)
+    n = 2 * length * (1 - a2)
+    return (2 * d / (n + 2 * d)) ** 0.25
 
 
 def response(lobes, coverage, roughness, lights, view):
@@ -96,7 +109,13 @@ def response(lobes, coverage, roughness, lights, view):
     half /= np.linalg.norm(half, axis=1)[:, None]
     nh = np.maximum(lobes @ half.T, 0)
     vh = np.maximum(half @ view, 0)[None]
-    return coverage @ specular_from_dots(roughness, nl, nv, nh, vh)
+    return coverage @ specular_from_dots(
+        np.asarray(roughness)[:, None] if np.ndim(roughness) else roughness,
+        nl,
+        nv,
+        nh,
+        vh,
+    )
 
 
 def response_bounds(lobes, coverage, roughness, lights, view, dot_error=3e-7):
@@ -122,13 +141,13 @@ def response_bounds(lobes, coverage, roughness, lights, view, dot_error=3e-7):
     return coverage @ lower, coverage @ upper
 
 
-def curves(lobes, coverage):
+def curves(lobes, coverage, lengths=None):
     return np.array(
         [
             response(
                 lobes,
                 coverage,
-                roughness,
+                roughness if lengths is None else roughened(roughness, lengths),
                 np.array([direction(angle, azimuth) for angle in ANGLES]),
                 direction(view),
             )
@@ -166,12 +185,16 @@ def compare(source, output, strategy):
             "traced_build_peak_bytes": peak,
             "methods": [],
         }
-        for capacity, (lobes, coverage, work) in models.items():
+        for capacity, (lobes, coverage, work, lengths) in models.items():
             actual = curves(lobes, coverage)
+            smoothed = curves(lobes, coverage, lengths)
             if capacity == 9:
                 np.testing.assert_allclose(actual, reference[:, -1], atol=1e-11, rtol=0)
             if case["name"] in ("flat-interior", "zero-depth", "joint-0.0002"):
                 np.testing.assert_allclose(actual, reference[:, 0], atol=1e-11, rtol=0)
+                np.testing.assert_allclose(
+                    smoothed, reference[:, 0], atol=1e-11, rtol=0
+                )
                 assert len(lobes) == 1
             delta = actual - reference[:, 0]
             scale = np.max(np.abs(reference[:, 0]), axis=1)
@@ -179,6 +202,12 @@ def compare(source, output, strategy):
             rms = np.sqrt(np.mean(delta * delta, axis=1)) / scale
             failures = np.flatnonzero(
                 (maximum > MAX_PEAK_ERROR) | (rms > RMS_PEAK_ERROR)
+            )
+            smooth_delta = smoothed - reference[:, 0]
+            smooth_max = np.max(np.abs(smooth_delta), axis=1) / scale
+            smooth_rms = np.sqrt(np.mean(smooth_delta * smooth_delta, axis=1)) / scale
+            smooth_fail = np.flatnonzero(
+                (smooth_max > MAX_PEAK_ERROR) | (smooth_rms > RMS_PEAK_ERROR)
             )
             row["methods"].append(
                 {
@@ -188,12 +217,19 @@ def compare(source, output, strategy):
                     "rms_peak_error": float(rms.max()),
                     "failed_curves": failures.tolist(),
                     "work": work,
+                    "smoothed": {
+                        "max_peak_error": float(smooth_max.max()),
+                        "rms_peak_error": float(smooth_rms.max()),
+                        "failed_curves": smooth_fail.tolist(),
+                    },
                 }
             )
             np.savez_compressed(
                 output / f"{case['name']}-{capacity}.npz",
                 lobes=lobes,
                 coverage=coverage,
+                normal_lengths=lengths,
+                smoothed_response=smoothed,
                 response=actual,
                 reference=reference[:, 0],
                 mean_gradient_normal=normals((weights @ gradient)[None])[0],
@@ -201,7 +237,14 @@ def compare(source, output, strategy):
         rows.append(row)
         print(
             case["name"],
-            [(m["capacity"], len(m["failed_curves"])) for m in row["methods"]],
+            [
+                (
+                    m["capacity"],
+                    len(m["failed_curves"]),
+                    len(m["smoothed"]["failed_curves"]),
+                )
+                for m in row["methods"]
+            ],
             flush=True,
         )
     return {

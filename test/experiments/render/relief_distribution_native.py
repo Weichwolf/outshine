@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from facade_coating_raster import ROOT, run
 from relief_distribution import CAPACITIES, response, response_bounds
+from relief_distribution_checks import dots
 from relief_shading import ROUGHNESS
 from relief_shading_reference import direction
 
@@ -178,6 +179,7 @@ def execute(binary, source, output, profile):
         models_by_capacity[capacity], palettes[capacity] = inputs(
             source, output, capacity, names
         )
+    dot_receipt = dots(binary, output, models_by_capacity, LIGHTS)
     captures = {}
     for method, capacity, mixture in methods:
         target, actual, receipt = capture(
@@ -234,6 +236,10 @@ def execute(binary, source, output, profile):
     return {
         "scope": "GGX evaluation with ideal resident statistics; no construction or whole-frame cost claim",
         "probes": COUNT,
+        "dot_validation": dot_receipt,
+        "source_report_sha256": hashlib.sha256(
+            (source / "report.json").read_bytes()
+        ).hexdigest(),
         "native": reports,
         "gpu_timings": timed_runs,
         "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
@@ -255,6 +261,7 @@ def main():
             Path(__file__).resolve(),
             Path(__file__).with_name("relief_distribution_probe.comp").resolve(),
             Path(__file__).with_name("relief_distribution.py").resolve(),
+            Path(__file__).with_name("relief_distribution_checks.py").resolve(),
             ROOT / "src/render/shaders/metalRoughBrdf.glsl",
         )
     }
