@@ -70,31 +70,60 @@ is claimed. All glass thickness and source/room/access identities are retained.
 
 ## Measured scope
 
-Frozen `ea0f136d0`: normal-priority, shared four-logical-CPU host, concurrent
-Software-Eevee rendering. 21 warm runs; timings in ms, traced peaks in bytes.
+Frozen `6db23d04f`: normal-priority, shared four-logical-CPU host, concurrent
+installed-wheel checks/replay. 21 warm runs; timings in ms, traced peaks in bytes.
 These are panel-emission measurements, not whole-hall/frame/device speedups:
 
 | Fields | Construction | Cold ms | Warm median ms | Triangles | Unique array bytes | Traced peak bytes |
 |---|---|---|---|---|---|---|
-|55|CGA closed|78.834|1.806|2420|377960|410248|
-|55|direct closed|3.641|2.280|2420|377960|382872|
-|55|checked contact|4.500|1.495|1980|309240|319152|
-|16|CGA closed|42.876|0.787|704|113168|121192|
-|16|direct closed|2.494|0.710|704|113168|114792|
-|16|checked contact|1.373|0.415|576|92592|95968|
-|46|CGA closed|55.830|1.720|2024|309144|343432|
-|46|direct closed|3.851|1.792|2024|309144|321000|
-|46|checked contact|2.640|1.171|1656|252936|267648|
+|55|CGA closed|122.068|3.495|2420|377960|410248|
+|55|direct closed|4.448|1.477|2420|377960|382992|
+|55|checked contact|6.209|2.955|1980|309240|319152|
+|16|CGA closed|28.747|0.508|704|113168|121192|
+|16|direct closed|1.430|0.418|704|113168|114912|
+|16|checked contact|2.409|0.891|576|92592|96000|
+|46|CGA closed|46.374|2.287|2024|309144|343432|
+|46|direct closed|2.890|1.835|2024|309144|321120|
+|46|checked contact|2.555|1.362|1656|252936|267648|
 
-Body/source preparation separately costs 256.152/111.176/218.542 ms; contact
-certification adds 88.013/33.527/105.709 ms once to those inputs. Contact emission
+Body/source preparation separately costs 237.265/103.772/188.395 ms; contact
+certification adds 96.064/24.992/68.085 ms once to those inputs. Contact emission
 saves 18.18% of field triangles/storage and halves the number of transformed
 components versus CGA. Direct closed construction strongly reduces template-
 cold work; warm medians do not establish a uniform speed gain. The contact
 preparation cost needs justification by reuse or measured downstream savings.
 No savings in unchanged body work, total allocator/copy traffic, native scratch
-or device frame time are inferred. Known position/normal arrays and emitted
+or device frame time are inferred. Known final position/normal arrays and emitted
 triangles/bytes are reported; unmeasured backend work stays unknown.
+
+The chosen general construction is the direct closed primitive. The contact
+variant remains optional: its lower geometry/storage does not demonstrate a
+uniform warm CPU or complete-pipeline gain and needs the certified opaque host.
+The prepared body plus contact parts uses 10144 instead of 10512 triangles in the
+large individual hall; the same 37-source tile uses 71339 instead of 72523. No
+source, existing hall or access programme is removed to obtain those numbers.
+
+Nine new 1920×1080 Eevee images (16 samples, llvmpipe) were rendered and optically
+opened; both final raster batches ended0 using the previously documented flush/
+post-render teardown workaround. Pixel differences are small but nonzero:
+
+| View | Variant | Changed pixels / 2073600 | Worst channel difference / 255 |
+|---|---|---|---|
+|near|direct closed|62|5|
+|near|contact|127|13|
+|inside|contact|107|1|
+|opposite|contact|34|5|
+|whole hall|contact|536|9|
+|far|direct closed|407|7|
+|far|contact|663|15|
+|whole source tile|contact|994|19|
+
+The source 38-check run and the same 38 installed-wheel checks pass on library
+promotion. The final immutable-template refinement has its focused six checks
+and a fresh 38-check wheel run. Five actual new component inputs and eight
+previous v1 inputs replay exactly after promotion (arrays/dtypes/source palette).
+The whole source reference is separately checked before emitting its contact
+variant. These local controls do not establish general image/shadow/LOD bounds.
 
 ## Reproduction
 
