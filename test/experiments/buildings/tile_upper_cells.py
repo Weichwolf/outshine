@@ -1,8 +1,6 @@
-"""Compose shared upper door cells, shop fronts and all remaining original facade repeats."""
+"""Compose bounded upper facade projections, shop fronts and retained original repeats."""
 
 import numpy as np
-from balcony_geometry import products as balcony_products
-from facade_balconies import demand as balcony_demand
 from facade_entry_clip import remainder
 from facade_entry_geometry import basis_for, local_quads
 from facade_entry_geometry import products as entrance_products
@@ -139,21 +137,11 @@ def append_products(
         parts.extend(added)
         records.extend(descriptions)
     for current, mode in visible:
-        added = balcony_products(current, plan["owner"], plain, mode)
+        owner = plan["owner"]
+        added = owner.products(current, plain, mode)
         parts.extend(added)
         records.append(
-            {
-                "id": current["id"],
-                "kind": "balcony",
-                "facade_id": frame["id"],
-                "cell": [current["column"], current["row"]],
-                "door_id": current["door_id"],
-                "mode": mode,
-                "cells": int(mode == "through"),
-                "angle_deg": current["doorway"]["angle_deg"],
-                "triangles": sum(len(p["faces"]) for p in added),
-                "scope": "Same local deck/guard and upper door; full storey route and native interaction unproved",
-            }
+            owner.description(current, mode, sum(len(p["faces"]) for p in added), frame)
         )
 
 
@@ -171,15 +159,15 @@ def attach(
     entrance,
     shopfront,
     shop_material,
-    balconies,
+    projections,
 ):
     from tile_facade_recess import assemble
     from tile_facade_recess import attach as original
 
     visible = [
         (c, mode)
-        for c in balconies["cells"]
-        if (mode := balcony_demand(c, view)) is not None
+        for c in projections["cells"]
+        if (mode := projections["owner"].demand(c, view)) is not None
     ]
     arguments = {
         "plain_wall_material": plain_wall_material,
@@ -199,7 +187,7 @@ def attach(
             wall_material,
             **arguments,
         )
-    frame = balconies["frame"]
+    frame = projections["frame"]
     other = [f for f in facades if f["id"] != frame["id"]]
     mesh, records, rejected = original(
         mesh,
@@ -221,7 +209,7 @@ def attach(
             source,
             parameters,
             view,
-            balconies,
+            projections,
             visible,
             shopfront,
             shop_mode,
@@ -233,7 +221,7 @@ def attach(
         append_products(
             parts,
             descriptions,
-            balconies,
+            projections,
             visible,
             view,
             shopfront,
