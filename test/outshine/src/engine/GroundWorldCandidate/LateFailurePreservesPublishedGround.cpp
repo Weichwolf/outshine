@@ -1,40 +1,84 @@
 #include "GroundWorldCandidate.h"
 #include "Check.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <array>
-#include <cassert>
-#include <dlfcn.h>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace {
-bool rejectSubmit = false;
+constexpr size_t kReplacementWayCount = 19;
 
-bool RejectCommands(SDL_GPUCommandBuffer *commands) {
-  if (!rejectSubmit) { return false; }
-  rejectSubmit = false;
-  const bool cancelled = SDL_CancelGPUCommandBuffer(commands);
-  assert(cancelled);
-  SDL_SetError("injected late ground publication failure");
-  return true;
-}
+void RefusePublicationDuringCapture(outshine::Render::SceneRenderer &renderer,
+                                    outshine::Surrounds &world,
+                                    outshine::Generators::Osm::BuildingField &footprints,
+                                    std::unique_ptr<outshine::Core::RuntimeScene> &scene,
+                                    outshine::GroundRevision nextRevision) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const auto *oldScene = scene.get();
+  const auto oldRegion = world.Region;
+  {
+    GroundWorldCandidate held(renderer, world, footprints);
+    const auto heldPrepared = held.Prepare(*scene, nullptr);
+    CHECK(heldPrepared.has_value(),
+          heldPrepared ? "capture candidate prepares against the published world"
+                       : heldPrepared.error().c_str());
+    if (heldPrepared) {
+      held.Products().PositionsM = {9, 8, 7};
+      held.Products().Indices = {0, 0, 0};
+      held.Products().StreetGraphWayCount = kReplacementWayCount;
+      CHECK(world.GroundPublished.BeginCapture(), "published ground enters capture");
+      const auto heldResult = held.Publish(world, footprints, scene, nextRevision);
+      CHECK(!heldResult && scene.get() == oldScene &&
+                world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
+                world.StreetGraphWayCount == 7 && world.Relaid == 0 && world.Region == oldRegion,
+            "capture refuses a late candidate before changing live or CPU world products");
+      world.GroundPublished.EndCapture();
+    }
+  }
 }
 
-extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *commands) {
-  if (RejectCommands(commands)) { return false; }
-  static const auto original = reinterpret_cast<decltype(&SDL_SubmitGPUCommandBuffer)>(
-      dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBuffer"));
-  assert(original != nullptr);
-  return original(commands);
+void PublishRetry(outshine::Render::SceneRenderer &renderer,
+                  outshine::Surrounds &world,
+                  outshine::Generators::Osm::BuildingField &footprints,
+                  std::unique_ptr<outshine::Core::RuntimeScene> &scene,
+                  const outshine::Geometry &geometry) {
+  using namespace outshine;
+  using namespace outshine::Test;
+  const auto *oldScene = scene.get();
+  const auto oldRegion = world.Region;
+  const GroundRevision nextRevision{.Region = 18};
+  std::string error;
+  GroundWorldCandidate retry(renderer, world, footprints);
+  const auto prepared = retry.Prepare(*scene, nullptr);
+  CHECK(prepared.has_value(),
+        prepared ? "an immediate retry can acquire the abandoned candidate slot"
+                 : prepared.error().c_str());
+  if (prepared) {
+    retry.Products().PositionsM = {9, 8, 7};
+    retry.Products().Indices = {0, 0, 0};
+    retry.Products().StreetGraphWayCount = kReplacementWayCount;
+    retry.Products().RimsMissing = 0;
+    CHECK(renderer.SetTerrainTiles({}, {}, error) &&
+              retry.SetGroundGeometry(geometry.clone(), 0, error),
+          "retry finishes GPU preparation");
+    CHECK(retry.Publish(world, footprints, scene, nextRevision).has_value(),
+          "complete retry publishes");
+    CHECK(
+        scene.get() != oldScene && renderer.GroundLatticeTriangles() == 0 &&
+            scene->DrivenParts() == 0 && world.GroundPositionsM == std::vector<float>({9, 8, 7}) &&
+            world.GroundIndex == std::vector<uint32_t>({0, 0, 0}) &&
+            world.StreetGraphWayCount == kReplacementWayCount && world.RimsMissing == 0 &&
+            world.Relaid == 1 && !world.GroundPublished.NeedsRebuild(nextRevision, false, false) &&
+            world.Region != oldRegion,
+        "GPU terrain, semantic source, CPU products and revision publish together once");
+  }
 }
-
-extern "C" SDL_GPUFence *SDLCALL
-SDL_SubmitGPUCommandBufferAndAcquireFence(SDL_GPUCommandBuffer *commands) {
-  if (RejectCommands(commands)) { return nullptr; }
-  static const auto original =
-      reinterpret_cast<decltype(&SDL_SubmitGPUCommandBufferAndAcquireFence)>(
-          dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBufferAndAcquireFence"));
-  assert(original != nullptr);
-  return original(commands);
 }
 
 int main() {
@@ -42,7 +86,11 @@ int main() {
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    Render::SceneRenderer renderer;
+    outshine::Test::Gpu::UploadFailure failure{.Message =
+                                                   "injected late ground publication failure"};
+    Render::SceneRenderer renderer(
+        {.Context = &failure, .Create = outshine::Test::Gpu::NativeUploadFaultDevice::Create});
+    const auto uploadBudget = renderer.OfflineUploads(std::chrono::seconds(5));
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
@@ -65,7 +113,7 @@ int main() {
       const GroundRevision oldRevision{.Region = 17};
       const GroundRevision nextRevision{.Region = 18};
       CHECK(world.GroundPublished.Publish(oldRevision), "original ground revision publishes");
-      Core::RuntimeScene *const oldScene = scene.get();
+      const Core::RuntimeScene *const oldScene = scene.get();
       std::vector<float> nodes(Render::GroundLattice::kPageNodes, 3.0f);
       const auto page = renderer.PlaceHeightPage(nodes);
       CHECK(page.has_value(), "original height page uploads");
@@ -87,7 +135,7 @@ int main() {
                 geometry.setPositions(*part, std::array<float, 9>{-1, -1, 0, 1, -1, 0, 0, 1, 0}) &&
                 geometry.setTriangles(*part, std::array<uint32_t, 3>{0, 1, 2}),
             "replacement native geometry is complete");
-      for (bool rejectGeometry : {false, true}) {
+      for (const bool rejectGeometry : {false, true}) {
         {
           GroundWorldCandidate build(renderer, world, footprints);
           const auto prepared = build.Prepare(*scene, nullptr);
@@ -97,19 +145,19 @@ int main() {
           if (prepared) {
             build.Products().PositionsM = {9, 8, 7};
             build.Products().Indices = {0, 0, 0};
-            build.Products().StreetGraphWayCount = 19;
+            build.Products().StreetGraphWayCount = kReplacementWayCount;
             build.Products().RimsMissing = 0;
             CHECK(renderer.SetTerrainTiles({}, {}, error), "candidate changes terrain first");
-            rejectSubmit = true;
+            failure.Armed = true;
             const bool accepted =
                 rejectGeometry ? build.SetGroundGeometry(geometry.clone(), 0, error)
                                : renderer.SetGroundClasses(std::array<uint32_t, 4>{1, 2, 3, 4},
                                                            std::array<float, 4>{1, 0.5f, 0.25f, 0},
                                                            error);
             CHECK(
-                !accepted && !rejectSubmit,
+                !accepted && !failure.Armed,
                 (std::string("a later GPU upload fails after terrain staging: ") + error).c_str());
-            rejectSubmit = false;
+            failure.Armed = false;
           }
         }
         CHECK(scene.get() == oldScene &&
@@ -122,50 +170,8 @@ int main() {
                   world.Region == oldRegion,
               "late failure preserves CPU terrain, semantic source and publication revision");
       }
-      {
-        GroundWorldCandidate held(renderer, world, footprints);
-        const auto heldPrepared = held.Prepare(*scene, nullptr);
-        CHECK(heldPrepared.has_value(),
-              heldPrepared ? "capture candidate prepares against the published world"
-                           : heldPrepared.error().c_str());
-        if (heldPrepared) {
-          held.Products().PositionsM = {9, 8, 7};
-          held.Products().Indices = {0, 0, 0};
-          held.Products().StreetGraphWayCount = 19;
-          CHECK(world.GroundPublished.BeginCapture(), "published ground enters capture");
-          const auto heldResult = held.Publish(world, footprints, scene, nextRevision);
-          CHECK(!heldResult && scene.get() == oldScene &&
-                    world.GroundPositionsM == std::vector<float>({1, 2, 3}) &&
-                    world.StreetGraphWayCount == 7 && world.Relaid == 0 &&
-                    world.Region == oldRegion,
-                "capture refuses a late candidate before changing live or CPU world products");
-          world.GroundPublished.EndCapture();
-        }
-      }
-      GroundWorldCandidate retry(renderer, world, footprints);
-      const auto prepared = retry.Prepare(*scene, nullptr);
-      CHECK(prepared.has_value(),
-            prepared ? "an immediate retry can acquire the abandoned candidate slot"
-                     : prepared.error().c_str());
-      if (prepared) {
-        retry.Products().PositionsM = {9, 8, 7};
-        retry.Products().Indices = {0, 0, 0};
-        retry.Products().StreetGraphWayCount = 19;
-        retry.Products().RimsMissing = 0;
-        CHECK(renderer.SetTerrainTiles({}, {}, error) &&
-                  retry.SetGroundGeometry(geometry.clone(), 0, error),
-              "retry finishes GPU preparation");
-        CHECK(retry.Publish(world, footprints, scene, nextRevision).has_value(),
-              "complete retry publishes");
-        CHECK(scene.get() != oldScene && renderer.GroundLatticeTriangles() == 0 &&
-                  scene->DrivenParts() == 0 &&
-                  world.GroundPositionsM == std::vector<float>({9, 8, 7}) &&
-                  world.GroundIndex == std::vector<uint32_t>({0, 0, 0}) &&
-                  world.StreetGraphWayCount == 19 && world.RimsMissing == 0 && world.Relaid == 1 &&
-                  !world.GroundPublished.NeedsRebuild(nextRevision, false, false) &&
-                  world.Region != oldRegion,
-              "GPU terrain, semantic source, CPU products and revision publish together once");
-      }
+      RefusePublicationDuringCapture(renderer, world, footprints, scene, nextRevision);
+      PublishRetry(renderer, world, footprints, scene, geometry);
     }
   }
   SDL_Quit();
