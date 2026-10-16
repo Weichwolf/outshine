@@ -16,9 +16,27 @@ from foot_ramp_edit import edit
 from foot_ramp_geometry import Ramp, build
 from foot_ramp_sources import source_edges
 from outshine_ref.contracts import Mesh
+from surface_solid_checks import audit_closed
 
 
 class FootRamps(unittest.TestCase):
+    def test_fixed_real_cap_cases_keep_closed_finite_physical_fields(self):
+        path = Path(__file__).with_name("fixtures") / "foot-ramp-vienna.json"
+        for row in json.loads(path.read_text())["cases"]:
+            with self.subTest(candidate=row["candidate"]):
+                product = build(
+                    row["origin"],
+                    row["basis"],
+                    row["triangle"],
+                    row["half"],
+                    landing_end=row["landing_end_m"],
+                    footprint=shapely.from_wkb(bytes.fromhex(row["footprint_wkb_hex"])),
+                )
+                error, volume = affine_field(product.upper, row)
+                self.assertLess(error, 1e-7)
+                self.assertAlmostEqual(audit_closed(product.body), volume, places=7)
+                shell_ownership(product)
+
     def setUp(self):
         self.triangle = np.array([[-20.0, -20, 0], [60, -20, 0], [-20, 60, 0]])
         self.ground = Mesh(self.triangle, [[0, 1, 2]])
