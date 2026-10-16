@@ -101,7 +101,7 @@ void CheckMask(MaskCase mask) {
   eye.ZNearM = kNearM;
   eye.ZFarM = kFarM;
   scene->Eye(eye);
-  renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true);
+  renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true, 0);
   if (instanced) {
     std::array<StoredVertex, 4> vertices{};
     constexpr std::array<float, 8> uv{0, 0, 1, 0, 1, 1, 0, 1};
@@ -112,8 +112,11 @@ void CheckMask(MaskCase mask) {
                            {{0, 0, 1}});
     }
     const std::array<Mat4, 1> rows{};
-    const PieceMesh piece{
-        .Verts = vertices, .Indices = indices, .Instances = rows, .Textured = true};
+    PieceMesh piece;
+    piece.Verts = vertices;
+    piece.Indices = indices;
+    piece.Instances = rows;
+    piece.Textured = true;
     CHECK(renderer.PlacePiece(piece, error) != kNoPiece, "masked instance is resident");
   }
   CHECK(scene->Draw(error), error.empty() ? "masked shadow draws" : error.c_str());

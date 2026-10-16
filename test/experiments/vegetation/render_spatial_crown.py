@@ -17,6 +17,9 @@ from tree_entry import load
 
 def render(inputs, output, view):
     start = time.perf_counter()
+    presentation = json.loads((inputs / "comparison.json").read_text()).get(
+        "presentation_labels", {}
+    )
     bpy.ops.wm.read_factory_settings(use_empty=True)
     eye = np.array((0, -22, 11) if view == "front" else (18, -18, 11), float)
     lateral = np.cross(-eye, np.array((0, 0, 1), float))
@@ -57,8 +60,8 @@ def render(inputs, output, view):
     print(json.dumps({"stage": "render", "setup_s": ready - start}), flush=True)
     bpy.ops.render.render(write_still=True)
     report = {
-        "left": "recursive",
-        "right": "spatial",
+        "left": presentation.get("recursive", "recursive"),
+        "right": presentation.get("spatial", "spatial"),
         "view": view,
         "resolution": [1920, 1080],
         "eye": eye.tolist(),
