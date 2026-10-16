@@ -16,6 +16,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
 - [Ganze äußere Radkorridore](stair_corridor_comparison.md): 23 Wiener Quellen,
   ganze Anschlüsse, zehn Unterführungen und DEM-kontrolliertes Terrain im Budget.
+- [Konstruktives Eckpodest](stair_corner_comparison.md): 24 ganze Quellen,
+  zwölf ganze Endprofile und unveränderte Unterführungs-/Terrain-/Pfeilergrenzen.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
