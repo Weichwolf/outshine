@@ -122,8 +122,12 @@ The source 38-check run and the same 38 installed-wheel checks pass on library
 promotion. The final immutable-template refinement has its focused six checks
 and a fresh 38-check wheel run. Five actual new component inputs and eight
 previous v1 inputs replay exactly after promotion (arrays/dtypes/source palette).
-The whole source reference is separately checked before emitting its contact
-variant. These local controls do not establish general image/shadow/LOD bounds.
+The three far inputs and the entire contact source tile also replay exactly
+(arrays/dtypes/palette and facade bindings). All source-member metadata agrees
+except 24 actual plan/shell/assembly timing measurements in eight unchanged
+generic pitched-room controls; these diagnostics are measured anew. The whole
+source reference is separately checked before emitting its contact variant.
+These local controls do not establish general image/shadow/LOD bounds.
 
 ## Reproduction
 
