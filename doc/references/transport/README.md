@@ -93,6 +93,14 @@ remain explicit at the caller; a projected spatial index has no implicit ground 
 
 ## Fixed-plan terrain refinement: rejected visual candidate (#20)
 
+For the real stair/bridge terrain repair (#434), Desbrun et al., SIGGRAPH1999,
+[original paper](https://people.eecs.berkeley.edu/~jrs/meshpapers/DesbrunMeyerSchroderBarr.pdf),
+[local PDF](siggraph/1999-implicit-fairing.pdf), page2 §2.1 equation2 and page3 §2.7,
+provides the membrane-energy and hard/soft-contact background. Both pages were
+inspected visually. The experiment uses its own constrained scalar displacement
+energy on fixed XY, with whole-facet class/bridge bounds; it does not implement
+the paper's complete curvature-flow or volume-preservation algorithm.
+
 Research starts with Lindstrom et al., SIGGRAPH 1996,
 [primary paper](https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/lindstrom96.pdf),
 [local PDF](siggraph/1996-continuous-height-field-lod.pdf): edge delta segments and
