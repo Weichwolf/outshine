@@ -91,3 +91,21 @@ Dreiseitiger PDF-Vergleich optisch geprüft, lokal im Haupt-Checkout unter
 `build/shots/reference/shadow-source-314a2552c/comparison.pdf`. Rohbilder, Hashes,
 GPU-Zeiten und terminale Befehle stehen im zugehörigen System-Tempversuch unter
 `outshine-light-shadow-source-results-5939782ec/frozen-33e4718ba/`.
+
+Die neun vorhandenen LightVisibility-Fälle und der Submission-Fehlerfall normal
+sowie mit GPU-Validation bestehen zusammen 822 Checks. Die Validation-Variante
+ersetzt im passenden regulären Archiv ausschließlich SceneRenderer.cpp; nur diese
+Produktionsunit liest OUTSHINE_GPU_VALIDATION. Testgeometrie und Anforderungen
+bleiben gleich; optionale Mesh-/Planfelder werden regulär konstruiert.
+Fokussiertes clang-tidy ist für 37 abhängige Produktionsunits und acht Test-/
+Versuchsquellen vollständig ausgeführt. 21 bestehende Produktionsdiagnosen
+(Padding, VertexAttribute-Flags und const) bleiben ausdrücklich offen; ihre
+Diagnosezeilen sind bereits im Basisstand vorhanden. SubjectDraw-Padding sinkt
+hierbei von 44 auf 36 B. Die neuen Versuchs-/Regressionstexte haben nur die
+bestehenden Check.h-Befunde; kein grüner gemeinsamer Voll-Lint wird behauptet.
+
+Nach Masterübernahme ist der neue Engine-/Shaderstand c177f25de vollständig neu
+beziehungsweise bei unveränderten Objekten inkrementell gebaut. Derselbe öffentliche
+Test besteht 64 Checks; alle drei Bilder sind zu 33e4718ba bytegleich. Alle 822
+Schatten-/Submissionchecks bestehen erneut; RuntimeScene, SceneRenderer und
+SubjectDraw sind gegen die neue Wetterstruktur zusätzlich per clang-tidy geprüft.
