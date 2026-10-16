@@ -79,6 +79,16 @@ def main():
     link = shlex.split(
         run(["sh", "test/run.sh", "--native-link-flags"], "native-link", archive_root)
     )
+    flags = dict(
+        line.split("=", 1)
+        for line in (archive_root / "test/run.sh").read_text().splitlines()
+        if line.startswith(("CXXSTD=", "WARN=", "OPT="))
+    )
+    toolchain = [
+        flag
+        for key in ("CXXSTD", "WARN", "OPT")
+        for flag in shlex.split(flags[key].strip('"'))
+    ]
     binary = output / "cloud-density-native"
     run(
         [
@@ -86,16 +96,8 @@ def main():
             "-n",
             "10",
             *shlex.split(os.environ.get("CXX", "c++")),
-            "-std=c++23",
-            "-O2",
-            "-ffp-contract=off",
+            *toolchain,
             "-fno-exceptions",
-            "-Wall",
-            "-Wextra",
-            "-Wpedantic",
-            "-Wshadow",
-            "-Werror",
-            "-Wno-unused-parameter",
             *(
                 f"-I{archive_root / path if path.startswith(('src', 'include')) else ROOT / path}"
                 for path in INCLUDES
