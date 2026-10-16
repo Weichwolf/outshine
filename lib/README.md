@@ -655,6 +655,10 @@ an executable cache-only whole-plant consumer for native comparison (#367).
 stand parents without enumerating individual trees. Canonical leaf sites are an
 explicit bounded demand; source support, saved cells and layout identity persist.
 
+[`BladeCutout`](blade_cutout.md) preserves authored asymmetric polygon margins and
+holes on an existing curved Blade carrier, with separate fold/petiole normals and
+bounded requested meshes. It does not change old PlantPlan recipes or statistics.
+
 ### Frond guides, source patterns and cross-section curl
 
 `PinnatePattern` creates own planar pinnate sources with stable organ IDs and

@@ -4,11 +4,11 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import platform
 import re
 import shlex
 import subprocess
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -97,6 +97,10 @@ def main():
         sources.append(ROOT / 'src/render/shaders/presentUnorm.frag')
         sources += [Path(__file__).with_name('native_timing.comp'),
                     Path(__file__).with_name('native_timing_empty.comp')]
+        sources += [Path(__file__).with_name('native_descriptors.' + stage)
+                    for stage in ('vert', 'frag', 'comp')]
+        if not args.present:
+            sources.append(Path(__file__).with_name('native_present.frag'))
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -115,6 +119,9 @@ def main():
         consumers.append(ROOT / 'test/harness/render/NativeTimingProbe.cpp')
         consumers.append(ROOT / 'test/harness/render/NativeReadbackProbe.cpp')
         consumers.append(ROOT / 'test/harness/render/NativeSdrTransferProbe.cpp')
+        consumers.append(ROOT / 'test/harness/render/NativeDescriptorProbe.cpp')
+        consumers += [ROOT / 'test/harness/render' / name
+                      for name in ('NativeSubmissionTimingProbe.cpp', 'NativeSubmissionScopeProbe.cpp')]
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -150,7 +157,8 @@ def main():
                 [str(binaries[binary]), *(str(shaders[index]) for index in indices), *suffix],
                 log, environment=environment, timeout=25), log)
         report['dispatch_timing_checks'] = verdict(run(
-            [str(output / 'NativeTimingProbe'), *map(str, shaders[-2:])], log,
+            [str(output / 'NativeTimingProbe'), str(output / 'native_timing.comp.spv'),
+             str(output / 'native_timing_empty.comp.spv')], log,
             environment=environment, timeout=30), log)
         report['native_readback_checks'] = verdict(run(
             [str(output / 'NativeReadbackProbe'), str(output / 'native_target_delay.comp.spv')], log,
@@ -158,7 +166,24 @@ def main():
         report['sdr_transfer_checks'] = verdict(run(
             [str(output / 'NativeSdrTransferProbe')], log,
             environment=environment, timeout=30), log)
-        report['gpu_timing'] = 'opt-in native dispatch timestamps'
+        report['descriptor_checks'] = verdict(run(
+            [str(output / 'NativeDescriptorProbe'),
+             *(str(output / ('native_descriptors.' + stage + '.spv'))
+               for stage in ('vert', 'frag', 'comp')), *suffix], log,
+            environment=environment, timeout=60), log)
+        model = Path(__file__).with_name('descriptor_work.py')
+        trace = ROOT / 'test/outshine/data/render/husum-shadow-bindings.json'
+        run(['python3', str(model), '--input', str(trace),
+             '--output', str(output / 'descriptor-work.json')], log)
+        report['submission_timing_checks'] = verdict(run(
+            [str(output / 'NativeSubmissionTimingProbe'),
+             str(output / 'native_target_delay.comp.spv')], log,
+            environment=environment, timeout=30), log)
+        report['submission_scope_checks'] = verdict(run(
+            [str(output / 'NativeSubmissionScopeProbe'), str(output / 'fullscreen.vert.spv'),
+             str(output / 'native_present.frag.spv'), str(output / 'submission-scope.ppm')], log,
+            environment=environment, timeout=30), log)
+        report['gpu_timing'] = 'opt-in native submission and dispatch timestamps'
         if args.present:
             report['present_checks'] = verdict(run(
                 [str(binaries[9]), str(shaders[4]), str(shaders[13])], log,
@@ -182,7 +207,7 @@ def main():
                                           ROOT / 'src/render/stages/StagePipelines.h',
                                           ROOT / 'src/render/device/ReadbackTransfer.h',
                                           ROOT / 'src/render/device/ReadbackTransfer.cpp',
-                                          ROOT / 'test/run.sh', ROOT / 'test/scripts/source_units.py']}
+                                          model, trace, ROOT / 'test/run.sh', ROOT / 'test/scripts/source_units.py']}
         (output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps({key: value for key, value in report.items() if key != 'sources'}))
 

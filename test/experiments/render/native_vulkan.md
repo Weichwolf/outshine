@@ -122,7 +122,7 @@ with `--unavailable`, optionally selecting that driver via `VK_DRIVER_FILES`.
 It requires Unsupported for window attachment and verifies the pre-existing
 buffer/queue remain functional. This does not replace the actual RTX run.
 
-Dispatch timing is opt-in through `DeviceOptions.GpuTiming`. Capability support
+Submission and dispatch timing are opt-in through `DeviceOptions.GpuTiming`. Capability support
 is reported separately by `Capabilities.GpuTimestamps`. Without opt-in, no query
 pools, timestamp commands, result reads or completed timing history are created.
 The default shared implementation returns Unsupported until the backend provides
@@ -150,8 +150,8 @@ no separate disjoint flag, so undetectable driver clock faults are not claimed.
 Vulkan resets a bounded query pool in its recording, writes TOP_OF_PIPE after
 resource barriers and pipeline/binding recording immediately before Dispatch,
 and writes BOTTOM_OF_PIPE immediately after Dispatch. This is a GPU execution
-enclosure and may include dependency stalls. Upload, readback, queue/fence wall
-and host result retrieval remain separate. Completed query results are read
+enclosure and may include dependency stalls. These per-dispatch intervals exclude
+other upload/readback commands, queue/fence wall time and host result retrieval. Completed query results are read
 without WAIT before recording resources are destroyed; pool destruction follows
 the same GPU lifetime as the command buffer. The source technique is the
 [Khronos timestamp example](https://docs.vulkan.org/guide/latest/profiling.html).
@@ -178,3 +178,52 @@ nonblocking pending data, move/lifetime behavior, cancellation, wrong owner and
 overflow/bounds rejection. It does not establish completion of the SceneRenderer
 port: the existing SDL readback is removed when its actual callers migrate under
 #328. There is no fallback from native failure to SDL.
+
+
+`NativeDescriptorProbe` exceeds the former single-pool limit with independently
+checked compute words and raster pixels. It changes a buffer between repeated
+bindings, overwrites caller uniform payloads after recording, and releases public
+resources before completion. Cancellation, rejected submissions, completed
+lifetime, and a capacity failure followed by submission of the valid prefix are
+separate cases. The validation runner treats every diagnostic as a failure.
+
+Each recording reuses resolved descriptor sets, immutable uniform snapshots and
+image views. Uniform data occupies aligned 64 KiB pages; the original small
+128-set pools grow only after allocation exhaustion. Recording ceilings are
+16,384 sets, 128 pools, 16 MiB uniform capacity and 16,384 views. These independent
+logical ceilings are not a complete host/driver memory budget. Resources and
+pools remain owned until that recording's actual completion or cancellation.
+Every repeated binding still validates resources and records their barriers.
+
+The fixed `test/outshine/data/render/husum-shadow-bindings.json` captures the
+original failing public Husum recording, preserving uniform bytes and consistently
+normalizing opaque resource identities. `descriptor_work.py` compares fresh,
+whole-binding and per-set allocation work on equal trace prefixes. Its output
+separates the requested prefix including the rejected final request from the
+accepted prefix; it does not estimate device time or driver allocations. The
+runner saves this comparison as `descriptor-work.json` beside the GPU log.
+The techniques follow SIGGRAPH 2015's GPU-driven rendering discussion and
+[Khronos descriptor management](https://docs.vulkan.org/samples/latest/samples/performance/descriptor_management/README.html);
+measured Outshine costs and the exact scope remain in #398.
+
+
+`SubmissionGpuTime(Completion)` implements the shared Metal/Vulkan contract using
+two additional query slots in the same optional recording pool. A TOP_OF_PIPE
+marker starts the complete recording; BOTTOM_OF_PIPE follows its final work,
+including raster, copies and presentation transitions. Results are collected
+without WAIT_BIT only after the actual submission fence completes. Pending
+returns no invented elapsed time. Invalid/unavailable timestamps return an
+explicit error; disabled timing returns Unsupported. The retained eight results
+own numeric metadata rather than command buffers, query pools or GPU resources.
+
+This same-queue GPU interval is separate from CPU encode/submit/fence waiting,
+dispatch sums and display presentation. It may include GPU dependency stalls;
+markers and the existing per-dispatch instrumentation also have measurement
+cost. Enabling timing now reserves 258 query slots instead of 256, adds two
+markers and reads two completed queries per recording; without opt-in none of
+this query work runs. No claim is made about driver allocation bytes or active
+GPU cycles. The shared `NativeSubmissionTimingProbe` remains unchanged; the
+Vulkan scope probe additionally verifies pure copy/raster submissions, cancelled
+recordings, resource retirement and byte-identical timed/untimed raster output.
+Its `submission-scope.ppm` contains the actual checked GPU pixels. See #411 and
+the [Khronos timestamp sample](https://docs.vulkan.org/samples/latest/samples/api/timestamp_queries/README.html).
