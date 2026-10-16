@@ -15,6 +15,7 @@ struct LowCloudRecipe {
   double ExtinctionPerM;
   double AdvectionEastMs;
   double AdvectionNorthMs;
+  CloudProfile Profile = CloudProfile::Stratus;
 };
 
 enum class LowCloudFailure { InvalidCover, MissingRecipe, InvalidRecipe };
