@@ -106,3 +106,74 @@ This infrastructure preserves the existing visual products; it adds no visible
 geometry. Terrain/support/statics, further sources and seven outer profiles,
 complete traffic functionality, lib/native integration and the shared #483
 production decision remain open. Master owns the catalogue/context scale study.
+
+## Frozen pilot results
+
+Commit `f6d3aa86a`: 25 controls (15 Transport plus 10 common-kernel tests),
+terminal OK in 47.618 s on the frozen source. The preceding development run
+passed the same 25 in 36.269 s; this is verification duration, not a speedup.
+Two independent fresh workers for each original cycle/north/south fixture
+(19/20/21 whole sources) reproduce identical definition/instance/product
+identities, complete semantic descriptors and all prior actual body/profile
+arrays, including dtype. Each worker also rechecks the old actual display
+binding. Original inputs/oracles were not regenerated or changed.
+
+All cases load the same two definitions, 1277 bytes, and compile two nodes. Plan
+requests evaluate one node, body requests two. The 21-source input accounts
+606706 B, plan output 319590 B, body output 822009 B; reservations are separately
+16 MiB per selected node. Declared payloads do not certify total heap/residency.
+The real plan has 2585 vertices/4096 source facets, 5233 LP variables,
+113984 constraints, 337504 nonzeros and 4070984 B explicit sparse arrays.
+The final body remains 5624 V/11276 F, three stairs/24 risers, six actual
+underpasses and six protected whole endpoint caps. The whole common landing
+error is 0.0 m in Double in this case. Seven outer profiles remain explicitly open.
+Actual solver/physical facts are separately bound by the same product digests.
+
+On Python 3.13.5, NumPy 2.2.4, SciPy 1.18.1, Shapely 2.2.0; i5-1135G7 with
+two physical/four logical CPUs and 16 GiB installed RAM. Shared host: peer CPU
+rendering overlapped parts of the comparison. No own builds/renders overlapped
+normal timing workers. One normal-priority process per variant, excluded warm
+diagnostic and five valid measured complete evaluations per kind/variant:
+
+| Full evaluation | Direct operator calls | Graph |
+|---|---:|---:|
+| Plan median ms |5131.101|5021.185|
+| Plan process peak B |327970816|328302592|
+| Body median ms |10856.674|11605.674|
+| Body process peak B |330366976|331083776|
+
+All output descriptors/actual arrays are identical in every run. Normal plan
+ranges are 4485.013–5925.657 / 4805.535–5204.754 ms; body ranges
+9805.867–11119.489 / 10876.297–11995.035 ms (direct/graph; exact raw values in
+the reports). These total phases do not isolate graph overhead from host/solver
+variation; there is no inferred speed factor. Source capture including explicit
+copy counters took 877.512–1033.754 ms in these workers; compile 1.303–2.337 ms.
+Imports, source capture/compile, output verification and IO are outside phase
+timings. No cached-body reuse, world load or frame claim follows from this test.
+
+Explicit diagnostic copies are the same for both variants: source capture
+57 snapshots/405864 B and 114 descriptor copies/811728 B; plan evaluation
+108 snapshots/197288 B and 216 descriptor copies/394576 B; full body evaluation
+122 snapshots/1009808 B and 244 descriptor copies/2019616 B. These count the
+actual snapshot/descriptor `tobytes` payload only; other NumPy, JSON, GEOS and
+solver copies remain unmeasured. The warmed diagnostic is excluded from normal
+timings, and logical copy payload is not a total allocation/traffic measure.
+
+Separate complete Memray 1.20.0 body phases retain all exact outputs: direct/
+graph respectively 16918790/16918853 allocation requests,
+2961094107/2963219071 requested B and the same 274029726 B tracked heap peak.
+Instrumented phases are 19779.386/21962.789 ms; process peaks recorded before
+allocation-file analysis are 334163968/334168064 B. Python allocator events and
+native stack traces are off; native allocations remain observed. Profiling
+times are separate from normal times; requested bytes are cumulative requests,
+not live/unique RAM. Actual domain preparation/checking remains expensive;
+the small declared product payload cannot stand in for an execution heap budget.
+
+Reports, six fresh replay products, cost/allocation records, actual physical
+facts and environment evidence:
+`/var/tmp/outshine-transport-recipe-f6d3aa86a/`. Original four 1280×720 render
+hashes/receipts are retained under their original support comparison root; the
+whole-junction after view was reopened. Body/profile/display identity justifies
+using those as unchanged references. No fresh render or new visual gain is
+claimed for this adapter; terrain/support/boundaries and native integration
+remain outside its admission.

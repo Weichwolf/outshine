@@ -16,7 +16,7 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
-und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys. Ausgewählte
+und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
 Forschungs-/Diagnosebilder bleiben im System-Tempverzeichnis; die integrierte
 öffentliche Places-Galerie besitzt der Hauptagent.
 Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
