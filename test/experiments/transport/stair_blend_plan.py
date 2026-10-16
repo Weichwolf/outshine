@@ -8,7 +8,15 @@ from stair_terrain_layout import partition, selected_surfaces
 
 
 def prepare(
-    data, rows, context, raster, sample, *, precision="legacy", interface="grid"
+    data,
+    rows,
+    context,
+    raster,
+    sample,
+    *,
+    precision="legacy",
+    interface="grid",
+    variables="heights",
 ):
     ground, upper = selected_surfaces(data, rows)
     footprint = shapely.union_all(
@@ -19,6 +27,8 @@ def prepare(
     )
     if precision != "legacy":
         initial["precision_mode"] = np.array(precision)
+    if variables != "heights":
+        initial["variable_mode"] = np.array(variables)
     heights, _roles, probe = solve(initial, None, footprint)
     if heights is None:
         raise ValueError("bounded refinement probe failed: " + str(probe))
@@ -30,6 +40,8 @@ def prepare(
         refinement = {"refined_cells": 0, "edge_midpoints": 0}
     if precision != "legacy":
         layout["precision_mode"] = np.array(precision)
+    if variables != "heights":
+        layout["variable_mode"] = np.array(variables)
     return (
         initial,
         layout,

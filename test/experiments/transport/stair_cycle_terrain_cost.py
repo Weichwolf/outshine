@@ -63,6 +63,8 @@ def measure(args):
     commit = frozen()
     if args.output.exists() or (args.profile and args.profile.exists()):
         raise ValueError("fresh explicit terrain cost/profile outputs required")
+    if args.output.with_suffix(".npz").exists():
+        raise ValueError("fresh explicit terrain example output required")
     layout, ground, upper, footprint, checked = inputs(args.products, args.mode)
     heights, model, note = candidate(layout, upper, footprint)
     warm, _same = admit(layout, ground, upper, checked, heights, model, note)
@@ -82,6 +84,7 @@ def measure(args):
             heights, model, note = candidate(layout, upper, footprint)
         times.append(1000 * (time.perf_counter() - began))
         good, same = admit(layout, ground, upper, checked, heights, model, note)
+        example = heights
         reused.append(same)
         del heights, model
         if not good:
@@ -103,6 +106,10 @@ def measure(args):
         * 1024,
         "scope": "Same fixed source/mesh/objective/height interval/class/export bounds and 8s/100-iteration solver limit. Matrix preparation plus solve after imports/decode and one warm fit; field and whole-body validation outside timing. Exact-height identity only reuses an independently checked body. No native/device/frame or global-optimality claim. Internal copy totals unobserved.",
     }
+    if example is not None:
+        target = args.output.with_suffix(".npz")
+        np.savez_compressed(target, heights=example)
+        result["example_field_sha256"] = digest(target)
     if args.profile:
         result["allocations"] = profile_note(str(args.profile))
     args.output.write_text(json.dumps(result, indent=2) + "\n")

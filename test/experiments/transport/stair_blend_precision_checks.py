@@ -5,7 +5,8 @@ import unittest
 import numpy as np
 import shapely
 from stair_blend_precision import guard_data
-from stair_blend_solve import check_heights, solve
+from stair_blend_solve import assemble, check_heights, solve
+from stair_blend_variables import reduced, restore
 
 
 def actual_skinny_facet():
@@ -65,6 +66,55 @@ class QuantizedTerrain(unittest.TestCase):
             layout, layout["faces"], np.array([False]), 10
         )
         self.assertEqual(len(selected), 0)
+
+
+class DisplacementCoordinates(unittest.TestCase):
+    def test_fixed_substitution_preserves_objective_differences_and_conic_residuals(
+        self,
+    ):
+        layout = dict(
+            actual_skinny_facet(),
+            precision_mode=np.array("selective"),
+            variable_mode=np.array("fixed_displacement"),
+        )
+        layout["bed"][0] -= 0.125
+        model = assemble(layout, None, shapely.box(100, 100, 110, 110))
+        quadratic, linear, matrix, bounds, _cones, mapping, note = reduced(
+            layout, model
+        )
+        self.assertEqual(note["fixed_height_variables_eliminated"], 5)
+        self.assertEqual(note["solver_variables"], 2)
+        keep = np.ones(len(model["b"]), bool)
+        keep[3 : 3 + len(model["pins"])] = False
+        objective, transformed = [], []
+        for values in (np.array([0.03, -0.02]), np.array([-0.01, 0.04])):
+            h = restore(layout, model, values, mapping)
+            np.testing.assert_array_equal(h[model["pins"]], model["pin_values"])
+            original = h - model["datum"]
+            objective.append(
+                0.5 * original @ (model["P"] @ original) + model["q"] @ original
+            )
+            transformed.append(0.5 * values @ (quadratic @ values) + linear @ values)
+            np.testing.assert_allclose(
+                matrix @ values - bounds,
+                (model["A"] @ original - model["b"])[keep],
+                rtol=1e-10,
+                atol=1e-8,
+            )
+        self.assertAlmostEqual(
+            objective[1] - objective[0], transformed[1] - transformed[0], places=6
+        )
+
+    def test_reconstructed_fit_still_passes_actual_physical_export_admission(self):
+        layout = dict(
+            actual_skinny_facet(),
+            precision_mode=np.array("selective"),
+            variable_mode=np.array("fixed_displacement"),
+        )
+        heights, _roles, note = solve(layout, None, shapely.box(100, 100, 110, 110))
+        self.assertIsNotNone(heights, note)
+        self.assertLessEqual(note["maximum_soil_grade_double_float32"][1], 2 / 3)
+        self.assertEqual(heights[0], layout["bed"][0])
 
 
 if __name__ == "__main__":

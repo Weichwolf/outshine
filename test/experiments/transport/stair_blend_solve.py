@@ -10,6 +10,7 @@ from scipy import sparse
 from stair_blend_constraints import upper_rows
 from stair_blend_precision import RESERVE, SOIL, check_interval
 from stair_blend_precision import blocks as precision_blocks
+from stair_blend_variables import reduced, restore
 from surface_height_checks import normal_gradients
 
 SOIL_LIMIT = SOIL
@@ -196,9 +197,10 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
     settings.verbose = False
     settings.time_limit, settings.max_iter, settings.max_threads = 8, 100, 1
     settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-9
-    solver = clarabel.DefaultSolver(
-        model["P"], model["q"], model["A"], model["b"], model["cones"], settings
+    quadratic, linear, matrix, bounds, cones, mapping, variable_note = reduced(
+        layout, model
     )
+    solver = clarabel.DefaultSolver(quadratic, linear, matrix, bounds, cones, settings)
     result = solver.solve()
     note = {
         "solver_status": str(result.status),
@@ -213,6 +215,7 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
         "structure_limit": structure_limit,
         "bridge_bounds": model["bridge_note"],
         "precision": model["precision"],
+        "variable_formulation": variable_note,
         "retained_sparse_bytes": int(
             sum(
                 matrix.data.nbytes + matrix.indices.nbytes + matrix.indptr.nbytes
@@ -224,7 +227,11 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
     }
     if str(result.status) not in ("Solved", "AlmostSolved", "MaxTime", "MaxIterations"):
         return None, model, note
-    heights = np.asarray(result.x[: len(layout["xy"])]) + model["datum"]
+    heights = restore(layout, model, result.x, mapping)
+    if mapping is not None:
+        note["explicit_height_conversion_and_datum_copy_bytes"] = (
+            mapping[1].nbytes + heights.nbytes
+        )
     heights[model["pins"]] = model["pin_values"]
     return heights, model, note
 

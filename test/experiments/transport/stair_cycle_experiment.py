@@ -133,6 +133,9 @@ def generate(args):
         interface=json.loads(args.fixture.read_text()).get(
             "terrain_interface_mode", "grid"
         ),
+        variables=json.loads(args.fixture.read_text()).get(
+            "terrain_variable_mode", "heights"
+        ),
     )
     np.savez_compressed(args.output / "terrain-plan.npz", **layout)
     terrain, roles, proof = terrain_stage(

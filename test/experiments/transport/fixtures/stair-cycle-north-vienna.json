@@ -64,5 +64,6 @@
     "openfreemap:14/8937/5678:transportation:39881120:23"
   ],
   "terrain_precision_mode": "selective",
-  "terrain_interface_mode": "boundary_band"
+  "terrain_interface_mode": "boundary_band",
+  "terrain_variable_mode": "fixed_displacement"
 }
