@@ -4,7 +4,6 @@ from functools import lru_cache
 from types import MappingProxyType
 
 import numpy as np
-from demand import displacement_error
 from facade_parts import append
 from industrial_hall_details import products
 from outshine_ref.buildings.modelling.scope import scalar
@@ -67,19 +66,30 @@ def template(width, length, slope):
 def selection(fields, view):
     if len(fields) > MAX_FIELDS or len({item["id"] for item in fields}) != len(fields):
         raise ValueError("Rooflight selection needs bounded unique fields")
-    output = []
-    for item in fields:
-        upper = corners(item)
-        bounds = np.r_[upper, upper - [0, 0, DEPTH_M]]
-        error = displacement_error(bounds, view, DISTANCE_BOUND_M)
-        output.append(
-            {
-                "id": item["id"],
-                "lamina": error <= view.detail_error_px,
-                "geometry_bound_px": error if np.isfinite(error) else None,
-            }
-        )
-    return tuple(output)
+    if not fields:
+        return ()
+    upper = np.stack([corners(item) for item in fields])
+    bounds = np.concatenate([upper, upper - [0, 0, DEPTH_M]], axis=1)
+    coordinates = (bounds - view.eye) @ view.basis.T
+    nearest = coordinates[:, :, 2].min(axis=1) - view.movement_m
+    errors = np.full(len(fields), np.inf)
+    valid = nearest > DISTANCE_BOUND_M
+    numerator = DISTANCE_BOUND_M * (
+        np.linalg.norm(coordinates, axis=2).max(axis=1) + view.movement_m
+    )
+    errors[valid] = (
+        view.focal_px
+        * numerator[valid]
+        / (nearest[valid] * (nearest[valid] - DISTANCE_BOUND_M))
+    )
+    return tuple(
+        {
+            "id": item["id"],
+            "lamina": bool(error <= view.detail_error_px),
+            "geometry_bound_px": float(error) if np.isfinite(error) else None,
+        }
+        for item, error in zip(fields, errors, strict=True)
+    )
 
 
 def panels(fields, view):

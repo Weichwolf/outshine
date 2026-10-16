@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import numpy as np
 import trimesh
-from demand import View
+from demand import View, displacement_error
 from outshine_ref.buildings.rooflight_panels import closed, corners
 from recipe_hall_operators import inputs_for
 from recipe_rooflight_operators import prepare
@@ -59,6 +59,31 @@ def project(points, view):
 
 
 class RooflightLamina(unittest.TestCase):
+    def test_batched_projection_matches_scalar_reference_for_actual_views(self):
+        self.assertEqual(selection((), View(np.array([0.0, -1, 1]), np.zeros(3))), ())
+        for row, neighbors in sources()[:3]:
+            fields = (
+                prepare()
+                .evaluate(inputs_for(row, neighbors), outputs=("rooflights",))
+                .outputs["rooflights"]
+                .value
+            )
+            for factor, movement in ((1, 0), (4, 5), (1, 10000)):
+                view = far_view(row, factor=factor, movement=movement)
+                actual = selection(fields, view)
+                for field, result in zip(fields, actual, strict=True):
+                    top = corners(field)
+                    expected = displacement_error(
+                        np.r_[top, top - [0, 0, 0.12]], view, DISTANCE_BOUND_M
+                    )
+                    if np.isfinite(expected):
+                        self.assertAlmostEqual(
+                            result["geometry_bound_px"], expected, places=12
+                        )
+                    else:
+                        self.assertIsNone(result["geometry_bound_px"])
+                    self.assertEqual(result["lamina"], expected <= view.detail_error_px)
+
     def test_all_real_fields_have_bounded_actual_material_surfaces_both_directions(
         self,
     ):
