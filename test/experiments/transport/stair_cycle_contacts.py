@@ -1,9 +1,35 @@
 """Whole original endpoint profiles on individual actual shared cap components."""
 
+import json
+
 import numpy as np
 import shapely
 
 CONTACTS = ((4, 15, -1), (6, 17, 0), (17, 18, 0), (17, 18, -1))
+
+
+def bindings(path, rows):
+    recipe = json.loads(path.read_text())
+    if "protected_profiles" not in recipe:
+        if "additional_source_ids" in recipe:
+            raise ValueError(
+                "extended input requires explicit protected interface profiles"
+            )
+        return CONTACTS
+    keys = [r["source_id"] for r in rows]
+    declared = recipe["protected_profiles"]
+    if not isinstance(declared, list) or not 1 <= len(declared) <= 16:
+        raise ValueError("bounded unique protected interface profiles required")
+    result = []
+    for owner, neighbour, end in declared:
+        if owner == neighbour or end not in (0, -1):
+            raise ValueError(
+                "protected profile requires distinct sources and an endpoint"
+            )
+        result.append((keys.index(owner), keys.index(neighbour), end))
+    if not 1 <= len(result) <= 16 or len(set(result)) != len(result):
+        raise ValueError("bounded unique protected interface profiles required")
+    return tuple(result)
 
 
 def profile(row, end):
@@ -14,10 +40,10 @@ def profile(row, end):
     return xy[end] + np.array([-1, 0, 1])[:, None] * row["width_m"] / 2 * normal
 
 
-def contacts(data, rows):
+def contacts(data, rows, protected=CONTACTS):
     vertices = data["body_vertices"]
     result = []
-    for owner, neighbour, end in CONTACTS:
+    for owner, neighbour, end in protected:
         selected = ((data["face_sources"] & (1 << owner)) != 0) & (
             (data["face_sources"] & (1 << neighbour)) != 0
         )

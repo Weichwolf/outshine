@@ -8,9 +8,12 @@ import shapely
 from outshine_ref.transport.heights import _gradient_weights
 from scipy import sparse
 from stair_blend_constraints import upper_rows
+from stair_blend_precision import RESERVE, SOIL, check_interval
+from stair_blend_precision import blocks as precision_blocks
+from stair_blend_variables import reduced, restore
 from surface_height_checks import normal_gradients
 
-SOIL_LIMIT = 2 / 3
+SOIL_LIMIT = SOIL
 REACH_M = 5.0
 
 
@@ -78,7 +81,7 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
         (-np.ones(len(ids)), (3 * ids, np.arange(n, total))), shape=gradient.shape
     )
     rhs = np.c_[
-        np.full(len(faces), SOIL_LIMIT - 0.002), np.zeros((len(faces), 2))
+        np.full(len(faces), SOIL_LIMIT - RESERVE), np.zeros((len(faces), 2))
     ].ravel()
     cones = [clarabel.SecondOrderConeT(3) for _ in faces]
     pins, values = pins_for(layout)
@@ -101,6 +104,12 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
         clarabel.NonnegativeConeT(len(ids)),
         clarabel.NonnegativeConeT(len(ids)),
     ]
+    extra, rhs_extra, cones_extra, precision_note = precision_blocks(
+        layout, faces, eligible, structure_limit, datum, gradient_matrix
+    )
+    blocks.extend(extra)
+    bounds.extend(rhs_extra)
+    cones.extend(cones_extra)
     bridge = None
     bridge_note = {}
     if upper is not None:
@@ -126,6 +135,7 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
         "areas": areas,
         "structure_limit": structure_limit,
         "smoothing_m2": smoothing,
+        "precision": precision_note,
     }
 
 
@@ -142,6 +152,7 @@ def field_grades(layout, heights, model):
 
 
 def check_grades(layout, heights, model, first, exported):
+    check_interval(layout, heights)
     constructed = np.maximum(first, exported) > SOIL_LIMIT
     if np.any(constructed & ~model["eligible"]):
         raise ValueError("constructed slope escapes the declared contact zone")
@@ -186,9 +197,10 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
     settings.verbose = False
     settings.time_limit, settings.max_iter, settings.max_threads = 8, 100, 1
     settings.tol_feas = settings.tol_gap_abs = settings.tol_gap_rel = 1e-9
-    solver = clarabel.DefaultSolver(
-        model["P"], model["q"], model["A"], model["b"], model["cones"], settings
+    quadratic, linear, matrix, bounds, cones, mapping, variable_note = reduced(
+        layout, model
     )
+    solver = clarabel.DefaultSolver(quadratic, linear, matrix, bounds, cones, settings)
     result = solver.solve()
     note = {
         "solver_status": str(result.status),
@@ -202,6 +214,8 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
         "smoothing_m2": smoothing,
         "structure_limit": structure_limit,
         "bridge_bounds": model["bridge_note"],
+        "precision": model["precision"],
+        "variable_formulation": variable_note,
         "retained_sparse_bytes": int(
             sum(
                 matrix.data.nbytes + matrix.indices.nbytes + matrix.indptr.nbytes
@@ -213,7 +227,11 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
     }
     if str(result.status) not in ("Solved", "AlmostSolved", "MaxTime", "MaxIterations"):
         return None, model, note
-    heights = np.asarray(result.x[: len(layout["xy"])]) + model["datum"]
+    heights = restore(layout, model, result.x, mapping)
+    if mapping is not None:
+        note["explicit_height_conversion_and_datum_copy_bytes"] = (
+            mapping[1].nbytes + heights.nbytes
+        )
     heights[model["pins"]] = model["pin_values"]
     return heights, model, note
 

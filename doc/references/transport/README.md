@@ -93,6 +93,12 @@ remain explicit at the caller; a projected spatial index has no implicit ground 
 
 ## Constrained terrain repair (#434)
 
+Deering, SIGGRAPH 1995, [author paper](https://www.michaelfrankdeering.com/Projects/HardWare/CompressedGeometry/SigGeometryCompression.pdf),
+[local PDF](siggraph/1995-geometry-compression.pdf), page 3 §4, inspected visually:
+local position ranges and bounded precision. This author version omits result photos.
+The transport facet-gradient/corner bound is independently derived; the compression
+paper supplies background, not its correctness proof or any imported implementation.
+
 For the real stair/bridge terrain repair (#434), Desbrun et al., SIGGRAPH 1999,
 [original paper](https://people.eecs.berkeley.edu/~jrs/meshpapers/DesbrunMeyerSchroderBarr.pdf),
 [local PDF](siggraph/1999-implicit-fairing.pdf), page 2 §2.1 equation 2 and page 3 §2.7,

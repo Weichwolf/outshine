@@ -19,7 +19,29 @@ def selected_surfaces(data, rows):
     )
 
 
-def partition(ground, context, raster, *, spacing_m=12.0, margin_m=15.0, sample=None):
+def soil_parts(cells, footprint, interface):
+    if interface == "grid":
+        regions = shapely.difference(cells, footprint)
+    elif interface == "boundary_band":
+        touching = shapely.intersects(cells, footprint)
+        band = shapely.coverage_union_all(cells[touching]).difference(footprint)
+        regions = np.r_[cells[~touching], shapely.get_parts(band)]
+    else:
+        raise ValueError("known bounded terrain interface partition required")
+    triangles = shapely.get_parts(shapely.constrained_delaunay_triangles(regions))
+    return shapely.get_coordinates(triangles).reshape(-1, 4, 2)[:, :3]
+
+
+def partition(
+    ground,
+    context,
+    raster,
+    *,
+    spacing_m=12.0,
+    margin_m=15.0,
+    sample=None,
+    interface="grid",
+):
     if not 4 <= spacing_m <= 24 or not 8 <= margin_m <= 24:
         raise ValueError("bounded research grid and explicit domain margin required")
     source = ground.vertices[ground.triangles, :2]
@@ -39,10 +61,7 @@ def partition(ground, context, raster, *, spacing_m=12.0, margin_m=15.0, sample=
     if len(ix) > 16384:
         raise ValueError("soil input cell cap exhausted")
     cells = shapely.box(xs[ix], ys[iy], xs[ix + 1], ys[iy + 1])
-    triangles = shapely.get_parts(
-        shapely.constrained_delaunay_triangles(shapely.difference(cells, footprint))
-    )
-    points = shapely.get_coordinates(triangles).reshape(-1, 4, 2)[:, :3]
+    points = soil_parts(cells, footprint, interface)
     if len(points) + len(source) > 32768:
         raise ValueError("soil input face cap exhausted")
     xy, indices = np.unique(
@@ -57,9 +76,17 @@ def partition(ground, context, raster, *, spacing_m=12.0, margin_m=15.0, sample=
         (True, indices[: source.size // 2].reshape(-1, 3)),
         (False, indices[source.size // 2 :].reshape(-1, 3)),
     ):
-        refined, note = conform_triangles(
-            xy, original, max_candidates=2000000, max_faces=32768
-        )
+        if kind and interface == "boundary_band":
+            refined = original.copy()
+            note = {
+                "split_edges": 0,
+                "added_triangles": 0,
+                "source_interfaces_preserved": True,
+            }
+        else:
+            refined, note = conform_triangles(
+                xy, original, max_candidates=2000000, max_faces=32768
+            )
         p = xy[refined]
         u, v = p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]
         signed = u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]
@@ -77,6 +104,9 @@ def partition(ground, context, raster, *, spacing_m=12.0, margin_m=15.0, sample=
     bed = samples.points_enu_m[:, 2]
     if not np.isfinite(bed[faces[kinds]]).all():
         raise ValueError("actual whole ground contact sample is unresolved")
+    if interface == "boundary_band":
+        bed = bed.copy()
+        bed[indices[: source.size // 2]] = ground.vertices[ground.triangles, 2].ravel()
     outer = np.any(
         np.isclose(xy, low, rtol=0, atol=1e-9)
         | np.isclose(xy, high, rtol=0, atol=1e-9),
