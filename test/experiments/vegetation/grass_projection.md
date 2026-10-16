@@ -18,11 +18,15 @@ a copied forest lighting model. No new numeric SpeedTree oracle is claimed.
 
 A query owns a rectangular metric ground footprint at z=0 and a unit direction
 d toward the eye/sky, d.z≥0.25. Pixel centres are uniformly spaced in ground XY.
+The named authored frame is `grass-study-ground-1`: origin(0,0,0), orthonormal
+X/Y tangent axes and Z up, all lengths in metres; no geodetic location is claimed.
 The line through ground point q is q+t*d, t≥0. Project a vertex p to
 p.xy−p.z*d.xy/d.z. Maximum nonnegative p.z at each covered sample is the
 first contact from the sky, not the first surface from the ground. Geometric
 face normals remain authored; opaque coverage is two-sided. This is binary
 blade occlusion, **not** optical transmittance, leaf R/T or a grass BSDF.
+Validity is `face>=0`/binary coverage, never height alone: height0 can be a valid
+ground-plane contact. A gap has face−1 and zero premultiplied attributes.
 
 Bounds of possible root positions expand the footprint by the maximum horizontal
 form radius and its maximum height times d.xy/d.z. Missing neighbour support
@@ -120,4 +124,5 @@ correlated light/view masking, leaf transmission, shadow filtering, sloped groun
 whole grassland/species coverage, GPU/device or native/LOD acceptance follows.
 Material/Light still own shading/composition. Separate view/light coverage queries
 cannot be multiplied to infer correlated illumination of visible leaves.
-Shared contracts await explicit consumer responses; #451 remains open.
+Master confirms this research scope in #462; native contracts remain unagreed,
+and #451 remains open. No paused Material/Light work is resumed by this delivery.
