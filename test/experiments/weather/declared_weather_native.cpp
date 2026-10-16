@@ -3,15 +3,11 @@
 #include "CloudViewProbe.h"
 #include "MediumViewProbe.h"
 #include "NativeGpuCheck.h"
-#include "ScenarioRead.h"
 #include "Check.h"
 
 #include <charconv>
-#include <cstddef>
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
-#include <ios>
 #include <print>
 #include <string>
 #include <string_view>
@@ -22,23 +18,6 @@ using namespace outshine;
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 using namespace outshine::Test::CloudViewProbe;
-
-Scenario::Document Read(const char *path) {
-  constexpr std::streamoff kMaximumInputBytes = 16384;
-  std::ifstream file(path, std::ios::binary | std::ios::ate);
-  const auto bytes = file ? static_cast<std::streamoff>(file.tellg()) : -1;
-  CHECK(bytes > 0 && bytes <= kMaximumInputBytes, "the private declared input is bounded");
-  if (bytes <= 0 || bytes > kMaximumInputBytes) { Failed(); }
-  std::string input(static_cast<size_t>(bytes), '\0');
-  file.seekg(0);
-  CHECK(file.read(input.data(), bytes), "the original scenario input is read completely");
-  Scenario::Document scenario;
-  std::string error;
-  CHECK(ReadScenario(input.data(), input.size(), scenario, error),
-        "the original native weather scenario passes the production parser");
-  CHECK(scenario.Weather.has_value(), "an explicit weather input exists");
-  return scenario;
-}
 
 uint32_t ReadExtent(const char *text) {
   constexpr uint32_t kMaximum = 8192;
@@ -74,7 +53,7 @@ int main(int argc, char **argv) {
                          .Cache = std::filesystem::path(argv[5]).parent_path().string(),
                          .Offline = true,
                          .AssetCache = {}}) &&
-            engine.declare(Read(argv[6])) && engine.assemble() && engine.preload(0.0),
+            engine.readScenario(argv[6]) && engine.assemble() && engine.preload(0.0),
         "the actual public engine publishes the parsed declaration headlessly");
   const auto selected = engine.weather();
   CHECK(selected && *selected && (**selected).Source.Origin == WeatherOrigin::ScenarioDeclaration,

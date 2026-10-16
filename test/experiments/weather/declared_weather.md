@@ -18,7 +18,7 @@ python3 test/experiments/weather/declared_weather_report.py \
   --output /tmp/outshine-weather-declared-report
 ```
 
-The actual production parser and public engine supply four native raster cases:
+The public `Engine::readScenario` file entry supplies four native raster cases:
 low cover0.65, low cover1, known0 and missing low cover. Other declared fields remain
 unchanged. Each case captures two identical Vulkan frames with validation enabled.
 The PDF uses the same controlled air, light, geometry and phase37s; geometry and cloud
