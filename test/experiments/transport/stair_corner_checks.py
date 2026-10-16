@@ -70,6 +70,28 @@ class CornerControls(unittest.TestCase):
             areas.append(note["added_union_area_m2"])
         self.assertLess(areas[0], areas[1])
 
+    def test_hull_is_equivariant_under_rotation_of_oblique_source_profiles(self):
+        for angle in (30, 60, 90, 150):
+            rows, nodes, declaration = toy()
+            theta = np.deg2rad(angle)
+            rows[1]["xy"][1] = 10 * np.array([np.cos(theta), np.sin(theta)])
+            turned = copy.deepcopy(rows)
+            turn = 0.43
+            rotation = np.array(
+                [[np.cos(turn), -np.sin(turn)], [np.sin(turn), np.cos(turn)]]
+            )
+            for row in turned:
+                row["xy"] = row["xy"] @ rotation.T
+            first = apply_pads(rows, nodes, [declaration])[0]
+            second = apply_pads(turned, nodes, [declaration])[0]
+            expected = shapely.Polygon(np.array(first["pad_xy_m"]) @ rotation.T)
+            actual = shapely.Polygon(second["pad_xy_m"])
+            with self.subTest(angle=angle):
+                self.assertLess(expected.symmetric_difference(actual).area, 1e-12)
+                self.assertAlmostEqual(
+                    first["added_union_area_m2"], second["added_union_area_m2"]
+                )
+
     def test_incompatible_source_semantics_and_unchosen_nodes_are_rejected(self):
         cases = [
             {"indoor": 1},
