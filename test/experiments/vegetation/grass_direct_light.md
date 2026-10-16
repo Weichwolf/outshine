@@ -122,6 +122,15 @@ Current physical front/back renders terminate0 at110.36/109.97s wall and
 The explicit standalone renderer exits only after synchronous renders and its
 closed hash receipt; earlier post-export process143 cases remain failure evidence.
 
+Follow-up #473 is documented in [leaf_stack.md](leaf_stack.md). A finite0.1..10m
+study camera restores the ordinary opaque-shadow control while retaining all
+source mesh bounds; the full field and16 isolated patches were rendered again.
+The EEVEE Slab transmission response still fails an opaque-neighbour control,
+including both camera ranges and the shadow-thickness option. Consequently the
+whole-field back mismatch above cannot establish missing neighbour transmission
+or qualify a new transport model against EEVEE. Original measurements remain
+historical evidence; the follow-up owns current field numbers and limitations.
+
 ## Reproduce and open work
 
 Use `.venv`, existing NumPy/Shapely/SciPy/embreex/bpy dependencies, explicit temp
