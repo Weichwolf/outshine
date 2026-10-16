@@ -653,6 +653,53 @@ Explizite Neuaufnahme: `stair_cycle_inputs.py --receipts ORIGINAL-RECEIPT EAST-R
 Geschützte Profile, Fokus und Solveroptionen bleiben erklärte Instanzparameter;
 Aufnahme erzeugt keine gelösten Höhen oder diese zusätzlichen Entscheidungen.
 
+## Tatsächliche Pfeiler unter dem Treppen-/Radbrückenverbund (#434)
+
+Der [Pfeilervergleich](stair_support_comparison.md) benutzt die unveränderten
+geprüften Südprodukte, den vorhandenen installierbaren SupportVolumeBuilder und
+dieselben Python-/Blender-Pakete. Keine erneute Höhenpassung oder SDK-Abhängigkeit.
+
+```sh
+PYTHONPATH=lib/src:lib/tests:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_support_checks test_supports
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_experiment.py --products "$TRANSPORT_SOUTH_OUTPUT" --output "$TRANSPORT_SUPPORT_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_verify.py --products "$TRANSPORT_SOUTH_OUTPUT" --output "$TRANSPORT_SUPPORT_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/before-junction-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/after-junction-scene.json"
+```
+
+Alle Ausgaben frisch im System-Tempverzeichnis; lokale Forschung in 1280×720.
+Optionale Kostenmessung, nacheinander bei normaler Priorität:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode fixed --output "$TRANSPORT_SUPPORT_OUTPUT/fixed-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --output "$TRANSPORT_SUPPORT_OUTPUT/shifted-cost.json"
+```
+
+Optional `memray==1.20.0`, separater frischer `--output` und `--profile /tmp/…/trace.bin`;
+keine Python-Allocatorereignisse/native Stack-Traces, gleiche Geometrie-/Zeitgrenzen.
+Die normale vollständige Auswertung braucht keine weiteren Pakete.
+Der Reader baut weder Pfeiler noch Kontakte neu. Feste/verschobene Stationen
+tragen Auslassungsgründe; die gültige Variante mit mehr Pfeilern wird dargestellt.
+Abstände sind Gestaltungswerte, keine Statik oder vollständige Quellenfreigabe.
+
+## Gemeinsame Pfeilervorbereitung (#434)
+
+[Vorbereitungsvergleich](stair_support_preparation.md): Standard ist jetzt die
+gemeinsame Vorbereitung. Ganze Ausgabe und physische Abnahme bleiben gleich;
+`per_source` erhält die frühere Variante ausschließlich als Kostenreferenz.
+
+```sh
+PYTHONPATH=lib/src:lib/tests:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_support_checks stair_support_traffic_checks test_supports
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --preparation per_source --output "$TRANSPORT_SUPPORT_OUTPUT/per-source-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --preparation shared --output "$TRANSPORT_SUPPORT_OUTPUT/shared-cost.json"
+```
+
+Kostenprozesse nacheinander bei normaler Priorität; dieselben optionalen Memray-
+Flags und frische Ausgaben wie oben. Die vorhandenen Erzeugungs-/Readeraufrufe
+verwenden ohne neue Quell-/Instanzparameter den gemeinsamen Pfad.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

@@ -22,6 +22,10 @@ auf das Shipped-Verzeichnis. Eingabe, Overrides und geladene Layer zusammen: max
 Unbekannte Felder, doppelte Schlüssel und ungültige Werte werden abgewiesen.
 Szenarioinhalte bekommen keine einzelnen CLI-Schalter.
 
+Places planen die Frame-Anfänge auf absoluten Terminen. Die Messung endet nach
+der GPU-Fertigstellung des letzten Frames; sie wartet danach kein leeres Restintervall.
+Framezahl und 360°-Kamerafahrt bleiben gleich. PNG-Kodierung liegt außerhalb der Messzeit.
+
 # Asset-Aufnahmen
 
 `make render ASSET=/path/model.glb OUTPUT=/path/shot.png RESOLUTION=1280x720`
