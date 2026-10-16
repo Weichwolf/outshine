@@ -164,6 +164,10 @@ def generate(args):
         "landing_pads": context.get("landing_pads", []),
         "landing_pad_selection": context.get("landing_pad_selection", []),
         "whole_landing_contacts": whole_landings,
+        "bridge_separation_orders": context.get("bridge_separation_orders", []),
+        "surface_cross_section_mode": recipe.get(
+            "surface_cross_section_mode", "end_neighbourhood"
+        ),
         "terrain_plan": plan,
         "terrain": proof,
         "source_catalog_sha256": digest(args.output / "source-catalog.json"),
