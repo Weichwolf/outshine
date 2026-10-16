@@ -3,13 +3,13 @@
 import argparse
 import hashlib
 import json
-import shutil
 import subprocess
 import time
 from pathlib import Path
 
 import numpy as np
 from colonization import pipe_radii
+from crown_pair_export import export_pair
 from crown_posture import pose_rows, posture
 from posture_mesh import pose_wood, wood_owners
 from spatial_crown_cost import restore
@@ -38,27 +38,6 @@ def compare_methods(crown, mobility, direction, curvature):
                 np.testing.assert_allclose(a, b, atol=3e-14, rtol=0)
             rows.append({"method": method, "repeat": repeat, "seconds": elapsed})
     return rows
-
-
-def export_pair(inputs, output, source, posed, tables, identity):
-    for name, wood, rows in (
-        ("recursive", source, tables[0]),
-        ("spatial", posed, tables[1]),
-    ):
-        folder = output / name
-        folder.mkdir()
-        metadata = json.loads((inputs / "spatial/entry.json").read_text())
-        for file in (inputs / "spatial").iterdir():
-            if file.name not in ("entry.json", "tables.npz", "wood.npz"):
-                shutil.copyfile(file, folder / file.name)
-        np.savez_compressed(folder / "wood.npz", **wood)
-        np.savez_compressed(folder / "tables.npz", **rows)
-        if name == "spatial":
-            metadata["plan_identity"] = identity
-        metadata["scope"] = (
-            "Matched segmented wood/identical leaves; authored static posture, no botanical or welded-skin admission."
-        )
-        (folder / "entry.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
 
 def build(inputs, output, curvature):
@@ -115,7 +94,13 @@ def build(inputs, output, curvature):
         + "\n"
     )
     export_pair(
-        inputs, output, source_wood, posed_wood, (source_rows, posed_rows), identity
+        inputs,
+        output,
+        source_wood,
+        posed_wood,
+        (source_rows, posed_rows),
+        identity,
+        scope="Matched segmented wood/identical leaves; authored static posture, no botanical or welded-skin admission.",
     )
     exported = time.perf_counter()
     lengths = np.linalg.norm(
