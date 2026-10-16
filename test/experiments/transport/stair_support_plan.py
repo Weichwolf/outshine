@@ -83,7 +83,7 @@ def source_surfaces(road, owners):
         upper_surfaces[owner] = upper
         other = road["top_faces"][(road["face_sources"] & ~(1 << owner)) != 0]
         exclusions[owner] = [
-            shapely.union_all(shapely.polygons(xyz[other, :2])).buffer(0.2)
+            shapely.union_all(shapely.polygons(xyz[other, :2]))
             for xyz in (road["body_vertices"], rounded)
         ]
     return upper_surfaces, exclusions
@@ -103,7 +103,8 @@ def admit(product, lower, upper, excluded, previous):
     note = body_caps(product)
     shapes = [domain(product.lower_contact), domain(quantized(product.lower_contact))]
     if any(
-        shape.intersects(region) for shape, region in zip(shapes, excluded, strict=True)
+        shapely.dwithin(shape, region, 0.2)
+        for shape, region in zip(shapes, excluded, strict=True)
     ):
         raise ValueError("actual support conflicts with another selected source")
     for shape, old in zip(shapes, previous, strict=True):
@@ -139,7 +140,7 @@ def plan(rows, road, lower, *, method, seconds=8):
             work["trials"] += 1
             try:
                 shape = footprint(line, nominal + shift)
-                if shape.intersects(exclusions[owner][0]):
+                if shapely.dwithin(shape, exclusions[owner][0], 0.2):
                     raise ValueError("other_selected_source_exclusion")
                 product, geometry = builders[owner].build(
                     shape, minimum_height_m=0.1001

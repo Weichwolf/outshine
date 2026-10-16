@@ -126,6 +126,17 @@ class WholeContacts(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, message):
                 admit(product, Reference(lower), Reference(upper), excluded, old)
 
+    def test_rounded_buffer_corners_cannot_understate_the_physical_distance(self):
+        lower, upper, product = surfaces()
+        shape = domain(product.lower_contact)
+        x, y = shape.bounds[2:]
+        angle = np.pi / 32
+        near = shapely.Point(x + 0.1999 * np.cos(angle), y + 0.1999 * np.sin(angle))
+        self.assertFalse(near.intersects(shape.buffer(0.2, quad_segs=8)))
+        self.assertLess(near.distance(shape), 0.2)
+        with self.assertRaisesRegex(ValueError, "selected source"):
+            admit(product, Reference(lower), Reference(upper), [near, near], [[], []])
+
 
 class BoundedStations(unittest.TestCase):
     def test_shift_recovers_a_real_excluded_station_without_losing_the_others(self):
