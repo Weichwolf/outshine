@@ -244,6 +244,8 @@ def model(record, row, run, view, method, target, proof):
         raw = append(run.outputs["shell"].value.body, [*parts, *panes])
         decisions = selection(run.outputs["rooflights"].value, view)
     mesh, source = mapped(row, raw, record["city"])
+    if target is None:
+        return mesh, source
     target.mkdir(parents=True, exist_ok=True)
     path = target / (record["city"] + "-mesh.npz")
     np.savez_compressed(path, **mesh)
