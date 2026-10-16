@@ -12,7 +12,7 @@ from pathlib import Path
 import bpy
 import gpu
 import numpy as np
-from grass_light_preview import mesh_object, setup, sheet
+from grass_light_preview import camera_depth_receipt, mesh_object, setup, sheet
 from leaf_stack_cases import (
     CASES,
     IRRADIANCE,
@@ -125,6 +125,7 @@ def run(output, variant, clip_end):
         "samples": 8,
         "variant": variant,
         "clip_end_m": clip_end,
+        "camera": camera_depth_receipt(scene),
         "view": VIEW.tolist(),
         "light": LIGHT.tolist(),
         "receiver_rt": [*REFLECTION.tolist(), *TRANSMISSION.tolist()],

@@ -91,12 +91,35 @@ def setup(view):
     camera = bpy.context.object
     camera.rotation_euler = (-Vector(view)).to_track_quat("-Z", "Y").to_euler()
     camera.data.type, camera.data.ortho_scale = "ORTHO", 1.4
+    camera.data.clip_start, camera.data.clip_end = 0.1, 10.0
     scene.camera = camera
     scene.render.resolution_x, scene.render.resolution_y = 1920, 1080
     scene.render.resolution_percentage = 100
     scene.view_settings.view_transform = "Standard"
     scene.render.image_settings.file_format = "PNG"
     return scene
+
+
+def camera_depth_receipt(scene):
+    bpy.context.view_layer.update()
+    camera = scene.camera
+    transform = camera.matrix_world.inverted()
+    objects = [obj for obj in scene.objects if obj.type == "MESH"]
+    depths = [
+        -(transform @ obj.matrix_world @ Vector(corner)).z
+        for obj in objects
+        for corner in obj.bound_box
+    ]
+    near, far = camera.data.clip_start, camera.data.clip_end
+    if not depths or min(depths) <= near or max(depths) >= far:
+        raise ValueError("finite grass reference camera must retain all mesh bounds")
+    return {
+        "clip_m": [near, far],
+        "all_mesh_bounds_depth_m": [min(depths), max(depths)],
+        "mesh_objects": len(objects),
+        "mesh_vertices": sum(len(obj.data.vertices) for obj in objects),
+        "bound_corners_checked": len(depths),
+    }
 
 
 def render_case(stand, result, state_name, mode, inputs, output):
@@ -141,6 +164,7 @@ def render_case(stand, result, state_name, mode, inputs, output):
             frame_material(radiance),
             np.array(((0, 0), (1, 0), (1, 1), (0, 1))),
         )
+    camera_receipt = camera_depth_receipt(scene)
     configure_preview(scene)
     scene.eevee.taa_render_samples = 8
     target = output / f"{state_name}-{mode}.png"
@@ -155,6 +179,7 @@ def render_case(stand, result, state_name, mode, inputs, output):
         "image_sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
         "renderer": gpu.platform.renderer_get(),
         "backend": gpu.platform.backend_type_get(),
+        "camera": camera_receipt,
     }
 
 

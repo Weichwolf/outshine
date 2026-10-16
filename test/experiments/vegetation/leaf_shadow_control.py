@@ -10,7 +10,7 @@ from pathlib import Path
 
 import bpy
 import numpy as np
-from grass_light_preview import mesh_object, setup, sheet
+from grass_light_preview import camera_depth_receipt, mesh_object, setup, sheet
 from leaf_stack_cases import IRRADIANCE, REFLECTION, VIEW, reflection_control_geometry
 from mathutils import Vector
 from PIL import Image
@@ -56,6 +56,7 @@ def run(output, clip_end):
             {
                 "shadows": shadows,
                 "clip_end_m": clip_end,
+                "camera": camera_depth_receipt(scene),
                 "measured_rgb": np.array(means).tolist(),
                 "expected_rgb": desired.tolist(),
                 "max_error": float(abs(np.array(means) - desired).max()),
