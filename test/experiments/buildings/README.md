@@ -901,3 +901,47 @@ successful owned shape-result arrays total 29,638/102,997, 3,650/12,945 and
 other temporaries, native allocations and cumulative copy traffic. Local
 nonisolated wall times do not establish a global or device speedup. Traced
 peaks improve only within the separately measured Python/NumPy scope.
+
+### Joined facade hierarchies (#474, research in progress)
+
+`outshine_ref.buildings.facade_frames.FacadeFrame` describes a bounded regular
+lattice in local U/V/outward metres: 2..33 immutable vertical/horizontal bar
+centres and at most256 rectangular apertures. `frame_surface` emits the joined
+closed reference or, with `back_covered=True`, only the source-attached outside.
+Covered backs are omitted before geometry materialization. Fronts use the
+existing constrained polygon/holes triangulator; no epsilon position welding.
+Actual geometric normals and metric face UVs accompany the result. Closed
+and outer counts are `12+20*K` and `10+14*K` triangles for K apertures.
+The outer product is never collision geometry.
+
+`facade_frame_programme` groups existing window/storey axes, using paired
+residential piers or storey grids for mixed/institutional uses. It preserves
+the actual first-storey entry/projection facade, leaves physical window modules
+including casings/sills free, and starts above the ground programme. At most
+four statically ranked non-entry facades fit a camera-independent4096-triangle
+source budget. Supplied source/materials, roof and opening plans remain shared.
+Known height-overlapping neighbors/other source wings reject locally. Source
+and transport/terrain contacts outside that bounded source context are not
+admitted by this experiment.
+
+Detail need precedes template/triangulation work; deferred logical plans remain
+present. Valid hierarchies replace the previous decorative bands on their
+edges, rather than overlapping them. Local construction failure retains the
+previous complete facade and a reason. `facade_parts.append` combines frames
+and remaining bands once, removing the initially redundant full-body append;
+both actual source outputs were array/dtype-exact before and after that change.
+This is a component geometry criterion, not a full image/shadow/native LOD bound.
+
+`data/facade-frames.json` preserves two real Paris source/context cases and their
+four-metre neighbor context with provider receipt hashes. Selection used large
+free non-entry elevations; it is not a place-specific style rule. Run with
+`PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest test_facade_frames verify_facade_frames verify_facade_bands verify_tile_facades -q`.
+Freeze source, then `facade_frame_probe.py --output <system-temp>` for actual
+plan/mesh-section/2.5D and identical whole/opposite/close/far Blender inputs.
+`facade_frame_cost.py --output <json> --repeats 21` compares identical2D regions
+against vector/GEOS bar union, plus independently equivalent closed solids.
+Generic3D union additionally carries per-bar provenance and omits render UV/
+normal fields; those full-construction phases are scoped separately, not equal
+attribute pipelines. Traced peaks/output fields exclude backend/cumulative
+allocation/copy totals. Whole-city, fresh-wheel, image and final cost admission
+remain pending. No complete architecture family/night/controller/device claim.
