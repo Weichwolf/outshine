@@ -183,6 +183,49 @@ def wall_material(parameters):
     return material
 
 
+def representation(mesh, roots, *, envelope=False):
+    expected = {
+        "vertices": "float64",
+        "normals": "float64",
+        "uv": "float64",
+        "materials": "uint16",
+        "faces": "uint32" if envelope else "int32",
+    }
+    expected |= (
+        {"parts": "int32", "groups": "uint32", "face_tag_mask": "uint8"}
+        if envelope
+        else {"facade_extent": "float64"}
+    )
+    if set(mesh) != set(expected) or any(
+        not isinstance(mesh[k], np.ndarray) or mesh[k].dtype != np.dtype(dtype)
+        for k, dtype in expected.items()
+    ):
+        raise ValueError(
+            "Building product has an uncontracted actual array representation"
+        )
+    if not isinstance(roots, np.ndarray) or roots.dtype != np.dtype(
+        "uint64" if envelope else "int64"
+    ):
+        raise ValueError(
+            "Building product has an uncontracted topology-root representation"
+        )
+    vertices, faces = len(mesh["vertices"]), len(mesh["faces"])
+    shapes = {key: (vertices, 3) for key in ("vertices", "normals")}
+    shapes |= {"uv": (vertices, 2), "faces": (faces, 3), "materials": (faces,)}
+    shapes |= (
+        {key: (faces,) for key in ("parts", "groups", "face_tag_mask")}
+        if envelope
+        else {"facade_extent": (vertices, 3)}
+    )
+    if roots.shape != (vertices,) or any(
+        mesh[k].shape != shape for k, shape in shapes.items()
+    ):
+        raise ValueError("Building product stream dimensions disagree")
+    for key in ("vertices", "normals", "uv"):
+        if not np.isfinite(mesh[key]).all():
+            raise ValueError("Building product contains nonfinite arrays")
+
+
 def envelope_operator(parameters, inputs):
     material = wall_material(parameters)
     source, choice = inputs["source"], inputs["choice"]
@@ -193,6 +236,7 @@ def envelope_operator(parameters, inputs):
     value = heightfield_envelope(
         top, p["minHeight"], wall_material=material, base_material=material
     )
+    representation(value.mesh, value.vertex_roots, envelope=True)
     return {
         "envelope": Emission(
             value,
@@ -251,6 +295,7 @@ def shell_operator(parameters, inputs):
     compatible(envelope, programme)
     value = programme.value
     body, shell = structure(value.plan, envelope.value, material)
+    representation(body, shell.vertex_roots)
     result = HallShell(sealed(body), shell)
     return {
         "shell": Emission(

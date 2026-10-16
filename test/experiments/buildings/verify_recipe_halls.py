@@ -10,6 +10,7 @@ import numpy as np
 from facade_parts import append
 from industrial_hall_details import products
 from industrial_hall_plan import metadata
+from industrial_hall_shell import structure
 from recipe_graph_data import Budget, canonical
 from recipe_hall_operators import inputs_for, prepare
 from structural_shell_geometry import native
@@ -46,6 +47,19 @@ def assembly(run, view, opened=1):
 
 
 class RecipeHalls(unittest.TestCase):
+    def test_float32_arrays_cannot_be_published_as_the_float64_shell_port(self):
+        row, neighbors = sources()[0]
+
+        def converted(*args):
+            body, shell = structure(*args)
+            return dict(body, vertices=body["vertices"].astype(np.float32)), shell
+
+        with (
+            patch("recipe_hall_operators.structure", side_effect=converted),
+            self.assertRaisesRegex(ValueError, "actual array representation"),
+        ):
+            prepare().evaluate(inputs_for(row, neighbors))
+
     def test_all_real_halls_same_plan_and_complete_geometry_with_actual_function(self):
         graph = prepare()
         for row, neighbors in sources()[:3]:
