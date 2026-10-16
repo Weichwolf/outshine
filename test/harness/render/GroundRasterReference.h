@@ -55,7 +55,7 @@ inline std::vector<uint32_t> GroundControlIndices() {
       const bool reverse = edge == 1 || edge == 2;
       const uint32_t downA = first + (reverse ? 1u : 0u);
       const uint32_t downB = first + (reverse ? 0u : 1u);
-      indices.insert(indices.end(), {a[edge], downA, b[edge], b[edge], downA, downB});
+      indices.insert(indices.end(), {a[edge], b[edge], downA, b[edge], downB, downA});
     }
   }
   return indices;
