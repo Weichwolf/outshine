@@ -683,6 +683,10 @@ an executable cache-only whole-plant consumer for native comparison (#367).
 stand parents without enumerating individual trees. Canonical leaf sites are an
 explicit bounded demand; source support, saved cells and layout identity persist.
 
+[`BladeCutout`](blade_cutout.md) preserves authored asymmetric polygon margins and
+holes on an existing curved Blade carrier, with separate fold/petiole normals and
+bounded requested meshes. It does not change old PlantPlan recipes or statistics.
+
 ### Frond guides, source patterns and cross-section curl
 
 `PinnatePattern` creates own planar pinnate sources with stable organ IDs and
@@ -1018,3 +1022,7 @@ Eck-UVs. Herleitung, Unterteilungsgrenzen und tatsächlicher blühender Verbrauc
 [bellflower.md](bellflower.md) (#316).
 
 The actual Python city consumer also reuses `FacadeRepeat`/`RecessPlan` for bounded retail/food ground-floor display fronts (#377), with unchanged upper-cell scale and shared entrance anchors. Provider-use/host/level and frontage policy stays in `test/experiments/buildings/facade_shopfronts.py`; no second library planner or native contract is introduced. Reproduction and limits are in the building experiment README.
+
+`buildings.balconies.BalconyPlan/balcony_surface` supplies a bounded local deck/U-guard solid with40 exterior triangles, explicit deck/guard roles and caller-owned geometry. Four-prism union and separate-part controls describe the same solid. Caller owns materials/UVs, attachment, demand, collision and access; this primitive provides no source classification or room planner. `buildings.facade_cells.cell_complement` subtracts at most128 explicit existing cells from a FacadeRepeat as bounded disjoint index rectangles, without expanding the complete grid. Actual ordinary-facade consumers and functional counterexamples: building experiment README (#388).
+
+`buildings.balconies.balcony_plates` is the separate16-triangle open render approximation; it is never the closed physical/collision solid. Dropped surfaces map along Z within slab/2 or X/Y within guard thickness. The actual consumer must bound these displacements in its projection and preserve the closed plan; no light/shadow/topology equivalence is promised.

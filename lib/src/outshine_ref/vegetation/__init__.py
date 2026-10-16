@@ -29,6 +29,7 @@ class Plan:
 
 
 _SPATIAL_EXPORTS = {
+    "BladeCutout": "blade_cutout",
     "StandHabitat": "stand_habitat",
     "HabitatStand": "habitat_stand",
     "StandCell": "habitat_stand",
@@ -85,6 +86,7 @@ __all__ = [
     "AxisState",
     "Bellflower",
     "Blade",
+    "BladeCutout",
     "CubicSpine",
     "CurlField",
     "DirectionField",

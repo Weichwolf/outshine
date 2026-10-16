@@ -362,7 +362,7 @@ AdjustJunctionPlanes(const RoadHeightFailure &failure,
                 {"cycle", static_cast<int64_t>(failure.CycleConstraints.size())},
                 {"planes", static_cast<int64_t>(constraint.Terms.size())},
                 {"riseM", constraint.MinimumRiseM}});
-    return plan;
+    return std::unexpected(plan.error().Reason());
   }
   for (size_t at = 0; at < into.Junctions.size(); ++at) {
     auto &junction = into.Junctions[at];
