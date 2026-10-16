@@ -1,12 +1,17 @@
 """Analytic direction flow, independent FK and rigid demanded organ controls."""
 
+import hashlib
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 from crown_posture import pose_group, pose_rows, posture
 from crown_shoots import CrownShoots
 from posture_mesh import pose_wood
+from posture_replay import read_pose
 from scipy.integrate import solve_ivp
 from scipy.spatial.transform import Rotation
 
@@ -174,6 +179,52 @@ class PostureChecks(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             pose_wood(mesh, np.array((0, 1, 0)), source, source + 2, q)
+
+    def test_saved_pose_rejects_different_source_recipe_and_corruption(self):
+        header = {
+            "format": "spatial-crown-posture-1",
+            "source_identity": "source-a",
+            "direction": [0, 0, -1],
+            "curvature_rad_per_m": 0.25,
+            "max_turn_rad": 0.35,
+        }
+        digest = hashlib.sha256(json.dumps(header, sort_keys=True).encode())
+        values = {
+            "source": self.points,
+            "parents": self.parents,
+            "mobility": self.mobility,
+        }
+        for a in values.values():
+            digest.update(a.view(np.uint8))
+        header["identity"] = digest.hexdigest()
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.vegetation-posture-"
+        ) as tmp:
+            path = Path(tmp)
+            np.savez_compressed(path / "posture.npz", **values)
+            header["payload_sha256"] = hashlib.sha256(
+                (path / "posture.npz").read_bytes()
+            ).hexdigest()
+
+            def write(h):
+                (path / "posture.json").write_text(json.dumps(h))
+
+            write(header)
+            actual, _ = read_pose(path, "source-a")
+            self.assertEqual(actual["identity"], header["identity"])
+            with self.assertRaises(ValueError):
+                read_pose(path, "source-b")
+            write({**header, "curvature_rad_per_m": 0.3})
+            with self.assertRaises(ValueError):
+                read_pose(path, "source-a")
+            write({**header, "format": "future-unimplemented-pose"})
+            with self.assertRaises(ValueError):
+                read_pose(path, "source-a")
+            write(header)
+            with (path / "posture.npz").open("ab") as f:
+                f.write(b"changed")
+            with self.assertRaises(ValueError):
+                read_pose(path, "source-a")
 
 
 if __name__ == "__main__":

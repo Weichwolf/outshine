@@ -107,8 +107,12 @@ def build(inputs, output, curvature):
         leaf_owners=leaf_owners,
         wood_owners=owners,
     )
+    payload_sha256 = hashlib.sha256((output / "posture.npz").read_bytes()).hexdigest()
     (output / "posture.json").write_text(
-        json.dumps({**header, "identity": identity}, indent=2) + "\n"
+        json.dumps(
+            {**header, "identity": identity, "payload_sha256": payload_sha256}, indent=2
+        )
+        + "\n"
     )
     export_pair(
         inputs, output, source_wood, posed_wood, (source_rows, posed_rows), identity
