@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from collar_shading import blend_collar_normals, tube_reference
 from collar_union_product import add_collars
-from crown_collars import demanded_collars
+from crown_collars import demanded_collars, resolution_map
 from tree_entry import load
 
 
@@ -18,7 +18,7 @@ def build(
     inputs,
     output,
     nodes=(13,),
-    cells=48,
+    cells=128,
     method="blocked",
     strength=2.0,
     samples=9,
@@ -27,6 +27,7 @@ def build(
 ):
     if output.exists():
         raise FileExistsError(output)
+    nodes = tuple(nodes)
     start = time.perf_counter()
     metadata, products = load(inputs / "spatial")
     collars, plans = demanded_collars(
@@ -48,7 +49,7 @@ def build(
         "format": "cached-crown-local-collars-1",
         "source": metadata["geometry_identity"],
         "nodes": sorted(nodes),
-        "cells": cells,
+        "cells": resolution_map(nodes, cells),
         "method": method,
         "strength": strength,
         "samples": samples,
@@ -70,6 +71,8 @@ def build(
         - old_faces,
         scope="Same full cached crown/foliage, requested local geometric collars; no universal C1/error/LOD/species/native admission.",
     )
+    if not nodes:
+        entry = metadata
     output.mkdir(parents=True)
     for label, info in (("recursive", metadata), ("spatial", entry)):
         folder = output / label
@@ -122,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--nodes", nargs="*", type=int, default=[13])
-    parser.add_argument("--cells", type=int, default=48)
+    parser.add_argument("--cells", type=json.loads, default=128)
     parser.add_argument("--method", choices=("dense", "blocked"), default="blocked")
     parser.add_argument("--strength", type=float, default=2.0)
     parser.add_argument("--samples", type=int, default=9)

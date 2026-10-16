@@ -19,19 +19,22 @@ def add_collars(base, collars, nodes):
     if not collars:
         return base, {"union_s": 0, "collars": 0}
     start = time.perf_counter()
-    solids, sources, ownership = [], {}, {}
-    for index, mesh in enumerate([base, *collars]):
+    for mesh in [base, *collars]:
         try:
             check_mesh(mesh)
         except AssertionError as error:
             raise ValueError(
                 "input collar or cached wood violates oriented surface contract"
             ) from error
+    solids, sources, ownership = [], {}, {}
+    copied_bytes = 0
+    for index, mesh in enumerate([base, *collars]):
         raw = manifold.Mesh64(
             np.array(mesh["vertices"], dtype=np.float64, order="C"),
             np.array(mesh["faces"], dtype=np.uint64, order="C"),
             face_id=np.arange(len(mesh["faces"]), dtype=np.uint64),
         )
+        copied_bytes += mesh["vertices"].size * 8 + mesh["faces"].size * 8
         solid = manifold.Manifold(raw)
         if solid.status() != manifold.Error.NoError or solid.volume() <= 0:
             raise ValueError("invalid cached wood or collar solid")
@@ -80,4 +83,7 @@ def add_collars(base, collars, nodes):
         "volume_m3": kept[0].volume(),
         "genus": kept[0].genus(),
         "checks": checked,
+        "known_kernel_input_numpy_arrays": 3 * (1 + len(collars)),
+        "known_geometry_copy_bytes": copied_bytes,
+        "known_face_id_write_bytes": 8 * sum(len(m["faces"]) for m in [base, *collars]),
     }

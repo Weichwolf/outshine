@@ -7,7 +7,10 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
+from collar_union_product import add_collars
+from crown_collar_accuracy import first_exits
 from crown_collars import chord_profile_bound, demanded_collars, interval_branch
+from crown_union_checks import cube
 from outshine_ref.vegetation import CubicSpine
 from scipy.interpolate import PchipInterpolator
 from spatial_crown_replay import check_mesh
@@ -33,6 +36,32 @@ def fixture():
 
 
 class CrownCollarChecks(unittest.TestCase):
+    def test_independent_first_exit_matches_analytic_sphere(self):
+        sphere = SimpleNamespace(
+            origin=np.zeros(3),
+            ray_extent=0.5,
+            evaluate=lambda p: 0.3**2 - np.sum(p**2, axis=1),
+        )
+        directions = np.eye(3)
+        for steps in (256, 512):
+            np.testing.assert_allclose(
+                first_exits(sphere, directions, steps), 0.3, atol=1e-14
+            )
+
+    def test_empty_union_and_rejected_normals_precede_kernel_work(self):
+        mesh = cube((0, 0, 0), 1)
+        mesh = {key: mesh[key] for key in ("vertices", "faces", "normals")}
+        invalid = mesh | {"normals": -mesh["normals"]}
+        with patch(
+            "collar_union_product.manifold.Mesh64",
+            side_effect=AssertionError("kernel on absent or invalid demand"),
+        ):
+            result, work = add_collars(mesh, (), ())
+            self.assertIs(result, mesh)
+            self.assertEqual(work["union_s"], 0)
+            with self.assertRaises(ValueError):
+                add_collars(mesh, (invalid,), (1,))
+
     def test_chord_bound_matches_exact_parabola_and_linear_radius(self):
         spine = CubicSpine.from_hermite(
             np.array(((0, 0, 0), (0.1, 1, 0))), np.array(((0, 1, 0), (0.2, 1, 0)))
@@ -96,6 +125,8 @@ class CrownCollarChecks(unittest.TestCase):
                     demanded_collars(Path("absent"), nodes)
             with self.assertRaises(ValueError):
                 demanded_collars(Path("absent"), (1,), cells=15)
+            with self.assertRaises(ValueError):
+                demanded_collars(Path("absent"), (1,), cells={})
         with (
             patch("crown_collars.restore", return_value=fixture()),
             patch(
@@ -111,7 +142,9 @@ class CrownCollarChecks(unittest.TestCase):
             dense, dp = demanded_collars(
                 Path("fixture"), (1, 2), cells=24, method="dense"
             )
-            blocked, bp = demanded_collars(Path("fixture"), (2, 1), cells=24)
+            blocked, bp = demanded_collars(
+                Path("fixture"), (2, 1), cells={"1": 24, "2": 24}
+            )
             subset, _ = demanded_collars(Path("fixture"), (2,), cells=24)
         self.assertEqual([p["fork_node"] for p in bp], [1, 2])
         for index, (left, right) in enumerate(zip(dense, blocked)):

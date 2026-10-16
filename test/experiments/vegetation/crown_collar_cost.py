@@ -37,6 +37,19 @@ def run(inputs, products, output):
             "median_s": float(np.median(times)),
             "field_points": sum(p["field_point_evaluations"] for p in rows),
             "interval_blocks": sum(p["interval_block_evaluations"] for p in rows),
+            "segment_point_pairs": sum(
+                p["field_point_evaluations"]
+                * sum(len(b["points_m"]) - 1 for b in p["branches"])
+                for p in rows
+            ),
+            "segment_block_pairs": sum(
+                p["interval_block_evaluations"]
+                * sum(len(b["points_m"]) - 1 for b in p["branches"])
+                for p in rows
+            ),
+            "curve_segments": sum(
+                len(b["points_m"]) - 1 for p in rows for b in p["branches"]
+            ),
             "volume_bytes": sum(p["volume_bytes"] for p in rows),
             "mask_bytes": sum(p["classification_mask_bytes"] for p in rows),
             "result_bytes": sum(v.nbytes for m in meshes for v in m.values()),

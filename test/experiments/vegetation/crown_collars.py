@@ -9,6 +9,31 @@ from limb_surface import path_recipe
 from spatial_crown_cost import restore
 
 
+def resolution_map(nodes, cells):
+    if type(cells) is int:
+        result = dict.fromkeys(nodes, cells)
+        valid = 16 <= cells <= 192
+    elif isinstance(cells, dict):
+        result = {}
+        for key, value in cells.items():
+            if type(key) is int:
+                node = key
+            elif isinstance(key, str) and key.isdecimal() and str(int(key)) == key:
+                node = int(key)
+            else:
+                raise ValueError(
+                    "canonical integer fork IDs required in resolution map"
+                )
+            result[node] = value
+        valid = len(result) == len(cells) and set(result) == set(nodes)
+        valid &= all(type(v) is int and 16 <= v <= 192 for v in result.values())
+    else:
+        valid, result = False, {}
+    if not valid:
+        raise ValueError("16 through192 cells per requested fork required")
+    return result
+
+
 def chord_distances(crown, path):
     points = crown.positions[np.asarray(path)]
     return np.r_[0, np.cumsum(np.linalg.norm(np.diff(points, axis=0), axis=1))]
@@ -109,7 +134,7 @@ def collar_plan(
 def demanded_collars(
     inputs,
     nodes,
-    cells=48,
+    cells=128,
     method="blocked",
     strength=2.0,
     samples=9,
@@ -124,14 +149,9 @@ def demanded_collars(
         raise ValueError(
             "zero through eight unique explicit non-root fork IDs required"
         )
-    if (
-        method not in ("dense", "blocked")
-        or type(cells) is not int
-        or not 16 <= cells <= 96
-    ):
-        raise ValueError(
-            "declared sampler and bounded16 through96 cell resolution required"
-        )
+    resolutions = resolution_map(nodes, cells)
+    if method not in ("dense", "blocked"):
+        raise ValueError("declared dense or blocked sampler required")
     if (
         not np.isfinite(strength)
         or not 0 < strength <= 2
@@ -156,7 +176,7 @@ def demanded_collars(
     products, plans = [], []
     for field, plan in fields:
         mesh, work = (blocked_voxel_mesh if method == "blocked" else voxel_mesh)(
-            field, cells
+            field, resolutions[plan["fork_node"]]
         )
         products.append(mesh)
         plans.append(plan | work)
