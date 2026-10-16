@@ -79,6 +79,13 @@ def prefix(mesh, count):
     )
 
 
+def cap_prefix(part):
+    count = len(part.full["faces"]) - len(part.outer["faces"])
+    if not 0 < count < len(part.outer["faces"]):
+        raise ValueError("Prepared relief requires matching front/back cap topology")
+    return prefix(part.full, count)
+
+
 def products(plan):
     raw, outer_triangles = direct(plan)
     full = placed(raw, plan)

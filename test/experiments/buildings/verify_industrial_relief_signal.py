@@ -8,8 +8,10 @@ import manifold3d as manifold
 import numpy as np
 import shapely
 from demand import View, displacement_error
+from industrial_relief_mesh import cap_prefix
 from industrial_relief_products import ArticulatedDetails, demanded
-from industrial_relief_signal import SignalDetails, cap_prefix, direct_caps
+from industrial_relief_signal import SignalDetails, direct_caps
+from industrial_relief_signal_probe import OmittedRelief
 from prepared_hall_tile import prepare_halls
 from prepared_hall_tile_probe import source_tile
 from structural_shell_geometry import native
@@ -130,7 +132,7 @@ class IndustrialReliefSignal(unittest.TestCase):
 
     def test_the_complete_tile_keeps_every_material_region_and_source(self):
         self.owner.view = self.view
-        baseline = ArticulatedDetails(self.assets, self.view)
+        baseline = OmittedRelief(self.assets, self.view)
         previous, old = construct(
             "Grohnde",
             prepared=(self.assets.rows, self.receipt),
@@ -155,6 +157,13 @@ class IndustrialReliefSignal(unittest.TestCase):
                 self.assertEqual(before[key], after[key])
         self.assertGreater(len(mesh["faces"]), len(previous["faces"]))
         self.assertLess(len(mesh["faces"]), 88649)
+        preferred = ArticulatedDetails(self.assets, self.view)
+        preferred_mesh, _ = construct(
+            "Grohnde",
+            prepared=(self.assets.rows, self.receipt),
+            ordinary_builder=preferred,
+        )
+        mesh_equal(mesh, preferred_mesh)
         self.assertEqual(
             sum(p["rendered_facades"] for p in self.owner.relief_draws[-8:]), 39
         )

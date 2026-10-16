@@ -6,8 +6,9 @@ import os
 from pathlib import Path
 
 from evidence import revision
+from industrial_relief_mesh import cap_prefix
 from industrial_relief_products import ArticulatedDetails
-from industrial_relief_signal import cap_prefix, direct_caps
+from industrial_relief_signal import direct_caps
 from industrial_rooflight_probe import storage_bytes
 from prepared_hall_tile import prepare_halls
 from prepared_hall_tile_probe import source_tile

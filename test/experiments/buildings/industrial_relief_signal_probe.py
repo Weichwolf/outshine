@@ -9,7 +9,7 @@ import numpy as np
 from demand import View
 from evidence import revision
 from industrial_relief_probe import export
-from industrial_relief_products import ArticulatedDetails
+from industrial_relief_products import ArticulatedDetails, demanded
 from industrial_relief_signal import SignalDetails
 from prepared_hall_tile import prepare_halls
 from prepared_hall_tile_probe import source_tile
@@ -18,6 +18,13 @@ from prepared_hall_tile_probe import source_tile
 class FullRelief(ArticulatedDetails):
     def draw_parts(self, identifier):
         return tuple(p.outer for p in self.reliefs[identifier])
+
+
+class OmittedRelief(ArticulatedDetails):
+    def draw_parts(self, identifier):
+        return tuple(
+            p.outer for p in self.reliefs[identifier] if demanded(p, self.view)
+        )
 
 
 class ForcedCaps(SignalDetails):
@@ -55,7 +62,7 @@ def models(output):
         )
         for method, owner in (
             ("Full", FullRelief(prepared, view)),
-            ("Omit", ArticulatedDetails(prepared, view)),
+            ("Omit", OmittedRelief(prepared, view)),
             ("Front", SignalDetails(prepared, view)),
             ("Wall", SignalDetails(prepared, view, method="wall")),
         ):
