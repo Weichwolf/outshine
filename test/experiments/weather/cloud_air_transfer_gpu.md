@@ -12,6 +12,10 @@ before the unchanged physical air-source fit. An optional experiment-only
 in16bytes at2/1; Medium80 remains2/0. Host size/alignment/offsets and reflected
 layouts are checked. The uniform does not introduce a second weather recipe.
 All old callers retain their exact default values and six/seven-binding layouts.
+The CPU wind state uses east/north ENU coordinates. An explicit PackedFieldState
+converts north through RenderFrame::ZOfNorth into the existing16byte GPU block.
+Zero is canonicalized to positive GPU zero to preserve prior uniform bytes.
+The packed object remains alive through recording, Submit and Completion.
 
 `SOURCE_VISIBILITY_OUTPUT` optionally normalizes the resulting air transfer into
 the existing spectral weighted visibility and stores RGBA32F at1/0. RGB is the

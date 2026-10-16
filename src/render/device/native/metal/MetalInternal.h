@@ -135,7 +135,13 @@ struct Submission {
   std::mutex Mutex;
   std::condition_variable Changed;
   bool Done = false;
+  std::optional<double> GpuNanoseconds;
   std::optional<Error> Failed;
+};
+
+struct SubmissionTiming {
+  uint64_t Serial = 0;
+  std::optional<double> Nanoseconds;
 };
 
 struct CommandCounts {
@@ -259,7 +265,7 @@ private:
 
 class MetalDevice final : public Device {
 public:
-  MetalDevice(uint64_t identity, id<MTLDevice> device, id<MTLCommandQueue> queue);
+  MetalDevice(uint64_t identity, id<MTLDevice> device, id<MTLCommandQueue> queue, bool gpuTiming);
   ~MetalDevice() override;
 
   [[nodiscard]] const Capabilities &Limits() const noexcept override { return Limits_; }
@@ -285,6 +291,7 @@ public:
   Result<Completion> Submit(std::unique_ptr<Commands> commands) override;
   Result<CompletionStatus> Poll(Completion completion) override;
   Result<CompletionStatus> Wait(Completion completion, std::chrono::nanoseconds budget) override;
+  Result<SubmissionGpuTiming> SubmissionGpuTime(Completion completion) override;
 
 private:
   [[nodiscard]] bool OnOwner() const noexcept { return Owner_ == std::this_thread::get_id(); }
@@ -299,6 +306,9 @@ private:
   id<MTLCommandQueue> Queue_;
   Capabilities Limits_;
   std::deque<std::shared_ptr<Submission>> Pending_;
+  static constexpr size_t kRetainedTimings = 8;
+  std::array<SubmissionTiming, kRetainedTimings> Timings_{};
+  bool GpuTiming_ = false;
   std::optional<Error> Failed_;
   std::shared_ptr<CommandCounts> Counts_ = std::make_shared<CommandCounts>();
   std::unique_ptr<MetalPresentation> Presentation_;

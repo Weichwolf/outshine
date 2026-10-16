@@ -34,12 +34,19 @@ def main():
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--archive-receipt", type=Path, required=True)
     parser.add_argument("--repeats", type=int, default=3)
-    parser.add_argument("--joint", action="store_true")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--joint", action="store_true")
+    modes.add_argument("--profiled", action="store_true")
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(ROOT) or not 1 <= args.repeats <= 16:
         parser.error("use an explicit temp output and1..16 warm repeats")
     args.output.mkdir(parents=True, exist_ok=True)
-    record = {"commands": [], "profiles": {}, "joint": args.joint}
+    record = {
+        "commands": [],
+        "profiles": {},
+        "joint": args.joint,
+        "profiled": args.profiled,
+    }
     receipt = args.output / "receipt.json"
 
     def execute(command, folder, name, cwd=ROOT):
@@ -76,12 +83,17 @@ def main():
         ("stationary", ["-DSOURCE_WIND_EAST_M=0", "-DSOURCE_WIND_SOUTH_M=0"]),
         ("clear", ["-USOURCE_CLOUD_COVER", "-DSOURCE_CLOUD_COVER=0"]),
     )
-    if args.joint:
+    if args.joint or args.profiled:
         from linear_medium_reference import PROFILES as joint_profiles
         from linear_medium_reference import STATES
 
         reference = "linear_medium_reference.py"
         profiles = joint_profiles
+        if args.profiled:
+            from profiled_air_cases import PROFILES as profiled_profiles
+
+            reference = "profiled_air_cases.py"
+            profiles = profiled_profiles
         states = [
             (
                 name,
@@ -112,7 +124,11 @@ def main():
                 args.output,
                 shader,
                 execute,
-                *([] if args.joint else ["-DSOURCE_EYE_CLOUD_COVER=0"]),
+                *(
+                    []
+                    if args.joint or args.profiled
+                    else ["-DSOURCE_EYE_CLOUD_COVER=0"]
+                ),
                 *algorithm,
                 *defines,
             )
@@ -121,14 +137,16 @@ def main():
                 record["profiles"][f"{subset or 'dense'}/{name}"] = run_capture(
                     args, binary, shader, folder, folder / f"{name}.bin", execute
                 )
-            if profile == ("joint" if args.joint else "growth-128"):
+            if profile == (
+                "profiled" if args.profiled else "joint" if args.joint else "growth-128"
+            ):
                 folder = args.output / "empty"
                 record["profiles"][f"empty/{state}"] = run_capture(
                     args, binary, shader, folder, folder / f"{name}.bin", execute
                 )
     execute([*worker, "--task", "reference"], args.output, "reference")
     execute([*worker, "--task", "analyze"], args.output, "analyze")
-    if not args.joint:
+    if not args.joint and not args.profiled:
         execute([*worker, "--task", "reconstruction"], args.output, "reconstruction")
     record["analysis"] = json.loads((args.output / "analysis.json").read_text())
     record["hashes"] = {
@@ -155,9 +173,19 @@ def main():
             "linear_medium_reference.py",
             "linear_medium.py",
         ]
+    if args.profiled:
+        names += ["profiled_air_cases.py", "profiled_air_reference.py"]
     record["source_hashes"] = {
         name: digest(ROOT / "test/experiments/weather" / name) for name in names
     }
+    if args.profiled:
+        record["native_source_hashes"] = {
+            name: digest(ROOT / name)
+            for name in (
+                "src/render/shaders/airPrefix.glsl",
+                "src/world/sky/Atmosphere.h",
+            )
+        }
     receipt.write_text(json.dumps(record, indent=2))
     print("Full-depth native comparison passed; receipt:", receipt)
 

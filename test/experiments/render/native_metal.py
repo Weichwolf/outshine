@@ -122,13 +122,16 @@ def native_api(output, glslang, toolchain, link_flags):
     sdr_checks = check_probe("native-sdr-transfer-probe", "NativeSdrTransferProbe.cpp")
     display_checks = check_probe("native-metal-presentation-probe", "NativeMetalPresentationProbe.mm")
     readback_checks = check_probe("native-readback-probe", "NativeReadbackProbe.cpp", delay_shader)
+    timing_checks = check_probe("native-submission-timing-probe", "NativeSubmissionTimingProbe.cpp",
+                                delay_shader)
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
             "indexed_indirect_checks": indexed_checks, "draw_transition_checks": transition_checks,
             "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks,
             "presentation_target_checks": target_checks, "sdr_transfer_checks": sdr_checks,
-            "display_colour_space_checks": display_checks, "native_readback_checks": readback_checks}, sources
+            "display_colour_space_checks": display_checks, "native_readback_checks": readback_checks,
+            "submission_gpu_timing_checks": timing_checks}, sources
 
 
 
@@ -219,6 +222,7 @@ def main():
              ROOT / "src/render/shaders/present.frag",
              ROOT / "src/render/shaders/presentUnorm.frag",
              ROOT / "test/harness/render/NativeGpuCheck.h",
+             ROOT / "test/harness/render/NativeSubmissionTimingProbe.cpp",
              Path(__file__).with_name("native_texture.comp"),
              ROOT / "src/render/shaders/subjectScanKernel.comp",
              ROOT / "src/render/shaders/subjectCompactKernel.comp",

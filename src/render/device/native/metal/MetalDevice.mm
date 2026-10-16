@@ -4,8 +4,11 @@
 
 namespace outshine::Render::Native::Metal {
 
-MetalDevice::MetalDevice(uint64_t identity, id<MTLDevice> device, id<MTLCommandQueue> queue)
-    : Identity_(identity), Native_(device), Queue_(queue) {
+MetalDevice::MetalDevice(uint64_t identity,
+                         id<MTLDevice> device,
+                         id<MTLCommandQueue> queue,
+                         bool gpuTiming)
+    : Identity_(identity), Native_(device), Queue_(queue), GpuTiming_(gpuTiming) {
   constexpr uint32_t colourTargets = 8;
   constexpr uint32_t maxUniformBytes = 64 * 1024;
   constexpr uint32_t baselineInvocations = 256;
@@ -25,6 +28,7 @@ MetalDevice::MetalDevice(uint64_t identity, id<MTLDevice> device, id<MTLCommandQ
                               static_cast<uint32_t>(size.depth)};
   Limits_.MaxWorkgroupCount.fill(std::numeric_limits<uint32_t>::max());
   Limits_.MaxWorkgroupInvocations = baselineInvocations;
+  Limits_.GpuTimestamps = true;
 }
 
 MetalDevice::~MetalDevice() {
@@ -140,7 +144,8 @@ Result<std::unique_ptr<Device>> CreateDevice(DeviceOptions options) {
     }
     const id<MTLCommandQueue> queue = [device newCommandQueue];
     if (queue == nil) { return Metal::Failure(ErrorKind::Driver, "Metal queue creation failed"); }
-    auto result = std::make_unique<Metal::MetalDevice>(identity.fetch_add(1), device, queue);
+    auto result = std::make_unique<Metal::MetalDevice>(
+        identity.fetch_add(1), device, queue, options.GpuTiming);
     if (options.Window != nullptr) {
       const auto attached = result->SetPresentTarget(options.Window);
       if (!attached) { return std::unexpected(attached.error()); }

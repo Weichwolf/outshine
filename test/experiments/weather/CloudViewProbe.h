@@ -33,6 +33,7 @@ static_assert(offsetof(WeatherFrame, Shell) == 0 &&
               offsetof(WeatherFrame, SkyRadiance) == 5 * sizeof(Vec4f));
 
 inline constexpr double kCloudViewPhaseS = 37.0;
+inline constexpr Pixel kCloudViewBoundary{0.035f, 0.05f, 0.075f, 0.125f};
 
 struct Case {
   std::string Name;
@@ -40,6 +41,9 @@ struct Case {
   WeatherSnapshot Snapshot;
   Vec3 DensityCameraOriginM;
   double PhaseS = kCloudViewPhaseS;
+  bool BoundarySky = false;
+  bool SkyOnly = false;
+  Pixel Boundary = kCloudViewBoundary;
 };
 
 struct Capture {
@@ -49,6 +53,7 @@ struct Capture {
 
 [[nodiscard]] Medium ControlledAir();
 [[nodiscard]] std::vector<Case> Cases(MediumViewProbe::ImageShape shape);
+[[nodiscard]] std::vector<Case> BoundaryCases(MediumViewProbe::ImageShape shape);
 [[nodiscard]] WeatherFrame PrepareWeather(const Case &scenario);
 
 struct Pipelines {
