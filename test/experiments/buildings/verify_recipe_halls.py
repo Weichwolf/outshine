@@ -47,6 +47,30 @@ def assembly(run, view, opened=1):
 
 
 class RecipeHalls(unittest.TestCase):
+    def test_source_height_updates_all_dependent_products_but_keeps_room_identity(self):
+        row, neighbors = sources()[2]
+        graph = prepare()
+        before = graph.evaluate(inputs_for(row, neighbors))
+        changed = copy.deepcopy(row)
+        changed["properties"]["render_height"] = 6
+        after = graph.evaluate(inputs_for(changed, neighbors))
+        self.assertEqual(before.definition_fingerprint, after.definition_fingerprint)
+        self.assertNotEqual(before.instance_fingerprint, after.instance_fingerprint)
+        for name in before.outputs:
+            self.assertNotEqual(
+                before.outputs[name].fingerprint, after.outputs[name].fingerprint
+            )
+        self.assertEqual(
+            before.outputs["programme"].value.plan["room_id"],
+            after.outputs["programme"].value.plan["room_id"],
+        )
+        self.assertAlmostEqual(
+            after.outputs["envelope"].value.mesh["vertices"][:, 2].max(), 6
+        )
+        self.assertAlmostEqual(
+            after.outputs["shell"].value.body["vertices"][:, 2].max(), 6
+        )
+
     def test_float32_arrays_cannot_be_published_as_the_float64_shell_port(self):
         row, neighbors = sources()[0]
 
