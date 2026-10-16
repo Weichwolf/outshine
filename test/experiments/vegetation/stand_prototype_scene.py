@@ -97,7 +97,9 @@ def place_template(template, origins, frames, scales, mode):
         raise ValueError("one positive uniform scale per world instance required")
     validated_instances(origins, frames, scales)
     if mode != "direct":
-        instance_group(prototype, origins, frames, scales, name="stand plants")
+        instance_group(
+            prototype, origins, frames, scales, name="stand plants", as_instance=False
+        )
     else:
         for root, (origin, frame, scale) in enumerate(zip(origins, frames, scales)):
             wood = prototype.copy()

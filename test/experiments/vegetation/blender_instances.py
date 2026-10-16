@@ -24,7 +24,7 @@ def validated_instances(origins, frames, scales):
     return origins, frames, scales
 
 
-def instance_group(prototype, origins, frames, scales, *, name):
+def instance_group(prototype, origins, frames, scales, *, name, as_instance=True):
     origins, frames, scales = validated_instances(origins, frames, scales)
     count = len(origins)
     points = bpy.data.meshes.new(name)
@@ -49,7 +49,7 @@ def instance_group(prototype, origins, frames, scales, *, name):
     source = nodes.new("GeometryNodeObjectInfo")
     source.transform_space = "ORIGINAL"
     source.inputs["Object"].default_value = prototype
-    source.inputs["As Instance"].default_value = True
+    source.inputs["As Instance"].default_value = as_instance
     instances = nodes.new("GeometryNodeInstanceOnPoints")
     links.new(inputs.outputs["Geometry"], instances.inputs["Points"])
     links.new(source.outputs["Geometry"], instances.inputs["Instance"])
@@ -80,7 +80,9 @@ def join_instances(objects, *, name):
         source = nodes.new("GeometryNodeObjectInfo")
         source.transform_space = "ORIGINAL"
         source.inputs["Object"].default_value = obj
-        source.inputs["As Instance"].default_value = True
+        source.inputs["As Instance"].default_value = not any(
+            modifier.type == "NODES" for modifier in obj.modifiers
+        )
         links.new(source.outputs["Geometry"], joined.inputs["Geometry"])
         obj.hide_render = True
     links.new(joined.outputs["Geometry"], output.inputs["Geometry"])

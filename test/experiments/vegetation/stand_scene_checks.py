@@ -8,8 +8,10 @@ import bpy
 import numpy as np
 from render_fern import model, model_arrays
 from render_stand_prototype import scene_population
-from stand_pack_checks import fixture
-from stand_prototype_scene import place_template, world_matrix
+from scipy.spatial import cKDTree
+from stand_leaf_product import build
+from stand_pack_checks import fixture, fixture_files
+from stand_prototype_scene import build_template, place_template, world_matrix
 
 
 class StandSceneChecks(unittest.TestCase):
@@ -38,6 +40,48 @@ class StandSceneChecks(unittest.TestCase):
                     empty, np.zeros((1, 3)), np.zeros((1, 3, 3)), np.ones(1), mode
                 )
         self.assertEqual(len(bpy.data.objects), count)
+
+    def test_nested_and_packed_full_geometry_reaches_both_world_poses(self):
+        rows, meshes = fixture()
+        local = [meshes[0]["vertices"]]
+        faces = len(meshes[0]["faces"])
+        for origin, frame, variant in zip(
+            rows["leaf_origins"], rows["leaf_frames"], rows["leaf_variants"]
+        ):
+            mesh = meshes[int(variant)]
+            local.append(mesh["vertices"] @ frame.T + origin)
+            faces += len(mesh["faces"])
+        local = np.concatenate(local)
+        _, origins, frames, scales, _, _ = scene_population("pair", None)
+        expected = np.concatenate(
+            [
+                local @ frame.T * scale + origin
+                for origin, frame, scale in zip(origins, frames, scales)
+            ]
+        )
+        with tempfile.TemporaryDirectory(prefix="outshine-tests.stand-world-") as temp:
+            source, packed = Path(temp) / "source", Path(temp) / "packed"
+            fixture_files(source)
+            build(source, packed)
+            for mode, path in (("nested", source), ("packed", packed)):
+                bpy.ops.wm.read_factory_settings(use_empty=True)
+                template = build_template(path, mode)
+                place_template(template, origins, frames, scales, mode)
+                obj = bpy.data.objects["stand plants"]
+                group = obj.modifiers[0].node_group
+                output = next(n for n in group.nodes if n.type == "GROUP_OUTPUT")
+                old = next(l.from_socket for l in group.links if l.to_node == output)
+                realized = group.nodes.new("GeometryNodeRealizeInstances")
+                group.links.new(old, realized.inputs["Geometry"])
+                group.links.new(realized.outputs["Geometry"], output.inputs["Geometry"])
+                bpy.context.view_layer.update()
+                mesh = obj.evaluated_get(bpy.context.evaluated_depsgraph_get()).data
+                self.assertEqual(len(mesh.vertices), len(expected))
+                self.assertEqual(len(mesh.polygons), faces * len(origins))
+                actual = np.empty((len(mesh.vertices), 3), np.float32)
+                mesh.vertices.foreach_get("co", actual.ravel())
+                self.assertLess(float(cKDTree(expected).query(actual)[0].max()), 2e-6)
+                self.assertLess(float(cKDTree(actual).query(expected)[0].max()), 2e-6)
 
     def test_existing_file_model_and_array_model_preserve_bound_source_attributes(self):
         _, meshes = fixture()
