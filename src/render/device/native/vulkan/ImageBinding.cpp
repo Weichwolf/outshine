@@ -75,9 +75,8 @@ Result<VkDescriptorImageInfo> Recording::BindImage(const ShaderBinding &declared
       !used) {
     return std::unexpected(used.error());
   }
-  const auto nativeView = CreateView(**image, view);
+  const auto nativeView = Storage_.ImageView(**image, view);
   if (!nativeView) { return std::unexpected(nativeView.error()); }
-  Views_.push_back(*nativeView);
   if (sampler && std::ranges::find(Samplers_, sampler) == Samplers_.end()) {
     Samplers_.push_back(sampler);
   }

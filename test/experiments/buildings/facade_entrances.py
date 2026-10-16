@@ -58,7 +58,7 @@ class EntranceDetails:
         self.states = states or {}
         self.planned, self.rejected = [], []
 
-    def clear(self, row, geometry, high):
+    def clear(self, row, geometry, high, *, low_m=0.0):
         from provider_contract import attributes
 
         for i in self.tree.query(geometry, predicate="intersects"):
@@ -68,7 +68,7 @@ class EntranceDetails:
             p = attributes(other["properties"])
             if (
                 p["minHeight"] < high
-                and p["buildingHeight"] > 0
+                and p["buildingHeight"] > low_m
                 and geometry.intersection(other["polygon"]).area > 1e-8
             ):
                 return False

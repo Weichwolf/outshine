@@ -113,6 +113,7 @@ def project(mesh, row, parameters, fractions, axis_m, floor_m):
 
 class FacadeDetails:
     def __init__(self, rows, view, *, door_states=None):
+        from facade_balconies import BalconyDetails
         from facade_entrances import EntranceDetails
         from facade_shopfronts import ShopfrontDetails
         from tile_facade_bands import BandDetails
@@ -130,6 +131,8 @@ class FacadeDetails:
         self.entrance_geometry = []
         self.shopfronts = ShopfrontDetails(self.entrances)
         self.shopfront_geometry = []
+        self.balconies = BalconyDetails(self.entrances, door_states)
+        self.balcony_geometry = []
 
     def __call__(self, row, parameters, material):
         before = self.base(row, parameters, material)
@@ -166,6 +169,7 @@ class FacadeDetails:
             projected["materials"][selected] = identifier
             entry = self.entrances.plan(row, parameters, facades, family)
             shopfront = self.shopfronts.plan(row, entry)
+            balconies = self.balconies.plan(row, entry, family)
             from tile_facade_recess import attach as recesses
 
             projected, details, rejected = recesses(
@@ -180,9 +184,12 @@ class FacadeDetails:
                 entrance=entry,
                 shopfront=shopfront,
                 shop_material=lambda fractions: self.binding(material, fractions),
+                balconies=balconies,
             )
             self.recesses.extend(
-                r for r in details if r.get("kind") not in ("entrance", "shopfront")
+                r
+                for r in details
+                if r.get("kind") not in ("entrance", "shopfront", "balcony")
             )
             self.entrance_geometry.extend(
                 r for r in details if r.get("kind") == "entrance"
@@ -191,6 +198,9 @@ class FacadeDetails:
                 r for r in details if r.get("kind") == "shopfront"
             )
             self.recess_rejected.extend(rejected)
+            self.balcony_geometry.extend(
+                r for r in details if r.get("kind") == "balcony"
+            )
             projected = self.bands(
                 projected,
                 row,
@@ -219,6 +229,7 @@ class FacadeDetails:
                 "facade_plan": facades,
                 "entrance_plan": self.entrances.planned[-1] if entry else None,
                 "shopfront_plan": self.shopfronts.planned[-1] if shopfront else None,
+                "balcony_plan": self.balconies.planned[-1] if balconies else None,
                 "functional_status": "Exterior facade placeholder, source use unproven; actual rooms remain separate unresolved programme",
             }
         except ValueError as error:
@@ -252,5 +263,8 @@ class FacadeDetails:
             "shopfronts": self.shopfronts.planned,
             "shopfront_geometry": self.shopfront_geometry,
             "shopfront_rejected": self.shopfronts.rejected,
+            "balconies": self.balconies.planned,
+            "balcony_geometry": self.balcony_geometry,
+            "balcony_rejected": self.balconies.rejected,
             "scope": "Context-scoped facades, bounded demanded recesses and neighbor-free profile bands; zero completed architecture families; existing constructed room controls untouched",
         }

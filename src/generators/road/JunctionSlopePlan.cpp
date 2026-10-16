@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -52,12 +53,36 @@ void LimitSlope(JunctionSlope &slope) {
 
 }
 
-std::expected<void, std::string_view>
+std::string_view JunctionSlopeFailure::Reason() const noexcept {
+  switch (Kind) {
+    case JunctionSlopeRefusal::NoRoom:
+      return "road profiles need more room than junction slopes can provide";
+    case JunctionSlopeRefusal::Deadline: return "junction slope planning exceeded its deadline";
+    case JunctionSlopeRefusal::ProjectionBound:
+      return "junction slope planning exceeded its projection bound";
+  }
+  return "unknown junction slope refusal";
+}
+
+std::expected<void, JunctionSlopeFailure>
 FitJunctionSlopes(std::span<JunctionSlope> slopes,
                   std::span<const JunctionSlopeConstraint> constraints,
                   std::chrono::steady_clock::time_point deadline) {
+  if (std::chrono::steady_clock::now() >= deadline) {
+    return std::unexpected(
+        JunctionSlopeFailure{.Kind = JunctionSlopeRefusal::Deadline, .Constraint = std::nullopt});
+  }
   std::vector<uint32_t> active;
-  for (const auto &constraint : constraints) {
+  for (size_t at = 0; at < constraints.size(); ++at) {
+    const auto &constraint = constraints[at];
+    double maximumRiseM = 0.0;
+    for (const auto &term : constraint.Terms) {
+      maximumRiseM += std::hypot(term.EastM, term.NorthM) * slopes[term.Junction].Maximum;
+    }
+    if (constraint.MinimumRiseM > maximumRiseM + kSlopeFitToleranceM) {
+      return std::unexpected(JunctionSlopeFailure{
+          .Kind = JunctionSlopeRefusal::NoRoom, .Constraint = at, .MaximumRiseM = maximumRiseM});
+    }
     for (const auto &term : constraint.Terms) { active.push_back(term.Junction); }
   }
   std::ranges::sort(active);
@@ -65,11 +90,14 @@ FitJunctionSlopes(std::span<JunctionSlope> slopes,
   active.erase(duplicates.begin(), duplicates.end());
   for (size_t sweep = 0; sweep < kProjectionSweepsMost; ++sweep) {
     if (sweep % 64 == 0 && std::chrono::steady_clock::now() >= deadline) {
-      return std::unexpected("junction slope planning exceeded its deadline");
+      return std::unexpected(
+          JunctionSlopeFailure{.Kind = JunctionSlopeRefusal::Deadline, .Constraint = std::nullopt});
     }
-    for (const auto &constraint : constraints) {
+    for (size_t at = 0; at < constraints.size(); ++at) {
+      const auto &constraint = constraints[at];
       if (!Project(constraint, slopes)) {
-        return std::unexpected("road profiles need more room than junction slopes can provide");
+        return std::unexpected(
+            JunctionSlopeFailure{.Kind = JunctionSlopeRefusal::NoRoom, .Constraint = at});
       }
     }
     for (const auto at : active) { LimitSlope(slopes[at]); }
@@ -78,7 +106,8 @@ FitJunctionSlopes(std::span<JunctionSlope> slopes,
     });
     if (fitted) { return {}; }
   }
-  return std::unexpected("junction slope planning exceeded its projection bound");
+  return std::unexpected(JunctionSlopeFailure{.Kind = JunctionSlopeRefusal::ProjectionBound,
+                                              .Constraint = std::nullopt});
 }
 
 }
