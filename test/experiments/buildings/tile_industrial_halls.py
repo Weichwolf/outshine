@@ -40,11 +40,41 @@ def demanded(value, view):
 
 
 class HallDetails:
-    def __init__(self, entrances, states=None):
+    def __init__(self, entrances, states=None, *, version="1"):
+        if version not in ("1", "2"):
+            raise ValueError("Hall recipe requires explicit supported version 1 or 2")
+        self.version = version
         self.entrances = entrances
         self.states = states or {}
         self.planned, self.completed, self.rejected = [], [], []
         self.current = None
+
+    def glazed_plan(self, row, parameters, value):
+        from industrial_roof_choice import section_for
+        from industrial_rooflights import plan as rooflights
+        from tile_roof_envelopes import choose
+
+        fields = rooflights(value, section_for(row, choose(row, parameters)))
+        return value | {"rooflights": [dict(item) for item in fields]}
+
+    def build(self, value, envelope, material, opened, view):
+        if self.version == "2":
+            from industrial_rooflights import cuts
+
+            body, shell = structure(
+                value,
+                envelope,
+                material,
+                extra_cuts=cuts(value["rooflights"], material),
+            )
+        else:
+            body, shell = structure(value, envelope, material)
+        details, detailed = products(value, material, opened, view)
+        if self.version == "2":
+            from outshine_ref.buildings.rooflight_panels import closed
+
+            details = [*details, *closed(value["rooflights"])]
+        return append(body, details), shell, details, detailed
 
     def __call__(
         self, row, parameters, info, facades, entry, family, envelope, material, view
@@ -56,6 +86,8 @@ class HallDetails:
             value = plan(row, parameters, info, facades, entry, self.entrances.clear)
             if value is None:
                 return None
+            if self.version == "2":
+                value = self.glazed_plan(row, parameters, value)
             opened = self.states.get(value["gate"]["id"], 0.0)
             clear_height = lift(value["definition"], opened)
             logical = metadata(value)
@@ -65,13 +97,15 @@ class HallDetails:
                 "hall_render": "deferred",
                 "hall_state": {"opened": opened, "clear_height_m": clear_height},
             }
+            if self.version == "2":
+                self.current["hall_recipe"] = "buildings.industrial-hall/2"
             if not demanded(value, view):
                 return None
             if envelope is None:
                 raise ValueError("Near hall requires its original typed roof envelope")
-            body, shell = structure(value, envelope, material)
-            details, detailed = products(value, material, opened, view)
-            result = append(body, details)
+            result, shell, details, detailed = self.build(
+                value, envelope, material, opened, view
+            )
             self.completed.append(
                 {
                     "id": row["id"],
