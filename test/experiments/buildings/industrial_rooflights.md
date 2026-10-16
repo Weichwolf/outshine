@@ -46,7 +46,7 @@ Use a clean frozen worktree with `.venv` and an explicit system-temp output path
 
 ```sh
 PYTHONPATH=lib/src:test/experiments/assets:test/experiments/buildings .venv/bin/python -m unittest verify_industrial_rooflights verify_industrial_halls verify_industrial_roofs verify_recipe_halls verify_recipe_graph -v
-PYTHONPATH=lib/src:test/experiments/buildings .venv/bin/python test/experiments/buildings/industrial_rooflight_probe.py --output /tmp/outshine-buildings-rooflights-output
+PYTHONPATH=lib/src:test/experiments/buildings .venv/bin/python test/experiments/buildings/industrial_rooflight_probe.py --output /tmp/outshine-buildings-rooflights-output --tile
 PYTHONPATH=lib/src:test/experiments/buildings .venv/bin/python test/experiments/buildings/industrial_rooflight_cost.py --output /tmp/outshine-buildings-rooflights-cost.json
 PYTHONPATH=lib/src .venv/bin/python test/experiments/buildings/blender_city.py /tmp/outshine-buildings-rooflights-output/Rooflight2WholeGlazed-geometry.json --output /tmp/outshine-buildings-rooflights-output/renders --samples 16
 ```
@@ -67,6 +67,28 @@ and keep the eye in the owned inner human-clearance region. An initial centre-
 ceiling view with no visible prior vertices was rejected; the camera gate was
 preserved. Only the diagnostics select roof subsets; Blender uses the full
 actual mesh and the original source palette/daylight/flat-no-DEM ground.
+
+Actual local image delivery:14 optically opened1920×1080 Eevee images,16samples
+each, plus the three optically opened diagrams. Geometry/render inputs are frozen
+at `b2c942373` (six paired building cameras) and `e9af461fd` (paired full source
+tile). All three final raster batches ended0 after successful rendering; their
+small runners flush and call `os._exit(0)` after the domain function returns,
+retaining the previously documented bpy teardown workaround. Backend:
+llvmpipe LLVM19.1.7,256bits. No Cycles/GPU/normal-teardown admission.
+Six current glazed camera meshes exactly match the independently verified
+assembly after the existing palette binding; all streams and dtypes are checked.
+The `333c9342d` focused seven-check run and camera replay both ended0.
+
+The entire Grohnde source tile retains37 members with the same original source
+attributes, identities, footprint WKB, height intervals, classes and palette.
+Six constructed halls emit148 fields; the eight logical plans contain228 fields,
+including deferred halls. The existing unsuitable loading entrance retains its
+same rejection reason. Source omissions and construction coverage do not change.
+The industrial-group close view uses60123→72523 triangles;7644/2073600 pixels
+change (0.3686%, mean RGB error0.059852/255) under `test/scripts/pixels.py`.
+The opposite roof hides most descending panes as expected. The interior witness
+shows a real recessed shaft/rim/pane instead of the prior uniform opaque ceiling;
+this is not a room-wide daylight-energy or nighttime-lighting validation.
 
 Costs distinguish template-cold construction, 21 warm runs and traced peak for
 the rooflight parts from the separately measured whole prepared-hall assembly.
