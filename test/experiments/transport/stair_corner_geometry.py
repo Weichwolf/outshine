@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from outshine_ref.transport.junction_pads import profile_junction_pad
 from shared_bridge_geometry import corridor
 from stair_cycle_contacts import profile
 
@@ -50,19 +51,8 @@ def apply_pads(rows, nodes, declarations):
                 raise ValueError("corner pad needs ordinary exterior ground paths")
         original = [corridor(rows[i]) for i in ids]
         lines = [profile(rows[i], end) for i, end in zip(ids, ends, strict=True)]
-        hull = shapely.MultiPoint(np.vstack(lines)).convex_hull
         method = declaration["method"]
-        if method not in ("profile_hull", "profile_box"):
-            raise ValueError("known profile corner recipe required")
-        pad = hull if method == "profile_hull" else hull.envelope
-        width = max(rows[i]["width_m"] for i in ids)
-        if (
-            pad.geom_type != "Polygon"
-            or not pad.is_valid
-            or not 1e-6 < pad.area <= width**2
-            or any(not pad.buffer(1e-8).covers(shapely.LineString(p)) for p in lines)
-        ):
-            raise ValueError("nondegenerate bounded whole-profile corner pad required")
+        pad = profile_junction_pad(lines, method=method)
         coords = np.array(pad.exterior.coords[:-1])
         for i in ids:
             additions.setdefault(i, []).append(coords.copy())

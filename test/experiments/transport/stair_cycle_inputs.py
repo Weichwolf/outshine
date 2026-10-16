@@ -11,6 +11,7 @@ from outshine_ref.places import decode_terrarium, decode_vector, receipt_bytes
 from stair_context_inputs import PROFILES, window_samples
 from stair_corner_geometry import apply_pads
 from stair_junction_layout import INPUT
+from stair_landing_pads import complete_landings
 from stair_network_inputs import FIXTURE as NETWORK
 from stair_network_inputs import junctions, stair_nodes
 from stair_outer_inputs import FIXTURE as OUTER
@@ -147,7 +148,12 @@ def load(path=FIXTURE, *, band_join=True):
             for node in nodes
             if not (18 in node["incident"] and node["mvt_xy"] is None)
         ]
-    return case, rows, nodes, stair_nodes(rows, nodes), context, sample
+    stairs = stair_nodes(rows, nodes)
+    if "complete_chosen_landings" in recipe:
+        settings = recipe["complete_chosen_landings"]
+        pads, ledger = complete_landings(rows, nodes, stairs, **settings)
+        context.update(landing_pads=pads, landing_pad_selection=ledger)
+    return case, rows, nodes, stairs, context, sample
 
 
 def capture(args):
