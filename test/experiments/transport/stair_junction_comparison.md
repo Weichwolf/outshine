@@ -8,7 +8,7 @@ Native sichere Quellauslassung und Weltgegenprüfung besitzt #400 bei master.
 
 ## Eingang und räumlicher Vertrag
 
-Unverändertes [Originalfixture](../../outshine/data/transport/wien-junction-sources.json),
+Unverändertes [Originalfixture](https://github.com/Weichwolf/outshine/blob/930054f4371ac5075dee49ce09432c54cbfed652/test/outshine/data/transport/wien-junction-sources.json),
 SHA256 `edf7f4ec5cb50b533c0c041e7a6008e16587be09b89d9ed93c835eab44f91719`:
 Treppe377113090/native7683, Radweg97041640/7493, lange Brücke229812320/8463,
 Rückbrücke1013938082/8431. Alle ursprünglichen MVT-Geometrien, Properties,
