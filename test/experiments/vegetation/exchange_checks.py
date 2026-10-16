@@ -1,14 +1,72 @@
 """Independent small matrices, energy, sides and analytic geometric transfer."""
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
+from diffuse_scatter import uniform_samples
+from exchange_io import read_exchange, write_exchange
 from exchange_operator import build_links, gather_apply, mix_sides, prepare_csr
 from scatter_reference import rectangle_factor
+from scatter_render import camera_packet
 from scatter_scene import ScatterScene
 
 
 class ExchangeChecks(unittest.TestCase):
+    def test_geometry_product_rejects_stale_pose_corruption_and_lighting_fields(self):
+        basis = {
+            "points": np.array(((0, 0, 1), (0, 0, 0)), float),
+            "normals": np.tile((0, 0, 1.0), (2, 1)),
+            "leaf_nodes": 1,
+            "ground_grid": 1,
+            "geometry_sha256": "a" * 64,
+            "stand_identity": "b" * 64,
+        }
+        links = np.full((4, 4), -1, np.int32)
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-tests.vegetation-exchange-"
+        ) as tmp:
+            path = Path(tmp) / "product"
+            header = write_exchange(path, basis, links, 4, 997, 2e-6)
+            loaded, actual = read_exchange(path, "a" * 64)
+            np.testing.assert_array_equal(actual, links)
+            np.testing.assert_array_equal(loaded["points"], basis["points"])
+            with self.assertRaises(ValueError):
+                read_exchange(path, "c" * 64)
+            (path / "geometry.json").write_text(
+                json.dumps({**header, "current_light": 1})
+            )
+            with self.assertRaises(ValueError):
+                read_exchange(path, "a" * 64)
+            (path / "geometry.json").write_text(json.dumps(header))
+            with (path / "geometry.npz").open("ab") as f:
+                f.write(b"corrupt")
+            with self.assertRaises(ValueError):
+                read_exchange(path, "a" * 64)
+
+    def test_default_camera_is_unchanged_and_rotated_rays_are_orthogonal(self):
+        view = np.array((np.sqrt(3) / 2, 0, 0.5))
+        width, height, samples = 16, 9, 4
+        random = uniform_samples(73, 0, width * height * samples)
+        ids = np.repeat(np.arange(width * height), samples)
+        x = ((ids % width + random[:, 0]) / width - 0.5) * 1.4
+        y = (0.5 - (ids // width + random[:, 1]) / height) * (1.4 * height / width)
+        expected = (
+            4 * view
+            + x[:, None] * np.array((0, 1, 0.0))
+            + y[:, None] * np.cross(view, (0, 1, 0.0))
+        )
+        actual, _ = camera_packet(view, width, height, samples, 0, width * height, 73)
+        np.testing.assert_array_equal(actual, expected)
+        north = np.array((0, np.sqrt(3) / 2, 0.5))
+        rotated, directions = camera_packet(
+            north, width, height, samples, 0, width * height, 73
+        )
+        np.testing.assert_allclose((rotated - 4 * north) @ north, 0, atol=1e-15)
+        np.testing.assert_allclose(np.linalg.norm(directions, axis=1), 1, atol=1e-15)
+
     def test_sparse_matches_explicit_matrix_and_bounded_gather(self):
         links = np.array(
             ((1, 1, -1, 3), (0, 2, 3, -1), (0, 0, 0, 0), (-1, -1, -1, -1)), np.int32

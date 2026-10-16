@@ -15,10 +15,12 @@ from scatter_render import camera_packet
 from scatter_scene import ScatterScene
 
 
-def project(scene, basis, fields, width, height, samples=4, packet=8192):
+def project(scene, basis, fields, width, height, samples=4, packet=8192, view=None):
     count = width * height
     output = {name: np.zeros((count, 3), np.float32) for name in fields}
-    view = np.array((np.sqrt(3) / 2, 0, 0.5))
+    view = (
+        np.array((np.sqrt(3) / 2, 0, 0.5)) if view is None else np.asarray(view, float)
+    )
     for first in range(0, count, packet // samples):
         n = min(packet // samples, count - first)
         origins, directions = camera_packet(view, width, height, samples, first, n, 73)
