@@ -1,0 +1,135 @@
+"""Render controlled occluder gaps/materials with the same calibrated leaf adapter."""
+
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import bpy
+import gpu
+import numpy as np
+from grass_light_preview import mesh_object, setup, sheet
+from leaf_stack_cases import (
+    CASES,
+    IRRADIANCE,
+    LIGHT,
+    REFLECTION,
+    TRANSMISSION,
+    VIEW,
+    case_parts,
+)
+from mathutils import Vector
+from PIL import Image
+from preview_shadows import configure_preview
+
+
+def populate():
+    scene = setup(VIEW)
+    receiver = sheet("same calibrated receiver", REFLECTION, TRANSMISSION)
+    absorber = sheet("opaque absorber", np.full(3, 0.02))
+    for mat in (receiver, absorber):
+        mat.use_backface_culling = False
+        mat.use_backface_culling_shadow = False
+    for i, (name, _) in enumerate(CASES):
+        for part, v, f in case_parts(i):
+            mesh_object(
+                f"{name}-{part}", v, f, absorber if part == "opaque" else receiver
+            )
+    bpy.ops.object.light_add(type="SUN")
+    lamp = bpy.context.object
+    lamp.rotation_euler = (-Vector(LIGHT)).to_track_quat("-Z", "Y").to_euler()
+    lamp.data.energy = float(IRRADIANCE.max())
+    lamp.data.color = tuple(IRRADIANCE / IRRADIANCE.max())
+    lamp.data.angle = 0
+    configure_preview(scene)
+    scene.eevee.taa_render_samples = 8
+    return scene, lamp
+
+
+def sample_image(target, shadows):
+    image = np.array(Image.open(target).convert("RGB"), float) / 255
+    expected = TRANSMISSION * abs(LIGHT[0]) * IRRADIANCE / np.pi
+    rows = []
+    for i, (name, layers) in enumerate(CASES):
+        x = int(960 + (i - 4) * 0.14 * 1920 / 1.4)
+        q = image[480:600, x - 32 : x + 32]
+        linear = np.where(q <= 0.04045, q / 12.92, ((q + 0.055) / 1.055) ** 2.4)
+        mean = linear.mean((0, 1))
+        row = {
+            "name": name,
+            "layers": layers,
+            "shadows": shadows,
+            "mean_linear_rgb": mean.tolist(),
+            "unoccluded_expected_rgb": expected.tolist(),
+            "green_fraction_of_unoccluded": float(mean[1] / expected[1]),
+            "opaque_geometric_visibility": not bool(layers),
+        }
+        rows.append(row)
+    return rows
+
+
+def run(output):
+    if output.exists():
+        raise ValueError("fresh controlled stack output directory required")
+    output.mkdir(parents=True)
+    scene, lamp = populate()
+    rows, timings, images = [], [], []
+    for shadows in (False, True):
+        lamp.data.use_shadow = shadows
+        target = output / f"layers-shadow-{int(shadows)}.png"
+        scene.render.filepath = str(target)
+        began = time.perf_counter()
+        bpy.ops.render.render(write_still=True)
+        timings.append(time.perf_counter() - began)
+        result = sample_image(target, shadows)
+        rows.extend(result)
+        images.append(
+            {
+                "name": target.name,
+                "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+            }
+        )
+        print(json.dumps(result), flush=True)
+    report = {
+        "commit": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip(),
+        "blender": bpy.app.version_string,
+        "renderer": gpu.platform.renderer_get(),
+        "profile": [1920, 1080],
+        "samples": 8,
+        "view": VIEW.tolist(),
+        "light": LIGHT.tolist(),
+        "receiver_rt": [*REFLECTION.tolist(), *TRANSMISSION.tolist()],
+        "shadow_backface_culling": False,
+        "wall_s": timings,
+        "images": images,
+        "cases": rows,
+        "scope": "Isolated direct-light/opaque-expectation diagnosis; no assumption that hemispherical leaf T is a beam transmission coefficient",
+    }
+    (output / "result.json").write_text(json.dumps(report, indent=2))
+    controls = [r for r in rows if not r["shadows"] or not r["layers"]]
+    if (
+        max(
+            np.max(abs(np.array(r["mean_linear_rgb"]) - r["unoccluded_expected_rgb"]))
+            for r in controls
+        )
+        > 0.005
+    ):
+        raise ValueError(
+            "existing0.005 RGB isolated-sheet criterion failed before layer interpretation"
+        )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    run(args.output)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
