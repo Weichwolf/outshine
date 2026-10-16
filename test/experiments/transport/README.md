@@ -670,6 +670,16 @@ PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/exper
 ```
 
 Alle Ausgaben frisch im System-Tempverzeichnis; lokale Forschung in 1280×720.
+Optionale Kostenmessung, nacheinander bei normaler Priorität:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode fixed --output "$TRANSPORT_SUPPORT_OUTPUT/fixed-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --output "$TRANSPORT_SUPPORT_OUTPUT/shifted-cost.json"
+```
+
+Optional `memray==1.20.0`, separater frischer `--output` und `--profile /tmp/…/trace.bin`;
+keine Python-Allocatorereignisse/native Stack-Traces, gleiche Geometrie-/Zeitgrenzen.
+Die normale vollständige Auswertung braucht keine weiteren Pakete.
 Der Reader baut weder Pfeiler noch Kontakte neu. Feste/verschobene Stationen
 tragen Auslassungsgründe; die gültige Variante mit mehr Pfeilern wird dargestellt.
 Abstände sind Gestaltungswerte, keine Statik oder vollständige Quellenfreigabe.
