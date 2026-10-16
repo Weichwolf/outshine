@@ -188,7 +188,10 @@ class RooflightSurfaces(unittest.TestCase):
 
     def test_warm_numeric_keys_cannot_bypass_strict_boolean_validation(self):
         template.cache_clear()
-        template(1.0, 4.0, -0.3, contact=True)
+        cached = template(1.0, 4.0, -0.3, contact=True)
+        with self.assertRaises(TypeError):
+            cached["materials"] = np.zeros(36, dtype=np.uint16)
+        self.assertTrue(all(not a.flags.writeable for a in cached.values()))
         with self.assertRaises(ValueError):
             template(True, 4.0, -0.3, contact=True)
         with self.assertRaises(ValueError):

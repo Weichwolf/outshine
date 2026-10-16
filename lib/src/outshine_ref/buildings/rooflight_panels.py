@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from functools import lru_cache
+from types import MappingProxyType
 
 import numpy as np
 import shapely
@@ -94,7 +95,7 @@ def template(width, length, slope, *, contact=False):
     value["materials"][-12:] = 3
     for array in value.values():
         array.flags.writeable = False
-    return value
+    return MappingProxyType(value)
 
 
 def place(item, raw):
