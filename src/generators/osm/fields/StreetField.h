@@ -3,6 +3,7 @@
 
 #include <span>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <vector>
 #include <memory>
@@ -51,6 +52,13 @@ public:
                                                      uint32_t tile) const noexcept;
 
   [[nodiscard]] const std::vector<Way> &Ways() const { return Ways_; }
+
+  [[nodiscard]] StreetField Without(size_t way) const {
+    assert(way < Ways_.size());
+    auto retained = *this;
+    retained.Ways_[way] = {};
+    return retained;
+  }
 
   [[nodiscard]] std::span<const Way> OfTile(int tile) const {
     if (tile < 0) { return {}; }
