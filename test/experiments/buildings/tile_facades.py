@@ -115,6 +115,7 @@ class FacadeDetails:
     def __init__(self, rows, view, *, door_states=None):
         from facade_balconies import BalconyDetails
         from facade_entrances import EntranceDetails
+        from facade_frame_geometry import FrameDetails
         from facade_shopfronts import ShopfrontDetails
         from facade_window_bays import WindowBayDetails
         from tile_facade_bands import BandDetails
@@ -129,6 +130,7 @@ class FacadeDetails:
         self.recess_rejected = []
         self.bands = BandDetails(rows)
         self.entrances = EntranceDetails(self.bands.rows, self.bands.tree, door_states)
+        self.frames = FrameDetails(self.entrances)
         self.entrance_geometry = []
         self.shopfronts = ShopfrontDetails(self.entrances)
         self.shopfront_geometry = []
@@ -209,6 +211,9 @@ class FacadeDetails:
             self.bay_geometry.extend(
                 r for r in details if r.get("kind") == "window_bay"
             )
+            frame_parts, replaced_frames = self.frames.products(
+                row, parameters, facades, self.view, material, family, entry
+            )
             projected = self.bands(
                 projected,
                 row,
@@ -218,6 +223,8 @@ class FacadeDetails:
                 material,
                 family,
                 entrance=entry,
+                skip_facades=replaced_frames,
+                additions=frame_parts,
             )
             record = {
                 "id": row["id"],
@@ -232,7 +239,7 @@ class FacadeDetails:
                 "scope": "Procedural opening/material estimate on complete exterior; full near room/door programme not admitted",
             }
             self.completed.append(record)
-            return projected, info | {
+            return projected, info | self.frames.logical_info(len(replaced_frames)) | {
                 "facade_recipe": family,
                 "facade_origin": recipe["origin"],
                 "facade_programme": programme,
@@ -287,6 +294,8 @@ class FacadeDetails:
             "recess_rejected": self.recess_rejected,
             "bands": self.bands.completed,
             "band_rejected": self.bands.rejected,
+            "frames": self.frames.completed,
+            "frame_rejected": self.frames.rejected,
             "entrances": self.entrances.planned,
             "entrance_geometry": self.entrance_geometry,
             "entrance_rejected": self.entrances.rejected,
