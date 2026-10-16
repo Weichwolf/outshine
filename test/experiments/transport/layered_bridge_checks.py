@@ -7,11 +7,12 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from bridge_support_contacts import ContactSurface
 from cycle_bridge_profile import solve
 from layered_bridge_audit import field_error
 from layered_bridge_plan import candidate
 from layered_bridge_problem import prepare
-from layered_bridge_replay import pier_proof
+from layered_bridge_replay import cast_contact, pier_proof
 from layered_bridge_supports import air_intervals, layout
 from layered_bridge_topology import topology
 from outshine_ref.contracts import Mesh
@@ -152,6 +153,17 @@ class LayeredBridge(unittest.TestCase):
         del contacts[len(contacts) // 2]
         with self.assertRaisesRegex(ValueError, "continuous air spans"):
             pier_proof(self.fixture, self.lower, self.chains, bodies, contacts, field)
+
+    def test_saved_float32_contact_cannot_hide_a_two_millimetre_step(self):
+        products, _note = layout(self.fixture, self.lower, self.chains, method="fixed")
+        cap = products[0].upper_contact
+        reference = ContactSurface(
+            Mesh(cap.vertices.astype(np.float32).astype(float), cap.triangles)
+        )
+        self.assertLess(cast_contact(cap, reference), 0.001)
+        shifted = Mesh(cap.vertices + [0, 0, 0.002], cap.triangles)
+        with self.assertRaisesRegex(ValueError, "one millimetre"):
+            cast_contact(shifted, reference)
 
     def test_opposite_traffic_cores_cannot_overlap(self):
         f = copy.deepcopy(self.fixture)

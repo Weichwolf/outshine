@@ -102,7 +102,7 @@ def retained_proof(args, candidate, ground, borders, field):
         raise ValueError(
             "candidate needs an unplanned retained bridge/portal/pier change"
         )
-    checks = 0
+    checks, quantized_minimum = 0, None
     for product in borders:
         shape = surface_domain(product.upper_contact)
         if ribbon.shape.intersection(shape).area <= 1e-8:
@@ -117,6 +117,26 @@ def retained_proof(args, candidate, ground, borders, field):
             or separation["minimum_clearance_m"] < minimum - 1e-7
         ):
             raise ValueError("candidate structure intersects a retained border/ramp")
+        cast_border = Mesh(
+            product.upper_contact.vertices.astype(np.float32).astype(float),
+            product.upper_contact.triangles,
+        )
+        cast_lower = Mesh(
+            ribbon.lower.vertices.astype(np.float32).astype(float),
+            ribbon.lower.triangles,
+        )
+        cast_separation = vertical_clearance(
+            cast_border, cast_lower, seconds=2, max_faces=8192
+        )
+        if (
+            not cast_separation["valid"]
+            or cast_separation["minimum_clearance_m"] < minimum - 1e-7
+        ):
+            raise ValueError("actual Float32 structure intersects retained border/ramp")
+        gap = cast_separation["minimum_clearance_m"]
+        quantized_minimum = (
+            gap if quantized_minimum is None else min(quantized_minimum, gap)
+        )
     r = p["recipe"]
     slopes = abs(
         np.diff(np.array(note["geometry"]["table"])[:, 1])
@@ -140,6 +160,7 @@ def retained_proof(args, candidate, ground, borders, field):
     return patch, dict(
         proof,
         old_raised_body_checks=checks,
+        float32_retained_raised_clearance_m=quantized_minimum,
         float32_minimum_soil_clearance_bound_m=bound,
         float32_ground_contact_step_bound_m=step,
     )

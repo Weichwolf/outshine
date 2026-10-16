@@ -16,6 +16,18 @@ from rail_instance_cost import profile_note
 
 
 def measure(args):
+    if subprocess.check_output(
+        [
+            "git",
+            "status",
+            "--porcelain",
+            "--",
+            "lib",
+            str(Path(__file__).resolve().parent),
+        ],
+        text=True,
+    ).strip():
+        raise ValueError("layered profile cost requires frozen clean research sources")
     if args.output.exists() or (args.profile is not None and args.profile.exists()):
         raise ValueError("fresh layered profile cost outputs required")
     report = json.loads((args.products / "comparison.json").read_text())

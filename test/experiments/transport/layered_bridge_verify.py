@@ -3,6 +3,7 @@
 import json
 import resource
 import subprocess
+from pathlib import Path
 
 import numpy as np
 from camera_height_inputs import digest
@@ -57,6 +58,18 @@ def saved_profile(args, fixture, name, lower, arrays, report):
 
 
 def verify(args):
+    if subprocess.check_output(
+        [
+            "git",
+            "status",
+            "--porcelain",
+            "--",
+            "lib",
+            str(Path(__file__).resolve().parent),
+        ],
+        text=True,
+    ).strip():
+        raise ValueError("saved layered replay requires frozen clean research sources")
     report = json.loads((args.output / "comparison.json").read_text())
     before, ground, borders = base_inputs(args)
     fixture = json.loads(args.fixture.read_text())

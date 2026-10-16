@@ -8,15 +8,38 @@ from bridge_support_contacts import ContactSurface, replay_contact
 from foot_ramp_audit import shell_ownership
 from foot_ramp_geometry import Ramp
 from layered_bridge_supports import air_intervals, axes, excluded
+from outshine_ref.contracts import Mesh
+from outshine_ref.geometry import vertical_clearance
 from retained_surface import surface_domain
 from surface_solid_checks import audit_closed
+
+
+def cast_contact(actual, reference):
+    cap = Mesh(actual.vertices.astype(np.float32).astype(float), actual.triangles)
+    patch, _pieces, _count = reference.patch(surface_domain(cap))
+    pairs = (
+        vertical_clearance(cap, patch, max_faces=4096, seconds=2),
+        vertical_clearance(patch, cap, max_faces=4096, seconds=2),
+    )
+    if any(not r["valid"] or abs(r["minimum_clearance_m"]) > 0.001 for r in pairs):
+        raise ValueError("saved actual Float32 pier contact exceeds one millimetre")
+    return max(abs(r["minimum_clearance_m"]) for r in pairs)
 
 
 def pier_proof(fixture, value, chains, bodies, contacts, fine, lower=None):
     p, _h, ribbon, note = value
     ground, deck = ContactSurface(fine), ContactSurface(ribbon.lower)
     forbidden = excluded(fixture, p["profile"], lower)
-    shapes, errors = [], []
+    cast_ground = ContactSurface(
+        Mesh(fine.vertices.astype(np.float32).astype(float), fine.triangles)
+    )
+    cast_deck = ContactSurface(
+        Mesh(
+            ribbon.lower.vertices.astype(np.float32).astype(float),
+            ribbon.lower.triangles,
+        )
+    )
+    shapes, errors, cast_errors = [], [], []
     for body, (lo, hi) in zip(bodies, contacts, strict=True):
         shape = surface_domain(lo)
         shell_ownership(Ramp(body, lo, hi, shape))
@@ -30,6 +53,7 @@ def pier_proof(fixture, value, chains, bodies, contacts, fine, lower=None):
         if not ribbon.shape.buffer(1e-8).covers(shape) or shape.intersects(forbidden):
             raise ValueError("saved layered pier violates deck/retained traffic")
         errors.extend([replay_contact(lo, ground), replay_contact(hi, deck)])
+        cast_errors.extend([cast_contact(lo, cast_ground), cast_contact(hi, cast_deck)])
         a = body.vertices[body.triangles]
         b = body.vertices.astype(np.float32).astype(float)[body.triangles]
         if np.any(
@@ -63,6 +87,7 @@ def pier_proof(fixture, value, chains, bodies, contacts, fine, lower=None):
     return {
         "piers": len(bodies),
         "whole_contact_error_m": max(errors),
+        "float32_whole_contact_error_m": max(cast_errors),
         "maximum_air_span_m": worst,
         "maximum_allowed_span_m": bound,
     }
