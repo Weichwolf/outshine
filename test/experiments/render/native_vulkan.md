@@ -178,3 +178,30 @@ nonblocking pending data, move/lifetime behavior, cancellation, wrong owner and
 overflow/bounds rejection. It does not establish completion of the SceneRenderer
 port: the existing SDL readback is removed when its actual callers migrate under
 #328. There is no fallback from native failure to SDL.
+
+
+`NativeDescriptorProbe` exceeds the former single-pool limit with independently
+checked compute words and raster pixels. It changes a buffer between repeated
+bindings, overwrites caller uniform payloads after recording, and releases public
+resources before completion. Cancellation, rejected submissions, completed
+lifetime, and a capacity failure followed by submission of the valid prefix are
+separate cases. The validation runner treats every diagnostic as a failure.
+
+Each recording reuses resolved descriptor sets, immutable uniform snapshots and
+image views. Uniform data occupies aligned 64 KiB pages; the original small
+128-set pools grow only after allocation exhaustion. Recording ceilings are
+16,384 sets, 128 pools, 16 MiB uniform capacity and 16,384 views. These independent
+logical ceilings are not a complete host/driver memory budget. Resources and
+pools remain owned until that recording's actual completion or cancellation.
+Every repeated binding still validates resources and records their barriers.
+
+The fixed `test/outshine/data/render/husum-shadow-bindings.json` captures the
+original failing public Husum recording, preserving uniform bytes and consistently
+normalizing opaque resource identities. `descriptor_work.py` compares fresh,
+whole-binding and per-set allocation work on equal trace prefixes. Its output
+separates the requested prefix including the rejected final request from the
+accepted prefix; it does not estimate device time or driver allocations. The
+runner saves this comparison as `descriptor-work.json` beside the GPU log.
+The techniques follow SIGGRAPH 2015's GPU-driven rendering discussion and
+[Khronos descriptor management](https://docs.vulkan.org/samples/latest/samples/performance/descriptor_management/README.html);
+measured Outshine costs and the exact scope remain in #398.

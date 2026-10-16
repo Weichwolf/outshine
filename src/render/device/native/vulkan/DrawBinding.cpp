@@ -110,6 +110,9 @@ Result<DrawPacket> Recording::PrepareDraw(const DrawState &description) {
   if (auto vertices = BindVertices(packet, description.Vertices); !vertices) {
     return std::unexpected(vertices.error());
   }
+  if (std::ranges::find(Pipelines_, graphics.Pipeline) == Pipelines_.end()) {
+    Pipelines_.push_back(graphics.Pipeline);
+  }
   auto sets = BindResources(*graphics.Pipeline,
                             graphics.Bindings,
                             description.Bindings,
@@ -126,9 +129,6 @@ Result<DrawPacket> Recording::PrepareDraw(const DrawState &description) {
   packet.Clip = {.offset = {.x = static_cast<int32_t>(description.Clip.X),
                             .y = static_cast<int32_t>(description.Clip.Y)},
                  .extent = {.width = description.Clip.Width, .height = description.Clip.Height}};
-  if (std::ranges::find(Pipelines_, graphics.Pipeline) == Pipelines_.end()) {
-    Pipelines_.push_back(graphics.Pipeline);
-  }
   return packet;
 }
 
