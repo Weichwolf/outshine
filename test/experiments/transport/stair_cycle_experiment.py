@@ -113,6 +113,7 @@ def generate(args):
         raise ValueError("fresh explicit cycle extension output required")
     began = time.perf_counter()
     case, rows, nodes, stairs, context, sample = load(args.fixture)
+    recipe = json.loads(args.fixture.read_text())
     args.output.mkdir(parents=True)
     network = stage(args, "after", rows, nodes, outer_ends(rows, nodes), stairs)
     data = dict(np.load(args.output / "after/body.npz"))
@@ -127,15 +128,11 @@ def generate(args):
         context,
         None,
         sample,
-        precision=json.loads(args.fixture.read_text()).get(
-            "terrain_precision_mode", "legacy"
-        ),
-        interface=json.loads(args.fixture.read_text()).get(
-            "terrain_interface_mode", "grid"
-        ),
-        variables=json.loads(args.fixture.read_text()).get(
-            "terrain_variable_mode", "heights"
-        ),
+        precision=recipe.get("terrain_precision_mode", "legacy"),
+        interface=recipe.get("terrain_interface_mode", "grid"),
+        variables=recipe.get("terrain_variable_mode", "heights"),
+        spacing_m=recipe.get("terrain_spacing_m", 12.0),
+        sampling=recipe.get("terrain_sampling", "uniform"),
     )
     np.savez_compressed(args.output / "terrain-plan.npz", **layout)
     terrain, roles, proof = terrain_stage(
@@ -143,7 +140,9 @@ def generate(args):
     )
     if terrain is None:
         raise ValueError("extended cycle terrain failed actual export admission")
-    inventory = catalog(case, rows, context)
+    inventory = catalog(
+        case, rows, context, rejected=recipe.get("excluded_source_trials", [])
+    )
     (args.output / "source-catalog.json").write_text(
         json.dumps(inventory, indent=2) + "\n"
     )

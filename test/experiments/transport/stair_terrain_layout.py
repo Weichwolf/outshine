@@ -1,11 +1,14 @@
 """A bounded real-DEM partition around unchanged selected ground undersides."""
 
+from functools import partial
+
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler, conform_triangles
 from outshine_ref.transport import HeightBudget, fit_surface_heights
 from stair_network_inputs import sample_xy
+from stair_terrain_cells import transport_cells
 from surface_height_checks import normal_gradients
 
 
@@ -41,6 +44,7 @@ def partition(
     margin_m=15.0,
     sample=None,
     interface="grid",
+    transport=None,
 ):
     if not 4 <= spacing_m <= 24 or not 8 <= margin_m <= 24:
         raise ValueError("bounded research grid and explicit domain margin required")
@@ -60,7 +64,19 @@ def partition(
     ix, iy = ix.ravel(), iy.ravel()
     if len(ix) > 16384:
         raise ValueError("soil input cell cap exhausted")
-    cells = shapely.box(xs[ix], ys[iy], xs[ix + 1], ys[iy + 1])
+    sampling_note = {}
+    if transport is None:
+        cells = shapely.box(xs[ix], ys[iy], xs[ix + 1], ys[iy + 1])
+    else:
+        cells, sampling_note = transport_cells(
+            xs,
+            ys,
+            transport,
+            near_m=4 * spacing_m,
+            sample=sample
+            if sample is not None
+            else partial(sample_xy, context=context, raster=raster),
+        )
     points = soil_parts(cells, footprint, interface)
     if len(points) + len(source) > 32768:
         raise ValueError("soil input face cap exhausted")
@@ -128,6 +144,7 @@ def partition(
         "domain_bounds_m": [*low, *high],
         "domain_area_m2": float(np.prod(high - low)),
         "interface_conformance": notes,
+        **sampling_note,
     }
 
 

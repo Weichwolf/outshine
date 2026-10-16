@@ -27,3 +27,14 @@ peak RSS approximately 13.6 versus 1181 MiB. Both resolved the same 66 descripto
 The descriptors average about 114 bytes; this does not predict real recipe sizes
 or geometry generation costs. Real consumers, dependency failures/versioning and
 bounded residency are required before selecting the production contract.
+
+The isolated typed recipe graph and real source-hall consumer are documented in
+[recipe_graph.md](recipe_graph.md) (#494). It uses two small actual definitions
+and keeps trusted domain solvers behind typed ports. This does not replace the
+capacity/index experiment or admit the shared/native/cache contract in #483.
+
+The real young-pine/planar-root consumer uses that unchanged kernel:
+[Vegetation recipe pilot](../vegetation/recipe_plant.md) (#504). It keeps one
+species definition separate from seeds and retained habitat instances; physical
+and precision negatives, prior render-input equivalence and scoped costs are
+part of the comparison. The common production decision remains open in #483.

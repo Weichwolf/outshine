@@ -58,6 +58,7 @@ def verify(args):
     commit = frozen()
     report = json.loads((args.output / "comparison.json").read_text())
     fixture = getattr(args, "fixture", FIXTURE)
+    recipe = json.loads(fixture.read_text())
     if report["fixture_sha256"] != digest(fixture) or report["baseline"] != base(args):
         raise ValueError("original cycle inputs/baseline changed")
     for name, expected in report["artifacts"].items():
@@ -69,7 +70,9 @@ def verify(args):
         or report["admitted_source_ids"]
     ):
         raise ValueError("source ownership or explicit non-admission changed")
-    inventory = catalog(case, rows, context)
+    inventory = catalog(
+        case, rows, context, rejected=recipe.get("excluded_source_trials", [])
+    )
     catalog_path = args.output / "source-catalog.json"
     if digest(catalog_path) != report[
         "source_catalog_sha256"
@@ -95,6 +98,10 @@ def verify(args):
     ):
         raise ValueError("saved whole interaction/profile evidence changed")
     layout = dict(np.load(args.output / "terrain-plan.npz"))
+    if str(np.asarray(layout.get("sampling_mode", "uniform")).item()) != recipe.get(
+        "terrain_sampling", "uniform"
+    ):
+        raise ValueError("saved terrain sampling declaration changed")
     if not np.array_equal(layout["targets"], sample(layout["xy"])):
         raise ValueError("saved cycle terrain has different actual DEM targets")
     ground, upper = selected_surfaces(data, rows)

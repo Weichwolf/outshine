@@ -1,0 +1,29 @@
+{
+  "schema_version": "1",
+  "id": "transport.checked-network",
+  "version": "1",
+  "requires": ["transport.whole-body-audit"],
+  "inputs": {"source": "transport.source-network/1"},
+  "dependencies": {
+    "profile": {
+      "id": "transport.profile-network",
+      "version": "1",
+      "inputs": {"source": "source"}
+    }
+  },
+  "nodes": {
+    "body": {
+      "operator": {"id": "transport.build-checked-body", "version": "1"},
+      "parameters": {},
+      "inputs": {
+        "source": {"input": "source"},
+        "plan": {"dependency": "profile", "output": "plan"}
+      },
+      "max_output_bytes": 16777216
+    }
+  },
+  "outputs": {
+    "plan": {"dependency": "profile", "output": "plan"},
+    "body": {"node": "body", "output": "body"}
+  }
+}

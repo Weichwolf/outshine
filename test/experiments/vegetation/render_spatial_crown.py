@@ -17,14 +17,17 @@ from tree_entry import load
 
 def render(inputs, output, view):
     start = time.perf_counter()
-    presentation = json.loads((inputs / "comparison.json").read_text()).get(
-        "presentation_labels", {}
-    )
+    study = json.loads((inputs / "comparison.json").read_text())
+    presentation = study.get("presentation_labels", {})
+    camera = study.get("presentation_camera", {})
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    eye = np.array((0, -22, 11) if view == "front" else (18, -18, 11), float)
+    eye = np.array(
+        camera.get("eye", (0, -22, 11) if view == "front" else (18, -18, 11)), float
+    )
     lateral = np.cross(-eye, np.array((0, 0, 1), float))
     lateral /= np.linalg.norm(lateral)
-    for location, name in ((-4.0, "recursive"), (4.0, "spatial")):
+    separation = camera.get("separation_m", 4.0)
+    for location, name in ((-separation, "recursive"), (separation, "spatial")):
         folder = inputs / name
         _, products = load(folder, geometry=False)
         rows = products["tables.npz"]
@@ -43,16 +46,26 @@ def render(inputs, output, view):
                 np.ones(int(mask.sum())),
                 name=f"{name}-{variant}",
             )
-    target = (0, 0, 3.3)
-    scene = setup("Laubwald", {"size_m": 23, "camera": eye.tolist(), "target": target})
+    target = camera.get("target", (0, 0, 3.3))
+    span = camera.get("span_m", 21)
+    scene = setup(
+        "Laubwald",
+        {
+            "size_m": camera.get("ground_size_m", 23),
+            "camera": eye.tolist(),
+            "target": target,
+        },
+    )
     scene.camera = configure_camera(
         {
             "projection": "orthographic",
             "eye": eye.tolist(),
             "target": target,
-            "span_m": 21,
+            "span_m": span,
         }
     )
+    if "clip_m" in camera:
+        scene.camera.data.clip_start, scene.camera.data.clip_end = camera["clip_m"]
     scene.eevee.taa_render_samples = 4
     output.mkdir(parents=True, exist_ok=True)
     scene.render.filepath = str((output / f"{view}.png").resolve())
@@ -66,7 +79,7 @@ def render(inputs, output, view):
         "resolution": [1920, 1080],
         "eye": eye.tolist(),
         "target": target,
-        "orthographic_span_m": 21,
+        "orthographic_span_m": span,
         "samples": 4,
         "setup_s": ready - start,
         "render_s": time.perf_counter() - ready,
