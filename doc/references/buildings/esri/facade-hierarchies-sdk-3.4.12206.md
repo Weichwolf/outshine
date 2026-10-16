@@ -33,8 +33,15 @@ rays, normals and metric UVs are checked. Physical window/casing/sill bounds
 come from the actual existing window module, not a second inferred opening.
 Known neighbor-height/source-wing negatives are independent of the camera.
 
-The first scalar-hole and vector/GEOS-region comparisons justified a bounded
-broadcast coordinate construction for the larger real lattice. Full picture,
-whole-city/fresh-wheel and final work/cost evidence is pending. No entire Esri
-recipe, complete architecture family, night/native/controller/device or full
-image/shadow LOD admission follows from this component research.
+The bounded broadcast region beat meshgrid and GEOS bar union at the same
+measured polygon contract in21 runs on both actual lattices; GEOS native heap
+is excluded from traced peaks. Closed solids were also checked independently
+against3D bar union, whose extra provenance and missing render UV/normals make
+full attribute pipelines unequal. Counts, times, peaks and limits are in the
+experiment README; local full reports remain under the issue's linked PR.
+Frozen `12fec1ac8` passed63 source and63 fresh-wheel tests,80 packaged building
+modules byte-exact. Actual sections, 2.5D and1920×1080 Blender component/city
+comparisons were opened. The988-source city adds3814 triangles (+1.017%);
+nearby grouping improves but city-wide architectural monotony remains.
+No entire Esri recipe, complete architecture family, night/native/controller/
+device or full image/shadow LOD admission follows from this component research.

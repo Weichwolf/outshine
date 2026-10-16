@@ -902,7 +902,7 @@ other temporaries, native allocations and cumulative copy traffic. Local
 nonisolated wall times do not establish a global or device speedup. Traced
 peaks improve only within the separately measured Python/NumPy scope.
 
-### Joined facade hierarchies (#474, research in progress)
+### Joined facade hierarchies (#474)
 
 `outshine_ref.buildings.facade_frames.FacadeFrame` describes a bounded regular
 lattice in local U/V/outward metres: 2..33 immutable vertical/horizontal bar
@@ -943,5 +943,31 @@ against vector/GEOS bar union, plus independently equivalent closed solids.
 Generic3D union additionally carries per-bar provenance and omits render UV/
 normal fields; those full-construction phases are scoped separately, not equal
 attribute pipelines. Traced peaks/output fields exclude backend/cumulative
-allocation/copy totals. Whole-city, fresh-wheel, image and final cost admission
-remain pending. No complete architecture family/night/controller/device claim.
+allocation/copy totals.
+
+Frozen runtime `12fec1ac8`: 63 source and 63 fresh-wheel tests passed without
+skips; all80 packaged building modules matched source bytes. Actual physical
+sections/2.5D and eight whole/opposite/near Blender images were opened at
+1920×1080, plus the whole Paris comparison. The unchanged988-source city grew
+from375043 to378857 triangles (+3814,1.017%): 307 logical frame elevations on
+225 hosts,26 expanded outer products (6602 triangles),281 deferred. Existing
+source/function plans, roofs, rooms and steps matched after excluding timing
+fields and the optional frame plan. Disabling frames reproduced every old
+city mesh array and dtype exactly. Only old decorative-band records changed.
+Facade depth/grouping is visible nearby; the city-image difference remains
+small (0.9982% changed pixels), not a completed architecture-family catalogue.
+
+For the actual11-/63-aperture examples,21 measured region runs gave broadcast
+p50 0.068/0.083 ms, meshgrid0.166/0.261 ms, GEOS bar union1.469/4.614 ms.
+Separate traced peaks were4632/11384,8849/14011,4460/5324 bytes respectively;
+the native GEOS heap is excluded, so these are not total-memory rankings.
+The reference solids agreed independently within3.4e-15 m³. Closed232/1272
+triangles become outer164/892; hidden backs of68/380 triangles never exist.
+Those final arrays occupy48024/263304 versus33948/184644 bytes, including
+normals/UV/materials/roles. Full geometry, provenance and attribute costs differ
+from generic3D union and must not be compared as identical render pipelines.
+The actual city build took175.852 s, process peak628544 KiB on this nonisolated
+host; neither is a native frame/device budget or a measured speedup.
+Diagnostic cuts were corrected in `de7e03d54`; the distant camera in
+`0ab9d9a5a` keeps the small building inside the camera range. No complete
+architecture family/night/controller/device or full image/shadow LOD claim.
