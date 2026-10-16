@@ -46,11 +46,16 @@ def topology(mesh):
     assert connected_components(graph, directed=False, return_labels=False) == 1
     euler = len(fans) - len(count) + len(faces)
     assert euler % 2 == 0 and euler <= 2
+    relative = mesh["vertices"] - mesh["vertices"].mean(axis=0)
+    p = relative[faces]
+    volume = float(np.einsum("ij,ij->i", p[:, 0], np.cross(p[:, 1], p[:, 2])).sum() / 6)
+    assert volume > 0
     return {
         "connected_components": 1,
         "single_vertex_fans": len(fans),
         "euler_characteristic": euler,
         "genus": (2 - euler) // 2,
+        "signed_volume_m3": volume,
     }
 
 

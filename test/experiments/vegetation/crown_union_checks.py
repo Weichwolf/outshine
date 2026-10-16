@@ -13,6 +13,7 @@ from crown_union import (
     ring_cells,
     wood_sources,
 )
+from crown_union_replay import topology
 from join_normal_checks import check_weighting
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from plant_surface_checks import winding_inside
@@ -83,6 +84,7 @@ class CrownUnionChecks(unittest.TestCase):
         for order in (sources, sources[::-1]):
             mesh, work = join_sources(order)
             self.assertAlmostEqual(volume(mesh), 1.5, places=14)
+            self.assertAlmostEqual(topology(mesh)["signed_volume_m3"], 1.5, places=14)
             np.testing.assert_array_equal(
                 winding_inside(mesh, points), (True, True, True, False)
             )
