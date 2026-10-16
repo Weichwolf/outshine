@@ -236,6 +236,10 @@ ReadGroundRegion(Generators::Osm::PreparedGroundRegions &assets,
                                               .RequestKey = std::move(request),
                                               .RequestHit = true};
   }
+  if (std::ranges::any_of(vectors.Tiles(),
+                          [](const auto &tile) { return tile.InputDigest.empty(); })) {
+    return std::unexpected("ground region contains unbound vector inputs");
+  }
   auto key = assets.Key(vectors, shape, parameters);
   if (key.empty()) { return std::unexpected("ground region key exceeds its encoding limit"); }
   if (stop.stop_requested()) { return std::unexpected("ground region lookup canceled"); }

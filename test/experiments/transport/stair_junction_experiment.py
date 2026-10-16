@@ -16,9 +16,9 @@ from stair_junction_layout import INPUT, inputs, layout
 from stair_junction_solve import solve
 
 
-def outer_ports(plan, heights):
+def outer_ports(plan, heights, ends=None):
     result = []
-    for owner, end in ((1, -1), (2, 0)):
+    for owner, end in ends if ends is not None else ((1, -1), (2, 0)):
         row = plan["rows"][owner]
         centre = row["xy"][end]
         tangent = row["xy"][1] - centre if end == 0 else centre - row["xy"][-2]
@@ -36,7 +36,7 @@ def outer_ports(plan, heights):
         result.append(
             {
                 "source_id": row["source_id"],
-                "native_lane_index": row["original"]["native_lane_index"],
+                "native_lane_index": row["original"].get("native_lane_index"),
                 "source_endpoint_prior_m": float(row["prior"][end]),
                 "proposed_vertices_enu_m": np.c_[
                     plan["xy"][selected], heights[selected]

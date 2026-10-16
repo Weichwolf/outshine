@@ -101,6 +101,8 @@ def main():
                     for stage in ('vert', 'frag', 'comp')]
         if not args.present:
             sources.append(Path(__file__).with_name('native_present.frag'))
+        sources += [Path(__file__).with_name('native_depth_clamp.' + stage)
+                    for stage in ('vert', 'frag')]
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -122,6 +124,7 @@ def main():
         consumers.append(ROOT / 'test/harness/render/NativeDescriptorProbe.cpp')
         consumers += [ROOT / 'test/harness/render' / name
                       for name in ('NativeSubmissionTimingProbe.cpp', 'NativeSubmissionScopeProbe.cpp')]
+        consumers.append(ROOT / 'test/harness/render/NativeDepthClampProbe.cpp')
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -184,6 +187,10 @@ def main():
              str(output / 'native_present.frag.spv'), str(output / 'submission-scope.ppm')], log,
             environment=environment, timeout=30), log)
         report['gpu_timing'] = 'opt-in native submission and dispatch timestamps'
+        report['depth_clamp_checks'] = verdict(run(
+            [str(output / 'NativeDepthClampProbe'), str(output / 'native_depth_clamp.vert.spv'),
+             str(output / 'native_depth_clamp.frag.spv'), str(output / 'depth-clamp')], log,
+            environment=environment, timeout=30), log)
         if args.present:
             report['present_checks'] = verdict(run(
                 [str(binaries[9]), str(shaders[4]), str(shaders[13])], log,

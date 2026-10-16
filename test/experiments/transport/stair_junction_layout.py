@@ -38,9 +38,17 @@ def inputs(path=INPUT):
     return case, rows
 
 
-def landings(rows, domains, method, width_reach_m):
-    nodes = [rows[0]["xy"][0], rows[0]["xy"][-1]]
-    incident = [[0, 1, 3], [0, 2, 3]]
+def landings(rows, domains, method, width_reach_m, junctions=None):
+    nodes = (
+        [rows[0]["xy"][0], rows[0]["xy"][-1]]
+        if junctions is None
+        else [np.array(r["xy"]) for r in junctions]
+    )
+    incident = (
+        [[0, 1, 3], [0, 2, 3]]
+        if junctions is None
+        else [r["incident"] for r in junctions]
+    )
     masks = []
     for node, owners in zip(nodes, incident, strict=True):
         parts = [
@@ -125,14 +133,16 @@ def arrangement(rows, domains, masks):
     )
 
 
-def layout(rows, method, *, width_reach_m=0.75):
+def layout(rows, method, *, width_reach_m=0.75, junctions=None, stairs=None):
     if method not in ("fixed", "width"):
         raise ValueError("known stair core method required")
     domains = [corridor(row) for row in rows]
-    nodes, incident, masks = landings(rows, domains, method, width_reach_m)
+    nodes, incident, masks = landings(rows, domains, method, width_reach_m, junctions)
     xy, faces, owners, note = arrangement(rows, domains, masks)
     # Vertex identity remains per source until a real endpoint landing joins it.
-    keys = {(i, int(v)) for i in range(4) for v in np.unique(faces[owners[:, i]])}
+    keys = {
+        (i, int(v)) for i in range(len(rows)) for v in np.unique(faces[owners[:, i]])
+    }
     parent = {k: k for k in keys}
 
     def root(k):
@@ -153,17 +163,18 @@ def layout(rows, method, *, width_reach_m=0.75):
     vertices = np.array([xy[v] for _i, v in roots])
     parts = [
         np.array([[bound[(i, int(v))] for v in f] for f in faces[owners[:, i]]])
-        for i in range(4)
+        for i in range(len(rows))
     ]
     return {
         "xy": vertices,
         "parts": parts,
-        "part_global_faces": [np.flatnonzero(owners[:, i]) for i in range(4)],
+        "part_global_faces": [np.flatnonzero(owners[:, i]) for i in range(len(rows))],
         "primary_source": [i for i, _v in roots],
         "rows": rows,
         "domains": domains,
         "nodes": nodes,
         "incident": incident,
         "masks": masks,
+        "stairs": stairs if stairs is not None else [(0, 0, 1)],
         "note": note,
     }
