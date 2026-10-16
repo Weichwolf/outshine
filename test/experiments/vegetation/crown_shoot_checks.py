@@ -38,7 +38,10 @@ class CrownShootChecks(unittest.TestCase):
             self.assertEqual(c.summary()["leaves"], 17)
             np.testing.assert_array_equal(c.counts, (6, 6, 5))
             self.assertIsNone(c.tables(16))
-            self.assertIsNone(c.group(2, 5))
+            with patch.object(
+                CrownShoots, "stem", side_effect=AssertionError("unbudgeted stem frame")
+            ):
+                self.assertIsNone(c.group(2, 5))
         self.assertFalse(c._groups)
 
     def test_exact_variant_id_budget_and_reversed_subset_replay(self):
@@ -52,7 +55,11 @@ class CrownShootChecks(unittest.TestCase):
             for key, values in part.items():
                 np.testing.assert_array_equal(values, whole[key][mask])
         self.assertEqual(a.identity, b.identity)
-        self.assertIs(a.group(2, 6), a.group(2, 6))
+        saved = a.group(2, 6)
+        with patch.object(
+            CrownShoots, "stem", side_effect=AssertionError("frame on group cache hit")
+        ):
+            self.assertIs(saved, a.group(2, 6))
         with self.assertRaises(ValueError):
             a.group(2, 6)["origins"].setflags(write=True)
 

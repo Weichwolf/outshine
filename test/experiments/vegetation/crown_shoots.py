@@ -126,21 +126,28 @@ class CrownShoots:
             "variant_counts": np.bincount(self.variants, minlength=8).tolist(),
         }
 
-    def stem(self, node):
-        if type(node) is not int or node not in self.hosts:
+    def _host_index(self, node):
+        if type(node) is not int:
             raise ValueError("explicit saved foliage host node ID required")
+        index = int(np.searchsorted(self.hosts, node))
+        if index >= len(self.hosts) or self.hosts[index] != node:
+            raise ValueError("explicit saved foliage host node ID required")
+        return index
+
+    def stem(self, node):
+        self._host_index(node)
         direction = self.positions[node] - self.positions[self.parents[node]]
         return self.positions[node], normal_frame(direction, (0, 0, 1))
 
     def group(self, node, max_leaves):
         if type(max_leaves) is not int or not 0 <= max_leaves <= 100000:
             raise ValueError("bounded explicit leaf capacity required")
-        origin, frame = self.stem(node)
-        index = int(np.searchsorted(self.hosts, node))
+        index = self._host_index(node)
         count = int(self.counts[index])
         if count > max_leaves:
             return None
         if node not in self._groups:
+            origin, frame = self.stem(node)
             begin, end = map(int, self.offsets[index : index + 2])
             ids = np.arange(begin, end, dtype=np.uint64)
             if count:
