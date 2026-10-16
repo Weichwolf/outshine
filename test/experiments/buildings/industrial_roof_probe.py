@@ -38,7 +38,7 @@ def diagram(row, output, index):
     section = section_for(row, choice)
     top = roof_surface(row, choice)[0]
     closed = heightfield_envelope(top, 0)
-    figure = plt.figure(figsize=(24, 9))
+    figure = plt.figure(figsize=(24, 13.5))
     axis = figure.add_subplot(131)
     knots = np.asarray(section.knots)
     axis.plot(*knots.T, color="#236c80", marker="o")

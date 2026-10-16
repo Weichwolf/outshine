@@ -140,7 +140,8 @@ class IndustrialRoofs(unittest.TestCase):
     def test_actual_consumer_replans_facades_below_same_height_section(self):
         for row, neighbors in sources():
             p = attributes(row["properties"])
-            owner = FacadeDetails([row, *neighbors], view_for(row))
+            with patch("tile_room_details.candidates", return_value=(set(), {})):
+                owner = FacadeDetails([row, *neighbors], view_for(row))
             mesh, info = owner(row, p, 1)
             self.assertIn(info["roof_kind"], KINDS)
             self.assertEqual(info["roof_section"], metadata(row, choose(row, p)))
@@ -165,6 +166,39 @@ class IndustrialRoofs(unittest.TestCase):
                 mesh["vertices"][mesh["faces"][roof]],
                 expected["vertices"][expected["faces"]],
             )
+
+    def test_existing_near_room_ids_and_actual_access_survive_roof_reservation(self):
+        for row, neighbors in sources()[:2]:
+            p, view = attributes(row["properties"]), view_for(row)
+            with patch("industrial_roof_choice.extend", side_effect=lambda r, p, c: c):
+                before = FacadeDetails([row, *neighbors], view)
+                _, old = before(row, p, 1)
+            after = FacadeDetails([row, *neighbors], view)
+            mesh, new = after(row, p, 1)
+            self.assertIn("room_ids", old)
+            self.assertEqual(new["room_ids"], old["room_ids"])
+            self.assertEqual(new["storeys"], old["storeys"])
+            self.assertEqual(new["access_mode"], old["access_mode"])
+            self.assertTrue(new["access"])
+            self.assertIn(new["roof_kind"], KINDS)
+            self.assertFalse(after.base.room_rejected)
+            self.assertAlmostEqual(mesh["vertices"][:, 2].max(), p["buildingHeight"])
+
+    def test_failed_near_section_retains_previous_functional_flat_model(self):
+        row, neighbors = sources()[0]
+        p, view = attributes(row["properties"]), view_for(row)
+        with patch("industrial_roof_choice.extend", side_effect=lambda r, p, c: c):
+            owner = FacadeDetails([row, *neighbors], view)
+            before, old = owner(row, p, 1)
+        owner = FacadeDetails([row, *neighbors], view)
+        with patch(
+            "tile_roof_envelopes.roof_surface", side_effect=ValueError("bad roof input")
+        ):
+            after, new = owner(row, p, 1)
+        self.assertEqual(old["room_ids"], new["room_ids"])
+        for key in before:
+            np.testing.assert_array_equal(before[key], after[key])
+        self.assertTrue(owner.base.rejected)
 
     def test_local_surface_failure_keeps_whole_body_with_reason(self):
         row, neighbors = sources()[0]

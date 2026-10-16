@@ -285,6 +285,8 @@ def pitched_candidates(rows, view, limit=16):
 
 class OrdinaryDetails:
     def __init__(self, rows, view):
+        from industrial_roof_choice import KINDS
+
         self.rooms = RoomDetails(rows, view)
         self.view = view
         self.choices = Counter()
@@ -292,6 +294,13 @@ class OrdinaryDetails:
         self.rejected = []
         self.coarse = []
         self.pitched = pitched_candidates(rows, view)
+        self.industrial_rooms = {
+            row["id"]
+            for row in rows
+            if row["id"] in self.rooms.identifiers
+            and choose(row, attributes(row["properties"])).kind in KINDS
+        }
+        self.pitched.update(self.industrial_rooms)
         self.room_completed = []
         self.room_rejected = []
 
@@ -311,6 +320,8 @@ class OrdinaryDetails:
             self.rejected.append(
                 {"id": row["id"], "kind": choice.kind, "reason": str(error)}
             )
+            if row["id"] in self.industrial_rooms:
+                return self.rooms(row, parameters, material)
             return None
 
     def complete(self, row, parameters, material, choice):
@@ -359,6 +370,8 @@ class OrdinaryDetails:
                 return mesh, metadata | info
             except ValueError as error:
                 self.room_rejected.append({"id": row["id"], "reason": str(error)})
+                if row["id"] in self.industrial_rooms:
+                    return self.rooms(row, parameters, material)
         envelope, profile_report = profiled_envelope(
             top, parameters, material, choice, profile
         )
