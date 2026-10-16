@@ -633,6 +633,26 @@ tatsächlichen ausgewählten Quellflächen abgeleitet; alle Bilder bleiben lokal
 Gewöhnliche Außenwege dürfen keine indoor-/Ebenenquellen durch ein generisches
 Mesh-Rezept ersetzen. Globale/native Abnahme bleibt offen.
 
+## Südlicher Radweg und vollständiger DEM-Eckbereich (#434)
+
+Der [Südvergleich](stair_cycle_south_comparison.md) ergänzt denselben Operator um
+den ganzen südlichen Quellteil. Die Eingabe enthält vier ausdrückliche DEM-Crops;
+auch die südöstliche Ecke der rechteckigen Terrainfläche braucht echte Höhen.
+Fehlende Fenster werden abgelehnt, nicht durch benachbarte Höhen ersetzt.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_cycle_south_checks stair_cycle_north_checks stair_cycle_checks stair_blend_checks stair_blend_precision_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_experiment.py --fixture test/experiments/transport/fixtures/stair-cycle-south-vienna.json --base-network "$TRANSPORT_NORTH_OUTPUT" --base-terrain "$TRANSPORT_NORTH_OUTPUT" --output "$TRANSPORT_SOUTH_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_verify.py --fixture test/experiments/transport/fixtures/stair-cycle-south-vienna.json --base-network "$TRANSPORT_NORTH_OUTPUT" --base-terrain "$TRANSPORT_NORTH_OUTPUT" --output "$TRANSPORT_SOUTH_OUTPUT"
+```
+
+Die vier Renderaufrufe und beide Terrain-Kostenaufrufe oben mit
+`TRANSPORT_SOUTH_OUTPUT` verwenden. Die ganze ausgewählte Quelle bestimmt die
+nähere Kamera. Forschung bleibt lokal in 1280×720; keine Place-Galerie.
+Explizite Neuaufnahme: `stair_cycle_inputs.py --receipts ORIGINAL-RECEIPT EAST-RECEIPT SOUTH-RECEIPT SOUTHEAST-RECEIPT --sources openfreemap:14/8937/5678:transportation:32651280:3 openfreemap:14/8937/5678:transportation:39881120:23 openfreemap:14/8937/5678:transportation:39881120:51 --output /tmp/…/stair-cycle-south-vienna.json`.
+Geschützte Profile, Fokus und Solveroptionen bleiben erklärte Instanzparameter;
+Aufnahme erzeugt keine gelösten Höhen oder diese zusätzlichen Entscheidungen.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
