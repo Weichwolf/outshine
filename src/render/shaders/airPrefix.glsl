@@ -6,6 +6,9 @@
 #ifndef AIR_PREFIX_INTERVALS
 #define AIR_PREFIX_INTERVALS 22
 #endif
+#ifndef AIR_PREFIX_ACCUMULATE_DEPTH
+#define AIR_PREFIX_ACCUMULATE_DEPTH 0
+#endif
 #if AIR_PREFIX_INTERVALS < 1
 #error AIR_PREFIX_INTERVALS must be positive
 #endif
@@ -42,6 +45,9 @@ struct AirPrefix {
   AirSource B;
   AirSource C;
   AirTransfer AtStart;
+#if AIR_PREFIX_ACCUMULATE_DEPTH
+  vec3 Depth;
+#endif
 };
 
 float airNextPhysical(AirPrefix prefix) {
@@ -91,6 +97,18 @@ AirTransfer airPrefixPartial(AirPrefix prefix, float distanceKm) {
   return result;
 }
 
+#if AIR_PREFIX_ACCUMULATE_DEPTH
+vec3 airPrefixDepth(AirPrefix prefix, float distanceKm) {
+  float widthKm = prefix.EndKm - prefix.BeginKm;
+  if (distanceKm <= 0.0 || widthKm <= 0.0) { return vec3(0.0); }
+  float u = distanceKm / widthKm;
+  return vec3(
+      airCellDepth(prefix.A.Extinction.r, prefix.B.Extinction.r, prefix.C.Extinction.r, u, widthKm),
+      airCellDepth(prefix.A.Extinction.g, prefix.B.Extinction.g, prefix.C.Extinction.g, u, widthKm),
+      airCellDepth(prefix.A.Extinction.b, prefix.B.Extinction.b, prefix.C.Extinction.b, u, widthKm));
+}
+#endif
+
 AirPrefix airPrefixBegin(Medium medium, AirRay ray, sampler2D veil, sampler2D multiScatter,
                          AirSourceRay sourceRay) {
   AirPrefix prefix;
@@ -109,6 +127,9 @@ AirPrefix airPrefixBegin(Medium medium, AirRay ray, sampler2D veil, sampler2D mu
   prefix.B = prefix.A;
   prefix.C = prefix.A;
   prefix.AtStart = AirTransfer(vec3(0.0), vec3(1.0));
+#if AIR_PREFIX_ACCUMULATE_DEPTH
+  prefix.Depth = vec3(0.0);
+#endif
   if (ray.DistanceKm > 0.0) { airPrefixPrepareCell(prefix, medium, false, veil, multiScatter, sourceRay); }
   return prefix;
 }
@@ -127,16 +148,26 @@ AirTransfer airPrefixAdvance(inout AirPrefix prefix, Medium medium, float distan
        ++step) {
     AirTransfer cell = airPrefixPartial(prefix, prefix.EndKm - prefix.BeginKm);
     prefix.AtStart.RadiancePerLux += prefix.AtStart.Transmittance * cell.RadiancePerLux;
+#if AIR_PREFIX_ACCUMULATE_DEPTH
+    prefix.Depth += airPrefixDepth(prefix, prefix.EndKm - prefix.BeginKm);
+    prefix.AtStart.Transmittance = exp(-prefix.Depth);
+#else
     prefix.AtStart.Transmittance *= cell.Transmittance;
+#endif
     bool reuse = !prefix.EndDiscontinuous;
     prefix.BeginKm = prefix.EndKm;
     if (prefix.BeginKm >= AIR_PREFIX_GRID_PROVIDER(prefix.Ray, prefix.Grid)) { ++prefix.Grid; }
     airPrefixPrepareCell(prefix, medium, reuse, veil, multiScatter, sourceRay);
   }
   AirTransfer partial = airPrefixPartial(prefix, distanceKm - prefix.BeginKm);
+#if AIR_PREFIX_ACCUMULATE_DEPTH
+  vec3 transmittance = exp(-prefix.Depth - airPrefixDepth(prefix, distanceKm - prefix.BeginKm));
+#else
+  vec3 transmittance = prefix.AtStart.Transmittance * partial.Transmittance;
+#endif
   return AirTransfer(prefix.AtStart.RadiancePerLux +
       prefix.AtStart.Transmittance * partial.RadiancePerLux,
-      prefix.AtStart.Transmittance * partial.Transmittance);
+      transmittance);
 }
 #ifdef OUTSHINE_AIR_PREFIX_CLEAR_SOURCE
 AirTransfer airPrefixAdvance(inout AirPrefix prefix, Medium medium, float distanceKm,
