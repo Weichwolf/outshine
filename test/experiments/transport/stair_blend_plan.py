@@ -12,7 +12,7 @@ def prepare(data, rows, context, raster, sample):
     footprint = shapely.union_all(
         shapely.polygons(ground.vertices[ground.triangles, :2])
     )
-    initial, note = partition(ground, context, raster)
+    initial, note = partition(ground, context, raster, sample=sample)
     heights, _roles, probe = solve(initial, None, footprint)
     if heights is None:
         raise ValueError("bounded refinement probe failed: " + str(probe))
