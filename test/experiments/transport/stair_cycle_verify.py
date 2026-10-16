@@ -75,7 +75,13 @@ def verify(args):
     ] or inventory != json.loads(catalog_path.read_text()):
         raise ValueError("whole original payload inventory changed")
     road = stage(
-        args, "after", rows, nodes, report["after"], outer_ends(rows, nodes), stairs
+        args,
+        "after",
+        rows,
+        nodes,
+        report["after"],
+        outer_ends(rows, nodes),
+        [owner for owner, _low, _high in stairs],
     )
     data = dict(np.load(args.output / "after/body.npz"))
     pairs, whole = interactions(rows, nodes)
