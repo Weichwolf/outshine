@@ -12,17 +12,24 @@ from types import SimpleNamespace
 import numpy as np
 import shapely
 from camera_height_inputs import digest
+from shared_bridge_geometry import corridor
 from stair_context_inputs import FIXTURE, PROFILES, load
 from stair_junction_audit import audit
 from stair_junction_body import build
 from stair_junction_display import display
 from stair_junction_experiment import outer_ports
-from stair_junction_layout import INPUT, inputs, layout
+from stair_junction_layout import INPUT, inputs, landings, layout
 from stair_junction_solve import solve
 
 
 def crossings(rows, junctions=None):
     result = []
+    joins = []
+    if junctions is not None:
+        _nodes, owners, masks = landings(
+            rows, [corridor(r) for r in rows], "width", 0.75, junctions
+        )
+        joins = list(zip(owners, masks, strict=True))
     for i, j in itertools.combinations(range(len(rows)), 2):
         a, b = rows[i], rows[j]
         parts = shapely.get_parts(
@@ -32,11 +39,9 @@ def crossings(rows, junctions=None):
             if point.geom_type != "Point":
                 continue
             p = np.array(point.coords[0])
-            if junctions is not None and any(
-                i in node["incident"]
-                and j in node["incident"]
-                and np.linalg.norm(p - node["xy"]) < 1e-7
-                for node in junctions
+            if any(
+                i in owners and j in owners and mask.distance(point) < 1e-7
+                for owners, mask in joins
             ):
                 continue
             if all(
@@ -45,7 +50,9 @@ def crossings(rows, junctions=None):
             ):
                 continue
             if a["original"]["bridge"] == b["original"]["bridge"]:
-                raise ValueError("unplanned crossing between equal bridge kinds")
+                raise ValueError(
+                    f"unplanned crossing between equal bridge kinds: {i}:{j} at {p.tolist()}"
+                )
             low, high = (j, i) if a["original"]["bridge"] else (i, j)
             result.append([low, high, p.tolist()])
     return result
