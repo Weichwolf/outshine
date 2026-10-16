@@ -24,6 +24,12 @@ constexpr uint32_t kSide = 96;
 constexpr float kLux = 1000;
 constexpr double kReflectance = 0.5, kFillNormalCosine = 0.8;
 constexpr size_t kChannels = 4;
+constexpr float kFillEast = 0.6f;
+constexpr double kSunBearingDeg = 90, kSunElevationDeg = 45;
+constexpr double kNearM = 0.1, kFarM = 100;
+constexpr double kReceiverStripM = 0.3, kShadowWestM = -1.2, kShadowEastM = -0.3;
+constexpr float kLitThreshold = 80;
+constexpr double kRelativeTolerance = 0.01;
 
 outshine::Geometry World(size_t fills) {
   using namespace outshine;
@@ -55,7 +61,7 @@ outshine::Geometry World(size_t fills) {
     PunctualLight fill;
     fill.Colour = {{0, 0, 1}};
     fill.Intensity = kLux / static_cast<float>(fills);
-    fill.Direction = {{0.6f, -0.8f, 0}};
+    fill.Direction = {{kFillEast, -static_cast<float>(kFillNormalCosine), 0}};
     CHECK(geometry.addLamp("independent blue fill", fill, Mat4{}).has_value(),
           "authored fill lights precede the runtime key in the actual light list");
   }
@@ -75,12 +81,12 @@ std::vector<float> Capture(size_t fills, const char *outputPrefix) {
   Engine engine;
   Scenario::Document scenario;
   scenario.Render.Declared = true;
-  scenario.Render.Frame = {kSide, kSide};
+  scenario.Render.Frame = {.Width = kSide, .Height = kSide};
   scenario.Render.Outputs = {"surface", "sceneLinear", "shadowAtlas"};
   scenario.Lit.Declared = true;
   scenario.Lit.Key.Lux = kLux;
-  scenario.Lit.Key.BearingDeg = 90;
-  scenario.Lit.Key.ElevationDeg = 45;
+  scenario.Lit.Key.BearingDeg = kSunBearingDeg;
+  scenario.Lit.Key.ElevationDeg = kSunElevationDeg;
   scenario.Lit.ShadowRadiusM = 16;
   Scenario::View view;
   view.Id = "shadow receiver";
@@ -89,10 +95,11 @@ std::vector<float> Capture(size_t fills, const char *outputPrefix) {
   view.Sees.PositionM = {{0, 10, 4}};
   view.Sees.LooksAt = true;
   view.Sees.LookAtM = {{0, 0, 0}};
-  view.Sees.setProjection(Camera::Ortho{.XMagM = 3, .YMagM = 3, .NearM = 0.1, .FarM = 100});
+  view.Sees.setProjection(Camera::Ortho{.XMagM = 3, .YMagM = 3, .NearM = kNearM, .FarM = kFarM});
   scenario.Views.push_back(view);
   std::vector<float> pixels;
-  if (!Accepted(engine.setRenderTarget({kSide, kSide}), "public offscreen target opens") ||
+  if (!Accepted(engine.setRenderTarget({.Width = kSide, .Height = kSide}),
+                "public offscreen target opens") ||
       !Accepted(engine.declare(scenario), "public scenario declares its actual key and shadows") ||
       !Accepted(engine.setGeometry(geometry), "public geometry carries the authored fill lights") ||
       !Accepted(engine.assemble(), "public assembly binds the complete native light list") ||
@@ -120,22 +127,24 @@ void Compare(const std::vector<float> &base, const std::vector<float> &withFill)
     return;
   }
   const double expectedBlue = kReflectance * kFillNormalCosine * kLux / std::numbers::pi;
-  size_t shadowed = 0, unshadowed = 0;
-  double worstRelative = 0, worstUnshadowedRelative = 0;
+  size_t shadowed = 0;
+  size_t unshadowed = 0;
+  double worstRelative = 0;
+  double worstUnshadowedRelative = 0;
   double otherChannels = 0;
   for (uint32_t y = 0; y < kSide; ++y) {
     const double z = 3 - (static_cast<double>(y) + 0.5) * 6 / kSide;
     for (uint32_t x = 0; x < kSide; ++x) {
       const double east = (static_cast<double>(x) + 0.5) * 6 / kSide - 3;
-      if (std::abs(z) > 0.3) { continue; }
+      if (std::abs(z) > kReceiverStripM) { continue; }
       const size_t at = (size_t{y} * kSide + x) * kChannels;
       const double delta = withFill[at + 2] - base[at + 2];
-      if (east < -2.0 && base[at] > 80) {
+      if (east < -2.0 && base[at] > kLitThreshold) {
         ++unshadowed;
         worstUnshadowedRelative =
             std::max(worstUnshadowedRelative, std::abs(delta - expectedBlue) / expectedBlue);
       }
-      if (east < -1.2 || east > -0.3 || !(base[at] < 10)) { continue; }
+      if (east < kShadowWestM || east > kShadowEastM || !(base[at] < 10)) { continue; }
       ++shadowed;
       worstRelative = std::max(worstRelative, std::abs(delta - expectedBlue) / expectedBlue);
       otherChannels = std::max(otherChannels,
@@ -143,10 +152,10 @@ void Compare(const std::vector<float> &base, const std::vector<float> &withFill)
                                                    std::abs(withFill[at + 1] - base[at + 1])));
     }
   }
-  CHECK(unshadowed > 32 && worstUnshadowedRelative < 0.01,
+  CHECK(unshadowed > 32 && worstUnshadowedRelative < kRelativeTolerance,
         "authored blue fill really illuminates the unchanged unshadowed receiver");
   CHECK(shadowed > 32, "the assertion covers actual receiver pixels inside the key-light shadow");
-  CHECK(worstRelative < 0.01,
+  CHECK(worstRelative < kRelativeTolerance,
         "independent blue light survives the foreign sun shadow within HDR precision");
   CHECK(otherChannels == 0, "adding blue fill preserves the key-light red/green response exactly");
 }

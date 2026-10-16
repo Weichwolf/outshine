@@ -66,14 +66,19 @@ std::unique_ptr<Texture> Source(Device &device, uint32_t side) {
                                        .Use = TextureUse::Sampled | TextureUse::ColourAttachment}));
 }
 
-void Prepare(Device &device, Texture &shadow, Texture &environment) {
+struct Sources {
+  Texture &Shadow;
+  Texture &Environment;
+};
+
+void Prepare(Device &device, const Sources &sources) {
   auto commands = Require(device.Begin());
   const std::array shadowTarget{ColourAttachment{
-      .Image = {.Image = &shadow}, .Begin = Load::Clear, .Clear = {0.5f, 0, 0, 1}}};
+      .Image = {.Image = &sources.Shadow}, .Begin = Load::Clear, .Clear = {0.5f, 0, 0, 1}}};
   Require(commands->BeginRenderPass({.Colours = shadowTarget, .Depth = std::nullopt}));
   Require(commands->EndRenderPass());
   const std::array environmentTarget{
-      ColourAttachment{.Image = {.Image = &environment}, .Begin = Load::Clear}};
+      ColourAttachment{.Image = {.Image = &sources.Environment}, .Begin = Load::Clear}};
   Require(commands->BeginRenderPass({.Colours = environmentTarget, .Depth = std::nullopt}));
   Require(commands->EndRenderPass());
   Finish(device, std::move(commands), "prepare", 0);
@@ -118,7 +123,7 @@ void DrawCase(Device &device,
   auto sampler = Require(device.CreateSampler({}));
   auto readback = Require(device.CreateBuffer(
       {.Bytes = kImageBytes, .Use = BufferUse::CopyDestination, .Placement = Memory::Readback}));
-  Prepare(device, *shadow, *environment);
+  Prepare(device, {.Shadow = *shadow, .Environment = *environment});
   const std::span data(parameters);
   const std::array bindings{
       Binding{.Set = 2,

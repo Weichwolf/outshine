@@ -107,10 +107,10 @@ public:
 
   void ShadowedBy(SDL_GPUTexture *atlas,
                   SDL_GPUSampler *exact,
+                  size_t lightIndex,
                   const Mat4 &lightFromWorld,
                   const std::array<ShadowRegionUniform, kSunShadowRegions> &regions,
-                  size_t count,
-                  size_t lightIndex) {
+                  size_t count) {
     Atlas_ = atlas;
     AtlasSampler_ = exact;
     Shadowed_ = atlas != nullptr && exact != nullptr && count > 0;
@@ -121,7 +121,7 @@ public:
     ShadowRegions_ = regions;
   }
 
-  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, Mat4{}, {}, 0, 0); }
+  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, 0, Mat4{}, {}, 0); }
 
   [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
