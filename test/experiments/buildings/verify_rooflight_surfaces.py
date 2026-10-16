@@ -149,9 +149,19 @@ class RooflightSurfaces(unittest.TestCase):
         before = {k: v.copy() for k, v in shell.mesh.items()}
         host = prepare_host(shell, fields)
         template.cache_clear()
-        with patch(
-            "industrial_rooflights.region_solid",
-            side_effect=AssertionError("unneeded CGA extrusion"),
+        with (
+            patch(
+                "industrial_rooflights.region_solid",
+                side_effect=AssertionError("unneeded CGA extrusion"),
+            ),
+            patch(
+                "rooflight_surfaces.contact_coverage",
+                side_effect=AssertionError("unneeded repeated contact certification"),
+            ),
+            patch(
+                "industrial_hall_shell.structure",
+                side_effect=AssertionError("unneeded repeated body CSG"),
+            ),
         ):
             self.assertEqual(len(closed(fields)), len(fields))
             self.assertEqual(len(contact(host)), len(fields))
@@ -169,6 +179,14 @@ class RooflightSurfaces(unittest.TestCase):
                 template(*invalid)
         with self.assertRaisesRegex(ValueError, "capacity"):
             closed([fields[0]] * 65)
+
+    def test_warm_numeric_keys_cannot_bypass_strict_boolean_validation(self):
+        template.cache_clear()
+        template(1.0, 4.0, -0.3, contact=True)
+        with self.assertRaises(ValueError):
+            template(True, 4.0, -0.3, contact=True)
+        with self.assertRaises(ValueError):
+            template(1.0, 4.0, -0.3, contact=1)
 
     def test_contact_skin_alone_is_not_an_independent_collision_solid(self):
         row, neighbors = sources()[1]

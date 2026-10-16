@@ -27,7 +27,7 @@ def quads(top, bottom, *, inside=False):
     return output[:, ::-1] if inside else output
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=32, typed=True)
 def template(width, length, slope, *, contact=False):
     width, length, slope = (scalar(v) for v in (width, length, slope))
     inset = FRAME_M / np.hypot(1, slope)
