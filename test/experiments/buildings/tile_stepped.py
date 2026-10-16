@@ -3,6 +3,7 @@
 import numpy as np
 import shapely
 from provider_contract import attributes
+from stepped_form_profiles import profile_for
 from stepped_openings import apply as opening_patches
 from stepped_source import exterior, near, plan_for
 from tile_facades import FacadeDetails
@@ -73,47 +74,49 @@ class SteppedDetails:
     def __call__(self, row, parameters, material):
         if row["id"] in self.selected:
             try:
-                plan = plan_for(row)
+                plan = plan_for(row, profile_for(row["id"]))
                 _, proof, paths, _ = near(plan, material)
-                mesh, envelope, guard, comparison = exterior(plan, material)
+                mesh, _envelope, _guard, comparison = exterior(plan, material)
                 self.plans[row["id"]] = plan
                 key = (material, 1.0, 1.0)
                 if key not in self.facades.palette:
                     identifier = 32768 + len(self.facades.palette)
                     self.facades.palette[key] = identifier
-                    self.facades.bindings[str(identifier)] = dict(
-                        wall_material=material, fractions=[1.0, 1.0], filtered=True
-                    )
+                    self.facades.bindings[str(identifier)] = {
+                        "wall_material": material,
+                        "fractions": [1.0, 1.0],
+                        "filtered": True,
+                    }
                 mesh, openings = opening_patches(plan, mesh, self.facades.palette[key])
-                record = dict(
-                    id=row["id"],
-                    storeys=plan["storeys"],
-                    room_ids=plan["storey_room_ids"],
-                    form_recipe=plan["form_recipe"],
-                    terrace_access=plan["terrace_access"],
-                    access=proof,
-                    terrace_mesh_paths=paths,
-                    exterior_method=comparison,
-                    openings=openings,
-                    triangles=len(mesh["faces"]),
-                    scope="Complete stepped outer product from usable generic room/core plan; actual native player/frame and use programme remain unproved",
-                )
+                record = {
+                    "id": row["id"],
+                    "storeys": plan["storeys"],
+                    "room_ids": plan["storey_room_ids"],
+                    "form_recipe": plan["form_recipe"],
+                    "terrace_access": plan["terrace_access"],
+                    "access": proof,
+                    "terrace_mesh_paths": paths,
+                    "exterior_method": comparison,
+                    "openings": openings,
+                    "triangles": len(mesh["faces"]),
+                    "scope": "Complete stepped outer product from usable generic room/core plan; actual native player/frame and use programme remain unproved",
+                }
                 self.completed.append(record)
-                return mesh, dict(
-                    form="Stepped source-storey envelope with connected generic room plan",
-                    form_recipe=plan["form_recipe"],
-                    room_ids=plan["storey_room_ids"],
-                    roof_origin="procedural stepped flat roof/parapet within source height",
-                    functional_status=record["scope"],
-                )
+                return mesh, {
+                    "form": "Stepped source-storey envelope with connected generic room plan",
+                    "form_recipe": plan["form_recipe"],
+                    "room_ids": plan["storey_room_ids"],
+                    "roof_origin": "procedural stepped flat roof/parapet within source height",
+                    "functional_status": record["scope"],
+                }
             except (ValueError, AssertionError, shapely.errors.GEOSException) as error:
-                self.rejected.append(dict(id=row["id"], reason=str(error)))
+                self.rejected.append({"id": row["id"], "reason": str(error)})
         return self.facades(row, parameters, material)
 
     def report(self):
-        return dict(
-            selected=len(self.selected),
-            completed=self.completed,
-            rejected=self.rejected,
-            scope="At most eight source-derived stepped prototype plans per tile; no completed architecture-family or native LOD quota",
-        )
+        return {
+            "selected": len(self.selected),
+            "completed": self.completed,
+            "rejected": self.rejected,
+            "scope": "At most eight source-derived stepped prototype plans per tile; no completed architecture-family or native LOD quota",
+        }

@@ -738,3 +738,29 @@ Normal tests run with `.venv` and `PYTHONPATH=lib/src:lib/tests:test/experiments
 `window_bay_flat_probe.py --output <system-temp>` first generates the existing whole-source controls/cost matrix, then paired actual86/46far source inputs and a real wide-angle fallback. Its slice/error/work plots use the generated triangles and declared camera, not edited renderer images. Render JSONs with shared `blender_city.py`; whole source studies use `city_scene.py`. Costs compare current86/46render products separately from closed parts/valid unions,21warm runs per case, known output/materialization/copy counts and traced peaks. Backend/Python-list intermediates remain explicitly unenumerated. No shader/material parameter changes or new cache/engine contract.
 
 Local SIGGRAPH1996 *Simplification Envelopes* pp1/3 were optically reviewed for two-sided geometric bounds and their limits. This recipe is a restricted analytic surface correspondence, not that paper's general topology-preserving envelope algorithm. The local Esri `reduceGeometry` reference describes edge collapses controlled by a vertex-reduction fraction and removal of component tags; it gives no corresponding projected-pixel contract. Existing SDK/Ghidra primitive references remain separate; no dedicated Esri window-bay LOD oracle is claimed. Research images stay local; master owns integrated/native images and admission.
+
+### Functional corner and diagonal upper storeys (#442)
+
+`stepped_form_profiles.py` extends the existing `stepped_form_plan.choose` with
+orthogonal adjacent-side and diagonal upper-storey cuts. A separate stable
+`/upper-form` seed stream chooses the programme; camera, iteration order and
+facade-detail choices do not change its identity. Three widths, one/two tiers and
+four orientations bound each new search to 24 contour alternatives. Diagonal
+setback distances are twice the shared base widths to expose substantial corner
+terraces. Source footprints/holes, supplied top height, room/core identities and
+lower storeys remain the existing plan's responsibility.
+
+`plan_for(row, profile="legacy")` retains the previous default. A requested new
+profile must pass the existing complete exterior section and actual framed
+near-access/terrace checks. Otherwise the previous search runs and records
+`requested_profile`/`profile_fallback_reason`. The tile consumer uses this explicit
+source programme on its existing bounded candidate set; this does not expand the
+eight-candidate experiment or claim an entire architectural family.
+
+Fixed actual source controls: `data/stepped-profiles.json`. Run
+`PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest verify_stepped_profiles verify_stepped_contours verify_structural_shell_controls -q`.
+Freeze the implementation, then run `stepped_profile_probe.py --output <system-temp>`
+for independent actual contour/room diagrams and paired whole/opposite Blender
+inputs. Render each geometry JSON using shared `blender_city.py` at 1920×1080.
+Primary/SDK/Ghidra scope: `doc/references/buildings/esri/stepped-profiles-sdk-3.4.12206.md`.
+Research outputs stay local; master owns integrated Places and native admission.
