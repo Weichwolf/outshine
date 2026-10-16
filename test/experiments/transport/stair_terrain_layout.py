@@ -19,7 +19,7 @@ def selected_surfaces(data, rows):
     )
 
 
-def partition(ground, context, raster, *, spacing_m=12.0, margin_m=15.0):
+def partition(ground, context, raster, *, spacing_m=12.0, margin_m=15.0, sample=None):
     if not 4 <= spacing_m <= 24 or not 8 <= margin_m <= 24:
         raise ValueError("bounded research grid and explicit domain margin required")
     source = ground.vertices[ground.triangles, :2]
@@ -70,7 +70,7 @@ def partition(ground, context, raster, *, spacing_m=12.0, margin_m=15.0):
     faces, kinds = np.array(faces), np.array(kinds)
     if len(faces) > 32768 or not shapely.coverage_is_valid(shapely.polygons(xy[faces])):
         raise ValueError("soil partition cap or edge-matched coverage failed")
-    targets = sample_xy(xy, context, raster)
+    targets = sample_xy(xy, context, raster) if sample is None else sample(xy)
     samples = SurfaceSampler(ground).sample(
         xy, max_queries=16384, max_candidates=2000000
     )
