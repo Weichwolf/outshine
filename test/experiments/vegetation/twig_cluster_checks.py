@@ -10,6 +10,7 @@ from outshine_ref.vegetation.axis_surface import axis_mesh
 from scipy.spatial.transform import Rotation
 from twig_cluster_mesh import add_twigs
 from twig_clusters import TwigClusters
+from twig_radius_basis import apply_basis, radius_basis
 
 
 def plan(counts=(25, 26, 0, 1)):
@@ -141,6 +142,34 @@ class TwigClusterChecks(unittest.TestCase):
         for key in ("vertices", "faces", "normals", "corner_uv", "surface"):
             np.testing.assert_array_equal(result[key][: len(source[key])], source[key])
         self.assertEqual(len(result["faces"]) - len(source["faces"]), 11 * 32)
+
+    def test_affine_radius_basis_matches_original_kernel_and_hard_cap_normals(self):
+        radii = np.array((0.000065, 0.00011, 0.0002, 0.000325))
+        for length in (0.12, 0.25):
+            for bend in (0.0, 0.35, -0.8):
+                basis = radius_basis(length, bend)
+                vertices, normals = apply_basis(basis, radii)
+                for i, radius in enumerate(radii):
+                    expected = axis_mesh(length, bend, radius, radius * 0.3, 3, 4)
+                    np.testing.assert_array_equal(basis["faces"], expected["faces"])
+                    np.testing.assert_allclose(
+                        vertices[i], expected["vertices"], atol=1e-12, rtol=0
+                    )
+                    np.testing.assert_allclose(
+                        normals[i], expected["normals"], atol=1e-10, rtol=0
+                    )
+                np.testing.assert_allclose(
+                    np.linalg.norm(normals, axis=2), 1, atol=3e-16
+                )
+        p = plan()
+        source = axis_mesh(1, 0.2, 0.01, 0.005, 3, 4)
+        source["surface"] = np.zeros(len(source["faces"]), np.uint8)
+        source["corner_uv"] = np.zeros((source["faces"].size, 2))
+        a, b = add_twigs(p, source, 11), add_twigs(p, source, 11, method="scalar")
+        for key in ("faces", "surface", "corner_uv"):
+            np.testing.assert_array_equal(a[key], b[key])
+        np.testing.assert_allclose(a["vertices"], b["vertices"], atol=1e-12, rtol=0)
+        np.testing.assert_allclose(a["normals"], b["normals"], atol=1e-10, rtol=0)
 
 
 if __name__ == "__main__":
