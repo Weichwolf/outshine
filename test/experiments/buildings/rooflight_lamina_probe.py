@@ -7,6 +7,7 @@ import time
 import tracemalloc
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 from demand import View, displacement_error
@@ -40,7 +41,7 @@ def filtered_template(width, length, slope):
     value["materials"] = full["materials"][selected]
     for array in value.values():
         array.flags.writeable = False
-    return value
+    return MappingProxyType(value)
 
 
 def placed(fields, build):
