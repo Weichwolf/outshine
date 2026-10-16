@@ -82,7 +82,9 @@ remain complete. Asset formats and terrain sampling are unchanged.
 `GroundLattice/SurfacePatchesPreserveRasterAndFractions` verifies native depth,
 material targets, array-layer growth, complete skirts, perspective and non-affine
 heights against an independently drawn complete grid on the same device.
-This is representation preparation: it does not yet cull patches or reduce the
-submitted triangle count. Native paired Tokyo runs do not establish a speedup;
-first-frame GPU peaks still exceed 1000/30 ms. Current-depth selection and total
-cost acceptance remain open in #515.
+Current opaque depth now selects and stably compacts patches before drawing.
+Tokyo submits about 63% fewer terrain triangles in the measured rotation.
+Full GPU-budget acceptance remains open in #515, especially the first terrain frame.
+
+Further [terrain work-selection comparisons](terrain_work_selection.md) cover bounded
+lower envelopes, exact early terrain, projected bounds and meshoptimizer normal cones.
