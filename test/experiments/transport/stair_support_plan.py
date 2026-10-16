@@ -10,6 +10,7 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.transport.supports import SupportVolumeBuilder
 from stair_cycle_inputs import load
 from stair_support_audit import Reference, body_caps, domain, quantized
+from stair_support_traffic import RegionMask, TrafficIndex
 
 
 def inputs(root, fixture):
@@ -72,39 +73,102 @@ def footprint(line, station):
     return shapely.Polygon(corners @ np.array([tangent, normal]) + centre)
 
 
-def source_surfaces(road, owners):
+def source_surfaces(road, owners, *, preparation="shared"):
+    if preparation not in ("shared", "per_source"):
+        raise ValueError("known support preparation required")
     upper_surfaces, exclusions = {}, {}
+    if not owners:
+        return upper_surfaces, exclusions
+    if len(road["top_faces"]) > 65536 or len(road["top_faces"]) != len(
+        road["face_sources"]
+    ):
+        raise ValueError("bounded matching traffic faces and source masks required")
     rounded = road["body_vertices"].astype("f4").astype(float)
+    indices = (
+        [
+            TrafficIndex(
+                shapely.polygons(xyz[road["top_faces"], :2]), road["face_sources"]
+            )
+            for xyz in (road["body_vertices"], rounded)
+        ]
+        if preparation == "shared"
+        else None
+    )
     for owner in sorted(owners):
         upper = Mesh(
             road["body_vertices"],
             road["bottom_faces"][(road["face_sources"] & (1 << owner)) != 0],
         )
         upper_surfaces[owner] = upper
-        other = road["top_faces"][(road["face_sources"] & ~(1 << owner)) != 0]
-        exclusions[owner] = [
-            shapely.union_all(shapely.polygons(xyz[other, :2]))
-            for xyz in (road["body_vertices"], rounded)
-        ]
+        if indices is not None:
+            exclusions[owner] = [index.for_source(owner) for index in indices]
+        else:
+            other = (road["face_sources"] & ~(1 << owner)) != 0
+            exclusions[owner] = [
+                RegionMask(
+                    shapely.union_all(
+                        shapely.polygons(xyz[road["top_faces"][other], :2])
+                    )
+                )
+                for xyz in (road["body_vertices"], rounded)
+            ]
     return upper_surfaces, exclusions
 
 
-def context(road, lower, owners):
-    upper_surfaces, exclusions = source_surfaces(road, owners)
-    builders = {
-        owner: SupportVolumeBuilder(lower, upper)
-        for owner, upper in upper_surfaces.items()
-    }
+def context(road, lower, owners, *, preparation="shared"):
+    upper_surfaces, exclusions = source_surfaces(road, owners, preparation=preparation)
+    if preparation == "shared" and owners:
+        bits = sum(1 << owner for owner in owners)
+        upper = Mesh(
+            road["body_vertices"],
+            road["bottom_faces"][(road["face_sources"] & bits) != 0],
+        )
+        shared = SupportVolumeBuilder(lower, upper)
+        builders = {owner: shared for owner in owners}
+    else:
+        builders = {
+            owner: SupportVolumeBuilder(lower, upper)
+            for owner, upper in upper_surfaces.items()
+        }
     references = {owner: Reference(upper) for owner, upper in upper_surfaces.items()}
-    return builders, Reference(lower), references, exclusions
+    unique = {id(builder): builder for builder in builders.values()}
+    traffic_faces = (
+        2 * len(road["top_faces"])
+        if preparation == "shared" and owners
+        else 2
+        * sum(
+            int(np.count_nonzero((road["face_sources"] & ~(1 << owner)) != 0))
+            for owner in owners
+        )
+    )
+    work = {
+        "mode": preparation,
+        "construction_builders": len(unique),
+        "construction_lower_faces": sum(
+            len(b.lower.triangles) for b in unique.values()
+        ),
+        "construction_upper_faces": sum(
+            len(b.upper.triangles) for b in unique.values()
+        ),
+        "traffic_input_triangles": traffic_faces,
+        "traffic_indices": 2 if preparation == "shared" and owners else 0,
+        "traffic_union_calls": 2 * len(owners) if preparation == "per_source" else 0,
+        "traffic_triangle_xy_payload_bytes": traffic_faces
+        * 3
+        * 2
+        * road["body_vertices"].dtype.itemsize,
+        "owned_traffic_mask_bytes": 2 * len(road["face_sources"]) * 8
+        if preparation == "shared" and owners
+        else 0,
+    }
+    return builders, Reference(lower), references, exclusions, work
 
 
 def admit(product, lower, upper, excluded, previous):
     note = body_caps(product)
     shapes = [domain(product.lower_contact), domain(quantized(product.lower_contact))]
     if any(
-        shapely.dwithin(shape, region, 0.2)
-        for shape, region in zip(shapes, excluded, strict=True)
+        region.conflicts(shape) for shape, region in zip(shapes, excluded, strict=True)
     ):
         raise ValueError("actual support conflicts with another selected source")
     for shape, old in zip(shapes, previous, strict=True):
@@ -115,15 +179,15 @@ def admit(product, lower, upper, excluded, previous):
     return shapes, note
 
 
-def plan(rows, road, lower, *, method, seconds=8):
+def plan(rows, road, lower, *, method, seconds=8, preparation="shared"):
     if method not in ("fixed", "shifted") or not 0 < seconds <= 8:
         raise ValueError("bounded known stair support method required")
     began = time.perf_counter()
     candidates, short = stations(rows)
-    builders, low_ref, uppers, exclusions = context(
-        road, lower, {c[0] for c in candidates}
+    builders, low_ref, uppers, exclusions, preparation_work = context(
+        road, lower, {c[0] for c in candidates}, preparation=preparation
     )
-    preparation = time.perf_counter() - began
+    preparation_elapsed = time.perf_counter() - began
     products, ledger, shapes = [], [], [[], []]
     shifts = (0,) if method == "fixed" else (0, -2, 2, -4, 4)
     work = {"trials": 0, "contact_pair_checks": 0, "body_faces": 0}
@@ -140,7 +204,7 @@ def plan(rows, road, lower, *, method, seconds=8):
             work["trials"] += 1
             try:
                 shape = footprint(line, nominal + shift)
-                if shapely.dwithin(shape, exclusions[owner][0], 0.2):
+                if exclusions[owner][0].conflicts(shape):
                     raise ValueError("other_selected_source_exclusion")
                 product, geometry = builders[owner].build(
                     shape, minimum_height_m=0.1001
@@ -177,6 +241,7 @@ def plan(rows, road, lower, *, method, seconds=8):
         "short_sources": short,
         "work": work,
         "accepted": len(products),
-        "preparation_seconds": preparation,
+        "preparation_seconds": preparation_elapsed,
+        "preparation_work": preparation_work,
         "seconds": time.perf_counter() - began,
     }

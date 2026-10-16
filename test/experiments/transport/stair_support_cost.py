@@ -46,7 +46,9 @@ def measure(args):
             )
         began = time.perf_counter()
         with tracker:
-            products, note = plan(rows, road, lower, method=args.mode)
+            products, note = plan(
+                rows, road, lower, method=args.mode, preparation=args.preparation
+            )
         elapsed = (time.perf_counter() - began) * 1000
         actual = packed(
             [p.body for p in products],
@@ -64,6 +66,7 @@ def measure(args):
         "commit": commit,
         "products_report_sha256": digest(args.products / "comparison.json"),
         "mode": args.mode,
+        "preparation_work": notes[-1]["preparation_work"],
         "profiled": args.profile is not None,
         "phase_ms": times,
         "median_ms": statistics.median(times),
@@ -103,6 +106,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--products", type=Path, required=True)
     parser.add_argument("--mode", choices=("fixed", "shifted"), required=True)
+    parser.add_argument(
+        "--preparation", choices=("shared", "per_source"), default="shared"
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", type=Path)
     resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
