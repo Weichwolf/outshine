@@ -60,9 +60,8 @@ Recording::PrepareAttachment(TextureView view, Load begin, Store end, bool depth
                                     VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
                           .Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
   if (auto used = UseImage(*image, view, access); !used) { return std::unexpected(used.error()); }
-  auto native = CreateView(**image, view);
+  auto native = Storage_.ImageView(**image, view);
   if (!native) { return std::unexpected(native.error()); }
-  Views_.push_back(*native);
   RenderAttachment attachment{.Image = std::move(*image), .Range = view};
   attachment.Range.Image = nullptr;
   attachment.Native.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;

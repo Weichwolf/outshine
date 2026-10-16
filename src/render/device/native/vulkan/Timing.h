@@ -17,11 +17,16 @@ public:
   TimingQueries(const TimingQueries &) = delete;
   TimingQueries &operator=(const TimingQueries &) = delete;
 
+  [[nodiscard]] Result<void> BeginSubmission(VkCommandBuffer commands);
+  void EndSubmission(VkCommandBuffer commands) const;
+  [[nodiscard]] Result<SubmissionGpuTiming> ReadSubmission() const;
+
   [[nodiscard]] Result<std::optional<uint32_t>> Begin(VkCommandBuffer commands);
   void End(VkCommandBuffer commands, std::optional<uint32_t> query) const;
   [[nodiscard]] GpuTimingResults Read() const;
 
 private:
+  static constexpr uint32_t kSubmissionQueries = 2;
   static constexpr uint32_t kMaximumDispatches = 128;
   Context &Context_;
   VkQueryPool Pool_ = VK_NULL_HANDLE;
