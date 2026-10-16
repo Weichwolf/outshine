@@ -75,6 +75,10 @@ bool ValidFactor(BlendFactor factor) {
 }
 
 Result<void> CheckGraphics(const Context &context, const GraphicsDescription &description) {
+  if (description.ClampDepth && !context.Limits.DepthClamp) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "Vulkan depth clamp is unavailable"});
+  }
   if (description.Colours.size() > std::min(8u, context.Limits.MaxColourAttachments) ||
       (description.Colours.empty() && !description.Depth) ||
       (!description.Colours.empty() && !description.Fragment) ||

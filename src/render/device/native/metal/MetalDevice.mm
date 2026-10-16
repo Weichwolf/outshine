@@ -29,6 +29,7 @@ MetalDevice::MetalDevice(uint64_t identity,
   Limits_.MaxWorkgroupCount.fill(std::numeric_limits<uint32_t>::max());
   Limits_.MaxWorkgroupInvocations = baselineInvocations;
   Limits_.GpuTimestamps = true;
+  Limits_.DepthClamp = true;
 }
 
 MetalDevice::~MetalDevice() {
