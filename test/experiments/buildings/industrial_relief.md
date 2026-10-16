@@ -77,6 +77,12 @@ shared interfaces are unchanged. Terminal commits/paths belong to the PR.
 The ordinary old baseline is reused only after exact streams, dtypes, camera
 and palette checks.
 
+After the additive Transport #520 merge, `a47fe2d75` passes13 installed feature/
+welding transition controls in13.567s; all198 modules are byte-exact to that
+pinned current package. The actual entire tile also replays arrays/dtypes and
+palette exactly against the frozen raster input. No new raster or old-library
+equivalence is inferred merely from a clean merge.
+
 The complete unchanged37-source tile uses84801 triangles before and88235 after
 the selected relief (+3434,4.05%). Near examples have7672/11810/8574 triangles
 including the existing complete hall products; the corresponding baselines
