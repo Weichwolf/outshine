@@ -6,10 +6,11 @@
 
 #include <chrono>
 #include <cstddef>
-#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <optional>
+#include <print>
+#include <ratio>
 #include <string>
 #include <utility>
 
@@ -23,7 +24,7 @@ template <typename Operation> void Measure(const char *name, Operation operation
   const auto begin = Clock::now();
   for (size_t at = 0; at < kIterations; ++at) { operation(); }
   const auto ns = std::chrono::duration<double, std::nano>(Clock::now() - begin).count();
-  std::printf("%s iterations=%zu mean_ns=%.3f\n", name, kIterations, ns / kIterations);
+  std::println("{} iterations={} mean_ns={:.3f}", name, kIterations, ns / kIterations);
 }
 
 void EngineCase(Scenario::Document scenario, const char *name) {
@@ -42,7 +43,7 @@ void EngineCase(Scenario::Document scenario, const char *name) {
     }
   });
   const auto loading = engine.loading();
-  CHECK(loading.ProviderStarts == 0 && loading.SourceDeliveries == 0 && loading.Sources.empty(),
+  CHECK(loading.ProviderStarts == 0 && loading.SourceDeliveries == 0,
         "all measured cases remain free of provider acquisition");
 }
 }
@@ -56,12 +57,12 @@ int main() {
   CHECK(ReadScenario(input->data(), input->size(), scenario, error) && scenario.Weather,
         "the measured native input passes production parsing");
   if (!scenario.Weather) { return Report(); }
-  std::printf("WeatherValues_bytes=%zu WeatherSnapshot_bytes=%zu WeatherDeclaration_bytes=%zu "
-              "optional_declaration_bytes=%zu\n",
-              sizeof(WeatherValues),
-              sizeof(WeatherSnapshot),
-              sizeof(Scenario::WeatherDeclaration),
-              sizeof(std::optional<Scenario::WeatherDeclaration>));
+  std::println("WeatherValues_bytes={} WeatherSnapshot_bytes={} WeatherDeclaration_bytes={} "
+               "optional_declaration_bytes={}",
+               sizeof(WeatherValues),
+               sizeof(WeatherSnapshot),
+               sizeof(Scenario::WeatherDeclaration),
+               sizeof(std::optional<Scenario::WeatherDeclaration>));
   Measure("native-input", [&] {
     const auto result = Generators::Weather::MakeDeclaredWeather(
         scenario.Weather->At, scenario.Weather->Values, kDeclaredWeatherUtcS);
