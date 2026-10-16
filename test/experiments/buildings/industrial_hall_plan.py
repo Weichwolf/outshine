@@ -129,7 +129,7 @@ def plan(row, parameters, info, facades, entry, clear):
     windows, omitted = windows_for(row, facades, entry, gate, interior, ceiling, clear)
     return {
         "id": row["id"],
-        "room_id": row["id"] + ":floor-0:hall-0",
+        "room_id": row["id"] + ":floor-0:room-0",
         "footprint_wkb": row["polygon"].wkb_hex,
         "interior_wkb": interior.wkb_hex,
         "floor_m": 0.16,

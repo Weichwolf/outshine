@@ -156,6 +156,7 @@ class IndustrialHalls(unittest.TestCase):
                 self.assertEqual(info["hall_plan"], canonical or info["hall_plan"])
                 canonical = info["hall_plan"]
                 self.assertEqual(info["room_ids"], [[value["room_id"]]])
+                self.assertEqual(info["entrance_plan"]["room_id"], value["room_id"])
                 self.assertLessEqual(len(value["windows"]), 96)
                 self.assertGreater(len(value["windows"]), 10)
                 self.assertAlmostEqual(
