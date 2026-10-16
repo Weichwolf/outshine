@@ -44,6 +44,8 @@ def sheet(name, reflection, transmission=None):
     if transmission is None:
         links.new(diffuse.outputs[0], output.inputs["Surface"])
     else:
+        mat.thickness_mode = "SLAB"
+        output.inputs["Thickness"].default_value = 0
         translucent = nodes.new("ShaderNodeBsdfTranslucent")
         translucent.inputs["Color"].default_value = (*transmission, 1)
         links.new(geometry.outputs["True Normal"], translucent.inputs["Normal"])

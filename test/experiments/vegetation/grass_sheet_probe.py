@@ -62,6 +62,7 @@ def run(output):
             row = {
                 "direction": name,
                 "shadows": shadows,
+                "thickness_mode": bpy.data.materials["R plus T"].thickness_mode,
                 "measured_linear_rgb": linear.mean((0, 1)).tolist(),
                 "expected_direct_rgb": expected.tolist(),
             }
