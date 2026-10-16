@@ -8,13 +8,59 @@ from pathlib import Path
 import numpy as np
 from diffuse_scatter import uniform_samples
 from exchange_io import read_exchange, write_exchange
+from exchange_light import basis_optics, direct_nodes
 from exchange_operator import build_links, gather_apply, mix_sides, prepare_csr
+from outshine_ref.vegetation.leaf_lighting import leaf_diffuse_response
 from scatter_reference import rectangle_factor
 from scatter_render import camera_packet
 from scatter_scene import ScatterScene
 
 
 class ExchangeChecks(unittest.TestCase):
+    def test_current_light_and_material_match_the_existing_sheet_reference(self):
+        basis = {
+            "points": np.array(((0, 0, 0.2), (0, 0, 0)), float),
+            "normals": np.array(((1, 0, 0), (0, 0, 1.0))),
+            "leaf_nodes": 1,
+            "ground_grid": 1,
+        }
+        lights = [
+            {"direction": [np.sqrt(3) / 2, 0, 0.5], "irradiance_rgb": [3, 2.7, 2.4]},
+            {"direction": [-0.6, 0, 0.8], "irradiance_rgb": [0.15, 0.22, 0.35]},
+        ]
+        states = {
+            "a": {
+                "leaf_rt": [0.1, 0.2, 0.05, 0.03, 0.08, 0.02],
+                "ground_albedo": [0.2, 0.13, 0.055],
+                "lights": lights,
+            },
+            "b": {
+                "leaf_rt": [0.05, 0.1, 0.025, 0.06, 0.16, 0.04],
+                "ground_albedo": [0.2, 0.13, 0.055],
+                "lights": lights,
+            },
+        }
+        scene = ScatterScene(np.empty((0, 3)), np.empty((0, 3), int))
+        actual = direct_nodes(scene, basis, states)
+        for name, state in states.items():
+            optical = basis_optics(basis, state)
+            expected = np.zeros((2, 2, 3))
+            for light in lights:
+                for side in (0, 1):
+                    expected[:, side] += (
+                        leaf_diffuse_response(
+                            optical,
+                            basis["normals"],
+                            basis["normals"] * (1 if side == 0 else -1),
+                            light["direction"],
+                        )
+                        * light["irradiance_rgb"]
+                    )
+            np.testing.assert_allclose(
+                actual[name], expected.reshape(-1, 3), atol=1e-16
+            )
+        self.assertEqual(scene.shadow_work["rays"], 4)
+
     def test_geometry_product_rejects_stale_pose_corruption_and_lighting_fields(self):
         basis = {
             "points": np.array(((0, 0, 1), (0, 0, 0)), float),
