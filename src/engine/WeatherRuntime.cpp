@@ -17,8 +17,9 @@
 #include <vector>
 
 namespace outshine {
-Result Engine::State::ValidateDeclaredWeatherProviders(const Scenario::Document &scenario) const {
-  if (!scenario.Weather) { return {}; }
+Result Engine::State::ValidateDeclaredWeatherProviders(const Scenario::Document &scenario) {
+  if (!scenario.Weather || scenario.Providers.empty()) { return {}; }
+  Generators::RegisterShippedProviders(World.Providers);
   for (const auto &provider : scenario.Providers) {
     auto source = Data::ConfigureSource(provider, Session.Under.Shipped, World.Providers);
     if (!source) { return std::unexpected(std::move(source.error())); }

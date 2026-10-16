@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <optional>
@@ -13,11 +14,18 @@
 #include <ratio>
 #include <string>
 #include <utility>
+#include <string_view>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Test;
 using Clock = std::chrono::steady_clock;
+
+void Require(Result result, std::string_view phase) {
+  if (result) { return; }
+  std::println(stderr, "{}: {}", phase, result.error());
+  std::abort();
+}
 
 template <typename Operation> void Measure(const char *name, Operation operation) {
   constexpr size_t kIterations = 1000;
@@ -33,7 +41,9 @@ void EngineCase(Scenario::Document scenario, const char *name) {
             {.Assets = {}, .Shipped = {}, .Cache = {}, .Offline = true, .AssetCache = {}}),
         "the measured headless engine uses no source cache or network");
   Measure(name, [&] {
-    if (!engine.declare(scenario) || !engine.assemble() || !engine.preload(0.0)) { std::abort(); }
+    Require(engine.declare(scenario), "declare");
+    Require(engine.assemble(), "assemble");
+    Require(engine.preload(0.0), "preload");
   });
   const auto retained = engine.weather();
   const auto repeatedName = std::string(name) + "-repeat";
@@ -76,7 +86,8 @@ int main() {
     if (owned->Values.CloudLow != kDeclaredWeatherLow) { std::abort(); }
   });
   EngineCase(scenario, "declared-new");
-  scenario.Providers = {{.Kind = "terrain"}};
+  scenario.Providers.emplace_back();
+  scenario.Providers.back().Kind = "terrain";
   EngineCase(scenario, "declared-terrain-new");
   scenario.Weather.reset();
   EngineCase(scenario, "terrain-new");

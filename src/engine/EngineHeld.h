@@ -618,7 +618,7 @@ struct Engine::State {
   [[nodiscard]] bool ConfigureDeclaredWeather();
   [[nodiscard]] bool ConfigureWorldSources(std::vector<Data::SourceProvider> &providers);
   [[nodiscard]] bool PollWeather();
-  [[nodiscard]] Result ValidateDeclaredWeatherProviders(const Scenario::Document &scenario) const;
+  [[nodiscard]] Result ValidateDeclaredWeatherProviders(const Scenario::Document &scenario);
 
   [[nodiscard]] bool WeatherRunning() const noexcept {
     return World.Weather && World.Weather->Running();
