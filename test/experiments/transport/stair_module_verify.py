@@ -15,7 +15,7 @@ from stair_module_experiment import arguments, refused_catalog, write_json
 from stair_module_geometry import old_surfaces
 from stair_module_inputs import cached, inputs, read_arrays
 from stair_module_soil import selection
-from stair_module_world import inspect_world, source_ground
+from stair_module_world import field_link, inspect_world, source_ground
 from stair_terrain_experiment import frozen
 
 
@@ -185,6 +185,9 @@ def verify(args):
     expected_chosen, _protected, _shapes, _affected = selection(state, newfoot)
     if not np.array_equal(chosen, expected_chosen):
         raise ValueError("bounded terrain replacement scope changed")
+    linked = field_link(
+        state, local, local_field["heights"], chosen, plan, field["heights"]
+    )
     for layout in (local, plan):
         if not np.array_equal(layout["targets"], sample(layout["xy"])):
             raise ValueError("original whole terrain DEM targets changed")
@@ -219,6 +222,7 @@ def verify(args):
         "products_report_sha256": digest(args.output / "comparison.json"),
         "module": network,
         "world": world,
+        "field_link": linked,
         "display": shown,
         "valid_local_module": True,
         "admitted_source_ids": [],

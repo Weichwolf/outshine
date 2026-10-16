@@ -16,6 +16,7 @@ from stair_module_contacts import interfaces
 from stair_module_geometry import build, old_surfaces
 from stair_module_inputs import FIXTURE, inputs, read_arrays
 from stair_module_soil import fit, prepare
+from stair_module_world import field_link
 
 
 def context_state():
@@ -201,6 +202,23 @@ class RealGroundModule(unittest.TestCase):
         bad["bed"][np.flatnonzero(bad["boundary"])[0]] = np.nan
         with self.assertRaisesRegex(ValueError, "finite cached heights"):
             pins_for(bad)
+
+    def test_local_and_world_snapshots_cannot_silently_diverge(self):
+        proof = field_link(
+            self.state,
+            self.local,
+            self.heights,
+            self.selected,
+            self.local,
+            self.heights,
+        )
+        self.assertEqual(proof["linked_local_vertices"], len(self.heights))
+        wrong = self.heights.copy()
+        wrong[np.flatnonzero(~np.isfinite(self.local["bed"]))[0]] += 0.001
+        with self.assertRaisesRegex(ValueError, "field products differ"):
+            field_link(
+                self.state, self.local, self.heights, self.selected, self.local, wrong
+            )
 
     def test_provider_rejects_original_bridge_tags_as_ground(self):
         layer = copy.deepcopy(self.context)
