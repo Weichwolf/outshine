@@ -542,6 +542,43 @@ Cut-/Fill-Vorzeichen; keine Quelle wird freigegeben. Privater Installationspräf
 bei Bedarf in `PYTHONPATH` ergänzen. Der gespeicherte Reader löst/trianguliert/gräbt
 nicht neu. Native Gates und vollständige Terrain-/Verkehrsabnahme bleiben getrennt.
 
+## Kontinuierliche Böschungen mit ganzen Exportkontakten (#434)
+
+Der [Böschungsvergleich](stair_blend_comparison.md) plant kontinuierliche Bodenhöhen
+mit ganzen Brückenbedingungen, festen ursprünglichen Bodenprofilen und örtlichen
+nicht begehbaren Stützflächen. Für tatsächliche Float32-Kontakte wird ein räumlich
+hergeleitetes Höhenband geprüft; ein erfolgreicher Solverstatus ist keine Freigabe.
+Zusätzlich zu NumPy/SciPy/Shapely ist `clarabel==0.11.1` erforderlich. Das neue
+Verfahren benötigt weder Manifold noch das CityEngine-SDK. Ausgabe frisch im
+System-Tempverzeichnis; der explizite Außenversuch stammt aus den versionierten
+Eingängen des vorigen Abschnitts.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_blend_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_experiment.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_BLEND_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_verify.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_BLEND_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/after-diagnostic-scene.json"
+```
+
+Gleicher fester Plan und gleiche Qualitätsbedingungen, Vorbereitung/Prüfung außerhalb
+der Fit-Zeit; beide Prozesse nacheinander bei normaler Priorität starten:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_cost.py --products "$TRANSPORT_BLEND_OUTPUT" --smoothing 16 --output "$TRANSPORT_BLEND_OUTPUT/membrane-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_cost.py --products "$TRANSPORT_BLEND_OUTPUT" --smoothing 0 --output "$TRANSPORT_BLEND_OUTPUT/data-cost.json"
+```
+
+Optionale Allokationsmessung benötigt `memray==1.20.0`: jeden Kostenaufruf separat
+mit frischem `--output` und zusätzlichem frischem `--profile /tmp/…/trace.bin`
+ausführen. Profilzeiten ersetzen keine normalen Zeiten. Abgelehnte Kandidaten
+haben ausdrücklich keine gültige Ausgabemediane, auch bei Prozessstatus 0.
+
+Andere Quellen und äußere Anschlüsse bleiben ausdrücklich ungeprüft. Keine native
+oder vollständige Wege-/Geräte-/Statikabnahme aus dem örtlichen Höhenmodell ableiten.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
