@@ -11,7 +11,8 @@ bool Valid(const LowCloudRecipe &recipe) noexcept {
   return std::isfinite(recipe.BaseAslM) && recipe.BaseAslM >= 0.0 &&
          std::isfinite(recipe.ThicknessM) && recipe.ThicknessM > 0.0 &&
          std::isfinite(recipe.ExtinctionPerM) && recipe.ExtinctionPerM >= 0.0 &&
-         std::isfinite(recipe.AdvectionEastMs) && std::isfinite(recipe.AdvectionNorthMs);
+         std::isfinite(recipe.AdvectionEastMs) && std::isfinite(recipe.AdvectionNorthMs) &&
+         (recipe.Profile == CloudProfile::Stratus || recipe.Profile == CloudProfile::CumulusV1);
 }
 }
 
@@ -31,6 +32,7 @@ MakeLowCloud(const WeatherSnapshot &snapshot,
   state.Layer.ThicknessM = recipe->ThicknessM;
   state.Layer.ExtinctionPerM = recipe->ExtinctionPerM;
   state.Layer.Cover = *cover;
+  state.Layer.Profile = recipe->Profile;
   state.Layer.WindMs = Vec3{RenderFrame::Of(
       {.EastM = recipe->AdvectionEastMs, .NorthM = recipe->AdvectionNorthMs, .UpM = 0.0})};
   state.ProceduralGeometry = true;

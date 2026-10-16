@@ -1419,6 +1419,7 @@ void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRec
       static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
   ActiveState().Content.Subjects.ShadowedBy(ActiveFrame().ShadowAtlas.Get(),
                                             ActiveFrame().LutSamp.Get(),
+                                            ActiveState().ShadowLightIndex,
                                             ActiveFrame().Shadow.LightFromWorld(),
                                             ActiveFrame().Shadow.Regions(),
                                             ActiveFrame().Shadow.RegionCount());

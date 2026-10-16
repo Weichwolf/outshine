@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 
 namespace outshine {
@@ -13,6 +14,11 @@ inline constexpr double kCloudReferenceRadiusM = 6360000.0;
 inline constexpr double kCloudLayerThicknessM = 600.0;
 inline constexpr double kCloudExtinctionPerM = 0.012;
 
+enum class CloudProfile : uint32_t { Stratus = 0, CumulusV1 = 1 };
+
+static_assert(static_cast<uint32_t>(CloudProfile::Stratus) == 0 &&
+              static_cast<uint32_t>(CloudProfile::CumulusV1) == 1);
+
 struct CloudLayer {
   double RadiusM = kCloudReferenceRadiusM;
   double BaseM = 0.0;
@@ -20,6 +26,7 @@ struct CloudLayer {
   double Cover = 0.0;
   double ExtinctionPerM = kCloudExtinctionPerM;
   Vec3 WindMs{};
+  CloudProfile Profile = CloudProfile::Stratus;
 };
 
 struct CloudSegment {

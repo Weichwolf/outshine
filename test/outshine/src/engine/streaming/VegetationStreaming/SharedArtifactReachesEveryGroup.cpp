@@ -2,6 +2,7 @@
 #include "ImpostorSurface.h"
 #include "ImpostorPreparation.h"
 #include "TreePrototype.h"
+#include "TreeSpecies.h"
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "GroundMaterials.h"
@@ -12,7 +13,61 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <string>
+#include <system_error>
 #include <thread>
+
+namespace {
+bool ShareDefinition(const outshine::Generators::TreeSpecies *first,
+                     const outshine::Generators::TreeSpecies *second) {
+  return first != nullptr && second != nullptr && first->Definition() == second->Definition();
+}
+
+void WriteSpecies(const std::filesystem::path &directory) {
+  std::filesystem::create_directories(directory / "species");
+  constexpr auto definition = R"({"name":"shared","max_order":0,"terminal_fork":0,"foliate":0})";
+  for (const auto *name : {"a.json", "b.json"}) {
+    std::ofstream file(directory / "species" / name);
+    file << definition;
+    CHECK(file.good(), "duplicate species fixture written");
+  }
+}
+
+void CheckAtlasBudget(outshine::Content::ImpostorAtlasShape shape) {
+  using outshine::Content::ImpostorAtlas;
+  const auto bytes = ImpostorAtlas::EncodedBytesMost(shape);
+  constexpr auto kOpticalMetadataMost = 64u + 64u * 68u + 8u * 24u + 8u;
+  CHECK(bytes && *bytes == 256u * 256u * 8u * 40u + kOpticalMetadataMost,
+        "default native atlas budget includes every texel, view, material and format field");
+  CHECK(!ImpostorAtlas::EncodedBytesMost({.Pixels = 4096, .Views = 64}) &&
+            !ImpostorAtlas::EncodedBytesMost({.Pixels = 0}),
+        "invalid shapes cannot produce overflowing native allocation budgets");
+}
+
+void CheckEncodedAtlasBudget(const outshine::Content::ImpostorAtlas &atlas,
+                             outshine::Content::ImpostorAtlasShape shape,
+                             std::string &error) {
+  const auto bytes = atlas.Encode("bound-check", error);
+  const auto bound = outshine::Content::ImpostorAtlas::EncodedBytesMost(shape);
+  CHECK(bytes && bound && bytes->size() <= *bound,
+        "format-derived budget contains a real encoded native atlas");
+}
+
+bool AwaitCrowns(outshine::VegetationStreaming &crowns, bool prepare, std::string &error) {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!crowns.Ready() && std::chrono::steady_clock::now() < deadline) {
+    if (!crowns.Step({{0, 0, 10}},
+                     prepare,
+                     outshine::VegetationStreaming::ResourcePublication::Allowed,
+                     error)) {
+      return false;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return true;
+}
+}
 
 int main() {
   using namespace outshine;
@@ -29,15 +84,11 @@ int main() {
       std::error_code error;
       std::filesystem::remove_all(Path, error);
     }
-  } cleanup{directory};
+  };
 
-  std::filesystem::create_directories(directory / "species");
-  constexpr auto definition = R"({"name":"shared","max_order":0,"terminal_fork":0,"foliate":0})";
-  for (const auto *name : {"a.json", "b.json"}) {
-    std::ofstream file(directory / "species" / name);
-    file << definition;
-    CHECK(file.good(), "duplicate species fixture written");
-  }
+  const Cleanup cleanup{directory};
+
+  WriteSpecies(directory);
   Ground::GroundMaterials materials;
   Ground::VegetationTemplates vegetation;
   CHECK(materials.Load("src/assets/world/ground-materials.json"), "materials load");
@@ -48,20 +99,14 @@ int main() {
         "two clusters load");
   const auto *species = catalogue.TreeFor(Generators::ClusterId{0});
   const auto *second = catalogue.TreeFor(Generators::ClusterId{1});
-  CHECK(species && second && species->Definition() == second->Definition(),
-        "different clusters share artifact identity");
-  if (!species || !second) { return Report(); }
+  CHECK(ShareDefinition(species, second), "different clusters share artifact identity");
+  if (species == nullptr || second == nullptr) { return Report(); }
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video starts");
   const auto tree = Generators::TreePrototype::Grow(*species);
   CHECK(tree.has_value(), "fixture prototype grows");
   if (!tree) { return Report(); }
   VegetationStreaming::Config config;
-  const auto defaultBytes = Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
-  CHECK(defaultBytes && *defaultBytes == 256u * 256u * 8u * 40u + 3592u,
-        "default native atlas budget includes every texel, view, material and format field");
-  CHECK(!Content::ImpostorAtlas::EncodedBytesMost({.Pixels = 4096, .Views = 64}) &&
-            !Content::ImpostorAtlas::EncodedBytesMost({.Pixels = 0}),
-        "invalid shapes cannot produce overflowing native allocation budgets");
+  CheckAtlasBudget(config.Shape);
   config.Shape = {.Pixels = 32, .Views = 1};
   config.Prototypes = 2;
   config.Instances = 2;
@@ -69,10 +114,7 @@ int main() {
   const auto atlas = BakeImpostorAtlas(*tree, config.Shape, error);
   CHECK(atlas.has_value(), "fixture atlas captures");
   if (!atlas) { return Report(); }
-  const auto bytes = atlas->Encode("bound-check", error);
-  const auto bound = Content::ImpostorAtlas::EncodedBytesMost(config.Shape);
-  CHECK(bytes && bound && bytes->size() <= *bound,
-        "format-derived budget contains a real encoded native atlas");
+  CheckEncodedAtlasBudget(*atlas, config.Shape, error);
   Tasks tasks(1);
   Content::PreparedImpostorAssets cache(tasks, config.Cache);
   CHECK(cache.Publish(*atlas, ImpostorAtlasProvenance(species->Definition(), config.Shape), error),
@@ -88,7 +130,8 @@ int main() {
   CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, live, error),
         "resident renderer opens");
   if (!live) { return Report(); }
-  const std::array<WorldInstance, 2> instances{{{.Cluster = 0}, {.Cluster = 1}}};
+  const std::array<WorldInstance, 2> instances{
+      {{.Cluster = 0, .Where = {}}, {.Cluster = 1, .Where = {}}}};
   const auto initialPieces = renderer.PiecesStanding();
   for (int cycle = 0; cycle < 6; ++cycle) {
     if (cycle == 3) { config.Cache.Directory.clear(); }
@@ -97,18 +140,7 @@ int main() {
         renderer, tasks, catalogue, instances, TangentFrame::At({}), config, error);
     CHECK(crowns && crowns->Wanted() == 2, "both cluster groups are retained");
     if (!crowns) { return Report(); }
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    bool stepped = true;
-    while (!crowns->Ready() && std::chrono::steady_clock::now() < deadline) {
-      if (!crowns->Step({{0, 0, 10}},
-                        cycle == 3 || cycle == 4,
-                        VegetationStreaming::ResourcePublication::Allowed,
-                        error)) {
-        stepped = false;
-        break;
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    const bool stepped = AwaitCrowns(*crowns, cycle == 3 || cycle == 4, error);
     CHECK(stepped, "cache loading and requested miss preparation complete");
     CHECK(crowns->Ready() && crowns->Resident() == 2,
           "one cache result reaches both waiting groups");
