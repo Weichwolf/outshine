@@ -48,26 +48,37 @@ def gate_fixed(width, height):
     return frame, housing
 
 
-def roller(plan, opened, view):
+def gate_points(plan):
     gate, definition = plan["gate"], plan["definition"]
-    frame, housing = gate_fixed(gate["width_m"], gate["height_m"])
-    output = [placed(frame, gate), placed(housing, gate)]
     t = np.asarray(gate["tangent"])
-    points = np.array(
+    return np.array(
         [
             [*(np.asarray(gate["centre"]) + t * u), v]
             for u in (-definition.width_m / 2, definition.width_m / 2)
             for v in (0, definition.height_m)
         ]
     )
-    detailed = displacement_error(points, view, definition.rib_m) > view.detail_error_px
+
+
+def roller_leaf(plan, opened, detailed):
+    gate, definition = plan["gate"], plan["definition"]
     leaf = leaf_surface(definition, opened, detail=detailed)
-    if len(leaf["faces"]):
-        output.append(placed(leaf, gate, offset_m=0.004))
+    return [placed(leaf, gate, offset_m=0.004)] if len(leaf["faces"]) else []
+
+
+def roller(plan, opened, view):
+    gate, definition = plan["gate"], plan["definition"]
+    frame, housing = gate_fixed(gate["width_m"], gate["height_m"])
+    output = [placed(frame, gate), placed(housing, gate)]
+    detailed = (
+        displacement_error(gate_points(plan), view, definition.rib_m)
+        > view.detail_error_px
+    )
+    output.extend(roller_leaf(plan, opened, detailed))
     return output, detailed
 
 
-def personnel(entry, material):
+def personnel_leaf(entry, material):
     door = entry["door"]
     basis = basis_for(entry["frame"])
     leaf = DoorLeaf(
@@ -80,7 +91,12 @@ def personnel(entry, material):
     )
     raw = door_mesh(leaf, door_template(leaf), entry["angle_deg"])
     raw["materials"][:] = 10
-    result = [expand(raw, material)]
+    return expand(raw, material)
+
+
+def personnel_fixed(entry, material):
+    door = entry["door"]
+    result = []
     framing = place(
         template("entrance", 1.1, 2.15), door["centre"], door["tangent"], 0.16
     )
@@ -110,6 +126,10 @@ def personnel(entry, material):
             )
         )
     return result
+
+
+def personnel(entry, material):
+    return [personnel_leaf(entry, material), *personnel_fixed(entry, material)]
 
 
 def windows(plan, material):

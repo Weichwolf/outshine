@@ -19,12 +19,13 @@ from special_sources import INVENTORY, tiles
 SITES = ("Spittelau", "BerlinFernsehturm", "Grohnde", "Hameln")
 
 
-def read_tile(site):
+def read_tile(site, *, source_root=None):
     inventory = json.loads(INVENTORY.read_text())
     selection = next(s for s in inventory["sites"] if s["name"] == site)
     tile = tiles(selection["latitude"], selection["longitude"], 0)[0]
     receipt = next(r for r in inventory["receipts"] if tuple(r["tile"]) == tile)
-    path = SOURCES / (hashlib.sha256(receipt["url"].encode()).hexdigest() + ".pbf")
+    root = SOURCES if source_root is None else source_root
+    path = root / (hashlib.sha256(receipt["url"].encode()).hexdigest() + ".pbf")
     data = path.read_bytes()
     if hashlib.sha256(data).hexdigest() != receipt["sha256"]:
         raise ValueError("Pinned tile changed")

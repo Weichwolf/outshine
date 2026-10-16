@@ -13,9 +13,10 @@ from samples import SOURCES
 from tile_roof_envelopes import OrdinaryDetails
 
 
-def contexts(rows, receipt):
+def contexts(rows, receipt, *, source_root=None):
     r = receipt["receipt"]
-    path = SOURCES / (hashlib.sha256(r["url"].encode()).hexdigest() + ".pbf")
+    root = SOURCES if source_root is None else source_root
+    path = root / (hashlib.sha256(r["url"].encode()).hexdigest() + ".pbf")
     data = path.read_bytes()
     if hashlib.sha256(data).hexdigest() != r["sha256"]:
         raise ValueError("Facade context provider bytes changed")

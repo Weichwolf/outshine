@@ -4,6 +4,7 @@ import numpy as np
 import shapely
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from shared_bridge_geometry import corridor
+from stair_branch_inputs import shared_cycle_path
 from stair_cycle_contacts import profile
 
 
@@ -21,7 +22,13 @@ def chosen_kinds(rows, ends, node_index, stairs):
         row = rows[i]
         props = row["original"]["source"]["feature"]["properties"]
         if (
-            props.get("subclass") not in ("cycleway", "footway", "steps")
+            (
+                props.get("subclass") not in ("cycleway", "footway", "steps")
+                and not (
+                    row.get("source_recipe", "").startswith("exterior_shared_cycle_")
+                    and shared_cycle_path(props)
+                )
+            )
             or props.get("brunnel") == "tunnel"
             or props.get("indoor")
             or (

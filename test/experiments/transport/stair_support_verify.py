@@ -9,7 +9,13 @@ from cycle_bridge_display import append
 from outshine_ref.transport.supports import SupportVolume
 from stair_support_audit import Reference, domain, quantized
 from stair_support_experiment import arguments
-from stair_support_plan import admit, footprint, inputs, source_surfaces, stations
+from stair_support_plan import (
+    admit,
+    footprint,
+    inputs,
+    source_surfaces,
+    station_choices,
+)
 from stair_terrain_experiment import frozen
 from wien_support_verify import unpack
 
@@ -19,7 +25,11 @@ def replay(rows, road, lower, root, method, note):
     if digest(path) != note["mesh_sha256"]:
         raise ValueError("saved stair support products changed")
     bodies, caps, _arrays = unpack(path)
-    candidates, short = stations(rows)
+    candidates, short, deferred = station_choices(
+        rows, selection=note.get("station_selection", "all")
+    )
+    if deferred != note.get("deferred_stations", []):
+        raise ValueError("support deferred station ledger incomplete")
     if short != note["short_sources"] or len(candidates) != len(note["stations"]):
         raise ValueError("support station and short-source ledger incomplete")
     upper_surfaces, exclusions = source_surfaces(road, {c[0] for c in candidates})
@@ -84,6 +94,13 @@ def verify(args):
         raise ValueError("support baseline/source/frame/non-admission binding changed")
     results, selected = {}, None
     for method in ("fixed", "shifted"):
+        selection = json.loads(args.fixture.read_text()).get(
+            "support_station_selection", "all"
+        )
+        if report["methods"][method].get("station_selection", "all") != selection:
+            raise ValueError(
+                "saved support station selection differs from source recipe"
+            )
         bodies, result = replay(
             rows, road, lower, args.output, method, report["methods"][method]
         )

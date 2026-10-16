@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-from outshine_ref.geometry import conform_triangles
+from outshine_ref.geometry import conform_triangles, weld_vertices
 from shared_bridge_geometry import corridor
 from transport_vertex_pool import welded_vertices
 
@@ -97,6 +97,20 @@ def cross_sections(row):
     return result
 
 
+def arrangement_vertices(rows, xy):
+    settings = {r.get("surface_weld_tolerance_m") for r in rows}
+    if len(settings) != 1:
+        raise ValueError("one consistent numeric surface weld recipe required")
+    tolerance = settings.pop()
+    if tolerance is None:
+        result, labels, drift = welded_vertices(xy, 1e-8)
+        return result, labels, drift, {}
+    if not 1e-8 <= tolerance <= 1e-7:
+        raise ValueError("bounded numeric surface weld recipe required")
+    result, labels, note = weld_vertices(xy, tolerance)
+    return result, labels, note["maximum_displacement_m"], {"surface_weld": note}
+
+
 def arrangement(rows, domains, masks):
     lines = [p.boundary for p in domains + masks]
     section_counts = []
@@ -114,7 +128,7 @@ def arrangement(rows, domains, masks):
     triangles = shapely.get_parts(shapely.constrained_delaunay_triangles(cells))
     raw = shapely.get_coordinates(triangles).reshape(-1, 4, 2)[:, :3]
     xy, inverse = np.unique(raw.reshape(-1, 2), axis=0, return_inverse=True)
-    xy, labels, drift = welded_vertices(xy, 1e-8)
+    xy, labels, drift, weld_note = arrangement_vertices(rows, xy)
     faces = labels[inverse].reshape(-1, 3)
     points = xy[faces]
     signed = np.cross(
@@ -145,6 +159,7 @@ def arrangement(rows, domains, masks):
             "weld_m": float(drift),
             "source_section_counts": section_counts,
             "input_lines": len(lines),
+            **weld_note,
         },
     )
 
