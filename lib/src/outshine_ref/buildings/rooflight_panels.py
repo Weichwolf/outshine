@@ -57,11 +57,10 @@ def quads(top, bottom, *, inside=False):
     return output[:, ::-1] if inside else output
 
 
-@lru_cache(maxsize=32, typed=True)
-def template(width, length, slope, *, contact=False):
+def _rectangle(width, length, slope):
     width, length, slope = (scalar(v) for v in (width, length, slope))
     inset = FRAME_M / np.hypot(1, slope)
-    if width <= 2 * inset or length <= 2 * FRAME_M or type(contact) is not bool:
+    if width <= 2 * inset or length <= 2 * FRAME_M:
         raise ValueError("Rooflight dimensions leave no positive clear aperture")
     outer = np.array([[0.0, 0, 0], [width, 0, 0], [width, length, 0], [0, length, 0]])
     inner = np.array(
@@ -72,6 +71,26 @@ def template(width, length, slope, *, contact=False):
             [inset, length - FRAME_M, 0],
         ]
     )
+    return outer, inner, slope
+
+
+def _surface(surfaces, slope, glass_triangles):
+    surfaces[:, :, 2] += slope * surfaces[:, :, 0]
+    vertices = surfaces.reshape(-1, 3)
+    indices = np.arange(len(vertices), dtype=np.uint32).reshape(-1, 4)
+    faces = indices[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
+    value = triangle_surface({"vertices": vertices, "faces": faces}, 10)
+    value["materials"][-glass_triangles:] = 3
+    for array in value.values():
+        array.flags.writeable = False
+    return MappingProxyType(value)
+
+
+@lru_cache(maxsize=32, typed=True)
+def template(width, length, slope, *, contact=False):
+    if type(contact) is not bool:
+        raise ValueError("Rooflight contact choice requires a boolean")
+    outer, inner, slope = _rectangle(width, length, slope)
     below = np.array([0, 0, DEPTH_M])
     top = np.stack(
         [outer, np.roll(outer, -1, axis=0), np.roll(inner, -1, axis=0), inner], axis=1
@@ -86,16 +105,24 @@ def template(width, length, slope, *, contact=False):
         glass_bottom[None, ::-1],
         quads(glass_top, glass_bottom, inside=True),
     ]
-    surfaces = np.concatenate([*frame, *glass])
-    surfaces[:, :, 2] += slope * surfaces[:, :, 0]
-    vertices = surfaces.reshape(-1, 3)
-    indices = np.arange(len(vertices), dtype=np.uint32).reshape(-1, 4)
-    faces = indices[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
-    value = triangle_surface({"vertices": vertices, "faces": faces}, 10)
-    value["materials"][-12:] = 3
-    for array in value.values():
-        array.flags.writeable = False
-    return MappingProxyType(value)
+    return _surface(np.concatenate([*frame, *glass]), slope, 12)
+
+
+@lru_cache(maxsize=32, typed=True)
+def sheet_template(width, length, slope):
+    """Retain both frame/pane caps; open render geometry is not a collision solid."""
+    outer, inner, slope = _rectangle(width, length, slope)
+    ring = np.stack(
+        [outer, np.roll(outer, -1, axis=0), np.roll(inner, -1, axis=0), inner], axis=1
+    )
+    glass_top = inner - [0, 0, GLASS_INSET_M]
+    caps = [
+        ring,
+        (ring - [0, 0, DEPTH_M])[:, ::-1],
+        glass_top[None],
+        (glass_top - [0, 0, GLASS_M])[None, ::-1],
+    ]
+    return _surface(np.concatenate(caps), slope, 4)
 
 
 def place(item, raw):
@@ -113,13 +140,13 @@ def place(item, raw):
     )
 
 
-def closed(fields):
+def _components(fields, build):
     if len(fields) > MAX_FIELDS:
         raise ValueError("Rooflight product capacity exceeded")
     return [
         place(
             item,
-            template(
+            build(
                 item["bounds"][2] - item["bounds"][0],
                 item["bounds"][3] - item["bounds"][1],
                 item["slope"],
@@ -127,6 +154,14 @@ def closed(fields):
         )
         for item in fields
     ]
+
+
+def closed(fields):
+    return _components(fields, template)
+
+
+def sheets(fields):
+    return _components(fields, sheet_template)
 
 
 @dataclass(frozen=True)

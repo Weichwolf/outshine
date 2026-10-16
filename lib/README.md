@@ -1026,6 +1026,8 @@ functional negatives and reproduction live in building experiments (#489).
 ## Glazed rooflight panels
 
 `buildings.rooflight_panels` emits direct closed rectangle rims/panes and a
-render skin with checked parent contacts. Contract, real source/installed-wheel
+render skin with checked parent contacts. Optional direct two-sided sheets have
+20 triangles with explicit geometric bounds and independent physical products.
+Contract, real source/installed-wheel
 controls, render comparisons and separated preparation/emission costs:
 [rooflight_panels.md](rooflight_panels.md) (#500).
