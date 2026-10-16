@@ -450,6 +450,167 @@ derselben Versions-URL ist ausdrücklich kein Identitätsbeweis.
 `--profile` für separate Kostenaufnahmen benötigt das vorhandene `memray==1.20.0`.
 Kein neuer nativer/öffentlicher Vertrag; kein SDK zur Laufzeit.
 
+## Drei Treppen, parallele Fuß-/Radbrücken und längere Radauffahrt (#434)
+
+Der [Netzvergleich](stair_network_comparison.md) erweitert den wirklichen Kontext
+auf15Quellen, drei echte Treppen/24Stufen,13ganze Kontakte und vier Unterführungen.
+Eine prozedurale Radauffahrt erhält alle tatsächlichen Anschlussorte. Originale
+und Priors bleiben erhalten;66weitere Kontextachsen und zwei tatsächliche
+Außen-/Geländeanbindungen sind noch nicht freigegeben. Ausgabe-/Kostenpfade frisch
+im System-Tempverzeichnis; `TRANSPORT_LAYERED_OUTPUT` liefert nur die bekannte Palette.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_junction_checks stair_context_checks stair_network_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_network_experiment.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_NETWORK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_network_verify.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_NETWORK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --network test/experiments/transport/fixtures/stair-network-vienna.json --products "$TRANSPORT_STAIR_NETWORK_OUTPUT" --solver highs-ds --repetitions 7 --output "$TRANSPORT_STAIR_NETWORK_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --network test/experiments/transport/fixtures/stair-network-vienna.json --products "$TRANSPORT_STAIR_NETWORK_OUTPUT" --solver highs-ipm --repetitions 7 --output "$TRANSPORT_STAIR_NETWORK_COST_IPM"
+```
+
+Für alle59betroffenen Kontrollen zusätzlich die bestehenden Module
+`foot_ramp_checks cycle_bridge_checks layered_bridge_checks` ausführen; ältere
+Rampenkontrollen benötigen das dort dokumentierte optionale `manifold3d==3.5.4`.
+Separate Kostenaufnahmen mit `--profile` benötigen das vorhandene `memray==1.20.0`.
+Keine neue Runtime-/SDK-Abhängigkeit oder öffentliche/native/Reservations-API.
+
+## Ganze tatsächliche Außen-Nachbarwege (#434)
+
+Der [Außenvergleich](stair_outer_comparison.md) verbindet die bisherigen beiden
+Außenprofile vollständig mit drei ganzen Nachbarwegen.18Quellen,24Stufen und sechs
+Unterführungen bleiben lokal geprüft. Die vollständige Originalkachel wird bilanziert;
+Terrain-/Cut-/Fill-Produkte, übrige Quellen und fünf neue Außenprofile bleiben offen.
+Eingänge und die kleine technische Palette sind versioniert; dieser Versuch benötigt
+keinen früheren privaten Showcase-Ausgabebaum. Alle Ausgabe-/Kostenpfade frisch im
+System-Tempverzeichnis wählen.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_outer_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_outer_experiment.py --output "$TRANSPORT_OUTER_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_outer_verify.py --output "$TRANSPORT_OUTER_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --outer test/experiments/transport/fixtures/stair-outer-vienna.json --products "$TRANSPORT_OUTER_OUTPUT" --solver highs-ds --repetitions 7 --output "$TRANSPORT_OUTER_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --outer test/experiments/transport/fixtures/stair-outer-vienna.json --products "$TRANSPORT_OUTER_OUTPUT" --solver highs-ipm --repetitions 7 --output "$TRANSPORT_OUTER_COST_IPM"
+```
+
+Beim Außenversuch wird ein begrenzt abgebrochener Kostenversuch ausdrücklich mit
+`accepted_model=false`, ohne gültigen Median oder Ausgabe gespeichert. Prozess0
+allein bedeutet keine gültige Geometrie. Ältere Kostenmodi behalten ihre strikte
+Ergebnisprüfung. `--profile` separat mit installiertem `memray==1.20.0` verwenden.
+Der vollständige70er-Lauf ergänzt `foot_ramp_checks cycle_bridge_checks
+layered_bridge_checks stair_junction_checks stair_context_checks stair_network_checks`;
+die älteren Rampenkontrollen benötigen das dort dokumentierte optionale Manifold.
+Eine explizite DEM-Neuaufnahme verlangt `stair_outer_inputs.py --dem-receipt ...
+--output ...` mit dem unveränderten ursprünglichen Rohreceipt. Normale Tests ändern
+keine Eingänge. Keine neue Runtime-/SDK- oder öffentliche/native API-Abhängigkeit.
+
+## Gegenprobe: echte Terrainkontakte am Treppenverbund (#434)
+
+Der [Terrain-Gegenvergleich](stair_terrain_comparison.md) mit `stair_terrain_experiment.py`
+vergleicht eine begrenzte sanfte Bodenfläche, ganze
+Stützwände und einen geschützten Brücken-Aushub an denselben unveränderten18Quellen
+und demselben echten DEM-Fenster. Der Versuch liefert ausdrücklich noch kein
+freigegebenes Terrainprodukt: geschlossene Körper und erfolgreicher Kernelabschluss
+beweisen weder Float32-Kontakte noch eine überzeugende Geländeform.
+Zusätzlich zu den obigen Paketen braucht dieser getrennte Diagnoseversuch
+`clarabel` und `manifold3d==3.5.4`; keine SDK-/Runtime-Abhängigkeit.
+`TRANSPORT_OUTER_OUTPUT` bezeichnet einen frisch erzeugten/geprüften Außenversuch
+aus dem vorigen Abschnitt, `TRANSPORT_TERRAIN_OUTPUT` einen neuen expliziten Temp-Pfad.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_terrain_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_terrain_experiment.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_TERRAIN_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_terrain_verify.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_TERRAIN_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/after-diagnostic-scene.json"
+```
+
+Die Kontrollen enthalten echte18-Quellen-Gegenfälle und synthetische wechselnde
+Cut-/Fill-Vorzeichen; keine Quelle wird freigegeben. Privater Installationspräfix
+bei Bedarf in `PYTHONPATH` ergänzen. Der gespeicherte Reader löst/trianguliert/gräbt
+nicht neu. Native Gates und vollständige Terrain-/Verkehrsabnahme bleiben getrennt.
+
+## Kontinuierliche Böschungen mit ganzen Exportkontakten (#434)
+
+Der [Böschungsvergleich](stair_blend_comparison.md) plant kontinuierliche Bodenhöhen
+mit ganzen Brückenbedingungen, festen ursprünglichen Bodenprofilen und örtlichen
+nicht begehbaren Stützflächen. Für tatsächliche Float32-Kontakte wird ein räumlich
+hergeleitetes Höhenband geprüft; ein erfolgreicher Solverstatus ist keine Freigabe.
+Zusätzlich zu NumPy/SciPy/Shapely ist `clarabel==0.11.1` erforderlich. Das neue
+Verfahren benötigt weder Manifold noch das CityEngine-SDK. Ausgabe frisch im
+System-Tempverzeichnis; der explizite Außenversuch stammt aus den versionierten
+Eingängen des vorigen Abschnitts.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_blend_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_experiment.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_BLEND_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_verify.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_BLEND_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/after-diagnostic-scene.json"
+```
+
+Gleicher fester Plan und gleiche Qualitätsbedingungen, Vorbereitung/Prüfung außerhalb
+der Fit-Zeit; beide Prozesse nacheinander bei normaler Priorität starten:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_cost.py --products "$TRANSPORT_BLEND_OUTPUT" --smoothing 16 --output "$TRANSPORT_BLEND_OUTPUT/membrane-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_cost.py --products "$TRANSPORT_BLEND_OUTPUT" --smoothing 0 --output "$TRANSPORT_BLEND_OUTPUT/data-cost.json"
+```
+
+Optionale Allokationsmessung benötigt `memray==1.20.0`: jeden Kostenaufruf separat
+mit frischem `--output` und zusätzlichem frischem `--profile /tmp/…/trace.bin`
+ausführen. Profilzeiten ersetzen keine normalen Zeiten. Abgelehnte Kandidaten
+haben ausdrücklich keine gültige Ausgabemediane, auch bei Prozessstatus 0.
+
+Andere Quellen und äußere Anschlüsse bleiben ausdrücklich ungeprüft. Keine native
+oder vollständige Wege-/Geräte-/Statikabnahme aus dem örtlichen Höhenmodell ableiten.
+
+## Östliche Radwegschleife mit ganzen Anschlusskappen (#434)
+
+Der [Schleifenvergleich](stair_cycle_comparison.md) ergänzt den ganzen tatsächlichen
+östlichen Radweg und plant das verbundene Gelände neu. Dieselben Python-/Blender-
+Pakete wie oben. Feste PBF-/DEM-Fenster sind versioniert, Erwerb ist für die normale
+Reproduktion nicht nötig. Originale 18-Quellen- und Böschungsprodukte explizit aus
+den vorigen Abschnitten übergeben; alle Ausgaben frisch im System-Tempverzeichnis.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_cycle_checks stair_blend_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_experiment.py --base-network "$TRANSPORT_OUTER_OUTPUT" --base-terrain "$TRANSPORT_BLEND_OUTPUT" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_verify.py --base-network "$TRANSPORT_OUTER_OUTPUT" --base-terrain "$TRANSPORT_BLEND_OUTPUT" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/after-diagnostic-scene.json"
+```
+
+Kosten bei normaler Priorität, nacheinander; Matrixaufbau/Solve auf demselben festen
+Plan, tatsächliche Ausgabeprüfung danach außerhalb der Zeit:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --solver highs-ds --output "$TRANSPORT_CYCLE_OUTPUT/ds-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --solver highs-ipm --output "$TRANSPORT_CYCLE_OUTPUT/ipm-cost.json"
+```
+
+Optional wie oben `memray==1.20.0`, separater frischer `--output` und
+`--profile /tmp/…/trace.bin`. Die zwei DEM-Fenster können ausdrücklich neu aufgenommen
+werden: `stair_cycle_inputs.py --receipts ORIGINAL-RECEIPT EAST-RECEIPT --output /tmp/…/stair-cycle-vienna.json`.
+Die Receipts müssen die im festen Rezept belegten ursprünglichen Bytes tragen;
+neue Quellenstände ersetzen keine Referenz automatisch.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

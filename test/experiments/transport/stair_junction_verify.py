@@ -54,11 +54,14 @@ def source_fields(arrays, data, rows, domains):
     return fields
 
 
-def landing_proof(fields, rows, domains, junctions=None):
+def landing_proof(fields, rows, domains, junctions=None, stair_owners=None):
     nodes, incident, masks = landings(rows, domains, "width", 0.75, junctions)
     error = 0.0
     for node, sources, mask in zip(nodes, incident, masks, strict=True):
-        sample = SurfaceSampler(fields[sources[0]]).sample([node])
+        present = [i for i in sources if domains[i].covers(shapely.Point(node))]
+        if not present:
+            raise ValueError("chosen landing node is outside every source band")
+        sample = SurfaceSampler(fields[present[0]]).sample([node])
         if any(sample.reasons):
             raise ValueError("saved stair landing has no endpoint surface")
         height = sample.points_enu_m[0, 2]
@@ -77,31 +80,37 @@ def landing_proof(fields, rows, domains, junctions=None):
                 )
     if error > 1e-7:
         raise ValueError("whole saved common landing is not flat and shared")
-    field = fields[0]
-    points = field.vertices[field.triangles]
-    shapes = shapely.polygons(points[:, :, :2])
-    n = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
-    gradients = -n[:, :2] / n[:, 2, None]
-    backward = 0.0
-    for a, b in itertools.pairwise(rows[0]["xy"]):
-        t = (b - a) / np.linalg.norm(b - a)
-        hit = (
-            shapely.area(
-                shapely.intersection(
-                    shapes, shapely.LineString([a, b]).buffer(rows[0]["width_m"])
-                )
-            )
-            > 1e-10
-        )
-        backward = max(backward, float((-gradients[hit] @ t).max()))
+    backward = max(
+        monotonic_proof(fields[i], rows[i])
+        for i in ([0] if stair_owners is None else stair_owners)
+    )
     if backward > 1e-7:
         raise ValueError("saved stair envelope turns backwards along source frames")
     return {"whole_flat_contact_error_m": error, "backward_grade_violation": backward}
 
 
+def monotonic_proof(field, row):
+    points = field.vertices[field.triangles]
+    shapes = shapely.polygons(points[:, :, :2])
+    n = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+    gradients = -n[:, :2] / n[:, 2, None]
+    backward = 0.0
+    for a, b in itertools.pairwise(row["xy"]):
+        t = (b - a) / np.linalg.norm(b - a)
+        hit = (
+            shapely.area(
+                shapely.intersection(
+                    shapes, shapely.LineString([a, b]).buffer(row["width_m"])
+                )
+            )
+            > 1e-10
+        )
+        backward = max(backward, float((-gradients[hit] @ t).max()))
+    return backward
+
+
 def display_proof(args, data, report):
-    if digest(args.palette_scene) != report["presentation"]["palette_scene_sha256"]:
-        raise ValueError("saved presentation palette binding changed")
+    """Validate actual used RGBA/normals; whole palette-file SHA is provenance."""
     path = args.output / "display-body.npz"
     if digest(path) != report["presentation"]["mesh_sha256"]:
         raise ValueError("saved indexed display body binding changed")
@@ -111,7 +120,8 @@ def display_proof(args, data, report):
     if not np.array_equal(d["vertices"], v) or not np.array_equal(d["triangles"], f):
         raise ValueError("presentation changes actual verified stair geometry")
     slots = np.full(len(f), 3)
-    stairs = (data["face_sources"] & 1) != 0
+    stair_mask = sum(1 << int(o) for o in data.get("stair_owners", [0]))
+    stairs = (data["face_sources"] & stair_mask) != 0
     slots[np.r_[stairs, stairs, data["wall_riser"] == 1]] = 10
     palette = np.array(json.loads(args.palette_scene.read_text())["colours"])
     xyz = v[f]

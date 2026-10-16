@@ -22,7 +22,45 @@ def saved_model(args):
     report = json.loads((args.products / "comparison.json").read_text())
     verified = json.loads((args.products / "verification.json").read_text())
     extra = {}
-    if args.context is not None:
+    if args.outer is not None:
+        from stair_network_geometry import interactions
+        from stair_outer_inputs import PROFILES, load
+
+        if (
+            report["fixture_sha256"] != digest(args.outer)
+            or report["profile_recipe_sha256"] != digest(PROFILES)
+            or not verified["valid_local_bodies"]
+            or digest(args.input) != report["native_case_sha256"]
+        ):
+            raise ValueError("actual verified whole-neighbour inputs required")
+        _case, rows, nodes, stairs, _context, _recipe = load(args.outer)
+        plan = layout(rows, "width", junctions=nodes, stairs=stairs)
+        model = report["after"]
+        input_file = args.products / "after/height-input.npz"
+        expected = model["solve"]["objective"]
+        pairs, _note = interactions(rows, nodes)
+        extra = {"limits": [r["gradient"] for r in rows], "crossings": pairs}
+    elif args.network is not None:
+        from stair_network_geometry import interactions
+        from stair_network_inputs import PROFILES, load
+
+        if (
+            report["fixture_sha256"] != digest(args.network)
+            or report["profile_recipe_sha256"] != digest(PROFILES)
+            or not verified["valid_local_bodies"]
+            or digest(args.input) != report["native_case_sha256"]
+        ):
+            raise ValueError("actual verified three-stair inputs required")
+        _case, rows, nodes, stairs, _context, _recipe = load(
+            args.network, native_path=args.input
+        )
+        plan = layout(rows, "width", junctions=nodes, stairs=stairs)
+        model = report["after"]
+        input_file = args.products / "after/height-input.npz"
+        expected = model["solve"]["objective"]
+        pairs, _note = interactions(rows, nodes)
+        extra = {"limits": [r["gradient"] for r in rows], "crossings": pairs}
+    elif args.context is not None:
         from stair_context_experiment import crossings
         from stair_context_inputs import PROFILES, load
 
@@ -58,6 +96,18 @@ def saved_model(args):
     return plan, expected, extra, input_file
 
 
+def accept(plan, heights, note, expected, extra, bounded_failure):
+    if heights is None:
+        if bounded_failure:
+            return False
+        raise ValueError("finite model did not produce a valid field")
+    if abs(note["objective"] - expected) > 1e-6:
+        raise ValueError("independent finite-model objective differs")
+    _body, data, _geometry = build(plan, heights)
+    audit(data, plan["domains"], **extra)
+    return True
+
+
 def measure(args):
     if args.output.exists() or (args.profile and args.profile.exists()):
         raise ValueError("fresh stair cost/profile outputs required")
@@ -74,12 +124,14 @@ def measure(args):
     ).strip():
         raise ValueError("frozen clean stair cost worker required")
     plan, expected, extra, input_file = saved_model(args)
+    bounded_failure = args.outer is not None
+    warmups = []
     for method in ("highs-ds", "highs-ipm"):
         h, note = solve(plan, solver=method)
-        if h is None or abs(note["objective"] - expected) > 1e-6:
-            raise ValueError("independent finite-model objective differs")
-        _body, data, _geometry = build(plan, h)
-        audit(data, plan["domains"], **extra)
+        good = accept(plan, h, note, expected, extra, bounded_failure)
+        warmups.append(
+            {"solver": method, "accepted_model": good, "status": note["status"]}
+        )
     tracker = contextlib.nullcontext()
     if args.profile:
         import memray
@@ -95,10 +147,9 @@ def measure(args):
         with tracker:
             h, note = solve(plan, solver=args.solver)
         timings.append((time.perf_counter() - began) * 1000)
-        if h is None or abs(note["objective"] - expected) > 1e-6:
-            raise ValueError("measured finite solve lost its quality/objective")
-        _body, data, _geometry = build(plan, h)
-        audit(data, plan["domains"], **extra)
+        good = accept(plan, h, note, expected, extra, bounded_failure)
+        if not good:
+            break
     row = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
@@ -107,14 +158,21 @@ def measure(args):
         "input_sha256": digest(input_file),
         "solver": args.solver,
         "phase_ms": timings,
-        "median_ms": float(np.median(timings)),
+        "median_ms": float(np.median(timings)) if good else None,
+        "accepted_model": good,
+        "warmups": warmups,
         "profiled": args.profile is not None,
         "work": note,
-        "output_array_bytes": h.nbytes,
+        "output_array_bytes": h.nbytes if good else 0,
         "worker_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
         "scope": "Finite condition preparation plus one LP after saved source decode/layout and warm solves. Whole-body audit outside timing validates every measured result. Input ndarray conversions explicitly counted; sparse retained bytes are not internal-copy totals. Normal repetitions and separate allocation traces; no native/frame/device or complete-generator factor.",
     }
+    if not good:
+        row["rejected_attempt_ms"] = timings[-1]
+        row["scope"] += (
+            " No accepted result: this is the bounded rejected-attempt cost, not comparable successful-output throughput."
+        )
     if args.profile:
         row["allocations"] = profile_note(str(args.profile))
         row["allocations"]["scope"] = row["scope"]
@@ -130,6 +188,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", type=Path)
     parser.add_argument("--context", type=Path)
+    parser.add_argument("--network", type=Path)
+    parser.add_argument("--outer", type=Path)
     parser.add_argument("--repetitions", type=int, choices=range(1, 22), default=11)
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3, 3 * 1024**3))
     resource.setrlimit(resource.RLIMIT_CPU, (90, 90))
