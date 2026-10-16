@@ -393,10 +393,13 @@ bool MeasureFrames(Engine &engine,
     advancedMs.push_back(std::chrono::duration<double, std::milli>(advanced - before).count());
     renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
     heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
-    if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
     shot.OverBudget += heldMs.back() > shot.Timing.BudgetMs() ? 1u : 0u;
   }
-  schedule.Wait(count);
+  shot.WorstAt = static_cast<std::size_t>(std::ranges::max_element(heldMs) - heldMs.begin());
+  if (const auto result = engine.renderer().flushAndWait(); !result) {
+    shot.Why = std::string(name) + " could not complete its measured frames: " + result.error();
+    return false;
+  }
   shot.MeasurementMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
   shot.TurnDegrees = turn.empty() ? 0.0 : 2.0 * kDegPerHalfTurn;
