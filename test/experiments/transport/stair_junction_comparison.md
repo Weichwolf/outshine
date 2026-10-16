@@ -55,7 +55,8 @@ Radiusfaktor cos(pi/16) sichern die tatsächliche euklidische Gradientengrenze,
 zusätzliche Baureserve0.0002 bei Radflächen beziehungsweise0.002 an der Treppenhülle.
 Alle Überlappungsecken sichern2.82m zwischen Verkehrsoberflächen;0.30m obere
 Körperdicke lässt mindestens2.52m lichte Höhe. Höhenbudget relativ zum Datum−2/+10m;
-max4096Höhenknoten/8192Facetten, LP-Zeitlimit5s, isolierte Worker3GiB/60CPU-s.
+max4096Höhenknoten/8192Facetten, LP-Zeitlimit5s; Erzeuger/Reader3GiB/60CPU-s,
+Kostenworker3GiB/90CPU-s.
 Der alte zusätzliche4-m-Kern ist auch bei freien äußeren Priors unvereinbar;
 an tatsächlichen Querschnitten bemessene Podeste plus0.75m örtlicher Zusatz passen.
 Keine Aussage, dass dieses Modell die nativen Solveroperanden exakt reproduziert.
