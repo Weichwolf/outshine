@@ -531,7 +531,8 @@ void RuntimeScene::StandsKeyLight() {
                          Declared_.KeyFromClock ? kSolarIlluminanceLx : Declared_.KeyLux),
                      .EyeHeightM = 0.0f});
   if (ShadowRadiusStoodM_ > 0.0) {
-    Renderer_->SetShadowFrame(toSun, up, ShadowRadiusStoodM_, GroundSurface_ >= 0);
+    Renderer_->SetShadowFrame(
+        toSun, up, ShadowRadiusStoodM_, GroundSurface_ >= 0, Shaped_.Lamps.size());
   }
 }
 
