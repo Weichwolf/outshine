@@ -4,6 +4,7 @@ import copy
 import json
 import unittest
 from dataclasses import replace
+from itertools import pairwise
 from pathlib import Path
 from unittest.mock import patch
 
@@ -58,7 +59,7 @@ def upper_wall_regions(mesh, row, eave):
         *shapely.orient_polygons(row["polygon"]).interiors,
     ):
         xy = np.asarray(ring.coords)
-        for a, b in zip(xy[:-1], xy[1:], strict=True):
+        for a, b in pairwise(xy):
             tangent = (b - a) / np.linalg.norm(b - a)
             normal = np.array([tangent[1], -tangent[0]])
             selected = (abs((points[:, :, :2] - a) @ normal).max(axis=1) < 1e-7) & (
@@ -156,7 +157,8 @@ class IndustrialRoofs(unittest.TestCase):
                 strict=True,
             ):
                 self.assertLess(old.symmetric_difference(new).area, 1e-7)
-            roof = mesh["materials"] == 9
+            heights = mesh["vertices"][mesh["faces"]][:, :, 2]
+            roof = (mesh["materials"] == 9) & (np.ptp(heights, axis=1) > 1e-8)
             expected = roof_surface(row, choose(row, p))[0]
             self.assertEqual(roof.sum(), len(expected["faces"]))
             np.testing.assert_array_equal(
