@@ -1,6 +1,7 @@
 """Actual neighbour input and the distinction between a join and an overpass."""
 
 import copy
+import json
 import unittest
 
 import numpy as np
@@ -8,6 +9,7 @@ import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler, vertical_clearance
 from shared_bridge_geometry import corridor
+from stair_context_experiment import crossings
 from stair_context_inputs import load, validate
 from stair_junction_audit import audit, crossing_faces
 from stair_junction_body import build
@@ -40,6 +42,11 @@ class StairContext(unittest.TestCase):
         self.assertTrue(self.fixture["vector"]["full_payload_matches_native"])
         self.assertTrue(self.fixture["vector"]["native_original_features_match"])
         self.assertEqual(len(self.fixture["frontier"]), 3)
+
+    def test_saved_source_crossing_records_survive_json_round_trip(self):
+        records = crossings(self.rows)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(json.loads(json.dumps(records)), records)
 
     def test_both_whole_crossings_meet_actual_float32_clearance(self):
         proof = audit(

@@ -40,7 +40,7 @@ def crossings(rows):
             if a["original"]["bridge"] == b["original"]["bridge"]:
                 raise ValueError("unplanned crossing between equal bridge kinds")
             low, high = (j, i) if a["original"]["bridge"] else (i, j)
-            result.append((low, high, p.tolist()))
+            result.append([low, high, p.tolist()])
     return result
 
 
