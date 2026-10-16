@@ -48,6 +48,34 @@ def view_for(row):
     )
 
 
+def upper_wall_regions(mesh, row, eave):
+    points = mesh["vertices"][mesh["faces"]]
+    directions = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+    regions = []
+    for ring in (
+        shapely.orient_polygons(row["polygon"]).exterior,
+        *shapely.orient_polygons(row["polygon"]).interiors,
+    ):
+        xy = np.asarray(ring.coords)
+        for a, b in zip(xy[:-1], xy[1:], strict=True):
+            tangent = (b - a) / np.linalg.norm(b - a)
+            normal = np.array([tangent[1], -tangent[0]])
+            selected = (abs((points[:, :, :2] - a) @ normal).max(axis=1) < 1e-7) & (
+                directions[:, :2] @ normal > 0.999999
+            )
+            projected = np.stack(
+                ((points[selected, :, :2] - a) @ tangent, points[selected, :, 2]),
+                axis=2,
+            )
+            regions.append(
+                shapely.union_all(shapely.polygons(projected)).intersection(
+                    shapely.box(0, eave, np.linalg.norm(b - a), 100)
+                )
+            )
+    return regions
+
+
 class IndustrialRoofs(unittest.TestCase):
     def test_real_source_volume_bounds_closure_and_unchanged_inputs(self):
         kinds = set()
@@ -121,6 +149,20 @@ class IndustrialRoofs(unittest.TestCase):
             self.assertAlmostEqual(mesh["vertices"][:, 2].max(), p["buildingHeight"])
             self.assertTrue(info.get("entrance_plan"), list(info))
             self.assertFalse(owner.rejected)
+            original = heightfield_envelope(roof_surface(row, choose(row, p))[0], 0)
+            for old, new in zip(
+                upper_wall_regions(original.mesh, row, info["eave_m"]),
+                upper_wall_regions(mesh, row, info["eave_m"]),
+                strict=True,
+            ):
+                self.assertLess(old.symmetric_difference(new).area, 1e-7)
+            roof = mesh["materials"] == 9
+            expected = roof_surface(row, choose(row, p))[0]
+            self.assertEqual(roof.sum(), len(expected["faces"]))
+            np.testing.assert_array_equal(
+                mesh["vertices"][mesh["faces"][roof]],
+                expected["vertices"][expected["faces"]],
+            )
 
     def test_local_surface_failure_keeps_whole_body_with_reason(self):
         row, neighbors = sources()[0]
