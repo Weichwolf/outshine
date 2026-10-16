@@ -2,8 +2,9 @@
 #include "SceneResources.h"
 #include "Check.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
-#include "Readback.h"
+#include "ReadbackTransfer.h"
+#include "NativeGpuCheck.h"
+#include "NativeOfflineDevice.h"
 #include "VertexArms.h"
 #include "DrawList.h"
 #include "scene/Geometry.h"
@@ -12,6 +13,7 @@
 
 #include <array>
 #include <cstdint>
+#include <chrono>
 #include <cstring>
 #include <algorithm>
 #include <limits>
@@ -25,23 +27,26 @@ namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
+using namespace outshine::Test::Gpu;
 constexpr std::array<float, 6> kMetres{0, 0, 3, 0, 3, 2};
 constexpr float kChangedInput = 99.0f;
 
-void CheckResident(SDL_GPUDevice *device, SubjectDraw &subjects) {
+void CheckResident(Native::Device &device, SubjectDraw &subjects) {
   std::string error;
   CHECK(subjects.HandTables(error), error.c_str());
   CHECK(std::ranges::any_of(subjects.Drawn(),
                             [](const DrawBatch &batch) { return CarriesUv1(batch.Layout); }),
         "the actual piece selects UV1 without a UV1 material image");
-  CHECK(subjects.Owned().SubmitPendingUploads(error), error.c_str());
-  Readback read;
-  const auto state = read.FromBuffer(
-      device, subjects.Resident().Buffer(SubjectResidency::Stream::Uv1).Get(), sizeof(kMetres));
-  CHECK(state == ReadState::Ready, "actual optional UV1 residency is readable");
-  if (state == ReadState::Ready) {
+  Require(subjects.Owned().SubmitPendingUploads());
+  const auto &buffer = subjects.Resident().Buffer(SubjectResidency::Stream::Uv1);
+  CHECK(buffer != nullptr, "actual optional UV1 residency has its own buffer");
+  if (!buffer) { return; }
+  auto read = Require(ReadbackTransfer::Start(device, *buffer, {.Bytes = sizeof(kMetres)}));
+  const auto data = Require(read.Wait(device, std::chrono::seconds(5)));
+  CHECK(data && data->size() == sizeof(kMetres), "actual optional UV1 residency is readable");
+  if (data && data->size() == sizeof(kMetres)) {
     std::array<float, kMetres.size()> observed{};
-    std::memcpy(observed.data(), read.Rows(), sizeof(observed));
+    std::memcpy(observed.data(), data->data(), sizeof(observed));
     CHECK(observed == kMetres, "the GPU contains the original independent float2 data");
   }
   const auto allocations = subjects.Resident().Allocations();
@@ -51,11 +56,11 @@ void CheckResident(SDL_GPUDevice *device, SubjectDraw &subjects) {
                allocations.TransferBytes);
 }
 
-void GpuOwnership(SDL_GPUDevice *device) {
-  Gpu gpu;
-  gpu.Device = device;
-  gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-  gpu.SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+void GpuOwnership(Native::Device &device) {
+  outshine::Render::Gpu gpu;
+  gpu.Device = &device;
+  gpu.HdrFormat = Native::Format::Rgba16Float;
+  gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
   constexpr int kExtent = 32;
   gpu.Width = kExtent;
   gpu.Height = kExtent;
@@ -63,10 +68,8 @@ void GpuOwnership(SDL_GPUDevice *device) {
   SubjectPipelineBinding binding;
   SubjectDraw subjects;
   std::string error;
-  const bool configured = subjects.Configure(binding, gpu, nullptr, nullptr, false, error);
-  CHECK(configured, error.c_str());
-  if (!configured) { return; }
-  subjects.AttachPipelines(binding, gpu);
+  Require(subjects.Configure(binding, gpu, nullptr, nullptr, false));
+  Require(subjects.AttachPipelines(binding, gpu));
   SceneResources kept;
   {
     SceneResources resources;
@@ -117,7 +120,7 @@ void GpuOwnership(SDL_GPUDevice *device) {
     kept.CopySourcesFrom(resources, SceneResources::PieceSources::Copy);
   }
   SubjectDraw restored;
-  restored.AttachPipelines(binding, gpu);
+  Require(restored.AttachPipelines(binding, gpu));
   CHECK(kept.RestorePieceMaterials(restored, nullptr, error), error.c_str());
   CHECK(kept.RestorePieces(restored, error), error.c_str());
   CheckResident(device, restored);
@@ -170,9 +173,10 @@ int main(int argc, char *const *argv) {
   if (argc == 2 && std::string_view(argv[1]) == "--gpu") {
     CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL initializes for the actual existing residency path");
     {
-      const OwnedDevice device(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV, true, "vulkan"));
-      CHECK(static_cast<bool>(device), "the real renderer device is available");
-      if (device) { GpuOwnership(device.Get()); }
+      auto actual = Require(
+          Native::CreateDevice({.Validation = SDL_getenv("OUTSHINE_GPU_VALIDATION") != nullptr}));
+      NativeOfflineDevice device(*actual);
+      GpuOwnership(device);
     }
     SDL_Quit();
   }
