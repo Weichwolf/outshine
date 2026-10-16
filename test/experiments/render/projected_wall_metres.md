@@ -72,12 +72,54 @@ native baseline preload failed at10.028s before any frame; separate native
 preparation then finishes in6.811s, followed by the full passing pair. That failure
 is retained. The new product's initial legacy build87.443s is a versioned cache
 miss, not warm loading. New #328 evidence (6206374931/6206664592) reports unresolved shadow/foliage
-parity against SDL. These native times therefore do not complete the equal-quality
-frame gate; the fix PR remains Draft until that concrete countercheck passes.
+parity against SDL at that earlier freeze. Those historical native times therefore
+do not establish equal-quality acceptance; the newer countercheck below supersedes
+that particular missing parity evidence.
 Performance confirms the freeze remains available read-only.
-GPU timestamps/device peak remain unmeasured; reported
+GPU timestamps/device peak were unmeasured in that earlier pair; reported
 process heap is separate. This is one native load case, not completion of #328,
 all Places, Metal/A18 or the material goal. Master owns integrated publication.
+
+## Complete native source and qualified Flensburg countercheck
+
+#425 restores the complete sampled mip range. Own SDL/native Flensburg now has
+identical PNG8092ddcd,2073600 depth/8294400 linear/16777216 atlas float values;
+the full/crop/atlas PDF is optically opened. That is a concrete Vulkan reference,
+not general Metal/port parity. A private mixed diagnostic-object/current-archive
+relink was discarded: even its unmodified before side aborts before frames.
+
+Instead, the unchanged provided ffd29d616 is fully rebuilt in its own locked
+checkout using one explicit LLVM21/libc++21 toolchain:464 core objects,230-object
+closed generator archive and public client, terminal0. Before-source tree is
+clean; only the two known generator files differ in the after tree, frozen
+locally as27519ca43. Their source hashes and66/72 project headers match the
+verified delivery. Both variants are built through the same regular entry point;
+no old object/backend splice or second renderer implementation. A copied-file
+mtime initially avoided recompilation; the unrebuilt control is retained and
+excluded. The actual candidate is recompiled and its ELF has LOD4 only.
+
+Before reproduces the qualified8092ddcd PNG. The actual correction produces
+2f507cd3:11980 pixels change,2961 by more than1/255, maximum7/255, mean RGB
+0.003756912/255, same585262 triangles/zero bare tiles. Full/crop/dated-webcam PDF
+is optically opened. The expected modest colour/joint response reproduces the
+earlier verified pixel-delta statistics; no broad image gain is claimed.
+
+Both strict10-second fresh-process attempts fail before any frame:10.101s and
+10.037s. Separate120-second image preparation is not a raised gate: actual
+preload8.437/10.931s, after still over10s. Those full image runs retain exactly
+60 frames/360degrees; p999.9600/14.0926ms, zero overruns. Actual native GPU
+mean/max5.640/7.124→8.343/9.406ms,60/60 samples each, zero unavailable; query CPU
+0.033/0.024ms total. Added material work is real, not free. Reported heap
+988.512/990.510MB is not device peak. All49 basis/LOD and11 prototype products
+are cache hits; source acquisition/build is not hidden inside this warm result.
+
+The remaining concrete acceptance is warm loading, now red in both unchanged
+and corrected native clients. Do not wait for a blanket port completion or prior
+Master review, and do not call this a complete load/frame/device acceptance.
+Original commands/source/archive/binary hashes, failed controls, terminal build/
+run logs, PNGs and PDFs remain under the explicit native-frozen proof directory
+linked by the PR. Current Vulkan parity and GPU timing are now proved for this
+case; Metal/A18, other Places and full device-memory acceptance remain separate.
 
 ## Reproduction
 
