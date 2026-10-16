@@ -70,3 +70,6 @@ lighting and total GPU cost before admission. The existing subject pass already
 renders buildings before ground, so current depth reuse is preferable to drawing
 the same building mesh again solely for this culler. The implementation decision
 and runtime acceptance remain in #12.
+
+Further [terrain work-selection comparisons](terrain_work_selection.md) cover bounded
+lower envelopes, exact early terrain, projected bounds and meshoptimizer normal cones.

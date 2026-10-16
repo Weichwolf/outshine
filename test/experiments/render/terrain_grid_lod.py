@@ -178,17 +178,7 @@ def page_frame(row):
     return centre, axes, corners.astype("float32").astype(float)
 
 
-def page_geometry(row, directory):
-    height, fractions = read_page(row, directory)
-    side = int(row["side"])
-    centre, axes, corners = page_frame(row)
-    u, v = np.meshgrid(fractions, fractions)
-    en = (1 - v[..., None]) * (
-        (1 - u[..., None]) * corners[0] + u[..., None] * corners[1]
-    ) + v[..., None] * ((1 - u[..., None]) * corners[2] + u[..., None] * corners[3])
-    sag_inv = float(np.float32(1 / np.linalg.norm(centre)))
-    h = height[1:-1, 1:-1].astype(float) - 0.5 * np.sum(en * en, axis=-1) * sag_inv
-    local = np.concatenate((en, h[..., None]), axis=-1).reshape(-1, 3)
+def page_steps(corners, side):
     step_e = float(
         np.float32(
             0.5
@@ -203,6 +193,21 @@ def page_geometry(row, directory):
             / (side - 1)
         )
     )
+    return step_e, step_n
+
+
+def page_geometry(row, directory):
+    height, fractions = read_page(row, directory)
+    side = int(row["side"])
+    centre, axes, corners = page_frame(row)
+    u, v = np.meshgrid(fractions, fractions)
+    en = (1 - v[..., None]) * (
+        (1 - u[..., None]) * corners[0] + u[..., None] * corners[1]
+    ) + v[..., None] * ((1 - u[..., None]) * corners[2] + u[..., None] * corners[3])
+    sag_inv = float(np.float32(1 / np.linalg.norm(centre)))
+    h = height[1:-1, 1:-1].astype(float) - 0.5 * np.sum(en * en, axis=-1) * sag_inv
+    local = np.concatenate((en, h[..., None]), axis=-1).reshape(-1, 3)
+    step_e, step_n = page_steps(corners, side)
     de = (height[1:-1, 2:] - height[1:-1, :-2]) / (2 * max(step_e, 0.001))
     dn = (height[:-2, 1:-1] - height[2:, 1:-1]) / (2 * max(step_n, 0.001))
     normals = (

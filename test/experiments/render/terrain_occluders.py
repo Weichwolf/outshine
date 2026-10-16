@@ -10,7 +10,13 @@ from pathlib import Path
 
 import numpy as np
 from current_visibility import box_bounds, occluded, project, raster
-from terrain_grid_lod import page_frame, page_geometry, triangles, raster_view
+from terrain_grid_lod import (
+    page_frame,
+    page_geometry,
+    triangles,
+    raster_view,
+    page_steps,
+)
 from terrain_visibility import partition
 
 
@@ -134,7 +140,45 @@ def bracketed_proxies(proxy, gaps, eye):
     return points, sizes
 
 
-def compare(pages, scenario, width, height, cells, yaw, levels):
+def skirts(local, drop, side=33):
+    grid = np.arange(side * side).reshape(side, side)
+    chains = np.stack((grid[0], grid[-1], grid[:, 0], grid[:, -1]))
+    bottom = local[chains].copy()
+    bottom[..., 2] -= drop
+    faces = []
+    for edge, reverse in enumerate((False, True, True, False)):
+        for i in range(side - 1):
+            a, b = (i + 1, i) if reverse else (i, i + 1)
+            p, q = chains[edge, a], chains[edge, b]
+            r, s = side * side + edge * side + a, side * side + edge * side + b
+            faces.extend(((p, q, r), (q, s, r)))
+    return np.concatenate((local, bottom.reshape(-1, 3))), np.array(faces), bottom
+
+
+def curtain_proxies(proxy, eye, corners, floor):
+    edges = np.roll(corners[:, :2], -1, axis=0) - corners[:, :2]
+    turns = cross(edges, np.roll(edges, -1, axis=0))
+    orientation = np.sign(turns[0])
+    inside = np.all(orientation * cross(edges, eye[:2] - corners[:, :2]) >= 0)
+    valid = np.isfinite(proxy).all(axis=(1, 2))
+    valid &= (orientation < 0) & np.all(orientation * turns > 0)
+    valid &= (proxy[..., 2].min(axis=1) >= floor) & (eye[2] >= floor) & ~inside
+    return proxy, np.where(valid, 4, 0)
+
+
+def compare(
+    pages,
+    scenario,
+    width,
+    height,
+    cells,
+    yaw,
+    levels,
+    skirt_aware=False,
+    skirt_steps=16.0,
+):
+    if skirt_aware and (not np.isfinite(skirt_steps) or skirt_steps <= 0):
+        raise ValueError("skirt depth multiplier must be positive and finite")
     if min(width, height, levels) <= 0:
         raise ValueError("image dimensions and pyramid levels must be positive")
     started = time.perf_counter()
@@ -146,6 +190,7 @@ def compare(pages, scenario, width, height, cells, yaw, levels):
     baseline = triangles(33, 1)
     full = np.zeros((height, width))
     proxy_depth = full.copy()
+    skirt_depth = full.copy()
     owner = np.full((height, width), -1, dtype=int)
     bounds, admitted = [], 0
     for page, row in enumerate(rows):
@@ -153,12 +198,29 @@ def compare(pages, scenario, width, height, cells, yaw, levels):
         fingerprint.update(stamp)
         projected, z = project(world, view)
         full = np.maximum(full, raster(projected, z, baseline, width, height))
+        centre, axes, corners = page_frame(row)
+        bottom = None
+        if skirt_aware:
+            extended, edge_faces, bottom = skirts(
+                local, skirt_steps * max(page_steps(corners, 33))
+            )
+            pe, ze = project(extended @ axes + centre, view)
+            edge_depth = raster(pe, ze, edge_faces, width, height)
+            skirt_depth = np.maximum(skirt_depth, edge_depth)
+            full = np.maximum(full, edge_depth)
         points = world[nodes]
         bounds.append((points.min(axis=1), points.max(axis=1)))
         proxy, valid, lower, gaps = lower_envelopes(local[nodes], cells + 1)
         assert np.all(lower[valid] <= local[nodes][valid, :, 2] + 1e-9)
         centre, axes, _ = page_frame(row)
-        clipped, sizes = bracketed_proxies(proxy, gaps, (view[0] - centre) @ axes.T)
+        eye = (view[0] - centre) @ axes.T
+        if skirt_aware:
+            clipped, sizes = curtain_proxies(
+                proxy, eye, local[[0, 32, 1088, 1056]], bottom[..., 2].max()
+            )
+            clipped = np.pad(clipped, ((0, 0), (0, 4), (0, 0)))
+        else:
+            clipped, sizes = bracketed_proxies(proxy, gaps, eye)
         valid &= (z[nodes] > 0.1).all(axis=1)
         sizes = np.where(valid, sizes, 0)
         projected_proxy, proxy_z = project(
@@ -177,7 +239,7 @@ def compare(pages, scenario, width, height, cells, yaw, levels):
     lo, hi, nearest, safe, visible, _ = box_bounds(bounds, view)
     hidden = occluded(lo - 1, hi + 1, nearest, safe, proxy_depth, levels) & visible
     selected = (visible & ~hidden).reshape(len(rows), len(nodes))
-    retained = np.zeros_like(full)
+    retained = skirt_depth.copy()
     for row, keep in zip(rows, selected):
         if not keep.any():
             continue
@@ -196,6 +258,8 @@ def compare(pages, scenario, width, height, cells, yaw, levels):
         cells=cells,
         yaw=yaw,
         levels=levels,
+        skirt_aware=skirt_aware,
+        skirt_steps=skirt_steps if skirt_aware else None,
         proxy_triangles=admitted,
         frustum_triangles=int(visible.sum()) * cells * cells * 2,
         hidden_triangles=int(hidden.sum()) * cells * cells * 2,
@@ -213,7 +277,7 @@ def compare(pages, scenario, width, height, cells, yaw, levels):
             for y, x in np.argwhere(proxy_depth > full + 1e-12)[:16]
         ],
         seconds=time.perf_counter() - started,
-        scope="Ideal double-precision opaque heightfield, same-patch lower/upper ray brackets; no MSAA, shader rounding, material, skirts or native cost claim.",
+        scope="Ideal double-precision opaque heightfield, same-patch lower/upper ray brackets; no MSAA, shader rounding, material or native cost claim; skirts are included only in the explicitly selected curtain case.",
     )
     return report, full, proxy_depth, retained
 
@@ -228,6 +292,8 @@ def main():
     parser.add_argument("--cells", type=int, choices=[4, 8, 16, 32], default=8)
     parser.add_argument("--yaw", type=float, default=0)
     parser.add_argument("--levels", type=int, default=4)
+    parser.add_argument("--skirt-aware", action="store_true")
+    parser.add_argument("--skirt-steps", type=float, default=16.0)
     args = parser.parse_args()
     if not args.output.resolve().is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error("output must be in system temp")
@@ -240,6 +306,8 @@ def main():
         args.cells,
         args.yaw,
         args.levels,
+        args.skirt_aware,
+        args.skirt_steps,
     )
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     np.savez_compressed(

@@ -3,7 +3,13 @@
 import unittest
 
 import numpy as np
-from terrain_occluders import lower_envelopes, bracketed_proxies
+from terrain_occluders import (
+    lower_envelopes,
+    bracketed_proxies,
+    curtain_proxies,
+    skirts,
+)
+from current_visibility import project, raster
 from terrain_grid_lod import triangles
 
 
@@ -92,6 +98,44 @@ class TerrainOccluders(unittest.TestCase):
             )
             self.assertTrue(np.all((upper >= -1e-12) & (upper <= 8 + 1e-12)))
             self.assertTrue(np.all(lower[i] <= points[i, :, 2]))
+
+    def test_existing_outer_curtains_make_side_entry_a_real_occluder(self):
+        height = np.full((9, 9), 10.0)
+        height[4, 4] = 0
+        points = patch(height)
+        points[:, 1] *= -1
+        proxy, valid, _, _ = lower_envelopes(points[None], 9)
+        eye = np.array([-5.0, -4.0, 2.0])
+        _, sizes = curtain_proxies(proxy, eye, points[[0, 8, 80, 72]], -6)
+        self.assertEqual(sizes[0], 4)
+        extended, faces, bottom = skirts(points, 16, 9)
+        self.assertEqual(len(faces), 64)
+        self.assertEqual(bottom[..., 2].max(), -6)
+        forward = np.array([7.0, 0.0, -2.0])
+        forward /= np.linalg.norm(forward)
+        right = np.cross(forward, [0, 0, 1])
+        right /= np.linalg.norm(right)
+        view = eye, np.stack([right, np.cross(right, forward), forward]), 32.0, 64, 64
+        p, z = project(points, view)
+        top = raster(p, z, triangles(9, 1), 64, 64)
+        p, z = project(extended, view)
+        complete = np.maximum(top, raster(p, z, faces, 64, 64))
+        p, z = project(proxy[0], view)
+        depth = raster(p, z, np.array([[0, 3, 2], [0, 2, 1]]), 64, 64)
+        self.assertGreater(np.count_nonzero(depth > top + 1e-12), 0)
+        self.assertEqual(np.count_nonzero(depth > complete + 1e-12), 0)
+
+    def test_curtain_proxies_reject_unknown_viewer_and_floor_conditions(self):
+        points = patch(np.zeros((9, 9)))
+        points[:, 1] *= -1
+        proxy, _, _, _ = lower_envelopes(points[None], 9)
+        corners = points[[0, 8, 80, 72]]
+        for eye, floor in [
+            (np.array([-5.0, -4.0, -20.0]), -16.0),
+            (np.array([4.0, -4.0, 20.0]), -16.0),
+            (np.array([-5.0, -4.0, 20.0]), 1.0),
+        ]:
+            self.assertEqual(curtain_proxies(proxy, eye, corners, floor)[1][0], 0)
 
     def test_incomplete_patch_is_rejected(self):
         with self.assertRaises(ValueError):
