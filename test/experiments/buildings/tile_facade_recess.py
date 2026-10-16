@@ -78,6 +78,7 @@ def window_parts(
     plain_wall_material,
     entry,
     excluded_columns=(),
+    excluded_cells=(),
 ):
     from facade_entry_geometry import basis_for
 
@@ -88,7 +89,12 @@ def window_parts(
         frame["rows"],
         *frame["fractions"],
     )
-    count = repeat.opening_count - int(entry is not None) - len(excluded_columns)
+    count = (
+        repeat.opening_count
+        - int(entry is not None)
+        - len(excluded_columns)
+        - len(excluded_cells)
+    )
     if count > remaining:
         raise ValueError("cell capacity or non-rectangular facade")
     basis = basis_for(frame)
@@ -124,6 +130,13 @@ def window_parts(
 
         excluded = set(excluded_columns) | ({entry["column"]} if entry else set())
         bounds = retained_ranges(frame, excluded)
+    if excluded_cells:
+        from outshine_ref.buildings.facade_cells import cell_complement
+
+        excluded = {(c, 0) for c in excluded_columns} | set(excluded_cells)
+        if entry:
+            excluded.add((entry["column"], 0))
+        bounds = cell_complement(repeat, tuple(sorted(excluded)))
     output = []
     for bound in bounds:
         if plan.count(bound) == 0:
@@ -166,7 +179,26 @@ def attach(
     entrance=None,
     shopfront=None,
     shop_material=None,
+    balconies=None,
 ):
+    if balconies is not None:
+        from tile_balconies import attach as balcony_cells
+
+        return balcony_cells(
+            mesh,
+            source,
+            parameters,
+            facades,
+            view,
+            glass_material,
+            wall_material,
+            plain_wall_material=plain_wall_material,
+            max_cells=max_cells,
+            entrance=entrance,
+            shopfront=shopfront,
+            shop_material=shop_material,
+            balconies=balconies,
+        )
     if shopfront is not None:
         from tile_shopfronts import attach as shopfronts
 

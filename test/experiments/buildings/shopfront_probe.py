@@ -190,7 +190,7 @@ def diagram(row, plan, output):
     plt.close(figure)
 
 
-def run(output):
+def generate(output):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze shopfront source before comparison")
@@ -231,6 +231,11 @@ def run(output):
         )
         + "\n"
     )
+
+
+def run(output):
+    with patch("facade_balconies.BalconyDetails.plan", return_value=None):
+        return generate(output)
 
 
 if __name__ == "__main__":

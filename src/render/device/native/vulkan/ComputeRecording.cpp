@@ -74,14 +74,14 @@ Result<void> Recording::Dispatch(const ComputePipeline &pipeline,
     }
   }
   if (auto valid = CheckImageAliases(native->Layout(), bindings); !valid) { return valid; }
+  if (std::ranges::find(Pipelines_, native->State()) == Pipelines_.end()) {
+    Pipelines_.push_back(native->State());
+  }
   const auto sets = BindResources(*native->State(),
                                   native->Layout().Bindings,
                                   bindings,
                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
   if (!sets) { return std::unexpected(sets.error()); }
-  if (std::ranges::find(Pipelines_, native->State()) == Pipelines_.end()) {
-    Pipelines_.push_back(native->State());
-  }
   vkCmdBindPipeline(Commands_, VK_PIPELINE_BIND_POINT_COMPUTE, native->State()->Handle);
   if (!sets->empty()) {
     vkCmdBindDescriptorSets(Commands_,
