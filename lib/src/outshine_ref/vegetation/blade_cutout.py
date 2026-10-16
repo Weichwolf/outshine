@@ -69,9 +69,13 @@ class BladeCutout:
         ).hexdigest()
 
     def recipe(self):
+        blade = {
+            name: int(value) if name in ("lobes", "fold_power") else float(value)
+            for name, value in asdict(self.blade).items()
+        }
         return {
             "format": "blade-cutout-1",
-            "blade": asdict(self.blade),
+            "blade": blade,
             "domain_wkb": self.domain.wkb_hex,
         }
 

@@ -142,6 +142,12 @@ class BladeCutoutTests(unittest.TestCase):
         other = BladeCutout(replace(cutout.blade, twist=0.3), cutout.domain)
         self.assertNotEqual(cutout.identity, other.identity)
         self.assertEqual(cutout.blade, Blade())
+        numpy_blade = replace(cutout.blade, lobes=np.int64(4), width=np.float32(0.06))
+        numpy_cutout = BladeCutout(numpy_blade, shape(numpy_blade))
+        restored_numpy = BladeCutout.from_recipe(
+            json.loads(json.dumps(numpy_cutout.recipe()))
+        )
+        self.assertEqual(numpy_cutout.identity, restored_numpy.identity)
 
     def test_invalid_domains_and_unresolved_orientation_fail_explicitly(self):
         blade = Blade()
