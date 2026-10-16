@@ -102,10 +102,12 @@ private:
   bool FiniteFractions_ = true;
   bool Ready_ = false;
   uint32_t Room_ = 0;
+  uint32_t Blocks_ = 0;
   uint64_t ArgumentOffset_ = 0;
   uint64_t CounterOffset_ = 0;
-  std::unique_ptr<Native::Buffer> Bounds_, Staging_, Kept_, Slots_, Selected_, Batch_, Arguments_;
-  std::unique_ptr<Native::ComputePipeline> Cull_, Scan_, Compact_;
+  std::unique_ptr<Native::Buffer> Bounds_, Staging_, Kept_, Slots_, Selected_, Batch_, Arguments_,
+      Ranges_, Totals_, Offsets_;
+  std::unique_ptr<Native::ComputePipeline> Cull_, LocalScan_, Scan_, Compact_;
 };
 }
 #endif

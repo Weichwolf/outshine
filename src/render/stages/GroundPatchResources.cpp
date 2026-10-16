@@ -1,5 +1,6 @@
 #include "GroundPatchSelection.h"
 #include "GroundLattice.h"
+#include "ComputeShaders.h"
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -12,6 +13,11 @@
 #include <utility>
 
 namespace outshine::Render {
+namespace {
+constexpr uint32_t kScanLanes = FindComputeShader(ComputeShaderId::GroundPatchScan)->Shape.GroupX;
+constexpr uint64_t kRangeBytes = 2u * sizeof(uint32_t);
+}
+
 uint64_t GroundPatchSelection::HeldBytes() const {
   uint64_t bytes = 0;
   for (const auto *buffer : {Bounds_.get(),
@@ -20,7 +26,10 @@ uint64_t GroundPatchSelection::HeldBytes() const {
                              Slots_.get(),
                              Selected_.get(),
                              Batch_.get(),
-                             Arguments_.get()}) {
+                             Arguments_.get(),
+                             Ranges_.get(),
+                             Totals_.get(),
+                             Offsets_.get()}) {
     if (buffer != nullptr) { bytes += buffer->Description().Bytes; }
   }
   return bytes;
@@ -32,6 +41,7 @@ Native::Result<void> GroundPatchSelection::Reserve(Native::Device &device, uint3
       count,
       Room_ <= std::numeric_limits<uint32_t>::max() / 2u ? std::max(64u, Room_ * 2u) : count);
   const uint64_t counter = std::max(uint64_t{4}, device.Limits().StorageBufferAlignment);
+  const uint32_t blocks = room / kScanLanes + static_cast<uint32_t>(room % kScanLanes != 0u);
   using U = Native::BufferUse;
   const std::array descriptions{
       Native::BufferDescription{.Bytes = uint64_t{room} * sizeof(Bounds),
@@ -44,20 +54,27 @@ Native::Result<void> GroundPatchSelection::Reserve(Native::Device &device, uint3
                                 .Use = U::Storage | U::CopyDestination},
       Native::BufferDescription{.Bytes = counter + 4u * sizeof(uint32_t),
                                 .Use =
-                                    U::Storage | U::Indirect | U::CopyDestination | U::CopySource}};
+                                    U::Storage | U::Indirect | U::CopyDestination | U::CopySource},
+      Native::BufferDescription{.Bytes = uint64_t{blocks} * kRangeBytes,
+                                .Use = U::Storage | U::CopyDestination},
+      Native::BufferDescription{.Bytes = uint64_t{blocks} * sizeof(uint32_t), .Use = U::Storage},
+      Native::BufferDescription{.Bytes = uint64_t{blocks} * sizeof(uint32_t), .Use = U::Storage}};
   std::array<std::unique_ptr<Native::Buffer>, descriptions.size()> buffers;
   for (size_t i = 0; i < buffers.size(); ++i) {
     auto made = device.CreateBuffer(descriptions[i]);
     if (!made) { return std::unexpected(made.error()); }
     buffers[i] = std::move(*made);
   }
-  auto &[bounds, kept, slots, selected, batch, arguments] = buffers;
+  auto &[bounds, kept, slots, selected, batch, arguments, ranges, totals, offsets] = buffers;
   Bounds_ = std::move(bounds);
   Kept_ = std::move(kept);
   Slots_ = std::move(slots);
   Selected_ = std::move(selected);
   Batch_ = std::move(batch);
   Arguments_ = std::move(arguments);
+  Ranges_ = std::move(ranges);
+  Totals_ = std::move(totals);
+  Offsets_ = std::move(offsets);
   Room_ = room;
   CounterOffset_ = counter;
   ArgumentOffset_ = counter - sizeof(uint32_t);
@@ -76,18 +93,20 @@ Native::Result<void> GroundPatchSelection::Upload(Native::Device &device,
   if (!room) { return room; }
   const uint64_t boundsBytes = Seen_.size() * sizeof(Bounds);
   const uint64_t argumentBytes = Arguments_->Description().Bytes;
-  const uint64_t batchBytes = 2u * sizeof(uint32_t);
-  const uint64_t bytes = boundsBytes + argumentBytes + batchBytes;
+  const uint64_t batchBytes = kRangeBytes;
+  Blocks_ = count / kScanLanes + static_cast<uint32_t>(count % kScanLanes != 0u);
+  const uint64_t rangeBytes = uint64_t{Blocks_} * kRangeBytes;
+  const uint64_t bytes = boundsBytes + argumentBytes + batchBytes + rangeBytes;
   Native::Result<std::span<std::byte>> mapped = std::unexpected(
       Native::Error{.Kind = Native::ErrorKind::Busy, .Message = "no patch staging"});
   if (Staging_ && Staging_->Description().Bytes >= bytes) {
     mapped = device.MapWrite(*Staging_, {.Bytes = bytes});
   }
   if (!mapped && mapped.error().Kind == Native::ErrorKind::Busy) {
-    auto made =
-        device.CreateBuffer({.Bytes = uint64_t{Room_} * sizeof(Bounds) + argumentBytes + batchBytes,
-                             .Use = Native::BufferUse::CopySource,
-                             .Placement = Native::Memory::Upload});
+    auto made = device.CreateBuffer({.Bytes = uint64_t{Room_} * sizeof(Bounds) + argumentBytes +
+                                              batchBytes + Ranges_->Description().Bytes,
+                                     .Use = Native::BufferUse::CopySource,
+                                     .Placement = Native::Memory::Upload});
     if (!made) { return std::unexpected(made.error()); }
     mapped = device.MapWrite(**made, {.Bytes = bytes});
     if (!mapped) { return std::unexpected(mapped.error()); }
@@ -98,8 +117,15 @@ Native::Result<void> GroundPatchSelection::Upload(Native::Device &device,
   std::memset(mapped->data() + boundsBytes, 0, static_cast<size_t>(argumentBytes));
   const uint32_t indices = GroundLattice::kPatchIndices;
   std::memcpy(mapped->data() + boundsBytes + ArgumentOffset_, &indices, sizeof(indices));
-  const std::array batch{uint32_t{0}, count};
+  const std::array batch{uint32_t{0}, Blocks_};
   std::memcpy(mapped->data() + boundsBytes + argumentBytes, batch.data(), sizeof(batch));
+  for (uint32_t block = 0; block < Blocks_; ++block) {
+    const uint32_t first = block * kScanLanes;
+    const std::array range{first, std::min(kScanLanes, count - first)};
+    std::memcpy(mapped->data() + boundsBytes + argumentBytes + batchBytes + block * kRangeBytes,
+                range.data(),
+                sizeof(range));
+  }
   auto accepted = device.Unmap(*Staging_);
   if (!accepted) { return accepted; }
   accepted = commands.Copy(*Staging_, *Bounds_, {.Bytes = boundsBytes});
@@ -107,7 +133,12 @@ Native::Result<void> GroundPatchSelection::Upload(Native::Device &device,
   accepted =
       commands.Copy(*Staging_, *Arguments_, {.SourceOffset = boundsBytes, .Bytes = argumentBytes});
   if (!accepted) { return accepted; }
-  return commands.Copy(
+  accepted = commands.Copy(
       *Staging_, *Batch_, {.SourceOffset = boundsBytes + argumentBytes, .Bytes = batchBytes});
+  if (!accepted) { return accepted; }
+  return commands.Copy(
+      *Staging_,
+      *Ranges_,
+      {.SourceOffset = boundsBytes + argumentBytes + batchBytes, .Bytes = rangeBytes});
 }
 }

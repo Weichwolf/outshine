@@ -43,13 +43,14 @@ void Select(Device &device,
             float wall,
             std::span<const uint32_t> expected,
             Mat4f clip = kIdentity,
-            Vec3 anchor = {}) {
+            Vec3 anchor = {},
+            size_t tiles = 1) {
   const auto shape = PyramidOver({.WidthPx = kImageSide, .HeightPx = kImageSide});
   std::vector<uint32_t> depth(shape.Texels, std::bit_cast<uint32_t>(wall));
-  std::array<uint32_t, GroundLattice::kPatchCount> codes{};
+  std::vector<uint32_t> codes(tiles * GroundLattice::kPatchCount);
   std::iota(codes.begin(), codes.end(), uint32_t{0});
   selection.BeginFrame();
-  selection.Include(0);
+  for (size_t tile = 0; tile < tiles; ++tile) { selection.Include(tile); }
   auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   auto pyramid = Upload(device, *commands, depth);
   auto candidates = Upload(device, *commands, codes);
@@ -108,5 +109,17 @@ int main() {
   Select(*device, selection, kWall, all);
   selection.Sources(tiles, 1);
   Select(*device, selection, kWall, std::span(all).subspan(all.size() / 2));
+  for (const size_t count : {size_t{17}, size_t{4097}}) {
+    const std::vector<GroundInstance> many(count, tile);
+    selection.Sources(many, static_cast<uint32_t>(count));
+    std::vector<uint32_t> expected;
+    for (uint32_t code = 0; code < count * GroundLattice::kPatchCount; ++code) {
+      if (code % GroundLattice::kPatchCount >= GroundLattice::kPatchCount / 2u) {
+        expected.push_back(code);
+      }
+    }
+    Select(*device, selection, kWall, expected, kIdentity, {}, count);
+    Select(*device, selection, 0, std::span<const uint32_t>{}, kIdentity, {{100, 0, 0}}, count);
+  }
   return Report();
 }
