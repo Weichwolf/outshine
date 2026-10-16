@@ -28,15 +28,19 @@ def potential_roots(stand, lower, upper, direction):
 
 
 def instanced_contacts(
-    recipe, stand, lower, upper, direction, size, pair_budget=262144
+    recipe, stand, lower, upper, direction, size, pair_budget=262144, sampler="boxes"
 ):
     lower, upper, direction = query_domain(lower, upper, direction, size)
     require_support(recipe, lower, upper, direction)
     if type(pair_budget) is not int or not size * size <= pair_budget <= 4_194_304:
         raise ValueError("bounded pair batch required before root expansion")
+    if sampler not in ("boxes", "rows"):
+        raise ValueError("bounded candidate sampler required before root expansion")
     selected = potential_roots(stand, lower, upper, direction)
     vertices, faces, _, keys = expand_selected(stand, selected)
-    product = contacts(vertices, faces, lower, upper, direction, size, pair_budget)
+    product = contacts(
+        vertices, faces, lower, upper, direction, size, pair_budget, sampler=sampler
+    )
     present = product["face"] >= 0
     product["face"][present] = keys[product["face"][present]]
     product["work"].update(
