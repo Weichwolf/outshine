@@ -787,7 +787,9 @@ is introduced. The tile consumer reuses this product for resolved opening
 components or an inside-source view; otherwise it retains the compact exterior.
 
 `stepped_facade_details` uses the existing 0.5 px threshold and conservative
-0.25 m opening-component radius, motion and expanded frustum. This component
+0.25 m opening-component radius, motion and expanded frustum. A full near
+assembly additionally requires an opening width of at least 8 px, matching the
+existing bay full-detail class; inside-source views override this width limit. This component
 criterion is not an error bound for the entire interior/shadow/image LOD.
 Presentation accepts at most 512 logical openings and 65,536 near triangles;
 a local presentation failure records a compact fallback without discarding
@@ -795,7 +797,9 @@ the valid stepped source. Near products contain the existing complete simple
 rooms and stairs, so their drawing cost exceeds the compact hull. Native/device
 admission and a more selective exterior product remain separate work.
 
-Presentation shares positions, indices and normals with the validated product.
+Presentation shares complete position/index/normal buffers with the validated product.
+Projection still materializes its selected glass triangles; those temporary
+copies are distinct from result-buffer sharing.
 Metric glass UVs use the existing gravity projection; the existing opaque
 procedural full-glass facade binding gives consistent exterior diagnostics.
 This does not admit transparent or illuminated interiors. Walls retain the

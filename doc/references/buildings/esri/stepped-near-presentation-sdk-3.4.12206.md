@@ -48,7 +48,11 @@ UVs/material bindings. Removing a second construction is both simpler and
 geometrically stronger than reconstructing another approximated facade.
 
 The component-resolution criterion uses a conservative 0.25 m radius and the
-existing 0.5 px threshold. It is not a whole-interior/shadow/image LOD bound.
+existing 0.5 px threshold. Full near assembly also requires an opening width
+of at least 8 px (as in the existing bay full-detail class), except from inside
+the source. The first radius-only city trial increased 332,807 to 515,351
+triangles for approximately 3 px openings; it is retained only as a cost
+counterexample. This criterion is not a whole-interior/shadow/image LOD bound.
 Near products draw substantially more triangles than compact hulls. Existing
 opaque procedural glass presentation does not admit transparent/night interiors.
 Native interaction, visibility/cost admission and broader architecture stay open.

@@ -5,6 +5,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
+from demand import View
 from opening_details import expand, slots
 from stepped_facade_details import DETAIL_RADIUS_M, demand, present
 from stepped_profile_probe import sources
@@ -120,6 +121,30 @@ class SteppedPresentation(unittest.TestCase):
             builder.completed[0]["facade_presentation"]["mode"], "compact-fallback"
         )
         self.assertEqual(metadata["room_ids"], self.plan["storey_room_ids"])
+
+    def test_sub_eight_pixel_openings_keep_the_complete_compact_source(self):
+        opening = slots(self.plan)[0]
+        tangent = np.asarray(opening["tangent"])
+        normal = np.array([tangent[1], -tangent[0]])
+        target = np.r_[opening["centre"], opening["bottom_z_m"] + 0.5]
+        view = View(
+            target + np.r_[normal * 300, 0], target, width=1920, height=1080, fov_deg=48
+        )
+        needed, proof = demand(self.plan, view)
+        self.assertFalse(needed)
+        self.assertTrue(any(d["component_bound_px"] > 0.5 for d in proof["decisions"]))
+        self.assertLess(
+            max(d["projected_width_bound_px"] for d in proof["decisions"]), 8
+        )
+        builder = SteppedDetails([], view)
+        builder.selected.add(self.row["id"])
+        with (
+            patch("tile_stepped.plan_and_near", return_value=(self.plan, self.payload)),
+            patch("tile_stepped.present", side_effect=AssertionError("expanded")),
+        ):
+            mesh, _ = builder(self.row, {}, 12)
+        self.assertEqual(builder.completed[0]["facade_presentation"]["mode"], "compact")
+        self.assertLess(len(mesh["faces"]), len(self.payload[0]["faces"]))
 
 
 if __name__ == "__main__":

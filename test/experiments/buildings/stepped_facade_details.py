@@ -7,6 +7,7 @@ from facade_surface import coordinates
 from opening_details import slots
 
 DETAIL_RADIUS_M = 0.25
+PHYSICAL_OPENING_PX = 8.0
 
 
 def corners(opening):
@@ -35,11 +36,20 @@ def demand(plan, view, *, max_openings=512):
         )
         visible = not np.any(distances.max(axis=0) + margin < 0)
         error = displacement_error(points, view, DETAIL_RADIUS_M)
+        nearest = float(q[:, 2].min()) - view.movement_m
+        width = (
+            float("inf")
+            if nearest <= 0
+            else view.focal_px * opening["width_m"] / nearest
+        )
         decisions.append(
             {
                 "id": opening["id"],
-                "resolved": visible and error > view.detail_error_px,
+                "resolved": visible
+                and error > view.detail_error_px
+                and width >= PHYSICAL_OPENING_PX,
                 "component_bound_px": error,
+                "projected_width_bound_px": width,
             }
         )
     inside = plan["base_z_m"] <= view.eye[2] <= plan["source_top_m"] and plan[
