@@ -1119,3 +1119,9 @@ legacy replay and the whole offline 37-source Grohnde tile comparison:
 [prepared_hall.md](prepared_hall.md) (#500). Camera changes select retained
 geometry; diagnostic export still copies full bodies. Eight glazed halls replace
 the previous six, without claiming a complete whole-building LOD or native cache.
+
+Source-cell industrial facade articulation, protected functional openings,
+shared closed/exterior buffers and true near/opposite/whole-tile comparisons:
+[industrial_relief.md](industrial_relief.md) (#519). Three seeded bay hierarchies
+use existing metal-frame materials. Geometry-only omission can lose distant
+metal signal; full products remain available, radiance/shadow LOD remains open.
