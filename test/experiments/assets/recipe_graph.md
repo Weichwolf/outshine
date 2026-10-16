@@ -38,7 +38,7 @@ units, datums, frame compatibility and actual precision. A string port type alon
 cannot certify a physical product. Known byte accounting is owner-declared,
 explicitly distinct from total Python/native/solver heap use.
 
-## Ladable data
+## Loadable data
 
 Actual data: [roof](recipes/buildings-industrial-envelope-v1.json) and
 [hall](recipes/buildings-industrial-hall-v1.json). Each file contains exactly:
@@ -94,6 +94,28 @@ relevant state/detail inputs. This prototype does not persist anything or change
 #10's asset/cache policy. `Run.stats` reports definitions/bytes, compiled/evaluated
 nodes, reservations and accounted emitted bytes, not RSS or frame time.
 
+## Buildings port representations
+
+All spatial products use one named local right-handed ENU frame in metres and
+an explicit flat-ground0 datum. This is storage/coordinate convention, not a
+survey-precision or native Float32 admission. Ports are exact versioned names:
+
+| Port suffix (prefix `buildings.`, version `/1`) | Value and actual representation |
+| --- | --- |
+| `source` | Read-only source snapshot, retained attributes/ID, valid2D provider WKB with binary64 coordinates |
+| `site` | Stable-ID-sorted read-only neighbor snapshots in the same frame/datum; geometry/height/context changes are fingerprinted |
+| `roof-choice` | Existing frozen industrial RoofChoice, metric binary64 descriptors and explicit inference origin |
+| `roof-envelope` | HeightfieldEnvelope: XYZ/normals/UV float64, faces uint32, material uint16, parts int32, groups uint32, tags uint8, topology roots uint64 |
+| `hall-programme` | Read-protected common facade/room/door/window/ramp plan, metric binary64 values and WKB; opening IDs tied to the same source |
+| `hall-shell` | Read-only body: XYZ/normals/UV/facade extent float64, faces int32, material uint16; PrismCut topology roots int64 |
+
+Envelope/shell array types, stream dimensions and finite attributes are checked
+before emitting these ports. A deliberately downcast Float32 body is rejected;
+this does not certify a later Float32 export. Existing physical source/roof,
+actual passage/support and negative checks remain necessary. Full source bundles
+conservatively invalidate within their dependent stage; fine-grained field
+projection and production cache reuse policy remain outside this pilot.
+
 ## Real Buildings consumer and reproduction
 
 `../buildings/recipe_hall_operators.py` declares source/site, roof-choice,
@@ -119,3 +141,35 @@ claimed from this infrastructure. SIGGRAPH2006 Procedural Modeling of Buildings
 p4 was optically inspected: source-bound solids, facade scopes and occlusion
 remain domain operations. The existing Esri/Ghidra primitive evidence is #489;
 no Esri parser/VM/source implementation is claimed for this own portable pilot.
+
+## Measured pilot5bf2fc32b
+
+62 source controls and the same62 controls with the freshly installed unchanged
+reference wheel pass, no skips. All82 building dependency modules match the
+pinned wheel (`aac088cf20ef7b05728ba62cdc57d85735fccb92a71e4650d9085d3d4d3315b6`).
+The pilot itself remains experiment code, not a packaged API. Three real halls
+replay exactly in two fresh processes each: canonical definitions/instances/
+product fingerprints/plans/stats and actual shell arrays/dtypes. Eight existing
+hall/state/interior/opposite render inputs are exactly preserved, including the
+same source palette binding. The shared facade-axis extraction also reproduces
+all15 preceding whole/near/far/tile input streams/dtypes/cameras/materials. Those
+images were already optically inspected in #493; no new image or visual gain is
+claimed. The actual main open-gate image was re-opened against this equivalence.
+
+The selected closure loads2 definitions/2291bytes and compiles4 nodes. Programme
+requests execute2 callbacks, no roof mesh/heightfield/CSG; complete products run4.
+Across the three cases, returned accounted data is21387/15538/22593bytes for
+plans versus789248/438551/803390bytes for complete exports. Reservations remain
+conservative196608 versus5439488bytes, plus the declared external input bytes.
+
+21-run shared-host medians (2 warmups) for plans: direct25.315/35.383/30.404ms,
+graph28.296/22.702/32.859ms; complete: direct102.596/69.939/106.116ms,
+graph107.742/69.065/111.228ms. No stable speed advantage is inferred; the direct
+control omits graph typing/fingerprints and the host load is uncontrolled. The
+proved saving is avoiding unrequested operators/products. Separate traced peaks
+are in the reproducible report, excluding native allocations. Fresh-process
+prepare2.155–3.767ms and first evaluation67.969–137.358ms; process RSS high-water
+before evaluation90.85–92.88MB, afterward96.35–97.90MB (decimal MB, imports
+included). These are process high-water observations, not per-operator heap
+allocation or native/device/frame bounds. Known final buffer writes/live traced
+allocations and work/byte counts remain scoped as described in the probe.
