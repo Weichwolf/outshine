@@ -95,7 +95,62 @@ def measured(call):
     }
 
 
-def costs(output, proof):
+def construct(fields, view, method):
+    if method == "full":
+        return closed(fields)
+    if method == "filtered":
+        return placed(fields, filtered_template)
+    if method == "direct":
+        return placed(fields, template)
+    return panels(fields, view)[0]
+
+
+def allocations(fields, view, method, output):
+    import memray
+
+    output.mkdir(parents=True, exist_ok=True)
+    results = []
+    for state in ("cold", "warm"):
+        if state == "cold":
+            template.cache_clear()
+            full_template.cache_clear()
+            filtered_template.cache_clear()
+        path = output / f"{len(fields)}-{method}-{state}.bin"
+        with memray.Tracker(path, trace_python_allocators=True, native_traces=True):
+            actual = construct(fields, view, method)
+        expected = construct(fields, view, method)
+        for a, b in zip(actual, expected, strict=True):
+            mesh_equal(a, b)
+        reader = memray.FileReader(path)
+        free = {
+            memray.AllocatorType.FREE,
+            memray.AllocatorType.PYMALLOC_FREE,
+            memray.AllocatorType.MUNMAP,
+        }
+        events, requested = 0, 0
+        for event in reader.get_allocation_records():
+            if event.allocator not in free and event.size > 0:
+                events += event.n_allocations
+                requested += event.size
+        results.append(
+            {
+                "state": state,
+                "profiler": "memray",
+                "version": memray.__version__,
+                "trace_python_allocators": True,
+                "native_traces": True,
+                "allocation_events": events,
+                "cumulative_requested_bytes": requested,
+                "tracked_peak_heap_bytes": reader.metadata.peak_memory,
+                "trace": str(path.resolve()),
+                "trace_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "all_output_arrays_dtypes_exact": True,
+            }
+        )
+    return results
+
+
+def costs(output, proof, *, profiles=False):
     report = []
     for row, neighbors in sources()[:3]:
         began = time.perf_counter()
@@ -120,16 +175,15 @@ def costs(output, proof):
             full_template.cache_clear()
             filtered_template.cache_clear()
 
-            def call(method=method, fields=fields, view=view):
-                if method == "full":
-                    return closed(fields)
-                if method == "filtered":
-                    return placed(fields, filtered_template)
-                if method == "direct":
-                    return placed(fields, template)
-                return panels(fields, view)[0]
-
-            parts, numbers = measured(call)
+            parts, numbers = measured(
+                lambda method=method, fields=fields, view=view: construct(
+                    fields, view, method
+                )
+            )
+            if profiles:
+                numbers["allocation_profiles"] = allocations(
+                    fields, view, method, output / "profiles"
+                )
             entries.append(
                 numbers
                 | {
@@ -141,6 +195,9 @@ def costs(output, proof):
                         p[k].nbytes for p in parts for k in ("vertices", "normals")
                     ),
                     "unique_array_bytes": storage_bytes(parts),
+                    "known_intermediate_vertex_matmul_bytes": sum(
+                        p["vertices"].nbytes for p in parts
+                    ),
                 }
             )
         decision = []
@@ -255,11 +312,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--references", type=Path)
+    parser.add_argument("--profiles", action="store_true")
     args = parser.parse_args()
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze lamina source before evidence")
     args.output.mkdir(parents=True, exist_ok=True)
-    costs(args.output, proof)
+    costs(args.output, proof, profiles=args.profiles)
     if args.references:
         models(args.references, args.output, proof)
