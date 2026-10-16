@@ -134,13 +134,16 @@ def generate(args):
         variables=recipe.get("terrain_variable_mode", "heights"),
         spacing_m=recipe.get("terrain_spacing_m", 12.0),
         sampling=recipe.get("terrain_sampling", "uniform"),
+        refinement_rounds=recipe.get("terrain_refinement_rounds", 1),
     )
     np.savez_compressed(args.output / "terrain-plan.npz", **layout)
     terrain, roles, proof = terrain_stage(
         args.output, "membrane", layout, ground, upper, footprint, 16
     )
     if terrain is None:
-        raise ValueError("extended cycle terrain failed actual export admission")
+        raise ValueError(
+            "extended cycle terrain failed actual export admission: " + str(proof)
+        )
     inventory = catalog(
         case, rows, context, rejected=recipe.get("excluded_source_trials", [])
     )
@@ -164,6 +167,11 @@ def generate(args):
         "landing_pads": context.get("landing_pads", []),
         "landing_pad_selection": context.get("landing_pad_selection", []),
         "whole_landing_contacts": whole_landings,
+        "bridge_separation_orders": context.get("bridge_separation_orders", []),
+        "surface_cross_section_mode": recipe.get(
+            "surface_cross_section_mode", "end_neighbourhood"
+        ),
+        "terrain_refinement_rounds": recipe.get("terrain_refinement_rounds", 1),
         "terrain_plan": plan,
         "terrain": proof,
         "source_catalog_sha256": digest(args.output / "source-catalog.json"),

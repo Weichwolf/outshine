@@ -7,6 +7,7 @@ import numpy as np
 import shapely
 from scipy import sparse
 from scipy.optimize import linprog
+from stair_crossing_order import crossing_order
 from stair_junction_layout import cross_sections
 
 
@@ -102,11 +103,10 @@ def overlap_conditions(plan, system, gap, gap_variable=None):
             a, b = mapped[i][key], mapped[j][key]
             if np.array_equal(a, b):
                 continue
-            first = plan["rows"][i]["original"]["bridge"]
-            second = plan["rows"][j]["original"]["bridge"]
-            if first == second:
+            order = crossing_order(plan["rows"], i, j)
+            if order is None:
                 raise ValueError("unplanned non-contact overlap between source bands")
-            low, high = (b, a) if first else (a, b)
+            low, high = (a, b) if order[0] == i else (b, a)
             for under, over in zip(low, high, strict=True):
                 if gap_variable is None:
                     system.add([under, over], [1, -1], -gap)
@@ -228,6 +228,8 @@ def solve(
         + matrix.indptr.nbytes,
         "explicit_quantized_xy_copy_bytes": plan["xy"].size * 12,
     }
+    if any(r.get("surface_cross_section_mode") == "source_knots" for r in plan["rows"]):
+        note["arrangement"] = plan["note"]
     if not answer.success:
         return None, note
     z = answer.x[:count] + origin_z
