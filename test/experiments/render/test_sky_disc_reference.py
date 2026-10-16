@@ -13,6 +13,22 @@ def frame(radius):
 
 
 class SkyDiscReferenceTest(unittest.TestCase):
+    def test_physical_quarter_path_samples_the_endpoint_table(self):
+        bottom, top = 6360, 6460
+        span = np.sqrt((top - bottom) * (top + bottom))
+        rho = span / 4
+        radius = np.sqrt(bottom * bottom + rho * rho)
+        distance = top - radius + (rho + span - top + radius) / 4
+        cosine = (span * span - rho * rho - distance * distance) / (
+            2 * radius * distance
+        )
+        direction = np.array([np.sqrt(1 - cosine**2), cosine, 0])
+        u, v = np.meshgrid(np.linspace(0, 1, 8), np.linspace(0, 1, 4))
+        lut = np.stack((u, v, np.full_like(u, 0.25)), axis=-1)
+        value, visible = transfer(frame(radius), direction, lut)
+        np.testing.assert_allclose(value, [0.25, 0.25, 0.25], atol=1e-10)
+        self.assertTrue(visible)
+
     def test_empty_atmosphere_path_preserves_unattenuated_sun(self):
         lut = np.full((4, 8, 3), 0.125)
         for direction in ([1, 0, 0], [0, 1, 0], [np.sqrt(0.99), -0.1, 0]):

@@ -28,7 +28,7 @@ def bilinear(lut, u, v):
     )
 
 
-def transfer(parameters, rays, lut):
+def transfer(parameters, rays, lut, *, endpoints=True):
     p = np.asarray(parameters, float)
     radius, bottom, top = p[23], p[28], p[29]
     cosine = rays[..., 1]
@@ -49,20 +49,22 @@ def transfer(parameters, rays, lut):
         )
     )
     shortest, longest = top - at_radius, ground + span
-    value = bilinear(
-        lut,
-        (reach - shortest) / (longest - shortest),
-        np.full_like(cosine, ground / span),
-    )
+    u = (reach - shortest) / (longest - shortest)
+    v = np.full_like(cosine, ground / span)
+    if endpoints:
+        height, width = lut.shape[:2]
+        u = (u * (width - 1) + 0.5) / width
+        v = (v * (height - 1) + 0.5) / height
+    value = bilinear(lut, u, v)
     value = np.where(crosses[..., None], value, 1)
     blocked = (cosine <= 0) & (projection**2 >= (radius - bottom) * (radius + bottom))
     return np.where(blocked[..., None], 0, value), ~blocked
 
 
-def reference(parameters, width, height, lut):
+def reference(parameters, width, height, lut, *, endpoints=True):
     p = np.asarray(parameters, float)
     rays = directions(p, width, height)
-    through, visible = transfer(p, rays, lut)
+    through, visible = transfer(p, rays, lut, endpoints=endpoints)
     sun = p[16:19] / np.linalg.norm(p[16:19])
     dot = rays @ sun
     disc = dot > np.cos(p[26])
