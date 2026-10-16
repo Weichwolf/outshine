@@ -180,11 +180,14 @@ def attach(
     shopfront=None,
     shop_material=None,
     balconies=None,
+    bays=None,
 ):
-    if balconies is not None:
-        from tile_balconies import attach as balcony_cells
+    if balconies is not None and bays is not None:
+        raise ValueError("One upper projection programme per facade required")
+    if balconies is not None or bays is not None:
+        from tile_upper_cells import attach as upper_cells
 
-        return balcony_cells(
+        return upper_cells(
             mesh,
             source,
             parameters,
@@ -197,7 +200,7 @@ def attach(
             entrance=entrance,
             shopfront=shopfront,
             shop_material=shop_material,
-            balconies=balconies,
+            projections=bays if bays is not None else balconies,
         )
     if shopfront is not None:
         from tile_shopfronts import attach as shopfronts
