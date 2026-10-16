@@ -144,7 +144,7 @@ class TwigClusterChecks(unittest.TestCase):
         self.assertEqual(len(result["faces"]) - len(source["faces"]), 11 * 32)
 
     def test_affine_radius_basis_matches_original_kernel_and_hard_cap_normals(self):
-        radii = np.array((0.000065, 0.00011, 0.0002, 0.000325))
+        radii = np.array((0.000065, 0.00011, 0.0002, 0.000325, 0.0025, 0.012))
         for length in (0.12, 0.25):
             for bend in (0.0, 0.35, -0.8):
                 basis = radius_basis(length, bend)
@@ -170,6 +170,14 @@ class TwigClusterChecks(unittest.TestCase):
             np.testing.assert_array_equal(a[key], b[key])
         np.testing.assert_allclose(a["vertices"], b["vertices"], atol=1e-12, rtol=0)
         np.testing.assert_allclose(a["normals"], b["normals"], atol=1e-10, rtol=0)
+        wider = replace(p, carrier_radii=(0.003, 0.001))
+        twig = wider.twigs(7, 32)
+        np.testing.assert_allclose(
+            twig["radii"], 0.65 * (0.003 - 0.002 * twig["parameters"]), atol=1e-18
+        )
+        self.assertNotEqual(wider.identity, p.identity)
+        with self.assertRaises(ValueError):
+            replace(p, carrier_radii=(0.02, 0.01))
 
 
 if __name__ == "__main__":

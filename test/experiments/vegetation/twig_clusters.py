@@ -25,6 +25,7 @@ class TwigClusters:
     leaf_limit: int = 6
     carrier_length: float = 0.16
     carrier_bend: float = 0.4
+    carrier_radii: tuple = (0.0005, 0.00012)
     internode: float = 0.04
     petiole: float = 0.004
     _prototypes: dict = field(
@@ -37,6 +38,7 @@ class TwigClusters:
             np.asarray, (self.host_ids, self.host_counts, self.variants)
         )
         origins, frames = (np.asarray(a, float) for a in (self.origins, self.frames))
+        radii = np.asarray(self.carrier_radii, float)
         if (
             ids.ndim != 1
             or not 1 <= len(ids) <= 65536
@@ -63,6 +65,10 @@ class TwigClusters:
                 frames @ frames.transpose(0, 2, 1), np.eye(3), rtol=0, atol=1e-12
             )
             or not np.allclose(np.linalg.det(frames), 1, rtol=0, atol=1e-12)
+            or radii.shape != (2,)
+            or not np.isfinite(radii).all()
+            or not 0 < radii[1] <= radii[0]
+            or abs(self.carrier_bend) * radii[0] >= self.carrier_length
             or not isinstance(self.source_identity, str)
             or len(self.source_identity) != 64
             or type(self.seed) is not int
@@ -83,6 +89,15 @@ class TwigClusters:
         twigs = (counts + self.leaf_limit - 1) // self.leaf_limit
         if twigs.sum() > 16384 or np.any(twigs > 32):
             raise ValueError("complete short-shoot hierarchy exceeds declared capacity")
+        nonempty = twigs > 0
+        if np.any(nonempty):
+            minimum = int(np.min(counts[nonempty] // twigs[nonempty]))
+            minimum_length = (minimum - 0.5) * self.internode / 0.9 * 0.85
+            if 0.65 * radii[0] > minimum_length / 8:
+                raise ValueError(
+                    "carrier radius exceeds the slender short-shoot capacity"
+                )
+        object.__setattr__(self, "carrier_radii", tuple(map(float, radii)))
         for key, value in (
             ("host_ids", ids.astype(np.uint64)),
             ("host_counts", counts.astype(np.int32)),
@@ -105,6 +120,7 @@ class TwigClusters:
             "leaf_limit": self.leaf_limit,
             "carrier_length": self.carrier_length,
             "carrier_bend": self.carrier_bend,
+            "carrier_radii": list(self.carrier_radii),
             "internode": self.internode,
             "petiole": self.petiole,
         }
@@ -177,7 +193,11 @@ class TwigClusters:
             "parameters": t,
             "origins": centre @ self.frames[index].T + self.origins[index],
             "frames": self.frames[index] @ local,
-            "radii": 0.65 * (0.0005 + (0.00012 - 0.0005) * t),
+            "radii": 0.65
+            * (
+                self.carrier_radii[0]
+                + (self.carrier_radii[1] - self.carrier_radii[0]) * t
+            ),
         }
 
     def shoot(self, count, variant):

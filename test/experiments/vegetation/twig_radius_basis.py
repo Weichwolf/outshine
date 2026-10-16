@@ -6,7 +6,7 @@ from outshine_ref.vegetation.curve_frame import arc_frame
 
 
 def radius_basis(length, bend):
-    reference = 0.0002
+    reference = length / 64
     mesh = axis_mesh(length, bend, reference, reference * 0.3, 3, 4)
     t = np.r_[np.repeat(np.linspace(0, 1, 4), 4), 0, 1]
     centre, _, _, normal = arc_frame(length, bend, 0, t)
@@ -30,6 +30,7 @@ def radius_basis(length, bend):
         "normal_base": base,
         "normal_coefficient": coefficient,
         "faces": mesh["faces"],
+        "maximum_radius": length / 8,
     }
 
 
@@ -38,9 +39,11 @@ def apply_basis(basis, radii):
     if (
         radii.ndim != 1
         or not np.isfinite(radii).all()
-        or np.any((radii <= 0) | (radii > 0.000325))
+        or np.any((radii <= 0) | (radii > basis["maximum_radius"]))
     ):
-        raise ValueError("explicit positive slender source radii up to0.325mm required")
+        raise ValueError(
+            "explicit positive slender source radii up to length/8 required"
+        )
     vertices = (
         basis["centres"][None]
         + radii[:, None, None] * basis["position_coefficient"][None]
