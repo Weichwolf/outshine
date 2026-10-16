@@ -4,7 +4,7 @@
 `CloudProfile::CumulusV1`. `CloudLayer` und `LowCloudRecipe` behalten Stratus
 als Default. Ein positiver Low-Cloud-Snapshot benötigt weiterhin ein explizites
 Geometrie-/Windrezept; die Form ist prozedural, keine beobachtete Wolkenart.
-Ungültige Rezeptversionen scheitern vor der Zustandsproduktion. Snapshot,
+Bei positiver Bedeckung scheitern ungültige Rezeptversionen vor der Zustandsproduktion. Snapshot,
 Quellbytes, Höhe und Zehnmeterwind werden dadurch nicht ergänzt oder verändert.
 
 ## Form und gemeinsamer Vertrag
