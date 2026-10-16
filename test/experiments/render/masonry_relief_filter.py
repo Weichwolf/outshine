@@ -117,7 +117,7 @@ def filtered(at, dx, dy, fractions, per_m, side, depth=DEPTH_M):
     return gradient / (side * side)
 
 
-def normal(gradient, dx=None, dy=None):
+def normal(gradient, dx=None, dy=None, authored=None):
     if dx is None:
         value = np.column_stack([-gradient, np.ones(len(gradient))])
     else:
@@ -127,4 +127,6 @@ def normal(gradient, dx=None, dy=None):
             for g, u, v in zip(gradient, dx, dy, strict=True)
         ]
         value = base - np.array(projected)
+    if authored is not None:
+        value -= np.r_[authored, 0]
     return value / np.linalg.norm(value, axis=-1)[:, None]

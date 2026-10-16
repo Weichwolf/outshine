@@ -38,14 +38,44 @@ vec2 masonryReliefBand(float coordinate, float span, vec2 ends, float bevel) {
   return vec2(clamp(value.x, 0.0, 1.0), value.y);
 }
 
+float masonryReliefOverlap(float at, float span, float width, float centre) {
+  float distance = fract(at) - centre;
+  distance -= floor(distance + 0.5);
+  return max(min(min(span, width), (span + width) * 0.5 - abs(distance)), 0.0);
+}
+
+float masonryReliefSlope(float at, float span, vec2 ends, float bevel) {
+  if (span == 0.0) { return masonryReliefSegment(fract(at), 0.0, ends, bevel).y; }
+  float tail = fract(span);
+  if (tail == 0.0) { return 0.0; }
+  float centre = at - floor(span) * 0.5;
+  float rising;
+  float falling;
+  if (tail + bevel <= 1.0) {
+    rising = masonryReliefOverlap(centre, tail, bevel, ends.x);
+    falling = masonryReliefOverlap(centre, tail, bevel, ends.y);
+  } else {
+    rising = bevel - masonryReliefOverlap(centre + 0.5, 1.0 - tail, bevel, ends.x);
+    falling = bevel - masonryReliefOverlap(centre + 0.5, 1.0 - tail, bevel, ends.y);
+  }
+  return (rising - falling) / (max(span, 1e-12) * bevel);
+}
+
 vec2 masonryReliefGradient(vec2 at, vec2 width) {
   vec2 gradient = vec2(0.0);
   for (int row = 0; row < 2; ++row) {
     float shift = float(row) * 0.5;
-    vec2 horizontal = masonryReliefBand(at.x - shift, width.x, vec2(0.02, 0.98), 0.002 * 4.0);
-    vec2 vertical = masonryReliefBand(at.y, width.y,
+    float horizontal = masonryReliefSlope(at.x - shift, width.x, vec2(0.02, 0.98), 0.002 * 4.0);
+    float vertical = masonryReliefSlope(at.y, width.y,
         vec2(0.03125, 0.46875) + shift, 0.002 * 6.25);
-    gradient += vec2(horizontal.y * vertical.x, horizontal.x * vertical.y);
+    if (horizontal != 0.0) {
+      gradient.x += horizontal * masonryReliefBand(at.y, width.y,
+          vec2(0.03125, 0.46875) + shift, 0.002 * 6.25).x;
+    }
+    if (vertical != 0.0) {
+      gradient.y += vertical * masonryReliefBand(at.x - shift, width.x,
+          vec2(0.02, 0.98), 0.002 * 4.0).x;
+    }
   }
   return gradient * vec2(4.0, 6.25);
 }

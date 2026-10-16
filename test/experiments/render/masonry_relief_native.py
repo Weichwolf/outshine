@@ -13,6 +13,7 @@ import numpy as np
 from facade_coating_raster import ROOT, run
 from ground_litter_native import capture
 from masonry_relief import MAX_NORMAL_ERROR_DEG, RMS_NORMAL_ERROR_DEG, SIDES
+from masonry_relief_controls import authored_composition, periodic
 from masonry_relief_filter import filtered, normal
 from masonry_relief_reference import exact
 
@@ -20,10 +21,12 @@ NORMAL_PARITY_DEG = 0.05
 GRADIENT_PARITY = 0.0002
 
 
-def compile_shader(output, side, counted=True):
+def compile_shader(output, side, counted=True, authored=False):
     path = output / (
         f"filter-{side}.spv" if counted else f"filter-{side}-uncounted.spv"
     )
+    if authored:
+        path = output / f"filter-{side}-authored.spv"
     run(
         [
             "nice",
@@ -37,12 +40,13 @@ def compile_shader(output, side, counted=True):
             "-Itest/experiments/render",
             f"-DRELIEF_SIDE={side}",
             f"-DRELIEF_COUNT_WORK={int(counted)}",
+            f"-DRELIEF_AUTHORED_NORMAL={int(authored)}",
             "test/experiments/render/masonry_relief_probe.comp",
             "-o",
             str(path),
         ],
         output,
-        f"compile-{side}-{int(counted)}",
+        f"compile-{path.stem}",
     )
     return path
 
@@ -199,10 +203,22 @@ def main():
     costs = (
         profile(args.binary.resolve(), output, values, probes) if args.profile else []
     )
+    controls = {
+        "periodic": periodic(args.binary.resolve(), output, compile_shader),
+        "authored": authored_composition(
+            args.binary.resolve(), output, records, values[4], compile_shader
+        ),
+    }
     document = {
         "cases": len(records),
         "methods": report,
         "cost": costs,
+        "controls": controls,
+        "source_hashes": {
+            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in Path("test/experiments/render").glob("masonry_relief*")
+            if p.suffix in (".py", ".glsl", ".comp")
+        },
         "binary_sha256": hashlib.sha256(args.binary.resolve().read_bytes()).hexdigest(),
         "source_commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True

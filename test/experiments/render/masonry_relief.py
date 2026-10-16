@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from facade_coating_raster import HEIGHT, WIDTH
+from facade_coating_raster import HEIGHT, ROOT, WIDTH
 from facade_footprint import native_profiles
 from masonry_relief_filter import brick_gradient, filtered, normal
 from masonry_relief_reference import exact
@@ -176,8 +176,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     output = args.output.resolve()
-    if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-        parser.error("use an explicit system-temp output")
+    if not output.is_relative_to(
+        Path(tempfile.gettempdir()).resolve()
+    ) or output.is_relative_to(ROOT):
+        parser.error("use an explicit system-temp output outside the checkout")
     output.mkdir(parents=True, exist_ok=True)
     began = time.monotonic()
     checked = controls()

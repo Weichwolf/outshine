@@ -26,5 +26,10 @@ void main() {
   vec3 resolved = surfaceGradient(vec3(0.0, 0.0, 1.0), vec3(dx.zw, 0.0), vec3(dy.zw, 0.0),
                                  heightChange.x, heightChange.y);
   vec3 normal = normalize(vec3(0.0, 0.0, 1.0) - resolved);
+#if RELIEF_AUTHORED_NORMAL
+  vec3 authored = normalize(vec3(-0.23, 0.17, 1.0));
+  normal = bumpNormal(vec3(0.0, 0.0, 1.0), authored, vec3(dx.zw, 0.0), vec3(dy.zw, 0.0),
+                      heightChange.x, heightChange.y);
+#endif
   results[index] = Result(vec4(gradient, heightChange), vec4(normal, float(maskCount)));
 }
