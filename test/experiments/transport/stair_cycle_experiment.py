@@ -154,6 +154,7 @@ def generate(args):
         "after": network,
         "whole_interactions": whole,
         "whole_profile_contacts": contacts(data, rows, bindings(args.fixture, rows)),
+        "junction_pads": context.get("junction_pads", []),
         "terrain_plan": plan,
         "terrain": proof,
         "source_catalog_sha256": digest(args.output / "source-catalog.json"),
