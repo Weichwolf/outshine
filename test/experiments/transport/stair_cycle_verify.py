@@ -12,7 +12,7 @@ from stair_blend_metrics import earthwork
 from stair_blend_solve import check_heights
 from stair_blend_verify import field_contract
 from stair_context_verify import stage
-from stair_cycle_contacts import contacts
+from stair_cycle_contacts import bindings, contacts
 from stair_cycle_experiment import arguments, base
 from stair_cycle_inputs import FIXTURE, load
 from stair_network_geometry import interactions, vertex_links
@@ -57,12 +57,13 @@ def displayed(output, report, body, roles, palette_scene):
 def verify(args):
     commit = frozen()
     report = json.loads((args.output / "comparison.json").read_text())
-    if report["fixture_sha256"] != digest(FIXTURE) or report["baseline"] != base(args):
+    fixture = getattr(args, "fixture", FIXTURE)
+    if report["fixture_sha256"] != digest(fixture) or report["baseline"] != base(args):
         raise ValueError("original cycle inputs/baseline changed")
     for name, expected in report["artifacts"].items():
         if digest(args.output / name) != expected:
             raise ValueError("saved cycle artifact changed")
-    case, rows, nodes, stairs, context, sample = load()
+    case, rows, nodes, stairs, context, sample = load(fixture)
     if (
         report["candidate_source_ids"] != [r["source_id"] for r in rows]
         or report["admitted_source_ids"]
@@ -86,7 +87,7 @@ def verify(args):
     data = dict(np.load(args.output / "after/body.npz"))
     pairs, whole = interactions(rows, nodes)
     whole.update(vertex_links(data["body_vertices"], data["body_faces"]))
-    joins = contacts(data, rows)
+    joins = contacts(data, rows, bindings(fixture, rows))
     if (
         whole != report["whole_interactions"]
         or pairs != report["after"]["crossings"]
