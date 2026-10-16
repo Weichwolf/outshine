@@ -121,6 +121,21 @@ run logs, PNGs and PDFs remain under the explicit native-frozen proof directory
 linked by the PR. Current Vulkan parity and GPU timing are now proved for this
 case; Metal/A18, other Places and full device-memory acceptance remain separate.
 
+The subsequently supplied current native5ea6f823b/SDL2fe8da2ca closures are now
+privately copied and fully manifest-checked (1785/1770 files). Both66/72 header
+sets match; the native baseline relink is byte-identical to the supplied relinked
+ELF. Both producer units are freshly compiled with that package's explicit
+compiler/header closure. Its actual LOD4-only candidate is separately identified.
+Strict10s before/after runs on this newer coherent package also fail before
+frames, at10.828/11.090s. They are not newer frame/image acceptance; the fully
+rendered ffd pair above remains scoped to its exact source. New closure metadata,
+compiler/link commands and terminal captures remain in the PR-linked temp root.
+
+LoadingMs is only engine.preload; StandingMs separately includes configure,
+declare and assemble. The full warm-load target must include both. Current rows
+omit StandingMs, so a LoadingMs<10s alone never proves complete warm loading;
+none of these already-red cases is promoted by that omission.
+
 ## Reproduction
 
 Use the normal build/test entry points with the configured native toolchain:
