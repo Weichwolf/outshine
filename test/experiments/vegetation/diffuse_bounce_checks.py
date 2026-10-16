@@ -19,6 +19,24 @@ def square(z, size=1):
 
 
 class DiffuseBounceChecks(unittest.TestCase):
+    def test_black_receiver_avoids_neighbour_geometry_work(self):
+        v, f = square(1)
+        scene = ScatterScene(v, f)
+        state = {"leaf_rt": [0] * 6, "ground_albedo": [0] * 3, "lights": []}
+        result = neighbour_states(
+            scene,
+            np.zeros((3, 3)),
+            np.tile((0, 0, 1.0), (3, 1)),
+            (0, 0, 1.0),
+            np.zeros((3, 6)),
+            uniform_samples(3, 0, 3),
+            {"test": state},
+            2,
+            2e-6,
+        )
+        np.testing.assert_array_equal(result["test"], 0)
+        self.assertEqual(scene.work["rays"], 0)
+
     def test_closed_form_matches_independent_area_quadrature(self):
         x, w = np.polynomial.legendre.leggauss(64)
         for height in (1.0, 2.0):

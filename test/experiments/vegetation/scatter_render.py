@@ -144,7 +144,7 @@ def write_images(output, fields):
     return images
 
 
-def run(inputs, output, width, height, samples, seed, packet):
+def run(inputs, output, width, height, samples, seed, packet, shadow_backend="cached"):
     if output.exists():
         raise ValueError("fresh finite-scattering output directory required")
     began = time.perf_counter()
@@ -154,7 +154,7 @@ def run(inputs, output, width, height, samples, seed, packet):
     faces = np.concatenate(
         (stand["faces"], np.array(((0, 1, 2), (0, 2, 3))) + len(stand["vertices"]))
     )
-    scene = ScatterScene(vertices, faces)
+    scene = ScatterScene(vertices, faces, shadow_backend)
     control = json.loads(
         (Path(__file__).parent / "grass_light_control.json").read_text()
     )
@@ -184,6 +184,7 @@ def run(inputs, output, width, height, samples, seed, packet):
         "samples": samples,
         "seed": seed,
         "packet": packet,
+        "shadow_backend": shadow_backend,
         "bias_m": 2e-6,
         "view": view.tolist(),
         "states": states,
@@ -221,5 +222,17 @@ if __name__ == "__main__":
     parser.add_argument("--samples", type=int, default=4)
     parser.add_argument("--seed", type=int, default=73)
     parser.add_argument("--packet", type=int, default=8192)
+    parser.add_argument(
+        "--shadow-backend", choices=("cached", "legacy"), default="cached"
+    )
     a = parser.parse_args()
-    run(a.inputs, a.output, a.width, a.height, a.samples, a.seed, a.packet)
+    run(
+        a.inputs,
+        a.output,
+        a.width,
+        a.height,
+        a.samples,
+        a.seed,
+        a.packet,
+        a.shadow_backend,
+    )

@@ -45,6 +45,15 @@ def neighbour_sources(scene, points, normals, outgoing, optical, random, bias):
         raise ValueError("explicit bounded metric scattering bias required")
     directions, weights = sample_sheet(optical, normals, outgoing, random)
     active = np.flatnonzero(np.max(weights, axis=1) > 0)
+    if not len(active):
+        return (
+            active,
+            active.copy(),
+            points[:0],
+            normals[:0],
+            directions[:0],
+            weights[:0],
+        )
     side = np.where(np.sum(normals[active] * directions[active], axis=1) >= 0, 1, -1)
     origins = points[active] + bias * side[:, None] * normals[active]
     ids, hit_points, hit_normals, _ = scene.nearest(
