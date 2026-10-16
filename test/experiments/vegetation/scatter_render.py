@@ -21,7 +21,12 @@ def camera_packet(view, width, height, samples, first, pixels, seed):
     ids = np.repeat(np.arange(first, first + pixels), samples)
     x = ((ids % width + random[:, 0]) / width - 0.5) * 1.4
     y = (0.5 - (ids // width + random[:, 1]) / height) * (1.4 * height / width)
-    right = np.array((0, 1, 0.0))
+    right = np.cross((0, 0, 1.0), view)
+    right = (
+        right / np.linalg.norm(right)
+        if np.linalg.norm(right) > 0
+        else np.array((0, 1, 0.0))
+    )
     up = np.cross(view, right)
     origins = 4 * view + x[:, None] * right + y[:, None] * up
     return origins, np.broadcast_to(-view, origins.shape)
