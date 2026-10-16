@@ -2,7 +2,8 @@
 #define OUTSHINE_TEST_EXPERIMENTS_WEATHER_CLOUDVIEWPROBE_H
 
 #include "MediumViewProbe.h"
-#include "LowCloud.h"
+#include "CloudLayer.h"
+#include <world/weather/WeatherSnapshot.h>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -40,6 +41,7 @@ struct Case {
   MediumViewProbe::Scenario View;
   WeatherSnapshot Snapshot;
   Vec3 DensityCameraOriginM;
+  CloudProfile Profile = CloudProfile::Stratus;
   double PhaseS = kCloudViewPhaseS;
   bool BoundarySky = false;
   bool SkyOnly = false;
@@ -54,6 +56,7 @@ struct Capture {
 [[nodiscard]] Medium ControlledAir();
 [[nodiscard]] std::vector<Case> Cases(MediumViewProbe::ImageShape shape);
 [[nodiscard]] std::vector<Case> BoundaryCases(MediumViewProbe::ImageShape shape);
+[[nodiscard]] std::vector<Case> CumulusCases(MediumViewProbe::ImageShape shape);
 [[nodiscard]] WeatherFrame PrepareWeather(const Case &scenario);
 
 struct Pipelines {

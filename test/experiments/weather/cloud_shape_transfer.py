@@ -32,12 +32,21 @@ def source(at, directions, layer, seconds, kind, light_samples, work):
 
 
 def transfer(
-    rays, medium, layer, seconds, kind, work=None, view_samples=16, light_samples=6
+    rays,
+    medium,
+    layer,
+    seconds,
+    kind,
+    work=None,
+    view_samples=16,
+    light_samples=6,
+    query_m=None,
 ):
     if medium[2] < 1e19 or medium[3] < 1e19 or np.any(medium[8:11] != 0):
         raise ValueError("the captured comparison must use homogeneous ozone-free air")
     origin, direction = rays[:, :3], rays[:, 3:6]
     begin, end = physical_air(rays, medium)
+    queries = end if query_m is None else np.minimum(end, query_m)
     air_extinction, air_emission = coefficients(rays, medium)
     radiance = np.zeros((len(rays), 3))
     through = np.ones((len(rays), 3))
@@ -65,13 +74,14 @@ def transfer(
             continue
         start = np.where(valid, start, position)
         finish = np.where(valid, finish, position)
-        integrate(start - position, air_extinction, air_emission)
+        integrate(np.minimum(queries, start) - position, air_extinction, air_emission)
         for sample in range(view_samples):
             a = start + (finish - start) * sample / view_samples
             b = start + (finish - start) * (sample + 1) / view_samples
             at = origin + (0.5 * (a + b))[:, None] * direction
             rho = np.zeros(len(rays))
-            rho[valid] = extinction(at[valid], layer, seconds, kind, work)
+            requested = valid & (queries > a)
+            rho[requested] = extinction(at[requested], layer, seconds, kind, work)
             cloud_emission = np.zeros((len(rays), 3))
             active = rho > 0
             if np.any(active):
@@ -85,8 +95,10 @@ def transfer(
                     work,
                 )
             integrate(
-                b - a, air_extinction + rho[:, None], air_emission + cloud_emission
+                np.minimum(queries, b) - a,
+                air_extinction + rho[:, None],
+                air_emission + cloud_emission,
             )
         position = np.maximum(position, finish)
-    integrate(end - position, air_extinction, air_emission)
+    integrate(np.minimum(queries, end) - position, air_extinction, air_emission)
     return np.c_[radiance, through]

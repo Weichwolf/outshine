@@ -3,6 +3,7 @@
 #include "LowCloud.h"
 
 #include <cmath>
+#include <bit>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -84,11 +85,12 @@ int main() {
   auto cumulusRecipe = recipe;
   cumulusRecipe.Profile = CloudProfile::CumulusV1;
   const auto cumulus = MakeLowCloud(declared, cumulusRecipe);
-  CHECK(cumulus && *cumulus && (**cumulus).Layer.Profile == CloudProfile::CumulusV1 &&
+  CHECK(cumulus && *cumulus && cloudy && *cloudy &&
+            (**cumulus).Layer.Profile == CloudProfile::CumulusV1 &&
             (**cumulus).ProceduralGeometry && (**cumulus).Layer.Cover == kDeclaredLowCover &&
             (**cloudy).Layer.Profile == CloudProfile::Stratus,
         "cloud shape is an explicit procedural recipe while old callers retain stratus");
-  cumulusRecipe.Profile = static_cast<CloudProfile>(2);
+  cumulusRecipe.Profile = std::bit_cast<CloudProfile>(uint32_t{2});
   const auto unsupported = MakeLowCloud(declared, cumulusRecipe);
   CHECK(!unsupported && unsupported.error() == LowCloudFailure::InvalidRecipe,
         "unsupported recipe versions fail instead of silently changing shape");

@@ -12,6 +12,9 @@ constexpr double kAdvectionTolerance = 1e-10;
 constexpr double kFlatRadiusM = 1e14;
 constexpr double kAdvanceS = 120.0;
 constexpr double kMaximumDensityScale = 1.5;
+constexpr double kDeclaredCover = 0.65;
+constexpr double kWindFromDeg = 240.0;
+constexpr double kWindSpeedMs = 8.0;
 
 struct Sample {
   outshine::Vec3 Position;
@@ -33,8 +36,8 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   CloudLayer layer{.BaseM = kBaseM,
-                   .Cover = 0.65,
-                   .WindMs = CloudWindFrom({.FromDeg = 240.0, .SpeedMs = 8.0}),
+                   .Cover = kDeclaredCover,
+                   .WindMs = CloudWindFrom({.FromDeg = kWindFromDeg, .SpeedMs = kWindSpeedMs}),
                    .Profile = CloudProfile::CumulusV1};
   for (const auto &sample : kSamples) {
     const double actual = CloudExtinction(layer, sample.Position, kPhaseS);
@@ -54,6 +57,16 @@ int main() {
   for (const double height : {layer.BaseM, layer.BaseM + layer.ThicknessM}) {
     CHECK(CloudExtinction(layer, {{0.0, height, 0.0}}, kPhaseS) == 0.0,
           "cumulus remains inside the common physical shell");
+  }
+  auto closed = layer;
+  closed.Cover = 1.0;
+  auto stratus = closed;
+  stratus.Profile = CloudProfile::Stratus;
+  for (const auto &sample : kSamples) {
+    CHECK(CloudExtinction(closed, sample.Position, kPhaseS) >=
+                  CloudExtinction(stratus, sample.Position, kPhaseS) &&
+              CloudExtinction(closed, sample.Position, kPhaseS) > 0.0,
+          "full cover fills inter-body gaps with the continuous shared stratus floor");
   }
   layer.RadiusM = kFlatRadiusM;
   for (const auto &sample : kSamples) {

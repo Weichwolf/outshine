@@ -1,6 +1,9 @@
 #include "CloudViewProbe.h"
 #include "MediumViewProbe.h"
+#include "NativeGpuCheck.h"
+#include "Check.h"
 
+#include <algorithm>
 #include <vector>
 
 namespace outshine::Test::CloudViewProbe {
@@ -69,6 +72,20 @@ std::vector<Case> BoundaryCases(MediumViewProbe::ImageShape shape) {
   miss.View.Basis.Up = {{0.0, 1.0, 0.0}};
   miss.View.Projection.FovDeg = 1.0f;
   result.push_back(miss);
+  return result;
+}
+
+std::vector<Case> CumulusCases(MediumViewProbe::ImageShape shape) {
+  auto result = BoundaryCases(shape);
+  for (auto &scenario : result) { scenario.Profile = CloudProfile::CumulusV1; }
+  const auto found = std::ranges::find(result, "sky-only", &Case::Name);
+  CHECK(found != result.end(),
+        "the declared full-sky control exists before making its cover variant");
+  if (found == result.end()) { Gpu::Failed(); }
+  auto closed = *found;
+  closed.Name = "sky-overcast";
+  closed.Snapshot.Values.CloudLow = 1.0;
+  result.push_back(closed);
   return result;
 }
 }

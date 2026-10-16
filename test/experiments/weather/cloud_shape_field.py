@@ -69,7 +69,7 @@ def body_shape(advected, height, cover, work=None, neighborhood=1):
     return body
 
 
-def extinction(points, layer, seconds, kind="stratus", work=None):
+def extinction(points, layer, seconds, kind="stratus", work=None, drift_m=None):
     shape = points.shape[:-1]
     points = points.reshape(-1, 3)
     output = np.zeros(len(points))
@@ -84,11 +84,27 @@ def extinction(points, layer, seconds, kind="stratus", work=None):
     if not np.any(active):
         return output.reshape(shape)
     h = height[active]
-    advected = (points[active] - wind(layer) * seconds) / CELL_M
+    drift = wind(layer) * seconds if drift_m is None else drift_m
+    advected = (points[active] - drift) / CELL_M
     if kind in ("cell-body", "cell-eroded", "cell-smooth"):
         body = body_shape(advected, h, layer.cover, work)
         amount = np.zeros(len(body))
         inside = body > 0
+        if kind == "cell-smooth" and layer.cover >= 0.75:
+            detail = sampled_noise(advected * 3.1 + DETAIL_OFFSET, work)
+            broad = sampled_noise(advected, work)
+            amount = smooth(0, 1, body - 0.18 * (1 - detail))
+            cumulus = 1.5 * smooth(0, 0.08, h) * amount
+            stratus = (
+                6
+                * h
+                * (1 - h)
+                * np.clip((0.8 * broad + 0.2 * detail - (1 - layer.cover)) * 2, 0, 1)
+            )
+            output[active] = layer.extinction_per_m * np.maximum(
+                cumulus, smooth(0.75, 1, layer.cover) * stratus
+            )
+            return output.reshape(shape)
         if np.any(inside):
             frequency, erosion = (7.3, 0.45) if kind == "cell-eroded" else (3.1, 0.18)
             detail = sampled_noise(advected[inside] * frequency + DETAIL_OFFSET, work)
