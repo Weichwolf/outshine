@@ -15,7 +15,7 @@ import numpy as np
 import shapely
 
 
-def triangles(side, stride):
+def triangles(side, stride, keep_boundary=True):
     result = []
 
     def at(x, y):
@@ -23,8 +23,12 @@ def triangles(side, stride):
 
     for y in range(0, side - 1, stride):
         for x in range(0, side - 1, stride):
-            edge = stride > 1 and (
-                x == 0 or y == 0 or x + stride == side - 1 or y + stride == side - 1
+            edge = (
+                keep_boundary
+                and stride > 1
+                and (
+                    x == 0 or y == 0 or x + stride == side - 1 or y + stride == side - 1
+                )
             )
             if not edge:
                 a, b, c, d = (
@@ -73,10 +77,10 @@ def barycentric(points, faces):
     return np.column_stack((1 - v - w, v, w))
 
 
-def stencil(fractions, stride):
+def stencil(fractions, stride, keep_boundary=True):
     side = len(fractions)
     xy = np.stack(np.meshgrid(fractions, fractions), axis=-1).reshape(-1, 2)
-    fine, coarse = triangles(side, 1), triangles(side, stride)
+    fine, coarse = triangles(side, 1), triangles(side, stride, keep_boundary)
     fine_polygons, coarse_polygons = (
         shapely.polygons(xy[fine]),
         shapely.polygons(xy[coarse]),
@@ -88,13 +92,14 @@ def stencil(fractions, stride):
     unique, counts = np.unique(edges, axis=0, return_counts=True)
     assert np.all((counts == 1) | (counts == 2))
     required = []
-    for i in range(side - 1):
+    edge_step = 1 if keep_boundary else stride
+    for i in range(0, side - 1, edge_step):
         required.extend(
             (
-                (i, i + 1),
-                ((side - 1) * side + i, (side - 1) * side + i + 1),
-                (i * side, (i + 1) * side),
-                (i * side + side - 1, (i + 1) * side + side - 1),
+                (i, i + edge_step),
+                ((side - 1) * side + i, (side - 1) * side + i + edge_step),
+                (i * side, (i + edge_step) * side),
+                (i * side + side - 1, (i + edge_step) * side + side - 1),
             )
         )
     assert set(map(tuple, unique[counts == 1])) == set(required)
@@ -248,7 +253,7 @@ def camera(scenario, rows, directory):
     )
 
 
-def compare(directory, scenario):
+def compare(directory, scenario, keep_boundary=True):
     started = time.perf_counter()
     with (directory / "pages.csv").open() as source:
         rows = list(csv.DictReader(source))
@@ -273,13 +278,13 @@ def compare(directory, scenario):
         for stride in strides[1:]:
             key = (fractions.tobytes(), stride)
             if key not in templates:
-                templates[key] = stencil(fractions, stride)
+                templates[key] = stencil(fractions, stride, keep_boundary)
             indices, weights, triangles_count = templates[key]
             delta = np.einsum("ijk,ij->ik", local[indices], weights)
             n_delta = np.einsum("ijk,ij->ik", normals[indices], weights)
             bounds.append(float(np.linalg.norm(delta, axis=1).max()))
             normal_bounds.append(float(np.linalg.norm(n_delta, axis=1).max()))
-            counts.append(triangles_count + 256)
+            counts.append(triangles_count + (256 if keep_boundary else 256 // stride))
         errors.append(bounds)
         normal_errors.append(normal_bounds)
     errors, normal_errors, distances = (
@@ -318,6 +323,9 @@ def compare(directory, scenario):
         "pages": len(rows),
         "camera": pose,
         "profile": "1280x720",
+        "boundary_mode": "original"
+        if keep_boundary
+        else "coarse; neighbor transitions unproved",
         "fov_deg": fov,
         "strides": strides,
         "triangles_per_patch": counts,
@@ -339,7 +347,7 @@ def compare(directory, scenario):
         },
         "source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "scope": "CPU common-refinement geometry bound for existing native height pages including sag; "
-        "unchanged full-resolution boundary and skirts. All-resident counts are not submitted "
+        "boundary mode and skirt counts are explicit. All-resident counts are not submitted "
         "GPU work. Float shader rounding, projected runtime images, normal/material quality, "
         "shadow/collision and device costs remain unproved.",
     }
@@ -350,12 +358,13 @@ def main():
     parser.add_argument("--pages", type=Path, required=True)
     parser.add_argument("--scenario", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--coarse-boundary", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error("output must be in system temp")
     output.unlink(missing_ok=True)
-    report = compare(args.pages, args.scenario)
+    report = compare(args.pages, args.scenario, not args.coarse_boundary)
     output.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report))
 

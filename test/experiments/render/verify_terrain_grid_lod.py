@@ -16,6 +16,20 @@ def interpolate(fractions, faces, values, points):
 
 
 class TerrainGridLod(unittest.TestCase):
+    def test_coarse_boundary_diagnostic_retains_its_declared_surface_partition(self):
+        fractions = np.linspace(0, 1, 9)
+        xy = np.stack(np.meshgrid(fractions, fractions), axis=-1).reshape(-1, 2)
+        values = xy[:, 0] * xy[:, 1]
+        points = np.random.default_rng(32).uniform(0, 1, (10000, 2))
+        for stride in (2, 4, 8):
+            with self.subTest(stride=stride):
+                indices, weights, count = stencil(fractions, stride, False)
+                self.assertEqual(count, 2 * (8 // stride) ** 2)
+                bound = np.abs(np.sum(values[indices] * weights, axis=1)).max()
+                a = interpolate(fractions, triangles(9, 1), values, points)
+                b = interpolate(fractions, triangles(9, stride, False), values, points)
+                self.assertLessEqual(float(np.abs(a - b).max()), bound + 1e-12)
+
     def test_crossing_can_be_wrong_without_any_wrong_grid_vertex(self):
         fractions = np.array((0, 0.5, 1))
         fine, coarse = triangles(3, 1), triangles(3, 2)

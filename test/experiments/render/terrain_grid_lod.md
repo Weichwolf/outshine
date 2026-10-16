@@ -43,6 +43,11 @@ surface. This is conservative in the ideal piecewise-affine model. Shader float
 rounding, jitter, actual projection and runtime images remain separate checks.
 Normal-vector error does not establish a lighting/material error bound.
 
+`--coarse-boundary` compares uniformly decimated tiles with 2304/640/192/64/24/10
+triangles including correspondingly decimated skirts. Tile interiors use the same
+error calculation. Neighbor transitions and exposed skirt/edge errors are not
+established, so this is a diagnostic alternative, not an admitted replacement.
+
 ## Measured comparison, 2026-10-16
 
 All-resident 360-degree region at 1280x720, same scenario camera and heights:
@@ -57,6 +62,11 @@ These are all-resident counts, not per-view submissions or GPU timings. The
 0.25/0.5/1/2/4 px cases are comparisons, not new product limits. Four pixels save
 68–72% but admit large interpolated-normal differences; they are not approved.
 The input cache headers were checked against each scenario's exact world anchor.
+
+At the same one-pixel comparison, coarse boundaries give Tokyo 7498998, Wien
+6345588 and Koerbersee 32196408 triangles: reductions of 13.37%, 24.40% and 14.03%.
+Removing the full-boundary constraint therefore does not explain away the limited
+one-pixel reduction. These figures still do not measure current-frame visibility.
 
 Duplicate-point removal reduced the Tokyo calculation from 55.8 to 10.0 seconds
 under a concurrent native gate. Streaming pages preserves all comparison counts;
