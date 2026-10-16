@@ -64,7 +64,7 @@ int main() {
       eye.ZNearM = 0.1;
       eye.ZFarM = 20000;
       scene->Eye(eye);
-      renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 8192, true);
+      renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 8192, true, 0);
       CHECK(scene->Draw(error), "four regional shadow passes submit");
       renderer.WaitForGpu();
       std::vector<float> first;
