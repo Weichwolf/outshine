@@ -44,7 +44,14 @@ def diagram(record, row, output, index):
         title="2D · actual frame region / free apertures",
     )
     for panel, label, normal, offset, dims, colour in (
-        (222, "Pier horizontal", [0, 1, 0], frame.height_m * 0.43, (0, 2), "#537b91"),
+        (
+            222,
+            "Pier horizontal",
+            [0, 1, 0],
+            (frame.horizontal[0] + frame.horizontal[1]) / 2,
+            (0, 2),
+            "#537b91",
+        ),
         (
             223,
             "Beam vertical",
@@ -97,7 +104,9 @@ def diagram(record, row, output, index):
         zlim=(0, frame.height_m),
         title="2.5D · exact closed reference frame, wall hidden",
     )
-    spatial.set_box_aspect((frame.width_m, max(0.5, frame.depth_m), frame.height_m))
+    spatial.set_box_aspect((frame.width_m, frame.depth_m + 0.06, frame.height_m))
+    spatial.set_yticks([])
+    spatial.set_ylabel(f"Outward 0..{frame.depth_m:.2f} m")
     spatial.view_init(elev=20, azim=-65)
     figure.suptitle(
         row["id"] + " · " + record["kind"] + " · unchanged window/storey axes"
