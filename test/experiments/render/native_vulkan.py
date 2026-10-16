@@ -99,6 +99,8 @@ def main():
                     Path(__file__).with_name('native_timing_empty.comp')]
         sources += [Path(__file__).with_name('native_descriptors.' + stage)
                     for stage in ('vert', 'frag', 'comp')]
+        if not args.present:
+            sources.append(Path(__file__).with_name('native_present.frag'))
         shaders = []
         for source in sources:
             shader = output / (source.name + '.spv')
@@ -118,6 +120,8 @@ def main():
         consumers.append(ROOT / 'test/harness/render/NativeReadbackProbe.cpp')
         consumers.append(ROOT / 'test/harness/render/NativeSdrTransferProbe.cpp')
         consumers.append(ROOT / 'test/harness/render/NativeDescriptorProbe.cpp')
+        consumers += [ROOT / 'test/harness/render' / name
+                      for name in ('NativeSubmissionTimingProbe.cpp', 'NativeSubmissionScopeProbe.cpp')]
         binaries = []
         for source in consumers:
             binary = output / source.stem
@@ -171,7 +175,15 @@ def main():
         trace = ROOT / 'test/outshine/data/render/husum-shadow-bindings.json'
         run(['python3', str(model), '--input', str(trace),
              '--output', str(output / 'descriptor-work.json')], log)
-        report['gpu_timing'] = 'opt-in native dispatch timestamps'
+        report['submission_timing_checks'] = verdict(run(
+            [str(output / 'NativeSubmissionTimingProbe'),
+             str(output / 'native_target_delay.comp.spv')], log,
+            environment=environment, timeout=30), log)
+        report['submission_scope_checks'] = verdict(run(
+            [str(output / 'NativeSubmissionScopeProbe'), str(output / 'fullscreen.vert.spv'),
+             str(output / 'native_present.frag.spv'), str(output / 'submission-scope.ppm')], log,
+            environment=environment, timeout=30), log)
+        report['gpu_timing'] = 'opt-in native submission and dispatch timestamps'
         if args.present:
             report['present_checks'] = verdict(run(
                 [str(binaries[9]), str(shaders[4]), str(shaders[13])], log,

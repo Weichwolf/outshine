@@ -41,6 +41,10 @@ public:
 
   [[nodiscard]] GpuTimingResults Timings() const { return Timings_.Read(); }
 
+  [[nodiscard]] Result<SubmissionGpuTiming> SubmissionTime() const {
+    return Timings_.ReadSubmission();
+  }
+
   [[nodiscard]] const BindingWork &BindingCosts() const noexcept { return Storage_.Work(); }
 
   [[nodiscard]] Result<void>
