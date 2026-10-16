@@ -177,6 +177,9 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
   if (!OnOwner()) {
     return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
   }
+  if (description.ClampDepth && !Limits_.DepthClamp) {
+    return Failure(ErrorKind::Unsupported, "Metal depth clamp is unavailable");
+  }
   @autoreleasepool {
     auto state = std::make_shared<GraphicsState>();
     state->Device = Identity_;

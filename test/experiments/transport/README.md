@@ -377,6 +377,30 @@ und werden in1280×720 geprüft; keine Galerie oder neue Verbraucherfreigabe.
 Die verbindlichen12%/2.50m werden auch am tatsächlichen Float32-Produkt geprüft;
 konservative Baureserven ersetzen keine gelockerten Bedingungen.
 
+## Verbundene Autobahn- und Wegbrücken (#419)
+
+Zwei gegenläufige Fahrbahnen, neun Bodenanschlüsse und eine untere Wegbrücke über
+sechs echte affine Bodenzellen. Ganze Neigungs-/Durchfahrts-/Stützenkontakte,
+begrenzter örtlicher Rückfall und tatsächliche Float32-Produkte werden geprüft.
+[Verfahren, Quellen, Kosten, Bild und Grenzen](layered_bridge_comparison.md).
+`TRANSPORT_CYCLE_OUTPUT` ist die vollständige Szene aus #404,
+`TRANSPORT_RAMP_OUTPUT` liefert die erhaltenen Rand-/Rampenkörper aus #385.
+Ausgaben und Kostenpfade müssen frisch im System-Tempverzeichnis liegen.
+
+```sh
+PYTHONPATH="$TRANSPORT_SOLIDS_PACKAGE:lib/src:test/experiments/transport" "$TRANSPORT_PY" -W error -m unittest layered_bridge_checks cycle_bridge_checks foot_ramp_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/layered_bridge_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_CYCLE_OUTPUT" --borders "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_LAYERED_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/layered_bridge_verify.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_CYCLE_OUTPUT" --borders "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_LAYERED_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_LAYERED_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_LAYERED_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/layered_bridge_cost.py --products "$TRANSPORT_LAYERED_OUTPUT" --method chain --output "$TRANSPORT_LAYERED_COST_CHAIN"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/layered_bridge_cost.py --products "$TRANSPORT_LAYERED_OUTPUT" --method lp --output "$TRANSPORT_LAYERED_COST_LP"
+```
+
+`--support-method fixed` mit anderem frischem Erzeugerausgabepfad prüft den echten
+Teilnetzfall; denselben Reader darauf ausführen. Kosten optional mit `--profile`
+und vorhandenem `memray==1.20.0`; keine neue Runtime-/SDK-Abhängigkeit.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

@@ -56,6 +56,7 @@ Pipeline(Native::Device &device, ShaderFiles files, uint32_t uv, Native::Cull cu
        .Colours = {},
        .Depth = Native::DepthTarget{},
        .Culling = culling,
+       .ClampDepth = true,
        .Label = files.Vertex});
 }
 }

@@ -297,6 +297,7 @@ Native::Result<void> SubjectDraw::ConfigureVariant(
          .Colours = targets,
          .Depth = Native::DepthTarget{.Write = kind != SurfaceKind::Blended},
          .Culling = cullsBack ? Native::Cull::Back : Native::Cull::None,
+         .ClampDepth = true,
          .Label = FragmentEntry(domain, kind, layout)});
     if (!made) { return std::unexpected(made.error()); }
     pipelines[PipelineAt(domain, layout, kind, cullsBack)] = std::move(*made);

@@ -223,6 +223,8 @@ Result<void> InitLogical(Context &context) {
   core.independentBlend = features.features.independentBlend;
   core.multiDrawIndirect = features.features.multiDrawIndirect;
   core.drawIndirectFirstInstance = features.features.drawIndirectFirstInstance;
+  core.depthClamp = features.features.depthClamp;
+  context.DepthClamp = core.depthClamp != VK_FALSE;
   context.IndependentBlend = core.independentBlend != VK_FALSE;
   context.MultiDrawIndirect = core.multiDrawIndirect != VK_FALSE;
   context.IndirectFirstInstance = core.drawIndirectFirstInstance != VK_FALSE;
@@ -278,7 +280,8 @@ void ReadLimits(Context &context) {
                                           limits.maxComputeWorkGroupCount[1],
                                           limits.maxComputeWorkGroupCount[2]},
                     .MaxWorkgroupInvocations = limits.maxComputeWorkGroupInvocations,
-                    .GpuTimestamps = context.TimestampValidBits != 0};
+                    .GpuTimestamps = context.TimestampValidBits != 0,
+                    .DepthClamp = context.DepthClamp};
 }
 
 }

@@ -57,6 +57,7 @@ Pipeline(Native::Device &device,
                                         .Colours = targets,
                                         .Depth = Native::DepthTarget{},
                                         .Culling = culling,
+                                        .ClampDepth = true,
                                         .Label = paths.Vertex});
 }
 }
