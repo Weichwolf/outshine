@@ -651,6 +651,10 @@ The [compact tree-entry reference](../test/experiments/vegetation/tree_entry.md)
 provides an unchanged existing64-axis/571-leaf recipe, fixed canonical rows and
 an executable cache-only whole-plant consumer for native comparison (#367).
 
+[`StandHabitat` and `HabitatStand`](habitat_stand.md) prepare source-bound integer
+stand parents without enumerating individual trees. Canonical leaf sites are an
+explicit bounded demand; source support, saved cells and layout identity persist.
+
 ### Frond guides, source patterns and cross-section curl
 
 `PinnatePattern` creates own planar pinnate sources with stable organ IDs and
