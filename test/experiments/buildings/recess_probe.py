@@ -122,8 +122,18 @@ def diagram(output):
     plt.close(figure)
 
 
-def building(row, view, name, output, provenance, *, scope=None, door_states=None):
-    details = FacadeDetails([row], view, door_states=door_states)
+def building(
+    row,
+    view,
+    name,
+    output,
+    provenance,
+    *,
+    scope=None,
+    door_states=None,
+    context_rows=(),
+):
+    details = FacadeDetails([row, *context_rows], view, door_states=door_states)
     mesh, source = construct(
         name,
         prepared=([row], {"invalid": [], "span_m": 100.0}),
