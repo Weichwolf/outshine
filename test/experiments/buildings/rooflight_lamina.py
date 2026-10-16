@@ -1,66 +1,21 @@
 """Direct two-sided rooflight sheets, selected before any panel mesh expansion."""
 
-from functools import lru_cache
-from types import MappingProxyType
-
 import numpy as np
 from facade_parts import append
 from industrial_hall_details import products
-from outshine_ref.buildings.modelling.scope import scalar
 from outshine_ref.buildings.rooflight_panels import (
     DEPTH_M,
-    FRAME_M,
-    GLASS_INSET_M,
-    GLASS_M,
     MAX_FIELDS,
     corners,
     place,
-    triangle_surface,
 )
+from outshine_ref.buildings.rooflight_panels import sheet_template as template
 from outshine_ref.buildings.rooflight_panels import (
     template as closed_template,
 )
 from recipe_rooflight_operators import GLAZING, SHELL
 
 DISTANCE_BOUND_M = DEPTH_M / 2
-
-
-@lru_cache(maxsize=32, typed=True)
-def template(width, length, slope):
-    width, length, slope = (scalar(v) for v in (width, length, slope))
-    inset = FRAME_M / np.hypot(1, slope)
-    if width <= 2 * inset or length <= 2 * FRAME_M:
-        raise ValueError("Rooflight lamina leaves no clear aperture")
-    outer = np.array([[0.0, 0, 0], [width, 0, 0], [width, length, 0], [0, length, 0]])
-    inner = np.array(
-        [
-            [inset, FRAME_M, 0],
-            [width - inset, FRAME_M, 0],
-            [width - inset, length - FRAME_M, 0],
-            [inset, length - FRAME_M, 0],
-        ]
-    )
-    ring = np.stack(
-        [outer, np.roll(outer, -1, axis=0), np.roll(inner, -1, axis=0), inner], axis=1
-    )
-    glass_top = inner - [0, 0, GLASS_INSET_M]
-    quads = np.concatenate(
-        [
-            ring,
-            (ring - [0, 0, DEPTH_M])[:, ::-1],
-            glass_top[None],
-            (glass_top - [0, 0, GLASS_M])[None, ::-1],
-        ]
-    )
-    quads[:, :, 2] += slope * quads[:, :, 0]
-    vertices = quads.reshape(-1, 3)
-    indices = np.arange(len(vertices), dtype=np.uint32).reshape(-1, 4)
-    faces = indices[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
-    value = triangle_surface({"vertices": vertices, "faces": faces}, 10)
-    value["materials"][-4:] = 3
-    for array in value.values():
-        array.flags.writeable = False
-    return MappingProxyType(value)
 
 
 def selection(fields, view):

@@ -6,7 +6,7 @@ from unittest.mock import patch
 import numpy as np
 import trimesh
 from demand import View, displacement_error
-from outshine_ref.buildings.rooflight_panels import closed, corners
+from outshine_ref.buildings.rooflight_panels import closed, corners, sheets
 from recipe_hall_operators import inputs_for
 from recipe_rooflight_operators import prepare
 from rooflight_lamina import DISTANCE_BOUND_M, assemble, panels, selection, template
@@ -96,9 +96,15 @@ class RooflightLamina(unittest.TestCase):
                 .value
             )
             compact, chosen = panels(fields, far_view(row))
+            public = sheets(fields)
             self.assertTrue(all(p["lamina"] for p in chosen))
-            for full, reduced in zip(closed(fields), compact, strict=True):
+            for full, reduced, emitted in zip(
+                closed(fields), compact, public, strict=True
+            ):
                 distance_check(full, reduced)
+                for key in reduced:
+                    self.assertEqual(reduced[key].dtype, emitted[key].dtype)
+                    np.testing.assert_array_equal(reduced[key], emitted[key])
                 self.assertEqual(len(reduced["faces"]), 20)
                 self.assertEqual(np.count_nonzero(reduced["materials"] == 3), 4)
                 count += 1
@@ -195,6 +201,8 @@ class RooflightLamina(unittest.TestCase):
             value, chosen = panels(fields, far_view(row))
         self.assertTrue(all(item["lamina"] for item in chosen))
         self.assertEqual(sum(len(p["faces"]) for p in value), 20 * len(fields))
+        with self.assertRaisesRegex(ValueError, "capacity"):
+            sheets([fields[0]] * 65)
         with patch(
             "rooflight_lamina.template",
             side_effect=AssertionError("unrequested expansion"),
