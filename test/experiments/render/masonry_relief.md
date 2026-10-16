@@ -185,6 +185,10 @@ PYTHONPATH=lib/src python3 test/experiments/render/masonry_relief_places.py \
 
 The Place script uses fresh offline processes,1920×1080/60, unchanged scenario and
 60 frames/360degrees, and checks preload<10s plus p99<=1000/60ms with no overruns.
+Its ROW input omits StandingMs: LoadingMs measures preload, while full fresh-process
+warm readiness also includes source configuration, declaration and assembly before
+preload. Therefore even passing these numeric thresholds cannot establish the full
+warm-load target. The report explicitly leaves complete warm loading unmeasured.
 Source acquisition/asset construction must finish separately before the warm run.
 Unprepared-cache failures are retained separately, never passed as frame results.
 Numeric timing thresholds do not assert image parity or complete-world quality.
@@ -216,9 +220,10 @@ The first fresh10second offline attempts both fail before any frame, at10.087s
 and11.711s under measured host load7.1–7.4. These are retained. A separate120second
 image-preparation timeout produces complete paired captures: actual preload
 8.002/13.006s, p9913.2218/11.3666ms, zero frame overruns. This is neither a speedup
-claim nor warm-load acceptance; the after load still exceeds10s. Native
-shadow/foliage parity also remains open in #328, so the good frame samples do not
-complete equal-quality frame acceptance. Timing-consumer outputs now say
+claim nor warm-load acceptance; the after load still exceeds10s. At that source state, native
+shadow/foliage parity was also open in #328, so those good frame samples did not
+complete equal-quality frame acceptance. The current concrete Flensburg parity
+repair and its countercheck are recorded below. Timing-consumer outputs now say
 `timing_thresholds_met` and explicitly leave image acceptance unasserted.
 
 The earlier retained SDL-renderer comparison, before the producer correction, is red: p99 before12.0354ms,
@@ -242,6 +247,54 @@ native consumer binary e0e56fecfa123639ed4a40d232109f94f6ec15a16b803a8cc6cc1f0b9
 Exact compile/link inputs and terminal runs are retained in atlas-build.json and
 atlas.json beside the corrected-world captures. This proves native Vulkan atlas
 consumption, not Metal execution or equal-quality whole-world frame acceptance.
+
+## Current coherent native countercheck
+
+Source813eaa58b includes master36be5afa3; production relief is unchanged from801cd0875.
+The provided immutable native5ea6f823b package supplies matching headers, Main.o,
+ProcessHeap.o and the complete core archive. Its baseline relink is byte-identical
+with the supplied executable. The corrected producer client reuses that exact
+closure and recompiles only #416's two generator units against its own headers.
+Both relief sides use this same binary, SHA256
+c66a16d9e4da32ff4e05394af4c1f33f8a053537e1c04c70fd05c03239721169.
+No old diagnostic Main/Framing objects are mixed with a newer Device archive.
+
+Source shader comparisons find only the two intended facade callers different;
+the added relief primitive is shared. Both252 lit-fragment families compile with
+the supplied native shader package; the other240 shader/include files remain
+byte-identical. Flensburg's unchanged declared fill0.6,1920×1080/60, clock,
+camera and corrected metre producer give2f507cd3 disabled andf2dbbc36 enabled.
+There are6203 changed pixels,137 above1/255, worst4/255, mean RGB0.001439686/255.
+All three PDF pages were optically opened: full pair, the same224pixel crop and
+the dated2025-07-15 12:00CEST webcam reference. The distant normal response remains
+small; no broad Place improvement or matched-weather claim follows. #425 now
+independently proves byte-equal concrete Flensburg colour/depth/shadow across the
+SDL/native pair; that previous blanket parity objection no longer applies here.
+
+The first fresh10second attempts still fail before frames: actual preload
+11.9098/12.6083s. Separate120second image preparation finishes with2.9/2.8s standing
+and12.7/11.7s preload, rounded by the human client report. Both full warm loads
+therefore exceed10s; #441 owns this independently red cache-readiness case.
+Both image runs retain585262 triangles, zero bare tiles and exactly60 frames;
+the unchanged client source performs the360degree turn. CPU p50/p95/p99 is
+6.06/11.23/15.79ms disabled,6.31/15.26/19.64ms enabled: zero/one over-budget frames,
+worst at47/27. GPU mean/max is8.427/9.580ms and9.815/13.363ms,60/60 timestamp
+samples each, zero unavailable, query CPU total0.033/0.028ms. Host load at launch
+was8.62/8.98, with concurrent foreign work. The CPU after-p99 is red; this single
+pair does not isolate a shader regression or support a speedup claim.
+
+The unchanged original atlas consumer is freshly compiled against the same
+current native package and retains the two corrected generator objects when
+linked. Both sides pass31056 checks with zero failures/skips/unprepared/partial,
+terminal0, no logged validation errors. No assertion, test input or pin changes.
+Source SHA remainsf130e70dc0c5034a16de300e538d2642f1d56df5b5efcf50dec2aeb845d88908.
+
+Exact source/package/binary and shader hashes, commands, original logs, raw PNGs,
+PDF and unchanged atlas inputs are retained at
+`/tmp/outshine-material-relief-current-813eaa58b/`. The previous original atlas,
+gradient/raster/mapped-normal evidence remains valid for its stated scope.
+No full-lint rerun or new Metal/device-memory claim. Warm load and the affected
+CPU frame countercheck remain red, so this production candidate stays Draft.
 
 Before merging the production hookup, the affected equal-quality frame/load
 countercheck remains required. Metal/A18 counterchecks belong to Master;

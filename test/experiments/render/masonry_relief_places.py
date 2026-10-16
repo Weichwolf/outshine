@@ -85,6 +85,7 @@ def main():
         "target_fps": 60,
         "records": [],
         "scope": "Paired declared public client/ABI; timing thresholds alone do not prove image parity",
+        "complete_warm_load": "unmeasured: ROW omits setup StandingMs; LoadingMs covers preload only",
         "equal_quality_acceptance": "not asserted by this timing consumer",
     }
     for place in args.places:
