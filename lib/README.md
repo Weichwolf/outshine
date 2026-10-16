@@ -95,6 +95,11 @@ Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
 
+`transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
+Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
+[Vertrag und Grenzen](junction_pads.md): unveränderliches Polygon, tatsächliche
+Quellen-/Ebenenwahl und vollständige Höhen-/Float32-Kontakte beim Aufrufer.
+
 `transport.fit_surface_heights(mesh, grade_frames, budget=HeightBudget(), fixed=...)`
 passt ausschließlich Z-Höhen an einen weichen Höhenprior an. XY, Dreiecke und der
 regionale Z-Bezug bleiben erhalten; gemeinsame Vertices besitzen genau eine Höhe.
@@ -1018,3 +1023,11 @@ whole-image/shadow LOD admission. A fully open leaf emits no triangles. Housing,
 tracks, attachment, room/collision use, visibility and source interpretation
 remain consumer-owned. Actual source hall consumer, physical alternatives,
 functional negatives and reproduction live in building experiments (#489).
+## Glazed rooflight panels
+
+`buildings.rooflight_panels` emits direct closed rectangle rims/panes and a
+render skin with checked parent contacts. Optional direct two-sided sheets have
+20 triangles with explicit geometric bounds and independent physical products.
+Contract, real source/installed-wheel
+controls, render comparisons and separated preparation/emission costs:
+[rooflight_panels.md](rooflight_panels.md) (#500).

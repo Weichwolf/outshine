@@ -38,3 +38,7 @@ The real young-pine/planar-root consumer uses that unchanged kernel:
 species definition separate from seeds and retained habitat instances; physical
 and precision negatives, prior render-input equivalence and scoped costs are
 part of the comparison. The common production decision remains open in #483.
+
+The Buildings consumer also has an explicit [glazed hall v2](../buildings/recipe_rooflights.md)
+with separately requested logical fields, closed panels and a versioned cut shell.
+It leaves the shared kernel and v1 definition unchanged (#500).

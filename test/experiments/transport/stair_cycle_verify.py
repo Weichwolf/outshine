@@ -15,6 +15,7 @@ from stair_context_verify import stage
 from stair_cycle_contacts import bindings, contacts
 from stair_cycle_experiment import arguments, base
 from stair_cycle_inputs import FIXTURE, load
+from stair_landing_contacts import node_profiles
 from stair_network_geometry import interactions, vertex_links
 from stair_outer_context import catalog
 from stair_outer_geometry import outer_ends
@@ -65,6 +66,13 @@ def verify(args):
         if digest(args.output / name) != expected:
             raise ValueError("saved cycle artifact changed")
     case, rows, nodes, stairs, context, sample = load(fixture)
+    if report.get("junction_pads", []) != context.get("junction_pads", []):
+        raise ValueError("saved constructive junction pad differs from source profiles")
+    for name in ("landing_pads", "landing_pad_selection"):
+        if report.get(name, []) != context.get(name, []):
+            raise ValueError(
+                "saved chosen landing plan differs from original endpoints"
+            )
     if (
         report["candidate_source_ids"] != [r["source_id"] for r in rows]
         or report["admitted_source_ids"]
@@ -88,6 +96,13 @@ def verify(args):
         [owner for owner, _low, _high in stairs],
     )
     data = dict(np.load(args.output / "after/body.npz"))
+    whole_landings = (
+        node_profiles(data, rows, nodes) if "complete_chosen_landings" in recipe else {}
+    )
+    if whole_landings != report.get("whole_landing_contacts", {}) or (
+        whole_landings and not whole_landings["all_chosen_internal_profiles_whole"]
+    ):
+        raise ValueError("actual whole internal profile evidence changed or incomplete")
     pairs, whole = interactions(rows, nodes)
     whole.update(vertex_links(data["body_vertices"], data["body_faces"]))
     joins = contacts(data, rows, bindings(fixture, rows))
