@@ -17,7 +17,7 @@ from stair_junction_layout import inputs
 from stair_junction_verify import display_proof, landing_proof, source_fields
 
 
-def stage(args, name, rows, junctions, report, ends=None):
+def stage(args, name, rows, junctions, report, ends=None, stair_owners=None):
     target = args.output / name
     for file, key in (
         ("body.npz", "body_sha256"),
@@ -30,7 +30,7 @@ def stage(args, name, rows, junctions, report, ends=None):
     with np.load(target / "height-input.npz") as d:
         arrays = dict(d)
     domains = [corridor(r) for r in rows]
-    pairs = crossings(rows)
+    pairs = crossings(rows, junctions)
     if (
         pairs != report["crossings"]
         or [r["source_id"] for r in rows] != report["source_ids"]
@@ -38,7 +38,7 @@ def stage(args, name, rows, junctions, report, ends=None):
         raise ValueError("saved actual source/crossing ownership changed")
     proof = audit(data, domains, limits=[r["gradient"] for r in rows], crossings=pairs)
     fields = source_fields(arrays, data, rows, domains)
-    proof["landings"] = landing_proof(fields, rows, domains, junctions)
+    proof["landings"] = landing_proof(fields, rows, domains, junctions, stair_owners)
     proposed = outer_ports(
         {
             "rows": rows,

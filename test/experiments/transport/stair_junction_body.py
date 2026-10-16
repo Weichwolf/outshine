@@ -92,6 +92,12 @@ def close(points, faces, step, levels):
 def build(plan, heights):
     points, faces, owners, steps, levels, note = partition(plan, heights)
     body, top, bottom, walls, families, volume = close(points, faces, steps, levels)
+    extra = {}
+    if "stairs" in note:
+        extra["stair_owners"] = np.array([r["owner"] for r in note["stairs"]])
+        extra["stair_level_offsets"] = np.array(
+            [r["level_offset"] for r in note["stairs"]] + [len(levels)]
+        )
     return (
         body,
         {
@@ -106,6 +112,7 @@ def build(plan, heights):
             "levels_m": levels,
             "reference_vertices": points,
             "reference_faces": faces,
+            **extra,
         },
         dict(
             note,

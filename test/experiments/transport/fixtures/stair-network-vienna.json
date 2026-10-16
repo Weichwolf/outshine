@@ -1,0 +1,43 @@
+{
+  "format": 1,
+  "context_file": "stair-context-vienna.json",
+  "context_sha256": "a04eb7a347f54c94ae9104e3da9b84e09ee83e10b5f75f48485d04a3121e5985",
+  "additional_source_ids": [
+    "openfreemap:14/8937/5678:transportation:377113090:0",
+    "openfreemap:14/8937/5678:transportation:229812042:0",
+    "openfreemap:14/8937/5678:transportation:229812060:2",
+    "openfreemap:14/8937/5678:transportation:137774950:6",
+    "openfreemap:14/8937/5678:transportation:80922970:339",
+    "openfreemap:14/8937/5678:transportation:137774950:5",
+    "openfreemap:14/8937/5678:transportation:258321780:54",
+    "openfreemap:14/8937/5678:transportation:80922970:337"
+  ],
+  "detour": {
+    "source_id": "openfreemap:14/8937/5678:transportation:97041640:6",
+    "anchor_mvt": [3854, 2779],
+    "offset_m": 18,
+    "choice": "A procedural two-knot detour between the actual interior footway contact and final bridge contact. The original source axis and properties remain retained; all shared source nodes remain fixed. Extra points get actual retained-DEM priors. Full context/outer route admission remains open."
+  },
+  "width_contacts": [
+    {
+      "mvt_xy": [
+        3844,
+        2732
+      ],
+      "source_ids": [
+        "openfreemap:14/8937/5678:transportation:229812320:0",
+        "openfreemap:14/8937/5678:transportation:97041640:6",
+        "openfreemap:14/8937/5678:transportation:80922970:337"
+      ],
+      "choice": "The true short-footway width overlap at the existing bridge/cycle landing is a shared contact, not another underpass. Full overlap/field verification required."
+    },
+    {
+      "source_ids": [
+        "openfreemap:14/8937/5678:transportation:97041640:6",
+        "openfreemap:14/8937/5678:transportation:80922970:337"
+      ],
+      "choice": "Choose the whole actual polygonal overlap of the ground cycle and short footway as a shared flat contact. It connects the existing far bridge/cycle landing and third-stair lower landing without moving an axis or inventing a shared MVT vertex; whole geometry verification required."
+    }
+  ],
+  "scope": "Unsolved three-stair connected source experiment. Original seven-source context and DEM window remain authoritative. Remaining outside axes and outer contacts are not admitted."
+}
