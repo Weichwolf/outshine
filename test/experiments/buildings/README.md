@@ -1124,4 +1124,7 @@ Source-cell industrial facade articulation, protected functional openings,
 shared closed/exterior buffers and true near/opposite/whole-tile comparisons:
 [industrial_relief.md](industrial_relief.md) (#519). Three seeded bay hierarchies
 use existing metal-frame materials. Geometry-only omission can lose distant
-metal signal; full products remain available, radiance/shadow LOD remains open.
+metal signal. The corrected default retains shared distant front surfaces:
+[industrial_relief_signal.md](industrial_relief_signal.md) (#523), with actual
+full/omitted/projected comparisons and near/grazing negatives. Complete physical
+products remain available; general radiance/shadow/temporal LOD remains open.
