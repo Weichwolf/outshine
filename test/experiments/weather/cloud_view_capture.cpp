@@ -101,11 +101,11 @@ CheckPixel(const Case &scenario, const Capture &capture, size_t pixel, uint32_t 
   const double sampleDepth =
       result.Receiver ? radiance[3]
                       : 0.5 * (scenario.View.Area.MinDepth + scenario.View.Area.MaxDepth);
-  const auto ray = MediumViewProbe::ReferenceRay(scenario.View,
-                                                 {{static_cast<double>(pixel % width) + 0.5,
-                                                   static_cast<double>(pixel / width) + 0.5,
-                                                   sampleDepth}},
-                                                 ControlledAir());
+  const size_t row = pixel / width;
+  const auto ray = MediumViewProbe::ReferenceRay(
+      scenario.View,
+      {{static_cast<double>(pixel % width) + 0.5, static_cast<double>(row) + 0.5, sampleDepth}},
+      ControlledAir());
   const auto origin = scenario.DensityCameraOriginM + ray.OriginM;
   result.Ray = {origin[0],
                 origin[1],
