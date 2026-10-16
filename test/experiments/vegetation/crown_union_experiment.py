@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -35,28 +36,32 @@ def prepared(inputs, plan, representation="cells"):
     return sources, metadata
 
 
-def build(inputs, plan, output):
+def build(inputs, plan, output, join_shading="source"):
+    if join_shading not in ("source", "angle"):
+        raise ValueError("declared source or experimental angle join shading required")
     sources, metadata = prepared(inputs, plan)
     built = join_sources(sources)
     if built is None:
         raise ValueError("complete union exceeds output capacity")
     mesh, work = built
-    owner = mesh["source_node"].astype(np.uint64) + (
-        mesh["source_kind"].astype(np.uint64) << 32
-    )
-    lowest = np.full(len(mesh["vertices"]), np.iinfo(np.uint64).max, np.uint64)
-    highest = np.zeros(len(mesh["vertices"]), np.uint64)
-    np.minimum.at(lowest, mesh["faces"].ravel(), np.repeat(owner, 3))
-    np.maximum.at(highest, mesh["faces"].ravel(), np.repeat(owner, 3))
-    mesh, work["join_shading"] = smooth_join_corners(mesh, lowest != highest)
+    if join_shading == "angle":
+        owner = mesh["source_node"].astype(np.uint64) + (
+            mesh["source_kind"].astype(np.uint64) << 32
+        )
+        lowest = np.full(len(mesh["vertices"]), np.iinfo(np.uint64).max, np.uint64)
+        highest = np.zeros(len(mesh["vertices"]), np.uint64)
+        np.minimum.at(lowest, mesh["faces"].ravel(), np.repeat(owner, 3))
+        np.maximum.at(highest, mesh["faces"].ravel(), np.repeat(owner, 3))
+        mesh, work["join_shading"] = smooth_join_corners(mesh, lowest != highest)
     mesh["surface"] = np.zeros(len(mesh["faces"]), np.uint8)
     mesh["corner_uv"] = np.zeros((mesh["faces"].size, 2))
     recipe = {
         "format": "cached-crown-cell-union-1",
         "source": metadata["geometry_identity"],
         "manifold3d": importlib.metadata.version("manifold3d"),
-        "join_shading": "angle-45deg-source-contacts",
     }
+    if join_shading == "angle":
+        recipe["join_shading"] = "angle-45deg-source-contacts"
     identity = hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
     old_faces = len(np.load(inputs / "spatial/wood.npz")["faces"])
     updated = dict(
@@ -68,6 +73,15 @@ def build(inputs, plan, output):
         scope="One connected outer canonical crown/shoot wood body; original leaf products and anchors. Sharp Boolean forks, no natural collar, species/LOD/wind/native admission.",
     )
     output.mkdir(parents=True, exist_ok=False)
+    source_nodes = {
+        str(kind): sorted(
+            {s["source_node"] for s in sources if s["source_kind"] == kind}
+        )
+        for kind in (0, 1)
+    }
+    (output / "wood-source-nodes.json").write_text(json.dumps(source_nodes) + "\n")
+    for name in ("spatial-plan.npz", "spatial-plan.json"):
+        shutil.copyfile(plan / name, output / name)
     for name, entry in (("recursive", metadata), ("spatial", updated)):
         folder = output / name
         folder.mkdir()
@@ -110,5 +124,6 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--join-shading", choices=("source", "angle"), default="source")
     args = parser.parse_args()
-    build(args.inputs, args.plan, args.output)
+    build(args.inputs, args.plan, args.output, args.join_shading)
