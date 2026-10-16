@@ -104,6 +104,32 @@ class WindowBays(unittest.TestCase):
                 rear = shapely.Point(0, plan.back_m - 0.001)
                 self.assertTrue(shape["inside"].covers(rear))
                 self.assertFalse(shape["wall"].covers(rear))
+                half = width / 2 - plan.wall_m
+                inner = (
+                    shape["outer"]
+                    .buffer(-plan.wall_m, join_style=2)
+                    .union(
+                        shapely.box(-half, plan.back_m - plan.wall_m, half, plan.back_m)
+                    )
+                )
+                self.assertLess(inner.symmetric_difference(shape["inside"]).area, 1e-10)
+                actual = native(full).scale((1000.0,) * 3)
+                glazing = shapely.union_all([shape["posts"], *shape["panes"]])
+                for low, high, contour in (
+                    (0, plan.floor_m, shape["outer"]),
+                    (plan.floor_m, plan.sill_m, shape["wall"]),
+                    (plan.sill_m, plan.head_m, glazing),
+                    (plan.head_m, plan.height_m - plan.ceiling_m, shape["wall"]),
+                    (plan.height_m - plan.ceiling_m, plan.height_m, shape["outer"]),
+                ):
+                    rings = [
+                        shapely.Polygon(np.asarray(ring) / 1000)
+                        for ring in actual.slice((low + high) * 500).to_polygons()
+                    ]
+                    sliced = shapely.Polygon()
+                    for ring in sorted(rings, key=lambda p: -p.area):
+                        sliced = sliced.symmetric_difference(ring)
+                    self.assertLess(sliced.symmetric_difference(contour).area, 1e-7)
 
     def test_render_skin_samples_match_actual_physical_exterior_roles_and_normals(self):
         for fraction, depth, width in product(
