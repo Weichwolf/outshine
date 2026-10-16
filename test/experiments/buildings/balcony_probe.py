@@ -67,17 +67,18 @@ def diagram(current, owner, output):
         axis.set(aspect="equal", title=title, xlabel="Meter", ylabel="Meter")
     axis = figure.add_subplot(144, projection="3d")
     keep = np.arange(len(local)) < sum(len(part["faces"]) for part in parts[:-1])
+    spatial = local[:, :, [0, 2, 1]]
     axis.add_collection3d(
-        Poly3DCollection(local[keep], facecolors=colours[keep], edgecolors="none")
+        Poly3DCollection(spatial[keep], facecolors=colours[keep], edgecolors="none")
     )
     axis.set(
         xlim=(local[:, :, 0].min(), local[:, :, 0].max()),
-        ylim=(local[:, :, 1].min(), local[:, :, 1].max()),
-        zlim=(local[:, :, 2].min(), local[:, :, 2].max()),
+        ylim=(local[:, :, 2].min(), local[:, :, 2].max()),
+        zlim=(local[:, :, 1].min(), local[:, :, 1].max()),
         title="2,5D · Deckenplatte zur Einsicht ausgeblendet",
     )
-    axis.set_box_aspect((3.2, current["doorway"]["floor_m"], 3.2))
-    axis.view_init(elev=26, azim=-65)
+    axis.set_box_aspect((3.2, 3.2, current["doorway"]["floor_m"]))
+    axis.view_init(elev=26, azim=65)
     figure.tight_layout()
     figure.savefig(output / "balcony-plan-sections.png", dpi=120)
     plt.close(figure)
