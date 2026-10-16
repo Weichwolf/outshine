@@ -49,6 +49,7 @@ def cell(entry, column, level, states):
         "pocket": pocket,
         "clear_pocket": clear_pocket,
         "doorway": doorway,
+        "height_interval_m": (base, base + 0.16 + prototype.guard_height_m),
     }
 
 
@@ -65,70 +66,44 @@ class BalconyDetails:
             )
         return self.templates[key]
 
+    @staticmethod
+    def demand(current, view):
+        return demand(current, view)
+
+    def products(self, current, material, mode, *, glass=None):
+        from balcony_geometry import products
+
+        return products(current, self, material, mode)
+
+    @staticmethod
+    def description(current, mode, triangles, frame):
+        return {
+            "id": current["id"],
+            "kind": "balcony",
+            "facade_id": frame["id"],
+            "cell": [current["column"], current["row"]],
+            "door_id": current["door_id"],
+            "mode": mode,
+            "cells": int(mode == "through"),
+            "angle_deg": current["doorway"]["angle_deg"],
+            "triangles": triangles,
+            "scope": "Same local deck/guard and upper door; full storey route and native interaction unproved",
+        }
+
     def plan(self, row, entry, family):
-        if family != "residential" or entry is None or row.get("clipped"):
-            return None
-        frame = entry["frame"]
-        if (
-            frame["rows"] < 2
-            or entry["cell_width_m"] < 2.0
-            or not 60 <= row["polygon"].area <= 1600
-        ):
-            return None
-        columns = (
-            sorted({round(t * (frame["columns"] - 1)) for t in (0.25, 0.75)})
-            if frame["columns"] >= 6
-            else [entry["column"]]
+        from upper_facade_cells import propose
+
+        planned = propose(
+            row,
+            entry,
+            family,
+            cell,
+            self.states,
+            self.entrances,
+            self.rejected,
+            "Balcony",
         )
-        planned = []
-        for column in columns:
-            for level in range(1, min(frame["rows"], 4)):
-                try:
-                    current = cell(entry, column, level, self.states)
-                    low, high = (
-                        current["base_m"],
-                        current["floor_z_m"] + current["prototype"].guard_height_m,
-                    )
-                    if current["footprint"].intersection(row["polygon"]).area > 1e-8:
-                        raise ValueError(
-                            "Balcony intersects another wing of its source"
-                        )
-                    wall = rectangle(
-                        current["doorway"]["door"]["centre"],
-                        current["doorway"]["door"]["tangent"],
-                        entry["cell_width_m"],
-                        0.0,
-                        0.24,
-                    )
-                    if (
-                        wall.difference(row["polygon"]).area > 1e-8
-                        or current["pocket"].difference(row["polygon"]).area > 1e-8
-                        or not row["polygon"]
-                        .buffer(-0.24, join_style=2)
-                        .covers(current["clear_pocket"])
-                    ):
-                        raise ValueError(
-                            "Balcony wall cell or arrival pocket leaves its source"
-                        )
-                    # Reserve room for an opposing procedural deck (all decks project at most1.2m).
-                    envelope = current["footprint"].buffer(1.2)
-                    if not self.entrances.clear(
-                        row, envelope, high, low_m=low
-                    ) or not self.entrances.clear(
-                        row, current["pocket"], current["floor_z_m"] + 2.15, low_m=low
-                    ):
-                        raise ValueError(
-                            "Balcony conflicts with a known height interval or opposing-deck margin"
-                        )
-                    planned.append(current)
-                except ValueError as error:
-                    self.rejected.append(
-                        {
-                            "source_id": row["id"],
-                            "cell": [column, level],
-                            "reason": str(error),
-                        }
-                    )
+        frame = entry["frame"] if entry else None
         if not planned:
             return None
         self.planned.append(
