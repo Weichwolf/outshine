@@ -46,7 +46,7 @@ def capture(binary, runtime, output, place, side, width, height):
     assert len(rows) <= 1
     if len(rows) == 1:
         row = rows[0]
-        record["frame_gate"] = (
+        record["timing_thresholds_met"] = (
             result.returncode == 0
             and row[3] == "1"
             and int(row[7]) == 60
@@ -58,7 +58,7 @@ def capture(binary, runtime, output, place, side, width, height):
             and float(row[18]) == 360
         )
     else:
-        record["frame_gate"] = False
+        record["timing_thresholds_met"] = False
     print(record, flush=True)
     return record
 
@@ -84,7 +84,8 @@ def main():
         "height": args.height,
         "target_fps": 60,
         "records": [],
-        "scope": "Paired retained public client/ABI; not the unfinished native renderer port",
+        "scope": "Paired declared public client/ABI; timing thresholds alone do not prove image parity",
+        "equal_quality_acceptance": "not asserted by this timing consumer",
     }
     for place in args.places:
         for side in ("before", "after"):
@@ -100,7 +101,9 @@ def main():
                 )
             )
             (output / "captures.json").write_text(json.dumps(report, indent=2) + "\n")
-    assert all(row["frame_gate"] for row in report["records"]), "frame gate remains red"
+    assert all(row["timing_thresholds_met"] for row in report["records"]), (
+        "timing thresholds remain red"
+    )
 
 
 if __name__ == "__main__":

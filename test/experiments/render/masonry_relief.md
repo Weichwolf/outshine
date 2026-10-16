@@ -186,13 +186,40 @@ PYTHONPATH=lib/src python3 test/experiments/render/masonry_relief_places.py \
 The Place script uses fresh offline processes,1920×1080/60, unchanged scenario and
 60 frames/360degrees, and checks preload<10s plus p99<=1000/60ms with no overruns.
 Source acquisition/asset construction must finish separately before the warm run.
-An unprepared-cache failure is retained separately, never passed as a frame result.
+Unprepared-cache failures are retained separately, never passed as frame results.
+Numeric timing thresholds do not assert image parity or complete-world quality.
 
 Source basis: SIGGRAPH1980 Synthetic Texturing Using Digital Filters, local PDF
 pages2/4 and Figures1/2 optically reviewed; filter texture and surface coverage
 over the same pixel. Supplement: Mikkelsen JCGT2020 Surface Gradient-Based Bump
 Mapping Framework, local PDF pages3/9, Equations2–3/17 optically reviewed. This
 uses the existing derivative-frame contract, without introducing tangent assets.
+
+## Corrected native world diagnostic
+
+After #407 / Draft #416 restores the projected metre stream, the actual native
+client now exercises brick walls. Both sides use exactly the same native binary
+187a5b380+6156a8010 with only the verified two coordinate objects updated; the
+owned42-link-input/header closure is recorded with #416. All491 shader artifacts
+are identical except the252 paired lit fragments from this production candidate.
+The disabled side reproduces the previous corrected-producer4b3734d8 PNG exactly.
+
+At1920×1080/60 with unchanged declared fill0.6,585262 triangles/zero bare tiles,
+60 frames/360degrees, enabling relief produces0b1301a6.6238 display pixels change,
+141 by more than1/255, worst4/255, mean RGB difference0.001449/255. The optically
+opened full/crop PDF shows a small distant joint-lighting response, no broad
+Place improvement. Camera, clock, native geometry, cached products and RGB/MR
+recipe remain the same. The strongest-difference224pixel crop is recorded at
+(1280,544)-(1504,768); its selection scans96pixel windows in32pixel steps.
+
+The first fresh10second offline attempts both fail before any frame, at10.087s
+and11.711s under measured host load7.1–7.4. These are retained. A separate120second
+image-preparation timeout produces complete paired captures: actual preload
+8.002/13.006s, p9913.2218/11.3666ms, zero frame overruns. This is neither a speedup
+claim nor warm-load acceptance; the after load still exceeds10s. Native
+shadow/foliage parity also remains open in #328, so the good frame samples do not
+complete equal-quality frame acceptance. Timing-consumer outputs now say
+`timing_thresholds_met` and explicitly leave image acceptance unasserted.
 
 The prepared Flensburg1920×1080/60 comparison is red: p99 before12.0354ms,
 after25.7969ms; reversed after18.8958ms, before22.7139ms. All overruns are at
