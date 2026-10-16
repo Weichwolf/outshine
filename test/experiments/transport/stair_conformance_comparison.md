@@ -66,3 +66,25 @@ gefilterte Indizes 4872 B. Diese 24757 B sind Array-Arbeitsvolumen,
 kein gemessener Gesamtpeak und keine vollständige Allokationsbilanz.
 Ein zusätzlicher Durchgang ist kein Tempogewinn; vollständige Modulkosten
 und Bilder werden erst mit dem ausführbaren ganzen Modul bewertet.
+
+## Prüfstand
+
+Quellencommit `e641c9e7a`, Linux/i5-1135G7, Python 3.13.5, NumPy 2/SciPy 1.18.1.
+104 ausgeführte Quellkontrollen mit teilweise überlappenden Fachfällen bestanden
+in 79,203 s, terminal Exit 0. Umfang: bisherige 99 Kontrollen aus dem verlinkten
+32er Vergleich plus die fünf neuen Konformierungsfälle. Alle 13 gespeicherten
+Arrays des ursprünglichen 32-Quellen-Körpers sind einschließlich Dtype/Shape
+bytegleich; auch seine alte Notiz enthält kein neues Entfernungsfeld.
+
+Fünf neue Kontrollen mit der bereits geprüften installierten Bibliothek
+bestanden in 0,327 s, Exit 0. Alle 198 installierten Module sind zur unveränderten
+Bibliotheksquelle bytegleich; tatsächlicher Geometry-Importpfad geprüft.
+Das wiederverwendete Wheel besitzt SHA256
+`9aaf486c0f5dc793fe0c8ce28c316156b5ea6997cab5db3d737a3445e49e0179`.
+Keine neue Paketversion oder allgemeine Bibliothekskonformierungsänderung.
+Ruff Check/Format, Funktionen höchstens 120 Zeilen, Diffcheck und
+`make lint-docs` bestanden. Reine Pythonforschung; native Gates folgen ihrer
+Integration. Lokale Originalbelege unter
+`/tmp/outshine-transport-patches-0b343ab6b/`:
+`checks.log`, `default-body-proof.json`, `wheel-checks.log`, `wheel-origin.json`
+und `lint-docs.log`.
