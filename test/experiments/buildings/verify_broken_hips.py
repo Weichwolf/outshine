@@ -8,6 +8,7 @@ from unittest.mock import patch
 import numpy as np
 import shapely
 from broken_hip import envelope, recipe, surface
+from broken_hip_compare import equivalent, logical
 from outshine_ref.buildings.modelling import heightfield_envelope
 from provider_contract import attributes
 from stepped_source_probe import overview
@@ -183,6 +184,20 @@ class BrokenHips(unittest.TestCase):
             _, info = builder.complete(row, p, 12, choice)
         self.assertEqual(info["roof_profile"]["status"], "deferred")
         self.assertLess(info["projected_geometry_error_px"], 0.5)
+
+    def test_equal_work_logical_alternative_preserves_uv_and_surface_contract(self):
+        row = sources()[0]
+        p = attributes(row["properties"])
+        choice = choose(row, p)
+        top = roof_surface(row, choice)[0]
+        top["uv"] = top["vertices"][:, :2] * [2, 3] + [7, 11]
+        direct = surface(top, choice.eave_m, choice.rise_m)
+        other = logical(top, choice.eave_m, choice.rise_m)
+        proof = equivalent(direct, other, p, choice)
+        self.assertLess(proof["volume_error_m3"], 1e-7)
+        np.testing.assert_allclose(
+            other["uv"], other["vertices"][:, :2] * [2, 3] + [7, 11], atol=1e-12
+        )
 
 
 if __name__ == "__main__":

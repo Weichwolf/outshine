@@ -865,3 +865,11 @@ sections, plans/2.5D and paired whole/opposite Blender inputs at 1920×1080. The
 probe deliberately profiles all three fixed component controls; only its
 `automatic_profile` field establishes current morphology-policy selection.
 Current whole-city, equal-work cost and lit-picture admission is pending.
+
+`broken_hip_compare.py --output <json> --repeats 21` compares direct retained
+triangle cuts against a full logical split/emit followed by the same global
+height map. This improved logical baseline differs from the rejected separately
+scaled scopes: all three real sources pass closed-solid/volume/section checks.
+Two warmups precede timing; tracing runs separately. Output-array bytes and
+cutter source-triangle visits are scoped observations; native/GEOS allocations,
+cumulative allocation/copy traffic and device work remain unenumerated.
