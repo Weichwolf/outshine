@@ -106,8 +106,8 @@ struct Sources {
     std::vector<float> veil(kVeilWidth * kVeilHeight * 4u, 1);
     for (uint32_t y = 0; y < kVeilHeight; ++y) {
       for (uint32_t x = 0; x < kVeilWidth; ++x) {
-        const auto look = medium_core::mediumTransmittanceParams(
-            Air, {(x + .5f) / kVeilWidth, (y + .5f) / kVeilHeight});
+        const auto look = medium_core::mediumTransmittanceTexel(
+            Air, {(x + .5f) / kVeilWidth, (y + .5f) / kVeilHeight}, {kVeilWidth, kVeilHeight});
         const float through = std::exp(-mediumTopReach(Air, look.RadiusKm, look.CosZenith));
         const size_t at = (y * kVeilWidth + x) * 4u;
         for (size_t channel = 0; channel < 3; ++channel) { veil[at + channel] = through; }
