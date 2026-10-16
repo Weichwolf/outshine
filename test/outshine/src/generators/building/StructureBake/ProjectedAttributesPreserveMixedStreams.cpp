@@ -23,30 +23,36 @@ class AttributeMesher final : public StructureMesher {
 public:
   explicit AttributeMesher(bool supplied) : Supplied_(supplied) {}
 
-  std::unique_ptr<MeshScratch> Scratch() const override { return std::make_unique<::Scratch>(); }
+  [[nodiscard]] std::unique_ptr<MeshScratch> Scratch() const override {
+    return std::make_unique<::Scratch>();
+  }
 
-  bool HasSurfaceProjection() const noexcept override { return true; }
+  [[nodiscard]] bool HasSurfaceProjection() const noexcept override { return true; }
 
-  std::optional<Box> SourceEnvelopeBounds(const StructurePlan &,
-                                          MeshScratch &) const noexcept override {
+  std::optional<Box>
+  SourceEnvelopeBounds([[maybe_unused]] const StructurePlan &plan,
+                       [[maybe_unused]] MeshScratch &scratch) const noexcept override {
     return Box{.Min = {{0, 0, 0}}, .Max = {{1, 1, 1}}};
   }
 
-  std::optional<double> ShellSurfaceErrorM(const StructurePlan &,
-                                           MeshScratch &) const noexcept override {
+  std::optional<double>
+  ShellSurfaceErrorM([[maybe_unused]] const StructurePlan &plan,
+                     [[maybe_unused]] MeshScratch &scratch) const noexcept override {
     return 0;
   }
 
   std::expected<void, StructureMeshError>
-  Mesh(const StructurePlan &, MeshScratch &, Raised &) const noexcept override {
+  Mesh([[maybe_unused]] const StructurePlan &plan,
+       [[maybe_unused]] MeshScratch &scratch,
+       [[maybe_unused]] Raised &into) const noexcept override {
     return std::unexpected(StructureMeshError::BuildFailed);
   }
 
   std::expected<ProjectedStructureMesh, StructureMeshError>
   Project(std::span<const StructurePlan> plans,
-          const Vec3 &,
-          ProjectedErrorBudget,
-          MeshScratch &) const override {
+          [[maybe_unused]] const Vec3 &eye,
+          [[maybe_unused]] ProjectedErrorBudget projection,
+          [[maybe_unused]] MeshScratch &scratch) const override {
     CHECK(plans.size() == kSources, "the public planner selected the complete projected group");
     ProjectedStructureMesh result;
     result.Mesh.WallCorners.assign(kTriangleVertices, StoredVertex{});
@@ -87,7 +93,7 @@ void CheckAppend(bool prefixSupplied, bool addedSupplied) {
   CHECK(tile.Built.WallCorners.size() == 2 * kTriangleVertices &&
             tile.Built.WallRun == std::vector<uint32_t>({0, 1, 2, 3, 4, 5}),
         "existing and appended geometry retain their indices");
-  for (size_t components : {size_t{2}, size_t{4}}) {
+  for (const size_t components : {size_t{2}, size_t{4}}) {
     const auto &values = components == 2 ? tile.Built.WallMaterialM : tile.Built.WallColours;
     if (!prefixSupplied && !addedSupplied) {
       CHECK(values.empty(), "absent optional streams allocate no neutral array");

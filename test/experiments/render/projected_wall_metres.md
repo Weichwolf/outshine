@@ -64,14 +64,18 @@ inputs are copied and hashed read-only; only the two verified generator objects
 differ. All their owned headers also match that native renderer freeze. No shared
 archive/worktree is mutated and no second renderer port is introduced.
 
-The native pair uses fresh offline processes, same shader package, camera, clock,
+The diagnostic native pair uses fresh offline processes, same shader package, camera, clock,
 content and1920×1080/60. Each measures exactly60 frames/360degrees, no warmup frames:
 before p99=12.4672ms, after13.7663ms, no frame exceeds16.67ms; warm6.874/7.077s.
 The corrected initial native sample also passes p99=14.7726ms, warm9.872s. The first
 native baseline preload failed at10.028s before any frame; separate native
 preparation then finishes in6.811s, followed by the full passing pair. That failure
 is retained. The new product's initial legacy build87.443s is a versioned cache
-miss, not warm loading. GPU timestamps/device peak remain unmeasured; reported
+miss, not warm loading. New #328 evidence (6206374931/6206664592) reports unresolved shadow/foliage
+parity against SDL. These native times therefore do not complete the equal-quality
+frame gate; the fix PR remains Draft until that concrete countercheck passes.
+Performance confirms the freeze remains available read-only.
+GPU timestamps/device peak remain unmeasured; reported
 process heap is separate. This is one native load case, not completion of #328,
 all Places, Metal/A18 or the material goal. Master owns integrated publication.
 
