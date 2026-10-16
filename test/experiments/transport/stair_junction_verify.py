@@ -20,7 +20,7 @@ from stair_junction_layout import inputs, landings
 def source_fields(arrays, data, rows, domains):
     fields = [
         Mesh(np.c_[arrays["xy"], arrays["heights"]], arrays["faces" + str(i)])
-        for i in range(4)
+        for i in range(len(rows))
     ]
     for owner, field in enumerate(fields):
         polygons = shapely.polygons(field.vertices[field.triangles, :2])
@@ -54,11 +54,11 @@ def source_fields(arrays, data, rows, domains):
     return fields
 
 
-def landing_proof(fields, rows, domains):
-    nodes, incident, masks = landings(rows, domains, "width", 0.75)
+def landing_proof(fields, rows, domains, junctions=None):
+    nodes, incident, masks = landings(rows, domains, "width", 0.75, junctions)
     error = 0.0
     for node, sources, mask in zip(nodes, incident, masks, strict=True):
-        sample = SurfaceSampler(fields[0]).sample([node])
+        sample = SurfaceSampler(fields[sources[0]]).sample([node])
         if any(sample.reasons):
             raise ValueError("saved stair landing has no endpoint surface")
         height = sample.points_enu_m[0, 2]
