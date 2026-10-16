@@ -116,3 +116,70 @@ renderer/SDL repair is included. A native submission/frame countercheck remains
 necessary before accepting this production change. Master owns Metal/A18 and
 publication; no image belongs under doc/ from this experiment. The declared
 global limestone assumption remains unchanged and is a separate issue.
+
+## Native countercheck with the supplied immutable package
+
+The source topic is synchronized to master36be5afa3 at421fc62b9; the three rock
+production sources and primitive test remain byte-identical to62a3e340b/4a423e9a1.
+The provided native5ea6f823b and SDL2fe8da2ca packages each retain their own matched
+Main/Heap/core/header closure. Their C++ snapshot predates #400; this is explicit,
+not represented as current-master C++ execution. No private old Main/Framing object
+is combined with a mutable new Device archive. The native baseline client is the
+provided byte-identical relink, without #416's independent producer correction.
+
+All shared shader sources match that package except the three intended rock files.
+The21 Ground fragments are rebuilt against it;471 other shader/include files are
+byte-equal.42 before/after reflection checks pass and retain identical resource
+kinds/sets/bindings;21 changed artifacts cross-compile to MSL2.3. This is source
+portability, not Metal execution. Previous independent CPU/native primitive and
+filter checks remain valid for their unchanged sources; no full-lint repeat.
+
+First10second attempts on Koerbersee/CentralPark did not reach frames. A separate
+complete offline Koerbersee preparation took117.4s preload plus2.9s standing:
+48LOD and two deformed-terrain products were written. It was not a full warm-cache
+hit. Only after this successful preparation were fresh10second attempts made;
+all three still failed before frames, in sheet-mesh with zero source terrain fields.
+
+Separate120second image preparation then gives the actual warm-hit comparison,
+1920×1080/60, unchanged fill0.6/scenario/camera/clock/sight/source products:
+
+| Consumer | Standing/preload s | CPU p50/p95/p99 ms | Frames/over | GPU mean/max ms |
+|---|---|---|---|---|
+| Native baseline | 2.6/34.8 | 5.88/8.05/12.34 | 60/0 | 8.912/12.369 |
+| SDL baseline | 2.5/11.5 | 1.31/2.07/10.61 | 60/0 | unavailable |
+| Native rock filter | 2.7/43.5 | 5.52/12.35/12.62 | 60/0 | 9.937/15.228 |
+
+Standing/preload are rounded to0.1s by the human client report. The full warm
+readiness target includes both; it is red on every consumer. Native timestamps
+are60/60 available each, zero unavailable; total query CPU0.023/0.024ms. No fence
+wall time is labelled GPU execution. Native launch loads are5.20/5.33 under
+concurrent foreign work; these are single pairs, not a speedup or isolated
+regression claim. Both native hit paths read the133.00MiB region,49building bases,
+49LOD products and nine prototypes, with zero source bytes and no new products.
+Reported geometry is23500 triangles/zero bare tiles;60frames use the unchanged
+client360degree turn. Heap peaks522MB do not establish driver/device memory.
+
+The native and SDL baseline PNGs are byte-identical697fd186. Enabling the rock
+filter giveseb215015:456216 of2073600 pixels differ,189916 above1/255, worst40/255,
+mean RGB0.371626318/255. All four PDF pages were optically opened: baseline parity,
+native pair, identical224pixel crop (1632,352)-(1856,576), dated webcam. The crop
+is selected by largest RGB-error sum in96pixel windows/32pixel steps. It shows
+more resolved local rock crevices; large pale surfaces, poor vegetation and
+shore geometry remain dominant deficits. No broad webcam-quality claim.
+
+CentralPark's longer preparation stops in the unmodified provided C++ with
+"road profiles need more room than junction slopes can provide". Source comparison
+finds Corridors.h/.cpp, CorridorCrossings.cpp and CorridorHeights.cpp older than
+86a2176de/#400; this is not claimed as a current-master regression. Tokyo initially
+lacks camera terrain height offline; ordinary online source acquisition passes
+that stage and reaches the same old road-profile failure. No camera/source/profile
+reduction is used to obtain a shot. #47/6208605285 requests the next immutable
+native package with current-master fixes; no duplicate renderer or full build.
+Light's later #439 solar writer/sampler/512width transition must also stay together.
+
+Exact frozen source/package/binary/shader hashes, commands, original first attempts,
+separate preparation/warm runs, actual images/PDF and paired resource reflection
+are under `/tmp/outshine-material-rock-current-421fc62b9/`. Current Koerbersee
+frames pass their budget; complete warm loading and the two mandatory density
+counterchecks remain open. #386 stays Draft for these concrete checks. I merge
+it myself after acceptance; no prior Master review is required.
