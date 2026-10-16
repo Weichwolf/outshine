@@ -137,9 +137,9 @@ exports of SDK3.4.12206 `Processor::extrude` (`004b5210`) and `subtract`
 This reuses those bounded primitive/dispatch studies, not a newly exported
 rooflight algorithm or ready Esri recipe/oracle render.
 
-General default selection, direct compact/far glazing, per-field detail demand,
-transition/shadow/radiance bounds and a versioned recipe-graph v2 remain open in
-#500. This prototype must not be silently substituted for v1 under the same
+General default selection, direct compact/far glazing, per-field detail demand
+and transition/shadow/radiance bounds remain open in #500. This prototype must
+not be silently substituted for v1 under the same
 operator fingerprint. A fully procedural city/architecture catalogue, final
 night-light performance and native integration remain separate open goals.
 

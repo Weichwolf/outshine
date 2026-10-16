@@ -60,19 +60,29 @@ typed graph and independent direct prepared construction, including actual
 arrays/dtypes, physical collision/access for three gate states, true roof holes,
 height invalidation and stable identities. Missing capacity rejects before mesh
 work; full byte reservation rejects before callbacks. Panel count, actual Float32,
-nonfinite coordinates and mutation have negative controls. Eleven v2 controls
-join the existing rooflight/hall/graph checks; terminal results belong to the PR.
+nonfinite attributes and mutation have negative controls. Frozen `89d117d29`
+passes all 49 combined source checks (120.329 s), and all 11 v2 controls pass
+against the installed library (52.378 s). All 196 installed modules are byte-exact
+to current library source; no library implementation changed in this delivery.
 
 Six fresh processes (two per source) reproduce logical/type/fingerprint/byte
 receipts and all 720 compared body/panel array pairs including dtypes. The
 existing actual direct-closed near and far render inputs replay exactly against
 v2 (all arrays/dtypes/source palette). Six source/camera inputs are exported;
-two fresh actual 1920×1080 Eevee images are optically checked. Old images remain
-old references. The final whole-tile probe separately checks every original
+two fresh actual 1920×1080 Eevee images are optically checked, plus the final
+whole source-tile image. Both raster batches end0 after the documented flush/
+post-render teardown workaround; backend llvmpipe LLVM19.1.7, 16 samples. Old
+images remain old references. The final whole-tile probe separately checks every original
 source member, attribute, height interval, footprint, classification and palette;
 JSON sequence normalization compares stored lists with live tuples. It excludes
 only the deliberately changed procedural prototype metadata from that source
 comparison. Independent normal-adapter/graph tests cover actual hall semantics.
+
+Compared with the actual original CGA images, the new whole-hall, inside and
+whole-tile images change 45/89/713 of 2,073,600 pixels, worst channel4/1/7 of255.
+These are small nonzero raster differences, not pixel identity or general
+shadow/radiance bounds. Eight actual previous v1 inputs also replay exactly
+(arrays/dtypes/camera/palette) after the normal-builder change.
 
 The whole original Grohnde tile retains 37 sources, eight logical halls, six
 constructed halls and 228 planned fields; constructed halls emit 148 fields.
