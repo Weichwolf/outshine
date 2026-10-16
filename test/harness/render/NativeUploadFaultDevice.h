@@ -1,22 +1,76 @@
 #ifndef OUTSHINE_TEST_RENDER_NATIVEUPLOADFAULTDEVICE_H
 #define OUTSHINE_TEST_RENDER_NATIVEUPLOADFAULTDEVICE_H
 
+#include "NativeCommandsProxy.h"
 #include "NativeDeviceProxy.h"
 #include <cstddef>
 #include <expected>
-#include <span>
 #include <memory>
+#include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace outshine::Test::Gpu {
-enum class UploadFailurePoint { Map, Submit };
+enum class UploadFailurePoint {
+  Map,
+  Unmap,
+  Acquire,
+  Copy,
+  Submit,
+  Texture,
+  UploadBuffer,
+  DeviceBuffer
+};
 
 struct UploadFailure {
   std::string Message = "injected native submission failure";
   UploadFailurePoint Point = UploadFailurePoint::Submit;
   bool Armed = false;
+  unsigned Skip = 0;
   unsigned Rejected = 0;
+  unsigned VertexBufferAllocations = 0;
+
+  [[nodiscard]] bool Reject(UploadFailurePoint point) {
+    if (!Armed || Point != point) { return false; }
+    if (Skip > 0) {
+      --Skip;
+      return false;
+    }
+    Armed = false;
+    ++Rejected;
+    return true;
+  }
+
+  [[nodiscard]] Render::Native::Error Error() const {
+    return {.Kind = Render::Native::ErrorKind::Driver, .Message = Message};
+  }
+};
+
+class NativeUploadFaultCommands final : public NativeCommandsProxy {
+public:
+  NativeUploadFaultCommands(std::unique_ptr<Render::Native::Commands> commands,
+                            UploadFailure &failure)
+      : NativeCommandsProxy(std::move(commands)), Failure_(failure) {}
+
+  using NativeCommandsProxy::Copy;
+
+  [[nodiscard]] Render::Native::Result<void> Copy(const Render::Native::Buffer &source,
+                                                  Render::Native::Buffer &destination,
+                                                  Render::Native::BufferCopy region) override {
+    if (Failure_.Reject(UploadFailurePoint::Copy)) { return std::unexpected(Failure_.Error()); }
+    return NativeCommandsProxy::Copy(source, destination, region);
+  }
+
+  [[nodiscard]] Render::Native::Result<void> Copy(const Render::Native::Buffer &source,
+                                                  Render::Native::Texture &destination,
+                                                  Render::Native::TextureTransfer region) override {
+    if (Failure_.Reject(UploadFailurePoint::Copy)) { return std::unexpected(Failure_.Error()); }
+    return NativeCommandsProxy::Copy(source, destination, region);
+  }
+
+private:
+  UploadFailure &Failure_;
 };
 
 class NativeUploadFaultDevice final : public NativeDeviceProxy {
@@ -32,30 +86,57 @@ public:
                                                      *static_cast<UploadFailure *>(context));
   }
 
+  [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::Buffer>>
+  CreateBuffer(Render::Native::BufferDescription description, std::string_view label) override {
+    if ((description.Placement == Render::Native::Memory::Device &&
+         Failure_.Reject(UploadFailurePoint::DeviceBuffer)) ||
+        (description.Placement == Render::Native::Memory::Upload &&
+         Failure_.Reject(UploadFailurePoint::UploadBuffer))) {
+      return std::unexpected(Failure_.Error());
+    }
+    auto buffer = Backing().CreateBuffer(description, label);
+    if (buffer && (static_cast<unsigned>(description.Use) &
+                   static_cast<unsigned>(Render::Native::BufferUse::Vertex)) != 0) {
+      ++Failure_.VertexBufferAllocations;
+    }
+    return buffer;
+  }
+
+  [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::Texture>>
+  CreateTexture(Render::Native::TextureDescription description, std::string_view label) override {
+    if (Failure_.Reject(UploadFailurePoint::Texture)) { return std::unexpected(Failure_.Error()); }
+    return Backing().CreateTexture(description, label);
+  }
+
   [[nodiscard]] Render::Native::Result<std::span<std::byte>>
   MapWrite(Render::Native::Buffer &buffer, Render::Native::ByteRange range) override {
-    if (Reject(UploadFailurePoint::Map)) { return std::unexpected(Injected()); }
+    if (Failure_.Reject(UploadFailurePoint::Map)) { return std::unexpected(Failure_.Error()); }
     return Backing().MapWrite(buffer, range);
+  }
+
+  [[nodiscard]] Render::Native::Result<void> Unmap(Render::Native::Buffer &buffer) override {
+    if (Failure_.Reject(UploadFailurePoint::Unmap)) { return std::unexpected(Failure_.Error()); }
+    return Backing().Unmap(buffer);
+  }
+
+  [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::Commands>> Begin() override {
+    if (Failure_.Reject(UploadFailurePoint::Acquire)) { return std::unexpected(Failure_.Error()); }
+    auto commands = Backing().Begin();
+    if (!commands) { return std::unexpected(commands.error()); }
+    return std::make_unique<NativeUploadFaultCommands>(std::move(*commands), Failure_);
   }
 
   [[nodiscard]] Render::Native::Result<Render::Native::Completion>
   Submit(std::unique_ptr<Render::Native::Commands> commands) override {
-    if (Reject(UploadFailurePoint::Submit)) { return std::unexpected(Injected()); }
+    if (Failure_.Reject(UploadFailurePoint::Submit)) { return std::unexpected(Failure_.Error()); }
+    if (auto *wrapped = dynamic_cast<NativeUploadFaultCommands *>(commands.get());
+        wrapped != nullptr) {
+      commands = wrapped->Take();
+    }
     return Backing().Submit(std::move(commands));
   }
 
 private:
-  [[nodiscard]] bool Reject(UploadFailurePoint point) {
-    if (!Failure_.Armed || Failure_.Point != point) { return false; }
-    Failure_.Armed = false;
-    ++Failure_.Rejected;
-    return true;
-  }
-
-  [[nodiscard]] Render::Native::Error Injected() const {
-    return {.Kind = Render::Native::ErrorKind::Driver, .Message = Failure_.Message};
-  }
-
   std::unique_ptr<Render::Native::Device> Device_;
   UploadFailure &Failure_;
 };
