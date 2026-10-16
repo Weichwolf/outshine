@@ -10,7 +10,8 @@
 
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include <memory>
+#include <cstddef>
 #include "Atmosphere.h"
 #include "SkyPass.h"
 
@@ -21,16 +22,16 @@ public:
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 4, .FragmentUniformBuffers = 1};
 
   struct Tables {
-    SDL_GPUTexture *Scene = nullptr;
-    SDL_GPUTexture *Depth = nullptr;
-    SDL_GPUTexture *SkyView = nullptr;
-    SDL_GPUTexture *Transmittance = nullptr;
-    SDL_GPUSampler *Exact = nullptr;
-    SDL_GPUSampler *Lut = nullptr;
+    Native::Texture *Scene = nullptr;
+    Native::Texture *Depth = nullptr;
+    Native::Texture *SkyView = nullptr;
+    Native::Texture *Transmittance = nullptr;
+    Native::Sampler *Exact = nullptr;
+    Native::Sampler *Lut = nullptr;
   };
 
-  [[nodiscard]] bool
-  Configure(const Gpu &gpu, Tables from, SDL_GPUTextureFormat targetFormat, std::string &error);
+  [[nodiscard]] Native::Result<void>
+  Configure(const Gpu &gpu, Tables from, Native::Format targetFormat);
 
   void Declare(const Medium &medium, SkyStanding stands);
 
@@ -42,7 +43,7 @@ public:
 
   [[nodiscard]] bool Stands() const { return Declared_; }
 
-  void Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:
   struct Pushed {
@@ -58,13 +59,17 @@ private:
     Medium Air;
   };
 
-  OwnedPipeline Pipe;
-  SDL_GPUTexture *Scene = nullptr;
-  SDL_GPUTexture *Depth = nullptr;
-  SDL_GPUTexture *SkyView = nullptr;
-  SDL_GPUTexture *Veil = nullptr;
-  SDL_GPUSampler *Exact = nullptr;
-  SDL_GPUSampler *Lut = nullptr;
+  static constexpr size_t kUniformBytes = 192;
+  static constexpr size_t kMediumOffset = 112;
+  static_assert(sizeof(Pushed) == kUniformBytes && alignof(Pushed) == 16);
+  static_assert(offsetof(Pushed, Air) == kMediumOffset);
+  std::unique_ptr<Native::GraphicsPipeline> Pipe;
+  Native::Texture *Scene = nullptr;
+  Native::Texture *Depth = nullptr;
+  Native::Texture *SkyView = nullptr;
+  Native::Texture *Veil = nullptr;
+  Native::Sampler *Exact = nullptr;
+  Native::Sampler *Lut = nullptr;
   Pushed Pushed_{};
   bool Declared_ = false;
 };

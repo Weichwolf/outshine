@@ -1,28 +1,30 @@
 #include "Check.h"
 #include "DepthPyramidStage.h"
-#include "GpuOwned.h"
 #include "GpuPlacement.h"
-#include "Readback.h"
-#include "ShaderFile.h"
+#include "ReadbackTransfer.h"
+#include "StagePipelines.h"
 #include "StageSubmission.h"
-#include <SDL3/SDL.h>
-#include <SDL3_shadercross/SDL_shadercross.h>
-#include <array>
+#include "test/harness/render/NativeGpuCheck.h"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
+#include <SDL3/SDL_stdinc.h>
+#include <print>
+#include <ratio>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <span>
-#include <string>
+#include <utility>
 #include <vector>
 
 namespace {
 using namespace outshine::Render;
+using namespace outshine::Render::Native;
 using namespace outshine::Test;
+using namespace outshine::Test::Gpu;
 constexpr size_t kPlaneComponents = 24;
 constexpr size_t kSourceOffset = 244;
 constexpr float kOccluderDepth = 0.75f;
@@ -31,7 +33,16 @@ constexpr float kCoarseSphere = 0.02f;
 constexpr Texels kOddExtent{.WidthPx = 37, .HeightPx = 25};
 constexpr Texels k720p{.WidthPx = 1280, .HeightPx = 720};
 constexpr Texels k1080p{.WidthPx = 1920, .HeightPx = 1080};
-constexpr std::array<Texels, 5> kEdges{{{1, 1}, {1, 17}, {17, 1}, {16, 16}, {17, 15}}};
+constexpr std::array<Texels, 5> kEdges{{{.WidthPx = 1, .HeightPx = 1},
+                                        {.WidthPx = 1, .HeightPx = 17},
+                                        {.WidthPx = 17, .HeightPx = 1},
+                                        {.WidthPx = 16, .HeightPx = 16},
+                                        {.WidthPx = 17, .HeightPx = 15}}};
+constexpr uint32_t kNoiseSeed = 282;
+constexpr uint32_t kNoiseMultiplier = 1664525u;
+constexpr uint32_t kNoiseIncrement = 1013904223u;
+constexpr float kNoiseRange = 0.125f;
+constexpr float kNoiseDivisor = 262144.0f;
 
 struct Probe {
   uint32_t X;
@@ -41,35 +52,22 @@ struct Probe {
 
 constexpr std::array<float, 16> kIdentity{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
-bool Land(SDL_GPUDevice *device, SDL_GPUCommandBuffer *commands) {
-  const OwnedFence fence(device, SDL_SubmitGPUCommandBufferAndAcquireFence(commands));
-  const std::array<SDL_GPUFence *, 1> handles{fence.Get()};
-  const bool landed = fence && SDL_WaitForGPUFences(device, true, handles.data(), 1);
-  CHECK(landed, "real GPU commands complete");
-  return landed;
+void Land(Device &device, std::unique_ptr<Commands> commands) {
+  const auto completion = Require(device.Submit(std::move(commands)));
+  CHECK(Require(device.Wait(completion, std::chrono::seconds(5))) == CompletionStatus::Ready,
+        "real GPU commands complete within the offline wait budget");
 }
 
-OwnedBuffer Upload(SDL_GPUDevice *device, const void *data, uint32_t bytes) {
-  const SDL_GPUBufferCreateInfo info{
-      .usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ, .size = bytes, .props = 0};
-  OwnedBuffer buffer(device, SDL_CreateGPUBuffer(device, &info));
-  const SDL_GPUTransferBufferCreateInfo staging{
-      .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = bytes, .props = 0};
-  const OwnedTransfer transfer(device, SDL_CreateGPUTransferBuffer(device, &staging));
-  CHECK(buffer && transfer, "bounded GPU input buffers allocate");
-  if (!buffer || !transfer) { return {}; }
-  void *mapped = SDL_MapGPUTransferBuffer(device, transfer.Get(), false);
-  CHECK(mapped != nullptr, "input staging maps");
-  if (mapped == nullptr) { return {}; }
-  std::memcpy(mapped, data, bytes);
-  SDL_UnmapGPUTransferBuffer(device, transfer.Get());
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  auto *copy = SDL_BeginGPUCopyPass(commands);
-  const SDL_GPUTransferBufferLocation from{.transfer_buffer = transfer.Get(), .offset = 0};
-  const SDL_GPUBufferRegion into{.buffer = buffer.Get(), .offset = 0, .size = bytes};
-  SDL_UploadToGPUBuffer(copy, &from, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  if (!Land(device, commands)) { return {}; }
+std::unique_ptr<Buffer>
+Upload(Device &device, Commands &commands, const void *data, uint64_t bytes) {
+  auto staging = Require(device.CreateBuffer(
+      {.Bytes = bytes, .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
+  const auto mapped = Require(device.MapWrite(*staging, {.Bytes = bytes}));
+  std::memcpy(mapped.data(), data, bytes);
+  Require(device.Unmap(*staging));
+  auto buffer = Require(device.CreateBuffer(
+      {.Bytes = bytes, .Use = BufferUse::Storage | BufferUse::CopyDestination}));
+  Require(commands.Copy(*staging, *buffer, {.Bytes = bytes}));
   return buffer;
 }
 
@@ -88,8 +86,7 @@ struct alignas(16) CullInput {
 
 static_assert(sizeof(CullInput) == 256 && offsetof(CullInput, Source) == kSourceOffset);
 
-uint32_t Selected(
-    SDL_GPUDevice *device, SDL_GPUBuffer *pyramid, PyramidShape shape, Texels extent, Probe probe) {
+uint32_t Selected(Device &device, Buffer *pyramid, PyramidShape shape, Texels extent, Probe probe) {
   const auto width = extent.WidthPx;
   const auto height = extent.HeightPx;
   const auto x = probe.X;
@@ -103,46 +100,46 @@ uint32_t Selected(
   GpuPlacement placement;
   placement.Current = kIdentity;
   constexpr std::array<uint32_t, 5> arguments{3, 1, 0, 0, 0};
-  const auto bounds = Upload(device, spheres.data(), sizeof(spheres));
-  const auto work = Upload(device, jobs.data(), sizeof(jobs));
-  const auto model = Upload(device, &placement, sizeof(placement));
-  const auto args = Upload(device, arguments.data(), sizeof(arguments));
-  const SDL_GPUBufferCreateInfo output{
-      .usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE, .size = sizeof(uint32_t), .props = 0};
-  const OwnedBuffer kept(device, SDL_CreateGPUBuffer(device, &output));
-  auto pipeline = CreateComputePipeline(device, ComputeShaderId::SubjectCull);
-  CHECK(bounds && work && model && args && kept && pipeline, "actual cull inputs configure");
-  if (!bounds || !work || !model || !args || !kept || !pipeline) { return ~uint32_t{0}; }
+  auto commands = Require(device.Begin());
+  const auto bounds = Upload(device, *commands, spheres.data(), sizeof(spheres));
+  const auto work = Upload(device, *commands, jobs.data(), sizeof(jobs));
+  const auto model = Upload(device, *commands, &placement, sizeof(placement));
+  const auto args = Upload(device, *commands, arguments.data(), sizeof(arguments));
+  auto kept = Require(device.CreateBuffer(
+      {.Bytes = sizeof(uint32_t), .Use = BufferUse::Storage | BufferUse::CopySource}));
+  auto pipeline = Require(CreateComputePipeline(device, ComputeShaderId::SubjectCull));
   CullInput view;
   view.Wide = shape.Wide;
   view.High = shape.High;
   view.At = shape.At;
   view.Source = {width, height, 0};
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  const SDL_GPUStorageBufferReadWriteBinding target{.buffer = kept.Get(), .cycle = false};
-  auto *pass = SDL_BeginGPUComputePass(commands, nullptr, 0, &target, 1);
-  SDL_BindGPUComputePipeline(pass, pipeline->Get());
-  const std::array<SDL_GPUBuffer *, 5> reads{
-      bounds.Get(), work.Get(), model.Get(), args.Get(), pyramid};
-  SDL_BindGPUComputeStorageBuffers(pass, 0, reads.data(), static_cast<uint32_t>(reads.size()));
-  SDL_PushGPUComputeUniformData(commands, 0, &view, sizeof(view));
-  SDL_DispatchGPUCompute(pass, 1, 1, 1);
-  SDL_EndGPUComputePass(pass);
-  if (!Land(device, commands)) { return ~uint32_t{0}; }
-  Readback result;
-  CHECK(result.FromBuffer(device, kept.Get(), sizeof(uint32_t)) == ReadState::Ready,
-        "actual culling output is readable");
+  const std::array bindings{
+      Storage(0, 0, *bounds),
+      Storage(0, 1, *work),
+      Storage(0, 2, *model),
+      Storage(0, 3, *args),
+      Storage(0, 4, *pyramid),
+      Storage(1, 0, *kept),
+      Binding{.Set = 2,
+              .Slot = 0,
+              .Value = Uniform{.Bytes = std::as_bytes(std::span{&view, size_t{1}})}}};
+  Require(commands->Dispatch(*pipeline, bindings, {.X = 1, .Y = 1, .Z = 1}));
+  Land(device, std::move(commands));
+  auto readback = Require(ReadbackTransfer::Start(device, *kept, {.Bytes = sizeof(uint32_t)}));
+  const auto result = Require(readback.Wait(device, std::chrono::seconds(5)));
+  CHECK(result, "actual culling output is readable");
+  if (!result) { Failed(); }
   uint32_t selected = ~uint32_t{0};
-  if (result.Rows() != nullptr) { std::memcpy(&selected, result.Rows(), sizeof(selected)); }
+  std::memcpy(&selected, result->data(), sizeof(selected));
   return selected;
 }
 
 std::vector<float> DepthPixels(uint32_t width, uint32_t height, bool border) {
   std::vector<float> pixels(static_cast<size_t>(width) * height, kOccluderDepth);
-  uint32_t noise = 282;
+  uint32_t noise = kNoiseSeed;
   for (float &pixel : pixels) {
-    noise = noise * 1664525u + 1013904223u;
-    pixel = kOccluderDepth - 0.125f + static_cast<float>(noise >> 16u) / 262144.0f;
+    noise = noise * kNoiseMultiplier + kNoiseIncrement;
+    pixel = kOccluderDepth - kNoiseRange + static_cast<float>(noise >> 16u) / kNoiseDivisor;
   }
   if (border) {
     for (uint32_t x = 0; x < width; ++x) { pixels[(height - 1u) * width + x] = 0; }
@@ -176,111 +173,83 @@ void CheckEveryDepth(std::span<const float> source,
   CHECK(equal, "every GPU pyramid texel equals the direct clamped reverse-Z block minimum");
 }
 
-void MeasureReduction(SDL_GPUDevice *device,
-                      DepthPyramidStage &stage,
-                      SDL_GPUBuffer *pyramid,
-                      Texels extent) {
-  if (std::getenv("OUTSHINE_DEPTH_PYRAMID_BENCHMARK") == nullptr) { return; }
+void MeasureReduction(Device &device, DepthPyramidStage &stage, Texels extent) {
+  if (SDL_GetEnvironmentVariable(SDL_GetEnvironment(), "OUTSHINE_DEPTH_PYRAMID_BENCHMARK") ==
+      nullptr) {
+    return;
+  }
   constexpr uint32_t repeats = 128;
   const auto start = std::chrono::steady_clock::now();
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  const SDL_GPUStorageBufferReadWriteBinding output{.buffer = pyramid, .cycle = false};
+  auto commands = Require(device.Begin());
   StageSubmission submission;
   for (uint32_t at = 0; at < repeats; ++at) {
-    auto *pass = SDL_BeginGPUComputePass(commands, nullptr, 0, &output, 1);
-    stage.Encode(
-        {.Commands = commands, .Pass = nullptr, .Dispatch = pass, .Submission = submission});
-    SDL_EndGPUComputePass(pass);
+    Require(stage.Encode(
+        {.Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}}));
   }
   const auto encoded = std::chrono::steady_clock::now();
-  if (!Land(device, commands)) { return; }
+  Land(device, std::move(commands));
   const auto finished = std::chrono::steady_clock::now();
   const double host = std::chrono::duration<double, std::milli>(encoded - start).count() / repeats;
   const double landed =
       std::chrono::duration<double, std::milli>(finished - start).count() / repeats;
-  std::printf("BENCH depth=%ux%u repeats=%u host_ms=%.6f landed_ms=%.6f driver=%s "
-              "gpu_timestamp=unavailable\n",
-              extent.WidthPx,
-              extent.HeightPx,
-              repeats,
-              host,
-              landed,
-              SDL_GetGPUDeviceDriver(device));
+  std::println("BENCH depth={}x{} repeats={} host_ms={:.6f} landed_ms={:.6f} device={} "
+               "gpu_timestamp=not_requested",
+               extent.WidthPx,
+               extent.HeightPx,
+               repeats,
+               host,
+               landed,
+               device.Limits().Name);
 }
 
-void CheckExtent(SDL_GPUDevice *device, Texels extent, bool border) {
+void CheckExtent(Device &device, Texels extent, bool border) {
   const auto width = extent.WidthPx;
   const auto height = extent.HeightPx;
   const auto pixels = DepthPixels(width, height, border);
-  SDL_GPUTextureCreateInfo image{};
-  image.type = SDL_GPU_TEXTURETYPE_2D;
-  image.format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
-  image.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  image.width = width;
-  image.height = height;
-  image.layer_count_or_depth = image.num_levels = 1;
-  const OwnedTexture texture(device, SDL_CreateGPUTexture(device, &image));
-  const auto bytes = static_cast<uint32_t>(pixels.size() * sizeof(float));
-  const SDL_GPUTransferBufferCreateInfo staging{
-      .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = bytes, .props = 0};
-  const OwnedTransfer transfer(device, SDL_CreateGPUTransferBuffer(device, &staging));
-  CHECK(texture && transfer, "depth-valued scalar texture allocates");
-  if (!texture || !transfer) { return; }
-  void *mapped = SDL_MapGPUTransferBuffer(device, transfer.Get(), false);
-  CHECK(mapped != nullptr, "scalar depth staging maps");
-  if (mapped == nullptr) { return; }
-  std::memcpy(mapped, pixels.data(), bytes);
-  SDL_UnmapGPUTransferBuffer(device, transfer.Get());
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  auto *copy = SDL_BeginGPUCopyPass(commands);
-  const SDL_GPUTextureTransferInfo from{.transfer_buffer = transfer.Get(),
-                                        .offset = 0,
-                                        .pixels_per_row = width,
-                                        .rows_per_layer = height};
-  const SDL_GPUTextureRegion into{.texture = texture.Get(),
-                                  .mip_level = 0,
-                                  .layer = 0,
-                                  .x = 0,
-                                  .y = 0,
-                                  .z = 0,
-                                  .w = width,
-                                  .h = height,
-                                  .d = 1};
-  SDL_UploadToGPUTexture(copy, &from, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  if (!Land(device, commands)) { return; }
+  auto texture =
+      Require(device.CreateTexture({.Width = width,
+                                    .Height = height,
+                                    .Texels = Format::R32Float,
+                                    .Use = TextureUse::Sampled | TextureUse::CopyDestination}));
+  const auto bytes = pixels.size() * sizeof(float);
+  auto transfer = Require(device.CreateBuffer(
+      {.Bytes = bytes, .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
+  const auto mapped = Require(device.MapWrite(*transfer, {.Bytes = bytes}));
+  std::memcpy(mapped.data(), pixels.data(), bytes);
+  Require(device.Unmap(*transfer));
+  auto commands = Require(device.Begin());
+  Require(commands->Copy(
+      *transfer,
+      *texture,
+      {.RowBytes = uint64_t{width} * sizeof(float), .Region = {.Width = width, .Height = height}}));
+  Land(device, std::move(commands));
   const PyramidShape shape = PyramidOver({.WidthPx = width, .HeightPx = height});
-  const SDL_GPUBufferCreateInfo output{.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ |
-                                                SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE,
-                                       .size = shape.Texels * static_cast<uint32_t>(sizeof(float)),
-                                       .props = 0};
-  const OwnedBuffer pyramid(device, SDL_CreateGPUBuffer(device, &output));
-  const SDL_GPUSamplerCreateInfo sample{};
-  const OwnedSampler sampler(device, SDL_CreateGPUSampler(device, &sample));
+  auto pyramid = Require(device.CreateBuffer({.Bytes = uint64_t{shape.Texels} * sizeof(float),
+                                              .Use = BufferUse::Storage | BufferUse::CopySource}));
+  auto sampler = Require(device.CreateSampler(
+      {.Min = Filter::Nearest, .Mag = Filter::Nearest, .Mip = Filter::Nearest, .MaxLod = 0}));
   DepthPyramidStage stage;
-  std::string error;
-  CHECK(stage.Configure({.Device = device},
-                        texture.Get(),
-                        sampler.Get(),
-                        pyramid.Get(),
-                        {.WidthPx = static_cast<int>(width), .HeightPx = static_cast<int>(height)},
-                        error),
-        "real depth reduction configures");
-  if (!stage.Stands()) { return; }
-  commands = SDL_AcquireGPUCommandBuffer(device);
-  const SDL_GPUStorageBufferReadWriteBinding reduced{.buffer = pyramid.Get(), .cycle = false};
-  auto *pass = SDL_BeginGPUComputePass(commands, nullptr, 0, &reduced, 1);
+  Require(
+      stage.Configure({.Device = &device, .SceneColours = {}},
+                      texture.get(),
+                      sampler.get(),
+                      pyramid.get(),
+                      {.WidthPx = static_cast<int>(width), .HeightPx = static_cast<int>(height)}));
+  commands = Require(device.Begin());
   StageSubmission submission;
-  stage.Encode({.Commands = commands, .Pass = nullptr, .Dispatch = pass, .Submission = submission});
-  SDL_EndGPUComputePass(pass);
-  if (!Land(device, commands)) { return; }
-  Readback read;
-  CHECK(read.FromBuffer(device, pyramid.Get(), output.size) == ReadState::Ready,
-        "reduced depth is read from the GPU");
-  if (read.Rows() == nullptr) { return; }
-  const auto *values = reinterpret_cast<const float *>(read.Rows());
+  Require(
+      stage.Encode({.Commands = commands.get(), .Submission = submission, .Area = {}, .Clip = {}}));
+  Land(device, std::move(commands));
+  auto read = Require(
+      ReadbackTransfer::Start(device, *pyramid, {.Bytes = uint64_t{shape.Texels} * sizeof(float)}));
+  const auto output = Require(read.Wait(device, std::chrono::seconds(5)));
+  CHECK(output, "reduced depth is read from the actual GPU");
+  if (!output) { Failed(); }
+  std::vector<float> reduced(shape.Texels);
+  std::memcpy(reduced.data(), output->data(), output->size());
+  const auto *values = reduced.data();
   CheckEveryDepth(pixels, extent, shape, values);
-  if (width >= k720p.WidthPx) { MeasureReduction(device, stage, pyramid.Get(), extent); }
+  if (width >= k720p.WidthPx) { MeasureReduction(device, stage, extent); }
   for (uint32_t level = 0; level < kPyramidLevels; ++level) {
     const uint32_t block = 2u << level;
     CHECK(shape.Wide[level] == (width + block - 1u) / block &&
@@ -294,16 +263,16 @@ void CheckExtent(SDL_GPUDevice *device, Texels extent, bool border) {
   if (width < 4 || height < 4) { return; }
   const uint32_t x = border ? width / 2u : width - 2u;
   const uint32_t y = border ? height - 1u : height / 2u;
-  CHECK(Selected(device, pyramid.Get(), shape, extent, {.X = x, .Y = y, .Radius = kSmallSphere}) ==
+  CHECK(Selected(device, pyramid.get(), shape, extent, {.X = x, .Y = y, .Radius = kSmallSphere}) ==
             3,
         "a genuine uncovered pixel cannot hide its cluster");
   if (border) {
     CHECK(Selected(
-              device, pyramid.Get(), shape, extent, {.X = x, .Y = y, .Radius = kCoarseSphere}) == 3,
+              device, pyramid.get(), shape, extent, {.X = x, .Y = y, .Radius = kCoarseSphere}) == 3,
           "coarser reduction also preserves uncovered edge coverage");
   }
   CHECK(Selected(device,
-                 pyramid.Get(),
+                 pyramid.get(),
                  shape,
                  extent,
                  {.X = width / 2u, .Y = height / 2u, .Radius = kSmallSphere}) == 0,
@@ -312,22 +281,11 @@ void CheckExtent(SDL_GPUDevice *device, Texels extent, bool border) {
 }
 
 int main() {
-  CHECK(SDL_Init(SDL_INIT_VIDEO) && SDL_ShaderCross_Init(), "GPU test services initialize");
-  {
-    const OwnedDevice device(
-        SDL_CreateGPUDevice(SDL_ShaderCross_GetSPIRVShaderFormats(),
-                            std::getenv("OUTSHINE_DEPTH_PYRAMID_BENCHMARK") == nullptr,
-                            nullptr));
-    CHECK(device, "a real GPU is required for depth coverage");
-    if (device) {
-      for (const auto extent : kEdges) { CheckExtent(device.Get(), extent, true); }
-      CheckExtent(device.Get(), kOddExtent, true);
-      CheckExtent(device.Get(), kOddExtent, false);
-      CheckExtent(device.Get(), k720p, true);
-      CheckExtent(device.Get(), k1080p, true);
-    }
-  }
-  SDL_ShaderCross_Quit();
-  SDL_Quit();
+  auto device = Require(CreateDevice({.Validation = true}));
+  for (const auto extent : kEdges) { CheckExtent(*device, extent, true); }
+  CheckExtent(*device, kOddExtent, true);
+  CheckExtent(*device, kOddExtent, false);
+  CheckExtent(*device, k720p, true);
+  CheckExtent(*device, k1080p, true);
   return Report();
 }

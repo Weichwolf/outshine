@@ -22,10 +22,10 @@ struct VertexStreamUpload {
 
 [[nodiscard]] inline std::expected<SubjectResidency::Crossing, std::string_view>
 VertexCrossing(VertexStreamUpload upload, SubjectResidency::Range vertices) {
-  SubjectResidency::Crossing crossing{.Which = upload.Which, .Usage = SDL_GPU_BUFFERUSAGE_VERTEX};
+  SubjectResidency::Crossing crossing{.Which = upload.Which, .Usage = Native::BufferUse::Vertex};
   if (upload.Which == SubjectResidency::Stream::Colour ||
       upload.Which == SubjectResidency::Stream::Tangent) {
-    crossing.Usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+    crossing.Usage = Native::BufferUse::Storage;
   }
   if (!upload.Carried) { return crossing; }
   const uint64_t stride = uint64_t{upload.Components} * sizeof(float);

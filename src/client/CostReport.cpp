@@ -147,7 +147,7 @@ void PrintCostReport(std::string_view scene, std::span<const DiagnosticSample> s
                sample.Value / frames,
                get(base + ".worst_ms"));
   }
-  std::println("; gpu_ms=unavailable(SDL_GPU timestamps)");
+  std::println("; gpu_ms=unavailable(native timestamps not recorded)");
   Group(scene, samples, "cost.stage.", frames);
   std::println("PERF {} diagnostics lifetime: publication={:.2f}ms max={:.3f}ms; "
                "parents include children; output after measurement",

@@ -1,6 +1,7 @@
 #include "Check.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include "test/harness/render/NativeOfflineDevice.h"
+#include "test/harness/render/NativeGpuCheck.h"
 #include "Readback.h"
 #include "SubjectDraw.h"
 #include <SDL3/SDL.h>
@@ -16,23 +17,19 @@ int main() {
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "video initializes");
   {
-    const OwnedDevice device(SDL_CreateGPUDevice(
-        SDL_GPU_SHADERFORMAT_MSL | SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL,
-        false,
-        nullptr));
-    CHECK(device, "GPU device opens");
-    if (!device) { return Report(); }
+    auto native = outshine::Test::Gpu::Require(Native::CreateDevice({.Validation = true}));
+    outshine::Test::Gpu::NativeOfflineDevice device(*native);
     SubjectDraw draw;
-    Gpu gpu;
-    gpu.Device = device.Get();
-    gpu.HdrFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    gpu.SurfaceFormat = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    outshine::Render::Gpu gpu;
+    gpu.Device = &device;
+    gpu.HdrFormat = Native::Format::Rgba16Float;
+    gpu.SurfaceFormat = Native::Format::Rgba8Unorm;
     gpu.Width = gpu.Height = 32;
     CHECK(gpu.SceneColours.Add(Resource::SceneLinear) &&
               gpu.SceneColours.Add(Resource::SceneVelocity),
           "radiance and motion attachments add");
     std::string error;
-    CHECK(draw.Configure(gpu, error), "velocity-writing pipelines configure");
+    CHECK(draw.Configure(gpu).has_value(), "velocity-writing pipelines configure");
     const std::array<SubjectMaterial, 1> materials{};
     CHECK(draw.AppendMaterials(materials, error), "material registers");
     constexpr std::array<float, 9> positions{-1, -1, 0, 1, -1, 0, 0, 1, 0};
@@ -43,11 +40,16 @@ int main() {
                                             StoredVertex::Of({{1, -1, 0}}, {{0, 0}}, {{0, 0, 1}}),
                                             StoredVertex::Of({{0, 1, 0}}, {{0, 0}}, {{0, 0, 1}})};
     draw.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
-    CHECK(draw.PlacePiece({.Verts = piece, .Indices = indices}, error) != kNoPiece,
+    PieceMesh rigid{};
+    rigid.Verts = piece;
+    rigid.Indices = indices;
+    CHECK(draw.PlacePiece(rigid, error) != kNoPiece,
           "native geometry precedes the main mesh in the vertex arena");
     DrawList draws;
-    CHECK(draws.Add({.IndexCount = 3, .Layout = VertexLayout::PositionNormal}, error),
-          "main draw adds");
+    DrawItem item{};
+    item.IndexCount = 3;
+    item.Layout = VertexLayout::PositionNormal;
+    CHECK(draws.Add(item, error), "main draw adds");
     draws.Compile();
     SubjectMesh mesh;
     mesh.Verts.From = positions.data();
@@ -67,14 +69,14 @@ int main() {
     SubjectPose pose = mesh;
     pose.PrevVerts.From = previous.data();
     CHECK(draw.SetPose(pose, error), "the same mesh can begin deforming without replacement");
-    CHECK(draw.Owned().SubmitPendingUploads(error), "deferred pose uploads submit");
+    CHECK(draw.Owned().SubmitPendingUploads().has_value(), "deferred pose uploads submit");
     CHECK(resident.Buffer(Stream::Previous), "deformation acquires its own previous stream");
     if (resident.Buffer(Stream::Previous)) {
       Readback read;
       constexpr uint32_t positionBytes = 3 * sizeof(float);
       const uint32_t offset = resident.SubjectVertices().First * positionBytes;
-      CHECK(read.FromBuffer(device.Get(),
-                            resident.Buffer(Stream::Previous).Get(),
+      CHECK(read.FromBuffer(&device,
+                            resident.Buffer(Stream::Previous).get(),
                             offset + sizeof(previous)) == ReadState::Ready,
             "deforming previous positions reach the GPU");
       CHECK(read.Rows() &&
