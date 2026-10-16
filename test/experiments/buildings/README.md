@@ -1002,7 +1002,7 @@ remain in the whole-tile model even where the camera excludes distant outliers.
 `roof_section_compare.py --output <json> --repeats 21` checks scalar/batched
 full arrays and dtypes, including normals/UV/material/interval ownership.
 
-Runtime `558ddbe63`:77 source and77 wheel checks passed, no skips,81 packaged
+Runtime `44a1b1008`:78 source and78 wheel checks passed, no skips,81 packaged
 building modules byte-exact. On the actual4/8/16-interval roofs, batched p50
 was0.538/0.635/0.946 ms versus scalar0.677/0.980/1.725 ms (21 measured runs,
 2 warmups, nonisolated). Both methods process the same intervals; Python-to-GEOS
@@ -1014,4 +1014,9 @@ The complete37-source tile has16 new roof plans (8 per kind), no roof/facade
 failure or source omission,2724→3610 triangles (+886). Near5-/15-room source
 controls preserve room IDs and physical access. Facade/roof shapes improve;
 complete industrial architectural families and broader detail/night/LOD/device
-quality remain open. Actual current image/camera admission is recorded in the PR.
+quality remain open. Fifteen actual1920×1080 Blender images (individual whole/
+opposite/gable/far and the focused complete-tile pair) and three2400×1350
+section/2.5D diagrams were opened. The close tile pair changes1.1555% of pixels;
+shape gain is clear on individual gable views. Neutral materials and missing
+industrial openings/details remain a substantial visual limit. Final model
+equality and original render/camera bindings are recorded in the PR.
