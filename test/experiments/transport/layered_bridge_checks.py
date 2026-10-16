@@ -11,6 +11,7 @@ from cycle_bridge_profile import solve
 from layered_bridge_audit import field_error
 from layered_bridge_plan import candidate
 from layered_bridge_problem import prepare
+from layered_bridge_replay import pier_proof
 from layered_bridge_supports import air_intervals, layout
 from layered_bridge_topology import topology
 from outshine_ref.contracts import Mesh
@@ -134,6 +135,23 @@ class LayeredBridge(unittest.TestCase):
         f["sources"][0]["properties"]["oneway"] = 0
         with self.assertRaisesRegex(ValueError, "one-way travel"):
             topology(f, self.upper[0]["axis"])
+
+    def test_saved_reader_rejects_a_missing_middle_pier(self):
+        products, _note = layout(self.fixture, self.lower, self.chains, method="fixed")
+        field = Mesh(
+            np.array(self.fixture["field_vertices"]),
+            np.array(self.fixture["field_faces"]),
+        )
+        bodies = [p.body for p in products]
+        contacts = [(p.lower_contact, p.upper_contact) for p in products]
+        proof = pier_proof(
+            self.fixture, self.lower, self.chains, bodies, contacts, field
+        )
+        self.assertLessEqual(proof["maximum_air_span_m"], 12)
+        del bodies[len(bodies) // 2]
+        del contacts[len(contacts) // 2]
+        with self.assertRaisesRegex(ValueError, "continuous air spans"):
+            pier_proof(self.fixture, self.lower, self.chains, bodies, contacts, field)
 
     def test_opposite_traffic_cores_cannot_overlap(self):
         f = copy.deepcopy(self.fixture)

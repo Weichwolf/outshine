@@ -13,9 +13,9 @@ def scenes(args, before, bodies):
         json.loads((args.baseline / "after-scene.json").read_text())
     )
     camera.update(
-        eye=[4090, -1800, 1110],
-        target=[4090, -800, 160],
-        span_m=2100,
+        eye=[4700, -2400, 600],
+        target=[4080, -1240, 160],
+        span_m=1450,
         profile=[1280, 720],
         detail_view=True,
     )
