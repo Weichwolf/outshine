@@ -1,0 +1,150 @@
+"""Independent saved geometry admission; whole old assets stay referenced unchanged."""
+
+import numpy as np
+import shapely
+from outshine_ref.contracts import Mesh
+from stair_module_contacts import interfaces, profiles
+from stair_network_geometry import vertex_links
+from surface_height_checks import normal_gradients
+from surface_solid_checks import audit_closed
+
+
+def module_body(data, rows, domains):
+    vertices, faces = data["surface_vertices"], data["surface_faces"]
+    owners = data["owners"]
+    n, m = len(vertices), len(faces)
+    if (
+        not 0 < n <= 4096
+        or not 0 < m <= 8192
+        or owners.shape != (m, len(rows))
+        or owners.dtype.kind != "b"
+        or not owners.any(axis=1).all()
+    ):
+        raise ValueError("bounded owned module surface required")
+    body_v, body_f = data["body_vertices"], data["body_faces"]
+    if not (
+        np.array_equal(body_v[:n], vertices)
+        and len(body_v) == 2 * n
+        and np.array_equal(body_v[n:], vertices - [0, 0, 0.3])
+        and np.array_equal(body_f[:m], faces)
+        and np.array_equal(body_f[m : 2 * m], faces[:, ::-1] + n)
+    ):
+        raise ValueError("saved module differs from its actual surface and bottom")
+    shapes = shapely.polygons(vertices[faces, :2])
+    if not shapely.coverage_is_valid(shapes):
+        raise ValueError("actual module surface coverage invalid")
+    for i, domain in enumerate(domains):
+        if (
+            shapely.union_all(shapes[owners[:, i]]).symmetric_difference(domain).area
+            > 1e-7
+        ):
+            raise ValueError("whole source addition lost or gained positive area")
+    limits = np.min(np.where(owners, [r["gradient"] for r in rows], np.inf), axis=1)
+    if not np.array_equal(limits, data["limits"]):
+        raise ValueError("source profile limits changed")
+    proof = []
+    for dtype in (np.float64, np.float32):
+        top = vertices.astype(dtype).astype(float)
+        slopes = np.linalg.norm(normal_gradients(top[:, :2], faces, top[:, 2]), axis=1)
+        if np.any(slopes > limits):
+            raise ValueError("actual module source gradient exceeded")
+        body = Mesh(body_v.astype(dtype), body_f)
+        volume = audit_closed(body)
+        links = vertex_links(body.vertices, body.triangles)
+        if volume <= 0:
+            raise ValueError("nonpositive module volume")
+        proof.append(
+            {
+                "dtype": str(np.dtype(dtype)),
+                "volume_m3": volume,
+                "maximum_normalized_grade": float(np.max(slopes / limits)),
+                **links,
+            }
+        )
+    return {
+        "surface_vertices": n,
+        "surface_faces": m,
+        "body_faces": len(body_f),
+        "checks": proof,
+    }
+
+
+def traffic(data, upper, piers):
+    result = []
+    if len(piers) > 128:
+        raise ValueError("old pier traffic cap")
+    for cast in (False, True):
+        vertices = (
+            data["surface_vertices"].astype("f4").astype(float)
+            if cast
+            else data["surface_vertices"]
+        )
+        footprint = shapely.union_all(
+            shapely.polygons(vertices[data["surface_faces"], :2])
+        )
+        high = upper.vertices.astype("f4").astype(float) if cast else upper.vertices
+        upper_shape = shapely.union_all(shapely.polygons(high[upper.triangles, :2]))
+        area = footprint.intersection(upper_shape).area
+        if area > 1e-7:
+            raise ValueError("first ground module family intersects an existing bridge")
+        distances = []
+        for pier in piers:
+            v = pier.vertices.astype("f4").astype(float) if cast else pier.vertices
+            p = shapely.union_all(shapely.polygons(v[pier.triangles, :2]))
+            distances.append(footprint.distance(p))
+        if distances and min(distances) < 0.2:
+            raise ValueError("new module violates old pier foreign-traffic distance")
+        result.append(
+            {
+                "float32": cast,
+                "bridge_overlap_area_m2": float(area),
+                "minimum_whole_pier_xy_distance_m": min(distances)
+                if distances
+                else None,
+            }
+        )
+    return result
+
+
+def audit(state, recipe, data, rows, planning, line, upper):
+    nodes, original, domains, masks, old = planning
+    owner = state["report"]["after"]["source_ids"].index(recipe["port"]["source_id"])
+    selected = (state["road"]["face_sources"] & (1 << owner)) != 0
+    cap = Mesh(state["road"]["body_vertices"], state["road"]["top_faces"][selected])
+    old_cap = shapely.union_all(shapely.polygons(cap.vertices[cap.triangles, :2]))
+    additions = shapely.union_all(domains)
+    reuse = []
+    for i, shape in enumerate(original):
+        borrowed = shape.intersection(old_cap)
+        if shape.difference(domains[i].union(borrowed)).area > 1e-7:
+            raise ValueError("source reuse needs an unrelated old asset")
+        reuse.append(
+            {
+                "source_id": rows[i]["source_id"],
+                "new_area_m2": domains[i].area,
+                "reused_area_m2": borrowed.area,
+                "reused_source_id": recipe["port"]["source_id"],
+            }
+        )
+    contact = interfaces(state["road"], data, old_cap, domains, float(line[1, 2]))
+    for component in shapely.get_parts(additions):
+        if (
+            component.boundary.intersection(old_cap.boundary.buffer(1e-7)).length
+            <= 1e-7
+        ):
+            raise ValueError("detached new module component")
+    points = shapely.points(data["surface_vertices"][:, :2])
+    fixed = shapely.dwithin(old, points, 1e-7)
+    for mask in masks:
+        fixed |= shapely.dwithin(mask, points, 1e-8)
+    if not np.array_equal(fixed, data["fixed"]) or not np.all(
+        data["surface_vertices"][fixed, 2] == line[1, 2]
+    ):
+        raise ValueError("frozen module heights or pin ownership changed")
+    return {
+        "body": module_body(data, rows, domains),
+        "reuse": reuse,
+        "interfaces": contact,
+        "profiles": profiles(data, rows, nodes, masks, original, cap, line),
+        "traffic": traffic(data, upper, state["piers"]),
+    }
