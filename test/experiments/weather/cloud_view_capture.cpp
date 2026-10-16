@@ -71,6 +71,63 @@ bool Inside(const Case &scenario, size_t pixel, uint32_t width) {
   const double y = static_cast<double>(row) + 0.5;
   return x >= area.X && x < area.X + area.Width && y >= area.Y && y < area.Y + area.Height;
 }
+
+struct CheckedPixel {
+  std::array<double, 11> Ray{};
+  bool Valid = false;
+  bool Receiver = false;
+  bool Sky = false;
+};
+
+CheckedPixel
+CheckPixel(const Case &scenario, const Capture &capture, size_t pixel, uint32_t width) {
+  const auto &scene = capture.Images[0][pixel];
+  const auto &output = capture.Images[1][pixel];
+  const auto &radiance = capture.Images[2][pixel];
+  const auto &through = capture.Images[3][pixel];
+  const auto &work = capture.Images[4][pixel];
+  CheckedPixel result{.Valid = FiniteFields(capture, pixel)};
+  if (!Inside(scenario, pixel, width)) {
+    result.Valid = result.Valid && output == Pixel{};
+    return result;
+  }
+  result.Receiver = radiance[3] > 0.0f;
+  result.Sky = !result.Receiver;
+  result.Valid = result.Valid && output[3] == scene[3];
+  if (result.Sky && !scenario.BoundarySky) {
+    result.Valid = result.Valid && output == scene;
+    return result;
+  }
+  const double sampleDepth =
+      result.Receiver ? radiance[3]
+                      : 0.5 * (scenario.View.Area.MinDepth + scenario.View.Area.MaxDepth);
+  const size_t row = pixel / width;
+  const auto ray = MediumViewProbe::ReferenceRay(
+      scenario.View,
+      {{static_cast<double>(pixel % width) + 0.5, static_cast<double>(row) + 0.5, sampleDepth}},
+      ControlledAir());
+  const auto origin = scenario.DensityCameraOriginM + ray.OriginM;
+  result.Ray = {origin[0],
+                origin[1],
+                origin[2],
+                ray.Direction[0],
+                ray.Direction[1],
+                ray.Direction[2],
+                ray.RadiusKm,
+                ray.CosView,
+                ray.CosSun,
+                ray.ViewSun,
+                result.Receiver ? ray.DistanceKm : through[3]};
+  constexpr double absoluteToleranceKm = 2e-6;
+  if (result.Receiver) {
+    result.Valid = result.Valid && std::abs(through[3] - ray.DistanceKm) <= absoluteToleranceKm &&
+                   DepthMatches(scenario, ReceiverFor(scene, radiance[3]));
+  }
+  result.Valid =
+      result.Valid && work[0] >= 0.0f && work[1] >= 0.0f && work[2] >= 0.0f && work[3] >= -1.0f;
+  return result;
+}
+
 }
 
 void WriteCapture(const Case &scenario,
@@ -88,56 +145,21 @@ void WriteCapture(const Case &scenario,
   size_t receivers = 0;
   size_t sky = 0;
   for (size_t pixel = 0; pixel < capture.Images[0].size(); ++pixel) {
-    const auto &output = capture.Images[1][pixel];
-    const auto &radiance = capture.Images[2][pixel];
-    const auto &through = capture.Images[3][pixel];
-    const auto &work = capture.Images[4][pixel];
-    valid = valid && FiniteFields(capture, pixel);
-    const auto row = pixel / shape.Width;
-    std::array<double, 11> record{};
-    if (Inside(scenario, pixel, shape.Width)) {
-      valid = valid && output[3] == capture.Images[0][pixel][3];
-      if (radiance[3] > 0.0f) {
-        ++receivers;
-        const auto ray =
-            MediumViewProbe::ReferenceRay(scenario.View,
-                                          {{static_cast<double>(pixel % shape.Width) + 0.5,
-                                            static_cast<double>(row) + 0.5,
-                                            radiance[3]}},
-                                          medium);
-        const auto origin = scenario.DensityCameraOriginM + ray.OriginM;
-        record = {origin[0],
-                  origin[1],
-                  origin[2],
-                  ray.Direction[0],
-                  ray.Direction[1],
-                  ray.Direction[2],
-                  ray.RadiusKm,
-                  ray.CosView,
-                  ray.CosSun,
-                  ray.ViewSun,
-                  ray.DistanceKm};
-        constexpr double absoluteToleranceKm = 2e-6;
-        valid = valid && std::abs(through[3] - ray.DistanceKm) <= absoluteToleranceKm;
-        valid = valid && DepthMatches(scenario, ReceiverFor(capture.Images[0][pixel], radiance[3]));
-        valid = valid && work[0] >= 0.0f && work[1] >= 0.0f && work[2] >= 0.0f && work[3] >= -1.0f;
-      } else {
-        ++sky;
-        valid = valid && output == capture.Images[0][pixel];
-      }
-    } else {
-      valid = valid && output == Pixel{};
-    }
-    Write(rays, std::as_bytes(std::span(record)));
+    const auto checked = CheckPixel(scenario, capture, pixel, shape.Width);
+    valid = valid && checked.Valid;
+    receivers += checked.Receiver ? 1 : 0;
+    sky += checked.Sky ? 1 : 0;
+    Write(rays, std::as_bytes(std::span(checked.Ray)));
   }
-  CHECK(valid && receivers > 0 && sky > 0,
-        "real native depth, independent ray, alpha, sky passthrough and finite fields agree");
+  CHECK(valid && (receivers > 0 || scenario.SkyOnly) && sky > 0,
+        "native depth, independent ray, alpha, selected sky contract and finite fields agree");
   std::ofstream metadata(prefix + ".json");
   const auto &view = scenario.View.Area;
   metadata << std::setprecision(std::numeric_limits<double>::max_digits10) << R"({"name":")"
-           << scenario.Name << R"(","width":)" << shape.Width << R"(,"height":)" << shape.Height
-           << R"(,"phase_s":)" << scenario.PhaseS << R"(,"viewport":[)" << view.X << ',' << view.Y
-           << ',' << view.Width << ',' << view.Height << R"(],"snapshot_origin":)"
+           << scenario.Name << R"(","boundary_sky":)" << (scenario.BoundarySky ? "true" : "false")
+           << R"(,"width":)" << shape.Width << R"(,"height":)" << shape.Height << R"(,"phase_s":)"
+           << scenario.PhaseS << R"(,"viewport":[)" << view.X << ',' << view.Y << ',' << view.Width
+           << ',' << view.Height << R"(],"snapshot_origin":)"
            << static_cast<int>(scenario.Snapshot.Source.Origin) << R"(,"snapshot_utc_s":)"
            << scenario.Snapshot.Values.ValidUtcS << R"(,"source_sha256":")"
            << scenario.Snapshot.Source.PayloadSha256 << "\"}\n";
