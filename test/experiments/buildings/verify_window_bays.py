@@ -85,7 +85,7 @@ class WindowBayCells(unittest.TestCase):
                 prepared=([row], {"invalid": [], "span_m": 100.0}),
                 ordinary_builder=after,
             )
-            self.assertEqual({r["mode"] for r in after.bay_geometry}, {"compact"})
+            self.assertEqual({r["mode"] for r in after.bay_geometry}, {"flat"})
             self.assertFalse(np.any(mesh["materials"] == 3))
             cell_sizes(mesh, [int(k) for k in after.bindings])
 
@@ -149,7 +149,7 @@ class WindowBayCells(unittest.TestCase):
             mesh, frames, p, entry, _, plan = prepared(row)
             for distance, expected in (
                 (10, "through"),
-                (500, "compact"),
+                (500, "flat"),
                 (100000, None),
             ):
                 view = camera(plan["cells"][0], distance)
