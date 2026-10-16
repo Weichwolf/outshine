@@ -20,6 +20,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from outshine_ref.buildings.modelling import heightfield_envelope
 from provider_contract import attributes
 from recess_probe import building
+from recipes import choose as facade_recipe
+from stepped_source_probe import overview
 from structural_shell_geometry import mesh_section
 from tile_buildings import construct, read_tile
 from tile_facades import contexts
@@ -131,11 +133,48 @@ def models(output, proof):
             )
 
 
+def roof_end_models(output, proof):
+    for i, (row, neighbors) in enumerate(sources()):
+        parameters = attributes(row["properties"])
+        section = section_for(row, choose(row, parameters))
+        axis = np.asarray(section.axis_xy)
+        direction = np.r_[[-axis[1], axis[0]] + axis * 0.25, 0.55]
+        a, b, c, d = row["polygon"].bounds
+        points = np.array(
+            [
+                [x, y, z]
+                for x in (a, c)
+                for y in (b, d)
+                for z in (0, parameters["buildingHeight"])
+            ]
+        )
+        view = overview(points, direction)
+        with patch("industrial_roof_choice.extend", side_effect=prior):
+            building(
+                row, view, f"{i}BeforeRoofEnd", output, proof, context_rows=neighbors
+            )
+        building(
+            row, view, f"{i}SectionsRoofEnd", output, proof, context_rows=neighbors
+        )
+
+
 def tile(output, proof):
     rows, receipt = read_tile("Grohnde")
     contexts(rows, receipt)
     buildings = [row for row in rows if row["layer"] == "building"]
-    polygon = shapely.union_all([row["polygon"] for row in buildings])
+    fitting = [
+        row
+        for row in buildings
+        if facade_recipe(
+            row["properties"],
+            row.get("context", {}),
+            row["polygon"],
+            attributes(row["properties"])["buildingHeight"],
+            0,
+        )["family"]
+        == "industrial"
+    ]
+    polygon = shapely.union_all([row["polygon"] for row in fitting or buildings])
     view = view_for({"polygon": polygon, "properties": {"render_height": 90}})
     for label in ("Before", "Sections"):
         owner = SteppedDetails(rows, view)
@@ -166,6 +205,7 @@ def tile(output, proof):
             "sources": receipt,
             "source": source,
             "camera": camera,
+            "camera_focus": "Industrial-context group only; all provider buildings remain in source and mesh",
             "mesh": str(path.resolve()),
             "mesh_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "triangles": len(mesh["faces"]),
@@ -183,12 +223,12 @@ def tile(output, proof):
         print(label, source["generated"], len(mesh["faces"]), flush=True)
 
 
-def run(output, include_tile):
+def run(output, include_tile, *, roof_end=False):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze sources before industrial roof diagnostics")
     output.mkdir(parents=True, exist_ok=True)
-    models(output, proof)
+    (roof_end_models if roof_end else models)(output, proof)
     if include_tile:
         tile(output, proof)
 
@@ -197,5 +237,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tile", action="store_true")
+    parser.add_argument("--roof-end", action="store_true")
     args = parser.parse_args()
-    run(args.output, args.tile)
+    run(args.output, args.tile, roof_end=args.roof_end)
