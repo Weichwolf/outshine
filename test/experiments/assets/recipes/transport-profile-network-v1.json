@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "id": "transport.profile-network",
+  "version": "1",
+  "requires": ["transport.profile-solve"],
+  "inputs": {"source": "transport.source-network/1"},
+  "dependencies": {},
+  "nodes": {
+    "profiles": {
+      "operator": {"id": "transport.solve-profiles", "version": "1"},
+      "parameters": {"method": "width", "width_reach_m": 0.75},
+      "inputs": {"source": {"input": "source"}},
+      "max_output_bytes": 16777216
+    }
+  },
+  "outputs": {"plan": {"node": "profiles", "output": "plan"}}
+}

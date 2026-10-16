@@ -12,10 +12,13 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Gemeinsamer Rezeptpilot](recipe_transport.md): tatsächlicher Quellverbund,
+  Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
-und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys. Ausgewählte
-Präsentationsbilder gehören nach `build/shots/experiments/transport/`.
+und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
+Forschungs-/Diagnosebilder bleiben im System-Tempverzeichnis; die integrierte
+öffentliche Places-Galerie besitzt der Hauptagent.
 Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
 
 ```sh
