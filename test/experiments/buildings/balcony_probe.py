@@ -36,7 +36,7 @@ def diagram(current, owner, output):
     colours = np.array(
         [(0.15, 0.22, 0.25) if m in (7, 10) else (0.68, 0.70, 0.66) for m in materials]
     )
-    figure = plt.figure(figsize=(28, 8))
+    figure = plt.figure(figsize=(28, 9))
     axis = figure.add_subplot(141)
     for polygon, colour in (
         (current["footprint"], "steelblue"),
@@ -66,7 +66,7 @@ def diagram(current, owner, output):
             axis.plot(line[:, axes[0]], line[:, axes[1]], color="black")
         axis.set(aspect="equal", title=title, xlabel="Meter", ylabel="Meter")
     axis = figure.add_subplot(144, projection="3d")
-    keep = np.ptp(local[:, :, 1], axis=1) > 0
+    keep = np.arange(len(local)) < sum(len(part["faces"]) for part in parts[:-1])
     axis.add_collection3d(
         Poly3DCollection(local[keep], facecolors=colours[keep], edgecolors="none")
     )

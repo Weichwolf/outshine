@@ -94,6 +94,18 @@ def benchmark():
                     * 3
                     * 3
                     * 8,
+                    "known_position_result_arrays": 30
+                    if method == "boundary"
+                    else 5
+                    if method == "parts"
+                    else 1,
+                    "known_position_materialized_bytes": 5760
+                    if method == "boundary"
+                    else 5376
+                    if method == "parts"
+                    else product["vertices"].nbytes,
+                    "known_position_stack_copied_bytes": product["vertices"].nbytes,
+                    "allocation_scope": "Boundary:11 fixed-quad triangle results,18 constrained triangle results and1 output stack; parts:4 primitive position results and1 concatenation; union:only final owned position copy. Other coordinate arrays/backend work uninstrumented.",
                     "backend_allocations_copies": None,
                 }
             )
