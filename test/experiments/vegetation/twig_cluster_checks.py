@@ -8,8 +8,8 @@ import numpy as np
 from outshine_ref.vegetation import Shoot
 from outshine_ref.vegetation.axis_surface import axis_mesh
 from scipy.spatial.transform import Rotation
-from twig_clusters import TwigClusters
 from twig_cluster_mesh import add_twigs
+from twig_clusters import TwigClusters
 
 
 def plan(counts=(25, 26, 0, 1)):
