@@ -12,6 +12,9 @@ bis zur Mitte der vollständigen klaren Strecke. Ozon-/Schattenkanten kommen wie
 bisher hinzu. Die Partition hängt von der physischen Strecke ab, nicht von Queries.
 Einseitige Knoten verschwenden beim Orbitabstieg ihre dichten Proben im oberen
 Bereich; am Boden unterschätzen sie die schnelle Mie-Variation.
+Auf der deklarierten Erdkugel ist die längste klare Strecke höchstens
+`2*sqrt(6460²-6360²)` km. Beidseitig entstehen damit höchstens902 Rasterzellen;
+acht physische Schnitte und höchstens32 Wolkenzellen bleiben unter1024.
 
 `AIR_PREFIX_ACCUMULATE_DEPTH=1` summiert die unveränderten analytischen
 Bernstein-Zellintegrale vor dem Exponential. Es vermeidet die Rundungsdrift vieler
@@ -38,6 +41,10 @@ python test/experiments/weather/cloud_air_depth_native.py --profiled \
 
 `analysis.json` trennt Referenzfehler, Quellen-/Dichtearbeit und Kontrollen.
 `receipt.json` enthält terminale Befehle, tatsächliche GPU-Zeiten und Lastzustände.
+`python test/experiments/weather/profiled_air_report.py --output <derselbe Pfad>`
+erzeugt mit Matplotlib ein dreiseitiges PDF aus den tatsächlichen GPU-Werten.
+Die Quellenzähler erfassen Streupunkte; interne Sun-T6-Dichtearbeit ist nicht
+instrumentiert. Globale NVML-Stichproben sind kein isolierter Ressourcenpeak.
 Das1920×1080-Schritt8-Raster misst nur Komponentenarbeit bis zur physischen Grenze;
 sein RGB ist kein unabhängig abgenommenes Vollbild. Residente Tiefe, Interpolation,
 Opaque/Thin/History und vollständige Frame-/A18-Budgets bleiben offen.
