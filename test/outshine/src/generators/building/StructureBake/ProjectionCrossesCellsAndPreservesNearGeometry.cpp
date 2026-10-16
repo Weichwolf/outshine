@@ -5,10 +5,21 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <expected>
+#include <optional>
+#include <span>
 #include <memory>
 #include <vector>
 
 namespace {
+constexpr double kTileSpanM = 16000;
+constexpr double kLatitudeDeg = 47;
+constexpr double kFocalPx = 720;
+constexpr double kEyeHeightM = 40;
+constexpr size_t kSourceCount = 68;
+
 class ObservedMesher final : public outshine::StructureMesher {
 public:
   std::unique_ptr<outshine::MeshScratch> Scratch() const override { return Native.Scratch(); }
@@ -65,19 +76,20 @@ int main() {
   using namespace outshine::Generators;
   using namespace outshine::Test;
   RawTile raw;
-  raw.TileSpanM = 16000;
-  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = 47};
-  raw.Projection = {.FocalPx = 720, .AllowedErrorPx = 1};
-  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47}, raw.AnchorEcef);
+  raw.TileSpanM = kTileSpanM;
+  raw.Eye = {.LongitudeDeg = 9, .LatitudeDeg = kLatitudeDeg};
+  raw.Projection = {.FocalPx = kFocalPx, .AllowedErrorPx = 1};
+  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = kLatitudeDeg}, raw.AnchorEcef);
   Vec3 eye;
-  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = 47, .HeightM = 40}, eye);
+  GeoToEcef({.LongitudeDeg = 9, .LatitudeDeg = kLatitudeDeg, .HeightM = kEyeHeightM}, eye);
   raw.EyeEcef = eye;
   const Ground::GeoBounds bounds{
       .MinLonDeg = 9, .MinLatDeg = 47, .MaxLonDeg = 9.2, .MaxLatDeg = 47.2};
-  for (size_t at = 0; at < 68; ++at) {
+  for (size_t at = 0; at < kSourceCount; ++at) {
     const double lon = at < 4 ? 9.0002 : 9.08 + static_cast<double>((at - 4) % 8) * 0.004;
+    const size_t gridRow = at < 4 ? 0 : (at - 4) / 8;
     const double lat = at < 4 ? 47.0002 + static_cast<double>(at) * 0.0002
-                              : 47.01 + static_cast<double>((at - 4) / 8) * 0.004;
+                              : 47.01 + static_cast<double>(gridRow) * 0.004;
     const std::array ring{
         lat, lon, lat, lon + 0.0001, lat + 0.0001, lon + 0.0001, lat + 0.0001, lon};
     const auto cell = StructureCellOf(bounds, ring);
@@ -98,7 +110,7 @@ int main() {
   block.Raster = {.Side = 2, .Postings = 2};
   block.Nodes.assign(4, 0.0f);
   const auto ground = Ground::HeightField::Of(0, {block});
-  ObservedMesher mesher;
+  const ObservedMesher mesher;
   auto scratch = mesher.Scratch();
   StructureBakeProgress progress;
   const auto planned = progress.AdvanceStructures(raw, *ground, mesher, *scratch, 68);
