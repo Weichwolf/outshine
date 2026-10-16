@@ -20,10 +20,13 @@ The existing cache encoding and UV1 lifecycle/ownership contract are unchanged.
 ProjectionCrossesCellsAndPreservesNearGeometry uses the actual native BuildingMesh
 and68 mixed near/far source plans. Its observed Project result contains metre data;
 the final tile must retain that exact owned stream. Existing geometry/UV0/normal,
-source coverage and view-reuse assertions remain. Same inputs:
+source coverage and view-reuse assertions remain. A second boundary test covers
+all four optional prefix/added-stream combinations, including distinct neutral
+values for colour and metres. Same inputs:
 
 - original paired2a6f211c7 libraries:3371 checks/1 failure, only the appended metre stream;
-- corrected native libraries:3371 checks/0 failures.
+- corrected native libraries:3371 checks/0 failures; mixed-stream boundary100/0
+  (original boundary94 checks/3 failures).
 
 Both native archive populations contain the generator objects. The component
 countercheck updates exactly StructurePlanSelection and PreparedBuildingGeometry
@@ -31,7 +34,7 @@ in both archives. Their66/72 owned dependency headers match the retained baselin
 byte-for-byte; no newer Device header is paired with an old archive. The complete
 client binary is checked for the new product-key version before measurement.
 Production changes are0d91b2f51; focused regression cleanup99431e1f8. Format and
-focused clang-tidy cover both changed production units and the test. No own
+focused clang-tidy cover both changed production units and both tests. No own
 findings; unchanged Check.h retains14 existing diagnostics. No second full lint.
 
 ## Actual world and cost
