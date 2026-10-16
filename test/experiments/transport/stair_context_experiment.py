@@ -21,7 +21,7 @@ from stair_junction_layout import INPUT, inputs, layout
 from stair_junction_solve import solve
 
 
-def crossings(rows):
+def crossings(rows, junctions=None):
     result = []
     for i, j in itertools.combinations(range(len(rows)), 2):
         a, b = rows[i], rows[j]
@@ -32,6 +32,13 @@ def crossings(rows):
             if point.geom_type != "Point":
                 continue
             p = np.array(point.coords[0])
+            if junctions is not None and any(
+                i in node["incident"]
+                and j in node["incident"]
+                and np.linalg.norm(p - node["xy"]) < 1e-7
+                for node in junctions
+            ):
+                continue
             if all(
                 np.min(np.linalg.norm(row["xy"][[0, -1]] - p, axis=1)) < 1e-7
                 for row in (a, b)
@@ -57,13 +64,13 @@ def frontier_ends(fixture, rows):
     return result
 
 
-def stage(args, name, rows, junctions, ends=None):
-    plan = layout(rows, "width", junctions=junctions)
+def stage(args, name, rows, junctions, ends=None, stairs=None):
+    plan = layout(rows, "width", junctions=junctions, stairs=stairs)
     heights, note = solve(plan)
     if heights is None:
         raise ValueError("bounded contextual candidate failed: " + note["status"])
     body, data, geometry = build(plan, heights)
-    pairs = crossings(rows)
+    pairs = crossings(rows, junctions)
     proof = audit(
         data, plan["domains"], limits=[r["gradient"] for r in rows], crossings=pairs
     )
