@@ -22,42 +22,6 @@ using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
 using namespace outshine::Test::CloudViewProbe;
 
-std::unique_ptr<GraphicsPipeline>
-Pipeline(Device &device, const char *vertex, const char *fragment, bool scene) {
-  const auto vertexCode = Spirv(vertex);
-  const auto fragmentCode = Spirv(fragment);
-  std::array<ColourTarget, 4> targets;
-  for (auto &target : targets) { target.Texels = Format::Rgba32Float; }
-  auto pipeline = Require(device.CreateGraphicsPipeline(
-      {.Vertex = {.Spirv = vertexCode},
-       .Fragment = ShaderCode{.Spirv = fragmentCode},
-       .Streams = {},
-       .Attributes = {},
-       .Colours = std::span(targets).first(scene ? 1 : targets.size()),
-       .Depth = scene ? std::optional{DepthTarget{}} : std::nullopt,
-       .Culling = Cull::None,
-       .Label = "CloudFrontRasterControl"}));
-  if (!scene) {
-    size_t medium = 0;
-    size_t weather = 0;
-    for (const auto &binding : pipeline->Layout().Bindings) {
-      const auto &resource = binding.Resource;
-      if (resource.Set == 3 && resource.Slot == 2 && resource.Kind == BindingKind::Uniform) {
-        CHECK(resource.MinimumBytes == sizeof(outshine::Render::MediumViewParameters),
-              "the actual fragment3/2 frame stays224 bytes");
-        ++medium;
-      }
-      if (resource.Set == 3 && resource.Slot == 3 && resource.Kind == BindingKind::Uniform) {
-        CHECK(resource.MinimumBytes == sizeof(WeatherFrame),
-              "the private fragment3/3 weather payload is96 bytes");
-        ++weather;
-      }
-    }
-    CHECK(medium == 1 && weather == 1, "both independently owned snapshots are reflected once");
-  }
-  return pipeline;
-}
-
 uint32_t Extent(const char *text) {
   uint32_t value = 0;
   const std::string_view input(text);
@@ -103,8 +67,8 @@ int main(int argc, char **argv) {
   }
   auto device = Require(CreateDevice({.Validation = true}));
   CHECK(device->Limits().MaxColourAttachments >= 4, "four actual cloud-front MRTs are supported");
-  const auto scene = Pipeline(*device, argv[1], argv[2], true);
-  const auto front = Pipeline(*device, argv[3], argv[4], false);
+  const auto scene = MakePipeline(*device, argv[1], argv[2], true);
+  const auto front = MakePipeline(*device, argv[3], argv[4], false);
   const Targets targets(*device, shape);
   size_t frames = 0;
   for (const auto &scenario : cases) {

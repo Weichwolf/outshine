@@ -2,7 +2,6 @@
 #include "WeatherInput.h"
 #include "CivilTime.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <expected>
 #include <optional>
@@ -15,11 +14,6 @@ ValidateScenarioWeather(const Scenario::Document &scenario,
   if (!scenario.Weather) { return {}; }
   if (!scenario.Time.Declared && !scenario.Time.Start.empty()) {
     return std::unexpected("native weather requires an explicitly declared clock start");
-  }
-  if (std::ranges::any_of(scenario.Providers, [](const Data::SourceProvider &provider) {
-        return provider.Kind == "weather";
-      })) {
-    return std::unexpected("weather declaration and weather provider are mutually exclusive");
   }
   if (!selectedUtcS) {
     int64_t parsed = 0;

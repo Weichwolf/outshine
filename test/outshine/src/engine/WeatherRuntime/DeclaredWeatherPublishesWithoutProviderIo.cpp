@@ -1,4 +1,5 @@
 #include <Outshine.h>
+#include <generation/weather/OpenMeteoProvider.h>
 #include <world/weather/WeatherSnapshot.h>
 #include "ScenarioRead.h"
 #include "DeclaredWeatherCapture.h"
@@ -14,6 +15,10 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   const auto directory = PlantedPath("engine-declared-weather");
+  const auto capture = RecordedWeatherCapture(false);
+  CHECK(capture.has_value(), "the original provider fixture is available for ambiguity");
+  if (!capture) { return Report(); }
+  const Generators::Weather::OpenMeteoProvider provider(capture->Request);
   std::shared_ptr<const WeatherSnapshot> retained;
   {
     Scenario::Document scenario;
@@ -23,6 +28,8 @@ int main() {
           "the public engine test consumes the native XML declaration");
     if (!scenario.Weather) { return Report(); }
     Engine engine;
+    CHECK(engine.registerProvider(provider).has_value(),
+          "the named factory is available without configuring or fetching a source");
     CHECK(
         engine.setRoots(
             {.Assets = {}, .Shipped = {}, .Cache = directory, .Offline = true, .AssetCache = {}}) &&
@@ -63,15 +70,23 @@ int main() {
     ++wrongUtc.Weather->Values.ValidUtcS;
     CHECK(!engine.declare(wrongUtc) && engine.weather() && *engine.weather() == *clear,
           "a mismatched UTC cannot replace the valid engine declaration or publication");
-    if (const auto capture = RecordedWeatherCapture(); capture) {
+    {
       auto ambiguous = scenario;
       ambiguous.Providers.push_back(capture->Declaration);
       const auto result = engine.declare(ambiguous);
       CHECK(!result && result.error().find("mutually exclusive") != std::string::npos &&
                 engine.weather() && *engine.weather() == *clear,
             "provider/declaration ambiguity fails before opening or fetching the provider");
-    } else {
-      CHECK(false, "the original provider fixture is available for the ambiguity control");
+    }
+    scenario.Weather->Values.CloudLow.reset();
+    CHECK(engine.declare(scenario) && engine.assemble(),
+          "an explicit declaration can retain an unknown low layer");
+    const auto unknown = engine.weather();
+    CHECK(unknown && *unknown && !(**unknown).Values.CloudLow,
+          "a present all-optional publication is distinct from no weather selection");
+    if (unknown && *unknown) {
+      const auto layer = Generators::Weather::MakeLowCloud(**unknown);
+      CHECK(layer && !*layer, "declared total/high cover does not replace the unknown low layer");
     }
     scenario.Weather.reset();
     CHECK(engine.declare(scenario) && engine.assemble() && engine.weather() && !*engine.weather(),

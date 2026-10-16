@@ -78,6 +78,15 @@ Medium ControlledAir() {
   return air;
 }
 
+Case DeclaredSkyCase(MediumViewProbe::ImageShape shape, const WeatherSnapshot &published) {
+  auto value = BaseCase(shape);
+  value.Snapshot = published;
+  value.Name = "sky-broken";
+  value.BoundarySky = true;
+  value.SkyOnly = true;
+  return value;
+}
+
 std::vector<Case> Cases(MediumViewProbe::ImageShape shape) {
   auto base = BaseCase(shape);
   auto clear = base;

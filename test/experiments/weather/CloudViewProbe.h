@@ -59,6 +59,10 @@ struct Capture {
 [[nodiscard]] std::vector<Case> ProfileCases(MediumViewProbe::ImageShape shape,
                                              CloudProfile profile);
 [[nodiscard]] WeatherFrame PrepareWeather(const Case &scenario);
+[[nodiscard]] Case DeclaredSkyCase(MediumViewProbe::ImageShape shape,
+                                   const WeatherSnapshot &published);
+[[nodiscard]] std::unique_ptr<GraphicsPipeline>
+MakePipeline(Device &device, const char *vertex, const char *fragment, bool scene);
 
 struct Pipelines {
   const GraphicsPipeline &Scene;

@@ -18,7 +18,7 @@ SHADERS = (
 )
 SOURCES = tuple(
     f"test/experiments/weather/cloud_view_{name}.cpp"
-    for name in ("native", "cases", "targets", "capture")
+    for name in ("native", "pipeline", "cases", "targets", "capture")
 ) + (
     "test/experiments/weather/cloud_sky_cases.cpp",
     "test/experiments/render/medium_view_reference.cpp",

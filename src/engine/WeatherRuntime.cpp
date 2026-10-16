@@ -3,6 +3,8 @@
 #include "OfflineTransport.h"
 #include "DeclaredWeather.h"
 #include "WeatherInput.h"
+#include "SourceConfiguration.h"
+#include <world/data/DataKind.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -15,18 +17,24 @@
 #include <vector>
 
 namespace outshine {
+Result Engine::State::ValidateDeclaredWeatherProviders(const Scenario::Document &scenario) const {
+  if (!scenario.Weather) { return {}; }
+  for (const auto &provider : scenario.Providers) {
+    auto source = Data::ConfigureSource(provider, Session.Under.Shipped, World.Providers);
+    if (!source) { return std::unexpected(std::move(source.error())); }
+    if ((*source)->Declaration().Kind == Data::DataKind::Weather) {
+      return std::unexpected("weather declaration and weather provider are mutually exclusive");
+    }
+  }
+  return {};
+}
+
 bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &providers) {
   if (providers.empty() && Session.Declared.Ground.Declared) {
     const auto defaults = Generators::ShippedProviders();
     providers.assign(defaults.begin(), defaults.end());
   }
   if (const auto &declared = Session.Declared.Weather; declared) {
-    if (std::ranges::any_of(providers, [](const Data::SourceProvider &provider) {
-          return provider.Kind == "weather";
-        })) {
-      Error = "weather declaration and weather provider are mutually exclusive";
-      return false;
-    }
     if (!World.DeclaredWeather || World.DeclaredWeatherRevision != Session.DeclarationRevision) {
       if (!Picture.Shown.UtcS) {
         Error = "weather declaration requires the resolved scenario UTC";
@@ -70,6 +78,10 @@ bool Engine::State::ConfigureWorldSources(std::vector<Data::SourceProvider> &pro
   for (size_t at = 0; at < World.Sources->Sources().Count(); ++at) {
     weather =
         weather || World.Sources->Sources().At(at).Declaration().Kind == Data::DataKind::Weather;
+  }
+  if (weather && World.DeclaredWeather) {
+    Error = "weather declaration and weather provider are mutually exclusive";
+    return false;
   }
   if (!weather) {
     World.Weather.reset();

@@ -664,6 +664,7 @@ Result Engine::declare(const Scenario::Document &scenario) {
     return std::unexpected(S_->Error);
   }
   ships();
+  if (const auto valid = S_->ValidateDeclaredWeatherProviders(scenario); !valid) { return valid; }
   if (const auto valid = ValidateOfferedGenerators(scenario, S_->World.Offering, S_->Error);
       !valid) {
     return valid;
