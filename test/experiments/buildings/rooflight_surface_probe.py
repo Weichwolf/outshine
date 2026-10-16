@@ -135,6 +135,21 @@ def models(references, output, proof):
                     "triangles": len(mesh["faces"]),
                     "surface_method": method,
                     "prior_reference": str(path),
+                    "procedures": {
+                        "prepared_body": {
+                            "source_id": row["id"],
+                            "triangles": len(value["body"]["faces"]),
+                            "lightwell_prisms": len(value["fields"]),
+                            "camera_independent": True,
+                        },
+                        "rooflight_product": {
+                            "method": method,
+                            "fields": len(value["fields"]),
+                            "triangles_per_field": 36 if method == "contact" else 44,
+                            "components_per_field": 1,
+                        },
+                        "original_procedure_reference": str(path),
+                    },
                     "scope": "Same prepared complete source-bound body/shaft/collision plan; directly emitted closed panes/frame surfaces. Contact variant omits only certified opaque mating faces; no general far/shadow/radiance/device admission.",
                 }
             )
