@@ -147,7 +147,9 @@ no Esri parser/VM/source implementation is claimed for this own portable pilot.
 62 source controls and the same62 controls with the freshly installed unchanged
 reference wheel pass, no skips. All82 building dependency modules match the
 pinned wheel (`aac088cf20ef7b05728ba62cdc57d85735fccb92a71e4650d9085d3d4d3315b6`).
-The pilot itself remains experiment code, not a packaged API. Three real halls
+The additional source-height invalidation/stable-room-ID control passes with
+both dependency modes, giving63 distinct checked controls. The pilot itself
+remains experiment code, not a packaged API. Three real halls
 replay exactly in two fresh processes each: canonical definitions/instances/
 product fingerprints/plans/stats and actual shell arrays/dtypes. Eight existing
 hall/state/interior/opposite render inputs are exactly preserved, including the

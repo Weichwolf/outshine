@@ -159,6 +159,10 @@ def render_equality(folder):
         )
         if source["generated"] != 1 or source["omissions"]:
             raise ValueError("Incomplete recipe render control")
+        if canonical(source["material_definitions"]) != canonical(
+            record["source"]["material_definitions"]
+        ):
+            raise ValueError("Recipe render control changed the actual source palette")
         with np.load(record["mesh"]) as old:
             mesh_equal(dict(old), mesh)
         proofs.append(
@@ -166,6 +170,7 @@ def render_equality(folder):
                 "model": str(path),
                 "mesh_sha256": record["mesh_sha256"],
                 "all_streams_dtypes_exact": True,
+                "source_palette_exact": True,
                 "camera": record["camera"],
                 "wall_binding": "semantic slot1 rebound to the same source palette by existing tile constructor",
             }
