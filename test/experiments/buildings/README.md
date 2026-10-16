@@ -194,6 +194,20 @@ normals are recorded for comparison and are not the intended material input.
 `verify_city_normals.py` exercises an actual Eevee pixel with identity and
 nonuniform object scaling. No new shared Blender or native API is required.
 
+Ordinary ground-floor sources can now use the same existing entrance selector
+as the first-storey room experiments (#358), restricted to existing facade cells.
+`facade_entrances.py` records a procedural connected arrival-space assumption,
+known neighbor-free landing, stable ID and cell. `tile_facade_recess.py` excludes
+that one cell from the same window repeat, preserving other UV axes; the near
+cell uses `OpeningPanel`, existing casing/leaf and simple floor/ceiling/landing.
+The entrance-facade plinth is omitted so it cannot block the door. Complete room
+controls are untouched; their later transition, upper access, outside routes,
+night/radiance/LOD and native player/cache integration remain unproved.
+`entrance_probe.py --output <temp>` writes actual same-camera before/closed/open,
+side/overview/compact products, cuts/2.5D and direct-panel/CSG comparison. Render
+reports with `blender_city.py`; `verify_facade_entrances.py` checks actual sources
+and continuous compiled arrival-tube clearance. Core contract: lib/entrances.md.
+
 Near ordinary facades also have procedural plinths, selected storey belts and
 stepped cornices through `tile_facade_bands.py` / the installable
 `BandPlan`/`band_surface` (#342). Existing facade-repeat gaps determine heights;
@@ -672,3 +686,13 @@ above that floor, upper storeys/ceiling omitted, full furniture retained. The
 uncut mesh is checked separately. The public gallery retains four fixed Place views.
 Door leaves/privacy states, services/ventilation, complete architectural
 programmes, other uses, runtime LOD/cache and native admission remain open.
+
+## Source-bound ground-floor display fronts (#377)
+
+`facade_shopfronts` uses only actual unique-host retail/food POIs, retaining evidence IDs and source attributes. Known non-ground/ambiguous levels and invalid hosts do not become ground fronts. A missing level is a marked procedural ground assumption. The selected existing entrance facade is a procedural frontage interpretation, not measured shop frontage or whole-building use. At most64 use candidates,256 existing columns and32 ground cells; each POI affects at most three existing adjacent cells, with the entrance cell excluded. Narrow/low/neighbor-blocked cells keep their prior surface. Existing constructed room controls stay separate.
+
+`tile_shopfronts` consumes the same `FacadeRepeat`/`RecessPlan`, with wider/taller ground openings (retail .88×.80, food .82×.74 of the same cells). Upper repeats/UV scale and entrance identity are retained. Rectangular wall remainders use disjoint rectangles; rising walls use the bounded existing source-triangle difference. Compact cells bind the same proportions on two triangles, demanded near cells use the existing inward .18m recess. These are render display fronts, not complete physical shops or a night-/LOD/native admission.
+
+Run with `.venv`: `PYTHONPATH=lib/src:test/experiments/buildings .venv/bin/python -m unittest verify_shopfronts -q`; `shopfront_probe.py --output /tmp/outshine-buildings-shopfronts-<commit>` generates actual provider before/after/overview/compact Blender inputs, a plan/2.5D diagnostic and a 21-run equal-surface rectangular-versus-GEOS remainder comparison. Render the geometry JSONs with the shared `blender_city.py`; images remain local. `data/shopfronts.json` preserves three actual Paris host/context examples and provider receipts, including supplied/missing ground levels. Whole-city neighbor/context coverage must be checked separately with `city_scene.py`.
+
+References: local SIGGRAPH2006 p3/Fig4 (optically reviewed) separates floor programmes while retaining repeat axes; Candler `Base/GroundSubTile/GroundfloorOpening` treats street ground floors separately. Existing hash-checked Ghidra extrusion dispatcher exports support that primitive, not a complete Esri shop-front oracle. No foreign assets or texture images are used.

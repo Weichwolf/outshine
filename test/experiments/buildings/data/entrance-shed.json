@@ -1,0 +1,125 @@
+{
+  "id": "Paris/(14, 8298, 5635)/427222020/2/18",
+  "properties": {
+    "render_height": 4,
+    "render_min_height": 0
+  },
+  "footprint_wkb": "01030000000100000008000000906CF8D5660F7B407D757802754086400220D62192787A40AD384FDFBD4686404C0DADFEDA7E7A40A6059A57E07586400059109FB3BD7A40A6059A57E07586400059109FB3BD7A40078C471172828640527953498A287B40D6C87034297C864076B1CEB2AF157B407D75780275408640906CF8D5660F7B407D75780275408640",
+  "context": {
+    "site_use": {
+      "value": "residential",
+      "origin": "landuse-context",
+      "evidence_ids": [
+        "landuse:99436883:56:0"
+      ],
+      "reason": "dominant coverage; nested site beats its surroundings"
+    }
+  },
+  "entrance_plan": {
+    "id": "Paris/(14, 8298, 5635)/427222020/2/18:floor-0:entrance",
+    "source_id": "Paris/(14, 8298, 5635)/427222020/2/18",
+    "facade_id": "Paris/(14, 8298, 5635)/427222020/2/18/facade-5",
+    "cell": [
+      1,
+      0
+    ],
+    "centre": [
+      423.633873983684,
+      714.3156688356515
+    ],
+    "tangent": [
+      -0.06651901062017747,
+      -0.9977851578501821
+    ],
+    "width_m": 1.1,
+    "height_m": 2.15,
+    "floor_z_m": 0.16,
+    "wall_depth_m": 0.24,
+    "landing_wkb": "01030000000100000005000000F81AFA3FF1677A40B1B7A115595A8640E6658CD106667A4085436BD9FA4B864056D50B59247A7A40BFDDC4324F4B8640688A79C70E7C7A40EB51FB6EAD598640F81AFA3FF1677A40B1B7A115595A8640",
+    "arrival_space_wkb": "0103000000010000000800000010C296B98F0F7B40CF2D978760428640D70A974FA77C7A4071D5018C7F488640DA0B52AE72827A40544D7BD2F4738640A4C94DA98AC17A40544D7BD2F4738640A4C94DA98AC17A402AB0EF54498086400DC0DBC71F247B405D0D9CCB7C7A8640468260B267127B40CF2D97876042864010C296B98F0F7B40CF2D978760428640",
+    "origin": "context-frontage",
+    "room_id": "Paris/(14, 8298, 5635)/427222020/2/18:floor-0:room-0",
+    "scope": "Existing selector on existing cells; provisional open ground-floor arrival, upper-storey programme and external route unplanned"
+  },
+  "scope": "Actual pinned Paris footprint/properties and prepared entrance; context reduced to its actual site-use result, no invented provider frontage",
+  "source_receipts": [
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8297,
+        5634
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5634.pbf",
+      "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/3aa397acb029eb1bfc76061727e0e4363dd33012c9d662c3b308e158b2a7e23b.pbf",
+      "bytes": 644336,
+      "sha256": "e391ac93d790d112030cf3c8da98b582471d6dade8dd62a73da0e41e7656472c",
+      "origin": "existing-source-cache"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8298,
+        5634
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5634.pbf",
+      "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/2868ca0481453fbe0d1622ce8bce6456c61aa4f447f5f97c0ff5c54114996859.pbf",
+      "bytes": 797995,
+      "sha256": "d69c5c40bd2f99b423cf8277a2bbb3f093a6124813849b11508d3f7cea816717",
+      "origin": "existing-source-cache"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8297,
+        5635
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5635.pbf",
+      "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/0cabe6c81e42342dd1206101bf69a7eff6f28fbbd7bcd38dd9fea9f1e92b19c1.pbf",
+      "bytes": 722011,
+      "sha256": "7a729bff839264cfb72337ef6cfec46f353ffd8adfb9e959edb92e0340b39b5c",
+      "origin": "existing-source-cache"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8298,
+        5635
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5635.pbf",
+      "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/941606017f2a7064222733d61ebbcf17ed9041a33d9372638d6e71e21a87492f.pbf",
+      "bytes": 1080648,
+      "sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "origin": "existing-source-cache"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8297,
+        5636
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5636.pbf",
+      "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/cfc96e6d990ac1c0347d1be47350992e08f66a281f72922c10f84ae47d890a35.pbf",
+      "bytes": 641030,
+      "sha256": "1191c8f2245b0932faccdbde2da9779ca7ed1b0e1658b25b6b9bb54f16a19371",
+      "origin": "existing-source-cache"
+    },
+    {
+      "kind": "vector",
+      "tile": [
+        14,
+        8298,
+        5636
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5636.pbf",
+      "path": "/home/cosmo/.local/share/outshine/outshine/sources/building-experiments/openfreemap/8efe100db6339175f51a1c6e4d0e0f15057d30f11324c4507653e835bf5f01f9.pbf",
+      "bytes": 1182371,
+      "sha256": "255cfa6f7451747fac9dd048892734ea102db03d7b5d0ccd29b4f225efabbbb5",
+      "origin": "existing-source-cache"
+    }
+  ]
+}

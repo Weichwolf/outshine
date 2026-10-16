@@ -101,6 +101,7 @@ def cloud_cells(
     view_samples=16,
     light_samples=6,
     light_gauss3=False,
+    seconds=37.0,
 ):
     cells = []
     for start, end in segments(origin, direction, layer):
@@ -111,9 +112,9 @@ def cloud_cells(
             begin = start + (end - start) * (tap / view_samples) ** warp
             finish = start + (end - start) * ((tap + 1) / view_samples) ** warp
             at = origin + direction * (0.5 * (begin + finish))
-            extinction = float(density(at, layer, 37.0))
+            extinction = float(density(at, layer, seconds))
             emission = extinction * source(
-                at, direction, layer, 37.0, light_samples, light_gauss3
+                at, direction, layer, seconds, light_samples, light_gauss3
             )
             cells.append((begin, finish, extinction, emission))
     return cells

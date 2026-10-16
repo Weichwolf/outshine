@@ -27,6 +27,11 @@ gemeinsame Schwellengeometrie mit unveränderlichen Instanzen für ein ausdrück
 gewähltes horizontales Gleisbett. Spurmaß, Grenzen und vollständige Kontaktpflicht
 stehen in [rail_hardware.md](rail_hardware.md) (#250).
 
+`build_planar_rail_hardware` ergänzt dieselben metrischen Profile auf einer
+ausdrücklich gewählten affinen Bettebene. `PlanarRailHardware` besitzt starre
+Rahmen/Instanzen, tatsächliche projizierte Footprints und alle Schwellenunterecken;
+endliche Kontakt-/Freiraumzulassung bleibt beim Aufrufer (#376).
+
 `transport.supports.SupportVolumeBuilder` erzeugt geschlossene ganze Kontaktkörper
 zwischen zwei ausdrücklich gewählten endlichen Höhenflächen. Knicke, Innenlöcher,
 Arbeitsbudgets, lokale Abwesenheit und Besitzergrenzen stehen in
@@ -674,6 +679,10 @@ The [compact tree-entry reference](../test/experiments/vegetation/tree_entry.md)
 provides an unchanged existing64-axis/571-leaf recipe, fixed canonical rows and
 an executable cache-only whole-plant consumer for native comparison (#367).
 
+[`StandHabitat` and `HabitatStand`](habitat_stand.md) prepare source-bound integer
+stand parents without enumerating individual trees. Canonical leaf sites are an
+explicit bounded demand; source support, saved cells and layout identity persist.
+
 ### Frond guides, source patterns and cross-section curl
 
 `PinnatePattern` creates own planar pinnate sources with stable organ IDs and
@@ -981,6 +990,12 @@ until its presentation migration. These helpers do not imply a native/device gat
 Eevee/AgX daylight from #291; caller-owned additional lights remain explicit.
 Research images stay local; only master publishes integrated Places.
 
+`buildings.interiors.entrances.entrance` shares the existing first-storey
+selector with bounded facade-cell candidates and caller-owned acceptance.
+`buildings.opening_panels.OpeningPanel` / `panel_surface` emit an actual closed
+through-opening slab. Contracts, source attachment and limitations:
+[entrances.md](entrances.md).
+
 `buildings.profiled_bands.BandPlan` / `band_surface` emit bounded closed mitred
 profile bands, including courtyard boundaries and capped partial edge runs.
 Normals, metric UVs and stable source-edge IDs are caller-owned. See
@@ -1001,3 +1016,5 @@ ermittelt. Vertrag, Kosten und optisch geprüfter Grasverbrauch: [ground_cover.m
 analytischen Normalen, geschlossener Ansatzkappe, offener Mündung und expliziten
 Eck-UVs. Herleitung, Unterteilungsgrenzen und tatsächlicher blühender Verbraucher:
 [bellflower.md](bellflower.md) (#316).
+
+The actual Python city consumer also reuses `FacadeRepeat`/`RecessPlan` for bounded retail/food ground-floor display fronts (#377), with unchanged upper-cell scale and shared entrance anchors. Provider-use/host/level and frontage policy stays in `test/experiments/buildings/facade_shopfronts.py`; no second library planner or native contract is introduced. Reproduction and limits are in the building experiment README.

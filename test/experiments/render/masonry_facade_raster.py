@@ -15,7 +15,7 @@ from facade_phase_raster import VERTEX, VERTEX_OFFSET
 from wall_metres_raster import fixture
 
 
-def compile_pair(output):
+def compile_pair(output, fragment_source=None):
     common = [
         "nice",
         "-n",
@@ -52,7 +52,9 @@ def compile_pair(output):
                 "-S",
                 stage,
                 *defines,
-                "src/render/shaders/" + source,
+                str(fragment_source)
+                if stage == "frag" and fragment_source is not None
+                else "src/render/shaders/" + source,
                 "-o",
                 str(output / ("masonry." + stage + ".spv")),
             ],

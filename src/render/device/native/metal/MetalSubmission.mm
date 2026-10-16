@@ -1,5 +1,6 @@
 #include "MetalPresentation.h"
 #include <algorithm>
+#include <cmath>
 
 namespace outshine::Render::Native::Metal {
 
@@ -11,6 +12,10 @@ void MetalDevice::Collect() {
       if (!submission->Done) { return; }
       if (submission->Failed && !Failed_) { Failed_ = submission->Failed; }
       Retired_ = submission->Serial;
+      if (GpuTiming_) {
+        Timings_[(submission->Serial - 1) % Timings_.size()] = {
+            .Serial = submission->Serial, .Nanoseconds = submission->GpuNanoseconds};
+      }
     }
     Pending_.pop_front();
   }
@@ -40,6 +45,7 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
     metal->Permit->ReleaseRecording();
     held->Permit = std::move(metal->Permit);
     held->Presentation = std::move(metal->Presentation);
+    const bool gpuTiming = GpuTiming_;
     [metal->Native addCompletedHandler:^(id<MTLCommandBuffer> finished) {
       held->Buffers.clear();
       held->Permit.reset();
@@ -51,6 +57,15 @@ Result<Completion> MetalDevice::Submit(std::unique_ptr<Commands> commands) {
           submission->Failed =
               Error{.Kind = ErrorKind::DeviceLost,
                     .Message = message != nullptr ? message : "Metal command failed"};
+        } else if (gpuTiming) {
+          constexpr double nanosecondsPerSecond = 1'000'000'000.0;
+          const double begin = finished.GPUStartTime;
+          const double end = finished.GPUEndTime;
+          const double elapsed = (end - begin) * nanosecondsPerSecond;
+          if (std::isfinite(begin) && begin > 0 && std::isfinite(end) && std::isfinite(elapsed) &&
+              elapsed >= 0) {
+            submission->GpuNanoseconds = elapsed;
+          }
         }
         submission->Done = true;
       }
@@ -97,6 +112,24 @@ Result<CompletionStatus> MetalDevice::Wait(Completion completion, std::chrono::n
     submission->Changed.wait_until(lock, now + budget, [&] { return submission->Done; });
   }
   return Poll(completion);
+}
+
+Result<SubmissionGpuTiming> MetalDevice::SubmissionGpuTime(Completion completion) {
+  const auto status = Poll(completion);
+  if (!status) { return std::unexpected(status.error()); }
+  if (!GpuTiming_) {
+    return Failure(ErrorKind::Unsupported, "Metal submission timing is disabled");
+  }
+  if (*status == CompletionStatus::Pending) { return SubmissionGpuTiming{}; }
+  const auto &timing = Timings_[(completion.Serial - 1) % Timings_.size()];
+  if (timing.Serial != completion.Serial) {
+    return Failure(ErrorKind::Invalid, "Metal submission timing retention has expired");
+  }
+  if (!timing.Nanoseconds) {
+    return Failure(ErrorKind::Driver, "Metal submission has no valid GPU timestamps");
+  }
+  return SubmissionGpuTiming{.Status = CompletionStatus::Ready,
+                             .ElapsedNanoseconds = *timing.Nanoseconds};
 }
 
 }

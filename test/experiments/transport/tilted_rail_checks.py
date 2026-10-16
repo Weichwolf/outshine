@@ -7,7 +7,7 @@ import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.transport.rail_hardware import bake_rail_sleepers
 from rail_hardware_checks import closed_volume
-from tilted_rail_geometry import build_tilted, plane_frame
+from tilted_rail_geometry import build_tilted, plane_frame, transform_points
 from tilted_rail_verify import GroundContact
 
 
@@ -50,14 +50,20 @@ class TiltedHardware(unittest.TestCase):
             self.assertAlmostEqual(centre[2], 10 + 0.1 * centre[0] + 0.2 * centre[1])
 
     def test_scalar_and_batch_rigid_geometry_are_equivalent(self):
-        a, _ = build_tilted([[0, 0], [20, 0], [40, 4]], self.triangle, method="batch")
-        b, _ = build_tilted([[0, 0], [20, 0], [40, 4]], self.triangle, method="scalar")
-        np.testing.assert_allclose(
-            a.rails.vertices, b.rails.vertices, atol=1e-12, rtol=0
+        a, _ = build_tilted([[0, 0], [20, 0], [40, 4]], self.triangle)
+        scalar = transform_points(
+            a.horizontal.rails.vertices, a.plane_origin, a.plane_frame, method="scalar"
         )
-        np.testing.assert_array_equal(a.rails.triangles, b.rails.triangles)
+        np.testing.assert_allclose(a.rails.vertices, scalar, atol=1e-12, rtol=0)
+        np.testing.assert_array_equal(a.rails.triangles, a.horizontal.rails.triangles)
+        translations = transform_points(
+            a.horizontal.sleeper_transforms[:, :, 3],
+            a.plane_origin,
+            a.plane_frame,
+            method="scalar",
+        )
         np.testing.assert_allclose(
-            a.sleeper_transforms, b.sleeper_transforms, atol=1e-12, rtol=0
+            a.sleeper_transforms[:, :, 3], translations, atol=1e-12, rtol=0
         )
 
     def test_sheared_horizontal_gauge_is_a_real_dimension_error(self):

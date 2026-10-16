@@ -21,6 +21,20 @@ BASE_BODY = "1ea4b2ed2eb343772f2c803c78ee0da21d372755010b8b7289754ade26618f41"
 PIERS = "00492bf969f5502931d2d0273ec01c7a82cfbc34dc63baac195551a23afa9ce7"
 
 
+def protected_domain(supports, reference):
+    _fixture, previous, model, _note = scene(reference)
+    _bodies, contacts, _packed = unpack(supports / "shifted.npz")
+    return shapely.union_all(
+        [
+            surface_domain(previous[0]),
+            model["open_trench"],
+            surface_domain(model["roof"]),
+            surface_domain(model["walls"]),
+            *[surface_domain(pair[0]) for pair in contacts],
+        ]
+    ).buffer(0.2)
+
+
 def inputs(network, baseline, supports, reference):
     for name, pin in [("ground.npz", GROUND_PIN), ("field.npz", FIELD_PIN)]:
         if digest(network / name) != pin:
@@ -52,17 +66,7 @@ def inputs(network, baseline, supports, reference):
             "unchanged original bridge sources and actual physical piers required"
         )
     old = json.loads(fixture.read_text())["sources"]
-    _fixture, previous, model, _note = scene(reference)
-    _bodies, contacts, _packed = unpack(supports / "shifted.npz")
-    protected = shapely.union_all(
-        [
-            surface_domain(previous[0]),
-            model["open_trench"],
-            surface_domain(model["roof"]),
-            surface_domain(model["walls"]),
-            *[surface_domain(pair[0]) for pair in contacts],
-        ]
-    ).buffer(0.2)
+    protected = protected_domain(supports, reference)
     traffic = surface_domain(Mesh(ground.vertices, ground.triangles[road]))
     world = surface_domain(ground)
     eligible, owners, other, ports = source_masks(graphs, raw, used, old)

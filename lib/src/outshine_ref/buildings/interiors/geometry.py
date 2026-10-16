@@ -8,6 +8,22 @@ import shapely
 AGENT_RADIUS_M = 0.30
 
 
+def rectangle(centre, tangent, width, outward, inward):
+    centre, tangent = np.asarray(centre), np.asarray(tangent)
+    normal = np.array([tangent[1], -tangent[0]])
+    return shapely.Polygon(
+        [
+            centre + tangent * s + normal * t
+            for s, t in (
+                (-width / 2, outward),
+                (width / 2, outward),
+                (width / 2, -inward),
+                (-width / 2, -inward),
+            )
+        ]
+    )
+
+
 def polygons(geometry):
     return [
         part
