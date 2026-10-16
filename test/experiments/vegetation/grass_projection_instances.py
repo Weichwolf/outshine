@@ -28,7 +28,7 @@ def potential_roots(stand, lower, upper, direction):
 
 
 def instanced_contacts(
-    recipe, stand, lower, upper, direction, size, pair_budget=262144, sampler="boxes"
+    recipe, stand, lower, upper, direction, size, pair_budget=262144, sampler="rows"
 ):
     lower, upper, direction = query_domain(lower, upper, direction, size)
     require_support(recipe, lower, upper, direction)

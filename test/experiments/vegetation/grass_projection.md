@@ -126,3 +126,8 @@ Material/Light still own shading/composition. Separate view/light coverage queri
 cannot be multiplied to infer correlated illumination of visible leaves.
 Master confirms this research scope in #462; native contracts remain unagreed,
 and #451 remains open. No paused Material/Light work is resumed by this delivery.
+
+Follow-up #465 selects bounded row candidates before the same barycentric test.
+The instance-query default now uses rows; explicit `sampler="boxes"` retains the
+measured reference. Original256² contacts remain exact; the equal-quality512²
+comparison and current diagnostic images are described in [raster_rows.md](raster_rows.md).
