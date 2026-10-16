@@ -68,14 +68,19 @@ def vector_xy(xy, context):
 
 
 def sampler(path, recipe, context):
+    zoom, x, y = context["vector"]["tile"]
+    allowed = {(zoom, x + dx, y + dy) for dx in (0, 1) for dy in (0, 1)}
+    if not 1 <= len(recipe["elevation"]) <= 4:
+        raise ValueError("one to four explicit adjacent DEM windows required")
     windows = {}
     for row in recipe["elevation"]:
+        tile = tuple(row["tile"])
+        if tile not in allowed or tile in windows:
+            raise ValueError("unique adjacent DEM windows in the source frame required")
         source = path.with_name(row["window_file"])
         if digest(source) != row["window_sha256"]:
             raise ValueError("cycle DEM window changed")
-        windows[tuple(row["tile"])] = dict(np.load(source))
-    if len(windows) != 2 or {t[0] for t in windows} != {14}:
-        raise ValueError("two explicit zoom-14 cycle DEM windows required")
+        windows[tile] = dict(np.load(source))
 
     def sample(xy):
         points = vector_xy(np.asarray(xy), context)
@@ -152,12 +157,17 @@ def capture(args):
     mvt = vector_xy(np.array([low, high]), context)
     extent = context["vector"]["extent"]
     zoom, x, y = context["vector"]["tile"]
+    if not 1 <= len(args.receipts) <= 4:
+        raise ValueError("one to four explicit adjacent DEM receipts required")
+    receipts = [json.loads(p.read_text()) for p in args.receipts]
+    tiles = [tuple(r["tile"]) for r in receipts]
+    allowed = {(zoom, x + dx, y + dy) for dx in (0, 1) for dy in (0, 1)}
+    if len(set(tiles)) != len(tiles) or not set(tiles) <= allowed:
+        raise ValueError("unique adjacent DEM receipts in the source frame required")
+    multiple_rows = len({t[2] for t in tiles}) > 1
     records = []
-    for receipt_path in args.receipts:
-        receipt = json.loads(receipt_path.read_text())
+    for receipt in receipts:
         tile = receipt["tile"]
-        if tile not in ([zoom, x, y], [zoom, x + 1, y]):
-            raise ValueError("original and eastern retained DEM receipts required")
         if tile == [zoom, x, y] and receipt["sha256"] != context["elevation"]["sha256"]:
             raise ValueError("original DEM source snapshot changed")
         height = decode_terrarium(receipt_bytes(receipt))
@@ -168,7 +178,8 @@ def capture(args):
         hi = np.minimum(height.shape[::-1], np.ceil(pixels.max(0)).astype(int) + 3)
         if np.any(hi - lo < 2):
             raise ValueError("empty requested cycle DEM crop")
-        target = args.output.with_name(args.output.stem + f"-dem-{tile[1]}.npz")
+        name = f"{tile[1]}-{tile[2]}" if multiple_rows else str(tile[1])
+        target = args.output.with_name(args.output.stem + f"-dem-{name}.npz")
         if target.exists():
             raise ValueError("fresh cycle DEM window required")
         np.savez_compressed(
@@ -202,7 +213,7 @@ def capture(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--receipts", type=Path, nargs=2, required=True)
+    parser.add_argument("--receipts", type=Path, nargs="+", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--sources", nargs="+", default=[SOURCE])
     capture(parser.parse_args())
