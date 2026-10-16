@@ -15,7 +15,10 @@ def write_exchange(folder, basis, links, samples, seed, bias):
         normals=basis["normals"],
         links=links,
     )
-    header = {k: v for k, v in basis.items() if k not in ("points", "normals")}
+    header = {
+        k: basis[k]
+        for k in ("leaf_nodes", "ground_grid", "geometry_sha256", "stand_identity")
+    }
     header.update(
         format="finite-face-exchange-1", samples=samples, seed=seed, bias_m=bias
     )
@@ -30,6 +33,20 @@ def write_exchange(folder, basis, links, samples, seed, bias):
 
 def read_exchange(folder, expected_geometry):
     header = json.loads((folder / "geometry.json").read_text())
+    required = {
+        "format",
+        "samples",
+        "seed",
+        "bias_m",
+        "identity",
+        "npz_sha256",
+        "leaf_nodes",
+        "ground_grid",
+        "geometry_sha256",
+        "stand_identity",
+    }
+    if set(header) != required:
+        raise ValueError("geometry-only header fields required")
     if (
         header["format"] != "finite-face-exchange-1"
         or header["geometry_sha256"] != expected_geometry
