@@ -50,3 +50,10 @@ Sonnenpfad und die solaren Integrationsgrenzen bleiben bei #206/#259/#353.
 `python test/experiments/render/sky_disc_report.py --output <derselbe Pfad>`
 erzeugt ein dreiseitiges PDF mit Vorher/Nachher, Lookupfehlern und tatsächlichen
 nativen Spektren. Es benötigt Matplotlib; die Referenz benötigt NumPy.
+
+Dies ist die historische #403-Prüfung auf Sourcefreeze5939782ec mit der damaligen
+inneren256×64-Parametrisierung. Dafür diesen Freeze auschecken; der Validator
+benennt ausdrücklich `endpoints=False` für seine bestehenden Captures.
+Die wiederverwendbare Referenz verwendet inzwischen standardmäßig die physischen
+Randstützstellen aus [#286/der Lookup-Prüfung](solar_lookup.md); deren aktuelle
+Generator-/Sampler-/Raster-/Physikkontrollen und Tabellenformate getrennt halten.

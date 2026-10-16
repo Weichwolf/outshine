@@ -1681,10 +1681,10 @@ Corridors::Advance(Job &job,
   const auto began = std::chrono::steady_clock::now();
   if (job.Retiring) {
     const bool retired = job.Retiring->RetireStep(std::max(size_t{1}, lanesMost));
+    if (retired) { job.Retiring.reset(); }
     job.TotalMs +=
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
-    if (!retired) { return false; }
-    job.Retiring.reset();
+    return false;
   }
   const int waterRow = site.Materials.Find("water");
   if (job.Phase == Job::Stage::Prepare && vectors != nullptr) {

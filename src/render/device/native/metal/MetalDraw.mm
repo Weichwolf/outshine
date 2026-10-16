@@ -111,6 +111,7 @@ void ApplyRasterState(id<MTLRenderCommandEncoder> encoder,
   [encoder setDepthStencilState:graphics.Depth];
   [encoder setCullMode:graphics.Culling];
   [encoder setFrontFacingWinding:graphics.Front];
+  [encoder setDepthClipMode:graphics.DepthClip];
   const auto area = state.Area;
   [encoder setViewport:MTLViewport{.originX = area.X,
                                    .originY = area.Y,

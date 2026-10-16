@@ -6,7 +6,10 @@ Contract owner: [#424](https://github.com/Weichwolf/outshine/issues/424).
 `Capabilities.DepthClamp` reports an available, enabled device feature, independently
 of the selected pipeline mode. Requesting an unavailable mode returns `Unsupported`.
 Vulkan enables the supported core feature and selects `depthClampEnable` per pipeline.
-Metal retains its false capability and rejects requests until its implementation arrives.
+Metal advertises the core capability, retains the requested mode in its immutable pipeline
+state, and sets `MTLDepthClipModeClip` or `MTLDepthClipModeClamp` on every raster draw.
+The Command Line Tools Metal SDK declares `setDepthClipMode:` since macOS 10.11 and
+iOS 11; the current Metal backend requires newer SDK/runtime support.
 
 The [rasterization specification](https://docs.vulkan.org/spec/latest/chapters/primsrast.html)
 defines the feature requirement and the removal of Z clip planes. The
@@ -45,8 +48,12 @@ python3 test/experiments/render/native_vulkan.py --validation --present \
 
 The script records commands, archive/source hashes, capability and terminal results.
 It saves optional raw diagnostics under `depth-clamp/`, without changing reference
-pins. The probe can also be compiled against the Metal archive with its matching
-headers and the same SPIR-V inputs. Metal/device acceptance belongs to its owner.
+pins. The Metal bootstrap runs the same probe against its matching production archive and
+headers through `native_metal.py --output <system-temp-directory>`. Normal/reverse
+projection and complete colour/D32 expectations are shared across both backends.
+An intentionally advertised but unwired Metal encoder is the negative control: the
+clamp cases must fail, while the clip controls remain exact. A false capability with
+unsupported requests is not an implementation proof.
 
 Explicit selection in the native frame-pipeline port and the public offscreen-caster
 regression remain separate integration requirements. A working API alone does not

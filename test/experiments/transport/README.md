@@ -401,6 +401,28 @@ PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THR
 Teilnetzfall; denselben Reader darauf ausführen. Kosten optional mit `--profile`
 und vorhandenem `memray==1.20.0`; keine neue Runtime-/SDK-Abhängigkeit.
 
+## Konstruktive Treppe im tatsächlichen Vierwegefall (#434)
+
+Der [Vergleichsbericht](stair_junction_comparison.md) liefert den örtlichen
+Vierwegekörper mit echten Stufen und ganzen Float32-Bedingungen. Äußere Profile
+sind vorgeschlagen; die tatsächliche Wiederanbindung bleibt in #434 offen.
+Der Eingang aus #400 liegt vollständig versioniert unter `test/outshine/data/transport/`.
+`TRANSPORT_LAYERED_OUTPUT` liefert die bisherige Forschungspalette aus #419.
+Alle Ausgabe-/Kostenpfade liegen frisch im System-Tempverzeichnis.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_junction_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_experiment.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_junction_verify.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_OUTPUT/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_OUTPUT/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --products "$TRANSPORT_STAIR_OUTPUT" --solver highs-ds --output "$TRANSPORT_STAIR_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --products "$TRANSPORT_STAIR_OUTPUT" --solver highs-ipm --output "$TRANSPORT_STAIR_COST_IPM"
+```
+
+Optionale separate `--profile`-Aufnahmen benötigen das vorhandene `memray==1.20.0`.
+Keine neue Runtime-/SDK-Abhängigkeit, keine gemeinsame/native/Reservations-API.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

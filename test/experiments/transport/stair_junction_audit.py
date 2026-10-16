@@ -1,0 +1,126 @@
+"""Read actual saved body facets; never infer correctness from solver status."""
+
+import itertools
+
+import numpy as np
+import shapely
+from outshine_ref.contracts import Mesh
+from outshine_ref.geometry import vertical_clearance
+from surface_solid_checks import audit_closed
+
+
+def norm(mesh):
+    points = mesh.vertices[mesh.triangles]
+    normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+    if np.any(normals[:, 2] <= 0):
+        raise ValueError("cycle cap has collapsed/reversed projected facet")
+    return float(np.linalg.norm(normals[:, :2] / normals[:, 2, None], axis=1).max())
+
+
+def tread_proof(data):
+    vertices, top = data["body_vertices"], data["top_faces"]
+    chosen, levels = data["face_step"], data["levels_m"]
+    field = Mesh(
+        data["reference_vertices"],
+        data["reference_faces"][(data["face_sources"] & 1) != 0],
+    )
+    maximum = norm(field)
+    if maximum > 0.5 + 1e-7:
+        raise ValueError("actual stair grade envelope exceeds fifty percent")
+    footprints, disks = [], []
+    for i in range(len(levels)):
+        polygons = shapely.polygons(vertices[top[chosen == i], :2])
+        shape = shapely.union_all(polygons)
+        if shape.geom_type != "Polygon" or shape.is_empty:
+            raise ValueError("saved stair tread/landing is split or absent")
+        inner = shape.buffer(-0.14)
+        if inner.is_empty:
+            raise ValueError("saved tread lacks any 0.28-m support disk")
+        footprints.append(shape)
+        disks.append(float(inner.area))
+    for a, b in itertools.pairwise(footprints):
+        if a.boundary.intersection(b.boundary).length < 0.5:
+            raise ValueError("successive full stair treads lack a connected riser")
+    risers = vertices[data["wall_faces"][data["wall_riser"] == 1]]
+    if not len(risers) or np.ptp(risers[:, :, 2], axis=1).max() > 0.18 + 1e-8:
+        raise ValueError("saved actual stair riser exceeds eighteen centimetres")
+    cast = risers.astype(np.float32).astype(float)
+    if np.ptp(cast[:, :, 2], axis=1).max() > 0.18:
+        raise ValueError("actual Float32 riser exceeds eighteen centimetres")
+    return {
+        "risers": len(levels) - 1,
+        "maximum_envelope_norm": maximum,
+        "maximum_float32_riser_m": float(np.ptp(cast[:, :, 2], axis=1).max()),
+        "minimum_support_disk_area_m2": min(disks),
+        "scope": "Connected actual tread bands, flat landing levels, a 0.28-m disk per band and bounded risers. No complete swept walking body, handrail, statutory stair or outer-route certificate.",
+    }
+
+
+def audit(data, domains):
+    vertices, faces = data["body_vertices"], data["body_faces"]
+    body = Mesh(vertices, faces)
+    if not np.array_equal(
+        faces,
+        np.vstack(
+            [data["top_faces"], data["bottom_faces"][:, ::-1], data["wall_faces"]]
+        ),
+    ):
+        raise ValueError("saved body differs from owned caps/walls/risers")
+    volume = audit_closed(body)
+    cast = vertices.astype(np.float32).astype(float)
+    a, b = vertices[faces], cast[faces]
+    na = np.cross(a[:, 1] - a[:, 0], a[:, 2] - a[:, 0])
+    nb = np.cross(b[:, 1] - b[:, 0], b[:, 2] - b[:, 0])
+    if volume <= 0 or np.any(np.einsum("ij,ij->i", na, nb) <= 0):
+        raise ValueError("saved stair body volume/actual Float32 orientation invalid")
+    top = data["top_faces"]
+    owners = data["face_sources"]
+    cycles, coverage = {}, []
+    for i in range(4):
+        selected = top[(owners & (1 << i)) != 0]
+        polygons = shapely.polygons(vertices[selected, :2])
+        error = float(shapely.union_all(polygons).symmetric_difference(domains[i]).area)
+        if not shapely.coverage_is_valid(polygons) or error > 1e-7:
+            raise ValueError("saved source cap lacks its whole original footprint once")
+        coverage.append(error)
+        if i:
+            norms = [norm(Mesh(v, selected)) for v in (vertices, cast)]
+            if max(norms) > 0.06 + 1e-7:
+                raise ValueError("actual saved cycle cap exceeds six-percent norm")
+            cycles[str(i)] = norms
+    levels = data["levels_m"]
+    if (
+        not 2 <= len(levels) <= 65
+        or np.any(np.diff(levels) <= 0)
+        or np.diff(levels).max() > 0.18
+    ):
+        raise ValueError("saved stair riser recipe outside bounds")
+    selected = data["face_step"] >= 0
+    expected = levels[data["face_step"][selected]]
+    if np.max(abs(vertices[top[selected], 2] - expected[:, None])) > 1e-8:
+        raise ValueError("saved stair tread is not at its actual horizontal level")
+    if (
+        np.max(
+            abs(
+                vertices[data["bottom_faces"], 2]
+                - (data["reference_vertices"][data["reference_faces"], 2] - 0.3)
+            )
+        )
+        > 1e-8
+    ):
+        raise ValueError("saved stair underside differs from its finite grade envelope")
+    separation = {}
+    for label, v in (("double", vertices), ("float32", cast)):
+        lower = Mesh(v, top[(owners & 2) != 0])
+        upper = Mesh(v, data["bottom_faces"][(owners & 4) != 0])
+        result = vertical_clearance(lower, upper, max_faces=4096, seconds=5)
+        if not result["valid"] or result["minimum_clearance_m"] < 2.5 - 1e-7:
+            raise ValueError("saved whole crossing underside lacks its 2.5-m clearance")
+        separation[label] = result
+    return {
+        "volume_m3": volume,
+        "actual_cycle_norms": cycles,
+        "source_coverage_error_m2": coverage,
+        "clearance": separation,
+        "treads": tread_proof(data),
+    }
