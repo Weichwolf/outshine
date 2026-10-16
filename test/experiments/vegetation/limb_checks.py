@@ -20,9 +20,7 @@ class LimbChecks(unittest.TestCase):
         radii = pipe_radii(parents, 0.1)
         paths = dominant_paths(points, parents, radii)
         self.assertEqual(paths, ((0, 1, 2, 4), (1, 3), (2, 5)))
-        edges = np.array(
-            [(a, b) for path in paths for a, b in pairwise(path)]
-        )
+        edges = np.array([(a, b) for path in paths for a, b in pairwise(path)])
         np.testing.assert_array_equal(np.sort(edges[:, 1]), np.arange(1, len(points)))
         np.testing.assert_array_equal(edges[:, 0], parents[edges[:, 1]])
         transformed = Rotation.from_rotvec((0.3, -0.7, 0.2)).apply(points) * 7 + (
