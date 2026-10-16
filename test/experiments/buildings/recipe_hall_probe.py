@@ -4,6 +4,7 @@ import argparse
 import gc
 import json
 import os
+import resource
 import subprocess
 import sys
 import time
@@ -47,9 +48,16 @@ def worker(output, index):
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze source before recipe evidence")
     row, neighbors = sources()[index]
+    started = time.perf_counter()
     graph = prepare()
+    prepare_ms = (time.perf_counter() - started) * 1000
     inputs = inputs_for(row, neighbors)
+    scale = 1 if sys.platform == "darwin" else 1024
+    baseline = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale
+    started = time.perf_counter()
     run = graph.evaluate(inputs)
+    evaluation_ms = (time.perf_counter() - started) * 1000
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * scale
     mesh = run.outputs["shell"].value.body
     output.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(output / f"{index}-shell.npz", **mesh)
@@ -67,6 +75,10 @@ def worker(output, index):
         },
         "plan": json.loads(canonical(metadata(run.outputs["programme"].value.plan))),
         "stats": plain(run.stats),
+        "prepare_ms": prepare_ms,
+        "evaluation_ms": evaluation_ms,
+        "before_evaluation_peak_rss_bytes": baseline,
+        "process_peak_rss_bytes": peak,
     }
     (output / f"{index}-recipe.json").write_text(json.dumps(record, indent=2) + "\n")
 
