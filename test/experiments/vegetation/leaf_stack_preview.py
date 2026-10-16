@@ -152,6 +152,16 @@ def run(output, variant, clip_end):
             }
         )
         print(json.dumps(result), flush=True)
+    controls = [r for r in rows if not r["shadows"] or not r["layers"]]
+    clear_error = max(
+        np.max(abs(np.array(r["mean_linear_rgb"]) - r["unoccluded_expected_rgb"]))
+        for r in controls
+    )
+    opaque_error = max(
+        max(r["mean_linear_rgb"])
+        for r in rows
+        if r["shadows"] and any(layer[1] == "opaque" for layer in r["layers"])
+    )
     report = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
@@ -171,17 +181,17 @@ def run(output, variant, clip_end):
         "wall_s": timings,
         "images": images,
         "cases": rows,
+        "qualification": {
+            "unoccluded_sheet_max_abs_rgb_error": float(clear_error),
+            "unoccluded_sheet_pass": bool(clear_error <= 0.005),
+            "opaque_layer_max_abs_rgb_error": float(opaque_error),
+            "opaque_layer_pass": bool(opaque_error <= 0.005),
+            "preset_abs_rgb_limit": 0.005,
+        },
         "scope": "Isolated direct-light/opaque-expectation diagnosis; no assumption that hemispherical leaf T is a beam transmission coefficient",
     }
     (output / "result.json").write_text(json.dumps(report, indent=2))
-    controls = [r for r in rows if not r["shadows"] or not r["layers"]]
-    if (
-        max(
-            np.max(abs(np.array(r["mean_linear_rgb"]) - r["unoccluded_expected_rgb"]))
-            for r in controls
-        )
-        > 0.005
-    ):
+    if clear_error > 0.005:
         raise ValueError(
             "existing0.005 RGB isolated-sheet criterion failed before layer interpretation"
         )
