@@ -7,6 +7,7 @@ import numpy as np
 import shapely
 from scipy import sparse
 from scipy.optimize import linprog
+from stair_junction_layout import cross_sections
 
 
 def gradient_rows(xy, face):
@@ -124,6 +125,13 @@ def stair_conditions(plan, system):
         ):
             f = face[index]
             system.add(f, -tangent @ gradient_rows(plan["xy"], f), 0)
+    indices = np.unique(face)
+    for line in cross_sections(row):
+        selected = indices[
+            shapely.dwithin(line, shapely.points(plan["xy"][indices]), 1e-7)
+        ]
+        for i in selected[1:]:
+            system.equal([int(selected[0]), int(i)], [1, -1])
 
 
 def solve(

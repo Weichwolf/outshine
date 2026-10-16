@@ -31,7 +31,7 @@ def display(args, body, data):
     camera.update(profile=[1280, 720], samples=16, detail_view=True)
     views = {
         "overview": ([440, -400, 500], [140, 95, 166], 500),
-        "diagnostic": ([30, -45, 197], [0, -6, 166], 42),
+        "diagnostic": ([-35, 40, 190], [-1, -7, 166], 42),
     }
     for name, (eye, point, span) in views.items():
         row = dict(

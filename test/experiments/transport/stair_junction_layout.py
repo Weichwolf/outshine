@@ -56,27 +56,33 @@ def landings(rows, domains, method, width_reach_m):
     return nodes, incident, masks
 
 
+def cross_sections(row):
+    xy, half = row["xy"], row["width_m"] * 2
+    arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
+    station = np.unique(
+        np.r_[
+            arc,
+            np.arange(0, min(30, arc[-1]), 2),
+            np.arange(max(0, arc[-1] - 30), arc[-1], 2),
+        ]
+    )
+    line = shapely.LineString(xy)
+    result = []
+    for s in station:
+        point = np.array(line.interpolate(s).coords[0])
+        a = np.array(line.interpolate(max(0, s - 1e-4)).coords[0])
+        b = np.array(line.interpolate(min(line.length, s + 1e-4)).coords[0])
+        t = (b - a) / np.linalg.norm(b - a)
+        n = np.array([-t[1], t[0]])
+        result.append(shapely.LineString([point - n * half, point + n * half]))
+    return result
+
+
 def arrangement(rows, domains, masks):
     lines = [p.boundary for p in domains + masks]
     for row in rows:
-        xy, half = row["xy"], row["width_m"] * 2
-        lines.append(shapely.LineString(xy))
-        arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
-        station = np.unique(
-            np.r_[
-                arc,
-                np.arange(0, min(30, arc[-1]), 2),
-                np.arange(max(0, arc[-1] - 30), arc[-1], 2),
-            ]
-        )
-        line = shapely.LineString(xy)
-        for s in station:
-            point = np.array(line.interpolate(s).coords[0])
-            a = np.array(line.interpolate(max(0, s - 1e-4)).coords[0])
-            b = np.array(line.interpolate(min(line.length, s + 1e-4)).coords[0])
-            t = (b - a) / np.linalg.norm(b - a)
-            n = np.array([-t[1], t[0]])
-            lines.append(shapely.LineString([point - n * half, point + n * half]))
+        lines.append(shapely.LineString(row["xy"]))
+        lines.extend(cross_sections(row))
     noded = shapely.get_parts(shapely.union_all(lines))
     if len(noded) > 8192:
         raise ValueError("local stair arrangement segment budget")
