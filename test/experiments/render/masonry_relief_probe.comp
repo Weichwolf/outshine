@@ -1,0 +1,30 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Palette { float palette[]; };
+struct Probe { vec4 PointDx; vec2 Dy; int Which; uint Mode; };
+layout(std430, set = 0, binding = 1) readonly buffer Inputs { Probe probes[]; };
+struct Result { vec4 Wearing; vec4 Detail; };
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs { Result results[]; };
+layout(std140, set = 2, binding = 0) uniform Pushed { uint count; uint unmapped; uvec2 padding; };
+#include "periodicBand.glsl"
+#include "surfaceGradient.glsl"
+#include "masonry_relief.glsl"
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  uint entry = 320u + 16u * uint(probes[index].Which);
+  vec4 at = vec4(palette[entry], palette[entry + 1u], palette[entry + 2u], palette[entry + 3u]);
+  vec4 dx = vec4(palette[entry + 4u], palette[entry + 5u], palette[entry + 6u], palette[entry + 7u]);
+  vec4 dy = vec4(palette[entry + 8u], palette[entry + 9u], palette[entry + 10u], palette[entry + 11u]);
+  vec2 fractions = vec2(palette[entry + 12u], palette[entry + 13u]);
+  float perM = palette[entry + 14u];
+  float depth = palette[entry + 15u];
+  uint maskCount;
+  vec2 gradient = masonryReliefFiltered(at, dx, dy, fractions, perM, depth, RELIEF_SIDE, maskCount);
+  vec2 heightChange = vec2(dot(gradient, dx.zw), dot(gradient, dy.zw));
+  vec3 resolved = surfaceGradient(vec3(0.0, 0.0, 1.0), vec3(dx.zw, 0.0), vec3(dy.zw, 0.0),
+                                 heightChange.x, heightChange.y);
+  vec3 normal = normalize(vec3(0.0, 0.0, 1.0) - resolved);
+  results[index] = Result(vec4(gradient, heightChange), vec4(normal, float(maskCount)));
+}
