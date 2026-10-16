@@ -14,7 +14,7 @@ from cloud_air_transfer_reuse import clear_response, cubic, errors, numeric
 PROFILES = ("legacy", "linear-512", "linear-1024", "growth-64", "growth-128")
 
 
-def independent(output, state, seconds):
+def independent(output, state, seconds, cover=0.65, eye_cover=0):
     rays = np.fromfile(output / "rays.bin", RAY)
     queries = np.fromfile(output / "queries.bin", "<f4")
     references, rows = [], []
@@ -26,10 +26,11 @@ def independent(output, state, seconds):
                 ray,
                 q,
                 medium_parameters(),
-                0.65,
+                cover,
                 nodes,
-                air_sun_transfer=lambda points: solar_transfer(points, 0.65, seconds),
-                eye_cover=0,
+                air_sun_transfer=lambda points: solar_transfer(points, cover, seconds),
+                eye_cover=eye_cover,
+                seconds=seconds,
             )
             for nodes in (16, 32)
         ]
