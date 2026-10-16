@@ -4,7 +4,7 @@ import time
 
 import bpy
 import numpy as np
-from blender_instances import instance_group, join_instances
+from blender_instances import instance_group, join_instances, validated_instances
 from fern_material import palette, source_normal
 from mathutils import Matrix
 from render_fern import model_arrays
@@ -35,6 +35,8 @@ def completed_template(metadata, prototype, leaves, rows, start, decoded):
 
 
 def build_template(inputs, mode):
+    if mode not in ("packed", "nested", "direct"):
+        raise ValueError("declared exact prototype representation required")
     start = time.perf_counter()
     metadata, data = ready(inputs) if mode == "packed" else load(inputs)
     decoded = time.perf_counter()
@@ -90,8 +92,10 @@ def build_template(inputs, mode):
 
 def place_template(template, origins, frames, scales, mode):
     metadata, prototype, leaves, rows = template
+    origins, frames, scales = map(np.asarray, (origins, frames, scales))
     if scales.ndim != 1 or len(scales) != len(origins):
         raise ValueError("one positive uniform scale per world instance required")
+    validated_instances(origins, frames, scales)
     if mode != "direct":
         instance_group(prototype, origins, frames, scales, name="stand plants")
     else:

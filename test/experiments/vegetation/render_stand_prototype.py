@@ -20,7 +20,7 @@ def scene_population(case, context):
         return (
             {"size_m": 23, "camera": [0, -22, 11], "target": [0, 0, 3.3]},
             np.array(((-4, 0, 0), (4, 0, 0)), float),
-            Rotation.from_euler("z", (0, 0.37)).as_matrix(),
+            Rotation.from_euler("z", ((0,), (0.37,))).as_matrix(),
             np.array((1.0, 0.95)),
             [],
             None,

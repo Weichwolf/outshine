@@ -5,7 +5,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 
-def instance_group(prototype, origins, frames, scales, *, name):
+def validated_instances(origins, frames, scales):
     origins, frames, scales = map(np.asarray, (origins, frames, scales))
     count = len(origins)
     if scales.shape == (count,):
@@ -21,6 +21,12 @@ def instance_group(prototype, origins, frames, scales, *, name):
         or np.max(abs(np.linalg.det(frames) - 1)) > 2e-12
     ):
         raise ValueError("bounded finite rigid frames and positive scales required")
+    return origins, frames, scales
+
+
+def instance_group(prototype, origins, frames, scales, *, name):
+    origins, frames, scales = validated_instances(origins, frames, scales)
+    count = len(origins)
     points = bpy.data.meshes.new(name)
     points.vertices.add(count)
     points.vertices.foreach_set("co", origins.astype(np.float32).ravel())
