@@ -5,8 +5,15 @@ from unittest.mock import patch
 
 import numpy as np
 from grass_projection import contacts, footprint_mips, guard_bounds
+from grass_projection_instances import instanced_contacts
 from grass_projection_reference import continuous_union, verify
-from grass_projection_stand import require_support
+from grass_projection_stand import (
+    DIRECTIONS,
+    LOWER,
+    UPPER,
+    build_stand,
+    require_support,
+)
 
 
 def square(x=-0.25, height=0.2):
@@ -22,6 +29,27 @@ def square(x=-0.25, height=0.2):
 
 
 class GrassProjectionChecks(unittest.TestCase):
+    def test_instance_bounds_before_expansion_preserve_full_contacts(self):
+        recipe, _, stand = build_stand(5)
+        for d in DIRECTIONS.values():
+            full = contacts(stand["vertices"], stand["faces"], LOWER, UPPER, d, 64)
+            actual = instanced_contacts(recipe, stand, LOWER, UPPER, d, 64)
+            for key in ("face", "height", "normal", "coverage"):
+                np.testing.assert_array_equal(actual[key], full[key])
+            self.assertLess(actual["work"]["expanded_triangles"], len(stand["faces"]))
+        with patch(
+            "grass_projection_instances.expand_selected",
+            side_effect=AssertionError("expanded invalid demand"),
+        ):
+            with self.assertRaises(ValueError):
+                instanced_contacts(
+                    recipe, stand, LOWER, UPPER, (0, 0, 1), 64, pair_budget=1
+                )
+            with self.assertRaises(ValueError):
+                instanced_contacts(
+                    recipe, stand, LOWER + 100, UPPER + 100, (0, 0, 1), 64
+                )
+
     def test_overlap_is_not_summed_area_or_poisson_coverage(self):
         v, f = square()
         direction, lower, upper = (

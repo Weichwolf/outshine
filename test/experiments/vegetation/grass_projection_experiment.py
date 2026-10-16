@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 from grass_projection import contacts, footprint_mips
+from grass_projection_instances import instanced_contacts
 from grass_projection_reference import verify
 from grass_projection_stand import (
     DIRECTIONS,
@@ -33,21 +34,28 @@ def run(output, size=256):
     reports = []
     for name, direction in DIRECTIONS.items():
         require_support(recipe, LOWER, UPPER, direction)
-        samples = {m: [] for m in ("sort", "scatter")}
+        samples = {m: [] for m in ("sort", "scatter", "instanced")}
         outputs = {}
+        compact = {k: v for k, v in stand.items() if k.startswith(("pose_", "form_"))}
         for trial in range(3):
             for method in (
-                ("sort", "scatter") if trial % 2 == 0 else ("scatter", "sort")
+                ("sort", "scatter", "instanced")
+                if trial % 2 == 0
+                else ("instanced", "scatter", "sort")
             ):
                 start = time.perf_counter()
-                product = contacts(
-                    stand["vertices"],
-                    stand["faces"],
-                    LOWER,
-                    UPPER,
-                    direction,
-                    size,
-                    method=method,
+                product = (
+                    instanced_contacts(recipe, compact, LOWER, UPPER, direction, size)
+                    if method == "instanced"
+                    else contacts(
+                        stand["vertices"],
+                        stand["faces"],
+                        LOWER,
+                        UPPER,
+                        direction,
+                        size,
+                        method=method,
+                    )
                 )
                 samples[method].append(time.perf_counter() - start)
                 if method in outputs:
@@ -58,7 +66,10 @@ def run(output, size=256):
                 outputs[method] = product
         for key in ("face", "height", "normal", "coverage"):
             np.testing.assert_array_equal(outputs["sort"][key], outputs["scatter"][key])
-        product = outputs["scatter"]
+            np.testing.assert_array_equal(
+                outputs["sort"][key], outputs["instanced"][key]
+            )
+        product = outputs["instanced"]
         accuracy = verify(
             stand["vertices"], stand["faces"], LOWER, UPPER, direction, product
         )
@@ -95,6 +106,9 @@ def run(output, size=256):
         "roots": len(stand["site_ids"]),
         "triangles": len(stand["faces"]),
         "stand_array_bytes": sum(a.nbytes for a in stand.values()),
+        "compact_form_pose_bytes": sum(
+            a.nbytes for k, a in stand.items() if k.startswith(("pose_", "form_"))
+        ),
         "source_prepare_s": prepared - began,
         "total_s": time.perf_counter() - began,
         "views": reports,

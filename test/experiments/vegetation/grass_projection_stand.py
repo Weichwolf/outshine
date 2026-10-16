@@ -36,21 +36,16 @@ def build_stand(density=150):
     if sites is None:
         raise ValueError("reference stand exceeds4096 root limit before meshing")
     poses = tuft_poses(sites)
-    vertices, faces, face_root, offset = [], [], [], 0
-    for i, form in enumerate(forms):
-        indices = np.flatnonzero(poses["variants"] == i)
-        v = (
-            np.einsum("nij,vj->nvi", poses["frames"][indices], form["vertices"])
-            * poses["scales"][indices, None, None]
-        )
-        v += poses["origins"][indices, None]
-        f = form["faces"][None] + np.arange(len(indices))[:, None, None] * len(
-            form["vertices"]
-        )
-        vertices.append(v.reshape(-1, 3))
-        faces.append(f.reshape(-1, 3) + offset)
-        face_root.append(np.repeat(indices, len(form["faces"])))
-        offset += v.size // 3
+    compact = {
+        **{f"pose_{k}": v for k, v in poses.items()},
+        "form_vertices": np.array([f["vertices"] for f in forms]),
+        "form_faces": forms[0]["faces"],
+    }
+    for form in forms:
+        np.testing.assert_array_equal(form["faces"], compact["form_faces"])
+    vertices, faces, face_root, _ = expand_selected(
+        compact, np.arange(len(poses["ids"]))
+    )
     recipe = {
         "format": "grass-contact-stand-1",
         "root_plan": plan.recipe(),
@@ -66,12 +61,44 @@ def build_stand(density=150):
         recipe,
         identity,
         {
-            "vertices": np.concatenate(vertices),
-            "faces": np.concatenate(faces),
-            "face_root": np.concatenate(face_root),
+            "vertices": vertices,
+            "faces": faces,
+            "face_root": face_root,
+            **compact,
             **{f"site_{k}": v for k, v in sites.items()},
         },
     )
+
+
+def expand_selected(stand, selected):
+    vertices, faces, roots, keys = [], [], [], []
+    offset, canonical = 0, 0
+    template = stand["form_faces"]
+    requested = np.zeros(len(stand["pose_ids"]), bool)
+    requested[selected] = True
+    for i, form in enumerate(stand["form_vertices"]):
+        all_rows = np.flatnonzero(stand["pose_variants"] == i)
+        rows = all_rows[requested[all_rows]]
+        v = (
+            np.einsum("nij,vj->nvi", stand["pose_frames"][rows], form)
+            * stand["pose_scales"][rows, None, None]
+        )
+        v += stand["pose_origins"][rows, None]
+        f = template[None] + np.arange(len(rows))[:, None, None] * len(form)
+        vertices.append(v.reshape(-1, 3))
+        faces.append(f.reshape(-1, 3) + offset)
+        roots.append(np.repeat(rows, len(template)))
+        positions = np.flatnonzero(requested[all_rows])
+        keys.append(
+            (
+                canonical
+                + positions[:, None] * len(template)
+                + np.arange(len(template))
+            ).ravel()
+        )
+        offset += v.size // 3
+        canonical += len(all_rows) * len(template)
+    return tuple(np.concatenate(parts) for parts in (vertices, faces, roots, keys))
 
 
 def require_support(recipe, lower, upper, direction):
