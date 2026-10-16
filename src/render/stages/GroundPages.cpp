@@ -102,6 +102,7 @@ Native::Result<PageId> GroundLattice::PlacePage(std::span<const float> nodes) {
     PagesInUse_[page] = 1;
   }
   ++PagesLive_;
+  Selection_.Page(page, nodes);
   ++Generation_;
   return page;
 }

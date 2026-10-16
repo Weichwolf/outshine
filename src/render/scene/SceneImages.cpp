@@ -122,6 +122,7 @@ SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource reso
                       {.Bytes = kIrradianceFloats * sizeof(float),
                        .Use = Native::BufferUse::Storage | Native::BufferUse::CopySource}),
                   frame.IrradianceBuffer);
+    case Resource::GroundPyramid:
     case Resource::DepthPyramid:
       return Keep(
           Device_->CreateBuffer(
@@ -130,7 +131,7 @@ SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource reso
                                      .Texels} *
                         sizeof(float),
                .Use = Native::BufferUse::Storage | Native::BufferUse::CopySource}),
-          frame.Pyramid);
+          resource == Resource::DepthPyramid ? frame.Pyramid : frame.GroundPyramid);
     case Resource::ShadowAtlas:
       return Keep(Device_->CreateTexture({.Width = kShadowAtlasPx,
                                           .Height = kShadowAtlasPx,
@@ -152,6 +153,7 @@ SceneRenderer::Create(FrameResources &frame, const Compiled &plan, Resource reso
     case Resource::Meter:
     case Resource::OverlayAtlas:
     case Resource::Surface:
+    case Resource::GroundSelection:
     case Resource::ClusterSphere:
     case Resource::ClusterIndex:
     case Resource::ClusterJobs:

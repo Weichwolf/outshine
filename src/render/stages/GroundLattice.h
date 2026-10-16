@@ -14,6 +14,7 @@
 #include "KernelShape.h"
 #include "math/Vec3.h"
 #include "SubjectTypes.h"
+#include "GroundPatchSelection.h"
 
 namespace outshine::Render {
 class UploadQueue;
@@ -102,6 +103,15 @@ public:
                                                   std::span<const GroundTile> virtual_);
   [[nodiscard]] Native::Result<void>
   Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Commands &commands);
+  [[nodiscard]] Native::Result<void> ConfigurePatchSelection();
+  [[nodiscard]] Native::Result<void> SelectPatches(const FrameContext &ctx,
+                                                   const Vec3 &anchor,
+                                                   const PassRecording &into,
+                                                   Native::Buffer &pyramid,
+                                                   const PyramidShape &shape);
+
+  [[nodiscard]] Native::Buffer *SelectedPatches() const { return Selection_.Codes(); }
+
   [[nodiscard]] Native::Result<void> Encode(const PassRecording &into,
                                             std::span<const Native::Binding> bindings) const;
   [[nodiscard]] Native::Result<void> Cast(const PassRecording &into,
@@ -158,6 +168,7 @@ private:
   Native::Device *Device_ = nullptr;
   GroundPipelineBinding OwnedPipelines_;
   GroundPipelineBinding *Pipelines_ = &OwnedPipelines_;
+  GroundPatchSelection Selection_;
   std::unique_ptr<Native::Texture> Pages_;
   std::unique_ptr<Native::Sampler> Nearest_;
   std::unique_ptr<Native::Buffer> Grid_;

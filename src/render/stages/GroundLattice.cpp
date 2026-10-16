@@ -51,6 +51,8 @@ Native::Result<void> GroundLattice::SetGrid(std::span<const float> fractions) {
   if (!built) { return built; }
   Grid_ = std::move(grid);
   PatchFractions_ = std::move(*patched);
+  Selection_.Fractions(fractions);
+  Selection_.Sources(Held_, RealCount_);
   ++Generation_;
   return {};
 }
@@ -74,6 +76,7 @@ Native::Result<void> GroundLattice::SetInstances(std::span<const GroundTile> rea
   if (total == 0) {
     if (!Held_.empty()) { ++Generation_; }
     Held_.clear();
+    Selection_.Sources({}, 0);
     Bounds_.clear();
     RealCount_ = 0;
     VirtualCount_ = 0;
@@ -135,6 +138,7 @@ Native::Result<void> GroundLattice::SetInstances(std::span<const GroundTile> rea
   InstanceRoom_ = room;
   RealCount_ = static_cast<uint32_t>(real.size());
   VirtualCount_ = static_cast<uint32_t>(virtual_.size());
+  Selection_.Sources(Held_, RealCount_);
   VisibleReal_ = RealCount_;
   VisibleVirtual_ = VirtualCount_;
   ++Generation_;

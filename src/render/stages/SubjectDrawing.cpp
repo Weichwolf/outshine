@@ -234,7 +234,12 @@ Native::Result<void> SubjectDraw::Encode(const FrameContext &ctx, const PassReco
     if (!recorded) { return recorded; }
     at = end - 1;
   }
-  return EncodeGround(into, uniforms);
+  return {};
+}
+
+Native::Result<void> SubjectDraw::EncodeGround(const FrameContext &ctx, const PassRecording &into) {
+  if (Binding().Behind != nullptr || Ground_.Drawn() == 0) { return {}; }
+  return EncodeGround(into, FrameUniformsOf(ctx));
 }
 
 Native::Result<void> SubjectDraw::EncodeGround(const PassRecording &into,

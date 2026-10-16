@@ -1,0 +1,42 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_bounds { vec4 bounds[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_pyramid { float pyramid[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
+layout(std140, set = 2, binding = 0) uniform GroundView {
+  mat4 clip;
+  vec4 shift;
+  vec4 viewport;
+  uvec4 wide, high, at;
+  uvec4 source;
+} view;
+#include "depthRectangle.glsl"
+
+void main() {
+  const uint id = gl_GlobalInvocationID.x;
+  if (id >= view.source.x) { return; }
+  kept[id] = 1u;
+  const vec4 a = bounds[2u * id], b = bounds[2u * id + 1u];
+  if (a.w < 0.5 || any(isnan(a)) || any(isnan(b)) || any(isinf(a)) || any(isinf(b))) { return; }
+  const vec3 error = 8.0 * 1.1920929e-7 * (max(abs(a.xyz), abs(b.xyz)) + abs(view.shift.xyz) + 1.0);
+  const vec3 low = a.xyz + view.shift.xyz - error, high = b.xyz + view.shift.xyz + error;
+  vec2 least = vec2(3.0e38), most = vec2(-3.0e38);
+  float nearest = -3.0e38;
+  for (uint corner = 0u; corner < 8u; ++corner) {
+    const vec3 point = vec3((corner & 1u) == 0u ? low.x : high.x,
+                             (corner & 2u) == 0u ? low.y : high.y,
+                             (corner & 4u) == 0u ? low.z : high.z);
+    const vec4 projected = view.clip * vec4(point, 1.0);
+    if (projected.w <= 1.0e-5 || any(isnan(projected)) || any(isinf(projected))) { return; }
+    const vec3 p = projected.xyz / projected.w;
+    least = min(least, p.xy); most = max(most, p.xy); nearest = max(nearest, p.z);
+  }
+  vec2 lo = view.viewport.xy + vec2(least.x * 0.5 + 0.5, 0.5 - most.y * 0.5) * view.viewport.zw - 1.0;
+  vec2 hi = view.viewport.xy + vec2(most.x * 0.5 + 0.5, 0.5 - least.y * 0.5) * view.viewport.zw + 1.0;
+  const vec2 source = vec2(view.source.yz);
+  if (any(lessThan(hi, vec2(0.0))) || any(greaterThan(lo, source))) { kept[id] = 0u; return; }
+  lo = clamp(lo / source, 0.0, 1.0); hi = clamp(hi / source, 0.0, 1.0);
+  if (depthRectangleOccluded(lo, hi, clamp(nearest, 0.0, 1.0) + 1.0e-6,
+                               source, view.wide, view.high, view.at)) { kept[id] = 0u; }
+}

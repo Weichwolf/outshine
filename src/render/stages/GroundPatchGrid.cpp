@@ -11,7 +11,8 @@
 
 namespace outshine::Render {
 uint64_t GroundLattice::HeldBytes() const {
-  uint64_t bytes = uint64_t{PageLayers_} * kPagesPerLayer * kPageNodes * sizeof(float);
+  uint64_t bytes =
+      uint64_t{PageLayers_} * kPagesPerLayer * kPageNodes * sizeof(float) + Selection_.HeldBytes();
   for (const auto *buffer : {Grid_.get(),
                              UniformGrid_.get(),
                              Index_.get(),

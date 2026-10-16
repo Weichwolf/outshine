@@ -1,0 +1,10 @@
+#version 450
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_candidates { uint candidates[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_slots { uint slots[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_selected { uint selected[]; };
+layout(std140, set = 2, binding = 0) uniform Count { uvec4 count; } view;
+void main() {
+  const uint id = gl_GlobalInvocationID.x;
+  if (id < view.count.x && slots[id] != 0xffffffffu) { selected[slots[id]] = candidates[id]; }
+}

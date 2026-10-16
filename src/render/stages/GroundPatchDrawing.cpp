@@ -8,6 +8,27 @@
 #include <span>
 
 namespace outshine::Render {
+Native::Result<void> GroundLattice::ConfigurePatchSelection() {
+  if (Device_ == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "ground selection has no device"});
+  }
+  return Selection_.Configure(*Device_);
+}
+
+Native::Result<void> GroundLattice::SelectPatches(const FrameContext &ctx,
+                                                  const Vec3 &anchor,
+                                                  const PassRecording &into,
+                                                  Native::Buffer &pyramid,
+                                                  const PyramidShape &shape) {
+  if (!DrawEnabled_ || Drawn() == 0) { return {}; }
+  if (into.Commands == nullptr || !PatchList_) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "ground patch input is missing"});
+  }
+  return Selection_.Cull(*into.Commands, ctx, anchor, into.Area, pyramid, shape, *PatchList_);
+}
+
 Native::Result<void> GroundLattice::DrawPatches(const PassRecording &into,
                                                 std::span<const Native::Binding> bindings) const {
   const uint32_t count = VisibleReal_ + VisibleVirtual_;
@@ -49,15 +70,27 @@ Native::Result<void> GroundLattice::DrawPatches(const PassRecording &into,
                            .Data = PatchGrid_.get(),
                            .Range = {.Bytes = PatchGrid_->Description().Bytes}},
       Native::VertexBuffer{.Stream = 1,
-                           .Data = PatchList_.get(),
-                           .Range = {.Bytes = PatchList_->Description().Bytes}}};
+                           .Data = Selection_.Ready() ? Selection_.Codes() : PatchList_.get(),
+                           .Range = {.Bytes = Selection_.Ready()
+                                                  ? Selection_.Codes()->Description().Bytes
+                                                  : PatchList_->Description().Bytes}}};
+  const Native::DrawState state{.Pipeline = Pipelines_->Patches(),
+                                .Bindings = std::span(resources).first(bindings.size() + 3u),
+                                .Vertices = vertices,
+                                .Area = into.Area,
+                                .Clip = into.Clip};
+  const Native::IndexBuffer indices{.Data = PatchIndex_.get(),
+                                    .Range = {.Bytes = PatchIndex_->Description().Bytes}};
+  if (Selection_.Ready()) {
+    return into.Commands->DrawIndexedIndirect({.State = state,
+                                               .Indices = indices,
+                                               .Range = {.Data = Selection_.Arguments(),
+                                                         .Offset = Selection_.ArgumentOffset(),
+                                                         .Count = 1}});
+  }
   return into.Commands->DrawIndexed(
-      {.State = {.Pipeline = Pipelines_->Patches(),
-                 .Bindings = std::span(resources).first(bindings.size() + 3u),
-                 .Vertices = vertices,
-                 .Area = into.Area,
-                 .Clip = into.Clip},
-       .Indices = {.Data = PatchIndex_.get(), .Range = {.Bytes = PatchIndex_->Description().Bytes}},
+      {.State = state,
+       .Indices = indices,
        .Range = {.Count = kPatchIndices, .Instances = count * kPatchCount}});
 }
 }

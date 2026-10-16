@@ -781,10 +781,26 @@ private:
                                                   const PassRecording &into);
   };
 
-  static constexpr size_t kExecutorCount = 19;
+  static constexpr size_t kExecutorCount = 22;
   static const std::array<Executor, kExecutorCount> kExecutors;
   [[nodiscard]] static const Executor *ExecutorOf(Stage stage);
   [[nodiscard]] PassRecording Picture(bool picture, const PassRecording &into) const;
+  [[nodiscard]] static bool ConfigureGroundPyramid(SceneRenderer &renderer,
+                                                   FrameResources &frame,
+                                                   const Compiled &plan,
+                                                   bool drawsGlass,
+                                                   std::string &error);
+  [[nodiscard]] static bool ConfigureGroundSelection(SceneRenderer &renderer,
+                                                     FrameResources &frame,
+                                                     const Compiled &plan,
+                                                     bool drawsGlass,
+                                                     std::string &error);
+  [[nodiscard]] Native::Result<void> EncodeGroundPyramid(const FrameContext &ctx,
+                                                         const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGroundSelection(const FrameContext &ctx,
+                                                           const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
+                                                  const PassRecording &into);
   [[nodiscard]] static bool ConfigureSubjects(SceneRenderer &renderer,
                                               FrameResources &frame,
                                               const Compiled &plan,
@@ -962,6 +978,7 @@ private:
     std::unique_ptr<Native::Sampler> Samp, LutSamp;
     std::unique_ptr<Native::Buffer> IrradianceBuffer;
     std::unique_ptr<Native::Buffer> Pyramid;
+    std::unique_ptr<Native::Buffer> GroundPyramid;
     Readback PyramidRead;
     int Width = 0, Height = 0;
     std::array<std::unique_ptr<Native::Texture>, 2> LinearTex{};
@@ -976,6 +993,7 @@ private:
     IrradianceStage SkyIrradianceStage;
     EnvironmentSpecularStage EnvironmentSpecularStage;
     DepthPyramidStage PyramidStage;
+    DepthPyramidStage GroundPyramidStage;
     SkyStage Sky;
     LightVisibilityStage Shadow;
     SubjectCullStage Cull;

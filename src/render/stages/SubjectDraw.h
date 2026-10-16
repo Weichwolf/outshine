@@ -336,6 +336,8 @@ public:
   }
 
   [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> EncodeGround(const FrameContext &ctx,
+                                                  const PassRecording &into);
 
   [[nodiscard]] const SubjectResidency &Resident() const { return Bound(); }
 

@@ -57,6 +57,7 @@ Native::Result<void>
 GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Commands &commands) {
   VisibleReal_ = 0;
   VisibleVirtual_ = 0;
+  Selection_.BeginFrame();
   if (Held_.empty()) { return {}; }
   if (Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
@@ -72,6 +73,7 @@ GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comman
   for (size_t at = 0; at < Held_.size(); ++at) {
     if (!Intersects(planes, Bounds_[at], shift)) { continue; }
     Seen_.push_back(Held_[at]);
+    Selection_.Include(at);
     if (at < RealCount_) {
       ++VisibleReal_;
     } else {
@@ -80,7 +82,8 @@ GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comman
   }
 
   if (!Seen_.empty()) {
-    const auto copied = HandsVisible(commands);
+    auto copied = HandsVisible(commands);
+    if (copied) { copied = Selection_.Upload(*Device_, commands); }
     if (!copied) {
       VisibleReal_ = 0;
       VisibleVirtual_ = 0;

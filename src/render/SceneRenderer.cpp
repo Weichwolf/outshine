@@ -185,6 +185,13 @@ const std::array<SceneRenderer::Executor, SceneRenderer::kExecutorCount> SceneRe
         {.Named = Stage::Subjects,
          .Configure = &SceneRenderer::ConfigureSubjects,
          .Encode = &SceneRenderer::EncodeSubjects},
+        {.Named = Stage::GroundPyramid,
+         .Configure = &SceneRenderer::ConfigureGroundPyramid,
+         .Encode = &SceneRenderer::EncodeGroundPyramid},
+        {.Named = Stage::GroundSelection,
+         .Configure = &SceneRenderer::ConfigureGroundSelection,
+         .Encode = &SceneRenderer::EncodeGroundSelection},
+        {.Named = Stage::Ground, .Configure = nullptr, .Encode = &SceneRenderer::EncodeGround},
         {.Named = Stage::SubjectsTransmissive,
          .Configure = &SceneRenderer::ConfigureGlass,
          .Encode = &SceneRenderer::EncodeGlass},
@@ -494,7 +501,7 @@ SceneRenderer::FrameGraphAllocations SceneRenderer::FrameGraphAllocationCounts()
       counts.Textures += static_cast<size_t>(static_cast<bool>(*texture));
     }
     for (const std::unique_ptr<Native::Buffer> *buffer :
-         {&frame.IrradianceBuffer, &frame.Pyramid}) {
+         {&frame.IrradianceBuffer, &frame.Pyramid, &frame.GroundPyramid}) {
       counts.Buffers += static_cast<size_t>(static_cast<bool>(*buffer));
     }
     for (const std::unique_ptr<Native::Sampler> *sampler : {&frame.Samp, &frame.LutSamp}) {
@@ -527,6 +534,8 @@ bool SceneRenderer::Created(const FrameResources &frame, Resource resource) {
     case Resource::LutSampler: return static_cast<bool>(frame.LutSamp);
     case Resource::IrradianceBuffer: return static_cast<bool>(frame.IrradianceBuffer);
     case Resource::DepthPyramid: return static_cast<bool>(frame.Pyramid);
+    case Resource::GroundPyramid: return static_cast<bool>(frame.GroundPyramid);
+    case Resource::GroundSelection: return true;
     case Resource::ShadowAtlas: return static_cast<bool>(frame.ShadowAtlas);
     case Resource::SceneLinear: return frame.LinearTex[0] && frame.LinearTex[1];
     case Resource::AtmosphereUniform:
@@ -590,6 +599,8 @@ Native::Texture *SceneRenderer::Target(const FrameResources &frame, Resource res
     case Resource::VegetationTable:
     case Resource::IrradianceBuffer:
     case Resource::Meter:
+    case Resource::GroundPyramid:
+    case Resource::GroundSelection:
     case Resource::DepthPyramid:
     case Resource::AoBuffer: return nullptr;
 
@@ -615,6 +626,9 @@ Native::Buffer *SceneRenderer::BufferFor(Resource resource) const {
       return resident.Buffer(SubjectResidency::Stream::DrawArguments).get();
     case Resource::IrradianceBuffer: return ActiveFrame().IrradianceBuffer.get();
     case Resource::DepthPyramid: return ActiveFrame().Pyramid.get();
+    case Resource::GroundPyramid: return ActiveFrame().GroundPyramid.get();
+    case Resource::GroundSelection:
+      return ActiveState().Content.Subjects.Ground().SelectedPatches();
     default: return nullptr;
   }
 }
