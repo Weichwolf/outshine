@@ -18,9 +18,14 @@ from industrial_hall_shell import structure
 from industrial_roof_choice import section_for
 from industrial_rooflight_probe import storage_bytes
 from industrial_rooflights import components, cuts, plan, templates
+from outshine_ref.buildings.rooflight_panels import (
+    closed,
+    contact,
+    prepare_host,
+    template,
+)
 from provider_contract import attributes
 from recipe_hall_operators import inputs_for, prepare
-from rooflight_surfaces import closed, contact, prepare_host, template
 from tile_buildings import construct
 from tile_roof_envelopes import choose
 from verify_industrial_halls import sources

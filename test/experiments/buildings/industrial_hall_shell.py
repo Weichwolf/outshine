@@ -5,6 +5,7 @@ import shapely
 from outshine_ref.buildings.interiors.geometry import rectangle
 from outshine_ref.buildings.modelling import PrismVolume, Shape, subtract_prisms
 from outshine_ref.buildings.modelling.faces import Face
+from outshine_ref.buildings.rooflight_panels import triangle_surface as metric
 
 
 def cuts(plan, material):
@@ -63,30 +64,6 @@ def structure(plan, envelope, material, *, extra_cuts=()):
         materials=mats,
         facade_extent=np.zeros_like(raw["vertices"]),
     ), shell
-
-
-def metric(raw, material):
-    points = raw["vertices"][raw["faces"]]
-    normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
-    normals /= np.linalg.norm(normals, axis=1, keepdims=True)
-    along = points[:, 1] - points[:, 0]
-    along /= np.linalg.norm(along, axis=1, keepdims=True)
-    across = np.cross(normals, along)
-    uv = np.stack(
-        (
-            np.einsum("tij,tj->ti", points, along),
-            np.einsum("tij,tj->ti", points, across),
-        ),
-        axis=2,
-    )
-    return {
-        "vertices": points.reshape(-1, 3),
-        "faces": np.arange(points.size // 3, dtype=np.uint32).reshape(-1, 3),
-        "normals": np.repeat(normals, 3, axis=0),
-        "uv": uv.reshape(-1, 2),
-        "materials": np.full(len(points), material, dtype=np.uint16),
-        "facade_extent": np.zeros((points.size // 3, 3)),
-    }
 
 
 def ramp(plan):

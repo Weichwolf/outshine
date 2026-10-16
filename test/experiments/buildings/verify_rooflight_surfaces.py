@@ -7,7 +7,13 @@ from unittest.mock import patch
 import manifold3d as manifold
 import numpy as np
 from facade_parts import append
-from rooflight_surfaces import closed, contact, corners, prepare_host, template
+from outshine_ref.buildings.rooflight_panels import (
+    closed,
+    contact,
+    corners,
+    prepare_host,
+    template,
+)
 from structural_shell_geometry import native
 from trimesh.ray.ray_triangle import ray_triangle_id
 from verify_industrial_halls import sources
@@ -155,7 +161,7 @@ class RooflightSurfaces(unittest.TestCase):
                 side_effect=AssertionError("unneeded CGA extrusion"),
             ),
             patch(
-                "rooflight_surfaces.contact_coverage",
+                "outshine_ref.buildings.rooflight_panels.contact_coverage",
                 side_effect=AssertionError("unneeded repeated contact certification"),
             ),
             patch(

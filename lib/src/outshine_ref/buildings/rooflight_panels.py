@@ -5,10 +5,39 @@ from functools import lru_cache
 
 import numpy as np
 import shapely
-from industrial_hall_shell import metric
-from industrial_rooflights import DEPTH_M, FRAME_M, GLASS_INSET_M, GLASS_M, MAX_FIELDS
-from outshine_ref.buildings.modelling.scope import scalar
-from outshine_ref.contracts import immutable
+
+from ..contracts import immutable
+from .modelling.scope import scalar
+
+MAX_FIELDS = 64
+FRAME_M = 0.08
+DEPTH_M = 0.12
+GLASS_INSET_M = 0.04
+GLASS_M = 0.006
+
+
+def triangle_surface(raw, material):
+    points = raw["vertices"][raw["faces"]]
+    normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+    normals /= np.linalg.norm(normals, axis=1, keepdims=True)
+    along = points[:, 1] - points[:, 0]
+    along /= np.linalg.norm(along, axis=1, keepdims=True)
+    across = np.cross(normals, along)
+    uv = np.stack(
+        (
+            np.einsum("tij,tj->ti", points, along),
+            np.einsum("tij,tj->ti", points, across),
+        ),
+        axis=2,
+    )
+    return {
+        "vertices": points.reshape(-1, 3),
+        "faces": np.arange(points.size // 3, dtype=np.uint32).reshape(-1, 3),
+        "normals": np.repeat(normals, 3, axis=0),
+        "uv": uv.reshape(-1, 2),
+        "materials": np.full(len(points), material, dtype=np.uint16),
+        "facade_extent": np.zeros((points.size // 3, 3)),
+    }
 
 
 def corners(item):
@@ -61,7 +90,7 @@ def template(width, length, slope, *, contact=False):
     vertices = surfaces.reshape(-1, 3)
     indices = np.arange(len(vertices), dtype=np.uint32).reshape(-1, 4)
     faces = indices[:, [0, 1, 2, 0, 2, 3]].reshape(-1, 3)
-    value = metric({"vertices": vertices, "faces": faces}, 10)
+    value = triangle_surface({"vertices": vertices, "faces": faces}, 10)
     value["materials"][-12:] = 3
     for array in value.values():
         array.flags.writeable = False

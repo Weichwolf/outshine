@@ -13,8 +13,8 @@ from evidence import revision
 from industrial_hall_details import products
 from industrial_hall_shell import structure
 from industrial_rooflight_probe import prototype
+from outshine_ref.buildings.rooflight_panels import closed, contact, prepare_host
 from rooflight_surface_probe import emit, equal, mapped, prepared
-from rooflight_surfaces import closed, contact, prepare_host
 from tile_buildings import construct, read_tile
 from tile_facades import contexts
 from tile_stepped import SteppedDetails
