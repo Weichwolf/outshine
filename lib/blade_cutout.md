@@ -94,3 +94,15 @@ Blade. Its output is not automatically an efficient runtime LOD or forest produc
 The visible result is rounder asymmetric leaf margins; the sparse tree architecture
 and qualitative materials remain. Natural mature crowns, species/vein calibration,
 canopy coverage, wind, native shading and device budgets remain open.
+
+For a fresh local run, activate `.venv`, set
+`PYTHONPATH=lib/src:lib/tests:test/experiments/vegetation`, and choose an explicit
+system-temp destination. No private input cache is required:
+
+```sh
+python test/experiments/vegetation/tree_entry.py --output /tmp/outshine-cutout-base
+python test/experiments/vegetation/cutout_experiment.py \
+  --inputs /tmp/outshine-cutout-base --output /tmp/outshine-cutout-result
+python test/experiments/vegetation/render_tree_entry.py \
+  --inputs /tmp/outshine-cutout-result --output /tmp/outshine-cutout-shot
+```
