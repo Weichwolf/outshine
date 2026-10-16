@@ -110,6 +110,14 @@ Actual1920×1080 physical and CPU comparisons, material qualification outcomes,
 their terminal receipts and descriptive common-footprint RGB errors are linked
 in the PR. Eight samples, software EEVEE/llvmpipe; no GPU/frame/device admission.
 Different shadow discretization and256² first-contact sampling remain visible.
+In the fixed common-footprint decoded linear-RGB comparison, mean absolute
+error versus the calibrated Blender field is0.01929 front/0.01965 back, compared
+with0.04984/0.02840 for the independent-mean approximation. These are descriptive
+results without an acceptance threshold. Back green remains0.04219 in our opaque
+reference versus0.07194 in Blender; inter-leaf transport and shadow approximations
+still need investigation. The field is not admitted as complete grass lighting.
+Current physical front/back renders terminate0 at110.36/109.97s wall and
+2110.3/1931.3MiB RSS; the six diagnostic-map renders terminate0 at96.06s/1877.9MiB.
 The explicit standalone renderer exits only after synchronous renders and its
 closed hash receipt; earlier post-export process143 cases remain failure evidence.
 
