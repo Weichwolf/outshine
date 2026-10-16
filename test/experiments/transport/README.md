@@ -18,6 +18,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   ganze Anschlüsse, zehn Unterführungen und DEM-kontrolliertes Terrain im Budget.
 - [Konstruktives Eckpodest](stair_corner_comparison.md): 24 ganze Quellen,
   zwölf ganze Endprofile und unveränderte Unterführungs-/Terrain-/Pfeilergrenzen.
+- [Ganze gewählte Podeste](stair_landing_comparison.md): alle 41 inneren
+  Endprofile, neun kleine Ergänzungen und derselbe installierbare Profilkern.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
