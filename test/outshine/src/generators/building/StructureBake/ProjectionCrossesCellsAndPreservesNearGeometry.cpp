@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <vector>
 
 namespace {
 class ObservedMesher final : public outshine::StructureMesher {
@@ -47,12 +48,15 @@ public:
         return std::unexpected(outshine::StructureMeshError::BuildFailed);
       }
     }
-    return Native.Project(plans, eye, projection, scratch);
+    auto result = Native.Project(plans, eye, projection, scratch);
+    if (result) { ProjectedMetres = result->Mesh.WallMaterialM; }
+    return result;
   }
 
   outshine::Generators::BuildingMesh Native;
   mutable size_t MeshCalls = 0, ProjectionCalls = 0, ProjectedPlans = 0, FinePlans = 0;
   mutable outshine::Raised FineReference;
+  mutable std::vector<float> ProjectedMetres;
 };
 }
 
@@ -81,8 +85,13 @@ int main() {
     if (!cell) { return Report(); }
     const auto first = static_cast<uint32_t>(raw.LatLon.size() / 2);
     raw.LatLon.insert(raw.LatLon.end(), ring.begin(), ring.end());
-    raw.Structures.push_back(
-        {.LocalFirst = first, .PointCount = 4, .Cell = *cell, .HeightM = 9, .Pitched = 0});
+    raw.Structures.push_back({.LocalFirst = first,
+                              .PointCount = 4,
+                              .Cell = *cell,
+                              .HeightM = 9,
+                              .Pitched = 0,
+                              .WallColour = {},
+                              .Facade = {}});
   }
   Ground::HeightField::Block block;
   block.At = {.Zoom = 0, .X = 0, .Y = 0};
@@ -102,6 +111,9 @@ int main() {
   auto built = progress.Finalize(raw, mesher, *scratch);
   CHECK(built && built->Prints.size() == 68, "all source footprints survive projection");
   if (!built) { return Report(); }
+  CHECK(!mesher.ProjectedMetres.empty(), "the actual native projection contains metric walls");
+  CHECK(built->Built.WallMaterialM == mesher.ProjectedMetres,
+        "tile append preserves the complete independently generated metric wall stream");
   for (const auto &expected : mesher.FineReference.WallCorners) {
     CHECK(std::ranges::any_of(built->Built.WallCorners,
                               [&](const StoredVertex &vertex) {
