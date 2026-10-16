@@ -3,7 +3,9 @@
 import argparse
 import hashlib
 import json
+import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -204,3 +206,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     render(args.inputs, args.output, args.states, args.modes)
+    # All synchronous renders and the closed receipt precede process teardown.
+    # This standalone bpy worker owns no resources outside its process lifetime.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
