@@ -24,7 +24,9 @@ const char *KindName(SurfaceKind kind) {
 }
 }
 
-bool SubjectDraw::BindSurface(const SubjectMaterial &material, std::string &error) {
+bool SubjectDraw::BindSurface(const SubjectMaterial &material,
+                              std::string &error,
+                              SubjectResidency::ImageUploadMode mode) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
@@ -38,7 +40,7 @@ bool SubjectDraw::BindSurface(const SubjectMaterial &material, std::string &erro
                         SubjectResidency::Transfer transfer,
                         TexelKind texel,
                         SubjectResidency::BoundImage &into) {
-    auto uploaded = Bound().Upload(texture, transfer, texel);
+    auto uploaded = Bound().Upload(texture, transfer, texel, mode);
     if (!uploaded) {
       error = std::move(uploaded.error().Message);
       return false;
@@ -145,11 +147,13 @@ bool SubjectDraw::ValidateMaterials(std::span<const SubjectMaterial> materials,
   return true;
 }
 
-bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials, std::string &error) {
+bool SubjectDraw::AppendMaterials(std::span<const SubjectMaterial> materials,
+                                  std::string &error,
+                                  SubjectResidency::ImageUploadMode mode) {
   if (!ValidateMaterials(materials, error)) { return false; }
   const size_t was = Slots.size();
   for (const auto &material : materials) {
-    if (BindSurface(material, error)) { continue; }
+    if (BindSurface(material, error, mode)) { continue; }
     Slots.resize(was);
     return false;
   }

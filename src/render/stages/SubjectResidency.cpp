@@ -10,8 +10,8 @@
 namespace outshine::Render {
 
 Native::Result<void> SubjectResidency::StandsOn(Native::Device *device) {
-  if (device == nullptr ||
-      (Device_ != nullptr && Device_ != device && (HeldBytes() != 0 || StagedCount_ != 0))) {
+  if (device == nullptr || (Device_ != nullptr && Device_ != device &&
+                            (HeldBytes() != 0 || StagedCount_ != 0 || !StagedImages_.empty()))) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid,
                       .Message = "resident streams require their original device"});
@@ -29,6 +29,9 @@ SubjectResidency::AllocationStats SubjectResidency::Allocations() const {
                          .TransferBytes = uint64_t{StagingBytes_} + BulkBytes_,
                          .VertexSlots = TopV_,
                          .IndexSlots = TopI_};
+  for (const auto &image : StagedImages_) {
+    result.TransferBytes += image.Staging->Description().Bytes;
+  }
   for (const Range &range : FreeV_) { result.FreeVertexSlots += range.Count; }
   for (const Range &range : FreeI_) { result.FreeIndexSlots += range.Count; }
   for (const RetiredTransfer &transfer : Retired_) { result.TransferBytes += transfer.Bytes; }

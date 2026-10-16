@@ -236,8 +236,13 @@ bool SceneResources::AppendPieceMaterials(SubjectDraw &subjects,
     error = Says::PieceMaterialTables;
     return false;
   }
-  if (!subjects.AppendMaterials(materials.Slots, error)) { return false; }
-  if (glass != nullptr && !glass->AppendMaterials(materials.Slots, error)) {
+  if (!subjects.AppendMaterials(
+          materials.Slots, error, SubjectResidency::ImageUploadMode::Deferred)) {
+    return false;
+  }
+  if (glass != nullptr && !glass->AppendMaterials(materials.Slots,
+                                                  error,
+                                                  SubjectResidency::ImageUploadMode::Deferred)) {
     subjects.TruncateMaterials(subjectBefore);
     return false;
   }

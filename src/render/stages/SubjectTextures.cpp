@@ -45,13 +45,19 @@ std::optional<uint32_t> MipChainBytes(Texels extent, uint32_t levels) {
 }
 }
 
-Native::Result<SubjectResidency::BoundImage>
-SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
+Native::Result<SubjectResidency::BoundImage> SubjectResidency::Upload(const SubjectTexture &texture,
+                                                                      Transfer decode,
+                                                                      TexelKind kind,
+                                                                      ImageUploadMode mode) {
+  if (mode == ImageUploadMode::Immediate) {
+    const auto flushed = SubmitPendingUploads();
+    if (!flushed) { return std::unexpected(flushed.error()); }
+  }
   if (Device_ == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "image upload needs a device"});
   }
-  if (texture.Rgba != nullptr) { return UploadImage(texture, decode, kind); }
+  if (texture.Rgba != nullptr) { return UploadImage(texture, decode, kind, mode); }
   if (texture.Width > 1 || texture.Height > 1) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "a sized texture has no texel data"});
@@ -65,13 +71,13 @@ SubjectResidency::Upload(const SubjectTexture &texture, Transfer decode, TexelKi
                             .Mip = texture.Mip};
   const auto held = std::ranges::find(DefaultImages_, key, &DefaultImage::Key);
   if (held != DefaultImages_.end()) { return held->Image; }
-  auto bound = UploadImage(texture, decode, kind);
+  auto bound = UploadImage(texture, decode, kind, mode);
   if (bound) { DefaultImages_.push_back({.Key = key, .Image = *bound}); }
   return bound;
 }
 
 Native::Result<SubjectResidency::BoundImage> SubjectResidency::UploadImage(
-    const SubjectTexture &texture, Transfer decode, TexelKind kind) const {
+    const SubjectTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode) {
   static const std::array<uint8_t, 4> white = {{255, 255, 255, 255}};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;
@@ -103,7 +109,8 @@ Native::Result<SubjectResidency::BoundImage> SubjectResidency::UploadImage(
                          .LowerMips = texture.LowerMips};
   auto interpretation = decode == Transfer::Srgb ? ImageMipKind::Colour : ImageMipKind::Linear;
   if (kind == TexelKind::Direction) { interpretation = ImageMipKind::Normal; }
-  const auto uploaded = UploadMipChain(*image, pixels, levels, interpretation);
+  std::shared_ptr<Native::Texture> shared = std::move(*image);
+  const auto uploaded = UploadMipChain(shared, pixels, levels, interpretation, mode);
   if (!uploaded) { return std::unexpected(uploaded.error()); }
   auto sample = Device_->CreateSampler(
       {.Min = FilterOf(texture.Minify),
@@ -114,14 +121,15 @@ Native::Result<SubjectResidency::BoundImage> SubjectResidency::UploadImage(
        .MinLod = 0,
        .MaxLod = static_cast<float>(levels - 1u)});
   if (!sample) { return std::unexpected(sample.error()); }
-  return BoundImage{.Image = std::shared_ptr<Native::Texture>(std::move(*image)),
+  return BoundImage{.Image = std::move(shared),
                     .Sample = std::shared_ptr<Native::Sampler>(std::move(*sample))};
 }
 
-Native::Result<void> SubjectResidency::UploadMipChain(std::unique_ptr<Native::Texture> &image,
+Native::Result<void> SubjectResidency::UploadMipChain(const std::shared_ptr<Native::Texture> &image,
                                                       ImageView pixels,
                                                       uint32_t levels,
-                                                      ImageMipKind kind) const {
+                                                      ImageMipKind kind,
+                                                      ImageUploadMode mode) {
   const Texels extent{.WidthPx = static_cast<uint32_t>(pixels.WidthPx),
                       .HeightPx = static_cast<uint32_t>(pixels.HeightPx)};
   const auto chainBytes = MipChainBytes(extent, levels);
@@ -129,8 +137,6 @@ Native::Result<void> SubjectResidency::UploadMipChain(std::unique_ptr<Native::Te
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "invalid image or prepared mip chain"});
   }
-  auto commands = BeginUpload(*Device_, Uploads_);
-  if (!commands) { return std::unexpected(commands.error()); }
   auto lower = pixels.LowerMips[static_cast<size_t>(kind)];
   std::optional<std::vector<uint8_t>> generated;
   if (levels > 1 && !lower) {
@@ -166,23 +172,38 @@ Native::Result<void> SubjectResidency::UploadMipChain(std::unique_ptr<Native::Te
   }
   const auto unmapped = Device_->Unmap(**staging);
   if (!unmapped) { return unmapped; }
+  StagedImage staged{.Image = image, .Staging = std::move(*staging), .Levels = levels};
+  if (mode == ImageUploadMode::Deferred) {
+    StagedImages_.push_back(std::move(staged));
+    return {};
+  }
+  auto commands = BeginUpload(*Device_, Uploads_);
+  if (!commands) { return std::unexpected(commands.error()); }
+  const auto copied = RecordImage(**commands, staged);
+  if (!copied) { return copied; }
+  const auto submitted = SubmitUpload(*Device_, Uploads_, std::move(*commands));
+  if (!submitted) { return std::unexpected(submitted.error()); }
+  UploadBytes_ += *chainBytes;
+  return {};
+}
+
+Native::Result<void> SubjectResidency::RecordImage(Native::Commands &commands,
+                                                   const StagedImage &image) {
   uint32_t offset = 0;
-  Texels size = extent;
-  for (uint32_t mip = 0; mip < levels; ++mip) {
+  auto size = Texels{.WidthPx = image.Image->Description().Width,
+                     .HeightPx = image.Image->Description().Height};
+  for (uint32_t mip = 0; mip < image.Levels; ++mip) {
     const auto copied =
-        (*commands)->Copy(**staging,
-                          *image,
-                          {.BufferOffset = offset,
-                           .RowBytes = uint64_t{size.WidthPx} * kRgbaChannels,
-                           .Region = {.Mip = mip, .Width = size.WidthPx, .Height = size.HeightPx}});
+        commands.Copy(*image.Staging,
+                      *image.Image,
+                      {.BufferOffset = offset,
+                       .RowBytes = uint64_t{size.WidthPx} * kRgbaChannels,
+                       .Region = {.Mip = mip, .Width = size.WidthPx, .Height = size.HeightPx}});
     if (!copied) { return copied; }
     offset += static_cast<uint32_t>(uint64_t{size.WidthPx} * size.HeightPx * kRgbaChannels);
     size.WidthPx = std::max(1u, size.WidthPx / 2u);
     size.HeightPx = std::max(1u, size.HeightPx / 2u);
   }
-  const auto submitted = SubmitUpload(*Device_, Uploads_, std::move(*commands));
-  if (!submitted) { return std::unexpected(submitted.error()); }
-  UploadBytes_ += *chainBytes;
   return {};
 }
 

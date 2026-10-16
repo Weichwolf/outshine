@@ -230,8 +230,10 @@ public:
   [[nodiscard]] bool SetMaterials(std::span<const SubjectMaterial> materials, std::string &error);
   [[nodiscard]] bool ValidateMaterials(std::span<const SubjectMaterial> materials,
                                        std::string &error) const;
-  [[nodiscard]] bool AppendMaterials(std::span<const SubjectMaterial> materials,
-                                     std::string &error);
+  [[nodiscard]] bool AppendMaterials(
+      std::span<const SubjectMaterial> materials,
+      std::string &error,
+      SubjectResidency::ImageUploadMode mode = SubjectResidency::ImageUploadMode::Immediate);
 
   [[nodiscard]] size_t MaterialSlots() const noexcept { return Slots.size(); }
 
@@ -407,7 +409,9 @@ private:
 
   GroundLattice Ground_;
 
-  [[nodiscard]] bool BindSurface(const SubjectMaterial &material, std::string &error);
+  [[nodiscard]] bool BindSurface(const SubjectMaterial &material,
+                                 std::string &error,
+                                 SubjectResidency::ImageUploadMode mode);
 
 public:
   [[nodiscard]] Native::Result<void> FlushCrossings(Native::Commands *commands) {

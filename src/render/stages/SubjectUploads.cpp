@@ -43,7 +43,7 @@ Native::Result<std::unique_ptr<Native::Buffer>> UploadBuffer(Native::Device &dev
 }
 
 Native::Result<void> SubjectResidency::SubmitPendingUploads() {
-  if (StagedCount_ == 0) { return {}; }
+  if (StagedCount_ == 0 && StagedImages_.empty()) { return {}; }
   if (Device_ == nullptr) {
     return std::unexpected(
         Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = "uploads require a device"});
@@ -300,7 +300,7 @@ Native::Result<void> SubjectResidency::Grow(Stream which, Need need) {
 }
 
 Native::Result<void> SubjectResidency::FlushCrossings(Native::Commands *commands) {
-  if (StagedCount_ == 0) { return {}; }
+  if (StagedCount_ == 0 && StagedImages_.empty()) { return {}; }
   if (commands == nullptr) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "pending uploads need commands"});
@@ -309,6 +309,10 @@ Native::Result<void> SubjectResidency::FlushCrossings(Native::Commands *commands
 }
 
 Native::Result<void> SubjectResidency::RecordCrossings(Native::Commands &commands) {
+  for (const auto &image : StagedImages_) {
+    const auto copied = RecordImage(commands, image);
+    if (!copied) { return copied; }
+  }
   for (size_t at = 0; at < StagedCount_; ++at) {
     const auto &staged = Staged_[at];
     const auto copied = commands.Copy(
@@ -322,6 +326,8 @@ Native::Result<void> SubjectResidency::RecordCrossings(Native::Commands &command
 }
 
 void SubjectResidency::CommitCrossings() {
+  for (const auto &image : StagedImages_) { UploadBytes_ += image.Staging->Description().Bytes; }
+  StagedImages_.clear();
   StagedCount_ = 0;
   StagingUsed_ = 0;
   PendingUploadBytes_ = 0;
@@ -330,7 +336,7 @@ void SubjectResidency::CommitCrossings() {
 }
 
 void SubjectResidency::ReleaseUploadScratch() {
-  if (StagedCount_ != 0) { return; }
+  if (StagedCount_ != 0 || !StagedImages_.empty()) { return; }
   Bulk_.reset();
   BulkBytes_ = 0;
   Staging_.reset();

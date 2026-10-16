@@ -79,6 +79,7 @@ struct SubjectResidency {
   };
 
   enum class Transfer { Srgb, Linear };
+  enum class ImageUploadMode { Immediate, Deferred };
 
   struct Shaping {
     uint32_t Vertices = 0;
@@ -189,17 +190,31 @@ struct SubjectResidency {
   [[nodiscard]] Native::Result<void> SubmitPendingUploads();
 
   [[nodiscard]] Native::Result<BoundImage>
-  Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
+  Upload(const SubjectTexture &texture,
+         Transfer decode,
+         TexelKind kind,
+         ImageUploadMode mode = ImageUploadMode::Immediate);
 
 private:
   [[nodiscard]] Native::Result<void> Submit(std::span<Crossing> what, uint32_t total);
-  [[nodiscard]] Native::Result<void> UploadMipChain(std::unique_ptr<Native::Texture> &image,
+  [[nodiscard]] Native::Result<void> UploadMipChain(const std::shared_ptr<Native::Texture> &image,
                                                     ImageView pixels,
                                                     uint32_t levels,
-                                                    ImageMipKind kind) const;
+                                                    ImageMipKind kind,
+                                                    ImageUploadMode mode);
 
   [[nodiscard]] Native::Result<BoundImage>
-  UploadImage(const SubjectTexture &texture, Transfer decode, TexelKind kind) const;
+  UploadImage(const SubjectTexture &texture, Transfer decode, TexelKind kind, ImageUploadMode mode);
+
+  struct StagedImage {
+    std::shared_ptr<Native::Texture> Image;
+    std::unique_ptr<Native::Buffer> Staging;
+    uint32_t Levels = 0;
+  };
+
+  [[nodiscard]] static Native::Result<void> RecordImage(Native::Commands &commands,
+                                                        const StagedImage &image);
+  std::vector<StagedImage> StagedImages_;
 
   struct DefaultImageKey {
     Transfer Decode;
