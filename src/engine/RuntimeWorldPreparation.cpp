@@ -155,8 +155,8 @@ bool Engine::State::SubmitOsmTransportSource() {
   return true;
 }
 
-void Engine::State::DeclareGroundFeatures() {
-  if (Session.Declared.Ground.Osm.empty()) { return; }
+bool Engine::State::DeclareGroundFeatures() {
+  if (Session.Declared.Ground.Osm.empty()) { return true; }
   std::vector<::outshine::Generators::Osm::OsmField::Declared> told;
   told.reserve(Session.Declared.Ground.Osm.size());
   for (const Scenario::Structure &one : Session.Declared.Ground.Osm) {
@@ -176,9 +176,13 @@ void Engine::State::DeclareGroundFeatures() {
     made.LatLon = one.LatLon;
     told.push_back(std::move(made));
   }
-  World.Stack.Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared>(told));
+  if (const auto declared = World.Stack.Declares(told); !declared) {
+    Error = declared.error();
+    return false;
+  }
   Published.RecordMetric(
       "ground: structures a scenario declared", static_cast<double>(told.size()), "structures");
+  return true;
 }
 
 bool Engine::State::PrepareRuntimeWorld() {
@@ -247,7 +251,7 @@ bool Engine::State::PrepareRuntimeWorld() {
     Published.RecordMetric("ground: and this a kilometre east", eastM, "m");
   }
 
-  DeclareGroundFeatures();
+  if (!DeclareGroundFeatures()) { return false; }
 
   {
     const double fovDeg =

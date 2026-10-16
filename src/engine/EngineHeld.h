@@ -624,7 +624,7 @@ struct Engine::State {
   [[nodiscard]] bool ConfigureSourceProviders(std::vector<Data::SourceProvider> &tileProviders);
   [[nodiscard]] bool RequestOsmSources(std::span<const Data::SourceProvider> providers);
   [[nodiscard]] bool RequestOriginalCells();
-  void DeclareGroundFeatures();
+  bool DeclareGroundFeatures();
   void PollOsmSources();
   [[nodiscard]] bool SubmitOsmTransportSource();
   bool GenerateInitialInstances(double atLat, double atLon);

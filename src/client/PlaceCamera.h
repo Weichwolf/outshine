@@ -11,6 +11,7 @@
 
 #include <Outshine.h>
 #include "ShotOptions.h"
+#include "FrameTiming.h"
 
 namespace outshine {
 class Engine;
@@ -21,7 +22,6 @@ namespace outshine::Shots {
 
 inline constexpr int kWidePx = 1280;
 inline constexpr int kHighPx = 720;
-inline constexpr double kFrameBudgetMs = 1000.0 / 60.0;
 
 struct Place {
   std::string Name;
@@ -29,6 +29,8 @@ struct Place {
 };
 
 struct Shot {
+  Client::FrameTiming Timing;
+  Extent Frame;
   std::string Digest;
   std::string Wrote;
   std::string Why;
