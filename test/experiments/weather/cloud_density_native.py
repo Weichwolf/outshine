@@ -36,36 +36,7 @@ def points():
     return np.stack((x, y, z, np.zeros_like(x)), axis=-1).reshape(-1, 4).astype("<f4")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--archive-root", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--untimed", action="store_true")
-    args = parser.parse_args()
-    output = args.output.resolve()
-    if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
-        parser.error("private outputs belong in system temp")
-    output.mkdir(parents=True, exist_ok=True)
-    (output / "receipt.json").unlink(missing_ok=True)
-    archive_root = args.archive_root.resolve()
-    record = {"commands": []}
-
-    def run(command, name, cwd=ROOT):
-        command = list(map(str, command))
-        result = subprocess.run(
-            command, cwd=cwd, capture_output=True, text=True, timeout=180, check=False
-        )
-        (output / f"{name}.stdout").write_text(result.stdout)
-        (output / f"{name}.stderr").write_text(result.stderr)
-        record["commands"].append(
-            {"argv": command, "cwd": str(cwd), "exit_code": result.returncode}
-        )
-        if result.returncode or (name.startswith("native-") and result.stderr):
-            raise RuntimeError(
-                f"{name} failed or emitted validation diagnostics: {output}"
-            )
-        return result.stdout
-
+def build_native(archive_root, output, run):
     producer = run(["git", "rev-parse", "HEAD"], "producer", archive_root).strip()
     if run(
         ["git", "status", "--porcelain", "--", "src", "include"],
@@ -75,7 +46,7 @@ def main():
         raise RuntimeError("regular archive production inputs must remain clean")
     archive = archive_root / "build/liboutshine.a"
     if not archive.is_file():
-        parser.error("build the complete regular production archive first")
+        raise ValueError("build the complete regular production archive first")
     link = shlex.split(
         run(["sh", "test/run.sh", "--native-link-flags"], "native-link", archive_root)
     )
@@ -110,6 +81,40 @@ def main():
         ],
         "build",
     )
+    return producer, archive, binary
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--archive-root", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--untimed", action="store_true")
+    args = parser.parse_args()
+    output = args.output.resolve()
+    if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
+        parser.error("private outputs belong in system temp")
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "receipt.json").unlink(missing_ok=True)
+    archive_root = args.archive_root.resolve()
+    record = {"commands": []}
+
+    def run(command, name, cwd=ROOT):
+        command = list(map(str, command))
+        result = subprocess.run(
+            command, cwd=cwd, capture_output=True, text=True, timeout=180, check=False
+        )
+        (output / f"{name}.stdout").write_text(result.stdout)
+        (output / f"{name}.stderr").write_text(result.stderr)
+        record["commands"].append(
+            {"argv": command, "cwd": str(cwd), "exit_code": result.returncode}
+        )
+        if result.returncode or (name.startswith("native-") and result.stderr):
+            raise RuntimeError(
+                f"{name} failed or emitted validation diagnostics: {output}"
+            )
+        return result.stdout
+
+    producer, archive, binary = build_native(archive_root, output, run)
     shader = output / "cloud-density.spv"
     run(
         [
