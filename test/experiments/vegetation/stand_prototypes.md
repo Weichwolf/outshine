@@ -89,6 +89,64 @@ are known buffer requests/copies, excluding selection/validation temporaries,
 Blender's native allocations, meshes, driver/GPU traffic and realization work.
 Whole plant triangles remain identical and do not vanish with fewer point rows.
 
+## Whole flat populations and scoped costs
+
+Both complete1920×1080/four-sample packed forests were rendered and opened.
+Laubwald retains30broadleaf sites/58284grass roots; Mischwald retains19broadleaf
+sites/58438grass roots/eight earlier young-pine prototypes. Population, grass
+and conifer inputs are unchanged. The new Laubwald's eight grass product hashes
+and counts also match the previous whole forest exactly. Broadleaf crowns are
+now less bare/fan-shaped and form a more connected canopy. The previous forest
+was opened too: its older55m²-leaf-area crown recipes versus the new126m² crown
+are **not a matched-area morphology experiment or equal-geometry speed baseline**.
+The two-root representation comparison above supplies that control.
+
+| Whole packed case | Process s | CPU-s | Peak RSS MiB | Total instanced triangles |
+|---|---:|---:|---:|---:|
+| Laubwald | 323.487 | 385.633 | 3744.41 | 55747200 |
+| Mischwald | 286.067 | 330.660 | 3941.20 | 42289120 |
+
+This is costly offline software rendering. The full physical reference is not a
+frame/forest-LOD/device acceptance; fewer uploaded point rows do not reduce its
+rasterized triangle workload. The two studies still reuse one broadleaf shape,
+the unchanged young pines are largely below the broadleaf canopy, and ecological
+mixture, mature conifer forms, varied botanical crowns, wind and screened forest
+representations remain open. Packed is a measured reference option, not a claim
+that it is the fastest representation for every scene/backend.
+
+A separate fresh-process Laubwald constructor probe onf6306955a measures actual
+point-group calls with a plain wrapper retaining only integer row counts. Template
+binding is untraced; placement uses tracemalloc. The latter excludes all prior
+prototype buffers and Blender/native/driver heaps. Live block counts are not
+cumulative allocation counts. Its instrumented seconds are separate from actual
+untraced render receipts and measured under shared load16–18.
+
+| Plant-only representation | Point groups | Point rows | F32 staging/write B each | Traced placement s | Traced placement peak B | Live traced blocks |
+|---|---:|---:|---:|---:|---:|---:|
+| Direct | 240 | 1123920 | 40461120 | 3.84142 | 1927526 | 1193 |
+| Nested | 9 | 37494 | 1349784 | 0.00242 | 12950 | 13 |
+| Packed | 1 | 30 | 1080 | 0.00872 | 15566 | 70 |
+
+The direct/nested/packed template bindings separately cost2.706/2.964/12.210s;
+whole fresh constructor processes9.152/5.884/15.181s, peaks789.68/790.93/1897.76MiB.
+The constructor-only result favors nested reuse here; it does not admit that
+method for dense image rendering. Packed reduces render instance records.
+Their full-image results stay separate from this plant-only comparison. Context grass/conifers are excluded from the
+constructor counts but included in the whole forest render receipts.
+
+A full Laubwald nested counterexample on1a7ea4de1 finished exit0 in31.019s,
+30.572CPU-s and8355.07MiB peak RSS **with an empty image, including no ground**.
+It was opened and rejected; these seconds are not a performance win. The exact
+renderer/traversal failure is unproven. Packed versus nested has the same complete
+population and context hashes; the extra expanded leaf-instance burden is visible
+in the cost counters, but that alone does not identify a precise backend limit.
+The image CLI therefore refuses direct/nested full forests **before reading inputs
+or building a scene**. Those modes remain bounded pair references; the separate
+plant-only constructor probe deliberately measures all three representations.
+No density, visibility, triangle or material reduction repairs the failed path.
+Packed is the admitted representation for these two actual full forest images,
+with the offline costs above. This is a measured local choice, no universal claim.
+
 ## Reproduce
 
 Use `.venv` and `PYTHONPATH=lib/src:lib/tests:test/experiments/vegetation` (the
@@ -107,11 +165,13 @@ All output arguments below must name explicit local system-temp paths.
 .venv/bin/python test/experiments/vegetation/render_stand_prototype.py --inputs "$SOURCE" --output "$SHOTS" --case pair --mode direct
 .venv/bin/python test/experiments/vegetation/render_stand_prototype.py --inputs "$SOURCE" --output "$SHOTS" --case pair --mode nested
 .venv/bin/python test/experiments/vegetation/render_stand_prototype.py --inputs "$PACKED" --output "$SHOTS" --case pair --mode packed
+.venv/bin/python test/experiments/vegetation/stand_prototype_cost.py --inputs "$SOURCE" --case Laubwald --mode nested --output "$COST_REPORT"
 .venv/bin/python test/scripts/pixels.py "$SHOTS/pair-direct.png" "$SHOTS/pair-packed.png"
 .venv/bin/python test/experiments/vegetation/render_stand_prototype.py --inputs "$PACKED" --context "$CONTEXT" --output "$SHOTS" --case Laubwald --mode packed
 ```
 
-Repeat the last command for Mischwald; direct/nested use`SOURCE`. Measure fresh
+Repeat the last command for Mischwald. Direct/nested image modes are restricted
+to the pair control; their constructor-only probes use`SOURCE`. Measure fresh
 process wall/CPU/peak RSS separately from the receipt's decode/template/placement/
 context/render stages. Keep population digests and context product hashes equal.
 No server, versioned image or alternative gallery is produced.

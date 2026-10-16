@@ -48,6 +48,11 @@ def scene_population(case, context):
 
 
 def render(inputs, context, output, case, mode):
+    if case != "pair" and mode != "packed":
+        raise ValueError(
+            "whole forest rendering requires packed prototypes; "
+            "direct/nested are bounded two-plant image controls"
+        )
     start = time.perf_counter()
     recipe, origins, frames, scales, other, digest = scene_population(case, context)
     bpy.ops.wm.read_factory_settings(use_empty=True)

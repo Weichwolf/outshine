@@ -3,11 +3,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import bpy
 import numpy as np
 from render_fern import model, model_arrays
-from render_stand_prototype import scene_population
+from render_stand_prototype import render, scene_population
 from scipy.spatial import cKDTree
 from stand_leaf_product import build
 from stand_pack_checks import fixture, fixture_files
@@ -40,6 +41,13 @@ class StandSceneChecks(unittest.TestCase):
                     empty, np.zeros((1, 3)), np.zeros((1, 3, 3)), np.ones(1), mode
                 )
         self.assertEqual(len(bpy.data.objects), count)
+
+    def test_large_leaf_instance_render_is_refused_before_inputs_or_scene_work(self):
+        with patch("render_stand_prototype.build_template", side_effect=AssertionError):
+            for case in ("Laubwald", "Mischwald"):
+                for mode in ("direct", "nested"):
+                    with self.assertRaisesRegex(ValueError, "requires packed"):
+                        render(Path("missing"), None, Path("missing"), case, mode)
 
     def test_nested_and_packed_full_geometry_reaches_both_world_poses(self):
         rows, meshes = fixture()
