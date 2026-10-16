@@ -104,7 +104,7 @@ class BalconyCells(unittest.TestCase):
         for row in sources()[:2]:
             mesh, frames, parameters, entry, _owner, plan = prepared(row)
             current = plan["cells"][0]
-            for distance, mode in ((10, "through"), (500, "compact"), (100000, None)):
+            for distance, mode in ((10, "through"), (500, "plates"), (100000, None)):
                 view = camera(current, distance)
                 self.assertEqual(demand(current, view), mode)
                 result, records, rejected = attach(

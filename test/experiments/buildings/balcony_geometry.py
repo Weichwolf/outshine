@@ -11,14 +11,21 @@ def products(current, owner, material, mode):
     local = np.array([basis[0], -basis[2], basis[1]])
     centre = current["doorway"]["door"]["centre"]
     origin = np.r_[centre, current["floor_z_m"]]
-    fixed = owner.template(current["prototype"])
+    fixed = owner.template(current["prototype"], plates=mode == "plates")
     raw = {
         "vertices": fixed["vertices"] @ local + origin,
         "faces": fixed["faces"],
         "materials": np.array([4, 7], dtype=np.uint8)[fixed["roles"]],
     }
     output = [expand(raw, material)]
-    output.extend(doorway(current["doorway"], material, mode, base_m=current["base_m"]))
+    output.extend(
+        doorway(
+            current["doorway"],
+            material,
+            "compact" if mode == "plates" else mode,
+            base_m=current["base_m"],
+        )
+    )
     if mode == "through":
         for bottom, top, component in (
             (current["base_m"], current["floor_z_m"], 0),

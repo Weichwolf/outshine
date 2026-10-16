@@ -2,7 +2,11 @@
 
 import numpy as np
 import shapely
-from outshine_ref.buildings.balconies import BalconyPlan, balcony_surface
+from outshine_ref.buildings.balconies import (
+    BalconyPlan,
+    balcony_plates,
+    balcony_surface,
+)
 from outshine_ref.buildings.interiors.geometry import rectangle
 
 
@@ -53,10 +57,13 @@ class BalconyDetails:
         self.entrances, self.states = entrances, states or {}
         self.planned, self.rejected, self.templates = [], [], {}
 
-    def template(self, plan):
-        if plan not in self.templates:
-            self.templates[plan] = balcony_surface(plan)
-        return self.templates[plan]
+    def template(self, plan, *, plates=False):
+        key = plan, plates
+        if key not in self.templates:
+            self.templates[key] = (
+                balcony_plates(plan) if plates else balcony_surface(plan)
+            )
+        return self.templates[key]
 
     def plan(self, row, entry, family):
         if family != "residential" or entry is None or row.get("clipped"):
@@ -179,4 +186,20 @@ def demand(current, view):
         return None
     nearest = float(q[:, 2].min()) - view.movement_m
     pixels = float("inf") if nearest <= 0 else view.focal_px * plan.width_m / nearest
-    return "through" if pixels >= 8 else "compact" if pixels >= 0.5 else None
+    if pixels >= 8:
+        return "through"
+    if pixels < 0.5:
+        return None
+    from tile_facade_recess import recess_error
+
+    directions = [
+        (np.r_[tangent, 0.0], plan.guard_m),
+        (np.r_[outward, 0.0], plan.guard_m),
+        (np.array([0.0, 0.0, 1.0]), plan.slab_m / 2),
+    ]
+    error = max(
+        recess_error(points, sign * axis, view, depth=size)
+        for axis, size in directions
+        for sign in (-1, 1)
+    )
+    return "plates" if error <= view.detail_error_px else "compact"

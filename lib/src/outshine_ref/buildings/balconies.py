@@ -129,3 +129,69 @@ def balcony_surface(plan, *, method="boundary", max_triangles=128):
         "faces": np.concatenate(faces).astype(np.uint32),
         "roles": np.concatenate(roles),
     }
+
+
+def balcony_plates(plan, *, max_triangles=16):
+    """Render-only16-triangle plates, not a closed/collision solid.
+
+    Slab skirts map along Z within slab_m/2; guard caps/ends and added deck
+    contacts map along X/Y within guard_m. Caller bounds these shifts in its
+    projection and retains the closed plan. No radiance/shadow/topology equivalence.
+    """
+    if (
+        not isinstance(plan, BalconyPlan)
+        or type(max_triangles) is not int
+        or max_triangles < 16
+    ):
+        raise ValueError("Balcony plates require a plan and16 triangle capacity")
+    l, r, front, back, g, h = (
+        -plan.width_m / 2,
+        plan.width_m / 2,
+        -plan.depth_m,
+        plan.back_m,
+        plan.guard_m,
+        plan.guard_height_m,
+    )
+    faces = [
+        ([(l, front, 0), (r, front, 0), (r, back, 0), (l, back, 0)], (0, 0, 1), 0),
+        (
+            [
+                (l, front, -plan.slab_m),
+                (r, front, -plan.slab_m),
+                (r, back, -plan.slab_m),
+                (l, back, -plan.slab_m),
+            ],
+            (0, 0, -1),
+            0,
+        ),
+        ([(l, front, 0), (r, front, 0), (r, front, h), (l, front, h)], (0, -1, 0), 1),
+        (
+            [
+                (l + g, front + g, 0),
+                (r - g, front + g, 0),
+                (r - g, front + g, h),
+                (l + g, front + g, h),
+            ],
+            (0, 1, 0),
+            1,
+        ),
+    ]
+    for x, start, normal in (
+        (l, front, (-1, 0, 0)),
+        (l + g, front + g, (1, 0, 0)),
+        (r, front, (1, 0, 0)),
+        (r - g, front + g, (-1, 0, 0)),
+    ):
+        faces.append(([(x, start, 0), (x, 0, 0), (x, 0, h), (x, start, h)], normal, 1))
+    points, roles = [], []
+    for quad, normal, role in faces:
+        q = np.asarray(quad)
+        if np.cross(q[1] - q[0], q[2] - q[0]) @ normal < 0:
+            q = q[::-1]
+        points.extend(q[[0, 1, 2, 0, 2, 3]])
+        roles.extend((role, role))
+    return {
+        "vertices": np.asarray(points),
+        "faces": np.arange(48, dtype=np.uint32).reshape(-1, 3),
+        "roles": np.asarray(roles, dtype=np.uint8),
+    }
