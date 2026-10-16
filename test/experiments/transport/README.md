@@ -14,6 +14,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
 - [Gemeinsamer Rezeptpilot](recipe_transport.md): tatsächlicher Quellverbund,
   Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
+- [Ganze äußere Radkorridore](stair_corridor_comparison.md): 23 Wiener Quellen,
+  ganze Anschlüsse, zehn Unterführungen und DEM-kontrolliertes Terrain im Budget.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.

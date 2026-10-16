@@ -17,13 +17,28 @@ def prepare(
     precision="legacy",
     interface="grid",
     variables="heights",
+    spacing_m=12.0,
+    sampling="uniform",
 ):
+    if sampling not in ("uniform", "transport_neighborhood"):
+        raise ValueError("known explicit terrain sampling required")
     ground, upper = selected_surfaces(data, rows)
     footprint = shapely.union_all(
         shapely.polygons(ground.vertices[ground.triangles, :2])
     )
+    transport = None
+    if sampling == "transport_neighborhood":
+        transport = shapely.union_all(
+            shapely.polygons(data["body_vertices"][data["top_faces"], :2])
+        )
     initial, note = partition(
-        ground, context, raster, sample=sample, interface=interface
+        ground,
+        context,
+        raster,
+        sample=sample,
+        interface=interface,
+        spacing_m=spacing_m,
+        transport=transport,
     )
     if precision != "legacy":
         initial["precision_mode"] = np.array(precision)
@@ -42,6 +57,9 @@ def prepare(
         layout["precision_mode"] = np.array(precision)
     if variables != "heights":
         layout["variable_mode"] = np.array(variables)
+    if sampling != "uniform":
+        initial["sampling_mode"] = np.array(sampling)
+        layout["sampling_mode"] = np.array(sampling)
     return (
         initial,
         layout,
