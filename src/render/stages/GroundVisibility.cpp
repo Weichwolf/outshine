@@ -7,6 +7,7 @@
 #include <cstring>
 #include <expected>
 #include <memory>
+#include <limits>
 #include <span>
 #include <utility>
 
@@ -32,6 +33,24 @@ using SidePlanes = std::array<std::array<float, 4>, 4>;
   return planes;
 }
 
+[[nodiscard]] bool
+Intersects(const SidePlanes &planes, const std::array<float, 4> &sphere, const Vec4f &shift) {
+  const float x = sphere[0] + shift[0];
+  const float y = sphere[1] + shift[1];
+  const float z = sphere[2] + shift[2];
+  return std::ranges::all_of(planes, [x, y, z, &sphere, &shift](const auto &plane) {
+    const float a = plane[0] * x;
+    const float b = plane[1] * y;
+    const float c = plane[2] * z;
+    const float allowance = 8.0f * std::numeric_limits<float>::epsilon() *
+                            (std::abs(plane[0]) * (std::abs(sphere[0]) + std::abs(shift[0])) +
+                             std::abs(plane[1]) * (std::abs(sphere[1]) + std::abs(shift[1])) +
+                             std::abs(plane[2]) * (std::abs(sphere[2]) + std::abs(shift[2])) +
+                             std::abs(plane[3]) + sphere[3]);
+    return !(a + b + c + plane[3] < -sphere[3] - allowance);
+  });
+}
+
 }
 
 Native::Result<void>
@@ -43,7 +62,7 @@ GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comman
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground visibility requires a device"});
   }
-  std::array<float, 3> shift{};
+  Vec4f shift{};
   for (size_t axis = 0; axis < 3; ++axis) {
     shift[axis] = static_cast<float>(anchorM[static_cast<int>(axis)] +
                                      ctx.PreViewTranslation[static_cast<int>(axis)]);
@@ -51,18 +70,7 @@ GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comman
   const SidePlanes planes = SidePlanesOf(ctx.Mvp);
   Seen_.clear();
   for (size_t at = 0; at < Held_.size(); ++at) {
-    const std::array<float, 4> &sphere = Bounds_[at];
-    const float x = sphere[0] + shift[0];
-    const float y = sphere[1] + shift[1];
-    const float z = sphere[2] + shift[2];
-    bool inside = true;
-    for (const std::array<float, 4> &plane : planes) {
-      if (plane[0] * x + plane[1] * y + plane[2] * z + plane[3] < -sphere[3]) {
-        inside = false;
-        break;
-      }
-    }
-    if (!inside) { continue; }
+    if (!Intersects(planes, Bounds_[at], shift)) { continue; }
     Seen_.push_back(Held_[at]);
     if (at < RealCount_) {
       ++VisibleReal_;
@@ -78,6 +86,31 @@ GroundLattice::Cull(const FrameContext &ctx, const Vec3 &anchorM, Native::Comman
       VisibleVirtual_ = 0;
       return copied;
     }
+  }
+  return {};
+}
+
+Native::Result<void> GroundLattice::Cast(const PassRecording &into,
+                                         const Mat4f &projection,
+                                         const Vec4f &shift,
+                                         std::span<const Native::Binding> bindings) const {
+  if (!DrawEnabled_) { return {}; }
+  const SidePlanes planes = SidePlanesOf(projection);
+  const auto total = static_cast<uint32_t>(Held_.size());
+  uint32_t at = 0;
+  while (at < total) {
+    if (!Intersects(planes, Bounds_[at], shift)) {
+      ++at;
+      continue;
+    }
+    const uint32_t first = at;
+    const bool real = at < RealCount_;
+    const uint32_t end = real ? RealCount_ : total;
+    do { ++at; } while (at < end && Intersects(planes, Bounds_[at], shift));
+    const uint32_t count = at - first;
+    const auto drawn = Draw(
+        into, Pipelines_->Depth(), Instances_, real ? count : 0, real ? 0 : count, bindings, first);
+    if (!drawn) { return drawn; }
   }
   return {};
 }

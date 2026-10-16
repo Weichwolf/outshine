@@ -39,6 +39,11 @@ constexpr float kDepthTolerance = 0.000001f;
 constexpr size_t kPaletteFloats = 30;
 constexpr float kNoRockSlope = 90;
 constexpr std::array<float, 4> kSurface{0.25f, 0.5f, 0.75f, 1.0f};
+constexpr std::array kTargetFormats{Format::Rgba32Float,
+                                    Format::Rgba32Float,
+                                    Format::Rgba32Float,
+                                    Format::Rgba32Float,
+                                    Format::Rg16Float};
 
 struct alignas(16) SubjectView {
   Mat4f Current = kIdentity, Previous = kIdentity, Light = kIdentity;
@@ -136,6 +141,8 @@ void Cast(Device &device, GroundLattice &ground, const std::string &prefix, bool
                        .Submission = submission,
                        .Area = {.Width = kWidth, .Height = kHeight},
                        .Clip = {.Width = kWidth, .Height = kHeight}},
+                      view.Light,
+                      view.Shift,
                       bindings));
   Require(commands->EndRenderPass());
   const auto done = Require(device.Submit(std::move(commands)));
@@ -161,12 +168,32 @@ void CheckTarget(SurfacePixels pixels, std::span<const float> value, const char 
   CHECK(errors == 0, message);
 }
 
+void CheckMetalRough(Device &device, Texture &texture, std::span<const float> depths) {
+  auto read = Require(RetryOffline(
+      [&] {
+        return ReadbackTransfer::Start(device, texture, {.Width = kWidth, .Height = kHeight});
+      },
+      std::chrono::seconds(5)));
+  auto bytes = Require(read.Wait(device, std::chrono::seconds(5)));
+  CHECK(bytes && bytes->size() == kPixels * 2 * sizeof(uint16_t),
+        "metallic/roughness retains its actual two-channel half-float format");
+  if (!bytes || bytes->size() != kPixels * 2 * sizeof(uint16_t)) { Failed(); }
+  std::vector<uint16_t> pixels(kPixels * 2);
+  std::memcpy(pixels.data(), bytes->data(), bytes->size());
+  bool correct = true;
+  constexpr uint16_t one = 0x3c00;
+  for (size_t i = 0; i < kPixels; ++i) {
+    correct &= pixels[i * 2] == 0 && pixels[i * 2 + 1] == (depths[i] > 0 ? one : 0);
+  }
+  CHECK(correct, "every metallic/roughness pixel preserves zero metal and unit roughness");
+}
+
 void Lit(Device &device, GroundLattice &ground, const std::string &prefix) {
   constexpr size_t colours = 5;
   std::array<std::unique_ptr<Texture>, colours> targets;
   std::array<ColourAttachment, colours> attachments;
   for (size_t i = 0; i < colours; ++i) {
-    targets[i] = Target(device, Format::Rgba32Float, false);
+    targets[i] = Target(device, kTargetFormats[i], false);
     attachments[i] = {.Image = {.Image = targets[i].get()}, .Begin = Load::Clear};
   }
   auto depth = Target(device, Format::Depth32Float, true);
@@ -232,11 +259,10 @@ void Lit(Device &device, GroundLattice &ground, const std::string &prefix) {
   const auto shaded = Read(device, *targets[0], 4);
   const auto normal = Read(device, *targets[1], 4);
   const auto identity = Read(device, *targets[2], 4);
-  const auto metalRough = Read(device, *targets[4], 4);
+  CheckMetalRough(device, *targets[4], depths);
   constexpr std::array<float, 4> unlit{0, 0, 0, 0};
   constexpr std::array<float, 4> normalValue{0, 0, 1, 1};
   constexpr std::array<float, 4> identityValue{1, 0, 0, 1};
-  constexpr std::array<float, 2> materialValue{0, kSurface[3]};
   CheckTarget({.Colour = shaded, .Depth = depths},
               unlit,
               "material capture retains its unlit radiance target");
@@ -246,20 +272,14 @@ void Lit(Device &device, GroundLattice &ground, const std::string &prefix) {
   CheckTarget({.Colour = identity, .Depth = depths},
               identityValue,
               "terrain identity reaches its own target");
-  CheckTarget({.Colour = metalRough, .Depth = depths},
-              materialValue,
-              "metallic and roughness outputs keep their component contract");
 }
 }
 
 int main(int argc, char **argv) {
   auto device = Require(CreateDevice({.Validation = true}));
   GroundLattice ground;
-  const std::array targets{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
-                           ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
-                           ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
-                           ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}},
-                           ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};
+  std::array<ColourTarget, kTargetFormats.size()> targets;
+  for (size_t at = 0; at < targets.size(); ++at) { targets[at].Texels = kTargetFormats[at]; }
   const SurfaceOutputs outputs{
       .NormalIndex = 1, .IdentityIndex = 2, .BaseIndex = 3, .MetalRoughIndex = 4};
   Require(RetryOffline([&] { return ground.Configure(*device, outputs, targets); },

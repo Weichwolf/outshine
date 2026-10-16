@@ -278,7 +278,7 @@ Native::Result<void> LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
   const auto bytes = std::as_bytes(std::span(&uniform, 1));
   const std::array bindings{
       Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
-  const auto ground = Subjects_->Ground().Cast(recording, bindings);
+  const auto ground = Subjects_->Ground().Cast(recording, uniform.Light, uniform.Shift, bindings);
   if (!ground) { return ground; }
   return CastSubjects(recording, bytes);
 }

@@ -1,8 +1,8 @@
 #include "GroundLattice.h"
-#include "NativeCommandsProxy.h"
-#include "NativeDeviceProxy.h"
-#include "NativeGpuCheck.h"
-#include "NativeOffline.h"
+#include "test/harness/render/NativeCommandsProxy.h"
+#include "test/harness/render/NativeDeviceProxy.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
 #include "Check.h"
 #include <array>
 #include <chrono>

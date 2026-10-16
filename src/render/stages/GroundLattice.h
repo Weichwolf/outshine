@@ -94,6 +94,8 @@ public:
   [[nodiscard]] Native::Result<void> Encode(const PassRecording &into,
                                             std::span<const Native::Binding> bindings) const;
   [[nodiscard]] Native::Result<void> Cast(const PassRecording &into,
+                                          const Mat4f &projection,
+                                          const Vec4f &shift,
                                           std::span<const Native::Binding> bindings) const;
 
   [[nodiscard]] uint64_t Generation() const { return Generation_; }
@@ -133,7 +135,8 @@ private:
                                           const std::unique_ptr<Native::Buffer> &instances,
                                           uint32_t real,
                                           uint32_t virtual_,
-                                          std::span<const Native::Binding> bindings) const;
+                                          std::span<const Native::Binding> bindings,
+                                          uint32_t first = 0) const;
 
   uint64_t Generation_ = 0;
   bool DrawEnabled_ = true;
