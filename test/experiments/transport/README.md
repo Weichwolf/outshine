@@ -326,6 +326,81 @@ lokale Prüfung,720p für den Eindruck. Keine durchgängige Fußroute, abgesenkt
 Querungen, Gebäudezugänge/-kollisionsfreiheit, neue Verbraucherreservation oder
 native/LOD-/Geräteabnahme daraus ableiten. Keine Bilderpublikation durch Fachagenten.
 
+## Lokale bündige Fußrampen (#385)
+
+`foot_ramp_experiment.py` ergänzt auf den tatsächlichen #364/#372-Produkten
+begrenzte Rampen an verwendeten Fußquellen. Ganze geneigte Kappen, Nullhöhenenden,
+seitliche Anschlüsse und atomare Randumbauten werden geprüft. Unlösbare Teile
+erhalten den alten Stand samt Grund. Ein lokales geometrisches Produkt belegt
+keine ganze Querung oder Fußroute. [Verfahren, Kosten, Bilder und Grenzen](foot_ramp_comparison.md).
+
+```sh
+PYTHONPATH="$TRANSPORT_SOLIDS_PACKAGE:lib/src:lib/tests:test/experiments/transport" OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest foot_ramp_checks
+PYTHONPATH="$TRANSPORT_SOLIDS_PACKAGE:lib/src:test/experiments/transport" OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/foot_ramp_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SURFACE_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --curbs "$TRANSPORT_CURB_OUTPUT" --sidewalks "$TRANSPORT_SIDEWALK_OUTPUT" --method contact --output "$TRANSPORT_RAMP_OUTPUT"
+PYTHONPATH="$TRANSPORT_SOLIDS_PACKAGE:lib/src:test/experiments/transport" OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/foot_ramp_verify.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_SURFACE_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --curbs "$TRANSPORT_CURB_OUTPUT" --sidewalks "$TRANSPORT_SIDEWALK_OUTPUT" --output "$TRANSPORT_RAMP_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_RAMP_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_RAMP_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/foot_ramp_cost.py --products "$TRANSPORT_RAMP_OUTPUT" --method vector --output "$TRANSPORT_RAMP_COST_VECTOR"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/foot_ramp_cost.py --products "$TRANSPORT_RAMP_OUTPUT" --method scalar --output "$TRANSPORT_RAMP_COST_SCALAR"
+```
+
+Explizite frische System-Temp-Ausgaben, sauber eingefrorene Quellen. Der bereits
+vorhandene optionale `solids`-Baustein benötigt `manifold3d==3.5.4` für den
+Körperschnitt-Gegenvergleich und dessen Kontrollen. Hier extern nach
+`/tmp/outshine-transport-ramp-385-solids` installiert; keine gemeinsame Umgebung
+verändert. Der gewählte Kontaktweg selbst braucht diesen Backendaufruf nicht.
+Optionales `--profile` im Kostenworker braucht `memray==1.20.0` nur für Messung.
+Regionale1280×720-Bilder bleiben lokal; `after-1080-scene.json` nur lokale Prüfung.
+Keine neue gemeinsame/native/Reservations-API oder Material-/Lichtparameter.
+
+## Weitere Radbrücke mit wirklichen Bodenanschlüssen (#404)
+
+Eine207-m-Radbrücke und ihre vorhandenen Bodenwege erhalten gemeinsame Profile,
+ganze Unterführungsflächen und20Pfeiler. Das feste lokale Quellen-/Bodenfixture
+reicht für die portablen Geometriekontrollen. Der vollständige Szenenvergleich
+liest die vorher erzeugten Netz-/Rampen-/Pfeilerprodukte explizit ein.
+[Verfahren, Double-/Float32-Abnahme, Kosten und Bildgrenzen](cycle_bridge_comparison.md).
+
+```sh
+PYTHONPATH="$TRANSPORT_SOLIDS_PACKAGE:lib/src:test/experiments/transport" "$TRANSPORT_PY" -W error -m unittest cycle_bridge_checks foot_ramp_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_verify.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --method chain --output "$TRANSPORT_CYCLE_COST_CHAIN"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --method lp --output "$TRANSPORT_CYCLE_COST_LP"
+```
+
+Nur frische Ausgaben im System-Temp; optionales `--profile` braucht das vorhandene
+`memray==1.20.0`. Keine neuen Runtime-/SDK-Abhängigkeiten. Die Szenen bleiben lokal
+und werden in1280×720 geprüft; keine Galerie oder neue Verbraucherfreigabe.
+Die verbindlichen12%/2.50m werden auch am tatsächlichen Float32-Produkt geprüft;
+konservative Baureserven ersetzen keine gelockerten Bedingungen.
+
+## Verbundene Autobahn- und Wegbrücken (#419)
+
+Zwei gegenläufige Fahrbahnen, neun Bodenanschlüsse und eine untere Wegbrücke über
+sechs echte affine Bodenzellen. Ganze Neigungs-/Durchfahrts-/Stützenkontakte,
+begrenzter örtlicher Rückfall und tatsächliche Float32-Produkte werden geprüft.
+[Verfahren, Quellen, Kosten, Bild und Grenzen](layered_bridge_comparison.md).
+`TRANSPORT_CYCLE_OUTPUT` ist die vollständige Szene aus #404,
+`TRANSPORT_RAMP_OUTPUT` liefert die erhaltenen Rand-/Rampenkörper aus #385.
+Ausgaben und Kostenpfade müssen frisch im System-Tempverzeichnis liegen.
+
+```sh
+PYTHONPATH="$TRANSPORT_SOLIDS_PACKAGE:lib/src:test/experiments/transport" "$TRANSPORT_PY" -W error -m unittest layered_bridge_checks cycle_bridge_checks foot_ramp_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/layered_bridge_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_CYCLE_OUTPUT" --borders "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_LAYERED_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/layered_bridge_verify.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_CYCLE_OUTPUT" --borders "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_LAYERED_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_LAYERED_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_LAYERED_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/layered_bridge_cost.py --products "$TRANSPORT_LAYERED_OUTPUT" --method chain --output "$TRANSPORT_LAYERED_COST_CHAIN"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/layered_bridge_cost.py --products "$TRANSPORT_LAYERED_OUTPUT" --method lp --output "$TRANSPORT_LAYERED_COST_LP"
+```
+
+`--support-method fixed` mit anderem frischem Erzeugerausgabepfad prüft den echten
+Teilnetzfall; denselben Reader darauf ausführen. Kosten optional mit `--profile`
+und vorhandenem `memray==1.20.0`; keine neue Runtime-/SDK-Abhängigkeit.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/

@@ -77,6 +77,8 @@ def window_parts(
     wall_material,
     plain_wall_material,
     entry,
+    excluded_columns=(),
+    excluded_cells=(),
 ):
     from facade_entry_geometry import basis_for
 
@@ -87,7 +89,12 @@ def window_parts(
         frame["rows"],
         *frame["fractions"],
     )
-    count = repeat.opening_count - int(entry is not None)
+    count = (
+        repeat.opening_count
+        - int(entry is not None)
+        - len(excluded_columns)
+        - len(excluded_cells)
+    )
     if count > remaining:
         raise ValueError("cell capacity or non-rectangular facade")
     basis = basis_for(frame)
@@ -118,6 +125,18 @@ def window_parts(
             (c + 1, 0, repeat.columns, 1),
             (0, 1, repeat.columns, repeat.rows),
         ]
+    if excluded_columns:
+        from tile_shopfronts import retained_ranges
+
+        excluded = set(excluded_columns) | ({entry["column"]} if entry else set())
+        bounds = retained_ranges(frame, excluded)
+    if excluded_cells:
+        from outshine_ref.buildings.facade_cells import cell_complement
+
+        excluded = {(c, 0) for c in excluded_columns} | set(excluded_cells)
+        if entry:
+            excluded.add((entry["column"], 0))
+        bounds = cell_complement(repeat, tuple(sorted(excluded)))
     output = []
     for bound in bounds:
         if plan.count(bound) == 0:
@@ -147,6 +166,74 @@ def window_parts(
 
 
 def attach(
+    mesh,
+    source,
+    parameters,
+    facades,
+    view,
+    glass_material,
+    wall_material,
+    *,
+    plain_wall_material,
+    max_cells=4096,
+    entrance=None,
+    shopfront=None,
+    shop_material=None,
+    balconies=None,
+    bays=None,
+):
+    if balconies is not None and bays is not None:
+        raise ValueError("One upper projection programme per facade required")
+    if balconies is not None or bays is not None:
+        from tile_upper_cells import attach as upper_cells
+
+        return upper_cells(
+            mesh,
+            source,
+            parameters,
+            facades,
+            view,
+            glass_material,
+            wall_material,
+            plain_wall_material=plain_wall_material,
+            max_cells=max_cells,
+            entrance=entrance,
+            shopfront=shopfront,
+            shop_material=shop_material,
+            projections=bays if bays is not None else balconies,
+        )
+    if shopfront is not None:
+        from tile_shopfronts import attach as shopfronts
+
+        return shopfronts(
+            mesh,
+            source,
+            parameters,
+            facades,
+            view,
+            glass_material,
+            wall_material,
+            plain_wall_material=plain_wall_material,
+            max_cells=max_cells,
+            entrance=entrance,
+            shopfront=shopfront,
+            shop_material=shop_material,
+        )
+    return attach_recesses(
+        mesh,
+        source,
+        parameters,
+        facades,
+        view,
+        glass_material,
+        wall_material,
+        plain_wall_material=plain_wall_material,
+        max_cells=max_cells,
+        entrance=entrance,
+    )
+
+
+def attach_recesses(
     mesh,
     source,
     parameters,

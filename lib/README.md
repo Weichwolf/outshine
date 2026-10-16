@@ -651,6 +651,14 @@ The [compact tree-entry reference](../test/experiments/vegetation/tree_entry.md)
 provides an unchanged existing64-axis/571-leaf recipe, fixed canonical rows and
 an executable cache-only whole-plant consumer for native comparison (#367).
 
+[`StandHabitat` and `HabitatStand`](habitat_stand.md) prepare source-bound integer
+stand parents without enumerating individual trees. Canonical leaf sites are an
+explicit bounded demand; source support, saved cells and layout identity persist.
+
+[`BladeCutout`](blade_cutout.md) preserves authored asymmetric polygon margins and
+holes on an existing curved Blade carrier, with separate fold/petiole normals and
+bounded requested meshes. It does not change old PlantPlan recipes or statistics.
+
 ### Frond guides, source patterns and cross-section curl
 
 `PinnatePattern` creates own planar pinnate sources with stable organ IDs and
@@ -984,3 +992,15 @@ ermittelt. Vertrag, Kosten und optisch geprüfter Grasverbrauch: [ground_cover.m
 analytischen Normalen, geschlossener Ansatzkappe, offener Mündung und expliziten
 Eck-UVs. Herleitung, Unterteilungsgrenzen und tatsächlicher blühender Verbraucher:
 [bellflower.md](bellflower.md) (#316).
+
+The actual Python city consumer also reuses `FacadeRepeat`/`RecessPlan` for bounded retail/food ground-floor display fronts (#377), with unchanged upper-cell scale and shared entrance anchors. Provider-use/host/level and frontage policy stays in `test/experiments/buildings/facade_shopfronts.py`; no second library planner or native contract is introduced. Reproduction and limits are in the building experiment README.
+
+`buildings.balconies.BalconyPlan/balcony_surface` supplies a bounded local deck/U-guard solid with40 exterior triangles, explicit deck/guard roles and caller-owned geometry. Four-prism union and separate-part controls describe the same solid. Caller owns materials/UVs, attachment, demand, collision and access; this primitive provides no source classification or room planner. `buildings.facade_cells.cell_complement` subtracts at most128 explicit existing cells from a FacadeRepeat as bounded disjoint index rectangles, without expanding the complete grid. Actual ordinary-facade consumers and functional counterexamples: building experiment README (#388).
+
+`buildings.balconies.balcony_plates` is the separate16-triangle open render approximation; it is never the closed physical/collision solid. Dropped surfaces map along Z within slab/2 or X/Y within guard thickness. The actual consumer must bound these displacements in its projection and preserve the closed plan; no light/shadow/topology equivalence is promised.
+
+
+`buildings.window_bays.WindowBay/bay_surface` supplies metrically related rectangular/chamfered open-backed window-bay components. Roles0/1/2/3 are wall/floor/ceiling/glass; `method="parts"` retains explicit component IDs and individually closed prisms, while the existing union comparison rejects outputs that lose volume/topology on actual mesh re-import. `bay_skin` is a separate86-triangle external-only render surface, never the physical/collision solid. Caller owns source fitting, materials/UVs, attachment, demand, access and light/shadow/LOD admission. Actual ordinary-facade consumers, independent controls, counterexamples and reproduction are documented in the building experiments (#408).
+
+
+`buildings.window_bays.bay_flat(plan, back_covered=True)` supplies a separate46-triangle open exterior. Three panes move outward by `(wall_m-glass_m)/2`; removed reveals map along the same three directions. Only the exposed Y≤0 domain has this positional bound. Omitted attachment pieces at Y>0 require the caller's opaque source-cell cover. No interior/collision, topology, radiance or shadow equivalence. The building consumer admits this product using the existing directional projection bound over conservative bounds/camera movement; otherwise it retains86triangles, with full physical parts near/inside. Both render constructors now bypass hidden section/post construction; prior skin/physical arrays are preserved in representative paired controls (#428).

@@ -56,7 +56,7 @@ void CheckInstances(bool clustered) {
   eye.ZNearM = 0.1;
   eye.ZFarM = 20000;
   scene->Eye(eye);
-  renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true);
+  renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true, 0);
   std::array<StoredVertex, 8> vertices{};
   for (size_t at = 0; at < vertices.size(); ++at) {
     vertices[at] = StoredVertex::Of(
@@ -69,7 +69,10 @@ void CheckInstances(bool clustered) {
                                              .ParentRadius = 14,
                                              .ParentErr = kDagRootErr,
                                              .Count = kBoxIndices.size()}}};
-  PieceMesh piece{.Verts = vertices, .Indices = kBoxIndices, .Instances = rows};
+  PieceMesh piece;
+  piece.Verts = vertices;
+  piece.Indices = kBoxIndices;
+  piece.Instances = rows;
   if (clustered) { piece.Clusters = clusters; }
   const auto id = renderer.PlacePiece(piece, error);
   CHECK(id != kNoPiece, id == kNoPiece ? error.c_str() : "instance prototype is resident");

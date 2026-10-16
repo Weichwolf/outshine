@@ -5,13 +5,27 @@ import shapely
 from facade_entry_geometry import basis_for
 
 
-def remainder(mesh, selected, entry):
+def remainder(mesh, selected, entry, *, excluded_columns=(), excluded_cells=()):
     frame = entry["frame"]
     basis = basis_for(frame)
     origin = np.r_[frame["a"], 0.0]
     scale = np.array([entry["cell_width_m"], entry["floor_m"]])
     low = entry["column"] * scale[0]
     cell = shapely.box(low, 0.0, low + scale[0], scale[1])
+    if excluded_columns or excluded_cells:
+        cell = shapely.union_all(
+            [cell]
+            + [
+                shapely.box(c * scale[0], 0.0, (c + 1) * scale[0], scale[1])
+                for c in excluded_columns
+            ]
+            + [
+                shapely.box(
+                    c * scale[0], r * scale[1], (c + 1) * scale[0], (r + 1) * scale[1]
+                )
+                for c, r in excluded_cells
+            ]
+        )
     indices = np.flatnonzero(selected)
     if len(indices) > 256:
         raise ValueError("Entrance clipping exceeds 256 source triangles")

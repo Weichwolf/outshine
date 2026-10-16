@@ -1,6 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "medium.glsl"
+#include "clearSun.glsl"
 #include "skyViewLookup.glsl"
 #define SCENE_FLOAT(name, value) const float name = value;
 #include "render/stages/SceneConstants.inc"
@@ -41,15 +41,7 @@ void main() {
 
   float cosToSun = dot(dir, normalize(pushed.sunDir.xyz));
   if (!sampled.HitsGround && cosToSun > cos(pushed.sunHalfAngleRad)) {
-    float reach = mediumTopReach(pushed.air, radiusKm, cosView);
-    float span = sqrt(max(0.0, pushed.topRadiusKm * pushed.topRadiusKm -
-                               pushed.bottomRadiusKm * pushed.bottomRadiusKm));
-    float ground = sqrt(max(0.0, radiusKm * radiusKm -
-                                 pushed.bottomRadiusKm * pushed.bottomRadiusKm));
-    float shortest = pushed.topRadiusKm - radiusKm;
-    float longest = ground + span;
-    vec2 uv = vec2((reach - shortest) / max(1.0e-6, longest - shortest), ground / max(1.0e-6, span));
-    vec3 through = textureLod(veil, uv, 0.0).rgb;
+    vec3 through = clearSunPhysicalTransfer(pushed.air, MediumLook(radiusKm, cosView), veil);
     float solid = OUTSHINE_PI * pushed.sunHalfAngleRad * pushed.sunHalfAngleRad;
     luminance += through * (pushed.illuminance / solid);
   }

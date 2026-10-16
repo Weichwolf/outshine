@@ -3,6 +3,7 @@
 
 #ifdef __linux__
 #include "Buffer.h"
+#include "BindingStorage.h"
 #include "RenderState.h"
 #include "Presenter.h"
 #include "VulkanImage.h"
@@ -18,7 +19,7 @@ namespace outshine::Render::Native::Vulkan {
 class Recording final : public Commands {
 public:
   explicit Recording(std::shared_ptr<Context> context)
-      : Context_(std::move(context)), Timings_(*Context_) {
+      : Context_(std::move(context)), Timings_(*Context_), Storage_(Context_) {
     ++Context_->Recordings;
     ++Context_->OpenRecordings;
   }
@@ -39,6 +40,12 @@ public:
   [[nodiscard]] VkCommandBuffer Handle() const noexcept { return Commands_; }
 
   [[nodiscard]] GpuTimingResults Timings() const { return Timings_.Read(); }
+
+  [[nodiscard]] Result<SubmissionGpuTiming> SubmissionTime() const {
+    return Timings_.ReadSubmission();
+  }
+
+  [[nodiscard]] const BindingWork &BindingCosts() const noexcept { return Storage_.Work(); }
 
   [[nodiscard]] Result<void>
   Copy(const Buffer &source, Buffer &destination, BufferCopy region) override;
@@ -92,7 +99,6 @@ private:
                                                         VkPipelineStageFlags2 stages);
 
   void Use(const BufferState &buffer, ByteRange range, BufferAccess access);
-  [[nodiscard]] Result<std::vector<VkDescriptorSet>> AllocateSets(const PipelineState &pipeline);
   [[nodiscard]] Result<std::vector<VkDescriptorSet>>
   BindResources(const PipelineState &pipeline,
                 std::span<const ShaderBinding> layout,
@@ -118,14 +124,13 @@ private:
   TimingQueries Timings_;
   VkCommandPool Pool_ = VK_NULL_HANDLE;
   VkCommandBuffer Commands_ = VK_NULL_HANDLE;
-  VkDescriptorPool Descriptors_ = VK_NULL_HANDLE;
   bool Finished_ = false;
   bool Submitted_ = false;
   std::vector<TrackedImage> Images_;
-  std::vector<VkImageView> Views_;
   std::vector<std::shared_ptr<SamplerState>> Samplers_;
   std::vector<std::shared_ptr<BufferState>> Buffers_;
   std::vector<std::shared_ptr<PipelineState>> Pipelines_;
+  BindingStorage Storage_;
 };
 
 }

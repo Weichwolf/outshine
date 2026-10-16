@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -52,6 +53,11 @@ struct GpuTimingResults {
   uint64_t DispatchCount = 0;
   bool Truncated = false;
   std::vector<DispatchTiming> Dispatches;
+};
+
+struct SubmissionGpuTiming {
+  CompletionStatus Status = CompletionStatus::Pending;
+  double ElapsedNanoseconds = std::numeric_limits<double>::quiet_NaN();
 };
 
 struct DeviceOptions {
@@ -116,6 +122,12 @@ public:
   GpuTimings([[maybe_unused]] Completion completion) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Unsupported, .Message = "native dispatch timing unavailable"});
+  }
+
+  [[nodiscard]] virtual Result<SubmissionGpuTiming>
+  SubmissionGpuTime([[maybe_unused]] Completion completion) {
+    return std::unexpected(
+        Error{.Kind = ErrorKind::Unsupported, .Message = "native submission timing unavailable"});
   }
 
 protected:

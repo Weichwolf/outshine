@@ -20,6 +20,7 @@ SOURCES = tuple(
     f"test/experiments/weather/cloud_view_{name}.cpp"
     for name in ("native", "cases", "targets", "capture")
 ) + (
+    "test/experiments/weather/cloud_sky_cases.cpp",
     "test/experiments/render/medium_view_reference.cpp",
     "test/experiments/render/medium_view_images.cpp",
 )
@@ -54,6 +55,10 @@ def main():
     parser.add_argument("--view-samples", type=int, choices=range(1, 65), default=16)
     parser.add_argument("--light-samples", type=int, choices=range(1, 33), default=6)
     parser.add_argument("--warp", type=int, choices=(1, 2), default=1)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--boundary-sky", action="store_true")
+    mode.add_argument("--cumulus-sky", action="store_true")
+    mode.add_argument("--stratus-sky", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -83,12 +88,6 @@ def main():
         return result.stdout
 
     producer = run(["git", "rev-parse", "HEAD"], "producer", archive_root).strip()
-    if run(
-        ["git", "diff", "--name-only", producer, "--", "src", "include"], "matching"
-    ):
-        raise RuntimeError(
-            "current production code/headers do not match the archive's producer"
-        )
     if run(
         ["git", "status", "--porcelain", "--", "src", "include"],
         "producer-clean",
@@ -121,7 +120,10 @@ def main():
             *shlex.split(os.environ.get("CXX", "c++")),
             *toolchain,
             "-fno-exceptions",
-            *(f"-I{path}" for path in INCLUDES),
+            *(
+                f"-I{archive_root / path if path.startswith(('src', 'include')) else ROOT / path}"
+                for path in INCLUDES
+            ),
             *SOURCES,
             archive,
             *link,
@@ -136,6 +138,9 @@ def main():
         "CLOUD_VIEW_SAMPLES": args.view_samples,
         "CLOUD_LIGHT_SAMPLES": args.light_samples,
         "CLOUD_VIEW_WARP": args.warp,
+        "CLOUD_VIEW_BOUNDARY_SKY": int(
+            args.boundary_sky or args.cumulus_sky or args.stratus_sky
+        ),
     }
     for source in SHADERS:
         target = output / (Path(source).name + ".spv")
@@ -158,7 +163,23 @@ def main():
             Path(source).name,
         )
         shader_paths.append(str(target))
-    run([binary, *shader_paths, output / "actual"], "actual")
+    run(
+        [
+            binary,
+            *shader_paths,
+            output / "actual",
+            *(
+                [43, 31, "all", "cumulus-sky"]
+                if args.cumulus_sky
+                else [43, 31, "all", "stratus-sky"]
+                if args.stratus_sky
+                else [43, 31, "all", "boundary-sky"]
+                if args.boundary_sky
+                else []
+            ),
+        ],
+        "actual",
+    )
     record.update(
         commit=run(["git", "rev-parse", "HEAD"], "commit").strip(),
         dirty=run(["git", "status", "--porcelain"], "status").strip(),
@@ -177,6 +198,9 @@ def main():
                 "src/render/shaders/mediumViewAir.glsl",
                 "src/render/shaders/mediumOpaque.glsl",
                 "test/experiments/weather/cloud_air_prefix.glsl",
+                "test/experiments/weather/cloud_view_boundary.glsl",
+                "src/generators/weather/shaders/cloudLayer.glsl",
+                "src/generators/weather/shaders/cloudCumulus.glsl",
             )
         },
         parameters=definitions,

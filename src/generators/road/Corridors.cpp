@@ -21,6 +21,8 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <limits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -517,7 +519,7 @@ void Corridors::RaiseDeckOver(const Path::Network::Crossing &one,
   const size_t b = net.TagOf(one.UnderWay);
   const ::outshine::Generators::Osm::StreetField::Way &first = ways.Ways()[a];
   const ::outshine::Generators::Osm::StreetField::Way &second = ways.Ways()[b];
-  if (first.Bridge == second.Bridge) { return; }
+  if (first.PointCount < 2 || second.PointCount < 2 || first.Bridge == second.Bridge) { return; }
   const LongitudeLatitude at{.LongitudeDeg = one.LongitudeDeg, .LatitudeDeg = one.LatitudeDeg};
   if (PlannedNodeAt(on, first, at) == PlannedNodeAt(on, second, at)) { return; }
   const size_t spans = first.Bridge ? a : b;
@@ -1428,218 +1430,23 @@ Corridors::SharedNodesOf(const ::outshine::Generators::Osm::StreetField &ways,
   return shared;
 }
 
-bool Corridors::PaveLanes(const Paving &on,
-                          Paved &into,
-                          std::vector<EarthworkStamp> &corridor,
-                          RoadMeshBuffers &pavement,
-                          std::chrono::steady_clock::time_point &tookFrom) const {
-  const auto since = [&tookFrom] {
-    const auto was = tookFrom;
-    tookFrom = std::chrono::steady_clock::now();
-    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
-  };
-  static const Heap::Tag kPavingHeapTag("road-pave");
-  const Heap::Tagged pavingHeap(kPavingHeapTag);
-  for (const Pass pass : {Pass::Designing, Pass::Paving}) {
-    const std::string_view doing = Doing(pass);
-    for (size_t laneAt = 0; laneAt < on.Ways.Ways().size(); ++laneAt) {
-      PaveLane(on, pass, laneAt, into, corridor, pavement);
-    }
-    Notes(into, std::format("streets: of that, {} every lane", doing), since(), "ms");
-    const std::string_view fitting = pass == Pass::Designing ? doing : "profile preparation";
-    Notes(into, std::format("streets: of {}, the fit", fitting), into.FitMs, "ms");
-    Notes(into, std::format("streets: of {}, the water", doing), into.WaterMs, "ms");
-    Notes(into, std::format("streets: of {}, the sweep", doing), into.SweepMs, "ms");
-    Notes(into, std::format("streets: of {}, the yields", doing), into.YieldsMs, "ms");
-    Notes(into,
-          std::format("streets: of {}, stations paved", doing),
-          static_cast<double>(into.EdgeStations),
-          "stations");
-    into.FitMs = 0.0;
-    into.WaterMs = 0.0;
-    into.SweepMs = 0.0;
-    if (pass == Pass::Designing) {
-      if (into.HasRaisedDecks()) { ResolveBridgeConnections(on, into); }
-      RecordBridgeConnectionMetrics(into);
-      Notes(into, "streets: of that, raising the decks", since(), "ms");
-      SplitsEdges(into);
-      GroupTerrainContacts(on, into);
-      ShapesJunctions(on, into);
-      for (size_t edge = 0; edge < into.Edges.size(); ++edge) { PrepareProfile(edge, on, into); }
-      if (const auto plan = PlanHeights(on, into); !plan) {
-        Notes(into, std::string(plan.error()), 1.0, "refusal");
-        return false;
-      }
-      for (const auto &junction : into.Junctions) {
-        AppendJunctionTerrainStamp(junction, junction.RootsM, junction.Elevated, into);
-      }
-      corridor.insert(corridor.end(),
-                      std::make_move_iterator(into.UnderJunctions.begin()),
-                      std::make_move_iterator(into.UnderJunctions.end()));
-      into.UnderJunctions.clear();
-      RecordJunctionMetrics(into);
-      Notes(into, "streets: of that, shaping the junctions", since(), "ms");
-    }
-  }
-  return true;
-}
-
-void Corridors::RaiseJunctionsAndRecordRoadMeasurements(const Site &site,
-                                                        int waterRow,
-                                                        Paved &into,
-                                                        RoadMeshBuffers &pavement) const {
-  const auto &ways = site.Ways;
-  const auto &classStructure = site.Classes;
-  Notes(into,
-        "streets: stations under a bridge asked",
-        static_cast<double>(into.AskedOverBridge),
-        "stations");
-  Notes(into,
-        "streets: of those a class named",
-        static_cast<double>(into.NamedOverBridge),
-        "stations");
-  Notes(into, "streets: and of those, water", static_cast<double>(into.WetOverBridge), "stations");
-  Notes(into, "streets: the water class the table names", static_cast<double>(waterRow), "index");
-  Notes(into, "streets: a class structure stood", classStructure ? 1.0 : 0.0, "yes/no");
-  Notes(
-      into, "streets: decks a WATERWAY raised", static_cast<double>(into.DecksOverWater), "decks");
-  Notes(into, "streets: and the clearance the widest one took", into.MostOverWaterM, "m");
-  const auto junctionsAt = std::chrono::steady_clock::now();
-  Notes(into,
-        "streets: junction bodies raised",
-        static_cast<double>(RaisesTheJunctionBodies(into, pavement)),
-        "junctions");
-  Notes(into,
-        "streets: of that, raising the junction bodies",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - junctionsAt)
-            .count(),
-        "ms");
-  TellsWhatTheFitFound(into);
-  Notes(into,
-        "streets: ways laid as ribbons, all of them FLOATING",
-        static_cast<double>(into.LaidWays),
-        "ways");
-  Notes(into,
-        "streets: ways the GROUND carries instead",
-        static_cast<double>(into.GroundWays),
-        "ways");
-  Notes(into, "streets: ways the field holds", static_cast<double>(ways.Ways().size()), "ways");
-  Notes(into,
-        "streets: features it walked at all",
-        static_cast<double>(ways.LookedCount()),
-        "features");
-  Notes(into,
-        "streets: features no rule named",
-        static_cast<double>(ways.UnruledCount()),
-        "features");
-  Notes(into,
-        "streets: features a rule gave no width",
-        static_cast<double>(ways.UnwidthedCount()),
-        "features");
-  Notes(into,
-        "streets: features that are tunnels",
-        static_cast<double>(ways.TunnelCount()),
-        "features");
-  Notes(into, "streets: ways OSM calls a bridge", static_cast<double>(ways.BridgeCount()), "ways");
-  Notes(into, "streets: ways that state a layer", static_cast<double>(ways.LayeredCount()), "ways");
-  Notes(into,
-        "streets: ways whose layer is a STRING",
-        static_cast<double>(ways.LayerSaidCount()),
-        "ways");
-  Notes(into, "streets: ways it refused", static_cast<double>(into.RefusedWays), "ways");
-}
-
 bool Corridors::Lay(const Site &site,
                     Geometry &ground,
                     std::vector<EarthworkStamp> &corridor,
                     std::vector<DiagnosticSample> &notes) const {
-  const TangentFrame &standing = site.Standing;
-  const std::shared_ptr<const ClassStructure> &classStructure = site.Classes;
-  const Drape &drapedOver = site.Draped;
-  RoadMeshBuffers pavement;
-  Paved into;
-  Notes(into,
-        "rebuild: of that, the drape the buildings stand on",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - site.CensusAt)
-            .count(),
-        "ms");
-  const ::outshine::Generators::Osm::StreetField &ways = site.Ways;
-  const ::outshine::Generators::Osm::OsmField *const vectors = site.Vectors;
-  into.DeckM.assign(ways.Ways().size(), -kBeyondAnyCoordinate);
-  into.Designed.resize(ways.Ways().size());
-  const int waterRow = site.Materials.Find("water");
-  std::unordered_map<uint64_t, uint32_t> sharedNodes;
-  std::unordered_map<uint64_t, uint64_t> joinedNodes;
-  std::optional<Paving> paving;
-  if (vectors != nullptr) {
-    sharedNodes = SharedNodesOf(ways, vectors->Points());
-    joinedNodes = EndpointNodesOf(ways, *vectors, standing);
-    paving.emplace(Paving{.Materials = site.Materials,
-                          .Vegetation = site.Vegetation,
-                          .Ground = site.Ground,
-                          .Network = site.Network,
-                          .Ways = ways,
-                          .Vectors = *vectors,
-                          .Points = vectors->Points(),
-                          .SharedNodes = sharedNodes,
-                          .JoinedNodes = joinedNodes,
-                          .Draped = drapedOver,
-                          .Standing = standing,
-                          .Classes = classStructure,
-                          .WaterUpM = site.WaterUpM,
-                          .WaterRow = waterRow,
-                          .EyeLatDeg = site.EyeLatDeg,
-                          .EyeLonDeg = site.EyeLonDeg,
-                          .Projection = site.Projection});
+  auto job = Begin(site);
+  for (;;) {
+    const auto ready = Advance(*job, site, 256, 256, ground, corridor, notes);
+    if (!ready) {
+      Notes(job->Work, std::string(ready.error()), 1, "refusal");
+      notes = std::move(job->Work.Notes);
+      return false;
+    }
+    if (*ready) {
+      std::erase_if(notes, [](const auto &note) { return note.Unit == "advances"; });
+      return true;
+    }
   }
-
-  auto tookFrom = std::chrono::steady_clock::now();
-  const auto since = [&tookFrom] {
-    const auto was = tookFrom;
-    tookFrom = std::chrono::steady_clock::now();
-    return std::chrono::duration<double, std::milli>(tookFrom - was).count();
-  };
-  const auto pavesAt = std::chrono::steady_clock::now();
-  if (paving) { Crosses(*paving, into); }
-  Notes(into, "streets: of that, finding the crossings", since(), "ms");
-  Notes(
-      into, "streets: of finding them, laying the lanes into a network", into.CrossNetworkMs, "ms");
-  Notes(into, "streets: of finding them, the sweep itself", into.CrossSweepMs, "ms");
-  Notes(into, "streets: of finding them, filing each one", into.CrossFilingMs, "ms");
-  Notes(into, "streets: of finding them, raising a deck over each", into.CrossDecksMs, "ms");
-  Notes(into,
-        "streets: of finding them, pairs the sweep tested",
-        static_cast<double>(into.PairsTested),
-        "pairs");
-  Notes(into,
-        "streets: and pairs its boxes threw out first",
-        static_cast<double>(into.PairsPruned),
-        "pairs");
-  Notes(into,
-        "streets: segments in the fullest square",
-        static_cast<double>(into.FullestCell),
-        "segments");
-  if (paving && !PaveLanes(*paving, into, corridor, pavement, tookFrom)) {
-    notes = std::move(into.Notes);
-    return false;
-  }
-  RaiseJunctionsAndRecordRoadMeasurements(site, waterRow, into, pavement);
-  const size_t pavedTriangles = pavement.Index.size() / 3;
-  Notes(into, "streets: triangles", static_cast<double>(pavedTriangles), "triangles");
-  const auto handingAt = std::chrono::steady_clock::now();
-  if (!HandsThePavingOver(site.Materials, pavement, into, ground)) { return false; }
-  Notes(into,
-        "streets: of that, handing the paving over",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - handingAt)
-            .count(),
-        "ms");
-  Notes(
-      into,
-      "streets: everything Paves did",
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pavesAt).count(),
-      "ms");
-  notes = std::move(into.Notes);
-  return true;
 }
 
 std::unique_ptr<Corridors::Job> Corridors::Begin(const Site &site) {
@@ -1783,6 +1590,76 @@ struct Corridors::JobSlice {
   }
 };
 
+namespace {
+
+std::string SourceOfWay(const Osm::OsmField &vectors, const Osm::StreetField::Way &way) {
+  const auto rings = vectors.Rings();
+  for (const auto &feature : vectors.Features()) {
+    for (size_t i = 0; i < feature.RingCount; ++i) {
+      const auto &ring = rings[feature.FirstRing + i];
+      if (ring.First == way.FirstPoint && ring.Count == way.PointCount) {
+        if (const auto sourceId = feature.ProviderFeatureId; sourceId.has_value()) {
+          return std::to_string(*sourceId);
+        }
+        return "declared";
+      }
+    }
+  }
+  return "unidentified";
+}
+
+}
+
+bool Corridors::RetainValidWays(Job &job, const JobSlice &slice) {
+  constexpr size_t kOmissionsMost = 8;
+  if (job.Omissions.size() >= kOmissionsMost || slice.vectors == nullptr) { return false; }
+  using Selection = std::tuple<bool, int32_t, bool, double, size_t>;
+  std::optional<Selection> choice;
+  for (const size_t index : job.Work.ConflictingWays) {
+    const auto &way = slice.ways.Ways()[index];
+    if (way.PointCount < 2) { continue; }
+    const auto &along = job.Work.Designed[index];
+    double lengthM = 0;
+    for (size_t at = 1; at < along.size(); ++at) {
+      lengthM += std::hypot(along[at].EastM - along[at - 1].EastM,
+                            along[at].NorthM - along[at - 1].NorthM);
+    }
+    const Selection candidate{way.TrafficKind != Osm::StreetField::Traffic::Path,
+                              way.Priority,
+                              way.Bridge,
+                              lengthM,
+                              index};
+    if (!choice || candidate < *choice) { choice = candidate; }
+  }
+  if (!choice) { return false; }
+  const size_t selected = std::get<size_t>(*choice);
+  auto retained = slice.ways.Without(selected);
+  const auto source = SourceOfWay(*slice.vectors, slice.ways.Ways()[selected]);
+  Log::Warn(LogTag::World,
+            "road_source_omitted",
+            {{"source", source},
+             {"way", static_cast<int64_t>(selected)},
+             {"reason", std::string{"junction_capacity"}}});
+  auto omissions = std::move(job.Omissions);
+  omissions.push_back(
+      {.Name = std::format(
+           "streets: unused source {} native way {}: junction capacity", source, selected),
+       .Value = 1,
+       .Unit = "ways"});
+  const double spentMs = job.TotalMs + slice.Elapsed();
+  const auto advances = job.StageAdvances;
+  const auto longest = job.LongestSliceMs;
+  auto previous = std::make_unique<Job>(std::move(job));
+  job = Job(slice.site);
+  job.RetainedWays = std::move(retained);
+  job.Omissions = std::move(omissions);
+  job.Retiring = std::move(previous);
+  job.TotalMs = spentMs;
+  job.StageAdvances = advances;
+  job.LongestSliceMs = longest;
+  return true;
+}
+
 std::expected<bool, std::string_view>
 Corridors::Advance(Job &job,
                    const Site &site,
@@ -1795,13 +1672,20 @@ Corridors::Advance(Job &job,
     return std::unexpected(Says::kRetiredCorridorJob);
   }
   const auto *vectors = site.Vectors;
-  const auto &ways = site.Ways;
+  const auto &ways = job.RetainedWays ? *job.RetainedWays : site.Ways;
   if ((vectors != nullptr ? vectors->Generation() : 0) != job.VectorGeneration ||
-      ways.Ways().size() != job.WayCount) {
+      site.Ways.Ways().size() != job.WayCount) {
     return std::unexpected(Says::kStaleCorridorInput);
   }
   if (job.Phase == Job::Stage::Done) { return true; }
   const auto began = std::chrono::steady_clock::now();
+  if (job.Retiring) {
+    const bool retired = job.Retiring->RetireStep(std::max(size_t{1}, lanesMost));
+    if (retired) { job.Retiring.reset(); }
+    job.TotalMs +=
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
+    return false;
+  }
   const int waterRow = site.Materials.Find("water");
   if (job.Phase == Job::Stage::Prepare && vectors != nullptr) {
     job.SharedNodes = SharedNodesOf(ways, vectors->Points());
@@ -1893,6 +1777,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceCrossings(Job &job, cons
   Paved &into = job.Work;
   switch (job.Phase) {
     case Job::Stage::Prepare:
+      into.Notes.insert(into.Notes.end(), job.Omissions.begin(), job.Omissions.end());
       Notes(into,
             "rebuild: of that, the drape the buildings stand on",
             std::chrono::duration<double, std::milli>(began - site.CensusAt).count(),
@@ -2205,6 +2090,7 @@ std::expected<bool, std::string_view> Corridors::AdvanceRoadProfiles(Job &job,
     case Job::Stage::Heights:
       if (slice.paving != nullptr) {
         if (const auto plan = PlanHeights(*slice.paving, into); !plan) {
+          if (RetainValidWays(job, slice)) { return false; }
           return std::unexpected(plan.error());
         }
       }

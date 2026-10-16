@@ -32,6 +32,7 @@ struct Pending {
 struct CompletedTiming {
   uint64_t Serial = 0;
   GpuTimingResults Results;
+  Result<SubmissionGpuTiming> Submission;
 };
 
 class VulkanDevice final : public Device {
@@ -240,6 +241,25 @@ public:
     return timing->Results;
   }
 
+  [[nodiscard]] Result<SubmissionGpuTiming> SubmissionGpuTime(Completion completion) override {
+    const auto status = Poll(completion);
+    if (!status) { return std::unexpected(status.error()); }
+    if (!Context_->GpuTiming) {
+      return std::unexpected(
+          Error{.Kind = ErrorKind::Unsupported,
+                .Message = "Vulkan submission timing is disabled or unavailable"});
+    }
+    if (*status == CompletionStatus::Pending) { return SubmissionGpuTiming{}; }
+    const auto timing = std::ranges::find_if(Timings_, [completion](const CompletedTiming &entry) {
+      return entry.Serial == completion.Serial;
+    });
+    if (timing == Timings_.end()) {
+      return std::unexpected(Error{.Kind = ErrorKind::Invalid,
+                                   .Message = "Vulkan submission timing retention has expired"});
+    }
+    return timing->Submission;
+  }
+
 private:
   [[nodiscard]] Result<void> Validate(Completion completion) const {
     if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
@@ -268,7 +288,9 @@ private:
       Completed_ = Pending_.front().Serial;
       if (Context_->GpuTiming) {
         if (Timings_.size() == kRetainedTimings) { Timings_.erase(Timings_.begin()); }
-        Timings_.push_back({.Serial = Completed_, .Results = Pending_.front().Recorded->Timings()});
+        Timings_.push_back({.Serial = Completed_,
+                            .Results = Pending_.front().Recorded->Timings(),
+                            .Submission = Pending_.front().Recorded->SubmissionTime()});
       }
       vkDestroyFence(Context_->Logical, Pending_.front().Fence, nullptr);
       Pending_.pop_front();
