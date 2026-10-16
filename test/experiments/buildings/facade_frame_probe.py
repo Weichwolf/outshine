@@ -148,7 +148,7 @@ def views(points, info, records):
                 fov_deg=48,
             ),
         ),
-        ("Far", replace(whole, eye=whole.target + (whole.eye - whole.target) * 1000)),
+        ("Far", replace(whole, eye=whole.target + (whole.eye - whole.target) * 40)),
     )
 
 
