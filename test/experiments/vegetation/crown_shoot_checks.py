@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from crown_attractors import attractors
 from crown_shoots import CrownShoots
 from outshine_ref.vegetation import Shoot
 
@@ -18,6 +19,17 @@ def small(variants=None):
 
 
 class CrownShootChecks(unittest.TestCase):
+    def test_asymmetric_growth_space_keeps_seed_count_and_macro_bounds(self):
+        for seed in (718, 719, 720):
+            simple = attractors(2048, seed, "ellipsoid")
+            shaped = attractors(2048, seed)
+            self.assertEqual(shaped.shape, (2048, 3))
+            self.assertTrue(np.isfinite(shaped).all())
+            np.testing.assert_allclose(shaped.min(0), simple.min(0), atol=1e-14)
+            np.testing.assert_allclose(shaped.max(0), simple.max(0), atol=1e-14)
+            self.assertFalse(np.array_equal(simple, shaped))
+            np.testing.assert_array_equal(shaped, attractors(2048, seed))
+
     def test_coarse_summary_and_capacity_do_not_create_organ_poses(self):
         c = small()
         with patch.object(

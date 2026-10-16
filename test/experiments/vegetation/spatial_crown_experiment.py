@@ -7,7 +7,8 @@ from pathlib import Path
 
 import numpy as np
 from broadleaf_crowns import architecture, match_area
-from colonization import GrowthBudget, crown_points, grow, pipe_radii
+from colonization import GrowthBudget, grow, pipe_radii
+from crown_attractors import attractors
 from crown_shoots import CrownShoots
 from fern_maps import write_maps
 from outshine_ref.vegetation.axis_surface import axis_mesh
@@ -64,14 +65,14 @@ def save(folder, rows, wood, blades, identity):
     return triangles
 
 
-def build(output, seed=718, points=2048):
+def build(output, seed=718, points=2048, distribution="lobed"):
     start = time.perf_counter()
     output.mkdir(parents=True, exist_ok=False)
     base = match_area(architecture("oak", seed, True), 55)
     before = base.tables(2000, 30000)
     baseline_time = time.perf_counter()
-    attractors = crown_points(8.0, 5.0, 0.23, points, seed)
-    plan = grow(attractors, 8.0, 0.23, 0.16, 1.75, 0.22, budget=GrowthBudget(4096, 128))
+    points_xyz = attractors(points, seed, distribution)
+    plan = grow(points_xyz, 8.0, 0.23, 0.16, 1.75, 0.22, budget=GrowthBudget(4096, 128))
     crown = CrownShoots(
         plan["positions"],
         plan["parents"],
@@ -99,7 +100,7 @@ def build(output, seed=718, points=2048):
         positions=crown.positions,
         parents=crown.parents,
         variants=crown.variants,
-        attractors=attractors,
+        attractors=points_xyz,
         remaining=plan["remaining"],
     )
     (output / "spatial-plan.json").write_text(
@@ -120,6 +121,7 @@ def build(output, seed=718, points=2048):
     )
     report = {
         "seed": seed,
+        "distribution": distribution,
         "source_plan": base.identity,
         "spatial_plan": crown.identity,
         "leaf_count": len(crown.variants),
@@ -150,5 +152,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=718)
     parser.add_argument("--points", type=int, default=2048)
+    parser.add_argument(
+        "--distribution", choices=("ellipsoid", "lobed"), default="lobed"
+    )
     args = parser.parse_args()
-    build(args.output, args.seed, args.points)
+    build(args.output, args.seed, args.points, args.distribution)
