@@ -43,13 +43,15 @@ def continuous_union(vertices, faces, lower, upper, direction):
     polygons = shapely.polygons(projected)
     polygons = shapely.intersection(polygons, shapely.box(*lower, *upper))
     polygons = polygons[shapely.area(polygons) > 0]
-    union = shapely.union_all(polygons)
+    # Explicit metric precision handles almost-coincident shared blade edges.
+    union = shapely.union_all(polygons, grid_size=1e-12)
     return union, {
         "union_area_m2": float(union.area),
         "summed_projected_area_m2": float(shapely.area(polygons).sum()),
         "candidate_triangles": int(possible.sum()),
         "clipped_polygon_count": len(polygons),
         "geos": shapely.geos_version_string,
+        "union_precision_grid_m": 1e-12,
     }
 
 
