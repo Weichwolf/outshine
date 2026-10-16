@@ -1107,3 +1107,9 @@ traced peaks81852/56316/45956bytes versus423939/291121/233911 (Shape) and
 area and developed UV edge lengths are independently checked. Final buffer
 bytes/writes and live traced allocation counts are in the reproducible JSON;
 these timings do not imply a native frame/device factor.
+## Industrial rooflight research
+
+Actual source-bound roof openings, closed glass/rims, physical counterexamples,
+paired Blender cameras and equal-volume frame/whole-hall cost comparisons:
+[industrial_rooflights.md](industrial_rooflights.md) (#500). Experimental variant;
+default hall/recipe v1 and compact/far admission remain unchanged/open.
