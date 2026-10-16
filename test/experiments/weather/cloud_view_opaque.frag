@@ -3,6 +3,7 @@
 #include "mediumViewAir.glsl"
 #include "mediumOpaque.glsl"
 #include "cloud_air_prefix.glsl"
+#include "cloud_view_boundary.glsl"
 
 #ifndef CLOUD_VIEW_DROP_ORTHO_OFFSET
 #define CLOUD_VIEW_DROP_ORTHO_OFFSET 0
@@ -18,6 +19,12 @@
 #endif
 #ifndef CLOUD_VIEW_CLEAR_OPAQUE_CONTROL
 #define CLOUD_VIEW_CLEAR_OPAQUE_CONTROL 0
+#endif
+#ifndef CLOUD_VIEW_MOMENT_REPLAY
+#define CLOUD_VIEW_MOMENT_REPLAY 0
+#endif
+#ifndef CLOUD_VIEW_BOUNDARY_SKY
+#define CLOUD_VIEW_BOUNDARY_SKY 0
 #endif
 
 layout(location = 0) out vec4 colour;
@@ -51,17 +58,25 @@ void main() {
   radianceDepth = vec4(0.0, 0.0, 0.0, written);
   transmittanceDistance = vec4(1.0, 1.0, 1.0, 0.0);
   work = vec4(0.0);
-  if (written <= 0.0) {
+  if (written <= 0.0 && CLOUD_VIEW_BOUNDARY_SKY == 0) {
     colour = lit;
     return;
   }
-  MediumViewRay view = mediumViewRay(frame.View, vec3(gl_FragCoord.xy, written));
+  float sampleDepth = written > 0.0 ? written : frame.View.OrthoProjection.w + 0.001;
+  MediumViewRay view = mediumViewRay(frame.View, vec3(gl_FragCoord.xy, sampleDepth));
+  AirPathSpan span = airPhysicalSpan(frame.View.Air, view.Air);
+#if CLOUD_VIEW_BOUNDARY_SKY
+  if (written <= 0.0) {
+    span = cloudViewBoundarySpan(
+        frame.View.Air, weather.DensityCameraOriginM.xyz + view.OriginOffsetM, view.Direction);
+    view.Air.DistanceKm = span.EndKm;
+  }
+#endif
   AirTransfer result;
-  if (weather.Layer.field.x <= 0.0) {
+  if (weather.Layer.field.x <= 0.0 && !(CLOUD_VIEW_BOUNDARY_SKY != 0 && written <= 0.0)) {
     result = mediumViewAir(frame.View, view, veil, multiScatter);
     work.w = -1.0;
   } else {
-    AirPathSpan span = airPhysicalSpan(frame.View.Air, view.Air);
     if (span.EndKm <= span.BeginKm || view.Air.DistanceKm <= span.BeginKm) {
       result = AirTransfer(vec3(0.0), vec3(1.0));
     } else {
@@ -87,12 +102,25 @@ void main() {
                                                   light,
                                                   clear,
                                                   span.BeginKm * 1000.0);
+#if CLOUD_AIR_MOMENTS && CLOUD_VIEW_MOMENT_REPLAY
+      cloudAirPrefixAdvance(
+          prefix, view.Air.DistanceKm * 500.0, frame.View.Air, veil, multiScatter);
+      cloudAirPrefixAdvance(
+          prefix, view.Air.DistanceKm * 500.0, frame.View.Air, veil, multiScatter);
+#endif
       result = cloudAirPrefixAdvance(
           prefix, view.Air.DistanceKm * 1000.0, frame.View.Air, veil, multiScatter);
+#if CLOUD_AIR_MOMENTS && CLOUD_VIEW_MOMENT_REPLAY
+      result = cloudAirPrefixAdvance(
+          prefix, view.Air.DistanceKm * 1000.0, frame.View.Air, veil, multiScatter);
+#endif
       work = vec4(prefix.Cloud.DensityEvaluations,
                   prefix.Cloud.SourceEvaluations,
                   prefix.CellsVisited,
                   prefix.Clear.SourceEvaluations);
+#if CLOUD_AIR_MOMENTS
+      work = vec4(prefix.QueryMoments, prefix.Cloud.DensityEvaluations, prefix.CellsVisited);
+#endif
     }
   }
   vec3 combined = lit.rgb * result.Transmittance + frame.View.Illuminance * result.RadiancePerLux;

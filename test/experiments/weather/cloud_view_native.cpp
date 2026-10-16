@@ -69,11 +69,11 @@ uint32_t Extent(const char *text) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 6 && argc != 8 && argc != 9) {
+  if (argc != 6 && argc != 8 && argc != 9 && argc != 10) {
     std::println(
         stderr,
         "usage: cloud-view-native scene.vert scene.frag fullscreen.vert front.frag output-prefix "
-        "[width height [scenario]]");
+        "[width height [scenario [boundary-sky]]]");
     return 2;
   }
   const uint32_t width = argc >= 8 ? Extent(argv[6]) : MediumViewProbe::kWidth;
@@ -85,7 +85,9 @@ int main(int argc, char **argv) {
       .Height = height,
       .RowBytes = (width * static_cast<uint32_t>(sizeof(Pixel)) + rowAlignment - 1) / rowAlignment *
                   rowAlignment};
-  auto cases = Cases(shape);
+  const bool boundarySky = argc == 10 && std::string_view(argv[9]) == "boundary-sky";
+  if (argc == 10 && !boundarySky) { return 2; }
+  auto cases = boundarySky ? BoundaryCases(shape) : Cases(shape);
   auto device = Require(CreateDevice({.Validation = true}));
   CHECK(device->Limits().MaxColourAttachments >= 4, "four actual cloud-front MRTs are supported");
   const auto scene = Pipeline(*device, argv[1], argv[2], true);
@@ -93,7 +95,7 @@ int main(int argc, char **argv) {
   const Targets targets(*device, shape);
   size_t frames = 0;
   for (const auto &scenario : cases) {
-    if (argc == 9 && scenario.Name != argv[8]) { continue; }
+    if (argc >= 9 && std::string_view(argv[8]) != "all" && scenario.Name != argv[8]) { continue; }
     const auto capture = targets.Draw(*device, {.Scene = *scene, .Front = *front}, scenario);
     const auto repeat = targets.Draw(*device, {.Scene = *scene, .Front = *front}, scenario);
     CHECK(capture.Images == repeat.Images, "repeated actual raster output is bitwise identical");

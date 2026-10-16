@@ -79,21 +79,25 @@ DepthSourcePrefix depthSourceBegin(AirRay ray, AirSourceRay metric) {
   return prefix;
 }
 
+void depthSourceNext(inout DepthSourcePrefix prefix, AirRay ray, AirSourceRay metric) {
+  prefix.BeginKm = prefix.EndKm;
+  prefix.SolarA = prefix.SolarB;
+  prefix.EndKm = depthSourceBoundary(ray.DistanceKm, ++prefix.Grid);
+  prefix.SolarB = depthSourceSolar(metric, prefix.EndKm);
+  ++prefix.Evaluations;
+}
+
 vec3 depthSourceAdvance(
     inout DepthSourcePrefix prefix, AirRay ray, AirSourceRay metric, vec3 sigma, float queryKm) {
   for (int step = 0; step < SOURCE_DEPTH_INTERVALS; ++step) {
     if (queryKm < prefix.EndKm || prefix.EndKm >= ray.DistanceKm) { break; }
     prefix.MassAtStart += depthSourcePartial(prefix, sigma, prefix.EndKm - prefix.BeginKm);
-    prefix.BeginKm = prefix.EndKm;
-    prefix.SolarA = prefix.SolarB;
-    prefix.EndKm = depthSourceBoundary(ray.DistanceKm, ++prefix.Grid);
-    prefix.SolarB = depthSourceSolar(metric, prefix.EndKm);
-    ++prefix.Evaluations;
+    depthSourceNext(prefix, ray, metric);
   }
   return prefix.MassAtStart + depthSourcePartial(prefix, sigma, queryKm - prefix.BeginKm);
 }
 
-void main() {
+void depthSourceAirControl() {
   uint index = gl_GlobalInvocationID.x;
   if (index >= uint(from.rays.length())) { return; }
   ProbeRay inputRay = from.rays[index];
@@ -135,5 +139,11 @@ void main() {
                                    prefix.Grid - 1u);
   }
 }
+
+#if SOURCE_LINEAR_EYE
+#include "linear_medium_source.glsl"
+#else
+void main() { depthSourceAirControl(); }
+#endif
 
 #endif
