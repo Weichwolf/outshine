@@ -185,8 +185,13 @@ struct GroundInstance {
 };
 
 inline constexpr uint32_t kGroundInstanceFloats = 28;
+inline constexpr size_t kGroundPageOffset = 96;
+inline constexpr size_t kGroundStepNOffset = 108;
 static_assert(sizeof(GroundInstance) == kGroundInstanceFloats * sizeof(float),
               "an instance is the twenty-eight floats the lattice's vertex shader reads");
+static_assert(offsetof(GroundInstance, Corners) == 64);
+static_assert(offsetof(GroundInstance, Page) == kGroundPageOffset);
+static_assert(offsetof(GroundInstance, StepN) == kGroundStepNOffset);
 
 struct GroundTile {
   GroundInstance Instance;

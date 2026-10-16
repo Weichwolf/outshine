@@ -70,3 +70,19 @@ lighting and total GPU cost before admission. The existing subject pass already
 renders buildings before ground, so current depth reuse is preferable to drawing
 the same building mesh again solely for this culler. The implementation decision
 and runtime acceptance remain in #12.
+
+## Native patch representation
+
+The Metal integration branch now renders the unchanged interiors through one
+shared 9x9 vertex grid and 16 patch instances per tile. A 32-bit instance code
+selects the tile, patch and real/virtual fraction table. Original 33-sample
+fractions and tile rows are pulled from storage; outer skirts and shadow grids
+remain complete. Asset formats and terrain sampling are unchanged.
+
+`GroundLattice/SurfacePatchesPreserveRasterAndFractions` verifies native depth,
+material targets, array-layer growth, complete skirts, perspective and non-affine
+heights against an independently drawn complete grid on the same device.
+This is representation preparation: it does not yet cull patches or reduce the
+submitted triangle count. Native paired Tokyo runs do not establish a speedup;
+first-frame GPU peaks still exceed 1000/30 ms. Current-depth selection and total
+cost acceptance remain open in #515.

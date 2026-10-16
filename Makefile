@@ -42,6 +42,7 @@ SPIRV_SHADERS := $(patsubst src/render/shaders/%,build/shaders/%.spv,$(GLSL_SHAD
 GROUND_OUTPUTS := $(foreach v,0 1,$(foreach n,0 1 2 3,$(foreach i,0 1 2 3,$(if $(and $(filter 1,$(v)),$(filter 1,$(n) $(i))),,$(if $(and $(filter-out 0,$(n)),$(filter $(n),$(i))),,$(v)$(n)$(i))))))
 GROUND_OUTPUTS += 01234
 GROUND_SHADERS := $(foreach v,0 1,build/shaders/groundLattice-$(v).vert.spv) $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundLit-$(output).frag.spv)
+GROUND_SHADERS += $(foreach v,0 1,build/shaders/groundPatchLattice-$(v).vert.spv)
 
 FLAT_VERTICES := $(foreach u,0 1 2,$(foreach t,0 1,$(foreach v,0 1,build/shaders/flat-$(u)$(t)-$(v).vert.spv)))
 FLAT_FRAGMENTS := $(foreach kind,00 01 10 11 20 21 30,$(foreach output,$(GROUND_OUTPUTS),build/shaders/flat-$(kind)-$(output).frag.spv))
@@ -69,7 +70,7 @@ build/compute-shader-contracts: test/scripts/compute-shader-contracts.cpp src/re
 	@$(CXX) -std=c++23 -O2 -Wall -Wextra -Werror -Isrc/render/stages $< -o $@
 
 build/compute-shaders.json: build/compute-shader-contracts
-	@$< > $@.tmp && if cmp -s $@.tmp $@; then rm $@.tmp; else mv $@.tmp $@; fi
+	@$< > $@.tmp && mv $@.tmp $@
 
 build/shaders/lit-%.vert.spv: src/render/shaders/litVertex.glsl $(wildcard src/render/shaders/*.glsl)
 	@mkdir -p $(@D)
@@ -100,6 +101,10 @@ build/shaders/brdfTables.glsl: build/shader-tables
 build/shaders/groundLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
 	@mkdir -p $(@D)
 	@$(GLSLANG) $(GLSLANG_FLAGS) -S vert -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
+
+build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVertex.glsl $(wildcard src/render/shaders/*.glsl) src/render/stages/GroundConstants.inc
+	@mkdir -p $(@D)
+	@$(GLSLANG) $(GLSLANG_FLAGS) -S vert -DGROUND_PATCHES=1 -DSUBJECT_WRITES_VELOCITY=$* $< -o $@
 
 build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
 	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@

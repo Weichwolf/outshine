@@ -14,7 +14,8 @@ Native::Result<void> GroundLattice::Draw(const PassRecording &into,
                                          uint32_t real,
                                          uint32_t virtual_,
                                          std::span<const Native::Binding> bindings,
-                                         uint32_t first) const {
+                                         uint32_t first,
+                                         bool skirtsOnly) const {
   if (real + virtual_ == 0) { return {}; }
   if (pipeline == nullptr || into.Commands == nullptr || !Grid_ || !UniformGrid_ || !Index_ ||
       !instances || !Pages_ || !Nearest_) {
@@ -50,7 +51,10 @@ Native::Result<void> GroundLattice::Draw(const PassRecording &into,
                    .Area = into.Area,
                    .Clip = into.Clip},
          .Indices = {.Data = Index_.get(), .Range = {.Bytes = Index_->Description().Bytes}},
-         .Range = {.Count = kIndices, .Instances = count, .FirstInstance = first + start}});
+         .Range = {.First = skirtsOnly ? kQuads * 6u : 0u,
+                   .Count = skirtsOnly ? kSkirtQuads * 6u : kIndices,
+                   .Instances = count,
+                   .FirstInstance = first + start}});
   };
   const auto accepted = draw(*Grid_, 0, real);
   if (!accepted) { return accepted; }
@@ -60,7 +64,9 @@ Native::Result<void> GroundLattice::Draw(const PassRecording &into,
 Native::Result<void> GroundLattice::Encode(const PassRecording &into,
                                            std::span<const Native::Binding> bindings) const {
   if (!DrawEnabled_) { return {}; }
-  return Draw(into, Pipelines_->Lit(), Visible_, VisibleReal_, VisibleVirtual_, bindings);
+  const auto patched = DrawPatches(into, bindings);
+  if (!patched) { return patched; }
+  return Draw(into, Pipelines_->Lit(), Visible_, VisibleReal_, VisibleVirtual_, bindings, 0, true);
 }
 
 }

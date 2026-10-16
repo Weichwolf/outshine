@@ -44,8 +44,13 @@ Native::Result<void> GroundLattice::SetGrid(std::span<const float> fractions) {
         .Kind = Native::ErrorKind::Invalid,
         .Message = "ground grid requires a device and exactly one fraction per node"});
   }
-  const auto built = BuildGrid(fractions, Grid_);
+  auto patched = PatchFractions(fractions);
+  if (!patched) { return std::unexpected(patched.error()); }
+  std::unique_ptr<Native::Buffer> grid;
+  const auto built = BuildGrid(fractions, grid);
   if (!built) { return built; }
+  Grid_ = std::move(grid);
+  PatchFractions_ = std::move(*patched);
   ++Generation_;
   return {};
 }

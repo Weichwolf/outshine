@@ -1,3 +1,6 @@
 GROUND_INT(kGroundSide, 33)
 GROUND_UINT(kGroundPageColumns, 16u)
 GROUND_FLOAT(kGroundSkirtSteps, 16.0f)
+GROUND_INT(kGroundPatchCells, 8)
+GROUND_UINT(kGroundPatchBits, 4u)
+GROUND_UINT(kGroundUniformBit, 0x80000000u)

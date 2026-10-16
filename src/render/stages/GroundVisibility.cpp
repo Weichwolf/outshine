@@ -117,14 +117,23 @@ Native::Result<void> GroundLattice::Cast(const PassRecording &into,
 
 Native::Result<void> GroundLattice::HandsVisible(Native::Commands &commands) {
   const auto count = static_cast<uint32_t>(Seen_.size());
-  const uint64_t bytes = uint64_t{count} * sizeof(GroundInstance);
+  const uint64_t tileBytes = uint64_t{count} * sizeof(GroundInstance);
+  const uint64_t patchBytes = uint64_t{count} * kPatchCount * sizeof(uint32_t);
+  const uint64_t bytes = tileBytes + patchBytes;
   if (!Visible_ || VisibleRoom_ < count) {
     const auto room = std::max(count, VisibleRoom_ > 0 ? VisibleRoom_ * 2u : 64u);
-    auto created = Device_->CreateBuffer(
-        {.Bytes = uint64_t{room} * sizeof(GroundInstance),
-         .Use = Native::BufferUse::Vertex | Native::BufferUse::CopyDestination});
+    auto created =
+        Device_->CreateBuffer({.Bytes = uint64_t{room} * sizeof(GroundInstance),
+                               .Use = Native::BufferUse::Vertex | Native::BufferUse::Storage |
+                                      Native::BufferUse::CopyDestination});
     if (!created) { return std::unexpected(created.error()); }
+    auto patches =
+        Device_->CreateBuffer({.Bytes = uint64_t{room} * kPatchCount * sizeof(uint32_t),
+                               .Use = Native::BufferUse::Vertex | Native::BufferUse::Storage |
+                                      Native::BufferUse::CopyDestination});
+    if (!patches) { return std::unexpected(patches.error()); }
     Visible_ = std::move(*created);
+    PatchList_ = std::move(*patches);
     VisibleRoom_ = room;
   }
   Native::Result<std::span<std::byte>> mapped =
@@ -133,18 +142,32 @@ Native::Result<void> GroundLattice::HandsVisible(Native::Commands &commands) {
     mapped = Device_->MapWrite(*VisibleStaging_, {.Bytes = bytes});
   }
   if (!mapped && mapped.error().Kind == Native::ErrorKind::Busy) {
-    auto created = Device_->CreateBuffer({.Bytes = uint64_t{VisibleRoom_} * sizeof(GroundInstance),
-                                          .Use = Native::BufferUse::CopySource,
-                                          .Placement = Native::Memory::Upload});
+    auto created =
+        Device_->CreateBuffer({.Bytes = uint64_t{VisibleRoom_} *
+                                        (sizeof(GroundInstance) + kPatchCount * sizeof(uint32_t)),
+                               .Use = Native::BufferUse::CopySource,
+                               .Placement = Native::Memory::Upload});
     if (!created) { return std::unexpected(created.error()); }
     mapped = Device_->MapWrite(**created, {.Bytes = bytes});
     if (!mapped) { return std::unexpected(mapped.error()); }
     VisibleStaging_ = std::move(*created);
   }
   if (!mapped) { return std::unexpected(mapped.error()); }
-  std::memcpy(mapped->data(), Seen_.data(), static_cast<size_t>(bytes));
+  std::memcpy(mapped->data(), Seen_.data(), static_cast<size_t>(tileBytes));
+  for (uint32_t tile = 0; tile < count; ++tile) {
+    for (uint32_t patch = 0; patch < kPatchCount; ++patch) {
+      const uint32_t code =
+          (tile << kGroundPatchBits) | patch | (tile >= VisibleReal_ ? kGroundUniformBit : 0u);
+      const size_t offset = static_cast<size_t>(tileBytes) +
+                            (static_cast<size_t>(tile) * kPatchCount + patch) * sizeof(code);
+      std::memcpy(mapped->data() + offset, &code, sizeof(code));
+    }
+  }
   const auto unmapped = Device_->Unmap(*VisibleStaging_);
   if (!unmapped) { return unmapped; }
-  return commands.Copy(*VisibleStaging_, *Visible_, {.Bytes = bytes});
+  auto copied = commands.Copy(*VisibleStaging_, *Visible_, {.Bytes = tileBytes});
+  if (!copied) { return copied; }
+  return commands.Copy(
+      *VisibleStaging_, *PatchList_, {.SourceOffset = tileBytes, .Bytes = patchBytes});
 }
 }
