@@ -309,6 +309,64 @@ def tile(output, proof):
         raise ValueError("Rooflight variant lost an existing functional hall")
 
 
+def render_equivalence(output):
+    cases = []
+    for path in sorted(output.glob("Rooflight*Glazed-geometry.json")):
+        record = json.loads(path.read_text())
+        row, neighbors = sources()[int(record["city"][9])]
+        camera = record["camera"]
+        view = View(
+            np.asarray(camera["eye"]),
+            np.asarray(camera["target"]),
+            width=camera["profile"][0],
+            height=camera["profile"][1],
+            fov_deg=camera["vertical_fov_deg"],
+        )
+        raw, *_ = generate(row, neighbors, view=view)
+
+        def builder(_row, _parameters, material, raw=raw):
+            mapped = raw["materials"].copy()
+            mapped[mapped == 1] = material
+            return dict(raw, materials=mapped), {
+                "form": "Rooflight assembly equivalence"
+            }
+
+        actual, source = tile_mesh(
+            record["city"],
+            prepared=([row], {"invalid": [], "span_m": 100.0}),
+            ordinary_builder=builder,
+        )
+        if (
+            source["generated"] != 1
+            or source["omissions"]
+            or source["material_definitions"]
+            != record["source"]["material_definitions"]
+        ):
+            raise ValueError(
+                "Rooflight probe changed the actual source palette/coverage"
+            )
+        with np.load(record["mesh"]) as saved:
+            if set(saved.files) != set(actual):
+                raise ValueError(
+                    "Rooflight renderer input streams differ from verified assembly"
+                )
+            for key, array in actual.items():
+                if array.dtype != saved[key].dtype:
+                    raise ValueError("Rooflight renderer input changed array precision")
+                np.testing.assert_array_equal(array, saved[key])
+        cases.append(
+            {
+                "model": record["city"],
+                "source_palette_exact": True,
+                "all_streams_dtypes_exact": True,
+                "camera": camera,
+            }
+        )
+    if len(cases) != 6:
+        raise ValueError("Expected six paired actual rooflight camera products")
+    return cases
+
+
 def run(output, with_tile=False):
     proof = revision()
     if proof["experiment_tree_dirty"]:
@@ -385,6 +443,9 @@ def run(output, with_tile=False):
     )
     if with_tile:
         tile(output, proof)
+    (output / "render-equivalence.json").write_text(
+        json.dumps(render_equivalence(output), indent=2) + "\n"
+    )
 
 
 if __name__ == "__main__":

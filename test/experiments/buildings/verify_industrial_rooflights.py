@@ -32,8 +32,9 @@ from verify_industrial_halls import (
 )
 
 
-def generate(row, neighbors, *, opened=1, method="ring"):
-    owner, prior, info, hall, *_ = construct(row, neighbors, opened=opened)
+def generate(row, neighbors, *, opened=1, method="ring", view=None):
+    view = view or view_for(row)
+    owner, prior, info, hall, *_ = construct(row, neighbors, opened=opened, view=view)
     section = section_for(row, choose(row, attributes(row["properties"])))
     fields = plan(hall, section)
     mesh, shell, body, added, _ = assemble(
@@ -42,7 +43,7 @@ def generate(row, neighbors, *, opened=1, method="ring"):
         fields,
         1,
         opened,
-        view_for(row),
+        view,
         method=method,
     )
     return mesh, shell, body, added, fields, hall, prior, info
