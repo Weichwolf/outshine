@@ -10,10 +10,12 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto input = DeclaredWeatherScenario();
+  CHECK(input.has_value(), "the fixed declared-weather input is available");
+  if (!input) { return Report(); }
   Scenario::Document scenario;
   std::string error;
-  CHECK(ReadScenario(
-            kDeclaredWeatherScenario.data(), kDeclaredWeatherScenario.size(), scenario, error),
+  CHECK(ReadScenario(input->data(), input->size(), scenario, error),
         "native weather XML is a declared scenario section without terrain or providers");
   if (!scenario.Weather) { return Report(); }
   const auto &weather = *scenario.Weather;

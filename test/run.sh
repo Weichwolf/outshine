@@ -66,9 +66,18 @@ NativeLink() {
   esac
 }
 
+EngineLink() {
+  printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)"
+}
+
 if [ "$#" -eq 1 ] && [ "$1" = --native-link-flags ]; then
   pkg-config --libs sdl3 | tr '\n' ' '
   NativeLink
+  exit $?
+fi
+
+if [ "$#" -eq 1 ] && [ "$1" = --engine-link-flags ]; then
+  EngineLink
   exit $?
 fi
 
@@ -362,7 +371,7 @@ LayerLink() {
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) EngineLink ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac

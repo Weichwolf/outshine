@@ -14,6 +14,9 @@
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
+  const auto input = DeclaredWeatherScenario();
+  CHECK(input.has_value(), "the fixed declared-weather input is available");
+  if (!input) { return Report(); }
   const auto directory = PlantedPath("engine-declared-weather");
   const auto capture = RecordedWeatherCapture(false);
   CHECK(capture.has_value(), "the original provider fixture is available for ambiguity");
@@ -23,8 +26,7 @@ int main() {
   {
     Scenario::Document scenario;
     std::string error;
-    CHECK(ReadScenario(
-              kDeclaredWeatherScenario.data(), kDeclaredWeatherScenario.size(), scenario, error),
+    CHECK(ReadScenario(input->data(), input->size(), scenario, error),
           "the public engine test consumes the native XML declaration");
     if (!scenario.Weather) { return Report(); }
     Engine engine;
