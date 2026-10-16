@@ -67,9 +67,16 @@ def build(inputs, output):
             "source_plan_identity": IDENTITY,
             "morphology_identity": physical_id,
             "instanced_triangles": total,
+            "canonical_mesh_payload_bytes": sum(
+                a.nbytes for a in products["wood.npz"].values()
+            )
+            + sum(r["payload_bytes"] for r in records),
+            "build_s": time.perf_counter() - start,
             "scope": "Same 64 axes/571 stored leaf attachments; own asymmetric cutouts on unlobed carriers. Changed morphology/area, not old PlantPlan coverage. Shared old pigment/ridge preview, no botanical/material/LOD admission.",
         }
     )
+    for name in ("plan_and_reference_s", "geometry_s"):
+        metadata.pop(name, None)
     (output / "entry.json").write_text(json.dumps(metadata, indent=2) + "\n")
     (output / "cutout-recipes.json").write_text(json.dumps(recipes, indent=2) + "\n")
     report = {
