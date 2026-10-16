@@ -1589,6 +1589,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
       return std::unexpected(acquired.error().Message);
     }
     presenting = std::move(*acquired);
+    if (!presenting) { return {}; }
     ActiveFrame().HostSurface = &presenting->Image();
     const auto &image = presenting->Image().Description();
     ActiveFrame().Shown = {.WidthPx = static_cast<int>(image.Width),
