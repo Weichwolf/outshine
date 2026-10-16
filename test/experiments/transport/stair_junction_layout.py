@@ -67,13 +67,24 @@ def landings(rows, domains, method, width_reach_m, junctions=None):
 def cross_sections(row):
     xy, half = row["xy"], row["width_m"] * 2
     arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
-    station = np.unique(
-        np.r_[
-            arc,
-            np.arange(0, min(30, arc[-1]), 2),
-            np.arange(max(0, arc[-1] - 30), arc[-1], 2),
-        ]
-    )
+    mode = row.get("surface_cross_section_mode", "end_neighbourhood")
+    if mode not in ("end_neighbourhood", "source_knots"):
+        raise ValueError("known surface cross section mode required")
+    if mode == "source_knots":
+        if (
+            row["original"]["source"]["feature"]["properties"].get("subclass")
+            == "steps"
+        ):
+            raise ValueError("stair cross section sampling cannot be coarsened")
+        station = arc
+    else:
+        station = np.unique(
+            np.r_[
+                arc,
+                np.arange(0, min(30, arc[-1]), 2),
+                np.arange(max(0, arc[-1] - 30), arc[-1], 2),
+            ]
+        )
     line = shapely.LineString(xy)
     result = []
     for s in station:
@@ -88,9 +99,12 @@ def cross_sections(row):
 
 def arrangement(rows, domains, masks):
     lines = [p.boundary for p in domains + masks]
+    section_counts = []
     for row in rows:
         lines.append(shapely.LineString(row["xy"]))
-        lines.extend(cross_sections(row))
+        sections = cross_sections(row)
+        lines.extend(sections)
+        section_counts.append(len(sections))
     noded = shapely.get_parts(shapely.union_all(lines))
     if len(noded) > 8192:
         raise ValueError("local stair arrangement segment budget")
@@ -129,6 +143,8 @@ def arrangement(rows, domains, masks):
             "vertices": len(xy),
             "segments": len(noded),
             "weld_m": float(drift),
+            "source_section_counts": section_counts,
+            "input_lines": len(lines),
         },
     )
 
