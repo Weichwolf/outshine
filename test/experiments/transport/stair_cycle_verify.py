@@ -65,6 +65,8 @@ def verify(args):
         if digest(args.output / name) != expected:
             raise ValueError("saved cycle artifact changed")
     case, rows, nodes, stairs, context, sample = load(fixture)
+    if report.get("junction_pads", []) != context.get("junction_pads", []):
+        raise ValueError("saved constructive junction pad differs from source profiles")
     if (
         report["candidate_source_ids"] != [r["source_id"] for r in rows]
         or report["admitted_source_ids"]
