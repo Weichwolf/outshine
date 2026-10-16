@@ -12,6 +12,7 @@ import numpy as np
 from colonization import GrowthBudget, grow
 from crown_shoots import CrownShoots
 from growth_experiment import counterexamples, validate_plan
+from nearest import brute_nearest, tree_nearest
 from outshine_ref.vegetation import Shoot
 
 
@@ -61,6 +62,12 @@ def foliage_costs(inputs):
                         for group in crown._groups.values()
                         for a in group.values()
                     ),
+                    "known_leaf_result_copy_bytes": sum(
+                        a.nbytes
+                        for group in crown._groups.values()
+                        for a in group.values()
+                    )
+                    * (2 if mode == "all" else 1),
                 }
             )
     peaks = {}
@@ -84,10 +91,33 @@ def growth_costs(inputs):
         expected_parents = data["parents"]
     rows = []
     for method in ("brute", "tree", "tree", "brute"):
+        work = {
+            "nearest_calls": 0,
+            "query_points": 0,
+            "node_inputs": 0,
+            "all_pairs_if_exhaustive": 0,
+            "brute_delta_squared_payload_bytes": 0,
+        }
+        operation = brute_nearest if method == "brute" else tree_nearest
+
+        def measured(
+            points, nodes, radius, work=work, method=method, operation=operation
+        ):
+            work["nearest_calls"] += 1
+            work["query_points"] += len(points)
+            work["node_inputs"] += len(nodes)
+            work["all_pairs_if_exhaustive"] += len(points) * len(nodes)
+            if method == "brute":
+                work["brute_delta_squared_payload_bytes"] += (
+                    len(points) * len(nodes) * 32
+                )
+            return operation(points, nodes, radius)
+
         start = time.perf_counter()
-        result = grow(
-            points, 8.0, 0.23, 0.16, 1.75, 0.22, method, GrowthBudget(4096, 128)
-        )
+        with patch("colonization." + method + "_nearest", side_effect=measured):
+            result = grow(
+                points, 8.0, 0.23, 0.16, 1.75, 0.22, method, GrowthBudget(4096, 128)
+            )
         elapsed = time.perf_counter() - start
         np.testing.assert_array_equal(result["parents"], expected_parents)
         np.testing.assert_allclose(
@@ -103,6 +133,7 @@ def growth_costs(inputs):
                 "iterations": result["iterations"],
                 "remaining": len(result["remaining"]),
                 "terminal_reason": result["terminal_reason"],
+                "instrumented_nearest_work": work,
             }
         )
     return rows
