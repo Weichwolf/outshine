@@ -20,6 +20,31 @@ FIXTURE = Path(__file__).with_name("fixtures") / "stair-cycle-vienna.json"
 SOURCE = "openfreemap:14/8937/5678:transportation:32651280:3"
 
 
+def selected_sources(recipe, available):
+    keys = recipe.get("additional_source_ids", [recipe.get("source_id")])
+    if (
+        not isinstance(keys, list)
+        or not 1 <= len(keys) <= 6
+        or not all(isinstance(key, str) for key in keys)
+        or len(set(keys)) != len(keys)
+    ):
+        raise ValueError("one to six unique whole additional sources required")
+    for key in keys:
+        if key not in available:
+            raise ValueError("additional whole source absent from original payload")
+        props = available[key]["properties"]
+        if (
+            props.get("brunnel")
+            or props.get("layer", 0) != 0
+            or props.get("level", 0) != 0
+            or props.get("indoor")
+        ):
+            raise ValueError(
+                "ordinary exterior ground recipe cannot admit indoor/level sources"
+            )
+    return keys
+
+
 def original_inputs():
     case, rows, _nodes, _stairs, context, _recipe = outer_inputs()
     receipt = dict(
@@ -75,34 +100,36 @@ def sampler(path, recipe, context):
 
 def load(path=FIXTURE, *, band_join=True):
     recipe = json.loads(path.read_text())
-    if recipe["outer_sha256"] != digest(OUTER) or recipe["source_id"] != SOURCE:
-        raise ValueError("cycle extension lost its original outer/source identity")
+    if recipe["outer_sha256"] != digest(OUTER):
+        raise ValueError("cycle extension lost its original outer identity")
     case, rows, context, sources = original_inputs()
+    added = selected_sources(recipe, sources)
     sample = sampler(path, recipe, context)
-    source = sources[SOURCE]
     profiles = {
         r["kind"]: r
         for t in json.loads(PROFILES.read_text())["templates"]
         for r in t.get("osm", [])
         if r.get("layer") == "streets"
     }
-    profile = profiles[source["properties"]["subclass"]]
-    rows.append(
-        {
-            "source_id": SOURCE,
-            "xy": np.array(source["xy_m"]),
-            "prior": sample(np.array(source["xy_m"])),
-            "width_m": profile["widthM"],
-            "gradient": profile["maxGradient"],
-            "original": {
-                "bridge": False,
-                "source": {"feature": source["original_feature"]},
-            },
-        }
-    )
+    for key in added:
+        source = sources[key]
+        profile = profiles[source["properties"]["subclass"]]
+        rows.append(
+            {
+                "source_id": key,
+                "xy": np.array(source["xy_m"]),
+                "prior": sample(np.array(source["xy_m"])),
+                "width_m": profile["widthM"],
+                "gradient": profile["maxGradient"],
+                "original": {
+                    "bridge": False,
+                    "source": {"feature": source["original_feature"]},
+                },
+            }
+        )
     keys = [r["source_id"] for r in rows]
-    if len(keys) != 19 or len(set(keys)) != 19:
-        raise ValueError("unique whole nineteen-source cycle extension required")
+    if len(keys) != 18 + len(added) or len(set(keys)) != len(keys):
+        raise ValueError("unique whole source extension required")
     contacts = json.loads(NETWORK.read_text())["width_contacts"]
     nodes = junctions(keys, sources, contacts, rows)
     nodes = ground_contacts(rows, nodes)
@@ -119,7 +146,8 @@ def capture(args):
     if args.output.exists():
         raise ValueError("fresh explicit cycle recipe output required")
     _case, rows, context, sources = original_inputs()
-    points = np.vstack([*[r["xy"] for r in rows], sources[SOURCE]["xy_m"]])
+    added = selected_sources({"additional_source_ids": args.sources}, sources)
+    points = np.vstack([*[r["xy"] for r in rows], *[sources[k]["xy_m"] for k in added]])
     low, high = points.min(0) - 32, points.max(0) + 32
     mvt = vector_xy(np.array([low, high]), context)
     extent = context["vector"]["extent"]
@@ -166,6 +194,9 @@ def capture(args):
         "elevation": records,
         "scope": "Whole original neighbour; planar contacts are explicit choices. DEM priors select their actual tile without extrapolation. No measured deck, indoor or cross-tile vector continuity claim.",
     }
+    if added != [SOURCE]:
+        recipe.pop("source_id")
+        recipe["additional_source_ids"] = added
     args.output.write_text(json.dumps(recipe, indent=2) + "\n")
 
 
@@ -173,4 +204,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--receipts", type=Path, nargs=2, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--sources", nargs="+", default=[SOURCE])
     capture(parser.parse_args())
