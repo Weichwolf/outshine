@@ -54,13 +54,7 @@ class ArticulatedDetails(RetainedDetails):
             return result
         mesh, info = result
         selected = tuple(p for p in self.reliefs[row["id"]] if demanded(p, self.view))
-        chunks = [
-            dict(
-                p.outer,
-                materials=np.full(len(p.outer["faces"]), material, dtype=np.uint16),
-            )
-            for p in selected
-        ]
+        chunks = [p.outer for p in selected]
         record = {
             "id": row["id"],
             "planned_facades": len(self.reliefs[row["id"]]),

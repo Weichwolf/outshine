@@ -66,7 +66,8 @@ def diagram(part, output):
         zlabel="Height [m]",
         title="2.5D · exact closed source-attached relief",
     )
-    spatial.set_box_aspect((3, 0.7, 1))
+    spatial.set_box_aspect((p.region.bounds[2], p.depth_m, p.region.bounds[3]))
+    spatial.set_yticks([0, p.depth_m])
     spatial.view_init(elev=20, azim=-70)
     figure.suptitle(
         p.kind

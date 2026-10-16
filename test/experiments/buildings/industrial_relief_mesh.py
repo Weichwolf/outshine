@@ -27,7 +27,7 @@ def direct(plan):
         "vertices": points,
         "faces": np.arange(len(points), dtype=np.uint32).reshape(-1, 3),
     }
-    full = triangle_surface(raw, 1)
+    full = triangle_surface(raw, 10)
     if len(full["faces"]) != plan.triangles:
         raise ValueError("Relief topology disagrees with its preflight capacity")
     return full, len(outside)
@@ -54,7 +54,7 @@ def generic(plan):
             "vertices": points,
             "faces": np.arange(len(points), dtype=np.uint32).reshape(-1, 3),
         },
-        1,
+        10,
     )
 
 
