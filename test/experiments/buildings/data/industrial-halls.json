@@ -1,0 +1,466 @@
+{
+  "provider": {
+    "site": "Grohnde",
+    "receipt": {
+      "tile": [
+        14,
+        8620,
+        5409
+      ],
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8620/5409.pbf",
+      "sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+      "bytes": 9441,
+      "origin": "network",
+      "sites": [
+        "Emmerthal",
+        "Grohnde"
+      ]
+    },
+    "span_m": 1504.7209746361352,
+    "invalid": [],
+    "coordinates": "ENU local metres, centred on tile; Mercator scaled at selected latitude",
+    "scope": "Every delivered building polygon in the complete tile, including provider buffer; no radius selection"
+  },
+  "selection": "Three accepted ordinary industrial-context footprints of different sizes plus an actually blocked loading case; witness selection only, generator has no place or ID branches",
+  "cases": [
+    {
+      "source": {
+        "id": "Grohnde/14/8620/5409/building/1061412330/0/0",
+        "layer": "building",
+        "properties": {
+          "render_height": 5,
+          "render_min_height": 0
+        },
+        "coordinate_step_m": 0.3673635191982752,
+        "clipped": false,
+        "context": {
+          "version": 1,
+          "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+          "evidence": [
+            {
+              "id": "landuse:237730342:0:0",
+              "layer": "landuse",
+              "properties": {
+                "class": "industrial"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0000000000000002,
+              "context_area_m2": 247879.00122336936,
+              "scope": "site-context"
+            },
+            {
+              "id": "park:201652763:0:0",
+              "layer": "park",
+              "properties": {
+                "name": "Naturpark Weserbergland",
+                "name_int": "Naturpark Weserbergland",
+                "class": "conservation",
+                "name:latin": "Naturpark Weserbergland",
+                "name_de": "Naturpark Weserbergland",
+                "name_en": "Naturpark Weserbergland"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0000000000000002,
+              "context_area_m2": 2407907.9055999056,
+              "scope": "site-context"
+            }
+          ],
+          "site_use": {
+            "value": "industrial",
+            "origin": "landuse-context",
+            "evidence_ids": [
+              "landuse:237730342:0:0"
+            ],
+            "reason": "dominant coverage; nested site beats its surroundings"
+          }
+        },
+        "footprint_wkb": "010300000001000000050000004C91D5500DFF7EC0344CDB88CEE67740C8BA5A5BF5317CC0E325F9FA0DEC79407D87AE24B0FD79C0F5C8A85E6DD876409DB7B7DECDF97CC0AD85AE5DEFDE74404C91D5500DFF7EC0344CDB88CEE67740"
+      },
+      "neighbors": []
+    },
+    {
+      "source": {
+        "id": "Grohnde/14/8620/5409/building/1061412330/0/8",
+        "layer": "building",
+        "properties": {
+          "render_height": 5,
+          "render_min_height": 0
+        },
+        "coordinate_step_m": 0.3673635191982752,
+        "clipped": false,
+        "context": {
+          "version": 1,
+          "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+          "evidence": [
+            {
+              "id": "landuse:237730342:0:0",
+              "layer": "landuse",
+              "properties": {
+                "class": "industrial"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0000000000000002,
+              "context_area_m2": 247879.00122336936,
+              "scope": "site-context"
+            },
+            {
+              "id": "park:201652763:0:0",
+              "layer": "park",
+              "properties": {
+                "name": "Naturpark Weserbergland",
+                "name_int": "Naturpark Weserbergland",
+                "class": "conservation",
+                "name:latin": "Naturpark Weserbergland",
+                "name_de": "Naturpark Weserbergland",
+                "name_en": "Naturpark Weserbergland"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0000000000000002,
+              "context_area_m2": 2407907.9055999056,
+              "scope": "site-context"
+            },
+            {
+              "id": "transportation:312529040:5:4",
+              "layer": "transportation",
+              "properties": {
+                "class": "service",
+                "access": "no"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "nearby",
+              "distance_m": 6.074316857206306,
+              "position_xy": [
+                -194.91961761181307,
+                198.1571617930374
+              ],
+              "scope": "surroundings",
+              "usable_frontage": false
+            }
+          ],
+          "site_use": {
+            "value": "industrial",
+            "origin": "landuse-context",
+            "evidence_ids": [
+              "landuse:237730342:0:0"
+            ],
+            "reason": "dominant coverage; nested site beats its surroundings"
+          }
+        },
+        "footprint_wkb": "010300000001000000050000004BB4F50633156AC057646F13173B6B40A4BDBF21361164C0B8075D2D5D806F40634ADBC10DC862C0A587CD7F23AA6D400A4111A70ACC68C044E4DF65DD6469404BB4F50633156AC057646F13173B6B40"
+      },
+      "neighbors": [
+        {
+          "id": "Grohnde/14/8620/5409/building/1061412330/0/7",
+          "layer": "building",
+          "properties": {
+            "render_height": 5,
+            "render_min_height": 0
+          },
+          "coordinate_step_m": 0.3673635191982752,
+          "clipped": false,
+          "context": {
+            "version": 1,
+            "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+            "evidence": [
+              {
+                "id": "landuse:237730342:0:0",
+                "layer": "landuse",
+                "properties": {
+                  "class": "industrial"
+                },
+                "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+                "relation": "area-overlap",
+                "coverage": 1.0,
+                "context_area_m2": 247879.00122336936,
+                "scope": "site-context"
+              },
+              {
+                "id": "park:201652763:0:0",
+                "layer": "park",
+                "properties": {
+                  "name": "Naturpark Weserbergland",
+                  "name_int": "Naturpark Weserbergland",
+                  "class": "conservation",
+                  "name:latin": "Naturpark Weserbergland",
+                  "name_de": "Naturpark Weserbergland",
+                  "name_en": "Naturpark Weserbergland"
+                },
+                "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+                "relation": "area-overlap",
+                "coverage": 1.0,
+                "context_area_m2": 2407907.9055999056,
+                "scope": "site-context"
+              },
+              {
+                "id": "transportation:312529040:5:4",
+                "layer": "transportation",
+                "properties": {
+                  "class": "service",
+                  "access": "no"
+                },
+                "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+                "relation": "nearby",
+                "distance_m": 6.677455017043342,
+                "position_xy": [
+                  -199.3521183823263,
+                  195.08966125980578
+                ],
+                "scope": "surroundings",
+                "usable_frontage": false
+              }
+            ],
+            "site_use": {
+              "value": "industrial",
+              "origin": "landuse-context",
+              "evidence_ids": [
+                "landuse:237730342:0:0"
+              ],
+              "reason": "dominant coverage; nested site beats its surroundings"
+            }
+          },
+          "footprint_wkb": "01030000000100000005000000B72A7DE382966AC0EBEDE736C7B96A4044E4DF65DD6469C073C7E64D931269405574BDDD4F006BC0CEAD90B270F86740612437EA33266CC046D4919BA49F6940B72A7DE382966AC0EBEDE736C7B96A40"
+        },
+        {
+          "id": "Grohnde/14/8620/5409/building/1061412330/0/12",
+          "layer": "building",
+          "properties": {
+            "render_height": 5,
+            "render_min_height": 0
+          },
+          "coordinate_step_m": 0.3673635191982752,
+          "clipped": false,
+          "context": {
+            "version": 1,
+            "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+            "evidence": [
+              {
+                "id": "landuse:237730342:0:0",
+                "layer": "landuse",
+                "properties": {
+                  "class": "industrial"
+                },
+                "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+                "relation": "area-overlap",
+                "coverage": 1.0,
+                "context_area_m2": 247879.00122336936,
+                "scope": "site-context"
+              },
+              {
+                "id": "park:201652763:0:0",
+                "layer": "park",
+                "properties": {
+                  "name": "Naturpark Weserbergland",
+                  "name_int": "Naturpark Weserbergland",
+                  "class": "conservation",
+                  "name:latin": "Naturpark Weserbergland",
+                  "name_de": "Naturpark Weserbergland",
+                  "name_en": "Naturpark Weserbergland"
+                },
+                "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+                "relation": "area-overlap",
+                "coverage": 1.0,
+                "context_area_m2": 2407907.9055999056,
+                "scope": "site-context"
+              }
+            ],
+            "site_use": {
+              "value": "industrial",
+              "origin": "landuse-context",
+              "evidence_ids": [
+                "landuse:237730342:0:0"
+              ],
+              "reason": "dominant coverage; nested site beats its surroundings"
+            }
+          },
+          "footprint_wkb": "01030000000100000005000000A4BDBF21361164C0B8075D2D5D806F40F6C081F9D0F566C0A2971B4A5C6F6D4071D73418CCD768C0460A843DB70670401FD4724031F365C051C224AF370F7140A4BDBF21361164C0B8075D2D5D806F40"
+        }
+      ]
+    },
+    {
+      "source": {
+        "id": "Grohnde/14/8620/5409/building/1061412330/0/19",
+        "layer": "building",
+        "properties": {
+          "render_height": 5,
+          "render_min_height": 0
+        },
+        "coordinate_step_m": 0.3673635191982752,
+        "clipped": false,
+        "context": {
+          "version": 1,
+          "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+          "evidence": [
+            {
+              "id": "landuse:237730342:0:0",
+              "layer": "landuse",
+              "properties": {
+                "class": "industrial"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0000000000000002,
+              "context_area_m2": 247879.00122336936,
+              "scope": "site-context"
+            },
+            {
+              "id": "park:201652763:0:0",
+              "layer": "park",
+              "properties": {
+                "name": "Naturpark Weserbergland",
+                "name_int": "Naturpark Weserbergland",
+                "class": "conservation",
+                "name:latin": "Naturpark Weserbergland",
+                "name_de": "Naturpark Weserbergland",
+                "name_en": "Naturpark Weserbergland"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0000000000000002,
+              "context_area_m2": 2407907.9055999056,
+              "scope": "site-context"
+            },
+            {
+              "id": "transportation:266822250:19:1",
+              "layer": "transportation",
+              "properties": {
+                "subclass": "rail",
+                "class": "rail",
+                "service": "spur"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "nearby",
+              "distance_m": 9.162186407425304,
+              "position_xy": [
+                -394.03272441463906,
+                159.62430106265887
+              ],
+              "scope": "surroundings",
+              "usable_frontage": false
+            },
+            {
+              "id": "transportation:312529040:5:0",
+              "layer": "transportation",
+              "properties": {
+                "class": "service",
+                "access": "no"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "nearby",
+              "distance_m": 4.3102364375232565,
+              "position_xy": [
+                -389.5191149036615,
+                73.23813471792522
+              ],
+              "scope": "surroundings",
+              "usable_frontage": false
+            }
+          ],
+          "site_use": {
+            "value": "industrial",
+            "origin": "landuse-context",
+            "evidence_ids": [
+              "landuse:237730342:0:0"
+            ],
+            "reason": "dominant coverage; nested site beats its surroundings"
+          }
+        },
+        "footprint_wkb": "010300000001000000070000008557C4C505AE7AC0228E32D4E5C65F40A1BA3B00828578C0CAE0FE32CFD362409312E9583A4277C045C1BFAFB74E5E40F0E844F3DE6276C07DBDA0C6C26460401AF40ED5A27D75C02881682B618D5B406DEFA947A17F78C001941BBCDA3153408557C4C505AE7AC0228E32D4E5C65F40"
+      },
+      "neighbors": []
+    },
+    {
+      "source": {
+        "id": "Grohnde/14/8620/5409/building/1061412330/0/20",
+        "layer": "building",
+        "properties": {
+          "render_height": 5,
+          "render_min_height": 0
+        },
+        "coordinate_step_m": 0.3673635191982752,
+        "clipped": false,
+        "context": {
+          "version": 1,
+          "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+          "evidence": [
+            {
+              "id": "landuse:237730342:0:0",
+              "layer": "landuse",
+              "properties": {
+                "class": "industrial"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0,
+              "context_area_m2": 247879.00122336936,
+              "scope": "site-context"
+            },
+            {
+              "id": "park:201652763:0:0",
+              "layer": "park",
+              "properties": {
+                "name": "Naturpark Weserbergland",
+                "name_int": "Naturpark Weserbergland",
+                "class": "conservation",
+                "name:latin": "Naturpark Weserbergland",
+                "name_de": "Naturpark Weserbergland",
+                "name_en": "Naturpark Weserbergland"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "area-overlap",
+              "coverage": 1.0,
+              "context_area_m2": 2407907.9055999056,
+              "scope": "site-context"
+            },
+            {
+              "id": "transportation:312528860:4:2",
+              "layer": "transportation",
+              "properties": {
+                "subclass": "footway",
+                "class": "path"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "nearby",
+              "distance_m": 0.0,
+              "position_xy": [
+                -540.759100259861,
+                316.66735354891324
+              ],
+              "scope": "frontage-candidate",
+              "usable_frontage": true
+            },
+            {
+              "id": "transportation:312529800:6:8",
+              "layer": "transportation",
+              "properties": {
+                "class": "service"
+              },
+              "source_sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+              "relation": "nearby",
+              "distance_m": 6.173074661250006,
+              "position_xy": [
+                -513.0608355204685,
+                275.9156059336143
+              ],
+              "scope": "frontage-candidate",
+              "usable_frontage": true
+            }
+          ],
+          "site_use": {
+            "value": "industrial",
+            "origin": "landuse-context",
+            "evidence_ids": [
+              "landuse:237730342:0:0"
+            ],
+            "reason": "dominant coverage; nested site beats its surroundings"
+          }
+        },
+        "footprint_wkb": "01030000000100000009000000798C516898547EC006747F2769A773404F818786D4397FC099051FB0B50873404B99FCB5A9E17EC02D8F97D36587724047025DD81A2480C0BC38AC8B87907140E83328A312E680C03B37EA7AADCA73401A8B74F3DDBF80C03D279CB074057440B7DCDB52470C81C0141CD2CEB0EA744079D515F6970C80C0EFF06B587B457640798C516898547EC006747F2769A77340"
+      },
+      "neighbors": []
+    }
+  ]
+}

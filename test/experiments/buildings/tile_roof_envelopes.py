@@ -303,8 +303,10 @@ class OrdinaryDetails:
         self.pitched.update(self.industrial_rooms)
         self.room_completed = []
         self.room_rejected = []
+        self.current_envelope = None
 
     def __call__(self, row, parameters, material):
+        self.current_envelope = None
         choice = choose(row, parameters)
         self.choices[choice.kind] += 1
         if choice.kind == "flat":
@@ -385,6 +387,7 @@ class OrdinaryDetails:
             raise ValueError(
                 "Roof envelope changed its source footprint or filled a courtyard"
             )
+        self.current_envelope = envelope
         self.completed.append(
             dict(
                 id=row["id"],
