@@ -108,9 +108,33 @@ def build(inputs, output, along=2):
     )
     (target / "entry.json").unlink()
     (target / "entry.json").write_text(json.dumps(new, indent=2) + "\n")
+    children = np.bincount(crown.parents[1:], minlength=len(crown.parents))
+    forks = np.flatnonzero(children >= 2)
+    radii = pipe_radii(crown.parents, 0.14)
+    fork = int(forks[np.argmax(radii[forks])])
+    child = np.flatnonzero(crown.parents == fork)[0]
+    incoming = crown.positions[fork] - crown.positions[crown.parents[fork]]
+    outgoing = crown.positions[child] - crown.positions[fork]
+    normal = np.cross(incoming, outgoing)
+    normal /= np.linalg.norm(normal)
+    centre = crown.positions[fork] + (0, 0, 0.12)
+    view = {
+        "eye": (centre + normal * 2.8 + (0, 0, 0.6)).tolist(),
+        "target": centre.tolist(),
+        "span_m": 1.2,
+    }
+    for name, entry in (("recursive", metadata), ("spatial", new)):
+        entry = dict(entry, preview_views={"detail": view}, preview_samples=8)
+        file = output / name / "entry.json"
+        file.unlink()
+        file.write_text(json.dumps(entry, indent=2) + "\n")
     np.savez_compressed(output / "limbs-only.npz", **body)
     (output / "limb-paths.json").write_text(json.dumps(paths) + "\n")
     report = {
+        "presentation_labels": {
+            "recursive": "stored independent segments",
+            "spatial": "continuous dominant limbs",
+        },
         "source_identity": crown.identity,
         "geometry_identity": new["geometry_identity"],
         "canonical_nodes": len(crown.parents),
@@ -122,6 +146,7 @@ def build(inputs, output, along=2):
         "new_whole_triangles": new["instanced_triangles"],
         "body_array_bytes": sum(a.nbytes for a in body.values()),
         "along": along,
+        "detail_fork_node": fork,
         "build_s": time.perf_counter() - start,
     }
     (output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
