@@ -49,7 +49,7 @@ def profile(gate, opened, detail=True):
         return np.empty((0, 2))
     if not isinstance(detail, bool):
         raise TypeError("Roller detail selection must be boolean")
-    if not detail:
+    if not detail or gate.rib_m == 0:
         return np.array([[bottom, gate.depth_m], [gate.height_m, gate.depth_m]])
     count = math.ceil(length / gate.pitch_m)
     positions = np.r_[
@@ -117,6 +117,7 @@ def leaf_surface(gate, opened=0.0, *, detail=True, material=10, max_triangles=51
     bottom = lift(gate, opened)
     if not isinstance(detail, bool):
         raise TypeError("Roller detail selection must be boolean")
+    detail = detail and gate.rib_m > 0
     if (
         isinstance(material, bool)
         or not isinstance(material, (int, np.integer))

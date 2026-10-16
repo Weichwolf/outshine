@@ -76,6 +76,12 @@ class RollerGates(unittest.TestCase):
         ):
             self.assertEqual(len(leaf_surface(RollerGate(3.8, 3), 1)["faces"]), 0)
 
+    def test_zero_rib_omits_invisible_slats_before_triangle_capacity(self):
+        gate = RollerGate(3.8, 3, rib_m=0)
+        mesh = leaf_surface(gate, max_triangles=12)
+        self.assertEqual(len(mesh["faces"]), 12)
+        self.assertEqual(len(profile(gate, 0)), 2)
+
     def test_capacity_rejected_before_profile_and_flat_direct_demand(self):
         gate = RollerGate(3.8, 3)
         with (
