@@ -191,6 +191,18 @@ def main():
             )
             print(json.dumps(rows[-1]), flush=True)
     record.update(
+        source_commit=run(["git", "rev-parse", "HEAD"], "source-commit").strip(),
+        source_dirty=run(["git", "status", "--porcelain"], "source-dirty"),
+        source_sha256={
+            name: digest(ROOT / name)
+            for name in (
+                "test/experiments/weather/cloud_density_native.cpp",
+                "test/experiments/weather/cloud_density.comp",
+                "src/generators/weather/shaders/cloudLayer.glsl",
+                "src/generators/weather/shaders/cloudCumulus.glsl",
+                "test/experiments/weather/cloud_shape_field.py",
+            )
+        },
         producer_commit=producer,
         archive_sha256=digest(archive),
         binary_sha256=digest(binary),

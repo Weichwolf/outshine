@@ -73,6 +73,12 @@ Die Dichteprobe prüft identische Punkte und speichert alle tatsächlichen
 Dispatch-Timestamp-Paare einschließlich erster Ausführung. `--untimed` erlaubt
 Wertgegenproben ohne Timestampunterstützung; keine Fence-Zeit als GPU-Zeit.
 Weniger Hasharbeit bedeutet hier ausdrücklich nicht automatisch kürzere GPU-Zeit.
+Die isolierte RTX3060-Probe mit1.048.576 identischen Punkten misst bei Cover0,45
+rund96µs für CumulusV1 gegenüber73µs für Stratus. Der alte Shader ohne Profilzweig
+benötigt rund67µs; der dynamische Selektor erhöht hier auch die Standardkosten um
+rund9%. Zwei Ablauf-/Schleifenvarianten brachten keinen Gewinn und wurden verworfen.
+Diese Mehrkosten bleiben ausdrücklich Teil der Integrationsentscheidung; die
+reduzierten Hashzähler sind kein Beschleunigungsnachweis.
 Die Probe misst weder Wolkenquellen noch Rasterpass, vollständigen Frame oder p99.
 
 ## Quellen und offene Integration

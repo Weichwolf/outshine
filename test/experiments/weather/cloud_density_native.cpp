@@ -24,7 +24,7 @@
 namespace {
 using namespace outshine::Test;
 using namespace outshine::Test::Gpu;
-constexpr size_t kMaximumPoints = 1024 * 1024;
+constexpr size_t kMaximumPoints = size_t{1024} * 1024;
 constexpr size_t kFrameWords = 12;
 constexpr size_t kPointWords = 4;
 constexpr uint32_t kThreads = 64;
@@ -41,7 +41,7 @@ std::vector<uint32_t> Read(const char *path) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
   const auto bytes = file ? static_cast<std::streamoff>(file.tellg()) : -1;
   const bool complete =
-      bytes > static_cast<std::streamoff>(kFrameWords * sizeof(uint32_t)) &&
+      std::cmp_greater(bytes, kFrameWords * sizeof(uint32_t)) &&
       std::cmp_less_equal(bytes, (kFrameWords + kPointWords * kMaximumPoints) * sizeof(uint32_t)) &&
       (static_cast<size_t>(bytes) / sizeof(uint32_t) - kFrameWords) % kPointWords == 0 &&
       bytes % sizeof(uint32_t) == 0;

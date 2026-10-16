@@ -162,6 +162,22 @@ def main():
         "capture_metadata_sha256": hashlib.sha256(
             args.capture.read_bytes()
         ).hexdigest(),
+        "capture_inputs_sha256": {
+            suffix: hashlib.sha256(
+                args.capture.with_name(args.capture.stem + suffix).read_bytes()
+            ).hexdigest()
+            for suffix in (".images.bin", ".rays.bin", ".parameters.bin")
+        },
+        "reference_sources_sha256": {
+            name: hashlib.sha256(
+                Path(__file__).with_name(name).read_bytes()
+            ).hexdigest()
+            for name in (
+                "cloud_shape_compare.py",
+                "cloud_shape_field.py",
+                "cloud_shape_transfer.py",
+            )
+        },
         "sampled_profile": list(pixels.shape[1:3][::-1]),
         "stride": args.stride,
         "controls": control,
