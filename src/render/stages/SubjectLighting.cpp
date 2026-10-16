@@ -37,9 +37,11 @@ Vec4f LightVector(const auto &source, float tail = 0) {
 std::array<float, SubjectDraw::kLightFloats>
 SubjectDraw::PackedLights(const FrameContext &ctx) const {
   SubjectLightingUniform packed{};
+  const bool shadowSource = Shadowed_ && ShadowLightIndex_ < Placed.size() &&
+                            Placed[ShadowLightIndex_].Light.Kind == LightKind::Directional;
   packed.Count = {{static_cast<float>(Placed.size()),
                    0,
-                   Shadowed_ ? 1.0f : 0.0f,
+                   shadowSource ? static_cast<float>(ShadowLightIndex_ + 1) : 0.0f,
                    static_cast<float>(ShadowRegionCount_)}};
   packed.ShadowRegions = ShadowRegions_;
   packed.Environment =

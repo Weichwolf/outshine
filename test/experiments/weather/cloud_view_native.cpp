@@ -1,4 +1,5 @@
 #include "CloudViewProbe.h"
+#include "CloudLayer.h"
 #include "MediumViewProbe.h"
 #include "NativeGpuCheck.h"
 #include "Check.h"
@@ -14,6 +15,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 namespace {
 using namespace outshine::Test;
@@ -73,7 +75,7 @@ int main(int argc, char **argv) {
     std::println(
         stderr,
         "usage: cloud-view-native scene.vert scene.frag fullscreen.vert front.frag output-prefix "
-        "[width height [scenario [boundary-sky]]]");
+        "[width height [scenario [boundary-sky|cumulus-sky|stratus-sky]]]");
     return 2;
   }
   const uint32_t width = argc >= 8 ? Extent(argv[6]) : MediumViewProbe::kWidth;
@@ -85,9 +87,20 @@ int main(int argc, char **argv) {
       .Height = height,
       .RowBytes = (width * static_cast<uint32_t>(sizeof(Pixel)) + rowAlignment - 1) / rowAlignment *
                   rowAlignment};
-  const bool boundarySky = argc == 10 && std::string_view(argv[9]) == "boundary-sky";
+  const bool cumulus = argc == 10 && std::string_view(argv[9]) == "cumulus-sky";
+  const bool stratus = argc == 10 && std::string_view(argv[9]) == "stratus-sky";
+  const bool boundarySky =
+      argc == 10 && (std::string_view(argv[9]) == "boundary-sky" || cumulus || stratus);
   if (argc == 10 && !boundarySky) { return 2; }
-  auto cases = boundarySky ? BoundaryCases(shape) : Cases(shape);
+  std::vector<Case> cases;
+  if (cumulus || stratus) {
+    cases = ProfileCases(
+        shape, cumulus ? outshine::CloudProfile::CumulusV1 : outshine::CloudProfile::Stratus);
+  } else if (boundarySky) {
+    cases = BoundaryCases(shape);
+  } else {
+    cases = Cases(shape);
+  }
   auto device = Require(CreateDevice({.Validation = true}));
   CHECK(device->Limits().MaxColourAttachments >= 4, "four actual cloud-front MRTs are supported");
   const auto scene = Pipeline(*device, argv[1], argv[2], true);

@@ -1,0 +1,29 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "cloudLayer.glsl"
+
+layout(local_size_x = 64) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Points {
+  vec4 Values[];
+}
+
+points;
+
+layout(std430, set = 1, binding = 0) writeonly buffer Densities {
+  float Values[];
+}
+
+densities;
+
+layout(std140, set = 2, binding = 0) uniform Weather {
+  CloudLayer Layer;
+}
+
+weather;
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= points.Values.length()) { return; }
+  densities.Values[index] = cloudExtinction(weather.Layer, points.Values[index].xyz);
+}

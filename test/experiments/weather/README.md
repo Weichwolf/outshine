@@ -66,6 +66,10 @@ Der [native Boundary-Sky-Verbraucher](cloud_sky_raster.md) integriert dieselben
 Medien bis zur physischen Himmelsgrenze. Sein ausdrücklich gewählter
 Grenzradiance-Vertrag erhält den bisherigen bereits integrierten Eye-Sky-Modus.
 
+Das [versionierte Körperrezept](cloud_shape.md) ergänzt ausdrücklich wählbare
+Kumulusformen und den Übergang zur geschlossenen Decke. Der Stratus-Default bleibt
+erhalten; native Werte, Bilder und Kosten werden getrennt geprüft.
+
 ## Native Wetterdaten
 
 Der [native Open-Meteo-Decoder](native_forecast.md) überträgt die bestätigten

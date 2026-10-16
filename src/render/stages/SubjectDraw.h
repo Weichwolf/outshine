@@ -107,6 +107,7 @@ public:
 
   void ShadowedBy(Native::Texture *atlas,
                   Native::Sampler *exact,
+                  size_t lightIndex,
                   const Mat4 &lightFromWorld,
                   const std::array<ShadowRegionUniform, kSunShadowRegions> &regions,
                   size_t count) {
@@ -114,12 +115,13 @@ public:
     AtlasSampler_ = exact;
     Shadowed_ = atlas != nullptr && exact != nullptr && count > 0;
     ShadowRegionCount_ = Shadowed_ ? count : 0;
+    ShadowLightIndex_ = lightIndex;
     if (!Shadowed_) { return; }
     LightFromWorld_ = lightFromWorld;
     ShadowRegions_ = regions;
   }
 
-  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, Mat4{}, {}, 0); }
+  void CastsNoShadow() { ShadowedBy(nullptr, nullptr, 0, Mat4{}, {}, 0); }
 
   [[nodiscard]] bool HandPlacements(bool deferred, std::string &error);
 
@@ -438,6 +440,7 @@ private:
   Native::Sampler *AtlasSampler_ = nullptr;
   std::array<ShadowRegionUniform, kSunShadowRegions> ShadowRegions_{};
   size_t ShadowRegionCount_ = 0;
+  size_t ShadowLightIndex_ = 0;
   Mat4 LightFromWorld_ = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   size_t ShadowedFrames_ = 0;
   size_t UniformPushes_ = 0;

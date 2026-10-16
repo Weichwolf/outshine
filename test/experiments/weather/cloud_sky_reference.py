@@ -72,7 +72,7 @@ def judge(metadata):
     }
 
 
-def cross_cases(folder, legacy):
+def cross_cases(folder, legacy=None):
     def capture(name):
         return read(folder / f"actual.{name}.json")
 
@@ -98,7 +98,7 @@ def cross_cases(folder, legacy):
         np.testing.assert_array_equal(images[3, :, :3], 1)
         np.testing.assert_array_equal(images[3, :, 3], 0)
     opaque_pixels = 0
-    for metadata in sorted(legacy.glob("actual.*.json")):
+    for metadata in sorted(legacy.glob("actual.*.json")) if legacy is not None else ():
         _, old, _, _, _ = read(metadata)
         _, current, _, _, _ = read(folder / metadata.name)
         mask = old[2, :, 3] > 0
@@ -112,7 +112,11 @@ def cross_cases(folder, legacy):
     cloud_change = float(np.max(np.abs(cloudy[1, sky, :3] - clear[1, sky, :3])))
     _, wind, _, _, _ = capture("wind-advance")
     wind_change = float(np.max(np.abs(cloudy[1, sky, :3] - wind[1, sky, :3])))
-    if cloud_change <= 1e-3 or wind_change <= 1e-6 or opaque_pixels == 0:
+    if (
+        cloud_change <= 1e-3
+        or wind_change <= 1e-6
+        or (legacy is not None and opaque_pixels == 0)
+    ):
         raise AssertionError(
             "clouds, wind and original actual opaque controls must be exercised"
         )

@@ -1,4 +1,5 @@
 #include "Check.h"
+#include "FacadeProfiles.h"
 #include "PreparedBuildingAssets.h"
 #include "PreparedStructureCodec.h"
 #include "PreparedStructurePlan.h"
@@ -149,7 +150,7 @@ int main() {
               decoded->Surfaces[2].Shapes().front().OpeningStyle == FacadeStyle::Tower,
           "native restart retains supplied service use and independent opening plans");
     auto invalid = *reference;
-    invalid.Structures[2].Layout.Facade = static_cast<FacadeStyle>(8);
+    invalid.Structures[2].Layout.Facade = static_cast<FacadeStyle>(kStyleCount);
     CHECK(!EncodePreparedStructureTile(invalid), "invalid opening families cannot publish");
     CHECK(reference->Surfaces.front().FaceCount() > 4 * 8 + 16,
           "long terrace yields more faces than a source-point multiplier can bound");

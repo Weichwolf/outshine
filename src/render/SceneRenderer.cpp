@@ -1287,6 +1287,7 @@ Native::Result<void> SceneRenderer::EncodeLightVisibility(const FrameContext &ct
       static_cast<uint64_t>(kShadowAtlasPx) * kShadowAtlasPx * sizeof(float);
   ActiveState().Content.Subjects.ShadowedBy(ActiveFrame().ShadowAtlas.get(),
                                             ActiveFrame().LutSamp.get(),
+                                            ActiveState().ShadowLightIndex,
                                             ActiveFrame().Shadow.LightFromWorld(),
                                             ActiveFrame().Shadow.Regions(),
                                             ActiveFrame().Shadow.RegionCount());
