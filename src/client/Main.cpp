@@ -100,7 +100,7 @@ void Tell(const Shot &shot, std::string_view name) {
                shot.P99Ms,
                shot.OverBudget,
                shot.Frames,
-               outshine::Shots::kFrameBudgetMs,
+               shot.Timing.BudgetMs(),
                shot.WorstAt,
                shot.AdvanceP99Ms,
                shot.AdvanceWorstMs,
@@ -374,6 +374,12 @@ void ReportShot(const Shot &shot,
                 std::string_view name,
                 const outshine::Client::ShotOptions &options,
                 std::chrono::steady_clock::time_point began) {
+  std::println("PROFILE\t{}\t{}\t{}\t{}\t{:.6f}",
+               name,
+               shot.Frame.WidthPx,
+               shot.Frame.HeightPx,
+               shot.Timing.RateHz,
+               shot.Timing.BudgetMs());
   if (options.Rows) {
     Row(shot, name);
   } else {
@@ -669,6 +675,12 @@ int CaptureView(outshine::Engine &engine,
                  captured->Path);
   }
   if (!options.RenderMotion) { return 0; }
+  std::println("PROFILE\t{}\t{}\t{}\t{}\t{:.6f}",
+               named,
+               engine.swapChain().extent().WidthPx,
+               engine.swapChain().extent().HeightPx,
+               captured->Timing.RateHz,
+               captured->Timing.BudgetMs());
   if (options.Rows) {
     std::println("MOTION\t{}\t{}\t{}\t{:.3f}\t{:.3f}\t{:.3f}\t{}\t{}\t{:.3f}\t{}",
                  named,
