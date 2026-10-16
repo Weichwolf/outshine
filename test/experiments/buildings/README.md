@@ -1020,3 +1020,90 @@ section/2.5D diagrams were opened. The close tile pair changes1.1555% of pixels;
 shape gain is clear on individual gable views. Neutral materials and missing
 industrial openings/details remain a substantial visual limit. Final model
 equality and original render/camera bindings are recorded in the PR.
+
+### Simple usable industrial halls (#489)
+
+`industrial_hall_plan` uses the existing provider footprint and industrial
+facade/entrance selector for a bounded single-room interpretation: ground-level,
+800–15000m², one existing facade row and an inferred section roof. Small existing
+room programmes remain unchanged. The same cells own the personnel door, a
+2.8–3.8m loading opening and up to96 actual windows; blocked/superseded slots have
+explicit reasons. No place/ID rule or measured industrial use is asserted.
+`data/industrial-halls.json` pins three accepted real source/context examples
+and a real footprint with no admissible loading cell, including provider bytes.
+
+`industrial_hall_shell` reuses the original typed heightfield envelope, cuts one
+room and the actual openings in one CSG operation, and adds a three-metre inner
+ramp from ground0 to floor0.16m. Existing upper roof geometry remains physically
+unchanged; Boolean output ordering/roundoff need not match the original stream.
+The earlier exterior-only exact-array roof control explicitly bypasses this
+new hollow-hall product; actual hall roof/height checks remain separate.
+`industrial_hall_details` composes existing personnel leaves, window frames and
+thin glazing, plus a source-bound exterior-mounted roller, U-track and housing.
+There is no fake back wall behind the gate and no interior furnishing. Actual
+pawn/vehicle-sized sampled clearances are geometry evidence, not a controller
+or road/terrain/turning-route admission. Known buildings and own other wings
+limit provisional exterior detail/site clearance; Transport reservations remain
+owned by the common spatial contract.
+
+`tile_industrial_halls` keeps logical hall/room/opening identities independent
+of gate/door state and view. A whole-host frustum/movement test plus8px gate
+threshold runs before cuts/templates; an inside camera requests detail. A single
+transient typed roof reference avoids rebuilding it, with no tile-wide mesh
+cache. Far products keep logical plans with explicitly deferred hall geometry;
+full image/shadow/transition equivalence is unproved. Local failures retain the
+prior facade and a reason. Gate fractions and existing hinged-door degrees are
+separate inputs. No shared/native/material/reservations API changed.
+
+Run with `.venv` and `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings`:
+`python -m unittest test_roller_gates verify_industrial_halls verify_industrial_roofs -q`.
+After freezing source, `industrial_hall_probe.py --output <system-temp> --tile`
+produces actual2D/sections/2.5D and1920×1080 before/after/state/interior/opposite/
+whole-tile Blender inputs. Render geometry JSONs with shared `blender_city.py`.
+Images stay local. `roller_gate_cost.py --output <json>` compares direct cap
+extrusion, generic Shape extrusion and section-heightfield solids with equal
+physical/UV/normal requirements, Native differences and21 warm repetitions.
+Output writes, traced live allocations/peak are explicit; total/native-heap
+allocations/copies and frame/device speedup are not claimed.
+
+SIGGRAPH2006 Procedural Modeling of Buildings p5 (snapping/alignment/occlusion)
+was optically inspected; prior shared extrusion/heightfield/CSG kernels implement
+these local relationships. SDK3.4.12206 `libcom.esri.prt.core.so` SHA256
+`850a1b10182e9793f67791438989835de08a9facc2bd0d4f12c26c9a8be5ab45`
+was freshly examined with Ghidra at Processor::extrude004b5210 and
+Processor::subtract00541230 (empty/invalid input guards, transform and Boolean
+operation dispatch). This bounds primitive-level reference use; no Esri source,
+roller simulation, ready hall recipe or oracle-render equivalence is claimed.
+
+Runtime62bd10218 passes116 source checks; the final room-identity correction
+4e5828277 passes all6 affected source controls and the fresh wheel passes the
+same116-check set, no skips. All82 installed building modules are byte-exact;
+wheel SHA256 `aac088cf20ef7b05728ba62cdc57d85735fccb92a71e4650d9085d3d4d3315b6`.
+Fifteen final models retain every geometry stream/dtype, camera and material
+binding exactly against the earlier frozen render inputs. Thirteen actual
+1920×1080 Blender images and three2400×1350 plan/section/2.5D diagrams were
+opened. Eleven images use the original4be795a59 inputs, accepted only through
+that exact equality proof; the closer tile pair uses4e5828277 inputs. Render
+processes return0 after successful Eevee completion; the existing `bpy` cleanup
+crash is bypassed with `os._exit(0)` only after render returns, no normal-teardown
+claim. This is llvmpipe reference rendering, not an RTX/device budget result.
+
+In the closer complete37-source comparison, six near halls replace former
+facades,32445→60123 triangles (+27678); eight logical halls, one unsuitable
+loading case with a reason, no source omissions/roof/facade errors. Source IDs,
+properties, footprints, heights, classifications and provenance remain exact.
+The wide camera retains3610 triangles with hall geometry deferred. The closer
+tile pair changes10417/2073600 pixels (0.5024%); gate/window differences read
+more clearly in the individual near shots. Broad facade/roof detail, roof glass,
+credible material/weather variation, exterior transport connection and native/
+night/complete-family/full-image LOD quality remain open.
+
+Equal physical sheets at opening0/.35/.5 use168/112/88 triangles for both direct
+and generic Shape extrusion versus324/212/164 for strip-heightfield closure.
+Measured direct p50 is2.442/3.184/1.859ms, Shape30.660/18.976/16.629ms and
+strips18.779/13.355/10.232ms over21 runs (2 warmups, shared-host load). Direct
+traced peaks81852/56316/45956bytes versus423939/291121/233911 (Shape) and
+416879/279735/220959 (strips) exclude native allocations. Equal volume, surface
+area and developed UV edge lengths are independently checked. Final buffer
+bytes/writes and live traced allocation counts are in the reproducible JSON;
+these timings do not imply a native frame/device factor.
