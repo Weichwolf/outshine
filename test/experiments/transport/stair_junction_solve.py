@@ -96,15 +96,18 @@ def overlap_conditions(plan, system, gap):
         for keys, faces in zip(plan["part_global_faces"], plan["parts"], strict=True)
     ]
     checks = 0
-    for i, j in itertools.combinations(range(4), 2):
+    for i, j in itertools.combinations(range(len(plan["rows"])), 2):
         for key in mapped[i].keys() & mapped[j].keys():
             a, b = mapped[i][key], mapped[j][key]
             if np.array_equal(a, b):
                 continue
-            if (i, j) != (1, 2):
+            first = plan["rows"][i]["original"]["bridge"]
+            second = plan["rows"][j]["original"]["bridge"]
+            if first == second:
                 raise ValueError("unplanned non-contact overlap between source bands")
-            for low, high in zip(a, b, strict=True):
-                system.add([low, high], [1, -1], -gap)
+            low, high = (b, a) if first else (a, b)
+            for under, over in zip(low, high, strict=True):
+                system.add([under, over], [1, -1], -gap)
                 checks += 1
     return checks
 
@@ -155,7 +158,8 @@ def solve(
     angles = np.arange(directions) * 2 * np.pi / directions
     normals = np.c_[np.cos(angles), np.sin(angles)]
     reserve = float(np.cos(np.pi / directions))
-    system = Conditions(2 * count + 6)
+    plane_variables = 3 * len(plan["nodes"])
+    system = Conditions(2 * count + plane_variables)
     origin_z = plan["rows"][0]["prior"][0]
     priors = []
     for point, owner in zip(xy, plan["primary_source"], strict=True):
@@ -186,10 +190,12 @@ def solve(
     matrix = system.matrix()
     prepared = time.perf_counter()
     answer = linprog(
-        np.r_[np.zeros(count), np.ones(count), np.zeros(6)],
+        np.r_[np.zeros(count), np.ones(count), np.zeros(plane_variables)],
         A_ub=matrix,
         b_ub=system.bounds,
-        bounds=[(-2, 10)] * count + [(0, None)] * count + [(None, None)] * 6,
+        bounds=[(-2, 10)] * count
+        + [(0, None)] * count
+        + [(None, None)] * plane_variables,
         method=solver,
         options={"time_limit": seconds, "primal_feasibility_tolerance": 1e-9},
     )
@@ -225,7 +231,7 @@ def solve(
     ]
     note.update(
         maximum_gradients=norms,
-        junction_planes=answer.x[-6:].reshape(2, 3).tolist(),
+        junction_planes=answer.x[-plane_variables:].reshape(-1, 3).tolist(),
         objective=float(answer.fun),
         maximum_residual=float(np.max(matrix @ answer.x - system.bounds)),
     )

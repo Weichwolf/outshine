@@ -56,7 +56,30 @@ def tread_proof(data):
     }
 
 
-def audit(data, domains):
+def crossing_faces(data, domains, low, high, point):
+    vertices, owners = data["body_vertices"], data["face_sources"]
+    top, bottom = data["top_faces"], data["bottom_faces"]
+    if point is None:
+        return top[(owners & (1 << low)) != 0], bottom[(owners & (1 << high)) != 0]
+    regions = [
+        p
+        for p in shapely.get_parts(domains[low].intersection(domains[high]))
+        if p.distance(shapely.Point(point)) < 1e-7 and p.area > 1e-8
+    ]
+    if len(regions) != 1:
+        raise ValueError("one complete real crossing overlap component required")
+    a = top[((owners & (1 << low)) != 0) & ((owners & (1 << high)) == 0)]
+    b = bottom[((owners & (1 << high)) != 0) & ((owners & (1 << low)) == 0)]
+    for faces in (a, b):
+        cover = shapely.union_all(shapely.polygons(vertices[faces, :2]))
+        if regions[0].difference(cover).area > 1e-7:
+            raise ValueError(
+                "actual grade crossing was lost or relabelled as a contact"
+            )
+    return a, b
+
+
+def audit(data, domains, *, limits=None, crossings=None):
     vertices, faces = data["body_vertices"], data["body_faces"]
     body = Mesh(vertices, faces)
     if not np.array_equal(
@@ -76,7 +99,8 @@ def audit(data, domains):
     top = data["top_faces"]
     owners = data["face_sources"]
     cycles, coverage = {}, []
-    for i in range(4):
+    limits = limits if limits is not None else [0.5, *[0.06] * (len(domains) - 1)]
+    for i in range(len(domains)):
         selected = top[(owners & (1 << i)) != 0]
         polygons = shapely.polygons(vertices[selected, :2])
         error = float(shapely.union_all(polygons).symmetric_difference(domains[i]).area)
@@ -85,8 +109,8 @@ def audit(data, domains):
         coverage.append(error)
         if i:
             norms = [norm(Mesh(v, selected)) for v in (vertices, cast)]
-            if max(norms) > 0.06 + 1e-7:
-                raise ValueError("actual saved cycle cap exceeds six-percent norm")
+            if max(norms) > limits[i] + 1e-7:
+                raise ValueError("actual saved source cap exceeds requested norm")
             cycles[str(i)] = norms
     levels = data["levels_m"]
     if (
@@ -110,16 +134,32 @@ def audit(data, domains):
     ):
         raise ValueError("saved stair underside differs from its finite grade envelope")
     separation = {}
-    for label, v in (("double", vertices), ("float32", cast)):
-        lower = Mesh(v, top[(owners & 2) != 0])
-        upper = Mesh(v, data["bottom_faces"][(owners & 4) != 0])
-        result = vertical_clearance(lower, upper, max_faces=4096, seconds=5)
-        if not result["valid"] or result["minimum_clearance_m"] < 2.5 - 1e-7:
-            raise ValueError("saved whole crossing underside lacks its 2.5-m clearance")
-        separation[label] = result
+    pairs = crossings if crossings is not None else [(1, 2)]
+    for pair in pairs:
+        low, high = pair[:2]
+        point = pair[2] if len(pair) > 2 else None
+        low_faces, high_faces = crossing_faces(data, domains, low, high, point)
+        proof = {}
+        for label, v in (("double", vertices), ("float32", cast)):
+            lower = Mesh(v, low_faces)
+            upper = Mesh(v, high_faces)
+            result = vertical_clearance(lower, upper, max_faces=4096, seconds=5)
+            if not result["valid"] or result["minimum_clearance_m"] < 2.5 - 1e-7:
+                raise ValueError(
+                    "saved whole crossing underside lacks its 2.5-m clearance"
+                )
+            proof[label] = result
+        if crossings is None:
+            separation = proof
+        else:
+            separation[f"{low}:{high}"] = proof
     return {
         "volume_m3": volume,
-        "actual_cycle_norms": cycles,
+        (
+            "actual_cycle_norms"
+            if all(x == 0.06 for x in limits[1:])
+            else "actual_profile_norms"
+        ): cycles,
         "source_coverage_error_m2": coverage,
         "clearance": separation,
         "treads": tread_proof(data),
