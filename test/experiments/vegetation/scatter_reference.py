@@ -72,8 +72,10 @@ class Float64Nearest:
         )
 
     def query(self, origins, directions, length):
+        lengths = np.broadcast_to(length, (len(origins),))
         answers = [
-            self.one(o, d, length) for o, d in zip(origins, directions, strict=True)
+            self.one(o, d, limit)
+            for o, d, limit in zip(origins, directions, lengths, strict=True)
         ]
         return (
             np.array([a[0] for a in answers]),

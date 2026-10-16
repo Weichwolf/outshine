@@ -28,7 +28,7 @@ def direct_states(scene, points, normals, outgoing, optical, states, bias):
                 raise ValueError("finite nonnegative beam RGB required")
             key = (*direction, *energy)
             if key not in evaluated:
-                visible, work = scene.index.visibility(points, normals, direction, bias)
+                visible, work = scene.visibility(points, normals, direction, bias)
                 for k, value in work.items():
                     scene.shadow_work[k] = scene.shadow_work.get(k, 0) + value
                 evaluated[key] = (

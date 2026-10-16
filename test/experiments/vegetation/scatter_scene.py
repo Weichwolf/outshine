@@ -1,12 +1,17 @@
 """Finite local nearest-hit packets with Float64 reconstruction and edge fallback."""
 
 import numpy as np
-from grass_shadow import GrassShadowIndex
+from grass_shadow import GrassShadowIndex, query_origins
 from scatter_reference import Float64Nearest
 
 
 class ScatterScene:
-    def __init__(self, vertices, faces):
+    def __init__(self, vertices, faces, shadow_backend="cached"):
+        if shadow_backend not in ("cached", "legacy"):
+            raise ValueError(
+                "explicit cached or legacy reference shadow backend required"
+            )
+        self.shadow_backend = shadow_backend
         self.index = GrassShadowIndex(vertices, faces)
         self.reference = None
         self.shadow_work = {}
@@ -28,6 +33,41 @@ class ScatterScene:
             "fallback_rays": 0,
             "fallback_triangle_tests": 0,
             "input_copy_bytes": 0,
+        }
+
+    def visibility(self, points, normals, direction, bias):
+        index = self.index
+        if self.shadow_backend == "legacy":
+            return index.visibility(points, normals, direction, bias)
+        origins = query_origins(points, normals, direction, bias)
+        lengths = np.maximum(
+            (index.maximum_height + 2 * bias - origins[:, 2]) / direction[2], 0
+        )
+        encoded = ((origins - index.centre) / index.scale).astype(np.float32)
+        directions = np.broadcast_to(direction, origins.shape)
+        dirs = directions.astype(np.float32)
+        limits = (lengths / index.scale).astype(np.float32)
+        ids = (
+            index.scene.run(encoded, dirs, dists=limits)
+            if len(index.faces)
+            else np.full(len(points), -1)
+        )
+        visible = ids < 0
+        bad = index.validate_hits(origins, direction, lengths, ids)
+        tested = 0
+        if len(bad):
+            if self.reference is None:
+                self.reference = Float64Nearest(index.vertices, index.faces)
+            exact, _, tested = self.reference.query(
+                origins[bad], directions[bad], lengths[bad]
+            )
+            visible[bad] = exact < 0
+        return visible, {
+            "rays": len(points),
+            "packets": int(bool(len(points))),
+            "fallback_rays": len(bad),
+            "fallback_triangle_tests": tested,
+            "ray_input_copy_bytes": encoded.nbytes + dirs.nbytes + limits.nbytes,
         }
 
     def nearest(self, origins, directions, length):
