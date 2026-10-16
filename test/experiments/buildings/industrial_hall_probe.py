@@ -80,6 +80,8 @@ def diagram(row, neighbors, output, index):
     ax = figure.add_subplot(133, projection="3d")
     p = mesh["vertices"][mesh["faces"]].copy()
     selected = p[:, :, 2].max(axis=1) < value["ceiling_m"] - 1e-6
+    normals = mesh["normals"][mesh["faces"][:, 0]]
+    selected &= ~((normals[:, 2] < -0.5) & (p[:, :, 2].max(axis=1) <= value["floor_m"]))
     p = p[selected]
     p[:, :, :2] -= origin
     colours = np.tile([0.62, 0.66, 0.69], (len(p), 1))
@@ -90,7 +92,7 @@ def diagram(row, neighbors, output, index):
         xlim=(a - origin[0], c - origin[0]),
         ylim=(b - origin[1], d - origin[1]),
         zlim=(0, 3.6),
-        title="2.5D · diagnostic removes uppermost faces only",
+        title="2.5D · ceiling and base undersides omitted",
     )
     ax.set_box_aspect((c - a, d - b, 3.6))
     ax.view_init(elev=40, azim=-65)
