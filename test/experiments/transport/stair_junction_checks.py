@@ -40,6 +40,19 @@ class StairJunction(unittest.TestCase):
         self.assertFalse(note["valid"])
         self.assertEqual(inputs()[0], before)
 
+    def test_independent_interior_point_method_meets_the_same_body_conditions(self):
+        heights, note = solve(self.plan, solver="highs-ipm")
+        self.assertTrue(note["valid"])
+        self.assertAlmostEqual(note["objective"], self.note["objective"], places=5)
+        _body, data, _geometry = build(self.plan, heights)
+        audit(data, self.plan["domains"])
+
+    def test_metric_axes_match_the_supplied_native_reference_geometry(self):
+        original = self.rows[3]["original"]["source"]["local_metres_geometry"][
+            "coordinates"
+        ]
+        np.testing.assert_allclose(self.rows[3]["xy"], original, rtol=0, atol=1e-10)
+
     def test_real_double_valid_triangle_can_fail_float32_grade(self):
         xyz = np.array(
             [

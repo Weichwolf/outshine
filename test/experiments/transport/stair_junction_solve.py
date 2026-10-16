@@ -41,7 +41,8 @@ class Conditions:
 def facets(plan, system, directions, reserve, flat, precision):
     seen = set()
     cast_xy = plan["xy"].astype(np.float32).astype(float)
-    epsilon = float(np.spacing(np.float32(plan["rows"][0]["prior"][0] + 10))) / 2
+    root = plan["rows"][0]["prior"][0]
+    epsilon = float(np.spacing(np.float32(max(abs(root - 2), abs(root + 10))))) / 2
     for owner, (row, faces) in enumerate(zip(plan["rows"], plan["parts"], strict=True)):
         limit = row["gradient"] - (0.002 if row["gradient"] > 0.1 else 0.0002)
         for face in faces:
@@ -143,7 +144,10 @@ def solve(
     gap_m=2.82,
     fixed_port_heights=False,
     precision=True,
+    solver="highs-ds",
 ):
+    if solver not in ("highs-ds", "highs-ipm"):
+        raise ValueError("known independent HiGHS algorithm required")
     began = time.perf_counter()
     xy, count = plan["xy"], len(plan["xy"])
     if count > 4096 or sum(map(len, plan["parts"])) > 8192:
@@ -180,12 +184,13 @@ def solve(
             raise ValueError("actual outer/node height anchor is absent")
         system.equal([i], [1], float(row["prior"][end] - origin_z))
     matrix = system.matrix()
+    prepared = time.perf_counter()
     answer = linprog(
         np.r_[np.zeros(count), np.ones(count), np.zeros(6)],
         A_ub=matrix,
         b_ub=system.bounds,
         bounds=[(-2, 10)] * count + [(0, None)] * count + [(None, None)] * 6,
-        method="highs",
+        method=solver,
         options={"time_limit": seconds, "primal_feasibility_tolerance": 1e-9},
     )
     note = {
@@ -196,9 +201,16 @@ def solve(
         "nonzeros": matrix.nnz,
         "overlap_vertex_constraints": overlaps,
         "seconds": time.perf_counter() - began,
+        "preparation_seconds": prepared - began,
+        "linear_solver_seconds": time.perf_counter() - prepared,
         "flat_landings": flat,
         "fixed_outer_prior_heights": fixed_port_heights,
         "precision_bounds": precision,
+        "solver": solver,
+        "sparse_array_bytes": matrix.data.nbytes
+        + matrix.indices.nbytes
+        + matrix.indptr.nbytes,
+        "explicit_quantized_xy_copy_bytes": plan["xy"].size * 12,
     }
     if not answer.success:
         return None, note
