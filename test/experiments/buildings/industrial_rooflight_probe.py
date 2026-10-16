@@ -287,9 +287,20 @@ def tile(output, proof):
             flush=True,
         )
     first, last = records
-    for key in ("generated", "omissions"):
+    for key in ("generated", "omissions", "counts", "material_definitions"):
         if first["source"][key] != last["source"][key]:
             raise ValueError("Rooflight variant changed source generation/omissions")
+    originals = [
+        [
+            {k: v for k, v in member.items() if k != "prototype"}
+            for member in r["source"]["members"]
+        ]
+        for r in records
+    ]
+    if originals[0] != originals[1]:
+        raise ValueError(
+            "Rooflight variant changed source attributes/identity/footprint/height/class"
+        )
     old = first["procedures"]["facades"]["halls"]
     new = last["procedures"]["facades"]["halls"]
     if old["rejected"] != new["rejected"] or [p["id"] for p in old["completed"]] != [

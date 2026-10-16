@@ -75,6 +75,35 @@ operand/output counts are explicit. Native allocator/solver internals and total
 copy traffic remain unmeasured. Concurrent Software-Eevee/other domain work is
 not an isolated hardware comparison; no runtime/frame-budget claim follows.
 
+The `1f86c1d26` whole-assembly measurement used normal priority on a shared
+four-logical-CPU host while Software-Eevee and other domain work ran. Reported
+load was 15.36/13.31/11.65; the whole-process RSS high-water mark was146236 KiB.
+The measured phase starts from the same prepared hall/envelope and ends at the
+joined render mesh. It excludes provider acquisition and initial plan/envelope
+construction. Timings are milliseconds; traced peaks are bytes:
+
+| Fields | Method | Warm median ms | Render triangles | Render bytes | Traced peak bytes |
+|---|---|---|---|---|---|
+|55|ring|453.290|11094|3084132|7379415|
+|55|bars|478.065|11974|3328772|7895421|
+|16|ring|272.640|4974|1382772|3498851|
+|16|bars|222.035|5230|1453940|3650180|
+|46|ring|452.085|10512|2922336|7060565|
+|46|bars|447.008|11248|3126944|7490098|
+
+Ring emission consistently saves field triangles/components and output bytes;
+the noisy whole-phase CPU medians do **not** establish a consistent speed gain.
+The three Boolean shells use103/44/95 prism operands and4166/1762/3880 output
+triangles identically for both alternatives. CSG remains the expensive shared
+work; direct compact/far products must avoid it rather than generate then strip
+these bodies. The opaque prior has6526/3634/6656 render triangles, so glazing is
+additional quality/work, not a performance improvement against that prior.
+
+The experimental optional-cut hook also replays all eight previous recipe-v1
+render inputs exactly, including actual stream dtypes, cameras and source
+palette. This is stronger than comparing two current paths to each other; the
+unchanged original reference inputs/render receipts remain in system temp.
+
 ## References and admission boundary
 
 [Instant Architecture, SIGGRAPH 2003](../../../doc/references/buildings/siggraph/2003-instant-architecture.pdf),
