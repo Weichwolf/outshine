@@ -11,6 +11,8 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <string>
+#include <unordered_map>
 
 namespace outshine::Render::Native::Metal {
 
@@ -23,9 +25,6 @@ namespace outshine::Render::Native::Metal {
                                   length:text.size()
                                 encoding:NSUTF8StringEncoding];
 }
-
-[[nodiscard]] Result<id<MTLFunction>>
-Function(id<MTLDevice> device, const Shader &shader, MTLFunctionType type);
 
 struct BufferState {
   id<MTLBuffer> Native;
@@ -302,6 +301,16 @@ private:
   void Collect();
 
   uint64_t Identity_, NextSerial_ = 1, Retired_ = 0;
+
+  struct CompiledShader {
+    Shader Translated;
+    id<MTLFunction> Function = nil;
+  };
+
+  [[nodiscard]] Result<CompiledShader *> ShaderProgram(std::span<const uint32_t> spirv,
+                                                       std::string_view entry);
+  [[nodiscard]] Result<id<MTLFunction>> Function(CompiledShader &shader, MTLFunctionType type);
+  std::unordered_map<std::string, CompiledShader> Shaders_;
   id<MTLDevice> Native_;
   id<MTLCommandQueue> Queue_;
   Capabilities Limits_;
