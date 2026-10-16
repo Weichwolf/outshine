@@ -81,7 +81,7 @@ int main() {
     eye->ZNearM = 1;
     eye->ZFarM = 1000;
     scene->Eye(*eye);
-    renderer.SetShadowFrame({{0, 0.70710677f, 0.70710677f}}, {{0, 1, 0}}, 240000, true);
+    renderer.SetShadowFrame({{0, 0.70710677f, 0.70710677f}}, {{0, 1, 0}}, 240000, true, 0);
     renderer.CastsBelow(0);
     CHECK(scene->Draw(error), "receiver draws with no caster");
     renderer.WaitForGpu();

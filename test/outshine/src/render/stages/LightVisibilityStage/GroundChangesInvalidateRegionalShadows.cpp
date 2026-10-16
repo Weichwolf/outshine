@@ -52,7 +52,7 @@ int main() {
       scene->Eye(eye);
       const LightVisibilityStage::Overhead sun{.ToSun = {{0, 0.70710677f, 0.70710677f}},
                                                .Up = {{0, 1, 0}}};
-      renderer.SetShadowFrame(sun.ToSun, sun.Up, 256, true);
+      renderer.SetShadowFrame(sun.ToSun, sun.Up, 256, true, 0);
       CHECK(scene->Draw(error), "a world with no subject vertex buffer casts its ground");
       renderer.WaitForGpu();
       std::vector<float> first;

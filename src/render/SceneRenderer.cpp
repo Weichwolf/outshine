@@ -1421,7 +1421,8 @@ void SceneRenderer::EncodeLightVisibility(const FrameContext &ctx, const PassRec
                                             ActiveFrame().LutSamp.Get(),
                                             ActiveFrame().Shadow.LightFromWorld(),
                                             ActiveFrame().Shadow.Regions(),
-                                            ActiveFrame().Shadow.RegionCount());
+                                            ActiveFrame().Shadow.RegionCount(),
+                                            ActiveState().ShadowLightIndex);
 }
 
 bool SceneRenderer::Settle(std::string &error) {

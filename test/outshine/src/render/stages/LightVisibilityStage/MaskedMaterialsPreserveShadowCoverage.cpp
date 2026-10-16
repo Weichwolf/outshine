@@ -101,7 +101,7 @@ void CheckMask(MaskCase mask) {
   eye.ZNearM = kNearM;
   eye.ZFarM = kFarM;
   scene->Eye(eye);
-  renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true);
+  renderer.SetShadowFrame({{0, 0, 1}}, {{0, 1, 0}}, 16384, true, 0);
   if (instanced) {
     std::array<StoredVertex, 4> vertices{};
     constexpr std::array<float, 8> uv{0, 0, 1, 0, 1, 1, 0, 1};

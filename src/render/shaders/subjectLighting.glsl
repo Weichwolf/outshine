@@ -115,7 +115,7 @@ vec3 shadeRow(M surface,
       float angular = clamp((dot(light.beam.xyz, -toward) - light.cone.x) * light.cone.y, 0.0, 1.0);
       attenuation *= angular * angular;
     }
-    if (light.tint.w <= 0.5 && lights.count.z > 0.5) {
+    if (light.tint.w <= 0.5 && int(lights.count.z) == at + 1) {
       attenuation *= worldSunShadowVisibility(shadowMap, shadowCoordinate, receiverSlope);
     }
     float nl = dot(n, toward);

@@ -542,7 +542,7 @@ void ShadowSubmission() {
         "changing the caster mask invalidates and clears the old shadow");
   for (auto *renderer : renderers) {
     renderer->CastsBelow(kNoBatch);
-    renderer->SetShadowFrame({{0.6f, 0.5f, 0.7f}}, {{0, 1, 0}}, 8);
+    renderer->SetShadowFrame({{0.6f, 0.5f, 0.7f}}, {{0, 1, 0}}, 8, false, 0);
   }
   reject();
   const auto changed = drawPair();
