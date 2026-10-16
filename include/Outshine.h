@@ -688,7 +688,9 @@ private:
   [[nodiscard]] bool presenting() const;
 
   friend class SwapChain;
+  friend class TestEngine;
   struct State;
+  explicit Engine(std::unique_ptr<State> state);
   [[nodiscard]] bool
   readScenarioInto(std::string_view source, Scenario::Document &out, std::string_view overrides);
   void ships();

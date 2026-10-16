@@ -90,7 +90,9 @@ RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
 
 }
 
-Engine::Engine() : S_(std::make_unique<State>()) {}
+Engine::Engine() : Engine(std::make_unique<State>()) {}
+
+Engine::Engine(std::unique_ptr<State> state) : S_(std::move(state)) {}
 
 Capture::~Capture() {
   release();
