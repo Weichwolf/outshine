@@ -3,6 +3,7 @@
 import numpy as np
 from building_mesh import solid
 from facade_entry_geometry import basis_for, expand, local_quads
+from facade_surface import project
 from outshine_ref.buildings.opening_panels import OpeningPanel, panel_surface
 
 
@@ -52,16 +53,18 @@ def products(current, owner, material, mode, *, glass=None):
     materials = np.array([1, 0, 2, 3], dtype=np.uint8)[fixed["roles"]]
     for part in np.unique(part_ids):
         rows = part_ids == part
-        expanded = expand(
-            {
-                "vertices": points,
-                "faces": fixed["faces"][rows],
-                "materials": materials[rows],
-            },
-            material,
-        )
+        raw = {
+            "vertices": points,
+            "faces": fixed["faces"][rows],
+            "materials": materials[rows],
+        }
+        if glass is not None and np.any(raw["materials"] == 3):
+            raw, _ = project(raw, tile_size_m=(1.0, 1.0), material=3)
+        expanded = expand(raw, material)
         if glass is not None:
             expanded["materials"][expanded["materials"] == 3] = glass()
+            if "uv" in raw:
+                expanded["uv"] = raw["uv"][raw["faces"]].reshape(-1, 2)
         output.append(expanded)
     if mode == "through":
         pocket = current["pocket"].difference(current["full_footprint"])

@@ -72,6 +72,23 @@ def inspect(current, parts, **kwargs):
 
 
 class WindowBayCells(unittest.TestCase):
+    def test_compact_default_consumer_has_metric_glazing_for_the_actual_blender_importer(
+        self,
+    ):
+        from blender_city_mesh import cell_sizes
+
+        for row in sources():
+            *_, plan = prepared(row)
+            after = FacadeDetails([row], camera(plan["cells"][0], 500))
+            mesh, _ = construct(
+                "compact-bay",
+                prepared=([row], {"invalid": [], "span_m": 100.0}),
+                ordinary_builder=after,
+            )
+            self.assertEqual({r["mode"] for r in after.bay_geometry}, {"compact"})
+            self.assertFalse(np.any(mesh["materials"] == 3))
+            cell_sizes(mesh, [int(k) for k in after.bindings])
+
     def test_actual_plan_retains_sources_ids_and_defers_all_mesh_templates(self):
         for row in sources():
             before = copy.deepcopy(row)
@@ -217,6 +234,8 @@ class WindowBayCells(unittest.TestCase):
     def test_actual_default_consumer_uses_both_shapes_exclusively_and_retains_source_grid_entry(
         self,
     ):
+        from blender_city_mesh import cell_sizes
+
         for row in sources():
             _, _, _, _, _, plan = prepared(row)
             view = camera(plan["cells"][0], 10)
@@ -256,6 +275,7 @@ class WindowBayCells(unittest.TestCase):
             self.assertFalse(after.balconies.planned)
             self.assertTrue(after.bay_geometry, after.recess_rejected)
             self.assertFalse(np.any(mesh_after["materials"] == 3))
+            cell_sizes(mesh_after, [int(k) for k in after.bindings])
             self.assertEqual(after.entrances.planned, before.entrances.planned)
             self.assertEqual(after.shopfronts.planned, before.shopfronts.planned)
             self.assertEqual(
