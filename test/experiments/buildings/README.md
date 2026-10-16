@@ -686,3 +686,13 @@ above that floor, upper storeys/ceiling omitted, full furniture retained. The
 uncut mesh is checked separately. The public gallery retains four fixed Place views.
 Door leaves/privacy states, services/ventilation, complete architectural
 programmes, other uses, runtime LOD/cache and native admission remain open.
+
+## Source-bound ground-floor display fronts (#377)
+
+`facade_shopfronts` uses only actual unique-host retail/food POIs, retaining evidence IDs and source attributes. Known non-ground/ambiguous levels and invalid hosts do not become ground fronts. A missing level is a marked procedural ground assumption. The selected existing entrance facade is a procedural frontage interpretation, not measured shop frontage or whole-building use. At most64 use candidates,256 existing columns and32 ground cells; each POI affects at most three existing adjacent cells, with the entrance cell excluded. Narrow/low/neighbor-blocked cells keep their prior surface. Existing constructed room controls stay separate.
+
+`tile_shopfronts` consumes the same `FacadeRepeat`/`RecessPlan`, with wider/taller ground openings (retail .88×.80, food .82×.74 of the same cells). Upper repeats/UV scale and entrance identity are retained. Rectangular wall remainders use disjoint rectangles; rising walls use the bounded existing source-triangle difference. Compact cells bind the same proportions on two triangles, demanded near cells use the existing inward .18m recess. These are render display fronts, not complete physical shops or a night-/LOD/native admission.
+
+Run with `.venv`: `PYTHONPATH=lib/src:test/experiments/buildings .venv/bin/python -m unittest verify_shopfronts -q`; `shopfront_probe.py --output /tmp/outshine-buildings-shopfronts-<commit>` generates actual provider before/after/overview/compact Blender inputs, a plan/2.5D diagnostic and a 21-run equal-surface rectangular-versus-GEOS remainder comparison. Render the geometry JSONs with the shared `blender_city.py`; images remain local. `data/shopfronts.json` preserves three actual Paris host/context examples and provider receipts, including supplied/missing ground levels. Whole-city neighbor/context coverage must be checked separately with `city_scene.py`.
+
+References: local SIGGRAPH2006 p3/Fig4 (optically reviewed) separates floor programmes while retaining repeat axes; Candler `Base/GroundSubTile/GroundfloorOpening` treats street ground floors separately. Existing hash-checked Ghidra extrusion dispatcher exports support that primitive, not a complete Esri shop-front oracle. No foreign assets or texture images are used.

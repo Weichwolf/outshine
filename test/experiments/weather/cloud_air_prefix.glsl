@@ -4,6 +4,14 @@
 #include "mediumCell.glsl"
 #include "cloudPrefix.glsl"
 
+#ifndef CLOUD_AIR_MOMENTS
+#define CLOUD_AIR_MOMENTS 0
+#endif
+
+#if CLOUD_AIR_MOMENTS
+#include "cloudMoments.glsl"
+#endif
+
 struct CloudAirPrefix {
   AirPrefix Clear;
   CloudPrefix Cloud;
@@ -14,6 +22,10 @@ struct CloudAirPrefix {
   bool HasCloud;
   AirTransfer AtStart;
   uint CellsVisited;
+#if CLOUD_AIR_MOMENTS
+  CloudMomentSum Moments;
+  vec2 QueryMoments;
+#endif
 };
 
 void cloudAirPrefixPrepare(inout CloudAirPrefix prefix) {
@@ -37,6 +49,10 @@ CloudAirPrefix cloudAirPrefixBegin(CloudLayer layer, vec3 originM, vec3 directio
   prefix.BeginM = 0.0;
   prefix.AtStart = AirTransfer(vec3(0.0), vec3(1.0));
   prefix.CellsVisited = 0u;
+#if CLOUD_AIR_MOMENTS
+  prefix.Moments = cloudMomentBegin();
+  prefix.QueryMoments = vec2(0.0);
+#endif
   cloudAirPrefixPrepare(prefix);
   return prefix;
 }
@@ -62,6 +78,13 @@ AirTransfer cloudAirPrefixAdvance(inout CloudAirPrefix prefix, float queryM,
   for (int step = 0; step < 2 * CLOUD_VIEW_SAMPLES + AIR_PREFIX_INTERVALS + 14; ++step) {
     if (query < prefix.EndM || prefix.EndM >= prefix.Cloud.ExtentM) { break; }
     AirTransfer cell = cloudAirPrefixPartial(prefix, prefix.EndM);
+#if CLOUD_AIR_MOMENTS
+    if (prefix.HasCloud) {
+      float lengthM = prefix.EndM - prefix.BeginM;
+      cloudMomentCell(prefix.Moments, prefix.BeginM, lengthM,
+          prefix.Cloud.ExtinctionPerKm * 0.001 * lengthM);
+    }
+#endif
     prefix.AtStart.RadiancePerLux += prefix.AtStart.Transmittance * cell.RadiancePerLux;
     prefix.AtStart.Transmittance *= cell.Transmittance;
     ++prefix.CellsVisited;
@@ -74,6 +97,15 @@ AirTransfer cloudAirPrefixAdvance(inout CloudAirPrefix prefix, float queryM,
     cloudAirPrefixPrepare(prefix);
   }
   AirTransfer partial = cloudAirPrefixPartial(prefix, query);
+#if CLOUD_AIR_MOMENTS
+  CloudMomentSum moments = prefix.Moments;
+  if (prefix.HasCloud) {
+    float lengthM = max(0.0, query - prefix.BeginM);
+    cloudMomentCell(moments, prefix.BeginM, lengthM,
+        prefix.Cloud.ExtinctionPerKm * 0.001 * lengthM);
+  }
+  prefix.QueryMoments = cloudMomentValue(moments);
+#endif
   return AirTransfer(prefix.AtStart.RadiancePerLux +
       prefix.AtStart.Transmittance * partial.RadiancePerLux,
       prefix.AtStart.Transmittance * partial.Transmittance);

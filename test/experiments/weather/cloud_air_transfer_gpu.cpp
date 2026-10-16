@@ -1,6 +1,7 @@
 #include "NativeGpuCheck.h"
 #include "Atmosphere.h"
 #include "Check.h"
+#include "base/math/RenderFrame.h"
 #include <algorithm>
 #include <array>
 #include <bit>
@@ -36,15 +37,19 @@ struct Grid {
   uint32_t Width, Height, FieldWidth, FieldHeight;
 };
 
-struct alignas(16) FieldState {
-  float Cover, EastM, SouthM, Pad;
+struct FieldState {
+  float Cover, EastM, NorthM;
+};
+
+struct alignas(16) PackedFieldState {
+  float Cover, EastM, ZM, Pad;
 };
 
 static_assert(std::endian::native == std::endian::little);
 static_assert(sizeof(Grid) == 16 && offsetof(Grid, FieldWidth) == 8);
-static_assert(sizeof(FieldState) == 16 && alignof(FieldState) == 16 &&
-              offsetof(FieldState, Cover) == 0 && offsetof(FieldState, EastM) == 4 &&
-              offsetof(FieldState, SouthM) == 8 && offsetof(FieldState, Pad) == 12);
+static_assert(sizeof(PackedFieldState) == 16 && alignof(PackedFieldState) == 16 &&
+              offsetof(PackedFieldState, Cover) == 0 && offsetof(PackedFieldState, EastM) == 4 &&
+              offsetof(PackedFieldState, ZM) == 8 && offsetof(PackedFieldState, Pad) == 12);
 constexpr size_t kMediumBytes = 80;
 constexpr uint32_t kGroupWidth = 64;
 constexpr float kHomogeneousScaleHeightKm = 1e19f;
@@ -58,11 +63,16 @@ static_assert(offsetof(ProbeSample, RadianceR) == 0 &&
               offsetof(ProbeSample, SourceEvaluations) == 6 * sizeof(float));
 static_assert(std::is_trivially_copyable_v<Medium> && std::is_trivially_copyable_v<ProbeRay>);
 constexpr std::array<FieldState, 4> kStates = {
-    {{.Cover = 0.65f, .EastM = 256.34352f, .SouthM = -148.0f, .Pad = 0},
-     {.Cover = 0, .EastM = 256.34352f, .SouthM = -148.0f, .Pad = 0},
-     {.Cover = 0.65f, .EastM = 0, .SouthM = 0, .Pad = 0},
-     {.Cover = 0.65f, .EastM = 256.34352f, .SouthM = -148.0f, .Pad = 0}}};
+    {{.Cover = 0.65f, .EastM = 256.34352f, .NorthM = 148.0f},
+     {.Cover = 0, .EastM = 256.34352f, .NorthM = 148.0f},
+     {.Cover = 0.65f, .EastM = 0, .NorthM = 0},
+     {.Cover = 0.65f, .EastM = 256.34352f, .NorthM = 148.0f}}};
 constexpr double kNanosecondsPerMillisecond = 1'000'000.0;
+
+constexpr PackedFieldState Pack(const FieldState &state) {
+  const auto zM = static_cast<float>(RenderFrame::ZOfNorth(state.NorthM));
+  return {.Cover = state.Cover, .EastM = state.EastM, .ZM = zM == 0 ? 0.0f : zM, .Pad = 0};
+}
 
 std::vector<uint32_t> Read(const std::filesystem::path &path) {
   std::ifstream file(path, std::ios::binary | std::ios::ate);
@@ -182,7 +192,7 @@ void Layout(const ComputeLayout &layout, Pass pass) {
                       : ShaderBinding{.Set = 2,
                                       .Slot = 1,
                                       .Kind = BindingKind::Uniform,
-                                      .MinimumBytes = sizeof(FieldState)};
+                                      .MinimumBytes = sizeof(PackedFieldState)};
   }
   const bool valid = layout.LocalSize == std::array<uint32_t, 3>{64, 1, 1} &&
                      layout.Bindings.size() == expected.size() &&
@@ -253,7 +263,8 @@ Resident Prepare(Device &device, char **paths, const char *normalizer) {
   return data;
 }
 
-std::array<Binding, 7> Bindings(const Resident &data, const FieldState &state, bool producer) {
+std::array<Binding, 7>
+Bindings(const Resident &data, const PackedFieldState &state, bool producer) {
   const auto &rays = producer ? data.Coarse : data.Image;
   std::array<Binding, 7> bindings = {
       {{.Set = 0,
@@ -283,7 +294,7 @@ std::array<Binding, 7> Bindings(const Resident &data, const FieldState &state, b
   return bindings;
 }
 
-void Normalize(Commands &commands, const Resident &data, const FieldState &state) {
+void Normalize(Commands &commands, const Resident &data, const PackedFieldState &state) {
   if (!data.Normalization) { return; }
   auto bindings = Bindings(data, state, true);
   bindings[4] = {
@@ -373,7 +384,7 @@ void MemoryModel(const Resident &data) {
                inputs + lutBytes,
                (data.Readback->Description().Bytes + data.FieldReadback->Description().Bytes) *
                    kStates.size(),
-               (data.Normalization ? 3 : 2) * sizeof(Medium) + sizeof(FieldState));
+               (data.Normalization ? 3 : 2) * sizeof(Medium) + sizeof(PackedFieldState));
 }
 
 void Save(Device &device, Buffer &buffer, const std::filesystem::path &path) {
@@ -389,19 +400,27 @@ void Save(Device &device, Buffer &buffer, const std::filesystem::path &path) {
 
 void Run(Device &device, const Resident &data, const char *output, uint32_t repeats) {
   for (uint32_t state = 0; state < kStates.size(); ++state) {
-    std::println("field_state state={} cover={} east_m={} south_m={}",
+    const auto packed = Pack(kStates[state]);
+    std::println("field_state state={} cover={} east_m={} north_m={}",
                  state,
                  kStates[state].Cover,
                  kStates[state].EastM,
-                 kStates[state].SouthM);
+                 kStates[state].NorthM);
+    const auto words = std::bit_cast<std::array<uint32_t, 4>>(packed);
+    std::println("gpu_field_state state={} words={} {} {} {}",
+                 state,
+                 words[0],
+                 words[1],
+                 words[2],
+                 words[3]);
     for (uint32_t repeat = 0; repeat <= repeats; ++repeat) {
       auto commands = Require(device.Begin());
       Require(commands->Dispatch(*data.Producer,
-                                 Bindings(data, kStates[state], true),
+                                 Bindings(data, packed, true),
                                  {.X = (data.Coarse.Count + kGroupWidth - 1) / kGroupWidth}));
-      Normalize(*commands, data, kStates[state]);
+      Normalize(*commands, data, packed);
       Require(commands->Dispatch(*data.Reconstruction,
-                                 Bindings(data, kStates[state], false),
+                                 Bindings(data, packed, false),
                                  {.X = (data.Image.Count + kGroupWidth - 1) / kGroupWidth}));
       if (repeat == repeats) { Copy(*commands, data); }
       const auto completion = Require(device.Submit(std::move(commands)));
