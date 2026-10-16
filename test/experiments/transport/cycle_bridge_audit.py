@@ -5,6 +5,7 @@ import itertools
 import numpy as np
 import shapely
 from foot_ramp_audit import shell_ownership
+from outshine_ref.contracts import Mesh
 from retained_surface import surface_domain
 from surface_solid_checks import audit_closed
 
@@ -20,7 +21,7 @@ def reference(fixture):
     return tri[0], gradient, origin, axis
 
 
-def whole_field(cap, table, ref, *, bottom=False, thickness=0.35):
+def whole_field(cap, table, ref, *, bottom=False, thickness=0.35, tolerance_m=1e-7):
     anchor, gradient, origin, axis = ref
     triangles = cap.vertices[cap.triangles]
     shapes = shapely.polygons(triangles[:, :, :2])
@@ -53,7 +54,7 @@ def whole_field(cap, table, ref, *, bottom=False, thickness=0.35):
             actual = points @ coefficients[index, :2] + coefficients[index, 2]
             error = max(error, float(abs(target - actual).max()))
             covered += parts[index].area
-    if error > 1e-7 or abs(covered - surface_domain(cap).area) > 1e-7:
+    if error > tolerance_m or abs(covered - surface_domain(cap).area) > 1e-7:
         raise ValueError("whole bridge cap field differs or is incomplete")
     return error
 
@@ -95,7 +96,11 @@ def source_contacts(fixture, table, domain, ref):
             records.append({"source_id": row["source_id"], "ground_step_m": error})
         else:
             clearance = float(relative.min() - fixture["recipe"]["deck_thickness_m"])
-            if clearance < fixture["recipe"]["nonmotorized_headroom_m"] - 1e-7:
+            if clearance < (
+                fixture["recipe"]["nonmotorized_headroom_m"]
+                + fixture["recipe"]["clearance_margin_m"]
+                - 1e-7
+            ):
                 raise ValueError("whole nonmotorized underpass clearance violated")
             records.append({"source_id": row["source_id"], "clearance_m": clearance})
     return records
@@ -131,6 +136,44 @@ def expected_coverage(fixture, table, ref):
             )
         )
     return domain, shapely.union_all(pieces)
+
+
+def float32_caps(fixture, ribbon, table, ref):
+    top, low = [
+        Mesh(cap.vertices.astype(np.float32).astype(float), cap.triangles)
+        for cap in (ribbon.upper, ribbon.lower)
+    ]
+    for cap in (top, low):
+        points = cap.vertices[cap.triangles]
+        normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+        if np.any(normals[:, 2] <= 0):
+            raise ValueError("Float32 bridge cap projection degenerates or reverses")
+    points = top.vertices[top.triangles]
+    normals = np.cross(points[:, 1] - points[:, 0], points[:, 2] - points[:, 0])
+    grade = float(np.max(np.linalg.norm(normals[:, :2], axis=1) / normals[:, 2]))
+    if grade > fixture["recipe"]["maximum_grade"] + 1e-8:
+        raise ValueError("Float32 whole bridge grade exceeds the unchanged recipe")
+    lower_error = whole_field(
+        low,
+        table,
+        ref,
+        bottom=True,
+        thickness=fixture["recipe"]["deck_thickness_m"],
+        tolerance_m=0.001,
+    )
+    return {
+        "maximum_whole_face_grade": grade,
+        "lower_field_error_m": lower_error,
+        "upper_field_error_m": whole_field(top, table, ref, tolerance_m=0.001),
+        "xy_drift_m": float(
+            np.linalg.norm(
+                top.vertices[:, :2] - ribbon.upper.vertices[:, :2], axis=1
+            ).max()
+        ),
+        "relative_profile_lipschitz": float(
+            np.max(abs(np.diff(table[:, 1]) / np.diff(table[:, 0])))
+        ),
+    }
 
 
 def audit(fixture, ribbon, table, complete_domain):
@@ -179,4 +222,5 @@ def audit(fixture, ribbon, table, complete_domain):
         "volume_error_m3": abs(volume - integral),
         "source_contacts": source_contacts(fixture, table, complete_domain, ref),
         "float32_faces_noncollapsed_noninverted": True,
+        "float32": float32_caps(fixture, ribbon, table, ref),
     }

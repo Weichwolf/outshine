@@ -146,9 +146,15 @@ def problem(fixture):
     ]
     if not 0 < grade <= 0.2 or not 0 < thickness <= 1 or not 2 <= headroom <= 5:
         raise ValueError("finite bounded explicit bridge recipe required")
+    grade_margin, clearance_margin = [
+        float(recipe[k]) for k in ("construction_grade_margin", "clearance_margin_m")
+    ]
+    if not 0 <= grade_margin < grade or not 0 <= clearance_margin <= 0.1:
+        raise ValueError("bounded explicit construction margins required")
+    fit_grade = grade - grade_margin
     parallel = float(gradient @ axis)
     perpendicular = gradient - parallel * axis
-    remaining = grade * grade - float(perpendicular @ perpendicular)
+    remaining = fit_grade * fit_grade - float(perpendicular @ perpendicular)
     if remaining < 0:
         raise ValueError(
             "actual ground crossfall already exceeds the chosen whole-face grade"
@@ -164,7 +170,9 @@ def problem(fixture):
         if record["kind"] == "ground_joint":
             upper[chosen] = 0
         else:
-            minimum = thickness + (headroom if record["kind"] == "underpass" else 0)
+            minimum = thickness + (
+                headroom + clearance_margin if record["kind"] == "underpass" else 0
+            )
             lower[chosen] = np.maximum(lower[chosen], minimum)
     return {
         "stations": stations,

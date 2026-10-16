@@ -166,7 +166,7 @@ def verify(args):
         raise ValueError("saved complete source/profile/access bindings differ")
     ribbon, table = read_ribbon(args.output / "bridge.npz")
     proof = audit(fixture, ribbon, table, p["domain"])
-    before, fine, binding = inputs(args, fixture, p, ribbon)
+    before, fine, binding = inputs(args, fixture, p, ribbon, proof["float32"])
     bodies, contacts, _data = unpack(args.output / "piers.npz")
     proof["supports"] = pier_proof(fixture, p, ribbon, bodies, contacts, fine)
     palette = np.array(

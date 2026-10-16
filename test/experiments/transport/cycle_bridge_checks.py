@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-from cycle_bridge_audit import reference, whole_field
+from cycle_bridge_audit import audit, reference, whole_field
 from cycle_bridge_geometry import build
 from cycle_bridge_problem import problem
 from cycle_bridge_profile import solve
@@ -19,6 +19,28 @@ FIXTURE = Path(__file__).with_name("fixtures") / "cycle-bridge-vienna.json"
 
 
 class CycleBridge(unittest.TestCase):
+    def test_real_uncushioned_profile_fails_the_actual_float32_grade(self):
+        fixture = json.loads(FIXTURE.read_text())
+        fixture["recipe"].update(construction_grade_margin=0, clearance_margin_m=0)
+        p = problem(fixture)
+        h, _ = solve(*(p[k] for k in ("stations", "lower", "upper", "rate")))
+        ribbon, note = build(p, h)
+        with self.assertRaisesRegex(ValueError, "Float32 whole bridge grade"):
+            audit(fixture, ribbon, np.array(note["table"]), p["domain"])
+
+    def test_real_eight_percent_variant_is_rejected_with_unchanged_inputs(self):
+        fixture = json.loads(FIXTURE.read_text())
+        fixture["recipe"]["maximum_grade"] = 0.08
+        p = problem(fixture)
+        arrays = [p[k] for k in ("stations", "lower", "upper", "rate")]
+        old = [a.copy() for a in arrays]
+        for method in ("chain", "lp"):
+            result, note = solve(*arrays, method=method)
+            self.assertIsNone(result)
+            self.assertFalse(note["valid"])
+            for a, b in zip(arrays, old, strict=True):
+                np.testing.assert_array_equal(a, b)
+
     def test_asymmetric_derivatives_match_the_identical_linear_program(self):
         rng = np.random.default_rng(404)
         for _ in range(40):

@@ -57,7 +57,7 @@ def generate(args):
         raise ValueError("actual noded bridge geometry invalid")
     table = np.array(geometry["arrangement"]["table"])
     proof = audit(fixture, ribbon, table, p["domain"])
-    before, _fine, binding = inputs(args, fixture, p, ribbon)
+    before, _fine, binding = inputs(args, fixture, p, ribbon, proof["float32"])
     piers, pier_note = supports(fixture, p, ribbon)
     save_products(args.output / "piers.npz", piers)
     np.savez_compressed(

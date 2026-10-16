@@ -139,6 +139,8 @@ def capture(args):
             "maximum_grade": 0.12,
             "deck_thickness_m": 0.35,
             "nonmotorized_headroom_m": 2.5,
+            "construction_grade_margin": 0.002,
+            "clearance_margin_m": 0.01,
         },
         "scope": "Actual source axes/properties and original affine field cells. Widths, bridge height, thickness, headroom and profile are procedural recipes. No measured deck elevation, public API, native integration or source-use admission.",
     }
