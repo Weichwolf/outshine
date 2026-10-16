@@ -45,7 +45,7 @@ def contact_points(view, lower, upper, product):
 
 
 def lighting(
-    index, geometry_recipe, product, footprint, view, state, bias=2e-5, batch=8192
+    index, geometry_recipe, product, footprint, view, state, bias=2e-6, batch=8192
 ):
     directions = [np.asarray(lamp["direction"], float) for lamp in state["lights"]]
     require_light_support(geometry_recipe, *footprint, view, directions, bias)

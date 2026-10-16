@@ -39,7 +39,7 @@ class GrassLightChecks(unittest.TestCase):
         n = np.array(((0, 0, 1.0),))
         index = GrassShadowIndex(v, f)
         for d in ((0, 0, 1), (np.sqrt(3) / 2, 0, 0.5)):
-            for bias in (1e-5, 2e-5, 4e-5):
+            for bias in (1e-6, 2e-6, 4e-6, 1e-5, 2e-5, 4e-5):
                 visible, _ = index.visibility(p, n, d, bias)
                 self.assertTrue(visible.all())
 

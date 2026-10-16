@@ -117,7 +117,7 @@ class GrassShadowIndex:
         )
         return selected[ambiguous]
 
-    def visibility(self, points, normals, direction, bias=2e-5, batch=8192):
+    def visibility(self, points, normals, direction, bias=2e-6, batch=8192):
         direction = np.asarray(direction, float)
         origins = query_origins(points, normals, direction, bias)
         if type(batch) is not int or not 1 <= batch <= 65536:

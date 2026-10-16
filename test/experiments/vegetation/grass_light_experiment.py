@@ -133,12 +133,16 @@ def run(inputs, scenario, output):
             checks = check_rays(
                 index, stand, points[chosen], normals[chosen], sun, control["bias_m"]
             )
-            first, _ = index.visibility(points, normals, sun, bias=1e-5)
-            second, _ = index.visibility(points, normals, sun, bias=4e-5)
+            first, _ = index.visibility(
+                points, normals, sun, bias=control["bias_m"] / 2
+            )
+            second, _ = index.visibility(
+                points, normals, sun, bias=control["bias_m"] * 2
+            )
             changed = int(np.count_nonzero(first != second))
             if changed / len(points) > 0.001:
                 raise ValueError(
-                    "preset one-per-thousand offset sensitivity criterion failed"
+                    f"preset one-per-thousand offset sensitivity criterion failed: {changed}/{len(points)}"
                 )
             np.savez_compressed(
                 output / f"{name}.npz",
