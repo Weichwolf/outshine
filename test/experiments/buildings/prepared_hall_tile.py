@@ -48,9 +48,18 @@ def prepare_halls(rows):
 
 
 class RetainedDetails:
-    def __init__(self, prepared, view, *, opened=0.0, staff_angle=0.0):
+    def __init__(
+        self,
+        prepared,
+        view,
+        *,
+        opened=0.0,
+        staff_angle=0.0,
+        reference_full_fields=False,
+    ):
         self.prepared = prepared
         self.view, self.opened, self.staff_angle = view, opened, staff_angle
+        self.reference_full_fields = reference_full_fields
         self.source_rows = {r["id"]: r for r in prepared.rows}
         self.instances = {
             key: HallInstance(asset) for key, asset in prepared.assets.items()
@@ -69,7 +78,10 @@ class RetainedDetails:
         draw = instance.update(
             self.view, opened=self.opened, staff_angle=self.staff_angle
         )
-        raw = append(draw.body, draw.render_parts)
+        parts = draw.render_parts
+        if self.reference_full_fields and len(draw.sheet_mask):
+            parts = parts[: -len(draw.sheet_mask)] + instance.asset.full_panels
+        raw = append(draw.body, parts)
         materials = raw["materials"].copy()
         materials[materials == 1] = material
         logical = metadata(instance.asset.plan) | {
@@ -80,7 +92,9 @@ class RetainedDetails:
         record = {
             "id": row["id"],
             "fields": len(draw.sheet_mask),
-            "sheet_fields": int(draw.sheet_mask.sum()),
+            "sheet_fields": 0
+            if self.reference_full_fields
+            else int(draw.sheet_mask.sum()),
             "triangles": len(raw["faces"]),
             "generated_moving_components": instance.generated_components,
         }
