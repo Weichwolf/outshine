@@ -353,6 +353,30 @@ Optionales `--profile` im Kostenworker braucht `memray==1.20.0` nur für Messung
 Regionale1280×720-Bilder bleiben lokal; `after-1080-scene.json` nur lokale Prüfung.
 Keine neue gemeinsame/native/Reservations-API oder Material-/Lichtparameter.
 
+## Weitere Radbrücke mit wirklichen Bodenanschlüssen (#404)
+
+Eine207-m-Radbrücke und ihre vorhandenen Bodenwege erhalten gemeinsame Profile,
+ganze Unterführungsflächen und20Pfeiler. Das feste lokale Quellen-/Bodenfixture
+reicht für die portablen Geometriekontrollen. Der vollständige Szenenvergleich
+liest die vorher erzeugten Netz-/Rampen-/Pfeilerprodukte explizit ein.
+[Verfahren, Double-/Float32-Abnahme, Kosten und Bildgrenzen](cycle_bridge_comparison.md).
+
+```sh
+PYTHONPATH="$TRANSPORT_SOLIDS_PACKAGE:lib/src:test/experiments/transport" "$TRANSPORT_PY" -W error -m unittest cycle_bridge_checks foot_ramp_checks
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_experiment.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_verify.py --network "$TRANSPORT_NETWORK_OUTPUT" --baseline "$TRANSPORT_RAMP_OUTPUT" --supports "$TRANSPORT_SUPPORT_OUTPUT" --reference-root "$TRANSPORT_RESEARCH_REFERENCE" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/before-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/after-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --method chain --output "$TRANSPORT_CYCLE_COST_CHAIN"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/cycle_bridge_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --method lp --output "$TRANSPORT_CYCLE_COST_LP"
+```
+
+Nur frische Ausgaben im System-Temp; optionales `--profile` braucht das vorhandene
+`memray==1.20.0`. Keine neuen Runtime-/SDK-Abhängigkeiten. Die Szenen bleiben lokal
+und werden in1280×720 geprüft; keine Galerie oder neue Verbraucherfreigabe.
+Die verbindlichen12%/2.50m werden auch am tatsächlichen Float32-Produkt geprüft;
+konservative Baureserven ersetzen keine gelockerten Bedingungen.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
