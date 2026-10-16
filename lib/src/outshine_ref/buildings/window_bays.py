@@ -2,6 +2,7 @@
 
 import math
 from dataclasses import dataclass
+from itertools import pairwise
 
 import numpy as np
 import shapely
@@ -74,8 +75,7 @@ class WindowBay:
             )
 
 
-def sections(plan):
-    """Local ENU: open rear at Y=back, outside at negative Y, up Z; no source footprint."""
+def _outline(plan):
     if not isinstance(plan, WindowBay):
         raise TypeError("WindowBay required")
     half, front = plan.width_m / 2, plan.width_m * plan.front_fraction / 2
@@ -90,6 +90,18 @@ def sections(plan):
         ]
     )
     outer = shapely.Polygon(path)
+    if not outer.is_valid or not math.isfinite(outer.area) or outer.area <= 0:
+        raise ValueError("Window bay outline is unresolved")
+    for a, b in pairwise(path[1:5]):
+        if np.linalg.norm(b - a) <= 4 * plan.wall_m + 0.04:
+            raise ValueError("Window bay side is too short for positive framed glazing")
+    return {"path": path, "outer": outer}
+
+
+def sections(plan):
+    """Local ENU: open rear at Y=back, outside at negative Y, up Z; no source footprint."""
+    shape = _outline(plan)
+    path, outer = shape["path"], shape["outer"]
     wall = shapely.LineString(path).buffer(plan.wall_m, single_sided=True, join_style=2)
     if not outer.is_valid or not wall.is_valid or wall.difference(outer).area > 1e-10:
         raise ValueError("Window bay wall offset is unresolved")
@@ -101,8 +113,6 @@ def sections(plan):
         tangent = delta / length
         inward = np.array([-tangent[1], tangent[0]])
         margin = 2 * plan.wall_m
-        if length <= 2 * margin + 0.04:
-            raise ValueError("Window bay side is too short for positive framed glazing")
         lo, hi = a + margin * tangent, b - margin * tangent
         cuts.append(
             shapely.Polygon(
@@ -227,9 +237,27 @@ def bay_skin(plan, *, max_triangles=128):
     glazing and reveals. Dropped interior surfaces can affect light/shadows;
     this is no radiance/visibility or general LOD admission.
     """
-    if type(max_triangles) is not int or max_triangles < 86:
-        raise ValueError("Bay skin needs86 triangle capacity before expansion")
-    shape = sections(plan)
+    return _skin(plan, False, max_triangles)
+
+
+def bay_flat(plan, *, back_covered=False, max_triangles=46):
+    """Render-only46-triangle exposed shell with panes at the outside wall planes.
+
+    Caller must cover the attachment back with an opaque source cell and bound
+    the three directed pane shifts before choosing this approximation. Only
+    the Y<=0 exterior has a displacement bound, at most(wall-glass)/2.
+    No collision, interior, topology, radiance or shadow equivalence is claimed.
+    """
+    if back_covered is not True:
+        raise ValueError("Bay flat surface requires an opaque covered attachment back")
+    return _skin(plan, True, max_triangles)
+
+
+def _skin(plan, flatten, max_triangles):
+    limit = 46 if flatten else 86
+    if type(max_triangles) is not int or max_triangles < limit:
+        raise ValueError(f"Bay skin needs{limit} triangle capacity before expansion")
+    shape = _outline(plan)
     points, roles = [], []
 
     def quad(p, role):
@@ -240,6 +268,8 @@ def bay_skin(plan, *, max_triangles=128):
     for index, (a, b) in enumerate(
         zip(shape["path"][:-1], shape["path"][1:], strict=True)
     ):
+        if flatten and index not in (1, 2, 3):
+            continue
         length = float(np.linalg.norm(b - a))
         t = (b - a) / length
         inward = np.array([-t[1], t[0]])
@@ -269,8 +299,10 @@ def bay_skin(plan, *, max_triangles=128):
                 panel(0, length, plan.head_m, high, role)
                 panel(0, margin, plan.sill_m, plan.head_m, role)
                 panel(length - margin, length, plan.sill_m, plan.head_m, role)
-                depth = (plan.wall_m - plan.glass_m) / 2
+                depth = 0.0 if flatten else (plan.wall_m - plan.glass_m) / 2
                 panel(margin, length - margin, plan.sill_m, plan.head_m, 3, depth)
+                if flatten:
+                    continue
                 for z, reverse in ((plan.sill_m, False), (plan.head_m, True)):
                     p = [
                         point(margin, z),
@@ -289,18 +321,26 @@ def bay_skin(plan, *, max_triangles=128):
                     quad(p[::-1] if reverse else p, 0)
             else:
                 panel(0, length, low, high, role)
-    for triangle in shapely.get_parts(
-        shapely.constrained_delaunay_triangles(shape["outer"])
-    ):
-        xy = np.asarray(triangle.exterior.coords)[:3]
-        u, v = xy[1] - xy[0], xy[2] - xy[0]
-        if u[0] * v[1] - u[1] * v[0] < 0:
-            xy = xy[::-1]
+    if flatten:
+        xy = shape["path"][1:-1]
         for z, p, role in ((0, xy[::-1], 1), (plan.height_m, xy, 2)):
-            points.extend(np.c_[p, np.full(3, z)])
-            roles.append(role)
+            quad(np.c_[p, np.full(4, z)], role)
+    else:
+        for triangle in shapely.get_parts(
+            shapely.constrained_delaunay_triangles(shape["outer"])
+        ):
+            xy = np.asarray(triangle.exterior.coords)[:3]
+            u, v = xy[1] - xy[0], xy[2] - xy[0]
+            if u[0] * v[1] - u[1] * v[0] < 0:
+                xy = xy[::-1]
+            for z, p, role in ((0, xy[::-1], 1), (plan.height_m, xy, 2)):
+                points.extend(np.c_[p, np.full(3, z)])
+                roles.append(role)
+    vertices = np.asarray(points)
+    if flatten:
+        vertices[:, 1] = np.minimum(vertices[:, 1], 0.0)
     return {
-        "vertices": np.asarray(points),
+        "vertices": vertices,
         "faces": np.arange(len(points), dtype=np.uint32).reshape(-1, 3),
         "roles": np.asarray(roles, dtype=np.uint8),
     }
