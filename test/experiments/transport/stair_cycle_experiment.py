@@ -172,6 +172,7 @@ def generate(args):
             "surface_cross_section_mode", "end_neighbourhood"
         ),
         "terrain_refinement_rounds": recipe.get("terrain_refinement_rounds", 1),
+        "surface_weld_tolerance_m": recipe.get("surface_weld_tolerance_m"),
         "terrain_plan": plan,
         "terrain": proof,
         "source_catalog_sha256": digest(args.output / "source-catalog.json"),
