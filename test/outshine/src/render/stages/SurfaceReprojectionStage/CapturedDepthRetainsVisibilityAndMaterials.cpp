@@ -1,6 +1,6 @@
 #include "Check.h"
-#include "NativeGpuCheck.h"
-#include "NativeOfflineDevice.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOfflineDevice.h"
 #include "ReadbackTransfer.h"
 #include "StageSubmission.h"
 #include "SurfaceReprojectionStage.h"

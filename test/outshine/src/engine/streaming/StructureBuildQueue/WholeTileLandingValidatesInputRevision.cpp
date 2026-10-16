@@ -79,7 +79,7 @@ int main() {
        .Area = true,
        .LatLon = {49.32739, 8.56589, 49.32739, 8.56591, 49.32741, 8.56591, 49.32741, 8.56589}},
   }};
-  stack.Declares(buildings);
+  CHECK(stack.Declares(buildings), "declared source snapshot is accepted");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "declared building enters the vector snapshot");
   const ::outshine::Generators::Osm::OsmField *vectors = stack.Vectors();
@@ -361,7 +361,7 @@ int main() {
   if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   auto lineOnly = buildings;
   lineOnly.front().Area = false;
-  stack.Declares(lineOnly);
+  CHECK(stack.Declares(lineOnly), "declared source snapshot is accepted");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "line-only vector input enters the source snapshot");
   size_t terrainCalls = 0;
@@ -381,7 +381,7 @@ int main() {
   if (!ready.empty()) { queue.CommitsLandings(prints, ready); }
   CHECK(StructureBuildQueue::QualifiedSources(stack, prints),
         "proven building absence completes the qualified source snapshot");
-  stack.Declares(buildings);
+  CHECK(stack.Declares(buildings), "declared source snapshot is accepted");
   CHECK(stack.AdvanceAt(eye, {.IngestTilesMost = 1, .VectorRing = 0}).has_value(),
         "a real building polygon replaces the line-only input");
   prints.BeginRefinement();
