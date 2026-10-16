@@ -12,11 +12,15 @@ from cloud_sky_reference import cross_cases, read
 from cloud_view_reference import physical_air
 
 
-def judge(metadata, view_samples, light_samples):
+def judge(metadata, view_samples, light_samples, expected_profile=1):
     info, images, rays, medium, weather = read(metadata)
     if not info["boundary_sky"] or weather[1, 1] not in (0, 1):
         raise ValueError(
             "the frame must explicitly select a supported boundary-sky profile"
+        )
+    if weather[1, 0] > 0 and weather[1, 1] != expected_profile:
+        raise AssertionError(
+            "the native frame must contain the requested procedural profile"
         )
     active = np.linalg.norm(rays[:, 3:6], axis=1) > 0
     sky = active & (images[2, :, 3] == 0)
@@ -110,14 +114,12 @@ def plot(folder, output, before):
             if not path.exists():
                 axis.set_axis_off()
                 continue
-            info, images, _, _, _ = read(path)
+            info, images, _, _, weather = read(path)
             rgb = np.maximum(
                 images[1, :, :3].reshape(info["height"], info["width"], 3) * 4, 0
             )
             axis.imshow(rgb / (1 + rgb))
-            label = (
-                "Stratus control" if before and path.parent == before else "CumulusV1"
-            )
+            label = "CumulusV1" if weather[1, 1] == 1 else "Stratus control"
             axis.set_title(
                 f"{label}: {info['name']} / {info['width']}×{info['height']}"
             )
@@ -137,13 +139,14 @@ def main():
     parser.add_argument("--before", type=Path)
     parser.add_argument("--view-samples", type=int, default=32)
     parser.add_argument("--light-samples", type=int, default=6)
+    parser.add_argument("--profile", type=int, choices=(0, 1), default=1)
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
         parser.error("private outputs belong in system temp")
     output.mkdir(parents=True, exist_ok=True)
     rows = [
-        judge(path, args.view_samples, args.light_samples)
+        judge(path, args.view_samples, args.light_samples, args.profile)
         for path in sorted(args.captures.glob("actual.*.json"))
     ]
     if not rows:

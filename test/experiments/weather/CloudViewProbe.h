@@ -56,7 +56,8 @@ struct Capture {
 [[nodiscard]] Medium ControlledAir();
 [[nodiscard]] std::vector<Case> Cases(MediumViewProbe::ImageShape shape);
 [[nodiscard]] std::vector<Case> BoundaryCases(MediumViewProbe::ImageShape shape);
-[[nodiscard]] std::vector<Case> CumulusCases(MediumViewProbe::ImageShape shape);
+[[nodiscard]] std::vector<Case> ProfileCases(MediumViewProbe::ImageShape shape,
+                                             CloudProfile profile);
 [[nodiscard]] WeatherFrame PrepareWeather(const Case &scenario);
 
 struct Pipelines {

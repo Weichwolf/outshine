@@ -1,4 +1,5 @@
 #include "CloudViewProbe.h"
+#include "CloudLayer.h"
 #include "MediumViewProbe.h"
 #include "NativeGpuCheck.h"
 #include "Check.h"
@@ -75,9 +76,9 @@ std::vector<Case> BoundaryCases(MediumViewProbe::ImageShape shape) {
   return result;
 }
 
-std::vector<Case> CumulusCases(MediumViewProbe::ImageShape shape) {
+std::vector<Case> ProfileCases(MediumViewProbe::ImageShape shape, CloudProfile profile) {
   auto result = BoundaryCases(shape);
-  for (auto &scenario : result) { scenario.Profile = CloudProfile::CumulusV1; }
+  for (auto &scenario : result) { scenario.Profile = profile; }
   const auto found = std::ranges::find(result, "sky-only", &Case::Name);
   CHECK(found != result.end(),
         "the declared full-sky control exists before making its cover variant");
