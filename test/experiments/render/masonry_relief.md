@@ -56,7 +56,7 @@ No added buffers/bindings; shader code/register pressure still has a cost.
 eight standalone controls and two fused cost probes) cross-compile to MSL2.1.
 Focused clang-tidy on the changed wall consumer exits0 with no changed-unit
 findings; the unchanged Check.h retains its14 existing diagnostics. Original
-Metal atlas, Metal/A18, frame/device-memory and full native-world checks stay open.
+Metal atlas execution, Metal/A18 and equal-quality frame/device-memory checks stay open.
 
 ## Comparison and reference
 
@@ -221,7 +221,7 @@ shadow/foliage parity also remains open in #328, so the good frame samples do no
 complete equal-quality frame acceptance. Timing-consumer outputs now say
 `timing_thresholds_met` and explicitly leave image acceptance unasserted.
 
-The prepared Flensburg1920×1080/60 comparison is red: p99 before12.0354ms,
+The earlier retained SDL-renderer comparison, before the producer correction, is red: p99 before12.0354ms,
 after25.7969ms; reversed after18.8958ms, before22.7139ms. All overruns are at
 frame1, p50 stays0.98–1.03ms;60 frames/360degrees,585262 triangles and the
 71c88aff PNG are unchanged. Warm offline preload3.64–6.00s; separate online
@@ -229,11 +229,22 @@ source acquisition/asset construction291.20s. Initial offline cache misses are
 retained, not interpreted as frame timing. This does not isolate a shader
 regression or satisfy the frame gate. The same image and dated Foto-Webcam.eu
 2025-07-15 12:00CEST reference are optically reviewed in the local comparison PDF;
-no Place image gain is claimed. A private material marker additionally checks
-whether this view actually exercises the selected material family.
+no Place image gain is claimed. The private material marker and #407 subsequently
+proved that this earlier comparison had no metric-wall pixels; it cannot validate
+the relief in the world. The corrected native comparison above does exercise it.
 
-Before merging the production hookup, the affected frame countercheck remains
-required. Original material atlas and Metal/A18 counterchecks belong to Master;
+The unchanged original ComposedMaterialsReachTheCard.cpp consumer also runs against
+this exact native renderer/header closure: before/after each31056 checks, zero
+failures/skips/unprepared/partial, terminal0. The test exercises atlas generation,
+normal capture and card consumption without changing its assertions. Source SHA256
+f130e70dc0c5034a16de300e538d2642f1d56df5b5efcf50dec2aeb845d88908;
+native consumer binary e0e56fecfa123639ed4a40d232109f94f6ec15a16b803a8cc6cc1f0b9a6f5f44.
+Exact compile/link inputs and terminal runs are retained in atlas-build.json and
+atlas.json beside the corrected-world captures. This proves native Vulkan atlas
+consumption, not Metal execution or equal-quality whole-world frame acceptance.
+
+Before merging the production hookup, the affected equal-quality frame/load
+countercheck remains required. Metal/A18 counterchecks belong to Master;
 full native-world/device-memory acceptance remains open. Real normal-texture
 composition is now checked as described above. #386's known SDL submit
 stall is independently recorded under #328; this experiment does not repair it.
