@@ -203,6 +203,17 @@ def models(folder, output, proof):
                     "source": source,
                     "triangles": len(mesh["faces"]),
                     "v2_recipe": summary(run),
+                    "prior_reference": str(path.resolve()),
+                    "procedures": {
+                        "recipe": "buildings.industrial-hall/2",
+                        "evaluated_nodes": run.stats["evaluated_nodes"],
+                        "direct_closed_panels": len(run.outputs["panels"].value),
+                        "cga_rooflight_components": 0,
+                        "shell_triangles": len(
+                            run.outputs["shell"].value.body["faces"]
+                        ),
+                    },
+                    "scope": "Actual explicitly versioned v2 source hall, complete lightwells and directly constructed closed rooflight panels; unchanged source palette/camera, flat ground. No whole-building far LOD or native admission.",
                 }
             )
             (output / path.name).write_text(json.dumps(value, indent=2) + "\n")
