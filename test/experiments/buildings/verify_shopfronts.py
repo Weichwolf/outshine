@@ -82,15 +82,30 @@ def upper_triangles(mesh, height):
 
 
 class Shopfronts(unittest.TestCase):
-    def assert_upper_surface(self, before, after, frames, floor):
+    def assert_upper_surface(
+        self, before, after, frames, floor, *, excluded_cells=None
+    ):
         for frame in frames:
             basis, origin = basis_for(frame), np.r_[frame["a"], 0.0]
             scale = [
                 frame["width_m"] / frame["columns"],
                 frame["height_m"] / frame["rows"],
             ]
+            domain = shapely.box(0, floor, frame["width_m"], 10000).difference(
+                shapely.union_all(
+                    [
+                        shapely.box(
+                            c * scale[0],
+                            r * scale[1],
+                            (c + 1) * scale[0],
+                            (r + 1) * scale[1],
+                        )
+                        for c, r in (excluded_cells or {}).get(frame["id"], ())
+                    ]
+                )
+            )
 
-            def fields(mesh, basis=basis, origin=origin, frame=frame, scale=scale):
+            def fields(mesh, basis=basis, origin=origin, scale=scale, domain=domain):
                 faces = mesh["faces"]
                 points = mesh["vertices"][faces]
                 local = (points - origin) @ basis.T
@@ -101,9 +116,7 @@ class Shopfronts(unittest.TestCase):
                 )
                 result = {}
                 for index in np.flatnonzero(selected):
-                    polygon = shapely.Polygon(local[index, :, :2]).intersection(
-                        shapely.box(0, floor, frame["width_m"], 10000)
-                    )
+                    polygon = shapely.Polygon(local[index, :, :2]).intersection(domain)
                     if polygon.area <= 1e-12:
                         continue
                     material = int(mesh["materials"][index])
