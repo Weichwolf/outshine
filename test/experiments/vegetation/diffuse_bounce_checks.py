@@ -19,6 +19,21 @@ def square(z, size=1):
 
 
 class DiffuseBounceChecks(unittest.TestCase):
+    def test_rotated_sheet_preserves_the_weighted_angular_moment(self):
+        count = 65536
+        normal = np.array((1, 2, 3.0)) / np.sqrt(14)
+        optical = np.tile((0.1, 0.4, 0.2, 0.5, 0.1, 0.3), (count, 1))
+        rays, weights = sample_sheet(
+            optical,
+            np.broadcast_to(normal, (count, 3)),
+            normal,
+            uniform_samples(43, 0, count),
+        )
+        expected = (2 / 3) * (optical[0, :3] - optical[0, 3:])[:, None] * normal
+        np.testing.assert_allclose(
+            np.mean(weights[:, :, None] * rays[:, None, :], axis=0), expected, atol=0.01
+        )
+
     def test_black_receiver_avoids_neighbour_geometry_work(self):
         v, f = square(1)
         scene = ScatterScene(v, f)

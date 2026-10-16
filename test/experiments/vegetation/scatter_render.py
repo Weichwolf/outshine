@@ -199,14 +199,21 @@ def run(inputs, output, width, height, samples, seed, packet, shadow_backend="ca
             a.nbytes for f in arrays.values() for a in f.values()
         ),
         "mean_rgb": {
-            name: {k: a.mean((0, 1), dtype=float).tolist() for k, a in f.items()}
+            name: {
+                k: a.mean((0, 1), dtype=float).tolist()
+                if np.isfinite(a).all()
+                else None
+                for k, a in f.items()
+            }
             for name, f in arrays.items()
         },
         "images": images,
         "wall_s": time.perf_counter() - began,
         "scope": "Finite black-boundary geometry; existing diffuse R/T only, direct beams plus exactly one neighbour exchange. No specular/BSSRDF/full multiple scattering, continuous sky, world-neighbour/temporal/LOD/native/device admission. Float32 BVH misses not globally certified; independent samples and ambiguous-hit fallback are required.",
     }
-    (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    (output / "result.json").write_text(
+        json.dumps(result, indent=2, allow_nan=False) + "\n"
+    )
     print(
         json.dumps({"wall_s": result["wall_s"], "mean_rgb": result["mean_rgb"]}),
         flush=True,
