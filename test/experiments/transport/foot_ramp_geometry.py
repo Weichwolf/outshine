@@ -91,6 +91,26 @@ def weld(vertices, triangles, method):
     return Mesh(points, faces[valid])
 
 
+def close_caps(upper, lower, *, method="vector"):
+    if (
+        not np.array_equal(upper.vertices[:, :2], lower.vertices[:, :2])
+        or not np.array_equal(upper.triangles, lower.triangles)
+        or np.any(upper.vertices[:, 2] < lower.vertices[:, 2])
+    ):
+        raise ValueError("ordered caps must share exact XY and indexed triangles")
+    faces = upper.triangles
+    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    _keys, inverse, counts = np.unique(
+        np.sort(edges, axis=1), axis=0, return_inverse=True, return_counts=True
+    )
+    boundary = edges[counts[inverse] == 1]
+    n = len(upper.vertices)
+    a, b = boundary.T
+    walls = np.vstack([np.c_[a, b + n, b], np.c_[a, a + n, b + n]])
+    shell = np.vstack([faces, faces[:, ::-1] + n, walls])
+    return weld(np.vstack([upper.vertices, lower.vertices]), shell, method)
+
+
 def build(
     origin,
     basis,
@@ -156,14 +176,5 @@ def build(
     z = triangle[0, 2] - (xy - triangle[0, :2]) @ normal[:2] / normal[2]
     heights = relative_height((xy - origin) @ basis, half, landing_end)
     lower, upper = np.c_[xy, z], np.c_[xy, z + heights]
-    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
-    _keys, inverse, counts = np.unique(
-        np.sort(edges, axis=1), axis=0, return_inverse=True, return_counts=True
-    )
-    boundary = edges[counts[inverse] == 1]
-    n = len(xy)
-    a, b = boundary.T
-    walls = np.vstack([np.c_[a, b + n, b], np.c_[a, a + n, b + n]])
-    shell = np.vstack([faces, faces[:, ::-1] + n, walls])
-    body = weld(np.vstack([upper, lower]), shell, method)
-    return Ramp(body, Mesh(lower, faces), Mesh(upper, faces), shape)
+    low, high = Mesh(lower, faces), Mesh(upper, faces)
+    return Ramp(close_caps(high, low, method=method), low, high, shape)
