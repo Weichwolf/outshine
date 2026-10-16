@@ -9,6 +9,7 @@ import shapely
 from outshine_ref.contracts import Mesh
 from stair_blend_audit import continuous_cap, inspect
 from stair_blend_constraints import refine, upper_rows, violating_faces
+from stair_blend_metrics import earthwork
 from stair_blend_plan import prepare
 from stair_blend_solve import assemble, check_heights, solve
 from stair_junction_body import build
@@ -32,6 +33,14 @@ def slope_fixture(slope=1.0):
 
 
 class BlendContracts(unittest.TestCase):
+    def test_mixed_sign_triangle_integrates_cut_and_fill_instead_of_cancelling(self):
+        layout = slope_fixture(0)
+        result = earthwork(layout, np.array([-1.0, 1, 1]))
+        self.assertAlmostEqual(result["cut_m3"], 1 / 24)
+        self.assertAlmostEqual(result["fill_m3"], 5 / 24)
+        self.assertEqual(result["mixed_sign_faces"], 1)
+        self.assertLess(abs(result["mass_balance_residual_m3"]), 1e-15)
+
     def test_steep_constructed_face_is_explicit_and_confined_to_contact_zone(self):
         layout = slope_fixture()
         footprint = shapely.box(-1, -1, 2, 2)

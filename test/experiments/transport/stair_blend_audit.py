@@ -3,6 +3,7 @@
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
+from outshine_ref.geometry import SurfaceSampler
 from stair_terrain_audit import body_proof, clearance
 from surface_height_checks import normal_gradients
 
@@ -32,7 +33,8 @@ def ground_subdivision(contact, ground, lipschitz):
     gradients = normal_gradients(
         ground.vertices[:, :2], ground.triangles, ground.vertices[:, 2]
     )
-    guard = 1e-8 + 64 * np.finfo(float).eps * max(
+    sampler = SurfaceSampler(ground)
+    guard = sampler.xy_tolerance_m + 64 * np.finfo(float).eps * max(
         1.0, float(abs(ground.vertices).max())
     )
     radius = guard / np.cos(np.pi / 128)
@@ -54,7 +56,7 @@ def ground_subdivision(contact, ground, lipschitz):
                 + (xyz[:, :2] - source[owner, 0, :2]) @ gradients[owner]
             )
             error = float(abs(xyz[:, 2] - plane).max())
-            if error > 1e-7:
+            if error > sampler.height_tolerance_m:
                 continue
             children[owner].append(shape)
             max_height_error = max(max_height_error, error)
@@ -71,12 +73,37 @@ def ground_subdivision(contact, ground, lipschitz):
     source_slope = float(np.linalg.norm(gradients, axis=1).max())
     return {
         "original_facets": len(polygons),
-        "interface_xy_guard_m": guard,
+        "interface_metric_coverage_bound_m": radius,
         "maximum_parent_height_error_m": max_height_error,
-        "source_ground_lipschitz": source_slope,
+        "maximum_source_facet_grade": source_slope,
         "derived_double_contact_bound_m": max_height_error
-        + (lipschitz + source_slope) * guard,
+        + (lipschitz + source_slope) * radius,
     }
+
+
+def shell(body, parts, domain):
+    count = len(parts["top_faces"])
+    if not np.array_equal(body.triangles[:count], parts["top_faces"]):
+        raise ValueError("saved terrain cap order changed")
+    top = body.vertices[parts["top_faces"]]
+    bottom = body.vertices[body.triangles[count : 2 * count]][:, ::-1]
+    if (
+        not np.array_equal(bottom[:, :, :2], top[:, :, :2])
+        or np.ptp(bottom[:, :, 2]) != 0
+        or bottom[:, :, 2].max() >= top[:, :, 2].min()
+    ):
+        raise ValueError("terrain lacks its ordered flat lower cap")
+    if not np.array_equal(body.triangles[2 * count :], parts["wall_faces"]):
+        raise ValueError("saved terrain side-face order changed")
+    wall = body.vertices[parts["wall_faces"]]
+    projected_normal = np.cross(wall[:, 1] - wall[:, 0], wall[:, 2] - wall[:, 0])[:, 2]
+    guard = 64 * np.finfo(float).eps * max(1.0, float(abs(body.vertices).max()))
+    if np.any(projected_normal != 0) or not np.all(
+        shapely.covered_by(
+            shapely.linestrings(wall[:, :, :2]), domain.boundary.buffer(guard)
+        )
+    ):
+        raise ValueError("terrain has nonvertical or interior side faces")
 
 
 def contact_envelope(terrain, top_faces, ground, reference_error=0.0):
@@ -124,16 +151,16 @@ def contact_envelope(terrain, top_faces, ground, reference_error=0.0):
 def inspect(body, parts, ground, upper):
     top_faces = parts["top_faces"]
     domain = continuous_cap(body, top_faces)
-    if abs(domain.area - domain.envelope.area) > 1e-7:
-        raise ValueError(
-            "convex rectangular domain required for the global Lipschitz bound"
-        )
+    if not domain.equals(domain.convex_hull):
+        raise ValueError("convex domain required for the global Lipschitz bound")
     if parts["retaining_wall"].any():
         raise ValueError(
             "interior retaining jumps invalidate the continuous contact bound"
         )
     actual = Mesh(body.vertices.astype(np.float32).astype(float), body.triangles)
     actual_domain = continuous_cap(actual, top_faces)
+    shell(body, parts, domain)
+    shell(actual, parts, actual_domain)
     source_actual = Mesh(
         ground.vertices.astype(np.float32).astype(float), ground.triangles
     )
@@ -144,6 +171,8 @@ def inspect(body, parts, ground, upper):
     original_shape = shapely.union_all(
         shapely.polygons(ground.vertices[ground.triangles, :2])
     )
+    if not domain.covers(original_shape):
+        raise ValueError("Double terrain domain does not cover the original ground")
     contact_shape = shapely.union_all(
         shapely.polygons(contact.vertices[contact.triangles, :2])
     )
@@ -157,7 +186,7 @@ def inspect(body, parts, ground, upper):
     source_shape = shapely.union_all(
         shapely.polygons(source_actual.vertices[source_actual.triangles, :2])
     )
-    if source_shape.difference(actual_domain).area > 1e-7:
+    if not actual_domain.covers(source_shape):
         raise ValueError(
             "actual Float32 terrain does not cover the whole ground product"
         )

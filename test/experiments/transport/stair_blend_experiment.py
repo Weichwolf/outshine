@@ -14,6 +14,7 @@ import numpy as np
 from camera_height_inputs import digest
 from stair_blend_audit import inspect
 from stair_blend_display import scenes
+from stair_blend_metrics import earthwork
 from stair_blend_plan import prepare
 from stair_blend_solve import candidate, solve, validate_candidate
 from stair_network_inputs import sample_xy
@@ -40,6 +41,7 @@ def inputs(products):
 def stage(output, name, layout, ground, upper, footprint, smoothing):
     heights, model, note = candidate(layout, upper, footprint, smoothing=smoothing)
     built = validate_candidate(layout, heights, model, note)
+    note["candidate_exported"] = heights is not None
     if heights is None:
         return None, None, {"solve": note}
     if not note["accepted_field"]:
@@ -58,7 +60,11 @@ def stage(output, name, layout, ground, upper, footprint, smoothing):
         faces=body.triangles,
         **parts,
     )
-    return body, roles, {"solve": note, "physical": proof}
+    return (
+        body,
+        roles,
+        {"solve": note, "physical": proof, "earthwork": earthwork(layout, heights)},
+    )
 
 
 def generate(args):
@@ -116,6 +122,7 @@ def generate(args):
                 "membrane-field.npz",
                 "membrane-body.npz",
             )
+            if (args.output / name).exists()
         },
         "scope": "Local continuous terrain with a derived Float32 contact envelope; other sources, outer ports, swept users, statics and native integration remain unadmitted.",
     }

@@ -43,9 +43,11 @@ def energy(xy, faces, target, smoothing, extra):
     areas = abs(u[:, 0] * v[:, 1] - u[:, 1] * v[:, 0]) / 2
     mass = np.full(len(xy), 0.001)
     np.add.at(mass, faces.ravel(), np.repeat(areas / 3, 3))
-    gradient = gradient_matrix(faces, coefficients, len(xy))
-    stiffness = gradient.T @ sparse.diags(np.repeat(areas, 2)) @ gradient
-    matrix = (sparse.diags(mass) + smoothing * stiffness).tocsc()
+    matrix = sparse.diags(mass, format="csc")
+    if smoothing:
+        gradient = gradient_matrix(faces, coefficients, len(xy))
+        stiffness = gradient.T @ sparse.diags(np.repeat(areas, 2)) @ gradient
+        matrix = (matrix + smoothing * stiffness).tocsc()
     datum = float(np.median(target))
     linear = -2 * (matrix @ (target - datum))
     quadratic = sparse.block_diag(
@@ -127,7 +129,7 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
     }
 
 
-def check_heights(layout, heights, model):
+def field_grades(layout, heights, model):
     if not np.isfinite(heights).all():
         raise ValueError("nonfinite terrain field")
     faces, xy = model["soil_faces"], layout["xy"]
@@ -136,6 +138,10 @@ def check_heights(layout, heights, model):
     exported = np.linalg.norm(
         normal_gradients(actual[:, :2], faces, actual[:, 2]), axis=1
     )
+    return first, exported
+
+
+def check_grades(layout, heights, model, first, exported):
     constructed = np.maximum(first, exported) > SOIL_LIMIT
     if np.any(constructed & ~model["eligible"]):
         raise ValueError("constructed slope escapes the declared contact zone")
@@ -160,8 +166,15 @@ def check_heights(layout, heights, model):
         ],
         "constructed_faces": int(constructed.sum()),
         "constructed_projected_area_m2": float(model["areas"][constructed].sum()),
+        "constructed_surface_area_m2": float(
+            np.sum(model["areas"][constructed] * np.sqrt(1 + first[constructed] ** 2))
+        ),
         "structural_reach_m": REACH_M,
     }
+
+
+def check_heights(layout, heights, model):
+    return check_grades(layout, heights, model, *field_grades(layout, heights, model))
 
 
 def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
@@ -189,6 +202,14 @@ def candidate(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0)
         "smoothing_m2": smoothing,
         "structure_limit": structure_limit,
         "bridge_bounds": model["bridge_note"],
+        "retained_sparse_bytes": int(
+            sum(
+                matrix.data.nbytes + matrix.indices.nbytes + matrix.indptr.nbytes
+                for matrix in (model["P"], model["A"])
+            )
+        ),
+        "height_output_bytes": len(layout["xy"]) * 8,
+        "explicit_height_conversion_and_datum_copy_bytes": len(layout["xy"]) * 16,
     }
     if str(result.status) not in ("Solved", "AlmostSolved", "MaxTime", "MaxIterations"):
         return None, model, note
@@ -201,18 +222,14 @@ def validate_candidate(layout, heights, model, note):
     if heights is None:
         note["accepted_field"] = False
         return None
-    faces = model["soil_faces"]
-    first = np.linalg.norm(normal_gradients(layout["xy"], faces, heights), axis=1)
-    actual = np.c_[layout["xy"], heights].astype(np.float32).astype(float)
-    exported = np.linalg.norm(
-        normal_gradients(actual[:, :2], faces, actual[:, 2]), axis=1
-    )
+    first, exported = field_grades(layout, heights, model)
+    note["validation_xyz_conversion_copy_bytes"] = len(layout["xy"]) * 3 * 20
     note["maximum_candidate_grade_double_float32"] = [
         float(first.max()),
         float(exported.max()),
     ]
     try:
-        constructed, proof = check_heights(layout, heights, model)
+        constructed, proof = check_grades(layout, heights, model, first, exported)
     except ValueError as error:
         note.update(accepted_field=False, rejection=str(error))
         return None
