@@ -479,6 +479,41 @@ Rampenkontrollen benötigen das dort dokumentierte optionale `manifold3d==3.5.4`
 Separate Kostenaufnahmen mit `--profile` benötigen das vorhandene `memray==1.20.0`.
 Keine neue Runtime-/SDK-Abhängigkeit oder öffentliche/native/Reservations-API.
 
+## Ganze tatsächliche Außen-Nachbarwege (#434)
+
+Der [Außenvergleich](stair_outer_comparison.md) verbindet die bisherigen beiden
+Außenprofile vollständig mit drei ganzen Nachbarwegen.18Quellen,24Stufen und sechs
+Unterführungen bleiben lokal geprüft. Die vollständige Originalkachel wird bilanziert;
+Terrain-/Cut-/Fill-Produkte, übrige Quellen und fünf neue Außenprofile bleiben offen.
+Eingänge und die kleine technische Palette sind versioniert; dieser Versuch benötigt
+keinen früheren privaten Showcase-Ausgabebaum. Alle Ausgabe-/Kostenpfade frisch im
+System-Tempverzeichnis wählen.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_outer_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_outer_experiment.py --output "$TRANSPORT_OUTER_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_outer_verify.py --output "$TRANSPORT_OUTER_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --outer test/experiments/transport/fixtures/stair-outer-vienna.json --products "$TRANSPORT_OUTER_OUTPUT" --solver highs-ds --repetitions 7 --output "$TRANSPORT_OUTER_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --outer test/experiments/transport/fixtures/stair-outer-vienna.json --products "$TRANSPORT_OUTER_OUTPUT" --solver highs-ipm --repetitions 7 --output "$TRANSPORT_OUTER_COST_IPM"
+```
+
+Beim Außenversuch wird ein begrenzt abgebrochener Kostenversuch ausdrücklich mit
+`accepted_model=false`, ohne gültigen Median oder Ausgabe gespeichert. Prozess0
+allein bedeutet keine gültige Geometrie. Ältere Kostenmodi behalten ihre strikte
+Ergebnisprüfung. `--profile` separat mit installiertem `memray==1.20.0` verwenden.
+Der vollständige70er-Lauf ergänzt `foot_ramp_checks cycle_bridge_checks
+layered_bridge_checks stair_junction_checks stair_context_checks stair_network_checks`;
+die älteren Rampenkontrollen benötigen das dort dokumentierte optionale Manifold.
+Eine explizite DEM-Neuaufnahme verlangt `stair_outer_inputs.py --dem-receipt ...
+--output ...` mit dem unveränderten ursprünglichen Rohreceipt. Normale Tests ändern
+keine Eingänge. Keine neue Runtime-/SDK- oder öffentliche/native API-Abhängigkeit.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
