@@ -65,11 +65,13 @@ def save(folder, rows, wood, blades, identity):
     return triangles
 
 
-def build(output, seed=718, points=2048, distribution="lobed"):
+def build(output, seed=718, points=2048, distribution="lobed", area=55):
     start = time.perf_counter()
     output.mkdir(parents=True, exist_ok=False)
-    base = match_area(architecture("oak", seed, True), 55)
-    before = base.tables(2000, 30000)
+    base = match_area(architecture("oak", seed, True), area)
+    before = base.tables(2000, 100000)
+    if before is None:
+        raise ValueError("complete source crown exceeds explicit placement capacity")
     baseline_time = time.perf_counter()
     points_xyz = attractors(points, seed, distribution)
     plan = grow(points_xyz, 8.0, 0.23, 0.16, 1.75, 0.22, budget=GrowthBudget(4096, 128))
@@ -122,6 +124,7 @@ def build(output, seed=718, points=2048, distribution="lobed"):
     report = {
         "seed": seed,
         "distribution": distribution,
+        "requested_leaf_area_m2": area,
         "source_plan": base.identity,
         "spatial_plan": crown.identity,
         "leaf_count": len(crown.variants),
@@ -155,5 +158,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--distribution", choices=("ellipsoid", "lobed"), default="lobed"
     )
+    parser.add_argument("--area", type=float, default=55)
     args = parser.parse_args()
-    build(args.output, args.seed, args.points, args.distribution)
+    build(args.output, args.seed, args.points, args.distribution, args.area)
