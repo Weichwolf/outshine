@@ -142,3 +142,9 @@ transition/shadow/radiance bounds and a versioned recipe-graph v2 remain open in
 #500. This prototype must not be silently substituted for v1 under the same
 operator fingerprint. A fully procedural city/architecture catalogue, final
 night-light performance and native integration remain separate open goals.
+
+Direct closed/checked-contact component construction now lives in the installable
+reference module; source/CSG preparation is retained, emission avoids repeated
+extrusion. Contract, counterexamples, scoped costs and image/replay evidence:
+[lib/rooflight_panels.md](../../../lib/rooflight_panels.md). This adds no v1 recipe
+semantics or automatic standard/LOD selection.

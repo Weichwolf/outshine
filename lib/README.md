@@ -1018,3 +1018,9 @@ whole-image/shadow LOD admission. A fully open leaf emits no triangles. Housing,
 tracks, attachment, room/collision use, visibility and source interpretation
 remain consumer-owned. Actual source hall consumer, physical alternatives,
 functional negatives and reproduction live in building experiments (#489).
+## Glazed rooflight panels
+
+`buildings.rooflight_panels` emits direct closed rectangle rims/panes and a
+render skin with checked parent contacts. Contract, real source/installed-wheel
+controls, render comparisons and separated preparation/emission costs:
+[rooflight_panels.md](rooflight_panels.md) (#500).
