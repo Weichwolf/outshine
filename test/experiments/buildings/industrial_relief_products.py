@@ -48,17 +48,21 @@ class ArticulatedDetails(RetainedDetails):
             self.reliefs[identifier] = tuple(prepare(plan) for plan in plans)
             self.relief_rejected.extend(rejected)
 
+    def draw_parts(self, identifier):
+        return tuple(
+            p.outer for p in self.reliefs[identifier] if demanded(p, self.view)
+        )
+
     def __call__(self, row, parameters, material):
         result = super().__call__(row, parameters, material)
         if row["id"] not in self.reliefs:
             return result
         mesh, info = result
-        selected = tuple(p for p in self.reliefs[row["id"]] if demanded(p, self.view))
-        chunks = [p.outer for p in selected]
+        chunks = self.draw_parts(row["id"])
         record = {
             "id": row["id"],
             "planned_facades": len(self.reliefs[row["id"]]),
-            "rendered_facades": len(selected),
+            "rendered_facades": len(chunks),
             "added_triangles": sum(len(p["faces"]) for p in chunks),
             "kinds": sorted({p.plan.kind for p in self.reliefs[row["id"]]}),
             "physical_triangles": sum(

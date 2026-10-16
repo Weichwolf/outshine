@@ -58,25 +58,28 @@ def generic(plan):
     )
 
 
-def products(plan):
-    raw, outer_triangles = direct(plan)
+def placed(raw, plan):
     t = np.asarray(plan.tangent)
     basis = np.array([[*t, 0], [0, 0, 1], [t[1], -t[0], 0]])
-    full = sealed(
+    return sealed(
         raw
         | {
             "vertices": raw["vertices"] @ basis + [*plan.origin, 0],
             "normals": raw["normals"] @ basis,
         }
     )
-    outer = sealed(
+
+
+def prefix(mesh, count):
+    return sealed(
         {
-            k: v[
-                : outer_triangles
-                if k in ("faces", "materials")
-                else outer_triangles * 3
-            ]
-            for k, v in full.items()
+            k: v[: count if k in ("faces", "materials") else count * 3]
+            for k, v in mesh.items()
         }
     )
-    return full, outer
+
+
+def products(plan):
+    raw, outer_triangles = direct(plan)
+    full = placed(raw, plan)
+    return full, prefix(full, outer_triangles)
