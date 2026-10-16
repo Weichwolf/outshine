@@ -28,15 +28,28 @@ def run(output):
     for name, sign in (("front", 1), ("back", -1)):
         for shadows in (False, True):
             scene = setup(view)
-            v = np.array(
-                ((0, -0.5, -0.5), (0, 0.5, -0.5), (0, 0.5, 0.5), (0, -0.5, 0.5))
-            )
-            mesh_object(
-                "single vertical thin leaf",
-                v,
-                np.array(((0, 1, 2), (0, 2, 3))),
-                sheet("R plus T", reflection, transmission),
-            )
+            patches = [
+                (reflection, transmission),
+                (np.zeros(3), np.full(3, 0.25)),
+                (np.zeros(3), np.full(3, 0.5)),
+                (np.zeros(3), np.ones(3)),
+            ]
+            for i, (r, t) in enumerate(patches):
+                y = (i - 1.5) * 0.28
+                v = np.array(
+                    (
+                        (0, y - 0.125, -0.5),
+                        (0, y + 0.125, -0.5),
+                        (0, y + 0.125, 0.5),
+                        (0, y - 0.125, 0.5),
+                    )
+                )
+                mesh_object(
+                    f"thin leaf {i}",
+                    v,
+                    np.array(((0, 1, 2), (0, 2, 3))),
+                    sheet(f"R plus T {i}", r, t),
+                )
             d = np.array((sign * np.sqrt(3) / 2, 0, 0.5))
             bpy.ops.object.light_add(type="SUN")
             lamp = bpy.context.object
@@ -48,27 +61,30 @@ def run(output):
             target = output / f"{name}-shadow-{int(shadows)}.png"
             scene.render.filepath = str(target)
             bpy.ops.render.render(write_still=True)
-            q = (
-                np.array(Image.open(target).convert("RGB"), float)[480:600, 900:1020]
-                / 255
-            )
-            linear = np.where(q <= 0.04045, q / 12.92, ((q + 0.055) / 1.055) ** 2.4)
-            expected = (
-                (reflection if sign > 0 else transmission)
-                * abs(d[0])
-                * irradiance
-                / np.pi
-            )
-            row = {
-                "direction": name,
-                "shadows": shadows,
-                "thickness_mode": bpy.data.materials["R plus T"].thickness_mode,
-                "measured_linear_rgb": linear.mean((0, 1)).tolist(),
-                "expected_direct_rgb": expected.tolist(),
-            }
-            rows.append(row)
-            print(json.dumps(row), flush=True)
+            image = np.array(Image.open(target).convert("RGB"), float) / 255
+            for i, (r, t) in enumerate(patches):
+                x = int(960 + (i - 1.5) * 0.28 * 1920 / 1.4)
+                q = image[480:600, x - 40 : x + 40]
+                linear = np.where(q <= 0.04045, q / 12.92, ((q + 0.055) / 1.055) ** 2.4)
+                expected = (r if sign > 0 else t) * abs(d[0]) * irradiance / np.pi
+                row = {
+                    "patch": i,
+                    "direction": name,
+                    "shadows": shadows,
+                    "thickness_mode": bpy.data.materials[
+                        f"R plus T {i}"
+                    ].thickness_mode,
+                    "measured_linear_rgb": linear.mean((0, 1)).tolist(),
+                    "expected_direct_rgb": expected.tolist(),
+                    "maximum_absolute_rgb_error": float(
+                        abs(linear.mean((0, 1)) - expected).max()
+                    ),
+                }
+                rows.append(row)
+                print(json.dumps(row), flush=True)
     (output / "probe.json").write_text(json.dumps(rows, indent=2))
+    if max(r["maximum_absolute_rgb_error"] for r in rows) > 0.005:
+        raise ValueError("preset0.005 linear-RGB single-sheet error criterion failed")
 
 
 if __name__ == "__main__":

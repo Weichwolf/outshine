@@ -47,7 +47,9 @@ def sheet(name, reflection, transmission=None):
         mat.thickness_mode = "SLAB"
         output.inputs["Thickness"].default_value = 0
         translucent = nodes.new("ShaderNodeBsdfTranslucent")
-        translucent.inputs["Color"].default_value = (*transmission, 1)
+        # The isolated EEVEE slab probe measures an effective squared colour.
+        # Encode the defined linear sheet coefficient at this backend boundary.
+        translucent.inputs["Color"].default_value = (*np.sqrt(transmission), 1)
         links.new(geometry.outputs["True Normal"], translucent.inputs["Normal"])
         add = nodes.new("ShaderNodeAddShader")
         links.new(diffuse.outputs[0], add.inputs[0])
