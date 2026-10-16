@@ -8,7 +8,6 @@ import resource
 import time
 from pathlib import Path
 
-import numpy as np
 from camera_height_inputs import digest
 from rail_instance_cost import profile_note
 from shared_bridge_geometry import corridor
