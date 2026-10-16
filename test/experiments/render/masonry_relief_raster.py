@@ -147,7 +147,7 @@ def chart(output, panels):
         for col, image in enumerate((before, after)):
             axes[row, col].imshow(image * 0.5 + 0.5)
             axes[row, col].set_title(
-                name + (" / before" if col == 0 else " / actual fused prototype")
+                name + (" / before" if col == 0 else " / production relief")
             )
             axes[row, col].axis("off")
     figure.suptitle(
@@ -176,6 +176,12 @@ def main():
     for stage in ("vert",):
         name = "masonry." + stage + ".spv"
         assert (default / name).read_bytes() == (args.input / name).read_bytes(), name
+    production = output / "production"
+    production.mkdir(exist_ok=True)
+    compile_pair(production, sources(production / "source", True, normal_export=False))
+    for stage in ("vert", "frag"):
+        name = "masonry." + stage + ".spv"
+        assert (default / name).read_bytes() == (production / name).read_bytes(), name
     prepare(output)
     description = json.loads((args.input / "comparison.json").read_text())
     names = [x["case"] for x in description["cases"]] + description["excluded_equal"]
