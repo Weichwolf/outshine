@@ -20,6 +20,31 @@ FIXTURE = Path(__file__).with_name("fixtures") / "stair-cycle-vienna.json"
 SOURCE = "openfreemap:14/8937/5678:transportation:32651280:3"
 
 
+def selected_sources(recipe, available):
+    keys = recipe.get("additional_source_ids", [recipe.get("source_id")])
+    if (
+        not isinstance(keys, list)
+        or not 1 <= len(keys) <= 6
+        or not all(isinstance(key, str) for key in keys)
+        or len(set(keys)) != len(keys)
+    ):
+        raise ValueError("one to six unique whole additional sources required")
+    for key in keys:
+        if key not in available:
+            raise ValueError("additional whole source absent from original payload")
+        props = available[key]["properties"]
+        if (
+            props.get("brunnel")
+            or props.get("layer", 0) != 0
+            or props.get("level", 0) != 0
+            or props.get("indoor")
+        ):
+            raise ValueError(
+                "ordinary exterior ground recipe cannot admit indoor/level sources"
+            )
+    return keys
+
+
 def original_inputs():
     case, rows, _nodes, _stairs, context, _recipe = outer_inputs()
     receipt = dict(
@@ -43,14 +68,19 @@ def vector_xy(xy, context):
 
 
 def sampler(path, recipe, context):
+    zoom, x, y = context["vector"]["tile"]
+    allowed = {(zoom, x + dx, y + dy) for dx in (0, 1) for dy in (0, 1)}
+    if not 1 <= len(recipe["elevation"]) <= 4:
+        raise ValueError("one to four explicit adjacent DEM windows required")
     windows = {}
     for row in recipe["elevation"]:
+        tile = tuple(row["tile"])
+        if tile not in allowed or tile in windows:
+            raise ValueError("unique adjacent DEM windows in the source frame required")
         source = path.with_name(row["window_file"])
         if digest(source) != row["window_sha256"]:
             raise ValueError("cycle DEM window changed")
-        windows[tuple(row["tile"])] = dict(np.load(source))
-    if len(windows) != 2 or {t[0] for t in windows} != {14}:
-        raise ValueError("two explicit zoom-14 cycle DEM windows required")
+        windows[tile] = dict(np.load(source))
 
     def sample(xy):
         points = vector_xy(np.asarray(xy), context)
@@ -75,34 +105,36 @@ def sampler(path, recipe, context):
 
 def load(path=FIXTURE, *, band_join=True):
     recipe = json.loads(path.read_text())
-    if recipe["outer_sha256"] != digest(OUTER) or recipe["source_id"] != SOURCE:
-        raise ValueError("cycle extension lost its original outer/source identity")
+    if recipe["outer_sha256"] != digest(OUTER):
+        raise ValueError("cycle extension lost its original outer identity")
     case, rows, context, sources = original_inputs()
+    added = selected_sources(recipe, sources)
     sample = sampler(path, recipe, context)
-    source = sources[SOURCE]
     profiles = {
         r["kind"]: r
         for t in json.loads(PROFILES.read_text())["templates"]
         for r in t.get("osm", [])
         if r.get("layer") == "streets"
     }
-    profile = profiles[source["properties"]["subclass"]]
-    rows.append(
-        {
-            "source_id": SOURCE,
-            "xy": np.array(source["xy_m"]),
-            "prior": sample(np.array(source["xy_m"])),
-            "width_m": profile["widthM"],
-            "gradient": profile["maxGradient"],
-            "original": {
-                "bridge": False,
-                "source": {"feature": source["original_feature"]},
-            },
-        }
-    )
+    for key in added:
+        source = sources[key]
+        profile = profiles[source["properties"]["subclass"]]
+        rows.append(
+            {
+                "source_id": key,
+                "xy": np.array(source["xy_m"]),
+                "prior": sample(np.array(source["xy_m"])),
+                "width_m": profile["widthM"],
+                "gradient": profile["maxGradient"],
+                "original": {
+                    "bridge": False,
+                    "source": {"feature": source["original_feature"]},
+                },
+            }
+        )
     keys = [r["source_id"] for r in rows]
-    if len(keys) != 19 or len(set(keys)) != 19:
-        raise ValueError("unique whole nineteen-source cycle extension required")
+    if len(keys) != 18 + len(added) or len(set(keys)) != len(keys):
+        raise ValueError("unique whole source extension required")
     contacts = json.loads(NETWORK.read_text())["width_contacts"]
     nodes = junctions(keys, sources, contacts, rows)
     nodes = ground_contacts(rows, nodes)
@@ -119,17 +151,23 @@ def capture(args):
     if args.output.exists():
         raise ValueError("fresh explicit cycle recipe output required")
     _case, rows, context, sources = original_inputs()
-    points = np.vstack([*[r["xy"] for r in rows], sources[SOURCE]["xy_m"]])
+    added = selected_sources({"additional_source_ids": args.sources}, sources)
+    points = np.vstack([*[r["xy"] for r in rows], *[sources[k]["xy_m"] for k in added]])
     low, high = points.min(0) - 32, points.max(0) + 32
     mvt = vector_xy(np.array([low, high]), context)
     extent = context["vector"]["extent"]
     zoom, x, y = context["vector"]["tile"]
+    if not 1 <= len(args.receipts) <= 4:
+        raise ValueError("one to four explicit adjacent DEM receipts required")
+    receipts = [json.loads(p.read_text()) for p in args.receipts]
+    tiles = [tuple(r["tile"]) for r in receipts]
+    allowed = {(zoom, x + dx, y + dy) for dx in (0, 1) for dy in (0, 1)}
+    if len(set(tiles)) != len(tiles) or not set(tiles) <= allowed:
+        raise ValueError("unique adjacent DEM receipts in the source frame required")
+    multiple_rows = len({t[2] for t in tiles}) > 1
     records = []
-    for receipt_path in args.receipts:
-        receipt = json.loads(receipt_path.read_text())
+    for receipt in receipts:
         tile = receipt["tile"]
-        if tile not in ([zoom, x, y], [zoom, x + 1, y]):
-            raise ValueError("original and eastern retained DEM receipts required")
         if tile == [zoom, x, y] and receipt["sha256"] != context["elevation"]["sha256"]:
             raise ValueError("original DEM source snapshot changed")
         height = decode_terrarium(receipt_bytes(receipt))
@@ -140,7 +178,8 @@ def capture(args):
         hi = np.minimum(height.shape[::-1], np.ceil(pixels.max(0)).astype(int) + 3)
         if np.any(hi - lo < 2):
             raise ValueError("empty requested cycle DEM crop")
-        target = args.output.with_name(args.output.stem + f"-dem-{tile[1]}.npz")
+        name = f"{tile[1]}-{tile[2]}" if multiple_rows else str(tile[1])
+        target = args.output.with_name(args.output.stem + f"-dem-{name}.npz")
         if target.exists():
             raise ValueError("fresh cycle DEM window required")
         np.savez_compressed(
@@ -166,11 +205,15 @@ def capture(args):
         "elevation": records,
         "scope": "Whole original neighbour; planar contacts are explicit choices. DEM priors select their actual tile without extrapolation. No measured deck, indoor or cross-tile vector continuity claim.",
     }
+    if added != [SOURCE]:
+        recipe.pop("source_id")
+        recipe["additional_source_ids"] = added
     args.output.write_text(json.dumps(recipe, indent=2) + "\n")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--receipts", type=Path, nargs=2, required=True)
+    parser.add_argument("--receipts", type=Path, nargs="+", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--sources", nargs="+", default=[SOURCE])
     capture(parser.parse_args())

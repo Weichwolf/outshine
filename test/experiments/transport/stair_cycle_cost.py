@@ -13,8 +13,8 @@ import numpy as np
 from camera_height_inputs import digest
 from outshine_ref.contracts import Mesh
 from rail_instance_cost import profile_note
-from stair_cycle_contacts import contacts
-from stair_cycle_inputs import load
+from stair_cycle_contacts import bindings, contacts
+from stair_cycle_inputs import FIXTURE, load
 from stair_junction_audit import audit
 from stair_junction_body import build
 from stair_junction_layout import layout
@@ -24,7 +24,7 @@ from stair_network_geometry import interactions, vertex_links
 from stair_terrain_experiment import frozen
 
 
-def checked(plan, rows, nodes, heights, reference):
+def checked(plan, rows, nodes, heights, reference, protected):
     if heights is None:
         return False, False, "no solver output"
     if np.array_equal(heights, reference):
@@ -36,7 +36,7 @@ def checked(plan, rows, nodes, heights, reference):
             data, plan["domains"], limits=[r["gradient"] for r in rows], crossings=pairs
         )
         vertex_links(data["body_vertices"], data["body_faces"])
-        contacts(data, rows)
+        contacts(data, rows, protected)
         fields = [Mesh(np.c_[plan["xy"], heights], faces) for faces in plan["parts"]]
         landing_proof(
             fields, rows, plan["domains"], nodes, [s[0] for s in plan["stairs"]]
@@ -61,11 +61,15 @@ def measure(args):
         or report["after"]["body_sha256"] != digest(args.products / "after/body.npz")
     ):
         raise ValueError("verified cycle height/body inputs required")
-    _case, rows, nodes, stairs, _context, _sample = load()
+    fixture = Path(report.get("fixture_path", FIXTURE))
+    if digest(fixture) != report["fixture_sha256"]:
+        raise ValueError("measured cycle source fixture changed")
+    _case, rows, nodes, stairs, _context, _sample = load(fixture)
+    protected = bindings(fixture, rows)
     plan = layout(rows, "width", junctions=nodes, stairs=stairs)
     reference = dict(np.load(target))["heights"]
     warm, _note = solve(plan, solver=args.solver)
-    warm_good, _same, _reason = checked(plan, rows, nodes, warm, reference)
+    warm_good, _same, _reason = checked(plan, rows, nodes, warm, reference, protected)
     del warm
     tracker = contextlib.nullcontext()
     if args.profile is not None:
@@ -81,7 +85,7 @@ def measure(args):
         with tracker:
             heights, note = solve(plan, solver=args.solver)
         times.append(1000 * (time.perf_counter() - began))
-        good, same, reason = checked(plan, rows, nodes, heights, reference)
+        good, same, reason = checked(plan, rows, nodes, heights, reference, protected)
         identity.append(same)
         notes.append({**note, "actual_body_valid": good, "validation_reason": reason})
         if not good:
