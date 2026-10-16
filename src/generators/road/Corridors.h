@@ -132,6 +132,7 @@ private:
 
   struct Paved {
     std::vector<DiagnosticSample> Notes;
+    std::vector<size_t> ConflictingWays;
     std::vector<std::vector<RoadStation>> Designed;
     std::vector<RoadStation> Planned;
     std::vector<Edge> Edges;
@@ -352,20 +353,6 @@ private:
 
   enum class Pass : uint8_t { Designing, Paving };
 
-  [[nodiscard]] static constexpr std::string_view Doing(Pass pass) {
-    return pass == Pass::Designing ? "designing" : "paving";
-  }
-
-  [[nodiscard]] bool PaveLanes(const Paving &on,
-                               Paved &into,
-                               std::vector<EarthworkStamp> &corridor,
-                               RoadMeshBuffers &pavement,
-                               std::chrono::steady_clock::time_point &tookFrom) const;
-  void RaiseJunctionsAndRecordRoadMeasurements(const Site &site,
-                                               int waterRow,
-                                               Paved &into,
-                                               RoadMeshBuffers &pavement) const;
-
   void PaveLane(const Paving &on,
                 Pass pass,
                 size_t laneAt,
@@ -459,6 +446,9 @@ public:
           WayCount(site.Ways.Ways().size()) {}
 
     Paved Work;
+    std::optional<Osm::StreetField> RetainedWays;
+    std::unique_ptr<Job> Retiring;
+    std::vector<DiagnosticSample> Omissions;
     RoadMeshBuffers Pavement;
     std::vector<EarthworkStamp> Corridor;
     std::unordered_map<uint64_t, uint32_t> SharedNodes;
@@ -496,6 +486,7 @@ public:
 
 private:
   struct JobSlice;
+  [[nodiscard]] static bool RetainValidWays(Job &job, const JobSlice &slice);
   [[nodiscard]] std::expected<bool, std::string_view> AdvanceStage(Job &job,
                                                                    const JobSlice &slice) const;
   [[nodiscard]] static std::expected<bool, std::string_view>

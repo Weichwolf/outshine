@@ -343,7 +343,29 @@ SlopeConstraint(const RoadHeightFailure &failure, const auto &into, const auto &
   return constraint;
 }
 
-std::expected<void, std::string_view>
+std::vector<size_t>
+CycleWays(const RoadHeightFailure &failure, const auto &into, const auto &graph) {
+  std::vector<size_t> ways;
+  std::vector<size_t> wayOfStation(into.Planned.size());
+  for (const auto &edge : into.Edges) {
+    std::fill_n(wayOfStation.begin() + edge.PlannedFirst, edge.PlannedCount, edge.Lane);
+  }
+  for (const auto &constraint : failure.CycleConstraints) {
+    if (constraint.Kind == RoadHeightConstraintKind::Clearance) {
+      const auto &pair = graph.ClearanceLanes[constraint.Index];
+      ways.insert(ways.end(), pair.begin(), pair.end());
+      continue;
+    }
+    const auto station = graph.LinkStations[constraint.Index];
+    ways.push_back(wayOfStation[station]);
+  }
+  std::ranges::sort(ways);
+  const auto repeated = std::ranges::unique(ways);
+  ways.erase(repeated.begin(), repeated.end());
+  return ways;
+}
+
+std::expected<void, JunctionSlopeFailure>
 AdjustJunctionPlanes(const RoadHeightFailure &failure,
                      auto &into,
                      auto &graph,
@@ -355,6 +377,11 @@ AdjustJunctionPlanes(const RoadHeightFailure &failure,
     slopes.push_back({junction.SlopeE, junction.SlopeN, junction.MaxGradient});
   }
   if (auto plan = FitJunctionSlopes(slopes, graph.PlaneConstraints, deadline); !plan) {
+    if (plan.error().Kind == JunctionSlopeRefusal::NoRoom &&
+        plan.error().Constraint == graph.PlaneConstraints.size() - 1) {
+      into.ConflictingWays = CycleWays(failure, into, graph);
+      return std::unexpected(plan.error());
+    }
     const auto &constraint = graph.PlaneConstraints.back();
     Log::Error(LogTag::World,
                "road_height_cycle",
@@ -362,7 +389,7 @@ AdjustJunctionPlanes(const RoadHeightFailure &failure,
                 {"cycle", static_cast<int64_t>(failure.CycleConstraints.size())},
                 {"planes", static_cast<int64_t>(constraint.Terms.size())},
                 {"riseM", constraint.MinimumRiseM}});
-    return std::unexpected(plan.error().Reason());
+    return std::unexpected(plan.error());
   }
   for (size_t at = 0; at < into.Junctions.size(); ++at) {
     auto &junction = into.Junctions[at];
@@ -538,8 +565,8 @@ std::expected<void, std::string_view> Corridors::PlanHeights(const Paving &on, P
     } else {
       if (auto adjusted = AdjustJunctionPlanes(failure, into, graph, began + kPlaneTimeBudget);
           !adjusted) {
-        LogHeightCycle(failure, on, into, graph);
-        return adjusted;
+        if (into.ConflictingWays.empty()) { LogHeightCycle(failure, on, into, graph); }
+        return std::unexpected(adjusted.error().Reason());
       }
     }
     HeightConstraints(on, into, graph);
