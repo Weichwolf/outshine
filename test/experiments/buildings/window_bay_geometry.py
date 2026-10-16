@@ -6,7 +6,7 @@ from facade_entry_geometry import basis_for, expand, local_quads
 from outshine_ref.buildings.opening_panels import OpeningPanel, panel_surface
 
 
-def products(current, owner, material, mode):
+def products(current, owner, material, mode, *, glass=None):
     frame, plan = current["frame"], current["prototype"]
     basis = basis_for(frame)
     origin = np.r_[current["centre"], current["base_m"]]
@@ -52,16 +52,17 @@ def products(current, owner, material, mode):
     materials = np.array([1, 0, 2, 3], dtype=np.uint8)[fixed["roles"]]
     for part in np.unique(part_ids):
         rows = part_ids == part
-        output.append(
-            expand(
-                {
-                    "vertices": points,
-                    "faces": fixed["faces"][rows],
-                    "materials": materials[rows],
-                },
-                material,
-            )
+        expanded = expand(
+            {
+                "vertices": points,
+                "faces": fixed["faces"][rows],
+                "materials": materials[rows],
+            },
+            material,
         )
+        if glass is not None:
+            expanded["materials"][expanded["materials"] == 3] = glass()
+        output.append(expanded)
     if mode == "through":
         pocket = current["pocket"].difference(current["full_footprint"])
         for low, high, component in (

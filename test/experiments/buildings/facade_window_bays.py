@@ -115,10 +115,10 @@ class WindowBayDetails:
     def demand(current, view):
         return demand(current, view)
 
-    def products(self, current, material, mode):
+    def products(self, current, material, mode, *, glass=None):
         from window_bay_geometry import products
 
-        return products(current, self, material, mode)
+        return products(current, self, material, mode, glass=glass)
 
     @staticmethod
     def description(current, mode, triangles, frame):

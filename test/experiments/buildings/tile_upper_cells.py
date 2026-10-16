@@ -138,7 +138,7 @@ def append_products(
         records.extend(descriptions)
     for current, mode in visible:
         owner = plan["owner"]
-        added = owner.products(current, plain, mode)
+        added = owner.products(current, plain, mode, glass=glass)
         parts.extend(added)
         records.append(
             owner.description(current, mode, sum(len(p["faces"]) for p in added), frame)

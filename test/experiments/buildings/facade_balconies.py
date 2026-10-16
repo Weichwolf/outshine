@@ -70,7 +70,7 @@ class BalconyDetails:
     def demand(current, view):
         return demand(current, view)
 
-    def products(self, current, material, mode):
+    def products(self, current, material, mode, *, glass=None):
         from balcony_geometry import products
 
         return products(current, self, material, mode)

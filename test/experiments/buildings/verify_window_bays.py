@@ -221,7 +221,7 @@ class WindowBayCells(unittest.TestCase):
             _, _, _, _, _, plan = prepared(row)
             view = camera(plan["cells"][0], 10)
             after = FacadeDetails([row], view)
-            _, source_after = construct(
+            mesh_after, source_after = construct(
                 "actual-bay",
                 prepared=([row], {"invalid": [], "span_m": 100.0}),
                 ordinary_builder=after,
@@ -255,6 +255,7 @@ class WindowBayCells(unittest.TestCase):
                 )
             self.assertFalse(after.balconies.planned)
             self.assertTrue(after.bay_geometry, after.recess_rejected)
+            self.assertFalse(np.any(mesh_after["materials"] == 3))
             self.assertEqual(after.entrances.planned, before.entrances.planned)
             self.assertEqual(after.shopfronts.planned, before.shopfronts.planned)
             self.assertEqual(
