@@ -68,23 +68,23 @@ ceiling view with no visible prior vertices was rejected; the camera gate was
 preserved. Only the diagnostics select roof subsets; Blender uses the full
 actual mesh and the original source palette/daylight/flat-no-DEM ground.
 
-Actual local image delivery:14 optically opened1920×1080 Eevee images,16samples
+Actual local image delivery: 14 optically opened 1920×1080 Eevee images, 16 samples
 each, plus the three optically opened diagrams. Geometry/render inputs are frozen
 at `b2c942373` (six paired building cameras) and `e9af461fd` (paired full source
 tile). All three final raster batches ended0 after successful rendering; their
 small runners flush and call `os._exit(0)` after the domain function returns,
 retaining the previously documented bpy teardown workaround. Backend:
-llvmpipe LLVM19.1.7,256bits. No Cycles/GPU/normal-teardown admission.
+llvmpipe LLVM 19.1.7, 256 bits. No Cycles/GPU/normal-teardown admission.
 Six current glazed camera meshes exactly match the independently verified
 assembly after the existing palette binding; all streams and dtypes are checked.
 The `333c9342d` focused seven-check run and camera replay both ended0.
 
-The entire Grohnde source tile retains37 members with the same original source
+The entire Grohnde source tile retains 37 members with the same original source
 attributes, identities, footprint WKB, height intervals, classes and palette.
-Six constructed halls emit148 fields; the eight logical plans contain228 fields,
+Six constructed halls emit 148 fields; the eight logical plans contain 228 fields,
 including deferred halls. The existing unsuitable loading entrance retains its
 same rejection reason. Source omissions and construction coverage do not change.
-The industrial-group close view uses60123→72523 triangles;7644/2073600 pixels
+The industrial-group close view uses 60123→72523 triangles; 7644/2073600 pixels
 change (0.3686%, mean RGB error0.059852/255) under `test/scripts/pixels.py`.
 The opposite roof hides most descending panes as expected. The interior witness
 shows a real recessed shaft/rim/pane instead of the prior uniform opaque ceiling;
@@ -99,7 +99,7 @@ not an isolated hardware comparison; no runtime/frame-budget claim follows.
 
 The `1f86c1d26` whole-assembly measurement used normal priority on a shared
 four-logical-CPU host while Software-Eevee and other domain work ran. Reported
-load was 15.36/13.31/11.65; the whole-process RSS high-water mark was146236 KiB.
+load was 15.36/13.31/11.65; the whole-process RSS high-water mark was 146236 KiB.
 The measured phase starts from the same prepared hall/envelope and ends at the
 joined render mesh. It excludes provider acquisition and initial plan/envelope
 construction. Timings are milliseconds; traced peaks are bytes:
@@ -115,10 +115,10 @@ construction. Timings are milliseconds; traced peaks are bytes:
 
 Ring emission consistently saves field triangles/components and output bytes;
 the noisy whole-phase CPU medians do **not** establish a consistent speed gain.
-The three Boolean shells use103/44/95 prism operands and4166/1762/3880 output
+The three Boolean shells use 103/44/95 prism operands and 4166/1762/3880 output
 triangles identically for both alternatives. CSG remains the expensive shared
 work; direct compact/far products must avoid it rather than generate then strip
-these bodies. The opaque prior has6526/3634/6656 render triangles, so glazing is
+these bodies. The opaque prior has 6526/3634/6656 render triangles, so glazing is
 additional quality/work, not a performance improvement against that prior.
 
 The experimental optional-cut hook also replays all eight previous recipe-v1
