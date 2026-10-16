@@ -764,3 +764,15 @@ for independent actual contour/room diagrams and paired whole/opposite Blender
 inputs. Render each geometry JSON using shared `blender_city.py` at 1920×1080.
 Primary/SDK/Ghidra scope: `doc/references/buildings/esri/stepped-profiles-sdk-3.4.12206.md`.
 Research outputs stay local; master owns integrated Places and native admission.
+
+`stepped_profile_cost.py --output <system-temp-json>` compares the same 24
+orthogonal contour alternatives against one source-frame clipping rectangle,
+21 warm runs per method/source. The single-box alternative uses 36 boolean
+intersections versus `72 + 24*storeys` in the admitted two-half-plane path.
+Local preliminary contour medians were 3.9–6.0 versus 19.8–34.4 ms with at most
+4.6e-12 m² symmetric difference. This is a contour result only; the box path
+has not passed complete room/portal/native-section reconstruction. The current
+full-plan admission path remains the verified implementation. Its seconds of
+room/clearance construction dominate these milliseconds; no whole-generator or
+frame speedup is inferred. Output arrays/coordinate observations, traced Python
+peak and GEOS exclusions are explicit in the benchmark.

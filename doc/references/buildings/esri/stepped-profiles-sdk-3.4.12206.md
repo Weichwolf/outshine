@@ -29,7 +29,7 @@ External core SHA-256:
 `850a1b10182e9793f67791438989835de08a9facc2bd0d4f12c26c9a8be5ab45`.
 Existing bounded exporter `esri_ghidra.py`, targeted independently at:
 
-| ELF address | Observed dispatch | Instructions |
+| Ghidra address | Observed dispatch | Instructions |
 |---|---|---:|
 | `005062d0` | `Processor::setback(double, SplitNode)` → `innerSetback` | 42 |
 | `00506470` | per-edge double array → `checkArray`, `innerSetback` | 97 |
@@ -39,6 +39,13 @@ Headless completed with exit 0. Snap's launcher failed creating its temporary ro
 the installed `/snap/ghidra/current/ghidra/support/analyzeHeadless` and bundled
 Java 21 ran directly. No extra package or SDK source was acquired. Local report:
 `/tmp/outshine-buildings-corner-esri-45ef114aa/ghidra-core.json`.
+
+Helper exports also complete with exit 0: `innerSetback` (`00510a60`, 11
+instructions) delegates to `SetbackOperation::setback`; `parseUvAndSetback`
+(`00510cd0`, 70 instructions) bounds a converted selector to 0–9 and reports
+a CGA error outside that range before dispatch. The numerical rounding
+constants and the actual offset algorithm remain unverified. Helper report:
+`/tmp/outshine-buildings-corner-esri-helper-45ef114aa/ghidra-core.json`.
 
 These are dispatch observations. Array copies have unresolved calls; shared-owner
 cleanup and decompiler excursions outside the bounded symbol are not algorithm

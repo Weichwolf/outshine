@@ -85,6 +85,16 @@ class ProfileContours(unittest.TestCase):
 
 
 class SourceProfiles(unittest.TestCase):
+    def test_actual_diagonal_failure_preserves_a_valid_legacy_fallback(self):
+        row = sources()[0]
+        plan = plan_for(row, "diagonal")
+        recipe = plan["form_recipe"]
+        self.assertEqual(recipe["requested_profile"], "diagonal")
+        self.assertFalse(recipe["method"].startswith("diagonal"))
+        self.assertTrue(recipe["profile_fallback_reason"])
+        self.assertTrue(plan["storey_plans"][0]["footprint"].equals(row["polygon"]))
+        connected_spaces(plan)
+
     def test_actual_source_profiles_keep_room_core_ids_and_real_mesh_access(self):
         for index, profile in ((0, "corner"), (2, "diagonal")):
             row = sources()[index]
