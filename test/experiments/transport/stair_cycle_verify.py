@@ -73,6 +73,18 @@ def verify(args):
             raise ValueError(
                 "saved chosen landing plan differs from original endpoints"
             )
+    if report.get("bridge_separation_orders", []) != context.get(
+        "bridge_separation_orders", []
+    ):
+        raise ValueError("saved bridge order differs from explicit source recipe")
+    if report.get("surface_cross_section_mode", "end_neighbourhood") != recipe.get(
+        "surface_cross_section_mode", "end_neighbourhood"
+    ):
+        raise ValueError("saved surface discretisation mode changed")
+    if report.get("terrain_refinement_rounds", 1) != recipe.get(
+        "terrain_refinement_rounds", 1
+    ):
+        raise ValueError("saved terrain refinement budget changed")
     if (
         report["candidate_source_ids"] != [r["source_id"] for r in rows]
         or report["admitted_source_ids"]
