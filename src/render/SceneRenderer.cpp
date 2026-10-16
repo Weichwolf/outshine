@@ -2007,6 +2007,9 @@ SceneRenderer::DrawsInto(int widthPx, int heightPx, SDL_Window *presents) {
       }
       return std::unexpected(rebuilt.error());
     }
+  } else {
+    ActiveFrame().Width = widthPx;
+    ActiveFrame().Height = heightPx;
   }
   Showing_ = presents;
   Presenting_ = true;
