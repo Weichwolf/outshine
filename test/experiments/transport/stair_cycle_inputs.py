@@ -8,7 +8,7 @@ import numpy as np
 from camera_height_inputs import digest
 from capture_stair_context import parts
 from outshine_ref.places import decode_terrarium, decode_vector, receipt_bytes
-from stair_branch_inputs import branch_rows, surface_sampling
+from stair_branch_inputs import branch_rows, surface_sampling, surface_welding
 from stair_context_inputs import PROFILES, window_samples
 from stair_corner_geometry import apply_pads
 from stair_crossing_order import apply_orders
@@ -143,6 +143,7 @@ def load(path=FIXTURE, *, band_join=True):
     surface_sampling(
         rows, recipe.get("surface_cross_section_mode", "end_neighbourhood")
     )
+    surface_welding(rows, recipe.get("surface_weld_tolerance_m"))
     orders = apply_orders(rows, recipe.get("ordered_bridge_crossings", []))
     if orders:
         context["bridge_separation_orders"] = orders

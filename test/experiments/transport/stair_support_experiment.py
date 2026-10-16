@@ -61,10 +61,15 @@ def generate(args):
         raise ValueError("fresh explicit stair support output required")
     began = time.perf_counter()
     rows, road, lower, context, artifacts = inputs(args.products, args.fixture)
+    selection = json.loads(args.fixture.read_text()).get(
+        "support_station_selection", "all"
+    )
     args.output.mkdir(parents=True)
     methods, selected, chosen = {}, None, None
     for method in ("fixed", "shifted"):
-        products, note = plan(rows, road, lower, method=method)
+        products, note = plan(
+            rows, road, lower, method=method, station_selection=selection
+        )
         body = packed(
             [p.body for p in products],
             [(p.lower_contact, p.upper_contact) for p in products],

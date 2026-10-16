@@ -81,6 +81,8 @@ def verify(args):
         "surface_cross_section_mode", "end_neighbourhood"
     ):
         raise ValueError("saved surface discretisation mode changed")
+    if report.get("surface_weld_tolerance_m") != recipe.get("surface_weld_tolerance_m"):
+        raise ValueError("saved numeric surface weld recipe changed")
     if report.get("terrain_refinement_rounds", 1) != recipe.get(
         "terrain_refinement_rounds", 1
     ):
