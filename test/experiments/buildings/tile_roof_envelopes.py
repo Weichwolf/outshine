@@ -7,12 +7,13 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
+from broken_hip import envelope as profiled_envelope
+from broken_hip import recipe as roof_profile
 from building_layout import frame
 from outshine_ref.buildings.modelling import (
     Shape,
     SkeletonBudgetExceeded,
     cga_to_enu,
-    heightfield_envelope,
 )
 from outshine_ref.buildings.structures import classify_structure
 from provider_contract import attributes, number
@@ -305,6 +306,7 @@ class OrdinaryDetails:
 
     def complete(self, row, parameters, material, choice):
         error = projected_error(row, parameters, choice, self.view)
+        profile = roof_profile(row, parameters, choice)
         metadata = {
             "roof_kind": choice.kind,
             "roof_rise_m": choice.rise_m,
@@ -316,6 +318,8 @@ class OrdinaryDetails:
             "projected_geometry_error_px": error if math.isfinite(error) else None,
             "functional_status": "Exterior heightfield envelope; room/use/access programme and native integration unplanned",
         }
+        if profile is not None:
+            metadata["roof_profile"] = profile | {"status": "deferred"}
         if error <= 0.5:
             mesh, info = prism(row, parameters, material)
             self.coarse.append(dict(id=row["id"], **metadata))
@@ -341,9 +345,11 @@ class OrdinaryDetails:
                 return mesh, metadata | info
             except ValueError as error:
                 self.room_rejected.append({"id": row["id"], "reason": str(error)})
-        envelope = heightfield_envelope(
-            top, parameters["minHeight"], wall_material=material, base_material=material
+        envelope, profile_report = profiled_envelope(
+            top, parameters, material, choice, profile
         )
+        if profile_report is not None:
+            metadata["roof_profile"] = profile_report
         mesh = dict(envelope.mesh)
         for key in ("parts", "groups", "face_tag_mask"):
             mesh.pop(key)
