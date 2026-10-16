@@ -107,6 +107,11 @@ und Replay mit versionierten Eingängen eigenständig. Tatsächlich verwendete R
 Werte, Indizes und Normalen werden weiterhin exakt geprüft; der vollständige alte
 Palette-Datei-SHA bleibt Herkunftsangabe. Unbenutzte private Szenenpfade beeinflussen
 diesen Vergleich nicht. Eine Änderung der tatsächlich verwendeten Farbe scheitert.
+Ein frischer vollständiger Lauf bei `e44235fd8` mit den versionierten Standardargumenten
+liefert beide Körper, Höhenfelder und Darstellungsmeshes bytegleich zum Freeze;
+alle sechs Szenen stimmen nach Entfernung ihrer Ausgabe-/Meshpfade semantisch überein.
+Sein gespeicherter Reader besteht ebenfalls; `standalone-reproduction.json` hält
+die einzelnen Identitäten fest. Dafür wurde kein Render-/Kostenlauf wiederholt.
 
 ## Vollständige Quellenbilanz und Bilder
 
