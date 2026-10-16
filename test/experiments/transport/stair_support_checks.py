@@ -8,6 +8,7 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.transport.supports import SupportVolumeBuilder
 from stair_support_audit import Reference, body_caps, domain, quantized
 from stair_support_plan import admit, footprint, plan, stations
+from stair_support_traffic import TrafficIndex
 
 
 def rectangle(x0, y0, x1, y1, z):
@@ -124,7 +125,8 @@ class WholeContacts(unittest.TestCase):
             ),
         ):
             with self.assertRaisesRegex(ValueError, message):
-                admit(product, Reference(lower), Reference(upper), excluded, old)
+                views = [TrafficIndex([shape], [2]).for_source(0) for shape in excluded]
+                admit(product, Reference(lower), Reference(upper), views, old)
 
     def test_rounded_buffer_corners_cannot_understate_the_physical_distance(self):
         lower, upper, product = surfaces()
@@ -135,7 +137,8 @@ class WholeContacts(unittest.TestCase):
         self.assertFalse(near.intersects(shape.buffer(0.2, quad_segs=8)))
         self.assertLess(near.distance(shape), 0.2)
         with self.assertRaisesRegex(ValueError, "selected source"):
-            admit(product, Reference(lower), Reference(upper), [near, near], [[], []])
+            views = [TrafficIndex([near], [2]).for_source(0)] * 2
+            admit(product, Reference(lower), Reference(upper), views, [[], []])
 
 
 class BoundedStations(unittest.TestCase):

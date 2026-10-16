@@ -684,6 +684,22 @@ Der Reader baut weder Pfeiler noch Kontakte neu. Feste/verschobene Stationen
 tragen Auslassungsgründe; die gültige Variante mit mehr Pfeilern wird dargestellt.
 Abstände sind Gestaltungswerte, keine Statik oder vollständige Quellenfreigabe.
 
+## Gemeinsame Pfeilervorbereitung (#434)
+
+[Vorbereitungsvergleich](stair_support_preparation.md): Standard ist jetzt die
+gemeinsame Vorbereitung. Ganze Ausgabe und physische Abnahme bleiben gleich;
+`per_source` erhält die frühere Variante ausschließlich als Kostenreferenz.
+
+```sh
+PYTHONPATH=lib/src:lib/tests:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_support_checks stair_support_traffic_checks test_supports
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --preparation per_source --output "$TRANSPORT_SUPPORT_OUTPUT/per-source-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --preparation shared --output "$TRANSPORT_SUPPORT_OUTPUT/shared-cost.json"
+```
+
+Kostenprozesse nacheinander bei normaler Priorität; dieselben optionalen Memray-
+Flags und frische Ausgaben wie oben. Die vorhandenen Erzeugungs-/Readeraufrufe
+verwenden ohne neue Quell-/Instanzparameter den gemeinsamen Pfad.
+
 ## Historische Place-Kameras (#209)
 
 Die folgenden Aufrufe reproduzieren die bisherigen Wien-/Tokyo-/Central-Park-/
