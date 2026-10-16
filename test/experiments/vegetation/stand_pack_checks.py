@@ -143,6 +143,19 @@ class StandPackChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 pack_leaves(rows | change, meshes)
 
+    def test_material_indices_and_uvs_cannot_silently_overflow_the_product(self):
+        rows, meshes = fixture()
+        for surface in (
+            np.full(len(meshes[0]["faces"]), 257),
+            np.full(len(meshes[0]["faces"]), -1),
+            np.full(len(meshes[0]["faces"]), 1.5),
+        ):
+            with self.assertRaises(ValueError):
+                pack_leaves(rows, [meshes[0] | {"surface": surface}, meshes[1]])
+        uv = np.full(meshes[0]["corner_uv"].shape, 1e40)
+        with self.assertRaises(ValueError):
+            pack_leaves(rows, [meshes[0] | {"corner_uv": uv}, meshes[1]])
+
     def test_empty_demand_keeps_a_complete_empty_product(self):
         rows, meshes = fixture()
         empty = {k: v[:0] for k, v in rows.items()}

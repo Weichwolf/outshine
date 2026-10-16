@@ -43,10 +43,14 @@ def preflight(rows, meshes, max_bytes, position_error):
         if (
             mesh["corner_uv"].shape != (mesh["faces"].size, 2)
             or not np.isfinite(mesh["corner_uv"]).all()
+            or np.max(abs(mesh["corner_uv"])) > np.finfo(np.float32).max
         ):
             raise ValueError("complete finite source corner UVs required")
-        if mesh["surface"].shape != (len(mesh["faces"]),) or np.any(
-            mesh["surface"] != mesh["surface"][0]
+        if (
+            mesh["surface"].shape != (len(mesh["faces"]),)
+            or mesh["surface"].dtype.kind not in "iu"
+            or np.any((mesh["surface"] < 0) | (mesh["surface"] > 255))
+            or np.any(mesh["surface"] != mesh["surface"][0])
         ):
             raise ValueError(
                 "one declared material per physical leaf prototype required"
