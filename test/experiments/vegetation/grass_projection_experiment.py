@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from grass_projection import contacts, footprint_mips
+from grass_projection import contacts, footprint_mips, query_domain
 from grass_projection_instances import instanced_contacts
 from grass_projection_reference import verify
 from grass_projection_stand import (
@@ -23,6 +23,8 @@ from grass_projection_stand import (
 def run(output, size=256):
     if output.exists():
         raise ValueError("explicit fresh output path required")
+    query_domain(LOWER, UPPER, DIRECTIONS["top"], size)
+    pair_budget = max(262144, size * size)
     began = time.perf_counter()
     recipe, identity, stand = build_stand()
     output.mkdir(parents=True)
@@ -45,7 +47,9 @@ def run(output, size=256):
             ):
                 start = time.perf_counter()
                 product = (
-                    instanced_contacts(recipe, compact, LOWER, UPPER, direction, size)
+                    instanced_contacts(
+                        recipe, compact, LOWER, UPPER, direction, size, pair_budget
+                    )
                     if method == "instanced"
                     else contacts(
                         stand["vertices"],
@@ -54,6 +58,7 @@ def run(output, size=256):
                         UPPER,
                         direction,
                         size,
+                        pair_budget=pair_budget,
                         method=method,
                     )
                 )
@@ -88,7 +93,7 @@ def run(output, size=256):
         row = {
             "name": name,
             "direction": direction.tolist(),
-            "cpu_s": samples,
+            "wall_s": samples,
             "accuracy": accuracy,
             "work": {m: outputs[m]["work"] for m in outputs},
             "mip_bytes": sum(v.nbytes for v in levels),

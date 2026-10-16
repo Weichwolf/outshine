@@ -59,6 +59,14 @@ def check_product(inputs, output):
             "grass_projection.contacts",
             side_effect=AssertionError("rerasterized contacts"),
         ),
+        patch(
+            "grass_projection_instances.instanced_contacts",
+            side_effect=AssertionError("expanded/rasterized instances"),
+        ),
+        patch(
+            "grass_projection_stand.expand_selected",
+            side_effect=AssertionError("expanded physical vertices"),
+        ),
     ):
         report, stand, views = read_product(inputs)
         for view in views.values():
