@@ -22,6 +22,7 @@ class CrownShoots:
     length_m: float = 0.35
     bend_rad: float = 0.4
     petiole_m: float = 0.004
+    foliage_depth_m: float = 0.0
     _groups: dict = field(default_factory=dict, init=False, repr=False, compare=False)
 
     def __post_init__(self):
@@ -53,10 +54,13 @@ class CrownShoots:
         if (
             type(self.seed) is not int
             or not 0 <= self.seed < 2**64
-            or not np.isfinite((self.length_m, self.bend_rad, self.petiole_m)).all()
+            or not np.isfinite(
+                (self.length_m, self.bend_rad, self.petiole_m, self.foliage_depth_m)
+            ).all()
             or not 0.01 <= self.length_m <= 2
             or abs(self.bend_rad) > 1
             or not 0 <= self.petiole_m <= 0.1
+            or not 0 <= self.foliage_depth_m <= 5
         ):
             raise ValueError("bounded explicit end-shoot recipe required")
         object.__setattr__(self, "positions", immutable_array(positions))
@@ -69,8 +73,24 @@ class CrownShoots:
         return immutable_array(np.flatnonzero(counts == 0))
 
     @cached_property
+    def hosts(self):
+        distance = np.full(len(self.parents), np.inf)
+        distance[self.tips] = 0
+        for node in range(len(self.parents) - 1, 0, -1):
+            parent = self.parents[node]
+            length = np.linalg.norm(self.positions[node] - self.positions[parent])
+            distance[parent] = min(distance[parent], distance[node] + length)
+        return immutable_array(
+            np.flatnonzero(
+                (distance <= self.foliage_depth_m) & (np.arange(len(distance)) > 0)
+            )
+        )
+
+    @cached_property
     def counts(self):
-        counts = np.full(len(self.tips), len(self.variants) // len(self.tips), np.int64)
+        counts = np.full(
+            len(self.hosts), len(self.variants) // len(self.hosts), np.int64
+        )
         counts[: len(self.variants) % len(counts)] += 1
         return immutable_array(counts)
 
@@ -80,12 +100,13 @@ class CrownShoots:
 
     def recipe(self):
         return {
-            "format": "spatial-crown-shoots-1",
+            "format": "spatial-crown-shoots-2",
             "numpy": np.__version__,
             "seed": self.seed,
             "length_m": self.length_m,
             "bend_rad": self.bend_rad,
             "petiole_m": self.petiole_m,
+            "foliage_depth_m": self.foliage_depth_m,
         }
 
     @cached_property
@@ -99,14 +120,15 @@ class CrownShoots:
         return {
             "identity": self.identity,
             "skeleton_nodes": len(self.parents),
-            "shoots": len(self.tips),
+            "shoots": len(self.hosts),
+            "terminal_nodes": len(self.tips),
             "leaves": len(self.variants),
             "variant_counts": np.bincount(self.variants, minlength=8).tolist(),
         }
 
     def stem(self, node):
-        if type(node) is not int or node not in self.tips:
-            raise ValueError("explicit saved terminal node ID required")
+        if type(node) is not int or node not in self.hosts:
+            raise ValueError("explicit saved foliage host node ID required")
         direction = self.positions[node] - self.positions[self.parents[node]]
         return self.positions[node], normal_frame(direction, (0, 0, 1))
 
@@ -114,7 +136,7 @@ class CrownShoots:
         if type(max_leaves) is not int or not 0 <= max_leaves <= 100000:
             raise ValueError("bounded explicit leaf capacity required")
         origin, frame = self.stem(node)
-        index = int(np.searchsorted(self.tips, node))
+        index = int(np.searchsorted(self.hosts, node))
         count = int(self.counts[index])
         if count > max_leaves:
             return None
@@ -164,5 +186,5 @@ class CrownShoots:
             raise ValueError("bounded explicit whole leaf capacity required")
         if len(self.variants) > max_leaves:
             return None
-        groups = [self.group(int(node), max_leaves) for node in self.tips]
+        groups = [self.group(int(node), max_leaves) for node in self.hosts]
         return {k: np.concatenate([group[k] for group in groups]) for k in groups[0]}

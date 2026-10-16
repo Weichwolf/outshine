@@ -21,8 +21,8 @@ def crown_wood(crown, radius=0.14):
     )
     vertices, faces, normals = [v], [f], [n]
     offset = len(v)
-    local = axis_mesh(crown.length_m, crown.bend_rad, 0.0005, 0.00012, 6, 6)
-    for node in crown.tips:
+    local = axis_mesh(crown.length_m, crown.bend_rad, 0.0005, 0.00012, 3, 4)
+    for node in crown.hosts:
         origin, frame = crown.stem(int(node))
         vertices.append(local["vertices"] @ frame.T + origin)
         faces.append(local["faces"] + offset)
@@ -73,7 +73,12 @@ def build(output, seed=718, points=2048):
     attractors = crown_points(8.0, 5.0, 0.23, points, seed)
     plan = grow(attractors, 8.0, 0.23, 0.16, 1.75, 0.22, budget=GrowthBudget(4096, 128))
     crown = CrownShoots(
-        plan["positions"], plan["parents"], before["leaf_variants"], seed
+        plan["positions"],
+        plan["parents"],
+        before["leaf_variants"],
+        seed,
+        length_m=0.16,
+        foliage_depth_m=0.48,
     )
     assert not crown._groups
     summary = crown.summary()
@@ -122,7 +127,7 @@ def build(output, seed=718, points=2048):
         "analytic_leaf_area_m2": float(base.summary()["leaf_area_m2"]),
         "recursive_axes": len(before["axis_ids"]),
         "spatial_nodes": len(crown.parents),
-        "spatial_shoots": len(crown.tips),
+        "spatial_shoots": len(crown.hosts),
         "recursive_triangles": before_tri,
         "spatial_triangles": after_tri,
         "baseline_plan_s": baseline_time - start,

@@ -94,6 +94,20 @@ class CrownShootChecks(unittest.TestCase):
         with self.assertRaises(ValueError):
             c.group(1, 17)
 
+    def test_distal_band_follows_skeleton_path_length_not_world_height(self):
+        base = small()
+        band = CrownShoots(
+            base.positions, base.parents, base.variants, foliage_depth_m=1.5
+        )
+        np.testing.assert_array_equal(band.hosts, [1, 2, 3, 4])
+        np.testing.assert_array_equal(band.counts, [5, 4, 4, 4])
+        moved = base.positions[:, [2, 1, 0]] + np.array((7, 4, -2))
+        transformed = CrownShoots(
+            moved, base.parents, base.variants, foliage_depth_m=1.5
+        )
+        np.testing.assert_array_equal(transformed.hosts, band.hosts)
+        self.assertEqual(len(band.tables(17)["ids"]), 17)
+
 
 if __name__ == "__main__":
     unittest.main()
