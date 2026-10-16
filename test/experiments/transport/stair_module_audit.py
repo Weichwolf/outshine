@@ -42,6 +42,10 @@ def module_body(data, rows, domains):
     limits = np.min(np.where(owners, [r["gradient"] for r in rows], np.inf), axis=1)
     if not np.array_equal(limits, data["limits"]):
         raise ValueError("source profile limits changed")
+    original = body_v[body_f]
+    reference_normals = np.cross(
+        original[:, 1] - original[:, 0], original[:, 2] - original[:, 0]
+    )
     proof = []
     for dtype in (np.float64, np.float32):
         top = vertices.astype(dtype).astype(float)
@@ -49,6 +53,12 @@ def module_body(data, rows, domains):
         if np.any(slopes > limits):
             raise ValueError("actual module source gradient exceeded")
         body = Mesh(body_v.astype(dtype), body_f)
+        xyz = body.vertices[body.triangles]
+        normals = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
+        if np.any(np.linalg.norm(normals, axis=1) == 0) or np.any(
+            np.einsum("ij,ij->i", reference_normals, normals) <= 0
+        ):
+            raise ValueError("actual module body face collapses or inverts")
         volume = audit_closed(body)
         links = vertex_links(body.vertices, body.triangles)
         if volume <= 0:

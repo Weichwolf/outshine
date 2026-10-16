@@ -9,8 +9,9 @@ import numpy as np
 import shapely
 from camera_height_inputs import digest
 from outshine_ref.contracts import Mesh
+from outshine_ref.transport import close_surface
 from stair_blend_solve import candidate, pins_for, validate_candidate
-from stair_module_audit import audit
+from stair_module_audit import audit, module_body
 from stair_module_contacts import interfaces
 from stair_module_geometry import build, old_surfaces
 from stair_module_inputs import FIXTURE, inputs, read_arrays
@@ -221,6 +222,32 @@ class RealGroundModule(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "exterior ground"),
         ):
             inputs()
+
+    def test_positive_global_volume_does_not_hide_a_collapsed_float32_component(self):
+        vertices = np.array(
+            [
+                [0.0, 0, 1],
+                [4, 0, 1],
+                [0, 4, 1],
+                [10, 0, 1e9],
+                [14, 0, 1e9],
+                [10, 4, 1e9],
+            ]
+        )
+        faces = np.array([[0, 1, 2], [3, 4, 5]])
+        surface = Mesh(vertices, faces)
+        body = close_surface(surface, 0.3)
+        data = {
+            "surface_vertices": vertices,
+            "surface_faces": faces,
+            "owners": np.eye(2, dtype=bool),
+            "limits": np.ones(2),
+            "body_vertices": body.vertices,
+            "body_faces": body.triangles,
+        }
+        domains = list(shapely.polygons(vertices[faces, :2]))
+        with self.assertRaisesRegex(ValueError, "collapses or inverts"):
+            module_body(data, [{"gradient": 1}, {"gradient": 1}], domains)
 
 
 if __name__ == "__main__":
