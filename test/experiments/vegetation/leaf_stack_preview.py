@@ -27,9 +27,29 @@ from PIL import Image
 from preview_shadows import configure_preview
 
 
-def populate():
-    scene = setup(VIEW)
+def receiver_material(variant):
     receiver = sheet("same calibrated receiver", REFLECTION, TRANSMISSION)
+    if variant == "shadow_thickness":
+        receiver.use_thickness_from_shadow = True
+    elif variant == "flipped_diffuse":
+        nodes, links = receiver.node_tree.nodes, receiver.node_tree.links
+        nodes.clear()
+        output = nodes.new("ShaderNodeOutputMaterial")
+        diffuse = nodes.new("ShaderNodeBsdfDiffuse")
+        diffuse.inputs["Color"].default_value = (*TRANSMISSION, 1)
+        geometry = nodes.new("ShaderNodeNewGeometry")
+        negative = nodes.new("ShaderNodeVectorMath")
+        negative.operation = "SCALE"
+        negative.inputs["Scale"].default_value = -1
+        links.new(geometry.outputs["True Normal"], negative.inputs[0])
+        links.new(negative.outputs["Vector"], diffuse.inputs["Normal"])
+        links.new(diffuse.outputs[0], output.inputs["Surface"])
+    return receiver
+
+
+def populate(variant):
+    scene = setup(VIEW)
+    receiver = receiver_material(variant)
     absorber = sheet("opaque absorber", np.full(3, 0.02))
     for mat in (receiver, absorber):
         mat.use_backface_culling = False
@@ -72,11 +92,11 @@ def sample_image(target, shadows):
     return rows
 
 
-def run(output):
+def run(output, variant):
     if output.exists():
         raise ValueError("fresh controlled stack output directory required")
     output.mkdir(parents=True)
-    scene, lamp = populate()
+    scene, lamp = populate(variant)
     rows, timings, images = [], [], []
     for shadows in (False, True):
         lamp.data.use_shadow = shadows
@@ -102,6 +122,7 @@ def run(output):
         "renderer": gpu.platform.renderer_get(),
         "profile": [1920, 1080],
         "samples": 8,
+        "variant": variant,
         "view": VIEW.tolist(),
         "light": LIGHT.tolist(),
         "receiver_rt": [*REFLECTION.tolist(), *TRANSMISSION.tolist()],
@@ -128,8 +149,13 @@ def run(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--variant",
+        choices=("baseline", "shadow_thickness", "flipped_diffuse"),
+        default="baseline",
+    )
     args = parser.parse_args()
-    run(args.output)
+    run(args.output, args.variant)
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
