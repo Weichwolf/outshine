@@ -1,4 +1,5 @@
 #include "CloudViewProbe.h"
+#include "LowCloud.h"
 #include "MediumViewProbe.h"
 #include "NativeGpuCheck.h"
 #include "WeatherCapture.h"
@@ -161,25 +162,27 @@ WeatherFrame PrepareWeather(const Case &scenario) {
                                                  .ThicknessM = kDeclaredCloudThicknessM,
                                                  .ExtinctionPerM = kDeclaredCloudExtinctionPerM,
                                                  .AdvectionEastMs = kCloudEastAdvectionMs,
-                                                 .AdvectionNorthMs = 4.0});
+                                                 .AdvectionNorthMs = 4.0,
+                                                 .Profile = scenario.Profile});
   CHECK(state && *state, "the selected native weather snapshot produces the cloud consumer state");
   if (!state || !*state) { Gpu::Failed(); }
   const auto &layer = (**state).Layer;
   const auto drift = layer.WindMs * scenario.PhaseS;
-  return {.Shell = {{static_cast<float>(layer.RadiusM),
-                     static_cast<float>(layer.BaseM),
-                     static_cast<float>(layer.ThicknessM),
-                     static_cast<float>(layer.ExtinctionPerM)}},
-          .Field = {{static_cast<float>(layer.Cover), 0.0f, 0.0f, 0.0f}},
-          .Drift = {{static_cast<float>(drift[0]),
-                     static_cast<float>(drift[1]),
-                     static_cast<float>(drift[2]),
-                     0.0f}},
-          .DensityCameraOriginM = {{static_cast<float>(scenario.DensityCameraOriginM[0]),
-                                    static_cast<float>(scenario.DensityCameraOriginM[1]),
-                                    static_cast<float>(scenario.DensityCameraOriginM[2]),
-                                    0.0f}},
-          .SunIrradiance = kCloudSun,
-          .SkyRadiance = kCloudSky};
+  return {
+      .Shell = {{static_cast<float>(layer.RadiusM),
+                 static_cast<float>(layer.BaseM),
+                 static_cast<float>(layer.ThicknessM),
+                 static_cast<float>(layer.ExtinctionPerM)}},
+      .Field = {{static_cast<float>(layer.Cover), static_cast<float>(layer.Profile), 0.0f, 0.0f}},
+      .Drift = {{static_cast<float>(drift[0]),
+                 static_cast<float>(drift[1]),
+                 static_cast<float>(drift[2]),
+                 0.0f}},
+      .DensityCameraOriginM = {{static_cast<float>(scenario.DensityCameraOriginM[0]),
+                                static_cast<float>(scenario.DensityCameraOriginM[1]),
+                                static_cast<float>(scenario.DensityCameraOriginM[2]),
+                                0.0f}},
+      .SunIrradiance = kCloudSun,
+      .SkyRadiance = kCloudSky};
 }
 }

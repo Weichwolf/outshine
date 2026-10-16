@@ -66,10 +66,12 @@ def flat_remainder(entry, material):
     )
 
 
-def products(entry, material, mode):
+def doorway(entry, material, mode, *, base_m=0.0):
     frame = entry["frame"]
     basis = basis_for(frame)
-    origin = np.r_[frame["a"], 0.0] + basis[0] * entry["column"] * entry["cell_width_m"]
+    origin = (
+        np.r_[frame["a"], base_m] + basis[0] * entry["column"] * entry["cell_width_m"]
+    )
     width, height = entry["cell_width_m"], entry["floor_m"]
     opening = (width / 2 - 0.55, 0.16, width / 2 + 0.55, 0.16 + 2.15)
     if mode == "compact":
@@ -101,14 +103,17 @@ def products(entry, material, mode):
         tuple(door["centre"]),
         tuple(door["tangent"]),
         tuple(-basis[2, :2]),
-        0.16,
+        base_m + 0.16,
         wall_face_m=0.24,
     )
     raw = leaf_mesh(leaf, leaf_template(leaf), entry["angle_deg"])
     raw["materials"][:] = 10
     output.append(expand(raw, material))
     framing = place(
-        frame_template("entrance", 1.10, 2.15), door["centre"], door["tangent"], 0.16
+        frame_template("entrance", 1.10, 2.15),
+        door["centre"],
+        door["tangent"],
+        base_m + 0.16,
     )
     for part in np.unique(framing["parts"]):
         raw = dict(
@@ -117,6 +122,14 @@ def products(entry, material, mode):
             materials=framing["materials"][framing["parts"] == part],
         )
         output.append(expand(raw, material))
+    return output
+
+
+def products(entry, material, mode):
+    output = doorway(entry, material, mode)
+    if mode == "compact":
+        return output
+    door, height = entry["door"], entry["floor_m"]
     for polygon, component in ((entry["interior"], 0), (door["landing"], 4)):
         storage = [], [], [], []
         solid(storage, polygon, 0.0, 0.16, component)

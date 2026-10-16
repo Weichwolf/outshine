@@ -14,8 +14,7 @@ float cloudAltitude(vec3 positionM, float radiusM) {
 
 vec3 cloudSphereRoots(vec3 originM, vec3 direction, float heightM, float radiusM) {
   float b = dot(originM, direction) + radiusM * direction.y;
-  float c = dot(originM, originM) + 2.0 * radiusM * originM.y -
-            heightM * (2.0 * radiusM + heightM);
+  float c = dot(originM, originM) + 2.0 * radiusM * originM.y - heightM * (2.0 * radiusM + heightM);
   float discriminant = b * b - c;
   if (discriminant < 0.0) { return vec3(0.0); }
   float q = -b - (b < 0.0 ? -1.0 : 1.0) * sqrt(discriminant);
@@ -48,7 +47,7 @@ mat2 cloudShell(CloudLayer layer, vec3 originM, vec3 direction, float maximumM) 
   return mat2(first, second);
 }
 
-float cloudHash(ivec3 cell) {
+uint cloudHashBits(ivec3 cell) {
   uvec3 key = uvec3(cell);
   uint bits = key.x * 1597334677u;
   bits ^= key.y * 3812015801u;
@@ -56,7 +55,11 @@ float cloudHash(ivec3 cell) {
   bits ^= bits >> 16;
   bits *= 2246822519u;
   bits ^= bits >> 13;
-  return float(bits >> 8) / 16777215.0;
+  return bits;
+}
+
+float cloudHash(ivec3 cell) {
+  return float(cloudHashBits(cell) >> 8) / 16777215.0;
 }
 
 float cloudNoise(vec3 position) {
@@ -75,20 +78,32 @@ float cloudNoise(vec3 position) {
   return result;
 }
 
+#include "cloudCumulus.glsl"
+
 float cloudExtinction(CloudLayer layer, vec3 positionM) {
   if (layer.field.x <= 0.0) { return 0.0; }
   float height = (cloudAltitude(positionM, layer.shell.x) - layer.shell.y) / layer.shell.z;
   if (height <= 0.0 || height >= 1.0) { return 0.0; }
   vec3 advected = (positionM - layer.drift.xyz) / 1400.0;
+  if (layer.field.y == 1.0 && layer.field.x < 0.75) {
+    return layer.shell.w * cloudCumulusDensity(advected, height, layer.field.x);
+  }
   float broad = cloudNoise(advected);
   float detail = cloudNoise(advected * 3.1 + vec3(19.0, 7.0, 3.0));
   float structure = 0.8 * broad + 0.2 * detail;
   float amount = clamp((structure - (1.0 - layer.field.x)) * 2.0, 0.0, 1.0);
-  return layer.shell.w * 6.0 * height * (1.0 - height) * amount;
+  float stratus = layer.shell.w * 6.0 * height * (1.0 - height) * amount;
+  if (layer.field.y == 1.0) {
+    float body = cloudCumulusShape(advected, height, layer.field.x);
+    float cumulus = cloudCumulusProfile(height, body - 0.18 * (1.0 - detail));
+    float closed = cloudCumulusUnit((layer.field.x - 0.75) / 0.25);
+    return max(layer.shell.w * cumulus, closed * stratus);
+  }
+  return stratus;
 }
 
-float cloudOpticalDepthSteps(CloudLayer layer, vec3 originM, vec3 direction, float maximumM,
-                             int sampleCount) {
+float cloudOpticalDepthSteps(
+    CloudLayer layer, vec3 originM, vec3 direction, float maximumM, int sampleCount) {
   if (layer.field.x <= 0.0) { return 0.0; }
   mat2 intervals = cloudShell(layer, originM, direction, maximumM);
   float optical = 0.0;
