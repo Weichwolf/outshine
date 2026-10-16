@@ -641,7 +641,7 @@ inline constexpr std::array<StageRow, static_cast<size_t>(Stage::kCount)> kStage
      .Name = "aerialPerspective",
      .Reads = {Resource::SceneComposited,
                Resource::SceneDepth,
-               Resource::SkyViewLut,
+               Resource::MultiScatterLut,
                Resource::TransmittanceLut,
                Resource::LinearSampler,
                Resource::LutSampler,

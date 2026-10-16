@@ -105,7 +105,9 @@ build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard
 shader-tools:    ## build pinned glslang and SDL_shadercross (requires SDL3, SPIRV-Cross, CMake, Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py
 
-build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/world/sky/AtmosphereCore.h src/world/sky/AtmosphereConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc
+AIR_SHADER_INPUTS := $(wildcard src/world/sky/Air*.h) src/world/sky/AirCellConstants.inc src/world/sky/ClearSunCore.h
+
+build/shaders/%.spv: src/render/shaders/% $(wildcard src/render/shaders/*.glsl) src/world/sky/AtmosphereCore.h src/world/sky/AtmosphereConstants.inc src/render/stages/SceneConstants.inc src/render/stages/GroundConstants.inc $(AIR_SHADER_INPUTS)
 	@mkdir -p $(@D)
 	@$(GLSLANG) $(GLSLANG_FLAGS) $< -o $@
 

@@ -1,10 +1,10 @@
 #ifndef OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 #define OUTSHINE_RENDER_STAGES_AERIALPERSPECTIVESTAGE_H
 
-#include "math/Vec4.h"
-#include "math/Vec2.h"
 #include "math/Vec3.h"
 #include <string>
+
+#include "AerialPerspectiveParameters.h"
 
 #include "KernelShape.h"
 
@@ -23,7 +23,7 @@ public:
   struct Tables {
     SDL_GPUTexture *Scene = nullptr;
     SDL_GPUTexture *Depth = nullptr;
-    SDL_GPUTexture *SkyView = nullptr;
+    SDL_GPUTexture *MultiScatter = nullptr;
     SDL_GPUTexture *Transmittance = nullptr;
     SDL_GPUSampler *Exact = nullptr;
     SDL_GPUSampler *Lut = nullptr;
@@ -45,27 +45,14 @@ public:
   void Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:
-  struct Pushed {
-    Vec4f Right;
-    Vec4f Up;
-    Vec4f Fwd;
-    Vec4f WorldUp;
-    Vec4f SunDir;
-    Vec2f TanHalf;
-    float Illuminance;
-    float EyeRadiusKm;
-    Vec4f DepthReconstruction;
-    Medium Air;
-  };
-
   OwnedPipeline Pipe;
   SDL_GPUTexture *Scene = nullptr;
   SDL_GPUTexture *Depth = nullptr;
-  SDL_GPUTexture *SkyView = nullptr;
+  SDL_GPUTexture *MultiScatter = nullptr;
   SDL_GPUTexture *Veil = nullptr;
   SDL_GPUSampler *Exact = nullptr;
   SDL_GPUSampler *Lut = nullptr;
-  Pushed Pushed_{};
+  AerialPerspectiveParameters Pushed_{};
   bool Declared_ = false;
 };
 
