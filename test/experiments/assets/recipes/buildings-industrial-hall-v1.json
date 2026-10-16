@@ -1,0 +1,77 @@
+{
+  "schema_version": "1",
+  "id": "buildings.industrial-hall",
+  "version": "1",
+  "requires": [
+    "buildings.hall-csg"
+  ],
+  "inputs": {
+    "source": "buildings.source/1",
+    "site": "buildings.site/1"
+  },
+  "dependencies": {
+    "roof": {
+      "id": "buildings.industrial-envelope",
+      "version": "1",
+      "inputs": {
+        "source": "source"
+      }
+    }
+  },
+  "nodes": {
+    "programme": {
+      "operator": {
+        "id": "buildings.hall-programme",
+        "version": "1"
+      },
+      "parameters": {},
+      "inputs": {
+        "source": {
+          "input": "source"
+        },
+        "site": {
+          "input": "site"
+        },
+        "choice": {
+          "dependency": "roof",
+          "output": "choice"
+        }
+      },
+      "max_output_bytes": 131072
+    },
+    "shell": {
+      "operator": {
+        "id": "buildings.cut-hall",
+        "version": "1"
+      },
+      "parameters": {
+        "wall_material": 1
+      },
+      "inputs": {
+        "envelope": {
+          "dependency": "roof",
+          "output": "envelope"
+        },
+        "programme": {
+          "node": "programme",
+          "output": "programme"
+        }
+      },
+      "max_output_bytes": 4194304
+    }
+  },
+  "outputs": {
+    "programme": {
+      "node": "programme",
+      "output": "programme"
+    },
+    "shell": {
+      "node": "shell",
+      "output": "shell"
+    },
+    "envelope": {
+      "dependency": "roof",
+      "output": "envelope"
+    }
+  }
+}
