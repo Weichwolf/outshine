@@ -13,6 +13,7 @@ from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
+from stair_seed_precision import GRID_M
 
 
 def seed_contract(recipe, sources):
@@ -27,6 +28,7 @@ def seed_contract(recipe, sources):
         or seed["source_id"] not in recipe["source_ids"]
         or type(seed["end"]) is not int
         or seed["end"] not in (0, -1)
+        or recipe.get("seed_grid_m") not in (None, GRID_M)
     ):
         raise ValueError(
             "explicit independent whole-source seed without cached contacts required"

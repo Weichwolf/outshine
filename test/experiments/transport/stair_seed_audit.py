@@ -89,6 +89,11 @@ def overlap_contract(nodes, domains, masks):
 def audit(state, recipe, data, rows, planning, upper):
     if any(row.get("source_grid_m") != recipe.get("seed_grid_m") for row in rows):
         raise ValueError("seed source grid differs from its declared recipe")
+    xy = data["surface_vertices"][:, :2]
+    if recipe.get("seed_grid_m") and not np.array_equal(
+        xy, xy.astype("f4").astype(float)
+    ):
+        raise ValueError("canonical seed surface XY must remain exact in Float32")
     nodes, original, domains, masks, _old = planning
     expected_masks = landings(rows, original, "width", 0.75, nodes)[2]
     if len(masks) != len(expected_masks) or any(

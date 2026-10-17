@@ -11,7 +11,7 @@ from stair_local_physics import bridge_checks
 from stair_module_family import verify_sources
 from stair_seed_audit import audit
 from stair_seed_geometry import build, seed_contract
-from stair_seed_precision import GRID_M, model
+from stair_seed_precision import GRID_M, model, outward_contract
 
 
 def example():
@@ -46,6 +46,42 @@ def example():
 
 
 class IndependentGroundSeeds(unittest.TestCase):
+    def test_outward_source_contract_rejects_erosion_excess_and_hole_loss(self):
+        original = shapely.box(0, 0, 10, 10)
+        for actual in (original.buffer(-1e-6), original.buffer(0.01)):
+            with (
+                self.subTest(actual=actual.area),
+                self.assertRaisesRegex(ValueError, "coverage, topology or metric"),
+            ):
+                outward_contract(actual, original, 6 * GRID_M)
+        holed = shapely.Polygon(
+            original.exterior.coords, [shapely.box(4, 4, 6, 6).exterior.coords]
+        )
+        with self.assertRaisesRegex(ValueError, "topology"):
+            outward_contract(original, holed, 6 * GRID_M)
+
+    def test_non_grid_junction_uses_one_canonical_fit_and_audit_region(self):
+        sources, rows, recipe, state, empty = example()
+        recipe["seed_grid_m"] = GRID_M
+
+        def sample(xy):
+            return 100 + 0.01 * (xy[:, 0] - 1500) + 0.005 * (xy[:, 1] - 100)
+
+        for row in rows:
+            row["xy"] += [1500.00004, 100.00007]
+            row["prior"] = sample(row["xy"])
+            row["source_grid_m"] = GRID_M
+            sources[row["source_id"]]["xy_m"] = row["xy"].tolist()
+        data, _network, planning = build(rows, sources, empty, sample)
+        proof = audit(state, recipe, data, rows, planning, empty)
+        self.assertEqual(len(proof["new_junction_heights"]), 2)
+        for check in proof["new_junction_heights"]:
+            self.assertLessEqual(check["maximum_height_error_m"], check["z_guard_m"])
+        broken = dict(data, surface_vertices=data["surface_vertices"].copy())
+        broken["surface_vertices"][0, 0] += 1e-8
+        with self.assertRaisesRegex(ValueError, "exact in Float32"):
+            audit(state, recipe, broken, rows, planning, empty)
+
     def test_binary_seed_model_covers_original_profiles_with_bounded_expansion(self):
         shape = shapely.Polygon(
             [
