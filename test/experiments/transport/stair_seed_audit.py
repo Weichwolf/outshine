@@ -86,6 +86,8 @@ def overlap_contract(nodes, domains, masks):
 
 
 def audit(state, recipe, data, rows, planning, upper):
+    if any(row.get("source_grid_m") != recipe.get("seed_grid_m") for row in rows):
+        raise ValueError("seed source grid differs from its declared recipe")
     nodes, original, domains, masks, _old = planning
     expected_masks = landings(rows, original, "width", 0.75, nodes)[2]
     if len(masks) != len(expected_masks) or any(
@@ -130,8 +132,19 @@ def audit(state, recipe, data, rows, planning, upper):
     )
     inspect_pins(data, fixed, values, "seed")
     clearances = source_clearances(data, rows, original, [], upper)
+    grid = recipe.get("seed_grid_m")
+    raw = (
+        [
+            corridor({k: v for k, v in row.items() if k != "source_grid_m"})
+            for row in rows
+        ]
+        if grid
+        else domains
+    )
     return {
-        "body": module_body(data, rows, domains),
+        "body": module_body(
+            data, rows, raw, source_tolerance_m=6 * grid if grid else 0.0
+        ),
         "profiles": profiles(data, rows, nodes, masks, original),
         "new_junction_heights": inspect_heights(data, plans),
         "road_frames": [inspect_frames(data, rows, cast) for cast in (False, True)],

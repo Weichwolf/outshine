@@ -153,13 +153,28 @@ def arrangement(rows, domains, masks, *, constraints=()):
         weld_note["conformed_zero_faces_removed"] = int((~nonzero).sum())
         faces = faces[nonzero]
     shapes = shapely.polygons(xy[faces])
-    if (
-        not shapely.coverage_is_valid(shapes)
-        or shapely.union_all(shapes).symmetric_difference(union).area > 1e-7
-    ):
+    if not shapely.coverage_is_valid(shapes):
         raise ValueError("actual stair arrangement changes source footprints")
+    grid = rows[0].get("source_grid_m")
+    actual = shapely.union_all(shapes)
+    if grid is None:
+        if actual.symmetric_difference(union).area > 1e-7:
+            raise ValueError("actual stair arrangement changes source footprints")
+    else:
+        from stair_seed_precision import outward_contract
+
+        raw = [
+            corridor({k: v for k, v in row.items() if k != "source_grid_m"})
+            for row in rows
+        ]
+        outward_contract(actual, shapely.union_all(raw), 6 * grid)
     owners = np.array(
-        [shapely.covers(p, shapely.point_on_surface(shapes)) for p in domains]
+        [
+            shapely.covers(
+                p if grid is None else p.buffer(grid), shapely.point_on_surface(shapes)
+            )
+            for p in domains
+        ]
     ).T
     return (
         xy,

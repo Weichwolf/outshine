@@ -6,6 +6,24 @@ import shapely
 GRID_M = 2**-11
 
 
+def outward_contract(actual, original, bound):
+    if (
+        actual.geom_type != original.geom_type
+        or actual.geom_type != "Polygon"
+        or len(actual.interiors) != len(original.interiors)
+        or not actual.covers(original)
+        or not original.buffer(bound, quad_segs=16).covers(actual)
+    ):
+        raise ValueError(
+            "seed model violates whole outward coverage, topology or metric bound"
+        )
+    return {
+        "outward_bound_m": bound,
+        "discrete_hausdorff_m": actual.hausdorff_distance(original),
+        "original_holes": len(original.interiors),
+    }
+
+
 def model(shape, grid):
     if grid is None:
         return shape
@@ -14,16 +32,8 @@ def model(shape, grid):
     result = shapely.set_precision(
         shape.buffer(2 * grid, join_style="mitre", mitre_limit=2), grid
     )
-    if (
-        result.geom_type != "Polygon"
-        or not result.is_valid
-        or result.is_empty
-        or not result.buffer(1e-9).covers(shape)
-        or result.hausdorff_distance(shape) > 6 * grid
-    ):
-        raise ValueError(
-            "canonical seed footprint lost coverage or exceeded its outward bound"
-        )
+    result = shapely.set_precision(result, 0)
+    outward_contract(result, shape, 6 * grid)
     return result
 
 

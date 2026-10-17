@@ -66,6 +66,7 @@ class IndependentGroundSeeds(unittest.TestCase):
 
     def test_canonical_seed_keeps_whole_original_cross_profiles(self):
         sources, rows, recipe, state, empty = example()
+        recipe["seed_grid_m"] = GRID_M
         for row in rows:
             row["source_grid_m"] = GRID_M
         data, _network, planning = build(
