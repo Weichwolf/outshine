@@ -127,6 +127,7 @@ def export(inputs, output, study, entry, wood, patches, plans, nodes, cells):
         "product_identity": identity,
         "product_recipe": recipe,
         "wood_triangles": len(wood["faces"]),
+        "scope": "Same complete saved skeleton/foliage/materials; requested fork groups joined locally. Unrequested limb/shoot bodies remain separate; no species/LOD/native/device admission.",
         "instanced_triangles": entry["instanced_triangles"]
         + len(wood["faces"])
         - entry["wood_triangles"],
@@ -144,6 +145,7 @@ def export(inputs, output, study, entry, wood, patches, plans, nodes, cells):
         ["git", "rev-parse", "HEAD"], text=True
     ).strip()
     pair["source_build_commit"] = study["commit"]
+    pair["scope"] = new["scope"]
     pair["products"] = {
         name: dict(study["products"]["spatial"]) for name in ("recursive", "spatial")
     }
@@ -173,9 +175,15 @@ def build(inputs, output, nodes, cells=32):
     began = time.perf_counter()
     study = json.loads((inputs / "comparison.json").read_text())
     entry, products = load(inputs / "spatial")
+    if entry["product_recipe"]["format"] != "oak-continuous-wood-1":
+        raise ValueError("prepared continuous mature-oak wood format required")
     original = products["wood.npz"]
     crown, hints = source_crown(inputs, study)
-    radii = tapered_radii(crown.parents, 0.325, 0.0015)
+    radii = tapered_radii(
+        crown.parents,
+        study["recipe"]["root_radius_m"],
+        study["recipe"]["terminal_radius_m"],
+    )
     paths = dominant_paths(
         crown.positions, crown.parents, radii, max_nodes=16384, continuations=hints
     )

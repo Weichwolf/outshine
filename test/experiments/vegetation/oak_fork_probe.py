@@ -70,7 +70,11 @@ def study(inputs, output, node, cells):
     output.mkdir(parents=True, exist_ok=False)
     metadata = json.loads((inputs / "comparison.json").read_text())
     crown, hints = source_crown(inputs, metadata)
-    radii = tapered_radii(crown.parents, 0.325, 0.0015)
+    radii = tapered_radii(
+        crown.parents,
+        metadata["recipe"]["root_radius_m"],
+        metadata["recipe"]["terminal_radius_m"],
+    )
     paths = dominant_paths(
         crown.positions, crown.parents, radii, max_nodes=16384, continuations=hints
     )
