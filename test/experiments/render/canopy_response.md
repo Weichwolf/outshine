@@ -83,8 +83,11 @@ only the tested Float32 numeric payload, not its container or metadata size.
 
 ## Still open
 
-Actual filtered spatial fields, near/far handoff, angle changes/interpolation,
+World-space filtered products, near/far handoff, angle changes/interpolation,
 heterogeneous green/dry blades and substrate, material detail/specular response,
 higher scattering orders, wind, native execution and full Places/budgets remain
 open. No world-scale storage estimate or natural-grass admission follows from
 288B for this one footprint/view/six-beam case. #451 and #189 remain active.
+
+The fixed-view spatial/native extension is documented in [canopy_field.md](canopy_field.md);
+its bounded GPU field is still not a world material or an angular/near-far admission.
