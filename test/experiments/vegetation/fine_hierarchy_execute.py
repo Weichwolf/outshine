@@ -98,7 +98,15 @@ def build(graph_path, source, output):
     )
     data, original = read_input(INPUT)
     recipe = json.loads(graph_path.read_text())
-    if recipe != branching(original, 0.045):
+    posture = next(
+        (
+            kind
+            for kind in ("hanging", "radial")
+            if recipe == branching(original, 0.045, posture=kind)
+        ),
+        None,
+    )
+    if posture is None:
         raise ValueError("declared selected branching hierarchy required")
     metadata = json.loads((source / "catalog/catalog.json").read_text())
     areas, area_inputs = cached_areas(source / "models")
@@ -131,6 +139,8 @@ def build(graph_path, source, output):
             "scope": "Branchlets, not claimed single annual shoots or botanically calibrated Picea.",
         },
     }
+    if posture == "radial":
+        plant["authoring"]["end_branch_posture"] = posture
     report = (
         proof
         | expected

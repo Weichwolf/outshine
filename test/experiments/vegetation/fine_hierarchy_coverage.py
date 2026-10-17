@@ -51,7 +51,6 @@ def compare(control, candidate, catalog, output):
     corners = np.concatenate(
         [tree_bounds(p[2], p[3], {"vertices": p[1]["origins"]}) for p in products]
     )
-    fig, axes = plt.subplots(2, 3, figsize=(16, 9), dpi=160)
     rows = []
     for view, angle in enumerate((15, 75, 135)):
         a = np.deg2rad(angle)
@@ -80,15 +79,51 @@ def compare(control, candidate, catalog, output):
             np.savez_compressed(
                 output / f"case-{case}-view-{view}.npz", image=image, common_mask=mask
             )
+            print(json.dumps(record), flush=True)
+    report = {
+        "cases": rows,
+        "product_provenance": [p[4] for p in products],
+        "resolution": [512, 512],
+        "subsamples_per_axis": 2,
+        "scope": "Six same-frame unlit statistical leaf-weighted projections, three horizontal views. Common convex centre envelope, not botanical crown outline/gap-fraction/effective-LAI estimate or all-view/temporal/LOD approval.",
+    }
+    plot(output, output / "coverage.png", report)
+    report |= {
+        "process_s": time.perf_counter() - started,
+        "process_peak_rss_MiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        / 1024,
+    }
+    (output / "coverage.json").write_text(json.dumps(report, indent=2) + "\n")
+
+
+def plot(directory, output, report=None):
+    if report is None:
+        report = json.loads((directory / "coverage.json").read_text())
+    fig, axes = plt.subplots(2, 3, figsize=(16, 9), dpi=160)
+    for view, angle in enumerate((15, 75, 135)):
+        for case in (0, 1):
+            row = next(
+                r
+                for r in report["cases"]
+                if r["case"] == case and r["azimuth_degrees"] == angle
+            )
+            with np.load(
+                directory / f"case-{case}-view-{view}.npz", allow_pickle=False
+            ) as stored:
+                leaf, mask = stored["image"][..., 7], stored["common_mask"]
+            lower, upper = row["lower"], row["upper"]
             axes[case, view].imshow(
-                np.flipud(np.clip(leaf, 0, 1)), cmap="gray_r", vmin=0, vmax=1
+                np.flipud(np.clip(leaf, 0, 1)),
+                cmap="gray_r",
+                vmin=0,
+                vmax=1,
+                extent=(lower[0], upper[0], lower[1], upper[1]),
             )
             axes[case, view].set_title(
                 f"{'Control' if case == 0 else 'Branching end twigs'} | azimuth {angle}°\nmean leaf {leaf[mask].mean():.3f}; weak/empty {(leaf[mask] < 0.05).mean():.1%}",
                 fontsize=10,
             )
             axes[case, view].axis("off")
-            print(json.dumps(record), flush=True)
     fig.suptitle(
         "Picea abies | leaf-weighted proxy coverage, shared512² frame /2×2subsamples",
         fontsize=16,
@@ -101,19 +136,8 @@ def compare(control, candidate, catalog, output):
         fontsize=9,
     )
     fig.tight_layout(rect=(0.01, 0.05, 0.99, 0.94))
-    fig.savefig(output / "coverage.png")
+    fig.savefig(output)
     plt.close(fig)
-    report = {
-        "cases": rows,
-        "product_provenance": [p[4] for p in products],
-        "resolution": [512, 512],
-        "subsamples_per_axis": 2,
-        "process_s": time.perf_counter() - started,
-        "process_peak_rss_MiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        / 1024,
-        "scope": "Six same-frame unlit statistical leaf-weighted projections, three horizontal views. Common convex centre envelope, not botanical crown outline/gap-fraction/effective-LAI estimate or all-view/temporal/LOD approval.",
-    }
-    (output / "coverage.json").write_text(json.dumps(report, indent=2) + "\n")
 
 
 if __name__ == "__main__":

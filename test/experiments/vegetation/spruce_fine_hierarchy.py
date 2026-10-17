@@ -3,11 +3,13 @@
 import argparse
 import copy
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 from conifer_windows import pattern_key
 from outshine_ref.vegetation import NeedlePattern
+from outshine_ref.vegetation.placement_patterns import MAX_SITES
 from parent_profile_graph import ParentProfileGraph
 from spruce_branch_planes import branch_form
 from spruce_growth_probe import MAX_AXES, MAX_WINDOWS, cached_areas, expected_area
@@ -15,11 +17,12 @@ from spruce_study_source import INPUT, read_input
 from spruce_whorl_balance import balanced
 
 
-def branching(original, spacing=0.04, *, hanging=True):
+def branching(original, spacing=0.04, *, posture="hanging"):
     if (
         not np.isfinite(spacing)
         or not 0.025 <= spacing <= 0.08
-        or type(hanging) is not bool
+        or type(posture) is not str
+        or posture not in ("hanging", "radial")
     ):
         raise ValueError(
             "bounded physical end-branch spacing and explicit posture required"
@@ -41,11 +44,14 @@ def branching(original, spacing=0.04, *, hanging=True):
     tip["placement"]["pattern"] = copy.deepcopy(support["placement"]["pattern"])
     pattern = tip["placement"]["pattern"]
     pattern["spacing"]["table"] = [spacing] * 4
-    pattern["divergence"] = 0.0 if hanging else float(np.pi)
-    tip["placement"]["phase"] = {
-        "version": "fixed-parent-azimuth-1",
-        "radians": -float(np.pi) / 2 if hanging else 0.0,
-    }
+    pattern["divergence"] = (
+        0.0 if posture == "hanging" else float(np.pi * (3 - np.sqrt(5)))
+    )
+    if posture == "hanging":
+        tip["placement"]["phase"] = {
+            "version": "fixed-parent-azimuth-1",
+            "radians": -float(np.pi) / 2,
+        }
     tip["placement"]["normal_reference"] = {"version": "world-up-axis-normal-1"}
     tip["placement"]["azimuth_variance"] = 0.25
     tip["placement"]["scale"]["table"] = np.linspace(1.05, 0.25, 4).tolist()
@@ -67,11 +73,12 @@ def child_lengths(graph, node_id, parents, budget):
             )
         if len(parents) > budget:
             raise ValueError("complete continuation exceeds the unchanged axis budget")
-        return (
+        values = (
             parents
             * graph.ratios[node_id]
             * float(placement.scale.evaluate(placement.parameter(0)))
         )
+        return node.shape.length * (values / node.shape.length)
     pattern = placement.pattern
     if pattern.spread_m or not np.all(
         pattern.spacing.table == pattern.spacing.table[0]
@@ -79,25 +86,27 @@ def child_lengths(graph, node_id, parents, budget):
         raise ValueError(
             "explicit constant physical spacing without longitudinal jitter required"
         )
-    desired = (
-        np.floor(
-            (placement.last - placement.first) * parents / pattern.spacing.table[0]
-        ).astype(int)
-        + 1
+    uncapped = replace(pattern, limit_groups=MAX_SITES // pattern.whorl_size)
+    desired = np.array(
+        [
+            uncapped.capacity(float(length), placement.first, placement.last)
+            for length in parents
+        ]
     )
-    if np.any(desired > pattern.limit_groups):
+    if np.any(desired > pattern.limit_groups * pattern.whorl_size):
         raise ValueError("no silently capped supporting or end branch admitted")
     tables = pattern.tables(parents, placement.first, placement.last, max_sites=budget)
     if tables is None:
         raise ValueError("complete child population exceeds unchanged axis budget")
     counts = np.array([len(t) for t in tables])
-    np.testing.assert_array_equal(counts, desired * pattern.whorl_size)
+    np.testing.assert_array_equal(counts, desired)
     parameter = np.concatenate([t[:, 0] for t in tables])
-    return (
+    values = (
         np.repeat(parents, counts)
         * graph.ratios[node_id]
         * placement.scale.evaluate(parameter)
     )
+    return node.shape.length * (values / node.shape.length)
 
 
 def preflight(recipe, physical, metadata, areas):
@@ -158,9 +167,11 @@ def probe(source, output):
     areas, hashes = cached_areas(source / "models")
     output.mkdir(parents=True, exist_ok=False)
     rows = []
-    cases = [("control", balanced(original, 48, 1.6))] + [
-        (f"hanging-{s}", branching(original, s)) for s in (0.035, 0.04, 0.045)
-    ]
+    cases = (
+        [("control", balanced(original, 48, 1.6))]
+        + [(f"hanging-{s}", branching(original, s)) for s in (0.035, 0.04, 0.045)]
+        + [("radial-0.045", branching(original, 0.045, posture="radial"))]
+    )
     for name, recipe in cases:
         row = {"name": name}
         try:

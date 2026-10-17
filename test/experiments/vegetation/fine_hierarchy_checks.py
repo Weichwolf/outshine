@@ -9,7 +9,7 @@ from unittest.mock import patch
 import numpy as np
 from fine_hierarchy_coverage import common_envelope, project
 from fine_hierarchy_execute import execute
-from outshine_ref.vegetation import Profile
+from outshine_ref.vegetation import NeedlePattern, Profile
 from parent_profile_graph import ParentProfileGraph
 from spruce_fine_hierarchy import branching, child_lengths, preflight
 from spruce_growth_probe import measure
@@ -182,6 +182,45 @@ class FineHierarchyTests(unittest.TestCase):
         self.assertEqual(cost["fragments"], 3)
         np.testing.assert_allclose(image[..., 3], [[1.0, 0.25], [0.0, 0.0]])
         np.testing.assert_allclose(image[..., 7], [[0.5, 0.2], [0.0, 0.0]])
+
+    def test_angular_spread_preserves_physical_mass_and_default_graph(self):
+        hanging = branching(self.original, 0.045)
+        radial = branching(self.original, 0.045, posture="radial")
+        self.assertEqual(
+            ParentProfileGraph.from_recipe(hanging).identity,
+            "1af43d204ed2b6c4751d45146642b99508507018b438139e14e406ec5e8db04e",
+        )
+        self.assertEqual(hanging["nodes"][:4], radial["nodes"][:4])
+        self.assertEqual(hanging["nodes"][4]["shape"], radial["nodes"][4]["shape"])
+        a = preflight(hanging, self.physical, self.metadata, self.areas)
+        b = preflight(radial, self.physical, self.metadata, self.areas)
+        for key in (
+            "axes",
+            "orders",
+            "needle_counts",
+            "windows",
+            "expected_area_m2",
+            "maximum_length_m_by_order",
+        ):
+            self.assertEqual(a[key], b[key])
+
+    def test_count_boundary_and_prototype_roundtrip_match_actual_float64_contracts(
+        self,
+    ):
+        graph = ParentProfileGraph.from_recipe(branching(self.original, 0.045))
+        # The existing placement contract retains the closed endpoint within
+        # 32epsilon; raw floor would incorrectly discard the twelfth branch.
+        values = child_lengths(graph, 4, np.array([0.6265822784810127]), 100)
+        self.assertEqual(len(values), 12)
+        parent = 0.0640987595703009
+        values = child_lengths(graph, 4, np.array([parent]), 100)
+        local = float(graph.by_id[4].placement.scale.evaluate(0.95))
+        raw = parent * 0.7 * local
+        prototype = graph.by_id[4].shape.length
+        self.assertEqual(values[0], prototype * (raw / prototype))
+        pattern = NeedlePattern.from_recipe(self.physical["patterns"][3])
+        self.assertEqual(pattern.count(raw), 10)
+        self.assertEqual(pattern.count(float(values[0])), 9)
 
 
 if __name__ == "__main__":
