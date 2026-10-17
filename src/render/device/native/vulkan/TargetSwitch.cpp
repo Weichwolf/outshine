@@ -44,7 +44,7 @@ Result<std::shared_ptr<SwapchainState>> Prepare(const std::shared_ptr<PresentSta
   }
   if (before) {
     if (before == state->Active && state->Failed) { return std::unexpected(*state->Failed); }
-    VkSurfaceCapabilitiesKHR caps{};
+    VkSurfaceCapabilitiesKHR caps{.currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR};
     const auto supported = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
         state->Owner->Physical, before->Surface->Handle, &caps);
     if (supported != VK_SUCCESS) {

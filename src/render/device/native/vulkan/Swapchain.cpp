@@ -76,7 +76,7 @@ CreateSwapchain(std::shared_ptr<SurfaceState> surface,
                 uint64_t generation,
                 const std::shared_ptr<SwapchainState> &before) {
   const auto &context = surface->Owner;
-  VkSurfaceCapabilitiesKHR caps{};
+  VkSurfaceCapabilitiesKHR caps{.currentTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR};
   auto result =
       vkGetPhysicalDeviceSurfaceCapabilitiesKHR(context->Physical, surface->Handle, &caps);
   if (result != VK_SUCCESS) {
@@ -110,8 +110,9 @@ CreateSwapchain(std::shared_ptr<SurfaceState> surface,
   }
   uint32_t count = std::max(3u, caps.minImageCount);
   if (caps.maxImageCount != 0) { count = std::min(count, caps.maxImageCount); }
-  VkSwapchainCreateInfoKHR create{};
-  create.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  VkSwapchainCreateInfoKHR create{.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+                                  .preTransform = caps.currentTransform,
+                                  .compositeAlpha = Composite(caps.supportedCompositeAlpha)};
   create.surface = state->Surface->Handle;
   create.minImageCount = count;
   create.imageFormat = format->format;
@@ -120,8 +121,6 @@ CreateSwapchain(std::shared_ptr<SurfaceState> surface,
   create.imageArrayLayers = 1;
   create.imageUsage = usage;
   create.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  create.preTransform = caps.currentTransform;
-  create.compositeAlpha = Composite(caps.supportedCompositeAlpha);
   create.presentMode = VK_PRESENT_MODE_FIFO_KHR;
   create.clipped = (usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0 ? VK_FALSE : VK_TRUE;
   create.oldSwapchain = before ? before->Handle : VK_NULL_HANDLE;
