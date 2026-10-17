@@ -1,4 +1,4 @@
-"""Unshadowed unit-diffuse Blender diagnostic; no native/PBR material contract."""
+"""Rejected minified atlas diagnostic: cross-view mips can mix normal frames."""
 
 import bpy
 import numpy as np

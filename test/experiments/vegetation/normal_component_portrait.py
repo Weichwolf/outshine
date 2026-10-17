@@ -1,4 +1,4 @@
-"""Whole cached spruce with isolated unshadowed mean/four-vector diffuse response."""
+"""Rejected atlas binding retained for the whole-tree normal/mip counterexample."""
 
 import argparse
 import json
@@ -127,7 +127,7 @@ def render(whole, catalog, fields, output, mode):
         "render_and_export_s": time.perf_counter() - ready,
         "process_peak_RSS_MiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         / 1024,
-        "scope": "isolated unshadowed unit-diffuse component; same whole geometry/coverage; no R/T/PBR/shadow/species/default approval",
+        "scope": "REJECTED minified atlas binding: cross-view mip frame mixing; isolated unshadowed component only, no PBR/LOD/default approval",
         "generated_image_float_bytes": sum(
             image.size[0] * image.size[1] * 4 * 4
             for image in bpy.data.images

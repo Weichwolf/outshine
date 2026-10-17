@@ -4,7 +4,9 @@ Owner: vegetation, [#643](https://github.com/Weichwolf/outshine/issues/643).
 Continues the [positive finite-measure comparison](normal_lobes.md).
 The purpose is to carry that component into actual existing prototypes and the
 cached whole plant, without changing needles, geometry, coverage or albedo.
-This remains an **isolated unshadowed unit-diffuse diagnostic**, not a new PBR,
+The raw positive prototype fields are valid; the first Blender atlas binding is
+**rejected for minified use** by the actual counter below. This remains an
+**isolated unshadowed unit-diffuse diagnostic**, not a new PBR,
 R/T, wind, shadow or native material contract.
 
 ## Same source raster, additional bounded output
@@ -148,6 +150,34 @@ allocator overhead; originals and an explicit erratum remain in the private proo
 Only the counter changed after the successful render, with an actual binding
 countercheck; no unverified rerender or whole-GPU allocation claim.
 
+### Minified atlas counter: binding rejected
+
+A known frame/filter restriction from the library contract must also hold in the
+renderer. `normal_component_mip_probe.py` on0df85fc47 places one unit-normal field
+in chart0 and valid rotated encodings of that same source normal in neighbouring
+charts. The current light and world normal coincide, so response must remain1.
+It renders the same chart at64pixels and1pixel, with alpha measured separately.
+
+| Sampler / footprint | Conditional response | Expected |
+|---|---:|---:|
+| Linear /64px|1.000000|1|
+| Linear /1px|.475187|1|
+| Closest /64px|1.000000|1|
+| Closest /1px|1.000000|1|
+
+Four actual EEVEE frames exit0; their candidate-pass flags retain the Linear/1px
+failure. The alpha sum is1.000218 for both tiny cases, so missing coverage does
+not explain the lost response. Four-pixel atlas gutters cannot prevent deep
+hardware mips from mixing chart frames. The successful magnified scalar/rotation
+controls did not test that, and the whole frames cannot establish correct distant
+light response. **Do not adopt this atlas binding as a runtime/LOD material.**
+Closest avoids this specific counter on llvmpipe, but removes required footprint
+filtering and has no moving/coverage-quality evidence; it is not accepted as the
+solution. Next isolate each view's mip chain (for example per-view texture-array
+or UDIM storage) and repeat this counter plus the whole comparison. No new
+shared binding or native format is prescribed. The original per-view numerical
+fields/MIPs and their proofs remain valid; this is a renderer-storage failure.
+
 All outputs, logs, `.venv` and complete banks stay under/tmp, currently
 `/tmp/outshine-vegetation-prototype-normals-proof-a5021bcb6/`.
 No showcase server, image publication or native binding is introduced.
@@ -168,6 +198,7 @@ PYTHONPATH=lib/src:test/experiments/vegetation .venv/bin/python \
   --output /tmp/outshine-vegetation-component-portrait-new
 ```
 
-#643 stays active. Whole-image inspection, coherent shadows/R/T/specular/wind,
+#643 stays active. Fix per-view mip isolation before accepting the binding;
+then coherent shadows/R/T/specular/wind,
 further camera/light poses and shared world costs remain required. Native
 integration and final species/stand quality are separate, unfinished gates.
