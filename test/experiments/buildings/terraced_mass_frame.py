@@ -80,3 +80,9 @@ def placed(product, core):
     return replace(
         product, mesh=MappingProxyType({k: frozen(v) for k, v in mesh.items()})
     )
+
+
+def placed_cut(cut, core):
+    across, along = np.asarray(core.across_xy), np.asarray(core.along_xy)
+    matrix = [across[0], along[0], across[1], along[1], *core.origin_xy]
+    return replace(cut, polygon=affine_transform(cut.polygon, matrix))

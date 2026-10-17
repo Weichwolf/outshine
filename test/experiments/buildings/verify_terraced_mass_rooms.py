@@ -1,6 +1,7 @@
 """Independent shell sections, serialized solids and sampled actual stair access."""
 
 from itertools import pairwise
+from dataclasses import replace
 import math
 import unittest
 
@@ -11,7 +12,7 @@ from building_plan import FLOOR_M
 from entrance_clearance import clearance
 from structural_shell_geometry import inspect_poses, mesh_section, native
 from terraced_mass_collision import ComponentColumns
-from terraced_mass_frame import local_plan, placed
+from terraced_mass_frame import local_plan, placed, placed_cut
 from terraced_mass_geometry import bands
 from terraced_mass_plan import plan
 from terraced_mass_rooms import build
@@ -38,10 +39,21 @@ class OpenFloorTests(unittest.TestCase):
 
     def test_shell_volume_and_sections_follow_independent_2d_sweep(self):
         for p, asset in self.products:
-            # Independent sections in the same explicit metric scope avoid GEOS's
-            # world-coordinate near-coincident polygon-overlay failure.
+            # Offset cavities are constructed once in the declared scope. Repeating
+            # offsets in world coordinates can change near-coincident intersections.
             local = local_plan(p)
             local_asset = build(local)
+            for local_cut, world_cut in zip(local_asset.cuts, asset.cuts, strict=True):
+                projected_cut = placed_cut(local_cut, p.core)
+                self.assertEqual(projected_cut.identifier, world_cut.identifier)
+                self.assertEqual(projected_cut.low_m, world_cut.low_m)
+                self.assertEqual(projected_cut.high_m, world_cut.high_m)
+                np.testing.assert_allclose(
+                    shapely.get_coordinates(projected_cut.polygon),
+                    shapely.get_coordinates(world_cut.polygon),
+                    rtol=0,
+                    atol=1e-10,
+                )
             for name in ("shell", "stairs", "landing"):
                 projected = placed(getattr(local_asset, name), p.core)
                 world = getattr(asset, name)
@@ -100,6 +112,14 @@ class OpenFloorTests(unittest.TestCase):
             )
             clearance_m = inspect_poses(ComponentColumns(asset, -1, p.top_m + 1), poses)
             self.assertGreaterEqual(clearance_m, 1.90)
+
+    def test_missing_actual_stair_is_rejected_even_with_unchanged_planned_path(self):
+        p, asset = self.products[0]
+        missing = replace(asset, stairs=asset.landing)
+        with self.assertRaisesRegex(ValueError, "support the sampled foot disk"):
+            inspect_poses(
+                ComponentColumns(missing, -1, p.top_m + 1), np.asarray(p.core.path)
+            )
 
     def test_continuous_ground_arrival_and_connected_approach(self):
         for p, asset in self.products:

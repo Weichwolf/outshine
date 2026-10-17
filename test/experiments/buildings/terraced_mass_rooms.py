@@ -13,7 +13,7 @@ from building_stair import PLATE_M, core_layout, flight
 from outshine_ref.buildings.modelling import PrismVolume, union_prisms
 from outshine_ref.buildings.modelling.mesh_fans import connected_fans
 from outshine_ref.buildings.modelling.prism_cut import decoded, encoded, subtract_prisms
-from terraced_mass_frame import local_plan, placed
+from terraced_mass_frame import local_plan, placed, placed_cut
 from terraced_mass_geometry import physical
 
 
@@ -153,5 +153,5 @@ def build(plan):
     )
     return OpenFloors(
         *(placed(p, world.core) for p in (shell, stair_mesh, landing)),
-        cavities(world),
+        tuple(placed_cut(cut, world.core) for cut in cuts),
     )
