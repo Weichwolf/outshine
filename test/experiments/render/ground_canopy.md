@@ -88,6 +88,39 @@ acceptance: the rock-share diagnostic itself has two over-budget frames. Before
 model selection, independent cover/angle/gap and leaf R/T references, actual
 material response, near/far continuity and full affected budgets remain open.
 
+## Restart completion on the newer matched closure
+
+The unchanged delivered runner also completed on native3af55ff02, client SHA256
+`a76eba6f59b5f3c56e6d75719d26b93dbabd5b20b593e30379900204a672f26d`.
+This frozen closure includes #400/#439, but still predates the later module/CLI
+migration and current native integration. It is no current-master acceptance.
+The fresh unmodified baseline is af17648f and canopy control c3547362, both
+1920×1080,60frames,23500triangles and0bare tiles. CPU p99 is17.73/14.56ms,
+with1/0 over-budget frames; actual GPU mean/max6.528/12.635 and6.896/12.880ms,
+60/60samples each. One nonisolated pair establishes no performance ranking.
+Standing plus streaming24.7/23.0s remains above the unchanged ten-second target;
+peak reported heap523MB each. No budget acceptance follows from this diagnostic.
+
+The pair changes107983pixels,102550 above1/255, worst50/255 and mean RGB
+0.361266397/255; bounding box remains[0,227,1919,743]. The repository pixel tool
+independently checks the pair. Both pages of the new whole-frame/crop PDF were
+optically opened: the declared grass slope darkens/warms while mapped rock is
+preserved. Raw commands/logs, shader hashes, shots, pixel reports and PDF remain
+under `/tmp/outshine-material-resume-20261017/`.
+
+The actual timeout control uses a clearly labelled fake client that prints one
+startup line then sleeps130seconds. With0.01s preload, the unchanged runner
+terminates it after120.01seconds, returns124, records executed:true and the
+explicit timeout reason, and preserves the exact startup line in capture.log.
+The child is absent afterwards. This tests process/log handling, not rendering.
+
+Vegetation has since delivered #462's bounded geometric contact reference:
+fixed metric tangent footprint, upper direction toward observer/light, t≥0,
+first-from-sky contact, explicit validity and source IDs. It demonstrates that
+coverage changes with direction and overlap; it is not an optical R/T model.
+That geometry is the next material-composition input, not a replacement of this
+control's explicitly assumed0.829cover with another density×height formula.
+
 Originals, explicit unapplied-control status, matching binaries/archives, commands,
 source hashes, raw PNGs, PDF and reproduction checks are retained at
 `/tmp/outshine-material-grass-aggregate-f9917ca9c/`. Substrate/source classes and
