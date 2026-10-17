@@ -19,6 +19,7 @@ from normal_lobes import (
     mass_preserving_vectors,
     quantization_bound,
 )
+from outshine_ref.vegetation import normal_distribution
 from plant_atlas import projection
 
 
@@ -125,6 +126,7 @@ def run(path, output, view_vector=(1.0, 0.0, 0.35)):
         measure.exact[0].reshape(16, 16), direct[1], atol=2e-12, rtol=0
     )
     result = {
+        "reference_kernel_sha256": source_digest(Path(normal_distribution.__file__)),
         "schema": "outshine-positive-normal-moments-study-v1",
         "source_sha256": source_digest(path),
         "source_owner": json.loads(path.with_name("source.json").read_text()),
