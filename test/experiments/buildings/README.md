@@ -1141,3 +1141,9 @@ access, retained near/compact products and equal reconstruction/binding costs:
 [podium.md](podium.md) (#533). Source-stable new mass selection complements the
 existing fallback; broader facade variety and general cache/LOD admission
 remain open.
+
+Broad paired-pier/storey-spandrel composition on retained window axes, exact
+closed/outer/front products and full current-city comparison:
+[clad_facades.md](clad_facades.md) (#543). Existing source eligibility remains;
+219 sources gain stronger visible hierarchy. Near counterexamples prevent a
+general front-only LOD claim; full architecture-family variety remains open.
