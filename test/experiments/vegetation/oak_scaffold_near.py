@@ -21,6 +21,14 @@ from render_fern import model, model_arrays
 from tree_entry import load
 
 
+def backend():
+    return {
+        "renderer": gpu.platform.renderer_get(),
+        "vendor": gpu.platform.vendor_get(),
+        "version": gpu.platform.version_get(),
+    }
+
+
 def fine_mesh(blade):
     mesh = blade.mesh(32, 4)
     mesh["corner_uv"] = np.c_[
@@ -121,6 +129,7 @@ def near(inputs, output):
             ["git", "rev-parse", "HEAD"], text=True
         ).strip(),
         "source_identity": study["products"]["spatial"]["identity"],
+        "source_product_identity": study["products"]["spatial"].get("product_identity"),
         "source_tables_sha256": hashlib.sha256(
             (folder / "tables.npz").read_bytes()
         ).hexdigest(),
@@ -140,11 +149,7 @@ def near(inputs, output):
             resource.RUSAGE_SELF
         ).ru_maxrss
         * 1024,
-        "backend": {
-            "renderer": gpu.platform.renderer_get(),
-            "vendor": gpu.platform.vendor_get(),
-            "version": gpu.platform.version_get(),
-        },
+        "backend": backend(),
         "image_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "scope": "same complete prepared plant/IDs/coarse context/shadows, 32x4 detail only on demanded leaves, existing qualitative procedural material, not species/LOD/device acceptance",
     }

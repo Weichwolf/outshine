@@ -1,6 +1,7 @@
 """Matched complete crown products from the same space and physical leaf inventory."""
 
 import argparse
+import hashlib
 import json
 import resource
 import subprocess
@@ -53,7 +54,21 @@ def build_one(output, recipe, points, blades, limbs):
     radii = tapered_radii(crown.parents, recipe.root_radius_m, recipe.terminal_radius_m)
     wood = crown_wood(crown, radii=radii)
     geometry_ready = time.perf_counter()
+    product_recipe = {
+        "format": "oak-scaffold-product-1",
+        "recipe": asdict(recipe),
+        "leaf_plan_identity": crown.identity,
+        "wood_model": "support-power-1",
+        "blade_model": "quercus-reference-scale-7/6-1",
+        "blade_mesh": [8, 1],
+    }
+    product_identity = hashlib.sha256(
+        json.dumps(product_recipe, sort_keys=True).encode()
+    ).hexdigest()
     triangles = save(output, rows, wood, blades, crown.identity)
+    entry = json.loads((output / "entry.json").read_text())
+    entry.update(product_identity=product_identity, product_recipe=product_recipe)
+    (output / "entry.json").write_text(json.dumps(entry, indent=2) + "\n")
     np.savez_compressed(
         output / "skeleton.npz",
         positions=crown.positions,
@@ -66,6 +81,7 @@ def build_one(output, recipe, points, blades, limbs):
     leaf_max = tables["origins"].max(axis=0)
     result = {
         "identity": crown.identity,
+        "product_identity": product_identity,
         "summary": summary,
         "source_seed_nodes": len(seed[1]),
         "radius_model": "authored support-power taper; no cross-section conservation",
