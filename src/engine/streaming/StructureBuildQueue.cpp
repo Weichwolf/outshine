@@ -96,6 +96,16 @@ void PrepareGeometry(Generators::BakedTile &baked, const Generators::RawTile &ra
   }
 }
 
+::outshine::Generators::Osm::BuildingField::AcceptanceCapacity
+SourceContactCapacity(const Generators::BakedTile &metadata,
+                      const std::optional<StructureCellAssembly> &cells) {
+  if (cells && cells->Remaining() != 0) { return {}; }
+  return {.Prints = metadata.Prints.size(),
+          .Spread = metadata.SeatSpreadM.size(),
+          .Across = metadata.AcrossM.size(),
+          .Tiles = 0};
+}
+
 bool Gathers(Ground::TileSpot spot,
              bool fineField,
              const StructureBuildQueue::HeightSource &heightAt,
@@ -1525,9 +1535,10 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
       continue;
     }
     const Generators::BakedTile &baked = CollectInitialCell(bake);
-    printCount += baked.Prints.size();
-    spreadCount += baked.SeatSpreadM.size();
-    acrossCount += baked.AcrossM.size();
+    const auto capacity = SourceContactCapacity(baked, bake.InitialCells);
+    printCount += capacity.Prints;
+    spreadCount += capacity.Spread;
+    acrossCount += capacity.Across;
     ++count;
     if (bake.InitialCells) { break; }
   }

@@ -179,6 +179,7 @@ void Replay(const std::filesystem::path &directory,
     CHECK(queue.Queued() == 4, "completed obsolete lookups occupy the entire candidate window");
     prints.TilesSpan(1000.0);
   }
+  const auto *const initialContactBuffer = prints.Footprints().data();
   bool landed = false;
   const auto purpose = initialCells ? StructureBuildQueue::BuildPurpose::SourceGeometry
                                     : StructureBuildQueue::BuildPurpose::ViewDetail;
@@ -209,6 +210,8 @@ void Replay(const std::filesystem::path &directory,
                 ready->front().Baked->Coordinates->Points.size() == coordinateCount,
             "native geometry owns its complete ground-contact ring before publication");
       if (initialCells) {
+        CHECK(ready->front().SourceComplete || prints.Footprints().data() == initialContactBuffer,
+              "partial children do not repeatedly reserve or copy the accepted contact buffer");
         CHECK(ready->front().InitialCells != 0 && ready->front().Baked->RequestedCell &&
                   ready->front().Baked->Prints.size() == 1 && prints.Footprints().empty() &&
                   ready->front().Footprints.has_value() == ready->front().SourceComplete,

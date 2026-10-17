@@ -77,6 +77,20 @@ cases remain green. Five changed implementation units and 25 dependent units
 pass focused tidy; the new producer case is clean under focused analysis.
 These results are not a complete Place or native-backend acceptance.
 
+Frozen integration commit `a8c411355` completes `make all` and `make lint` with
+terminal status 0: 431/431 translation units, zero findings, 29/29 guards,
+52/52 public headers without diagnostics, 2,057 formatted files and 491/491
+shader artifacts including nine reflected compute contracts. The later narrow
+queue-body change has its own focused analysis and tests below; it changes no
+header, shader or public ABI. The complete native renderer remains unaccepted.
+
+Commit `122bd4e4c` reserves accepted footprint/contact storage only for a complete
+source. Partial children previously reserved the growing global buffer again.
+The unchanged new guard fails twice when linked with the pre-fix queue object
+and passes with the new queue; the existing revision case also passes. Focused
+queue tidy and the client build pass. This removes that allocation/copy path;
+it does not claim a measured complete-world speedup.
+
 The first wiring selected children before probing existing whole cache products.
 That incorrectly replaced valid hits with new work. Commit `d6dc5517d` restores
 the direct whole-product hit. Only a miss selects children before emission; no
@@ -95,7 +109,9 @@ upload and orchestration remain a runtime performance problem.
 After restoring existing whole-product hits, fresh offline Tokyo and Wien
 1280×720/30 processes load in 1,913.3115 and 1,567.3445 ms. CPU p99 is 3.7517 and
 3.7510 ms; both PNGs are byte-identical to the previous successful captures.
-GPU time remains unavailable on the main SDL_GPU path. These are single runs,
+All twelve public 1280×720/30 captures then match their preceding PNGs byte for
+byte; loading spans 708.5858–1,913.3115 ms, maximum CPU p99 3.9442 ms. GPU time
+remains unavailable on the main SDL_GPU path. These are single runs,
 not a robust speedup or a child-only loading-budget proof. The failed 8,068-source
 Linux 1920×1080/60 case and full native port acceptance remain open in #567/#328.
 
