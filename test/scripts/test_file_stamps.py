@@ -20,6 +20,8 @@ class ObjectCache(unittest.TestCase):
         self.objects = self.root / 'obj'
         self.objects.mkdir()
         source = (ROOT / 'test/run.sh').read_text()
+        declarations = '\n'.join(re.search('^' + name + r'=.*$', source, re.M).group()
+                                 for name in ('CXX', 'CXXSTD', 'WARN'))
         functions = []
         for name in ('FileStamp', 'SourceStamp', 'UpToDate', 'PrepareCompilerCache',
                      'CompileCachedObject', 'FreshAgainst', 'ArchiveFresh',
@@ -30,18 +32,16 @@ class ObjectCache(unittest.TestCase):
             self.assertIsNotNone(match, name)
             functions.append(match.group())
         self.helper = self.root / 'build.sh'
-        self.helper.write_text('ROOT=' + shlex.quote(str(ROOT)) + '\n' + '''#!/bin/sh
+        self.helper.write_text('ROOT=' + shlex.quote(str(ROOT)) + '\n' + declarations + '\n' + '''#!/bin/sh
 set -eu
-CXX=${CXX:-c++}
 OPT=${OPT:--O0}
-WARN='-Wall -Wextra -Werror'
 SAN=
 EXTRA_DEFINES=
 OBJECTS=
 JOBS=1
 OBJDIR=$PWD/obj
 GroupIncludes() { printf '%s' '-Isrc/base'; }
-GroupToolchain() { printf '%s' '-std=c++23 -fno-exceptions'; }
+GroupToolchain() { printf '%s' "$CXXSTD -fno-exceptions"; }
 SourceUnits() { printf '%s\\n' 'src/base/Probe.cpp'; }
 Die() { printf '%s\\n' "$*" >&2; exit 1; }
 ''' + '\n'.join(functions) + '\nBuildGroup src/base\nprintf "%s\\n" "$OBJECTS"\n')
