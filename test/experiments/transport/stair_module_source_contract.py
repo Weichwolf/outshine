@@ -36,7 +36,11 @@ def shared_nodes(rows, sources, recipe, contacts):
     return expected, positions, root
 
 
-def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
+def verify_source_contract(
+    rows, sources, recipe, contacts, frozen_line, nodes, *, cached_grids=None
+):
+    if recipe.get("cached_box_grids_m") and not cached_grids:
+        raise ValueError("independently bound cached box grids required")
     port = recipe.get("port", {})
     include_interiors = (
         recipe.get("contact_mode") == "seed"
@@ -80,7 +84,12 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
     required = {}
     if recipe.get("junction_mode") == "shared_box":
         required = box_plans(
-            rows, nodes, frozen_line, contacts, include_interiors=include_interiors
+            rows,
+            nodes,
+            frozen_line,
+            contacts,
+            include_interiors=include_interiors,
+            cached_grids=cached_grids,
         )
         for node in nodes:
             for j in node["incident"]:
@@ -126,6 +135,9 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
             count += 1
     return {
         "original_shared_nodes": len(expected),
+        **(
+            {"cached_box_grids_m": recipe["cached_box_grids_m"]} if cached_grids else {}
+        ),
         "validated_source_pad_uses": count,
         "cached_interior_nodes": sum(c.get("cached_interior", True) for c in contacts),
         **(

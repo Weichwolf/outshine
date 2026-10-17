@@ -199,7 +199,7 @@ def varying_profiles(
                 for cap in old_at.get(index, [])
             )
             if shared_box and index in old_at:
-                others.append(
+                others.extend(
                     common_pad(
                         data,
                         nodes,
@@ -208,6 +208,7 @@ def varying_profiles(
                         old_at[index],
                         [l for i, _c, l, _interior in references if i == index],
                         include_interiors=root_interior or bool(contacts),
+                        constructed=constructed,
                     )
                 )
             checks = [
