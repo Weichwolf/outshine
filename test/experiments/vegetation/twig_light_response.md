@@ -111,6 +111,7 @@ PNG bytes/hashes differ. This corrects the new coaxial counter and reduces work,
 not whole-form quality.17,258surfaces/34,516triangles/3,727,728geometry-array bytes
 are removed. Camera surfaces79,085, shared camera/light0, shadow surfaces140,912;
 2,800,954total camera/shadow triangles and49,311,744geometry/instance array bytes.
+These are emitted NumPy arrays, not total Blender/GPU resource allocations.
 Same scene, backend, plant identity, physical inventory and requested view tables.
 New PNG SHA256`46fc6ec980491911bf759e44586e1982d9c955e9a0aa4a7ce2682ce6e9c386a9`;
 old`2f21104830bf4fce141922c812ec157137e947905cba6ad56f4e596238b366d4`.
@@ -130,7 +131,7 @@ and source fact is exact,54actual reference imports are inside the verified
 package features or native/whole optical quality. Format/Ruff/function limit
 and diff checks are separate from the actual renderer witnesses.
 
-Linux x86_64/4logical CPUs/16GiB, Python3.13.5/NumPy2.5.4/bpy5.2.2, llvmpipe.
+Linux x86_64/4logical CPUs/15.44GiBreported physical RAM, Python3.13.5/NumPy2.5.4/bpy5.2.2, llvmpipe.
 Individual probes render at normal measurement priority, overlapping other probes;
 CPU controls use nice10and one NumPy thread. Do not rank those observed times as
 a device/frame speedup. Source bounds/work and all per-frame process/RSS/backend
