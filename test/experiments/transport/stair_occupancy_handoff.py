@@ -5,7 +5,7 @@ import time
 import numpy as np
 import shapely
 from outshine_ref.contracts import BuildingFootprint, FootprintAdjustment, Reservation
-from stair_occupancy_geometry import OccupancyError, conflict_geometry
+from stair_occupancy_geometry import OccupancyError, polygonal_conflict
 
 
 class OccupancyQuery:
@@ -43,10 +43,10 @@ class OccupancyQuery:
                 continue
             height_pairs += 1
             shape = (
-                row.geometry if envelope else conflict_geometry(row, footprint.heights)
+                row.geometry if envelope else row.conflict_geometry(footprint.heights)
             )
-            cut = shape.intersection(footprint.geometry)
-            if cut.area > 0:
+            cut = polygonal_conflict(shape.intersection(footprint.geometry))
+            if not cut.is_empty:
                 cuts.append(cut)
         return shapely.union_all(cuts), {
             "query_rows": visits,
