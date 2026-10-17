@@ -1,0 +1,66 @@
+#version 450
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, set = 0, binding = 0) readonly buffer Palette {
+  float parameters[];
+};
+
+struct Probe {
+  vec4 PointDx;
+  vec2 Dy;
+  int Which;
+  uint Mode;
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer Inputs {
+  Probe probes[];
+};
+
+struct Sample {
+  vec4 Direct;
+  vec4 First;
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer Outputs {
+  Sample results[];
+};
+
+layout(std140, set = 2, binding = 0) uniform Pushed {
+  uint count;
+  uint unmapped;
+  uvec2 padding;
+};
+
+vec3 triple(uint at) {
+  return vec3(parameters[at], parameters[at + 1u], parameters[at + 2u]);
+}
+
+void main() {
+  uint index = gl_GlobalInvocationID.x;
+  if (index >= count) { return; }
+  Probe probe = probes[index];
+  uint cells = floatBitsToUint(parameters[1]);
+  uint states = floatBitsToUint(parameters[2]);
+  if (probe.Which < 0 || uint(probe.Which) >= cells || probe.Mode >= states) {
+    results[index] = Sample(vec4(0.0), vec4(0.0));
+    return;
+  }
+  uint stateAt = 32u + cells * 72u + probe.Mode * 27u;
+  vec3 material[3] = vec3[](triple(stateAt), triple(stateAt + 3u), triple(stateAt + 6u));
+  vec3 direct = vec3(0.0), first = vec3(0.0);
+  for (uint beam = 0u; beam < 6u; ++beam) {
+    uint at = 32u + uint(probe.Which) * 72u + beam * 12u;
+    vec3 source = vec3(0.0), neighbour = vec3(0.0);
+    for (uint j = 0u; j < 3u; ++j) {
+      source += parameters[at + j] * material[j];
+      for (uint i = 0u; i < 3u; ++i) {
+        neighbour += parameters[at + 3u + i * 3u + j] * material[i] * material[j];
+      }
+    }
+    vec3 energy = triple(stateAt + 9u + beam * 3u);
+    direct += energy * source;
+    first += energy * neighbour;
+  }
+  results[index] = Sample(vec4(direct, 0.0), vec4(first, 0.0));
+}
