@@ -1,6 +1,10 @@
 # Functional industrial facade relief
 
 Owner: [#519](https://github.com/Weichwolf/outshine/issues/519), parent #32.
+The geometric-omission selection and its pixel/count results below describe the
+historical #519 control. [#523](industrial_relief_signal.md) replaces omission in
+the ordinary Python path with shared front surfaces that preserve more distant
+metal signal. Re-running this probe now uses that corrected default.
 The prepared #500 halls had through-openings and shaped glazed roofs but flat
 exterior walls. This experiment adds source-stable industrial bay hierarchies
 using the existing facade/window axes, with real closed physical relief and a
@@ -50,7 +54,7 @@ buffers. No second mesh construction or duplicate vertex storage is needed.
 Actual source-wall rays verify that the backs meet opaque host surfaces.
 
 `industrial_relief_products` prepares these parts once on the existing complete
-hall assets. Camera changes select stored outer parts. A wall-projection
+hall assets. The historical #519 camera policy selected stored outer parts. A wall-projection
 correspondence displaces each point by at most its outward depth; the existing
 conservative projected-error policy permits omission only within the declared
 geometry budget. Full physical parts remain available independently. Bounds

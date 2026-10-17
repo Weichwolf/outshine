@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 from demand import displacement_error
 from facade_parts import append
-from industrial_relief_mesh import products
+from industrial_relief_mesh import cap_prefix, products
 from industrial_relief_plan import choose
 from prepared_hall_tile import RetainedDetails
 from recipe_hall_operators import sealed
@@ -47,18 +47,29 @@ class ArticulatedDetails(RetainedDetails):
             )
             self.reliefs[identifier] = tuple(prepare(plan) for plan in plans)
             self.relief_rejected.extend(rejected)
+        self.far_parts = {
+            identifier: tuple(cap_prefix(p) for p in parts)
+            for identifier, parts in self.reliefs.items()
+        }
+
+    def draw_parts(self, identifier):
+        return tuple(
+            p.outer if demanded(p, self.view) else cap
+            for p, cap in zip(
+                self.reliefs[identifier], self.far_parts[identifier], strict=True
+            )
+        )
 
     def __call__(self, row, parameters, material):
         result = super().__call__(row, parameters, material)
         if row["id"] not in self.reliefs:
             return result
         mesh, info = result
-        selected = tuple(p for p in self.reliefs[row["id"]] if demanded(p, self.view))
-        chunks = [p.outer for p in selected]
+        chunks = self.draw_parts(row["id"])
         record = {
             "id": row["id"],
             "planned_facades": len(self.reliefs[row["id"]]),
-            "rendered_facades": len(selected),
+            "rendered_facades": len(chunks),
             "added_triangles": sum(len(p["faces"]) for p in chunks),
             "kinds": sorted({p.plan.kind for p in self.reliefs[row["id"]]}),
             "physical_triangles": sum(
