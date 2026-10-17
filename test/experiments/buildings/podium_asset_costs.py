@@ -48,7 +48,11 @@ def storage(value):
 
 
 def copied(product):
-    return bound({key: value.copy() for key, value in product.items()}, 17, 33000)
+    result = bound(product, 17, 33000)
+    for key, value in product.items():
+        if key != "materials":
+            result[key] = value.copy()
+    return result
 
 
 def costs(output):
