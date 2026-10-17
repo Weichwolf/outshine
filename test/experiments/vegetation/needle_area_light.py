@@ -35,6 +35,7 @@ def integrate(
     bias=2e-6,
     pixel_mask=None,
     normal_measure=None,
+    contact_measure=None,
 ):
     if type(size) is not int or size not in (1, 4, 16, 64) or not 1 <= len(lights) <= 8:
         raise ValueError("bounded native footprints and one to eight lights required")
@@ -55,6 +56,8 @@ def integrate(
     ):
         raise ValueError("explicit same-grid boolean pixel demand required")
     lights = np.array([light_direction(direction) for direction in lights])
+    if contact_measure is not None:
+        contact_measure.check(source, scene, view, size, bias)
     if (
         not 1 <= len(lights) <= 8
         or type(max_samples) is not int
@@ -112,6 +115,8 @@ def integrate(
             normals = interpolate_normals(source, points, face_ids)
             if normal_measure is not None:
                 normal_measure.add(slots, mass, normals)
+            if contact_measure is not None:
+                contact_measure.add(points, slots, mass, normals)
             for index, direction in enumerate(lights):
                 if np.array_equal(direction, view):
                     cosine = np.maximum(normals @ direction, 0)
