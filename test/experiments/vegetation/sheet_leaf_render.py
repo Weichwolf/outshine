@@ -29,7 +29,7 @@ def read_source(inputs):
     if path.stat().st_size > 16 * 1024 * 1024:
         raise ValueError("bounded selected-leaf source required before decode")
     encoded = path.read_bytes()
-    if hashlib.sha256(encoded).hexdigest() != identity["source_sha256"]:
+    if hashlib.sha256(encoded).hexdigest() != identity.get("source_sha256"):
         raise ValueError("prepared leaf source bytes do not match their descriptor")
     with np.load(io.BytesIO(encoded)) as saved:
         source = {key: saved[key] for key in saved.files}

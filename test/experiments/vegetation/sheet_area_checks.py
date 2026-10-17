@@ -173,6 +173,8 @@ class SheetAreaTests(unittest.TestCase):
         source = thin_sheet()
         source["optical"] = np.tile([0.2, 0.2, 0.2, 0.7, 0.7, 0.7], (4, 1))
         source["optical"][0] = [0.8, 0.8, 0.8, 0.1, 0.1, 0.1]
+        source["normals"][0, 0] = [np.sqrt(0.96), 0, 0.2]
+        source["normals"][0, 2] = [0.2, 0, np.sqrt(0.96)]
         scene = ScatterScene(source["vertices"], source["faces"])
         result = SheetMeasure(source, scene, [0, 0, 1], [[0, 0, 1], [0, 0, -1]], size=1)
         result.add(
@@ -242,7 +244,23 @@ class SheetAreaTests(unittest.TestCase):
                 face_ids=np.zeros(2, int),
             )
         self.assertEqual(scene.work["rays"], 0)
+        with (
+            patch(
+                "sheet_light_measure.contact_optics",
+                side_effect=AssertionError("optics"),
+            ),
+            self.assertRaises(ValueError),
+        ):
+            result.add(
+                np.zeros((1, 3)),
+                np.zeros(1, int),
+                np.ones(1),
+                np.array([[0.0, 0, 1]]),
+                face_ids=np.array([-1]),
+            )
         source["surface_model"] = "closed-solid"
+        with self.assertRaises(ValueError):
+            result.check(source, scene, np.array([0.0, 0, 1]), 1, 2e-6, two_sided=True)
         with self.assertRaises(ValueError):
             SheetMeasure(source, scene, [0, 0, 1], [[0, 0, 1]])
 
