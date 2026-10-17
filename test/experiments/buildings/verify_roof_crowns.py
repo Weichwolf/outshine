@@ -304,6 +304,11 @@ class CrownTests(unittest.TestCase):
         self.assertIn("no contained", p.service_reason)
         measures(envelope(p))
 
+    def test_decimal_source_top_is_attained_exactly_without_inverse_rounding(self):
+        for height in (5.2, 6.2, 6.3, 7.2):
+            p = plan(shapely.box(0, 0, 40, 30), height, "parapet")
+            self.assertEqual(envelope(p).mesh["vertices"][:, 2].max(), height)
+
 
 if __name__ == "__main__":
     unittest.main()

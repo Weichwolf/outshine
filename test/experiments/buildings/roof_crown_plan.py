@@ -98,7 +98,7 @@ def plan(polygon, top_m, kind, *, body_min_m=2.64):
         rise = guard
         reason = "insufficient service rise; parapet fallback"
     datum = top_m - rise
-    edge_top = datum + guard
+    edge_top = top_m if service is None else datum + guard
     regions = [
         Region("coping", polygon.difference(offset).wkb, edge_top, edge_top, 10),
         Region(
