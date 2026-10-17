@@ -23,7 +23,9 @@ void frame_root() { local_step(); }
 }
 ''')
             compiler = shlex.split(os.environ.get('CXX', 'c++'))
-            subprocess.run([*compiler, '-std=c++23', '-O0', '-fno-inline', *flags,
+            standard = next(line.removeprefix('CXXSTD=') for line in (ROOT / 'test/run.sh').read_text().splitlines()
+                            if line.startswith('CXXSTD='))
+            subprocess.run([*compiler, *shlex.split(standard), '-O0', '-fno-inline', *flags,
                             '-c', str(source), '-o', str(work / 'calls.o')], check=True)
             archive = work / 'calls.a'
             subprocess.run(['ar', 'rcs', str(archive), str(work / 'calls.o')], check=True)
