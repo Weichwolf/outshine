@@ -114,6 +114,11 @@ def main():
             run(['nice', '-n', '10', *glslang, '-V', '--target-env', 'vulkan1.0',
                  '-Isrc', '-Isrc/content/shade', '-Isrc/render/shaders', str(source), '-o', str(shader)], log)
             shaders.append(shader)
+        write_shader = output / 'native_graphics_write.frag.spv'
+        run(['nice', '-n', '10', *glslang, '-V', '--target-env', 'vulkan1.0',
+             '-DNATIVE_GRAPHICS_WRITE=1', str(Path(__file__).with_name('native_metal_mrt.frag')),
+             '-o', str(write_shader)], log)
+        shaders.append(write_shader)
         consumers = [ROOT / 'test/harness/render' / name for name in
                      ('NativeVulkanProbe.cpp', 'NativeTextureProbe.cpp',
                       'NativeTextureLifetimeProbe.cpp', 'NativeRasterProbe.cpp',
@@ -154,7 +159,7 @@ def main():
         report['texture_lifetime_checks'] = verdict(run(
             [str(binaries[2]), str(shaders[2]), *suffix], log,
             environment=environment, timeout=25), log)
-        raster_jobs = [('raster_pipeline_checks', 3, [4, 5, 6]),
+        raster_jobs = [('raster_pipeline_checks', 3, [4, 5, 6, len(shaders) - 1]),
                        ('render_pass_checks', 4, [7]),
                        ('mrt_draw_checks', 5, [4, 5]),
                        ('draw_transition_checks', 6, [8, 9, 10]),
