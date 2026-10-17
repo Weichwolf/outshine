@@ -1,5 +1,8 @@
 # Whole cycleway around an immutable pier (#668)
 
+The subsequent [complete79-source integration](stair_resident_snapshot_comparison.md)
+supersedes the integration gap below; this report retains its original54-source evidence scope.
+
 The original951.788267m Wiener cycleway39881120:32 now has a complete physical
 candidate on the verified53-source resident with recovered root profiles (#660).
 Producer38adbd3c4, recipe `fixtures/stair-pier-detour-vienna.json`. This is a
