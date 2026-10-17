@@ -35,9 +35,10 @@ from #539, and not a combined 55-source world. The public four-parent and
 
 ## Frozen products and validation
 
-Generator and independent reader: `3a58c64f6d74da1a7284b4c1dd08578ac104a440`.
-Real ablation reader: `c6753e3a35783ce9f121f1dbe1ff13391e99c6e7`; subsequent
-formatting changes no generator or reader physics. All 128 source / 128
+Generator: `3a58c64f6d74da1a7284b4c1dd08578ac104a440`. Final independent
+reader and real ablations: `007af061f34b071204ab8b02dc2a738a93573de8`.
+The latter extracts the unchanged pin validation to keep functions bounded.
+All 128 source / 128
 installed-library controls pass, including seven endpoint/through controls.
 The installed PR #544 wheel is reused: all 205 Python library modules are
 byte-identical to source; this delivery changes experiments only.
@@ -84,13 +85,13 @@ There is no public image or extra gallery in this delivery.
 ## Costs and retained evidence
 
 Host: four-logical-CPU i5-1135G7 VM, Python 3.13.5, NumPy 2.2.4,
-Shapely 2.2.0, single BLAS/OMP thread. Generation ran with the installed-library
-tests briefly overlapping at startup. Actual render backend is llvmpipe LLVM
+Shapely 2.2.0, single BLAS/OMP thread. Generation and the final reader ran with
+library tests briefly overlapping at startup. Actual render backend is llvmpipe LLVM
 19.1.7, not a measured RTX/A18 backend. Processes are limited to 120 CPU seconds
 and 3 GiB address space; each height solve keeps eight seconds / 100 iterations.
 
 Generation takes 20.647580 s / 181551104 B peak RSS; independent reader
-17.118371 s / 190926848 B. Generation phases: surface/body 0.176002 s,
+18.463566 s / 191262720 B. Generation phases: surface/body 0.176002 s,
 module admission 0.416887 s, local terrain planning 0.530064 s, fitting
 0.064149 s, whole diagnostic assembly 2.394361 s and whole admission
 15.960202 s. These timings include distinct work and are not frame-time claims.
@@ -110,7 +111,7 @@ GEOS/solver/Python allocations and their total copied bytes are unmeasured here.
 Identical six-root source proposals take 109 indexed incidence tests versus
 114975 scanned tests, plus an index of 1405 nodes / 1572 entries. This is
 different work, not equal-cost operations or a whole-generator speedup.
-The real five-case ablation process takes 1.650250 s / 125022208 B peak RSS.
+The real five-case ablation process takes 1.611630 s / 124858368 B peak RSS.
 Four actual renders take 11.587831 / 11.469883 / 13.602701 / 13.361552 s.
 
 Products: `/tmp/outshine-transport-endpoint-full-3a58c64f6/`;
@@ -123,8 +124,8 @@ SHA256 receipts:
 
 - Fixture: `acce3eba92148178b5221f6c45a5553744984ae9f9ef5b846428a57b4b9be17d`.
 - Comparison: `c1a59c9e557271c165f3adff3e95cc694e00235a9a6b2368a9f01a0e7c2d17b7`.
-- Independent verification: `0ea9040be9e0c3355ee991437bb4f87c8f25bebe56af6a9f77212fbcab0f691c`.
-- Ablations: `ecc23a6497405243c5e08da335903f6dd1f6a22f7778c57bf60d830da0a9770c`.
+- Independent verification: `5988a81019ef74d0c47f712b53546b7c033beacd9af6bc99ba18b4e362b2c948`.
+- Ablations: `a5aef4d902f1c3d1552cda26f4bb792e25165f93afc72a000e9b37134e4c18ee`.
 - After display: `843bfa52924c60285c60d0d53af977bd6399e59230d29d1ba4f5413f4c178274`.
 
 ## Reproduction
