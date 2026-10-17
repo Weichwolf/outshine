@@ -16,6 +16,11 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`transport.clothoid_turns` und `transport.horizontal.plan_horizontal_axis`
+liefern begrenzte horizontale Kurven mit erhaltenen Endgeraden. Originalquellen,
+tatsächliche Straßen-/Fahrzeugflächen und gemeinsame Knoten bleiben beim
+Aufrufer: [horizontal.md](horizontal.md) (#535).
+
 `transport.weighted_heights.fit_weighted_heights` passt gemeinsame Vertexhöhen
 quadratisch unter ganzen Face-Neigungsgrenzen und festen Kontakten auf einem
 expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit`;

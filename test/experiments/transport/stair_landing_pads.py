@@ -28,6 +28,12 @@ def chosen_kinds(rows, ends, node_index, stairs):
                     row.get("source_recipe", "").startswith("exterior_shared_cycle_")
                     and shared_cycle_path(props)
                 )
+                and not (
+                    row.get("source_recipe") == "minor_ground_carriageway"
+                    and row.get("profile_kind") == "unclassified"
+                    and props.get("class") == "minor"
+                    and not props.get("subclass")
+                )
             )
             or props.get("brunnel") == "tunnel"
             or props.get("indoor")

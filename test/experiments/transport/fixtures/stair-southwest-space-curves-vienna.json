@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:80922970:318",
+    "end": 0
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:249866752:0",
+    "openfreemap:14/8937/5678:transportation:11842935062:0",
+    "openfreemap:14/8937/5678:transportation:208163352:0",
+    "openfreemap:14/8937/5678:transportation:103612620:19",
+    "openfreemap:14/8937/5678:transportation:80922970:320",
+    "openfreemap:14/8937/5678:transportation:1044461680:4"
+  ],
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "profile",
+  "scope": "Derived bounded horizontal road curves from whole original southwest source axes; original knots/attributes and all endpoint frames retained.",
+  "source_profiles": {
+    "openfreemap:14/8937/5678:transportation:249866752:0": "unclassified",
+    "openfreemap:14/8937/5678:transportation:11842935062:0": "unclassified",
+    "openfreemap:14/8937/5678:transportation:208163352:0": "unclassified",
+    "openfreemap:14/8937/5678:transportation:103612620:19": "unclassified"
+  },
+  "interior_contacts": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:1044461680:4",
+      "end": 0,
+      "cached_source_id": "openfreemap:14/8937/5678:transportation:39881120:24"
+    }
+  ],
+  "junction_mode": "level_box",
+  "road_axis": {
+    "model": "clothoid",
+    "radius_m": 1000.0,
+    "error_m": 0.025,
+    "end_guard_m": 8.0,
+    "maximum_shift_m": 30.0
+  }
+}

@@ -16,13 +16,14 @@ def measure(args):
     if args.output.exists():
         raise ValueError("fresh explicit module cost output required")
     tracker = contextlib.nullcontext()
+    native_stacks = getattr(args, "native_stacks", True)
     if args.profile:
         if args.profile.exists():
             raise ValueError("fresh explicit allocation trace required")
         import memray
 
         tracker = memray.Tracker(
-            str(args.profile), trace_python_allocators=True, native_traces=True
+            str(args.profile), trace_python_allocators=True, native_traces=native_stacks
         )
     with tracker:
         report = generate(args)
@@ -37,7 +38,7 @@ def measure(args):
         "generation_peak_rss_bytes": report["peak_rss_bytes"],
         "phase_seconds": report["phase_seconds"],
         "source_work": report["source_work"],
-        "scope": "Complete generate call after imports: new provider, cached inputs, geometry/fields, all actual module/world/pier checks, inventory, display arrays, serialization and report. PNG rendering and independent reader excluded. Normal and profiled times stay separate; internal total copies remain unobserved.",
+        "scope": "Current-process allocations across generate after imports: provider, cached inputs, geometry/fields, all module/world/pier checks, inventory, display arrays, serialization and report. Subprocess allocations, PNG rendering and independent reader excluded. Normal and profiled times stay separate; internal total copies remain unobserved.",
     }
     if args.profile:
         stats_path = args.output / "allocation-stats.json"
@@ -61,7 +62,7 @@ def measure(args):
         stats = json.loads(stats_path.read_text())
         metadata = stats["metadata"]
         if (
-            not metadata["has_native_traces"]
+            metadata["has_native_traces"] != native_stacks
             or not metadata["trace_python_allocators"]
             or not metadata["end_time"]
         ):
@@ -69,6 +70,7 @@ def measure(args):
         note["allocations"] = {
             "profiler": "memray",
             "version": memray.__version__,
+            "native_call_stacks": native_stacks,
             "allocation_events": stats["total_num_allocations"],
             "cumulative_requested_bytes": stats["total_bytes_allocated"],
             "tracked_peak_heap_bytes": metadata["peak_memory"],
@@ -88,4 +90,10 @@ if __name__ == "__main__":
     parser = argument_parser()
     parser.description = __doc__
     parser.add_argument("--profile", type=Path)
+    parser.add_argument(
+        "--no-native-stacks",
+        dest="native_stacks",
+        action="store_false",
+        help="Keep Python/native allocation events; omit native stack unwinding.",
+    )
     measure(parser.parse_args())
