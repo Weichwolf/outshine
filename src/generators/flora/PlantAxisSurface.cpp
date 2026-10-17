@@ -14,11 +14,6 @@
 
 namespace outshine::Generators {
 namespace {
-constexpr size_t kMinimumSegments = 2;
-constexpr size_t kMaximumSegments = 1024;
-constexpr size_t kMinimumSides = 3;
-constexpr size_t kMaximumSides = 128;
-
 struct Section {
   Vec3 Centre, Tangent;
   double Radius = 0, Angle = 0;
@@ -131,8 +126,10 @@ bool Representable(const PlantAxis &axis) {
 std::expected<PlantSurfaceSize, std::string_view>
 MeasurePlantAxisSurface(const PlantPlan &plan, PlantAxisSurfaceDemand demand) {
   const PlantAxis *axis = plan.Axis(demand.Axis);
-  if (axis == nullptr || demand.Segments < kMinimumSegments || demand.Segments > kMaximumSegments ||
-      demand.Sides < kMinimumSides || demand.Sides > kMaximumSides || !Representable(*axis)) {
+  if (axis == nullptr || demand.Segments < PlantAxisSurfaceLimits::LeastSegments ||
+      demand.Segments > PlantAxisSurfaceLimits::MostSegments ||
+      demand.Sides < PlantAxisSurfaceLimits::LeastSides ||
+      demand.Sides > PlantAxisSurfaceLimits::MostSides || !Representable(*axis)) {
     return std::unexpected("plant axis surface requires regular dimensions and bounded detail");
   }
   const size_t vertices = (demand.Segments + 1) * demand.Sides + 2 * (demand.Sides + 1);

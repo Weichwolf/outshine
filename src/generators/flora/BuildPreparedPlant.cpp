@@ -1,5 +1,6 @@
 #include "BuildPreparedPlant.h"
 #include "PlantAxisSurface.h"
+#include "PlantAxisDetail.h"
 #include "PlantSurface.h"
 #include "math/Mat4.h"
 #include <array>
@@ -29,12 +30,21 @@ bool Accumulate(size_t &total, size_t unit, size_t count, size_t most) {
   return true;
 }
 
-PlantAxisSurfaceDemand AxisDemand(uint64_t axis, PreparedPlantDemand demand) {
-  return {.Axis = axis,
-          .Segments = demand.AxisSegments,
-          .Sides = demand.AxisSides,
-          .MaximumVertices = demand.Maximum.Vertices,
-          .MaximumTriangles = demand.Maximum.Triangles};
+std::expected<PlantAxisSurfaceDemand, std::string_view> AxisDemand(const PlantAxis &axis,
+                                                                   PreparedPlantDemand demand) {
+  size_t segments = demand.AxisSegments;
+  size_t sides = demand.AxisSides;
+  if (demand.AxisParametricErrorM) {
+    const auto detail = SelectPlantAxisDetail(axis, *demand.AxisParametricErrorM);
+    if (!detail) { return std::unexpected(detail.error()); }
+    segments = detail->Segments;
+    sides = detail->Sides;
+  }
+  return PlantAxisSurfaceDemand{.Axis = axis.Id,
+                                .Segments = segments,
+                                .Sides = sides,
+                                .MaximumVertices = demand.Maximum.Vertices,
+                                .MaximumTriangles = demand.Maximum.Triangles};
 }
 
 PlantBladeSurfaceDemand BladeDemand(PreparedPlantDemand demand) {
@@ -60,7 +70,9 @@ MeasureWood(const PlantPlan &plan, PreparedPlantDemand demand, Measurement &resu
   const size_t trianglesMost = std::min<size_t>(std::numeric_limits<uint32_t>::max() / 3,
                                                 std::vector<uint32_t>{}.max_size() / 3);
   for (const size_t row : result.Part.AxisRows) {
-    const auto size = MeasurePlantAxisSurface(plan, AxisDemand(plan.Axes()[row].Id, demand));
+    const auto selected = AxisDemand(plan.Axes()[row], demand);
+    if (!selected) { return std::unexpected(selected.error()); }
+    const auto size = MeasurePlantAxisSurface(plan, *selected);
     if (!size) { return std::unexpected(size.error()); }
     if (!AddSurface(result.Counts, *size, 1, demand.Maximum) ||
         !Accumulate(result.Wood.Vertices, size->Vertices, 1, verticesMost) ||
@@ -73,6 +85,9 @@ MeasureWood(const PlantPlan &plan, PreparedPlantDemand demand, Measurement &resu
 
 std::expected<Measurement, std::string_view>
 Measure(const PlantPlan &plan, std::span<const PlantBlade> blades, PreparedPlantDemand demand) {
+  if (demand.AxisParametricErrorM && (demand.AxisSegments != 0 || demand.AxisSides != 0)) {
+    return std::unexpected("prepared plant requires exactly one axis detail mode");
+  }
   const auto part = plan.Summarize(demand.Root);
   if (!part || blades.size() != part->Variants.size() ||
       part->Axes > std::numeric_limits<uint32_t>::max() ||
@@ -129,7 +144,9 @@ std::expected<Geometry::Mesh, std::string_view> BuildWood(const PlantPlan &plan,
   plant.Axes.reserve(measured.Part.Axes);
   for (const size_t row : measured.Part.AxisRows) {
     const uint64_t id = plan.Axes()[row].Id;
-    auto mesh = BuildPlantAxisSurface(plan, AxisDemand(id, demand));
+    const auto selected = AxisDemand(plan.Axes()[row], demand);
+    if (!selected) { return std::unexpected(selected.error()); }
+    auto mesh = BuildPlantAxisSurface(plan, *selected);
     if (!mesh) { return std::unexpected(mesh.error()); }
     plant.Axes.push_back({.Id = id,
                           .FirstIndex = static_cast<uint32_t>(wood.Indices.size()),
