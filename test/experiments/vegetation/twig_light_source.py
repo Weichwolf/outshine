@@ -30,6 +30,9 @@ def provenance():
         "sheet_material.py",
         "blender_preview.py",
         "preview_shadows.py",
+        "organ_preview.py",
+        "window_portrait.py",
+        "window_portrait_roles.py",
     )
     paths = [Path(__file__).with_name(name) for name in names]
     if subprocess.check_output(

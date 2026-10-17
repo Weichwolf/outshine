@@ -61,7 +61,13 @@ def scene(mode):
     green = bpy.context.object
     green.rotation_euler = red.rotation_euler
     green.data.energy, green.data.angle, green.data.color = 1, 0.01, (0, 1, 0)
-    if mode == "linked":
+    if mode in ("linked", "owned", "both"):
+        if mode == "owned":
+            blocker["vegetation_pass_role"] = "all"
+            blocker["shadow_light"] = "fill"
+            blocker["shadow_lights"] = {"sun": True}
+        elif mode == "both":
+            blocker["shadow_lights"] = {"sun": True, "fill": True}
         link_shadow_products(red, "sun")
         link_shadow_products(green, "fill")
     elif mode == "clear":
@@ -76,10 +82,10 @@ def scene(mode):
     }
 
 
-def run(output):
+def run(output, modes=("all", "linked", "clear")):
     output.mkdir(parents=True, exist_ok=False)
     rows = []
-    for mode in ("all", "linked", "clear"):
+    for mode in modes:
         links = scene(mode)
         current = bpy.context.scene
         current.render.image_settings.file_format = "OPEN_EXR"
@@ -107,6 +113,9 @@ def run(output):
         "implementation_sha256": hashlib.sha256(
             Path(__file__).read_bytes()
         ).hexdigest(),
+        "link_helper_sha256": hashlib.sha256(
+            Path(__file__).with_name("organ_preview.py").read_bytes()
+        ).hexdigest(),
         "scope": "Actual two-sun EEVEE test of the existing blocker-collection helper. No native/world or general physical-lighting admission.",
     }
     (output / "report.json").write_text(json.dumps(result, indent=2) + "\n")
@@ -115,4 +124,11 @@ def run(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    run(parser.parse_args().output)
+    parser.add_argument(
+        "--modes",
+        choices=("all", "linked", "clear", "owned", "both"),
+        nargs="+",
+        default=("all", "linked", "clear"),
+    )
+    args = parser.parse_args()
+    run(args.output, args.modes)
