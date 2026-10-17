@@ -15,6 +15,7 @@ from building_plan_views import patch as draw_polygon
 from city_scene import inputs
 from clad_facade_mesh import CladFacades, CladFrames, build, surface
 from clad_facade_plan import placement
+from clad_facade_sources import sources
 from evidence import revision
 from facade_frame_geometry import placed
 from facade_frame_probe import views
@@ -24,7 +25,7 @@ from showcase_tiles import view_for as city_view
 from tile_buildings import construct
 from tile_podiums import PodiumDetails
 from verify_facade_frames import build as original_build
-from verify_facade_frames import sources, view_for
+from verify_facade_frames import view_for
 
 
 def diagrams(output, row, info, owner, index):
@@ -92,12 +93,14 @@ def forced(method):
     return product
 
 
-def models(output):
+def models(output, case=None):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze clad programme before image evidence")
     output.mkdir(parents=True, exist_ok=True)
     for index, (row, neighbors) in enumerate(sources()):
+        if case is not None and index != case:
+            continue
         baseline, info, _old = original_build(row, neighbors, view_for(row))
         after, changed, owner = build(row, neighbors, view_for(row))
         diagrams(output, row, changed, owner, index)
@@ -123,12 +126,14 @@ def models(output):
             export(output, f"{index}Far{method}", mesh, data, view, builder, proof)
 
 
-def near_controls(output):
+def near_controls(output, case=None):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze near counterexample source")
     output.mkdir(parents=True, exist_ok=True)
     for index, (row, neighbors) in enumerate(sources()):
+        if case is not None and index != case:
+            continue
         mesh, info, owner = build(row, neighbors, view_for(row))
         _record, cameras = views(mesh["vertices"], info, owner.frames.completed)
         view = next(v for label, v in cameras if label == "Near")
@@ -204,10 +209,11 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--census", type=Path)
     parser.add_argument("--negative-near", action="store_true")
+    parser.add_argument("--case", type=int, choices=range(len(sources())))
     args = parser.parse_args()
     if args.negative_near:
-        near_controls(args.output)
+        near_controls(args.output, args.case)
     elif args.census is None:
-        models(args.output)
+        models(args.output, args.case)
     else:
         city_models(args.census, args.output)

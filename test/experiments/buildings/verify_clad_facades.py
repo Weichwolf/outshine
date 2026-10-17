@@ -8,13 +8,14 @@ import numpy as np
 import shapely
 from clad_facade_mesh import CladFrames, build, surface
 from clad_facade_plan import placement
+from clad_facade_sources import sources
 from facade_frame_geometry import placed
 from opening_modules import template as window_module
 from provider_contract import attributes
 from test_facade_frames import closed
 from test_opening_panels import hits
 from verify_facade_frames import build as old_build
-from verify_facade_frames import sources, view_for
+from verify_facade_frames import view_for
 
 
 class CladFacadesTests(unittest.TestCase):
@@ -93,13 +94,21 @@ class CladFacadesTests(unittest.TestCase):
             self.assertTrue(np.all(cap["materials"] == 10))
 
     def test_two_families_differ_substantially_on_the_same_existing_axes(self):
-        for i in (0, 2):
+        for i in range(0, len(self.plans), 2):
             a, b = self.plans[i][1], self.plans[i + 1][1]
             self.assertEqual(a.frame, b.frame)
             self.assertGreater(
                 a.region.symmetric_difference(b.region).area, a.region.area * 0.3
             )
             self.assertEqual(a.protected.wkb, b.protected.wkb)
+        self.assertEqual(
+            {
+                r["kind"]
+                for _mesh, _info, owner in self.built
+                for r in owner.frames.completed
+            },
+            {"broad-piers", "broad-spandrels"},
+        )
 
     def test_world_height_translation_preserves_local_programme(self):
         f, original = self.plans[0]
