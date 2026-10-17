@@ -12,6 +12,7 @@ from stair_local_checks import asset
 from stair_module_soil import assemble
 from stair_reference_roads import reference_owner_indices, reference_roads
 from stair_source_owners import source_selection
+from stair_terrain_audit import body_proof
 
 
 class WholeReferenceRoads(unittest.TestCase):
@@ -156,11 +157,20 @@ class CompleteTerrainCapacity(unittest.TestCase):
         self.assertEqual(work["face_capacity"], 32768)
         self.assertEqual(work["vertex_capacity"], 32768)
         self.assertEqual(len(body.vertices), 33282)
+        with self.assertRaisesRegex(ValueError, "body exceeds audit caps"):
+            body_proof(body)
+        proof = body_proof(body, max_faces=262144)
+        self.assertEqual(proof["faces"], 66560)
+        self.assertEqual(proof["zero_area_faces"], 0)
+        self.assertEqual(proof["closed_oriented_volume_m3"], 81920)
 
     def test_invalid_complete_vertex_capacity_fails_before_input_access(self):
         for limit in (False, 0, 32769, 1.5):
             with self.assertRaisesRegex(ValueError, "assembled-control vertex"):
                 assemble({}, {}, np.empty(0), np.empty(0, bool), max_vertices=limit)
+        for limit in (False, 0, 262145, 1.5):
+            with self.assertRaisesRegex(ValueError, "terrain-body face"):
+                body_proof(None, max_faces=limit)
 
 
 if __name__ == "__main__":

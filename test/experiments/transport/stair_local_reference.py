@@ -129,6 +129,7 @@ def construct(state, recipe, rows, sources, sample):
         upper,
         footprint,
         expected_local_roles=local_roles,
+        body_max_faces=262144,
     )
     arrays = {
         "module.npz": data,
