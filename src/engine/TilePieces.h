@@ -59,7 +59,7 @@ public:
 
   struct CellSelection {
     uint32_t Cell = 0;
-    LevelOfDetail Detail = LevelOfDetail::Fine;
+    std::optional<LevelOfDetail> Detail = LevelOfDetail::Fine;
   };
 
   struct CellSource {
