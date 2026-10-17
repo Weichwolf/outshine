@@ -6,14 +6,16 @@ from plant_atlas import projection
 from raster_rows import groups
 
 
-def projected_source(source, view, size, pair_budget):
+def projected_source(source, view, size, pair_budget, *, two_sided=False):
+    if type(two_sided) is not bool:
+        raise ValueError("explicit surface sidedness required")
     frame, lower, upper, _ = projection(source["vertices"], view)
     if np.any(upper <= lower):
         return None
     triangles = (source["vertices"] @ frame)[source["faces"]]
     a, b = triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
     signed = a[:, 0] * b[:, 1] - a[:, 1] * b[:, 0]
-    faces = np.flatnonzero(signed > 0)
+    faces = np.flatnonzero(signed != 0 if two_sided else signed > 0)
     screen = (triangles[faces, :, :2] - lower) / (upper - lower) * size
     first = np.maximum(np.floor(screen.min(1)).astype(int), 0)
     last = np.minimum(np.ceil(screen.max(1)).astype(int), size)
@@ -42,12 +44,14 @@ def fans(pieces, face_ids, pixels):
     return xy, face_ids[owner], pixels[owner]
 
 
-def clipped_batches(source, view, size, work, pair_budget=262144, *, pixel_mask=None):
+def clipped_batches(
+    source, view, size, work, pair_budget=262144, *, pixel_mask=None, two_sided=False
+):
     if type(size) is not int or size not in (1, 4, 16, 64):
         raise ValueError("explicit native1/4/16/64 footprint required")
     if pixel_mask is not None and not pixel_mask.any():
         return
-    data = projected_source(source, view, size, pair_budget)
+    data = projected_source(source, view, size, pair_budget, two_sided=two_sided)
     if data is None:
         return
     _, lower, upper, triangles, faces, screen, first, span, counts = data

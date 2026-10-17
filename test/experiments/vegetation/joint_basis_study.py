@@ -11,12 +11,12 @@ from conifer_window_catalog import family_geometry_for_seed, prototypes
 from foliage_selection import directions
 from joint_basis_reduction import errors, reduce_fields
 from joint_light_measure import JointMeasure
-from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
 from normal_lobes import NormalMeasure
 from outshine_ref.vegetation import NeedlePattern
 from plant_atlas import projection
+from surface_area_light import integrate
 
 
 def view_light_knots(count=32):

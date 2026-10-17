@@ -37,7 +37,7 @@ class JointMeasure:
         self.work = {"light_contact_products": 0, "reused_coaxial_positive": 0}
         self.check(source, scene, self.view, size, bias)
 
-    def check(self, source, scene, view, size, bias):
+    def check(self, source, scene, view, size, bias, *, two_sided=False):
         if (
             source is not self.source
             or scene is not self.scene
@@ -46,6 +46,7 @@ class JointMeasure:
             or not np.array_equal(view, self.view)
             or scene.index.vertices is not source["vertices"]
             or scene.index.faces is not source["faces"]
+            or two_sided
         ):
             raise ValueError(
                 "same immutable source, camera, field and metric bias required"
@@ -53,7 +54,7 @@ class JointMeasure:
         if not np.isfinite(bias) or not 1e-7 <= bias <= 1e-4:
             raise ValueError("explicit finite source-ray bias required")
 
-    def add(self, points, slots, mass, normals):
+    def add(self, points, slots, mass, normals, *, face_ids=None):
         points, slots = np.asarray(points, float), np.asarray(slots)
         normals, mass = source_samples(normals, mass)
         if (

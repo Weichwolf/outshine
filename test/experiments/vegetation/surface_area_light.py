@@ -1,10 +1,10 @@
 """Projected source-area quadrature; reuse actual same-source camera/light rays."""
 
 import numpy as np
-from needle_area_cells import clipped_batches
 from needle_joint_contacts import direct_response
 from needle_response import light_direction
 from outshine_ref.vegetation.quadrature import quadrature
+from surface_area_cells import clipped_batches
 from surface_normal_transfer import interpolate_normals
 
 
@@ -23,6 +23,19 @@ def triangle_rule(order):
     ), w.ravel()
 
 
+def primary_visible(source, scene, points, face_ids, view, bias, two_sided):
+    triangles = source["vertices"][source["faces"][face_ids]]
+    geometric = np.cross(
+        triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0]
+    )
+    geometric /= np.linalg.norm(geometric, axis=1)[:, None]
+    if two_sided:
+        geometric *= np.where(geometric @ view < 0, -1, 1)[:, None]
+    return direct_response(scene, {"points": points, "normals": geometric}, view, bias)[
+        1
+    ]
+
+
 def integrate(
     source,
     scene,
@@ -36,7 +49,10 @@ def integrate(
     pixel_mask=None,
     normal_measure=None,
     contact_measure=None,
+    two_sided=False,
 ):
+    if type(two_sided) is not bool:
+        raise ValueError("explicit surface sidedness required")
     if type(size) is not int or size not in (1, 4, 16, 64) or not 1 <= len(lights) <= 8:
         raise ValueError("bounded native footprints and one to eight lights required")
     if (
@@ -57,7 +73,7 @@ def integrate(
         raise ValueError("explicit same-grid boolean pixel demand required")
     lights = np.array([light_direction(direction) for direction in lights])
     if contact_measure is not None:
-        contact_measure.check(source, scene, view, size, bias)
+        contact_measure.check(source, scene, view, size, bias, two_sided=two_sided)
     if (
         not 1 <= len(lights) <= 8
         or type(max_samples) is not int
@@ -79,7 +95,7 @@ def integrate(
         "complete_footprint": pixel_mask is None or bool(pixel_mask.all()),
     }
     for triangles, ids, pixels, area in clipped_batches(
-        source, view, size, work, pixel_mask=pixel_mask
+        source, view, size, work, pixel_mask=pixel_mask, two_sided=two_sided
     ):
         if work["sampled_points"] + len(triangles) * len(weights) > max_samples:
             raise ValueError(
@@ -93,13 +109,8 @@ def integrate(
             face_ids = np.repeat(ids[first:last], len(weights))
             slots = np.repeat(pixels[first:last], len(weights))
             mass = (area[first:last, None] * weights).ravel()
-            geometric = source["vertices"][source["faces"][face_ids]]
-            geometric = np.cross(
-                geometric[:, 1] - geometric[:, 0], geometric[:, 2] - geometric[:, 0]
-            )
-            geometric /= np.linalg.norm(geometric, axis=1)[:, None]
-            _, visible, _ = direct_response(
-                scene, {"points": points, "normals": geometric}, view, bias
+            visible = primary_visible(
+                source, scene, points, face_ids, view, bias, two_sided
             )
             work["sampled_points"] += len(points)
             work["maximum_sample_batch"] = max(
@@ -113,10 +124,12 @@ def integrate(
                 continue
             output[0] += np.bincount(slots, weights=mass, minlength=size * size)
             normals = interpolate_normals(source, points, face_ids)
+            if two_sided:
+                normals *= np.where(normals @ view < 0, -1, 1)[:, None]
             if normal_measure is not None:
                 normal_measure.add(slots, mass, normals)
             if contact_measure is not None:
-                contact_measure.add(points, slots, mass, normals)
+                contact_measure.add(points, slots, mass, normals, face_ids=face_ids)
             for index, direction in enumerate(lights):
                 if np.array_equal(direction, view):
                     cosine = np.maximum(normals @ direction, 0)

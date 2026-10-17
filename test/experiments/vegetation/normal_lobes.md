@@ -16,7 +16,7 @@ and finite-measure bounds are own reference mathematics, not that paper's comple
 filtering method or a claim about SpeedTree internals. The earlier polynomial
 [alternative](needle_response.md) remains rejected because of negative/leaking values.
 
-Reuse the existing [projected-area integrator](needle_area_light.md), source
+Reuse the existing [projected-area integrator](surface_area_light.md), source
 normals, GEOS clipping and camera visibility. Capture visible unit normals and
 positive footprint weights after camera contacts, in packets≤8192 and≤2million
 samples/query. No second raytracer, whole plant expansion or104-light ray pass.
