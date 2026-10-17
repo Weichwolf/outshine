@@ -86,7 +86,11 @@ def child_lengths(graph, node_id, parents, budget):
         raise ValueError(
             "explicit constant physical spacing without longitudinal jitter required"
         )
-    uncapped = replace(pattern, limit_groups=MAX_SITES // pattern.whorl_size)
+    uncapped = (
+        pattern
+        if pattern.mode == "uniform"
+        else replace(pattern, limit_groups=MAX_SITES // pattern.whorl_size)
+    )
     desired = np.array(
         [
             uncapped.capacity(float(length), placement.first, placement.last)
