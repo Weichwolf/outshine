@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 import numpy as np
 from colonization import GrowthBudget, grow
-from oak_scaffold import OakRecipe, tapered_radii
+from oak_scaffold import OakRecipe, near_demand, tapered_radii
+from outshine_ref.vegetation import Blade
 
 
 class SeededGrowthTests(unittest.TestCase):
@@ -125,6 +126,31 @@ class SeededGrowthTests(unittest.TestCase):
                 tapered_radii(parents, base, tip)
         with self.assertRaises(ValueError):
             tapered_radii(np.array([-1, 0]), 0.1, 0.001)
+
+    def test_near_demand_keeps_silhouette_contacts_and_refuses_empty_work(self):
+        blade = Blade(length=0.14, width=0.07)
+        origins = np.array([[0.0, 0, 0], [1.01, 0, 0], [1.3, 0, 0], [0, -3, 0]])
+        mask = near_demand(
+            origins,
+            np.zeros(4, np.uint8),
+            (blade,),
+            [0.0, -2, 0],
+            np.zeros(3),
+            span=2.0,
+        )
+        np.testing.assert_array_equal(mask, [True, True, False, False])
+        vertices = blade.mesh(32, 4)["vertices"]
+        bound = blade.length + blade.width / 2 * np.sqrt(1 + blade.fold**2)
+        self.assertLessEqual(float(np.linalg.norm(vertices, axis=1).max()), bound)
+        with self.assertRaises(ValueError):
+            near_demand(
+                origins[2:3],
+                np.zeros(1, np.uint8),
+                (blade,),
+                [0.0, -2, 0],
+                np.zeros(3),
+                span=2.0,
+            )
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ import numpy as np
 from blender_instances import instance_group
 from botanical_profiles import plant_recipe
 from fern_material import palette, source_normal
+from oak_scaffold import near_demand
 from outshine_ref.rendering.blender_camera import configure_camera
 from render_biome_tiles import setup
 from render_fern import model, model_arrays
@@ -53,15 +54,12 @@ def near(inputs, output):
     selected = int(np.argmin(np.linalg.norm(origins - requested, axis=1)))
     owner = rows["leaf_owner_nodes"][selected]
     target = origins[rows["leaf_owner_nodes"] == owner].mean(axis=0)
-    detail = np.linalg.norm(origins - target, axis=1) <= 0.6
-    if not 1 <= int(detail.sum()) <= 2048:
-        raise ValueError(
-            "explicit bounded near-leaf demand required before fine meshing"
-        )
     blades = tuple(
         replace(b, length=b.length * 7 / 6, width=b.width * 7 / 6)
         for b in plant_recipe("quercus", study["recipe"]["seed"]).blades
     )
+    eye = target + np.array([0.55, -1.8, 0.65])
+    detail = near_demand(origins, rows["leaf_variants"], blades, eye, target)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     mats = palette(folder)
     bump = next(n for n in mats[0].node_tree.nodes if n.type == "BUMP")
@@ -94,7 +92,6 @@ def near(inputs, output):
                 np.ones(count),
                 name=f"leaf-{variant}-{fine}",
             )
-    eye = target + np.array([0.55, -1.8, 0.65])
     scene = setup(
         "Laubwald", {"size_m": 48, "camera": eye.tolist(), "target": target.tolist()}
     )
@@ -104,7 +101,6 @@ def near(inputs, output):
             "eye": eye.tolist(),
             "target": target.tolist(),
             "span_m": 1.8,
-            "clip_m": 100,
         }
     )
     scene.render.resolution_x, scene.render.resolution_y = 2560, 1440

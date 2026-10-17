@@ -129,3 +129,31 @@ def tapered_radii(parents, root_radius, terminal_radius):
         raise ValueError("branching support required for two distinct radius endpoints")
     exponent = np.log(terminal_radius / root_radius) / np.log(minimum)
     return root_radius * pipes**exponent
+
+
+def near_demand(origins, variants, blades, eye, target, span=1.8):
+    """Conservative camera-plane demand for this fixed orthographic leaf probe."""
+    radii = np.array(
+        [
+            max(b.length, b.petiole) + b.width / 2 * np.sqrt(1 + b.fold**2)
+            for b in blades
+        ]
+    )[variants]
+    view = np.asarray(eye) - target
+    view /= np.linalg.norm(view)
+    right = np.cross([0.0, 0, 1], view)
+    right /= np.linalg.norm(right)
+    up = np.cross(view, right)
+    delta = origins - target
+    depth = (np.asarray(eye) - origins) @ view
+    mask = (
+        (abs(delta @ right) <= span / 2 + radii)
+        & (abs(delta @ up) <= span * 1440 / 2560 / 2 + radii)
+        & (depth >= 0.1 - radii)
+        & (depth <= 10000 + radii)
+    )
+    if not 1 <= int(mask.sum()) <= 8192:
+        raise ValueError(
+            "bounded fixed-camera fine-leaf demand required before meshing"
+        )
+    return mask
