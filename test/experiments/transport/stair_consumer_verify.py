@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import shapely
 from camera_height_inputs import digest
 from outshine_ref.contracts import Mesh
 from stair_consumer_buildings import body_query
@@ -44,6 +45,11 @@ def run(args):
         raise ValueError("original source/part identities changed")
     before = meshes(args.products / "buildings-before.npz")
     after = meshes(args.products / "buildings-after.npz")
+    reservations = json.loads(
+        (args.products / "building-reservations.json").read_text()
+    )
+    if len(reservations) != len(after):
+        raise ValueError("saved architecture reservations incomplete")
     query = OccupancyQuery(data["reservations"])
     i, j = 0, 0
     for row in ledger[len(rejected) :]:
@@ -66,6 +72,19 @@ def run(args):
             raise ValueError("query band does not bound actual original recipe")
         for part in result["products"]:
             _, body = body_query(row["id"], after[j], 0)
+            reserved = reservations[j]
+            if (
+                reserved["body_index"] != j
+                or reserved["owner_id"] != row["id"]
+                or reserved["source_id"] != original["source_id"]
+                or reserved["source_part"] != original["part"]
+                or reserved["purpose"] != "building.body"
+                or not shapely.from_wkb(reserved["geometry_wkb"]).equals_exact(
+                    body.geometry, 0
+                )
+                or reserved["heights_m"] != [body.heights.lower_m, body.heights.upper_m]
+            ):
+                raise ValueError("whole actual body reservation/source binding changed")
             j += 1
             if [body.heights.lower_m, body.heights.upper_m] != part["body_heights_m"]:
                 raise ValueError("saved actual body heights changed")

@@ -55,6 +55,19 @@ def run(args):
         data, OccupancyQuery(data["reservations"])
     )
     generated = time.perf_counter()
+    sources = {r["id"]: r for r in ledger if r.get("state") == "prepared"}
+    reservations = [
+        {
+            "body_index": index,
+            "owner_id": row.owner_id,
+            "source_id": sources[row.owner_id]["source_id"],
+            "source_part": sources[row.owner_id]["part"],
+            "geometry_wkb": row.geometry.wkb_hex,
+            "heights_m": [row.heights.lower_m, row.heights.upper_m],
+            "purpose": row.purpose,
+        }
+        for index, row in enumerate(occupied)
+    ]
     artifacts = {
         "buildings-before.npz": save_meshes(
             args.output, "buildings-before.npz", before
@@ -62,6 +75,9 @@ def run(args):
         "buildings-after.npz": save_meshes(args.output, "buildings-after.npz", after),
         "building-ledger.json": save(args.output, "building-ledger.json", ledger),
         "context.json": save(args.output, "context.json", context),
+        "building-reservations.json": save(
+            args.output, "building-reservations.json", reservations
+        ),
     }
     result = {
         "commit": commit,
