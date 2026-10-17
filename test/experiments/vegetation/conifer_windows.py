@@ -40,13 +40,15 @@ def plan_windows(
     )
     if plan is None:
         return None
-    return bind_windows(plant, plan, catalog)
+    return bind_patterns(plant.patterns, plan, catalog)
 
 
 def bind_windows(plant, plan, catalog):
-    templates = [
-        catalog[pattern_key(plant.patterns[int(order)])] for order in plan["orders"]
-    ]
+    return bind_patterns(plant.patterns, plan, catalog)
+
+
+def bind_patterns(patterns, plan, catalog):
+    templates = [catalog[pattern_key(patterns[int(order)])] for order in plan["orders"]]
     if any(
         info["needles"] != capacity
         for info, capacity in zip(templates, plan["capacities"], strict=True)

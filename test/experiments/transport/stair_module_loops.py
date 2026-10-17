@@ -120,14 +120,28 @@ def frozen_contacts(state, recipe, sources):
             }
         )
     result.extend(endpoint_contacts(state, recipe, sources))
-    if len({tuple(r["mvt_xy"]) for r in result}) != len(result):
-        raise ValueError("duplicate cached interior contact node")
+    if len({(r["cached_source_id"], tuple(r["mvt_xy"])) for r in result}) != len(
+        result
+    ):
+        raise ValueError("duplicate cached source contact node")
     return result
 
 
 def prepare_contacts(rows, nodes, contacts):
     keys = [r["source_id"] for r in rows]
+    groups = {}
     for contact in contacts:
+        groups.setdefault(tuple(contact["mvt_xy"]), []).append(contact)
+    for group in groups.values():
+        contact = group[0]
+        if any(
+            c["incident_source_ids"] != contact["incident_source_ids"]
+            or not np.array_equal(c["xy"], contact["xy"])
+            for c in group
+        ):
+            raise ValueError(
+                "shared cached node has conflicting source membership/frame"
+            )
         incident = [keys.index(k) for k in contact["incident_source_ids"]]
         choices = [n for n in nodes if n["mvt_xy"] == contact["mvt_xy"]]
         if not choices:
@@ -141,7 +155,7 @@ def prepare_contacts(rows, nodes, contacts):
         node = next(n for n in nodes if n["mvt_xy"] == contact["mvt_xy"])
         chosen = node_profiles(rows, node, include_interiors=True)
         pad = profile_junction_pad(
-            [contact["profile"][:, :2], *[p for _i, _v, p in chosen]]
+            [*[c["profile"][:, :2] for c in group], *[p for _i, _v, p in chosen]]
         )
         for i, vertex, _p in chosen:
             rows[i].setdefault("junction_pads_xy_m", []).append(

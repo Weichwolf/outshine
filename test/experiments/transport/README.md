@@ -30,6 +30,10 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   ganze geneigte Bestandsprofile, ausdrücklicher Innenkontakt und 795 m Straßen/Wege.
 - [Lokaler Generatoradapter](stair_local_comparison.md): residente Terrainpatches,
   getrennte Straßenkörper und begrenzte vollständige Nachbarschaften.
+- [Automatisches residentes Wachstum](stair_growth_comparison.md): neue Assets
+  als tatsächliche Anschlusswurzeln, begrenzte Quellenwahl und gemeinsame alte Profile.
+- [Unabhängige Grundmodule](stair_seed_comparison.md): acht ganze Straßenquellen
+  außerhalb des alten Kerns, mit begrenztem Rastermodell und ganzen Originalprofilen.
 - [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
   an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
 - [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen

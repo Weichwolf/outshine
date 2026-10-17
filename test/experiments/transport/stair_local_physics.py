@@ -3,13 +3,13 @@
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
+from outshine_ref.geometry import vertical_clearance
 from stair_blend_audit import ground_subdivision
 from stair_blend_solve import check_heights
 from stair_blend_verify import field_contract
 from stair_local_context import radius, require
 from stair_module_world import source_ground
 from stair_support_audit import Reference
-from stair_terrain_audit import clearance
 from surface_height_checks import normal_gradients
 
 
@@ -21,6 +21,14 @@ def frozen_beds(view, state, field):
     shapes = shapely.polygons(triangles[:, :, :2])
     selected = shapely.dwithin(shapes, region, radius(view))
     triangles = triangles[selected]
+    if not len(triangles):
+        return {
+            "whole_original_body_facets": 0,
+            "reference_faces": 0,
+            "maximum_contact_float32_m": 0.0,
+            "pair_tests": 0,
+            "scope": "No whole original ground body facet intersects the changed region.",
+        }
     footprint = shapely.union_all(shapes[selected])
     local = require(view.nearby(footprint, radius(view), max_faces=8192))
     floor = Reference(local.mesh)
@@ -31,6 +39,42 @@ def frozen_beds(view, state, field):
         "maximum_contact_float32_m": max(p["float32_contact_error_m"] for p in proofs),
         "pair_tests": sum(p["contact_pair_checks"] for p in proofs),
     }
+
+
+def bridge_checks(field, upper):
+    if not len(upper.triangles):
+        return [
+            {
+                "valid": False,
+                "applicable": False,
+                "reason": "no_local_bridge_facets",
+                "checks": 0,
+                "positive_area_pairs": 0,
+                "float32": cast,
+            }
+            for cast in (False, True)
+        ]
+    result = []
+    for cast in (False, True):
+        terrain = Mesh(
+            field.vertices.astype("f4") if cast else field.vertices, field.triangles
+        )
+        ceiling = Mesh(
+            upper.vertices.astype("f4") if cast else upper.vertices, upper.triangles
+        )
+        proof = vertical_clearance(
+            terrain, ceiling, max_faces=32768, max_pairs=1000000, seconds=20
+        )
+        if not proof["valid"]:
+            if proof["reason"] != "no_positive_area_overlap":
+                raise ValueError("local terrain separation unresolved: " + str(proof))
+            result.append(dict(proof, applicable=False))
+            continue
+        guard = 64 * np.finfo(float).eps * max(1.0, float(abs(terrain.vertices).max()))
+        if proof["minimum_clearance_m"] < -guard:
+            raise ValueError("local actual terrain intrudes into a bridge underside")
+        result.append(dict(proof, applicable=True))
+    return result
 
 
 def validate(view, state, local, heights, roles, chosen, data, upper):
@@ -65,19 +109,7 @@ def validate(view, state, local, heights, roles, chosen, data, upper):
     nearby = require(view.nearby(footprint, radius(view), max_faces=8192))
     reference = Reference(nearby.mesh)
     contacts = [reference.check(Mesh(tri, np.array([[0, 1, 2]]))) for tri in triangles]
-    bridges = []
-    for cast in (False, True):
-        terrain = Mesh(
-            field.vertices.astype("f4") if cast else field.vertices, field.triangles
-        )
-        ceiling = Mesh(
-            upper.vertices.astype("f4") if cast else upper.vertices, upper.triangles
-        )
-        proof = clearance(terrain, ceiling)
-        guard = 64 * np.finfo(float).eps * max(1.0, float(abs(terrain.vertices).max()))
-        if proof["minimum_clearance_m"] < -guard:
-            raise ValueError("local actual terrain intrudes into a bridge underside")
-        bridges.append(proof)
+    bridges = bridge_checks(field, upper)
     return {
         "grades": grades,
         "original_ground_facet_coverage_double": subdivision,

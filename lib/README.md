@@ -688,6 +688,13 @@ Budgets are Python integers in [0,100000]. These row bounds are not a total
 memory/time guarantee. `Shoot.detail` shares the same bounded placement contract.
 Public `AxisState` frames must be finite, orthonormal and right-handed. Shared
 axis/leaf/shoot arrays have immutable bytes, and leaf mappings are read-only.
+`AxisState(..., path_capacity=256)` explicitly accepts real slot indices up to255
+from a separately authored generator graph. The default remains64; negative,
+noninteger and out-of-capacity slots still fail. This does not raise `PlantPlan`
+branch limits, change its recipes/IDs/tables, or change `NeedlePattern.detail`
+for the same physical axis and seed. The wider state permits deferred needles
+on the actual cached graph path instead of a fabricated small replacement path
+(#562).
 
 `tables(max_axes, max_leaves)` returns cached complete immutable rows: axis IDs,
 parent IDs (-1 for root), seven-slot Int16 paths (-1 padding), origins, frames,

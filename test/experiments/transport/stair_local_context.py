@@ -70,9 +70,15 @@ def state_for(
         shapely.polygons(query.mesh.vertices[query.mesh.triangles, :2])
     )
     road, ground, keys, rows, road_note = road_window(
-        assets, region, xy_guard_m=radius(view)
+        assets,
+        region,
+        xy_guard_m=radius(view),
+        allow_empty=recipe.get("contact_mode") == "seed",
     )
+    if not keys and query.face_data["ground"].any():
+        raise ValueError("actual old ground requires its resident source body")
     state = {
+        "resident_profile_roots": True,
         "road": road,
         "road_ground": ground,
         "cached_module_rows": rows,
