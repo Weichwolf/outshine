@@ -20,9 +20,9 @@ namespace outshine::Render {
 class SubjectDraw;
 
 struct GroundClassificationSource {
-  std::shared_ptr<const uint32_t> Classes;
+  std::shared_ptr<const uint32_t> Classes = {};
   size_t ClassWords = 0;
-  std::shared_ptr<const float> Palette;
+  std::shared_ptr<const float> Palette = {};
   size_t PaletteFloats = 0;
 
   [[nodiscard]] std::span<const uint32_t> ClassSpan() const noexcept {
