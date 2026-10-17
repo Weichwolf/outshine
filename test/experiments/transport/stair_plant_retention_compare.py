@@ -82,14 +82,20 @@ def run(args):
             }
         )
         values.append(result)
+    for cohort in values:
+        for value in cohort:
+            for key in ("root_support_query", "whole_body_query"):
+                value[key].pop("seconds")
     if values[0] != values[1]:
-        args.output.with_suffix(".differences.json").write_text(json.dumps(values, indent=2) + "\n")
+        args.output.with_suffix(".differences.json").write_text(
+            json.dumps(values, indent=2) + "\n"
+        )
         raise ValueError("equal fixed SITE result comparison failed")
     report = {
         "commit": commit,
         "prior": prior["proof"],
         "observations": observations,
-        "exact_four_SITE_results": True,
+        "exact_four_SITE_results_except_query_seconds": True,
         "current_world_terrain_facets": len(data["terrain"].triangles),
         "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         * 1024,
