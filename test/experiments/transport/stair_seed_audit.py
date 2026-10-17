@@ -8,10 +8,11 @@ from stair_junction_layout import landings
 from stair_module_audit import inspect_pins, module_body, traffic
 from stair_module_clearance import source_clearances
 from stair_module_materials import surface_slots
-from stair_module_node_heights import apply_heights, inspect_heights, plan_heights
+from stair_module_node_heights import apply_heights, inspect_heights
 from stair_module_profiles import new_interior_checks, owned
 from stair_module_roads import inspect_frames
 from stair_module_trace import compare
+from stair_seed_geometry import plans_for
 
 
 def connected(recipe, rows, nodes):
@@ -123,7 +124,7 @@ def audit(state, recipe, data, rows, planning, upper):
         separation.append({"float32": cast, "minimum_old_ground_distance_m": distance})
     if any(not p.equals(q) for p, q in zip(original, domains, strict=True)):
         raise ValueError("independent seed borrowed an undeclared old surface")
-    plans = plan_heights(rows, nodes, [], include_interiors=True)
+    plans = plans_for(rows, nodes)
     fixed, values = apply_heights(
         data["surface_vertices"][:, :2],
         np.zeros(len(data["surface_vertices"]), bool),

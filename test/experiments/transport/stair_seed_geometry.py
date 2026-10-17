@@ -55,10 +55,22 @@ def prepared(rows, sources, ground):
     return nodes, original, original, masks, old
 
 
+def plans_for(rows, nodes):
+    plans = plan_heights(rows, nodes, [], include_interiors=True)
+    grid = rows[0].get("source_grid_m")
+    if grid:
+        for plan in plans:
+            bounds = np.array(plan["shape"].bounds) / grid
+            plan["shape"] = shapely.box(
+                *(np.r_[np.floor(bounds[:2]), np.ceil(bounds[2:])] * grid)
+            )
+    return plans
+
+
 def build(rows, sources, ground, sample):
     planning = prepared(rows, sources, ground)
     nodes, _original, domains, _masks, _old = planning
-    plans = plan_heights(rows, nodes, [], include_interiors=True)
+    plans = plans_for(rows, nodes)
     xy, faces, owners, note = arrangement(
         rows, domains, [], constraints=[p["shape"].boundary for p in plans]
     )
