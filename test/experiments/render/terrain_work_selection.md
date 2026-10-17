@@ -164,8 +164,42 @@ force finer selected levels. A lower theoretical boundary floor alone does
 not predict useful work savings. The existing CLI now also accepts 32 cells;
 `verify_terrain_patch_lod.py` checks its affine errors and complete boundaries.
 
-The earlier exact early-page experiment above remains modest, not a promised
-speedup. Before native expansion, compare a small set of exact early *patches*
-against page selection, combined with the existing adaptive LOD and identical
-rendered geometry. Count early work once, verify the complete retained raster,
-and measure selection/pyramid costs. Keep the established depth bias unchanged.
+## Exact early patches with adaptive LOD
+
+`terrain_early_patches.py` compares early eight-cell patches with the existing
+0.5 px positional allowance at 1280×720. Early patches use original fine geometry;
+late patches keep their selected LOD. Each unculled reference uses exactly the
+same geometry as its culled case, including the early replacements. Early geometry
+is counted once. The existing absolute reverse-depth bias of 1e-6 is unchanged.
+
+All 16,255 cached Körbersee pages are read; 3,620 pages intersect conservative
+frustum bounds at yaw 0. The adaptive baseline has 4,558,520 interior triangles
+and 926,720 unchanged skirt triangles. Ranking by projected boxes selects unsafe
+near-plane bounds first: the first 512 patches cover zero raster pixels. It saves
+nothing. Ranking only positive front-facing triangle area avoids that failure,
+but requires projecting/testing the fine triangles before selecting the early set.
+
+| Early patches | Early triangles | Late triangles | Total with skirts | Saved against identical geometry | Changed depth pixels |
+|---|---:|---:|---:|---:|---:|
+| 128 | 16,384 | 4,520,464 | 5,463,568 | 23,416 | 0 |
+| 512 | 65,536 | 4,430,784 | 5,423,040 | 75,248 | 0 |
+| 2,048 | 262,144 | 4,033,168 | 5,222,032 | 305,920 | 0 |
+
+The largest case saves (5,485,240 - 5,222,032) / 5,485,240 = 4.80% against
+the original adaptive baseline, before selection/pyramid/extra encoding costs.
+The larger 305,920 saving uses its own more expensive fine-early baseline.
+This experiment does not justify adding an early-patch path to the native renderer.
+The 320×180 comparison also has zero changed depth pixels; 512 early patches
+only save 36,920 interior triangles against the original adaptive baseline.
+
+Four independent synthetic checks exercise overlap, fine/coarse replacement,
+ranking, capped incremental budgets and counting each early patch once.
+The opened 720p depth comparison is consistent with the reported zero difference.
+Pixel-centre CPU rasterization does not prove shader rounding, clipping, MSAA,
+normal/material equality, native scheduling or a net GPU gain. Skirts are counted
+but not rasterized. No runtime code, image threshold or error allowance changes.
+
+```sh
+python3 test/experiments/render/verify_terrain_early_patches.py
+python3 test/experiments/render/terrain_early_patches.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT" --priority surface --width 1280 --height 720 --budgets 128 512 2048
+```
