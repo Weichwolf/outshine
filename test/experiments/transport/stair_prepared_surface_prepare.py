@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import resource
 from pathlib import Path
 
 from camera_height_inputs import digest
@@ -58,6 +59,8 @@ def prepare(args):
 
 
 if __name__ == "__main__":
+    resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
+    resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--resident", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)

@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import resource
 from pathlib import Path
 
 from camera_height_inputs import digest
@@ -38,6 +39,11 @@ def verify(args):
             raise ValueError("original independently verified resident binding changed")
     if report["format"] != FORMAT:
         raise ValueError("candidate codec version changed")
+    if type(report["variants"]) is not dict or set(report["variants"]) != {
+        "stored",
+        "compressed",
+    }:
+        raise ValueError("both complete candidate representations required")
     with validation("general", []), composition("general", []):
         before = load_chain(resident)
     if (
@@ -112,6 +118,8 @@ def verify(args):
 
 
 if __name__ == "__main__":
+    resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
+    resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--products", type=Path, required=True)
     parser.add_argument("--output", type=Path)

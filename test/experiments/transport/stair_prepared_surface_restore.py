@@ -1,6 +1,7 @@
 """Experimental restoration of externally admitted immutable surface bytes."""
 
 import io
+import zipfile
 from types import MappingProxyType
 
 import numpy as np
@@ -25,8 +26,10 @@ def restore_patch(archive, row, index, frame, kind):
     prefix = "p" + str(index)
     vertices, faces = archive[prefix + "-v"], archive[prefix + "-f"]
     if (
-        vertices.dtype != np.dtype("f8")
-        or faces.dtype != np.dtype("u4")
+        vertices.dtype.kind != "f"
+        or vertices.dtype.itemsize != 8
+        or faces.dtype.kind != "u"
+        or faces.dtype.itemsize != 4
         or not 1 <= len(vertices) <= 65536
         or type(row["max_faces"]) is not int
         or not 1 <= len(faces) <= row["max_faces"] <= 65536
@@ -79,7 +82,14 @@ def restore_surface(payload, *, expected_sha256, frame, max_bytes=MAX_BYTES):
     """
     if not isinstance(frame, LocalFrame):
         raise TypeError("explicit caller-owned prepared frame required")
-    inspect_archive(payload, expected_sha256, max_bytes)
+    try:
+        inspect_archive(payload, expected_sha256, max_bytes)
+        return _restore_arrays(payload, frame)
+    except (zipfile.BadZipFile, EOFError, KeyError) as error:
+        raise ValueError("incomplete or malformed prepared surface archive") from error
+
+
+def _restore_arrays(payload, frame):
     with np.load(io.BytesIO(payload), allow_pickle=False) as archive:
         meta = metadata(archive)
         if meta["frame"] != frame.identifier:

@@ -90,6 +90,16 @@ class PreparedSurface(unittest.TestCase):
             actual = self.restore()
         equal_patches(actual, self.view)
 
+    def test_standard_npy_byte_order_is_preserved_by_normal_mesh_conversion(self):
+        def edit(arrays):
+            for i in (0, 1):
+                arrays[f"p{i}-v"] = arrays[f"p{i}-v"].astype(">f8")
+                arrays[f"p{i}-f"] = arrays[f"p{i}-f"].astype(">u4")
+
+        changed = change(self.payload, arrays=edit)
+        actual = self.restore(changed, expected_sha256=sha(changed))
+        equal_patches(actual, self.view)
+
     def test_new_generation_still_uses_normal_strict_replacement(self):
         actual = self.restore()
         after, _ = actual.replace(
@@ -174,6 +184,14 @@ class PreparedSurface(unittest.TestCase):
         changed = output.getvalue()
         with self.assertRaises(ValueError):
             self.restore(changed, expected_sha256=sha(changed))
+
+    def test_incomplete_archive_and_missing_arrays_have_a_controlled_failure(self):
+        for payload in (
+            b"not a zip file",
+            change(self.payload, arrays=lambda a: a.pop("p1-v")),
+        ):
+            with self.assertRaises(ValueError):
+                self.restore(payload, expected_sha256=sha(payload))
 
 
 if __name__ == "__main__":
