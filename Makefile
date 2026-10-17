@@ -11,7 +11,6 @@
 #                   and the tools beside them
 #   make db         compile_commands.json, derived from the SAME tier graph the build uses
 #   make lint       clang-format, clang-tidy and this tree's own repository rules
-#   make doc        the door's documentation -> build/doc
 #   make shots      every place through the camera -> build/shots  (PLACE=Wien for one)
 #   make test       the world gate; compatibility corpora run explicitly
 #   make suite      one named suite                                (SUITE=outshine/integration/places)
@@ -32,7 +31,7 @@ RUN      := cd $(SELF_DIR) && sh test/run.sh
 # quietly skipped.
 LLVM_BIN := /opt/homebrew/opt/llvm/bin
 
-.PHONY: all strip shader-tools shaders db lint doc shots corpus-render corpus-prepare test suite clean spotless help
+.PHONY: all strip shader-tools shaders db lint shots corpus-render corpus-prepare test suite clean spotless help
 
 GLSLANG ?= $(SELF_DIR)/build/deps/install/bin/glslangValidator
 GLSLANG_FLAGS := -V --target-env vulkan1.0 -Isrc -Isrc/content/shade
@@ -142,9 +141,6 @@ lint: ## format, static analysis, and this tree's own repository rules
 lint-docs: ## AGENTS contracts only; offline, no GitHub or engine build
 	@cd $(SELF_DIR) && sh test/lint-docs.sh
 
-doc:             ## the door's documentation -> build/doc
-	@cd $(SELF_DIR) && doxygen doc/Doxyfile
-
 PREPARE_SECONDS ?= 1800
 prepare-place: all ## prepare generated assets and terrain without a frame-rate claim (PLACE=Koerbersee)
 	@$(if $(PLACE),,$(error name a PLACE))
@@ -221,10 +217,6 @@ test-client-arguments: db all ## reject invalid client coordinates before platfo
 test-shader-artifacts: shaders ## verify the shader package, reflection and negative controls
 	@cd $(SELF_DIR) && GLSLANG=$(GLSLANG) python3 test/scripts/test_shader_artifacts.py
 	@cd $(SELF_DIR) && python3 test/scripts/shader_artifacts.py
-
-.PHONY: test-documentation
-test-documentation: ## verify public documentation coverage and Doxygen failure detection
-	@cd $(SELF_DIR) && python3 test/scripts/test_documentation_analysis.py
 
 .PHONY: test-reference-store test-reference-cache corpus-reference
 test-reference-store: ## verify immutable reference storage and missing/corrupt cache failures

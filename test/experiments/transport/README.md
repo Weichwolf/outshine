@@ -34,6 +34,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   als tatsächliche Anschlusswurzeln, begrenzte Quellenwahl und gemeinsame alte Profile.
 - [Unabhängige Grundmodule](stair_seed_comparison.md): acht ganze Straßenquellen
   außerhalb des alten Kerns, mit begrenztem Rastermodell und ganzen Originalprofilen.
+- [Vier weitere ganze Fußwege](stair_network_extension_comparison.md): 69 Quellen,
+  unabhängige Gesamtprüfung mit lokalen Ownern und kleine sichtbare Netzerweiterung (#587).
 - [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper
   und Stützen, quelltreue Footprint-Korrekturen und freie Räume unter Brücken (#568).
 - [Präzision der Konfliktabfrage](stair_occupancy_precision.md): falsch leere Masken,
@@ -42,6 +44,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Buildings-Erzeuger, aktuelle Terrainanker und Prüfung seiner fertigen Körper (#568).
 - [Tatsächlicher Pflanzenverbrauch](stair_plant_comparison.md): vorhandene Pinus-/
   Habitatprogramme, gemessene Hüllen und vollständige reale Zurückstellungen (#568).
+- [Konsistente Terrainkontakte](surface_contact_comparison.md): tatsächliche dünne
+  Dreiecke, endliche gemeinsame Kanten und ausgabegleicher Normalpfad (#589).
 - [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
   an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
 - [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen

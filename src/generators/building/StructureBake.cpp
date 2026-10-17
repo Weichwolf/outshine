@@ -398,6 +398,17 @@ struct StructureBakeProgress::State {
     Corners.clear();
     Started = true;
   }
+
+  void StartPrepared(const PreparedStructureTile &base, const RawTile &view) {
+    if (Started) { return; }
+    Start(view, base.FallbackHeights, base.Structures.size());
+    Tile.SkippedRings = base.SkippedRings;
+    Tile.NoGround = base.NoGround;
+    Tile.Coordinates = std::make_shared<Ground::BuildingGeometry>();
+    Tile.Coordinates->Origin = base.Origin;
+    Tile.Coordinates->Points = base.PointsLatLon;
+    Tile.Coordinates->Rings = base.Holes;
+  }
 };
 
 StructureBakeProgress::StructureBakeProgress() : State_(std::make_unique<State>()) {}
@@ -430,8 +441,8 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
     return *emitted;
   }
   const std::span<const double> pts = raw.LatLon;
-  const size_t until = std::min(state.Next + structuresMost, raw.Structures.size());
-  for (; state.Next < until; ++state.Next) {
+  size_t processed = 0;
+  for (; state.Next < raw.Structures.size() && processed < structuresMost; ++state.Next) {
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     const auto baked = BakeOne(raw,
                                heights,
@@ -446,6 +457,8 @@ StructureBakeProgress::AdvanceStructures(const RawTile &raw,
                                state.Corners,
                                stopping);
     if (!baked) { return std::unexpected(baked.error()); }
+    processed += static_cast<size_t>(!raw.RequestedCell ||
+                                     raw.Structures[state.Next].Cell.Index == *raw.RequestedCell);
   }
   if (state.Next != raw.Structures.size()) { return false; }
   if (raw.RequestedDetail) {
@@ -513,15 +526,7 @@ StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
   State &state = *State_;
   assert(!state.Finalized);
   BakedTile &out = state.Tile;
-  if (!state.Started) {
-    state.Start(view, base.FallbackHeights, base.Structures.size());
-    out.SkippedRings = base.SkippedRings;
-    out.NoGround = base.NoGround;
-    out.Coordinates = std::make_shared<Ground::BuildingGeometry>();
-    out.Coordinates->Origin = base.Origin;
-    out.Coordinates->Points = base.PointsLatLon;
-    out.Coordinates->Rings = base.Holes;
-  }
+  state.StartPrepared(base, view);
   if (state.Current == State::Phase::Complete) { return true; }
   if (state.Current == State::Phase::Emission) {
     const auto emitted = state.Selection.Emit(view, mesher, scratch, out, structuresMost, stopping);
@@ -529,11 +534,12 @@ StructureBakeProgress::AdvancePrepared(const PreparedStructureTile &base,
     if (*emitted) { state.Current = State::Phase::Complete; }
     return *emitted;
   }
-  const size_t until = std::min(state.Next + structuresMost, base.Structures.size());
-  for (; state.Next < until; ++state.Next) {
+  size_t processed = 0;
+  for (; state.Next < base.Structures.size() && processed < structuresMost; ++state.Next) {
     const auto &one = base.Structures[state.Next];
     if (WasStopped(stopping)) { return std::unexpected(StructureBakeErrorKind::Cancelled); }
     if (view.RequestedCell && one.Layout.Cell.Index != *view.RequestedCell) { continue; }
+    ++processed;
     const auto emitted =
         EmitStructure(one,
                       base.PointsLatLon,

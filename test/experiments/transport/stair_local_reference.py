@@ -19,6 +19,7 @@ from stair_module_soil import assemble, fit, prepare
 from stair_module_world import inspect_world, source_ground
 from stair_patch_experiment import compare
 from stair_patch_inputs import fresh
+from stair_reference_roads import seed_reference_roads
 from stair_terrain_experiment import frozen
 
 
@@ -51,7 +52,7 @@ def baseline_binding(args, manifest):
     return before
 
 
-def reference_state(args):
+def reference_state(args, *, seed_geometry=False):
     view, assets, supports, contacts, manifest = load_chain(
         args.resident, args.prior_module
     )
@@ -65,7 +66,9 @@ def reference_state(args):
     )
     compare(view, plan, field)
     region = shapely.box(*plan["xy"].min(axis=0), *plan["xy"].max(axis=0))
-    road, ground, keys, rows, note = road_window(assets, region)
+    road, ground, keys, rows, note = (
+        seed_reference_roads(assets) if seed_geometry else road_window(assets, region)
+    )
     if keys != manifest["source_ids"]:
         raise ValueError("diagnostic whole reference needs every original road asset")
     state = {
@@ -167,8 +170,10 @@ def compare_saved(args, arrays):
 def run(args):
     commit, began = frozen(), time.perf_counter()
     fresh(args.output)
-    state, manifest, note = reference_state(args)
     recipe, rows, context, sources, sample, _layer = inputs(args.fixture)
+    state, manifest, note = reference_state(
+        args, seed_geometry=recipe.get("contact_mode") == "seed"
+    )
     if context["origin_lat_lon"] != manifest["origin_lat_lon"]:
         raise ValueError("whole reference recipe frame differs")
     arrays, proof = construct(state, recipe, rows, sources, sample)
