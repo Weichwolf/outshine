@@ -61,7 +61,7 @@ def root_rows(reference, state):
         "body_sha256": state["report"]["after"]["body_sha256"],
     }
     return [
-        {k: v for k, v in row.items() if k != "original"}
+        {k: row[k] for k in ("source_id", "xy", "width_m")}
         | {"resident_profile_provenance": provenance}
         for row in rows
     ]

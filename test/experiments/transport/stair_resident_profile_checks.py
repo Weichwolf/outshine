@@ -69,3 +69,93 @@ class ResidentProfiles(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "ordered root source"),
             ):
                 root_rows(self.reference, state)
+
+
+class ActualResidentCap(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import hashlib
+        import json
+        from pathlib import Path
+
+        path = (
+            Path(__file__).with_name("fixtures")
+            / "stair-resident-cycleway-profile-vienna.npz"
+        )
+        cls.meta = json.loads(path.with_suffix(".json").read_text())
+        if hashlib.sha256(path.read_bytes()).hexdigest() != cls.meta["data_sha256"]:
+            raise ValueError("actual original resident cap fixture changed")
+        with np.load(path, allow_pickle=False) as data:
+            cls.vertices, cls.faces = data["vertices"], data["faces"]
+        if (
+            hashlib.sha256(cls.vertices[cls.faces].tobytes()).hexdigest()
+            != cls.meta["actual_cap_XYZ_sha256"]
+        ):
+            raise ValueError("actual original owner facet coordinates changed")
+
+    def context(self):
+        key = self.meta["source_id"]
+        sources = {key: {"xy_m": self.meta["xy_m"], "mvt_xy": self.meta["mvt_xy"]}}
+        state = {
+            "cached_module_rows": {
+                key: {
+                    "xy": np.array(self.meta["xy_m"]),
+                    "width_m": self.meta["width_m"],
+                }
+            },
+            "road": {
+                "body_vertices": self.vertices.copy(),
+                "top_faces": self.faces.copy(),
+                "face_sources": np.ones(len(self.faces), np.uint64),
+            },
+            "road_ground": np.ones(len(self.faces), bool),
+            "report": {"candidate_source_ids": [key]},
+        }
+        return state, copy.deepcopy(sources), key
+
+    def test_actual_full_varying_profile_is_preserved(self):
+        from stair_module_loops import interior_profile
+
+        state, sources, key = self.context()
+        before = state["road"]["body_vertices"].copy()
+        result = interior_profile(state, sources, key, 8)
+        self.assertEqual(result["mvt_xy"], [4011, 2802])
+        self.assertAlmostEqual(
+            np.linalg.norm(result["profile"][-1, :2] - result["profile"][0, :2]), 2.0
+        )
+        self.assertGreater(np.ptp(result["profile"][:, 2]), 0.007)
+        np.testing.assert_array_equal(state["road"]["body_vertices"], before)
+
+    def test_changed_axis_frame_width_or_owner_are_refused(self):
+        from stair_module_loops import interior_profile
+
+        for kind in ("axis", "frame", "width", "owner", "ground"):
+            state, sources, key = self.context()
+            if kind == "axis":
+                state["cached_module_rows"][key]["xy"][8, 0] += 0.001
+            elif kind == "frame":
+                sources[key]["xy_m"][8][0] += 0.001
+            elif kind == "width":
+                state["cached_module_rows"][key]["width_m"] = 3.0
+            elif kind == "owner":
+                state["road"]["face_sources"][:] = 0
+            else:
+                state["road_ground"][:] = False
+            with self.subTest(kind=kind), self.assertRaises(ValueError):
+                interior_profile(state, sources, key, 8)
+
+    def test_profile_with_missing_actual_face_interval_is_refused(self):
+        from stair_module_loops import interior_profile
+
+        state, sources, key = self.context()
+        result = interior_profile(state, sources, key, 8)
+        centre = result["profile"][1, :2]
+        import shapely
+
+        faces = state["road"]["top_faces"]
+        polygons = shapely.polygons(state["road"]["body_vertices"][faces, :2])
+        state["road"]["face_sources"][
+            shapely.dwithin(polygons, shapely.Point(centre), 0.01)
+        ] = 0
+        with self.assertRaises(ValueError):
+            interior_profile(state, sources, key, 8)
