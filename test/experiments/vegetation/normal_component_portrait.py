@@ -131,7 +131,7 @@ def render(whole, catalog, fields, output, mode):
         "generated_image_float_bytes": sum(
             image.size[0] * image.size[1] * 4 * 4
             for image in bpy.data.images
-            if image.type == "IMAGE" and image.source == "GENERATED"
+            if image.name.startswith("diagnostic signed Float32 field")
         ),
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
