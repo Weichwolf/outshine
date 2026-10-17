@@ -15,6 +15,43 @@
 namespace outshine::Render {
 namespace {
 
+void ReserveGeometry(const Geometry &from, ShapeStore &into) {
+  if (!into.Parts.empty()) { return; }
+  size_t vertices = into.PositionsM.size() / 3;
+  size_t indices = into.Indices.size();
+  bool normals = !into.Normals.empty();
+  bool tangents = !into.Tangents.empty();
+  bool uv = !into.Uv.empty();
+  bool uv1 = !into.Uv1.empty();
+  bool colours = !into.Colours.empty();
+  for (int part = 0; part < from.parts(); ++part) {
+    const auto corners = from.trianglesOf(part);
+    const bool flat = from.normalsOf(part).empty() && !corners.empty();
+    const size_t added = flat ? corners.size() : from.positionsOf(part).size() / 3;
+    assert(vertices <= std::numeric_limits<uint32_t>::max());
+    assert(added <= std::numeric_limits<uint32_t>::max() - vertices);
+    vertices += added;
+    indices += corners.size();
+    normals = normals || flat || !from.normalsOf(part).empty();
+    tangents = tangents || !from.tangentsOf(part).empty();
+    uv = uv || !from.textureOf(part, Geometry::UvSet::Uv0).empty();
+    uv1 = uv1 || !from.textureOf(part, Geometry::UvSet::Uv1).empty();
+    colours = colours || !from.coloursOf(part).empty();
+  }
+  const auto reserve = [vertices](std::vector<float> &values, size_t components, bool present) {
+    if (present) { values.reserve(vertices * components); }
+  };
+  reserve(into.PositionsM, 3, vertices != 0);
+  reserve(into.Normals, 3, normals);
+  reserve(into.Tangents, 4, tangents);
+  reserve(into.Uv, 2, uv);
+  reserve(into.Uv1, 2, uv1);
+  reserve(into.Colours, 4, colours);
+  into.Indices.reserve(indices);
+  into.Surfaces.reserve(into.Surfaces.size() + static_cast<size_t>(from.surfaces()));
+  into.Lamps.reserve(into.Lamps.size() + static_cast<size_t>(from.lamps()));
+}
+
 void AppendAttribute(std::span<const float> source,
                      const ShapePart &part,
                      size_t components,
@@ -165,6 +202,7 @@ void GenerateFlatNormals(ShapePart &part, ShapeStore &into) {
 }
 
 void AppendGeometry(const Geometry &from, ShapeStore &into) {
+  ReserveGeometry(from, into);
   const auto firstSurface = static_cast<int>(into.Surfaces.size());
   for (int surface = 0; surface < from.surfaces(); ++surface) {
     into.Surfaces.push_back(from.surfaceAt(MaterialInstance(surface)));
