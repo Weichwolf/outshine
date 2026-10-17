@@ -18,7 +18,9 @@ class GroundApproachTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         data = Path(__file__).with_name("data") / "terraced-ground-controls.json"
-        cls.rows = json.loads(data.read_text())["cases"]
+        reference = json.loads(data.read_text())
+        cls.rows = reference["cases"]
+        cls.preservation = reference["preservation"]
         cls.owners = [
             TerraceProducts(
                 plan(
@@ -54,6 +56,19 @@ class GroundApproachTests(unittest.TestCase):
                 result = inspect(owner)
                 self.assertGreater(result["ground_approach"]["critical_slabs"], 0)
                 self.assertGreater(len(result["terraces"]), 0)
+
+    def test_valid_stair_keeps_its_original_orientation_opening_and_poses(self):
+        reference = self.preservation
+        row = reference["source"]
+        mass = mass_plan(
+            dict(row, polygon=shapely.from_wkb(row["footprint_wkb"])),
+            row["programme"],
+        )
+        np.testing.assert_array_equal(mass.core.path, reference["original_core_path"])
+        self.assertEqual(mass.core.flip, reference["original_flip"])
+        self.assertEqual(
+            mass.core.opening_wkb, bytes.fromhex(reference["original_opening_wkb"])
+        )
 
 
 if __name__ == "__main__":

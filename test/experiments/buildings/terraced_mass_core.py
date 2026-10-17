@@ -12,8 +12,6 @@ from building_stair import core_layout, geometry_frame
 from outshine_ref.buildings.interiors.routes import routes
 from shapely.affinity import affine_transform
 
-CLEARANCE_RESERVE_M = 0.001
-
 
 @dataclass(frozen=True)
 class Core:
@@ -53,7 +51,7 @@ def canonical_layout(core, rise, bottom, flip):
 
 
 def circulation_space(polygon, core, front):
-    radius = AGENT_RADIUS_M / math.cos(math.pi / (4 * 32)) + CLEARANCE_RESERVE_M
+    radius = AGENT_RADIUS_M / math.cos(math.pi / (4 * 32))
     blocked = core.difference(front).buffer(radius, quad_segs=32)
     return polygon.buffer(-(WALL_M + radius), join_style="mitre").difference(blocked)
 

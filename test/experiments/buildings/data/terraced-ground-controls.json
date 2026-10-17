@@ -697,5 +697,329 @@
       "original_approach_wkb": "0102000000510000001d2de377de327340f8b0b44f920b82407a360d86a9667340f8b0b44f920b824006822d0cfd667340f8b0b44f920b82403b6fb73774677340f8b0b44f920b8240b742b3909c677340f8b0b44f920b8240cdecc467f0677340f8b0b44f920b8240605da8634b687340f8b0b44f920b82409dc54652bc687340f8b0b44f920b8240e2dfd98857697340f8b0b44f920b8240d43b50d4d5697340f8b0b44f920b82400f33b84f786a7340f8b0b44f920b82409db3615b276b7340f8b0b44f920b82400456d56f136c7340f8b0b44f920b8240f11c711dbf927340f8b0b44f920b8240f3b50dcd979b7340f8b0b44f920b8240df458f57109c7340f8b0b44f920b8240719e147d519c7340f8b0b44f920b82401492aee0c29c7340f8b0b44f920b824066dd9d19039d7340f8b0b44f920b8240a45cea86579d7340f8b0b44f920b8240da13dfb0a69d7340f8b0b44f920b82409cf92422ec9d7340f8b0b44f920b8240e302bf223e9e7340f8b0b44f920b824004775fe28b9e7340f8b0b44f920b824044c72cbbc49e7340f8b0b44f920b8240d3317021019f7340f8b0b44f920b8240e36812d63f9f7340f8b0b44f920b824074c688db789f7340f8b0b44f920b8240a5048dafa29f7340f8b0b44f920b824096fc73efd79f7340f8b0b44f920b8240f99a8328f79f7340f8b0b44f920b824087e9849113a07340f8b0b44f920b82409dab15472da07340f8b0b44f920b824040abe0723ba07340f8b0b44f920b82403dc0d8eb63a07340f8b0b44f920b82403dc0d8eb63a073400fef1da1796682403dc0d8eb63a07340d5142e64a36682403dc0d8eb63a07340874ef352c36682403dc0d8eb63a073406f598737dc668240fb96f5b69da073406f598737dc668240fb96f5b69da07340e989f5a00b678240fb96f5b69da07340c98ed828316782404ec3f9bdf8a07340c98ed828316782404ec3f9bdf8a07340e4571d086a6782404ec3f9bdf8a07340292711dab56782404ec3f9bdf8a073401bc34776f06782404ec3f9bdf8a07340b9befbb3416882404ec3f9bdf8a07340b5ce977d9a688240fbfb7cb081ee7340b5ce977d9a688240fbfb7cb081ee734024467c28f1688240fbfb7cb081ee7340236cacc6028382404ec3f9bdf8a07340236cacc602838240fb96f5b69da07340236cacc602838240fb96f5b69da07340515c3933b18382403dc0d8eb63a07340515c3933b183824040abe0723ba07340515c3933b18382409dab15472da07340515c3933b183824087e9849113a07340515c3933b183824087e9849113a07340f4e2263c33848240f99a8328f79f7340f4e2263c3384824096fc73efd79f7340f4e2263c33848240a5048dafa29f7340f4e2263c3384824074c688db789f7340f4e2263c3384824074c688db789f7340d229e141b1848240e36812d63f9f7340d229e141b1848240d3317021019f7340d229e141b184824044c72cbbc49e7340d229e141b184824004775fe28b9e7340d229e141b184824004775fe28b9e7340032616e0f9848240e302bf223e9e7340032616e0f98482409cf92422ec9d7340032616e0f9848240da13dfb0a69d7340032616e0f9848240da13dfb0a69d734079ba144c20858240a45cea86579d734079ba144c2085824066dd9d19039d734079ba144c208582401492aee0c29c734079ba144c20858240719e147d519c734079ba144c20858240719e147d519c73406bf79d6a18878240df458f57109c73406bf79d6a18878240f3b50dcd979b73406bf79d6a18878240f11c711dbf9273406bf79d6a18878240",
       "original_failure": "Actual terrace route obstructs the continuous actor tube"
     }
-  ]
+  ],
+  "preservation": {
+    "source": {
+      "id": "Paris/(14, 8298, 5635)/5335120/23/657",
+      "xy": [
+        586.0530673490146,
+        225.58828732349912
+      ],
+      "height_m": 26.0,
+      "min_height_m": 0.0,
+      "body_height_m": 26.0,
+      "shape": "courtyard",
+      "properties": {
+        "render_height": 26,
+        "render_min_height": 0
+      },
+      "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "source_tile": [
+        14,
+        8298,
+        5635
+      ],
+      "coordinate_step_m": 0.39278873338328335,
+      "context": {
+        "version": 1,
+        "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+        "evidence": [
+          {
+            "id": "landuse:99436883:56:0",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "area-overlap",
+            "coverage": 1.0,
+            "context_area_m2": 2752744.2448455156,
+            "scope": "site-context"
+          },
+          {
+            "id": "transportation:164052032:616:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 5.086536902001733,
+            "position_xy": [
+              586.675073434921,
+              245.3209415379286
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:804",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 0.6210535170457072,
+            "position_xy": [
+              585.1682405873715,
+              240.5142591917994
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:873",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 1.1409223328784666,
+            "position_xy": [
+              587.721367353689,
+              241.10344229196383
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:874",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 0.6571984031459063,
+            "position_xy": [
+              584.9718462204868,
+              239.92507609237006
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:875",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 10.575700923088243,
+            "position_xy": [
+              569.6283469960616,
+              220.97579648976506
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:877",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 10.050948690916085,
+            "position_xy": [
+              587.5676444686172,
+              250.20445525390937
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:584244852:697:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 5.497718408071124,
+            "position_xy": [
+              580.5067500002426,
+              241.94738424494167
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation_name:164052032:346:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Rue de la Grange Bateli\u00e8re",
+              "name_int": "Rue de la Grange Bateli\u00e8re",
+              "class": "minor",
+              "name:latin": "Rue de la Grange Bateli\u00e8re",
+              "name_de": "Rue de la Grange Bateli\u00e8re",
+              "name_en": "Rue de la Grange Bateli\u00e8re"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 5.086536902001733,
+            "position_xy": [
+              586.675073434921,
+              245.3209415379286
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          },
+          {
+            "id": "transportation_name:584244850:408:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Rue Rossini",
+              "name_int": "Rue Rossini",
+              "class": "minor",
+              "name:latin": "Rue Rossini",
+              "name_de": "Rue Rossini",
+              "name_en": "Rue Rossini"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 5.497718408071124,
+            "position_xy": [
+              580.5067500002426,
+              241.94738424494167
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:99436883:56:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "layer": "building",
+      "clipped": false,
+      "placement_base_enu_m": 0.0,
+      "ground_asl_m": null,
+      "placement_origin": "flat shared building plane; no DEM",
+      "footprint_wkb": "0103000000020000000500000013A4DBBBEC1E8240A3D6E5544B4A6B40F34626340F4E82407F93DAF22B0A6E40DB1CDD79BFE18240462EC16B0C996D405703279378AF8240D8961E149ACC6A4013A4DBBBEC1E8240A3D6E5544B4A6B40050000005ACAEC15576A82406F16AD95FCC76B407D5DF5420C908240EAFCF6AEB5956B40F67C79D9E6A28240B0AE32EAA99D6C40D3E970AC317D824005963B175FC36C405ACAEC15576A82406F16AD95FCC76B40",
+      "programme": "paired-wings"
+    },
+    "original_core_path": [
+      [
+        589.8159981559693,
+        231.59461153725204,
+        0.16
+      ],
+      [
+        589.14949400043,
+        231.77313943604892,
+        0.3299346405228758
+      ],
+      [
+        588.8790285460082,
+        231.84558553990854,
+        0.4998692810457517
+      ],
+      [
+        588.6085630915865,
+        231.91803164376813,
+        0.6698039215686274
+      ],
+      [
+        588.3380976371647,
+        231.99047774762775,
+        0.8397385620915033
+      ],
+      [
+        588.067632182743,
+        232.06292385148737,
+        1.009673202614379
+      ],
+      [
+        587.7971667283213,
+        232.13536995534696,
+        1.1796078431372548
+      ],
+      [
+        587.5267012738994,
+        232.20781605920658,
+        1.3495424836601306
+      ],
+      [
+        587.2562358194778,
+        232.28026216306617,
+        1.5194771241830065
+      ],
+      [
+        586.5897316639384,
+        232.45879006186308,
+        1.6894117647058824
+      ],
+      [
+        587.0813302258429,
+        234.29409135972494,
+        1.6894117647058824
+      ],
+      [
+        587.7478343813822,
+        234.11556346092803,
+        1.8593464052287583
+      ],
+      [
+        588.0182998358039,
+        234.04311735706844,
+        2.029281045751634
+      ],
+      [
+        588.2887652902257,
+        233.97067125320882,
+        2.19921568627451
+      ],
+      [
+        588.5592307446474,
+        233.89822514934923,
+        2.369150326797386
+      ],
+      [
+        588.8296961990691,
+        233.8257790454896,
+        2.5390849673202616
+      ],
+      [
+        589.1001616534909,
+        233.75333294163,
+        2.7090196078431377
+      ],
+      [
+        589.3706271079126,
+        233.6808868377704,
+        2.8789542483660133
+      ],
+      [
+        590.3075967178737,
+        233.4299128351139,
+        3.048888888888889
+      ]
+    ],
+    "original_opening_wkb": "01030000000100000009000000444115ae23698240abf6baa494e66c40c0754ac4f966824041d0381fe6e86c405851aec3174e82408616e01f8f036d400cc720a55e5082409794c0798f256d402cd85a704d54824087288a434a606d4094fcf6702f6d824043e2e242a1456d4074ebbca540698240534e1979e60a6d40f7b6878f6a6b8240bc749bfe94086d40444115ae23698240abf6baa494e66c40",
+    "original_flip": false
+  }
 }
