@@ -4,6 +4,7 @@
 and leaf rows from the checked Python PlantPlan contract. It does not yet
 regenerate a recipe, decode an asset, build geometry or replace world trees.
 Those are separate integration steps, not implied by the CPU comparison.
+[PlantRecipe](native_plant_recipe.md) now owns direct native recipe generation.
 
 ## Kept semantics
 
