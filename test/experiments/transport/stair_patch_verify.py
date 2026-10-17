@@ -94,11 +94,36 @@ def pier_contacts(view, supports):
     }
 
 
+def reference_inputs(args, manifest):
+    report_path = args.reference / "comparison.json"
+    report = json.loads(report_path.read_text())
+    receipt = json.loads((args.reference / "verification.json").read_text())
+    report_hash = digest(report_path)
+    if (
+        report.get("valid_local_module") is not True
+        or receipt.get("valid_local_module") is not True
+        or receipt["products_report_sha256"] != report_hash
+        or manifest["source_reports"][-1]["report_sha256"] != report_hash
+        or manifest["origin_lat_lon"] != report["origin_lat_lon"]
+        or manifest["source_ids"] != report["candidate_source_ids"]
+        or report["support_report_sha256"] != digest(args.supports / "comparison.json")
+    ):
+        raise ValueError(
+            "prepared field lost its actual source/frame/reference binding"
+        )
+    for name in ("world-layout.npz", "world-field.npz"):
+        if digest(args.reference / name) != report["artifacts"][name]:
+            raise ValueError("independent whole reference geometry changed")
+    return read_arrays(args.reference / "world-layout.npz"), read_arrays(
+        args.reference / "world-field.npz"
+    )
+
+
 def verify(args):
     commit, began = frozen(), time.perf_counter()
+    manifest = json.loads((args.prepared / "patches.json").read_text())
+    layout, field = reference_inputs(args, manifest)
     view, manifest = load_prepared(args.prepared)
-    layout = read_arrays(args.reference / "world-layout.npz")
-    field = read_arrays(args.reference / "world-field.npz")
     proof = compare(view, layout, field)
     reference = Mesh(np.c_[layout["xy"], field["heights"]], layout["faces"])
     proof.update(compare_queries(view, reference))
