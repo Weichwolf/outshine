@@ -37,9 +37,10 @@ class PrototypeNormalTests(unittest.TestCase):
                 )
             }
         )
-        vectors, old, facts = encode(square(), bank, 0)
-        np.testing.assert_array_equal(vectors.sum(axis=2), old)
-        np.testing.assert_array_equal(old, np.broadcast_to([0, 0, 1], (32, 32, 3)))
+        vectors, facts = encode(square(), bank, 0)
+        np.testing.assert_array_equal(
+            vectors.sum(axis=2), np.broadcast_to([0, 0, 1], (32, 32, 3))
+        )
         self.assertEqual(vectors.dtype, np.dtype("float32"))
         self.assertEqual(facts["float32_vector_error_bound_max"], 0)
 

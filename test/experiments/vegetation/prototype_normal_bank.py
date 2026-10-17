@@ -32,20 +32,8 @@ def encode(geometry, bank, index):
     field = measure.moments[4][..., 1:] @ frame
     packed = field.astype(np.float32)
     error = quantization_bound(field, packed)
-    old = image[..., 4:7].reshape(-1, 3).astype(float)
-    length = np.linalg.norm(old, axis=-1)
-    old = (
-        np.divide(
-            old * image[..., 3].reshape(-1, 1),
-            length[:, None],
-            out=np.zeros_like(old),
-            where=length[:, None] > 0,
-        )
-        @ frame
-    )
     return (
         packed.reshape(32, 32, 4, 3),
-        old.reshape(32, 32, 3).astype(np.float32),
         {
             "visible_samples": measure.sample_count,
             "float32_vector_error_bound_max": float(error.max()),
@@ -88,14 +76,13 @@ def build(models, catalog, output):
             bank = {key: data[key] for key in data.files}
         if bank["images"].shape != (64, 32, 32, 9):
             raise ValueError("complete64x32x32bank required")
-        vectors, old, facts = [], [], []
+        vectors, facts = [], []
         for index in range(64):
-            v, o, f = encode(geometry, bank, index)
+            v, f = encode(geometry, bank, index)
             vectors.append(v)
-            old.append(o)
             facts.append(f)
         target = output / path.name
-        np.savez_compressed(target, vectors=np.array(vectors), old_mean=np.array(old))
+        np.savez_compressed(target, vectors=np.array(vectors))
         records.append(
             {
                 "family": info["family"],
@@ -104,7 +91,6 @@ def build(models, catalog, output):
                 "file": target.name,
                 "sha256": source_digest(target),
                 "vector_bytes": sum(v.nbytes for v in vectors),
-                "comparison_old_mean_bytes": sum(o.nbytes for o in old),
                 "maximum_encoding_bound": max(
                     f["float32_vector_error_bound_max"] for f in facts
                 ),
