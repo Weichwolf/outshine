@@ -36,6 +36,7 @@ def saved_planning(output, original, ground):
             "profile_kind",
             "crossfall_limit",
             "traffic_profile",
+            "horizontal_curve_plan",
         ):
             if before.get(key) != after.get(key):
                 raise ValueError("explicit procedural road profile changed")
@@ -44,6 +45,14 @@ def saved_planning(output, original, ground):
             if not np.array_equal(before[key], after[key]):
                 raise ValueError("original axis or DEM prior changed")
         after["original"] = before["original"]
+        if "surface_axis_xy_m" in before:
+            after["surface_axis_xy_m"] = np.array(after["surface_axis_xy_m"])
+            if not np.array_equal(
+                before["surface_axis_xy_m"], after["surface_axis_xy_m"]
+            ):
+                raise ValueError("derived horizontal road axis changed")
+        elif "surface_axis_xy_m" in after:
+            raise ValueError("undeclared horizontal road axis")
     domains = [corridor(row) for row in rows]
     old = shapely.union_all(shapely.polygons(ground.vertices[ground.triangles, :2]))
     clipped = [p.difference(old) for p in domains]
