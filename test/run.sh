@@ -257,6 +257,8 @@ TestProfile() {
       printf '%s' 'profile/device' ;;
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
     outshine/src/base/io/Tasks) printf '%s' 'profile/tasks' ;;
+    outshine/src/generators/flora/PreparedPlant) printf '%s' 'profile/plant-asset' ;;
+    outshine/src/generators/flora/PlantPlan) printf '%s' 'profile/plant-plan' ;;
     outshine/src/base/*) printf '%s' 'profile/base' ;;
     outshine/src/content/*) printf '%s' 'profile/content' ;;
     outshine/src/world/*) printf '%s' 'profile/world' ;;
@@ -298,6 +300,8 @@ LayerIncludes() {
     profile/scenario) GroupIncludes src/scenario ;;
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
+    profile/plant-asset) GroupIncludes src/generators/flora; GroupIncludes src/base; GroupIncludes src/content/assets; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
+    profile/plant-plan) GroupIncludes src/generators/flora ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
@@ -328,7 +332,7 @@ LayerToolchain() {
 }
 NativeSafetyProfile() {
   case "$1" in
-    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) return 0 ;;
+    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PreparedPlant) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -370,6 +374,8 @@ LayerLink() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/tasks) printf '%s' '-pthread' ;;
+    profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
+    profile/plant-plan) return 0 ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
@@ -418,6 +424,8 @@ LayerGroups() {
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     profile/tasks) printf '%s' 'src/base/io/Tasks.cpp' ;;
+    profile/plant-asset) printf '%s' 'src/generators/flora/PreparedPlant.cpp src/generators/flora/PreparedPlantAsset.cpp src/base/Geometry.cpp src/base/format/Sha256.cpp src/content/assets' ;;
+    profile/plant-plan) printf '%s' 'src/generators/flora/PlantPlan.cpp src/generators/flora/PlantAxisSurface.cpp src/generators/flora/PlantSurface.cpp src/generators/flora/PlantBladeSurface.cpp' ;;
     profile/base) SubtreeGroups src/base ;;
     profile/content) SubtreeGroups src/base src/content ;;
     profile/world) SubtreeGroups src/base src/content src/world ;;
