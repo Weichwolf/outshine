@@ -40,7 +40,8 @@ were checked against the primary documentation.
 
 ## Actual complete state and independent controls
 
-Code/test/wheel commit `072e06c9372fda65e9594f37e2d7a0d22935754e`.
+Runtime/wheel commit `072e06c9372fda65e9594f37e2d7a0d22935754e`;
+later control-only additions also check two very thin exact rectangles.
 Use the [verified complete78-source snapshot and79th-source recipe](stair_resident_snapshot_comparison.md).
 Input manifest SHA256:
 `4e0c339d98df06e77cf1aecbf3f5c0386819dba3c188cbd0d325419ba2a9a917`.
