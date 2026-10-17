@@ -86,6 +86,10 @@ class AffineOccupancy(Reservation):
         xy = shapely.get_coordinates(self.geometry)
         if len(xy) > 65536 or abs(xy).max() > 1e6:
             raise ValueError("bounded local affine domain required")
+        if self.geometry.area <= 0:
+            raise OccupancyError(
+                "affine domain area is not representable at the current XY precision"
+            )
         lower = [plane_value(self.lower_plane_m, self.origin_xy_m, p) for p in xy]
         upper = [plane_value(self.upper_plane_m, self.origin_xy_m, p) for p in xy]
         if any(a >= b for a, b in zip(lower, upper, strict=True)):

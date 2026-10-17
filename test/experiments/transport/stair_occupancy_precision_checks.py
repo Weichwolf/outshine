@@ -16,6 +16,13 @@ def body(domain, origin=(0, 0), lower=(100, 1, 0), upper=(101, 1, 0)):
 
 
 class ExactEmptyBands(unittest.TestCase):
+    def test_unrepresentable_input_area_cannot_bypass_guard_through_full_overlap(self):
+        source = shapely.box(0, 0, 1e-170, 1e-170)
+        self.assertTrue(source.is_valid)
+        self.assertEqual(source.area, 0)
+        with self.assertRaisesRegex(OccupancyError, "domain area is not representable"):
+            body(source, lower=(100, 0, 0), upper=(101, 0, 0))
+
     def test_positive_sliver_is_not_false_free_after_translation(self):
         heights = HeightInterval(0, math.nextafter(100.0, 101.0))
         wanted = F(heights.upper_m) - 100
