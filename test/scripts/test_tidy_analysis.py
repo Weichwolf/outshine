@@ -78,6 +78,28 @@ class TidyExecution(unittest.TestCase):
         self.check_project_policy('int read(int *value) { if (value) return 0; return *value; }\n',
                                   'clang-analyzer-core.NullDereference')
 
+    def test_fixed_underlying_enum_allows_unnamed_bit_combinations(self):
+        self.main.write_text('int main() {\n'
+                             'enum class Flags : unsigned char { None = 0, First = 1, Second = 2 };\n'
+                             'return static_cast<int>(static_cast<Flags>(3));\n'
+                             '}\n')
+        (self.root / '.clang-tidy').write_text((ROOT / '.clang-tidy').read_text())
+        self.run_analysis(0)
+
+    def test_parameter_name_check_remains_active_outside_allocation_replacements(self):
+        self.check_project_policy('int Read(int original);\n'
+                                  'int Read(int replacement) { return replacement; }\n',
+                                  'readability-inconsistent-declaration-parameter-name')
+
+    def test_allocation_policy_keeps_memory_analysis_and_error_status(self):
+        directory = self.root / 'src/diagnostics'
+        directory.mkdir()
+        (directory / '.clang-tidy').write_text((ROOT / 'src/diagnostics/.clang-tidy').read_text())
+        self.main = directory / 'Allocation.cpp'
+        self.database([self.main])
+        self.check_project_policy('int Read(int *value) { if (value) return 0; return *value; }\n',
+                                  'clang-analyzer-core.NullDereference')
+
     def test_parse_failure_cannot_hide_beside_warning(self):
         bad = self.root / 'src/Broken.cpp'
         bad.write_text('int broken( {\n')

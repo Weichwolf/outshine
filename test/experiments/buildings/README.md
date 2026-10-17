@@ -12,8 +12,17 @@ as the experiment dependencies:
 ```
 
 The connected Shape/modelling core and CGA ↔ ENU conversion come from
-`outshine_ref.buildings.modelling`. Static OBJ/glTF/GLB decoding additionally needs
+`outshine_ref.buildings.modelling`. Static OBJ decoding additionally needs
 `.venv/bin/python -m pip install -e './lib[assets]'`.
+Owned OBJ/material controls and native geometry channels are independent of
+optional SDK or file-format oracles. Generate their private outputs explicitly:
+
+```sh
+.venv/bin/python test/experiments/buildings/verify_modelling_asset_load.py --files /tmp/outshine-buildings-obj-controls --output /tmp/outshine-buildings-obj-check.json
+.venv/bin/python test/experiments/buildings/verify_modelling_material.py --output /tmp/outshine-buildings-material-check.json
+.venv/bin/python test/experiments/buildings/modelling_asset_probe.py --output /tmp/outshine-buildings-obj-reuse.json
+```
+
 `verify_scope_library.py` compares all emitted streams on four saved control meshes
 against the committed pre-migration implementation, then measures the same five
 operations and emission. Saved inputs live under `build/experiments/buildings/`;

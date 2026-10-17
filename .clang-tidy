@@ -18,6 +18,7 @@ Checks: >
   modernize-*,
 
   -clang-analyzer-optin.performance.Padding,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
   -misc-no-recursion,
   -modernize-use-trailing-return-type,
   -readability-uppercase-literal-suffix,
@@ -28,6 +29,7 @@ WarningsAsErrors: '*'
 
 CheckOptions:
   readability-function-size.LineThreshold: 120
+  # Fixed-underlying enums permit unnamed bit combinations; the opt-in enum checker rejects them.
   # Padding suggestions do not establish a runtime saving or preserve member lifetime order.
   # CPU/GPU layouts retain explicit size, alignment and offset assertions.
   # `misc-include-cleaner` IS RIGHT ABOUT THE STANDARD LIBRARY AND WRONG ABOUT EVERYTHING ELSE HERE,
