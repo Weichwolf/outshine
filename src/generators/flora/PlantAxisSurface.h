@@ -9,6 +9,11 @@
 #include <string_view>
 
 namespace outshine::Generators {
+struct PlantAxisSurfaceLimits {
+  static constexpr size_t LeastSegments = 2, MostSegments = 1024;
+  static constexpr size_t LeastSides = 3, MostSides = 128;
+};
+
 struct PlantAxisSurfaceDemand {
   uint64_t Axis = 0;
   size_t Segments = 0, Sides = 0;

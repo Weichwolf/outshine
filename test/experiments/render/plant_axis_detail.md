@@ -58,7 +58,7 @@ positive underflow is rounded upward. Inputs/counts are validated, and an
 unreachable demand fails. Selection/preflight allocate no geometry.
 
 **The bound is local to the ideal parametric tube.** Frame transformation,
-Float32 vertex emission, shader arithmetic, normal interpolation, coverage,
+Float64 parameter/libm vertex evaluation, Float32 vertex emission, shader arithmetic, normal interpolation, coverage,
 lighting, wind and screen projection require their own accounting. This does
 not reduce any existing world/terrain LOD allowance or establish a runtime
 screen-space bound. No source/distance term is silently replaced by this number.

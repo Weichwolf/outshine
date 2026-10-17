@@ -67,5 +67,24 @@ int main() {
         "invalid surface demand is not silently repaired");
   CHECK(!BuildPreparedPlant(*plan, {}, identity, materials, demand),
         "variant catalogue must match source-plan ownership");
+  auto adaptive = demand;
+  adaptive.AxisSegments = adaptive.AxisSides = 0;
+  constexpr double kAxisErrorM = 0.005;
+  constexpr size_t kGenerousBudget = 1000;
+  adaptive.AxisParametricErrorM = kAxisErrorM;
+  adaptive.Maximum = {.Vertices = kGenerousBudget,
+                      .Triangles = kGenerousBudget,
+                      .LeafInstances = 3,
+                      .TriangleReferences = kGenerousBudget};
+  Allocations = 0;
+  Tracking = true;
+  const auto selected = MeasurePreparedPlant(*plan, blades, adaptive);
+  Tracking = false;
+  CHECK(selected && Allocations == 0, "adaptive selection/preflight allocate no product state");
+  adaptive.Maximum.Vertices = 0;
+  Tracking = true;
+  const auto rejected = BuildPreparedPlant(*plan, blades, identity, materials, adaptive);
+  Tracking = false;
+  CHECK(!rejected && Allocations == 0, "adaptive product budget refusal happens before growth");
   return Report();
 }
