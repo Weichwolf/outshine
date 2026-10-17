@@ -4,7 +4,6 @@ import argparse
 import hashlib
 import io
 import json
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -14,12 +13,14 @@ from place_reference import PLACES, ROOT, flat
 
 def publish(source, output):
     destination = output.resolve()
-    allowed = (Path(tempfile.gettempdir()).resolve(), Path("/var/tmp"))
-    if destination.is_relative_to(ROOT) or not any(
-        destination.is_relative_to(p) for p in allowed
+    temporary_root = Path("/tmp").resolve()
+    if (
+        destination.is_relative_to(ROOT)
+        or destination == temporary_root
+        or not destination.is_relative_to(temporary_root)
     ):
         raise ValueError(
-            "Research comparisons must stay outside the repository in system temp"
+            "Research comparisons require a subdirectory of /tmp outside the repository"
         )
     snapshot = json.loads((source / "place-reports.json").read_text())
     reports = snapshot["reports"]

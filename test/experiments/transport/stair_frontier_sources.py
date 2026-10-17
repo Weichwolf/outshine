@@ -59,7 +59,9 @@ def records_for(state, sources):
     return records
 
 
-def root_seeds(state, sources, records):
+def root_seeds(state, sources, records, *, max_profiles=64):
+    if type(max_profiles) is not int or not 0 <= max_profiles <= 64:
+        raise ValueError("bounded actual profile probe capacity required")
     endpoints = defaultdict(list)
     for row in records:
         if row["eligible"]:
@@ -72,7 +74,7 @@ def root_seeds(state, sources, records):
                 continue
             port = {"source_id": key, "vertex": vertex}
             root_id = key + "@" + str(vertex)
-            if len(roots) + len(deferred) >= 64:
+            if len(roots) + len(deferred) >= max_profiles:
                 deferred.append(
                     {"root_id": root_id, "reason": "verified_seed_probe_budget"}
                 )
@@ -145,6 +147,11 @@ def proposals(state, sources, reference, *, method="index", strategy="whole"):
     records = records_for(state, sources)
     roots, deferred = root_seeds(state, sources, records)
     plan = discover_source_modules(records, roots, method=method)
+    recipes = recipes_for(plan, roots, state, sources, reference, strategy, deferred)
+    return plan, records, roots, deferred, recipes
+
+
+def recipes_for(plan, roots, state, sources, reference, strategy, deferred):
     by_root = {r["root_id"]: r for r in roots}
     recipes = []
     for proposal in plan["proposals"]:
@@ -181,4 +188,4 @@ def proposals(state, sources, reference, *, method="index", strategy="whole"):
                     "scope": "Whole connected source prefix; omitted sources remain original candidates for later recipes, not individually disproven.",
                 }
             recipes.append(recipe)
-    return plan, records, roots, deferred, recipes
+    return recipes

@@ -46,3 +46,8 @@ the one-second turn limit at 1001.958 ms. Eight Places hold all measured limits;
 all CPU-p99 are below 7.1 ms. These changing spikes require further work and do
 not admit the native port to master. Source coverage, profile, view distance,
 shader math and rendered contents are unchanged.
+
+The generic ownership change is subsequently integrated separately into master
+after the affected SDL tests and focused analysis pass. The footprint saving
+above remains a native-backend paired measurement, not an independently measured
+SDL process saving. The complete native port remains a separate draft.
