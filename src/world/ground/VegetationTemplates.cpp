@@ -1,4 +1,5 @@
 #include <format>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -258,6 +259,8 @@ bool VegetationTemplates::ReadSubstrate(const Json::Ref &ground,
   row.Edge[0] = static_cast<float>(ground["edgeReachM"].Num(kEdgeReachUnsaidM));
   row.Edge[1] = static_cast<float>(ground["edgeConstructed"].Num(0.0));
   row.Edge[3] = gm.SlopeExposesRock ? gm.SlopeMaxDeg : kNoRockSlopeDeg;
+  row.GroundBase = row.Ground;
+  row.LitterBase = row.Litter;
   Friction_.push_back(gm.FrictionFactor);
   return true;
 }
@@ -296,11 +299,25 @@ bool VegetationTemplates::ReadTemplates(const Json::Ref &root,
     row.Edge[2] = static_cast<float>(t["trees"]["perM2"].Num(0.0));
 
     const float closure = static_cast<float>(g["swardClosure"].Num(0.0));
-    if (closure > 0.0f) {
+    if (!std::isfinite(closure) || closure < 0.0f || closure > 1.0f) {
+      Error_ = "ground.swardClosure requires a finite fraction within [0,1]";
+      return false;
+    }
+    const std::array support{row.Grass[3], row.Dry[3], row.Param[0], row.Param[1], row.Param[3]};
+    if (closure > 0.0f &&
+        (!std::ranges::all_of(support,
+                              [](float value) { return std::isfinite(value) && value >= 0.0f; }) ||
+         row.Param[0] > 1.0f || row.Param[3] > 1.0f)) {
+      Error_ = "canopy support requires finite magnitudes and fractional jitter/dryness";
+      return false;
+    }
+    const bool supported = row.Grass[3] > 0.0f && row.Dry[3] > 0.0f && row.Param[1] > 0.0f;
+    row.CanopyWeight = supported ? closure : 0.0f;
+    if (row.CanopyWeight > 0.0f) {
       for (int c = 0; c < 3; c++) {
         const float sward = row.Grass[c] + (row.Dry[c] - row.Grass[c]) * row.Param[3];
-        row.Ground[c] += (sward - row.Ground[c]) * closure;
-        row.Litter[c] += (sward - row.Litter[c]) * closure;
+        row.Ground[c] += (sward - row.Ground[c]) * row.CanopyWeight;
+        row.Litter[c] += (sward - row.Litter[c]) * row.CanopyWeight;
       }
     }
     Table_.push_back(row);

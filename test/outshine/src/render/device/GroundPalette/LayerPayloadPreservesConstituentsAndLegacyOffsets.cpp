@@ -22,8 +22,8 @@ int main() {
   CHECK(std::bit_cast<uint32_t>(palette[0]) == rows, "native row count retains its bit contract");
   CHECK(layersAt == surfacesAt + 8u * (rows + 1u),
         "the reserved header points past the unchanged class/slope/surface prefix");
-  CHECK(palette.size() == layersAt + 8u * (rows + 1u),
-        "each material has one bounded 32-byte constituent payload");
+  CHECK(palette.size() == layersAt + (8u + 24u) * (rows + 1u),
+        "constituent prefix and bounded canopy tail retain their complete row counts");
   for (size_t row = 0; row < rows; ++row) {
     const auto &source = templates.Rows()[row];
     const auto mean = source.MeanGround();
