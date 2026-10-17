@@ -23,7 +23,9 @@ def triangle_rule(order):
     ), w.ravel()
 
 
-def integrate(source, scene, view, lights, size=16, order=2, max_samples=2_000_000):
+def integrate(
+    source, scene, view, lights, size=16, order=2, max_samples=2_000_000, *, bias=2e-6
+):
     if type(size) is not int or size not in (1, 4, 16, 64) or not 1 <= len(lights) <= 8:
         raise ValueError("bounded native footprints and one to eight lights required")
     if (
@@ -32,6 +34,8 @@ def integrate(source, scene, view, lights, size=16, order=2, max_samples=2_000_0
     ):
         raise ValueError("same prepared immutable source and ray geometry required")
     view = light_direction(view)
+    if not np.isfinite(bias) or not 1e-7 <= bias <= 1e-4:
+        raise ValueError("explicit metric source-ray bias1e-7..1e-4 required")
     lights = np.array([light_direction(direction) for direction in lights])
     if (
         not 1 <= len(lights) <= 8
@@ -68,7 +72,7 @@ def integrate(source, scene, view, lights, size=16, order=2, max_samples=2_000_0
             )
             geometric /= np.linalg.norm(geometric, axis=1)[:, None]
             _, visible, _ = direct_response(
-                scene, {"points": points, "normals": geometric}, view
+                scene, {"points": points, "normals": geometric}, view, bias
             )
             work["sampled_points"] += len(points)
             work["maximum_sample_batch"] = max(
@@ -91,7 +95,7 @@ def integrate(source, scene, view, lights, size=16, order=2, max_samples=2_000_0
                     )
                 else:
                     cosine, clear, _ = direct_response(
-                        scene, {"points": points, "normals": normals}, direction
+                        scene, {"points": points, "normals": normals}, direction, bias
                     )
                 output[1 + 2 * index] += np.bincount(
                     slots, weights=mass * cosine, minlength=size * size
