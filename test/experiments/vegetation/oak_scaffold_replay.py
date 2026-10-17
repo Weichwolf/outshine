@@ -39,7 +39,8 @@ def check_wood_binding(inputs, name, metadata, crown, wood):
         np.testing.assert_array_equal(value, wood[key])
 
 
-def replay(inputs, output):
+def replay(inputs, output, *, wood_check=None):
+    wood_check = check_wood_binding if wood_check is None else wood_check
     began = time.perf_counter()
     metadata = json.loads((inputs / "comparison.json").read_text())
     assert metadata["format"] == "oak-scaffold-study-1"
@@ -98,7 +99,7 @@ def replay(inputs, output):
             rows["leaf_nodes"],
             atol=1e-13,
         )
-        check_wood_binding(inputs, name, metadata, crown, product["wood.npz"])
+        wood_check(inputs, name, metadata, crown, product["wood.npz"])
         geometry = {k: check_mesh(v) for k, v in product.items() if k != "tables.npz"}
         reports[name] = {
             "identity": crown.identity,
