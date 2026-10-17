@@ -259,6 +259,8 @@ TestProfile() {
     outshine/src/base/io/Tasks) printf '%s' 'profile/tasks' ;;
     outshine/src/generators/flora/PreparedPlantBuild) printf '%s' 'profile/plant-build' ;;
     outshine/src/generators/flora/PreparedPlant) printf '%s' 'profile/plant-asset' ;;
+    outshine/integration/content/PlantCrownCache) printf '%s' 'profile/plant-crown-cache' ;;
+    outshine/src/generators/flora/PlantCrownAsset) printf '%s' 'profile/plant-crown-asset' ;;
     outshine/src/generators/flora/PlantCrownPlan) printf '%s' 'profile/plant-crown' ;;
     outshine/src/generators/flora/PlantGrowth) printf '%s' 'profile/plant-growth' ;;
     outshine/src/generators/flora/PlantAxisDetail) printf '%s' 'profile/plant-axis-detail' ;;
@@ -311,6 +313,8 @@ LayerIncludes() {
     profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/stages' ;;
     profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-recipe-json) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
+    profile/plant-crown-asset) LayerIncludes profile/plant-crown; GroupIncludes src/base ;;
+    profile/plant-crown-cache) LayerIncludes profile/plant-crown-asset; GroupIncludes src/content/assets; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
     profile/plant-asset) GroupIncludes src/generators/flora; GroupIncludes src/base; GroupIncludes src/content/assets; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
     profile/plant-plan | profile/plant-random | profile/plant-recipe | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown) GroupIncludes src/generators/flora ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
@@ -343,7 +347,7 @@ LayerToolchain() {
 }
 NativeSafetyProfile() {
   case "$1" in
-    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantAxisDetail|outshine/src/generators/flora/PlantGrowth|outshine/src/generators/flora/PlantCrownPlan|outshine/src/generators/flora/PlantRecipeJson|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
+    outshine/integration/content/PlantCrownCache|outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantAxisDetail|outshine/src/generators/flora/PlantGrowth|outshine/src/generators/flora/PlantCrownPlan|outshine/src/generators/flora/PlantCrownAsset|outshine/src/generators/flora/PlantRecipeJson|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -386,8 +390,9 @@ LayerLink() {
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/tasks) printf '%s' '-pthread' ;;
+    profile/plant-crown-cache) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
-    profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe | profile/plant-recipe-json | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown) return 0 ;;
+    profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe | profile/plant-recipe-json | profile/plant-axis-detail | profile/plant-growth | profile/plant-crown | profile/plant-crown-asset) return 0 ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
@@ -438,6 +443,8 @@ LayerGroups() {
     profile/tasks) printf '%s' 'src/base/io/Tasks.cpp' ;;
     profile/plant-build) LayerGroups profile/plant-plan; printf '%s' ' src/generators/flora/BuildPreparedPlant.cpp src/generators/flora/PlantAxisDetail.cpp src/generators/flora/PreparedPlant.cpp src/base/Geometry.cpp' ;;
     profile/plant-asset) printf '%s' 'src/generators/flora/PreparedPlant.cpp src/generators/flora/PreparedPlantAsset.cpp src/base/Geometry.cpp src/base/format/Sha256.cpp src/content/assets' ;;
+    profile/plant-crown-asset) LayerGroups profile/plant-crown; printf '%s' ' src/generators/flora/PlantCrownAsset.cpp' ;;
+    profile/plant-crown-cache) LayerGroups profile/plant-crown-asset; printf '%s' ' src/base/format/Sha256.cpp src/content/assets/AssetCache.cpp src/content/assets/AssetCacheLoading.cpp src/content/assets/AssetCachePublication.cpp src/content/assets/AssetCacheSelection.cpp src/content/assets/AssetGeneration.cpp src/content/assets/AssetPackageCodec.cpp' ;;
     profile/plant-crown) printf '%s' 'src/generators/flora/PlantCrownPlan.cpp src/generators/flora/PlantFrame.cpp src/generators/flora/PlantShoot.cpp src/generators/flora/PlantRandom.cpp src/generators/flora/PlantSkeleton.cpp' ;;
     profile/plant-growth) printf '%s' 'src/generators/flora/PlantGrowth.cpp src/generators/flora/PlantGrowthIndex.cpp src/generators/flora/PlantSkeleton.cpp' ;;
     profile/plant-axis-detail) printf '%s' 'src/generators/flora/PlantAxisDetail.cpp' ;;

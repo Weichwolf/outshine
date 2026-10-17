@@ -25,7 +25,9 @@ constexpr double kMinimumShootM = 0.01, kMaximumShootM = 2, kMaximumPetioleM = 0
 constexpr size_t kMaximumLeaves = 100000;
 constexpr Vec3 kUp{{0, 0, 1}};
 
-bool ValidRecipe(PlantCrownRecipe recipe) {
+}
+
+bool PlantCrownPlan::ValidRecipe(PlantCrownRecipe recipe) {
   const std::array values{recipe.LengthM,
                           recipe.BendRad,
                           recipe.PetioleM,
@@ -39,7 +41,6 @@ bool ValidRecipe(PlantCrownRecipe recipe) {
          recipe.FoliageDepthM <= kMaximumFoliageDepthM && recipe.LeafAngleRad > 0 &&
          recipe.LeafAngleRad < std::numbers::pi && recipe.NormalAlignment >= 0 &&
          recipe.NormalAlignment < 1;
-}
 }
 
 void PlantCrownPlan::IndexHosts() {

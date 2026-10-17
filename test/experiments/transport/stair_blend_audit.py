@@ -148,7 +148,7 @@ def contact_envelope(terrain, top_faces, ground, reference_error=0.0):
     }
 
 
-def inspect(body, parts, ground, upper):
+def inspect(body, parts, ground, upper, *, body_max_faces=65536):
     top_faces = parts["top_faces"]
     domain = continuous_cap(body, top_faces)
     if not domain.equals(domain.convex_hull):
@@ -214,7 +214,10 @@ def inspect(body, parts, ground, upper):
     }
     if any(row["minimum_clearance_m"] < -numerical_guard for row in bridge.values()):
         raise ValueError("actual terrain intrudes into a bridge underside")
-    bodies = {"double": body_proof(body), "float32": body_proof(actual)}
+    bodies = {
+        "double": body_proof(body, max_faces=body_max_faces),
+        "float32": body_proof(actual, max_faces=body_max_faces),
+    }
     if any(
         p["zero_area_faces"] or p["closed_oriented_volume_m3"] <= 0
         for p in bodies.values()
