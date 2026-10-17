@@ -382,6 +382,7 @@ void ReportShot(const Shot &shot,
                shot.Timing.BudgetMs());
   if (options.Rows) {
     Row(shot, name);
+    outshine::Client::PrintGpuRow(name, shot.Measures);
   } else {
     Tell(shot, name);
   }
