@@ -116,3 +116,14 @@ This is the same thin technical young plant described in native_plant_plan.md,
 not an accepted mature species or forest. Native recipe/plan persistence,
 near/far LOD selection, world registration, wind,
 whole-Place images and device time/memory gates remain integration work.
+
+## Complete compiler flags
+
+The frozen native4fcef0e36 full analysis found three missing designated field
+initializers in BuildPreparedPlant under Clang23's full project warning flags.
+The earlier hand-written focused invocation omitted these warning flags and
+was too narrow to prove compiler parity. Explicit empty fields preserve the
+original values and remove the diagnostics. The repair is checked through a
+focused compilation-database entry carrying the full frozen project arguments,
+plus the six owned module arms; no warning was disabled. Full-run outcome and
+scoped follow-up remain separate evidence in #1/#603/PR#531.
