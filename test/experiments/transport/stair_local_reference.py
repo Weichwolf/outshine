@@ -72,7 +72,7 @@ def reference_state(args):
         read_arrays(args.baseline / "world-field.npz"),
     )
     compare(view, plan, field)
-    road, ground, keys, rows, note = reference_roads(assets)
+    road, ground, keys, rows, note = reference_roads(assets, max_assets=1024)
     if keys != manifest["source_ids"]:
         raise ValueError("diagnostic whole reference needs every original road asset")
     state = {
@@ -113,7 +113,9 @@ def construct(state, recipe, rows, sources, sample):
         shapely.polygons(reference.vertices[reference.triangles, :2])
     )
     heights, local_roles, solve = fit(local, upper, footprint)
-    plan, world_heights, body, parts, assembly = assemble(state, local, heights, chosen)
+    plan, world_heights, body, parts, assembly = assemble(
+        state, local, heights, chosen, max_vertices=32768
+    )
     roles, world = inspect_world(
         state,
         local,
@@ -127,6 +129,7 @@ def construct(state, recipe, rows, sources, sample):
         upper,
         footprint,
         expected_local_roles=local_roles,
+        body_max_faces=262144,
     )
     arrays = {
         "module.npz": data,
