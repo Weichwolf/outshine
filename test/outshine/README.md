@@ -49,6 +49,9 @@ and thread sanitizers run separately and instrument product objects as well as c
 Each selected case also runs normally and with standard-library container checks;
 instrumented builds do not establish release performance budgets.
 
+The Tasks suite builds only `Tasks.cpp` and links the standard threading library.
+Its normal and race-instrumented cases need no engine, geometry libraries or GPU.
+
 `test/run.sh` selects build profiles by component. Vector decoding/storage keeps
 ASan/UBSan; GPU submission/storage keeps SDL validation; process-allocation
 checks link diagnostic instrumentation. Shared library objects retain their own
@@ -63,3 +66,15 @@ The optional `OUTSHINE_GLO30_RASTER_PROBE` live-source check runs with
 
 Source-closure audits inspect each distinct resolved source-group list once per
 run. Test discovery and execution still visit every case and instrumentation arm.
+
+Shader builds use glslang's actual include dependencies per variant. A missing
+dependency receipt rebuilds that artifact; removed includes are rescanned without
+hiding compiler errors. `make test-shader-dependencies` checks the real recipes,
+conditional layouts, shared CPU/GPU headers and failed-output cleanup.
+
+Native object compilation uses ccache with content-based compiler checks, including
+source, header, option and include/SDK inputs. Every selected object is validated;
+unchanged object bytes retain their timestamp to avoid unnecessary archive/link work.
+This also covers diagnostics and application entry points. Restored timestamps do not
+admit stale code; timestamp-only changes reuse identical content. `make test-file-stamps`
+compiles actual product groups to exercise this boundary.

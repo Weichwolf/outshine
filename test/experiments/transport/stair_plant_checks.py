@@ -13,8 +13,10 @@ from recipe_plant_sources import DATUM
 from recipe_plant_values import seed_input
 from stair_occupancy_geometry import OccupancyError
 from stair_occupancy_handoff import OccupancyQuery
+from stair_occupancy_inputs import volume
 from stair_plant_geometry import bounds_query
 from stair_plant_sites import candidate, plants
+from stair_shared_headroom_volumes import upper_band
 
 
 class FlatTerrain:
@@ -62,6 +64,42 @@ class PlantChecks(unittest.TestCase):
                 self.data,
                 OccupancyQuery((road,)),
                 {"bounds_m": self.bounds},
+                ((-5, -5), 16, "region"),
+                graph,
+            )
+        graph.evaluate.assert_not_called()
+
+    def test_crown_above_old_walking_band_still_hits_shared_car_headroom(self):
+        top = np.array([[0, -1, 10], [2, -1, 10], [2, 1, 10]], float)
+        physical, _ = volume("footway", top - [0, 0, 0.3], top, 2.5)
+        extra = upper_band(physical, physical.geometry, 2, "logical-car")
+        bounds = [[-1, -1, 0], [1, 1, 3]]
+        origin = np.array([2.5, 0, 13.0])
+        body = bounds_query("overhanging-crown", bounds, origin)
+        self.assertFalse(physical.geometry.covers(shapely.Point(origin[:2])))
+        self.assertTrue(OccupancyQuery((physical,)).conflict(body)[0].is_empty)
+        combined = OccupancyQuery((physical, extra))
+        self.assertFalse(combined.conflict(body)[0].is_empty)
+        touch = bounds_query("ceiling-touch", bounds, [2.5, 0, 14.5])
+        self.assertTrue(combined.conflict(touch)[0].is_empty)
+        raised = SimpleNamespace(
+            sample=lambda xy: SimpleNamespace(
+                reasons=("",),
+                points_enu_m=np.c_[xy, [13.0]],
+                face_indices=np.array([3]),
+                normals_enu=np.array([[0, 0, 1.0]]),
+            )
+        )
+        graph = Mock()
+        with self.assertRaisesRegex(OccupancyError, "whole measured plant envelope"):
+            candidate(
+                self.row,
+                origin[:2],
+                (0, 0, 0, 0, 0),
+                self.support,
+                dict(self.data, sampler=raised),
+                combined,
+                {"bounds_m": bounds},
                 ((-5, -5), 16, "region"),
                 graph,
             )
