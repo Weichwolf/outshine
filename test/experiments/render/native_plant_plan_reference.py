@@ -190,10 +190,12 @@ def check(binary, output, surfaces=False, blades=False):
     (output / "native.log").write_text(result.stdout + result.stderr)
     if result.returncode:
         raise RuntimeError(f"native plan consumer exited {result.returncode}")
-    actual = {kind: [] for kind in ("A", "L", "S", "G", "B", "C")}
+    actual = {kind: [] for kind in ("A", "L", "S", "D", "G", "B", "C")}
     for line in result.stdout.splitlines():
         kind, *fields = line.split()
-        integers = {"A": 9, "L": 3, "S": 11, "G": 1, "B": 1, "C": 3}[kind]
+        integers = {"A": 9, "L": 3, "S": 11, "D": len(fields), "G": 1, "B": 1, "C": 3}[
+            kind
+        ]
         actual[kind].append(
             [
                 int(value) if i < integers else float(value)
@@ -206,6 +208,7 @@ def check(binary, output, surfaces=False, blades=False):
         )
     paths = {axis[0]: tuple(slot for slot in axis[2:9] if slot >= 0) for axis in axes}
     summaries = []
+    branches = []
     for axis in axes:
         path = paths[axis[0]]
         descendants = {
@@ -213,6 +216,7 @@ def check(binary, output, surfaces=False, blades=False):
             for identity, candidate in paths.items()
             if candidate[: len(path)] == path
         }
+        branches.append([axis[0], *sorted(descendants, key=paths.__getitem__)])
         owned = [leaf for leaf in leaves if leaf[1] in descendants]
         variants = [sum(leaf[2] == variant for leaf in owned) for variant in range(8)]
         summaries.append([axis[0], len(descendants), len(owned), *variants])
@@ -220,12 +224,17 @@ def check(binary, output, surfaces=False, blades=False):
         raise ValueError(
             "native branch summary differs from independent path-prefix inventory"
         )
+    if actual["D"] != branches:
+        raise ValueError(
+            "native subtree rows differ from independent path-prefix traversal"
+        )
     receipt = {
         "identity": metadata["plan_identity"],
         "axes": len(axes),
         "leaves": len(leaves),
         "subtrees": len(summaries),
         "canonical_rows_exact": True,
+        "subtree_rows_exact": True,
         "scope": "fixed immutable-row consumption and demand; no generation, geometry or device claim",
     }
     if surfaces:

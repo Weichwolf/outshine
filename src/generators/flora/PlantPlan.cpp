@@ -11,7 +11,7 @@
 #include <cmath>
 #include <limits>
 #include <numbers>
-#include <set>
+#include <numeric>
 #include <unordered_set>
 #include <utility>
 
@@ -57,14 +57,11 @@ bool AxisValid(const PlantAxis &axis) {
 }
 
 bool PlantPlan::IndexAxes() {
-  std::set<std::array<int16_t, 7>> paths;
   ById_.reserve(Axes_.size());
   Index_.resize(Axes_.size());
   for (size_t at = 0; at < Axes_.size(); ++at) {
     const auto &axis = Axes_[at];
-    if (!AxisValid(axis) || !ById_.emplace(axis.Id, at).second || !paths.insert(axis.Path).second) {
-      return false;
-    }
+    if (!AxisValid(axis) || !ById_.emplace(axis.Id, at).second) { return false; }
     if (at == 0) {
       if (axis.Parent != -1 || Depth(axis) != 0 || axis.ParentParameter != 0) { return false; }
       continue;
@@ -80,6 +77,15 @@ bool PlantPlan::IndexAxes() {
       return false;
     }
     Index_[at].Parent = parent->second;
+  }
+  Traversal_.resize(Axes_.size());
+  std::ranges::iota(Traversal_, size_t{0});
+  std::ranges::sort(Traversal_,
+                    [this](size_t a, size_t b) { return Axes_[a].Path < Axes_[b].Path; });
+  for (size_t position = 0; position < Traversal_.size(); ++position) {
+    const size_t row = Traversal_[position];
+    if (position > 0 && Axes_[Traversal_[position - 1]].Path == Axes_[row].Path) { return false; }
+    Index_[row].BranchBegin = position;
   }
   return true;
 }
@@ -145,7 +151,8 @@ PlantPlan::Summarize(uint64_t id) const noexcept {
   return Summary{.Axes = index.Axes,
                  .Leaves = index.Leaves,
                  .Variants =
-                     std::span(Variants_).subspan(found->second * VariantCount_, VariantCount_)};
+                     std::span(Variants_).subspan(found->second * VariantCount_, VariantCount_),
+                 .AxisRows = std::span(Traversal_).subspan(index.BranchBegin, index.Axes)};
 }
 
 std::expected<std::span<const PlantLeaf>, std::string_view>

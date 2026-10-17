@@ -43,6 +43,7 @@ public:
   struct Summary {
     size_t Axes = 0, Leaves = 0;
     std::span<const size_t> Variants;
+    std::span<const size_t> AxisRows;
   };
 
   [[nodiscard]] static std::expected<PlantPlan, std::string_view>
@@ -56,7 +57,7 @@ public:
 
 private:
   struct Index {
-    size_t Parent = 0, FirstLeaf = 0, LeafCount = 0;
+    size_t Parent = 0, FirstLeaf = 0, LeafCount = 0, BranchBegin = 0;
     size_t Axes = 1, Leaves = 0;
   };
 
@@ -65,6 +66,7 @@ private:
   std::vector<PlantAxis> Axes_;
   std::vector<PlantLeaf> Leaves_;
   std::vector<Index> Index_;
+  std::vector<size_t> Traversal_;
   std::unordered_map<uint64_t, size_t> ById_;
   std::vector<size_t> Variants_;
   size_t VariantCount_ = 0;

@@ -17,14 +17,19 @@ Construction moves the supplied vectors into immutable ownership. Canonical
 parents precede children and leaves are grouped in axis-row order. Unknown
 parents/owners, duplicate IDs/paths, invalid frames, nonfinite dimensions and
 invalid variant/parameter ranges fail before a plan becomes available.
-A summary inventories all descendant axes/leaves and blade variants. A leaf
+A summary inventories all descendant axes/leaves and blade variants and borrows
+a contiguous range of prepared axis-row indices. Lexicographic canonical paths
+put descendants together without changing the original breadth-first rows. A leaf
 demand returns only the named axis's own group and refuses an insufficient
 budget atomically. Queries return borrowed const spans; their owner must live.
 There is no resampling, row copy, geometry generation or allocation per query.
 
 ID lookup has expected constant time; summaries use prepared counts. Initial
-validation/indexing includes ordered path uniqueness(O(A log A)), hash sets
-and A×V variant accumulation, plus linear leaf traversal. This is not a claim
+validation/indexing sorts a flat row index for path uniqueness(O(A log A)), hash sets
+and A×V variant accumulation, plus linear leaf traversal. On a64-bit host the
+subtree range adds two size_t per axis:16A bytes beyond the earlier counts;
+the temporary allocating path set is gone. Queries do not scan unrelated axes.
+This is not a claim
 of global optimality or a whole-world packed/mapped asset implementation.
 
 ## Independent fixed-row check
@@ -33,9 +38,10 @@ The existing #367/#374 `tree-entry-sapling-17.npz` and its checked SHA256 remain
 unchanged. A test-only standard-library ZIP/NPY1 reader decodes that fixed
 fixture; it is not a product NPZ importer or a new asset ABI. It sends the
 canonical rows to `NativePlantPlanReference.cpp`. The native consumer returns
-all actual axes/leaves and every branch summary. The checker compares every
+all actual axes/leaves, every branch summary and selected descendant IDs. The checker compares every
 integer/Float64 row exactly and independently inventories descendants using
-path prefixes. All64 axes,571 leaves and64 subtree summaries agree. The
+path prefixes, independently sorting each branch by path. All64 axes,571 leaves,
+64 subtree summaries and all64 ordered descendant ranges agree. The
 native probe also checks each nonempty leaf group's insufficient-budget case.
 No expected rows, pins or oracles are generated or rewritten.
 
