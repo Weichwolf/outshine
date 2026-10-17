@@ -16,6 +16,8 @@ def arrays(path):
 
 def source(whole, execution, catalog):
     manifest = json.loads((whole / "plant-product.json").read_text())
+    if manifest["version"] not in ("whole-plant-views-1", "cached-window-plant-1"):
+        raise ValueError("supported complete cached plant representation required")
     recipe = json.loads((whole / manifest["recipe"]).read_text())
     report = json.loads((execution / "execution.json").read_text())
     if (
