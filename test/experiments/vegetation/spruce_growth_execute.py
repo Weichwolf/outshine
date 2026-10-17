@@ -25,6 +25,7 @@ def provenance():
         "parent_profile_graph.py",
         "parent_growth_graph.py",
         "generator_graph.py",
+        "generator_specs.py",
         "conifer_windows.py",
     ]
     paths = [Path(__file__).with_name(name) for name in names]
