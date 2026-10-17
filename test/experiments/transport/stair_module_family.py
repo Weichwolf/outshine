@@ -15,6 +15,8 @@ from stair_seed_geometry import seed_contract
 def surfaces(state, recipe, sources):
     if recipe.get("contact_mode") != "seed":
         return old_surfaces(state, recipe, sources)
+    if recipe.get("cached_box_grids_m"):
+        raise ValueError("cached source grids cannot belong to an independent seed")
     seed_contract(recipe, sources)
     plan, road = state["plan"], state["road"]
     state["module_contacts"] = []
@@ -35,8 +37,10 @@ def audit(state, recipe, data, rows, planning, line, upper):
     return attached_audit(state, recipe, data, rows, planning, line, upper)
 
 
-def verify_sources(rows, sources, recipe, contacts, line, nodes):
+def verify_sources(rows, sources, recipe, contacts, line, nodes, *, cached_grids=None):
     if recipe.get("contact_mode") == "seed":
         seed_contract(recipe, sources)
         connected(recipe, rows, nodes)
-    return verify_source_contract(rows, sources, recipe, contacts, line, nodes)
+    return verify_source_contract(
+        rows, sources, recipe, contacts, line, nodes, cached_grids=cached_grids
+    )
