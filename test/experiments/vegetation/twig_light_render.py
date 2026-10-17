@@ -44,7 +44,7 @@ def render(case, catalog, output, representation, light_kind, pixels):
         window = {k: saved[k] for k in saved.files}
     if not 0 < len(geometry["faces"]) <= 250000 or len(window["origins"]) != 1:
         raise ValueError("one bounded requested window and physical source required")
-    banks, _ = load_catalog(catalog)
+    _, banks = load_catalog(catalog)
     right = np.cross((0, 0, 1), VIEW)
     right /= np.linalg.norm(right)
     extent = float(np.ptp(geometry["vertices"] @ right))

@@ -33,6 +33,9 @@ def bind_physical(geometry, directory, maps):
                 links.remove(link)
         if node.type == "MATH" and node.operation == "DIVIDE" and node.use_clamp:
             links.new(leaf.outputs["Fac"], node.inputs[0])
+            for link in tuple(node.inputs[1].links):
+                links.remove(link)
+            node.inputs[1].default_value = 1
     obj = mesh_object(
         "requested physical needles",
         geometry["vertices"],
@@ -54,18 +57,18 @@ def bind_physical(geometry, directory, maps):
     mesh.attributes.new("window_tail_weight", "FLOAT", "FACE").data.foreach_set(
         "value", np.ones(len(mesh.polygons), np.float32)
     )
-    # Physical source casts real shadows as well as appearing to the camera.
-    selectors = [
+    # Opaque physical surfaces need the same BRDF mixture, without a card mask.
+    mixtures = [
         n
         for n in nodes
         if n.type == "MIX_SHADER"
-        and n.inputs[0].is_linked
-        and n.inputs[0].links[0].from_node.type == "LIGHT_PATH"
+        and n.inputs[1].is_linked
+        and n.inputs[1].links[0].from_node.type == "BSDF_PRINCIPLED"
     ]
-    if len(selectors) != 1:
-        raise ValueError("one existing pass selector required")
+    if len(mixtures) != 1:
+        raise ValueError("one existing needle reflection/translucence mixture required")
     links.new(
-        selectors[0].inputs[1].links[0].from_socket,
+        mixtures[0].outputs[0],
         nodes.get("Material Output").inputs["Surface"],
     )
     return obj
