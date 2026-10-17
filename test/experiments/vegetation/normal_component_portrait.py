@@ -47,6 +47,8 @@ def wood_material(light):
 def bind_views(
     windows, bank, vectors, images, frames, selected, indices, family, mode, light
 ):
+    if not len(indices):
+        return 0, 0, 0, 0
     triangles, payload, image_count, groups, emitted = 0, 0, 0, 0, 0
     choices = selected[indices]
     order = np.argsort(choices, kind="stable")
@@ -78,7 +80,7 @@ def bind_views(
     return triangles, payload, image_count, groups
 
 
-def populate(whole, catalog, fields, mode, *, storage="atlas", staging=None):
+def populate(whole, catalog, fields, mode, *, storage="view", staging=None):
     if storage not in ("atlas", "isolated", "view") or (
         storage == "isolated" and staging is None
     ):
@@ -175,7 +177,7 @@ def populate(whole, catalog, fields, mode, *, storage="atlas", staging=None):
     }
 
 
-def render(whole, catalog, fields, output, mode, *, storage="atlas"):
+def render(whole, catalog, fields, output, mode, *, storage="view"):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under/tmp")
     output.mkdir(parents=True, exist_ok=False)
@@ -218,13 +220,13 @@ def render(whole, catalog, fields, output, mode, *, storage="atlas"):
         "render_and_export_s": time.perf_counter() - ready,
         "process_peak_RSS_MiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         / 1024,
-        "scope": (
-            "REJECTED cross-view atlas mip binding; "
-            if storage == "atlas"
-            else "isolated-view mip diagnostic; "
-        )
+        "scope": {
+            "atlas": "REJECTED cross-view atlas mip binding; ",
+            "isolated": "REJECTED tested UDIM coverage binding; ",
+            "view": "clamped per-view mip diagnostic; ",
+        }[storage]
         + "unshadowed unit-diffuse only, no PBR/LOD/default approval",
-        "generated_image_float_bytes": sum(
+        "controlled_atlas_image_float_bytes": sum(
             image.size[0] * image.size[1] * 4 * 4
             for image in bpy.data.images
             if image.name.startswith("diagnostic signed Float32 field")
@@ -240,7 +242,7 @@ if __name__ == "__main__":
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--mode", choices=("mean", "four"), required=True)
     parser.add_argument(
-        "--storage", choices=("atlas", "isolated", "view"), default="atlas"
+        "--storage", choices=("atlas", "isolated", "view"), default="view"
     )
     args = parser.parse_args()
     render(

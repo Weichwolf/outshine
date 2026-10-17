@@ -11,6 +11,33 @@ from window_portrait_geometry import planes
 
 
 class ViewBindingTests(unittest.TestCase):
+    def test_empty_view_demand_never_builds_material_or_geometry(self):
+        with (
+            patch(
+                "normal_component_portrait.material",
+                side_effect=AssertionError("material"),
+            ),
+            patch(
+                "normal_component_portrait.bind_mesh",
+                side_effect=AssertionError("geometry"),
+            ),
+        ):
+            self.assertEqual(
+                bind_views(
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    np.array([], int),
+                    0,
+                    "four",
+                    None,
+                ),
+                (0, 0, 0, 0),
+            )
+
     def test_grouped_views_preserve_actual_geometry_and_complete_window_membership(
         self,
     ):
