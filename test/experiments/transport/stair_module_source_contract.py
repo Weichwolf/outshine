@@ -5,6 +5,7 @@ from collections import defaultdict
 import numpy as np
 import shapely
 from stair_landing_pads import node_profiles
+from stair_shared_boxes import box_plans
 
 
 def shared_nodes(rows, sources, recipe, contacts):
@@ -76,6 +77,15 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
             continue
         for j in node["incident"]:
             allowed[j].append(hull)
+    required = {}
+    if recipe.get("junction_mode") == "shared_box":
+        required = box_plans(
+            rows, nodes, frozen_line, contacts, include_interiors=include_interiors
+        )
+        for node in nodes:
+            for j in node["incident"]:
+                if tuple(node["mvt_xy"]) in required:
+                    allowed[j].append(required[tuple(node["mvt_xy"])])
     count = 0
     for i, row in enumerate(rows):
         pads = row.get("junction_pads_xy_m", [])
@@ -94,6 +104,17 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
                 )
         if len(pads) > 16:
             raise ValueError("saved source pad count exhausted")
+        for node in nodes:
+            shape = required.get(tuple(node["mvt_xy"]))
+            if (
+                i in node["incident"]
+                and shape is not None
+                and not any(
+                    shapely.Polygon(p).equals_exact(shape, 1e-7, normalize=True)
+                    for p in pads
+                )
+            ):
+                raise ValueError("required original-node shared box missing")
         for coordinates in pads:
             pad = shapely.Polygon(coordinates)
             if not pad.is_valid or not any(

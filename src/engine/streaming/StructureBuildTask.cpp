@@ -673,9 +673,8 @@ uint64_t StructureBuildTask::InitialCells() const noexcept {
 void StructureBuildTask::SelectNextCell(uint32_t cell) {
   assert(State_ == State::Completed && Native_ && Native_->Cells && !Comparison_ && !Artifact_ &&
          Output_->Status && Output_->Tile && !Stopping_->load(std::memory_order_relaxed));
-  const uint64_t cells = InitialCells();
   assert(cell > 0 && cell <= Generators::kStructureCellsPerTile &&
-         (cells & (uint64_t{1} << (cell - 1u))) != 0);
+         (InitialCells() & (uint64_t{1} << (cell - 1u))) != 0);
   Raw_->RequestedCell = cell;
   *Output_ = {};
   Progress_ = std::make_unique<Generators::StructureBakeProgress>();
