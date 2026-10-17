@@ -1135,3 +1135,9 @@ independent connected physical unions, finite intake sweeps and full37-source
 comparisons accompany near/opposite/elevated1080p rasters. Further equipment,
 complete access/interiors, general special-family coverage and native cache/
 frame admission remain open.
+
+Source-contained repeated upper wings and compact podium masses, real terrace
+access, retained near/compact products and equal reconstruction/binding costs:
+[podium.md](podium.md) (#533). Source-stable new mass selection complements the
+existing fallback; broader facade variety and general cache/LOD admission
+remain open.
