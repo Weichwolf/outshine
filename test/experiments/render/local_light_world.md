@@ -111,6 +111,71 @@ near cost against Hash16's 3.43× index payload. Camera-independent reuse may av
 the previous 5.93 ms camera-list CPU rebuild, but no native world-index producer,
 full packing/upload or dynamic-light invalidation saving is claimed yet.
 
+## Native producer and actual edits
+
+`local_light_world_build.{h,cpp}` now implements the same products natively.
+A PMR ordered cell map retains per-cell sorted original IDs. A light edit
+enumerates only its previous/new support, merges those cell sets and changes
+their difference. Colour, point/spot-kind and global-only edits require no
+spatial tests. Cell-local Light64 and int32 coordinates are generated in C++;
+sorted/hash serialization retains the exact Python bytes. Overflow preserves
+the complete original-ID domain until an explicit rebuild. The experiment has
+fixed IDs/count; insertion/removal and active-world residency remain open.
+
+Forty normal and forty ASan/UBSan/container-hardened cases match all word,
+Light64 and coordinate bytes: four scenes, four widths, both lookups, Earth
+translation, empty input, full overflow and positive unused directional range.
+Twenty-eight successive edits per profile cover colour, point/spot kind,
+movement, finite range, unbounded point, direction and finite return. Eleven
+invalid-input/record/update invocations per profile are genuinely rejected.
+Four affected C++ units pass focused LLVM22 with the unmodified policy; the
+separate raster harness's 14 Check.h findings remain open.
+
+An additional actual far emitter, rather than an unilluminating test position,
+passes the same seven edits in both native lookup producers. Its native bytes
+feed the existing GPU consumer directly. Baseline plus seven edited states
+all pass the unchanged full-sum/support comparison; moving/range edits visibly
+change the far receiver, and unbounded/directional states affect all planes.
+Eight fresh offline processes use complete uploads. They do not establish
+runtime partial uploads, asynchronous publication or in-flight update safety.
+
+Five normal-priority native sequences on the shared RTX-host CPU, work counters
+off but PMR allocation tracking retained, give these median CPU times:
+
+| Operation /8192 lights, Hash32 | Build/edit ms | Complete pack ms |
+|---|---:|---:|
+|Cold build|11.862235|0.532524|
+|Colour|0.000527|0.297743|
+|Move one|0.006616|0.258464|
+|Finite range|0.014427|0.613327|
+|Make global|0.015612|0.251134|
+
+The move performs 54 sphere-box tests/18 membership changes instead of the
+full 221,103 tests/177,033 assignments. Cold own allocation requests:40,410;
+move:8; colour/point-kind:0. Own tracked producer peak is3,864,312 B cold and
+3,870,812 B across those edits. It includes original/local Light64 arrays,
+coordinates, PMR map/ID capacities, footprint scratch and packed words;
+caller-owned file input, IO and driver allocations are outside this count.
+Unchanged contents need no Build/Update call; forcing Build again still
+recreates map nodes and is not a zero-allocation frame path.
+
+Every Pack still zero-fills the complete word payload and rewrites its
+slots/IDs/coordinates, including after colour-only edits. CLI dumping copies
+words +64N Light64 bytes +12N coordinate bytes after the timed operation.
+Those copies and full producer packing remain explicit costs; no dirty-range
+GPU upload saving is claimed. Input reads/capture writes are outside timings.
+Concurrent reference/analysis jobs and normal desktop load remain part of the
+measurement; these are five trend samples, not p99/full-frame/device acceptance.
+
+The producer checker is `local_light_world_build.py --binary <native>
+--output <private> --repeats 2`. Build its main/core with the existing
+`local_light_build.cpp` and `local_light_build_geometry.cpp` memory-helper
+closure, C++23, `-ffp-contract=off`, no exceptions and warnings as errors.
+`LOCAL_LIGHT_BUILD_COUNTER=0` disables work counters for timing. Sanitizers add
+ASan/UBSan and libc++ extensive hardening. `local_light_world_updates.py --help`
+documents the existing native raster control inputs. The report's --producer
+option adds the native edit/cost page; all four pages were optically inspected.
+
 ## Reproduction and open gates
 
 Requires Python/NumPy, Matplotlib for PDF, glslang, and the coherent native
@@ -133,6 +198,6 @@ Five representative fragment/compute variants translate to MSL2.3 and reflect
 neither Metal execution nor full material-resource acceptance. Strict native
 build/format pass; focused LLVM22 remains red solely on the same 14 shared
 Check.h findings (#603), with no suppression or harness-policy change.
-Shared product ABI/lifetime agreement, actual native dirty producer, active-world
+Shared product ABI/lifetime agreement, productive dirty upload, active-world
 residency, transparent composition, full Places, Metal/A18 and total budgets stay
 open. The original coherent archive is not relabelled as current-engine proof.

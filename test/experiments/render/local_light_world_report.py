@@ -159,10 +159,82 @@ def counterexamples(pdf, root):
     plt.close(figure)
 
 
+def producer(pdf, root):
+    figure = plt.figure(figsize=(13, 8), constrained_layout=True)
+    grid = figure.add_gridspec(2, 6)
+    for column, step in enumerate([-1, 2, 3]):
+        axis = figure.add_subplot(grid[0, column * 2 : column * 2 + 2])
+        rgb = capture(root / f"producer-gpu/step-{step}/actual/log-3.rgba32")[
+            480:600, 860:1060, :3
+        ]
+        axis.imshow(rgb / (1 + rgb), interpolation="nearest")
+        axis.set_title(
+            [
+                "Initial native producer",
+                "Move one actual emitter",
+                "Increase its finite range",
+            ][column]
+        )
+        axis.set_xticks([])
+        axis.set_yticks([])
+    timings = json.loads((root / "producer-timing/runs.json").read_text())
+    axis = figure.add_subplot(grid[1, :3])
+    chosen = [-1, 0, 2, 3, 4]
+    for offset, key, label in [
+        (-0.18, "build_ms", "Build/update"),
+        (0.18, "pack_ms", "Complete pack"),
+    ]:
+        values = []
+        for step in chosen:
+            rows = [
+                r
+                for run in timings
+                for r in run["native"]
+                if (step == -1 and r["phase"] == "build")
+                or (step >= 0 and r["phase"] == "update" and r["step"] == step)
+            ]
+            values.append(np.median([r[key] for r in rows]))
+        axis.bar(np.arange(len(chosen)) + offset, values, width=0.36, label=label)
+    axis.set_xticks(
+        np.arange(len(chosen)), ["Cold", "Colour", "Move", "Range", "Global"]
+    )
+    axis.set_yscale("log")
+    axis.set_ylabel("CPU median [ms], five independent runs")
+    axis.legend(fontsize=8)
+    axis = figure.add_subplot(grid[1, 3:])
+    axis.axis("off")
+    axis.text(
+        0,
+        1,
+        "Actual 200×120 pixel crops /5000 m plane; RGB/(1+RGB).\n"
+        "Seven edits plus baseline use C++ producer output directly.\n"
+        "Every GPU listed/full-sum RGB and support comparison passes.\n"
+        "Fresh offline processes: not runtime partial-upload/in-flight proof.\n\n"
+        "Native/reference bytes: 40 cases and 28 sequential updates,\n"
+        "normal + ASan/UBSan/container hardening; 11 input rejects each.\n"
+        "Four focused C++ units: LLVM22 terminal0, no suppression.\n"
+        "Move one of8192: 54 sphere-box tests /18 changed memberships;\n"
+        "full rebuild:221,103 tests /177,033 assignments.\n"
+        "Colour/point-spot/global-only edits: zero spatial tests.\n"
+        "Producer owns ~3.69 MiB peak; input/IO/driver outside that count.\n\n"
+        "Work counters off for timings; own PMR allocation tracking on.\n"
+        "Shared host, concurrent analysis/reference work, no fixed clocks.\n"
+        "Full pack remains 0.25–0.61 ms despite local edits.\n"
+        "No complete frame, active-world residency, Metal/A18 acceptance.",
+        va="top",
+        fontsize=9,
+        linespacing=1.4,
+    )
+    figure.suptitle("Native world producer → actual direct-light GPU controls")
+    pdf.savefig(figure)
+    plt.close(figure)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--producer", action="store_true")
     args = parser.parse_args()
     if args.output.resolve().is_relative_to(ROOT):
         parser.error("private external PDF required")
@@ -171,6 +243,8 @@ def main():
         images(pdf, args.input)
         costs(pdf, args.input)
         counterexamples(pdf, args.input)
+        if args.producer:
+            producer(pdf, args.input)
 
 
 if __name__ == "__main__":
