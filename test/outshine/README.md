@@ -63,3 +63,8 @@ The optional `OUTSHINE_GLO30_RASTER_PROBE` live-source check runs with
 
 Source-closure audits inspect each distinct resolved source-group list once per
 run. Test discovery and execution still visit every case and instrumentation arm.
+
+Shader builds use glslang's actual include dependencies per variant. A missing
+dependency receipt rebuilds that artifact; removed includes are rescanned without
+hiding compiler errors. `make test-shader-dependencies` checks the real recipes,
+conditional layouts, shared CPU/GPU headers and failed-output cleanup.
