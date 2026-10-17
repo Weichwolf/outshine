@@ -93,7 +93,48 @@ def check_surfaces(actual, axes, detail):
     }
 
 
-def check(binary, output, surfaces=False):
+def check_blades(actual, counts, metadata):
+    import numpy as np
+    from outshine_ref.vegetation.blade_surface import Blade
+
+    position_error = normal_error = uv_error = 0.0
+    triangles = 0
+    detail = metadata["geometry"]
+    for variant, recipe in enumerate(metadata["recipe"]["blades"]):
+        source = Blade(**recipe).mesh(detail["leaf_segments"], detail["leaf_across"])
+        reference = source["vertices"][source["faces"]]
+        normals = source["normals"].reshape(-1, 3, 3)
+        parameters = source["parameters"][source["faces"]]
+        uv = np.stack(((parameters[..., 1] + 1) / 2, parameters[..., 0]), axis=-1)
+        result = np.asarray([row[1:] for row in actual if row[0] == variant]).reshape(
+            -1, 3, 8
+        )
+        if result.shape[:2] != reference.shape[:2]:
+            raise ValueError("native blade changed the canonical triangle inventory")
+        position_error = max(
+            position_error, float(np.max(np.abs(result[..., :3] - reference)))
+        )
+        normal_error = max(
+            normal_error, float(np.max(np.abs(result[..., 3:6] - normals)))
+        )
+        uv_error = max(uv_error, float(np.max(np.abs(result[..., 6:] - uv))))
+        np.testing.assert_allclose(result[..., :3], reference, rtol=0, atol=1e-8)
+        np.testing.assert_allclose(result[..., 3:6], normals, rtol=0, atol=1e-7)
+        np.testing.assert_allclose(result[..., 6:], uv, rtol=0, atol=3e-8)
+        triangles += len(result)
+    if len(actual) != triangles or len(counts) != len(metadata["recipe"]["blades"]):
+        raise ValueError("unexpected blade surfaces")
+    return {
+        "triangles": triangles,
+        "native_counts": counts,
+        "maximum_position_error_m": position_error,
+        "maximum_normal_component_error": normal_error,
+        "maximum_uv_error": uv_error,
+        "scope": "eight shared native Float32 blade prototypes versus existing Python surfaces",
+    }
+
+
+def check(binary, output, surfaces=False, blades=False):
     metadata, rows = fixed_rows()
     axes = records(
         rows,
@@ -116,8 +157,30 @@ def check(binary, output, surfaces=False):
         ("ids", "axis_ids", "variants", "origins", "nodes", "frames", "stem_parameter"),
     )
     text = "\n".join(" ".join(map(str, row)) for row in axes + leaves) + "\n"
+    if blades:
+        names = (
+            "length",
+            "width",
+            "widest",
+            "lobes",
+            "lobe_depth",
+            "base_fill",
+            "bend",
+            "fold",
+            "fold_power",
+            "twist",
+            "petiole",
+        )
+        text += (
+            "\n".join(
+                " ".join(str(blade[name]) for name in names)
+                for blade in metadata["recipe"]["blades"]
+            )
+            + "\n"
+        )
+    mode = ["plant-surfaces"] if blades else (["axis-surfaces"] if surfaces else [])
     result = subprocess.run(
-        [str(binary), *(["axis-surfaces"] if surfaces else [])],
+        [str(binary), *mode],
         input=text,
         capture_output=True,
         text=True,
@@ -127,10 +190,12 @@ def check(binary, output, surfaces=False):
     (output / "native.log").write_text(result.stdout + result.stderr)
     if result.returncode:
         raise RuntimeError(f"native plan consumer exited {result.returncode}")
-    actual = {kind: [] for kind in ("A", "L", "S", "G")}
+    actual = {kind: [] for kind in ("A", "L", "S", "D", "G", "B", "C")}
     for line in result.stdout.splitlines():
         kind, *fields = line.split()
-        integers = {"A": 9, "L": 3, "S": 11, "G": 1}[kind]
+        integers = {"A": 9, "L": 3, "S": 11, "D": len(fields), "G": 1, "B": 1, "C": 3}[
+            kind
+        ]
         actual[kind].append(
             [
                 int(value) if i < integers else float(value)
@@ -143,6 +208,7 @@ def check(binary, output, surfaces=False):
         )
     paths = {axis[0]: tuple(slot for slot in axis[2:9] if slot >= 0) for axis in axes}
     summaries = []
+    branches = []
     for axis in axes:
         path = paths[axis[0]]
         descendants = {
@@ -150,6 +216,7 @@ def check(binary, output, surfaces=False):
             for identity, candidate in paths.items()
             if candidate[: len(path)] == path
         }
+        branches.append([axis[0], *sorted(descendants, key=paths.__getitem__)])
         owned = [leaf for leaf in leaves if leaf[1] in descendants]
         variants = [sum(leaf[2] == variant for leaf in owned) for variant in range(8)]
         summaries.append([axis[0], len(descendants), len(owned), *variants])
@@ -157,12 +224,17 @@ def check(binary, output, surfaces=False):
         raise ValueError(
             "native branch summary differs from independent path-prefix inventory"
         )
+    if actual["D"] != branches:
+        raise ValueError(
+            "native subtree rows differ from independent path-prefix traversal"
+        )
     receipt = {
         "identity": metadata["plan_identity"],
         "axes": len(axes),
         "leaves": len(leaves),
         "subtrees": len(summaries),
         "canonical_rows_exact": True,
+        "subtree_rows_exact": True,
         "scope": "fixed immutable-row consumption and demand; no generation, geometry or device claim",
     }
     if surfaces:
@@ -172,6 +244,8 @@ def check(binary, output, surfaces=False):
         receipt["axis_surfaces"] = check_surfaces(
             actual["G"], axes, metadata["geometry"]
         )
+    if blades:
+        receipt["blade_surfaces"] = check_blades(actual["B"], actual["C"], metadata)
     (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt))
 
@@ -179,6 +253,7 @@ def check(binary, output, surfaces=False):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--surfaces", action="store_true")
+    parser.add_argument("--blades", action="store_true")
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
@@ -190,7 +265,7 @@ def main():
             "private output must be outside the checkout in the system temporary directory"
         )
     output.mkdir(parents=True, exist_ok=True)
-    check(args.binary.resolve(), output, args.surfaces)
+    check(args.binary.resolve(), output, args.surfaces or args.blades, args.blades)
 
 
 if __name__ == "__main__":

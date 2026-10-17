@@ -194,7 +194,7 @@ PYTHONPATH=lib/src:test/experiments/vegetation .venv/bin/python \
 PYTHONPATH=lib/src:test/experiments/vegetation .venv/bin/python \
   test/experiments/vegetation/normal_component_portrait.py \
   --whole /tmp/existing-complete-plant --catalog /tmp/existing-capacity-catalog \
-  --fields /tmp/existing-positive-vector-bank --mode four \
+  --fields /tmp/existing-positive-vector-bank --mode four --storage atlas \
   --output /tmp/outshine-vegetation-component-portrait-new
 ```
 
@@ -202,3 +202,7 @@ PYTHONPATH=lib/src:test/experiments/vegetation .venv/bin/python \
 then coherent shadows/R/T/specular/wind,
 further camera/light poses and shared world costs remain required. Native
 integration and final species/stand quality are separate, unfinished gates.
+
+The follow-up [isolated-view comparison](isolated_normal_views.md) owns the corrected
+per-view reference, the separately rejected UDIM edge case and current costs.
+This report retains the original rejected atlas result.

@@ -73,6 +73,9 @@ int main() {
   CHECK(branch && branch->Axes == 2 && branch->Leaves == 2 && branch->Variants[0] == 1 &&
             branch->Variants[1] == 1,
         "partial summary excludes the neighbouring branch");
+  CHECK(branch && branch->AxisRows.size() == 2 && branch->AxisRows[0] == 1 &&
+            branch->AxisRows[1] == 3,
+        "prepared subtree rows skip the unrelated breadth-first sibling without a plan scan");
   CHECK(!plan->Leaves({.Axis = kLeft, .Maximum = 0}),
         "an insufficient detail budget refuses the whole leaf group");
   const auto leaves = plan->Leaves({.Axis = kLeft, .Maximum = 1});
