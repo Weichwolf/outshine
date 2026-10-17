@@ -99,6 +99,7 @@ class FacadeProductTests(unittest.TestCase):
                 s.window_ids, tuple(w.identifier for w in p.facade.windows)
             )
             self.assertEqual(len(s.triangle_owners), len(s.mesh["faces"]))
+            self.assertEqual(s.mesh["faces"].dtype, np.dtype(np.uint32))
             self.assertLess(int(s.triangle_owners.max()), len(s.owner_ids))
             self.assertTrue(set(s.window_ids).issubset(set(s.owner_ids)))
             for array in s.mesh.values():

@@ -190,10 +190,12 @@ def caps(prepared):
 
 def joined(meshes):
     offsets = np.cumsum([0] + [len(m["vertices"]) for m in meshes[:-1]])
+    if sum(len(m["vertices"]) for m in meshes) > np.iinfo(np.uint32).max:
+        raise ValueError("Compact exterior exceeds its32-bit vertex index capacity")
     return {
         key: np.concatenate(
             [
-                m[key] + offset if key == "faces" else m[key]
+                m[key] + int(offset) if key == "faces" else m[key]
                 for m, offset in zip(meshes, offsets, strict=True)
             ]
         )
