@@ -9,7 +9,9 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document document;
   document.Named.Name = "previous";
-  document.Providers.push_back({.Kind = "previous", .Priority = 7});
+  document.Providers.emplace_back();
+  document.Providers.back().Kind = "previous";
+  document.Providers.back().Priority = 7;
   std::string error;
   for (const std::string_view rank : {"2147483648",
                                       "-2147483649",

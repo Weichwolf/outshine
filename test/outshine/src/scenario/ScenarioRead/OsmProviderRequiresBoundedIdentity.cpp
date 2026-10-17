@@ -49,7 +49,9 @@ int main() {
 
   Scenario::Document document;
   document.Named.Name = "previous";
-  document.Providers.push_back({.Kind = "vector", .Revision = "held"});
+  document.Providers.emplace_back();
+  document.Providers.back().Kind = "vector";
+  document.Providers.back().Revision = "held";
   std::string error;
   for (const std::string &text : invalid) {
     CHECK(!ReadScenario(text.data(), text.size(), document, error),

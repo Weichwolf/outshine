@@ -7,7 +7,7 @@
 #include <vector>
 
 #include <world/SourceProvider.h>
-#include <scenario/WeatherDeclaration.h>
+#include "WeatherDeclaration.h"
 #include <audio/AudioScene.h>
 #include <render/RenderConfiguration.h>
 #include <physics/PrismaticJoint.h>

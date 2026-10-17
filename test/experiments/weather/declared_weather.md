@@ -2,10 +2,25 @@
 
 The contract, ownership and acceptance belong to
 [#421](https://github.com/Weichwolf/outshine/issues/421).
-The public types document native units and missing-value semantics in
-`include/scenario/WeatherDeclaration.h` and `include/world/weather/WeatherSnapshot.h`.
+The scenario input belongs to `src/scenario/WeatherDeclaration.h`; normalized
+weather values retain their native units and missing-value semantics in
+`include/world/weather/WeatherSnapshot.h` during the existing module-header migration.
+This is an internal application feature, without a public SDK or Doxygen contract.
 The fixed input is `test/outshine/data/weather/declared-overcast.scenario`;
 its root `<weather>` section is independent of legacy `<world><weather>` metadata.
+
+The parser/layer tests build their base/scenario closure and the actual native
+weather validator. The two pure generator cases build base/world-weather and their
+two generator consumers. Neither profile links the engine or renderer:
+
+```sh
+make suite SUITE='outshine/src/scenario/ScenarioRead outshine/src/scenario/ScenarioLayer'
+make suite SUITE=outshine/src/generators/weather/DeclaredWeather
+```
+
+The parser profile also runs ASan/UBSan and container-hardening variants. Engine
+publication/readiness/cancellation remain in `outshine/src/engine/WeatherRuntime`;
+those integration tests intentionally consume the engine and source factories.
 
 After a complete regular `make all db` with the project's dependency/toolchain setup:
 
@@ -18,7 +33,7 @@ python3 test/experiments/weather/declared_weather_report.py \
   --output /tmp/outshine-weather-declared-report
 ```
 
-The public `Engine::readScenario` file entry supplies four native raster cases:
+The application's `Engine::readScenario` file entry supplies four native raster cases:
 low cover0.65, low cover1, known0 and missing low cover. Other declared fields remain
 unchanged. Each case captures two identical Vulkan frames with validation enabled.
 The PDF uses the same controlled air, light, geometry and phase37s; geometry and cloud
