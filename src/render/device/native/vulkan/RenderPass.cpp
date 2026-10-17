@@ -32,6 +32,18 @@ bool Compatible(const RenderState &pass, const RenderAttachment &attachment) {
 
 }
 
+Recording::ImageAccess Recording::AttachmentAccess(bool depth) noexcept {
+  return depth ? ImageAccess{.Stage = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                                      VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+                             .Access = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                                       VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+                             .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL}
+               : ImageAccess{.Stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                             .Access = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT |
+                                       VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                             .Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+}
+
 Result<RenderAttachment>
 Recording::PrepareAttachment(TextureView view, Load begin, Store end, bool depth) {
   if (view.Image == nullptr || view.Mips != 1 || view.Layers != 1 ||
@@ -49,16 +61,7 @@ Recording::PrepareAttachment(TextureView view, Load begin, Store end, bool depth
     return std::unexpected(Error{.Kind = ErrorKind::Invalid,
                                  .Message = "invalid attachment format, usage or subresource"});
   }
-  const ImageAccess access =
-      depth ? ImageAccess{.Stage = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
-                                   VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-                          .Access = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
-                                    VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-                          .Layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL}
-            : ImageAccess{.Stage = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
-                          .Access = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT |
-                                    VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
-                          .Layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+  const auto access = AttachmentAccess(depth);
   if (auto used = UseImage(*image, view, access); !used) { return std::unexpected(used.error()); }
   auto native = Storage_.ImageView(**image, view);
   if (!native) { return std::unexpected(native.error()); }
@@ -114,37 +117,6 @@ Result<void> Recording::BeginRenderPass(const RenderPassDescription &description
     pass.Depth = std::move(*attachment);
   }
   Render_ = std::move(pass);
-  return {};
-}
-
-Result<void> Recording::EndRenderPass() {
-  if (auto owner = CheckOwner(*Context_); !owner) { return owner; }
-  if (Finished_ || !Render_) {
-    return std::unexpected(Error{.Kind = ErrorKind::Invalid, .Message = "no open render pass"});
-  }
-  std::array<VkRenderingAttachmentInfo, 8> colours{};
-  for (std::size_t at = 0; at < Render_->Colours.size(); ++at) {
-    colours[at] = Render_->Colours[at].Native;
-  }
-  VkRenderingInfo rendering{};
-  rendering.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-  rendering.renderArea.extent = {.width = Render_->Width, .height = Render_->Height};
-  rendering.layerCount = 1;
-  rendering.colorAttachmentCount = static_cast<uint32_t>(Render_->Colours.size());
-  rendering.pColorAttachments = colours.data();
-  rendering.pDepthAttachment = Render_->Depth ? &Render_->Depth->Native : nullptr;
-  vkCmdBeginRendering(Commands_, &rendering);
-  VkPipeline bound = VK_NULL_HANDLE;
-  for (const auto &draw : Render_->Draws) {
-    const auto &pipeline = draw.Graphics->Pipeline->Handle;
-    if (bound != pipeline) {
-      vkCmdBindPipeline(Commands_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-      bound = pipeline;
-    }
-    EncodeDraw(draw);
-  }
-  vkCmdEndRendering(Commands_);
-  Render_.reset();
   return {};
 }
 
