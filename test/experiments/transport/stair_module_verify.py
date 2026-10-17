@@ -15,7 +15,9 @@ from stair_module_catalog import catalog
 from stair_module_experiment import arguments, refused_catalog, write_json
 from stair_module_geometry import old_surfaces
 from stair_module_inputs import inputs, read_arrays
+from stair_module_materials import body_slots
 from stair_module_soil import selection
+from stair_module_source_contract import verify_source_contract
 from stair_module_world import field_link, inspect_world, source_ground
 from stair_terrain_experiment import frozen
 
@@ -29,6 +31,14 @@ def saved_planning(output, original, ground):
         for key in ("source_id", "width_m", "gradient"):
             if before[key] != after[key]:
                 raise ValueError("source profile or identity changed")
+        for key in (
+            "source_recipe",
+            "profile_kind",
+            "crossfall_limit",
+            "traffic_profile",
+        ):
+            if before.get(key) != after.get(key):
+                raise ValueError("explicit procedural road profile changed")
         for key in ("xy", "prior"):
             after[key] = np.array(after[key])
             if not np.array_equal(before[key], after[key]):
@@ -81,6 +91,8 @@ def display_proof(args, report, state, data, body, parts, roles):
         normals = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])
         lengths = np.linalg.norm(normals, axis=1)
         slots = np.full(len(faces), slot, int)
+        if index == 1:
+            slots = body_slots(data)
         if index == 0:
             slots[abs(normals[:, 2]) < lengths * 1e-6] = 6
             slots[np.flatnonzero(~parts["ground"])[roles]] = 6
@@ -169,6 +181,11 @@ def verify(args):
             raise ValueError("saved module artifact changed: " + name)
     _old, line, ground, upper = old_surfaces(state, recipe, sources)
     rows, planning = saved_planning(args.output, original, ground)
+    source_contract = {}
+    if recipe.get("contact_mode") == "profile":
+        source_contract = verify_source_contract(
+            rows, sources, recipe, state["module_contacts"], line, planning[0]
+        )
     data = read_arrays(args.output / "module.npz")
     if not np.array_equal(data["targets"], sample(data["surface_vertices"][:, :2])):
         raise ValueError("original module DEM targets changed")
@@ -226,6 +243,7 @@ def verify(args):
         "reader_commit": commit,
         "products_report_sha256": digest(args.output / "comparison.json"),
         "module": network,
+        **({"source_contract": source_contract} if source_contract else {}),
         "world": world,
         "field_link": linked,
         "display": shown,

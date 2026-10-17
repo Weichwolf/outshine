@@ -111,8 +111,10 @@ def arrangement_vertices(rows, xy):
     return result, labels, note["maximum_displacement_m"], {"surface_weld": note}
 
 
-def arrangement(rows, domains, masks):
-    lines = [p.boundary for p in domains + masks]
+def arrangement(rows, domains, masks, *, constraints=()):
+    if len(constraints) > 1024:
+        raise ValueError("local interface constraint budget")
+    lines = [p.boundary for p in domains + masks] + list(constraints)
     section_counts = []
     for row in rows:
         lines.append(shapely.LineString(row["xy"]))
