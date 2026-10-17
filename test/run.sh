@@ -579,46 +579,24 @@ GroupToolchain() {
   esac
 }
 
-# freshness is CONTENT, not clock: a checkout, a stash pop or a revert moves an mtime
-# BACKWARDS, and "-nt" then reports a stale object as current -- a green verdict about
-# source nobody compiled (board:1751). The stamp beside each object is the digest of the
-# source and every prerequisite the compiler named.
-# the stamp is (mtime, size, name) of the source and every prerequisite, gathered in ONE
-# stat call: a backwards mtime DIFFERS from the recorded one, where "-nt" called it current
-FileStamp() {
-  case "$(uname -s)" in
-    Linux) stat -c '%Y|%s|%n' -- "$@" ;;
-    *) stat -f '%m|%z|%N' -- "$@" ;;
-  esac
-}
-
 SourceStamp() {
   stampSource=$1
   stampDeps=$2
-  stampFiles=$stampSource
-  if [ -f "$stampDeps" ]; then
-    stampFiles="$stampFiles $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps")"
-  fi
-  FileStamp $stampFiles 2>/dev/null || return 1
+  [ -s "$stampDeps" ] || return 1
+  if [ -n "${CXX_ENV_CONTEXT:-}" ]; then printf 'env:%s\n' "$CXX_ENV_CONTEXT"; fi
+  git hash-object --no-filters -- "$stampSource" "$stampDeps" || return 1
+  stampFiles=$(sed -e 's/^[^:]*://' -e 's/\\$//' -e 's/\$\$/\$/g' "$stampDeps") || return 1
+  printf '%s\n' "$stampFiles" | xargs git hash-object --no-filters --
 }
 
-# THE COMPILE LINE'S IDENTITY IS IN THE OBJECT'S NAME, so freshness only has to answer the other
-# question: is anything this unit reads newer than what it produced. That is one `sed` to read the
-# dependency list the compiler already wrote, and then shell builtins -- where the stamp it
-# replaces spent a `stat` over a hundred paths and a `cat` per unit, 58 ms each over 158 units.
 UpToDate() {
   objectPath=$1
   sourcePath=$2
   depsPath=${objectPath%.o}.d
-  [ -f "$objectPath" ] || return 1
-  [ -f "$depsPath" ] || return 1
-  [ -f "$sourcePath" ] || return 1
-  [ "$objectPath" -nt "$sourcePath" ] || return 1
-  for readAlso in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$depsPath"); do
-    [ -f "$readAlso" ] || return 1
-    [ "$objectPath" -nt "$readAlso" ] || return 1
-  done
-  return 0
+  stampPath=${objectPath%.o}.stamp
+  [ -f "$objectPath" ] && [ -f "$sourcePath" ] && [ -f "$stampPath" ] || return 1
+  currentStamp=$(SourceStamp "$sourcePath" "$depsPath" 2>/dev/null) || return 1
+  [ "$currentStamp" = "$(cat "$stampPath")" ]
 }
 
 OBJDIR=$BUILD/obj
@@ -634,9 +612,16 @@ OBJDIR=$BUILD/obj
 JOBS=${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
 
 SetGroupCompileFlags() {
+  if [ -z "${CXX_VERSION:-}" ]; then
+    CXX_VERSION=$($CXX --version) || return 1
+    CXX_ENV_CONTEXT=
+    if [ -n "${CPATH:-}${CPLUS_INCLUDE_PATH:-}${C_INCLUDE_PATH:-}${OBJC_INCLUDE_PATH:-}${SDKROOT:-}${MACOSX_DEPLOYMENT_TARGET:-}${IPHONEOS_DEPLOYMENT_TARGET:-}${SOURCE_DATE_EPOCH:-}" ]; then
+      CXX_ENV_CONTEXT=$(printf '%s\0' "${CPATH:-}" "${CPLUS_INCLUDE_PATH:-}" "${C_INCLUDE_PATH:-}" "${OBJC_INCLUDE_PATH:-}" "${SDKROOT:-}" "${MACOSX_DEPLOYMENT_TARGET:-}" "${IPHONEOS_DEPLOYMENT_TARGET:-}" "${SOURCE_DATE_EPOCH:-}" | git hash-object --stdin)
+    fi
+  fi
   arcStd="$groupStd -fobjc-arc"
-  setId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
-  arcSetId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
+  setId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
+  arcSetId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
 }
 
 BuildGroup() {
@@ -691,8 +676,16 @@ BuildGroup() {
     if ! UpToDate "$unitObject" "$unit"; then
       read -r _poolToken <&9
       {
-        $CXX "$unit" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes \
-          -c -o "$unitObject" >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
+        unitStamp=${unitObject%.o}.stamp
+        rm -f "$unitStamp" "$unitStamp.tmp"
+        if $CXX "$unit" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES -MD -MP $groupIncludes \
+            -c -o "$unitObject" >"$unitObject.log" 2>&1 &&
+            SourceStamp "$unit" "${unitObject%.o}.d" >"$unitStamp.tmp" 2>>"$unitObject.log"; then
+          mv "$unitStamp.tmp" "$unitStamp"
+        else
+          rm -f "$unitStamp.tmp"
+          printf '%s\n' "$unit" >>"$groupFailed"
+        fi
         printf '.\n' >&9
       } &
       groupSaid="$groupSaid $unitObject.log"
