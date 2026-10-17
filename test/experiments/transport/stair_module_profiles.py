@@ -4,9 +4,10 @@ import numpy as np
 from stair_cycle_contacts import interior_profile_xy, profile
 from stair_module_through import through_sides
 from stair_module_trace import compare
+from stair_shared_boxes import common_pad
 
 
-def owned(data, owner, old_caps, borrowed):
+def owned(data, owner, old_caps, borrowed, constructed=()):
     caps = [
         (
             data["surface_vertices"],
@@ -18,6 +19,11 @@ def owned(data, owner, old_caps, borrowed):
         caps.extend(
             (old_cap.vertices, old_cap.triangles, borrowed) for old_cap in old_caps
         )
+    caps.extend(
+        (c["cap"].vertices, c["cap"].triangles, c["mask"])
+        for c in constructed
+        if c["owner"] == owner
+    )
     return caps
 
 
@@ -50,7 +56,9 @@ def contact_profiles(
     return old_at, references
 
 
-def frozen_profile_checks(data, nodes, masks, original, old_at, references):
+def frozen_profile_checks(
+    data, nodes, masks, original, old_at, references, constructed=()
+):
     checks = []
     for index, cap, line, interior in references:
         original_cap = [(cap.vertices, cap.triangles, masks[index])]
@@ -62,6 +70,7 @@ def frozen_profile_checks(data, nodes, masks, original, old_at, references):
                     owner,
                     old_at[index],
                     original[owner].intersection(masks[index]),
+                    constructed,
                 )
             )
         checks.append(
@@ -76,7 +85,9 @@ def frozen_profile_checks(data, nodes, masks, original, old_at, references):
     return checks
 
 
-def new_interior_checks(data, rows, nodes, masks, original, old_at, endpoint_nodes=()):
+def new_interior_checks(
+    data, rows, nodes, masks, original, old_at, endpoint_nodes=(), constructed=()
+):
     result = []
     for index, node in enumerate(nodes):
         for owner in node["incident"]:
@@ -89,6 +100,7 @@ def new_interior_checks(data, rows, nodes, masks, original, old_at, endpoint_nod
                 owner,
                 old_at.get(index, []),
                 original[owner].intersection(masks[index]) if index in old_at else None,
+                constructed,
             )
             other = []
             for neighbour in node["incident"]:
@@ -101,6 +113,7 @@ def new_interior_checks(data, rows, nodes, masks, original, old_at, endpoint_nod
                             original[neighbour].intersection(masks[index])
                             if index in old_at
                             else None,
+                            constructed,
                         )
                     )
             other.extend(
@@ -140,6 +153,8 @@ def varying_profiles(
     *,
     contacts=(),
     root_interior=False,
+    constructed=(),
+    shared_box=False,
 ):
     root = next(
         i
@@ -165,7 +180,7 @@ def varying_profiles(
             borrow = (
                 original[owner].intersection(masks[index]) if index in old_at else None
             )
-            own = owned(data, owner, old_at.get(index, []), borrow)
+            own = owned(data, owner, old_at.get(index, []), borrow, constructed)
             others = []
             for neighbour in nodes[index]["incident"]:
                 if neighbour != owner:
@@ -174,17 +189,35 @@ def varying_profiles(
                         if index in old_at
                         else None
                     )
-                    others.extend(owned(data, neighbour, old_at.get(index, []), region))
+                    others.extend(
+                        owned(
+                            data, neighbour, old_at.get(index, []), region, constructed
+                        )
+                    )
             others.extend(
                 (cap.vertices, cap.triangles, masks[index])
                 for cap in old_at.get(index, [])
             )
+            if shared_box and index in old_at:
+                others.append(
+                    common_pad(
+                        data,
+                        nodes,
+                        rows,
+                        index,
+                        old_at[index],
+                        [l for i, _c, l, _interior in references if i == index],
+                        include_interiors=root_interior or bool(contacts),
+                    )
+                )
             checks = [
                 compare([own, others], profile(row, end), cast)
                 for cast in (False, True)
             ]
             result.append({"source_id": row["source_id"], "end": end, "checks": checks})
-    old_checks = frozen_profile_checks(data, nodes, masks, original, old_at, references)
+    old_checks = frozen_profile_checks(
+        data, nodes, masks, original, old_at, references, constructed
+    )
     endpoint_nodes = [
         i
         for i, node in enumerate(nodes)
@@ -210,7 +243,14 @@ def varying_profiles(
         **(
             {
                 "new_source_interior_profiles": new_interior_checks(
-                    data, rows, nodes, masks, original, old_at, endpoint_nodes
+                    data,
+                    rows,
+                    nodes,
+                    masks,
+                    original,
+                    old_at,
+                    endpoint_nodes,
+                    constructed,
                 )
             }
             if root_interior or endpoint_nodes

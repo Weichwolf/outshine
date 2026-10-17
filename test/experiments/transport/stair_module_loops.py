@@ -7,8 +7,9 @@ from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from stair_cycle_contacts import interior_profile_xy, profile
 from stair_landing_pads import node_profiles
-from stair_module_sections import line_pieces
+from stair_module_sections import whole_line_pieces
 from stair_source_owners import source_selection
+from stair_surface_contacts import contact_regions
 
 
 def actual_profile(state, sources, old_key, vertex, *, interior):
@@ -39,14 +40,8 @@ def actual_profile(state, sources, old_key, vertex, *, interior):
         .sample(cross, max_queries=3, max_candidates=65536)
         .points_enu_m
     )
-    pieces, _parents = line_pieces(cap.vertices, cap.triangles, cross)
-    if (
-        not np.isfinite(sampled).all()
-        or shapely.LineString(cross)
-        .difference(shapely.union_all(pieces).buffer(1e-7))
-        .length
-        > 1e-7
-    ):
+    whole_line_pieces(cap.vertices, cap.triangles, cross)
+    if not np.isfinite(sampled).all():
         raise ValueError("actual cached interior profile has missing intervals")
     return {"mvt_xy": node, "xy": xy[vertex].tolist(), "profile": sampled, "cap": cap}
 
@@ -169,6 +164,8 @@ def prepare_contacts(rows, nodes, contacts):
 
 def reuse(state, recipe, rows, original, domains, root_cap):
     caps = [root_cap] + [c["cap"] for c in state.get("module_contacts", [])]
+    constructed = contact_regions(state.get("surface_contacts", []), original)
+    caps.extend(c["cap"] for c in constructed)
     faces = np.unique(np.vstack([c.triangles for c in caps]), axis=0)
     complete = Mesh(root_cap.vertices, faces)
     footprint = shapely.union_all(shapely.polygons(complete.vertices[faces, :2]))
@@ -189,6 +186,9 @@ def reuse(state, recipe, rows, original, domains, root_cap):
             )
             for key, cap in allowed
         ]
+        pieces.extend(
+            (c["cached_source_id"], c["mask"]) for c in constructed if c["owner"] == i
+        )
         borrowed = shapely.union_all([p for _key, p in pieces])
         if shape.difference(domains[i].union(borrowed)).area > 1e-7:
             raise ValueError("source reuse needs an undeclared cached asset")
