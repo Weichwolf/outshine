@@ -90,6 +90,16 @@ qualitative diffuse reflection/transmission, fixed lights/exposure and camera.
 Both PNGs have SHA256
 `6100f6017341e2084e983e28b842150fce7b9c2978dd10141828946a3b858845`.
 
+That first probe has almost no ambient light: authored sky/ground radiance0.1/0.02
+against20000lux direct light. A separate unchanged-material control supplies
+5000/π sky radiance and0.2×(20000√0.5+5000)/π ground radiance, following the current
+shader's diffuse-environment convention. Both filled-light images were opened
+and also match exactly, SHA256
+`9ed49a9a50fc93195ea346bd193b88f059c19585148b153749c76151e7ec685e`.
+Leaves brighten, but perforation/form gaps remain. This separates the diagnostic
+lighting choice from material/placement correctness; neither setup is a calibrated
+outdoor scene or a diagnosis of the current world's complete lighting.
+
 The matched picture proves this finite native placement path preserves the
 rendered foliage. It looks dark and perforated at this scale, with a generic
 ellipsoid envelope. It has no wood, terrain or world context and is not a new
