@@ -1,4 +1,4 @@
-"""Experimental affine clearance queries; the shared Reservation API is unchanged."""
+"""Experimental affine clearance queries extending the shared constant-band query."""
 
 from dataclasses import dataclass, field
 from fractions import Fraction
@@ -35,8 +35,8 @@ def bounded_tuple(value, size, bound):
         raise ValueError("finite immutable bounded affine coordinates required")
 
 
-def clip_rectangle(vertices, values):
-    """Exact rational clipping of the small convex query rectangle, not the domain."""
+def clip_chain(vertices, values):
+    """Clip an oriented chain; a nonconvex result may have zero-width connectors."""
     if max(values) <= 0:
         return []
     if min(values) >= 0:
@@ -55,15 +55,33 @@ def clip_rectangle(vertices, values):
 
 
 def polygonal_conflict(result):
-    if result.area == 0:
+    if result.is_empty:
         return shapely.Polygon()
     if result.geom_type in ("Polygon", "MultiPolygon"):
         return result
-    parts = shapely.get_parts(shapely.get_parts(result))
-    polygons = [p for p in parts if p.geom_type == "Polygon"]
+    pending, polygons = [result], []
+    visited = 0
+    while pending:
+        part = pending.pop()
+        visited += 1
+        if visited > 16384:
+            raise OccupancyError("polygonal normalization part budget exhausted")
+        if part.is_empty:
+            continue
+        if part.geom_type == "Polygon":
+            polygons.append(part)
+        elif part.geom_type in ("MultiPolygon", "GeometryCollection"):
+            pending.extend(part.geoms)
     if not polygons:
-        raise OccupancyError("affine conflict has no polygonal area")
-    return shapely.union_all(polygons)
+        return shapely.Polygon()
+    result = shapely.union_all(polygons)
+    if (
+        result.is_empty
+        or not result.is_valid
+        or result.geom_type not in ("Polygon", "MultiPolygon")
+    ):
+        raise OccupancyError("polygonal normalization is numerically unresolved")
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,32 +145,23 @@ class AffineOccupancy(Reservation):
                 sign * (plane_value(plane, self.origin_xy_m, p) - rational(limit))
                 for p in vertices
             ]
-            vertices = clip_rectangle(vertices, values)
+            vertices = clip_chain(vertices, values)
             if not vertices:
                 return shapely.Polygon()
         if vertices == original:
             return self.geometry
         # GEOS and the resulting XY vertices are binary64, not exact arithmetic.
         rectangle = shapely.Polygon([(float(x), float(y)) for x, y in vertices])
+        if not rectangle.is_valid:
+            from stair_occupancy_precision import certified_empty
+
+            return certified_empty(self, heights)
         result = self.geometry.intersection(rectangle)
         if not result.is_valid:
             raise OccupancyError("affine intersection is numerically unresolved")
-        return polygonal_conflict(result)
+        result = polygonal_conflict(result)
+        if result.is_empty:
+            from stair_occupancy_precision import certified_empty
 
-    def overlaps(self, footprint):
-        return (
-            self.conflict_geometry(footprint.heights)
-            .intersection(footprint.geometry)
-            .area
-            > 0
-        )
-
-
-def conflict_geometry(reservation, heights):
-    if isinstance(reservation, AffineOccupancy):
-        return reservation.conflict_geometry(heights)
-    return (
-        reservation.geometry
-        if reservation.heights.overlaps(heights)
-        else shapely.Polygon()
-    )
+            return certified_empty(self, heights)
+        return result

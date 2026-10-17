@@ -2,11 +2,14 @@
 
 Stand 2026-10-17: Der Python-Versuch liefert Reservierungsvolumen aus allen
 65 gespeicherten Wiener Transportquellen einschließlich ihrer 124 Stützen.
-Das Verfahren und seine Verbraucherprüfungen liegen ausschließlich im Experiment.
-Der öffentliche Bibliotheksvertrag bleibt unverändert; die Fachentscheidung
-besitzt [#568](https://github.com/Weichwolf/outshine/issues/568).
-Vegetation und Buildings haben ausdrücklich zugestimmt; masters Antwort steht
-noch aus. Diese fehlende Antwort wird nicht als Zustimmung behandelt.
+Das affine Verfahren und seine Verbraucherprüfungen liegen im Experiment.
+Vegetation, Buildings und master haben dem additiven Vertrag ausdrücklich
+zugestimmt; die Fachentscheidung besitzt
+[#568](https://github.com/Weichwolf/outshine/issues/568).
+Die anschließende [Präzisionsprüfung](stair_occupancy_precision.md) korrigiert
+fälschlich leere Masken und Flächenunterlauf und liefert die konstante
+`Reservation.conflict_geometry` an die Bibliothek. Die folgenden Zahlen und
+Bilder dokumentieren weiterhin die ursprüngliche experimentelle Lieferung #575.
 
 ## Geometrie und Übergabe
 
