@@ -14,6 +14,7 @@ import numpy as np
 from generator_graph import GeneratorGraph
 from generator_specs import Generator, Placement, TubeShape
 from outshine_ref.vegetation import DistancePattern, Profile
+from outshine_ref.vegetation.curve_frame import arc_frame
 from parent_profile_graph import ParentProfileGraph
 from spruce_branch_planes import branch_form
 from spruce_study_source import INPUT, read_input
@@ -57,6 +58,81 @@ def specimen(phase=0.0, jitter=0.0):
 
 
 class BranchPhaseTests(unittest.TestCase):
+    def test_world_up_normal_follows_final_inclination_and_bias_without_moving_attachment(
+        self,
+    ):
+        base = specimen(0, 0.18)
+        nodes = base.nodes[:-1] + (
+            replace(
+                base.nodes[-1],
+                shape=replace(
+                    base.nodes[-1].shape, bend=-0.65, radius=Profile(np.full(4, 0.002))
+                ),
+            ),
+        )
+        options = {
+            "parent_length_ratios": ((2, 0.2),),
+            "inclination_profiles": ((2, Profile(np.full(4, 1.1))),),
+            "upward_biases": ((2, 0.2),),
+        }
+        control = ParentProfileGraph(815, nodes, **options)
+        changed = nodes[:-1] + (
+            replace(
+                nodes[-1],
+                placement=replace(nodes[-1].placement, normal_reference="world-up"),
+            ),
+        )
+        aligned = ParentProfileGraph(815, changed, **options)
+        replay = ParentProfileGraph.from_recipe(
+            json.loads(json.dumps(aligned.recipe()))
+        )
+        for a, b, c in zip(
+            control.instances(2, 100),
+            aligned.instances(2, 100),
+            replay.instances(2, 100),
+            strict=True,
+        ):
+            np.testing.assert_array_equal(a.origin, b.origin)
+            np.testing.assert_allclose(a.frame[:, 1], b.frame[:, 1], atol=2e-16)
+            d = b.frame[:, 1]
+            normal = np.array((0.0, 0.0, 1.0)) - d * d[2]
+            normal /= np.linalg.norm(normal)
+            np.testing.assert_allclose(b.frame[:, 2], normal, atol=3e-16)
+            np.testing.assert_allclose(b.frame.T @ b.frame, np.eye(3), atol=3e-15)
+            np.testing.assert_array_equal(b.frame, c.frame)
+            end = b.origin + b.frame @ arc_frame(b.length, b.bend, 0, 1.0)[0]
+            straight = b.origin + b.length * d
+            self.assertLess(end[2], straight[2])
+
+    def test_world_up_parallel_fallback_and_invalid_versions(self):
+        nodes = list(specimen().nodes)
+        nodes[2] = replace(
+            nodes[2],
+            placement=replace(
+                nodes[2].placement,
+                pitch=0,
+                pitch_variance=0,
+                normal_reference="world-up",
+            ),
+        )
+        graph = GeneratorGraph(815, tuple(nodes))
+        for pose in graph.instances(2, 100):
+            self.assertTrue(np.isfinite(pose.frame).all())
+            np.testing.assert_allclose(pose.frame.T @ pose.frame, np.eye(3), atol=2e-15)
+        for value in (
+            None,
+            "world-up",
+            {"version": "unknown"},
+            {"version": "world-up-axis-normal-1", "extra": 0},
+        ):
+            record = graph.recipe()
+            record["nodes"][2]["placement"]["normal_reference"] = value
+            with self.assertRaises(ValueError):
+                GeneratorGraph.from_recipe(record)
+        for kwargs in ({"phase": 0}, {"normal_reference": "world-up"}):
+            with self.assertRaises(ValueError):
+                Generator(0, "root", "root", (), placement=Placement(**kwargs))
+
     def test_scalar_parent_phase_origin_direction_and_seeded_variation(self):
         for phase, jitter in ((0.0, 0.0), (0.37, 0.18)):
             graph = specimen(phase, jitter)

@@ -99,6 +99,7 @@ class Placement:
     scale_variance: float = 0.04
     pattern: DistancePattern | BendPattern | None = None
     phase: float | None = None
+    normal_reference: str | None = None
 
     def __post_init__(self):
         values = (
@@ -149,6 +150,10 @@ class Placement:
                     "finite scalar fixed parent phase within -pi/pi required"
                 )
             object.__setattr__(self, "phase", float(raw))
+        if self.normal_reference not in (None, "world-up"):
+            raise ValueError(
+                "explicit world-up axis normal or inherited frame required"
+            )
 
     def parameter(self, slot):
         fraction = slot / (self.count - 1) if self.count > 1 else 0.5
@@ -158,7 +163,7 @@ class Placement:
         result = {
             key: value
             for key, value in self.__dict__.items()
-            if key not in ("scale", "pattern", "phase")
+            if key not in ("scale", "pattern", "phase", "normal_reference")
         }
         if self.pattern is not None:
             result["pattern"] = self.pattern.recipe()
@@ -167,6 +172,8 @@ class Placement:
                 "version": "fixed-parent-azimuth-1",
                 "radians": self.phase,
             }
+        if self.normal_reference is not None:
+            result["normal_reference"] = {"version": "world-up-axis-normal-1"}
         return result | {"scale": profile_recipe(self.scale)}
 
     def capacity(self, parent_length):
@@ -247,6 +254,11 @@ class Generator:
             raise ValueError(
                 "one parentless root and connected geometry generators required"
             )
+        if self.kind == "root" and (
+            self.placement.phase is not None
+            or self.placement.normal_reference is not None
+        ):
+            raise ValueError("root has no parent placement frame to orient")
 
     def recipe(self):
         shape = (
@@ -298,6 +310,10 @@ class Generator:
             raise ValueError("implemented generator kind required")
         placement = dict(recipe["placement"])
         placement["scale"] = profile_from_recipe(placement["scale"])
+        if "normal_reference" in placement:
+            if placement["normal_reference"] != {"version": "world-up-axis-normal-1"}:
+                raise ValueError("explicit supported world-up normal version required")
+            placement["normal_reference"] = "world-up"
         if "phase" in placement:
             phase = placement["phase"]
             if (

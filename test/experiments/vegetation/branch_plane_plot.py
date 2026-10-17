@@ -14,7 +14,7 @@ from spruce_branch_planes import lines, sparse_poses
 
 def plot(inputs, output):
     rows = json.loads((inputs / "preflight.json").read_text())
-    fig, panels = plt.subplots(2, 4, figsize=(16, 9), dpi=160)
+    fig, panels = plt.subplots(2, len(rows), figsize=(3.2 * len(rows), 9), dpi=160)
     right = np.array((70.0, 18, 0))
     right /= np.linalg.norm(right)
     for column, row in enumerate(rows):

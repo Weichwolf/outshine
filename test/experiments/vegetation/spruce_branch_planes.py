@@ -13,10 +13,11 @@ from spruce_study_source import INPUT, read_input
 from spruce_whorl_balance import balanced
 
 
-def branch_form(original, *, planar=False, fixed=False, span=1.0):
+def branch_form(original, *, planar=False, fixed=False, span=1.0, hanging=False):
     if (
         type(planar) is not bool
         or type(fixed) is not bool
+        or type(hanging) is not bool
         or fixed
         and not planar
         or type(span) not in (int, float)
@@ -34,6 +35,8 @@ def branch_form(original, *, planar=False, fixed=False, span=1.0):
             "version": "fixed-parent-azimuth-1",
             "radians": 0.0,
         }
+    if hanging:
+        fine["placement"]["normal_reference"] = {"version": "world-up-axis-normal-1"}
     if span != 1:
         main["shape"]["length"] *= span
         spacing = fine["placement"]["pattern"]["spacing"]
@@ -94,6 +97,10 @@ def probe(source, output):
         ("rotated-fan", {"planar": True}),
         ("lateral-fan", {"planar": True, "fixed": True}),
         ("wider-lateral-fan", {"planar": True, "fixed": True, "span": 1.25}),
+        (
+            "hanging-lateral-fan",
+            {"planar": True, "fixed": True, "span": 1.25, "hanging": True},
+        ),
     ):
         recipe = branch_form(original, **options)
         settings = data["authoring"] | {
@@ -104,6 +111,9 @@ def probe(source, output):
                 "divergence"
             ],
             "secondary_phase": recipe["nodes"][3]["placement"].get("phase"),
+            "secondary_normal_reference": recipe["nodes"][3]["placement"].get(
+                "normal_reference"
+            ),
         }
         result = measure(recipe, data["physical_source"], metadata, areas)
         settings |= result
