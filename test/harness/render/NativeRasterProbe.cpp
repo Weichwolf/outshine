@@ -15,7 +15,10 @@ void Rejected(Device &device, GraphicsDescription description, const char *reaso
   CHECK(!pipeline && pipeline.error().Kind == ErrorKind::Invalid, reason);
 }
 
-void Pipelines(Device &device, const char *vertexPath, const char *fragmentPath) {
+void Pipelines(Device &device,
+               const char *vertexPath,
+               const char *fragmentPath,
+               const char *activeWritePath) {
   const auto vertex = Spirv(vertexPath);
   const auto fragment = Spirv(fragmentPath);
   std::array<ColourTarget, 5> colours{};
@@ -68,6 +71,14 @@ void Pipelines(Device &device, const char *vertexPath, const char *fragmentPath)
   bad.Streams = streams;
   bad.Attributes = outside;
   Rejected(device, bad, "vertex attributes must fit wholly within their stream stride");
+  if (activeWritePath != nullptr) {
+    const auto activeWrite = Spirv(activeWritePath);
+    auto writing = description;
+    writing.Fragment = ShaderCode{.Spirv = activeWrite};
+    const auto rejected = device.CreateGraphicsPipeline(writing);
+    CHECK(!rejected && rejected.error().Kind == ErrorKind::Unsupported,
+          "active graphics storage writes still require an explicit pass synchronization contract");
+  }
 }
 
 void PresentPipeline(Device &device, const char *vertexPath, const char *fragmentPath) {
@@ -94,11 +105,11 @@ void PresentPipeline(Device &device, const char *vertexPath, const char *fragmen
 }
 
 int main(int argc, char *const *argv) {
-  if ((argc != 4 && argc != 5) || (argc == 5 && std::string_view(argv[4]) != "--validation")) {
-    return 1;
-  }
-  auto device = Require(CreateDevice({.Validation = argc == 5}));
-  Pipelines(*device, argv[1], argv[2]);
+  const bool validation = argc > 1 && std::string_view(argv[argc - 1]) == "--validation";
+  const int paths = argc - (validation ? 2 : 1);
+  if (paths != 3 && paths != 4) { return 1; }
+  auto device = Require(CreateDevice({.Validation = validation}));
+  Pipelines(*device, argv[1], argv[2], paths == 4 ? argv[4] : nullptr);
   PresentPipeline(*device, argv[1], argv[3]);
   return Report();
 }

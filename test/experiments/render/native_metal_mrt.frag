@@ -12,5 +12,8 @@ void main() {
   for (int i = 0; i < 5; ++i) {
     colours[i] = vec4(depth, float(i) / 4.0, float(pixel.x) / 64.0, 1.0);
   }
+#ifdef NATIVE_GRAPHICS_WRITE
+  imageStore(unusedImage, pixel, vec4(depth));
+#endif
   gl_FragDepth = depth;
 }
