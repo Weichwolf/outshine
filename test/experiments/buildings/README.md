@@ -12,7 +12,7 @@ as the experiment dependencies:
 ```
 
 The connected Shape/modelling core and CGA ↔ ENU conversion come from
-`outshine_ref.buildings.modelling`. Static OBJ/glTF/GLB decoding additionally needs
+`outshine_ref.buildings.modelling`. Static OBJ decoding additionally needs
 `.venv/bin/python -m pip install -e './lib[assets]'`.
 `verify_scope_library.py` compares all emitted streams on four saved control meshes
 against the committed pre-migration implementation, then measures the same five
