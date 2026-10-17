@@ -14,7 +14,36 @@ from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
 from outshine_ref.vegetation import NeedlePattern
+from plant_atlas import projection
 from positive_light_basis import angular_weights, positive_columns
+
+
+def view_light_knots():
+    rows = [np.array([0.0, 0, 1]), np.array([0.0, 0, -1])]
+    for degrees, count in [(2, 4), (10, 4), (40, 8), (90, 8), (140, 6)]:
+        theta = np.deg2rad(degrees)
+        azimuth = np.arange(count) * 2 * np.pi / count
+        rows.extend(
+            np.c_[
+                np.sin(theta) * np.cos(azimuth),
+                np.sin(theta) * np.sin(azimuth),
+                np.full(count, np.cos(theta)),
+            ]
+        )
+    return np.array(rows)
+
+
+def view_held_queries():
+    theta = np.deg2rad([1, 5, 22, 65, 110, 165])
+    azimuth = 0.4 + 1.3 * np.arange(6)
+    return np.r_[
+        [[0.0, 0, 1], [0.0, 0, -1]],
+        np.c_[
+            np.sin(theta) * np.cos(azimuth),
+            np.sin(theta) * np.sin(azimuth),
+            np.cos(theta),
+        ],
+    ]
 
 
 def freeze_source(models, catalog, output, capacity):
@@ -103,7 +132,7 @@ def reduce_fields(joint, coverage, views, knots, held, output):
     return report
 
 
-def run(models, catalog, output, order, capacity):
+def run(models, catalog, output, order, capacity, angles="object"):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under/tmp")
     output.mkdir(parents=True, exist_ok=False)
@@ -114,13 +143,19 @@ def run(models, catalog, output, order, capacity):
     random /= np.linalg.norm(random, axis=1)[:, None]
     held = np.array([np.r_[view[None], -view[None], random] for view in views])
     knots = directions(32)
+    if angles == "view":
+        knots = view_light_knots()
+        held = np.array([view_held_queries()] * len(views))
     arrays = {"knots": knots, "heldout": held, "views": views}
     joint = []
     coverage = []
     records = []
     for index, view in enumerate(views):
+        queries = np.r_[knots, held[index]]
+        if angles == "view":
+            queries = queries @ projection(source["vertices"], view)[0].T
         measure = JointMeasure(
-            source, scene, view, np.r_[knots, held[index]], size=16, max_work=8_000_000
+            source, scene, view, queries, size=16, max_work=8_000_000
         )
         before = dict(scene.work)
         began = time.perf_counter()
@@ -181,6 +216,7 @@ def run(models, catalog, output, order, capacity):
         "schema": "joint-positive-basis-pilot-1",
         "capacity": capacity,
         "order": order,
+        "angular_coordinates": angles,
         "views": records,
         "reduction": reduction,
         "source_sha256": source_digest(output / "source/physical.npz"),
@@ -198,5 +234,6 @@ if __name__ == "__main__":
         parser.add_argument("--" + key, type=Path, required=True)
     parser.add_argument("--order", type=int, choices=(2, 4), default=2)
     parser.add_argument("--capacity", type=int, choices=(2, 32, 256), default=32)
+    parser.add_argument("--angles", choices=("object", "view"), default="object")
     args = parser.parse_args()
-    run(args.models, args.catalog, args.output, args.order, args.capacity)
+    run(args.models, args.catalog, args.output, args.order, args.capacity, args.angles)
