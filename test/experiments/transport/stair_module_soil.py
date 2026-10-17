@@ -5,6 +5,7 @@ import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler, conform_triangles, weld_vertices
 from stair_blend_solve import solve
+from stair_module_topology import check_surface
 from stair_terrain_solid import retaining_body
 
 
@@ -113,6 +114,7 @@ def prepare(state, data, ground, recipe, sample):
         or region.symmetric_difference(shapely.union_all(polygons)).area > 1e-7
     ):
         raise ValueError("local terrain lost original coverage")
+    check_surface(xy, faces)
     actual_ground = shapely.union_all(
         shapely.polygons(np.vstack([old_ground, new_tri])[:, :, :2])
     )

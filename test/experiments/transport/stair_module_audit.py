@@ -6,8 +6,10 @@ from outshine_ref.contracts import Mesh
 from stair_module_contacts import interfaces, profiles
 from stair_module_geometry import contact_pins
 from stair_module_loops import reuse as profile_reuse
+from stair_module_node_heights import apply_heights, inspect_heights, plan_heights
 from stair_module_profiles import varying_profiles
 from stair_module_roads import inspect_frames
+from stair_module_topology import check_surface
 from stair_network_geometry import vertex_links
 from surface_height_checks import normal_gradients
 from surface_solid_checks import audit_closed
@@ -37,6 +39,8 @@ def module_body(data, rows, domains):
     shapes = shapely.polygons(vertices[faces, :2])
     if not shapely.coverage_is_valid(shapes):
         raise ValueError("actual module surface coverage invalid")
+    if "grade_frames" in data:
+        check_surface(vertices[:, :2], faces)
     for i, domain in enumerate(domains):
         if (
             shapely.union_all(shapes[owners[:, i]]).symmetric_difference(domain).area
@@ -168,6 +172,17 @@ def audit(state, recipe, data, rows, planning, line, upper):
     fixed, values = contact_pins(
         data["surface_vertices"][:, :2], old, ground, masks, line[1, 2], mode
     )
+    node_checks = []
+    if recipe.get("junction_mode", "free") == "level_box":
+        cached_points = [line[1, :2], *[c["xy"] for c in state["module_contacts"]]]
+        plans = plan_heights(rows, nodes, cached_points)
+        fixed, values = apply_heights(
+            data["surface_vertices"][:, :2],
+            fixed,
+            values,
+            plans,
+        )
+        node_checks = inspect_heights(data, plans)
     actual = data["surface_vertices"][fixed, 2]
     pin_ok = (
         np.array_equal(actual, values[fixed])
@@ -198,6 +213,7 @@ def audit(state, recipe, data, rows, planning, line, upper):
         "body": module_body(data, rows, domains),
         "reuse": reuse,
         "interfaces": contact,
+        **({"new_junction_heights": node_checks} if node_checks else {}),
         "profiles": profile_note,
         **(
             {

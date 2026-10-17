@@ -29,5 +29,6 @@
       "end": 0,
       "cached_source_id": "openfreemap:14/8937/5678:transportation:39881120:24"
     }
-  ]
+  ],
+  "junction_mode": "level_box"
 }

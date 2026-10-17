@@ -14,8 +14,10 @@ from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
 from stair_module_loops import frozen_contacts, prepare_contacts
 from stair_module_materials import surface_slots
+from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
 from stair_module_sections import line_pieces, profile_levels
+from stair_module_topology import check_surface
 from stair_network_inputs import junctions
 
 
@@ -168,11 +170,26 @@ def contact_pins(xy, old, ground, masks, datum, mode):
     return fixed, values
 
 
-def build(rows, sources, frozen_row, line, ground, sample, *, contact_mode="flat"):
+def build(
+    rows,
+    sources,
+    frozen_row,
+    line,
+    ground,
+    sample,
+    *,
+    contact_mode="flat",
+    junction_mode="free",
+):
     nodes, original, domains, masks, old = prepared(
         rows, sources, frozen_row, line, ground
     )
     constraints = ()
+    if junction_mode not in ("free", "level_box") or (
+        junction_mode != "free" and contact_mode != "profile"
+    ):
+        raise ValueError("known bounded new junction-height mode required")
+    plans = []
     if contact_mode == "profile":
         caps = [frozen_row["cached_cap"]] + [
             c["cap"] for c in frozen_row["additional_contacts"]
@@ -191,11 +208,24 @@ def build(rows, sources, frozen_row, line, ground, sample, *, contact_mode="flat
             )
             boundaries.extend(shapely.linestrings(cap.vertices[edges, :2]))
         constraints = boundaries
+        if junction_mode == "level_box":
+            cached_points = [
+                line[1, :2],
+                *[c["xy"] for c in frozen_row["additional_contacts"]],
+            ]
+            plans = plan_heights(rows, nodes, cached_points)
+            constraints.extend(p["shape"].boundary for p in plans)
     xy, faces, owners, arrangement_note = arrangement(
-        rows, domains, masks, constraints=constraints
+        rows,
+        domains,
+        [] if contact_mode == "profile" else masks,
+        constraints=constraints,
     )
+    if contact_mode == "profile":
+        check_surface(xy, faces)
     targets = sample(xy)
     fixed, values = contact_pins(xy, old, ground, masks, line[1, 2], contact_mode)
+    fixed, values = apply_heights(xy, fixed, values, plans)
     limits = np.min(np.where(owners, [r["gradient"] for r in rows], np.inf), axis=1)
     frames = np.eye(2)[None] / (limits[:, None, None] - 0.0002)
     if contact_mode == "profile":
@@ -219,9 +249,14 @@ def build(rows, sources, frozen_row, line, ground, sample, *, contact_mode="flat
         )
     if fit.mesh is None:
         raise ValueError("bounded module height fit failed: " + str(fit.report))
-    body = close_surface(fit.mesh, 0.3)
+    vertices = fit.mesh.vertices
+    if contact_mode == "profile":
+        vertices = vertices.copy()
+        vertices[fixed, 2] = values[fixed]
+    surface = Mesh(vertices, faces)
+    body = close_surface(surface, 0.3)
     data = {
-        "surface_vertices": fit.mesh.vertices,
+        "surface_vertices": surface.vertices,
         "surface_faces": faces,
         "owners": owners,
         "targets": targets,
@@ -237,6 +272,18 @@ def build(rows, sources, frozen_row, line, ground, sample, *, contact_mode="flat
         data["surface_materials"] = surface_slots(rows, owners)
     return (
         data,
-        {"arrangement": arrangement_note, "fit": dict(fit.report)},
+        {
+            "arrangement": arrangement_note,
+            "fit": dict(fit.report),
+            **(
+                {
+                    "new_node_heights": [
+                        {k: v for k, v in p.items() if k != "shape"} for p in plans
+                    ]
+                }
+                if plans
+                else {}
+            ),
+        },
         (nodes, original, domains, masks, old),
     )

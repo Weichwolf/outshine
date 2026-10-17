@@ -14,8 +14,9 @@ from stair_module_cache import merge_road
 from stair_module_geometry import build, old_surfaces
 from stair_module_inputs import FIXTURE, inputs, read_arrays
 from stair_module_materials import body_slots
+from stair_module_node_heights import inspect_heights, plan_heights
 from stair_module_roads import inspect_frames
-from stair_module_soil import fit, prepare
+from stair_module_soil import check_surface, fit, prepare
 from stair_module_source_contract import verify_source_contract
 from stair_module_trace import agree, compare
 from stair_module_world import source_ground
@@ -78,6 +79,7 @@ class SouthwestStreets(unittest.TestCase):
             cls.ground,
             sample,
             contact_mode="profile",
+            junction_mode=cls.recipe.get("junction_mode", "free"),
         )
         cls.proof = audit(
             cls.state, cls.recipe, cls.data, cls.rows, cls.planning, cls.line, cls.upper
@@ -93,8 +95,6 @@ class SouthwestStreets(unittest.TestCase):
             self.assertEqual(
                 row["original"]["source"]["feature"], source["original_feature"]
             )
-        self.assertEqual(self.data["surface_vertices"].shape, (156, 3))
-        self.assertEqual(self.data["surface_faces"].shape, (244, 3))
         self.assertEqual(self.proof["profiles"]["complete_additional_profiles"], 10)
         self.assertEqual(self.proof["profiles"]["complete_cached_interior_profiles"], 1)
         self.assertEqual(len(self.proof["profiles"]["outer_profiles"]), 3)
@@ -144,7 +144,14 @@ class SouthwestStreets(unittest.TestCase):
             row.pop("junction_pads_xy_m", None)
         old, line, ground, upper = old_surfaces(state, recipe, self.sources)
         data, _note, planning = build(
-            rows, self.sources, old, line, ground, self.sample, contact_mode="profile"
+            rows,
+            self.sources,
+            old,
+            line,
+            ground,
+            self.sample,
+            contact_mode="profile",
+            junction_mode=recipe.get("junction_mode", "free"),
         )
         with self.assertRaisesRegex(ValueError, "undeclared cached asset"):
             audit(state, recipe, data, rows, planning, line, upper)
@@ -213,7 +220,9 @@ class SouthwestStreets(unittest.TestCase):
         )
         self.assertEqual(terrain["old_selected_faces"], 841)
         self.assertEqual(terrain["affected_old_piers"], 0)
-        self.assertEqual(len(heights), 909)
+        fixed = np.isfinite(local["bed"])
+        np.testing.assert_array_equal(heights[fixed], local["bed"][fixed])
+        check_surface(local["xy"], local["faces"])
 
     def test_new_road_caps_have_source_owned_asphalt_and_neutral_sides(self):
         slots = body_slots(self.data)
@@ -225,8 +234,36 @@ class SouthwestStreets(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "material lost original source"):
             inspect_frames(bad, self.rows, False)
 
+    def test_new_junction_regions_are_level_and_cached_profiles_stay_varying(self):
+        checks = self.proof["new_junction_heights"]
+        self.assertEqual(len(checks), 4)
+        for row in checks:
+            self.assertLessEqual(row["maximum_height_error_m"], row["z_guard_m"])
+        self.assertGreater(np.ptp(self.line[:, 2]), 0.024)
+        points = [self.line[1, :2], *[c["xy"] for c in self.state["module_contacts"]]]
+        plans = plan_heights(self.rows, self.planning[0], points)
+        node = next(n for n in self.planning[0] if n["mvt_xy"] == [2412, 3715])
+        bad = dict(self.data, surface_vertices=self.data["surface_vertices"].copy())
+        index = np.argmin(
+            np.linalg.norm(bad["surface_vertices"][:, :2] - node["xy"], axis=1)
+        )
+        bad["surface_vertices"][index, 2] += 0.001
+        with self.assertRaisesRegex(ValueError, "whole actual new junction region"):
+            inspect_heights(bad, plans)
+
 
 class WholeTraceCounterexamples(unittest.TestCase):
+    def test_actual_double_terrain_facet_reverses_after_float32_conversion(self):
+        case = json.loads(
+            FIXTURE.with_name("stair-southwest-float32-fold.json").read_text()
+        )
+        xy, faces = np.array(case["xy_m"]), np.array(case["faces"])
+        tri = xy[faces][0]
+        a, b = tri[1] - tri[0], tri[2] - tri[0]
+        self.assertGreater(a[0] * b[1] - a[1] * b[0], 0)
+        with self.assertRaisesRegex(ValueError, "collapses or inverts"):
+            check_surface(xy, faces)
+
     def test_three_equal_probes_miss_an_actual_piecewise_profile_kink(self):
         x = [0, 0.5, 1, 2]
         vertices = np.array([[a, y, 0] for a in x for y in (-1, 1)], float)

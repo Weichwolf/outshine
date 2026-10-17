@@ -100,6 +100,7 @@ def run(args):
             ground,
             sample,
             contact_mode=recipe.get("contact_mode", "flat"),
+            junction_mode=recipe.get("junction_mode", "free"),
         ),
     )
     geometry = timed(
