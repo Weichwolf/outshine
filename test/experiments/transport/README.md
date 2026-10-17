@@ -40,6 +40,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Flächenunterlauf, unabhängiges Orakel und konstante Bibliotheksabfrage (#568).
 - [Tatsächlicher Architekturverbrauch](stair_consumer_comparison.md): bestehender
   Buildings-Erzeuger, aktuelle Terrainanker und Prüfung seiner fertigen Körper (#568).
+- [Tatsächlicher Pflanzenverbrauch](stair_plant_comparison.md): vorhandene Pinus-/
+  Habitatprogramme, gemessene Hüllen und vollständige reale Zurückstellungen (#568).
 - [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
   an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
 - [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen
