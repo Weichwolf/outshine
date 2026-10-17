@@ -5,6 +5,7 @@ from collections import defaultdict
 import numpy as np
 import shapely
 from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
+from stair_frontier_endpoints import endpoint_bindings
 from stair_module_inputs import reference_profiles
 from stair_module_roots import root_profile
 
@@ -118,6 +119,10 @@ def module_recipe(reference, state, sources, root, proposal):
         for key in keys
         if sources[key]["properties"].get("class") == "minor"
     }
+    interiors = contact_bindings(state, sources, root, keys)
+    endpoints = endpoint_bindings(state, sources, root, keys)
+    if len(interiors) + len(endpoints) > 4:
+        raise ValueError("cached secondary profile contact budget")
     return {
         "version": 1,
         **reference,
@@ -128,7 +133,8 @@ def module_recipe(reference, state, sources, root, proposal):
         "contact_mode": "profile",
         "traffic_mode": "source_clearance",
         "junction_mode": "level_box",
-        "interior_contacts": contact_bindings(state, sources, root, keys),
+        "interior_contacts": interiors,
+        **({"endpoint_contacts": endpoints} if endpoints else {}),
         "scope": "Automatically proposed whole original ground sources at a verified cached interior profile; whole geometry admission remains mandatory.",
     }
 

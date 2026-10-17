@@ -126,6 +126,19 @@ def traffic(data, upper, piers, *, clearances=None):
     return result
 
 
+def inspect_pins(data, fixed, values, mode):
+    actual = data["surface_vertices"][fixed, 2]
+    pin_ok = (
+        np.array_equal(actual, values[fixed])
+        if mode == "flat"
+        else np.allclose(actual, values[fixed], rtol=0, atol=1e-7)
+    )
+    if not np.array_equal(fixed, data["fixed"]) or not pin_ok:
+        raise ValueError("frozen module heights or pin ownership changed")
+    if mode != "flat" and not np.array_equal(data["fixed_heights"], values[fixed]):
+        raise ValueError("saved contact heights differ from immutable reference")
+
+
 def audit(state, recipe, data, rows, planning, line, upper):
     nodes, original, domains, masks, old = planning
     owner = state["report"]["after"]["source_ids"].index(recipe["port"]["source_id"])
@@ -178,7 +191,11 @@ def audit(state, recipe, data, rows, planning, line, upper):
     if recipe.get("junction_mode", "free") == "level_box":
         cached_points = [line[1, :2], *[c["xy"] for c in state["module_contacts"]]]
         plans = plan_heights(
-            rows, nodes, cached_points, include_interiors="vertex" in recipe["port"]
+            rows,
+            nodes,
+            cached_points,
+            include_interiors="vertex" in recipe["port"]
+            or bool(recipe.get("endpoint_contacts")),
         )
         fixed, values = apply_heights(
             data["surface_vertices"][:, :2],
@@ -187,16 +204,7 @@ def audit(state, recipe, data, rows, planning, line, upper):
             plans,
         )
         node_checks = inspect_heights(data, plans)
-    actual = data["surface_vertices"][fixed, 2]
-    pin_ok = (
-        np.array_equal(actual, values[fixed])
-        if mode == "flat"
-        else np.allclose(actual, values[fixed], rtol=0, atol=1e-7)
-    )
-    if not np.array_equal(fixed, data["fixed"]) or not pin_ok:
-        raise ValueError("frozen module heights or pin ownership changed")
-    if mode != "flat" and not np.array_equal(data["fixed_heights"], values[fixed]):
-        raise ValueError("saved contact heights differ from immutable reference")
+    inspect_pins(data, fixed, values, mode)
     profile_note = (
         varying_profiles(
             data,
