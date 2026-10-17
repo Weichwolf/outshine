@@ -48,11 +48,48 @@ class OverlapCandidates(unittest.TestCase):
             )
             self.assertEqual(result, [])
 
-    def test_projected_bridge_overlap_retains_non_ground_precondition(self):
-        props, _top, _bottom = cap_properties(
-            reference(ground=False), np.array([0, 1]), 0.1
+    def test_coincident_xy_caps_keep_distinct_heights_owners_and_ground_semantics(self):
+        low, high = reference(), reference(ground=False)
+        high = road_asset(
+            "upper",
+            ["upper:0"],
+            [],
+            dict(high.data, body_vertices=high.data["body_vertices"] + [0, 0, 10]),
         )
-        self.assertFalse(props["old_ground_faces"])
+        sources = {
+            "new": {"mvt_xy": [[0, 1], [2, 1]], "properties": {"subclass": "footway"}},
+            "0:0": {"mvt_xy": [[0, 0], [2, 0]], "properties": {"class": "minor"}},
+            "upper:0": {
+                "mvt_xy": [[0, 0], [2, 0]],
+                "properties": {"brunnel": "bridge"},
+            },
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-transport-overlap-", dir="/tmp"
+        ) as tmp:
+            result, _work = inspect_pairs(
+                [{"source_id": "new", "gradient": 0.1}],
+                [shapely.box(0.5, 0.5, 1.5, 1.5)],
+                [low, high],
+                sources,
+                Path(tmp),
+            )
+            self.assertEqual(
+                [r["cached_source_id"] for r in result], ["0:0", "upper:0"]
+            )
+            self.assertTrue(
+                all(r["area_m2"] == 1 and not r["admitted_contact"] for r in result)
+            )
+            self.assertEqual(
+                [r["preconditions"]["old_ground_faces"] for r in result], [True, False]
+            )
+            self.assertEqual(
+                [
+                    r["preconditions"]["intersecting_whole_facet_height_range_m"]
+                    for r in result
+                ],
+                [[1, 1], [11, 11]],
+            )
 
     def test_whole_old_facet_gradient_is_checked_in_both_precisions(self):
         props, _top, _bottom = cap_properties(
