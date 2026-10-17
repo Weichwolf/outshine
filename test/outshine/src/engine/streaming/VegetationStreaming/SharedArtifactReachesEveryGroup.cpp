@@ -54,6 +54,22 @@ void CheckEncodedAtlasBudget(const outshine::Content::ImpostorAtlas &atlas,
         "format-derived budget contains a real encoded native atlas");
 }
 
+void CheckStaticViews(outshine::VegetationStreaming &crowns, std::string &error) {
+  using outshine::VegetationStreaming;
+  constexpr auto publication = VegetationStreaming::ResourcePublication::Allowed;
+  CHECK(crowns.Costs().SelectedInstances == 2, "each newly resident group selects its view");
+  constexpr int kRepeatedSteps = 100;
+  for (int step = 0; step < kRepeatedSteps; ++step) {
+    CHECK(crowns.Step({{0, 0, 10}}, false, publication, error), "stationary view remains ready");
+  }
+  CHECK(crowns.Costs().SelectedInstances == 2,
+        "unchanged position and camera rotation do no per-instance selection or row upload");
+  CHECK(crowns.Step({{1, 0, 10}}, false, publication, error), "camera movement selects views");
+  CHECK(crowns.Costs().SelectedInstances == 4, "movement updates both resident groups");
+  CHECK(crowns.Step({{0, 0, 10}}, false, publication, error), "return movement selects views");
+  CHECK(crowns.Costs().SelectedInstances == 6, "returning to the old position updates both groups");
+}
+
 bool AwaitCrowns(outshine::VegetationStreaming &crowns, bool prepare, std::string &error) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!crowns.Ready() && std::chrono::steady_clock::now() < deadline) {
@@ -144,6 +160,7 @@ int main() {
     CHECK(stepped, "cache loading and requested miss preparation complete");
     CHECK(crowns->Ready() && crowns->Resident() == 2,
           "one cache result reaches both waiting groups");
+    CheckStaticViews(*crowns, error);
     if (cycle == 4) {
       CHECK(crowns->Costs().Generated == 1 && crowns->Costs().Assets.Writes == 2,
             "shared cold requests generate once and store capture plus ready cards once each");
@@ -165,6 +182,8 @@ int main() {
             "crown groups rebind their stable piece handles after publication");
       CHECK(renderer.PiecesStanding() == initialPieces + 2,
             "rebound crown groups retain every resident prototype");
+      CHECK(crowns->Costs().SelectedInstances == 8,
+            "world republication refreshes both group views at the unchanged eye");
     }
     crowns.reset();
     CHECK(!std::filesystem::exists(directory / "unwritten"),
