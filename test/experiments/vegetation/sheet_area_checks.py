@@ -1,12 +1,16 @@
 """Analytic two-sided R/T, real opaque blockers, covariance and early demand controls."""
 
+import hashlib
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 from needle_area_checks import sheet
 from scatter_scene import ScatterScene
-from sheet_leaf_render import shading
+from sheet_leaf_render import read_source, shading
 from sheet_light_measure import SheetMeasure
 from surface_area_light import integrate
 
@@ -37,6 +41,56 @@ def measure(source, view=(0.0, 0, 1), size=4, order=2):
 
 
 class SheetAreaTests(unittest.TestCase):
+    def test_prepared_reader_keeps_exact_arrays_and_checks_semantics_and_bytes_before_decode(
+        self,
+    ):
+        source = thin_sheet()
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-vegetation-sheet-reader-", dir="/tmp"
+        ) as folder:
+            path = Path(folder)
+            np.savez_compressed(
+                path / "source.npz",
+                **{k: v for k, v in source.items() if isinstance(v, np.ndarray)},
+            )
+            descriptor = {
+                "schema": "selected-thin-leaves-1",
+                "surface_model": "thin-sheet",
+                "source_sha256": hashlib.sha256(
+                    (path / "source.npz").read_bytes()
+                ).hexdigest(),
+            }
+            (path / "source.json").write_text(json.dumps(descriptor))
+            actual, _ = read_source(path)
+            for key in ("vertices", "faces", "normals", "optical"):
+                np.testing.assert_array_equal(actual[key], source[key])
+            descriptor["surface_model"] = "closed-solid"
+            (path / "source.json").write_text(json.dumps(descriptor))
+            with (
+                patch(
+                    "sheet_leaf_render.np.load", side_effect=AssertionError("decode")
+                ),
+                self.assertRaises(ValueError),
+            ):
+                read_source(path)
+            descriptor["surface_model"] = "thin-sheet"
+            descriptor["source_sha256"] = "0" * 64
+            (path / "source.json").write_text(json.dumps(descriptor))
+            with (
+                patch(
+                    "sheet_leaf_render.np.load", side_effect=AssertionError("decode")
+                ),
+                self.assertRaises(ValueError),
+            ):
+                read_source(path)
+
+    def test_exactly_edge_on_sheet_has_no_projected_mass_or_light_queries(self):
+        result, scene, work = measure(thin_sheet(), (1.0, 0, 0))
+        np.testing.assert_array_equal(result.coverage, 0)
+        np.testing.assert_array_equal(result.joint, 0)
+        self.assertEqual(scene.work["rays"], 0)
+        self.assertEqual(work["sampled_points"], 0)
+
     def test_primary_renderer_uses_existing_two_sided_response_and_energy(self):
         source = thin_sheet()
         scene = ScatterScene(source["vertices"], source["faces"])

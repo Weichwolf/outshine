@@ -2,6 +2,7 @@
 
 import argparse
 import hashlib
+import io
 import json
 import resource
 import subprocess
@@ -15,6 +16,25 @@ from scatter_render import camera_packet
 from scatter_scene import ScatterScene
 from sheet_light_measure import contact_optics, sheet_visibility
 from surface_normal_transfer import interpolate_normals
+
+
+def read_source(inputs):
+    identity = json.loads((inputs / "source.json").read_text())
+    if (
+        identity.get("schema") != "selected-thin-leaves-1"
+        or identity.get("surface_model") != "thin-sheet"
+    ):
+        raise ValueError("explicit prepared thin-leaf source required")
+    path = inputs / "source.npz"
+    if path.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("bounded selected-leaf source required before decode")
+    encoded = path.read_bytes()
+    if hashlib.sha256(encoded).hexdigest() != identity["source_sha256"]:
+        raise ValueError("prepared leaf source bytes do not match their descriptor")
+    with np.load(io.BytesIO(encoded)) as saved:
+        source = {key: saved[key] for key in saved.files}
+    source["surface_model"] = identity["surface_model"]
+    return source, identity
 
 
 def shading(source, scene, points, face_ids, view, lights):
@@ -106,10 +126,7 @@ def run(inputs, output, samples):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private render output must be under/tmp")
     output.mkdir(parents=True, exist_ok=False)
-    with np.load(inputs / "source.npz") as saved:
-        source = {key: saved[key] for key in saved.files}
-    source["surface_model"] = "thin-sheet"
-    identity = json.loads((inputs / "source.json").read_text())
+    source, identity = read_source(inputs)
     scene = ScatterScene(source["vertices"], source["faces"])
     began = time.perf_counter()
     arrays, work = render(source, scene, 2560, 1440, samples)

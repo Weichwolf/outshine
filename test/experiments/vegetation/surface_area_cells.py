@@ -56,7 +56,8 @@ def clipped_batches(
         return
     _, lower, upper, triangles, faces, screen, first, span, counts = data
     work.update(
-        front_facets=len(faces),
+        selected_facets=len(faces),
+        two_sided=two_sided,
         candidate_pairs=int(counts.sum()),
         clipped_polygons=0,
         integration_triangles=0,
@@ -65,6 +66,8 @@ def clipped_batches(
         clipped_projected_area_m2=0.0,
         requested_candidate_pairs=0,
     )
+    if not two_sided:
+        work["front_facets"] = len(faces)
     pixel_area = float(np.prod((upper - lower) / size))
     for start, stop in groups(counts, 8192):
         local = np.repeat(np.arange(start, stop), counts[start:stop])

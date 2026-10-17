@@ -52,6 +52,8 @@ def build_source():
     origin = source["vertices"].mean(axis=0)
     source["vertices"] -= origin
     identity = {
+        "schema": "selected-thin-leaves-1",
+        "surface_model": "thin-sheet",
         "plan_identity": metadata["plan_identity"],
         "reference_sha256": hashlib.sha256(REFERENCE.read_bytes()).hexdigest(),
         "tables_sha256": metadata["tables_sha256"],

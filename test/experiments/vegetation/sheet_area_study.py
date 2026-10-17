@@ -1,6 +1,7 @@
 """Actual two-sided leaves: material/normal/visibility correlation before filtering."""
 
 import argparse
+import hashlib
 import json
 import subprocess
 import time
@@ -61,6 +62,9 @@ def run(output, order):
         output / "source.npz",
         **{k: v for k, v in source.items() if isinstance(v, np.ndarray)},
     )
+    identity["source_sha256"] = hashlib.sha256(
+        (output / "source.npz").read_bytes()
+    ).hexdigest()
     (output / "source.json").write_text(json.dumps(identity, indent=2) + "\n")
     scene = ScatterScene(source["vertices"], source["faces"])
     views = np.array([[0.2, -0.6, 0.77], [-0.2, 0.6, -0.77]])
