@@ -2,6 +2,8 @@
 #include "PlantRecipeLayout.h"
 #include "PlantRandom.h"
 #include "PlantArc.h"
+#include "PlantFrame.h"
+#include "PlantShoot.h"
 #include "math/Vec3.h"
 #include <algorithm>
 #include <array>
@@ -18,48 +20,10 @@
 namespace outshine::Generators {
 namespace {
 constexpr Vec3 kUp{{0, 0, 1}};
-constexpr double kLeastCrossLength = 1e-8;
 constexpr uint64_t kShootSeedMultiplier = 0x9e3779b97f4a7c15ULL;
 
 double GoldenAngle() noexcept {
   return std::numbers::pi * (3 - std::sqrt(5));
-}
-
-Vec3 Rotate(const std::array<double, 9> &frame, const Vec3 &point) noexcept {
-  Vec3 result;
-  for (size_t row = 0; row < 3; ++row) {
-    for (size_t column = 0; column < 3; ++column) {
-      result[row] += frame[row * 3 + column] * point[column];
-    }
-  }
-  return result;
-}
-
-std::optional<std::array<double, 9>> NormalFrame(Vec3 direction, const Vec3 &hint) noexcept {
-  const double length = Length(direction);
-  if (!(length > 0) || !std::isfinite(length)) { return std::nullopt; }
-  direction = direction * (1.0 / length);
-  Vec3 lateral = Cross(direction, hint);
-  if (Length(lateral) < kLeastCrossLength) {
-    size_t least = 0;
-    for (size_t at = 1; at < 3; ++at) {
-      if (std::abs(direction[at]) < std::abs(direction[least])) { least = at; }
-    }
-    Vec3 fallback;
-    fallback[least] = 1;
-    lateral = Cross(direction, fallback);
-  }
-  lateral = lateral * (1.0 / Length(lateral));
-  const Vec3 normal = Cross(lateral, direction);
-  return std::array{lateral[0],
-                    direction[0],
-                    normal[0],
-                    lateral[1],
-                    direction[1],
-                    normal[1],
-                    lateral[2],
-                    direction[2],
-                    normal[2]};
 }
 
 double Azimuth(const PlantLevel &level, size_t slot) noexcept {
@@ -100,16 +64,16 @@ bool PositionAxis(PlantAxis &axis,
                              (level.TipAngleRad.value_or(level.AngleRad) - level.AngleRad) *
                                  PlantLevelFraction(slot, level, 0.5) +
                              random.Uniform(-level.AngleVariationRad, level.AngleVariationRad);
-  Vec3 direction =
-      Rotate(parent.Frame, arc.Tangent * std::cos(inclination) + radial * std::sin(inclination));
+  Vec3 direction = PlantRotate(
+      parent.Frame, arc.Tangent * std::cos(inclination) + radial * std::sin(inclination));
   if (level.UpwardBias > 0) {
     direction = direction * (1 - level.UpwardBias) + kUp * level.UpwardBias;
     direction = direction * (1.0 / Length(direction));
   }
-  const auto frame = NormalFrame(direction, kUp);
+  const auto frame = PlantNormalFrame(direction, kUp);
   if (!frame) { return false; }
   axis.Frame = *frame;
-  axis.OriginM = (Vec3{parent.OriginM} + Rotate(parent.Frame, arc.Centre)).Axis;
+  axis.OriginM = (Vec3{parent.OriginM} + PlantRotate(parent.Frame, arc.Centre)).Axis;
   axis.Parent = static_cast<int64_t>(parent.Id);
   return true;
 }
@@ -134,7 +98,7 @@ bool BuildAxes(const PlantRecipe &recipe,
       const double phase = random.Uniform(-std::numbers::pi, std::numbers::pi);
       axis.Bend = level.BendRad + random.Uniform(-level.BendVariationRad, level.BendVariationRad);
       if (depth == 0) {
-        const auto frame = NormalFrame(kUp, {{std::cos(phase), std::sin(phase), 0}});
+        const auto frame = PlantNormalFrame(kUp, {{std::cos(phase), std::sin(phase), 0}});
         if (!frame) { return false; }
         axis.Frame = *frame;
       } else {
@@ -164,30 +128,17 @@ bool LeafAt(PlantLeaf &leaf,
             const PlantLevel &level,
             const PlantBlade &blade,
             double angle) {
-  const auto arc =
-      PlantArc{.LengthM = axis.LengthM, .BendRad = axis.Bend}.FrameAt(leaf.StemParameter);
-  const Vec3 radial = arc.Lateral * std::cos(angle) + arc.Normal * std::sin(angle);
-  Vec3 direction =
-      arc.Tangent * std::cos(level.LeafAngleRad) + radial * std::sin(level.LeafAngleRad);
-  const Vec3 hint{{axis.Frame[6], axis.Frame[7], axis.Frame[8]}};
-  if (level.LeafSkyAlignment > 0) {
-    const Vec3 normal = hint * (1.0 / Length(hint));
-    direction = direction - normal * (level.LeafSkyAlignment * Dot(direction, normal));
-    direction = direction * (1.0 / Length(direction));
-  }
-  const auto local = NormalFrame(direction, hint);
+  const auto local = PlantShoot{.LengthM = axis.LengthM,
+                                .BendRad = axis.Bend,
+                                .PetioleM = blade.PetioleM,
+                                .LeafAngleRad = level.LeafAngleRad,
+                                .NormalAlignment = level.LeafSkyAlignment,
+                                .NormalHint = {axis.Frame[6], axis.Frame[7], axis.Frame[8]}}
+                         .LeafAt({.Parameter = leaf.StemParameter, .AzimuthRad = angle});
   if (!local) { return false; }
-  for (size_t row = 0; row < 3; ++row) {
-    for (size_t column = 0; column < 3; ++column) {
-      for (size_t middle = 0; middle < 3; ++middle) {
-        leaf.Frame[row * 3 + column] +=
-            axis.Frame[row * 3 + middle] * (*local)[middle * 3 + column];
-      }
-    }
-  }
-  leaf.NodeM = (Rotate(axis.Frame, arc.Centre) + Vec3{axis.OriginM}).Axis;
-  leaf.OriginM =
-      (Rotate(axis.Frame, arc.Centre + direction * blade.PetioleM) + Vec3{axis.OriginM}).Axis;
+  leaf.Frame = PlantComposeFrames(axis.Frame, local->Frame);
+  leaf.NodeM = (PlantRotate(axis.Frame, Vec3{local->NodeM}) + Vec3{axis.OriginM}).Axis;
+  leaf.OriginM = (PlantRotate(axis.Frame, Vec3{local->OriginM}) + Vec3{axis.OriginM}).Axis;
   return true;
 }
 
