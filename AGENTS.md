@@ -138,6 +138,10 @@
   keine einzelnen CLI-Inhaltsschalter.
   Der Client nimmt ein Szenario oder generische Szenario-Overrides entgegen.
   Konkrete Verträge besitzt [#9](https://github.com/Weichwolf/outshine/issues/9); sie werden mit einem echten Feature integriert.
+- Produktcode und mitgelieferte Produktdaten kennen keine Places, Place-Koordinaten oder
+  ortsspezifischen Optimierungen. Feste Place-Kamera-/Messdaten stehen ausschließlich im
+  aufrufenden Testskript. Der generische `bench`-Befehl erhält Szenario, Startpose, Bewegungs-/
+  Rotationsvektor und Framezahl als Eingaben; Namen und Bildaufbewahrung besitzt der Testtreiber.
 - Rundum-Abdeckung bleibt renderbereit. Drehung ändert Sichtbarkeit, Bewegung ergänzt Bedarf.
   Unveränderte Inhalte werden nicht neu erzeugt. Detailbedarf vor teurer Arbeit bestimmen;
   Änderungen gezielt fortpflanzen. Logische Welt und Kollision bleiben unabhängig vom Render-LOD.
