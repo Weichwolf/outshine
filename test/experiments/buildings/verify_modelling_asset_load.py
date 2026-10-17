@@ -13,7 +13,7 @@ from modelling_asset_cases import COLOUR, UV, VERTICES, fixtures, textured_fixtu
 from outshine_ref.buildings.modelling.insert import Asset
 from outshine_ref.buildings.modelling.scope import Scope
 from outshine_ref.buildings.modelling.shape import Shape
-from verify_modelling_extrude import near
+from modelling_checks import near
 from verify_modelling_asset_channels import controls
 
 
