@@ -12,14 +12,69 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - `probes/<Thema>/`: fallbezogene Verfahrensvergleiche und Fehlerdiagnosen.
 - `transport_network_recipes.json`: gemeinsame Rezept- und Fahrzeugparameter.
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
+- [Gemeinsamer Rezeptpilot](recipe_transport.md): tatsächlicher Quellverbund,
+  Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
+- [Ganze äußere Radkorridore](stair_corridor_comparison.md): 23 Wiener Quellen,
+  ganze Anschlüsse, zehn Unterführungen und DEM-kontrolliertes Terrain im Budget.
+- [Konstruktives Eckpodest](stair_corner_comparison.md): 24 ganze Quellen,
+  zwölf ganze Endprofile und unveränderte Unterführungs-/Terrain-/Pfeilergrenzen.
+- [Ganze gewählte Podeste](stair_landing_comparison.md): alle 41 inneren
+  Endprofile, neun kleine Ergänzungen und derselbe installierbare Profilkern.
+- [Nullflächen nach Konformierung](stair_conformance_comparison.md): fester
+  Wiener Gegenfall des begrenzten Bodenmoduls und unveränderte Flächenprüfung.
+- [Begrenztes Bodenmodul](stair_module_comparison.md): vier neue ganze Quellen,
+  tatsächliche alte/neue Wandkontakte und lokales Terrain am gespeicherten 32er Körper.
+- [Weitere Modulstufe](stair_module_chain_comparison.md): geprüften Bestand weiterverwenden,
+  einzelne feste Seitenkontakthöhen und einen ganzen ursprünglichen Radweg ergänzen.
+- [Südwestlicher Straßenverbund](stair_southwest_comparison.md): sechs weitere Quellen,
+  ganze geneigte Bestandsprofile, ausdrücklicher Innenkontakt und 795 m Straßen/Wege.
+- [Lokaler Generatoradapter](stair_local_comparison.md): residente Terrainpatches,
+  getrennte Straßenkörper und begrenzte vollständige Nachbarschaften.
+- [Automatisches residentes Wachstum](stair_growth_comparison.md): neue Assets
+  als tatsächliche Anschlusswurzeln, begrenzte Quellenwahl und gemeinsame alte Profile.
+- [Unabhängige Grundmodule](stair_seed_comparison.md): acht ganze Straßenquellen
+  außerhalb des alten Kerns, mit begrenztem Rastermodell und ganzen Originalprofilen.
+- [Vier weitere ganze Fußwege](stair_network_extension_comparison.md): 69 Quellen,
+  unabhängige Gesamtprüfung mit lokalen Ownern und kleine sichtbare Netzerweiterung (#587).
+- [Gemeinsamer Bestandsknoten](stair_shared_root_comparison.md): 71 Quellen,
+  vollständige alte Profile und ein gemeinsames Podest statt ausgelassener Kontakte (#595/#597).
+- [Schmaler Weg am breiteren Bestand](stair_narrow_profile_comparison.md): 72 Quellen,
+  vollständige alte Referenzprofile und ein weiterer ganzer Fußweg (#606).
+- [Ganze metrische Profillinien](stair_metric_line_comparison.md): echter alter
+  Endprofil-Gegenfall, vollständige Linien statt drei Samples; Bestand unverändert (#614).
+- [Explizite Fußgängerkontakte](stair_surface_contact_comparison.md): 76 ganze Quellen,
+  gemeinsame Knotenboxen, gebundene alte Owner und vollständige D/Q-Querungsportale (#602).
+- [Präzision neuer Kreuzungen](stair_junction_precision_comparison.md): echter
+  Float32-Gegenfall, neun Kandidaten und getrennte Überlappungskontakte (#600/#602); noch keine Netzzulassung.
+- [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper
+  und Stützen, quelltreue Footprint-Korrekturen und freie Räume unter Brücken (#568).
+- [Präzision der Konfliktabfrage](stair_occupancy_precision.md): falsch leere Masken,
+  Flächenunterlauf, unabhängiges Orakel und konstante Bibliotheksabfrage (#568).
+- [Tatsächlicher Architekturverbrauch](stair_consumer_comparison.md): bestehender
+  Buildings-Erzeuger, aktuelle Terrainanker und Prüfung seiner fertigen Körper (#568).
+- [Tatsächlicher Pflanzenverbrauch](stair_plant_comparison.md): vorhandene Pinus-/
+  Habitatprogramme, gemessene Hüllen und vollständige reale Zurückstellungen (#568).
+- [Konsistente Terrainkontakte](surface_contact_comparison.md): tatsächliche dünne
+  Dreiecke, endliche gemeinsame Kanten und ausgabegleicher Normalpfad (#589).
+- [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
+  an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
+- [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen
+  mit stabilen Teilflächen-IDs und begrenzten Raumabfragen erhalten (#542).
+- [Verbundene Quellenpräfixe](stair_prefix_comparison.md): gültige ganze Quellen
+  nach gemeinsamer Geometrieablehnung begrenzt erhalten (#539).
+- [Automatische begrenzte Quellenmodule](stair_frontier_comparison.md): ursprüngliche
+  Knoten, tatsächlich gespeicherte Innenprofile und ganze physische Abnahme (#537).
+- [Horizontale Straßenkurven](stair_road_curve_comparison.md): installierter Klothoidenkern,
+  erhaltene Originalknoten, ganze tatsächliche Fahrspurhüllen und Kreisbogenvergleich.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
-und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys. Ausgewählte
-Präsentationsbilder gehören nach `build/shots/experiments/transport/`.
+und Hilfsumgebungen liegen ausschließlich unter `/tmp` außerhalb des Repositorys.
+Forschungs-/Diagnosebilder bleiben im System-Tempverzeichnis; die integrierte
+öffentliche Places-Galerie besitzt der Hauptagent.
 Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
 
 ```sh
-TRANSPORT_PY=/var/tmp/outshine-transport-python-355154544/bin/python
+TRANSPORT_PY=/tmp/outshine-transport-python-355154544/bin/python
 TRANSPORT_WORK=/tmp/outshine-transport-workspace-0241b3f81
 ```
 
@@ -422,6 +477,283 @@ PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THR
 
 Optionale separate `--profile`-Aufnahmen benötigen das vorhandene `memray==1.20.0`.
 Keine neue Runtime-/SDK-Abhängigkeit, keine gemeinsame/native/Reservations-API.
+
+## Tatsächlicher Nachbarkontext mit beiden Überführungen (#434)
+
+Der [Kontextbericht](stair_context_comparison.md) erweitert den isolierten Versuch
+auf sieben tatsächliche Achsen und vier ganze Anschlüsse. Original-PBF und
+98×123-DEM-Fenster sind versioniert.74 weitere Kontextachsen und drei neue
+Außenkontakte bleiben ungeprüft; kein vollständiger Wiedergewinnungsnachweis.
+Alle Ausgabepfade müssen frisch im System-Tempverzeichnis liegen.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_junction_checks stair_context_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_context_experiment.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_CONTEXT_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_context_verify.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_CONTEXT_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_CONTEXT_OUTPUT/before/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_CONTEXT_OUTPUT/after/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_CONTEXT_OUTPUT/before/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_CONTEXT_OUTPUT/after/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --context test/experiments/transport/fixtures/stair-context-vienna.json --products "$TRANSPORT_STAIR_CONTEXT_OUTPUT" --solver highs-ds --repetitions 7 --output "$TRANSPORT_STAIR_CONTEXT_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --context test/experiments/transport/fixtures/stair-context-vienna.json --products "$TRANSPORT_STAIR_CONTEXT_OUTPUT" --solver highs-ipm --repetitions 7 --output "$TRANSPORT_STAIR_CONTEXT_COST_IPM"
+```
+
+Die feste Aufnahme kann mit `capture_stair_context.py --vector-receipt ...
+--elevation-receipt ... --output ... --dem-output ...` aus den erhaltenen
+unveränderten Quellreceipts offline wiederholt werden. Ein neuer Download unter
+derselben Versions-URL ist ausdrücklich kein Identitätsbeweis.
+`--profile` für separate Kostenaufnahmen benötigt das vorhandene `memray==1.20.0`.
+Kein neuer nativer/öffentlicher Vertrag; kein SDK zur Laufzeit.
+
+## Drei Treppen, parallele Fuß-/Radbrücken und längere Radauffahrt (#434)
+
+Der [Netzvergleich](stair_network_comparison.md) erweitert den wirklichen Kontext
+auf15Quellen, drei echte Treppen/24Stufen,13ganze Kontakte und vier Unterführungen.
+Eine prozedurale Radauffahrt erhält alle tatsächlichen Anschlussorte. Originale
+und Priors bleiben erhalten;66weitere Kontextachsen und zwei tatsächliche
+Außen-/Geländeanbindungen sind noch nicht freigegeben. Ausgabe-/Kostenpfade frisch
+im System-Tempverzeichnis; `TRANSPORT_LAYERED_OUTPUT` liefert nur die bekannte Palette.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_junction_checks stair_context_checks stair_network_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_network_experiment.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_NETWORK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_network_verify.py --palette-scene "$TRANSPORT_LAYERED_OUTPUT/after-scene.json" --output "$TRANSPORT_STAIR_NETWORK_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/before/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_STAIR_NETWORK_OUTPUT/after/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --network test/experiments/transport/fixtures/stair-network-vienna.json --products "$TRANSPORT_STAIR_NETWORK_OUTPUT" --solver highs-ds --repetitions 7 --output "$TRANSPORT_STAIR_NETWORK_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --network test/experiments/transport/fixtures/stair-network-vienna.json --products "$TRANSPORT_STAIR_NETWORK_OUTPUT" --solver highs-ipm --repetitions 7 --output "$TRANSPORT_STAIR_NETWORK_COST_IPM"
+```
+
+Für alle59betroffenen Kontrollen zusätzlich die bestehenden Module
+`foot_ramp_checks cycle_bridge_checks layered_bridge_checks` ausführen; ältere
+Rampenkontrollen benötigen das dort dokumentierte optionale `manifold3d==3.5.4`.
+Separate Kostenaufnahmen mit `--profile` benötigen das vorhandene `memray==1.20.0`.
+Keine neue Runtime-/SDK-Abhängigkeit oder öffentliche/native/Reservations-API.
+
+## Ganze tatsächliche Außen-Nachbarwege (#434)
+
+Der [Außenvergleich](stair_outer_comparison.md) verbindet die bisherigen beiden
+Außenprofile vollständig mit drei ganzen Nachbarwegen.18Quellen,24Stufen und sechs
+Unterführungen bleiben lokal geprüft. Die vollständige Originalkachel wird bilanziert;
+Terrain-/Cut-/Fill-Produkte, übrige Quellen und fünf neue Außenprofile bleiben offen.
+Eingänge und die kleine technische Palette sind versioniert; dieser Versuch benötigt
+keinen früheren privaten Showcase-Ausgabebaum. Alle Ausgabe-/Kostenpfade frisch im
+System-Tempverzeichnis wählen.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_outer_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_outer_experiment.py --output "$TRANSPORT_OUTER_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_PY" test/experiments/transport/stair_outer_verify.py --output "$TRANSPORT_OUTER_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/before/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_OUTER_OUTPUT/after/west-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --outer test/experiments/transport/fixtures/stair-outer-vienna.json --products "$TRANSPORT_OUTER_OUTPUT" --solver highs-ds --repetitions 7 --output "$TRANSPORT_OUTER_COST_DS"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_junction_cost.py --outer test/experiments/transport/fixtures/stair-outer-vienna.json --products "$TRANSPORT_OUTER_OUTPUT" --solver highs-ipm --repetitions 7 --output "$TRANSPORT_OUTER_COST_IPM"
+```
+
+Beim Außenversuch wird ein begrenzt abgebrochener Kostenversuch ausdrücklich mit
+`accepted_model=false`, ohne gültigen Median oder Ausgabe gespeichert. Prozess0
+allein bedeutet keine gültige Geometrie. Ältere Kostenmodi behalten ihre strikte
+Ergebnisprüfung. `--profile` separat mit installiertem `memray==1.20.0` verwenden.
+Der vollständige70er-Lauf ergänzt `foot_ramp_checks cycle_bridge_checks
+layered_bridge_checks stair_junction_checks stair_context_checks stair_network_checks`;
+die älteren Rampenkontrollen benötigen das dort dokumentierte optionale Manifold.
+Eine explizite DEM-Neuaufnahme verlangt `stair_outer_inputs.py --dem-receipt ...
+--output ...` mit dem unveränderten ursprünglichen Rohreceipt. Normale Tests ändern
+keine Eingänge. Keine neue Runtime-/SDK- oder öffentliche/native API-Abhängigkeit.
+
+## Gegenprobe: echte Terrainkontakte am Treppenverbund (#434)
+
+Der [Terrain-Gegenvergleich](stair_terrain_comparison.md) mit `stair_terrain_experiment.py`
+vergleicht eine begrenzte sanfte Bodenfläche, ganze
+Stützwände und einen geschützten Brücken-Aushub an denselben unveränderten18Quellen
+und demselben echten DEM-Fenster. Der Versuch liefert ausdrücklich noch kein
+freigegebenes Terrainprodukt: geschlossene Körper und erfolgreicher Kernelabschluss
+beweisen weder Float32-Kontakte noch eine überzeugende Geländeform.
+Zusätzlich zu den obigen Paketen braucht dieser getrennte Diagnoseversuch
+`clarabel` und `manifold3d==3.5.4`; keine SDK-/Runtime-Abhängigkeit.
+`TRANSPORT_OUTER_OUTPUT` bezeichnet einen frisch erzeugten/geprüften Außenversuch
+aus dem vorigen Abschnitt, `TRANSPORT_TERRAIN_OUTPUT` einen neuen expliziten Temp-Pfad.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_terrain_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_terrain_experiment.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_TERRAIN_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_terrain_verify.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_TERRAIN_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_TERRAIN_OUTPUT/after-diagnostic-scene.json"
+```
+
+Die Kontrollen enthalten echte18-Quellen-Gegenfälle und synthetische wechselnde
+Cut-/Fill-Vorzeichen; keine Quelle wird freigegeben. Privater Installationspräfix
+bei Bedarf in `PYTHONPATH` ergänzen. Der gespeicherte Reader löst/trianguliert/gräbt
+nicht neu. Native Gates und vollständige Terrain-/Verkehrsabnahme bleiben getrennt.
+
+## Kontinuierliche Böschungen mit ganzen Exportkontakten (#434)
+
+Der [Böschungsvergleich](stair_blend_comparison.md) plant kontinuierliche Bodenhöhen
+mit ganzen Brückenbedingungen, festen ursprünglichen Bodenprofilen und örtlichen
+nicht begehbaren Stützflächen. Für tatsächliche Float32-Kontakte wird ein räumlich
+hergeleitetes Höhenband geprüft; ein erfolgreicher Solverstatus ist keine Freigabe.
+Zusätzlich zu NumPy/SciPy/Shapely ist `clarabel==0.11.1` erforderlich. Das neue
+Verfahren benötigt weder Manifold noch das CityEngine-SDK. Ausgabe frisch im
+System-Tempverzeichnis; der explizite Außenversuch stammt aus den versionierten
+Eingängen des vorigen Abschnitts.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_blend_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_experiment.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_BLEND_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_verify.py --network-products "$TRANSPORT_OUTER_OUTPUT" --output "$TRANSPORT_BLEND_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_BLEND_OUTPUT/after-diagnostic-scene.json"
+```
+
+Gleicher fester Plan und gleiche Qualitätsbedingungen, Vorbereitung/Prüfung außerhalb
+der Fit-Zeit; beide Prozesse nacheinander bei normaler Priorität starten:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_cost.py --products "$TRANSPORT_BLEND_OUTPUT" --smoothing 16 --output "$TRANSPORT_BLEND_OUTPUT/membrane-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_blend_cost.py --products "$TRANSPORT_BLEND_OUTPUT" --smoothing 0 --output "$TRANSPORT_BLEND_OUTPUT/data-cost.json"
+```
+
+Optionale Allokationsmessung benötigt `memray==1.20.0`: jeden Kostenaufruf separat
+mit frischem `--output` und zusätzlichem frischem `--profile /tmp/…/trace.bin`
+ausführen. Profilzeiten ersetzen keine normalen Zeiten. Abgelehnte Kandidaten
+haben ausdrücklich keine gültige Ausgabemediane, auch bei Prozessstatus 0.
+
+Andere Quellen und äußere Anschlüsse bleiben ausdrücklich ungeprüft. Keine native
+oder vollständige Wege-/Geräte-/Statikabnahme aus dem örtlichen Höhenmodell ableiten.
+
+## Östliche Radwegschleife mit ganzen Anschlusskappen (#434)
+
+Der [Schleifenvergleich](stair_cycle_comparison.md) ergänzt den ganzen tatsächlichen
+östlichen Radweg und plant das verbundene Gelände neu. Dieselben Python-/Blender-
+Pakete wie oben. Feste PBF-/DEM-Fenster sind versioniert, Erwerb ist für die normale
+Reproduktion nicht nötig. Originale 18-Quellen- und Böschungsprodukte explizit aus
+den vorigen Abschnitten übergeben; alle Ausgaben frisch im System-Tempverzeichnis.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_cycle_checks stair_blend_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_experiment.py --base-network "$TRANSPORT_OUTER_OUTPUT" --base-terrain "$TRANSPORT_BLEND_OUTPUT" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_verify.py --base-network "$TRANSPORT_OUTER_OUTPUT" --base-terrain "$TRANSPORT_BLEND_OUTPUT" --output "$TRANSPORT_CYCLE_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/before-diagnostic-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_CYCLE_OUTPUT/after-diagnostic-scene.json"
+```
+
+Kosten bei normaler Priorität, nacheinander; Matrixaufbau/Solve auf demselben festen
+Plan, tatsächliche Ausgabeprüfung danach außerhalb der Zeit:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --solver highs-ds --output "$TRANSPORT_CYCLE_OUTPUT/ds-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_cost.py --products "$TRANSPORT_CYCLE_OUTPUT" --solver highs-ipm --output "$TRANSPORT_CYCLE_OUTPUT/ipm-cost.json"
+```
+
+Optional wie oben `memray==1.20.0`, separater frischer `--output` und
+`--profile /tmp/…/trace.bin`. Die zwei DEM-Fenster können ausdrücklich neu aufgenommen
+werden: `stair_cycle_inputs.py --receipts ORIGINAL-RECEIPT EAST-RECEIPT --output /tmp/…/stair-cycle-vienna.json`.
+Die Receipts müssen die im festen Rezept belegten ursprünglichen Bytes tragen;
+neue Quellenstände ersetzen keine Referenz automatisch.
+
+## Nördlicher Radweg: erhaltene Kontaktfacetten und Rundungsreserven (#434)
+
+Der [Nordvergleich](stair_cycle_north_comparison.md) nutzt dieselben Werkzeuge auf
+einer zweiten festen Instanz. Bisherige Ostprodukte explizit übergeben; neue
+Eingabe enthält keine gelösten Höhen und erzeugt keine Katalogeinträge je Straße.
+Dieselben Pakete; kein zusätzlicher Erwerb oder neue Runtime-Abhängigkeit.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_cycle_north_checks stair_cycle_checks stair_blend_checks stair_blend_precision_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_experiment.py --fixture test/experiments/transport/fixtures/stair-cycle-north-vienna.json --base-network "$TRANSPORT_CYCLE_OUTPUT" --base-terrain "$TRANSPORT_CYCLE_OUTPUT" --output "$TRANSPORT_NORTH_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_verify.py --fixture test/experiments/transport/fixtures/stair-cycle-north-vienna.json --base-network "$TRANSPORT_CYCLE_OUTPUT" --base-terrain "$TRANSPORT_CYCLE_OUTPUT" --output "$TRANSPORT_NORTH_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_terrain_cost.py --products "$TRANSPORT_NORTH_OUTPUT" --mode selective --output "$TRANSPORT_NORTH_OUTPUT/selective-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_terrain_cost.py --products "$TRANSPORT_NORTH_OUTPUT" --mode all --output "$TRANSPORT_NORTH_OUTPUT/all-cost.json"
+```
+
+Kostenprozesse nacheinander bei normaler Priorität. Optionale Memray-Messung wie
+oben mit separatem frischem `--output` und `--profile`. Dieselben vier Renderaufrufe
+wie im Ostvergleich auf `TRANSPORT_NORTH_OUTPUT` anwenden. Die Kamera wird aus den
+tatsächlichen ausgewählten Quellflächen abgeleitet; alle Bilder bleiben lokal 1280×720.
+Gewöhnliche Außenwege dürfen keine indoor-/Ebenenquellen durch ein generisches
+Mesh-Rezept ersetzen. Globale/native Abnahme bleibt offen.
+
+## Südlicher Radweg und vollständiger DEM-Eckbereich (#434)
+
+Der [Südvergleich](stair_cycle_south_comparison.md) ergänzt denselben Operator um
+den ganzen südlichen Quellteil. Die Eingabe enthält vier ausdrückliche DEM-Crops;
+auch die südöstliche Ecke der rechteckigen Terrainfläche braucht echte Höhen.
+Fehlende Fenster werden abgelehnt, nicht durch benachbarte Höhen ersetzt.
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_cycle_south_checks stair_cycle_north_checks stair_cycle_checks stair_blend_checks stair_blend_precision_checks
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_experiment.py --fixture test/experiments/transport/fixtures/stair-cycle-south-vienna.json --base-network "$TRANSPORT_NORTH_OUTPUT" --base-terrain "$TRANSPORT_NORTH_OUTPUT" --output "$TRANSPORT_SOUTH_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_cycle_verify.py --fixture test/experiments/transport/fixtures/stair-cycle-south-vienna.json --base-network "$TRANSPORT_NORTH_OUTPUT" --base-terrain "$TRANSPORT_NORTH_OUTPUT" --output "$TRANSPORT_SOUTH_OUTPUT"
+```
+
+Die vier Renderaufrufe und beide Terrain-Kostenaufrufe oben mit
+`TRANSPORT_SOUTH_OUTPUT` verwenden. Die ganze ausgewählte Quelle bestimmt die
+nähere Kamera. Forschung bleibt lokal in 1280×720; keine Place-Galerie.
+Explizite Neuaufnahme: `stair_cycle_inputs.py --receipts ORIGINAL-RECEIPT EAST-RECEIPT SOUTH-RECEIPT SOUTHEAST-RECEIPT --sources openfreemap:14/8937/5678:transportation:32651280:3 openfreemap:14/8937/5678:transportation:39881120:23 openfreemap:14/8937/5678:transportation:39881120:51 --output /tmp/…/stair-cycle-south-vienna.json`.
+Geschützte Profile, Fokus und Solveroptionen bleiben erklärte Instanzparameter;
+Aufnahme erzeugt keine gelösten Höhen oder diese zusätzlichen Entscheidungen.
+
+## Tatsächliche Pfeiler unter dem Treppen-/Radbrückenverbund (#434)
+
+Der [Pfeilervergleich](stair_support_comparison.md) benutzt die unveränderten
+geprüften Südprodukte, den vorhandenen installierbaren SupportVolumeBuilder und
+dieselben Python-/Blender-Pakete. Keine erneute Höhenpassung oder SDK-Abhängigkeit.
+
+```sh
+PYTHONPATH=lib/src:lib/tests:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_support_checks test_supports
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_experiment.py --products "$TRANSPORT_SOUTH_OUTPUT" --output "$TRANSPORT_SUPPORT_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_verify.py --products "$TRANSPORT_SOUTH_OUTPUT" --output "$TRANSPORT_SUPPORT_OUTPUT"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/before-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/after-overview-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/before-junction-scene.json"
+PYTHONPATH=lib/src:test/experiments/transport "$TRANSPORT_BLENDER_PY" test/experiments/transport/render_transport_research.py "$TRANSPORT_SUPPORT_OUTPUT/after-junction-scene.json"
+```
+
+Alle Ausgaben frisch im System-Tempverzeichnis; lokale Forschung in 1280×720.
+Optionale Kostenmessung, nacheinander bei normaler Priorität:
+
+```sh
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode fixed --output "$TRANSPORT_SUPPORT_OUTPUT/fixed-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --output "$TRANSPORT_SUPPORT_OUTPUT/shifted-cost.json"
+```
+
+Optional `memray==1.20.0`, separater frischer `--output` und `--profile /tmp/…/trace.bin`;
+keine Python-Allocatorereignisse/native Stack-Traces, gleiche Geometrie-/Zeitgrenzen.
+Die normale vollständige Auswertung braucht keine weiteren Pakete.
+Der Reader baut weder Pfeiler noch Kontakte neu. Feste/verschobene Stationen
+tragen Auslassungsgründe; die gültige Variante mit mehr Pfeilern wird dargestellt.
+Abstände sind Gestaltungswerte, keine Statik oder vollständige Quellenfreigabe.
+
+## Gemeinsame Pfeilervorbereitung (#434)
+
+[Vorbereitungsvergleich](stair_support_preparation.md): Standard ist jetzt die
+gemeinsame Vorbereitung. Ganze Ausgabe und physische Abnahme bleiben gleich;
+`per_source` erhält die frühere Variante ausschließlich als Kostenreferenz.
+
+```sh
+PYTHONPATH=lib/src:lib/tests:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" -W error -m unittest stair_support_checks stair_support_traffic_checks test_supports
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --preparation per_source --output "$TRANSPORT_SUPPORT_OUTPUT/per-source-cost.json"
+PYTHONPATH=lib/src:test/experiments/transport OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 "$TRANSPORT_PY" test/experiments/transport/stair_support_cost.py --products "$TRANSPORT_SUPPORT_OUTPUT" --mode shifted --preparation shared --output "$TRANSPORT_SUPPORT_OUTPUT/shared-cost.json"
+```
+
+Kostenprozesse nacheinander bei normaler Priorität; dieselben optionalen Memray-
+Flags und frische Ausgaben wie oben. Die vorhandenen Erzeugungs-/Readeraufrufe
+verwenden ohne neue Quell-/Instanzparameter den gemeinsamen Pfad.
 
 ## Historische Place-Kameras (#209)
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-from outshine_ref.geometry import conform_triangles
+from outshine_ref.geometry import conform_triangles, weld_vertices
 from shared_bridge_geometry import corridor
 from transport_vertex_pool import welded_vertices
 
@@ -38,9 +38,17 @@ def inputs(path=INPUT):
     return case, rows
 
 
-def landings(rows, domains, method, width_reach_m):
-    nodes = [rows[0]["xy"][0], rows[0]["xy"][-1]]
-    incident = [[0, 1, 3], [0, 2, 3]]
+def landings(rows, domains, method, width_reach_m, junctions=None):
+    nodes = (
+        [rows[0]["xy"][0], rows[0]["xy"][-1]]
+        if junctions is None
+        else [np.array(r["xy"]) for r in junctions]
+    )
+    incident = (
+        [[0, 1, 3], [0, 2, 3]]
+        if junctions is None
+        else [r["incident"] for r in junctions]
+    )
     masks = []
     for node, owners in zip(nodes, incident, strict=True):
         parts = [
@@ -57,15 +65,27 @@ def landings(rows, domains, method, width_reach_m):
 
 
 def cross_sections(row):
-    xy, half = row["xy"], row["width_m"] * 2
+    xy = np.asarray(row.get("surface_axis_xy_m", row["xy"]))
+    half = row["width_m"] * 2
     arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
-    station = np.unique(
-        np.r_[
-            arc,
-            np.arange(0, min(30, arc[-1]), 2),
-            np.arange(max(0, arc[-1] - 30), arc[-1], 2),
-        ]
-    )
+    mode = row.get("surface_cross_section_mode", "end_neighbourhood")
+    if mode not in ("end_neighbourhood", "source_knots"):
+        raise ValueError("known surface cross section mode required")
+    if mode == "source_knots":
+        if (
+            row["original"]["source"]["feature"]["properties"].get("subclass")
+            == "steps"
+        ):
+            raise ValueError("stair cross section sampling cannot be coarsened")
+        station = arc
+    else:
+        station = np.unique(
+            np.r_[
+                arc,
+                np.arange(0, min(30, arc[-1]), 2),
+                np.arange(max(0, arc[-1] - 30), arc[-1], 2),
+            ]
+        )
     line = shapely.LineString(xy)
     result = []
     for s in station:
@@ -78,12 +98,37 @@ def cross_sections(row):
     return result
 
 
-def arrangement(rows, domains, masks):
-    lines = [p.boundary for p in domains + masks]
+def arrangement_vertices(rows, xy):
+    settings = {r.get("surface_weld_tolerance_m") for r in rows}
+    if len(settings) != 1:
+        raise ValueError("one consistent numeric surface weld recipe required")
+    tolerance = settings.pop()
+    if tolerance is None:
+        result, labels, drift = welded_vertices(xy, 1e-8)
+        return result, labels, drift, {}
+    if not 1e-8 <= tolerance <= 1e-7:
+        raise ValueError("bounded numeric surface weld recipe required")
+    result, labels, note = weld_vertices(xy, tolerance)
+    return result, labels, note["maximum_displacement_m"], {"surface_weld": note}
+
+
+def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
+    if len(constraints) > 1024:
+        raise ValueError("local interface constraint budget")
+    lines = [p.boundary for p in domains + masks] + list(constraints)
+    section_counts = []
     for row in rows:
-        lines.append(shapely.LineString(row["xy"]))
-        lines.extend(cross_sections(row))
-    noded = shapely.get_parts(shapely.union_all(lines))
+        lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
+        if "surface_axis_xy_m" in row:
+            lines.append(shapely.LineString(row["xy"]))
+        sections = (
+            cross_sections(row) if section_provider is None else section_provider(row)
+        )
+        lines.extend(sections)
+        section_counts.append(len(sections))
+    from stair_seed_precision import node_lines
+
+    noded = shapely.get_parts(node_lines(lines, rows))
     if len(noded) > 8192:
         raise ValueError("local stair arrangement segment budget")
     cells = shapely.get_parts(shapely.polygonize(noded))
@@ -92,7 +137,7 @@ def arrangement(rows, domains, masks):
     triangles = shapely.get_parts(shapely.constrained_delaunay_triangles(cells))
     raw = shapely.get_coordinates(triangles).reshape(-1, 4, 2)[:, :3]
     xy, inverse = np.unique(raw.reshape(-1, 2), axis=0, return_inverse=True)
-    xy, labels, drift = welded_vertices(xy, 1e-8)
+    xy, labels, drift, weld_note = arrangement_vertices(rows, xy)
     faces = labels[inverse].reshape(-1, 3)
     points = xy[faces]
     signed = np.cross(
@@ -103,14 +148,35 @@ def arrangement(rows, domains, masks):
     signed = signed[signed != 0]
     faces[signed < 0] = faces[signed < 0, ::-1]
     faces, _note = conform_triangles(xy, faces, max_faces=8192, max_candidates=65536)
+    points = xy[faces]
+    first, second = points[:, 1] - points[:, 0], points[:, 2] - points[:, 0]
+    nonzero = first[:, 0] * second[:, 1] != first[:, 1] * second[:, 0]
+    if not nonzero.all():
+        weld_note["conformed_zero_faces_removed"] = int((~nonzero).sum())
+        faces = faces[nonzero]
     shapes = shapely.polygons(xy[faces])
-    if (
-        not shapely.coverage_is_valid(shapes)
-        or shapely.union_all(shapes).symmetric_difference(union).area > 1e-7
-    ):
+    if not shapely.coverage_is_valid(shapes):
         raise ValueError("actual stair arrangement changes source footprints")
+    grid = rows[0].get("source_grid_m")
+    actual = shapely.union_all(shapes)
+    if grid is None:
+        if actual.symmetric_difference(union).area > 1e-7:
+            raise ValueError("actual stair arrangement changes source footprints")
+    else:
+        from stair_seed_precision import outward_contract
+
+        raw = [
+            corridor({k: v for k, v in row.items() if k != "source_grid_m"})
+            for row in rows
+        ]
+        outward_contract(actual, shapely.union_all(raw), 6 * grid)
     owners = np.array(
-        [shapely.covers(p, shapely.point_on_surface(shapes)) for p in domains]
+        [
+            shapely.covers(
+                p if grid is None else p.buffer(grid), shapely.point_on_surface(shapes)
+            )
+            for p in domains
+        ]
     ).T
     return (
         xy,
@@ -121,18 +187,23 @@ def arrangement(rows, domains, masks):
             "vertices": len(xy),
             "segments": len(noded),
             "weld_m": float(drift),
+            "source_section_counts": section_counts,
+            "input_lines": len(lines),
+            **weld_note,
         },
     )
 
 
-def layout(rows, method, *, width_reach_m=0.75):
+def layout(rows, method, *, width_reach_m=0.75, junctions=None, stairs=None):
     if method not in ("fixed", "width"):
         raise ValueError("known stair core method required")
     domains = [corridor(row) for row in rows]
-    nodes, incident, masks = landings(rows, domains, method, width_reach_m)
+    nodes, incident, masks = landings(rows, domains, method, width_reach_m, junctions)
     xy, faces, owners, note = arrangement(rows, domains, masks)
     # Vertex identity remains per source until a real endpoint landing joins it.
-    keys = {(i, int(v)) for i in range(4) for v in np.unique(faces[owners[:, i]])}
+    keys = {
+        (i, int(v)) for i in range(len(rows)) for v in np.unique(faces[owners[:, i]])
+    }
     parent = {k: k for k in keys}
 
     def root(k):
@@ -153,17 +224,18 @@ def layout(rows, method, *, width_reach_m=0.75):
     vertices = np.array([xy[v] for _i, v in roots])
     parts = [
         np.array([[bound[(i, int(v))] for v in f] for f in faces[owners[:, i]]])
-        for i in range(4)
+        for i in range(len(rows))
     ]
     return {
         "xy": vertices,
         "parts": parts,
-        "part_global_faces": [np.flatnonzero(owners[:, i]) for i in range(4)],
+        "part_global_faces": [np.flatnonzero(owners[:, i]) for i in range(len(rows))],
         "primary_source": [i for i, _v in roots],
         "rows": rows,
         "domains": domains,
         "nodes": nodes,
         "incident": incident,
         "masks": masks,
+        "stairs": stairs if stairs is not None else [(0, 0, 1)],
         "note": note,
     }

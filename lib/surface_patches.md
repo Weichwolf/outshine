@@ -1,0 +1,87 @@
+# Exact resident height-surface patches (#542)
+
+`geometry.surface_patches.SurfacePatch(patch_id, frame, kind, mesh, face_data={})`
+owns primitive local-face attributes and prepares a geometric index over an
+existing immutable `Mesh`. `frame` is a `LocalFrame`; `kind` is explicitly
+chosen by the caller. There is no highest-hit ground/deck/roof selection.
+Source provenance, transport access, reservations, loading and LOD remain outside.
+
+Each patch has 1–65536 upward projected nondegenerate faces and at most 65536
+vertices, finite metric coordinates bounded by 1e9, no positive-area overlap or
+unmatched edges and exactly one supplied height at every repeated XY coordinate.
+Holes and disconnected components are allowed. At most eight numeric/bool
+scalar attributes of at most eight bytes each accompany every local face.
+Attributes are independently owned immutable byte-backed arrays. Meshes follow
+the existing immutable `Mesh` contract and remain shared by identity.
+`bounds_xy_m` supplies conservative resident geometry bounds.
+
+`SurfacePatches(root, max_patches=1024)` starts one finite resident surface.
+`view.replace(patch, removals, max_removed=2048, max_new_faces=8192)` returns a
+new immutable view and work report. `removals` maps old patch IDs to distinct,
+currently active local face indices. Frame, kind, attribute names and dtypes
+must agree; patch IDs cannot be reused. New whole XY coverage matches the
+removed region (existing 1e-7 m² numerical check), and every complete unordered
+XYZ boundary edge is exactly numerically equal. Internal selected patch seams
+cancel. Heights/triangulation may change inside the removed region. No edge
+splitting, tolerance weld or approximate boundary repair occurs in this kernel.
+
+Unchanged patches and their mesh buffers remain shared; persistent snapshot
+updates copy changed active face masks. Local validation gathers temporary
+triangle/index data. `retained_mesh_copy_bytes` counts only whole retained Mesh
+buffers duplicated in the new view, not those validation copies. Old views stay
+valid. Activity counts avoid scanning
+whole masks just to decide whether a patch can answer a query. Failure raises
+without modifying the old view. Resident patch capacity is 1–4096, independent
+of local solver/source budgets. This does not extend the initial finite domain,
+evict history, compose arbitrary overlapping levels or replace a world index.
+
+`view.query((xmin,ymin,xmax,ymax), max_faces=2048,
+max_candidates=2000000, method="index")` returns `SurfaceQuery`. Bounds have
+finite positive area. `index` uses prepared per-patch STRtrees; `scan` evaluates
+all faces of intersecting resident patches. Both filter inactive faces, order
+results by patch insertion/local face ID and return the same complete geometry.
+The candidate budget is conservatively checked against the whole intersecting
+patch face count before GEOS emission. Exhaustion yields no partial mesh and an
+explicit reason. Returned faces/face keys are bounded; exact XYZ vertices are
+canonicalised in the local result, allowing `geometry.SurfaceSampler` to recognise
+shared edges across patches. No proximity merge is performed.
+
+`view.nearby(shape, distance_m, ...)` uses the same capacities, output order
+and failure reasons for exact XY distance queries. Supply a finite nonempty
+valid 2D Shapely geometry of at most 65536 coordinates and a finite nonnegative
+distance of at most 1e9 m. The index uses GEOS `dwithin`; the scan evaluates
+the same predicate. A bounding-box expansion only rejects distant patches;
+it does not replace the distance predicate or approximate a circular buffer.
+Distance zero includes boundary contact. Complete triangles are returned.
+
+`view.faces(keys, max_faces=2048)` dereferences an explicit bounded list/tuple
+of stable face keys in canonical patch/local-face order. Duplicate, unknown,
+out-of-range or stale keys are errors, preserving the old snapshot. Empty
+input yields `outside_surface`; exhausted capacity yields no partial mesh.
+This supports exact dependency closure without gathering the whole field.
+
+The query includes complete intersecting triangles, not clipped polygons.
+`mesh=None` with `outside_surface`, `candidate_budget_exhausted` or
+`local_face_budget_exhausted` is explicit absence. It never substitutes height
+zero. Work reports count patch bounds, conservative candidates, actual index
+visits or scan tests, emitted faces and explicit extraction/canonicalisation
+bytes. These are scoped operations, not equal-cost instructions or every native
+copy. `face_keys` contains stable `(patch_id, local_face_id)` pairs, not global
+source bits. The caller binds those identities to original sources and surface
+semantics. Generic Float32/topology/physics acceptance is still the caller's job;
+exact shared boundaries remain shared under identical coordinate conversion.
+
+This is a resident finite geometry operation. It is not AssetCache, a native
+runtime codec, persistent streaming, complete network growth or an LOD algorithm.
+Retired patch/index history occupies memory until its owning view is released;
+storage/residency policies belong to #10, LOD to #12. Existing Plan/Reservation/
+Provider APIs are unchanged.
+
+SIGGRAPH starting point: Lindstrom et al. (1996), page 4 figure 3, inspected
+visually: local height-field geometry and explicit edge deltas. The present
+exact finite facet composition is independently defined; it implements none of
+that paper's simplification, projected error, morphing or hierarchy algorithm.
+The [real transport experiment](../test/experiments/transport/stair_patch_comparison.md)
+records input/product hashes, local/whole controls, costs and actual images.
+The [local generator adapter](../test/experiments/transport/stair_local_comparison.md)
+uses exact distances, whole-pier dependencies and five-metre auxiliary ground.

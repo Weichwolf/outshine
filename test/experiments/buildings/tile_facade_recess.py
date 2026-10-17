@@ -57,6 +57,11 @@ def selection(triangles, normals, frame, bottom):
         & (u.max(axis=1) <= frame["width_m"] + 1e-7)
         & (normals @ basis[2] > 0.999999)
     )
+    if "architecture_scope" in frame:
+        if bottom != frame["base_m"]:
+            raise ValueError("A scoped facade requires its actual vertical origin")
+        selected &= triangles[:, :, 2].min(axis=1) >= bottom - 1e-7
+        selected &= triangles[:, :, 2].max(axis=1) <= frame["top_m"] + 1e-7
     local = np.stack((u[selected], relative[selected, :, 2]), axis=2)
     area = (
         np.cross(

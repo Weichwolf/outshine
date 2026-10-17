@@ -139,6 +139,16 @@ bool Matches(const Gpu::ComputeLayout &layout) {
 }
 
 void Profile(Gpu::Device &device, Gpu::Completion completion) {
+  const auto batch = device.SubmissionGpuTime(completion);
+  if (batch && batch->Status == Gpu::CompletionStatus::Ready &&
+      std::isfinite(batch->ElapsedNanoseconds) && batch->ElapsedNanoseconds >= 0) {
+    std::println("profile_batch_available=1 profile_batch_gpu_ms={:.9g} "
+                 "profile_batch_dispatches={} profile_batch_scope=uploads_dispatches_readback",
+                 batch->ElapsedNanoseconds / kNanosecondsPerMillisecond,
+                 kProfileDispatches);
+  } else {
+    std::println("profile_batch_available=0");
+  }
   const auto result = device.GpuTimings(completion);
   if (!result || result->Status != Gpu::CompletionStatus::Ready || result->Truncated ||
       result->DispatchCount != kProfileDispatches ||
@@ -253,7 +263,7 @@ bool FitsPalette(std::span<const std::byte> palette, uint32_t rows) {
                            8 * (uint64_t{rows} + 1) <= floatCount - layersAt);
 }
 
-bool Run(char **argv, bool timed) {
+bool Run(const char *const *argv, bool timed) {
   const auto code = Read(argv[1]);
   const auto palette = Read(argv[2]);
   const auto probes = Read(argv[3]);
@@ -284,7 +294,7 @@ bool Run(char **argv, bool timed) {
 }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char *const *argv) {
   const bool timed = argc == 7 && std::string_view(argv[6]) == "--gpu-timing";
   if (argc != 6 && !timed) {
     std::fputs("usage: native_ground_litter shader.spv palette.f32 probes.bin result.f32 unmapped "

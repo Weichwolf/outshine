@@ -124,6 +124,14 @@ def native_api(output, glslang, toolchain, link_flags):
     readback_checks = check_probe("native-readback-probe", "NativeReadbackProbe.cpp", delay_shader)
     timing_checks = check_probe("native-submission-timing-probe", "NativeSubmissionTimingProbe.cpp",
                                 delay_shader)
+    clamp_shaders = []
+    for suffix in ("vert", "frag"):
+        source = Path(__file__).with_name("native_depth_clamp." + suffix)
+        destination = output / (source.name + ".spv")
+        run([glslang, "-V", "--target-env", "vulkan1.0", str(source), "-o", str(destination)])
+        clamp_shaders.append(destination)
+    clamp_checks = check_probe("native-depth-clamp-probe", "NativeDepthClampProbe.cpp",
+                                *clamp_shaders, output / "depth-clamp")
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
@@ -131,7 +139,7 @@ def native_api(output, glslang, toolchain, link_flags):
             "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks,
             "presentation_target_checks": target_checks, "sdr_transfer_checks": sdr_checks,
             "display_colour_space_checks": display_checks, "native_readback_checks": readback_checks,
-            "submission_gpu_timing_checks": timing_checks}, sources
+            "submission_gpu_timing_checks": timing_checks, "depth_clamp_checks": clamp_checks}, sources
 
 
 
@@ -202,6 +210,9 @@ def main():
              ROOT / "test/harness/render/NativeSdrTransferProbe.cpp",
              ROOT / "test/harness/render/NativeMetalPresentationProbe.mm",
              ROOT / "test/harness/render/NativeReadbackProbe.cpp",
+             ROOT / "test/harness/render/NativeDepthClampProbe.cpp",
+             Path(__file__).with_name("native_depth_clamp.vert"),
+             Path(__file__).with_name("native_depth_clamp.frag"),
              ROOT / "src/render/stages/StagePipelines.cpp",
              ROOT / "src/render/stages/StagePipelines.h",
              ROOT / "src/render/device/SpirvFile.cpp",

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:39881120:24",
+    "end": -1
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:1044461680:3"
+  ],
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "flat",
+  "scope": "Countercase: uniform frozen heights conflict with the actual varying side contact of the same whole original source."
+}

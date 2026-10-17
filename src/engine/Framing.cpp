@@ -148,16 +148,6 @@ Result Engine::render(Extent frame) {
       "ms");
   S_->Published.RecordMetric(
       "subject draws", static_cast<double>(S_->Picture.Device.SubjectDrawCount()), "draws");
-  S_->Published.RecordMetric(
-      "the subject's own animation runs for", S_->Picture.Standing->DurationS(), "s");
-  S_->Published.RecordMetric("the frames its rate makes of that",
-                             static_cast<double>(S_->Picture.Standing->Frames()),
-                             "frames");
-  S_->Published.RecordMetric("and the instant it is posed at", S_->Picture.Standing->AtS(), "s");
-  S_->Published.RecordMetric(
-      "the pose's own local transforms, digested", S_->Picture.Standing->LocalsDigest(), "");
-  S_->Published.RecordMetric(
-      "the vertices it assembled from them, digested", S_->Picture.Standing->AssembledDigest(), "");
   S_->Published.RecordMetric("the geometry the renderer was last offered, digested",
                              S_->Picture.Standing->TransferMetrics().DigestValue(),
                              "");
