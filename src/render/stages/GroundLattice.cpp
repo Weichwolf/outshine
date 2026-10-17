@@ -175,7 +175,7 @@ bool GroundLattice::BuildGrid(std::span<const float> fractions,
     }
   }
   const auto skirt = [&index](uint32_t edgeA, uint32_t edgeB, uint32_t dropA, uint32_t dropB) {
-    index.insert(index.end(), {edgeA, dropA, edgeB, edgeB, dropA, dropB});
+    index.insert(index.end(), {edgeA, edgeB, dropA, edgeB, dropB, dropA});
   };
   const uint32_t north = kNodes;
   const uint32_t south = kNodes + static_cast<uint32_t>(kSide);

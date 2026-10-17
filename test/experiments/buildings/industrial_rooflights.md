@@ -137,8 +137,20 @@ exports of SDK3.4.12206 `Processor::extrude` (`004b5210`) and `subtract`
 This reuses those bounded primitive/dispatch studies, not a newly exported
 rooflight algorithm or ready Esri recipe/oracle render.
 
-General default selection, direct compact/far glazing, per-field detail demand,
-transition/shadow/radiance bounds and a versioned recipe-graph v2 remain open in
-#500. This prototype must not be silently substituted for v1 under the same
+General default selection, direct compact/far glazing, per-field detail demand
+and transition/shadow/radiance bounds remain open in #500. This prototype must
+not be silently substituted for v1 under the same
 operator fingerprint. A fully procedural city/architecture catalogue, final
 night-light performance and native integration remain separate open goals.
+
+Direct closed/checked-contact component construction now lives in the installable
+reference module; source/CSG preparation is retained, emission avoids repeated
+extrusion. Contract, counterexamples, scoped costs and image/replay evidence:
+[lib/rooflight_panels.md](../../../lib/rooflight_panels.md). This adds no v1 recipe
+semantics or automatic standard/LOD selection.
+
+Explicit normal hall v2 and its loadable domain recipe now use those closed
+components without prototype patches. Logical/full demand, retained products,
+source/tile controls, actual image inputs and scoped costs are documented in
+[recipe_rooflights.md](recipe_rooflights.md). Version1 stays the default; complete
+direct far roofs and transition/night/native admission remain open.

@@ -29,6 +29,7 @@ TestSources() { git ls-files --cached --others --exclude-standard "$TREES" | gre
 
 BUILD_PLATFORM=$(uname -s)
 SOURCE_UNITS=$(python3 test/scripts/source_units.py) || exit 2
+SOURCE_DIRECTORIES=$(find src -type d | sort)
 
 SourceUnits() {
   if [ $# -eq 0 ]; then printf '%s\n' "$SOURCE_UNITS"; return; fi
@@ -525,7 +526,8 @@ GroupIncludes() {
     base) includeSet="$includeSet $(pkg-config --cflags geos)" ;;
   esac
   for includeFrom in $includeTier $includeReaches; do
-    for includeDir in $(find "src/$includeFrom" -type d | sort); do
+    for includeDir in $SOURCE_DIRECTORIES; do
+      case "$includeDir" in "src/$includeFrom"|"src/$includeFrom/"*) ;; *) continue ;; esac
       case "$includeDir" in */shaders) continue ;; esac
       includeSet="$includeSet -I$includeDir"
     done

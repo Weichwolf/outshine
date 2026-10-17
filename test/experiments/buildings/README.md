@@ -1113,3 +1113,37 @@ Actual source-bound roof openings, closed glass/rims, physical counterexamples,
 paired Blender cameras and equal-volume frame/whole-hall cost comparisons:
 [industrial_rooflights.md](industrial_rooflights.md) (#500). Experimental variant;
 default hall/recipe v1 and compact/far admission remain unchanged/open.
+
+Complete immutable hall assets, independent physical/render products, exact
+legacy replay and the whole offline 37-source Grohnde tile comparison:
+[prepared_hall.md](prepared_hall.md) (#500). Camera changes select retained
+geometry; diagnostic export still copies full bodies. Eight glazed halls replace
+the previous six, without claiming a complete whole-building LOD or native cache.
+
+Source-cell industrial facade articulation, protected functional openings,
+shared closed/exterior buffers and true near/opposite/whole-tile comparisons:
+[industrial_relief.md](industrial_relief.md) (#519). Three seeded bay hierarchies
+use existing metal-frame materials. Geometry-only omission can lose distant
+metal signal. The corrected default retains shared distant front surfaces:
+[industrial_relief_signal.md](industrial_relief_signal.md) (#523), with actual
+full/omitted/projected comparisons and near/grazing negatives. Complete physical
+products remain available; general radiance/shadow/temporal LOD remains open.
+
+Actual provider-derived cooling-tower intakes, crossed supports, collector and
+upper rims: [cooling_tower.md](cooling_tower.md) (#526). Stable source programmes,
+independent connected physical unions, finite intake sweeps and full37-source
+comparisons accompany near/opposite/elevated1080p rasters. Further equipment,
+complete access/interiors, general special-family coverage and native cache/
+frame admission remain open.
+
+Source-contained repeated upper wings and compact podium masses, real terrace
+access, retained near/compact products and equal reconstruction/binding costs:
+[podium.md](podium.md) (#533). Source-stable new mass selection complements the
+existing fallback; broader facade variety and general cache/LOD admission
+remain open.
+
+Broad paired-pier/storey-spandrel composition on retained window axes, exact
+closed/outer/front products and full current-city comparison:
+[clad_facades.md](clad_facades.md) (#543). Existing source eligibility remains;
+219 sources gain stronger visible hierarchy. Near counterexamples prevent a
+general front-only LOD claim; full architecture-family variety remains open.

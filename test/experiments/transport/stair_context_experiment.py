@@ -14,6 +14,7 @@ import shapely
 from camera_height_inputs import digest
 from shared_bridge_geometry import corridor
 from stair_context_inputs import FIXTURE, PROFILES, load
+from stair_crossing_order import crossing_order
 from stair_junction_audit import audit
 from stair_junction_body import build
 from stair_junction_display import display
@@ -49,11 +50,12 @@ def crossings(rows, junctions=None):
                 for row in (a, b)
             ):
                 continue
-            if a["original"]["bridge"] == b["original"]["bridge"]:
+            order = crossing_order(rows, i, j)
+            if order is None:
                 raise ValueError(
                     f"unplanned crossing between equal bridge kinds: {i}:{j} at {p.tolist()}"
                 )
-            low, high = (j, i) if a["original"]["bridge"] else (i, j)
+            low, high = order
             result.append([low, high, p.tolist()])
     return result
 

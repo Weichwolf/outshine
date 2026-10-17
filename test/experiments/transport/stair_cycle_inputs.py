@@ -8,8 +8,12 @@ import numpy as np
 from camera_height_inputs import digest
 from capture_stair_context import parts
 from outshine_ref.places import decode_terrarium, decode_vector, receipt_bytes
+from stair_branch_inputs import branch_rows, surface_sampling, surface_welding
 from stair_context_inputs import PROFILES, window_samples
+from stair_corner_geometry import apply_pads
+from stair_crossing_order import apply_orders
 from stair_junction_layout import INPUT
+from stair_landing_pads import complete_landings
 from stair_network_inputs import FIXTURE as NETWORK
 from stair_network_inputs import junctions, stair_nodes
 from stair_outer_inputs import FIXTURE as OUTER
@@ -132,19 +136,37 @@ def load(path=FIXTURE, *, band_join=True):
                 },
             }
         )
+    extensions = branch_rows(
+        recipe, sources, [r["source_id"] for r in rows], profiles, sample
+    )
+    rows.extend(extensions)
+    surface_sampling(
+        rows, recipe.get("surface_cross_section_mode", "end_neighbourhood")
+    )
+    surface_welding(rows, recipe.get("surface_weld_tolerance_m"))
+    orders = apply_orders(rows, recipe.get("ordered_bridge_crossings", []))
+    if orders:
+        context["bridge_separation_orders"] = orders
     keys = [r["source_id"] for r in rows]
-    if len(keys) != 18 + len(added) or len(set(keys)) != len(keys):
+    if len(keys) != 18 + len(added) + len(extensions) or len(set(keys)) != len(keys):
         raise ValueError("unique whole source extension required")
     contacts = json.loads(NETWORK.read_text())["width_contacts"]
     nodes = junctions(keys, sources, contacts, rows)
     nodes = ground_contacts(rows, nodes)
+    if "junction_pads" in recipe:
+        context["junction_pads"] = apply_pads(rows, nodes, recipe["junction_pads"])
     if not band_join:
         nodes = [
             node
             for node in nodes
             if not (18 in node["incident"] and node["mvt_xy"] is None)
         ]
-    return case, rows, nodes, stair_nodes(rows, nodes), context, sample
+    stairs = stair_nodes(rows, nodes)
+    if "complete_chosen_landings" in recipe:
+        settings = recipe["complete_chosen_landings"]
+        pads, ledger = complete_landings(rows, nodes, stairs, **settings)
+        context.update(landing_pads=pads, landing_pad_selection=ledger)
+    return case, rows, nodes, stairs, context, sample
 
 
 def capture(args):

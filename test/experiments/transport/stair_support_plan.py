@@ -37,7 +37,9 @@ def inputs(root, fixture):
     return rows, road, lower, context, paths
 
 
-def stations(rows):
+def station_choices(rows, *, selection="all"):
+    if selection not in ("all", "uniform") or not 1 <= len(rows) <= 64:
+        raise ValueError("known bounded support station selection required")
     result, short = [], []
     for owner, row in enumerate(rows):
         if not row["original"]["bridge"]:
@@ -51,8 +53,38 @@ def stations(rows):
                 {"source_id": row["source_id"], "reason": "no_interior_station"}
             )
         result.extend((owner, line, float(s)) for s in values)
-        if len(result) > 128:
+        if len(result) > 128 and selection == "all":
             raise ValueError("stair support station budget")
+    deferred = []
+    if len(result) > 128:
+        groups = {}
+        for i, (owner, _line, _station) in enumerate(result):
+            groups.setdefault(owner, []).append(i)
+        keep = {i for values in groups.values() for i in (values[0], values[-1])}
+        pool = [i for i in range(len(result)) if i not in keep]
+        slots = 128 - len(keep)
+        if slots == 1:
+            keep.add(pool[len(pool) // 2])
+        elif slots > 1:
+            keep.update(
+                pool[(k * (len(pool) - 1) + (slots - 1) // 2) // (slots - 1)]
+                for k in range(slots)
+            )
+        deferred = [
+            {
+                "source_id": rows[owner]["source_id"],
+                "nominal_m": station,
+                "reason": "support_station_budget",
+            }
+            for i, (owner, _line, station) in enumerate(result)
+            if i not in keep
+        ]
+        result = [item for i, item in enumerate(result) if i in keep]
+    return result, short, deferred
+
+
+def stations(rows):
+    result, short, _deferred = station_choices(rows)
     return result, short
 
 
@@ -179,11 +211,20 @@ def admit(product, lower, upper, excluded, previous):
     return shapes, note
 
 
-def plan(rows, road, lower, *, method, seconds=8, preparation="shared"):
+def plan(
+    rows,
+    road,
+    lower,
+    *,
+    method,
+    seconds=8,
+    preparation="shared",
+    station_selection="all",
+):
     if method not in ("fixed", "shifted") or not 0 < seconds <= 8:
         raise ValueError("bounded known stair support method required")
     began = time.perf_counter()
-    candidates, short = stations(rows)
+    candidates, short, deferred = station_choices(rows, selection=station_selection)
     builders, low_ref, uppers, exclusions, preparation_work = context(
         road, lower, {c[0] for c in candidates}, preparation=preparation
     )
@@ -235,7 +276,13 @@ def plan(rows, road, lower, *, method, seconds=8, preparation="shared"):
             if "product" in row:
                 break
         ledger.append(row)
+    selection_note = (
+        {}
+        if station_selection == "all"
+        else {"station_selection": station_selection, "deferred_stations": deferred}
+    )
     return products, {
+        **selection_note,
         "method": method,
         "stations": ledger,
         "short_sources": short,

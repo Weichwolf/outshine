@@ -1,0 +1,38 @@
+{
+  "camera": {
+    "projection": "perspective",
+    "eye": [
+      -91.56591150678182,
+      15.154299513540565,
+      158.7928505328856
+    ],
+    "target": [
+      -329.708758480452,
+      253.29714648721074,
+      4.0
+    ],
+    "vertical_fov_deg": 48.0,
+    "clip_near_m": 0.1,
+    "clip_far_m": 10000,
+    "profile": [
+      1920,
+      1080
+    ]
+  },
+  "camera_source": "Original PR501/PR509 Grohnde industrial-group comparison; own procedural view, flat local metres",
+  "raw_receipt": {
+    "tile": [
+      14,
+      8620,
+      5409
+    ],
+    "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8620/5409.pbf",
+    "sha256": "c91248b4db2a57d2dad79c49b8703f200bd6ec8177616a054bc207702b05c4fe",
+    "bytes": 9441,
+    "origin": "network",
+    "sites": [
+      "Emmerthal",
+      "Grohnde"
+    ]
+  }
+}
