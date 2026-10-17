@@ -13,13 +13,19 @@ from stair_local_context import selected_keys, state_for
 from stair_local_generate import arguments
 from stair_local_physics import piers, validate
 from stair_local_replay import load_chain, products
-from stair_module_audit import audit
 from stair_module_catalog import catalog
 from stair_module_experiment import refused_catalog, write_json
-from stair_module_geometry import old_surfaces
+from stair_module_family import (
+    audit,
+)
+from stair_module_family import (
+    surfaces as old_surfaces,
+)
+from stair_module_family import (
+    verify_sources as verify_source_contract,
+)
 from stair_module_inputs import inputs
 from stair_module_soil import sampled_pins, selection
-from stair_module_source_contract import verify_source_contract
 from stair_module_verify import saved_planning
 from stair_terrain_experiment import frozen
 

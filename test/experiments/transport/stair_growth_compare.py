@@ -15,6 +15,7 @@ from stair_local_replay import load_chain
 from stair_module_experiment import write_json
 from stair_module_inputs import FIXTURE, source_context
 from stair_patch_inputs import fresh
+from stair_seed_sources import select as select_seed
 from stair_terrain_experiment import frozen
 
 
@@ -30,9 +31,10 @@ def compare(args):
     ref, before = reference(args), fingerprint(view, assets)
     args.output.mkdir()
     results, selected = {}, {}
+    selector = select_seed if args.family == "seed" else select
     for method in ("index", "scan"):
         start = time.perf_counter()
-        selected[method] = select(view, assets, manifest, sources, ref, method=method)
+        selected[method] = selector(view, assets, manifest, sources, ref, method=method)
         results[method] = {
             "seconds": time.perf_counter() - start,
             "profile_work": selected[method]["profile_work"],
@@ -56,7 +58,7 @@ def compare(args):
                 trace_python_allocators=True,
                 native_traces=False,
             ):
-                actual = select(view, assets, manifest, sources, ref, method=method)
+                actual = selector(view, assets, manifest, sources, ref, method=method)
             if actual != selected[method]:
                 raise ValueError("profiled/unprofiled selection differs")
             results[method]["profiled_seconds"] = time.perf_counter() - start
@@ -96,6 +98,7 @@ def arguments():
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument("--family", choices=("attached", "seed"), default="attached")
     return parser.parse_args()
 
 
