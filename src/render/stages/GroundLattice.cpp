@@ -203,7 +203,6 @@ bool GroundLattice::BuildGrid(std::span<const float> fractions,
     return false;
   }
   OwnedBuffer madeIndex;
-  SDL_GPUBuffer *indexBuffer = Index_.Get();
   if (!Index_) {
     wanted.usage = SDL_GPU_BUFFERUSAGE_INDEX;
     wanted.size = static_cast<uint32_t>(index.size() * sizeof(uint32_t));
@@ -212,9 +211,8 @@ bool GroundLattice::BuildGrid(std::span<const float> fractions,
       error = std::format(Says::kBufferRefused, "grid", SDL_GetError());
       return false;
     }
-    indexBuffer = madeIndex.Get();
     if (!UploadBuffer(Device_,
-                      indexBuffer,
+                      madeIndex.Get(),
                       index.data(),
                       static_cast<uint32_t>(index.size() * sizeof(uint32_t)),
                       error)) {
