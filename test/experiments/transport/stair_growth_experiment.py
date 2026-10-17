@@ -53,12 +53,17 @@ def run(args):
     fresh(args.output)
     if type(args.max_attempts) is not int or not 1 <= args.max_attempts <= 3:
         raise ValueError("at most three whole-geometry attempts required")
+    if type(args.proposal_offset) is not int or not 0 <= args.proposal_offset <= 31:
+        raise ValueError("bounded explicit proposal continuation required")
     chosen, attempts = None, []
     selected = selection(args)
     args.output.mkdir()
     write_json(args.output / "selection.json", selected)
     artifacts = {"selection.json": digest(args.output / "selection.json")}
-    for index, recipe in enumerate(selected["recipes"][: args.max_attempts]):
+    window = selected["recipes"][
+        args.proposal_offset : args.proposal_offset + args.max_attempts
+    ]
+    for index, recipe in enumerate(window):
         fixture = args.output / ("recipe-" + str(index) + ".json")
         output = args.output / ("outshine-module-" + str(index))
         write_json(fixture, recipe)
@@ -92,6 +97,8 @@ def run(args):
         "resident_sha256": selected["resident_sha256"],
         "parent_reports": selected["parent_reports"],
         "before_source_ids": selected["before_source_ids"],
+        "proposal_offset": args.proposal_offset,
+        "proposal_count": len(selected["recipes"]),
         "attempts": attempts,
         "chosen_module": chosen,
         "source_dispositions": source_dispositions(selected["plan"], attempts, chosen),
@@ -126,6 +133,7 @@ def arguments():
         "--schedule", choices=("roots_first", "prefix_first"), default="roots_first"
     )
     parser.add_argument("--max-attempts", type=int, default=3)
+    parser.add_argument("--proposal-offset", type=int, default=0)
     return parser.parse_args()
 
 
