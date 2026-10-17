@@ -178,7 +178,11 @@ def audit(state, recipe, data, rows, planning, line, upper):
     if recipe.get("junction_mode", "free") == "level_box":
         cached_points = [line[1, :2], *[c["xy"] for c in state["module_contacts"]]]
         plans = plan_heights(
-            rows, nodes, cached_points, include_interiors="vertex" in recipe["port"]
+            rows,
+            nodes,
+            cached_points,
+            include_interiors="vertex" in recipe["port"]
+            or bool(recipe.get("endpoint_contacts")),
         )
         fixed, values = apply_heights(
             data["surface_vertices"][:, :2],

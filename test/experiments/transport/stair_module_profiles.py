@@ -2,6 +2,7 @@
 
 import numpy as np
 from stair_cycle_contacts import interior_profile_xy, profile
+from stair_module_through import through_sides
 from stair_module_trace import compare
 
 
@@ -38,7 +39,14 @@ def contact_profiles(
         ):
             raise ValueError("cached interior contact source membership changed")
         old_at.setdefault(index, []).append(contact["cap"])
-        references.append((index, contact["cap"], contact["profile"][:, :2], True))
+        references.append(
+            (
+                index,
+                contact["cap"],
+                contact["profile"][:, :2],
+                contact.get("cached_interior", True),
+            )
+        )
     return old_at, references
 
 
@@ -68,7 +76,7 @@ def frozen_profile_checks(data, nodes, masks, original, old_at, references):
     return checks
 
 
-def new_interior_checks(data, rows, nodes, masks, original, old_at):
+def new_interior_checks(data, rows, nodes, masks, original, old_at, endpoint_nodes=()):
     result = []
     for index, node in enumerate(nodes):
         for owner in node["incident"]:
@@ -100,11 +108,21 @@ def new_interior_checks(data, rows, nodes, masks, original, old_at):
                 for cap in old_at.get(index, [])
             )
             line = interior_profile_xy(row, int(found[0]))
-            checks = [compare([own, other], line, cast) for cast in (False, True)]
+            groups = (
+                through_sides(own, line)
+                if index in endpoint_nodes and len(node["incident"]) == 1
+                else [own, other]
+            )
+            checks = [compare(groups, line, cast) for cast in (False, True)]
             result.append(
                 {
                     "source_id": row["source_id"],
                     "vertex": int(found[0]),
+                    **(
+                        {"reference": "opposite_through_sides"}
+                        if index in endpoint_nodes and len(node["incident"]) == 1
+                        else {}
+                    ),
                     "checks": checks,
                 }
             )
@@ -167,20 +185,35 @@ def varying_profiles(
             ]
             result.append({"source_id": row["source_id"], "end": end, "checks": checks})
     old_checks = frozen_profile_checks(data, nodes, masks, original, old_at, references)
+    endpoint_nodes = [
+        i
+        for i, node in enumerate(nodes)
+        if any(
+            c.get("cached_interior") is False and c["mvt_xy"] == node["mvt_xy"]
+            for c in contacts
+        )
+    ]
     return {
         "new_internal_profiles": result,
         "old_profile_completed": not root_interior,
         "old_profile_checks": old_checks,
-        "complete_cached_interior_profiles": len(contacts) + int(root_interior),
+        "complete_cached_interior_profiles": len(contacts)
+        - len(endpoint_nodes)
+        + int(root_interior),
+        **(
+            {"complete_cached_endpoint_profiles": len(endpoint_nodes)}
+            if endpoint_nodes
+            else {}
+        ),
         "outer_profiles": outer,
         "complete_additional_profiles": len(result) + int(not root_interior),
         **(
             {
                 "new_source_interior_profiles": new_interior_checks(
-                    data, rows, nodes, masks, original, old_at
+                    data, rows, nodes, masks, original, old_at, endpoint_nodes
                 )
             }
-            if root_interior
+            if root_interior or endpoint_nodes
             else {}
         ),
     }
