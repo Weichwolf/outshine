@@ -98,7 +98,7 @@ TerrainResidency::TerrainResidency(const TerrainResidency &other)
   }
 }
 
-std::expected<Render::HeightPageHandle, std::string> TerrainResidency::PageFor(const Sheet &sheet) {
+Render::Native::Result<Render::HeightPageHandle> TerrainResidency::PageFor(const Sheet &sheet) {
   const Data::TileId tile = sheet.Tile;
   const std::span<const float> nodes = sheet.Nodes;
   if (const size_t *found = PageIndex_.Find(tile)) {
@@ -124,9 +124,13 @@ std::expected<Render::HeightPageHandle, std::string> TerrainResidency::PageFor(c
   const auto indexed = PageIndex_.Emplace(tile, Held_.size());
   if (!indexed) {
     Renderer_->ReleaseHeightPage(*page);
-    return std::unexpected(indexed.error() == FlatMapError::AllocationFailed
-                               ? Says::HeightPageIndexAllocationFailed
-                               : Says::HeightPageIndexCapacityExceeded);
+    return std::unexpected(
+        Render::Native::Error{.Kind = indexed.error() == FlatMapError::AllocationFailed
+                                          ? Render::Native::ErrorKind::OutOfMemory
+                                          : Render::Native::ErrorKind::Invalid,
+                              .Message = indexed.error() == FlatMapError::AllocationFailed
+                                             ? Says::HeightPageIndexAllocationFailed
+                                             : Says::HeightPageIndexCapacityExceeded});
   }
   Held_.push_back({.Tile = tile,
                    .Page = *page,
@@ -183,7 +187,7 @@ Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
   return made;
 }
 
-bool TerrainResidency::PublishGrid(const Patchwork &patchwork, std::string &error) {
+Render::Native::Result<void> TerrainResidency::PublishGrid(const Patchwork &patchwork) {
   for (const Sheet &sheet : patchwork.Sheets) {
     if (sheet.Side != Render::GroundLattice::kSide || sheet.Virtual || sheet.Postings < 2 ||
         sheet.Postings == GridPostings_) {
@@ -195,11 +199,12 @@ bool TerrainResidency::PublishGrid(const Patchwork &patchwork, std::string &erro
       fractions.push_back(
           static_cast<float>(FractionOf(k, sheet.Postings, Render::GroundLattice::kSide)));
     }
-    if (!Renderer_->SetGroundGrid(fractions, error)) { return false; }
+    const auto uploaded = Renderer_->SetGroundGrid(fractions);
+    if (!uploaded) { return uploaded; }
     GridPostings_ = sheet.Postings;
-    return true;
+    return {};
   }
-  return true;
+  return {};
 }
 
 bool TerrainResidency::ReindexPages(std::string &error) {
@@ -259,6 +264,12 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
     return std::unexpected("height pages are not prepared for a bounded publication");
   }
   const auto batchAt = std::chrono::steady_clock::now();
+  const auto sampleBatch = [&] {
+    LongestBatchMs_ = std::max(
+        LongestBatchMs_,
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - batchAt)
+            .count());
+  };
   const size_t end = std::min(NextSheet_ + sheetsMost, patchwork.Sheets.size());
   for (; NextSheet_ < end; ++NextSheet_) {
     const Sheet &sheet = patchwork.Sheets[NextSheet_];
@@ -268,14 +279,15 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
       continue;
     }
     const auto page = PageFor(sheet);
-    if (!page) { return std::unexpected(page.error()); }
+    if (!page) {
+      sampleBatch();
+      if (page.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+      return std::unexpected(page.error().Message);
+    }
     (sheet.Virtual ? Virtual_ : Instances_)
         .push_back(TileOf(sheet.Tile, *page, sheet.Nodes, frame));
   }
-  LongestBatchMs_ =
-      std::max(LongestBatchMs_,
-               std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - batchAt)
-                   .count());
+  sampleBatch();
   if (NextSheet_ < patchwork.Sheets.size()) { return false; }
   const auto finalizeAt = std::chrono::steady_clock::now();
   std::ranges::sort(Held_, [](const Held &left, const Held &right) {
@@ -284,9 +296,12 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
     return left.Tile.Y < right.Tile.Y;
   });
   std::string error;
-  if (!ReindexPages(error) || !PublishGrid(patchwork, error) ||
-      !Renderer_->SetTerrainTiles(Instances_, Virtual_, error)) {
-    return std::unexpected(std::move(error));
+  if (!ReindexPages(error)) { return std::unexpected(std::move(error)); }
+  auto published = PublishGrid(patchwork);
+  if (published) { published = Renderer_->SetTerrainTiles(Instances_, Virtual_); }
+  if (!published) {
+    if (published.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+    return std::unexpected(published.error().Message);
   }
   FinalizeMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - finalizeAt)

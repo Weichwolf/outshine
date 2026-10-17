@@ -3,6 +3,7 @@
 
 #include "NativeCommandsProxy.h"
 #include "NativeDeviceProxy.h"
+#include <chrono>
 #include <cstddef>
 #include <expected>
 #include <memory>
@@ -32,6 +33,8 @@ struct UploadFailure {
   unsigned Rejected = 0;
   unsigned DeviceBufferRequests = 0;
   unsigned VertexBufferAllocations = 0;
+  unsigned Waits = 0;
+  Render::Native::ErrorKind Kind = Render::Native::ErrorKind::Driver;
 
   [[nodiscard]] bool Reject(UploadFailurePoint point) {
     if (!Armed || Point != point) { return false; }
@@ -44,9 +47,7 @@ struct UploadFailure {
     return true;
   }
 
-  [[nodiscard]] Render::Native::Error Error() const {
-    return {.Kind = Render::Native::ErrorKind::Driver, .Message = Message};
-  }
+  [[nodiscard]] Render::Native::Error Error() const { return {.Kind = Kind, .Message = Message}; }
 };
 
 class NativeUploadFaultCommands final : public NativeCommandsProxy {
@@ -79,6 +80,12 @@ class NativeUploadFaultDevice final : public NativeDeviceProxy {
 public:
   NativeUploadFaultDevice(std::unique_ptr<Render::Native::Device> device, UploadFailure &failure)
       : NativeDeviceProxy(*device), Device_(std::move(device)), Failure_(failure) {}
+
+  [[nodiscard]] Render::Native::Result<Render::Native::CompletionStatus>
+  Wait(Render::Native::Completion completion, std::chrono::nanoseconds budget) override {
+    ++Failure_.Waits;
+    return NativeDeviceProxy::Wait(completion, budget);
+  }
 
   [[nodiscard]] static Render::Native::Result<std::unique_ptr<Render::Native::Device>>
   Create(void *context, Render::Native::DeviceOptions options) {

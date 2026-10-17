@@ -169,8 +169,8 @@ int main() {
     CHECK(faults.Layers.size() == 1, "only live page demand allocates texture layers");
     faults.RefuseTexture = true;
     const auto refused = renderer.PlaceHeightPage(nodes);
-    CHECK(!refused &&
-              refused.error().find("injected height atlas allocation failure") != std::string::npos,
+    CHECK(!refused && refused.error().Message.find("injected height atlas allocation failure") !=
+                          std::string::npos,
           "failed growth returns the allocation error");
     std::vector<float> afterFailure;
     CHECK(ReadPageImage(renderer, *scene, *first, afterFailure, error) && afterFailure == baseline,

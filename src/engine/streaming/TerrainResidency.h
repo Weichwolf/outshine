@@ -3,6 +3,7 @@
 
 #include <world/data/Address.h>
 #include "FlatMap.h"
+#include "device/native/Commands.h"
 #include "GroundMesher.h"
 #include "TangentFrame.h"
 #include "TriangleBvh.h"
@@ -68,12 +69,12 @@ private:
     bool Virtual = false;
   };
 
-  [[nodiscard]] std::expected<Render::HeightPageHandle, std::string> PageFor(const Sheet &sheet);
+  [[nodiscard]] Render::Native::Result<Render::HeightPageHandle> PageFor(const Sheet &sheet);
   [[nodiscard]] static Render::TerrainTile TileOf(Data::TileId tile,
                                                   Render::HeightPageHandle page,
                                                   std::span<const float> nodes,
                                                   const TangentFrame &frame);
-  [[nodiscard]] bool PublishGrid(const Patchwork &patchwork, std::string &error);
+  [[nodiscard]] Render::Native::Result<void> PublishGrid(const Patchwork &patchwork);
   [[nodiscard]] bool ReindexPages(std::string &error);
 
   std::vector<Held> Held_;

@@ -4,6 +4,7 @@
 #include "ResourceHandle.h"
 #include "SubjectTypes.h"
 #include "TerrainTile.h"
+#include "device/native/Commands.h"
 #include "scene/Geometry.h"
 
 #include <cstddef>
@@ -74,20 +75,19 @@ public:
     return Pieces_.capacity() * sizeof(Piece);
   }
 
-  [[nodiscard]] std::expected<HeightPageHandle, std::string>
-  PlaceHeightPage(SubjectDraw &subjects, std::span<const float> nodes);
+  [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(SubjectDraw &subjects,
+                                                                 std::span<const float> nodes);
   void ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which);
   [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
   [[nodiscard]] bool RestoreHeightPages(SubjectDraw &subjects, std::string &error);
   [[nodiscard]] std::expected<bool, std::string>
   AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, size_t pagesMost);
-  [[nodiscard]] bool
-  SetGroundGrid(SubjectDraw &subjects, std::span<const float> fractions, std::string &error);
-  [[nodiscard]] bool SetTerrainTiles(SubjectDraw &subjects,
-                                     std::span<const TerrainTile> real,
-                                     std::span<const TerrainTile> virtual_,
-                                     std::string &error);
+  [[nodiscard]] Native::Result<void> SetGroundGrid(SubjectDraw &subjects,
+                                                   std::span<const float> fractions);
+  [[nodiscard]] Native::Result<void> SetTerrainTiles(SubjectDraw &subjects,
+                                                     std::span<const TerrainTile> real,
+                                                     std::span<const TerrainTile> virtual_);
   [[nodiscard]] bool RestoreTerrain(SubjectDraw &subjects, std::string &error);
   void SetGroundClassification(std::span<const uint32_t> classes, std::span<const float> palette);
   void SetGroundClassification(GroundClassificationSource source) noexcept;

@@ -246,8 +246,7 @@ public:
     return *placed;
   }
 
-  [[nodiscard]] std::expected<HeightPageHandle, std::string>
-  PlaceHeightPage(std::span<const float> nodes) {
+  [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(std::span<const float> nodes) {
     return ActiveState().Content.Resources.PlaceHeightPage(ActiveState().Content.Subjects, nodes);
   }
 
@@ -276,15 +275,23 @@ public:
   }
 
   [[nodiscard]] bool SetGroundGrid(std::span<const float> fractions, std::string &error) {
-    return ActiveState().Content.Resources.SetGroundGrid(
-        ActiveState().Content.Subjects, fractions, error);
+    return Accepted(SetGroundGrid(fractions), error);
+  }
+
+  [[nodiscard]] Native::Result<void> SetGroundGrid(std::span<const float> fractions) {
+    return ActiveState().Content.Resources.SetGroundGrid(ActiveState().Content.Subjects, fractions);
   }
 
   [[nodiscard]] bool SetTerrainTiles(std::span<const TerrainTile> real,
                                      std::span<const TerrainTile> virtual_,
                                      std::string &error) {
+    return Accepted(SetTerrainTiles(real, virtual_), error);
+  }
+
+  [[nodiscard]] Native::Result<void> SetTerrainTiles(std::span<const TerrainTile> real,
+                                                     std::span<const TerrainTile> virtual_) {
     return ActiveState().Content.Resources.SetTerrainTiles(
-        ActiveState().Content.Subjects, real, virtual_, error);
+        ActiveState().Content.Subjects, real, virtual_);
   }
 
   [[nodiscard]] bool SetGroundLattice(std::span<const GroundTile> real,

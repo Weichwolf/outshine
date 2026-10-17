@@ -343,14 +343,15 @@ size_t SceneResources::PieceSourceCount() const noexcept {
       std::ranges::count_if(Pieces_, [](const Piece &piece) { return piece.State.Occupied; }));
 }
 
-std::expected<HeightPageHandle, std::string>
-SceneResources::PlaceHeightPage(SubjectDraw &subjects, std::span<const float> nodes) {
+Native::Result<HeightPageHandle> SceneResources::PlaceHeightPage(SubjectDraw &subjects,
+                                                                 std::span<const float> nodes) {
   if (FirstFreeHeightPage_ == kNoResourceSlot && HeightPages_.size() >= kNoResourceSlot) {
-    return std::unexpected(Says::HeightPageLimit);
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid, .Message = Says::HeightPageLimit});
   }
   HeightPage held{.Nodes = std::make_shared<const std::vector<float>>(nodes.begin(), nodes.end())};
   const auto placed = subjects.Ground().PlacePage(*held.Nodes);
-  if (!placed) { return std::unexpected(placed.error().Message); }
+  if (!placed) { return std::unexpected(placed.error()); }
   held.Resident = *placed;
   held.State.Occupied = true;
   uint32_t slot = FirstFreeHeightPage_;
@@ -400,47 +401,50 @@ bool SceneResources::RestoreHeightPages(SubjectDraw &subjects, std::string &erro
   return true;
 }
 
-bool SceneResources::SetGroundGrid(SubjectDraw &subjects,
-                                   std::span<const float> fractions,
-                                   std::string &error) {
+Native::Result<void> SceneResources::SetGroundGrid(SubjectDraw &subjects,
+                                                   std::span<const float> fractions) {
   const auto uploaded = subjects.Ground().SetGrid(fractions);
-  if (!uploaded) {
-    error = uploaded.error().Message;
-    return false;
-  }
+  if (!uploaded) { return uploaded; }
   GroundGrid_.assign(fractions.begin(), fractions.end());
-  return true;
+  return {};
 }
 
-bool SceneResources::SetTerrainTiles(SubjectDraw &subjects,
-                                     std::span<const TerrainTile> real,
-                                     std::span<const TerrainTile> virtual_,
-                                     std::string &error) {
-  const auto translate = [this, &error](std::span<const TerrainTile> source,
-                                        std::vector<GroundTile> &into) {
+Native::Result<void> SceneResources::SetTerrainTiles(SubjectDraw &subjects,
+                                                     std::span<const TerrainTile> real,
+                                                     std::span<const TerrainTile> virtual_) {
+  const auto translate =
+      [this](std::span<const TerrainTile> source) -> Native::Result<std::vector<GroundTile>> {
+    std::vector<GroundTile> into;
     into.reserve(source.size());
     for (const TerrainTile &tile : source) {
       const auto encoded = EncodeTerrainTile(tile, HeightPageResident(tile.Page));
       if (!encoded) {
-        error = std::string(encoded.error()) + ": slot=" + std::to_string(tile.Page.Slot) +
-                ", generation=" + std::to_string(tile.Page.Generation);
-        return false;
+        return std::unexpected(Native::Error{
+            .Kind = Native::ErrorKind::Invalid,
+            .Message = std::string(encoded.error()) + ": slot=" + std::to_string(tile.Page.Slot) +
+                       ", generation=" + std::to_string(tile.Page.Generation)});
       }
       into.push_back(*encoded);
     }
-    return true;
+    return into;
   };
-  std::vector<GroundTile> residentReal;
-  std::vector<GroundTile> residentVirtual;
-  if (!translate(real, residentReal) || !translate(virtual_, residentVirtual)) { return false; }
-  const auto uploaded = subjects.Ground().SetInstances(residentReal, residentVirtual);
-  if (!uploaded) {
-    error = uploaded.error().Message;
-    return false;
+  const auto residentReal = translate(real);
+  if (!residentReal) { return std::unexpected(residentReal.error()); }
+  const auto residentVirtual = translate(virtual_);
+  if (!residentVirtual) { return std::unexpected(residentVirtual.error()); }
+  const auto uploaded = subjects.Ground().SetInstances(*residentReal, *residentVirtual);
+  if (!uploaded) { return uploaded; }
+  if (real.data() != GroundReal_.data()) {
+    GroundReal_.assign(real.begin(), real.end());
+  } else {
+    GroundReal_.resize(real.size());
   }
-  GroundReal_.assign(real.begin(), real.end());
-  GroundVirtual_.assign(virtual_.begin(), virtual_.end());
-  return true;
+  if (virtual_.data() != GroundVirtual_.data()) {
+    GroundVirtual_.assign(virtual_.begin(), virtual_.end());
+  } else {
+    GroundVirtual_.resize(virtual_.size());
+  }
+  return {};
 }
 
 bool SceneResources::RestoreTerrain(SubjectDraw &subjects, std::string &error) {
@@ -466,14 +470,12 @@ SceneResources::AdvanceTerrainRestore(SubjectDraw &subjects, size_t &nextPage, s
     page.Resident = *placed;
   }
   if (nextPage < HeightPages_.size()) { return false; }
-  std::string error;
   if (!GroundGrid_.empty()) {
     const auto uploaded = subjects.Ground().SetGrid(GroundGrid_);
     if (!uploaded) { return std::unexpected(uploaded.error().Message); }
   }
-  if (!SetTerrainTiles(subjects, GroundReal_, GroundVirtual_, error)) {
-    return std::unexpected(std::move(error));
-  }
+  const auto restored = SetTerrainTiles(subjects, GroundReal_, GroundVirtual_);
+  if (!restored) { return std::unexpected(restored.error().Message); }
   return true;
 }
 
