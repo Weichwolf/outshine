@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
+#include <limits>
+#include <ratio>
 #include <vector>
 
 int main() {
@@ -16,7 +18,8 @@ int main() {
       seeds > 65536 || sources > 65536) {
     return 2;
   }
-  std::vector<PlantGrowthPoint> positions(seeds), attractors(sources);
+  std::vector<PlantGrowthPoint> positions(seeds);
+  std::vector<PlantGrowthPoint> attractors(sources);
   std::vector<int32_t> parents(seeds);
   for (size_t row = 0; row < seeds; ++row) {
     if (!(std::cin >> parents[row] >> positions[row][0] >> positions[row][1] >>
@@ -36,12 +39,12 @@ int main() {
   const double elapsedMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
   const auto &stats = plan->Stats;
-  std::cout << std::setprecision(17) << "S " << plan->PositionsM.size() << ' '
-            << plan->Unreached.size() << ' ' << static_cast<unsigned>(plan->Stop) << ' '
-            << stats.Consumed << ' ' << stats.Iterations << ' ' << stats.NearestQueries << ' '
-            << stats.RejectedEndpoints << ' ' << stats.RadiusQueries << ' ' << stats.DistanceChecks
-            << ' ' << stats.PartitionComparisons << ' ' << stats.WorkingBytes << ' ' << elapsedMs
-            << '\n';
+  std::cout << std::setprecision(std::numeric_limits<double>::max_digits10) << "S "
+            << plan->PositionsM.size() << ' ' << plan->Unreached.size() << ' '
+            << static_cast<unsigned>(plan->Stop) << ' ' << stats.Consumed << ' ' << stats.Iterations
+            << ' ' << stats.NearestQueries << ' ' << stats.RejectedEndpoints << ' '
+            << stats.RadiusQueries << ' ' << stats.DistanceChecks << ' '
+            << stats.PartitionComparisons << ' ' << stats.WorkingBytes << ' ' << elapsedMs << '\n';
   for (size_t row = 0; row < plan->PositionsM.size(); ++row) {
     const auto &point = plan->PositionsM[row];
     std::cout << "N " << plan->Parents[row] << ' ' << point[0] << ' ' << point[1] << ' ' << point[2]
