@@ -145,7 +145,9 @@ def arguments():
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--proposal-offset", type=int, default=0)
     parser.add_argument("--family", choices=("attached", "seed"), default="attached")
-    parser.add_argument("--seed-grid-m", type=float, choices=(0.0, 2**-11), default=0.0)
+    parser.add_argument(
+        "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
+    )
     return parser.parse_args()
 
 

@@ -104,7 +104,9 @@ def arguments():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--family", choices=("attached", "seed"), default="attached")
-    parser.add_argument("--seed-grid-m", type=float, choices=(0.0, 2**-11), default=0.0)
+    parser.add_argument(
+        "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
+    )
     return parser.parse_args()
 
 

@@ -67,7 +67,7 @@ def select(
     method="index",
     strategy="prefix",
     schedule="roots_first",
-    grid_m=0.0,
+    grid_m=2**-11,
 ):
     if grid_m not in (0.0, 2**-11):
         raise ValueError("known independent seed grid required")
