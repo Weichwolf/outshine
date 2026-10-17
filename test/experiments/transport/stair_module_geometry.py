@@ -15,7 +15,11 @@ from stair_module_materials import surface_slots
 from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
 from stair_module_roots import bind_root_pad, profile_masks, root_profile
-from stair_module_sections import cap_edge_constraints, line_pieces, profile_levels
+from stair_module_sections import (
+    cap_edge_constraints,
+    profile_levels,
+    whole_line_pieces,
+)
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
 from stair_source_owners import source_selection
@@ -60,7 +64,7 @@ def old_surfaces(state, recipe, sources):
             "actual cached source does not support its whole outer profile"
         )
     if varying:
-        pieces, _parents = line_pieces(cap.vertices, cap.triangles, line[:, :2])
+        pieces, _parents = whole_line_pieces(cap.vertices, cap.triangles, line[:, :2])
         if (
             shapely.LineString(line[:, :2])
             .difference(shapely.union_all(pieces).buffer(1e-7))

@@ -7,7 +7,7 @@ from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from stair_cycle_contacts import interior_profile_xy, profile
 from stair_landing_pads import node_profiles
-from stair_module_sections import line_pieces
+from stair_module_sections import whole_line_pieces
 from stair_source_owners import source_selection
 
 
@@ -39,7 +39,7 @@ def actual_profile(state, sources, old_key, vertex, *, interior):
         .sample(cross, max_queries=3, max_candidates=65536)
         .points_enu_m
     )
-    pieces, _parents = line_pieces(cap.vertices, cap.triangles, cross)
+    pieces, _parents = whole_line_pieces(cap.vertices, cap.triangles, cross)
     if (
         not np.isfinite(sampled).all()
         or shapely.LineString(cross)

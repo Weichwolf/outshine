@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "data_sha256": "be729127cc52010c705417a84a4df58b84dc56503acd1d53b8e66408fef07a7a",
+  "source_id": "openfreemap:14/8937/5678:transportation:80922970:62",
+  "original_end_mvt_xy": [
+    1436,
+    2166
+  ],
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "source_module_report_sha256": "b8c4ef493a819692a71045686fcef096fb97a45cc2b5f48b93cae28937ad8bc2",
+  "source_module_data_sha256": "dbf9bbb5584ce082d27e1d1597ce3ec30f3f26e1885614b0da97ee297d6a9fe8",
+  "source_module_verification_sha256": "47da9a798d41b3616d4814c656bdcd7a608809e6708af7ce8029f16d50544e98",
+  "vector_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "metric_xy_bound_m": 1e-07,
+  "scope": "Actual complete cap/profile from independently verified72-source module; compact used-vertex remap only, original XYZ/face winding retained. Full-line support is not contact/routing admission.",
+  "source_axis_xy_m": [
+    [
+      -746.0879053856451,
+      476.4157875327127
+    ],
+    [
+      -728.191340491,
+      474.82780123586144
+    ],
+    [
+      -690.0120020490907,
+      414.08699235087573
+    ],
+    [
+      -680.0694659965102,
+      419.6450018432977
+    ]
+  ],
+  "source_nodes_mvt": [
+    [
+      1270,
+      2023
+    ],
+    [
+      1315,
+      2027
+    ],
+    [
+      1411,
+      2180
+    ],
+    [
+      1436,
+      2166
+    ]
+  ],
+  "source_width_m": 1.8
+}
