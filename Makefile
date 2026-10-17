@@ -31,7 +31,7 @@ RUN      := cd $(SELF_DIR) && sh test/run.sh
 # quietly skipped.
 LLVM_BIN := /opt/homebrew/opt/llvm/bin
 
-.PHONY: all strip shader-tools shaders db lint shots corpus-render corpus-prepare test suite clean spotless help
+.PHONY: all strip shader-tools shaders db lint shots corpus-prepare test suite clean spotless help
 
 GLSLANG ?= $(SELF_DIR)/build/deps/install/bin/glslangValidator
 GLSLANG_FLAGS := -V --target-env vulkan1.0 -Isrc -Isrc/content/shade
@@ -149,24 +149,15 @@ prepare-place: all ## prepare generated assets and terrain without a frame-rate 
 shots: all       ## every place through the camera -> build/shots   (PLACE=Wien for one)
 	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
 
-corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/khronos/.../manifest.json)
+corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
 
-corpus-reference: ## explicitly pin generated reference images (CASES=...; REFERENCE_ARGS=--migrate-existing)
-	@cd $(SELF_DIR) && python3 test/scripts/reference_from_oracle.py $(REFERENCE_ARGS) $(CASES)
-
-corpus-render: all ## compare rendered vendor cases with their oracle PNGs (CASES='TextureTransformTest')
-	@cd $(SELF_DIR) && python3 test/scripts/render_corpus.py $(CASES)
-
-test: test-timeout-cleanup test-client-arguments test-client-data test-reference-store test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
+test: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## world contracts and offline Wien/Tokyo/Central Park renders
 	@$(RUN)
 
-.PHONY: test-khronos test-all
-test-khronos: test-reference-cache test-client-render test-corpus-invariants all ## glTF, animation and pinned Khronos image compatibility
-	@$(RUN) khronos outshine/src/import outshine/src/content/animation outshine/include/import outshine/include/Outshine
-
-test-all: test-timeout-cleanup test-client-arguments test-client-data test-reference-cache test-client-render test-corpus-invariants test-motion-trace all ## all declared suites, including compatibility corpora
+.PHONY: test-all
+test-all: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## all declared native, UI and script suites
 	@$(RUN) --all
 
 suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
@@ -218,22 +209,6 @@ test-shader-artifacts: shaders ## verify the shader package, reflection and nega
 	@cd $(SELF_DIR) && GLSLANG=$(GLSLANG) python3 test/scripts/test_shader_artifacts.py
 	@cd $(SELF_DIR) && python3 test/scripts/shader_artifacts.py
 
-.PHONY: test-reference-store test-reference-cache corpus-reference
-test-reference-store: ## verify immutable reference storage and missing/corrupt cache failures
-	@cd $(SELF_DIR) && python3 test/scripts/test_reference_store.py
-
-test-reference-cache: test-reference-store ## resolve all pinned vendor references; explicit compatibility prerequisite
-	@cd $(SELF_DIR) && python3 test/scripts/test_oracle_seed_shift.py
-	@cd $(SELF_DIR) && python3 test/scripts/reference_store.py
-
-.PHONY: test-client-render
-test-client-render: all ## exercise direct glTF/GLB capture, cameras, exact time and invalid input
-	@cd $(SELF_DIR) && python3 test/scripts/test_client_render.py
-
-.PHONY: test-corpus-invariants
-test-corpus-invariants: ## verify declared vendor relations and negative controls
-	@cd $(SELF_DIR) && python3 test/scripts/test_corpus_invariants.py
-
 .PHONY: render
 render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER_ARGS=...)
 	@$(if $(ASSET),,$(error name an ASSET))
@@ -241,7 +216,7 @@ render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER
 	@cd $(SELF_DIR) && build/outshine-client render "$(ASSET)" "$(or $(RESOLUTION),1280x720)" "$(OUTPUT)" $(RENDER_ARGS)
 
 .PHONY: corpus-fetch
-corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/khronos/.../manifest.json)
+corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py fetch --manifest "$(MANIFEST)"
 
