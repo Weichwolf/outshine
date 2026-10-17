@@ -9,7 +9,7 @@ import numpy as np
 
 from evidence import revision
 from outshine_ref.buildings.modelling.insert import Asset, MODES
-from modelling_insert_cases import block, frame
+from modelling_insert_cases import block
 from outshine_ref.buildings.modelling.faces import Face
 from outshine_ref.buildings.modelling.scope import Frame, Scope
 from outshine_ref.buildings.modelling.shape import Shape

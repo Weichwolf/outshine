@@ -1,6 +1,7 @@
 """Run one test in an owned session and reap it before returning its verdict."""
 
 import ctypes
+from contextlib import nullcontext
 import os
 from pathlib import Path
 import signal
@@ -62,7 +63,7 @@ def enable_child_reaping():
             raise OSError(error, os.strerror(error))
 
 
-def supervise(owner, seconds, log, marker, command):
+def supervise(owner, seconds, log, marker, command, stderr=None):
     stopped = 0
 
     def stop(number, _frame):
@@ -80,8 +81,8 @@ def supervise(owner, seconds, log, marker, command):
     ready.unlink()
     if stopped or os.getppid() != owner:
         return 128 + (stopped or signal.SIGTERM)
-    with log.open('wb') as output:
-        process = subprocess.Popen(command, stdout=output, stderr=output, start_new_session=True)
+    with log.open('wb') as output, (stderr.open('wb') if stderr else nullcontext(output)) as errors:
+        process = subprocess.Popen(command, stdout=output, stderr=errors, start_new_session=True)
     timed_out = False
     try:
         deadline = time.monotonic() + seconds
@@ -104,8 +105,11 @@ def supervise(owner, seconds, log, marker, command):
 def main():
     owner, seconds, log, marker, *command = sys.argv[1:]
     marker = Path(marker)
+    stderr = None
+    if command[:1] == ['--stderr-file']:
+        stderr, command = Path(command[1]), command[2:]
     try:
-        return supervise(int(owner), float(seconds), Path(log), marker, command)
+        return supervise(int(owner), float(seconds), Path(log), marker, command, stderr)
     except (OSError, TimeoutError, subprocess.TimeoutExpired) as error:
         Path(str(marker) + '.cleanup-failed').touch()
         print(f'run_with_timeout: {error}', file=sys.stderr)
