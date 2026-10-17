@@ -38,7 +38,9 @@ def candidate(row, xy, site_id, support, data, query, proto, canonical, graph):
         raise OccupancyError("actual plant-height band blocks root support")
     conflict, checked = query.conflict(body)
     if not conflict.is_empty:
-        raise OccupancyError("whole measured plant body enters transport/building")
+        raise OccupancyError(
+            "whole measured plant envelope overlaps transport/building"
+        )
     lower, side, region_id = canonical
     frame = LocalFrame(
         data["frame"].identifier

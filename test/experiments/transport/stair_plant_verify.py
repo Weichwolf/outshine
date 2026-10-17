@@ -10,6 +10,7 @@ from camera_height_inputs import digest
 from outshine_ref.contracts import Mesh
 from recipe_plant_operators import SITE, prepared
 from stair_consumer_inputs import inputs, source_rows
+from stair_occupancy_geometry import OccupancyError
 from stair_occupancy_handoff import OccupancyQuery
 from stair_plant_experiment import building_rows
 from stair_plant_geometry import bounds_query, prototype
@@ -63,6 +64,28 @@ def replay_plants(products, data, query, mesh, proto):
     domain = terrain_domain(data)
     lower, side, region_id = region(data)
     graph = prepared(SITE)
+    for entry in ledger[len(rejected) :]:
+        row = by_id[entry["id"]]
+        for site in entry["sites"]:
+            if site["state"] != "deferred":
+                continue
+            try:
+                candidate(
+                    row,
+                    np.asarray(site["root_xy_m"]),
+                    site["site_id"],
+                    row["polygon"].intersection(domain),
+                    data,
+                    query,
+                    proto,
+                    (lower, side, region_id + ":" + row["id"]),
+                    graph,
+                )
+            except OccupancyError as error:
+                if str(error) != site["reason"]:
+                    raise ValueError("actual local deferral reason changed") from error
+            else:
+                raise ValueError("saved deferred root was actually admitted by replay")
     for record in accepted:
         row = by_id[record["source_part_id"]]
         result = record["result"]

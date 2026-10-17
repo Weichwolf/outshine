@@ -53,7 +53,7 @@ class PlantChecks(unittest.TestCase):
         )
         self.assertFalse(road.geometry.covers(shapely.Point(0, 0)))
         graph = Mock()
-        with self.assertRaisesRegex(OccupancyError, "whole measured plant body"):
+        with self.assertRaisesRegex(OccupancyError, "whole measured plant envelope"):
             candidate(
                 self.row,
                 np.array([0.0, 0.0]),
