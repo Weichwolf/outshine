@@ -70,6 +70,48 @@ class ResidentProfiles(unittest.TestCase):
             ):
                 root_rows(self.reference, state)
 
+    def test_saved_rows_reject_smaller_width_axis_and_false_provenance(self):
+        from stair_resident_profile_verify import audit_rows
+
+        with patch("stair_cycle_inputs.load", return_value=self.loaded):
+            rows = root_rows(self.reference, self.state)
+        sha = self.state["report"]["fixture_sha256"]
+        audit_rows(rows, self.rows, sha, "verified-body-binding")
+        for change in ("width", "axis", "recipe", "body", "identity", "extra"):
+            altered = copy.deepcopy(rows)
+            if change == "width":
+                altered[0]["width_m"] /= 2
+            elif change == "axis":
+                altered[0]["xy"][0, 0] += 0.001
+            elif change in ("recipe", "body"):
+                key = "fixture_sha256" if change == "recipe" else "body_sha256"
+                altered[0]["resident_profile_provenance"][key] = "wrong"
+            elif change == "identity":
+                altered[0]["source_id"] = altered[1]["source_id"]
+            else:
+                altered[0]["unused_metadata"] = True
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                audit_rows(altered, self.rows, sha, "verified-body-binding")
+
+    def test_saved_historical_detour_cannot_be_replaced_by_original_axis(self):
+        from stair_resident_profile_verify import audit_rows
+
+        with patch("stair_cycle_inputs.load", return_value=self.loaded):
+            rows = root_rows(self.reference, self.state)
+        changed = next(
+            r
+            for r in rows
+            if not np.array_equal(r["xy"], self.sources[r["source_id"]]["xy_m"])
+        )
+        changed["xy"] = self.sources[changed["source_id"]]["xy_m"]
+        with self.assertRaisesRegex(ValueError, "historical root axis"):
+            audit_rows(
+                rows,
+                self.rows,
+                self.state["report"]["fixture_sha256"],
+                "verified-body-binding",
+            )
+
 
 class ActualResidentCap(unittest.TestCase):
     @classmethod
