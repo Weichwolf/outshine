@@ -269,7 +269,7 @@ TestProfile() {
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
-    outshine/include/*) printf '%s' 'profile/public' ;;
+    outshine/include/*) printf '%s' 'profile/internal' ;;
     outshine/src/generators/osm/MvtLayer | outshine/src/generators/osm/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
     outshine/src/generators/osm/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
@@ -291,7 +291,6 @@ TestProfile() {
 LayerIncludes() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
-    profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
     profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
     profile/osm-xml) GroupIncludes src/generators/osm/import ;;
@@ -326,7 +325,6 @@ LayerToolchain() {
   esac
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerToolchain profile/internal ;;
-    profile/public) LayerToolchain profile/internal ;;
     profile/diagnostics) LayerToolchain profile/internal ;;
     profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
     profile/engine | harness/wpt/css) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
@@ -359,7 +357,6 @@ LayerValidation() {
 LayerLink() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
-    profile/public) LayerLink profile/internal ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
@@ -385,7 +382,6 @@ LayerGroups() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
-    profile/public) LayerGroups profile/internal ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;
     profile/vector) printf '%s' "src/generators/osm/providers/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
@@ -1020,11 +1016,9 @@ fi
 # cannot say whether one is green today, and an assertion nobody checked is the one thing a
 # generated page must not carry.
 StateDoor() {
-  printf '\n## Public API -- `include/`\n\n'
-  printf 'Native contracts are defined by Outshine; external names are not an architecture score.\n'
-  printf 'This inventory includes every public header, including nested modules.\n'
-  printf 'Declarations and contracts live in those headers; documentation diagnostics are reported by `make lint`.\n\n'
-  printf '| module | public header |\n|---|---|\n'
+  printf '\n## Component headers\n\n'
+  printf 'Internal contracts live beside their owning components.\n\n'
+  printf '| module | header |\n|---|---|\n'
   find include -type f -name '*.h' | LC_ALL=C sort | while IFS= read -r header; do
     relative=${header#include/}
     case "$relative" in
@@ -1181,7 +1175,7 @@ StateReds() {
 }
 
 StateReach() {
-  printf '\n## Reach\n\nPublic API tests use only `include/`; internal tests under `test/outshine/src/` may reach implementation headers.\n\n| suite | implementation include paths |\n|---|---|\n'
+  printf '\n## Reach\n\nTests use the internal dependencies of their owning components.\n\n| suite | implementation include paths |\n|---|---|\n'
   for reachSuite in $(TestSources | sed 's|/[^/]*\.cpp$||; s|^test/||' | sort -u); do
     reachIncludes=$(LayerIncludes "$reachSuite") || continue
     case "$reachIncludes" in *-Isrc* | *-I.*) reachKind=yes ;; *) reachKind=no ;; esac
