@@ -103,3 +103,11 @@ versus3.45ms including the same124distance checks, excluding inputs/imports and
 unmeasured GEOS/internal allocations. These are planar proposals, not3D physical
 products or hardware guarantees. Source adaptation semantics, full body/terrain
 checks and coherent78-source reuse remain open; no route admission follows here.
+
+After merging master a5021bcb6, both fresh prepared readers also pass on3f3a2efd0.
+All51actually imported reference modules are verified byte-identical to current
+sources, with installed imports exclusively from the existing verified target.
+The newly added unrelated vegetation normal-distribution module is not imported;
+this is an import-closure check, not a claim that the older wheel contains every
+new file. The affected111source controls pass again after the merge. No engine,
+render backend or broad whole-world gate is implied by these Python checks.
