@@ -54,7 +54,7 @@ def extract(field, selected, note):
     )
 
 
-def query(field, bounds, maximum, candidates, method):
+def capacities(maximum, candidates, method):
     if (
         type(maximum) is not int
         or not 1 <= maximum <= 65536
@@ -63,10 +63,24 @@ def query(field, bounds, maximum, candidates, method):
         or method not in ("index", "scan")
     ):
         raise ValueError("known method and bounded local query capacities required")
-    box = np.asarray(bounds, dtype=float)
-    if box.shape != (4,) or not np.isfinite(box).all() or np.any(box[:2] >= box[2:]):
-        raise ValueError("finite positive XY query box required")
-    region = shapely.box(*box)
+
+
+def region_query(field, region, distance, maximum, candidates, method):
+    capacities(maximum, candidates, method)
+    coordinates = shapely.get_coordinates(region)
+    if (
+        shapely.is_empty(region)
+        or not shapely.is_valid(region)
+        or not 1 <= len(coordinates) <= 65536
+        or not np.isfinite(coordinates).all()
+        or shapely.has_z(region)
+        or not np.isfinite(distance)
+        or not 0 <= distance <= 1e9
+    ):
+        raise ValueError(
+            "bounded finite nonempty valid XY geometry and distance required"
+        )
+    box = np.asarray(region.bounds) + [-distance, -distance, distance, distance]
     note = {
         "resident_patches": len(field.patches),
         "patch_bounds_tests": 0,
@@ -89,10 +103,10 @@ def query(field, bounds, maximum, candidates, method):
             return SurfaceQuery(None, (), {}, "candidate_budget_exhausted", note)
         note["candidate_upper_bound"] += potential
         if method == "index":
-            ids = patch._tree.query(region, predicate="intersects")
+            ids = patch._tree.query(region, predicate="dwithin", distance=distance)
             note["face_tests"] += len(ids)
         else:
-            ids = np.flatnonzero(shapely.intersects(patch._polygons, region))
+            ids = np.flatnonzero(shapely.dwithin(patch._polygons, region, distance))
             note["face_tests"] += potential
         ids = np.sort(ids[field._active[i][ids]])
         note["returned_faces"] += len(ids)
@@ -103,3 +117,33 @@ def query(field, bounds, maximum, candidates, method):
     if not selected:
         return SurfaceQuery(None, (), {}, "outside_surface", note)
     return extract(field, selected, note)
+
+
+def query(field, bounds, maximum, candidates, method):
+    box = np.asarray(bounds, dtype=float)
+    if box.shape != (4,) or not np.isfinite(box).all() or np.any(box[:2] >= box[2:]):
+        raise ValueError("finite positive XY query box required")
+    return region_query(field, shapely.box(*box), 0.0, maximum, candidates, method)
+
+
+def faces(field, keys, maximum):
+    capacities(maximum, 0, "index")
+    if not isinstance(keys, (list, tuple)):
+        raise TypeError("bounded explicit patch/local-face keys required")
+    note = {"requested_faces": len(keys), "returned_faces": 0}
+    if len(keys) > maximum:
+        return SurfaceQuery(None, (), {}, "local_face_budget_exhausted", note)
+    if not keys:
+        return SurfaceQuery(None, (), {}, "outside_surface", note)
+    removals = {}
+    for key in keys:
+        if (
+            not isinstance(key, (list, tuple))
+            or len(key) != 2
+            or type(key[1]) is not int
+        ):
+            raise ValueError("explicit patch identity and integer face index required")
+        removals.setdefault(key[0], []).append(key[1])
+    chosen = field._removals(removals, maximum)
+    note["returned_faces"] = len(keys)
+    return extract(field, sorted(chosen.items()), note)
