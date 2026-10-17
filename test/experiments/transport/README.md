@@ -50,6 +50,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - [Fahrfreiheit über altem Fußpodest](stair_shared_headroom_comparison.md): logische
   Höhenbänder mit beiden Herkünften, tatsächliche77er Fachverbraucher und identische
   Volumen mit92,62% weniger Anpassungen; mehr temporärer JSON-Peak (#642).
+- [Ganze Pfeilerumfahrung](stair_pier_ground_comparison.md): ursprünglicher952-m-Radweg,
+  vollständige alte Pfeilerkontakte und feinere lokale Terrainbindung auf der53er
+  Ausgangswelt; geprüfte54er Kohorte, noch keine79er Integration (#660/#668).
 - [Präzision neuer Kreuzungen](stair_junction_precision_comparison.md): echter
   Float32-Gegenfall, neun Kandidaten und getrennte Überlappungskontakte (#600/#602); noch keine Netzzulassung.
 - [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper
