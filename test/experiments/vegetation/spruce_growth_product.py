@@ -46,11 +46,13 @@ def support(axes, index):
 
 def windows(axes, patterns, catalog, seed, expected):
     needed = 0
+    capacities = {}
     active = np.flatnonzero(axes["needle_counts"])
     orders = np.diff(axes["path_offsets"]).astype(np.int64) - 2
     for order, pattern in enumerate(patterns):
         if pattern is not None:
             capacity = catalog[pattern_key(pattern)]["needles"]
+            capacities[order] = capacity
             count = axes["needle_counts"][orders == order].astype(np.uint64)
             needed += int(((count + capacity - 1) // capacity).sum())
     if needed != expected or not 0 < needed <= 80000:
@@ -59,7 +61,7 @@ def windows(axes, patterns, catalog, seed, expected):
     for index in active:
         axis = support(axes, index)
         pattern = patterns[int(orders[index])]
-        capacity = catalog[pattern_key(pattern)]["needles"]
+        capacity = capacities[int(orders[index])]
         values = _axis_window_values(
             axis,
             pattern,
