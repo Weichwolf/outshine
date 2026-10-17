@@ -1,5 +1,7 @@
 # Begrenztes Bodenmodul an vorhandener ganzer Schnittstelle (#522)
 
+Fortsetzung: [weitere Modulstufe mit tatsächlichem Seitenkontakt (#528)](stair_module_chain_comparison.md).
+
 Die [feste Rezeptauswahl](fixtures/stair-west-ground-module-vienna.json) ergänzt
 vier ganze Originalwege/rund 531 m am offenen westlichen Anschluss des
 [32-Quellen-Verbunds](stair_north_bridges_comparison.md). Der alte Straßenkörper,

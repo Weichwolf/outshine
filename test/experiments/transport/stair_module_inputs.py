@@ -1,4 +1,4 @@
-"""Four new whole sources and verified cached bodies; no old network planning."""
+"""Bounded whole original sources and verified bodies; no old network planning."""
 
 import json
 from pathlib import Path
