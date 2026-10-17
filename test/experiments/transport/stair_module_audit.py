@@ -5,6 +5,9 @@ import shapely
 from outshine_ref.contracts import Mesh
 from stair_module_contacts import interfaces, profiles
 from stair_module_geometry import contact_pins
+from stair_module_loops import reuse as profile_reuse
+from stair_module_profiles import varying_profiles
+from stair_module_roads import inspect_frames
 from stair_network_geometry import vertex_links
 from surface_height_checks import normal_gradients
 from surface_solid_checks import audit_closed
@@ -125,26 +128,32 @@ def audit(state, recipe, data, rows, planning, line, upper):
     old_cap = shapely.union_all(shapely.polygons(cap.vertices[cap.triangles, :2]))
     additions = shapely.union_all(domains)
     reuse = []
-    for i, shape in enumerate(original):
-        borrowed = shape.intersection(old_cap)
-        if shape.difference(domains[i].union(borrowed)).area > 1e-7:
-            raise ValueError("source reuse needs an unrelated old asset")
-        reuse.append(
-            {
-                "source_id": rows[i]["source_id"],
-                "new_area_m2": domains[i].area,
-                "reused_area_m2": borrowed.area,
-                "reused_source_id": recipe["port"]["source_id"],
-            }
-        )
     mode = recipe.get("contact_mode", "flat")
+    if mode != "profile":
+        for i, shape in enumerate(original):
+            borrowed = shape.intersection(old_cap)
+            if shape.difference(domains[i].union(borrowed)).area > 1e-7:
+                raise ValueError("source reuse needs an unrelated old asset")
+            reuse.append(
+                {
+                    "source_id": rows[i]["source_id"],
+                    "new_area_m2": domains[i].area,
+                    "reused_area_m2": borrowed.area,
+                    "reused_source_id": recipe["port"]["source_id"],
+                }
+            )
+    contact_cap = cap
+    if mode == "profile":
+        contact_cap, old_cap, reuse = profile_reuse(
+            state, recipe, rows, original, domains, cap
+        )
     contact = interfaces(
         state["road"],
         data,
         old_cap,
         domains,
         float(line[1, 2]),
-        reference_cap=cap if mode == "piecewise" else None,
+        reference_cap=contact_cap if mode in ("piecewise", "profile") else None,
     )
     for component in shapely.get_parts(additions):
         if (
@@ -167,14 +176,37 @@ def audit(state, recipe, data, rows, planning, line, upper):
     )
     if not np.array_equal(fixed, data["fixed"]) or not pin_ok:
         raise ValueError("frozen module heights or pin ownership changed")
-    if mode == "piecewise" and not np.array_equal(data["fixed_heights"], values[fixed]):
+    if mode != "flat" and not np.array_equal(data["fixed_heights"], values[fixed]):
         raise ValueError("saved contact heights differ from immutable reference")
+    profile_note = (
+        varying_profiles(
+            data,
+            rows,
+            nodes,
+            masks,
+            original,
+            cap,
+            line,
+            contacts=state.get("module_contacts", []),
+        )
+        if mode == "profile"
+        else profiles(
+            data, rows, nodes, masks, original, cap, line, piecewise=mode == "piecewise"
+        )
+    )
     return {
         "body": module_body(data, rows, domains),
         "reuse": reuse,
         "interfaces": contact,
-        "profiles": profiles(
-            data, rows, nodes, masks, original, cap, line, piecewise=mode == "piecewise"
+        "profiles": profile_note,
+        **(
+            {
+                "road_frames": [
+                    inspect_frames(data, rows, cast) for cast in (False, True)
+                ]
+            }
+            if mode == "profile"
+            else {}
         ),
         "traffic": traffic(data, upper, state["piers"]),
     }

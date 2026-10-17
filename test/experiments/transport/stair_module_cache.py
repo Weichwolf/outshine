@@ -11,6 +11,7 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
 from stair_cycle_contacts import profile
 from stair_module_inputs import cached, read_arrays
+from stair_module_materials import colour_component
 
 
 def merge_road(road, module, count):
@@ -96,6 +97,9 @@ def extend(state, path, fixture, chain, palette):
         keys
     ):
         raise ValueError("cached module owner order changed")
+    state.setdefault("cached_module_rows", {}).update(
+        {r["source_id"]: r for r in saved}
+    )
     old = state["road"]
     if "road_ground" not in state:
         xyz = np.c_[state["plan"]["xy"], state["heights"]]
@@ -144,11 +148,13 @@ def extend(state, path, fixture, chain, palette):
     state["baseline_report_sha256"] = digest(path / "comparison.json")
     state["catalog_path"] = path / "source-catalog.json"
     state["before_display_path"] = path / "after-display.npz"
+    first_face = len(state["road_display"]["triangles"])
     state["road_display"] = append(
         state["road_display"],
         [(Mesh(module["body_vertices"].astype("f4"), module["body_faces"]), 3)],
         palette,
     )
+    colour_component(state["road_display"], first_face, module, palette)
     chain.append(
         {
             "report_sha256": state["baseline_report_sha256"],

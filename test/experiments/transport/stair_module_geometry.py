@@ -12,7 +12,10 @@ from stair_branch_inputs import surface_sampling, surface_welding
 from stair_cycle_contacts import profile
 from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
-from stair_module_sections import profile_levels
+from stair_module_loops import frozen_contacts, prepare_contacts
+from stair_module_materials import surface_slots
+from stair_module_roads import face_frames
+from stair_module_sections import line_pieces, profile_levels
 from stair_network_inputs import junctions
 
 
@@ -32,6 +35,7 @@ def old_surfaces(state, recipe, sources):
     elif int(ground.sum()) != int(plan["ground"].sum()):
         raise ValueError("cached original ground facets are not exact source bottoms")
     key = recipe["port"]["source_id"]
+    varying = recipe.get("contact_mode") == "profile"
     owner = state["report"]["after"]["source_ids"].index(key)
     selected = (road["face_sources"] & (1 << owner)) != 0
     if not ground[selected].all():
@@ -63,12 +67,12 @@ def old_surfaces(state, recipe, sources):
         end not in (0, -1)
         or line.shape != (3, 3)
         or not np.allclose(profile(row, end), line[:, :2], rtol=0, atol=1e-8)
-        or np.ptp(line[:, 2]) > 1e-7
+        or (not varying and np.ptp(line[:, 2]) > 1e-7)
     ):
         raise ValueError("cached whole outer profile is shifted or not locally flat")
     cap = Mesh(road["body_vertices"], faces)
     levels = profile_levels(cap.vertices, cap.triangles, line[:, :2])
-    if not len(levels) or np.max(abs(levels - line[1, 2])) > 1e-7:
+    if not len(levels) or (not varying and np.max(abs(levels - line[1, 2])) > 1e-7):
         raise ValueError("whole actual cached profile must be locally flat")
     sampled = SurfaceSampler(cap).sample(
         line[:, :2], max_queries=3, max_candidates=65536
@@ -77,6 +81,18 @@ def old_surfaces(state, recipe, sources):
         raise ValueError(
             "actual cached source does not support its whole outer profile"
         )
+    if varying:
+        pieces, _parents = line_pieces(cap.vertices, cap.triangles, line[:, :2])
+        if (
+            shapely.LineString(line[:, :2])
+            .difference(shapely.union_all(pieces).buffer(1e-7))
+            .length
+            > 1e-7
+        ):
+            raise ValueError("whole actual reference profile has missing intervals")
+        row["cached_cap"] = cap
+    state["module_contacts"] = frozen_contacts(state, recipe, sources)
+    row["additional_contacts"] = state["module_contacts"]
     ground_mesh = Mesh(old_xyz, plan["faces"][plan["ground"]])
     upper = Mesh(road["body_vertices"], road["bottom_faces"][~ground])
     return row, line, ground_mesh, upper
@@ -115,6 +131,7 @@ def prepared(rows, sources, frozen_row, line, ground):
     pad = profile_junction_pad(profiles)
     for i in ends:
         rows[i]["junction_pads_xy_m"] = [np.array(pad.exterior.coords[:-1])]
+    prepare_contacts(rows, nodes, frozen_row.get("additional_contacts", []))
     complete_landings(rows, nodes, [], max_pads=16)
     surface_sampling(rows, "source_knots")
     surface_welding(rows, 1e-7)
@@ -128,7 +145,7 @@ def prepared(rows, sources, frozen_row, line, ground):
 
 
 def contact_pins(xy, old, ground, masks, datum, mode):
-    if mode not in ("flat", "piecewise"):
+    if mode not in ("flat", "piecewise", "profile"):
         raise ValueError("known module contact mode required")
     touching = shapely.dwithin(old, shapely.points(xy), 1e-7)
     existing = (
@@ -142,10 +159,11 @@ def contact_pins(xy, old, ground, masks, datum, mode):
     if mode == "flat" and not np.allclose(existing, datum, rtol=0, atol=1e-7):
         raise ValueError("new addition touches nonflat or incompatible existing ground")
     fixed = touching.copy()
-    for mask in masks:
-        fixed |= shapely.dwithin(mask, shapely.points(xy), 1e-8)
+    if mode != "profile":
+        for mask in masks:
+            fixed |= shapely.dwithin(mask, shapely.points(xy), 1e-8)
     values = np.full(len(xy), datum)
-    if mode == "piecewise":
+    if mode != "flat":
         values[touching] = existing
     return fixed, values
 
@@ -154,11 +172,34 @@ def build(rows, sources, frozen_row, line, ground, sample, *, contact_mode="flat
     nodes, original, domains, masks, old = prepared(
         rows, sources, frozen_row, line, ground
     )
-    xy, faces, owners, arrangement_note = arrangement(rows, domains, masks)
+    constraints = ()
+    if contact_mode == "profile":
+        caps = [frozen_row["cached_cap"]] + [
+            c["cap"] for c in frozen_row["additional_contacts"]
+        ]
+        boundaries = []
+        for cap in caps:
+            selected = shapely.dwithin(
+                shapely.polygons(cap.vertices[cap.triangles, :2]),
+                shapely.union_all(domains),
+                1e-7,
+            )
+            f = cap.triangles[selected]
+            edges = np.unique(
+                np.sort(np.vstack([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]]), axis=1),
+                axis=0,
+            )
+            boundaries.extend(shapely.linestrings(cap.vertices[edges, :2]))
+        constraints = boundaries
+    xy, faces, owners, arrangement_note = arrangement(
+        rows, domains, masks, constraints=constraints
+    )
     targets = sample(xy)
     fixed, values = contact_pins(xy, old, ground, masks, line[1, 2], contact_mode)
     limits = np.min(np.where(owners, [r["gradient"] for r in rows], np.inf), axis=1)
     frames = np.eye(2)[None] / (limits[:, None, None] - 0.0002)
+    if contact_mode == "profile":
+        frames = face_frames(rows, xy, faces, owners, reserve=0.0002)
     surface = Mesh(np.c_[xy, targets], faces)
     budget = HeightBudget(max_vertices=4096, max_faces=8192)
     if contact_mode == "flat":
@@ -189,8 +230,11 @@ def build(rows, sources, frozen_row, line, ground, sample, *, contact_mode="flat
         "body_vertices": body.vertices,
         "body_faces": body.triangles,
     }
-    if contact_mode == "piecewise":
+    if contact_mode != "flat":
         data["fixed_heights"] = values[fixed]
+    if contact_mode == "profile":
+        data["grade_frames"] = frames
+        data["surface_materials"] = surface_slots(rows, owners)
     return (
         data,
         {"arrangement": arrangement_note, "fit": dict(fit.report)},
