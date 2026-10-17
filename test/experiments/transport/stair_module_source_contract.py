@@ -33,6 +33,7 @@ def shared_nodes(rows, sources, recipe, contacts):
 
 def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
     port = recipe["port"]
+    include_interiors = "vertex" in port or bool(recipe.get("endpoint_contacts"))
     expected, positions, root = shared_nodes(rows, sources, recipe, contacts)
     if (
         len(nodes) != len(expected)
@@ -52,7 +53,7 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
         profiles = [
             p
             for _i, _v, p in node_profiles(
-                rows, node, include_interiors="vertex" in port
+                rows, node, include_interiors=include_interiors
             )
         ]
         if mvt == root:
@@ -72,7 +73,7 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
         pads = row.get("junction_pads_xy_m", [])
         for vertex in row.get("junction_pad_vertices", []):
             if (
-                "vertex" not in port
+                not include_interiors
                 or type(vertex) is not int
                 or not 0 < vertex < len(row["xy"]) - 1
                 or i
@@ -97,5 +98,10 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
     return {
         "original_shared_nodes": len(expected),
         "validated_source_pad_uses": count,
-        "cached_interior_nodes": len(contacts),
+        "cached_interior_nodes": sum(c.get("cached_interior", True) for c in contacts),
+        **(
+            {"cached_endpoint_nodes": len(recipe["endpoint_contacts"])}
+            if recipe.get("endpoint_contacts")
+            else {}
+        ),
     }
