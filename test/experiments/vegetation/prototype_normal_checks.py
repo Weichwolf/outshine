@@ -23,6 +23,25 @@ def projection():
 
 
 class PrototypeNormalTests(unittest.TestCase):
+    def test_requested_partitions_avoid_unneeded_fields_without_changing_values(self):
+        selected = NormalMeasure(4, np.eye(3), partitions=(4,))
+        complete = NormalMeasure(4, np.eye(3))
+        for measure in (selected, complete):
+            template_image(
+                square(),
+                [0, 0, 1],
+                4,
+                2,
+                projection_data=projection(),
+                normal_measure=measure,
+            )
+        self.assertEqual(set(selected.moments), {4})
+        np.testing.assert_array_equal(selected.moments[4], complete.moments[4])
+        np.testing.assert_array_equal(selected.exact, complete.exact)
+        for partitions in ((), (4, 4), (True,), (5,)):
+            with self.assertRaisesRegex(ValueError, "partitions"):
+                NormalMeasure(4, np.eye(3), partitions=partitions)
+
     def test_existing_image_is_exact_and_flat_response_has_no_side_or_back_leak(self):
         source = square()
         old, _ = template_image(source, [0, 0, 1], 32, 2, projection_data=projection())
@@ -85,13 +104,15 @@ class PrototypeNormalTests(unittest.TestCase):
         np.testing.assert_allclose(measure.exact, 0.3, atol=3e-8, rtol=0)
 
     def test_mismatched_capture_refuses_before_projection_or_raster(self):
-        with patch(
-            "conifer_window_catalog.rasterize", side_effect=AssertionError("raster")
+        with (
+            patch(
+                "conifer_window_catalog.rasterize", side_effect=AssertionError("raster")
+            ),
+            self.assertRaisesRegex(ValueError, "same native"),
         ):
-            with self.assertRaisesRegex(ValueError, "same native"):
-                template_image(
-                    {}, [0, 0, 1], 32, 8, normal_measure=NormalMeasure(16, np.eye(3))
-                )
+            template_image(
+                {}, [0, 0, 1], 32, 8, normal_measure=NormalMeasure(16, np.eye(3))
+            )
 
     def test_large_covered_raster_is_packet_bounded(self):
         measure = NormalMeasure(32, np.eye(3))
