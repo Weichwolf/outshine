@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <expected>
 #include <span>
+#include <optional>
 #include <string_view>
 
 namespace outshine::Generators {
@@ -21,6 +22,7 @@ struct PreparedPlantDemand {
   uint64_t Root = 0;
   size_t AxisSegments = 0, AxisSides = 0, BladeSegments = 0, BladeAcross = 0;
   PlantProductCounts Maximum;
+  std::optional<double> AxisParametricErrorM = std::nullopt;
 };
 
 [[nodiscard]] std::expected<PlantProductCounts, std::string_view> MeasurePreparedPlant(

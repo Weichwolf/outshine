@@ -132,3 +132,5 @@ work. #678 therefore stays active: immutable prepared reuse is not solved by
 this constructor optimization. No native cache, frame/device, full world-loading
 or worldwide transport admission follows. All previous source-coverage and
 spatial-precision limitations remain; master owns native integration.
+The following [coverage-composition comparison](stair_composition_comparison.md)
+addresses the repeated union operations while preserving the same whole state.
