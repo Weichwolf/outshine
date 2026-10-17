@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import re
@@ -94,6 +95,54 @@ def summarize(passes, work, frames):
     }
 
 
+def frame_timings(text, passes, frames):
+    commands = {}
+    for line in text.splitlines():
+        if not line.startswith("METAL_COMMAND "):
+            continue
+        fields = {key: int(value) for key, value in re.findall(r"(\w+)=(\d+)", line)}
+        serial = fields["serial"]
+        if serial in commands:
+            raise ValueError("duplicate command timing serial")
+        commands[serial] = fields
+    if not frames or any(serial not in commands or not commands[serial]["valid"] for serial in frames):
+        raise ValueError("incomplete measured frame command timings")
+    gpu_rows = [line.split("\t") for line in text.splitlines() if line.startswith("GPUROW\t")]
+    if len(gpu_rows) != 1:
+        raise ValueError("expected one capture GPU summary")
+    row = gpu_rows[0]
+    values = list(map(float, row[2:]))
+    if len(values) != 6 or not all(math.isfinite(value) for value in values):
+        raise ValueError("invalid capture GPU summary")
+    rendered, timed, total, maximum, unavailable, _ = values
+    ordered = sorted(frames)
+    samples = [commands[serial]["gpu_ns"] for serial in ordered]
+    if rendered != len(frames) or timed != len(frames) or unavailable != 0:
+        raise ValueError("capture and command frame counts differ")
+    if abs(sum(samples) - total * 1e6) > 0.5 * len(frames) + 1 or abs(max(samples) - maximum * 1e6) > 1:
+        raise ValueError("capture totals do not match measured frame submissions")
+    peak = max(ordered, key=lambda serial: commands[serial]["gpu_ns"])
+    selected = []
+    for record in sorted(passes.values(), key=lambda entry: entry["pass"]):
+        if record["serial"] != peak:
+            continue
+        selected.append({
+            "pass": record["pass"], "pipeline": record["pipeline"],
+            "vertex_ms": record["vertex_ns"] / 1e6,
+            "fragment_ms": record["fragment_ns"] / 1e6,
+            "interval_span_ms": (max(record["vertex_end_ns"], record["fragment_end_ns"])
+                                 - min(record["vertex_start_ns"], record["fragment_start_ns"])) / 1e6
+            if record["valid"] else None,
+        })
+    return {
+        "capture_matches_command_timings": True,
+        "frames": [{"capture_frame": index + 1, "serial": serial, "gpu_ms": commands[serial]["gpu_ns"] / 1e6}
+                   for index, serial in enumerate(ordered)],
+        "peak_frame": ordered.index(peak) + 1, "peak_serial": peak, "peak_passes": selected,
+        "scope": "Stage intervals overlap; neither their durations nor their spans are additive. Command timings include diagnostic instrumentation.",
+    }
+
+
 def run(command, path, environment=None):
     with path.open("w") as log:
         result = subprocess.run(
@@ -166,6 +215,7 @@ def main():
             "the successful Place capture and measured sky-pass submissions differ"
         )
     result = summarize(passes, work, frames)
+    result["frame_timings"] = frame_timings(text, passes, frames)
     result.update(
         {
             "commit": subprocess.check_output(
