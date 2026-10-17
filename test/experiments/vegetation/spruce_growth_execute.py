@@ -150,12 +150,13 @@ def build(graph_path, plant, catalog, needles, authoring_path, output):
         "nominal_lai",
         "nominal_crown_width_m",
         "target_area_m2",
+        "internode_variation",
     )
     recipe = {
         "version": "experimental-parent-needled-2",
         "wood": graph_recipe,
         "physical_source": physical,
-        "authoring": {k: settings[k] for k in keys},
+        "authoring": {k: settings[k] for k in keys if k in settings},
     }
     report = (
         proof

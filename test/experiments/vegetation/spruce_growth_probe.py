@@ -9,14 +9,66 @@ from pathlib import Path
 
 import numpy as np
 from conifer_windows import pattern_key
-from outshine_ref.vegetation import NeedlePattern
+from outshine_ref.vegetation import NeedlePattern, Profile
 from parent_profile_graph import ParentProfileGraph
+from scipy.optimize import brentq
 
 MAX_AXES = 60000
 MAX_WINDOWS = 80000
 
 
-def variant(original, width, whorls, variance=0.12, spread=0.08, seed=None):
+def internode_profile(length, first, last, whorls, seed, variation):
+    if (
+        not np.isfinite(length)
+        or length <= 0
+        or not 0 <= first < last <= 1
+        or type(whorls) is not int
+        or not 2 <= whorls <= 48
+    ):
+        raise ValueError(
+            "finite stem length, crown interval and complete whorl count required"
+        )
+    if not np.isfinite(variation) or not 0 < variation <= 0.6:
+        raise ValueError("explicit bounded positive internode variation required")
+    rng = np.random.default_rng(np.random.SeedSequence((seed, 0x53505255)))
+    noise = rng.uniform(-1, 1, 64)
+    smooth = np.convolve(
+        np.pad(noise, (1, 1), mode="edge"), (0.25, 0.5, 0.25), mode="valid"
+    )
+    shape = Profile(1 + variation * smooth)
+    mean = (last - first) * length / (whorls - 1)
+
+    def residual(scale):
+        current = last
+        for _ in range(whorls - 1):
+            current -= scale * float(shape.evaluate(current)) / length
+        return current - first
+
+    scale = brentq(
+        residual,
+        mean / shape.table.max(),
+        mean / shape.table.min(),
+        xtol=1e-14,
+        maxiter=100,
+    )
+    # Stay just inside the closed interval; residual is checked in physical metres.
+    scale *= 1 - 1e-12
+    if not 0 <= residual(scale) * length < 1e-9:
+        raise ValueError(
+            "normalized internodes must span the same physical crown interval"
+        )
+    return (shape.table * scale).tolist()
+
+
+def variant(
+    original,
+    width,
+    whorls,
+    variance=0.12,
+    spread=0.08,
+    seed=None,
+    internode_variation=0,
+):
     if (
         not np.isfinite(width)
         or not 1 <= width <= 2
@@ -44,6 +96,15 @@ def variant(original, width, whorls, variance=0.12, spread=0.08, seed=None):
         / (whorls - 1)
     ] * 4
     pattern["spread_m"] = spread
+    if internode_variation:
+        pattern["spacing"]["table"] = internode_profile(
+            recipe["nodes"][1]["shape"]["length"],
+            placement["first"],
+            placement["last"],
+            whorls,
+            recipe["seed"],
+            internode_variation,
+        )
     return recipe
 
 

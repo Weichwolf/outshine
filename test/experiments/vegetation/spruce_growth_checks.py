@@ -23,7 +23,7 @@ from outshine_ref.vegetation import (
 from outshine_ref.vegetation.needle_windows import window_tables
 from parent_profile_graph import ParentProfileGraph
 from spruce_growth_execute import execute
-from spruce_growth_probe import measure
+from spruce_growth_probe import internode_profile, measure
 from spruce_growth_product import pack_axes, support
 
 
@@ -91,6 +91,27 @@ def control():
 
 
 class SpruceGrowthTests(unittest.TestCase):
+    def test_irregular_internodes_preserve_the_interval_and_full_whorls(self):
+        values = internode_profile(33.25, 0.118, 0.96, 36, 815, 0.35)
+        pattern = DistancePattern(
+            spacing=Profile(np.array(values)), whorl_size=5, limit_groups=36
+        )
+        table = pattern.tables(np.array((33.25,)), 0.118, 0.96, max_sites=180)[0]
+        self.assertEqual(table.shape, (180, 2))
+        groups = table[::5, 0]
+        self.assertEqual(groups[0], 0.96)
+        self.assertGreaterEqual(groups[-1], 0.118)
+        self.assertLess((groups[-1] - 0.118) * 33.25, 1e-9)
+        self.assertGreater(float(np.std(np.diff(groups))), 1e-3)
+        np.testing.assert_array_equal(
+            values, internode_profile(33.25, 0.118, 0.96, 36, 815, 0.35)
+        )
+        self.assertFalse(
+            np.array_equal(values, internode_profile(33.25, 0.118, 0.96, 36, 816, 0.35))
+        )
+        with self.assertRaises(ValueError):
+            internode_profile(33.25, 0.118, 0.96, 36, 815, 0.8)
+
     def test_count_only_lengths_counts_and_later_complete_execution_agree(self):
         graph, pattern, physical, metadata = control()
         result = measure(graph.recipe(), physical, metadata, np.array((1e-5,)))
