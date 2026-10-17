@@ -1,4 +1,5 @@
 #include "NativeGpuCheck.h"
+#include "Check.h"
 #include "SubjectLightingUniform.h"
 #include <array>
 #include <charconv>
@@ -9,6 +10,7 @@
 #include <cstring>
 #include <fstream>
 #include <ios>
+#include <iosfwd>
 #include <memory>
 #include <optional>
 #include <print>
@@ -41,8 +43,9 @@ struct alignas(16) ProbeFrame {
 
 static_assert(sizeof(ClusterFrame) == 64 && alignof(ClusterFrame) == 16);
 static_assert(offsetof(ClusterFrame, Grid) == 0 && offsetof(ClusterFrame, Depth) == 16);
-static_assert(offsetof(ClusterFrame, ViewZ) == 32 && offsetof(ClusterFrame, Viewport) == 48);
-static_assert(sizeof(ProbeFrame) == 80 && alignof(ProbeFrame) == 16);
+static_assert(offsetof(ClusterFrame, ViewZ) == 32 &&
+              offsetof(ClusterFrame, Viewport) == 3 * sizeof(std::array<float, 4>));
+static_assert(sizeof(ProbeFrame) == 5 * sizeof(std::array<float, 4>) && alignof(ProbeFrame) == 16);
 static_assert(offsetof(ProbeFrame, Control) == 64);
 
 std::vector<uint32_t> Read(const std::string &path) {
@@ -116,7 +119,8 @@ struct Inputs {
                  timing.ElapsedNanoseconds / kNanosecondsPerMillisecond);
   }
 
-  std::vector<Binding> Bindings(const GraphicsPipeline &pipeline, size_t method) const {
+  [[nodiscard]] std::vector<Binding> Bindings(const GraphicsPipeline &pipeline,
+                                              size_t method) const {
     const std::array available{
         Binding{.Set = 2,
                 .Slot = 0,
@@ -144,7 +148,8 @@ struct Inputs {
 
 std::unique_ptr<GraphicsPipeline>
 Pipeline(Device &device, const char *vertex, const char *fragment) {
-  const auto vert = Spirv(vertex), frag = Spirv(fragment);
+  const auto vert = Spirv(vertex);
+  const auto frag = Spirv(fragment);
   constexpr std::array colours{ColourTarget{.Texels = Format::Rgba32Float, .Rgb = {}, .Alpha = {}}};
   return Require(device.CreateGraphicsPipeline({.Vertex = {.Spirv = vert},
                                                 .Fragment = ShaderCode{.Spirv = frag},
@@ -203,7 +208,7 @@ void Run(Device &device,
         const auto timing = Require(device.SubmissionGpuTime(done));
         CHECK(std::isfinite(timing.ElapsedNanoseconds) && timing.ElapsedNanoseconds > 0,
               "the render-only submission has a real finite GPU timestamp interval");
-        std::println("{{\"method\":\"{}\",\"plane_m\":{},\"iteration\":{},\"gpu_ms\":{}}}",
+        std::println(R"({{"method":"{}","plane_m":{},"iteration":{},"gpu_ms":{}}})",
                      kMethods[method],
                      kDepths[plane],
                      iteration,

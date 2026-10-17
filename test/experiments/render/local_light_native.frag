@@ -1,5 +1,8 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#ifndef LOCAL_LIGHT_COUNTER
+#define LOCAL_LIGHT_COUNTER 1
+#endif
 #include "localLightMaterial.glsl"
 #include "lighting.glsl"
 #include "brdfTables.glsl"

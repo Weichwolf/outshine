@@ -21,14 +21,14 @@ def prepare_shaders(repository, output):
   int count = int(words[1] + nativeSpan.y);
 #else
   int count = int(lights.count.x);
-#endif
-#if LOCAL_LIGHT_FIRST16
-  count = min(count, 16);
 #endif""",
         "    Light light = lights.items[at];": """#if LOCAL_LIGHT_LISTED
     uint lightIndex = lightIndexAt(nativeSpan, at);
 #else
     uint lightIndex = uint(at);
+#endif
+#if LOCAL_LIGHT_FIRST16
+    if (lightIndex >= 16u) { continue; }
 #endif
     Light light = emitters[lightIndex];""",
         "int(lights.count.z) == at + 1": """int(lights.count.z) ==
@@ -38,7 +38,7 @@ def prepare_shaders(repository, output):
         int(lightIndex) + 1
 #endif
 """,
-        "    if (attenuation <= 0.0) { continue; }": "    if (attenuation <= 0.0) { continue; }\n    supportCount += 1;",
+        "    if (attenuation <= 0.0) { continue; }": "    if (attenuation <= 0.0) { continue; }\n#if LOCAL_LIGHT_COUNTER\n    supportCount += 1;\n#endif",
     }
     for old, new in changes.items():
         if text.count(old) != 1:

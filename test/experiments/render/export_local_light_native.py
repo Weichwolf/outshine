@@ -74,7 +74,7 @@ def export(output, name, mixed, camera_name, index_budget):
         grid = build_grid(
             lights,
             frame,
-            "tiles" if mode == "brute" else mode,
+            mode,
             index_budget=index_budget,
         )
         headers = grid.headers.copy()
