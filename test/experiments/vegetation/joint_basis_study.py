@@ -14,6 +14,7 @@ from joint_light_measure import JointMeasure
 from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
+from normal_lobes import NormalMeasure
 from outshine_ref.vegetation import NeedlePattern
 from plant_atlas import projection
 
@@ -51,6 +52,21 @@ def view_held_queries():
     ]
 
 
+def study_views(values=None):
+    values = np.array(
+        [[1.0, 0, 0.35], [0.2, 0.9, -0.39], [-0.62, 0.41, 0.67]]
+        if values is None
+        else values,
+        dtype=float,
+    )
+    if values.shape != (3, 3) or not np.isfinite(values).all():
+        raise ValueError("three finite source camera directions required")
+    length = np.linalg.norm(values, axis=1)
+    if not np.isfinite(length).all() or np.any(length < 1e-12):
+        raise ValueError("nonzero camera directions required")
+    return values / length[:, None]
+
+
 def freeze_source(models, catalog, output, capacity):
     metadata = json.loads((catalog / "catalog.json").read_text())
     original = json.loads((catalog / "source.json").read_text())
@@ -77,13 +93,49 @@ def freeze_source(models, catalog, output, capacity):
     return prepare_source(output / "physical.npz")
 
 
-def run(models, catalog, output, order, capacity, angles="object", knot_count=32):
+def measurement_record(index, measure, work, scene, before, began, normal):
+    return {
+        "view_index": index,
+        "normal_points": normal.sample_count if normal is not None else 0,
+        "normal_measure_bytes": normal.moments[4].nbytes + normal.exact.nbytes
+        if normal is not None
+        else 0,
+        "wall_s": time.perf_counter() - began,
+        "source_work": work,
+        "measure_work": measure.work,
+        "rays": {k: scene.work[k] - before[k] for k in before},
+        "independent_error": errors(measure.independent(), measure.joint),
+        "unshadowed_error": errors(measure.unshadowed, measure.joint),
+        "field_bytes": sum(
+            a.nbytes
+            for a in (
+                measure.coverage,
+                measure.joint,
+                measure.unshadowed,
+                measure.visible_mass,
+                measure.positive_mass,
+            )
+        ),
+    }
+
+
+def run(
+    models,
+    catalog,
+    output,
+    order,
+    capacity,
+    angles="object",
+    knot_count=32,
+    *,
+    views=None,
+    normals=False,
+):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under/tmp")
+    views = study_views(views)
     output.mkdir(parents=True, exist_ok=False)
     source, scene = freeze_source(models, catalog, output / "source", capacity)
-    views = np.array([[1.0, 0, 0.35], [0.2, 0.9, -0.39], [-0.62, 0.41, 0.67]])
-    views /= np.linalg.norm(views, axis=1)[:, None]
     random = np.random.default_rng(643).normal(size=(6, 3))
     random /= np.linalg.norm(random, axis=1)[:, None]
     held = np.array([np.r_[view[None], -view[None], random] for view in views])
@@ -96,15 +148,21 @@ def run(models, catalog, output, order, capacity, angles="object", knot_count=32
     coverage = []
     records = []
     for index, view in enumerate(views):
+        frame = (
+            projection(source["vertices"], view)[0]
+            if normals or angles == "view"
+            else None
+        )
         queries = np.r_[knots, held[index]]
         if angles == "view":
-            queries = queries @ projection(source["vertices"], view)[0].T
+            queries = queries @ frame.T
             queries[0], queries[1] = view, -view
             queries[len(knots)], queries[len(knots) + 1] = view, -view
         arrays[f"directions{index}"] = queries
         measure = JointMeasure(
             source, scene, view, queries, size=16, max_work=8_000_000
         )
+        normal = NormalMeasure(16, [view], frame, partitions=(4,)) if normals else None
         before = dict(scene.work)
         began = time.perf_counter()
         direct, work = integrate(
@@ -116,35 +174,23 @@ def run(models, catalog, output, order, capacity, angles="object", knot_count=32
             order=order,
             max_samples=measure.max_points,
             contact_measure=measure,
+            normal_measure=normal,
         )
         np.testing.assert_array_equal(measure.joint[len(knots)], direct[2].ravel())
         assert np.max(measure.joint - measure.unshadowed) < 2e-12
         assert np.max(measure.unshadowed - measure.coverage) < 2e-12
+        if normal is not None:
+            np.testing.assert_allclose(
+                normal.exact[0], direct[1].ravel(), atol=2e-12, rtol=0
+            )
+            arrays[f"normal_moments{index}"] = normal.moments[4]
         arrays[f"joint{index}"] = measure.joint
         arrays[f"unshadowed{index}"] = measure.unshadowed
         arrays[f"independent{index}"] = measure.independent()
         arrays[f"coverage{index}"] = measure.coverage
         joint.append(measure.joint)
         coverage.append(measure.coverage)
-        record = {
-            "view_index": index,
-            "wall_s": time.perf_counter() - began,
-            "source_work": work,
-            "measure_work": measure.work,
-            "rays": {k: scene.work[k] - before[k] for k in before},
-            "independent_error": errors(measure.independent(), measure.joint),
-            "unshadowed_error": errors(measure.unshadowed, measure.joint),
-            "field_bytes": sum(
-                a.nbytes
-                for a in (
-                    measure.coverage,
-                    measure.joint,
-                    measure.unshadowed,
-                    measure.visible_mass,
-                    measure.positive_mass,
-                )
-            ),
-        }
+        record = measurement_record(index, measure, work, scene, before, began, normal)
         records.append(record)
         print(
             json.dumps(
@@ -167,6 +213,7 @@ def run(models, catalog, output, order, capacity, angles="object", knot_count=32
         "capacity": capacity,
         "order": order,
         "angular_coordinates": angles,
+        "normal_moments": normals,
         "views": records,
         "reduction": reduction,
         "source_sha256": source_digest(output / "source/physical.npz"),
@@ -183,9 +230,11 @@ if __name__ == "__main__":
     for key in ("models", "catalog", "output"):
         parser.add_argument("--" + key, type=Path, required=True)
     parser.add_argument("--order", type=int, choices=(2, 4), default=2)
-    parser.add_argument("--capacity", type=int, choices=(2, 32, 256), default=32)
+    parser.add_argument("--capacity", type=int, choices=(2, 8, 32, 256), default=32)
     parser.add_argument("--angles", choices=("object", "view"), default="object")
     parser.add_argument("--knots", type=int, choices=(32, 64), default=32)
+    parser.add_argument("--views", type=json.loads)
+    parser.add_argument("--normals", action="store_true")
     args = parser.parse_args()
     run(
         args.models,
@@ -195,4 +244,6 @@ if __name__ == "__main__":
         args.capacity,
         args.angles,
         args.knots,
+        views=args.views,
+        normals=args.normals,
     )
