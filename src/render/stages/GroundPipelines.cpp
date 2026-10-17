@@ -117,6 +117,7 @@ Native::Result<void> GroundLattice::Configure(GroundPipelineBinding &pipelines,
   const auto attached = AttachPipelines(pipelines, device);
   if (!attached) { return attached; }
   pipelines = std::move(candidate);
+  UsePipelines(pipelines);
   return {};
 }
 
@@ -139,7 +140,7 @@ Native::Result<void> GroundLattice::AttachPipelines(GroundPipelineBinding &pipel
     const auto grid = BuildPatchGrid();
     if (!grid) { return grid; }
   }
-  Pipelines_ = &pipelines;
+  UsePipelines(pipelines);
   return {};
 }
 
@@ -155,11 +156,11 @@ Native::Result<void> GroundLattice::Configure(Native::Device &device,
   auto *const previous = Pipelines_;
   const auto configured = Configure(candidate, device, outputs, targets);
   if (!configured) {
-    Pipelines_ = previous;
+    UsePipelines(*previous);
     return configured;
   }
   OwnedPipelines_ = std::move(candidate);
-  Pipelines_ = &OwnedPipelines_;
+  UsePipelines(OwnedPipelines_);
   return {};
 }
 }

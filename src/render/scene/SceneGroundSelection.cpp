@@ -19,13 +19,12 @@ bool SceneRenderer::ConfigureGroundPyramid([[maybe_unused]] SceneRenderer &rende
       error);
 }
 
-bool SceneRenderer::ConfigureGroundSelection(SceneRenderer &renderer,
-                                             [[maybe_unused]] FrameResources &frame,
+bool SceneRenderer::ConfigureGroundSelection([[maybe_unused]] SceneRenderer &renderer,
+                                             FrameResources &frame,
                                              [[maybe_unused]] const Compiled &plan,
                                              [[maybe_unused]] bool drawsGlass,
                                              std::string &error) {
-  return Accepted(renderer.ActiveState().Content.Subjects.Ground().ConfigurePatchSelection(),
-                  error);
+  return Accepted(frame.SubjectPipelines.ConfigureGroundSelection(*frame.Handles.Device), error);
 }
 
 Native::Result<void> SceneRenderer::EncodeGroundPyramid([[maybe_unused]] const FrameContext &ctx,

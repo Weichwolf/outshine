@@ -34,10 +34,19 @@ public:
 
   [[nodiscard]] Native::GraphicsPipeline *Patches() const { return Patches_.get(); }
 
+  [[nodiscard]] Native::Result<void> ConfigureSelection(Native::Device &device) {
+    return GroundPatchSelection::Configure(device, Selection_);
+  }
+
+  [[nodiscard]] const GroundPatchSelection::Pipelines &Selection() const noexcept {
+    return Selection_;
+  }
+
 private:
   std::unique_ptr<Native::GraphicsPipeline> Lit_;
   std::unique_ptr<Native::GraphicsPipeline> Depth_;
   std::unique_ptr<Native::GraphicsPipeline> Patches_;
+  GroundPatchSelection::Pipelines Selection_;
 };
 
 class GroundLattice {
@@ -96,7 +105,10 @@ public:
   [[nodiscard]] Native::Result<void> AttachPipelines(GroundPipelineBinding &pipelines,
                                                      Native::Device &device);
 
-  void UsePipelines(GroundPipelineBinding &pipelines) noexcept { Pipelines_ = &pipelines; }
+  void UsePipelines(GroundPipelineBinding &pipelines) noexcept {
+    Pipelines_ = &pipelines;
+    Selection_.UsePipelines(pipelines.Selection());
+  }
 
   [[nodiscard]] Native::Result<void> SetGrid(std::span<const float> fractions);
   [[nodiscard]] Native::Result<PageId> PlacePage(std::span<const float> nodes);

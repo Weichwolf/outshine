@@ -34,8 +34,8 @@ Native::Binding Uniform(std::span<const std::byte> bytes) {
 }
 }
 
-Native::Result<void> GroundPatchSelection::Configure(Native::Device &device) {
-  if (Cull_ && LocalScan_ && Scan_ && Compact_) { return {}; }
+Native::Result<void> GroundPatchSelection::Configure(Native::Device &device, Pipelines &pipelines) {
+  if (pipelines.Cull && pipelines.LocalScan && pipelines.Scan && pipelines.Compact) { return {}; }
   auto cull = CreateComputePipeline(device, ComputeShaderId::GroundPatchCull);
   if (!cull) { return std::unexpected(cull.error()); }
   auto local = CreateComputePipeline(device, ComputeShaderId::GroundPatchScan);
@@ -44,10 +44,10 @@ Native::Result<void> GroundPatchSelection::Configure(Native::Device &device) {
   if (!scan) { return std::unexpected(scan.error()); }
   auto compact = CreateComputePipeline(device, ComputeShaderId::GroundPatchCompact);
   if (!compact) { return std::unexpected(compact.error()); }
-  Cull_ = std::move(*cull);
-  LocalScan_ = std::move(*local);
-  Scan_ = std::move(*scan);
-  Compact_ = std::move(*compact);
+  pipelines.Cull = std::move(*cull);
+  pipelines.LocalScan = std::move(*local);
+  pipelines.Scan = std::move(*scan);
+  pipelines.Compact = std::move(*compact);
   return {};
 }
 
@@ -61,8 +61,9 @@ Native::Result<void> GroundPatchSelection::Cull(Native::Commands &commands,
                                                 float errorPx) {
   Ready_ = false;
   if (Seen_.empty()) { return {}; }
-  if (!Cull_ || !LocalScan_ || !Scan_ || !Compact_ || !Bounds_ || !Slots_ || !Kept_ || !Batch_ ||
-      !Selected_ || !Arguments_ || !Ranges_ || !Totals_ || !Offsets_) {
+  if (Pipelines_ == nullptr || !Pipelines_->Cull || !Pipelines_->LocalScan || !Pipelines_->Scan ||
+      !Pipelines_->Compact || !Bounds_ || !Slots_ || !Kept_ || !Batch_ || !Selected_ ||
+      !Arguments_ || !Ranges_ || !Totals_ || !Offsets_) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground patch selection is not prepared"});
   }
@@ -93,20 +94,20 @@ Native::Result<void> GroundPatchSelection::Select(Native::Commands &commands,
                         Storage(0, 1, pyramid),
                         Storage(1, 0, *Kept_),
                         Uniform(std::as_bytes(std::span(&view, 1)))};
-  auto accepted =
-      commands.Dispatch(*Cull_, cull, {.X = (view.Source[0] + kCullThreads - 1u) / kCullThreads});
+  auto accepted = commands.Dispatch(
+      *Pipelines_->Cull, cull, {.X = (view.Source[0] + kCullThreads - 1u) / kCullThreads});
   if (!accepted) { return accepted; }
   const std::array local{Storage(0, 0, *Kept_),
                          Storage(0, 1, *Ranges_),
                          Storage(1, 0, *Slots_),
                          Storage(1, 1, *Totals_)};
-  accepted = commands.Dispatch(*LocalScan_, local, {.X = 4u * Blocks_});
+  accepted = commands.Dispatch(*Pipelines_->LocalScan, local, {.X = 4u * Blocks_});
   if (!accepted) { return accepted; }
   const std::array scan{Storage(0, 0, *Totals_),
                         Storage(0, 1, *Batch_),
                         Storage(1, 0, *Offsets_),
                         Storage(1, 1, *Arguments_, CounterOffset_, 19u * sizeof(uint32_t))};
-  accepted = commands.Dispatch(*Scan_, scan, {.X = 4});
+  accepted = commands.Dispatch(*Pipelines_->Scan, scan, {.X = 4});
   if (!accepted) { return accepted; }
   const std::array compactView{view.Source, view.Work};
   const std::array compact{Storage(0, 0, candidates),
@@ -114,7 +115,8 @@ Native::Result<void> GroundPatchSelection::Select(Native::Commands &commands,
                            Storage(0, 2, *Offsets_),
                            Storage(1, 0, *Selected_),
                            Uniform(std::as_bytes(std::span(compactView)))};
-  return commands.Dispatch(
-      *Compact_, compact, {.X = (view.Source[0] + kCompactThreads - 1u) / kCompactThreads});
+  return commands.Dispatch(*Pipelines_->Compact,
+                           compact,
+                           {.X = (view.Source[0] + kCompactThreads - 1u) / kCompactThreads});
 }
 }

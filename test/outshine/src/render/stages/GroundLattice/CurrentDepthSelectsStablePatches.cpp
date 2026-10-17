@@ -101,8 +101,10 @@ void Select(Device &device,
 
 int main() {
   auto device = Require(CreateDevice({.Validation = true}));
+  GroundPatchSelection::Pipelines pipelines;
   GroundPatchSelection selection;
-  Require(selection.Configure(*device));
+  Require(GroundPatchSelection::Configure(*device, pipelines));
+  selection.UsePipelines(pipelines);
   std::vector<float> heights(GroundLattice::kPageNodes, kBehind);
   selection.Page(0, heights);
   GroundInstance tile;

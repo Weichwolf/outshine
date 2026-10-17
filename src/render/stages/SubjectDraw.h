@@ -33,6 +33,10 @@ namespace outshine::Render {
 
 class SubjectPipelineBinding {
 public:
+  [[nodiscard]] Native::Result<void> ConfigureGroundSelection(Native::Device &device) {
+    return Ground.ConfigureSelection(device);
+  }
+
   SubjectPipelineBinding() = default;
   SubjectPipelineBinding(const SubjectPipelineBinding &) = delete;
   SubjectPipelineBinding &operator=(const SubjectPipelineBinding &) = delete;

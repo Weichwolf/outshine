@@ -34,6 +34,7 @@ struct UploadFailure {
   unsigned DeviceBufferRequests = 0;
   unsigned VertexBufferAllocations = 0;
   unsigned Waits = 0;
+  unsigned ComputePipelineRequests = 0;
   Render::Native::ErrorKind Kind = Render::Native::ErrorKind::Driver;
 
   [[nodiscard]] bool Reject(UploadFailurePoint point) {
@@ -85,6 +86,13 @@ public:
   Wait(Render::Native::Completion completion, std::chrono::nanoseconds budget) override {
     ++Failure_.Waits;
     return NativeDeviceProxy::Wait(completion, budget);
+  }
+
+  [[nodiscard]] Render::Native::Result<std::unique_ptr<Render::Native::ComputePipeline>>
+  CreateComputePipeline(std::span<const uint32_t> spirv,
+                        Render::Native::ComputeOptions options = {}) override {
+    ++Failure_.ComputePipelineRequests;
+    return NativeDeviceProxy::CreateComputePipeline(spirv, options);
   }
 
   [[nodiscard]] static Render::Native::Result<std::unique_ptr<Render::Native::Device>>

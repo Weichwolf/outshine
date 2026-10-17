@@ -13,7 +13,7 @@ Native::Result<void> GroundLattice::ConfigurePatchSelection() {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground selection has no device"});
   }
-  return Selection_.Configure(*Device_);
+  return Pipelines_->ConfigureSelection(*Device_);
 }
 
 Native::Result<void> GroundLattice::SelectPatches(const FrameContext &ctx,

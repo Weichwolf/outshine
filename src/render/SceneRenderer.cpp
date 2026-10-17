@@ -333,10 +333,6 @@ std::expected<bool, std::string> SceneRenderer::ReuseFrameResources(Extent frame
                 ActiveState().WhyNot)) {
     return std::unexpected(ActiveState().WhyNot);
   }
-  if (plan.Holds(Stage::GroundSelection) &&
-      !ConfigureGroundSelection(*this, State_.Frame, plan, false, ActiveState().WhyNot)) {
-    return std::unexpected(ActiveState().WhyNot);
-  }
   if (!Accepted(ActiveState().Content.Glass.AttachPipelines(State_.Frame.GlassPipelines,
                                                             State_.Frame.Handles),
                 ActiveState().WhyNot)) {

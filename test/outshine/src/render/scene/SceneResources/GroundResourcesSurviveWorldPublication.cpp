@@ -4,6 +4,7 @@
 #include "SceneRenderer.h"
 #include "FrameCapture.h"
 #include "Check.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
 #include <array>
 #include <memory>
@@ -22,7 +23,9 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    Render::SceneRenderer renderer;
+    Gpu::UploadFailure failure;
+    Render::SceneRenderer renderer(
+        {.Context = &failure, .Create = Gpu::NativeUploadFaultDevice::Create});
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
@@ -65,10 +68,14 @@ int main() {
       CHECK(Core::ReadFrame(renderer, pixels, error) && pixels.size() == 32u * 32u * 4u,
             "the ground-only frame is readable at the declared size");
       std::unique_ptr<Core::RuntimeScene> candidate;
+      const auto pipelines = failure.ComputePipelineRequests;
+      CHECK(pipelines >= 4, "the resident frame owns actual terrain selection pipelines");
       CHECK(Core::RuntimeScene::PreparesWorldReplacement(
                 renderer, *scene, nullptr, candidate, error) &&
                 Core::RuntimeScene::PublishesPreparedWorld(renderer, scene, candidate, error),
             "an empty declared world publishes its first streamed-ground candidate");
+      CHECK(failure.ComputePipelineRequests == pipelines,
+            "a new world candidate binds resident frame pipelines without shader recompilation");
       world.BindSceneResources(renderer);
       CHECK(renderer.GroundLatticeTriangles() == Render::GroundLattice::kIndices / 3u,
             "first streamed-world publication retains the ground tile topology");

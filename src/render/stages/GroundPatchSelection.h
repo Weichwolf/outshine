@@ -17,6 +17,12 @@ class GroundPatchSelection {
 public:
   GroundPatchSelection();
 
+  struct Pipelines {
+    std::unique_ptr<Native::ComputePipeline> Cull, LocalScan, Scan, Compact;
+  };
+
+  void UsePipelines(const Pipelines &pipelines) noexcept { Pipelines_ = &pipelines; }
+
   struct alignas(16) Bounds {
     std::array<float, 4> Low{};
     std::array<float, 4> High{};
@@ -33,7 +39,7 @@ public:
   void BeginFrame();
   void Include(size_t tile);
   [[nodiscard]] Native::Result<void> Upload(Native::Device &device, Native::Commands &commands);
-  [[nodiscard]] Native::Result<void> Configure(Native::Device &device);
+  [[nodiscard]] static Native::Result<void> Configure(Native::Device &device, Pipelines &pipelines);
   [[nodiscard]] Native::Result<void> Cull(Native::Commands &commands,
                                           const FrameContext &frame,
                                           const Vec3 &anchor,
@@ -116,7 +122,7 @@ private:
   uint64_t CounterOffset_ = 0;
   std::unique_ptr<Native::Buffer> Bounds_, Staging_, Kept_, Slots_, Selected_, Batch_, Arguments_,
       Ranges_, Totals_, Offsets_;
-  std::unique_ptr<Native::ComputePipeline> Cull_, LocalScan_, Scan_, Compact_;
+  const Pipelines *Pipelines_ = nullptr;
 };
 }
 #endif
