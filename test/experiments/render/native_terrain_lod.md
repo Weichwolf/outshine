@@ -133,6 +133,31 @@ Metal validation. The unchanged shader package contract passes 517 artifacts and
 12 compute contracts; four Python checks include an independent double SVD oracle.
 All twelve final native Places and remaining budget failures are recorded in #515.
 
+## Command attribution and repeated captures
+
+The opt-in Metal probe now joins stage intervals to commandbuffer GPU timestamps.
+Its parser verifies that the captured sky-pass submissions match GPUROW's count,
+sum and maximum, within printed-nanosecond rounding. Preparation submissions stay
+outside that set. Vertex/fragment intervals and spans overlap; they are not additive.
+
+Körbersee's first measured frame takes 41.301 ms with a 29.695 ms terrain-pass span.
+Changing the initial bearing by 180° moves the first-frame maximum to 36.878 ms;
+the original first pose later takes 21.413 ms with almost identical submitted work.
+Rosenheim's original first frame takes 35.932 ms; the rotated run peaks at frame 11,
+29.262 ms. First-use cost matters, but neither orientation nor warm-up alone explains
+all variation. Driver residency/compiler/clock causes remain unproved.
+
+A private client repeats three complete turns in one engine. This exposed a separate
+reporting error: the final 30-frame shot inherited 90 GPU frames and the old maximum.
+The public `Renderer::resetMeasurements()` now resets CPU/GPU frame aggregates and
+starts a device/submission boundary without waiting or drawing. Older completions
+are excluded even when collected later. The Place client invokes it before measuring.
+Both repeated real-Place controls now report 30/30; their GPU sum and maximum match
+exactly the final 30 commandbuffer intervals, while all 90 frames actually render.
+The native pending-completion test passes 19 checks; removing only its boundary filter
+in a private control causes two failures. Geometry, history and images remain owned
+by the existing renderer; no warm-up or omitted first frame is added to the gate.
+
 The full f94fadd23 lint completed all 451 C++ units without findings, all 29
 repository guards and format. Its final shader audit rejected 21 new native
 fragment variants solely because it still required SDL fragment resources in

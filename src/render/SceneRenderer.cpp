@@ -1667,6 +1667,7 @@ std::expected<void, std::string> SceneRenderer::RenderPublishedFrame() {
     return std::unexpected(submitted.error().Message);
   }
   Landed_[LandedAt_] = *submitted;
+  LastFrameSubmission_ = *submitted;
   Uploads_->Submitted(*submitted);
   record(RenderFramePhase::Submit);
   CommitSubmittedFrame(stageSubmission);

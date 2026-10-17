@@ -351,6 +351,10 @@ bool MeasureFrames(Engine &engine,
                    std::string_view name,
                    Shot &shot,
                    std::span<const Scenario::View> turn) {
+  if (const auto reset = engine.renderer().resetMeasurements(); !reset) {
+    shot.Why = std::string(name) + " could not start frame measurements: " + reset.error();
+    return false;
+  }
   const auto count = turn.empty() ? static_cast<std::size_t>(kTimedFrames) : turn.size();
   constexpr double kBytesPerMiB = 1024 * 1024;
   std::vector<double> heldMs;

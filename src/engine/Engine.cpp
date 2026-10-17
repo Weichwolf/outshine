@@ -421,6 +421,16 @@ Result Renderer::render(Extent frame) {
   return Of_->render(frame);
 }
 
+Result Renderer::resetMeasurements() {
+  if (const auto permission = Of_->S_->MutationPermission(); !permission) { return permission; }
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("frame measurement requires an assembled render scene");
+  }
+  Of_->S_->Picture.Device.ResetMeasurements();
+  Of_->S_->PublishGpuFrameMeasurements(false);
+  return {};
+}
+
 Result Renderer::saveScreenshot(std::string_view path) {
   return Of_->saveScreenshot(path);
 }

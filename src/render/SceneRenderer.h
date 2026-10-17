@@ -647,6 +647,8 @@ public:
 
   [[nodiscard]] const CostProfile &Costs() const noexcept { return Costs_; }
 
+  void ResetMeasurements() noexcept;
+
   struct SubmittedCameraFrame {
     uint64_t Serial = 0;
     CameraBasis Basis;
@@ -755,6 +757,7 @@ private:
   void CollectGpuTime(Native::Completion completion);
   void CollectCompletedFrameTimes();
   CostProfile Costs_;
+  Native::Completion LastFrameSubmission_{}, MeasurementBegin_{};
   std::array<Effort, kStageCount> PendingSpent_{};
   RenderFrameTiming LastRenderFrameTiming_;
   RenderFrameTiming SlowestRenderFrameTiming_;

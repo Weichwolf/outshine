@@ -37,6 +37,10 @@ Bei 30 bzw. 60 Frames entspricht das Maximum auch dem Nearest-Rank-p99.
 Frames ohne Zeitstempel, CPU-Abfragezeit ms; Felder durch Tabs getrennt.
 Die Werte stammen ausschließlich aus dem abgeschlossenen Messintervall vor dem Screenshot.
 Fehlende Messwerte sind `nan`; Preload-/Lifetime-Zeiten ersetzen sie nicht.
+Vor jeder Place-Messung startet `renderer().resetMeasurements()` ein neues CPU-/GPU-Fenster.
+Es wartet und rendert nicht. Später eintreffende Ergebnisse älterer Einreichungen zählen
+weiterhin nicht zum neuen Fenster. Auch mehrere Aufnahmen desselben Engine-Prozesses
+melden ausschließlich ihre eigenen Frames; Quelle-/Assetzähler bleiben davon unabhängig.
 
 # Asset-Aufnahmen
 

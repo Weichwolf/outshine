@@ -15,6 +15,10 @@ constexpr double kNanosecondsPerMs = 1'000'000.0;
 }
 
 void SceneRenderer::CollectGpuTime(Native::Completion completion) {
+  if (completion.Device == MeasurementBegin_.Device &&
+      completion.Serial <= MeasurementBegin_.Serial) {
+    return;
+  }
   const auto began = std::chrono::steady_clock::now();
   const auto result = Device_->SubmissionGpuTime(completion);
   Costs_.GpuQueryMs +=
@@ -28,6 +32,14 @@ void SceneRenderer::CollectGpuTime(Native::Completion completion) {
   ++Costs_.Gpu.Frames;
   Costs_.Gpu.TotalMs += elapsedMs;
   Costs_.Gpu.MostMs = std::max(Costs_.Gpu.MostMs, elapsedMs);
+}
+
+void SceneRenderer::ResetMeasurements() noexcept {
+  MeasurementBegin_ = LastFrameSubmission_;
+  Costs_ = {};
+  LastRenderFrameTiming_ = {};
+  SlowestRenderFrameTiming_ = {};
+  for (auto &stage : Spent_) { stage.TookMs = 0; }
 }
 
 void SceneRenderer::CollectCompletedFrameTimes() {
