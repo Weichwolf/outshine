@@ -6,6 +6,11 @@ reserved core do not establish a usable physical building. This study constructs
 the proposed near assets and independently checks them before replacing any
 existing whole-window source route. It does not admit assets to the native engine.
 
+The subsequent [ground-route study](terraced_ground.md) corrects the two blocked
+approaches retained by this frozen study; its later replay and final result are
+documented separately. The measurements and69-source outcome below remain the
+original physical reference used by the earlier whole-city images.
+
 ## Real source failures and bounded corrections
 
 The first narrower physical pilot attempted all71 proposed programmes.65 passed
