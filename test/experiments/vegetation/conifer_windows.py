@@ -48,7 +48,11 @@ def bind_windows(plant, plan, catalog):
 
 
 def bind_patterns(patterns, plan, catalog):
-    templates = [catalog[pattern_key(patterns[int(order)])] for order in plan["orders"]]
+    bindings = {
+        order: catalog[pattern_key(patterns[order])]
+        for order in dict.fromkeys(map(int, plan["orders"]))
+    }
+    templates = [bindings[int(order)] for order in plan["orders"]]
     if any(
         info["needles"] != capacity
         for info, capacity in zip(templates, plan["capacities"], strict=True)

@@ -1,0 +1,3 @@
+# Allocation replacements cannot copy implementation-reserved parameter names from vendor headers.
+InheritParentConfig: true
+Checks: '-readability-inconsistent-declaration-parameter-name'
