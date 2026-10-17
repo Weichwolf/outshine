@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import shapely
 from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
@@ -29,6 +30,9 @@ def run(source_path, screen, output):
     with np.load(screen / "view-0.npz") as stored:
         reference = stored["native-16"][[0, 3], 1]
     report = {
+        "numpy_version": np.__version__,
+        "shapely_version": shapely.__version__,
+        "geos_version": shapely.geos_version_string,
         "source_sha256": source_digest(source_path),
         "screen": str(screen.resolve()),
         "view": view.tolist(),
@@ -54,7 +58,7 @@ def run(source_path, screen, output):
     }
     arrays = {"screen": reference}
     previous = None
-    for order in (1, 2, 4):
+    for order in (1, 2, 4, 6):
         before = dict(scene.work)
         began = time.perf_counter()
         fields, work = integrate(source, scene, view, lights, size=16, order=order)
@@ -83,14 +87,14 @@ def run(source_path, screen, output):
         report["orders"].append(facts)
         arrays[f"order-{order}"] = fields
     np.savez_compressed(output / "fields.npz", **arrays)
-    fig, axes = plt.subplots(2, 4, figsize=(16, 9), dpi=160)
+    fig, axes = plt.subplots(2, 5, figsize=(16, 9), dpi=160)
     for row in range(2):
         for col, (label, values) in enumerate(
             [
                 ("screen512", reference[row]),
                 *[
                     (f"area order{order}", arrays[f"order-{order}"][[2, 4][row]])
-                    for order in (1, 2, 4)
+                    for order in (1, 2, 4, 6)
                 ],
             ]
         ):

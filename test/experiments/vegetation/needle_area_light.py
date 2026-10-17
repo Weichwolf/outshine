@@ -9,8 +9,8 @@ from surface_normal_transfer import interpolate_normals
 
 
 def triangle_rule(order):
-    if type(order) is not int or order not in (1, 2, 4, 8):
-        raise ValueError("explicit bounded triangle quadrature order1/2/4/8 required")
+    if type(order) is not int or order not in (1, 2, 4, 6, 8):
+        raise ValueError("explicit bounded triangle quadrature order1/2/4/6/8 required")
     if order == 1:
         return np.array([[1 / 3, 1 / 3, 1 / 3]]), np.ones(1)
     nodes, weights = quadrature(order)
@@ -24,6 +24,13 @@ def triangle_rule(order):
 
 
 def integrate(source, scene, view, lights, size=16, order=2, max_samples=2_000_000):
+    if type(size) is not int or size not in (1, 4, 16, 64) or not 1 <= len(lights) <= 8:
+        raise ValueError("bounded native footprints and one to eight lights required")
+    if (
+        scene.index.vertices is not source["vertices"]
+        or scene.index.faces is not source["faces"]
+    ):
+        raise ValueError("same prepared immutable source and ray geometry required")
     view = light_direction(view)
     lights = np.array([light_direction(direction) for direction in lights])
     if (
@@ -36,7 +43,12 @@ def integrate(source, scene, view, lights, size=16, order=2, max_samples=2_000_0
         )
     bary, weights = triangle_rule(order)
     output = np.zeros((1 + 2 * len(lights), size * size))
-    work = {"sampled_points": 0, "camera_visible_points": 0, "maximum_sample_batch": 0}
+    work = {
+        "sampled_points": 0,
+        "camera_visible_points": 0,
+        "maximum_sample_batch": 0,
+        "reused_coaxial_positive_contacts": 0,
+    }
     for triangles, ids, pixels, area in clipped_batches(source, view, size, work):
         if work["sampled_points"] + len(triangles) * len(weights) > max_samples:
             raise ValueError(
@@ -71,9 +83,16 @@ def integrate(source, scene, view, lights, size=16, order=2, max_samples=2_000_0
             output[0] += np.bincount(slots, weights=mass, minlength=size * size)
             normals = interpolate_normals(source, points, face_ids)
             for index, direction in enumerate(lights):
-                cosine, clear, _ = direct_response(
-                    scene, {"points": points, "normals": normals}, direction
-                )
+                if np.array_equal(direction, view):
+                    cosine = np.maximum(normals @ direction, 0)
+                    clear = np.ones(len(points), bool)
+                    work["reused_coaxial_positive_contacts"] += int(
+                        np.count_nonzero(cosine > 0)
+                    )
+                else:
+                    cosine, clear, _ = direct_response(
+                        scene, {"points": points, "normals": normals}, direction
+                    )
                 output[1 + 2 * index] += np.bincount(
                     slots, weights=mass * cosine, minlength=size * size
                 )

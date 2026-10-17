@@ -18,11 +18,29 @@ def sheet():
 
 class NeedleAreaChecks(unittest.TestCase):
     def test_rule_mass_and_first_moments(self):
-        for order in (1, 2, 4, 8):
+        for order in (1, 2, 4, 6, 8):
             bary, weights = triangle_rule(order)
             self.assertAlmostEqual(float(weights.sum()), 1, places=14)
             np.testing.assert_allclose(weights @ bary, np.full(3, 1 / 3), atol=1e-14)
             self.assertTrue((bary >= 0).all())
+            if order >= 2:
+                self.assertAlmostEqual(
+                    float(weights @ (bary[:, 0] ** 2)), 1 / 6, places=14
+                )
+                self.assertAlmostEqual(
+                    float(weights @ (bary[:, 0] * bary[:, 1])), 1 / 12, places=14
+                )
+
+    def test_coaxial_light_reuses_primary_visibility(self):
+        source = sheet()
+        scene = ScatterScene(source["vertices"], source["faces"])
+        _, work = integrate(
+            source, scene, np.array([0.0, 0, 1]), [[0, 0, 1]], size=4, order=2
+        )
+        self.assertEqual(scene.work["rays"], work["sampled_points"])
+        self.assertEqual(
+            work["reused_coaxial_positive_contacts"], work["camera_visible_points"]
+        )
 
     def test_complete_sheet_equals_analytic_clipped_pixel_areas(self):
         source = sheet()
@@ -70,6 +88,17 @@ class NeedleAreaChecks(unittest.TestCase):
                 order=2,
                 max_samples=1,
             )
+
+    def test_invalid_grid_and_mismatched_source_before_expansion(self):
+        source = sheet()
+        scene = ScatterScene(source["vertices"], source["faces"])
+        with self.assertRaises(ValueError):
+            integrate(
+                source, scene, np.array([0.0, 0, 1]), [[0, 0, 1]], size=1000000000
+            )
+        different = sheet()
+        with self.assertRaisesRegex(ValueError, "same prepared"):
+            integrate(different, scene, np.array([0.0, 0, 1]), [[0, 0, 1]], size=4)
 
     def test_edge_on_sheet_is_zero(self):
         source = sheet()
