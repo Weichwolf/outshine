@@ -7,6 +7,7 @@ from dormer_assets import prepare
 from dormer_present import bound
 from dormer_windows import DEPTH_M
 from facade_parts import append
+from outshine_ref.buildings.modelling.skeleton_plan import SkeletonBudgetExceeded
 from tile_elevations import ElevationFacades
 from tile_facade_recess import demand
 from tile_facades import recipe_for
@@ -52,7 +53,12 @@ class DormerRoofs:
             )
             self.dormer_assets[row["id"]] = asset
             return asset
-        except (ValueError, NotImplementedError, shapely.errors.GEOSException) as error:
+        except (
+            ValueError,
+            NotImplementedError,
+            SkeletonBudgetExceeded,
+            shapely.errors.GEOSException,
+        ) as error:
             self.failed.add(row["id"])
             self.dormer_rejected.append({"id": row["id"], "reason": str(error)})
             return None

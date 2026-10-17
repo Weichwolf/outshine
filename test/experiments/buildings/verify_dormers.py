@@ -3,6 +3,7 @@
 import copy
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -13,6 +14,7 @@ from dormer_sources import sources
 from dormer_windows import DEPTH_M, aperture
 from facade_parts import append
 from provider_contract import attributes
+from outshine_ref.buildings.modelling.skeleton_plan import SkeletonBudgetExceeded
 from structural_shell_geometry import native
 from tile_dormers import DormerFacades
 from tile_elevations import ElevationFacades
@@ -171,6 +173,24 @@ class DormerTests(unittest.TestCase):
             np.testing.assert_array_equal(old[key], new[key])
         self.assertEqual(untimed(first), untimed(second))
         self.assertFalse(owner.base.dormer_assets)
+
+    def test_roof_budget_exhaustion_keeps_the_original_source_exterior(self):
+        row, neighbors = self.rows[0]
+        v = view_for(row)
+        old, first, _before = build(ElevationFacades, row, neighbors, v)
+        with patch(
+            "tile_dormers.prepare",
+            side_effect=SkeletonBudgetExceeded("bounded roof work exhausted"),
+        ):
+            new, second, owner = build(DormerFacades, row, neighbors, v)
+        for key in old:
+            np.testing.assert_array_equal(old[key], new[key])
+        self.assertEqual(untimed(first), untimed(second))
+        self.assertNotIn("roof_dormer_plan", second)
+        self.assertIn(row["id"], owner.base.failed)
+        self.assertTrue(
+            any("bounded roof work" in r["reason"] for r in owner.base.dormer_rejected)
+        )
 
 
 if __name__ == "__main__":
