@@ -21,6 +21,14 @@ def frozen_beds(view, state, field):
     shapes = shapely.polygons(triangles[:, :, :2])
     selected = shapely.dwithin(shapes, region, radius(view))
     triangles = triangles[selected]
+    if not len(triangles):
+        return {
+            "whole_original_body_facets": 0,
+            "reference_faces": 0,
+            "maximum_contact_float32_m": 0.0,
+            "pair_tests": 0,
+            "scope": "No whole original ground body facet intersects the changed region.",
+        }
     footprint = shapely.union_all(shapes[selected])
     local = require(view.nearby(footprint, radius(view), max_faces=8192))
     floor = Reference(local.mesh)
@@ -34,6 +42,18 @@ def frozen_beds(view, state, field):
 
 
 def bridge_checks(field, upper):
+    if not len(upper.triangles):
+        return [
+            {
+                "valid": False,
+                "applicable": False,
+                "reason": "no_local_bridge_facets",
+                "checks": 0,
+                "positive_area_pairs": 0,
+                "float32": cast,
+            }
+            for cast in (False, True)
+        ]
     result = []
     for cast in (False, True):
         terrain = Mesh(

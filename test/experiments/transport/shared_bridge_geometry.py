@@ -4,6 +4,7 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import conform_triangles
+from stair_seed_precision import model as seed_model
 from transport_vertex_pool import welded_vertices
 
 
@@ -32,7 +33,7 @@ def corridor(source):
     if not isinstance(pads, list) or len(pads) > 8:
         raise ValueError("bounded explicit junction pad list required")
     if not pads:
-        return shape
+        return seed_model(shape, source.get("source_grid_m"))
     indices = source.get("junction_pad_vertices", [])
     axis = np.asarray(source["xy"], float)
     if (
@@ -67,7 +68,7 @@ def corridor(source):
         shape = shape.union(pad)
     if shape.geom_type != "Polygon" or not shape.is_valid:
         raise ValueError("junction pad changed the connected source domain")
-    return shape
+    return seed_model(shape, source.get("source_grid_m"))
 
 
 def layout(sources):

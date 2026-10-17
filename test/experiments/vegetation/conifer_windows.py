@@ -31,9 +31,16 @@ def plan_windows(plant, catalog, max_windows=20000, *, max_axes=20000):
     plan = plant.windows(max_axes, max_windows)
     if plan is None:
         return None
-    templates = [
-        catalog[pattern_key(plant.patterns[int(order)])] for order in plan["orders"]
-    ]
+    return bind_patterns(plant.patterns, plan, catalog)
+
+
+def bind_patterns(patterns, plan, catalog):
+    templates = [catalog[pattern_key(patterns[int(order)])] for order in plan["orders"]]
+    if any(
+        info["needles"] != capacity
+        for info, capacity in zip(templates, plan["capacities"], strict=True)
+    ):
+        raise ValueError("catalog capacity must match every physical window")
     phase = plan["phases"] - np.array([t["phase"] for t in templates])
     return dict(plan) | {
         "frames": np.einsum("nij,njk->nik", plan["frames"], rotate_y(-phase)),

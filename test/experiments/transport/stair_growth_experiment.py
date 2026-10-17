@@ -16,6 +16,7 @@ from stair_local_verify import verify
 from stair_module_experiment import write_json
 from stair_module_inputs import FIXTURE, source_context
 from stair_patch_inputs import fresh
+from stair_seed_sources import select as select_seed
 from stair_terrain_experiment import frozen
 
 
@@ -27,7 +28,8 @@ def selection(args):
     context, sources, _sample, _layer = source_context(args.reference)
     if context["origin_lat_lon"] != manifest["origin_lat_lon"]:
         raise ValueError("source and actual resident frames differ")
-    result = select(
+    selector = select_seed if getattr(args, "family", "attached") == "seed" else select
+    result = selector(
         view,
         assets,
         manifest,
@@ -36,6 +38,11 @@ def selection(args):
         method=args.method,
         strategy=args.strategy,
         schedule=args.schedule,
+        **(
+            {"grid_m": args.seed_grid_m}
+            if getattr(args, "family", "attached") == "seed"
+            else {}
+        ),
     )
     result.update(
         resident_sha256=digest(args.resident / "resident.json"),
@@ -137,6 +144,10 @@ def arguments():
     )
     parser.add_argument("--max-attempts", type=int, default=3)
     parser.add_argument("--proposal-offset", type=int, default=0)
+    parser.add_argument("--family", choices=("attached", "seed"), default="attached")
+    parser.add_argument(
+        "--seed-grid-m", type=float, choices=(0.0, 2**-11), default=2**-11
+    )
     return parser.parse_args()
 
 

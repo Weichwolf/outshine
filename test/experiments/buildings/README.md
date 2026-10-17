@@ -1147,3 +1147,15 @@ closed/outer/front products and full current-city comparison:
 [clad_facades.md](clad_facades.md) (#543). Existing source eligibility remains;
 219 sources gain stronger visible hierarchy. Near counterexamples prevent a
 general front-only LOD claim; full architecture-family variety remains open.
+
+Contained parapets and recessed service enclosures, closed physical products,
+retained near-window hosts and material-preserving coarse roof surfaces:
+[roof_crowns.md](roof_crowns.md) (#551). The whole988-source window retains all
+prior masses and gains47 roof programmes at+1.18% triangles; broader architecture
+families, roof access/detail and general native/cache/LOD admission remain open.
+
+Source-stable base/body/top facade scopes with narrow vertical windows or broad
+horizontal glazing, retaining the existing entry/projection elevation:
+[elevations.md](elevations.md) (#574). The whole988-source window gains91 composed
+elevations on44 sources; actual near crops and complete city pairs are checked.
+These are two bounded facade programmes, not complete architecture families.

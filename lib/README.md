@@ -16,6 +16,16 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`Reservation.conflict_geometry(HeightInterval)` liefert für konstante Prismen die
+ursprüngliche unveränderliche Polygonfläche oder ein leeres Polygon. Abfrageband
+und Plan müssen denselben Frame/Höhenbezug verwenden; reine Höhenberührung bleibt
+frei. `overlaps(BuildingFootprint)` prüft einen zweidimensionalen Schnitt der
+Innenräume, einschließlich vollständiger Enthaltung. Ein unterlaufender numerischer
+Flächenwert wird dadurch nicht mit leerem Raum verwechselt. Konstruktoren bleiben
+unverändert. Der affine Untertyp und dessen XY-Präzisionsgrenzen werden noch im
+[Transportexperiment](../test/experiments/transport/stair_occupancy_comparison.md)
+unter [#568](https://github.com/Weichwolf/outshine/issues/568) geprüft.
+
 `transport.clothoid_turns` und `transport.horizontal.plan_horizontal_axis`
 liefern begrenzte horizontale Kurven mit erhaltenen Endgeraden. Originalquellen,
 tatsächliche Straßen-/Fahrzeugflächen und gemeinsame Knoten bleiben beim
@@ -660,6 +670,13 @@ Budgets are Python integers in [0,100000]. These row bounds are not a total
 memory/time guarantee. `Shoot.detail` shares the same bounded placement contract.
 Public `AxisState` frames must be finite, orthonormal and right-handed. Shared
 axis/leaf/shoot arrays have immutable bytes, and leaf mappings are read-only.
+`AxisState(..., path_capacity=256)` explicitly accepts real slot indices up to255
+from a separately authored generator graph. The default remains64; negative,
+noninteger and out-of-capacity slots still fail. This does not raise `PlantPlan`
+branch limits, change its recipes/IDs/tables, or change `NeedlePattern.detail`
+for the same physical axis and seed. The wider state permits deferred needles
+on the actual cached graph path instead of a fabricated small replacement path
+(#562).
 
 `tables(max_axes, max_leaves)` returns cached complete immutable rows: axis IDs,
 parent IDs (-1 for root), seven-slot Int16 paths (-1 padding), origins, frames,
