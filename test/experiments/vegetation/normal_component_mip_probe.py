@@ -110,7 +110,7 @@ def run(output, *, storage="atlas", views=(0,), footprints=(64, 1), pattern="con
                 bpy.ops.render.render(write_still=True)
                 image = bpy.data.images.load(str(path), check_existing=False)
                 pixels = np.asarray(image.pixels[:], float).reshape(64, 64, 4)
-                alpha = pixels[..., 3].sum()
+                alpha = float(pixels[..., 3].sum())
                 response = float(pixels[..., 0].sum() / alpha)
                 expected = 0.5 if pattern == "checker" else 1
                 result = {
