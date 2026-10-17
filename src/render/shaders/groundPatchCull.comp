@@ -73,6 +73,7 @@ void main() {
   const float wScale = length(rowW);
   const vec2 scale = 0.5 * view.viewport.zw * (vec2(length(rowX), length(rowY)) + max(abs(least), abs(most)) * wScale);
   const float displacementScale = projectedDisplacementScale(rowX, rowY, rowW, least, most, length(scale));
+  if (isnan(displacementScale) || isinf(displacementScale)) { return; }
   uint selected = 0u;
   for (uint level = 1u; level < 4u; ++level) {
     const float displacement = errors[level] + 2.0 * length(error);
