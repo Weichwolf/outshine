@@ -108,12 +108,13 @@ class SurfaceSampler:
         vertex_distance = np.hypot(delta[:, :, 0], delta[:, :, 1])
         edges = np.roll(p, -1, axis=1) - p
         relative = q[:, None, :] - p
+        length = np.hypot(edges[:, :, 0], edges[:, :, 1])
+        unit = edges / length[:, :, None]
         edge_distance = abs(
-            edges[:, :, 0] * relative[:, :, 1] - edges[:, :, 1] * relative[:, :, 0]
-        ) / np.hypot(edges[:, :, 0], edges[:, :, 1])
-        along = np.einsum("ijk,ijk->ij", relative, edges)
-        length_squared = np.einsum("ijk,ijk->ij", edges, edges)
-        outside = (along < 0) | (along > length_squared)
+            unit[:, :, 0] * relative[:, :, 1] - unit[:, :, 1] * relative[:, :, 0]
+        )
+        along = np.einsum("ijk,ijk->ij", relative, unit)
+        outside = (along < 0) | (along > length)
         endpoint_distance = np.minimum(
             vertex_distance, np.roll(vertex_distance, -1, axis=1)
         )
@@ -137,13 +138,17 @@ class SurfaceSampler:
             if not common:
                 return False
         vertices = self.mesh.vertices[sorted(common), :2]
-        if np.any(np.linalg.norm(vertices - xy, axis=1) <= self.xy_tolerance_m):
+        delta = vertices - xy
+        if np.any(np.hypot(delta[:, 0], delta[:, 1]) <= self.xy_tolerance_m):
             return True
         for i in range(len(vertices)):
             for j in range(i + 1, len(vertices)):
                 edge = vertices[j] - vertices[i]
-                t = np.clip(np.dot(xy - vertices[i], edge) / np.dot(edge, edge), 0, 1)
-                if np.linalg.norm(xy - (vertices[i] + t * edge)) <= self.xy_tolerance_m:
+                length = np.hypot(*edge)
+                unit = edge / length
+                station = np.clip(np.dot(xy - vertices[i], unit), 0, length)
+                delta = xy - (vertices[i] + station * unit)
+                if np.hypot(*delta) <= self.xy_tolerance_m:
                     return True
         return False
 
@@ -155,6 +160,8 @@ class SurfaceSampler:
         heights = p0[:, 2] + np.einsum(
             "ij,ij->i", xy[pairs[0]] - p0[:, :2], self._gradient[pairs[1]]
         )
+        if len(starts) == pairs.shape[1]:
+            return chosen, heights[starts], np.isfinite(heights[starts])
         features = self._features(xy, pairs)
         shared = np.all(
             np.minimum.reduceat(features, starts, axis=0)
