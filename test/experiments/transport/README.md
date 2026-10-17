@@ -22,6 +22,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Endprofile, neun kleine Ergänzungen und derselbe installierbare Profilkern.
 - [Nullflächen nach Konformierung](stair_conformance_comparison.md): fester
   Wiener Gegenfall des begrenzten Bodenmoduls und unveränderte Flächenprüfung.
+- [Begrenztes Bodenmodul](stair_module_comparison.md): vier neue ganze Quellen,
+  tatsächliche alte/neue Wandkontakte und lokales Terrain am gespeicherten 32er Körper.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
