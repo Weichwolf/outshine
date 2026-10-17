@@ -1,7 +1,9 @@
 """Discrete frontier controls, actual cached roots, T pads and whole headroom."""
 
 import copy
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
@@ -44,6 +46,19 @@ class ActualInteriorRoot(unittest.TestCase):
 
 
 class PhysicalAttemptDispositions(unittest.TestCase):
+    def test_real_fixed_face_fails_whole_gradient_despite_passing_every_edge(self):
+        path = Path(__file__).parent / "fixtures/stair-prefix-fixed-face-vienna.json"
+        counter = json.loads(path.read_text())
+        xyz = np.array(counter["fixed_vertices_enu_m"])
+        frame = np.array(counter["grade_frame"])
+        for a, b in ((0, 1), (1, 2), (2, 0)):
+            maximum = np.linalg.norm(np.linalg.solve(frame.T, xyz[b, :2] - xyz[a, :2]))
+            self.assertLessEqual(abs(xyz[b, 2] - xyz[a, 2]), maximum)
+        normal = np.cross(xyz[1] - xyz[0], xyz[2] - xyz[0])
+        whole = np.linalg.norm(frame @ (-normal[:2] / normal[2]))
+        self.assertAlmostEqual(whole, 3.0342389995478083, places=7)
+        self.assertGreater(whole, 1)
+
     def test_joint_failure_is_not_an_individual_impossibility_and_keeps_others(self):
         plan = {"proposals": [{"source_ids": ["a", "b"]}, {"source_ids": ["c"]}]}
         attempts = [

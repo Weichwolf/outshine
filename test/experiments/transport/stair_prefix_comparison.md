@@ -24,8 +24,8 @@ sources present in failed joint recipes, and sources outside the bounded
 geometry attempts. Failure reasons remain attached to the actual attempts;
 omitted sources stay eligible original inputs for later recipes. This is a
 bounded valid-partial-network method, not a maximal subset solver. Halving can
-skip a larger valid alternative; an eight-source proposal takes four halvings
-to reach one, while the unchanged admission cap allows only three attempts.
+skip a larger valid alternative; an eight-source proposal needs four candidate
+sizes including one, while the unchanged cap allows only three attempts.
 
 SIGGRAPH starting point: Chen et al., *Interactive Procedural Street Modeling*
 (2008), page 5 figures 7–8 and section 6/6.1, visually inspected. Graph/seed and
