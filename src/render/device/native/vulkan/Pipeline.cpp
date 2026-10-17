@@ -152,11 +152,18 @@ Result<std::unique_ptr<ComputePipeline>> CreatePipeline(std::shared_ptr<Context>
   const std::string name(entry);
   VkComputePipelineCreateInfo create{
       .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0,
       .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
                 .stage = VK_SHADER_STAGE_COMPUTE_BIT,
                 .module = shader,
-                .pName = name.c_str()},
-      .layout = state->Layout};
+                .pName = name.c_str(),
+                .pSpecializationInfo = nullptr},
+      .layout = state->Layout,
+      .basePipelineHandle = VK_NULL_HANDLE,
+      .basePipelineIndex = 0};
   result = vkCreateComputePipelines(
       state->Owner->Logical, VK_NULL_HANDLE, 1, &create, nullptr, &state->Handle);
   vkDestroyShaderModule(state->Owner->Logical, shader, nullptr);
