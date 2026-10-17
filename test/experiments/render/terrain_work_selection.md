@@ -286,3 +286,43 @@ Mean GPU cost rises from 18.6672 to 19.9674 ms, or
 establish lower device work. The variant is rejected and the original shader
 restored. The samples do not identify the hardware cause; GPU peaks remain red.
 Private logs and both shader variants stay in system temp; no product path is added.
+
+## Separate coarse vertex pipeline: rejected
+
+An extended private run of the existing MetalWorkProfile probe decodes each
+indirect argument range after GPU completion. On 43996faf5, Körbersee at 1280×720/30
+submits the following averages over the same 30 measured rotation frames:
+
+| LOD | Indices per patch | Patch instances | Triangle references |
+|---:|---:|---:|---:|
+| 0 | 384 | 15,215.47 | 1,947,579.73 |
+| 1 | 216 | 10,202.37 | 734,570.40 |
+| 2 | 120 | 6,947.40 | 277,896.00 |
+| 3 | 96 | 8,120.50 | 259,856.00 |
+
+Coarse levels account for 1,272,322.40 / 3,219,902.13 = 39.51% of patch references;
+unchanged outer skirts add 716,032 references. These are submitted references,
+not actual vertex invocations or visible triangles. All four ranges are in use.
+
+A second native variant uses a dedicated coarse vertex shader, without the dynamic
+normal branch tested above. The finest range uses the original pipeline; the
+remaining three use a compile-time variant without redundant normal-height reads.
+It keeps the same four draws, geometry, fragment normal reconstruction and 0.5 px
+allowance. One additional pipeline and a 1+3 split of the existing argument ranges
+are the complete runtime changes; backend API and shader resource layouts stay fixed.
+
+A/B/B/A, four fresh offline processes, 30 frames per rotation, normal CPU priority,
+Metal validation unset, no own concurrent build/render; shared interactive host:
+
+| Run | GPU mean, ms | GPU maximum, ms |
+|---|---:|---:|
+| A1 | 21.0366 | 40.2519 |
+| B1 | 17.6009 | 37.1284 |
+| B2 | 22.2636 | 37.1917 |
+| A2 | 18.6332 | 37.8127 |
+
+All final PNG hashes are df0510ba. Baseline mean is 19.8349 ms, variant 19.9322 ms:
+(19.9322 / 19.8349 - 1) × 100 = 0.49% higher cost, amid substantial run variation.
+No reliable net improvement justifies the extra pipeline. The variant is rejected;
+production sources are restored. Private patch, binaries, shader variants and logs
+remain in system temp. No hardware-cause or vertex-invocation reduction is inferred.
