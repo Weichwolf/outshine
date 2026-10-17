@@ -118,10 +118,14 @@ def run(root, output, manifest, host_load):
         if path.exists():
             path.unlink()
     began = time.monotonic()
+    environment = os.environ.copy()
+    if sys.platform == 'darwin' and os.environ.get('OUTSHINE_CALIBRATION_VALIDATION') == '1':
+        environment['MTL_DEBUG_LAYER'] = '1'
     with (output / 'supervisor.log').open('w') as log:
         child = subprocess.Popen([sys.executable, str(root / 'test/scripts/run_with_timeout.py'),
-                                  str(os.getpid()), '120', str(output / 'run.log'), str(marker), *args],
-                                 cwd=root, stdout=log, stderr=subprocess.STDOUT)
+                                  str(os.getpid()), '120', str(output / 'run.log'), str(marker),
+                                  '--stderr-file', str(output / 'stderr.log'), *args],
+                                 cwd=root, stdout=log, stderr=subprocess.STDOUT, env=environment)
         Path(str(marker) + '.start').touch()
         _, status, usage = os.wait4(child.pid, 0)
         child.returncode = os.waitstatus_to_exitcode(status)
@@ -134,6 +138,13 @@ def run(root, output, manifest, host_load):
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     if status or manifest['timed_out'] or manifest['cleanup_failed']:
         raise RuntimeError(f'calibration failed or reported diagnostics: {output}')
+    messages = (output / 'stderr.log').read_text().splitlines()
+    metal_notice = (sys.platform == 'darwin'
+                    and environment.get('OUTSHINE_CALIBRATION_VALIDATION') == '1'
+                    and len(messages) == 1
+                    and messages[0].endswith(' Metal API Validation Enabled'))
+    if messages and not metal_notice:
+        raise RuntimeError(f'calibration reported diagnostics: {output / "stderr.log"}')
     report = json.loads((output / 'run.log').read_text())
     report['provenance'] = manifest
     (output / 'result.json').write_text(json.dumps(report, indent=2) + '\n')

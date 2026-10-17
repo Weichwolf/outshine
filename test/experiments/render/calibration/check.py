@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 
 HERE = Path(__file__).resolve().parent
 
@@ -42,10 +43,13 @@ def main():
     assert cpu['summary']['median_ns'] == 20
     assert cpu['summary']['min_ns'] == 10 and cpu['summary']['max_ns'] == 30
     assert cpu['summary']['ns_per_access'] == 10
+    environment = os.environ.copy()
+    if sys.platform == 'darwin':
+        environment['MTL_DEBUG_LAYER'] = '1'
     child = subprocess.run([str(output / 'calibration'), str(output / 'wrong-fma.spv'),
                             *[str(output / (name + '.spv')) for name in ('triad.comp', 'raster.vert', 'raster.frag')],
                             manifest['source_commit'], 'negative-control', 'functional check', '1'],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, timeout=120, env=environment)
     (output / 'negative-control.log').write_text(child.stdout + child.stderr)
     assert child.returncode != 0
     assert 'GPU calibration result differs from complete CPU reference' in child.stderr
