@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 from needle_area_checks import sheet
 from scatter_scene import ScatterScene
+from sheet_leaf_render import shading
 from sheet_light_measure import SheetMeasure
 from surface_area_light import integrate
 
@@ -36,6 +37,32 @@ def measure(source, view=(0.0, 0, 1), size=4, order=2):
 
 
 class SheetAreaTests(unittest.TestCase):
+    def test_primary_renderer_uses_existing_two_sided_response_and_energy(self):
+        source = thin_sheet()
+        scene = ScatterScene(source["vertices"], source["faces"])
+        points = np.array([[0.25, 0.25, 0], [0.75, 0.75, 0]])
+        rgb, reflection = shading(
+            source,
+            scene,
+            points,
+            np.array([0, 1]),
+            np.array([0.0, 0, 1]),
+            np.array([[0.0, 0, 1], [0, 0, -1]]),
+        )
+        energy = np.array([3.0, 2.7, 2.4])
+        np.testing.assert_allclose(
+            rgb[0],
+            np.tile(source["optical"][0, :3] * energy / np.pi, (2, 1)),
+            atol=1e-14,
+        )
+        np.testing.assert_allclose(
+            rgb[1],
+            np.tile(source["optical"][0, 3:] * energy / np.pi, (2, 1)),
+            atol=1e-14,
+        )
+        np.testing.assert_array_equal(reflection[0], rgb[0])
+        np.testing.assert_array_equal(reflection[1], 0)
+
     def test_constant_sheet_has_analytic_reflection_and_transmission_on_both_sides(
         self,
     ):

@@ -14,6 +14,28 @@ def contact_optics(source, points, face_ids):
     return bounded_optics(np.sum(corners * weights[:, :, None], axis=1))
 
 
+def sheet_visibility(scene, points, normals, view, direction, response, bias):
+    active = np.max(response, axis=1) > 0
+    visible = np.zeros(len(points), bool)
+    skipped = int((~active).sum())
+    reused = 0
+    if np.array_equal(direction, view):
+        visible[active] = True
+        reused = int(active.sum())
+    elif active.any():
+        facing = np.where(normals[active] @ direction < 0, -1, 1)
+        _, visible[active], _ = direct_response(
+            scene,
+            {
+                "points": points[active],
+                "normals": normals[active] * facing[:, None],
+            },
+            direction,
+            bias,
+        )
+    return visible, reused, skipped
+
+
 class SheetMeasure:
     def __init__(
         self, source, scene, view, directions, *, size=16, bias=2e-6, max_work=8_000_000
@@ -78,26 +100,6 @@ class SheetMeasure:
         if not np.isfinite(bias) or not 1e-7 <= bias <= 1e-4:
             raise ValueError("finite metric source-ray bias required")
 
-    def light_visibility(self, points, normals, direction, response):
-        active = np.max(response, axis=1) > 0
-        visible = np.zeros(len(points), bool)
-        self.work["skipped_zero_response"] += int((~active).sum())
-        if np.array_equal(direction, self.view):
-            visible[active] = True
-            self.work["reused_coaxial_active"] += int(active.sum())
-        elif active.any():
-            facing = np.where(normals[active] @ direction < 0, -1, 1)
-            _, visible[active], _ = direct_response(
-                self.scene,
-                {
-                    "points": points[active],
-                    "normals": normals[active] * facing[:, None],
-                },
-                direction,
-                self.bias,
-            )
-        return visible
-
     def add(self, points, slots, mass, normals, *, face_ids=None):
         points, slots, face_ids = (
             np.asarray(points, float),
@@ -138,7 +140,11 @@ class SheetMeasure:
             )
         for light, direction in enumerate(self.directions):
             response = leaf_diffuse_response(optical, normals, self.view, direction)
-            visible = self.light_visibility(points, normals, direction, response)
+            visible, reused, skipped = sheet_visibility(
+                self.scene, points, normals, self.view, direction, response, self.bias
+            )
+            self.work["reused_coaxial_active"] += reused
+            self.work["skipped_zero_response"] += skipped
             signed = np.where(normals @ self.view < 0, -1, 1) * (normals @ direction)
             for side in range(2):
                 weights = mass * np.maximum(signed * (1 if side == 0 else -1), 0)
