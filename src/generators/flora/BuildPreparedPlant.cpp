@@ -79,7 +79,7 @@ Measure(const PlantPlan &plan, std::span<const PlantBlade> blades, PreparedPlant
       part->Leaves > demand.Maximum.LeafInstances) {
     return std::unexpected("prepared plant requires bounded branch demand and matching variants");
   }
-  Measurement result{.Part = *part, .Counts = {.LeafInstances = part->Leaves}};
+  Measurement result{.Part = *part, .Counts = {.LeafInstances = part->Leaves}, .Wood = {}};
   const auto wood = MeasureWood(plan, demand, result);
   if (!wood) { return std::unexpected(wood.error()); }
   for (size_t variant = 0; variant < blades.size(); ++variant) {
@@ -174,6 +174,9 @@ BuildBlades(std::span<const PlantBlade> blades, PreparedPlant &plant, PreparedPl
     Geometry::Mesh mesh{.PositionsM = std::move(blade->Positions),
                         .Normals = std::move(blade->Normals),
                         .Uv = std::move(blade->Texture),
+                        .Uv1 = {},
+                        .Tangents = {},
+                        .Colours = {},
                         .Indices = std::move(blade->Triangles)};
     const auto part = Adopt(plant.Prototypes, mesh, MaterialInstance(1), "blade");
     if (!part) { return std::unexpected(part.error()); }
@@ -202,8 +205,11 @@ BuildPreparedPlant(const PlantPlan &plan,
       (measured->Counts.LeafInstances > 0 && materials.surfaces() != 2)) {
     return std::unexpected("prepared plant requires an owned wood/leaf material palette");
   }
-  PreparedPlant result{
-      .PlanIdentity = identity, .Root = demand.Root, .Prototypes = materials.clone()};
+  PreparedPlant result{.PlanIdentity = identity,
+                       .Root = demand.Root,
+                       .Prototypes = materials.clone(),
+                       .Axes = {},
+                       .Leaves = {}};
   auto wood = BuildWood(plan, result, *measured, demand);
   if (!wood) { return std::unexpected(wood.error()); }
   const auto part = Adopt(result.Prototypes, *wood, MaterialInstance(0), "wood");
