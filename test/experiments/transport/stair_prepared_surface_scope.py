@@ -11,7 +11,18 @@ from camera_height_inputs import digest
 from outshine_ref.contracts import LocalFrame
 from stair_prepared_surface_archive import FORMAT, MAX_BYTES, MAX_META, unique_object
 from stair_prepared_surface_restore import restore_surface
-from stair_prepared_surface_verify import REFERENCE
+
+REFERENCE = "outshine-prepared-terrain-reference/1"
+
+
+def optional_terrain(args, records):
+    path = getattr(args, "prepared_reference", None)
+    pin = getattr(args, "reference_sha256", None)
+    if path is None and pin is None:
+        return contextlib.nullcontext()
+    if path is None or pin is None:
+        raise ValueError("prepared reference and independent external pin required")
+    return admitted_terrain(path, pin, args.prepared_variant, records)
 
 
 def reference(path, expected_sha256):

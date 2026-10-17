@@ -16,11 +16,10 @@ from stair_patch_experiment import compare
 from stair_patch_verify import compare_queries
 from stair_prepared_surface_archive import FORMAT
 from stair_prepared_surface_restore import restore_surface
+from stair_prepared_surface_scope import REFERENCE
 from stair_resident_snapshot_cost import state_hash
 from stair_resident_snapshot_verify import equal_patches
 from stair_terrain_experiment import frozen
-
-REFERENCE = "outshine-prepared-terrain-reference/1"
 
 
 def verify(args):

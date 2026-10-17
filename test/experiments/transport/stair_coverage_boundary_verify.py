@@ -17,6 +17,7 @@ from stair_module_inputs import read_arrays
 from stair_patch_experiment import compare
 from stair_patch_inputs import fresh
 from stair_patch_verify import compare_queries
+from stair_prepared_surface_scope import optional_terrain
 from stair_resident_snapshot_cost import state_hash
 from stair_resident_snapshot_verify import equal_patches
 from stair_terrain_experiment import frozen
@@ -27,8 +28,8 @@ def verify(args):
     fresh(args.output)
     with validation("general", []), composition("general", []):
         strict = load_chain(args.resident)
-    records = []
-    with validation(args.coverage, records):
+    records, prepared = [], []
+    with validation(args.coverage, records), optional_terrain(args, prepared):
         actual = load_chain(args.resident)
     expected_hash = state_hash(strict)
     if state_hash(actual) != expected_hash:
@@ -50,8 +51,15 @@ def verify(args):
         prior_module=[],
         max_context_faces=8192,
     )
-    with validation(args.coverage, records):
+    with validation(args.coverage, records), optional_terrain(args, prepared):
         report = generate(options)
+    if (
+        getattr(args, "prepared_reference", None) is not None
+        and sum(row["restored"] for row in prepared) != 2
+    ):
+        raise ValueError(
+            "both actual load and generation must use the admitted terrain"
+        )
     if not report["valid_local_module"]:
         raise ValueError("actual next whole source no longer constructs")
     original = json.loads((args.reference / "comparison.json").read_text())
@@ -83,6 +91,8 @@ def verify(args):
         "whole_reference": equality,
         "queries": queries,
         "coverage_calls": records,
+        "prepared_calls": prepared,
+        "prepared_reference_sha256": getattr(args, "reference_sha256", None),
         "source_count": len(report["candidate_source_ids"]),
         "same_next_generation_artifacts": report["artifacts"],
         "cold_receipt_sha256": digest(args.output / "verification.json"),
@@ -109,4 +119,9 @@ if __name__ == "__main__":
     )
     for name in ("resident", "reference", "fixture", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--prepared-reference", type=Path)
+    parser.add_argument("--reference-sha256")
+    parser.add_argument(
+        "--prepared-variant", choices=("stored", "compressed"), default="stored"
+    )
     verify(parser.parse_args())
