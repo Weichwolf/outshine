@@ -4,6 +4,10 @@ import numpy as np
 import shapely
 
 
+def proves_mesh_boundary(xy, inverse, triangles, polygons):
+    return proves_single_boundary(xy, inverse[triangles], polygons)
+
+
 def _cycle(edges, vertex_count):
     if len(edges) < 3:
         return None

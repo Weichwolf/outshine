@@ -7,7 +7,7 @@ from unittest.mock import patch
 import shapely
 from outshine_ref.geometry.surface_patches import SurfacePatch
 from outshine_ref.geometry.surface_patches import _patch as patch_module
-from outshine_ref.geometry.surface_patches._coverage import proves_single_boundary
+from outshine_ref.geometry.surface_patches._coverage import proves_mesh_boundary
 from stair_coverage_boundary import GENERAL_COVERAGE, mesh_witness, polygon_witness
 
 
@@ -19,12 +19,12 @@ def validation(mode, records):
         )
     if mode == "library":
 
-        def observed(xy, faces, polygons):
-            proved = proves_single_boundary(xy, faces, polygons)
+        def observed(xy, inverse, faces, polygons):
+            proved = proves_mesh_boundary(xy, inverse, faces, polygons)
             records.append({"proved": proved, "input_polygons": len(polygons)})
             return proved
 
-        with patch.object(patch_module, "proves_single_boundary", observed):
+        with patch.object(patch_module, "proves_mesh_boundary", observed):
             yield
         return
     current = contextvars.ContextVar("coverage_research_mesh", default=None)
@@ -53,7 +53,7 @@ def validation(mode, records):
 
     with (
         patch.object(SurfacePatch, "__post_init__", initialise),
-        patch.object(patch_module, "proves_single_boundary", lambda *_a: False),
+        patch.object(patch_module, "proves_mesh_boundary", lambda *_a: False),
         patch.object(shapely, "coverage_is_valid", coverage),
     ):
         yield
