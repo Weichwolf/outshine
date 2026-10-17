@@ -79,6 +79,20 @@ class NeedleResponseChecks(unittest.TestCase):
             with self.assertRaises(ValueError):
                 quadratic_moments(normals, weights)
 
+    def test_polynomial_error_bound_and_negative_value(self):
+        cosines = np.linspace(-1, 1, 10001)
+        polynomial = 3 / 32 + cosines / 2 + 15 / 32 * cosines**2
+        self.assertLessEqual(
+            float(np.max(abs(polynomial - np.maximum(cosines, 0)))), 3 / 32
+        )
+        self.assertLess(float(polynomial.min()), 0)
+        normals = np.array([[0.0, 0.0, 1.0]])
+        cosine = -8 / 15
+        direction = [np.sqrt(1 - cosine * cosine), 0, cosine]
+        self.assertAlmostEqual(
+            quadratic_response(quadratic_moments(normals, [1]), direction), -19 / 480
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -23,6 +23,10 @@ from raster_batch import rasterize
 
 
 def samples(path, view, size):
+    if path.stat().st_size > 16 * 1024 * 1024 or size != 256:
+        raise ValueError(
+            "selected frozen twig <=16MiB and fixed256-square probe required"
+        )
     began = time.perf_counter()
     with np.load(path) as source:
         vertices, faces, normals = (source[k] for k in ("vertices", "faces", "normals"))
@@ -46,9 +50,14 @@ def samples(path, view, size):
             "sample_grid": [size, size],
             "retained_sample_bytes": covered.nbytes + attributes.nbytes,
             "sample_wall_s": time.perf_counter() - began,
-            "source_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "source_sha256": source_digest(path),
         },
     )
+
+
+def source_digest(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 def compare(covered, normals, directions, block):
@@ -111,7 +120,11 @@ def run(source, output):
     ).strip()
     report["implementation_sha256"] = {
         name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-        for name in ("needle_response.py", "needle_response_study.py", "raster_batch.py")
+        for name in (
+            "needle_response.py",
+            "needle_response_study.py",
+            "raster_batch.py",
+        )
     }
     report["footprints"] = []
     for block in (4, 16, 64, 256):
