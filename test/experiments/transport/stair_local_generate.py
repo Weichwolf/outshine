@@ -38,7 +38,7 @@ def construct(
 ):
     if (
         recipe.get("contact_mode") not in ("profile", "seed")
-        or recipe.get("junction_mode") != "level_box"
+        or recipe.get("junction_mode") not in ("level_box", "shared_box")
         or (
             recipe.get("contact_mode") == "profile"
             and not ({"vertex", "end"} & recipe.get("port", {}).keys())
@@ -57,7 +57,7 @@ def construct(
         ground,
         sample,
         contact_mode="profile",
-        junction_mode="level_box",
+        junction_mode=recipe["junction_mode"],
     )
     original = shapely.union_all(planning[1])
     if not axes.buffer(16.0).covers(original):

@@ -15,10 +15,16 @@ from stair_module_materials import surface_slots
 from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
 from stair_module_roots import bind_root_pad, profile_masks, root_profile
-from stair_module_sections import cap_edge_constraints, line_pieces, profile_levels
+from stair_module_sections import (
+    cap_edge_constraints,
+    profile_levels,
+    whole_line_pieces,
+)
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
+from stair_shared_boxes import add_boxes, whole_sections
 from stair_source_owners import source_selection
+from stair_surface_contacts import bind_contacts
 
 
 def old_surfaces(state, recipe, sources):
@@ -60,16 +66,12 @@ def old_surfaces(state, recipe, sources):
             "actual cached source does not support its whole outer profile"
         )
     if varying:
-        pieces, _parents = line_pieces(cap.vertices, cap.triangles, line[:, :2])
-        if (
-            shapely.LineString(line[:, :2])
-            .difference(shapely.union_all(pieces).buffer(1e-7))
-            .length
-            > 1e-7
-        ):
-            raise ValueError("whole actual reference profile has missing intervals")
+        whole_line_pieces(cap.vertices, cap.triangles, line[:, :2])
         row["cached_cap"] = cap
     state["module_contacts"] = frozen_contacts(state, recipe, sources)
+    state["surface_contacts"] = bind_contacts(state, recipe, sources)
+    row["surface_contacts"] = state["surface_contacts"]
+    row["shared_box"] = recipe.get("junction_mode") == "shared_box"
     row["additional_contacts"] = state["module_contacts"]
     row["include_interiors"] = row["root_interior"] or bool(
         recipe.get("endpoint_contacts")
@@ -113,6 +115,14 @@ def prepared(rows, sources, frozen_row, line, ground):
     complete_landings(
         rows, nodes, [], max_pads=16, include_interiors=frozen_row["include_interiors"]
     )
+    if frozen_row.get("shared_box"):
+        add_boxes(
+            rows,
+            nodes,
+            line,
+            contacts,
+            include_interiors=frozen_row["include_interiors"],
+        )
     surface_sampling(rows, "source_knots")
     surface_welding(rows, 1e-7)
     original = [corridor(r) for r in rows]
@@ -165,7 +175,7 @@ def build(
         rows, sources, frozen_row, line, ground
     )
     constraints = ()
-    if junction_mode not in ("free", "level_box") or (
+    if junction_mode not in ("free", "level_box", "shared_box") or (
         junction_mode != "free" and contact_mode != "profile"
     ):
         raise ValueError("known bounded new junction-height mode required")
@@ -174,8 +184,9 @@ def build(
         caps = [frozen_row["cached_cap"]] + [
             c["cap"] for c in frozen_row["additional_contacts"]
         ]
+        caps.extend(c["cap"] for c in frozen_row.get("surface_contacts", []))
         constraints = cap_edge_constraints(caps, domains)
-        if junction_mode == "level_box":
+        if junction_mode in ("level_box", "shared_box"):
             cached_points = [
                 line[1, :2],
                 *[c["xy"] for c in frozen_row["additional_contacts"]],
@@ -192,6 +203,11 @@ def build(
         domains,
         [] if contact_mode == "profile" else masks,
         constraints=constraints,
+        **(
+            {"section_provider": whole_sections}
+            if junction_mode == "shared_box"
+            else {}
+        ),
     )
     if contact_mode == "profile":
         check_surface(xy, faces)
