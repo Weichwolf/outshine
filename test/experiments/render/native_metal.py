@@ -138,6 +138,14 @@ def native_api(output, glslang, toolchain, link_flags):
         clamp_shaders.append(destination)
     clamp_checks = check_probe("native-depth-clamp-probe", "NativeDepthClampProbe.cpp",
                                 *clamp_shaders, output / "depth-clamp")
+    math_shaders = []
+    for stage in ("vert", "frag", "comp"):
+        source = Path(__file__).with_name("native_shader_math." + stage)
+        destination = output / (source.name + ".spv")
+        run([glslang, "-V", "--target-env", "vulkan1.0", str(source), "-o", str(destination)])
+        math_shaders.append(destination)
+    math_checks = check_probe("native-shader-math-probe", "NativeShaderMathProbe.cpp",
+                              *math_shaders, "--validation")
     return {"checks": checks, "failures": 0, "texture_checks": texture_checks,
             "raster_pipeline_checks": raster_checks, "render_pass_checks": pass_checks,
             "draw_checks": draw_checks, "mrt_depth_pyramid_checks": mrt_checks, "texture_lifetime_checks": lifetime_checks,
@@ -145,7 +153,8 @@ def native_api(output, glslang, toolchain, link_flags):
             "mrt_draw_checks": mrt_draw_checks, "presentation_checks": present_checks,
             "presentation_target_checks": target_checks, "sdr_transfer_checks": sdr_checks,
             "display_colour_space_checks": display_checks, "native_readback_checks": readback_checks,
-            "submission_gpu_timing_checks": timing_checks, "depth_clamp_checks": clamp_checks}, sources
+            "submission_gpu_timing_checks": timing_checks, "depth_clamp_checks": clamp_checks,
+            "shader_math_checks": math_checks}, sources
 
 
 
@@ -217,6 +226,9 @@ def main():
              ROOT / "test/harness/render/NativeMetalPresentationProbe.mm",
              ROOT / "test/harness/render/NativeReadbackProbe.cpp",
              ROOT / "test/harness/render/NativeDepthClampProbe.cpp",
+             ROOT / "test/harness/render/NativeShaderMathProbe.cpp",
+             *(Path(__file__).with_name("native_shader_math." + stage)
+               for stage in ("glsl", "vert", "frag", "comp")),
              Path(__file__).with_name("native_depth_clamp.vert"),
              Path(__file__).with_name("native_depth_clamp.frag"),
              ROOT / "src/render/stages/StagePipelines.cpp",

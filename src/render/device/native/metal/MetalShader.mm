@@ -11,7 +11,7 @@ Result<id<MTLFunction>>
 CompileFunction(id<MTLDevice> device, const Shader &shader, MTLFunctionType type) {
   NSError *error = nil;
   MTLCompileOptions *const options = [MTLCompileOptions new];
-  options.mathMode = MTLMathModeSafe;
+  options.mathMode = type == MTLFunctionTypeFragment ? MTLMathModeRelaxed : MTLMathModeSafe;
   const id<MTLLibrary> library = [device newLibraryWithSource:Text(shader.Source)
                                                       options:options
                                                         error:&error];
