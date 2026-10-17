@@ -25,14 +25,14 @@ def view_light_knots(count=32):
         rings = [(1, 4), (3, 8), (10, 8), (25, 10), (50, 10), (85, 12), (130, 10)]
     elif count != 32:
         raise ValueError("32 or 64 bounded light knots required")
-    for degrees, count in rings:
+    for degrees, ring_count in rings:
         theta = np.deg2rad(degrees)
-        azimuth = np.arange(count) * 2 * np.pi / count
+        azimuth = np.arange(ring_count) * 2 * np.pi / ring_count
         rows.extend(
             np.c_[
                 np.sin(theta) * np.cos(azimuth),
                 np.sin(theta) * np.sin(azimuth),
-                np.full(count, np.cos(theta)),
+                np.full(ring_count, np.cos(theta)),
             ]
         )
     return np.array(rows)
