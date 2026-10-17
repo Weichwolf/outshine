@@ -29,6 +29,16 @@ def digest(identifiers):
     ).hexdigest()
 
 
+def source_identity(row):
+    return {
+        "id": row["id"],
+        "source_footprint_sha256": hashlib.sha256(row["polygon"].wkb).hexdigest(),
+        "source_properties_sha256": hashlib.sha256(
+            json.dumps(dict(row["properties"]), sort_keys=True).encode()
+        ).hexdigest(),
+    }
+
+
 def candidates(row):
     first = (
         "cascade" if seed_for(row["id"] + "/terraced-kind") % 2 == 0 else "paired-wings"
@@ -106,13 +116,7 @@ def census(rows, baseline, *, progress):
         raise ValueError("Existing functional ownership reference is incomplete")
     records = []
     for row in buildings:
-        source = {
-            "id": row["id"],
-            "source_footprint_sha256": hashlib.sha256(row["polygon"].wkb).hexdigest(),
-            "source_properties_sha256": hashlib.sha256(
-                json.dumps(dict(row["properties"]), sort_keys=True).encode()
-            ).hexdigest(),
-        }
+        source = source_identity(row)
         if row["id"] in protected:
             result = {"status": "retained-existing-functional-owner"}
         elif row["id"] not in requested:
@@ -148,6 +152,11 @@ def census(rows, baseline, *, progress):
         raise ValueError(
             "Direct candidate census replaced an existing functional owner"
         )
+    for row, record in zip(buildings, records, strict=True):
+        if any(record[k] != v for k, v in source_identity(row).items()):
+            raise ValueError(
+                "Candidate construction mutated original source attributes or footprint"
+            )
     accepted = [r for r in records if r["status"] == "direct-candidate"]
     return {
         "records": records,
