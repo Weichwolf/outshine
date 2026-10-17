@@ -7,18 +7,19 @@ from dataclasses import dataclass
 
 import numpy as np
 import shapely
+from broken_hip import envelope as profiled_envelope
+from broken_hip import recipe as roof_profile
 from building_layout import frame
 from outshine_ref.buildings.modelling import (
     Shape,
     SkeletonBudgetExceeded,
     cga_to_enu,
-    heightfield_envelope,
 )
 from outshine_ref.buildings.structures import classify_structure
 from provider_contract import attributes, number
 from shapely.affinity import translate
 from tile_buildings import prism
-from tile_room_details import RoomDetails
+from tile_room_details import RoomDetails, numeric_properties
 
 
 @dataclass(frozen=True)
@@ -114,11 +115,14 @@ def legacy_choice(row, parameters):
 
 
 def choose(row, parameters):
+    from industrial_roof_choice import extend as industrial
     from residential_roof_choice import extend
     from urban_roof_choice import extend as urban
 
-    return urban(
-        row, parameters, extend(row, parameters, legacy_choice(row, parameters))
+    return industrial(
+        row,
+        parameters,
+        urban(row, parameters, extend(row, parameters, legacy_choice(row, parameters))),
     )
 
 
@@ -135,6 +139,12 @@ def normalise_hip(mesh, choice):
 
 
 def roof_surface(row, choice):
+    from industrial_roof_choice import KINDS, section_for
+
+    if choice.kind in KINDS:
+        from outshine_ref.buildings.section_roofs import section_surface
+
+        return section_surface(row["polygon"], section_for(row, choice)), None, None
     polygon = row["polygon"]
     x0, y0, x1, y1 = polygon.bounds
     origin = np.array([(x0 + x1) / 2, (y0 + y1) / 2])
@@ -275,6 +285,8 @@ def pitched_candidates(rows, view, limit=16):
 
 class OrdinaryDetails:
     def __init__(self, rows, view):
+        from industrial_roof_choice import KINDS
+
         self.rooms = RoomDetails(rows, view)
         self.view = view
         self.choices = Counter()
@@ -282,10 +294,20 @@ class OrdinaryDetails:
         self.rejected = []
         self.coarse = []
         self.pitched = pitched_candidates(rows, view)
+        self.industrial_rooms = {
+            row["id"]
+            for row in rows
+            if row["layer"] == "building"
+            and row["id"] in self.rooms.identifiers
+            and choose(row, attributes(numeric_properties(row))).kind in KINDS
+        }
+        self.pitched.update(self.industrial_rooms)
         self.room_completed = []
         self.room_rejected = []
+        self.current_envelope = None
 
     def __call__(self, row, parameters, material):
+        self.current_envelope = None
         choice = choose(row, parameters)
         self.choices[choice.kind] += 1
         if choice.kind == "flat":
@@ -301,10 +323,16 @@ class OrdinaryDetails:
             self.rejected.append(
                 {"id": row["id"], "kind": choice.kind, "reason": str(error)}
             )
+            if row["id"] in self.industrial_rooms:
+                return self.rooms(row, parameters, material)
             return None
 
     def complete(self, row, parameters, material, choice):
+        from industrial_roof_choice import KINDS
+        from industrial_roof_choice import metadata as section_metadata
+
         error = projected_error(row, parameters, choice, self.view)
+        profile = roof_profile(row, parameters, choice)
         metadata = {
             "roof_kind": choice.kind,
             "roof_rise_m": choice.rise_m,
@@ -316,6 +344,10 @@ class OrdinaryDetails:
             "projected_geometry_error_px": error if math.isfinite(error) else None,
             "functional_status": "Exterior heightfield envelope; room/use/access programme and native integration unplanned",
         }
+        if profile is not None:
+            metadata["roof_profile"] = profile | {"status": "deferred"}
+        if choice.kind in KINDS:
+            metadata["roof_section"] = section_metadata(row, choice)
         if error <= 0.5:
             mesh, info = prism(row, parameters, material)
             self.coarse.append(dict(id=row["id"], **metadata))
@@ -341,9 +373,13 @@ class OrdinaryDetails:
                 return mesh, metadata | info
             except ValueError as error:
                 self.room_rejected.append({"id": row["id"], "reason": str(error)})
-        envelope = heightfield_envelope(
-            top, parameters["minHeight"], wall_material=material, base_material=material
+                if row["id"] in self.industrial_rooms:
+                    return self.rooms(row, parameters, material)
+        envelope, profile_report = profiled_envelope(
+            top, parameters, material, choice, profile
         )
+        if profile_report is not None:
+            metadata["roof_profile"] = profile_report
         mesh = dict(envelope.mesh)
         for key in ("parts", "groups", "face_tag_mask"):
             mesh.pop(key)
@@ -352,6 +388,7 @@ class OrdinaryDetails:
             raise ValueError(
                 "Roof envelope changed its source footprint or filled a courtyard"
             )
+        self.current_envelope = envelope
         self.completed.append(
             dict(
                 id=row["id"],

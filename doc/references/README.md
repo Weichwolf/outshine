@@ -161,6 +161,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   BRDF, Roughness, Lichtgrößen, Reflexion, Farbraum und Kameraantwort gemeinsam kalibrieren.
   Vorhandenen Khronos-Vertrag erhalten; Parameter/IBL vor neuen Passketten verbessern.
   Referenzverfahren separat prüfen, ihre Kosten sind kein Runtime-Budget.
+- **Precomputed Radiance Transfer for Real-Time Rendering in Dynamic,
+  Low-Frequency Lighting Environments**, Sloan / Kautz / Snyder, SIGGRAPH 2002.
+  [Quelle](https://www.microsoft.com/en-us/research/publication/precomputed-radiance-transfer-real-time-rendering-dynamic-low-frequency-lighting-environments/) ·
+  [PDF](lighting/siggraph/2002-precomputed-radiance-transfer.pdf).
+  Geometrischen Transfer und aktuelles Licht trennen; #451 prüft zunächst die
+  reduzierte Materialantwort eines festen Gras-Footprints. Keine SH-/Winkel-/
+  Weltfreigabe aus einem einzelnen begrenzten Transferprodukt.
 - **A Survey of Temporal Antialiasing Techniques**, Yang / Liu / Salvi, CGF / Eurographics 2020.
   [Autoren](https://research.nvidia.com/labs/rtr/publication/yang2020survey/) ·
   [Verlags-PDF](https://diglib.eg.org/server/api/core/bitstreams/53732e70-b64d-46f4-bbae-865eb7673a35/content) ·
@@ -428,6 +435,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Kompakte LUTs verbinden Boden-, Flug- und Orbitansicht mit Luftperspektive.
   Bestehende SkyStage vergleichen/ergänzen; gemeinsame planetare Maße und Lichtgrößen.
   Wetterparametrisierung ist eine plausible Ergänzung, keine gemessene Aerosolverteilung.
+- **Improving Noise**, Perlin, SIGGRAPH2002.
+  [Autorenquelle](https://mrl.cs.nyu.edu/~perlin/paper445.pdf) ·
+  [PDF](clouds/siggraph/2002-improving-noise.pdf).
+  Gitter und relative Interpolationskoordinaten; Seite1 samt Gleichung/Fig.1 optisch geprüft.
+  Numerische Advektionsuntersuchung bei [#447](https://github.com/Weichwolf/outshine/issues/447);
+  keine Übernahme des Gradienten-Codes oder behauptete native Präzisionsabnahme.
 - **The Real-time Volumetric Cloudscapes of Horizon Zero Dawn**, Schneider / Vos,
   SIGGRAPH-Kurs 2015.
   [Quelle](https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf) ·

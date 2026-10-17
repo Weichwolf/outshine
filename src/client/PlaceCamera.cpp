@@ -7,12 +7,14 @@
 #include "FrameSchedule.h"
 #include "WorldSourcePolicy.h"
 #include "SourceCache.h"
+#include "ReadTextFile.h"
 #include "PlaceSourcePreparation.h"
 
 #include "io/HeapProbe.h"
 
 #include <algorithm>
 #include <expected>
+#include <limits>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -245,9 +247,15 @@ bool OpenPlace(Engine &engine, const Place &place, Shot &shot, Roots roots) {
   }
 
   Scenario::Document stands = place.Declaration;
+  const auto timing = Client::FrameTiming::At(stands.Render.FrameRateHz);
+  if (!timing) {
+    shot.Why = timing.error();
+    return false;
+  }
   stands.Views = PlaceTurn(place.Declaration.Views.front(),
                            {.LongitudeDeg = stands.Ground.Origin.LongitudeDeg,
-                            .LatitudeDeg = stands.Ground.Origin.LatitudeDeg});
+                            .LatitudeDeg = stands.Ground.Origin.LatitudeDeg},
+                           *timing);
   stands.Render.Audits = Audits;
 
   const auto began = std::chrono::steady_clock::now();
@@ -353,9 +361,9 @@ bool MeasureFrames(Engine &engine,
   heldMs.reserve(count);
   advancedMs.reserve(count);
   renderedMs.reserve(count);
-  Client::FramePacer pacer;
+  Client::FramePacer pacer(shot.Timing.DeadlineNs(1));
   const auto began = std::chrono::steady_clock::now();
-  const Client::FrameSchedule schedule(SDL_GetTicksNS());
+  const Client::FrameSchedule schedule(SDL_GetTicksNS(), shot.Timing);
   for (std::size_t at = 0; at < count; ++at) {
     if (turn.empty()) {
       pacer.Wait();
@@ -387,8 +395,12 @@ bool MeasureFrames(Engine &engine,
     advancedMs.push_back(std::chrono::duration<double, std::milli>(advanced - before).count());
     renderedMs.push_back(std::chrono::duration<double, std::milli>(rendered - advanced).count());
     heldMs.push_back(std::chrono::duration<double, std::milli>(rendered - before).count());
-    if (heldMs.back() > heldMs[shot.WorstAt]) { shot.WorstAt = heldMs.size() - 1; }
-    shot.OverBudget += heldMs.back() > kFrameBudgetMs ? 1u : 0u;
+    shot.OverBudget += heldMs.back() > shot.Timing.BudgetMs() ? 1u : 0u;
+  }
+  shot.WorstAt = static_cast<std::size_t>(std::ranges::max_element(heldMs) - heldMs.begin());
+  if (const auto result = engine.renderer().flushAndWait(); !result) {
+    shot.Why = std::string(name) + " could not complete its measured frames: " + result.error();
+    return false;
   }
   shot.MeasurementMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - began).count();
@@ -430,16 +442,13 @@ void SavePlaceShot(Engine &engine, std::string_view name, Shot &shot, std::strin
   std::filesystem::create_directories(into, failed);
   const std::string writing = into + "/" + std::string(name) + ".writing";
   if (engine.renderer().saveScreenshot(writing)) {
-    std::string bytes;
-    if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
-      std::array<char, 65536> block{};
-      std::size_t read = 0;
-      while ((read = std::fread(block.data(), 1, block.size(), held)) > 0) {
-        bytes.append(block.data(), read);
-      }
-      std::fclose(held);
+    const auto bytes = ReadTextFile(writing, std::numeric_limits<size_t>::max());
+    if (!bytes) {
+      std::println(stderr, "WARN shot: {}", bytes.error());
+      std::filesystem::remove(writing, failed);
+      return;
     }
-    shot.Digest = Sha256Hex(bytes).substr(0, 8);
+    shot.Digest = Sha256Hex(*bytes).substr(0, 8);
     shot.Wrote = into + "/" + std::string(name) + "-" + shot.Digest + ".png";
     std::filesystem::rename(writing, shot.Wrote, failed);
     shot.Kept = !failed;
@@ -459,6 +468,13 @@ Shot Draw(Engine &engine,
           double preloadSeconds,
           std::span<const Scenario::View> turn) {
   Shot shot;
+  const auto timing = Client::FrameTiming::At(engine.declaration().Render.FrameRateHz);
+  if (!timing) {
+    shot.Why = timing.error();
+    return shot;
+  }
+  shot.Timing = *timing;
+  shot.Frame = engine.swapChain().extent();
   HeapProbe::ForgetPeak();
   if (!PreloadShot(engine, name, tells, preloadSeconds, shot)) { return shot; }
   if (!MeasureFrames(engine, name, shot, turn)) { return shot; }

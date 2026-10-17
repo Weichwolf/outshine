@@ -1,4 +1,4 @@
-#include "src/base/format/CssColour.h"
+#include "CssColour.h"
 #include "Check.h"
 
 int main() {

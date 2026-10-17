@@ -29,7 +29,6 @@
 
 #include "PlaceCamera.h"
 #include "PixelProbe.h"
-#include "RenderAsset.h"
 #include "ScenarioRoundTrip.h"
 #include "ScenarioCapture.h"
 #include "format/Number.h"
@@ -100,7 +99,7 @@ void Tell(const Shot &shot, std::string_view name) {
                shot.P99Ms,
                shot.OverBudget,
                shot.Frames,
-               outshine::Shots::kFrameBudgetMs,
+               shot.Timing.BudgetMs(),
                shot.WorstAt,
                shot.AdvanceP99Ms,
                shot.AdvanceWorstMs,
@@ -147,7 +146,6 @@ void Row(const Shot &shot, std::string_view name) {
 void Usage(std::string_view verb = {}) {
   if (verb.empty()) {
     std::println("Usage: outshine-client [--places <directory>] <command> [arguments]\n"
-                 "  render      capture glTF/GLB to PNG\n"
                  "  run         capture a scenario or route motion\n"
                  "  shots       capture named places\n"
                  "  measures    capture a scenario and print engine diagnostics\n"
@@ -156,24 +154,11 @@ void Usage(std::string_view verb = {}) {
                  "  roundtrip   check scenario serialization\n"
                  "  height      query terrain elevation\n\n"
                  "Use <command> --help for options. --places defaults to src/assets/places.\n"
-                 "--stats on render, run, shots or measures prints "
+                 "--stats on run, shots or measures prints "
                  "STAT<TAB>name<TAB>key<TAB>value<TAB>unit rows.");
     return;
   }
-  if (verb == "render") {
-    std::println("Usage: outshine-client render <asset.gltf|asset.glb> <width>x<height> "
-                 "<output.png> [options]\n"
-                 "  --camera auto|index             default: first unambiguous camera, else auto\n"
-                 "  --time <seconds>                animation time, default 0\n"
-                 "  --animation <index>             select animation clip\n"
-                 "  --variant <name>                select material variant\n"
-                 "  --position x,y,z --look-at x,y,z  camera in local metres; supply both\n"
-                 "  --fov <degrees>                 vertical field of view\n"
-                 "  --lighting auto|authored|studio  default auto\n"
-                 "  --exposure <multiplier>         positive linear multiplier, default 1\n"
-                 "  --stats                         stage timings, frame count and resolution\n"
-                 "Resolution axes: 1..4096 px. Output directory must exist.");
-  } else if (verb == "run" || verb == "measures") {
+  if (verb == "run" || verb == "measures") {
     std::println(
         "Usage: outshine-client {} [options] <scenario> [name]\n"
         "  scenario                        XML/JSON file path or complete inline JSON object\n"
@@ -183,7 +168,8 @@ void Usage(std::string_view verb = {}) {
         "  --motion                        render every paced tick; requires view and time\n"
         "  --samples                       save route-decile PNGs; requires --motion\n"
         "  --quality playable|refined      minimum final capture quality (default playable)\n"
-        "  --into <folder>                 absolute or relative to build/shots/ (default khronos)\n"
+        "  --into <folder>                 absolute or relative to build/shots/ (default "
+        "captures)\n"
         "  --cache-dir <directory>         default user-data directory/sources\n"
         "  --offline                       use only cached and shipped sources\n"
         "  --rows                          machine-readable capture rows\n"
@@ -222,12 +208,11 @@ void Usage(std::string_view verb = {}) {
     std::println("Usage: outshine-client height <latitude-deg> <longitude-deg>\n"
                  "Query terrain elevation in metres; latitude [-90,90], longitude [-180,180].");
   }
-  if (verb == "render" || verb == "run" || verb == "measures" || verb == "shots") {
+  if (verb == "run" || verb == "measures" || verb == "shots") {
     std::println("STAT TSV: STAT<TAB>name<TAB>key<TAB>value<TAB>unit; "
                  "status is ok or failed. Timings are milliseconds.\n"
                  "run: setup_ms; run/shots: preload/wait timings, playable/refined, tile and "
                  "source counts.\n"
-                 "render: elapsed/prepare/assemble/draw/save_ms, draw_frames, width/height_px.\n"
                  "route motion: frame count, p50/p95/p99, budget/readiness, contact gaps, "
                  "eye clearance and peak heap.");
   }
@@ -245,8 +230,8 @@ RequestedHelp(const outshine::Client::CommandLine &command) {
     return std::nullopt;
   }
   const std::string_view verb = command.Verb;
-  if (verb == "render" || verb == "run" || verb == "shots" || verb == "measures" ||
-      verb == "prepare" || verb == "places" || verb == "roundtrip" || verb == "height") {
+  if (verb == "run" || verb == "shots" || verb == "measures" || verb == "prepare" ||
+      verb == "places" || verb == "roundtrip" || verb == "height") {
     return verb;
   }
   return std::nullopt;
@@ -374,6 +359,12 @@ void ReportShot(const Shot &shot,
                 std::string_view name,
                 const outshine::Client::ShotOptions &options,
                 std::chrono::steady_clock::time_point began) {
+  std::println("PROFILE\t{}\t{}\t{}\t{}\t{:.6f}",
+               name,
+               shot.Frame.WidthPx,
+               shot.Frame.HeightPx,
+               shot.Timing.RateHz,
+               shot.Timing.BudgetMs());
   if (options.Rows) {
     Row(shot, name);
   } else {
@@ -439,7 +430,7 @@ struct ScenarioRunOptions {
   bool Stats = false;
   bool Offline = false;
   std::string_view CacheDirectory = outshine::Client::kDefaultCacheDirectory;
-  std::string Into = "khronos";
+  std::string Into = "captures";
   std::string_view SelectedView;
   std::string_view ScenarioOverrides;
   double AtS = 0.0;
@@ -669,6 +660,12 @@ int CaptureView(outshine::Engine &engine,
                  captured->Path);
   }
   if (!options.RenderMotion) { return 0; }
+  std::println("PROFILE\t{}\t{}\t{}\t{}\t{:.6f}",
+               named,
+               engine.swapChain().extent().WidthPx,
+               engine.swapChain().extent().HeightPx,
+               captured->Timing.RateHz,
+               captured->Timing.BudgetMs());
   if (options.Rows) {
     std::println("MOTION\t{}\t{}\t{}\t{:.3f}\t{:.3f}\t{:.3f}\t{}\t{}\t{:.3f}\t{}",
                  named,
@@ -982,7 +979,6 @@ int RunClientCommand(std::span<const char *const> arguments) {
         "PREPARE {} {}; no frame-rate measurement", place->Name, why.empty() ? "ready" : why);
     return why.empty() ? 0 : 1;
   }
-  if (verb == "render") { return outshine::Client::RenderAsset({from, static_cast<size_t>(rest)}); }
   if (verb == "run") { return RunScenario(rest, from, false); }
   if (verb == "measures") { return RunScenario(rest, from, true); }
   if (verb == "height") { return QueryTerrainHeight({from, static_cast<std::size_t>(rest)}); }

@@ -1,0 +1,663 @@
+{
+  "version": "spruce-study-input-1",
+  "provenance": {
+    "origin": "Own procedural Picea abies study, PR #578 selected graph; physical needles/material from own #131 reference, not vendor assets.",
+    "graph_producer": "e15819565b09de58b618a892fbbe728b0e880d3c",
+    "prior_product_identity": "9b0ddc06782045160e56fdb9d81ea54da52bfda3d81491a30037477a7ac10131",
+    "scope": "Experimental morphology/appearance; unapproved botanical/SpeedTree/LOD/stand calibration."
+  },
+  "physical_source": {
+    "version": "physical-needle-source-1",
+    "patterns": [
+      null,
+      {
+        "version": "needle-pattern-1",
+        "spacing": 0.0012,
+        "group_size": 1,
+        "first": 0.78,
+        "last": 0.95,
+        "pitch": 1.3,
+        "spread": 0.0,
+        "short_length": 0.0006,
+        "angle_variation": 0.44,
+        "scale_variation": 0.08
+      },
+      {
+        "version": "needle-pattern-1",
+        "spacing": 0.0012,
+        "group_size": 1,
+        "first": 0.12,
+        "last": 0.95,
+        "pitch": 1.3,
+        "spread": 0.0,
+        "short_length": 0.0006,
+        "angle_variation": 0.44,
+        "scale_variation": 0.08
+      },
+      {
+        "version": "needle-pattern-1",
+        "spacing": 0.0012,
+        "group_size": 1,
+        "first": 0.12,
+        "last": 0.95,
+        "pitch": 1.3,
+        "spread": 0.0,
+        "short_length": 0.0006,
+        "angle_variation": 0.44,
+        "scale_variation": 0.08
+      }
+    ],
+    "needles": [
+      {
+        "length": 0.015,
+        "radius": 0.00045,
+        "aspect": 1,
+        "bend": 0.13,
+        "twist": 0.05,
+        "taper_start": 0.75,
+        "section": "rhombus"
+      },
+      {
+        "length": 0.018,
+        "radius": 0.00045,
+        "aspect": 1,
+        "bend": 0.13,
+        "twist": 0.05,
+        "taper_start": 0.75,
+        "section": "rhombus"
+      },
+      {
+        "length": 0.022,
+        "radius": 0.00045,
+        "aspect": 1,
+        "bend": 0.13,
+        "twist": 0.05,
+        "taper_start": 0.75,
+        "section": "rhombus"
+      }
+    ]
+  },
+  "authoring": {
+    "width_factor": 1.4,
+    "primary_whorls": 36,
+    "length_variance": 0.12,
+    "attachment_spread_m": 0.08,
+    "nominal_lai": 5.0,
+    "nominal_crown_width_m": 7.9799999999999995,
+    "target_area_m2": 250.0723460220743,
+    "internode_variation": 0.35,
+    "upper_inclination_rad": 1.05,
+    "crown_last_parameter": 0.995,
+    "terminal_length_fraction": 0.02,
+    "crown_length_exponent": 0.76,
+    "upper_density_bias": 0.5
+  },
+  "needle_mesh": {
+    "segments": 24,
+    "sides": 16
+  },
+  "material": {
+    "section": "rhombus",
+    "base_colour": [
+      0.035,
+      0.105,
+      0.042
+    ]
+  },
+  "catalog": {
+    "seed": 718,
+    "groups": 256,
+    "directions": 64,
+    "size": 32,
+    "subpixel_samples": 8
+  },
+  "reference_fields": {
+    "needle_meshes": [
+      {
+        "vertices": {
+          "shape": [
+            98,
+            3
+          ],
+          "dtype": "<f8",
+          "sha256": "da27c20a6630e7b4ecafbd2c2c055a6c52475c9895c541fc5a55c72533be0e4a"
+        },
+        "faces": {
+          "shape": [
+            192,
+            3
+          ],
+          "dtype": "<i4",
+          "sha256": "fcaf3801ed94d1b81f6ca1e32c5d4e8445a935fc8fd1eb9650cd37e434a1620d"
+        },
+        "normals": {
+          "shape": [
+            576,
+            3
+          ],
+          "dtype": "<f8",
+          "sha256": "b45973ee97035172c6f89fb21bbf4e09aaa8135108fe24c1c45a258625ebe70f"
+        },
+        "parameters": {
+          "shape": [
+            98,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "3365245cd99f3fa2453f35bc3fb9f748b053b437966ce9313c486ed933bf91c7"
+        },
+        "uv": {
+          "shape": [
+            98,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "41666cbd07b6ee2d76551b1f49b975f75be4441b2c402cd5fc5bf9e848454741"
+        },
+        "corner_uv": {
+          "shape": [
+            576,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "db48fffc33f11f3afc65d69b34a070dcfbe428e76ea4900188eb3da1a0288b25"
+        }
+      },
+      {
+        "vertices": {
+          "shape": [
+            98,
+            3
+          ],
+          "dtype": "<f8",
+          "sha256": "b600b6f0e28e8e93df4814e8f0a6a8ee99de2637d50f04bc56b383e7121880ee"
+        },
+        "faces": {
+          "shape": [
+            192,
+            3
+          ],
+          "dtype": "<i4",
+          "sha256": "fcaf3801ed94d1b81f6ca1e32c5d4e8445a935fc8fd1eb9650cd37e434a1620d"
+        },
+        "normals": {
+          "shape": [
+            576,
+            3
+          ],
+          "dtype": "<f8",
+          "sha256": "9cc97d0df53aadc7759502af8488a9fc3b0ae12c459348b31cb9b68db2f3b3aa"
+        },
+        "parameters": {
+          "shape": [
+            98,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "3365245cd99f3fa2453f35bc3fb9f748b053b437966ce9313c486ed933bf91c7"
+        },
+        "uv": {
+          "shape": [
+            98,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "41666cbd07b6ee2d76551b1f49b975f75be4441b2c402cd5fc5bf9e848454741"
+        },
+        "corner_uv": {
+          "shape": [
+            576,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "db48fffc33f11f3afc65d69b34a070dcfbe428e76ea4900188eb3da1a0288b25"
+        }
+      },
+      {
+        "vertices": {
+          "shape": [
+            98,
+            3
+          ],
+          "dtype": "<f8",
+          "sha256": "dbbd25c156ec832549f603bcc3ed1442efde647d5f35d0b90df6e99e2bc19abb"
+        },
+        "faces": {
+          "shape": [
+            192,
+            3
+          ],
+          "dtype": "<i4",
+          "sha256": "fcaf3801ed94d1b81f6ca1e32c5d4e8445a935fc8fd1eb9650cd37e434a1620d"
+        },
+        "normals": {
+          "shape": [
+            576,
+            3
+          ],
+          "dtype": "<f8",
+          "sha256": "862ccdcfe65fec016e676f73cadff34afa3c273b7f7ca1cfdb9bdd0fdf3dc0ed"
+        },
+        "parameters": {
+          "shape": [
+            98,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "3365245cd99f3fa2453f35bc3fb9f748b053b437966ce9313c486ed933bf91c7"
+        },
+        "uv": {
+          "shape": [
+            98,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "41666cbd07b6ee2d76551b1f49b975f75be4441b2c402cd5fc5bf9e848454741"
+        },
+        "corner_uv": {
+          "shape": [
+            576,
+            2
+          ],
+          "dtype": "<f8",
+          "sha256": "db48fffc33f11f3afc65d69b34a070dcfbe428e76ea4900188eb3da1a0288b25"
+        }
+      }
+    ],
+    "family": {
+      "images": {
+        "shape": [
+          64,
+          32,
+          32,
+          9
+        ],
+        "dtype": "<f4",
+        "sha256": "d9301d100225fbc7c238a2beb1760160f0259fb238038e5de73abc7f93039b6e"
+      },
+      "frames": {
+        "shape": [
+          64,
+          3,
+          3
+        ],
+        "dtype": "<f8",
+        "sha256": "74b375435df2f059cbf851cad5c9c7684e12da0e5c4a1d992ce214e7113d9a0e"
+      },
+      "lower": {
+        "shape": [
+          64,
+          2
+        ],
+        "dtype": "<f8",
+        "sha256": "a4a12ba70884b825498f044fc0a689180487dbf8b659350e2564d15c9b427a45"
+      },
+      "upper": {
+        "shape": [
+          64,
+          2
+        ],
+        "dtype": "<f8",
+        "sha256": "63ec7a177e10c4d87f54996e47c40a0553095f29be39befdd6480b5e614fd2b7"
+      },
+      "offsets": {
+        "shape": [
+          64
+        ],
+        "dtype": "<f8",
+        "sha256": "ed55a3c43d8398a4440ca1c7d08ecd492e0678c539077db738d22dd2a7cb0a8d"
+      }
+    }
+  },
+  "reference_graph_identity": "56efdf502cb2c878835fca972292a10cd45d6abd7ae3a4960431bd21ceebed1b",
+  "base_graph": {
+    "version": "parent-profile-generator-graph-1",
+    "seed": 815,
+    "nodes": [
+      {
+        "id": 0,
+        "label": "root",
+        "kind": "root",
+        "parents": [],
+        "shape": null,
+        "placement": {
+          "count": 1,
+          "first": 0.15,
+          "last": 0.95,
+          "pitch": 1.1,
+          "pitch_variance": 0.08,
+          "azimuth_step": 2.399963229728653,
+          "azimuth_variance": 0.08,
+          "scale_variance": 0.04,
+          "scale": {
+            "kind": "maximum",
+            "table": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": 1,
+        "label": "stem",
+        "kind": "axis",
+        "parents": [
+          0
+        ],
+        "shape": {
+          "length": 33.25,
+          "bend": 0.035,
+          "radius": {
+            "kind": "custom",
+            "table": [
+              0.19474999999999998,
+              0.1313333333333333,
+              0.06791666666666665,
+              0.0045
+            ]
+          }
+        },
+        "placement": {
+          "count": 1,
+          "first": 0,
+          "last": 0,
+          "pitch": 0,
+          "pitch_variance": 0,
+          "azimuth_step": 2.399963229728653,
+          "azimuth_variance": 0,
+          "scale_variance": 0,
+          "scale": {
+            "kind": "maximum",
+            "table": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "label": "primary",
+        "kind": "axis",
+        "parents": [
+          1
+        ],
+        "shape": {
+          "length": 3.5909999999999997,
+          "bend": 0.25,
+          "radius": {
+            "kind": "custom",
+            "table": [
+              0.033249999999999995,
+              0.022539999999999998,
+              0.011829999999999999,
+              0.00112
+            ]
+          }
+        },
+        "placement": {
+          "count": 1,
+          "first": 0.118,
+          "last": 0.96,
+          "pitch": 1.64,
+          "pitch_variance": 0.17,
+          "azimuth_step": 2.399963229728653,
+          "azimuth_variance": 0.42,
+          "scale_variance": 0.12,
+          "pattern": {
+            "mode": "phyllotaxy",
+            "spacing": {
+              "kind": "custom",
+              "table": [
+                1.0114871163580443,
+                0.8888454546262196,
+                0.8463056071053395,
+                0.9017174630723084,
+                0.9538380542508484,
+                0.8840186249694819,
+                0.8775023867374675,
+                1.0093693138041755,
+                1.0365545867156236,
+                0.9255332261691703,
+                0.8429074060880734,
+                0.778377891514165,
+                0.7783885104120457,
+                0.8767892687823954,
+                0.8068386750545229,
+                0.7125365975341263,
+                0.7648449751137615,
+                0.8012276011545595,
+                0.8860440662203821,
+                1.016049296391321,
+                1.0166429554729484,
+                0.8757410478632467,
+                0.8101379885332962,
+                0.8801773233134701,
+                0.8443719249791277,
+                0.7999937770438715,
+                0.9532682409714447,
+                1.072754751414188,
+                1.053965524638818,
+                0.9945912186062951,
+                0.8843028271040051,
+                0.8075040141105293,
+                0.8861183743648438,
+                0.9398171193196365,
+                0.8140103393058192,
+                0.7522545373042,
+                0.8012001515217022,
+                0.8153555007785563,
+                0.7770213031792161,
+                0.6699627578967924,
+                0.6780858593464436,
+                0.7500957287887764,
+                0.7779513199306031,
+                0.8345342518407928,
+                0.8843748423305617,
+                0.9084815213441142,
+                0.7876054681949165,
+                0.6771830404739424,
+                0.6692537052185984,
+                0.6085686026225805,
+                0.680216069653291,
+                0.8878263222955645,
+                0.920426639801257,
+                0.7954323759997994,
+                0.7031336561584668,
+                0.6632495668633364,
+                0.6341442410725979,
+                0.6212904999993222,
+                0.6904485030279441,
+                0.7656714848721227,
+                0.7138009454811035,
+                0.7013847841282468,
+                0.7752537537830672,
+                0.756841975941717
+              ]
+            },
+            "whorl_size": 5,
+            "divergence": 2.399963229728653,
+            "spread_m": 0.08,
+            "limit_groups": 36
+          },
+          "scale": {
+            "kind": "custom",
+            "table": [
+              1.1275296912114015,
+              0.7672763262074426,
+              0.4070229612034838,
+              0.04676959619952492
+            ]
+          }
+        }
+      },
+      {
+        "id": 3,
+        "label": "secondary",
+        "kind": "axis",
+        "parents": [
+          2
+        ],
+        "shape": {
+          "length": 0.8549999999999999,
+          "bend": -0.65,
+          "radius": {
+            "kind": "custom",
+            "table": [
+              0.003325,
+              0.0024166666666666664,
+              0.001508333333333333,
+              0.0006
+            ]
+          }
+        },
+        "placement": {
+          "count": 1,
+          "first": 0.16,
+          "last": 0.95,
+          "pitch": 1.14,
+          "pitch_variance": 0.3,
+          "azimuth_step": 2.399963229728653,
+          "azimuth_variance": 0.6,
+          "scale_variance": 0,
+          "pattern": {
+            "mode": "phyllotaxy",
+            "spacing": {
+              "kind": "custom",
+              "table": [
+                0.01013175,
+                0.01013175,
+                0.01013175,
+                0.01013175
+              ]
+            },
+            "whorl_size": 1,
+            "divergence": 2.399963229728653,
+            "spread_m": 0.0,
+            "limit_groups": 201
+          },
+          "scale": {
+            "kind": "custom",
+            "table": [
+              1.1012658227848102,
+              0.890295358649789,
+              0.679324894514768,
+              0.4683544303797468
+            ]
+          }
+        }
+      },
+      {
+        "id": 4,
+        "label": "terminal",
+        "kind": "axis",
+        "parents": [
+          3
+        ],
+        "shape": {
+          "length": 0.39899999999999997,
+          "bend": 0.28,
+          "radius": {
+            "kind": "custom",
+            "table": [
+              0.0007,
+              0.0005333333333333334,
+              0.00036666666666666667,
+              0.0002
+            ]
+          }
+        },
+        "placement": {
+          "count": 1,
+          "first": 0.16,
+          "last": 0.95,
+          "pitch": 1.2,
+          "pitch_variance": 0.3,
+          "azimuth_step": 2.399963229728653,
+          "azimuth_variance": 0.65,
+          "scale_variance": 0,
+          "scale": {
+            "kind": "custom",
+            "table": [
+              1.0,
+              1.0,
+              1.0,
+              1.0
+            ]
+          }
+        }
+      }
+    ],
+    "parent_length_ratios": [
+      [
+        3,
+        0.3333333333333333
+      ],
+      [
+        4,
+        0.4666666666666667
+      ]
+    ],
+    "inclinations": [
+      [
+        2,
+        {
+          "kind": "custom",
+          "table": [
+            1.7843467933491686,
+            1.3765874901029296,
+            0.9688281868566905,
+            0.5610688836104514
+          ]
+        }
+      ]
+    ],
+    "upward_biases": [
+      [
+        3,
+        0.04
+      ],
+      [
+        4,
+        0.06
+      ]
+    ]
+  },
+  "upper_profile": {
+    "upper_angle": 1.05,
+    "last": 0.995,
+    "terminal_fraction": 0.02,
+    "exponent": 0.76,
+    "upper_bias": 0.5
+  },
+  "reference_catalog_metadata": {
+    "{\"angle_variation\": 0.44, \"group_size\": 1, \"pitch\": 1.3, \"scale_variation\": 0.08, \"short_length\": 0.0006, \"spacing\": 0.0012, \"spread\": 0.0, \"version\": \"needle-pattern-1\"}": {
+      "needles": 256,
+      "pattern": {
+        "version": "needle-pattern-1",
+        "spacing": 0.0012,
+        "group_size": 1,
+        "first": 0.94,
+        "last": 0.95,
+        "pitch": 1.3,
+        "spread": 0.0,
+        "short_length": 0.0006,
+        "angle_variation": 0.44,
+        "scale_variation": 0.08
+      },
+      "phase": 2.077710301402492,
+      "source_extent_m": [
+        0.046612107782809595,
+        0.31747396273510564,
+        0.04720685042052951
+      ],
+      "window_span_m": 0.306,
+      "family": 0
+    }
+  }
+}

@@ -67,11 +67,14 @@ OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/con
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_products.py --phase build --output build/experiments/vegetation/conifer-whole --size 256
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_checks.py --whole build/experiments/vegetation/conifer-whole --products
 OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_whole_cache.py --products build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/fresh-cache.json
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_comparison.py --whole build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/shoot-comparison.json
+OPENBLAS_NUM_THREADS=1 .venv/bin/python -W error test/experiments/vegetation/conifer_window_comparison.py --whole /tmp/conifer-whole --models /tmp/conifer-crowns --output /tmp/conifer-whole/shoot-comparison.json
 OPENBLAS_NUM_THREADS=1 .venv/bin/python test/experiments/vegetation/conifer_whole_preview.py -- --scenario build/experiments/vegetation/conifer-crowns/tile/tile.json --whole build/experiments/vegetation/conifer-whole --output build/experiments/vegetation/conifer-whole/tile/render.png
 ```
 
-Use a frozen commit and one heavy run at a time. Do not elevate Blender upstream
+The comparison now requires explicit product/model paths. For the current mature
+plan use the self-contained inputs and [cached twig fidelity study](cached_twig_fidelity.md);
+the other commands above document the historical young-tree experiment. Private
+outputs belong in /tmp. Use a frozen commit and choose concurrency for the host. Do not elevate Blender upstream
 deprecation warnings into exceptions: bpy 5.2.2 otherwise fails RNA node-tree
 registration before rendering. Numerical checks do use `-W error`. Terminal
 Linux RSS and wall-clock times are host measurements, not GPU or A18 evidence.

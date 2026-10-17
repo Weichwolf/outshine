@@ -16,6 +16,25 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`Reservation.conflict_geometry(HeightInterval)` liefert für konstante Prismen die
+ursprüngliche unveränderliche Polygonfläche oder ein leeres Polygon. Abfrageband
+und Plan müssen denselben Frame/Höhenbezug verwenden; reine Höhenberührung bleibt
+frei. `overlaps(BuildingFootprint)` prüft einen zweidimensionalen Schnitt der
+Innenräume, einschließlich vollständiger Enthaltung. Ein unterlaufender numerischer
+Flächenwert wird dadurch nicht mit leerem Raum verwechselt. Konstruktoren bleiben
+unverändert. Der affine Untertyp und dessen XY-Präzisionsgrenzen werden noch im
+[Transportexperiment](../test/experiments/transport/stair_occupancy_comparison.md)
+unter [#568](https://github.com/Weichwolf/outshine/issues/568) geprüft.
+
+`transport.clothoid_turns` und `transport.horizontal.plan_horizontal_axis`
+liefern begrenzte horizontale Kurven mit erhaltenen Endgeraden. Originalquellen,
+tatsächliche Straßen-/Fahrzeugflächen und gemeinsame Knoten bleiben beim
+Aufrufer: [horizontal.md](horizontal.md) (#535).
+
+`transport.frontiers.discover_source_modules` wählt begrenzte alternative Module
+aus ausdrücklichen ursprünglichen Quellknoten. Frame, Ebenen und ganze physische
+Abnahme bleiben beim Aufrufer: [frontiers.md](frontiers.md) (#537).
+
 `transport.weighted_heights.fit_weighted_heights` passt gemeinsame Vertexhöhen
 quadratisch unter ganzen Face-Neigungsgrenzen und festen Kontakten auf einem
 expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit`;
@@ -94,6 +113,22 @@ ohne Koordinaten oder belegte Fläche zu ändern. Die zugehörigen Gegenfälle p
 Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
+
+`geometry.weld_vertices` kanonisiert numerische Vertices mit begrenzter Vertex- und
+Paarkapazität und prüft die tatsächliche Verschiebung jedes Eingangsvertices.
+[Vertrag und Grenzen](welding.md): unveränderliche eigene Arrays, Zählung vor
+Paarallokation und ausdrückliche Ablehnung zu langer transitiver Ketten;
+Topologie, Quellen und tatsächliche Exportabnahme bleiben beim Aufrufer.
+
+`geometry.surface_patches.SurfacePatch/SurfacePatches` erhält exakte endliche
+Höhenflächen durch lokale, ausdrücklich benannte Facettenersetzung. Stabile
+Patch-/Face-IDs, ganze XYZ-Ränder und begrenzte lokale Abfragen ohne globale
+Geometriekopie: [surface_patches.md](surface_patches.md) (#542).
+
+`transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
+Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
+[Vertrag und Grenzen](junction_pads.md): unveränderliches Polygon, tatsächliche
+Quellen-/Ebenenwahl und vollständige Höhen-/Float32-Kontakte beim Aufrufer.
 
 `transport.fit_surface_heights(mesh, grade_frames, budget=HeightBudget(), fixed=...)`
 passt ausschließlich Z-Höhen an einen weichen Höhenprior an. XY, Dreiecke und der
@@ -264,6 +299,9 @@ Float64-XYZ-Punkte/Facettennormalen, Int64-Face-Indices und einen Grund je Abfra
 Außerhalb, bei mehrdeutiger Projektion oder erschöpftem Kandidatenbudget bleiben
 Z/Normale NaN und Face -1; unbekannte Höhe wird nicht null. Gemeinsame Kanten oder
 Vertices mit konsistenter Höhe wählen deterministisch die niedrigste Face-ID.
+Dabei zählt der Abstand zum endlichen Quellsegment; mehrere nahe Kanten dünner
+Dreiecke verdecken keine tatsächlich gemeinsame Quellkante. Einzeltreffer
+benötigen keine gemeinsame Kantensuche.
 Die aufwärts gerichtete Normale gehört zu dieser Facette und ist nicht geglättet.
 Vertikale/degenerierte Projektionen und doppelte Faces werden bei Vorbereitung
 abgelehnt. Überlagerte Innenflächen werden lokal als mehrdeutig ausgewiesen.
@@ -515,7 +553,7 @@ Gesamtgeometrie für positive Überhänge.
 .venv/bin/python -m pip install -e './lib[assets]'
 ```
 
-`assets` installiert Trimesh/Pygltflib für den optionalen OBJ/glTF/GLB-Import.
+`assets` installiert Trimesh für den optionalen OBJ-Import.
 Der Grundkern benötigt NumPy, Shapely und Pillow. Importiert er nur eigene Shapes,
 lädt er die Asset-Decoder nicht. Intern bleiben CGA-Achsen ausdrücklich benannt;
 `Shape.from_polygon` übernimmt einen ENU-XY-Grundriss und erzeugt ihn in CGA-XZ
@@ -562,6 +600,17 @@ Preflight uses conservative capacities: an insufficient aggregate budget returns
 and populated tables own immutable bytes. The implementation skips empty parents
 after vectorized preflight, with bounded parent/site work. This does not establish
 a complete SpeedTree property mapping, botanical recipe or native placement ABI.
+
+The opt-in `mode="uniform"` uses a constant positive `spacing` as a minimum group
+distance and `limit_groups` as a complete-population cap. The existing closed
+endpoint count is retained, including its Float64 tolerance. Two or more groups
+span the whole `[first,last]` interval evenly; one group stays at `last` and empty
+intervals stay empty. The minimum distance applies between groups, not members
+of one whorl, up to that endpoint tolerance. Variable spacing and longitudinal
+spread are rejected in this mode. A cap therefore redistributes groups instead
+of truncating the distal physical sequence. Existing modes/recipes are unchanged.
+This is an explicit own allocation rule, not a vendor growth model; #626 owns the
+complete spruce comparison and the still unapproved botanical/image outcome.
 
 ### Spatial branch curves and surfaces
 
@@ -635,6 +684,13 @@ Budgets are Python integers in [0,100000]. These row bounds are not a total
 memory/time guarantee. `Shoot.detail` shares the same bounded placement contract.
 Public `AxisState` frames must be finite, orthonormal and right-handed. Shared
 axis/leaf/shoot arrays have immutable bytes, and leaf mappings are read-only.
+`AxisState(..., path_capacity=256)` explicitly accepts real slot indices up to255
+from a separately authored generator graph. The default remains64; negative,
+noninteger and out-of-capacity slots still fail. This does not raise `PlantPlan`
+branch limits, change its recipes/IDs/tables, or change `NeedlePattern.detail`
+for the same physical axis and seed. The wider state permits deferred needles
+on the actual cached graph path instead of a fabricated small replacement path
+(#562).
 
 `tables(max_axes, max_leaves)` returns cached complete immutable rows: axis IDs,
 parent IDs (-1 for root), seven-slot Int16 paths (-1 padding), origins, frames,
@@ -1004,3 +1060,25 @@ The actual Python city consumer also reuses `FacadeRepeat`/`RecessPlan` for boun
 
 
 `buildings.window_bays.bay_flat(plan, back_covered=True)` supplies a separate46-triangle open exterior. Three panes move outward by `(wall_m-glass_m)/2`; removed reveals map along the same three directions. Only the exposed Y≤0 domain has this positional bound. Omitted attachment pieces at Y>0 require the caller's opaque source-cell cover. No interior/collision, topology, radiance or shadow equivalence. The building consumer admits this product using the existing directional projection bound over conservative bounds/camera movement; otherwise it retains86triangles, with full physical parts near/inside. Both render constructors now bypass hidden section/post construction; prior skin/physical arrays are preserved in representative paired controls (#428).
+
+`buildings.roller_gates.RollerGate` and `leaf_surface` supply bounded closed
+visible roller sheets in local `(width, height, outward)` metres. Static
+width/height/pitch/depth/rib and the separate opening fraction determine the
+remaining sheet; hidden winding is omitted. At most32 slats, finite dimensions,
+16-bit material and conservative triangle capacity are checked before expansion.
+`lift` snaps remaining heights≤1e−7m to fully open; consumers use that same lift
+for clearance. Detailed sawtooth strips have geometric normals and developed
+metre UVs; `detail=False` directly emits12 triangles at nominal depth without
+expanding corrugation. The front displacement is at most `rib_m`; this is no
+whole-image/shadow LOD admission. A fully open leaf emits no triangles. Housing,
+tracks, attachment, room/collision use, visibility and source interpretation
+remain consumer-owned. Actual source hall consumer, physical alternatives,
+functional negatives and reproduction live in building experiments (#489).
+## Glazed rooflight panels
+
+`buildings.rooflight_panels` emits direct closed rectangle rims/panes and a
+render skin with checked parent contacts. Optional direct two-sided sheets have
+20 triangles with explicit geometric bounds and independent physical products.
+Contract, real source/installed-wheel
+controls, render comparisons and separated preparation/emission costs:
+[rooflight_panels.md](rooflight_panels.md) (#500).

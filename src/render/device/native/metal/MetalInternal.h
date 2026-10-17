@@ -11,11 +11,19 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <string>
+#include <utility>
 
 namespace outshine::Render::Native::Metal {
 
 [[nodiscard]] inline std::unexpected<Error> Failure(ErrorKind kind, std::string message) {
   return std::unexpected(Error{.Kind = kind, .Message = std::move(message)});
+}
+
+[[nodiscard]] inline std::unexpected<Error> Failure(ErrorKind kind, const char *message) {
+  return Failure(
+      kind,
+      std::string(message != nullptr ? message : "Metal operation failed without a diagnostic"));
 }
 
 [[nodiscard]] inline NSString *Text(std::string_view text) {
