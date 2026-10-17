@@ -4,6 +4,7 @@ from dataclasses import replace
 
 import numpy as np
 import shapely
+from building_layout import WALL_M
 from outshine_ref.buildings.interiors.routes import routes
 from outshine_ref.buildings.modelling import PrismVolume
 from shapely.affinity import affine_transform
@@ -17,6 +18,18 @@ def resolved(polygon):
     if value.symmetric_difference(polygon).area > 1e-7:
         raise ValueError("Contact resolution changed more than1e-7 square metres")
     return value
+
+
+def world_interior(prepared, index):
+    polygon = shapely.from_wkb(prepared.local.storeys[index].footprint_wkb)
+    interior = polygon.buffer(-WALL_M, join_style="mitre").intersection(polygon)
+    storey = prepared.local.storeys[index]
+    return placed_cut(
+        PrismVolume(
+            storey.identifier + "/open-floor", interior, storey.bottom_m, storey.top_m
+        ),
+        prepared.mass.core,
+    ).polygon
 
 
 def world_prepared(prepared, storeys):

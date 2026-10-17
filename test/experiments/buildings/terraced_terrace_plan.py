@@ -9,13 +9,20 @@ from building_layout import WALL_M, rectangle
 from building_plan import FLOOR_M
 from terraced_facade_prepare import prepare
 from terraced_facade_surface import polygon_parts
-from terraced_terrace_frame import core_route, local_portal, resolved, world_prepared
+from terraced_terrace_frame import (
+    core_route,
+    local_portal,
+    resolved,
+    world_interior,
+    world_prepared,
+)
 
 GUARD_M = 0.12
 GUARD_HEIGHT_M = 1.10
 PORTAL_WIDTH_M = 1.20
 PORTAL_HEIGHT_M = 2.15
 ACTOR_RADIUS_M = 0.30 / math.cos(math.pi / (4 * 32))
+CLEARANCE_RESERVE_M = 0.001
 
 
 @dataclass(frozen=True)
@@ -53,16 +60,14 @@ class TerracePlan:
     replaced_window_ids: tuple
 
 
-def portal_for(prepared, index, terrace, guard):
+def portal_for(prepared, index, terrace, guard, interior):
     mass = prepared.local
     storey = mass.storeys[index]
-    polygon = shapely.from_wkb(storey.footprint_wkb)
-    interior = polygon.buffer(-WALL_M, join_style="mitre")
     core = shapely.from_wkb(mass.core.footprint_wkb)
     front = shapely.from_wkb(mass.core.front_wkb)
     root = np.asarray(mass.core.path[0][:2])
     space = interior.difference(core.difference(front)).buffer(
-        -ACTOR_RADIUS_M, quad_segs=32
+        -(ACTOR_RADIUS_M + CLEARANCE_RESERVE_M), quad_segs=32
     )
     choices = sorted(
         (w for w in prepared.facade.windows if w.storey == index),
@@ -120,6 +125,7 @@ def plan(mass):
         if not previous.is_valid or not current.is_valid:
             raise ValueError("Terrace requires valid source profile operands")
         difference = previous.difference(current)
+        interior = world_interior(prepared, index)
         original_area = shapely.from_wkb(mass.storeys[index].terrace_wkb).area
         if abs(difference.area - original_area) > 1e-7:
             raise ValueError("Local terrace changed its original profile area")
@@ -129,7 +135,7 @@ def plan(mass):
             guard = polygon.difference(
                 original_lower.buffer(-GUARD_M, join_style="mitre")
             )
-            portal = portal_for(world, index, polygon, guard)
+            portal = portal_for(world, index, polygon, guard, interior)
             if portal:
                 portal = local_portal(portal, mass.core)
             terraces.append(
