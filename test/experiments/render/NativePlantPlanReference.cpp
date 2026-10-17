@@ -1,4 +1,7 @@
 #include "PlantPlan.h"
+#include "PlantAxisSurface.h"
+#include <span>
+#include <string_view>
 
 #include <iomanip>
 #include <cstddef>
@@ -19,9 +22,39 @@ template <class T> bool Read(T &values) {
 template <class T> void Write(const T &values) {
   for (const auto value : values) { std::cout << ' ' << value; }
 }
+
+bool WriteSurface(const outshine::Generators::PlantPlan &plan, uint64_t axis) {
+  constexpr size_t kSegments = 24;
+  constexpr size_t kSides = 8;
+  constexpr size_t kVertices = 218;
+  constexpr size_t kTriangles = 400;
+  const auto mesh = outshine::Generators::BuildPlantAxisSurface(plan,
+                                                                {.Axis = axis,
+                                                                 .Segments = kSegments,
+                                                                 .Sides = kSides,
+                                                                 .MaximumVertices = kVertices,
+                                                                 .MaximumTriangles = kTriangles});
+  if (!mesh) {
+    std::cerr << mesh.error() << '\n';
+    return false;
+  }
+  for (size_t triangle = 0; triangle < mesh->Triangles.size(); triangle += 3) {
+    std::cout << "G " << axis;
+    for (size_t corner = 0; corner < 3; ++corner) {
+      const size_t at = static_cast<size_t>(mesh->Triangles[triangle + corner]) * 3;
+      Write(std::span(mesh->Positions).subspan(at, 3));
+      Write(std::span(mesh->Normals).subspan(at, 3));
+    }
+    std::cout << '\n';
+  }
+  return true;
 }
 
-int main() {
+}
+
+int main(int argc, const char *const *argv) {
+  const bool surfaces = argc == 2 && std::string_view(argv[1]) == "axis-surfaces";
+  if (argc > 2 || (argc == 2 && !surfaces)) { return 2; }
   using namespace outshine::Generators;
   constexpr size_t kAxes = 64;
   constexpr size_t kLeaves = 571;
@@ -75,5 +108,6 @@ int main() {
       Write(leaf.Frame);
       std::cout << ' ' << leaf.StemParameter << '\n';
     }
+    if (surfaces && !WriteSurface(*plan, axis.Id)) { return 5; }
   }
 }
