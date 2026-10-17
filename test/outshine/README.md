@@ -37,6 +37,7 @@ Choose checks by the changed boundary:
 | World data, terrain, weather and entity storage | `make suite SUITE=outshine/src/world` or the affected subtree |
 | HTTP acquisition and source integration | `make suite SUITE=outshine/src/host` |
 | Scenario parsing and layering | `make suite SUITE=outshine/src/scenario/ScenarioRead` or `outshine/src/scenario/ScenarioLayer` |
+| CPU terrain patch topology and displacement bounds | `make suite SUITE=outshine/src/render/stages/GroundPatchMesh` or `GroundPatchError` in the same directory |
 | CPU render-geometry preparation | `make suite SUITE=outshine/src/render/Shape` |
 | Shader file framing | `make suite SUITE=outshine/src/render/device/SpirvFile` |
 | Species files and numeric definitions | `make suite SUITE=outshine/src/generators/flora/Species` or `outshine/src/generators/flora/TreeSpecies` |
@@ -67,3 +68,7 @@ The optional `OUTSHINE_GLO30_RASTER_PROBE` live-source check runs with
 
 Source-closure audits inspect each distinct resolved source-group list once per
 run. Test discovery and execution still visit every case and instrumentation arm.
+
+Terrain patch mesh/error suites compile two product units and link GEOS. They do not
+prepare shaders or link a GPU backend; normal, ASan/UBSan and container checks remain.
+GroundLattice integration cases separately exercise GPU selection and rendered seams.

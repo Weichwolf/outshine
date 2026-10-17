@@ -1,5 +1,4 @@
 #include "Check.h"
-#include "GroundLattice.h"
 #include "GroundPatchError.h"
 #include "GroundPatchMesh.h"
 #include <algorithm>
@@ -16,7 +15,8 @@ int main() {
   tile.Corners = {-200, 110, 220, 100, -210, -130, 240, -115};
   tile.SagInv = 1.0f / 6371000;
   tile.Row = {1, 0.2f, -0.1f, 0, -0.3f, 2, 0.1f, 0, 0.1f, -0.2f, 0.8f, 0, 100000, -10000, 20000, 1};
-  std::vector<float> heights(GroundLattice::kPageNodes);
+  constexpr size_t pageSide = GroundPatchMesh::kGroundSide + 2;
+  std::vector<float> heights(pageSide * pageSide);
   for (size_t i = 0; i < heights.size(); ++i) {
     heights[i] = static_cast<float>(std::sin(static_cast<double>(i) * 0.3) * 19 + 900);
   }
@@ -33,9 +33,8 @@ int main() {
           local[i] = (1 - v) * ((1 - u) * tile.Corners[i] + u * tile.Corners[i + 2]) +
                      v * ((1 - u) * tile.Corners[i + 4] + u * tile.Corners[i + 6]);
         }
-        local[2] =
-            heights[(patch / 4 * 8 + y + 1) * GroundLattice::kPageSide + patch % 4 * 8 + x + 1] -
-            0.5 * (local[0] * local[0] + local[1] * local[1]) * tile.SagInv;
+        local[2] = heights[(patch / 4 * 8 + y + 1) * pageSide + patch % 4 * 8 + x + 1] -
+                   0.5 * (local[0] * local[0] + local[1] * local[1]) * tile.SagInv;
         for (size_t i = 0; i < 3; ++i) {
           world[y * 9 + x][i] = tile.Row[12 + i] + tile.Row[i] * local[0] +
                                 tile.Row[4 + i] * local[1] + tile.Row[8 + i] * local[2];

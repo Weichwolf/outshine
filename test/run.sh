@@ -262,6 +262,7 @@ TestProfile() {
     outshine/src/host/*) printf '%s' 'profile/host' ;;
     outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
     outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
+    outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError) printf '%s' 'profile/ground-patch' ;;
     outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
     outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) printf '%s' 'profile/species' ;;
     outshine/src/render/stages/MediumView) printf '%s' 'profile/medium-view' ;;
@@ -294,6 +295,7 @@ LayerIncludes() {
     profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/scenario) GroupIncludes src/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
+    profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/stages' ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
@@ -323,7 +325,7 @@ LayerToolchain() {
 }
 NativeSafetyProfile() {
   case "$1" in
-    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) return 0 ;;
+    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -364,6 +366,7 @@ LayerValidation() {
 LayerLink() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
+    profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/scenario|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
@@ -416,6 +419,7 @@ LayerGroups() {
     profile/world) SubtreeGroups src/base src/content src/world ;;
     profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
+    profile/ground-patch) printf '%s' 'src/render/stages/GroundPatchMesh.cpp src/render/stages/GroundPatchError.cpp' ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
     profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;

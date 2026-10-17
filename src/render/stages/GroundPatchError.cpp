@@ -1,6 +1,5 @@
 #include "GroundPatchError.h"
 #include "GroundPatchMesh.h"
-#include "GroundLattice.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -13,7 +12,7 @@ namespace outshine::Render {
 namespace {
 constexpr auto kSide = GroundPatchMesh::kSide;
 constexpr auto kCells = GroundPatchMesh::kGroundPatchCells;
-constexpr size_t kColumns = (GroundLattice::kSide - 1) / kCells;
+constexpr size_t kColumns = (GroundPatchMesh::kGroundSide - 1) / kCells;
 constexpr double kInfinity = std::numeric_limits<double>::infinity();
 
 const auto &Meshes() {
@@ -78,8 +77,8 @@ std::array<float, 4> GroundPatchHeightErrors(std::span<const float> heights, siz
   std::array<float, GroundPatchMesh::kNodes> local{};
   for (size_t y = 0; y < 9; ++y) {
     for (size_t x = 0; x < 9; ++x) {
-      local[y * 9 + x] =
-          heights[(patch / 4 * 8 + y + 1) * GroundLattice::kPageSide + patch % 4 * 8 + x + 1];
+      local[y * 9 + x] = heights[(patch / 4 * 8 + y + 1) * (GroundPatchMesh::kGroundSide + 2) +
+                                 patch % 4 * 8 + x + 1];
     }
   }
   std::array<float, 4> result{};

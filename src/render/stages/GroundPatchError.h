@@ -1,7 +1,7 @@
 #ifndef OUTSHINE_RENDER_STAGES_GROUNDPATCHERROR_H
 #define OUTSHINE_RENDER_STAGES_GROUNDPATCHERROR_H
 
-#include "SubjectTypes.h"
+#include "GroundInstance.h"
 #include <array>
 #include <cstddef>
 #include <span>
