@@ -37,12 +37,14 @@ def read_source(inputs):
     return source, identity
 
 
-def shading(source, scene, points, face_ids, view, lights):
+def shading(source, scene, points, face_ids, view, lights, *, closure=None):
     normals = interpolate_normals(source, points, face_ids)
     optical = contact_optics(source, points, face_ids)
     rgb, reflected = (np.zeros((len(lights), len(points), 3)) for _ in range(2))
     for index, direction in enumerate(lights):
-        response = leaf_diffuse_response(optical, normals, view, direction)
+        response = (leaf_diffuse_response if closure is None else closure)(
+            optical, normals, view, direction
+        )
         visible, _, _ = sheet_visibility(
             scene, points, normals, view, direction, response, 2e-6
         )
@@ -52,7 +54,7 @@ def shading(source, scene, points, face_ids, view, lights):
     return rgb, reflected
 
 
-def render(source, scene, width, height, samples):
+def render(source, scene, width, height, samples, *, closure=None):
     if (
         (width, height) != (2560, 1440)
         or type(samples) is not int
@@ -90,7 +92,13 @@ def render(source, scene, width, height, samples):
         values, reflected_values = (np.zeros((2, len(ids), 3)) for _ in range(2))
         if active.any():
             values[:, active], reflected_values[:, active] = shading(
-                source, scene, points[active], ids[active], view, lights
+                source,
+                scene,
+                points[active],
+                ids[active],
+                view,
+                lights,
+                closure=closure,
             )
         rgb[:, first : first + pixels] = values.reshape(2, pixels, samples, 3).mean(
             axis=2
@@ -122,14 +130,14 @@ def render(source, scene, width, height, samples):
     }
 
 
-def run(inputs, output, samples):
+def run(inputs, output, samples, *, closure=None):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private render output must be under/tmp")
     output.mkdir(parents=True, exist_ok=False)
     source, identity = read_source(inputs)
     scene = ScatterScene(source["vertices"], source["faces"])
     began = time.perf_counter()
-    arrays, work = render(source, scene, 2560, 1440, samples)
+    arrays, work = render(source, scene, 2560, 1440, samples, closure=closure)
     np.savez_compressed(output / "linear.npz", **arrays)
     images = {}
     for state, name in enumerate(("front", "back")):
@@ -157,6 +165,9 @@ def run(inputs, output, samples):
                 ).strip(),
                 "resolution": [2560, 1440],
                 "samples": samples,
+                "closure": {"model": "diffuse-thin-sheet-1"}
+                if closure is None
+                else closure.recipe(),
                 "work": work,
                 "rays": scene.work,
                 "render_and_export_s": time.perf_counter() - began,
@@ -166,7 +177,7 @@ def run(inputs, output, samples):
                 * 1024,
                 "controlled_output_bytes": sum(a.nbytes for a in arrays.values()),
                 "images": images,
-                "scope": "existing primary camera/ray kernels, prepared original six leaves, local diffuse R/T with opaque neighbour visibility; no indirect/BSSRDF/ballistic-through-leaf/specular/closed-needle or device acceptance",
+                "scope": "existing primary camera/ray kernels, prepared original six leaves, declared closure and opaque neighbour visibility; no indirect/BSSRDF/ballistic-through-leaf/closed-needle or device acceptance",
             },
             indent=2,
         )
