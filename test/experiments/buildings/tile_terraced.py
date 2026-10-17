@@ -18,13 +18,24 @@ def definitions():
     }
 
 
+def indices(mesh):
+    faces = mesh["faces"]
+    if faces.dtype.kind not in "iu" or len(mesh["vertices"]) > np.iinfo(np.uint32).max:
+        raise ValueError(
+            "Draw requires metrical vertices and32-bit integer index capacity"
+        )
+    if faces.size and (faces.min() < 0 or faces.max() >= len(mesh["vertices"])):
+        raise ValueError("Draw index leaves its actual vertex buffer")
+    return faces.astype(np.uint32, copy=False)
+
+
 def bound(mesh, material):
     roles = mesh["materials"]
     output = roles.copy()
     output[roles == 12] = material
     for role, target in COMPONENT_MATERIALS.items():
         output[roles == role] = target
-    return mesh | {"materials": output}
+    return mesh | {"materials": output, "faces": indices(mesh)}
 
 
 class TerracedDetails:

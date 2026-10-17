@@ -10,7 +10,7 @@ from terraced_admission_probe import controls
 from terraced_city_parts import PreviousParts
 from terraced_city_reference import admitted
 from terraced_mass_census import source_identity
-from tile_terraced import TerracedDetails, bound, definitions
+from tile_terraced import TerracedDetails, bound, definitions, indices
 
 
 class Previous:
@@ -97,6 +97,7 @@ class CityTests(unittest.TestCase):
         original = {
             "materials": np.array([12, 9, 10, 11, 3, 4, 5], dtype=np.uint16),
             "vertices": np.zeros((3, 3)),
+            "faces": np.tile(np.array([[0, 1, 2]], dtype=np.int64), (7, 1)),
         }
         result = bound(original, 14)
         np.testing.assert_array_equal(
@@ -104,7 +105,23 @@ class CityTests(unittest.TestCase):
         )
         np.testing.assert_array_equal(original["materials"], [12, 9, 10, 11, 3, 4, 5])
         self.assertIs(result["vertices"], original["vertices"])
+        self.assertEqual(result["faces"].dtype, np.dtype(np.uint32))
+        np.testing.assert_array_equal(result["faces"], original["faces"])
         self.assertEqual(set(definitions()), {"60000", "60001", "60002"})
+
+    def test_draw_index_narrowing_retains_values_and_rejects_wrapping(self):
+        original = {
+            "vertices": np.zeros((3, 3)),
+            "faces": np.array([[0, 1, 2]], dtype=np.uint32),
+        }
+        self.assertIs(indices(original), original["faces"])
+        for invalid in (
+            np.array([[-1, 1, 2]]),
+            np.array([[0, 1, 3]]),
+            np.array([[0, 1, 2**32]], dtype=np.uint64),
+        ):
+            with self.assertRaisesRegex(ValueError, "actual vertex buffer"):
+                indices(original | {"faces": invalid})
 
     def test_reference_rejects_changed_source_failed_and_protected_memberships(self):
         rows = self.rows
