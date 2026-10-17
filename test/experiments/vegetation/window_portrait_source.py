@@ -71,7 +71,9 @@ def source(whole, execution, catalog):
     ):
         raise ValueError("entire source needle ledger required")
     owners = windows["axis_ids"]
-    if owners.dtype.kind not in "iu" or np.any(owners >= len(axes["origins"])):
+    if owners.dtype.kind not in "iu" or np.any(
+        (owners < 0) | (owners >= len(axes["origins"]))
+    ):
         raise ValueError("existing executed axis owners required")
     np.testing.assert_array_equal(
         np.bincount(
@@ -98,6 +100,8 @@ def source(whole, execution, catalog):
         rtol=0,
         atol=2e-12,
     )
+    if np.any(np.linalg.det(windows["frames"]) <= 0):
+        raise ValueError("proper source frames required, not reflections")
     return (
         graph,
         axes,

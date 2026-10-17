@@ -156,10 +156,13 @@ class WindowPortraitTests(unittest.TestCase):
                 uv.reshape(-1, 2),
                 data["uv"][data["faces"]].reshape(-1, 2).astype(np.float32),
             )
-            with patch(
-                "window_portrait_blender.np.asarray",
-                side_effect=AssertionError("allocation"),
-            ), self.assertRaises(ValueError):
+            with (
+                patch(
+                    "window_portrait_blender.np.asarray",
+                    side_effect=AssertionError("allocation"),
+                ),
+                self.assertRaises(ValueError),
+            ):
                 bind_mesh("bad", data | {"faces": np.array(((0, 1, 99),))}, surface)
 
 
