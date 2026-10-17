@@ -6,6 +6,22 @@ import numpy as np
 import shapely
 
 
+def cap_edge_constraints(caps, domains):
+    covered = shapely.union_all(domains)
+    boundaries = []
+    for cap in caps:
+        selected = shapely.dwithin(
+            shapely.polygons(cap.vertices[cap.triangles, :2]), covered, 1e-7
+        )
+        f = cap.triangles[selected]
+        edges = np.unique(
+            np.sort(np.vstack([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]]), axis=1),
+            axis=0,
+        )
+        boundaries.extend(shapely.linestrings(cap.vertices[edges, :2]))
+    return boundaries
+
+
 def interpolate(triangles, xy, values):
     a = triangles[:, 0, :2]
     u, v = triangles[:, 1, :2] - a, triangles[:, 2, :2] - a
