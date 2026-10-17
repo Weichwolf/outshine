@@ -62,6 +62,15 @@ def run(args):
         raise ValueError(
             "loaded kernel differs from the explicitly pinned source commit"
         )
+    predicate = Path(inspect.getfile(AffineOccupancy.overlaps))
+    if predicate != module:
+        expected = subprocess.check_output(
+            ["git", "show", args.kernel_commit + ":lib/src/outshine_ref/contracts.py"]
+        )
+        if hashlib.sha256(expected).hexdigest() != digest(predicate):
+            raise ValueError(
+                "loaded inherited predicate differs from the pinned source commit"
+            )
     report = json.loads((args.reference / "comparison.json").read_text())
     ledger = args.reference / "cases.json"
     if (
@@ -112,6 +121,8 @@ def run(args):
         "kernel_commit": args.kernel_commit,
         "loaded_kernel": str(module),
         "kernel_sha256": digest(module),
+        "loaded_predicate": str(predicate),
+        "predicate_sha256": digest(predicate),
         "reference_report_sha256": digest(args.reference / "comparison.json"),
         "checked_cases": len(cases)
         + (len(underflow["positive_conflict_cases"]) if underflow else 0),

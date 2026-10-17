@@ -161,12 +161,10 @@ class Reservation:
     def overlaps(self, footprint: BuildingFootprint) -> bool:
         if not self.heights.overlaps(footprint.heights):
             return False
+        conflict = self.conflict_geometry(footprint.heights)
         return bool(
-            shapely.relate_pattern(
-                self.conflict_geometry(footprint.heights),
-                footprint.geometry,
-                "2********",
-            )
+            shapely.intersects(conflict, footprint.geometry)
+            and not shapely.touches(conflict, footprint.geometry)
         )
 
 

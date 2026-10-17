@@ -133,6 +133,7 @@ def underflow_case():
 def run(args):
     import pysfcgal
     import pysfcgal._sfcgal as extension
+    import shapely
 
     commit = frozen()
     if not args.output.resolve().is_relative_to(Path("/tmp").resolve()):
@@ -175,6 +176,8 @@ def run(args):
         ),
         "guarded_mask_seconds": sum(r["guarded_mask_seconds"] for r in records),
         "pysfcgal": importlib.metadata.version("pysfcgal"),
+        "shapely": shapely.__version__,
+        "geos": shapely.geos_version_string,
         "sfcgal_full_version": pysfcgal.sfcgal_full_version(),
         "native_library": str(native_library),
         "native_library_sha256": digest(native_library),
