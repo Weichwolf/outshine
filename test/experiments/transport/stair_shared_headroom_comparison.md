@@ -3,8 +3,8 @@
 Owners: [#642](https://github.com/Weichwolf/outshine/issues/642),
 [#568](https://github.com/Weichwolf/outshine/issues/568).
 Producer and initial independent readers: `23372cb61f642871f1ffce41ddd47e717ee273de`;
-paired costs and actual images: `df563fa2c03c53edf3c78849c19e37b3f059ee87`.
-Final retained-refusal handling/independent readers: `e24c4b9a7`.
+actual images: `df563fa2c03c53edf3c78849c19e37b3f059ee87`.
+Final guards, source/installed readers and repeated paired costs: `b2c3b5827a6e1a655fe70e9e26765cd71ba15b63`.
 Python experiments only; shared library/native/runtime types stay unchanged.
 
 ## Failure and corrected spatial product
@@ -49,7 +49,9 @@ height bands around the15 actual failure locations. Height candidates are
 
 This fixes the actual walking-pad/new-road family. The existing affine
 binary64-XY/topology limits in [the precision report](stair_occupancy_precision.md)
-remain. Error/budget exhaustion does not authorize free space. There is no
+remain. These spatial volumes bind Float64 XYZ; a conservative Float32 spatial
+volume envelope is not established by earlier D/Q road-body checks.
+Error/budget exhaustion does not authorize free space. There is no
 general legal-routing, swept-body, native or public affine-library admission.
 
 ## Reuse before fitting
@@ -72,11 +74,13 @@ remain substantial real work.
 
 ## Controls, actual consumers and images
 
-36 source/36 installed affected controls pass with `-W error`. Eight new controls
+37 source/37 installed affected controls pass with `-W error`. Nine new controls
 include the real versioned old-cap/height counterexample, whole mask/owner/XYZ
 bindings, false motor claims/clearance, exact upper/lower seam, missing/shortened/
 changed extra rows, same conflict service as full duplicate volumes, exhausted
-facet budgets, changed prefix lineage and retained refusal entries. Original cap
+facet budgets, changed prefix lineage, retained refusals and injected nonempty
+zero-area clipping results. Producer/reader refuse such results; detecting GEOS
+results that already became empty remains part of the general precision limit. Original cap
 fixtures remain unchanged. The additional counterexample is
 `fixtures/stair-shared-headroom-vienna.json`.
 
@@ -128,22 +132,23 @@ preload, output digest and export are outside. All six outputs have result hash
 
 | Same6478-volume output | Fresh fits | Verified prefix reuse |
 | --- | ---: | ---: |
-| Normal paired construction s | 8.305202 /7.581632 | 3.286787 /3.105108 |
-| Profiled construction s | 33.658927 | 11.867663 |
-| Positive allocation events | 45013250 | 17179131 |
-| Cumulative requested B | 4292561300 | 1651057360 |
-| Tracked incremental heap peak B | 8960203 | 13828890 |
+| Normal paired construction s | 8.407295 /8.578083 | 2.845833 /2.919407 |
+| Profiled construction s | 28.035065 | 9.994728 |
+| Positive allocation events | 45013243 | 17179132 |
+| Cumulative requested B | 4292561044 | 1651057552 |
+| Tracked incremental heap peak B | 8959755 | 13828890 |
 
 Reuse reduces allocation events61.84% and cumulative requests61.54%, but tracked
-temporary peak **increases4868687B**, as JSON/metadata and decoded volume objects
+temporary peak **increases4869135B**, as JSON/metadata and decoded volume objects
 coexist. This tradeoff is explicit, not an overall memory win. Cumulative requests
 are not copies or simultaneous storage; process RSS spans both methods/preload:
-160980992B, not separate method RSS peaks. Fraction construction is a leading
+160579584B, not separate method RSS peaks. Fraction construction is a leading
 allocation site. Seventeen million remaining events are still excessive for a
 small research handoff; none of these results accepts runtime/device/world costs.
 
-Host WSL2/i5-1135G7 VM,4vCPU/16GiB, one BLAS/OMP thread. Shared load≈14–16;
-other Python and clang-tidy tasks were present. One paired order is a local trend,
+Host WSL2/i5-1135G7 VM,4vCPU/16GiB, one BLAS/OMP thread. Other Python,
+clang-tidy and MIDI-fuzz tasks were present. Load≈14–16 was observed earlier
+in the block; per-run final host load was not captured. One paired order is a local trend,
 not a portable speedup guarantee. Producer/reuse including source load/export:
 7.556120s/RSS156913664B; whole current source reader/consumers measured separately.
 Consumer architecture generation7.112608s/RSS200409088B; full Pinus process
@@ -189,12 +194,14 @@ Main SHA256 values:
 
 | Artifact | SHA256 |
 | --- | --- |
-|77 volume producer | `b901ec5f4b70152d9c7525c5695eba21a30c84fe203cd4f600968d6e97efed82` |
+|Initial77 volume producer | `b901ec5f4b70152d9c7525c5695eba21a30c84fe203cd4f600968d6e97efed82` |
 |77 complete volumes | `bab72dc49df84c04a2fd32e007584632eba5ae8c48f395330e955f3b107be308` |
 |Initial source/installed reader | `a1577901dd4bc11972cdc75f3d1fc6fa5168e1b941c1f90dffa8a692afe807ab` |
+|Final guarded producer | `7f3437a6e697b3ba054d716420cf21fa81e244dadadbf7fee610d71efd78cb60` |
+|Final source/installed reader | `04b6fa3ac804c590af091317a42640c1c6ebc79c9ed1f50a4e4c954683ef28c0` |
 |Actual Buildings report | `981bc96878c64bbf8eb9e08d5a88dcc701027daf3642b8bc3346b17e2cabb457` |
 |Actual Pinus report | `0e4021086c58bcb2957b175fba30f3f85e2c0d785de0194f816f17e57f0c388a` |
-|Paired preparation costs | `38a2ad1925cb44a967da24080bac149c53c02013b18391da6cbd328dd5408801` |
+|Paired preparation costs | `71f185f88eeef007104996ff40a40b3910e384ed4e7a447f424472ecc48494bf` |
 
 SIGGRAPH starting point reread visually: Chen et al.2008,
 [Interactive Procedural Street Modeling, p2/Fig2](../../../doc/references/transport/siggraph/2008-interactive-procedural-street-modeling.pdf).
