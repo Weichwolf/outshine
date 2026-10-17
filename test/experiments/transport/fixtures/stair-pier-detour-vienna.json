@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "reference_fixture": "stair-north-bridges-vienna.json",
+  "reference_fixture_sha256": "c2388f7a0d159b1219ad293101dd3892e5e57d49753f850bd5521c16317006b1",
+  "port": {
+    "source_id": "openfreemap:14/8937/5678:transportation:32651280:3",
+    "vertex": 8
+  },
+  "source_ids": [
+    "openfreemap:14/8937/5678:transportation:39881120:32"
+  ],
+  "soil_bridge_reserve_m": 0.0,
+  "contact_mode": "profile",
+  "traffic_mode": "source_clearance",
+  "junction_mode": "shared_box",
+  "interior_contacts": [],
+  "scope": "Whole original951.788m cycleway with a bounded physical pier detour; provider axis and all original knots retained, planned corridor replaces the colliding segment interior. Actual four-metre straight runs protect every original endpoint profile. No route/module admission without whole D/Q, terrain and pier checks (#668).",
+  "source_axis_detours": {
+    "openfreemap:14/8937/5678:transportation:39881120:32": {
+      "segment": 19,
+      "pier_index": 123,
+      "pier_xyz_sha256": "18d8cd1daa6ac4d4301eee8cd5b717fe6e6d61c04f9f71f440be4879580e5680",
+      "pier_footprint_wkb": "0103000000010000000D00000075193B3A144962402D6803A0F51086407A4DC0ACED4B6240993FCB65E50F8640C283C004454C62407FF01CCDC40F8640202C3510164D6240D8DE50C9760F86409ED8539A6D4D62402F46EE1D560F8640C83E2FE61751624085559EF2F70D8640A79D2715D33B624099EFF817680A8640210EF9B717386240B01AE7A1CC0B8640FB8A2D3FD1376240EE78ABEEE60B86406CF97667FF36624015F8B13E350C86401FE5FA20B936624022C6AF784F0C864054783369CF33624041025EC5650D864075193B3A144962402D6803A0F5108640"
+    }
+  }
+}

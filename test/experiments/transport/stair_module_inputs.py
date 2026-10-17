@@ -162,4 +162,7 @@ def inputs(path=FIXTURE):
                 **({"source_grid_m": grid} if grid is not None else {}),
             }
         )
+    from stair_axis_detours import apply
+
+    apply(rows, recipe)
     return recipe, rows, context, sources, sample, layer
