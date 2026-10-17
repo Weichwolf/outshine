@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 from conifer_window_catalog import template_image
 from normal_lobes import NormalMeasure, evaluate
+from prototype_normal_bank import encode
 
 
 def square():
@@ -23,6 +24,25 @@ def projection():
 
 
 class PrototypeNormalTests(unittest.TestCase):
+    def test_direct_vector_bank_encoding_preserves_a_flat_source(self):
+        image, _ = template_image(
+            square(), [0, 0, 1], 32, 8, projection_data=projection()
+        )
+        bank = {"images": image[None]}
+        bank.update(
+            {
+                key: np.asarray(value)[None]
+                for key, value in zip(
+                    ("frames", "lower", "upper", "offsets"), projection(), strict=True
+                )
+            }
+        )
+        vectors, old, facts = encode(square(), bank, 0)
+        np.testing.assert_array_equal(vectors.sum(axis=2), old)
+        np.testing.assert_array_equal(old, np.broadcast_to([0, 0, 1], (32, 32, 3)))
+        self.assertEqual(vectors.dtype, np.dtype("float32"))
+        self.assertEqual(facts["float32_vector_error_bound_max"], 0)
+
     def test_requested_partitions_avoid_unneeded_fields_without_changing_values(self):
         selected = NormalMeasure(4, np.eye(3), partitions=(4,))
         complete = NormalMeasure(4, np.eye(3))
