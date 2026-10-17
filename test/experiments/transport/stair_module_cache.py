@@ -114,7 +114,7 @@ def extend(state, path, fixture, chain, palette):
     outer = [
         p
         for p in state["report"]["after"]["proposed_outer_profiles"]
-        if p["source_id"] != recipe["port"]["source_id"]
+        if "vertex" in recipe["port"] or p["source_id"] != recipe["port"]["source_id"]
     ]
     for p in report["module"]["profiles"]["outer_profiles"]:
         i = keys.index(p["source_id"])

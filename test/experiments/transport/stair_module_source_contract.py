@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 import shapely
-from stair_cycle_contacts import profile
+from stair_landing_pads import node_profiles
 
 
 def shared_nodes(rows, sources, recipe, contacts):
@@ -20,7 +20,8 @@ def shared_nodes(rows, sources, recipe, contacts):
         if len(incident) > 1 and endpoint:
             expected[mvt] = incident
     port = recipe["port"]
-    root = tuple(sources[port["source_id"]]["mvt_xy"][port["end"]])
+    index = port["vertex"] if "vertex" in port else port["end"]
+    root = tuple(sources[port["source_id"]]["mvt_xy"][index])
     expected[root] = sorted({i for i, _v in positions[root]})
     for contact in contacts:
         mvt = tuple(contact["mvt_xy"])
@@ -31,6 +32,7 @@ def shared_nodes(rows, sources, recipe, contacts):
 
 
 def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
+    port = recipe["port"]
     expected, positions, root = shared_nodes(rows, sources, recipe, contacts)
     if (
         len(nodes) != len(expected)
@@ -48,10 +50,10 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
                 "saved node membership or location differs from original sources"
             )
         profiles = [
-            profile(rows[j], end)
-            for j in node["incident"]
-            for end in (0, -1)
-            if np.array_equal(rows[j]["xy"][end], node["xy"])
+            p
+            for _i, _v, p in node_profiles(
+                rows, node, include_interiors="vertex" in port
+            )
         ]
         if mvt == root:
             profiles.append(frozen_line[:, :2])
@@ -68,6 +70,19 @@ def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
     count = 0
     for i, row in enumerate(rows):
         pads = row.get("junction_pads_xy_m", [])
+        for vertex in row.get("junction_pad_vertices", []):
+            if (
+                "vertex" not in port
+                or type(vertex) is not int
+                or not 0 < vertex < len(row["xy"]) - 1
+                or i
+                not in expected.get(
+                    tuple(sources[row["source_id"]]["mvt_xy"][vertex]), []
+                )
+            ):
+                raise ValueError(
+                    "interior pad anchor is not a shared original source vertex"
+                )
         if len(pads) > 16:
             raise ValueError("saved source pad count exhausted")
         for coordinates in pads:
