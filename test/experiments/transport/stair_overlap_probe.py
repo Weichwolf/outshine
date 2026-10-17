@@ -73,15 +73,23 @@ def undeclared(rows, planning, root, contacts):
     return result
 
 
-def inspect_pairs(rows, missing, chosen, sources, output):
-    records, queries, tested, copied = [], 0, 0, 0
+def inspect_pairs(rows, missing, chosen, sources, output, *, method="index"):
+    if method not in ("index", "scan"):
+        raise ValueError("known overlap query method required")
+    records, queries, tested, copied, returned = [], 0, 0, 0, 0
     for row, shape in zip(rows, missing, strict=True):
         if shape.area <= 1e-7:
             continue
         for asset in chosen:
             queries += 1
-            hits = asset.tree.query(shape, predicate="intersects")
-            tested += len(hits)
+            hits = (
+                asset.tree.query(shape, predicate="intersects")
+                if method == "index"
+                else np.flatnonzero(shapely.intersects(asset.shapes, shape))
+            )
+            hits = np.sort(hits)
+            returned += len(hits)
+            tested += len(hits) if method == "index" else len(asset.shapes)
             if tested > 65536:
                 raise ValueError("bounded overlap candidate work exhausted")
             for column, old_key in enumerate(asset.source_ids):
@@ -127,7 +135,9 @@ def inspect_pairs(rows, missing, chosen, sources, output):
                 )
     return records, {
         "asset_queries": queries,
-        "candidate_facets": tested,
+        "returned_facets": returned,
+        "full_scan_facets": tested if method == "scan" else 0,
+        "index_internal_visits": "unmeasured" if method == "index" else None,
         "exported_array_bytes": copied,
     }
 
@@ -149,7 +159,9 @@ def run(args):
     missing = undeclared(rows, planning, root["cached_cap"], state["module_contacts"])
     chosen = [a for a in assets if a.identity in note["roads"]["local_assets"]]
     args.output.mkdir()
-    records, work = inspect_pairs(rows, missing, chosen, sources, args.output)
+    records, work = inspect_pairs(
+        rows, missing, chosen, sources, args.output, method=args.method
+    )
     report = {
         "commit": commit,
         "resident_sha256": digest(args.resident / "resident.json"),
@@ -160,6 +172,7 @@ def run(args):
         "before_source_ids": manifest["source_ids"],
         "proposed_source_ids": recipe["source_ids"],
         "admitted_source_ids": [],
+        "method": args.method,
         "overlaps": records,
         "work": work,
         "scope": "Actual undeclared cap-mask candidates and local mesh preconditions only. No inferred/original graph contacts admitted; full height compatibility, wall/profile recovery, world physics and routing remain unverified.",
@@ -176,4 +189,5 @@ if __name__ == "__main__":
     for name in ("resident", "fixture", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--prior-module", type=Path, action="append", default=[])
+    parser.add_argument("--method", choices=("index", "scan"), default="index")
     run(parser.parse_args())
