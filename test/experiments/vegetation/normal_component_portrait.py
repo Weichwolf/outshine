@@ -92,6 +92,9 @@ def render(whole, catalog, fields, output, mode):
     output.mkdir(parents=True, exist_ok=False)
     began = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.context.scene.world = bpy.data.worlds.new(
+        "same neutral component diagnostic world"
+    )
     report = populate(whole, catalog, fields, mode)
     setup_scene_lights(SCENE | {"own_ground": True})
     scene = bpy.context.scene

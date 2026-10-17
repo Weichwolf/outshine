@@ -13,20 +13,21 @@ from normal_component_material import material
 from window_portrait_blender import bind_mesh
 
 
-def run(output):
+def run(output, cases=("flat", "rotated", "mixture", "mixture-back")):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under/tmp")
     output.mkdir(parents=True, exist_ok=False)
     records = []
-    for case in ("flat", "rotated", "mixture"):
+    for case in cases:
+        mixture = case.startswith("mixture")
         rotation = (
             np.eye(3)
             if case != "rotated"
             else np.array([[0, 0, 1], [0, 1, 0], [-1, 0, 0]])
         )
         vectors = np.zeros((64, 32, 32, 4, 3), np.float32)
-        vectors[..., 0, :] = (0.8, 0, 0.6) if case != "mixture" else (0.3, 0, 0.4)
-        if case == "mixture":
+        vectors[..., 0, :] = (0.3, 0, 0.4) if mixture else (0.8, 0, 0.6)
+        if mixture:
             vectors[..., 1, :] = (-0.3, 0, 0.4)
         images = np.zeros((64, 32, 32, 9), np.float32)
         images[..., 3] = 1
@@ -35,7 +36,11 @@ def run(output):
             began = time.perf_counter()
             bpy.ops.wm.read_factory_settings(use_empty=True)
             surface = material(
-                vectors, images, np.tile(np.eye(3), (64, 1, 1)), [1, 0, 0], mode
+                vectors,
+                images,
+                np.tile(np.eye(3), (64, 1, 1)),
+                [-1, 0, 0] if case == "mixture-back" else [1, 0, 0],
+                mode,
             )
             vertices = (
                 np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]], float)
@@ -77,7 +82,7 @@ def run(output):
             pixels = np.asarray(image.pixels[:], float).reshape(64, 64, 4)
             expected = (
                 (0.3 if mode == "four" else 0.0)
-                if case == "mixture"
+                if mixture
                 else (0.6 if case == "rotated" else 0.8)
             )
             error = float(abs(pixels[8:-8, 8:-8, :3] - expected).max())
@@ -100,4 +105,11 @@ def run(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    run(parser.parse_args().output)
+    parser.add_argument(
+        "--case", choices=("flat", "rotated", "mixture", "mixture-back")
+    )
+    args = parser.parse_args()
+    run(
+        args.output,
+        (args.case,) if args.case else ("flat", "rotated", "mixture", "mixture-back"),
+    )
