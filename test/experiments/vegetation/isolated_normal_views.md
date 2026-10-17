@@ -4,6 +4,8 @@ Owner: vegetation, [#643](https://github.com/Weichwolf/outshine/issues/643).
 Continues [prototype fields and the rejected atlas binding](prototype_normal_response.md).
 The finite positive fields remain unchanged. This experiment fixes their Blender
 sampling reference, without claiming a finished material, botanical crown or LOD.
+The next [joint-light/angular/footprint counterstudy](joint_light_basis.md) keeps
+this binding unchanged and measures source shadows before choosing a compact form.
 
 ## Source and contract
 
