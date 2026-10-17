@@ -83,6 +83,32 @@ class ForkShading(unittest.TestCase):
     def test_existing_independent_split_and_hard_edge_controls(self):
         self.assertTrue(check_weighting()["split_invariant"])
 
+    def test_centroid_split_preserves_angle_weight_but_biases_other_methods(self):
+        original = fixture()
+        divided = original | {
+            "vertices": np.vstack(
+                (
+                    original["vertices"],
+                    original["vertices"][original["faces"][0]].mean(axis=0),
+                )
+            ),
+            "faces": np.array([[0, 1, 4], [1, 2, 4], [2, 0, 4], [0, 2, 3]], np.int32),
+            "normals": np.vstack(
+                (np.tile(original["normals"][:3], (3, 1)), original["normals"][3:])
+            ),
+            "source_kind": np.array([0, 0, 0, 2], np.uint8),
+            "source_node": np.array([40, 40, 40, 67], np.uint32),
+        }
+        for method in ("angle", "area", "uniform"):
+            before, _ = shade(original, method)
+            after, _ = shade(divided, method)
+            a = before["normals"][0]
+            b = after["normals"][0]
+            if method == "angle":
+                np.testing.assert_allclose(a, b, rtol=0, atol=1e-15)
+            else:
+                self.assertGreater(np.linalg.norm(a - b), 0.01)
+
     def test_invalid_ownership_and_weighting_are_refused(self):
         original = fixture()
         with self.assertRaises(ValueError):
