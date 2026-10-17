@@ -25,6 +25,7 @@ class Entry:
     tangent: tuple
     opening_wkb: bytes
     landing_wkb: bytes
+    height_m: float
     origin: str
 
 
@@ -118,6 +119,7 @@ def entrance_for(row, parameters, recipe, rise):
         tuple(door["tangent"]),
         door["polygon"].wkb,
         door["landing"].wkb,
+        door["height_m"],
         door["origin"],
     )
     return door, entry

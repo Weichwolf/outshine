@@ -1,15 +1,17 @@
 """A source-contained shared stair reservation before detailed room subdivision."""
 
 from dataclasses import dataclass
+import math
 
 import numpy as np
 import shapely
 from shapely.affinity import affine_transform
 
 from building_core import placements
-from building_layout import WALL_M, frame
+from building_layout import AGENT_RADIUS_M, WALL_M, frame
 from building_plan import FLOOR_M
-from building_stair import core_layout
+from building_stair import core_layout, geometry_frame
+from outshine_ref.buildings.interiors.routes import routes
 
 
 @dataclass(frozen=True)
@@ -23,6 +25,53 @@ class Core:
     risers: int
     riser_m: float
     flip: bool
+    approach_wkb: bytes
+    approach_method: str
+    origin_xy: tuple
+    across_xy: tuple
+    along_xy: tuple
+    size_m: tuple
+
+
+def canonical_layout(core, rise, bottom, flip):
+    origin, along, across, measured, _reverse = geometry_frame(core, flip)
+    size = np.round(measured, 8)
+    if np.max(abs(size - measured)) > 1e-7:
+        raise ValueError("Core dimensions exceed their metric tolerance")
+    layout = core_layout(shapely.box(0, 0, *size), rise, bottom + FLOOR_M)
+    if layout is None:
+        return None
+    matrix = [across[0], along[0], across[1], along[1], *origin]
+    world = dict(layout)
+    for key in ("opening", "front_landing"):
+        world[key] = affine_transform(layout[key], matrix)
+    path = np.array(layout["path"], copy=True)
+    path[:, :2] = origin + path[:, :1] * across + path[:, 1:2] * along
+    world["path"] = path
+    return world, origin, across, along, size
+
+
+def circulation_space(polygon, core, front):
+    radius = AGENT_RADIUS_M / math.cos(math.pi / (4 * 32))
+    blocked = core.difference(front).buffer(radius, quad_segs=32)
+    return polygon.buffer(-(WALL_M + AGENT_RADIUS_M), join_style="mitre").difference(
+        blocked
+    )
+
+
+def approach(profiles, core, layout, entry):
+    spaces = [circulation_space(p, core, layout["front_landing"]) for p in profiles]
+    target = np.asarray(layout["path"][0, :2])
+    if any(
+        s.geom_type != "Polygon" or s.is_empty or not s.covers(shapely.Point(target))
+        for s in spaces
+    ):
+        return None
+    for method in ("doglegs", "graph"):
+        paths, _work = routes(spaces[0], [entry, target], method)
+        if paths:
+            return paths[0], method
+    return None
 
 
 def reserve(identifier, polygon, profiles, door, count, rise, bottom):
@@ -42,11 +91,17 @@ def reserve(identifier, polygon, profiles, door, count, rise, bottom):
         ):
             continue
         for flip in (False, True):
-            layout = core_layout(core, rise, bottom + FLOOR_M, flip=flip)
-            if layout is None:
+            canonical = canonical_layout(core, rise, bottom, flip)
+            if canonical is None:
                 continue
+            layout, origin, across, along, size = canonical
             if not core.buffer(1e-7).covers(layout["opening"]):
                 raise ValueError("Stair opening leaves the prepared core")
+            access = approach(
+                profiles, core, layout, np.asarray(door["centre"]) + inward * 1.5
+            )
+            if access is None:
+                continue
             return Core(
                 identifier + "/core",
                 core.wkb,
@@ -57,5 +112,11 @@ def reserve(identifier, polygon, profiles, door, count, rise, bottom):
                 layout["risers"],
                 layout["riser_m"],
                 flip,
+                access[0].wkb,
+                access[1],
+                tuple(origin),
+                tuple(across),
+                tuple(along),
+                tuple(size),
             ), costs
     raise ValueError("No common contained stair reservation in all mass profiles")
