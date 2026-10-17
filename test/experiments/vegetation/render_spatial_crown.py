@@ -20,6 +20,7 @@ def render(inputs, output, view):
     study = json.loads((inputs / "comparison.json").read_text())
     presentation = study.get("presentation_labels", {})
     camera = study.get("presentation_camera", {})
+    camera = camera | camera.get("views", {}).get(view, {})
     bpy.ops.wm.read_factory_settings(use_empty=True)
     eye = np.array(
         camera.get("eye", (0, -22, 11) if view == "front" else (18, -18, 11)), float

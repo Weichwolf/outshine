@@ -134,6 +134,7 @@ def build(output, recipe):
             "separation_m": 9,
             "ground_size_m": 48,
             "resolution": [2560, 1440],
+            "views": {"side": {"eye": [38, -38, 24]}},
         },
         "scope": "authored mature-size European oak interpretation, same original leaf inventory and growth space, no measured allometry/species/LOD/native acceptance; old closed segment wood and procedural preview materials",
     }
