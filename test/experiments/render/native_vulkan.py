@@ -68,6 +68,11 @@ def main():
         flags = shlex.split(run(
             ['pkg-config', '--cflags', 'vulkan', 'spirv-cross-c-shared', 'sdl3'], log).stdout)
         flags += shlex.split(run(['sh', 'test/run.sh', '--native-link-flags'], log).stdout)
+        run(['make', 'db'], log)
+        database = json.loads((ROOT / 'compile_commands.json').read_text())
+        stage = next(item for item in database if Path(item['file']).name == 'StagePipelines.cpp')
+        arguments = stage.get('arguments') or shlex.split(stage['command'])
+        includes = [flag for flag in arguments if flag.startswith('-I')]
         selected = run(['python3', 'test/scripts/source_units.py'], log).stdout.splitlines()
         native = [ROOT / name for name in selected if name.startswith('src/render/device/native/')]
         members = run(['ar', 't', str(archive)], log).stdout.splitlines()
@@ -129,7 +134,7 @@ def main():
         for source in consumers:
             binary = output / source.stem
             run(['nice', '-n', '10', *compiler, *toolchain, '-fno-exceptions', '-I.',
-                 '-Isrc/render/device/native', '-Itest/harness/shared', str(source),
+                 '-Isrc/render/device/native', *includes, '-Itest/harness/shared', str(source),
                  str(archive), *flags, '-o', str(binary)], log)
             binaries.append(binary)
         environment = os.environ.copy()
