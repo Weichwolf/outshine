@@ -39,8 +39,49 @@ zero proposals at the existing4/128/1024caps. These are limited existing consume
 not complete building/vegetation/world acceptance or general affineXY/Float32 proof.
 
 Private original inputs, local/whole exports, fresh readers, images and allocation
-traces remain under `/tmp/outshine-transport-next-50e00b4a8/`. The paired local/full
-allocation-cost comparison is still running; installed Fach-consumer replay,
-final cost summary and delivery remain open in #661. The root32-source resident
+traces remain under `/tmp/outshine-transport-next-50e00b4a8/`. The paired local/full allocation comparison has identical result SHA256
+`031805c7f02b49524ff051de3f47ecac87537f7dd0736531f8dfc81e52186038`.
+Installed Buildings/Pinus readers also pass; all205installed library modules are
+byte-identical to current sources. Allocation summary and delivery follow below. The root32-source resident
 profile provenance deficit for the951.79m alternative is separately tracked in
 #660. No SDK/runtime dependency or native/library API change is introduced.
+
+
+## Work and copy scope
+
+The actual local context contains1267terrain faces and11072old body faces;
+493896bytes of road working arrays.447terrain facets are replaced by723facets
+on409points; all remaining30335facets stay unchanged. The new additional road
+body has24top/80body triangles; whole logical source coverage includes reused
+old geometry and is independently checked, not inferred from this small mesh.
+The409-point terrain solve takes20iterations; the network solve takes7,
+both below the existing100iteration limit. Retained sparse arrays61604B,
+height output3272B, explicit conversion/datum copies7280B, validation XYZ
+copies24540B, changed old masks29789B, retained mesh payload copies0B.
+These are existing explicit counters, not a complete count of internal copies.
+
+Reproduction uses `stair_local_generate`, `stair_local_verify`,
+`stair_local_reference` and `stair_local_display` with the versioned fixture and
+the resident/ordered prior modules pinned in the actual local report. The baseline
+is the complete77-source reference. `stair_local_cost --mode local|whole --profile`
+compares identical module/layout/field arrays after preloading. Memray1.20.0
+records Python allocator events and intercepted native allocations, without native
+stacks; timed profiled runs are not uninstrumented speedup or device evidence.
+Renderer is `render_transport_research`; all outputs need explicit private/tmp paths.
+Native gates remain separate. `make lint-docs` passes its AGENTS-only scope.
+
+## Completed paired allocation evidence
+
+| Method | Profiled construction s | Allocation events | Cumulative bytes | Tracked peak B | Process RSS B |
+|---|---:|---:|---:|---:|---:|
+| Local | 7.419381 | 13,774,634 | 1,827,764,545 | 4,446,263 | 146,116,608 |
+| Whole control | 90.579985 | 143,897,785 | 16,208,442,770 | 52,014,521 | 216,993,792 |
+
+Both completed on636bcefac with the identical result hash above. Source/resident
+loading is excluded from the construction scope; RSS includes those inputs and
+imports. WSL2four-vCPU i5-1135G7, concurrent render/agent work, nice10 and Memray
+instrumentation make these unsuitable for uninstrumented timing/device claims.
+Positive allocation totals are not bytes copied; tracked peaks exclude unobserved
+OS/driver/device allocations. Even the smaller1.83GBcumulative allocation total
+remains excessive for runtime construction and is an explicit open optimization
+need under #434. No budget increase or global optimality is inferred.
