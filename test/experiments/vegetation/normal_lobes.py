@@ -33,8 +33,8 @@ __all__ = [
 
 
 class NormalMeasure:
-    def __init__(self, size, directions, frame=None):
-        if type(size) is not int or size not in (1, 4, 16, 64):
+    def __init__(self, size, directions, frame=None, *, partitions=(4, 6, 24)):
+        if type(size) is not int or size not in (1, 4, 16, 32, 64):
             raise ValueError("bounded native normal field required")
         self.size = size
         if not 1 <= len(directions) <= 128:
@@ -52,8 +52,15 @@ class NormalMeasure:
             raise ValueError("orthonormal normal-partition frame required")
         self.directions.setflags(write=False)
         self.frame.setflags(write=False)
+        if (
+            not isinstance(partitions, tuple)
+            or not partitions
+            or any(type(n) is not int or n not in (4, 6, 24) for n in partitions)
+            or len(set(partitions)) != len(partitions)
+        ):
+            raise ValueError("explicit distinct4/6/24 partitions required")
         self.moments = {
-            count: np.zeros((size * size, count, 4)) for count in (4, 6, 24)
+            count: np.zeros((size * size, count, 4)) for count in partitions
         }
         self.exact = np.zeros((len(self.directions), size * size))
         self.sample_count = 0
