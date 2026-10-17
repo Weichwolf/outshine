@@ -579,24 +579,37 @@ GroupToolchain() {
   esac
 }
 
-SourceStamp() {
-  stampSource=$1
-  stampDeps=$2
-  [ -s "$stampDeps" ] || return 1
-  if [ -n "${CXX_ENV_CONTEXT:-}" ]; then printf 'env:%s\n' "$CXX_ENV_CONTEXT"; fi
-  git hash-object --no-filters -- "$stampSource" "$stampDeps" || return 1
-  stampFiles=$(sed -e 's/^[^:]*://' -e 's/\\$//' -e 's/\$\$/\$/g' "$stampDeps") || return 1
-  printf '%s\n' "$stampFiles" | xargs git hash-object --no-filters --
+PrepareCompilerCache() {
+  command -v ccache >/dev/null 2>&1 || Die "ccache is required: brew install ccache / apt install ccache"
+  export CCACHE_DIR=${CCACHE_DIR:-${TMPDIR:-/tmp}/outshine-compiler-cache}
+  export CCACHE_MAXSIZE=${CCACHE_MAXSIZE:-1G}
+  export CCACHE_COMPILERCHECK=content
 }
 
-UpToDate() {
-  objectPath=$1
-  sourcePath=$2
-  depsPath=${objectPath%.o}.d
-  stampPath=${objectPath%.o}.stamp
-  [ -f "$objectPath" ] && [ -f "$sourcePath" ] && [ -f "$stampPath" ] || return 1
-  currentStamp=$(SourceStamp "$sourcePath" "$depsPath" 2>/dev/null) || return 1
-  [ "$currentStamp" = "$(cat "$stampPath")" ]
+CompileCachedObject() {
+  compileSource=$1
+  compileObject=$2
+  shift 2
+  compileNext=$compileObject.next
+  compileDeps=${compileObject%.o}.d.next
+  rm -f "$compileNext" "$compileDeps"
+  if ! ccache $CXX "$compileSource" "$@" -MD -MP -MF "$compileDeps" -MT "$compileObject" \
+      -c -o "$compileNext"; then
+    rm -f "$compileNext" "$compileDeps"
+    return 1
+  fi
+  if [ ! -s "$compileNext" ] || [ ! -s "$compileDeps" ]; then
+    rm -f "$compileNext" "$compileDeps"
+    printf 'compiler cache returned incomplete object/dependencies for %s\n' "$compileSource" >&2
+    return 1
+  fi
+  if [ -f "$compileObject" ] && cmp -s "$compileNext" "$compileObject"; then
+    rm -f "$compileNext"
+  else
+    mv "$compileNext" "$compileObject" || return 1
+    touch "$compileObject" || return 1
+  fi
+  mv "$compileDeps" "${compileObject%.o}.d"
 }
 
 OBJDIR=$BUILD/obj
@@ -620,11 +633,12 @@ SetGroupCompileFlags() {
     fi
   fi
   arcStd="$groupStd -fobjc-arc"
-  setId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
-  arcSetId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
+  setId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$CXX_ENV_CONTEXT" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
+  arcSetId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$CXX_ENV_CONTEXT" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
 }
 
 BuildGroup() {
+  PrepareCompilerCache
   group=$1
   case "$group" in
     src/generators/flora|src/generators/flora/*)
@@ -673,23 +687,13 @@ BuildGroup() {
         "$PWD" "$PWD/$unit" "$unitObject" "$CXX" "$PWD/$unit" "$unitStd" "$OPT" "$WARN" \
         "$SAN" "$EXTRA_DEFINES" "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
     fi
-    if ! UpToDate "$unitObject" "$unit"; then
-      read -r _poolToken <&9
-      {
-        unitStamp=${unitObject%.o}.stamp
-        rm -f "$unitStamp" "$unitStamp.tmp"
-        if $CXX "$unit" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES -MD -MP $groupIncludes \
-            -c -o "$unitObject" >"$unitObject.log" 2>&1 &&
-            SourceStamp "$unit" "${unitObject%.o}.d" >"$unitStamp.tmp" 2>>"$unitObject.log"; then
-          mv "$unitStamp.tmp" "$unitStamp"
-        else
-          rm -f "$unitStamp.tmp"
-          printf '%s\n' "$unit" >>"$groupFailed"
-        fi
-        printf '.\n' >&9
-      } &
-      groupSaid="$groupSaid $unitObject.log"
-    fi
+    read -r _poolToken <&9
+    {
+      CompileCachedObject "$unit" "$unitObject" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES $groupIncludes \
+        >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
+      printf '.\n' >&9
+    } &
+    groupSaid="$groupSaid $unitObject.log"
     OBJECTS="$OBJECTS $unitObject"
   done
   wait
@@ -802,6 +806,10 @@ SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
+FreshAgainst() {
+  python3 "$ROOT/test/scripts/artifact_freshness.py" "$@"
+}
+
 ArchiveFresh() {
   archiveFreshPath=$1
   shift
@@ -811,11 +819,7 @@ ArchiveFresh() {
     $0 !~ /^__\.SYMDEF(_64)?( SORTED)?$/ && $0 != "/" && $0 != "//" && $0 != "/SYM64/"')
   archiveFreshExpected=$(printf '%s\n' "$@" | sed 's|.*/||')
   [ "$archiveFreshActual" = "$archiveFreshExpected" ] || return 1
-  for archiveFreshMember in "$@"; do
-    [ -f "$archiveFreshMember" ] || return 1
-    [ "$archiveFreshMember" -nt "$archiveFreshPath" ] && return 1
-  done
-  return 0
+  FreshAgainst "$archiveFreshPath" "$@"
 }
 
 # THE LIBRARY ENTIRE, from the same declarations the tests build with: every source under src/
@@ -871,20 +875,22 @@ BuildLibrary() {
     toolNamed=build/outshine-$(basename "$toolLayer")
     toolStd=$(GroupToolchain "$toolLayer")
     toolIncludes=$(GroupIncludes "$toolLayer")
+    groupStd=$toolStd
+    groupIncludes=$toolIncludes
+    SetGroupCompileFlags
+    toolObject=$OBJDIR/entry-$(printf '%s' "$tool" | tr / -).$setId.o
+    CompileCachedObject "$tool" "$toolObject" $toolStd $OPT $WARN $toolIncludes ||
+      Die "$tool entry point did not compile"
     if [ -n "${COMPILEDB:-}" ]; then
-      printf '{"directory":"%s","file":"%s","command":"%s %s %s %s %s %s -c"},\n' \
-        "$PWD" "$PWD/$tool" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
-        "$toolIncludes" >> "$BUILD/compile_commands.part"
+      printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s -c -o %s"},\n' \
+        "$PWD" "$PWD/$tool" "$toolObject" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
+        "$toolIncludes" "$toolObject" >> "$BUILD/compile_commands.part"
     fi
-    diagnosticsStale=no
-    for diagnostic in $diagnosticObjects; do
-      [ "$toolNamed" -nt "$diagnostic" ] || diagnosticsStale=yes
-    done
-    if [ "$diagnosticsStale" = no ] && [ -f "$toolNamed" ] && [ "$toolNamed" -nt build/liboutshine.a ] && [ "$toolNamed" -nt "$tool" ]; then
+    if FreshAgainst "$toolNamed" build/liboutshine.a "$toolObject" $diagnosticObjects; then
       continue
     fi
     $CXX $toolStd $OPT $WARN $toolIncludes \
-      "$tool" $diagnosticObjects build/liboutshine.a $(LayerLink profile/engine) -o "$toolNamed" ||
+      "$toolObject" $diagnosticObjects build/liboutshine.a $(LayerLink profile/engine) -o "$toolNamed" ||
       Die "$tool does not build into $toolNamed"
     printf -- '-> %s\n' "$toolNamed"
   done
@@ -1586,10 +1592,6 @@ if [ "$AUDITLINK" = 1 ]; then
           printf 'AUDIT %s declares %s and no such source exists -- a ghost in the listing\n' "$suiteDir" "$unit"
           stragglers=refused
           break
-        fi
-        if UpToDate "$OBJDIR/$objName" "$unit"; then
-          OBJECTS="$OBJECTS $OBJDIR/$objName"
-          continue
         fi
         # the declaration names an object the gate has not built (cold, or a fresh include
         # set) -- build the GROUP once so the audit reads exactly what it names

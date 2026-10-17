@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -20,14 +21,16 @@ class ObjectCache(unittest.TestCase):
         self.objects.mkdir()
         source = (ROOT / 'test/run.sh').read_text()
         functions = []
-        for name in ('FileStamp', 'SourceStamp', 'UpToDate', 'SetGroupCompileFlags', 'BuildGroup'):
+        for name in ('FileStamp', 'SourceStamp', 'UpToDate', 'PrepareCompilerCache',
+                     'CompileCachedObject', 'FreshAgainst', 'ArchiveFresh',
+                     'SetGroupCompileFlags', 'BuildGroup'):
             match = re.search(r'^' + name + r'\(\) \{\n.*?^\}\n', source, re.M | re.S)
-            if name == 'FileStamp' and match is None:
+            if name not in ('SetGroupCompileFlags', 'BuildGroup') and match is None:
                 continue
             self.assertIsNotNone(match, name)
             functions.append(match.group())
         self.helper = self.root / 'build.sh'
-        self.helper.write_text('''#!/bin/sh
+        self.helper.write_text('ROOT=' + shlex.quote(str(ROOT)) + '\n' + '''#!/bin/sh
 set -eu
 CXX=${CXX:-c++}
 OPT=${OPT:--O0}
@@ -152,6 +155,23 @@ Die() { printf '%s\\n' "$*" >&2; exit 1; }
         second = self.build({'CXX': str(wrapper)})
         self.assertNotEqual(first, second)
         self.assertIn(b'VERSION_A', second.read_bytes())
+
+    def test_same_second_object_change_invalidates_actual_archive(self):
+        object_path = self.build()
+        archive = self.root / 'product.a'
+        subprocess.run(['ar', 'rcs', str(archive), str(object_path)], check=True,
+                       capture_output=True, timeout=10)
+        self.header.write_text('#define VALUE "VERSION_B"\n')
+        self.build()
+        self.assertIn(b'VERSION_B', object_path.read_bytes())
+        second = object_path.stat().st_mtime_ns // 1000000000 * 1000000000
+        os.utime(archive, ns=(second, second + 100000000))
+        os.utime(object_path, ns=(second, second + 800000000))
+        script = self.helper.read_text().split('\nBuildGroup src/base\n')[0]
+        result = subprocess.run(['sh', '-c', script + '\nArchiveFresh "$1" "$2"',
+                                 'archive-check', str(archive), str(object_path)],
+                                cwd=self.root, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
 
 
 if __name__ == '__main__':
