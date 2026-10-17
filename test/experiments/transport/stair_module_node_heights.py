@@ -2,28 +2,29 @@
 
 import numpy as np
 import shapely
-from stair_cycle_contacts import profile
+from stair_landing_pads import node_profiles
 from stair_module_sections import interpolate
 from surface_height_checks import normal_gradients
 
 
-def plan_heights(rows, nodes, cached_points):
+def plan_heights(rows, nodes, cached_points, *, include_interiors=False):
     result = []
     for node in nodes:
         if any(np.array_equal(node["xy"], p) for p in cached_points):
             continue
-        profiles, heights = [], []
+        profiles = [
+            p
+            for _i, _v, p in node_profiles(
+                rows, node, include_interiors=include_interiors
+            )
+        ]
+        heights = []
         for i in node["incident"]:
             row = rows[i]
             matches = np.flatnonzero(np.all(row["xy"] == node["xy"], axis=1))
             if len(matches) != 1:
                 raise ValueError("one original source sample at each new node required")
             heights.append(row["prior"][matches[0]])
-            profiles.extend(
-                profile(row, end)
-                for end in (0, -1)
-                if np.array_equal(row["xy"][end], node["xy"])
-            )
         if not 2 <= len(profiles) <= 4 or np.ptp(heights) > 1e-10:
             raise ValueError(
                 "bounded shared whole profiles and consistent node DEM prior required"

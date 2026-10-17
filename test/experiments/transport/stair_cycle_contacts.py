@@ -40,6 +40,19 @@ def profile(row, end):
     return xy[end] + np.array([-1, 0, 1])[:, None] * row["width_m"] / 2 * normal
 
 
+def interior_profile_xy(row, vertex):
+    xy = np.asarray(row["xy"])
+    if type(vertex) is not int or not 1 <= vertex < len(xy) - 1:
+        raise ValueError("one original interior profile vertex required")
+    incoming, outgoing = xy[vertex] - xy[vertex - 1], xy[vertex + 1] - xy[vertex]
+    tangent = incoming / np.linalg.norm(incoming) + outgoing / np.linalg.norm(outgoing)
+    if np.linalg.norm(tangent) < 1e-6:
+        raise ValueError("interior source cusp has no bounded shared profile")
+    tangent /= np.linalg.norm(tangent)
+    normal = np.array([-tangent[1], tangent[0]])
+    return xy[vertex] + np.array([-1, 0, 1])[:, None] * row["width_m"] / 2 * normal
+
+
 def contacts(data, rows, protected=CONTACTS):
     vertices = data["body_vertices"]
     result = []

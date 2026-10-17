@@ -9,6 +9,47 @@ from stair_cycle_contacts import profile
 from stair_module_sections import line_pieces
 
 
+def interior_profile(state, sources, old_key, vertex):
+    old_row = state.get("cached_module_rows", {}).get(old_key)
+    if old_row is None or not np.array_equal(old_row["xy"], sources[old_key]["xy_m"]):
+        raise ValueError(
+            "interior contact needs its exact cached module axis and profile"
+        )
+    if type(vertex) is not int or not 1 <= vertex < len(old_row["xy"]) - 1:
+        raise ValueError("one actual original interior source node required")
+    node = sources[old_key]["mvt_xy"][vertex]
+    if sum(p == node for p in sources[old_key]["mvt_xy"]) != 1:
+        raise ValueError("ambiguous repeated original interior source node")
+    xy = np.array(old_row["xy"])
+    incoming, outgoing = xy[vertex] - xy[vertex - 1], xy[vertex + 1] - xy[vertex]
+    tangent = incoming / np.linalg.norm(incoming) + outgoing / np.linalg.norm(outgoing)
+    if np.linalg.norm(tangent) < 1e-6:
+        raise ValueError("interior source cusp has no bounded shared profile")
+    tangent /= np.linalg.norm(tangent)
+    normal = np.array([-tangent[1], tangent[0]])
+    cross = xy[vertex] + np.array([-1, 0, 1])[:, None] * normal * old_row["width_m"] / 2
+    owner = state["report"]["candidate_source_ids"].index(old_key)
+    selected = (state["road"]["face_sources"] & (1 << owner)) != 0
+    if not state["road_ground"][selected].all():
+        raise ValueError("interior contact requires actual cached ground")
+    cap = Mesh(state["road"]["body_vertices"], state["road"]["top_faces"][selected])
+    sampled = (
+        SurfaceSampler(cap, xy_tolerance_m=1e-7)
+        .sample(cross, max_queries=3, max_candidates=65536)
+        .points_enu_m
+    )
+    pieces, _parents = line_pieces(cap.vertices, cap.triangles, cross)
+    if (
+        not np.isfinite(sampled).all()
+        or shapely.LineString(cross)
+        .difference(shapely.union_all(pieces).buffer(1e-7))
+        .length
+        > 1e-7
+    ):
+        raise ValueError("actual cached interior profile has missing intervals")
+    return {"mvt_xy": node, "xy": xy[vertex].tolist(), "profile": sampled, "cap": cap}
+
+
 def frozen_contacts(state, recipe, sources):
     declarations = recipe.get("interior_contacts", [])
     if len(declarations) > 4 or (
@@ -24,49 +65,13 @@ def frozen_contacts(state, recipe, sources):
         )
         if key not in recipe["source_ids"] or end not in (0, -1):
             raise ValueError("interior contact must identify a new original endpoint")
-        old_row = state.get("cached_module_rows", {}).get(old_key)
-        if old_row is None or not np.array_equal(
-            old_row["xy"], sources[old_key]["xy_m"]
-        ):
-            raise ValueError(
-                "interior contact needs its exact cached module axis and profile"
-            )
+        if old_key not in sources:
+            raise ValueError("cached contact must retain an original source identity")
         node = sources[key]["mvt_xy"][end]
         positions = [i for i, p in enumerate(sources[old_key]["mvt_xy"]) if p == node]
-        if len(positions) != 1 or positions[0] in (0, len(old_row["xy"]) - 1):
+        if len(positions) != 1:
             raise ValueError("one actual original interior source node required")
-        vertex = positions[0]
-        xy = np.array(old_row["xy"])
-        incoming, outgoing = xy[vertex] - xy[vertex - 1], xy[vertex + 1] - xy[vertex]
-        tangent = incoming / np.linalg.norm(incoming) + outgoing / np.linalg.norm(
-            outgoing
-        )
-        if np.linalg.norm(tangent) < 1e-6:
-            raise ValueError("interior source cusp has no bounded shared profile")
-        tangent /= np.linalg.norm(tangent)
-        normal = np.array([-tangent[1], tangent[0]])
-        cross = (
-            xy[vertex] + np.array([-1, 0, 1])[:, None] * normal * old_row["width_m"] / 2
-        )
-        owner = state["report"]["candidate_source_ids"].index(old_key)
-        selected = (state["road"]["face_sources"] & (1 << owner)) != 0
-        if not state["road_ground"][selected].all():
-            raise ValueError("interior contact requires actual cached ground")
-        cap = Mesh(state["road"]["body_vertices"], state["road"]["top_faces"][selected])
-        sampled = (
-            SurfaceSampler(cap, xy_tolerance_m=1e-7)
-            .sample(cross, max_queries=3, max_candidates=65536)
-            .points_enu_m
-        )
-        pieces, _parents = line_pieces(cap.vertices, cap.triangles, cross)
-        if (
-            not np.isfinite(sampled).all()
-            or shapely.LineString(cross)
-            .difference(shapely.union_all(pieces).buffer(1e-7))
-            .length
-            > 1e-7
-        ):
-            raise ValueError("actual cached interior profile has missing intervals")
+        contact = interior_profile(state, sources, old_key, positions[0])
         incident = [
             k
             for k in recipe["source_ids"]
@@ -77,10 +82,7 @@ def frozen_contacts(state, recipe, sources):
                 "source_id": key,
                 "cached_source_id": old_key,
                 "end": end,
-                "mvt_xy": node,
-                "xy": xy[vertex].tolist(),
-                "profile": sampled,
-                "cap": cap,
+                **contact,
                 "incident_source_ids": incident,
             }
         )

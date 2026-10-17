@@ -3,6 +3,7 @@
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
+from stair_module_clearance import source_clearances
 from stair_module_contacts import interfaces, profiles
 from stair_module_geometry import contact_pins
 from stair_module_loops import reuse as profile_reuse
@@ -88,7 +89,7 @@ def module_body(data, rows, domains):
     }
 
 
-def traffic(data, upper, piers):
+def traffic(data, upper, piers, *, clearances=None):
     result = []
     if len(piers) > 128:
         raise ValueError("old pier traffic cap")
@@ -104,7 +105,7 @@ def traffic(data, upper, piers):
         high = upper.vertices.astype("f4").astype(float) if cast else upper.vertices
         upper_shape = shapely.union_all(shapely.polygons(high[upper.triangles, :2]))
         area = footprint.intersection(upper_shape).area
-        if area > 1e-7:
+        if area > 1e-7 and clearances is None:
             raise ValueError("first ground module family intersects an existing bridge")
         distances = []
         for pier in piers:
@@ -176,7 +177,9 @@ def audit(state, recipe, data, rows, planning, line, upper):
     node_checks = []
     if recipe.get("junction_mode", "free") == "level_box":
         cached_points = [line[1, :2], *[c["xy"] for c in state["module_contacts"]]]
-        plans = plan_heights(rows, nodes, cached_points)
+        plans = plan_heights(
+            rows, nodes, cached_points, include_interiors="vertex" in recipe["port"]
+        )
         fixed, values = apply_heights(
             data["surface_vertices"][:, :2],
             fixed,
@@ -204,12 +207,19 @@ def audit(state, recipe, data, rows, planning, line, upper):
             cap,
             line,
             contacts=state.get("module_contacts", []),
+            root_interior="vertex" in recipe["port"],
         )
         if mode == "profile"
         else profiles(
             data, rows, nodes, masks, original, cap, line, piecewise=mode == "piecewise"
         )
     )
+    clearances = None
+    if recipe.get("traffic_mode") == "source_clearance":
+        caps = [cap] + [c["cap"] for c in state.get("module_contacts", [])]
+        clearances = source_clearances(data, rows, original, caps, upper)
+    elif recipe.get("traffic_mode") is not None:
+        raise ValueError("known explicit module traffic mode required")
     return {
         "body": module_body(data, rows, domains),
         "reuse": reuse,
@@ -225,7 +235,8 @@ def audit(state, recipe, data, rows, planning, line, upper):
             if mode == "profile"
             else {}
         ),
-        "traffic": traffic(data, upper, state["piers"]),
+        "traffic": traffic(data, upper, state["piers"], clearances=clearances),
+        **({"source_clearances": clearances} if clearances is not None else {}),
         **(
             {"horizontal_curves": inspect_curves(data, rows)}
             if any("horizontal_curve_plan" in row for row in rows)

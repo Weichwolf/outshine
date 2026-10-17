@@ -5,18 +5,17 @@ import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.transport import HeightBudget, close_surface, fit_surface_heights
-from outshine_ref.transport.junction_pads import profile_junction_pad
 from outshine_ref.transport.weighted_heights import fit_weighted_heights
 from shared_bridge_geometry import corridor
 from stair_branch_inputs import surface_sampling, surface_welding
-from stair_cycle_contacts import profile
 from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
 from stair_module_loops import frozen_contacts, prepare_contacts
 from stair_module_materials import surface_slots
 from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
-from stair_module_sections import line_pieces, profile_levels
+from stair_module_roots import bind_root_pad, root_profile
+from stair_module_sections import cap_edge_constraints, line_pieces, profile_levels
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
 
@@ -48,30 +47,7 @@ def old_surfaces(state, recipe, sources):
         road["body_vertices"][road["bottom_faces"][selected], 2], xyz[:, :, 2] - 0.3
     ):
         raise ValueError("cached source depth is incompatible with this module family")
-    proposal = [
-        p
-        for p in state["report"]["after"]["proposed_outer_profiles"]
-        if p["source_id"] == key
-    ]
-    if len(proposal) != 1:
-        raise ValueError("one unambiguous cached outer endpoint required")
-    line = np.array(proposal[0]["proposed_vertices_enu_m"])
-    end = recipe["port"]["end"]
-    source = sources[key]
-    width = float(np.linalg.norm(line[-1, :2] - line[0, :2]))
-    row = {
-        "xy": np.array(source["xy_m"]),
-        "width_m": width,
-        "source_id": key,
-        "port_end": end,
-    }
-    if (
-        end not in (0, -1)
-        or line.shape != (3, 3)
-        or not np.allclose(profile(row, end), line[:, :2], rtol=0, atol=1e-8)
-        or (not varying and np.ptp(line[:, 2]) > 1e-7)
-    ):
-        raise ValueError("cached whole outer profile is shifted or not locally flat")
+    row, line = root_profile(state, recipe, sources)
     cap = Mesh(road["body_vertices"], faces)
     levels = profile_levels(cap.vertices, cap.triangles, line[:, :2])
     if not len(levels) or (not varying and np.max(abs(levels - line[1, 2])) > 1e-7):
@@ -103,7 +79,7 @@ def old_surfaces(state, recipe, sources):
 def prepared(rows, sources, frozen_row, line, ground):
     keys = [r["source_id"] for r in rows]
     nodes = junctions(keys, sources, [], rows)
-    anchor = sources[frozen_row["source_id"]]["mvt_xy"][frozen_row["port_end"]]
+    anchor = sources[frozen_row["source_id"]]["mvt_xy"][frozen_row["port_vertex"]]
     root = [n for n in nodes if n["mvt_xy"] == anchor]
     if not root:
         incident = [
@@ -114,27 +90,18 @@ def prepared(rows, sources, frozen_row, line, ground):
         if incident:
             node = {
                 "mvt_xy": anchor,
-                "xy": list(frozen_row["xy"][frozen_row["port_end"]]),
+                "xy": list(frozen_row["xy"][frozen_row["port_vertex"]]),
                 "incident": incident,
             }
             nodes.append(node)
             root = [node]
     if len(root) != 1 or not np.array_equal(root[0]["xy"], line[1, :2]):
         raise ValueError("original shared source node required at frozen endpoint")
-    profiles = [line[:, :2]]
-    ends = []
-    for i in root[0]["incident"]:
-        for end in (0, -1):
-            if np.array_equal(rows[i]["xy"][end], line[1, :2]):
-                profiles.append(profile(rows[i], end))
-                ends.append(i)
-    if not ends:
-        raise ValueError("new module has no original endpoint at its frozen port")
-    pad = profile_junction_pad(profiles)
-    for i in ends:
-        rows[i]["junction_pads_xy_m"] = [np.array(pad.exterior.coords[:-1])]
+    bind_root_pad(rows, root[0], line, include_interiors=frozen_row["root_interior"])
     prepare_contacts(rows, nodes, frozen_row.get("additional_contacts", []))
-    complete_landings(rows, nodes, [], max_pads=16)
+    complete_landings(
+        rows, nodes, [], max_pads=16, include_interiors=frozen_row["root_interior"]
+    )
     surface_sampling(rows, "source_knots")
     surface_welding(rows, 1e-7)
     original = [corridor(r) for r in rows]
@@ -194,26 +161,18 @@ def build(
         caps = [frozen_row["cached_cap"]] + [
             c["cap"] for c in frozen_row["additional_contacts"]
         ]
-        boundaries = []
-        for cap in caps:
-            selected = shapely.dwithin(
-                shapely.polygons(cap.vertices[cap.triangles, :2]),
-                shapely.union_all(domains),
-                1e-7,
-            )
-            f = cap.triangles[selected]
-            edges = np.unique(
-                np.sort(np.vstack([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]]), axis=1),
-                axis=0,
-            )
-            boundaries.extend(shapely.linestrings(cap.vertices[edges, :2]))
-        constraints = boundaries
+        constraints = cap_edge_constraints(caps, domains)
         if junction_mode == "level_box":
             cached_points = [
                 line[1, :2],
                 *[c["xy"] for c in frozen_row["additional_contacts"]],
             ]
-            plans = plan_heights(rows, nodes, cached_points)
+            plans = plan_heights(
+                rows,
+                nodes,
+                cached_points,
+                include_interiors=frozen_row["root_interior"],
+            )
             constraints.extend(p["shape"].boundary for p in plans)
     xy, faces, owners, arrangement_note = arrangement(
         rows,
