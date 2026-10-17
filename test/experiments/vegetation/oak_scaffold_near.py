@@ -39,7 +39,31 @@ def fine_mesh(blade):
     return mesh
 
 
-def near(inputs, output):
+def camera_view(rows, recipe, camera):
+    origins = rows["leaf_origins"]
+    requested = np.array([0, -recipe["spread_m"] * 0.42, recipe["height_m"] * 0.55])
+    selected = int(np.argmin(np.linalg.norm(origins - requested, axis=1)))
+    owner = rows["leaf_owner_nodes"][selected]
+    target = origins[rows["leaf_owner_nodes"] == owner].mean(axis=0)
+    eye = target + np.array([0.55, -1.8, 0.65])
+    span = 1.8
+    if camera is not None:
+        eye, target = np.asarray(camera["eye"]), np.asarray(camera["target"])
+        span = camera["span_m"]
+        if (
+            eye.shape != (3,)
+            or target.shape != (3,)
+            or not np.isfinite(np.r_[eye, target, span]).all()
+            or span <= 0
+            or np.linalg.norm((eye - target)[:2]) < 1e-10
+        ):
+            raise ValueError(
+                "finite positive orthographic camera and nonvertical view required"
+            )
+    return eye, target, span, int(owner) if camera is None else None
+
+
+def near(inputs, output, camera=None):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private render outputs must be under/tmp")
     began = time.perf_counter()
@@ -48,18 +72,12 @@ def near(inputs, output):
     _, products = load(folder)
     rows = products["tables.npz"]
     origins = rows["leaf_origins"]
-    requested = np.array(
-        [0, -study["recipe"]["spread_m"] * 0.42, study["recipe"]["height_m"] * 0.55]
-    )
-    selected = int(np.argmin(np.linalg.norm(origins - requested, axis=1)))
-    owner = rows["leaf_owner_nodes"][selected]
-    target = origins[rows["leaf_owner_nodes"] == owner].mean(axis=0)
+    eye, target, span, owner = camera_view(rows, study["recipe"], camera)
     blades = tuple(
         replace(b, length=b.length * 7 / 6, width=b.width * 7 / 6)
         for b in plant_recipe("quercus", study["recipe"]["seed"]).blades
     )
-    eye = target + np.array([0.55, -1.8, 0.65])
-    detail = near_demand(origins, rows["leaf_variants"], blades, eye, target)
+    detail = near_demand(origins, rows["leaf_variants"], blades, eye, target, span)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     mats = palette(folder)
     bump = next(n for n in mats[0].node_tree.nodes if n.type == "BUMP")
@@ -100,7 +118,7 @@ def near(inputs, output):
             "projection": "orthographic",
             "eye": eye.tolist(),
             "target": target.tolist(),
-            "span_m": 1.8,
+            "span_m": span,
         }
     )
     scene.render.resolution_x, scene.render.resolution_y = 2560, 1440
@@ -129,7 +147,7 @@ def near(inputs, output):
         "source_tables_sha256": hashlib.sha256(
             (folder / "tables.npz").read_bytes()
         ).hexdigest(),
-        "selected_host": int(owner),
+        "selected_host": owner,
         "fine_leaf_ids": rows["leaf_ids"][detail].tolist(),
         "fine_leaves": int(detail.sum()),
         "coarse_leaves": int((~detail).sum()),
@@ -139,6 +157,7 @@ def near(inputs, output):
         "samples": 8,
         "eye": eye.tolist(),
         "target": target.tolist(),
+        "span_m": span,
         "setup_s": ready - began,
         "render_s": time.perf_counter() - ready,
         "process_peak_rss_bytes_linux": resource.getrusage(
@@ -156,5 +175,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--camera", type=Path)
     args = parser.parse_args()
-    near(args.inputs, args.output)
+    near(
+        args.inputs,
+        args.output,
+        json.loads(args.camera.read_text()) if args.camera else None,
+    )
