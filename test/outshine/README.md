@@ -35,6 +35,7 @@ Choose checks by the changed boundary:
 | World data, terrain, weather and entity storage | `make suite SUITE=outshine/src/world` or the affected subtree |
 | HTTP acquisition and source integration | `make suite SUITE=outshine/src/host` |
 | Scenario parsing and layering | `make suite SUITE=outshine/src/scenario/ScenarioRead` or `outshine/src/scenario/ScenarioLayer` |
+| Scenario writer round trips | `make suite SUITE=outshine/src/scenario/ScenarioWrite`; uses Base/scenario without engine or GPU |
 | CPU render-geometry preparation | `make suite SUITE=outshine/src/render/Shape` |
 | Shader file framing | `make suite SUITE=outshine/src/render/device/SpirvFile` |
 | Species files and numeric definitions | `make suite SUITE=outshine/src/generators/flora/Species` or `outshine/src/generators/flora/TreeSpecies` |
@@ -66,6 +67,9 @@ The optional `OUTSHINE_GLO30_RASTER_PROBE` live-source check runs with
 
 Source-closure audits inspect each distinct resolved source-group list once per
 run. Test discovery and execution still visit every case and instrumentation arm.
+Within that frozen invocation, cases share the already built component objects
+for the same compiler/options/instrumentation profile. A new invocation validates
+its inputs through ccache again; generated inputs and checkout sources stay frozen.
 
 Shader builds use glslang's actual include dependencies per variant. A missing
 dependency receipt rebuilds that artifact; removed includes are rescanned without
