@@ -35,8 +35,8 @@ def bounded_tuple(value, size, bound):
         raise ValueError("finite immutable bounded affine coordinates required")
 
 
-def clip_rectangle(vertices, values):
-    """Exact rational clipping of the small convex query rectangle, not the domain."""
+def clip_chain(vertices, values):
+    """Clip an oriented chain; a nonconvex result may have zero-width connectors."""
     if max(values) <= 0:
         return []
     if min(values) >= 0:
@@ -127,17 +127,26 @@ class AffineOccupancy(Reservation):
                 sign * (plane_value(plane, self.origin_xy_m, p) - rational(limit))
                 for p in vertices
             ]
-            vertices = clip_rectangle(vertices, values)
+            vertices = clip_chain(vertices, values)
             if not vertices:
                 return shapely.Polygon()
         if vertices == original:
             return self.geometry
         # GEOS and the resulting XY vertices are binary64, not exact arithmetic.
         rectangle = shapely.Polygon([(float(x), float(y)) for x, y in vertices])
+        if not rectangle.is_valid or rectangle.area == 0:
+            from stair_occupancy_precision import certified_empty
+
+            return certified_empty(self, heights)
         result = self.geometry.intersection(rectangle)
         if not result.is_valid:
             raise OccupancyError("affine intersection is numerically unresolved")
-        return polygonal_conflict(result)
+        result = polygonal_conflict(result)
+        if result.area == 0:
+            from stair_occupancy_precision import certified_empty
+
+            return certified_empty(self, heights)
+        return result
 
     def overlaps(self, footprint):
         return (
