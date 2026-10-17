@@ -28,6 +28,10 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   einzelne feste Seitenkontakthöhen und einen ganzen ursprünglichen Radweg ergänzen.
 - [Südwestlicher Straßenverbund](stair_southwest_comparison.md): sechs weitere Quellen,
   ganze geneigte Bestandsprofile, ausdrücklicher Innenkontakt und 795 m Straßen/Wege.
+- [Lokaler Generatoradapter](stair_local_comparison.md): residente Terrainpatches,
+  getrennte Straßenkörper und begrenzte vollständige Nachbarschaften.
+- [Automatisches residentes Wachstum](stair_growth_comparison.md): neue Assets
+  als tatsächliche Anschlusswurzeln, begrenzte Quellenwahl und gemeinsame alte Profile.
 - [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
   an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
 - [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen
@@ -40,13 +44,13 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   erhaltene Originalknoten, ganze tatsächliche Fahrspurhüllen und Kreisbogenvergleich.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
-und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
+und Hilfsumgebungen liegen ausschließlich unter `/tmp` außerhalb des Repositorys.
 Forschungs-/Diagnosebilder bleiben im System-Tempverzeichnis; die integrierte
 öffentliche Places-Galerie besitzt der Hauptagent.
 Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
 
 ```sh
-TRANSPORT_PY=/var/tmp/outshine-transport-python-355154544/bin/python
+TRANSPORT_PY=/tmp/outshine-transport-python-355154544/bin/python
 TRANSPORT_WORK=/tmp/outshine-transport-workspace-0241b3f81
 ```
 
