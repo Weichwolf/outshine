@@ -43,6 +43,7 @@ GROUND_OUTPUTS := $(foreach v,0 1,$(foreach n,0 1 2 3,$(foreach i,0 1 2 3,$(if $
 GROUND_OUTPUTS += 01234
 GROUND_SHADERS := $(foreach v,0 1,build/shaders/groundLattice-$(v).vert.spv) $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundLit-$(output).frag.spv)
 GROUND_SHADERS += $(foreach v,0 1,build/shaders/groundPatchLattice-$(v).vert.spv)
+GROUND_SHADERS += $(foreach output,$(GROUND_OUTPUTS),build/shaders/groundPatchLit-$(output).frag.spv)
 
 FLAT_VERTICES := $(foreach u,0 1 2,$(foreach t,0 1,$(foreach v,0 1,build/shaders/flat-$(u)$(t)-$(v).vert.spv)))
 FLAT_FRAGMENTS := $(foreach kind,00 01 10 11 20 21 30,$(foreach output,$(GROUND_OUTPUTS),build/shaders/flat-$(kind)-$(output).frag.spv))
@@ -108,6 +109,9 @@ build/shaders/groundPatchLattice-%.vert.spv: src/render/shaders/groundLatticeVer
 
 build/shaders/groundLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
 	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
+
+build/shaders/groundPatchLit-%.frag.spv: src/render/shaders/groundLit.glsl $(wildcard src/render/shaders/*.glsl) build/shaders/brdfTables.glsl
+	@variant=$*; base=$${variant:3:1}; metal=$${variant:4:1}; $(GLSLANG) $(GLSLANG_FLAGS) -S frag -DGROUND_PATCHES=1 -Ibuild/shaders -DSUBJECT_WRITES_VELOCITY=$${variant:0:1} -DSUBJECT_NORMAL_LOCATION=$${variant:1:1} -DSUBJECT_IDENTITY_LOCATION=$${variant:2:1} -DSUBJECT_BASE_LOCATION=$${base:-0} -DSUBJECT_METALROUGH_LOCATION=$${metal:-0} $< -o $@
 
 shader-tools:    ## build pinned glslang (requires CMake and Ninja)
 	@cd $(SELF_DIR) && python3 test/scripts/shader-tools.py

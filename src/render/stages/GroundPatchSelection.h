@@ -20,10 +20,12 @@ public:
   struct alignas(16) Bounds {
     std::array<float, 4> Low{};
     std::array<float, 4> High{};
+    std::array<float, 4> Errors{};
   };
 
-  static_assert(sizeof(Bounds) == 32 && alignof(Bounds) == 16);
-  static_assert(offsetof(Bounds, High) == 16);
+  static constexpr size_t kBoundsBytes = 48;
+  static_assert(sizeof(Bounds) == kBoundsBytes && alignof(Bounds) == 16);
+  static_assert(offsetof(Bounds, High) == 16 && offsetof(Bounds, Errors) == 32);
 
   void Fractions(std::span<const float> fractions);
   void Page(PageId page, std::span<const float> heights);
@@ -38,7 +40,8 @@ public:
                                           const Native::Viewport &viewport,
                                           Native::Buffer &pyramid,
                                           const PyramidShape &shape,
-                                          const Native::Buffer &candidates);
+                                          const Native::Buffer &candidates,
+                                          float errorPx = 0);
 
   [[nodiscard]] bool Ready() const { return Ready_; }
 
@@ -63,6 +66,7 @@ private:
   struct PageRange {
     std::array<std::array<float, 2>, kPatchCount> Patches{};
     std::array<float, 2> Whole{};
+    std::array<std::array<float, 4>, kPatchCount> Errors{};
     uint64_t Revision = 0;
     bool Finite = false;
   };
@@ -79,13 +83,17 @@ private:
     std::array<float, 4> Viewport{};
     std::array<uint32_t, 4> Wide{}, High{}, At{};
     std::array<uint32_t, 4> Source{};
+    std::array<uint32_t, 4> Work{};
+    std::array<float, 4> Detail{};
   };
 
-  static constexpr size_t kViewBytes = 160;
+  static constexpr size_t kViewBytes = 192;
   static constexpr size_t kViewPyramidOffset = 96;
   static constexpr size_t kViewSourceOffset = 144;
   static_assert(sizeof(View) == kViewBytes && offsetof(View, Wide) == kViewPyramidOffset);
   static_assert(offsetof(View, Source) == kViewSourceOffset);
+  static_assert(offsetof(View, Work) == kViewSourceOffset + 16);
+  static_assert(offsetof(View, Detail) == kViewBytes - 16);
 
   [[nodiscard]] TileRange BoundsFor(const GroundInstance &tile, bool uniform) const;
   [[nodiscard]] Native::Result<void> Reserve(Native::Device &device, uint32_t count);
@@ -99,6 +107,7 @@ private:
   std::vector<Bounds> Seen_;
   uint64_t Revision_ = 0;
   bool AlignedFractions_ = true;
+  bool UniformFractions_ = true;
   bool FiniteFractions_ = true;
   bool Ready_ = false;
   uint32_t Room_ = 0;

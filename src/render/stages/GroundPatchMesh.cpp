@@ -17,17 +17,26 @@
 
 namespace outshine::Render {
 namespace {
-constexpr uint32_t kCells = 8, kSide = kCells + 1;
+constexpr uint32_t kCells = GroundPatchMesh::kGroundPatchCells;
+constexpr uint32_t kSide = GroundPatchMesh::kSide;
+constexpr double kBarycentricTolerance = 1e-12;
 using Point = std::array<double, 2>;
 
 Point Position(uint32_t node) {
-  return {static_cast<double>(node % kSide) / kCells, static_cast<double>(node / kSide) / kCells};
+  const uint32_t row = node / kSide;
+  return {static_cast<double>(node % kSide) / kCells, static_cast<double>(row) / kCells};
 }
 
 std::array<double, 3> Weights(const GroundPatchFace &face, Point point) {
-  const auto a = Position(face[0]), b = Position(face[1]), c = Position(face[2]);
-  const double dx = point[0] - a[0], dy = point[1] - a[1];
-  const double bx = b[0] - a[0], by = b[1] - a[1], cx = c[0] - a[0], cy = c[1] - a[1];
+  const auto a = Position(face[0]);
+  const auto b = Position(face[1]);
+  const auto c = Position(face[2]);
+  const double dx = point[0] - a[0];
+  const double dy = point[1] - a[1];
+  const double bx = b[0] - a[0];
+  const double by = b[1] - a[1];
+  const double cx = c[0] - a[0];
+  const double cy = c[1] - a[1];
   const double determinant = bx * cy - by * cx;
   const double v = (dx * cy - dy * cx) / determinant;
   const double w = (bx * dy - by * dx) / determinant;
@@ -61,16 +70,18 @@ std::expected<void, GroundPatchMeshError> Record(GEOSContextHandle_t context,
   }
   for (unsigned i = 0; i < count; ++i) {
     Point point{};
-    if (GEOSCoordSeq_getXY_r(context, coordinates, i, &point[0], &point[1]) == 0) {
+    if (GEOSCoordSeq_getXY_r(context, coordinates, i, point.data(), &point[1]) == 0) {
       return std::unexpected(GroundPatchMeshError::Backend);
     }
     if (std::ranges::any_of(coarse, [&](uint32_t node) { return Position(node) == point; })) {
       continue;
     }
-    const auto f = Weights(fine, point), c = Weights(coarse, point);
+    const auto f = Weights(fine, point);
+    const auto c = Weights(coarse, point);
     GroundPatchSample sample{};
     for (size_t k = 0; k < f.size(); ++k) {
-      if (!std::isfinite(f[k]) || !std::isfinite(c[k]) || f[k] < -1e-12 || c[k] < -1e-12) {
+      if (!std::isfinite(f[k]) || !std::isfinite(c[k]) || f[k] < -kBarycentricTolerance ||
+          c[k] < -kBarycentricTolerance) {
         return std::unexpected(GroundPatchMeshError::InvalidRefinement);
       }
       sample.Nodes[k] = fine[k];
@@ -95,7 +106,7 @@ std::vector<GroundPatchFace> GroundPatchFaces(uint32_t stride) {
         result.push_back({at(x, y), at(x + stride, y + stride), at(x + stride, y)});
         continue;
       }
-      std::array<uint32_t, 4u * kCells> boundary{};
+      std::array<uint32_t, size_t{4} * kCells> boundary{};
       size_t count = 0;
       const auto edge = [&](uint32_t fromX, uint32_t fromY, int dx, int dy, bool fine) {
         const uint32_t step = fine ? 1u : stride;
@@ -118,13 +129,21 @@ std::vector<GroundPatchFace> GroundPatchFaces(uint32_t stride) {
   return result;
 }
 
+const std::array<uint32_t, 4> &GroundPatchIndexCounts() {
+  static const std::array counts{static_cast<uint32_t>(GroundPatchFaces(1).size() * 3),
+                                 static_cast<uint32_t>(GroundPatchFaces(2).size() * 3),
+                                 static_cast<uint32_t>(GroundPatchFaces(4).size() * 3),
+                                 static_cast<uint32_t>(GroundPatchFaces(8).size() * 3)};
+  return counts;
+}
+
 std::expected<GroundPatchMesh, GroundPatchMeshError> MakeGroundPatchMesh(uint32_t stride) {
   GroundPatchMesh result{.Faces = GroundPatchFaces(stride), .Samples = {}};
   if (result.Faces.empty()) { return std::unexpected(GroundPatchMeshError::InvalidStride); }
   if (stride == 1) { return result; }
   using Context =
       std::unique_ptr<std::remove_pointer_t<GEOSContextHandle_t>, decltype(&GEOS_finish_r)>;
-  Context context(GEOS_init_r(), &GEOS_finish_r);
+  const Context context(GEOS_init_r(), &GEOS_finish_r);
   if (!context) { return std::unexpected(GroundPatchMeshError::Backend); }
   std::map<Point, GroundPatchSample> samples;
   const auto fine = GroundPatchFaces(1);
@@ -136,7 +155,7 @@ std::expected<GroundPatchMesh, GroundPatchMeshError> MakeGroundPatchMesh(uint32_
     polygons.push_back(std::move(polygon));
   }
   for (const auto &coarse : result.Faces) {
-    auto polygon = Polygon(context.get(), coarse);
+    const auto polygon = Polygon(context.get(), coarse);
     if (!polygon) { return std::unexpected(GroundPatchMeshError::Backend); }
     for (size_t i = 0; i < fine.size(); ++i) {
       const char intersects = GEOSIntersects_r(context.get(), polygon.get(), polygons[i].get());
@@ -156,9 +175,10 @@ std::expected<GroundPatchMesh, GroundPatchMeshError> MakeGroundPatchMesh(uint32_
   return result;
 }
 
-double GroundPatchHeightError(std::span<const float, 81> heights,
+double GroundPatchHeightError(std::span<const float, GroundPatchMesh::kNodes> heights,
                               std::span<const GroundPatchSample> samples) noexcept {
-  double result = 0, scale = 0;
+  double result = 0;
+  double scale = 0;
   for (const float h : heights) {
     if (!std::isfinite(h)) { return std::numeric_limits<double>::infinity(); }
     scale = std::max(scale, std::abs(static_cast<double>(h)));

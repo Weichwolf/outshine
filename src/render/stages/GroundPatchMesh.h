@@ -16,15 +16,25 @@ struct GroundPatchSample {
 };
 
 struct GroundPatchMesh {
+#define GROUND_INT(name, value) static constexpr int name = value;
+#define GROUND_UINT(name, value) static constexpr uint32_t name = value;
+#define GROUND_FLOAT(name, value) static constexpr float name = value;
+#include "GroundConstants.inc"
+#undef GROUND_INT
+#undef GROUND_UINT
+#undef GROUND_FLOAT
+  static constexpr uint32_t kSide = kGroundPatchCells + 1u;
+  static constexpr uint32_t kNodes = kSide * kSide;
   std::vector<GroundPatchFace> Faces;
   std::vector<GroundPatchSample> Samples;
 };
 
 enum class GroundPatchMeshError { InvalidStride, Backend, InvalidRefinement };
 [[nodiscard]] std::vector<GroundPatchFace> GroundPatchFaces(uint32_t stride);
+[[nodiscard]] const std::array<uint32_t, 4> &GroundPatchIndexCounts();
 [[nodiscard]] std::expected<GroundPatchMesh, GroundPatchMeshError>
 MakeGroundPatchMesh(uint32_t stride);
-[[nodiscard]] double GroundPatchHeightError(std::span<const float, 81> heights,
+[[nodiscard]] double GroundPatchHeightError(std::span<const float, GroundPatchMesh::kNodes> heights,
                                             std::span<const GroundPatchSample> samples) noexcept;
 }
 #endif

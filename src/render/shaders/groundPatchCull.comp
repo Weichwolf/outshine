@@ -10,25 +10,30 @@ layout(std140, set = 2, binding = 0) uniform GroundView {
   vec4 viewport;
   uvec4 wide, high, at;
   uvec4 source;
+  uvec4 work;
+  vec4 detail;
 } view;
 #include "depthRectangle.glsl"
 
 void main() {
   const uint id = gl_GlobalInvocationID.x;
   if (id >= view.source.x) { return; }
+  for (uint level = 0u; level < 4u; ++level) { kept[level * view.work.x + id] = 0u; }
   kept[id] = 1u;
-  const vec4 a = bounds[2u * id], b = bounds[2u * id + 1u];
+  const vec4 a = bounds[3u * id], b = bounds[3u * id + 1u];
+  const vec4 errors = bounds[3u * id + 2u];
   if (a.w < 0.5 || any(isnan(a)) || any(isnan(b)) || any(isinf(a)) || any(isinf(b))) { return; }
   const vec3 error = 8.0 * 1.1920929e-7 * (max(abs(a.xyz), abs(b.xyz)) + abs(view.shift.xyz) + 1.0);
   const vec3 low = a.xyz + view.shift.xyz - error, high = b.xyz + view.shift.xyz + error;
   vec2 least = vec2(3.0e38), most = vec2(-3.0e38);
-  float nearest = -3.0e38;
+  float nearest = -3.0e38, minimumW = 3.0e38;
   for (uint corner = 0u; corner < 8u; ++corner) {
     const vec3 point = vec3((corner & 1u) == 0u ? low.x : high.x,
                              (corner & 2u) == 0u ? low.y : high.y,
                              (corner & 4u) == 0u ? low.z : high.z);
     const vec4 projected = view.clip * vec4(point, 1.0);
     if (projected.w <= 1.0e-5 || any(isnan(projected)) || any(isinf(projected))) { return; }
+    minimumW = min(minimumW, projected.w);
     const vec3 p = projected.xyz / projected.w;
     least = min(least, p.xy); most = max(most, p.xy); nearest = max(nearest, p.z);
   }
@@ -38,5 +43,18 @@ void main() {
   if (any(lessThan(hi, vec2(0.0))) || any(greaterThan(lo, source))) { kept[id] = 0u; return; }
   lo = clamp(lo / source, 0.0, 1.0); hi = clamp(hi / source, 0.0, 1.0);
   if (depthRectangleOccluded(lo, hi, clamp(nearest, 0.0, 1.0) + 1.0e-6,
-                               source, view.wide, view.high, view.at)) { kept[id] = 0u; }
+                               source, view.wide, view.high, view.at)) { kept[id] = 0u; return; }
+  const vec3 rowX = vec3(view.clip[0][0], view.clip[1][0], view.clip[2][0]);
+  const vec3 rowY = vec3(view.clip[0][1], view.clip[1][1], view.clip[2][1]);
+  const vec3 rowW = vec3(view.clip[0][3], view.clip[1][3], view.clip[2][3]);
+  const float wScale = length(rowW);
+  const vec2 scale = 0.5 * view.viewport.zw * (vec2(length(rowX), length(rowY)) + max(abs(least), abs(most)) * wScale);
+  uint selected = 0u;
+  for (uint level = 1u; level < 4u; ++level) {
+    const float displacement = errors[level] + 2.0 * length(error);
+    const float denominator = minimumW - displacement * wScale;
+    if (!isnan(displacement) && !isinf(displacement) && denominator > 0.0 && displacement * length(scale) <= view.detail.x * denominator) { selected = level; }
+  }
+  kept[id] = 0u;
+  kept[selected * view.work.x + id] = 1u;
 }

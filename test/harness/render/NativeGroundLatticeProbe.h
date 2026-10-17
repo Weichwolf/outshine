@@ -236,7 +236,8 @@ inline std::vector<float> PatternControl(Device &device,
 inline void Lit(Device &device,
                 GroundLattice &ground,
                 const std::string &prefix,
-                const HeightPattern *pattern = nullptr) {
+                const HeightPattern *pattern = nullptr,
+                bool adaptive = false) {
   constexpr size_t colours = 5;
   std::array<std::unique_ptr<Texture>, colours> targets;
   std::array<ColourAttachment, colours> attachments;
@@ -263,7 +264,7 @@ inline void Lit(Device &device,
   FrameContext frame;
   frame.Mvp = kIdentity;
   frame.Mvp[5] = -1;
-  if (pattern != nullptr) {
+  if (pattern != nullptr && !adaptive) {
     frame.Mvp[3] = kDepthPerspective[0];
     frame.Mvp[7] = kDepthPerspective[1];
     frame.Mvp[11] = kDepthPerspective[2];
@@ -271,6 +272,21 @@ inline void Lit(Device &device,
   Require(ground.Cull(frame, {}, *commands));
   CHECK(ground.Drawn() == 2,
         "CPU frustum culling preserves both visible classes and rejects the distant tile");
+  StageSubmission submission;
+  std::unique_ptr<Buffer> opaqueDepth;
+  if (adaptive) {
+    Require(ground.ConfigurePatchSelection());
+    const auto shape = PyramidOver({.WidthPx = kWidth, .HeightPx = kHeight});
+    opaqueDepth = Upload(device, *commands, std::vector<uint32_t>(shape.Texels));
+    Require(ground.SelectPatches(frame,
+                                 {},
+                                 {.Commands = commands.get(),
+                                  .Submission = submission,
+                                  .Area = {.Width = kWidth, .Height = kHeight},
+                                  .Clip = {.Width = kWidth, .Height = kHeight}},
+                                 *opaqueDepth,
+                                 shape));
+  }
   Require(commands->BeginRenderPass(
       {.Colours = attachments,
        .Depth = DepthAttachment{.Image = {.Image = depth.get()}, .Begin = Load::Clear}}));
@@ -286,7 +302,6 @@ inline void Lit(Device &device,
       Binding{.Set = 3, .Slot = 0, .Value = Uniform{.Bytes = std::as_bytes(std::span(material))}},
       Binding{
           .Set = 3, .Slot = 1, .Value = Uniform{.Bytes = std::as_bytes(std::span(&lighting, 1))}}};
-  StageSubmission submission;
   Require(ground.Encode({.Commands = commands.get(),
                          .Submission = submission,
                          .Area = {.Width = kWidth, .Height = kHeight},
@@ -298,9 +313,25 @@ inline void Lit(Device &device,
         "the actual five-target terrain material pass completes");
   auto depths = Read(device, *depth, 1);
   if (pattern != nullptr) {
+    const auto actualNormals = adaptive ? Read(device, *targets[1], 4) : std::vector<float>{};
     const auto expected = PatternControl(device, *pattern, bindings, attachments);
-    CHECK(depths == expected,
-          "all patch pixels exactly match independently drawn full-grid triangles");
+    if (adaptive) {
+      const auto expectedNormals = Read(device, *targets[1], 4);
+      size_t coverageMismatch = 0, normalMismatch = 0;
+      for (size_t i = 0; i < kPixels; ++i) {
+        coverageMismatch += (depths[i] > 0) != (expected[i] > 0);
+        for (size_t c = 0; c < 4; ++c) {
+          normalMismatch += !std::isfinite(actualNormals[i * 4 + c]) ||
+                            std::abs(actualNormals[i * 4 + c] - expectedNormals[i * 4 + c]) > 1e-6f;
+        }
+      }
+      CHECK(coverageMismatch == 0, "adaptive patches retain closed full-grid coverage");
+      CHECK(normalMismatch == 0,
+            "coarse geometry reconstructs the original fine interpolated normals");
+    } else {
+      CHECK(depths == expected,
+            "all patch pixels exactly match independently drawn full-grid triangles");
+    }
     CHECK(std::count_if(expected.begin(), expected.end(), [](float value) { return value > 0; }) >
               static_cast<ptrdiff_t>(kPixels / 3),
           "the non-affine control is nonempty");

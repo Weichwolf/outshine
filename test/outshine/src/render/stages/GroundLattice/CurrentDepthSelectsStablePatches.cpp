@@ -1,5 +1,6 @@
 #include "GroundPatchSelection.h"
 #include "GroundLattice.h"
+#include "GroundPatchMesh.h"
 #include "test/harness/render/NativeGpuCheck.h"
 #include "test/harness/render/NativeOffline.h"
 #include <algorithm>
@@ -44,7 +45,9 @@ void Select(Device &device,
             std::span<const uint32_t> expected,
             Mat4f clip = kIdentity,
             Vec3 anchor = {},
-            size_t tiles = 1) {
+            size_t tiles = 1,
+            float errorPx = 0,
+            uint32_t expectedLevel = 0) {
   const auto shape = PyramidOver({.WidthPx = kImageSide, .HeightPx = kImageSide});
   std::vector<uint32_t> depth(shape.Texels, std::bit_cast<uint32_t>(wall));
   std::vector<uint32_t> codes(tiles * GroundLattice::kPatchCount);
@@ -63,19 +66,35 @@ void Select(Device &device,
                          {.Width = kImageSide, .Height = kImageSide},
                          *pyramid,
                          shape,
-                         *candidates));
+                         *candidates,
+                         errorPx));
   CHECK(selection.Ready(), "only complete native selection publishes indirect arguments");
   const auto done = Require(device.Submit(std::move(commands)));
   CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,
         "current-depth cull, reused scan and stable compaction finish");
-  const auto args = Read(
-      device, *selection.Arguments(), selection.ArgumentOffset(), sizeof(IndexedIndirectArguments));
-  CHECK(args[0] == GroundLattice::kPatchIndices && args[1] == expected.size() && args[2] == 0 &&
-            args[3] == 0 && args[4] == 0,
-        "the aligned scan counter updates instance count without corrupting indexed arguments");
+  const auto args = Read(device,
+                         *selection.Arguments(),
+                         selection.ArgumentOffset(),
+                         4u * sizeof(IndexedIndirectArguments));
+  const uint64_t room = selection.Codes()->Description().Bytes / (4u * sizeof(uint32_t));
+  uint32_t firstIndex = 0;
+  for (uint32_t level = 0; level < 4; ++level) {
+    const size_t at = 5u * level;
+    CHECK(args[at] == GroundPatchIndexCounts()[level] &&
+              args[at + 1] == (level == expectedLevel ? expected.size() : 0u) &&
+              args[at + 2] == firstIndex && args[at + 3] == 0 && args[at + 4] == level * room,
+          "each LOD owns its count, exact index range and independent compacted stream");
+    firstIndex += GroundPatchIndexCounts()[level];
+  }
   if (!expected.empty()) {
-    const auto selected = Read(device, *selection.Codes(), 0, expected.size_bytes());
-    CHECK(std::ranges::equal(selected, expected), "surviving patch codes preserve source order");
+    const auto selected = Read(device,
+                               *selection.Codes(),
+                               uint64_t{args[5u * expectedLevel + 4u]} * sizeof(uint32_t),
+                               expected.size_bytes());
+    std::vector<uint32_t> wanted(expected.begin(), expected.end());
+    for (auto &code : wanted) { code |= expectedLevel << GroundLattice::kGroundLodShift; }
+    CHECK(std::ranges::equal(selected, wanted),
+          "surviving patch codes preserve source order within their selected LOD");
   }
 }
 }
@@ -94,6 +113,7 @@ int main() {
   std::iota(all.begin(), all.end(), uint32_t{0});
   Select(*device, selection, kWall, {});
   Select(*device, selection, 0, all);
+  Select(*device, selection, 0, all, kIdentity, {}, 1, 0.5f, 3);
   auto behindEye = kIdentity;
   behindEye[15] = -1;
   Select(*device, selection, kWall, all, behindEye);

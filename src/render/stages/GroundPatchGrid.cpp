@@ -1,4 +1,6 @@
 #include "GroundLattice.h"
+#include "GroundPatchMesh.h"
+#include <vector>
 #include "UploadQueue.h"
 #include <array>
 #include <cstddef>
@@ -71,15 +73,10 @@ Native::Result<void> GroundLattice::BuildPatchGrid() {
       vertices[at + 1] = static_cast<float>(y);
     }
   }
-  std::array<uint32_t, kPatchIndices> indices{};
-  size_t at = 0;
-  for (uint32_t y = 0; y + 1u < kPatchSide; ++y) {
-    for (uint32_t x = 0; x + 1u < kPatchSide; ++x) {
-      const uint32_t a = y * kPatchSide + x;
-      for (const uint32_t one :
-           {a, a + kPatchSide, a + kPatchSide + 1u, a, a + kPatchSide + 1u, a + 1u}) {
-        indices[at++] = one;
-      }
+  std::vector<uint32_t> indices;
+  for (const uint32_t stride : {1u, 2u, 4u, 8u}) {
+    for (const auto &face : GroundPatchFaces(stride)) {
+      indices.insert(indices.end(), face.begin(), face.end());
     }
   }
   auto grid = PatchBuffer(std::as_bytes(std::span(vertices)), Native::BufferUse::Vertex);

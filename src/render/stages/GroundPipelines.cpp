@@ -84,7 +84,7 @@ GroundPipelineBinding::ConfigureLit(Native::Device &device,
   if (!made) { return std::unexpected(made.error()); }
   auto patches = Pipeline(device,
                           {.Vertex = outputs.VertexPath("groundPatchLattice"),
-                           .Fragment = outputs.FragmentPath("groundLit")},
+                           .Fragment = outputs.FragmentPath("groundPatchLit")},
                           targets,
                           Native::Cull::Back,
                           true);

@@ -67,7 +67,8 @@ void GroundLattice::ReleasePage(PageId which) {
 
 Native::Result<void> GroundLattice::SetInstances(std::span<const GroundTile> real,
                                                  std::span<const GroundTile> virtual_) {
-  const size_t maximum = std::numeric_limits<uint32_t>::max() / sizeof(GroundInstance);
+  const size_t maximum = std::min(std::numeric_limits<uint32_t>::max() / sizeof(GroundInstance),
+                                  size_t{1} << (kGroundLodShift - kGroundPatchBits));
   if (real.size() > maximum || virtual_.size() > maximum - real.size()) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "the ground lattice has too many instances"});

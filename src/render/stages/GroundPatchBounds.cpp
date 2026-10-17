@@ -1,5 +1,6 @@
 #include "GroundPatchSelection.h"
 #include "GroundLattice.h"
+#include "GroundPatchError.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -86,9 +87,11 @@ GroundPatchSelection::GroundPatchSelection() {
 
 void GroundPatchSelection::Fractions(std::span<const float> fractions) {
   AlignedFractions_ = true;
+  UniformFractions_ = true;
   FiniteFractions_ = true;
   for (size_t i = 0; i < Fractions_.size(); ++i) {
     Fractions_[i] = fractions.empty() ? static_cast<float>(i) / kCells : fractions[i];
+    UniformFractions_ &= Fractions_[i] == static_cast<float>(i) / kCells;
     FiniteFractions_ &= std::isfinite(Fractions_[i]);
     AlignedFractions_ &=
         std::isfinite(Fractions_[i]) && std::round(Fractions_[i] * kCells) == static_cast<float>(i);
@@ -105,6 +108,7 @@ void GroundPatchSelection::Page(PageId page, std::span<const float> heights) {
   constexpr size_t side = GroundLattice::kPageSide;
   constexpr size_t cells = GroundLattice::kGroundPatchCells;
   for (size_t patch = 0; patch < kPatchCount; ++patch) {
+    range.Errors[patch] = GroundPatchHeightErrors(heights, patch);
     auto &bounds = range.Patches[patch];
     bounds = {std::numeric_limits<float>::infinity(), -std::numeric_limits<float>::infinity()};
     for (size_t y = 0; y <= cells; ++y) {
@@ -155,6 +159,12 @@ GroundPatchSelection::TileRange GroundPatchSelection::BoundsFor(const GroundInst
     const auto v = Coordinates(Fractions_, patch / kPatchColumns * kPatchCells, uniform);
     const auto heights = uniform || AlignedFractions_ ? page.Patches[patch] : page.Whole;
     result.Patches[patch] = WorldVolume(tile, LocalVolume(tile, {u, v}, heights));
+    result.Patches[patch].Errors = uniform || UniformFractions_
+                                       ? GroundPatchWorldErrors(tile, patch, page.Errors[patch])
+                                       : std::array{0.0f,
+                                                    std::numeric_limits<float>::infinity(),
+                                                    std::numeric_limits<float>::infinity(),
+                                                    std::numeric_limits<float>::infinity()};
   }
   return result;
 }

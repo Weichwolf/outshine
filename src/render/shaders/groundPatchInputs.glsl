@@ -5,7 +5,7 @@ layout(std430, set = 0, binding = 2) readonly buffer Buffer_groundFractions { fl
 vec4 c0, c1, c2, c3, north, south, pageInfo;
 
 vec3 groundPatchGrid() {
-  const uint id = patchCode & ~kGroundUniformBit;
+  const uint id = patchCode & ~(kGroundUniformBit | kGroundLodMask);
   const uint tile = (id >> kGroundPatchBits) * 7u;
   c0 = groundTiles[tile];
   c1 = groundTiles[tile + 1u];

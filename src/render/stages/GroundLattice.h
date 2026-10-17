@@ -78,6 +78,8 @@ public:
   static constexpr DrawShape PatchShape = [] {
     auto shape = LitShape;
     shape.VertexStorageBuffers = 2;
+    shape.FragmentSamplers += 1;
+    shape.FragmentStorageBuffers += 1;
     return shape;
   }();
   static constexpr DrawShape DepthShape{.VertexSamplers = 1, .VertexUniformBuffers = 1};

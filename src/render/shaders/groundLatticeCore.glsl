@@ -31,6 +31,9 @@ struct GroundPoint {
   vec3 local;
   vec3 rim;
   vec3 normal;
+#if GROUND_PATCHES
+  vec2 sampleUV;
+#endif
 };
 
 GroundPoint groundPointAt(sampler2DArray pages) {
@@ -59,5 +62,8 @@ GroundPoint groundPointAt(sampler2DArray pages) {
   const float dhN =
       (groundNodeAt(pages, page, i, j - 1) - groundNodeAt(pages, page, i, j + 1)) / (2.0 * stepN);
   p.normal = normalize(vec3(-dhE, -dhN, 1.0));
+#if GROUND_PATCHES
+  p.sampleUV = samplingGrid.xy;
+#endif
   return p;
 }

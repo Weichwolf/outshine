@@ -26,7 +26,7 @@ Native::Result<void> GroundLattice::SelectPatches(const FrameContext &ctx,
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground patch input is missing"});
   }
-  return Selection_.Cull(*into.Commands, ctx, anchor, into.Area, pyramid, shape, *PatchList_);
+  return Selection_.Cull(*into.Commands, ctx, anchor, into.Area, pyramid, shape, *PatchList_, 0.5f);
 }
 
 Native::Result<void> GroundLattice::DrawPatches(const PassRecording &into,
@@ -86,7 +86,7 @@ Native::Result<void> GroundLattice::DrawPatches(const PassRecording &into,
                                                .Indices = indices,
                                                .Range = {.Data = Selection_.Arguments(),
                                                          .Offset = Selection_.ArgumentOffset(),
-                                                         .Count = 1}});
+                                                         .Count = 4}});
   }
   return into.Commands->DrawIndexed(
       {.State = state,

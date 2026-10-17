@@ -57,7 +57,8 @@ Native::Result<void> GroundPatchSelection::Cull(Native::Commands &commands,
                                                 const Native::Viewport &viewport,
                                                 Native::Buffer &pyramid,
                                                 const PyramidShape &shape,
-                                                const Native::Buffer &candidates) {
+                                                const Native::Buffer &candidates,
+                                                float errorPx) {
   Ready_ = false;
   if (Seen_.empty()) { return {}; }
   if (!Cull_ || !LocalScan_ || !Scan_ || !Compact_ || !Bounds_ || !Slots_ || !Kept_ || !Batch_ ||
@@ -65,14 +66,17 @@ Native::Result<void> GroundPatchSelection::Cull(Native::Commands &commands,
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "ground patch selection is not prepared"});
   }
-  View view{
-      .Clip = frame.Mvp,
-      .Viewport = {viewport.X, viewport.Y, viewport.Width, viewport.Height},
-      .Wide = shape.Wide,
-      .High = shape.High,
-      .At = shape.At,
-      .Source = {
-          static_cast<uint32_t>(Seen_.size()), shape.SourceWide, shape.SourceHigh, kScanThreads}};
+  View view{.Clip = frame.Mvp,
+            .Viewport = {viewport.X, viewport.Y, viewport.Width, viewport.Height},
+            .Wide = shape.Wide,
+            .High = shape.High,
+            .At = shape.At,
+            .Source = {static_cast<uint32_t>(Seen_.size()),
+                       shape.SourceWide,
+                       shape.SourceHigh,
+                       kScanThreads},
+            .Work = {Room_, Blocks_, kScanThreads, 4},
+            .Detail = {errorPx, 0, 0, 0}};
   for (int axis = 0; axis < 3; ++axis) {
     view.Shift[axis] = static_cast<float>(anchor[axis] + frame.PreViewTranslation[axis]);
   }
@@ -96,19 +100,20 @@ Native::Result<void> GroundPatchSelection::Select(Native::Commands &commands,
                          Storage(0, 1, *Ranges_),
                          Storage(1, 0, *Slots_),
                          Storage(1, 1, *Totals_)};
-  accepted = commands.Dispatch(*LocalScan_, local, {.X = Blocks_});
+  accepted = commands.Dispatch(*LocalScan_, local, {.X = 4u * Blocks_});
   if (!accepted) { return accepted; }
   const std::array scan{Storage(0, 0, *Totals_),
                         Storage(0, 1, *Batch_),
                         Storage(1, 0, *Offsets_),
-                        Storage(1, 1, *Arguments_, CounterOffset_, 4u * sizeof(uint32_t))};
-  accepted = commands.Dispatch(*Scan_, scan, {.X = 1});
+                        Storage(1, 1, *Arguments_, CounterOffset_, 19u * sizeof(uint32_t))};
+  accepted = commands.Dispatch(*Scan_, scan, {.X = 4});
   if (!accepted) { return accepted; }
+  const std::array compactView{view.Source, view.Work};
   const std::array compact{Storage(0, 0, candidates),
                            Storage(0, 1, *Slots_),
                            Storage(0, 2, *Offsets_),
                            Storage(1, 0, *Selected_),
-                           Uniform(std::as_bytes(std::span(&view.Source, 1)))};
+                           Uniform(std::as_bytes(std::span(compactView)))};
   return commands.Dispatch(
       *Compact_, compact, {.X = (view.Source[0] + kCompactThreads - 1u) / kCompactThreads});
 }

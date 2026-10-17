@@ -1,5 +1,6 @@
 #include "GroundPatchSelection.h"
 #include "GroundLattice.h"
+#include "GroundPatchMesh.h"
 #include "ComputeShaders.h"
 #include <algorithm>
 #include <array>
@@ -39,26 +40,28 @@ Native::Result<void> GroundPatchSelection::Reserve(Native::Device &device, uint3
   if (Room_ >= count) { return {}; }
   const uint32_t room = std::max(
       count,
-      Room_ <= std::numeric_limits<uint32_t>::max() / 2u ? std::max(64u, Room_ * 2u) : count);
+      Room_ <= std::numeric_limits<uint32_t>::max() / 8u ? std::max(64u, Room_ * 2u) : count);
   const uint64_t counter = std::max(uint64_t{4}, device.Limits().StorageBufferAlignment);
   const uint32_t blocks = room / kScanLanes + static_cast<uint32_t>(room % kScanLanes != 0u);
   using U = Native::BufferUse;
   const std::array descriptions{
       Native::BufferDescription{.Bytes = uint64_t{room} * sizeof(Bounds),
                                 .Use = U::Storage | U::CopyDestination},
-      Native::BufferDescription{.Bytes = uint64_t{room} * sizeof(uint32_t), .Use = U::Storage},
-      Native::BufferDescription{.Bytes = uint64_t{room} * sizeof(uint32_t), .Use = U::Storage},
-      Native::BufferDescription{.Bytes = uint64_t{room} * sizeof(uint32_t),
+      Native::BufferDescription{.Bytes = uint64_t{room} * 4u * sizeof(uint32_t), .Use = U::Storage},
+      Native::BufferDescription{.Bytes = uint64_t{room} * 4u * sizeof(uint32_t), .Use = U::Storage},
+      Native::BufferDescription{.Bytes = uint64_t{room} * 4u * sizeof(uint32_t),
                                 .Use = U::Storage | U::Vertex | U::CopySource},
-      Native::BufferDescription{.Bytes = 2u * sizeof(uint32_t),
+      Native::BufferDescription{.Bytes = 8u * sizeof(uint32_t),
                                 .Use = U::Storage | U::CopyDestination},
-      Native::BufferDescription{.Bytes = counter + 4u * sizeof(uint32_t),
+      Native::BufferDescription{.Bytes = counter + 19u * sizeof(uint32_t),
                                 .Use =
                                     U::Storage | U::Indirect | U::CopyDestination | U::CopySource},
-      Native::BufferDescription{.Bytes = uint64_t{blocks} * kRangeBytes,
+      Native::BufferDescription{.Bytes = uint64_t{blocks} * 4u * kRangeBytes,
                                 .Use = U::Storage | U::CopyDestination},
-      Native::BufferDescription{.Bytes = uint64_t{blocks} * sizeof(uint32_t), .Use = U::Storage},
-      Native::BufferDescription{.Bytes = uint64_t{blocks} * sizeof(uint32_t), .Use = U::Storage}};
+      Native::BufferDescription{.Bytes = uint64_t{blocks} * 4u * sizeof(uint32_t),
+                                .Use = U::Storage},
+      Native::BufferDescription{.Bytes = uint64_t{blocks} * 4u * sizeof(uint32_t),
+                                .Use = U::Storage}};
   std::array<std::unique_ptr<Native::Buffer>, descriptions.size()> buffers;
   for (size_t i = 0; i < buffers.size(); ++i) {
     auto made = device.CreateBuffer(descriptions[i]);
@@ -84,7 +87,7 @@ Native::Result<void> GroundPatchSelection::Reserve(Native::Device &device, uint3
 Native::Result<void> GroundPatchSelection::Upload(Native::Device &device,
                                                   Native::Commands &commands) {
   if (Seen_.empty()) { return {}; }
-  if (Seen_.size() > std::numeric_limits<uint32_t>::max()) {
+  if (Seen_.size() > std::numeric_limits<uint32_t>::max() / 4u) {
     return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
                                          .Message = "too many ground patch candidates"});
   }
@@ -93,9 +96,9 @@ Native::Result<void> GroundPatchSelection::Upload(Native::Device &device,
   if (!room) { return room; }
   const uint64_t boundsBytes = Seen_.size() * sizeof(Bounds);
   const uint64_t argumentBytes = Arguments_->Description().Bytes;
-  const uint64_t batchBytes = kRangeBytes;
+  const uint64_t batchBytes = 4u * kRangeBytes;
   Blocks_ = count / kScanLanes + static_cast<uint32_t>(count % kScanLanes != 0u);
-  const uint64_t rangeBytes = uint64_t{Blocks_} * kRangeBytes;
+  const uint64_t rangeBytes = uint64_t{Blocks_} * 4u * kRangeBytes;
   const uint64_t bytes = boundsBytes + argumentBytes + batchBytes + rangeBytes;
   Native::Result<std::span<std::byte>> mapped = std::unexpected(
       Native::Error{.Kind = Native::ErrorKind::Busy, .Message = "no patch staging"});
@@ -115,16 +118,27 @@ Native::Result<void> GroundPatchSelection::Upload(Native::Device &device,
   if (!mapped) { return std::unexpected(mapped.error()); }
   std::memcpy(mapped->data(), Seen_.data(), static_cast<size_t>(boundsBytes));
   std::memset(mapped->data() + boundsBytes, 0, static_cast<size_t>(argumentBytes));
-  const uint32_t indices = GroundLattice::kPatchIndices;
-  std::memcpy(mapped->data() + boundsBytes + ArgumentOffset_, &indices, sizeof(indices));
-  const std::array batch{uint32_t{0}, Blocks_};
-  std::memcpy(mapped->data() + boundsBytes + argumentBytes, batch.data(), sizeof(batch));
-  for (uint32_t block = 0; block < Blocks_; ++block) {
-    const uint32_t first = block * kScanLanes;
-    const std::array range{first, std::min(kScanLanes, count - first)};
-    std::memcpy(mapped->data() + boundsBytes + argumentBytes + batchBytes + block * kRangeBytes,
-                range.data(),
-                sizeof(range));
+  uint32_t firstIndex = 0;
+  const auto &counts = GroundPatchIndexCounts();
+  for (uint32_t level = 0; level < 4; ++level) {
+    const Native::IndexedIndirectArguments arguments{
+        .IndexCount = counts[level], .FirstIndex = firstIndex, .FirstInstance = level * Room_};
+    std::memcpy(mapped->data() + boundsBytes + ArgumentOffset_ + level * sizeof(arguments),
+                &arguments,
+                sizeof(arguments));
+    firstIndex += counts[level];
+    const std::array batch{level * Blocks_, Blocks_};
+    std::memcpy(mapped->data() + boundsBytes + argumentBytes + level * kRangeBytes,
+                batch.data(),
+                sizeof(batch));
+    for (uint32_t block = 0; block < Blocks_; ++block) {
+      const uint32_t first = block * kScanLanes;
+      const std::array range{level * Room_ + first, std::min(kScanLanes, count - first)};
+      std::memcpy(mapped->data() + boundsBytes + argumentBytes + batchBytes +
+                      (level * Blocks_ + block) * kRangeBytes,
+                  range.data(),
+                  sizeof(range));
+    }
   }
   auto accepted = device.Unmap(*Staging_);
   if (!accepted) { return accepted; }
