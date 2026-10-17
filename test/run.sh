@@ -1996,6 +1996,10 @@ CountTheTwo() {
 # case itself. Every case includes the harness directly, and a harness change that did not
 # alter the trailer format would have left a stale binary running with the gate trusting it.
 # The harness headers are stamped by name until the build gives each source its own .d.
+FileStamp() {
+  git hash-object -- "$@"
+}
+
 BinaryStamp() {
   stampBinary=$1
   shift
