@@ -10,6 +10,7 @@
     "openfreemap:14/8937/5678:transportation:39881120:32"
   ],
   "soil_bridge_reserve_m": 0.0,
+  "pier_ground_policy": "whole_foot",
   "contact_mode": "profile",
   "traffic_mode": "source_clearance",
   "junction_mode": "shared_box",

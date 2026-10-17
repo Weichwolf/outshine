@@ -1,0 +1,8 @@
+{
+  "data_sha256": "1bcf5d8a1feb0eb8abc8287574d0ee1c4f503bed3c02369a051d90a37f09e773",
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "resident_manifest_sha256": "07748b37f9f1d563da71150c7c60bec0788d36b5ff79a6f30430543b02e2d4c2",
+  "original_body_sha256": "e481187c5c96720b59505b0bea31992bd7c0dcdeb244b67a3b6fc7833e81c7a2",
+  "pier_index": 121,
+  "scope": "Actual old terrain parents and complete immutable lower cap; private failed unindexed reference lost two of four terrain pins. No synthesized road or source admission."
+}
