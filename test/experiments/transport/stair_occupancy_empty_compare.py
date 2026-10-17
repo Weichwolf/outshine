@@ -14,6 +14,33 @@ from stair_occupancy_precision_cases import actual_cases, controls
 from stair_terrain_experiment import frozen
 
 
+def source_area_case(reference):
+    import shapely
+    from outshine_ref.contracts import BuildingFootprint, HeightInterval
+
+    if Fraction(reference["native_area_m2_rational"]) <= 0:
+        raise ValueError("independent positive source-area reference required")
+    shape = shapely.from_wkb(reference["source_wkb"])
+    try:
+        row = AffineOccupancy(
+            "underflow", shape, "control", (0, 0), (100, 0, 0), (101, 0, 0)
+        )
+        overlap = row.overlaps(
+            BuildingFootprint("same-domain", shape, HeightInterval(99, 102))
+        )
+        state, reason, wrong = "positive" if overlap else "empty", None, not overlap
+    except OccupancyError as error:
+        state, reason, wrong = "deferred", str(error), False
+    return {
+        "case": "source-area-underflow",
+        "kind": "source_area_control",
+        "expected_positive": True,
+        "state": state,
+        "reason": reason,
+        "wrong": wrong,
+    }
+
+
 def run(args):
     controller_commit = frozen()
     module = Path(inspect.getfile(AffineOccupancy))
@@ -71,13 +98,17 @@ def run(args):
         raise ValueError("private baseline comparison must live under /tmp")
     if args.output.exists():
         raise ValueError("fresh baseline comparison output required")
+    underflow = report.get("source_area_underflow_control")
+    if underflow:
+        records.append(source_area_case(underflow))
     result = {
         "controller_commit": controller_commit,
         "kernel_commit": args.kernel_commit,
         "loaded_kernel": str(module),
         "kernel_sha256": digest(module),
         "reference_report_sha256": digest(args.reference / "comparison.json"),
-        "checked_cases": len(cases),
+        "checked_cases": len(cases) + bool(underflow),
+        "checked_mask_cases": len(cases),
         "wrong_empty_or_positive_decisions": sum(r["wrong"] for r in records),
         "explicit_deferrals": sum(r["state"] == "deferred" for r in records),
         "cases": records,
