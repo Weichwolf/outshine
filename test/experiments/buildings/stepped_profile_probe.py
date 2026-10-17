@@ -32,10 +32,12 @@ def sources():
     ]
 
 
-def sections(plan, complete, output, name):
+def sections(plan, complete, output, name, indices=None):
     figure, axes = plt.subplots(1, 3, figsize=(24, 9))
     origin = np.asarray(plan["footprint"].centroid.coords[0])
-    indices = (0, plan["storeys"] - 2, plan["storeys"] - 1)
+    indices = (
+        (0, plan["storeys"] - 2, plan["storeys"] - 1) if indices is None else indices
+    )
     for axis, index in zip(axes, indices, strict=True):
         current = plan["storey_plans"][index]
         actual = mesh_section(
