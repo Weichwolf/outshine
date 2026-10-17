@@ -16,6 +16,7 @@ from stair_module_inputs import read_arrays
 from stair_patch_experiment import compare
 from stair_patch_inputs import fresh, save_patch
 from stair_resident_profile_verify import exact_array
+from stair_shared_headroom import bindings
 from stair_terrain_experiment import frozen
 
 
@@ -139,6 +140,7 @@ def run(args):
     view, assets, _supports, _contacts, current = state
     original = json.loads((args.resident / "resident.json").read_text())
     root_rows = profiles(args, state)
+    bindings(assets, (), prepared_contacts=current["borrowed_headroom_contacts"])
     before = before_display(args.prior_module[-1], args.baseline)
     reference = baseline_binding(args, current)
     for name in ("world-layout.npz", "world-field.npz", "world-body.npz"):
@@ -172,6 +174,7 @@ def run(args):
         catalog_sha256=current["catalog_sha256"],
         before_display=str(before.resolve()),
         before_display_sha256=digest(before),
+        borrowed_headroom_contacts=current["borrowed_headroom_contacts"],
     )
     write_json(args.output / "resident.json", manifest)
     for name in ("world-layout.npz", "world-field.npz", "world-body.npz"):
@@ -204,6 +207,7 @@ def run(args):
         "source_count": len(current["source_ids"]),
         "road_assets": len(rows),
         "root_profiles": len(root_rows),
+        "borrowed_headroom_contacts": len(current["borrowed_headroom_contacts"]),
         "newly_materialized_patch_file_bytes": materialized,
         "road_file_copy_bytes": 0,
         "seconds": time.perf_counter() - began,

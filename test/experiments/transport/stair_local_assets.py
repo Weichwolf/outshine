@@ -92,6 +92,16 @@ def load(output):
     manifest = json.loads((output / "resident.json").read_text())
     if manifest["version"] != 1 or not 1 <= len(manifest["roads"]) <= 1024:
         raise ValueError("bounded resident research manifest required")
+    if (
+        any(r.get("payload") == "local-module" for r in manifest["roads"])
+        and "borrowed_headroom_contacts" not in manifest
+    ):
+        raise ValueError("snapshot must preserve logical borrowed headroom contacts")
+    if "borrowed_headroom_contacts" in manifest and (
+        not isinstance(manifest["borrowed_headroom_contacts"], list)
+        or len(manifest["borrowed_headroom_contacts"]) > 128
+    ):
+        raise ValueError("bounded prepared borrowed headroom contacts required")
     terrain = Path(manifest["terrain"])
     if digest(terrain / "patches.json") != manifest["terrain_sha256"]:
         raise ValueError("original resident terrain manifest changed")

@@ -12,6 +12,7 @@ from stair_module_experiment import write_json
 from stair_module_inputs import read_arrays
 from stair_patch_experiment import compare
 from stair_resident_profile_verify import exact_array
+from stair_shared_headroom import bindings
 from stair_terrain_experiment import frozen
 
 
@@ -116,6 +117,12 @@ def verify(args):
     after = load(args.products)
     body_facets = equal_assets(after[1], before[1], root)
     equal_patches(after[0], before[0])
+    if (
+        after[4].get("borrowed_headroom_contacts", [])
+        != before[4]["borrowed_headroom_contacts"]
+    ):
+        raise ValueError("snapshot changed logical borrowed headroom contacts")
+    bindings(after[1], (), prepared_contacts=after[4]["borrowed_headroom_contacts"])
     for key in (
         "frame",
         "origin_lat_lon",
@@ -162,6 +169,7 @@ def verify(args):
         "source_count": len(after[4]["source_ids"]),
         "old_road_body_facets_byte_exact": body_facets,
         "root_profiles": len(root.rows),
+        "borrowed_headroom_contacts": len(after[4]["borrowed_headroom_contacts"]),
         "same_patch_identities_and_active_masks": True,
         "equality": equality,
         "valid_prepared_snapshot": True,

@@ -54,6 +54,7 @@ def state_hash(state):
         },
         "patch_ids": [p.patch_id for p in view.patches],
         "assets": [[a.identity, a.source_ids, a.rows] for a in assets],
+        "borrowed_headroom_contacts": manifest["borrowed_headroom_contacts"],
     }
     sha = hashlib.sha256(json.dumps(metadata, sort_keys=True).encode())
     sha.update(result_hash(arrays).encode())

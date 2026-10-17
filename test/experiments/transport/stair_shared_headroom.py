@@ -58,25 +58,39 @@ def binding(new, old, contact):
     }
 
 
-def bindings(assets, modules):
+def declarations(report, identity):
+    if not report["valid_local_module"]:
+        return ()
+    records = report["proof"]["module"].get("surface_contacts", [])
+    return tuple(
+        {"new_asset_sha256": identity, "contact": contact}
+        for contact in records
+        if contact["access"]["kind"] == "minor_footway_node"
+    )
+
+
+def bindings(assets, modules, *, prepared_contacts=()):
     by_id = {a.identity: a for a in assets}
     result, seen = [], set()
+    records = list(prepared_contacts)
+    if len(records) > 128:
+        raise ValueError("borrowed headroom declaration budget exhausted")
     for path in modules:
         path = Path(path)
         report = json.loads((path / "comparison.json").read_text())
         if not report["valid_local_module"]:
             continue
-        new = by_id[digest(path / "module.npz")]
-        records = report["proof"]["module"].get("surface_contacts", [])
-        for contact in records:
-            if contact["access"]["kind"] != "minor_footway_node":
-                continue
-            pair = (contact["source_id"], contact["cached_source_id"])
-            old = by_id[contact["asset_sha256"]]
-            if pair in seen or assets.index(old) >= assets.index(new):
-                raise ValueError("unique prior immutable headroom owner required")
-            seen.add(pair)
-            result.append(binding(new, old, contact))
-            if len(result) > 128:
-                raise ValueError("borrowed headroom binding budget exhausted")
+        records.extend(declarations(report, digest(path / "module.npz")))
+        if len(records) > 128:
+            raise ValueError("borrowed headroom declaration budget exhausted")
+    for record in records:
+        if set(record) != {"new_asset_sha256", "contact"}:
+            raise ValueError("complete prepared headroom declaration required")
+        new, contact = by_id[record["new_asset_sha256"]], record["contact"]
+        pair = (contact["source_id"], contact["cached_source_id"])
+        old = by_id[contact["asset_sha256"]]
+        if pair in seen or assets.index(old) >= assets.index(new):
+            raise ValueError("unique prior immutable headroom owner required")
+        seen.add(pair)
+        result.append(binding(new, old, contact))
     return tuple(result)
