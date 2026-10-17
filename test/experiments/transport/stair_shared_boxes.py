@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from stair_cached_box_grids import outward_box
 from stair_cycle_contacts import interior_profile_xy, profile
 from stair_module_node_heights import plan_heights
 
@@ -15,7 +16,7 @@ def whole_sections(row):
     return [shapely.LineString(p[[0, -1]]) for p in lines]
 
 
-def box_plans(rows, nodes, line, contacts, *, include_interiors):
+def box_plans(rows, nodes, line, contacts, *, include_interiors, cached_grids=None):
     cached = [line, *[c["profile"] for c in contacts]]
     plans = plan_heights(
         rows, nodes, [l[1, :2] for l in cached], include_interiors=include_interiors
@@ -39,11 +40,22 @@ def box_plans(rows, nodes, line, contacts, *, include_interiors):
         boxes[tuple(node["mvt_xy"])] = shapely.box(
             x - reach, y - reach, x + reach, y + reach
         )
+    for node, grid in (cached_grids or {}).items():
+        if node not in boxes:
+            raise ValueError("cached grid anchor missing from original shared nodes")
+        boxes[node] = outward_box(boxes[node], grid)
     return boxes
 
 
-def add_boxes(rows, nodes, line, contacts, *, include_interiors):
-    boxes = box_plans(rows, nodes, line, contacts, include_interiors=include_interiors)
+def add_boxes(rows, nodes, line, contacts, *, include_interiors, cached_grids=None):
+    boxes = box_plans(
+        rows,
+        nodes,
+        line,
+        contacts,
+        include_interiors=include_interiors,
+        cached_grids=cached_grids,
+    )
     for node in nodes:
         shape = boxes.get(tuple(node["mvt_xy"]))
         if shape is not None:
