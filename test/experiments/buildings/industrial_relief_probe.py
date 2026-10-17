@@ -28,9 +28,15 @@ def camera(view):
     }
 
 
-def export(output, name, owner, rows, receipt, view, proof):
+def export(
+    output, name, owner, rows, receipt, view, proof, *, radial_builder=None, error_m=1.0
+):
     mesh, source = construct(
-        "Grohnde", prepared=(rows, receipt), ordinary_builder=owner
+        "Grohnde",
+        prepared=(rows, receipt),
+        ordinary_builder=owner,
+        radial_builder=radial_builder,
+        error_m=error_m,
     )
     path = output / (name + "-mesh.npz")
     np.savez_compressed(path, **mesh)

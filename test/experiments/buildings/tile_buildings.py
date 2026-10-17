@@ -108,7 +108,9 @@ def prism(row, parameters, material):
     }
 
 
-def construct(site, error_m=1.0, prepared=None, ordinary_builder=None):
+def construct(
+    site, error_m=1.0, prepared=None, ordinary_builder=None, radial_builder=None
+):
     rows, receipt = read_tile(site) if prepared is None else prepared
     industry = shapely.union_all(
         [
@@ -177,16 +179,24 @@ def construct(site, error_m=1.0, prepared=None, ordinary_builder=None):
             if prototype:
                 plan, info = prototype
                 metric_error = error_m(row, params) if callable(error_m) else error_m
-                result = radial_mesh(plan, error_m=metric_error)
-                mesh = dict(result.mesh)
-                info.update(
-                    profile_knots=plan.knots,
-                    profile_indices=result.profile_indices,
-                    sides=result.sides,
-                    radial_error_m=result.error_m,
-                    logical_profile="complete camera-independent profile",
-                    triangles=len(mesh["faces"]),
+                detail = (
+                    radial_builder(row, plan, info, metric_error)
+                    if radial_builder is not None
+                    else None
                 )
+                if detail is None:
+                    result = radial_mesh(plan, error_m=metric_error)
+                    mesh = dict(result.mesh)
+                    info.update(
+                        profile_knots=plan.knots,
+                        profile_indices=result.profile_indices,
+                        sides=result.sides,
+                        radial_error_m=result.error_m,
+                        logical_profile="complete camera-independent profile",
+                        triangles=len(mesh["faces"]),
+                    )
+                else:
+                    mesh, info = detail
             else:
                 detail = (
                     ordinary_builder(row, params, material)
