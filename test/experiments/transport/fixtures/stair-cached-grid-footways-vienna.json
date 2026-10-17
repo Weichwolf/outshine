@@ -27,19 +27,6 @@
     }
   ],
   "scope": "Same four whole footway sources as the76 experiment, planned after the whole67.642082m minor on immutable72. An explicit fourth walking contact borrows the actual minor cap; no motor/cycle contact. This replaces four derived products, not an immutable76 prefix.",
-  "source_fallback": {
-    "root_id": "openfreemap:14/8937/5678:transportation:12998091542:0@end0",
-    "full_source_ids": [
-      "openfreemap:14/8937/5678:transportation:80922970:62",
-      "openfreemap:14/8937/5678:transportation:1950369630:9",
-      "openfreemap:14/8937/5678:transportation:80922970:248",
-      "openfreemap:14/8937/5678:transportation:1605770952:0",
-      "openfreemap:14/8937/5678:transportation:80922970:247",
-      "openfreemap:14/8937/5678:transportation:80922970:244"
-    ],
-    "omitted_source_ids": [],
-    "scope": "Whole connected source prefix; omitted sources remain original candidates for later recipes, not individually disproven."
-  },
   "surface_contacts": [
     {
       "source_id": "openfreemap:14/8937/5678:transportation:1950369630:9",

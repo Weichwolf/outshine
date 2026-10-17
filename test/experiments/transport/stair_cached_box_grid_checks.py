@@ -7,9 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import shapely
+from outshine_ref.contracts import Mesh
 from stair_cached_box_grids import GRID_M, bind_grids, outward_box
 from stair_module_source_contract import verify_source_contract
-from stair_shared_boxes import add_boxes, box_plans
+from stair_shared_boxes import add_boxes, box_plans, common_pad
 
 
 def context():
@@ -150,6 +151,39 @@ class CachedSourceGridBoxes(unittest.TestCase):
         self.assertEqual(before.keys(), after.keys())
         for key in before:
             self.assertEqual(before[key].wkb, after[key].wkb)
+
+    def test_common_pad_can_use_only_declared_incident_masked_old_surfaces(self):
+        rows = [
+            {"source_id": "new", "xy": np.array([[0, 0], [4, 0]], float), "width_m": 2}
+        ]
+        nodes = [{"mvt_xy": [0, 0], "xy": [0, 0], "incident": [0]}]
+        faces = np.array([[0, 1, 2], [0, 2, 3]])
+        old = np.array([[-4, -2, 0], [0, -2, 0], [0, 2, 0], [-4, 2, 0]], float)
+        cached = old + [4, 0, 0]
+        data = {
+            "surface_vertices": cached,
+            "surface_faces": faces,
+            "owners": np.zeros((2, 1), bool),
+        }
+        line = np.array([[-2, 0], [0, 0], [2, 0]], float)
+        args = data, nodes, rows, 0, [Mesh(old, faces)], [line]
+        contact = {
+            "owner": 0,
+            "cap": Mesh(cached, faces),
+            "mask": shapely.box(0, -2, 4, 2),
+        }
+        result = common_pad(*args, include_interiors=False, constructed=[contact])
+        self.assertEqual(len(result), 2)
+        self.assertTrue(contact["mask"].covers(result[1][2]))
+        for invalid in (
+            dict(contact, owner=1),
+            dict(contact, mask=shapely.box(0, -2, 0.1, 2)),
+        ):
+            with (
+                self.subTest(invalid=invalid["owner"]),
+                self.assertRaisesRegex(ValueError, "pad is incomplete"),
+            ):
+                common_pad(*args, include_interiors=False, constructed=[invalid])
 
 
 if __name__ == "__main__":

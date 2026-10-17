@@ -65,7 +65,9 @@ def add_boxes(rows, nodes, line, contacts, *, include_interiors, cached_grids=No
                 )
 
 
-def common_pad(data, nodes, rows, index, old_caps, old_lines, *, include_interiors):
+def common_pad(
+    data, nodes, rows, index, old_caps, old_lines, *, include_interiors, constructed=()
+):
     from stair_landing_pads import node_profiles
 
     node = nodes[index]
@@ -76,6 +78,11 @@ def common_pad(data, nodes, rows, index, old_caps, old_lines, *, include_interio
     vertices, faces = data["surface_vertices"], data["surface_faces"]
     incident = np.any(data["owners"][:, node["incident"]], axis=1)
     own_faces = faces[incident]
+    extra = [
+        (c["cap"].vertices, c["cap"].triangles, c["mask"].intersection(hull))
+        for c in constructed
+        if c["owner"] in node["incident"] and c["mask"].intersection(hull).area > 1e-7
+    ]
     covered = shapely.union_all(
         [
             shapely.union_all(shapely.polygons(vertices[own_faces, :2])),
@@ -83,11 +90,15 @@ def common_pad(data, nodes, rows, index, old_caps, old_lines, *, include_interio
                 shapely.union_all(shapely.polygons(c.vertices[c.triangles, :2]))
                 for c in old_caps
             ],
+            *[
+                shapely.union_all(shapely.polygons(v[f, :2])).intersection(mask)
+                for v, f, mask in extra
+            ],
         ]
     )
     if hull.geom_type != "Polygon" or hull.difference(covered).area > 1e-7:
         raise ValueError("constructed common original-node pad is incomplete")
-    return (vertices, own_faces, hull)
+    return [(vertices, own_faces, hull), *extra]
 
 
 def verify_masks(rows, nodes, original, masks, line, contacts):
