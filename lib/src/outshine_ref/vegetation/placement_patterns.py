@@ -20,7 +20,7 @@ class DistancePattern:
     limit_groups: int = 4096
 
     def __post_init__(self):
-        if self.mode not in ("phyllotaxy", "interval"):
+        if self.mode not in ("phyllotaxy", "interval", "uniform"):
             raise ValueError("declared distance generation mode required")
         if not isinstance(self.spacing, Profile) or self.spacing.table.min() <= 0:
             raise ValueError("positive prepared physical internode profile required")
@@ -36,6 +36,12 @@ class DistancePattern:
         ):
             raise ValueError(
                 "finite divergence and nonnegative physical spread required"
+            )
+        if self.mode == "uniform" and (
+            self.spread_m or not np.all(self.spacing.table == self.spacing.table[0])
+        ):
+            raise ValueError(
+                "uniform groups require constant minimum spacing without spread"
             )
 
     def recipe(self):
@@ -120,7 +126,11 @@ class DistancePattern:
         if np.all(self.spacing.table == self.spacing.table[0]):
             parent = np.repeat(np.arange(len(lengths)), groups)
             number = np.arange(len(positions)) - np.repeat(offsets[:-1], groups)
-            values = last - number * (self.spacing.table[0] / lengths[parent])
+            if self.mode == "uniform":
+                fraction = number / np.maximum(groups[parent] - 1, 1)
+                values = last - fraction * (last - first)
+            else:
+                values = last - number * (self.spacing.table[0] / lengths[parent])
             valid = values >= first - tolerance
             positions[valid] = np.maximum(values[valid], first)
         else:
