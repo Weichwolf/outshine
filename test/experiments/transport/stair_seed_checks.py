@@ -11,6 +11,7 @@ from stair_local_physics import bridge_checks
 from stair_module_family import verify_sources
 from stair_seed_audit import audit
 from stair_seed_geometry import build, seed_contract
+from stair_seed_precision import GRID_M, model
 
 
 def example():
@@ -45,6 +46,35 @@ def example():
 
 
 class IndependentGroundSeeds(unittest.TestCase):
+    def test_binary_seed_model_covers_original_profiles_with_bounded_expansion(self):
+        shape = shapely.Polygon(
+            [
+                [1500.000001, 100.000002],
+                [1510.000004, 100.000002],
+                [1510.000004, 102.000003],
+                [1500.000001, 102.000003],
+            ]
+        )
+        result = model(shape, GRID_M)
+        self.assertTrue(result.covers(shape))
+        self.assertLessEqual(result.hausdorff_distance(shape), 6 * GRID_M)
+        xy = shapely.get_coordinates(result)
+        np.testing.assert_array_equal(xy, xy.astype("f4").astype(float))
+        self.assertIs(model(shape, None), shape)
+        with self.assertRaisesRegex(ValueError, "metric range"):
+            model(shapely.box(9000, 9000, 9010, 9010), GRID_M)
+
+    def test_canonical_seed_keeps_whole_original_cross_profiles(self):
+        sources, rows, recipe, state, empty = example()
+        for row in rows:
+            row["source_grid_m"] = GRID_M
+        data, _network, planning = build(
+            rows, sources, empty, lambda xy: np.full(len(xy), 100.0)
+        )
+        audit(state, recipe, data, rows, planning, empty)
+        xy = data["surface_vertices"][:, :2]
+        np.testing.assert_array_equal(xy, xy.astype("f4").astype(float))
+
     def test_empty_window_is_explicit_and_still_cannot_hide_an_old_cap(self):
         with self.assertRaisesRegex(ValueError, "working budget"):
             road_window([], shapely.box(0, 0, 1, 1))

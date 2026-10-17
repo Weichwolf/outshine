@@ -67,7 +67,10 @@ def select(
     method="index",
     strategy="prefix",
     schedule="roots_first",
+    grid_m=0.0,
 ):
+    if grid_m not in (0.0, 2**-11):
+        raise ValueError("known independent seed grid required")
     if strategy not in ("whole", "prefix"):
         raise ValueError("known whole or connected-prefix seed strategy required")
     records, work = separated_records(view, assets, manifest, sources)
@@ -112,6 +115,7 @@ def select(
                     },
                     "traffic_mode": "source_clearance",
                     "soil_bridge_reserve_m": 0.0,
+                    **({"seed_grid_m": grid_m} if grid_m else {}),
                     "scope": "Independent whole original ground component; no cached profile or old surface reuse. Whole physical admission remains mandatory.",
                 }
             )

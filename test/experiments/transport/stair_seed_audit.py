@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from shared_bridge_geometry import corridor
 from stair_cycle_contacts import profile
 from stair_junction_layout import landings
 from stair_module_audit import inspect_pins, module_body, traffic
@@ -137,4 +138,15 @@ def audit(state, recipe, data, rows, planning, upper):
         "old_ground_separation": separation,
         "source_clearances": clearances,
         "traffic": traffic(data, upper, state["piers"], clearances=clearances),
+        "source_footprint_model": [
+            {
+                "source_id": row["source_id"],
+                "grid_m": row.get("source_grid_m"),
+                "original_to_model_hausdorff_m": shape.hausdorff_distance(
+                    corridor({k: v for k, v in row.items() if k != "source_grid_m"})
+                ),
+                "whole_original_profiles_required": True,
+            }
+            for row, shape in zip(rows, original, strict=True)
+        ],
     }

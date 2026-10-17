@@ -124,7 +124,9 @@ def arrangement(rows, domains, masks, *, constraints=()):
         sections = cross_sections(row)
         lines.extend(sections)
         section_counts.append(len(sections))
-    noded = shapely.get_parts(shapely.union_all(lines))
+    from stair_seed_precision import node_lines
+
+    noded = shapely.get_parts(node_lines(lines, rows))
     if len(noded) > 8192:
         raise ValueError("local stair arrangement segment budget")
     cells = shapely.get_parts(shapely.polygonize(noded))

@@ -5,6 +5,7 @@ import hashlib
 import json
 import resource
 import time
+from functools import partial
 from pathlib import Path
 
 from camera_height_inputs import digest
@@ -31,7 +32,11 @@ def compare(args):
     ref, before = reference(args), fingerprint(view, assets)
     args.output.mkdir()
     results, selected = {}, {}
-    selector = select_seed if args.family == "seed" else select
+    selector = (
+        partial(select_seed, grid_m=args.seed_grid_m)
+        if args.family == "seed"
+        else select
+    )
     for method in ("index", "scan"):
         start = time.perf_counter()
         selected[method] = selector(view, assets, manifest, sources, ref, method=method)
@@ -99,6 +104,7 @@ def arguments():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--family", choices=("attached", "seed"), default="attached")
+    parser.add_argument("--seed-grid-m", type=float, choices=(0.0, 2**-11), default=0.0)
     return parser.parse_args()
 
 
