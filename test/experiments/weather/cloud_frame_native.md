@@ -79,3 +79,12 @@ Scene/Sky/Readback, beide Draws einschließlich erster Samples, keine Fence-Zeit
 Der alte Driftpfad ist eine ausdrücklich falsche Zeitgegenprobe, kein zweiter
 Produktpfad. Sein Instrumentierungspatch und Originalinputs bleiben lokal erhalten.
 `cloud_wind_raster_report.py TEMP` erzeugt den tatsächlichen Vorher/Nachher-PDF.
+
+Der ergänzende `cloud_air_native.py`-Replay benötigt bei `--air-root` die
+aktuellen festen Luftinputs aus `test/experiments/render/data/air-prefix`.
+#663 migriert ausschließlich den veralteten Sonnenatlas auf den bereits
+geltenden Endpunktvertrag; [Herkunft und Reproduktion](../render/air_replay_inputs.md)
+besitzen dessen Belege. Die unabhängigen FP64-Referenzen und Prüfgrenzen bleiben
+erhalten. Ein älterer roter Lauf mit dem historischen Atlas bleibt rot;
+vorhandene terminale Belege dürfen nur bei identischen Quellen, Eingaben und
+Consumerbytes wiederverwendet werden.
