@@ -94,7 +94,11 @@ Reproduce with `.venv`, `TMPDIR=/tmp`, and
 
 ## Still open
 
-Coherent facades/windows, roof edges, terrace portals/rails, neighboring access,
+The subsequent [physical facade study](terraced_facades.md) adds actual windows,
+frames/panes, band/pier programmes and complete facade-aware ground-arrival checks.
+The evidence above remains the original bare-mass/open-floor stage.
+
+Broader facade programmes, roof edges, terrace portals/rails, neighboring access,
 source-family selection in the complete988-source window, matching near/far
 products, cost/work/allocation/byte/peak comparisons and library promotion remain
 in #618. Previous complete podium/hall/facade/roof products retain their own path
