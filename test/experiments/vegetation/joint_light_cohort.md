@@ -165,3 +165,6 @@ this cohort. The next useful physical extension is R/T on actual visible source
 contacts with the existing optical/material procedures, preserving correlation
 before filtering. Specular, wind, external shadows, view/LOD motion, mature
 forms and complete stands remain open; native integration continues independently.
+
+The next [two-sided source-surface study](sheet_area_light.md) applies the existing
+diffuse optical model to actual open leaves; it does not assign it to closed needles.
