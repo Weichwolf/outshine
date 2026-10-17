@@ -16,6 +16,16 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`Reservation.conflict_geometry(HeightInterval)` liefert für konstante Prismen die
+ursprüngliche unveränderliche Polygonfläche oder ein leeres Polygon. Abfrageband
+und Plan müssen denselben Frame/Höhenbezug verwenden; reine Höhenberührung bleibt
+frei. `overlaps(BuildingFootprint)` prüft einen zweidimensionalen Schnitt der
+Innenräume, einschließlich vollständiger Enthaltung. Ein unterlaufender numerischer
+Flächenwert wird dadurch nicht mit leerem Raum verwechselt. Konstruktoren bleiben
+unverändert. Der affine Untertyp und dessen XY-Präzisionsgrenzen werden noch im
+[Transportexperiment](../test/experiments/transport/stair_occupancy_comparison.md)
+unter [#568](https://github.com/Weichwolf/outshine/issues/568) geprüft.
+
 `transport.clothoid_turns` und `transport.horizontal.plan_horizontal_axis`
 liefern begrenzte horizontale Kurven mit erhaltenen Endgeraden. Originalquellen,
 tatsächliche Straßen-/Fahrzeugflächen und gemeinsame Knoten bleiben beim

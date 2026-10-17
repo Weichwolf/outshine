@@ -4,6 +4,8 @@ Owner: [#577](https://github.com/Weichwolf/outshine/issues/577), under #182.
 This extends the existing [spruce profiles](spruce_growth.md), using the unchanged
 [instanced portrait](wood_instances.md) for all lit comparisons. No native,
 library, material, reservation or source-provider API changes.
+The subsequent [whorl/fine-shoot study](spruce_whorl_balance.md) compares the
+remaining lower gaps and supplies self-contained fixed source recipes.
 
 ## Opened image and decision
 

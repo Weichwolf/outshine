@@ -73,6 +73,7 @@ public:
                                    std::string &error);
 
   void Forgets(uint32_t tile);
+  void DiscardStagedCells(uint32_t tile);
   void ForgetsCell(uint32_t tile, uint32_t cell);
   [[nodiscard]] bool SelectDetail(uint32_t tile, LevelOfDetail detail, std::string &error);
   [[nodiscard]] bool

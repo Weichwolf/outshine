@@ -82,6 +82,9 @@ public:
                        std::string key,
                        std::string requestKey = {});
   [[nodiscard]] std::optional<std::string_view> PreparedAssetKey() const noexcept;
+  void UseInitialCells();
+  [[nodiscard]] uint64_t InitialCells() const noexcept;
+  void SelectNextCell(uint32_t cell);
   void Start(Tasks &pool, const StructureMesher &mesher);
   void Resume(Tasks &pool, const StructureMesher &mesher);
   void RequestStop() noexcept;
