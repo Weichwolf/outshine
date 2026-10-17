@@ -10,6 +10,7 @@
 #include <numeric>
 #include <ratio>
 #include <span>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -56,7 +57,7 @@ Native::Result<Workload> Fma(uint32_t threads) {
     expected[at] = FmaReference(input[at]);
   }
   Workload work{};
-  work.Name = threads == 1 ? "cpu_fma_1t" : "cpu_fma_2t";
+  work.Name = "cpu_fma_" + std::to_string(threads) + "t";
   work.TimeBasis = "host_wall_ns";
   work.Threads = threads;
   work.Elements = input.size();
@@ -64,7 +65,7 @@ Native::Result<Workload> Fma(uint32_t threads) {
   work.LogicalOperations = work.Elements * work.Iterations * 4u * 2u;
   work.WorkingSetBytes = input.size() * sizeof(FmaValue) * 2u;
   work.Note = "Four independent FMA lanes, compiler vectorization allowed; not a hardware peak. "
-              "Two threads split the same total work; creation excluded, barriers included.";
+              "Workers split the same total work; creation excluded, barriers included.";
   const auto verify = [&] {
     return std::memcmp(output.data(), expected.data(), output.size() * sizeof(FmaValue)) == 0;
   };
@@ -72,18 +73,21 @@ Native::Result<Workload> Fma(uint32_t threads) {
   if (threads == 1) {
     result = Samples(work, [&] { FmaKernel(input, output); }, verify);
   } else {
-    std::barrier start(3);
-    std::barrier finish(3);
-    const auto worker = [&](size_t first) {
-      const size_t count = input.size() / 2;
+    std::barrier start(static_cast<ptrdiff_t>(threads) + 1);
+    std::barrier finish(static_cast<ptrdiff_t>(threads) + 1);
+    const auto worker = [&](size_t index) {
+      const size_t first = input.size() * index / threads;
+      const size_t last = input.size() * (index + 1) / threads;
+      const size_t count = last - first;
       for (size_t round = 0; round < kRounds; ++round) {
         start.arrive_and_wait();
         FmaKernel(std::span(input).subspan(first, count), std::span(output).subspan(first, count));
         finish.arrive_and_wait();
       }
     };
-    const std::jthread one(worker, 0);
-    const std::jthread two(worker, input.size() / 2);
+    std::vector<std::jthread> workers;
+    workers.reserve(threads);
+    for (uint32_t index = 0; index < threads; ++index) { workers.emplace_back(worker, index); }
     result = Samples(
         work,
         [&] {
@@ -169,7 +173,7 @@ Native::Result<Workload> Chase(uint32_t elements, uint32_t steps) {
 
 Native::Result<std::vector<Workload>> CpuWorkloads() {
   std::vector<Workload> result;
-  for (const uint32_t threads : {1u, 2u}) {
+  for (const uint32_t threads : {1u, 2u, 4u, 6u}) {
     auto work = Fma(threads);
     if (!work) { return std::unexpected(work.error()); }
     result.push_back(std::move(*work));

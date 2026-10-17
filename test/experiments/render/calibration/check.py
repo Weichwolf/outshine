@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check missing timestamps and reject a deliberately incorrect real GPU output."""
+"""Check CPU partitions, missing timestamps and deliberately incorrect real GPU output."""
 import argparse
 import json
 import os
@@ -20,13 +20,17 @@ def main():
     if not output.is_relative_to(Path('/tmp').resolve()):
         parser.error('private outputs must be under /tmp')
     manifest = json.loads((output / 'manifest.json').read_text())
-    includes = ['-I' + str(HERE)]
+    includes = ['-I' + str(root / 'include'), '-I' + str(HERE)]
     includes += ['-I' + str(path) for path in sorted((root / 'src').rglob('*')) if path.is_dir()]
     compiler = [*manifest['compiler'], *manifest['flags'], *includes]
     binary = output / 'json-probe'
     with (output / 'checks-build.log').open('w') as log:
         subprocess.run(['nice', '-n', '10', *compiler, str(HERE / 'checks/JsonProbe.cpp'),
                         str(output / 'Json.o'), '-o', str(binary)], check=True, stdout=log,
+                       stderr=subprocess.STDOUT, timeout=120)
+        subprocess.run(['nice', '-n', '10', *compiler, str(HERE / 'checks/CpuThreads.cpp'),
+                        str(output / 'Cpu.o'), str(output / 'CpuKernels.o'),
+                        '-o', str(output / 'cpu-threads-probe')], check=True, stdout=log,
                        stderr=subprocess.STDOUT, timeout=120)
         shader = output / 'wrong-fma.comp'
         shader.write_text((HERE / 'fma.comp').read_text().replace('into.values[at] = value;',
@@ -43,6 +47,10 @@ def main():
     assert cpu['summary']['median_ns'] == 20
     assert cpu['summary']['min_ns'] == 10 and cpu['summary']['max_ns'] == 30
     assert cpu['summary']['ns_per_access'] == 10
+    cpu_threads = subprocess.run([str(output / 'cpu-threads-probe')],
+                                capture_output=True, text=True, timeout=30, check=True)
+    (output / 'cpu-threads.log').write_text(cpu_threads.stdout + cpu_threads.stderr)
+    assert not cpu_threads.stderr
     environment = os.environ.copy()
     if sys.platform == 'darwin':
         environment['MTL_DEBUG_LAYER'] = '1'
@@ -56,8 +64,9 @@ def main():
     assert not child.stdout.strip()
     (output / 'checks.json').write_text(json.dumps(dict(status='terminal', exit=0,
                                                       missing_gpu_time='null without wait-time fallback',
+                                                      cpu_threads_equal_work='1/2/4/6 verified',
                                                       json_escape='pass', real_gpu_mismatch='rejected'), indent=2) + '\n')
-    print('JSON time-basis checks and real incorrect-GPU-output negative control passed')
+    print('CPU thread partitions, JSON time-basis and real incorrect-GPU-output checks passed')
 
 
 if __name__ == '__main__':
