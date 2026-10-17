@@ -9,18 +9,23 @@ from pathlib import Path
 import numpy as np
 from conifer_window_catalog import family_geometry_for_seed, prototypes
 from foliage_selection import directions
+from joint_basis_reduction import errors, reduce_fields
 from joint_light_measure import JointMeasure
 from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
 from outshine_ref.vegetation import NeedlePattern
 from plant_atlas import projection
-from positive_light_basis import angular_weights, positive_columns
 
 
-def view_light_knots():
+def view_light_knots(count=32):
     rows = [np.array([0.0, 0, 1]), np.array([0.0, 0, -1])]
-    for degrees, count in [(2, 4), (10, 4), (40, 8), (90, 8), (140, 6)]:
+    rings = [(2, 4), (10, 4), (40, 8), (90, 8), (140, 6)]
+    if count == 64:
+        rings = [(1, 4), (3, 8), (10, 8), (25, 10), (50, 10), (85, 12), (130, 10)]
+    elif count != 32:
+        raise ValueError("32 or 64 bounded light knots required")
+    for degrees, count in rings:
         theta = np.deg2rad(degrees)
         azimuth = np.arange(count) * 2 * np.pi / count
         rows.extend(
@@ -72,67 +77,7 @@ def freeze_source(models, catalog, output, capacity):
     return prepare_source(output / "physical.npz")
 
 
-def errors(predicted, reference):
-    difference = predicted - reference
-    return {
-        "max_abs": float(abs(difference).max()),
-        "rmse": float(np.sqrt(np.mean(difference**2))),
-        "maximum_overestimate": float(difference.max()),
-        "negative_values": int((predicted < 0).sum()),
-    }
-
-
-def reduce_fields(joint, coverage, views, knots, held, output):
-    matrix = joint[:, : len(knots)].transpose(0, 2, 1).reshape(-1, len(knots))
-    truth = joint[:, len(knots) :].transpose(0, 2, 1).reshape(-1, held.shape[1])
-    cone = [angular_weights(knots, queries) for queries in held]
-    full = np.concatenate(
-        [matrix[v * 256 : (v + 1) * 256] @ weights for v, weights in enumerate(cone)]
-    )
-    mass = coverage.reshape(-1, 1)
-    arrays = {
-        "truth": truth,
-        "angular_raw": full,
-        "angular_capped": np.minimum(full, mass),
-    }
-    report = {"angular": errors(np.minimum(full, mass), truth), "ranks": {}}
-    for rank in (1, 2, 4, 8):
-        began = time.perf_counter()
-        fit = positive_columns(matrix, rank)
-        predicted = np.concatenate(
-            [
-                fit["basis"][v * 256 : (v + 1) * 256] @ (fit["weights"] @ weights)
-                for v, weights in enumerate(cone)
-            ]
-        )
-        capped = np.minimum(predicted, mass)
-        packed = np.concatenate(
-            [
-                fit["basis"][v * 256 : (v + 1) * 256].astype(np.float32).astype(float)
-                @ (fit["weights"].astype(np.float32).astype(float) @ weights)
-                for v, weights in enumerate(cone)
-            ]
-        )
-        arrays[f"rank{rank}"] = capped
-        arrays[f"basis{rank}"] = fit["basis"]
-        arrays[f"coeff{rank}"] = fit["weights"]
-        report["ranks"][str(rank)] = {
-            "heldout": errors(capped, truth),
-            "train": errors(fit["basis"] @ fit["weights"], matrix),
-            "rounding_max": float(abs(np.minimum(packed, mass) - capped).max()),
-            "selected_lights": fit["indices"].tolist(),
-            "fit_s": time.perf_counter() - began,
-            "float32_payload": (fit["basis"].size + fit["weights"].size) * 4,
-            "maximum_coefficient": float(fit["weights"].max(initial=0)),
-        }
-        u, s, vh = np.linalg.svd(matrix, full_matrices=False)
-        signed = (u[:, :rank] * s[:rank]) @ vh[:rank]
-        report["ranks"][str(rank)]["signed_svd_train"] = errors(signed, matrix)
-    np.savez_compressed(output / "reduction.npz", **arrays)
-    return report
-
-
-def run(models, catalog, output, order, capacity, angles="object"):
+def run(models, catalog, output, order, capacity, angles="object", knot_count=32):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under/tmp")
     output.mkdir(parents=True, exist_ok=False)
@@ -142,9 +87,9 @@ def run(models, catalog, output, order, capacity, angles="object"):
     random = np.random.default_rng(643).normal(size=(6, 3))
     random /= np.linalg.norm(random, axis=1)[:, None]
     held = np.array([np.r_[view[None], -view[None], random] for view in views])
-    knots = directions(32)
+    knots = directions(knot_count)
     if angles == "view":
-        knots = view_light_knots()
+        knots = view_light_knots(knot_count)
         held = np.array([view_held_queries()] * len(views))
     arrays = {"knots": knots, "heldout": held, "views": views}
     joint = []
@@ -212,11 +157,13 @@ def run(models, catalog, output, order, capacity, angles="object"):
             flush=True,
         )
     np.savez_compressed(output / "fields.npz", **arrays)
-    reduction = reduce_fields(
-        np.array(joint), np.array(coverage), views, knots, held, output
-    )
+    reduction = reduce_fields(np.array(joint), np.array(coverage), knots, held, output)
     result = {
-        "schema": "joint-positive-basis-pilot-1",
+        "schema": "joint-basis-pilot-2",
+        "knot_count": len(knots),
+        "heldout_lights": "six independent plus two pole controls"
+        if angles == "view"
+        else "eight independent",
         "capacity": capacity,
         "order": order,
         "angular_coordinates": angles,
@@ -238,5 +185,14 @@ if __name__ == "__main__":
     parser.add_argument("--order", type=int, choices=(2, 4), default=2)
     parser.add_argument("--capacity", type=int, choices=(2, 32, 256), default=32)
     parser.add_argument("--angles", choices=("object", "view"), default="object")
+    parser.add_argument("--knots", type=int, choices=(32, 64), default=32)
     args = parser.parse_args()
-    run(args.models, args.catalog, args.output, args.order, args.capacity, args.angles)
+    run(
+        args.models,
+        args.catalog,
+        args.output,
+        args.order,
+        args.capacity,
+        args.angles,
+        args.knots,
+    )

@@ -2,7 +2,7 @@
 
 import numpy as np
 from scipy.optimize import nnls
-from scipy.spatial import ConvexHull
+from scipy.spatial import ConvexHull, QhullError
 
 
 def unit_queries(values, maximum):
@@ -22,7 +22,10 @@ def angular_weights(knots, queries):
     knots, queries = unit_queries(knots, 128), unit_queries(queries, 128)
     if len(knots) < 6:
         raise ValueError("at least six enclosing sphere knots required")
-    hull = ConvexHull(knots)
+    try:
+        hull = ConvexHull(knots)
+    except QhullError as error:
+        raise ValueError("light knots must span an enclosing sphere") from error
     if np.max(hull.equations[:, -1]) >= -1e-10:
         raise ValueError("light knots must strictly enclose the origin")
     faces = np.sort(hull.simplices, axis=1)

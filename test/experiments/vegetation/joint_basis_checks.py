@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 import numpy as np
 from joint_light_measure import JointMeasure
+from joint_basis_reduction import fit_report
+from joint_basis_study import view_light_knots
 from needle_area_checks import sheet
 from needle_area_light import integrate
 from positive_light_basis import angular_weights, positive_columns
@@ -36,7 +38,12 @@ class PositiveBasisTests(unittest.TestCase):
             atol=1e-14,
         )
         with self.assertRaises(ValueError):
-            angular_weights(np.abs(knots) + [0, 0, 1], q)
+            angular_weights(np.tile([0.0, 0, 1], (6, 1)), q)
+        hemisphere = knots.copy()
+        hemisphere[:, 2] += 2
+        hemisphere /= np.linalg.norm(hemisphere, axis=1)[:, None]
+        with self.assertRaises(ValueError):
+            angular_weights(hemisphere, q)
         with self.assertRaises(ValueError):
             angular_weights(knots, [[2, 0, 0]])
 
@@ -69,6 +76,33 @@ class PositiveBasisTests(unittest.TestCase):
             ]:
                 with self.assertRaises(ValueError):
                     positive_columns(matrix, rank)
+
+    def test_both_aligned_grids_enclose_origin_and_reconstruct_independent_queries(
+        self,
+    ):
+        for count in (32, 64):
+            knots = view_light_knots(count)
+            self.assertEqual(knots.shape, (count, 3))
+            queries = np.array([[1.0, 2, -3], [-2, 3, 1]]) / np.sqrt(14)
+            weights = angular_weights(knots, queries)
+            np.testing.assert_allclose(knots.T @ weights, queries.T, atol=1e-14)
+
+    def test_final_interval_projection_is_nonexpansive_before_and_after_filtering(self):
+        mass = np.array([0.0, 0.2, 0.7, 1.0])[:, None]
+        truth = mass * np.array([[0.0, 0.6, 1.0]])
+        raw = truth + np.array(
+            [[-0.4, 0.3, 0.5], [-0.2, 0.4, 0.7], [0.1, -0.6, 0.7], [-0.3, 0.5, -0.9]]
+        )
+        for kernel in (np.eye(4), np.array([[0.1, 0.2, 0.3, 0.4]])):
+            reference, upper, prediction = kernel @ truth, kernel @ mass, kernel @ raw
+            clipped = np.clip(prediction, 0, upper)
+            self.assertTrue(
+                (abs(clipped - reference) <= abs(prediction - reference) + 1e-15).all()
+            )
+        bounded, report = fit_report(raw, np.eye(3), truth, truth, [np.eye(3)], mass)
+        np.testing.assert_array_equal(bounded, np.clip(raw, 0, mass))
+        self.assertGreater(report["heldout_raw"]["negative_values"], 0)
+        self.assertEqual(report["heldout"]["negative_values"], 0)
 
 
 class JointFieldTests(unittest.TestCase):
