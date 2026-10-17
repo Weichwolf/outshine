@@ -73,6 +73,7 @@ def state_for(
         assets, region, xy_guard_m=radius(view)
     )
     state = {
+        "resident_profile_roots": True,
         "road": road,
         "road_ground": ground,
         "cached_module_rows": rows,
