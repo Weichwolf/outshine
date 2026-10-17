@@ -7,7 +7,7 @@ import numpy as np
 import shapely
 
 from ._patch import SurfacePatch, boundary, readonly
-from ._query import query
+from ._query import faces, query, region_query
 
 
 @dataclass(frozen=True, slots=True, init=False, eq=False)
@@ -124,3 +124,17 @@ class SurfacePatches:
 
     def query(self, bounds, *, max_faces=2048, max_candidates=2000000, method="index"):
         return query(self, bounds, max_faces, max_candidates, method)
+
+    def nearby(
+        self,
+        shape,
+        distance_m,
+        *,
+        max_faces=2048,
+        max_candidates=2000000,
+        method="index",
+    ):
+        return region_query(self, shape, distance_m, max_faces, max_candidates, method)
+
+    def faces(self, keys, *, max_faces=2048):
+        return faces(self, keys, max_faces)
