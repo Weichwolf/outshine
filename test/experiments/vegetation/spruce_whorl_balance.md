@@ -4,6 +4,9 @@ Owner: [#581](https://github.com/Weichwolf/outshine/issues/581), under #182.
 Extends [upper-crown profiles](upper_crown.md) and the existing complete cached
 [spruce growth product](spruce_growth.md). Python experiment only; no common
 library, native, material, provider or reservation API changed.
+The subsequent [branch-plane study](spruce_branch_planes.md) tests the remaining
+brush-like branching and broader crowns; its rejected whole-form candidates
+retain useful explicit phase and curve-normal controls.
 
 ## Opened image and decision
 

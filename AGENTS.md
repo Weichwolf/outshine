@@ -9,7 +9,7 @@
   Architektur, Implementierungsentscheidungen, Iststand und Abnahme stehen in der Issue-Beschreibung;
   Kommentare halten Diskussion und Belege. Ich lege keine lokalen Board-Dateien oder parallelen Aufgabenlisten an.
 - Ich bin Technical und Art Director; der Nutzer ist Regisseur. Ich entwickle Outshine auf `master`
-  und integriere verifizierte Fachlieferungen einschließlich Generatoren und öffentlicher APIs.
+  und integriere verifizierte Fachlieferungen einschließlich Generatoren und interner Modulverträge.
   Sieben Fachagenten arbeiten jeweils in einem eigenen Worktree und Branch namens `outshine_<bereich>`.
   Laufende Umbenennungen übernehmen dieses Schema; sie erzeugen keine zusätzlichen Agenten.
   Die weltweite Sandbox steht in [#5](https://github.com/Weichwolf/outshine/issues/5), räumliche Verträge in [#18](https://github.com/Weichwolf/outshine/issues/18).
@@ -131,10 +131,17 @@
 - Adapter/Provider beschaffen und normalisieren Eingaben; Generatoren erzeugen native Inhalte.
   Provider sind optional. Erweiterungen besitzen ihre Quellsemantik; OSM gehört zu generators/osm.
   Engine koordiniert; world bleibt eine generische 3D-Welt, Render/Audio konsumieren native Produkte.
-- Builtins und externe Erweiterungen nutzen dieselbe öffentliche API. API-Änderungen migrieren
-  alle Aufrufer. Szenarien deklarieren Inhalte/Kamera; keine einzelnen CLI-Inhaltsschalter.
+- Outshine ist eine Anwendung mit modularer Engine, kein öffentliches SDK. Das Programm
+  `outshine` lädt Szenarien aus Datei oder JSON; interne Bibliotheken bleiben nach Zuständigkeit
+  gegliedert. Keine externe API-/ABI-, Installations- oder Dokumentationspflicht. Änderungen
+  interner Schnittstellen migrieren alle Aufrufer. Szenarien deklarieren Inhalte/Kamera;
+  keine einzelnen CLI-Inhaltsschalter.
   Der Client nimmt ein Szenario oder generische Szenario-Overrides entgegen.
   Konkrete Verträge besitzt [#9](https://github.com/Weichwolf/outshine/issues/9); sie werden mit einem echten Feature integriert.
+- Produktcode und mitgelieferte Produktdaten kennen keine Places, Place-Koordinaten oder
+  ortsspezifischen Optimierungen. Feste Place-Kamera-/Messdaten stehen ausschließlich im
+  aufrufenden Testskript. Der generische `bench`-Befehl erhält Szenario, Startpose, Bewegungs-/
+  Rotationsvektor und Framezahl als Eingaben; Namen und Bildaufbewahrung besitzt der Testtreiber.
 - Rundum-Abdeckung bleibt renderbereit. Drehung ändert Sichtbarkeit, Bewegung ergänzt Bedarf.
   Unveränderte Inhalte werden nicht neu erzeugt. Detailbedarf vor teurer Arbeit bestimmen;
   Änderungen gezielt fortpflanzen. Logische Welt und Kollision bleiben unabhängig vom Render-LOD.
@@ -166,7 +173,7 @@
   Live- und Archivbilder liefern Inspiration und Vergleich für Wetter, Tages- und Jahreszeiten;
   passende Aufnahme samt Datum/Zustand wählen und Outshines Formen, Materialien und Licht dagegen prüfen.
   Fotos bleiben ausschließlich visuelle Referenzen gemäß den Quellenregeln.
-  Ich rendere über die öffentliche Client-API und öffne die Hash-PNGs in `build/shots/places/`.
+  Ich rendere über das Szenario-Programm und öffne die Hash-PNGs in `build/shots/places/`.
   Vorher/Nachher und passende datierte Webcam-Referenzen vergleichen. In `shots/places/` bleibt
   je Place nur der letzte erfolgreich gespeicherte Shot; Referenzbilder und Pins bleiben erhalten.
   Alle Places bleiben lokal aktuell. Die README-Galerie zeigt nur die drei ausgewählten aktuellen
@@ -190,7 +197,7 @@
   Tests nur bei nachweislich falscher oder ausdrücklich geänderter Spezifikation anpassen.
   Normale Tests erzeugen keine Orakel/ändern keine Pins; Cycles benötigt belegtes GPU-Backend.
 - Das Pflichtgate prüft die Weltpipeline: native Assets/Cache, DEM/OSM, Umwelt und Offline-Places.
-  glTF-/Animationskompatibilität und Khronos-Bildreferenzen bleiben separat ausführbar.
+  glTF-Import/-Export und Khronos-Testkorpora gehören nicht zum Produkt. HTML/CSS/JS bleiben.
   Gemeinsame Shaderbindungen, CPU/GPU-Layouts und Ressourcenlebensdauer bleiben Pflicht.
 
 ## Code und Arbeit
@@ -210,7 +217,8 @@
   behandelbare Fehler als `[[nodiscard]] std::expected`, geprüfte `noexcept`-Verträge.
   Warnings sind Fehler. CPU/GPU-Größe/Alignment/Offsets mit `static_assert` sichern; andere echte
   Typ-/Binärverträge erlaubt. `reaches` und die dokumentierte HTML/CSS/ECMAScript-Teilmenge erhalten.
-  `src/` ohne Kommentare, `include/` nur hilfreiches API-Doxygen; Tests dürfen Kommentare haben.
+  Header liegen bei ihren besitzenden Komponenten unter `src/`; kein öffentlicher `include/`-Baum.
+  Kein Doxygen oder SDK-Gate. `src/` ohne Kommentare; Tests dürfen Kommentare haben.
 - Genau ein oberstes Parent-Issue mit `state:active`, darunter 0:N tatsächlich bearbeitete aktive Kinder.
   Offene Issues bleiben auf GitHub offen; `state:open` und `state:active` unterscheiden Reserve und Arbeit.
   Status-, Prioritäts- und Architekturfelder in Beschreibung und Labels gemeinsam aktualisieren.
@@ -282,7 +290,7 @@
   Referenzen nicht pauschal bereinigen. Diese Pflicht gilt auch im Haupt-Checkout und in Worktrees.
 - Logs ins System-Tempverzeichnis; Referenzen nach `build/shots/reference/`, Bildvergleich mit
   `test/scripts/pixels.py`. Worktree-Bilder auch eindeutig ins Haupt-Checkout übernehmen.
-  Tests unter `test/outshine/{include,src,integration/places}`. Telemetrie nach Diagnosebedarf.
+  Tests unter `test/outshine/{src,integration/places}`. Telemetrie nach Diagnosebedarf.
   Normale Logs bleiben kompakt; Detailausgabe ist explizit. Diagnose verwendet feste Zähler, hält
   Formatierung/Ausgabe aus dem Hot Path, misst eigene Kosten und kennzeichnet fehlende Messwerte.
 - Feste Ablage: Buildprodukte unter `build/`; Netzwerkquellen im Client-Pref-Verzeichnis

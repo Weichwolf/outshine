@@ -112,7 +112,7 @@ def arrangement_vertices(rows, xy):
     return result, labels, note["maximum_displacement_m"], {"surface_weld": note}
 
 
-def arrangement(rows, domains, masks, *, constraints=()):
+def arrangement(rows, domains, masks, *, constraints=(), section_provider=None):
     if len(constraints) > 1024:
         raise ValueError("local interface constraint budget")
     lines = [p.boundary for p in domains + masks] + list(constraints)
@@ -121,7 +121,9 @@ def arrangement(rows, domains, masks, *, constraints=()):
         lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
         if "surface_axis_xy_m" in row:
             lines.append(shapely.LineString(row["xy"]))
-        sections = cross_sections(row)
+        sections = (
+            cross_sections(row) if section_provider is None else section_provider(row)
+        )
         lines.extend(sections)
         section_counts.append(len(sections))
     from stair_seed_precision import node_lines

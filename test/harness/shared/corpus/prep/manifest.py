@@ -1,35 +1,13 @@
-"""The manifest, read strictly: an unknown key is a refusal, not a shrug.
-
-WHAT A MANIFEST MAY CONTAIN IS NOT HERE. It is `test/harness/shared/corpus/manifest-schema.json`, which the render
-runner reads too, so a key exists once. What is here is the POLICY this preparer owns: which Cycles
-settings make an oracle render meaningless, which acceptance a reduced scene owes, and which names
-belong to the test that reads the case directory.
-"""
+"""Read declared corpus inputs and reject unknown fields, duplicate names and missing entries."""
 
 import json
-import sys
 import os
-import re
 
-from . import licence, schema
+from . import schema
 from .refusal import Refusal
 
-SCHEMA = schema.SCHEMA
 SCHEMA_VERSION = schema.SCHEMA_VERSION
-
-RESERVED_OUTPUT_NAMES = frozenset(["0-reference.png", "1-outshine.png", "outshine.exr",
-                                   "outshine.raw", "provenance.json"])
-
-DEFAULT_RECIPE_NAME = "default"
-
-QUANTITY_PASSES = {
-    "normal": {"socket": "Normal", "viewLayerFlag": "use_pass_normal"},
-    "materialIndex": {"socket": "Material Index", "viewLayerFlag": "use_pass_material_index"},
-    "objectIndex": {"socket": "Object Index", "viewLayerFlag": "use_pass_object_index"},
-    "uv": {"socket": "UV", "viewLayerFlag": "use_pass_uv"},
-}
-SEED_SHIFT_RECIPE_NAME = "seed-shift"
-RECIPE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+RESERVED_OUTPUT_NAMES = frozenset(["manifest.json", ".prepared-by", "provenance.json"])
 
 def load(path):
     try:
@@ -48,89 +26,8 @@ class Manifest:
         self.covers = self.document["covers"]
         self.criterion = self.document["criterion"]
         self.subjects = _subjects(self.document["subjects"])
-        self.oracle = self.document["schema"] == "outshine/render-oracle-manifest"
-        if not self.oracle:
-            self.viewport = self.document.get("viewport")
-            self.blender_version = None
-            self.scene = None
-            self.renders = {}
-            self.subject_class = None
-            self.acceptance_class = None
-            self.expected = {}
-            self.acceptance = {}
-            self.identical_coverage = ()
-            _check_names(self.subjects)
-            return
-        self.blender_version = str(self.document["blender"]["version"])
-        self.scene = _Scene(self.document["scene"])
-        self.renders = _renders(self.document["renders"])
-        _seed_shift(self.scene.material, self.renders, self.scene.light)
-        self.subject_class = self.document["subjectClass"]
-        self.acceptance_class = self.document["acceptanceClass"]["is"]
-        self.expected = self.document.get("expected", {})
-        self.acceptance = self.document.get("acceptance", {})
-        self.identical_coverage = _identical_coverage(
-            self.document.get("identicalCoverage"), self.subjects
-        )
-
-        for name in self.output_names():
-            if name in RESERVED_OUTPUT_NAMES:
-                raise Refusal(
-                    "manifest.renders",
-                    expected="an output name outside " + ", ".join(sorted(RESERVED_OUTPUT_NAMES)),
-                    observed=name,
-                    why="those names belong to the test that reads this directory",
-                )
+        self.viewport = self.document.get("viewport")
         _check_names(self.subjects)
-
-    def frame_grid(self):
-        """Which frames this case is judged at, in order. `[None]` is a still and is the whole
-        corpus until now; a declared animation is `0 .. frames - 1`, and every one of them is its
-        own render, its own key and its own product (board:1129). A manifest that declares no
-        scene renders nothing at all -- the fetched families (wpt, test262) are subjects with no
-        oracle behind them -- so its grid is EMPTY rather than one still, and `renders * frames`
-        comes out zero from both sides (board:1797)."""
-        if self.scene is None:
-            return []
-        if self.scene.animation is None:
-            return [None]
-        return list(range(int(self.scene.animation["frames"]["value"])))
-
-    def output_names(self):
-        names = []
-        for name in sorted(self.renders):
-            for frame in self.frame_grid():
-                names.extend(sorted(output_names_for(name, frame).values()))
-        return names
-
-    def gltf_names(self):
-        """One glTF per subject, and every one of them is imported into the oracle's scene. A
-        subject's other files -- the same surface under another index width, the same placement
-        through a matrix -- are the RUNNER's to render and score against this one, and none of them
-        reaches the oracle."""
-        return [s.conversion.settings["outputName"] if s.kind == "blend" else s.entry
-                for s in self.subjects]
-
-def output_names_for(recipe_name, frame=None):
-    """The float pair a recipe leaves behind: the EXR the score was defined on and the flat f32 dump
-    a C++ reader can be twenty lines long for. No picture -- both pictures are the runner's.
-
-    A FRAME IS PART OF THE NAME AND NOT ONLY OF THE KEY. Two frames of one animated case are two
-    pictures of the same declaration, so a shared name would leave the store publishing whichever
-    was written last -- and the runner, which reads these names, could not stop at the frame that
-    failed because it could not tell one from another. `None` is a still and keeps the names the
-    corpus already has.
-    """
-    suffix = "" if recipe_name == DEFAULT_RECIPE_NAME else "." + recipe_name
-    if frame is not None:
-        suffix += ".f%04d" % frame
-    names = {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
-    if recipe_name != DEFAULT_RECIPE_NAME:
-        return names
-    for quantity in QUANTITY_PASSES:
-        names[quantity + "Exr"] = "oracle." + quantity + suffix + ".exr"
-        names[quantity + "Raw"] = "oracle." + quantity + suffix + ".raw"
-    return names
 
 def _check_names(subjects):
     """One file per name in a case directory, whatever produced it."""
@@ -147,11 +44,6 @@ def _check_names(subjects):
                     observed="%s is claimed by both %s and %s" % (file["as"], seen[file["as"]], subject.id),
                 )
             seen[file["as"]] = subject.id
-        if subject.kind == "blend":
-            if subject.conversion.settings["outputName"] in seen:
-                raise Refusal("manifest.subjects", expected="a free name for the conversion output",
-                              observed=subject.conversion.settings["outputName"])
-            seen[subject.conversion.settings["outputName"]] = subject.id
 
 def _subjects(value):
     subjects = [_Subject(i, v) for i, v in enumerate(value)]
@@ -166,26 +58,13 @@ class _Subject:
         self.id = field["id"]
         self.kind = field["kind"]
         self.name = field["name"]
-        note = licence.check_subject_name(self.name)
-        if note:
-            print("notice: subject " + self.name + " -- " + note + " -- recorded, not refused",
-                  file=sys.stderr)
         self.source = field["source"]
         self.files = field["files"]
         self.entry = field.get("entry", "")
         self.attributes = field.get("attributes", [])
         self.notes = field.get("notes", "")
-        self.patch = field.get("patch")
-        self.conversion = _Conversion(where, field["conversion"]) if "conversion" in field else None
         for position, file in enumerate(self.files):
             spelling = "%s.files[%d]" % (where, position)
-            if "licence" in file:
-                for grant in licence.declared_grants(file["licence"]):
-                    grantNote = licence.check_spdx(grant["spdx"], spelling + ".licence")
-
-                    if grantNote:
-
-                        print("notice: " + grantNote + " -- recorded, not refused", file=sys.stderr)
             if (file["role"] == "archive-member") != ("member" in file):
                 raise Refusal(
                     spelling + ".member",
@@ -194,156 +73,3 @@ class _Subject:
                 )
         if self.entry and self.entry not in [f["as"] for f in self.files]:
             raise Refusal(where + ".entry", expected="one of the declared files", observed=self.entry)
-
-    def metadata_file(self):
-        for file in self.files:
-            if file["role"] == "metadata":
-                return file
-        return None
-
-class _Scene:
-    """What is declared beside the glTF because it must never cross it."""
-
-    def __init__(self, field):
-        self.camera = field["camera"]
-        self.light = field["light"]
-        self.world = field["world"]
-        self.material = field["material"]
-        self.animation = field.get("animation")
-        self.material_variant = field.get("materialVariant")
-        if self.animation is not None:
-            seen = self.animation["animations"]
-            if len(set(seen)) != len(seen):
-                raise Refusal("manifest.scene.animation.animations",
-                              expected="each animation named once", observed=repr(seen),
-                              why="one animation named twice drives every node it touches twice, "
-                                  "and glTF states no result when two channels target one node's "
-                                  "one path")
-        if self.animation is not None and self.animation["frames"]["value"] < 1:
-            raise Refusal("manifest.scene.animation.frames",
-                          expected="at least 1", observed=repr(self.animation["frames"]["value"]),
-                          why="a grid of no frames renders nothing and decides nothing")
-        if self.light["kind"] == "sun" and self.light["angleRad"] != 0:
-            raise Refusal("manifest.scene.light.angleRad", expected="0",
-                          observed=repr(self.light["angleRad"]),
-                          why="a sun with an angle is a disc, which is an area source and an "
-                              "estimator, and this arm's whole claim is that it has none")
-
-    def as_job(self):
-        job = {"camera": self.camera, "light": self.light, "world": self.world, "material": self.material}
-        if self.animation is not None:
-            job["animation"] = self.animation
-        if self.material_variant is not None:
-            job["materialVariant"] = self.material_variant
-        return job
-
-def _seed_shift(material, renders, light):
-    """The acceptance an emission case owes, declared rather than argued.
-
-    Cycles does not match itself: a Monte-Carlo estimator's answer depends on its seed. A surface
-    that emits its declared colour gathers nothing -- no world sampled as a light, no sun disk, no
-    light radius, no visibility -- so two seeds must produce the same bits, and any difference NAMES
-    the integral that survived the change. The second recipe therefore differs from the first in the
-    seed and in nothing else; anything else would make the comparison a test of that too.
-    """
-    reduced = (material.get("kind") in ("emission", "emission-per-material",
-                                       "emission-by-material-index") or
-               light.get("estimator") == "delta")
-    if not reduced:
-        if SEED_SHIFT_RECIPE_NAME in renders:
-            raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME, expected="absent",
-                          observed="declared beside a material that is not an emission",
-                          why="the seed check is what proves an emitter has no estimator left")
-        return
-    if SEED_SHIFT_RECIPE_NAME not in renders:
-        raise Refusal("manifest.renders", expected="a recipe named " + SEED_SHIFT_RECIPE_NAME,
-                      observed=", ".join(sorted(renders)),
-                      why="an emission case is accepted on two seeds agreeing bit for bit")
-    default, shifted = renders[DEFAULT_RECIPE_NAME], renders[SEED_SHIFT_RECIPE_NAME]
-    if default["seed"] == shifted["seed"]:
-        raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME + ".seed",
-                      expected="a seed other than " + repr(default["seed"]), observed=repr(shifted["seed"]))
-    for key in sorted(default):
-        if key not in ("seed", "note") and default[key] != shifted[key]:
-            raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME + "." + key,
-                          expected=repr(default[key]), observed=repr(shifted[key]),
-                          why="the two recipes differ in the seed, so that a difference in the "
-                              "output can only be the estimator")
-
-def _renders(value):
-    if DEFAULT_RECIPE_NAME not in value:
-        raise Refusal(
-            "manifest.renders",
-            expected="a recipe named " + DEFAULT_RECIPE_NAME,
-            observed=", ".join(sorted(value)),
-            why="the acceptance numbers are judged on one named recipe, and it is that one",
-        )
-    for name in sorted(value):
-        if not RECIPE_NAME.match(name):
-            raise Refusal("manifest.renders." + name, expected="lowercase, digits and hyphens", observed=name)
-        _recipe("manifest.renders." + name, value[name])
-    return value
-
-def _recipe(where, field):
-    """What makes an oracle render mean anything, and each of these is refused for its own reason."""
-    if field["adaptiveSampling"]:
-        raise Refusal(
-            where + ".adaptiveSampling",
-            expected="false",
-            observed="true",
-            why="a sample count with an adaptive threshold under it is not a stated sample count",
-        )
-    if field["denoise"]:
-        raise Refusal(
-            where + ".denoise", expected="false", observed="true", why="a denoiser is an estimator with no error bar"
-        )
-    if not field["filmTransparent"]:
-        raise Refusal(
-            where + ".filmTransparent",
-            expected="true",
-            observed="false",
-            why="alpha is the exact coverage channel and it costs nothing",
-        )
-    if field["pixelFilter"]["widthPx"] < 0.01:
-        raise Refusal(where + ".pixelFilter.widthPx", expected=">= 0.01, the RNA minimum",
-                      observed=field["pixelFilter"]["widthPx"])
-    return field
-
-def _identical_coverage(value, subjects):
-    """Files this case's own render must land in the same pixels as -- decided between two renders
-    of ours, with no oracle in it at all, so the agreement is exact rather than within a tolerance.
-    Each has to be a file this manifest already declares, so a claim cannot name a subject nothing
-    prepares."""
-    if value is None:
-        return []
-    declared = set()
-    for subject in subjects:
-        declared.update(file["as"] for file in subject.files)
-    entry = subjects[0].entry
-    for name in value:
-        if name not in declared:
-            raise Refusal("manifest.identicalCoverage", expected="one of " + ", ".join(sorted(declared)),
-                          observed=repr(name))
-        if name == entry:
-            raise Refusal("manifest.identicalCoverage", expected="a file other than the entry " + entry,
-                          observed=name, why="a case cannot be evidence of agreeing with itself")
-    if len(set(value)) != len(value):
-        raise Refusal("manifest.identicalCoverage", expected="distinct names", observed=", ".join(value))
-    return list(value)
-
-class _Conversion:
-    def __init__(self, where, field):
-        self.settings = field
-        if field["outputName"] in RESERVED_OUTPUT_NAMES:
-            raise Refusal(
-                where + ".conversion.outputName",
-                expected="a name outside the reserved set",
-                observed=field["outputName"],
-            )
-        if field["exportSettings"].get("export_format") != "GLB":
-            raise Refusal(
-                where + ".conversion.exportSettings.export_format",
-                expected="GLB",
-                observed=repr(field["exportSettings"].get("export_format")),
-                why="a multi-file export cannot be one entry in a content store keyed by hash = filename",
-            )

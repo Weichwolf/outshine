@@ -25,6 +25,7 @@ def provenance():
         "parent_profile_graph.py",
         "parent_growth_graph.py",
         "generator_graph.py",
+        "generator_specs.py",
         "conifer_windows.py",
     ]
     paths = [Path(__file__).with_name(name) for name in names]
@@ -157,6 +158,10 @@ def build(graph_path, plant, catalog, needles, authoring_path, output):
         "crown_length_exponent",
         "upper_density_bias",
         "secondary_spacing_factor",
+        "crown_span_factor",
+        "secondary_divergence_rad",
+        "secondary_phase",
+        "secondary_normal_reference",
     )
     recipe = {
         "version": "experimental-parent-needled-2",
