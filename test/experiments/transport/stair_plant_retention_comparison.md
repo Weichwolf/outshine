@@ -54,6 +54,26 @@ A18/RTX/runtime or general affine geometry admission is claimed.
 
 Private inputs, fresh exports/readers, timing counterexample and comparison output
 are retained in `/tmp/outshine-transport-sites-7f4a55d67/`; original prior inputs
-remain at the paths pinned by the producer report. Whole private 1280×720 rendering
-is in progress. Allocation-event/copied-byte accounting beyond the explicit prototype
-reuse counters, final image review and PR delivery remain open in #646.
+remain at the paths pinned by the producer report. Both old and fresh whole private 1280×720 images were opened. Camera, profile and
+16 samples match. Fresh Blender5.2.2/llvmpipe rendering completed in201.358s;
+image SHA256 `6c12aaf4baffc6e3d6010882df23a8df0184d85a5c4bfd6055f75061531e8a5b`.
+The existing `test/scripts/pixels.py` reports seven changed pixels, worst channel
+change6/255, bounding box[579,485,581,487]. This is stable placement preservation,
+not a substantial whole-tile visual improvement or integrated world acceptance.
+
+Separate Memray1.20.0 traces on `c4e713b9b` capture Python allocator events and
+intercepted native allocations (native stack traces disabled), with tracemalloc
+also active; profiled timings are not independent performance evidence:
+
+| Method | Allocation events | Cumulative allocated bytes | Tracked peak bytes |
+|---|---:|---:|---:|
+| Global | 6,033,239 | 786,247,398 | 23,745,396 |
+| Local | 913,942 | 86,140,086 | 1,082,282 |
+
+These are allocations, not copied-byte counts or complete OS/device memory.
+Explicit compressed-prototype payload copies are zero on this filesystem;
+other internal copies remain unmeasured. Both profiled results satisfy the same
+four-site field/counter comparison. General affine XY/Float32 safety, whole-world
+coverage and native integration remain separate open work in #568/#434.
+Raw profiles, readers, pixel report and render receipt are retained in the private
+root above. `make lint-docs` passes its AGENTS-only scope; no engine gate is implied.
