@@ -109,6 +109,35 @@ class NeedleAreaChecks(unittest.TestCase):
         np.testing.assert_array_equal(result, np.zeros((3, 4, 4)))
         self.assertEqual(work["sampled_points"], 0)
 
+    def test_diagonal_light_and_vertical_half_shadow(self):
+        source = sheet()
+        blocker = np.array([[0.5, 0, 0], [0.5, 1, 0], [0.5, 1, 1], [0.5, 0, 1.0]])
+        source = {
+            "vertices": np.r_[source["vertices"], blocker],
+            "faces": np.r_[source["faces"], source["faces"] + 4],
+            "normals": np.r_[source["normals"], np.tile([1.0, 0, 0], (2, 3, 1))],
+        }
+        scene = ScatterScene(source["vertices"], source["faces"])
+        light = np.array([1.0, 0, 1]) / np.sqrt(2)
+        result, _ = integrate(
+            source, scene, np.array([0.0, 0, 1]), [light], size=4, order=2
+        )
+        np.testing.assert_allclose(result[1], result[0] / np.sqrt(2), atol=1e-12)
+        expected = result[1].copy()
+        # The existing projection maps world X to image Y for view +Z.
+        expected[:2, :] = 0
+        np.testing.assert_allclose(result[2], expected, atol=1e-12)
+
+    def test_back_light_zero_and_invalid_bias_before_empty_projection(self):
+        source = sheet()
+        scene = ScatterScene(source["vertices"], source["faces"])
+        result, _ = integrate(
+            source, scene, np.array([0.0, 0, 1]), [[0, 0, -1]], size=4
+        )
+        np.testing.assert_array_equal(result[1:], np.zeros((2, 4, 4)))
+        with self.assertRaisesRegex(ValueError, "bias"):
+            integrate(source, scene, np.array([1.0, 0, 0]), [[0, 0, 1]], size=4, bias=0)
+
     def test_rotation_preserves_projected_integral(self):
         source = sheet()
         scene = ScatterScene(source["vertices"], source["faces"])
