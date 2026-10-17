@@ -94,7 +94,7 @@ class SurfacePatches:
             "new_faces": len(patch.mesh.triangles),
             "exact_boundary_edges": len(edges),
             "changed_old_mask_bytes": copied,
-            "old_geometry_copy_bytes": 0,
+            "retained_mesh_copy_bytes": 0,
             "scope": "Exact finite patch composition, not new height/physics/LOD admission.",
         }
 

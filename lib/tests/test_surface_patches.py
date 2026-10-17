@@ -87,7 +87,7 @@ class ExactSurfacePatches(unittest.TestCase):
         self.assertIs(first.patches[0].mesh, second.patches[0].mesh)
         self.assertTrue(first.active_faces["root1"].all())
         self.assertFalse(second.active_faces["root1"].any())
-        self.assertEqual(note["old_geometry_copy_bytes"], 0)
+        self.assertEqual(note["retained_mesh_copy_bytes"], 0)
         self.assertEqual(note["exact_boundary_edges"], 4)
         with self.assertRaises(ValueError):
             second.active_faces["root1"].setflags(write=True)

@@ -25,8 +25,11 @@ XYZ boundary edge is exactly numerically equal. Internal selected patch seams
 cancel. Heights/triangulation may change inside the removed region. No edge
 splitting, tolerance weld or approximate boundary repair occurs in this kernel.
 
-Unchanged patches and their mesh buffers remain shared; only changed active
-face masks are copied. Old views stay valid. Activity counts avoid scanning
+Unchanged patches and their mesh buffers remain shared; persistent snapshot
+updates copy changed active face masks. Local validation gathers temporary
+triangle/index data. `retained_mesh_copy_bytes` counts only whole retained Mesh
+buffers duplicated in the new view, not those validation copies. Old views stay
+valid. Activity counts avoid scanning
 whole masks just to decide whether a patch can answer a query. Failure raises
 without modifying the old view. Resident patch capacity is 1–4096, independent
 of local solver/source budgets. This does not extend the initial finite domain,
