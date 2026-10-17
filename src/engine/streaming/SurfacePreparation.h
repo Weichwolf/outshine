@@ -8,6 +8,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "ContentStore.h"
 #include "SourceConfiguration.h"
@@ -150,11 +151,18 @@ public:
     return PreparedRegions_;
   }
 
-  void Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
+  [[nodiscard]] std::expected<void, std::string_view>
+  Declares(std::span<const ::outshine::Generators::Osm::OsmField::Declared> these) {
+    auto digest = Generators::Osm::OsmField::DeclarationDigest(these);
+    if (!digest) { return std::unexpected(digest.error()); }
     RequestStreets();
     Declared_.assign(these.begin(), these.end());
-    Cls_.Declares(these);
+    DeclaredDigest_ = std::move(*digest);
+    Cls_.Declares(these, DeclaredDigest_);
+    return {};
   }
+
+  [[nodiscard]] std::string_view DeclaredDigest() const noexcept { return DeclaredDigest_; }
 
   [[nodiscard]] GroundStream &Ground() const { return *Ground_; }
 
@@ -288,6 +296,7 @@ private:
   TilePool::LandingCursor LandingCursor_;
   std::unique_ptr<GroundStream> Ground_;
   std::vector<::outshine::Generators::Osm::OsmField::Declared> Declared_;
+  std::string DeclaredDigest_;
   ClassificationPreparation Cls_;
   GroundMaterials Materials_;
   VegetationTemplates Templates_;

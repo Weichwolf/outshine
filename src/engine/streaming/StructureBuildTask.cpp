@@ -457,16 +457,11 @@ struct StructureBuildTask::NativeProducts {
     return true;
   }
 
-  bool BeforeBake(const Generators::RawTile &raw,
-                  const Ground::HeightField *heights,
-                  std::shared_ptr<const Generators::PreparedStructureTile> &base,
-                  const Generators::PreparedBuildingBasis *basis,
-                  Output &output,
-                  const std::atomic_bool &stopping) {
-    if (Current != Phase::Lookup) { return false; }
-    if (basis == nullptr && !EnsureBase(raw, heights, base, basis, output, stopping)) {
-      return true;
-    }
+  bool Lookup(const Generators::RawTile &raw,
+              const Generators::PreparedStructureTile *base,
+              const Generators::PreparedBuildingBasis *basis,
+              Output &output,
+              const std::atomic_bool &stopping) {
     auto cached = basis != nullptr ? Cache->LoadGeometry(Key, *basis, raw)
                                    : Cache->LoadGeometry(Key, *base, raw);
     if (!cached) {
@@ -477,11 +472,36 @@ struct StructureBuildTask::NativeProducts {
       output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
       return true;
     }
-    if (*cached) {
-      output.Tile = std::move(**cached);
-      output.CacheHit = true;
-      Current = Phase::Complete;
+    if (!*cached) { return false; }
+    output.Tile = std::move(**cached);
+    output.CacheHit = true;
+    Current = Phase::Complete;
+    return true;
+  }
+
+  bool BeforeBake(Generators::RawTile &raw,
+                  const Ground::HeightField *heights,
+                  std::shared_ptr<const Generators::PreparedStructureTile> &base,
+                  const Generators::PreparedBuildingBasis *basis,
+                  Output &output,
+                  const std::atomic_bool &stopping) {
+    if (Current != Phase::Lookup) { return false; }
+    if (basis == nullptr && !EnsureBase(raw, heights, base, basis, output, stopping)) {
       return true;
+    }
+    if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
+    if (Cells && !raw.RequestedCell) {
+      if (basis != nullptr) {
+        for (const auto &source : basis->Sources) { *Cells |= uint64_t{1} << (source.Cell - 1u); }
+      } else {
+        for (const auto &source : base->Structures) {
+          *Cells |= uint64_t{1} << (source.Layout.Cell.Index - 1u);
+        }
+      }
+      if (*Cells != 0) {
+        raw.RequestedCell = static_cast<uint32_t>(std::countr_zero(*Cells)) + 1u;
+        if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
+      }
     }
     if (!EnsureBase(raw, heights, base, basis, output, stopping)) { return true; }
     Current = Phase::Generating;
@@ -504,6 +524,7 @@ struct StructureBuildTask::NativeProducts {
   std::string Key;
   std::string RequestKey;
   Phase Current = Phase::Lookup;
+  std::optional<uint64_t> Cells;
 };
 
 StructureBuildTask::StructureBuildTask(uint32_t tile,
@@ -639,9 +660,31 @@ std::optional<std::string_view> StructureBuildTask::PreparedAssetKey() const noe
   return Native_ ? std::optional(std::string_view(Native_->Key)) : std::nullopt;
 }
 
+void StructureBuildTask::UseInitialCells() {
+  assert(State_ == State::Ready && Native_ && !Raw_->RequestedCell && !Raw_->RequestedDetail);
+  Native_->Cells = 0;
+}
+
+uint64_t StructureBuildTask::InitialCells() const noexcept {
+  assert(State_ != State::Running);
+  return Native_ ? Native_->Cells.value_or(0) : 0;
+}
+
+void StructureBuildTask::SelectNextCell(uint32_t cell) {
+  assert(State_ == State::Completed && Native_ && Native_->Cells && !Comparison_ && !Artifact_ &&
+         Output_->Status && Output_->Tile && !Stopping_->load(std::memory_order_relaxed));
+  assert(cell > 0 && cell <= Generators::kStructureCellsPerTile &&
+         (InitialCells() & (uint64_t{1} << (cell - 1u))) != 0);
+  Raw_->RequestedCell = cell;
+  *Output_ = {};
+  Progress_ = std::make_unique<Generators::StructureBakeProgress>();
+  Native_->Current = NativeProducts::Phase::Lookup;
+  State_ = State::Ready;
+}
+
 void StructureBuildTask::Posts(Tasks &pool, const StructureMesher &mesher) {
   assert(State_ != State::Running);
-  const Generators::RawTile *const raw = Raw_.get();
+  Generators::RawTile *const raw = Raw_.get();
   const Ground::HeightField *const heights = Heights_.get();
   auto *const base = &Base_;
   const auto *const basis = Basis_.get();

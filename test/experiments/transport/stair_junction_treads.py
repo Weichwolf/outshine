@@ -29,39 +29,70 @@ def unique_caps(plan):
     return np.array(list(records)), np.array(list(records.values()))
 
 
+def stair_recipes(plan, heights):
+    xy = plan["xy"]
+    result, levels = [], []
+    for owner, low_node, high_node in plan.get("stairs", [(0, 0, 1)]):
+        indices = np.unique(plan["parts"][owner])
+        a, b = [
+            indices[np.argmin(np.linalg.norm(xy[indices] - plan["nodes"][n], axis=1))]
+            for n in (low_node, high_node)
+        ]
+        low, high = float(heights[a]), float(heights[b])
+        count = math.ceil((high - low) / 0.179)
+        if not 1 <= count <= 64:
+            raise ValueError("bounded positive stair rise required")
+        result.append(
+            {
+                "owner": owner,
+                "low": low,
+                "high": high,
+                "risers": count,
+                "rise_m": (high - low) / count,
+                "level_offset": len(levels),
+            }
+        )
+        levels.extend(np.linspace(low, high, count + 1))
+    return result, np.array(levels)
+
+
+def slices(points, owner, recipes, levels):
+    for recipe in recipes:
+        for level in (recipe["low"], recipe["high"]):
+            points[abs(points[:, 2] - level) < 1e-8, 2] = level
+    chosen = [r for r in recipes if owner & (1 << r["owner"])]
+    if not chosen:
+        return [(points, -1)]
+    if len(chosen) != 1:
+        raise ValueError("shared cap between multiple stair recipes is unplanned")
+    recipe = chosen[0]
+    low, high = recipe["low"], recipe["high"]
+    offset, count, rise = recipe["level_offset"], recipe["risers"], recipe["rise_m"]
+    if np.ptp(points[:, 2]) < 1e-10:
+        k = int(np.clip(np.ceil((points[:, 2].mean() - low) / rise - 1e-8), 0, count))
+        return [(points, offset + k)]
+    if points[:, 2].min() < low - 1e-7 or points[:, 2].max() > high + 1e-7:
+        raise ValueError("stair envelope leaves flat landing height interval")
+    if owner != 1 << recipe["owner"]:
+        raise ValueError("a common landing is not flat")
+    result = []
+    for k in range(1, count + 1):
+        polygon = clip(
+            clip(points, levels[offset + k - 1], True), levels[offset + k], False
+        )
+        if len(polygon) >= 3:
+            result.append((polygon, offset + k))
+    return result
+
+
 def partition(plan, heights):
     faces, source_masks = unique_caps(plan)
+    recipes, levels = stair_recipes(plan, heights)
     xy = plan["xy"]
-    a, b = [int(np.argmin(np.linalg.norm(xy - p, axis=1))) for p in plan["nodes"]]
-    low, high = float(heights[a]), float(heights[b])
-    count = math.ceil((high - low) / 0.179)
-    if not 1 <= count <= 64:
-        raise ValueError("bounded positive stair rise required")
-    rise = (high - low) / count
-    levels = np.linspace(low, high, count + 1)
     raw, masks, chosen = [], [], []
     for face, owner in zip(faces, source_masks, strict=True):
         points = np.c_[xy[face], heights[face]]
-        for level in (low, high):
-            points[abs(points[:, 2] - level) < 1e-8, 2] = level
-        slices = []
-        if not owner & 1:
-            slices.append((points, -1))
-        elif np.ptp(points[:, 2]) < 1e-10:
-            k = int(
-                np.clip(np.ceil((points[:, 2].mean() - low) / rise - 1e-8), 0, count)
-            )
-            slices.append((points, k))
-        else:
-            if points[:, 2].min() < low - 1e-7 or points[:, 2].max() > high + 1e-7:
-                raise ValueError("stair envelope leaves flat landing height interval")
-            if owner != 1:
-                raise ValueError("a common landing is not flat")
-            for k in range(1, count + 1):
-                polygon = clip(clip(points, levels[k - 1], True), levels[k], False)
-                if len(polygon) >= 3:
-                    slices.append((polygon, k))
-        for polygon, k in slices:
+        for polygon, k in slices(points, owner, recipes, levels):
             for j in range(1, len(polygon) - 1):
                 tri = polygon[[0, j, j + 1]]
                 if np.cross(tri[1] - tri[0], tri[2] - tri[0])[2] > 1e-12:
@@ -74,11 +105,18 @@ def partition(plan, heights):
     points, inverse = np.unique(points, axis=0, return_inverse=True)
     points, labels, drift = welded_vertices(points, 1e-8)
     faces = labels[inverse].reshape(-1, 3)
+    note = {
+        "risers": sum(r["risers"] for r in recipes),
+        "rise_m": max(r["rise_m"] for r in recipes),
+        "level_weld_m": drift,
+    }
+    if len(recipes) > 1:
+        note["stairs"] = recipes
     return (
         points,
         faces,
         np.array(masks),
         np.array(chosen),
         levels,
-        {"risers": count, "rise_m": rise, "level_weld_m": drift},
+        note,
     )

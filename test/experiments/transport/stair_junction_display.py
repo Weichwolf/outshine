@@ -20,7 +20,8 @@ def display(args, body, data):
     }
     arrays = append(empty, [(body, 3)], palette)
     top_count = len(data["top_faces"])
-    is_stair = (data["face_sources"] & 1) != 0
+    stair_mask = sum(1 << int(o) for o in data.get("stair_owners", [0]))
+    is_stair = (data["face_sources"] & stair_mask) != 0
     selected = np.r_[is_stair, is_stair, data["wall_riser"] == 1]
     if len(selected) != len(body.triangles) or 2 * top_count > len(selected):
         raise ValueError("actual stair display cap/wall ownership differs")
@@ -51,5 +52,5 @@ def display(args, body, data):
         "mesh_sha256": digest(target),
         "palette_scene_sha256": digest(args.palette_scene),
         "views": list(views),
-        "scope": "Only actual four-way recipe, without inferred surrounding city or DEM. Diagnostic crop is local, not a presentation gallery.",
+        "scope": "Actual indexed recipe bodies, without inferred surrounding city or DEM. Diagnostic crop is local, not a presentation gallery.",
     }

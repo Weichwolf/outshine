@@ -80,30 +80,32 @@ public:
     return {};
   }
 
-  std::array<int64_t, 2> feature(const Face &face, Vec2 xy) const {
-    std::array<double, 3> vertexDistances;
-    std::array<double, 3> edgeDistances;
-    for (size_t at = 0; at < 3; ++at) {
-      const Vec3 &p = Vertices[face.Vertices[at]];
-      const Vec3 &q = Vertices[face.Vertices[(at + 1) % 3]];
-      const double dx = xy[0] - p[0];
-      const double dy = xy[1] - p[1];
-      vertexDistances[at] = std::hypot(dx, dy);
-      edgeDistances[at] =
-          std::abs((q[0] - p[0]) * dy - (q[1] - p[1]) * dx) / std::hypot(q[0] - p[0], q[1] - p[1]);
+  bool sharedContact(std::span<const uint32_t> shared, Vec2 xy) const {
+    for (const uint32_t id : shared) {
+      const Vec3 &point = Vertices[id];
+      if (std::hypot(xy[0] - point[0], xy[1] - point[1]) <= Limits.XyToleranceM) { return true; }
     }
-    const size_t vertex = std::ranges::min_element(vertexDistances) - vertexDistances.begin();
-    if (vertexDistances[vertex] <= Limits.XyToleranceM) {
-      return {face.Vertices[vertex], face.Vertices[vertex]};
+    if (shared.size() != 2) { return false; }
+    const Vec3 &p = Vertices[shared[0]];
+    const Vec3 &q = Vertices[shared[1]];
+    const double dx = xy[0] - p[0];
+    const double dy = xy[1] - p[1];
+    const double ex = q[0] - p[0];
+    const double ey = q[1] - p[1];
+    const double length = std::hypot(ex, ey);
+    const double along = dx * (ex / length) + dy * (ey / length);
+    return along >= 0 && along <= length &&
+           std::abs((ex / length) * dy - (ey / length) * dx) <= Limits.XyToleranceM;
+  }
+
+  static size_t intersect(std::array<uint32_t, 3> &shared, size_t count, const Face &face) {
+    size_t kept = 0;
+    for (size_t at = 0; at < count; ++at) {
+      if (std::ranges::find(face.Vertices, shared[at]) != face.Vertices.end()) {
+        shared[kept++] = shared[at];
+      }
     }
-    const size_t edge = std::ranges::min_element(edgeDistances) - edgeDistances.begin();
-    if (edgeDistances[edge] <= Limits.XyToleranceM) {
-      std::array<int64_t, 2> ids{face.Vertices[edge], face.Vertices[(edge + 1) % 3]};
-      std::ranges::sort(ids);
-      return ids;
-    }
-    const int64_t own = -static_cast<int64_t>(face.Index) - 1;
-    return {own, own};
+    return kept;
   }
 
   std::expected<SurfaceContact, SurfaceSamplerError>
@@ -134,35 +136,39 @@ public:
     if (Error) { return std::unexpected(SurfaceSamplerError::Backend); }
     std::ranges::sort(found, {}, &Face::Index);
     SurfaceContact result = Missing(xy);
-    std::array<int64_t, 2> firstFeature{};
+    std::array<uint32_t, 3> shared{};
+    size_t common = 0;
+    size_t matches = 0;
     double low = 0.0;
     double high = 0.0;
-    bool shared = true;
+    bool finite = true;
     for (const Face *face : found) {
       const char near = GEOSDistanceWithin_r(Context, face->Polygon.get(), point.get(), tolerance);
       if (near == 2 || Error) { return std::unexpected(SurfaceSamplerError::Backend); }
       if (near == 0) { continue; }
       ++candidates;
+      ++matches;
       const Vec3 &p = Vertices[face->Vertices[0]];
       const double height =
           p[2] + (xy[0] - p[0]) * face->Gradient[0] + (xy[1] - p[1]) * face->Gradient[1];
-      if (!std::isfinite(height)) { shared = false; }
-      const auto key = feature(*face, xy);
+      finite &= std::isfinite(height);
       if (result.FaceIndex < 0) {
         result = {.PositionM = {{xy[0], xy[1], height}},
                   .Normal = face->Normal,
                   .FaceIndex = static_cast<int64_t>(face->Index),
                   .Status = SurfaceContactStatus::Contact};
-        firstFeature = key;
+        shared = face->Vertices;
+        common = shared.size();
         low = high = height;
       } else {
-        shared = shared && key == firstFeature;
+        common = intersect(shared, common, *face);
         low = std::min(low, height);
         high = std::max(high, height);
       }
     }
-    if (result.FaceIndex >= 0 && (!shared || !std::isfinite(low) || !std::isfinite(high) ||
-                                  high - low > Limits.HeightToleranceM)) {
+    if (result.FaceIndex >= 0 &&
+        (!finite || high - low > Limits.HeightToleranceM ||
+         (matches > 1 && !sharedContact(std::span(shared).first(common), xy)))) {
       return Missing(xy, SurfaceContactStatus::Ambiguous);
     }
     return result;

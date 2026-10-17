@@ -62,9 +62,11 @@ namespace {
   }
   std::vector<uint8_t> bytes(static_cast<size_t>(size));
   if (std::fread(bytes.data(), 1, bytes.size(), file.get()) != bytes.size() ||
-      std::fgetc(file.get()) != EOF || std::ferror(file.get()) != 0) {
+      std::ferror(file.get()) != 0) {
     return std::nullopt;
   }
+  if (std::feof(file.get()) == 0 && std::fgetc(file.get()) != EOF) { return std::nullopt; }
+  if (std::ferror(file.get()) != 0) { return std::nullopt; }
   if (std::fclose(file.release()) != 0) { return std::nullopt; }
   return bytes;
 }

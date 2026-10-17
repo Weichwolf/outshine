@@ -31,6 +31,7 @@ struct GraphicsState {
   std::optional<DepthTarget> DepthSettings;
   MTLCullMode Culling = MTLCullModeNone;
   MTLWinding Front = MTLWindingCounterClockwise;
+  MTLDepthClipMode DepthClip = MTLDepthClipModeClip;
   uint64_t Device = 0;
 };
 

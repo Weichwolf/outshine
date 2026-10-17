@@ -61,6 +61,45 @@ class TidyExecution(unittest.TestCase):
         self.assertTrue(summary['complete'])
         self.assertGreater(summary['findings'], 0)
 
+    def check_project_policy(self, source, diagnostic):
+        self.main.write_text(source)
+        (self.root / '.clang-tidy').write_text((ROOT / '.clang-tidy').read_text())
+        run = subprocess.run([str(TOOL), '-p', str(self.root), str(self.main)],
+                             capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn(diagnostic, run.stdout + run.stderr)
+        self.assertIn('-warnings-as-errors', run.stdout + run.stderr)
+
+    def test_project_policy_rejects_a_direct_warning(self):
+        self.check_project_policy('double division(int a, int b) { return a / b; }\n',
+                                  'bugprone-integer-division')
+
+    def test_project_policy_detects_a_path_dependent_null_access(self):
+        self.check_project_policy('int read(int *value) { if (value) return 0; return *value; }\n',
+                                  'clang-analyzer-core.NullDereference')
+
+    def test_fixed_underlying_enum_allows_unnamed_bit_combinations(self):
+        self.main.write_text('int main() {\n'
+                             'enum class Flags : unsigned char { None = 0, First = 1, Second = 2 };\n'
+                             'return static_cast<int>(static_cast<Flags>(3));\n'
+                             '}\n')
+        (self.root / '.clang-tidy').write_text((ROOT / '.clang-tidy').read_text())
+        self.run_analysis(0)
+
+    def test_parameter_name_check_remains_active_outside_allocation_replacements(self):
+        self.check_project_policy('int Read(int original);\n'
+                                  'int Read(int replacement) { return replacement; }\n',
+                                  'readability-inconsistent-declaration-parameter-name')
+
+    def test_allocation_policy_keeps_memory_analysis_and_error_status(self):
+        directory = self.root / 'src/diagnostics'
+        directory.mkdir()
+        (directory / '.clang-tidy').write_text((ROOT / 'src/diagnostics/.clang-tidy').read_text())
+        self.main = directory / 'Allocation.cpp'
+        self.database([self.main])
+        self.check_project_policy('int Read(int *value) { if (value) return 0; return *value; }\n',
+                                  'clang-analyzer-core.NullDereference')
+
     def test_parse_failure_cannot_hide_beside_warning(self):
         bad = self.root / 'src/Broken.cpp'
         bad.write_text('int broken( {\n')

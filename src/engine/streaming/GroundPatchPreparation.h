@@ -5,7 +5,6 @@
 #include "PreparedTerrainAssets.h"
 #include "Tasks.h"
 #include <expected>
-#include <functional>
 #include <memory>
 #include <stop_token>
 #include <string>
@@ -31,7 +30,7 @@ private:
   using Result = std::expected<std::shared_ptr<const Generators::GroundPatch>, std::string>;
   enum class Phase { Reading, Generating, Storing, Ready, Failed };
   struct Work;
-  void Post(std::function<Result()> operation);
+  template <class Operation> void Post(Operation operation);
 
   Tasks &Pool_;
   std::shared_ptr<Generators::PreparedTerrainAssets> Assets_;

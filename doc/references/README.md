@@ -428,6 +428,12 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   Kompakte LUTs verbinden Boden-, Flug- und Orbitansicht mit Luftperspektive.
   Bestehende SkyStage vergleichen/ergänzen; gemeinsame planetare Maße und Lichtgrößen.
   Wetterparametrisierung ist eine plausible Ergänzung, keine gemessene Aerosolverteilung.
+- **Improving Noise**, Perlin, SIGGRAPH2002.
+  [Autorenquelle](https://mrl.cs.nyu.edu/~perlin/paper445.pdf) ·
+  [PDF](clouds/siggraph/2002-improving-noise.pdf).
+  Gitter und relative Interpolationskoordinaten; Seite1 samt Gleichung/Fig.1 optisch geprüft.
+  Numerische Advektionsuntersuchung bei [#447](https://github.com/Weichwolf/outshine/issues/447);
+  keine Übernahme des Gradienten-Codes oder behauptete native Präzisionsabnahme.
 - **The Real-time Volumetric Cloudscapes of Horizon Zero Dawn**, Schneider / Vos,
   SIGGRAPH-Kurs 2015.
   [Quelle](https://advances.realtimerendering.com/s2015/The%20Real-time%20Volumetric%20Cloudscapes%20of%20Horizon%20-%20Zero%20Dawn%20-%20ARTR.pdf) ·

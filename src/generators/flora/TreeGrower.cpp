@@ -100,7 +100,19 @@ float TreeGrower::RoomInside(Vec3f from, Vec3f dir, float want) const {
   for (int i = 1; i <= kProbes; ++i) {
     const float d = want * static_cast<float>(i) / static_cast<float>(kProbes);
     if (Escape(from + dir * d) > 1.0f) {
-      return want * static_cast<float>(i - 1) / static_cast<float>(kProbes);
+      float low = want * static_cast<float>(i - 1) / static_cast<float>(kProbes);
+      float high = d;
+      if (i == 1 && Escape(from) > 1.0f) { return 0.0f; }
+      constexpr int kRefinements = 12;
+      for (int step = 0; step < kRefinements; ++step) {
+        const float mid = 0.5f * (low + high);
+        if (Escape(from + dir * mid) > 1.0f) {
+          high = mid;
+        } else {
+          low = mid;
+        }
+      }
+      return low;
     }
   }
   return want;

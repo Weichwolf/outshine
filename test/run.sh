@@ -29,6 +29,7 @@ TestSources() { git ls-files --cached --others --exclude-standard "$TREES" | gre
 
 BUILD_PLATFORM=$(uname -s)
 SOURCE_UNITS=$(python3 test/scripts/source_units.py) || exit 2
+SOURCE_DIRECTORIES=$(find src -type d | sort)
 
 SourceUnits() {
   if [ $# -eq 0 ]; then printf '%s\n' "$SOURCE_UNITS"; return; fi
@@ -109,44 +110,8 @@ validatedRan=no
 # declared -- failing exactly the stated number of claims -- turns the verdict PASS and counts
 # toward `inverted`, which the trailer names. Behaving OTHERWISE, including going fully green,
 # prints to stderr and turns the verdict FAIL, which is what forces the entry out again
-# board:1885: the glTF-Validator corpus is scored against Khronos's own report, and 73 of its 263
-# cases are RED with a reason that is not the reader being wrong about the SPEC -- 54 of them
-# refuse with "no default scene to draw" for a fragment glTF 2.0 permits. They are declared here
-# with their count so the day one of them stands, the gate says so.
-EXPECT_FAIL="harness/claims/ExpectFail:1 khronos/validator/accessor-custom-property:1\
-  khronos/validator/accessor-data-get-elements-matrix:1\
-  khronos/validator/accessor-data-get-elements-sparse:1 khronos/validator/accessor-data-get-elements:1\
-  khronos/validator/accessor-unknown-type:1 khronos/validator/accessor-valid:1\
-  khronos/validator/animation-custom-property:1 khronos/validator/animation-valid:1\
-  khronos/validator/asset-2-1-version:1 khronos/validator/asset-custom-property:1\
-  khronos/validator/asset-min-version-valid:1 khronos/validator/asset-valid:1\
-  khronos/validator/buffer-custom-property:1 khronos/validator/buffer-data-uri:1\
-  khronos/validator/buffer-extra-padding:1 khronos/validator/buffer-non-relative-uri:1\
-  khronos/validator/buffer-valid-2:1 khronos/validator/buffer-valid-placeholder:1 khronos/validator/buffer-valid:1\
-  khronos/validator/buffer-view-custom-property:1 khronos/validator/buffer-view-valid:1\
-  khronos/validator/camera-custom-property:1 khronos/validator/camera-perspective-yfov:1\
-  khronos/validator/camera-valid:1 khronos/validator/glb-extra-data:1 khronos/validator/glb-two-images:1\
-  khronos/validator/glb-valid-buffer:1 khronos/validator/glb-valid:1 khronos/validator/image-custom-property:1\
-  khronos/validator/image-data-uri:1 khronos/validator/image-npot:1 khronos/validator/image-unrecognized-format:1\
-  khronos/validator/image-valid-2:1 khronos/validator/image-valid:1\
-  khronos/validator/json-integer-written-as-float:1 khronos/validator/material-alpha-modes:1\
-  khronos/validator/material-custom-property:1 khronos/validator/material-empty-object:1\
-  khronos/validator/material-multiple-extensions:1 khronos/validator/material-valid:1\
-  khronos/validator/mesh-custom-property:1 khronos/validator/mesh-data-index-buffer-degenerate-triangle:1\
-  khronos/validator/mesh-invalid-tangent:1 khronos/validator/mesh-primitive-generated-tangent-space:1\
-  khronos/validator/mesh-primitive-incompatible-mode:1 khronos/validator/mesh-primitive-no-position:1\
-  khronos/validator/mesh-valid:1 khronos/validator/node-custom-property:1 khronos/validator/node-matrix-default:1\
-  khronos/validator/node-node-empty:1 khronos/validator/node-node-skinned-mesh-without-skin:1\
-  khronos/validator/node-node-weights-override:1 khronos/validator/node-valid:1\
-  khronos/validator/root-custom-property-escaped-name:1 khronos/validator/root-custom-property:1\
-  khronos/validator/root-extras-non-object:1 khronos/validator/root-invalid-extension-name:1\
-  khronos/validator/root-named-objects:1 khronos/validator/root-unused-objects:1 khronos/validator/root-valid:1\
-  khronos/validator/sampler-custom-property:1 khronos/validator/sampler-empty-object:1\
-  khronos/validator/sampler-valid:1 khronos/validator/scene-custom-property:1 khronos/validator/scene-valid:1\
-  khronos/validator/skin-custom-property:1 khronos/validator/skin-ignored-animated-transform:1\
-  khronos/validator/skin-ignored-local-transform:1 khronos/validator/skin-ignored-parent-transform:1\
-  khronos/validator/skin-valid:1 khronos/validator/texture-custom-property:1\
-  khronos/validator/texture-empty-object:1 khronos/validator/texture-valid:1"
+EXPECT_FAIL="harness/claims/ExpectFail:1"
+
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2
@@ -243,8 +208,20 @@ fi
 SUITE=
 SUITES=
 ALL_CASES=0
+FORCED_SANITIZER=
+HARDEN=0
+HARDENING_FLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -D_GLIBCXX_ASSERTIONS"
 while [ $# -gt 0 ]; do
   case "$1" in
+    --sanitizer)
+      [ $# -ge 2 ] || Die "--sanitizer requires address or thread"
+      case "$2" in
+        address|thread) FORCED_SANITIZER=$2 ;;
+        *) Die "--sanitizer requires address or thread" ;;
+      esac
+      shift 2
+      ;;
+    --harden) HARDEN=1; shift ;;
     --timeout)
       [ $# -ge 2 ] || Die "--timeout wants a number of seconds"
       TIMEOUT_S=$2
@@ -277,7 +254,7 @@ TestProfile() {
     outshine/src/client/ScenarioRoundTrip) printf '%s' 'profile/client-roundtrip' ;;
     outshine/src/client/PlaceSourcePreparation) printf '%s' 'profile/client-preparation' ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' 'profile/engine' ;;
-    outshine/include/*) printf '%s' 'profile/public' ;;
+    outshine/include/*) printf '%s' 'profile/internal' ;;
     outshine/src/generators/osm/MvtLayer | outshine/src/generators/osm/OsmStorageUsage)
       printf '%s' 'profile/vector' ;;
     outshine/src/generators/osm/OsmXmlReader) printf '%s' 'profile/osm-xml' ;;
@@ -288,7 +265,14 @@ TestProfile() {
     outshine/src/render/device/GpuSubmission | outshine/src/render/device/GroundStorage)
       printf '%s' 'profile/device' ;;
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
-    outshine/src/base/io/Png | outshine/src/base/io/Tasks) printf '%s' 'profile/base' ;;
+    outshine/src/base/*) printf '%s' 'profile/base' ;;
+    outshine/src/content/*) printf '%s' 'profile/content' ;;
+    outshine/src/world/*) printf '%s' 'profile/world' ;;
+    outshine/src/host/*) printf '%s' 'profile/host' ;;
+    outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
+    outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
+    outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
+    outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) printf '%s' 'profile/species' ;;
     outshine/src/render/stages/MediumView) printf '%s' 'profile/medium-view' ;;
     outshine/src/*) printf '%s' 'profile/internal' ;;
     outshine/integration/places|outshine/integration/world_regressions) printf '%s' 'profile/engine' ;;
@@ -299,7 +283,6 @@ TestProfile() {
 LayerIncludes() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerIncludes profile/internal ;;
-    profile/public) printf '%s' '-Iinclude -Itest/harness/shared' ;;
     profile/medium-view) printf '%s' "-Iinclude -Isrc/render -Isrc/render/device -Isrc/render/stages -Isrc/world/sky" ;;
     profile/vector) printf '%s' "-Isrc/generators/osm/providers -Isrc/generators/osm/fields -Isrc/base/spatial" ;;
     profile/osm-xml) GroupIncludes src/generators/osm/import ;;
@@ -314,10 +297,16 @@ LayerIncludes() {
     tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
-    profile/base) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared" ;;
+    profile/base) GroupIncludes src/base ;;
+    profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
+    profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
+    profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
+    profile/scenario) GroupIncludes src/scenario ;;
+    profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
+    profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
+    profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
     profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags liblz4 libtiff-4 sqlite3 libzstd)" ;;
-    harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/animation -Isrc/content/mesh -Isrc/content/scene -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Itest/harness/shared" ;;
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     *) return 1 ;;
@@ -334,27 +323,44 @@ LayerToolchain() {
   esac
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerToolchain profile/internal ;;
-    profile/public) LayerToolchain profile/internal ;;
     profile/diagnostics) LayerToolchain profile/internal ;;
     profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
     profile/engine | harness/wpt/css) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/geographiclib/geodesic) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
   esac
 }
-# Vector decoding runs under ASan/UBSan; GPU fault injection also runs with SDL validation.
+NativeSafetyProfile() {
+  case "$1" in
+    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Instrument product objects as well as the test entry point.
 # Instrumenting repository-claim wrappers would not instrument their subprocesses.
 LayerSanitiser() {
+  if [ "$FORCED_SANITIZER" = thread ]; then
+    printf '%s' "-fsanitize=thread -fno-omit-frame-pointer -g1"
+    return
+  fi
+  if [ "$FORCED_SANITIZER" = address ] || NativeSafetyProfile "$1"; then
+    printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
+    return
+  fi
   case "$(TestProfile "$1")" in
     profile/medium-view | profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
-    harness/khronos/validator | harness/geographiclib/geodesic)
+    harness/geographiclib/geodesic)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
 
 LayerValidation() {
+  if [ "$HARDEN" = 1 ] || NativeSafetyProfile "$1"; then
+    printf '%s ' "$HARDENING_FLAGS"
+  fi
   case "$1" in
     outshine/integration/places|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
   esac
@@ -367,11 +373,14 @@ LayerValidation() {
 LayerLink() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
-    profile/public) LayerLink profile/internal ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
+    profile/scenario|profile/render-geometry|profile/species) LayerLink profile/base ;;
+    profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
+    profile/host) LayerLink profile/world ;;
+    profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) EngineLink ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) EngineLink ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -389,11 +398,18 @@ EngineRootGroups() {
   SourceUnits src/engine | tr '\n' ' '
 }
 
+SubtreeGroups() {
+  for subtree in "$@"; do
+    for sourceDirectory in $SOURCE_DIRECTORIES; do
+      case "$sourceDirectory" in "$subtree"|"$subtree"/*) printf '%s ' "$sourceDirectory" ;; esac
+    done
+  done
+}
+
 LayerGroups() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
     profile/client-preparation) LayerGroups profile/internal; printf ' %s' "src/client/PlaceSourcePreparation.cpp" ;;
-    profile/public) LayerGroups profile/internal ;;
     profile/medium-view) printf '%s' "src/render/Lens.cpp src/render/stages/MediumView.cpp" ;;
     profile/vector) printf '%s' "src/generators/osm/providers/MvtLayer.cpp" ;;
     profile/osm-xml) printf '%s' "src/generators/osm/import/OsmElementSet.cpp src/generators/osm/import/OsmXmlReader.cpp src/base/format/Xml.cpp src/base/format/XmlParse.cpp" ;;
@@ -404,10 +420,17 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/base/format/CssColour.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
-    profile/base) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
+    profile/base) SubtreeGroups src/base ;;
+    profile/content) SubtreeGroups src/base src/content ;;
+    profile/world) SubtreeGroups src/base src/content src/world ;;
+    profile/host) SubtreeGroups src/base src/content src/world src/host ;;
+    profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
+    profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
+    profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
+    profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
     profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -427,7 +450,6 @@ LayerCases() {
   case "$1" in
     harness/wpt/css) find test/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/test262/js) find test/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/khronos/validator) find test/khronos/validator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/geographiclib/geodesic) find test/geographiclib/geodesic -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
@@ -534,7 +556,8 @@ GroupIncludes() {
     base) includeSet="$includeSet $(pkg-config --cflags geos)" ;;
   esac
   for includeFrom in $includeTier $includeReaches; do
-    for includeDir in $(find "src/$includeFrom" -type d | sort); do
+    for includeDir in $SOURCE_DIRECTORIES; do
+      case "$includeDir" in "src/$includeFrom"|"src/$includeFrom/"*) ;; *) continue ;; esac
       case "$includeDir" in */shaders) continue ;; esac
       includeSet="$includeSet -I$includeDir"
     done
@@ -759,21 +782,8 @@ ReadTrailer() {
   return 0
 }
 
-# An ORACLE THAT CANNOT EXIST is a different thing from one nobody rendered, and until this
-# declaration the gate could not say which it was looking at -- both arrived as UNPREPARED, in a
-# count with no name and no expiry. Three cases cannot be prepared with this toolchain at all:
-#
-#   khronos/glTF/CubeVisibility    Blender's glTF importer: "Extension KHR_node_visibility is not
-#   khronos/glTF/LightVisibility   available on this addon version". The oracle half of the case
-#                                  cannot be rendered, so there is nothing to compare against.
-#   khronos/glTF/AnimationPointerUVs  the same importer crashes reading KHR_animation_pointer over
-#                                  KHR_texture_transform: KeyError: 'animations'.
-#
-# Each is named with its arm count, the same shape EXPECT_FAIL uses, so the day the importer
-# grows the extension and a declared case PREPARES, the gate turns red on the stale line rather
-# than going quietly green. board:1923.
-EXPECT_UNPREPARED="khronos/glTF/CubeVisibility:3 khronos/glTF/LightVisibility:3\
-  khronos/glTF/AnimationPointerUVs:3"
+EXPECT_UNPREPARED=""
+
 
 DeclaredUnprepared() {
   for declared in $EXPECT_UNPREPARED; do
@@ -803,7 +813,7 @@ SkipAllowed() {
   return 1
 }
 
-mkdir -p "$BUILD/obj" "$BUILD/obj-sanitised" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
+mkdir -p "$BUILD/obj" "$BUILD/obj-address" "$BUILD/obj-thread" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
 SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
@@ -1027,11 +1037,9 @@ fi
 # cannot say whether one is green today, and an assertion nobody checked is the one thing a
 # generated page must not carry.
 StateDoor() {
-  printf '\n## Public API -- `include/`\n\n'
-  printf 'Native contracts are defined by Outshine; external names are not an architecture score.\n'
-  printf 'This inventory includes every public header, including nested modules.\n'
-  printf 'Declarations and contracts live in those headers; documentation diagnostics are reported by `make lint`.\n\n'
-  printf '| module | public header |\n|---|---|\n'
+  printf '\n## Component headers\n\n'
+  printf 'Internal contracts live beside their owning components.\n\n'
+  printf '| module | header |\n|---|---|\n'
   find include -type f -name '*.h' | LC_ALL=C sort | while IFS= read -r header; do
     relative=${header#include/}
     case "$relative" in
@@ -1188,7 +1196,7 @@ StateReds() {
 }
 
 StateReach() {
-  printf '\n## Reach\n\nPublic API tests use only `include/`; internal tests under `test/outshine/src/` may reach implementation headers.\n\n| suite | implementation include paths |\n|---|---|\n'
+  printf '\n## Reach\n\nTests use the internal dependencies of their owning components.\n\n| suite | implementation include paths |\n|---|---|\n'
   for reachSuite in $(TestSources | sed 's|/[^/]*\.cpp$||; s|^test/||' | sort -u); do
     reachIncludes=$(LayerIncludes "$reachSuite") || continue
     case "$reachIncludes" in *-Isrc* | *-I.*) reachKind=yes ;; *) reachKind=no ;; esac
@@ -1665,21 +1673,28 @@ done
 
 TESTS=""
 PROGRAMS=""
+candidateOwner=""
+candidateKind=""
 for candidate in $(TestSources | sort); do
   candidateLayer=$(dirname "${candidate#test/}")
-  if Programs "$candidateLayer" >/dev/null; then
-    PROGRAMS="$PROGRAMS $candidate"
-    continue
+  if [ "$candidateLayer" != "$candidateOwner" ]; then
+    if Programs "$candidateLayer" >/dev/null; then
+      candidateKind=program
+    elif LayerIncludes "$candidateLayer" >/dev/null; then
+      LayerGroups "$candidateLayer" >/dev/null ||
+        Die "$candidate is under test/$candidateLayer, which declares an include set but no source groups"
+      candidateKind=test
+    elif NotTheHarnesses "$candidateLayer" >/dev/null; then
+      candidateKind=external
+    else
+      Die "$candidate is under test/$candidateLayer, and the harness knows no such directory -- declare it in LayerIncludes and LayerGroups to run its tests, or in NotTheHarnesses if the Makefile judges it"
+    fi
+    candidateOwner=$candidateLayer
   fi
-  if LayerIncludes "$candidateLayer" >/dev/null; then
-    LayerGroups "$candidateLayer" >/dev/null ||
-      Die "$candidate is under test/$candidateLayer, which declares an include set but no source groups"
-    TESTS="$TESTS $candidate"
-  elif NotTheHarnesses "$candidateLayer" >/dev/null; then
-    continue
-  else
-    Die "$candidate is under test/$candidateLayer, and the harness knows no such directory -- declare it in LayerIncludes and LayerGroups to run its tests, or in NotTheHarnesses if the Makefile judges it"
-  fi
+  case "$candidateKind" in
+    program) PROGRAMS="$PROGRAMS $candidate" ;;
+    test) TESTS="$TESTS $candidate" ;;
+  esac
 done
 [ -n "$TESTS" ] && [ "$TESTS" != " " ] || Die "no test under a declared layer of test/"
 
@@ -1722,7 +1737,7 @@ if [ -z "$SUITES" ]; then
   if [ "$ALL_CASES" = 0 ]; then
     FAST_GATE=yes
     SUITES=$(cat test/world-gate.txt)
-    printf 'run.sh: world gate; compatibility corpora require make test-khronos or make test-all\n'
+    printf 'run.sh: world gate; UI and script corpora are available through make test-all\n'
   else
     printf 'run.sh: all declared suites, including compatibility corpora\n'
   fi
@@ -1750,26 +1765,19 @@ if [ -n "$SUITES" ]; then
   fi
 fi
 
+for selectedTest in $TESTS; do
+  case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
+    profile/engine|profile/internal|profile/device|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
+      make shaders || Die "selected tests require prepared shaders"
+      break
+      ;;
+  esac
+done
 
 started=$(Now)
 builtSpentMs=0
 
-# board:1797: the corpus lives in the system temp dir, because artefacts never live in the tree,
-# and the machine sweeps that directory -- it took outshine-prepared and outshine-content
-# between two gate runs. A gate that silently loses a third of its subjects is not a gate, so a
-# case whose prepared input is gone is REBUILT before it is judged, from its own manifest and
-# nothing else. Per case, never wholesale: `prepare.py all --every-case` renders the entire
-# oracle ladder, which is 256 MB for a single animation case and hundreds of gigabytes for the
-# tree -- the sporadic full proof's corpus, not this run's. The cost stands beside the bound
-# with the builds, because a rebuild is a build.
-# board:1797: a case can consume ANOTHER case's prepared product -- the glTF unit twins read
-# test-render-outshine-grown-trs-hierarchy/scene.glb -- so the owner of a missing input is not
-# knowable from the case that misses it. It IS knowable from the path the case names: the
-# prepared directory is the owning manifest's own path with the slashes turned to dashes, and
-# that mapping inverts by walking the manifests the tree declares.
-# A case directory holds an INPUT when something other than its own bookkeeping is in it.
-# board:1839's .prepared-by is bookkeeping and so is the manifest: counting either as an input
-# made every pruned case look filled, and the rebuild path never fired for one.
+# Rebuild missing pinned inputs from their owning manifest. Bookkeeping is not input.
 HoldsInput() {
   [ -n "$(ls -A "$1" 2>/dev/null | grep -v -e '^manifest.json$' -e '^\.prepared-by$')" ]
 }
@@ -1794,16 +1802,8 @@ RebuildOwner() {
     HoldsInput "$PREPARED/$ownerDir" && continue
     holder=$(awk -F'\t' -v want="$ownerDir" '$1 == want { print $2; exit }' "$ownerMap")
     if [ -z "$holder" ]; then
-      # not every prepared directory has a manifest behind it: the scenario assets are placed
-      # from licensed copies against a digest the scenario pins, by their own subcommand.
-      printf 'run.sh: %s has no prepared input and no manifest owns it -- placing the scenario assets (board:1778)\n' \
+      printf 'run.sh: %s has no prepared input and no manifest owns it\n' \
         "$ownerDir" >&2
-      before=$(Now)
-      if python3 test/harness/shared/corpus/prepare.py scenario-assets \
-           > "$BUILD/log/scenario-assets-rebuild.log" 2>&1; then
-        [ -n "$(ls -A "$PREPARED/$ownerDir" 2>/dev/null)" ] && ownerRebuilt=yes
-      fi
-      builtSpentMs=$(( builtSpentMs + $(Now) - before ))
       continue
     fi
     RebuildCase "$holder" "$PREPARED/$ownerDir"
@@ -1835,16 +1835,6 @@ RebuildCase() {
 }
 
 passed=0
-criterionMet=0
-criterionRed=0
-pictureWithin=0
-pictureOutside=0
-pictureUnenforced=0
-grownCriterionMet=0
-grownCriterionRed=0
-grownPictureWithin=0
-grownPictureOutside=0
-grownPictureUnenforced=0
 uiInside=0
 uiReduced=0
 uiOutside=0
@@ -2007,32 +1997,7 @@ CountTheTwo() {
     held) jsHeld=$((jsHeld + 1)) ;;
     red) jsRed=$((jsRed + 1)) ;;
   esac
-  criterion=$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)
-  picture=$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)
-  case "$1" in
-    khronos/*)
-      case "$criterion" in
-        met) criterionMet=$((criterionMet + 1)) ;;
-        red) criterionRed=$((criterionRed + 1)) ;;
-      esac
-      case "$picture" in
-        within) pictureWithin=$((pictureWithin + 1)) ;;
-        outside) pictureOutside=$((pictureOutside + 1)) ;;
-        not-enforced) pictureUnenforced=$((pictureUnenforced + 1)) ;;
-      esac
-      ;;
-    *)
-      case "$criterion" in
-        met) grownCriterionMet=$((grownCriterionMet + 1)) ;;
-        red) grownCriterionRed=$((grownCriterionRed + 1)) ;;
-      esac
-      case "$picture" in
-        within) grownPictureWithin=$((grownPictureWithin + 1)) ;;
-        outside) grownPictureOutside=$((grownPictureOutside + 1)) ;;
-        not-enforced) grownPictureUnenforced=$((grownPictureUnenforced + 1)) ;;
-      esac
-      ;;
-  esac
+
 }
 
 # the BINARY takes the object's own treatment (board:1751): a stamp of (mtime, size, name)
@@ -2229,7 +2194,8 @@ for testSource in $TESTS; do
   sanitiser=$(LayerSanitiser "$layer")
   if [ -n "$sanitiser" ]; then
     before=$(Now)
-    OBJDIR=$BUILD/obj-sanitised
+    sanitizerName=${FORCED_SANITIZER:-address}
+    OBJDIR=$BUILD/obj-$sanitizerName
     SAN=$sanitiser
     OBJECTS=""
     built=yes
@@ -2238,7 +2204,7 @@ for testSource in $TESTS; do
     for group in $groups; do
       BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
     done
-    sanitisedBinary=$plainBinary.sanitised
+    sanitisedBinary=$plainBinary.$sanitizerName
     if [ "$built" = yes ]; then
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $linkage"
     if Fresh "$sanitisedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
@@ -2343,16 +2309,6 @@ for killed in $KILLED_BY_TIME; do
   printf 'run.sh: %s MEASURED NOTHING -- it was killed at %s s before it finished, so its verdict is neither pass nor fail but absent, and a case that cannot finish is a case nobody runs (board:1778)\n' \
     "$killed" "$TIMEOUT_S" >&2
 done
-[ $((criterionMet + criterionRed)) -gt 0 ] &&
-  printf 'khronos: criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
-    "$criterionMet" "$((criterionMet + criterionRed))" \
-    "$pictureWithin" "$pictureOutside" "$pictureUnenforced" \
-    "$((pictureWithin + pictureOutside + pictureUnenforced))"
-[ $((grownCriterionMet + grownCriterionRed)) -gt 0 ] &&
-  printf 'grown:   criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
-    "$grownCriterionMet" "$((grownCriterionMet + grownCriterionRed))" \
-    "$grownPictureWithin" "$grownPictureOutside" "$grownPictureUnenforced" \
-    "$((grownPictureWithin + grownPictureOutside + grownPictureUnenforced))"
 [ $((uiInside + uiReduced + uiOutside)) -gt 0 ] &&
   printf 'wpt:     %s held, %s reduced, %s unaccounted of %s   (%s attempted, %s red)\n' \
     "$uiHeld" "$uiReduced" "$uiOutside" "$((uiInside + uiReduced + uiOutside))" \
@@ -2362,7 +2318,7 @@ done
     "$jsHeld" "$jsReduced" "$jsOutside" "$((jsInside + jsReduced + jsOutside))" \
     "$jsInside" "$jsRed"
 [ "$validatedRan" = yes ] && printf '%s\n' \
-  "~validated checks the same contracts with alternate compilation: NDEBUG for places, GPU validation for device cases; it is not a visual oracle"
+  "~validated checks alternate compilation: container hardening when selected, NDEBUG for places, GPU validation for device cases; it is not a visual oracle"
 [ "$inverted" -gt 0 ] &&
   printf 'declared to fail and did, so the verdict stands inverted: %s\n' "$EXPECT_FAIL"
 

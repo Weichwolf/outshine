@@ -122,6 +122,7 @@ Result<void> BuildGraphics(GraphicsState &state, const GraphicsDescription &desc
   VkPipelineRasterizationStateCreateInfo raster{};
   raster.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   raster.polygonMode = VK_POLYGON_MODE_FILL;
+  raster.depthClampEnable = description.ClampDepth ? VK_TRUE : VK_FALSE;
   raster.cullMode = VK_CULL_MODE_NONE;
   if (description.Culling == Cull::Back) { raster.cullMode = VK_CULL_MODE_BACK_BIT; }
   if (description.Culling == Cull::Front) { raster.cullMode = VK_CULL_MODE_FRONT_BIT; }
