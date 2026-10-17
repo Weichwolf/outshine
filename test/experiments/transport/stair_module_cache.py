@@ -88,6 +88,19 @@ def parent_report(path, fixture, state, chain):
     return report, recipe
 
 
+def remaining_outer_profiles(profiles, recipe):
+    consumed = {
+        (c["cached_source_id"], 0 if c["cached_vertex"] == 0 else -1)
+        for c in recipe.get("endpoint_contacts", [])
+    }
+    return [
+        p
+        for p in profiles
+        if ("vertex" in recipe["port"] or p["source_id"] != recipe["port"]["source_id"])
+        and (p["source_id"], p.get("end")) not in consumed
+    ]
+
+
 def extend(state, path, fixture, chain, palette):
     report, recipe = parent_report(path, fixture, state, chain)
     module = read_arrays(path / "module.npz")
@@ -111,11 +124,9 @@ def extend(state, path, fixture, chain, palette):
         )
         if state["road_ground"].sum() != state["plan"]["ground"].sum():
             raise ValueError("original cached ground ownership changed")
-    outer = [
-        p
-        for p in state["report"]["after"]["proposed_outer_profiles"]
-        if "vertex" in recipe["port"] or p["source_id"] != recipe["port"]["source_id"]
-    ]
+    outer = remaining_outer_profiles(
+        state["report"]["after"]["proposed_outer_profiles"], recipe
+    )
     for p in report["module"]["profiles"]["outer_profiles"]:
         i = keys.index(p["source_id"])
         row = dict(saved[i], xy=np.array(saved[i]["xy"]))

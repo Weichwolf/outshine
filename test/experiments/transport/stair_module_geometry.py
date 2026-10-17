@@ -71,6 +71,9 @@ def old_surfaces(state, recipe, sources):
         row["cached_cap"] = cap
     state["module_contacts"] = frozen_contacts(state, recipe, sources)
     row["additional_contacts"] = state["module_contacts"]
+    row["include_interiors"] = row["root_interior"] or bool(
+        recipe.get("endpoint_contacts")
+    )
     ground_mesh = Mesh(old_xyz, plan["faces"][plan["ground"]])
     upper = Mesh(road["body_vertices"], road["bottom_faces"][~ground])
     return row, line, ground_mesh, upper
@@ -100,7 +103,7 @@ def prepared(rows, sources, frozen_row, line, ground):
     bind_root_pad(rows, root[0], line, include_interiors=frozen_row["root_interior"])
     prepare_contacts(rows, nodes, frozen_row.get("additional_contacts", []))
     complete_landings(
-        rows, nodes, [], max_pads=16, include_interiors=frozen_row["root_interior"]
+        rows, nodes, [], max_pads=16, include_interiors=frozen_row["include_interiors"]
     )
     surface_sampling(rows, "source_knots")
     surface_welding(rows, 1e-7)
@@ -171,7 +174,7 @@ def build(
                 rows,
                 nodes,
                 cached_points,
-                include_interiors=frozen_row["root_interior"],
+                include_interiors=frozen_row["include_interiors"],
             )
             constraints.extend(p["shape"].boundary for p in plans)
     xy, faces, owners, arrangement_note = arrangement(
