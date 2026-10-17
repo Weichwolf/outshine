@@ -39,12 +39,20 @@ def check_wood_binding(inputs, name, metadata, crown, wood):
         np.testing.assert_array_equal(value, wood[key])
 
 
-def replay(inputs, output):
+def replay(inputs, output, *, wood_check=None):
+    wood_check = check_wood_binding if wood_check is None else wood_check
     began = time.perf_counter()
     metadata = json.loads((inputs / "comparison.json").read_text())
     assert metadata["format"] == "oak-scaffold-study-1"
     products = {}
     with (
+        patch(
+            "limb_experiment.canonical_wood",
+            side_effect=AssertionError("skin generation on hit"),
+        ),
+        patch(
+            "limb_surface.limb_mesh", side_effect=AssertionError("limb meshing on hit")
+        ),
         patch("colonization.grow", side_effect=AssertionError("growth on hit")),
         patch.object(Shoot, "detail", side_effect=AssertionError("placement on hit")),
         patch.object(Blade, "mesh", side_effect=AssertionError("meshing on hit")),
@@ -98,7 +106,7 @@ def replay(inputs, output):
             rows["leaf_nodes"],
             atol=1e-13,
         )
-        check_wood_binding(inputs, name, metadata, crown, product["wood.npz"])
+        wood_check(inputs, name, metadata, crown, product["wood.npz"])
         geometry = {k: check_mesh(v) for k, v in product.items() if k != "tables.npz"}
         reports[name] = {
             "identity": crown.identity,
