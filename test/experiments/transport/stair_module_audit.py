@@ -17,7 +17,9 @@ from surface_height_checks import normal_gradients
 from surface_solid_checks import audit_closed
 
 
-def module_body(data, rows, domains):
+def module_body(data, rows, domains, *, source_tolerance_m=0.0):
+    if not np.isfinite(source_tolerance_m) or not 0 <= source_tolerance_m <= 0.003:
+        raise ValueError("bounded source geometry policy required")
     vertices, faces = data["surface_vertices"], data["surface_faces"]
     owners = data["owners"]
     n, m = len(vertices), len(faces)
@@ -43,11 +45,14 @@ def module_body(data, rows, domains):
         raise ValueError("actual module surface coverage invalid")
     if "grade_frames" in data:
         check_surface(vertices[:, :2], faces)
+    source_bounds = []
     for i, domain in enumerate(domains):
-        if (
-            shapely.union_all(shapes[owners[:, i]]).symmetric_difference(domain).area
-            > 1e-7
-        ):
+        actual = shapely.union_all(shapes[owners[:, i]])
+        if source_tolerance_m:
+            from stair_seed_precision import outward_contract
+
+            source_bounds.append(outward_contract(actual, domain, source_tolerance_m))
+        elif actual.symmetric_difference(domain).area > 1e-7:
             raise ValueError("whole source addition lost or gained positive area")
     limits = np.min(np.where(owners, [r["gradient"] for r in rows], np.inf), axis=1)
     if not np.array_equal(limits, data["limits"]):
@@ -86,6 +91,7 @@ def module_body(data, rows, domains):
         "surface_faces": m,
         "body_faces": len(body_f),
         "checks": proof,
+        **({"whole_source_outward_models": source_bounds} if source_bounds else {}),
     }
 
 

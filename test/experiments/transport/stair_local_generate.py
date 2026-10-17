@@ -12,10 +12,10 @@ from camera_height_inputs import digest
 from stair_local_context import selected_keys, state_for
 from stair_local_physics import piers, validate
 from stair_local_replay import load_chain
-from stair_module_audit import audit
 from stair_module_catalog import catalog
 from stair_module_experiment import refused_catalog, save_planning, write_json
-from stair_module_geometry import build, old_surfaces
+from stair_module_family import audit, build
+from stair_module_family import surfaces as old_surfaces
 from stair_module_inputs import inputs
 from stair_module_soil import fit, prepare
 from stair_module_world import source_ground
@@ -37,9 +37,12 @@ def construct(
     height_floor_m,
 ):
     if (
-        recipe.get("contact_mode") != "profile"
+        recipe.get("contact_mode") not in ("profile", "seed")
         or recipe.get("junction_mode") != "level_box"
-        or not ({"vertex", "end"} & recipe["port"].keys())
+        or (
+            recipe.get("contact_mode") == "profile"
+            and not ({"vertex", "end"} & recipe.get("port", {}).keys())
+        )
     ):
         raise ValueError("explicit profile/level_box original root family required")
     state, context, axes, note = state_for(

@@ -11,9 +11,9 @@ import shapely
 from camera_height_inputs import digest
 from stair_local_assets import road_window
 from stair_local_replay import load_chain, replay
-from stair_module_audit import audit
 from stair_module_experiment import write_json
-from stair_module_geometry import build, old_surfaces
+from stair_module_family import audit, build
+from stair_module_family import surfaces as old_surfaces
 from stair_module_inputs import inputs, read_arrays
 from stair_module_soil import assemble, fit, prepare
 from stair_module_world import inspect_world, source_ground

@@ -91,8 +91,17 @@ def load(output):
 
 
 def road_window(
-    assets, region, *, max_assets=16, max_sources=64, max_faces=32768, xy_guard_m=0.0
+    assets,
+    region,
+    *,
+    max_assets=16,
+    max_sources=64,
+    max_faces=32768,
+    xy_guard_m=0.0,
+    allow_empty=False,
 ):
+    if type(allow_empty) is not bool:
+        raise ValueError("explicit empty-window policy required")
     if any(
         type(value) is not int or not 1 <= value <= limit
         for value, limit in ((max_assets, 16), (max_sources, 64), (max_faces, 32768))
@@ -110,7 +119,11 @@ def road_window(
         )
     ]
     keys = [key for asset in chosen for key in asset.source_ids]
-    if not 1 <= len(chosen) <= max_assets or not 1 <= len(keys) <= max_sources:
+    if (
+        len(chosen) > max_assets
+        or len(keys) > max_sources
+        or (not keys and not allow_empty)
+    ):
         raise ValueError("local road asset/source working budget exhausted")
     if sum(len(a.data["body_faces"]) for a in chosen) > max_faces:
         raise ValueError("local road body face working budget exhausted")
@@ -133,15 +146,15 @@ def road_window(
         offset += len(data["body_vertices"])
         first += len(asset.source_ids)
     road = {
-        "body_vertices": np.vstack(vertices),
-        "body_faces": np.vstack(faces),
-        "top_faces": np.vstack(top),
-        "bottom_faces": np.vstack(bottom),
-        "face_sources": np.concatenate(columns),
+        "body_vertices": np.vstack(vertices) if vertices else np.empty((0, 3)),
+        "body_faces": np.vstack(faces) if faces else np.empty((0, 3), np.int64),
+        "top_faces": np.vstack(top) if top else np.empty((0, 3), np.int64),
+        "bottom_faces": np.vstack(bottom) if bottom else np.empty((0, 3), np.int64),
+        "face_sources": np.concatenate(columns) if columns else np.empty(0, np.uint64),
     }
     return (
         road,
-        np.concatenate(ground),
+        np.concatenate(ground) if ground else np.empty(0, bool),
         keys,
         {r["source_id"]: r for a in chosen for r in a.rows},
         {
@@ -151,7 +164,9 @@ def road_window(
             "local_body_faces": len(road["body_faces"]),
             "local_road_array_bytes": sum(v.nbytes for v in road.values()),
             "field_xy_guard_m": xy_guard_m,
-            "maximum_asset_xy_rounding_m": max(a.xy_rounding_m for a in chosen),
+            "maximum_asset_xy_rounding_m": max(
+                (a.xy_rounding_m for a in chosen), default=0
+            ),
             "source_mask_scope": "Bounded temporary local window only; resident owners are asset-local.",
         },
     )
