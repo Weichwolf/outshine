@@ -34,6 +34,7 @@ def integrate(
     *,
     bias=2e-6,
     pixel_mask=None,
+    normal_measure=None,
 ):
     if type(size) is not int or size not in (1, 4, 16, 64) or not 1 <= len(lights) <= 8:
         raise ValueError("bounded native footprints and one to eight lights required")
@@ -43,6 +44,8 @@ def integrate(
     ):
         raise ValueError("same prepared immutable source and ray geometry required")
     view = light_direction(view)
+    if normal_measure is not None and normal_measure.size != size:
+        raise ValueError("same-grid visible normal measure required")
     if not np.isfinite(bias) or not 1e-7 <= bias <= 1e-4:
         raise ValueError("explicit metric source-ray bias1e-7..1e-4 required")
     if pixel_mask is not None and (
@@ -107,6 +110,8 @@ def integrate(
                 continue
             output[0] += np.bincount(slots, weights=mass, minlength=size * size)
             normals = interpolate_normals(source, points, face_ids)
+            if normal_measure is not None:
+                normal_measure.add(slots, mass, normals)
             for index, direction in enumerate(lights):
                 if np.array_equal(direction, view):
                     cosine = np.maximum(normals @ direction, 0)
