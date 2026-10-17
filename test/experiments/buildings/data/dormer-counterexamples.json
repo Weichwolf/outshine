@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "scope": "Actual pinned provider row; inherited hip boundary deviation observed2.18062e-8m2 is within the unchanged old1e-7m2 roof gate. Additional dormer drift is checked separately at1e-8m2. Second actual source exposes a raw GEOS projected-triangle union losing a region despite an individual upward triangle covering it; snap-rounded audit projection is separate from the unchanged physical mesh.",
+  "scope": "Actual pinned provider row; inherited hip boundary deviation observed2.18062e-8m2 is within the unchanged old1e-7m2 roof gate. Additional dormer drift is checked separately at1e-8m2. Second actual source exposes a raw GEOS projected-triangle union losing a region despite an individual upward triangle covering it; snap-rounded audit projection is separate from the unchanged physical mesh. Third actual saved city source retains exact provider id/properties/footprint and exposes a decimal-grid GEOS free-hole exception; audit uses a bounded local binary-scaled integer lattice instead.",
   "cases": [
     {
       "id": "Paris/(14, 8298, 5635)/5335130/11/18",
@@ -561,6 +561,16 @@
       "ground_asl_m": null,
       "placement_origin": "flat shared building plane; no DEM",
       "footprint_wkb": "0103000000010000000D0000008F0538BD5C8975405DB0D4FAE0FE6A40C6A38BC19D3F7640E65716E7E4A66A404D84072BC32C7640590BF43210106A40587E397B2F4C764029D946797E036A407CB6B4E4543976405E997F38CD856940BAA95971312076408ECB2CF25E926940D4648394E81976409C8C24C5A96C694053F0AD7572D676409359B8F71B086940452FB6A227FC764070FF57D3E84E6A40D27BD856FC92774029D946797E036A404E622270B560774014CE8D16924B68400BEC81D6155775400AB2760B186069408F0538BD5C8975405DB0D4FAE0FE6A40"
+    },
+    {
+      "id": "Paris/(14, 8298, 5635)/5335130/11/19",
+      "layer": "building",
+      "properties": {
+        "render_height": 15,
+        "render_min_height": 0
+      },
+      "footprint_wkb": "0103000000020000000600000067ABFB8168817440497C4E8054E585407AFA7E5A70D17340AA02FC39E6F185407733B9D79116744085A8E4CF02A58640BF37E576EE95754093D8B27F96858640FD2A8A03CB7C7540E8F5A0C6C2D8854067ABFB8168817440497C4E8054E5854006000000C78C36FF89C674400B89A9F377FE854049DF2663F23D75404F7967A80AF58540C2FEAAF9CC507540B3356807745686402F24FD3F3B447540E3F83EE4BC5C8640F7BEE3B81BD374406F45AA52E15F8640C78C36FF89C674400B89A9F377FE8540",
+      "clipped": false
     }
   ]
 }
