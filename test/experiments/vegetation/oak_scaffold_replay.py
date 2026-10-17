@@ -46,6 +46,13 @@ def replay(inputs, output, *, wood_check=None):
     assert metadata["format"] == "oak-scaffold-study-1"
     products = {}
     with (
+        patch(
+            "limb_experiment.canonical_wood",
+            side_effect=AssertionError("skin generation on hit"),
+        ),
+        patch(
+            "limb_surface.limb_mesh", side_effect=AssertionError("limb meshing on hit")
+        ),
         patch("colonization.grow", side_effect=AssertionError("growth on hit")),
         patch.object(Shoot, "detail", side_effect=AssertionError("placement on hit")),
         patch.object(Blade, "mesh", side_effect=AssertionError("meshing on hit")),
