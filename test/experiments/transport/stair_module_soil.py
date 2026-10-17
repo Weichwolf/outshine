@@ -6,6 +6,7 @@ from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler, conform_triangles, weld_vertices
 from stair_blend_solve import solve
 from stair_module_topology import check_surface
+from stair_pier_ground import fixed
 from stair_terrain_solid import retaining_body
 
 
@@ -97,7 +98,9 @@ def prepare(state, data, ground, recipe, sample):
     if footprint.difference(region).area > 1e-7:
         raise ValueError("local terrain does not contain the whole new module")
     old_ground_ids = np.flatnonzero(chosen & old["ground"])
-    protected = old_xyz[old["faces"][protected_ids]]
+    protected, references, protection = fixed(
+        state, chosen, protected_ids, shapes, region, old_xyz, recipe
+    )
     protected_shape = shapely.union_all(shapely.polygons(protected[:, :, :2]))
     if protected_shape.intersection(footprint).area > 1e-7:
         raise ValueError("new module intersects immutable old pier ground")
@@ -119,11 +122,15 @@ def prepare(state, data, ground, recipe, sample):
         shapely.polygons(np.vstack([old_ground, new_tri])[:, :, :2])
     )
     kinds = shapely.covers(actual_ground, shapely.point_on_surface(polygons))
-    references = [
-        Mesh(old_xyz, old["faces"][np.r_[old_ground_ids, protected_ids]]),
-        Mesh(new_bed, data["surface_faces"]),
-    ]
+    references.append(Mesh(new_bed, data["surface_faces"]))
     values = sampled_pins(xy, references)
+    if (
+        protection
+        and not np.isfinite(
+            values[shapely.dwithin(protected_shape, shapely.points(xy), 1e-7)]
+        ).all()
+    ):
+        raise ValueError("protected terrain lost a fixed reference height")
     boundary = shapely.dwithin(region.boundary, shapely.points(xy), 1e-7)
     original_ids = {tuple(p): i for i, p in enumerate(old["xy"])}
     try:
@@ -154,6 +161,8 @@ def prepare(state, data, ground, recipe, sample):
         "finite_pins": int(np.isfinite(values).sum()),
         "work": work,
     }
+    if protection:
+        note["pier_ground_protection"] = protection
     return plan, chosen, note
 
 
