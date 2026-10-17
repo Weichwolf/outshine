@@ -48,6 +48,9 @@ maximale Verschiebung bis 1000 m. Radius und Verschiebung sind prozedurale
 Konstruktionsparameter. Ein Kreisbogen ist G1 und behält an den Übergängen
 Krümmungssprünge; die Klothoidenwahl ist G2, mit Rampenanteil 0,25.
 Der Kreisbogen ist ein Vergleich, kein G2-Ersatz.
+Winkeländerungen bis 1e-8 rad werden numerisch als kollinear behandelt;
+G2 bezeichnet die analytischen Grundkurven. Die ausgegebene Abtastung ist
+ein Polygonzug mit Chordbound, kein selbst mathematisch glattes Mesh.
 
 Maximal 128 Originalpunkte, wenigstens 1 µm lange Segmente, lokale Koordinaten
 bis 1e6. Rückwendungen ab 150°, geschlossene Achsen, unzureichende Nachbarlängen,
