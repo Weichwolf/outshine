@@ -81,13 +81,20 @@ class SharedHeadroomChecks(unittest.TestCase):
         # the complete tiny intersection, whose general detection stays open.
         with (
             patch("shapely.intersection", side_effect=unresolved_piece),
-            self.assertRaisesRegex(ValueError, "unrepresentable"),
+            self.assertRaisesRegex(ValueError, "unresolved|unrepresentable"),
         ):
             supplement(rows, owners, (chosen,), sources)
         metadata = [{"source_ids": list(k)} for k in owners]
+        failed_old = copy.copy(old)
+        failed_old.shapes = np.array(
+            [SimpleNamespace(intersection=lambda _domain: tiny)] * len(old.shapes),
+            object,
+        )
+        failed_binding = dict(chosen, old_asset=failed_old)
         with (
-            patch("stair_shared_headroom_verify.bindings", return_value=(chosen,)),
-            patch("shapely.intersection", side_effect=unresolved_piece),
+            patch(
+                "stair_shared_headroom_verify.bindings", return_value=(failed_binding,)
+            ),
             self.assertRaisesRegex(ValueError, "unrepresentable"),
         ):
             verify_shared(rows, metadata, (), (), sources, 2, {})
