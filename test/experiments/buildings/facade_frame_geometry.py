@@ -60,6 +60,21 @@ class FrameDetails:
         self.templates = {}
         self.completed, self.rejected = [], []
 
+    def programmes(self, row, parameters, facades, family, entry):
+        return choose(row, parameters, facades, family, entry)
+
+    def product(self, current, resolved, material):
+        if not resolved:
+            return None, "deferred"
+        if current.frame not in self.templates:
+            self.templates[current.frame] = frame_surface(
+                current.frame, back_covered=True
+            )
+        return placed(self.templates[current.frame], current, material), "outer"
+
+    def description(self, current):
+        return {"frame": asdict(current.frame)}
+
     def logical_info(self, count):
         if count == 0:
             return {}
@@ -80,7 +95,7 @@ class FrameDetails:
         }
 
     def products(self, row, parameters, facades, view, material, family, entry):
-        plans, rejected = choose(row, parameters, facades, family, entry)
+        plans, rejected = self.programmes(row, parameters, facades, family, entry)
         self.rejected.extend(rejected)
         chunks, replacements = [], []
         for current in plans:
@@ -100,28 +115,21 @@ class FrameDetails:
                         "Facade frame intersects a known height-overlapping neighbor"
                     )
                 resolved = demand(current, view)
-                if resolved:
-                    if current.frame not in self.templates:
-                        self.templates[current.frame] = frame_surface(
-                            current.frame, back_covered=True
-                        )
-                    chunks.append(
-                        placed(self.templates[current.frame], current, material)
-                    )
+                mesh, mode = self.product(current, resolved, material)
+                if mesh is not None:
+                    chunks.append(mesh)
                 replacements.append(current.facade_id)
                 self.completed.append(
                     {
                         "id": row["id"],
                         "facade_id": current.facade_id,
                         "kind": current.kind,
-                        "frame": asdict(current.frame),
+                        **self.description(current),
                         "origin_xy_m": current.origin_xy,
                         "tangent": current.tangent,
                         "base_m": current.base_m,
-                        "mode": "outer" if resolved else "deferred",
-                        "triangles": current.frame.triangle_count(True)
-                        if resolved
-                        else 0,
+                        "mode": mode,
+                        "triangles": len(mesh["faces"]) if mesh is not None else 0,
                         "origin": "procedural hierarchy on unchanged source repeat axes",
                         "scope": "Open source-attached decorative frame; closed reference and aperture plan share dimensions. Not collision or full image/shadow/native admission",
                     }
