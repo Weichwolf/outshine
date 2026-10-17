@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 def plot(arrays, path):
     fig, axes = plt.subplots(3, 5, figsize=(16, 9), dpi=160)
-    names = ("exact", "normalized-mean", "4", "unit-6", "24")
+    names = ("exact", "normalized-mean", "4", "unit-4", "24")
     for row, light in enumerate((0, 3, 8)):
         for column, name in enumerate(names):
             axes[row, column].imshow(

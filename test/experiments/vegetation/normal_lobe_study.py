@@ -77,7 +77,7 @@ def analyse(moments, exact, directions, size, arrays):
             bound = mass_preserving_bound(field)
             assert np.max(abs(delta) - bound) < 2e-12
             item["bound_max"] = float(bound.max())
-            item["filterable_moment_float16_bytes"] = field.size * 2
+            item["nominal_raw_moment_float16_bytes_unvalidated"] = field.size * 2
         if name.isdigit():
             field = moments[int(name)]
             bound = error_bound(field)
