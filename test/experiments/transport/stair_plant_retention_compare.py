@@ -5,6 +5,7 @@ import json
 import resource
 import time
 import tracemalloc
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -66,9 +67,21 @@ def run(args):
     query = OccupancyQuery((*data["reservations"], *buildings))
     observations, values = [], []
     for local in (False, True):
+        trace = args.output.with_name(
+            args.output.stem + ("-local.bin" if local else "-global.bin")
+        )
+        if args.profile:
+            import memray
+
+            tracker = memray.Tracker(
+                str(trace), trace_python_allocators=True, native_traces=False
+            )
+        else:
+            tracker = nullcontext()
         tracemalloc.start()
         began = time.perf_counter()
-        result, work = evaluate(data, query, prior, local)
+        with tracker:
+            result, work = evaluate(data, query, prior, local)
         elapsed = time.perf_counter() - began
         _, peak = tracemalloc.get_traced_memory()
         tracemalloc.stop()
@@ -95,6 +108,7 @@ def run(args):
         "commit": commit,
         "prior": prior["proof"],
         "observations": observations,
+        "memray_profiled": args.profile,
         "exact_four_SITE_results_except_query_seconds": True,
         "current_world_terrain_facets": len(data["terrain"].triangles),
         "process_peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -119,4 +133,5 @@ if __name__ == "__main__":
         "output",
     ):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--profile", action="store_true")
     run(parser.parse_args())
