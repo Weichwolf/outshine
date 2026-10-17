@@ -17,7 +17,7 @@ MAX_AXES = 60000
 MAX_WINDOWS = 80000
 
 
-def internode_profile(length, first, last, whorls, seed, variation):
+def internode_profile(length, first, last, whorls, seed, variation, *, upper_bias=0.0):
     if (
         not np.isfinite(length)
         or length <= 0
@@ -30,12 +30,17 @@ def internode_profile(length, first, last, whorls, seed, variation):
         )
     if not np.isfinite(variation) or not 0 < variation <= 0.6:
         raise ValueError("explicit bounded positive internode variation required")
+    if not np.isfinite(upper_bias) or not 0 <= upper_bias <= 1.5:
+        raise ValueError("finite positive bounded upper-crown density bias required")
     rng = np.random.default_rng(np.random.SeedSequence((seed, 0x53505255)))
     noise = rng.uniform(-1, 1, 64)
     smooth = np.convolve(
         np.pad(noise, (1, 1), mode="edge"), (0.25, 0.5, 0.25), mode="valid"
     )
-    shape = Profile(1 + variation * smooth)
+    values = 1 + variation * smooth
+    if upper_bias:
+        values *= 1 + upper_bias * (0.5 - np.linspace(0, 1, 64))
+    shape = Profile(values)
     mean = (last - first) * length / (whorls - 1)
 
     def residual(scale):
