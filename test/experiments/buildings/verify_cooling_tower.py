@@ -1,7 +1,10 @@
 """Actual intake solids, connected supports, finite passage and provider-preserving controls."""
 
+import json
+import tempfile
 import unittest
 from dataclasses import replace
+from pathlib import Path
 
 import manifold3d as manifold
 import numpy as np
@@ -10,7 +13,7 @@ from cooling_tower_costs import compare_support
 from cooling_tower_details import refine
 from cooling_tower_mesh import components, draw_parts
 from cooling_tower_plan import plan
-from cooling_tower_probe import sources
+from cooling_tower_probe import export, isolated, sources
 from outshine_ref.buildings.modelling import Shape
 from outshine_ref.buildings.modelling.radial_mesh import radial_mesh
 from structural_shell_geometry import native
@@ -184,6 +187,28 @@ class CoolingTowers(unittest.TestCase):
         for _row, programme in self.cases:
             for support in programme.supports:
                 compare_support(support)
+
+    def test_actual_close_exports_keep_provider_context_and_source_family(self):
+        row = self.cases[0][0]
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-buildings-cooling-test-"
+        ) as directory:
+            output = Path(directory)
+            for after in (False, True):
+                name = "after" if after else "before"
+                export(
+                    output,
+                    name,
+                    isolated(self.rows, row),
+                    self.receipt,
+                    self.view,
+                    {"commit": "test"},
+                    after=after,
+                    error_m=0.05,
+                )
+                record = json.loads((output / (name + "-geometry.json")).read_text())
+                self.assertEqual(record["source"]["counts"], {"cooling_tower": 1})
+                self.assertEqual(record["source"]["omissions"], [])
 
 
 if __name__ == "__main__":

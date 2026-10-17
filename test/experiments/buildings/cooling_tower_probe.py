@@ -49,11 +49,15 @@ def sources():
     return rows, receipt, view, towers
 
 
-def export(output, name, rows, receipt, view, proof, *, after):
+def isolated(rows, row):
+    return tuple(r for r in rows if r["layer"] != "building" or r["id"] == row["id"])
+
+
+def export(output, name, rows, receipt, view, proof, *, after, error_m=1.0):
     owner = ArticulatedDetails(prepare_halls(rows), view)
     mesh, source = construct(
         "Grohnde",
-        error_m=0.05 if len(rows) == 1 else 1.0,
+        error_m=error_m,
         prepared=(rows, receipt),
         ordinary_builder=owner,
         radial_builder=refine if after else None,
@@ -116,11 +120,12 @@ def models(output):
             export(
                 output,
                 "Cooling" + label + ("After" if after else "Before"),
-                (row,),
+                isolated(rows, row),
                 receipt,
                 near,
                 proof,
                 after=after,
+                error_m=0.05,
             )
 
 
