@@ -203,3 +203,29 @@ but not rasterized. No runtime code, image threshold or error allowance changes.
 python3 test/experiments/render/verify_terrain_early_patches.py
 python3 test/experiments/render/terrain_early_patches.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT" --priority surface --width 1280 --height 720 --budgets 128 512 2048
 ```
+
+## Adaptive patch merging
+
+`terrain_patch_tree.py` chooses between 8/16/32-cell patterns bottom-up instead
+of replacing all patches with one larger size. Each candidate keeps its own
+0.5 px error bound and complete fine boundary. Off-frustum children cost zero;
+merging must beat the sum of selected children. Outer skirts remain unchanged.
+
+| Körbersee view | Eight-cell baseline with skirts | Hierarchical choice | Reduction |
+|---|---:|---:|---:|
+| 0° | 5,508,280 | 5,438,784 | 1.26% |
+| 180° | 4,987,008 | 4,939,600 | 0.95% |
+
+All 16,255 pages are fingerprinted; 6,667 intersect either view. The selector
+matches exhaustive evaluation of all 17 admissible tree partitions on 1,000
+random positive-cost inputs. Selected leaves cover every cell exactly once;
+mixed detail, partial visibility, invalid shapes and negative costs are checked.
+The optimum is restricted to these patterns and precomputed bounds. It is not
+a global geometry optimum. Native metadata, draws and compaction cost are not
+included. This small gain does not justify adding 15 index patterns and another
+hierarchy to the native path. No new native path is adopted.
+
+```sh
+python3 test/experiments/render/verify_terrain_patch_tree.py
+python3 test/experiments/render/terrain_patch_tree.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT"
+```
