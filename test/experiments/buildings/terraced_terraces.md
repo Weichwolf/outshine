@@ -186,3 +186,8 @@ Run source0/3 and both programmes with/without `--near` for the full cost table.
 Render all ten geometry reports; use `test/scripts/pixels.py` for matched PNGs.
 Research images, traces, logs and inputs remain exclusively/tmp. No specialist
 server/gallery, native changes or additional world-input acquisition is included.
+
+Early empty-setback/portal-axis selection and a broader complete-source candidate
+census now follow in [terraced_source_demand.md](terraced_source_demand.md).
+Existing verified products replay exactly; new candidates require separate
+physical/function/whole-city admission.

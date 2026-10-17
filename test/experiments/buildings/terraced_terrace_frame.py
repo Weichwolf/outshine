@@ -19,8 +19,16 @@ def resolved(polygon):
     return value
 
 
-def world_prepared(prepared):
+def world_prepared(prepared, storeys):
     mass, local = prepared.mass, prepared.local
+    selected = frozenset(storeys)
+    prepared = replace(
+        prepared,
+        facade=replace(
+            prepared.facade,
+            windows=tuple(w for w in prepared.facade.windows if w.storey in selected),
+        ),
+    )
     core = mass.core
     matrix = [
         core.across_xy[0],

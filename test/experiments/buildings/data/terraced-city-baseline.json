@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "scope": "Fixed existing research memberships of the pinned full988-source window; preserve these functional source owners. This is test input, not a place-specific runtime recipe.",
+  "baseline_commit": "4d54994c2ec17554bfbff060d6df23ad59882498",
+  "baseline_mesh_sha256": "d48fe4dccaa47639fc2a43f06b99cf1f9040e47e61445696254c68f30fba6b37",
+  "receipts": [
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5634.pbf",
+      "sha256": "e391ac93d790d112030cf3c8da98b582471d6dade8dd62a73da0e41e7656472c"
+    },
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5634.pbf",
+      "sha256": "d69c5c40bd2f99b423cf8277a2bbb3f093a6124813849b11508d3f7cea816717"
+    },
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5635.pbf",
+      "sha256": "7a729bff839264cfb72337ef6cfec46f353ffd8adfb9e959edb92e0340b39b5c"
+    },
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5635.pbf",
+      "sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b"
+    },
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8297/5636.pbf",
+      "sha256": "1191c8f2245b0932faccdbde2da9779ca7ed1b0e1658b25b6b9bb54f16a19371"
+    },
+    {
+      "url": "https://tiles.openfreemap.org/planet/20260927_080001_pt/14/8298/5636.pbf",
+      "sha256": "255cfa6f7451747fac9dd048892734ea102db03d7b5d0ccd29b4f225efabbbb5"
+    }
+  ],
+  "existing_podium_ids": [
+    "Paris/(14, 8298, 5635)/3953080/19/110",
+    "Paris/(14, 8298, 5635)/3953080/19/111",
+    "Paris/(14, 8298, 5635)/3953080/19/118",
+    "Paris/(14, 8298, 5635)/3953080/19/765",
+    "Paris/(14, 8298, 5635)/5335120/23/132",
+    "Paris/(14, 8298, 5635)/5335120/23/745",
+    "Paris/(14, 8298, 5635)/5409820/30/109",
+    "Paris/(14, 8298, 5635)/5422820/10/50"
+  ],
+  "existing_function_ids": [
+    "Paris/(14, 8298, 5635)/3953080/19/110",
+    "Paris/(14, 8298, 5635)/3953080/19/111",
+    "Paris/(14, 8298, 5635)/3953080/19/118",
+    "Paris/(14, 8298, 5635)/3953080/19/764",
+    "Paris/(14, 8298, 5635)/3953080/19/765",
+    "Paris/(14, 8298, 5635)/3953080/19/766",
+    "Paris/(14, 8298, 5635)/5335120/23/132",
+    "Paris/(14, 8298, 5635)/5335120/23/745",
+    "Paris/(14, 8298, 5635)/5335130/11/72",
+    "Paris/(14, 8298, 5635)/5409740/16/398",
+    "Paris/(14, 8298, 5635)/5409820/30/109",
+    "Paris/(14, 8298, 5635)/5422820/10/50"
+  ],
+  "requested_ids_sha256": "be48f59ef58882acbb5d71b2646a341da4640c9c137adb884125ecb3c01fb621",
+  "source_ids_sha256": "129052d1a1bcd7e4c7b11d83b7b8eecd94ca9de34ca719b347c56dedba011db4"
+}
