@@ -43,6 +43,8 @@ def selection(args):
         before_source_ids=manifest["source_ids"],
         vector_sha256=context["vector"]["sha256"],
         origin_lat_lon=context["origin_lat_lon"],
+        method=args.method,
+        strategy=args.strategy,
         seconds=time.perf_counter() - began,
     )
     return result
@@ -85,7 +87,7 @@ def run(args):
             }
         )
         artifacts[fixture.name] = digest(fixture)
-        for name in ("comparison.json", "verification.json"):
+        for name in ("comparison.json",):
             artifacts[str(output.relative_to(args.output) / name)] = digest(
                 output / name
             )
@@ -99,6 +101,7 @@ def run(args):
         "before_source_ids": selected["before_source_ids"],
         "proposal_offset": args.proposal_offset,
         "proposal_count": len(selected["recipes"]),
+        "max_attempts": args.max_attempts,
         "attempts": attempts,
         "chosen_module": chosen,
         "source_dispositions": source_dispositions(selected["plan"], attempts, chosen),
