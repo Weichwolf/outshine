@@ -61,6 +61,23 @@ class TidyExecution(unittest.TestCase):
         self.assertTrue(summary['complete'])
         self.assertGreater(summary['findings'], 0)
 
+    def check_project_policy(self, source, diagnostic):
+        self.main.write_text(source)
+        (self.root / '.clang-tidy').write_text((ROOT / '.clang-tidy').read_text())
+        run = subprocess.run([str(TOOL), '-p', str(self.root), str(self.main)],
+                             capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn(diagnostic, run.stdout + run.stderr)
+        self.assertIn('-warnings-as-errors', run.stdout + run.stderr)
+
+    def test_project_policy_rejects_a_direct_warning(self):
+        self.check_project_policy('double division(int a, int b) { return a / b; }\n',
+                                  'bugprone-integer-division')
+
+    def test_project_policy_detects_a_path_dependent_null_access(self):
+        self.check_project_policy('int read(int *value) { if (value) return 0; return *value; }\n',
+                                  'clang-analyzer-core.NullDereference')
+
     def test_parse_failure_cannot_hide_beside_warning(self):
         bad = self.root / 'src/Broken.cpp'
         bad.write_text('int broken( {\n')
