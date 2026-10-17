@@ -1,4 +1,4 @@
-"""Experimental restoration of externally admitted immutable surface bytes."""
+"""Restore known-valid finite surface products without replaying geometry history."""
 
 import io
 import zipfile
@@ -6,10 +6,11 @@ from types import MappingProxyType
 
 import numpy as np
 import shapely
-from outshine_ref.contracts import LocalFrame, Mesh
-from outshine_ref.geometry.surface_patches import SurfacePatch, SurfacePatches
-from outshine_ref.geometry.surface_patches._patch import label, readonly
-from stair_prepared_surface_archive import MAX_BYTES, inspect_archive, metadata
+
+from ...contracts import LocalFrame, Mesh
+from ._archive import MAX_BYTES, inspect_archive, metadata
+from ._field import SurfacePatches
+from ._patch import SurfacePatch, label, readonly
 
 
 def restore_patch(archive, row, index, frame, kind):
@@ -36,6 +37,8 @@ def restore_patch(archive, row, index, frame, kind):
     ):
         raise ValueError("bounded original prepared mesh buffers required")
     mesh = Mesh(vertices, faces)
+    object.__setattr__(mesh, "vertices", readonly(mesh.vertices))
+    object.__setattr__(mesh, "triangles", readonly(mesh.triangles))
     if np.max(abs(mesh.vertices), initial=0) > 1e9:
         raise ValueError("prepared metric coordinate range exceeded")
     data = {}
@@ -74,11 +77,13 @@ def restore_patch(archive, row, index, frame, kind):
 
 
 def restore_surface(payload, *, expected_sha256, frame, max_bytes=MAX_BYTES):
-    """Require an independently admitted external digest, not a hash of unknown input.
+    """Restore only a known-valid product bound by the caller's expected digest.
 
-    Structural safety is checked here. Geometric validity and patch composition
-    are inherited only from those exact previously validated published bytes.
-    Unknown inputs must use the ordinary strict construction/source path.
+    The existing producer/product record must bind these bytes, this codec version
+    and the supplied frame. A digest calculated from unknown input grants no
+    geometric validity. The caller publishes products only after normal strict
+    construction; ordinary cache hits need no second geometric admission service.
+    Structural checks run here; unknown products use strict construction/rebuild.
     """
     if not isinstance(frame, LocalFrame):
         raise TypeError("explicit caller-owned prepared frame required")

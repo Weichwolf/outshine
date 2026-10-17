@@ -9,8 +9,12 @@ from unittest.mock import patch
 import stair_local_assets
 from camera_height_inputs import digest
 from outshine_ref.contracts import LocalFrame
-from stair_prepared_surface_archive import FORMAT, MAX_BYTES, MAX_META, unique_object
-from stair_prepared_surface_restore import restore_surface
+from outshine_ref.geometry.surface_patches._archive import MAX_META, unique_object
+from outshine_ref.geometry.surface_patches.prepared import (
+    FORMAT,
+    MAX_BYTES,
+    restore_surface,
+)
 
 REFERENCE = "outshine-prepared-terrain-reference/1"
 
