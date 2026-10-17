@@ -1185,3 +1185,9 @@ exterior and one retained lazy physical product are compared in
 [terraced_facade_products.md](terraced_facade_products.md). Roof/terrace programmes,
 selected near components, general LOD/cache admission and complete-city selection
 remain open; existing functional products retain their own checks.
+
+Protected setback decks with level actual portals and continuous core-to-exterior
+access are documented in [terraced_terraces.md](terraced_terraces.md) (#618).
+Closed guards/copings are shared by direct/near products; unserved roof ledges
+remain explicit. Highest-roof access, broader whole-source architecture selection
+and general runtime budgets remain open.

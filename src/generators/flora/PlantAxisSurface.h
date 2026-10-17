@@ -17,5 +17,7 @@ struct PlantAxisSurfaceDemand {
 
 [[nodiscard]] std::expected<PlantSurface, std::string_view>
 BuildPlantAxisSurface(const PlantPlan &plan, PlantAxisSurfaceDemand demand);
+[[nodiscard]] std::expected<PlantSurfaceSize, std::string_view>
+MeasurePlantAxisSurface(const PlantPlan &plan, PlantAxisSurfaceDemand demand);
 }
 #endif

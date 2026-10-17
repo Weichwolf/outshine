@@ -14,9 +14,10 @@ POSITION_LIMIT_PX = 0.5
 
 
 class FacadeProducts:
-    def __init__(self, prepared):
+    def __init__(self, prepared, *, portals=()):
         self.prepared = prepared
-        self.coarse = compact(prepared)
+        self.portals = tuple(portals)
+        self.coarse = compact(prepared, portals=self.portals)
         self.near = None
         mass = prepared.mass
         self.source_polygon = shapely.from_wkb(mass.source_wkb)
@@ -43,7 +44,9 @@ class FacadeProducts:
 
     def physical(self):
         if self.near is None:
-            self.near = build_facade(self.prepared.mass, prepared=self.prepared)
+            self.near = build_facade(
+                self.prepared.mass, prepared=self.prepared, portals=self.portals
+            )
         return self.near
 
     def select(self, view):
