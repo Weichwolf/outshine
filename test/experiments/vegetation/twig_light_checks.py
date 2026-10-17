@@ -84,6 +84,9 @@ class TwigLightTests(unittest.TestCase):
         collapsed = max(float(mean @ side), 0)
         self.assertAlmostEqual(physical, np.sqrt(3) / 4)
         self.assertEqual(collapsed, 0)
+        other = normals[:, [1, 0, 2]]
+        np.testing.assert_array_equal(other.mean(axis=0), normals.mean(axis=0))
+        self.assertEqual(float(np.maximum(other @ side, 0).mean()), 0)
         # A known mathematical approximation limit, not proof of an atlas bug.
         self.assertAlmostEqual(float(np.linalg.norm(normals.mean(axis=0))), 0.5)
 
