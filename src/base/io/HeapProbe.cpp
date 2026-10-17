@@ -40,7 +40,7 @@ size_t HeapProbe::BreakBytes() {
   return s.size_allocated;
 #else
   const struct mallinfo2 m = mallinfo2();
-  return (size_t)(m.arena + m.hblkhd);
+  return m.arena + m.hblkhd;
 #endif
 }
 
