@@ -331,9 +331,6 @@ std::expected<void, StructureBakeError> ValidateStructureView(const RawTile &raw
       (*raw.RequestedCell == 0 || *raw.RequestedCell > kStructureCellsPerTile)) {
     return std::unexpected(StructureBakeErrorKind::InvalidCell);
   }
-  if (raw.RequestedCell && !raw.RequestedDetail) {
-    return std::unexpected(StructureBakeErrorKind::InvalidDetail);
-  }
   return {};
 }
 

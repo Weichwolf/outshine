@@ -274,12 +274,12 @@ bool TilePieces::ValidateStore(TileCell address,
     error = "tile geometry requires a live world";
     return false;
   }
-  if (baked.RequestedDetail && sourceKey == 0) {
-    error = "explicit structure detail requires a source key";
+  if ((baked.RequestedDetail || baked.RequestedCell) && sourceKey == 0) {
+    error = "addressed structure geometry requires a source key";
     return false;
   }
   if ((address.Cell == 0 && baked.RequestedCell) ||
-      (address.Cell != 0 && (baked.RequestedCell != address.Cell || !baked.RequestedDetail))) {
+      (address.Cell != 0 && baked.RequestedCell != address.Cell)) {
     error = "structure product cell and residency address differ";
     return false;
   }
@@ -392,7 +392,7 @@ bool TilePieces::ValidateActivation(uint32_t tile,
   uint32_t previousCell = 0;
   for (const CellSelection choice : selected) {
     if (choice.Cell <= previousCell || choice.Cell > Generators::kStructureCellsPerTile ||
-        choice.Detail > LevelOfDetail::Massed) {
+        (choice.Detail && *choice.Detail > LevelOfDetail::Massed)) {
       error = "structure cell selection is not ordered or has an invalid level";
       return false;
     }
@@ -501,14 +501,22 @@ bool TilePieces::HasProjectedTile(uint32_t tile,
   if (source.Key == 0) { return false; }
   const auto first =
       std::ranges::lower_bound(Standing_, std::pair{tile, uint32_t{0}}, {}, AddressOf);
-  const auto last = std::find_if(first, Standing_.end(), [tile](const Standing &held) {
-    return held.Tile != tile || held.Cell != 0;
-  });
-  return std::any_of(first, last, [&](const Standing &held) {
-    return held.Visible && !held.Detail && held.SourceKey == source.Key &&
-           held.OccupiedCells == source.Occupied && held.SelectedView &&
-           held.SelectedView->Contains(eye, projection, eyeEcef);
-  });
+  const auto last = std::find_if(
+      first, Standing_.end(), [tile](const Standing &held) { return held.Tile != tile; });
+  uint64_t covered = 0;
+  for (auto at = first; at != last; ++at) {
+    if (!at->Visible) { continue; }
+    if (at->Detail || at->SourceKey != source.Key || !at->SelectedView ||
+        !at->SelectedView->Contains(eye, projection, eyeEcef)) {
+      return false;
+    }
+    if (at->Cell == 0) { return at->OccupiedCells == source.Occupied; }
+    if (at->Cell > Generators::kStructureCellsPerTile) { return false; }
+    const uint64_t bit = uint64_t{1} << (at->Cell - 1u);
+    if (at->OccupiedCells != bit || (covered & bit) != 0) { return false; }
+    covered |= bit;
+  }
+  return source.Occupied != 0 && covered == source.Occupied;
 }
 
 bool TilePieces::CellsActive(uint32_t tile,
