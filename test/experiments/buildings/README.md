@@ -1180,5 +1180,8 @@ and actual stair/entry components before detailed room fitting, are prototyped i
 roundtrips and access controls accompany explicit cutaway renders. The new path
 now has a physical facade layer in [terraced_facades.md](terraced_facades.md):
 aligned actual windows, frames, bands/piers and complete ground-arrival controls.
-Roof/terrace programmes, direct far/selected near products and complete-city
-selection remain open; existing functional products retain their own checks.
+The logical plan now precedes expensive physical expansion; a direct, batched
+exterior and one retained lazy physical product are compared in
+[terraced_facade_products.md](terraced_facade_products.md). Roof/terrace programmes,
+selected near components, general LOD/cache admission and complete-city selection
+remain open; existing functional products retain their own checks.
