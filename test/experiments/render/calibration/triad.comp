@@ -1,0 +1,11 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "Parameters.inc"
+layout(local_size_x = CALIBRATION_LOCAL_SIZE) in;
+layout(std430, set = 0, binding = 0) readonly buffer AValues { uint values[]; } a;
+layout(std430, set = 0, binding = 1) readonly buffer BValues { uint values[]; } b;
+layout(std430, set = 0, binding = 2) writeonly buffer OutputValues { uint values[]; } into;
+void main() {
+  uint at = gl_GlobalInvocationID.x;
+  if (at < into.values.length()) { into.values[at] = a.values[at] + 3u * b.values[at]; }
+}
