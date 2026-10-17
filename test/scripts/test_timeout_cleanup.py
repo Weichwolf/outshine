@@ -48,6 +48,24 @@ class GroupSignals(unittest.TestCase):
                     self.assertFalse(self.supervisor.signal_group(123, number))
 
 
+class SupervisorOutput(unittest.TestCase):
+    def test_separate_stderr_preserves_payload_and_failure_status(self):
+        with tempfile.TemporaryDirectory(prefix='outshine-timeout-streams-') as temporary:
+            directory = Path(temporary)
+            output, errors, marker = (directory / name for name in ('stdout', 'stderr', 'timeout'))
+            Path(str(marker) + '.start').touch()
+            command = [sys.executable, str(SOURCE.parent / 'scripts/run_with_timeout.py'),
+                       str(os.getpid()), '5', str(output), str(marker), '--stderr-file', str(errors),
+                       sys.executable, '-c',
+                       'import sys; print("payload"); print("diagnostic", file=sys.stderr); sys.exit(7)']
+            run = subprocess.run(command, capture_output=True, text=True, timeout=10)
+            self.assertEqual(run.returncode, 7, run.stdout + run.stderr)
+            self.assertEqual(output.read_text(), 'payload\n')
+            self.assertEqual(errors.read_text(), 'diagnostic\n')
+            self.assertFalse(marker.exists())
+            self.assertFalse(Path(str(marker) + '.cleanup-failed').exists())
+
+
 class TimeoutCleanup(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='outshine-timeout-cleanup-')
