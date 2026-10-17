@@ -28,7 +28,7 @@ branch whorls, attachment jitter, inclination interpolation, upward bias,
 circular bends, spiral/distichous/opposite/decussate/whorled leaf placement,
 sky alignment, petioles and bladeless wood. Whorled leaves retain the reference's
 three members; branch whorl size is independent. Native records have explicit
-metre/radian fields; native input decoding/version selection is a separate boundary.
+metre/radian fields; [canonical JSON input](native_plant_recipe_json.md) is a separate boundary.
 Per-axis/leaf randomness uses [the compatible recipe stream](../../../doc/references/procedural/pcg-compatibility.md).
 
 ## Verification

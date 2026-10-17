@@ -24,6 +24,8 @@ struct PlantRecipeLayout {
   PlantRecipeSize Size;
 };
 
+[[nodiscard]] bool ValidPlantRecipe(const PlantRecipe &recipe);
+
 [[nodiscard]] double
 PlantLevelFraction(size_t slot, const PlantLevel &level, double single) noexcept;
 [[nodiscard]] double PlantLevelLength(const PlantLevel &level, size_t slot) noexcept;
