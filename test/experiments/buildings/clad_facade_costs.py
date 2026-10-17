@@ -24,6 +24,7 @@ def filtered(plan):
         "vertices": full["vertices"][indices],
         "normals": full["normals"][indices],
         "uv": full["uv"][indices],
+        "facade_extent": full["facade_extent"][indices],
         "materials": full["materials"][selected],
         "faces": np.arange(len(indices), dtype=np.uint32).reshape(-1, 3),
     }
