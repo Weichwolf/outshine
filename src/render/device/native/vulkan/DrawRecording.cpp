@@ -102,7 +102,6 @@ Result<void> Recording::DrawIndexedIndirect(const IndirectDrawDescription &descr
 
 void Recording::EncodeDraw(const DrawPacket &packet) {
   const auto &pipeline = *packet.Graphics->Pipeline;
-  vkCmdBindPipeline(Commands_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.Handle);
   vkCmdSetViewport(Commands_, 0, 1, &packet.Area);
   vkCmdSetScissor(Commands_, 0, 1, &packet.Clip);
   if (!packet.Sets.empty()) {

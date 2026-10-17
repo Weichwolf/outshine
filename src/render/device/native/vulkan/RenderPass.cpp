@@ -134,7 +134,15 @@ Result<void> Recording::EndRenderPass() {
   rendering.pColorAttachments = colours.data();
   rendering.pDepthAttachment = Render_->Depth ? &Render_->Depth->Native : nullptr;
   vkCmdBeginRendering(Commands_, &rendering);
-  for (const auto &draw : Render_->Draws) { EncodeDraw(draw); }
+  VkPipeline bound = VK_NULL_HANDLE;
+  for (const auto &draw : Render_->Draws) {
+    const VkPipeline pipeline = draw.Graphics->Pipeline->Handle;
+    if (bound != pipeline) {
+      vkCmdBindPipeline(Commands_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+      bound = pipeline;
+    }
+    EncodeDraw(draw);
+  }
   vkCmdEndRendering(Commands_);
   Render_.reset();
   return {};
