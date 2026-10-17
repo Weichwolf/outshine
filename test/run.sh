@@ -256,6 +256,7 @@ TestProfile() {
     outshine/src/render/device/GpuSubmission | outshine/src/render/device/GroundStorage)
       printf '%s' 'profile/device' ;;
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
+    outshine/src/base/io/Tasks) printf '%s' 'profile/tasks' ;;
     outshine/src/base/*) printf '%s' 'profile/base' ;;
     outshine/src/content/*) printf '%s' 'profile/content' ;;
     outshine/src/world/*) printf '%s' 'profile/world' ;;
@@ -289,6 +290,7 @@ LayerIncludes() {
     tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
+    profile/tasks) printf '%s' '-Isrc/base/io' ;;
     profile/base) GroupIncludes src/base ;;
     profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
     profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
@@ -309,6 +311,7 @@ LayerIncludes() {
 LayerToolchain() {
   case "$1" in
     outshine/src/client/ProcessBoundary) printf '%s' "$CXXSTD"; return ;;
+    outshine/src/base/io/Tasks) printf '%s' "$CXXSTD -fno-exceptions -pthread"; return ;;
     outshine/src/base/*) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3)"; return ;;
     outshine/src/generators/flora/TreePrototype) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)"; return ;;
     outshine/src/generators/*) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags libwebp)"; return ;;
@@ -366,6 +369,7 @@ LayerValidation() {
 LayerLink() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
+    profile/tasks) printf '%s' '-pthread' ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/cloud-frame) printf '%s' '' ;;
     profile/scenario|profile/render-geometry|profile/species) LayerLink profile/base ;;
@@ -414,6 +418,7 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/base/format/CssColour.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
+    profile/tasks) printf '%s' 'src/base/io/Tasks.cpp' ;;
     profile/base) SubtreeGroups src/base ;;
     profile/cloud-frame) printf '%s' 'src/generators/weather/CloudFrame.cpp' ;;
     profile/content) SubtreeGroups src/base src/content ;;
@@ -583,46 +588,37 @@ GroupToolchain() {
   esac
 }
 
-# freshness is CONTENT, not clock: a checkout, a stash pop or a revert moves an mtime
-# BACKWARDS, and "-nt" then reports a stale object as current -- a green verdict about
-# source nobody compiled (board:1751). The stamp beside each object is the digest of the
-# source and every prerequisite the compiler named.
-# the stamp is (mtime, size, name) of the source and every prerequisite, gathered in ONE
-# stat call: a backwards mtime DIFFERS from the recorded one, where "-nt" called it current
-FileStamp() {
-  case "$(uname -s)" in
-    Linux) stat -c '%Y|%s|%n' -- "$@" ;;
-    *) stat -f '%m|%z|%N' -- "$@" ;;
-  esac
+PrepareCompilerCache() {
+  command -v ccache >/dev/null 2>&1 || Die "ccache is required: brew install ccache / apt install ccache"
+  export CCACHE_DIR=${CCACHE_DIR:-${TMPDIR:-/tmp}/outshine-compiler-cache}
+  export CCACHE_MAXSIZE=${CCACHE_MAXSIZE:-1G}
+  export CCACHE_COMPILERCHECK=content
 }
 
-SourceStamp() {
-  stampSource=$1
-  stampDeps=$2
-  stampFiles=$stampSource
-  if [ -f "$stampDeps" ]; then
-    stampFiles="$stampFiles $(sed -e 's/^[^:]*://' -e 's/\\//g' "$stampDeps")"
+CompileCachedObject() {
+  compileSource=$1
+  compileObject=$2
+  shift 2
+  compileNext=$compileObject.next
+  compileDeps=${compileObject%.o}.d.next
+  rm -f "$compileNext" "$compileDeps"
+  if ! ccache $CXX "$compileSource" "$@" -MD -MP -MF "$compileDeps" -MT "$compileObject" \
+      -c -o "$compileNext"; then
+    rm -f "$compileNext" "$compileDeps"
+    return 1
   fi
-  FileStamp $stampFiles 2>/dev/null || return 1
-}
-
-# THE COMPILE LINE'S IDENTITY IS IN THE OBJECT'S NAME, so freshness only has to answer the other
-# question: is anything this unit reads newer than what it produced. That is one `sed` to read the
-# dependency list the compiler already wrote, and then shell builtins -- where the stamp it
-# replaces spent a `stat` over a hundred paths and a `cat` per unit, 58 ms each over 158 units.
-UpToDate() {
-  objectPath=$1
-  sourcePath=$2
-  depsPath=${objectPath%.o}.d
-  [ -f "$objectPath" ] || return 1
-  [ -f "$depsPath" ] || return 1
-  [ -f "$sourcePath" ] || return 1
-  [ "$objectPath" -nt "$sourcePath" ] || return 1
-  for readAlso in $(sed -e 's/^[^:]*://' -e 's/\\//g' "$depsPath"); do
-    [ -f "$readAlso" ] || return 1
-    [ "$objectPath" -nt "$readAlso" ] || return 1
-  done
-  return 0
+  if [ ! -s "$compileNext" ] || [ ! -s "$compileDeps" ]; then
+    rm -f "$compileNext" "$compileDeps"
+    printf 'compiler cache returned incomplete object/dependencies for %s\n' "$compileSource" >&2
+    return 1
+  fi
+  if [ -f "$compileObject" ] && cmp -s "$compileNext" "$compileObject"; then
+    rm -f "$compileNext"
+  else
+    mv "$compileNext" "$compileObject" || return 1
+    touch "$compileObject" || return 1
+  fi
+  mv "$compileDeps" "${compileObject%.o}.d"
 }
 
 OBJDIR=$BUILD/obj
@@ -638,12 +634,20 @@ OBJDIR=$BUILD/obj
 JOBS=${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
 
 SetGroupCompileFlags() {
+  if [ -z "${CXX_VERSION:-}" ]; then
+    CXX_VERSION=$($CXX --version) || return 1
+    CXX_ENV_CONTEXT=
+    if [ -n "${CPATH:-}${CPLUS_INCLUDE_PATH:-}${C_INCLUDE_PATH:-}${OBJC_INCLUDE_PATH:-}${SDKROOT:-}${MACOSX_DEPLOYMENT_TARGET:-}${IPHONEOS_DEPLOYMENT_TARGET:-}${SOURCE_DATE_EPOCH:-}" ]; then
+      CXX_ENV_CONTEXT=$(printf '%s\0' "${CPATH:-}" "${CPLUS_INCLUDE_PATH:-}" "${C_INCLUDE_PATH:-}" "${OBJC_INCLUDE_PATH:-}" "${SDKROOT:-}" "${MACOSX_DEPLOYMENT_TARGET:-}" "${IPHONEOS_DEPLOYMENT_TARGET:-}" "${SOURCE_DATE_EPOCH:-}" | git hash-object --stdin)
+    fi
+  fi
   arcStd="$groupStd -fobjc-arc"
-  setId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
-  arcSetId=$(printf '%s|%s|%s|%s|%s|%s|%s' "$CXX" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | cksum | cut -d' ' -f1)
+  setId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$CXX_ENV_CONTEXT" "$groupIncludes" "$groupStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
+  arcSetId=$(printf '%s\0' "$CXX" "$CXX_VERSION" "$CXX_ENV_CONTEXT" "$groupIncludes" "$arcStd" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin)
 }
 
 BuildGroup() {
+  PrepareCompilerCache
   group=$1
   case "$group" in
     src/generators/flora|src/generators/flora/*)
@@ -692,15 +696,13 @@ BuildGroup() {
         "$PWD" "$PWD/$unit" "$unitObject" "$CXX" "$PWD/$unit" "$unitStd" "$OPT" "$WARN" \
         "$SAN" "$EXTRA_DEFINES" "$groupIncludes" "$unitObject" >> "$BUILD/compile_commands.part"
     fi
-    if ! UpToDate "$unitObject" "$unit"; then
-      read -r _poolToken <&9
-      {
-        $CXX "$unit" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes \
-          -c -o "$unitObject" >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
-        printf '.\n' >&9
-      } &
-      groupSaid="$groupSaid $unitObject.log"
-    fi
+    read -r _poolToken <&9
+    {
+      CompileCachedObject "$unit" "$unitObject" $unitStd $OPT $WARN $SAN $EXTRA_DEFINES $groupIncludes \
+        >"$unitObject.log" 2>&1 || printf '%s\n' "$unit" >>"$groupFailed"
+      printf '.\n' >&9
+    } &
+    groupSaid="$groupSaid $unitObject.log"
     OBJECTS="$OBJECTS $unitObject"
   done
   wait
@@ -813,6 +815,10 @@ SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
+FreshAgainst() {
+  python3 "$ROOT/test/scripts/artifact_freshness.py" "$@"
+}
+
 ArchiveFresh() {
   archiveFreshPath=$1
   shift
@@ -822,11 +828,7 @@ ArchiveFresh() {
     $0 !~ /^__\.SYMDEF(_64)?( SORTED)?$/ && $0 != "/" && $0 != "//" && $0 != "/SYM64/"')
   archiveFreshExpected=$(printf '%s\n' "$@" | sed 's|.*/||')
   [ "$archiveFreshActual" = "$archiveFreshExpected" ] || return 1
-  for archiveFreshMember in "$@"; do
-    [ -f "$archiveFreshMember" ] || return 1
-    [ "$archiveFreshMember" -nt "$archiveFreshPath" ] && return 1
-  done
-  return 0
+  FreshAgainst "$archiveFreshPath" "$@"
 }
 
 # THE LIBRARY ENTIRE, from the same declarations the tests build with: every source under src/
@@ -882,20 +884,22 @@ BuildLibrary() {
     toolNamed=build/outshine-$(basename "$toolLayer")
     toolStd=$(GroupToolchain "$toolLayer")
     toolIncludes=$(GroupIncludes "$toolLayer")
+    groupStd=$toolStd
+    groupIncludes=$toolIncludes
+    SetGroupCompileFlags
+    toolObject=$OBJDIR/entry-$(printf '%s' "$tool" | tr / -).$setId.o
+    CompileCachedObject "$tool" "$toolObject" $toolStd $OPT $WARN $toolIncludes ||
+      Die "$tool entry point did not compile"
     if [ -n "${COMPILEDB:-}" ]; then
-      printf '{"directory":"%s","file":"%s","command":"%s %s %s %s %s %s -c"},\n' \
-        "$PWD" "$PWD/$tool" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
-        "$toolIncludes" >> "$BUILD/compile_commands.part"
+      printf '{"directory":"%s","file":"%s","output":"%s","command":"%s %s %s %s %s %s -c -o %s"},\n' \
+        "$PWD" "$PWD/$tool" "$toolObject" "$CXX" "$PWD/$tool" "$toolStd" "$OPT" "$WARN" \
+        "$toolIncludes" "$toolObject" >> "$BUILD/compile_commands.part"
     fi
-    diagnosticsStale=no
-    for diagnostic in $diagnosticObjects; do
-      [ "$toolNamed" -nt "$diagnostic" ] || diagnosticsStale=yes
-    done
-    if [ "$diagnosticsStale" = no ] && [ -f "$toolNamed" ] && [ "$toolNamed" -nt build/liboutshine.a ] && [ "$toolNamed" -nt "$tool" ]; then
+    if FreshAgainst "$toolNamed" build/liboutshine.a "$toolObject" $diagnosticObjects; then
       continue
     fi
     $CXX $toolStd $OPT $WARN $toolIncludes \
-      "$tool" $diagnosticObjects build/liboutshine.a $(LayerLink profile/engine) -o "$toolNamed" ||
+      "$toolObject" $diagnosticObjects build/liboutshine.a $(LayerLink profile/engine) -o "$toolNamed" ||
       Die "$tool does not build into $toolNamed"
     printf -- '-> %s\n' "$toolNamed"
   done
@@ -1598,10 +1602,6 @@ if [ "$AUDITLINK" = 1 ]; then
           stragglers=refused
           break
         fi
-        if UpToDate "$OBJDIR/$objName" "$unit"; then
-          OBJECTS="$OBJECTS $OBJDIR/$objName"
-          continue
-        fi
         # the declaration names an object the gate has not built (cold, or a fresh include
         # set) -- build the GROUP once so the audit reads exactly what it names
         if [ "$groupBuilt" = no ]; then
@@ -2005,6 +2005,10 @@ CountTheTwo() {
 # case itself. Every case includes the harness directly, and a harness change that did not
 # alter the trailer format would have left a stale binary running with the gate trusting it.
 # The harness headers are stamped by name until the build gives each source its own .d.
+FileStamp() {
+  git hash-object -- "$@"
+}
+
 BinaryStamp() {
   stampBinary=$1
   shift

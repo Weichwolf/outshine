@@ -1,0 +1,19 @@
+{
+  "asset_sha256": "1f01d7e36a7b5a745f8805e164584c045e66b860853f2c35f9d93644290dce5c",
+  "face": 11,
+  "xy_m": [
+    -682.2940836149098,
+    518.7131171580963
+  ],
+  "heights_m": [
+    166.99761260175455,
+    167.09761260175455
+  ],
+  "polygon_wkb": "01030000000100000005000000C7FE110B505285C0151E5439AA358040C7FE110B505285C0C36535B4BE3580407546F385645285C0C36535B4BE3580407546F385645285C0151E5439AA358040C7FE110B505285C0151E5439AA358040",
+  "old_owner_sources": [
+    "openfreemap:14/8937/5678:transportation:80922970:248"
+  ],
+  "actual_base_upper_m": 166.49761260175455,
+  "new_required_clearance_m": 4.5,
+  "scope": "Actual immutable76er footway facet11 used by new77er minor; old body+2.5m alone falsely leaves this prism free. Original saved MVT/DEM/owners retained; diagnostic prism is not a new source."
+}

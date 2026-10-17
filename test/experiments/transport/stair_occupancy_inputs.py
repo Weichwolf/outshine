@@ -96,7 +96,7 @@ def volume(owner, lower, upper, clearance):
     ), max(errors)
 
 
-def reservations(assets, supports, contacts, sources, manifest):
+def road_volumes(assets, sources):
     result, owners, errors = [], [], []
     profiles = reference_profiles()
     for asset in assets:
@@ -124,6 +124,12 @@ def reservations(assets, supports, contacts, sources, manifest):
             result.append(row)
             owners.append(keys)
             errors.append(error)
+    return tuple(result), tuple(owners), max(errors, default=0.0)
+
+
+def reservations(assets, supports, contacts, sources, manifest):
+    rows, source_keys, error = road_volumes(assets, sources)
+    result, owners, errors = list(rows), list(source_keys), [error]
     support_report = json.loads(
         (Path(manifest["support_mesh"]).parent / "comparison.json").read_text()
     )
