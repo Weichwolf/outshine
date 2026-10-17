@@ -23,22 +23,33 @@ from window_portrait_geometry import planes, select_views
 from window_portrait_source import source, wood
 
 
-def populate(whole, execution, catalog, output):
+def populate(whole, execution, catalog, output, wood_mode="expanded"):
     start = time.perf_counter()
     graph, axes, windows, banks, evidence = source(whole, execution, catalog)
     decoded = time.perf_counter()
     surface = material("unchanged constant source wood", (0.14, 0.105, 0.037), 0.8)
-    geometry = wood(graph, axes)
-    obj = bind_mesh("complete executed wood", geometry, surface)
-    attach_normals(obj, geometry["normals"])
+    if wood_mode == "expanded":
+        geometry = wood(graph, axes)
+        obj = bind_mesh("complete executed wood", geometry, surface)
+        attach_normals(obj, geometry["normals"])
+        wood_report = {
+            "triangles": len(geometry["faces"]),
+            "output_array_bytes": sum(a.nbytes for a in geometry.values()),
+        }
+        del geometry
+    elif wood_mode == "instanced":
+        from window_wood_instances import bind
+
+        wood_report = bind(graph, axes, surface)
+    else:
+        raise ValueError("known explicit wood representation required")
     surface.node_tree.links.new(
         source_normal(surface),
         surface.node_tree.nodes["Principled BSDF"].inputs["Normal"],
     )
-    triangles = len(geometry["faces"])
-    output_bytes = sum(a.nbytes for a in geometry.values())
+    triangles = wood_report["triangles"]
+    output_bytes = wood_report["output_array_bytes"]
     wood_seconds = time.perf_counter() - decoded
-    del geometry
     queries = {
         "camera": {"eye": SCENE["camera"]},
         "sun": {"direction": Rotation.from_euler("xyz", SUN_ROTATION).apply((0, 0, 1))},
@@ -70,6 +81,8 @@ def populate(whole, execution, catalog, output):
                 a.nbytes for a in data.values() if isinstance(a, np.ndarray)
             )
     return evidence | {
+        "wood_mode": wood_mode,
+        "wood": wood_report,
         "axes": len(axes["origins"]),
         "windows": len(windows["origins"]),
         "represented_needles": int(windows["needle_counts"].sum()),
@@ -90,7 +103,9 @@ def populate(whole, execution, catalog, output):
     }
 
 
-def render(whole, execution, catalog, output):
+def render(
+    whole, execution, catalog, output, wood_mode="expanded", assemble_only=False
+):
     output.mkdir(parents=True, exist_ok=False)
     started = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -105,7 +120,7 @@ def render(whole, execution, catalog, output):
         patch.object(Needle, "mesh", side_effect=AssertionError("new needle meshes")),
         patch.object(PlantPlan, "axis", side_effect=AssertionError("new growth axes")),
     ):
-        report = populate(whole, execution, catalog, output)
+        report = populate(whole, execution, catalog, output, wood_mode)
     setup_scene_lights(SCENE)
     scene = bpy.context.scene
     configure_preview(scene)
@@ -115,16 +130,21 @@ def render(whole, execution, catalog, output):
     scene.render.image_settings.file_format = "PNG"
     scene.render.filepath = str((output / "portrait.png").resolve())
     ready = time.perf_counter()
-    print(json.dumps(report | {"stage": "render"}), flush=True)
-    bpy.ops.render.render(write_still=True)
+    print(
+        json.dumps(report | {"stage": "assembly" if assemble_only else "render"}),
+        flush=True,
+    )
+    if not assemble_only:
+        bpy.ops.render.render(write_still=True)
     report |= {
         "scene": SCENE,
-        "render_s": time.perf_counter() - ready,
+        "render_s": None if assemble_only else time.perf_counter() - ready,
         "process_s": time.perf_counter() - started,
         "process_peak_rss_MiB": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         / 1024,
-        "backend": gpu.platform.renderer_get(),
-        "scope": "Same complete cached physical windows and executed wood; new bounded representation assembly and 8bit finite-chart packing, no axis/needle planning or meshing. Statistical windows, tail weighting, mean normals, growth form and native/device/LOD admission remain unapproved.",
+        "backend": None if assemble_only else gpu.platform.renderer_get(),
+        "assemble_only": assemble_only,
+        "scope": "Same complete cached physical windows and executed wood; bounded assembly, optional repeated wood prototypes, no growth/needle generation. Instancing does not reduce triangle work. Statistical windows, material/normal transport, growth and native/device/LOD admission remain experimental.",
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report), flush=True)
@@ -142,5 +162,16 @@ if __name__ == "__main__":
     )
     for name in ("execution", "catalog", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument(
+        "--wood-mode", choices=("expanded", "instanced"), default="expanded"
+    )
+    parser.add_argument("--assemble-only", action="store_true")
     args = parser.parse_args()
-    render(args.whole, args.execution, args.catalog, args.output)
+    render(
+        args.whole,
+        args.execution,
+        args.catalog,
+        args.output,
+        args.wood_mode,
+        args.assemble_only,
+    )
