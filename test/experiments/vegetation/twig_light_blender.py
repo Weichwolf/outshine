@@ -74,18 +74,20 @@ def bind_physical(geometry, directory, maps):
     return obj
 
 
-def bind_windows(window, banks, directory, view, light):
+def bind_windows(window, banks, directory, view, light, *, shadows=True):
     family = int(window["families"][0])
     bank = banks[family]
     maps = textures(bank, directory)
     for role, direction in (("camera", view), ("shadow", light)):
+        if role == "shadow" and not shadows:
+            continue
         selected = select_views(window, 64, direction=direction)
         data = planes(window, bank, selected, np.array([0]), family)
         surface = weighted_material(f"same {role} window shader", directory, maps, role)
         bind_mesh(f"requested {role} window", data, surface)
 
 
-def configure_scene(extent, pixels, light):
+def configure_scene(extent, pixels, light, *, shadows=True):
     scene = bpy.context.scene
     scene.world = bpy.data.worlds.new("constant neutral diagnostic world")
     scene.world.use_nodes = True
@@ -107,6 +109,7 @@ def configure_scene(extent, pixels, light):
     sun = bpy.context.object
     sun.rotation_euler = (-Vector(light)).to_track_quat("-Z", "Y").to_euler()
     sun.data.energy, sun.data.angle = 1.0, 0.01
+    sun.data.use_shadow = shadows
     shadow = configure_preview(scene)
     scene.eevee.taa_render_samples = 64
     scene.render.resolution_x, scene.render.resolution_y = 2560, 1440
@@ -123,6 +126,7 @@ def configure_scene(extent, pixels, light):
         "light_direction": list(light),
         "sun_energy": 1.0,
         "sun_angle": 0.01,
+        "sun_shadows": shadows,
         "ortho_scale_m": camera.data.ortho_scale,
         "target_span_pixels": pixels,
         "world_strength": 0.0,

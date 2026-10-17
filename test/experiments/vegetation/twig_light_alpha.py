@@ -30,12 +30,12 @@ def calibrate(output):
     mesh.from_pydata(vertices.tolist(), [], [[0, 1, 2], [0, 2, 3]])
     obj = bpy.data.objects.new("constant quarter coverage", mesh)
     bpy.context.collection.objects.link(obj)
-    surface = material("known emission", (0.2, 0.4, 0.6), 1)
+    surface = material("known emission", (0.125, 0.25, 0.5), 1)
     surface.surface_render_method = "DITHERED"
     nodes, links = surface.node_tree.nodes, surface.node_tree.links
     nodes.clear()
     emission = nodes.new("ShaderNodeEmission")
-    emission.inputs["Color"].default_value = (0.2, 0.4, 0.6, 1)
+    emission.inputs["Color"].default_value = (0.125, 0.25, 0.5, 1)
     transparent = nodes.new("ShaderNodeBsdfTransparent")
     mix = nodes.new("ShaderNodeMixShader")
     mix.inputs[0].default_value = 0.25
@@ -57,7 +57,7 @@ def calibrate(output):
     rgba = rgba.reshape(1440, 2560, 4)
     # Fixed central interior excludes edge filtering and uncovered background.
     centre = rgba[690:750, 1220:1340]
-    colour = np.array([0.2, 0.4, 0.6])
+    colour = np.array([0.125, 0.25, 0.5])
     premult_error = float(abs(centre[..., :3] - centre[..., 3, None] * colour).max())
     straight_error = float(abs(centre[..., :3] - colour).max())
     assert min(premult_error, straight_error) < 1e-5

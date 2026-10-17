@@ -28,7 +28,7 @@ def projected_span(geometry, scene):
     ).tolist()
 
 
-def render(case, catalog, output, representation, light_kind, pixels):
+def render(case, catalog, output, representation, light_kind, pixels, *, shadows=True):
     if (
         representation not in ("physical", "windows")
         or light_kind not in ("front", "back", "side")
@@ -66,8 +66,10 @@ def render(case, catalog, output, representation, light_kind, pixels):
             {"colour": "colour.png", "normal": "normal.png", "leaf_weight": "leaf.png"},
         )
     else:
-        bind_windows(window, banks, output / "window-source", VIEW, light)
-    scene_data = configure_scene(extent, pixels, light)
+        bind_windows(
+            window, banks, output / "window-source", VIEW, light, shadows=shadows
+        )
+    scene_data = configure_scene(extent, pixels, light, shadows=shadows)
     scene = bpy.context.scene
     scene.render.image_settings.file_format = "OPEN_EXR"
     scene.render.image_settings.color_depth = "32"
@@ -138,6 +140,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--light", choices=("front", "back", "side"), required=True)
     parser.add_argument("--pixels", type=int, choices=(16, 64, 384), required=True)
+    parser.add_argument("--shadows", choices=("matched", "off"), default="matched")
     args = parser.parse_args()
     render(
         args.case,
@@ -146,4 +149,5 @@ if __name__ == "__main__":
         args.representation,
         args.light,
         args.pixels,
+        shadows=args.shadows == "matched",
     )
