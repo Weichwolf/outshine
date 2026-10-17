@@ -2,6 +2,7 @@
 #include "Check.h"
 
 #include <array>
+#include <cstddef>
 #include <string>
 #include <string_view>
 
@@ -62,10 +63,12 @@ int main() {
   }
   CHECK(ReadScenario(valid.data(), valid.size(), document, error) && error.empty(),
         "valid bounded source declaration succeeds after refusal");
-  CHECK(document.Providers.size() == 1 && document.Providers.front().Coverage &&
-            document.Providers.front().Coverage->WestDeg == 8.54 &&
-            document.Providers.front().Dataset == "openstreetmap" &&
-            document.Providers.front().Location == "region.osm",
+  CHECK(document.Providers.size() == 1, "one bounded source is declared");
+  if (document.Providers.size() != 1) { return Report(); }
+  constexpr double kSourceWestDeg = 8.54;
+  const auto &source = document.Providers.front();
+  CHECK(source.Coverage && source.Coverage->WestDeg == kSourceWestDeg &&
+            source.Dataset == "openstreetmap" && source.Location == "region.osm",
         "source identity and bounds reach the native declaration");
   const std::string catalogue =
       "<scenario><providers><provider kind='osm' dataset='openstreetmap.original' "

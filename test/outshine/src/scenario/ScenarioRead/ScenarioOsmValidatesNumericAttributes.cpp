@@ -15,8 +15,8 @@ std::string Scene(std::string_view attributes) {
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
-  for (const auto name : {"widthM", "heightM", "level"}) {
-    for (const auto value : {"", "x", "1x", "nan", "inf", "1e999", " 1", "1 "}) {
+  for (const auto *const name : {"widthM", "heightM", "level"}) {
+    for (const auto *const value : {"", "x", "1x", "nan", "inf", "1e999", " 1", "1 "}) {
       Scenario::Document held;
       held.Ground.Osm.push_back({.Kind = "retained", .LatLon = {}});
       const auto xml = Scene(std::string(name) + "=\"" + value + "\"");
@@ -27,31 +27,33 @@ int main() {
             "invalid late attributes preserve the old document");
     }
   }
-  for (const auto attributes : {"widthM=\"-1\"",
-                                "heightM=\"-0.01\"",
-                                "level=\"1.5\"",
-                                "level=\"-1.5\"",
-                                "level=\"2147483648\"",
-                                "level=\"-2147483649\""}) {
+  for (const auto *const attributes : {"widthM=\"-1\"",
+                                       "heightM=\"-0.01\"",
+                                       "level=\"1.5\"",
+                                       "level=\"-1.5\"",
+                                       "level=\"2147483648\"",
+                                       "level=\"-2147483649\""}) {
     const auto xml = Scene(attributes);
     Scenario::Document held;
     std::string error;
     CHECK(!ReadScenario(xml.data(), xml.size(), held, error),
           "negative measures and invalid integer levels refused");
   }
-  static_assert(std::numeric_limits<int>::digits == 31,
+  constexpr int kFixtureValueBits = 31;
+  static_assert(std::numeric_limits<int>::digits == kFixtureValueBits,
                 "level boundary fixtures target 32-bit signed int");
+  constexpr double kDeclaredWidthM = 3.125;
   for (const int level :
        {std::numeric_limits<int>::min(), -1, 0, 1, std::numeric_limits<int>::max()}) {
     const auto xml =
-        Scene("widthM=\"3.125e0\" heightM=\"0\" level=\"" + std::to_string(level) + "\"");
+        Scene(R"(widthM="3.125e0" heightM="0" level=")" + std::to_string(level) + "\"");
     Scenario::Document held;
     std::string error;
     const bool read = ReadScenario(xml.data(), xml.size(), held, error);
     CHECK(read && held.Ground.Osm.size() == 2, "representable levels and dimensions accepted");
     if (held.Ground.Osm.size() != 2) { continue; }
     const auto &feature = held.Ground.Osm.back();
-    CHECK(feature.Level == level && feature.WidthM == 3.125 && feature.HeightM == 0,
+    CHECK(feature.Level == level && feature.WidthM == kDeclaredWidthM && feature.HeightM == 0,
           "attributes retain their exact declared values");
     const auto &defaults = held.Ground.Osm.front();
     CHECK(defaults.WidthM == 0 && defaults.HeightM == 0 && defaults.Level == 0,
