@@ -7,6 +7,14 @@ cell may retain the existing automatic detail choice. The former validation
 required an explicit LOD. No schema, cache key version or GPU binding changes;
 previous fixed-detail and whole-tile paths keep their behavior.
 
+Commit `24a174172` adds atomic publication of adaptive cell sets through the
+existing StageCell/ActivateCells protocol. Nineteen actual depth-rendering checks
+cover missing/unkeyed children, preservation of the old revision, initial
+publication without a whole mesh, view readiness and switching to fixed details
+and back. Three existing publication cases remain green; the implementation,
+new test and 21 dependent units pass focused tidy. This is the publication
+contract, not the remaining initial-build integration.
+
 The new 57-check regression covers complete enriched source footprints, exact
 near-wall positions/UVs/normals, distant coarse selection, disjoint cell coverage
 and artifact roundtrip. Three existing selection cases pass unchanged. The
