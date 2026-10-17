@@ -42,13 +42,13 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   erhaltene Originalknoten, ganze tatsächliche Fahrspurhüllen und Kreisbogenvergleich.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
-und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
+und Hilfsumgebungen liegen ausschließlich unter `/tmp` außerhalb des Repositorys.
 Forschungs-/Diagnosebilder bleiben im System-Tempverzeichnis; die integrierte
 öffentliche Places-Galerie besitzt der Hauptagent.
 Für den aktuellen Linux-Stand gelten die folgenden expliziten Pfade:
 
 ```sh
-TRANSPORT_PY=/var/tmp/outshine-transport-python-355154544/bin/python
+TRANSPORT_PY=/tmp/outshine-transport-python-355154544/bin/python
 TRANSPORT_WORK=/tmp/outshine-transport-workspace-0241b3f81
 ```
 
