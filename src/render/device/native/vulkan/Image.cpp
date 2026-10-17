@@ -72,17 +72,22 @@ Result<std::shared_ptr<ImageState>> AllocateImage(std::shared_ptr<Context> conte
   state->Description = description;
   state->Layouts.resize(static_cast<std::size_t>(description.Mips) * description.Layers,
                         VK_IMAGE_LAYOUT_UNDEFINED);
-  VkImageCreateInfo create{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-                           .samples = VK_SAMPLE_COUNT_1_BIT};
-  create.imageType = VK_IMAGE_TYPE_2D;
-  create.format = TexelFormat(description.Texels);
-  create.extent = {.width = description.Width, .height = description.Height, .depth = 1};
-  create.mipLevels = description.Mips;
-  create.arrayLayers = description.Layers;
-  create.tiling = VK_IMAGE_TILING_OPTIMAL;
-  create.usage = ImageUsage(description.Use);
-  create.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  create.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  const VkImageCreateInfo create{
+      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0,
+      .imageType = VK_IMAGE_TYPE_2D,
+      .format = TexelFormat(description.Texels),
+      .extent = {.width = description.Width, .height = description.Height, .depth = 1},
+      .mipLevels = description.Mips,
+      .arrayLayers = description.Layers,
+      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .tiling = VK_IMAGE_TILING_OPTIMAL,
+      .usage = ImageUsage(description.Use),
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      .queueFamilyIndexCount = 0,
+      .pQueueFamilyIndices = nullptr,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
   auto result = vkCreateImage(state->Owner->Logical, &create, nullptr, &state->Handle);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateImage", result)); }
   VkMemoryRequirements requirements{};

@@ -98,13 +98,19 @@ Result<void> BuildGraphics(GraphicsState &state, const GraphicsDescription &desc
   const std::string fragmentEntry(description.Fragment ? description.Fragment->Entry : "");
   const std::array<VkPipelineShaderStageCreateInfo, 2> stages{
       {{.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
         .module = vertex.Handle,
-        .pName = vertexEntry.c_str()},
+        .pName = vertexEntry.c_str(),
+        .pSpecializationInfo = nullptr},
        {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
         .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
         .module = fragment.Handle,
-        .pName = fragmentEntry.c_str()}}};
+        .pName = fragmentEntry.c_str(),
+        .pSpecializationInfo = nullptr}}};
   const auto setup = Setup(state);
   VkPipelineVertexInputStateCreateInfo inputs{};
   inputs.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -132,7 +138,14 @@ Result<void> BuildGraphics(GraphicsState &state, const GraphicsDescription &desc
   raster.lineWidth = 1;
   const VkPipelineMultisampleStateCreateInfo samples{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-      .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT};
+      .pNext = nullptr,
+      .flags = 0,
+      .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+      .sampleShadingEnable = VK_FALSE,
+      .minSampleShading = 0,
+      .pSampleMask = nullptr,
+      .alphaToCoverageEnable = VK_FALSE,
+      .alphaToOneEnable = VK_FALSE};
   VkPipelineDepthStencilStateCreateInfo depth{};
   depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   depth.depthTestEnable =
