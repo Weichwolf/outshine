@@ -244,10 +244,14 @@
 - Pfade/Symbole zuerst mit `rg` suchen, relevante Historie/`make help` lesen. Gezielte Ausschnitte
   ≤160 Zeilen, Ausgabe gewöhnlich ≤2000 Tokens. Funktionen per clang-tidy auf 120 Zeilen begrenzen;
   keine Verdichtung/Suppression. Große Dateien nach Zuständigkeit beim betroffenen Ausbau teilen.
+- Modultests bauen nur die deklarierten Modulabhängigkeiten. Unerwartete Abhängigkeiten
+  prüfe ich als Architekturfehler; gemischte Integrationsprüfungen erhalten einen eigenen Ort.
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
   betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
   nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
+  Lokale Tests bauen nur ihre benötigten Komponenten. Modul-, Speicher-, Nebenläufigkeits- und
+  Render-/Places-Prüfungen bleiben gezielt aufrufbar; Vollsuite und Instrumentierung sind getrennte Aufträge.
 - Native Fachagenten liefern Format, betroffene Tests und fokussiertes clang-tidy selbst;
   der PR nennt Commit, Umfang, Plattform, Aufruf und terminales Ergebnis, offene Prüfungen ausdrücklich.
   Sie aktualisieren ihren Branch vor dem Merge gegen `master`, lösen Konflikte und prüfen betroffene

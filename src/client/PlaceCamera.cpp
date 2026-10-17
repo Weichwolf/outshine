@@ -7,12 +7,14 @@
 #include "FrameSchedule.h"
 #include "WorldSourcePolicy.h"
 #include "SourceCache.h"
+#include "ReadTextFile.h"
 #include "PlaceSourcePreparation.h"
 
 #include "io/HeapProbe.h"
 
 #include <algorithm>
 #include <expected>
+#include <limits>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -440,16 +442,13 @@ void SavePlaceShot(Engine &engine, std::string_view name, Shot &shot, std::strin
   std::filesystem::create_directories(into, failed);
   const std::string writing = into + "/" + std::string(name) + ".writing";
   if (engine.renderer().saveScreenshot(writing)) {
-    std::string bytes;
-    if (std::FILE *const held = std::fopen(writing.c_str(), "rb")) {
-      std::array<char, 65536> block{};
-      std::size_t read = 0;
-      while ((read = std::fread(block.data(), 1, block.size(), held)) > 0) {
-        bytes.append(block.data(), read);
-      }
-      std::fclose(held);
+    const auto bytes = ReadTextFile(writing, std::numeric_limits<size_t>::max());
+    if (!bytes) {
+      std::println(stderr, "WARN shot: {}", bytes.error());
+      std::filesystem::remove(writing, failed);
+      return;
     }
-    shot.Digest = Sha256Hex(bytes).substr(0, 8);
+    shot.Digest = Sha256Hex(*bytes).substr(0, 8);
     shot.Wrote = into + "/" + std::string(name) + "-" + shot.Digest + ".png";
     std::filesystem::rename(writing, shot.Wrote, failed);
     shot.Kept = !failed;
