@@ -27,7 +27,12 @@ The three regression sources are `MeshOwnershipTransfersAtomically`,
 `ArraysPreserveUnalignedBitsAndBounds`. Fifteen affected Geometry/codec tests
 pass; the two tests receiving final diagnostic-only edits pass again. Focused
 analysis of changed production/test units is clean; public documentation reports
-52/52 headers and no diagnostics. The API-wide integration lint is separate.
+52/52 headers and no diagnostics. Frozen API integration lint on `ccb37550d`
+passes: 430/430 C++ units, 29/29 repository checks, 2,051 formatted files,
+491 shader artifacts and 9 compute contracts. The first isolated attempt lacked
+the provisioned shader SDK and built archive; its failure is retained separately.
+The complete retry uses the same source and explicitly supplies those dependencies.
+Later adaptive-cell integration and general world/device gates remain separate.
 
 ## Whole-process comparison
 
