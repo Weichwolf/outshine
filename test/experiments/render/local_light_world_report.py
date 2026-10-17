@@ -93,8 +93,8 @@ def costs(pdf, root):
         "checks also overlap the measurement window. No fixed clocks.",
         "Static: 2 pose dispatches /60 draws; moving: 47 /60.",
         "Light records: 524,288 B; pose cache: 98,304 B per variant.",
-        "World index survives these camera changes; actual light edits,",
-        "bounded active-world residency and in-flight slots unmeasured.",
+        "World index survives camera changes; native edits follow below.",
+        "Runtime residency and in-flight slots remain unmeasured.",
     ]
     for case in ["overlap", "overflow"]:
         row = records(root / f"{case}-timing1.log")
@@ -146,7 +146,7 @@ def counterexamples(pdf, root):
         "Coordinate cases include Earth-size translation and 30/60 Hz steps\n"
         "across cell boundaries; maximum observed discrepancy: 0.1221 mm.\n"
         "All 12 moving/Earth raster files are byte-identical.\n\n"
-        "This does not prove general FP32 culling, dynamic-light updates,\n"
+        "This does not prove general FP32 culling or runtime light publication,\n"
         "transparent composition, a complete frame, Metal execution or A18.\n"
         "The current product still has the 16-light limit; renderer port #328.\n"
         "Default LLVM22 analysis remains red on 14 shared Check.h findings.",

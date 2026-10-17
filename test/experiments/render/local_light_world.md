@@ -25,8 +25,8 @@ photometry/kind/beam/cone/inverse range, with place.xyz local to a 128 m cell.
 An additional int32 xyz cell coordinate costs 12 B/light. The shader subtracts
 integer camera cells before FP32 conversion, then uses FMA with local positions.
 Directions ignore position. No camera-dependent light-record upload is needed
-by these prescribed camera poses. Actual runtime packing/update costs remain
-unmeasured; the producer is a Python reference, not an engine implementation.
+by these prescribed camera poses. The Python reference and native producer
+below share this encoding; productive runtime packing/publication remains open.
 
 Private storage 2/25 has a five-u32 header: global offset/count, slot offset,
 hash mask or sorted-cell count, emitter-cell coordinate offset. Each slot is
@@ -108,8 +108,8 @@ already counted. Readback is separate: twelve full captures copy 398,131,200 B.
 
 Hash32 plus reusable GPU positions is a next native producer candidate, balancing
 near cost against Hash16's 3.43× index payload. Camera-independent reuse may avoid
-the previous 5.93 ms camera-list CPU rebuild, but no native world-index producer,
-full packing/upload or dynamic-light invalidation saving is claimed yet.
+the previous 5.93 ms camera-list CPU rebuild. Native production/edit costs follow
+below; productive upload/publication savings remain unmeasured.
 
 ## Native producer and actual edits
 
