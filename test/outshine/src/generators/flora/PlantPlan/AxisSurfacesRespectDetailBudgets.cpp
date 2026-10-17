@@ -23,6 +23,9 @@ int main() {
                                 .Sides = 4,
                                 .MaximumVertices = kVertices,
                                 .MaximumTriangles = kTriangles};
+  const auto measured = MeasurePlantAxisSurface(*plan, demand);
+  CHECK(measured && measured->Vertices == kVertices && measured->Triangles == kTriangles,
+        "surface demand is counted before constructing mesh buffers");
   const auto mesh = BuildPlantAxisSurface(*plan, demand);
   CHECK(mesh.has_value(), "sufficient detail produces a closed oriented surface");
   if (!mesh) { return Report(); }

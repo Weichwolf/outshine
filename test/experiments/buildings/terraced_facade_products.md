@@ -187,3 +187,7 @@ include both source/programme pairs and the explicitly forced-close counter.
 For full-frame differences use `test/scripts/pixels.py <NearReference.png>
 <Direct.png>` (or the explicitly forced-close pair). All research inputs/PNGs/logs
 remain/tmp; no specialist gallery is published.
+
+Protected source setback decks and real optional portals now extend these
+products in [terraced_terraces.md](terraced_terraces.md); its added quality,
+continuous route scope and incremental owner costs are separate from this study.

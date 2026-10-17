@@ -113,7 +113,7 @@ void AppendCap(
   }
 }
 
-bool Fits(const PlantAxis &axis, PlantAxisSurfaceDemand demand) {
+bool Representable(const PlantAxis &axis) {
   const double radius = std::max(axis.RadiiM[0], axis.RadiiM[1]);
   if (std::abs(axis.Bend) * radius >= axis.LengthM) { return false; }
   const double extent = axis.LengthM + radius;
@@ -124,36 +124,47 @@ bool Fits(const PlantAxis &axis, PlantAxisSurfaceDemand demand) {
     }
     if (!std::isfinite(reach) || reach > std::numeric_limits<float>::max()) { return false; }
   }
-  const size_t vertices = (demand.Segments + 1) * demand.Sides + 2 * (demand.Sides + 1);
-  const size_t triangles = 2 * demand.Sides * (demand.Segments + 1);
-  return vertices <= demand.MaximumVertices && triangles <= demand.MaximumTriangles;
+  return true;
 }
+}
+
+std::expected<PlantSurfaceSize, std::string_view>
+MeasurePlantAxisSurface(const PlantPlan &plan, PlantAxisSurfaceDemand demand) {
+  const PlantAxis *axis = plan.Axis(demand.Axis);
+  if (axis == nullptr || demand.Segments < kMinimumSegments || demand.Segments > kMaximumSegments ||
+      demand.Sides < kMinimumSides || demand.Sides > kMaximumSides || !Representable(*axis)) {
+    return std::unexpected("plant axis surface requires regular dimensions and bounded detail");
+  }
+  const size_t vertices = (demand.Segments + 1) * demand.Sides + 2 * (demand.Sides + 1);
+  const PlantSurfaceSize size{.Vertices = vertices,
+                              .Triangles = 2 * demand.Sides * (demand.Segments + 1)};
+  if (size.Vertices > demand.MaximumVertices || size.Triangles > demand.MaximumTriangles) {
+    return std::unexpected("plant axis detail exceeds demand budget");
+  }
+  return size;
 }
 
 std::expected<PlantSurface, std::string_view> BuildPlantAxisSurface(const PlantPlan &plan,
                                                                     PlantAxisSurfaceDemand demand) {
-  const PlantAxis *axis = plan.Axis(demand.Axis);
-  if (axis == nullptr || demand.Segments < kMinimumSegments || demand.Segments > kMaximumSegments ||
-      demand.Sides < kMinimumSides || demand.Sides > kMaximumSides || !Fits(*axis, demand)) {
-    return std::unexpected("plant axis surface requires regular dimensions and bounded detail");
-  }
-  const size_t vertices = (demand.Segments + 1) * demand.Sides + 2 * (demand.Sides + 1);
+  const auto size = MeasurePlantAxisSurface(plan, demand);
+  if (!size) { return std::unexpected(size.error()); }
+  const PlantAxis &axis = *plan.Axis(demand.Axis);
   PlantSurface mesh;
-  mesh.Positions.reserve(vertices * 3);
-  mesh.Normals.reserve(vertices * 3);
-  mesh.Triangles.reserve(6 * demand.Sides * (demand.Segments + 1));
+  mesh.Positions.reserve(size->Vertices * 3);
+  mesh.Normals.reserve(size->Vertices * 3);
+  mesh.Triangles.reserve(size->Triangles * 3);
   for (size_t row = 0; row <= demand.Segments; ++row) {
     if (!AppendRing(
             mesh,
-            *axis,
-            SectionAt(*axis, static_cast<double>(row) / static_cast<double>(demand.Segments)),
+            axis,
+            SectionAt(axis, static_cast<double>(row) / static_cast<double>(demand.Segments)),
             demand.Sides)) {
       return std::unexpected("plant axis normal is not representable");
     }
   }
   SideTriangles(mesh, demand);
-  AppendCap(mesh, *axis, SectionAt(*axis, 0), demand.Sides, false);
-  AppendCap(mesh, *axis, SectionAt(*axis, 1), demand.Sides, true);
+  AppendCap(mesh, axis, SectionAt(axis, 0), demand.Sides, false);
+  AppendCap(mesh, axis, SectionAt(axis, 1), demand.Sides, true);
   if (!PlantSurfaceIsOriented(mesh)) {
     return std::unexpected("plant axis detail does not resolve the oriented surface");
   }

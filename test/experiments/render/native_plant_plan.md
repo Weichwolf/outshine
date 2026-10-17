@@ -64,7 +64,7 @@ TMPDIR=/tmp python3 test/experiments/render/native_plant_plan_reference.py \
 ```
 
 This proves native prepared-row consumption and bounded detail requests only.
-C++ recipe planning, serialization, profiled/cutout surfaces, cached LOD products,
+C++ recipe/plan persistence, profiled/cutout surfaces, selected cached LOD products,
 world selection, near/far coverage and Metal/Vulkan images/costs remain open.
 
 ## Native circular-axis surfaces
@@ -133,3 +133,19 @@ Original rejected attempt, successful command, source/binary/PNG hashes,
 computed counters and image remain in /tmp/outshine-plant-metal-2ab0d9ee7/.
 One offscreen frame is component evidence, not a complete product build, Places
 integration, timing/memory gate or world-quality proof.
+
+## Allocation-free surface measurement
+
+MeasurePlantAxisSurface and MeasurePlantBladeSurface expose the same parameter,
+regularity, subdivision and count checks used by their builders. They allocate
+no surface arrays. Product assembly can therefore total selected axes and used
+blade prototypes before construction; counts remain separate from instanced
+triangle references. The fixed reference still matches all original corners.
+
+## Prepared product persistence
+
+[Prepared native plant assets](prepared_plant_assets.md) describes the finished
+prototype/instance boundary, generic cache integration and actual fresh-process
+Metal comparison. That asset decodes without constructing PlantPlan or surfaces;
+its separate plan identity permits later detail refinement. It does not close
+recipe planning, world consumption or LOD/device acceptance.

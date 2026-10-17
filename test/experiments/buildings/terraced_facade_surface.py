@@ -6,12 +6,12 @@ from types import MappingProxyType
 
 import numpy as np
 import shapely
-from building_layout import rectangle
 from building_mesh import solid
 from building_plan import FLOOR_M
 from outshine_ref.buildings.modelling.faces import Face, compile_faces
 from outshine_ref.buildings.modelling.prism_union import frozen
 from outshine_ref.buildings.rooflight_panels import triangle_surface
+from terraced_facade_details import keepouts
 from terraced_facade_flat import windows as flat_windows
 from terraced_facade_prepare import positions
 
@@ -72,7 +72,7 @@ class Surfaces:
             self.quad_owners.append(owner)
 
 
-def wall(writer, mass, windows, storey_index, ring_index, edge_index, a, b):
+def wall(writer, mass, windows, storey_index, ring_index, edge_index, a, b, portals=()):
     storey = mass.storeys[storey_index]
     length = float(np.linalg.norm(b - a))
     tangent = (b - a) / length
@@ -85,6 +85,17 @@ def wall(writer, mass, windows, storey_index, ring_index, edge_index, a, b):
             w.bottom_m - storey.bottom_m,
             centre + w.width_m / 2,
             w.bottom_m + w.height_m - storey.bottom_m,
+        )
+        holes.append(tuple(hole.exterior.coords)[:-1])
+    for p in portals:
+        if p.storey != storey_index or p.edge != (ring_index, edge_index):
+            continue
+        centre = float((np.asarray(p.centre) - a) @ tangent)
+        hole = shapely.box(
+            centre - p.width_m / 2,
+            p.bottom_m - storey.bottom_m,
+            centre + p.width_m / 2,
+            p.bottom_m + p.height_m - storey.bottom_m,
         )
         holes.append(tuple(hole.exterior.coords)[:-1])
     if storey_index == 0:
@@ -114,8 +125,8 @@ def wall(writer, mass, windows, storey_index, ring_index, edge_index, a, b):
     )
 
 
-def accents(writer, mass, facade):
-    keepout = rectangle(mass.entry.centre, mass.entry.tangent, 1.30, 0.35, 0.60)
+def accents(writer, mass, facade, portals=()):
+    keepout = keepouts(mass, portals)
     for i, storey in enumerate(mass.storeys):
         if mass.kind != "cascade":
             continue
@@ -125,8 +136,8 @@ def accents(writer, mass, facade):
                 tangent = (b - a) / np.linalg.norm(b - a)
                 outward = np.array([tangent[1], -tangent[0]])
                 line = shapely.LineString([a + 0.10 * outward, b + 0.10 * outward])
-                if i == 0:
-                    line = line.difference(keepout)
+                if i in keepout:
+                    line = line.difference(keepout[i])
                 writer.segment(
                     line,
                     storey.bottom_m + 0.025,
@@ -144,8 +155,8 @@ def accents(writer, mass, facade):
             line = shapely.LineString(
                 [centre - 0.08 * tangent, centre + 0.08 * tangent]
             )
-            if w.storey == 0:
-                line = line.difference(keepout)
+            if w.storey in keepout:
+                line = line.difference(keepout[w.storey])
             s = mass.storeys[w.storey]
             writer.segment(line, s.bottom_m + 0.06, s.top_m - 0.06, 9, w.identifier)
 
@@ -202,7 +213,7 @@ def joined(meshes):
     }
 
 
-def compact(prepared):
+def compact(prepared, *, portals=()):
     mass, facade = prepared.local, prepared.facade
     writer = Surfaces()
     by_edge = {}
@@ -222,8 +233,9 @@ def compact(prepared):
                         ei,
                         a,
                         b,
+                        portals,
                     )
-    accents(writer, mass, facade)
+    accents(writer, mass, facade, portals)
     pad = shapely.from_wkb(mass.entry.landing_wkb).difference(
         shapely.from_wkb(mass.source_wkb)
     )

@@ -195,8 +195,8 @@ bool Valid(const PlantBlade &blade) {
 }
 }
 
-std::expected<PlantSurface, std::string_view>
-BuildPlantBladeSurface(const PlantBlade &blade, PlantBladeSurfaceDemand demand) {
+std::expected<PlantSurfaceSize, std::string_view>
+MeasurePlantBladeSurface(const PlantBlade &blade, PlantBladeSurfaceDemand demand) {
   if (!Valid(blade) || demand.Segments < kMinimumSegments || demand.Segments > kMaximumSegments ||
       demand.Across == 0 || demand.Across > kMaximumAcross) {
     return std::unexpected(
@@ -209,11 +209,22 @@ BuildPlantBladeSurface(const PlantBlade &blade, PlantBladeSurfaceDemand demand) 
   if (grid.Vertices() > demand.MaximumVertices || grid.Triangles() > demand.MaximumTriangles) {
     return std::unexpected("plant blade detail exceeds demand budget");
   }
+  return PlantSurfaceSize{.Vertices = grid.Vertices(), .Triangles = grid.Triangles()};
+}
+
+std::expected<PlantSurface, std::string_view>
+BuildPlantBladeSurface(const PlantBlade &blade, PlantBladeSurfaceDemand demand) {
+  const auto size = MeasurePlantBladeSurface(blade, demand);
+  if (!size) { return std::unexpected(size.error()); }
+  const Grid grid{.Segments = demand.Segments,
+                  .Across = demand.Across,
+                  .Petiole = blade.PetioleM > 0 && blade.BaseFill > 0,
+                  .CollapsedBase = blade.BaseFill == 0};
   PlantSurface mesh;
-  mesh.Positions.reserve(grid.Vertices() * 3);
-  mesh.Normals.reserve(grid.Vertices() * 3);
-  mesh.Texture.reserve(grid.Vertices() * 2);
-  mesh.Triangles.reserve(grid.Triangles() * 3);
+  mesh.Positions.reserve(size->Vertices * 3);
+  mesh.Normals.reserve(size->Vertices * 3);
+  mesh.Texture.reserve(size->Vertices * 2);
+  mesh.Triangles.reserve(size->Triangles * 3);
   for (size_t row = 0; row < grid.Rows(); ++row) {
     if (!AppendRow(mesh, blade, grid, row, false) ||
         (grid.Petiole && row == 1 && !AppendRow(mesh, blade, grid, row, true))) {

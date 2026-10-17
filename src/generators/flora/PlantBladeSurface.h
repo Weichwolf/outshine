@@ -22,5 +22,7 @@ struct PlantBladeSurfaceDemand {
 
 [[nodiscard]] std::expected<PlantSurface, std::string_view>
 BuildPlantBladeSurface(const PlantBlade &blade, PlantBladeSurfaceDemand demand);
+[[nodiscard]] std::expected<PlantSurfaceSize, std::string_view>
+MeasurePlantBladeSurface(const PlantBlade &blade, PlantBladeSurfaceDemand demand);
 }
 #endif
