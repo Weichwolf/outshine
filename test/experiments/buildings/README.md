@@ -1128,3 +1128,10 @@ metal signal. The corrected default retains shared distant front surfaces:
 [industrial_relief_signal.md](industrial_relief_signal.md) (#523), with actual
 full/omitted/projected comparisons and near/grazing negatives. Complete physical
 products remain available; general radiance/shadow/temporal LOD remains open.
+
+Actual provider-derived cooling-tower intakes, crossed supports, collector and
+upper rims: [cooling_tower.md](cooling_tower.md) (#526). Stable source programmes,
+independent connected physical unions, finite intake sweeps and full37-source
+comparisons accompany near/opposite/elevated1080p rasters. Further equipment,
+complete access/interiors, general special-family coverage and native cache/
+frame admission remain open.
