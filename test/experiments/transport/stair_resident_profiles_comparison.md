@@ -17,7 +17,7 @@ not duplicated in the prepared row ledger. The source decoder still reconstructs
 those rows during preparation; no decode-time saving is claimed.31of32axes are exactly original;
 the intentionally altered32nd axis is preserved, not snapped back or admitted as
 original. Existing actual-profile checks still reject changed/nonoriginal axes.
-109source and109installed controls pass, including the actual200-face original
+111source and111installed controls pass, including the actual200-face original
 cap fixture and wrong axes/coordinate frames/widths/owners, missing intervals,
 wrong recipe and missing/reordered sources. No native/library API changes.
 
@@ -69,3 +69,37 @@ the complete geometry rather than treating exact boundary predicate success as
 physical truth. It does not establish our metric bounds, profile result or algorithm.
 The already implemented shared_box alternative resolves this particular interface;
 no foreign code or new robust-Boolean implementation is adopted.
+
+
+## Independent prepared-product reader
+
+`stair_resident_profile_verify` replays the original recipe and compares every
+saved source ID, historical axis, width and recipe/body binding. It reads the
+original independently verified body and checks exact dtypes/shapes/bytes of all
+physical arrays, complete owner columns and original ground-facet identities.
+The current procedural profile catalog is also byte-compared with its Git blob
+at the original body producer commit, preventing a changed width catalog from
+silently reinterpreting historical input. This cold verification is separate
+from normal prepared consumers; it does not add source decoding to their path.
+
+Fresh source and installed readers onf11a39c1b both pass all32metadata rows.
+Prepared manifest SHA256
+`07748b37f9f1d563da71150c7c60bec0788d36b5ff79a6f30430543b02e2d4c2`;
+original body SHA256
+`e481187c5c96720b59505b0bea31992bd7c0dcdeb244b67a3b6fc7833e81c7a2`.
+Catalog SHA256
+`016c0fb56f819327c6c225fda06bfa362f0fa579f6cb14230b4f75955b886adf`.
+Metadata validity does not mean all32sources expose admissible complete new
+module profiles; the modified historical axis and physical collision remain
+explicitly unadmitted.111source/111installed controls and fresh actual-product
+negative smaller-width injection are the current control cohort.
+
+Physical detour work is now separate in #668. Two actual planar candidates both
+preserve the31original knots and clear all124piers by at least0.30m at2mwidth:
+a local two-knot proposal length951.819451m, versus a three-knot visibility path
+length951.805459m. The local proposal uses32Bmethod working arrays versus640B,
+zero versus28proposal intersection tests. One loaded-host observation is1.44ms
+versus3.45ms including the same124distance checks, excluding inputs/imports and
+unmeasured GEOS/internal allocations. These are planar proposals, not3D physical
+products or hardware guarantees. Source adaptation semantics, full body/terrain
+checks and coherent78-source reuse remain open; no route admission follows here.
