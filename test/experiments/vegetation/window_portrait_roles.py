@@ -10,6 +10,8 @@ def role_packets(selected, indices):
         )
     names, arrays = tuple(selected), [np.asarray(v) for v in selected.values()]
     size = len(arrays[0])
+    if size > 80000:
+        raise ValueError("complete view selection exceeds the window budget")
     if any(
         v.shape != (size,) or v.dtype.kind not in "iu" or np.any((v < 0) | (v >= 64))
         for v in arrays

@@ -7,6 +7,7 @@ from mathutils import Vector
 from preview_shadows import configure_preview
 from window_portrait_blender import bind_mesh, textures, weighted_material
 from window_portrait_geometry import planes, select_views
+from window_portrait_roles import role_packets
 
 VIEW = np.array([1.0, 0.0, 0.35]) / np.linalg.norm([1.0, 0.0, 0.35])
 
@@ -87,6 +88,17 @@ def bind_windows(
                 "identical complete camera/light view before merging required"
             )
     maps = textures(bank, directory)
+    if merge_matching:
+        selected = {"camera": camera_view, "sun": shadow_view}
+        for role, material, owners, indices in role_packets(selected, np.array([0])):
+            data = planes(window, bank, selected[role], indices, family)
+            surface = weighted_material(
+                f"same {role} window shader", directory, maps, material
+            )
+            obj = bind_mesh(f"requested {role} window", data, surface)
+            obj["vegetation_pass_role"] = material
+            obj["shadow_lights"] = {owner: True for owner in owners}
+        return
     for role, direction in (("camera", view), ("shadow", light)):
         if role == "shadow" and (not shadows or merge_matching):
             continue

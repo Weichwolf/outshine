@@ -100,6 +100,8 @@ class WindowRoleTests(unittest.TestCase):
                 role_packets(selected, indices)
         with self.assertRaises(ValueError):
             role_packets({"camera": np.array([64])}, np.array([0]))
+        with self.assertRaisesRegex(ValueError, "window budget"):
+            role_packets({"camera": np.zeros(80001, np.int64)}, np.array([], np.int64))
         self.assertEqual(role_packets(selected, np.array([], np.int64)), ())
 
 
