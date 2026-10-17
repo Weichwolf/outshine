@@ -11,7 +11,15 @@ from parent_profile_graph import ParentProfileGraph
 from spruce_growth_probe import cached_areas, internode_profile, measure
 
 
-def profiles(original, upper_angle, *, last=None, terminal_fraction=None, exponent=1.0):
+def profiles(
+    original,
+    upper_angle,
+    *,
+    last=None,
+    terminal_fraction=None,
+    exponent=1.0,
+    upper_bias=0.0,
+):
     recipe = copy.deepcopy(original)
     primary = recipe["nodes"][2]
     placement = primary["placement"]
@@ -21,9 +29,13 @@ def profiles(original, upper_angle, *, last=None, terminal_fraction=None, expone
         not np.isfinite([upper_angle, last, exponent]).all()
         or not 0.75 <= upper_angle <= 1.3
         or not old_last <= last <= 0.995
-        or not 0.7 <= exponent <= 1.1
+        or not 0.5 <= exponent <= 1.1
     ):
         raise ValueError("declared bounded upper-crown profile controls required")
+    if terminal_fraction is None and (exponent != 1 or upper_bias):
+        raise ValueError(
+            "explicit terminal fraction required for shape/density changes"
+        )
     inclination = next(p for key, p in recipe["inclinations"] if key == 2)
     lower = float(
         Profile(np.array(inclination["table"]), inclination["kind"]).evaluate(first)
@@ -52,12 +64,13 @@ def profiles(original, upper_angle, *, last=None, terminal_fraction=None, expone
             pattern["limit_groups"],
             recipe["seed"],
             0.35,
+            upper_bias=upper_bias,
         )
     return recipe
 
 
-def variants(original):
-    return [
+def variants(original, *, density=False):
+    cases = [
         ("control", copy.deepcopy(original), {}),
         *[
             (
@@ -83,6 +96,56 @@ def variants(original):
             for power in (1.0, 0.9, 0.8, 0.7)
         ],
     ]
+    if density:
+        cases += [
+            (
+                f"density-{bias}-{power}",
+                profiles(
+                    original,
+                    1.05,
+                    last=0.995,
+                    terminal_fraction=0.02,
+                    exponent=power,
+                    upper_bias=bias,
+                ),
+                {
+                    "upper_inclination_rad": 1.05,
+                    "last": 0.995,
+                    "terminal_length_fraction": 0.02,
+                    "length_exponent": power,
+                    "upper_density_bias": bias,
+                },
+            )
+            for bias in (0.5, 1.0, 1.5)
+            for power in (0.9, 0.8, 0.7, 0.6)
+        ]
+        cases += [
+            (
+                f"density-{bias}-{power}",
+                profiles(
+                    original,
+                    1.05,
+                    last=0.995,
+                    terminal_fraction=0.02,
+                    exponent=power,
+                    upper_bias=bias,
+                ),
+                {
+                    "upper_inclination_rad": 1.05,
+                    "last": 0.995,
+                    "terminal_length_fraction": 0.02,
+                    "length_exponent": power,
+                    "upper_density_bias": bias,
+                },
+            )
+            for bias, powers in (
+                (0.5, (0.78, 0.76, 0.74)),
+                (1.0, (0.68, 0.66, 0.64)),
+                (1.5, (0.58, 0.56, 0.54)),
+            )
+            for power in powers
+        ]
+    return cases
 
 
 def primary_summary(recipe):
@@ -113,7 +176,7 @@ def primary_summary(recipe):
     }
 
 
-def probe(product, catalog, needles, output):
+def probe(product, catalog, needles, output, *, density=False):
     original = json.loads((product / "execution/graph.json").read_text())
     plant = json.loads((product / "plant-recipe.json").read_text())
     metadata = json.loads((catalog / "catalog.json").read_text())
@@ -121,7 +184,7 @@ def probe(product, catalog, needles, output):
     target = plant["authoring"]["target_area_m2"]
     output.mkdir(parents=True, exist_ok=False)
     rows = []
-    for name, recipe, settings in variants(original):
+    for name, recipe, settings in variants(original, density=density):
         summary = primary_summary(recipe)
         row = {"name": name, "settings": settings, "primary": summary}
         try:
@@ -142,5 +205,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("plant-product", "catalog", "needles", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--density", action="store_true")
     args = parser.parse_args()
-    probe(args.plant_product, args.catalog, args.needles, args.output)
+    probe(
+        args.plant_product,
+        args.catalog,
+        args.needles,
+        args.output,
+        density=args.density,
+    )

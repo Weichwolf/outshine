@@ -155,6 +155,7 @@ def build(graph_path, plant, catalog, needles, authoring_path, output):
         "crown_last_parameter",
         "terminal_length_fraction",
         "crown_length_exponent",
+        "upper_density_bias",
     )
     recipe = {
         "version": "experimental-parent-needled-2",

@@ -1,18 +1,64 @@
 """Independent profile-only changes and full interval/control preservation."""
 
 import copy
+import importlib.util
 import json
+import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 from outshine_ref.vegetation import DistancePattern, Profile
 from parent_profile_graph import ParentProfileGraph
 from spruce_growth_checks import control
+from spruce_growth_probe import internode_profile
 from upper_crown_profiles import profiles, variants
 
 
 class UpperCrownTests(unittest.TestCase):
+    def test_density_bias_preserves_legacy_tables_and_complete_interval(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-vegetation-profile-", dir="/tmp"
+        ) as temp:
+            path = Path(temp) / "reference.py"
+            path.write_bytes(
+                subprocess.check_output(
+                    [
+                        "git",
+                        "show",
+                        "1f6bf7674:test/experiments/vegetation/spruce_growth_probe.py",
+                    ]
+                )
+            )
+            spec = importlib.util.spec_from_file_location("old_spruce_profile", path)
+            old = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(old)
+        for seed in (1, 815):
+            args = (33.25, 0.118, 0.995, 36, seed, 0.35)
+            before = old.internode_profile(*args)
+            np.testing.assert_array_equal(before, internode_profile(*args))
+            counts = []
+            for bias in (0, 0.5, 1.0):
+                spacing = internode_profile(*args, upper_bias=bias)
+                self.assertTrue(np.all(np.array(spacing) > 0))
+                pattern = DistancePattern(
+                    spacing=Profile(np.array(spacing)), whorl_size=5, limit_groups=36
+                )
+                rows = pattern.tables(np.array((33.25,)), 0.118, 0.995, max_sites=180)[
+                    0
+                ]
+                self.assertEqual(rows.shape, (180, 2))
+                self.assertLess(abs(rows[:, 0].min() - 0.118) * 33.25, 1e-9)
+                self.assertEqual(rows[:, 0].max(), 0.995)
+                counts.append(int((rows[:, 0] >= 0.75).sum()))
+            self.assertLess(counts[0], counts[1])
+            self.assertLess(counts[1], counts[2])
+        for bias in (-1, 1.6, float("nan")):
+            with self.assertRaises(ValueError):
+                internode_profile(33.25, 0.118, 0.995, 36, 815, 0.35, upper_bias=bias)
+
     def test_inclination_only_preserves_lengths_sites_origins_and_old_input(self):
         graph, *_ = control()
         original = graph.recipe()

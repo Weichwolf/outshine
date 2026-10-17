@@ -13,8 +13,15 @@ from outshine_ref.vegetation.curve_frame import arc_frame
 from parent_profile_graph import ParentProfileGraph
 
 
-def plot(inputs, output):
+def plot(inputs, output, names=None):
     rows = json.loads((inputs / "preflight.json").read_text())
+    rows = (
+        rows[:8]
+        if names is None
+        else [next(row for row in rows if row["name"] == name) for name in names]
+    )
+    if len(rows) != 8:
+        raise ValueError("exactly eight declared primary diagrams required")
     fig, panels = plt.subplots(2, 4, figsize=(16, 9), dpi=160, sharex=True, sharey=True)
     right = np.array((70.0, 18, 0))
     right /= np.linalg.norm(right)
@@ -58,5 +65,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--names", nargs=8)
     args = parser.parse_args()
-    plot(args.inputs, args.output)
+    plot(args.inputs, args.output, args.names)
