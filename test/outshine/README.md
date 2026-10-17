@@ -34,6 +34,8 @@ Choose checks by the changed boundary:
 | Assets, codecs, materials, animation data | `make suite SUITE=outshine/src/content` or the affected subtree |
 | Scenario parsing and layering | `make suite SUITE=outshine/src/scenario/ScenarioRead` or `outshine/src/scenario/ScenarioLayer` |
 | CPU render-geometry preparation | `make suite SUITE=outshine/src/render/Shape` |
+| Shader file framing | `make suite SUITE=outshine/src/render/device/SpirvFile` |
+| Species files and numeric definitions | `make suite SUITE=outshine/src/generators/flora/Species` or `outshine/src/generators/flora/TreeSpecies` |
 | Engine file/publication integration | `make suite SUITE=outshine/src/engine/ScenarioFiles` |
 | Memory and decoder boundaries | `make test-sanitizers SUITE=outshine/src/content/assets/GeometryAsset` |
 | Concurrent execution and ownership | `make test-races SUITE=outshine/src/base/io/Tasks` |
