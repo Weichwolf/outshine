@@ -7,6 +7,7 @@ from itertools import pairwise
 from unittest.mock import patch
 
 import numpy as np
+from fine_hierarchy_coverage import common_envelope, project
 from fine_hierarchy_execute import execute
 from outshine_ref.vegetation import Profile
 from parent_profile_graph import ParentProfileGraph
@@ -148,6 +149,39 @@ class FineHierarchyTests(unittest.TestCase):
         for spacing in (0, float("nan"), 0.2):
             with self.assertRaises(ValueError):
                 branching(self.original, spacing)
+
+    def test_shared_envelope_uses_both_products(self):
+        a = {"origins": np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])}
+        b = {"origins": np.array([[1.0, 1.0, 0.0]])}
+        mask = common_envelope(
+            [a, b], np.eye(3), np.array([0.0, 0.0]), np.array([1.0, 1.0]), 4
+        )
+        self.assertTrue(mask.all())
+        triangle = common_envelope(
+            [a], np.eye(3), np.array([0.0, 0.0]), np.array([1.0, 1.0]), 4
+        )
+        self.assertTrue(triangle[0, 0])
+        self.assertFalse(triangle[-1, -1])
+
+    def test_projection_keeps_leaf_weight_distinct_from_total_alpha(self):
+        values = np.zeros((3, 9))
+        values[:, 3] = [0.5, 1.0, 0.25]
+        values[:, 7] = [0.5, 0.0, 0.2]
+        fragments = np.array([0, 0, 1]), np.array([2.0, 1.0, 1.0]), values
+        with patch("fine_hierarchy_coverage.window_fragments", return_value=fragments):
+            image, cost = project(
+                {},
+                [],
+                np.array([1.0, 0.0, 0.0]),
+                np.eye(3),
+                np.zeros(2),
+                np.ones(2),
+                size=2,
+                samples=1,
+            )
+        self.assertEqual(cost["fragments"], 3)
+        np.testing.assert_allclose(image[..., 3], [[1.0, 0.25], [0.0, 0.0]])
+        np.testing.assert_allclose(image[..., 7], [[0.5, 0.2], [0.0, 0.0]])
 
 
 if __name__ == "__main__":
