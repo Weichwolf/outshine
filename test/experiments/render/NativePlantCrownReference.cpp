@@ -1,13 +1,16 @@
 #include "PlantCrownPlan.h"
+#include "PlantCrownAsset.h"
 #include "PlantGrowth.h"
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <ratio>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -22,10 +25,21 @@ void WriteLeaves(const std::vector<outshine::Generators::PlantCrownLeaf> &group)
     std::cout << ' ' << leaf.Pose.StemParameter << '\n';
   }
 }
+
+std::expected<outshine::Generators::PlantCrownPlan, std::string_view>
+Reload(const outshine::Generators::PlantCrownPlan &plan) {
+  constexpr size_t kEncodedMost = size_t{16} * 1024 * 1024;
+  const auto encoded = outshine::Generators::EncodePlantCrownPlan(plan, kEncodedMost);
+  if (!encoded) { return std::unexpected(encoded.error()); }
+  return outshine::Generators::DecodePlantCrownPlan(*encoded, kEncodedMost);
 }
 
-int main() {
+}
+
+int main(int argc, char *const *argv) {
   using namespace outshine::Generators;
+  const bool roundtrip = argc == 2 && std::string_view(argv[1]) == "--roundtrip";
+  if (argc != 1 && !roundtrip) { return 2; }
   size_t nodes = 0;
   size_t variants = 0;
   size_t requests = 0;
@@ -60,6 +74,10 @@ int main() {
   }
   const double indexMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+  if (roundtrip) {
+    crown = Reload(*crown);
+    if (!crown) { return 3; }
+  }
   const auto &summary = crown->Summarize();
   std::cout << std::setprecision(std::numeric_limits<double>::max_digits10) << "S " << summary.Nodes
             << ' ' << summary.Tips << ' ' << summary.Shoots << ' ' << summary.Leaves << ' '
