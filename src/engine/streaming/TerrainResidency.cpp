@@ -251,9 +251,6 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
     if (published.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
     return std::unexpected(published.error().Message);
   }
-  FinalizeMs_ =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - finalizeAt)
-          .count();
   RetirePages();
   std::ranges::sort(Held_, [](const Held &left, const Held &right) {
     if (left.Tile.Zoom != right.Tile.Zoom) { return left.Tile.Zoom < right.Tile.Zoom; }
@@ -262,6 +259,9 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
   });
   std::string error;
   if (!ReindexPages(error)) { return std::unexpected(std::move(error)); }
+  FinalizeMs_ =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - finalizeAt)
+          .count();
   Publishing_ = false;
   return true;
 }
