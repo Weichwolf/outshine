@@ -258,6 +258,8 @@ TestProfile() {
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
     outshine/src/base/*) printf '%s' 'profile/base' ;;
     outshine/src/content/*) printf '%s' 'profile/content' ;;
+    outshine/src/world/*) printf '%s' 'profile/world' ;;
+    outshine/src/host/*) printf '%s' 'profile/host' ;;
     outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
     outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
     outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
@@ -288,6 +290,8 @@ LayerIncludes() {
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
     profile/base) GroupIncludes src/base ;;
     profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
+    profile/host) GroupIncludes src/host; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
+    profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/scenario) GroupIncludes src/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
@@ -363,6 +367,8 @@ LayerLink() {
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/scenario|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
+    profile/host) LayerLink profile/world ;;
+    profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
     profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
@@ -407,6 +413,8 @@ LayerGroups() {
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     profile/base) SubtreeGroups src/base ;;
     profile/content) SubtreeGroups src/base src/content ;;
+    profile/world) SubtreeGroups src/base src/content src/world ;;
+    profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
