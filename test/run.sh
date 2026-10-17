@@ -718,6 +718,24 @@ BuildGroup() {
   return 0
 }
 
+BuildCaseGroup() {
+  caseGroupKey=$(printf '%s\0' "$$" "$OBJDIR" "$1" "$CXX" "$CXXSTD" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin) || return 1
+  caseGroupVariable=CASE_GROUP_$caseGroupKey
+  eval 'caseGroupReady=${'"$caseGroupVariable"'+yes}'
+  if [ "$caseGroupReady" = yes ]; then
+    eval 'OBJECTS="$OBJECTS${'"$caseGroupVariable"'}"'
+    return 0
+  fi
+  caseGroupPrevious=$OBJECTS
+  OBJECTS=""
+  if ! BuildGroup "$1"; then
+    OBJECTS=$caseGroupPrevious
+    return 1
+  fi
+  eval "$caseGroupVariable=\$OBJECTS"
+  OBJECTS="$caseGroupPrevious$OBJECTS"
+}
+
 RunWithTimeout() {
   binary=$1
   log=$2
@@ -1605,7 +1623,7 @@ if [ "$AUDITLINK" = 1 ]; then
         # set) -- build the GROUP once so the audit reads exactly what it names
         if [ "$groupBuilt" = no ]; then
           keptObjects=$OBJECTS
-          if ! BuildGroup "$group"; then
+          if ! BuildCaseGroup "$group"; then
             printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$group"
             stragglers=refused
             break
@@ -2147,7 +2165,7 @@ for testSource in $TESTS; do
   built=yes
   : >"$log"
   for group in $groups; do
-    BuildGroup "$group" >>"$log" 2>&1 || built=no
+    BuildCaseGroup "$group" >>"$log" 2>&1 || built=no
   done
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
@@ -2200,7 +2218,7 @@ for testSource in $TESTS; do
     sanitisedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-sanitised.log
     : >"$sanitisedLog"
     for group in $groups; do
-      BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
+      BuildCaseGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
     done
     sanitisedBinary=$plainBinary.$sanitizerName
     if [ "$built" = yes ]; then
@@ -2231,7 +2249,7 @@ for testSource in $TESTS; do
     validatedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-validated.log
     : >"$validatedLog"
     for group in $groups; do
-      BuildGroup "$group" >>"$validatedLog" 2>&1 || built=no
+      BuildCaseGroup "$group" >>"$validatedLog" 2>&1 || built=no
     done
     validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
     if [ "$built" = yes ]; then

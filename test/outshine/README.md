@@ -67,6 +67,9 @@ The optional `OUTSHINE_GLO30_RASTER_PROBE` live-source check runs with
 
 Source-closure audits inspect each distinct resolved source-group list once per
 run. Test discovery and execution still visit every case and instrumentation arm.
+Within that frozen invocation, cases share the already built component objects
+for the same compiler/options/instrumentation profile. A new invocation validates
+its inputs through ccache again; generated inputs and checkout sources stay frozen.
 
 Shader builds use glslang's actual include dependencies per variant. A missing
 dependency receipt rebuilds that artifact; removed includes are rescanned without
