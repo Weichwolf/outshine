@@ -27,6 +27,7 @@ SOURCES = tuple(
 INCLUDES = (
     "include",
     "src",
+    "src/scenario",
     "src/render",
     "src/render/stages",
     "src/render/device",
