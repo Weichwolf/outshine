@@ -1,0 +1,27 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) readonly buffer Points { uvec4 values[]; } points;
+layout(std430, set = 1, binding = 0) writeonly buffer Result { float values[]; } result;
+layout(std140, set = 2, binding = 0) uniform Camera {
+  uvec4 grid;
+  vec4 depth;
+  uvec4 count;
+} camera;
+#include "local_light_world_position.glsl"
+void main() {
+  uint at = gl_GlobalInvocationID.x;
+  if (at >= camera.count.x) { return; }
+  uvec4 point = points.values[at];
+  uint axis = point.z;
+  ivec3 cell = ivec3(camera.grid.xyz);
+  cell[axis] = int(point.y);
+  ivec3 eyeCell = ivec3(camera.grid.xyz);
+#if WORLD_BAD_CAMERA
+  eyeCell.x += 1;
+#endif
+  vec3 local = camera.depth.yzw;
+  local[axis] = uintBitsToFloat(point.x);
+  result.values[at] = worldRelativePosition(cell, local, eyeCell,
+                                            camera.depth.yzw, camera.depth.x)[axis] - uintBitsToFloat(point.w);
+}

@@ -31,6 +31,7 @@ constexpr std::array<float, 4> kDepths{25, 250, 500, 5000};
 constexpr std::array<const char *, 3> kMethods{"brute", "tiles", "log"};
 constexpr double kNanosecondsPerMillisecond = 1'000'000;
 constexpr size_t kMaximumInputBytes = size_t{32} * 1024 * 1024;
+constexpr uint32_t kCoordinateThreads = 64;
 
 struct alignas(16) ClusterFrame {
   std::array<uint32_t, 4> Grid;
@@ -92,7 +93,8 @@ struct Inputs {
     Probe = Parameter<ProbeFrame>(folder + "/probe.bin");
     for (size_t i = 0; i < kMethods.size(); ++i) {
       Frames[i] = Parameter<ClusterFrame>(folder + "/" + kMethods[i] + "-frame.bin");
-      CHECK(Frames[i].Viewport[2] == float(kWidth) && Frames[i].Viewport[3] == float(kHeight),
+      CHECK(Frames[i].Viewport[2] == static_cast<float>(kWidth) &&
+                Frames[i].Viewport[3] == static_cast<float>(kHeight),
             "all methods retain the full 1920 by 1080 profile");
     }
     auto commands = Require(device.Begin());
@@ -119,8 +121,8 @@ struct Inputs {
                  timing.ElapsedNanoseconds / kNanosecondsPerMillisecond);
   }
 
-  [[nodiscard]] std::vector<Binding> Bindings(const GraphicsPipeline &pipeline,
-                                              size_t method) const {
+  template <typename PipelineType>
+  [[nodiscard]] std::vector<Binding> Bindings(const PipelineType &pipeline, size_t method) const {
     const std::array available{
         Binding{.Set = 2,
                 .Slot = 0,
@@ -134,8 +136,15 @@ struct Inputs {
         Binding{.Set = 3, .Slot = 5, .Value = Uniform{std::as_bytes(std::span(&Probe, 1))}}};
     std::vector<Binding> result;
     for (const auto &expected : pipeline.Layout().Bindings) {
+      const auto &resource = [](const auto &value) -> const auto & {
+        if constexpr (requires { value.Resource; }) {
+          return value.Resource;
+        } else {
+          return value;
+        }
+      }(expected);
       for (const auto &binding : available) {
-        if (binding.Set == expected.Resource.Set && binding.Slot == expected.Resource.Slot) {
+        if (binding.Set == resource.Set && binding.Slot == resource.Slot) {
           result.push_back(binding);
         }
       }
@@ -143,6 +152,43 @@ struct Inputs {
     CHECK(result.size() == pipeline.Layout().Bindings.size(),
           "every reflected binding has its actual resource");
     return result;
+  }
+};
+
+struct DrawSample {
+  size_t Method = 0, Plane = 0;
+};
+
+struct CoordinateUpdate {
+  size_t Map = 0;
+  int Origin = 0;
+};
+
+struct CoordinatePass {
+  std::unique_ptr<ComputePipeline> State;
+  std::array<int, 2> Origins{-1, -1};
+  bool Motion = false, Stale = false;
+  uint32_t Dispatches = 0;
+
+  [[nodiscard]] std::optional<CoordinateUpdate>
+  Record(Commands &commands, const Inputs &inputs, DrawSample sample) const {
+    if (!State) { return std::nullopt; }
+    const size_t map = sample.Method == 2 ? 1 : 0;
+    const int origin =
+        Motion && sample.Plane > 0 && sample.Plane < 3 ? static_cast<int>(sample.Plane) : 0;
+    const int key = Stale ? 0 : origin;
+    if (Origins[map] == key) { return std::nullopt; }
+    const auto bindings = inputs.Bindings(*State, sample.Method);
+    const auto count = static_cast<uint32_t>(inputs.Lighting.Count[0]);
+    Require(commands.Dispatch(
+        *State, bindings, {.X = (count + kCoordinateThreads - 1) / kCoordinateThreads}));
+    return CoordinateUpdate{.Map = map, .Origin = key};
+  }
+
+  void Accept(const std::optional<CoordinateUpdate> &update) {
+    if (!update) { return; }
+    Origins[update->Map] = update->Origin;
+    ++Dispatches;
   }
 };
 
@@ -181,6 +227,7 @@ void Capture(Device &device, Texture &image, const std::string &path) {
 void Run(Device &device,
          const std::array<const GraphicsPipeline *, 3> &pipelines,
          Inputs &inputs,
+         CoordinatePass &coordinates,
          const std::string &folder,
          uint32_t iterations) {
   auto image =
@@ -196,6 +243,8 @@ void Run(Device &device,
         inputs.Probe.Control[2] = kDepths[plane];
         const auto bindings = inputs.Bindings(*pipelines[method], method);
         auto commands = Require(device.Begin());
+        const auto update =
+            coordinates.Record(*commands, inputs, {.Method = method, .Plane = plane});
         Require(commands->BeginRenderPass({.Colours = targets, .Depth = std::nullopt}));
         Require(commands->Draw({.State = {.Pipeline = pipelines[method],
                                           .Bindings = bindings,
@@ -205,14 +254,17 @@ void Run(Device &device,
                                 .Range = {.Count = 3}}));
         Require(commands->EndRenderPass());
         const auto done = Finish(device, std::move(commands));
+        coordinates.Accept(update);
         const auto timing = Require(device.SubmissionGpuTime(done));
         CHECK(std::isfinite(timing.ElapsedNanoseconds) && timing.ElapsedNanoseconds > 0,
-              "the render-only submission has a real finite GPU timestamp interval");
-        std::println(R"({{"method":"{}","plane_m":{},"iteration":{},"gpu_ms":{}}})",
-                     kMethods[method],
-                     kDepths[plane],
-                     iteration,
-                     timing.ElapsedNanoseconds / kNanosecondsPerMillisecond);
+              "the complete optional-coordinate-plus-render submission has a real GPU interval");
+        std::println(
+            R"({{"method":"{}","plane_m":{},"iteration":{},"gpu_ms":{},"coordinate_dispatch":{}}})",
+            kMethods[method],
+            kDepths[plane],
+            iteration,
+            timing.ElapsedNanoseconds / kNanosecondsPerMillisecond,
+            update.has_value());
         if (iteration + 1 == iterations) {
           Capture(device,
                   *image,
@@ -221,11 +273,19 @@ void Run(Device &device,
       }
     }
   }
+  std::println(R"({{"coordinate_dispatches":{},"camera_motion":{},"stale_control":{}}})",
+               coordinates.Dispatches,
+               coordinates.Motion,
+               coordinates.Stale);
 }
 }
 
 int main(int argc, char **argv) {
-  if (argc != 8) { return 2; }
+  if (argc != 8 && argc != 11) { return 2; }
+  if (argc == 11 && ((std::string(argv[9]) != "0" && std::string(argv[9]) != "1") ||
+                     (std::string(argv[10]) != "0" && std::string(argv[10]) != "1"))) {
+    return 2;
+  }
   uint32_t iterations = 0;
   const std::string repeat = argv[6];
   const auto parsed = std::from_chars(repeat.data(), repeat.data() + repeat.size(), iterations);
@@ -244,6 +304,15 @@ int main(int argc, char **argv) {
   auto brute = Pipeline(*device, argv[1], argv[2]);
   auto listed = Pipeline(*device, argv[1], argv[3]);
   Inputs inputs(*device, argv[4]);
-  Run(*device, {brute.get(), listed.get(), listed.get()}, inputs, argv[5], iterations);
+  CoordinatePass coordinates;
+  if (argc == 11) {
+    coordinates.State = Require(device->CreateComputePipeline(Spirv(argv[8])));
+    coordinates.Motion = std::string(argv[9]) == "1";
+    coordinates.Stale = std::string(argv[10]) == "1";
+    const std::array block{kCoordinateThreads, 1u, 1u};
+    CHECK(coordinates.State->Layout().LocalSize == block,
+          "the coordinate workgroup matches its host dispatch");
+  }
+  Run(*device, {brute.get(), listed.get(), listed.get()}, inputs, coordinates, argv[5], iterations);
   return Report();
 }
