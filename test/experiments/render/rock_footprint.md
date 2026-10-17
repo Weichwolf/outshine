@@ -183,3 +183,49 @@ are under `/tmp/outshine-material-rock-current-421fc62b9/`. Current Koerbersee
 frames pass their budget; complete warm loading and the two mandatory density
 counterchecks remain open. #386 stays Draft for these concrete checks. I merge
 it myself after acceptance; no prior Master review is required.
+
+## Matched newer world counterchecks
+
+The three production shaders remain byte-identical to62a3e340b/8477bad3d.
+The independently built native43996faf5 includes #400/#439; no old road-profile
+failure blocks the two density pictures now. This is a matching frozen native
+integration package, not current-master native or Metal/A18 acceptance. The
+separate freshly built current-productee30da26e retains its SDL submission path.
+
+Native GroundPipelines consumes both groundLit and groundPatchLit. An initial
+private21-fragment port left patches unchanged; its image/cost result is rejected
+as a full filter proof and retained explicitly as a partial-control counterexample.
+The corrected port changes all42 fragments;475 other native SPIR-V files remain
+exact. The current-product port changes21/491, preserving470. All63 full resource
+layout pairs match and63 MSL2.3 artifacts are generated, not Metal-executed.
+The same omission in the common diagnostic runner is fixed by #653 /PR #654.
+
+Identical1920x1080/60, fill0.6, scene/camera/time/sight/catalogues;60frames/360deg,
+same reported triangles23500/4239124/742615 and zero bare tiles. Native before/after:
+
+| Place | CPU p99 ms | GPU max ms | Whole process ms |
+|---|---:|---:|---:|
+| Koerbersee |10.7031/10.4328|8.432800/8.459328|7776.76/8628.18|
+| Tokyo image preparation |10.4005/8.8070|6.616480/6.572096|17693.29/18445.57|
+| CentralPark |14.4644/8.0375|7.089056/7.061408|8380.34/8380.31|
+
+All native GPU queries60/60, zero unavailable. Whole-process intervals include
+startup, assembly, turn and export; they are upper bounds on loading, not load-only
+times. Nonisolated single pairs establish no speedup. Koerbersee/CentralPark finish
+within the actual10s process bound; Tokyo fails both actual10s attempts during
+structure-bakes. Its separately labelled120s image preparation reports preload
+13.168/13.411s. CentralPark's original measured turn1005.59ms also remains red.
+
+All five native PDF pages, including the dated reference and identical crops,
+are optically opened. Koerbersee retains more local crevices:459054pixels change,
+189703 above1LSB, maximum102LSB; the maximum-change neighbourhood is inspected.
+Large terrain/vegetation/distribution deficits remain. Fresh CPU reference86cases
+and1345 independent convolution checks pass; no full-BRDF/normal-variance proof.
+
+The three current-product PDF pairs are also optically opened. Its CPU p99 with
+the filter is27.43/71.28/31.07ms; GPU timestamps are unavailable. Koerbersee's10s
+attempt fails before frames, separate120s images do not clear that failure.
+No extra frames, content reduction, raised budget or green overall gate follows.
+Raw commands/hashed packages, all actual failures, original PNGs, PDFs and pixel
+reports remain under `/var/tmp/outshine-material-rock-world-598ace992/`;
+current CPU references under `/tmp/outshine-material-rock-cpu-598ace992/`.
