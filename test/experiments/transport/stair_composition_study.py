@@ -7,12 +7,11 @@ import json
 import resource
 import time
 from pathlib import Path
-from unittest.mock import patch
 
-import numpy as np
 import shapely
 from camera_height_inputs import digest
 from stair_composition_boundary import GENERAL_UNION, equal_coverage, oriented_equal
+from stair_composition_scope import composition
 from stair_module_experiment import write_json
 from stair_patch_inputs import load_prepared
 from stair_terrain_experiment import frozen
@@ -33,22 +32,16 @@ def inputs(products):
         or digest(products / "terrain/patches.json") != resident["terrain_sha256"]
     ):
         raise ValueError("original prepared terrain binding changed")
-    captured = []
-
-    def merge(polygons):
-        captured.append(np.asarray(polygons, object))
-        return GENERAL_UNION(polygons)
-
-    with patch.object(shapely, "union_all", merge):
+    pairs = []
+    with composition("general", [], captured=pairs):
         view, manifest = load_prepared(products / "terrain")
     if (
         manifest["frame"] != resident["frame"]
         or manifest["source_ids"] != resident["source_ids"]
     ):
         raise ValueError("original prepared sources or frame changed")
-    if len(captured) != 2 * (len(view.patches) - 1):
-        raise ValueError("two original region unions per actual replacement required")
-    pairs = list(zip(captured[::2], captured[1::2], strict=True))
+    if len(pairs) != len(view.patches) - 1:
+        raise ValueError("one original region pair per actual replacement required")
     sha = hashlib.sha256()
     for before, after in pairs:
         for polygons in (before, after):

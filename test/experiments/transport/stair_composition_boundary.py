@@ -2,6 +2,7 @@
 
 import numpy as np
 import shapely
+from outshine_ref.geometry.surface_patches._field import _same_coverage
 
 GENERAL_UNION = shapely.union_all
 
@@ -33,7 +34,10 @@ def oriented_equal(before, after):
 
 
 def equal_coverage(before, after, method):
+    if method == "coverage":
+        return bool(_same_coverage(before, after))
     if method == "oriented" and oriented_equal(before, after):
         return True
-    merge = shapely.coverage_union_all if method == "coverage" else GENERAL_UNION
-    return bool(merge(before).symmetric_difference(merge(after)).area <= 1e-7)
+    return bool(
+        GENERAL_UNION(before).symmetric_difference(GENERAL_UNION(after)).area <= 1e-7
+    )
