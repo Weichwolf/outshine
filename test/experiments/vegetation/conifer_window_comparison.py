@@ -24,7 +24,10 @@ def shoot_sources(species, whole, models):
     recipe = json.loads((directory / "whole-plan.json").read_text())
     plant = NeedledPlant.from_recipe(recipe)
     catalog, banks = load_catalog(whole / species / "catalog")
-    windows = plan_windows(plant, catalog)
+    settings = json.loads((whole / species / "catalog/source.json").read_text()).get(
+        "window_settings", {}
+    )
+    windows = plan_windows(plant, catalog, **settings)
     axis = plant.wood.axis(tuple(source["axis_path"]))
     selected = windows["axis_ids"] == axis.id
     windows = {key: value[selected] for key, value in windows.items()}

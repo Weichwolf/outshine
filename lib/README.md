@@ -365,6 +365,34 @@ Die botanischen Sommerproben für vier Schweizer/europäische Nadelgehölze steh
 bei [#131](https://github.com/Weichwolf/outshine/issues/131). Kronendichte,
 entfernungsabhängige Darstellung, reife/Jahresformen und botanische Freigabe sind offen.
 
+`AxisLevel.radius_parent_ratio` ergänzt ausdrücklich begrenzte Kindradien für
+`branching-plant-4`: Der tatsächliche Basisradius ist das Minimum aus nominalem
+Basisradius und Ratio × tatsächlichem Elternradius am Ansatz. Das nominale
+Tip/Base-Verhältnis bleibt erhalten. Wurzelachsen haben keinen Elternmodus;
+nach einem adaptiven Level müssen Nachfolger ihre Ratio ausdrücklich setzen.
+Adaptive v4-Level erlauben bis zu 256 Geschwister, damit reife Quirle nicht an
+der alten 64er-Formprobe scheitern. Unveränderte Level behalten 64 als Grenze.
+`AxisState.path_capacity` ist dafür ausdrücklich 256; der Default bleibt 64.
+`PlantPlan.radii(path)` liefert die tatsächlichen Radien in Metern. `radius_limits`
+liefert konservative, unveränderliche Basisradius-Grenzen je Ordnung/Slot ohne
+Achsenplatzierung; auch Needle-Slenderness wird davor geprüft. Tabellen,
+Holzflächen und Nadelplatzierung verwenden dieselben tatsächlichen Radien.
+v2/v3-Rezepte, Identitäten und Default-Arrays bleiben erhalten; diese Versionen
+dürfen das neue Feld nicht einschleusen. Der Modus verändert weder Achslängen
+noch physische Organmaße oder IDs/Counts. Pipe-Flusserhaltung und reife
+Populationskalibrierung folgen daraus nicht. Vertrag und Vergleich:
+[#172](https://github.com/Weichwolf/outshine/issues/172).
+
+`NeedledPlant.area_summary(unit_areas_m2)` zählt vollständige Varianten und
+erwartete physische Organfläche ohne Achsen-/Nadelplatzierung. Der Aufrufer
+liefert pro Variante eine positive Fläche in m² samt eigener Flächenkonvention.
+Globale ID/Seed-Zyklen bleiben exakt; skalare uniforme Größenvariation liefert
+den Faktor `1 + variation²/3`. Das Ergebnis hält eigene skalare Werte, Counts
+und erwartete Flächen je Ordnung. Es ist weder beobachtete Einzelpflanzenfläche
+noch Sichtdeckung. Die Nadelprobe verwendet halbe geschlossene Prototypfläche
+und eine deklarierte Referenz-Kronenfläche, keine gemessene Bestands-LAI:
+[#179](https://github.com/Weichwolf/outshine/issues/179).
+
 Die Vegetationsbibliothek exportiert `vegetation.Needle`: geschlossene, spitze
 Organflächen mit elliptischen, rhombischen oder Halbkreis-/Kreissektorquerschnitten,
 kontrollierter Biegung/Twist und analytischen Normalen. Gemeinsame Nah-/Grobpunkte

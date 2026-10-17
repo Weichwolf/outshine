@@ -269,6 +269,15 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   [Wald-Föhre](https://www.infoflora.ch/de/flora/pinus-sylvestris.html),
   [Arve](https://www.infoflora.ch/de/flora/pinus-cembra.html),
   [Europäische Lärche](https://www.infoflora.ch/de/flora/larix-decidua.html).
+- **Leaf area index of boreal forests: Theory, techniques, and measurements**,
+  Chen et al., JGR 1997, DOI [10.1029/97JD01107](https://doi.org/10.1029/97JD01107).
+  [Autorenkopie](https://professorpaul.com/publications/chen_et_al_1997.pdf),
+  [PDF](vegetation/botany/1997-leaf-area-index-of-boreal-forests.pdf).
+  PDF-Seite 2 optisch geprüft: halbe grüne Gesamtfläche je Grundfläche und
+  Trennung von tatsächlicher Fläche, wirksamer LAI und räumlicher Klumpung.
+  [NASA-Produktdefinition](https://access.earthdata.nasa.gov/collections/C2222147000-LPCLOUD)
+  bestätigt die Nadel-Flächenkonvention. Eigene Counts/Prototypflächen liefern
+  ein nominales Rezeptziel, keine gemessene Bestands-LAI oder Lichtfreigabe (#179).
 - **Modeling the Mighty Maple**, Bloomenthal, SIGGRAPH 1985.
   [Autorenquelle](https://www.unchainedgeometry.com/JBloom/pdf/SIG85-ModelingMightyMaple.pdf) ·
   [PDF](vegetation/siggraph/1985-modeling-the-mighty-maple.pdf).

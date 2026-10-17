@@ -37,12 +37,13 @@ def needle_meshes(species, directory, mode):
 def wood_meshes(species, plan, directory):
     result = []
     for path in plan.wood.paths():
-        axis, level = plan.wood.axis(path), plan.wood.levels[len(path)]
+        axis = plan.wood.axis(path)
+        base_radius, tip_radius = plan.wood.radii(path)
         mesh = axis_mesh(
             axis.length,
             axis.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             16 if not path else 8,
             12 if not path else 8,
             bark=True,
@@ -95,10 +96,9 @@ def packet_products(species, plan, directory, needles, shorts):
 
 
 def near_products(species, plan, directory, path):
-    axis, level = plan.wood.axis(path), plan.wood.levels[len(path)]
-    mesh = axis_mesh(
-        axis.length, axis.bend, level.base_radius, level.tip_radius, 16, 8, bark=True
-    )
+    axis = plan.wood.axis(path)
+    base_radius, tip_radius = plan.wood.radii(path)
+    mesh = axis_mesh(axis.length, axis.bend, base_radius, tip_radius, 16, 8, bark=True)
     result = [
         wood_product(
             directory,

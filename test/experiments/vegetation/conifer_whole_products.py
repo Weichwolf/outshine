@@ -1,6 +1,7 @@
 """Build finite shoot catalogs, then complete whole trees without needle generation."""
 
 import argparse
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -35,8 +36,9 @@ def save_catalog(directory, families, banks):
     (directory / "catalog.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
 
-def load_catalog(directory):
-    metadata = json.loads((directory / "catalog.json").read_text())
+def load_catalog(directory, *, metadata=None):
+    if metadata is None:
+        metadata = json.loads((directory / "catalog.json").read_text())
     banks = [None] * len(metadata)
     for info in metadata.values():
         with np.load(
@@ -56,27 +58,55 @@ def load_catalog(directory):
     return metadata, banks
 
 
-def prepare_catalog(species, output_root=OUTPUT):
+def prepare_catalog(
+    species, output_root=OUTPUT, *, nominal_span_m=0.08, max_groups=64, samples=4
+):
     output = output_root / species
     began = time.perf_counter()
-    plant, families, inputs = catalog_sources(BASE / species)
-    banks = [bake_template(source) for source, _ in families.values()]
+    plant, families, inputs = catalog_sources(
+        BASE / species, nominal_span_m=nominal_span_m, max_groups=max_groups
+    )
+    banks = [bake_template(source, samples=samples) for source, _ in families.values()]
     save_catalog(output / "catalog", families, banks)
     catalog_s = time.perf_counter() - began
     source = {
         "recipe": plant.recipe(),
         "input_sha256": inputs,
         "catalog_build_s": catalog_s,
+        "window_settings": {"nominal_span_m": nominal_span_m, "max_groups": max_groups},
+        "template_subpixel_samples": samples,
         "scope": "finite canonical physical templates; no whole-plant needle expansion",
     }
     (output / "catalog/source.json").write_text(json.dumps(source, indent=2) + "\n")
     return source
 
 
-def build_one(species, output_root=OUTPUT, size=128):
+def build_one(
+    species,
+    output_root=OUTPUT,
+    size=128,
+    *,
+    catalog_directory=None,
+    recipe_path=None,
+    bark_path=None,
+    max_windows=20000,
+    max_axes=20000,
+):
     output = output_root / species
-    provenance = json.loads((output / "catalog/source.json").read_text())
-    recipe = provenance["recipe"]
+    directory = output / "catalog" if catalog_directory is None else catalog_directory
+    provenance = json.loads((directory / "source.json").read_text())
+    recipe = (
+        provenance["recipe"]
+        if recipe_path is None
+        else json.loads(recipe_path.read_text())
+    )
+    if recipe["needles"] != provenance["recipe"]["needles"]:
+        raise ValueError("form catalog must match physical needle recipes")
+    inputs = dict(provenance["input_sha256"])
+    for path in (recipe_path, bark_path):
+        if path is not None:
+            inputs[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    bark = None if bark_path is None else json.loads(bark_path.read_text())
     with (
         patch.object(
             NeedledPlant,
@@ -92,19 +122,24 @@ def build_one(species, output_root=OUTPUT, size=128):
     ):
         plant = NeedledPlant.from_recipe(recipe)
         began = time.perf_counter()
-        catalog, banks = load_catalog(output / "catalog")
-        catalog_load_s = time.perf_counter() - began
-        began = time.perf_counter()
-        windows = plan_windows(plant, catalog)
+        catalog = json.loads((directory / "catalog.json").read_text())
+        settings = provenance.get("window_settings", {})
+        windows = plan_windows(
+            plant, catalog, max_windows=max_windows, max_axes=max_axes, **settings
+        )
         if windows is None:
             raise ValueError("whole product window budget exceeded")
-        wood = plan_wood(plant)
+        wood = plan_wood(plant, bark=bark)
         preparation_s = time.perf_counter() - began
+        began = time.perf_counter()
+        catalog, banks = load_catalog(directory, metadata=catalog)
+        catalog_load_s = time.perf_counter() - began
+        output.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(output / "windows.npz", **windows)
         source = {
             "recipe": recipe,
             "plan_identity": plant.identity,
-            "input_sha256": provenance["input_sha256"],
+            "input_sha256": inputs,
             "bounds_points": tree_bounds(windows, banks, wood),
             "source_scope": "axis plan and finite physical window catalog; all individual-needle placement and meshing disabled during whole build; statistical template/tail/shading errors remain open",
         }

@@ -76,12 +76,12 @@ def products(plant, tables, detail, materials):
     near = detail == "near"
     result = []
     for state in plant.expand(100000, 100000)["axes"]:
-        level = plant.levels[len(state.path)]
+        base_radius, tip_radius = plant.radii(state.path)
         mesh = axis_mesh(
             state.length,
             state.bend,
-            level.base_radius,
-            level.tip_radius,
+            base_radius,
+            tip_radius,
             24 if near else 12,
             8 if near else 6,
             bark=True,
