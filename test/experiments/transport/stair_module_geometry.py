@@ -8,6 +8,7 @@ from outshine_ref.transport import HeightBudget, close_surface, fit_surface_heig
 from outshine_ref.transport.weighted_heights import fit_weighted_heights
 from shared_bridge_geometry import corridor
 from stair_branch_inputs import surface_sampling, surface_welding
+from stair_cached_box_grids import bind_grids
 from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
 from stair_module_loops import frozen_contacts, prepare_contacts
@@ -72,6 +73,10 @@ def old_surfaces(state, recipe, sources):
     state["surface_contacts"] = bind_contacts(state, recipe, sources)
     row["surface_contacts"] = state["surface_contacts"]
     row["shared_box"] = recipe.get("junction_mode") == "shared_box"
+    state["cached_box_grids"] = bind_grids(
+        state, recipe, sources, state["module_contacts"]
+    )
+    row["cached_box_grids"] = state["cached_box_grids"]
     row["additional_contacts"] = state["module_contacts"]
     row["include_interiors"] = row["root_interior"] or bool(
         recipe.get("endpoint_contacts")
@@ -122,6 +127,7 @@ def prepared(rows, sources, frozen_row, line, ground):
             line,
             contacts,
             include_interiors=frozen_row["include_interiors"],
+            cached_grids=frozen_row["cached_box_grids"],
         )
     surface_sampling(rows, "source_knots")
     surface_welding(rows, 1e-7)

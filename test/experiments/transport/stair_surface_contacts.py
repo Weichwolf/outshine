@@ -5,6 +5,7 @@ import hashlib
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
+from stair_shared_paving import paving_node
 from stair_source_owners import source_selection
 from stair_surface_access import contact_access
 from stair_surface_cap import cap_properties
@@ -36,6 +37,11 @@ def bind_contacts(state, recipe, sources):
         access = contact_access(
             chosen, sources[key], sources[old_key], state["cached_module_rows"][old_key]
         )
+        paving = (
+            paving_node(state, recipe, sources, chosen)
+            if chosen["kind"] == "minor_footway_node"
+            else {}
+        )
         matches = [a for a in state["road_assets"] if old_key in a.source_ids]
         if len(matches) != 1:
             raise ValueError("one verified old source asset required")
@@ -49,9 +55,8 @@ def bind_contacts(state, recipe, sources):
         # New limits come from the unmodified original profile, not the recipe.
         from stair_module_inputs import reference_profiles
 
-        limit = reference_profiles()[sources[key]["properties"]["subclass"]][
-            "maxGradient"
-        ]
+        kind = "unclassified" if paving else sources[key]["properties"]["subclass"]
+        limit = reference_profiles()[kind]["maxGradient"]
         properties, top, _bottom = cap_properties(asset, indices, limit)
         if (
             not properties["old_ground_faces"]
@@ -72,6 +77,7 @@ def bind_contacts(state, recipe, sources):
                 **chosen,
                 "owner": owner,
                 "cap": cap,
+                **paving,
                 "binding": {
                     "asset_sha256": asset.identity,
                     "asset_owner_column": column,
