@@ -53,6 +53,10 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - [Ganze Pfeilerumfahrung](stair_pier_ground_comparison.md): ursprünglicher952-m-Radweg,
   vollständige alte Pfeilerkontakte und feinere lokale Terrainbindung auf der53er
   Ausgangswelt; damalige54er Kohorte,79er Weiterführung im folgenden Bericht (#660/#668).
+- [Strenge Abdeckungsprüfung](stair_coverage_boundary_comparison.md): hinreichender
+  Kanten-/Randnachweis in der normalen Referenzbibliothek, GEOS-Rückfall für andere
+  Topologien; gleicher ganzer Zustand und79er Produkte bei62,69%weniger kumulativ
+  angeforderten Bytes, ohne belegten RAM-/Gerätegewinn (#678).
 - [Vollständiger79er Bestand](stair_resident_snapshot_comparison.md): geprüfte
   Root-Profile mit allen78alten Quellen, unveränderten Asset-IDs und höheren
   Freiräumen zusammenführen; ganze Radquelle samt Raum-/Fach-/Bild-/Kostenprüfung.
