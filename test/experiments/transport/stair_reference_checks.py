@@ -2,6 +2,8 @@
 
 import hashlib
 import unittest
+from dataclasses import replace
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -45,12 +47,49 @@ class WholeReferenceRoads(unittest.TestCase):
         for assets in ([], [asset(0)] * 2, [asset(i) for i in range(17)]):
             with self.assertRaisesRegex(ValueError, "distinct complete"):
                 reference_roads(assets)
-        from dataclasses import replace
-
         old = asset(0)
         data = dict(old.data, body_faces=np.tile(old.data["body_faces"], (2731, 1)))
         with self.assertRaisesRegex(ValueError, "body face budget"):
             reference_roads([replace(old, data=data)])
+
+    def test_explicit_complete_control_preserves_more_than_64_assets_and_sources(self):
+        assets = tuple(asset(i) for i in range(70))
+        road, ground, keys, _rows, note = reference_roads(assets, max_assets=1024)
+        self.assertEqual(len(keys), 70)
+        self.assertTrue(ground.all())
+        self.assertNotIn("face_sources", road)
+        self.assertEqual(len(note["complete_assets"]), 70)
+        self.assertEqual(note["asset_capacity"], 1024)
+        for i, original in enumerate(assets):
+            for name in ("body_faces", "top_faces", "bottom_faces"):
+                count = len(original.data[name])
+                np.testing.assert_array_equal(
+                    road[name][i * count : (i + 1) * count],
+                    original.data[name] + i * len(original.data["body_vertices"]),
+                )
+        indices = reference_owner_indices(assets)
+        np.testing.assert_array_equal(indices[keys[69]], [138, 139])
+        with self.assertRaisesRegex(ValueError, "asset/source working budget"):
+            road_window(
+                tuple(asset(i, x=0) for i in range(17)), shapely.box(0, 0, 2, 2)
+            )
+
+    def test_full_control_capacity_and_bytes_reject_before_geometry_copies(self):
+        old = asset(0)
+        for capacity in (False, 0, 1025, 1.5):
+            with self.assertRaisesRegex(ValueError, "explicit complete-control"):
+                reference_roads([old], max_assets=capacity)
+        data = dict(
+            old.data,
+            body_vertices=np.broadcast_to(old.data["body_vertices"][:1], (400000, 3)),
+        )
+        with (
+            patch(
+                "stair_reference_roads.np.vstack", side_effect=AssertionError("copied")
+            ),
+            self.assertRaisesRegex(ValueError, "copy byte budget"),
+        ):
+            reference_roads([replace(old, data=data)], max_assets=1024)
 
     def test_source_65_selects_only_its_actual_asset_facets_without_a_mask(self):
         last = asset(2, sources=22)

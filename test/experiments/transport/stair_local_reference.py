@@ -72,7 +72,7 @@ def reference_state(args):
         read_arrays(args.baseline / "world-field.npz"),
     )
     compare(view, plan, field)
-    road, ground, keys, rows, note = reference_roads(assets)
+    road, ground, keys, rows, note = reference_roads(assets, max_assets=1024)
     if keys != manifest["source_ids"]:
         raise ValueError("diagnostic whole reference needs every original road asset")
     state = {
