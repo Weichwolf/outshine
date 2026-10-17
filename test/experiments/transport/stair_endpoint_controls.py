@@ -144,7 +144,7 @@ def controls(args):
             {"source_ids": recipe["source_fallback"]["full_source_ids"]},
         )
         cases["whole_five_source_proposal"] = refusal(
-            lambda: geometry(state, whole, path), "collapses or inverts"
+            lambda: geometry(state, whole, path), "duplicate cached interior contact node"
         )
     if fingerprint(state["road"]) != before:
         raise ValueError("negative control mutated immutable old road geometry")
