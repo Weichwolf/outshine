@@ -97,7 +97,13 @@ def verify(args):
         _old, line, ground, upper = old_surfaces(state, recipe, sources)
         rows, planning = saved_planning(args.output, original, ground)
         source = verify_source_contract(
-            rows, sources, recipe, state["module_contacts"], line, planning[0]
+            rows,
+            sources,
+            recipe,
+            state["module_contacts"],
+            line,
+            planning[0],
+            cached_grids=state.get("cached_box_grids"),
         )
         if saved["keys"]["context"] != [list(k) for k in selected.face_keys]:
             raise ValueError(

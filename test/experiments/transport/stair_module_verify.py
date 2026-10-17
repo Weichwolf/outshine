@@ -194,7 +194,13 @@ def verify(args):
     source_contract = {}
     if recipe.get("contact_mode") == "profile":
         source_contract = verify_source_contract(
-            rows, sources, recipe, state["module_contacts"], line, planning[0]
+            rows,
+            sources,
+            recipe,
+            state["module_contacts"],
+            line,
+            planning[0],
+            cached_grids=state.get("cached_box_grids"),
         )
     data = read_arrays(args.output / "module.npz")
     if not np.array_equal(data["targets"], sample(data["surface_vertices"][:, :2])):
