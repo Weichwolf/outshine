@@ -12,8 +12,17 @@ as the experiment dependencies:
 ```
 
 The connected Shape/modelling core and CGA ↔ ENU conversion come from
-`outshine_ref.buildings.modelling`. Static OBJ/glTF/GLB decoding additionally needs
+`outshine_ref.buildings.modelling`. Static OBJ decoding additionally needs
 `.venv/bin/python -m pip install -e './lib[assets]'`.
+Owned OBJ/material controls and native geometry channels are independent of
+optional SDK or file-format oracles. Generate their private outputs explicitly:
+
+```sh
+.venv/bin/python test/experiments/buildings/verify_modelling_asset_load.py --files /tmp/outshine-buildings-obj-controls --output /tmp/outshine-buildings-obj-check.json
+.venv/bin/python test/experiments/buildings/verify_modelling_material.py --output /tmp/outshine-buildings-material-check.json
+.venv/bin/python test/experiments/buildings/modelling_asset_probe.py --output /tmp/outshine-buildings-obj-reuse.json
+```
+
 `verify_scope_library.py` compares all emitted streams on four saved control meshes
 against the committed pre-migration implementation, then measures the same five
 operations and emission. Saved inputs live under `build/experiments/buildings/`;
@@ -738,3 +747,429 @@ Normal tests run with `.venv` and `PYTHONPATH=lib/src:lib/tests:test/experiments
 `window_bay_flat_probe.py --output <system-temp>` first generates the existing whole-source controls/cost matrix, then paired actual86/46far source inputs and a real wide-angle fallback. Its slice/error/work plots use the generated triangles and declared camera, not edited renderer images. Render JSONs with shared `blender_city.py`; whole source studies use `city_scene.py`. Costs compare current86/46render products separately from closed parts/valid unions,21warm runs per case, known output/materialization/copy counts and traced peaks. Backend/Python-list intermediates remain explicitly unenumerated. No shader/material parameter changes or new cache/engine contract.
 
 Local SIGGRAPH1996 *Simplification Envelopes* pp1/3 were optically reviewed for two-sided geometric bounds and their limits. This recipe is a restricted analytic surface correspondence, not that paper's general topology-preserving envelope algorithm. The local Esri `reduceGeometry` reference describes edge collapses controlled by a vertex-reduction fraction and removal of component tags; it gives no corresponding projected-pixel contract. Existing SDK/Ghidra primitive references remain separate; no dedicated Esri window-bay LOD oracle is claimed. Research images stay local; master owns integrated/native images and admission.
+
+### Functional corner and diagonal upper storeys (#442)
+
+`stepped_form_profiles.py` extends the existing `stepped_form_plan.choose` with
+orthogonal adjacent-side and diagonal upper-storey cuts. A separate stable
+`/upper-form` seed stream chooses the programme; camera, iteration order and
+facade-detail choices do not change its identity. Three widths, one/two tiers and
+four orientations bound each new search to 24 contour alternatives. Diagonal
+setback distances are twice the shared base widths to expose substantial corner
+terraces. Source footprints/holes, supplied top height, room/core identities and
+lower storeys remain the existing plan's responsibility.
+
+`plan_for(row, profile="legacy")` retains the previous default. A requested new
+profile must pass the existing complete exterior section and actual framed
+near-access/terrace checks. Otherwise the previous search runs and records
+`requested_profile`/`profile_fallback_reason`. The tile consumer uses this explicit
+source programme on its existing bounded candidate set; this does not expand the
+eight-candidate experiment or claim an entire architectural family.
+
+Fixed actual source controls: `data/stepped-profiles.json`. Run
+`PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest verify_stepped_profiles verify_stepped_contours verify_structural_shell_controls -q`.
+Freeze the implementation, then run `stepped_profile_probe.py --output <system-temp>`
+for independent actual contour/room diagrams and paired whole/opposite Blender
+inputs. Render each geometry JSON using shared `blender_city.py` at 1920×1080.
+Primary/SDK/Ghidra scope: `doc/references/buildings/esri/stepped-profiles-sdk-3.4.12206.md`.
+Research outputs stay local; master owns integrated Places and native admission.
+
+`stepped_profile_cost.py --output <system-temp-json>` compares the same 24
+orthogonal contour alternatives against one source-frame clipping rectangle,
+21 warm runs per method/source. The single-box alternative uses 36 boolean
+intersections versus `72 + 24*storeys` in the admitted two-half-plane path.
+Local preliminary contour medians were 3.9–6.0 versus 19.8–34.4 ms with at most
+4.6e-12 m² symmetric difference. This is a contour result only; the box path
+has not passed complete room/portal/native-section reconstruction. The current
+full-plan admission path remains the verified implementation. Its seconds of
+room/clearance construction dominate these milliseconds; no whole-generator or
+frame speedup is inferred. Output arrays/coordinate observations, traced Python
+peak and GEOS exclusions are explicit in the benchmark.
+
+### Reuse validated stepped near assemblies (#460)
+
+`stepped_source.plan_and_near` returns the chosen plan and the exact physical
+near product already constructed by its successful validation callback. The
+final portal graph is checked after metadata completion. The previous
+`plan_for` result and default remain available. No global cache or second plan
+is introduced. The tile consumer reuses this product for resolved opening
+components or an inside-source view; otherwise it retains the compact exterior.
+
+`stepped_facade_details` uses the existing 0.5 px threshold and conservative
+0.25 m opening-component radius, motion and expanded frustum. A full near
+assembly additionally requires an opening width of at least 8 px, matching the
+existing bay full-detail class; inside-source views override this width limit. This component
+criterion is not an error bound for the entire interior/shadow/image LOD.
+Presentation accepts at most 512 logical openings and 65,536 near triangles;
+a local presentation failure records a compact fallback without discarding
+the valid stepped source. Near products contain the existing complete simple
+rooms and stairs, so their drawing cost exceeds the compact hull. Native/device
+admission and a more selective exterior product remain separate work.
+
+Presentation shares complete position/index/normal buffers with the validated product.
+Projection still materializes its selected glass triangles; those temporary
+copies are distinct from result-buffer sharing.
+Metric glass UVs use the existing gravity projection; the existing opaque
+procedural full-glass facade binding gives consistent exterior diagnostics.
+This does not admit transparent or illuminated interiors. Walls retain the
+supplied parent material; no shader/material parameter owner changes.
+
+Run `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest verify_stepped_facade_details verify_facade_bands verify_stepped_contours verify_place_scene verify_flat_places -q`.
+Freeze source, run `stepped_facade_probe.py --output <system-temp>`, then render
+its geometry JSONs using shared `blender_city.py`. It compares identical sources,
+rooms and cameras at whole/opposite/close/far scales; source fixture from #442.
+`stepped_facade_sections.py --output <system-temp>` cuts the exact original
+compact/physical triangles horizontally and vertically through one window with
+a sill and one terrace window without it. Local AABB filtering only limits plot
+candidates; it does not rebuild a facade or weld component vertices.
+`stepped_product_cost.py --case 0 --method reuse --repeats 3 --output <json>`
+compares the identical retained physical product against `--method rebuild`;
+repeat both methods for case 2. Counts cover successful owned near-result arrays,
+not failed candidates, backend allocations or all temporary UV arrays.
+
+Frozen runtime `3e0e80b6c`: 40 source controls and 28 installed-wheel controls
+pass without skips. The unchanged wheel's 79 building modules match the source
+exactly. Final Paris has the same 988 sources and all mesh arrays/dtypes, camera
+and material bindings as #442: 332,807 triangles, all four stepped hosts compact.
+Source/procedure fields match except measured build times and the added demand
+report. Whole/close/opposite physical study inputs are exact to the actual
+1920×1080 images produced on `c9e1c651a`; those images are retained with their
+original production receipts, not relabelled as new renders. The radius-only
+515,351-triangle city trial remains a rejected overdetail cost comparison.
+
+Three nonisolated normal-priority runs per method/source have byte-identical
+physical results. Source 0 saves one assembly and 8,393,264 owned result bytes;
+source 2 saves one assembly and 9,519,672 bytes. Local median elapsed times are
+28.286→21.010 s and 21.929→14.191 s respectively. Process peaks do not improve
+uniformly (253,040→263,432 KiB and 267,924→254,704 KiB); these small samples
+include concurrent host work and establish neither a device/frame budget nor
+a general peak-memory improvement. Native exterior adoption remains separate.
+
+### Broken urban hip profiles (#469)
+
+`broken_hip.surface` clips the existing conformal hip surface into two height
+zones using the installed `Slab` surface cutter. It maps both zones through one
+continuous global height function, preserving the source eave/top and existing
+triangle UV interpolation/face ownership while rebuilding geometric normals.
+The initial separate split/scale/emit composition left an unmatched edge on one
+actual Paris source; it is a rejected alternative, not a valid general baseline.
+No epsilon position welding or bounding-box footprint replacement is used.
+The component currently accepts UV0 and known face fields; extra vertex channels
+reject explicitly. Its conservative three-times-input triangle cap precedes
+source preparation. A source plateau on the profile knot rejects instead of
+duplicating its coplanar surface.
+
+The ordinary tile consumer infers this profile for a bounded subset of its
+existing urban hip estimates based on height and height/sqrt(area); no source-ID,
+place-name or camera-dependent style. Existing roof attributes prevent this
+addition. The 15% base-height knot maps to 65% final rise, leaving a steeper lower
+zone and shallower upper one. Profile construction/closure failure retains the
+existing hip and a reason. Existing subpixel need precedes roof construction;
+no added native/shared/material API. These remain exterior envelopes, with no
+new attic/use/interior/controller/night or complete architecture-family claim.
+
+Run `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest verify_broken_hips verify_urban_roofs verify_roof_envelopes -q`.
+Freeze source and run `broken_hip_probe.py --output <system-temp>` for exact
+sections, plans/2.5D and paired whole/opposite Blender inputs at 1920×1080. The
+probe deliberately profiles all three fixed component controls; only its
+`automatic_profile` field establishes current morphology-policy selection.
+Frozen runtime `cfb90060f` and comparison `dabb16bec` pass 27 source and 27
+installed-wheel controls without skips; all 79 unchanged building library
+modules match the installed wheel exactly. Three source plan/section/2.5D
+studies and six actual whole/opposite before/after Blender images at
+1920×1080 were optically opened, followed by the whole Paris comparison.
+The Rome pair is a forced component control, not automatic policy coverage.
+
+Paris retains all 988 sources, 210 constructed profiles, 778 unchanged source
+prototype records (except build times), and the same camera/material/source
+bindings. For the 210 hosts only the profile and triangle counts change; all
+remaining source and procedure fields match except build times. Final triangle
+count is 375,043 versus 332,807 (+42,236 / 12.69%). The controlled whole build
+returned in 213.645 s at 645,228 KiB process peak under concurrent host work;
+this is not a native/frame/device budget. Its arrays/dtypes exactly match the
+first trial, whose process ended 143 after writing its results. Controlled
+city/render runners explicitly flush and exit only after the domain function
+returns; no native/backend cleanup admission is inferred from that exit.
+
+`broken_hip_compare.py --output <json> --repeats 21` compares direct retained
+triangle cuts against a full logical split/emit followed by the same global
+height map. This improved logical baseline differs from the rejected separately
+scaled scopes: all three real sources pass closed-solid/volume/section checks.
+Two warmups precede timing; tracing runs separately. Output-array bytes and
+cutter source-triangle visits are scoped observations; native/GEOS allocations,
+cumulative allocation/copy traffic and device work remain unenumerated.
+
+Over 21 measured runs, direct versus logical surface medians were 4.08/11.60 ms
+(rectangle), 73.55/171.70 and 9.69/22.11 ms (Paris), 106.88/267.05 ms (Rome).
+Corresponding final arrays have identical byte counts and 24/513/65/668
+triangles; volume errors are zero and maximum section difference is
+1.8e-14 m². Both scan 2× source triangles; the direct path avoids two logical
+face reconstructions and two additional `Shape.from_mesh` geometries. Known
+successful owned shape-result arrays total 29,638/102,997, 3,650/12,945 and
+39,712/135,236 bytes on the real sources. Those counts omit output buffers,
+other temporaries, native allocations and cumulative copy traffic. Local
+nonisolated wall times do not establish a global or device speedup. Traced
+peaks improve only within the separately measured Python/NumPy scope.
+
+### Joined facade hierarchies (#474)
+
+`outshine_ref.buildings.facade_frames.FacadeFrame` describes a bounded regular
+lattice in local U/V/outward metres: 2..33 immutable vertical/horizontal bar
+centres and at most256 rectangular apertures. `frame_surface` emits the joined
+closed reference or, with `back_covered=True`, only the source-attached outside.
+Covered backs are omitted before geometry materialization. Fronts use the
+existing constrained polygon/holes triangulator; no epsilon position welding.
+Actual geometric normals and metric face UVs accompany the result. Closed
+and outer counts are `12+20*K` and `10+14*K` triangles for K apertures.
+The outer product is never collision geometry.
+
+`facade_frame_programme` groups existing window/storey axes, using paired
+residential piers or storey grids for mixed/institutional uses. It preserves
+the actual first-storey entry/projection facade, leaves physical window modules
+including casings/sills free, and starts above the ground programme. At most
+four statically ranked non-entry facades fit a camera-independent4096-triangle
+source budget. Supplied source/materials, roof and opening plans remain shared.
+Known height-overlapping neighbors/other source wings reject locally. Source
+and transport/terrain contacts outside that bounded source context are not
+admitted by this experiment.
+
+Detail need precedes template/triangulation work; deferred logical plans remain
+present. Valid hierarchies replace the previous decorative bands on their
+edges, rather than overlapping them. Local construction failure retains the
+previous complete facade and a reason. `facade_parts.append` combines frames
+and remaining bands once, removing the initially redundant full-body append;
+both actual source outputs were array/dtype-exact before and after that change.
+This is a component geometry criterion, not a full image/shadow/native LOD bound.
+
+`data/facade-frames.json` preserves two real Paris source/context cases and their
+four-metre neighbor context with provider receipt hashes. Selection used large
+free non-entry elevations; it is not a place-specific style rule. Run with
+`PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest test_facade_frames verify_facade_frames verify_facade_bands verify_tile_facades -q`.
+Freeze source, then `facade_frame_probe.py --output <system-temp>` for actual
+plan/mesh-section/2.5D and identical whole/opposite/close/far Blender inputs.
+`facade_frame_cost.py --output <json> --repeats 21` compares identical2D regions
+against vector/GEOS bar union, plus independently equivalent closed solids.
+Generic3D union additionally carries per-bar provenance and omits render UV/
+normal fields; those full-construction phases are scoped separately, not equal
+attribute pipelines. Traced peaks/output fields exclude backend/cumulative
+allocation/copy totals.
+
+Frozen runtime `12fec1ac8`: 63 source and 63 fresh-wheel tests passed without
+skips; all80 packaged building modules matched source bytes. Actual physical
+sections/2.5D and eight whole/opposite/near Blender images were opened at
+1920×1080, plus the whole Paris comparison. The unchanged988-source city grew
+from375043 to378857 triangles (+3814,1.017%): 307 logical frame elevations on
+225 hosts,26 expanded outer products (6602 triangles),281 deferred. Existing
+source/function plans, roofs, rooms and steps matched after excluding timing
+fields and the optional frame plan. Disabling frames reproduced every old
+city mesh array and dtype exactly. Only old decorative-band records changed.
+Facade depth/grouping is visible nearby; the city-image difference remains
+small (0.9982% changed pixels), not a completed architecture-family catalogue.
+
+For the actual11-/63-aperture examples,21 measured region runs gave broadcast
+p50 0.068/0.083 ms, meshgrid0.166/0.261 ms, GEOS bar union1.469/4.614 ms.
+Separate traced peaks were4632/11384,8849/14011,4460/5324 bytes respectively;
+the native GEOS heap is excluded, so these are not total-memory rankings.
+The reference solids agreed independently within3.4e-15 m³. Closed232/1272
+triangles become outer164/892; hidden backs of68/380 triangles never exist.
+Those final arrays occupy48024/263304 versus33948/184644 bytes, including
+normals/UV/materials/roles. Full geometry, provenance and attribute costs differ
+from generic3D union and must not be compared as identical render pipelines.
+The actual city build took175.852 s, process peak628544 KiB on this nonisolated
+host; neither is a native frame/device budget or a measured speedup.
+Diagnostic cuts were corrected in `de7e03d54`; the distant camera in
+`0ab9d9a5a` keeps the small building inside the camera range. No complete
+architecture family/night/controller/device or full image/shadow LOD claim.
+
+### Repeated industrial roof sections (#480)
+
+`outshine_ref.buildings.section_roofs.RoofSection` holds immutable metre-valued
+run/height knots and an ENU XY frame. `section_surface` clips the actual polygon
+with holes into profile intervals, triangulates with batched GEOS/CDT and emits
+an upward surface with interval IDs, geometric normals and developed metre UVs.
+`heightfield_envelope` supplies the existing closed reference. At most65 knots,
+256 boundary vertices and the conservative triangle budget are admitted before
+clipping. Outer cuts extend past the source domain to avoid roundoff slivers;
+interior section boundaries are shared, with no epsilon position welding.
+
+`industrial_roof_choice` infers2..8 symmetric/asymmetric roof bays for bounded
+ordinary industrial-context sources. It preserves footprint, provider top,
+supplied roof fields and special-structure exclusions. The programme reserves
+roof rise before facade/storey planning. Existing selected generic near rooms
+remain attached with the same IDs and sampled physical access; local failures
+retain the previous functional flat model. Ordinary industrial facades can use
+the existing entrance/landing/arrival selector. This does not supply loading
+doors, industrial room programmes or glazed clerestories.
+
+`data/industrial-roofs.json` contains three actual width-spaced Grohnde sources
+and bounded neighbor/context/provider receipts. No city/ID-dependent recipe.
+Run `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings .venv/bin/python -m unittest test_section_roofs verify_industrial_roofs -q`.
+Freeze source, then `industrial_roof_probe.py --output <system-temp> --tile`
+for sections/2.5D and whole/opposite/far inputs; `--roof-end --tile` adds gable
+comparisons and frames the industrial group more closely. All provider sources
+remain in the whole-tile model even where the camera excludes distant outliers.
+`roof_section_compare.py --output <json> --repeats 21` checks scalar/batched
+full arrays and dtypes, including normals/UV/material/interval ownership.
+
+Runtime `44a1b1008`:78 source and78 wheel checks passed, no skips,81 packaged
+building modules byte-exact. On the actual4/8/16-interval roofs, batched p50
+was0.538/0.635/0.946 ms versus scalar0.677/0.980/1.725 ms (21 measured runs,
+2 warmups, nonisolated). Both methods process the same intervals; Python-to-GEOS
+dispatch is2 versus8/16/32. Separate traced peaks15579/19515/28187 versus
+16083/20939/31779 bytes exclude the native heap. Final outputs1680/3360/7140
+bytes; local XY copy plus final packed XYZ writes960/1920/4080 bytes per
+method, excluding other temporary/internal/allocator copies. No native speedup.
+The complete37-source tile has16 new roof plans (8 per kind), no roof/facade
+failure or source omission,2724→3610 triangles (+886). Near5-/15-room source
+controls preserve room IDs and physical access. Facade/roof shapes improve;
+complete industrial architectural families and broader detail/night/LOD/device
+quality remain open. Fifteen actual1920×1080 Blender images (individual whole/
+opposite/gable/far and the focused complete-tile pair) and three2400×1350
+section/2.5D diagrams were opened. The close tile pair changes1.1555% of pixels;
+shape gain is clear on individual gable views. Neutral materials and missing
+industrial openings/details remain a substantial visual limit. Final model
+equality and original render/camera bindings are recorded in the PR.
+
+### Simple usable industrial halls (#489)
+
+`industrial_hall_plan` uses the existing provider footprint and industrial
+facade/entrance selector for a bounded single-room interpretation: ground-level,
+800–15000m², one existing facade row and an inferred section roof. Small existing
+room programmes remain unchanged. The same cells own the personnel door, a
+2.8–3.8m loading opening and up to96 actual windows; blocked/superseded slots have
+explicit reasons. No place/ID rule or measured industrial use is asserted.
+`data/industrial-halls.json` pins three accepted real source/context examples
+and a real footprint with no admissible loading cell, including provider bytes.
+
+`industrial_hall_shell` reuses the original typed heightfield envelope, cuts one
+room and the actual openings in one CSG operation, and adds a three-metre inner
+ramp from ground0 to floor0.16m. Existing upper roof geometry remains physically
+unchanged; Boolean output ordering/roundoff need not match the original stream.
+The earlier exterior-only exact-array roof control explicitly bypasses this
+new hollow-hall product; actual hall roof/height checks remain separate.
+`industrial_hall_details` composes existing personnel leaves, window frames and
+thin glazing, plus a source-bound exterior-mounted roller, U-track and housing.
+There is no fake back wall behind the gate and no interior furnishing. Actual
+pawn/vehicle-sized sampled clearances are geometry evidence, not a controller
+or road/terrain/turning-route admission. Known buildings and own other wings
+limit provisional exterior detail/site clearance; Transport reservations remain
+owned by the common spatial contract.
+
+`tile_industrial_halls` keeps logical hall/room/opening identities independent
+of gate/door state and view. A whole-host frustum/movement test plus8px gate
+threshold runs before cuts/templates; an inside camera requests detail. A single
+transient typed roof reference avoids rebuilding it, with no tile-wide mesh
+cache. Far products keep logical plans with explicitly deferred hall geometry;
+full image/shadow/transition equivalence is unproved. Local failures retain the
+prior facade and a reason. Gate fractions and existing hinged-door degrees are
+separate inputs. No shared/native/material/reservations API changed.
+
+Run with `.venv` and `PYTHONPATH=lib/src:lib/tests:test/experiments/buildings`:
+`python -m unittest test_roller_gates verify_industrial_halls verify_industrial_roofs -q`.
+After freezing source, `industrial_hall_probe.py --output <system-temp> --tile`
+produces actual2D/sections/2.5D and1920×1080 before/after/state/interior/opposite/
+whole-tile Blender inputs. Render geometry JSONs with shared `blender_city.py`.
+Images stay local. `roller_gate_cost.py --output <json>` compares direct cap
+extrusion, generic Shape extrusion and section-heightfield solids with equal
+physical/UV/normal requirements, Native differences and21 warm repetitions.
+Output writes, traced live allocations/peak are explicit; total/native-heap
+allocations/copies and frame/device speedup are not claimed.
+
+SIGGRAPH2006 Procedural Modeling of Buildings p5 (snapping/alignment/occlusion)
+was optically inspected; prior shared extrusion/heightfield/CSG kernels implement
+these local relationships. SDK3.4.12206 `libcom.esri.prt.core.so` SHA256
+`850a1b10182e9793f67791438989835de08a9facc2bd0d4f12c26c9a8be5ab45`
+was freshly examined with Ghidra at Processor::extrude004b5210 and
+Processor::subtract00541230 (empty/invalid input guards, transform and Boolean
+operation dispatch). This bounds primitive-level reference use; no Esri source,
+roller simulation, ready hall recipe or oracle-render equivalence is claimed.
+
+Runtime62bd10218 passes116 source checks; the final room-identity correction
+4e5828277 passes all6 affected source controls and the fresh wheel passes the
+same116-check set, no skips. All82 installed building modules are byte-exact;
+wheel SHA256 `aac088cf20ef7b05728ba62cdc57d85735fccb92a71e4650d9085d3d4d3315b6`.
+Fifteen final models retain every geometry stream/dtype, camera and material
+binding exactly against the earlier frozen render inputs. Thirteen actual
+1920×1080 Blender images and three2400×1350 plan/section/2.5D diagrams were
+opened. Eleven images use the original4be795a59 inputs, accepted only through
+that exact equality proof; the closer tile pair uses4e5828277 inputs. Render
+processes return0 after successful Eevee completion; the existing `bpy` cleanup
+crash is bypassed with `os._exit(0)` only after render returns, no normal-teardown
+claim. This is llvmpipe reference rendering, not an RTX/device budget result.
+
+In the closer complete37-source comparison, six near halls replace former
+facades,32445→60123 triangles (+27678); eight logical halls, one unsuitable
+loading case with a reason, no source omissions/roof/facade errors. Source IDs,
+properties, footprints, heights, classifications and provenance remain exact.
+The wide camera retains3610 triangles with hall geometry deferred. The closer
+tile pair changes10417/2073600 pixels (0.5024%); gate/window differences read
+more clearly in the individual near shots. Broad facade/roof detail, roof glass,
+credible material/weather variation, exterior transport connection and native/
+night/complete-family/full-image LOD quality remain open.
+
+Equal physical sheets at opening0/.35/.5 use168/112/88 triangles for both direct
+and generic Shape extrusion versus324/212/164 for strip-heightfield closure.
+Measured direct p50 is2.442/3.184/1.859ms, Shape30.660/18.976/16.629ms and
+strips18.779/13.355/10.232ms over21 runs (2 warmups, shared-host load). Direct
+traced peaks81852/56316/45956bytes versus423939/291121/233911 (Shape) and
+416879/279735/220959 (strips) exclude native allocations. Equal volume, surface
+area and developed UV edge lengths are independently checked. Final buffer
+bytes/writes and live traced allocation counts are in the reproducible JSON;
+these timings do not imply a native frame/device factor.
+## Industrial rooflight research
+
+Actual source-bound roof openings, closed glass/rims, physical counterexamples,
+paired Blender cameras and equal-volume frame/whole-hall cost comparisons:
+[industrial_rooflights.md](industrial_rooflights.md) (#500). Experimental variant;
+default hall/recipe v1 and compact/far admission remain unchanged/open.
+
+Complete immutable hall assets, independent physical/render products, exact
+legacy replay and the whole offline 37-source Grohnde tile comparison:
+[prepared_hall.md](prepared_hall.md) (#500). Camera changes select retained
+geometry; diagnostic export still copies full bodies. Eight glazed halls replace
+the previous six, without claiming a complete whole-building LOD or native cache.
+
+Source-cell industrial facade articulation, protected functional openings,
+shared closed/exterior buffers and true near/opposite/whole-tile comparisons:
+[industrial_relief.md](industrial_relief.md) (#519). Three seeded bay hierarchies
+use existing metal-frame materials. Geometry-only omission can lose distant
+metal signal. The corrected default retains shared distant front surfaces:
+[industrial_relief_signal.md](industrial_relief_signal.md) (#523), with actual
+full/omitted/projected comparisons and near/grazing negatives. Complete physical
+products remain available; general radiance/shadow/temporal LOD remains open.
+
+Actual provider-derived cooling-tower intakes, crossed supports, collector and
+upper rims: [cooling_tower.md](cooling_tower.md) (#526). Stable source programmes,
+independent connected physical unions, finite intake sweeps and full37-source
+comparisons accompany near/opposite/elevated1080p rasters. Further equipment,
+complete access/interiors, general special-family coverage and native cache/
+frame admission remain open.
+
+Source-contained repeated upper wings and compact podium masses, real terrace
+access, retained near/compact products and equal reconstruction/binding costs:
+[podium.md](podium.md) (#533). Source-stable new mass selection complements the
+existing fallback; broader facade variety and general cache/LOD admission
+remain open.
+
+Broad paired-pier/storey-spandrel composition on retained window axes, exact
+closed/outer/front products and full current-city comparison:
+[clad_facades.md](clad_facades.md) (#543). Existing source eligibility remains;
+219 sources gain stronger visible hierarchy. Near counterexamples prevent a
+general front-only LOD claim; full architecture-family variety remains open.
+
+Contained parapets and recessed service enclosures, closed physical products,
+retained near-window hosts and material-preserving coarse roof surfaces:
+[roof_crowns.md](roof_crowns.md) (#551). The whole988-source window retains all
+prior masses and gains47 roof programmes at+1.18% triangles; broader architecture
+families, roof access/detail and general native/cache/LOD admission remain open.
+
+Source-stable base/body/top facade scopes with narrow vertical windows or broad
+horizontal glazing, retaining the existing entry/projection elevation:
+[elevations.md](elevations.md) (#574). The whole988-source window gains91 composed
+elevations on44 sources; actual near crops and complete city pairs are checked.
+These are two bounded facade programmes, not complete architecture families.
+
+Attached source-contained roof volumes and real near window pockets:
+[dormers.md](dormers.md) (#585). The whole988-source window gains3097 dormers on368
+roofs, retaining earlier source/function/facade/roof owners. This is one repeated
+box-dormer programme; broader whole-building forms and coherent variety remain open.

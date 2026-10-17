@@ -80,6 +80,7 @@ class EntranceDetails:
             "commercial",
             "mixed-use",
             "institutional",
+            "industrial",
         ) or row.get("clipped"):
             return None
         try:

@@ -122,10 +122,13 @@ public:
     std::vector<double> LatLon;
   };
 
-  void Declare(std::span<const Declared> these, TileAt over);
+  [[nodiscard]] static std::expected<std::string, std::string_view>
+  DeclarationDigest(std::span<const Declared> these);
 
-  [[nodiscard]] std::expected<void, std::string_view> Declare(std::span<const Declared> these,
-                                                              LongitudeLatitude at);
+  void Declare(std::span<const Declared> these, TileAt over, std::string_view inputDigest = {});
+
+  [[nodiscard]] std::expected<void, std::string_view>
+  Declare(std::span<const Declared> these, LongitudeLatitude at, std::string_view inputDigest = {});
 
   [[nodiscard]] int Zoom() const { return Zoom_; }
 

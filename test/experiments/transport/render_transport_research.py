@@ -101,6 +101,28 @@ def import_body(row):
     }
 
 
+def import_scene(row):
+    if "bodies" not in row:
+        return import_body(row)
+    bodies = row["bodies"]
+    if (
+        not isinstance(bodies, list)
+        or not 1 <= len(bodies) <= 64
+        or len({body["id"] for body in bodies}) != len(bodies)
+    ):
+        raise ValueError("bounded distinct research scene bodies required")
+    vertices, proofs = [], []
+    for body in bodies:
+        actual, proof = import_body(body)
+        vertices.append(actual)
+        proofs.append(dict(proof, id=body["id"], mesh_sha256=body["mesh_sha256"]))
+    return np.vstack(vertices), {
+        "objects": len(proofs),
+        "parts": proofs,
+        "scope": "Exact per-object imports; existing face-colour capacity applies to every object",
+    }
+
+
 def render(row):
     if subprocess.check_output(
         ["git", "status", "--porcelain", "--", "lib", "test/experiments/transport"],
@@ -112,7 +134,7 @@ def render(row):
         raise ValueError("fresh render output required")
     began = time.perf_counter()
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    vertices, imported = import_body(row)
+    vertices, imported = import_scene(row)
     scene = bpy.context.scene
     scene.render.engine = (
         "BLENDER_EEVEE" if bpy.app.version >= (5, 0, 0) else "BLENDER_EEVEE_NEXT"

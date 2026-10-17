@@ -34,6 +34,7 @@ struct Context {
   bool DebugMarkers = false;
   bool StorageImageExtendedFormats = false;
   bool IndependentBlend = false;
+  bool DepthClamp = false;
   bool MultiDrawIndirect = false;
   bool IndirectFirstInstance = false;
   std::atomic<uint32_t> ValidationErrors{0};

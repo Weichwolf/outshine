@@ -1,6 +1,7 @@
 #include "content/GeometryAsset.h"
 #include "BinaryValueArchive.h"
 #include "GeometryAssetValues.h"
+#include "MaterialValidation.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -38,8 +39,13 @@ bool ValidLamp(const PunctualLight &light, const Mat4 &placement) {
 }
 
 bool Complete(const Geometry &geometry) {
-  return geometry.wellFormed() || (geometry.parts() == 0 && geometry.surfaces() == 0 &&
-                                   geometry.images() == 0 && geometry.lamps() == 0);
+  if (geometry.parts() != 0) { return geometry.wellFormed(); }
+  for (int index = 0; index < geometry.surfaces(); ++index) {
+    if (!MaterialIsValid(geometry.surfaceAt(MaterialInstance(index)), geometry.images())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool WriteImages(BinaryValueWriter &out, const Geometry &geometry, bool preparedImages) {
@@ -141,21 +147,16 @@ bool ReadTables(BinaryValueReader &in, Geometry &geometry, const TableCounts &ta
 
 bool ReadParts(BinaryValueReader &in, Geometry &geometry, int parts) {
   std::string name;
-  std::vector<float> attribute;
-  std::vector<uint32_t> indices;
   for (int index = 0; index < parts; ++index) {
     int surface = -1;
     Mat4 placement;
+    Geometry::Mesh mesh;
     if (!in.Text(name) || !in(surface, placement.Column)) { return false; }
     const auto part = geometry.addPart(name, MaterialInstance(surface));
-    if (!part || !geometry.setPlacement(*part, placement) || !in.Array(attribute) ||
-        !geometry.setPositions(*part, attribute) || !in.Array(attribute) ||
-        !geometry.setNormals(*part, attribute) || !in.Array(attribute) ||
-        !geometry.setTexture(*part, attribute) || !in.Array(attribute) ||
-        !geometry.setTexture(*part, attribute, 1) || !in.Array(attribute) ||
-        !geometry.setTangents(*part, attribute) || !in.Array(attribute) ||
-        !geometry.setColours(*part, attribute) || !in.Array(indices) ||
-        !geometry.setTriangles(*part, indices)) {
+    if (!part || !geometry.setPlacement(*part, placement) || !in.Array(mesh.PositionsM) ||
+        !in.Array(mesh.Normals) || !in.Array(mesh.Uv) || !in.Array(mesh.Uv1) ||
+        !in.Array(mesh.Tangents) || !in.Array(mesh.Colours) || !in.Array(mesh.Indices) ||
+        !geometry.adoptMesh(*part, mesh)) {
       return false;
     }
   }

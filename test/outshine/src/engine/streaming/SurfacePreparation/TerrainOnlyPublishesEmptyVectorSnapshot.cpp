@@ -109,7 +109,7 @@ int main() {
        .WidthM = 4.0,
        .LatLon = {49.3274, 8.6159, 49.3275, 8.6160}},
   }};
-  stack.Declares(declared);
+  CHECK(stack.Declares(declared), "declared contents receive a persistent input identity");
   const auto withFeature = stack.AdvanceAt(moved, {.IngestTilesMost = 1, .VectorRing = 0});
   CHECK(withFeature && stack.Vectors()->Features().size() == 1 &&
             stack.Vectors()->PendingTiles() == 0,

@@ -1,9 +1,10 @@
 #include "Species.h"
+#include "ReadTextFile.h"
 
-#include <array>
 #include <algorithm>
-#include <cstdio>
+#include <cstddef>
 #include <filesystem>
+#include <limits>
 #include <string>
 #include <vector>
 #include <system_error>
@@ -11,24 +12,10 @@
 
 namespace outshine::Generators {
 
-namespace {
-
-[[nodiscard]] bool Slurp(const std::string &path, std::string &into) {
-  FILE *file = fopen(path.c_str(), "rb");
-  if (file == nullptr) { return false; }
-  std::array<char, 8192> block{};
-  for (size_t read; (read = fread(block.data(), 1, block.size(), file)) > 0;) {
-    into.append(block.data(), read);
-  }
-  fclose(file);
-  return !into.empty();
-}
-
-}
-
 bool ReadSpecies(const char *path, TreeSpecies *out) {
-  std::string text;
-  return Slurp(path, text) && out->Parse(text.c_str(), text.size());
+  if (path == nullptr || out == nullptr) { return false; }
+  const auto text = ReadTextFile(path, std::numeric_limits<size_t>::max());
+  return text && out->Parse(text->data(), text->size());
 }
 
 bool ReadSpecies(const char *path, std::vector<TreeSpecies> &out, std::string &error) {
