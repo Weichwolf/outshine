@@ -90,6 +90,14 @@ def polygon_witness(polygons):
     return witness(xy, faces, polygons)
 
 
+def mesh_witness(mesh, polygons):
+    """Reuse the strict constructor's owned mesh instead of decoding polygon coordinates."""
+    if not 1 <= len(mesh.triangles) <= 65536 or len(mesh.vertices) > 65536:
+        return {"proved": False, "reason": "mesh_budget"}
+    xy, inverse = np.unique(mesh.vertices[:, :2], axis=0, return_inverse=True)
+    return witness(xy, inverse[mesh.triangles], polygons)
+
+
 def checked_coverage(polygons, *, records=None):
     proof = polygon_witness(polygons)
     result = proof["proved"] or bool(GENERAL_COVERAGE(polygons))

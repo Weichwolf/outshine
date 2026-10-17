@@ -6,7 +6,7 @@ from fractions import Fraction
 import numpy as np
 import shapely
 from scipy.spatial import Delaunay
-from stair_coverage_boundary import checked_coverage, polygon_witness
+from stair_coverage_boundary import GENERAL_COVERAGE, checked_coverage, polygon_witness
 
 
 def triangles(xy, faces):
@@ -16,7 +16,7 @@ def triangles(xy, faces):
 class BoundaryCoverage(unittest.TestCase):
     def compare(self, polygons, *, proved=None):
         proof = polygon_witness(polygons)
-        expected = bool(shapely.coverage_is_valid(polygons))
+        expected = bool(GENERAL_COVERAGE(polygons))
         self.assertEqual(checked_coverage(polygons), expected)
         if proof["proved"]:
             self.assertTrue(expected)
@@ -48,7 +48,7 @@ class BoundaryCoverage(unittest.TestCase):
         for xy in cases:
             polygons = shapely.polygons(xy)
             self.assertTrue(shapely.is_ccw(shapely.get_exterior_ring(polygons)).all())
-            self.assertFalse(shapely.coverage_is_valid(polygons))
+            self.assertFalse(GENERAL_COVERAGE(polygons))
             self.compare(polygons, proved=False)
 
     def test_touching_components_and_holes_use_general_validator(self):
@@ -87,7 +87,7 @@ class BoundaryCoverage(unittest.TestCase):
         faces = [[0, i + 1, (i + 1) % 8 + 1] for i in range(8)]
         polygons = triangles(xy, faces)
         self.assertTrue(shapely.is_ccw(shapely.get_exterior_ring(polygons)).all())
-        self.assertFalse(shapely.coverage_is_valid(polygons))
+        self.assertFalse(GENERAL_COVERAGE(polygons))
         self.compare(polygons, proved=False)
 
     def test_fixed_seed_meshes_and_corrupted_faces(self):
