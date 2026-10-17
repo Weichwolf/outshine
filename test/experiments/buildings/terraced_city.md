@@ -7,6 +7,10 @@ It retains all988 source buildings on the same flat plane, camera and profile;
 there is no DEM, source culling or place-specific architecture. Architecture
 choices still follow source properties, geometric feasibility and stable IDs.
 
+These images retain their original69-source physical admission. The later
+[ground-route correction](terraced_ground.md) is a separate functional follow-up;
+it does not relabel this earlier city rendering as a new image run.
+
 ## Paired composition
 
 The producer reconstructs the existing `PodiumDetails`/`DormerFacades` pipeline

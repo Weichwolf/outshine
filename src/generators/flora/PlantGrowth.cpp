@@ -1,5 +1,6 @@
 #include "PlantGrowth.h"
 #include "PlantGrowthIndex.h"
+#include "PlantSkeleton.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -18,13 +19,6 @@ namespace {
 constexpr double kMaximumCoordinateM = 100000;
 constexpr double kDirectionCancellation = 1e-12;
 constexpr double kEndpointToleranceScale = 1e-9;
-constexpr double kMinimumSeedEdgeM = 1e-8;
-
-bool ValidPoint(PlantGrowthPoint point) {
-  return std::ranges::all_of(point, [](double value) {
-    return std::isfinite(value) && std::abs(value) <= kMaximumCoordinateM;
-  });
-}
 
 PlantGrowthPoint Difference(PlantGrowthPoint first, PlantGrowthPoint second) {
   for (size_t axis = 0; axis < 3; ++axis) { first[axis] -= second[axis]; }
@@ -155,7 +149,7 @@ MeasurePlantGrowth(std::span<const PlantGrowthPoint> attractors,
                    PlantGrowthDemand demand) {
   if (demand.Nodes < 2 || demand.Nodes > static_cast<size_t>(std::numeric_limits<int32_t>::max()) ||
       demand.Iterations == 0 || seedPositions.size() < 2 || seedPositions.size() > demand.Nodes ||
-      seedParents.size() != seedPositions.size() || seedParents[0] != -1 ||
+      !ValidPlantSkeleton(seedPositions, seedParents) ||
       attractors.size() > std::numeric_limits<uint32_t>::max() ||
       !std::ranges::all_of(std::array{demand.StepM, demand.InfluenceM, demand.KillM},
                            [](double value) {
@@ -163,17 +157,9 @@ MeasurePlantGrowth(std::span<const PlantGrowthPoint> attractors,
                                     value <= kMaximumCoordinateM;
                            }) ||
       demand.StepM > demand.InfluenceM || demand.KillM > demand.InfluenceM ||
-      demand.StepM * kEndpointToleranceScale == 0 || !std::ranges::all_of(attractors, ValidPoint) ||
-      !std::ranges::all_of(seedPositions, ValidPoint)) {
+      demand.StepM * kEndpointToleranceScale == 0 ||
+      !std::ranges::all_of(attractors, ValidPlantGrowthPoint)) {
     return std::unexpected("growth requires finite bounded points, dimensions and a rooted seed");
-  }
-  for (size_t child = 1; child < seedParents.size(); ++child) {
-    const int32_t parent = seedParents[child];
-    if (parent < 0 || std::cmp_greater_equal(parent, child) ||
-        Length(Difference(seedPositions[child], seedPositions[static_cast<size_t>(parent)])) <=
-            kMinimumSeedEdgeM) {
-      return std::unexpected("growth seed must have preceding parents and noncollapsed edges");
-    }
   }
   const size_t perNode =
       3 * sizeof(PlantGrowthPoint) + sizeof(int32_t) + 3 * sizeof(uint32_t) + sizeof(uint8_t);
