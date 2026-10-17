@@ -106,3 +106,7 @@ Reproduce in `.venv` with `TMPDIR=/tmp` and the experiment/library `PYTHONPATH`:
 Terrace/roof programmes, neighboring occupancy, direct far/selected near products,
 complete988-source selection, cache persistence and library promotion remain in
 #618/#33. Existing complete functional products keep their original path and gates.
+
+The next measured cost step is now documented in
+[direct facade products](terraced_facade_products.md): plan before physical
+expansion, equivalent-coverage batch comparison and retained lazy near ownership.
