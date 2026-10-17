@@ -97,6 +97,30 @@ void Select(Device &device,
           "surviving patch codes preserve source order within their selected LOD");
   }
 }
+
+void ProjectiveScaleUsesTheLargestScreenDisplacement(Device &device,
+                                                     GroundPatchSelection &selection,
+                                                     const GroundInstance &tile,
+                                                     std::span<const uint32_t> expected) {
+  std::vector<float> heights(GroundLattice::kPageNodes, 0);
+  auto clip = kIdentity;
+  for (const float peak : {0.012f, 0.025f}) {
+    for (size_t y = 0; y < 4; ++y) {
+      for (size_t x = 0; x < 4; ++x) {
+        heights[(y * 8u + 4u) * GroundLattice::kPageSide + x * 8u + 4u] = peak;
+      }
+    }
+    selection.Page(0, heights);
+    selection.Sources(std::span(&tile, 1), 1);
+    Select(device, selection, 0, expected, clip, {}, 1, 0.5f, 3);
+    clip[11] = 1;
+    clip[15] = 2;
+  }
+  clip = kIdentity;
+  clip[0] = 1.0e-30f;
+  clip[5] = 1.0e-30f;
+  Select(device, selection, 0, expected, clip, {}, 1, 0.5f, 0);
+}
 }
 
 int main() {
@@ -143,5 +167,6 @@ int main() {
     Select(*device, selection, kWall, expected, kIdentity, {}, count);
     Select(*device, selection, 0, std::span<const uint32_t>{}, kIdentity, {{100, 0, 0}}, count);
   }
+  ProjectiveScaleUsesTheLargestScreenDisplacement(*device, selection, tile, all);
   return Report();
 }

@@ -15,6 +15,29 @@ layout(std140, set = 2, binding = 0) uniform GroundView {
 } view;
 #include "depthRectangle.glsl"
 
+float projectedDisplacementScale(vec3 rowX, vec3 rowY, vec3 rowW,
+                                  vec2 least, vec2 most, float looseScale) {
+  float maximum = 0.0;
+  for (uint corner = 0u; corner < 4u; ++corner) {
+    const vec2 ndc = vec2((corner & 1u) == 0u ? least.x : most.x,
+                          (corner & 2u) == 0u ? least.y : most.y);
+    const vec3 a = 0.5 * view.viewport.z * (rowX - ndc.x * rowW);
+    const vec3 b = 0.5 * view.viewport.w * (rowY - ndc.y * rowW);
+    const float aa = dot(a, a), bb = dot(b, b), ab = dot(a, b);
+    const float trace = aa + bb;
+    if (isnan(trace) || isinf(trace)) { return uintBitsToFloat(0x7f800000u); }
+    if (trace > 0.0) {
+      const vec2 eigen = vec2(aa - bb, 2.0 * ab) / trace;
+      const float bound = sqrt(0.5 * trace * (1.0 + length(eigen)));
+      if (isnan(bound) || isinf(bound)) { return uintBitsToFloat(0x7f800000u); }
+      maximum = max(maximum, bound);
+    } else if (any(notEqual(a, vec3(0.0))) || any(notEqual(b, vec3(0.0)))) {
+      return uintBitsToFloat(0x7f800000u);
+    }
+  }
+  return maximum + 64.0 * 1.1920929e-7 * looseScale;
+}
+
 void main() {
   const uint id = gl_GlobalInvocationID.x;
   if (id >= view.source.x) { return; }
@@ -49,11 +72,12 @@ void main() {
   const vec3 rowW = vec3(view.clip[0][3], view.clip[1][3], view.clip[2][3]);
   const float wScale = length(rowW);
   const vec2 scale = 0.5 * view.viewport.zw * (vec2(length(rowX), length(rowY)) + max(abs(least), abs(most)) * wScale);
+  const float displacementScale = projectedDisplacementScale(rowX, rowY, rowW, least, most, length(scale));
   uint selected = 0u;
   for (uint level = 1u; level < 4u; ++level) {
     const float displacement = errors[level] + 2.0 * length(error);
     const float denominator = minimumW - displacement * wScale;
-    if (!isnan(displacement) && !isinf(displacement) && denominator > 0.0 && displacement * length(scale) <= view.detail.x * denominator) { selected = level; }
+    if (!isnan(displacement) && !isinf(displacement) && denominator > 0.0 && displacement * displacementScale <= view.detail.x * denominator) { selected = level; }
   }
   kept[id] = 0u;
   kept[selected * view.work.x + id] = 1u;
