@@ -102,14 +102,17 @@ def prepare(source, output, mode, family, cover):
     shaders = output / "build/shaders"
     shutil.copytree(source / "build/shaders", shaders, dirs_exist_ok=True)
     commands = []
-    variants = sorted(shaders.glob("groundLit-*.frag.spv"))
+    variants = sorted(
+        [
+            *shaders.glob("groundLit-*.frag.spv"),
+            *shaders.glob("groundPatchLit-*.frag.spv"),
+        ]
+    )
     assert variants
     with (output / "compile.log").open("w") as log:
         for artifact in variants:
             layout = (
-                artifact.name.removeprefix("groundLit-")
-                .removesuffix(".frag.spv")
-                .ljust(5, "0")
+                artifact.name.split("-", 1)[1].removesuffix(".frag.spv").ljust(5, "0")
             )
             fields = (
                 "SUBJECT_WRITES_VELOCITY",
@@ -132,6 +135,11 @@ def prepare(source, output, mode, family, cover):
                 "-Isrc/render/shaders",
                 "-Isrc/content/shade",
                 "-Ibuild/shaders",
+                *(
+                    ["-DGROUND_PATCHES=1"]
+                    if artifact.name.startswith("groundPatchLit-")
+                    else []
+                ),
                 *[f"-D{k}={v}" for k, v in zip(fields, layout, strict=True)],
                 str(fragment_file),
                 "-o",

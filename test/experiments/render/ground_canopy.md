@@ -88,6 +88,15 @@ acceptance: the rock-share diagnostic itself has two over-budget frames. Before
 model selection, independent cover/angle/gap and leaf R/T references, actual
 material response, near/far continuity and full affected budgets remain open.
 
+Newer native packages also consume `groundPatchLit` fragments through the same
+ground source. The runner discovers both existing fragment families, retains
+their output-layout suffixes and compiles patches with `GROUND_PATCHES=1`, as
+declared by the matching product build. Changing only `groundLit` would leave
+the patch pixels unchanged. Old packages with only that family remain supported.
+The bounded compatibility correction and actual21/42-variant controls belong to
+[#653](https://github.com/Weichwolf/outshine/issues/653). Compile-only outputs are
+not executed-image evidence; matching layouts do not close world/device gates.
+
 ## Restart completion on the newer matched closure
 
 The unchanged delivered runner also completed on native3af55ff02, client SHA256
