@@ -107,4 +107,16 @@ set 2. The native backends explicitly support shared/sparse graphics bindings
 and reject uncontracted storage writes. The audit is migrated to that actual
 contract, retaining duplicate/write/array negatives and all compute conventions.
 The focused package audit passes all 517 artifacts, 12 compute contracts and
-11 positive/negative audit tests. A new complete integration lint remains required.
+11 positive/negative audit tests. Full integration lint on frozen 672201cc4 subsequently passed: 451 C++ units,
+29 repository guards, 2104 formatted C++ files, 517 shaders and 12 compute contracts.
+Production source is unchanged from f94fadd23. The broad world gate is running
+on that same frozen source; no terminal result is claimed yet.
+
+An additional inverse-depth perspective oracle was rejected: its original fine-grid
+control already produced 252 unlocated curtain pixels and a maximum normal delta
+8.12e-6, versus 6.67e-6 for the coarse rendering. It incorrectly treated all visible
+skirts as top-heightfield samples and assumed CPU inverse projection reproduced
+GPU-interpolated varyings exactly. The negative source/logs are retained privately;
+the existing exact orthographic normal/coverage test remains unchanged. A stronger
+perspective test needs captured interpolated UVs or a proven raster reconstruction
+error model. No perspective guarantee is inferred from this failed oracle.
