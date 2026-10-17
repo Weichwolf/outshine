@@ -134,6 +134,14 @@ computed counters and image remain in /tmp/outshine-plant-metal-2ab0d9ee7/.
 One offscreen frame is component evidence, not a complete product build, Places
 integration, timing/memory gate or world-quality proof.
 
+## Allocation-free surface measurement
+
+MeasurePlantAxisSurface and MeasurePlantBladeSurface expose the same parameter,
+regularity, subdivision and count checks used by their builders. They allocate
+no surface arrays. Product assembly can therefore total selected axes and used
+blade prototypes before construction; counts remain separate from instanced
+triangle references. The fixed reference still matches all original corners.
+
 ## Prepared product persistence
 
 [Prepared native plant assets](prepared_plant_assets.md) describes the finished

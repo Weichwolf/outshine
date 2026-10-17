@@ -27,6 +27,9 @@ int main() {
                    .PetioleM = kPetioleM};
   PlantBladeSurfaceDemand demand{
       .Segments = 2, .Across = 1, .MaximumVertices = kVertices, .MaximumTriangles = kTriangles};
+  const auto measured = MeasurePlantBladeSurface(blade, demand);
+  CHECK(measured && measured->Vertices == kVertices && measured->Triangles == kTriangles,
+        "surface demand is counted before constructing mesh buffers");
   const auto mesh = BuildPlantBladeSurface(blade, demand);
   CHECK(mesh.has_value(), "a folded blade and its petiole form an oriented open sheet");
   if (!mesh) { return Report(); }
