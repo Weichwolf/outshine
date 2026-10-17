@@ -18,7 +18,7 @@ Installation ist noch keine Integration oder ein Performancebeweis.
 ## Installation
 
 ```sh
-brew install geos sfcgal simdjson pugixml eigen bullet sqlite zstd
+brew install ccache geos sfcgal simdjson pugixml eigen bullet sqlite zstd
 ```
 
 meshoptimizer fehlt in Homebrew-Core. Das eigene [Paketrezept](../lib/Formula/meshoptimizer.rb)
@@ -36,7 +36,7 @@ Bei einem Bibliotheksupdate Release/Hash und ABI prüfen, Paket bauen und Engine
 Debian/Ubuntu, abhängig von der Distributionsversion:
 
 ```sh
-sudo apt install libgeos-dev libsfcgal-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
+sudo apt install ccache libgeos-dev libsfcgal-dev libmeshoptimizer-dev libsimdjson-dev libpugixml-dev libeigen3-dev libbullet-dev libsqlite3-dev libzstd-dev
 ```
 
 SFCGAL benötigt mindestens 2.3; die Paketversion vor dem Build mit `pkg-config --modversion sfcgal` prüfen.
@@ -47,3 +47,8 @@ Optionale Pakete werden erst beim jeweiligen Feature an den Build angeschlossen.
 Der integrierte native Assetcache benötigt SQLite und Zstandard auch im Runtime-Link. Statische
 Nutzer von `liboutshine.a` binden zusätzlich `pkg-config --libs sqlite3 libzstd` ein.
 Der Building-Generator benötigt beim statischen Link zusätzlich `pkg-config --libs sfcgal`.
+
+Native Builds benötigen `ccache`. Der Compiler-Cache liegt standardmäßig unter
+`${TMPDIR:-/tmp}/outshine-compiler-cache`, auf 1 GiB begrenzt; bestehende
+`CCACHE_DIR`/`CCACHE_MAXSIZE`-Vorgaben gehen vor. Er enthält ausschließlich
+wiederherstellbare Compilerprodukte, keine Weltquellen oder Game-Assets.
