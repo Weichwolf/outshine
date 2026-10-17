@@ -100,6 +100,7 @@ def run(args):
             ground,
             sample,
             contact_mode=recipe.get("contact_mode", "flat"),
+            junction_mode=recipe.get("junction_mode", "free"),
         ),
     )
     geometry = timed(
@@ -187,7 +188,7 @@ def run(args):
         + [r["source_id"] for r in rows],
         "admitted_source_ids": [],
         "valid_local_module": True,
-        "scope": "Explicit locally flat cached interface; bounded whole-source ground extension with actual old bodies retained. Global terrain assembly is diagnostic work. No complete/native world, statutory vehicle envelope or structural acceptance.",
+        "scope": "Explicit actual cached profiles; bounded whole-source ground extension with actual old bodies retained. Global terrain assembly is diagnostic work. No complete/native world, statutory vehicle envelope or structural acceptance.",
     }
     write_json(args.output / "comparison.json", report)
     announce(report)

@@ -1,5 +1,9 @@
 # Weitere Bodenmodulstufe mit tatsächlichem Seitenkontakt (#528)
 
+Die neue ausdrücklich gewählte Familie aus
+[#530](stair_southwest_comparison.md) ergänzt Straßen und ganze geneigte
+Außenprofile. Die hier geprüfte örtlich flache Familie samt Gegenfällen bleibt erhalten.
+
 Das [feste Rezept](fixtures/stair-west-module-chain-vienna.json) ergänzt den
 ursprünglichen Radweg `1044461680:3` um 107,403 m. Der geprüfte
 [36-Quellen-Bestand aus #522](stair_module_comparison.md) wird als Cache-Elternteil

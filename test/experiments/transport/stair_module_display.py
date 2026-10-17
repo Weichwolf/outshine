@@ -6,6 +6,7 @@ import numpy as np
 from camera_height_inputs import digest
 from cycle_bridge_display import append
 from outshine_ref.contracts import Mesh
+from stair_module_materials import colour_component
 
 
 def display(output, base, supports, state, data, terrain, parts, roles):
@@ -28,6 +29,9 @@ def display(output, base, supports, state, data, terrain, parts, roles):
         (Mesh(p.vertices.astype("f4"), p.triangles), 6) for p in state["piers"]
     ]
     shown = append(shown, bodies, palette)
+    colour_component(
+        shown, len(original["triangles"]) + len(terrain.triangles), data, palette
+    )
     np.savez_compressed(output / "after-display.npz", **shown)
     (output / "before-display.npz").symlink_to(state["before_display_path"].resolve())
     for view in ("overview", "network"):

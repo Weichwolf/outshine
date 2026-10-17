@@ -7,10 +7,12 @@ import numpy as np
 from camera_height_inputs import digest
 from capture_stair_context import parts
 from outshine_ref.places import decode_vector
+from outshine_ref.transport.horizontal import plan_horizontal_axis
 from stair_context_inputs import FIXTURE as CONTEXT
 from stair_context_inputs import PROFILES
 from stair_cycle_inputs import sampler
 from stair_junction_layout import INPUT
+from stair_module_roads import road_profile
 from wien_support_verify import unpack
 
 FIXTURE = Path(__file__).with_name("fixtures") / "stair-west-ground-module-vienna.json"
@@ -109,12 +111,19 @@ def inputs(path=FIXTURE):
     }
     sample = sampler(source_recipe, json.loads(source_recipe.read_text()), context)
     rows = []
+    bindings = recipe.get("source_profiles", {})
+    if not isinstance(bindings, dict) or not set(bindings) <= set(keys):
+        raise ValueError("explicit profiles may bind only selected original sources")
     for key in keys:
         source = sources[key]
         props = source["properties"]
         kind = props.get("subclass")
+        extra = {}
+        if key in bindings:
+            kind = bindings[key]
+            extra = road_profile(source, profiles.get(kind, {}), kind)
         if (
-            kind not in ("cycleway", "footway")
+            (kind not in ("cycleway", "footway") and not extra)
             or props.get("brunnel")
             or props.get("indoor")
             or props.get("layer", 0) != 0
@@ -122,6 +131,10 @@ def inputs(path=FIXTURE):
         ):
             raise ValueError("ordinary exterior ground source required")
         xy = np.array(source["xy_m"])
+        if extra and "road_axis" in recipe:
+            axis, note = plan_horizontal_axis(xy, recipe["road_axis"])
+            note["original_corridor_retained"] = True
+            extra.update(surface_axis_xy_m=axis, horizontal_curve_plan=note)
         rows.append(
             {
                 "source_id": key,
@@ -133,6 +146,7 @@ def inputs(path=FIXTURE):
                     "bridge": False,
                     "source": {"feature": source["original_feature"]},
                 },
+                **extra,
             }
         )
     return recipe, rows, context, sources, sample, layer
