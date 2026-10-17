@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from conifer_whole_products import BASE, OUTPUT, SPECIES, load_catalog
+from conifer_whole_products import SPECIES, load_catalog
 from conifer_window_catalog import template_image
 from conifer_window_render import tree_bounds, window_fragments
 from conifer_windows import plan_windows
@@ -18,8 +18,8 @@ from plant_atlas import projection
 from textured_raster import composite, wood_fragments
 
 
-def shoot_sources(species, whole):
-    directory = BASE / species
+def shoot_sources(species, whole, models):
+    directory = models / species
     source = source_geometry(directory)
     recipe = json.loads((directory / "whole-plan.json").read_text())
     plant = NeedledPlant.from_recipe(recipe)
@@ -46,22 +46,33 @@ def shoot_sources(species, whole):
     return source, windows, banks, wood, bounds
 
 
+def matched_images(
+    source, windows, banks, wood, bounds, direction, size=128, samples=4
+):
+    projection_data = projection(bounds, direction)
+    frame, lower, upper, _ = projection_data
+    physical, _ = template_image(
+        source, direction, size, samples, projection_data=projection_data
+    )
+    parts = (
+        window_fragments(
+            windows, banks, direction, frame, lower, upper, size * samples
+        ),
+        wood_fragments(wood, frame, lower, upper, size * samples),
+    )
+    pixel, depth, data = (np.concatenate([p[i] for p in parts]) for i in range(3))
+    coarse = average_blocks(composite(pixel, depth, data, size * samples), samples)
+    return physical, coarse, float(np.prod(upper - lower) / size**2)
+
+
 def compare_sources(
     source, windows, banks, wood, bounds, size=128, reductions=(1, 4, 16)
 ):
     rows = []
     for direction in directions(17):
-        projection_data = projection(bounds, direction)
-        frame, lower, upper, _ = projection_data
-        physical, _ = template_image(
-            source, direction, size, 4, projection_data=projection_data
+        physical, coarse, _ = matched_images(
+            source, windows, banks, wood, bounds, direction, size
         )
-        parts = (
-            window_fragments(windows, banks, direction, frame, lower, upper, size * 4),
-            wood_fragments(wood, frame, lower, upper, size * 4),
-        )
-        pixel, depth, data = (np.concatenate([p[i] for p in parts]) for i in range(3))
-        coarse = average_blocks(composite(pixel, depth, data, size * 4), 4)
         a, b = physical[..., 3], coarse[..., 3]
         area = max(float(a.sum()), 1e-20)
         rows.append(
@@ -83,9 +94,9 @@ def compare_sources(
     return rows
 
 
-def compare_one(species, whole, size=128):
+def compare_one(species, whole, models, size=128):
     began = time.perf_counter()
-    source, windows, banks, wood, bounds = shoot_sources(species, whole)
+    source, windows, banks, wood, bounds = shoot_sources(species, whole, models)
     rows = compare_sources(source, windows, banks, wood, bounds, size)
     return {
         "species": species,
@@ -101,12 +112,13 @@ def compare_one(species, whole, size=128):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--whole", type=Path, default=OUTPUT)
+    parser.add_argument("--whole", type=Path, required=True)
+    parser.add_argument("--models", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     rows = []
     for species in SPECIES:
-        row = compare_one(species, args.whole)
+        row = compare_one(species, args.whole, args.models)
         rows.append(row)
         print(
             species,

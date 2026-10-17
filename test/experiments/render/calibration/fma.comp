@@ -1,0 +1,17 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "Parameters.inc"
+layout(local_size_x = CALIBRATION_LOCAL_SIZE) in;
+layout(std430, set = 0, binding = 0) readonly buffer InputValues { vec4 values[]; } source;
+layout(std430, set = 0, binding = 1) writeonly buffer OutputValues { vec4 values[]; } into;
+void main() {
+  uint at = gl_GlobalInvocationID.x;
+  if (at >= into.values.length()) { return; }
+  vec4 value = source.values[at];
+  const vec4 scale = vec4(CALIBRATION_SCALE0, CALIBRATION_SCALE1,
+                           CALIBRATION_SCALE2, CALIBRATION_SCALE3);
+  const vec4 offset = vec4(CALIBRATION_OFFSET0, CALIBRATION_OFFSET1,
+                            CALIBRATION_OFFSET2, CALIBRATION_OFFSET3);
+  for (uint step = 0; step < CALIBRATION_FMA_STEPS; ++step) { value = fma(value, scale, offset); }
+  into.values[at] = value;
+}

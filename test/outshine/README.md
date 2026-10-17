@@ -14,8 +14,7 @@ and assertions in a new executable. Keep API validation, asset persistence and G
 response separate: success at one boundary does not establish the others.
 
 The default `make test` selects the world contracts in `test/world-gate.txt` and renders
-Wien, Tokyo and Central Park offline. `make test-khronos` retains explicit glTF/animation
-and pinned-image compatibility; `make test-all` runs every declared suite.
+Wien, Tokyo and Central Park offline. `make test-all` runs every declared suite.
 `make lint` retains shared shader/GPU contracts independently of compatibility images.
 
 Run a subtree or a single case:

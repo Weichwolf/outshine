@@ -101,44 +101,8 @@ validatedRan=no
 # declared -- failing exactly the stated number of claims -- turns the verdict PASS and counts
 # toward `inverted`, which the trailer names. Behaving OTHERWISE, including going fully green,
 # prints to stderr and turns the verdict FAIL, which is what forces the entry out again
-# board:1885: the glTF-Validator corpus is scored against Khronos's own report, and 73 of its 263
-# cases are RED with a reason that is not the reader being wrong about the SPEC -- 54 of them
-# refuse with "no default scene to draw" for a fragment glTF 2.0 permits. They are declared here
-# with their count so the day one of them stands, the gate says so.
-EXPECT_FAIL="harness/claims/ExpectFail:1 khronos/validator/accessor-custom-property:1\
-  khronos/validator/accessor-data-get-elements-matrix:1\
-  khronos/validator/accessor-data-get-elements-sparse:1 khronos/validator/accessor-data-get-elements:1\
-  khronos/validator/accessor-unknown-type:1 khronos/validator/accessor-valid:1\
-  khronos/validator/animation-custom-property:1 khronos/validator/animation-valid:1\
-  khronos/validator/asset-2-1-version:1 khronos/validator/asset-custom-property:1\
-  khronos/validator/asset-min-version-valid:1 khronos/validator/asset-valid:1\
-  khronos/validator/buffer-custom-property:1 khronos/validator/buffer-data-uri:1\
-  khronos/validator/buffer-extra-padding:1 khronos/validator/buffer-non-relative-uri:1\
-  khronos/validator/buffer-valid-2:1 khronos/validator/buffer-valid-placeholder:1 khronos/validator/buffer-valid:1\
-  khronos/validator/buffer-view-custom-property:1 khronos/validator/buffer-view-valid:1\
-  khronos/validator/camera-custom-property:1 khronos/validator/camera-perspective-yfov:1\
-  khronos/validator/camera-valid:1 khronos/validator/glb-extra-data:1 khronos/validator/glb-two-images:1\
-  khronos/validator/glb-valid-buffer:1 khronos/validator/glb-valid:1 khronos/validator/image-custom-property:1\
-  khronos/validator/image-data-uri:1 khronos/validator/image-npot:1 khronos/validator/image-unrecognized-format:1\
-  khronos/validator/image-valid-2:1 khronos/validator/image-valid:1\
-  khronos/validator/json-integer-written-as-float:1 khronos/validator/material-alpha-modes:1\
-  khronos/validator/material-custom-property:1 khronos/validator/material-empty-object:1\
-  khronos/validator/material-multiple-extensions:1 khronos/validator/material-valid:1\
-  khronos/validator/mesh-custom-property:1 khronos/validator/mesh-data-index-buffer-degenerate-triangle:1\
-  khronos/validator/mesh-invalid-tangent:1 khronos/validator/mesh-primitive-generated-tangent-space:1\
-  khronos/validator/mesh-primitive-incompatible-mode:1 khronos/validator/mesh-primitive-no-position:1\
-  khronos/validator/mesh-valid:1 khronos/validator/node-custom-property:1 khronos/validator/node-matrix-default:1\
-  khronos/validator/node-node-empty:1 khronos/validator/node-node-skinned-mesh-without-skin:1\
-  khronos/validator/node-node-weights-override:1 khronos/validator/node-valid:1\
-  khronos/validator/root-custom-property-escaped-name:1 khronos/validator/root-custom-property:1\
-  khronos/validator/root-extras-non-object:1 khronos/validator/root-invalid-extension-name:1\
-  khronos/validator/root-named-objects:1 khronos/validator/root-unused-objects:1 khronos/validator/root-valid:1\
-  khronos/validator/sampler-custom-property:1 khronos/validator/sampler-empty-object:1\
-  khronos/validator/sampler-valid:1 khronos/validator/scene-custom-property:1 khronos/validator/scene-valid:1\
-  khronos/validator/skin-custom-property:1 khronos/validator/skin-ignored-animated-transform:1\
-  khronos/validator/skin-ignored-local-transform:1 khronos/validator/skin-ignored-parent-transform:1\
-  khronos/validator/skin-valid:1 khronos/validator/texture-custom-property:1\
-  khronos/validator/texture-empty-object:1 khronos/validator/texture-valid:1"
+EXPECT_FAIL="harness/claims/ExpectFail:1"
+
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2
@@ -308,7 +272,6 @@ LayerIncludes() {
     profile/base) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared" ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
     profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags liblz4 libtiff-4 sqlite3 libzstd)" ;;
-    harness/khronos/validator) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/animation -Isrc/content/mesh -Isrc/content/scene -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Itest/harness/shared" ;;
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
     harness/test262/js) printf '%s' "-Iinclude -Isrc/base/format -Itest/harness/shared" ;;
     *) return 1 ;;
@@ -328,7 +291,7 @@ LayerToolchain() {
     profile/diagnostics) LayerToolchain profile/internal ;;
     profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
     profile/engine | harness/wpt/css) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    harness/geographiclib/geodesic) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
   esac
 }
@@ -338,7 +301,7 @@ LayerSanitiser() {
   case "$(TestProfile "$1")" in
     profile/medium-view | profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
-    harness/khronos/validator | harness/geographiclib/geodesic)
+    harness/geographiclib/geodesic)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
@@ -360,7 +323,7 @@ LayerLink() {
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -395,7 +358,7 @@ LayerGroups() {
     profile/base) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
     profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
-    harness/geographiclib/geodesic | harness/khronos/validator) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
+    harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -415,7 +378,6 @@ LayerCases() {
   case "$1" in
     harness/wpt/css) find test/wpt/css -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/test262/js) find test/test262/js -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
-    harness/khronos/validator) find test/khronos/validator -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     harness/geographiclib/geodesic) find test/geographiclib/geodesic -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
     *) printf '%s' "" ;;
   esac
@@ -748,21 +710,8 @@ ReadTrailer() {
   return 0
 }
 
-# An ORACLE THAT CANNOT EXIST is a different thing from one nobody rendered, and until this
-# declaration the gate could not say which it was looking at -- both arrived as UNPREPARED, in a
-# count with no name and no expiry. Three cases cannot be prepared with this toolchain at all:
-#
-#   khronos/glTF/CubeVisibility    Blender's glTF importer: "Extension KHR_node_visibility is not
-#   khronos/glTF/LightVisibility   available on this addon version". The oracle half of the case
-#                                  cannot be rendered, so there is nothing to compare against.
-#   khronos/glTF/AnimationPointerUVs  the same importer crashes reading KHR_animation_pointer over
-#                                  KHR_texture_transform: KeyError: 'animations'.
-#
-# Each is named with its arm count, the same shape EXPECT_FAIL uses, so the day the importer
-# grows the extension and a declared case PREPARES, the gate turns red on the stale line rather
-# than going quietly green. board:1923.
-EXPECT_UNPREPARED="khronos/glTF/CubeVisibility:3 khronos/glTF/LightVisibility:3\
-  khronos/glTF/AnimationPointerUVs:3"
+EXPECT_UNPREPARED=""
+
 
 DeclaredUnprepared() {
   for declared in $EXPECT_UNPREPARED; do
@@ -1709,7 +1658,7 @@ if [ -z "$SUITES" ]; then
   if [ "$ALL_CASES" = 0 ]; then
     FAST_GATE=yes
     SUITES=$(cat test/world-gate.txt)
-    printf 'run.sh: world gate; compatibility corpora require make test-khronos or make test-all\n'
+    printf 'run.sh: world gate; UI and script corpora are available through make test-all\n'
   else
     printf 'run.sh: all declared suites, including compatibility corpora\n'
   fi
@@ -1741,22 +1690,7 @@ fi
 started=$(Now)
 builtSpentMs=0
 
-# board:1797: the corpus lives in the system temp dir, because artefacts never live in the tree,
-# and the machine sweeps that directory -- it took outshine-prepared and outshine-content
-# between two gate runs. A gate that silently loses a third of its subjects is not a gate, so a
-# case whose prepared input is gone is REBUILT before it is judged, from its own manifest and
-# nothing else. Per case, never wholesale: `prepare.py all --every-case` renders the entire
-# oracle ladder, which is 256 MB for a single animation case and hundreds of gigabytes for the
-# tree -- the sporadic full proof's corpus, not this run's. The cost stands beside the bound
-# with the builds, because a rebuild is a build.
-# board:1797: a case can consume ANOTHER case's prepared product -- the glTF unit twins read
-# test-render-outshine-grown-trs-hierarchy/scene.glb -- so the owner of a missing input is not
-# knowable from the case that misses it. It IS knowable from the path the case names: the
-# prepared directory is the owning manifest's own path with the slashes turned to dashes, and
-# that mapping inverts by walking the manifests the tree declares.
-# A case directory holds an INPUT when something other than its own bookkeeping is in it.
-# board:1839's .prepared-by is bookkeeping and so is the manifest: counting either as an input
-# made every pruned case look filled, and the rebuild path never fired for one.
+# Rebuild missing pinned inputs from their owning manifest. Bookkeeping is not input.
 HoldsInput() {
   [ -n "$(ls -A "$1" 2>/dev/null | grep -v -e '^manifest.json$' -e '^\.prepared-by$')" ]
 }
@@ -1781,16 +1715,8 @@ RebuildOwner() {
     HoldsInput "$PREPARED/$ownerDir" && continue
     holder=$(awk -F'\t' -v want="$ownerDir" '$1 == want { print $2; exit }' "$ownerMap")
     if [ -z "$holder" ]; then
-      # not every prepared directory has a manifest behind it: the scenario assets are placed
-      # from licensed copies against a digest the scenario pins, by their own subcommand.
-      printf 'run.sh: %s has no prepared input and no manifest owns it -- placing the scenario assets (board:1778)\n' \
+      printf 'run.sh: %s has no prepared input and no manifest owns it\n' \
         "$ownerDir" >&2
-      before=$(Now)
-      if python3 test/harness/shared/corpus/prepare.py scenario-assets \
-           > "$BUILD/log/scenario-assets-rebuild.log" 2>&1; then
-        [ -n "$(ls -A "$PREPARED/$ownerDir" 2>/dev/null)" ] && ownerRebuilt=yes
-      fi
-      builtSpentMs=$(( builtSpentMs + $(Now) - before ))
       continue
     fi
     RebuildCase "$holder" "$PREPARED/$ownerDir"
@@ -1822,16 +1748,6 @@ RebuildCase() {
 }
 
 passed=0
-criterionMet=0
-criterionRed=0
-pictureWithin=0
-pictureOutside=0
-pictureUnenforced=0
-grownCriterionMet=0
-grownCriterionRed=0
-grownPictureWithin=0
-grownPictureOutside=0
-grownPictureUnenforced=0
 uiInside=0
 uiReduced=0
 uiOutside=0
@@ -1994,32 +1910,7 @@ CountTheTwo() {
     held) jsHeld=$((jsHeld + 1)) ;;
     red) jsRed=$((jsRed + 1)) ;;
   esac
-  criterion=$(sed -n 's/^KHRONOS-CRITERION //p' "$2" | head -1)
-  picture=$(sed -n 's/^PICTURE-BOUND //p' "$2" | head -1)
-  case "$1" in
-    khronos/*)
-      case "$criterion" in
-        met) criterionMet=$((criterionMet + 1)) ;;
-        red) criterionRed=$((criterionRed + 1)) ;;
-      esac
-      case "$picture" in
-        within) pictureWithin=$((pictureWithin + 1)) ;;
-        outside) pictureOutside=$((pictureOutside + 1)) ;;
-        not-enforced) pictureUnenforced=$((pictureUnenforced + 1)) ;;
-      esac
-      ;;
-    *)
-      case "$criterion" in
-        met) grownCriterionMet=$((grownCriterionMet + 1)) ;;
-        red) grownCriterionRed=$((grownCriterionRed + 1)) ;;
-      esac
-      case "$picture" in
-        within) grownPictureWithin=$((grownPictureWithin + 1)) ;;
-        outside) grownPictureOutside=$((grownPictureOutside + 1)) ;;
-        not-enforced) grownPictureUnenforced=$((grownPictureUnenforced + 1)) ;;
-      esac
-      ;;
-  esac
+
 }
 
 # the BINARY takes the object's own treatment (board:1751): a stamp of (mtime, size, name)
@@ -2330,16 +2221,6 @@ for killed in $KILLED_BY_TIME; do
   printf 'run.sh: %s MEASURED NOTHING -- it was killed at %s s before it finished, so its verdict is neither pass nor fail but absent, and a case that cannot finish is a case nobody runs (board:1778)\n' \
     "$killed" "$TIMEOUT_S" >&2
 done
-[ $((criterionMet + criterionRed)) -gt 0 ] &&
-  printf 'khronos: criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
-    "$criterionMet" "$((criterionMet + criterionRed))" \
-    "$pictureWithin" "$pictureOutside" "$pictureUnenforced" \
-    "$((pictureWithin + pictureOutside + pictureUnenforced))"
-[ $((grownCriterionMet + grownCriterionRed)) -gt 0 ] &&
-  printf 'grown:   criteria %s met of %s   picture bound %s within, %s outside, %s not-enforced of %s\n' \
-    "$grownCriterionMet" "$((grownCriterionMet + grownCriterionRed))" \
-    "$grownPictureWithin" "$grownPictureOutside" "$grownPictureUnenforced" \
-    "$((grownPictureWithin + grownPictureOutside + grownPictureUnenforced))"
 [ $((uiInside + uiReduced + uiOutside)) -gt 0 ] &&
   printf 'wpt:     %s held, %s reduced, %s unaccounted of %s   (%s attempted, %s red)\n' \
     "$uiHeld" "$uiReduced" "$uiOutside" "$((uiInside + uiReduced + uiOutside))" \

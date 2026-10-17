@@ -1,9 +1,4 @@
-"""The one declaration of what a render manifest may contain, read.
-
-The declaration is `test/harness/shared/corpus/manifest-schema.json` and the runner reads the same file. Nothing
-here states a key, a type or an allowed value: this module is the reader, and a fact it knows that
-the file does not is the defect it exists to remove.
-"""
+"""Validate corpus declarations against manifest-schema.json."""
 
 import json
 import os
@@ -16,7 +11,6 @@ _PATTERNS = {
                  r"^(?!/)(?!.*(^|/)\.\.?(/|$))(?!.*//)[^/].*[^/]$|^[^/.][^/]*$"),
     "sha256": ("64 lowercase hex digits", r"^[0-9a-f]{64}$"),
     "sha1": ("40 lowercase hex digits", r"^[0-9a-f]{40}$"),
-    "release": ("a release version, e.g. 5.2.0", r"^\d+\.\d+(\.\d+)?$"),
 }
 
 _PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -30,28 +24,6 @@ _DECLARATION = _load()
 SCHEMA = _DECLARATION["schema"]
 SCHEMA_VERSION = _DECLARATION["schemaVersion"]
 _OBJECTS = _DECLARATION["objects"]
-
-def enumeration(object_name, key):
-    """The allowed values of an enumerated key, for a caller that has to branch on one.
-
-    A branch is a reader's business; WHICH values exist is this file's, so a reader asks rather
-    than restating the list beside its own arms.
-    """
-    node = _OBJECTS[object_name]
-    while "variants" in node:
-        node = next(iter(node["variants"].values()))
-    for group in ("required", "optional"):
-        declared = node.get(group, {}).get(key)
-        if isinstance(declared, dict) and "enum" in declared:
-            return tuple(declared["enum"])
-    raise KeyError(object_name + "." + key + " is not an enumerated key of this schema")
-
-def variants(object_name):
-    """The discriminator values an object declares, in the file's own order."""
-    node = _OBJECTS[object_name]
-    if "variants" not in node:
-        raise KeyError(object_name + " declares no variants")
-    return tuple(node["variants"])
 
 def check(object_name, where, value):
     """Validate `value` against the named object and return it."""
