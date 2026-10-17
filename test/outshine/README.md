@@ -48,6 +48,8 @@ Choose checks by the changed boundary:
 
 Both instrumented commands require an explicit `SUITE`. Address/undefined behavior
 and thread sanitizers run separately and instrument product objects as well as cases.
+On macOS native GPU functional suites enable their Metal layer only for their children.
+Keep `MTL_DEBUG_LAYER` unset for Place performance measurements.
 Each selected case also runs normally and with standard-library container checks;
 instrumented builds do not establish release performance budgets.
 

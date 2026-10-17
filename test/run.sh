@@ -2031,22 +2031,30 @@ Fresh() {
   return 0
 }
 
+JudgeArm() {
+  if [ "$(TestProfile "$layer")" = profile/device ] && [ "$(uname -s)" = Darwin ]; then
+    MTL_DEBUG_LAYER=1 Judge "$@"
+  else
+    Judge "$@"
+  fi
+}
+
 JudgeArms() {
   armStem=$1
   armArgument=$2
-  Judge "$armStem" "$plainBinary" "$armArgument"
+  JudgeArm "$armStem" "$plainBinary" "$armArgument"
   JudgeInstrument "$armStem" no
   if [ -n "$sanitisedBinary" ]; then
     ASAN_OPTIONS=detect_stack_use_after_return=1
     UBSAN_OPTIONS=print_stacktrace=1
     export ASAN_OPTIONS UBSAN_OPTIONS
-    Judge "$armStem~sanitised" "$sanitisedBinary" "$armArgument"
+    JudgeArm "$armStem~sanitised" "$sanitisedBinary" "$armArgument"
     JudgeInstrument "$armStem~sanitised" yes
     unset ASAN_OPTIONS UBSAN_OPTIONS
   fi
   if [ -n "$validatedBinary" ]; then
     validatedRan=yes
-    Judge "$armStem~validated" "$validatedBinary" "$armArgument"
+    JudgeArm "$armStem~validated" "$validatedBinary" "$armArgument"
     JudgeInstrument "$armStem~validated" yes
   fi
   return 0
