@@ -7,7 +7,7 @@ from fractions import Fraction as F
 
 import shapely
 from outshine_ref.contracts import BuildingFootprint, HeightInterval, Reservation
-from stair_occupancy_geometry import AffineOccupancy, conflict_geometry
+from stair_occupancy_geometry import AffineOccupancy
 from stair_occupancy_handoff import OccupancyQuery, adjusted
 from stair_occupancy_inputs import volume
 from stair_occupancy_pipeline import handoff
@@ -199,8 +199,8 @@ class AffineClearance(unittest.TestCase):
 
     def test_old_constant_reservation_stays_constant(self):
         old = Reservation("old", shapely.box(0, 0, 1, 1), HeightInterval(5, 6), "old")
-        self.assertIs(conflict_geometry(old, HeightInterval(5, 7)), old.geometry)
-        self.assertTrue(conflict_geometry(old, HeightInterval(0, 5)).is_empty)
+        self.assertIs(old.conflict_geometry(HeightInterval(5, 7)), old.geometry)
+        self.assertTrue(old.conflict_geometry(HeightInterval(0, 5)).is_empty)
 
     def test_exact_rational_triangle_oracle(self):
         rng = random.Random(568)

@@ -74,9 +74,9 @@ def probe_results(query, probe_inputs, seen):
                 "geometry_wkb": p.geometry.wkb_hex,
                 "xy": list(p.geometry.centroid.coords[0]),
                 "heights_m": [p.heights.lower_m, p.heights.upper_m],
-                "transport_blocked": cut.area > 0,
+                "transport_blocked": not cut.is_empty,
                 "building_or_transport_blocked": blocked,
-                "constant_facet_envelope_blocked": envelope.area > 0,
+                "constant_facet_envelope_blocked": not envelope.is_empty,
                 "projected_shadow_blocked": bool(len(xy)),
             }
         )

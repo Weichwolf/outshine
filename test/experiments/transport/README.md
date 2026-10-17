@@ -36,6 +36,10 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   außerhalb des alten Kerns, mit begrenztem Rastermodell und ganzen Originalprofilen.
 - [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper
   und Stützen, quelltreue Footprint-Korrekturen und freie Räume unter Brücken (#568).
+- [Präzision der Konfliktabfrage](stair_occupancy_precision.md): falsch leere Masken,
+  Flächenunterlauf, unabhängiges Orakel und konstante Bibliotheksabfrage (#568).
+- [Tatsächlicher Architekturverbrauch](stair_consumer_comparison.md): bestehender
+  Buildings-Erzeuger, aktuelle Terrainanker und Prüfung seiner fertigen Körper (#568).
 - [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
   an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
 - [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen

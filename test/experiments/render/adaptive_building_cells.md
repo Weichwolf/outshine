@@ -43,8 +43,9 @@ retains the original asset records and package blobs.
 
 The 7,912-source index, key
 `d2dcba37407c658bc64bc58d7545bca9b77a2296d2ca8a7e4b232af665c93bca`,
-was generated as 64 adaptive cell products. All sources survive; 411,081
-triangles. Largest encoded child: 23,536,791 bytes; total: 37,326,420 bytes.
+was generated as 64 adaptive cell products. All 7,912 source footprints survive
+in the metadata; 15 meshes report unsupported geometry. Complete source metadata
+does not prove that every building is drawn. The products contain 411,081 triangles. Largest encoded child: 23,536,791 bytes; total: 37,326,420 bytes.
 All 64 products were stored and replayed byte for byte; zero shape misses.
 
 A fresh process then loads those 64 cached products: 0.38 s real / 0.10 s user /
@@ -59,8 +60,51 @@ It is a different cached input/view from the failed 8,068-source Linux product;
 it does not repair or accept that Place. Private sources, commands, original
 records and logs: system-temp `outshine-decoded-mesh-ce3d84a8c`.
 
-The remaining integration loads source/contact metadata before geometry, stages
-bounded children and atomically publishes the complete cell set. Warm hits must
-repeat neither source enrichment nor meshing. The current engine still requires
-a whole initial mesh. Unknown surface errors stay unknown, and old valid world
-state must survive cancellation, retry or failed child publication.
+## Engine integration
+
+Commit `71f92310d` connects initial native source admission to the cell producer.
+The queue retains the current child mesh, gathers source/contact metadata and
+accepts it once after staging the complete source. Initial publication uses the
+same atomic cell activation as refinement. Restarting a source discards hidden
+children while retaining the old visible revision. Empty/fallback/non-native
+paths keep their existing behavior. Unknown surface errors stay unknown.
+
+The new producer case has 35 checks for cold child writes, fresh child hits,
+complete metadata, cancellation and reuse of an existing bounded whole product.
+The real queue replay has 184 checks including two-cell cold/warm admission;
+publication has 20 actual depth checks. The existing revision and worker-lifetime
+cases remain green. Five changed implementation units and 25 dependent units
+pass focused tidy; the new producer case is clean under focused analysis.
+These results are not a complete Place or native-backend acceptance.
+
+Commit `122bd4e4c` reserves accepted footprint/contact storage only for a complete
+source. Partial children previously reserved the growing global buffer again.
+The unchanged new guard fails twice when linked with the pre-fix queue object
+and passes with the new queue; the existing revision case also passes. Focused
+queue tidy and the client build pass. This removes that allocation/copy path;
+it does not claim a measured complete-world speedup.
+
+The first wiring selected children before probing existing whole cache products.
+That incorrectly replaced valid hits with new work. Commit `d6dc5517d` restores
+the direct whole-product hit. Only a miss selects children before emission; no
+oversized whole product is generated first and the 64-MiB limit stays unchanged.
+
+## Public runtime scope and remaining costs
+
+The initial Tokyo 1280×720/30 attempt exhausted its 10-second preload while new
+children were being generated. A subsequent default-profile `prepare Tokyo 180`
+became ready in 151.31 seconds, with 5,191,307,368-byte peak process footprint.
+It includes complete-world preparation and a one-second sampling probe, not
+isolated geometry generation. A fresh child-only attempt then still exhausted
+10 seconds at 45/46 accepted source tiles, zero meshing ranges. Child loading,
+upload and orchestration remain a runtime performance problem.
+
+After restoring existing whole-product hits, fresh offline Tokyo and Wien
+1280×720/30 processes load in 1,913.3115 and 1,567.3445 ms. CPU p99 is 3.7517 and
+3.7510 ms; both PNGs are byte-identical to the previous successful captures.
+All twelve public 1280×720/30 captures then match their preceding PNGs byte for
+byte; loading spans 708.5858–1,913.3115 ms, maximum CPU p99 3.9442 ms. GPU time
+remains unavailable on the main SDL_GPU path. These are single runs,
+not a robust speedup or a child-only loading-budget proof. The failed 8,068-source
+Linux 1920×1080/60 case and full native port acceptance remain open in #567/#328.
+
