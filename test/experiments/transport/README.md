@@ -38,6 +38,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   unabhängige Gesamtprüfung mit lokalen Ownern und kleine sichtbare Netzerweiterung (#587).
 - [Gemeinsamer Bestandsknoten](stair_shared_root_comparison.md): 71 Quellen,
   vollständige alte Profile und ein gemeinsames Podest statt ausgelassener Kontakte (#595/#597).
+- [Schmaler Weg am breiteren Bestand](stair_narrow_profile_comparison.md): 72 Quellen,
+  vollständige alte Referenzprofile und ein weiterer ganzer Fußweg (#606).
 - [Präzision neuer Kreuzungen](stair_junction_precision_comparison.md): echter
   Float32-Gegenfall, neun Kandidaten und getrennte Überlappungskontakte (#600/#602); noch keine Netzzulassung.
 - [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper
