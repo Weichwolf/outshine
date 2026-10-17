@@ -11,6 +11,7 @@ from evidence import revision
 from facade_parts import append
 from outshine_ref.buildings.modelling.heightfield import heightfield_envelope
 from provider_contract import attributes
+from roof_crown_choice import prepare as source_choice
 from roof_crown_mesh import envelope, upper
 from roof_crown_plan import plan
 from roof_crown_present import body, skin
@@ -158,13 +159,60 @@ def costs(output):
     )
 
 
+def choice_costs(output):
+    proof = revision()
+    if proof["experiment_tree_dirty"]:
+        raise ValueError("Freeze source-choice cost experiment first")
+    load = os.getloadavg()
+    records = []
+    for index, (row, _neighbors) in enumerate(sources()):
+        (crown, _reason), timing = measured(lambda: source_choice(row))
+        if crown is None:
+            raise ValueError("Pinned actual choice control was rejected")
+        records.append(
+            timing
+            | {
+                "index": index,
+                "id": row["id"],
+                "kind": crown.kind,
+                "input_boundary_coordinates": len(
+                    shapely.get_coordinates(row["polygon"])
+                ),
+                "output_regions": len(crown.regions),
+                "owned_region_wkb_bytes": sum(
+                    len(r.footprint_wkb) + len(r.high_edge_wkb) + len(r.low_edge_wkb)
+                    for r in crown.regions
+                ),
+            }
+        )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(
+            proof
+            | {
+                "records": records,
+                "logical_cpus": os.cpu_count(),
+                "load_before": load,
+                "load_after": os.getloadavg(),
+                "scope": "Actual source scalar normalization, source/structure/context/seed choice, bounded rectangle search and2D offsets/partition.21 warm calls and separate traced call. No provider I/O, context attachment or mesh construction; GEOS/native heap excluded from traced peak.",
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--choice-only", action="store_true")
     args = parser.parse_args()
     if not args.output.resolve().is_relative_to(Path("/tmp").resolve()):
         parser.error("--output must be inside /tmp")
-    costs(args.output)
+    if args.choice_only:
+        choice_costs(args.output)
+    else:
+        costs(args.output)
 
 
 if __name__ == "__main__":
