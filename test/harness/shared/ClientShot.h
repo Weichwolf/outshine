@@ -1,14 +1,16 @@
 #ifndef OUTSHINE_TEST_CLIENTSHOT_H
 #define OUTSHINE_TEST_CLIENTSHOT_H
 
+#include <charconv>
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
+#include <limits>
 #include <filesystem>
 #include <string>
 #include <vector>
 
 #include "Check.h"
+#include "src/client/GpuFrameTiming.h"
 
 // THE CASE DRIVES THE SAME COMMAND A PERSON DOES. `build/outshine-client shots
 // --rows <place>` is what `make shots` runs; a case that reached around it into the library would
@@ -28,19 +30,19 @@ struct ClientRow {
   double MeasurementMs = 0.0, LoadingMs = 0.0, TurnDegrees = 0.0;
   bool Preloaded = false;
   bool Read = false;
+  double WidthPx = 0.0, HeightPx = 0.0, RateHz = 0.0, BudgetMs = 0.0;
+  Client::GpuFrameTiming Gpu;
 };
 
-inline int ScorePlace(const char *place, const char *catalog = "src/assets/places") {
-  std::setvbuf(stdout, nullptr, _IONBF, 0);
-  const std::string command = std::string("build/outshine-client --places ") + catalog +
-                              " shots --rows --offline --preload-seconds 600 " + place + " 2>&1";
-  std::FILE *const running = popen(command.c_str(), "r");
-  if (running == nullptr) {
-    Unprepared("the client did not start");
-    return Report();
-  }
-  double control = -1.0;
-  ClientRow row;
+inline double ClientNumber(const std::string &field) {
+  double value = 0.0;
+  const auto read = std::from_chars(field.data(), field.data() + field.size(), value);
+  return read.ec == std::errc{} && read.ptr == field.data() + field.size()
+             ? value
+             : std::numeric_limits<double>::quiet_NaN();
+}
+
+inline void ReadClientOutput(std::FILE *running, double &control, ClientRow &row) {
   char line[4096];
   while (std::fgets(line, sizeof line, running) != nullptr) {
     std::printf("%s", line);
@@ -51,28 +53,59 @@ inline int ScorePlace(const char *place, const char *catalog = "src/assets/place
       from = at + 1;
       if (*at != '\t') { break; }
     }
-    if (field.size() >= 2 && field[0] == "CONTROL") { control = std::atof(field[1].c_str()); }
+    if (field.size() >= 2 && field[0] == "CONTROL") { control = ClientNumber(field[1]); }
+    if (field.size() == 6 && field[0] == "PROFILE") {
+      row.WidthPx = ClientNumber(field[2]);
+      row.HeightPx = ClientNumber(field[3]);
+      row.RateHz = ClientNumber(field[4]);
+      row.BudgetMs = ClientNumber(field[5]);
+    }
+    if (field.size() == 8 && field[0] == "GPUROW") {
+      row.Gpu = {.RenderedFrames = ClientNumber(field[2]),
+                 .TimedFrames = ClientNumber(field[3]),
+                 .TotalMs = ClientNumber(field[4]),
+                 .MaxMs = ClientNumber(field[5]),
+                 .UnavailableFrames = ClientNumber(field[6]),
+                 .QueryMs = ClientNumber(field[7])};
+    }
     if (field.size() >= 20 && field[0] == "ROW") {
       row.Read = true;
       row.Name = field[1];
       row.Digest = field[2];
       row.Kept = field[3] == "1";
-      row.P50Ms = std::atof(field[4].c_str());
-      row.P95Ms = std::atof(field[5].c_str());
-      row.P99Ms = std::atof(field[6].c_str());
-      row.Frames = std::atof(field[7].c_str());
-      row.OverBudget = std::atof(field[8].c_str());
-      row.WorstAt = std::atof(field[9].c_str());
-      row.Triangles = std::atof(field[10].c_str());
-      row.BareTiles = std::atof(field[11].c_str());
-      row.Variation = std::atof(field[12].c_str());
+      row.P50Ms = ClientNumber(field[4]);
+      row.P95Ms = ClientNumber(field[5]);
+      row.P99Ms = ClientNumber(field[6]);
+      row.Frames = ClientNumber(field[7]);
+      row.OverBudget = ClientNumber(field[8]);
+      row.WorstAt = ClientNumber(field[9]);
+      row.Triangles = ClientNumber(field[10]);
+      row.BareTiles = ClientNumber(field[11]);
+      row.Variation = ClientNumber(field[12]);
       row.Preloaded = field[13] == "1";
-      row.MeasurementMs = std::atof(field[16].c_str());
-      row.LoadingMs = std::atof(field[17].c_str());
-      row.TurnDegrees = std::atof(field[18].c_str());
+      row.MeasurementMs = ClientNumber(field[16]);
+      row.LoadingMs = ClientNumber(field[17]);
+      row.TurnDegrees = ClientNumber(field[18]);
       row.Why = field.back();
     }
   }
+}
+
+inline int
+ScorePlace(const char *place, const char *catalog = "src/assets/places", unsigned rateHz = 30) {
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
+  const std::string command = std::string("build/outshine-client --places ") + catalog +
+                              " shots --rows --offline --preload-seconds 600 --scenario-overrides "
+                              "'{\"render\":{\"widthPx\":1280,\"heightPx\":720,\"fps\":" +
+                              std::to_string(rateHz) + "}}' " + place + " 2>&1";
+  std::FILE *const running = popen(command.c_str(), "r");
+  if (running == nullptr) {
+    Unprepared("the client did not start");
+    return Report();
+  }
+  double control = -1.0;
+  ClientRow row;
+  ReadClientOutput(running, control, row);
   const int status = pclose(running);
   if (!row.Read) {
     Unprepared((std::string(place) + " left no row: the client exited " + std::to_string(status) +
@@ -86,15 +119,23 @@ inline int ScorePlace(const char *place, const char *catalog = "src/assets/place
   }
 
   constexpr double kCurrentPlaceFrameBudgetMs = 10.0;
-  CHECK(row.Frames == 60.0 && row.TurnDegrees == 360.0,
-        "a place measures every frame of its complete 60-frame turn");
+  CHECK(status == 0, "the public client finishes successfully");
+  CHECK(row.WidthPx == 1280.0 && row.HeightPx == 720.0 && row.RateHz == rateHz &&
+            std::isfinite(row.BudgetMs) && std::abs(row.BudgetMs - 1000.0 / rateHz) < 1e-6,
+        "the client reports the requested 1280x720 profile and its frame budget");
+  CHECK(row.Frames == rateHz && row.TurnDegrees == 360.0,
+        "a place measures exactly the target-rate frames of its complete turn");
   CHECK(std::isfinite(row.MeasurementMs) && row.MeasurementMs > 0.0 && row.MeasurementMs <= 1000.0,
         "the complete measured turn fits one second including pacing");
   CHECK(std::isfinite(row.LoadingMs) && row.LoadingMs >= 0.0,
         "complete cached world preload reports its actual duration");
   CHECK(row.Preloaded, "the complete world was preloaded before frame measurement");
   CHECK(std::isfinite(row.P99Ms) && row.P99Ms > 0.0 && row.P99Ms < kCurrentPlaceFrameBudgetMs,
-        "current place p99 stays below ten milliseconds at 720p60, including initial frames");
+        "current place CPU p99 stays below ten milliseconds, including initial frames");
+  CHECK(row.Gpu.Complete(row.Frames),
+        "every measured frame has a finite GPU timestamp; lifetime/preload data cannot substitute");
+  CHECK(std::isfinite(row.Gpu.MaxMs) && row.Gpu.MaxMs > 0.0 && row.Gpu.MaxMs <= 1000.0 / rateHz,
+        "GPU maximum, also nearest-rank p99 for 30 or 60 frames, fits the requested frame budget");
 
   // THE MEASURE'S OWN NEGATIVE CONTROL, and without it the bar below is a number nobody checked. A
   // bare ellipsoid under a sky IS a vertical gradient, so the statistic is run over one first -- if

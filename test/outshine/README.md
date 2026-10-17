@@ -4,7 +4,8 @@
 |---|---|
 | `include/<header without .h>/` | Public API contracts; only public engine headers |
 | `src/<component without .h or .cpp>/` | Implementation contracts; mirrors the component under `src/` |
-| `integration/places/` | Complete place scenarios and rendered-image checks |
+| `integration/places/` | Complete offline places at 1280×720/30, CPU/GPU and image checks |
+| `integration/places60/` | Separate 1280×720/60 comparison with the same contents and checks |
 
 Examples: `include/scene/Geometry/`, `src/base/curve/Ribbon/`,
 `src/import/Subject/`. Name each case after the behavior it proves.
@@ -14,7 +15,7 @@ and assertions in a new executable. Keep API validation, asset persistence and G
 response separate: success at one boundary does not establish the others.
 
 The default `make test` selects the world contracts in `test/world-gate.txt` and renders
-Wien, Tokyo and Central Park offline. `make test-khronos` retains explicit glTF/animation
+Wien, Tokyo and Central Park offline at 1280×720/30. `make test-khronos` retains explicit glTF/animation
 and pinned-image compatibility; `make test-all` runs every declared suite.
 `make lint` retains shared shader/GPU contracts independently of compatibility images.
 
@@ -24,10 +25,11 @@ Run a subtree or a single case:
 make suite SUITE=outshine/src/base/curve
 make suite SUITE=outshine/include/scene/Geometry/PlacementReplacementPreservesGeometry
 make suite SUITE=outshine/integration/places
+make suite SUITE=outshine/integration/places60
 ```
 
 `test/run.sh` selects build profiles by component. Vector decoding/storage keeps
-ASan/UBSan; GPU submission/storage keeps SDL validation; process-allocation
+ASan/UBSan; GPU submission/storage keeps native GPU validation; process-allocation
 checks link diagnostic instrumentation. Public API tests compile without `src/`
 include paths. Shared library objects retain their own declared dependencies.
 
