@@ -23,9 +23,9 @@ class ObjectCache(unittest.TestCase):
         functions = []
         for name in ('FileStamp', 'SourceStamp', 'UpToDate', 'PrepareCompilerCache',
                      'CompileCachedObject', 'FreshAgainst', 'ArchiveFresh',
-                     'SetGroupCompileFlags', 'BuildGroup'):
+                     'SetGroupCompileFlags', 'BuildGroup', 'BinaryStamp'):
             match = re.search(r'^' + name + r'\(\) \{\n.*?^\}\n', source, re.M | re.S)
-            if name not in ('SetGroupCompileFlags', 'BuildGroup') and match is None:
+            if name not in ('FileStamp', 'SetGroupCompileFlags', 'BuildGroup', 'BinaryStamp') and match is None:
                 continue
             self.assertIsNotNone(match, name)
             functions.append(match.group())
@@ -172,6 +172,26 @@ Die() { printf '%s\\n' "$*" >&2; exit 1; }
                                  'archive-check', str(archive), str(object_path)],
                                 cwd=self.root, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+
+    def test_case_binary_stamp_checks_content_after_restored_timestamp(self):
+        object_path = self.build()
+        harness = self.root / 'test/harness/shared'
+        harness.mkdir(parents=True)
+        (harness / 'Check.h').write_text('#pragma once\n')
+        script = self.helper.read_text().split('\nBuildGroup src/base\n')[0]
+        script += '\nOBJECTS=$2\nBinaryStamp "$1" src/base/Probe.cpp\n'
+
+        def stamp():
+            result = subprocess.run(['sh', '-c', script, 'case-stamp', 'case', str(object_path)],
+                                    cwd=self.root, capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            return result.stdout
+
+        before = stamp()
+        metadata = self.source.stat()
+        self.source.write_text(self.source.read_text().replace('value()', 'other()'))
+        os.utime(self.source, ns=(metadata.st_atime_ns, metadata.st_mtime_ns))
+        self.assertNotEqual(stamp(), before)
 
 
 if __name__ == '__main__':

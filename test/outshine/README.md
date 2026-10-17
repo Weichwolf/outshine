@@ -54,6 +54,9 @@ Keep `MTL_DEBUG_LAYER` unset for Place performance measurements.
 Each selected case also runs normally and with standard-library container checks;
 instrumented builds do not establish release performance budgets.
 
+The Tasks suite builds only `Tasks.cpp` and links the standard threading library.
+Its normal and race-instrumented cases need no engine, geometry libraries or GPU.
+
 `test/run.sh` selects build profiles by component. Vector decoding/storage keeps
 ASan/UBSan; GPU submission/storage keeps native GPU validation; process-allocation
 checks link diagnostic instrumentation. Shared library objects retain their own
