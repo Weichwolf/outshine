@@ -107,3 +107,23 @@ Nine module arms cover rows, closed axes and folded blades in normal,
 ASan/UBSan and container builds. Product and independent probe analysis is
 focused; existing shared Check.h findings remain separate. Use --blades in
 the NumPy reference environment to compare both wood and eight prototypes.
+
+## Actual shared-mesh Metal portrait
+
+The complete technical fixture was rendered at640×720 and opened on the native
+integration branch. One combined wood mesh and eight actual shared leaf meshes
+use571 instance matrices. Counters from the actual built arrays report174060
+logical triangle references,719744B prototype arrays and73088B leaf matrices.
+These are CPU logical payloads, not capacities, RSS, physical GPU bytes or
+actual post-cull shader invocations. The picture shows a coherent young plant;
+materials use the existing default thin-sheet response, with no new vein/wood
+material or botanical/SpeedTree acceptance implied.
+
+An initial declared autoExposure stage was rejected before device execution.
+The successful comparison explicitly uses the existing RuntimeScene light-based
+calibration:2.5/(1.2×20000)=0.0001041667 exposure for20000lux directional light.
+This does not implement GPU image metering or establish a Metal-only regression.
+Original rejected attempt, successful command, source/binary/PNG hashes,
+computed counters and image remain in /tmp/outshine-plant-metal-2ab0d9ee7/.
+One offscreen frame is component evidence, not a complete product build, Places
+integration, timing/memory gate or world-quality proof.
