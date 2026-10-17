@@ -83,7 +83,10 @@ bool VegetationStreaming::Ready() const {
 void VegetationStreaming::Into(Render::SceneRenderer &renderer) noexcept {
   Renderer_ = &renderer;
   for (Group &group : Groups_) {
-    if (group.Pieces) { group.Pieces->MoveTo(renderer); }
+    if (group.Pieces) {
+      group.Pieces->MoveTo(renderer);
+      group.ViewOrigin.reset();
+    }
   }
 }
 
@@ -206,10 +209,13 @@ bool VegetationStreaming::Step(const Vec3 &eye,
   }
   if (prepare) { PrepareNext(); }
   for (auto &group : Groups_) {
-    if (group.Pieces && !group.Pieces->Update(group.Models, eye, error)) {
+    if (!group.Pieces || group.ViewOrigin == eye) { continue; }
+    if (!group.Pieces->Update(group.Models, eye, error)) {
       Failure_ = error;
       return false;
     }
+    group.ViewOrigin = eye;
+    SelectedInstances_ += group.Models.size();
   }
   return true;
 }
@@ -220,6 +226,9 @@ bool VegetationStreaming::AwaitProgress(double seconds) {
 }
 
 VegetationStreaming::Counters VegetationStreaming::Costs() const noexcept {
-  return {.Assets = Cache_.Costs(), .Generated = Generated_, .GenerationMs = GenerationMs_};
+  return {.Assets = Cache_.Costs(),
+          .Generated = Generated_,
+          .SelectedInstances = SelectedInstances_,
+          .GenerationMs = GenerationMs_};
 }
 }
