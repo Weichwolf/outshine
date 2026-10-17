@@ -31,10 +31,12 @@ def atlas(values):
 
 def material(vectors, images, frames, light, mode, *, image_factory=atlas):
     vectors, images, frames, light = map(np.asarray, (vectors, images, frames, light))
+    views = vectors.shape[0] if vectors.ndim == 5 else 0
     if (
-        vectors.shape != (64, 32, 32, 4, 3)
-        or images.shape != (64, 32, 32, 9)
-        or frames.shape != (64, 3, 3)
+        not 1 <= views <= 64
+        or vectors.shape != (views, 32, 32, 4, 3)
+        or images.shape != (views, 32, 32, 9)
+        or frames.shape != (views, 3, 3)
         or mode not in ("mean", "four")
     ):
         raise ValueError("same complete prototype and declared response mode required")

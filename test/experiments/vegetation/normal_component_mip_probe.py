@@ -8,8 +8,9 @@ import bpy
 import numpy as np
 from mathutils import Vector
 from normal_component_material import material
+from normal_view_images import ViewImages
 from normal_view_tiles import TileFields
-from normal_view_uv import isolated_uv
+from normal_view_uv import isolated_uv, local_uv
 from window_portrait_blender import bind_mesh
 
 
@@ -17,7 +18,7 @@ def run(output, *, storage="atlas", views=(0,), footprints=(64, 1), pattern="con
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under/tmp")
     if (
-        storage not in ("atlas", "isolated")
+        storage not in ("atlas", "isolated", "view")
         or pattern not in ("constant", "checker")
         or not 1 <= len(views) <= 64
         or any(type(v) is not int or not 0 <= v < 64 for v in views)
@@ -27,7 +28,7 @@ def run(output, *, storage="atlas", views=(0,), footprints=(64, 1), pattern="con
     results = []
     for selected in views:
         for interpolation in (
-            ("Linear",) if storage == "isolated" else ("Linear", "Closest")
+            ("Linear",) if storage != "atlas" else ("Linear", "Closest")
         ):
             for footprint in footprints:
                 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -51,6 +52,11 @@ def run(output, *, storage="atlas", views=(0,), footprints=(64, 1), pattern="con
                     if storage == "isolated"
                     else None
                 )
+                if storage == "view":
+                    factory = ViewImages(0)
+                    vectors, images, frames = (
+                        a[selected : selected + 1] for a in (vectors, images, frames)
+                    )
                 surface = material(
                     vectors,
                     images,
@@ -66,8 +72,10 @@ def run(output, *, storage="atlas", views=(0,), footprints=(64, 1), pattern="con
                 uv = (
                     np.array([[0, 0], [32, 0], [32, 32], [0, 32]], float) + lower
                 ) / 320
-                if factory:
+                if storage == "isolated":
                     uv = isolated_uv(uv, np.array([selected]))
+                elif storage == "view":
+                    uv = local_uv(uv, np.array([selected]))
                 bind_mesh(
                     "same view0 control",
                     {
@@ -114,7 +122,11 @@ def run(output, *, storage="atlas", views=(0,), footprints=(64, 1), pattern="con
                     "expected_conditional_response": expected,
                     "measured_response": response,
                     "alpha_sum": float(alpha),
-                    "passes": abs(response - expected) < 0.003,
+                    "response_passes": abs(response - expected) < 0.003,
+                    "coverage_passes": abs(alpha - footprint**2)
+                    < max(0.003 * footprint**2, 0.003),
+                    "passes": abs(response - expected) < 0.003
+                    and abs(alpha - footprint**2) < max(0.003 * footprint**2, 0.003),
                     "controlled_float_image_bytes": factory.float_payload_bytes
                     if factory
                     else None,
@@ -127,7 +139,9 @@ def run(output, *, storage="atlas", views=(0,), footprints=(64, 1), pattern="con
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--storage", choices=("atlas", "isolated"), default="atlas")
+    parser.add_argument(
+        "--storage", choices=("atlas", "isolated", "view"), default="atlas"
+    )
     parser.add_argument("--views", type=int, nargs="+", default=[0])
     parser.add_argument(
         "--pattern", choices=("constant", "checker"), default="constant"

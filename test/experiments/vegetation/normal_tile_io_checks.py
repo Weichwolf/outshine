@@ -7,10 +7,24 @@ from unittest.mock import patch
 
 import bpy
 import numpy as np
+from normal_view_images import ViewImages
 from normal_view_tiles import load_tiles, write_tiles
 
 
 class TileIOTests(unittest.TestCase):
+    def test_independent_images_only_read_and_copy_the_demanded_view(self):
+        values = np.full((64, 32, 32, 3), np.nan, np.float32)
+        values[9] = [0.25, -0.125, 0.3]
+        factory = ViewImages(9)
+        image = factory(values)
+        pixels = np.asarray(image.pixels[:], np.float32).reshape(32, 32, 4)
+        np.testing.assert_array_equal(pixels[..., :3], values[9])
+        self.assertEqual(factory.float_payload_bytes, 16384)
+        self.assertFalse(image.use_half_precision)
+        bpy.data.images.remove(image)
+        with self.assertRaisesRegex(ValueError, "finite demanded"):
+            ViewImages(0)(values)
+
     def test_every_tile_retains_exact_signed_float_values_and_hit_does_not_rewrite(
         self,
     ):

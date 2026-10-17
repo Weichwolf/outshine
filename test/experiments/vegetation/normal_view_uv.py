@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def isolated_uv(uv, views):
+def local_uv(uv, views):
     uv, views = np.asarray(uv, float), np.asarray(views)
     if (
         views.ndim != 1
@@ -19,4 +19,10 @@ def isolated_uv(uv, views):
     local = (uv.reshape(-1, 4, 2) * 320 - old_lower[:, None]) / 32
     if np.any(local < -1e-12) or np.any(local > 1 + 1e-12):
         raise ValueError("UVs must belong to the declared original chart")
+    return local.reshape(-1, 2)
+
+
+def isolated_uv(uv, views):
+    local = local_uv(uv, views).reshape(-1, 4, 2)
+    views = np.asarray(views)
     return (local + np.c_[views % 10, views // 10][:, None]).reshape(-1, 2)

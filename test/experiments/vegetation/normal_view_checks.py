@@ -3,7 +3,7 @@
 import unittest
 
 import numpy as np
-from normal_view_uv import isolated_uv
+from normal_view_uv import isolated_uv, local_uv
 
 
 class ViewUVTests(unittest.TestCase):
@@ -14,6 +14,12 @@ class ViewUVTests(unittest.TestCase):
         original = ((local[None] * 32 + origin[:, None]) / 320).reshape(-1, 2)
         before = original.copy()
         mapped = isolated_uv(original, views).reshape(-1, 4, 2)
+        np.testing.assert_allclose(
+            local_uv(original, views).reshape(-1, 4, 2),
+            np.broadcast_to(local, (64, 4, 2)),
+            atol=1e-14,
+            rtol=0,
+        )
         expected = local[None] + np.c_[views % 10, views // 10][:, None]
         np.testing.assert_allclose(mapped, expected, atol=1e-14, rtol=0)
         np.testing.assert_array_equal(before, original)
