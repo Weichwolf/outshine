@@ -36,8 +36,9 @@ its LOD/morphing/simplification method. No SDK or external code is incorporated.
 
 Preparation/kernel/cost code `840975e907ce1bd6d2508c445d520fff71eb1041`;
 reader/source-frame binding `d3e926dc58055e23d8e188eccd3f37626d52a5d6`.
-The latter changes only independent reference binding; kernel/load/query code
-is unchanged. All five actual verified module exports are read directly,
+The latter changes only independent reference binding. Final diagnostic-key
+clarification and repeated installed/source checks/reader use `03d5026f5`;
+geometry/load/query operations are unchanged. All five actual verified module exports are read directly,
 without `load_cached` or relaxing its four-parent guard. Preparation takes
 2.760301 s / 139137024 B peak RSS, including legacy integrity checks, conversion
 and whole-field diagnostic comparisons. This is conversion of existing verified
@@ -96,8 +97,11 @@ boundary-height change, unsupported orientation and exhausted budgets. A
 synthetic 131-patch/130-source-label history uses stable local identities without
 global 64-bit ownership; it does not claim 130 real transport sources.
 
-121 source / 121 installed controls pass. Fresh wheel has 205 Python modules,
-all source-equal; previous 201 modules are byte-identical. Wheel SHA256
+121 source / 121 installed controls pass on the final code. Its fresh wheel has
+205 Python modules, all source-equal; previous 201 modules are byte-identical.
+Current wheel SHA256
+`c4f27aec31e7a7d2eeb77e78a6a2239e2e792a2510533b0629af63751eae8edc`;
+frozen measurement wheel from `840975e90`
 `32788c3f719bf88bd952cb2f75b45cb8d0c720611e070f710ec662ab1383a304`.
 Format/Ruff, changed Python functions ≤120 lines, diff/docs lint pass. Native
 engine/device gates are not run for this pure Python reference delivery.
@@ -164,7 +168,7 @@ Private evidence root `/tmp/outshine-transport-patches-a5611a9f0/`, complete
 prepared payloads `/tmp/outshine-transport-patches-full-840975e90/`.
 `run-frozen.py` records exact guarded conversion/replay/diagnostic commands;
 `prepare-guard.json`, `verify-guard.json`, `counter-products.json`,
-`installed-proof.json`, `cost-normal.json`, `cost-profile.json`, official
+`installed-current-proof.json`, `derived-copy-work.json`, `cost-normal.json`, `cost-profile.json`, official
 allocation JSON/original traces, `cost-and-display-proof.json`,
 `render-completeness.json` and terminal logs distinguish their scopes.
 Source originals/parents and required counterexamples remain; only disposable
