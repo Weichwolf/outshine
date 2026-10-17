@@ -44,6 +44,27 @@ instructions. Counts exclude input validation/index construction; end-to-end
 timings must include both. Source limits bound heap/index allocation; no
 unbounded persistent cache is introduced.
 
+`connected_prefixes(proposal)` (#539) returns immutable tuples of whole original
+source IDs in the discovery order: full count, floor(count/2), repeatedly down
+to one. At most eight sources produce at most four alternatives. It requires a
+unique bounded list, matching explicit parent/node witnesses, parents preceding
+their children and all initial branches meeting the same original node. This
+proves a rooted tree-order witness, not actual source/node/level or geometric
+truth. Empty discovery gives no alternatives; cycles can have a valid tree
+witness. Inputs are unchanged and output tuples own their identity sequence.
+
+Every prefix stays connected to the same root. It never shortens an original
+source or raises any physical admission budget. A caller with three attempts
+can test only the first three alternatives; for eight sources this means
+8/4/2, with the one-source alternative still untested if all fail. Halving can
+skip a larger valid subset, so no maximality or optimality follows. A failed
+joint module does not prove any individual source impossible: preserve omitted
+sources, original eligibility and actual failed-attempt reasons for later work.
+The optional experiment `--strategy prefix` rebuilds all secondary contact and
+profile declarations after each source choice, with the same whole-geometry
+gates. Default `--strategy whole` retains the complete-proposal comparison.
+Exact physical evidence and limits: [prefix experiment](../test/experiments/transport/stair_prefix_comparison.md).
+
 The real-input comparison is `stair_frontier_compare.py`; automatic geometry
 admission and independent replay are `stair_frontier_experiment.py` and
 `stair_frontier_verify.py` under `test/experiments/transport/`. All outputs need

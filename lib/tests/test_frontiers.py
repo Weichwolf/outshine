@@ -1,8 +1,9 @@
 """Discrete explicit-node topology, deterministic alternatives and budget controls."""
 
+import copy
 import unittest
 
-from outshine_ref.transport.frontiers import discover_source_modules
+from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
 
 
 def record(key, nodes, *, eligible=True, length=10):
@@ -69,6 +70,55 @@ class FrontierGraph(unittest.TestCase):
             discover_source_modules([row, row], [])
         with self.assertRaises(ValueError):
             discover_source_modules([dict(row, nodes=[(0.1, 0), (1, 0)])], [])
+
+
+class ConnectedPrefixes(unittest.TestCase):
+    def proposal(self, count=8):
+        rows = [record(str(i), [(i, 0), (i + 1, 0)]) for i in range(count)]
+        return discover_source_modules(rows, [{"root_id": "r", "node": (0, 0)}])[
+            "proposals"
+        ][0]
+
+    def test_complete_connected_prefixes_and_owned_immutable_result(self):
+        proposal = self.proposal()
+        before = copy.deepcopy(proposal)
+        choices = connected_prefixes(proposal)
+        self.assertEqual([len(p) for p in choices], [8, 4, 2, 1])
+        for choice in choices:
+            seen = set()
+            for key in choice:
+                parent = proposal["connections"][key]["source_id"]
+                self.assertTrue(parent is None or parent in seen)
+                seen.add(key)
+        self.assertEqual(proposal, before)
+        proposal["source_ids"][0] = "changed"
+        self.assertEqual(choices[-1], ("0",))
+
+    def test_multiple_branches_share_one_root_and_cycle_witness_is_valid(self):
+        rows = [
+            record("a", [(0, 0), (1, 0)]),
+            record("b", [(0, 0), (-1, 0)]),
+            record("c", [(1, 0), (-1, 0)]),
+        ]
+        proposal = discover_source_modules(rows, [{"root_id": "r", "node": (0, 0)}])[
+            "proposals"
+        ][0]
+        self.assertEqual([len(v) for v in connected_prefixes(proposal)], [3, 1])
+
+    def test_invalid_parent_order_disconnected_roots_and_duplicate_are_rejected(self):
+        for change in ("parent", "root", "duplicate", "node"):
+            proposal = self.proposal(4)
+            if change == "parent":
+                proposal["connections"]["0"]["source_id"] = "3"
+            elif change == "root":
+                proposal["connections"]["1"] = {"source_id": None, "node": (99, 0)}
+            elif change == "duplicate":
+                proposal["source_ids"][1] = "0"
+            else:
+                proposal["connections"]["0"]["node"] = (0.5, 0)
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                connected_prefixes(proposal)
+        self.assertEqual(connected_prefixes(self.proposal(0)), ())
 
 
 if __name__ == "__main__":

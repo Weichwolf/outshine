@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import numpy as np
 import shapely
-from outshine_ref.transport.frontiers import discover_source_modules
+from outshine_ref.transport.frontiers import connected_prefixes, discover_source_modules
 from stair_module_inputs import reference_profiles
 from stair_module_roots import root_profile
 
@@ -133,7 +133,9 @@ def module_recipe(reference, state, sources, root, proposal):
     }
 
 
-def proposals(state, sources, reference, *, method="index"):
+def proposals(state, sources, reference, *, method="index", strategy="whole"):
+    if strategy not in ("whole", "prefix"):
+        raise ValueError("known bounded whole or connected-prefix strategy required")
     records = records_for(state, sources)
     roots, deferred = root_seeds(state, sources, records)
     plan = discover_source_modules(records, roots, method=method)
@@ -142,12 +144,35 @@ def proposals(state, sources, reference, *, method="index"):
     for proposal in plan["proposals"]:
         if not proposal["source_ids"]:
             continue
-        try:
-            recipe = module_recipe(
-                reference, state, sources, by_root[proposal["root_id"]], proposal
-            )
-        except ValueError as error:
-            deferred.append({"root_id": proposal["root_id"], "reason": str(error)})
-            continue
-        recipes.append(recipe)
+        choices = (
+            connected_prefixes(proposal)
+            if strategy == "prefix"
+            else (proposal["source_ids"],)
+        )
+        for keys in choices:
+            try:
+                recipe = module_recipe(
+                    reference,
+                    state,
+                    sources,
+                    by_root[proposal["root_id"]],
+                    dict(proposal, source_ids=list(keys)),
+                )
+            except ValueError as error:
+                deferred.append(
+                    {
+                        "root_id": proposal["root_id"],
+                        "source_ids": list(keys),
+                        "reason": str(error),
+                    }
+                )
+                continue
+            if strategy == "prefix":
+                recipe["source_fallback"] = {
+                    "root_id": proposal["root_id"],
+                    "full_source_ids": proposal["source_ids"],
+                    "omitted_source_ids": proposal["source_ids"][len(keys) :],
+                    "scope": "Whole connected source prefix; omitted sources remain original candidates for later recipes, not individually disproven.",
+                }
+            recipes.append(recipe)
     return plan, records, roots, deferred, recipes

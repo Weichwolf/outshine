@@ -171,3 +171,38 @@ def discover_source_modules(
         },
         "scope": "Alternative bounded source-module proposals from explicit original nodes; caller owns frame, eligibility, actual old profile and whole geometry admission. No globally optimal or complete network claim.",
     }
+
+
+def connected_prefixes(proposal):
+    """Return whole-source prefixes of a rooted discovery order, halving to one.
+
+    This validates a parent-order witness, not actual node/level/geometry truth.
+    At most four alternatives result; the caller's total admission budget still
+    applies. A failed larger joint recipe does not prove any source impossible.
+    """
+    keys, connections = proposal["source_ids"], proposal["connections"]
+    if (
+        not 0 <= len(keys) <= 8
+        or any(not isinstance(k, str) or not 1 <= len(k) <= 512 for k in keys)
+        or len(set(keys)) != len(keys)
+        or set(connections) != set(keys)
+    ):
+        raise ValueError("bounded unique original-source discovery order required")
+    seen, root = set(), None
+    for key in keys:
+        row = connections[key]
+        if set(row) != {"source_id", "node"}:
+            raise ValueError("explicit original-node parent witness required")
+        node, parent = _node_key(row["node"]), row["source_id"]
+        if parent is None:
+            if root is not None and node != root:
+                raise ValueError("all initial branches must meet the same root")
+            root = node
+        elif not isinstance(parent, str) or parent not in seen:
+            raise ValueError("every new source must follow its connected parent")
+        seen.add(key)
+    result, count = [], len(keys)
+    while count:
+        result.append(tuple(keys[:count]))
+        count //= 2
+    return tuple(result)

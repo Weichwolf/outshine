@@ -19,9 +19,8 @@ from verify_terraces import circulation
 from verify_vertical import connected_spaces, landing_poses
 
 
-def planned(row, profile="legacy", *, near_products=None):
+def base_plan(row):
     height = float(row["properties"]["render_height"])
-    began = time.perf_counter()
     plan = build(
         {
             "id": row["id"],
@@ -32,6 +31,12 @@ def planned(row, profile="legacy", *, near_products=None):
     )
     if plan.get("vertical_status") != "connected-storeys":
         raise ValueError("No complete stepped base room/storey plan")
+    return plan
+
+
+def planned(row, profile="legacy", *, near_products=None):
+    began = time.perf_counter()
+    plan = base_plan(row)
 
     def detail_clearance(current):
         from stepped_envelope_geometry import geometry
@@ -53,6 +58,12 @@ def planned(row, profile="legacy", *, near_products=None):
         )
     if profile != "legacy":
         result["form_recipe"]["requested_profile"] = profile
+    result = terrace_portals(result)
+    result["form_recipe"]["planning_ms"] = (time.perf_counter() - began) * 1000
+    return result
+
+
+def terrace_portals(result):
     result["storey_portals"] = [list(row) for row in result["storey_portals"]]
     result["terrace_space_ids"] = []
     for record in result["terrace_access"]:
@@ -66,7 +77,6 @@ def planned(row, profile="legacy", *, near_products=None):
                 "outside": False,
             }
         )
-    result["form_recipe"]["planning_ms"] = (time.perf_counter() - began) * 1000
     return result
 
 

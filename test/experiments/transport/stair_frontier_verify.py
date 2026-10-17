@@ -4,6 +4,7 @@ import json
 import resource
 
 from camera_height_inputs import digest
+from stair_frontier_dispositions import source_dispositions
 from stair_frontier_experiment import argument_parser, module_args, reference
 from stair_frontier_sources import proposals
 from stair_module_cache import load_cached
@@ -20,6 +21,7 @@ def verify(args):
     if (
         report["reference"] != ref
         or report["method"] != args.method
+        or report.get("strategy", "whole") != args.strategy
         or report["max_attempts"] != args.max_attempts
         or not 1 <= args.max_attempts <= 3
     ):
@@ -29,7 +31,7 @@ def verify(args):
     if context["origin_lat_lon"] != state["support_report"]["origin_lat_lon"]:
         raise ValueError("original source and actual cached frame differ")
     plan, _records, roots, deferred, recipes = proposals(
-        state, sources, ref, method=args.method
+        state, sources, ref, method=args.method, strategy=args.strategy
     )
     expected = {
         "source_commit": report["commit"],
@@ -58,6 +60,9 @@ def verify(args):
             or attempt["source_ids"] != recipe["source_ids"]
         ):
             raise ValueError("saved recipe was not the bounded automatic proposal")
+        child_report = json.loads((child.output / "comparison.json").read_text())
+        if attempt["reason"] != child_report.get("reason", ""):
+            raise ValueError("automatic attempt lost its actual rejection reason")
         proof = verify_module(child)
         if proof["valid_local_module"] != attempt["valid_local_module"]:
             raise ValueError("saved automatic module admission changed")
@@ -81,6 +86,12 @@ def verify(args):
         len(recipes), args.max_attempts
     ):
         raise ValueError("automatic search stopped without its declared attempts")
+    if "source_dispositions" in report and report[
+        "source_dispositions"
+    ] != source_dispositions(plan, report["attempts"], chosen):
+        raise ValueError("saved physical source dispositions changed")
+    if args.strategy == "prefix" and "source_dispositions" not in report:
+        raise ValueError("connected-prefix admission needs actual source dispositions")
     for name, expected_hash in report["artifacts"].items():
         if digest(args.output / name) != expected_hash:
             raise ValueError("saved automatic module artifact changed: " + name)

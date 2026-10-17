@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from camera_height_inputs import digest
+from stair_frontier_dispositions import source_dispositions
 from stair_frontier_sources import proposals
 from stair_module_cache import load_cached
 from stair_module_experiment import generate, write_json
@@ -53,7 +54,7 @@ def run(args):
     if context["origin_lat_lon"] != state["support_report"]["origin_lat_lon"]:
         raise ValueError("original source and actual cached frame differ")
     plan, records, roots, deferred, recipes = proposals(
-        state, sources, ref, method=args.method
+        state, sources, ref, method=args.method, strategy=args.strategy
     )
     args.output.mkdir(parents=True)
     selection = {
@@ -97,10 +98,12 @@ def run(args):
         "reference": ref,
         "attempts": attempts,
         "method": args.method,
+        "strategy": args.strategy,
         "max_attempts": args.max_attempts,
         "chosen_module": chosen,
         "artifacts": artifacts,
         "cached_sources": cached_ids,
+        "source_dispositions": source_dispositions(plan, attempts, chosen),
         "valid_automatic_module": chosen is not None,
         "valid_retained_baseline": chosen is None,
         "seconds": time.perf_counter() - started,
@@ -134,6 +137,7 @@ def argument_parser():
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--method", choices=("index", "scan"), default="index")
+    parser.add_argument("--strategy", choices=("whole", "prefix"), default="whole")
     parser.add_argument("--max-attempts", type=int, default=3)
     return parser
 
