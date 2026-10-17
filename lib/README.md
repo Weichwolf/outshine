@@ -601,6 +601,17 @@ and populated tables own immutable bytes. The implementation skips empty parents
 after vectorized preflight, with bounded parent/site work. This does not establish
 a complete SpeedTree property mapping, botanical recipe or native placement ABI.
 
+The opt-in `mode="uniform"` uses a constant positive `spacing` as a minimum group
+distance and `limit_groups` as a complete-population cap. The existing closed
+endpoint count is retained, including its Float64 tolerance. Two or more groups
+span the whole `[first,last]` interval evenly; one group stays at `last` and empty
+intervals stay empty. The minimum distance applies between groups, not members
+of one whorl, up to that endpoint tolerance. Variable spacing and longitudinal
+spread are rejected in this mode. A cap therefore redistributes groups instead
+of truncating the distal physical sequence. Existing modes/recipes are unchanged.
+This is an explicit own allocation rule, not a vendor growth model; #626 owns the
+complete spruce comparison and the still unapproved botanical/image outcome.
+
 ### Spatial branch curves and surfaces
 
 `outshine_ref.vegetation.CubicSpine`, `ArcMeasure`, `SpineField` and `SpatialAxis`
