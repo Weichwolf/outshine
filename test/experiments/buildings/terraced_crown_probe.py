@@ -21,6 +21,7 @@ from terraced_mass_plan import plan as mass_plan
 from terraced_mass_sources import sources
 from terraced_terrace_geometry import TerraceProducts
 from terraced_terrace_plan import plan as terrace_plan
+from tile_terraced import indices
 
 
 def cases():
@@ -181,6 +182,7 @@ def models(output):
             owner.draw(True),
             owner.draw(False),
         )
+        before = dict(before, faces=indices(before))
         checks = {"body": inspect(owner.body), "roof": roof_checks(owner)}
         view = overview(np.r_[before["vertices"], after["vertices"]], [1, -1.25, 0.85])
         record = {

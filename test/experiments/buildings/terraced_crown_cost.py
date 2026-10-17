@@ -18,6 +18,7 @@ from terraced_crown_probe import cases
 from terraced_mass_plan import plan as mass_plan
 from terraced_terrace_geometry import TerraceProducts
 from terraced_terrace_plan import plan as terrace_plan
+from tile_terraced import indices
 
 
 def payload(state):
@@ -56,7 +57,8 @@ def payload(state):
 def build(row, kind, mode):
     if mode == "before":
         owner = TerraceProducts(terrace_plan(mass_plan(row, kind)))
-        return owner, (owner.draw(True),), {"mode": "old whole near"}
+        mesh = owner.draw(True)
+        return owner, (dict(mesh, faces=indices(mesh)),), {"mode": "old whole near"}
     owner = RoofedProducts(plan(row, kind))
     if mode in ("full", "compact"):
         return owner, owner.parts(mode == "full", mode == "full"), {"mode": mode}
