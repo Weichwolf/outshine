@@ -222,6 +222,12 @@ class SurfaceContactControls(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "saved shared-box masks"):
             verify_masks(rows, nodes, original, [masks[0].buffer(0.001)], line, [])
 
+    def test_double_positive_portal_side_cannot_disappear_in_float32(self):
+        old, of = strip(1024 - 1e-5, 1024, 1.8)
+        new, nf = strip(1024, 1025, 1.8)
+        with self.assertRaisesRegex(ValueError, "no complete opposite-side"):
+            portal(old, of, new, nf, 1.8)
+
     def test_saved_original_node_boxes_cannot_be_omitted_or_added_elsewhere(self):
         rows = [
             {"source_id": "new", "xy": np.array([[0, 0], [10, 0]], float), "width_m": 2}

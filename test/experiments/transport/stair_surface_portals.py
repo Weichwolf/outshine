@@ -40,6 +40,22 @@ def candidates(old, new, width):
     return lines, segments
 
 
+def portal_checks(oldv, oldf, newv, newf, line, sign, width):
+    checks = []
+    for cast in (False, True):
+        actual_line = line.astype("f4").astype(float) if cast else line
+        groups = []
+        for vertices, faces, direction in ((oldv, oldf, sign), (newv, newf, -sign)):
+            actual = vertices.astype("f4").astype(float) if cast else vertices
+            parts = side(actual, faces, actual_line, direction, width)
+            if not parts:
+                raise ValueError("actual portal side has no positive-area facets")
+            groups.append([(vertices, used, mask) for _v, used, mask in parts])
+        # Keep original coordinates here so trace_bounds pays their actual rounding.
+        checks.append(compare(groups, line, cast))
+    return checks
+
+
 def portal(oldv, oldf, newv, newf, width):
     if (
         not np.isfinite(width)
@@ -54,16 +70,12 @@ def portal(oldv, oldf, newv, newf, width):
     tests, attempts = 0, 0
     for line in lines[:8]:
         for sign in (-1, 1):
-            tests += len(oldf) + len(newf)
+            tests += 2 * (len(oldf) + len(newf))
             attempts += 1
             if tests > 65536:
                 raise ValueError("portal facet intersection budget exhausted")
-            a = side(oldv, oldf, line, sign, width)
-            b = side(newv, newf, line, -sign, width)
-            if not a or not b:
-                continue
             try:
-                checks = [compare([a, b], line, cast) for cast in (False, True)]
+                checks = portal_checks(oldv, oldf, newv, newf, line, sign, width)
             except ValueError:
                 continue
             return {
