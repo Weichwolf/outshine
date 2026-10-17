@@ -132,8 +132,13 @@ class CladFacadesTests(unittest.TestCase):
                 "window_bay_plan",
             ):
                 self.assertEqual(after.get(key), before.get(key), key)
-            self.assertTrue(after["facade_frame_plan"])
-            self.assertTrue(all("composition" in r for r in after["facade_frame_plan"]))
+            self.assertTrue(after["facade_clad_plan"])
+            self.assertTrue(
+                all(
+                    "composition" in r and "source_frame" in r
+                    for r in after["facade_clad_plan"]
+                )
+            )
 
     def test_far_camera_keeps_plan_and_reuses_cached_front(self):
         for (row, _neighbors), (_mesh, info, owner) in zip(

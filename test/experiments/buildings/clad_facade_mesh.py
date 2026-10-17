@@ -59,13 +59,27 @@ class CladFrames(FrameDetails):
         }
 
     def logical_info(self, count):
-        output = super().logical_info(count)
-        if count:
-            for row, actual in zip(
-                output["facade_frame_plan"], self.completed[-count:], strict=True
-            ):
-                row["composition"] = actual["composition"]
-        return output
+        if not count:
+            return {}
+        keys = (
+            "id",
+            "facade_id",
+            "kind",
+            "origin_xy_m",
+            "tangent",
+            "base_m",
+            "composition",
+        )
+        return {
+            "facade_clad_plan": [
+                {k: actual[k] for k in keys}
+                | {
+                    "source_frame": actual["frame"],
+                    "origin": "procedural clad region on unchanged source frame axes",
+                }
+                for actual in self.completed[-count:]
+            ]
+        }
 
 
 class CladFacades(FacadeDetails):
