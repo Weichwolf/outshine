@@ -42,11 +42,10 @@ void main() {
   vec3 worldM = groundWorldM;
   vec3 worldDx = dFdx(worldM);
   vec3 worldDy = dFdy(worldM);
-  float footprintM = max(length(worldDx), length(worldDy));
   int rockRow = int(floatBitsToUint(groundPalette[1]));
   GroundSurface rock = groundSurface(groundWears(rockRow, rows), GroundDetail(1.0, 0.0, vec2(0.0)));
   if (max(rockWeight, otherRockWeight) > 0.0) {
-    rock = groundSurface(groundWears(rockRow, rows), rockDetail(worldM, worldDx, worldDy, footprintM, rows));
+    rock = groundSurface(groundWears(rockRow, rows), rockDetail(worldM, worldDx, worldDy, rows));
   }
   vec2 atM = worldM.xz;
   GroundSurface composed = rock;
