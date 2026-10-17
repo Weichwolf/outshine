@@ -1,6 +1,7 @@
 #include "Calibration.h"
 #include <SDL3/SDL_cpuinfo.h>
 #include <algorithm>
+#include <cstddef>
 #include <fstream>
 #include <cstdint>
 #include <expected>

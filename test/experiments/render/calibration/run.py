@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import shlex
 import subprocess
@@ -64,7 +65,8 @@ def build(root, output, host_load):
                         if line.startswith(('CXXSTD=', 'WARN=', 'OPT=')))
     flags = [flag for key in ('CXXSTD', 'WARN', 'OPT')
              for flag in shlex.split(declarations[key].strip('"'))]
-    flags += ['-fno-exceptions', '-march=native']
+    cpu_flag = '-mcpu=native' if platform.machine().lower() in ('arm64', 'aarch64') else '-march=native'
+    flags += ['-fno-exceptions', cpu_flag]
     includes = ['-I' + str(root), '-I' + str(root / 'include'), '-I' + str(HERE)]
     includes += ['-I' + str(path) for path in sorted((root / 'src').rglob('*')) if path.is_dir()]
     includes += shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True))
