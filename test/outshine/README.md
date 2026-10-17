@@ -72,3 +72,8 @@ run. Test discovery and execution still visit every case and instrumentation arm
 Terrain patch mesh/error suites compile two product units and link GEOS. They do not
 prepare shaders or link a GPU backend; normal, ASan/UBSan and container checks remain.
 GroundLattice integration cases separately exercise GPU selection and rendered seams.
+
+Shader builds use glslang's actual include dependencies per variant. A missing
+dependency receipt rebuilds that artifact; removed includes are rescanned without
+hiding compiler errors. `make test-shader-dependencies` checks the real recipes,
+conditional layouts, shared CPU/GPU headers and failed-output cleanup.
