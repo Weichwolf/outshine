@@ -262,6 +262,7 @@ TestProfile() {
     outshine/src/world/*) printf '%s' 'profile/world' ;;
     outshine/src/host/*) printf '%s' 'profile/host' ;;
     outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
+    outshine/src/scenario/ScenarioWrite) printf '%s' 'profile/scenario-write' ;;
     outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
     outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
     outshine/src/generators/weather/CloudFrame) printf '%s' 'profile/cloud-frame' ;;
@@ -297,6 +298,7 @@ LayerIncludes() {
     profile/world) GroupIncludes src/world; printf ' %s' "$(pkg-config --cflags sdl3-image liblz4 libtiff-4 libwebp sqlite3 libzstd)" ;;
     profile/scenario) GroupIncludes src/scenario ;;
     profile/cloud-frame) GroupIncludes src/generators/weather ;;
+    profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
@@ -372,7 +374,7 @@ LayerLink() {
     profile/tasks) printf '%s' '-pthread' ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/cloud-frame) printf '%s' '' ;;
-    profile/scenario|profile/render-geometry|profile/species) LayerLink profile/base ;;
+    profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
     profile/host) LayerLink profile/world ;;
     profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
@@ -425,6 +427,7 @@ LayerGroups() {
     profile/world) SubtreeGroups src/base src/content src/world ;;
     profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
+    profile/scenario-write) printf '%s' "$(LayerGroups profile/scenario) src/scenario/Triggers.cpp src/scenario/Views.cpp" ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
     profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
@@ -717,6 +720,24 @@ BuildGroup() {
   fi
   rm -f "$groupFailed"
   return 0
+}
+
+BuildCaseGroup() {
+  caseGroupKey=$(printf '%s\0' "$$" "$OBJDIR" "$1" "$CXX" "$CXXSTD" "$OPT" "$WARN" "$SAN" "$EXTRA_DEFINES" | git hash-object --stdin) || return 1
+  caseGroupVariable=CASE_GROUP_$caseGroupKey
+  eval 'caseGroupReady=${'"$caseGroupVariable"'+yes}'
+  if [ "$caseGroupReady" = yes ]; then
+    eval 'OBJECTS="$OBJECTS${'"$caseGroupVariable"'}"'
+    return 0
+  fi
+  caseGroupPrevious=$OBJECTS
+  OBJECTS=""
+  if ! BuildGroup "$1"; then
+    OBJECTS=$caseGroupPrevious
+    return 1
+  fi
+  eval "$caseGroupVariable=\$OBJECTS"
+  OBJECTS="$caseGroupPrevious$OBJECTS"
 }
 
 RunWithTimeout() {
@@ -1606,7 +1627,7 @@ if [ "$AUDITLINK" = 1 ]; then
         # set) -- build the GROUP once so the audit reads exactly what it names
         if [ "$groupBuilt" = no ]; then
           keptObjects=$OBJECTS
-          if ! BuildGroup "$group"; then
+          if ! BuildCaseGroup "$group"; then
             printf 'AUDIT %s does not compile %s under its own declaration\n' "$suiteDir" "$group"
             stragglers=refused
             break
@@ -2148,7 +2169,7 @@ for testSource in $TESTS; do
   built=yes
   : >"$log"
   for group in $groups; do
-    BuildGroup "$group" >>"$log" 2>&1 || built=no
+    BuildCaseGroup "$group" >>"$log" 2>&1 || built=no
   done
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
@@ -2201,7 +2222,7 @@ for testSource in $TESTS; do
     sanitisedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-sanitised.log
     : >"$sanitisedLog"
     for group in $groups; do
-      BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
+      BuildCaseGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
     done
     sanitisedBinary=$plainBinary.$sanitizerName
     if [ "$built" = yes ]; then
@@ -2232,7 +2253,7 @@ for testSource in $TESTS; do
     validatedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-validated.log
     : >"$validatedLog"
     for group in $groups; do
-      BuildGroup "$group" >>"$validatedLog" 2>&1 || built=no
+      BuildCaseGroup "$group" >>"$validatedLog" 2>&1 || built=no
     done
     validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
     if [ "$built" = yes ]; then

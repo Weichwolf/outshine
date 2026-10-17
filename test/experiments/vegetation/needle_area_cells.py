@@ -42,9 +42,11 @@ def fans(pieces, face_ids, pixels):
     return xy, face_ids[owner], pixels[owner]
 
 
-def clipped_batches(source, view, size, work, pair_budget=262144):
+def clipped_batches(source, view, size, work, pair_budget=262144, *, pixel_mask=None):
     if type(size) is not int or size not in (1, 4, 16, 64):
         raise ValueError("explicit native1/4/16/64 footprint required")
+    if pixel_mask is not None and not pixel_mask.any():
+        return
     data = projected_source(source, view, size, pair_budget)
     if data is None:
         return
@@ -57,6 +59,7 @@ def clipped_batches(source, view, size, work, pair_budget=262144):
         projected_triangle_bytes=triangles.nbytes,
         maximum_pair_batch=0,
         clipped_projected_area_m2=0.0,
+        requested_candidate_pairs=0,
     )
     pixel_area = float(np.prod((upper - lower) / size))
     for start, stop in groups(counts, 8192):
@@ -67,6 +70,12 @@ def clipped_batches(source, view, size, work, pair_budget=262144):
         x = first[local, 0] + offsets % span[local, 0]
         y = first[local, 1] + offsets // span[local, 0]
         work["maximum_pair_batch"] = max(work["maximum_pair_batch"], len(local))
+        if pixel_mask is not None:
+            requested = pixel_mask[y, x]
+            local, x, y = (values[requested] for values in (local, x, y))
+        work["requested_candidate_pairs"] += len(local)
+        if not len(local):
+            continue
         pieces = shapely.intersection(
             shapely.polygons(screen[local]), shapely.box(x, y, x + 1, y + 1)
         )
