@@ -15,7 +15,18 @@ def verify_shared(rows, data, assets, modules, sources, first, report):
         asset = contact["old_asset"]
         for face in contact["indices"]:
             shape = asset.shapes[face].intersection(contact["domain"])
-            if shape.is_empty or shape.area == 0:
+            if shape.is_empty:
+                continue
+            if shape.area == 0:
+                if shape.geom_type not in (
+                    "Point",
+                    "MultiPoint",
+                    "LineString",
+                    "MultiLineString",
+                ):
+                    raise ValueError(
+                        "nonempty borrowed headroom area is unrepresentable"
+                    )
                 continue
             identity = f"{asset.identity}:face:{face}"
             physical, original = base[identity]

@@ -51,7 +51,18 @@ def supplement(rows, owners, chosen, sources, *, full=False):
         if not shapely.is_valid(pieces).all():
             raise ValueError("borrowed headroom clipping is unresolved")
         for face, part in zip(indices, pieces, strict=True):
-            if part.is_empty or part.area == 0:
+            if part.is_empty:
+                continue
+            if part.area == 0:
+                if part.geom_type not in (
+                    "Point",
+                    "MultiPoint",
+                    "LineString",
+                    "MultiLineString",
+                ):
+                    raise ValueError(
+                        "nonempty borrowed headroom area is unrepresentable"
+                    )
                 continue
             if part.geom_type not in ("Polygon", "MultiPolygon"):
                 raise ValueError("borrowed headroom has nonpolygonal positive pieces")

@@ -63,6 +63,35 @@ def scene():
 
 
 class SharedHeadroomChecks(unittest.TestCase):
+    def test_nonempty_polygon_area_underflow_never_disappears_as_a_free_touch(self):
+        new, old, contact, rows, owners, sources = scene()
+        chosen = binding(new, old, contact)
+        tiny = shapely.Polygon([(0, 0), (1e-200, 0), (0, 1e-200)])
+        self.assertFalse(tiny.is_empty)
+        self.assertEqual(tiny.area, 0)
+
+        def unresolved_piece(left, _right):
+            return (
+                np.array([tiny] * len(left), object)
+                if isinstance(left, np.ndarray)
+                else tiny
+            )
+
+        # Inject a nonempty underflow result; GEOS may instead return empty for
+        # the complete tiny intersection, whose general detection stays open.
+        with (
+            patch("shapely.intersection", side_effect=unresolved_piece),
+            self.assertRaisesRegex(ValueError, "unrepresentable"),
+        ):
+            supplement(rows, owners, (chosen,), sources)
+        metadata = [{"source_ids": list(k)} for k in owners]
+        with (
+            patch("stair_shared_headroom_verify.bindings", return_value=(chosen,)),
+            patch("shapely.intersection", side_effect=unresolved_piece),
+            self.assertRaisesRegex(ValueError, "unrepresentable"),
+        ):
+            verify_shared(rows, metadata, (), (), sources, 2, {})
+
     def test_retained_refusal_in_chain_does_not_require_a_nonexistent_new_body(self):
         with tempfile.TemporaryDirectory(prefix="outshine-headroom-refusal-") as root:
             path = Path(root)
