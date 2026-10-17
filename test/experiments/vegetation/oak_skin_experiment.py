@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import numpy as np
 from crown_shoots import CrownShoots
+from form_plan import validate_parents
 from limb_experiment import canonical_wood
 from limb_paths import dominant_paths
 from oak_scaffold import tapered_radii
@@ -18,10 +19,24 @@ from outshine_ref.vegetation import Blade, Shoot
 from wood_mesh import branch_tubes
 
 
+def seed_continuations(parents, seed):
+    """The fixed oak seed format concatenates each authored cubic's internal nodes."""
+    seed = np.asarray(seed)
+    validate_parents(seed)
+    if len(seed) > len(parents) or not np.array_equal(parents[: len(seed)], seed):
+        raise ValueError("exact original seed parent prefix required")
+    result = np.full(len(parents), -1, np.int32)
+    child = np.arange(1, len(seed))
+    internal = child[seed[1:] == child - 1]
+    result[internal - 1] = internal
+    return result
+
+
 def source_crown(inputs, study):
     folder = inputs / "spatial"
     with np.load(folder / "skeleton.npz") as a:
         positions, parents = a["positions"], a["parents"]
+        continuations = seed_continuations(parents, a["seed_parents"])
     with np.load(folder / "tables.npz") as a:
         variants = a["leaf_variants"]
     crown = CrownShoots(
@@ -35,15 +50,17 @@ def source_crown(inputs, study):
     )
     if crown.identity != study["products"]["spatial"]["identity"]:
         raise ValueError("prepared crown does not match source identity")
-    return crown
+    return crown, continuations
 
 
-def replace_wood(crown, original, radii):
+def replace_wood(crown, original, radii, continuations):
     old = branch_tubes(crown.positions, crown.parents, radii, 8)
     nv, nf = len(old[0]), len(old[1])
     for k, v in zip(("vertices", "faces", "normals"), old, strict=True):
         np.testing.assert_array_equal(original[k][: len(v)], v)
-    result = canonical_wood(crown, radii=radii, max_nodes=16384)
+    result = canonical_wood(
+        crown, radii=radii, max_nodes=16384, continuations=continuations
+    )
     if result is None:
         raise ValueError("complete continuous wood exceeds declared capacity")
     body, paths = result
@@ -76,37 +93,7 @@ def replace_wood(crown, original, radii):
     )
 
 
-def build(inputs, output):
-    if not output.resolve().is_relative_to(Path("/tmp")):
-        raise ValueError("private products must be under/tmp")
-    began = time.perf_counter()
-    study = json.loads((inputs / "comparison.json").read_text())
-    folder = inputs / "spatial"
-    entry = json.loads((folder / "entry.json").read_text())
-    with (
-        patch.object(
-            Shoot, "detail", side_effect=AssertionError("unrequested foliage")
-        ),
-        patch.object(Blade, "mesh", side_effect=AssertionError("unrequested blades")),
-        patch(
-            "colonization.grow", side_effect=AssertionError("growth on prepared source")
-        ),
-    ):
-        crown = source_crown(inputs, study)
-        radii = tapered_radii(
-            crown.parents,
-            study["recipe"]["root_radius_m"],
-            study["recipe"]["terminal_radius_m"],
-        )
-        paths = dominant_paths(crown.positions, crown.parents, radii, max_nodes=16384)
-        expected = sum(16 * (2 * (len(p) - 1) + 1) for p in paths)
-        if expected > 262144:
-            raise ValueError("body capacity before full wood IO")
-        with np.load(folder / "wood.npz") as a:
-            original = {k: a[k] for k in a.files}
-        loaded = time.perf_counter()
-        wood, paths, counts = replace_wood(crown, original, radii)
-    ready = time.perf_counter()
+def export_pair(folder, output, study, entry, crown, wood, counts, continuations):
     output.mkdir(parents=True, exist_ok=False)
     for label in ("recursive", "spatial"):
         target = output / label
@@ -127,7 +114,9 @@ def build(inputs, output):
         "leaf_plan_identity": crown.identity,
         "along": 2,
         "sides": 8,
-        "chunk_edges": 64,
+        "source_continuations": [
+            [int(p), int(c)] for p, c in enumerate(continuations) if c >= 0
+        ],
     }
     identity = hashlib.sha256(json.dumps(recipe, sort_keys=True).encode()).hexdigest()
     new = dict(entry)
@@ -144,6 +133,14 @@ def build(inputs, output):
     pair["products"] = {
         n: dict(study["products"]["spatial"]) for n in ("recursive", "spatial")
     }
+    pair["source_build_commit"] = study["commit"]
+    pair["commit"] = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], text=True
+    ).strip()
+    pair["products"]["spatial"]["wood_triangles"] = len(wood["faces"])
+    pair["products"]["spatial"]["wood_array_bytes"] = sum(
+        a.nbytes for a in wood.values()
+    )
     pair["products"]["spatial"]["product_identity"] = identity
     pair["products"]["spatial"]["instanced_triangles"] = new["instanced_triangles"]
     pair["presentation_labels"] = {
@@ -154,6 +151,49 @@ def build(inputs, output):
         "Same cached mature source/foliage/materials; continuous dominant limbs, separate side forks remain."
     )
     (output / "comparison.json").write_text(json.dumps(pair, indent=2) + "\n")
+    return identity
+
+
+def build(inputs, output):
+    if not output.resolve().is_relative_to(Path("/tmp")):
+        raise ValueError("private products must be under/tmp")
+    began = time.perf_counter()
+    study = json.loads((inputs / "comparison.json").read_text())
+    folder = inputs / "spatial"
+    entry = json.loads((folder / "entry.json").read_text())
+    with (
+        patch.object(
+            Shoot, "detail", side_effect=AssertionError("unrequested foliage")
+        ),
+        patch.object(Blade, "mesh", side_effect=AssertionError("unrequested blades")),
+        patch(
+            "colonization.grow", side_effect=AssertionError("growth on prepared source")
+        ),
+    ):
+        crown, continuations = source_crown(inputs, study)
+        radii = tapered_radii(
+            crown.parents,
+            study["recipe"]["root_radius_m"],
+            study["recipe"]["terminal_radius_m"],
+        )
+        paths = dominant_paths(
+            crown.positions,
+            crown.parents,
+            radii,
+            max_nodes=16384,
+            continuations=continuations,
+        )
+        expected = sum(16 * (2 * (len(p) - 1) + 1) for p in paths)
+        if expected > 262144:
+            raise ValueError("body capacity before full wood IO")
+        with np.load(folder / "wood.npz") as a:
+            original = {k: a[k] for k in a.files}
+        loaded = time.perf_counter()
+        wood, paths, counts = replace_wood(crown, original, radii, continuations)
+    ready = time.perf_counter()
+    identity = export_pair(
+        folder, output, study, entry, crown, wood, counts, continuations
+    )
     report = {
         "commit": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], text=True
@@ -167,7 +207,7 @@ def build(inputs, output):
         "path_edge_count": sum(len(p) - 1 for p in paths),
         "old_body_cap_triangles": counts["old_body_faces"] // 2,
         "new_body_cap_triangles": len(paths) * 16,
-        "source_decode_and_prefix_s": loaded - began,
+        "source_decode_and_plan_s": loaded - began,
         "continuous_body_s": ready - loaded,
         "export_s": time.perf_counter() - ready,
         "known_output_array_bytes": sum(a.nbytes for a in wood.values()),
