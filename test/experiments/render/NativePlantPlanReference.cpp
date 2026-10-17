@@ -27,6 +27,16 @@ template <class T> void Write(const T &values) {
 
 constexpr size_t kVariants = 8;
 
+void WriteSummary(const outshine::Generators::PlantPlan &plan,
+                  uint64_t id,
+                  const outshine::Generators::PlantPlan::Summary &summary) {
+  std::cout << "S " << id << ' ' << summary.Axes << ' ' << summary.Leaves;
+  Write(summary.Variants);
+  std::cout << "\nD " << id;
+  for (const size_t row : summary.AxisRows) { std::cout << ' ' << plan.Axes()[row].Id; }
+  std::cout << '\n';
+}
+
 bool ReadAxis(outshine::Generators::PlantAxis &axis) {
   return (std::cin >> axis.Id >> axis.Parent) && Read(axis.Path) && Read(axis.OriginM) &&
          Read(axis.Frame) && (std::cin >> axis.LengthM >> axis.Bend >> axis.ParentParameter) &&
@@ -133,9 +143,7 @@ int main(int argc, const char *const *argv) {
         (!detail->empty() && plan->Leaves({.Axis = axis.Id, .Maximum = detail->size() - 1}))) {
       return 4;
     }
-    std::cout << "S " << axis.Id << ' ' << summary->Axes << ' ' << summary->Leaves;
-    Write(summary->Variants);
-    std::cout << '\n';
+    WriteSummary(*plan, axis.Id, *summary);
     std::cout << "A " << axis.Id << ' ' << axis.Parent;
     Write(axis.Path);
     Write(axis.OriginM);
