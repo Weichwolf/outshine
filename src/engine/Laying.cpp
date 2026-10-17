@@ -47,6 +47,7 @@
 #include "TerrainPress.h"
 #include "TerrainDeformationTask.h"
 #include "EngineHeld.h"
+#include "StructureSourcePublication.h"
 #include "GroundWorldCandidate.h"
 #include "GroundDiagnostics.h"
 #include "GroundPalette.h"
@@ -2034,10 +2035,7 @@ bool Engine::State::StagesGroundBakes(size_t landsMost) {
   }
   build.Pieces.SetSurfaces(*build.Surfaces);
   for (const StructureBuildQueue::Landing &landing : *ready) {
-    if (!build.Pieces.Hands(
-            landing.Tile, *landing.Baked, landing.AnchorEcef, Error, landing.SourceKey)) {
-      return false;
-    }
+    if (!PublishStructureSource(build.Pieces, landing, Error)) { return false; }
   }
   const double transferMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - transferAt)
