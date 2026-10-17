@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "data_sha256": "4a4959a4a11c323e7dc7056c98d17caeb8d14f71717fc29bdb8af60041f52f50",
+  "source_id": "openfreemap:14/8937/5678:transportation:1605770952:0",
+  "source_axis_xy_m": [
+    [
+      -679.2740631123037,
+      519.2912498351932
+    ],
+    [
+      -716.6579986700066,
+      575.6640506700892
+    ]
+  ],
+  "original_source_mask_wkt": "POLYGON ((-678.2953650285125 522.7912498351932, -675.7740631123037 522.7912498351932, -675.7740631123037 515.7912498351932, -682.7740631123037 515.7912498351932, -682.7740631123037 519.5932265036928, -717.6363807924495 572.16357421875, -720.158203125 572.16357421875, -720.158203125 579.1640625, -713.15771484375 579.1640625, -713.15771484375 575.3616460081, -678.2953650285125 522.7912498351932))",
+  "frame": "Wien-transport-ENU-48.242427962074906-16.386505365371704-up0m",
+  "pbf_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "caps": [
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:80922970:248",
+      "asset_sha256": "1f01d7e36a7b5a745f8805e164584c045e66b860853f2c35f9d93644290dce5c",
+      "asset_owner_column": 1,
+      "asset_top_face_indices": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        17,
+        18,
+        20,
+        22,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        35
+      ],
+      "top_xyz_sha256": "1b4abdca720b59d818e807d27084310b65e64f7e44b94d36cc1e03ae4a09c291",
+      "checks": [
+        {
+          "float32": false,
+          "facets": 16,
+          "maximum_normalized_grade": 0.4443934430128152
+        },
+        {
+          "float32": true,
+          "facets": 16,
+          "maximum_normalized_grade": 0.4444096296306179
+        }
+      ]
+    },
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:1580280942:0",
+      "asset_sha256": "69fd0a2f5a747c8f71c85c73f789c5c5d38363fb6849f5c679ba36e6e40344b7",
+      "asset_owner_column": 6,
+      "asset_top_face_indices": [
+        290,
+        291,
+        292,
+        293,
+        294,
+        303,
+        304
+      ],
+      "top_xyz_sha256": "d3de01c6adb8763ba48b7f8233cb5d8d21a13e8b03ed9edaacceba46116cdc37",
+      "checks": [
+        {
+          "float32": false,
+          "facets": 7,
+          "maximum_normalized_grade": 0.02005991560904383
+        },
+        {
+          "float32": true,
+          "facets": 7,
+          "maximum_normalized_grade": 0.06293738933284283
+        }
+      ]
+    },
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:1578623672:0",
+      "asset_sha256": "69fd0a2f5a747c8f71c85c73f789c5c5d38363fb6849f5c679ba36e6e40344b7",
+      "asset_owner_column": 3,
+      "asset_top_face_indices": [
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        191,
+        192,
+        193,
+        194,
+        195,
+        216,
+        217,
+        218,
+        219,
+        220
+      ],
+      "top_xyz_sha256": "f9025d82bbe8cedde058990061bd1bbeeeccbe9fc9652192dfaf74c725045e06",
+      "checks": [
+        {
+          "float32": false,
+          "facets": 24,
+          "maximum_normalized_grade": 0.0
+        },
+        {
+          "float32": true,
+          "facets": 24,
+          "maximum_normalized_grade": 0.0
+        }
+      ]
+    },
+    {
+      "source_id": "openfreemap:14/8937/5678:transportation:92807082:0",
+      "asset_sha256": "69fd0a2f5a747c8f71c85c73f789c5c5d38363fb6849f5c679ba36e6e40344b7",
+      "asset_owner_column": 4,
+      "asset_top_face_indices": [
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        193,
+        194,
+        195,
+        196,
+        218,
+        223
+      ],
+      "top_xyz_sha256": "b4eb504dbbe42e010a3708c974aba41203c436332a375ea9fca702e7f3926349",
+      "checks": [
+        {
+          "float32": false,
+          "facets": 24,
+          "maximum_normalized_grade": 0.037994947495816854
+        },
+        {
+          "float32": true,
+          "facets": 24,
+          "maximum_normalized_grade": 0.037992772914544386
+        }
+      ]
+    }
+  ],
+  "scope": "Actual old76 owner facets used by the new straight minor; only vertex-index packing. No moved/rastered old XYZ, no runtime fixture dependency."
+}
