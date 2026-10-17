@@ -1,7 +1,7 @@
 """Analytic occlusion, arbitrary orientation and covariance counterexamples."""
 
-import unittest
 import json
+import unittest
 from pathlib import Path
 
 import numpy as np
