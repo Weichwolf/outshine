@@ -97,6 +97,9 @@ consumer closures contain116current matching reference modules; the installed
 generation/reader imports52. Wheel SHA256:
 `db931057f4d6073cb89d83a1211c69d011c2ac85232d79ae6d5dac40120c6c05`.
 All processes terminated successfully; original receipts/products are preserved.
+After merging the newer vegetation experiments, the actual source/installed
+Pinus reader also passes again at `a4b7c4889`:116reference/249experiment imports,
+including the changed `colonization` module. Library runtime code remains585b54771.
 The original full1280×720perspective image was opened again. Identical artifacts
 preserve its geometry; no new render, public image or visible improvement is claimed.
 Sparse source coverage, weak contrast and coarse terrain remain.
