@@ -117,10 +117,7 @@ def source(whole, execution, catalog):
     )
 
 
-def wood(graph, axes):
-    orders = np.diff(axes["path_offsets"]).astype(np.int64) - 2
-    if np.any((orders < 0) | (orders > 3)) or len(orders) > 60000:
-        raise ValueError("bounded four-order executed wood required")
+def wood_templates(graph):
     templates = []
     for order in range(4):
         shape = graph["nodes"][order + 1]["shape"]
@@ -135,6 +132,19 @@ def wood(graph, axes):
                 8,
             )
         )
+    return templates
+
+
+def wood_orders(axes):
+    orders = np.diff(axes["path_offsets"]).astype(np.int64) - 2
+    if np.any((orders < 0) | (orders > 3)) or not 0 < len(orders) <= 60000:
+        raise ValueError("bounded four-order executed wood required")
+    return orders
+
+
+def wood(graph, axes):
+    orders = wood_orders(axes)
+    templates = wood_templates(graph)
     counts = np.bincount(orders, minlength=4)
     face_count = sum(int(n) * len(m["faces"]) for n, m in zip(counts, templates))
     if not 0 < face_count <= 3000000:
