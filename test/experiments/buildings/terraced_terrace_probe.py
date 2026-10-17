@@ -40,6 +40,7 @@ def models(output):
                 "source_footprint_wkb": mass.source_wkb.hex(),
                 "source": {"material_definitions": materials()},
                 "facade_materials": {},
+                "ground_span_m": 10000,
                 "terraces": [
                     {
                         "id": t.identifier,
