@@ -27,8 +27,16 @@ def baseline_binding(args, manifest):
     receipt_path = args.baseline / "verification.json"
     if receipt_path.exists():
         receipt = json.loads(receipt_path.read_text())
+        snapshot = (
+            receipt.get("valid_prepared_snapshot") is True
+            and args.baseline.resolve() == args.resident.resolve()
+            and receipt.get("prepared_manifest_sha256")
+            == manifest["root_resident_sha256"]
+            and before.get("artifacts", {}).get("resident.json")
+            == manifest["root_resident_sha256"]
+        )
         valid = (
-            receipt.get("valid_local_module") is True
+            (receipt.get("valid_local_module") is True or snapshot)
             and receipt["products_report_sha256"]
             == digest(args.baseline / "comparison.json")
             and before["origin_lat_lon"] == manifest["origin_lat_lon"]

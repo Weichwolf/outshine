@@ -25,6 +25,41 @@ class RoadAsset:
     xy_rounding_m: float
 
 
+def module_road(data, *, top_vertex_count=None):
+    if top_vertex_count is None:
+        top_vertex_count = len(data["surface_vertices"])
+    if (
+        type(top_vertex_count) is not int
+        or top_vertex_count <= 0
+        or len(data["body_vertices"]) != 2 * top_vertex_count
+    ):
+        raise ValueError("original paired module top/bottom vertex layout required")
+    road = {
+        "body_vertices": data["body_vertices"],
+        "body_faces": data["body_faces"],
+        "top_faces": data["surface_faces"],
+        "bottom_faces": data["surface_faces"] + top_vertex_count,
+        "owners": data["owners"],
+        "ground": np.ones(len(data["surface_faces"]), bool),
+    }
+    if "surface_materials" in data:
+        road["surface_materials"] = data["surface_materials"]
+    return road
+
+
+def stored_road(path, payload):
+    if payload not in ("road", "local-module"):
+        raise ValueError("known immutable resident road payload required")
+    if payload == "road":
+        return read_arrays(path)
+    fields = ("body_vertices", "body_faces", "surface_faces", "owners")
+    with np.load(path, allow_pickle=False) as source:
+        data = {key: source[key] for key in fields}
+        if "surface_materials" in source.files:
+            data["surface_materials"] = source["surface_materials"]
+    return module_road(data, top_vertex_count=len(data["body_vertices"]) // 2)
+
+
 def road_asset(identity, keys, rows, data):
     n = len(keys)
     if (
@@ -57,6 +92,16 @@ def load(output):
     manifest = json.loads((output / "resident.json").read_text())
     if manifest["version"] != 1 or not 1 <= len(manifest["roads"]) <= 1024:
         raise ValueError("bounded resident research manifest required")
+    if (
+        any(r.get("payload") == "local-module" for r in manifest["roads"])
+        and "borrowed_headroom_contacts" not in manifest
+    ):
+        raise ValueError("snapshot must preserve logical borrowed headroom contacts")
+    if "borrowed_headroom_contacts" in manifest and (
+        not isinstance(manifest["borrowed_headroom_contacts"], list)
+        or len(manifest["borrowed_headroom_contacts"]) > 128
+    ):
+        raise ValueError("bounded prepared borrowed headroom contacts required")
     terrain = Path(manifest["terrain"])
     if digest(terrain / "patches.json") != manifest["terrain_sha256"]:
         raise ValueError("original resident terrain manifest changed")
@@ -69,7 +114,10 @@ def load(output):
         if not path.is_relative_to(output.resolve()) or digest(path) != row["sha256"]:
             raise ValueError("resident road payload changed")
         asset = road_asset(
-            row["sha256"], row["source_ids"], row["rows"], read_arrays(path)
+            row["sha256"],
+            row["source_ids"],
+            row["rows"],
+            stored_road(path, row.get("payload", "road")),
         )
         assets.append(asset)
         keys.extend(asset.source_ids)
