@@ -78,13 +78,7 @@ def cached(base, supports, recipe):
     }
 
 
-def inputs(path=FIXTURE):
-    recipe = json.loads(path.read_text())
-    if recipe.get("version") != 1:
-        raise ValueError("known module recipe version required")
-    source_recipe = FIXTURE.with_name(recipe["reference_fixture"])
-    if digest(source_recipe) != recipe["reference_fixture_sha256"]:
-        raise ValueError("original reference fixture changed")
+def source_context(source_recipe):
     context = json.loads(CONTEXT.read_text())
     native = json.loads(INPUT.read_text())
     receipt = dict(
@@ -96,6 +90,27 @@ def inputs(path=FIXTURE):
         tuple(receipt["tile"]),
         np.array(context["origin_lat_lon"]),
     )
+    sample = sampler(source_recipe, json.loads(source_recipe.read_text()), context)
+    return context, sources, sample, layer
+
+
+def reference_profiles():
+    return {
+        p["kind"]: p
+        for template in json.loads(PROFILES.read_text())["templates"]
+        for p in template.get("osm", [])
+        if p.get("layer") == "streets"
+    }
+
+
+def inputs(path=FIXTURE):
+    recipe = json.loads(path.read_text())
+    if recipe.get("version") != 1:
+        raise ValueError("known module recipe version required")
+    source_recipe = FIXTURE.with_name(recipe["reference_fixture"])
+    if digest(source_recipe) != recipe["reference_fixture_sha256"]:
+        raise ValueError("original reference fixture changed")
+    context, sources, sample, layer = source_context(source_recipe)
     keys = recipe["source_ids"]
     if (
         not isinstance(keys, list)
@@ -103,13 +118,7 @@ def inputs(path=FIXTURE):
         or len(set(keys)) != len(keys)
     ):
         raise ValueError("one to eight unique whole new sources required")
-    profiles = {
-        p["kind"]: p
-        for template in json.loads(PROFILES.read_text())["templates"]
-        for p in template.get("osm", [])
-        if p.get("layer") == "streets"
-    }
-    sample = sampler(source_recipe, json.loads(source_recipe.read_text()), context)
+    profiles = reference_profiles()
     rows = []
     bindings = recipe.get("source_profiles", {})
     if not isinstance(bindings, dict) or not set(bindings) <= set(keys):

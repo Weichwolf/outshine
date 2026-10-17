@@ -4,11 +4,12 @@ from collections import defaultdict
 
 import numpy as np
 import shapely
-from stair_frontier_graph import discover
+from outshine_ref.transport.frontiers import discover_source_modules
+from stair_module_inputs import reference_profiles
 from stair_module_roots import root_profile
 
 
-def reason(source, cached, domain):
+def reason(source, cached, domain, profiles):
     if source["source_id"] in cached:
         return "already_cached"
     props = source["properties"]
@@ -27,7 +28,7 @@ def reason(source, cached, domain):
         np.linalg.norm(np.diff(xy, axis=0), axis=1) < 1e-6
     ):
         return "whole_axis_geometry_budget_or_degeneracy"
-    half = 2.75 if ordinary else 1.0
+    half = profiles["unclassified" if ordinary else kind]["widthM"] / 2
     band = source["shape"].buffer(
         half, cap_style="flat", join_style="mitre", mitre_limit=2
     )
@@ -40,10 +41,11 @@ def records_for(state, sources):
     xy = state["plan"]["xy"]
     domain = shapely.box(*xy.min(axis=0), *xy.max(axis=0))
     cached = set(state["report"]["candidate_source_ids"])
+    profiles = reference_profiles()
     records = []
     for key in sorted(sources):
         source = sources[key]
-        why = reason(dict(source, source_id=key), cached, domain)
+        why = reason(dict(source, source_id=key), cached, domain, profiles)
         records.append(
             {
                 "source_id": key,
@@ -69,6 +71,11 @@ def root_seeds(state, sources, records):
                 continue
             port = {"source_id": key, "vertex": vertex}
             root_id = key + "@" + str(vertex)
+            if len(roots) + len(deferred) >= 64:
+                deferred.append(
+                    {"root_id": root_id, "reason": "verified_seed_probe_budget"}
+                )
+                continue
             try:
                 root_profile(state, {"port": port, "contact_mode": "profile"}, sources)
             except ValueError as error:
@@ -129,7 +136,7 @@ def module_recipe(reference, state, sources, root, proposal):
 def proposals(state, sources, reference, *, method="index"):
     records = records_for(state, sources)
     roots, deferred = root_seeds(state, sources, records)
-    plan = discover(records, roots, method=method)
+    plan = discover_source_modules(records, roots, method=method)
     by_root = {r["root_id"]: r for r in roots}
     recipes = []
     for proposal in plan["proposals"]:

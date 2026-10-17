@@ -21,6 +21,10 @@ liefern begrenzte horizontale Kurven mit erhaltenen Endgeraden. Originalquellen,
 tatsächliche Straßen-/Fahrzeugflächen und gemeinsame Knoten bleiben beim
 Aufrufer: [horizontal.md](horizontal.md) (#535).
 
+`transport.frontiers.discover_source_modules` wählt begrenzte alternative Module
+aus ausdrücklichen ursprünglichen Quellknoten. Frame, Ebenen und ganze physische
+Abnahme bleiben beim Aufrufer: [frontiers.md](frontiers.md) (#537).
+
 `transport.weighted_heights.fit_weighted_heights` passt gemeinsame Vertexhöhen
 quadratisch unter ganzen Face-Neigungsgrenzen und festen Kontakten auf einem
 expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit`;

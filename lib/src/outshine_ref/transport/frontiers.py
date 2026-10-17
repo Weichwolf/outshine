@@ -3,18 +3,19 @@
 import heapq
 import math
 from collections import defaultdict
-from numbers import Integral
+from numbers import Integral, Real
 
 
-def node_key(value):
+def _node_key(value):
     if len(value) != 2 or any(
-        not isinstance(v, Integral) or isinstance(v, bool) for v in value
+        not isinstance(v, Integral) or isinstance(v, bool) or not -(2**63) <= v < 2**63
+        for v in value
     ):
         raise ValueError("explicit two-integer original node keys required")
     return tuple(int(v) for v in value)
 
 
-def checked(records, roots):
+def _checked(records, roots):
     if not 0 <= len(records) <= 20000 or not 0 <= len(roots) <= 64:
         raise ValueError("bounded source and root lists required")
     if sum(len(r["nodes"]) for r in records) > 200000:
@@ -22,19 +23,32 @@ def checked(records, roots):
     result = {}
     for r in records:
         key, nodes, length = r["source_id"], r["nodes"], r["length_m"]
-        if not isinstance(key, str) or not key or key in result:
+        if not isinstance(key, str) or not 1 <= len(key) <= 512 or key in result:
             raise ValueError("unique nonempty source identities required")
         if not 2 <= len(nodes) <= 4096 or type(r["eligible"]) is not bool:
             raise ValueError("bounded original axis and explicit eligibility required")
-        if not math.isfinite(length) or length < 0 or not isinstance(r["reason"], str):
+        if (
+            not isinstance(length, Real)
+            or isinstance(length, bool)
+            or not math.isfinite(length)
+            or not 0 <= length <= 1e9
+            or not isinstance(r["reason"], str)
+            or len(r["reason"]) > 2048
+            or bool(r["reason"]) == r["eligible"]
+        ):
             raise ValueError("finite source priority and explicit reason required")
-        result[key] = {**r, "nodes": tuple(node_key(n) for n in nodes)}
+        result[key] = {**r, "nodes": tuple(_node_key(n) for n in nodes)}
+    if any(
+        not isinstance(r["root_id"], str) or not 1 <= len(r["root_id"]) <= 1024
+        for r in roots
+    ):
+        raise ValueError("bounded nonempty root identities required")
     if len({r["root_id"] for r in roots}) != len(roots):
         raise ValueError("unique explicit root identities required")
     return result
 
 
-def source_index(records):
+def _source_index(records):
     index = defaultdict(list)
     for key in sorted(records):
         row = records[key]
@@ -46,7 +60,7 @@ def source_index(records):
     return index
 
 
-def proposal(records, root, index, max_sources, max_visits, method):
+def _proposal(records, root, index, max_sources, max_visits, method):
     queue, queued, selected = [], set(), []
     work = {"node_lookups": 0, "incidence_tests": 0, "heap_pushes": 0}
     parents = {}
@@ -84,7 +98,7 @@ def proposal(records, root, index, max_sources, max_visits, method):
             parents[key] = {"source_id": parent, "node": node}
             work["heap_pushes"] += 1
 
-    expand(node_key(root["node"]), False, None)
+    expand(_node_key(root["node"]), False, None)
     while queue and not limited and len(selected) < max_sources:
         _priority, key = heapq.heappop(queue)
         selected.append(key)
@@ -111,7 +125,7 @@ def proposal(records, root, index, max_sources, max_visits, method):
     }
 
 
-def discover(
+def discover_source_modules(
     records,
     roots,
     *,
@@ -130,14 +144,15 @@ def discover(
         or method not in ("index", "scan")
     ):
         raise ValueError("known bounded source-frontier search required")
-    rows = checked(records, roots)
+    rows = _checked(records, roots)
     ordered = sorted(roots, key=lambda r: r["root_id"])
-    index = source_index(rows) if method == "index" else {}
+    index = _source_index(rows) if method == "index" else {}
     proposals = [
-        proposal(rows, r, index, max_sources, max_visits, method)
+        _proposal(rows, r, index, max_sources, max_visits, method)
         for r in ordered[:max_proposals]
     ]
     proposals.sort(key=lambda p: (-p["length_m"], -len(p["source_ids"]), p["root_id"]))
+    proposed = {key for p in proposals for key in p["source_ids"]}
     return {
         "proposals": proposals,
         "deferred_roots": [r["root_id"] for r in ordered[max_proposals:]],
@@ -145,5 +160,14 @@ def discover(
         "index_entries": sum(len(v) for v in index.values()),
         "source_count": len(rows),
         "input_node_occurrences": sum(len(r["nodes"]) for r in rows.values()),
+        "source_reasons": {
+            key: rows[key]["reason"]
+            or (
+                "proposed_pending_geometry"
+                if key in proposed
+                else "outside_bounded_proposals"
+            )
+            for key in sorted(rows)
+        },
         "scope": "Alternative bounded source-module proposals from explicit original nodes; caller owns frame, eligibility, actual old profile and whole geometry admission. No globally optimal or complete network claim.",
     }

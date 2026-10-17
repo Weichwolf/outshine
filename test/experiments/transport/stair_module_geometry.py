@@ -5,18 +5,16 @@ import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.transport import HeightBudget, close_surface, fit_surface_heights
-from outshine_ref.transport.junction_pads import profile_junction_pad
 from outshine_ref.transport.weighted_heights import fit_weighted_heights
 from shared_bridge_geometry import corridor
 from stair_branch_inputs import surface_sampling, surface_welding
-from stair_cycle_contacts import profile
 from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
 from stair_module_loops import frozen_contacts, prepare_contacts
 from stair_module_materials import surface_slots
 from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
-from stair_module_roots import root_profile
+from stair_module_roots import bind_root_pad, root_profile
 from stair_module_sections import cap_edge_constraints, line_pieces, profile_levels
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
@@ -99,18 +97,7 @@ def prepared(rows, sources, frozen_row, line, ground):
             root = [node]
     if len(root) != 1 or not np.array_equal(root[0]["xy"], line[1, :2]):
         raise ValueError("original shared source node required at frozen endpoint")
-    profiles = [line[:, :2]]
-    ends = []
-    for i in root[0]["incident"]:
-        for end in (0, -1):
-            if np.array_equal(rows[i]["xy"][end], line[1, :2]):
-                profiles.append(profile(rows[i], end))
-                ends.append(i)
-    if not ends:
-        raise ValueError("new module has no original endpoint at its frozen port")
-    pad = profile_junction_pad(profiles)
-    for i in ends:
-        rows[i]["junction_pads_xy_m"] = [np.array(pad.exterior.coords[:-1])]
+    bind_root_pad(rows, root[0], line, include_interiors=frozen_row["root_interior"])
     prepare_contacts(rows, nodes, frozen_row.get("additional_contacts", []))
     complete_landings(
         rows, nodes, [], max_pads=16, include_interiors=frozen_row["root_interior"]

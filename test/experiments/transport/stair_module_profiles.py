@@ -1,7 +1,7 @@
 """Whole varying source profiles, using explicit reuse of the immutable old cap."""
 
 import numpy as np
-from stair_cycle_contacts import profile
+from stair_cycle_contacts import interior_profile_xy, profile
 from stair_module_trace import compare
 
 
@@ -68,6 +68,49 @@ def frozen_profile_checks(data, nodes, masks, original, old_at, references):
     return checks
 
 
+def new_interior_checks(data, rows, nodes, masks, original, old_at):
+    result = []
+    for index, node in enumerate(nodes):
+        for owner in node["incident"]:
+            row = rows[owner]
+            found = np.flatnonzero(np.all(row["xy"] == node["xy"], axis=1))
+            if len(found) != 1 or not 0 < found[0] < len(row["xy"]) - 1:
+                continue
+            own = owned(
+                data,
+                owner,
+                old_at.get(index, []),
+                original[owner].intersection(masks[index]) if index in old_at else None,
+            )
+            other = []
+            for neighbour in node["incident"]:
+                if neighbour != owner:
+                    other.extend(
+                        owned(
+                            data,
+                            neighbour,
+                            old_at.get(index, []),
+                            original[neighbour].intersection(masks[index])
+                            if index in old_at
+                            else None,
+                        )
+                    )
+            other.extend(
+                (cap.vertices, cap.triangles, masks[index])
+                for cap in old_at.get(index, [])
+            )
+            line = interior_profile_xy(row, int(found[0]))
+            checks = [compare([own, other], line, cast) for cast in (False, True)]
+            result.append(
+                {
+                    "source_id": row["source_id"],
+                    "vertex": int(found[0]),
+                    "checks": checks,
+                }
+            )
+    return result
+
+
 def varying_profiles(
     data,
     rows,
@@ -131,4 +174,13 @@ def varying_profiles(
         "complete_cached_interior_profiles": len(contacts) + int(root_interior),
         "outer_profiles": outer,
         "complete_additional_profiles": len(result) + int(not root_interior),
+        **(
+            {
+                "new_source_interior_profiles": new_interior_checks(
+                    data, rows, nodes, masks, original, old_at
+                )
+            }
+            if root_interior
+            else {}
+        ),
     }

@@ -6,78 +6,13 @@ import unittest
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
-from stair_frontier_graph import discover
 from stair_landing_pads import complete_landings
 from stair_module_audit import traffic
 from stair_module_clearance import source_clearances
 from stair_module_inputs import FIXTURE, inputs
 from stair_module_node_heights import plan_heights
-from stair_module_roots import root_profile
+from stair_module_roots import bind_root_pad, root_profile
 from stair_southwest_checks import cached_reference
-
-
-def record(key, nodes, *, eligible=True, length=10):
-    return {
-        "source_id": key,
-        "nodes": nodes,
-        "length_m": length,
-        "eligible": eligible,
-        "reason": "" if eligible else "unsupported_level",
-    }
-
-
-class FrontierGraph(unittest.TestCase):
-    def test_index_matches_scan_on_branches_cycles_and_input_permutations(self):
-        records = [
-            record("a", [(0, 0), (1, 0)]),
-            record("b", [(1, 0), (2, 0)], length=20),
-            record("c", [(2, 0), (2, 1)]),
-            record("d", [(2, 1), (1, 0)]),
-            record("e", [(1, 0), (1, -1)], eligible=False),
-        ]
-        roots = [{"root_id": "root", "node": (0, 0)}]
-        expected = discover(records, roots, method="scan")["proposals"]
-        for rows in (records, records[::-1]):
-            actual = discover(rows, roots)["proposals"]
-            for before, after in zip(expected, actual, strict=True):
-                for key in ("source_ids", "connections", "length_m", "stop_reason"):
-                    self.assertEqual(before[key], after[key])
-        self.assertNotIn("e", expected[0]["source_ids"])
-
-    def test_geometric_crossing_without_original_node_is_not_a_connection(self):
-        rows = [
-            record("a", [(-1, 0), (1, 0)]),
-            record("b", [(0, -1), (0, 1)]),
-            record("c", [(1, 1), (2, 1)]),
-        ]
-        plan = discover(rows, [{"root_id": "root", "node": (-1, 0)}])
-        self.assertEqual(plan["proposals"][0]["source_ids"], ["a"])
-
-    def test_endpoint_to_interior_is_connected_but_root_needs_new_endpoint(self):
-        rows = [record("a", [(0, 0), (1, 0)]), record("b", [(1, -1), (1, 0), (1, 1)])]
-        plan = discover(rows, [{"root_id": "root", "node": (0, 0)}])
-        self.assertEqual(plan["proposals"][0]["source_ids"], ["a", "b"])
-        isolated = discover(rows[1:], [{"root_id": "root", "node": (1, 0)}])
-        self.assertFalse(isolated["proposals"][0]["source_ids"])
-
-    def test_source_and_work_budgets_return_connected_prefixes(self):
-        rows = [record(str(i), [(i, 0), (i + 1, 0)]) for i in range(20)]
-        roots = [{"root_id": "root", "node": (0, 0)}]
-        bounded = discover(rows, roots)["proposals"][0]
-        self.assertEqual(len(bounded["source_ids"]), 8)
-        self.assertEqual(bounded["stop_reason"], "module_source_budget")
-        short = discover(rows, roots, max_visits=1)["proposals"][0]
-        self.assertLessEqual(short["work"]["incidence_tests"], 1)
-        self.assertEqual(short["source_ids"], ["0"])
-        self.assertEqual(short["stop_reason"], "frontier_work_budget")
-
-    def test_empty_ocean_tile_and_invalid_duplicate_sources(self):
-        self.assertFalse(discover([], [])["proposals"])
-        row = record("a", [(0, 0), (1, 0)])
-        with self.assertRaises(ValueError):
-            discover([row, row], [])
-        with self.assertRaises(ValueError):
-            discover([dict(row, nodes=[(0.1, 0), (1, 0)])], [])
 
 
 class ActualInteriorRoot(unittest.TestCase):
@@ -108,6 +43,25 @@ class ActualInteriorRoot(unittest.TestCase):
 
 
 class SourceJunctionsAndClearance(unittest.TestCase):
+    def test_root_pad_supports_frozen_through_and_branch_profiles_together(self):
+        rows = [
+            {"xy": np.array([[-20, 0], [0, 0], [20, 0]], float), "width_m": 2.0},
+            {"xy": np.array([[0, 0], [0, 20]], float), "width_m": 1.8},
+        ]
+        node = {"incident": [0, 1], "xy": [0, 0]}
+        line = np.c_[np.array([[-1, 1], [0, 0], [1, -1]]) / np.sqrt(2), np.zeros(3)]
+        bind_root_pad(rows, node, line, include_interiors=True)
+        required = [
+            shapely.LineString(line[:, :2]),
+            shapely.LineString([[0, -1], [0, 1]]),
+            shapely.LineString([[-0.9, 0], [0.9, 0]]),
+        ]
+        for row in rows:
+            self.assertEqual(len(row["junction_pads_xy_m"]), 1)
+            pad = shapely.Polygon(row["junction_pads_xy_m"][0])
+            self.assertTrue(all(pad.covers(p) for p in required))
+        self.assertEqual(rows[0]["junction_pad_vertices"], [1])
+
     def test_t_junction_uses_actual_internal_profile_and_old_default_stays(self):
         rows = [
             {

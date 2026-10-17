@@ -1,7 +1,9 @@
 """Bind a module root to an actual original cached outer or interior profile."""
 
 import numpy as np
+from outshine_ref.transport.junction_pads import profile_junction_pad
 from stair_cycle_contacts import profile
+from stair_landing_pads import node_profiles
 from stair_module_loops import interior_profile
 
 
@@ -45,3 +47,17 @@ def root_profile(state, recipe, sources):
     if recipe.get("contact_mode") != "profile" and np.ptp(line[:, 2]) > 1e-7:
         raise ValueError("cached whole outer profile is shifted or not locally flat")
     return row, line
+
+
+def bind_root_pad(rows, node, line, *, include_interiors=False):
+    selected = node_profiles(rows, node, include_interiors=include_interiors)
+    if not any(vertex in (0, -1) for _i, vertex, _p in selected):
+        raise ValueError("new module has no original endpoint at its frozen port")
+    pad = profile_junction_pad([line[:, :2], *[p for _i, _v, p in selected]])
+    coordinates = np.array(pad.exterior.coords[:-1])
+    for i, vertex, _p in selected:
+        rows[i]["junction_pads_xy_m"] = [coordinates.copy()]
+        if include_interiors and 0 < vertex < len(rows[i]["xy"]) - 1:
+            indices = rows[i].setdefault("junction_pad_vertices", [])
+            if vertex not in indices:
+                indices.append(vertex)
