@@ -127,3 +127,16 @@ original values and remove the diagnostics. The repair is checked through a
 focused compilation-database entry carrying the full frozen project arguments,
 plus the six owned module arms; no warning was disabled. Full-run outcome and
 scoped follow-up remain separate evidence in #1/#603/PR#531.
+
+Frozen4fcef0e36's full command ended with Make exit2:2179format files clean,
+461analysis units recorded, three aggregate warnings in one unit,23/24repository
+claims passing with one120-s timeout. All19scenario roundtrips and517shader
+artifacts/12compute contracts passed. The original red result is retained.
+884ff53d7 fixes the aggregate fields; full-argument analysis and six module arms
+then pass. 69ebaf1c8 limits the missing-source negative control to its actual
+runtime owner, while the positive audit still covers all profiles and every
+seed is checked. All11assertions pass in99.095s on master and102.694s on native
+3a512e575 under the unchanged120-s guard. An earlier concurrent master retry
+timed out and is retained too. The scoped supplement reuses unchanged base
+checks; it does not relabel the original full command as green. Exact results,
+flags and source associations: `/tmp/outshine-plant-assembly-5a97d0851/verification-supplement.json`.

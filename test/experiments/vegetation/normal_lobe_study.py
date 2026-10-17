@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 
 import numpy as np
-from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
 from normal_lobe_plot import plot
@@ -21,6 +20,7 @@ from normal_lobes import (
 )
 from outshine_ref.vegetation import normal_distribution
 from plant_atlas import projection
+from surface_area_light import integrate
 
 
 def angular_queries(view):
@@ -149,8 +149,8 @@ def run(path, output, view_vector=(1.0, 0.0, 0.35)):
             "normal_lobes.py",
             "normal_lobe_study.py",
             "normal_lobe_plot.py",
-            "needle_area_light.py",
-            "needle_area_cells.py",
+            "surface_area_light.py",
+            "surface_area_cells.py",
         )
     }
     arrays = {"directions": directions}

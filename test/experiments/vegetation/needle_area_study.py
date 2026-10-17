@@ -12,9 +12,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import shapely
-from needle_area_light import integrate
 from needle_joint_contacts import prepare_source
 from needle_response_study import source_digest
+from surface_area_light import integrate
 
 
 def run(source_path, screen, output):
@@ -49,8 +49,8 @@ def run(source_path, screen, output):
     report["implementation_sha256"] = {
         name: source_digest(Path(__file__).with_name(name))
         for name in (
-            "needle_area_cells.py",
-            "needle_area_light.py",
+            "surface_area_cells.py",
+            "surface_area_light.py",
             "needle_area_study.py",
             "needle_joint_contacts.py",
             "surface_normal_transfer.py",

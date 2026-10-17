@@ -17,7 +17,7 @@ from shared_bridge_geometry import corridor
 from stair_occupancy_handoff import OccupancyQuery
 from stair_occupancy_inputs import volume
 from stair_occupancy_reuse import prefix
-from stair_shared_headroom import binding, bindings
+from stair_shared_headroom import binding, bindings, declarations
 from stair_shared_headroom_verify import verify_shared
 from stair_shared_headroom_volumes import supplement, upper_band
 
@@ -63,6 +63,42 @@ def scene():
 
 
 class SharedHeadroomChecks(unittest.TestCase):
+    def test_prepared_declaration_retains_full_actual_extra_headroom(self):
+        new, old, contact, rows, owners, sources = scene()
+        report = {
+            "valid_local_module": True,
+            "proof": {"module": {"surface_contacts": [contact]}},
+        }
+        records = declarations(report, new.identity)
+        declared = bindings((old, new), (), prepared_contacts=records)
+        extra, origins, metadata, _note = supplement(rows, owners, declared, sources)
+        expected = supplement(rows, owners, (binding(new, old, contact),), sources)
+        self.assertEqual(metadata, expected[2])
+        self.assertEqual(origins, expected[1])
+        self.assertEqual(len(extra), 2)
+        for actual, reference in zip(extra, expected[0], strict=True):
+            self.assertTrue(actual.geometry.equals_exact(reference.geometry, 0))
+            self.assertEqual(actual.upper_plane_m, reference.upper_plane_m)
+            self.assertEqual(actual.lower_plane_m, reference.lower_plane_m)
+
+    def test_prepared_declarations_reject_duplicate_changed_cap_and_unknown_access(
+        self,
+    ):
+        new, old, contact, *_rest = scene()
+        record = {"new_asset_sha256": new.identity, "contact": contact}
+        with self.assertRaisesRegex(ValueError, "unique"):
+            bindings((old, new), (), prepared_contacts=[record, record])
+        for kind in ("height", "access"):
+            changed = copy.deepcopy(record)
+            if kind == "height":
+                changed["contact"]["top_xyz_sha256"] = "other"
+            else:
+                changed["contact"]["access"]["motor_cycle_contact_arcs"] = 1
+            with self.subTest(kind=kind), self.assertRaises(ValueError):
+                bindings((old, new), (), prepared_contacts=[changed])
+        with self.assertRaisesRegex(ValueError, "budget"):
+            bindings((old, new), (), prepared_contacts=[record] * 129)
+
     def test_nonempty_polygon_area_underflow_never_disappears_as_a_free_touch(self):
         new, old, contact, rows, owners, sources = scene()
         chosen = binding(new, old, contact)

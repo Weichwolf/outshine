@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 
-import numpy as np
 from camera_height_inputs import digest
-from stair_local_assets import load, road_asset
+from stair_local_assets import load, module_road, road_asset
 from stair_module_inputs import read_arrays
 from stair_patch_inputs import from_field
+from stair_shared_headroom import declarations
 
 
 def apply_product(state, output):
@@ -61,17 +61,9 @@ def apply_product(state, output):
         or report["origin_lat_lon"] != manifest["origin_lat_lon"]
     ):
         raise ValueError("saved local source or frame ledger changed")
-    road = {
-        "body_vertices": data["body_vertices"],
-        "body_faces": data["body_faces"],
-        "top_faces": data["surface_faces"],
-        "bottom_faces": data["surface_faces"] + len(data["surface_vertices"]),
-        "owners": data["owners"],
-        "ground": np.ones(len(data["surface_faces"]), bool),
-    }
-    if "surface_materials" in data:
-        road["surface_materials"] = data["surface_materials"]
-    new_asset = road_asset(digest(output / "module.npz"), source_ids, rows, road)
+    new_asset = road_asset(
+        digest(output / "module.npz"), source_ids, rows, module_road(data)
+    )
     saved = {
         "data": data,
         "local": local,
@@ -99,6 +91,7 @@ def load_chain(resident, prior=()):
         manifest,
         root_resident_sha256=digest(Path(resident) / "resident.json"),
         parent_reports=[],
+        borrowed_headroom_contacts=list(manifest.get("borrowed_headroom_contacts", [])),
     )
     state = view, assets, supports, contacts, manifest
     for path in prior:
@@ -116,7 +109,13 @@ def load_chain(resident, prior=()):
                 *before["parent_reports"],
                 digest(Path(path) / "comparison.json"),
             ],
+            borrowed_headroom_contacts=[
+                *before["borrowed_headroom_contacts"],
+                *declarations(report, report["artifacts"].get("module.npz")),
+            ],
         )
+        if len(manifest["borrowed_headroom_contacts"]) > 128:
+            raise ValueError("resident borrowed headroom declaration budget exhausted")
         state = view, assets, supports, contacts, manifest
     return state
 
