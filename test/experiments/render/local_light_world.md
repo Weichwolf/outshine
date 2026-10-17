@@ -131,9 +131,10 @@ invalid-input/record/update invocations per profile are genuinely rejected.
 Four affected C++ units pass focused LLVM22 with the unmodified policy; the
 separate raster harness's 14 Check.h findings remain open.
 
-An additional actual far emitter, rather than an unilluminating test position,
-passes the same seven edits in both native lookup producers. Its native bytes
-feed the existing GPU consumer directly. Baseline plus seven edited states
+An additional actual far emitter receives seven requests in both producers.
+Its point-kind request repeats the current kind as a no-op control; the genuine
+point/spot transition is covered by the main CPU cases. Its native bytes feed
+the existing GPU consumer directly. Baseline plus seven requested states
 all pass the unchanged full-sum/support comparison; moving/range edits visibly
 change the far receiver, and unbounded/directional states affect all planes.
 Eight fresh offline processes use complete uploads. They do not establish

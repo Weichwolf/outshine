@@ -207,7 +207,7 @@ def producer(pdf, root):
         0,
         1,
         "Actual 200×120 pixel crops /5000 m plane; RGB/(1+RGB).\n"
-        "Seven edits plus baseline use C++ producer output directly.\n"
+        "Seven requests plus baseline; one point-kind no-op control.\n"
         "Every GPU listed/full-sum RGB and support comparison passes.\n"
         "Fresh offline processes: not runtime partial-upload/in-flight proof.\n\n"
         "Native/reference bytes: 40 cases and 28 sequential updates,\n"
