@@ -12,8 +12,11 @@ import time
 
 
 def digest(path):
+    result = hashlib.sha256()
     with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            result.update(chunk)
+    return result.hexdigest()
 
 
 def main():
@@ -24,7 +27,7 @@ def main():
     parser.add_argument('--scalar', action='store_true')
     args = parser.parse_args()
     root, output, source = args.checkout.resolve(), args.output.resolve(), Path(__file__).with_suffix('.cpp')
-    if not output.is_relative_to(Path('/tmp')):
+    if not output.is_relative_to(Path('/tmp').resolve()):
         parser.error('private output must be under /tmp')
     output.parent.mkdir(parents=True, exist_ok=True)
     database = json.loads((root / 'compile_commands.json').read_text())
@@ -36,11 +39,10 @@ def main():
     binary = output.with_suffix('.bin')
     packages = ['sdl3', 'sdl3-image', 'sdl3-ttf', 'liblz4', 'libtiff-4', 'libwebp',
                 'geos', 'sqlite3', 'libzstd', 'sfcgal']
-    packages += ['vulkan', 'spirv-cross-c-shared'] if sys.platform == 'linux' else ['spirv-cross-c-shared']
     libraries = shlex.split(subprocess.check_output(['pkg-config', '--libs', *packages], text=True))
     libraries += ['-lz', '-lcurl']
-    if sys.platform == 'darwin':
-        libraries += ['-framework', 'Metal', '-framework', 'QuartzCore', '-framework', 'Foundation']
+    libraries += shlex.split(subprocess.check_output(
+        ['sh', 'test/run.sh', '--native-link-flags'], cwd=root, text=True))
     command += ['-I.', '-Itest/harness/render',
                 f'-DOUTSHINE_HEIGHT_PAGE_BATCH={int(not args.scalar)}',
                 *['-I' + str(path.relative_to(root)) for path in sorted((root / 'src').rglob('*'))
@@ -63,16 +65,24 @@ def main():
         output.write_text(json.dumps(manifest, indent=2) + '\n')
         return compiled.returncode
     began = time.monotonic()
-    with output.with_suffix('.run.log').open('w') as log:
-        child = subprocess.Popen(['timeout', '--kill-after=5s', '180s', str(binary),
-                                  str(args.input.resolve())], cwd=root,
+    marker = output.with_suffix('.timeout')
+    for path in (marker, Path(str(marker) + '.start'), Path(str(marker) + '.cleanup-failed')):
+        if path.exists():
+            path.unlink()
+    with output.with_suffix('.supervisor.log').open('w') as log:
+        child = subprocess.Popen([sys.executable, str(root / 'test/scripts/run_with_timeout.py'),
+                                  str(os.getpid()), '180', str(output.with_suffix('.run.log')),
+                                  str(marker), str(binary), str(args.input.resolve())], cwd=root,
                                  stdout=log, stderr=subprocess.STDOUT)
+        Path(str(marker) + '.start').touch()
         _, status, usage = os.wait4(child.pid, 0)
         child.returncode = os.waitstatus_to_exitcode(status)
     manifest.update(status='terminal', exit=child.returncode,
                     process_seconds=time.monotonic() - began,
                     whole_process_peak_rss_bytes=usage.ru_maxrss * (1 if sys.platform == 'darwin' else 1024),
-                    user_seconds=usage.ru_utime, system_seconds=usage.ru_stime)
+                    user_seconds=usage.ru_utime, system_seconds=usage.ru_stime,
+                    timed_out=marker.exists(),
+                    cleanup_failed=Path(str(marker) + '.cleanup-failed').exists())
     lines = output.with_suffix('.run.log').read_text().splitlines()
     if child.returncode == 0:
         manifest['measurement'] = json.loads(next(line for line in reversed(lines) if line.startswith('{')))
