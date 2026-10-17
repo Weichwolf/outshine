@@ -39,11 +39,9 @@ def construct(
     if (
         recipe.get("contact_mode") != "profile"
         or recipe.get("junction_mode") != "level_box"
-        or "vertex" not in recipe["port"]
+        or not ({"vertex", "end"} & recipe["port"].keys())
     ):
-        raise ValueError(
-            "explicit profile/level_box original interior-root family required"
-        )
+        raise ValueError("explicit profile/level_box original root family required")
     state, context, axes, note = state_for(
         view, assets, supports, contacts, sources, recipe, max_faces=max_faces
     )
