@@ -132,7 +132,15 @@ def render(whole, execution, catalog, output):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("whole", "execution", "catalog", "output"):
+    parser.add_argument(
+        "--plant-product",
+        "--whole",
+        dest="whole",
+        type=Path,
+        required=True,
+        help="Complete cached window plant or previous whole-view plant",
+    )
+    for name in ("execution", "catalog", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     args = parser.parse_args()
     render(args.whole, args.execution, args.catalog, args.output)
