@@ -1,6 +1,8 @@
 """Actual repeated upper masses, independent rebuilding and retained functional geometry."""
 
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -174,6 +176,28 @@ class Podiums(unittest.TestCase):
         for count in (True, 0, self.bases[2]["storeys"] - 1):
             with self.assertRaises(ValueError):
                 constant_upper(self.bases[2], self.bases[2]["footprint"], count)
+
+    def test_even_tiny_inaccessible_real_terrace_components_reject(self):
+        path = Path(__file__).parent / "data/podium-counterexamples.json"
+        row = json.loads(path.read_text())["cases"][0]
+        row["polygon"] = shapely.from_wkb(row["footprint_wkb"])
+        base = base_plan(row)
+        bad = constant_upper(base, proposal(base, "wing", 2.8, 0), 2)
+        tiny = [r for r in bad["terrace_access"] if r["reason"]]
+        self.assertTrue(tiny)
+        self.assertTrue(all(0 < r["area_m2"] < 1e-7 for r in tiny))
+        try:
+            result = choose(base, "wing")
+            attempts = result["form_recipe"]["attempts"]
+        except PodiumUnavailable as error:
+            attempts = error.attempts
+        target = next(
+            r
+            for r in attempts
+            if r["base_storeys"] == 2 and r["width_m"] == 2.8 and r["axis"] == 0
+        )
+        self.assertEqual(target["status"], "rejected")
+        self.assertIn("connected room portal", target["reason"])
 
     def test_nonadmitted_real_source_keeps_its_geometry_gate_and_failure_reason(self):
         with self.assertRaises(PodiumUnavailable) as caught:

@@ -147,7 +147,9 @@ def choose(plan, kind, *, validate=None, reuse=True):
                     positive = [
                         r for r in current["terrace_access"] if r["area_m2"] > 1e-7
                     ]
-                    if not positive or any(r["reason"] for r in positive):
+                    if not positive or any(
+                        r["reason"] for r in current["terrace_access"]
+                    ):
                         raise ValueError(
                             "Every podium terrace needs a connected room portal"
                         )
