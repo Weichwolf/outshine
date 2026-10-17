@@ -62,7 +62,7 @@ def study_views(values=None):
     if values.shape != (3, 3) or not np.isfinite(values).all():
         raise ValueError("three finite source camera directions required")
     length = np.linalg.norm(values, axis=1)
-    if np.any(length < 1e-12):
+    if not np.isfinite(length).all() or np.any(length < 1e-12):
         raise ValueError("nonzero camera directions required")
     return values / length[:, None]
 
