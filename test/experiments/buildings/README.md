@@ -1159,3 +1159,8 @@ horizontal glazing, retaining the existing entry/projection elevation:
 [elevations.md](elevations.md) (#574). The whole988-source window gains91 composed
 elevations on44 sources; actual near crops and complete city pairs are checked.
 These are two bounded facade programmes, not complete architecture families.
+
+Attached source-contained roof volumes and real near window pockets:
+[dormers.md](dormers.md) (#585). The whole988-source window gains3097 dormers on368
+roofs, retaining earlier source/function/facade/roof owners. This is one repeated
+box-dormer programme; broader whole-building forms and coherent variety remain open.
