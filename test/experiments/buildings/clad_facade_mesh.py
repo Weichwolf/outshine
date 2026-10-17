@@ -7,6 +7,7 @@ from facade_frame_geometry import FrameDetails, placed
 from outshine_ref.buildings.facade_frames import front, sides
 from outshine_ref.buildings.rooflight_panels import triangle_surface
 from provider_contract import attributes
+from recipe_hall_operators import sealed
 from tile_facades import FacadeDetails
 
 
@@ -44,7 +45,7 @@ class CladFrames(FrameDetails):
         mode = "outer" if resolved else "front"
         key = (current.region.wkb, current.depth_m, mode)
         if key not in self.templates:
-            self.templates[key] = surface(current, mode)
+            self.templates[key] = sealed(surface(current, mode))
         return placed(self.templates[key], current, 10), mode
 
     def description(self, current):

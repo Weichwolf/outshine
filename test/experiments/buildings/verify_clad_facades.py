@@ -85,6 +85,10 @@ class CladFacadesTests(unittest.TestCase):
                     product["normals"][product["faces"][selected]],
                     cap["normals"][cap["faces"]],
                 )
+                np.testing.assert_array_equal(
+                    product["uv"][product["faces"][selected]],
+                    cap["uv"][cap["faces"]],
+                )
             self.assertLess(len(cap["faces"]), len(outer["faces"]))
             self.assertTrue(np.all(cap["materials"] == 10))
 
@@ -139,6 +143,9 @@ class CladFacadesTests(unittest.TestCase):
             ):
                 parts, ids = frame_owner.products(*args, far, 12, family, entry)
             self.assertTrue(parts)
+            for template in frame_owner.templates.values():
+                self.assertFalse(template["faces"].flags.writeable)
+                self.assertFalse(template["uv"].flags.writeable)
             self.assertTrue(all(r["mode"] == "front" for r in frame_owner.completed))
             records = frame_owner.logical_info(len(ids))
             with patch(
