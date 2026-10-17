@@ -64,6 +64,8 @@ def bindings(assets, modules):
     for path in modules:
         path = Path(path)
         report = json.loads((path / "comparison.json").read_text())
+        if not report["valid_local_module"]:
+            continue
         new = by_id[digest(path / "module.npz")]
         records = report["proof"]["module"].get("surface_contacts", [])
         for contact in records:

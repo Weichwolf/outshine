@@ -4,6 +4,7 @@ import copy
 import dataclasses
 import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,7 +17,7 @@ from shared_bridge_geometry import corridor
 from stair_occupancy_handoff import OccupancyQuery
 from stair_occupancy_inputs import volume
 from stair_occupancy_reuse import prefix
-from stair_shared_headroom import binding
+from stair_shared_headroom import binding, bindings
 from stair_shared_headroom_verify import verify_shared
 from stair_shared_headroom_volumes import supplement, upper_band
 
@@ -62,6 +63,14 @@ def scene():
 
 
 class SharedHeadroomChecks(unittest.TestCase):
+    def test_retained_refusal_in_chain_does_not_require_a_nonexistent_new_body(self):
+        with tempfile.TemporaryDirectory(prefix="outshine-headroom-refusal-") as root:
+            path = Path(root)
+            (path / "comparison.json").write_text(
+                json.dumps({"valid_local_module": False})
+            )
+            self.assertEqual(bindings((), (path,)), ())
+
     def test_only_missing_upper_band_preserves_both_origins_and_physical_objects(self):
         new, old, contact, rows, owners, sources = scene()
         chosen = binding(new, old, contact)
