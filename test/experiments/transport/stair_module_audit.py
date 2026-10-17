@@ -13,6 +13,7 @@ from stair_module_roads import inspect_frames
 from stair_module_topology import check_surface
 from stair_network_geometry import vertex_links
 from stair_road_vehicle import inspect_curves
+from stair_source_owners import source_selection
 from surface_height_checks import normal_gradients
 from surface_solid_checks import audit_closed
 
@@ -147,8 +148,9 @@ def inspect_pins(data, fixed, values, mode):
 
 def audit(state, recipe, data, rows, planning, line, upper):
     nodes, original, domains, masks, old = planning
-    owner = state["report"]["after"]["source_ids"].index(recipe["port"]["source_id"])
-    selected = (state["road"]["face_sources"] & (1 << owner)) != 0
+    selected = source_selection(
+        state, recipe["port"]["source_id"], state["report"]["after"]["source_ids"]
+    )
     cap = Mesh(state["road"]["body_vertices"], state["road"]["top_faces"][selected])
     old_cap = shapely.union_all(shapely.polygons(cap.vertices[cap.triangles, :2]))
     additions = shapely.union_all(domains)

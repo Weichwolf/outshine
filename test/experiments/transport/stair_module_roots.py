@@ -55,11 +55,13 @@ def root_profile(state, recipe, sources):
     return row, line
 
 
-def bind_root_pad(rows, node, line, *, include_interiors=False):
+def bind_root_pad(rows, node, line, *, include_interiors=False, cached_profiles=()):
     selected = node_profiles(rows, node, include_interiors=include_interiors)
     if not any(vertex in (0, -1) for _i, vertex, _p in selected):
         raise ValueError("new module has no original endpoint at its frozen port")
-    pad = profile_junction_pad([line[:, :2], *[p for _i, _v, p in selected]])
+    pad = profile_junction_pad(
+        [line[:, :2], *cached_profiles, *[p for _i, _v, p in selected]]
+    )
     coordinates = np.array(pad.exterior.coords[:-1])
     for i, vertex, _p in selected:
         rows[i]["junction_pads_xy_m"] = [coordinates.copy()]

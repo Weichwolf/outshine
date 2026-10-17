@@ -8,6 +8,7 @@ from outshine_ref.transport.junction_pads import profile_junction_pad
 from stair_cycle_contacts import interior_profile_xy, profile
 from stair_landing_pads import node_profiles
 from stair_module_sections import line_pieces
+from stair_source_owners import source_selection
 
 
 def actual_profile(state, sources, old_key, vertex, *, interior):
@@ -29,8 +30,7 @@ def actual_profile(state, sources, old_key, vertex, *, interior):
         if interior
         else profile(dict(old_row, xy=xy), 0 if vertex == 0 else -1)
     )
-    owner = state["report"]["candidate_source_ids"].index(old_key)
-    selected = (state["road"]["face_sources"] & (1 << owner)) != 0
+    selected = source_selection(state, old_key, state["report"]["candidate_source_ids"])
     if not state["road_ground"][selected].all():
         raise ValueError("interior contact requires actual cached ground")
     cap = Mesh(state["road"]["body_vertices"], state["road"]["top_faces"][selected])
