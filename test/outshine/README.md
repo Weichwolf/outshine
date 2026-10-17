@@ -77,3 +77,10 @@ Shader builds use glslang's actual include dependencies per variant. A missing
 dependency receipt rebuilds that artifact; removed includes are rescanned without
 hiding compiler errors. `make test-shader-dependencies` checks the real recipes,
 conditional layouts, shared CPU/GPU headers and failed-output cleanup.
+
+Native object compilation uses ccache with content-based compiler checks, including
+source, header, option and include/SDK inputs. Every selected object is validated;
+unchanged object bytes retain their timestamp to avoid unnecessary archive/link work.
+This also covers diagnostics and application entry points. Restored timestamps do not
+admit stale code; timestamp-only changes reuse identical content. `make test-file-stamps`
+compiles actual product groups to exercise this boundary.
