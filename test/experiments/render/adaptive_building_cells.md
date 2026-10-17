@@ -114,4 +114,3 @@ byte; loading spans 708.5858–1,913.3115 ms, maximum CPU p99 3.9442 ms. GPU tim
 remains unavailable on the main SDL_GPU path. These are single runs,
 not a robust speedup or a child-only loading-budget proof. The failed 8,068-source
 Linux 1920×1080/60 case and full native port acceptance remain open in #567/#328.
-
