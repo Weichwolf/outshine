@@ -12,10 +12,11 @@ import numpy as np
 import shapely
 from camera_height_inputs import digest
 from stair_module_audit import audit
+from stair_module_cache import load_cached
 from stair_module_catalog import catalog
 from stair_module_display import display
 from stair_module_geometry import build, old_surfaces
-from stair_module_inputs import FIXTURE, cached, inputs
+from stair_module_inputs import FIXTURE, inputs
 from stair_module_soil import assemble, fit, prepare
 from stair_module_world import inspect_world, source_ground
 from stair_terrain_experiment import frozen
@@ -62,6 +63,16 @@ def artifact_hashes(output, arrays):
     return {name: digest(output / name) for name in names}
 
 
+def module_inputs(args, timed):
+    recipe, rows, context, sources, sample, layer = timed(
+        "new_provider", lambda: inputs(args.fixture)
+    )
+    state = timed("cached_inputs", lambda: load_cached(args, recipe))
+    if state["support_report"]["origin_lat_lon"] != context["origin_lat_lon"]:
+        raise ValueError("cached module origin/frame changed")
+    return recipe, rows, context, sources, sample, layer, state
+
+
 def run(args):
     commit = frozen()
     if args.output.exists():
@@ -75,17 +86,21 @@ def run(args):
         times[name] = time.perf_counter() - begin
         return result
 
-    recipe, rows, context, sources, sample, layer = timed(
-        "new_provider", lambda: inputs(args.fixture)
-    )
-    state = timed("cached_inputs", lambda: cached(args.base, args.supports, recipe))
-    if state["support_report"]["origin_lat_lon"] != context["origin_lat_lon"]:
-        raise ValueError("cached module origin/frame changed")
+    recipe, rows, context, sources, sample, layer, state = module_inputs(args, timed)
     old, line, ground, upper = timed(
         "cached_surface_selection", lambda: old_surfaces(state, recipe, sources)
     )
     data, network_note, planning = timed(
-        "new_surface_and_body", lambda: build(rows, sources, old, line, ground, sample)
+        "new_surface_and_body",
+        lambda: build(
+            rows,
+            sources,
+            old,
+            line,
+            ground,
+            sample,
+            contact_mode=recipe.get("contact_mode", "flat"),
+        ),
     )
     geometry = timed(
         "module_admission",
@@ -151,6 +166,7 @@ def run(args):
         "fixture_sha256": digest(args.fixture),
         "base_report_sha256": state["baseline_report_sha256"],
         "support_report_sha256": state["support_report_sha256"],
+        "cache_parent_reports": state["cache_parent_reports"],
         "origin_lat_lon": context["origin_lat_lon"],
         "network": network_note,
         "module": geometry,
@@ -171,15 +187,15 @@ def run(args):
         + [r["source_id"] for r in rows],
         "admitted_source_ids": [],
         "valid_local_module": True,
-        "scope": "Explicit flat cached interface; whole four-source ground extension with actual old bodies retained. Global terrain assembly is diagnostic work. No complete/native world, statutory vehicle envelope or structural acceptance.",
+        "scope": "Explicit locally flat cached interface; bounded whole-source ground extension with actual old bodies retained. Global terrain assembly is diagnostic work. No complete/native world, statutory vehicle envelope or structural acceptance.",
     }
     write_json(args.output / "comparison.json", report)
     announce(report)
     return report
 
 
-def refused_catalog(base, recipe, reason):
-    inventory = json.loads((base / "source-catalog.json").read_text())
+def refused_catalog(base, recipe, reason, *, catalog_path=None):
+    inventory = json.loads((catalog_path or base / "source-catalog.json").read_text())
     keys = recipe["source_ids"]
     unused = {row["source_id"]: row for row in inventory["unadmitted_sources"]}
     if (
@@ -210,9 +226,11 @@ def generate(args):
         return run(args)
     except ValueError as error:
         recipe = json.loads(args.fixture.read_text())
-        state = cached(args.base, args.supports, recipe)
+        state = load_cached(args, recipe)
         reason = str(error)[:2048]
-        inventory = refused_catalog(args.base, recipe, reason)
+        inventory = refused_catalog(
+            args.base, recipe, reason, catalog_path=state["catalog_path"]
+        )
         # run accepted only a fresh private output; any contents are this attempt's.
         if args.output.exists():
             shutil.rmtree(args.output)
@@ -223,6 +241,7 @@ def generate(args):
             "fixture_sha256": digest(args.fixture),
             "base_report_sha256": state["baseline_report_sha256"],
             "support_report_sha256": state["support_report_sha256"],
+            "cache_parent_reports": state["cache_parent_reports"],
             "valid_local_module": False,
             "valid_retained_baseline": True,
             "refused_sources": recipe["source_ids"],
@@ -245,6 +264,14 @@ def argument_parser():
     parser.add_argument("--fixture", type=Path, default=FIXTURE)
     parser.add_argument("--base", type=Path, required=True)
     parser.add_argument("--supports", type=Path, required=True)
+    parser.add_argument(
+        "--cached-module",
+        type=Path,
+        nargs=2,
+        action="append",
+        default=[],
+        metavar=("OUTPUT", "FIXTURE"),
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--variable-mode",

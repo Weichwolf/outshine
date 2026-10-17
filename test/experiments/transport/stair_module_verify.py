@@ -10,10 +10,11 @@ from camera_height_inputs import digest
 from outshine_ref.contracts import Mesh
 from shared_bridge_geometry import corridor
 from stair_module_audit import audit
+from stair_module_cache import load_cached
 from stair_module_catalog import catalog
 from stair_module_experiment import arguments, refused_catalog, write_json
 from stair_module_geometry import old_surfaces
-from stair_module_inputs import cached, inputs, read_arrays
+from stair_module_inputs import inputs, read_arrays
 from stair_module_soil import selection
 from stair_module_world import field_link, inspect_world, source_ground
 from stair_terrain_experiment import frozen
@@ -48,7 +49,7 @@ def saved_planning(output, original, ground):
 
 def display_proof(args, report, state, data, body, parts, roles):
     shown = read_arrays(args.output / "after-display.npz")
-    original = read_arrays(args.base / "after/display-body.npz")
+    original = state["road_display"]
     for name in ("before", "after"):
         if (
             digest(args.output / (name + "-display.npz"))
@@ -56,7 +57,7 @@ def display_proof(args, report, state, data, body, parts, roles):
         ):
             raise ValueError("saved module display hash changed")
     if digest(args.output / "before-display.npz") != digest(
-        args.supports / "after-display.npz"
+        state["before_display_path"]
     ):
         raise ValueError("before image lost whole original world")
     if any(not np.array_equal(shown[k][: len(v)], v) for k, v in original.items()):
@@ -103,12 +104,13 @@ def display_proof(args, report, state, data, body, parts, roles):
 
 def retained(args, report, commit):
     recipe = json.loads(args.fixture.read_text())
-    state = cached(args.base, args.supports, recipe)
+    state = load_cached(args, recipe)
     if (
         report.get("valid_retained_baseline") is not True
         or report["fixture_sha256"] != digest(args.fixture)
         or report["base_report_sha256"] != state["baseline_report_sha256"]
         or report["support_report_sha256"] != state["support_report_sha256"]
+        or report.get("cache_parent_reports", []) != state["cache_parent_reports"]
         or report["candidate_source_ids"] != state["report"]["candidate_source_ids"]
         or report["refused_sources"] != recipe["source_ids"]
         or report["admitted_source_ids"]
@@ -123,7 +125,9 @@ def retained(args, report, commit):
     path = args.output / "source-catalog.json"
     if digest(path) != report["artifacts"][path.name] or json.loads(
         path.read_text()
-    ) != refused_catalog(args.base, recipe, report["reason"]):
+    ) != refused_catalog(
+        args.base, recipe, report["reason"], catalog_path=state["catalog_path"]
+    ):
         raise ValueError("refused original source inventory changed")
     receipt = {
         "generation_commit": report["commit"],
@@ -149,12 +153,13 @@ def verify(args):
     if report.get("valid_local_module") is False:
         return retained(args, report, commit)
     recipe, original, context, sources, sample, layer = inputs(args.fixture)
-    state = cached(args.base, args.supports, recipe)
+    state = load_cached(args, recipe)
     if (
         report.get("valid_local_module") is not True
         or report["fixture_sha256"] != digest(args.fixture)
         or report["base_report_sha256"] != state["baseline_report_sha256"]
         or report["support_report_sha256"] != state["support_report_sha256"]
+        or report.get("cache_parent_reports", []) != state["cache_parent_reports"]
         or report["origin_lat_lon"] != context["origin_lat_lon"]
         or report["admitted_source_ids"]
     ):
