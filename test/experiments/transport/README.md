@@ -28,6 +28,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   einzelne feste Seitenkontakthöhen und einen ganzen ursprünglichen Radweg ergänzen.
 - [Südwestlicher Straßenverbund](stair_southwest_comparison.md): sechs weitere Quellen,
   ganze geneigte Bestandsprofile, ausdrücklicher Innenkontakt und 795 m Straßen/Wege.
+- [Horizontale Straßenkurven](stair_road_curve_comparison.md): installierter Klothoidenkern,
+  erhaltene Originalknoten, ganze tatsächliche Fahrspurhüllen und Kreisbogenvergleich.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.

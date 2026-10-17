@@ -1,5 +1,9 @@
 # Südwestlicher Straßenverbund an tatsächlichen Bestandsprofilen (#530)
 
+Der [nachfolgende Kurvenvergleich](stair_road_curve_comparison.md) ergänzt eine
+glatte horizontale Fahrgeometrie samt ganzen Fahrzeughüllen und erhält diese
+Originalflächen. Die hier dokumentierte erste Straßenfassung bleibt als Vergleich.
+
 Gegenüber der [zweiten Modulstufe](stair_module_chain_comparison.md) kommen
 sechs ganze ursprüngliche Quellteile mit zusammen **795,443 m** hinzu.
 Das bisher abgelehnte, um **24,104 mm** geneigte Außenprofil des Fußwegs

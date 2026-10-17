@@ -31,8 +31,9 @@ def road_profile(source, profile, kind):
 
 
 def tangents(row, points):
-    origin = row["xy"][:-1]
-    axis = np.diff(row["xy"], axis=0)
+    xy = np.asarray(row.get("surface_axis_xy_m", row["xy"]))
+    origin = xy[:-1]
+    axis = np.diff(xy, axis=0)
     norm2 = np.einsum("ij,ij->i", axis, axis)
     keep = norm2 > 0
     origin, axis, norm2 = origin[keep], axis[keep], norm2[keep]

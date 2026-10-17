@@ -65,7 +65,8 @@ def landings(rows, domains, method, width_reach_m, junctions=None):
 
 
 def cross_sections(row):
-    xy, half = row["xy"], row["width_m"] * 2
+    xy = np.asarray(row.get("surface_axis_xy_m", row["xy"]))
+    half = row["width_m"] * 2
     arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
     mode = row.get("surface_cross_section_mode", "end_neighbourhood")
     if mode not in ("end_neighbourhood", "source_knots"):
@@ -117,7 +118,9 @@ def arrangement(rows, domains, masks, *, constraints=()):
     lines = [p.boundary for p in domains + masks] + list(constraints)
     section_counts = []
     for row in rows:
-        lines.append(shapely.LineString(row["xy"]))
+        lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
+        if "surface_axis_xy_m" in row:
+            lines.append(shapely.LineString(row["xy"]))
         sections = cross_sections(row)
         lines.extend(sections)
         section_counts.append(len(sections))

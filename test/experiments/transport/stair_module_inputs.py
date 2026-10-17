@@ -7,6 +7,7 @@ import numpy as np
 from camera_height_inputs import digest
 from capture_stair_context import parts
 from outshine_ref.places import decode_vector
+from outshine_ref.transport.horizontal import plan_horizontal_axis
 from stair_context_inputs import FIXTURE as CONTEXT
 from stair_context_inputs import PROFILES
 from stair_cycle_inputs import sampler
@@ -130,6 +131,10 @@ def inputs(path=FIXTURE):
         ):
             raise ValueError("ordinary exterior ground source required")
         xy = np.array(source["xy_m"])
+        if extra and "road_axis" in recipe:
+            axis, note = plan_horizontal_axis(xy, recipe["road_axis"])
+            note["original_corridor_retained"] = True
+            extra.update(surface_axis_xy_m=axis, horizontal_curve_plan=note)
         rows.append(
             {
                 "source_id": key,

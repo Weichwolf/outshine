@@ -11,6 +11,7 @@ from stair_module_profiles import varying_profiles
 from stair_module_roads import inspect_frames
 from stair_module_topology import check_surface
 from stair_network_geometry import vertex_links
+from stair_road_vehicle import inspect_curves
 from surface_height_checks import normal_gradients
 from surface_solid_checks import audit_closed
 
@@ -225,4 +226,9 @@ def audit(state, recipe, data, rows, planning, line, upper):
             else {}
         ),
         "traffic": traffic(data, upper, state["piers"]),
+        **(
+            {"horizontal_curves": inspect_curves(data, rows)}
+            if any("horizontal_curve_plan" in row for row in rows)
+            else {}
+        ),
     }
