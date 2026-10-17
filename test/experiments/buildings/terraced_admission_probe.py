@@ -23,8 +23,8 @@ from terraced_terrace_plan import plan
 DATA = Path(__file__).with_name("data")
 
 
-def controls():
-    data = json.loads((DATA / "terraced-admission-controls.json").read_text())
+def controls(path=None):
+    data = json.loads((path or DATA / "terraced-admission-controls.json").read_text())
     return [
         dict(r, polygon=shapely.from_wkb(r["footprint_wkb"])) for r in data["cases"]
     ]
@@ -32,7 +32,7 @@ def controls():
 
 def records(args):
     if args.census is None:
-        return [(r, r["programme"]) for r in controls()], [], {}
+        return [(r, r["programme"]) for r in controls(args.controls)], [], {}
     reference = json.loads(args.census.read_text())
     rows, receipts, window = inputs(
         "Paris", json.loads((DATA / "roof-crown-city-window.json").read_text())
@@ -155,7 +155,9 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--census", type=Path)
+    inputs = parser.add_mutually_exclusive_group()
+    inputs.add_argument("--census", type=Path)
+    inputs.add_argument("--controls", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--models", type=Path)
     args = parser.parse_args()

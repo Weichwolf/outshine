@@ -1,17 +1,18 @@
 """A source-contained shared stair reservation before detailed room subdivision."""
 
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 import numpy as np
 import shapely
-from shapely.affinity import affine_transform
-
 from building_core import placements
 from building_layout import AGENT_RADIUS_M, WALL_M, frame
 from building_plan import FLOOR_M
 from building_stair import core_layout, geometry_frame
 from outshine_ref.buildings.interiors.routes import routes
+from shapely.affinity import affine_transform
+
+CLEARANCE_RESERVE_M = 0.001
 
 
 @dataclass(frozen=True)
@@ -52,11 +53,9 @@ def canonical_layout(core, rise, bottom, flip):
 
 
 def circulation_space(polygon, core, front):
-    radius = AGENT_RADIUS_M / math.cos(math.pi / (4 * 32))
+    radius = AGENT_RADIUS_M / math.cos(math.pi / (4 * 32)) + CLEARANCE_RESERVE_M
     blocked = core.difference(front).buffer(radius, quad_segs=32)
-    return polygon.buffer(-(WALL_M + AGENT_RADIUS_M), join_style="mitre").difference(
-        blocked
-    )
+    return polygon.buffer(-(WALL_M + radius), join_style="mitre").difference(blocked)
 
 
 def approach(profiles, core, layout, entry):
