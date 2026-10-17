@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from interwhorl_distribution import area_weights, grouped_area
 from interwhorl_execute import execute
 from outshine_ref.vegetation import NeedlePattern
 from parent_profile_graph import ParentProfileGraph
@@ -142,6 +143,35 @@ class IntercalatedTests(unittest.TestCase):
         for factor, ratio in ((float("nan"), 0.7), (1.45, 1), (1.1, 0.7)):
             with self.assertRaises(ValueError):
                 intercalated(self.original, factor, relative_length=ratio)
+
+    def test_window_area_matches_scalar_global_variant_cycle(self):
+        recipe = {
+            "wood": {"seed": 815},
+            "physical_source": copy.deepcopy(self.physical),
+        }
+        for i in (1, 2, 3):
+            recipe["physical_source"]["patterns"][i]["scale_variation"] = i / 10
+        windows = {
+            "needle_counts": np.array([1, 2, 3, 4, 7, 257], dtype=np.uint32),
+            "first_needle_ids": np.array([5, 6, 8, 11, 15, 22], dtype=np.uint64),
+            "orders": np.array([1, 2, 3, 1, 2, 3], dtype=np.uint8),
+        }
+        expected = []
+        for n, first, order in zip(*windows.values(), strict=True):
+            area = sum(self.areas[(int(first) + i + 815) % 3] for i in range(int(n)))
+            expected.append(area * (1 + (int(order) / 10) ** 2 / 3))
+        actual = area_weights(windows, recipe, self.areas)
+        np.testing.assert_allclose(actual, expected, rtol=1e-14)
+        np.testing.assert_allclose(
+            grouped_area(
+                np.array([0.2, 0.9, 1.2]),
+                np.array([0, 1, 2]),
+                np.array([1.0, 2.0, 4.0]),
+            ),
+            [3.0, 4.0],
+        )
+        with self.assertRaises(ValueError):
+            grouped_area(np.array([2.0]), np.array([0, 1]), np.array([1.0]))
 
 
 if __name__ == "__main__":
