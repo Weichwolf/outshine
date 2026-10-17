@@ -14,7 +14,7 @@ from botanical_profiles import plant_recipe
 from colonization import GrowthBudget, grow
 from crown_shoots import CrownShoots
 from growth_experiment import validate_plan
-from oak_scaffold import OakRecipe
+from oak_scaffold import OakRecipe, tapered_radii
 from outshine_ref.vegetation import Shoot
 from spatial_crown_experiment import crown_wood, save
 
@@ -50,7 +50,8 @@ def build_one(output, recipe, points, blades, limbs):
     tables = crown.tables(100000)
     rows = {"leaf_" + k: v for k, v in tables.items()}
     placement_ready = time.perf_counter()
-    wood = crown_wood(crown, recipe.root_radius_m)
+    radii = tapered_radii(crown.parents, recipe.root_radius_m, recipe.terminal_radius_m)
+    wood = crown_wood(crown, radii=radii)
     geometry_ready = time.perf_counter()
     triangles = save(output, rows, wood, blades, crown.identity)
     np.savez_compressed(
@@ -67,6 +68,9 @@ def build_one(output, recipe, points, blades, limbs):
         "identity": crown.identity,
         "summary": summary,
         "source_seed_nodes": len(seed[1]),
+        "radius_model": "authored support-power taper; no cross-section conservation",
+        "root_radius_m": float(radii[0]),
+        "minimum_radius_m": float(radii.min()),
         "growth": {
             k: v
             for k, v in plan.items()

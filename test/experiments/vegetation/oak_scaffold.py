@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+from colonization import pipe_radii
 from crown_attractors import attractors
 from outshine_ref.vegetation.spine_curve import CubicSpine
 
@@ -13,6 +14,7 @@ class OakRecipe:
     height_m: float = 18.0
     spread_m: float = 14.0
     root_radius_m: float = 0.325
+    terminal_radius_m: float = 0.0015
     step_m: float = 0.28
     attractor_count: int = 4096
     leaves: int = 90000
@@ -26,11 +28,19 @@ class OakRecipe:
             or type(self.leaves) is not int
             or not 1 <= self.leaves <= 100000
             or not np.isfinite(
-                (self.height_m, self.spread_m, self.root_radius_m, self.step_m)
+                (
+                    self.height_m,
+                    self.spread_m,
+                    self.root_radius_m,
+                    self.terminal_radius_m,
+                    self.step_m,
+                )
             ).all()
             or not 5 <= self.height_m <= 35
             or not 4 <= self.spread_m <= 25
             or not 0.1 <= self.root_radius_m <= 0.75
+            or not 0.0005 <= self.terminal_radius_m <= 0.01
+            or self.terminal_radius_m >= self.root_radius_m
             or not 0.1 <= self.step_m <= 0.5
         ):
             raise ValueError("bounded explicit authored oak dimensions required")
@@ -104,3 +114,18 @@ class OakRecipe:
                 parents.extend([host, *range(first, first + len(points) - 1)])
                 positions.extend(points)
         return np.array(positions, float), np.array(parents, np.int32)
+
+
+def tapered_radii(parents, root_radius, terminal_radius):
+    """Authored support-power taper with fixed endpoint radii, not pipe conservation."""
+    if (
+        not np.isfinite([root_radius, terminal_radius]).all()
+        or not 0 < terminal_radius < root_radius <= 1
+    ):
+        raise ValueError("positive decreasing physical radius endpoints required")
+    pipes = pipe_radii(parents, 1.0)
+    minimum = float(pipes.min())
+    if minimum >= 1:
+        raise ValueError("branching support required for two distinct radius endpoints")
+    exponent = np.log(terminal_radius / root_radius) / np.log(minimum)
+    return root_radius * pipes**exponent

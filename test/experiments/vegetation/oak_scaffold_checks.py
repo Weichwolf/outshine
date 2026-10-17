@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import numpy as np
 from colonization import GrowthBudget, grow
-from oak_scaffold import OakRecipe
+from oak_scaffold import OakRecipe, tapered_radii
 
 
 class SeededGrowthTests(unittest.TestCase):
@@ -107,6 +107,24 @@ class SeededGrowthTests(unittest.TestCase):
         for kwargs in ({"leaves": 100001}, {"step_m": 0}, {"height_m": np.inf}):
             with self.assertRaises(ValueError):
                 OakRecipe(**kwargs)
+
+    def test_authored_taper_preserves_radius_endpoints_and_parent_order(self):
+        parents = np.array([-1, 0, 1, 1, 3, 3], np.int32)
+        radii = tapered_radii(parents, 0.325, 0.0015)
+        np.testing.assert_allclose(
+            radii[[0, 2, 4, 5]], [0.325, 0.0015, 0.0015, 0.0015], atol=1e-15
+        )
+        self.assertTrue((radii[1:] <= radii[parents[1:]]).all())
+        self.assertAlmostEqual(radii[1], 0.325, places=15)
+        q = np.log(0.325 / 0.0015) / np.log(3)
+        self.assertAlmostEqual(radii[3], 0.0015 * 2**q, places=15)
+        # Squared child areas are deliberately no longer the pipe-model invariant.
+        self.assertLess(radii[2] ** 2 + radii[3] ** 2, radii[1] ** 2)
+        for base, tip in ((0, 0.001), (0.1, 0.2), (np.nan, 0.001)):
+            with self.assertRaises(ValueError):
+                tapered_radii(parents, base, tip)
+        with self.assertRaises(ValueError):
+            tapered_radii(np.array([-1, 0]), 0.1, 0.001)
 
 
 if __name__ == "__main__":
