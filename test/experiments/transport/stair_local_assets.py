@@ -22,6 +22,7 @@ class RoadAsset:
     data: object
     shapes: object
     tree: object
+    xy_rounding_m: float
 
 
 def road_asset(identity, keys, rows, data):
@@ -38,8 +39,16 @@ def road_asset(identity, keys, rows, data):
         raise ValueError("bounded closed asset and local source owners required")
     data = MappingProxyType({key: readonly(value) for key, value in data.items()})
     shapes = shapely.polygons(data["body_vertices"][data["top_faces"], :2])
+    xy = data["body_vertices"][:, :2]
+    rounding = float(np.linalg.norm(xy.astype("f4").astype(float) - xy, axis=1).max())
     return RoadAsset(
-        identity, tuple(keys), tuple(rows), data, shapes, shapely.STRtree(shapes)
+        identity,
+        tuple(keys),
+        tuple(rows),
+        data,
+        shapes,
+        shapely.STRtree(shapes),
+        rounding,
     )
 
 
@@ -81,16 +90,24 @@ def load(output):
     return view, tuple(assets), piers, contacts, manifest
 
 
-def road_window(assets, region, *, max_assets=16, max_sources=64, max_faces=32768):
+def road_window(
+    assets, region, *, max_assets=16, max_sources=64, max_faces=32768, xy_guard_m=0.0
+):
     if any(
         type(value) is not int or not 1 <= value <= limit
         for value, limit in ((max_assets, 16), (max_sources, 64), (max_faces, 32768))
     ):
         raise ValueError("bounded local asset/source/body capacities required")
+    if not np.isfinite(xy_guard_m) or not 0 <= xy_guard_m <= 1e9:
+        raise ValueError("bounded finite road working-set XY guard required")
     chosen = [
         asset
         for asset in assets
-        if len(asset.tree.query(region, predicate="intersects"))
+        if len(
+            asset.tree.query(
+                region, predicate="dwithin", distance=xy_guard_m + asset.xy_rounding_m
+            )
+        )
     ]
     keys = [key for asset in chosen for key in asset.source_ids]
     if not 1 <= len(chosen) <= max_assets or not 1 <= len(keys) <= max_sources:
@@ -133,6 +150,8 @@ def road_window(assets, region, *, max_assets=16, max_sources=64, max_faces=3276
             "local_sources": len(keys),
             "local_body_faces": len(road["body_faces"]),
             "local_road_array_bytes": sum(v.nbytes for v in road.values()),
+            "field_xy_guard_m": xy_guard_m,
+            "maximum_asset_xy_rounding_m": max(a.xy_rounding_m for a in chosen),
             "source_mask_scope": "Bounded temporary local window only; resident owners are asset-local.",
         },
     )

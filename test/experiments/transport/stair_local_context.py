@@ -69,7 +69,9 @@ def state_for(
     region = shapely.union_all(
         shapely.polygons(query.mesh.vertices[query.mesh.triangles, :2])
     )
-    road, ground, keys, rows, road_note = road_window(assets, region)
+    road, ground, keys, rows, road_note = road_window(
+        assets, region, xy_guard_m=radius(view)
+    )
     state = {
         "road": road,
         "road_ground": ground,

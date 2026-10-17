@@ -51,6 +51,14 @@ def terrain():
 
 
 class LocalRoadAssets(unittest.TestCase):
+    def test_asset_rounding_guard_keeps_actual_float32_boundary_contacts(self):
+        old = asset(0, x=2000.00003)
+        region = shapely.box(1999, 0, 2000, 2)
+        self.assertEqual(len(old.tree.query(region, predicate="intersects")), 0)
+        _road, _ground, keys, _rows, work = road_window([old], region)
+        self.assertEqual(keys, ["0:0"])
+        self.assertGreater(work["maximum_asset_xy_rounding_m"], 0)
+
     def test_global_source_count_above_64_has_no_global_bitmask(self):
         assets = tuple(asset(i) for i in range(70))
         road, ground, keys, rows, work = road_window(
