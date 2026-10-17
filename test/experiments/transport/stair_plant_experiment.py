@@ -12,7 +12,7 @@ from outshine_ref.contracts import HeightInterval, Reservation
 from stair_consumer_experiment import save
 from stair_consumer_inputs import inputs
 from stair_occupancy_handoff import OccupancyQuery
-from stair_plant_geometry import prototype
+from stair_plant_prior import physical_form, previous
 from stair_plant_sites import plants
 from stair_terrain_experiment import frozen
 
@@ -52,6 +52,10 @@ def building_rows(products, receipt, data):
 
 def run(args):
     commit = frozen()
+    if bool(args.prior_plants) != bool(args.prior_receipt):
+        raise ValueError(
+            "prior plant products and their verification receipt are a pair"
+        )
     if not args.output.resolve().is_relative_to(Path("/tmp").resolve()):
         raise ValueError("private plant outputs require an explicit /tmp path")
     args.output.mkdir(parents=True, exist_ok=False)
@@ -60,21 +64,21 @@ def run(args):
     data["report_path"] = args.products / "comparison.json"
     buildings = building_rows(args.buildings, args.building_receipt, data)
     loaded = time.perf_counter()
-    mesh, proto = prototype(args.output / "prototype")
+    prior = (
+        previous(args.prior_plants, args.prior_receipt) if args.prior_plants else None
+    )
+    proto, proto_artifacts, form_work = physical_form(args.output / "prototype", prior)
     built = time.perf_counter()
     combined = (*data["reservations"], *buildings)
-    accepted, ledger, budget = plants(data, OccupancyQuery(combined), proto)
+    accepted, ledger, budget = plants(
+        data, OccupancyQuery(combined), proto, prior=prior
+    )
     resolved = time.perf_counter()
     artifacts = {
         "plants.json": save(args.output, "plants.json", accepted),
         "landcover-ledger.json": save(args.output, "landcover-ledger.json", ledger),
     }
-    artifacts.update(
-        {
-            str(p.relative_to(args.output)): digest(p)
-            for p in sorted((args.output / "prototype").iterdir())
-        }
-    )
+    artifacts.update(proto_artifacts)
     report = {
         "commit": commit,
         "products": str(args.products.resolve()),
@@ -88,9 +92,11 @@ def run(args):
         "actual_building_volumes": len(buildings),
         "original_landcover_parts": len(ledger),
         "accepted_plants": len(accepted),
-        "prototype_vertices": len(mesh.vertices),
-        "prototype_triangles": len(mesh.triangles),
-        "prototype_array_bytes": mesh.vertices.nbytes + mesh.triangles.nbytes,
+        "prototype_vertices": proto["vertices"],
+        "prototype_triangles": proto["triangles"],
+        "prototype_array_bytes": form_work["logical_prototype_array_bytes"],
+        "prototype_preparation": form_work,
+        "prior_plants": prior["proof"] if prior else None,
         "budget": budget,
         "loading_seconds": loaded - began,
         "whole_form_seconds": built - loaded,
@@ -109,6 +115,8 @@ if __name__ == "__main__":
     parser.add_argument("--buildings", type=Path, required=True)
     parser.add_argument("--building-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--prior-plants", type=Path)
+    parser.add_argument("--prior-receipt", type=Path)
     resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
     resource.setrlimit(resource.RLIMIT_AS, (4 * 1024**3,) * 2)
     run(parser.parse_args())
