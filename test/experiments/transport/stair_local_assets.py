@@ -25,12 +25,20 @@ class RoadAsset:
     xy_rounding_m: float
 
 
-def module_road(data):
+def module_road(data, *, top_vertex_count=None):
+    if top_vertex_count is None:
+        top_vertex_count = len(data["surface_vertices"])
+    if (
+        type(top_vertex_count) is not int
+        or top_vertex_count <= 0
+        or len(data["body_vertices"]) != 2 * top_vertex_count
+    ):
+        raise ValueError("original paired module top/bottom vertex layout required")
     road = {
         "body_vertices": data["body_vertices"],
         "body_faces": data["body_faces"],
         "top_faces": data["surface_faces"],
-        "bottom_faces": data["surface_faces"] + len(data["surface_vertices"]),
+        "bottom_faces": data["surface_faces"] + top_vertex_count,
         "owners": data["owners"],
         "ground": np.ones(len(data["surface_faces"]), bool),
     }
@@ -42,8 +50,14 @@ def module_road(data):
 def stored_road(path, payload):
     if payload not in ("road", "local-module"):
         raise ValueError("known immutable resident road payload required")
-    data = read_arrays(path)
-    return module_road(data) if payload == "local-module" else data
+    if payload == "road":
+        return read_arrays(path)
+    fields = ("body_vertices", "body_faces", "surface_faces", "owners")
+    with np.load(path, allow_pickle=False) as source:
+        data = {key: source[key] for key in fields}
+        if "surface_materials" in source.files:
+            data["surface_materials"] = source["surface_materials"]
+    return module_road(data, top_vertex_count=len(data["body_vertices"]) // 2)
 
 
 def road_asset(identity, keys, rows, data):

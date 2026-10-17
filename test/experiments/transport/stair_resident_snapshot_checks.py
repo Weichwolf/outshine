@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 import stair_module_checks
@@ -30,7 +31,18 @@ class SnapshotPayload(unittest.TestCase):
             path = Path(temp) / "module.npz"
             np.savez_compressed(path, **self.data)
             before = digest(path)
-            actual = stored_road(path, "local-module")
+            with np.load(path) as source:
+                kind = type(source)
+            getter, seen = kind.__getitem__, []
+
+            def accessed(source, name):
+                seen.append(name)
+                return getter(source, name)
+
+            with patch.object(kind, "__getitem__", accessed):
+                actual = stored_road(path, "local-module")
+            self.assertNotIn("surface_vertices", seen)
+            self.assertNotIn("targets", seen)
             self.assertEqual(digest(path), before)
             for name in ("body_vertices", "body_faces", "owners"):
                 np.testing.assert_array_equal(actual[name], self.data[name])
@@ -59,6 +71,10 @@ class SnapshotPayload(unittest.TestCase):
                 np.testing.assert_array_equal(actual[name], road[name])
             with self.assertRaisesRegex(ValueError, "known immutable"):
                 stored_road(path.with_name("absent.npz"), "guessed")
+        with self.assertRaisesRegex(ValueError, "paired module"):
+            module_road(
+                self.data, top_vertex_count=len(self.data["surface_vertices"]) - 1
+            )
 
 
 class SnapshotProfiles(unittest.TestCase):
