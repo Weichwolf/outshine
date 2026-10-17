@@ -83,8 +83,11 @@ def audit(geometry):
         xyz = product.physical.mesh["vertices"][product.physical.mesh["faces"]]
         n = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
         region = shapely.union_all(shapely.polygons(xyz[n[:, 2] > 0, :, :2]))
+        original_region = shapely.from_wkb(asset.original.footprint_wkb)
+        inherited_error = row["polygon"].symmetric_difference(original_region).area
+        added_error = original_region.symmetric_difference(region).area
         footprint_error = row["polygon"].symmetric_difference(region).area
-        if footprint_error > 1e-8:
+        if inherited_error > 1e-7 or footprint_error > 1e-7 or added_error > 1e-8:
             raise ValueError(
                 "Physical roof filled a courtyard or left the source: " + identifier
             )
@@ -100,6 +103,8 @@ def audit(geometry):
                 "volume_error_m3": volume_error,
                 "body_skin_xor_m3": seam_xor,
                 "footprint_error_m2": footprint_error,
+                "inherited_roof_footprint_error_m2": inherited_error,
+                "additional_union_footprint_error_m2": added_error,
                 "top_m": height,
             }
         )

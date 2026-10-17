@@ -1,0 +1,363 @@
+{
+  "schema_version": 1,
+  "scope": "Actual pinned provider row; inherited hip boundary deviation observed2.18062e-8m2 is within the unchanged old1e-7m2 roof gate. Additional dormer drift is checked separately at1e-8m2.",
+  "cases": [
+    {
+      "id": "Paris/(14, 8298, 5635)/5335130/11/18",
+      "xy": [
+        466.51750717176776,
+        767.6367393926917
+      ],
+      "height_m": 15.0,
+      "min_height_m": 0.0,
+      "body_height_m": 15.0,
+      "shape": "articulated",
+      "properties": {
+        "render_height": 15,
+        "render_min_height": 0
+      },
+      "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+      "source_tile": [
+        14,
+        8298,
+        5635
+      ],
+      "coordinate_step_m": 0.39278873338328335,
+      "context": {
+        "version": 1,
+        "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+        "evidence": [
+          {
+            "id": "housenumber:128529419220:39:0",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "17"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              466.34964873917335,
+              767.440345026297
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "housenumber:128529419220:39:1",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "17"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              471.8486910055778,
+              776.4744858939331
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "housenumber:2474677380:145:2",
+            "layer": "housenumber",
+            "properties": {
+              "housenumber": "15"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "address",
+            "position_xy": [
+              468.7063811383609,
+              759.9773590922694
+            ],
+            "scope": "address",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "landuse:99436883:56:0",
+            "layer": "landuse",
+            "properties": {
+              "class": "residential"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "area-overlap",
+            "coverage": 1.0,
+            "context_area_m2": 2752744.2448455156,
+            "scope": "site-context"
+          },
+          {
+            "id": "poi:44280632991:1300:0",
+            "layer": "poi",
+            "properties": {
+              "name_int": "Altermundi",
+              "name_de": "Altermundi",
+              "name": "Altermundi",
+              "subclass": "interior_decoration",
+              "rank": 44,
+              "class": "shop",
+              "name:latin": "Altermundi",
+              "name_en": "Altermundi"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "retail",
+            "position_xy": [
+              471.8486910055778,
+              776.4744858939331
+            ],
+            "scope": "partial-use",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "poi:77057793711:3621:0",
+            "layer": "poi",
+            "properties": {
+              "name_int": "Bridget",
+              "name_de": "Bridget",
+              "name": "Bridget",
+              "subclass": "clothes",
+              "rank": 124,
+              "class": "clothing_store",
+              "name:latin": "Bridget",
+              "name_en": "Bridget"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "retail",
+            "position_xy": [
+              471.0631135399987,
+              772.1538098271224
+            ],
+            "scope": "partial-use",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "poi:93000576001:2866:0",
+            "layer": "poi",
+            "properties": {
+              "name_int": "Hai Fa",
+              "name_de": "Hai Fa",
+              "name": "Hai Fa",
+              "subclass": "fast_food",
+              "rank": 112,
+              "class": "fast_food",
+              "name:latin": "Hai Fa",
+              "name_en": "Hai Fa"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "food",
+            "position_xy": [
+              468.7063811383609,
+              759.9773590922694
+            ],
+            "scope": "partial-use",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "poi:93000576011:1325:0",
+            "layer": "poi",
+            "properties": {
+              "name_int": "K\u00e4ramell",
+              "name_de": "K\u00e4ramell",
+              "name": "K\u00e4ramell",
+              "subclass": "interior_decoration",
+              "rank": 69,
+              "class": "shop",
+              "name:latin": "K\u00e4ramell",
+              "name_en": "K\u00e4ramell"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "unique-point-host",
+            "role": "retail",
+            "position_xy": [
+              469.49195860639026,
+              765.0836126258843
+            ],
+            "scope": "partial-use",
+            "level": null,
+            "indoor": null,
+            "vertical_layer": null
+          },
+          {
+            "id": "transportation:106623212:604:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 6.322598712760712,
+            "position_xy": [
+              476.5621558064032,
+              755.6566830242334
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:81",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 10.40809090514027,
+            "position_xy": [
+              484.4778726835583,
+              775.9779962326744
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:84",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 1.9454149881024188,
+            "position_xy": [
+              473.41984593918625,
+              762.7268802254715
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:232723930:347:94",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "surface": "paved",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 1.8539013659451697,
+            "position_xy": [
+              476.03038029022315,
+              777.3265352998784
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:259669500:362:55",
+            "layer": "transportation",
+            "properties": {
+              "subclass": "footway",
+              "class": "path"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 1.5646174837771225,
+            "position_xy": [
+              474.40090549588666,
+              779.2052098562702
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation:6820505472:458:0",
+            "layer": "transportation",
+            "properties": {
+              "surface": "paved",
+              "class": "minor",
+              "oneway": 1
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 6.1473028212436756,
+            "position_xy": [
+              476.31800276875276,
+              755.3011671288974
+            ],
+            "scope": "frontage-candidate",
+            "usable_frontage": true
+          },
+          {
+            "id": "transportation_name:106623212:334:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Rue Choron",
+              "name_int": "Rue Choron",
+              "class": "minor",
+              "name:latin": "Rue Choron",
+              "name_de": "Rue Choron",
+              "name_en": "Rue Choron"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 6.322598712760712,
+            "position_xy": [
+              476.5621558064032,
+              755.6566830242334
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          },
+          {
+            "id": "transportation_name:246583740:115:0",
+            "layer": "transportation_name",
+            "properties": {
+              "name": "Rue des Martyrs",
+              "name_int": "Rue des Martyrs",
+              "class": "minor",
+              "name:latin": "Rue des Martyrs",
+              "name_de": "Rue des Martyrs",
+              "name_en": "Rue des Martyrs"
+            },
+            "source_sha256": "be00a909c45f3f92158fa8e4254a3a0b90b3a6a1fbfb5064521a7d826802759b",
+            "relation": "nearby",
+            "distance_m": 6.136613144806743,
+            "position_xy": [
+              476.30761778633,
+              755.3037810634028
+            ],
+            "scope": "surroundings",
+            "usable_frontage": false
+          }
+        ],
+        "site_use": {
+          "value": "residential",
+          "origin": "landuse-context",
+          "evidence_ids": [
+            "landuse:99436883:56:0"
+          ],
+          "reason": "dominant coverage; nested site beats its surroundings"
+        }
+      },
+      "layer": "building",
+      "clipped": false,
+      "placement_base_enu_m": 0.0,
+      "ground_asl_m": null,
+      "placement_origin": "flat shared building plane; no DEM",
+      "footprint_wkb": "0103000000010000000F00000030FD0D6A49A37D4095B6840A394D88401909AAC970647D408F4ADEBF89A387408817A74DCBDE7B402194625664B68740D1047E2A14E57B4087172938ACD2874083891B480E697C405754525B63CC8740CC76F224576F7C4031FA83ABCFEB8740A577B13853C77C400037ADCE86E587408CBC87159CCD7C40C840216A600E8840E36A56C52FAE7C40548D8CD884118840C9AF2CA278B47C40475DBE28F1308840D5A95EF2E4D37C40475DBE28F13088401E9735CF2DDA7C40782095053A3788400FF822B7F0CB7B4065F3AD2DF04688403F2AD07082D87B40FC394BEC8069884030FD0D6A49A37D4095B6840A394D8840"
+    }
+  ]
+}

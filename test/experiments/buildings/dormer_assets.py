@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+import shapely
+
 from broken_hip import envelope, recipe
 from dormer_geometry import union
 from dormer_plan import plan
@@ -47,6 +49,9 @@ def prepare(row, parameters, choice, *, clear=None):
     original, profile = envelope(
         top, parameters, 1, choice, recipe(row, parameters, choice)
     )
+    original_region = shapely.from_wkb(original.footprint_wkb)
+    if row["polygon"].symmetric_difference(original_region).area > 1e-7:
+        raise ValueError("Original roof violates its existing source-footprint gate")
     dormers, rejected = plan(row, original, choice, clear=clear)
     if not dormers:
         raise ValueError("No actual source roof front accepts a useful dormer")
