@@ -56,7 +56,7 @@ def run(source_path, product, output):
                 "coverage_difference_pixels": differences.tolist(),
                 "float64_probe_rays": len(selected),
                 "float64_triangle_tests": tested,
-                "ray_coverage_disagreements": selected[
+                "product_coverage_disagreements": selected[
                     raymask[selected] != expected
                 ].tolist(),
                 "raster_coverage_disagreements": selected[
