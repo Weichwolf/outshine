@@ -32,7 +32,7 @@ def select_axes(axes):
     return result
 
 
-def physical_axis(graph, axes, physical, models, index):
+def physical_axis(graph, axes, physical, models, index, *, needle_range=None):
     axis = support(axes, index)
     order = len(axis.path)
     pattern = NeedlePattern.from_recipe(physical["patterns"][order])
@@ -41,13 +41,22 @@ def physical_axis(graph, axes, physical, models, index):
     triangle_bound += count // pattern.group_size * (36 if pattern.short_length else 0)
     if not 0 < count <= MAX_NEEDLES or triangle_bound > MAX_TRIANGLES:
         raise ValueError("requested needle/triangle budgets must precede detail")
+    lo, hi = (0, count) if needle_range is None else needle_range
+    if (
+        type(lo) is not int
+        or type(hi) is not int
+        or not 0 <= lo < hi <= count
+        or lo % pattern.group_size
+        or hi % pattern.group_size
+    ):
+        raise ValueError("explicit whole-group subset inside requested twig required")
     shape = graph["nodes"][order + 1]["shape"]
     profile = Profile(np.array(shape["radius"]["table"]), shape["radius"]["kind"])
     radii = profile.evaluate(np.array((0.0, 1.0))) * axes["uniform_scales"][index]
     local = replace(axis, origin=np.zeros(3), frame=np.eye(3))
     details = pattern.detail(local, radii, graph["seed"], count)
-    first = int(axes["first_needle_ids"][index])
-    global_ids = np.arange(first, first + count, dtype=np.uint64)
+    first = int(axes["first_needle_ids"][index]) + lo
+    global_ids = np.arange(first, first + hi - lo, dtype=np.uint64)
     variants = (global_ids % len(models) + graph["seed"] % len(models)) % len(models)
     vertices, faces, normals, colours, leaf, offset = [], [], [], [], [], 0
 
@@ -78,9 +87,9 @@ def physical_axis(graph, axes, physical, models, index):
         append(
             mesh,
             colour,
-            details["origins"][mask],
-            details["frames"][mask],
-            details["scales"][mask],
+            details["origins"][lo:hi][mask],
+            details["frames"][lo:hi][mask],
+            details["scales"][lo:hi][mask],
             True,
         )
     if pattern.short_length:
@@ -89,9 +98,13 @@ def physical_axis(graph, axes, physical, models, index):
         append(
             mesh,
             colour,
-            details["short_origins"],
-            details["short_frames"],
-            np.ones(len(details["short_origins"])),
+            details["short_origins"][
+                lo // pattern.group_size : hi // pattern.group_size
+            ],
+            details["short_frames"][
+                lo // pattern.group_size : hi // pattern.group_size
+            ],
+            np.ones((hi - lo) // pattern.group_size),
             False,
         )
     source = {
@@ -114,7 +127,8 @@ def physical_axis(graph, axes, physical, models, index):
             "order": order,
             "length_m": axis.length,
             "bend_rad": axis.bend,
-            "needles": count,
+            "needles": hi - lo,
+            "axis_needles": count,
             "first_needle_id": first,
             "variants": np.bincount(
                 variants.astype(int), minlength=len(models)
@@ -124,6 +138,21 @@ def physical_axis(graph, axes, physical, models, index):
             "detail_array_bytes": sum(v.nbytes for v in details.values()),
         },
     )
+
+
+def screen_span(geometry, axes, index, scene):
+    world = geometry["vertices"] @ axes["rotations"][index].T + axes["origins"][index]
+    eye, target = np.array(scene["camera"]), np.array(scene["target"])
+    forward = target - eye
+    forward /= np.linalg.norm(forward)
+    right = np.cross(forward, (0, 0, 1))
+    right /= np.linalg.norm(right)
+    up = np.cross(right, forward)
+    view = (world - eye) @ np.column_stack((right, up, forward))
+    if np.any(view[:, 2] <= 0):
+        raise ValueError("actual twig must stay in front of the declared camera")
+    focal = scene["resolution"][1] / (2 * np.tan(np.deg2rad(scene["fov_y"]) / 2))
+    return (np.ptp(focal * view[:, :2] / view[:, 2, None], axis=0)).tolist()
 
 
 def local_windows(axes, windows, index):

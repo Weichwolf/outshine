@@ -24,6 +24,31 @@ from spruce_whorl_balance import balanced
 
 
 class CachedTwigTests(unittest.TestCase):
+    def test_declared_large_subpixel_reference_has_enough_raster_pair_capacity(self):
+        geometry = {
+            "vertices": np.array(
+                ((-1, -1, 0), (1, -1, 0), (1, 1, 0), (-1, 1, 0)), float
+            ),
+            "faces": np.array(((0, 1, 2), (0, 2, 3)), np.int32),
+            "normals": np.broadcast_to((0.0, 0.0, 1.0), (2, 3, 3)),
+            "colour": np.full((2, 3, 3), 0.2),
+            "leaf": np.ones(2, bool),
+        }
+        image, _ = template_image(
+            geometry,
+            np.array((0, 0, 1)),
+            128,
+            8,
+            projection_data=(
+                np.eye(3),
+                np.array((-1.0, -1.0)),
+                np.array((1.0, 1.0)),
+                0,
+            ),
+        )
+        np.testing.assert_array_equal(image[..., 3], np.ones((128, 128)))
+        np.testing.assert_allclose(image[..., :3], 0.2, atol=1e-7)
+
     @classmethod
     def setUpClass(cls):
         data, base = read_input(INPUT)
@@ -114,6 +139,41 @@ class CachedTwigTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "budgets"),
             ):
                 physical_axis(self.graph, axes, self.physical, self.meshes, 0)
+
+    def test_window_subset_keeps_actual_seeded_needle_positions_and_global_variants(
+        self,
+    ):
+        source, details, facts = physical_axis(
+            self.graph, self.axes, self.physical, self.meshes, 0, needle_range=(5, 8)
+        )
+        self.assertEqual(facts["needles"], 3)
+        self.assertEqual(facts["first_needle_id"], 46)
+        self.assertEqual(facts["variants"], [1, 1, 1])
+        first = next(i for i in range(5, 8) if (41 + i + 815) % 3 == 0)
+        mesh = self.meshes[0][0]
+        expected = (
+            mesh["vertices"] * details["scales"][first] @ details["frames"][first].T
+            + details["origins"][first]
+        )
+        np.testing.assert_allclose(
+            source["vertices"][: len(mesh["vertices"])], expected, atol=1e-16
+        )
+        self.assertEqual(int(source["leaf"].sum()), 3 * len(mesh["faces"]))
+        for interval in ((-1, 5), (5, 5), (0, 10000), (True, 3)):
+            with (
+                patch.object(
+                    NeedlePattern, "detail", side_effect=AssertionError("too late")
+                ),
+                self.assertRaises(ValueError),
+            ):
+                physical_axis(
+                    self.graph,
+                    self.axes,
+                    self.physical,
+                    self.meshes,
+                    0,
+                    needle_range=interval,
+                )
 
     def test_original_matched_projection_metrics_remain_exact(self):
         source, _, facts = physical_axis(
