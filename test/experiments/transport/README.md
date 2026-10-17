@@ -38,6 +38,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   und Stützen, quelltreue Footprint-Korrekturen und freie Räume unter Brücken (#568).
 - [Präzision der Konfliktabfrage](stair_occupancy_precision.md): falsch leere Masken,
   Flächenunterlauf, unabhängiges Orakel und konstante Bibliotheksabfrage (#568).
+- [Tatsächlicher Architekturverbrauch](stair_consumer_comparison.md): bestehender
+  Buildings-Erzeuger, aktuelle Terrainanker und Prüfung seiner fertigen Körper (#568).
 - [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
   an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
 - [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen

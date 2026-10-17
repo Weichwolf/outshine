@@ -39,9 +39,9 @@ def run(args):
     ledger = json.loads((args.products / "building-ledger.json").read_text())
     if len(ledger) != len(originals) + len(rejected):
         raise ValueError("source-part ledger incomplete")
-    if [r["source_id"] for r in ledger[: len(rejected)]] != [
-        r["source_id"] for r in rejected
-    ] or [r["id"] for r in ledger[len(rejected) :]] != list(by_id):
+    if ledger[: len(rejected)] != rejected or [
+        r["id"] for r in ledger[len(rejected) :]
+    ] != list(by_id):
         raise ValueError("original source/part identities changed")
     before = meshes(args.products / "buildings-before.npz")
     after = meshes(args.products / "buildings-after.npz")
@@ -54,7 +54,18 @@ def run(args):
     i, j = 0, 0
     for row in ledger[len(rejected) :]:
         original = by_id[row["id"]]
-        if row["original_feature"] != original["original_feature"]:
+        if any(
+            row[key] != original[key]
+            for key in (
+                "original_feature",
+                "source_id",
+                "part",
+                "properties",
+                "projected_original_wkb",
+                "clipped",
+                "coordinate_step_m",
+            )
+        ):
             raise ValueError("original provider geometry/attributes lost")
         if row["state"] == "deferred":
             if not row.get("reason"):
