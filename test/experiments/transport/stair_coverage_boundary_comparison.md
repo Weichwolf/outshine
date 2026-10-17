@@ -114,11 +114,11 @@ No global optimality or uninstrumented speedup is claimed.
 
 Use fresh explicit `/tmp/outshine-*` outputs. Set `TMPDIR=/tmp`,
 `PYTHONDONTWRITEBYTECODE=1`, one BLAS/OMP thread and the normal experiment PYTHONPATH.
-Run `stair_coverage_boundary_study --products SNAPSHOT --coverage general|library
+Run `python -m stair_coverage_boundary_study --products SNAPSHOT --coverage general|library
 --output REPORT [--profile TRACE]`. Other adapter modes remain comparisons.
-Run `stair_coverage_boundary_verify --resident SNAPSHOT --reference ORIGINAL79
---fixture fixtures/stair-pier-detour-vienna.json --output FRESH_DIRECTORY`;
-the fixture path is relative to the transport experiment directory. It defaults
+Run `python -m stair_coverage_boundary_verify --resident SNAPSHOT --reference ORIGINAL79
+--fixture test/experiments/transport/fixtures/stair-pier-detour-vienna.json --output FRESH_DIRECTORY`
+from the repository root. It defaults
 to the normal library path and forces general GEOS in the independent cold reader.
 Run `unittest test_surface_patches test_surface_patch_coverage` and the affected
 transport/consumer controls. Build/install a wheel separately for installed checks.
