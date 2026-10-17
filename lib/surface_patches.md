@@ -43,6 +43,16 @@ XYZ boundary edge is exactly numerically equal. Internal selected patch seams
 cancel. Heights/triangulation may change inside the removed region. No edge
 splitting, tolerance weld or approximate boundary repair occurs in this kernel.
 
+Replacement uses `coverage_union_all` for the two selected XY regions (#678).
+The root is a validated coverage; subsets remain non-overlapping and edge-matched.
+An accepted replacement preserves the complete exact XYZ boundary and XY domain,
+so the active surface retains that invariant inductively. New patches independently
+pass the strict constructor. Consequently these inputs satisfy the optimized
+union's preconditions; arbitrary unchecked polygon collections do not. The same
+1e-7m² symmetric-difference test remains. Holes, point contacts and disconnected
+components are covered by public replacement controls. The independent transport
+reader can force the previous general-union path. [Methods and costs](../test/experiments/transport/stair_composition_comparison.md).
+
 Unchanged patches and their mesh buffers remain shared; persistent snapshot
 updates copy changed active face masks. Local validation gathers temporary
 triangle/index data. `retained_mesh_copy_bytes` counts only whole retained Mesh

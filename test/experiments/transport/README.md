@@ -57,6 +57,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Kanten-/Randnachweis in der normalen Referenzbibliothek, GEOS-Rückfall für andere
   Topologien; gleicher ganzer Zustand und79er Produkte bei62,69%weniger kumulativ
   angeforderten Bytes, ohne belegten RAM-/Gerätegewinn (#678).
+- [Zusammensetzung gültiger Regionen](stair_composition_comparison.md): drei
+  Alternativen an tatsächlichen Ersetzungen; gleiche79er Produkte und Fachleser,
+  weitere44,46%weniger kumulativ angeforderte Bytes beim vollständigen Laden (#678).
 - [Vollständiger79er Bestand](stair_resident_snapshot_comparison.md): geprüfte
   Root-Profile mit allen78alten Quellen, unveränderten Asset-IDs und höheren
   Freiräumen zusammenführen; ganze Radquelle samt Raum-/Fach-/Bild-/Kostenprüfung.
