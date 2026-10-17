@@ -7,6 +7,7 @@
 #include <cstring>
 #include <cstddef>
 #include <cstdlib>
+#include <cmath>
 #include <print>
 
 @interface OutshineProfilePass : NSObject
@@ -313,7 +314,8 @@ void PrintPass(OutshineProfileCommand *trace, NSData *data, NSUInteger at) {
   std::println(
       stderr,
       "METAL_PASS serial={} pass={} valid={:d} vertex_ns={} fragment_ns={} calls={} "
-      "indirect_calls={} direct_indices={} indirect_indices={} unavailable_indirect={} pipeline={}",
+      "indirect_calls={} direct_indices={} indirect_indices={} unavailable_indirect={} "
+      "vertex_start_ns={} vertex_end_ns={} fragment_start_ns={} fragment_end_ns={} pipeline={}",
       trace.serial,
       at,
       static_cast<int>(valid),
@@ -324,6 +326,10 @@ void PrintPass(OutshineProfileCommand *trace, NSData *data, NSUInteger at) {
       pass.directIndices,
       pass.indirectIndices,
       pass.unavailableIndirect,
+      valid ? timestamps[0].timestamp : 0,
+      valid ? timestamps[1].timestamp : 0,
+      valid ? timestamps[2].timestamp : 0,
+      valid ? timestamps[3].timestamp : 0,
       labels.UTF8String);
   for (NSString *key in pass.work) {
     std::println(stderr,
@@ -368,8 +374,19 @@ void Commit(id self, SEL sel) {
   id<MTLCommandBuffer> commands = self;
   if (trace != nil) {
     CopyArguments(commands, trace);
-    [commands addCompletedHandler:^([[maybe_unused]] id<MTLCommandBuffer> done) {
+    [commands addCompletedHandler:^(id<MTLCommandBuffer> done) {
       @autoreleasepool {
+        constexpr double nanosecondsPerSecond = 1'000'000'000.0;
+        const double start = done.GPUStartTime;
+        const double end = done.GPUEndTime;
+        const double elapsed = (end - start) * nanosecondsPerSecond;
+        const bool valid = std::isfinite(start) && start > 0 && std::isfinite(end) &&
+                           std::isfinite(elapsed) && elapsed >= 0;
+        std::println(stderr,
+                     "METAL_COMMAND serial={} valid={:d} gpu_ns={:.0f}",
+                     trace.serial,
+                     static_cast<int>(valid),
+                     valid ? elapsed : 0);
         Complete(trace);
       }
     }];
