@@ -209,12 +209,6 @@ test-shader-artifacts: shaders ## verify the shader package, reflection and nega
 	@cd $(SELF_DIR) && GLSLANG=$(GLSLANG) python3 test/scripts/test_shader_artifacts.py
 	@cd $(SELF_DIR) && python3 test/scripts/shader_artifacts.py
 
-.PHONY: render
-render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER_ARGS=...)
-	@$(if $(ASSET),,$(error name an ASSET))
-	@$(if $(OUTPUT),,$(error name an OUTPUT))
-	@cd $(SELF_DIR) && build/outshine-client render "$(ASSET)" "$(or $(RESOLUTION),1280x720)" "$(OUTPUT)" $(RENDER_ARGS)
-
 .PHONY: corpus-fetch
 corpus-fetch: ## fetch pinned corpus inputs (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
