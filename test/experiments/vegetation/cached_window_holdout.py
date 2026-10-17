@@ -3,7 +3,9 @@
 import argparse
 import hashlib
 import json
+import resource
 import subprocess
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -93,6 +95,7 @@ def compare_window(
 
 
 def run(product, original_catalog, adaptive, capacity_catalog, models, output):
+    began = time.perf_counter()
     proof = provenance()
     code = Path(__file__).resolve()
     proof["implementation_sha256"][str(code)] = hashlib.sha256(
@@ -166,6 +169,11 @@ def run(product, original_catalog, adaptive, capacity_catalog, models, output):
                 "adaptive": new_proof,
                 "cases": rows,
                 "subpixel_samples": 8,
+                "seconds": time.perf_counter() - began,
+                "process_peak_rss_MiB": resource.getrusage(
+                    resource.RUSAGE_SELF
+                ).ru_maxrss
+                / 1024,
                 "scope": "Nine previously unused real axes; isolated actual tail intervals7..255needles, no synthetic random recipes or whole near plant. Same bounds/directions/128square with8x8subpixels; unresolved broader anatomy/native/LOD scope.",
             },
             indent=2,
