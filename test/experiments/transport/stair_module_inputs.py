@@ -82,7 +82,7 @@ def inputs(path=FIXTURE):
     recipe = json.loads(path.read_text())
     if recipe.get("version") != 1:
         raise ValueError("known module recipe version required")
-    source_recipe = path.with_name(recipe["reference_fixture"])
+    source_recipe = FIXTURE.with_name(recipe["reference_fixture"])
     if digest(source_recipe) != recipe["reference_fixture_sha256"]:
         raise ValueError("original reference fixture changed")
     context = json.loads(CONTEXT.read_text())

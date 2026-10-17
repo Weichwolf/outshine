@@ -33,6 +33,15 @@ def corridor(source):
         raise ValueError("bounded explicit junction pad list required")
     if not pads:
         return shape
+    indices = source.get("junction_pad_vertices", [])
+    axis = np.asarray(source["xy"], float)
+    if (
+        not isinstance(indices, list)
+        or len(indices) > 8
+        or any(type(i) is not int or not 0 < i < len(axis) - 1 for i in indices)
+    ):
+        raise ValueError("bounded original interior pad anchors required")
+    anchors = axis[[0, -1, *indices]]
     for coordinates in pads:
         points = np.asarray(coordinates, float)
         if (
@@ -51,7 +60,7 @@ def corridor(source):
             or not any(
                 np.linalg.norm(points - point, axis=1).max() <= 30
                 and pad.buffer(1e-8).covers(shapely.Point(point))
-                for point in xy[[0, -1]]
+                for point in anchors
             )
         ):
             raise ValueError("connected convex endpoint junction pad required")

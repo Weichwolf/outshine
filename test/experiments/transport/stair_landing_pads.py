@@ -5,7 +5,7 @@ import shapely
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from shared_bridge_geometry import corridor
 from stair_branch_inputs import shared_cycle_path
-from stair_cycle_contacts import profile
+from stair_cycle_contacts import interior_profile_xy, profile
 
 
 def endpoint_profiles(rows, node):
@@ -15,6 +15,20 @@ def endpoint_profiles(rows, node):
         for end in (0, -1)
         if np.array_equal(rows[i]["xy"][end], node["xy"])
     ]
+
+
+def node_profiles(rows, node, *, include_interiors=False):
+    result = [
+        (i, end, profile(rows[i], end)) for i, end in endpoint_profiles(rows, node)
+    ]
+    if include_interiors:
+        for i in node["incident"]:
+            row = rows[i]
+            matches = np.flatnonzero(np.all(row["xy"] == node["xy"], axis=1))
+            if len(matches) == 1 and 0 < matches[0] < len(row["xy"]) - 1:
+                vertex = int(matches[0])
+                result.append((i, vertex, interior_profile_xy(row, vertex)))
+    return result
 
 
 def chosen_kinds(rows, ends, node_index, stairs):
@@ -50,7 +64,9 @@ def chosen_kinds(rows, ends, node_index, stairs):
     return ""
 
 
-def complete_landings(rows, nodes, stairs, *, method="profile_hull", max_pads=16):
+def complete_landings(
+    rows, nodes, stairs, *, method="profile_hull", max_pads=16, include_interiors=False
+):
     if (
         type(max_pads) is not int
         or not 0 <= max_pads <= 16
@@ -62,7 +78,8 @@ def complete_landings(rows, nodes, stairs, *, method="profile_hull", max_pads=16
     domains = [corridor(row) for row in rows]
     additions, pads, ledger = {}, [], []
     for index, node in enumerate(nodes):
-        ends = endpoint_profiles(rows, node)
+        chosen = node_profiles(rows, node, include_interiors=include_interiors)
+        ends = [(i, vertex) for i, vertex, _p in chosen]
         if len(ends) < 2:
             continue
         gaps = []
@@ -70,7 +87,11 @@ def complete_landings(rows, nodes, stairs, *, method="profile_hull", max_pads=16
             other = shapely.union_all([domains[j] for j in node["incident"] if j != i])
             shared = domains[i].intersection(other)
             gaps.append(
-                shapely.LineString(profile(rows[i], end))
+                shapely.LineString(
+                    next(
+                        p for owner, vertex, p in chosen if (owner, vertex) == (i, end)
+                    )
+                )
                 .difference(shared.buffer(1e-7))
                 .length
             )
@@ -92,7 +113,7 @@ def complete_landings(rows, nodes, stairs, *, method="profile_hull", max_pads=16
         if reason:
             ledger.append(dict(note, status="unchanged", reason=reason))
             continue
-        lines = [profile(rows[i], end) for i, end in ends]
+        lines = [p for _i, _vertex, p in chosen]
         try:
             pad = profile_junction_pad(lines, method=method)
         except ValueError as error:
@@ -101,6 +122,10 @@ def complete_landings(rows, nodes, stairs, *, method="profile_hull", max_pads=16
         coordinates = np.array(pad.exterior.coords[:-1])
         for i, _end in ends:
             additions.setdefault(i, []).append(coordinates.copy())
+            if include_interiors and 0 < _end < len(rows[i]["xy"]) - 1:
+                indices = rows[i].setdefault("junction_pad_vertices", [])
+                if _end not in indices:
+                    indices.append(_end)
         pads.append(
             dict(
                 note,

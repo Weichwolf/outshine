@@ -20,9 +20,11 @@ def owned(data, owner, old_caps, borrowed):
     return caps
 
 
-def contact_profiles(rows, nodes, root, frozen_cap, frozen_line, contacts):
+def contact_profiles(
+    rows, nodes, root, frozen_cap, frozen_line, contacts, root_interior=False
+):
     old_at = {root: [frozen_cap]}
-    references = [(root, frozen_cap, frozen_line[:, :2], False)]
+    references = [(root, frozen_cap, frozen_line[:, :2], root_interior)]
     keys = [r["source_id"] for r in rows]
     for contact in contacts:
         choices = [
@@ -67,7 +69,16 @@ def frozen_profile_checks(data, nodes, masks, original, old_at, references):
 
 
 def varying_profiles(
-    data, rows, nodes, masks, original, frozen_cap, frozen_line, *, contacts=()
+    data,
+    rows,
+    nodes,
+    masks,
+    original,
+    frozen_cap,
+    frozen_line,
+    *,
+    contacts=(),
+    root_interior=False,
 ):
     root = next(
         i
@@ -75,7 +86,7 @@ def varying_profiles(
         if np.array_equal(node["xy"], frozen_line[1, :2])
     )
     old_at, references = contact_profiles(
-        rows, nodes, root, frozen_cap, frozen_line, contacts
+        rows, nodes, root, frozen_cap, frozen_line, contacts, root_interior
     )
     result, outer = [], []
     for owner, row in enumerate(rows):
@@ -115,9 +126,9 @@ def varying_profiles(
     old_checks = frozen_profile_checks(data, nodes, masks, original, old_at, references)
     return {
         "new_internal_profiles": result,
-        "old_profile_completed": True,
+        "old_profile_completed": not root_interior,
         "old_profile_checks": old_checks,
-        "complete_cached_interior_profiles": len(contacts),
+        "complete_cached_interior_profiles": len(contacts) + int(root_interior),
         "outer_profiles": outer,
-        "complete_additional_profiles": len(result) + 1,
+        "complete_additional_profiles": len(result) + int(not root_interior),
     }
