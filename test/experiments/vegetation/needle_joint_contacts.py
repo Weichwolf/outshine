@@ -3,6 +3,7 @@
 import time
 
 import numpy as np
+from grass_projection import contacts as raster_contacts
 from needle_response import light_direction
 from plant_atlas import projection
 from scatter_scene import ScatterScene
@@ -48,22 +49,24 @@ def camera_grid(source, view, size):
     return origins, -view, float(np.ptp(heights) + 2 * margin)
 
 
-def camera_contacts(source, scene, view, size, packet=8192):
-    if type(packet) is not int or not 1 <= packet <= 8192:
-        raise ValueError("bounded primary packet required")
+def camera_contacts(source, view, size):
+    view = light_direction(view)
+    if type(size) is not int or size not in (16, 32, 64, 128, 256, 512):
+        raise ValueError("bounded explicit orthographic source grid required")
     began = time.perf_counter()
-    origins, direction, length = camera_grid(source, view, size)
-    hits, points = [], []
-    for start in range(0, len(origins), packet):
-        batch = origins[start : start + packet]
-        ids, p, _, _ = scene.nearest(
-            batch, np.broadcast_to(direction, batch.shape), length
-        )
-        hits.append(ids)
-        points.append(p)
-    faces = np.concatenate(hits)
+    frame, lower, upper, _ = projection(source["vertices"], view)
+    projected = source["vertices"] @ frame
+    shift = 0.001 - projected[:, 2].min()
+    projected[:, 2] += shift
+    raster = raster_contacts(
+        projected, source["faces"], lower, upper, np.array([0.0, 0.0, 1.0]), size
+    )
+    faces = raster["face"].ravel()
     pixels = np.flatnonzero(faces >= 0)
-    points = np.concatenate(points)[pixels]
+    xy = lower + (np.column_stack((pixels % size, pixels // size)) + 0.5) / size * (
+        upper - lower
+    )
+    points = np.column_stack((xy, raster["height"].ravel()[pixels] - shift)) @ frame.T
     normals = (
         interpolate_normals(source, points, faces[pixels])
         if len(pixels)
@@ -76,11 +79,13 @@ def camera_contacts(source, scene, view, size, packet=8192):
         "points": points,
         "normals": normals,
     }, {
-        "rays": len(origins),
+        "primary_backend": "existing-orthographic-raster",
+        "rays": 0,
+        "grid_samples": size * size,
         "hits": len(pixels),
         "wall_s": time.perf_counter() - began,
-        "primary_origin_array_bytes": origins.nbytes,
-        "maximum_packet": packet,
+        "projected_source_copy_bytes": projected.nbytes,
+        "raster_work": raster["work"],
     }
 
 

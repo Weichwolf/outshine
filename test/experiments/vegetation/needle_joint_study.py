@@ -39,7 +39,7 @@ def verify_selected(scene, contacts, direction, bias, visible, cosine):
 
 
 def one_view(source, scene, view, size, output, index):
-    contacts, primary = camera_contacts(source, scene, view, size)
+    contacts, primary = camera_contacts(source, view, size)
     directions = np.r_[view[None], -view[None], np.eye(3), -np.eye(3)]
     arrays = {key: value for key, value in contacts.items() if key != "size"}
     facts = {

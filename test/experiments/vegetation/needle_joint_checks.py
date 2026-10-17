@@ -1,9 +1,16 @@
 """Analytic occlusion, arbitrary orientation and covariance counterexamples."""
 
 import unittest
+import json
+from pathlib import Path
 
 import numpy as np
-from needle_joint_contacts import camera_contacts, direct_response, filtered_fields
+from needle_joint_contacts import (
+    camera_contacts,
+    camera_grid,
+    direct_response,
+    filtered_fields,
+)
 from scatter_reference import Float64Nearest
 from scatter_scene import ScatterScene
 
@@ -66,16 +73,35 @@ class NeedleJointChecks(unittest.TestCase):
             "faces": np.r_[faces, upperfaces + 4],
             "normals": np.tile([0.0, 0.0, 1.0], (4, 3, 1)),
         }
-        scene = ScatterScene(source["vertices"], source["faces"])
-        contacts, work = camera_contacts(
-            source, scene, np.array([0, 0, 1.0]), 16, packet=7
-        )
+        contacts, work = camera_contacts(source, np.array([0, 0, 1.0]), 16)
         self.assertTrue(np.all(contacts["faces"] >= 2))
         np.testing.assert_allclose(contacts["points"][:, 2], 0.5, atol=1e-14)
         np.testing.assert_allclose(
             contacts["normals"], np.tile([0, 0, 1], (len(contacts["points"]), 1))
         )
-        self.assertEqual(work["rays"], 256)
+        self.assertEqual(work["grid_samples"], 256)
+        self.assertEqual(work["rays"], 0)
+
+    def test_retains_thin_primary_hit_confirmed_by_float64(self):
+        fixture = json.loads(
+            Path(__file__)
+            .with_name("data")
+            .joinpath("needle-primary-thin-triangle.json")
+            .read_text()
+        )
+        source = {
+            key: np.array(fixture[key]) for key in ("vertices", "faces", "normals")
+        }
+        view = np.array(fixture["view"])
+        size = fixture["size"]
+        pixel = fixture["source_pixel"]
+        contacts, _ = camera_contacts(source, view, size)
+        self.assertIn(pixel, contacts["pixels"])
+        origins, direction, length = camera_grid(source, view, size)
+        ids, _, _ = Float64Nearest(source["vertices"], source["faces"]).query(
+            origins[[pixel]], direction[None], length
+        )
+        self.assertEqual(ids[0], 0)
 
     def test_rotation_preserves_actual_visibility(self):
         vertices, faces = plane(0.5, 0.5)
