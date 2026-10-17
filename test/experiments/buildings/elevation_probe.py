@@ -57,7 +57,24 @@ def diagram(output, index, row, plans):
     plt.close(fig)
 
 
-def models(output):
+def detail_view(plans):
+    p = max(plans, key=lambda p: p.width_m)
+    tangent = np.r_[(np.asarray(p.b) - p.a) / p.width_m, 0.0]
+    normal = np.array([tangent[1], -tangent[0], 0.0])
+    body = p.scopes[1]
+    centre = np.r_[(np.asarray(p.a) + p.b) / 2, (body.base_m + body.top_m) / 2]
+    half_u, half_z = min(10.0, p.width_m / 2), min(6.0, (body.top_m - body.base_m) / 2)
+    points = np.array(
+        [
+            centre + tangent * u + [0, 0, z]
+            for u in (-half_u, half_u)
+            for z in (-half_z, half_z)
+        ]
+    )
+    return overview(points, normal + 0.2 * tangent + [0, 0, 0.12])
+
+
+def models(output, detail_only=False):
     proof = revision()
     if proof["experiment_tree_dirty"]:
         raise ValueError("Freeze scoped facade producer before image evidence")
@@ -73,15 +90,20 @@ def models(output):
         _mesh, _info, owner = build(ElevationFacades, row, neighbors, primary)
         diagram(output, index, row, owner.elevations[row["id"]])
         cameras = (
-            ("Near", primary),
-            ("Opposite", overview(points, [-1.0, 1.25, 0.65])),
-            ("Elevated", overview(points, [1.0, -1.25, 1.8])),
-            (
-                "Far",
-                replace(
-                    primary, eye=primary.target + (primary.eye - primary.target) * 2.4
+            (("Detail", detail_view(owner.elevations[row["id"]])),)
+            if detail_only
+            else (
+                ("Near", primary),
+                ("Opposite", overview(points, [-1.0, 1.25, 0.65])),
+                ("Elevated", overview(points, [1.0, -1.25, 1.8])),
+                (
+                    "Far",
+                    replace(
+                        primary,
+                        eye=primary.target + (primary.eye - primary.target) * 2.4,
+                    ),
                 ),
-            ),
+            )
         )
         for label, view in cameras:
             for suffix, owner_type in (
@@ -103,11 +125,16 @@ def models(output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--detail-only",
+        action="store_true",
+        help="Matched cropped facade views, using unchanged source programmes",
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     if output == Path("/tmp") or not output.is_relative_to(Path("/tmp")):
         parser.error("--output requires a subdirectory of /tmp")
-    models(output)
+    models(output, args.detail_only)
 
 
 if __name__ == "__main__":
