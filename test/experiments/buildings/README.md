@@ -1178,5 +1178,7 @@ Source-stable asymmetric terraces and paired upper wings, with simple open floor
 and actual stair/entry components before detailed room fitting, are prototyped in
 [terraced_mass.md](terraced_mass.md) (#618). Independent sections, closed component
 roundtrips and access controls accompany explicit cutaway renders. The new path
-still lacks facade/roof/terrace programmes and complete-city selection; existing
-functional products retain their own checks.
+now has a physical facade layer in [terraced_facades.md](terraced_facades.md):
+aligned actual windows, frames, bands/piers and complete ground-arrival controls.
+Roof/terrace programmes, direct far/selected near products and complete-city
+selection remain open; existing functional products retain their own checks.
