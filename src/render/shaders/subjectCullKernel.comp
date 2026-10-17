@@ -10,6 +10,7 @@ layout(std430, set = 0, binding = 1) readonly buffer Buffer_jobs { uvec4 jobs[];
 layout(std430, set = 0, binding = 3) readonly buffer Buffer_args { uint args[]; };
 layout(std430, set = 0, binding = 4) readonly buffer Buffer_pyramid { float pyramid[]; };
 layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
+#include "depthRectangle.glsl"
 const uint kClusterFloat4s = 3u;
 float projectedError(float error, vec3 centre, float radius) {
   float away = max(length(centre) - radius, 1.0e-3);
@@ -78,35 +79,12 @@ void main() {
       const vec2 lo = clamp(vec2(least.x * 0.5 + 0.5, 0.5 - most.y * 0.5), 0.0, 1.0);
       const vec2 hi = clamp(vec2(most.x * 0.5 + 0.5, 0.5 - least.y * 0.5), 0.0, 1.0);
       const vec2 source = vec2(view.sourceWide, view.sourceHigh);
-      float across = 0.5 * max((hi.x - lo.x) * source.x, (hi.y - lo.y) * source.y);
-      uint level = 0u;
-      while (level + 1u < 4u && across > 2.0) {
-        across *= 0.5;
-        level += 1u;
-      }
-      const uint wide = view.pyramidWide[level];
-      const uint high = view.pyramidHigh[level];
-      const uint first = view.pyramidAt[level];
-      const vec2 blocks = source / float(2u << level);
-      const uvec2 from = uvec2(min(uint(lo.x * blocks.x), wide - 1u),
-                               min(uint(lo.y * blocks.y), high - 1u));
-      const uvec2 to = uvec2(min(uint(hi.x * blocks.x), wide - 1u),
-                             min(uint(hi.y * blocks.y), high - 1u));
-
-      if (to.x - from.x >= 4u || to.y - from.y >= 4u) {
-        kept[id] = job.w;
-        return;
-      }
-      float farthest = 1.0;
-      for (uint down = from.y; down <= to.y && down < from.y + 4u; ++down) {
-        for (uint sideways = from.x; sideways <= to.x && sideways < from.x + 4u; ++sideways) {
-          farthest = min(farthest, pyramid[first + down * wide + sideways]);
-        }
-      }
-      if (nearest < farthest) {
+      if (depthRectangleOccluded(lo, hi, nearest, source,
+                                    view.pyramidWide, view.pyramidHigh, view.pyramidAt)) {
         kept[id] = 0u;
         return;
       }
+
     }
   }
   kept[id] = job.w;

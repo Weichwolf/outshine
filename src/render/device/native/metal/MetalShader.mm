@@ -2,13 +2,16 @@
 #include <spirv_cross_c.h>
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 namespace outshine::Render::Native::Metal {
 
-Result<id<MTLFunction>> Function(id<MTLDevice> device, const Shader &shader, MTLFunctionType type) {
+namespace {
+Result<id<MTLFunction>>
+CompileFunction(id<MTLDevice> device, const Shader &shader, MTLFunctionType type) {
   NSError *error = nil;
   MTLCompileOptions *const options = [MTLCompileOptions new];
-  options.mathMode = MTLMathModeSafe;
+  options.mathMode = type == MTLFunctionTypeFragment ? MTLMathModeRelaxed : MTLMathModeSafe;
   const id<MTLLibrary> library = [device newLibraryWithSource:Text(shader.Source)
                                                       options:options
                                                         error:&error];
@@ -18,6 +21,36 @@ Result<id<MTLFunction>> Function(id<MTLDevice> device, const Shader &shader, MTL
     return Failure(ErrorKind::Invalid, "SPIR-V entry has the wrong Metal execution stage");
   }
   return function;
+}
+}
+
+Result<MetalDevice::CompiledShader *> MetalDevice::ShaderProgram(std::span<const uint32_t> spirv,
+                                                                 std::string_view entry) {
+  std::string key = std::to_string(entry.size());
+  key.push_back(':');
+  key += entry;
+  if (!spirv.empty()) {
+    key.append(reinterpret_cast<const char *>(spirv.data()), spirv.size_bytes());
+  }
+  const auto cached = Shaders_.find(key);
+  if (cached != Shaders_.end()) { return &cached->second; }
+  auto translated = Translate(spirv, entry);
+  if (!translated) { return std::unexpected(translated.error()); }
+  const auto inserted =
+      Shaders_.emplace(std::move(key), CompiledShader{.Translated = std::move(*translated)});
+  return &inserted.first->second;
+}
+
+Result<id<MTLFunction>> MetalDevice::Function(CompiledShader &shader, MTLFunctionType type) {
+  if (shader.Function == nil) {
+    const auto function = CompileFunction(Native_, shader.Translated, type);
+    if (!function) { return std::unexpected(function.error()); }
+    shader.Function = *function;
+  }
+  if (shader.Function.functionType != type) {
+    return Failure(ErrorKind::Invalid, "SPIR-V entry has the wrong Metal execution stage");
+  }
+  return shader.Function;
 }
 
 namespace {
@@ -181,7 +214,10 @@ Result<Shader> Translate(std::span<const uint32_t> spirv, std::string_view entry
     }
   }
   spvc_resources resources = nullptr;
-  if (spvc_compiler_create_shader_resources(compiler, &resources) != SPVC_SUCCESS) {
+  spvc_set active = nullptr;
+  if (spvc_compiler_get_active_interface_variables(compiler, &active) != SPVC_SUCCESS ||
+      spvc_compiler_create_shader_resources_for_active_variables(compiler, &resources, active) !=
+          SPVC_SUCCESS) {
     return failure();
   }
   for (const auto &[type, kind] :

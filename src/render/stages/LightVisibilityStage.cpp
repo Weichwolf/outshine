@@ -8,31 +8,55 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <string>
 #include <vector>
 
-#include "ShaderFile.h"
+#include <expected>
+#include <span>
+#include <utility>
 #include "SubjectDraw.h"
 
 namespace outshine::Render {
 
-constexpr size_t kUniformFloats = 20;
+constexpr size_t kShadowViewBytes = 80;
 constexpr double kParallelLightCrossSquared = 1.0e-12;
 constexpr std::array<double, 3> kCameraShadowRadiiM = {{256.0, 1024.0, 4096.0}};
 constexpr float kDepthRoundingAllowance = 3.0f * std::numeric_limits<float>::epsilon();
 
 namespace {
+struct alignas(16) ShadowView {
+  Mat4f Light{};
+  Vec4f Shift{};
+};
+
+static_assert(sizeof(ShadowView) == kShadowViewBytes && alignof(ShadowView) == 16);
+static_assert(offsetof(ShadowView, Light) == 0 && offsetof(ShadowView, Shift) == sizeof(Mat4f));
+
 std::array<size_t, 2> ShadowTile(size_t region) {
   return {{region % 2, region / 2}};
 }
 }
 
-bool LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu, std::string &error) {
+Native::Result<void> LightVisibilityStage::Configure(SubjectDraw &subjects, const Gpu &gpu) {
+  if (gpu.Device == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "shadow pipelines require a device"});
+  }
+  if (Device_ != gpu.Device || !DepthOnly_) {
+    auto depth = ConfigureDepthOnly(*gpu.Device);
+    if (!depth) { return std::unexpected(depth.error()); }
+    auto masked = ConfigureMasked(*gpu.Device);
+    if (!masked) { return std::unexpected(masked.error()); }
+    DepthOnly_ = std::move(*depth);
+    Masked_ = std::move(*masked);
+    Device_ = gpu.Device;
+  }
   Cache_.Invalidate();
   Binds(subjects);
-  return ConfigureDepthOnly(gpu, error) && ConfigureMasked(gpu, error);
+  return {};
 }
 
 void LightVisibilityStage::Declare(Overhead sky, double radiusM, bool cameraCentred) {
@@ -218,136 +242,75 @@ void LightVisibilityStage::Prepare(const FrameContext &ctx) {
   PreparedTransform_ = Static_;
 }
 
-void LightVisibilityStage::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (!Casting_ || !Cache_.NeedsRecording() || !DepthOnly_ || into.Pass == nullptr) { return; }
+Native::Result<void> LightVisibilityStage::Encode(const FrameContext &ctx,
+                                                  const PassRecording &into) {
+  if (!Casting_ || !Cache_.NeedsRecording()) { return {}; }
+  if (!DepthOnly_ || Subjects_ == nullptr || into.Commands == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "shadow recording requires native resources"});
+  }
   CastBatches_ = 0;
   for (size_t region = 0; region < RegionCount(); ++region) {
-    Cast(Projections_[region], ctx.PreViewTranslation, region, into);
+    const auto accepted = Cast(Projections_[region], ctx.PreViewTranslation, region, into);
+    if (!accepted) { return accepted; }
   }
   into.Submission.Record(Stage::LightVisibility, Cache_);
+  return {};
 }
 
-bool LightVisibilityStage::ConfigureDepthOnly(const Gpu &gpu, std::string &error) {
-  if (DepthOnly_) { return true; }
-  SDL_GPUDevice *const device = gpu.Device;
-  if (device == nullptr) {
-    error = "the subject unit has no device, so no depth-only pipeline can be built";
-    return false;
-  }
-  const OwnedShader vertex(device,
-                           ShaderFrom(device,
-                                      "build/shaders/subjectDepth.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      SubjectDraw::DepthOnlyShape,
-                                      error));
-  const OwnedShader fragment(device,
-                             ShaderFrom(device,
-                                        "build/shaders/depth.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        SubjectDraw::DepthOnlyShape,
-                                        error));
-  if (!vertex || !fragment) { return false; }
-
-  SDL_GPUVertexBufferDescription buffer{};
-  buffer.slot = 0;
-  buffer.pitch = 3 * sizeof(float);
-  buffer.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
-  SDL_GPUVertexAttribute attribute{};
-  attribute.location = 0;
-  attribute.buffer_slot = 0;
-  attribute.format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3;
-  attribute.offset = 0;
-
-  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
-  pipeline.vertex_shader = vertex.Get();
-  pipeline.fragment_shader = fragment.Get();
-  pipeline.vertex_input_state.vertex_buffer_descriptions = &buffer;
-  pipeline.vertex_input_state.num_vertex_buffers = 1;
-  pipeline.vertex_input_state.vertex_attributes = &attribute;
-  pipeline.vertex_input_state.num_vertex_attributes = 1;
-  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-
-  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_FRONT;
-  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.depth_stencil_state.enable_depth_test = true;
-  pipeline.depth_stencil_state.enable_depth_write = true;
-  pipeline.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
-  pipeline.target_info.num_color_targets = 0;
-  pipeline.target_info.has_depth_stencil_target = true;
-  pipeline.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
-  SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(device, &pipeline);
-  if (made == nullptr) {
-    error = std::string("the depth-only pipeline was refused: ") + SDL_GetError();
-    return false;
-  }
-  DepthOnly_ = OwnedPipeline(device, made);
-  return true;
-}
-
-void LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
-                                const Vec3 &preView,
-                                size_t region,
-                                const PassRecording &into) {
-  if (Subjects_ == nullptr || !DepthOnly_ || into.Pass == nullptr) { return; }
-  const Vec3 &Anchor = Subjects_->AnchorM();
+Native::Result<void> LightVisibilityStage::Cast(const Mat4 &lightFromWorld,
+                                                const Vec3 &preView,
+                                                size_t region,
+                                                const PassRecording &into) {
   const auto tile = ShadowTile(region);
-  SDL_GPUViewport square{};
-  square.x = static_cast<float>(tile[0]) * kShadowTilePx;
-  square.y = static_cast<float>(tile[1]) * kShadowTilePx;
-  square.w = kShadowTilePx;
-  square.h = kShadowTilePx;
-  square.min_depth = 0.0f;
-  square.max_depth = 1.0f;
-  SDL_SetGPUViewport(into.Pass, &square);
-  std::array<float, kUniformFloats> uniform = {{}};
-  for (int i = 0; i < 16; i++) { uniform[i] = static_cast<float>(lightFromWorld[i]); }
+  const Native::Viewport square{.X = static_cast<float>(tile[0]) * kShadowTilePx,
+                                .Y = static_cast<float>(tile[1]) * kShadowTilePx,
+                                .Width = kShadowTilePx,
+                                .Height = kShadowTilePx};
+  const PassRecording recording{
+      .Commands = into.Commands, .Submission = into.Submission, .Area = square, .Clip = into.Clip};
+  ShadowView uniform;
+  for (int i = 0; i < 16; ++i) { uniform.Light[i] = static_cast<float>(lightFromWorld[i]); }
+  const auto &anchor = Subjects_->AnchorM();
   for (int axis = 0; axis < 3; ++axis) {
-    uniform[16 + axis] = static_cast<float>(Anchor[axis] + preView[axis]);
+    uniform.Shift[axis] = static_cast<float>(anchor[axis] + preView[axis]);
   }
-  SDL_PushGPUVertexUniformData(
-      into.Commands, 0, uniform.data(), static_cast<uint32_t>(uniform.size() * sizeof(uniform[0])));
-  Subjects_->Ground().Cast(into);
-  CastSubjects(into);
+  const auto bytes = std::as_bytes(std::span(&uniform, 1));
+  const std::array bindings{
+      Native::Binding{.Set = 1, .Slot = 0, .Value = Native::Uniform{.Bytes = bytes}}};
+  const auto ground = Subjects_->Ground().Cast(recording, uniform.Light, uniform.Shift, bindings);
+  if (!ground) { return ground; }
+  return CastSubjects(recording, bytes);
 }
 
-void LightVisibilityStage::CastSubjects(const PassRecording &into) {
-  const SubjectResidency &Resident_ = Subjects_->Resident();
-  const std::vector<DrawBatch> &Batches = Subjects_->Drawn();
-  if (Batches.empty() || !Resident_.Buffer(SubjectResidency::Stream::Vertex) ||
-      !Resident_.Buffer(SubjectResidency::Stream::Index)) {
-    return;
+Native::Result<void> LightVisibilityStage::CastSubjects(const PassRecording &into,
+                                                        std::span<const std::byte> view) {
+  const auto &resident = Subjects_->Resident();
+  const auto &batches = Subjects_->Drawn();
+  if (batches.empty()) { return {}; }
+  if (!resident.Buffer(SubjectResidency::Stream::Vertex) ||
+      !resident.Buffer(SubjectResidency::Stream::Index)) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "shadow subjects have no native vertex/index data"});
   }
-  SDL_BindGPUGraphicsPipeline(into.Pass, DepthOnly_.Get());
-  const SDL_GPUBufferBinding vertices{
-      .buffer = Resident_.Buffer(SubjectResidency::Stream::Vertex).Get(), .offset = 0};
-  SDL_BindGPUVertexBuffers(into.Pass, 0, &vertices, 1);
-  const SDL_GPUBufferBinding indices{
-      .buffer = Resident_.Buffer(SubjectResidency::Stream::Index).Get(), .offset = 0};
-  SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-  std::array<SDL_GPUBuffer *const, 1> rows = {
-      Resident_.Buffer(SubjectResidency::Stream::Placements).Get()};
-  SDL_BindGPUVertexStorageBuffers(into.Pass, 0, rows.data(), 1);
-
-  const uint32_t subjectRows = Subjects_->SubjectRows();
-  const SDL_GPUGraphicsPipeline *bound = DepthOnly_.Get();
-  for (const DrawBatch &batch : Batches) {
+  const auto subjectRows = Subjects_->SubjectRows();
+  for (const auto &batch : batches) {
     if (batch.ModelSlot >= CastsBelow_ && batch.ModelSlot < subjectRows) { continue; }
-    const uint32_t instances = batch.ModelSlot < subjectRows
-                                   ? std::min(batch.Instances, CastsBelow_ - batch.ModelSlot)
-                                   : batch.Instances;
+    const auto instances = batch.ModelSlot < subjectRows
+                               ? std::min(batch.Instances, CastsBelow_ - batch.ModelSlot)
+                               : batch.Instances;
     if (instances == 0) { continue; }
-    SDL_GPUGraphicsPipeline *pipeline =
-        batch.Kind == SurfaceKind::Masked ? MaskedPipeline(batch.Layout) : DepthOnly_.Get();
-    if (pipeline != bound) {
-      SDL_BindGPUGraphicsPipeline(into.Pass, pipeline);
-      bound = pipeline;
+    const auto *const pipeline =
+        batch.Kind == SurfaceKind::Masked ? MaskedPipeline(batch.Layout) : DepthOnly_.get();
+    if (pipeline == nullptr) {
+      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                           .Message = "shadow pipeline is missing"});
     }
-    if (batch.Kind == SurfaceKind::Masked) { Subjects_->BindShadowMask(into, batch); }
+    const auto cast = Subjects_->EncodeShadow(into, *pipeline, batch, instances, view);
+    if (!cast) { return cast; }
     ++CastBatches_;
-    SDL_DrawGPUIndexedPrimitives(
-        into.Pass, batch.IndexCount, instances, batch.FirstIndex, 0, batch.ModelSlot);
   }
+  return {};
 }
-
 }

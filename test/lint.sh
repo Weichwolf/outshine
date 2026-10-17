@@ -44,7 +44,7 @@ for tool in clang-format clang-tidy; do
     exit 2
   }
 done
-for target in test-timeout-cleanup test-file-stamps test-source-units test-shader-dependencies test-format test-tidy-analysis test-motion-trace db; do
+for target in test-timeout-cleanup test-file-stamps test-source-units test-shader-dependencies test-format test-tidy-analysis test-callgraph test-motion-trace db; do
   if ! make "$target"; then
     printf 'lint: prerequisite %s failed\n' "$target" >&2
     red=$((red + 1))
@@ -158,7 +158,7 @@ if ! python3 test/scripts/test_shader_artifacts.py > "$REPORT/shader-check-tests
   red=$((red + 1))
 fi
 if ! python3 test/scripts/shader_artifacts.py --report "$REPORT/shaders"; then
-  printf 'lint: shader artifact coverage or SDL binding verification failed\n' >&2
+  printf 'lint: shader artifact coverage or native binding verification failed\n' >&2
   red=$((red + 1))
 fi
 

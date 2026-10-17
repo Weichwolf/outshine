@@ -81,8 +81,10 @@ int main() {
       scene->Eye(eye);
       CHECK(scene->Draw(error), "first frame establishes the previous camera");
       DrawList draws;
-      CHECK(draws.Add({.IndexCount = 3, .Layout = VertexLayout::PositionNormal}, error),
-            "deforming draw uses the rigid piece's pipeline layout");
+      DrawItem batch{};
+      batch.IndexCount = 3;
+      batch.Layout = VertexLayout::PositionNormal;
+      CHECK(draws.Add(batch, error), "deforming draw uses the rigid piece's pipeline layout");
       draws.Compile();
       SubjectMesh mesh;
       mesh.Anchor = renderer.LastSubmittedCamera().Basis.EyeM - eye.EyeM;
@@ -95,14 +97,20 @@ int main() {
       mesh.Indices = indices.data();
       mesh.IndexCount = 3;
       mesh.Draws = &draws;
-      CHECK(renderer.SetSubjectMesh(mesh, error), "distinct previous pose uploads");
+      const bool meshUploaded = renderer.SetSubjectMesh(mesh, error);
+      if (!meshUploaded) { std::println(stderr, "mesh upload: {}", error); }
+      CHECK(meshUploaded, "distinct previous pose uploads");
       renderer.SetNativePieceSurfaces(std::array<uint32_t, 1>{0});
       const std::array<StoredVertex, 3> rigid{
           StoredVertex::Of({{0.5f, -0.5f, 0}}, {{0, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{1.5f, -0.5f, 0}}, {{0, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{1, 0.5f, 0}}, {{0, 0}}, {{0, 0, 1}})};
-      CHECK(renderer.PlaceStructurePiece({.Verts = rigid, .Indices = indices}).has_value(),
-            "rigid piece shares the arena");
+      PieceMesh piece{};
+      piece.Verts = rigid;
+      piece.Indices = indices;
+      const auto placed = renderer.PlaceStructurePiece(piece);
+      if (!placed) { std::println(stderr, "piece upload: {}", placed.error()); }
+      CHECK(placed.has_value(), "rigid piece shares the arena");
       CHECK(scene->Draw(error), "mixed geometry renders");
       renderer.WaitForGpu();
       std::vector<float> depth;

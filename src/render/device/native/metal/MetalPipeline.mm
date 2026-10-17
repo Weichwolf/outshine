@@ -9,19 +9,19 @@ MetalDevice::CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptio
     return Failure(ErrorKind::Invalid, "Metal operation belongs to another thread");
   }
   @autoreleasepool {
-    auto shader = Translate(spirv, settings.Entry);
+    const auto shader = ShaderProgram(spirv, settings.Entry);
     if (!shader) { return std::unexpected(shader.error()); }
     uint64_t invocations = 1;
-    for (size_t axis = 0; axis < shader->Layout.LocalSize.size(); ++axis) {
-      const auto size = shader->Layout.LocalSize[axis];
+    for (size_t axis = 0; axis < (*shader)->Translated.Layout.LocalSize.size(); ++axis) {
+      const auto size = (*shader)->Translated.Layout.LocalSize[axis];
       if (size == 0 || size > Limits_.MaxWorkgroupSize[axis]) {
         return Failure(ErrorKind::Invalid, "Metal compute local size exceeds device limits");
       }
       invocations *= size;
     }
-    NSError *error = nil;
-    const auto function = Function(Native_, *shader, MTLFunctionTypeKernel);
+    const auto function = Function(**shader, MTLFunctionTypeKernel);
     if (!function) { return std::unexpected(function.error()); }
+    NSError *error = nil;
     MTLComputePipelineDescriptor *const description = [MTLComputePipelineDescriptor new];
     description.computeFunction = *function;
     description.label = Text(settings.Label.empty() ? settings.Entry : settings.Label);
@@ -38,7 +38,7 @@ MetalDevice::CreateComputePipeline(std::span<const uint32_t> spirv, ComputeOptio
     }
     auto state = std::make_shared<PipelineState>();
     state->Native = pipeline;
-    state->Translated = std::move(*shader);
+    state->Translated = (*shader)->Translated;
     state->Device = Identity_;
     Limits_.MaxWorkgroupInvocations =
         std::max(Limits_.MaxWorkgroupInvocations,

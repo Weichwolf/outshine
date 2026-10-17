@@ -15,20 +15,40 @@ import numpy as np
 import shapely
 
 
-def triangles(side, stride, keep_boundary=True):
+def edge_steps(side, stride, keep_boundary, boundary_steps):
+    steps = (
+        (1 if keep_boundary else stride,) * 4
+        if boundary_steps is None
+        else tuple(boundary_steps)
+    )
+    if (
+        side < 2
+        or stride <= 0
+        or stride & (stride - 1)
+        or (side - 1) % stride
+        or len(steps) != 4
+        or any(s <= 0 or stride % s for s in steps)
+    ):
+        raise ValueError(
+            "four boundary steps must divide a power-of-two stride on the grid"
+        )
+    return steps
+
+
+def triangles(side, stride, keep_boundary=True, boundary_steps=None):
     result = []
+    top, right, bottom, left = edge_steps(side, stride, keep_boundary, boundary_steps)
 
     def at(x, y):
         return y * side + x
 
     for y in range(0, side - 1, stride):
         for x in range(0, side - 1, stride):
-            edge = (
-                keep_boundary
-                and stride > 1
-                and (
-                    x == 0 or y == 0 or x + stride == side - 1 or y + stride == side - 1
-                )
+            edge = stride > 1 and (
+                (x == 0 and left < stride)
+                or (y == 0 and top < stride)
+                or (x + stride == side - 1 and right < stride)
+                or (y + stride == side - 1 and bottom < stride)
             )
             if not edge:
                 a, b, c, d = (
@@ -41,23 +61,25 @@ def triangles(side, stride, keep_boundary=True):
                 continue
             perimeter = []
             perimeter.extend(
-                at(i, y) for i in (range(x, x + stride) if y == 0 else (x,))
+                at(i, y) for i in (range(x, x + stride, top) if y == 0 else (x,))
             )
             perimeter.extend(
                 at(x + stride, j)
-                for j in (range(y, y + stride) if x + stride == side - 1 else (y,))
+                for j in (
+                    range(y, y + stride, right) if x + stride == side - 1 else (y,)
+                )
             )
             perimeter.extend(
                 at(i, y + stride)
                 for i in (
-                    range(x + stride, x, -1)
+                    range(x + stride, x, -bottom)
                     if y + stride == side - 1
                     else (x + stride,)
                 )
             )
             perimeter.extend(
                 at(x, j)
-                for j in (range(y + stride, y, -1) if x == 0 else (y + stride,))
+                for j in (range(y + stride, y, -left) if x == 0 else (y + stride,))
             )
             centre = at(x + stride // 2, y + stride // 2)
             result.extend(
@@ -77,13 +99,16 @@ def barycentric(points, faces):
     return np.column_stack((1 - v - w, v, w))
 
 
-def stencil(fractions, stride, keep_boundary=True, vertical=None):
+def stencil(fractions, stride, keep_boundary=True, vertical=None, boundary_steps=None):
     side = len(fractions)
     vertical = fractions if vertical is None else vertical
     if len(vertical) != side:
         raise ValueError("both grid axes must have the same node count")
     xy = np.stack(np.meshgrid(fractions, vertical), axis=-1).reshape(-1, 2)
-    fine, coarse = triangles(side, 1), triangles(side, stride, keep_boundary)
+    fine, coarse = (
+        triangles(side, 1),
+        triangles(side, stride, keep_boundary, boundary_steps),
+    )
     fine_polygons, coarse_polygons = (
         shapely.polygons(xy[fine]),
         shapely.polygons(xy[coarse]),
@@ -95,16 +120,18 @@ def stencil(fractions, stride, keep_boundary=True, vertical=None):
     unique, counts = np.unique(edges, axis=0, return_counts=True)
     assert np.all((counts == 1) | (counts == 2))
     required = []
-    edge_step = 1 if keep_boundary else stride
-    for i in range(0, side - 1, edge_step):
-        required.extend(
-            (
-                (i, i + edge_step),
-                ((side - 1) * side + i, (side - 1) * side + i + edge_step),
-                (i * side, (i + edge_step) * side),
-                (i * side + side - 1, (i + edge_step) * side + side - 1),
+    for edge, step in enumerate(
+        edge_steps(side, stride, keep_boundary, boundary_steps)
+    ):
+        for i in range(0, side - 1, step):
+            required.append(
+                (
+                    (i, i + step),
+                    (i * side + side - 1, (i + step) * side + side - 1),
+                    ((side - 1) * side + i, (side - 1) * side + i + step),
+                    (i * side, (i + step) * side),
+                )[edge]
             )
-        )
     assert set(map(tuple, unique[counts == 1])) == set(required)
     coarse_ids, fine_ids = shapely.STRtree(fine_polygons).query(
         coarse_polygons, predicate="intersects"

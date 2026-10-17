@@ -12,3 +12,8 @@ layout(location = 10) VARYING vec3 groundWorldM;
 layout(location = 7) VARYING vec4 curClip;
 layout(location = 8) VARYING vec4 prevClip;
 #endif
+
+#if GROUND_PATCHES
+layout(location = 11) flat VARYING uint groundSampleCode;
+layout(location = 12) VARYING vec2 groundSampleUV;
+#endif

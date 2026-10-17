@@ -1,14 +1,45 @@
 #include <Outshine.h>
 #include "Check.h"
+#include "TestEngine.h"
+#include "test/harness/render/NativeDeviceProxy.h"
 #include <array>
-#include <cassert>
-#include <dlfcn.h>
+#include <expected>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
+namespace Native = outshine::Render::Native;
 bool rejectSubmit = false;
 unsigned rejected = 0;
+
+class SubmissionFaultDevice final : public outshine::Test::Gpu::NativeDeviceProxy {
+public:
+  explicit SubmissionFaultDevice(std::unique_ptr<Native::Device> device)
+      : NativeDeviceProxy(*device), Device_(std::move(device)) {}
+
+  [[nodiscard]] static Native::Result<std::unique_ptr<Native::Device>>
+  Create(void *, Native::DeviceOptions options) {
+    auto device = Native::CreateDevice(options);
+    if (!device) { return std::unexpected(device.error()); }
+    return std::make_unique<SubmissionFaultDevice>(std::move(*device));
+  }
+
+  [[nodiscard]] Native::Result<Native::Completion>
+  Submit(std::unique_ptr<Native::Commands> commands) override {
+    if (rejectSubmit) {
+      rejectSubmit = false;
+      ++rejected;
+      return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                           .Message = "injected UI submission failure"});
+    }
+    return Backing().Submit(std::move(commands));
+  }
+
+private:
+  std::unique_ptr<Native::Device> Device_;
+};
 
 class Receiver final : public outshine::Host {
 public:
@@ -21,28 +52,13 @@ public:
 };
 }
 
-extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *commands) {
-  if (rejectSubmit) {
-    rejectSubmit = false;
-    ++rejected;
-    const bool cancelled = SDL_CancelGPUCommandBuffer(commands);
-    assert(cancelled);
-    SDL_SetError("injected UI submission failure");
-    return false;
-  }
-  static const auto original = reinterpret_cast<decltype(&SDL_SubmitGPUCommandBuffer)>(
-      dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBuffer"));
-  assert(original != nullptr);
-  return original(commands);
-}
-
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL initializes");
   {
     Receiver receiver;
-    Engine engine;
+    Engine engine = TestEngine::WithGpu({.Create = SubmissionFaultDevice::Create});
     engine.setInputHost(&receiver);
     (void)engine.setRoots({.Shipped = "src/assets"});
     CHECK(engine.setRenderTarget(Extent{64, 64}).has_value(), "offscreen target ready");

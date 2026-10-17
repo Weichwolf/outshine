@@ -216,6 +216,7 @@ Result<void> InitLogical(Context &context) {
   enabled.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   enabled.synchronization2 = VK_TRUE;
   enabled.dynamicRendering = VK_TRUE;
+  enabled.maintenance4 = supported.maintenance4;
   if (context.PresentCapable) { enabled.pNext = &maintenance; }
   VkPhysicalDeviceFeatures core{};
   core.robustBufferAccess = features.features.robustBufferAccess;

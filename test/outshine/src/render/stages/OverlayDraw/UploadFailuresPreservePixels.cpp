@@ -1,217 +1,174 @@
-#include <SDL3/SDL.h>
-#include <array>
-#include <cassert>
-#include <cstring>
-#include <limits>
-#include <dlfcn.h>
-#include <string>
-#include <vector>
 #include "RuntimeScene.h"
 #include "FrameCapture.h"
 #include "SceneRenderer.h"
-#include <memory>
-#include "Readback.h"
 #include "Check.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
+#include <SDL3/SDL.h>
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <memory>
+#include <span>
+#include <string>
+#include <vector>
 
 namespace {
-enum class Failure { None, Map, Acquire, Pass, Submit, Allocate, Transfer, Buffer };
-Failure nextFailure = Failure::None;
-unsigned skipFailures = 0;
-unsigned failures = 0;
-unsigned quadBufferAllocations = 0;
+using namespace outshine;
+using namespace outshine::Render;
+using namespace outshine::Test;
+using outshine::Test::Gpu::UploadFailurePoint;
+constexpr size_t kExtentPx = 32;
+constexpr double kNearM = 0.1;
+constexpr double kFarM = 100;
+constexpr std::array<uint8_t, 4> kWhite{255, 255, 255, 255};
+constexpr std::array<uint8_t, 4> kBlack{0, 0, 0, 255};
+constexpr std::array kUploadFailures{UploadFailurePoint::UploadBuffer,
+                                     UploadFailurePoint::Map,
+                                     UploadFailurePoint::Unmap,
+                                     UploadFailurePoint::Acquire,
+                                     UploadFailurePoint::Copy,
+                                     UploadFailurePoint::Submit};
 
-bool Reject(Failure point) {
-  if (nextFailure != point) { return false; }
-  if (skipFailures > 0) {
-    --skipFailures;
-    return false;
+struct OverlayFixture {
+  outshine::Test::Gpu::UploadFailure Failure{.Message = "injected native overlay upload failure"};
+  SceneRenderer Renderer{GpuSubmission{
+      .Context = &Failure, .Create = outshine::Test::Gpu::NativeUploadFaultDevice::Create}};
+  UploadQueue::WaitScope UploadBudget = Renderer.OfflineUploads(std::chrono::seconds(5));
+  std::unique_ptr<Core::RuntimeScene> Scene;
+  std::string Error;
+  OverlayQuad Quad;
+  std::array<OverlayQuad, 2> Replacement;
+  std::vector<uint8_t> Baseline;
+
+  bool Open() {
+    Core::Declaration declaration;
+    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = kExtentPx;
+    declaration.Outputs = {"surface"};
+    CHECK(Core::RuntimeScene::Open(Renderer, declaration, nullptr, Scene, Error),
+          "empty scene opens");
+    if (!Scene) { return false; }
+    Viewpoint eye;
+    eye.EyeM = {{0, 0, 5}};
+    eye.YfovRad = 1;
+    eye.ZNearM = kNearM;
+    eye.ZFarM = kFarM;
+    Scene->Eye(eye);
+    Quad.WidthPx = Quad.HeightPx = Quad.ClipWidthPx = Quad.ClipHeightPx = kExtentPx;
+    Quad.U1 = Quad.V1 = 1;
+    Replacement = {Quad, Quad};
+    Replacement[0].Red = Replacement[0].Green = Replacement[0].Blue = 0;
+    Replacement[1] = Replacement[0];
+    CHECK(Renderer.ReplaceOverlay(std::span(&Quad, 1), nullptr, Error),
+          "combined overlay replacement provisions its own default atlas");
+    Baseline = Read();
+    CHECK(Baseline.size() == kExtentPx * kExtentPx * 4 && Baseline[0] == 255,
+          "the default atlas produces white overlay pixels");
+    return true;
   }
-  nextFailure = Failure::None;
-  ++failures;
-  SDL_SetError("injected overlay atlas failure");
-  return true;
-}
 
-template <typename F> F Original(const char *name) {
-  auto function = reinterpret_cast<F>(dlsym(RTLD_NEXT, name));
-  assert(function != nullptr);
-  return function;
-}
-}
-
-extern "C" SDL_GPUBuffer *SDLCALL SDL_CreateGPUBuffer(SDL_GPUDevice *device,
-                                                      const SDL_GPUBufferCreateInfo *info) {
-  if (Reject(Failure::Buffer)) { return nullptr; }
-  if (info->usage == SDL_GPU_BUFFERUSAGE_VERTEX) { ++quadBufferAllocations; }
-  static const auto original = Original<decltype(&SDL_CreateGPUBuffer)>("SDL_CreateGPUBuffer");
-  return original(device, info);
-}
-
-extern "C" SDL_GPUTexture *SDLCALL SDL_CreateGPUTexture(SDL_GPUDevice *device,
-                                                        const SDL_GPUTextureCreateInfo *info) {
-  if (Reject(Failure::Allocate)) { return nullptr; }
-  static const auto original = Original<decltype(&SDL_CreateGPUTexture)>("SDL_CreateGPUTexture");
-  return original(device, info);
-}
-
-extern "C" SDL_GPUTransferBuffer *SDLCALL
-SDL_CreateGPUTransferBuffer(SDL_GPUDevice *device, const SDL_GPUTransferBufferCreateInfo *info) {
-  if (Reject(Failure::Transfer)) { return nullptr; }
-  static const auto original =
-      Original<decltype(&SDL_CreateGPUTransferBuffer)>("SDL_CreateGPUTransferBuffer");
-  return original(device, info);
-}
-
-extern "C" void *SDLCALL SDL_MapGPUTransferBuffer(SDL_GPUDevice *device,
-                                                  SDL_GPUTransferBuffer *buffer,
-                                                  bool cycle) {
-  if (Reject(Failure::Map)) { return nullptr; }
-  static const auto original =
-      Original<decltype(&SDL_MapGPUTransferBuffer)>("SDL_MapGPUTransferBuffer");
-  return original(device, buffer, cycle);
-}
-
-extern "C" SDL_GPUCommandBuffer *SDLCALL SDL_AcquireGPUCommandBuffer(SDL_GPUDevice *device) {
-  if (Reject(Failure::Acquire)) { return nullptr; }
-  static const auto original =
-      Original<decltype(&SDL_AcquireGPUCommandBuffer)>("SDL_AcquireGPUCommandBuffer");
-  return original(device);
-}
-
-extern "C" SDL_GPUCopyPass *SDLCALL SDL_BeginGPUCopyPass(SDL_GPUCommandBuffer *commands) {
-  if (Reject(Failure::Pass)) { return nullptr; }
-  static const auto original = Original<decltype(&SDL_BeginGPUCopyPass)>("SDL_BeginGPUCopyPass");
-  return original(commands);
-}
-
-extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *commands) {
-  if (nextFailure == Failure::Submit && skipFailures == 0) {
-    const bool consumed = SDL_CancelGPUCommandBuffer(commands);
-    assert(consumed);
-    (void)Reject(Failure::Submit);
-    return false;
+  std::vector<uint8_t> Read() {
+    std::vector<uint8_t> pixels;
+    CHECK(Scene->Draw(Error), Error.c_str());
+    CHECK(Core::ReadFrame(Renderer, pixels, Error), Error.c_str());
+    return pixels;
   }
-  (void)Reject(Failure::Submit);
-  static const auto original =
-      Original<decltype(&SDL_SubmitGPUCommandBuffer)>("SDL_SubmitGPUCommandBuffer");
-  return original(commands);
+
+  unsigned Arm(UploadFailurePoint point, unsigned skip = 0) {
+    Failure.Point = point;
+    Failure.Skip = skip;
+    Failure.Armed = true;
+    Error.clear();
+    return Failure.Rejected;
+  }
+
+  void Reached(unsigned before) const {
+    CHECK(Failure.Rejected == before + 1 && !Failure.Armed, "requested failure point was reached");
+  }
+
+  void AtlasFailure(UploadFailurePoint point) {
+    const auto before = Arm(point);
+    CHECK(!Renderer.SetOverlayAtlas(kBlack.data(), 1, 1, Error) && !Error.empty(),
+          "atlas upload failure is reported");
+    Reached(before);
+    CHECK(Read() == Baseline, "rejected upload preserves resident atlas pixels");
+    CHECK(Renderer.SetOverlayAtlas(kBlack.data(), 1, 1, Error), "atlas retry succeeds");
+    CHECK(Read() != Baseline, "retry publishes a genuinely different atlas");
+    CHECK(Renderer.SetOverlayAtlas(kWhite.data(), 1, 1, Error), "white atlas restored");
+  }
+
+  void QuadFailure(UploadFailurePoint point) {
+    const auto before = Arm(point);
+    CHECK(!Renderer.SetOverlay(Replacement.data(), Replacement.size(), Error) && !Error.empty(),
+          "quad upload failure is reported");
+    Reached(before);
+    CHECK(Read() == Baseline, "quad failure preserves previous geometry and count");
+    CHECK(Renderer.SetOverlay(Replacement.data(), Replacement.size(), Error),
+          "quad retry succeeds");
+    CHECK(Read() != Baseline, "quad retry changes the image");
+    CHECK(Renderer.SetOverlay(&Quad, 1, Error), "original quad restored");
+  }
+
+  void QuadInputs() {
+    CHECK(!Renderer.SetOverlay(nullptr, 1, Error), "nonempty null quad input rejected");
+    CHECK(Read() == Baseline, "null input preserves overlay");
+    CHECK(!Renderer.SetOverlay(&Quad, kMaxOverlayQuads + 1, Error),
+          "oversized input rejected before reading");
+    CHECK(Read() == Baseline, "oversized input preserves overlay");
+    CHECK(Renderer.SetOverlay(nullptr, 0, Error), "empty input removes overlay");
+    CHECK(Read() != Baseline, "empty overlay no longer draws white");
+    CHECK(Renderer.SetOverlay(&Quad, 1, Error), "overlay restored after removal");
+  }
+
+  void CombinedFailure(UploadFailurePoint point, unsigned skip = 0) {
+    const OverlayDraw::AtlasPixels black{.Rgba = kBlack.data(), .Width = 1, .Height = 1};
+    const OverlayDraw::AtlasPixels white{.Rgba = kWhite.data(), .Width = 1, .Height = 1};
+    const auto before = Arm(point, skip);
+    CHECK(!Renderer.ReplaceOverlay(Replacement, &black, Error),
+          "native upload failure rejects combined replacement");
+    Reached(before);
+    CHECK(Read() == Baseline, "combined failure preserves both previous atlas and geometry");
+    CHECK(Renderer.ReplaceOverlay(Replacement, &black, Error), "combined retry succeeds");
+    CHECK(Read() != Baseline, "combined retry publishes new pixels");
+    CHECK(Renderer.ReplaceOverlay(std::span(&Quad, 1), &white, Error),
+          "combined baseline restored");
+  }
+
+  void AtlasInputs() {
+    for (const auto dimensions :
+         {std::array{0, 1},
+          std::array{1, -1},
+          std::array{65536, 65536},
+          std::array{std::numeric_limits<int>::max(), std::numeric_limits<int>::max()}}) {
+      CHECK(!Renderer.SetOverlayAtlas(kWhite.data(), dimensions[0], dimensions[1], Error),
+            "invalid or overflowing dimensions rejected before reading texels");
+      CHECK(Read() == Baseline, "invalid dimensions preserve old pixels");
+    }
+    CHECK(!Renderer.SetOverlayAtlas(nullptr, 1, 1, Error), "null texels rejected");
+    CHECK(Read() == Baseline, "null texels preserve old pixels");
+  }
+};
 }
 
 int main() {
-  using namespace outshine;
-  using namespace outshine::Render;
   using namespace outshine::Test;
   CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
   {
-    SceneRenderer renderer;
-    Core::Declaration declaration;
-    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
-    declaration.Outputs = {"surface"};
-    std::unique_ptr<Core::RuntimeScene> scene;
-    std::string error;
-    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
-          "empty scene opens");
-    if (scene) {
-      Viewpoint eye;
-      eye.EyeM = {{0, 0, 5}};
-      eye.YfovRad = 1;
-      eye.ZNearM = 0.1;
-      eye.ZFarM = 100;
-      scene->Eye(eye);
-      OverlayQuad quad;
-      quad.WidthPx = quad.HeightPx = quad.ClipWidthPx = quad.ClipHeightPx = 32;
-      quad.U1 = quad.V1 = 1;
-      constexpr std::array<uint8_t, 4> white{255, 255, 255, 255};
-      constexpr std::array<uint8_t, 4> black{0, 0, 0, 255};
-      CHECK(renderer.ReplaceOverlay(std::span<const OverlayQuad>(&quad, 1), nullptr, error),
-            "combined overlay replacement provisions its own default atlas");
-      const auto read = [&] {
-        std::vector<uint8_t> pixels;
-        CHECK(scene->Draw(error), error.c_str());
-        CHECK(Core::ReadFrame(renderer, pixels, error), error.c_str());
-        return pixels;
-      };
-      const auto baseline = read();
-      CHECK(baseline.size() == 32 * 32 * 4 && baseline[0] == 255,
-            "the default atlas produces white overlay pixels");
-      for (const auto failure : {Failure::Allocate,
-                                 Failure::Transfer,
-                                 Failure::Map,
-                                 Failure::Acquire,
-                                 Failure::Pass,
-                                 Failure::Submit}) {
-        nextFailure = failure;
-        const unsigned before = failures;
-        error.clear();
-        CHECK(!renderer.SetOverlayAtlas(black.data(), 1, 1, error) && !error.empty(),
-              "upload failure is reported");
-        CHECK(failures == before + 1 && nextFailure == Failure::None,
-              "requested failure point was reached");
-        CHECK(read() == baseline, "rejected upload preserves resident atlas pixels");
-        CHECK(renderer.SetOverlayAtlas(black.data(), 1, 1, error), "retry succeeds");
-        CHECK(read() != baseline, "retry publishes a genuinely different atlas");
-        CHECK(renderer.SetOverlayAtlas(white.data(), 1, 1, error), "baseline restored");
-      }
-      const unsigned allocated = quadBufferAllocations;
-      std::array<OverlayQuad, 2> replacement{quad, quad};
-      replacement[0].Red = replacement[0].Green = replacement[0].Blue = 0;
-      replacement[1] = replacement[0];
-      for (const auto failure : {Failure::Buffer,
-                                 Failure::Transfer,
-                                 Failure::Map,
-                                 Failure::Acquire,
-                                 Failure::Pass,
-                                 Failure::Submit}) {
-        nextFailure = failure;
-        const unsigned before = failures;
-        error.clear();
-        CHECK(!renderer.SetOverlay(replacement.data(), replacement.size(), error) && !error.empty(),
-              "quad upload failure is reported");
-        CHECK(failures == before + 1 && nextFailure == Failure::None, "quad failure point reached");
-        CHECK(read() == baseline, "quad failure preserves previous geometry and count");
-        CHECK(renderer.SetOverlay(replacement.data(), replacement.size(), error),
-              "quad retry succeeds");
-        CHECK(read() != baseline, "quad retry changes the image");
-        CHECK(renderer.SetOverlay(&quad, 1, error), "original quad restored");
-      }
-      CHECK(quadBufferAllocations == allocated + 1,
+    OverlayFixture fixture;
+    if (fixture.Open()) {
+      fixture.AtlasFailure(UploadFailurePoint::Texture);
+      for (const auto point : kUploadFailures) { fixture.AtlasFailure(point); }
+      const auto allocated = fixture.Failure.VertexBufferAllocations;
+      fixture.QuadFailure(UploadFailurePoint::DeviceBuffer);
+      for (const auto point : kUploadFailures) { fixture.QuadFailure(point); }
+      CHECK(fixture.Failure.VertexBufferAllocations == allocated + 1,
             "replacement reuses two geometry buffers after warming");
-      CHECK(!renderer.SetOverlay(nullptr, 1, error), "nonempty null quad input rejected");
-      CHECK(read() == baseline, "null input preserves overlay");
-      CHECK(!renderer.SetOverlay(&quad, kMaxOverlayQuads + 1, error),
-            "oversized input rejected before reading");
-      CHECK(read() == baseline, "oversized input preserves overlay");
-      CHECK(renderer.SetOverlay(nullptr, 0, error), "empty input removes overlay");
-      CHECK(read() != baseline, "empty overlay no longer draws white");
-      CHECK(renderer.SetOverlay(&quad, 1, error), "overlay restored after removal");
-      const OverlayDraw::AtlasPixels blackAtlas{.Rgba = black.data(), .Width = 1, .Height = 1};
-      const OverlayDraw::AtlasPixels whiteAtlas{.Rgba = white.data(), .Width = 1, .Height = 1};
-      for (const auto failure :
-           {Failure::Transfer, Failure::Map, Failure::Acquire, Failure::Pass, Failure::Submit}) {
-        nextFailure = failure;
-        skipFailures = 1;
-        const unsigned before = failures;
-        CHECK(!renderer.ReplaceOverlay(replacement, &blackAtlas, error),
-              "second upload failure rejects combined replacement");
-        CHECK(failures == before + 1 && nextFailure == Failure::None,
-              "failure reached quad phase after successful atlas upload");
-        CHECK(read() == baseline, "combined failure preserves both previous atlas and geometry");
-        CHECK(renderer.ReplaceOverlay(replacement, &blackAtlas, error), "combined retry succeeds");
-        CHECK(read() != baseline, "combined retry publishes new pixels");
-        CHECK(renderer.ReplaceOverlay(std::span<const OverlayQuad>(&quad, 1), &whiteAtlas, error),
-              "combined baseline restored");
-      }
-      for (const auto dimensions :
-           {std::array{0, 1},
-            std::array{1, -1},
-            std::array{65536, 65536},
-            std::array{std::numeric_limits<int>::max(), std::numeric_limits<int>::max()}}) {
-        CHECK(!renderer.SetOverlayAtlas(white.data(), dimensions[0], dimensions[1], error),
-              "invalid or overflowing dimensions rejected before reading texels");
-        CHECK(read() == baseline, "invalid dimensions preserve old pixels");
-      }
-      CHECK(!renderer.SetOverlayAtlas(nullptr, 1, 1, error), "null texels rejected");
-      CHECK(read() == baseline, "null texels preserve old pixels");
+      fixture.QuadInputs();
+      fixture.CombinedFailure(UploadFailurePoint::Texture);
+      for (const auto point : kUploadFailures) { fixture.CombinedFailure(point); }
+      fixture.CombinedFailure(UploadFailurePoint::Copy, 1);
+      fixture.AtlasInputs();
     }
   }
   SDL_Quit();

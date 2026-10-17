@@ -12,6 +12,15 @@
 
 namespace outshine::Test::Gpu {
 using namespace outshine::Render::Native;
+using outshine::Render::Native::Binding;
+using outshine::Render::Native::Buffer;
+using outshine::Render::Native::BufferUse;
+using outshine::Render::Native::Commands;
+using outshine::Render::Native::Device;
+using outshine::Render::Native::ErrorKind;
+using outshine::Render::Native::Memory;
+using outshine::Render::Native::Result;
+using outshine::Render::Native::StorageBuffer;
 
 [[noreturn]] inline void Failed() {
   const int status = Report();
@@ -50,16 +59,18 @@ inline std::vector<uint32_t> Spirv(const char *path) {
   return words;
 }
 
-inline std::unique_ptr<Buffer>
-Upload(Device &device, Commands &commands, std::span<const uint32_t> words) {
+inline std::unique_ptr<Buffer> Upload(Device &device,
+                                      Commands &commands,
+                                      std::span<const uint32_t> words,
+                                      BufferUse use = BufferUse::Storage) {
   auto upload = Require(device.CreateBuffer(
       {.Bytes = words.size_bytes(), .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
   const auto mapped = Require(device.MapWrite(*upload, {.Bytes = words.size_bytes()}));
   std::memcpy(mapped.data(), words.data(), words.size_bytes());
   Require(device.Unmap(*upload));
-  auto result = Require(device.CreateBuffer(
-      {.Bytes = words.size_bytes(),
-       .Use = BufferUse::Storage | BufferUse::CopyDestination | BufferUse::CopySource}));
+  auto result = Require(
+      device.CreateBuffer({.Bytes = words.size_bytes(),
+                           .Use = use | BufferUse::CopyDestination | BufferUse::CopySource}));
   Require(commands.Copy(*upload, *result, {.Bytes = words.size_bytes()}));
   auto busy = device.MapWrite(*upload, {.Bytes = words.size_bytes()});
   CHECK(!busy && busy.error().Kind == ErrorKind::Busy, "recorded uploads cannot be rewritten");

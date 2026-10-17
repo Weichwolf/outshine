@@ -1,92 +1,85 @@
-#include <SDL3/SDL.h>
-
+#include "GroundLattice.h"
+#include "test/harness/render/NativeCommandsProxy.h"
+#include "test/harness/render/NativeDeviceProxy.h"
+#include "test/harness/render/NativeGpuCheck.h"
+#include "test/harness/render/NativeOffline.h"
+#include "Check.h"
 #include <array>
-#include <cassert>
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
-#include <dlfcn.h>
+#include <expected>
 #include <memory>
+#include <span>
+#include <string_view>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "Check.h"
-#include "GroundLattice.h"
-#include "RuntimeScene.h"
-#include "SceneRenderer.h"
-
 namespace {
-
-enum class Failure { None, Buffer, Transfer, Map, Acquire, Pass, Submit };
-
+using namespace outshine::Render;
+using namespace outshine::Render::Native;
+using namespace outshine::Test;
+using namespace outshine::Test::Gpu;
+enum class Failure { None, Buffer, Transfer, Map, Acquire, Copy, Submit };
 Failure Next = Failure::None;
+constexpr std::string_view kCause = "injected ground upload failure";
+constexpr size_t kMany = 65;
 
 bool Reject(Failure point) {
   if (Next != point) { return false; }
   Next = Failure::None;
-  SDL_SetError("injected ground upload failure");
   return true;
 }
 
-template <typename F> F Original(const char *name) {
-  auto function = reinterpret_cast<F>(dlsym(RTLD_NEXT, name));
-  assert(function != nullptr);
-  return function;
+Error Refused() {
+  return {.Kind = ErrorKind::Driver, .Message = std::string(kCause)};
 }
 
-}
+struct FaultCommands final : NativeCommandsProxy {
+  using NativeCommandsProxy::Copy;
+  using NativeCommandsProxy::NativeCommandsProxy;
 
-extern "C" SDL_GPUBuffer *SDLCALL SDL_CreateGPUBuffer(SDL_GPUDevice *device,
-                                                      const SDL_GPUBufferCreateInfo *info) {
-  if (Reject(Failure::Buffer)) { return nullptr; }
-  static const auto original = Original<decltype(&SDL_CreateGPUBuffer)>("SDL_CreateGPUBuffer");
-  return original(device, info);
-}
-
-extern "C" SDL_GPUTransferBuffer *SDLCALL
-SDL_CreateGPUTransferBuffer(SDL_GPUDevice *device, const SDL_GPUTransferBufferCreateInfo *info) {
-  if (Reject(Failure::Transfer)) { return nullptr; }
-  static const auto original =
-      Original<decltype(&SDL_CreateGPUTransferBuffer)>("SDL_CreateGPUTransferBuffer");
-  return original(device, info);
-}
-
-extern "C" void *SDLCALL SDL_MapGPUTransferBuffer(SDL_GPUDevice *device,
-                                                  SDL_GPUTransferBuffer *buffer,
-                                                  bool cycle) {
-  if (Reject(Failure::Map)) { return nullptr; }
-  static const auto original =
-      Original<decltype(&SDL_MapGPUTransferBuffer)>("SDL_MapGPUTransferBuffer");
-  return original(device, buffer, cycle);
-}
-
-extern "C" SDL_GPUCommandBuffer *SDLCALL SDL_AcquireGPUCommandBuffer(SDL_GPUDevice *device) {
-  if (Reject(Failure::Acquire)) { return nullptr; }
-  static const auto original =
-      Original<decltype(&SDL_AcquireGPUCommandBuffer)>("SDL_AcquireGPUCommandBuffer");
-  return original(device);
-}
-
-extern "C" SDL_GPUCopyPass *SDLCALL SDL_BeginGPUCopyPass(SDL_GPUCommandBuffer *commands) {
-  if (Reject(Failure::Pass)) { return nullptr; }
-  static const auto original = Original<decltype(&SDL_BeginGPUCopyPass)>("SDL_BeginGPUCopyPass");
-  return original(commands);
-}
-
-extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *commands) {
-  if (Next == Failure::Submit) {
-    CHECK(SDL_CancelGPUCommandBuffer(commands), "injected ground submission consumes commands");
-    (void)Reject(Failure::Submit);
-    return false;
+  Result<void> Copy(const Buffer &source, Buffer &destination, BufferCopy region) override {
+    if (Reject(Failure::Copy)) { return std::unexpected(Refused()); }
+    return NativeCommandsProxy::Copy(source, destination, region);
   }
-  static const auto original =
-      Original<decltype(&SDL_SubmitGPUCommandBuffer)>("SDL_SubmitGPUCommandBuffer");
-  return original(commands);
-}
 
-namespace {
+  Result<void> Copy(const Buffer &source, Texture &destination, TextureTransfer region) override {
+    if (Reject(Failure::Copy)) { return std::unexpected(Refused()); }
+    return NativeCommandsProxy::Copy(source, destination, region);
+  }
+};
 
-using namespace outshine;
-using namespace outshine::Render;
-using namespace outshine::Test;
+struct FaultDevice final : NativeDeviceProxy {
+  using NativeDeviceProxy::NativeDeviceProxy;
+
+  Result<std::unique_ptr<Buffer>> CreateBuffer(BufferDescription description,
+                                               std::string_view label = {}) override {
+    if (Reject(description.Placement == Memory::Upload ? Failure::Transfer : Failure::Buffer)) {
+      return std::unexpected(Refused());
+    }
+    return NativeDeviceProxy::CreateBuffer(description, label);
+  }
+
+  Result<std::span<std::byte>> MapWrite(Buffer &buffer, ByteRange range) override {
+    if (Reject(Failure::Map)) { return std::unexpected(Refused()); }
+    return NativeDeviceProxy::MapWrite(buffer, range);
+  }
+
+  Result<std::unique_ptr<Commands>> Begin() override {
+    if (Reject(Failure::Acquire)) { return std::unexpected(Refused()); }
+    auto commands = NativeDeviceProxy::Begin();
+    if (!commands) { return std::unexpected(commands.error()); }
+    return std::make_unique<FaultCommands>(std::move(*commands));
+  }
+
+  Result<Completion> Submit(std::unique_ptr<Commands> commands) override {
+    auto actual = static_cast<FaultCommands &>(*commands).Take();
+    if (Reject(Failure::Submit)) { return std::unexpected(Refused()); }
+    return NativeDeviceProxy::Submit(std::move(actual));
+  }
+};
 
 GroundTile Tile(float east) {
   GroundTile tile;
@@ -97,60 +90,71 @@ GroundTile Tile(float east) {
   return tile;
 }
 
+void Pages(FaultDevice &device, GroundLattice &ground) {
+  std::vector<float> nodes(GroundLattice::kPageNodes);
+  CHECK(Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5))) ==
+            0,
+        "first height page is placed");
+  for (const Failure failure :
+       {Failure::Transfer, Failure::Map, Failure::Acquire, Failure::Copy, Failure::Submit}) {
+    Next = failure;
+    const auto rejected =
+        RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5));
+    CHECK(!rejected && rejected.error().Message == kCause,
+          "rejected page upload reports its native cause");
+    CHECK(Next == Failure::None, "the requested page failure is reached");
+    CHECK(ground.PagesStanding() == 1, "failed uploads publish no page");
+    CHECK(Require(RetryOffline([&] { return ground.PlacePage(nodes); }, std::chrono::seconds(5))) ==
+              1,
+          "rejected page upload returns its reservation for retry");
+    ground.ReleasePage(1);
+  }
+  ground.ReleasePage(1);
+  CHECK(ground.PagesStanding() == 1, "releasing a page twice does not corrupt live accounting");
+  CHECK(!ground.PlacePage(std::span(nodes).first(nodes.size() - 1)),
+        "incomplete native height pages remain invalid");
+  auto other = Require(CreateDevice({.Validation = true}));
+  GroundPipelineBinding pipelines;
+  CHECK(!ground.AttachPipelines(pipelines, *other),
+        "ground resources cannot silently move between native devices");
+  static_cast<void>(device);
+}
+
+void Instances(GroundLattice &ground) {
+  const std::array one{Tile(0)};
+  std::array<GroundTile, kMany> many{};
+  for (size_t at = 0; at < many.size(); ++at) { many[at] = Tile(static_cast<float>(at)); }
+  Require(RetryOffline([&] { return ground.SetInstances(one, {}); }, std::chrono::seconds(5)));
+  const auto baseline = ground.Triangles();
+  for (const Failure failure : {Failure::Buffer,
+                                Failure::Transfer,
+                                Failure::Map,
+                                Failure::Acquire,
+                                Failure::Copy,
+                                Failure::Submit}) {
+    Next = failure;
+    const auto rejected =
+        RetryOffline([&] { return ground.SetInstances(many, {}); }, std::chrono::seconds(5));
+    CHECK(!rejected && rejected.error().Message == kCause,
+          "rejected tile upload reports its native cause");
+    CHECK(Next == Failure::None, "the requested tile failure is reached");
+    CHECK(ground.Triangles() == baseline,
+          "rejected tile upload preserves the published tile count");
+  }
+  Require(RetryOffline([&] { return ground.SetInstances(many, {}); }, std::chrono::seconds(5)));
+  CHECK(ground.Triangles() == many.size() * GroundLattice::kIndices / 3u,
+        "successful tile upload publishes every tile");
+}
 }
 
 int main() {
-  CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
-  {
-    SceneRenderer renderer;
-    Core::Declaration declaration;
-    declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
-    declaration.Outputs = {"surface"};
-    std::unique_ptr<Core::RuntimeScene> scene;
-    std::string error;
-    CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error),
-          "ground fixture opens");
-    if (scene) {
-      std::vector<float> nodes(GroundLattice::kPageNodes);
-      CHECK(renderer.PlaceHeightPage(nodes, error) == 0, "first height page is placed");
-      for (Failure failure :
-           {Failure::Transfer, Failure::Map, Failure::Acquire, Failure::Pass, Failure::Submit}) {
-        Next = failure;
-        error.clear();
-        CHECK(renderer.PlaceHeightPage(nodes, error) == kNoPage &&
-                  error.find("injected ground upload failure") != std::string::npos,
-              "rejected page upload reports its SDL cause");
-        CHECK(Next == Failure::None, "the requested page failure is reached");
-        CHECK(renderer.PlaceHeightPage(nodes, error) == 1,
-              "rejected page upload returns its reservation for retry");
-        renderer.ReleaseHeightPage(1);
-      }
-
-      const std::array<GroundTile, 1> one{{Tile(0)}};
-      std::array<GroundTile, 65> many{};
-      for (size_t at = 0; at < many.size(); ++at) { many[at] = Tile(static_cast<float>(at)); }
-      CHECK(renderer.SetGroundLattice(one, {}, error), "baseline ground tile is published");
-      const uint32_t baseline = renderer.GroundLatticeTriangles();
-      for (Failure failure : {Failure::Buffer,
-                              Failure::Transfer,
-                              Failure::Map,
-                              Failure::Acquire,
-                              Failure::Pass,
-                              Failure::Submit}) {
-        Next = failure;
-        error.clear();
-        CHECK(!renderer.SetGroundLattice(many, {}, error) &&
-                  error.find("injected ground upload failure") != std::string::npos,
-              "rejected tile upload reports its SDL cause");
-        CHECK(Next == Failure::None, "the requested tile failure is reached");
-        CHECK(renderer.GroundLatticeTriangles() == baseline,
-              "rejected tile upload preserves the published tile count");
-      }
-      CHECK(renderer.SetGroundLattice(many, {}, error), "tile upload retries successfully");
-      CHECK(renderer.GroundLatticeTriangles() == many.size() * GroundLattice::kIndices / 3u,
-            "successful tile upload publishes every tile");
-    }
-  }
-  SDL_Quit();
+  auto actual = Require(CreateDevice({.Validation = true}));
+  FaultDevice device(*actual);
+  GroundLattice ground;
+  GroundPipelineBinding pipelines;
+  Require(RetryOffline([&] { return ground.AttachPipelines(pipelines, device); },
+                       std::chrono::seconds(5)));
+  Pages(device, ground);
+  Instances(ground);
   return Report();
 }

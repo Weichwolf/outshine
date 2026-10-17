@@ -47,7 +47,7 @@ Result<void> Recording::DrawIndexed(const IndexedDrawDescription &description) {
   if (auto indices = BindIndices(*packet, description.Indices); !indices) { return indices; }
   const uint32_t bytes = description.Indices.Type == IndexType::Uint16 ? 2u : 4u;
   const auto &range = description.Range;
-  if (uint64_t(range.First) + range.Count > description.Indices.Range.Bytes / bytes) {
+  if (uint64_t{range.First} + range.Count > description.Indices.Range.Bytes / bytes) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Invalid, .Message = "draw exceeds bound index range"});
   }
@@ -79,7 +79,7 @@ Result<void> Recording::DrawIndexedIndirect(const IndirectDrawDescription &descr
   auto buffer = BufferFrom(*range.Data, *Context_);
   if (!buffer) { return std::unexpected(buffer.error()); }
   const ByteRange bytes{.Offset = range.Offset,
-                        .Bytes = uint64_t(range.Count - 1) * range.Stride + kIndexedIndirectBytes};
+                        .Bytes = uint64_t{range.Count - 1} * range.Stride + kIndexedIndirectBytes};
   if (!Contains((*buffer)->Description.Bytes, bytes) ||
       (static_cast<uint32_t>((*buffer)->Description.Use) &
        static_cast<uint32_t>(BufferUse::Indirect)) == 0) {
@@ -102,7 +102,6 @@ Result<void> Recording::DrawIndexedIndirect(const IndirectDrawDescription &descr
 
 void Recording::EncodeDraw(const DrawPacket &packet) {
   const auto &pipeline = *packet.Graphics->Pipeline;
-  vkCmdBindPipeline(Commands_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.Handle);
   vkCmdSetViewport(Commands_, 0, 1, &packet.Area);
   vkCmdSetScissor(Commands_, 0, 1, &packet.Clip);
   if (!packet.Sets.empty()) {
@@ -151,7 +150,7 @@ void Recording::EncodeDraw(const DrawPacket &packet) {
     for (uint32_t at = 0; at < range.Count; ++at) {
       vkCmdDrawIndexedIndirect(Commands_,
                                packet.Indirect->Handle,
-                               range.Offset + uint64_t(at) * range.Stride,
+                               range.Offset + uint64_t{at} * range.Stride,
                                1,
                                range.Stride);
     }

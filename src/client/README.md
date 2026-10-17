@@ -25,3 +25,19 @@ Szenarioinhalte bekommen keine einzelnen CLI-Schalter.
 Places planen die Frame-Anfänge auf absoluten Terminen. Die Messung endet nach
 der GPU-Fertigstellung des letzten Frames; sie wartet danach kein leeres Restintervall.
 Framezahl und 360°-Kamerafahrt bleiben gleich. PNG-Kodierung liegt außerhalb der Messzeit.
+
+Das Place-Pflichtgate überschreibt das Profil ausdrücklich mit 1280×720/30.
+`make suite SUITE=outshine/integration/places60` prüft separat den Vergleich bei 1280×720/60.
+Beide erhalten Inhalt/Sichtweite und das CPU-p99-Ziel unter 10 ms. Jede Messung benötigt
+GPU-Zeitstempel für sämtliche Frames und ein GPU-Maximum innerhalb von `1000/fps` ms.
+Bei 30 bzw. 60 Frames entspricht das Maximum auch dem Nearest-Rank-p99.
+
+`shots --rows` ergänzt `PROFILE` und die unveränderte `ROW` um eine `GPUROW`:
+`Name`, gerenderte Frames, GPU-Zeitstempel, GPU-Gesamtzeit ms, GPU-Maximum ms,
+Frames ohne Zeitstempel, CPU-Abfragezeit ms; Felder durch Tabs getrennt.
+Die Werte stammen ausschließlich aus dem abgeschlossenen Messintervall vor dem Screenshot.
+Fehlende Messwerte sind `nan`; Preload-/Lifetime-Zeiten ersetzen sie nicht.
+Vor jeder Place-Messung startet `renderer().resetMeasurements()` ein neues CPU-/GPU-Fenster.
+Es wartet und rendert nicht. Später eintreffende Ergebnisse älterer Einreichungen zählen
+weiterhin nicht zum neuen Fenster. Auch mehrere Aufnahmen desselben Engine-Prozesses
+melden ausschließlich ihre eigenen Frames; Quelle-/Assetzähler bleiben davon unabhängig.

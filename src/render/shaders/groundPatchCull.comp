@@ -1,0 +1,85 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+layout(std430, set = 0, binding = 0) readonly buffer Buffer_bounds { vec4 bounds[]; };
+layout(std430, set = 0, binding = 1) readonly buffer Buffer_pyramid { float pyramid[]; };
+layout(std430, set = 1, binding = 0) buffer Buffer_kept { uint kept[]; };
+layout(std140, set = 2, binding = 0) uniform GroundView {
+  mat4 clip;
+  vec4 shift;
+  vec4 viewport;
+  uvec4 wide, high, at;
+  uvec4 source;
+  uvec4 work;
+  vec4 detail;
+} view;
+#include "depthRectangle.glsl"
+
+float projectedDisplacementScale(vec3 rowX, vec3 rowY, vec3 rowW,
+                                  vec2 least, vec2 most, float looseScale) {
+  float maximum = 0.0;
+  for (uint corner = 0u; corner < 4u; ++corner) {
+    const vec2 ndc = vec2((corner & 1u) == 0u ? least.x : most.x,
+                          (corner & 2u) == 0u ? least.y : most.y);
+    const vec3 a = 0.5 * view.viewport.z * (rowX - ndc.x * rowW);
+    const vec3 b = 0.5 * view.viewport.w * (rowY - ndc.y * rowW);
+    const float aa = dot(a, a), bb = dot(b, b), ab = dot(a, b);
+    const float trace = aa + bb;
+    if (isnan(trace) || isinf(trace)) { return uintBitsToFloat(0x7f800000u); }
+    if (trace > 0.0) {
+      const vec2 eigen = vec2(aa - bb, 2.0 * ab) / trace;
+      const float bound = sqrt(0.5 * trace * (1.0 + length(eigen)));
+      if (isnan(bound) || isinf(bound)) { return uintBitsToFloat(0x7f800000u); }
+      maximum = max(maximum, bound);
+    } else if (any(notEqual(a, vec3(0.0))) || any(notEqual(b, vec3(0.0)))) {
+      return uintBitsToFloat(0x7f800000u);
+    }
+  }
+  return maximum + 64.0 * 1.1920929e-7 * looseScale;
+}
+
+void main() {
+  const uint id = gl_GlobalInvocationID.x;
+  if (id >= view.source.x) { return; }
+  for (uint level = 0u; level < 4u; ++level) { kept[level * view.work.x + id] = 0u; }
+  kept[id] = 1u;
+  const vec4 a = bounds[3u * id], b = bounds[3u * id + 1u];
+  const vec4 errors = bounds[3u * id + 2u];
+  if (a.w < 0.5 || any(isnan(a)) || any(isnan(b)) || any(isinf(a)) || any(isinf(b))) { return; }
+  const vec3 error = 8.0 * 1.1920929e-7 * (max(abs(a.xyz), abs(b.xyz)) + abs(view.shift.xyz) + 1.0);
+  const vec3 low = a.xyz + view.shift.xyz - error, high = b.xyz + view.shift.xyz + error;
+  vec2 least = vec2(3.0e38), most = vec2(-3.0e38);
+  float nearest = -3.0e38, minimumW = 3.0e38;
+  for (uint corner = 0u; corner < 8u; ++corner) {
+    const vec3 point = vec3((corner & 1u) == 0u ? low.x : high.x,
+                             (corner & 2u) == 0u ? low.y : high.y,
+                             (corner & 4u) == 0u ? low.z : high.z);
+    const vec4 projected = view.clip * vec4(point, 1.0);
+    if (projected.w <= 1.0e-5 || any(isnan(projected)) || any(isinf(projected))) { return; }
+    minimumW = min(minimumW, projected.w);
+    const vec3 p = projected.xyz / projected.w;
+    least = min(least, p.xy); most = max(most, p.xy); nearest = max(nearest, p.z);
+  }
+  vec2 lo = view.viewport.xy + vec2(least.x * 0.5 + 0.5, 0.5 - most.y * 0.5) * view.viewport.zw - 1.0;
+  vec2 hi = view.viewport.xy + vec2(most.x * 0.5 + 0.5, 0.5 - least.y * 0.5) * view.viewport.zw + 1.0;
+  const vec2 source = vec2(view.source.yz);
+  if (any(lessThan(hi, vec2(0.0))) || any(greaterThan(lo, source))) { kept[id] = 0u; return; }
+  lo = clamp(lo / source, 0.0, 1.0); hi = clamp(hi / source, 0.0, 1.0);
+  if (depthRectangleOccluded(lo, hi, clamp(nearest, 0.0, 1.0) + 1.0e-6,
+                               source, view.wide, view.high, view.at)) { kept[id] = 0u; return; }
+  const vec3 rowX = vec3(view.clip[0][0], view.clip[1][0], view.clip[2][0]);
+  const vec3 rowY = vec3(view.clip[0][1], view.clip[1][1], view.clip[2][1]);
+  const vec3 rowW = vec3(view.clip[0][3], view.clip[1][3], view.clip[2][3]);
+  const float wScale = length(rowW);
+  const vec2 scale = 0.5 * view.viewport.zw * (vec2(length(rowX), length(rowY)) + max(abs(least), abs(most)) * wScale);
+  const float displacementScale = projectedDisplacementScale(rowX, rowY, rowW, least, most, length(scale));
+  if (isnan(displacementScale) || isinf(displacementScale)) { return; }
+  uint selected = 0u;
+  for (uint level = 1u; level < 4u; ++level) {
+    const float displacement = errors[level] + 2.0 * length(error);
+    const float denominator = minimumW - displacement * wScale;
+    if (!isnan(displacement) && !isinf(displacement) && denominator > 0.0 && displacement * displacementScale <= view.detail.x * denominator) { selected = level; }
+  }
+  kept[id] = 0u;
+  kept[selected * view.work.x + id] = 1u;
+}

@@ -7,7 +7,11 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstdint>
+#include <cstddef>
 #include <memory>
+#include <expected>
+#include <utility>
 #include <string>
 #include <thread>
 #include <vector>
@@ -16,6 +20,9 @@ namespace {
 using namespace outshine;
 using namespace outshine::Render;
 using namespace outshine::Test;
+
+constexpr double kNearM = 0.1, kFarM = 100;
+constexpr double kKeyLux = 10000, kKeyElevationDeg = 45;
 
 struct Faults {
   enum class Failure { None, Acquire, Submit };
@@ -26,38 +33,42 @@ struct Faults {
   GpuSubmission Functions() {
     return {
         .Context = this,
-        .Acquire = [](void *context, SDL_GPUDevice *device) -> SDL_GPUCommandBuffer * {
+        .Acquire = [](void *context,
+                      Native::Device *device) -> Native::Result<std::unique_ptr<Native::Commands>> {
           auto &faults = *static_cast<Faults *>(context);
           if (faults.Next == Failure::Acquire) {
             faults.Next = Failure::None;
-            SDL_SetError("injected preparation acquire failure");
-            return nullptr;
+            return std::unexpected(
+                Native::Error{.Kind = Native::ErrorKind::Driver,
+                              .Message = "injected preparation acquire failure"});
           }
-          return SDL_AcquireGPUCommandBuffer(device);
+          return device->Begin();
         },
-        .Submit = [](void *context, SDL_GPUCommandBuffer *commands) -> SDL_GPUFence * {
+        .Submit =
+            [](void *context,
+               Native::Device *device,
+               std::unique_ptr<Native::Commands> commands) -> Native::Result<Native::Completion> {
           auto &faults = *static_cast<Faults *>(context);
           if (faults.Next == Failure::Submit) {
             faults.Next = Failure::None;
-            CHECK(SDL_CancelGPUCommandBuffer(commands), "failed submission consumes commands");
-            SDL_SetError("injected preparation submit failure");
-            return nullptr;
+            CHECK(commands, "failed submission receives owned commands for cancellation");
+            return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Driver,
+                                                 .Message = "injected preparation submit failure"});
           }
-          return SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+          return device->Submit(std::move(commands));
+        },
+        .QueryFence = [](void *context, Native::Device *device, Native::Completion completion)
+            -> Native::Result<Native::CompletionStatus> {
+          if (static_cast<Faults *>(context)->Hold) { return Native::CompletionStatus::Pending; }
+          return device->Poll(completion);
         },
         .WaitFence =
-            [](void *context, SDL_GPUDevice *device, SDL_GPUFence *const *fences, uint32_t count) {
+            [](void *context,
+               Native::Device *device,
+               Native::Completion completion,
+               std::chrono::nanoseconds budget) {
               ++static_cast<Faults *>(context)->Waits;
-              return SDL_WaitForGPUFences(device, true, fences, count);
-            },
-        .QueryFence =
-            [](void *context, SDL_GPUDevice *device, SDL_GPUFence *fence) {
-              return !static_cast<Faults *>(context)->Hold && SDL_QueryGPUFence(device, fence);
-            },
-        .WaitIdle =
-            [](void *context, SDL_GPUDevice *device) {
-              ++static_cast<Faults *>(context)->Waits;
-              return SDL_WaitForGPUIdle(device);
+              return device->Wait(completion, budget);
             }};
   }
 };
@@ -80,8 +91,8 @@ void Exercise() {
   declaration.Outputs = {"surface", "sceneDepth", "sceneVelocity", "shadowAtlas"};
   declaration.DrawsSky = true;
   declaration.ShadowRadiusM = 8;
-  declaration.KeyLux = 10000;
-  declaration.KeyElevationDeg = 45;
+  declaration.KeyLux = kKeyLux;
+  declaration.KeyElevationDeg = kKeyElevationDeg;
   Faults faults;
   SceneRenderer prepared(faults.Functions());
   SceneRenderer control;
@@ -95,8 +106,8 @@ void Exercise() {
   Viewpoint eye;
   eye.EyeM = {{0, 0, 4}};
   eye.YfovRad = 1;
-  eye.ZNearM = 0.1;
-  eye.ZFarM = 100;
+  eye.ZNearM = kNearM;
+  eye.ZFarM = kFarM;
   preparedScene->Eye(eye);
   controlScene->Eye(eye);
   faults.Waits = 0;
@@ -146,7 +157,7 @@ void Exercise() {
   CHECK(prepared.ReadDepth(actual) == ReadState::Ready &&
             control.ReadDepth(expected) == ReadState::Ready,
         "both first-frame depth targets are readable");
-  CHECK(actual.size() == 32u * 32u && actual == expected &&
+  CHECK(actual.size() == size_t{32} * 32u && actual == expected &&
             std::ranges::any_of(actual, [](float depth) { return depth > 0; }),
         "prepared uploads preserve the control's first visible geometry exactly");
   std::vector<float> firstShadow;

@@ -120,6 +120,31 @@ void PublishAssetCosts(Core::DiagnosticLedger &published,
 
 }
 
+void Engine::State::PublishGpuFrameMeasurements(bool completedCapture) {
+  if (!Picture.Standing) { return; }
+  const auto &render = Picture.Device.Costs();
+  constexpr std::array frameNames{"cost.gpu.frames",
+                                  "cost.gpu.total_ms",
+                                  "cost.gpu.max_ms",
+                                  "cost.gpu.unavailable",
+                                  "cost.gpu.query_ms"};
+  constexpr std::array captureNames{"capture.gpu.frames",
+                                    "capture.gpu.total_ms",
+                                    "capture.gpu.max_ms",
+                                    "capture.gpu.unavailable",
+                                    "capture.gpu.query_ms"};
+  const auto &names = completedCapture ? captureNames : frameNames;
+  Published.RecordMetric(names[0], static_cast<double>(render.Gpu.Frames), "frames");
+  Published.RecordMetric(names[1], render.Gpu.TotalMs, "ms");
+  Published.RecordMetric(names[2], render.Gpu.MostMs, "ms");
+  Published.RecordMetric(names[3], static_cast<double>(render.UnavailableGpuFrames), "frames");
+  Published.RecordMetric(names[4], render.GpuQueryMs, "ms");
+  if (completedCapture) {
+    Published.RecordMetric(
+        "capture.gpu.render_frames", static_cast<double>(render.Frames), "frames");
+  }
+}
+
 void Engine::State::PublishCostMeasurements() {
   const auto began = std::chrono::steady_clock::now();
   const auto store = World.Stack.StoreCosts();
@@ -205,6 +230,7 @@ void Engine::State::PublishCostMeasurements() {
     return;
   }
   const auto &render = Picture.Device.Costs();
+  PublishGpuFrameMeasurements();
   Published.RecordMetric("cost.render.frames", static_cast<double>(render.Frames), "frames");
   static const auto hostNames = MetricNames<static_cast<size_t>(Render::RenderFramePhase::Count)>(
       "cost.host.", std::array{".total_ms", ".worst_ms"}, [](size_t at) {

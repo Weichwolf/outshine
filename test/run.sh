@@ -270,11 +270,12 @@ TestProfile() {
     outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
     outshine/src/scenario/ScenarioWrite) printf '%s' 'profile/scenario-write' ;;
     outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
+    outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError) printf '%s' 'profile/ground-patch' ;;
     outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
     outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) printf '%s' 'profile/species' ;;
     outshine/src/render/stages/MediumView) printf '%s' 'profile/medium-view' ;;
     outshine/src/*) printf '%s' 'profile/internal' ;;
-    outshine/integration/places|outshine/integration/world_regressions) printf '%s' 'profile/engine' ;;
+    outshine/integration/places|outshine/integration/places60|outshine/integration/world_regressions) printf '%s' 'profile/internal' ;;
     *) printf '%s' "$1" ;;
   esac
 }
@@ -304,6 +305,7 @@ LayerIncludes() {
     profile/scenario) GroupIncludes src/scenario ;;
     profile/scenario-write) LayerIncludes profile/scenario ;;
     profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
+    profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/stages' ;;
     profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-recipe-json) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-asset) GroupIncludes src/generators/flora; GroupIncludes src/base; GroupIncludes src/content/assets; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
@@ -330,7 +332,7 @@ LayerToolchain() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerToolchain profile/internal ;;
     profile/diagnostics) LayerToolchain profile/internal ;;
-    profile/internal|profile/device) LayerToolchain profile/engine; printf ' %s' "$(pkg-config --cflags sdl3-shadercross)" ;;
+    profile/internal|profile/device) LayerToolchain profile/engine ;;
     profile/engine | harness/wpt/css) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     harness/geographiclib/geodesic) printf '%s' "$CXXSTD -fno-exceptions $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
@@ -338,7 +340,7 @@ LayerToolchain() {
 }
 NativeSafetyProfile() {
   case "$1" in
-    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantRecipeJson|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
+    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantRecipeJson|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -368,7 +370,7 @@ LayerValidation() {
     printf '%s ' "$HARDENING_FLAGS"
   fi
   case "$1" in
-    outshine/integration/places|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
+    outshine/integration/places|outshine/integration/places60|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
   esac
   case "$(TestProfile "$1")" in
     profile/device) printf '%s' "-DOUTSHINE_GPU_VALIDATION" ;;
@@ -379,6 +381,7 @@ LayerValidation() {
 LayerLink() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
+    profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/tasks) printf '%s' '-pthread' ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
     profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe | profile/plant-recipe-json) return 0 ;;
@@ -389,7 +392,7 @@ LayerLink() {
     profile/world) LayerLink profile/content; printf ' %s' "$(pkg-config --libs liblz4 libtiff-4 libwebp) -lcurl" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
-    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
+    profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -lz -lcurl $(NativeLink)" ;;
     harness/claims) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     *) printf '%s' "" ;;
   esac
@@ -441,6 +444,7 @@ LayerGroups() {
     profile/world) SubtreeGroups src/base src/content src/world ;;
     profile/host) SubtreeGroups src/base src/content src/world src/host ;;
     profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
+    profile/ground-patch) printf '%s' 'src/render/stages/GroundPatchMesh.cpp src/render/stages/GroundPatchError.cpp' ;;
     profile/scenario-write) printf '%s' "$(LayerGroups profile/scenario) src/scenario/Triggers.cpp src/scenario/Views.cpp" ;;
     profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
     profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
@@ -580,7 +584,6 @@ GroupIncludes() {
     done
   done
   includeSet="$includeSet $(pkg-config --cflags sdl3)"
-  case "$includeTier" in render) includeSet="$includeSet $(pkg-config --cflags sdl3-shadercross)" ;; esac
   case "$1" in
     src/render/device/native|src/render/device/native/*)
       includeSet="$includeSet $(SpirvCrossFlags --cflags)"
@@ -1668,8 +1671,12 @@ if [ "$AUDITLINK" = 1 ]; then
       bad=1
       continue
     fi
-    nm -u $OBJECTS 2>/dev/null | grep -o '__ZN8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.undef"
-    nm -gU $OBJECTS 2>/dev/null | awk '{print $3}' | grep '^__ZN8outshine' | sort -u > "$BUILD/audit.def"
+    nm -u $OBJECTS 2>/dev/null | grep -Eo '_+ZN[KVRO]*8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.undef"
+    if [ "$BUILD_PLATFORM" = Darwin ]; then
+      nm -gU $OBJECTS 2>/dev/null
+    else
+      nm -g --defined-only $OBJECTS 2>/dev/null
+    fi | awk '{print $3}' | grep -E '^_+ZN[KVRO]*8outshine' | sort -u > "$BUILD/audit.def"
     unresolved=$(comm -23 "$BUILD/audit.undef" "$BUILD/audit.def")
     if [ -n "$unresolved" ]; then
       printf 'AUDIT %s cannot resolve: %s\n' "$suiteDir" "$(printf '%s' "$unresolved" | head -3 | tr '\n' ' ')"
@@ -1816,11 +1823,11 @@ RebuildOwner() {
   ownerMap=$BUILD/log/manifest-owners
   if [ "$OWNER_MAP_BUILT" != yes ]; then
     OWNER_MAP_BUILT=yes
-    find test -name manifest.json -print0 |
-      while IFS= read -r -d '' candidate; do
+    find test -name manifest.json -exec sh -c '
+      for candidate do
         holder=${candidate%/manifest.json}
-        printf '%s\t%s\n' "$(printf '%s' "$holder" | tr / -)" "$holder"
-      done > "$ownerMap"
+        printf "%s\t%s\n" "$(printf "%s" "$holder" | tr / -)" "$holder"
+      done' sh {} + > "$ownerMap"
   fi
   ownerNames=$BUILD/log/owners
   # BSD sed has no \| alternation in a basic regex, so the two words are two expressions.
@@ -2071,22 +2078,30 @@ Fresh() {
   return 0
 }
 
+JudgeArm() {
+  if [ "$(TestProfile "$layer")" = profile/device ] && [ "$(uname -s)" = Darwin ]; then
+    MTL_DEBUG_LAYER=1 Judge "$@"
+  else
+    Judge "$@"
+  fi
+}
+
 JudgeArms() {
   armStem=$1
   armArgument=$2
-  Judge "$armStem" "$plainBinary" "$armArgument"
+  JudgeArm "$armStem" "$plainBinary" "$armArgument"
   JudgeInstrument "$armStem" no
   if [ -n "$sanitisedBinary" ]; then
     ASAN_OPTIONS=detect_stack_use_after_return=1
     UBSAN_OPTIONS=print_stacktrace=1
     export ASAN_OPTIONS UBSAN_OPTIONS
-    Judge "$armStem~sanitised" "$sanitisedBinary" "$armArgument"
+    JudgeArm "$armStem~sanitised" "$sanitisedBinary" "$armArgument"
     JudgeInstrument "$armStem~sanitised" yes
     unset ASAN_OPTIONS UBSAN_OPTIONS
   fi
   if [ -n "$validatedBinary" ]; then
     validatedRan=yes
-    Judge "$armStem~validated" "$validatedBinary" "$armArgument"
+    JudgeArm "$armStem~validated" "$validatedBinary" "$armArgument"
     JudgeInstrument "$armStem~validated" yes
   fi
   return 0

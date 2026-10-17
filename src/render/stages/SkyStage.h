@@ -10,7 +10,8 @@
 
 #include "FrameContext.h"
 #include "Gpu.h"
-#include "GpuOwned.h"
+#include <memory>
+#include <cstddef>
 #include "Atmosphere.h"
 #include "SkyPass.h"
 
@@ -21,12 +22,12 @@ public:
   static constexpr DrawShape ShaderShape{.FragmentSamplers = 2, .FragmentUniformBuffers = 1};
 
   struct Tables {
-    SDL_GPUTexture *SkyView = nullptr;
-    SDL_GPUTexture *Transmittance = nullptr;
-    SDL_GPUSampler *Lut = nullptr;
+    Native::Texture *SkyView = nullptr;
+    Native::Texture *Transmittance = nullptr;
+    Native::Sampler *Lut = nullptr;
   };
 
-  [[nodiscard]] bool Configure(const Gpu &gpu, Tables from, std::string &error);
+  [[nodiscard]] Native::Result<void> Configure(const Gpu &gpu, Tables from);
 
   void Declare(const Medium &medium, SkyStanding stands);
 
@@ -36,7 +37,7 @@ public:
 
   void SetBasis(const EyeBasis &eye);
 
-  void Encode(const FrameContext &ctx, const PassRecording &into);
+  [[nodiscard]] Native::Result<void> Encode(const FrameContext &ctx, const PassRecording &into);
 
 private:
   struct Pushed {
@@ -55,10 +56,14 @@ private:
     Medium Air;
   };
 
-  OwnedPipeline Pipe;
-  SDL_GPUTexture *SkyView = nullptr;
-  SDL_GPUTexture *Veil = nullptr;
-  SDL_GPUSampler *Lut = nullptr;
+  static constexpr size_t kUniformBytes = 192;
+  static constexpr size_t kMediumOffset = 112;
+  static_assert(sizeof(Pushed) == kUniformBytes && alignof(Pushed) == 16);
+  static_assert(offsetof(Pushed, Air) == kMediumOffset);
+  std::unique_ptr<Native::GraphicsPipeline> Pipe;
+  Native::Texture *SkyView = nullptr;
+  Native::Texture *Veil = nullptr;
+  Native::Sampler *Lut = nullptr;
   Pushed Pushed_{};
   bool Declared_ = false;
 };

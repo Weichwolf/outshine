@@ -41,7 +41,7 @@ Build the regular production archives with the repository toolchain and link
 the building/generator includes, shared Check harness, liboutshine, SFCGAL and
 GEOS. The piece probe uses the normal render link closure, SDL3 and the built
 production shaders. It runs CPU validation by default; `--gpu` additionally
-checks actual residency and source restoration on the existing Vulkan path.
+checks actual residency and source restoration on the native Metal/Vulkan backend.
 Use the existing native GPU diagnostic environment for validation/readback.
 
 ```sh

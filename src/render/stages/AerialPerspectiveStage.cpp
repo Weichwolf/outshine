@@ -1,7 +1,10 @@
 #include "AerialPerspectiveStage.h"
 #include "math/Vec3.h"
 
-#include "ShaderFile.h"
+#include "StagePipelines.h"
+#include <expected>
+#include <span>
+#include <utility>
 #include <array>
 #include <string>
 #include <cstdint>
@@ -10,49 +13,27 @@ namespace outshine::Render {
 
 constexpr float kMPerKmF = 1000.0f;
 
-bool AerialPerspectiveStage::Configure(const Gpu &gpu,
-                                       Tables from,
-                                       SDL_GPUTextureFormat targetFormat,
-                                       std::string &error) {
+Native::Result<void>
+AerialPerspectiveStage::Configure(const Gpu &gpu, Tables from, Native::Format targetFormat) {
+  if (gpu.Device == nullptr || from.Scene == nullptr || from.Depth == nullptr ||
+      from.SkyView == nullptr || from.Transmittance == nullptr || from.Exact == nullptr ||
+      from.Lut == nullptr) {
+    return std::unexpected(
+        Native::Error{.Kind = Native::ErrorKind::Invalid,
+                      .Message = "aerial perspective requires complete native inputs"});
+  }
+  const std::array colours{Native::ColourTarget{.Texels = targetFormat, .Rgb = {}, .Alpha = {}}};
+  auto made =
+      CreateFullscreenNdcPipeline(*gpu.Device, "build/shaders/aerialPerspective.frag.spv", colours);
+  if (!made) { return std::unexpected(made.error()); }
+  Pipe = std::move(*made);
   Scene = from.Scene;
   Depth = from.Depth;
   SkyView = from.SkyView;
   Veil = from.Transmittance;
   Exact = from.Exact;
   Lut = from.Lut;
-
-  const OwnedShader vertex(gpu.Device,
-                           ShaderFrom(gpu.Device,
-                                      "build/shaders/fullscreenNdc.vert.spv",
-                                      SDL_GPU_SHADERSTAGE_VERTEX,
-                                      ShaderShape,
-                                      error));
-  const OwnedShader fragment(gpu.Device,
-                             ShaderFrom(gpu.Device,
-                                        "build/shaders/aerialPerspective.frag.spv",
-                                        SDL_GPU_SHADERSTAGE_FRAGMENT,
-                                        ShaderShape,
-                                        error));
-  if (!vertex || !fragment) { return false; }
-
-  SDL_GPUColorTargetDescription target{};
-  target.format = targetFormat;
-  SDL_GPUGraphicsPipelineCreateInfo pipeline{};
-  pipeline.vertex_shader = vertex.Get();
-  pipeline.fragment_shader = fragment.Get();
-  pipeline.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
-  pipeline.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-  pipeline.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
-  pipeline.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
-  pipeline.target_info.color_target_descriptions = &target;
-  pipeline.target_info.num_color_targets = 1;
-  SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(gpu.Device, &pipeline);
-  if (made == nullptr) {
-    error = std::string("the aerial perspective's pipeline was refused: ") + SDL_GetError();
-    return false;
-  }
-  Pipe = OwnedPipeline(gpu.Device, made);
-  return true;
+  return {};
 }
 
 void AerialPerspectiveStage::Declare(const Medium &medium, SkyStanding stands) {
@@ -83,17 +64,37 @@ void AerialPerspectiveStage::SetBasis(const EyeBasis &eye) {
   Pushed_.TanHalf[1] = eye.TanHalfHeight;
 }
 
-void AerialPerspectiveStage::Encode(const FrameContext &ctx, const PassRecording &into) {
-  (void)ctx;
-  if (!Pipe || !Declared_ || into.Pass == nullptr) { return; }
-  SDL_BindGPUGraphicsPipeline(into.Pass, Pipe.Get());
-  const std::array<SDL_GPUTextureSamplerBinding, 4> bound = {{{.texture = Scene, .sampler = Exact},
-                                                              {.texture = Depth, .sampler = Exact},
-                                                              {.texture = SkyView, .sampler = Lut},
-                                                              {.texture = Veil, .sampler = Lut}}};
-  SDL_BindGPUFragmentSamplers(into.Pass, 0, bound.data(), 4);
-  SDL_PushGPUFragmentUniformData(into.Commands, 0, &Pushed_, static_cast<uint32_t>(sizeof Pushed_));
-  SDL_DrawGPUPrimitives(into.Pass, 3, 1, 0, 0);
+Native::Result<void> AerialPerspectiveStage::Encode([[maybe_unused]] const FrameContext &ctx,
+                                                    const PassRecording &into) {
+  if (!Declared_) { return {}; }
+  if (!Pipe || into.Commands == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "aerial perspective is not configured"});
+  }
+  const std::array bindings{
+      Native::Binding{.Set = 2,
+                      .Slot = 0,
+                      .Value =
+                          Native::SampledTexture{.Image = {.Image = Scene}, .Sampling = Exact}},
+      Native::Binding{.Set = 2,
+                      .Slot = 1,
+                      .Value =
+                          Native::SampledTexture{.Image = {.Image = Depth}, .Sampling = Exact}},
+      Native::Binding{.Set = 2,
+                      .Slot = 2,
+                      .Value =
+                          Native::SampledTexture{.Image = {.Image = SkyView}, .Sampling = Lut}},
+      Native::Binding{.Set = 2,
+                      .Slot = 3,
+                      .Value = Native::SampledTexture{.Image = {.Image = Veil}, .Sampling = Lut}},
+      Native::Binding{.Set = 3,
+                      .Slot = 0,
+                      .Value = Native::Uniform{.Bytes = std::as_bytes(std::span(&Pushed_, 1))}}};
+  return into.Commands->Draw({.State = {.Pipeline = Pipe.get(),
+                                        .Bindings = bindings,
+                                        .Vertices = {},
+                                        .Area = into.Area,
+                                        .Clip = into.Clip},
+                              .Range = {.Count = 3}});
 }
-
 }

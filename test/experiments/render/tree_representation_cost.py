@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
-PACKAGES = ('sdl3', 'sdl3-image', 'sdl3-ttf', 'sdl3-shadercross', 'liblz4',
+PACKAGES = ('sdl3', 'sdl3-image', 'sdl3-ttf', 'liblz4',
             'libtiff-4', 'libwebp', 'geos', 'sqlite3', 'libzstd')
 
 
@@ -43,8 +43,7 @@ def checked(command, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('species', nargs='*', type=Path)
-    parser.add_argument('--output', type=Path,
-                        default=ROOT / 'build/experiments/render/tree-representation')
+    parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     species = args.species or [ROOT / f'src/assets/world/species/{name}.json'
                               for name in ('birch', 'oak', 'spruce')]
@@ -55,10 +54,13 @@ def main():
     environment['PKG_CONFIG_PATH'] = str(package_path) + os.pathsep + environment.get('PKG_CONFIG_PATH', '')
     libraries = shlex.split(subprocess.check_output(
         ['pkg-config', '--libs', *PACKAGES], cwd=ROOT, env=environment, text=True, timeout=30))
+    libraries += shlex.split(subprocess.check_output(
+        ['bash', 'test/run.sh', '--native-link-flags'], cwd=ROOT, env=environment,
+        text=True, timeout=30))
     binary = output / 'tree-representation-cost'
     source = ROOT / 'test/scripts/tree-representation-cost.cpp'
     command = [*compiler_command(), str(source), 'build/libgenerators.a', 'build/liboutshine.a',
-               *libraries, f'-Wl,-rpath,{ROOT / "build/deps/install/lib"}', '-lz', '-lcurl',
+               *libraries, '-lz', '-lcurl',
                '-o', str(binary)]
     checked(command)
     with (output / 'cost.csv').open('w') as report:

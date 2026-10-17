@@ -90,7 +90,9 @@ RequiredBlocker(bool required, bool ready, std::string_view reason) noexcept {
 
 }
 
-Engine::Engine() : S_(std::make_unique<State>()) {}
+Engine::Engine() : Engine(std::make_unique<State>()) {}
+
+Engine::Engine(std::unique_ptr<State> state) : S_(std::move(state)) {}
 
 Capture::~Capture() {
   release();
@@ -417,6 +419,16 @@ Holds<Capture> Engine::beginCapture() {
 
 Result Renderer::render(Extent frame) {
   return Of_->render(frame);
+}
+
+Result Renderer::resetMeasurements() {
+  if (const auto permission = Of_->S_->MutationPermission(); !permission) { return permission; }
+  if (!Of_->S_->Picture.Standing) {
+    return std::unexpected("frame measurement requires an assembled render scene");
+  }
+  Of_->S_->Picture.Device.ResetMeasurements();
+  Of_->S_->PublishGpuFrameMeasurements(false);
+  return {};
 }
 
 Result Renderer::saveScreenshot(std::string_view path) {

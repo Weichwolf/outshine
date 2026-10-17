@@ -1,41 +1,12 @@
 #include "RuntimeScene.h"
 #include "HeightSheets.h"
 #include "Check.h"
+#include "test/harness/render/NativeUploadFaultDevice.h"
 #include <SDL3/SDL.h>
-#include <array>
-#include <cassert>
-#include <dlfcn.h>
-
-namespace {
-bool rejectSubmit = false;
-
-bool RejectCommands(SDL_GPUCommandBuffer *commands) {
-  if (!rejectSubmit) { return false; }
-  rejectSubmit = false;
-  const bool cancelled = SDL_CancelGPUCommandBuffer(commands);
-  assert(cancelled);
-  SDL_SetError("injected height-page upload failure");
-  return true;
-}
-}
-
-extern "C" bool SDLCALL SDL_SubmitGPUCommandBuffer(SDL_GPUCommandBuffer *commands) {
-  if (RejectCommands(commands)) { return false; }
-  static const auto original = reinterpret_cast<decltype(&SDL_SubmitGPUCommandBuffer)>(
-      dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBuffer"));
-  assert(original != nullptr);
-  return original(commands);
-}
-
-extern "C" SDL_GPUFence *SDLCALL
-SDL_SubmitGPUCommandBufferAndAcquireFence(SDL_GPUCommandBuffer *commands) {
-  if (RejectCommands(commands)) { return nullptr; }
-  static const auto original =
-      reinterpret_cast<decltype(&SDL_SubmitGPUCommandBufferAndAcquireFence)>(
-          dlsym(RTLD_NEXT, "SDL_SubmitGPUCommandBufferAndAcquireFence"));
-  assert(original != nullptr);
-  return original(commands);
-}
+#include <chrono>
+#include <memory>
+#include <string>
+#include <vector>
 
 int main() {
   using namespace outshine;
@@ -45,11 +16,14 @@ int main() {
     Core::Declaration declaration;
     declaration.SurfaceWidthPx = declaration.SurfaceHeightPx = 32;
     declaration.Outputs = {"surface"};
-    Render::SceneRenderer renderer;
+    outshine::Test::Gpu::UploadFailure failure{.Message = "injected height-page upload failure"};
+    Render::SceneRenderer renderer(
+        {.Context = &failure, .Create = outshine::Test::Gpu::NativeUploadFaultDevice::Create});
     std::unique_ptr<Core::RuntimeScene> scene;
     std::string error;
     CHECK(Core::RuntimeScene::Open(renderer, declaration, nullptr, scene, error), "world opens");
     if (scene) {
+      const auto uploadBudget = renderer.OfflineUploads(std::chrono::seconds(5));
       HeightSheets sheets;
       sheets.Into(&renderer);
       sheets.Framed(TangentFrame::At({.LongitudeDeg = 0, .LatitudeDeg = 0}));
@@ -73,9 +47,11 @@ int main() {
                 renderer.GroundLatticeTriangles() == triangles,
             "duplicate validation preserves the complete published terrain");
       patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes, 7);
-      rejectSubmit = true;
-      CHECK(!sheets.Hands(patch, error) && !rejectSubmit,
+      failure.Armed = true;
+      CHECK(!sheets.Hands(patch, error) && !failure.Armed && failure.Rejected == 1,
             "replacement fails at actual GPU submission");
+      CHECK(error.contains("injected height-page upload failure"),
+            "replacement reports the native upload failure cause");
       CHECK(renderer.HeightPageSourceBytes() == bytes &&
                 renderer.GroundLatticeTriangles() == triangles,
             "failed page upload retains the previous resident page and CPU payload");

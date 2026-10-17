@@ -1,40 +1,32 @@
 #include "MediumMultiScatterStage.h"
-
+#include "StagePipelines.h"
 #include <array>
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-#include <string>
-
-#include "ShaderFile.h"
+#include <cstddef>
+#include <expected>
+#include <span>
 #include <utility>
 
 namespace outshine::Render {
 
-bool MediumMultiScatterStage::Configure(const Gpu &gpu,
-                                        SDL_GPUTexture *transmittance,
-                                        SDL_GPUSampler *lut,
-                                        SDL_GPUTexture *into,
-                                        std::string &error) {
-  if (Into != into || Transmittance != transmittance) { Cache_.Invalidate(); }
+Native::Result<void> MediumMultiScatterStage::Configure(const Gpu &gpu,
+                                                        Native::Texture *transmittance,
+                                                        Native::Sampler *lut,
+                                                        Native::Texture *into) {
+  if (gpu.Device == nullptr || transmittance == nullptr || lut == nullptr || into == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "multiple scattering needs complete feeds"});
+  }
+  if (!Pipe) {
+    auto made = CreateComputePipeline(*gpu.Device, Shader);
+    if (!made) { return std::unexpected(made.error()); }
+    Pipe = std::move(*made);
+    Cache_.Invalidate();
+  }
+  if (Into != into || Transmittance != transmittance || Lut != lut) { Cache_.Invalidate(); }
   Transmittance = transmittance;
   Lut = lut;
   Into = into;
-  if (Transmittance == nullptr || Lut == nullptr || Into == nullptr) {
-    error = "the multiple scattering table needs the transmittance table, its sampler and a "
-            "table of its own, and the plan did not hold all three";
-    return false;
-  }
-  if (Pipe) { return true; }
-
-  auto made = CreateComputePipeline(gpu.Device, Shader);
-  if (!made) {
-    error = std::move(made.error());
-    return false;
-  }
-  Pipe = std::move(*made);
-  Cache_.Invalidate();
-  return true;
+  return {};
 }
 
 void MediumMultiScatterStage::Declare(const Medium &medium) {
@@ -43,18 +35,33 @@ void MediumMultiScatterStage::Declare(const Medium &medium) {
   Cache_.Invalidate();
 }
 
-void MediumMultiScatterStage::Encode(const PassRecording &into) {
-  if (!Pipe || !Cache_.NeedsRecording() || into.Dispatch == nullptr) { return; }
-  SDL_PushGPUComputeUniformData(
-      into.Commands, 0, &Declared_, static_cast<uint32_t>(sizeof Declared_));
-  SDL_BindGPUComputePipeline(into.Dispatch, Pipe.Get());
-  const SDL_GPUTextureSamplerBinding bound{.texture = Transmittance, .sampler = Lut};
-  SDL_BindGPUComputeSamplers(into.Dispatch, 0, &bound, 1);
-  SDL_DispatchGPUCompute(into.Dispatch,
-                         (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,
-                         (kMultiScatterLutSize + KernelShape.GroupY - 1u) / KernelShape.GroupY,
-                         1u);
+Native::Result<void> MediumMultiScatterStage::Encode(const PassRecording &into) {
+  if (!Cache_.NeedsRecording()) { return {}; }
+  if (!Pipe || !Declared_ || Transmittance == nullptr || Lut == nullptr || Into == nullptr ||
+      into.Commands == nullptr) {
+    return std::unexpected(Native::Error{.Kind = Native::ErrorKind::Invalid,
+                                         .Message = "multiple scattering is not configured"});
+  }
+  const std::array bindings{
+      Native::Binding{
+          .Set = 0,
+          .Slot = 0,
+          .Value = Native::SampledTexture{.Image = {.Image = Transmittance}, .Sampling = Lut}},
+      Native::Binding{
+          .Set = 1, .Slot = 0, .Value = Native::StorageTexture{.Image = {.Image = Into}}},
+      Native::Binding{
+          .Set = 2,
+          .Slot = 0,
+          .Value = Native::Uniform{.Bytes = std::as_bytes(std::span{&*Declared_, size_t{1}})}}};
+  const auto encoded = into.Commands->Dispatch(
+      *Pipe,
+      bindings,
+      {.X = (kMultiScatterLutSize + KernelShape.GroupX - 1u) / KernelShape.GroupX,
+       .Y = (kMultiScatterLutSize + KernelShape.GroupY - 1u) / KernelShape.GroupY,
+       .Z = 1u});
+  if (!encoded) { return encoded; }
   into.Submission.Record(Stage::MediumMultiScatter, Cache_);
+  return {};
 }
 
 }

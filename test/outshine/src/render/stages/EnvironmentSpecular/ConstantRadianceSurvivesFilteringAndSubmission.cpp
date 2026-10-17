@@ -1,133 +1,92 @@
 #include "Check.h"
 #include "EnvironmentSpecularLayout.h"
 #include "EnvironmentSpecularStage.h"
-#include "GpuOwned.h"
 #include "IrradianceLayout.h"
-#include "Readback.h"
-#include <SDL3/SDL.h>
+#include "test/harness/render/NativeImageReadback.h"
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <numbers>
-#include <string>
+#include <vector>
 
 namespace {
 using namespace outshine;
 using namespace outshine::Render;
+using namespace outshine::Render::Native;
 using namespace outshine::Test;
+using namespace outshine::Test::Gpu;
 
 struct Sources {
-  OwnedTexture Sky, Atlas;
-  OwnedBuffer Irradiance;
-  OwnedSampler Sample;
+  std::unique_ptr<Texture> Sky, Atlas;
+  std::unique_ptr<Buffer> Irradiance;
+  std::unique_ptr<Sampler> Sample;
 
-  explicit Sources(SDL_GPUDevice *device) {
-    SDL_GPUTextureCreateInfo texture{};
-    texture.type = SDL_GPU_TEXTURETYPE_2D;
-    texture.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
-    texture.usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    texture.width = 16;
-    texture.height = 8;
-    texture.layer_count_or_depth = texture.num_levels = 1;
-    Sky = {device, SDL_CreateGPUTexture(device, &texture)};
-    texture.format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-    texture.usage = SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    texture.width = kEnvironmentWidth;
-    texture.height = kEnvironmentHeight;
-    Atlas = {device, SDL_CreateGPUTexture(device, &texture)};
-    SDL_GPUBufferCreateInfo buffer{};
-    buffer.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-    buffer.size = kIrradianceFloats * sizeof(float);
-    Irradiance = {device, SDL_CreateGPUBuffer(device, &buffer)};
-    SDL_GPUSamplerCreateInfo sampler{};
-    sampler.min_filter = sampler.mag_filter = SDL_GPU_FILTER_LINEAR;
-    sampler.address_mode_u = sampler.address_mode_v = sampler.address_mode_w =
-        SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-    Sample = {device, SDL_CreateGPUSampler(device, &sampler)};
+  explicit Sources(Device &device) {
+    Sky =
+        Require(device.CreateTexture({.Width = 16,
+                                      .Height = 8,
+                                      .Texels = Format::Rgba32Float,
+                                      .Use = TextureUse::ColourAttachment | TextureUse::Sampled}));
+    Atlas = Require(device.CreateTexture(
+        {.Width = kEnvironmentWidth,
+         .Height = kEnvironmentHeight,
+         .Texels = Format::Rgba16Float,
+         .Use = TextureUse::Storage | TextureUse::Sampled | TextureUse::CopySource}));
+    Irradiance =
+        Require(device.CreateBuffer({.Bytes = kIrradianceFloats * sizeof(float),
+                                     .Use = BufferUse::Storage | BufferUse::CopyDestination}));
+    Sample = Require(device.CreateSampler({.Mip = Filter::Nearest}));
   }
 };
 
-bool UploadSources(SDL_GPUDevice *device, const Sources &source) {
+void UploadSources(Device &device, const Sources &source) {
   const std::array<float, kIrradianceFloats> sky{0.25f * std::numbers::pi_v<float>,
                                                  0.5f * std::numbers::pi_v<float>,
                                                  std::numbers::pi_v<float>,
                                                  0,
                                                  0,
                                                  0};
-  SDL_GPUTransferBufferCreateInfo description{};
-  description.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  description.size = sizeof(sky);
-  OwnedTransfer transfer(device, SDL_CreateGPUTransferBuffer(device, &description));
-  if (!transfer) { return false; }
-  void *mapped = SDL_MapGPUTransferBuffer(device, transfer.Get(), false);
-  if (!mapped) { return false; }
-  std::memcpy(mapped, sky.data(), sizeof(sky));
-  SDL_UnmapGPUTransferBuffer(device, transfer.Get());
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  if (!commands) { return false; }
-  SDL_GPUColorTargetInfo colour{};
-  colour.texture = source.Sky.Get();
-  colour.clear_color = {0.25f, 0.5f, 1.0f, 1.0f};
-  colour.load_op = SDL_GPU_LOADOP_CLEAR;
-  colour.store_op = SDL_GPU_STOREOP_STORE;
-  auto *raster = SDL_BeginGPURenderPass(commands, &colour, 1, nullptr);
-  if (!raster) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return false;
-  }
-  SDL_EndGPURenderPass(raster);
-  auto *copy = SDL_BeginGPUCopyPass(commands);
-  if (!copy) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return false;
-  }
-  const SDL_GPUTransferBufferLocation from{.transfer_buffer = transfer.Get(), .offset = 0};
-  const SDL_GPUBufferRegion into{
-      .buffer = source.Irradiance.Get(), .offset = 0, .size = sizeof(sky)};
-  SDL_UploadToGPUBuffer(copy, &from, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  return SDL_SubmitGPUCommandBuffer(commands);
+  auto transfer = Require(device.CreateBuffer(
+      {.Bytes = sizeof(sky), .Use = BufferUse::CopySource, .Placement = Memory::Upload}));
+  const auto mapped = Require(device.MapWrite(*transfer, {.Bytes = sizeof(sky)}));
+  std::memcpy(mapped.data(), sky.data(), sizeof(sky));
+  Require(device.Unmap(*transfer));
+  auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
+  const std::array colours{ColourAttachment{.Image = {.Image = source.Sky.get()},
+                                            .Begin = Load::Clear,
+                                            .Clear = {0.25f, 0.5f, 1.0f, 1.0f}}};
+  Require(commands->BeginRenderPass({.Colours = colours}));
+  Require(commands->EndRenderPass());
+  Require(commands->Copy(*transfer, *source.Irradiance, {.Bytes = sizeof(sky)}));
+  const auto done = Require(device.Submit(std::move(commands)));
+  CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,
+        "the constant sky and Lambertian ground are submitted");
 }
 
-bool Filter(SDL_GPUDevice *device,
-            const Sources &source,
-            EnvironmentSpecularStage &stage,
-            bool commit) {
-  auto *commands = SDL_AcquireGPUCommandBuffer(device);
-  if (!commands) { return false; }
-  const SDL_GPUStorageTextureReadWriteBinding output{.texture = source.Atlas.Get()};
-  auto *compute = SDL_BeginGPUComputePass(commands, &output, 1, nullptr, 0);
-  if (!compute) {
-    SDL_CancelGPUCommandBuffer(commands);
-    return false;
-  }
+void Filter(Device &device, EnvironmentSpecularStage &stage, bool commit) {
+  auto commands = Require(RetryOffline([&] { return device.Begin(); }, std::chrono::seconds(5)));
   StageSubmission submission;
-  stage.Encode({.Commands = commands, .Dispatch = compute, .Submission = submission});
-  SDL_EndGPUComputePass(compute);
-  if (!commit) { return SDL_CancelGPUCommandBuffer(commands); }
-  OwnedFence fence(device, SDL_SubmitGPUCommandBufferAndAcquireFence(commands));
-  if (!fence) { return false; }
+  Require(stage.Encode({.Commands = commands.get(), .Submission = submission}));
+  if (!commit) { return; }
+  const auto done = Require(device.Submit(std::move(commands)));
   submission.Commit();
-  SDL_GPUFence *wait = fence.Get();
-  return SDL_WaitForGPUFences(device, true, &wait, 1);
+  CHECK(Require(device.Wait(done, std::chrono::seconds(5))) == CompletionStatus::Ready,
+        "the accepted filtering submission completes");
 }
 
-void CheckAtlas(SDL_GPUDevice *device, const Sources &source) {
-  Readback read;
-  CHECK(read.FromTexture(device,
-                         source.Atlas.Get(),
-                         {.WidthPx = kEnvironmentWidth, .HeightPx = kEnvironmentHeight},
-                         8) == ReadState::Ready,
-        "the actual GPU atlas reaches readback");
-  if (!read.Rows()) { return; }
+void CheckAtlas(Device &device, const Sources &source) {
+  const auto read =
+      ReadImage(device, *source.Atlas, {.Width = kEnvironmentWidth, .Height = kEnvironmentHeight});
   constexpr std::array<uint16_t, 4> expected{0x3400, 0x3800, 0x3c00, 0x3c00};
   bool constant = true;
   for (uint32_t row = 0; row < kEnvironmentHeight; ++row) {
     for (uint32_t col = 0; col < kEnvironmentWidth; ++col) {
       std::array<uint16_t, 4> texel{};
-      std::memcpy(texel.data(), read.Rows() + row * read.RowBytes() + col * 8u, sizeof(texel));
+      std::memcpy(texel.data(), read.Rows.data() + row * read.RowBytes + col * 8u, sizeof(texel));
       for (size_t channel = 0; channel < texel.size(); ++channel) {
         const int error = static_cast<int>(texel[channel]) - expected[channel];
         constant &= error >= -1 && error <= 1;
@@ -137,14 +96,9 @@ void CheckAtlas(SDL_GPUDevice *device, const Sources &source) {
   CHECK(constant, "all roughness slices, edges and corners preserve constant incident radiance");
 }
 
-void CheckDiffuseHalfspace(SDL_GPUDevice *device, const Sources &source) {
-  Readback read;
-  CHECK(read.FromTexture(device,
-                         source.Atlas.Get(),
-                         {.WidthPx = kEnvironmentWidth, .HeightPx = kEnvironmentHeight},
-                         8) == ReadState::Ready,
-        "the diffuse convolution reaches actual GPU readback");
-  if (!read.Rows()) { return; }
+void CheckDiffuseHalfspace(Device &device, const Sources &source) {
+  const auto read =
+      ReadImage(device, *source.Atlas, {.Width = kEnvironmentWidth, .Height = kEnvironmentHeight});
   constexpr std::array<float, 3> sky{0.25f, 0.5f, 1.0f};
   double maximumError = 0;
   for (uint32_t y = 0; y < kEnvironmentSide; ++y) {
@@ -158,7 +112,8 @@ void CheckDiffuseHalfspace(SDL_GPUDevice *device, const Sources &source) {
       const uint32_t row = kEnvironmentDiffuseLevel * kEnvironmentWidth + kEnvironmentBorder + y;
       const uint32_t column = kEnvironmentBorder + x;
       std::array<uint16_t, 4> pixel{};
-      std::memcpy(pixel.data(), read.Rows() + row * read.RowBytes() + column * 8u, sizeof(pixel));
+      std::memcpy(
+          pixel.data(), read.Rows.data() + row * read.RowBytes + column * 8u, sizeof(pixel));
       for (size_t channel = 0; channel < sky.size(); ++channel) {
         const uint16_t bits = pixel[channel];
         const int exponent = (bits >> 10u) & 31;
@@ -176,58 +131,37 @@ void CheckDiffuseHalfspace(SDL_GPUDevice *device, const Sources &source) {
         "percent");
 }
 
-void CheckFiltering(SDL_GPUDevice *device) {
-  Sources source(device);
-  CHECK(source.Sky && source.Atlas && source.Irradiance && source.Sample,
-        "the actual GPU owns independent source and filtered products");
-  if (!source.Sky || !source.Atlas || !source.Irradiance || !source.Sample) { return; }
-  CHECK(UploadSources(device, source), "the constant sky and Lambertian ground are submitted");
+void CheckFiltering(Device &device) {
+  const Sources source(device);
+  UploadSources(device, source);
   EnvironmentSpecularStage stage;
-  std::string error;
-  CHECK(stage.Configure({.Device = device},
-                        {.Sky = source.Sky.Get(),
-                         .Irradiance = source.Irradiance.Get(),
-                         .Sampler = source.Sample.Get(),
-                         .Target = source.Atlas.Get()},
-                        error),
-        "the atlas compute pipeline opens");
+  Require(stage.Configure({.Device = &device},
+                          {.Sky = source.Sky.get(),
+                           .Irradiance = source.Irradiance.get(),
+                           .Sampler = source.Sample.get(),
+                           .Target = source.Atlas.get()}));
   stage.Declare(kEarthAir, 0.5f, 0, {{1, 1, 1}});
-  CHECK(Filter(device, source, stage, false) && !stage.Settled(),
-        "cancelled compute leaves the product dirty");
-  CHECK(Filter(device, source, stage, true) && stage.Settled(),
-        "only accepted submission publishes the filtered product");
+  Filter(device, stage, false);
+  CHECK(!stage.Settled(), "cancelled compute leaves the product dirty");
+  Filter(device, stage, true);
+  CHECK(stage.Settled(), "only accepted submission publishes the filtered product");
   CheckAtlas(device, source);
   stage.Declare(kEarthAir, 0.5f, 0, {{1, 1, 1}});
   CHECK(stage.Settled(), "an unchanged lighting state retains its filtered product");
   stage.Declare(kEarthAir, 0.5f, 0, {{0, 0, 0}});
   CHECK(!stage.Settled(), "changed ground radiance invalidates the product");
-  CHECK(Filter(device, source, stage, true), "changed illumination is submitted");
+  Filter(device, stage, true);
   CheckDiffuseHalfspace(device, source);
-  Readback read;
-  CHECK(read.FromTexture(device,
-                         source.Atlas.Get(),
-                         {.WidthPx = kEnvironmentWidth, .HeightPx = kEnvironmentHeight},
-                         8) == ReadState::Ready,
-        "the changed atlas reaches readback");
-  if (read.Rows()) {
-    uint16_t ground = 1;
-    std::memcpy(&ground, read.Rows() + read.RowBytes() + 8, sizeof(ground));
-    CHECK(ground == 0, "a downward mirror ray sees the changed ground rather than sky");
-  }
+  const auto read =
+      ReadImage(device, *source.Atlas, {.Width = kEnvironmentWidth, .Height = kEnvironmentHeight});
+  uint16_t ground = 1;
+  std::memcpy(&ground, read.Rows.data() + read.RowBytes + 8, sizeof(ground));
+  CHECK(ground == 0, "a downward mirror ray sees the changed ground rather than sky");
 }
 }
 
 int main() {
-  CHECK(SDL_SetHint(SDL_HINT_ASSERT, "abort"), "assertions fail without a dialog");
-  CHECK(SDL_Init(SDL_INIT_VIDEO), "SDL video initializes");
-  {
-    OwnedDevice device(SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL |
-                                               SDL_GPU_SHADERFORMAT_METALLIB,
-                                           false,
-                                           nullptr));
-    CHECK(device, "an actual GPU backend is available");
-    if (device) { CheckFiltering(device.Get()); }
-  }
-  SDL_Quit();
+  auto device = Require(CreateDevice({}));
+  CheckFiltering(*device);
   return Report();
 }
