@@ -326,3 +326,53 @@ All final PNG hashes are df0510ba. Baseline mean is 19.8349 ms, variant 19.9322 
 No reliable net improvement justifies the extra pipeline. The variant is rejected;
 production sources are restored. Private patch, binaries, shader variants and logs
 remain in system temp. No hardware-cause or vertex-invocation reduction is inferred.
+
+## Fixed groups of sixteen patches: rejected
+
+A private native prototype on 341e2fa80 replicates the four static index templates
+sixteen times. A bounded code-header carries segment capacity and actual counts;
+the vertex shader rejects complete padding patches before reading tile/height data.
+Four indirect draws and every valid triangle stay unchanged. A CPU comparison
+checks 10,665,432 index/code references, including segment tails. The additional
+static index/grid storage is 52,224/15,552 bytes. This was an experiment, not an
+adopted shared GPU binding or storage contract.
+
+Fresh offline Körbersee, 1280×720/30, A/B/B/A; no GPU validation or other GPU job.
+CPU-only module/claim tests run concurrently at nice10. Metal-validation control
+also completes. Every final image is df0510ba.
+
+| Run | GPU mean, ms | GPU maximum, ms |
+|---|---:|---:|
+| A1 | 20.8880 | 37.4228 |
+| B1 | 17.1965 | 37.3018 |
+| B2 | 21.2594 | 37.5779 |
+| A2 | 16.4551 | 37.0064 |
+
+Baseline mean is18.6716ms, grouped mean19.2280ms:
+(19.2280 / 18.6716 - 1) ×100 =2.98% higher cost. The peak remains red.
+Fewer patch instances alone do not justify extra bindings/code-header complexity.
+The prototype remains private and is rejected; production sources stay unchanged.
+
+## Fragment-cost controls: no production optimization
+
+On the unchanged native binary, B replaces procedural ground composition with
+constant albedo/roughness; C additionally bypasses coarse fragment height-normal
+reconstruction. An invalid-negative-opacity branch retains the original code and
+resource layout because deleting it made the draw bindings incompatible. Therefore
+static register pressure/instruction size are not independently eliminated. Both
+42-member GroundLit/GroundPatchLit families are recompiled; A retains original SPIR-V.
+
+Fresh offline 1280×720/30 A/B/C/C/B/A, no validation or other GPU work:
+
+| Mode | GPU mean, ms | Mean of run maxima, ms | Final image |
+|---|---:|---:|---|
+| A, original | 19.2664 | 37.5400 | df0510ba |
+| B, constant composition | 21.1562 | 34.7253 | 4a0f61e4 |
+| C, also coarse vertex normals | 21.8295 | 33.7127 | 0fec4b60 |
+
+These intentionally changed pictures are not accepted quality variants. Reduced
+peaks do not establish a net frame gain, and the retained code limits causal
+attribution. No production shader changes follow. Device enumeration exposes only
+the `timestamp/GPUTimestamp` counter set; no vertex/fragment invocation or memory
+counter evidence exists on this A18 through this API. Vulkan pipeline statistics
+are a separate proposed work-count comparison, not an A18 timing substitute.
