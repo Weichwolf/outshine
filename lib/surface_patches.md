@@ -46,6 +46,20 @@ explicit reason. Returned faces/face keys are bounded; exact XYZ vertices are
 canonicalised in the local result, allowing `geometry.SurfaceSampler` to recognise
 shared edges across patches. No proximity merge is performed.
 
+`view.nearby(shape, distance_m, ...)` uses the same capacities, output order
+and failure reasons for exact XY distance queries. Supply a finite nonempty
+valid 2D Shapely geometry of at most 65536 coordinates and a finite nonnegative
+distance of at most 1e9 m. The index uses GEOS `dwithin`; the scan evaluates
+the same predicate. A bounding-box expansion only rejects distant patches;
+it does not replace the distance predicate or approximate a circular buffer.
+Distance zero includes boundary contact. Complete triangles are returned.
+
+`view.faces(keys, max_faces=2048)` dereferences an explicit bounded list/tuple
+of stable face keys in canonical patch/local-face order. Duplicate, unknown,
+out-of-range or stale keys are errors, preserving the old snapshot. Empty
+input yields `outside_surface`; exhausted capacity yields no partial mesh.
+This supports exact dependency closure without gathering the whole field.
+
 The query includes complete intersecting triangles, not clipped polygons.
 `mesh=None` with `outside_surface`, `candidate_budget_exhausted` or
 `local_face_budget_exhausted` is explicit absence. It never substitutes height
@@ -69,3 +83,5 @@ exact finite facet composition is independently defined; it implements none of
 that paper's simplification, projected error, morphing or hierarchy algorithm.
 The [real transport experiment](../test/experiments/transport/stair_patch_comparison.md)
 records input/product hashes, local/whole controls, costs and actual images.
+The [local generator adapter](../test/experiments/transport/stair_local_comparison.md)
+uses exact distances, whole-pier dependencies and five-metre auxiliary ground.
