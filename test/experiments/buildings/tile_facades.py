@@ -146,7 +146,7 @@ class FacadeDetails:
             projected, facades, identifier = self.surface(
                 mesh, row, parameters | info, rhythm, material
             )
-            entry = self.entrances.plan(row, parameters, facades, family)
+            entry = self.plan_entry(row, parameters, facades, family)
             hall = self.halls(
                 row,
                 parameters,
@@ -162,9 +162,7 @@ class FacadeDetails:
                 return hall
             shopfront = self.shopfronts.plan(row, entry)
             bays, balconies, programme = self.projections(row, entry, family)
-            from tile_facade_recess import attach as recesses
-
-            projected, details, rejected = recesses(
+            projected, details, rejected = self.attach_recesses(
                 projected,
                 row,
                 parameters | info,
@@ -242,6 +240,14 @@ class FacadeDetails:
         except ValueError as error:
             self.rejected.append({"id": row["id"], "reason": str(error)})
             return before
+
+    def plan_entry(self, row, parameters, facades, family):
+        return self.entrances.plan(row, parameters, facades, family)
+
+    def attach_recesses(self, *args, **kwargs):
+        from tile_facade_recess import attach
+
+        return attach(*args, **kwargs)
 
     def projections(self, row, entry, family):
         from provider_contract import seed_for
