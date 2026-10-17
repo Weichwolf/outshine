@@ -109,7 +109,15 @@ def inspect_contacts(data, rows, contacts):
                     cap.triangles,
                     data["surface_vertices"],
                     faces,
-                    rows[owner]["width_m"],
+                    contact.get("walk_width_m", rows[owner]["width_m"]),
+                ),
+                **(
+                    {
+                        k: contact[k]
+                        for k in ("walk_width_m", "original_shared_node_mvt")
+                    }
+                    if "walk_width_m" in contact
+                    else {}
                 ),
             }
         )
