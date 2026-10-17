@@ -116,7 +116,7 @@ source-area/joint-response controls pass. Independent scalar sums, same-mean
 counterexamples, sharp Jensen gap, rotations, nested bins, mass/isotropic energy,
 zero-resultant refusal, invalid moments/frames/encodings and source-hook unchanged
 outputs are covered. The installable math module imports NumPy only; collector
-and actual geometry remain experimental. No import from lib into experiment code.
+and actual geometry remain experimental. No library import from experiment modules.
 
 Use a `.venv`, TMPDIR=/tmp and one numerical thread; output must explicitly be
 under/tmp and not already exist:
