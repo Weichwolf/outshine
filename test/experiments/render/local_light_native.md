@@ -98,6 +98,11 @@ needs Matplotlib. Four PDF pages were visually opened, including original
 negative crops and per-depth cost. Full original RGBA32F captures remain local.
 Exact commands/exit codes/hashes are linked from PR #458; no images go to doc/.
 
+All four diagnostic SPIR-V variants also translate to MSL2.3 offline. Reflection
+retains Light stride64, uint stride4 and1344/64/80-byte uniform blocks with
+the declared offsets. This is not Metal compilation/execution or acceptance
+of the full material resource layout.
+
 Own source/layout analysis findings are corrected. Default focused analysis
 under the current policy still fails on 14 pre-existing Check.h diagnostics;
 no analyzer guard is disabled or full clean claim made. Shared #603 owns that
