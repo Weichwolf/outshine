@@ -10,6 +10,7 @@
 #include <memory>
 #include <span>
 #include <utility>
+#include <vector>
 
 namespace outshine::Render {
 Native::Result<void> GroundLattice::BuildPages(uint32_t layers,
@@ -73,13 +74,8 @@ GroundLattice::PlacePages(std::span<const HeightPageView> nodes) {
   if (!commands) { return std::unexpected(commands.error()); }
   Native::Texture &target = candidate ? *candidate : *Pages_;
   if (candidate && Pages_) {
-    for (uint32_t layer = 0; layer < PageLayers_; ++layer) {
-      const Native::TextureRegion region{.Layer = layer,
-                                         .Width = static_cast<uint32_t>(kPageSide) * kPageColumns,
-                                         .Height = static_cast<uint32_t>(kPageSide) * kPageColumns};
-      const auto copied = (*commands)->Copy(*Pages_, region, target, region);
-      if (!copied) { return std::unexpected(copied.error()); }
-    }
+    const auto copied = CopyHeightPageLayers(**commands, *Pages_, target);
+    if (!copied) { return std::unexpected(copied.error()); }
   }
   const auto copied = UploadHeightPages(*Device_, **commands, target, pages, nodes);
   if (!copied) { return std::unexpected(copied.error()); }

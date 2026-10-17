@@ -3,8 +3,22 @@
 #include <cstdint>
 #include <cstring>
 #include <expected>
+#include <span>
 
 namespace outshine::Render {
+Native::Result<void> CopyHeightPageLayers(Native::Commands &commands,
+                                          const Native::Texture &source,
+                                          Native::Texture &destination) {
+  const auto &description = source.Description();
+  for (uint32_t layer = 0; layer < description.Layers; ++layer) {
+    const Native::TextureRegion region{
+        .Layer = layer, .Width = description.Width, .Height = description.Height};
+    const auto copied = commands.Copy(source, region, destination, region);
+    if (!copied) { return copied; }
+  }
+  return {};
+}
+
 Native::Result<void> UploadHeightPages(Native::Device &device,
                                        Native::Commands &commands,
                                        Native::Texture &atlas,

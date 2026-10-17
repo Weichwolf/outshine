@@ -4,6 +4,9 @@
 #include "GroundLattice.h"
 
 namespace outshine::Render {
+[[nodiscard]] Native::Result<void> CopyHeightPageLayers(Native::Commands &commands,
+                                                        const Native::Texture &source,
+                                                        Native::Texture &destination);
 [[nodiscard]] Native::Result<void> UploadHeightPages(Native::Device &device,
                                                      Native::Commands &commands,
                                                      Native::Texture &atlas,

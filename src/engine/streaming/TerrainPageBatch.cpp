@@ -98,7 +98,7 @@ TerrainResidency::UploadPages(const Patchwork &patchwork, const TangentFrame &fr
   GrowCapacity(Held_, Held_.size() + batch.Appended);
   GrowCapacity(Replaced_, Replaced_.size() + batch.PageCount - batch.Appended);
   const auto sheets = std::span(batch.Sheets).first(batch.SheetCount);
-  const size_t virtualCount = static_cast<size_t>(
+  const auto virtualCount = static_cast<size_t>(
       std::ranges::count_if(sheets, [](const PendingSheet &sheet) { return sheet.Virtual; }));
   GrowCapacity(Instances_, Instances_.size() + batch.SheetCount - virtualCount);
   GrowCapacity(Virtual_, Virtual_.size() + virtualCount);
