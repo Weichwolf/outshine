@@ -42,6 +42,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Buildings-Erzeuger, aktuelle Terrainanker und Prüfung seiner fertigen Körper (#568).
 - [Tatsächlicher Pflanzenverbrauch](stair_plant_comparison.md): vorhandene Pinus-/
   Habitatprogramme, gemessene Hüllen und vollständige reale Zurückstellungen (#568).
+- [Konsistente Terrainkontakte](surface_contact_comparison.md): tatsächliche dünne
+  Dreiecke, endliche gemeinsame Kanten und ausgabegleicher Normalpfad (#589).
 - [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
   an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
 - [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen
