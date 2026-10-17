@@ -1,4 +1,4 @@
-"""Append four-source usage against the old catalog, retaining every original ID."""
+"""Append new source usage against the old catalog, retaining every original ID."""
 
 import copy
 import json

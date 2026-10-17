@@ -39,6 +39,10 @@ def display(output, base, supports, state, data, terrain, parts, roles):
                 span_m=1450,
                 detail_view=True,
             )
+            if state.get("cache_parent_reports"):
+                camera.update(
+                    eye=[500, -600, 616], target=[-100, 200, 166], span_m=1650
+                )
         for phase in ("before", "after"):
             mesh = output / (phase + "-display.npz")
             row = dict(

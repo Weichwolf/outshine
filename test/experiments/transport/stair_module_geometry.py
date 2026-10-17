@@ -1,4 +1,4 @@
-"""Clip only new ground against existing ground and fit the frozen flat datum."""
+"""Clip new ground and fit whole contacts against the actual frozen old surfaces."""
 
 import numpy as np
 import shapely
