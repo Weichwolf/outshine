@@ -69,6 +69,7 @@ def reference_state(args):
         raise ValueError("diagnostic whole reference needs every original road asset")
     state = {
         "resident_profile_roots": True,
+        "road_assets": assets,
         "road": road,
         "road_ground": ground,
         "road_source_faces": reference_owner_indices(assets),
@@ -95,7 +96,7 @@ def construct(state, recipe, rows, sources, sample):
         ground,
         sample,
         contact_mode="profile",
-        junction_mode="level_box",
+        junction_mode=recipe["junction_mode"],
     )
     module = audit(state, recipe, data, rows, planning, line, upper)
     local, chosen, terrain = prepare(state, data, ground, recipe, sample)
