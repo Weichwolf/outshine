@@ -4,6 +4,7 @@ import argparse
 import json
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
 import matplotlib
 
@@ -15,6 +16,7 @@ from city_scene import inputs
 from clad_facade_mesh import CladFacades, CladFrames, build, surface
 from clad_facade_plan import placement
 from evidence import revision
+from facade_frame_geometry import placed
 from facade_frame_probe import views
 from industrial_relief_probe import camera
 from podium_probe import write
@@ -80,6 +82,16 @@ def export(output, name, mesh, info, view, owner, proof):
     )
 
 
+def forced(method):
+    def product(self, current, resolved, material):
+        if method == "omit":
+            return None, "deliberately-omitted"
+        mode = "outer" if method == "full" else "front"
+        return placed(surface(current, mode), current, 10), mode
+
+    return product
+
+
 def models(output):
     proof = revision()
     if proof["experiment_tree_dirty"]:
@@ -106,19 +118,26 @@ def models(output):
         view = cameras[0][1]
         view = replace(view, eye=view.target + (view.eye - view.target) * 6)
         for method in ("full", "front", "omit"):
-            from unittest.mock import patch
-
-            def product(self, current, resolved, material, method=method):
-                if method == "omit":
-                    return None, "deliberately-omitted"
-                from facade_frame_geometry import placed
-
-                mode = "outer" if method == "full" else "front"
-                return placed(surface(current, mode), current, 10), mode
-
-            with patch.object(CladFrames, "product", product):
+            with patch.object(CladFrames, "product", forced(method)):
                 mesh, data, builder = build(row, neighbors, view)
             export(output, f"{index}Far{method}", mesh, data, view, builder, proof)
+
+
+def near_controls(output):
+    proof = revision()
+    if proof["experiment_tree_dirty"]:
+        raise ValueError("Freeze near counterexample source")
+    output.mkdir(parents=True, exist_ok=True)
+    for index, (row, neighbors) in enumerate(sources()):
+        mesh, info, owner = build(row, neighbors, view_for(row))
+        _record, cameras = views(mesh["vertices"], info, owner.frames.completed)
+        view = next(v for label, v in cameras if label == "Near")
+        for method in ("full", "front"):
+            with patch.object(CladFrames, "product", forced(method)):
+                mesh, data, builder = build(row, neighbors, view)
+            export(
+                output, f"{index}NearControl{method}", mesh, data, view, builder, proof
+            )
 
 
 def city_models(census, output):
@@ -184,8 +203,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--census", type=Path)
+    parser.add_argument("--negative-near", action="store_true")
     args = parser.parse_args()
-    if args.census is None:
+    if args.negative_near:
+        near_controls(args.output)
+    elif args.census is None:
         models(args.output)
     else:
         city_models(args.census, args.output)
