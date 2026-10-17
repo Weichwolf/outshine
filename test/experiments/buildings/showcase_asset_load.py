@@ -31,7 +31,7 @@ def original(asset):
 
 def uv_plan(output, provenance, asset):
     start = time.perf_counter()
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(16, 9))
     mesh = original(asset).emit()
     for group in np.unique(mesh["groups"]):
         for row in mesh["faces"][mesh["groups"] == group]:
