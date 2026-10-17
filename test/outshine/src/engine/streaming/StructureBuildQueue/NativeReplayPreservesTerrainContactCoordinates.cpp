@@ -20,7 +20,7 @@
 #include <vector>
 
 namespace {
-outshine::Test::Mvt::Bytes BuildingTile() {
+outshine::Test::Mvt::Bytes BuildingTile(bool twoCells) {
   using outshine::Test::Mvt::Append;
   using outshine::Test::Mvt::Bytes;
   Bytes layer{0x0a, 9, 'b', 'u', 'i', 'l', 'd', 'i', 'n', 'g', 's', 0x78, 2, 0x28, 64};
@@ -30,6 +30,12 @@ outshine::Test::Mvt::Bytes BuildingTile() {
   Append(feature, 0x12, Bytes{0, 0});
   Append(feature, 0x22, Bytes{9, 62, 62, 26, 8, 0, 0, 8, 7, 0, 15});
   Append(layer, 0x12, feature);
+  if (twoCells) {
+    Bytes second{0x08, 3, 0x18, 3};
+    Append(second, 0x12, Bytes{0, 0});
+    Append(second, 0x22, Bytes{9, 20, 20, 26, 8, 0, 0, 8, 7, 0, 15});
+    Append(layer, 0x12, second);
+  }
   Bytes tile;
   Append(tile, 0x1a, layer);
   Bytes streetLayer{0x0a, 7, 's', 't', 'r', 'e', 'e', 't', 's', 0x78, 2, 0x28, 64};
@@ -45,12 +51,14 @@ outshine::Test::Mvt::Bytes BuildingTile() {
 
 class Transport final : public outshine::Data::Transport {
 public:
+  bool TwoCells = false;
+
   outshine::Data::FetchStart Begin(const std::string &) override {
     return static_cast<outshine::Data::Ticket>(1);
   }
 
   outshine::Data::Wire Collect(outshine::Data::Ticket) override {
-    return outshine::Data::Wire::Answered(200, BuildingTile());
+    return outshine::Data::Wire::Answered(200, BuildingTile(TwoCells));
   }
 
   void Cancel(outshine::Data::Ticket) override {}
@@ -67,7 +75,10 @@ public:
   void Say(const std::string &) override {}
 };
 
-void Replay(const std::filesystem::path &directory, bool warm, bool obsoleteLookups = false) {
+void Replay(const std::filesystem::path &directory,
+            bool warm,
+            bool obsoleteLookups = false,
+            bool initialCells = false) {
   using namespace outshine;
   using namespace outshine::Ground;
   using namespace outshine::Test;
@@ -78,6 +89,7 @@ void Replay(const std::filesystem::path &directory, bool warm, bool obsoleteLook
                            .Dataset = "fixture.native-replay",
                            .Endpoint = "https://fixture.invalid/{z}/{x}/{y}.pbf"}};
   Transport wire;
+  wire.TwoCells = initialCells;
   SilentSink sink;
   Tasks compute(1);
   SurfacePreparation stack;
@@ -168,26 +180,48 @@ void Replay(const std::filesystem::path &directory, bool warm, bool obsoleteLook
     prints.TilesSpan(1000.0);
   }
   bool landed = false;
+  const auto purpose = initialCells ? StructureBuildQueue::BuildPurpose::SourceGeometry
+                                    : StructureBuildQueue::BuildPurpose::ViewDetail;
+  const size_t coordinateCount = initialCells ? 20 : 12;
+  const size_t sourceCount = initialCells ? 2 : 1;
   while (!landed && std::chrono::steady_clock::now() < deadline) {
     deliveredThisPump = false;
-    (void)queue.Posts(
-        stack, prints, eye, source, 1, StructureBuildQueue::HeightRequirement::FineOnly);
-    auto ready = queue.NextLandings(
-        stack, prints, eye, source, 1, StructureBuildQueue::HeightRequirement::FineOnly);
+    (void)queue.Posts(stack,
+                      prints,
+                      eye,
+                      source,
+                      1,
+                      StructureBuildQueue::HeightRequirement::FineOnly,
+                      std::nullopt,
+                      purpose);
+    auto ready = queue.NextLandings(stack,
+                                    prints,
+                                    eye,
+                                    source,
+                                    1,
+                                    StructureBuildQueue::HeightRequirement::FineOnly,
+                                    std::nullopt,
+                                    purpose);
     CHECK(ready.has_value(), "native replay completes without a geometry error");
     if (!ready) { break; }
     if (!ready->empty()) {
       CHECK(ready->front().Baked->Coordinates &&
-                ready->front().Baked->Coordinates->Points.size() == 12,
+                ready->front().Baked->Coordinates->Points.size() == coordinateCount,
             "native geometry owns its complete ground-contact ring before publication");
+      if (initialCells) {
+        CHECK(ready->front().InitialCells != 0 && ready->front().Baked->RequestedCell &&
+                  ready->front().Baked->Prints.size() == 1 && prints.Footprints().empty() &&
+                  ready->front().Footprints.has_value() == ready->front().SourceComplete,
+              "children land independently while source contacts remain unaccepted until complete");
+      }
+      landed = ready->front().SourceComplete;
       queue.CommitsLandings(prints, *ready);
-      landed = true;
     } else {
       (void)queue.AwaitSlice(0.001);
       if (queue.Queued() == 0) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); }
     }
   }
-  CHECK(landed && prints.Footprints().size() == 1, "the complete footprint lands");
+  CHECK(landed && prints.Footprints().size() == sourceCount, "the complete footprints land once");
   CHECK(warm || fields.size() > 1,
         "cold input crosses multiple height fields delivered on separate pumps");
   CHECK(repeatedPins == 0,
@@ -205,9 +239,9 @@ void Replay(const std::filesystem::path &directory, bool warm, bool obsoleteLook
                 queue.Deferred());
   }
   const auto *input = prints.InputOfTile(0);
-  CHECK(input && input->Coordinates && input->Coordinates->Points.size() == 12,
+  CHECK(input && input->Coordinates && input->Coordinates->Points.size() == coordinateCount,
         "publication preserves native coordinates instead of moving an empty source buffer");
-  CHECK(!warm || (pins == 0 && stack.BuildingAssets()->Costs().GeometryHits == 1),
+  CHECK(!warm || (pins == 0 && stack.BuildingAssets()->Costs().GeometryHits == sourceCount),
         "fresh warm replay loads ready geometry without touching the height provider");
   const auto costs = stack.BuildingAssets()->Costs();
   CHECK(!warm || (costs.BasisHits == 1 && costs.Hits == 0 && costs.ReadBytes == 0),
@@ -229,6 +263,9 @@ int main() {
   Replay(directory, false);
   Replay(directory, true);
   Replay(directory, true, true);
+  const auto cells = directory / "initial-cells";
+  Replay(cells, false, false, true);
+  Replay(cells, true, false, true);
   std::error_code error;
   std::filesystem::remove_all(directory, error);
   CHECK(!error, "isolated source and asset products are removed");
