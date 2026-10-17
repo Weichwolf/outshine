@@ -20,7 +20,7 @@ from stair_terrain_experiment import frozen
 
 def evaluate(data, query, prior, local):
     rows = {r["id"]: r for r in source_rows(data, "landcover")[0]}
-    graph = prepared().compiled(outputs=SITE)
+    graph = prepared(SITE)
     domain = None if local else terrain_domain(data)
     results, work = [], []
     for record in prior["records"]:
