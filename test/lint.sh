@@ -164,7 +164,7 @@ if ! python3 test/scripts/test_shader_artifacts.py > "$REPORT/shader-check-tests
   red=$((red + 1))
 fi
 if ! python3 test/scripts/shader_artifacts.py --report "$REPORT/shaders"; then
-  printf 'lint: shader artifact coverage or SDL binding verification failed\n' >&2
+  printf 'lint: shader artifact coverage or native binding verification failed\n' >&2
   red=$((red + 1))
 fi
 
