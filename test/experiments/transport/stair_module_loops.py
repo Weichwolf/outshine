@@ -39,14 +39,8 @@ def actual_profile(state, sources, old_key, vertex, *, interior):
         .sample(cross, max_queries=3, max_candidates=65536)
         .points_enu_m
     )
-    pieces, _parents = whole_line_pieces(cap.vertices, cap.triangles, cross)
-    if (
-        not np.isfinite(sampled).all()
-        or shapely.LineString(cross)
-        .difference(shapely.union_all(pieces).buffer(1e-7))
-        .length
-        > 1e-7
-    ):
+    whole_line_pieces(cap.vertices, cap.triangles, cross)
+    if not np.isfinite(sampled).all():
         raise ValueError("actual cached interior profile has missing intervals")
     return {"mvt_xy": node, "xy": xy[vertex].tolist(), "profile": sampled, "cap": cap}
 

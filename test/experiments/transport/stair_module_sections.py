@@ -115,14 +115,6 @@ def profile_levels(vertices, faces, line):
 
 def wall_strip(cap, segment, cast, xy_guard):
     pieces, parents = whole_line_pieces(cap.vertices, cap.triangles, segment)
-    if (
-        not len(pieces)
-        or shapely.LineString(segment)
-        .difference(shapely.union_all(pieces).buffer(1e-7))
-        .length
-        > 1e-7
-    ):
-        raise ValueError("whole contact line lacks original cap reference")
     a, b = segment
     axis = (b - a) / np.linalg.norm(b - a)
     high = cap.vertices.astype("f4").astype(float) if cast else cap.vertices

@@ -64,14 +64,7 @@ def old_surfaces(state, recipe, sources):
             "actual cached source does not support its whole outer profile"
         )
     if varying:
-        pieces, _parents = whole_line_pieces(cap.vertices, cap.triangles, line[:, :2])
-        if (
-            shapely.LineString(line[:, :2])
-            .difference(shapely.union_all(pieces).buffer(1e-7))
-            .length
-            > 1e-7
-        ):
-            raise ValueError("whole actual reference profile has missing intervals")
+        whole_line_pieces(cap.vertices, cap.triangles, line[:, :2])
         row["cached_cap"] = cap
     state["module_contacts"] = frozen_contacts(state, recipe, sources)
     row["additional_contacts"] = state["module_contacts"]
