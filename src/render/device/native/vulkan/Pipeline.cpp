@@ -150,7 +150,7 @@ Result<std::unique_ptr<ComputePipeline>> CreatePipeline(std::shared_ptr<Context>
   auto result = vkCreateShaderModule(state->Owner->Logical, &module, nullptr, &shader);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateShaderModule", result)); }
   const std::string name(entry);
-  VkComputePipelineCreateInfo create{
+  const VkComputePipelineCreateInfo create{
       .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
       .pNext = nullptr,
       .flags = 0,
