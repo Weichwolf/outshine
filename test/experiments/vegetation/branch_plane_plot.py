@@ -14,14 +14,14 @@ from spruce_branch_planes import lines, sparse_poses
 
 def plot(inputs, output):
     rows = json.loads((inputs / "preflight.json").read_text())
-    fig, panels = plt.subplots(2, len(rows), figsize=(3.2 * len(rows), 9), dpi=160)
+    fig, panels = plt.subplots(3, len(rows), figsize=(3.2 * len(rows), 11), dpi=160)
     right = np.array((70.0, 18, 0))
     right /= np.linalg.norm(right)
     for column, row in enumerate(rows):
         main, branches, _ = sparse_poses(
             json.loads((inputs / (row["name"] + ".json")).read_text())
         )
-        top, bottom = panels[:, column]
+        top, bottom, side = panels[:, column]
         for pose in main:
             points = lines(pose)
             top.plot(points @ right, points[:, 2], color="#357c4d", lw=0.45)
@@ -29,10 +29,17 @@ def plot(inputs, output):
         top.set_aspect("equal")
         parent, shoots = branches[-1]
         for pose in [parent, *shoots]:
-            points = (lines(pose) - parent.origin) @ parent.frame
+            world = lines(pose) - parent.origin
+            points = world @ parent.frame
             bottom.plot(
                 points[:, 0],
                 points[:, 1],
+                color="#775232" if pose is parent else "#357c4d",
+                lw=0.65,
+            )
+            side.plot(
+                points[:, 1],
+                world[:, 2],
                 color="#775232" if pose is parent else "#357c4d",
                 lw=0.65,
             )
@@ -43,8 +50,16 @@ def plot(inputs, output):
             ylabel="parent forward m",
         )
         bottom.set_aspect("equal")
+        side.set(
+            xlim=(0, 5),
+            ylim=(-2, 1),
+            xlabel="parent forward m",
+            ylabel="world height from root m",
+        )
+        side.set_aspect("equal")
         top.grid(alpha=0.15)
         bottom.grid(alpha=0.15)
+        side.grid(alpha=0.15)
     fig.suptitle(
         "Picea abies | actual primary axes and bottom fan | NO foliage/material/shadow judgement"
     )
