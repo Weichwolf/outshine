@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <print>
 #include <vector>
 #include <cstdlib>
 #include <string>
@@ -25,7 +26,7 @@ public:
     return *this;
   }
 
-  int Value() const { return Count_; }
+  [[nodiscard]] int Value() const { return Count_; }
 
 private:
   int Count_ = 0;
@@ -42,7 +43,7 @@ Checked(bool held, const char *expression, const char *claim, const char *file, 
   ++Checks;
   if (held) { return; }
   ++Failures;
-  std::printf("FAIL %s:%d  %s\n       CHECK(%s)\n", file, line, claim, expression);
+  std::println("FAIL {}:{}  {}\n       CHECK({})", file, line, claim, expression);
 }
 
 inline void CheckedNear(double got,
@@ -57,31 +58,32 @@ inline void CheckedNear(double got,
   const double off = std::fabs(got - want);
   if (off <= tolerance) { return; }
   ++Failures;
-  std::printf("FAIL %s:%d  %s\n       %s = %.9g %s, want %.9g %s, off by %.9g %s > %.9g %s\n",
-              file,
-              line,
-              claim,
-              expression,
-              got,
-              unit,
-              want,
-              unit,
-              off,
-              unit,
-              tolerance,
-              unit);
+  std::println(
+      "FAIL {}:{}  {}\n       {} = {:.9g} {}, want {:.9g} {}, off by {:.9g} {} > {:.9g} {}",
+      file,
+      line,
+      claim,
+      expression,
+      got,
+      unit,
+      want,
+      unit,
+      off,
+      unit,
+      tolerance,
+      unit);
 }
 
 inline void Note(const char *what, double value, const char *unit) {
-  std::printf("NOTE %s = %.9g %s\n", what, value, unit);
+  std::println("NOTE {} = {:.9g} {}", what, value, unit);
 }
 
 inline void Note(const char *what) {
-  std::printf("NOTE %s\n", what);
+  std::println("NOTE {}", what);
 }
 
 inline void Covers(const char *requirement) {
-  std::printf("COVERS %s\n", requirement);
+  std::println("COVERS {}", requirement);
 }
 
 // where a test plants an artefact: inside the checkout-keyed nest run.sh exports, or -- run
@@ -102,17 +104,17 @@ inline void Covers(const char *requirement) {
 // share, because the truncation point moves with the machine.
 inline void Partial(double share, const char *ofWhat) {
   ++Partials;
-  std::printf("PARTIAL %.6f %s\n", share, ofWhat);
+  std::println("PARTIAL {:.6f} {}", share, ofWhat);
 }
 
 inline void Unprepared(const char *what) {
   ++Unprepareds;
-  std::printf("UNPREPARED %s\n", what);
+  std::println("UNPREPARED {}", what);
 }
 
 inline void Skip(const char *why) {
   ++Skips;
-  std::printf("SKIP %s\n", why);
+  std::println("SKIP {}", why);
 }
 
 [[nodiscard]] inline std::vector<std::filesystem::path> Sources(const char *root) {
@@ -121,8 +123,7 @@ inline void Skip(const char *why) {
   auto walk = std::filesystem::recursive_directory_iterator(root, why);
   if (why) {
     ++Failures;
-    std::printf(
-        "FAIL the tree '%s' this claim walks is not there: %s\n", root, why.message().c_str());
+    std::println("FAIL the tree '{}' this claim walks is not there: {}", root, why.message());
     return found;
   }
   // a directory whose name starts with a dot is somebody else's: the lab's .venv under test/
@@ -144,14 +145,14 @@ inline void Skip(const char *why) {
   if (Checks.Value() == 0 && Skips.Value() == 0 && Unprepareds.Value() == 0 &&
       Partials.Value() == 0) {
     ++Failures;
-    std::printf("FAIL no claim was checked\n");
+    std::println("FAIL no claim was checked");
   }
-  std::printf("CHECKS %d FAILURES %d SKIPPED %d UNPREPARED %d PARTIAL %d\n",
-              Checks.Value(),
-              Failures.Value(),
-              Skips.Value(),
-              Unprepareds.Value(),
-              Partials.Value());
+  std::println("CHECKS {} FAILURES {} SKIPPED {} UNPREPARED {} PARTIAL {}",
+               Checks.Value(),
+               Failures.Value(),
+               Skips.Value(),
+               Unprepareds.Value(),
+               Partials.Value());
   std::fflush(stdout);
   return (Failures.Value() == 0 && Unprepareds.Value() == 0) ? 0 : 1;
 }
