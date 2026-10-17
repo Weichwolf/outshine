@@ -95,34 +95,22 @@ def candidate(row, xy, site_id, support, data, query, proto, canonical, graph):
     }
 
 
-def plants(data, query, proto, *, max_plants=4, max_attempts=128):
-    if (
-        type(max_plants) is not int
-        or not 0 <= max_plants <= 64
-        or type(max_attempts) is not int
-        or not 0 <= max_attempts <= 1024
-    ):
-        raise ValueError("explicit bounded plant and attempt counts required")
-    rows, rejected = source_rows(data, "landcover")
-    domain, canonical = terrain_domain(data), region(data)
+def proposals(data, proto, domain, canonical, rows, query):
     lower, side, region_id = canonical
-    graph = prepared(SITE)
-    ledger, accepted, attempts = list(rejected), [], 0
+    ledger, pool = [], []
+    bounds = np.asarray(proto["bounds_m"])
     for row in rows:
         entry = {k: v for k, v in row.items() if k != "polygon"}
         entry["sites"] = []
         try:
             if row["properties"].get("class") != "wood":
                 raise OccupancyError("young Pinus pilot requests wood sources only")
-            if len(accepted) >= max_plants or attempts >= max_attempts:
-                raise OccupancyError(
-                    "explicit whole-plant/site-attempt budget exhausted"
-                )
+            if len(pool) + 16 > 1024:
+                raise OccupancyError("explicit proposal budget exhausted")
             support = polygonal_conflict(row["polygon"].intersection(domain))
             if support.is_empty:
                 raise OccupancyError("original habitat outside current terrain")
             part_region = region_id + ":" + row["id"]
-            part_canonical = lower, side, part_region
             habitat = StandHabitat.prepare(
                 data["frame"],
                 row["source_id"],
@@ -132,7 +120,6 @@ def plants(data, query, proto, *, max_plants=4, max_attempts=128):
                 side,
                 support=support,
             )
-            bounds = np.asarray(proto["bounds_m"])
             stand = HabitatStand(
                 habitat,
                 ("pinus-sylvestris-young-pilot",),
@@ -146,59 +133,82 @@ def plants(data, query, proto, *, max_plants=4, max_attempts=128):
             if sites is None:
                 raise OccupancyError("bounded canonical habitat sites unresolved")
             for xy, identity in zip(sites["positions_xy_m"], sites["ids"], strict=True):
-                if len(accepted) >= max_plants or attempts >= max_attempts:
-                    break
-                attempts += 1
-                try:
-                    value = candidate(
-                        row,
+                point = shapely.Point(xy)
+                nearest = int(query.tree.nearest(point))
+                distance = float(point.distance(query.shapes[nearest]))
+                pool.append(
+                    (
+                        distance,
+                        row["id"],
+                        tuple(map(int, identity)),
                         xy,
-                        identity,
+                        row,
                         support,
-                        data,
-                        query,
-                        proto,
-                        part_canonical,
-                        graph,
+                        (lower, side, part_region),
+                        entry,
                     )
-                    index = len(accepted)
-                    accepted.append(
-                        {
-                            "source_id": row["source_id"],
-                            "part": row["part"],
-                            "source_part_id": row["id"],
-                            "result": value,
-                        }
-                    )
-                    entry["sites"].append(
-                        {
-                            "state": "prepared",
-                            "plant_index": index,
-                            "root_xy_m": xy.tolist(),
-                            "site_id": list(map(int, identity)),
-                        }
-                    )
-                except (OccupancyError, shapely.errors.GEOSException) as error:
-                    entry["sites"].append(
-                        {
-                            "state": "deferred",
-                            "site_id": list(map(int, identity)),
-                            "root_xy_m": xy.tolist(),
-                            "reason": str(error),
-                        }
-                    )
-            entry["state"] = "sampled"
-            entry["unrequested_sites"] = 16 - len(entry["sites"])
+                )
+            entry.update(
+                state="proposed",
+                unrequested_sites=16,
+                unrequested_reason="explicit accepted-plant/attempt budget",
+            )
         except (OccupancyError, ValueError, shapely.errors.GEOSException) as error:
             entry.update(state="deferred", reason=str(error))
         ledger.append(entry)
+    return sorted(pool, key=lambda p: p[:3]), ledger
+
+
+def plants(data, query, proto, *, max_plants=4, max_attempts=128):
+    if (
+        type(max_plants) is not int
+        or not 0 <= max_plants <= 64
+        or type(max_attempts) is not int
+        or not 0 <= max_attempts <= 1024
+    ):
+        raise ValueError("explicit bounded plant and attempt counts required")
+    rows, rejected = source_rows(data, "landcover")
+    canonical = region(data)
+    pool, ledger = proposals(data, proto, terrain_domain(data), canonical, rows, query)
+    graph = prepared(SITE)
+    accepted, attempts = [], 0
+    for distance, _key, identity, xy, row, support, part_canonical, entry in pool:
+        if len(accepted) >= max_plants or attempts >= max_attempts:
+            break
+        attempts += 1
+        record = {
+            "site_id": list(identity),
+            "root_xy_m": xy.tolist(),
+            "nearest_volume_xy_distance_m": distance,
+        }
+        try:
+            value = candidate(
+                row, xy, identity, support, data, query, proto, part_canonical, graph
+            )
+            record.update(state="prepared", plant_index=len(accepted))
+            accepted.append(
+                {
+                    "source_id": row["source_id"],
+                    "part": row["part"],
+                    "source_part_id": row["id"],
+                    "result": value,
+                }
+            )
+        except (OccupancyError, shapely.errors.GEOSException) as error:
+            record.update(state="deferred", reason=str(error))
+        entry["sites"].append(record)
+        entry["state"] = "sampled"
+        entry["unrequested_sites"] -= 1
     return (
         accepted,
-        ledger,
+        [*rejected, *ledger],
         {
             "attempts": attempts,
             "max_attempts": max_attempts,
             "max_plants": max_plants,
             "canonical_region": canonical,
+            "proposals": len(pool),
+            "max_proposals": 1024,
+            "selection": "nearest XY distance to actual transport/building volumes, then source-part/site key; height/crown still checked",
         },
     )
