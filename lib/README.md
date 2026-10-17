@@ -75,6 +75,11 @@ bestehenden analytischen `Blade`, mit stabilen Blatt-IDs und Auflösungsproben.
 Vertrag, tatsächlicher Orts-/Nahverbrauch und botanische/LOD-Grenzen stehen in
 [graminoid.md](graminoid.md) (#22/#208).
 
+`vegetation.normal_distribution` liefert nichtnegative diffuse Antworten aus
+gebinnten Normalmomenten, endliche Fehlergrenzen und eine massenerhaltende Variante.
+Vertrag, Filterung und Grenzen: [normal_distribution.md](normal_distribution.md)
+(#643); keine native Shaderbindung oder vollständige Vegetationsmaterialfreigabe.
+
 `materials.filtered_edge_weight(distance_m, reach_m, half_footprint_m)` liefert eine
 Float32-Materialmaske über einen signierten metrischen Rand. Ein analytischer Boxfilter
 integriert die kubische Übergangsmaske im eindimensionalen Normalen-Footprint; beide Seiten
