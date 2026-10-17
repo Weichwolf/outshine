@@ -14,5 +14,5 @@
   "traffic_mode": "source_clearance",
   "junction_mode": "level_box",
   "interior_contacts": [],
-  "scope": "Whole original 486.34m footway on immutable77-source Vienna baseline: actual original node [1463,1165] and cached103612620:2 interior profile at vertex2. Existing profile/level_box family; no new source snapping or access invention. Whole-body, terrain, pier and independent saved-product checks remain required (#661)."
+  "scope": "Whole actual486.34m ground footway trial; no admission inferred from original node adjacency."
 }

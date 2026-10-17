@@ -8,8 +8,8 @@ The input is `fixtures/stair-long-footway-vienna.json`. Original attributes and
 whole axes remain preserved; this is MVT graph provenance, not original OSM node
 or legal routing evidence.
 
-The initial private recipe has the same geometry/contract but an earlier scope
-string; its exact bytes and producer receipts remain retained. Producer50e00b4a8,
+The versioned recipe is byte-identical to the actual private producer input;
+its exact bytes and producer receipts remain retained. Producer50e00b4a8,
 local report SHA256
 `3aafc5b4c1f3e0a60a3dec070248891893c2180e94048ea6f3ab60a97fe50275`.
 Fresh source and installed saved-product readers pass;103source and103installed
