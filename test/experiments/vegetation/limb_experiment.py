@@ -15,9 +15,27 @@ from tree_entry import load
 from wood_mesh import branch_tubes
 
 
-def canonical_wood(crown, along=2, sides=8, max_faces=262144):
-    radii = pipe_radii(crown.parents, 0.14)
-    paths = dominant_paths(crown.positions, crown.parents, radii)
+def canonical_wood(
+    crown,
+    along=2,
+    sides=8,
+    max_faces=262144,
+    *,
+    radii=None,
+    max_nodes=4096,
+    continuations=None,
+):
+    if radii is None:
+        radii = pipe_radii(crown.parents, 0.14)
+    paths = dominant_paths(
+        crown.positions,
+        crown.parents,
+        radii,
+        max_nodes=max_nodes,
+        continuations=continuations,
+    )
+    if paths is None:
+        return None
     expected = sum(2 * sides * ((len(path) - 1) * along + 1) for path in paths)
     if expected > max_faces:
         return None
@@ -25,6 +43,8 @@ def canonical_wood(crown, along=2, sides=8, max_faces=262144):
     offset = 0
     for path in paths:
         mesh = limb_mesh(crown.positions, radii, path, along, sides)
+        if mesh is None:
+            return None
         vertices.append(mesh["vertices"])
         faces.append(mesh["faces"] + offset)
         normals.append(mesh["normals"])
