@@ -28,7 +28,7 @@ Result<void> ParseReflection(Reflection &reflection,
   constexpr uint32_t magic = 0x07230203u;
   constexpr std::size_t headerWords = 5;
   if (spirv.size() < headerWords || spirv.front() != magic || entry.empty() ||
-      entry.find('\0') != std::string_view::npos) {
+      entry.contains('\0')) {
     return std::unexpected(
         Error{.Kind = ErrorKind::Invalid, .Message = "invalid compute SPIR-V or entry point"});
   }

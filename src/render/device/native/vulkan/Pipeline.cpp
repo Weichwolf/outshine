@@ -150,13 +150,13 @@ Result<std::unique_ptr<ComputePipeline>> CreatePipeline(std::shared_ptr<Context>
   auto result = vkCreateShaderModule(state->Owner->Logical, &module, nullptr, &shader);
   if (result != VK_SUCCESS) { return std::unexpected(Failure("vkCreateShaderModule", result)); }
   const std::string name(entry);
-  VkComputePipelineCreateInfo create{};
-  create.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-  create.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  create.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-  create.stage.module = shader;
-  create.stage.pName = name.c_str();
-  create.layout = state->Layout;
+  VkComputePipelineCreateInfo create{
+      .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+      .stage = {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+                .module = shader,
+                .pName = name.c_str()},
+      .layout = state->Layout};
   result = vkCreateComputePipelines(
       state->Owner->Logical, VK_NULL_HANDLE, 1, &create, nullptr, &state->Handle);
   vkDestroyShaderModule(state->Owner->Logical, shader, nullptr);
