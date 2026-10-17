@@ -2,6 +2,7 @@
 #include "ScenarioWrite.h"
 #include "Tables.h"
 #include "Check.h"
+#include <cstddef>
 #include <string>
 
 int main() {
@@ -12,7 +13,7 @@ int main() {
                     .Columns = {"key", "amount", "label"},
                     .Types = {false, true},
                     .Rows = {{"", "+2.5e1", "a\tb\nc\r\"'&<>"}, {"next", "-0", ""}}},
-                   {.Id = "empty", .Columns = {"key"}},
+                   {.Id = "empty", .Columns = {"key"}, .Types = {}, .Rows = {}},
                    {.Id = "lexical", .Columns = {"key"}, .Types = {true}, .Rows = {{"01"}, {"1"}}}};
   const auto text = WriteScenario(source);
   CHECK(text.has_value(), "scenario export succeeds");
@@ -38,15 +39,18 @@ int main() {
   const auto book = TableBook::Stand(copy.Tables);
   CHECK(book.has_value(), "round-tripped schema builds a typed table book");
   if (book) {
-    const auto *number = book->Number({source.Tables[0].Id, "", "amount"});
+    const auto *number =
+        book->Number({.Table = source.Tables[0].Id, .Row = "", .Column = "amount"});
     CHECK(number && *number == 25, "numeric cell remains queryable by an empty text key");
-    const auto *label = book->Text({source.Tables[0].Id, "", "label"});
+    const auto *label = book->Text({.Table = source.Tables[0].Id, .Row = "", .Column = "label"});
     CHECK(label && *label == source.Tables[0].Rows[0][2], "escaped text remains exact");
-    CHECK(book->Number({"lexical", "01", "key"}) && book->Number({"lexical", "1", "key"}),
+    CHECK(book->Number({.Table = "lexical", .Row = "01", .Column = "key"}) &&
+              book->Number({.Table = "lexical", .Row = "1", .Column = "key"}),
           "distinct numeric key spellings remain distinct keys");
-    CHECK(!book->Number({source.Tables[0].Id, "", "label"}), "text never becomes a number");
+    CHECK(!book->Number({.Table = source.Tables[0].Id, .Row = "", .Column = "label"}),
+          "text never becomes a number");
   }
   const auto empty = WriteScenario({});
-  CHECK(empty && empty->find("<tables>") == std::string::npos, "absent tables remain absent");
+  CHECK(empty && !empty->contains("<tables>"), "absent tables remain absent");
   return Report();
 }

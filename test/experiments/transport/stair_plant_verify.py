@@ -14,6 +14,7 @@ from stair_occupancy_geometry import OccupancyError
 from stair_occupancy_handoff import OccupancyQuery
 from stair_plant_experiment import building_rows
 from stair_plant_geometry import bounds_query, prototype
+from stair_plant_retained_verify import verify_retention
 from stair_plant_sites import candidate, region, terrain_domain
 from stair_terrain_experiment import frozen
 
@@ -48,7 +49,7 @@ def replay_prototype(products):
     return mesh, saved
 
 
-def replay_plants(products, data, query, mesh, proto):
+def replay_plants(products, data, query, mesh, proto, report):
     rows, rejected = source_rows(data, "landcover")
     ledger = json.loads((products / "landcover-ledger.json").read_text())
     accepted = json.loads((products / "plants.json").read_text())
@@ -73,6 +74,16 @@ def replay_plants(products, data, query, mesh, proto):
     lower, side, region_id = region(data)
     graph = prepared(SITE)
     independent_candidates = FullScan(query)
+    verify_retention(
+        products,
+        data,
+        independent_candidates,
+        proto,
+        report,
+        rows,
+        graph,
+        candidate,
+    )
     for entry in ledger[len(rejected) :]:
         row = by_id[entry["id"]]
         for site in entry["sites"]:
@@ -95,9 +106,24 @@ def replay_plants(products, data, query, mesh, proto):
                     raise ValueError("actual local deferral reason changed") from error
             else:
                 raise ValueError("saved deferred root was actually admitted by replay")
+    retained_keys = {
+        (n["source_part_id"], tuple(n["site_id"]))
+        for n in report["budget"].get("retention", [])
+        if n["state"] == "prepared"
+    }
     for record in accepted:
         row = by_id[record["source_part_id"]]
         result = record["result"]
+        retained = (row["id"], tuple(result["site_id"])) in retained_keys
+        canonical = (
+            (
+                tuple(result["habitat"]["lower"]),
+                result["habitat"]["side_m"],
+                result["habitat"]["region_id"],
+            )
+            if retained
+            else (lower, side, region_id + ":" + row["id"])
+        )
         origin = np.array(result["world_origin_m"])
         xyz = mesh.vertices + origin
         body = bounds_query(row["id"], [xyz.min(axis=0), xyz.max(axis=0)], [0, 0, 0])
@@ -115,7 +141,7 @@ def replay_plants(products, data, query, mesh, proto):
             data,
             independent_candidates,
             proto,
-            (lower, side, region_id + ":" + row["id"]),
+            canonical,
             graph,
         )
         for key in result.keys() - {"root_support_query", "whole_body_query"}:
@@ -147,12 +173,22 @@ def run(args):
     ):
         raise ValueError("actual building products changed")
     mesh, proto = replay_prototype(args.products)
+    if (
+        report["prototype_vertices"] != len(mesh.vertices)
+        or report["prototype_triangles"] != len(mesh.triangles)
+        or report["prototype_array_bytes"]
+        != mesh.vertices.nbytes + mesh.triangles.nbytes
+    ):
+        raise ValueError(
+            "declared prototype geometry dimensions differ from its actual arrays"
+        )
     count, accepted = replay_plants(
         args.products,
         data,
         OccupancyQuery((*data["reservations"], *buildings)),
         mesh,
         proto,
+        report,
     )
     receipt = {
         "reader_commit": commit,
