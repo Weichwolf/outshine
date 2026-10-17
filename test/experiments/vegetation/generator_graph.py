@@ -347,13 +347,17 @@ class GeneratorGraph:
         )
         entropy = [self.seed, *(value for pair in path for value in pair)]
         rng = np.random.default_rng(np.random.SeedSequence(entropy))
-        phase_rng = np.random.default_rng(np.random.SeedSequence(entropy[:-1]))
-        azimuth = (
-            (
+        phase = placement.phase
+        if phase is None:
+            phase = (
                 0.0
                 if isinstance(placement.pattern, BendPattern)
-                else phase_rng.uniform(-np.pi, np.pi)
+                else np.random.default_rng(
+                    np.random.SeedSequence(entropy[:-1])
+                ).uniform(-np.pi, np.pi)
             )
+        azimuth = (
+            phase
             + site_angle
             + rng.uniform(-placement.azimuth_variance, placement.azimuth_variance)
         )

@@ -157,6 +157,9 @@ def build(graph_path, plant, catalog, needles, authoring_path, output):
         "crown_length_exponent",
         "upper_density_bias",
         "secondary_spacing_factor",
+        "crown_span_factor",
+        "secondary_divergence_rad",
+        "secondary_phase",
     )
     recipe = {
         "version": "experimental-parent-needled-2",
