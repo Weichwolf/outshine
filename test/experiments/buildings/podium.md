@@ -93,13 +93,15 @@ are296/310,255/298 and473/492. These exclude base planning, search, portal
 binding, 3D construction, native GEOS heap and renderer costs. Shared-host load
 was10.42→12.40 on four logical CPUs; these are scoped trends, not device factors.
 
-Frozen `b87d926ad`: complete preparation of the actual wing/podium took12.01/
-14.61s with separate traced peaks30.11/42.56MB under shared-host load12.06→
-13.21. Retained NumPy roots are14.65/20.75MB, excluding GEOS/Python heap.
-Warm near material binding p50 is0.0446/0.0550ms versus1.3762/1.6800ms when
+Frozen `dd3f44808`: complete preparation of the actual wing/podium took11.62/
+14.88s with separate traced peaks30.11/42.56MB under shared-host load11.33→
+12.32. Retained NumPy roots are14.65/20.75MB, excluding GEOS/Python heap.
+Warm near material binding p50 is0.0769/0.0547ms versus1.3416/1.7273ms when
 copying every prepared stream, with identical arrays/values. Explicit new
 arrays are87952/123080bytes versus12225328/17108120bytes; compact binding
-p50 is0.0080/0.0097ms. These measure in-memory draw binding, not loading or
+p50 is0.0146/0.0098ms. Each alternative copies the material-ID stream once;
+the full-copy alternative additionally copies every other prepared stream.
+These measure in-memory draw binding, not loading or
 whole-building generation, frame time or GPU performance. Full preparation
 remains expensive; narrow successful examples do not prove broad coverage.
 
@@ -108,6 +110,66 @@ The actual single-building near products have43976/61540 triangles versus
 monotonous; broader facade composition, roof equipment, complete architecture
 families and overall CityEngine-level variety remain open. The new long upper
 masses and larger terraces improve form variation only.
+
+## Frozen delivery evidence
+
+`fb29fd0a0`: nine source controls passed65.006s; the same nine installed
+controls passed63.625s. Twelve pre-existing stepped/profile controls passed
+89.409s at `a5ac4a9c6`; the later tiny-component guard changes only admission,
+and all12 final model streams replay those retained render inputs exactly.
+After Transport PR#538, nine controls passed56.370s against the fresh package
+at `34c23868c`: all201 modules byte-exact, wheel SHA256
+`e15068518082f4e5fac8f6ceccfa6c65cc4f8f7491247734a6352d3287845105`.
+Ruff format/static checks, diff checks and `make lint-docs` pass; native gates
+are outside this Python delivery.
+
+The full unchanged800×800m Paris window at `fb29fd0a0` completes with988/988
+buildings and zero window omissions,378857→383423 triangles. Six pinned tile
+receipts feed that window; it is not a rendering of all six complete tiles.
+Existing2724 provider-preparation omission records remain unchanged. Of80
+source-selected requests, eight programmes succeed (seven wings, one compact
+podium);72 retain the prior body.111 rejection records include alternate kinds,
+not111 omitted sources.33 sources have no complete base room/storey plan;
+many others fail room clipping/connected access. This limits visible coverage.
+
+Source attributes, original footprints/heights, IDs and flat placements match
+for every source. Material definitions/bindings, camera and source receipts
+match exactly. Only eight member records differ after excluding explicit
+timing diagnostics. The actual1080p before/after city images were opened;
+7075 pixels change(0.3412%), mean RGB error0.053591/255. The modest image
+change reflects the narrow admitted coverage, not citywide visual parity.
+An exact triangle-multiset comparison includes every supplied position,
+normal, UV, facade extent and material ID:374745 triangles match unchanged;
+4112 disappear and8678 are added. Changed triangle centres lie within0.90m
+of the eight source footprints before (existing projections) and0.001m after
+(surface offset). These are observed distances, not admission tolerances.
+
+All14 actual rasters use Blender5.2.2/Eevee16 with llvmpipe LLVM19.1.7.
+Geometry reports, complete mesh streams, source normals/UVs, input/image hashes,
+fixed camera/material/light bindings and pixel comparisons were checked.
+Single-building reported ground spans differ below a nanometre; actual
+Float32 plane span/centre are identical. The raster wrapper terminates after
+successful saving to avoid the known package teardown crash; no normal-teardown
+or hardware GPU claim. One interrupted city attempt ended SIGTERM/143;
+the separate terminal receipt records successful exit0/657.12s for the full
+model/export run. This includes construction, not network acquisition or a
+warm cache/load/frame result.
+
+Current private artifacts:
+
+- `/tmp/outshine-buildings-podium-output`: four2D diagrams,12 actual rasters,
+  model streams and raster receipts; final exact replay in
+  `/tmp/outshine-buildings-podium-final-replay/exact-replay.json`.
+- `/tmp/outshine-buildings-podium-city-final-output`: complete city models,
+  two actual rasters, source audit and terminal/raster receipts.
+- `/tmp/outshine-buildings-podium-cost-output` and
+  `/tmp/outshine-buildings-podium-asset-cost-final-output`: scoped raw costs.
+- `/tmp/outshine-buildings-podium-visual-audit.json` and
+  `/tmp/outshine-buildings-podium-city-pixels.txt`: checked image comparisons.
+- `/tmp/outshine-buildings-podium-esri-ee6da7bbe`: bounded local Ghidra export.
+- `/tmp/outshine-buildings-podium-wheel-34c23868c`: wheel, installed package
+  and byte/import receipt. These private paths are evidence, not dependencies
+  of the procedures or versioned fixed controls.
 
 ## References
 
