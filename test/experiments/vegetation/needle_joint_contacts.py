@@ -55,6 +55,20 @@ def camera_contacts(source, view, size):
         raise ValueError("bounded explicit orthographic source grid required")
     began = time.perf_counter()
     frame, lower, upper, _ = projection(source["vertices"], view)
+    if np.any(upper <= lower):
+        return {
+            "size": size,
+            "pixels": np.empty(0, np.int64),
+            "faces": np.empty(0, np.int64),
+            "points": np.empty((0, 3)),
+            "normals": np.empty((0, 3)),
+        }, {
+            "primary_backend": "empty-orthographic-projection",
+            "rays": 0,
+            "grid_samples": size * size,
+            "hits": 0,
+            "wall_s": time.perf_counter() - began,
+        }
     projected = source["vertices"] @ frame
     shift = 0.001 - projected[:, 2].min()
     projected[:, 2] += shift

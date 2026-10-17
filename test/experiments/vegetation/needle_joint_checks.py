@@ -116,6 +116,24 @@ class NeedleJointChecks(unittest.TestCase):
         )
         np.testing.assert_array_equal(visible, [False, True])
 
+    def test_edge_on_sheet_has_zero_coverage_and_light_work(self):
+        vertices, faces = plane(0)
+        source = {
+            "vertices": vertices,
+            "faces": faces,
+            "normals": np.tile([0.0, 0.0, 1.0], (2, 3, 1)),
+        }
+        contacts, work = camera_contacts(source, np.array([1.0, 0, 0]), 16)
+        self.assertEqual(work["hits"], 0)
+        scene = ScatterScene(vertices, faces)
+        cosine, visible, light_work = direct_response(
+            scene, contacts, np.array([0.0, 0, 1.0])
+        )
+        self.assertEqual(light_work["rays"], 0)
+        np.testing.assert_array_equal(
+            filtered_fields(contacts, cosine, visible, 4), np.zeros((3, 4, 4))
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
