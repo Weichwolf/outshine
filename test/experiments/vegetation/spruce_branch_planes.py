@@ -106,6 +106,7 @@ def probe(source, output):
             "secondary_phase": recipe["nodes"][3]["placement"].get("phase"),
         }
         result = measure(recipe, data["physical_source"], metadata, areas)
+        settings |= result
         _, _, spatial = sparse_poses(recipe)
         error = abs(result["expected_area_m2"] / settings["target_area_m2"] - 1)
         row = {
