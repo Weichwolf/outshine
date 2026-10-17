@@ -107,8 +107,8 @@ def equal_patches(actual, original):
 
 def verify(args):
     commit = frozen()
-    receipt_path = args.products / "verification.json"
-    if receipt_path.exists():
+    receipt_path = getattr(args, "output", None) or args.products / "verification.json"
+    if receipt_path.exists() or not receipt_path.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("fresh resident snapshot verification receipt required")
     report = json.loads((args.products / "comparison.json").read_text())
     artifacts(args.products, report)
@@ -176,4 +176,5 @@ def verify(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("products", type=Path)
+    parser.add_argument("--output", type=Path)
     verify(parser.parse_args())
