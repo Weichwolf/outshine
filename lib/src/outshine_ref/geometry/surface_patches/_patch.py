@@ -9,6 +9,7 @@ import numpy as np
 import shapely
 
 from ...contracts import LocalFrame, Mesh
+from ._coverage import proves_mesh_boundary
 
 
 def label(value):
@@ -74,7 +75,9 @@ class SurfacePatch:
         if np.any(low != high):
             raise ValueError("one exact height per explicit XY coordinate required")
         polygons = shapely.polygons(xyz[:, :, :2])
-        if not shapely.coverage_is_valid(polygons):
+        if not proves_mesh_boundary(
+            xy, inverse, self.mesh.triangles, polygons
+        ) and not shapely.coverage_is_valid(polygons):
             raise ValueError("nonoverlapping edge-matched surface patch required")
         if not isinstance(self.face_data, Mapping) or len(self.face_data) > 8:
             raise ValueError("bounded explicit face-attribute mapping required")
