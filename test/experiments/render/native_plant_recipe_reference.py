@@ -137,11 +137,14 @@ def maximum(errors, start, end):
     return float(np.max(errors[:, start:end])) if errors.size else 0.0
 
 
-def check(binary, recipe, path, output, name):
+def check(binary, recipe, path, output, name, json_input):
     root, axes, leaves = reference(recipe, path)
+    request = encode(recipe, path, len(axes), len(leaves))
+    if json_input:
+        request = request.splitlines()[-1] + "\n" + json.dumps(recipe)
     result = subprocess.run(
-        [str(binary)],
-        input=encode(recipe, path, len(axes), len(leaves)),
+        [str(binary), *(["--json"] if json_input else [])],
+        input=request,
         capture_output=True,
         text=True,
         timeout=10,
@@ -211,15 +214,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="read the original versioned JSON recipe natively",
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     results = [
-        check(args.binary.resolve(), recipe, path, output, name)
+        check(args.binary.resolve(), recipe, path, output, name, args.json)
         for name, recipe, path in cases()
     ]
     receipt = {
         "cases": results,
+        "input": "canonical-json" if args.json else "typed-fields",
         "scope": "finite Float64 recipe cohort; no LOD error bound, mature-tree, world or device acceptance",
     }
     (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")

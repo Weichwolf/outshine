@@ -1,4 +1,8 @@
 #include "PlantRecipe.h"
+#include "PlantRecipeJson.h"
+#include <array>
+#include <string_view>
+#include <utility>
 #include "PlantPlan.h"
 #include "PlantBladeSurface.h"
 #include <cstddef>
@@ -66,26 +70,54 @@ void WriteRows(const PlantPlan &plan, size_t maximumLeaves) {
 }
 }
 
-int main() {
-  PlantRecipe recipe;
+namespace {
+bool ReadDemand(PlantRecipeDemand &demand) {
+  for (auto &slot : demand.Path) {
+    if (!(std::cin >> slot)) { return false; }
+  }
+  return static_cast<bool>(std::cin >> demand.MaximumAxes >> demand.MaximumLeaves);
+}
+
+bool ReadRecipe(PlantRecipe &recipe) {
   size_t levels = 0;
   size_t blades = 0;
   if (!(std::cin >> recipe.Seed >> levels >> blades) || levels == 0 || levels > 8 || blades > 64) {
-    return 2;
+    return false;
   }
   recipe.Levels.resize(levels);
   recipe.Blades.resize(blades);
   for (auto &level : recipe.Levels) {
-    if (!ReadLevel(level)) { return 2; }
+    if (!ReadLevel(level)) { return false; }
   }
   for (auto &blade : recipe.Blades) {
-    if (!ReadBlade(blade)) { return 2; }
+    if (!ReadBlade(blade)) { return false; }
   }
+  return true;
+}
+
+bool ReadJson(PlantRecipe &recipe) {
+  constexpr size_t kMostInputBytes = size_t{64} * 1024;
+  std::array<char, kMostInputBytes + 1> buffer{};
+  std::cin.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+  const auto count = static_cast<size_t>(std::cin.gcount());
+  auto parsed = ReadPlantRecipe(std::string_view(buffer.data(), count), kMostInputBytes);
+  if (!parsed) {
+    std::cerr << parsed.error();
+    return false;
+  }
+  recipe = std::move(*parsed);
+  return true;
+}
+}
+
+int main(int argc, char *const *argv) {
+  PlantRecipe recipe;
   PlantRecipeDemand demand;
-  for (auto &slot : demand.Path) {
-    if (!(std::cin >> slot)) { return 2; }
+  if (argc == 2 && std::string_view(argv[1]) == "--json") {
+    if (!ReadDemand(demand) || !ReadJson(recipe)) { return 2; }
+  } else if (argc != 1 || !ReadRecipe(recipe) || !ReadDemand(demand)) {
+    return 2;
   }
-  if (!(std::cin >> demand.MaximumAxes >> demand.MaximumLeaves)) { return 2; }
   const auto size = MeasurePlantRecipe(recipe, demand);
   if (!size) {
     std::cerr << size.error();
