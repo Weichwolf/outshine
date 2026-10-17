@@ -167,22 +167,15 @@ WeatherFrame PrepareWeather(const Case &scenario) {
   CHECK(state && *state, "the selected native weather snapshot produces the cloud consumer state");
   if (!state || !*state) { Gpu::Failed(); }
   const auto &layer = (**state).Layer;
-  const auto drift = layer.WindMs * scenario.PhaseS;
-  return {
-      .Shell = {{static_cast<float>(layer.RadiusM),
-                 static_cast<float>(layer.BaseM),
-                 static_cast<float>(layer.ThicknessM),
-                 static_cast<float>(layer.ExtinctionPerM)}},
-      .Field = {{static_cast<float>(layer.Cover), static_cast<float>(layer.Profile), 0.0f, 0.0f}},
-      .Drift = {{static_cast<float>(drift[0]),
-                 static_cast<float>(drift[1]),
-                 static_cast<float>(drift[2]),
-                 0.0f}},
-      .DensityCameraOriginM = {{static_cast<float>(scenario.DensityCameraOriginM[0]),
-                                static_cast<float>(scenario.DensityCameraOriginM[1]),
-                                static_cast<float>(scenario.DensityCameraOriginM[2]),
-                                0.0f}},
-      .SunIrradiance = kCloudSun,
-      .SkyRadiance = kCloudSky};
+  const auto frame = MakeCloudFrame(layer, scenario.PhaseS, scenario.FieldOriginM);
+  CHECK(frame, "the production C++ frame producer preserves the requested wind and field anchor");
+  if (!frame) { Gpu::Failed(); }
+  return {.Layer = *frame,
+          .DensityCameraOriginM = {{static_cast<float>(scenario.DensityCameraOriginM[0]),
+                                    static_cast<float>(scenario.DensityCameraOriginM[1]),
+                                    static_cast<float>(scenario.DensityCameraOriginM[2]),
+                                    0.0f}},
+          .SunIrradiance = kCloudSun,
+          .SkyRadiance = kCloudSky};
 }
 }

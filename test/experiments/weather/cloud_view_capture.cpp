@@ -159,10 +159,17 @@ void WriteCapture(const Case &scenario,
            << scenario.Name << R"(","boundary_sky":)" << (scenario.BoundarySky ? "true" : "false")
            << R"(,"width":)" << shape.Width << R"(,"height":)" << shape.Height << R"(,"phase_s":)"
            << scenario.PhaseS << R"(,"viewport":[)" << view.X << ',' << view.Y << ',' << view.Width
-           << ',' << view.Height << R"(],"snapshot_origin":)"
-           << static_cast<int>(scenario.Snapshot.Source.Origin) << R"(,"snapshot_utc_s":)"
-           << scenario.Snapshot.Values.ValidUtcS << R"(,"source_sha256":")"
-           << scenario.Snapshot.Source.PayloadSha256 << "\"}\n";
+           << ',' << view.Height << R"(],"cloud_profile":)"
+           << static_cast<uint32_t>(scenario.Profile) << R"(,"field_origin_m":[)"
+           << scenario.FieldOriginM[0] << ',' << scenario.FieldOriginM[1] << ','
+           << scenario.FieldOriginM[2] << R"(],"weather_frame_bytes":)" << sizeof(WeatherFrame)
+           << R"(,"snapshot_origin":)" << static_cast<int>(scenario.Snapshot.Source.Origin)
+           << R"(,"snapshot_utc_s":)" << scenario.Snapshot.Values.ValidUtcS
+           << R"(,"source_sha256":")" << scenario.Snapshot.Source.PayloadSha256 << '"';
+  if (capture.GpuElapsedNanoseconds) {
+    metadata << R"(,"submission_gpu_ns":)" << *capture.GpuElapsedNanoseconds;
+  }
+  metadata << "}\n";
   CHECK(metadata.good(), "source provenance and actual raster profile are saved");
 }
 }

@@ -60,9 +60,9 @@ def load_capture(metadata, stride):
     rays = np.array(grid[offset::stride, offset::stride]).reshape(-1, 11)
     pixels = np.array(image[:, offset::stride, offset::stride])
     parameters = np.fromfile(prefix + ".parameters.bin", "<f4")
-    air, weather = parameters[:20], parameters[20:].reshape(6, 4)
-    np.testing.assert_allclose(weather[4, :3], SUN_IRRADIANCE, atol=1e-7, rtol=0)
-    np.testing.assert_allclose(weather[5, :3], SKY_RADIANCE, atol=1e-7, rtol=0)
+    air, weather = parameters[:20], parameters[20:].reshape(-1, 4)
+    np.testing.assert_allclose(weather[-2, :3], SUN_IRRADIANCE, atol=1e-7, rtol=0)
+    np.testing.assert_allclose(weather[-1, :3], SKY_RADIANCE, atol=1e-7, rtol=0)
     layer = Layer(
         radius_m=float(weather[0, 0]),
         base_m=float(weather[0, 1]),

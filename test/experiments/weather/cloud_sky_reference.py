@@ -13,7 +13,7 @@ def read(metadata):
     images = np.fromfile(stem + ".images.bin", "<f4").reshape(5, count, 4)
     rays = np.fromfile(stem + ".rays.bin", "<f8").reshape(count, 11)
     parameters = np.fromfile(stem + ".parameters.bin", "<f4")
-    return case, images, rays, parameters[:20], parameters[20:].reshape(6, 4)
+    return case, images, rays, parameters[:20], parameters[20:].reshape(-1, 4)
 
 
 def judge(metadata):
@@ -31,7 +31,13 @@ def judge(metadata):
     endpoint_error_m = np.abs(
         images[3, sky, 3].astype(float) * 1000 - end[selected_sky]
     )
-    expected = transfer(queries, medium, weather, case["phase_s"])
+    expected = transfer(
+        queries,
+        medium,
+        weather,
+        case["phase_s"],
+        profile=case.get("cloud_profile", int(weather[1, 1])),
+    )
     actual = np.c_[images[2, active, :3], images[3, active, :3]].astype(float)
     error = np.abs(expected - actual)
     composed = images[0, active, :3] * expected[:, 3:] + expected[:, :3]

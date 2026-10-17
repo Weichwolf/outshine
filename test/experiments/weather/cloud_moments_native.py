@@ -29,6 +29,7 @@ def compile_shader(source, target, run, name, includes=()):
             "-V",
             *(f"-I{path}" for path in includes),
             "-Isrc/generators/weather/shaders",
+            "-Itest/experiments/weather",
             source,
             "-o",
             target,
@@ -54,14 +55,19 @@ def mutations(output, binary, queries, labels, run):
         ),
         "receiver-partition": (
             kernel.replace(
-                "query.DirectionExtentM.xyz, query.DirectionExtentM.w,",
-                "query.DirectionExtentM.xyz, min(query.DirectionExtentM.w, query.OriginQueryM.w),",
+                "query.DirectionExtentM.w,",
+                "min(query.DirectionExtentM.w, query.OriginQueryM.w),",
+                1,
             ),
             helper,
         ),
     }
     result = {}
     for name, (source, include) in variants.items():
+        if source == kernel and include == helper:
+            raise RuntimeError(
+                f"the {name} negative control did not change its intended input"
+            )
         folder = output / name
         folder.mkdir(exist_ok=True)
         (folder / "probe.comp").write_text(source)

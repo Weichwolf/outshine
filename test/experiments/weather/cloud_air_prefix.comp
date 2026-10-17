@@ -1,5 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#include "cloud_fixture_layer.glsl"
 #if CLOUD_LIGHT_GAUSS3
 #include "cloud_sampling_gauss3.glsl"
 #endif
@@ -25,25 +26,52 @@
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(set = 0, binding = 0) uniform sampler2D veil;
 layout(set = 0, binding = 1) uniform sampler2D multiScatter;
-layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
-layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
-layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
-layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+
+layout(std430, set = 0, binding = 2) readonly buffer Rays {
+  ProbeRay rays[];
+}
+
+from;
+
+layout(std430, set = 0, binding = 3) readonly buffer Queries {
+  float distanceKm[];
+}
+
+query;
+
+layout(std430, set = 1, binding = 0) writeonly buffer Results {
+  ProbeSample samples[];
+}
+
+into;
+
+layout(std140, set = 2, binding = 0) uniform Parameters {
+  Medium Air;
+}
+
+pushed;
 
 CloudAirPrefix beginCloudRay(ProbeRay inputRay) {
   float azimuth = uintBitsToFloat(inputRay.Pad);
   float horizontal = sqrt(max(0.0, 1.0 - inputRay.Ray.CosView * inputRay.Ray.CosView));
   vec3 direction = vec3(horizontal * cos(azimuth), inputRay.Ray.CosView, horizontal * sin(azimuth));
   vec3 originM = vec3(0.0, (inputRay.Ray.RadiusKm - pushed.Air.BottomRadiusKm) * 1000.0, 0.0);
-  CloudLayer layer = CloudLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, CLOUD_PREFIX_EXTINCTION_PER_M),
-      vec4(CLOUD_PREFIX_COVER, 0.0, 0.0, 0.0), vec4(256.34352, 0.0, -148.0, 0.0));
-  CloudLight light = CloudLight(vec3(-0.6, 0.8, 0.0),
-      CLOUD_PREFIX_SUN_SCALE * vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
+  CloudLayer layer = cloudFixtureLayer(
+      vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, CLOUD_PREFIX_EXTINCTION_PER_M),
+      vec4(CLOUD_PREFIX_COVER, 0.0, 0.0, 0.0),
+      vec4(256.34352, 0.0, -148.0, 0.0));
+  CloudLight light = CloudLight(
+      vec3(-0.6, 0.8, 0.0), CLOUD_PREFIX_SUN_SCALE * vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
   AirPathSpan span = airPathSpan(pushed.Air, inputRay.Ray);
   AirRay clearRay = airPathRay(pushed.Air, inputRay.Ray, span);
   AirPrefix clear = airPrefixBegin(pushed.Air, clearRay, veil, multiScatter);
-  return cloudAirPrefixBegin(layer, originM, direction, inputRay.Ray.DistanceKm * 1000.0,
-      light, clear, span.BeginKm * 1000.0);
+  return cloudAirPrefixBegin(layer,
+                             originM,
+                             direction,
+                             inputRay.Ray.DistanceKm * 1000.0,
+                             light,
+                             clear,
+                             span.BeginKm * 1000.0);
 }
 
 void main() {
@@ -62,14 +90,18 @@ void main() {
 #else
     AirTransfer result = cloudAirPrefixAdvance(prefix, queryM, pushed.Air, veil, multiScatter);
 #endif
-    bool valid = CLOUD_PREFIX_COVER <= 0.0 ||
-        (queryM >= prefix.BeginM && queryM <= prefix.EndM);
-    valid = valid && prefix.CellsVisited <= 255u &&
-        prefix.Cloud.DensityEvaluations <= 255u && prefix.Cloud.SourceEvaluations <= 255u;
+    bool valid = CLOUD_PREFIX_COVER <= 0.0 || (queryM >= prefix.BeginM && queryM <= prefix.EndM);
+    valid = valid && prefix.CellsVisited <= 255u && prefix.Cloud.DensityEvaluations <= 255u &&
+            prefix.Cloud.SourceEvaluations <= 255u;
     uint counts = (prefix.CellsVisited << 24u) | (prefix.Cloud.DensityEvaluations << 16u) |
-        (prefix.Cloud.SourceEvaluations << 8u) | (valid ? 0u : 1u);
-    into.samples[at] = ProbeSample(result.RadiancePerLux.r, result.RadiancePerLux.g,
-        result.RadiancePerLux.b, result.Transmittance.r, result.Transmittance.g,
-        result.Transmittance.b, prefix.Clear.SourceEvaluations, counts);
+                  (prefix.Cloud.SourceEvaluations << 8u) | (valid ? 0u : 1u);
+    into.samples[at] = ProbeSample(result.RadiancePerLux.r,
+                                   result.RadiancePerLux.g,
+                                   result.RadiancePerLux.b,
+                                   result.Transmittance.r,
+                                   result.Transmittance.g,
+                                   result.Transmittance.b,
+                                   prefix.Clear.SourceEvaluations,
+                                   counts);
   }
 }
