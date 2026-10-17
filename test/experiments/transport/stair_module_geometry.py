@@ -14,7 +14,7 @@ from stair_module_loops import frozen_contacts, prepare_contacts
 from stair_module_materials import surface_slots
 from stair_module_node_heights import apply_heights, plan_heights
 from stair_module_roads import face_frames
-from stair_module_roots import bind_root_pad, root_profile
+from stair_module_roots import bind_root_pad, profile_masks, root_profile
 from stair_module_sections import cap_edge_constraints, line_pieces, profile_levels
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
@@ -117,6 +117,8 @@ def prepared(rows, sources, frozen_row, line, ground):
     surface_welding(rows, 1e-7)
     original = [corridor(r) for r in rows]
     _, _, masks = landings(rows, original, "width", 0.75, nodes)
+    if "cached_cap" in frozen_row:
+        masks = profile_masks(nodes, masks, line, contacts)
     old = shapely.union_all(shapely.polygons(ground.vertices[ground.triangles, :2]))
     domains = [p.difference(old) for p in original]
     if any(p.is_empty or not p.is_valid for p in domains):

@@ -199,8 +199,20 @@ fi
 SUITE=
 SUITES=
 ALL_CASES=0
+FORCED_SANITIZER=
+HARDEN=0
+HARDENING_FLAGS="-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG -D_GLIBCXX_ASSERTIONS"
 while [ $# -gt 0 ]; do
   case "$1" in
+    --sanitizer)
+      [ $# -ge 2 ] || Die "--sanitizer requires address or thread"
+      case "$2" in
+        address|thread) FORCED_SANITIZER=$2 ;;
+        *) Die "--sanitizer requires address or thread" ;;
+      esac
+      shift 2
+      ;;
+    --harden) HARDEN=1; shift ;;
     --timeout)
       [ $# -ge 2 ] || Die "--timeout wants a number of seconds"
       TIMEOUT_S=$2
@@ -244,7 +256,12 @@ TestProfile() {
     outshine/src/render/device/GpuSubmission | outshine/src/render/device/GroundStorage)
       printf '%s' 'profile/device' ;;
     outshine/src/audio/*) printf '%s' 'profile/audio' ;;
-    outshine/src/base/io/Png | outshine/src/base/io/Tasks) printf '%s' 'profile/base' ;;
+    outshine/src/base/*) printf '%s' 'profile/base' ;;
+    outshine/src/content/*) printf '%s' 'profile/content' ;;
+    outshine/src/scenario/ScenarioRead|outshine/src/scenario/ScenarioLayer) printf '%s' 'profile/scenario' ;;
+    outshine/src/render/Shape) printf '%s' 'profile/render-geometry' ;;
+    outshine/src/render/device/SpirvFile) printf '%s' 'profile/spirv' ;;
+    outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) printf '%s' 'profile/species' ;;
     outshine/src/render/stages/MediumView) printf '%s' 'profile/medium-view' ;;
     outshine/src/*) printf '%s' 'profile/internal' ;;
     outshine/integration/places|outshine/integration/world_regressions) printf '%s' 'profile/engine' ;;
@@ -269,7 +286,12 @@ LayerIncludes() {
     tool/prune) printf '%s' "-Iinclude -Itest/harness/shared -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import" ;;
     harness/claims) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water " ;;
     harness/geographiclib/geodesic) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/content/shade -Isrc/world/weather -Isrc/world/sky -Isrc/base/io -Isrc/import -Isrc/render -Isrc/world/products -Isrc/world/ground -Isrc/world/navigation -Isrc/generators -Isrc/generators/base -Isrc/generators/building -Isrc/generators/flora -Isrc/generators/road -Isrc/generators/terrain -Isrc/generators/water -Isrc/world/data -Itest/harness/shared" ;;
-    profile/base) printf '%s' "-Iinclude -Isrc/base/math -Isrc/base/geo -Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/import -Isrc/render -Isrc/content/shade -Itest/harness/shared" ;;
+    profile/base) GroupIncludes src/base ;;
+    profile/content) GroupIncludes src/content; printf ' %s' "$(pkg-config --cflags sdl3-image sqlite3 libzstd)" ;;
+    profile/scenario) GroupIncludes src/scenario ;;
+    profile/render-geometry) LayerIncludes profile/base; printf ' %s' '-Isrc/render' ;;
+    profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
+    profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
     profile/engine) printf '%s ' "-Itest/harness/shared"; GroupIncludes src/engine; printf ' %s' "$(pkg-config --cflags liblz4 libtiff-4 sqlite3 libzstd)" ;;
     harness/wpt/css) printf '%s' "-Iinclude -Isrc/base/format -Isrc/base/math -Isrc/base/io -Isrc/base/spatial -Isrc/content/shade -Isrc/import -Isrc/render/draw -Isrc/ui -Itest/harness/shared" ;;
@@ -295,9 +317,24 @@ LayerToolchain() {
     *) printf '%s' "$CXXSTD -fno-exceptions" ;;
   esac
 }
-# Vector decoding runs under ASan/UBSan; GPU fault injection also runs with SDL validation.
+NativeSafetyProfile() {
+  case "$1" in
+    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Instrument product objects as well as the test entry point.
 # Instrumenting repository-claim wrappers would not instrument their subprocesses.
 LayerSanitiser() {
+  if [ "$FORCED_SANITIZER" = thread ]; then
+    printf '%s' "-fsanitize=thread -fno-omit-frame-pointer -g1"
+    return
+  fi
+  if [ "$FORCED_SANITIZER" = address ] || NativeSafetyProfile "$1"; then
+    printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1"
+    return
+  fi
   case "$(TestProfile "$1")" in
     profile/medium-view | profile/vector | profile/osm-xml | profile/transport-topology | profile/transport-native | harness/shared | harness/shared/graph | harness/test262/js | harness/wpt/css)
       printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
@@ -308,6 +345,9 @@ LayerSanitiser() {
 }
 
 LayerValidation() {
+  if [ "$HARDEN" = 1 ] || NativeSafetyProfile "$1"; then
+    printf '%s ' "$HARDENING_FLAGS"
+  fi
   case "$1" in
     outshine/integration/places|outshine/integration/world_regressions) printf '%s' "-DNDEBUG"; return ;;
   esac
@@ -321,6 +361,8 @@ LayerLink() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip | profile/client-preparation) LayerLink profile/internal ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
+    profile/scenario|profile/render-geometry|profile/species) LayerLink profile/base ;;
+    profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
     profile/diagnostics) LayerLink profile/internal ;;
     profile/internal|profile/device) LayerLink profile/engine ;;
     profile/engine | harness/wpt/css | harness/geographiclib/geodesic) printf '%s' "$(pkg-config --libs sdl3 sdl3-image sdl3-ttf sdl3-shadercross liblz4 libtiff-4 libwebp geos sqlite3 libzstd sfcgal) -Wl,-rpath,$(pkg-config --variable=libdir sdl3-shadercross) -lz -lcurl $(NativeLink)" ;;
@@ -341,6 +383,14 @@ EngineRootGroups() {
   SourceUnits src/engine | tr '\n' ' '
 }
 
+SubtreeGroups() {
+  for subtree in "$@"; do
+    for sourceDirectory in $SOURCE_DIRECTORIES; do
+      case "$sourceDirectory" in "$subtree"|"$subtree"/*) printf '%s ' "$sourceDirectory" ;; esac
+    done
+  done
+}
+
 LayerGroups() {
   case "$(TestProfile "$1")" in
     profile/client-roundtrip) LayerGroups profile/internal; printf ' %s' "src/client/ScenarioRoundTrip.cpp" ;;
@@ -355,7 +405,12 @@ LayerGroups() {
     harness/wpt/css) printf '%s' "src/base/format/Json.cpp src/base/format/CssColour.cpp src/ui" ;;
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
-    profile/base) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/base/io" ;;
+    profile/base) SubtreeGroups src/base ;;
+    profile/content) SubtreeGroups src/base src/content ;;
+    profile/scenario) SubtreeGroups src/base; printf '%s' ' src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/world/data/SourceProviderValidation.cpp' ;;
+    profile/render-geometry) SubtreeGroups src/base; printf '%s' ' src/render/Shape.cpp src/render/ShapeCook.cpp src/render/GeometryPacking.cpp' ;;
+    profile/spirv) printf '%s' 'src/render/device/SpirvFile.cpp src/base/io/ReadTextFile.cpp' ;;
+    profile/species) SubtreeGroups src/base; printf '%s' ' src/generators/flora/TreeSpecies.cpp src/generators/flora/Species.cpp src/generators/flora/GrowthForm.cpp src/generators/flora/TreeLeaf.cpp' ;;
     profile/audio) printf '%s' "src/audio src/base/math" ;;
     profile/engine) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
     harness/geographiclib/geodesic) printf '%s' "src/base src/base/math src/base/geo src/base/format src/base/spatial src/content/assets src/content/animation src/content/mesh src/content/scene src/content/shade src/content/impostor src/world/weather src/world/sky src/base/io $(ImportGroups) src/render/plan src/render/draw src/render/impostor src/render/scene src/render src/render/device $(NativeGroups) src/render/stages src/world/entity src/ui src/world/data src/world/ground src/world/navigation src/world/ground/tiles $(GeneratorGroups) src/base/curve src/actor/body src/host $(EngineRootGroups) src/engine/streaming src/audio src/scenario/Tables.cpp src/scenario/ScenarioJson.cpp src/scenario/ScenarioRead.cpp src/scenario/ReadScenarioOsm.cpp src/scenario/ScenarioWrite.cpp src/scenario/ScenarioLayer.cpp src/scenario/Views.cpp src/scenario/InputMap.cpp src/scenario/Triggers.cpp" ;;
@@ -741,7 +796,7 @@ SkipAllowed() {
   return 1
 }
 
-mkdir -p "$BUILD/obj" "$BUILD/obj-sanitised" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
+mkdir -p "$BUILD/obj" "$BUILD/obj-address" "$BUILD/obj-thread" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
 SAN=""
 $CXX test/harness/shared/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
@@ -1601,21 +1656,28 @@ done
 
 TESTS=""
 PROGRAMS=""
+candidateOwner=""
+candidateKind=""
 for candidate in $(TestSources | sort); do
   candidateLayer=$(dirname "${candidate#test/}")
-  if Programs "$candidateLayer" >/dev/null; then
-    PROGRAMS="$PROGRAMS $candidate"
-    continue
+  if [ "$candidateLayer" != "$candidateOwner" ]; then
+    if Programs "$candidateLayer" >/dev/null; then
+      candidateKind=program
+    elif LayerIncludes "$candidateLayer" >/dev/null; then
+      LayerGroups "$candidateLayer" >/dev/null ||
+        Die "$candidate is under test/$candidateLayer, which declares an include set but no source groups"
+      candidateKind=test
+    elif NotTheHarnesses "$candidateLayer" >/dev/null; then
+      candidateKind=external
+    else
+      Die "$candidate is under test/$candidateLayer, and the harness knows no such directory -- declare it in LayerIncludes and LayerGroups to run its tests, or in NotTheHarnesses if the Makefile judges it"
+    fi
+    candidateOwner=$candidateLayer
   fi
-  if LayerIncludes "$candidateLayer" >/dev/null; then
-    LayerGroups "$candidateLayer" >/dev/null ||
-      Die "$candidate is under test/$candidateLayer, which declares an include set but no source groups"
-    TESTS="$TESTS $candidate"
-  elif NotTheHarnesses "$candidateLayer" >/dev/null; then
-    continue
-  else
-    Die "$candidate is under test/$candidateLayer, and the harness knows no such directory -- declare it in LayerIncludes and LayerGroups to run its tests, or in NotTheHarnesses if the Makefile judges it"
-  fi
+  case "$candidateKind" in
+    program) PROGRAMS="$PROGRAMS $candidate" ;;
+    test) TESTS="$TESTS $candidate" ;;
+  esac
 done
 [ -n "$TESTS" ] && [ "$TESTS" != " " ] || Die "no test under a declared layer of test/"
 
@@ -1686,6 +1748,14 @@ if [ -n "$SUITES" ]; then
   fi
 fi
 
+for selectedTest in $TESTS; do
+  case "$(TestProfile "$(dirname "${selectedTest#test/}")")" in
+    profile/engine|profile/internal|profile/device|profile/diagnostics|profile/client-roundtrip|profile/client-preparation)
+      make shaders || Die "selected tests require prepared shaders"
+      break
+      ;;
+  esac
+done
 
 started=$(Now)
 builtSpentMs=0
@@ -2107,7 +2177,8 @@ for testSource in $TESTS; do
   sanitiser=$(LayerSanitiser "$layer")
   if [ -n "$sanitiser" ]; then
     before=$(Now)
-    OBJDIR=$BUILD/obj-sanitised
+    sanitizerName=${FORCED_SANITIZER:-address}
+    OBJDIR=$BUILD/obj-$sanitizerName
     SAN=$sanitiser
     OBJECTS=""
     built=yes
@@ -2116,7 +2187,7 @@ for testSource in $TESTS; do
     for group in $groups; do
       BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
     done
-    sanitisedBinary=$plainBinary.sanitised
+    sanitisedBinary=$plainBinary.$sanitizerName
     if [ "$built" = yes ]; then
       buildCommand="$CXX $testSource $(LayerExtraSources "$layer") $OBJECTS $toolchain $OPT $WARN $SAN $includes $compileDefine $linkage"
     if Fresh "$sanitisedBinary" "$buildCommand" $testSource $(LayerExtraSources "$layer"); then :; else
@@ -2230,7 +2301,7 @@ done
     "$jsHeld" "$jsReduced" "$jsOutside" "$((jsInside + jsReduced + jsOutside))" \
     "$jsInside" "$jsRed"
 [ "$validatedRan" = yes ] && printf '%s\n' \
-  "~validated checks the same contracts with alternate compilation: NDEBUG for places, GPU validation for device cases; it is not a visual oracle"
+  "~validated checks alternate compilation: container hardening when selected, NDEBUG for places, GPU validation for device cases; it is not a visual oracle"
 [ "$inverted" -gt 0 ] &&
   printf 'declared to fail and did, so the verdict stands inverted: %s\n' "$EXPECT_FAIL"
 

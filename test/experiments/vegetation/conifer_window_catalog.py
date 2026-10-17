@@ -129,7 +129,13 @@ def template_image(source, direction, size=32, samples=4, *, projection_data=Non
         axis=-1,
     )
     covered, data = rasterize(
-        points, source["faces"], attributes, lower, upper, size * samples
+        points,
+        source["faces"],
+        attributes,
+        lower,
+        upper,
+        size * samples,
+        max(262144, (size * samples) ** 2),
     )
     normal = data[..., 3:6]
     normal /= np.maximum(np.linalg.norm(normal, axis=-1, keepdims=True), 1e-20)

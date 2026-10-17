@@ -1,10 +1,29 @@
 """Bind a module root to an actual original cached outer or interior profile."""
 
 import numpy as np
+import shapely
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from stair_cycle_contacts import profile
 from stair_landing_pads import node_profiles
 from stair_module_loops import actual_profile, interior_profile
+
+
+def profile_masks(nodes, masks, line, contacts):
+    result = list(masks)
+    references = [line, *[c["profile"] for c in contacts]]
+    for reference in references:
+        choices = [
+            i
+            for i, node in enumerate(nodes)
+            if np.array_equal(node["xy"], reference[1, :2])
+        ]
+        if len(choices) != 1:
+            raise ValueError("one saved node for each whole cached profile required")
+        index = choices[0]
+        trace = shapely.LineString(reference[:, :2])
+        if not result[index].buffer(1e-7).covers(trace):
+            result[index] = result[index].union(trace.buffer(0.75))
+    return result
 
 
 def root_profile(state, recipe, sources):
