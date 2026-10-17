@@ -132,6 +132,9 @@ for coherent source use, but this is not an efficient runtime cache-hit loader.
 The next measured target [#678](https://github.com/Weichwolf/outshine/issues/678)
 is avoiding repeated validation of unchanged verified topology while retaining
 independent cold checks and strict invalid-input refusal.
+Its first [strict boundary-proof delivery](stair_coverage_boundary_comparison.md)
+reduces general coverage work while preserving the same full state; repeated
+composition/prepared reuse remains open.
 
 Equal-result construction after preloading:
 
