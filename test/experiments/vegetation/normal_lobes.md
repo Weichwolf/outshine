@@ -111,6 +111,13 @@ No native texture packing, binding, world cache or material format is prescribed
 
 ## Controls and reproduction
 
+Fresh wheel `e73361c9b8df238432fb00e2c97eadf6bddaac60e5aa883fcafbdd7b038a642e`
+passes45installed controls. All42actually imported reference-module files
+resolve inside its fresh/tmp `.venv` and match the delivered source bytes.
+The held-out tail replay matches all76saved NPZ fields exactly after library
+promotion, including all5MIPs. Dependencies are shared through a dependency-only
+site-packages path; no lib/src or old reference installation enters imports.
+
 Five library controls plus5existing leaf-normal/8new distribution/27prior
 source-area/joint-response controls pass. Independent scalar sums, same-mean
 counterexamples, sharp Jensen gap, rotations, nested bins, mass/isotropic energy,
