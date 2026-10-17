@@ -18,6 +18,14 @@ from stair_plant_sites import candidate, region, terrain_domain
 from stair_terrain_experiment import frozen
 
 
+class FullScan:
+    def __init__(self, query):
+        self.query = query
+
+    def conflict(self, footprint):
+        return self.query.conflict(footprint, method="scan")
+
+
 def replay_prototype(products):
     saved = json.loads((products / "prototype/prototype.json").read_text())
     with np.load(products / "prototype/complete.npz", allow_pickle=False) as data:
@@ -64,6 +72,7 @@ def replay_plants(products, data, query, mesh, proto):
     domain = terrain_domain(data)
     lower, side, region_id = region(data)
     graph = prepared(SITE)
+    independent_candidates = FullScan(query)
     for entry in ledger[len(rejected) :]:
         row = by_id[entry["id"]]
         for site in entry["sites"]:
@@ -76,7 +85,7 @@ def replay_plants(products, data, query, mesh, proto):
                     site["site_id"],
                     row["polygon"].intersection(domain),
                     data,
-                    query,
+                    independent_candidates,
                     proto,
                     (lower, side, region_id + ":" + row["id"]),
                     graph,
@@ -104,7 +113,7 @@ def replay_plants(products, data, query, mesh, proto):
             result["site_id"],
             row["polygon"].intersection(domain),
             data,
-            query,
+            independent_candidates,
             proto,
             (lower, side, region_id + ":" + row["id"]),
             graph,
