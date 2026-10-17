@@ -51,7 +51,49 @@ def records(rows, prefix, names):
     ]
 
 
-def check(binary, output):
+def check_surfaces(actual, axes, detail):
+    import numpy as np
+    from outshine_ref.vegetation.axis_surface import axis_mesh
+
+    position_error = normal_error = 0.0
+    triangles = 0
+    for axis in axes:
+        selected = [row[1:] for row in actual if row[0] == axis[0]]
+        source = axis_mesh(
+            axis[21],
+            axis[22],
+            axis[24],
+            axis[25],
+            detail["axis_segments"],
+            detail["axis_sides"],
+        )
+        frame = np.array(axis[12:21]).reshape(3, 3)
+        origin = np.array(axis[9:12])
+        positions = (source["vertices"] @ frame.T + origin)[source["faces"]]
+        normals = (source["normals"] @ frame.T).reshape(-1, 3, 3)
+        result = np.asarray(selected).reshape(-1, 3, 6)
+        if result.shape[:2] != positions.shape[:2]:
+            raise ValueError("native axis changed the canonical triangle inventory")
+        position_error = max(
+            position_error, float(np.max(np.abs(result[:, :, :3] - positions)))
+        )
+        normal_error = max(
+            normal_error, float(np.max(np.abs(result[:, :, 3:] - normals)))
+        )
+        np.testing.assert_allclose(result[:, :, :3], positions, rtol=0, atol=2e-7)
+        np.testing.assert_allclose(result[:, :, 3:], normals, rtol=0, atol=1e-7)
+        triangles += len(result)
+    if len(actual) != triangles:
+        raise ValueError("unexpected axis surfaces")
+    return {
+        "triangles": triangles,
+        "maximum_position_error_m": position_error,
+        "maximum_normal_component_error": normal_error,
+        "scope": "Float32 native corners versus existing Float64 Python surfaces; no runtime LOD/device claim",
+    }
+
+
+def check(binary, output, surfaces=False):
     metadata, rows = fixed_rows()
     axes = records(
         rows,
@@ -75,7 +117,7 @@ def check(binary, output):
     )
     text = "\n".join(" ".join(map(str, row)) for row in axes + leaves) + "\n"
     result = subprocess.run(
-        [str(binary)],
+        [str(binary), *(["axis-surfaces"] if surfaces else [])],
         input=text,
         capture_output=True,
         text=True,
@@ -85,10 +127,10 @@ def check(binary, output):
     (output / "native.log").write_text(result.stdout + result.stderr)
     if result.returncode:
         raise RuntimeError(f"native plan consumer exited {result.returncode}")
-    actual = {kind: [] for kind in ("A", "L", "S")}
+    actual = {kind: [] for kind in ("A", "L", "S", "G")}
     for line in result.stdout.splitlines():
         kind, *fields = line.split()
-        integers = {"A": 9, "L": 3, "S": 11}[kind]
+        integers = {"A": 9, "L": 3, "S": 11, "G": 1}[kind]
         actual[kind].append(
             [
                 int(value) if i < integers else float(value)
@@ -123,12 +165,20 @@ def check(binary, output):
         "canonical_rows_exact": True,
         "scope": "fixed immutable-row consumption and demand; no generation, geometry or device claim",
     }
+    if surfaces:
+        receipt["scope"] = (
+            "fixed prepared-row consumption plus circular-axis geometry; no recipe/world/device claim"
+        )
+        receipt["axis_surfaces"] = check_surfaces(
+            actual["G"], axes, metadata["geometry"]
+        )
     (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps(receipt))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--surfaces", action="store_true")
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
@@ -140,7 +190,7 @@ def main():
             "private output must be outside the checkout in the system temporary directory"
         )
     output.mkdir(parents=True, exist_ok=True)
-    check(args.binary.resolve(), output)
+    check(args.binary.resolve(), output, args.surfaces)
 
 
 if __name__ == "__main__":
