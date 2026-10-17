@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
+from stair_frontier_dispositions import source_dispositions
 from stair_landing_pads import complete_landings
 from stair_module_audit import traffic
 from stair_module_clearance import source_clearances
@@ -40,6 +41,28 @@ class ActualInteriorRoot(unittest.TestCase):
         bad["cached_module_rows"][self.key]["xy"][6][0] += 0.001
         with self.assertRaises(ValueError):
             root_profile(bad, dict(recipe, contact_mode="profile"), self.sources)
+
+
+class PhysicalAttemptDispositions(unittest.TestCase):
+    def test_joint_failure_is_not_an_individual_impossibility_and_keeps_others(self):
+        plan = {"proposals": [{"source_ids": ["a", "b"]}, {"source_ids": ["c"]}]}
+        attempts = [
+            {"index": 0, "source_ids": ["a", "b"], "reason": "joint_contact_conflict"},
+            {"index": 1, "source_ids": ["a"], "reason": ""},
+        ]
+        result = source_dispositions(plan, attempts, 1)
+        self.assertTrue(result["a"]["candidate_geometry"])
+        self.assertEqual(result["a"]["attempt_indices"], [0, 1])
+        self.assertFalse(result["b"]["candidate_geometry"])
+        self.assertIn("retained_for_later", result["b"]["reason"])
+        self.assertEqual(result["b"]["attempt_indices"], [0])
+        self.assertEqual(result["c"]["reason"], "outside_bounded_geometry_attempts")
+        self.assertFalse(
+            any(
+                r["candidate_geometry"]
+                for r in source_dispositions(plan, [], None).values()
+            )
+        )
 
 
 class SourceJunctionsAndClearance(unittest.TestCase):
