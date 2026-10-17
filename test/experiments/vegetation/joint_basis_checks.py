@@ -10,10 +10,10 @@ from joint_basis_reduction import fit_report
 from joint_basis_study import run, study_views, view_light_knots
 from joint_light_measure import JointMeasure
 from needle_area_checks import sheet
-from needle_area_light import integrate
 from normal_lobes import NormalMeasure
 from positive_light_basis import angular_weights, positive_columns
 from scatter_scene import ScatterScene
+from surface_area_light import integrate
 
 
 class PositiveBasisTests(unittest.TestCase):

@@ -123,8 +123,9 @@ bool PlantPlan::IndexLeaves(size_t variants) {
 
 std::expected<PlantPlan, std::string_view>
 PlantPlan::Create(std::vector<PlantAxis> axes, std::vector<PlantLeaf> leaves, size_t variants) {
-  if (axes.empty() || variants == 0 || variants > size_t{1} + std::numeric_limits<uint8_t>::max() ||
-      axes.size() > std::vector<size_t>{}.max_size() / variants) {
+  if (axes.empty() || (variants == 0 && !leaves.empty()) ||
+      variants > size_t{1} + std::numeric_limits<uint8_t>::max() ||
+      (variants > 0 && axes.size() > std::vector<size_t>{}.max_size() / variants)) {
     return std::unexpected("plant plan requires bounded axes and blade variants");
   }
   PlantPlan result;

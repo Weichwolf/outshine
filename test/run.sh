@@ -259,6 +259,8 @@ TestProfile() {
     outshine/src/base/io/Tasks) printf '%s' 'profile/tasks' ;;
     outshine/src/generators/flora/PreparedPlantBuild) printf '%s' 'profile/plant-build' ;;
     outshine/src/generators/flora/PreparedPlant) printf '%s' 'profile/plant-asset' ;;
+    outshine/src/generators/flora/PlantRecipe) printf '%s' 'profile/plant-recipe' ;;
+    outshine/src/generators/flora/PlantRandom) printf '%s' 'profile/plant-random' ;;
     outshine/src/generators/flora/PlantPlan) printf '%s' 'profile/plant-plan' ;;
     outshine/src/base/*) printf '%s' 'profile/base' ;;
     outshine/src/content/*) printf '%s' 'profile/content' ;;
@@ -305,7 +307,7 @@ LayerIncludes() {
     profile/ground-patch) LayerIncludes profile/base; printf ' %s' '-Isrc/render/stages' ;;
     profile/plant-build) GroupIncludes src/generators/flora; GroupIncludes src/base ;;
     profile/plant-asset) GroupIncludes src/generators/flora; GroupIncludes src/base; GroupIncludes src/content/assets; printf ' %s' "$(pkg-config --cflags sqlite3 libzstd)" ;;
-    profile/plant-plan) GroupIncludes src/generators/flora ;;
+    profile/plant-plan | profile/plant-random | profile/plant-recipe) GroupIncludes src/generators/flora ;;
     profile/spirv) printf '%s' '-Isrc/render/device -Isrc/base/io' ;;
     profile/species) GroupIncludes src/generators/flora ;;
     profile/audio) printf '%s' "-Iinclude -Isrc/audio -Isrc/base -Isrc/base/math" ;;
@@ -336,7 +338,7 @@ LayerToolchain() {
 }
 NativeSafetyProfile() {
   case "$1" in
-    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
+    outshine/src/base/Geometry|outshine/src/content/assets/GeometryAsset|outshine/src/content/scene/SceneGeometry|outshine/src/scenario/ScenarioRead|outshine/src/render/Shape|outshine/src/render/stages/GroundPatchMesh|outshine/src/render/stages/GroundPatchError|outshine/src/render/device/SpirvFile|outshine/src/generators/flora/Species|outshine/src/generators/flora/TreeSpecies|outshine/src/generators/flora/PlantPlan|outshine/src/generators/flora/PlantRandom|outshine/src/generators/flora/PlantRecipe|outshine/src/generators/flora/PreparedPlant|outshine/src/generators/flora/PreparedPlantBuild) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -380,7 +382,7 @@ LayerLink() {
     profile/ground-patch) printf '%s' "$(pkg-config --libs geos)" ;;
     profile/tasks) printf '%s' '-pthread' ;;
     profile/plant-asset) printf '%s' "-lz $(pkg-config --libs sqlite3 libzstd)" ;;
-    profile/plant-plan | profile/plant-build) return 0 ;;
+    profile/plant-plan | profile/plant-build | profile/plant-random | profile/plant-recipe) return 0 ;;
     profile/base) printf '%s' "-lz $(pkg-config --libs geos)" ;;
     profile/scenario|profile/scenario-write|profile/render-geometry|profile/species) LayerLink profile/base ;;
     profile/content) printf '%s' "-lz $(pkg-config --libs geos sdl3 sdl3-image sqlite3 libzstd)" ;;
@@ -431,6 +433,8 @@ LayerGroups() {
     profile/tasks) printf '%s' 'src/base/io/Tasks.cpp' ;;
     profile/plant-build) LayerGroups profile/plant-plan; printf '%s' ' src/generators/flora/BuildPreparedPlant.cpp src/generators/flora/PreparedPlant.cpp src/base/Geometry.cpp' ;;
     profile/plant-asset) printf '%s' 'src/generators/flora/PreparedPlant.cpp src/generators/flora/PreparedPlantAsset.cpp src/base/Geometry.cpp src/base/format/Sha256.cpp src/content/assets' ;;
+    profile/plant-recipe) LayerGroups profile/plant-plan; printf '%s' ' src/generators/flora/PlantRandom.cpp src/generators/flora/PlantRecipe.cpp src/generators/flora/PlantRecipeLayout.cpp' ;;
+    profile/plant-random) printf '%s' 'src/generators/flora/PlantRandom.cpp' ;;
     profile/plant-plan) printf '%s' 'src/generators/flora/PlantPlan.cpp src/generators/flora/PlantAxisSurface.cpp src/generators/flora/PlantSurface.cpp src/generators/flora/PlantBladeSurface.cpp' ;;
     profile/base) SubtreeGroups src/base ;;
     profile/content) SubtreeGroups src/base src/content ;;

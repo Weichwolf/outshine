@@ -105,11 +105,15 @@ def portal_for(prepared, index, terrace, guard):
 
 def plan(mass):
     prepared = prepare(mass)
-    world = world_prepared(prepared)
+    active = tuple(
+        i
+        for i, s in enumerate(mass.storeys)
+        if i and not shapely.from_wkb(s.terrace_wkb).is_empty
+    )
+    world = world_prepared(prepared, active)
     terraces, portals = [], []
-    for index, storey in enumerate(mass.storeys):
-        if not index:
-            continue
+    for index in active:
+        storey = mass.storeys[index]
         original_lower = shapely.from_wkb(mass.storeys[index - 1].footprint_wkb)
         previous = resolved(original_lower)
         current = resolved(shapely.from_wkb(storey.footprint_wkb))
