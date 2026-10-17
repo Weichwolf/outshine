@@ -161,6 +161,13 @@ prüft konkrete MapLibre-/Cesium-Codepfade und grenzt die Übertragung auf Outsh
   BRDF, Roughness, Lichtgrößen, Reflexion, Farbraum und Kameraantwort gemeinsam kalibrieren.
   Vorhandenen Khronos-Vertrag erhalten; Parameter/IBL vor neuen Passketten verbessern.
   Referenzverfahren separat prüfen, ihre Kosten sind kein Runtime-Budget.
+- **Precomputed Radiance Transfer for Real-Time Rendering in Dynamic,
+  Low-Frequency Lighting Environments**, Sloan / Kautz / Snyder, SIGGRAPH 2002.
+  [Quelle](https://www.microsoft.com/en-us/research/publication/precomputed-radiance-transfer-real-time-rendering-dynamic-low-frequency-lighting-environments/) ·
+  [PDF](lighting/siggraph/2002-precomputed-radiance-transfer.pdf).
+  Geometrischen Transfer und aktuelles Licht trennen; #451 prüft zunächst die
+  reduzierte Materialantwort eines festen Gras-Footprints. Keine SH-/Winkel-/
+  Weltfreigabe aus einem einzelnen begrenzten Transferprodukt.
 - **A Survey of Temporal Antialiasing Techniques**, Yang / Liu / Salvi, CGF / Eurographics 2020.
   [Autoren](https://research.nvidia.com/labs/rtr/publication/yang2020survey/) ·
   [Verlags-PDF](https://diglib.eg.org/server/api/core/bitstreams/53732e70-b64d-46f4-bbae-865eb7673a35/content) ·
