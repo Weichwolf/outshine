@@ -35,8 +35,8 @@ class UpperCrownTests(unittest.TestCase):
             spec = importlib.util.spec_from_file_location("old_spruce_profile", path)
             old = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(old)
-        for seed in (1, 815):
-            args = (33.25, 0.118, 0.995, 36, seed, 0.35)
+        for seed, last in ((1, 0.995), (815, 0.995), (815, 0.96)):
+            args = (33.25, 0.118, last, 36, seed, 0.35)
             before = old.internode_profile(*args)
             np.testing.assert_array_equal(before, internode_profile(*args))
             counts = []
@@ -46,12 +46,10 @@ class UpperCrownTests(unittest.TestCase):
                 pattern = DistancePattern(
                     spacing=Profile(np.array(spacing)), whorl_size=5, limit_groups=36
                 )
-                rows = pattern.tables(np.array((33.25,)), 0.118, 0.995, max_sites=180)[
-                    0
-                ]
+                rows = pattern.tables(np.array((33.25,)), 0.118, last, max_sites=180)[0]
                 self.assertEqual(rows.shape, (180, 2))
                 self.assertLess(abs(rows[:, 0].min() - 0.118) * 33.25, 1e-9)
-                self.assertEqual(rows[:, 0].max(), 0.995)
+                self.assertEqual(rows[:, 0].max(), last)
                 counts.append(int((rows[:, 0] >= 0.75).sum()))
             self.assertLess(counts[0], counts[1])
             self.assertLess(counts[1], counts[2])

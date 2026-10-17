@@ -97,47 +97,11 @@ def variants(original, *, density=False):
         ],
     ]
     if density:
-        cases += [
-            (
-                f"density-{bias}-{power}",
-                profiles(
-                    original,
-                    1.05,
-                    last=0.995,
-                    terminal_fraction=0.02,
-                    exponent=power,
-                    upper_bias=bias,
-                ),
-                {
-                    "upper_inclination_rad": 1.05,
-                    "last": 0.995,
-                    "terminal_length_fraction": 0.02,
-                    "length_exponent": power,
-                    "upper_density_bias": bias,
-                },
-            )
-            for bias in (0.5, 1.0, 1.5)
-            for power in (0.9, 0.8, 0.7, 0.6)
+        pairs = [
+            (bias, power) for bias in (0.5, 1.0, 1.5) for power in (0.9, 0.8, 0.7, 0.6)
         ]
-        cases += [
-            (
-                f"density-{bias}-{power}",
-                profiles(
-                    original,
-                    1.05,
-                    last=0.995,
-                    terminal_fraction=0.02,
-                    exponent=power,
-                    upper_bias=bias,
-                ),
-                {
-                    "upper_inclination_rad": 1.05,
-                    "last": 0.995,
-                    "terminal_length_fraction": 0.02,
-                    "length_exponent": power,
-                    "upper_density_bias": bias,
-                },
-            )
+        pairs += [
+            (bias, power)
             for bias, powers in (
                 (0.5, (0.78, 0.76, 0.74)),
                 (1.0, (0.68, 0.66, 0.64)),
@@ -145,6 +109,23 @@ def variants(original, *, density=False):
             )
             for power in powers
         ]
+        for bias, power in pairs:
+            recipe = profiles(
+                original,
+                1.05,
+                last=0.995,
+                terminal_fraction=0.02,
+                exponent=power,
+                upper_bias=bias,
+            )
+            settings = {
+                "upper_inclination_rad": 1.05,
+                "last": 0.995,
+                "terminal_length_fraction": 0.02,
+                "length_exponent": power,
+                "upper_density_bias": bias,
+            }
+            cases.append((f"density-{bias}-{power}", recipe, settings))
     return cases
 
 
