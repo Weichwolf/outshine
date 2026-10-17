@@ -11,12 +11,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CallgraphTests(unittest.TestCase):
-    def compile_edges(self, flags):
+    def compile_edges(self, flags, code=None):
         with tempfile.TemporaryDirectory(prefix='outshine-callgraph-',
                                          dir=os.environ.get('TMPDIR', '/tmp')) as directory:
             work = Path(directory)
             source = work / 'calls.cpp'
-            source.write_text('''extern "C" void blocking_leaf();
+            source.write_text(code or '''extern "C" void blocking_leaf();
 extern "C" {
 static void local_step() { blocking_leaf(); }
 void frame_root() { local_step(); }
@@ -52,6 +52,17 @@ void frame_root() { local_step(); }
         edges = self.compile_edges(['-ffunction-sections'])
         self.assertIn(('frame_root', 'local_step'), edges)
         self.assertIn(('local_step', 'blocking_leaf'), edges)
+
+    @unittest.skipUnless(sys.platform.startswith('linux'), 'ELF relocation placeholders')
+    def test_relocation_targets_replace_displayed_addresses(self):
+        edges = self.compile_edges([], '''#include <string>
+extern "C" void blocking_leaf();
+void file_target(std::string text) { blocking_leaf(); }
+void make_text(const std::string &text) { file_target(text); }
+''')
+        for caller, callee in edges:
+            if caller.startswith('std::'):
+                self.assertNotIn(callee, {'file_target', 'make_text', 'blocking_leaf'})
 
     def test_corrupt_archive_is_an_error(self):
         with tempfile.TemporaryDirectory(prefix='outshine-callgraph-',

@@ -18,6 +18,22 @@ for object in "$work"/*.o; do
     objdump -dr "$object" > "$work/disassembly"
     awk '
       BEGIN { count = 0 }
+      function flush() {
+        if (pending) {
+          source[count] = pendingSource
+          target[count++] = pendingTarget
+          pending = 0
+        }
+      }
+      /^[[:space:]]*[0-9a-f]+:[[:space:]]+R_[A-Za-z0-9_]+[[:space:]]/ {
+        pending = 0
+        source[count] = caller
+        target[count] = $NF
+        sub(/[+-]0x[0-9a-f]+$/, "", target[count])
+        count++
+        next
+      }
+      { flush() }
       /^Disassembly of section / {
         section = $4
         sub(/:$/, "", section)
@@ -30,22 +46,16 @@ for object in "$work"/*.o; do
         owner[section] = caller
         owners[section]++
       }
-      /^[[:space:]]*[0-9a-f]+:[[:space:]]+R_[A-Za-z0-9_]+[[:space:]]/ {
-        source[count] = caller
-        target[count] = $NF
-        sub(/[+-]0x[0-9a-f]+$/, "", target[count])
-        count++
-        next
-      }
       /[[:space:]](callq?|jmpq?|bl|b)[[:space:]]/ {
         if (match($0, /<[^>]+>/)) {
-          source[count] = caller
-          target[count] = substr($0, RSTART + 1, RLENGTH - 2)
-          sub(/\+0x[0-9a-f]+$/, "", target[count])
-          count++
+          pendingSource = caller
+          pendingTarget = substr($0, RSTART + 1, RLENGTH - 2)
+          sub(/\+0x[0-9a-f]+$/, "", pendingTarget)
+          pending = 1
         }
       }
       END {
+        flush()
         for (i = 0; i < count; i++) {
           into = target[i]
           if (owners[into] == 1) { into = owner[into] }

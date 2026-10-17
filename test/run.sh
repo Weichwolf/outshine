@@ -1774,11 +1774,11 @@ RebuildOwner() {
   ownerMap=$BUILD/log/manifest-owners
   if [ "$OWNER_MAP_BUILT" != yes ]; then
     OWNER_MAP_BUILT=yes
-    find test -name manifest.json -print0 |
-      while IFS= read -r -d '' candidate; do
+    find test -name manifest.json -exec sh -c '
+      for candidate do
         holder=${candidate%/manifest.json}
-        printf '%s\t%s\n' "$(printf '%s' "$holder" | tr / -)" "$holder"
-      done > "$ownerMap"
+        printf "%s\t%s\n" "$(printf "%s" "$holder" | tr / -)" "$holder"
+      done' sh {} + > "$ownerMap"
   fi
   ownerNames=$BUILD/log/owners
   # BSD sed has no \| alternation in a basic regex, so the two words are two expressions.
