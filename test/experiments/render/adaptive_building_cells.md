@@ -77,6 +77,13 @@ cases remain green. Five changed implementation units and 25 dependent units
 pass focused tidy; the new producer case is clean under focused analysis.
 These results are not a complete Place or native-backend acceptance.
 
+Frozen integration commit `a8c411355` completes `make all` and `make lint` with
+terminal status 0: 431/431 translation units, zero findings, 29/29 guards,
+52/52 public headers without diagnostics, 2,057 formatted files and 491/491
+shader artifacts including nine reflected compute contracts. The later narrow
+queue-body change has its own focused analysis and tests below; it changes no
+header, shader or public ABI. The complete native renderer remains unaccepted.
+
 Commit `122bd4e4c` reserves accepted footprint/contact storage only for a complete
 source. Partial children previously reserved the growing global buffer again.
 The unchanged new guard fails twice when linked with the pre-fix queue object
