@@ -8,6 +8,8 @@
 #include "TangentFrame.h"
 #include "TriangleBvh.h"
 #include "scene/TerrainTile.h"
+#include "scene/HeightPageBatch.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -69,7 +71,36 @@ private:
     bool Virtual = false;
   };
 
-  [[nodiscard]] Render::Native::Result<Render::HeightPageHandle> PageFor(const Sheet &sheet);
+  struct PendingPage {
+    Held Value;
+    size_t Slot = 0;
+    bool Appended = false;
+  };
+
+  struct PendingSheet {
+    Render::TerrainTile Tile;
+    size_t Slot = 0;
+    uint32_t Postings = 0;
+    bool Virtual = false;
+  };
+
+  struct PageBatch {
+    std::array<PendingPage, Render::kHeightPageBatchMost> Pages;
+    std::array<PendingSheet, Render::kHeightPageBatchMost> Sheets;
+    size_t PageCount = 0;
+    size_t SheetCount = 0;
+    size_t Appended = 0;
+    size_t Flat = 0;
+    size_t End = 0;
+  };
+
+  [[nodiscard]] PageBatch
+  PlanPages(const Patchwork &patchwork, const TangentFrame &frame, size_t end) const;
+  [[nodiscard]] Render::Native::Result<void>
+  UploadPages(const Patchwork &patchwork, const TangentFrame &frame, size_t end);
+  [[nodiscard]] Render::Native::Result<void>
+  CommitPages(PageBatch &batch, std::span<const Render::HeightPageHandle> pages);
+  void RetirePages();
   [[nodiscard]] static Render::TerrainTile TileOf(Data::TileId tile,
                                                   Render::HeightPageHandle page,
                                                   std::span<const float> nodes,
@@ -78,6 +109,8 @@ private:
   [[nodiscard]] bool ReindexPages(std::string &error);
 
   std::vector<Held> Held_;
+  std::vector<size_t> Retiring_;
+  std::vector<Render::HeightPageHandle> Replaced_;
   FlatMap<size_t, Data::TileId, TileHash> PageIndex_;
   std::vector<Render::TerrainTile> Instances_;
   std::vector<Render::TerrainTile> Virtual_;

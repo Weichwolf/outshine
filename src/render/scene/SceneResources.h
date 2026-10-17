@@ -2,6 +2,7 @@
 #define OUTSHINE_RENDER_SCENE_SCENERESOURCES_H
 
 #include "ResourceHandle.h"
+#include "HeightPageBatch.h"
 #include "SubjectTypes.h"
 #include "TerrainTile.h"
 #include "device/native/Commands.h"
@@ -77,6 +78,8 @@ public:
 
   [[nodiscard]] Native::Result<HeightPageHandle> PlaceHeightPage(SubjectDraw &subjects,
                                                                  std::span<const float> nodes);
+  [[nodiscard]] Native::Result<std::vector<HeightPageHandle>>
+  PlaceHeightPages(SubjectDraw &subjects, std::span<const HeightPageView> nodes);
   void ReleaseHeightPage(SubjectDraw &subjects, HeightPageHandle which);
   [[nodiscard]] bool HasHeightPage(HeightPageHandle handle) const noexcept;
   [[nodiscard]] PageId HeightPageResident(HeightPageHandle which) const noexcept;
@@ -149,6 +152,9 @@ private:
     std::shared_ptr<const std::vector<float>> Nodes;
     PageId Resident = kNoPage;
   };
+
+  [[nodiscard]] Native::Result<size_t>
+  RestoreHeightPageBatch(SubjectDraw &subjects, size_t first, size_t pagesMost);
 
   std::vector<Piece> Pieces_;
   uint32_t FirstFreePiece_ = kNoResourceSlot;

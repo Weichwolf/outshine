@@ -35,6 +35,12 @@ struct UploadFailure {
   unsigned VertexBufferAllocations = 0;
   unsigned Waits = 0;
   unsigned ComputePipelineRequests = 0;
+  unsigned UploadBufferRequests = 0;
+  unsigned SubmissionRequests = 0;
+  unsigned AcceptedSubmissions = 0;
+  Render::Native::Device *Observed = nullptr;
+  Render::Native::Texture *LastHeightAtlas = nullptr;
+  Render::Native::TextureRegion LastHeightRegion{};
   Render::Native::ErrorKind Kind = Render::Native::ErrorKind::Driver;
 
   [[nodiscard]] bool Reject(UploadFailurePoint point) {
@@ -70,7 +76,21 @@ public:
                                                   Render::Native::Texture &destination,
                                                   Render::Native::TextureTransfer region) override {
     if (Failure_.Reject(UploadFailurePoint::Copy)) { return std::unexpected(Failure_.Error()); }
-    return NativeCommandsProxy::Copy(source, destination, region);
+    auto copied = NativeCommandsProxy::Copy(source, destination, region);
+    if (copied && destination.Description().Type == Render::Native::TextureType::Image2DArray &&
+        destination.Description().Texels == Render::Native::Format::R32Float) {
+      Failure_.LastHeightAtlas = &destination;
+      Failure_.LastHeightRegion = region.Region;
+    }
+    return copied;
+  }
+
+  [[nodiscard]] Render::Native::Result<void> Copy(const Render::Native::Texture &source,
+                                                  Render::Native::TextureRegion from,
+                                                  Render::Native::Texture &destination,
+                                                  Render::Native::TextureRegion into) override {
+    if (Failure_.Reject(UploadFailurePoint::Copy)) { return std::unexpected(Failure_.Error()); }
+    return NativeCommandsProxy::Copy(source, from, destination, into);
   }
 
 private:
@@ -80,7 +100,9 @@ private:
 class NativeUploadFaultDevice final : public NativeDeviceProxy {
 public:
   NativeUploadFaultDevice(std::unique_ptr<Render::Native::Device> device, UploadFailure &failure)
-      : NativeDeviceProxy(*device), Device_(std::move(device)), Failure_(failure) {}
+      : NativeDeviceProxy(*device), Device_(std::move(device)), Failure_(failure) {
+    Failure_.Observed = this;
+  }
 
   [[nodiscard]] Render::Native::Result<Render::Native::CompletionStatus>
   Wait(Render::Native::Completion completion, std::chrono::nanoseconds budget) override {
@@ -107,6 +129,9 @@ public:
   CreateBuffer(Render::Native::BufferDescription description, std::string_view label) override {
     if (description.Placement == Render::Native::Memory::Device) {
       ++Failure_.DeviceBufferRequests;
+    }
+    if (description.Placement == Render::Native::Memory::Upload) {
+      ++Failure_.UploadBufferRequests;
     }
     if ((description.Placement == Render::Native::Memory::Device &&
          Failure_.Reject(UploadFailurePoint::DeviceBuffer)) ||
@@ -154,12 +179,15 @@ public:
 
   [[nodiscard]] Render::Native::Result<Render::Native::Completion>
   Submit(std::unique_ptr<Render::Native::Commands> commands) override {
+    ++Failure_.SubmissionRequests;
     if (Failure_.Reject(UploadFailurePoint::Submit)) { return std::unexpected(Failure_.Error()); }
     if (auto *wrapped = dynamic_cast<NativeUploadFaultCommands *>(commands.get());
         wrapped != nullptr) {
       commands = wrapped->Take();
     }
-    return Backing().Submit(std::move(commands));
+    auto submitted = Backing().Submit(std::move(commands));
+    if (submitted) { ++Failure_.AcceptedSubmissions; }
+    return submitted;
   }
 
 private:

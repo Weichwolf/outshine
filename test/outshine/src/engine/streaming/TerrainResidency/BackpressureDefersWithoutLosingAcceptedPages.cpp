@@ -73,6 +73,7 @@ int main() {
       CHECK(height.has_value(), "the committed height page supports a real world query");
       patch.Sheets.front().Nodes.assign(Render::GroundLattice::kPageNodes, 7);
       CHECK(residency.BeginPublish(patch, error), "a replacement begins after recovery");
+      CHECK(renderer.Settle(error), "accepted prior uploads finish before the real map fault");
       failure.Kind = Render::Native::ErrorKind::Driver;
       failure.Point = UploadFailurePoint::Map;
       failure.Armed = true;

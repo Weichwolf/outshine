@@ -250,6 +250,11 @@ public:
     return ActiveState().Content.Resources.PlaceHeightPage(ActiveState().Content.Subjects, nodes);
   }
 
+  [[nodiscard]] Native::Result<std::vector<HeightPageHandle>>
+  PlaceHeightPages(std::span<const HeightPageView> nodes) {
+    return ActiveState().Content.Resources.PlaceHeightPages(ActiveState().Content.Subjects, nodes);
+  }
+
   [[nodiscard]] bool HasHeightPage(HeightPageHandle which) const noexcept {
     return ActiveState().Content.Resources.HasHeightPage(which);
   }
