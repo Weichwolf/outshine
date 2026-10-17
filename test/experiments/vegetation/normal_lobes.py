@@ -34,7 +34,7 @@ __all__ = [
 
 class NormalMeasure:
     def __init__(self, size, directions, frame=None):
-        if type(size) is not int or size not in (1, 4, 16, 64):
+        if type(size) is not int or size not in (1, 4, 16, 32, 64):
             raise ValueError("bounded native normal field required")
         self.size = size
         if not 1 <= len(directions) <= 128:
