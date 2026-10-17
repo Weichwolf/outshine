@@ -87,16 +87,14 @@ def level_fields(case):
     raw = np.concatenate(
         [matrix[v * pixels : (v + 1) * pixels] @ w for v, w in enumerate(cones)]
     )
-    baseline = {
-        name: summary(value, truth, mass)
-        for name, value in [
-            ("angular", raw),
-            ("normal4_no_self_shadow", normal),
-            ("normalized_mean_no_self_shadow", mean),
-            ("exact_unshadowed", unshadowed),
-        ]
+    values = {
+        "angular": raw,
+        "normal4_no_self_shadow": normal,
+        "normalized_mean_no_self_shadow": mean,
+        "exact_unshadowed": unshadowed,
     }
-    return matrix, truth, mass, cones, baseline
+    baseline = {name: summary(value, truth, mass) for name, value in values.items()}
+    return matrix, truth, mass, cones, baseline, values
 
 
 def project_modes(training, target, truth, mass, cones):
@@ -152,7 +150,7 @@ def run(training_paths, evaluation_path, output):
     identities = [case["identity"] for case in training] + [target["identity"]]
     levels, arrays = [], {}
     for size in (16, 8, 4, 2, 1):
-        matrix, truth, mass, cones, baseline = level_fields(target)
+        matrix, truth, mass, cones, baseline, values = level_fields(target)
         rows = [matrix_for(case["joint"], 64) for case in training]
         single, _ = project_modes(rows[0], matrix, truth, mass, cones)
         pooled, fields = project_modes(np.concatenate(rows), matrix, truth, mass, cones)
@@ -166,6 +164,8 @@ def run(training_paths, evaluation_path, output):
         )
         arrays[f"truth{size}"] = truth
         arrays[f"coverage{size}"] = mass
+        for name, value in values.items():
+            arrays[f"{name}{size}"] = value
         for rank, field in fields.items():
             arrays[f"pooled{rank}_{size}"] = field
         if size > 1:

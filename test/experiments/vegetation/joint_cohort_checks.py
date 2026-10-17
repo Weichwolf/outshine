@@ -49,7 +49,7 @@ class JointCohortTests(unittest.TestCase):
             "heldout": held,
         }
         for size in (16, 8, 4, 2, 1):
-            _, truth, mass, _, baseline = level_fields(case)
+            _, truth, mass, _, baseline, _ = level_fields(case)
             np.testing.assert_allclose(
                 truth, np.tile(clear[64:], (3 * size**2, 1)), atol=1e-14
             )
