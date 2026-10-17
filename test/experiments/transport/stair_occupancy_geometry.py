@@ -1,4 +1,4 @@
-"""Experimental affine clearance queries; the shared Reservation API is unchanged."""
+"""Experimental affine clearance queries extending the shared constant-band query."""
 
 from dataclasses import dataclass, field
 from fractions import Fraction
