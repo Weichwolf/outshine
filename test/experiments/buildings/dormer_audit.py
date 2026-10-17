@@ -80,7 +80,10 @@ def audit(geometry):
         seam_xor = (joined - solid).volume() + (solid - joined).volume()
         if seam_xor > 1e-7:
             raise ValueError("Replayed body/roof seams changed volume: " + identifier)
-        region = projected(product.physical.mesh)
+        try:
+            region = projected(product.physical.mesh)
+        except shapely.errors.GEOSException as error:
+            raise ValueError("Audit projection failed: " + identifier) from error
         original_region = shapely.from_wkb(asset.original.footprint_wkb)
         inherited_error = row["polygon"].symmetric_difference(original_region).area
         added_error = original_region.symmetric_difference(region).area
