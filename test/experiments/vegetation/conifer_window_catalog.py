@@ -112,7 +112,11 @@ def catalog_sources(directory, *, nominal_span_m=0.08, max_groups=64):
     )
 
 
-def template_image(source, direction, size=32, samples=4, *, projection_data=None):
+def template_image(
+    source, direction, size=32, samples=4, *, projection_data=None, normal_measure=None
+):
+    if normal_measure is not None and normal_measure.size != size:
+        raise ValueError("same native prototype/normal-measure size required")
     frame, lower, upper, offset = (
         projection(source["vertices"], direction)
         if projection_data is None
@@ -141,6 +145,18 @@ def template_image(source, direction, size=32, samples=4, *, projection_data=Non
     )
     normal = data[..., 3:6]
     normal /= np.maximum(np.linalg.norm(normal, axis=-1, keepdims=True), 1e-20)
+    if normal_measure is not None:
+        rows, columns = np.nonzero(covered)
+        slots = rows // samples * size + columns // samples
+        for first in range(0, len(rows), 8192):
+            selected = slice(first, first + 8192)
+            visible = np.asarray(normal[rows[selected], columns[selected]], float)
+            visible /= np.linalg.norm(visible, axis=-1, keepdims=True)
+            normal_measure.add(
+                slots[selected],
+                np.full(len(slots[selected]), 1 / samples**2),
+                visible,
+            )
     alpha = covered[..., None].astype(float)
     image = np.concatenate(
         (data[..., :3] * alpha, alpha, normal * alpha, data[..., 6:8] * alpha), axis=-1

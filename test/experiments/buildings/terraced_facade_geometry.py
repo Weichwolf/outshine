@@ -2,15 +2,13 @@
 
 from dataclasses import dataclass, replace
 
-import numpy as np
 import shapely
-
 from outshine_ref.buildings.modelling import PrismVolume
 from outshine_ref.buildings.modelling.prism_cut import subtract_prisms
-from terraced_mass_frame import local_plan, placed, placed_cut
-from terraced_mass_rooms import build
-from terraced_facade_plan import candidates
 from terraced_facade_details import details
+from terraced_facade_prepare import positions, prepare, world_facade
+from terraced_mass_frame import placed, placed_cut
+from terraced_mass_rooms import build
 
 
 @dataclass(frozen=True)
@@ -21,10 +19,12 @@ class FacadeAsset:
     frames: object
 
 
-def build_facade(mass):
-    local = local_plan(mass)
+def build_facade(mass, *, prepared=None):
+    prepared = prepare(mass) if prepared is None else prepared
+    if prepared.mass != mass:
+        raise ValueError("Prepared facade belongs to a different source mass")
+    local, facade = prepared.local, prepared.facade
     floors = build(local)
-    facade = candidates(local)
     cuts = tuple(
         PrismVolume(
             w.identifier,
@@ -39,13 +39,7 @@ def build_facade(mass):
         local.identifier + "/shell", floors.shell, cuts, max_triangles=65536
     )
     frames = details(local, facade)
-    points = np.array(frames["vertices"], copy=True)
-    points[:, :2] = (
-        np.asarray(mass.core.origin_xy)
-        + points[:, :1] * np.asarray(mass.core.across_xy)
-        + points[:, 1:2] * np.asarray(mass.core.along_xy)
-    )
-    frames = frames | {"vertices": points}
+    frames = frames | {"vertices": positions(frames["vertices"], mass.core)}
     current = replace(floors, shell=shell)
     world = replace(
         current,
@@ -55,18 +49,4 @@ def build_facade(mass):
         cuts=tuple(placed_cut(c, mass.core) for c in current.cuts),
     )
     world_cuts = tuple(placed_cut(c, mass.core) for c in cuts)
-    across, along = np.asarray(mass.core.across_xy), np.asarray(mass.core.along_xy)
-    windows = tuple(
-        replace(
-            w,
-            centre=tuple(
-                np.asarray(mass.core.origin_xy)
-                + w.centre[0] * across
-                + w.centre[1] * along
-            ),
-            tangent=tuple(w.tangent[0] * across + w.tangent[1] * along),
-            cutter_wkb=c.polygon.wkb,
-        )
-        for w, c in zip(facade.windows, world_cuts, strict=True)
-    )
-    return FacadeAsset(world, replace(facade, windows=windows), world_cuts, frames)
+    return FacadeAsset(world, world_facade(prepared, world_cuts), world_cuts, frames)

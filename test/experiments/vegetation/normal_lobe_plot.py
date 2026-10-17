@@ -6,13 +6,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def plot(arrays, path):
+def plot(arrays, path, size=16):
     fig, axes = plt.subplots(3, 5, figsize=(16, 9), dpi=160)
     names = ("exact", "normalized-mean", "4", "unit-4", "24")
     for row, light in enumerate((0, 3, 8)):
         for column, name in enumerate(names):
             axes[row, column].imshow(
-                arrays[f"16-{name}"][light].reshape(16, 16),
+                arrays[f"{size}-{name}"][light].reshape(size, size),
                 vmin=0,
                 vmax=1,
                 cmap="gray",
@@ -21,7 +21,7 @@ def plot(arrays, path):
             axes[row, column].set_title(f"{name} / light{light}")
             axes[row, column].axis("off")
     fig.suptitle(
-        "Same visible source / no shadows / unit diffuse / native16×16 / no fitted lights"
+        f"Same visible source / no shadows / unit diffuse / native{size}×{size} / no fitted lights"
     )
     fig.tight_layout()
     fig.savefig(path)
