@@ -9,7 +9,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from camera_height_inputs import digest
-from stair_occupancy_geometry import OccupancyError
+from stair_occupancy_geometry import AffineOccupancy, OccupancyError
 from stair_occupancy_oracle import native_area, native_source, oracle_geometry
 from stair_occupancy_precision import exact_band_area
 from stair_occupancy_precision_cases import actual_cases, controls
@@ -83,6 +83,26 @@ def check(case):
     return result
 
 
+def underflow_case():
+    import shapely
+
+    length = 1e-170
+    shape = shapely.box(0, 0, length, length)
+    exact = native_area(native_source(shape))
+    if exact != Fraction(length) ** 2 or exact <= 0 or shape.area != 0:
+        raise ValueError("independent positive source-area underflow control failed")
+    try:
+        AffineOccupancy("underflow", shape, "control", (0, 0), (100, 0, 0), (101, 0, 0))
+    except OccupancyError as error:
+        return {
+            "source_wkb": shape.wkb_hex,
+            "native_area_m2_rational": str(exact),
+            "binary64_area_m2": shape.area,
+            "explicit_rejection": str(error),
+        }
+    raise ValueError("underflowed positive source domain was silently admitted")
+
+
 def run(args):
     import pysfcgal
     import pysfcgal._sfcgal as extension
@@ -92,6 +112,7 @@ def run(args):
         raise ValueError("private precision proof outputs must live under /tmp")
     args.output.mkdir(parents=True, exist_ok=False)
     began = time.perf_counter()
+    underflow = underflow_case()
     actual, face_count, query_count = actual_cases(
         args.products, facet_limit=args.facet_limit
     )
@@ -135,6 +156,7 @@ def run(args):
         "peak_rss_bytes": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024,
         "all_independent_exact_areas_equal": True,
         "all_returned_empty_decisions_verified": True,
+        "source_area_underflow_control": underflow,
         "scope": "Own ring integrals vs independent pair-intersection window plus optional SFCGAL rational WKT oracle. Actual-height masks and controlled slices of actual source facets distinguished. Binary64 nonempty mask boundaries/area remain approximate; footprint predicates verified only for actual-height cases. No native/runtime/SDK dependency added.",
     }
     (args.output / "comparison.json").write_text(json.dumps(report, indent=2) + "\n")
@@ -145,7 +167,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("products", type=Path)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--facet-limit", type=int, choices=range(8193), default=8192)
+    parser.add_argument("--facet-limit", type=int, default=8192)
     resource.setrlimit(resource.RLIMIT_CPU, (120, 120))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
-    run(parser.parse_args())
+    arguments = parser.parse_args()
+    if not 0 <= arguments.facet_limit <= 8192:
+        parser.error("--facet-limit must be between 0 and 8192")
+    run(arguments)
