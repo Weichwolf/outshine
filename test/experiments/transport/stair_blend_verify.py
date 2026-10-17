@@ -22,7 +22,13 @@ def field_contract(layout, upper, footprint):
     faces = layout["faces"][~layout["ground"]]
     polygons = shapely.polygons(layout["xy"][faces])
     pins, values = pins_for(layout)
-    bridge, bounds, _note = upper_rows(layout["xy"], faces, upper, footprint)
+    bridge, bounds, _note = upper_rows(
+        layout["xy"],
+        faces,
+        upper,
+        footprint,
+        reserve_m=float(np.asarray(layout.get("bridge_reserve_m", 0.1)).item()),
+    )
     return {
         "soil_faces": faces,
         "eligible": shapely.covered_by(polygons, footprint.buffer(REACH_M)),
