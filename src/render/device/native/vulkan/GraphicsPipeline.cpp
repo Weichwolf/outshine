@@ -96,15 +96,21 @@ Result<void> BuildGraphics(GraphicsState &state, const GraphicsDescription &desc
   }
   const std::string vertexEntry(description.Vertex.Entry);
   const std::string fragmentEntry(description.Fragment ? description.Fragment->Entry : "");
-  std::array<VkPipelineShaderStageCreateInfo, 2> stages{};
-  stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-  stages[0].module = vertex.Handle;
-  stages[0].pName = vertexEntry.c_str();
-  stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-  stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  stages[1].module = fragment.Handle;
-  stages[1].pName = fragmentEntry.c_str();
+  const std::array<VkPipelineShaderStageCreateInfo, 2> stages{
+      {{.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vertex.Handle,
+        .pName = vertexEntry.c_str(),
+        .pSpecializationInfo = nullptr},
+       {.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .module = fragment.Handle,
+        .pName = fragmentEntry.c_str(),
+        .pSpecializationInfo = nullptr}}};
   const auto setup = Setup(state);
   VkPipelineVertexInputStateCreateInfo inputs{};
   inputs.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -130,9 +136,16 @@ Result<void> BuildGraphics(GraphicsState &state, const GraphicsDescription &desc
                          ? VK_FRONT_FACE_COUNTER_CLOCKWISE
                          : VK_FRONT_FACE_CLOCKWISE;
   raster.lineWidth = 1;
-  VkPipelineMultisampleStateCreateInfo samples{};
-  samples.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-  samples.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+  const VkPipelineMultisampleStateCreateInfo samples{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+      .pNext = nullptr,
+      .flags = 0,
+      .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+      .sampleShadingEnable = VK_FALSE,
+      .minSampleShading = 0,
+      .pSampleMask = nullptr,
+      .alphaToCoverageEnable = VK_FALSE,
+      .alphaToOneEnable = VK_FALSE};
   VkPipelineDepthStencilStateCreateInfo depth{};
   depth.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
   depth.depthTestEnable =

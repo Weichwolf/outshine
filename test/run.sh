@@ -1622,8 +1622,12 @@ if [ "$AUDITLINK" = 1 ]; then
       bad=1
       continue
     fi
-    nm -u $OBJECTS 2>/dev/null | grep -o '__ZN8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.undef"
-    nm -gU $OBJECTS 2>/dev/null | awk '{print $3}' | grep '^__ZN8outshine' | sort -u > "$BUILD/audit.def"
+    nm -u $OBJECTS 2>/dev/null | grep -Eo '_+ZN[KVRO]*8outshine[A-Za-z0-9_]*' | sort -u > "$BUILD/audit.undef"
+    if [ "$BUILD_PLATFORM" = Darwin ]; then
+      nm -gU $OBJECTS 2>/dev/null
+    else
+      nm -g --defined-only $OBJECTS 2>/dev/null
+    fi | awk '{print $3}' | grep -E '^_+ZN[KVRO]*8outshine' | sort -u > "$BUILD/audit.def"
     unresolved=$(comm -23 "$BUILD/audit.undef" "$BUILD/audit.def")
     if [ -n "$unresolved" ]; then
       printf 'AUDIT %s cannot resolve: %s\n' "$suiteDir" "$(printf '%s' "$unresolved" | head -3 | tr '\n' ' ')"
@@ -1770,11 +1774,11 @@ RebuildOwner() {
   ownerMap=$BUILD/log/manifest-owners
   if [ "$OWNER_MAP_BUILT" != yes ]; then
     OWNER_MAP_BUILT=yes
-    find test -name manifest.json -print0 |
-      while IFS= read -r -d '' candidate; do
+    find test -name manifest.json -exec sh -c '
+      for candidate do
         holder=${candidate%/manifest.json}
-        printf '%s\t%s\n' "$(printf '%s' "$holder" | tr / -)" "$holder"
-      done > "$ownerMap"
+        printf "%s\t%s\n" "$(printf "%s" "$holder" | tr / -)" "$holder"
+      done' sh {} + > "$ownerMap"
   fi
   ownerNames=$BUILD/log/owners
   # BSD sed has no \| alternation in a basic regex, so the two words are two expressions.

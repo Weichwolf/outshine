@@ -98,48 +98,6 @@ TerrainResidency::TerrainResidency(const TerrainResidency &other)
   }
 }
 
-Render::Native::Result<Render::HeightPageHandle> TerrainResidency::PageFor(const Sheet &sheet) {
-  const Data::TileId tile = sheet.Tile;
-  const std::span<const float> nodes = sheet.Nodes;
-  if (const size_t *found = PageIndex_.Find(tile)) {
-    Held &one = Held_[*found];
-    if (one.Page && Renderer_->HasHeightPage(one.Page) && std::ranges::equal(one.Nodes, nodes)) {
-      one.Postings = sheet.Postings;
-      one.Virtual = sheet.Virtual;
-      return one.Page;
-    }
-    std::vector<float> replacement(nodes.begin(), nodes.end());
-    const auto page = Renderer_->PlaceHeightPage(replacement);
-    if (!page) { return std::unexpected(page.error()); }
-    if (Renderer_->HasHeightPage(one.Page)) { Renderer_->ReleaseHeightPage(one.Page); }
-    one.Page = *page;
-    one.Nodes = std::move(replacement);
-    one.Postings = sheet.Postings;
-    one.Virtual = sheet.Virtual;
-    return one.Page;
-  }
-  std::vector<float> owned(nodes.begin(), nodes.end());
-  const auto page = Renderer_->PlaceHeightPage(owned);
-  if (!page) { return std::unexpected(page.error()); }
-  const auto indexed = PageIndex_.Emplace(tile, Held_.size());
-  if (!indexed) {
-    Renderer_->ReleaseHeightPage(*page);
-    return std::unexpected(
-        Render::Native::Error{.Kind = indexed.error() == FlatMapError::AllocationFailed
-                                          ? Render::Native::ErrorKind::OutOfMemory
-                                          : Render::Native::ErrorKind::Invalid,
-                              .Message = indexed.error() == FlatMapError::AllocationFailed
-                                             ? Says::HeightPageIndexAllocationFailed
-                                             : Says::HeightPageIndexCapacityExceeded});
-  }
-  Held_.push_back({.Tile = tile,
-                   .Page = *page,
-                   .Nodes = std::move(owned),
-                   .Postings = sheet.Postings,
-                   .Virtual = sheet.Virtual});
-  return *page;
-}
-
 Render::TerrainTile TerrainResidency::TileOf(Data::TileId tile,
                                              Render::HeightPageHandle page,
                                              std::span<const float> nodes,
@@ -225,12 +183,19 @@ bool TerrainResidency::Publish(const Patchwork &patchwork,
                                const TangentFrame &frame,
                                std::string &error) {
   if (!BeginPublish(patchwork, error)) { return false; }
-  const auto advanced = AdvancePublish(patchwork, frame, patchwork.Sheets.size());
-  if (!advanced) {
-    error = advanced.error();
-    return false;
+  for (;;) {
+    const size_t previous = NextSheet_;
+    const auto advanced = AdvancePublish(patchwork, frame, Render::kHeightPageBatchMost);
+    if (!advanced) {
+      error = advanced.error();
+      return false;
+    }
+    if (*advanced) { return true; }
+    if (NextSheet_ == previous) {
+      error = "height pages are waiting for GPU upload";
+      return false;
+    }
   }
-  return *advanced;
 }
 
 bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &error) {
@@ -240,12 +205,10 @@ bool TerrainResidency::BeginPublish(const Patchwork &patchwork, std::string &err
     error = std::move(wanted.error());
     return false;
   }
-  std::erase_if(Held_, [&](const Held &one) {
-    if (wanted->Holds(one.Tile)) { return false; }
-    Renderer_->ReleaseHeightPage(one.Page);
-    return true;
-  });
-  if (!ReindexPages(error)) { return false; }
+  Retiring_.clear();
+  for (size_t at = 0; at < Held_.size(); ++at) {
+    if (!wanted->Holds(Held_[at].Tile)) { Retiring_.push_back(at); }
+  }
   Flat_ = 0;
   Instances_.clear();
   Virtual_.clear();
@@ -260,7 +223,8 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
                                                                   const TangentFrame &frame,
                                                                   size_t sheetsMost) {
   if (Renderer_ == nullptr) { return true; }
-  if (!Publishing_ || (sheetsMost == 0 && !patchwork.Sheets.empty())) {
+  if (!Publishing_ || NextSheet_ > patchwork.Sheets.size() ||
+      (sheetsMost == 0 && !patchwork.Sheets.empty())) {
     return std::unexpected("height pages are not prepared for a bounded publication");
   }
   const auto batchAt = std::chrono::steady_clock::now();
@@ -270,26 +234,24 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - batchAt)
             .count());
   };
-  const size_t end = std::min(NextSheet_ + sheetsMost, patchwork.Sheets.size());
-  for (; NextSheet_ < end; ++NextSheet_) {
-    const Sheet &sheet = patchwork.Sheets[NextSheet_];
-    if (sheet.Side != Render::GroundLattice::kSide ||
-        sheet.Nodes.size() != Render::GroundLattice::kPageNodes) {
-      ++Flat_;
-      continue;
-    }
-    const auto page = PageFor(sheet);
-    if (!page) {
-      sampleBatch();
-      if (page.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
-      return std::unexpected(page.error().Message);
-    }
-    (sheet.Virtual ? Virtual_ : Instances_)
-        .push_back(TileOf(sheet.Tile, *page, sheet.Nodes, frame));
+  const size_t count =
+      std::min({sheetsMost, Render::kHeightPageBatchMost, patchwork.Sheets.size() - NextSheet_});
+  const auto uploaded = UploadPages(patchwork, frame, NextSheet_ + count);
+  if (!uploaded) {
+    sampleBatch();
+    if (uploaded.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+    return std::unexpected(uploaded.error().Message);
   }
   sampleBatch();
   if (NextSheet_ < patchwork.Sheets.size()) { return false; }
   const auto finalizeAt = std::chrono::steady_clock::now();
+  auto published = PublishGrid(patchwork);
+  if (published) { published = Renderer_->SetTerrainTiles(Instances_, Virtual_); }
+  if (!published) {
+    if (published.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
+    return std::unexpected(published.error().Message);
+  }
+  RetirePages();
   std::ranges::sort(Held_, [](const Held &left, const Held &right) {
     if (left.Tile.Zoom != right.Tile.Zoom) { return left.Tile.Zoom < right.Tile.Zoom; }
     if (left.Tile.X != right.Tile.X) { return left.Tile.X < right.Tile.X; }
@@ -297,12 +259,6 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
   });
   std::string error;
   if (!ReindexPages(error)) { return std::unexpected(std::move(error)); }
-  auto published = PublishGrid(patchwork);
-  if (published) { published = Renderer_->SetTerrainTiles(Instances_, Virtual_); }
-  if (!published) {
-    if (published.error().Kind == Render::Native::ErrorKind::Busy) { return false; }
-    return std::unexpected(published.error().Message);
-  }
   FinalizeMs_ =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - finalizeAt)
           .count();
@@ -310,14 +266,36 @@ std::expected<bool, std::string> TerrainResidency::AdvancePublish(const Patchwor
   return true;
 }
 
+void TerrainResidency::RetirePages() {
+  for (const auto page : Replaced_) { Renderer_->ReleaseHeightPage(page); }
+  Replaced_.clear();
+  if (Retiring_.empty()) { return; }
+  size_t next = 0;
+  size_t kept = 0;
+  for (size_t at = 0; at < Held_.size(); ++at) {
+    if (next < Retiring_.size() && Retiring_[next] == at) {
+      Renderer_->ReleaseHeightPage(Held_[at].Page);
+      ++next;
+    } else {
+      if (kept != at) { Held_[kept] = std::move(Held_[at]); }
+      ++kept;
+    }
+  }
+  Held_.resize(kept);
+  Retiring_.clear();
+}
+
 void TerrainResidency::Clear() {
   if (Renderer_ != nullptr) {
     for (const Held &one : Held_) { Renderer_->ReleaseHeightPage(one.Page); }
+    for (const auto page : Replaced_) { Renderer_->ReleaseHeightPage(page); }
     std::string ignored;
     (void)Renderer_->SetTerrainTiles({}, {}, ignored);
   }
   Renderer_ = nullptr;
   Held_.clear();
+  Retiring_.clear();
+  Replaced_.clear();
   PageIndex_.Clear();
   Instances_.clear();
   Virtual_.clear();
@@ -359,7 +337,8 @@ uint64_t TerrainResidency::TileHash::operator()(const Data::TileId &tile) const 
 }
 
 size_t TerrainResidency::HeapBytes() const noexcept {
-  size_t bytes = Held_.capacity() * sizeof(Held) + PageIndex_.HeapBytes() +
+  size_t bytes = Held_.capacity() * sizeof(Held) + Retiring_.capacity() * sizeof(size_t) +
+                 Replaced_.capacity() * sizeof(Render::HeightPageHandle) + PageIndex_.HeapBytes() +
                  Instances_.capacity() * sizeof(Render::TerrainTile) +
                  Virtual_.capacity() * sizeof(Render::TerrainTile);
   for (const Held &held : Held_) { bytes += held.Nodes.capacity() * sizeof(float); }

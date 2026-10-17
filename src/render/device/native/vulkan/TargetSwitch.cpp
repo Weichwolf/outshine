@@ -44,12 +44,9 @@ Result<std::shared_ptr<SwapchainState>> Prepare(const std::shared_ptr<PresentSta
   }
   if (before) {
     if (before == state->Active && state->Failed) { return std::unexpected(*state->Failed); }
-    VkSurfaceCapabilitiesKHR caps{};
-    const auto supported = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        state->Owner->Physical, before->Surface->Handle, &caps);
-    if (supported != VK_SUCCESS) {
-      return std::unexpected(Failure("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", supported));
-    }
+    const auto supported = ReadSurfaceCapabilities(*before->Surface);
+    if (!supported) { return std::unexpected(supported.error()); }
+    const auto &caps = *supported;
     request.Surface = before->Surface;
     const bool currentExtent = caps.currentExtent.width == std::numeric_limits<uint32_t>::max() ||
                                (caps.currentExtent.width == before->Extent.width &&

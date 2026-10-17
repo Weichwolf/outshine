@@ -9,28 +9,30 @@ int main() {
   using namespace outshine;
   using namespace outshine::Test;
   Scenario::Document source;
-  source.Providers = {{.Kind = "terrain",
-                       .Revision = "snapshot & <a>\"\t",
-                       .Priority = std::numeric_limits<int>::min()},
-                      {.Kind = "vector",
-                       .Revision = "other'\n",
-                       .Priority = std::numeric_limits<int>::max(),
-                       .Missing = Data::MissingDataPolicy::Fail,
-                       .Dataset = "tiles & revision",
-                       .Endpoint = "https://tiles.example/{z}/{x}/{y}?a=1&b=2",
-                       .Schema = "schema & <revision>\"\t"},
-                      {.Kind = "stars"},
-                      {.Kind = "osm",
-                       .Revision = "regional-r1",
-                       .Priority = 4,
-                       .Missing = Data::MissingDataPolicy::Fail,
-                       .Dataset = "openstreetmap",
-                       .Location = "osm/Hockenheim & region.osm",
-                       .Coverage = Data::SourceCoverage{.WestDeg = 8.54,
-                                                        .SouthDeg = 49.315,
-                                                        .EastDeg = 8.61,
-                                                        .NorthDeg = 49.34},
-                       .PayloadSha256 = std::string(64, 'a')}};
+  source.Providers.resize(4);
+  auto &terrain = source.Providers[0];
+  terrain.Kind = "terrain";
+  terrain.Revision = "snapshot & <a>\"\t";
+  terrain.Priority = std::numeric_limits<int>::min();
+  auto &vector = source.Providers[1];
+  vector.Kind = "vector";
+  vector.Revision = "other'\n";
+  vector.Priority = std::numeric_limits<int>::max();
+  vector.Missing = Data::MissingDataPolicy::Fail;
+  vector.Dataset = "tiles & revision";
+  vector.Endpoint = "https://tiles.example/{z}/{x}/{y}?a=1&b=2";
+  vector.Schema = "schema & <revision>\"\t";
+  source.Providers[2].Kind = "stars";
+  auto &osm = source.Providers[3];
+  osm.Kind = "osm";
+  osm.Revision = "regional-r1";
+  osm.Priority = 4;
+  osm.Missing = Data::MissingDataPolicy::Fail;
+  osm.Dataset = "openstreetmap";
+  osm.Location = "osm/Hockenheim & region.osm";
+  osm.Coverage =
+      Data::SourceCoverage{.WestDeg = 8.54, .SouthDeg = 49.315, .EastDeg = 8.61, .NorthDeg = 49.34};
+  osm.PayloadSha256 = std::string(64, 'a');
   const auto text = WriteScenario(source);
   CHECK(text.has_value(), "export succeeds");
   if (!text) { return Report(); }

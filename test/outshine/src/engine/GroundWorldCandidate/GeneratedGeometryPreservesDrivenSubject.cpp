@@ -73,9 +73,11 @@ int main() {
         advanced = candidate.AdvanceGroundGeometryBuild(std::numeric_limits<size_t>::max());
       }
       CHECK(advanced && *advanced, "generated geometry build completes");
-      CHECK(candidate.Publish(world, footprints, scene, GroundRevision{.Region = revision})
-                .has_value(),
-            "ground candidate publishes");
+      CHECK(
+          candidate
+              .Publish(world, footprints, scene, GroundRevision{.Region = revision, .Coverage = {}})
+              .has_value(),
+          "ground candidate publishes");
       if (!scene) { continue; }
       const Render::Shape &shown = scene->Shown();
       CHECK(

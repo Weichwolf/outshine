@@ -9,17 +9,22 @@ int main() {
   using namespace outshine::Test;
   Scenario::Document source;
   source.Events = {{.Name = "enter & <room>\"", .Carries = {"speed", "a\tb\nc\r"}},
-                   {.Name = "left"}};
-  source.Volumes = {
-      {.Id = "entry'",
-       .In = "region & room",
-       .Shape = "sphere",
-       .AtM = {1e200, -2.5, 3},
-       .ExtentM = {1e-200, 2, 3},
-       .Fires = source.Events[0].Name,
-       .When = "dwell",
-       .DwellS = 0.012345678901234567},
-      {.Id = "exit", .Shape = "box", .ExtentM = {1, 2, 3}, .Fires = "left", .When = "exit"}};
+                   {.Name = "left", .Carries = {}}};
+  source.Volumes = {{.Id = "entry'",
+                     .In = "region & room",
+                     .Shape = "sphere",
+                     .AtM = {1e200, -2.5, 3},
+                     .ExtentM = {1e-200, 2, 3},
+                     .Fires = source.Events[0].Name,
+                     .When = "dwell",
+                     .DwellS = 0.012345678901234567},
+                    {.Id = "exit",
+                     .In = "",
+                     .Shape = "box",
+                     .AtM = {},
+                     .ExtentM = {1, 2, 3},
+                     .Fires = "left",
+                     .When = "exit"}};
   auto check = [&] {
     const auto text = WriteScenario(source);
     CHECK(text.has_value(), "scenario export succeeds");

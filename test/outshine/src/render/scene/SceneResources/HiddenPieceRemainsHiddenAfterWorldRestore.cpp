@@ -43,7 +43,10 @@ int main() {
           StoredVertex::Of({{0.5f, -0.5f, 0}}, {{0, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{0, 0.5f, 0}}, {{0, 0}}, {{0, 0, 1}})};
       const std::array<uint32_t, 3> indices{0, 1, 2};
-      const auto piece = renderer.PlaceStructurePiece({.Verts = vertices, .Indices = indices});
+      Render::PieceMesh mesh{};
+      mesh.Verts = vertices;
+      mesh.Indices = indices;
+      const auto piece = renderer.PlaceStructurePiece(mesh);
       CHECK(piece.has_value(), "structure piece becomes resident");
       if (piece) {
         const auto centreDepth = [&]() {

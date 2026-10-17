@@ -38,7 +38,9 @@ int main() {
           StoredVertex::Of({{1, 0, 0}}, {{1, 0}}, {{0, 0, 1}}),
           StoredVertex::Of({{0, 1, 0}}, {{0, 1}}, {{0, 0, 1}})};
       const std::array<uint32_t, 3> indices{0, 1, 2};
-      const Render::PieceMesh mesh{.Verts = vertices, .Indices = indices};
+      Render::PieceMesh mesh{};
+      mesh.Verts = vertices;
+      mesh.Indices = indices;
       const auto first = renderer.PlacePiece(mesh);
       const auto second = renderer.PlacePiece(mesh);
       CHECK(first && second, "two native identities exist");

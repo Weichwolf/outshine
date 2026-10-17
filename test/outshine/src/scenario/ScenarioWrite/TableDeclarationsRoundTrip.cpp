@@ -12,7 +12,7 @@ int main() {
                     .Columns = {"key", "amount", "label"},
                     .Types = {false, true},
                     .Rows = {{"", "+2.5e1", "a\tb\nc\r\"'&<>"}, {"next", "-0", ""}}},
-                   {.Id = "empty", .Columns = {"key"}},
+                   {.Id = "empty", .Columns = {"key"}, .Types = {}, .Rows = {}},
                    {.Id = "lexical", .Columns = {"key"}, .Types = {true}, .Rows = {{"01"}, {"1"}}}};
   const auto text = WriteScenario(source);
   CHECK(text.has_value(), "scenario export succeeds");

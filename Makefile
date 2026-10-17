@@ -212,6 +212,10 @@ test-client-data: all ## verify external place scenarios through the client
 test-tidy-analysis: db ## prove clean analysis and incomplete-run detection with real clang-tidy
 	@cd $(SELF_DIR) && LLVM_BIN=$(LLVM_BIN) python3 test/scripts/test_tidy_analysis.py
 
+.PHONY: test-callgraph
+test-callgraph: ## verify real archive call edges and corrupt-input rejection
+	@cd $(SELF_DIR) && python3 test/scripts/test_callgraph.py
+
 .PHONY: format
 format: strip ## apply repository formatting to the same owned files lint checks
 	@cd $(SELF_DIR) && python3 test/scripts/format_sources.py --tool $(LLVM_BIN)/clang-format
