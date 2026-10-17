@@ -6,6 +6,7 @@ from clad_facade_plan import choose
 from facade_frame_geometry import FrameDetails, placed
 from outshine_ref.buildings.facade_frames import front, sides
 from outshine_ref.buildings.rooflight_panels import triangle_surface
+from provider_contract import attributes
 from tile_facades import FacadeDetails
 
 
@@ -70,3 +71,9 @@ class CladFacades(FacadeDetails):
     def __init__(self, rows, view, **kwargs):
         super().__init__(rows, view, **kwargs)
         self.frames = CladFrames(self.entrances)
+
+
+def build(row, neighbors, view):
+    owner = CladFacades([row, *neighbors], view)
+    mesh, info = owner(row, attributes(row["properties"]), 12)
+    return mesh, info, owner

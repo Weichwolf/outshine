@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
-from clad_facade_mesh import CladFacades, CladFrames, surface
+from clad_facade_mesh import CladFrames, build, surface
 from clad_facade_plan import placement
 from facade_frame_geometry import placed
 from opening_modules import template as window_module
@@ -15,12 +15,6 @@ from test_facade_frames import closed
 from test_opening_panels import hits
 from verify_facade_frames import build as old_build
 from verify_facade_frames import sources, view_for
-
-
-def build(row, neighbors, view):
-    owner = CladFacades([row, *neighbors], view)
-    mesh, info = owner(row, attributes(row["properties"]), 12)
-    return mesh, info, owner
 
 
 class CladFacadesTests(unittest.TestCase):

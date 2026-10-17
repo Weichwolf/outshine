@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from building_plan_views import patch as draw_polygon
 from city_scene import inputs
-from clad_facade_mesh import CladFacades, CladFrames, surface
+from clad_facade_mesh import CladFacades, CladFrames, build, surface
 from clad_facade_plan import placement
 from evidence import revision
 from facade_frame_probe import views
@@ -21,7 +21,6 @@ from podium_probe import write
 from showcase_tiles import view_for as city_view
 from tile_buildings import construct
 from tile_podiums import PodiumDetails
-from verify_clad_facades import build
 from verify_facade_frames import build as original_build
 from verify_facade_frames import sources, view_for
 
@@ -61,7 +60,17 @@ def export(output, name, mesh, info, view, owner, proof):
         mesh,
         {
             "camera": camera(view),
-            "source": {"material_definitions": {}},
+            "source": {
+                "material_definitions": {
+                    "12": {
+                        "color.r": 0.72,
+                        "color.g": 0.71,
+                        "color.b": 0.68,
+                        "roughness": 0.78,
+                        "metallic": 0.0,
+                    },
+                }
+            },
             "facade_materials": owner.bindings,
             "source_info": info,
             "ground_span_m": 10000.0,
