@@ -1173,3 +1173,10 @@ Attached source-contained roof volumes and real near window pockets:
 [dormers.md](dormers.md) (#585). The whole988-source window gains3097 dormers on368
 roofs, retaining earlier source/function/facade/roof owners. This is one repeated
 box-dormer programme; broader whole-building forms and coherent variety remain open.
+
+Source-stable asymmetric terraces and paired upper wings, with simple open floors
+and actual stair/entry components before detailed room fitting, are prototyped in
+[terraced_mass.md](terraced_mass.md) (#618). Independent sections, closed component
+roundtrips and access controls accompany explicit cutaway renders. The new path
+still lacks facade/roof/terrace programmes and complete-city selection; existing
+functional products retain their own checks.
