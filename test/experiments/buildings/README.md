@@ -1196,3 +1196,9 @@ Plan work before broad source trials is reduced with exact product replay in
 [terraced_source_demand.md](terraced_source_demand.md) (#618). A complete988-source
 census protects prior functional owners and identifies direct candidates; their
 physical/function/whole-city admission remains open.
+
+The complete proposed cohort now has a separate strict
+[physical admission study](terraced_admission.md), with preserved actual source
+failures, independent shell sweeps, full component checks and continuous declared
+ground/terrace routes. Failed new assets retain their prior source route; this is
+separate from whole-city imagery and native/controller admission.
