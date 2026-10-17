@@ -29,7 +29,7 @@ def atlas(values):
     return image
 
 
-def material(vectors, images, frames, light, mode):
+def material(vectors, images, frames, light, mode, *, image_factory=atlas):
     vectors, images, frames, light = map(np.asarray, (vectors, images, frames, light))
     if (
         vectors.shape != (64, 32, 32, 4, 3)
@@ -70,7 +70,7 @@ def material(vectors, images, frames, light, mode):
 
     def texture(fields):
         node = nodes.new("ShaderNodeTexImage")
-        node.image = atlas(fields)
+        node.image = image_factory(fields)
         node.interpolation = "Linear"
         node.extension = "EXTEND"
         return node.outputs["Color"]
