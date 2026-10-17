@@ -1203,6 +1203,11 @@ failures, independent shell sweeps, full component checks and continuous declare
 ground/terrace routes. Failed new assets retain their prior source route; this is
 separate from whole-city imagery and native/controller admission.
 
+The [ground-approach correction](terraced_ground.md) uses the same conservative
+actor radius at courtyard walls and stair obstacles. Original blocked routes
+remain negative controls; an additional valid stair guards against unnecessary
+changes to its orientation. The report owns the complete cohort replay and scope.
+
 The [complete terraced city comparison](terraced_city.md) applies the successful
 new candidates while preserving existing owners and rejected fallbacks. Actual
 normal/full-near1920×1080 images, source completeness, precise index-width replay
