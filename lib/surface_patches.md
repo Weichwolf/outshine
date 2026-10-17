@@ -110,7 +110,7 @@ Provider APIs are unchanged.
 `geometry.surface_patches.prepared` supplies `pack_surface(view, compressed=False,
 max_bytes=64*1024**2)` and `restore_surface(payload, expected_sha256=...,
 frame=LocalFrame(...), max_bytes=64*1024**2)`. Import this module explicitly;
-ordinary patch construction does not import ZIP/JSON/hash machinery. The format
+ordinary patch construction does not import this codec. The format
 is `outshine-finite-surface/1`: numeric NPZ members, bounded JSON bytes and no
 pickle, validity flag, file lookup, cache manager or hidden source fallback.
 
