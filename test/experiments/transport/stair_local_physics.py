@@ -13,6 +13,26 @@ from stair_terrain_audit import clearance
 from surface_height_checks import normal_gradients
 
 
+def frozen_beds(view, state, field):
+    road = state["road"]
+    faces = road["bottom_faces"][state["road_ground"]]
+    triangles = road["body_vertices"][faces]
+    region = shapely.union_all(shapely.polygons(field.vertices[field.triangles, :2]))
+    shapes = shapely.polygons(triangles[:, :, :2])
+    selected = shapely.dwithin(shapes, region, radius(view))
+    triangles = triangles[selected]
+    footprint = shapely.union_all(shapes[selected])
+    local = require(view.nearby(footprint, radius(view), max_faces=8192))
+    floor = Reference(local.mesh)
+    proofs = [floor.check(Mesh(tri, np.array([[0, 1, 2]]))) for tri in triangles]
+    return {
+        "whole_original_body_facets": len(proofs),
+        "reference_faces": len(local.mesh.triangles),
+        "maximum_contact_float32_m": max(p["float32_contact_error_m"] for p in proofs),
+        "pair_tests": sum(p["contact_pair_checks"] for p in proofs),
+    }
+
+
 def validate(view, state, local, heights, roles, chosen, data, upper):
     field = Mesh(np.c_[local["xy"], heights], local["faces"])
     old = state["plan"]
@@ -67,6 +87,7 @@ def validate(view, state, local, heights, roles, chosen, data, upper):
         ),
         "ground_contact_pair_tests": sum(p["contact_pair_checks"] for p in contacts),
         "ground_reference_faces": len(nearby.mesh.triangles),
+        "frozen_body_beds": frozen_beds(view, state, field),
         "bridge_clearance": bridges,
         "scope": "Whole convex source-facet references and exact patch boundary gluing; no global nonconvex Lipschitz shortcut or new structural claim.",
     }
