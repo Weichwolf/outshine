@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+from joint_basis_mips import analyse
 from joint_basis_reduction import fit_report
 from joint_basis_study import view_light_knots
 from joint_light_measure import JointMeasure
@@ -103,6 +104,29 @@ class PositiveBasisTests(unittest.TestCase):
         np.testing.assert_array_equal(bounded, np.clip(raw, 0, mass))
         self.assertGreater(report["heldout_raw"]["negative_values"], 0)
         self.assertEqual(report["heldout"]["negative_values"], 0)
+
+    def test_coarse_transfer_keeps_unclipped_linear_factors_and_actual_rank(self):
+        knots = view_light_knots(64)
+        held = np.tile(np.r_[np.eye(3), -np.eye(3), [[1, 0, 0], [-1, 0, 0]]], (3, 1, 1))
+        directions = np.r_[knots, held[0]]
+        weights = np.linspace(0.05, 0.3, 256)
+        transfer = np.maximum(directions[:, 0], 0)[:, None] * weights
+        joint = np.stack([transfer, transfer * 0.5, transfer * 0.25])
+        before = joint.copy()
+        coverage = np.tile(np.full(256, 0.4), (3, 1))
+        levels = analyse(joint, coverage, knots, held)
+        np.testing.assert_array_equal(joint, before)
+        self.assertEqual([v["size"] for v in levels], [16, 8, 4, 2, 1])
+        for level in levels:
+            for reduced in level["signed"].values():
+                for method in ("filtered_base_factors", "per_level_refit"):
+                    for metric in ("max_abs", "rmse"):
+                        self.assertAlmostEqual(
+                            reduced[method]["all_eight_queries"][metric],
+                            level["angular"]["all_eight_queries"][metric],
+                            places=13,
+                        )
+        self.assertEqual(levels[-1]["signed"]["12"]["refit_actual_rank"], 3)
 
 
 class JointFieldTests(unittest.TestCase):

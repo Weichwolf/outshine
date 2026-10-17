@@ -89,9 +89,65 @@ def run(source, output):
     )
 
 
+def plot_mips(source, output):
+    if not output.resolve().is_relative_to(Path("/tmp")):
+        raise ValueError("private image must be under/tmp")
+    levels = json.loads(source.read_text())["levels"]
+    fig, axes = plt.subplots(1, 2, figsize=(16, 9), dpi=160, layout="constrained")
+    methods = [
+        ("64 lights, no rank reduction", lambda r: r["angular"], "o-"),
+        (
+            "Rank8, filter original factors",
+            lambda r: r["signed"]["8"]["filtered_base_factors"],
+            "s-",
+        ),
+        (
+            "Rank8, refit each footprint",
+            lambda r: r["signed"]["8"]["per_level_refit"],
+            "^-",
+        ),
+    ]
+    for label, method, style in methods:
+        values = [method(r)["six_independent_lights"] for r in levels]
+        axes[0].plot(
+            [r["size"] for r in levels],
+            [v["max_abs"] for v in values],
+            style,
+            label=label,
+        )
+        axes[1].plot(
+            [r["size"] for r in levels],
+            [100 * v["coverage_normalized_rmse"] for v in values],
+            style,
+            label=label,
+        )
+    for ax in axes:
+        ax.set(
+            xscale="log",
+            xticks=[1, 2, 4, 8, 16],
+            xlabel="Square footprint width (pixels)",
+        )
+        ax.set_xticklabels(["1", "2", "4", "8", "16"])
+        ax.grid(alpha=0.3)
+        ax.legend(fontsize=10)
+    axes[0].set_ylabel("Maximum absolute response error (unit diffuse)")
+    axes[1].set_ylabel("RMSE / RMS coverage (%)")
+    fig.suptitle(
+        "Same finite source: smaller footprints tolerate a simpler response\n"
+        "Three fixed cameras · six independent lights · pooled native16×16 fields · no distance/temporal admission",
+        fontsize=15,
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--mips", type=Path)
     args = parser.parse_args()
     run(args.source, args.output)
+    if args.mips is not None:
+        plot_mips(args.mips, args.output.with_name(args.output.stem + "-mips.png"))
