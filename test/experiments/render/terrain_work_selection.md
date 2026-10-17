@@ -164,6 +164,41 @@ force finer selected levels. A lower theoretical boundary floor alone does
 not predict useful work savings. The existing CLI now also accepts 32 cells;
 `verify_terrain_patch_lod.py` checks its affine errors and complete boundaries.
 
+## Shared coarse patch edges
+
+`terrain_patch_stitching.py` compares mixed edge spacings on the same sixteen
+eight-cell patches per page. Neighboring edges use the finer spacing; original
+page borders and skirts stay fine. Exact common-refinement vector bounds force
+unsafe variants to refine, retaining the 0.5 px allowance. Each refinement lowers
+a finite level potential; a page requires at most 49 selection rounds.
+
+All 16,255 cached Körbersee pages, 1280×720, frustum-only comparison. A complete
+page may retain the old patterns when stitching would cost more:
+
+| Pattern policy | Yaw 0 triangles, with skirts | Yaw 180 | Saving |
+|---|---:|---:|---:|
+| Original fine boundaries | 5,508,280 | 4,987,008 | — |
+| Internal 2:1 neighbors, page fallback | 5,363,894 | 4,890,669 | 2.62% / 1.93% |
+| Unrestricted neighbor levels, page fallback | 5,250,987 | 4,790,074 | 4.67% / 3.95% |
+
+Without the page fallback, 2:1 stitching increases the opposite view's count.
+The policies evaluate 88,331/96,585 exact variants and need 144/353 shared index
+patterns (38,280/81,480 bytes). Measured Python preparation takes 20.93/21.55 s
+beside a frozen lint. These are model construction times, not native frame costs.
+Extra native neighbor selection, grouping and error metadata are unmeasured.
+The small reference-count saving does not justify a native integration here.
+
+Five checks cover random mixed-level topology without internal open edges or
+T-junctions, independent dense vector interpolation, near-plane/peak refinement,
+and unchanged defaults. Twenty-four old/new index arrays and twelve error stencils
+remain byte-identical. Contact/temporal pixels, fine normals and native GPU costs
+are not proved by this model. The production renderer and its PNGs are unchanged.
+
+[Geometry Clipmaps](../../../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf),
+page 4, figures 3–4 and section 6.2, motivates compatible boundaries and spatial
+transitions; both the equations and diagrams were inspected. This experiment
+uses explicit patch triangulations, not the paper's clipmap/morphing scheme.
+
 ## Exact early patches with adaptive LOD
 
 `terrain_early_patches.py` compares early eight-cell patches with the existing
