@@ -195,6 +195,13 @@ class Podiums(unittest.TestCase):
             for i in (2, 3)
         ]
         assets = {r["id"]: a for r, a in zip(rows, self.products, strict=True)}
+        rows.append(
+            {
+                "layer": "landuse",
+                "polygon": shapely.box(0, 0, 2000, 2000),
+                "properties": {"class": "residential"},
+            }
+        )
         centre = rows[0]["polygon"].centroid
         view = View(
             np.array([centre.x + 3000, centre.y - 3000, 3000]),

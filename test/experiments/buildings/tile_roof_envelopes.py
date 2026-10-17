@@ -297,7 +297,8 @@ class OrdinaryDetails:
         self.industrial_rooms = {
             row["id"]
             for row in rows
-            if row["id"] in self.rooms.identifiers
+            if row["layer"] == "building"
+            and row["id"] in self.rooms.identifiers
             and choose(row, attributes(numeric_properties(row))).kind in KINDS
         }
         self.pitched.update(self.industrial_rooms)
