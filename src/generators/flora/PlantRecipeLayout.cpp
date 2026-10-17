@@ -65,7 +65,9 @@ bool Valid(const PlantLevel &level) {
          static_cast<uint8_t>(level.Arrangement) <= static_cast<uint8_t>(PlantArrangement::Whorled);
 }
 
-bool RecipeValid(const PlantRecipe &recipe) {
+}
+
+bool ValidPlantRecipe(const PlantRecipe &recipe) {
   if (recipe.Levels.empty() || recipe.Levels.size() > kMostOrders ||
       recipe.Blades.size() > kMostBranches || recipe.Levels.front().Branches != 1) {
     return false;
@@ -91,6 +93,7 @@ bool RecipeValid(const PlantRecipe &recipe) {
   });
 }
 
+namespace {
 std::optional<uint64_t> LeafCount(const PlantLevel &level, size_t slot) {
   if (!level.LeafInternodeM) { return uint64_t{0}; }
   const double intervals = (level.LeafLast - level.LeafFirst) * PlantLevelLength(level, slot) /
@@ -199,7 +202,7 @@ uint64_t PlantLeafPrefix(const PlantLevel &level,
 std::expected<PlantRecipeLayout, std::string_view> LayoutPlantRecipe(const PlantRecipe &recipe,
                                                                      PlantRecipeDemand demand) {
   PlantRecipeLayout result;
-  if (!RecipeValid(recipe) || !Topology(recipe, result)) {
+  if (!ValidPlantRecipe(recipe) || !Topology(recipe, result)) {
     return std::unexpected(
         "plant recipe requires finite regular levels, matching blades and bounded identities");
   }
