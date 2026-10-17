@@ -33,7 +33,7 @@ class TerrainPatchLod(unittest.TestCase):
         xy = np.stack(np.meshgrid(f, f), axis=-1).reshape(-1, 2)
         local = np.column_stack((xy, 17 + 3 * xy[:, 0] - 2 * xy[:, 1]))
         templates = {}
-        for cells in (4, 8, 16):
+        for cells in (4, 8, 16, 32):
             errors, counts, nodes, strides = patch_bounds(f, local, cells, templates)
             self.assertLess(errors.max(), 2e-9)
             self.assertEqual(int(counts[:, 0].sum()), 2048)

@@ -144,3 +144,28 @@ figures 2–4 clarify why enclosing half-spaces and closed prisms matter; the lo
 ray-bracket construction above is not claimed as that paper's algorithm.
 [Geometry Clipmaps, SIGGRAPH 2004](../../../doc/references/terrain/siggraph/2004-geometry-clipmaps.pdf)
 is the reference for separating geometric sampling from normal detail.
+
+## Larger adaptive patches
+
+A further cached-input comparison uses all 16,255 Körbersee pages, 1280x720,
+view yaws 0/180 and the same 0.5-pixel positional allowance. All cases retain
+fine patch boundaries and the original outer skirts. This is a frustum-only
+CPU model; it does not establish native GPU times or pixel equivalence.
+
+| Patch cells | View 0 triangles | View 180 triangles |
+|---:|---:|---:|
+| 8 | 5,508,280 | 4,987,008 |
+| 16 | 6,846,824 | 6,304,240 |
+| 32 | 8,233,736 | 7,577,904 |
+
+Replacing every patch with a larger one is rejected: view 0 grows by
+(8,233,736 / 5,508,280 - 1) * 100 = 49.48%. Larger shared error domains
+force finer selected levels. A lower theoretical boundary floor alone does
+not predict useful work savings. The existing CLI now also accepts 32 cells;
+`verify_terrain_patch_lod.py` checks its affine errors and complete boundaries.
+
+The earlier exact early-page experiment above remains modest, not a promised
+speedup. Before native expansion, compare a small set of exact early *patches*
+against page selection, combined with the existing adaptive LOD and identical
+rendered geometry. Count early work once, verify the complete retained raster,
+and measure selection/pyramid costs. Keep the established depth bias unchanged.
