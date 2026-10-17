@@ -2,9 +2,10 @@
 
 import argparse
 import json
+from fractions import Fraction
+from math import nextafter
 from pathlib import Path
 
-import numpy as np
 import shapely
 from camera_height_inputs import digest
 from stair_local_replay import load_chain
@@ -42,16 +43,27 @@ def read(path, report):
 def cap_error(row, lower, upper, headroom):
     if not row.geometry.equals_exact(shapely.Polygon(upper[:, :2]), 0):
         raise ValueError("saved affine footprint differs from actual whole triangle")
-    error = 0.0
-    for actual, plane, delta in (
-        (lower, row.lower_plane_m, 0),
-        (upper, row.upper_plane_m, headroom),
+    error = Fraction(0)
+    for actual, plane, delta, sign in (
+        (lower, row.lower_plane_m, 0, -1),
+        (upper, row.upper_plane_m, headroom, 1),
     ):
-        predicted = plane[0] + (actual[:, :2] - row.origin_xy_m) @ np.array(plane[1:])
-        error = max(error, float(abs(predicted - actual[:, 2] - delta).max()))
-    if error > 1e-8:
+        residuals = []
+        for p in actual:
+            predicted = Fraction(plane[0]) + sum(
+                Fraction(g) * (Fraction(float(x)) - Fraction(o))
+                for g, x, o in zip(plane[1:], p[:2], row.origin_xy_m, strict=True)
+            )
+            residuals.append(predicted - Fraction(float(p[2])) - Fraction(float(delta)))
+        if min(sign * value for value in residuals) < 0:
+            raise ValueError(
+                "saved affine cap does not conservatively cover the actual body"
+            )
+        error = max(error, max(abs(v) for v in residuals))
+    if error > Fraction(1, 100000000):
         raise ValueError("saved height plane differs from actual cap/headroom")
-    return error
+    bound = float(error)
+    return nextafter(bound, float("inf")) if Fraction(bound) < error else bound
 
 
 def check_caps(rows, data, assets, supports, contacts, manifest, report, sources):

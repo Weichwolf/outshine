@@ -1,6 +1,8 @@
 """Affine volumes from unchanged saved bodies and actual source/DEM receipts."""
 
 import json
+from fractions import Fraction
+from math import nextafter
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +15,7 @@ from stair_module_inputs import (
     reference_profiles,
     source_context,
 )
-from stair_occupancy_geometry import AffineOccupancy
+from stair_occupancy_geometry import AffineOccupancy, plane_value
 
 
 def actual_sources():
@@ -45,24 +47,46 @@ def full_tile_sampler(path, context):
     return sample
 
 
+def outward_plane(vertices, origin, plane, delta, sign):
+    wanted = [Fraction(float(p[2])) + Fraction(float(delta)) for p in vertices]
+    errors = [
+        plane_value(plane, origin, p[:2]) - z
+        for p, z in zip(vertices, wanted, strict=True)
+    ]
+    correction = max(Fraction(0), max(-sign * error for error in errors))
+    target = Fraction(plane[0]) + sign * correction
+    z0 = float(target)
+    if sign * (Fraction(z0) - target) < 0:
+        z0 = nextafter(z0, sign * float("inf"))
+    result = (z0, *plane[1:])
+    residuals = [
+        sign * (plane_value(result, origin, p[:2]) - z)
+        for p, z in zip(vertices, wanted, strict=True)
+    ]
+    if min(residuals) < 0 or max(residuals) > Fraction(1, 100000000):
+        raise ValueError("actual affine cap coverage/padding is unresolved")
+    bound = float(max(residuals))
+    if Fraction(bound) < max(residuals):
+        bound = nextafter(bound, float("inf"))
+    return result, bound
+
+
 def volume(owner, lower, upper, clearance):
     if set(map(tuple, lower[:, :2])) != set(map(tuple, upper[:, :2])):
         raise ValueError("actual upper/lower projected cap vertices differ")
     origin = tuple(map(float, upper[0, :2]))
     planes, errors = [], []
-    for vertices in (lower, upper):
+    for vertices, delta, sign in ((lower, 0, -1), (upper, clearance, 1)):
         z0 = vertices[np.all(vertices[:, :2] == origin, axis=1), 2].item()
         slopes = np.linalg.solve(
             vertices[np.any(vertices[:, :2] != origin, axis=1), :2] - origin,
             vertices[np.any(vertices[:, :2] != origin, axis=1), 2] - z0,
         )
-        errors.append(
-            float(abs(z0 + (vertices[:, :2] - origin) @ slopes - vertices[:, 2]).max())
+        plane, error = outward_plane(
+            vertices, origin, (float(z0 + delta), *map(float, slopes)), delta, sign
         )
-        planes.append((float(z0), *map(float, slopes)))
-    if max(errors) > 1e-8:
-        raise ValueError("actual affine cap reconstruction is unresolved")
-    planes[1] = (planes[1][0] + clearance, *planes[1][1:])
+        planes.append(plane)
+        errors.append(error)
     return AffineOccupancy(
         owner,
         shapely.Polygon(upper[:, :2]),

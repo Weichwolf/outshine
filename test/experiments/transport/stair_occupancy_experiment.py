@@ -71,6 +71,7 @@ def probe_results(query, probe_inputs, seen):
         probes_result.append(
             {
                 "id": p.source_id,
+                "geometry_wkb": p.geometry.wkb_hex,
                 "xy": list(p.geometry.centroid.coords[0]),
                 "heights_m": [p.heights.lower_m, p.heights.upper_m],
                 "transport_blocked": cut.area > 0,
@@ -150,7 +151,7 @@ def run(args):
         "actual_road_faces": sum(len(a.data["top_faces"]) for a in assets),
         "actual_supports": len(supports),
         "actual_support_cap_faces": sum(len(lo.triangles) for lo, _ in contacts),
-        "cap_reconstruction_error_m": error,
+        "cap_outward_padding_bound_m": error,
         "building_source_count": len(ledger),
         "building_used_count": len(originals),
         "building_adjusted_count": len(changes),

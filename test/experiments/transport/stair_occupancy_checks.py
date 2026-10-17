@@ -9,6 +9,7 @@ import shapely
 from outshine_ref.contracts import BuildingFootprint, HeightInterval, Reservation
 from stair_occupancy_geometry import AffineOccupancy, conflict_geometry
 from stair_occupancy_handoff import OccupancyQuery, adjusted
+from stair_occupancy_inputs import volume
 from stair_occupancy_pipeline import handoff
 
 
@@ -57,6 +58,18 @@ def exact_area(vertices):
 
 
 class AffineClearance(unittest.TestCase):
+    def test_cap_fit_covers_original_binary64_body_outward_with_bounded_padding(self):
+        import numpy as np
+        from stair_occupancy_verify import cap_error
+
+        upper = np.array([[0.1, 0.2, 12.3], [0.3, 0.4, 12.4], [0.8, 0.3, 12.7]])
+        lower = upper - [0, 0, 0.2]
+        row, bound = volume("actual", lower, upper, 2.5)
+        independent = cap_error(row, lower, upper, 2.5)
+        self.assertGreater(bound, 0)
+        self.assertEqual(bound, independent)
+        self.assertLess(bound, 1e-8)
+
     def test_index_and_scan_preserve_adjusted_source_and_pass_height_aware_pipeline(
         self,
     ):
