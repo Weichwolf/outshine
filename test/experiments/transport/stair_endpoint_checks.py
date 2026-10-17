@@ -1,13 +1,16 @@
 """Original-node end/through contacts, immutable caps and whole two-sided traces."""
 
 import copy
+import json
 import unittest
+from pathlib import Path
 
 import numpy as np
 import shapely
 from stair_frontier_endpoints import endpoint_bindings
 from stair_module_cache import remaining_outer_profiles
 from stair_module_loops import frozen_contacts, interior_profile, prepare_contacts
+from stair_module_roots import bind_root_pad
 from stair_module_through import through_sides
 from stair_module_trace import compare
 
@@ -43,6 +46,65 @@ def original_end():
 
 
 class EndThroughContacts(unittest.TestCase):
+    def test_shared_root_uses_one_complete_hull_for_both_frozen_profiles(self):
+        rows = [{"source_id": "new", "xy": np.array([[0, 0], [10, 0]]), "width_m": 2}]
+        node = {"mvt_xy": [0, 0], "xy": [0, 0], "incident": [0]}
+        line = np.array([[-2, -2, 1], [0, 0, 1], [2, 2, 1]])
+        other = np.array([[-2, 2], [0, 0], [2, -2]])
+        bind_root_pad(rows, node, line, cached_profiles=[other])
+        pads = rows[0]["junction_pads_xy_m"]
+        self.assertEqual(len(pads), 1)
+        pad = shapely.Polygon(pads[0])
+        self.assertTrue(
+            pad.equals(
+                shapely.MultiPoint(
+                    np.vstack([line[:, :2], other, [[0, -1], [0, 0], [0, 1]]])
+                ).convex_hull
+            )
+        )
+        with self.assertRaises(ValueError):
+            bind_root_pad(rows, node, line, cached_profiles=[other + [0.001, 0]])
+
+    def test_actual_shared_root_keeps_the_other_cached_endpoint(self):
+        path = (
+            Path(__file__).parent / "fixtures/stair-shared-root-endpoints-vienna.json"
+        )
+        case = json.loads(path.read_text())
+        state = {"cached_module_rows": dict.fromkeys(case["cached_source_ids"])}
+        for old, other in (case["cached_source_ids"], case["cached_source_ids"][::-1]):
+            root = {"node": case["root_node"], "port": {"source_id": old}}
+            contacts = endpoint_bindings(
+                state, case["sources"], root, case["new_source_ids"]
+            )
+            self.assertEqual(len(contacts), 1)
+            self.assertEqual(contacts[0]["cached_source_id"], other)
+            old_nodes = case["sources"][other]["mvt_xy"]
+            new_nodes = case["sources"][contacts[0]["source_id"]]["mvt_xy"]
+            self.assertEqual(old_nodes[contacts[0]["cached_vertex"]], case["root_node"])
+            self.assertEqual(new_nodes[contacts[0]["vertex"]], case["root_node"])
+
+    def test_shared_root_excludes_only_its_own_profile_and_keeps_contact_budget(self):
+        sources = {"new": {"mvt_xy": [[0, 0], [0, 10]]}}
+        sources.update(
+            {
+                key: {"mvt_xy": [[-10, 0], [0, 0]]}
+                for key in ("root", "a", "b", "c", "d")
+            }
+        )
+        state = {"cached_module_rows": {key: {} for key in sources if key != "new"}}
+        root = {"node": [0, 0], "port": {"source_id": "root"}}
+        contacts = endpoint_bindings(state, sources, root, ["new"])
+        self.assertEqual(
+            [c["cached_source_id"] for c in contacts], ["a", "b", "c", "d"]
+        )
+        sources["near"] = {"mvt_xy": [[-10, 1], [0, 1]]}
+        state["cached_module_rows"]["near"] = {}
+        self.assertEqual(endpoint_bindings(state, sources, root, ["new"]), contacts)
+        sources["e"] = sources["a"]
+        state["cached_module_rows"]["e"] = {}
+        with self.assertRaisesRegex(ValueError, "secondary profile contact budget"):
+            endpoint_bindings(state, sources, root, ["new"])
+
     def test_distinct_frozen_sources_at_one_original_node_form_one_complete_pad(self):
         state, sources, recipe = original_end()
         sources["other"] = copy.deepcopy(sources["old"])

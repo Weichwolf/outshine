@@ -114,3 +114,47 @@ byte; loading spans 708.5858–1,913.3115 ms, maximum CPU p99 3.9442 ms. GPU tim
 remains unavailable on the main SDL_GPU path. These are single runs,
 not a robust speedup or a child-only loading-budget proof. The failed 8,068-source
 Linux 1920×1080/60 case and full native port acceptance remain open in #567/#328.
+
+## Avoiding empty planning jobs
+
+`cell_range_scheduling.py` compares the old quota with a quota charged only to
+selected sources. The native index above supplies its exact 7,912 source-cell
+IDs in original order. With 64 sources per range and four ranges per task, the
+old planning count is `64 * ceil(7912/64) = 7936` ranges and
+`64 * ceil(ceil(7912/64)/4) = 1984` tasks. The selected-source interpreter needs
+158 ranges and 68 tasks, retaining identical source selections/order and the
+same 506,368 metadata visits. This is planning work, not a total runtime estimate.
+
+Commit `bf03900a2` applies that quota to raw and prepared planning. Foreign
+metadata remains visited/validated; real source work still yields at its quota,
+and cancellation remains observable. Four sparse first/last-source cases fail
+with the old code and pass with exact reference geometry/contact data afterward.
+Five affected cases and focused implementation/new-case analysis pass. No
+artifact key, encoding, GPU ABI or LOD error allowance changes.
+
+## Native Metal integration
+
+Master's ownership, decoder and initial-cell changes are merged into the native
+candidate. Five ownership/cache/publication cases pass there; fresh Wien,
+Koerbersee and Tokyo 1280×720/30 processes retain their prior native PNGs exactly.
+Their GPU-commandbuffer maxima are 30.04, 37.24 and 28.65 ms. Koerbersee remains
+above the 33.33-ms device target; full port acceptance remains open.
+
+After the scheduling fix, the local complete native Tokyo 1920×1080/60 process
+becomes ready in 81,071.9385 ms and captures all 60 frames, without the geometry
+writer overflow. A fresh offline process with the standard ten-second preload
+then loads in 4,529.3385 ms and saves the same `3d87a370` PNG. It reports 3,066 LOD
+hits, 49 expected whole-product lookup misses, zero writes/plan reads/provider
+bytes and zero meshing ranges; 435.59 MiB LOD, 63.80 MiB basis and 362.86 MiB region
+products are decoded. This demonstrates the local full-world cache path, not
+exact identity with the original Linux 8,068-source input.
+
+The frame/memory costs remain unacceptable for this stress profile: 4,235,461
+reported building triangles; warm GPU-commandbuffer maximum 39.51 ms, CPU p99
+25.16 ms including fence waits, 1.393-second turn. Initial process peak footprint
+is 7,694,145,200 bytes, with no proof that this memory is necessary. The A18 target
+remains 1280×720/30; this 1920×1080/60 run does not pass a device/frame gate. The
+opened image remains visually monotonous, with generic roofs and harsh facade
+contrasts; it proves complete rendering, not new architecture/material quality.
+Original manifests, images, logs and scheduling inputs are in system-temp
+`outshine-native-cell-integration-579`. The port remains separate from master.

@@ -2,7 +2,6 @@
 #include <type_traits>
 #include <cmath>
 #include "ScenarioWrite.h"
-#include "AssetValidation.h"
 #include "WeatherValidation.h"
 #include "PlayerValidation.h"
 #include "BodyValidation.h"
@@ -356,7 +355,6 @@ PrepareRuntimeDeclaration(const Scenario::Document &scenario,
 }
 
 [[nodiscard]] bool SamePicture(const Core::Declaration &a, const Core::Declaration &b);
-[[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b);
 
 void PublishConfiguration(Kept &session,
                           std::optional<ViewBook> &views,
@@ -375,7 +373,7 @@ void PublishConfiguration(Kept &session,
                                                      InputMap &bindings,
                                                      std::string &error) {
   if (!picture.Standing || HasGeneratedContent(scenario) || HasGeneratedContent(session.Declared) ||
-      !SamePicture(picture.Shown, declared) || !SameStand(picture.Shown, declared) ||
+      !SamePicture(picture.Shown, declared) ||
       session.Declared.Ground.VegetationEnabled != scenario.Ground.VegetationEnabled ||
       session.Declared.Providers != scenario.Providers ||
       session.Declared.Routes != scenario.Routes) {
@@ -415,11 +413,6 @@ void PublishConfiguration(Kept &session,
          a.KeyBearingDeg == b.KeyBearingDeg;
 }
 
-[[nodiscard]] bool SameStand(const Core::Declaration &a, const Core::Declaration &b) {
-  return SamePicture(a, b) && a.Stands == b.Stands && a.Variant == b.Variant &&
-         a.Playback == b.Playback && a.Clip == b.Clip;
-}
-
 }
 
 void Engine::ships() {
@@ -429,12 +422,6 @@ void Engine::ships() {
 }
 
 namespace {
-[[nodiscard]] const Scenario::Asset *FirstGltfAsset(const Scenario::Document &scenario) {
-  for (const Scenario::Asset &asset : scenario.Assets) {
-    if (asset.Kind == "gltf") { return &asset; }
-  }
-  return nullptr;
-}
 
 [[nodiscard]] std::expected<std::optional<ViewBook>, std::string>
 PrepareViews(const Scenario::Document &scenario) {
@@ -494,8 +481,9 @@ namespace {
     return std::unexpected(std::string(valid.error()));
   }
   for (const auto &asset : scenario.Assets) {
-    const auto valid = ValidateAssetPlayback(asset);
-    if (!valid) { return std::unexpected(std::string(valid.error())); }
+    if (asset.Kind != "generated") {
+      return std::unexpected("unsupported asset kind: " + asset.Kind);
+    }
   }
   for (const auto &feature : scenario.Ground.Osm) {
     const auto valid = ValidateOsmStructure(feature);
@@ -533,43 +521,6 @@ namespace {
     return std::unexpected(error);
   }
   return {};
-}
-
-void PrepareImportedAssets(const Scenario::Document &scenario,
-                           const std::string &assets,
-                           Core::Declaration &declared) {
-  const Scenario::Asset *const subject = FirstGltfAsset(scenario);
-
-  if (subject != nullptr) {
-    declared.Stands = Beneath(assets, subject->Uri);
-    bool first = true;
-    for (const Scenario::Asset &shown : scenario.Assets) {
-      if (shown.Kind != "gltf") { continue; }
-      if (first) {
-        first = false;
-        continue;
-      }
-      declared.Joins.push_back(Beneath(assets, shown.Uri));
-    }
-    declared.Variant = subject->Variant;
-    declared.Overriding.reserve(subject->Surfaces.size());
-    for (const Scenario::SurfaceOverride &surface : subject->Surfaces) {
-      declared.Overriding.push_back({.MaterialName = surface.Named,
-                                     .PartName = surface.Node,
-                                     .PartIndex = surface.Part,
-                                     .RetainMaps = surface.KeepsMaps,
-                                     .Surface = surface.Row});
-    }
-    switch (subject->Animation) {
-      case Scenario::AssetAnimation::Play: declared.Playback = PlaybackPolicy::Once; break;
-      case Scenario::AssetAnimation::Loop: declared.Playback = PlaybackPolicy::Loop; break;
-      case Scenario::AssetAnimation::Ignore: declared.Playback = PlaybackPolicy::RestPose; break;
-      case Scenario::AssetAnimation::Driven:
-        declared.Playback = PlaybackPolicy::ExternallyDriven;
-        break;
-    }
-    declared.Clip = subject->Clip;
-  }
 }
 
 void PrepareRenderSettings(const Scenario::Document &scenario, Core::Declaration &declared) {
@@ -668,7 +619,6 @@ Result Engine::declare(const Scenario::Document &scenario) {
   declared.Haze = scenario.Ground.Sky.Haze;
   declared.SurfaceWidthPx = S_->Picture.Frame.WidthPx;
   declared.SurfaceHeightPx = S_->Picture.Frame.HeightPx;
-  PrepareImportedAssets(scenario, S_->Session.Under.Assets, declared);
   PrepareRenderSettings(scenario, declared);
   if (const auto lit = PrepareLighting(scenario, declared, S_->Error); !lit) { return lit; }
 

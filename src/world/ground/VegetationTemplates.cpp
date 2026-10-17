@@ -135,8 +135,8 @@ std::expected<VegetationTemplates::Rule, std::string> ReadRuleNumbers(const Json
 
 bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   constexpr size_t kCatalogByteLimit = size_t{1024} * 1024u;
-  const auto text = ReadTextFile(path != nullptr ? std::string_view(path) : std::string_view{},
-                                 kCatalogByteLimit);
+  const char *const sourcePath = path != nullptr ? path : "";
+  const auto text = ReadTextFile(sourcePath, kCatalogByteLimit);
   if (!text) {
     Error_ = text.error();
     return false;
@@ -173,7 +173,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   *this = std::move(candidate);
   Log::Info(LogTag::Veg,
             "table",
-            {{"path", path},
+            {{"path", sourcePath},
              {"classRows", static_cast<int>(Table_.size())},
              {"osmRules", static_cast<int>(Rules_.size())},
              {"layers", static_cast<int>(Layers_.size())},

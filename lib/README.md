@@ -299,6 +299,9 @@ Float64-XYZ-Punkte/Facettennormalen, Int64-Face-Indices und einen Grund je Abfra
 Außerhalb, bei mehrdeutiger Projektion oder erschöpftem Kandidatenbudget bleiben
 Z/Normale NaN und Face -1; unbekannte Höhe wird nicht null. Gemeinsame Kanten oder
 Vertices mit konsistenter Höhe wählen deterministisch die niedrigste Face-ID.
+Dabei zählt der Abstand zum endlichen Quellsegment; mehrere nahe Kanten dünner
+Dreiecke verdecken keine tatsächlich gemeinsame Quellkante. Einzeltreffer
+benötigen keine gemeinsame Kantensuche.
 Die aufwärts gerichtete Normale gehört zu dieser Facette und ist nicht geglättet.
 Vertikale/degenerierte Projektionen und doppelte Faces werden bei Vorbereitung
 abgelehnt. Überlagerte Innenflächen werden lokal als mehrdeutig ausgewiesen.
@@ -550,7 +553,7 @@ Gesamtgeometrie für positive Überhänge.
 .venv/bin/python -m pip install -e './lib[assets]'
 ```
 
-`assets` installiert Trimesh/Pygltflib für den optionalen OBJ/glTF/GLB-Import.
+`assets` installiert Trimesh für den optionalen OBJ-Import.
 Der Grundkern benötigt NumPy, Shapely und Pillow. Importiert er nur eigene Shapes,
 lädt er die Asset-Decoder nicht. Intern bleiben CGA-Achsen ausdrücklich benannt;
 `Shape.from_polygon` übernimmt einen ENU-XY-Grundriss und erzeugt ihn in CGA-XZ

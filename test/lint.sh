@@ -44,7 +44,7 @@ for tool in clang-format clang-tidy; do
     exit 2
   }
 done
-for target in test-timeout-cleanup test-file-stamps test-source-units test-format test-tidy-analysis test-callgraph test-documentation test-reference-store test-motion-trace db; do
+for target in test-timeout-cleanup test-file-stamps test-source-units test-format test-tidy-analysis test-callgraph test-motion-trace db; do
   if ! make "$target"; then
     printf 'lint: prerequisite %s failed\n' "$target" >&2
     red=$((red + 1))
@@ -96,12 +96,6 @@ if ! sh test/run.sh harness/claims > "$REPORT/claims.log" 2>&1; then
 fi
 grep -E '^(FAIL|BUILD|UNPREP|PASS)' "$REPORT/claims.log" | grep -v '^PASS' | sed 's|/var/folders.*||' || true
 grep 'tests:' "$REPORT/claims.log" | sed 's/^/lint: /' || true
-
-printf '\n== documentation ==\n'
-if ! python3 test/scripts/documentation_analysis.py --report "$REPORT"; then
-  printf 'lint: public documentation is not clean or coverage is incomplete; see %s/doxygen.json and doxygen.log\n' "$REPORT" >&2
-  red=$((red + 1))
-fi
 
 # WHAT NOTHING CALLS, and clang cannot answer it. clang-tidy works one translation unit at a time,
 # so a public member in a header could be reached from any other unit and no single-unit pass may

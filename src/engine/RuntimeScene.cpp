@@ -380,40 +380,6 @@ double RuntimeScene::MeteredLux() const {
          (straightDown * Photopic(reach.SunTransmittance) + Photopic(reach.SkyIrradiance));
 }
 
-bool RuntimeScene::JoinsSubjects(std::string &error) {
-  const bool animate = ImportsAnimation(Declared_.Playback);
-  for (const std::string &joining : Declared_.Joins) {
-    ScenePlayback arriving;
-    if (!arriving.Load({.Path = joining, .Variant = ""},
-                       animate,
-                       {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
-                       error)) {
-      return false;
-    }
-    if (!arriving.Sample(0.0, error)) { return false; }
-    AssetReads_ += 1;
-    if (!Held_.Append(std::move(arriving), error)) { return false; }
-  }
-  return true;
-}
-
-bool RuntimeScene::StandsSubjects(std::string &error) {
-  if (!Held_.IsLoaded()) {
-    const bool animate = ImportsAnimation(Declared_.Playback);
-    if (!Held_.Load({.Path = Declared_.Stands, .Variant = Declared_.Variant},
-                    animate,
-                    {.Clip = Declared_.Clip, .Fps = Declared_.Fps},
-                    error)) {
-      return false;
-    }
-    AssetReads_ += 1;
-  }
-  if (!Pose(0.0, error)) { return false; }
-  if (!JoinsSubjects(error)) { return false; }
-  DrivenGeometry_ = Held_.Snapshot().clone();
-  return PrepareSubject(error);
-}
-
 void RuntimeScene::ClearsSubject() {
   Held_.Clear();
   DrivenGeometry_.clear();
@@ -451,7 +417,7 @@ bool RuntimeScene::PrepareSubject(std::string &error) {
                                      Declared_.Surfacing.front(),
                                      Declared_.Overriding,
                                      GroundSurface_,
-                                     Declared_.Stands);
+                                     "native geometry");
   if (!resolved) {
     error = std::move(resolved.error());
     return false;
@@ -628,20 +594,10 @@ bool RuntimeScene::Build(std::string &error) {
 
 std::expected<void, std::string> RuntimeScene::PlanBuild() {
   std::string error;
-  if (PendingDrivenParts_) {
-    if (!Held_.HasGeometry()) {
-      ClearsSubject();
-    } else if (!PrepareSubject(error)) {
-      return std::unexpected(std::move(error));
-    }
-  } else {
-    if (!Held_.HasGeometry() && Declared_.Stands.empty()) { ClearsSubject(); }
-    if (Held_.HasGeometry() && Declared_.Stands.empty() && !PrepareSubject(error)) {
-      return std::unexpected(std::move(error));
-    }
-    if (!Declared_.Stands.empty() && !StandsSubjects(error)) {
-      return std::unexpected(std::move(error));
-    }
+  if (!Held_.HasGeometry()) {
+    ClearsSubject();
+  } else if (!PrepareSubject(error)) {
+    return std::unexpected(std::move(error));
   }
 
   if (!Reshape(error)) { return std::unexpected(std::move(error)); }
@@ -816,29 +772,8 @@ void RuntimeScene::RecordGeometrySlice(GeometryBuildStage stage, double ms) noex
   if (record != nullptr) { *record = std::max(*record, ms); }
 }
 
-bool RuntimeScene::Pose(double seconds, std::string &error) {
-  if (!Held_.Sample(seconds, error)) { return false; }
-  if (!Reshape(error)) { return false; }
-  return true;
-}
-
-bool RuntimeScene::Measure(double seconds, std::string &error) {
-  if (!Held_.Sample(seconds, error)) { return false; }
-  if (!Reshape(error)) { return false; }
-  return true;
-}
-
 void RuntimeScene::Eye(const Render::Viewpoint &from) noexcept {
   Camera_.Override(from);
-}
-
-void RuntimeScene::CapturesRenderedPositions() {
-  RenderedPositionsM_.clear();
-  RenderedPositionsM_.reserve(Shaped_.VertexCount() * 3u);
-  for (const Render::ShapePart &part : Shaped_.Parts) {
-    RenderedPositionsM_.insert(
-        RenderedPositionsM_.end(), part.PositionsM.begin(), part.PositionsM.end());
-  }
 }
 
 void RuntimeScene::CoverShapedParts() {
@@ -853,22 +788,17 @@ void RuntimeScene::CoverShapedParts() {
   }
 }
 
-bool RuntimeScene::PartVolumes(std::string &error) {
-  if (!PartBounds_.empty()) { return true; }
+void RuntimeScene::PreparePartBounds() {
+  if (!PartBounds_.empty()) { return; }
   const size_t parts = Shaped_.Parts.size();
-  if (parts == 0) { return true; }
+  if (parts == 0) { return; }
   PartBounds_.assign(parts, Box{});
   CoverShapedParts();
-  for (int sample = 0; sample < Sweeps(); ++sample) {
-    if (Seconds(sample) == Held_.TimeS()) { continue; }
-    if (!Measure(Seconds(sample), error)) { return false; }
-    CoverShapedParts();
-  }
-  return Held_.FrameCount() <= 1 || Measure(Held_.TimeS(), error);
 }
 
-bool RuntimeScene::PlacedBounds(Extents &into, std::string &error) {
-  if (!PartVolumes(error)) { return false; }
+Extents RuntimeScene::PlacedBounds() {
+  PreparePartBounds();
+  Extents into;
   const size_t framed =
       DrivenParts_ > 0 && DrivenParts_ < PartBounds_.size() ? DrivenParts_ : PartBounds_.size();
   Box grown;
@@ -881,7 +811,7 @@ bool RuntimeScene::PlacedBounds(Extents &into, std::string &error) {
     into.LeastM[axis] = leastM[axis];
     into.MostM[axis] = mostM[axis];
   }
-  return true;
+  return into;
 }
 
 bool RuntimeScene::Look(std::string &error) {
@@ -890,8 +820,7 @@ bool RuntimeScene::Look(std::string &error) {
     Camera_.Prepared().HasExplicitCamera = true;
     return Render::Aim(*Renderer_, Shaped_, Camera_.Prepared(), Stood_.Anchor(), error);
   }
-  Extents placed;
-  if (!PlacedBounds(placed, error)) { return false; }
+  const Extents placed = PlacedBounds();
   const Vec3 &least = placed.LeastM;
   const Vec3 &most = placed.MostM;
   Render::Viewpoint framed;
@@ -967,14 +896,6 @@ void RuntimeScene::EmitsPerPart() {
   }
 }
 
-bool RuntimeScene::ApplyAuthoredCamera(Render::Viewpoint &out) const {
-  if (!Held_.AuthoredCamera()) { return false; }
-  const auto viewpoint = Render::ViewpointOf(*Held_.AuthoredCamera());
-  if (!viewpoint) { return false; }
-  out = *viewpoint;
-  return true;
-}
-
 bool RuntimeScene::Stand(std::string &error) {
   auto standFrom = std::chrono::steady_clock::now();
   const auto sinceStand = [&standFrom] {
@@ -999,9 +920,6 @@ bool RuntimeScene::Stand(std::string &error) {
                   Camera_.HasOverride(),
                   DrivenParts_);
   PlacementUploadHistory_.Reset();
-  if (Held_.IsAnimated() && RenderedPositionsM_.size() == Shaped_.VertexCount() * 3u) {
-    Stood_.BindPreviousPositions(RenderedPositionsM_);
-  }
   PlacesMs_ = sinceStand();
   if (!Stood_.SetMaterials(Materials_.PartSlots(), Materials_.Slots(), error)) { return false; }
   WearsMs_ = sinceStand();
@@ -1013,19 +931,13 @@ bool RuntimeScene::Stand(std::string &error) {
   MediumMs_ = sinceStand();
 
   Render::Viewpoint eye = Camera_.Prepared().Eye;
-  const bool declared = ApplyAuthoredCamera(eye);
   Camera_.Prepared().Eye = eye;
-  if (!Camera_.HasOverride() && (Declared_.Fill > 0.0 || !declared)) {
+  if (!Camera_.HasOverride()) {
     const auto boundedFrom = std::chrono::steady_clock::now();
-    Box bounded = Shaped_.BoundsOf(DrivenParts_);
+    const Box bounded = Shaped_.BoundsOf(DrivenParts_);
     BoundsMs_ =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - boundedFrom)
             .count();
-    for (int sample = 1; sample < Sweeps(); ++sample) {
-      if (!Measure(Seconds(sample), error)) { return false; }
-      bounded.Cover(Shaped_.BoundsOf(DrivenParts_));
-    }
-    if (Held_.FrameCount() > 1 && !Measure(0.0, error)) { return false; }
     if (!FitsViewTo(bounded, eye, error)) { return false; }
     Camera_.Prepared().Eye = eye;
   }
@@ -1284,9 +1196,7 @@ void RuntimeScene::RestoreGeometryBuildState() noexcept {
   Declared_.Surfacing = std::move(GeometryBuildSurfaces_);
 }
 
-size_t RuntimeScene::TookPosing_ = 0, RuntimeScene::TookSubmitting_ = 0,
-       RuntimeScene::TookAiming_ = 0, RuntimeScene::TookDrawing_ = 0;
-size_t RuntimeScene::AssetReads_ = 0;
+size_t RuntimeScene::TookAiming_ = 0, RuntimeScene::TookDrawing_ = 0;
 size_t RuntimeScene::PlanInits_ = 0;
 
 bool RuntimeScene::Advance(std::string &error) {
@@ -1294,25 +1204,6 @@ bool RuntimeScene::Advance(std::string &error) {
   static const Heap::Tag kAdvancingTag("runtime-scene-advance");
   const Heap::Tagged advancing(kAdvancingTag);
   const auto took = [](const char *tag, size_t before) { return Heap::TakenUnder(tag) - before; };
-
-  if (Held_.IsAnimated() && Held_.DurationS() > 0.0) {
-    Held_.Advance(Declared_.Fps > 0.0 ? 1.0 / Declared_.Fps : 0.0,
-                  Declared_.Playback == PlaybackPolicy::Loop);
-    const size_t beforePose = Heap::TakenUnder("runtime-scene-pose");
-    {
-      static const Heap::Tag kPosingTag("runtime-scene-pose");
-      const Heap::Tagged posing(kPosingTag);
-      if (!Pose(Held_.TimeS(), error)) { return false; }
-    }
-    TookPosing_ = took("runtime-scene-pose", beforePose);
-    const size_t beforeSubmit = Heap::TakenUnder("runtime-scene-submit");
-    {
-      static const Heap::Tag kSubmittingTag("runtime-scene-submit");
-      const Heap::Tagged submitting(kSubmittingTag);
-      if (!Submit(error)) { return false; }
-    }
-    TookSubmitting_ = took("runtime-scene-submit", beforeSubmit);
-  }
 
   const bool orbits = Declared_.OrbitDegPerFrame != 0.0 && Shaped_.TriangleCount() > 0;
   if (orbits) { Camera_.AdvanceOrbit(Declared_.OrbitDegPerFrame); }
@@ -1347,10 +1238,6 @@ bool RuntimeScene::Draw(std::string &error) {
     if (!rendered) {
       error = std::move(rendered.error());
       return false;
-    }
-    if (Held_.IsAnimated()) {
-      CapturesRenderedPositions();
-      Stood_.BindPreviousPositions(RenderedPositionsM_);
     }
   }
   TookDrawing_ = Heap::TakenUnder("render-frame") - beforeDraw;

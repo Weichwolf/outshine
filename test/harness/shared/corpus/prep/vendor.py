@@ -1,14 +1,4 @@
-"""HOW A CORPUS IS OBTAINED BELONGS TO THAT CORPUS'S HARNESS, NOT TO THE JOB GRAPH (board:1196).
-
-The shared preparer used to import `fetch` and `fixtures` as siblings, so the graph that converts,
-patches and renders every case also knew that one corpus is downloaded from Khronos and another is
-grown by this engine. Those are the two things a vendor genuinely owns, and everything after them --
-Blender, the content store, the schema, the recipe -- is the same whoever authored the asset.
-
-THE HARNESS IS FOUND BY POSITION AND NOT BY A TABLE. A case at `test/<a>/<b>/<case>` is served by the
-deepest directory under `test/harness/` matching a prefix of its own path, so adding a corpus adds a
-directory and nothing else: there is no list here that a new vendor could be missing from.
-"""
+"""Resolve each corpus's input-fetching adapter from its matching harness directory."""
 import importlib.util
 import os
 
