@@ -74,16 +74,30 @@ def bind_physical(geometry, directory, maps):
     return obj
 
 
-def bind_windows(window, banks, directory, view, light, *, shadows=True):
+def bind_windows(
+    window, banks, directory, view, light, *, shadows=True, merge_matching=False
+):
     family = int(window["families"][0])
     bank = banks[family]
+    if merge_matching:
+        camera_view = select_views(window, 64, direction=view)
+        shadow_view = select_views(window, 64, direction=light)
+        if not shadows or not np.array_equal(camera_view, shadow_view):
+            raise ValueError(
+                "identical complete camera/light view before merging required"
+            )
     maps = textures(bank, directory)
     for role, direction in (("camera", view), ("shadow", light)):
-        if role == "shadow" and not shadows:
+        if role == "shadow" and (not shadows or merge_matching):
             continue
         selected = select_views(window, 64, direction=direction)
         data = planes(window, bank, selected, np.array([0]), family)
-        surface = weighted_material(f"same {role} window shader", directory, maps, role)
+        surface = weighted_material(
+            f"same {role} window shader",
+            directory,
+            maps,
+            "all" if merge_matching else role,
+        )
         bind_mesh(f"requested {role} window", data, surface)
 
 

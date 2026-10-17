@@ -3,11 +3,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import bpy
 import numpy as np
 from PIL import Image
-from twig_light_blender import VIEW, bind_physical, configure_scene
+from twig_light_blender import VIEW, bind_physical, bind_windows, configure_scene
 from twig_light_render import projected_span
 from twig_light_source import requested_axis
 
@@ -96,6 +97,51 @@ class TwigLightTests(unittest.TestCase):
         windows["needle_counts"][-1] = 12
         with self.assertRaises(ValueError):
             requested_axis(axes, windows)
+
+    def test_coaxial_single_surface_and_refusal_before_atlas_binding(self):
+        bpy.ops.wm.read_factory_settings(use_empty=True)
+        image = np.zeros((32, 32, 9))
+        image[..., :4] = [0.1, 0.2, 0.1, 1]
+        image[..., 6] = 1
+        image[..., 7] = 1
+        bank = [
+            (image, (np.eye(3), np.array([-0.5, -0.5]), np.array([0.5, 0.5]), 0))
+        ] * 64
+        window = {
+            "families": np.array([0]),
+            "frames": np.eye(3)[None],
+            "origins": np.zeros((1, 3)),
+            "weights": np.array([0.5]),
+            "first_needle_ids": np.array([10]),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-vegetation-twig-light.", dir="/tmp"
+        ) as name:
+            bind_windows(
+                window, [bank], Path(name) / "atlas", VIEW, VIEW, merge_matching=True
+            )
+        meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+        self.assertEqual(len(meshes), 1)
+        self.assertEqual(len(meshes[0].data.polygons), 2)
+        with (
+            patch(
+                "twig_light_blender.select_views",
+                side_effect=[np.array([1]), np.array([2])],
+            ),
+            patch(
+                "twig_light_blender.textures",
+                side_effect=AssertionError("late atlas work"),
+            ),
+            self.assertRaisesRegex(ValueError, "identical complete"),
+        ):
+            bind_windows(
+                window,
+                [bank],
+                Path("/tmp/unused-twig-atlas"),
+                VIEW,
+                -VIEW,
+                merge_matching=True,
+            )
 
 
 if __name__ == "__main__":

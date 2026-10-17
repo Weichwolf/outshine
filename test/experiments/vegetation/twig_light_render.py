@@ -28,14 +28,18 @@ def projected_span(geometry, scene):
     ).tolist()
 
 
-def render(case, catalog, output, representation, light_kind, pixels, *, shadows=True):
+def render(
+    case, catalog, output, representation, light_kind, pixels, *, shadow_mode="matched"
+):
     if (
         representation not in ("physical", "windows")
         or light_kind not in ("front", "back", "side")
         or pixels not in (16, 64, 384)
+        or shadow_mode not in ("matched", "off", "single")
     ):
         raise ValueError("declared bounded comparison member required")
     started = time.perf_counter()
+    shadows = shadow_mode != "off"
     code = provenance()
     output.mkdir(parents=True, exist_ok=False)
     with np.load(case / "physical.npz", allow_pickle=False) as saved:
@@ -67,7 +71,13 @@ def render(case, catalog, output, representation, light_kind, pixels, *, shadows
         )
     else:
         bind_windows(
-            window, banks, output / "window-source", VIEW, light, shadows=shadows
+            window,
+            banks,
+            output / "window-source",
+            VIEW,
+            light,
+            shadows=shadows,
+            merge_matching=shadow_mode == "single",
         )
     scene_data = configure_scene(extent, pixels, light, shadows=shadows)
     scene = bpy.context.scene
@@ -98,6 +108,7 @@ def render(case, catalog, output, representation, light_kind, pixels, *, shadows
         "producer": code,
         "scene": scene_data,
         "representation": representation,
+        "shadow_mode": shadow_mode,
         "light_kind": light_kind,
         "case": json.loads((case / "source.json").read_text()),
         "source_sha256": {
@@ -140,7 +151,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("--light", choices=("front", "back", "side"), required=True)
     parser.add_argument("--pixels", type=int, choices=(16, 64, 384), required=True)
-    parser.add_argument("--shadows", choices=("matched", "off"), default="matched")
+    parser.add_argument(
+        "--shadows", choices=("matched", "off", "single"), default="matched"
+    )
     args = parser.parse_args()
     render(
         args.case,
@@ -149,5 +162,5 @@ if __name__ == "__main__":
         args.representation,
         args.light,
         args.pixels,
-        shadows=args.shadows == "matched",
+        shadow_mode=args.shadows,
     )

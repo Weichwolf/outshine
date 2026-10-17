@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import bpy
-import gpu
 import numpy as np
 from blender_preview import material
 from twig_light_blender import VIEW, configure_scene
@@ -51,7 +50,11 @@ def calibrate(output):
     scene.render.image_settings.color_mode = "RGBA"
     scene.render.filepath = str(output / "linear.exr")
     bpy.ops.render.render(write_still=True)
-    image = bpy.data.images.load(str(output / "linear.exr"), check_existing=False)
+    return evaluate(output / "linear.exr", output)
+
+
+def evaluate(path, output):
+    image = bpy.data.images.load(str(path), check_existing=False)
     rgba = np.empty(2560 * 1440 * 4, np.float32)
     image.pixels.foreach_get(rgba)
     rgba = rgba.reshape(1440, 2560, 4)
@@ -60,7 +63,12 @@ def calibrate(output):
     colour = np.array([0.125, 0.25, 0.5])
     premult_error = float(abs(centre[..., :3] - centre[..., 3, None] * colour).max())
     straight_error = float(abs(centre[..., :3] - colour).max())
-    assert min(premult_error, straight_error) < 1e-5
+    mean = centre.mean(axis=(0, 1), dtype=np.float64)
+    mean_premult_error = float(abs(mean[:3] - mean[3] * colour).max())
+    mean_straight_error = float(abs(mean[:3] - colour).max())
+    # Calibrate footprint semantics; retain the measured per-pixel Float16 error.
+    assert min(mean_premult_error, mean_straight_error) < 1e-6
+    assert max(mean_premult_error, mean_straight_error) > 0.05
     assert abs(float(centre[..., 3].mean()) - 0.25) < 0.01
     result = {
         "known_emission_rgb": colour.tolist(),
@@ -68,11 +76,17 @@ def calibrate(output):
         "loaded_alpha_mode": image.alpha_mode,
         "maximum_premult_error": premult_error,
         "maximum_straight_error": straight_error,
-        "mean_interior_rgba": centre.mean(axis=(0, 1)).tolist(),
+        "mean_interior_rgba": mean.tolist(),
+        "mean_premult_error": mean_premult_error,
+        "mean_straight_error": mean_straight_error,
+        "central_values_exact_float16": bool(
+            np.array_equal(centre, centre.astype(np.float16).astype(np.float32))
+        ),
         "stored_representation": "premultiplied"
-        if premult_error < straight_error
+        if mean_premult_error < mean_straight_error
         else "straight",
-        "backend": gpu.platform.renderer_get(),
+        "existing_render": str(path),
+        "render_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "implementation_sha256": hashlib.sha256(
             Path(__file__).read_bytes()
         ).hexdigest(),
@@ -85,4 +99,9 @@ def calibrate(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    calibrate(parser.parse_args().output)
+    parser.add_argument("--existing", type=Path)
+    args = parser.parse_args()
+    if args.existing is not None:
+        evaluate(args.existing, args.output)
+    else:
+        calibrate(args.output)
