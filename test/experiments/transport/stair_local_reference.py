@@ -121,9 +121,9 @@ def compare_saved(args, arrays):
             raise ValueError("local and whole reference array schemas differ")
         for key, value in expected.items():
             same = (
-                np.array_equal(value, actual[key], equal_nan=True)
-                if value.dtype.kind == "f"
-                else np.array_equal(value, actual[key])
+                value.shape == actual[key].shape
+                and value.dtype == actual[key].dtype
+                and value.tobytes() == actual[key].tobytes()
             )
             if not same:
                 raise ValueError(
