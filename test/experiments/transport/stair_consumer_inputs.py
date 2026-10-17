@@ -83,6 +83,10 @@ def source_rows(data, layer_name):
         raw_parts = shapely.get_parts(original)
         for part, polygon in enumerate(shapely.get_parts(shape)):
             xy = shapely.get_coordinates(raw_parts[part])
+            anchor = np.asarray(raw_parts[part].representative_point().coords)[0]
+            grid = data["project"](
+                anchor + np.array([[0, 0], [1, 0], [0, 1]]), layer["extent"]
+            )
             result.append(
                 record
                 | {
@@ -92,6 +96,9 @@ def source_rows(data, layer_name):
                     "polygon": polygon,
                     "properties": dict(feature["properties"]),
                     "clipped": bool(np.any(xy <= 0) or np.any(xy >= layer["extent"])),
+                    "coordinate_step_m": float(
+                        np.linalg.norm(grid[1:] - grid[0], axis=1).max()
+                    ),
                 }
             )
     if len(result) > 1024:
