@@ -11,6 +11,7 @@ from opening_details import expand
 
 
 def details(mass, facade):
+    keepout = rectangle(mass.entry.centre, mass.entry.tangent, 1.30, 0.35, 0.60)
     frames = expand(
         [
             dict(
@@ -45,6 +46,8 @@ def details(mass, facade):
             centre = np.asarray(w.centre) + tangent * (w.width_m / 2 + 0.22)
             pier = rectangle(centre, tangent, 0.16, 0.14, 0.015)
             storey = mass.storeys[w.storey]
+            if w.storey == 0 and pier.intersects(keepout):
+                pier = pier.difference(keepout)
             solid(storage, pier, storey.bottom_m + 0.06, storey.top_m - 0.06, 9)
     if mass.kind == "cascade":
         for storey in mass.storeys:
@@ -56,6 +59,8 @@ def details(mass, facade):
                     if length <= 0.20:
                         continue
                     band = rectangle((a + b) / 2, vector / length, length, 0.10, 0.015)
+                    if storey.bottom_m == mass.bottom_m and band.intersects(keepout):
+                        band = band.difference(keepout)
                     solid(
                         storage,
                         band,

@@ -6,13 +6,16 @@ import json
 from pathlib import Path
 
 import numpy as np
+import shapely
 
+from demand import View
 from evidence import revision
 from industrial_relief_probe import camera
 from outshine_ref.buildings.rooflight_panels import triangle_surface
 from podium_probe import write
 from stepped_source_probe import overview
 from terraced_facade_geometry import build_facade
+from terraced_facade_access import check_arrival
 from terraced_mass_plan import plan
 from terraced_mass_room_probe import draw
 from terraced_mass_rooms import build
@@ -61,6 +64,7 @@ def models(output):
         for kind in ("cascade", "paired-wings"):
             mass = plan(row, kind)
             asset = build_facade(mass)
+            arrival = check_arrival(mass, asset)
             after = facade_draw(asset, mass)
             before = draw(build(mass), mass.core, False)
             view = overview(after["vertices"], [1, -1.25, 0.85])
@@ -80,6 +84,7 @@ def models(output):
                         "facade": json.loads(
                             json.dumps(asdict(asset.facade), default=lambda v: v.hex())
                         ),
+                        "actual_complete_arrival": arrival,
                         "source": {"material_definitions": materials()},
                         "facade_materials": {},
                         "ground_span_m": 10000,
@@ -87,6 +92,30 @@ def models(output):
                     },
                     proof,
                 )
+            if index == 0:
+                near(output, name, mass, asset)
+
+
+def near(output, whole_name, mass, asset):
+    anchor = np.asarray(shapely.from_wkb(mass.source_wkb).centroid.coords[0])
+    w = min(
+        (w for w in asset.facade.windows if w.storey == 1 and w.edge[0] == 0),
+        key=lambda w: np.linalg.norm(np.asarray(w.centre) - anchor),
+    )
+    centre, tangent = np.asarray(w.centre), np.asarray(w.tangent)
+    outward = np.array([tangent[1], -tangent[0]])
+    target = np.r_[centre - outward * 0.10, w.bottom_m + w.height_m / 2]
+    view = View(
+        np.r_[centre + 4 * outward - 0.8 * tangent, target[2] + 0.45],
+        target,
+        width=1920,
+        height=1080,
+        fov_deg=42,
+    )
+    record = json.loads((output / (whole_name + "-geometry.json")).read_text())
+    name = whole_name + "Near"
+    record.update(city=name, camera=camera(view), diagnostic_window=w.identifier)
+    (output / (name + "-geometry.json")).write_text(json.dumps(record, indent=2) + "\n")
 
 
 def main():

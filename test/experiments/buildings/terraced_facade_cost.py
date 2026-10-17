@@ -68,7 +68,7 @@ def measure(index, kind, mode):
         "untraced_process_cpu_seconds": cpu_seconds,
         "traced_replay_peak_bytes": peak,
         "process_peak_rss_kib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
-        "scope": "Linux fresh process. Input acquisition/import/planning excluded from build time; process RSS includes them. Traced replay is a separate instrumented build and excludes untracked native/GPU allocations. Output buffers are retained-array counts, not cumulative allocation/copy counts. Before/after have deliberately different facade quality; incremental cost, not an equivalent-quality speed comparison or frame/device gate.",
+        "scope": "Linux fresh process. Input acquisition/import/mass planning excluded from build time; facade planning included. Process RSS includes imports/planning. Traced replay is a separate instrumented build and excludes untracked native/GPU allocations. Output buffers are retained-array counts, not cumulative allocation/copy counts. Before/after have deliberately different facade quality; incremental cost, not an equivalent-quality speed comparison or frame/device gate.",
     }
 
 
