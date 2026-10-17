@@ -195,9 +195,13 @@ int main() {
       CHECK((provider.Observed.Decoded > 0) == (encoding == Encoding::OpaqueFixture),
             "provider-owned native decoding handles opaque bytes without a private engine route");
       std::vector<float> pixels;
-      CHECK(engine.advance() && engine.renderer().render({}) &&
-                engine.renderer().readPixels(Buffer::Linear, pixels),
-            "the provider-driven world renders through the public API");
+      const auto advanced = engine.advance();
+      CHECK(advanced, advanced ? "provider-driven world advanced" : advanced.error().c_str());
+      const auto rendered = advanced ? engine.renderer().render({}) : advanced;
+      CHECK(rendered, rendered ? "provider-driven world rendered" : rendered.error().c_str());
+      const auto readColour =
+          rendered ? engine.renderer().readPixels(Buffer::Linear, pixels) : rendered;
+      CHECK(readColour, readColour ? "linear frame captured" : readColour.error().c_str());
       CHECK(pixels.size() == 64 * 64 * 4 &&
                 std::ranges::all_of(pixels, [](float value) { return std::isfinite(value); }),
             "a complete finite rendered frame reaches the client");
