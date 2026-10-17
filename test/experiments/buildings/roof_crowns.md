@@ -90,7 +90,7 @@ Triangles424225→429229, +5004/+1.1796%. Full two-pass cold model/export comple
 with exit0 in868.848s under shared host load; this includes the existing mass
 preparation and is not a warm load or native/frame time.
 
-Nineteen new actual1920×1080 rasters were opened:18 single/control views and the
+The comparison uses19 new actual1920×1080 rasters:18 single/control views and the
 new complete city. Two identical single baselines and the previous complete
 city baseline were also opened and reused only after exact numeric render-input,
 camera and material comparisons. Together these are20 matched single/control
@@ -99,6 +99,9 @@ Renderer: Blender5.2.2 LTS, Eevee16, Mesa llvmpipe LLVM19.1.7 software backend.
 The successful-save wrapper exits0 before known bpy cleanup trouble; this is
 not normal teardown or GPU/device evidence. `roof_crown_render.py` exposes that
 same explicit termination as a reproducible CLI.
+A separate valid CLI invocation at `68d956a8a` exits0 and reproduces the opened
+service-building RGBA pixels exactly. PNG Date/RenderTime metadata differs;
+this is an additional entrypoint check, not another viewpoint.
 
 The new city has78118 different pixels,3.7673% of1920×1080; mean absolute RGB
 error0.823365/255. This measures change, not quality. Opened images show more
@@ -141,6 +144,14 @@ heap. Source/context preparation, serialization, facade detail, export and
 rendering are outside these scoped methods. Load10.95→11.27 on4 logical CPUs:
 these are shared-host comparisons, not isolated device timings.
 
+Separate source-choice/partition producer `8e84dd5f3` measures actual scalar,
+structure/context/seed choice and2D planning before mesh work: p50
+2.616/2.294/3.619/6.798ms, traced peaks7128/4944/8460/11252B. Inputs have
+34/17/13/55 boundary coordinates and produce3/3/5/5 regions. The last two
+controls use the service programme. Load10.98 on4 logical CPUs;21 warm calls
+and a separate traced call. Provider I/O and context attachment remain outside
+this measurement, as do native/GEOS heap and mesh construction.
+
 ## References, reproduction and retained evidence
 
 [SDK/Ghidra and optically checked SIGGRAPH reference](../../../doc/references/buildings/esri/roof-crowns-sdk-3.4.12206.md).
@@ -155,17 +166,20 @@ Use `.venv`, `TMPDIR=/tmp`, `PYTHONPYCACHEPREFIX=/tmp/outshine-buildings-pycache
 .venv/bin/python test/experiments/buildings/roof_crown_probe.py --output /tmp/outshine-buildings-crowns-models
 .venv/bin/python test/experiments/buildings/roof_crown_city.py --output /tmp/outshine-buildings-crowns-city
 .venv/bin/python test/experiments/buildings/roof_crown_costs.py --output /tmp/outshine-buildings-crowns-costs.json
+.venv/bin/python test/experiments/buildings/roof_crown_costs.py --choice-only --output /tmp/outshine-buildings-crowns-choice.json
 .venv/bin/python test/experiments/buildings/roof_crown_render.py --geometry /tmp/outshine-buildings-crowns-models/0NearAfter-geometry.json --output /tmp/outshine-buildings-crowns-models/renders
 ```
 
 Current private evidence: `/tmp/outshine-buildings-crown-fixed-model-output/`,
 `/tmp/outshine-buildings-crown-fixed-city-output/`,
 `/tmp/outshine-buildings-crown-fixed-cost-output/costs.json`,
+`/tmp/outshine-buildings-crown-fixed-cost-output/choice.json`,
 `/tmp/outshine-buildings-crown-review.json`,
 `/tmp/outshine-buildings-crown-final-exact-replay.json`,
 `/tmp/outshine-buildings-crown-baseline-reuse.json`,
 `/tmp/outshine-buildings-crown-city-baseline-exact.json` and wheel receipt under
 `/tmp/outshine-buildings-crown-wheel-3110c86ec/`.
+The separate CLI receipt/image is under `/tmp/outshine-buildings-crown-cli-proof/`.
 The original full city raster/input remains in
 `/tmp/outshine-buildings-clad-city-output/`; two reused single baselines and the
 needed first-version near counterexample remain in
