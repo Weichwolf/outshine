@@ -20,6 +20,15 @@ REACH_M = 5.0
 def pins_for(layout):
     xy, bed, target = (layout[k] for k in ("xy", "bed", "targets"))
     fixed, values = np.isfinite(bed), bed.copy()
+    if "boundary" in layout:
+        boundary = np.asarray(layout["boundary"])
+        if (
+            boundary.dtype.kind != "b"
+            or boundary.shape != fixed.shape
+            or not fixed[boundary].all()
+        ):
+            raise ValueError("explicit local boundary requires finite cached heights")
+        return np.flatnonzero(fixed), values
     outer = np.any(
         np.isclose(xy, xy.min(axis=0), rtol=0, atol=1e-9)
         | np.isclose(xy, xy.max(axis=0), rtol=0, atol=1e-9),
@@ -113,7 +122,13 @@ def assemble(layout, upper, footprint, *, smoothing=16.0, structure_limit=10.0):
     bridge = None
     bridge_note = {}
     if upper is not None:
-        bridge, height, bridge_note = upper_rows(xy, faces, upper, footprint)
+        bridge, height, bridge_note = upper_rows(
+            xy,
+            faces,
+            upper,
+            footprint,
+            reserve_m=float(np.asarray(layout.get("bridge_reserve_m", 0.1)).item()),
+        )
         blocks.append(
             sparse.hstack([bridge, sparse.csc_matrix((len(height), len(ids)))])
         )

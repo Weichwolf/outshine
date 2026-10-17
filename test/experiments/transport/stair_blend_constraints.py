@@ -6,7 +6,9 @@ from scipy import sparse
 from stair_terrain_solid import edges_of
 
 
-def intersections(xy, faces, upper, footprint):
+def intersections(xy, faces, upper, footprint, *, reserve_m=0.1):
+    if type(reserve_m) not in (float, int) or reserve_m not in (0, 0.1):
+        raise ValueError("explicit zero or original bridge reserve required")
     if len(faces) > 32768 or len(upper.triangles) > 8192:
         raise ValueError("bridge-bound input face cap exhausted")
     triangles = xy[faces]
@@ -33,16 +35,18 @@ def intersections(xy, faces, upper, footprint):
             ).T
             weights = np.c_[1 - uv.sum(axis=1), uv]
             ceiling = high[j, 0, 2] + (points - high[j, 0, :2]) @ gradients[j]
-            offset = 0.1 * np.minimum(
+            offset = reserve_m * np.minimum(
                 1, shapely.distance(shapely.points(points), footprint)
             )
             yield i, weights, ceiling - offset
 
 
-def upper_rows(xy, faces, upper, footprint):
+def upper_rows(xy, faces, upper, footprint, *, reserve_m=0.1):
     rows, columns, values, bounds = [], [], [], []
     regions = 0
-    for i, weights, ceiling in intersections(xy, faces, upper, footprint):
+    for i, weights, ceiling in intersections(
+        xy, faces, upper, footprint, reserve_m=reserve_m
+    ):
         regions += 1
         if len(bounds) + len(ceiling) > 65536:
             raise ValueError("bridge-bound row cap exhausted")
@@ -52,7 +56,10 @@ def upper_rows(xy, faces, upper, footprint):
             values.extend(w)
             bounds.append(height)
     matrix = sparse.csc_matrix((values, (rows, columns)), shape=(len(bounds), len(xy)))
-    return matrix, np.array(bounds), {"regions": regions, "rows": len(bounds)}
+    note = {"regions": regions, "rows": len(bounds)}
+    if reserve_m != 0.1:
+        note["additional_distance_reserve_m"] = reserve_m
+    return matrix, np.array(bounds), note
 
 
 def violating_faces(layout, heights, upper, footprint):
