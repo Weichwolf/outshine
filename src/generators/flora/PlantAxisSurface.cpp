@@ -1,4 +1,5 @@
 #include "PlantAxisSurface.h"
+#include "PlantArc.h"
 
 #include "math/Vec3.h"
 #include <algorithm>
@@ -18,24 +19,17 @@ constexpr size_t kMaximumSegments = 1024;
 constexpr size_t kMinimumSides = 3;
 constexpr size_t kMaximumSides = 128;
 
-double Sinc(double angle) {
-  return angle == 0 ? 1.0 : std::sin(angle) / angle;
-}
-
 struct Section {
   Vec3 Centre, Tangent;
   double Radius = 0, Angle = 0;
 };
 
 Section SectionAt(const PlantAxis &axis, double parameter) {
-  const double angle = axis.Bend * parameter;
-  const double halfSinc = Sinc(angle / 2);
-  return {.Centre = {{0,
-                      axis.LengthM * parameter * Sinc(angle),
-                      axis.LengthM * axis.Bend * parameter * parameter / 2 * halfSinc * halfSinc}},
-          .Tangent = {{0, std::cos(angle), std::sin(angle)}},
+  const auto frame = PlantArc{.LengthM = axis.LengthM, .BendRad = axis.Bend}.FrameAt(parameter);
+  return {.Centre = frame.Centre,
+          .Tangent = frame.Tangent,
           .Radius = axis.RadiiM[0] + (axis.RadiiM[1] - axis.RadiiM[0]) * parameter,
-          .Angle = angle};
+          .Angle = axis.Bend * parameter};
 }
 
 Vec3 Rotate(const PlantAxis &axis, Vec3 local) {
@@ -52,7 +46,7 @@ struct Vertex {
   Vec3 Position, Normal;
 };
 
-void Append(PlantAxisSurface &mesh, const PlantAxis &axis, Vertex vertex) {
+void Append(PlantSurface &mesh, const PlantAxis &axis, Vertex vertex) {
   const Vec3 point = Rotate(axis, vertex.Position);
   const Vec3 normal = Rotate(axis, vertex.Normal);
   for (size_t component = 0; component < 3; ++component) {
@@ -61,10 +55,7 @@ void Append(PlantAxisSurface &mesh, const PlantAxis &axis, Vertex vertex) {
   }
 }
 
-bool AppendRing(PlantAxisSurface &mesh,
-                const PlantAxis &axis,
-                const Section &section,
-                size_t sides) {
+bool AppendRing(PlantSurface &mesh, const PlantAxis &axis, const Section &section, size_t sides) {
   const double slope = axis.RadiiM[1] - axis.RadiiM[0];
   for (size_t side = 0; side < sides; ++side) {
     const double angle =
@@ -84,7 +75,7 @@ bool AppendRing(PlantAxisSurface &mesh,
   return true;
 }
 
-void SideTriangles(PlantAxisSurface &mesh, const PlantAxisSurfaceDemand &demand) {
+void SideTriangles(PlantSurface &mesh, const PlantAxisSurfaceDemand &demand) {
   const size_t segments = demand.Segments;
   const size_t sides = demand.Sides;
   for (size_t row = 0; row < segments; ++row) {
@@ -99,7 +90,7 @@ void SideTriangles(PlantAxisSurface &mesh, const PlantAxisSurfaceDemand &demand)
 }
 
 void AppendCap(
-    PlantAxisSurface &mesh, const PlantAxis &axis, const Section &section, size_t sides, bool tip) {
+    PlantSurface &mesh, const PlantAxis &axis, const Section &section, size_t sides, bool tip) {
   const auto centre = static_cast<uint32_t>(mesh.Positions.size() / 3);
   const Vec3 normal = section.Tangent * (tip ? 1.0 : -1.0);
   Append(mesh, axis, {.Position = section.Centre, .Normal = normal});
@@ -122,23 +113,6 @@ void AppendCap(
   }
 }
 
-Vec3 Row(const std::vector<float> &values, uint32_t index) {
-  const size_t at = static_cast<size_t>(index) * 3;
-  return {{values[at], values[at + 1], values[at + 2]}};
-}
-
-bool Oriented(const PlantAxisSurface &mesh) {
-  for (size_t at = 0; at < mesh.Triangles.size(); at += 3) {
-    const Vec3 first = Row(mesh.Positions, mesh.Triangles[at]);
-    const Vec3 cross = Cross(Row(mesh.Positions, mesh.Triangles[at + 1]) - first,
-                             Row(mesh.Positions, mesh.Triangles[at + 2]) - first);
-    for (size_t corner = 0; corner < 3; ++corner) {
-      if (!(Dot(cross, Row(mesh.Normals, mesh.Triangles[at + corner])) > 0)) { return false; }
-    }
-  }
-  return true;
-}
-
 bool Fits(const PlantAxis &axis, PlantAxisSurfaceDemand demand) {
   const double radius = std::max(axis.RadiiM[0], axis.RadiiM[1]);
   if (std::abs(axis.Bend) * radius >= axis.LengthM) { return false; }
@@ -156,15 +130,15 @@ bool Fits(const PlantAxis &axis, PlantAxisSurfaceDemand demand) {
 }
 }
 
-std::expected<PlantAxisSurface, std::string_view>
-BuildPlantAxisSurface(const PlantPlan &plan, PlantAxisSurfaceDemand demand) {
+std::expected<PlantSurface, std::string_view> BuildPlantAxisSurface(const PlantPlan &plan,
+                                                                    PlantAxisSurfaceDemand demand) {
   const PlantAxis *axis = plan.Axis(demand.Axis);
   if (axis == nullptr || demand.Segments < kMinimumSegments || demand.Segments > kMaximumSegments ||
       demand.Sides < kMinimumSides || demand.Sides > kMaximumSides || !Fits(*axis, demand)) {
     return std::unexpected("plant axis surface requires regular dimensions and bounded detail");
   }
   const size_t vertices = (demand.Segments + 1) * demand.Sides + 2 * (demand.Sides + 1);
-  PlantAxisSurface mesh;
+  PlantSurface mesh;
   mesh.Positions.reserve(vertices * 3);
   mesh.Normals.reserve(vertices * 3);
   mesh.Triangles.reserve(6 * demand.Sides * (demand.Segments + 1));
@@ -180,7 +154,7 @@ BuildPlantAxisSurface(const PlantPlan &plan, PlantAxisSurfaceDemand demand) {
   SideTriangles(mesh, demand);
   AppendCap(mesh, *axis, SectionAt(*axis, 0), demand.Sides, false);
   AppendCap(mesh, *axis, SectionAt(*axis, 1), demand.Sides, true);
-  if (!Oriented(mesh)) {
+  if (!PlantSurfaceIsOriented(mesh)) {
     return std::unexpected("plant axis detail does not resolve the oriented surface");
   }
   return mesh;

@@ -421,7 +421,7 @@ LayerGroups() {
     harness/test262/js) printf '%s' "src/base/format/Json.cpp src/base/format/Script.cpp" ;;
     harness/claims) printf '%s' "src/base/format/Sha256.cpp src/base/format/Json.cpp" ;;
     profile/tasks) printf '%s' 'src/base/io/Tasks.cpp' ;;
-    profile/plant-plan) printf '%s' 'src/generators/flora/PlantPlan.cpp src/generators/flora/PlantAxisSurface.cpp' ;;
+    profile/plant-plan) printf '%s' 'src/generators/flora/PlantPlan.cpp src/generators/flora/PlantAxisSurface.cpp src/generators/flora/PlantSurface.cpp src/generators/flora/PlantBladeSurface.cpp' ;;
     profile/base) SubtreeGroups src/base ;;
     profile/content) SubtreeGroups src/base src/content ;;
     profile/world) SubtreeGroups src/base src/content src/world ;;
