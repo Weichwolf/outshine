@@ -1,16 +1,16 @@
-"""Complete seed-control geometry; original owners stay in verified local assets."""
+"""Complete control geometry and facet indices from verified asset-local owners."""
 
 import hashlib
 
 import numpy as np
 
 
-def seed_reference_roads(assets):
+def reference_roads(assets):
     keys = [key for asset in assets for key in asset.source_ids]
     if not 1 <= len(assets) <= 16 or len(set(keys)) != len(keys):
-        raise ValueError("bounded distinct complete seed-control assets required")
+        raise ValueError("bounded distinct complete-control assets required")
     if sum(len(a.data["body_faces"]) for a in assets) > 32768:
-        raise ValueError("complete seed-control body face budget exhausted")
+        raise ValueError("complete-control body face budget exhausted")
     columns = {
         key: [] for key in ("body_vertices", "body_faces", "top_faces", "bottom_faces")
     }
@@ -41,6 +41,17 @@ def seed_reference_roads(assets):
             "complete_sources": len(keys),
             "complete_body_faces": len(road["body_faces"]),
             "geometry_array_bytes": sum(v.nbytes for v in road.values()),
-            "source_mask_scope": "No global mask: seed control reads geometry only; verified original owners remain asset-local. Not an attached-module control or generator budget change.",
+            "source_mask_scope": "No global mask: complete control reads verified asset-local owners through explicit source facet indices. No generator budget change.",
         },
     )
+
+
+def reference_owner_indices(assets):
+    offset, result = 0, {}
+    for asset in assets:
+        for column, key in enumerate(asset.source_ids):
+            indices = np.flatnonzero(asset.data["owners"][:, column]) + offset
+            indices.flags.writeable = False
+            result[key] = indices
+        offset += len(asset.data["top_faces"])
+    return result

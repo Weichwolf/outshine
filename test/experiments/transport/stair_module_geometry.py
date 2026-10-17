@@ -18,6 +18,7 @@ from stair_module_roots import bind_root_pad, root_profile
 from stair_module_sections import cap_edge_constraints, line_pieces, profile_levels
 from stair_module_topology import check_surface
 from stair_network_inputs import junctions
+from stair_source_owners import source_selection
 
 
 def old_surfaces(state, recipe, sources):
@@ -37,8 +38,7 @@ def old_surfaces(state, recipe, sources):
         raise ValueError("cached original ground facets are not exact source bottoms")
     key = recipe["port"]["source_id"]
     varying = recipe.get("contact_mode") == "profile"
-    owner = state["report"]["after"]["source_ids"].index(key)
-    selected = (road["face_sources"] & (1 << owner)) != 0
+    selected = source_selection(state, key, state["report"]["after"]["source_ids"])
     if not ground[selected].all():
         raise ValueError("frozen endpoint must belong to actual ground")
     faces = road["top_faces"][selected]
