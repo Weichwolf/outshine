@@ -4,7 +4,7 @@
 #include <map>
 #include <utility>
 #include <vector>
-#include "src/base/curve/Ribbon.h"
+#include "Ribbon.h"
 #include "Check.h"
 
 int main() {

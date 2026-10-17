@@ -141,6 +141,15 @@ lint: ## format, static analysis, and this tree's own repository rules
 lint-docs: ## AGENTS contracts only; offline, no GitHub or engine build
 	@cd $(SELF_DIR) && sh test/lint-docs.sh
 
+.PHONY: test-sanitizers test-races
+test-sanitizers: ## native ASan/UBSan and container checks (SUITE=...)
+	@$(if $(SUITE),,$(error name a SUITE))
+	@$(RUN) --sanitizer address --harden $(SUITE)
+
+test-races: ## separate native ThreadSanitizer and container checks (SUITE=...)
+	@$(if $(SUITE),,$(error name a SUITE))
+	@$(RUN) --sanitizer thread --harden $(SUITE)
+
 PREPARE_SECONDS ?= 1800
 prepare-place: all ## prepare generated assets and terrain without a frame-rate claim (PLACE=Koerbersee)
 	@$(if $(PLACE),,$(error name a PLACE))
@@ -160,7 +169,7 @@ test: test-timeout-cleanup test-client-arguments test-client-data test-motion-tr
 test-all: test-timeout-cleanup test-client-arguments test-client-data test-motion-trace all ## all declared native, UI and script suites
 	@$(RUN) --all
 
-suite: all       ## named suite or C++ case (SUITE=outshine/src/engine/RuntimeScene/CameraBindingPrecedesDrawing)
+suite:           ## named suite or C++ case; builds its component closure (SUITE=...)
 	@$(if $(SUITE),,$(error name it: make suite SUITE=outshine/integration/places))
 	@$(RUN) $(SUITE)
 

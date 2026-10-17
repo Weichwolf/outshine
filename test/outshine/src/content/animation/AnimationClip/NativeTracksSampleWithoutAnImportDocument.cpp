@@ -1,68 +1,67 @@
 #include "AnimationClip.h"
 #include "Check.h"
 
-#include <memory>
 #include <vector>
 
 int main() {
   using namespace outshine;
   using namespace outshine::Test;
 
-  std::vector<std::unique_ptr<AnimationTrack>> tracks;
-  auto translation = std::make_unique<AnimationTrack>();
-  translation->Target = 0;
-  translation->Property = AnimationTarget::Translation;
-  translation->Times = {0.0, 2.0};
-  translation->Values = {0.0, 0.0, 0.0, 4.0, 6.0, 8.0};
+  std::vector<AnimationTrack> tracks;
+  AnimationTrack translation;
+  translation.Target = 0;
+  translation.Property = AnimationTarget::Translation;
+  translation.Times = {0.0, 2.0};
+  translation.Values = {0.0, 0.0, 0.0, 4.0, 6.0, 8.0};
   CHECK(AnimationCurve::Build(Keyframes::Interpolation::Linear,
-                              translation->Times,
-                              translation->Values,
+                              translation.Times,
+                              translation.Values,
                               3,
                               AnimationCurve::Values::Linear,
-                              translation->Curve),
+                              translation.Curve),
         "native translation curve built");
   tracks.push_back(std::move(translation));
 
-  auto secondTranslation = std::make_unique<AnimationTrack>();
-  secondTranslation->Target = 1;
-  secondTranslation->Property = AnimationTarget::Translation;
-  secondTranslation->Times = {0.0, 2.0};
-  secondTranslation->Values = {10.0, 20.0, 30.0, 14.0, 26.0, 38.0};
+  AnimationTrack secondTranslation;
+  secondTranslation.Target = 1;
+  secondTranslation.Property = AnimationTarget::Translation;
+  secondTranslation.Times = {0.0, 2.0};
+  secondTranslation.Values = {10.0, 20.0, 30.0, 14.0, 26.0, 38.0};
   CHECK(AnimationCurve::Build(Keyframes::Interpolation::Linear,
-                              secondTranslation->Times,
-                              secondTranslation->Values,
+                              secondTranslation.Times,
+                              secondTranslation.Values,
                               3,
                               AnimationCurve::Values::Linear,
-                              secondTranslation->Curve),
+                              secondTranslation.Curve),
         "second native translation curve built");
   tracks.insert(tracks.begin(), std::move(secondTranslation));
 
-  auto colour = std::make_unique<AnimationTrack>();
-  colour->Target = 3;
-  colour->Property = AnimationTarget::BaseColour;
-  colour->Times = {0.0, 2.0};
-  colour->Values = {0.0, 0.2, 0.4, 1.0, 1.0, 0.8, 0.6, 1.0};
+  AnimationTrack colour;
+  colour.Target = 3;
+  colour.Property = AnimationTarget::BaseColour;
+  colour.Times = {0.0, 2.0};
+  colour.Values = {0.0, 0.2, 0.4, 1.0, 1.0, 0.8, 0.6, 1.0};
   CHECK(AnimationCurve::Build(Keyframes::Interpolation::Linear,
-                              colour->Times,
-                              colour->Values,
+                              colour.Times,
+                              colour.Values,
                               4,
                               AnimationCurve::Values::Linear,
-                              colour->Curve),
+                              colour.Curve),
         "native material curve built");
   tracks.push_back(std::move(colour));
 
-  auto emission = std::make_unique<AnimationTrack>();
-  emission->Target = 4;
-  emission->Property = AnimationTarget::Emission;
-  emission->Times = {0.0, 2.0};
-  emission->Values = {0.0, 0.0, 0.0, 1.0, 0.5, 0.25};
-  emission->EmissionScale = 8.0;
+  AnimationTrack emission;
+  emission.Target = 4;
+  emission.Property = AnimationTarget::Emission;
+  emission.Times = {0.0, 2.0};
+  emission.Values = {0.0, 0.0, 0.0, 1.0, 0.5, 0.25};
+  emission.EmissionScale = 8.0;
   CHECK(AnimationCurve::Build(Keyframes::Interpolation::Linear,
-                              emission->Times,
-                              emission->Values,
+                              emission.Times,
+                              emission.Values,
                               3,
                               AnimationCurve::Values::Linear,
-                              emission->Curve),
+                              emission.Curve),
         "native emission curve built");
   tracks.push_back(std::move(emission));
 
