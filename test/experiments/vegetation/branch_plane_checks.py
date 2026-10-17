@@ -106,6 +106,7 @@ class BranchPhaseTests(unittest.TestCase):
 
     def test_world_up_parallel_fallback_and_invalid_versions(self):
         nodes = list(specimen().nodes)
+        nodes[1] = replace(nodes[1], shape=replace(nodes[1].shape, bend=0.0))
         nodes[2] = replace(
             nodes[2],
             placement=replace(
@@ -117,6 +118,7 @@ class BranchPhaseTests(unittest.TestCase):
         )
         graph = GeneratorGraph(815, tuple(nodes))
         for pose in graph.instances(2, 100):
+            np.testing.assert_allclose(pose.frame[:, 1], (0, 0, 1), atol=1e-15)
             self.assertTrue(np.isfinite(pose.frame).all())
             np.testing.assert_allclose(pose.frame.T @ pose.frame, np.eye(3), atol=2e-15)
         for value in (
