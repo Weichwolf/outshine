@@ -58,7 +58,11 @@ def original_selection(state, sources, recipe):
     ref = {k: recipe[k] for k in ("reference_fixture", "reference_fixture_sha256")}
     indexed = proposals(state, sources, ref, method="index", strategy="prefix")
     scanned = proposals(state, sources, ref, method="scan", strategy="prefix")
-    if indexed[0]["proposals"] != scanned[0]["proposals"] or indexed[1:] != scanned[1:]:
+    semantic = [
+        [{k: v for k, v in p.items() if k != "work"} for p in result[0]["proposals"]]
+        for result in (indexed, scanned)
+    ]
+    if semantic[0] != semantic[1] or indexed[1:] != scanned[1:]:
         raise ValueError("indexed and scanned original-source proposals differ")
     choices = [
         r
@@ -150,7 +154,14 @@ def controls(args):
         "verification_sha256": digest(args.output / "verification.json"),
         "original_selection_equal": True,
         "prefix_matches_automatic_selection": True,
-        "selection_work": {"index": indexed[0]["work"], "scan": scanned[0]["work"]},
+        "selection_work": {
+            method: {
+                "index_nodes": result[0]["index_nodes"],
+                "index_entries": result[0]["index_entries"],
+                "proposals": [p["work"] for p in result[0]["proposals"]],
+            }
+            for method, result in (("index", indexed), ("scan", scanned))
+        },
         "refused_cases": cases,
         "old_road_arrays_sha256": before,
         "old_road_arrays_unchanged": True,
