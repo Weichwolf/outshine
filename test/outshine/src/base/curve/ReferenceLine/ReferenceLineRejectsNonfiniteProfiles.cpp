@@ -1,5 +1,5 @@
 #include <limits>
-#include "src/base/curve/ReferenceLine.h"
+#include "ReferenceLine.h"
 #include "Check.h"
 
 int main() {

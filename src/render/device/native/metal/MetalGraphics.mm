@@ -151,7 +151,12 @@ Result<void> CompatibleImages(const Shader &vertex, const Shader &fragment) {
   return {};
 }
 
-Result<void> RasterState(GraphicsState &state, const GraphicsDescription &description) {
+Result<void> RasterState(GraphicsState &state,
+                         const GraphicsDescription &description,
+                         const Capabilities &limits) {
+  if (description.ClampDepth && !limits.DepthClamp) {
+    return Failure(ErrorKind::Unsupported, "Metal depth clamp is unavailable");
+  }
   switch (description.Culling) {
     case Cull::None: state.Culling = MTLCullModeNone; break;
     case Cull::Front: state.Culling = MTLCullModeFront; break;
@@ -163,6 +168,7 @@ Result<void> RasterState(GraphicsState &state, const GraphicsDescription &descri
     case Winding::CounterClockwise: state.Front = MTLWindingCounterClockwise; break;
     default: return Failure(ErrorKind::Invalid, "invalid Metal front winding");
   }
+  state.DepthClip = description.ClampDepth ? MTLDepthClipModeClamp : MTLDepthClipModeClip;
   state.Streams.assign(description.Streams.begin(), description.Streams.end());
   state.Attributes.assign(description.Attributes.begin(), description.Attributes.end());
   state.Colours.assign(description.Colours.begin(), description.Colours.end());
@@ -180,7 +186,7 @@ MetalDevice::CreateGraphicsPipeline(const GraphicsDescription &description) {
   @autoreleasepool {
     auto state = std::make_shared<GraphicsState>();
     state->Device = Identity_;
-    if (auto valid = RasterState(*state, description); !valid) {
+    if (auto valid = RasterState(*state, description, Limits_); !valid) {
       return std::unexpected(valid.error());
     }
     MTLRenderPipelineDescriptor *const pipeline = [MTLRenderPipelineDescriptor new];

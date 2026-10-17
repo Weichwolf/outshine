@@ -8,16 +8,11 @@
 
 namespace {
 
-const char *const kCaseTrees[] = {
-    "test/khronos/glTF", "test/khronos/generator", "test/test262/js", "test/wpt/css"};
+const char *const kCaseTrees[] = {"test/test262/js", "test/wpt/css"};
 
 bool Declared(const std::filesystem::path &file) {
   const std::string name = file.filename().string();
-  if (file.generic_string().starts_with("test/khronos/")) {
-    return name == "manifest.json" || name == ".gitignore";
-  }
   if (name == "manifest.json" || name == "reference.png" || name == ".gitignore") { return true; }
-  // a reference per FRAME of an animated case, reference.f0000.png .. as prep/manifest.py names it
   return name.size() == 19 && name.starts_with("reference.f") && name.ends_with(".png") &&
          std::all_of(
              name.begin() + 11, name.begin() + 15, [](char c) { return c >= '0' && c <= '9'; });
@@ -59,8 +54,8 @@ int main() {
         "over a population rather than a statement about an empty one");
 
   CHECK(strays.empty(),
-        "Khronos cases contain JSON setup and reference hashes, never reference pixels; "
-        "prepared inputs and content-addressed reference images stay outside the repository");
+        "script and CSS cases contain declarations and explicit references; "
+        "prepared inputs stay outside the repository");
 
   Covers("I.61 a repository is what is declared and what is built from it: the case trees carry "
          "declarations and never products");

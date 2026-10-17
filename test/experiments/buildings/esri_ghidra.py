@@ -248,15 +248,16 @@ def read_analysis(reference, log_path):
 
 
 def inspect(core, output):
+    output = output.resolve()
+    if output == Path('/tmp').resolve() or not output.is_relative_to(Path('/tmp').resolve()):
+        raise ValueError('Ghidra research outputs require a subdirectory of /tmp')
     if not core.is_file() or not HEADLESS.is_file():
         raise FileNotFoundError('Expected external SDK core and ghidra.analyzeHeadless Snap')
     output.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256(core.read_bytes()).hexdigest()
     provenance = revision()
-    log_path = Path(tempfile.gettempdir())/('outshine-buildings-ghidra-'+digest[:12]+'-'+provenance['commit'][:9]+'.log')
-    snap_work = Path.home()/'snap/ghidra/common/outshine-building-analysis'
-    snap_work.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='outshine-buildings-ghidra-', dir=snap_work) as temporary:
+    log_path = Path('/tmp')/('outshine-buildings-ghidra-'+digest[:12]+'-'+provenance['commit'][:9]+'.log')
+    with tempfile.TemporaryDirectory(prefix='outshine-buildings-ghidra-', dir='/tmp') as temporary:
         directory = Path(temporary)
         reference = directory/'reference'
         (directory/'InspectBuildingCore.java').write_text(SCRIPT)
@@ -308,7 +309,7 @@ def inspect(core, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--core', type=Path, default=CORE)
-    parser.add_argument('--output', type=Path, default=Path('build/experiments/buildings/esri-ghidra'))
+    parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     result = inspect(args.core, args.output)
     print(json.dumps(dict(status='pass', ghidra=result['ghidra_version'], functions=result['functions_in_database'],

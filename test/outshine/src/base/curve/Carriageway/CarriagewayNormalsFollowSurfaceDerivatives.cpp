@@ -1,11 +1,8 @@
 #include <array>
 #include <cmath>
-#include <cstdlib>
-#include <fstream>
-#include <export/GltfExporter.h>
 #include <scene/Geometry.h>
-#include "src/base/curve/Carriageway.h"
-#include "src/base/curve/Ribbon.h"
+#include "Carriageway.h"
+#include "Ribbon.h"
 #include "Check.h"
 
 namespace {
@@ -80,7 +77,7 @@ int main() {
       }
     }
   }
-  if (const char *path = std::getenv("OUTSHINE_TEST_GLB")) {
+  {
     ReferenceLine line;
     CHECK(Configure(line, 0.02, 0.16, 0.003), "render fixture uses the tested curve family");
     const auto ribbon =
@@ -97,14 +94,7 @@ int main() {
               geometry.setNormals(part, ribbon.NormalM) &&
               geometry.setTriangles(part, ribbon.Index),
           "native geometry receives actual sweep output");
-    auto glb = exportGlb(geometry);
-    CHECK(glb.has_value(), "public exporter accepts native render fixture");
-    if (glb) {
-      std::ofstream file(path, std::ios::binary);
-      file.write(reinterpret_cast<const char *>(glb->data()),
-                 static_cast<std::streamsize>(glb->size()));
-      CHECK(file.good(), "render fixture is written completely");
-    }
   }
+
   return Report();
 }

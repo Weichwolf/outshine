@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "captured_source_commit": "d35560682344ede5a2dc08e33ce36374bba98069",
+  "vector_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+  "origin_lat_lon": [
+    48.242427962074906,
+    16.386505365371704
+  ],
+  "root_id": "openfreemap:14/8937/5678:transportation:103612620:19@1",
+  "joint_source_ids": [
+    "openfreemap:14/8937/5678:transportation:103612620:11",
+    "openfreemap:14/8937/5678:transportation:97041640:1",
+    "openfreemap:14/8937/5678:transportation:80922970:163",
+    "openfreemap:14/8937/5678:transportation:14638079782:0"
+  ],
+  "original_arrangement_face": 58,
+  "fixed_vertices_enu_m": [
+    [
+      -562.1066842808063,
+      -237.7305027721312,
+      162.29676593582727
+    ],
+    [
+      -561.7178668130415,
+      -237.80450626147632,
+      162.29626604657685
+    ],
+    [
+      -560.7701425517025,
+      -237.9073589210286,
+      162.2604490272168
+    ]
+  ],
+  "grade_frame": [
+    [
+      6.675567423230975,
+      0.0
+    ],
+    [
+      0.0,
+      6.675567423230975
+    ]
+  ],
+  "scope": "Actual fully fixed triangle in the rejected four-source geometry recipe. Each fixed edge passes its necessary bound; the whole face cannot. This does not disprove other triangulations or any constituent source."
+}
