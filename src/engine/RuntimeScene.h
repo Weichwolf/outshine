@@ -16,7 +16,7 @@
 
 #include <Outshine.h>
 #include <render/RenderConfiguration.h>
-#include "ScenePlayback.h"
+#include "SceneGeometry.h"
 #include "CameraState.h"
 #include "SubjectProxy.h"
 #include "SubjectMaterials.h"
@@ -39,13 +39,8 @@ constexpr Vec3 kGroundAlbedoUnsaid = {{0.10, 0.13, 0.07}};
 struct Declaration {
   std::optional<int64_t> UtcS;
   double Haze = 1.0;
-  PlaybackPolicy Playback = PlaybackPolicy::Once;
-  int Clip = 0;
 
   int SurfaceWidthPx = 0, SurfaceHeightPx = 0;
-
-  std::string Stands;
-  std::vector<std::string> Joins;
 
   std::vector<std::string> Stages;
 
@@ -61,8 +56,6 @@ struct Declaration {
   std::vector<Material> Surfacing{Material{}};
 
   std::vector<SubjectSurfaceOverride> Overriding;
-
-  std::string Variant;
 
   double MetresPerUnit = 1.0;
 
@@ -266,7 +259,7 @@ public:
 
   [[nodiscard]] bool Carry(const Bearing &held, std::string &error);
 
-  [[nodiscard]] bool PlacedBounds(Extents &into, std::string &error);
+  [[nodiscard]] Extents PlacedBounds();
 
   void SetSkyElevation(double elevationM);
 
@@ -335,15 +328,9 @@ public:
     return Ui_.RestoreScroll(std::move(kept), error);
   }
 
-  [[nodiscard]] static size_t TookPosing() { return TookPosing_; }
-
-  [[nodiscard]] static size_t TookSubmitting() { return TookSubmitting_; }
-
   [[nodiscard]] static size_t TookAiming() { return TookAiming_; }
 
   [[nodiscard]] static size_t TookDrawing() { return TookDrawing_; }
-
-  [[nodiscard]] static size_t AssetReads() { return AssetReads_; }
 
   [[nodiscard]] static size_t PlanInits() { return PlanInits_; }
 
@@ -356,20 +343,6 @@ public:
   [[nodiscard]] size_t DrivenParts() const noexcept { return DrivenParts_; }
 
   [[nodiscard]] bool Stands() const { return Stoodup_; }
-
-  static constexpr int kSweepSamples = 16;
-
-  [[nodiscard]] double AtS() const { return Held_.TimeS(); }
-
-  [[nodiscard]] double DurationS() const { return Held_.DurationS(); }
-
-  [[nodiscard]] bool Moves() const { return Held_.IsAnimated(); }
-
-  [[nodiscard]] double LocalsDigest() const { return Held_.PlacementDigest(); }
-
-  [[nodiscard]] double AssembledDigest() const { return Held_.VertexDigest(); }
-
-  [[nodiscard]] int Frames() const { return Held_.FrameCount(); }
 
 private:
   friend class ::outshine::Engine;
@@ -389,8 +362,7 @@ private:
     if (owner != nullptr) { owner->Renderer_ = nullptr; }
   }
 
-  static size_t TookPosing_, TookSubmitting_, TookAiming_, TookDrawing_;
-  static size_t AssetReads_;
+  static size_t TookAiming_, TookDrawing_;
   static size_t PlanInits_;
   Render::PlanSpec PlanDeclared_;
 
@@ -414,8 +386,6 @@ private:
   void StandsShadowRadius();
   void ClearsSubject();
   [[nodiscard]] bool PrepareSubject(std::string &error);
-  [[nodiscard]] bool JoinsSubjects(std::string &error);
-  [[nodiscard]] bool StandsSubjects(std::string &error);
   [[nodiscard]] bool Build(std::string &error);
   [[nodiscard]] std::expected<bool, std::string> AdvanceBuild(size_t itemsMost);
   [[nodiscard]] std::expected<void, std::string> PlanBuild();
@@ -429,24 +399,9 @@ private:
   [[nodiscard]] double Framing() const;
   [[nodiscard]] bool
   FitsViewTo(const Box &bounds, Render::Viewpoint &out, std::string &error) const;
-  [[nodiscard]] bool Pose(double seconds, std::string &error);
-  [[nodiscard]] bool Measure(double seconds, std::string &error);
-
-  [[nodiscard]] int Sweeps() const {
-    const int frames = Held_.FrameCount();
-    return std::clamp(frames, 1, kSweepSamples);
-  }
-
-  [[nodiscard]] double Seconds(int sample) const {
-    const int over = Sweeps();
-    return over > 1
-               ? static_cast<double>(sample) * Held_.DurationS() / static_cast<double>(over - 1)
-               : 0.0;
-  }
 
   [[nodiscard]] bool Look(std::string &error);
   [[nodiscard]] bool Stand(std::string &error);
-  [[nodiscard]] bool ApplyAuthoredCamera(Render::Viewpoint &out) const;
   [[nodiscard]] bool Submit(std::string &error);
 
   Render::SceneRenderer *Renderer_ = nullptr;
@@ -460,16 +415,15 @@ private:
   Render::SubjectPlacementHistory PlacementUploadHistory_;
 
   std::vector<Box> PartBounds_;
-  void CapturesRenderedPositions();
   void CoverShapedParts();
-  [[nodiscard]] bool PartVolumes(std::string &error);
+  void PreparePartBounds();
   SubjectMaterials Materials_;
 
   [[nodiscard]] bool RestoresPieceResources(std::string &error);
 
   [[nodiscard]] bool RestoresGroundResources(std::string &error);
   Geometry DrivenGeometry_;
-  ScenePlayback Held_;
+  SceneGeometry Held_;
   Render::SubjectProxy Stood_;
   Render::SubjectScratch Scratch_;
 
@@ -480,7 +434,6 @@ private:
   GeometryBuildSliceMetrics GeometrySlices_;
   std::optional<Render::ShapeCookJob> ShapeCooking_;
   std::vector<Material> GeometryBuildSurfaces_;
-  std::vector<float> RenderedPositionsM_;
   int GroundSurface_ = -1;
   void WearsPieces();
   uint64_t ShapedAt_ = 0;
