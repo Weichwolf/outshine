@@ -30,7 +30,7 @@ int main() {
                      .ExtentM = {1, 2, 3},
                      .Fires = "left",
                      .When = "exit"}};
-  auto check = [&] {
+  const auto check = [&] {
     const auto text = WriteScenario(source);
     CHECK(text.has_value(), "scenario export succeeds");
     if (!text) { return; }
