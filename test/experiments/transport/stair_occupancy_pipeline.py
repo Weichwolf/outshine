@@ -63,7 +63,7 @@ def handoff(
         seen["vegetation_reservations"] = value.reservations
         query = OccupancyQuery(value.reservations)
         seen["probe_blocked"] = tuple(
-            query.conflict(p)[0].area > 0 for p in vegetation_probes
+            not query.conflict(p)[0].is_empty for p in vegetation_probes
         )
         return vegetation.Plan(frame)
 

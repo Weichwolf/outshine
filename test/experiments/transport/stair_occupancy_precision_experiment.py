@@ -9,7 +9,7 @@ from fractions import Fraction
 from pathlib import Path
 
 from camera_height_inputs import digest
-from stair_occupancy_geometry import AffineOccupancy, OccupancyError
+from stair_occupancy_geometry import AffineOccupancy, OccupancyError, polygonal_conflict
 from stair_occupancy_oracle import native_area, native_source, oracle_geometry
 from stair_occupancy_precision import exact_band_area
 from stair_occupancy_precision_cases import actual_cases, controls
@@ -76,31 +76,58 @@ def check(case):
         if shape is None:
             result["footprint_deferred"] = True
         else:
-            cut = shape.intersection(footprint.geometry)
-            if (cut.area > 0) != (reference_cut > 0):
+            cut = polygonal_conflict(shape.intersection(footprint.geometry))
+            if (not cut.is_empty) != (reference_cut > 0):
                 raise ValueError("actual footprint conflict silently changed: " + name)
+            if row.overlaps(footprint) != (reference_cut > 0):
+                raise ValueError(
+                    "public interior predicate disagrees with exact native area: "
+                    + name
+                )
             result["footprint_positive_conflict"] = reference_cut > 0
     return result
 
 
 def underflow_case():
     import shapely
+    from outshine_ref.contracts import BuildingFootprint, HeightInterval
 
     length = 1e-170
-    shape = shapely.box(0, 0, length, length)
-    exact = native_area(native_source(shape))
-    if exact != Fraction(length) ** 2 or exact <= 0 or shape.area != 0:
+    tiny = shapely.box(0, 0, length, length)
+    exact = native_area(native_source(tiny))
+    if exact != Fraction(length) ** 2 or exact <= 0 or tiny.area != 0:
         raise ValueError("independent positive source-area underflow control failed")
-    try:
-        AffineOccupancy("underflow", shape, "control", (0, 0), (100, 0, 0), (101, 0, 0))
-    except OccupancyError as error:
-        return {
-            "source_wkb": shape.wkb_hex,
-            "native_area_m2_rational": str(exact),
-            "binary64_area_m2": shape.area,
-            "explicit_rejection": str(error),
-        }
-    raise ValueError("underflowed positive source domain was silently admitted")
+    inputs = (
+        (tiny, tiny),
+        (shapely.box(0, 0, 1, 1), tiny),
+        (shapely.box(0, 0, 1, length), shapely.box(0, 0, length, 1)),
+    )
+    outcomes = []
+    for a, b in inputs:
+        row = AffineOccupancy(
+            "underflow", a, "control", (0, 0), (100, 0, 0), (101, 0, 0)
+        )
+        footprint = BuildingFootprint("underflow-query", b, HeightInterval(99, 102))
+        a0, b0, a1, b1 = map(Fraction, a.bounds)
+        c0, d0, c1, d1 = map(Fraction, b.bounds)
+        reference = (min(a1, c1) - max(a0, c0)) * (min(b1, d1) - max(b0, d0))
+        if reference != exact or not row.overlaps(footprint):
+            raise ValueError("positive underflowed conflict was silently released")
+        outcomes.append(
+            {
+                "domain_wkb": a.wkb_hex,
+                "footprint_wkb": b.wkb_hex,
+                "positive_conflict": True,
+                "native_area_m2_rational": str(reference),
+            }
+        )
+    return {
+        "source_wkb": tiny.wkb_hex,
+        "native_area_m2_rational": str(exact),
+        "binary64_area_m2": tiny.area,
+        "positive_conflict_cases": outcomes,
+        "reference_method": "exact axis-aligned interval intersection; native rational-coordinate area agrees",
+    }
 
 
 def run(args):
