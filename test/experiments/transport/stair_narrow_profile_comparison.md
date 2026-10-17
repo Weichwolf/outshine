@@ -86,7 +86,10 @@ All four normal/profiled results have hash
 `1bf91cb0acf6857f330dd48904bea1b696523812b0a93509cf66042360456402`.
 Memray 1.20 includes Python/native allocations, excludes input/import/hash/export,
 without native stacks. Counts exclude frees and zero-byte requests. Instrumented times 7.718283/63.963927 s are not normal
-costs. Shared host, other agent work; early readers/replay overlap normal runs,
+costs. An optional native Memray statistics crosscheck hit its90 s CPU limit
+(exit137); complete positive-allocation record scans above finished with exit0.
+No whole native-statistics agreement is claimed. Shared host, other agent work;
+early readers/replay overlap normal runs,
 software rendering overlaps profiling. These are scoped observations, not an
 isolated hardware/device speedup claim. Total internal copy bytes unmeasured.
 Terrain raw/unique/map arrays 18432/3824/9216 B; indexed/difference copies 6880 B
