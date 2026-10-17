@@ -110,6 +110,11 @@ Paarkapazität und prüft die tatsächliche Verschiebung jedes Eingangsvertices.
 Paarallokation und ausdrückliche Ablehnung zu langer transitiver Ketten;
 Topologie, Quellen und tatsächliche Exportabnahme bleiben beim Aufrufer.
 
+`geometry.surface_patches.SurfacePatch/SurfacePatches` erhält exakte endliche
+Höhenflächen durch lokale, ausdrücklich benannte Facettenersetzung. Stabile
+Patch-/Face-IDs, ganze XYZ-Ränder und begrenzte lokale Abfragen ohne globale
+Geometriekopie: [surface_patches.md](surface_patches.md) (#542).
+
 `transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
 Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
 [Vertrag und Grenzen](junction_pads.md): unveränderliches Polygon, tatsächliche
