@@ -179,3 +179,6 @@ compare footprint-specific response on additional sources/views with the existin
 normal/shadow representation before choosing a stored product. R/T, roughness/
 specular, wind, external light/shadow and near/far/whole-stand acceptance remain
 open in#643/#1.
+
+The subsequent [source/camera cohort](joint_light_cohort.md) measures that step:
+coarse improvement is real but a single learned mode set fails additional cameras.

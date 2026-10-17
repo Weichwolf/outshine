@@ -1,20 +1,47 @@
 """Independent cone interpolation, positive compression and coupled shadow controls."""
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 from joint_basis_mips import analyse
 from joint_basis_reduction import fit_report
-from joint_basis_study import view_light_knots
+from joint_basis_study import run, study_views, view_light_knots
 from joint_light_measure import JointMeasure
 from needle_area_checks import sheet
 from needle_area_light import integrate
+from normal_lobes import NormalMeasure
 from positive_light_basis import angular_weights, positive_columns
 from scatter_scene import ScatterScene
 
 
 class PositiveBasisTests(unittest.TestCase):
+    def test_camera_inputs_are_owned_normalized_and_rejected_before_source_work(self):
+        original = np.array([[-1.0, 0.1, 0.2], [0.4, -0.7, 0.5], [0.5, 0.3, -0.8]])
+        before = original.copy()
+        views = study_views(original)
+        np.testing.assert_array_equal(original, before)
+        self.assertFalse(np.shares_memory(original, views))
+        np.testing.assert_allclose(np.linalg.norm(views, axis=1), 1, atol=1e-14)
+        for invalid in (np.zeros((3, 3)), np.ones((1, 3)), np.full((3, 3), np.nan)):
+            with self.assertRaises(ValueError):
+                study_views(invalid)
+        with (
+            patch(
+                "joint_basis_study.freeze_source", side_effect=AssertionError("source")
+            ),
+            self.assertRaises(ValueError),
+        ):
+            run(
+                None,
+                None,
+                Path("/tmp/outshine-vegetation-invalid-camera"),
+                4,
+                32,
+                views=np.zeros((3, 3)),
+            )
+
     def test_octahedral_cone_coefficients_preserve_linear_light_and_knots(self):
         knots = np.r_[np.eye(3), -np.eye(3)]
         queries = np.array([[1.0, 2, 3], [-2.0, 1, -3]])
@@ -145,11 +172,25 @@ class JointFieldTests(unittest.TestCase):
         )
         scene = ScatterScene(source["vertices"], source["faces"])
         measure = JointMeasure(source, scene, view, lights, size=4)
+        normal = NormalMeasure(4, [view], np.eye(3), partitions=(4,))
         actual, _ = integrate(
-            source, scene, view, lights, size=4, order=2, contact_measure=measure
+            source,
+            scene,
+            view,
+            lights,
+            size=4,
+            order=2,
+            contact_measure=measure,
+            normal_measure=normal,
         )
         np.testing.assert_array_equal(actual, base)
         np.testing.assert_array_equal(measure.coverage, actual[0].ravel())
+        np.testing.assert_array_equal(
+            normal.moments[4][..., 0].sum(axis=1), actual[0].ravel()
+        )
+        np.testing.assert_allclose(
+            normal.exact[0], actual[1].ravel(), atol=2e-12, rtol=0
+        )
         for index in range(2):
             np.testing.assert_array_equal(
                 measure.unshadowed[index], actual[1 + 2 * index].ravel()
