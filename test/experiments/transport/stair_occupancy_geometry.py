@@ -54,6 +54,18 @@ def clip_rectangle(vertices, values):
     return result
 
 
+def polygonal_conflict(result):
+    if result.area == 0:
+        return shapely.Polygon()
+    if result.geom_type in ("Polygon", "MultiPolygon"):
+        return result
+    parts = shapely.get_parts(shapely.get_parts(result))
+    polygons = [p for p in parts if p.geom_type == "Polygon"]
+    if not polygons:
+        raise OccupancyError("affine conflict has no polygonal area")
+    return shapely.union_all(polygons)
+
+
 @dataclass(frozen=True, slots=True)
 class AffineOccupancy(Reservation):
     """Prototype only: height envelope is broad phase; XY conflict is height-dependent."""
@@ -75,9 +87,7 @@ class AffineOccupancy(Reservation):
             raise ValueError("bounded local affine domain required")
         lower = [plane_value(self.lower_plane_m, self.origin_xy_m, p) for p in xy]
         upper = [plane_value(self.upper_plane_m, self.origin_xy_m, p) for p in xy]
-        if any(a > b for a, b in zip(lower, upper, strict=True)) or not any(
-            a < b for a, b in zip(lower, upper, strict=True)
-        ):
+        if any(a >= b for a, b in zip(lower, upper, strict=True)):
             raise ValueError("non-inverting positive affine volume required")
         # An outward-rounded envelope cannot reject a real positive overlap.
         heights = HeightInterval(
@@ -91,7 +101,7 @@ class AffineOccupancy(Reservation):
         if not isinstance(heights, HeightInterval):
             raise TypeError("explicit query height interval required")
         if not self.heights.overlaps(heights):
-            return shapely.GeometryCollection()
+            return shapely.Polygon()
         x0, y0, x1, y1 = self.geometry.bounds
         vertices = [
             tuple(map(rational, p)) for p in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
@@ -107,7 +117,7 @@ class AffineOccupancy(Reservation):
             ]
             vertices = clip_rectangle(vertices, values)
             if not vertices:
-                return shapely.GeometryCollection()
+                return shapely.Polygon()
         if vertices == original:
             return self.geometry
         # GEOS and the resulting XY vertices are binary64, not exact arithmetic.
@@ -115,7 +125,7 @@ class AffineOccupancy(Reservation):
         result = self.geometry.intersection(rectangle)
         if not result.is_valid:
             raise OccupancyError("affine intersection is numerically unresolved")
-        return result if result.area > 0 else shapely.GeometryCollection()
+        return polygonal_conflict(result)
 
     def overlaps(self, footprint):
         return (
@@ -132,5 +142,5 @@ def conflict_geometry(reservation, heights):
     return (
         reservation.geometry
         if reservation.heights.overlaps(heights)
-        else shapely.GeometryCollection()
+        else shapely.Polygon()
     )

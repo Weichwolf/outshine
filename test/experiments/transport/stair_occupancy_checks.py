@@ -139,12 +139,22 @@ class AffineClearance(unittest.TestCase):
     def test_height_and_xy_boundary_touches_are_free(self):
         flat = slab(lower=(5, 0, 0), upper=(6, 0, 0))
         for h in (HeightInterval(0, 5), HeightInterval(6, 10)):
-            self.assertTrue(flat.conflict_geometry(h).is_empty)
+            empty = flat.conflict_geometry(h)
+            self.assertTrue(empty.is_empty)
+            self.assertEqual(empty.geom_type, "Polygon")
         touch = BuildingFootprint(
             "touch", shapely.box(10, 0, 11, 1), HeightInterval(5, 6)
         )
         self.assertFalse(flat.overlaps(touch))
         self.assertTrue(slab().conflict_geometry(HeightInterval(0, 5)).is_empty)
+
+    def test_polygonal_closure_discards_disconnected_line_touch(self):
+        domain = shapely.MultiPolygon(
+            [shapely.box(0, 0, 1, 1), shapely.box(2, 0, 3, 1)]
+        )
+        actual = slab(domain).conflict_geometry(HeightInterval(0, 7))
+        self.assertTrue(actual.equals(shapely.box(0, 0, 1, 1)))
+        self.assertEqual(actual.geom_type, "Polygon")
 
     def test_holes_and_disconnected_parts_remain(self):
         holed = shapely.Polygon(
@@ -176,6 +186,7 @@ class AffineClearance(unittest.TestCase):
             {"lower": [5, 1, 0]},
             {"upper": (4, 1, 0)},
             {"upper": (6, -1, 0)},
+            {"upper": (6, 0.875, 0), "domain": shapely.box(0, 0, 8, 8)},
             {"origin": (float("nan"), 0)},
             {"domain": shapely.box(1e7, 0, 1e7 + 1, 1)},
             {"lower": (0, 10001, 0)},

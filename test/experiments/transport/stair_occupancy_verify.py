@@ -10,10 +10,11 @@ import shapely
 from camera_height_inputs import digest
 from stair_local_replay import load_chain
 from stair_module_inputs import reference_profiles
-from stair_occupancy_experiment import compare
+from stair_occupancy_experiment import compare, probe_results
 from stair_occupancy_geometry import AffineOccupancy
 from stair_occupancy_handoff import OccupancyQuery
 from stair_occupancy_inputs import actual_sources, buildings, full_tile_sampler
+from stair_occupancy_pipeline import handoff, probes
 from stair_terrain_experiment import frozen
 
 
@@ -149,7 +150,7 @@ def verify(args):
     for name, expected in report["artifacts"].items():
         if digest(root / name) != expected:
             raise ValueError("saved occupancy product changed: " + name)
-    _view, assets, supports, contacts, manifest = load_chain(
+    view, assets, supports, contacts, manifest = load_chain(
         report["resident"], report["prior_modules"]
     )
     if (
@@ -168,12 +169,12 @@ def verify(args):
     count, maximum = check_caps(
         rows, data, assets, supports, contacts, manifest, report, sources
     )
-    originals, ledger, _receipt = buildings(
-        context, full_tile_sampler(Path(report["dem"]["path"]), context)
-    )
+    sample = full_tile_sampler(Path(report["dem"]["path"]), context)
+    originals, ledger, _receipt = buildings(context, sample)
     if ledger != json.loads((root / "building-sources.json").read_text()):
         raise ValueError("original provider features/height placements changed")
-    _changes, actual, _cost = compare(OccupancyQuery(rows), originals)
+    query = OccupancyQuery(rows)
+    changes, actual, _cost = compare(query, originals)
     saved = json.loads((root / "adjusted-footprints.json").read_text())
     if len(saved) != len(actual) or any(
         p.source_id != s["source_id"]
@@ -183,6 +184,16 @@ def verify(args):
         for p, s in zip(actual, saved, strict=True)
     ):
         raise ValueError("fresh saved-volume spatial handoff disagrees")
+    actual_probes, omissions = probes(assets, sample)
+    _world, seen = handoff(
+        view.patches[0].frame, originals, rows, changes, actual_probes
+    )
+    if (
+        probe_results(query, actual_probes, seen)
+        != json.loads((root / "probes.json").read_text())
+        or omissions != report["probe_omissions"]
+    ):
+        raise ValueError("fresh source/height-aware pipeline probe result differs")
     receipt = {
         "reader_commit": commit,
         "producer_commit": report["commit"],
@@ -192,6 +203,7 @@ def verify(args):
         "source_count": len(manifest["source_ids"]),
         "whole_supports": len(supports),
         "building_source_ledger_count": len(ledger),
+        "verified_probes": len(actual_probes),
         "valid_saved_occupancy": True,
     }
     output = root / "verification.json"
