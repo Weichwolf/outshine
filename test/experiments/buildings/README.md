@@ -1191,3 +1191,8 @@ access are documented in [terraced_terraces.md](terraced_terraces.md) (#618).
 Closed guards/copings are shared by direct/near products; unserved roof ledges
 remain explicit. Highest-roof access, broader whole-source architecture selection
 and general runtime budgets remain open.
+
+Plan work before broad source trials is reduced with exact product replay in
+[terraced_source_demand.md](terraced_source_demand.md) (#618). A complete988-source
+census protects prior functional owners and identifies direct candidates; their
+physical/function/whole-city admission remains open.
