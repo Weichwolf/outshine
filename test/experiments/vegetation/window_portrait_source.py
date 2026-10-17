@@ -64,8 +64,21 @@ def source(whole, execution, catalog):
     if int(first[0]) != 0 or np.any(count == 0):
         raise ValueError("complete nonempty physical needle range required")
     np.testing.assert_array_equal(first[1:], first[:-1] + count[:-1])
-    if int(first[-1]) + int(count[-1]) != report["needles"]:
+    expected_needles = sum(report["needle_counts"])
+    if (
+        int(first[-1]) + int(count[-1]) != expected_needles
+        or int(axes["needle_counts"].sum()) != expected_needles
+    ):
         raise ValueError("entire source needle ledger required")
+    owners = windows["axis_ids"]
+    if owners.dtype.kind not in "iu" or np.any(owners >= len(axes["origins"])):
+        raise ValueError("existing executed axis owners required")
+    np.testing.assert_array_equal(
+        np.bincount(
+            owners.astype(np.int64), weights=count, minlength=len(axes["origins"])
+        ),
+        axes["needle_counts"],
+    )
     metadata, banks = load_catalog(catalog)
     for info in metadata.values():
         mask = windows["families"] == info["family"]
