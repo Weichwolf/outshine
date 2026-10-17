@@ -19,7 +19,9 @@ int main() {
                                          .WidthFrac = 0.25,
                                          .HeightFrac = 0.5},
                                .Z = std::numeric_limits<int>::max()});
-    source.Surfaces.push_back({.Document = "<div/>", .Z = std::numeric_limits<int>::min()});
+    source.Surfaces.emplace_back();
+    source.Surfaces.back().Document = "<div/>";
+    source.Surfaces.back().Z = std::numeric_limits<int>::min();
     const auto text = WriteScenario(source);
     CHECK(text.has_value(), "capacity and UI declaration written");
     if (!text) { continue; }

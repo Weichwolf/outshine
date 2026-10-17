@@ -115,13 +115,16 @@ int main(void) {
   // than a program that does.
   std::string built;
   const std::string alone = std::string(nest) + "/generators-alone";
+  const char *configured = std::getenv("CXX");
+  const std::string compiler = configured != nullptr && *configured != 0 ? configured : "c++";
   const int made =
-      Run("c++ -std=c++23 -Wall -Werror -Wpedantic -Iinclude -Isrc/base/math -Isrc/base/geo "
-          "-Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/shade "
-          "-Isrc/import -Isrc/world/sky -Isrc/world/weather -Isrc/world/ground "
-          "-Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/world/data "
-          "test/harness/shared/graph/GeneratorsAlone.cpp "
-          "build/libgenerators.a -o " +
+      Run(compiler +
+              " -std=c++23 -Wall -Werror -Wpedantic -Iinclude -Isrc/base/math -Isrc/base/geo "
+              "-Isrc/base/format -Isrc/base/spatial -Isrc/base/io -Isrc/content/shade "
+              "-Isrc/import -Isrc/world/sky -Isrc/world/weather -Isrc/world/ground "
+              "-Isrc/generators -Isrc/generators/base -Isrc/generators/draw -Isrc/world/data "
+              "test/harness/shared/graph/GeneratorsAlone.cpp "
+              "build/libgenerators.a -o " +
               alone + " 2>&1",
           built);
   if (made != 0) { std::printf("%s", built.c_str()); }

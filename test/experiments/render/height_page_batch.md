@@ -10,6 +10,8 @@ Each executable uses its checkout's complete SDK and matching internal headers.
 The experiment adds no public GPU or SDK interface.
 
 Build each checkout normally and run `make db` with its own compiler/dependencies.
+The driver supports Python 3.9 or newer and uses the repository's native linker
+flags and process supervisor. It requires neither GNU timeout nor coreutils.
 Then invoke the driver from the candidate, with all private outputs under `/tmp`:
 
 ```sh
@@ -33,7 +35,8 @@ counted only in this interval. Backpressure may cause additional attempted work.
 After timing, the probe reads every occupied physical GPU page and compares every
 float bit with the original input. Readback, verification and renderer setup are
 excluded from upload time. Whole-process peak RSS includes them and the input;
-it is neither upload-only memory nor device memory. Build and run logs, input,
+it is neither upload-only memory nor device memory. The bounded Python supervisor
+is included in whole-process resource accounting. Build and run logs, input,
 probe and SDK hashes, source commit and dirty state accompany the result. Run
 comparisons serially with the same host load and keep both original inputs.
 
