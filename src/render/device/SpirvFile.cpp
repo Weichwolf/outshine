@@ -1,10 +1,10 @@
 #include "SpirvFile.h"
-#include <array>
-#include <cstdio>
+#include "ReadTextFile.h"
 #include <cstring>
 
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -13,28 +13,13 @@ namespace outshine::Render {
 
 namespace {
 
-constexpr size_t kReadBlockBytes = 1u << 14u;
 constexpr uint32_t kSpirvMagic = 0x07230203u;
 
 std::expected<std::string, std::string> ReadShaderFile(std::string_view treePath) {
-  const std::string path(treePath);
-  std::FILE *const file = std::fopen(path.c_str(), "rb");
-  if (file == nullptr) {
-    return std::unexpected("the shader artifact " + path +
-                           " is not readable from here -- the engine reads its shaders from the "
-                           "tree, so the process must start at the repository root");
-  }
-  std::string held;
-  std::array<char, kReadBlockBytes> block;
-  for (size_t read = std::fread(block.data(), 1, block.size(), file); read > 0;
-       read = std::fread(block.data(), 1, block.size(), file)) {
-    held.append(block.data(), read);
-  }
-  const bool failed = std::ferror(file) != 0;
-  std::fclose(file);
-  if (failed) { return std::unexpected("reading shader artifact " + path + " failed"); }
-  if (held.empty()) {
-    return std::unexpected("the shader artifact " + path +
+  auto held = ReadTextFile(treePath, std::numeric_limits<size_t>::max());
+  if (!held) { return std::unexpected("shader artifact " + held.error()); }
+  if (held->empty()) {
+    return std::unexpected("the shader artifact " + std::string(treePath) +
                            " is empty, and an empty kernel is a picture refusal");
   }
   return held;

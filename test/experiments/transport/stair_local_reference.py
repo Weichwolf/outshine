@@ -9,7 +9,6 @@ from pathlib import Path
 import numpy as np
 import shapely
 from camera_height_inputs import digest
-from stair_local_assets import road_window
 from stair_local_replay import load_chain, replay
 from stair_module_experiment import write_json
 from stair_module_family import audit, build
@@ -19,6 +18,7 @@ from stair_module_soil import assemble, fit, prepare
 from stair_module_world import inspect_world, source_ground
 from stair_patch_experiment import compare
 from stair_patch_inputs import fresh
+from stair_reference_roads import reference_owner_indices, reference_roads
 from stair_terrain_experiment import frozen
 
 
@@ -64,14 +64,14 @@ def reference_state(args):
         read_arrays(args.baseline / "world-field.npz"),
     )
     compare(view, plan, field)
-    region = shapely.box(*plan["xy"].min(axis=0), *plan["xy"].max(axis=0))
-    road, ground, keys, rows, note = road_window(assets, region)
+    road, ground, keys, rows, note = reference_roads(assets)
     if keys != manifest["source_ids"]:
         raise ValueError("diagnostic whole reference needs every original road asset")
     state = {
         "resident_profile_roots": True,
         "road": road,
         "road_ground": ground,
+        "road_source_faces": reference_owner_indices(assets),
         "cached_module_rows": rows,
         "report": {"candidate_source_ids": keys, "after": {"source_ids": keys}},
         "plan": plan,
@@ -79,6 +79,9 @@ def reference_state(args):
         "piers": supports,
         "pier_contacts": contacts,
     }
+    note["source_facet_index_bytes"] = sum(
+        indices.nbytes for indices in state["road_source_faces"].values()
+    )
     return state, manifest, note
 
 
@@ -167,8 +170,8 @@ def compare_saved(args, arrays):
 def run(args):
     commit, began = frozen(), time.perf_counter()
     fresh(args.output)
-    state, manifest, note = reference_state(args)
     recipe, rows, context, sources, sample, _layer = inputs(args.fixture)
+    state, manifest, note = reference_state(args)
     if context["origin_lat_lon"] != manifest["origin_lat_lon"]:
         raise ValueError("whole reference recipe frame differs")
     arrays, proof = construct(state, recipe, rows, sources, sample)

@@ -1,0 +1,148 @@
+{
+  "provenance": {
+    "payload": "test/outshine/data/transport/wien-junction-14-8937-5678.pbf",
+    "payload_sha256": "97489e625f1bdaeec27074600eafb72c7e2ce9fc57ea971286b8751cf9e44db8",
+    "resident_sources": 69,
+    "frame_origin_lat_lon": [
+      48.242427962074906,
+      16.386505365371704
+    ]
+  },
+  "root_node": [
+    1496,
+    2188
+  ],
+  "cached_source_ids": [
+    "openfreemap:14/8937/5678:transportation:12998091542:0",
+    "openfreemap:14/8937/5678:transportation:1580280942:0"
+  ],
+  "new_source_ids": [
+    "openfreemap:14/8937/5678:transportation:1950369630:8",
+    "openfreemap:14/8937/5678:transportation:103612620:17"
+  ],
+  "sources": {
+    "openfreemap:14/8937/5678:transportation:12998091542:0": {
+      "mvt_xy": [
+        [
+          1270,
+          2023
+        ],
+        [
+          1412,
+          2241
+        ],
+        [
+          1496,
+          2188
+        ]
+      ],
+      "xy_m": [
+        [
+          -746.0879053856451,
+          476.4157875327127
+        ],
+        [
+          -689.6143006069875,
+          389.8698875583252
+        ],
+        [
+          -656.2073794703168,
+          410.9109844855179
+        ]
+      ],
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      }
+    },
+    "openfreemap:14/8937/5678:transportation:1580280942:0": {
+      "mvt_xy": [
+        [
+          1496,
+          2188
+        ],
+        [
+          1576,
+          2136
+        ],
+        [
+          1438,
+          1915
+        ]
+      ],
+      "xy_m": [
+        [
+          -656.2073794703168,
+          410.9109844855179
+        ],
+        [
+          -624.391264102059,
+          431.55500388417386
+        ],
+        [
+          -679.2740631123037,
+          519.2912498351932
+        ]
+      ],
+      "properties": {
+        "surface": "paved",
+        "class": "minor",
+        "oneway": 1
+      }
+    },
+    "openfreemap:14/8937/5678:transportation:1950369630:8": {
+      "mvt_xy": [
+        [
+          1496,
+          2188
+        ],
+        [
+          1478,
+          2161
+        ]
+      ],
+      "xy_m": [
+        [
+          -656.2073794703168,
+          410.9109844855179
+        ],
+        [
+          -663.3660054281748,
+          421.63000391723074
+        ]
+      ],
+      "properties": {
+        "subclass": "footway",
+        "surface": "unpaved",
+        "class": "path"
+      }
+    },
+    "openfreemap:14/8937/5678:transportation:103612620:17": {
+      "mvt_xy": [
+        [
+          1496,
+          2188
+        ],
+        [
+          1504,
+          2200
+        ]
+      ],
+      "xy_m": [
+        [
+          -656.2073794703168,
+          410.9109844855179
+        ],
+        [
+          -653.025767933491,
+          406.1469693615159
+        ]
+      ],
+      "properties": {
+        "surface": "paved",
+        "class": "minor"
+      }
+    }
+  }
+}

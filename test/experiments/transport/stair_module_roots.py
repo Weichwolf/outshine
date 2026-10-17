@@ -1,10 +1,29 @@
 """Bind a module root to an actual original cached outer or interior profile."""
 
 import numpy as np
+import shapely
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from stair_cycle_contacts import profile
 from stair_landing_pads import node_profiles
 from stair_module_loops import actual_profile, interior_profile
+
+
+def profile_masks(nodes, masks, line, contacts):
+    result = list(masks)
+    references = [line, *[c["profile"] for c in contacts]]
+    for reference in references:
+        choices = [
+            i
+            for i, node in enumerate(nodes)
+            if np.array_equal(node["xy"], reference[1, :2])
+        ]
+        if len(choices) != 1:
+            raise ValueError("one saved node for each whole cached profile required")
+        index = choices[0]
+        trace = shapely.LineString(reference[:, :2])
+        if not result[index].buffer(1e-7).covers(trace):
+            result[index] = result[index].union(trace.buffer(0.75))
+    return result
 
 
 def root_profile(state, recipe, sources):
@@ -55,11 +74,13 @@ def root_profile(state, recipe, sources):
     return row, line
 
 
-def bind_root_pad(rows, node, line, *, include_interiors=False):
+def bind_root_pad(rows, node, line, *, include_interiors=False, cached_profiles=()):
     selected = node_profiles(rows, node, include_interiors=include_interiors)
     if not any(vertex in (0, -1) for _i, vertex, _p in selected):
         raise ValueError("new module has no original endpoint at its frozen port")
-    pad = profile_junction_pad([line[:, :2], *[p for _i, _v, p in selected]])
+    pad = profile_junction_pad(
+        [line[:, :2], *cached_profiles, *[p for _i, _v, p in selected]]
+    )
     coordinates = np.array(pad.exterior.coords[:-1])
     for i, vertex, _p in selected:
         rows[i]["junction_pads_xy_m"] = [coordinates.copy()]
