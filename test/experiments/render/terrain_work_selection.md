@@ -264,3 +264,25 @@ hierarchy to the native path. No new native path is adopted.
 python3 test/experiments/render/verify_terrain_patch_tree.py
 python3 test/experiments/render/terrain_patch_tree.py --pages "$PAGES" --scenario "$SCENARIO" --output "$OUTPUT"
 ```
+
+## Redundant coarse vertex normals: rejected
+
+At c178aee92, coarse patch fragments reconstruct the fine normal independently.
+A vertex-shader variant skips four neighbor-height reads for these coarse vertices.
+Fine grids, geometry, indices and the 0.5 px displacement allowance are unchanged.
+Four fresh offline Körbersee processes, A/B/B/A, use 1280×720/30 and exactly
+30 measured frames per rotation. A is the original shader. Metal validation is off;
+the host remains interactive. All four final PNG hashes are df0510ba.
+
+| Run | GPU mean, ms | GPU maximum, ms |
+|---|---:|---:|
+| A1 | 573.3300423 / 30 = 19.1110 | 37.7211 |
+| B1 | 606.0220834 / 30 = 20.2007 | 37.0451 |
+| B2 | 592.0219170 / 30 = 19.7341 | 36.5760 |
+| A2 | 546.6996665 / 30 = 18.2233 | 37.0081 |
+
+Mean GPU cost rises from 18.6672 to 19.9674 ms, or
+(19.9674 / 18.6672 - 1) × 100 = 6.97%. Lower source-level fetch counts do not
+establish lower device work. The variant is rejected and the original shader
+restored. The samples do not identify the hardware cause; GPU peaks remain red.
+Private logs and both shader variants stay in system temp; no product path is added.
