@@ -4,7 +4,8 @@ Owner #451, parent #6, goal #189. This is a cause-isolation experiment, not a
 selected canopy BSDF or a product shader change. GroundMaterialPalette packs
 Ground/Litter but not Grass/Dry/density/height. The removed Sward path previously
 consumed the stand. meadow retains its explicit full RGB precomposition;
-alpine_grassland instead stores limestone plus dry litter without that response.
+the original alpine_grassland recipe instead stored limestone plus dry litter
+without that response. The bounded coarse recipe correction is described below.
 
 The current source supplies alpine_grassland density1165/mÂ², height0.12m,
 width0.011m and dry share0.45. Its graminoid leaf colours are linear RGB
@@ -77,8 +78,11 @@ A first private C++ palette-producer control did not execute on the warm asset
 hit; it emitted no diagnostic marker and retained the baseline PNG byte-for-byte.
 InstallRegion restores the serialized ClassPalette. That attempt is explicitly
 rejected as an unapplied control, not interpreted as absence of visible grass.
-A future producer correction must version the palette-containing native product;
-cache hits must continue loading the completed palette without regenerating it.
+The palette-containing native product must have a distinct identity after a
+recipe change. BindRegionCache already incorporates both complete material and
+vegetation catalogues into the prepared-region rules key. Catalogue edits
+therefore invalidate that product without an extra manual version bump; cache
+hits continue loading the completed palette without regenerating it.
 
 The delivered script reproduces all491SPIR-V artifacts byte-for-byte for each of
 the three actual captures (1473 artifact comparisons); only the21Ground fragments
@@ -131,3 +135,27 @@ Extreme Model Simplification, local PDF page5 (alpha/mip composition, Figures9â€
 optically inspected. Its composited-response/coverage principle is relevant; no
 billboard-cloud algorithm is implemented. The old Sward constants at563af0330
 are historical provenance, not current numerical validation.
+
+## Coarse recipe correction
+
+[PR #645](https://github.com/Weichwolf/outshine/pull/645) restores the existing
+colour-only `swardClosure` for alpine_grassland at0.829. Its provenance explicitly
+retains the historical nadir assumption; every view uses the same coarse
+reflectance. This does not turn the coefficient into a measured directional
+coverage or substitute for the R/T and near/far work in #451. It adds no shader,
+binding, geometry, samples or palette fields. Source class, roughness, relief,
+stand density and species parameters remain unchanged.
+
+The matched native43996faf5 world comparison changes the declared grass slope
+while retaining distinct rock classes. Decoded fresh native regions differ only
+in six palette floats and mean ground albedo: normalizing those two optical
+fields makes both139117357-byte native encodings identical. A separately forced
+fresh original recipe also reproduces its cached PNG byte-for-byte. Both pages
+of the complete image/crop PDF are optically reviewed. These checks isolate the
+recipe effect; that frozen native package is not current-master acceptance.
+
+Original compressed regions, comparator, source/cost logs, native PNGs and PDF
+remain under `/var/tmp/outshine-material-grass-appearance-proof-d90a7e4d8/`.
+Current commit, exact commands, warm/density results and remaining gates belong
+to the PR. Cold preparation is separate from fresh-process warm acceptance;
+failed or missing world/device gates remain open.
