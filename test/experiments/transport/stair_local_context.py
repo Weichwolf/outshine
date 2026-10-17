@@ -79,6 +79,9 @@ def state_for(
         raise ValueError("actual old ground requires its resident source body")
     state = {
         "resident_profile_roots": True,
+        "road_assets": tuple(
+            a for a in assets if a.identity in road_note["local_assets"]
+        ),
         "road": road,
         "road_ground": ground,
         "cached_module_rows": rows,

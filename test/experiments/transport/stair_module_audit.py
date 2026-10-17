@@ -13,7 +13,10 @@ from stair_module_roads import inspect_frames
 from stair_module_topology import check_surface
 from stair_network_geometry import vertex_links
 from stair_road_vehicle import inspect_curves
+from stair_shared_boxes import verify_masks
 from stair_source_owners import source_selection
+from stair_surface_contacts import contact_regions
+from stair_surface_portals import inspect_contacts
 from surface_height_checks import normal_gradients
 from surface_solid_checks import audit_closed
 
@@ -146,8 +149,31 @@ def inspect_pins(data, fixed, values, mode):
         raise ValueError("saved contact heights differ from immutable reference")
 
 
+def junction_pins(data, recipe, rows, nodes, line, contacts, fixed, values):
+    node_checks = []
+    if recipe.get("junction_mode", "free") in ("level_box", "shared_box"):
+        cached_points = [line[1, :2], *[c["xy"] for c in contacts]]
+        plans = plan_heights(
+            rows,
+            nodes,
+            cached_points,
+            include_interiors="vertex" in recipe["port"]
+            or bool(recipe.get("endpoint_contacts")),
+        )
+        fixed, values = apply_heights(
+            data["surface_vertices"][:, :2],
+            fixed,
+            values,
+            plans,
+        )
+        node_checks = inspect_heights(data, plans)
+    return fixed, values, node_checks
+
+
 def audit(state, recipe, data, rows, planning, line, upper):
     nodes, original, domains, masks, old = planning
+    if recipe.get("junction_mode") == "shared_box":
+        verify_masks(rows, nodes, original, masks, line, state["module_contacts"])
     selected = source_selection(
         state, recipe["port"]["source_id"], state["report"]["after"]["source_ids"]
     )
@@ -195,23 +221,10 @@ def audit(state, recipe, data, rows, planning, line, upper):
     fixed, values = contact_pins(
         data["surface_vertices"][:, :2], old, ground, masks, line[1, 2], mode
     )
-    node_checks = []
-    if recipe.get("junction_mode", "free") == "level_box":
-        cached_points = [line[1, :2], *[c["xy"] for c in state["module_contacts"]]]
-        plans = plan_heights(
-            rows,
-            nodes,
-            cached_points,
-            include_interiors="vertex" in recipe["port"]
-            or bool(recipe.get("endpoint_contacts")),
-        )
-        fixed, values = apply_heights(
-            data["surface_vertices"][:, :2],
-            fixed,
-            values,
-            plans,
-        )
-        node_checks = inspect_heights(data, plans)
+    constructed = contact_regions(state.get("surface_contacts", []), original)
+    fixed, values, node_checks = junction_pins(
+        data, recipe, rows, nodes, line, state["module_contacts"], fixed, values
+    )
     inspect_pins(data, fixed, values, mode)
     profile_note = (
         varying_profiles(
@@ -224,6 +237,8 @@ def audit(state, recipe, data, rows, planning, line, upper):
             line,
             contacts=state.get("module_contacts", []),
             root_interior="vertex" in recipe["port"],
+            constructed=constructed,
+            shared_box=recipe.get("junction_mode") == "shared_box",
         )
         if mode == "profile"
         else profiles(
@@ -233,11 +248,17 @@ def audit(state, recipe, data, rows, planning, line, upper):
     clearances = None
     if recipe.get("traffic_mode") == "source_clearance":
         caps = [cap] + [c["cap"] for c in state.get("module_contacts", [])]
+        caps.extend(c["cap"] for c in constructed)
         clearances = source_clearances(data, rows, original, caps, upper)
     elif recipe.get("traffic_mode") is not None:
         raise ValueError("known explicit module traffic mode required")
     return {
         "body": module_body(data, rows, domains),
+        **(
+            {"surface_contacts": inspect_contacts(data, rows, constructed)}
+            if constructed
+            else {}
+        ),
         "reuse": reuse,
         "interfaces": contact,
         **({"new_junction_heights": node_checks} if node_checks else {}),
