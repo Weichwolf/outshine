@@ -6,9 +6,12 @@ import numpy as np
 import shapely
 from shapely.affinity import scale
 from stair_cycle_contacts import profile
+from stair_module_sections import profile_levels, wall_strip
 
 
-def wall_patch(triangles, a, axis, length, low, high, xy_guard):
+def wall_patch(
+    triangles, a, axis, length, low, high, xy_guard, *, expected=None, z_guard=1e-7
+):
     delta = triangles[:, :, :2] - a
     station = delta @ axis
     distance = abs(delta[:, :, 0] * axis[1] - delta[:, :, 1] * axis[0])
@@ -21,7 +24,7 @@ def wall_patch(triangles, a, axis, length, low, high, xy_guard):
     polygons = shapely.polygons(projected)
     positive = shapely.area(polygons) > 1e-14
     polygons, projected = polygons[positive], projected[positive]
-    rectangle = shapely.box(0, 0, length, high - low)
+    rectangle = shapely.box(0, 0, length, high - low) if expected is None else expected
     intersection = shapely.intersection(polygons, rectangle)
     used = shapely.area(intersection) > 1e-14
     if not used.any():
@@ -32,8 +35,8 @@ def wall_patch(triangles, a, axis, length, low, high, xy_guard):
     if len(signs) != 1 or signs[0] == 0:
         raise ValueError("inconsistent module wall orientation")
     cover = shapely.union_all(intersection[used])
-    normalized = scale(cover, xfact=1 / xy_guard, yfact=1e7, origin=(0, 0))
-    envelope = scale(normalized.buffer(1), xfact=xy_guard, yfact=1e-7, origin=(0, 0))
+    normalized = scale(cover, xfact=1 / xy_guard, yfact=1 / z_guard, origin=(0, 0))
+    envelope = scale(normalized.buffer(1), xfact=xy_guard, yfact=z_guard, origin=(0, 0))
     missing = rectangle.difference(envelope).area
     if missing > 1e-7:
         raise ValueError("whole vertical module contact has an uncovered region")
@@ -45,7 +48,7 @@ def wall_patch(triangles, a, axis, length, low, high, xy_guard):
     }
 
 
-def interfaces(old_body, module, old_footprint, domains, height):
+def interfaces(old_body, module, old_footprint, domains, height, *, reference_cap=None):
     desired = old_footprint.boundary.intersection(shapely.union_all(domains).boundary)
     segments = [
         np.array([a, b])
@@ -81,7 +84,7 @@ def interfaces(old_body, module, old_footprint, domains, height):
             # The canonical Double plane stays fixed. Rounding a short segment
             # into a new plane amplifies its angular error along a long old wall.
             broad = 1e-7 + sum(errors) if cast else 1e-7
-            local = []
+            local, local_z = [], []
             for xyz, (vertices, faces) in zip(triangles, inputs, strict=True):
                 delta = xyz[:, :, :2] - a
                 stations = delta @ axis
@@ -92,6 +95,14 @@ def interfaces(old_body, module, old_footprint, domains, height):
                     & (stations.min(axis=1) < length)
                 )
                 ids = np.unique(faces[near])
+                local_z.append(
+                    float(
+                        abs(
+                            vertices[ids, 2].astype("f4").astype(float)
+                            - vertices[ids, 2]
+                        ).max(initial=0)
+                    )
+                )
                 local.append(
                     float(
                         np.linalg.norm(
@@ -105,8 +116,25 @@ def interfaces(old_body, module, old_footprint, domains, height):
             low, high = height - 0.3, height
             if cast:
                 low, high = float(np.float32(low)), float(np.float32(high))
+            expected, z_guard = None, 1e-7
+            if reference_cap is not None:
+                expected, low, z_guard = wall_strip(reference_cap, segment, cast, guard)
+                high = low + expected.bounds[3]
+                if cast:
+                    z_guard += sum(local_z)
             checks = [
-                wall_patch(xyz, a, axis, length, low, high, guard) for xyz in triangles
+                wall_patch(
+                    xyz,
+                    a,
+                    axis,
+                    length,
+                    low,
+                    high,
+                    guard,
+                    expected=expected,
+                    z_guard=z_guard,
+                )
+                for xyz in triangles
             ]
             if checks[0]["orientation"] == checks[1]["orientation"]:
                 raise ValueError("module contact walls are not oppositely oriented")
@@ -115,9 +143,14 @@ def interfaces(old_body, module, old_footprint, domains, height):
                     "float32": cast,
                     "segment_xy_m": segment.tolist(),
                     "length_m": length,
-                    "height_m": high - low,
+                    "height_m": high - low
+                    if expected is None
+                    else expected.area / length,
                     "xy_guard_m": guard,
-                    "z_guard_m": 1e-7,
+                    "z_guard_m": z_guard,
+                    "local_vertex_z_rounding_m": local_z
+                    if reference_cap is not None and cast
+                    else [],
                     "sides": checks,
                 }
             )
@@ -129,7 +162,7 @@ def interfaces(old_body, module, old_footprint, domains, height):
     }
 
 
-def cap_cover(data, owner, mask, line, borrowed, cast):
+def cap_cover(data, owner, mask, line, borrowed, cast, *, piecewise=False):
     vertices = (
         data["surface_vertices"].astype("f4").astype(float)
         if cast
@@ -147,6 +180,8 @@ def cap_cover(data, owner, mask, line, borrowed, cast):
     )
     selected &= shapely.dwithin(shapely.LineString(points), shapes, guard)
     levels = vertices[data["surface_faces"][selected], 2].ravel()
+    if piecewise:
+        levels = profile_levels(vertices, data["surface_faces"][selected], points)
     pieces = list(shapes[selected])
     if not borrowed.is_empty:
         pieces.append(borrowed)
@@ -163,7 +198,9 @@ def cap_cover(data, owner, mask, line, borrowed, cast):
     }
 
 
-def profiles(data, rows, nodes, masks, original, frozen_cap, frozen_line):
+def profiles(
+    data, rows, nodes, masks, original, frozen_cap, frozen_line, *, piecewise=False
+):
     result, outer = [], []
     root = next(
         i for i, n in enumerate(nodes) if np.array_equal(n["xy"], frozen_line[1, :2])
@@ -194,7 +231,13 @@ def profiles(data, rows, nodes, masks, original, frozen_cap, frozen_line):
                     else shapely.Polygon()
                 )
                 levels, note = cap_cover(
-                    data, owner, masks[index], line, owned_borrow, cast
+                    data,
+                    owner,
+                    masks[index],
+                    line,
+                    owned_borrow,
+                    cast,
+                    piecewise=piecewise,
                 )
                 neighbours = [i for i in nodes[index]["incident"] if i != owner]
                 other = []
@@ -204,7 +247,9 @@ def profiles(data, rows, nodes, masks, original, frozen_cap, frozen_line):
                         if index == root
                         else shapely.Polygon()
                     )
-                    value, _ = cap_cover(data, i, masks[index], line, borrow, cast)
+                    value, _ = cap_cover(
+                        data, i, masks[index], line, borrow, cast, piecewise=piecewise
+                    )
                     other.extend(value)
                 both = np.r_[
                     levels,
@@ -225,7 +270,15 @@ def profiles(data, rows, nodes, masks, original, frozen_cap, frozen_line):
             )
             old = shapely.union_all(shapely.polygons(v[frozen_cap.triangles, :2]))
             borrowed = old.intersection(original[owner]).intersection(masks[root])
-            cap_cover(data, owner, masks[root], frozen_line[:, :2], borrowed, cast)
+            cap_cover(
+                data,
+                owner,
+                masks[root],
+                frozen_line[:, :2],
+                borrowed,
+                cast,
+                piecewise=piecewise,
+            )
     return {
         "new_internal_profiles": result,
         "old_profile_completed": True,

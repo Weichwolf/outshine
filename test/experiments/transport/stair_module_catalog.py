@@ -8,7 +8,9 @@ from stair_outer_context import area_catalog
 
 
 def catalog(base, state, rows, sources, layer, domains, context):
-    prior = json.loads((base / "source-catalog.json").read_text())
+    prior = json.loads(
+        state.get("catalog_path", base / "source-catalog.json").read_text()
+    )
     old = set(state["report"]["after"]["source_ids"])
     new = {r["source_id"] for r in rows}
     if (

@@ -9,7 +9,7 @@ from outshine_ref.contracts import Mesh
 
 
 def display(output, base, supports, state, data, terrain, parts, roles):
-    original = dict(np.load(base / "after/display-body.npz"))
+    original = state["road_display"]
     scene = json.loads((supports / "after-overview-scene.json").read_text())
     palette = np.array(scene["colours"])
     actual = Mesh(terrain.vertices.astype("f4"), terrain.triangles)
@@ -29,9 +29,7 @@ def display(output, base, supports, state, data, terrain, parts, roles):
     ]
     shown = append(shown, bodies, palette)
     np.savez_compressed(output / "after-display.npz", **shown)
-    (output / "before-display.npz").symlink_to(
-        (supports / "after-display.npz").resolve()
-    )
+    (output / "before-display.npz").symlink_to(state["before_display_path"].resolve())
     for view in ("overview", "network"):
         camera = dict(scene)
         if view == "network":

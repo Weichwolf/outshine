@@ -4,7 +4,7 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from outshine_ref.geometry import SurfaceSampler
-from outshine_ref.transport import HeightBudget, close_surface
+from outshine_ref.transport import HeightBudget, close_surface, fit_surface_heights
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from outshine_ref.transport.weighted_heights import fit_weighted_heights
 from shared_bridge_geometry import corridor
@@ -12,6 +12,7 @@ from stair_branch_inputs import surface_sampling, surface_welding
 from stair_cycle_contacts import profile
 from stair_junction_layout import arrangement, landings
 from stair_landing_pads import complete_landings
+from stair_module_sections import profile_levels
 from stair_network_inputs import junctions
 
 
@@ -26,7 +27,9 @@ def old_surfaces(state, recipe, sources):
             for triangle in road["body_vertices"][road["bottom_faces"]]
         ]
     )
-    if int(ground.sum()) != int(plan["ground"].sum()):
+    if "road_ground" in state:
+        ground = state["road_ground"]
+    elif int(ground.sum()) != int(plan["ground"].sum()):
         raise ValueError("cached original ground facets are not exact source bottoms")
     key = recipe["port"]["source_id"]
     owner = state["report"]["after"]["source_ids"].index(key)
@@ -39,8 +42,6 @@ def old_surfaces(state, recipe, sources):
         road["body_vertices"][road["bottom_faces"][selected], 2], xyz[:, :, 2] - 0.3
     ):
         raise ValueError("cached source depth is incompatible with this module family")
-    if np.ptp(xyz[:, :, 2]) != 0:
-        raise ValueError("first module family requires a truly flat cached source")
     proposal = [
         p
         for p in state["report"]["after"]["proposed_outer_profiles"]
@@ -62,10 +63,13 @@ def old_surfaces(state, recipe, sources):
         end not in (0, -1)
         or line.shape != (3, 3)
         or not np.allclose(profile(row, end), line[:, :2], rtol=0, atol=1e-8)
-        or not np.all(line[:, 2] == xyz[0, 0, 2])
+        or np.ptp(line[:, 2]) > 1e-7
     ):
-        raise ValueError("cached whole outer profile is shifted or incompatible")
+        raise ValueError("cached whole outer profile is shifted or not locally flat")
     cap = Mesh(road["body_vertices"], faces)
+    levels = profile_levels(cap.vertices, cap.triangles, line[:, :2])
+    if not len(levels) or np.max(abs(levels - line[1, 2])) > 1e-7:
+        raise ValueError("whole actual cached profile must be locally flat")
     sampled = SurfaceSampler(cap).sample(
         line[:, :2], max_queries=3, max_candidates=65536
     )
@@ -83,6 +87,20 @@ def prepared(rows, sources, frozen_row, line, ground):
     nodes = junctions(keys, sources, [], rows)
     anchor = sources[frozen_row["source_id"]]["mvt_xy"][frozen_row["port_end"]]
     root = [n for n in nodes if n["mvt_xy"] == anchor]
+    if not root:
+        incident = [
+            i
+            for i, key in enumerate(keys)
+            if any(sources[key]["mvt_xy"][end] == anchor for end in (0, -1))
+        ]
+        if incident:
+            node = {
+                "mvt_xy": anchor,
+                "xy": list(frozen_row["xy"][frozen_row["port_end"]]),
+                "incident": incident,
+            }
+            nodes.append(node)
+            root = [node]
     if len(root) != 1 or not np.array_equal(root[0]["xy"], line[1, :2]):
         raise ValueError("original shared source node required at frozen endpoint")
     profiles = [line[:, :2]]
@@ -109,31 +127,55 @@ def prepared(rows, sources, frozen_row, line, ground):
     return nodes, original, domains, masks, old
 
 
-def build(rows, sources, frozen_row, line, ground, sample):
+def contact_pins(xy, old, ground, masks, datum, mode):
+    if mode not in ("flat", "piecewise"):
+        raise ValueError("known module contact mode required")
+    touching = shapely.dwithin(old, shapely.points(xy), 1e-7)
+    existing = (
+        SurfaceSampler(ground, xy_tolerance_m=1e-7)
+        .sample(xy[touching], max_queries=4096, max_candidates=65536)
+        .points_enu_m[:, 2]
+        + 0.3
+    )
+    if not np.isfinite(existing).all():
+        raise ValueError("new module contact lacks actual cached ground")
+    if mode == "flat" and not np.allclose(existing, datum, rtol=0, atol=1e-7):
+        raise ValueError("new addition touches nonflat or incompatible existing ground")
+    fixed = touching.copy()
+    for mask in masks:
+        fixed |= shapely.dwithin(mask, shapely.points(xy), 1e-8)
+    values = np.full(len(xy), datum)
+    if mode == "piecewise":
+        values[touching] = existing
+    return fixed, values
+
+
+def build(rows, sources, frozen_row, line, ground, sample, *, contact_mode="flat"):
     nodes, original, domains, masks, old = prepared(
         rows, sources, frozen_row, line, ground
     )
     xy, faces, owners, arrangement_note = arrangement(rows, domains, masks)
     targets = sample(xy)
-    fixed = shapely.dwithin(old, shapely.points(xy), 1e-7)
-    existing = SurfaceSampler(ground, xy_tolerance_m=1e-7).sample(
-        xy[fixed], max_queries=4096, max_candidates=65536
-    )
-    if not np.allclose(
-        existing.points_enu_m[:, 2], line[1, 2] - 0.3, rtol=0, atol=1e-7
-    ):
-        raise ValueError("new addition touches nonflat or incompatible existing ground")
-    for mask in masks:
-        fixed |= shapely.dwithin(mask, shapely.points(xy), 1e-8)
+    fixed, values = contact_pins(xy, old, ground, masks, line[1, 2], contact_mode)
     limits = np.min(np.where(owners, [r["gradient"] for r in rows], np.inf), axis=1)
     frames = np.eye(2)[None] / (limits[:, None, None] - 0.0002)
-    fit = fit_weighted_heights(
-        Mesh(np.c_[xy, targets], faces),
-        frames,
-        reference_datum_m=float(line[1, 2]),
-        fixed_vertices=np.flatnonzero(fixed),
-        budget=HeightBudget(max_vertices=4096, max_faces=8192),
-    )
+    surface = Mesh(np.c_[xy, targets], faces)
+    budget = HeightBudget(max_vertices=4096, max_faces=8192)
+    if contact_mode == "flat":
+        fit = fit_weighted_heights(
+            surface,
+            frames,
+            reference_datum_m=float(line[1, 2]),
+            fixed_vertices=np.flatnonzero(fixed),
+            budget=budget,
+        )
+    else:
+        fit = fit_surface_heights(
+            surface,
+            frames,
+            fixed={int(i): float(values[i]) for i in np.flatnonzero(fixed)},
+            budget=budget,
+        )
     if fit.mesh is None:
         raise ValueError("bounded module height fit failed: " + str(fit.report))
     body = close_surface(fit.mesh, 0.3)
@@ -147,6 +189,8 @@ def build(rows, sources, frozen_row, line, ground, sample):
         "body_vertices": body.vertices,
         "body_faces": body.triangles,
     }
+    if contact_mode == "piecewise":
+        data["fixed_heights"] = values[fixed]
     return (
         data,
         {"arrangement": arrangement_note, "fit": dict(fit.report)},

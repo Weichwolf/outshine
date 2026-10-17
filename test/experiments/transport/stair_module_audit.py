@@ -4,6 +4,7 @@ import numpy as np
 import shapely
 from outshine_ref.contracts import Mesh
 from stair_module_contacts import interfaces, profiles
+from stair_module_geometry import contact_pins
 from stair_network_geometry import vertex_links
 from surface_height_checks import normal_gradients
 from surface_solid_checks import audit_closed
@@ -136,25 +137,44 @@ def audit(state, recipe, data, rows, planning, line, upper):
                 "reused_source_id": recipe["port"]["source_id"],
             }
         )
-    contact = interfaces(state["road"], data, old_cap, domains, float(line[1, 2]))
+    mode = recipe.get("contact_mode", "flat")
+    contact = interfaces(
+        state["road"],
+        data,
+        old_cap,
+        domains,
+        float(line[1, 2]),
+        reference_cap=cap if mode == "piecewise" else None,
+    )
     for component in shapely.get_parts(additions):
         if (
             component.boundary.intersection(old_cap.boundary.buffer(1e-7)).length
             <= 1e-7
         ):
             raise ValueError("detached new module component")
-    points = shapely.points(data["surface_vertices"][:, :2])
-    fixed = shapely.dwithin(old, points, 1e-7)
-    for mask in masks:
-        fixed |= shapely.dwithin(mask, points, 1e-8)
-    if not np.array_equal(fixed, data["fixed"]) or not np.all(
-        data["surface_vertices"][fixed, 2] == line[1, 2]
-    ):
+    ground = Mesh(
+        np.c_[state["plan"]["xy"], state["heights"]],
+        state["plan"]["faces"][state["plan"]["ground"]],
+    )
+    fixed, values = contact_pins(
+        data["surface_vertices"][:, :2], old, ground, masks, line[1, 2], mode
+    )
+    actual = data["surface_vertices"][fixed, 2]
+    pin_ok = (
+        np.array_equal(actual, values[fixed])
+        if mode == "flat"
+        else np.allclose(actual, values[fixed], rtol=0, atol=1e-7)
+    )
+    if not np.array_equal(fixed, data["fixed"]) or not pin_ok:
         raise ValueError("frozen module heights or pin ownership changed")
+    if mode == "piecewise" and not np.array_equal(data["fixed_heights"], values[fixed]):
+        raise ValueError("saved contact heights differ from immutable reference")
     return {
         "body": module_body(data, rows, domains),
         "reuse": reuse,
         "interfaces": contact,
-        "profiles": profiles(data, rows, nodes, masks, original, cap, line),
+        "profiles": profiles(
+            data, rows, nodes, masks, original, cap, line, piecewise=mode == "piecewise"
+        ),
         "traffic": traffic(data, upper, state["piers"]),
     }
