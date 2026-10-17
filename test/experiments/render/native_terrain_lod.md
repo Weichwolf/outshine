@@ -100,6 +100,39 @@ The terrain classifier also walks variable seed/edge lists per pixel. Measure
 that work before choosing a bounded cached field representation. No cached-field
 architecture or classification simplification is admitted by these diagnostics.
 
+## Tighter projection, unchanged positional allowance
+
+`1a45473a8` replaces the row-sum projection estimate with a conservative spectral
+norm over the projected rectangle. The existing 0.5 px Euclidean allowance,
+source errors, expanded bounds, depth bias, normal detail, geometry patterns,
+draw count and metadata layout remain. Nonfinite/underflow cases retain fine
+geometry. [Derivation and independent checks](terrain_projection_bound.md).
+
+The same native binary, cached inputs and 30-frame 1280×720 turn submit on average
+4,722,099.73 terrain triangle references before and 3,943,008.27 after, including
+skirts: (1 - 3,943,008.27 / 4,722,099.73) * 100 = 16.50% less indexed work.
+These are submitted references, not unique vertex invocations. The diagnostic
+Metal interposer measures work separately from normal timing runs.
+
+Two old/new/new/old timing sequences on A18 Pro include the new culler work.
+The first sequence's mean improves 11.82%; the final source's second sequence
+improves 7.98%. GPU maxima remain 41.57–42.00 ms after versus 43.32–43.67 ms
+before; all remain above the 33.333 ms target. A frozen world gate runs on the
+same host, so these are paired development trends, not isolated device acceptance.
+
+Both new captures have identical hashes within their variant. Old and new are
+different: 16.53% of pixels differ, mean RGB-channel error 0.400/255, maximum
+119/255 at a changed shoreline pixel. Opened full images preserve mountain shapes;
+terrain/depth-dependent materials and boundary coverage change with LOD. This is
+not a byte-equivalence claim. The foreground vegetation defects are also present
+in the integrated master shot; this projection change does not repair them.
+
+All eight existing terrain tests passed with the spectral shader. The final
+underflow guard and orthographic/perspective cases pass 566 native checks under
+Metal validation. The unchanged shader package contract passes 517 artifacts and
+12 compute contracts; four Python checks include an independent double SVD oracle.
+All twelve final native Places and remaining budget failures are recorded in #515.
+
 The full f94fadd23 lint completed all 451 C++ units without findings, all 29
 repository guards and format. Its final shader audit rejected 21 new native
 fragment variants solely because it still required SDL fragment resources in
