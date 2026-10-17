@@ -74,14 +74,17 @@ remain substantial real work.
 
 ## Controls, actual consumers and images
 
-37 source/37 installed affected controls pass with `-W error`. Nine new controls
+38 source/38 installed affected controls pass with `-W error`. Ten new controls
 include the real versioned old-cap/height counterexample, whole mask/owner/XYZ
 bindings, false motor claims/clearance, exact upper/lower seam, missing/shortened/
 changed extra rows, same conflict service as full duplicate volumes, exhausted
 facet budgets, changed prefix lineage, retained refusals and injected nonempty
 zero-area clipping results. Producer/reader refuse such results; detecting GEOS
-results that already became empty remains part of the general precision limit. Original cap
-fixtures remain unchanged. The additional counterexample is
+results that already became empty remains part of the general precision limit. An additional existing SITE-consumer control covers a free root/old walking
+band with an overhanging whole plant envelope in the new upper car band: the
+plant is refused before graph emission, while pure ceiling contact stays free.
+This is an analytic consumer counterexample, not a newly observed real planting.
+Original cap fixtures remain unchanged. The additional counterexample is
 `fixtures/stair-shared-headroom-vienna.json`.
 
 Normal fresh/reuse CLI exports terminate0. Initial and final independent source
