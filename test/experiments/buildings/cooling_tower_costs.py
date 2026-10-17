@@ -91,7 +91,7 @@ def costs(output):
                 "load_start": load,
                 "load_end": os.getloadavg(),
                 "logical_cpus": os.cpu_count(),
-                "scope": "Normal-priority shared-host first/21 subsequent calls plus separate traced peak. Same complete111-component construction and standard UV/normal/material contract; independent support solids/metric UVs checked, UV charts need not be identical. Source/classification/planning, CSG union, smooth draw normals and export excluded. Final array counts/bytes are not all native allocations, copied traffic, cache or GPU/frame/device evidence.",
+                "scope": "Normal-priority shared-host first/21 subsequent calls plus separate traced peak. Same complete112-component construction and standard UV/normal/material contract; independent support solids/metric UVs checked, UV charts need not be identical. Source/classification/planning, CSG union, smooth draw normals and export excluded. Final array counts/bytes are not all native allocations, copied traffic, cache or GPU/frame/device evidence.",
             },
             indent=2,
         )

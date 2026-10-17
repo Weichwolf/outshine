@@ -50,8 +50,9 @@ def smooth_shell(mesh, source):
 
 def components(plan, *, error_m=0.2, beam_builder=beam):
     values = {}
-    for profile in (plan.shell, plan.footing, plan.rim):
-        result = radial_mesh(profile, error_m=error_m)
+    for profile in (plan.shell, plan.footing, plan.collector, plan.rim):
+        error = min(error_m, 0.2) if profile is plan.collector else error_m
+        result = radial_mesh(profile, error_m=error)
         values[profile.identifier] = result.mesh
     for support in plan.supports:
         values[support.identifier] = beam_builder(support, plan.source.materials[0])

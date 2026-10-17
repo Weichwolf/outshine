@@ -55,7 +55,7 @@ class CoolingTowers(unittest.TestCase):
         for (row, programme), parts, solid in zip(
             self.cases, self.parts, self.solids, strict=True
         ):
-            self.assertEqual(len(parts), 3 + 2 * programme.bays)
+            self.assertEqual(len(parts), 4 + 2 * programme.bays)
             self.assertEqual(len(solid.decompose()), 1)
             self.assertGreater(solid.volume(), 0)
             low, high = programme.source.knots[0][0], programme.source.knots[-1][0]
@@ -88,6 +88,30 @@ class CoolingTowers(unittest.TestCase):
                 self.assertGreater(swept.volume(), 1)
                 self.assertEqual((solid ^ swept).volume(), 0)
                 self.assertGreater((old ^ swept).volume(), 0.1)
+
+    def test_near_and_coarse_products_keep_connected_structure_and_open_passage(self):
+        for _row, programme in self.cases:
+            for error in (0.05, 1.0):
+                parts = components(programme, error_m=error)
+                solid = manifold.Manifold.batch_boolean(
+                    [native(mesh) for mesh in parts.values()], manifold.OpType.Add
+                )
+                self.assertEqual(len(solid.decompose()), 1)
+                for bay in range(programme.bays):
+                    self.assertEqual((solid ^ passage(programme, bay)).volume(), 0)
+
+    def test_support_heads_stay_inside_the_collector_in_every_detail_product(self):
+        for _row, programme in self.cases:
+            for error in (0.05, 0.2, 1.0):
+                parts = components(programme, error_m=error)
+                collector = native(parts[programme.collector.identifier])
+                bottom = programme.collector.knots[0][0]
+                for support in programme.supports:
+                    head = native(parts[support.identifier]).trim_by_plane(
+                        (0, 0, 1), bottom
+                    )
+                    self.assertGreater(head.volume(), 0)
+                    self.assertLess((head - collector).volume(), 1e-9)
 
     def test_smooth_normals_preserve_geometry_uv_material_and_physical_product(self):
         for (_row, programme), physical in zip(self.cases, self.parts, strict=True):

@@ -43,6 +43,14 @@ def sections(output):
         axes[0, 1].fill_between(
             [-4, 4], low, low + 0.18, color="#607c68", label="foundation level"
         )
+        axes[0, 1].fill_between(
+            [-4, 4],
+            programme.collector.knots[0][0],
+            programme.collector.knots[-1][0],
+            color="#176f89",
+            alpha=0.5,
+            label="collector projection",
+        )
         for support in programme.supports[:2]:
             mesh = beam(support, 1)
             points = np.c_[

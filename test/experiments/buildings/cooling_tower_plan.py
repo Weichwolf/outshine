@@ -20,6 +20,7 @@ class CoolingTower:
     source: RadialProfile
     shell: RadialProfile
     footing: RadialProfile
+    collector: RadialProfile
     rim: RadialProfile
     supports: tuple
     bays: int
@@ -43,6 +44,17 @@ def plan(source):
         source.identifier + ":footing",
         source.centre_xy,
         ((bottom, radius, radius - 1.2), (bottom + 0.18, radius, radius - 1.2)),
+        source.materials,
+    )
+    if cut[1] + 0.6 > radius:
+        raise ValueError("Cooling collector would escape the original inscribed disk")
+    collector = RadialProfile(
+        source.identifier + ":collector",
+        source.centre_xy,
+        (
+            (intake - 0.5, cut[1] + 0.6, cut[1] - 1.0),
+            (intake + 0.1, cut[1] + 0.6, cut[1] - 1.0),
+        ),
         source.materials,
     )
     upper_radius = values[-1, 1]
@@ -74,8 +86,8 @@ def plan(source):
                 Support(
                     f"{source.identifier}:bay-{bay}:support-{side}",
                     (*low, bottom + 0.09),
-                    (*high, intake + 0.22),
+                    (*high, intake - 0.2),
                     0.65,
                 )
             )
-    return CoolingTower(source, shell, footing, rim, tuple(supports), bays)
+    return CoolingTower(source, shell, footing, collector, rim, tuple(supports), bays)
