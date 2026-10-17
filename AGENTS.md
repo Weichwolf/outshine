@@ -248,7 +248,9 @@
   prüfe ich als Architekturfehler; gemischte Integrationsprüfungen erhalten einen eigenen Ort.
 - Code: Format, betroffene Tests, fokussiertes clang-tidy samt abhängigen Units; Shaderverträge und
   betroffene Places prüfen. Volles Lint am Integrationsende und bei API-/Modul-/Build-/Prüfregeländerung,
-  nicht je Kleincommit. Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
+  nicht je Kleincommit. Fokussiertes clang-tidy nutzt die vollständigen Flags aus der aktuellen
+  Kompilationsdatenbank; handgekürzte Aufrufe sind kein gleichwertiger Nachweis.
+  Nur Docs: `make lint-docs`; das schließt keine offenen Engine-Gates.
   Während Python-Verfahrensexperimenten laufen deren lokale Prüfungen; native Gates folgen der Integration.
   Lokale Tests bauen nur ihre benötigten Komponenten. Modul-, Speicher-, Nebenläufigkeits- und
   Render-/Places-Prüfungen bleiben gezielt aufrufbar; Vollsuite und Instrumentierung sind getrennte Aufträge.
