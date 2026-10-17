@@ -83,6 +83,7 @@ def run(args):
         )
         values.append(result)
     if values[0] != values[1]:
+        args.output.with_suffix(".differences.json").write_text(json.dumps(values, indent=2) + "\n")
         raise ValueError("equal fixed SITE result comparison failed")
     report = {
         "commit": commit,
