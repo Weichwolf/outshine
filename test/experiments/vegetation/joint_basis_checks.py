@@ -6,7 +6,7 @@ from unittest.mock import patch
 import numpy as np
 from joint_basis_mips import analyse
 from joint_basis_reduction import fit_report
-from joint_basis_study import view_light_knots
+from joint_basis_study import study_views, view_light_knots
 from joint_light_measure import JointMeasure
 from needle_area_checks import sheet
 from needle_area_light import integrate
@@ -15,6 +15,17 @@ from scatter_scene import ScatterScene
 
 
 class PositiveBasisTests(unittest.TestCase):
+    def test_camera_inputs_are_owned_normalized_and_rejected_before_source_work(self):
+        original = np.array([[-1.0, 0.1, 0.2], [0.4, -0.7, 0.5], [0.5, 0.3, -0.8]])
+        before = original.copy()
+        views = study_views(original)
+        np.testing.assert_array_equal(original, before)
+        self.assertFalse(np.shares_memory(original, views))
+        np.testing.assert_allclose(np.linalg.norm(views, axis=1), 1, atol=1e-14)
+        for invalid in (np.zeros((3, 3)), np.ones((1, 3)), np.full((3, 3), np.nan)):
+            with self.assertRaises(ValueError):
+                study_views(invalid)
+
     def test_octahedral_cone_coefficients_preserve_linear_light_and_knots(self):
         knots = np.r_[np.eye(3), -np.eye(3)]
         queries = np.array([[1.0, 2, 3], [-2.0, 1, -3]])
