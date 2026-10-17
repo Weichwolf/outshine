@@ -24,6 +24,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   Wiener Gegenfall des begrenzten Bodenmoduls und unveränderte Flächenprüfung.
 - [Begrenztes Bodenmodul](stair_module_comparison.md): vier neue ganze Quellen,
   tatsächliche alte/neue Wandkontakte und lokales Terrain am gespeicherten 32er Körper.
+- [Weitere Modulstufe](stair_module_chain_comparison.md): geprüften Bestand weiterverwenden,
+  einzelne feste Seitenkontakthöhen und einen ganzen ursprünglichen Radweg ergänzen.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.
