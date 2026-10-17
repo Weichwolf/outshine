@@ -22,20 +22,40 @@ from stair_patch_inputs import fresh
 from stair_terrain_experiment import frozen
 
 
+def baseline_binding(args, manifest):
+    before = json.loads((args.baseline / "comparison.json").read_text())
+    receipt_path = args.baseline / "verification.json"
+    if receipt_path.exists():
+        receipt = json.loads(receipt_path.read_text())
+        valid = (
+            receipt.get("valid_local_module") is True
+            and receipt["products_report_sha256"]
+            == digest(args.baseline / "comparison.json")
+            and before["origin_lat_lon"] == manifest["origin_lat_lon"]
+        )
+    else:
+        equality = before.get("equality", {})
+        parent = args.prior_module[-1] if args.prior_module else None
+        valid = (
+            parent is not None
+            and before.get("resident_sha256") == manifest["root_resident_sha256"]
+            and equality.get("local_report_sha256")
+            == digest(parent / "comparison.json")
+            and equality.get("local_verification_sha256")
+            == digest(parent / "verification.json")
+            and equality.get("module_local_field_all_arrays_bit_exact") is True
+            and equality.get("exact_face_attributes") is True
+        )
+    if not valid or before["candidate_source_ids"] != manifest["source_ids"]:
+        raise ValueError("independently verified whole reference source/frame required")
+    return before
+
+
 def reference_state(args):
     view, assets, supports, contacts, manifest = load_chain(
         args.resident, args.prior_module
     )
-    before = json.loads((args.baseline / "comparison.json").read_text())
-    receipt = json.loads((args.baseline / "verification.json").read_text())
-    if (
-        receipt.get("valid_local_module") is not True
-        or receipt["products_report_sha256"]
-        != digest(args.baseline / "comparison.json")
-        or before["candidate_source_ids"] != manifest["source_ids"]
-        or before["origin_lat_lon"] != manifest["origin_lat_lon"]
-    ):
-        raise ValueError("independently verified whole reference source/frame required")
+    before = baseline_binding(args, manifest)
     for name in ("world-layout.npz", "world-field.npz", "world-body.npz"):
         if before["artifacts"][name] != digest(args.baseline / name):
             raise ValueError("whole reference input geometry changed")
@@ -49,6 +69,7 @@ def reference_state(args):
     if keys != manifest["source_ids"]:
         raise ValueError("diagnostic whole reference needs every original road asset")
     state = {
+        "resident_profile_roots": True,
         "road": road,
         "road_ground": ground,
         "cached_module_rows": rows,

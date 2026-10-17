@@ -4,7 +4,7 @@ import numpy as np
 from outshine_ref.transport.junction_pads import profile_junction_pad
 from stair_cycle_contacts import profile
 from stair_landing_pads import node_profiles
-from stair_module_loops import interior_profile
+from stair_module_loops import actual_profile, interior_profile
 
 
 def root_profile(state, recipe, sources):
@@ -23,14 +23,20 @@ def root_profile(state, recipe, sources):
         if set(port) != {"source_id", "end"} or port["end"] not in (0, -1):
             raise ValueError("explicit original outer endpoint required")
         index = port["end"]
-        choices = [
-            p
-            for p in state["report"]["after"]["proposed_outer_profiles"]
-            if p["source_id"] == key
-        ]
-        if len(choices) != 1:
-            raise ValueError("one unambiguous cached outer endpoint required")
-        line = np.array(choices[0]["proposed_vertices_enu_m"])
+        if state.get("resident_profile_roots"):
+            vertex = 0 if index == 0 else len(sources[key]["mvt_xy"]) - 1
+            line = actual_profile(state, sources, key, vertex, interior=False)[
+                "profile"
+            ]
+        else:
+            choices = [
+                p
+                for p in state["report"]["after"]["proposed_outer_profiles"]
+                if p["source_id"] == key
+            ]
+            if len(choices) != 1:
+                raise ValueError("one unambiguous cached outer endpoint required")
+            line = np.array(choices[0]["proposed_vertices_enu_m"])
     row = {
         "xy": np.array(sources[key]["xy_m"]),
         "source_id": key,
