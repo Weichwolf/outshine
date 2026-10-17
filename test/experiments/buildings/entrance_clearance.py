@@ -10,7 +10,10 @@ from structural_shell_geometry import native
 
 
 def collision(parts):
-    solids = [native({k: p[k] for k in ("vertices", "faces")}) for p in parts]
+    solids = [
+        native({k: p[k] for k in ("vertices", "faces")}, p.get("vertex_roots"))
+        for p in parts
+    ]
     result = manifold.Manifold.batch_boolean(solids, manifold.OpType.Add)
     if result.status() != manifold.Error.NoError:
         raise ValueError("Entrance assembly is not a valid solid")
@@ -36,8 +39,6 @@ def clearance(entry, parts, *, floor_z_m=0.16, outside_m=0.8, inside_m=1.5):
     triangles = vertices[np.asarray(mesh.tri_verts)]
     n = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
     n /= np.linalg.norm(n, axis=1, keepdims=True)
-    if not np.all((abs(n[:, 2]) < 1e-8) | (abs(abs(n[:, 2]) - 1) < 1e-8)):
-        raise ValueError("Arrival-tube proof requires actual vertical prisms")
     centre, tangent = (
         np.asarray(entry["door"]["centre"]),
         np.asarray(entry["door"]["tangent"]),
@@ -47,6 +48,17 @@ def clearance(entry, parts, *, floor_z_m=0.16, outside_m=0.8, inside_m=1.5):
     radius_factor = 1 / math.cos(math.pi / (4 * 32))
     torso = path.buffer(0.30 * radius_factor, quad_segs=32)
     feet = path.buffer(0.10 * radius_factor, quad_segs=32)
+    for i in np.flatnonzero((abs(n[:, 2]) >= 1e-8) & (abs(abs(n[:, 2]) - 1) >= 1e-8)):
+        triangle = triangles[i]
+        if (
+            triangle[:, 2].max() <= floor_z_m + 1e-7
+            or triangle[:, 2].min() >= floor_z_m + 1.90
+        ):
+            continue
+        if shapely.MultiPoint(triangle[:, :2]).convex_hull.intersects(torso):
+            raise ValueError(
+                "Arrival-tube proof requires actual vertical prisms near the actor"
+            )
     scaled = solid.scale((1000.0,) * 3)
     floor = section(scaled, floor_z_m - 1e-7)
     if feet.difference(floor).area > 1e-8:
