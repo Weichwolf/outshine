@@ -15,6 +15,24 @@ Attributes are independently owned immutable byte-backed arrays. Meshes follow
 the existing immutable `Mesh` contract and remain shared by identity.
 `bounds_xy_m` supplies conservative resident geometry bounds.
 
+The strict constructor first tries a sufficient planar boundary witness (#678).
+After the same finite-coordinate, index, upward-face and single-height checks,
+oppositely directed full internal edges must cancel, leaving one simple CCW
+cycle. Robust GEOS orientation checks every triangle in blocks of at most1024.
+Winding-number additivity then excludes positive-area overlap and missing
+interior coverage. Edge-work temporaries expire before ring-orientation batches.
+Holes, disconnected/touching components and any unavailable witness still use
+the general GEOS coverage predicate. No persisted validity flag, public signature,
+geometry, attribute ownership or replacement tolerance changes.
+
+Starting points: Lipman, [SIGGRAPH2012, section5/theorem5.1](https://www.wisdom.weizmann.ac.il/~ylipman/BoundedDistortion/bounded_distortion_may_1.pdf)
+and [SIIMS2014, theorem1/figure1](https://www.wisdom.weizmann.ac.il/~ylipman/2014_SIIMS_bijective_93975.pdf).
+The relevant PDF pages5and4 were inspected visually. Positive triangle
+orientation alone is insufficient; our exact oriented-chain argument requires
+the entire simple boundary as well. The general manifold theorem is not invoked
+as a substitute for checking these input conditions. Tests retain independent
+GEOS decisions and exact rational orientation adversaries.
+
 `SurfacePatches(root, max_patches=1024)` starts one finite resident surface.
 `view.replace(patch, removals, max_removed=2048, max_new_faces=8192)` returns a
 new immutable view and work report. `removals` maps old patch IDs to distinct,
