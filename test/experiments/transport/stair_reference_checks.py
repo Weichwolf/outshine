@@ -1,4 +1,4 @@
-"""Whole seed geometry keeps asset ownership without a global 64-bit owner mask."""
+"""Whole geometry keeps actual asset ownership without a global 64-bit owner mask."""
 
 import hashlib
 import unittest

@@ -64,8 +64,9 @@ selection 2.775322 / 2.820152 s is one shared-host run, not a universal win.
 65 sources / 13264 closed body facets / 550992 B geometry arrays. It retains
 each asset's local owner matrix, source IDs and owner hash; it constructs **no
 global owner bitmask**. This is only the seed diagnostic control, whose checks
-read old geometry. Attached controls still use the existing at-most-64-source
-temporary mask. Normal generator limits remain 16 local assets / 64 local
+read old geometry. At this frozen revision, attached controls still used the
+at-most-64-source temporary mask; the later [shared-root control](stair_shared_root_comparison.md)
+supports attached geometry through asset-local owners. Normal generator limits remain 16 local assets / 64 local
 sources / 32768 body faces, not a larger production working set.
 
 The new control independently fits and assembles the complete field. All
