@@ -10,6 +10,13 @@ from ._patch import SurfacePatch, boundary, readonly
 from ._query import faces, query, region_query
 
 
+def _same_coverage(before, after):
+    """Both regions inherit valid coverage from strict patches and exact-edge composition."""
+    old = shapely.coverage_union_all(before)
+    new = shapely.coverage_union_all(after)
+    return old.symmetric_difference(new).area <= 1e-7
+
+
 @dataclass(frozen=True, slots=True, init=False, eq=False)
 class SurfacePatches:
     patches: tuple[SurfacePatch, ...]
@@ -71,8 +78,7 @@ class SurfacePatches:
         edges = {edge for edge, count in counts.items() if count == 1}
         if edges != boundary(patch.mesh, np.arange(len(patch.mesh.triangles))):
             raise ValueError("replacement changes whole exact XYZ boundary edges")
-        region = shapely.union_all(old_polygons)
-        if region.symmetric_difference(shapely.union_all(patch._polygons)).area > 1e-7:
+        if not _same_coverage(old_polygons, patch._polygons):
             raise ValueError("replacement changes whole selected XY coverage")
         active, copied = list(self._active), 0
         for i, indices in chosen.items():

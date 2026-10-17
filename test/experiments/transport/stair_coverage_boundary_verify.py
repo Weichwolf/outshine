@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from camera_height_inputs import digest
+from stair_composition_scope import composition
 from stair_coverage_boundary_scope import validation
 from stair_local_generate import run as generate
 from stair_local_replay import load_chain
@@ -24,7 +25,7 @@ from stair_terrain_experiment import frozen
 def verify(args):
     commit = frozen()
     fresh(args.output)
-    with validation("general", []):
+    with validation("general", []), composition("general", []):
         strict = load_chain(args.resident)
     records = []
     with validation(args.coverage, records):
@@ -66,7 +67,7 @@ def verify(args):
     for name, expected in original["artifacts"].items():
         if digest(args.reference / name) != expected:
             raise ValueError("original complete generation artifact changed")
-    with validation("general", []):
+    with validation("general", []), composition("general", []):
         cold_verify(options)
     receipt = json.loads((args.output / "verification.json").read_text())
     if not receipt["valid_local_module"]:
@@ -74,6 +75,7 @@ def verify(args):
     result = {
         "reader_commit": commit,
         "coverage": args.coverage,
+        "independent_composition": "general_union",
         "resident_sha256": digest(args.resident / "resident.json"),
         "original_report_sha256": digest(args.reference / "comparison.json"),
         "state_sha256": expected_hash,
