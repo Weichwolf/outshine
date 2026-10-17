@@ -102,21 +102,22 @@ that fresh reader and nice-priority tests; these are different operations, not
 equal-cost speedup estimates. Generator/reader orchestration is capped at
 300 CPU seconds / 3 GiB address space, individual full control at 120 / 3 GiB.
 
-Selection comparisons preload the same verified inputs before timing/tracking;
-they briefly overlap separate diagnostic export setup. All four selections
+The delivered selection benchmark is frozen at
+`edd6909ba46490bd4027d8d0909a4c734ace8dbf`. It preloads the same verified
+inputs before timing/tracking and runs after earlier workers finish. All four selections
 (normal/profiled × index/scan) have identical recipes. Memray 1.20.0 tracks
 native/Python allocations, Python allocators on, native call stacks off;
 official statistics return terminal zero with fresh completed JSON metadata.
 
 | Selection | Indexed | Complete scan |
 |---|---:|---:|
-| Normal seconds | 0.170307 | 0.238539 |
-| Profiled seconds | 0.472028 | 0.761348 |
+| Normal seconds | 0.114058 | 0.163417 |
+| Profiled seconds | 0.336487 | 0.428716 |
 | Node lookups | 91 | 91 |
 | Incidence/node comparisons | 141 | 141869 |
-| Allocation events | 570003 | 782411 |
-| Cumulative requested bytes | 57353864 | 65811338 |
-| Peak traced live heap, B | 1527908 | 1293152 |
+| Allocation events | 569996 | 782411 |
+| Cumulative requested bytes | 57353480 | 65811322 |
+| Peak traced live heap, B | 1527909 | 1291788 |
 
 Different counters describe different work; requested bytes are not copied
 bytes/RSS. Tracker excludes preloaded inputs/imports. Normal timings are not
@@ -127,6 +128,8 @@ bits / 10408 body faces / 463008 B arrays. Changed old masks contain 3230 B;
 copy/immutable backing makes two passes. The existing solver and explicit
 terrain welding/index/copy counters remain in the report; other GEOS/Python/
 solver copied bytes are not fully measured. No frame/device/runtime bound.
+Benchmark process peak RSS includes preload: 132055040 B. Recipe digest in all
+four runs: `5c39d5f46babf3b5d9f78fc0598bfe30b48edc5b6d0bfef5d1167b45fcfa805f`.
 
 Four fresh complete 1280×720 3D before/after PNGs were decoded, bound to actual
 scene/mesh hashes and opened. Overview changes 198 RGB pixels / 921600, network
@@ -146,7 +149,9 @@ Accepted automatic output: `/tmp/outshine-transport-growth-full-89b394227/`;
 actual module/images are in `outshine-module-0/`. Complete independent output:
 `/tmp/outshine-transport-growth-reference-317c709ec/`. Commands, terminal logs,
 allocation traces/statistics, counterexamples and image/pixel receipts:
-`/tmp/outshine-transport-growth-89b394227/`. Preserve the original source and
+`/tmp/outshine-transport-growth-89b394227/`. Current benchmark reports, original
+allocation traces/statistics: `/tmp/outshine-transport-growth-cost-frozen/`.
+Preserve the original source and
 53/55-source parent inputs from #547. Superseded derived attempts are compacted;
 required original inputs and accepted products remain.
 
@@ -160,6 +165,18 @@ diagnostic baseline, bound to the actual prior report/reader and all payloads.
 new recipe/local result. `stair_local_display.py` additionally takes explicit
 `--before VERIFIED55/display/after-display.npz`; compare its four scene JSONs
 using the existing research renderer and `test/scripts/pixels.py`.
+
+`stair_growth_compare.py --resident PREPARED53 --prior-module VERIFIED55
+--output FRESH_TMP --profile` reproduces the equal-recipe benchmark; the optional
+Memray module must be available. Its two traces can be inspected with the
+official `memray stats --json` CLI. No runtime dependency is added.
+
+Accepted automatic report SHA256:
+`52529feb5ec7a9194cfa33783493de9db30f0706c7fcb4abac5f5c3840b52238`;
+actual module report:
+`da0047434b439a2ce4e0ea97c8ac4eff6c82a9f9bcb4a65b01ad5fbe9ab799d4`;
+complete independent report:
+`8027a356c5040a5e2aa1c58add180b35401ba7b4401458b07abb1d499e5061af`.
 
 Automatic persistent seed/module growth, richer contacts/profiles/levels,
 global ports/routes/frames, worldwide coverage, reservations/LOD/streaming,
