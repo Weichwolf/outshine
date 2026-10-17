@@ -10,6 +10,7 @@ import shapely
 from stair_frontier_endpoints import endpoint_bindings
 from stair_module_cache import remaining_outer_profiles
 from stair_module_loops import frozen_contacts, interior_profile, prepare_contacts
+from stair_module_roots import bind_root_pad
 from stair_module_through import through_sides
 from stair_module_trace import compare
 
@@ -45,6 +46,25 @@ def original_end():
 
 
 class EndThroughContacts(unittest.TestCase):
+    def test_shared_root_uses_one_complete_hull_for_both_frozen_profiles(self):
+        rows = [{"source_id": "new", "xy": np.array([[0, 0], [10, 0]]), "width_m": 2}]
+        node = {"mvt_xy": [0, 0], "xy": [0, 0], "incident": [0]}
+        line = np.array([[-2, -2, 1], [0, 0, 1], [2, 2, 1]])
+        other = np.array([[-2, 2], [0, 0], [2, -2]])
+        bind_root_pad(rows, node, line, cached_profiles=[other])
+        pads = rows[0]["junction_pads_xy_m"]
+        self.assertEqual(len(pads), 1)
+        pad = shapely.Polygon(pads[0])
+        self.assertTrue(
+            pad.equals(
+                shapely.MultiPoint(
+                    np.vstack([line[:, :2], other, [[0, -1], [0, 0], [0, 1]]])
+                ).convex_hull
+            )
+        )
+        with self.assertRaises(ValueError):
+            bind_root_pad(rows, node, line, cached_profiles=[other + [0.001, 0]])
+
     def test_actual_shared_root_keeps_the_other_cached_endpoint(self):
         path = (
             Path(__file__).parent / "fixtures/stair-shared-root-endpoints-vienna.json"

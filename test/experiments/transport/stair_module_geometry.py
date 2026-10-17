@@ -100,8 +100,16 @@ def prepared(rows, sources, frozen_row, line, ground):
             root = [node]
     if len(root) != 1 or not np.array_equal(root[0]["xy"], line[1, :2]):
         raise ValueError("original shared source node required at frozen endpoint")
-    bind_root_pad(rows, root[0], line, include_interiors=frozen_row["root_interior"])
-    prepare_contacts(rows, nodes, frozen_row.get("additional_contacts", []))
+    contacts = frozen_row.get("additional_contacts", [])
+    at_root = [c for c in contacts if c["mvt_xy"] == anchor]
+    bind_root_pad(
+        rows,
+        root[0],
+        line,
+        include_interiors=frozen_row["root_interior"],
+        cached_profiles=[c["profile"][:, :2] for c in at_root],
+    )
+    prepare_contacts(rows, nodes, [c for c in contacts if c["mvt_xy"] != anchor])
     complete_landings(
         rows, nodes, [], max_pads=16, include_interiors=frozen_row["include_interiors"]
     )
