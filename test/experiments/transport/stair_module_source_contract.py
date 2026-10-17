@@ -19,6 +19,10 @@ def shared_nodes(rows, sources, recipe, contacts):
         endpoint = any(v in (0, len(rows[i]["xy"]) - 1) for i, v in found)
         if len(incident) > 1 and endpoint:
             expected[mvt] = incident
+    if recipe.get("contact_mode") == "seed":
+        if "port" in recipe or contacts:
+            raise ValueError("independent seed cannot claim cached source contacts")
+        return expected, positions, None
     port = recipe["port"]
     index = port["vertex"] if "vertex" in port else port["end"]
     root = tuple(sources[port["source_id"]]["mvt_xy"][index])
@@ -32,8 +36,12 @@ def shared_nodes(rows, sources, recipe, contacts):
 
 
 def verify_source_contract(rows, sources, recipe, contacts, frozen_line, nodes):
-    port = recipe["port"]
-    include_interiors = "vertex" in port or bool(recipe.get("endpoint_contacts"))
+    port = recipe.get("port", {})
+    include_interiors = (
+        recipe.get("contact_mode") == "seed"
+        or "vertex" in port
+        or bool(recipe.get("endpoint_contacts"))
+    )
     expected, positions, root = shared_nodes(rows, sources, recipe, contacts)
     if (
         len(nodes) != len(expected)

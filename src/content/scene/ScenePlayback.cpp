@@ -43,9 +43,6 @@ void ScenePlayback::Clear() {
 void ScenePlayback::SetGeometry(outshine::Geometry &&geometry) {
   Clear();
   Geometry_ = std::move(geometry);
-  Asset asset;
-  asset.Snapshot = Geometry_.clone();
-  Assets_.push_back(std::move(asset));
   HasGeometry_ = true;
 }
 
@@ -94,7 +91,7 @@ bool ScenePlayback::Load(const AssetRequest &asset,
     return false;
   }
   importedAsset.RefreshCamera();
-  if (Assets_.empty()) {
+  if (Assets_.empty() && !HasGeometry_) {
     importedAsset.Revision_ = Revision_ + 1;
     *this = std::move(importedAsset);
     return true;
@@ -106,11 +103,23 @@ bool ScenePlayback::Load(const AssetRequest &asset,
 }
 
 bool ScenePlayback::Append(ScenePlayback &&more, std::string &error) {
+  const bool staticBase = Assets_.empty() && HasGeometry_;
+  const bool staticAddition = more.Assets_.empty() && more.HasGeometry_;
   std::vector<outshine::Geometry> snapshots;
-  snapshots.reserve(Assets_.size() + more.Assets_.size());
+  snapshots.reserve(Assets_.size() + more.Assets_.size() + size_t{staticBase} +
+                    size_t{staticAddition});
+  if (staticBase) { snapshots.push_back(Geometry_.clone()); }
   for (const Asset &asset : Assets_) { snapshots.push_back(asset.Snapshot.clone()); }
+  if (staticAddition) { snapshots.push_back(more.Geometry_.clone()); }
   for (const Asset &asset : more.Assets_) { snapshots.push_back(asset.Snapshot.clone()); }
   if (!Rebuild(snapshots, error)) { return false; }
+  const auto retain = [&](outshine::Geometry &&snapshot) {
+    Asset asset;
+    asset.Snapshot = std::move(snapshot);
+    Assets_.push_back(std::move(asset));
+  };
+  if (staticBase) { retain(std::move(snapshots.front())); }
+  if (staticAddition) { retain(std::move(snapshots.back())); }
   Assets_.insert(Assets_.end(),
                  std::make_move_iterator(more.Assets_.begin()),
                  std::make_move_iterator(more.Assets_.end()));
@@ -126,7 +135,7 @@ bool ScenePlayback::Sample(double seconds, std::string &error) {
 }
 
 bool ScenePlayback::PoseInto(double seconds, std::string &error) {
-  if (Assets_.empty()) { return true; }
+  if (Assets_.empty() && !HasGeometry_) { return true; }
   if (!Animated_) {
     TimeS_ = seconds;
     return true;
