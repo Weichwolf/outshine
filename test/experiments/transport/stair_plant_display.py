@@ -46,24 +46,39 @@ def run(args):
         [*scene["colours"], [0.26, 0.15, 0.07, 1], [0.055, 0.22, 0.075, 1]]
     )
     wood_slot, leaf_slot = len(palette) - 2, len(palette) - 1
-    shown = append(base, [(body, leaf_slot) for body in bodies], palette)
-    start = len(base["triangles"])
-    for _body in bodies:
-        slots = np.where(leaf, leaf_slot, wood_slot)
-        shown["materials"][start : start + len(leaf)] = slots
-        shown["face_base_colour_linear_rgba"][start : start + len(leaf)] = palette[
-            slots
-        ]
-        start += len(leaf)
-    for phase, arrays in (("before", base), ("after", shown)):
-        path = args.output / (phase + ".npz")
-        np.savez_compressed(path, **arrays)
+    path = args.output / "base.npz"
+    np.savez_compressed(path, **base)
+    common = {
+        "id": "Wien-transport-buildings",
+        "mesh": str(path.resolve()),
+        "mesh_sha256": digest(path),
+        "colours": palette.tolist(),
+    }
+    plant_rows = []
+    empty = {key: value[:0] for key, value in base.items()}
+    slots = np.where(leaf, leaf_slot, wood_slot)
+    for i, body in enumerate(bodies):
+        shown = append(empty, [(body, leaf_slot)], palette)
+        shown["materials"][:] = slots
+        shown["face_base_colour_linear_rgba"][:] = palette[slots]
+        path = args.output / f"plant-{i}.npz"
+        np.savez_compressed(path, **shown)
+        plant_rows.append(
+            {
+                "id": f"physical-plant-{i}",
+                "mesh": str(path.resolve()),
+                "mesh_sha256": digest(path),
+                "colours": palette.tolist(),
+            }
+        )
+    for phase, parts in (("before", [common]), ("after", [common, *plant_rows])):
         row = dict(
             scene,
             id="Wien-actual-plants-" + phase,
+            mesh=common["mesh"],
+            mesh_sha256=common["mesh_sha256"],
             colours=palette.tolist(),
-            mesh=str(path.resolve()),
-            mesh_sha256=digest(path),
+            bodies=parts,
             output=str((args.output / (phase + ".png")).resolve()),
         )
         (args.output / (phase + "-scene.json")).write_text(
