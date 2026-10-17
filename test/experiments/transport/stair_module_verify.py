@@ -37,6 +37,7 @@ def saved_planning(output, original, ground):
             "crossfall_limit",
             "traffic_profile",
             "horizontal_curve_plan",
+            "source_grid_m",
         ):
             if before.get(key) != after.get(key):
                 raise ValueError("explicit procedural road profile changed")

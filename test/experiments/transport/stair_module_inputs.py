@@ -120,6 +120,9 @@ def inputs(path=FIXTURE):
         raise ValueError("one to eight unique whole new sources required")
     profiles = reference_profiles()
     rows = []
+    grid = recipe.get("seed_grid_m")
+    if grid is not None and (recipe.get("contact_mode") != "seed" or grid != 2**-11):
+        raise ValueError("binary source grid belongs only to the explicit seed family")
     bindings = recipe.get("source_profiles", {})
     if not isinstance(bindings, dict) or not set(bindings) <= set(keys):
         raise ValueError("explicit profiles may bind only selected original sources")
@@ -156,6 +159,7 @@ def inputs(path=FIXTURE):
                     "source": {"feature": source["original_feature"]},
                 },
                 **extra,
+                **({"source_grid_m": grid} if grid is not None else {}),
             }
         )
     return recipe, rows, context, sources, sample, layer
