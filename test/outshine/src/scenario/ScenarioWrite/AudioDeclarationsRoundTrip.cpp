@@ -28,8 +28,10 @@ int main() {
             source.Sounds[0].Graph[0].Processor == Audio::ProcessorKind::Mix &&
             source.Sounds[0].Graph[1].Processor == Audio::ProcessorKind::Noise,
         "literal processors retain meaning");
-  source.Buses.push_back(
-      {.Id = "a&<\"'\t\n\r", .Output = "master", .GainDb = -0.12345678901234567});
+  source.Buses.emplace_back();
+  source.Buses.back().Id = "a&<\"'\t\n\r";
+  source.Buses.back().Output = "master";
+  source.Buses.back().GainDb = -0.12345678901234567;
   auto &sound = source.Sounds[0];
   sound.Id = "id&\"";
   sound.Uri = "file<&\t\n\r";

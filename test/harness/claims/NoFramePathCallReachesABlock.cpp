@@ -68,9 +68,9 @@ constexpr Forbidden kStepForbidden[] = {
     {"StitchedGrid", "a terrain build, which fetches and allocates"},
     {"_Znwm", "operator new: an allocation the step cannot bound"},
     {"_Znam", "operator new[]: the same"},
-    {"_malloc", "the same, reached through C"},
-    {"_fopen", "disk"},
-    {"_pread", "disk"},
+    {"malloc", "the same, reached through C"},
+    {"fopen", "disk"},
+    {"pread", "disk"},
 };
 
 // THE PICTURE'S LIST IS SHORTER, AND THAT IS A DECISION RATHER THAN A WEAKENING. Unreal's render
@@ -92,8 +92,8 @@ constexpr Forbidden kPictureForbidden[] = {
      "stay legitimate and unlisted: the frame-pacing wait on the fence of the frame that held "
      "this ring slot kFramesInFlight ago, which Unreal (RHIWaitForFrame) and RAGE both do, and "
      "the wait a client's readPixels asks for by name"},
-    {"_fopen", "disk"},
-    {"_pread", "disk"},
+    {"fopen", "disk"},
+    {"pread", "disk"},
 };
 
 [[nodiscard]] std::string Demangled(const std::string &symbol) {

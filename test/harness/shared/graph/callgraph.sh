@@ -12,7 +12,50 @@ work=$2
 rm -rf "$work"
 mkdir -p "$work"
 ( cd "$work" && ar x "$archive" )
+platform=$(uname -s)
 for object in "$work"/*.o; do
+  if [ "$platform" = Linux ]; then
+    objdump -dr "$object" > "$work/disassembly"
+    awk '
+      BEGIN { count = 0 }
+      /^Disassembly of section / {
+        section = $4
+        sub(/:$/, "", section)
+        caller = ""
+      }
+      /^[0-9a-f]+ <[^>]+>:/ {
+        caller = $0
+        sub(/^[^<]*</, "", caller)
+        sub(/>:.*/, "", caller)
+        owner[section] = caller
+        owners[section]++
+      }
+      /^[[:space:]]*[0-9a-f]+:[[:space:]]+R_[A-Za-z0-9_]+[[:space:]]/ {
+        source[count] = caller
+        target[count] = $NF
+        sub(/[+-]0x[0-9a-f]+$/, "", target[count])
+        count++
+        next
+      }
+      /[[:space:]](callq?|jmpq?|bl|b)[[:space:]]/ {
+        if (match($0, /<[^>]+>/)) {
+          source[count] = caller
+          target[count] = substr($0, RSTART + 1, RLENGTH - 2)
+          sub(/\+0x[0-9a-f]+$/, "", target[count])
+          count++
+        }
+      }
+      END {
+        for (i = 0; i < count; i++) {
+          into = target[i]
+          if (owners[into] == 1) { into = owner[into] }
+          if (source[i] != "" && into ~ /^[A-Za-z_]/ && source[i] != into) {
+            print source[i] "\t" into
+          }
+        }
+      }' "$work/disassembly"
+    continue
+  fi
   nm -n "$object" 2>/dev/null | awk '$2 == "t" || $2 == "T" { if ($3 !~ /^ltmp/) print $1, $3 }' \
     > "$work/syms"
   objdump -dr "$object" 2>/dev/null |
