@@ -1,7 +1,6 @@
 """Batched metrical rectangles for the same flat frame/glazing/sill coverage."""
 
 import numpy as np
-
 from outshine_ref.buildings.rooflight_panels import triangle_surface
 
 

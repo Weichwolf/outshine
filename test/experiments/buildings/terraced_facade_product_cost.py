@@ -1,26 +1,25 @@
 """Same-input polygonal/batched/reused exterior costs with optional original heap traces."""
 
 import argparse
-from contextlib import nullcontext
 import gc
 import hashlib
 import json
-from pathlib import Path
 import resource
 import time
+from contextlib import nullcontext
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 import shapely
-
+import terraced_facade_flat as flat
+import terraced_facade_surface as surface
 from demand import View
 from evidence import revision
 from terraced_facade_geometry import build_facade
-import terraced_facade_flat as flat
 from terraced_facade_prepare import prepare
 from terraced_facade_product_compare import reference
 from terraced_facade_products import FacadeProducts
-import terraced_facade_surface as surface
 from terraced_mass_plan import plan
 from terraced_mass_sources import sources
 

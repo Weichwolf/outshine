@@ -6,15 +6,14 @@ from types import MappingProxyType
 
 import numpy as np
 import shapely
-
 from building_layout import rectangle
 from building_mesh import solid
 from building_plan import FLOOR_M
 from outshine_ref.buildings.modelling.faces import Face, compile_faces
 from outshine_ref.buildings.modelling.prism_union import frozen
 from outshine_ref.buildings.rooflight_panels import triangle_surface
-from terraced_facade_prepare import positions
 from terraced_facade_flat import windows as flat_windows
+from terraced_facade_prepare import positions
 
 
 @dataclass(frozen=True)

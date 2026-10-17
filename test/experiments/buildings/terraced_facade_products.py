@@ -4,11 +4,10 @@ import math
 
 import numpy as np
 import shapely
-
 from demand import displacement_error
+from outshine_ref.buildings.modelling.prism_union import frozen
 from terraced_facade_geometry import build_facade
 from terraced_facade_surface import compact
-from outshine_ref.buildings.modelling.prism_union import frozen
 
 EXTERIOR_RADIUS_M = 0.35
 POSITION_LIMIT_PX = 0.5

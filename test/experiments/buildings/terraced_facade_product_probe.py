@@ -7,7 +7,6 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-
 from demand import View
 from evidence import revision
 from industrial_relief_probe import camera

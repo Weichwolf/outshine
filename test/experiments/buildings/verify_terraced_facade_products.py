@@ -1,12 +1,11 @@
 """Independent direct-surface measures and actual demand-before-expansion controls."""
 
-from dataclasses import replace
 import unittest
+from dataclasses import replace
 from unittest.mock import patch
 
 import numpy as np
 import shapely
-
 from demand import View
 from terraced_facade_geometry import build_facade
 from terraced_facade_prepare import prepare
@@ -116,20 +115,24 @@ class FacadeProductTests(unittest.TestCase):
             "properties": {"render_height": 54, "building:levels": 18},
         }
         mass = plan(row, "cascade")
-        with patch(
-            "terraced_facade_geometry.build",
-            side_effect=AssertionError("unneeded floor build"),
+        with (
+            patch(
+                "terraced_facade_geometry.build",
+                side_effect=AssertionError("unneeded floor build"),
+            ),
+            self.assertRaisesRegex(ValueError, "exceeds768"),
         ):
-            with self.assertRaisesRegex(ValueError, "exceeds768"):
-                build_facade(mass)
+            build_facade(mass)
 
     def test_wrong_blueprint_rejected_before_expansion(self):
-        with patch(
-            "terraced_facade_geometry.build",
-            side_effect=AssertionError("unneeded floor build"),
+        with (
+            patch(
+                "terraced_facade_geometry.build",
+                side_effect=AssertionError("unneeded floor build"),
+            ),
+            self.assertRaisesRegex(ValueError, "different source mass"),
         ):
-            with self.assertRaisesRegex(ValueError, "different source mass"):
-                build_facade(self.plans[0].mass, prepared=self.plans[1])
+            build_facade(self.plans[0].mass, prepared=self.plans[1])
 
     def test_rotation_movement_and_interaction_reuse_one_owner_without_replanning(self):
         p = self.plans[0]

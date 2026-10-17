@@ -3,7 +3,6 @@
 from dataclasses import dataclass, replace
 
 import numpy as np
-
 from terraced_facade_plan import candidates
 from terraced_mass_frame import local_plan
 

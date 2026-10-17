@@ -3,13 +3,12 @@
 from dataclasses import dataclass, replace
 
 import shapely
-
 from outshine_ref.buildings.modelling import PrismVolume
 from outshine_ref.buildings.modelling.prism_cut import subtract_prisms
+from terraced_facade_details import details
+from terraced_facade_prepare import positions, prepare, world_facade
 from terraced_mass_frame import placed, placed_cut
 from terraced_mass_rooms import build
-from terraced_facade_details import details
-from terraced_facade_prepare import prepare, positions, world_facade
 
 
 @dataclass(frozen=True)

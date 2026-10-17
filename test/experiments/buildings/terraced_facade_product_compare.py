@@ -1,20 +1,19 @@
 """Compare the discarded polygonal prototype with identical batched facade coverage."""
 
 import argparse
-import importlib.util
 import hashlib
+import importlib.util
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
 import shapely
-
+from evidence import revision
 from terraced_facade_prepare import prepare
 from terraced_facade_surface import compact
 from terraced_mass_plan import plan
 from terraced_mass_sources import sources
-from evidence import revision
 
 
 def reference(path):
