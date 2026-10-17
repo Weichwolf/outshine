@@ -99,12 +99,20 @@ def proposals(data, proto, domain, canonical, rows, query):
     lower, side, region_id = canonical
     ledger, pool = [], []
     bounds = np.asarray(proto["bounds_m"])
-    for row in rows:
+    original_order = {r["id"]: i for i, r in enumerate(rows)}
+
+    def distance(row):
+        i = int(query.tree.nearest(row["polygon"]))
+        return float(row["polygon"].distance(query.shapes[i])), row["id"]
+
+    for row in sorted(rows, key=distance):
         entry = {k: v for k, v in row.items() if k != "polygon"}
         entry["sites"] = []
         try:
-            if row["properties"].get("class") != "wood":
-                raise OccupancyError("young Pinus pilot requests wood sources only")
+            if row["properties"].get("class") not in ("wood", "grass"):
+                raise OccupancyError(
+                    "young planting pilot requires supplied grass/wood habitat"
+                )
             if len(pool) + 16 > 1024:
                 raise OccupancyError("explicit proposal budget exhausted")
             support = polygonal_conflict(row["polygon"].intersection(domain))
@@ -156,7 +164,9 @@ def proposals(data, proto, domain, canonical, rows, query):
         except (OccupancyError, ValueError, shapely.errors.GEOSException) as error:
             entry.update(state="deferred", reason=str(error))
         ledger.append(entry)
-    return sorted(pool, key=lambda p: p[:3]), ledger
+    return sorted(pool, key=lambda p: p[:3]), sorted(
+        ledger, key=lambda r: original_order[r["id"]]
+    )
 
 
 def plants(data, query, proto, *, max_plants=4, max_attempts=128):
@@ -209,6 +219,7 @@ def plants(data, query, proto, *, max_plants=4, max_attempts=128):
             "canonical_region": canonical,
             "proposals": len(pool),
             "max_proposals": 1024,
+            "habitat_policy": "Procedural young Pinus planting on supplied grass/wood, no botanical observation; source and root proposals nearest actual volumes first",
             "selection": "nearest XY distance to actual transport/building volumes, then source-part/site key; height/crown still checked",
         },
     )
