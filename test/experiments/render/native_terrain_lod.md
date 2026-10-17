@@ -72,3 +72,39 @@ plus 16 bytes per active patch bound. GPU flag/slot/selected streams now hold
 four uint regions, not one; `HeldBytes` includes those buffers and staging.
 This is additional memory, not a saving inferred from fewer triangles.
 Full CPU/GPU/device budgets and repeated image/cost comparisons remain open.
+
+## Follow-up isolation
+
+All twelve native Places were rendered at the same profile on f94fadd23. Eight
+GPU maxima remain below 33.333 ms; Koerbersee 43.410, Rosenheim 36.372,
+Feldkirch 34.015 and Malcesine 34.122 ms remain above it. This is a measured
+integration trend, not uniform improvement or completed device acceptance.
+
+Temporary shader-only diagnostics preserve geometry and the full camera turn.
+They change material/normal output and can change downstream shading; they are
+not admissible quality or budget runs. Original shader hashes and normal PNGs
+were restored after every diagnostic.
+
+| Koerbersee diagnostic | GPU mean / max ms |
+|---|---:|
+| Constant terrain fragment | 19.147 / 34.971 |
+| Fine-normal reconstruction bypass | 19.967 / 42.755 |
+| Rock detail bypass | 23.978 / 39.425 |
+| Substrate detail bypass | 22.368 / 43.085 |
+
+A separate exact factorization of lattice hash multiplications kept the PNG
+byte-identical but measured 23.017 / 43.134 ms. No clear speedup: not adopted.
+Only timestamp counters are exposed by this A18 Pro's Metal counter API;
+triangle references must not be called actual vertex invocations.
+The terrain classifier also walks variable seed/edge lists per pixel. Measure
+that work before choosing a bounded cached field representation. No cached-field
+architecture or classification simplification is admitted by these diagnostics.
+
+The full f94fadd23 lint completed all 451 C++ units without findings, all 29
+repository guards and format. Its final shader audit rejected 21 new native
+fragment variants solely because it still required SDL fragment resources in
+set 2. The native backends explicitly support shared/sparse graphics bindings
+and reject uncontracted storage writes. The audit is migrated to that actual
+contract, retaining duplicate/write/array negatives and all compute conventions.
+The focused package audit passes all 517 artifacts, 12 compute contracts and
+11 positive/negative audit tests. A new complete integration lint remains required.
