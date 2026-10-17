@@ -10,6 +10,8 @@
 
 namespace outshine::Generators::Weather {
 
+inline constexpr size_t kCloudFrameFieldBytes = 16;
+
 struct alignas(16) CloudFrame {
   std::array<float, 4> Shell{};
   std::array<float, 4> Field{};
@@ -22,14 +24,14 @@ struct alignas(16) CloudFrame {
 
 static_assert(sizeof(float) == 4 && sizeof(uint32_t) == 4);
 static_assert(std::is_standard_layout_v<CloudFrame> && std::is_trivially_copyable_v<CloudFrame>);
-static_assert(sizeof(CloudFrame) == 112 && alignof(CloudFrame) == 16);
+static_assert(sizeof(CloudFrame) == 7 * kCloudFrameFieldBytes && alignof(CloudFrame) == 16);
 static_assert(offsetof(CloudFrame, Shell) == 0);
 static_assert(offsetof(CloudFrame, Field) == 16);
 static_assert(offsetof(CloudFrame, CoordinateOrigin) == 32);
-static_assert(offsetof(CloudFrame, BroadBase) == 48);
+static_assert(offsetof(CloudFrame, BroadBase) == 3 * kCloudFrameFieldBytes);
 static_assert(offsetof(CloudFrame, BroadFraction) == 64);
-static_assert(offsetof(CloudFrame, DetailBase) == 80);
-static_assert(offsetof(CloudFrame, DetailFraction) == 96);
+static_assert(offsetof(CloudFrame, DetailBase) == 5 * kCloudFrameFieldBytes);
+static_assert(offsetof(CloudFrame, DetailFraction) == 6 * kCloudFrameFieldBytes);
 
 enum class CloudFrameFailure { InvalidLayer, InvalidPhase, InvalidOrigin, Unrepresentable };
 

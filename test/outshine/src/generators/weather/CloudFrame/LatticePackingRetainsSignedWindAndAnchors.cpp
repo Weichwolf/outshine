@@ -8,7 +8,8 @@
 #include <cstdint>
 #include <limits>
 
-int main() {
+namespace {
+void CheckLattices() {
   using namespace outshine;
   using namespace outshine::Generators::Weather;
   using namespace outshine::Test;
@@ -59,6 +60,18 @@ int main() {
       }
     }
   }
+}
+}
+
+int main() {
+  using namespace outshine;
+  using namespace outshine::Generators::Weather;
+  using namespace outshine::Test;
+  CheckLattices();
+  constexpr double kBaseM = 2572.0;
+  constexpr double kCover = 0.65;
+  constexpr double kVelocityMs = 8.0;
+  constexpr double kMonthS = 32.0 * 86400.0;
   CloudLayer layer{.BaseM = kBaseM, .Cover = kCover, .WindMs = {{kVelocityMs, 0.0, 0.0}}};
   const auto first = MakeCloudFrame(layer, kMonthS);
   for (const double rate : {30.0, 60.0}) {

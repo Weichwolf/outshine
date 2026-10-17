@@ -3,6 +3,7 @@
 
 #include <array>
 #include <bit>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <ios>
@@ -25,8 +26,9 @@ int main(int argc, char **argv) {
   std::ifstream input(argv[1], std::ios::binary | std::ios::ate);
   const auto bytes = input ? static_cast<std::streamoff>(input.tellg()) : -1;
   std::array<double, kInputValues> values;
-  CHECK(bytes == sizeof(values), "the bounded original input contains thirteen FP64 values");
-  if (bytes != sizeof(values)) { return Report(); }
+  constexpr auto kInputBytes = static_cast<std::streamoff>(sizeof(values));
+  CHECK(bytes == kInputBytes, "the bounded original input contains thirteen FP64 values");
+  if (bytes != kInputBytes) { return Report(); }
   input.seekg(0);
   CHECK(input.read(reinterpret_cast<char *>(values.data()), sizeof(values)),
         "all original physical parameters are read");
