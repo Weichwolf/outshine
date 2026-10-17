@@ -10,12 +10,18 @@ import gpu
 import numpy as np
 from mathutils import Vector
 from normal_component_material import material
+from normal_view_images import ViewImages
+from normal_view_uv import local_uv
 from window_portrait_blender import bind_mesh
 
 
-def run(output, cases=("flat", "rotated", "mixture", "mixture-back")):
+def run(
+    output, cases=("flat", "rotated", "mixture", "mixture-back"), *, storage="atlas"
+):
     if not output.resolve().is_relative_to(Path("/tmp")):
         raise ValueError("private output must be under/tmp")
+    if storage not in ("atlas", "view"):
+        raise ValueError("declared atlas or view binding required")
     output.mkdir(parents=True, exist_ok=False)
     records = []
     for case in cases:
@@ -35,18 +41,22 @@ def run(output, cases=("flat", "rotated", "mixture", "mixture-back")):
         for mode in ("mean", "four"):
             began = time.perf_counter()
             bpy.ops.wm.read_factory_settings(use_empty=True)
+            count = 1 if storage == "view" else 64
             surface = material(
-                vectors,
-                images,
-                np.tile(np.eye(3), (64, 1, 1)),
+                vectors[:count],
+                images[:count],
+                np.tile(np.eye(3), (count, 1, 1)),
                 [-1, 0, 0] if case == "mixture-back" else [1, 0, 0],
                 mode,
+                **({"image_factory": ViewImages(0)} if storage == "view" else {}),
             )
             vertices = (
                 np.array([[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]], float)
                 @ rotation.T
             )
             uv = np.array([[4, 4], [36, 4], [36, 36], [4, 36]], float) / 320
+            if storage == "view":
+                uv = local_uv(uv, np.array([0]))
             bind_mesh(
                 "scalar control",
                 {
@@ -92,6 +102,7 @@ def run(output, cases=("flat", "rotated", "mixture", "mixture-back")):
                 {
                     "case": case,
                     "mode": mode,
+                    "storage": storage,
                     "expected_linear": expected,
                     "maximum_error": error,
                     "renderer": gpu.platform.renderer_get(),
@@ -105,6 +116,7 @@ def run(output, cases=("flat", "rotated", "mixture", "mixture-back")):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--storage", choices=("atlas", "view"), default="atlas")
     parser.add_argument(
         "--case", choices=("flat", "rotated", "mixture", "mixture-back")
     )
@@ -112,4 +124,5 @@ if __name__ == "__main__":
     run(
         args.output,
         (args.case,) if args.case else ("flat", "rotated", "mixture", "mixture-back"),
+        storage=args.storage,
     )
