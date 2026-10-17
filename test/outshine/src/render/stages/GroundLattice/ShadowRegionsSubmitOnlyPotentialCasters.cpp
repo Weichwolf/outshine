@@ -77,7 +77,7 @@ void RoundedCentre(Device &device, GroundLattice &ground) {
       RetryOffline([&] { return ground.SetInstances({&tile, 1}, {}); }, std::chrono::seconds(5)));
   CountingCommands commands(Require(device.Begin()));
   StageSubmission submission;
-  const PassRecording into{.Commands = &commands, .Submission = submission};
+  const PassRecording into{.Commands = &commands, .Submission = submission, .Area = {}, .Clip = {}};
   const Mat4f narrow{{1000, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -20, 0, 0, 1}};
   Require(ground.Cast(into, narrow, {{-1000000, 0, 0, 0}}, {}));
   CHECK(
@@ -93,7 +93,7 @@ void CastCases(Device &device, GroundLattice &ground) {
                        std::chrono::seconds(5)));
   CountingCommands commands(Require(device.Begin()));
   StageSubmission submission;
-  const PassRecording into{.Commands = &commands, .Submission = submission};
+  const PassRecording into{.Commands = &commands, .Submission = submission, .Area = {}, .Clip = {}};
   const Mat4f identity{{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
   Require(ground.Cast(into, identity, {}, {}));
   CheckRuns(commands);
