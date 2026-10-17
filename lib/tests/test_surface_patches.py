@@ -3,6 +3,7 @@
 import unittest
 
 import numpy as np
+import shapely
 from outshine_ref.contracts import LocalFrame, Mesh
 from outshine_ref.geometry import SurfaceSampler
 from outshine_ref.geometry.surface_patches import SurfacePatch, SurfacePatches
@@ -32,6 +33,62 @@ def refined(name, *, border_shift=0, kind="terrain", frame=FRAME):
 
 
 class ExactSurfacePatches(unittest.TestCase):
+    def test_distance_query_excludes_bbox_corner_and_matches_scan(self):
+        view = SurfacePatches(patch("root1"))
+        point = shapely.Point(2.3, 2.3)
+        self.assertIsNotNone(view.query([1.9, 1.9, 2.7, 2.7]).mesh)
+        self.assertEqual(view.nearby(point, 0.4).reason, "outside_surface")
+        indexed, scanned = (
+            view.nearby(point, 0.5),
+            view.nearby(point, 0.5, method="scan"),
+        )
+        self.assertEqual(indexed.face_keys, scanned.face_keys)
+        np.testing.assert_array_equal(indexed.mesh.vertices, scanned.mesh.vertices)
+        self.assertEqual(len(indexed.face_keys), 2)
+        touch = view.nearby(shapely.Point(2, 1), 0)
+        self.assertEqual(touch.face_keys, (("root1", 0),))
+
+    def test_distance_query_returns_no_partial_surface_when_budgets_fail(self):
+        view = SurfacePatches(patch("root1"))
+        point = shapely.Point(1, 1)
+        for kwargs, reason in (
+            ({"max_faces": 1}, "local_face_budget_exhausted"),
+            ({"max_candidates": 0}, "candidate_budget_exhausted"),
+        ):
+            result = view.nearby(point, 1, **kwargs)
+            self.assertIsNone(result.mesh)
+            self.assertEqual(result.face_keys, ())
+            self.assertEqual(result.reason, reason)
+
+    def test_distance_query_requires_finite_valid_xy_geometry(self):
+        view = SurfacePatches(patch("root1"))
+        for shape, distance in (
+            (shapely.Point(), 0),
+            (shapely.Point(1, 1, 1), 0),
+            (shapely.Point(1, 1), -1),
+            (shapely.Point(1, 1), np.inf),
+        ):
+            with self.assertRaises(ValueError):
+                view.nearby(shape, distance)
+        self.assertEqual(
+            view.query([1e12, 1e12, 1e12 + 1, 1e12 + 1]).reason, "outside_surface"
+        )
+
+    def test_face_keys_are_canonical_and_reject_duplicates_stale_and_unknown(self):
+        root = patch("root1")
+        original = SurfacePatches(root)
+        result = original.faces([("root1", 1), ("root1", 0)])
+        self.assertEqual(result.face_keys, (("root1", 0), ("root1", 1)))
+        updated, _note = original.replace(refined("next2"), {"root1": [0, 1]})
+        for keys in ([("root1", 0)], [("next2", 0), ("next2", 0)], [("missing", 0)]):
+            with self.assertRaises(ValueError):
+                updated.faces(keys)
+        self.assertIsNotNone(original.faces([("root1", 0)]).mesh)
+        self.assertEqual(
+            original.faces([("root1", 0), ("root1", 1)], max_faces=1).reason,
+            "local_face_budget_exhausted",
+        )
+
     def test_a_real_hole_cannot_be_filled_by_replacement(self):
         xy = np.array([[0, 0], [4, 0], [4, 4], [0, 4], [1, 1], [3, 1], [3, 3], [1, 3]])
         faces = np.array(
