@@ -44,6 +44,8 @@ def prepare(prepared, output, repetitions):
         "<f4"
     )
     parameters.tofile(output / "parameters.f32")
+    if (len(materials) * cells * repetitions + 2) * PROBE.itemsize > 64 * 1024 * 1024:
+        raise ValueError("query data exceeds the native harness64MiB input bound")
     probes = np.zeros(len(materials) * cells * repetitions + 2, PROBE)
     probes["cell"][:-2] = np.tile(np.arange(cells), len(materials) * repetitions)
     probes["state"][:-2] = np.tile(

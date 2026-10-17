@@ -62,7 +62,7 @@ def query_states(directions):
         energies.append(energy)
         names.append(name)
     rng = np.random.default_rng(451)
-    for trial in range(16):
+    for trial in range(17):
         material = rng.uniform(0, 1, (3, 3))
         material[:2] /= max(1, material[0].max() + material[1].max())
         if trial == 0:

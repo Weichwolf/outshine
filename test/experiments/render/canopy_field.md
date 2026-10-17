@@ -20,6 +20,8 @@ The original65536 face/height/normal contacts and complete finite stand remain
 authoritative. Gaps select ground nodes, never a fictitious leaf. No per-cell
 logical IDs replace the original sources. Footprint is the authored tangent
 frame grass-study-ground-1, east view(sqrt(3)/2,0,0.5), six fixed upper directions.
+The returned diffuse response already contains substrate and must be composed
+once for that population, including any later resolved-blade handoff.
 The whole nodal model uses288256 nodes/284162 finite triangles, a black external
 boundary and one neighbour exchange; continuous transport and exact direct
 shading at arbitrary contact positions are not established.
@@ -44,18 +46,19 @@ This is an actual native Vulkan component proof, not current-master world or
 Metal/A18 acceptance. C++ product and harness sources are unchanged; new
 experiment Python/GLSL are formatted, linted and checked. No new C++ tidy scope.
 
-Twenty states: front/back, no local transmission, white ground with absorbing
-black leaves, black input and15 further bounded RGB material/light controls.
+Twenty-one states: front/back, no local transmission, white ground with absorbing
+black leaves, black input and16 further bounded RGB material/light controls.
 Full nodal outgoing and neighbour fields are evaluated before spatial filtering.
-F64 field max error5.56e−16 versus preset1e−12; rounded coefficient error3.84e−8.
+F64 field max error6.67e−16 versus preset1e−12; rounded coefficient error4.17e−8.
 Mip coefficient mean error4.45e−9; unchanged mean limit1e−6. A separate comparison
 with the exact old #632 source preserves all576512 footprint weights bytewise.
 
 RTX3060, Linux x86_64/NVIDIA615.71.09, Vulkan validation1.4.309 enabled:
-109220 valid plus2 invalid queries cover all states/levels. Native component
-error1.30e−7; final direct+neighbour RGB error1.49e−7 versus preset1e−6. Invalid
-records, output padding and all black states are exactly zero. Nineteen repeated
-sets retain the same numerical result over2075180 valid queries plus2 invalid.
+114681 valid plus2 invalid queries cover all states/levels. Native component
+error1.30e−7; final direct+neighbour RGB error1.82e−7 versus preset1e−6. Invalid
+records, output padding and all black states are exactly zero. An oversized
+query batch is rejected before probe allocation or GPU startup (64MiB bound). Eighteen repeated
+sets retain the same numerical result over2064258 valid queries plus2 invalid.
 These are repeated material queries, not2075180 distinct geometry observations.
 
 Both pages of the actual GPU-output PDF are optically opened: reference/native
@@ -70,16 +73,16 @@ No scene-raster, natural grass, motion or Place-quality acceptance follows.
 |---|---:|
 | Geometric field payload,64² |1179648B|
 | Seven-level geometric payload |1572768B|
-| Preparation / whole20-state proof |12.34s /23.62s|
-| Producer process peak RSS |480595968B|
+| Preparation / whole21-state proof |12.98s /24.96s|
+| Producer process peak RSS |480804864B|
 | Full direct geometry fields / link arrays |83017728B /9224192B|
-| Small native declared buffers / copy commands |17130528B /8565264B|
-| Small32-dispatch GPU sum / full GPU batch |2.468704ms /3.258304ms|
-| Large native declared buffers / copy commands |268773408B /134386704B|
-| Large32-dispatch GPU sum / full GPU batch |42.214528ms /55.414112ms|
+| Small native declared buffers / copy commands |17829752B /8914876B|
+| Small32-dispatch GPU sum / full GPU batch |2.571264ms /3.617792ms|
+| Large native declared buffers / copy commands |267375608B /133687804B|
+| Large32-dispatch GPU sum / full GPU batch |42.011648ms /55.428832ms|
 
 Native full batches include upload,32 repeated dispatches and readback. Dispatch
-means are0.077147/1.319204ms, not frame p99. Buffer counts include staging and
+means are0.080352/1.312864ms, not frame p99. Buffer counts include staging and
 readback; they are declared bytes, not measured physical VRAM peaks. CPU memcpy
 into staging additionally copies parameters+probes once. Field preparation also
 allocates gathered65536×3 Float64 arrays(1572864B each), a65536×9 quadratic
@@ -110,10 +113,10 @@ PYTHONPATH=lib/src:test/experiments/vegetation \
   python test/experiments/render/canopy_field_view.py --inputs /tmp/outshine-material-field-gpu --output /tmp/outshine-material-field-view
 ```
 
-Add --repeat-queries 19 for the large native workload. Original contact inputs:
+Add --repeat-queries 18 for the large native workload. Original contact inputs:
 `/tmp/outshine-material-canopy-response-inputs-5aeb4f802/`. Current prepared data:
-`/tmp/outshine-material-canopy-field-gap-8f1cf23e3/`; native results:
-`/tmp/outshine-material-canopy-field-gpu-final-8f1cf23e3/` and sibling gpu-cost.
+`/tmp/outshine-material-canopy-field-complete-8f1cf23e3/`; native results:
+`/tmp/outshine-material-canopy-field-gpu-complete-8f1cf23e3/` and sibling gpu-benchmark.
 Compiler/format/reflection/regression logs:
 `/tmp/outshine-material-canopy-field-proof-8f1cf23e3/`. Actual images/PDF:
 `/tmp/outshine-material-canopy-field-view-final-8f1cf23e3/`.
