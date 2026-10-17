@@ -4,10 +4,13 @@ import argparse
 import json
 import time
 from pathlib import Path
+from unittest.mock import patch
 
 import manifold3d as manifold
 import numpy as np
 import shapely
+import terraced_terrace_geometry as geometry
+import terraced_terrace_plan as planning
 from evidence import revision
 from outshine_ref.buildings.modelling import PrismVolume
 from outshine_ref.buildings.modelling.prism_union import primitive_mesh
@@ -87,6 +90,59 @@ def compare():
     return rows
 
 
+def assemblies():
+    rows = []
+    for index, row in enumerate(sources()):
+        for kind in ("cascade", "paired-wings"):
+            mass = mass_plan(row, kind)
+            for method in ("raw", "grid", "open-mitre", "cross-section"):
+                start = time.perf_counter()
+                record = {"source": index, "programme": kind, "method": method}
+                resolver = lambda polygon, method=method: methods(polygon, method)
+                with (
+                    patch.object(planning, "resolved", resolver),
+                    patch.object(geometry, "resolved", resolver),
+                ):
+                    try:
+                        p = planning.plan(mass)
+                        components = geometry.components(p)
+                        failures = []
+                        for c in components:
+                            s, n = c.source, native(c.mesh)
+                            volume_error = abs(
+                                n.volume() - s.polygon.area * (s.high_m - s.low_m)
+                            )
+                            surface_error = abs(
+                                n.surface_area()
+                                - (
+                                    2 * s.polygon.area
+                                    + s.polygon.length * (s.high_m - s.low_m)
+                                )
+                            )
+                            if max(volume_error, surface_error) > 1e-7:
+                                failures.append(
+                                    {
+                                        "id": s.identifier,
+                                        "volume_error_m3": volume_error,
+                                        "surface_error_m2": surface_error,
+                                    }
+                                )
+                        record |= {
+                            "components": len(components),
+                            "failed_components": failures,
+                            "rejection": None,
+                        }
+                    except ValueError as error:
+                        record |= {
+                            "components": None,
+                            "failed_components": [],
+                            "rejection": str(error),
+                        }
+                record["seconds"] = time.perf_counter() - start
+                rows.append(record)
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -117,7 +173,16 @@ def main():
         )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
-        json.dumps(proof | {"records": rows, "summary": summaries}, indent=2) + "\n"
+        json.dumps(
+            proof
+            | {
+                "records": rows,
+                "summary": summaries,
+                "actual_assemblies": assemblies(),
+            },
+            indent=2,
+        )
+        + "\n"
     )
     print(json.dumps(summaries))
 
