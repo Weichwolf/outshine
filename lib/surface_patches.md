@@ -105,6 +105,42 @@ Retired patch/index history occupies memory until its owning view is released;
 storage/residency policies belong to #10, LOD to #12. Existing Plan/Reservation/
 Provider APIs are unchanged.
 
+## Optional generated-product codec (#678)
+
+`geometry.surface_patches.prepared` supplies `pack_surface(view, compressed=False,
+max_bytes=64*1024**2)` and `restore_surface(payload, expected_sha256=...,
+frame=LocalFrame(...), max_bytes=64*1024**2)`. Import this module explicitly;
+ordinary patch construction does not import this codec. The format
+is `outshine-finite-surface/1`: numeric NPZ members, bounded JSON bytes and no
+pickle, validity flag, file lookup, cache manager or hidden source fallback.
+
+The caller's existing product record must bind the exact known-valid generated
+bytes, format and frame. Normal strict construction establishes geometry before
+publication. A digest calculated from an unknown candidate, or supplied beside
+it by an unknown source, does not establish validity. Unknown/mismatched products
+must use strict construction or rebuild. An ordinary hit on a trusted generated
+product needs no manual per-asset admission and no second geometric producer.
+Independent cold GEOS reconstruction remains a research/test check, not a new
+runtime cache protocol. Native AssetRecord integration belongs to #10/#48.
+
+Restore verifies the expected digest before parsing; ZIP member names, duplicate
+members, compression, expanded sizes, NPY version, exact byte lengths, primitive
+dtypes and per-member shape/capacity limits before numeric array loading. It then
+checks finite Mesh coordinates/indices, exact frame, patch IDs, attribute schema
+and active masks. The default byte budget bounds both payload and expanded array
+bytes; callers may explicitly choose 1 byte–512 MiB. This is not a total Python,
+GEOS or process-RAM bound. Query polygons/STRtrees are rebuilt and cost work.
+
+All restored mesh, attribute and mask buffers are owned immutable byte-backed
+arrays. Geometric coverage/composition validity is inherited from the exact
+known-valid product; restore skips SurfacePatch geometry validation and old
+replacement history. Subsequent new patches and replacements use the unchanged
+strict constructors. Whole states retain patch insertion order, local face keys,
+XYZ, indices, masks, attributes, capacities and query behavior. File IO, product
+storage, source provenance, residency and invalidation remain caller-owned.
+The [transport comparison](../test/experiments/transport/stair_prepared_surface_comparison.md)
+records the independent experiment and its library-delivery follow-up.
+
 SIGGRAPH starting point: Lindstrom et al. (1996), page 4 figure 3, inspected
 visually: local height-field geometry and explicit edge deltas. The present
 exact finite facet composition is independently defined; it implements none of

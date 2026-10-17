@@ -1,12 +1,18 @@
 # Externally admitted prepared terrain restoration (#678)
 
+This report records the historical experiment at PR #689. The subsequent
+[reusable library delivery](stair_prepared_surface_library.md) carries the current
+contract, consumers and cost checks; the independent reference protocol below
+remains a research tool rather than a native runtime architecture.
+
 The experiment restores the immutable, independently verified terrain snapshot
 without repeating its geometric validation or14historical replacements. The
 normal library constructors and unknown-input path are unchanged. This is an
 explicit opt-in experiment under `test/experiments/transport`, not an admitted
 new `lib/` interface or native AssetCache implementation. The shared-contract
 [proposal](https://github.com/Weichwolf/outshine/issues/47#issuecomment-6241901592)
-requires an explicit external trust root; promotion remains a separate decision.
+required an explicit external trust root; the later optional Python promotion
+is documented in the delivery above.
 
 ## Admission and representation
 
@@ -161,8 +167,8 @@ snapshot report locates the original source and complete79-source reference.
 
 This prototype addresses repeated terrain validation/history. Generic query
 structures and all numeric decode still cost work; no whole-world ready/cache-hit
-or native integration claim follows. #678 stays active until the agreed reusable
-library path and its callers are delivered. The original whole1280×720perspective
+or native integration claim follows. This experiment left #678 active pending the reusable
+library path and its callers, now documented in the linked delivery. The original whole1280×720perspective
 image was opened again; identical geometry is not a new visual improvement.
 Sparse source coverage, contrast, coarse terrain, more transport classes/levels,
 worldwide planning/LOD and actual device budgets remain open under #434/#48.
