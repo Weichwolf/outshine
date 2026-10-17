@@ -11,6 +11,7 @@ from recipe_plant_values import seed_input
 from stair_consumer_inputs import source_rows
 from stair_occupancy_geometry import OccupancyError, polygonal_conflict
 from stair_plant_geometry import bounds_query
+from stair_plant_retention import empty_ledger, retained_plants
 
 
 def region(data):
@@ -25,8 +26,13 @@ def terrain_domain(data):
     return polygonal_conflict(shapely.union_all(shapely.polygons(xy)))
 
 
-def candidate(row, xy, site_id, support, data, query, proto, canonical, graph):
-    contact = data["sampler"].sample([xy])
+def candidate(
+    row, xy, site_id, support, data, query, proto, canonical, graph, *, contact=None
+):
+    if contact is None:
+        contact = data["sampler"].sample([xy])
+    elif not np.array_equal(contact.points_enu_m[0, :2], xy):
+        raise ValueError("cached root contact belongs to another query point")
     if contact.reasons != ("",):
         raise OccupancyError("current terrain contact: " + contact.reasons[0])
     origin = contact.points_enu_m[0]
@@ -171,7 +177,7 @@ def proposals(data, proto, domain, canonical, rows, query):
     )
 
 
-def plants(data, query, proto, *, max_plants=4, max_attempts=128):
+def plants(data, query, proto, *, max_plants=4, max_attempts=128, prior=None):
     if (
         type(max_plants) is not int
         or not 0 <= max_plants <= 64
@@ -181,12 +187,60 @@ def plants(data, query, proto, *, max_plants=4, max_attempts=128):
         raise ValueError("explicit bounded plant and attempt counts required")
     rows, rejected = source_rows(data, "landcover")
     canonical = region(data)
+    if prior is not None:
+        return retained_plants(
+            data,
+            query,
+            proto,
+            rows,
+            rejected,
+            canonical,
+            prior,
+            (max_plants, max_attempts),
+        )
+    return fresh_plants(
+        data, query, proto, rows, rejected, canonical, max_plants, max_attempts
+    )
+
+
+def fresh_plants(
+    data,
+    query,
+    proto,
+    rows,
+    rejected,
+    canonical,
+    max_plants,
+    max_attempts,
+    *,
+    excluded=frozenset(),
+    graph=None,
+):
+    if not max_plants or not max_attempts:
+        return (
+            [],
+            empty_ledger(
+                rows, rejected, "requested_capacity_or_attempt_budget_fulfilled"
+            ),
+            {
+                "attempts": 0,
+                "max_attempts": max_attempts,
+                "max_plants": max_plants,
+                "canonical_region": canonical,
+                "proposals": 0,
+                "max_proposals": 1024,
+                "selection": "No unfilled demand/attempt capacity; no proposals generated",
+            },
+        )
     pool, ledger = proposals(data, proto, terrain_domain(data), canonical, rows, query)
-    graph = prepared(SITE)
+    if graph is None:
+        graph = prepared(SITE)
     accepted, attempts = [], 0
     for distance, _key, identity, xy, row, support, part_canonical, entry in pool:
         if len(accepted) >= max_plants or attempts >= max_attempts:
             break
+        if (row["id"], identity) in excluded:
+            continue
         attempts += 1
         record = {
             "site_id": list(identity),
