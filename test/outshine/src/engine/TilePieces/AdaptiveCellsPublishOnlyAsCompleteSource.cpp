@@ -1,6 +1,7 @@
 #include "RuntimeScene.h"
 #include "SceneRenderer.h"
 #include "TilePieces.h"
+#include "StructureSourcePublication.h"
 #include "Check.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -130,11 +131,21 @@ void Publish(Fixture &fixture) {
   CHECK(oldDepth > 0, "the old revision has real depth coverage");
   const auto first = Mesh(1, 1);
   const auto second = Mesh(1, 2);
+  const StructureBuildQueue::Landing firstLanding{.Tile = kTile,
+                                                  .Baked = &first,
+                                                  .AnchorEcef = origin,
+                                                  .SourceKey = kNewSource,
+                                                  .InitialCells = 3,
+                                                  .SourceComplete = false,
+                                                  .Footprints = std::nullopt};
   CHECK(!pieces.StageCell(kTile, 1, first, origin, error, 0) && pieces.Digest() == oldDigest,
         "adaptive cell addresses still require a source revision");
-  CHECK(pieces.StageCell(kTile, 1, first, origin, error, kNewSource) &&
-            fixture.Depth() == oldDepth && fixture.Visible().size() == 1,
+  CHECK(PublishStructureSource(pieces, firstLanding, error) && fixture.Depth() == oldDepth &&
+            fixture.Visible().size() == 1,
         "the first adaptive child remains hidden behind the previous revision");
+  CHECK(PublishStructureSource(pieces, firstLanding, error) && fixture.Depth() == oldDepth &&
+            fixture.Visible().size() == 1,
+        "restarting an incomplete source releases hidden children and preserves the old world");
   CHECK(!pieces.HasProjectedTile(kTile, {.Key = kNewSource, .Occupied = 3}, {}, kProjection),
         "an incomplete hidden source cannot claim a ready projected tile");
   CHECK(!pieces.ActivateCells(kTile, {.Key = kNewSource, .Occupied = 3}, kCells, error) &&
@@ -169,12 +180,19 @@ void Publish(Fixture &fixture) {
       "adaptive readiness keeps camera-reuse and projection limits");
   RefineAndRestore(fixture);
   constexpr uint32_t kInitialTile = kTile + 1;
-  CHECK(pieces.StageCell(kInitialTile, 1, first, origin, error, kNewSource) &&
-            pieces.StageCell(kInitialTile, 2, second, origin, error, kNewSource) &&
-            fixture.Visible().size() == 2,
+  StructureBuildQueue::Landing initial{.Tile = kInitialTile,
+                                       .Baked = &first,
+                                       .AnchorEcef = origin,
+                                       .SourceKey = kNewSource,
+                                       .InitialCells = 3,
+                                       .SourceComplete = false,
+                                       .Footprints = std::nullopt};
+  CHECK(PublishStructureSource(pieces, initial, error) && fixture.Visible().size() == 2,
         "an initial source can stage without constructing a whole-tile safety mesh");
-  CHECK(pieces.ActivateCells(kInitialTile, {.Key = kNewSource, .Occupied = 3}, kCells, error) &&
-            fixture.Visible().size() == 4 && pieces.CellsActive(kInitialTile, kCells, kNewSource),
+  initial.Baked = &second;
+  initial.SourceComplete = true;
+  CHECK(PublishStructureSource(pieces, initial, error) && fixture.Visible().size() == 4 &&
+            pieces.CellsActive(kInitialTile, kCells, kNewSource),
         "the first complete adaptive cell set publishes without a monolithic predecessor");
 }
 }

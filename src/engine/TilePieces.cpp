@@ -540,6 +540,15 @@ bool TilePieces::CellsActive(uint32_t tile,
   return at == selected.size();
 }
 
+void TilePieces::DiscardStagedCells(uint32_t tile) {
+  std::erase_if(Standing_, [this, tile](const Standing &held) {
+    if (held.Tile != tile || held.Visible) { return false; }
+    Releases(held);
+    return true;
+  });
+  RefreshDigest();
+}
+
 void TilePieces::ForgetsCell(uint32_t tile, uint32_t cell) {
   const auto first = std::ranges::lower_bound(Standing_, std::pair{tile, cell}, {}, AddressOf);
   const auto last = std::find_if(first, Standing_.end(), [tile, cell](const Standing &held) {

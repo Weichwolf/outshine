@@ -43,8 +43,9 @@ retains the original asset records and package blobs.
 
 The 7,912-source index, key
 `d2dcba37407c658bc64bc58d7545bca9b77a2296d2ca8a7e4b232af665c93bca`,
-was generated as 64 adaptive cell products. All sources survive; 411,081
-triangles. Largest encoded child: 23,536,791 bytes; total: 37,326,420 bytes.
+was generated as 64 adaptive cell products. All 7,912 source footprints survive
+in the metadata; 15 meshes report unsupported geometry. Complete source metadata
+does not prove that every building is drawn. The products contain 411,081 triangles. Largest encoded child: 23,536,791 bytes; total: 37,326,420 bytes.
 All 64 products were stored and replayed byte for byte; zero shape misses.
 
 A fresh process then loads those 64 cached products: 0.38 s real / 0.10 s user /

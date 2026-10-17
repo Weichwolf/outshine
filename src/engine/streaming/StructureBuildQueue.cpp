@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -1215,6 +1216,9 @@ StructureBuildQueue::VectorBuild(Ground::SurfacePreparation &stack,
   if (!selected.Key.empty() && !revision.FallbackHeights &&
       (task.HeightQualified() || task.Raw().Structures.empty())) {
     task.UseNativeAssets(stack.BuildingAssets(), selected.Key, selected.RequestKey);
+    if (revision.Purpose == BuildPurpose::SourceGeometry && !revision.RequestedDetail) {
+      task.UseInitialCells();
+    }
   }
   const uint64_t sourceKey =
       StructureSourceKey({.Vector = VectorSource(*stack.Vectors(), next.Tile),
@@ -1494,7 +1498,7 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
   size_t printCount = 0;
   size_t spreadCount = 0;
   size_t acrossCount = 0;
-  while (count < most && count < Queue_.size()) {
+  while (count < std::min(most, Queue_.size())) {
     QueuedBuild &bake = Queue_[count];
     if (!bake.Finished || bake.ReservationOwner != prints.ReservationOwner() ||
         !bake.Revision.Matches(vectors,
@@ -1520,13 +1524,47 @@ StructureBuildQueue::NextLandings(Ground::SurfacePreparation &stack,
       DiscardFront(prints);
       continue;
     }
-    const Generators::BakedTile &baked = *completed;
+    const Generators::BakedTile &baked = CollectInitialCell(bake);
     printCount += baked.Prints.size();
     spreadCount += baked.SeatSpreadM.size();
     acrossCount += baked.AcrossM.size();
     ++count;
+    if (bake.InitialCells) { break; }
   }
   return PrepareLandings(prints, vectors, count, printCount, spreadCount, acrossCount);
+}
+
+const Generators::BakedTile &StructureBuildQueue::CollectInitialCell(QueuedBuild &bake) {
+  auto &completed = bake.Task.Result().Tile;
+  assert(completed);
+  if (const uint64_t cells = bake.Task.InitialCells(); cells != 0) {
+    if (!bake.InitialCells) { bake.InitialCells.emplace(cells); }
+    PrepareGeometry(*completed, bake.Task.Raw());
+    bake.InitialCells->Collect(*completed);
+    return bake.InitialCells->Metadata();
+  }
+  return *completed;
+}
+
+::outshine::Generators::Osm::BuildingField::Baked
+StructureBuildQueue::ContactMetadata(const QueuedBuild &bake) noexcept {
+  const auto &completed = bake.Task.Result().Tile;
+  assert(completed);
+  const auto &baked = bake.InitialCells ? bake.InitialCells->Metadata() : *completed;
+  return {.Coordinates = baked.Coordinates,
+          .Prints = baked.Prints,
+          .SeatSpreadM = baked.SeatSpreadM,
+          .AcrossM = baked.AcrossM,
+          .OccupiedCells = baked.OccupiedCells,
+          .CellBounds = baked.CellBounds,
+          .CellMaxHeightM = baked.CellMaxHeightM,
+          .CellShellErrorM = baked.CellShellErrorM,
+          .Triangles = bake.InitialCells
+                           ? bake.InitialCells->Triangles()
+                           : (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u,
+          .OsmHeights = baked.OsmHeights,
+          .DefaultHeights = baked.DefaultHeights,
+          .Fronted = baked.Fronted};
 }
 
 std::vector<StructureBuildQueue::Landing>
@@ -1558,7 +1596,15 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
   if (!completed) { std::terminate(); }
   Generators::BakedTile &baked = *completed;
   PrepareGeometry(baked, bake.Task.Raw());
-  const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
+  const bool complete = !bake.InitialCells || bake.InitialCells->Remaining() == 0;
+  Landing landing{.Tile = bake.Task.Tile(),
+                  .Baked = &baked,
+                  .AnchorEcef = bake.Task.Raw().AnchorEcef,
+                  .SourceKey = bake.SourceKey,
+                  .InitialCells = bake.InitialCells ? bake.InitialCells->Cells() : 0,
+                  .SourceComplete = complete,
+                  .Footprints = std::nullopt};
+  if (!complete) { return landing; }
   const std::optional<Data::TileSourceIdentity> vectorSource =
       baked.Coordinates->Origin.Provenance ? std::nullopt
                                            : VectorSource(*vectors, bake.Task.Tile());
@@ -1576,37 +1622,23 @@ StructureBuildQueue::PrepareLanding(QueuedBuild &bake,
                vectors->Tiles()[bake.Task.Tile()].FeatureCount},
         bake.Task.Heights());
   }();
-  return Landing{.Tile = bake.Task.Tile(),
-                 .Baked = &baked,
-                 .AnchorEcef = bake.Task.Raw().AnchorEcef,
-                 .SourceKey = bake.SourceKey,
-                 .Footprints = prints.PrepareAcceptance(
-                     bake.Task.Tile(),
-                     {.Coordinates = baked.Coordinates,
-                      .Prints = baked.Prints,
-                      .SeatSpreadM = baked.SeatSpreadM,
-                      .AcrossM = baked.AcrossM,
-                      .OccupiedCells = baked.OccupiedCells,
-                      .CellBounds = baked.CellBounds,
-                      .CellMaxHeightM = baked.CellMaxHeightM,
-                      .CellShellErrorM = baked.CellShellErrorM,
-                      .Triangles = triangles,
-                      .OsmHeights = baked.OsmHeights,
-                      .DefaultHeights = baked.DefaultHeights,
-                      .Fronted = baked.Fronted},
-                     bake.Task.HeightSources(),
-                     qualified,
-                     vectorSource,
-                     {.HeightRasterDigest = bake.Task.HeightRasterDigest(),
-                      .StreetDigest = bake.StreetDigest,
-                      .Projection = bake.Revision.Projection,
-                      .TileSpanM = bake.Revision.TileSpanM,
-                      .Eye = bake.Revision.Eye,
-                      .EyeEcef = bake.Revision.EyeEcef,
-                      .PreparedAssetKey = bake.Task.PreparedAssetKey().transform(
-                          [](const auto key) { return std::string(key); })},
-                     bake.Revision.HeightSource.Value,
-                     bake.Task.HeightRequest())};
+  landing.Footprints =
+      prints.PrepareAcceptance(bake.Task.Tile(),
+                               ContactMetadata(bake),
+                               bake.Task.HeightSources(),
+                               qualified,
+                               vectorSource,
+                               {.HeightRasterDigest = bake.Task.HeightRasterDigest(),
+                                .StreetDigest = bake.StreetDigest,
+                                .Projection = bake.Revision.Projection,
+                                .TileSpanM = bake.Revision.TileSpanM,
+                                .Eye = bake.Revision.Eye,
+                                .EyeEcef = bake.Revision.EyeEcef,
+                                .PreparedAssetKey = bake.Task.PreparedAssetKey().transform(
+                                    [](const auto key) { return std::string(key); })},
+                               bake.Revision.HeightSource.Value,
+                               bake.Task.HeightRequest());
+  return landing;
 }
 
 bool StructureBuildQueue::ValidateCellLandingSource(
@@ -1738,49 +1770,58 @@ bool StructureBuildQueue::CellQueued(CellRequest request) const noexcept {
   });
 }
 
+void StructureBuildQueue::CommitFootprints(
+    QueuedBuild &bake,
+    Landing &landing,
+    ::outshine::Generators::Osm::BuildingField &footprints) noexcept {
+  const auto product = ContactMetadata(bake);
+  if (!landing.Footprints || !product.Coordinates) { std::terminate(); }
+  if (!bake.Task.FromPreparedInputs()) {
+    auto &completed = bake.Task.Result().Tile;
+    assert(completed && completed->Coordinates);
+    completed->Coordinates->Points = std::move(bake.Task.Raw().LatLon);
+    completed->Coordinates->Rings = std::move(bake.Task.Raw().Holes);
+  }
+  if (bake.Replacement) {
+    footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);
+  } else {
+    footprints.CommitAcceptance(std::move(landing.Footprints.value()), product);
+  }
+}
+
 void StructureBuildQueue::CommitsLandings(::outshine::Generators::Osm::BuildingField &footprints,
                                           std::span<Landing> landings) noexcept {
   for (Landing &landing : landings) {
     QueuedBuild &bake = Queue_.front();
     const auto &completed = bake.Task.Result().Tile;
     if (!completed) { std::terminate(); }
-    const Generators::BakedTile &baked = *completed;
-    assert(landing.Tile == bake.Task.Tile() && landing.Baked == &baked && landing.Footprints);
-    if (!landing.Footprints || !baked.Coordinates) { std::terminate(); }
-    if (!bake.Task.FromPreparedInputs()) {
-      baked.Coordinates->Points = std::move(bake.Task.Raw().LatLon);
-      baked.Coordinates->Rings = std::move(bake.Task.Raw().Holes);
-    }
+    const Generators::BakedTile &child = *completed;
+    assert(landing.Tile == bake.Task.Tile() && landing.Baked == &child);
     BakedMs_ += bake.Task.Result().BakeMs;
     SlowestBakeMs_ = std::max(SlowestBakeMs_, bake.Task.Result().BakeMs);
+    if (!landing.SourceComplete) {
+      assert(bake.InitialCells && !landing.Footprints && bake.InitialCells->Remaining() != 0);
+      const uint32_t cell =
+          static_cast<uint32_t>(std::countr_zero(bake.InitialCells->Remaining())) + 1u;
+      bake.Task.SelectNextCell(cell);
+      bake.Tasks = 0;
+      PostSlice(bake);
+      continue;
+    }
+    const Generators::BakedTile &baked = bake.InitialCells ? bake.InitialCells->Metadata() : child;
+    CommitFootprints(bake, landing, footprints);
     assert(IdleRaw_.size() < IdleRaw_.capacity() && IdleOut_.size() < IdleOut_.capacity() &&
            IdleScratch_.size() < IdleScratch_.capacity());
-    const size_t triangles = (baked.Built.WallRun.size() + baked.Built.RoofRun.size()) / 3u;
-    const ::outshine::Generators::Osm::BuildingField::Baked product{
-        .Coordinates = baked.Coordinates,
-        .Prints = baked.Prints,
-        .SeatSpreadM = baked.SeatSpreadM,
-        .AcrossM = baked.AcrossM,
-        .OccupiedCells = baked.OccupiedCells,
-        .CellBounds = baked.CellBounds,
-        .CellMaxHeightM = baked.CellMaxHeightM,
-        .CellShellErrorM = baked.CellShellErrorM,
-        .Triangles = triangles,
-        .OsmHeights = baked.OsmHeights,
-        .DefaultHeights = baked.DefaultHeights,
-        .Fronted = baked.Fronted};
-    if (bake.Replacement) {
-      footprints.ReplaceAcceptance(std::move(landing.Footprints.value()), product);
-    } else {
-      footprints.CommitAcceptance(std::move(landing.Footprints.value()), product);
-    }
     Log::Info(LogTag::World,
               "buildings",
               {{"added", static_cast<int>(baked.Prints.size())},
                {"total", static_cast<int>(footprints.Footprints().size())},
                {"osmHeight", footprints.OsmHeights()},
                {"defaultHeight", footprints.DefaultHeights()},
-               {"vertsMB", static_cast<double>(baked.Built.UsedBytes()) / kBytesPerMB},
+               {"vertsMB",
+                static_cast<double>(bake.InitialCells ? bake.InitialCells->GeometryBytes()
+                                                      : baked.Built.UsedBytes()) /
+                    kBytesPerMB},
                {"lumped", baked.Lumped},
                {"blocks", baked.Blocks},
                {"unsupportedMeshes", static_cast<double>(baked.UnsupportedMeshes)},
