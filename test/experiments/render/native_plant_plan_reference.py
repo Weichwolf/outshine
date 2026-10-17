@@ -1,0 +1,147 @@
+"""Compare native immutable plant demand against the existing fixed canonical rows."""
+
+import argparse
+import ast
+import hashlib
+import json
+import struct
+import subprocess
+import tempfile
+import zipfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+REFERENCE = ROOT / "test/experiments/vegetation/reference/tree-entry-sapling-17.json"
+
+
+def fixed_rows():
+    metadata = json.loads(REFERENCE.read_text())
+    path = REFERENCE.parent / metadata["tables"]
+    if hashlib.sha256(path.read_bytes()).hexdigest() != metadata["tables_sha256"]:
+        raise ValueError("fixed canonical input changed")
+    rows = {}
+    with zipfile.ZipFile(path) as archive:
+        for name in archive.namelist():
+            data = archive.read(name)
+            if data[:8] != b"\x93NUMPY\x01\x00":
+                raise ValueError("expected fixed NPY1 records")
+            size = struct.unpack_from("<H", data, 8)[0]
+            header = ast.literal_eval(data[10 : 10 + size].decode("ascii"))
+            if header["fortran_order"]:
+                raise ValueError("expected row-major canonical tables")
+            element = {"<f8": "d", "<u8": "Q", "<i8": "q", "<i2": "h", "|u1": "B"}[
+                header["descr"]
+            ]
+            values = [
+                value[0]
+                for value in struct.iter_unpack("<" + element, data[10 + size :])
+            ]
+            count = header["shape"][0]
+            width = len(values) // count if count else 0
+            rows[name.removesuffix(".npy")] = [
+                values[i * width : (i + 1) * width] for i in range(count)
+            ]
+    return metadata, rows
+
+
+def records(rows, prefix, names):
+    return [
+        [value for name in names for value in rows[prefix + name][i]]
+        for i in range(len(rows[prefix + names[0]]))
+    ]
+
+
+def check(binary, output):
+    metadata, rows = fixed_rows()
+    axes = records(
+        rows,
+        "axis_",
+        (
+            "ids",
+            "parent_ids",
+            "paths",
+            "origins",
+            "frames",
+            "lengths",
+            "bends",
+            "parent_parameters",
+            "radii",
+        ),
+    )
+    leaves = records(
+        rows,
+        "leaf_",
+        ("ids", "axis_ids", "variants", "origins", "nodes", "frames", "stem_parameter"),
+    )
+    text = "\n".join(" ".join(map(str, row)) for row in axes + leaves) + "\n"
+    result = subprocess.run(
+        [str(binary)],
+        input=text,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    (output / "native.log").write_text(result.stdout + result.stderr)
+    if result.returncode:
+        raise RuntimeError(f"native plan consumer exited {result.returncode}")
+    actual = {kind: [] for kind in ("A", "L", "S")}
+    for line in result.stdout.splitlines():
+        kind, *fields = line.split()
+        integers = {"A": 9, "L": 3, "S": 11}[kind]
+        actual[kind].append(
+            [
+                int(value) if i < integers else float(value)
+                for i, value in enumerate(fields)
+            ]
+        )
+    if actual["A"] != axes or actual["L"] != leaves:
+        raise ValueError(
+            "native detail changed canonical IDs, order, ownership or physical rows"
+        )
+    paths = {axis[0]: tuple(slot for slot in axis[2:9] if slot >= 0) for axis in axes}
+    summaries = []
+    for axis in axes:
+        path = paths[axis[0]]
+        descendants = {
+            identity
+            for identity, candidate in paths.items()
+            if candidate[: len(path)] == path
+        }
+        owned = [leaf for leaf in leaves if leaf[1] in descendants]
+        variants = [sum(leaf[2] == variant for leaf in owned) for variant in range(8)]
+        summaries.append([axis[0], len(descendants), len(owned), *variants])
+    if actual["S"] != summaries:
+        raise ValueError(
+            "native branch summary differs from independent path-prefix inventory"
+        )
+    receipt = {
+        "identity": metadata["plan_identity"],
+        "axes": len(axes),
+        "leaves": len(leaves),
+        "subtrees": len(summaries),
+        "canonical_rows_exact": True,
+        "scope": "fixed immutable-row consumption and demand; no generation, geometry or device claim",
+    }
+    (output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    print(json.dumps(receipt))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--binary", required=True, type=Path)
+    parser.add_argument("--output", required=True, type=Path)
+    args = parser.parse_args()
+    output = args.output.resolve()
+    if not output.is_relative_to(
+        Path(tempfile.gettempdir()).resolve()
+    ) or output.is_relative_to(ROOT):
+        parser.error(
+            "private output must be outside the checkout in the system temporary directory"
+        )
+    output.mkdir(parents=True, exist_ok=True)
+    check(args.binary.resolve(), output)
+
+
+if __name__ == "__main__":
+    main()
