@@ -88,6 +88,19 @@ def models(output):
                         json.dumps(asdict(p), default=lambda v: v.hex())
                     ),
                     "clipped": clipped,
+                    "source": {
+                        "material_definitions": {
+                            "12": {
+                                "color.r": 0.72,
+                                "color.g": 0.71,
+                                "color.b": 0.68,
+                                "roughness": 0.78,
+                                "metallic": 0,
+                            }
+                        }
+                    },
+                    "facade_materials": {},
+                    "ground_span_m": 10000,
                     "scope": "Three closed actual components, no final Boolean union. Cutaway is an explicitly clipped/capped diagnostic, not a complete asset. Simple open floors and actual stairs; no windows, terrace portals, facade programme, rails, native or whole-city admission.",
                 },
                 proof,
