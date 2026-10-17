@@ -19,6 +19,9 @@ from stair_occupancy_inputs import (
     reservations,
 )
 from stair_occupancy_pipeline import handoff, probes
+from stair_occupancy_reuse import reused
+from stair_shared_headroom import bindings
+from stair_shared_headroom_volumes import supplement
 from stair_terrain_experiment import frozen
 
 
@@ -83,6 +86,29 @@ def probe_results(query, probe_inputs, seen):
     return probes_result
 
 
+def prepare_volumes(assets, supports, contacts, sources, manifest, modules, prior=None):
+    if prior is None:
+        rows, owners, error = reservations(
+            assets, supports, contacts, sources, manifest
+        )
+        preparation = {
+            "method": "fresh",
+            "reused_physical_volumes": 0,
+            "fitted_physical_volumes": len(rows),
+        }
+    else:
+        rows, owners, error, preparation = reused(prior, assets, sources, manifest)
+    extra, origins, records, work = supplement(
+        rows, owners, bindings(assets, modules), sources
+    )
+    return (
+        (*rows, *extra),
+        (*owners, *origins),
+        error,
+        {"records": records, "work": work, "preparation": preparation},
+    )
+
+
 def run(args):
     commit = frozen()
     began = time.perf_counter()
@@ -93,7 +119,15 @@ def run(args):
         args.resident, args.prior_module
     )
     context, sources, _old_sample, _layer = actual_sources()
-    rows, owners, error = reservations(assets, supports, contacts, sources, manifest)
+    rows, owners, error, headroom = prepare_volumes(
+        assets,
+        supports,
+        contacts,
+        sources,
+        manifest,
+        args.prior_module,
+        args.prior_occupancy,
+    )
     sample = full_tile_sampler(args.dem, context)
     originals, ledger, receipt = buildings(context, sample)
     probe_inputs, probe_omissions = probes(assets, sample)
@@ -144,6 +178,7 @@ def run(args):
         "vector": receipt,
         "dem": {"path": str(args.dem.resolve()), "sha256": digest(args.dem)},
         "volumes": save_volumes(args.output, rows, owners),
+        "borrowed_headroom": headroom,
         "support_ownership_report": {
             "path": str(Path(manifest["support_mesh"]).parent / "comparison.json"),
             "sha256": digest(Path(manifest["support_mesh"]).parent / "comparison.json"),
@@ -197,5 +232,8 @@ if __name__ == "__main__":
     parser.add_argument("--resident", type=Path, required=True)
     parser.add_argument("--prior-module", type=Path, action="append", default=[])
     parser.add_argument("--dem", type=Path, required=True)
+    parser.add_argument("--prior-occupancy", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
+    resource.setrlimit(resource.RLIMIT_AS, (4 * 1024**3,) * 2)
     run(parser.parse_args())
