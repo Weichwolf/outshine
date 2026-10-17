@@ -10,9 +10,33 @@ from unittest.mock import patch
 
 import numpy as np
 from crown_shoots import CrownShoots
+from oak_scaffold import tapered_radii
 from outshine_ref.vegetation import Blade, Shoot
+from spatial_crown_experiment import crown_wood
 from spatial_crown_replay import check_mesh
 from tree_entry import load
+
+
+def check_wood_binding(inputs, name, metadata, crown, wood):
+    entry = json.loads((inputs / name / "entry.json").read_text())
+    expected = hashlib.sha256(
+        json.dumps(entry["product_recipe"], sort_keys=True).encode()
+    ).hexdigest()
+    assert (
+        expected
+        == entry["product_identity"]
+        == metadata["products"][name]["product_identity"]
+    )
+    assert entry["product_recipe"]["recipe"] == metadata["recipe"]
+    assert entry["product_recipe"]["leaf_plan_identity"] == crown.identity
+    radii = tapered_radii(
+        crown.parents,
+        metadata["recipe"]["root_radius_m"],
+        metadata["recipe"]["terminal_radius_m"],
+    )
+    reconstructed = crown_wood(crown, radii=radii)
+    for key, value in reconstructed.items():
+        np.testing.assert_array_equal(value, wood[key])
 
 
 def replay(inputs, output):
@@ -74,6 +98,7 @@ def replay(inputs, output):
             rows["leaf_nodes"],
             atol=1e-13,
         )
+        check_wood_binding(inputs, name, metadata, crown, product["wood.npz"])
         geometry = {k: check_mesh(v) for k, v in product.items() if k != "tables.npz"}
         reports[name] = {
             "identity": crown.identity,
