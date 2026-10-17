@@ -14,6 +14,30 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - Weitere Dateien erhalten frühere Asset-/LOD-/Speichervergleiche.
 - [Gemeinsamer Rezeptpilot](recipe_transport.md): tatsächlicher Quellverbund,
   Profilplan und physisch geprüfter Körper auf dem kleinen Kern aus #483/#494.
+- [Ganze äußere Radkorridore](stair_corridor_comparison.md): 23 Wiener Quellen,
+  ganze Anschlüsse, zehn Unterführungen und DEM-kontrolliertes Terrain im Budget.
+- [Konstruktives Eckpodest](stair_corner_comparison.md): 24 ganze Quellen,
+  zwölf ganze Endprofile und unveränderte Unterführungs-/Terrain-/Pfeilergrenzen.
+- [Ganze gewählte Podeste](stair_landing_comparison.md): alle 41 inneren
+  Endprofile, neun kleine Ergänzungen und derselbe installierbare Profilkern.
+- [Nullflächen nach Konformierung](stair_conformance_comparison.md): fester
+  Wiener Gegenfall des begrenzten Bodenmoduls und unveränderte Flächenprüfung.
+- [Begrenztes Bodenmodul](stair_module_comparison.md): vier neue ganze Quellen,
+  tatsächliche alte/neue Wandkontakte und lokales Terrain am gespeicherten 32er Körper.
+- [Weitere Modulstufe](stair_module_chain_comparison.md): geprüften Bestand weiterverwenden,
+  einzelne feste Seitenkontakthöhen und einen ganzen ursprünglichen Radweg ergänzen.
+- [Südwestlicher Straßenverbund](stair_southwest_comparison.md): sechs weitere Quellen,
+  ganze geneigte Bestandsprofile, ausdrücklicher Innenkontakt und 795 m Straßen/Wege.
+- [Sekundäre Original-Endkontakte](stair_endpoint_comparison.md): alte Wegenden
+  an neuen Durchgangswegen, mit ganzen Profilen und unverändertem Bestand.
+- [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen
+  mit stabilen Teilflächen-IDs und begrenzten Raumabfragen erhalten (#542).
+- [Verbundene Quellenpräfixe](stair_prefix_comparison.md): gültige ganze Quellen
+  nach gemeinsamer Geometrieablehnung begrenzt erhalten (#539).
+- [Automatische begrenzte Quellenmodule](stair_frontier_comparison.md): ursprüngliche
+  Knoten, tatsächlich gespeicherte Innenprofile und ganze physische Abnahme (#537).
+- [Horizontale Straßenkurven](stair_road_curve_comparison.md): installierter Klothoidenkern,
+  erhaltene Originalknoten, ganze tatsächliche Fahrspurhüllen und Kreisbogenvergleich.
 
 Gemeinsame feste Eingaben liegen unter `fixtures/`; private Arbeitsdaten, Berichte
 und Hilfsumgebungen liegen im System-Temp außerhalb des Repositorys.

@@ -15,6 +15,7 @@ from stair_context_verify import stage
 from stair_cycle_contacts import bindings, contacts
 from stair_cycle_experiment import arguments, base
 from stair_cycle_inputs import FIXTURE, load
+from stair_landing_contacts import node_profiles
 from stair_network_geometry import interactions, vertex_links
 from stair_outer_context import catalog
 from stair_outer_geometry import outer_ends
@@ -58,18 +59,42 @@ def verify(args):
     commit = frozen()
     report = json.loads((args.output / "comparison.json").read_text())
     fixture = getattr(args, "fixture", FIXTURE)
+    recipe = json.loads(fixture.read_text())
     if report["fixture_sha256"] != digest(fixture) or report["baseline"] != base(args):
         raise ValueError("original cycle inputs/baseline changed")
     for name, expected in report["artifacts"].items():
         if digest(args.output / name) != expected:
             raise ValueError("saved cycle artifact changed")
     case, rows, nodes, stairs, context, sample = load(fixture)
+    if report.get("junction_pads", []) != context.get("junction_pads", []):
+        raise ValueError("saved constructive junction pad differs from source profiles")
+    for name in ("landing_pads", "landing_pad_selection"):
+        if report.get(name, []) != context.get(name, []):
+            raise ValueError(
+                "saved chosen landing plan differs from original endpoints"
+            )
+    if report.get("bridge_separation_orders", []) != context.get(
+        "bridge_separation_orders", []
+    ):
+        raise ValueError("saved bridge order differs from explicit source recipe")
+    if report.get("surface_cross_section_mode", "end_neighbourhood") != recipe.get(
+        "surface_cross_section_mode", "end_neighbourhood"
+    ):
+        raise ValueError("saved surface discretisation mode changed")
+    if report.get("surface_weld_tolerance_m") != recipe.get("surface_weld_tolerance_m"):
+        raise ValueError("saved numeric surface weld recipe changed")
+    if report.get("terrain_refinement_rounds", 1) != recipe.get(
+        "terrain_refinement_rounds", 1
+    ):
+        raise ValueError("saved terrain refinement budget changed")
     if (
         report["candidate_source_ids"] != [r["source_id"] for r in rows]
         or report["admitted_source_ids"]
     ):
         raise ValueError("source ownership or explicit non-admission changed")
-    inventory = catalog(case, rows, context)
+    inventory = catalog(
+        case, rows, context, rejected=recipe.get("excluded_source_trials", [])
+    )
     catalog_path = args.output / "source-catalog.json"
     if digest(catalog_path) != report[
         "source_catalog_sha256"
@@ -85,6 +110,13 @@ def verify(args):
         [owner for owner, _low, _high in stairs],
     )
     data = dict(np.load(args.output / "after/body.npz"))
+    whole_landings = (
+        node_profiles(data, rows, nodes) if "complete_chosen_landings" in recipe else {}
+    )
+    if whole_landings != report.get("whole_landing_contacts", {}) or (
+        whole_landings and not whole_landings["all_chosen_internal_profiles_whole"]
+    ):
+        raise ValueError("actual whole internal profile evidence changed or incomplete")
     pairs, whole = interactions(rows, nodes)
     whole.update(vertex_links(data["body_vertices"], data["body_faces"]))
     joins = contacts(data, rows, bindings(fixture, rows))
@@ -95,6 +127,10 @@ def verify(args):
     ):
         raise ValueError("saved whole interaction/profile evidence changed")
     layout = dict(np.load(args.output / "terrain-plan.npz"))
+    if str(np.asarray(layout.get("sampling_mode", "uniform")).item()) != recipe.get(
+        "terrain_sampling", "uniform"
+    ):
+        raise ValueError("saved terrain sampling declaration changed")
     if not np.array_equal(layout["targets"], sample(layout["xy"])):
         raise ValueError("saved cycle terrain has different actual DEM targets")
     ground, upper = selected_surfaces(data, rows)

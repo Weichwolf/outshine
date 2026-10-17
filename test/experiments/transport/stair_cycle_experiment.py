@@ -15,6 +15,7 @@ from stair_blend_plan import prepare
 from stair_context_experiment import stage
 from stair_cycle_contacts import bindings, contacts
 from stair_cycle_inputs import FIXTURE, load
+from stair_landing_contacts import node_profiles
 from stair_network_geometry import interactions, vertex_links
 from stair_outer_context import catalog
 from stair_outer_geometry import outer_ends
@@ -113,6 +114,7 @@ def generate(args):
         raise ValueError("fresh explicit cycle extension output required")
     began = time.perf_counter()
     case, rows, nodes, stairs, context, sample = load(args.fixture)
+    recipe = json.loads(args.fixture.read_text())
     args.output.mkdir(parents=True)
     network = stage(args, "after", rows, nodes, outer_ends(rows, nodes), stairs)
     data = dict(np.load(args.output / "after/body.npz"))
@@ -127,23 +129,29 @@ def generate(args):
         context,
         None,
         sample,
-        precision=json.loads(args.fixture.read_text()).get(
-            "terrain_precision_mode", "legacy"
-        ),
-        interface=json.loads(args.fixture.read_text()).get(
-            "terrain_interface_mode", "grid"
-        ),
-        variables=json.loads(args.fixture.read_text()).get(
-            "terrain_variable_mode", "heights"
-        ),
+        precision=recipe.get("terrain_precision_mode", "legacy"),
+        interface=recipe.get("terrain_interface_mode", "grid"),
+        variables=recipe.get("terrain_variable_mode", "heights"),
+        spacing_m=recipe.get("terrain_spacing_m", 12.0),
+        sampling=recipe.get("terrain_sampling", "uniform"),
+        refinement_rounds=recipe.get("terrain_refinement_rounds", 1),
     )
     np.savez_compressed(args.output / "terrain-plan.npz", **layout)
     terrain, roles, proof = terrain_stage(
         args.output, "membrane", layout, ground, upper, footprint, 16
     )
     if terrain is None:
-        raise ValueError("extended cycle terrain failed actual export admission")
-    inventory = catalog(case, rows, context)
+        raise ValueError(
+            "extended cycle terrain failed actual export admission: " + str(proof)
+        )
+    inventory = catalog(
+        case, rows, context, rejected=recipe.get("excluded_source_trials", [])
+    )
+    whole_landings = (
+        node_profiles(data, rows, nodes) if "complete_chosen_landings" in recipe else {}
+    )
+    if whole_landings and not whole_landings["all_chosen_internal_profiles_whole"]:
+        raise ValueError("saved local body has incomplete chosen internal profiles")
     (args.output / "source-catalog.json").write_text(
         json.dumps(inventory, indent=2) + "\n"
     )
@@ -155,6 +163,16 @@ def generate(args):
         "after": network,
         "whole_interactions": whole,
         "whole_profile_contacts": contacts(data, rows, bindings(args.fixture, rows)),
+        "junction_pads": context.get("junction_pads", []),
+        "landing_pads": context.get("landing_pads", []),
+        "landing_pad_selection": context.get("landing_pad_selection", []),
+        "whole_landing_contacts": whole_landings,
+        "bridge_separation_orders": context.get("bridge_separation_orders", []),
+        "surface_cross_section_mode": recipe.get(
+            "surface_cross_section_mode", "end_neighbourhood"
+        ),
+        "terrain_refinement_rounds": recipe.get("terrain_refinement_rounds", 1),
+        "surface_weld_tolerance_m": recipe.get("surface_weld_tolerance_m"),
         "terrain_plan": plan,
         "terrain": proof,
         "source_catalog_sha256": digest(args.output / "source-catalog.json"),

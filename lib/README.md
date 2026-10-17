@@ -16,6 +16,15 @@ und `vegetation` importieren gemeinsame Verträge und Geometrieverfahren.
 `pipeline.prepare` verbindet ihre Planungsfunktionen in dieser Reihenfolge.
 Kerne importieren weder Experimente noch Renderer, Showcases oder fremde Checkouts.
 
+`transport.clothoid_turns` und `transport.horizontal.plan_horizontal_axis`
+liefern begrenzte horizontale Kurven mit erhaltenen Endgeraden. Originalquellen,
+tatsächliche Straßen-/Fahrzeugflächen und gemeinsame Knoten bleiben beim
+Aufrufer: [horizontal.md](horizontal.md) (#535).
+
+`transport.frontiers.discover_source_modules` wählt begrenzte alternative Module
+aus ausdrücklichen ursprünglichen Quellknoten. Frame, Ebenen und ganze physische
+Abnahme bleiben beim Aufrufer: [frontiers.md](frontiers.md) (#537).
+
 `transport.weighted_heights.fit_weighted_heights` passt gemeinsame Vertexhöhen
 quadratisch unter ganzen Face-Neigungsgrenzen und festen Kontakten auf einem
 expliziten horizontalen Referenzdatum an. Es verwendet `HeightBudget`/`HeightFit`;
@@ -94,6 +103,22 @@ ohne Koordinaten oder belegte Fläche zu ändern. Die zugehörigen Gegenfälle p
 Mehrfachschnitte, echte Lücken, Transformationen und unveränderte Eingaben.
 
 Die Tests arbeiten lokal. Sie lesen oder verifizieren keine GitHub Issues.
+
+`geometry.weld_vertices` kanonisiert numerische Vertices mit begrenzter Vertex- und
+Paarkapazität und prüft die tatsächliche Verschiebung jedes Eingangsvertices.
+[Vertrag und Grenzen](welding.md): unveränderliche eigene Arrays, Zählung vor
+Paarallokation und ausdrückliche Ablehnung zu langer transitiver Ketten;
+Topologie, Quellen und tatsächliche Exportabnahme bleiben beim Aufrufer.
+
+`geometry.surface_patches.SurfacePatch/SurfacePatches` erhält exakte endliche
+Höhenflächen durch lokale, ausdrücklich benannte Facettenersetzung. Stabile
+Patch-/Face-IDs, ganze XYZ-Ränder und begrenzte lokale Abfragen ohne globale
+Geometriekopie: [surface_patches.md](surface_patches.md) (#542).
+
+`transport.junction_pads.profile_junction_pad` konstruiert eine kleine ebene
+Profilhülle aus zwei bis vier ausdrücklich gemeinsamen ganzen Endprofilen.
+[Vertrag und Grenzen](junction_pads.md): unveränderliches Polygon, tatsächliche
+Quellen-/Ebenenwahl und vollständige Höhen-/Float32-Kontakte beim Aufrufer.
 
 `transport.fit_surface_heights(mesh, grade_frames, budget=HeightBudget(), fixed=...)`
 passt ausschließlich Z-Höhen an einen weichen Höhenprior an. XY, Dreiecke und der
@@ -1046,3 +1071,11 @@ whole-image/shadow LOD admission. A fully open leaf emits no triangles. Housing,
 tracks, attachment, room/collision use, visibility and source interpretation
 remain consumer-owned. Actual source hall consumer, physical alternatives,
 functional negatives and reproduction live in building experiments (#489).
+## Glazed rooflight panels
+
+`buildings.rooflight_panels` emits direct closed rectangle rims/panes and a
+render skin with checked parent contacts. Optional direct two-sided sheets have
+20 triangles with explicit geometric bounds and independent physical products.
+Contract, real source/installed-wheel
+controls, render comparisons and separated preparation/emission costs:
+[rooflight_panels.md](rooflight_panels.md) (#500).

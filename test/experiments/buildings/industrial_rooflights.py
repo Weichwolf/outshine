@@ -9,14 +9,15 @@ from facade_parts import append
 from industrial_hall_details import products, region_solid
 from industrial_hall_shell import metric, structure
 from outshine_ref.buildings.modelling import PrismVolume
+from outshine_ref.buildings.rooflight_panels import (
+    DEPTH_M,
+    FRAME_M,
+    GLASS_INSET_M,
+    GLASS_M,
+    MAX_FIELDS,
+)
 from outshine_ref.buildings.section_roofs import RoofSection
 from outshine_ref.contracts import immutable
-
-MAX_FIELDS = 64
-FRAME_M = 0.08
-DEPTH_M = 0.12
-GLASS_INSET_M = 0.04
-GLASS_M = 0.006
 
 
 def plan(hall, section, *, max_fields=MAX_FIELDS):

@@ -8,7 +8,7 @@ from transport_vertex_pool import welded_vertices
 
 
 def corridor(source):
-    xy = np.asarray(source["xy"], float)
+    xy = np.asarray(source.get("surface_axis_xy_m", source["xy"]), float)
     width = source["width_m"]
     if (
         xy.ndim != 2
@@ -23,8 +23,50 @@ def corridor(source):
     shape = shapely.LineString(xy).buffer(
         width / 2, cap_style="flat", join_style="mitre", mitre_limit=2
     )
+    if "surface_axis_xy_m" in source:
+        original = corridor({"xy": source["xy"], "width_m": width})
+        shape = shape.union(original)
     if shape.is_empty or not shape.is_valid:
         raise ValueError("invalid complete source corridor")
+    pads = source.get("junction_pads_xy_m", [])
+    if not isinstance(pads, list) or len(pads) > 8:
+        raise ValueError("bounded explicit junction pad list required")
+    if not pads:
+        return shape
+    indices = source.get("junction_pad_vertices", [])
+    axis = np.asarray(source["xy"], float)
+    if (
+        not isinstance(indices, list)
+        or len(indices) > 8
+        or any(type(i) is not int or not 0 < i < len(axis) - 1 for i in indices)
+    ):
+        raise ValueError("bounded original interior pad anchors required")
+    anchors = axis[[0, -1, *indices]]
+    for coordinates in pads:
+        points = np.asarray(coordinates, float)
+        if (
+            points.ndim != 2
+            or points.shape[1] != 2
+            or not 3 <= len(points) <= 8
+            or not np.isfinite(points).all()
+        ):
+            raise ValueError("finite small junction pad polygon required")
+        pad = shapely.Polygon(points)
+        if (
+            not pad.is_valid
+            or not 1e-6 < pad.area <= 30**2
+            or not pad.equals(pad.convex_hull)
+            or shape.intersection(pad).area <= 1e-8
+            or not any(
+                np.linalg.norm(points - point, axis=1).max() <= 30
+                and pad.buffer(1e-8).covers(shapely.Point(point))
+                for point in anchors
+            )
+        ):
+            raise ValueError("connected convex endpoint junction pad required")
+        shape = shape.union(pad)
+    if shape.geom_type != "Polygon" or not shape.is_valid:
+        raise ValueError("junction pad changed the connected source domain")
     return shape
 
 

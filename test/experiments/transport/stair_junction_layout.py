@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import shapely
-from outshine_ref.geometry import conform_triangles
+from outshine_ref.geometry import conform_triangles, weld_vertices
 from shared_bridge_geometry import corridor
 from transport_vertex_pool import welded_vertices
 
@@ -65,15 +65,27 @@ def landings(rows, domains, method, width_reach_m, junctions=None):
 
 
 def cross_sections(row):
-    xy, half = row["xy"], row["width_m"] * 2
+    xy = np.asarray(row.get("surface_axis_xy_m", row["xy"]))
+    half = row["width_m"] * 2
     arc = np.r_[0, np.cumsum(np.linalg.norm(np.diff(xy, axis=0), axis=1))]
-    station = np.unique(
-        np.r_[
-            arc,
-            np.arange(0, min(30, arc[-1]), 2),
-            np.arange(max(0, arc[-1] - 30), arc[-1], 2),
-        ]
-    )
+    mode = row.get("surface_cross_section_mode", "end_neighbourhood")
+    if mode not in ("end_neighbourhood", "source_knots"):
+        raise ValueError("known surface cross section mode required")
+    if mode == "source_knots":
+        if (
+            row["original"]["source"]["feature"]["properties"].get("subclass")
+            == "steps"
+        ):
+            raise ValueError("stair cross section sampling cannot be coarsened")
+        station = arc
+    else:
+        station = np.unique(
+            np.r_[
+                arc,
+                np.arange(0, min(30, arc[-1]), 2),
+                np.arange(max(0, arc[-1] - 30), arc[-1], 2),
+            ]
+        )
     line = shapely.LineString(xy)
     result = []
     for s in station:
@@ -86,11 +98,32 @@ def cross_sections(row):
     return result
 
 
-def arrangement(rows, domains, masks):
-    lines = [p.boundary for p in domains + masks]
+def arrangement_vertices(rows, xy):
+    settings = {r.get("surface_weld_tolerance_m") for r in rows}
+    if len(settings) != 1:
+        raise ValueError("one consistent numeric surface weld recipe required")
+    tolerance = settings.pop()
+    if tolerance is None:
+        result, labels, drift = welded_vertices(xy, 1e-8)
+        return result, labels, drift, {}
+    if not 1e-8 <= tolerance <= 1e-7:
+        raise ValueError("bounded numeric surface weld recipe required")
+    result, labels, note = weld_vertices(xy, tolerance)
+    return result, labels, note["maximum_displacement_m"], {"surface_weld": note}
+
+
+def arrangement(rows, domains, masks, *, constraints=()):
+    if len(constraints) > 1024:
+        raise ValueError("local interface constraint budget")
+    lines = [p.boundary for p in domains + masks] + list(constraints)
+    section_counts = []
     for row in rows:
-        lines.append(shapely.LineString(row["xy"]))
-        lines.extend(cross_sections(row))
+        lines.append(shapely.LineString(row.get("surface_axis_xy_m", row["xy"])))
+        if "surface_axis_xy_m" in row:
+            lines.append(shapely.LineString(row["xy"]))
+        sections = cross_sections(row)
+        lines.extend(sections)
+        section_counts.append(len(sections))
     noded = shapely.get_parts(shapely.union_all(lines))
     if len(noded) > 8192:
         raise ValueError("local stair arrangement segment budget")
@@ -100,7 +133,7 @@ def arrangement(rows, domains, masks):
     triangles = shapely.get_parts(shapely.constrained_delaunay_triangles(cells))
     raw = shapely.get_coordinates(triangles).reshape(-1, 4, 2)[:, :3]
     xy, inverse = np.unique(raw.reshape(-1, 2), axis=0, return_inverse=True)
-    xy, labels, drift = welded_vertices(xy, 1e-8)
+    xy, labels, drift, weld_note = arrangement_vertices(rows, xy)
     faces = labels[inverse].reshape(-1, 3)
     points = xy[faces]
     signed = np.cross(
@@ -111,6 +144,12 @@ def arrangement(rows, domains, masks):
     signed = signed[signed != 0]
     faces[signed < 0] = faces[signed < 0, ::-1]
     faces, _note = conform_triangles(xy, faces, max_faces=8192, max_candidates=65536)
+    points = xy[faces]
+    first, second = points[:, 1] - points[:, 0], points[:, 2] - points[:, 0]
+    nonzero = first[:, 0] * second[:, 1] != first[:, 1] * second[:, 0]
+    if not nonzero.all():
+        weld_note["conformed_zero_faces_removed"] = int((~nonzero).sum())
+        faces = faces[nonzero]
     shapes = shapely.polygons(xy[faces])
     if (
         not shapely.coverage_is_valid(shapes)
@@ -129,6 +168,9 @@ def arrangement(rows, domains, masks):
             "vertices": len(xy),
             "segments": len(noded),
             "weld_m": float(drift),
+            "source_section_counts": section_counts,
+            "input_lines": len(lines),
+            **weld_note,
         },
     )
 
