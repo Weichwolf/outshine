@@ -28,6 +28,8 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
   einzelne feste Seitenkontakthöhen und einen ganzen ursprünglichen Radweg ergänzen.
 - [Südwestlicher Straßenverbund](stair_southwest_comparison.md): sechs weitere Quellen,
   ganze geneigte Bestandsprofile, ausdrücklicher Innenkontakt und 795 m Straßen/Wege.
+- [Exakte lokale Terrainflächen](stair_patch_comparison.md): fünf geprüfte Änderungen
+  mit stabilen Teilflächen-IDs und begrenzten Raumabfragen erhalten (#542).
 - [Verbundene Quellenpräfixe](stair_prefix_comparison.md): gültige ganze Quellen
   nach gemeinsamer Geometrieablehnung begrenzt erhalten (#539).
 - [Automatische begrenzte Quellenmodule](stair_frontier_comparison.md): ursprüngliche
