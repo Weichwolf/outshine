@@ -457,26 +457,11 @@ struct StructureBuildTask::NativeProducts {
     return true;
   }
 
-  bool BeforeBake(Generators::RawTile &raw,
-                  const Ground::HeightField *heights,
-                  std::shared_ptr<const Generators::PreparedStructureTile> &base,
-                  const Generators::PreparedBuildingBasis *basis,
-                  Output &output,
-                  const std::atomic_bool &stopping) {
-    if (Current != Phase::Lookup) { return false; }
-    if (basis == nullptr && !EnsureBase(raw, heights, base, basis, output, stopping)) {
-      return true;
-    }
-    if (Cells && !raw.RequestedCell) {
-      if (basis != nullptr) {
-        for (const auto &source : basis->Sources) { *Cells |= uint64_t{1} << (source.Cell - 1u); }
-      } else {
-        for (const auto &source : base->Structures) {
-          *Cells |= uint64_t{1} << (source.Layout.Cell.Index - 1u);
-        }
-      }
-      if (*Cells != 0) { raw.RequestedCell = static_cast<uint32_t>(std::countr_zero(*Cells)) + 1u; }
-    }
+  bool Lookup(const Generators::RawTile &raw,
+              const Generators::PreparedStructureTile *base,
+              const Generators::PreparedBuildingBasis *basis,
+              Output &output,
+              const std::atomic_bool &stopping) {
     auto cached = basis != nullptr ? Cache->LoadGeometry(Key, *basis, raw)
                                    : Cache->LoadGeometry(Key, *base, raw);
     if (!cached) {
@@ -487,11 +472,36 @@ struct StructureBuildTask::NativeProducts {
       output.Status = std::unexpected(Generators::StructureBakeErrorKind::Cancelled);
       return true;
     }
-    if (*cached) {
-      output.Tile = std::move(**cached);
-      output.CacheHit = true;
-      Current = Phase::Complete;
+    if (!*cached) { return false; }
+    output.Tile = std::move(**cached);
+    output.CacheHit = true;
+    Current = Phase::Complete;
+    return true;
+  }
+
+  bool BeforeBake(Generators::RawTile &raw,
+                  const Ground::HeightField *heights,
+                  std::shared_ptr<const Generators::PreparedStructureTile> &base,
+                  const Generators::PreparedBuildingBasis *basis,
+                  Output &output,
+                  const std::atomic_bool &stopping) {
+    if (Current != Phase::Lookup) { return false; }
+    if (basis == nullptr && !EnsureBase(raw, heights, base, basis, output, stopping)) {
       return true;
+    }
+    if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
+    if (Cells && !raw.RequestedCell) {
+      if (basis != nullptr) {
+        for (const auto &source : basis->Sources) { *Cells |= uint64_t{1} << (source.Cell - 1u); }
+      } else {
+        for (const auto &source : base->Structures) {
+          *Cells |= uint64_t{1} << (source.Layout.Cell.Index - 1u);
+        }
+      }
+      if (*Cells != 0) {
+        raw.RequestedCell = static_cast<uint32_t>(std::countr_zero(*Cells)) + 1u;
+        if (Lookup(raw, base.get(), basis, output, stopping)) { return true; }
+      }
     }
     if (!EnsureBase(raw, heights, base, basis, output, stopping)) { return true; }
     Current = Phase::Generating;

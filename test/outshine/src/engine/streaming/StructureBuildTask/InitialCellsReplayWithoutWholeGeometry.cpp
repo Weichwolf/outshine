@@ -157,6 +157,47 @@ void Replay(const std::filesystem::path &root, bool warm) {
   CHECK(!task.Result().Status && !task.Result().Tile,
         "cancelling a restarted child returns no product for source publication");
 }
+
+void ReuseWholeProduct(const std::filesystem::path &root) {
+  Data::ContentStore store({.Directory = (root / "sources").string()});
+  const Data::SourceSet sources(store);
+  auto cache = PreparedBuildingAssets::Open(root.string(), sources);
+  CHECK(cache, "a separate cache opens for an existing whole product");
+  if (!cache) { return; }
+  const auto raw = Inputs();
+  Ground::HeightField::Block block;
+  block.At = {.Zoom = 0, .X = 0, .Y = 0};
+  block.Raster = {.Side = 2, .Postings = 2};
+  block.Nodes.assign(4, 0.0f);
+  const auto heights = Ground::HeightField::Of(0, {block});
+  const std::atomic_bool stopping(false);
+  auto base = (*cache)->Generate(std::string(kKey), raw, *heights, stopping);
+  CHECK(base && *base, "the complete enriched source is available");
+  if (!base || !*base) { return; }
+  CountingMesh mesher;
+  auto scratch = mesher.Scratch();
+  const auto whole = BakePreparedStructures(**base, raw, mesher, *scratch);
+  CHECK(whole && (*cache)->StoreGeometry(std::string(kKey), **base, raw, *whole),
+        "a valid bounded whole product already exists before initial admission");
+  const auto basis = (*cache)->LoadBasis(std::string(kKey));
+  CHECK(basis && *basis, "the warm source basis is available without the full plans");
+  if (!basis || !*basis) { return; }
+  mesher.Calls = 0;
+  Tasks pool(1);
+  StructureBuildTask task(0,
+                          *basis,
+                          std::make_unique<RawTile>(raw),
+                          std::make_unique<StructureBuildTask::Output>(),
+                          mesher.Scratch());
+  task.UseNativeAssets(*cache, std::string(kKey));
+  task.UseInitialCells();
+  Complete(task, pool, mesher);
+  const auto &tile = task.Result().Tile;
+  CHECK(task.Result().Status && tile && task.Result().CacheHit && task.InitialCells() == 0 &&
+            !tile->RequestedCell && tile->Prints.size() == raw.Structures.size() &&
+            mesher.Calls == 0 && (*cache)->Costs().GeometryWrites == 1,
+        "initial admission reuses a valid whole cache hit without rebuilding it as children");
+}
 }
 
 int main() {
@@ -165,6 +206,7 @@ int main() {
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   Replay(root, false);
   Replay(root, true);
+  ReuseWholeProduct(root / "existing-whole");
   std::error_code error;
   std::filesystem::remove_all(root, error);
   CHECK(!error, "the isolated generated products are removed");

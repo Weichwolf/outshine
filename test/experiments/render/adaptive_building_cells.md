@@ -60,8 +60,42 @@ It is a different cached input/view from the failed 8,068-source Linux product;
 it does not repair or accept that Place. Private sources, commands, original
 records and logs: system-temp `outshine-decoded-mesh-ce3d84a8c`.
 
-The remaining integration loads source/contact metadata before geometry, stages
-bounded children and atomically publishes the complete cell set. Warm hits must
-repeat neither source enrichment nor meshing. The current engine still requires
-a whole initial mesh. Unknown surface errors stay unknown, and old valid world
-state must survive cancellation, retry or failed child publication.
+## Engine integration
+
+Commit `71f92310d` connects initial native source admission to the cell producer.
+The queue retains the current child mesh, gathers source/contact metadata and
+accepts it once after staging the complete source. Initial publication uses the
+same atomic cell activation as refinement. Restarting a source discards hidden
+children while retaining the old visible revision. Empty/fallback/non-native
+paths keep their existing behavior. Unknown surface errors stay unknown.
+
+The new producer case has 35 checks for cold child writes, fresh child hits,
+complete metadata, cancellation and reuse of an existing bounded whole product.
+The real queue replay has 184 checks including two-cell cold/warm admission;
+publication has 20 actual depth checks. The existing revision and worker-lifetime
+cases remain green. Five changed implementation units and 25 dependent units
+pass focused tidy; the new producer case is clean under focused analysis.
+These results are not a complete Place or native-backend acceptance.
+
+The first wiring selected children before probing existing whole cache products.
+That incorrectly replaced valid hits with new work. Commit `d6dc5517d` restores
+the direct whole-product hit. Only a miss selects children before emission; no
+oversized whole product is generated first and the 64-MiB limit stays unchanged.
+
+## Public runtime scope and remaining costs
+
+The initial Tokyo 1280×720/30 attempt exhausted its 10-second preload while new
+children were being generated. A subsequent default-profile `prepare Tokyo 180`
+became ready in 151.31 seconds, with 5,191,307,368-byte peak process footprint.
+It includes complete-world preparation and a one-second sampling probe, not
+isolated geometry generation. A fresh child-only attempt then still exhausted
+10 seconds at 45/46 accepted source tiles, zero meshing ranges. Child loading,
+upload and orchestration remain a runtime performance problem.
+
+After restoring existing whole-product hits, fresh offline Tokyo and Wien
+1280×720/30 processes load in 1,913.3115 and 1,567.3445 ms. CPU p99 is 3.7517 and
+3.7510 ms; both PNGs are byte-identical to the previous successful captures.
+GPU time remains unavailable on the main SDL_GPU path. These are single runs,
+not a robust speedup or a child-only loading-budget proof. The failed 8,068-source
+Linux 1920×1080/60 case and full native port acceptance remain open in #567/#328.
+
