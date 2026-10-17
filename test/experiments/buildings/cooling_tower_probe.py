@@ -1,8 +1,6 @@
 """Actual source plans, sections and whole-tile cooling-intake render inputs."""
 
 import argparse
-import hashlib
-import json
 from pathlib import Path
 
 import numpy as np
@@ -11,14 +9,12 @@ from cooling_tower_details import refine
 from cooling_tower_plan import plan
 from demand import View
 from evidence import revision
-from industrial_relief_probe import camera
+from industrial_relief_probe import export as export_asset
 from industrial_relief_products import ArticulatedDetails
 from outshine_ref.buildings.structures import classify_structure
 from prepared_hall_tile import prepare_halls
 from prepared_hall_tile_probe import source_tile
-from recipe_graph_data import plain
 from special_forms import profile
-from tile_buildings import construct
 
 
 def sources():
@@ -54,30 +50,22 @@ def isolated(rows, row):
 
 
 def export(output, name, rows, receipt, view, proof, *, after, error_m=1.0):
-    owner = ArticulatedDetails(prepare_halls(rows), view)
-    mesh, source = construct(
-        "Grohnde",
+    prepared = prepare_halls(rows)
+    owner = ArticulatedDetails(prepared, view)
+    result = export_asset(
+        output,
+        name,
+        owner,
+        prepared.rows,
+        receipt,
+        view,
+        proof,
         error_m=error_m,
-        prepared=(rows, receipt),
-        ordinary_builder=owner,
         radial_builder=refine if after else None,
     )
-    path = output / (name + "-mesh.npz")
-    np.savez_compressed(path, **mesh)
-    record = proof | {
-        "city": name,
-        "ground_mode": "flat-no-dem",
-        "camera": camera(view),
-        "mesh": str(path.resolve()),
-        "mesh_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-        "triangles": len(mesh["faces"]),
-        "source": source,
-        "facade_materials": owner.ordinary.facades.bindings,
-        "scope": "Same provider height/footprint/classification; procedural intake/support/rim construction. No engineering or native cache/frame admission.",
-    }
-    (output / (name + "-geometry.json")).write_text(
-        json.dumps(record, default=plain, indent=2) + "\n"
-    )
+    if result["generated"] != sum(r["layer"] == "building" for r in rows):
+        raise ValueError("Cooling comparison must retain every fixed fixture source")
+    return result
 
 
 def models(output):

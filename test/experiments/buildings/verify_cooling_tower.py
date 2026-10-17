@@ -210,6 +210,26 @@ class CoolingTowers(unittest.TestCase):
                 self.assertEqual(record["source"]["counts"], {"cooling_tower": 1})
                 self.assertEqual(record["source"]["omissions"], [])
 
+    def test_whole_exports_use_the_retained_source_snapshot_and_keep_every_row(self):
+        with tempfile.TemporaryDirectory(
+            prefix="outshine-buildings-cooling-test-"
+        ) as directory:
+            output = Path(directory)
+            for after in (False, True):
+                name = "after" if after else "before"
+                result = export(
+                    output,
+                    name,
+                    self.rows,
+                    self.receipt,
+                    self.view,
+                    {"commit": "test"},
+                    after=after,
+                )
+                self.assertEqual(result["generated"], 37)
+                record = json.loads((output / (name + "-geometry.json")).read_text())
+                self.assertEqual(record["source"]["omissions"], [])
+
 
 if __name__ == "__main__":
     unittest.main()
