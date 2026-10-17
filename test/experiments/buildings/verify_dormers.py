@@ -193,6 +193,7 @@ class DormerTests(unittest.TestCase):
         )
 
     def test_inherited_valid_roof_deviation_is_separate_from_new_union_error(self):
+        from dormer_footprint import projected
         from dormer_sources import counterexamples
 
         for row in counterexamples():
@@ -200,10 +201,7 @@ class DormerTests(unittest.TestCase):
             asset = prepare(row, params, choose(row, params))
             parent = shapely.from_wkb(asset.original.footprint_wkb)
             self.assertLessEqual(row["polygon"].symmetric_difference(parent).area, 1e-7)
-            mesh = asset.full.physical.mesh
-            xyz = mesh["vertices"][mesh["faces"]]
-            normals = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
-            actual = shapely.union_all(shapely.polygons(xyz[normals[:, 2] > 0, :, :2]))
+            actual = projected(asset.full.physical.mesh)
             self.assertLessEqual(row["polygon"].symmetric_difference(actual).area, 1e-7)
             self.assertLessEqual(parent.symmetric_difference(actual).area, 1e-8)
 

@@ -7,9 +7,9 @@ import time
 from dataclasses import asdict, replace
 from pathlib import Path
 
-import numpy as np
 import shapely
 from city_scene import inputs
+from dormer_footprint import GRID_M, projected
 from dormer_windows import DEPTH_M, aperture
 from evidence import revision
 from facade_parts import append
@@ -80,9 +80,7 @@ def audit(geometry):
         seam_xor = (joined - solid).volume() + (solid - joined).volume()
         if seam_xor > 1e-7:
             raise ValueError("Replayed body/roof seams changed volume: " + identifier)
-        xyz = product.physical.mesh["vertices"][product.physical.mesh["faces"]]
-        n = np.cross(xyz[:, 1] - xyz[:, 0], xyz[:, 2] - xyz[:, 0])
-        region = shapely.union_all(shapely.polygons(xyz[n[:, 2] > 0, :, :2]))
+        region = projected(product.physical.mesh)
         original_region = shapely.from_wkb(asset.original.footprint_wkb)
         inherited_error = row["polygon"].symmetric_difference(original_region).area
         added_error = original_region.symmetric_difference(region).area
@@ -114,6 +112,7 @@ def audit(geometry):
                 flush=True,
             )
     return proof | {
+        "audit_projection_grid_m": GRID_M,
         "source_geometry": str(geometry.resolve()),
         "source_geometry_sha256": hashlib.sha256(geometry.read_bytes()).hexdigest(),
         "records": records,
