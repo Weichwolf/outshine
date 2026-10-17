@@ -20,10 +20,12 @@ class FacadeProducts:
         self.coarse = compact(prepared)
         self.near = None
         mass = prepared.mass
+        self.source_polygon = shapely.from_wkb(mass.source_wkb)
+        self.source_bounds = self.source_polygon.bounds
         xy = shapely.get_coordinates(
             shapely.union_all(
                 [
-                    shapely.from_wkb(mass.source_wkb),
+                    self.source_polygon,
                     shapely.from_wkb(mass.entry.landing_wkb),
                 ]
             )
@@ -47,9 +49,13 @@ class FacadeProducts:
 
     def select(self, view):
         mass = self.prepared.mass
-        inside = mass.bottom_m <= view.eye[2] <= mass.top_m and shapely.from_wkb(
-            mass.source_wkb
-        ).covers(shapely.Point(view.eye[:2]))
+        x0, y0, x1, y1 = self.source_bounds
+        inside = (
+            mass.bottom_m <= view.eye[2] <= mass.top_m
+            and x0 <= view.eye[0] <= x1
+            and y0 <= view.eye[1] <= y1
+            and self.source_polygon.covers(shapely.Point(view.eye[:2]))
+        )
         coordinates = (self.bounds - view.eye) @ view.basis.T
         margin = (view.movement_m + EXTERIOR_RADIUS_M) * np.linalg.norm(
             view.planes[:, :3], axis=1

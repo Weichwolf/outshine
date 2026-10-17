@@ -14,6 +14,7 @@ from outshine_ref.buildings.modelling.faces import Face, compile_faces
 from outshine_ref.buildings.modelling.prism_union import frozen
 from outshine_ref.buildings.rooflight_panels import triangle_surface
 from terraced_facade_prepare import positions
+from terraced_facade_flat import windows as flat_windows
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ def polygon_parts(geometry):
 class Surfaces:
     def __init__(self):
         self.vertices, self.faces, self.owners = [], [], []
+        self.quads, self.quad_materials, self.quad_owners = [], [], []
 
     def polygon(self, polygon, origin, u, v, material, owner, *, reverse=False):
         for part in polygon_parts(polygon):
@@ -64,15 +66,11 @@ class Surfaces:
             if part.geom_type != "LineString" or part.length <= 1e-10:
                 continue
             a, b = np.asarray(part.coords)[[0, -1]]
-            length = np.linalg.norm(b - a)
-            self.polygon(
-                shapely.box(0, 0, length, high - low),
-                np.r_[a, low],
-                np.r_[(b - a) / length, 0],
-                np.array([0, 0, 1]),
-                material,
-                owner,
+            self.quads.append(
+                [np.r_[a, low], np.r_[b, low], np.r_[b, high], np.r_[a, high]]
             )
+            self.quad_materials.append(material)
+            self.quad_owners.append(owner)
 
 
 def wall(writer, mass, windows, storey_index, ring_index, edge_index, a, b):
@@ -90,53 +88,6 @@ def wall(writer, mass, windows, storey_index, ring_index, edge_index, a, b):
             w.bottom_m + w.height_m - storey.bottom_m,
         )
         holes.append(tuple(hole.exterior.coords)[:-1])
-        origin = np.r_[w.centre, w.bottom_m]
-        outer = shapely.box(
-            -w.width_m / 2 - 0.055, -0.055, w.width_m / 2 + 0.055, w.height_m + 0.055
-        )
-        inner = shapely.box(
-            -w.width_m / 2 + 0.055, 0.055, w.width_m / 2 - 0.055, w.height_m - 0.055
-        )
-        writer.polygon(
-            outer.difference(inner),
-            origin + np.r_[outward * 0.045, 0],
-            np.r_[tangent, 0],
-            np.array([0, 0, 1]),
-            10,
-            w.identifier,
-        )
-        # Fill the exact wall aperture; opaque frame coverage masks its border.
-        writer.polygon(
-            shapely.box(-w.width_m / 2, 0, w.width_m / 2, w.height_m),
-            origin,
-            np.r_[tangent, 0],
-            np.array([0, 0, 1]),
-            3,
-            w.identifier,
-        )
-        if w.width_m > 2:
-            writer.polygon(
-                shapely.box(-0.0225, 0.055, 0.0225, w.height_m - 0.055),
-                origin + np.r_[outward * 0.046, 0],
-                np.r_[tangent, 0],
-                np.array([0, 0, 1]),
-                10,
-                w.identifier,
-            )
-        half = (w.width_m + 0.16) / 2
-        line = shapely.LineString(
-            [
-                np.asarray(w.centre) - half * tangent + 0.16 * outward,
-                np.asarray(w.centre) + half * tangent + 0.16 * outward,
-            ]
-        )
-        writer.segment(
-            line,
-            w.bottom_m - 0.09658333333333334,
-            w.bottom_m - 0.06458333333333334,
-            11,
-            w.identifier,
-        )
     if storey_index == 0:
         centre = np.asarray(mass.entry.centre)
         along = float((centre - a) @ tangent)
@@ -237,6 +188,19 @@ def caps(prepared):
     ), owners
 
 
+def joined(meshes):
+    offsets = np.cumsum([0] + [len(m["vertices"]) for m in meshes[:-1]])
+    return {
+        key: np.concatenate(
+            [
+                m[key] + offset if key == "faces" else m[key]
+                for m, offset in zip(meshes, offsets, strict=True)
+            ]
+        )
+        for key in meshes[0]
+    }
+
+
 def compact(prepared):
     mass, facade = prepared.local, prepared.facade
     writer = Surfaces()
@@ -272,6 +236,16 @@ def compact(prepared):
     raw, _topology = compile_faces(np.asarray(writer.vertices), writer.faces)
     mesh = triangle_surface(raw, 12)
     mesh["materials"] = raw["materials"]
+    quad_points = np.asarray(writer.quads).reshape(-1, 3)
+    quad_faces = (
+        np.arange(len(quad_points))
+        .reshape(-1, 4)[:, [[0, 1, 2], [0, 2, 3]]]
+        .reshape(-1, 3)
+    )
+    qmesh = triangle_surface({"vertices": quad_points, "faces": quad_faces}, 9)
+    qmesh["materials"] = np.repeat(writer.quad_materials, 2).astype(np.uint16)
+    wmesh, window_owners = flat_windows(facade)
+    mesh = joined((mesh, qmesh, wmesh))
     mesh["vertices"] = positions(mesh["vertices"], prepared.mass.core)
     normals = mesh["normals"].copy()
     normals[:, :2] = normals[:, :1] * np.asarray(
@@ -279,19 +253,21 @@ def compact(prepared):
     ) + normals[:, 1:2] * np.asarray(prepared.mass.core.along_xy)
     mesh["normals"] = normals
     horizontal, names = caps(prepared)
-    offset = len(mesh["vertices"])
-    mesh = {
-        key: np.r_[
-            value, horizontal[key] + offset if key == "faces" else horizontal[key]
-        ]
-        for key, value in mesh.items()
-    }
+    mesh = joined((mesh, horizontal))
+    window_base = len(writer.owners) + len(writer.quad_owners)
+    names_base = window_base + len(facade.windows)
     owner_indices = np.r_[
-        raw["parts"], np.arange(len(names)) + len(writer.owners)
+        raw["parts"],
+        np.repeat(np.arange(len(writer.quad_owners)) + len(writer.owners), 2),
+        window_owners + window_base,
+        np.arange(len(names)) + names_base,
     ].astype(np.uint32)
     return CompactFacade(
         MappingProxyType({k: frozen(v) for k, v in mesh.items()}),
-        tuple(writer.owners) + tuple(names),
+        tuple(writer.owners)
+        + tuple(writer.quad_owners)
+        + tuple(w.identifier for w in facade.windows)
+        + tuple(names),
         frozen(owner_indices),
         tuple(w.identifier for w in facade.windows),
     )

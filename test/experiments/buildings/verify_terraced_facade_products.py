@@ -138,12 +138,20 @@ class FacadeProductTests(unittest.TestCase):
         far = View(centre + [0, -1400, 700], centre, width=1920, height=1080)
         away = replace(far, target=far.eye + (far.eye - far.target))
         moving = replace(far, movement_m=1800)
-        inside = View(centre, centre + [1, 0, 0], width=1920, height=1080)
+        point = shapely.from_wkb(p.mass.source_wkb).representative_point()
+        interior = np.r_[point.coords[0], 1.7]
+        inside = View(interior, interior + [1, 0, 0], width=1920, height=1080)
         products = FacadeProducts(p)
         marker = object()
-        with patch(
-            "terraced_facade_products.build_facade", return_value=marker
-        ) as build:
+        with (
+            patch(
+                "terraced_facade_products.shapely.from_wkb",
+                side_effect=AssertionError("repeated source decode"),
+            ),
+            patch(
+                "terraced_facade_products.build_facade", return_value=marker
+            ) as build,
+        ):
             for view in (far, away, far):
                 result, decision = products.resolve(view)
                 self.assertIs(result, products.coarse)
