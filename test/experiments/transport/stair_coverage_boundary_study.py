@@ -39,7 +39,7 @@ def measure(args):
         "scope": "Actual complete loading, including roads/profiles, terrain/masks, supports/caps, "
         "and logical headroom. Only the coverage predicate changes in this isolated process. "
         "Polygon adapter reconstructs XY/index arrays; mesh alternative reuses the owned mesh. No input trust flag, "
-        "persistent proof, constructor bypass, changed geometry or lib/native API. "
+        "persistent proof, constructor bypass, changed geometry or public/native API. "
         "General coverage remains the fallback. Instrumented host results are not device budgets.",
     }
     write_json(coverage_output, summary)
@@ -55,7 +55,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--products", type=Path, required=True)
     parser.add_argument(
-        "--coverage", choices=("general", "boundary", "mesh"), required=True
+        "--coverage",
+        choices=("general", "boundary", "mesh", "mesh-batched", "library"),
+        required=True,
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--profile", type=Path)

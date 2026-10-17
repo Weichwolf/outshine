@@ -2,65 +2,22 @@
 
 import numpy as np
 import shapely
+from outshine_ref.geometry.surface_patches._coverage import proves_single_boundary
 
 GENERAL_COVERAGE = shapely.coverage_is_valid
 
 
-def boundary_cycle(edges, vertex_count):
-    """Return the one directed cycle, or None when the disk witness is unavailable."""
-    if len(edges) < 3:
-        return None
-    starts, counts = np.unique(edges[:, 0], return_counts=True)
-    if np.any(counts != 1) or not np.array_equal(starts, np.sort(edges[:, 1])):
-        return None
-    following = np.full(vertex_count, -1, dtype=np.int64)
-    following[edges[:, 0]] = edges[:, 1]
-    cycle = np.empty(len(edges) + 1, dtype=np.int64)
-    cycle[0] = starts[0]
-    for i in range(len(edges)):
-        cycle[i + 1] = following[cycle[i]]
-        if cycle[i + 1] == cycle[0] and i + 1 != len(edges):
-            return None
-    return cycle if cycle[-1] == cycle[0] else None
-
-
-def witness(xy, faces, polygons):
-    """Sufficient planar-chain witness, never a negative coverage verdict.
-
-    Opposite internal edges cancel in the oriented triangle boundary. If the
-    remaining chain is one simple CCW ring, its winding number is one inside
-    and zero outside. Every CCW nondegenerate triangle contributes +1 inside.
-    Additivity then excludes positive-area overlap and holes. Full edge pairing
-    also excludes unmatched interior edges. Other topologies use GEOS instead.
-    """
-    edges = faces[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2)
-    low, high = np.min(edges, axis=1), np.max(edges, axis=1)
-    codes = low.astype(np.uint64) * np.uint64(2**32) + high
-    order = np.argsort(codes, kind="stable")
-    ordered = codes[order]
-    begin = np.r_[0, np.flatnonzero(ordered[1:] != ordered[:-1]) + 1]
-    counts = np.diff(np.r_[begin, len(ordered)])
-    if np.any(counts > 2):
-        return {"proved": False, "reason": "edge_incidence"}
-    paired = begin[counts == 2]
-    a, b = edges[order[paired]], edges[order[paired + 1]]
-    if not np.array_equal(a, b[:, ::-1]):
-        return {"proved": False, "reason": "edge_orientation"}
-    outer = edges[order[begin[counts == 1]]]
-    cycle = boundary_cycle(outer, len(xy))
-    if cycle is None:
-        return {"proved": False, "reason": "not_one_boundary_cycle"}
-    ring = shapely.LinearRing(xy[cycle])
-    if not shapely.is_simple(ring) or not shapely.is_ccw(ring):
-        return {"proved": False, "reason": "boundary_not_simple_ccw"}
-    if not shapely.is_ccw(shapely.get_exterior_ring(polygons)).all():
-        return {"proved": False, "reason": "triangle_orientation"}
+def witness(xy, faces, polygons, *, ring_batch=None):
+    proved = proves_single_boundary(xy, faces, polygons, ring_batch=ring_batch)
     return {
-        "proved": True,
-        "reason": "positive_chain_simple_boundary",
-        "triangles": len(faces),
-        "paired_edges": len(paired),
-        "boundary_edges": len(outer),
+        "proved": proved,
+        "reason": "positive_chain_simple_boundary"
+        if proved
+        else "general_coverage_required",
+        "input_triangles": len(faces),
+        "orientation_batch_triangles": len(polygons)
+        if ring_batch is None
+        else ring_batch,
     }
 
 
@@ -90,12 +47,12 @@ def polygon_witness(polygons):
     return witness(xy, faces, polygons)
 
 
-def mesh_witness(mesh, polygons):
+def mesh_witness(mesh, polygons, *, ring_batch=None):
     """Reuse the strict constructor's owned mesh instead of decoding polygon coordinates."""
     if not 1 <= len(mesh.triangles) <= 65536 or len(mesh.vertices) > 65536:
         return {"proved": False, "reason": "mesh_budget"}
     xy, inverse = np.unique(mesh.vertices[:, :2], axis=0, return_inverse=True)
-    return witness(xy, inverse[mesh.triangles], polygons)
+    return witness(xy, inverse[mesh.triangles], polygons, ring_batch=ring_batch)
 
 
 def checked_coverage(polygons, *, records=None):

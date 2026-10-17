@@ -5,8 +5,21 @@ from fractions import Fraction
 
 import numpy as np
 import shapely
+from outshine_ref.geometry.surface_patches._coverage import proves_single_boundary
 from scipy.spatial import Delaunay
-from stair_coverage_boundary import GENERAL_COVERAGE, checked_coverage, polygon_witness
+
+GENERAL_COVERAGE = shapely.coverage_is_valid
+
+
+def polygon_witness(polygons):
+    coords = shapely.get_coordinates(polygons).reshape(-1, 4, 2)[:, :3]
+    xy, inverse = np.unique(coords.reshape(-1, 2), axis=0, return_inverse=True)
+    faces = inverse.reshape(-1, 3)
+    return {"proved": proves_single_boundary(xy, faces, polygons)}
+
+
+def checked_coverage(polygons):
+    return polygon_witness(polygons)["proved"] or bool(GENERAL_COVERAGE(polygons))
 
 
 def triangles(xy, faces):
@@ -100,6 +113,15 @@ class BoundaryCoverage(unittest.TestCase):
             moved = xy.copy()
             moved[faces[0, 0]] = moved[faces[1, 0]]
             self.compare(triangles(moved, faces))
+
+    def test_large_patch_uses_the_entire_oriented_surface(self):
+        xy = np.random.default_rng(680).uniform(-100, 100, (2048, 2))
+        faces = Delaunay(xy).simplices
+        polygons = triangles(xy, faces)
+        self.assertGreater(len(faces), 3072)
+        self.compare(polygons, proved=True)
+        # A late overlapping face must not escape a bounded orientation pass.
+        self.compare(np.r_[polygons, polygons[-1:]], proved=False)
 
     def test_exact_orientation_of_ill_conditioned_triangles(self):
         random = np.random.default_rng(679)

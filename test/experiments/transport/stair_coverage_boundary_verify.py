@@ -24,9 +24,10 @@ from stair_terrain_experiment import frozen
 def verify(args):
     commit = frozen()
     fresh(args.output)
-    strict = load_chain(args.resident)
+    with validation("general", []):
+        strict = load_chain(args.resident)
     records = []
-    with validation("mesh", records):
+    with validation(args.coverage, records):
         actual = load_chain(args.resident)
     expected_hash = state_hash(strict)
     if state_hash(actual) != expected_hash:
@@ -48,7 +49,7 @@ def verify(args):
         prior_module=[],
         max_context_faces=8192,
     )
-    with validation("mesh", records):
+    with validation(args.coverage, records):
         report = generate(options)
     if not report["valid_local_module"]:
         raise ValueError("actual next whole source no longer constructs")
@@ -65,12 +66,14 @@ def verify(args):
     for name, expected in original["artifacts"].items():
         if digest(args.reference / name) != expected:
             raise ValueError("original complete generation artifact changed")
-    cold_verify(options)
+    with validation("general", []):
+        cold_verify(options)
     receipt = json.loads((args.output / "verification.json").read_text())
     if not receipt["valid_local_module"]:
         raise ValueError("strict independent cold reader refused next generation")
     result = {
         "reader_commit": commit,
+        "coverage": args.coverage,
         "resident_sha256": digest(args.resident / "resident.json"),
         "original_report_sha256": digest(args.reference / "comparison.json"),
         "state_sha256": expected_hash,
@@ -85,7 +88,7 @@ def verify(args):
         "scope": "Complete real prepared state, index/scan and D/F32 sampling, "
         "new generation with experimental coverage followed by unchanged strict verification. "
         "Original artifact hashes include full road/terrain/planning/source products. "
-        "No lib/native admission or new source/visual improvement.",
+        "No native/device admission or new source/visual improvement.",
     }
     write_json(args.output / "coverage-verification.json", result)
     print(
@@ -99,6 +102,9 @@ if __name__ == "__main__":
     resource.setrlimit(resource.RLIMIT_CPU, (180, 180))
     resource.setrlimit(resource.RLIMIT_AS, (3 * 1024**3,) * 2)
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--coverage", choices=("mesh", "mesh-batched", "library"), default="library"
+    )
     for name in ("resident", "reference", "fixture", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
     verify(parser.parse_args())
