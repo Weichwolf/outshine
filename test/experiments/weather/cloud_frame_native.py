@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import shlex
 import tempfile
 from pathlib import Path
@@ -158,6 +159,7 @@ def main():
     parser.add_argument("--module-command", type=Path, required=True)
     parser.add_argument("--reflector", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--shared-layer", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -177,6 +179,23 @@ def main():
             raise ValueError(
                 "the immutable native GPU consumer must match its original receipt"
             )
+    if args.shared_layer:
+        probe.split_shader = output / "cloud-layer-shared.spv"
+        probe.run(
+            [
+                "nice",
+                "-n",
+                "10",
+                *shlex.split(os.environ.get("GLSLANG", "glslangValidator")),
+                "-V",
+                "-Isrc",
+                "-Isrc/generators/weather/shaders",
+                ROOT / "test/experiments/weather/cloud_wind_precision.comp",
+                "-o",
+                probe.split_shader,
+            ],
+            "shared-layer-shader",
+        )
     producer = Producer(probe, args.module_command)
     positions = points()
     record = {
@@ -201,6 +220,7 @@ def main():
         "gpu_receipt_sha256": digest(args.gpu_root / "receipt.json"),
         "binary_sha256": digest(probe.binary),
         "split_shader_sha256": digest(probe.split_shader),
+        "shared_layer": args.shared_layer,
         "source_commit": probe.run(["git", "rev-parse", "HEAD"], "source").strip(),
         "source_dirty": probe.run(["git", "status", "--porcelain"], "dirty"),
         "source_sha256": {
@@ -211,6 +231,9 @@ def main():
                 "test/experiments/weather/cloud_frame_pack.cpp",
                 "test/experiments/weather/cloud_frame_native.py",
                 "test/experiments/weather/cloud_wind_native.py",
+                "test/experiments/weather/cloud_wind_precision.comp",
+                "src/generators/weather/shaders/cloudLayer.glsl",
+                "src/generators/weather/shaders/cloudCumulus.glsl",
             )
         },
         "commands": probe.commands,

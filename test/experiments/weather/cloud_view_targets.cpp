@@ -1,8 +1,10 @@
 #include "CloudViewProbe.h"
 #include "MediumViewProbe.h"
 #include "NativeGpuCheck.h"
+#include "Check.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -110,7 +112,8 @@ void Targets::Scene(Commands &commands,
   Require(commands.EndRenderPass());
 }
 
-Capture Targets::Draw(Device &device, const Pipelines &pipelines, const Case &scenario) const {
+Capture
+Targets::Draw(Device &device, const Pipelines &pipelines, const Case &scenario, bool timed) const {
   auto frame = FrameFor(scenario.View, ControlledAir());
   auto weather = PrepareWeather(scenario);
   const auto recordedWeather = weather;
@@ -149,8 +152,17 @@ Capture Targets::Draw(Device &device, const Pipelines &pipelines, const Case &sc
         *Readbacks_[index + 1],
         {.RowBytes = Shape_.RowBytes, .Region = {.Width = Shape_.Width, .Height = Shape_.Height}}));
   }
-  Finish(device, std::move(commands));
-  Capture result{.Images = {}, .Weather = recordedWeather};
+  const auto completion = Require(device.Submit(std::move(commands)));
+  CHECK(Require(device.Wait(completion, std::chrono::seconds(30))) == CompletionStatus::Ready,
+        "native cloud view operation completes within the unchanged offline test bound");
+  Capture result{.Images = {}, .Weather = recordedWeather, .GpuElapsedNanoseconds = std::nullopt};
+  if (timed) {
+    const auto timing = Require(device.SubmissionGpuTime(completion));
+    CHECK(timing.Status == CompletionStatus::Ready && std::isfinite(timing.ElapsedNanoseconds) &&
+              timing.ElapsedNanoseconds > 0.0,
+          "the completed native submission has an actual finite GPU time");
+    result.GpuElapsedNanoseconds = timing.ElapsedNanoseconds;
+  }
   for (size_t index = 0; index < result.Images.size(); ++index) {
     result.Images[index] = ReadImage(device, *Readbacks_[index], Shape_);
   }

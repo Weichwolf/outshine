@@ -3,13 +3,22 @@
 import json
 
 import numpy as np
-from cloud_field import Layer, density, segments
+from cloud_field import Layer, density, segments, wind
 from cloud_moments import integrate_cells
 from cloud_view_reference import physical_air
 
 
-def reference(rays, medium, weather, warp=1):
-    drift = weather[2, :3].astype(float)
+def reference(rays, medium, weather, warp=1, phase_s=None):
+    if len(weather) == 10:
+        if phase_s is None:
+            raise ValueError(
+                "the independent reference needs the requested phase, not packed lattice bits"
+            )
+        drift = wind(Layer()) * phase_s
+    elif len(weather) == 6:
+        drift = weather[2, :3].astype(float)
+    else:
+        raise ValueError("the captured weather payload has an unsupported size")
     if drift[1] != 0:
         raise ValueError("this declared comparison has horizontal layer advection")
     layer = Layer(
@@ -55,7 +64,7 @@ def capture(metadata):
     )
     rays = np.fromfile(stem + ".rays.bin", "<f8").reshape(-1, 11)
     parameters = np.fromfile(stem + ".parameters.bin", "<f4")
-    return data, images, rays, parameters[:20], parameters[20:].reshape(6, 4)
+    return data, images, rays, parameters[:20], parameters[20:].reshape(-1, 4)
 
 
 def judge(metadata, baseline_metadata):
@@ -69,7 +78,7 @@ def judge(metadata, baseline_metadata):
     ):
         np.testing.assert_array_equal(after.view(np.uint8), before.view(np.uint8))
     mask = images[2, :, 3] > 0
-    expected, bound = reference(rays, medium, weather)
+    expected, bound = reference(rays, medium, weather, phase_s=data["phase_s"])
     expected[~mask] = 0
     actual = images[4, :, :2].astype(float)
     if not np.isfinite(actual).all() or np.any(actual < 0) or np.any(actual[:, 0] > 1):

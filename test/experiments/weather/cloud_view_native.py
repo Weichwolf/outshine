@@ -59,6 +59,7 @@ def main():
     mode.add_argument("--boundary-sky", action="store_true")
     mode.add_argument("--cumulus-sky", action="store_true")
     mode.add_argument("--stratus-sky", action="store_true")
+    mode.add_argument("--wind-sky", action="store_true")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(Path(tempfile.gettempdir()).resolve()):
@@ -139,7 +140,7 @@ def main():
         "CLOUD_LIGHT_SAMPLES": args.light_samples,
         "CLOUD_VIEW_WARP": args.warp,
         "CLOUD_VIEW_BOUNDARY_SKY": int(
-            args.boundary_sky or args.cumulus_sky or args.stratus_sky
+            args.boundary_sky or args.cumulus_sky or args.stratus_sky or args.wind_sky
         ),
     }
     for source in SHADERS:
@@ -169,7 +170,9 @@ def main():
             *shader_paths,
             output / "actual",
             *(
-                [43, 31, "all", "cumulus-sky"]
+                [43, 31, "all", "wind-sky"]
+                if args.wind_sky
+                else [43, 31, "all", "cumulus-sky"]
                 if args.cumulus_sky
                 else [43, 31, "all", "stratus-sky"]
                 if args.stratus_sky

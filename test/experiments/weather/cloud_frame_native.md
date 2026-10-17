@@ -59,3 +59,23 @@ Es handelt sich um einen Dichteschnitt, kein Sky-/Placebild. Produktionsshader,
 Medium80, gemeinsame Radiance-/Transmittanzkomposition und #328 bleiben erhalten.
 Produktiver Anschluss, Bewegung/History, Upload/Lebensdauer, ganze Gerätebudgets
 und Wetter-Gesamtabnahme bleiben offen. Konkrete Ergebnisse stehen im PR.
+
+## Gemeinsamer Shader und tatsächlicher Himmel
+
+Mit `cloud_frame_native.py --shared-layer` wird derselbe112B-Produzent gegen
+`cloudExtinction` aus dem gemeinsamen `cloudLayer.glsl` geprüft; der frühere private
+Split-Dichtealgorithmus entfällt. `cloud_view_native.py --wind-sky` verbindet
+`MakeCloudFrame` mit dem bestehenden nativen Raster-/Himmel-Verbraucher. Dessen
+privater WeatherFrame umfasst160B:112B Wolken plus unverändert48B Kamera/Licht.
+Medium80 und MediumView224 bleiben erhalten. Die private `CloudFixtureInput`-
+Konvertierung erhält nur kleine alte Diagnoseeingaben/SSBO-Verträge; sie ist kein
+produktiver Advektionsproduzent und besitzt keine Langzeitgenauigkeitszusage.
+
+`cloud_wind_raster_check.py FOLDER` prüft alle Pixel gegen die unabhängige FP64-
+Strahl-/Quellenintegration,±32Tage,30/60Hz und Feldanker bei gleichen physischen
+Strahlen. `cloud_wind_raster_cost.py --legacy OLD --current NEW --output TEMP`
+misst dieselben Fälle A/B/B/A in frischen Prozessen: echte GPU-Submit-Zeit mit
+Scene/Sky/Readback, beide Draws einschließlich erster Samples, keine Fence-Zeit.
+Der alte Driftpfad ist eine ausdrücklich falsche Zeitgegenprobe, kein zweiter
+Produktpfad. Sein Instrumentierungspatch und Originalinputs bleiben lokal erhalten.
+`cloud_wind_raster_report.py TEMP` erzeugt den tatsächlichen Vorher/Nachher-PDF.

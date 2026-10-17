@@ -1,5 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#include "cloud_fixture_layer.glsl"
 #include "cloud_air_source.glsl"
 #include "AirPrefixProbeLayout.h"
 
@@ -49,39 +50,68 @@
 layout(local_size_x = 64) in;
 layout(set = 0, binding = 0) uniform sampler2D veil;
 layout(set = 0, binding = 1) uniform sampler2D multiScatter;
-layout(std430, set = 0, binding = 2) readonly buffer Rays { ProbeRay rays[]; } from;
-layout(std430, set = 0, binding = 3) readonly buffer Queries { float distanceKm[]; } query;
+
+layout(std430, set = 0, binding = 2) readonly buffer Rays {
+  ProbeRay rays[];
+}
+
+from;
+
+layout(std430, set = 0, binding = 3) readonly buffer Queries {
+  float distanceKm[];
+}
+
+query;
 #if SOURCE_VISIBILITY_OUTPUT
 layout(rgba32f, set = 1, binding = 0) writeonly uniform image2D intoVisibility;
 #include "cloud_air_transfer_response.glsl"
 #else
-layout(std430, set = 1, binding = 0) writeonly buffer Results { ProbeSample samples[]; } into;
+layout(std430, set = 1, binding = 0) writeonly buffer Results {
+  ProbeSample samples[];
+}
+
+into;
 #endif
 #if SOURCE_FIELD_STATE
-layout(std140, set = 2, binding = 1) uniform FieldState { vec4 CoverAndWind; } fieldState;
+layout(std140, set = 2, binding = 1) uniform FieldState {
+  vec4 CoverAndWind;
+}
+
+fieldState;
 #endif
-layout(std140, set = 2, binding = 0) uniform Parameters { Medium Air; } pushed;
+layout(std140, set = 2, binding = 0) uniform Parameters {
+  Medium Air;
+}
+
+pushed;
 
 CloudLayer sourceWeatherLayer() {
 #if SOURCE_FIELD_STATE
-  return CloudLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, 0.012),
-      vec4(fieldState.CoverAndWind.x, 0.0, 0.0, 0.0),
-      vec4(fieldState.CoverAndWind.y, 0.0, fieldState.CoverAndWind.z, 0.0));
+  return cloudFixtureLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, 0.012),
+                           vec4(fieldState.CoverAndWind.x, 0.0, 0.0, 0.0),
+                           vec4(fieldState.CoverAndWind.y, 0.0, fieldState.CoverAndWind.z, 0.0));
 #else
-  return CloudLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, 0.012),
-      vec4(SOURCE_CLOUD_COVER, 0.0, 0.0, 0.0),
-      vec4(SOURCE_WIND_EAST_M, 0.0, SOURCE_WIND_SOUTH_M, 0.0));
+  return cloudFixtureLayer(vec4(pushed.Air.BottomRadiusKm * 1000.0, 2572.0, 600.0, 0.012),
+                           vec4(SOURCE_CLOUD_COVER, 0.0, 0.0, 0.0),
+                           vec4(SOURCE_WIND_EAST_M, 0.0, SOURCE_WIND_SOUTH_M, 0.0));
 #endif
 }
 
-vec3 sourceSunDirection() { return vec3(-0.6, 0.8, 0.0); }
+vec3 sourceSunDirection() {
+  return vec3(-0.6, 0.8, 0.0);
+}
 
 #if SOURCE_CLOUD_MODE == 4
 #include "cloud_sun_reuse.glsl"
 #endif
 
-AirSource sourceWeatherAir(Medium medium, AirRay ray, float distanceKm, bool sunVisible,
-                           sampler2D solar, sampler2D diffuse, AirSourceRay sourceRay) {
+AirSource sourceWeatherAir(Medium medium,
+                           AirRay ray,
+                           float distanceKm,
+                           bool sunVisible,
+                           sampler2D solar,
+                           sampler2D diffuse,
+                           AirSourceRay sourceRay) {
 #if SOURCE_CLOUD_MODE == 1
   return airSourceAt(medium, ray, distanceKm, sunVisible, solar, diffuse);
 #elif SOURCE_CLOUD_MODE == 2
@@ -102,8 +132,15 @@ AirSource sourceWeatherAir(Medium medium, AirRay ray, float distanceKm, bool sun
 #if SOURCE_CLOUD_MODE == 3
   sourceRay.OriginM = vec3(0.0);
 #endif
-  return cloudShadedAirSource(medium, ray, distanceKm, sunVisible, solar, diffuse,
-      sourceRay, sourceWeatherLayer(), sourceSunDirection());
+  return cloudShadedAirSource(medium,
+                              ray,
+                              distanceKm,
+                              sunVisible,
+                              solar,
+                              diffuse,
+                              sourceRay,
+                              sourceWeatherLayer(),
+                              sourceSunDirection());
 #endif
 }
 
@@ -112,12 +149,11 @@ float sourceWeatherGrid(AirRay ray, uint index) {
   if (SOURCE_GRID_GROWTH > 0.0) {
     if (index >= uint(AIR_PREFIX_INTERVALS)) { return ray.DistanceKm; }
 #if SOURCE_GRID_SYMMETRIC
-    float halfSteps = ceil(log2(1.0 + ray.DistanceKm * 0.5) /
-        (SOURCE_GRID_GROWTH * 1.44269504089));
+    float halfSteps = ceil(log2(1.0 + ray.DistanceKm * 0.5) / (SOURCE_GRID_GROWTH * 1.44269504089));
     if (float(index) >= 2.0 * halfSteps) { return ray.DistanceKm; }
     float step = min(float(index), 2.0 * halfSteps - float(index));
-    float distanceKm = min(ray.DistanceKm * 0.5,
-        exp2(SOURCE_GRID_GROWTH * 1.44269504089 * step) - 1.0);
+    float distanceKm =
+        min(ray.DistanceKm * 0.5, exp2(SOURCE_GRID_GROWTH * 1.44269504089 * step) - 1.0);
     return float(index) <= halfSteps ? distanceKm : ray.DistanceKm - distanceKm;
 #else
     return min(ray.DistanceKm, exp2(SOURCE_GRID_GROWTH * 1.44269504089 * float(index)) - 1.0);
@@ -131,6 +167,7 @@ float sourceWeatherGrid(AirRay ray, uint index) {
   if (fraction >= 1.0) { return ray.DistanceKm; }
   return 0.1 * (exp2(log2(1.0 + ray.DistanceKm / 0.1) * fraction) - 1.0);
 }
+
 #define AIR_PREFIX_GRID_PROVIDER sourceWeatherGrid
 #endif
 #define AIR_SOURCE_PROVIDER sourceWeatherAir
@@ -151,49 +188,57 @@ void main() {
   AirRay clearRay = airPathRay(pushed.Air, inputRay.Ray, span);
   AirSourceRay sourceRay = AirSourceRay(originM + direction * (span.BeginKm * 1000.0), direction);
   AirPrefix clear = airPrefixBegin(pushed.Air, clearRay, veil, multiScatter, sourceRay);
-  CloudLight light = CloudLight(sourceSunDirection(), vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
+  CloudLight light =
+      CloudLight(sourceSunDirection(), vec3(1.0, 0.97, 0.92), vec3(0.10, 0.12, 0.16));
   CloudLayer eyeLayer = sourceWeatherLayer();
   eyeLayer.field.x = SOURCE_EYE_CLOUD_COVER;
-  CloudAirPrefix prefix = cloudAirPrefixBegin(eyeLayer, originM, direction,
-      span.EndKm * 1000.0, light, clear, span.BeginKm * 1000.0);
+  CloudAirPrefix prefix = cloudAirPrefixBegin(
+      eyeLayer, originM, direction, span.EndKm * 1000.0, light, clear, span.BeginKm * 1000.0);
   for (uint at = inputRay.QueryBegin; at < inputRay.QueryEnd; ++at) {
     AirTransfer result = cloudAirPrefixAdvance(
         prefix, query.distanceKm[at] * 1000.0, pushed.Air, veil, multiScatter);
 #if SOURCE_VISIBILITY_OUTPUT
-    AirSourceTerms terms = airSourceTermsAt(pushed.Air, clearRay, 0.0,
-        airSunVisible(pushed.Air, clearRay, 0.0), veil, multiScatter);
+    AirSourceTerms terms = airSourceTermsAt(
+        pushed.Air, clearRay, 0.0, airSunVisible(pushed.Air, clearRay, 0.0), veil, multiScatter);
     float lengthKm = max(0.0, min(query.distanceKm[at], span.EndKm) - span.BeginKm);
     vec3 integral = transferIntegral(terms.Extinction, lengthKm);
     vec3 visibility = vec3(1.0);
     for (int channel = 0; channel < 3; ++channel) {
       if (integral[channel] > 0.0 && terms.DirectEmission[channel] > 0.0) {
-        visibility[channel] = (result.RadiancePerLux[channel] / integral[channel] -
-            terms.DiffuseEmission[channel]) / terms.DirectEmission[channel];
+        visibility[channel] =
+            (result.RadiancePerLux[channel] / integral[channel] - terms.DiffuseEmission[channel]) /
+            terms.DirectEmission[channel];
       }
     }
     ivec2 extent = imageSize(intoVisibility);
-    imageStore(intoVisibility, ivec2(int(at) % extent.x, int(at) / extent.x),
-        vec4(visibility, float(prefix.Clear.SourceEvaluations)));
+    imageStore(intoVisibility,
+               ivec2(int(at) % extent.x, int(at) / extent.x),
+               vec4(visibility, float(prefix.Clear.SourceEvaluations)));
 #else
     bool valid = prefix.CellsVisited < 1024u && prefix.Cloud.DensityEvaluations < 64u &&
-        prefix.Cloud.SourceEvaluations < 64u;
+                 prefix.Cloud.SourceEvaluations < 64u;
 #if SOURCE_CLOUD_MODE == 4
     valid = valid && all(equal(textureSize(solarSourceField, 0), sourceSolarAtlasExtent));
 #endif
     uint counts = prefix.CellsVisited | (prefix.Cloud.DensityEvaluations << 10u) |
-        (prefix.Cloud.SourceEvaluations << 16u) | (valid ? 0u : 0x80000000u);
+                  (prefix.Cloud.SourceEvaluations << 16u) | (valid ? 0u : 0x80000000u);
     uint sources = prefix.Clear.SourceEvaluations;
 #if SOURCE_CLOUD_MODE == 4 && SOURCE_SOLAR_DIAGNOSTICS
     bool bounded = prefix.CellsVisited < 512u && solarSourceDensity < 16384u &&
-        solarSourceTextures < 2048u && sources < 1024u;
+                   solarSourceTextures < 2048u && sources < 1024u;
     sources |= solarSourceDensity << 10u;
     counts = prefix.CellsVisited | (prefix.Cloud.DensityEvaluations << 9u) |
-        (prefix.Cloud.SourceEvaluations << 15u) | (solarSourceTextures << 21u);
+             (prefix.Cloud.SourceEvaluations << 15u) | (solarSourceTextures << 21u);
     if (!bounded || !valid) { counts = 0xffffffffu; }
 #endif
-    into.samples[at] = ProbeSample(result.RadiancePerLux.r, result.RadiancePerLux.g,
-        result.RadiancePerLux.b, result.Transmittance.r, result.Transmittance.g,
-        result.Transmittance.b, sources, counts);
+    into.samples[at] = ProbeSample(result.RadiancePerLux.r,
+                                   result.RadiancePerLux.g,
+                                   result.RadiancePerLux.b,
+                                   result.Transmittance.r,
+                                   result.Transmittance.g,
+                                   result.Transmittance.b,
+                                   sources,
+                                   counts);
 #endif
   }
 }

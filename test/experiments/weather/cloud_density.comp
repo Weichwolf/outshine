@@ -1,6 +1,6 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-#include "cloudLayer.glsl"
+#include "cloud_fixture_layer.glsl"
 
 layout(local_size_x = 64) in;
 
@@ -17,7 +17,7 @@ layout(std430, set = 1, binding = 0) writeonly buffer Densities {
 densities;
 
 layout(std140, set = 2, binding = 0) uniform Weather {
-  CloudLayer Layer;
+  CloudFixtureInput Layer;
 }
 
 weather;
@@ -25,5 +25,7 @@ weather;
 void main() {
   uint index = gl_GlobalInvocationID.x;
   if (index >= points.Values.length()) { return; }
-  densities.Values[index] = cloudExtinction(weather.Layer, points.Values[index].xyz);
+  densities.Values[index] = cloudExtinction(
+      cloudFixtureLayer(weather.Layer.Shell, weather.Layer.Field, weather.Layer.Drift),
+      points.Values[index].xyz);
 }
