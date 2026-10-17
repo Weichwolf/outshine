@@ -15,6 +15,7 @@ from stair_occupancy_geometry import AffineOccupancy
 from stair_occupancy_handoff import OccupancyQuery
 from stair_occupancy_inputs import actual_sources, buildings, full_tile_sampler
 from stair_occupancy_pipeline import handoff, probes
+from stair_shared_headroom_verify import verify_shared
 from stair_terrain_experiment import frozen
 
 
@@ -129,9 +130,13 @@ def check_caps(rows, data, assets, supports, contacts, manifest, report, sources
                 ),
             )
             count += 1
-    if count != len(rows) or len(supports) != report["actual_supports"]:
+    physical_count = report["actual_road_faces"] + report["actual_support_cap_faces"]
+    if count != physical_count or len(supports) != report["actual_supports"]:
         raise ValueError("saved actual-body volume ledger incomplete")
-    return count, maximum
+    extra, padding = verify_shared(
+        rows, data, assets, report["prior_modules"], sources, count, report
+    )
+    return count + extra, max(maximum, padding)
 
 
 def verify(args):
