@@ -74,6 +74,7 @@ class AffineOccupancy(Reservation):
     origin_xy_m: tuple[float, float]
     lower_plane_m: tuple[float, float, float]
     upper_plane_m: tuple[float, float, float]
+    _whole_overlap_m: tuple[float, float] = field(init=False, repr=False)
 
     def __post_init__(self):
         geometry(self.geometry, polygonal=True)
@@ -95,6 +96,14 @@ class AffineOccupancy(Reservation):
             nextafter(float(max(upper)), float("inf")),
         )
         object.__setattr__(self, "heights", heights)
+        object.__setattr__(
+            self,
+            "_whole_overlap_m",
+            (
+                nextafter(float(max(lower)), float("inf")),
+                nextafter(float(min(upper)), -float("inf")),
+            ),
+        )
         Reservation.__post_init__(self)
 
     def conflict_geometry(self, heights):
@@ -102,6 +111,9 @@ class AffineOccupancy(Reservation):
             raise TypeError("explicit query height interval required")
         if not self.heights.overlaps(heights):
             return shapely.Polygon()
+        max_lower, min_upper = self._whole_overlap_m
+        if heights.upper_m > max_lower and heights.lower_m < min_upper:
+            return self.geometry
         x0, y0, x1, y1 = self.geometry.bounds
         vertices = [
             tuple(map(rational, p)) for p in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))

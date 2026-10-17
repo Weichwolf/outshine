@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import shapely
@@ -12,6 +13,7 @@ from foot_ramp_geometry import close_caps
 from outshine_ref.contracts import BuildingFootprint, HeightInterval, Mesh
 from stair_module_inputs import read_arrays
 from stair_occupancy_inputs import actual_sources, buildings, full_tile_sampler
+from stair_terrain_display import overview_span
 from stair_terrain_experiment import frozen
 from surface_solid_checks import audit_closed
 
@@ -38,6 +40,22 @@ def footprint_body(footprint):
     if audit_closed(body) <= 0:
         raise ValueError("diagnostic footprint occupancy is not a valid closed solid")
     return body
+
+
+def whole_camera(scene, base, bodies):
+    vertices = np.vstack([base, *[b.vertices for b in bodies]])
+    target = (vertices.min(axis=0) + vertices.max(axis=0)) / 2
+    forward = np.array(scene["target"]) - scene["eye"]
+    distance = float(np.linalg.norm(forward))
+    forward /= distance
+    distance = max(distance, 100 - float(((vertices - target) @ forward).min()))
+    camera = dict(
+        scene, target=target.tolist(), eye=(target - forward * distance).tolist()
+    )
+    camera["span_m"] = overview_span(camera, (SimpleNamespace(vertices=vertices),))
+    if float(((vertices - np.array(camera["eye"])) @ forward).max()) >= 9900:
+        raise ValueError("whole diagnostic exceeds the renderer depth domain")
+    return camera
 
 
 def run(args):
@@ -70,6 +88,10 @@ def run(args):
         )
     output = root / "display"
     output.mkdir(exist_ok=False)
+    products = {
+        phase: tuple(footprint_body(p) for p in footprints)
+        for phase, footprints in (("before", originals), ("after", adjusted))
+    }
     provenance = {
         "commit": commit,
         "products_report_sha256": digest(root / "comparison.json"),
@@ -82,13 +104,17 @@ def run(args):
         mesh = Path(scene["mesh"])
         if digest(mesh) != scene["mesh_sha256"]:
             raise ValueError("original complete 65-source display changed")
+        base = read_arrays(mesh)
+        scene = whole_camera(
+            scene, base["vertices"], (*products["before"], *products["after"])
+        )
         for phase, footprints in (("before", originals), ("after", adjusted)):
             name = phase + "-" + scene_path.stem.rsplit("-", 2)[-2]
             path = output / (name + ".npz")
             palette = np.array([*scene["colours"], [0.52, 0.46, 0.38, 1]])
             shown = append(
-                read_arrays(mesh),
-                [(footprint_body(p), len(palette) - 1) for p in footprints],
+                base,
+                [(p, len(palette) - 1) for p in products[phase]],
                 palette,
             )
             np.savez_compressed(path, **shown)
