@@ -78,8 +78,9 @@ buffers; 2 textures, 1 sampler and 2 pipelines. Source payload memcpy/GPU upload
 is 1,539,104 B; 12 RGBA32F captures copy 398,131,200 B separately from timing.
 Each draw supplies 1,488 uniform bytes. These are code-derived own-request/data
 counts, not total backend/driver allocations, DRAM traffic or measured peak.
-Native list-build/upload/rebuild cost, complete allocation/copy/peak and device
-budgets remain open; Python list construction is not a runtime implementation.
+Native CPU construction and a separate copy/rebase candidate are now compared
+in `local_light_build.md`. Upload, complete allocation/copy/peak and device
+budgets remain open; neither experiment is a production runtime implementation.
 
 ## Reproduction and remaining work
 
@@ -106,6 +107,6 @@ of the full material resource layout.
 Own source/layout analysis findings are corrected. Default focused analysis
 under the current policy still fails on 14 pre-existing Check.h diagnostics;
 no analyzer guard is disabled or full clean claim made. Shared #603 owns that
-harness decision. Native builder/runtime, jitter/motion/light updates,
+harness decision. Native GPU construction/runtime, jitter/motion/light updates,
 transparent composition, complete Places, Metal and A18 remain open. The
 restart bundle in #448 preserves earlier originals; new outputs remain in /tmp.
