@@ -110,7 +110,7 @@ No new generic test or native gate was needed for this diagnostic renderer.
 
 Raw PNGs, source-file hashes, reports, `verification.json`, `chart-metrics.json`
 and logs are local under
-`/var/tmp/outshine-vegetation-mature-portrait-proof-494a36177`.
+`/tmp/outshine-vegetation-mature-portrait-proof-494a36177`.
 Image SHA256 prefixes: control `7d1ffd06cc01`, candidate `5b318d182186`.
 Both entire images were opened, along with the cited PDF pages. The images stay
 private; master alone owns publication. This delivery closes only the matched
