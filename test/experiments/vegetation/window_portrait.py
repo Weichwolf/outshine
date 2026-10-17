@@ -20,6 +20,7 @@ from preview_shadows import configure_preview
 from scipy.spatial.transform import Rotation
 from window_portrait_blender import bind_mesh, textures, weighted_material
 from window_portrait_geometry import planes, select_views
+from window_portrait_roles import role_packets
 from window_portrait_source import source, wood
 
 
@@ -58,25 +59,28 @@ def populate(whole, execution, catalog, output, wood_mode="expanded"):
     selected = {
         role: select_views(windows, 64, **query) for role, query in queries.items()
     }
+    emitted = {"camera": 0, "all": 0, "shadow": 0}
     for family, bank in enumerate(banks):
         directory = output / f"family-{family}"
         maps = textures(bank, directory)
         indices = np.flatnonzero(windows["families"] == family)
         if not len(indices):
             continue
-        for role, views in selected.items():
-            data = planes(windows, bank, views, indices, family)
+        for role, material_role, owners, members in role_packets(selected, indices):
+            data = planes(windows, bank, selected[role], members, family)
             surface = weighted_material(
-                f"window {family} {role}",
+                f"window {family} {role} {material_role} {'+'.join(owners)}",
                 directory,
                 maps,
-                "camera" if role == "camera" else "shadow",
+                material_role,
             )
-            obj = bind_mesh(f"complete windows {family} {role}", data, surface)
-            obj["vegetation_pass_role"] = "camera" if role == "camera" else "shadow"
-            if role != "camera":
-                obj["shadow_light"] = role
+            obj = bind_mesh(
+                f"complete windows {family} {role} {'+'.join(owners)}", data, surface
+            )
+            obj["vegetation_pass_role"] = material_role
+            obj["shadow_lights"] = {owner: True for owner in owners}
             triangles += len(data["faces"])
+            emitted[material_role] += len(members)
             output_bytes += sum(
                 a.nbytes for a in data.values() if isinstance(a, np.ndarray)
             )
@@ -86,6 +90,8 @@ def populate(whole, execution, catalog, output, wood_mode="expanded"):
         "axes": len(axes["origins"]),
         "windows": len(windows["origins"]),
         "represented_needles": int(windows["needle_counts"].sum()),
+        "emitted_window_surfaces_by_role": emitted,
+        "window_surface_scope": "Identical views share surfaces; exact per-light blocker membership retained. Distinct-view shadow/normal/optical fidelity remains unapproved.",
         "decoded_array_bytes": sum(
             a.nbytes for a in (*axes.values(), *windows.values())
         ),

@@ -13,6 +13,21 @@ from local_light_inputs import ROOT
 
 
 def report(rows, counts, output):
+    samples = {row["samples"] for row in rows}
+    timing = {(r["case"], r["mode"], r["method"]): r for r in rows}
+    work_by_key = {(r["case"], r["mode"], r["method"]): r for r in counts}
+    if len(samples) != 1 or timing.keys() != work_by_key.keys():
+        raise ValueError("matching cases and one repetition count required")
+    for key, row in timing.items():
+        other = work_by_key[key]
+        if row["cold"]["work_counters"] or not other["cold"]["work_counters"]:
+            raise ValueError("counter-free timing and counter-enabled work required")
+        if (
+            row["words_sha256"] != other["words_sha256"]
+            or row["repacked_sha256"] != other["repacked_sha256"]
+        ):
+            raise ValueError("identical list and rebase outputs required")
+    repetitions = samples.pop()
     cases = list(dict.fromkeys(row["case"] for row in rows))
     methods = ("sort", "scatter", "hierarchy")
     selected = {(r["case"], r["method"]): r for r in rows if r["mode"] == "log"}
@@ -52,7 +67,7 @@ def report(rows, counts, output):
         fontsize=15,
     )
     fig.supxlabel(
-        "Linux development load; 1 cold + 100 warm rebuilds; hot work counters compiled out. CPU, no GPU builder/upload/frame proof.\n"
+        f"Linux development load; 1 cold + {repetitions - 1} warm rebuilds; hot work counters compiled out. CPU, no GPU builder/upload/frame proof.\n"
         f"8192 lights: own PMR cold peak {dense['cold']['own_peak_bytes']:,} B; unchanged-capacity warm allocations 0. "
         f"Camera repack p50 {dense['repack_ms_p50_p95_p99'][0]:.4f} ms.\n"
         "PMR payload excludes input/stdio/allocator metadata/driver. No general FP32 visibility or Places/device acceptance.",
