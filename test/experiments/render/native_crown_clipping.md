@@ -43,3 +43,10 @@ claimed. The first new-product preparation hit the ten-second capture timeout;
 an explicit preparation run with a longer timeout completed the remaining work.
 The later warm measurements keep the original ten-second limit. First asset
 generation and prepared loading must remain separate measurements.
+
+The backend-independent correction is also integrated separately into master.
+Twelve affected SDL-path tests and the three changed implementation units pass
+focused tidy. Twelve fresh integrated SDL Places load in 736–2223 ms, with
+CPU-p99 at most 4.432 ms. Their overview and the three gallery images were
+opened. Direct GPU timestamps remain unavailable in that backend; these are not
+GPU-budget passes. The complete native port remains a separate draft.
