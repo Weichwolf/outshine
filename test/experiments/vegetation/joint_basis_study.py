@@ -154,6 +154,9 @@ def run(models, catalog, output, order, capacity, angles="object"):
         queries = np.r_[knots, held[index]]
         if angles == "view":
             queries = queries @ projection(source["vertices"], view)[0].T
+            queries[0], queries[1] = view, -view
+            queries[len(knots)], queries[len(knots) + 1] = view, -view
+        arrays[f"directions{index}"] = queries
         measure = JointMeasure(
             source, scene, view, queries, size=16, max_work=8_000_000
         )
