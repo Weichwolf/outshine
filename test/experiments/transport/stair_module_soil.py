@@ -166,7 +166,9 @@ def prepare(state, data, ground, recipe, sample):
     return plan, chosen, note
 
 
-def assemble(state, local, heights, chosen):
+def assemble(state, local, heights, chosen, *, max_vertices=16384):
+    if type(max_vertices) is not int or not 1 <= max_vertices <= 32768:
+        raise ValueError("bounded explicit assembled-control vertex capacity required")
     old, old_h = state["plan"], state["heights"]
     if heights.min() < old_h.min():
         raise ValueError("new field would change the cached terrain bottom datum")
@@ -192,7 +194,7 @@ def assemble(state, local, heights, chosen):
     replacement = np.c_[xy, h][faces[: len(original)]]
     if original.tobytes() != replacement.tobytes():
         raise ValueError("local replacement changed an outside cached facet")
-    if len(xy) > 16384 or len(faces) > 32768:
+    if len(xy) > max_vertices or len(faces) > 32768:
         raise ValueError("assembled terrain diagnostic cap")
     plan = {
         "xy": xy,
@@ -209,6 +211,8 @@ def assemble(state, local, heights, chosen):
         body,
         parts,
         {
+            "vertex_capacity": max_vertices,
+            "face_capacity": 32768,
             "outside_xyz_triangles_byte_exact": len(original),
             "explicit_global_xy_label_bytes": lookup.nbytes + xy.nbytes,
             "explicit_outside_xyz_compare_bytes": original.nbytes + replacement.nbytes,

@@ -113,7 +113,9 @@ def construct(state, recipe, rows, sources, sample):
         shapely.polygons(reference.vertices[reference.triangles, :2])
     )
     heights, local_roles, solve = fit(local, upper, footprint)
-    plan, world_heights, body, parts, assembly = assemble(state, local, heights, chosen)
+    plan, world_heights, body, parts, assembly = assemble(
+        state, local, heights, chosen, max_vertices=32768
+    )
     roles, world = inspect_world(
         state,
         local,

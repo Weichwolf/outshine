@@ -9,6 +9,7 @@ import numpy as np
 import shapely
 from stair_local_assets import road_asset, road_window
 from stair_local_checks import asset
+from stair_module_soil import assemble
 from stair_reference_roads import reference_owner_indices, reference_roads
 from stair_source_owners import source_selection
 
@@ -119,6 +120,47 @@ class WholeReferenceRoads(unittest.TestCase):
             indices[keys[65]][0] = 0
         with self.assertRaises(ValueError):
             source_selection(state, "unknown", keys)
+
+
+class CompleteTerrainCapacity(unittest.TestCase):
+    def test_planar_grid_can_exceed_half_the_face_budget_without_exceeding_faces(self):
+        x, y = np.meshgrid(np.arange(129), np.arange(129), indexing="ij")
+        xy = np.c_[x.ravel(), y.ravel()].astype(float)
+        i, j = np.meshgrid(np.arange(128), np.arange(128), indexing="ij")
+        first = (i * 129 + j).ravel()
+        faces = np.vstack(
+            [
+                np.c_[first, first + 129, first + 1],
+                np.c_[first + 129, first + 130, first + 1],
+            ]
+        )
+        local = {
+            "xy": xy,
+            "faces": faces,
+            "ground": np.zeros(len(faces), bool),
+            "targets": np.zeros(len(xy)),
+            "bed": np.zeros(len(xy)),
+            "bridge_reserve_m": 0.0,
+        }
+        state = {"plan": local, "heights": np.zeros(len(xy))}
+        chosen = np.ones(len(faces), bool)
+        with self.assertRaisesRegex(ValueError, "assembled terrain diagnostic cap"):
+            assemble(state, local, state["heights"], chosen)
+        plan, heights, body, _parts, work = assemble(
+            state, local, state["heights"], chosen, max_vertices=32768
+        )
+        self.assertEqual(len(plan["xy"]), 16641)
+        self.assertEqual(len(plan["faces"]), 32768)
+        np.testing.assert_array_equal(plan["xy"], xy)
+        np.testing.assert_array_equal(heights, 0)
+        self.assertEqual(work["face_capacity"], 32768)
+        self.assertEqual(work["vertex_capacity"], 32768)
+        self.assertEqual(len(body.vertices), 33282)
+
+    def test_invalid_complete_vertex_capacity_fails_before_input_access(self):
+        for limit in (False, 0, 32769, 1.5):
+            with self.assertRaisesRegex(ValueError, "assembled-control vertex"):
+                assemble({}, {}, np.empty(0), np.empty(0, bool), max_vertices=limit)
 
 
 if __name__ == "__main__":
