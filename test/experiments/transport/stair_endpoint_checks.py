@@ -43,6 +43,47 @@ def original_end():
 
 
 class EndThroughContacts(unittest.TestCase):
+    def test_distinct_frozen_sources_at_one_original_node_form_one_complete_pad(self):
+        state, sources, recipe = original_end()
+        sources["other"] = copy.deepcopy(sources["old"])
+        state["cached_module_rows"]["other"] = {
+            "xy": sources["other"]["xy_m"],
+            "width_m": 1,
+        }
+        state["report"]["candidate_source_ids"].append("other")
+        state["road"]["face_sources"][:] = 3
+        recipe["endpoint_contacts"].append(
+            dict(recipe["endpoint_contacts"][0], cached_source_id="other")
+        )
+        contacts = frozen_contacts(state, recipe, sources)
+        self.assertEqual(len(contacts), 2)
+        rows = [
+            {"source_id": "new", "xy": np.array(sources["new"]["xy_m"]), "width_m": 2}
+        ]
+        nodes = []
+        prepare_contacts(rows, nodes, contacts)
+        self.assertEqual(len(nodes), 1)
+        self.assertEqual(len(rows[0]["junction_pads_xy_m"]), 1)
+        pad = shapely.Polygon(rows[0]["junction_pads_xy_m"][0])
+        for contact in contacts:
+            self.assertTrue(pad.covers(shapely.LineString(contact["profile"][:, :2])))
+        recipe["endpoint_contacts"].append(recipe["endpoint_contacts"][0])
+        with self.assertRaisesRegex(ValueError, "duplicate cached source"):
+            frozen_contacts(state, recipe, sources)
+
+    def test_grouped_frozen_node_requires_consistent_membership_and_frame(self):
+        state, sources, recipe = original_end()
+        contacts = frozen_contacts(state, recipe, sources)
+        rows = [
+            {"source_id": "new", "xy": np.array(sources["new"]["xy_m"]), "width_m": 2}
+        ]
+        for wrong in ({"xy": [0.001, 0]}, {"incident_source_ids": []}):
+            with (
+                self.subTest(wrong=wrong),
+                self.assertRaisesRegex(ValueError, "conflicting"),
+            ):
+                prepare_contacts(rows, [], [contacts[0], dict(contacts[0], **wrong)])
+
     def test_exact_old_end_new_interior_and_complete_pad_without_old_mutation(self):
         state, sources, recipe = original_end()
         before = state["road"]["body_vertices"].copy()

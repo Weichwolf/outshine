@@ -5,13 +5,29 @@ from unittest.mock import patch
 
 import numpy as np
 import shapely
+from outshine_ref.contracts import Mesh
 from stair_growth_sources import asset_state, roots_first, select
 from stair_local_assets import road_asset
 from stair_local_checks import asset, terrain
+from stair_local_physics import bridge_checks
 from stair_module_roots import root_profile
 
 
 class ResidentGrowth(unittest.TestCase):
+    def test_disjoint_bridge_needs_no_witness_but_real_intrusion_is_rejected(self):
+        triangle = np.array([[0, 0, 1], [1, 0, 1], [0, 1, 1]], float)
+        field = Mesh(triangle, np.array([[0, 1, 2]]))
+        disjoint = Mesh(triangle + [10, 0, 0], field.triangles)
+        self.assertTrue(
+            all(not p["applicable"] for p in bridge_checks(field, disjoint))
+        )
+        overhead = Mesh(triangle + [0, 0, 3], field.triangles)
+        self.assertTrue(
+            all(p["minimum_clearance_m"] == 3 for p in bridge_checks(field, overhead))
+        )
+        with self.assertRaisesRegex(ValueError, "intrudes"):
+            bridge_checks(field, Mesh(triangle - [0, 0, 0.001], field.triangles))
+
     def test_resident_endpoint_uses_actual_whole_cap_without_outer_report(self):
         source = {"xy_m": np.array([[0, 1], [2, 1]]), "mvt_xy": [[0, 1], [2, 1]]}
         original = asset(0)
