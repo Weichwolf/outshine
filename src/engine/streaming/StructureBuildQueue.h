@@ -21,6 +21,7 @@
 #include "SurfacePreparation.h"
 #include "StructureBake.h"
 #include "StructureBuildTask.h"
+#include "StructureCellAssembly.h"
 #include "StructureSourcePreparation.h"
 #include "StructureMesher.h"
 #include "Tasks.h"
@@ -182,6 +183,8 @@ public:
     const Generators::BakedTile *Baked = nullptr;
     Vec3 AnchorEcef;
     uint64_t SourceKey = 0;
+    uint64_t InitialCells = 0;
+    bool SourceComplete = true;
     std::optional<::outshine::Generators::Osm::BuildingField::PendingAcceptance> Footprints;
   };
 
@@ -311,6 +314,7 @@ private:
     size_t Tasks = 0;
     bool Finished = false;
     bool Replacement = false;
+    std::optional<StructureCellAssembly> InitialCells = std::nullopt;
     std::shared_ptr<const void> ReservationOwner = nullptr;
   };
 
@@ -364,6 +368,12 @@ private:
   [[nodiscard]] static Landing PrepareLanding(QueuedBuild &bake,
                                               ::outshine::Generators::Osm::BuildingField &prints,
                                               const ::outshine::Generators::Osm::OsmField *vectors);
+  [[nodiscard]] static const Generators::BakedTile &CollectInitialCell(QueuedBuild &bake);
+  [[nodiscard]] static ::outshine::Generators::Osm::BuildingField::Baked
+  ContactMetadata(const QueuedBuild &bake) noexcept;
+  static void CommitFootprints(QueuedBuild &bake,
+                               Landing &landing,
+                               ::outshine::Generators::Osm::BuildingField &footprints) noexcept;
 
   template <typename T>
   [[nodiscard]] static std::unique_ptr<T> Borrowed(std::vector<std::unique_ptr<T>> &idle) {

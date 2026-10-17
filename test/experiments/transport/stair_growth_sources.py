@@ -26,7 +26,7 @@ def asset_state(asset):
 def roots_first(recipes):
     groups = {}
     for recipe in recipes:
-        port = recipe["port"]
+        port = recipe.get("port", recipe.get("seed"))
         key = tuple(sorted(port.items()))
         groups.setdefault(key, []).append(recipe)
     return [
