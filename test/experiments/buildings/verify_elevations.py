@@ -3,6 +3,7 @@
 import copy
 import unittest
 from dataclasses import replace
+from unittest.mock import patch
 
 import numpy as np
 import shapely
@@ -238,6 +239,22 @@ class ElevationTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             compiled(mesh, frames, [p, p], owner.binding, 12)
+
+    def test_later_facade_failure_does_not_advertise_unapplied_scopes(self):
+        row, neighbors = self.rows[0]
+        with patch.object(
+            ElevationFacades,
+            "attach_recesses",
+            side_effect=ValueError("failed opening operation"),
+        ):
+            mesh, info, owner = build(ElevationFacades, row, neighbors, view_for(row))
+        self.assertNotIn("facade_architecture_plan", info)
+        self.assertNotIn(row["id"], owner.elevations)
+        self.assertTrue(
+            any(r["reason"] == "failed opening operation" for r in owner.rejected)
+        )
+        self.assertIn("not applied", owner.elevation_rejected[-1]["reason"])
+        self.assertGreater(native(mesh).volume(), 0)
 
 
 if __name__ == "__main__":

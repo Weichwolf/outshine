@@ -73,6 +73,22 @@ class ElevationFacades(CrownFacades):
         mesh, info = super().__call__(row, parameters, material)
         plans = self.elevations.get(row["id"])
         if plans:
+            expected = {f["id"] for p in plans for f in p.frames()}
+            actual = {
+                f["id"]
+                for f in info.get("facade_plan", ())
+                if "architecture_scope" in f
+            }
+            if actual != expected:
+                self.elevation_rejected.append(
+                    {
+                        "id": row["id"],
+                        "reason": "later facade failure retained original exterior; scoped programme not applied",
+                    }
+                )
+                self.elevations.pop(row["id"])
+                self.source_elevations.pop(row["id"])
+                return mesh, info
             info = info | {
                 "facade_architecture_plan": [asdict(p) for p in plans],
                 "facade_architecture_origin": "procedural source-stable vertical scopes; existing entry/projection owner retained",
