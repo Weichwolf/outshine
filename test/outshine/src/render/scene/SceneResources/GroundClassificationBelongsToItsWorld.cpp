@@ -208,7 +208,8 @@ int main() {
       CHECK(!classLifetime.expired() && !paletteLifetime.expired(),
             "the renderer retains both immutable sources after their caller releases them");
       CHECK(!renderer.SetGroundClasses(
-                Render::GroundClassificationSource{.Classes = {}, .ClassWords = 4}, error),
+                Render::GroundClassificationSource{.Classes = {}, .ClassWords = 4, .Palette = {}},
+                error),
             "an unowned source cannot replace live classification");
       CHECK(buffers.size() == 2 && captureState.Contains(0, classes) &&
                 captureState.Contains(0, paletteBits),
