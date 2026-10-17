@@ -21,8 +21,30 @@ def asset_state(asset):
     }
 
 
+def roots_first(recipes):
+    groups = {}
+    for recipe in recipes:
+        port = recipe["port"]
+        key = port["source_id"], port["vertex"]
+        groups.setdefault(key, []).append(recipe)
+    return [
+        group[depth]
+        for depth in range(max(map(len, groups.values()), default=0))
+        for group in groups.values()
+        if depth < len(group)
+    ]
+
+
 def select(
-    view, assets, manifest, sources, reference, *, method="index", strategy="prefix"
+    view,
+    assets,
+    manifest,
+    sources,
+    reference,
+    *,
+    method="index",
+    strategy="prefix",
+    schedule="roots_first",
 ):
     if strategy not in ("whole", "prefix"):
         raise ValueError("known whole or connected-prefix selection required")
@@ -56,11 +78,16 @@ def select(
         deferred.extend(rejected)
     plan = discover_source_modules(records, roots, method=method)
     recipes = recipes_for(plan, roots, state, sources, reference, strategy, deferred)
+    if schedule == "roots_first":
+        recipes = roots_first(recipes)
+    elif schedule != "prefix_first":
+        raise ValueError("known bounded geometry attempt schedule required")
     return {
         "plan": plan,
         "roots": roots,
         "deferred_profiles": deferred,
         "recipes": recipes,
         "profile_work": work,
+        "schedule": schedule,
         "scope": "Bounds-only source prefilter; exact local geometry/terrain admission remains mandatory. Asset-local masks only; immutable body buffers shared.",
     }

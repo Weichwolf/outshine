@@ -35,6 +35,7 @@ def selection(args):
         reference(args),
         method=args.method,
         strategy=args.strategy,
+        schedule=args.schedule,
     )
     result.update(
         resident_sha256=digest(args.resident / "resident.json"),
@@ -121,6 +122,9 @@ def arguments():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--method", choices=("index", "scan"), default="index")
     parser.add_argument("--strategy", choices=("whole", "prefix"), default="prefix")
+    parser.add_argument(
+        "--schedule", choices=("roots_first", "prefix_first"), default="roots_first"
+    )
     parser.add_argument("--max-attempts", type=int, default=3)
     return parser.parse_args()
 
