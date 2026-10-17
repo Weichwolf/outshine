@@ -118,11 +118,18 @@ class WindowPortraitTests(unittest.TestCase):
         expected = np.array(
             [axes["origins"][0] + 0.7 * frame @ p for p in mesh["vertices"]]
         )
-        np.testing.assert_allclose(result["vertices"], expected, rtol=0, atol=1e-15)
-        np.testing.assert_allclose(
-            result["normals"], mesh["normals"] @ frame.T, rtol=0, atol=1e-15
+        np.testing.assert_array_equal(result["vertices"], expected.astype(np.float32))
+        np.testing.assert_array_equal(
+            result["normals"], (mesh["normals"] @ frame.T).astype(np.float32)
         )
         np.testing.assert_array_equal(result["faces"], mesh["faces"])
+
+    def test_wood_budget_precedes_tube_construction(self):
+        with patch(
+            "window_portrait_source.axis_mesh", side_effect=AssertionError("expanded")
+        ):
+            with self.assertRaises(ValueError):
+                wood({}, {"path_offsets": np.arange(60002, dtype=np.uint64) * 2})
 
     def test_blender_bulk_positions_faces_uv_and_weight_read_back(self):
         from pathlib import Path

@@ -134,22 +134,35 @@ def wood(graph, axes):
             )
         )
     counts = np.bincount(orders, minlength=4)
-    if sum(int(n) * len(m["faces"]) for n, m in zip(counts, templates)) > 3000000:
+    face_count = sum(int(n) * len(m["faces"]) for n, m in zip(counts, templates))
+    if not 0 < face_count <= 3000000:
         raise ValueError("wood triangle budget required before expansion")
-    vertices, faces, normals, offset = [], [], [], 0
+    vertex_count = sum(int(n) * len(m["vertices"]) for n, m in zip(counts, templates))
+    result = {
+        "vertices": np.empty((vertex_count, 3), dtype=np.float32),
+        "faces": np.empty((face_count, 3), dtype=np.int32),
+        "normals": np.empty((face_count * 3, 3), dtype=np.float32),
+    }
+    vertex, face = 0, 0
     for order, mesh in enumerate(templates):
         indices = np.flatnonzero(orders == order)
-        frames = axes["rotations"][indices]
-        points = np.einsum("vj,nij->nvi", mesh["vertices"], frames)
-        points *= axes["uniform_scales"][indices, None, None]
-        points += axes["origins"][indices, None]
-        vertices.append(points.reshape(-1, 3))
-        normals.append(np.einsum("vj,nij->nvi", mesh["normals"], frames).reshape(-1, 3))
-        first = np.arange(len(indices)) * len(mesh["vertices"]) + offset
-        faces.append((mesh["faces"][None] + first[:, None, None]).reshape(-1, 3))
-        offset += len(indices) * len(mesh["vertices"])
-    return {
-        "vertices": np.concatenate(vertices),
-        "faces": np.concatenate(faces),
-        "normals": np.concatenate(normals),
-    }
+        for begin in range(0, len(indices), 1024):
+            selected = indices[begin : begin + 1024]
+            frames = axes["rotations"][selected]
+            points = np.einsum("vj,nij->nvi", mesh["vertices"], frames)
+            points *= axes["uniform_scales"][selected, None, None]
+            points += axes["origins"][selected, None]
+            nv, nf = (
+                len(selected) * len(mesh["vertices"]),
+                len(selected) * len(mesh["faces"]),
+            )
+            result["vertices"][vertex : vertex + nv] = points.reshape(-1, 3)
+            result["normals"][face * 3 : (face + nf) * 3] = np.einsum(
+                "vj,nij->nvi", mesh["normals"], frames
+            ).reshape(-1, 3)
+            first = np.arange(len(selected)) * len(mesh["vertices"]) + vertex
+            result["faces"][face : face + nf] = (
+                mesh["faces"][None] + first[:, None, None]
+            ).reshape(-1, 3)
+            vertex, face = vertex + nv, face + nf
+    return result
