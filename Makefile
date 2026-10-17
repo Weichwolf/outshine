@@ -149,7 +149,7 @@ prepare-place: all ## prepare generated assets and terrain without a frame-rate 
 shots: all       ## every place through the camera -> build/shots   (PLACE=Wien for one)
 	@cd $(SELF_DIR) && build/outshine-client shots $(if $(PLACE),$(PLACE),--all)
 
-corpus-prepare: ## prepare a vendor case and its oracle (MANIFEST=test/.../manifest.json)
+corpus-prepare: ## prepare pinned corpus inputs (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py all --manifest "$(MANIFEST)"
 
@@ -216,7 +216,7 @@ render: all ## capture an asset (ASSET=... OUTPUT=... RESOLUTION=1280x720 RENDER
 	@cd $(SELF_DIR) && build/outshine-client render "$(ASSET)" "$(or $(RESOLUTION),1280x720)" "$(OUTPUT)" $(RENDER_ARGS)
 
 .PHONY: corpus-fetch
-corpus-fetch: ## fetch pinned corpus inputs without Blender (MANIFEST=test/.../manifest.json)
+corpus-fetch: ## fetch pinned corpus inputs (MANIFEST=test/.../manifest.json)
 	@$(if $(MANIFEST),,$(error name a MANIFEST))
 	@cd $(SELF_DIR) && python3 test/harness/shared/corpus/prepare.py fetch --manifest "$(MANIFEST)"
 

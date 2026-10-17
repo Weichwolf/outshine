@@ -1690,22 +1690,7 @@ fi
 started=$(Now)
 builtSpentMs=0
 
-# board:1797: the corpus lives in the system temp dir, because artefacts never live in the tree,
-# and the machine sweeps that directory -- it took outshine-prepared and outshine-content
-# between two gate runs. A gate that silently loses a third of its subjects is not a gate, so a
-# case whose prepared input is gone is REBUILT before it is judged, from its own manifest and
-# nothing else. Per case, never wholesale: `prepare.py all --every-case` renders the entire
-# oracle ladder, which is 256 MB for a single animation case and hundreds of gigabytes for the
-# tree -- the sporadic full proof's corpus, not this run's. The cost stands beside the bound
-# with the builds, because a rebuild is a build.
-# board:1797: a case can consume ANOTHER case's prepared product -- the glTF unit twins read
-# test-render-outshine-grown-trs-hierarchy/scene.glb -- so the owner of a missing input is not
-# knowable from the case that misses it. It IS knowable from the path the case names: the
-# prepared directory is the owning manifest's own path with the slashes turned to dashes, and
-# that mapping inverts by walking the manifests the tree declares.
-# A case directory holds an INPUT when something other than its own bookkeeping is in it.
-# board:1839's .prepared-by is bookkeeping and so is the manifest: counting either as an input
-# made every pruned case look filled, and the rebuild path never fired for one.
+# Rebuild missing pinned inputs from their owning manifest. Bookkeeping is not input.
 HoldsInput() {
   [ -n "$(ls -A "$1" 2>/dev/null | grep -v -e '^manifest.json$' -e '^\.prepared-by$')" ]
 }
@@ -1730,16 +1715,8 @@ RebuildOwner() {
     HoldsInput "$PREPARED/$ownerDir" && continue
     holder=$(awk -F'\t' -v want="$ownerDir" '$1 == want { print $2; exit }' "$ownerMap")
     if [ -z "$holder" ]; then
-      # not every prepared directory has a manifest behind it: the scenario assets are placed
-      # from licensed copies against a digest the scenario pins, by their own subcommand.
-      printf 'run.sh: %s has no prepared input and no manifest owns it -- placing the scenario assets (board:1778)\n' \
+      printf 'run.sh: %s has no prepared input and no manifest owns it\n' \
         "$ownerDir" >&2
-      before=$(Now)
-      if python3 test/harness/shared/corpus/prepare.py scenario-assets \
-           > "$BUILD/log/scenario-assets-rebuild.log" 2>&1; then
-        [ -n "$(ls -A "$PREPARED/$ownerDir" 2>/dev/null)" ] && ownerRebuilt=yes
-      fi
-      builtSpentMs=$(( builtSpentMs + $(Now) - before ))
       continue
     fi
     RebuildCase "$holder" "$PREPARED/$ownerDir"
