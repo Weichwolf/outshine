@@ -91,6 +91,8 @@ def main():
     args_run = [str(binary), str(output / 'vert.spv'), str(output / 'frag.spv')]
     if args.validation:
         args_run.append('--validation')
+        if sys.platform == 'darwin':
+            environment['MTL_DEBUG_LAYER'] = '1'
         enables = environment.get('VK_LAYER_ENABLES', '').split(',')
         environment['VK_LAYER_ENABLES'] = ','.join(dict.fromkeys(filter(None,
                      [*enables, 'VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT'])))
@@ -112,7 +114,12 @@ def main():
                 for line in rows if line.startswith('CHECKS ')]
     complete = len(verdicts) == 1 and verdicts[0] and not any(int(n) for n in verdicts[0].groups()[1:])
     devices = [line.removeprefix('DEVICE ') for line in rows if line.startswith('DEVICE ')]
-    clean = (args.heap_usage or len([line for line in rows if line.strip()]) == 2) and not any('VUID-' in line or line.startswith('vulkan:') for line in rows)
+    metal_notice = [line for line in rows if line.endswith(' Metal API Validation Enabled')]
+    expected_notice = sys.platform == 'darwin' and args.validation and len(metal_notice) == 1
+    ordinary = [line for line in rows if line.strip() and not (expected_notice and line in metal_notice)]
+    clean = (args.heap_usage or len(ordinary) == 2) and not any('VUID-' in line or line.startswith('vulkan:') for line in rows)
+    if sys.platform == 'darwin' and args.validation and not expected_notice:
+        clean = False
     complete = complete and len(devices) == 1
     manifest.update(status='terminal', exit=child.returncode, process_seconds=time.monotonic() - began,
                     whole_process_peak_rss_bytes=usage.ru_maxrss * (1 if sys.platform == 'darwin' else 1024),
