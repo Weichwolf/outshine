@@ -47,6 +47,9 @@ laufen vom Repository-Root. Ergebnis, Abhängigkeiten und offene Lücken stehen 
 - [Bestandsraster und gemeinsame Pflasterfläche](stair_cached_grid_comparison.md):
   77 ganze Quellen auf unveränderten76 Körpern, volle Fahrprofile und sechs gleiche
   Quellenkohorten; Arbeits-/Allokationskosten bleiben erheblich (#627/#633).
+- [Fahrfreiheit über altem Fußpodest](stair_shared_headroom_comparison.md): logische
+  Höhenbänder mit beiden Herkünften, tatsächliche77er Fachverbraucher und identische
+  Volumen mit92,62% weniger Anpassungen; mehr temporärer JSON-Peak (#642).
 - [Präzision neuer Kreuzungen](stair_junction_precision_comparison.md): echter
   Float32-Gegenfall, neun Kandidaten und getrennte Überlappungskontakte (#600/#602); noch keine Netzzulassung.
 - [Höhenabhängige Übergabe](stair_occupancy_comparison.md): tatsächliche 65er Körper
